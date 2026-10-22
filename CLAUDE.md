@@ -43,5 +43,5 @@ Quick-add row (name only required, Enter creates), inline cell edit, autosave wi
 - Prefer boring, well-known libraries. Ask before adding a dependency with a licence or cost implication.
 - If the prototype, docs and issue disagree, stop and ask; do not guess.
 
-## Commands (fill in as the repo is created)
-`pnpm dev`, `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm db:migrate`, `pnpm db:test` (RLS tests).
+## Commands
+`pnpm dev`, `pnpm build`, `pnpm test`, `pnpm lint`, `pnpm typecheck` (run from the repo root; they delegate to `apps/web`). Coming with the Supabase setup issue: `pnpm db:migrate`, `pnpm db:test` (RLS tests). Environments and Vercel setup: `docs/11-ENVIRONMENTS.md`.

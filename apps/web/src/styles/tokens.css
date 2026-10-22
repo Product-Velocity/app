@@ -1,0 +1,28 @@
+/* Design tokens from docs/07-PROTOTYPE-MAP.md. Keep in sync with tokens.test.ts. */
+:root {
+  --bg: #ffffff;
+  --grey-1: #e6e9ef;
+  --grey-2: #edeff3;
+  --grey-3: #f3f4f7;
+  --grey-4: #eef0f3;
+  --header-bg: #f8f9fc;
+
+  --blue: #3347d9;
+  --blue-text: #2433a8;
+  --blue-tint-1: #e8ebfd;
+  --blue-tint-2: #f4f7fe;
+
+  --green-text: #17653f;
+  --green-bg: #e3f4ea;
+  --amber-text: #7a4a00;
+  --amber-bg: #fdf0d5;
+  --red-text: #8a1f1f;
+  --red-bg: #fbe4e4;
+
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-size: 13px;
+  --row-height: 32px;
+  --row-height-compact: 30px;
+  --row-height-comfortable: 36px;
+}
