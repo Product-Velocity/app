@@ -70,3 +70,5 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Export selection is a CSV with a byte-order mark (opens in Excel), with formula-looking text defused; real Excel files (.xlsx) are a later option · Claude (issue #8)
 - 2026-10-22 · Quick-add paste lists now also save in one request (all or nothing) · Claude (issue #8)
 - 2026-10-22 · The grid height follows the window (measured, minimum 360 px) instead of a fixed share of the screen · Ashu (request), Claude (issue #8)
+- 2026-10-22 · Grid design follows the prototype (boards 20 and 1) where possible, with these deliberate differences: quick-add stays a separate "Add an initiative" form above the grid (not a table row); there is no band of column-group headers (What, Why, When, ...) above the columns, because it breaks as soon as columns are moved or custom views are built, so the group is shown in the Columns picker and the header tooltip instead · Ashu
+- 2026-10-22 · The grouped rows seen in the prototype are an example of grouping, not the default state: the grid is ungrouped by default; grouping comes with saved views (own implementation, no AG Grid Enterprise) · Ashu
