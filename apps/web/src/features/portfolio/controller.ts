@@ -1,6 +1,6 @@
 import {
   applyMove, canBeEmpty, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
-  bulkEditReason, type Edit, type EditableField, type Entry, type NewItemValues,
+  bulkEditReason, resolveGroup, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
 import type { PortfolioDataSource } from "./data-source";
 import type { GridItem, Lookups, LoadedItem } from "./types";
@@ -50,6 +50,20 @@ export class PortfolioController {
     this.rows.sort((a, b) => a.stack_rank - b.stack_rank);
     for (const r of this.rows) this.byId.set(r.id, r);
     this.recomputeProjectRanks();
+    for (const g of lookups.groups ?? []) this.groups.add(g);
+    for (const r of this.rows) if (typeof r.theme === "string" && r.theme) this.groups.add(r.theme);
+  }
+
+  /** Initiative Groups: the workspace list plus any group typed or loaded here, A to Z. Open list: typing a new one creates it. */
+  private readonly groups = new Set<string>();
+  groupNames(): string[] { return [...this.groups].sort((a, b) => a.localeCompare(b, "en")); }
+  /** A typed group in the spelling of the existing one (only the case differs), and remember a new one. */
+  private canonicalGroup(value: unknown): unknown {
+    if (typeof value !== "string") return value;
+    const r = resolveGroup(value, this.groupNames());
+    if (r.kind === "empty") return null;
+    this.groups.add(r.name);
+    return r.name;
   }
 
   /** "Today" as the grid sees it (a fixed day on the test page). */
@@ -123,7 +137,8 @@ export class PortfolioController {
    * Quick-add and import: the items show at the end of the list at once and are saved in ONE request (all or nothing).
    * One undo step for the whole batch.
    */
-  createItems(drafts: NewItemValues[], opts: { via?: "import"; label?: string } = {}): { ok: true; created: number } | { ok: false; error: string } {
+  createItems(rawDrafts: NewItemValues[], opts: { via?: "import"; label?: string } = {}): { ok: true; created: number } | { ok: false; error: string } {
+    const drafts = rawDrafts.map((d) => ("theme" in d && d.theme ? { ...d, theme: this.canonicalGroup(d.theme) } : d));
     if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
     if (drafts.length === 0) return { ok: true, created: 0 };
     let rank = this.rows.reduce((n, r) => Math.max(n, r.stack_rank), 0);
@@ -165,8 +180,9 @@ export class PortfolioController {
       this.notify(error);
       return { ok: false, error };
     }
-    const v = validateEdit(field, raw, { today: this.today() });
-    if (!v.ok) { this.notify(`${fieldLabel(field)}: ${v.error}`); return { ok: false, error: v.error }; }
+    const checked = validateEdit(field, raw, { today: this.today() });
+    if (!checked.ok) { this.notify(`${fieldLabel(field)}: ${checked.error}`); return { ok: false, error: checked.error }; }
+    const v = field === "theme" ? { ...checked, value: this.canonicalGroup(checked.value) } : checked;
     const rows = itemIds.map((id) => this.byId.get(id)).filter((r): r is GridItem => !!r);
     const todo = rows.filter((r) => !same(r[field], v.value));
     const unchanged = rows.length - todo.length;
@@ -204,8 +220,9 @@ export class PortfolioController {
       this.notify(error);
       return { ok: false, error };
     }
-    const v = validateEdit(field, raw, { today: this.today() });
-    if (!v.ok) { this.notify(`${row.item_code} ${fieldLabel(field)}: ${v.error}`); return { ok: false, error: v.error }; }
+    const checked = validateEdit(field, raw, { today: this.today() });
+    if (!checked.ok) { this.notify(`${row.item_code} ${fieldLabel(field)}: ${checked.error}`); return { ok: false, error: checked.error }; }
+    const v = field === "theme" ? { ...checked, value: this.canonicalGroup(checked.value) } : checked;
     const before = row[field];
     if (same(before, v.value)) return { ok: true, changed: false };
 

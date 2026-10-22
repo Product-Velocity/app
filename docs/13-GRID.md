@@ -13,6 +13,13 @@ Page: `/portfolio` ("Roadmap" in the navigation). Reference: prototype board 20,
 - **Locked cells:** GitHub-driven, calculated, system-set and later-phase fields reject editing and say why under the grid. View-only roles (viewer, commenter, leadership) can look but not edit.
 - **Keyboard:** Alt+N adds an initiative, arrows move, Enter or F2 edits, Enter saves and moves down, Tab saves and moves right, Esc cancels, Delete clears an optional cell.
 
+## Initiative Group: an open list (issue #38)
+Initiative Group (`theme`) is an open list shared by the whole workspace (every project), not a closed list.
+- **Typing creates.** In the grid picker (type to filter; a typed name that is not in the list shows "Create “name”"), in quick-add with `+group` (`+onb` = the group starting "onb"; dashes stand for spaces: `+platform-health`; an unknown name creates a new group and the chips say "(new group)") and in an import (the preview says which new groups will be created). The database adds the group the first time an item uses it (`items_ensure_group`) and keeps the existing spelling when only the case differs.
+- **Near-duplicates.** Typing "On-boarding" next to "Onboarding" (same letters, or one typo in a name of 6+ letters) shows "Looks like “Onboarding”" before anything is created. Quick-add treats punctuation as no difference (`+on-boarding` is Onboarding).
+- **Tidy-up (admins):** Account menu → **Initiative Groups** (`/settings/groups`): rename (every item in the group changes, one audited change per item), merge two groups (items move, the first group goes; **Undo** is offered right after, and only items still in the target move back), retire a group nobody uses. Groups that look alike are listed as merge suggestions. Everyone else sees the list without actions.
+- Free-form **Tags** stay for other labels; Roadmap Category stays a fixed list of five values.
+
 ## Quick-add (issue #7)
 A row above the grid. **Alt+N** puts the cursor there (⌥N on a Mac); type, press **Enter**, the item appears at the end of the list at once and is saved in the background; the cursor stays for the next one. Only the name is required.
 - **Tokens** (anywhere for `#` and `@`, at the end for the rest): `#project` (letters of the name, spaces ignored, a unique start is enough), `@person` (start of the email name), a size in capitals `XS S M L XL`, and `must`, `should`, `could`, `won't`/`wont`. Example: `Faster search #market @bo M should`. A token that matches nothing, or more than one thing, is explained and nothing is added. The line shows how it was read ("Project: Marketplace · Product Manager: bo@… · Effort: M · MoSCoW: Should") before you press Enter.

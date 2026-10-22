@@ -13,6 +13,7 @@ import type { Lookups } from "@/features/portfolio/types";
 const lookups: Lookups = {
   projects: ["Platform", "Marketplace", "Growth", "Payments", "Mobile", "Data"].map((name, i) => ({ id: `p${i + 1}`, name })),
   members: ["ana", "bo", "chen", "dee", "eli"].map((n, i) => ({ user_id: `u${i + 1}`, email: `${n}@example.test` })),
+  groups: ["Onboarding", "Platform health", "Retention"],
 };
 
 export function HarnessClient({ n, latency, role, view, allColumns }: { n: number; latency: number; role: string; view?: string; allColumns: boolean }) {

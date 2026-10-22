@@ -263,3 +263,41 @@ describe("notices", () => {
     await c.flush();
   });
 });
+
+describe("Initiative Group is an open list", () => {
+  const withGroups = () => {
+    const items = sampleItems(4, ["p1"], ["u1"]);
+    const source = new MemoryDataSource(items);
+    const c = new PortfolioController(source, items, { ...lookups, groups: ["Retention", "Onboarding"] }, "creator", () => TODAY, () => 1_000);
+    return { c, source };
+  };
+  it("lists the workspace groups A to Z", () => {
+    expect(withGroups().c.groupNames()).toEqual(["Onboarding", "Retention"]);
+  });
+  it("typing the same group in another case saves the existing spelling", async () => {
+    const { c, source } = withGroups();
+    expect(c.edit("item-1", "theme", "  onboarding ")).toEqual({ ok: true, changed: true });
+    expect(c.row("item-1")!.theme).toBe("Onboarding");
+    await c.flush();
+    expect(source.items[0]!.theme).toBe("Onboarding");
+    expect(c.groupNames()).toEqual(["Onboarding", "Retention"]);
+  });
+  it("typing a new group creates it, at once for the next picker, and one undo removes the value", async () => {
+    const { c, source } = withGroups();
+    c.edit("item-2", "theme", "Billing");
+    await c.flush();
+    expect(source.items[1]!.theme).toBe("Billing");
+    expect(c.groupNames()).toContain("Billing");
+    await c.undo();
+    expect(c.row("item-2")!.theme ?? null).toBeNull();
+  });
+  it("a bulk edit and new items use the same rules", async () => {
+    const { c, source } = withGroups();
+    c.bulkEdit(["item-1", "item-2"], "theme", "retention");
+    expect(c.row("item-1")!.theme).toBe("Retention");
+    const r = c.createItems([{ initiative_name: "New one", home_project: "p1", theme: "ONBOARDING" }]);
+    expect(r).toEqual({ ok: true, created: 1 });
+    await c.flush();
+    expect(source.items.at(-1)!.theme).toBe("Onboarding");
+  });
+});

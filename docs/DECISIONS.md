@@ -88,3 +88,7 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Visibility rule: every role that can read a workspace sees all columns in internal views; only views marked customer-safe are limited to customer-safe fields · Ashu (confirmed in chat, issue #39)
 - 2026-10-22 · Target Markets and Live Markets are customer-safe, as the sheet says; customer-safe views may hold them. This overrides the earlier wording in docs/03 and docs/13-HIERARCHY that hid markets from customer-safe views · Ashu (issue #39)
 - 2026-10-22 · Free Vercel/Supabase plans for now, so the repo stays public until go-live; making it private and upgrading plans is a go-live item (docs/14) · Ashu (R-012)
+- 2026-10-22 · Initiative Group is an open list per workspace: `items.theme` stays text and `item_groups` holds the list; the database creates a group when an item first uses it and keeps the existing spelling for case differences; renaming and merging go through admin-only SQL functions so each affected item gets its own audit entry · Ashu (R-015), Claude (issue #38)
+- 2026-10-22 · Quick-add syntax `+group` (dashes for spaces, start of the name is enough); punctuation is not a difference there, while the grid picker shows a look-alike hint before creating · Claude (issue #38)
+- 2026-10-22 · Undo of a group merge is offered on the tidy-up screen right after the merge (items still in the target move back); it is not part of the grid's 20-step undo stack · Claude (issue #38)
+

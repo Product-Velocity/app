@@ -61,6 +61,7 @@ export function AppHeader({ tenantName, memberships, activeTenantId, switchActio
             <span className="muted">{roleLabel}{isApprover ? " · Approver" : ""}</span>
           </p>
           <Link href="/settings/members" className="menu-link">Members</Link>
+          <Link href="/settings/groups" className="menu-link">Initiative Groups</Link>
           <Link href="/settings/security" className="menu-link">Security</Link>
           <form action="/auth/sign-out" method="post">
             <button className="menu-link menu-button" type="submit">Sign out</button>

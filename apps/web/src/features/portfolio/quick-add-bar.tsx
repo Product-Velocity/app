@@ -17,6 +17,7 @@ function chips(r: Extract<QuickAddResult, { ok: true }>, lookups: Lookups): stri
     person ? `Product Manager: ${person}` : null,
     d.effort ? `Effort: ${d.effort}` : null,
     d.moscow ? `MoSCoW: ${d.moscow}` : null,
+    d.theme ? `Initiative Group: ${d.theme}${r.newGroup ? " (new group)" : ""}` : null,
   ].filter((x): x is string => !!x);
 }
 
@@ -27,8 +28,10 @@ export function QuickAddBar({ controller, lookups, contextProject, inputRef }: P
   const [lastProject, setLastProject] = useState<string | null>(null);
   const hintId = useId();
   const ctx = useMemo<QuickAddCtx>(
-    () => ({ projects: lookups.projects, members: lookups.members, defaultProject: contextProject ?? lastProject }),
-    [lookups, contextProject, lastProject],
+    () => ({ projects: lookups.projects, members: lookups.members, defaultProject: contextProject ?? lastProject, groups: controller.groupNames() }),
+    // the group list grows as groups are typed, so it is read again when the text changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [lookups, contextProject, lastProject, controller, text],
   );
   const parsed = useMemo(() => (text.trim() === "" ? null : parseQuickAdd(text, ctx)), [text, ctx]);
   const similar = useMemo(() => {
@@ -78,7 +81,7 @@ export function QuickAddBar({ controller, lookups, contextProject, inputRef }: P
         type="text"
         autoComplete="off"
         value={text}
-        placeholder="Name, then #project @person M should. Press Enter to add. Paste a list to add many."
+        placeholder="Name, then #project @person +group M should. Press Enter to add. Paste a list to add many."
         aria-describedby={hintId}
         onChange={(e) => { setText(e.target.value); setMessage(null); }}
         onPaste={onPaste}
@@ -92,6 +95,11 @@ export function QuickAddBar({ controller, lookups, contextProject, inputRef }: P
         {!message && parsed?.ok && chips(parsed, lookups).map((c) => <span key={c} className="token-chip">{c}</span>)}
         {!message && parsed?.ok && <span className="quick-add-keys">Enter adds · paste a list to add many</span>}
         {!message && parsed && !parsed.ok && <p className="quick-add-summary">{parsed.error}</p>}
+        {parsed?.ok && parsed.similarGroups && (
+          <p className="quick-add-similar">
+            “{parsed.newGroup}” looks like the existing group {parsed.similarGroups.map((g) => `“${g}”`).join(", ")}. Press Enter to create it anyway, or type +{parsed.similarGroups[0]!.toLowerCase().replace(/\s+/g, "-")} to use that one.
+          </p>
+        )}
         {similar.length > 0 && (
           <p className="quick-add-similar">
             Looks similar to: {similar.map((s) => `${s.item_code} ${s.initiative_name}`).join(" · ")}. You can still add it.
