@@ -146,24 +146,40 @@ describe("column names", () => {
   });
 });
 
-describe("createItem and deleteItem", () => {
-  it("inserts with the id chosen by the browser and returns the code and rank the database assigned", async () => {
-    const { client, calls } = fake([{ data: { item_code: "R-12", stack_rank: "12" } }]);
-    const r = await new SupabaseDataSource(client, "t1").createItem({ id: "n1", initiative_name: "Faster", home_project: "p1", product_manager: "u1", effort: "M", moscow: "Should" });
-    expect(r).toEqual({ ok: true, item_code: "R-12", stack_rank: 12 });
-    expect(calls[0]!.table).toBe("items");
-    expect(has(calls[0]!, "insert", { id: "n1", tenant_id: "t1", initiative_name: "Faster", home_project_id: "p1", owner_user_id: "u1", effort: "M", moscow: "Should" })).toBe(true);
+describe("createMany and deleteItems", () => {
+  it("inserts all rows in one request with browser-chosen ids and returns what the database assigned", async () => {
+    const { client, calls } = fake([{ data: [{ id: "n1", item_code: "R-12", stack_rank: "12" }, { id: "n2", item_code: "R-13", stack_rank: 13 }] }]);
+    const r = await new SupabaseDataSource(client, "t1").createMany([
+      { id: "n1", initiative_name: "Faster", home_project: "p1", product_manager: "u1", effort: "M", moscow: "Should" },
+      { id: "n2", initiative_name: "Second", home_project: "p2", g2m_date_est: "2027-03-31", value_12m: 5 },
+    ]);
+    expect(r).toEqual({ ok: true, items: [{ id: "n1", item_code: "R-12", stack_rank: 12 }, { id: "n2", item_code: "R-13", stack_rank: 13 }] });
+    expect(calls).toHaveLength(1);
+    expect(has(calls[0]!, "insert", [
+      { tenant_id: "t1", id: "n1", initiative_name: "Faster", home_project_id: "p1", owner_user_id: "u1", effort: "M", moscow: "Should" },
+      { tenant_id: "t1", id: "n2", initiative_name: "Second", home_project_id: "p2", end_date: "2027-03-31", value_12m: 5 },
+    ])).toBe(true);
+  });
+  it("an import is sent through the client that labels writes as import", async () => {
+    const ui = fake([{ data: [] }]);
+    const imp = fake([{ data: [{ id: "n1", item_code: "R-1", stack_rank: 1 }] }]);
+    const src = new SupabaseDataSource(ui.client, "t1", imp.client);
+    await src.createMany([{ id: "n1", initiative_name: "x", home_project: "p" }], { via: "import" });
+    expect(ui.calls).toHaveLength(0);
+    expect(imp.calls).toHaveLength(1);
+    await src.createMany([{ id: "n2", initiative_name: "y", home_project: "p" }]);
+    expect(ui.calls).toHaveLength(1);
   });
   it("turns an insert error into words", async () => {
-    const { client } = fake([{ error: { code: "42501" } }]);
-    expect(await new SupabaseDataSource(client, "t1").createItem({ id: "n1", initiative_name: "x", home_project: "p", product_manager: null, effort: null, moscow: null })).toEqual({ ok: false, error: "you do not have permission to change this" });
+    const { client } = fake([{ error: { code: "23514" } }]);
+    expect(await new SupabaseDataSource(client, "t1").createMany([{ id: "n1", initiative_name: "x", home_project: "p" }])).toEqual({ ok: false, error: "that value is not allowed" });
   });
-  it("deletes one item of the tenant", async () => {
-    const { client, calls } = fake([{ data: [{ id: "n1" }] }]);
-    expect(await new SupabaseDataSource(client, "t1").deleteItem("n1")).toEqual({ ok: true });
-    expect(has(calls[0]!, "eq", "tenant_id", "t1") && has(calls[0]!, "eq", "id", "n1")).toBe(true);
-    const gone = fake([{ data: [] }]);
-    expect(await new SupabaseDataSource(gone.client, "t1").deleteItem("n1")).toMatchObject({ ok: false });
+  it("deletes the items of the tenant in one request and notices when one was already gone", async () => {
+    const { client, calls } = fake([{ data: [{ id: "n1" }, { id: "n2" }] }]);
+    expect(await new SupabaseDataSource(client, "t1").deleteItems(["n1", "n2"])).toEqual({ ok: true });
+    expect(has(calls[0]!, "eq", "tenant_id", "t1") && has(calls[0]!, "in", "id", ["n1", "n2"])).toBe(true);
+    const gone = fake([{ data: [{ id: "n1" }] }]);
+    expect(await new SupabaseDataSource(gone.client, "t1").deleteItems(["n1", "n2"])).toMatchObject({ ok: false });
   });
 });
 

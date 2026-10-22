@@ -1,0 +1,202 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
+
+const ALL = "view=All columns&cols=all";
+const open = async (page: Page, query = `n=30&${ALL}`) => {
+  await page.goto(`/dev/grid?${query}`);
+  await page.waitForSelector(".ag-row");
+  await page.waitForFunction(() => (window as unknown as { __pv?: unknown }).__pv !== undefined);
+};
+const cell = (page: Page, id: string, col: string) => page.locator(`.ag-row[row-id="${id}"] [col-id="${col}"]`);
+const select = async (page: Page, ...ids: string[]) => {
+  for (const id of ids) await page.locator(`.ag-row[row-id="${id}"] input[type="checkbox"]`).first().check();
+};
+const bar = (page: Page) => page.getByRole("region", { name: /Bulk actions/ });
+const settle = (page: Page) => page.waitForFunction(() => (window as unknown as { __pv: { controller: { status: { pending: number } } } }).__pv.controller.status.pending === 0);
+
+test.describe("bulk bar", () => {
+  test("select 3 rows, set a field once, undo it as one step", async ({ page }) => {
+    await open(page);
+    await select(page, "item-1", "item-2", "item-3");
+    await expect(bar(page)).toContainText("3 selected");
+    await bar(page).getByLabel("Set").selectOption("moscow");
+    await bar(page).getByLabel("New value for MoSCoW").selectOption("Won't");
+    await bar(page).getByRole("button", { name: "Apply to 3 items" }).click();
+    for (const id of ["item-1", "item-2", "item-3"]) await expect(cell(page, id, "moscow")).toHaveText("Won't");
+    await expect(page.locator(".strip")).toContainText("Set MoSCoW to Won't on 3 items");
+    await expect(bar(page)).toContainText("Done: Set MoSCoW to Won't on 3 items");
+    await settle(page);
+    expect((await page.evaluate(() => (window as unknown as { __pv: { controller: { status: { undoCount: number } } } }).__pv.controller.status.undoCount))).toBe(1);
+    await page.getByRole("button", { name: /^Undo/ }).click();
+    await expect(cell(page, "item-1", "moscow")).toHaveText("Must");
+    await expect(cell(page, "item-2", "moscow")).toHaveText("Should");
+    await expect(cell(page, "item-3", "moscow")).toHaveText("Could");
+    await expect(page.locator(".strip")).toContainText("Undid: Set MoSCoW on 3 items");
+  });
+
+  test("GitHub-driven and other read-only fields are rejected with a clear message", async ({ page }) => {
+    await open(page);
+    await select(page, "item-1", "item-2");
+    await bar(page).getByLabel("Set").selectOption("status");
+    await expect(bar(page)).toContainText("Initiative Status comes from GitHub and cannot be edited here");
+    await expect(bar(page).getByRole("button", { name: /^Apply/ })).toBeDisabled();
+    await bar(page).getByLabel("Set").selectOption("item_code");
+    await expect(bar(page)).toContainText("set by the system");
+    await bar(page).getByLabel("Set").selectOption("stack_rank");
+    await expect(bar(page)).toContainText("one item at a time");
+    await expect(cell(page, "item-1", "status")).toHaveText("Backlog");
+  });
+
+  test("the controller refuses a GitHub field even if the bar were bypassed", async ({ page }) => {
+    await open(page);
+    const r = await page.evaluate(() => (window as unknown as { __pv: { controller: { bulkEdit: (ids: string[], f: string, v: string) => unknown } } }).__pv.controller.bulkEdit(["item-1"], "status", "Completed"));
+    expect(r).toMatchObject({ ok: false });
+    await expect(cell(page, "item-1", "status")).toHaveText("Backlog");
+  });
+
+  test("has an Update GitHub button (arrives in phase 3) and Export selection to file", async ({ page }) => {
+    await open(page);
+    await select(page, "item-1", "item-2");
+    await expect(bar(page).getByRole("button", { name: /^Update GitHub/ })).toBeDisabled();
+    await expect(bar(page).getByRole("button", { name: /^Update GitHub/ })).toContainText("arrives in phase 3");
+    const download = page.waitForEvent("download");
+    await bar(page).getByRole("button", { name: "Export selection to file" }).click();
+    const file = await download;
+    expect(file.suggestedFilename()).toMatch(/^roadmap-selection-\d{4}-\d\d-\d\d\.csv$/);
+    const csv = readFileSync(await file.path(), "utf8");
+    const lines = csv.replace(/^﻿/, "").trim().split("\r\n");
+    expect(lines).toHaveLength(3); // header + 2 selected rows
+    expect(lines[0]).toContain("Initiative Name");
+    expect(lines[1]).toContain("Initiative number 1 with a reasonably long title");
+    expect(lines[2]).toContain("Initiative number 2 with a reasonably long title");
+  });
+
+  test("clearing the selection hides the bar", async ({ page }) => {
+    await open(page);
+    await select(page, "item-1");
+    await bar(page).getByRole("button", { name: "Clear selection" }).click();
+    await expect(bar(page)).toHaveCount(0);
+  });
+
+  test("view-only roles can select and export but not edit", async ({ page }) => {
+    await open(page, `n=10&role=viewer&${ALL}`);
+    await select(page, "item-1");
+    await expect(bar(page).getByRole("button", { name: "Export selection to file" })).toBeVisible();
+    await expect(bar(page).getByLabel("Set")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Import from spreadsheet" })).toHaveCount(0);
+  });
+});
+
+const sheet = (rows: number, bad: number[] = []) => {
+  const head = "Initiative Name\tProject\tOwner\tSize\tMoSCoW\tValue\tStart";
+  const lines = Array.from({ length: rows }, (_, i) => {
+    const size = bad.includes(i) ? "XXL" : ["XS", "S", "M", "L", "XL"][i % 5];
+    return `Excel item ${i + 1}\t${["Platform", "Marketplace"][i % 2]}\tana\t${size}\t${["must", "should", "could"][i % 3]}\t€${(i + 1) * 1000}\t31/3/2027`;
+  });
+  return [head, ...lines].join("\n");
+};
+
+test.describe("paste-import from a spreadsheet", () => {
+  test("paste 50 rows: columns are mapped, a preview is shown, then import in one undoable step", async ({ page }) => {
+    await open(page);
+    await page.getByRole("button", { name: "Import from spreadsheet" }).click();
+    const dialog = page.getByRole("dialog", { name: /Import rows/ });
+    await dialog.getByLabel(/Paste the cells/).fill(sheet(50));
+    await expect(dialog.getByLabel("Field for Initiative Name")).toHaveValue("initiative_name");
+    await expect(dialog.getByLabel("Field for Project")).toHaveValue("home_project");
+    await expect(dialog.getByLabel("Field for Owner")).toHaveValue("product_manager");
+    await expect(dialog.getByLabel("Field for Size")).toHaveValue("effort");
+    await expect(dialog.getByLabel("Field for MoSCoW")).toHaveValue("moscow");
+    await expect(dialog.getByLabel("Field for Value")).toHaveValue("value_12m");
+    await expect(dialog.getByLabel("Field for Start")).toHaveValue("start_date");
+    await expect(dialog.getByRole("status")).toContainText("50 rows read: 50 ready");
+    await expect(dialog.locator(".import-preview tbody tr")).toHaveCount(10);
+    await expect(dialog.locator(".import-preview tbody tr").first()).toContainText("Excel item 1");
+    await expect(dialog.locator(".import-preview tbody tr").first()).toContainText("ana@example.test");
+    await dialog.getByRole("button", { name: "Import 50 rows" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.locator(".grid-foot")).toContainText("80 items");
+    await expect(page.locator(".strip")).toContainText("Imported 50 items");
+    await settle(page);
+    const calls = await page.evaluate(() => (window as unknown as { __pv: { source: { createCalls: unknown[] } } }).__pv.source.createCalls);
+    expect(calls).toEqual([{ count: 50, via: "import" }]); // one request, labelled as an import
+    await page.getByRole("button", { name: /^Undo/ }).click();
+    await expect(page.locator(".grid-foot")).toContainText("30 items");
+  });
+
+  test("rows with problems are shown with the reason and are skipped", async ({ page }) => {
+    await open(page);
+    await page.getByRole("button", { name: "Import from spreadsheet" }).click();
+    const dialog = page.getByRole("dialog", { name: /Import rows/ });
+    await dialog.getByLabel(/Paste the cells/).fill(sheet(10, [2]));
+    await expect(dialog.getByRole("status")).toContainText("10 rows read: 9 ready, 1 with problems");
+    await expect(dialog.locator(".import-preview")).toContainText("Effort (T-shirt): Choose one of the listed options.");
+    await dialog.getByRole("button", { name: "Import 9 rows" }).click();
+    await expect(page.locator(".grid-foot")).toContainText("39 items");
+  });
+
+  test("the mapping can be changed before importing", async ({ page }) => {
+    await open(page);
+    await page.getByRole("button", { name: "Import from spreadsheet" }).click();
+    const dialog = page.getByRole("dialog", { name: /Import rows/ });
+    await dialog.getByLabel(/Paste the cells/).fill("Idea\tImportance\nA new idea\tshould\nAnother\tmust");
+    // none of these headers is a known field name, so the first row is not assumed to be a header
+    await expect(dialog.getByLabel("The first row has column names")).not.toBeChecked();
+    await dialog.getByLabel("The first row has column names").check();
+    await expect(dialog.getByLabel("Field for Idea")).toHaveValue("");
+    await dialog.getByLabel("Field for Idea").selectOption("initiative_name");
+    await dialog.getByLabel("Field for Importance").selectOption("moscow");
+    await dialog.getByLabel(/Project for rows that have none/).selectOption({ label: "Growth" });
+    await expect(dialog.getByRole("status")).toContainText("2 rows read: 2 ready");
+    await dialog.getByRole("button", { name: "Import 2 rows" }).click();
+    await expect(page.locator(".grid-foot")).toContainText("32 items");
+    const row = page.locator(".ag-row", { has: page.locator('[col-id="initiative_name"]', { hasText: "A new idea" }) });
+    await expect(row.locator('[col-id="home_project"]')).toHaveText("Growth");
+    await expect(row.locator('[col-id="moscow"]')).toHaveText("Should");
+  });
+
+  test("pasting copied cells onto the grid opens the import", async ({ page }) => {
+    await open(page);
+    await cell(page, "item-1", "initiative_name").click();
+    await page.evaluate((text) => {
+      const el = document.querySelector('.ag-row[row-id="item-1"] [col-id="initiative_name"]')!;
+      const dt = new DataTransfer();
+      dt.setData("text/plain", text);
+      el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+    }, sheet(3));
+    const dialog = page.getByRole("dialog", { name: /Import rows/ });
+    await expect(dialog.getByRole("status")).toContainText("3 rows read: 3 ready");
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+
+  test("accessibility: the bulk bar and the import dialog have no WCAG A/AA violations", async ({ page }) => {
+    await open(page, "n=30");
+    await select(page, "item-1", "item-2");
+    let results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length} (${v.help})`)).toEqual([]);
+    await page.getByRole("button", { name: "Import from spreadsheet" }).click();
+    await page.getByLabel(/Paste the cells/).fill(sheet(5, [1]));
+    await expect(page.getByRole("status").filter({ hasText: "rows read" })).toBeVisible();
+    results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length} (${v.help})`)).toEqual([]);
+  });
+});
+
+test.describe("grid height follows the page", () => {
+  test("a taller window gives a taller grid, and resizing grows and shrinks it", async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 600 });
+    await open(page, "n=200");
+    const height = async () => (await page.locator(".grid-wrap").boundingBox())!.height;
+    const small = await height();
+    await page.setViewportSize({ width: 1400, height: 1000 });
+    await expect.poll(height).toBeGreaterThan(small + 300);
+    const big = await height();
+    await page.setViewportSize({ width: 1400, height: 700 });
+    await expect.poll(height).toBeLessThan(big - 200);
+    // the grid fills the window without making the page itself scroll
+    const overflow = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+    expect(overflow).toBeLessThanOrEqual(2);
+  });
+});

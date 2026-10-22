@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, type EditableField } from "@pv/domain";
-import type { CreateResult, NewItem, PortfolioDataSource, SaveResult } from "./data-source";
+import type { CreateManyResult, NewItem, PortfolioDataSource, SaveResult } from "./data-source";
 import type { LoadedItem } from "./types";
 
 /** Supabase returns at most 1,000 rows per request, so a 2,000-item workspace needs several pages. */
@@ -31,7 +31,8 @@ const dbColumn = (field: string) => {
 };
 
 export class SupabaseDataSource implements PortfolioDataSource {
-  constructor(private readonly client: SupabaseClient, private readonly tenantId: string) {}
+  /** `importClient` sends the header that labels writes as "import" in the audit log. */
+  constructor(private readonly client: SupabaseClient, private readonly tenantId: string, private readonly importClient: SupabaseClient = client) {}
 
   /** Every row of a table or view for this tenant, page by page. */
   private async fetchAll<T>(table: string, columns: string, order: string[] = ["id"], onlyDefaultCycle = false): Promise<T[]> {
@@ -119,23 +120,22 @@ export class SupabaseDataSource implements PortfolioDataSource {
     return { ok: true };
   }
 
-  async createItem(item: NewItem): Promise<CreateResult> {
-    const { data, error } = await this.client
-      .from("items")
-      .insert({
-        id: item.id, tenant_id: this.tenantId, initiative_name: item.initiative_name, home_project_id: item.home_project,
-        owner_user_id: item.product_manager, effort: item.effort, moscow: item.moscow,
-      })
-      .select("item_code,stack_rank")
-      .single();
+  async createMany(items: NewItem[], opts: { via?: "import" } = {}): Promise<CreateManyResult> {
+    const rows = items.map((item) => {
+      const row: Record<string, unknown> = { tenant_id: this.tenantId };
+      for (const [k, v] of Object.entries(item)) row[k === "id" ? "id" : dbColumn(k)] = v;
+      return row;
+    });
+    const client = opts.via === "import" ? this.importClient : this.client;
+    const { data, error } = await client.from("items").insert(rows).select("id,item_code,stack_rank");
     if (error || !data) return { ok: false, error: friendlyError(error) };
-    return { ok: true, item_code: String(data.item_code), stack_rank: Number(data.stack_rank) };
+    return { ok: true, items: data.map((r) => ({ id: String(r.id), item_code: String(r.item_code), stack_rank: Number(r.stack_rank) })) };
   }
 
-  async deleteItem(itemId: string): Promise<SaveResult> {
-    const { data, error } = await this.client.from("items").delete().eq("tenant_id", this.tenantId).eq("id", itemId).select("id");
+  async deleteItems(itemIds: string[]): Promise<SaveResult> {
+    const { data, error } = await this.client.from("items").delete().eq("tenant_id", this.tenantId).in("id", itemIds).select("id");
     if (error) return { ok: false, error: friendlyError(error) };
-    return data && data.length > 0 ? { ok: true } : { ok: false, error: "the item was already removed or you cannot delete it" };
+    return data && data.length === itemIds.length ? { ok: true } : { ok: false, error: "an item was already removed or you cannot delete it" };
   }
 
   async moveItem(itemId: string, toRank: number): Promise<SaveResult> {

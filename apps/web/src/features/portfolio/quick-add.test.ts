@@ -38,6 +38,7 @@ describe("quick-add", () => {
     c.createItems([draft("A"), draft("B"), draft("C")]);
     expect(c.rows.slice(-3).map((r) => [r.initiative_name, r.stack_rank])).toEqual([["A", 4], ["B", 5], ["C", 6]]);
     await c.flush();
+    expect(source.createCalls).toEqual([{ count: 3 }]); // one request
     expect(source.items.slice(-3).map((r) => r.initiative_name)).toEqual(["A", "B", "C"]);
     expect(c.status.undoCount).toBe(1);
     expect(c.status.last?.text).toBe("Added 3 items");

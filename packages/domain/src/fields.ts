@@ -34,6 +34,12 @@ export function readOnlyReason(key: string): string | null {
   return null;
 }
 
+/** Why a field cannot be set on many rows at once, or null when it can. Bulk edit follows the same rules as a cell, and rank is one item at a time. */
+export function bulkEditReason(key: string): string | null {
+  if (key === "stack_rank") return "Stack Rank is changed one item at a time: type a rank in the Stack Rank cell.";
+  return readOnlyReason(key);
+}
+
 export const YES_NO: Option[] = [{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }];
 
 /** Options of a select field, exactly as the dictionary spells them (a text label is always shown). */

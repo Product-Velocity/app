@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canBeEmpty, canEditItems, EDITABLE_FIELDS, fieldLabel, optionsFor, readOnlyReason, validateEdit } from "./fields";
+import { bulkEditReason, canBeEmpty, canEditItems, EDITABLE_FIELDS, fieldLabel, optionsFor, readOnlyReason, validateEdit } from "./fields";
 import { FIELDS, FIELD_BY_KEY } from "./registry";
 
 const today = new Date(Date.UTC(2027, 0, 1));
@@ -38,6 +38,22 @@ describe("which cells can be edited follows the dictionary", () => {
   });
   it("every editable field has a label", () => {
     for (const f of EDITABLE_FIELDS) expect(fieldLabel(f)).toBeTruthy();
+  });
+});
+
+describe("bulk edit rules", () => {
+  it("rejects GitHub-driven, calculated, system, later-phase and rank fields with a reason; allows editable ones", () => {
+    expect(bulkEditReason("status")).toMatch(/comes from GitHub/);
+    expect(bulkEditReason("delivery_progress_pct")).toMatch(/comes from GitHub/);
+    expect(bulkEditReason("value_weighted")).toMatch(/calculated/);
+    expect(bulkEditReason("item_code")).toMatch(/set by the system/);
+    expect(bulkEditReason("outcome_verdict")).toMatch(/arrives in phase 7/);
+    expect(bulkEditReason("stack_rank")).toMatch(/one item at a time/);
+    expect(bulkEditReason("effort")).toBeNull();
+    expect(bulkEditReason("moscow")).toBeNull();
+  });
+  it("every field in the dictionary is either bulk-editable or has a reason", () => {
+    for (const f of FIELDS) expect(bulkEditReason(f.key) === null, f.key).toBe(EDITABLE_FIELDS.includes(f.key));
   });
 });
 

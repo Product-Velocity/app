@@ -129,6 +129,44 @@ describe("quick-add writes", () => {
   });
 });
 
+describe("bulk edit and import writes", () => {
+  it("one statement that sets a field on three rows writes one audit row per row, with actor and source", async () => {
+    const ids = [await fresh(), await fresh(), await fresh()];
+    await db.asUser(creator, (q) => q("update public.items set effort = 'L' where id = any($1::uuid[])", [ids]), { via: "UI", commit: true });
+    const { rows } = await db.admin.query("select entity_id, old, new, via, actor_id from public.audit_log where entity = 'items' and field = 'effort' and entity_id = any($1::uuid[])", [ids]);
+    expect(rows).toHaveLength(3);
+    for (const r of rows) expect(r).toMatchObject({ old: null, new: "L", via: "UI", actor_id: creator });
+  });
+  it("a bulk update cannot reach GitHub-driven, system or computed columns, even for one row", async () => {
+    const ids = [await fresh(), await fresh()];
+    for (const set of ["status = 'Completed'", "delivery_progress_pct = 50", "last_edited_by = null", "ai_draft = true"]) {
+      expect(await errorCode(db.asUser(creator, (q) => q(`update public.items set ${set} where id = any($1::uuid[])`, [ids]))), set).toBe(DENIED);
+    }
+  });
+  it("a bulk update that includes one invalid value changes none of the rows (one statement)", async () => {
+    const ids = [await fresh(), await fresh()];
+    expect(await errorCode(db.asUser(creator, (q) => q("update public.items set moscow = case when id = $1 then 'Must' else 'maybe' end where id = any($2::uuid[])", [ids[0], ids]), { commit: true }))).toBe(CHECK);
+    const { rows } = await db.admin.query("select moscow from public.items where id = any($1::uuid[])", [ids]);
+    expect(rows.map((r) => r.moscow)).toEqual([null, null]);
+  });
+  it("an import (source 'import') inserts many items in one statement; all are audited as import and none if one is invalid", async () => {
+    const before = (await db.admin.query("select count(*)::int as n from public.items where tenant_id = $1", [f.tenantA])).rows[0].n;
+    const sql = "insert into public.items (tenant_id, initiative_name, home_project_id, effort, value_12m) select $1, 'Imported ' || g, $2, 'M', g * 1000 from generate_series(1, 50) g";
+    await db.asUser(creator, (q) => q(sql, [f.tenantA, f.seedA.project]), { via: "import", commit: true });
+    const after = (await db.admin.query("select count(*)::int as n from public.items where tenant_id = $1", [f.tenantA])).rows[0].n;
+    expect(after - before).toBe(50);
+    const { rows } = await db.admin.query("select distinct via from public.audit_log where entity = 'items' and field = 'initiative_name' and new::text like '\"Imported %'");
+    expect(rows.map((r) => r.via)).toEqual(["import"]);
+    const bad = "insert into public.items (tenant_id, initiative_name, home_project_id, effort) select $1, 'Bad ' || g, $2, case when g = 3 then 'XXL' else 'S' end from generate_series(1, 5) g";
+    expect(await errorCode(db.asUser(creator, (q) => q(bad, [f.tenantA, f.seedA.project]), { via: "import", commit: true }))).toBe(CHECK);
+    expect((await db.admin.query("select count(*)::int as n from public.items where initiative_name like 'Bad %'")).rows[0].n).toBe(0);
+  });
+  it("a viewer cannot import or bulk update", async () => {
+    expect(await errorCode(db.asUser(viewer, (q) => q("insert into public.items (tenant_id, initiative_name, home_project_id) values ($1, 'x', $2)", [f.tenantA, f.seedA.project]), { via: "import" }))).toBe(DENIED);
+    expect(await db.asUser(viewer, async (q) => (await q("update public.items set effort = 'S' where tenant_id = $1", [f.tenantA])).rowCount, { commit: true })).toBe(0);
+  });
+});
+
 describe("people fields cannot point outside the tenant", () => {
   it("rejects a sponsor from another tenant", async () => {
     const id = await fresh();

@@ -1,6 +1,6 @@
 import {
   applyMove, canBeEmpty, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
-  type Draft, type Edit, type EditableField, type Entry,
+  bulkEditReason, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
 import type { PortfolioDataSource } from "./data-source";
 import type { GridItem, Lookups, LoadedItem } from "./types";
@@ -94,11 +94,8 @@ export class PortfolioController {
   dismissError() { this.state.error = null; this.emit(); }
 
   // ---------------------------------------------------------------- adding
-  private buildRow(id: string, d: Draft, code = "…", rank = 0): GridItem {
-    return {
-      id, item_code: code, stack_rank: rank, project_rank: 0, initiative_name: d.initiative_name, home_project: d.home_project,
-      product_manager: d.product_manager, effort: d.effort, moscow: d.moscow, visibility: "Internal only", archived: false, date_precision: "Day",
-    };
+  private buildRow(id: string, d: NewItemValues, code = "…", rank = 0): GridItem {
+    return { visibility: "Internal only", archived: false, date_precision: "Day", ...d, id, item_code: code, stack_rank: rank, project_rank: 0 } as GridItem;
   }
   private addRows(added: GridItem[]) {
     for (const r of added) { this.rows.push(r); this.byId.set(r.id, r); }
@@ -122,36 +119,79 @@ export class PortfolioController {
     this.emit([row]);
   }
 
-  /** Quick-add: the items show at the end of the list at once and are saved one after the other. One undo step for the whole batch. */
-  createItems(drafts: Draft[]): { ok: true; created: number } | { ok: false; error: string } {
+  /**
+   * Quick-add and import: the items show at the end of the list at once and are saved in ONE request (all or nothing).
+   * One undo step for the whole batch.
+   */
+  createItems(drafts: NewItemValues[], opts: { via?: "import"; label?: string } = {}): { ok: true; created: number } | { ok: false; error: string } {
     if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
     if (drafts.length === 0) return { ok: true, created: 0 };
     let rank = this.rows.reduce((n, r) => Math.max(n, r.stack_rank), 0);
     const added = drafts.map((d) => this.buildRow(this.newId(), d, "…", ++rank));
     const edits = added.map((row, i): Edit => ({ type: "create", itemId: row.id, key: "…", draft: drafts[i]! }));
-    const entry: Entry = { id: `e${++this.entrySeq}`, edits };
+    const label = opts.label ?? (added.length === 1 ? undefined : `Added ${added.length} items`);
+    const entry: Entry = { id: `e${++this.entrySeq}`, edits, ...(label ? { label } : {}) };
     this.stack.push(entry);
     this.state.notice = null;
-    this.state.last = { text: added.length === 1 ? describeEdit(edits[0]!, this.resolvers()) : `Added ${added.length} items`, at: this.now() };
+    this.state.last = { text: label ?? describeEdit(edits[0]!, this.resolvers()), at: this.now() };
     this.addRows(added);
-    added.forEach((row, i) => {
-      let result: { item_code: string; stack_rank: number } | null = null;
-      this.save(null, `"${row.initiative_name}"`, async () => {
-        const r = await this.source.createItem({ id: row.id, ...drafts[i]! });
-        if (r.ok) result = r;
-        return r.ok ? { ok: true } : { ok: false, error: r.error };
-      }, () => {
-        this.removeRows([row].filter((x) => this.byId.has(x.id)));
-        const at = entry.edits.indexOf(edits[i]!);
+    let result: { id: string; item_code: string; stack_rank: number }[] = [];
+    const what = added.length === 1 ? `"${added[0]!.initiative_name}"` : `${added.length} items`;
+    this.save(null, what, async () => {
+      const r = await this.source.createMany(added.map((row, i) => ({ id: row.id, ...drafts[i]! })), opts.via ? { via: opts.via } : {});
+      if (r.ok) result = r.items;
+      return r.ok ? { ok: true } : { ok: false, error: r.error };
+    }, () => {
+      this.removeRows(added.filter((x) => this.byId.has(x.id)));
+      this.stack.discard(entry);
+    }, (ok) => {
+      if (!ok) return;
+      for (const s of result) {
+        const row = this.byId.get(s.id);
+        const edit = edits.find((e) => e.itemId === s.id);
+        if (edit) edit.key = s.item_code;
+        if (row) this.adopt(row, s);
+      }
+    }, "Could not add");
+    return { ok: true, created: added.length };
+  }
+
+  /** Set one field on many rows: one validation, one undo step, one saved change per row (each audited by the database). */
+  bulkEdit(itemIds: string[], field: string, raw: string): { ok: true; changed: number; unchanged: number } | { ok: false; error: string } {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
+    const reason = bulkEditReason(field);
+    if (reason || !EDITABLE_FIELDS.includes(field)) {
+      const error = reason ?? "That field cannot be edited.";
+      this.notify(error);
+      return { ok: false, error };
+    }
+    const v = validateEdit(field, raw, { today: this.today() });
+    if (!v.ok) { this.notify(`${fieldLabel(field)}: ${v.error}`); return { ok: false, error: v.error }; }
+    const rows = itemIds.map((id) => this.byId.get(id)).filter((r): r is GridItem => !!r);
+    const todo = rows.filter((r) => !same(r[field], v.value));
+    const unchanged = rows.length - todo.length;
+    if (todo.length === 0) return { ok: true, changed: 0, unchanged };
+
+    const edits = todo.map((row): Edit => ({ type: "field", itemId: row.id, key: row.item_code, field, before: row[field], after: v.value }));
+    const shownValue = describeEdit({ ...edits[0]!, before: null } as Edit, this.resolvers()).split(": empty to ")[1] ?? String(v.value);
+    const label = `Set ${fieldLabel(field)} on ${todo.length} ${todo.length === 1 ? "item" : "items"}`;
+    const entry: Entry = { id: `e${++this.entrySeq}`, edits, label };
+    this.stack.push(entry);
+    this.state.notice = null;
+    this.state.last = { text: v.value === null ? `Cleared ${fieldLabel(field)} on ${todo.length} ${todo.length === 1 ? "item" : "items"}` : `Set ${fieldLabel(field)} to ${shownValue} on ${todo.length} ${todo.length === 1 ? "item" : "items"}`, at: this.now() };
+    todo.forEach((row, i) => {
+      const edit = edits[i]!;
+      this.applyField(row, field, v.value);
+      this.save(null, `${row.item_code} ${fieldLabel(field)}`, () => this.source.updateField(row.id, field, v.value), () => {
+        const cur = this.byId.get(row.id);
+        if (cur && same(cur[field], v.value)) this.applyField(cur, field, (edit as { before: unknown }).before);
+        const at = entry.edits.indexOf(edit);
         if (at >= 0) entry.edits.splice(at, 1);
         if (entry.edits.length === 0) this.stack.discard(entry);
-      }, (ok) => {
-        if (!ok || !result) return;
-        (edits[i] as { key: string }).key = result.item_code;
-        this.adopt(row, result);
-      }, "Could not add");
+      }, undefined, "Could not save", `${row.id}:${field}`);
     });
-    return { ok: true, created: added.length };
+    this.emit(todo);
+    return { ok: true, changed: todo.length, unchanged };
   }
 
   // ---------------------------------------------------------------- edits
@@ -242,16 +282,16 @@ export class PortfolioController {
 
   // ---------------------------------------------------------------- saving
   /** Saves for the same cell go one after the other, so the last edit always wins. */
-  private save(entry: Entry | null, label: string, run: () => Promise<{ ok: boolean; error?: string }>, revert: () => void, onDone?: (ok: boolean) => void, failVerb = "Could not save") {
+  private save(entry: Entry | null, label: string, run: () => Promise<{ ok: boolean; error?: string }>, revert: () => void, onDone?: (ok: boolean) => void, failVerb = "Could not save", queueKeyOverride?: string) {
     const edit = entry?.edits[0];
-    const queueKey = edit ? `${edit.itemId}:${edit.type === "field" ? edit.field : "rank"}` : "misc";
+    const queueKey = queueKeyOverride ?? (edit ? `${edit.itemId}:${edit.type === "field" ? edit.field : "rank"}` : "misc");
     this.state.pending++;
     this.emit();
     const prev = this.queues.get(queueKey) ?? Promise.resolve();
     const next = prev.then(run).catch((e) => ({ ok: false as const, error: String(e?.message ?? e) })).then((res) => {
       this.state.pending--;
       if (res.ok) {
-        this.state.error = null;
+        if (!queueKeyOverride) this.state.error = null; // saves of a bulk edit must not hide a failure of a sibling row
         onDone?.(true);
         this.emit();
       } else {
@@ -280,13 +320,15 @@ export class PortfolioController {
     const restore = () => (direction === "undo" ? this.stack.restoreUndo(entry) : this.stack.restoreRedo(entry));
     const shown = (e: Edit): Edit =>
       direction === "undo" && e.type !== "create" ? ({ ...e, before: e.after, after: e.before } as Edit) : e;
+    if (entry.edits.length > 0 && entry.edits.every((e) => e.type === "create")) {
+      await this.replayCreates(entry, entry.edits as Extract<Edit, { type: "create" }>[], direction, restore);
+      return;
+    }
     // newest edit first when undoing
     const edits = direction === "undo" ? [...entry.edits].reverse() : entry.edits;
     for (const edit of edits) {
-      if (edit.type === "create") {
-        if (!(await this.replayCreate(edit, direction, restore))) return;
-        continue;
-      }
+      if (edit.type === "create") continue; // never mixed with other edits
+
       const row = this.byId.get(edit.itemId);
       const target = direction === "undo" ? edit.before : edit.after;
       const expected = direction === "undo" ? edit.after : edit.before;
@@ -319,30 +361,40 @@ export class PortfolioController {
         }, restore);
       }
     }
+    if (entry.label && entry.edits.length > 1) {
+      this.state.last = { text: `${direction === "undo" ? "Undid" : "Redid"}: ${entry.label}`, at: this.now() };
+      this.emit();
+    }
   }
 
-  private async replayCreate(edit: Extract<Edit, { type: "create" }>, direction: "undo" | "redo", restore: () => void): Promise<boolean> {
-    let failed = false;
-    const fail = () => { failed = true; restore(); };
+  /** Undo deletes the whole batch in one request; redo adds it back at the end (new codes). */
+  private async replayCreates(entry: Entry, edits: Extract<Edit, { type: "create" }>[], direction: "undo" | "redo", restore: () => void) {
+    const text = entry.label ?? describeEdit(edits[0]!, this.resolvers());
     if (direction === "undo") {
-      const row = this.byId.get(edit.itemId);
-      if (!row) { this.state.error = `Could not undo: ${edit.key} no longer exists.`; this.emit(); restore(); return false; }
-      this.removeRows([row]);
-      this.state.last = { text: `Undid: ${describeEdit(edit, this.resolvers())}`, at: this.now() };
+      const rows = edits.map((e) => this.byId.get(e.itemId)).filter((r): r is GridItem => !!r);
+      if (rows.length === 0) { this.state.error = "Could not undo: those items no longer exist."; this.emit(); restore(); return; }
+      this.removeRows(rows);
+      this.state.last = { text: `Undid: ${text}`, at: this.now() };
       this.emit();
-      await this.runReplaySave(`removing ${edit.key}`, () => this.source.deleteItem(edit.itemId), () => this.addRows([row]), fail);
-    } else {
-      const row = this.buildRow(edit.itemId, edit.draft, "…", this.rows.reduce((n, r) => Math.max(n, r.stack_rank), 0) + 1);
-      this.addRows([row]);
-      this.state.last = { text: `Redid: ${describeEdit({ ...edit, key: "…" }, this.resolvers())}`, at: this.now() };
-      this.emit();
-      await this.runReplaySave(`adding "${edit.draft.initiative_name}"`, async () => {
-        const r = await this.source.createItem({ id: edit.itemId, ...edit.draft });
-        if (r.ok) { edit.key = r.item_code; this.adopt(row, r); return { ok: true }; }
-        return { ok: false, error: r.error };
-      }, () => this.removeRows([row]), fail);
+      await this.runReplaySave("removing the added items", () => this.source.deleteItems(rows.map((r) => r.id)), () => this.addRows(rows), restore);
+      return;
     }
-    return !failed;
+    let rank = this.rows.reduce((n, r) => Math.max(n, r.stack_rank), 0);
+    const rows = edits.map((e) => this.buildRow(e.itemId, e.draft, "…", ++rank));
+    this.addRows(rows);
+    this.state.last = { text: `Redid: ${text}`, at: this.now() };
+    this.emit();
+    await this.runReplaySave("adding the items again", async () => {
+      const r = await this.source.createMany(rows.map((row, i) => ({ id: row.id, ...edits[i]!.draft })));
+      if (!r.ok) return { ok: false, error: r.error };
+      for (const s of r.items) {
+        const row = this.byId.get(s.id);
+        const edit = edits.find((e) => e.itemId === s.id);
+        if (edit) edit.key = s.item_code;
+        if (row) this.adopt(row, s);
+      }
+      return { ok: true };
+    }, () => this.removeRows(rows), restore);
   }
 
   private runReplaySave(label: string, run: () => Promise<{ ok: boolean; error?: string }>, revert: () => void, restore: () => void) {

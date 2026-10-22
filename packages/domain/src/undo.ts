@@ -8,11 +8,13 @@ export type RankEdit = { type: "rank"; itemId: string; key: string; before: numb
 /** An item added by quick-add. Undo deletes it; redo adds it again (it then gets a new code at the end of the list). */
 export type CreateEdit = {
   type: "create"; itemId: string; key: string;
-  draft: { initiative_name: string; home_project: string; product_manager: string | null; effort: string | null; moscow: string | null };
+  draft: NewItemValues;
 };
+/** Field values of a new item by dictionary key; a name and a project are always there. */
+export type NewItemValues = Record<string, unknown> & { initiative_name: string; home_project: string };
 export type Edit = FieldEdit | RankEdit | CreateEdit;
 /** One undo step. A bulk action is one entry with several edits. */
-export type Entry = { id: string; edits: Edit[] };
+export type Entry = { id: string; edits: Edit[]; /** Shown after undo and redo of a batch, for example "Set Effort on 3 items". */ label?: string };
 
 export class UndoStack {
   private undoList: Entry[] = [];

@@ -22,7 +22,7 @@ const MOSCOW: Record<string, string> = { must: "Must", should: "Should", could: 
 const letters = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 export const MAX_LIST = 200;
 
-function pick<T>(items: T[], key: (t: T) => string, query: string): { hit: T } | { error: "none" | "many" } {
+export function pick<T>(items: T[], key: (t: T) => string, query: string): { hit: T } | { error: "none" | "many" } {
   const q = letters(query);
   if (!q) return { error: "none" };
   const exact = items.filter((i) => letters(key(i)) === q);

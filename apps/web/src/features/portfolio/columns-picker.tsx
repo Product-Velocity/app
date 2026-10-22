@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { DEFAULT_VIEWS, FIELDS, VIEW_NAMES, arrivesLabel, type ViewName } from "@pv/domain";
 import { CORE_COLUMNS } from "./columns";
 
@@ -9,10 +9,11 @@ type Props = {
   visible: ReadonlySet<string>;
   onView: (v: ViewName | "All columns") => void;
   onToggle: (key: string) => void;
+  children?: ReactNode;
 };
 
 /** Pick a default view and show or hide single columns. Reordering, pinning and saving views come with the saved-views issue. */
-export function ColumnsPicker({ view, visible, onView, onToggle }: Props) {
+export function ColumnsPicker({ view, visible, onView, onToggle, children }: Props) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const groups = [...new Set(FIELDS.map((f) => f.group))];
@@ -30,6 +31,7 @@ export function ColumnsPicker({ view, visible, onView, onToggle }: Props) {
       <button type="button" className="btn" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((o) => !o)}>
         Columns ({shown} of {FIELDS.length})
       </button>
+      {children}
       {open && (
         <div id={panelId} className="columns-panel" role="group" aria-label="Choose columns">
           {groups.map((g) => (

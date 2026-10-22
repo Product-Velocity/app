@@ -65,3 +65,8 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Undo of an add deletes the item (the audit log keeps the history); redo adds it again at the end with a new code · Claude (issue #7)
 - 2026-10-22 · The similar-item hint is word overlap on the loaded items (no AI yet); AI duplicate check comes with intake in Phase 4 · Claude (issue #7)
 - 2026-10-22 · Added a minimal "Add project" (admins, name only) on the Roadmap page, because the workspace had no way to create the first project and items need one. Full project setup stays a later slice · Claude (issue #7), to confirm with Ashu
+- 2026-10-22 · Bulk edit uses the same rules as a cell: GitHub-driven, calculated, system and later-phase fields are rejected with a reason, Stack Rank is one item at a time; one undo step per bulk edit · Claude (issue #8)
+- 2026-10-22 · Paste-import: one atomic request for the whole paste (all or nothing), up to 500 rows, rows with problems are skipped and listed, writes are labelled "import" in the audit log; only cell-editable fields can be imported; the first row is treated as a header only when a header is recognised (otherwise a checkbox) · Claude (issue #8)
+- 2026-10-22 · Export selection is a CSV with a byte-order mark (opens in Excel), with formula-looking text defused; real Excel files (.xlsx) are a later option · Claude (issue #8)
+- 2026-10-22 · Quick-add paste lists now also save in one request (all or nothing) · Claude (issue #8)
+- 2026-10-22 · The grid height follows the window (measured, minimum 360 px) instead of a fixed share of the screen · Ashu (request), Claude (issue #8)
