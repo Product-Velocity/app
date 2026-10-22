@@ -87,6 +87,23 @@ describe("RLS covers every table", () => {
     expect(probes.map((p) => p.table).sort()).toEqual(tables);
   });
 
+  it("internal trigger functions are not callable by API roles, and no function has a mutable search_path", async () => {
+    for (const fn of ["audit_row()", "set_write_meta()", "guard_approver()", "audit_log_append_only()"]) {
+      for (const role of ["anon", "authenticated"]) {
+        const { rows } = await db.admin.query("select has_function_privilege($1, $2, 'execute') as ok", [role, `public.${fn}`]);
+        expect(rows[0].ok, `${role} can execute ${fn}`).toBe(false);
+      }
+    }
+    const { rows } = await db.admin.query(
+      `select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public'
+         and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
+         and (p.proconfig is null or not exists (
+         select 1 from unnest(p.proconfig) c where c like 'search_path=%'))`,
+    );
+    expect(rows.map((r) => r.proname)).toEqual([]);
+  });
+
   it("anonymous users cannot touch any table", async () => {
     for (const p of probes) {
       expect(await errorCode(db.asAnon((q) => q(`select * from public.${p.table}`)))).toBe(DENIED);
