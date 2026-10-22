@@ -78,3 +78,4 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Roadmap Category value "Close the gap with competitors" renamed "Close capability gaps" (migration 0010) · Ashu
 - 2026-10-22 · Initiative Group = closed per-workspace list managed by admins; teams use free-form Tags; Roadmap Category fixed for now · Ashu (request R-004)
 - 2026-10-22 · Change requests from chat are logged first in `docs/REQUESTS.md` (timestamped inbox Claude Code reads every session) · Ashu
+- 2026-10-22 · Correction: Initiative Group is an OPEN list per workspace (created on the fly, admins can rename/merge), not closed; supersedes the previous line · Ashu (request R-005)
