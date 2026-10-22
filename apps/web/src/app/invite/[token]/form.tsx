@@ -22,9 +22,12 @@ export function AcceptForm({ token, workspace }: { token: string; workspace: str
   );
 }
 
-/** Sign-in / sign-up for someone who followed an invite link and is not signed in. */
-export function InviteSignIn({ token, email }: { token: string; email: string }) {
-  const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
+/**
+ * Sign-in / create-account for someone who followed an invite link and is not
+ * signed in. `mode` is chosen by the server page (full page load, so password
+ * managers see the right kind of form from the start).
+ */
+export function InviteSignIn({ token, email, mode }: { token: string; email: string; mode: "sign-in" | "create" }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [state, action, pending] = useActionState<AcceptState, FormData>(
@@ -39,7 +42,15 @@ export function InviteSignIn({ token, email }: { token: string; email: string })
         <input type="hidden" name="token" value={token} />
         <div className="field">
           <label htmlFor="invite-email-shown">Email</label>
-          <input id="invite-email-shown" value={email} readOnly aria-readonly="true" />
+          <input
+            id="invite-email-shown"
+            name="email"
+            type="email"
+            autoComplete="username"
+            value={email}
+            readOnly
+            aria-readonly="true"
+          />
           <p className="hint">The invitation is for this address.</p>
         </div>
         {mode === "sign-in" ? (
@@ -74,17 +85,10 @@ export function InviteSignIn({ token, email }: { token: string; email: string })
         <button className="btn btn-primary" type="submit" disabled={pending || !canSubmit}>
           {pending ? "Please wait…" : mode === "sign-in" ? "Sign in and accept" : "Create account"}
         </button>
-        <button
-          type="button"
-          className="link-button"
-          onClick={() => {
-            setMode(mode === "sign-in" ? "sign-up" : "sign-in");
-            setPassword("");
-            setConfirm("");
-          }}
-        >
-          {mode === "sign-in" ? "No account yet? Create one" : "Have an account? Sign in"}
-        </button>
+        {/* plain links on purpose: a full page load gives password managers a fresh, correct form */}
+        <a className="link-button" href={mode === "sign-in" ? "?mode=create" : "?mode=sign-in"}>
+          {mode === "sign-in" ? "No account yet? Create one" : "Already have an account? Sign in"}
+        </a>
       </form>
 
       <div className="divider" role="separator">

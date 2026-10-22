@@ -37,6 +37,28 @@ describe("invitation_preview", () => {
     });
   });
 
+  it("tells the link holder whether that email already has an account (so the page opens in the right mode)", async () => {
+    const exists = (token: string) =>
+      db.asAnon(async (q) => (await q("select public.invitation_account_exists($1) as e", [token])).rows[0].e);
+
+    const fresh = await invite("brand-new@example.test");
+    expect(await exists(fresh)).toBe(false);
+
+    await createUser(db, "Existing.Person@Example.test"); // stored with capitals, matched case-insensitively
+    const existing = await invite("existing.person@example.test");
+    expect(await exists(existing)).toBe(true);
+  });
+
+  it("says nothing about accounts for an unknown, revoked or used link", async () => {
+    await createUser(db, "known.user@example.test");
+    const token = await invite("known.user@example.test");
+    await db.asUser(f.alice, (q) => q("update public.invitations set revoked_at = now() where token_hash = $1", [hashToken(token)]), { commit: true });
+    for (const t of [token, "nope", "", "known.user@example.test"]) {
+      const r = await db.asAnon(async (q) => (await q("select public.invitation_account_exists($1) as e", [t])).rows[0].e);
+      expect(r, t).toBe(false);
+    }
+  });
+
   it("works for signed-in users too", async () => {
     const token = await invite("signedin@example.test");
     expect(await preview(token, f.dave)).toHaveLength(1);

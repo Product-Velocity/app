@@ -4,8 +4,12 @@ import { useActionState, useState } from "react";
 import { canSubmitNewPassword, NewPasswordFields, PasswordField } from "@/components/password-field";
 import { signInWithPassword, signUp, type AuthState } from "./actions";
 
-export function PasswordForm({ next }: { next: string }) {
-  const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
+/**
+ * `mode` comes from the page URL so sign-in and create-account are separate
+ * page loads: password managers decide whether to offer a generated password
+ * when the page loads, not after a client-side switch.
+ */
+export function PasswordForm({ next, mode }: { next: string; mode: "sign-in" | "sign-up" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -15,6 +19,7 @@ export function PasswordForm({ next }: { next: string }) {
   );
 
   const canSubmit = mode === "sign-in" ? password.length > 0 : canSubmitNewPassword(password, confirm, email);
+  const otherHref = `/sign-in?${mode === "sign-in" ? "mode=sign-up&" : ""}next=${encodeURIComponent(next)}`;
 
   return (
     <form action={action} className="stack">
@@ -25,7 +30,7 @@ export function PasswordForm({ next }: { next: string }) {
           id="email"
           name="email"
           type="email"
-          autoComplete="email"
+          autoComplete="username"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -61,17 +66,10 @@ export function PasswordForm({ next }: { next: string }) {
       <button className="btn btn-primary" type="submit" disabled={pending || !canSubmit}>
         {pending ? "Please wait…" : mode === "sign-in" ? "Sign in" : "Create account"}
       </button>
-      <button
-        type="button"
-        className="link-button"
-        onClick={() => {
-          setMode(mode === "sign-in" ? "sign-up" : "sign-in");
-          setPassword("");
-          setConfirm("");
-        }}
-      >
+      {/* plain link on purpose: a full page load gives password managers a fresh, correct form */}
+      <a className="link-button" href={otherHref}>
         {mode === "sign-in" ? "New here? Create an account" : "Have an account? Sign in"}
-      </button>
+      </a>
     </form>
   );
 }
