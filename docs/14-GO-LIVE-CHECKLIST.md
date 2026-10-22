@@ -22,6 +22,12 @@ Living list of things that must be done before real customers or real data. Owne
 - [ ] Legal wording reviewed before real customers or participants are invited (consent, retention, "no delivery promises"); not needed for the fictional-data prototype (decided 2026-10-21).
 - [ ] Prototype link "anyone with the link": remove or restrict once any real data is shown.
 
+## Staff access (see `docs/15`)
+- [ ] Terms and privacy policy state plainly that Product Velocity staff can access customer data (open content access), why, and that every access is logged and visible to customer admins.
+- [ ] Staff access log visible to workspace admins; staff accounts require 2FA; at least two super-admins.
+- [ ] Before the first staff member who should not see customer data: access grants and `content_access_mode = grant_required` are built and tested.
+- [ ] Enterprise security answer prepared: who can access data, how it is logged, how it is restricted.
+
 ## Product and commercial
 - [ ] Validate draft prices (`docs/09`) with 3–5 buyer conversations; no invented competitor claims in any copy.
 - [ ] Billing (Stripe) built; seats and AI usage tracked from day one (Phase 9, pilot first).

@@ -1,0 +1,72 @@
+# Accounts, workspace settings and platform staff
+
+Status: design agreed with Ashu 2026-10-23 (requests R-014 to R-016). Spec for issues listed in section 8.
+
+## 1. Words
+- **Account**: one person's login (email or Google/GitHub). One account can belong to several workspaces.
+- **Workspace**: the organisation (the tenant), for example "Meridian Media". All data is isolated here.
+- **Platform staff**: people at Product Velocity. They are not members of any workspace; they have a separate, explicit staff level (section 5).
+
+## 2. Flows
+1. **New customer:** sign up (email, Google or GitHub) → confirm email → onboarding: name the workspace → become its admin → invite people.
+2. **Invited person:** admin enters email, role and Approver flag → the app sends an invitation email **after the admin confirms** (the link can also be copied) → the person signs up or signs in with that email, accepts, and appears in Members. Links are single use and expire after 7 days.
+3. **Several workspaces:** a switcher in the header; the last one used opens first.
+4. **Leaving:** a member can leave a workspace unless they are its last admin. An admin can remove a member. A workspace can never lose its last admin.
+5. **Deleting an account:** allowed only after leaving or handing over every workspace where the person is the last admin. Personal data is deleted; audit entries keep a non-identifying "former member" label.
+
+## 3. Account page (the person)
+Profile (name, photo, language, time zone, date format) · email (change with confirmation) · password (change, strength rules) · sign-in methods (Google, GitHub) · two-factor (already built) · active sessions with "sign out everywhere" · notification preferences (placeholder until notifications are designed) · my workspaces (leave) · **download my data** and **delete my account** · accepted terms and privacy version.
+
+## 4. Workspace settings (the admin)
+General (name, logo, default language and time zone, default planning-cycle and working-week settings) · **Members and invitations** (exists; add resend, role presets, bulk invite) · **Security** (require 2FA for everyone, allowed sign-in methods; SAML in Phase 9) · **Data** (retention for alignment participants, export workspace, delete workspace with a typed confirmation and a waiting period) · **Plan and billing** (plan, billable members, AI allowance; board 27) · **Integrations** (GitHub connection, later GitLab and Claude, see `04` and `05`) · **Staff access log** (section 5.5: every time Product Velocity staff opened or acted in this workspace, visible to its admins).
+
+## 5. Platform staff and super-admin levels
+### 5.1 Principle
+Early stage (now): Product Velocity staff are **super users** who can see and impersonate any workspace and see its data, to improve the product (decision by Ashu, R-014). The design is **capability-based from day one** so that later, as the team grows, staff accounts can exist that have **no access to customer roadmaps**, with content access only through a customer-approved grant. Switching must be a setting and a role change, not a rewrite.
+
+### 5.2 Levels (presets of capabilities)
+| Level | Intended for | Capabilities |
+|---|---|---|
+| **Super-admin** | Founders | Everything: manage staff and levels, settings, billing, content access, impersonation |
+| **Operator** | Ops and customer success | Console, plans, suspend, usage, support actions. Content and impersonation only if the capability is switched on for that person |
+| **Support** | Support agents | Account and usage metadata. Content only through a customer access grant |
+
+Capabilities stored per staff member: `can_view_content`, `can_impersonate`, `can_manage_billing`, `can_manage_staff`. Today every staff member is created with all of them on. Levels are only presets; the checks always look at the capabilities.
+
+### 5.3 Platform setting `content_access_mode`
+- `open` (**now**): a staff member with `can_view_content` may open any workspace's data.
+- `grant_required` (**later**): even with the capability, content access needs an active **access grant** from that workspace's admin (time-boxed, with scope and reason). Staff without the capability never get content, grant or not.
+Changing the mode is a super-admin action, logged. The grant mechanism is built before the first staff member without content access is hired (issue in section 8).
+
+### 5.4 How it is built (so tenant isolation stays intact)
+- Staff are **not** rows in `tenant_members`. A separate non-tenant schema holds `platform_staff`, `platform_settings`, `platform_access_log` and later `access_grants`. These tables are not exposed through the public API; they are reached only through `security definer` functions that check the caller's capabilities and write the log.
+- **Never loosen the normal tenant RLS for staff.** Content access goes through one explicit, narrow path (a function or policy that checks `can_view_content` and the mode) that is covered by two-tenant tests: a staff member without the capability, and a normal member of another workspace, must both be denied.
+- Every staff access is written to `platform_access_log` (who, which workspace, what, reason, start, end, read-only or write). Every write made while impersonating appears in the workspace's normal audit log with source `staff`, the staff member **and** the user being impersonated.
+- Staff accounts require 2FA. Only a super-admin can create staff or change levels; the last super-admin cannot be removed or downgraded.
+
+### 5.5 Impersonation rules
+- A reason is required; the session lasts 60 minutes and then ends.
+- A banner is always visible: "You are viewing as <name>, Product Velocity staff".
+- **Read-only by default.** Write mode is an explicit switch with its own reason (allowed today for super-admins).
+- While impersonating, these are **blocked**: approval-class actions (Approver actions, gate decisions, Ready for build), changing roles or billing, anything that sends (invitations, GitHub writes, report distribution), reading secrets (GitHub keys, tokens, password hashes). Claude's rule "Claude never approves" is unchanged.
+- **Transparency:** workspace admins can see the staff access log of their own workspace (settings, section 4), even in `open` mode.
+- Alignment voters stay anonymous: staff see voter identities only when impersonating an admin who could see them.
+
+### 5.6 Admin console (internal area, separate route group, staff only)
+- **Workspaces:** name, plan, billable members, last active, AI usage, status, GitHub connected yes/no.
+- **Workspace detail:** members, plan and seats, usage, staff access log, actions: change plan (manual until Stripe in Phase 9), extend trial, suspend and reactivate, **View as** (impersonate) a member, open workspace data (when allowed).
+- **Staff:** list, create, level and capabilities, deactivate.
+- **Platform settings:** `content_access_mode`, default plans.
+- **Access log:** all staff access across workspaces, filterable.
+
+## 6. Legal and trust (go-live items, see `14`)
+Open content access is a processor-access question. Before real customers: say so plainly in the terms and the privacy policy (who at Product Velocity can access customer data, why, and that every access is logged and visible to the customer admin); list it for enterprise security reviews; plan the switch to `grant_required` with the first staff member who should not see content.
+
+## 7. Open points
+- **Invitation email provider** (for example Resend on its free tier, or custom SMTP through Supabase). Ask Ashu before adding the dependency; needs the sending domain from `14`.
+- Account deletion when the person is the only admin of a workspace with other members: block with a clear message (proposal above).
+- Export format for "download my data" and "export workspace" (proposal: JSON plus CSV).
+- Enforcing plan and seat limits: tracked from day one, enforced after the pilot.
+
+## 8. Issues (order: foundation first)
+Foundation (phase 1 follow-ups): account page; invitation emails; platform staff foundation (tables, levels, capabilities, access log, MFA, tests). Before the pilot: workspace settings; admin console; staff content access and impersonation with the staff access log. Later (before the first no-content staff member): access grants and `grant_required` mode. Numbers are in `docs/REQUESTS.md`.
