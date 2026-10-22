@@ -92,3 +92,5 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Quick-add syntax `+group` (dashes for spaces, start of the name is enough); punctuation is not a difference there, while the grid picker shows a look-alike hint before creating · Claude (issue #38)
 - 2026-10-22 · Undo of a group merge is offered on the tidy-up screen right after the merge (items still in the target move back); it is not part of the grid's 20-step undo stack · Claude (issue #38)
 
+- 2026-10-23 · Platform staff are super users with full content access and impersonation for now (early-stage product improvement); built capability-based with levels (super-admin, operator, support) and a content_access_mode setting (open now, grant_required later) so no-content staff can be added as the team grows · Ashu (R-014)
+- 2026-10-23 · Account page, workspace settings, confirmed invitation emails and the internal admin console are specified in docs/15 · Ashu (R-015)

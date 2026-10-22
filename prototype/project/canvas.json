@@ -350,6 +350,30 @@
       "w": 1440,
       "h": 1000,
       "title": "27 Plan and billing"
+    },
+    "Account.dc.html": {
+      "x": 5160,
+      "y": 13700,
+      "w": 1440,
+      "h": 1000,
+      "title": "28 My account",
+      "expand": "fill"
+    },
+    "Workspace-settings.dc.html": {
+      "x": 6720,
+      "y": 13700,
+      "w": 1440,
+      "h": 1150,
+      "title": "29 Workspace settings",
+      "expand": "fill"
+    },
+    "Admin-console.dc.html": {
+      "x": 8280,
+      "y": 13700,
+      "w": 1440,
+      "h": 1250,
+      "title": "30 Staff console and view-as",
+      "expand": "fill"
     }
   },
   "order": [
@@ -395,7 +419,10 @@
     "Pricing.dc.html",
     "Item-alignment.dc.html",
     "Concept-review.dc.html",
-    "Billing.dc.html"
+    "Billing.dc.html",
+    "Account.dc.html",
+    "Workspace-settings.dc.html",
+    "Admin-console.dc.html"
   ],
   "notes": {},
   "designSystems": []

@@ -31,6 +31,7 @@ Owner: Ashu (product owner, not a full-time engineer). Ask when a decision chang
 7. **Participant privacy.** Alignment voters see anonymous results; groups with fewer than 5 voters are hidden; admins see names; consent/retention/deletion supported.
 8. **No individual performance metrics.** Velocity insights are team-level only.
 9. **No invented competitor claims** in any copy. Say "go-to-market ready", not "go-to-market".
+10. **Platform staff access is explicit.** Staff are not tenant members. Content access and impersonation are capability-checked, logged and visible to workspace admins; never loosen tenant RLS for staff; impersonation can never approve, send or read secrets. See `docs/15-ACCOUNTS-AND-ADMIN.md`.
 
 ## UX bar (the product lives or dies on speed)
 Quick-add row (name only required, Enter creates), inline cell edit, autosave with undo (⌘Z) everywhere, keyboard-first, peek panel instead of full pages, ⌘K palette, saved views, multi-select bulk bar, paste from Excel with column mapping, validation by stage not at creation, instant (optimistic) interactions. See PRD §6. Compact style: white, light greys, blue accent `#3347D9`, 13px type, 30–36px rows, IBM Plex Sans/Mono. Health states always carry a text label, never colour alone. WCAG AA.
