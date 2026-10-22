@@ -67,7 +67,7 @@ test("typed picker: type to filter, Enter chooses", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.getByRole("combobox", { name: /Choose an option/ })).toBeFocused();
   await page.keyboard.type("cou");
-  await expect(page.getByRole("option")).toHaveCount(1);
+  await expect(page.locator(".picker").getByRole("option")).toHaveCount(1);
   await page.keyboard.press("Enter");
   await expect(cell(page, "item-1", "moscow")).toHaveText("Could");
   await expect(strip(page)).toContainText("R-01 MoSCoW: Must to Could");

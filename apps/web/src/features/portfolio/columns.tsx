@@ -44,7 +44,7 @@ const WIDTH: Record<string, number> = {
   Select: 150, Text: 190, "Long text": 240, Number: 112, Currency: 120, Date: 116, "Date range": 170, Person: 190, "Person or text": 170,
   People: 190, Boolean: 96, Tags: 170, Links: 200, Relation: 150, Files: 170, Thread: 150, Structured: 170, Note: 150, System: 130, Computed: 124,
 };
-const WIDE: Record<string, number> = { initiative_name: 320, home_project: 160, stack_rank: 82, item_code: 84, project_rank: 92, health: 130 };
+const WIDE: Record<string, number> = { initiative_name: 320, home_project: 160, stack_rank: 104, item_code: 116, project_rank: 104, health: 130 };
 
 const num = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 2 });
 const when = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
