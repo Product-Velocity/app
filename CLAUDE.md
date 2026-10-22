@@ -9,7 +9,7 @@ Owner: Ashu (product owner, not a full-time engineer). Ask when a decision chang
 
 ## Source of truth
 - `docs/01-PRD.md` — what and why. `docs/06-BUILD-PLAN.md` — order of work and acceptance criteria.
-- `docs/reference/item-fields.csv` (= `Roadmap_v4_field_dictionary.xlsx`) — **the authoritative list of the 165 item fields**: key, type, storage, phase. Schema, grid columns and the field registry must match it exactly.
+- `docs/reference/item-fields.csv` (= `Roadmap_v4_field_dictionary.xlsx`) — **the authoritative list of the 165 item fields**: key, type, storage, phase. Schema, grid columns and the field registry must match it exactly. Default view columns and their order: `docs/reference/default-views.csv`.
 - `docs/03-DATA-MODEL.md`, `docs/04-GITHUB-SYNC.md`, `docs/05-AI-AND-MCP.md` — behaviour contracts.
 - `prototype/` — clickable design reference (Claude Design `.dc.html` boards). `docs/07-PROTOTYPE-MAP.md` maps screens to features. The prototype shows intent and layout; the docs win when they disagree. Prototype data is fictional (tenant "Meridian Media").
 - Anything marked **[SPIKE]** is unverified. Do the spike first (`docs/08`), record the result, then build.
