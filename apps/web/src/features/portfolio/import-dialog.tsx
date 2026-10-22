@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { convertRows, guessMapping, importableFields, MAX_IMPORT, parseTable, FIELD_BY_KEY, type ImportRow } from "@pv/domain";
+import { convertRows, guessMapping, importableFields, MAX_IMPORT, parseTable, resolveGroup, FIELD_BY_KEY, type ImportRow } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import type { Lookups } from "./types";
 
@@ -35,6 +35,18 @@ export function ImportDialog({ controller, lookups, defaultProject, initialText,
   );
   const good = rows.filter((r) => r.errors.length === 0);
   const bad = rows.length - good.length;
+  // groups in the sheet that the workspace does not have yet (an open list: they are created, never refused)
+  const newGroups = useMemo(() => {
+    const known = controller.groupNames();
+    const out = new Map<string, { name: string; similar: string[] }>();
+    for (const r of good) {
+      const t = r.values.theme;
+      if (typeof t !== "string") continue;
+      const g = resolveGroup(t, [...known, ...[...out.values()].map((x) => x.name)]);
+      if (g.kind === "new") out.set(g.name.toLowerCase(), { name: g.name, similar: g.similar });
+    }
+    return [...out.values()];
+  }, [good, controller]);
   const shown = [...new Set(mapping.filter((m): m is string => !!m))];
   const truncated = body.filter((r) => r.some((c) => c.trim() !== "")).length > MAX_IMPORT;
   const showValue = (key: string, v: unknown) => {
@@ -99,6 +111,11 @@ export function ImportDialog({ controller, lookups, defaultProject, initialText,
               {rows.length} {rows.length === 1 ? "row" : "rows"} read: {good.length} ready{bad > 0 ? `, ${bad} with problems (these are skipped)` : ""}.
               {truncated ? ` Only the first ${MAX_IMPORT} rows are used.` : ""}
             </p>
+            {newGroups.length > 0 && (
+              <p className="quick-add-summary" role="status">
+                New Initiative {newGroups.length === 1 ? "Group" : "Groups"} will be created: {newGroups.map((g) => g.name + (g.similar.length ? ` (looks like ${g.similar.join(", ")})` : "")).join("; ")}.
+              </p>
+            )}
             <div className="import-preview-wrap">
               <table className="import-preview">
                 <thead>

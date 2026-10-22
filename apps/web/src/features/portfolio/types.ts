@@ -16,6 +16,8 @@ export type GridItem = LoadedItem & { project_rank: number };
 export type Lookups = {
   projects: { id: string; name: string }[];
   members: { user_id: string; email: string }[];
+  /** Initiative Groups of the workspace (the list admins tidy up); the grid adds any group that is typed. */
+  groups?: string[];
 };
 
 export type { Role };

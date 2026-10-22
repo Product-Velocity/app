@@ -146,6 +146,17 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
         ...pickerDef(f, optionsFor(f.key), false),
       };
     }
+    if (f.key === "theme") {
+      // an open list: the picker offers the workspace's groups and lets you type a new one
+      return {
+        ...base,
+        editable: reasonFree(f) ? editable : false,
+        cellEditor: PickerEditor,
+        cellEditorPopup: true,
+        cellEditorParams: () => ({ options: controller.groupNames().map((g) => ({ value: g, label: g })), allowEmpty: true, emptyLabel: "No group", allowCreate: true }),
+        valueSetter: setter(f.key) as never,
+      };
+    }
     if (f.type === "Select" && f.allowed.length > 0) return { ...base, ...pickerDef(f, optionsFor(f.key), true) };
     if (f.type === "Currency" || f.type === "Date" || f.type === "Number") base.cellEditorParams = { useFormatter: true };
     return base;

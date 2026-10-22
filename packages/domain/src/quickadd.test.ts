@@ -106,3 +106,32 @@ describe("similarItems", () => {
     expect(similarItems("Search results page", many)).toHaveLength(3);
   });
 });
+
+describe("quick-add: +group", () => {
+  const withGroups = { ...ctx, defaultProject: "p1", groups: ["Onboarding", "Platform health", "Retention"] };
+  it("uses an existing group from the start of its name, ignoring case", () => {
+    const r = parseQuickAdd("Fix invites +onb", withGroups);
+    expect(r).toMatchObject({ ok: true, draft: { initiative_name: "Fix invites", theme: "Onboarding" } });
+    expect((r as { newGroup?: string }).newGroup).toBeUndefined();
+  });
+  it("dashes stand for spaces, so a two-word group can be typed", () => {
+    expect(parseQuickAdd("Speed up builds +platform-health", withGroups)).toMatchObject({ ok: true, draft: { theme: "Platform health" } });
+  });
+  it("creates a new group when nothing matches, and says so", () => {
+    const r = parseQuickAdd("Invoices page +billing-and-invoices", withGroups);
+    expect(r).toMatchObject({ ok: true, draft: { initiative_name: "Invoices page", theme: "billing and invoices" }, newGroup: "billing and invoices" });
+  });
+  it("treats punctuation as no difference, so +on-boarding is the existing Onboarding", () => {
+    expect(parseQuickAdd("Welcome mail +on-boarding", withGroups)).toMatchObject({ ok: true, draft: { theme: "Onboarding" } });
+  });
+  it("points out a look-alike (a typo) instead of silently creating it", () => {
+    const r = parseQuickAdd("Welcome mail +onbording", withGroups);
+    expect(r).toMatchObject({ ok: true, newGroup: "onbording", similarGroups: ["Onboarding"] });
+  });
+  it("more than one group starting the same way asks for more letters; a lone + or +group token inside words is not a group", () => {
+    const g = { ...ctx, defaultProject: "p1", groups: ["Growth loops", "Growth experiments"] };
+    expect(parseQuickAdd("Try this +grow", g)).toMatchObject({ ok: false, error: expect.stringContaining('More than one group starts with "grow"') });
+    expect(parseQuickAdd("C++ rewrite + tests", withGroups)).toMatchObject({ ok: true, draft: { initiative_name: "C++ rewrite + tests" } });
+    expect((parseQuickAdd("Plain name", withGroups) as { draft: Record<string, unknown> }).draft).not.toHaveProperty("theme");
+  });
+});

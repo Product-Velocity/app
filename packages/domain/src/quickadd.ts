@@ -1,3 +1,5 @@
+import { nearDuplicates, resolveGroup } from "./groups";
+
 /**
  * Quick-add: one line becomes one item. `#project @person M should` set fields, the rest is the name.
  * Everything typed is plain text; nothing here is ever treated as an instruction.
@@ -7,6 +9,8 @@ export type QuickAddCtx = {
   members: { user_id: string; email: string }[];
   /** Project to use when the line has no #project (the project of the row you are on, or the last one used). */
   defaultProject?: string | null;
+  /** Initiative Groups of the workspace, for `+group`. */
+  groups?: string[];
 };
 export type Draft = {
   initiative_name: string;
@@ -14,8 +18,12 @@ export type Draft = {
   product_manager: string | null;
   effort: string | null;
   moscow: string | null;
+  /** Initiative Group, when the line has +group. */
+  theme?: string;
 };
-export type QuickAddResult = { ok: true; draft: Draft; projectInherited: boolean } | { ok: false; error: string };
+export type QuickAddResult =
+  | { ok: true; draft: Draft; projectInherited: boolean; /** A group that does not exist yet and will be created. */ newGroup?: string; /** Existing groups that look like the new one. */ similarGroups?: string[] }
+  | { ok: false; error: string };
 
 const SIZES = new Set(["XS", "S", "M", "L", "XL"]);
 const MOSCOW: Record<string, string> = { must: "Must", should: "Should", could: "Could", "won't": "Won't", wont: "Won't" };
@@ -36,10 +44,12 @@ export function parseQuickAdd(input: string, ctx: QuickAddCtx): QuickAddResult {
   const tokens = input.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "").trim().split(/\s+/).filter(Boolean);
   let projectQuery: string | null = null;
   let personQuery: string | null = null;
+  let groupQuery: string | null = null;
   const words: string[] = [];
   for (const t of tokens) {
     if (/^#\S+/.test(t) && projectQuery === null) projectQuery = t.slice(1);
     else if (/^@\S+/.test(t) && personQuery === null) personQuery = t.slice(1);
+    else if (/^\+[A-Za-z0-9]\S*$/.test(t) && groupQuery === null) groupQuery = t.slice(1).replace(/[-_]+/g, " ");
     else words.push(t);
   }
   // size and MoSCoW are read from the end of the name only
@@ -81,7 +91,18 @@ export function parseQuickAdd(input: string, ctx: QuickAddCtx): QuickAddResult {
     }
     person = r.hit.user_id;
   }
-  return { ok: true, projectInherited: inherited, draft: { initiative_name: name, home_project: home, product_manager: person, effort, moscow } };
+  const draft: Draft = { initiative_name: name, home_project: home, product_manager: person, effort, moscow };
+  if (groupQuery === null) return { ok: true, projectInherited: inherited, draft };
+  const groups = ctx.groups ?? [];
+  const exact = resolveGroup(groupQuery, groups);
+  if (exact.kind === "existing") return { ok: true, projectInherited: inherited, draft: { ...draft, theme: exact.name } };
+  const byStart = pick(groups, (g) => g, groupQuery);
+  if ("hit" in byStart) return { ok: true, projectInherited: inherited, draft: { ...draft, theme: byStart.hit } };
+  if (byStart.error === "many") return { ok: false, error: `More than one group starts with "${groupQuery}". Type more of the name.` };
+  const created = groupQuery.trim();
+  if (created.length > 120) return { ok: false, error: "Keep the group name under 120 characters." };
+  const similar = nearDuplicates(created, groups);
+  return { ok: true, projectInherited: inherited, draft: { ...draft, theme: created }, newGroup: created, ...(similar.length ? { similarGroups: similar } : {}) };
 }
 
 export type ListRow = ({ ok: true; draft: Draft; projectInherited: boolean } | { ok: false; error: string }) & { line: number; text: string };

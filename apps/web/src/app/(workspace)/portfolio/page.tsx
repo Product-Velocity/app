@@ -6,9 +6,11 @@ export const metadata = { title: "Roadmap · Product Velocity" };
 export default async function PortfolioPage() {
   const { supabase, active, user } = await requireWorkspace("/portfolio");
   const { data: projects } = await supabase.from("projects").select("id, name").eq("tenant_id", active.tenantId).order("name");
+  const { data: groups } = await supabase.from("item_groups").select("name").eq("tenant_id", active.tenantId).order("name");
   const { data: people } = await supabase.rpc("tenant_directory", { p_tenant: active.tenantId });
   const lookups = {
     projects: (projects ?? []) as { id: string; name: string }[],
+    groups: ((groups ?? []) as { name: string }[]).map((g) => g.name),
     members: ((people ?? []) as { user_id: string; email: string }[]).map((p) => ({ user_id: p.user_id, email: p.email })),
   };
 

@@ -290,3 +290,4 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 .filter-chips { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; }
 .chip-x { border: 0; background: none; color: inherit; cursor: pointer; font: inherit; padding: 0 2px; }
 .dialog-check { align-items: flex-start; margin-top: 10px; }
+.picker-hint { margin: 0; padding: 4px 10px; color: #5b4a00; background: #fff8e1; font-size: 12px; }
