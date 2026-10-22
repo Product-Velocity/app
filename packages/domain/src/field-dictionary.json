@@ -1,6 +1,8 @@
 [
  {
   "n": "1",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Initiative ID",
   "key": "item_code",
   "group": "What",
@@ -26,6 +28,8 @@
  },
  {
   "n": "2",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Roadmap Category",
   "key": "roadmap_category",
   "group": "What",
@@ -50,6 +54,8 @@
  },
  {
   "n": "3",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Initiative Status",
   "key": "status",
   "group": "What",
@@ -77,6 +83,8 @@
  },
  {
   "n": "4",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Initiative Phase",
   "key": "initiative_phase",
   "group": "What",
@@ -105,6 +113,8 @@
  },
  {
   "n": "5",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Stack Rank",
   "key": "stack_rank",
   "group": "What",
@@ -125,6 +135,8 @@
  },
  {
   "n": "6",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Initiative Group",
   "key": "theme",
   "group": "What",
@@ -143,6 +155,8 @@
  },
  {
   "n": "7",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Initiative Name",
   "key": "initiative_name",
   "group": "What",
@@ -168,6 +182,8 @@
  },
  {
   "n": "8",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Focus Area",
   "key": "focus_area",
   "group": "What",
@@ -190,6 +206,8 @@
  },
  {
   "n": "9",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Change Type",
   "key": "change_type",
   "group": "What",
@@ -211,6 +229,8 @@
  },
  {
   "n": "11",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Initiative Hypothesis (IF / THEN / RESULTING IN)",
   "key": "hypothesis",
   "group": "What",
@@ -229,6 +249,8 @@
  },
  {
   "n": "12",
+  "storage": "Related table",
+  "phase": 1,
   "name": "Artifacts (links)",
   "key": "artifacts",
   "group": "What",
@@ -247,6 +269,8 @@
  },
  {
   "n": "13",
+  "storage": "Related table",
+  "phase": 2,
   "name": "Comments",
   "key": "comments",
   "group": "What",
@@ -265,6 +289,8 @@
  },
  {
   "n": "14",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Sponsor",
   "key": "sponsor",
   "group": "Who",
@@ -283,6 +309,8 @@
  },
  {
   "n": "15",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Request Origin",
   "key": "request_origin",
   "group": "Who",
@@ -308,6 +336,8 @@
  },
  {
   "n": "16",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Customers Requesting (#)",
   "key": "customers_requesting",
   "group": "Who",
@@ -326,6 +356,8 @@
  },
  {
   "n": "17",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Product Manager",
   "key": "product_manager",
   "group": "Who",
@@ -344,6 +376,8 @@
  },
  {
   "n": "18",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Engineering Manager",
   "key": "engineering_manager",
   "group": "Who",
@@ -362,6 +396,8 @@
  },
  {
   "n": "19",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Designer",
   "key": "designer",
   "group": "Who",
@@ -380,6 +416,8 @@
  },
  {
   "n": "20",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Analyst",
   "key": "analyst",
   "group": "Who",
@@ -398,6 +436,8 @@
  },
  {
   "n": "21",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Business Manager",
   "key": "business_manager",
   "group": "Who",
@@ -416,6 +456,8 @@
  },
  {
   "n": "22",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Primary KR (Metric Name)",
   "key": "kr_metric",
   "group": "Why",
@@ -434,6 +476,8 @@
  },
  {
   "n": "23",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Primary KR Start Value",
   "key": "kr_start",
   "group": "Why",
@@ -452,6 +496,8 @@
  },
  {
   "n": "24",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Primary KR Target Value",
   "key": "kr_target",
   "group": "Why",
@@ -470,6 +516,8 @@
  },
  {
   "n": "26",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Value Type",
   "key": "value_type",
   "group": "Why",
@@ -492,6 +540,8 @@
  },
  {
   "n": "27",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Value (EUR, 12-month run-rate)",
   "key": "value_12m",
   "group": "Why",
@@ -512,6 +562,8 @@
  },
  {
   "n": "28",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Value Basis",
   "key": "value_basis",
   "group": "Why",
@@ -535,6 +587,8 @@
  },
  {
   "n": "29",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Time to First Revenue (months)",
   "key": "time_to_first_revenue_months",
   "group": "Why",
@@ -553,6 +607,8 @@
  },
  {
   "n": "30",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Confidence",
   "key": "confidence",
   "group": "Why",
@@ -575,6 +631,8 @@
  },
  {
   "n": "31",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Effort (T-shirt)",
   "key": "effort",
   "group": "Why",
@@ -600,6 +658,8 @@
  },
  {
   "n": "32",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "MoSCoW",
   "key": "moscow",
   "group": "Why",
@@ -623,6 +683,8 @@
  },
  {
   "n": "34",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Estimate low (weeks)",
   "key": "estimate_low_weeks",
   "group": "Why",
@@ -641,6 +703,8 @@
  },
  {
   "n": "35",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Estimate high (weeks)",
   "key": "estimate_high_weeks",
   "group": "Why",
@@ -659,6 +723,8 @@
  },
  {
   "n": "37",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
   "name": "Confidence-weighted Value (EUR)",
   "key": "value_weighted",
   "group": "Why",
@@ -677,6 +743,8 @@
  },
  {
   "n": "38",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
   "name": "Weighted Value per Build-Week (EUR)",
   "key": "value_weighted_per_build_week",
   "group": "Why",
@@ -695,6 +763,8 @@
  },
  {
   "n": "39",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Cost of Not Doing (strategic risk)",
   "key": "cost_of_not_doing",
   "group": "Why",
@@ -713,6 +783,8 @@
  },
  {
   "n": "40",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Dependencies / Blockers",
   "key": "dependencies_blockers",
   "group": "Why",
@@ -731,6 +803,8 @@
  },
  {
   "n": "41",
+  "storage": "Related table",
+  "phase": 1,
   "name": "Depends On (Initiative IDs)",
   "key": "depends_on",
   "group": "Why",
@@ -749,6 +823,8 @@
  },
  {
   "n": "42",
+  "storage": "Related table",
+  "phase": 1,
   "name": "Related / Overlaps With (Initiative IDs)",
   "key": "related_to",
   "group": "Why",
@@ -767,6 +843,8 @@
  },
  {
   "n": "44",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Decision",
   "key": "decision",
   "group": "Decision",
@@ -791,6 +869,8 @@
  },
  {
   "n": "45",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Decided By",
   "key": "decided_by",
   "group": "Decision",
@@ -809,6 +889,8 @@
  },
  {
   "n": "46",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Decision Date",
   "key": "decision_date",
   "group": "Decision",
@@ -827,6 +909,8 @@
  },
  {
   "n": "47",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Next Review Date",
   "key": "next_review_date",
   "group": "Decision",
@@ -845,6 +929,8 @@
  },
  {
   "n": "48",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
   "name": "G2M Quarter",
   "key": "g2m_quarter",
   "group": "When",
@@ -865,6 +951,8 @@
  },
  {
   "n": "49",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Start Date",
   "key": "start_date",
   "group": "When",
@@ -883,6 +971,8 @@
  },
  {
   "n": "50",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "G2M Date (est)",
   "key": "g2m_date_est",
   "group": "When",
@@ -904,6 +994,8 @@
  },
  {
   "n": "51",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "G2M Date (actual)",
   "key": "g2m_date_actual",
   "group": "When",
@@ -922,6 +1014,8 @@
  },
  {
   "n": "52",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Start Discovery",
   "key": "start_discovery",
   "group": "When",
@@ -940,6 +1034,8 @@
  },
  {
   "n": "53",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Start Definition",
   "key": "start_definition",
   "group": "When",
@@ -958,6 +1054,8 @@
  },
  {
   "n": "54",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Start Building",
   "key": "start_building",
   "group": "When",
@@ -976,6 +1074,8 @@
  },
  {
   "n": "55",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Start Beta-Test",
   "key": "start_beta",
   "group": "When",
@@ -994,6 +1094,8 @@
  },
  {
   "n": "56",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Start Experiment",
   "key": "start_experiment",
   "group": "When",
@@ -1012,6 +1114,8 @@
  },
  {
   "n": "57",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Start Roll-Out",
   "key": "start_rollout",
   "group": "When",
@@ -1030,6 +1134,8 @@
  },
  {
   "n": "58",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Last Updated",
   "key": "last_edited_at",
   "group": "When",
@@ -1048,6 +1154,8 @@
  },
  {
   "n": "59",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Audience",
   "key": "audience",
   "group": "Go-to-market",
@@ -1072,6 +1180,8 @@
  },
  {
   "n": "60",
+  "storage": "Related table",
+  "phase": 1,
   "name": "Target Markets / Scope",
   "key": "target_scope",
   "group": "Go-to-market",
@@ -1090,6 +1200,8 @@
  },
  {
   "n": "61",
+  "storage": "Related table",
+  "phase": 1,
   "name": "Live Markets / Scope",
   "key": "live_scope",
   "group": "Go-to-market",
@@ -1108,6 +1220,8 @@
  },
  {
   "n": "62",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Target Customers (#)",
   "key": "target_customers",
   "group": "Go-to-market",
@@ -1126,6 +1240,8 @@
  },
  {
   "n": "63",
+  "storage": "Column on items",
+  "phase": 7,
   "name": "Customers Live (#)",
   "key": "customers_live",
   "group": "Go-to-market",
@@ -1144,6 +1260,8 @@
  },
  {
   "n": "64",
+  "storage": "Column on items",
+  "phase": 7,
   "name": "Roll-out %",
   "key": "rollout_pct",
   "group": "Go-to-market",
@@ -1168,6 +1286,8 @@
  },
  {
   "n": "65",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 7,
   "name": "% Adoption (live / target customers)",
   "key": "adoption_pct",
   "group": "Go-to-market",
@@ -1187,6 +1307,8 @@
  },
  {
   "n": "66",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "GTM / Enablement Notes",
   "key": "gtm_enablement_notes",
   "group": "Go-to-market",
@@ -1205,6 +1327,8 @@
  },
  {
   "n": "67",
+  "storage": "Column on items",
+  "phase": 7,
   "name": "Realized KR Value",
   "key": "realized_kr_value",
   "group": "Outcomes",
@@ -1223,6 +1347,8 @@
  },
  {
   "n": "68",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 7,
   "name": "% Realized KR Value",
   "key": "kr_realized_pct",
   "group": "Outcomes",
@@ -1241,6 +1367,8 @@
  },
  {
   "n": "69",
+  "storage": "Column on items",
+  "phase": 7,
   "name": "Realized EUR per year",
   "key": "realized_per_year",
   "group": "Outcomes",
@@ -1259,6 +1387,8 @@
  },
  {
   "n": "70",
+  "storage": "Column on items",
+  "phase": 7,
   "name": "Measured Period",
   "key": "measured_period",
   "group": "Outcomes",
@@ -1277,6 +1407,8 @@
  },
  {
   "n": "71",
+  "storage": "Column on items",
+  "phase": 7,
   "name": "Outcome Verdict",
   "key": "outcome_verdict",
   "group": "Outcomes",
@@ -1300,6 +1432,8 @@
  },
  {
   "n": "72",
+  "storage": "Column on items",
+  "phase": 7,
   "name": "Learning",
   "key": "learning",
   "group": "Outcomes",
@@ -1318,6 +1452,8 @@
  },
  {
   "n": "73",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
   "name": "Discovery Time (days)",
   "key": "time_discovery_days",
   "group": "Efficiency",
@@ -1336,6 +1472,8 @@
  },
  {
   "n": "74",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
   "name": "Definition Time (days)",
   "key": "time_definition_days",
   "group": "Efficiency",
@@ -1354,6 +1492,8 @@
  },
  {
   "n": "75",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
   "name": "Building Time (days)",
   "key": "time_building_days",
   "group": "Efficiency",
@@ -1372,6 +1512,8 @@
  },
  {
   "n": "76",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
   "name": "Beta-Test Time (days)",
   "key": "time_beta_days",
   "group": "Efficiency",
@@ -1390,6 +1532,8 @@
  },
  {
   "n": "77",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
   "name": "Experiment Time (days)",
   "key": "time_experiment_days",
   "group": "Efficiency",
@@ -1408,6 +1552,8 @@
  },
  {
   "n": "78",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
   "name": "Roll-Out Time (days)",
   "key": "time_rollout_days",
   "group": "Efficiency",
@@ -1426,6 +1572,8 @@
  },
  {
   "n": "79",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
   "name": "Time to Market (days)",
   "key": "time_to_market_days",
   "group": "Efficiency",
@@ -1444,6 +1592,8 @@
  },
  {
   "n": "80",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
   "name": "Actual Build (weeks)",
   "key": "actual_build_weeks",
   "group": "Efficiency",
@@ -1462,6 +1612,8 @@
  },
  {
   "n": "81",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
   "name": "Build vs Estimate High (%)",
   "key": "build_vs_estimate_high_pct",
   "group": "Efficiency",
@@ -1480,6 +1632,8 @@
  },
  {
   "n": "82",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
   "name": "Blocked Days",
   "key": "blocked_days",
   "group": "Efficiency",
@@ -1498,6 +1652,8 @@
  },
  {
   "n": "83",
+  "storage": "Column on items",
+  "phase": 7,
   "name": "Support Hours Saved per Month",
   "key": "support_hours_saved_month",
   "group": "Efficiency",
@@ -1516,6 +1672,8 @@
  },
  {
   "n": "84",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Source",
   "key": "source",
   "group": "Trust",
@@ -1534,6 +1692,8 @@
  },
  {
   "n": "N1",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Summary (participant-facing)",
   "key": "summary",
   "group": "What",
@@ -1552,6 +1712,8 @@
  },
  {
   "n": "H1",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Health",
   "key": "health",
   "group": "What",
@@ -1577,6 +1739,8 @@
  },
  {
   "n": "N2",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Horizon",
   "key": "horizon",
   "group": "What",
@@ -1599,6 +1763,8 @@
  },
  {
   "n": "N3",
+  "storage": "Related table",
+  "phase": 1,
   "name": "Tags",
   "key": "tags",
   "group": "What",
@@ -1617,6 +1783,8 @@
  },
  {
   "n": "N4",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Planned Start",
   "key": "planned_start",
   "group": "When",
@@ -1635,6 +1803,8 @@
  },
  {
   "n": "N5",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
   "name": "G2M Slip (days)",
   "key": "g2m_slip_days",
   "group": "When",
@@ -1653,6 +1823,8 @@
  },
  {
   "n": "N6",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Primary KR Unit",
   "key": "kr_unit",
   "group": "Why",
@@ -1677,6 +1849,8 @@
  },
  {
   "n": "N7",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Primary KR Direction",
   "key": "kr_direction",
   "group": "Why",
@@ -1698,6 +1872,8 @@
  },
  {
   "n": "N8",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Estimate Basis",
   "key": "estimate_basis",
   "group": "Why",
@@ -1721,6 +1897,8 @@
  },
  {
   "n": "N9",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Assignees",
   "key": "assignees",
   "group": "Delivery (GitHub)",
@@ -1739,6 +1917,8 @@
  },
  {
   "n": "N10",
+  "storage": "Related table, GitHub-synced",
+  "phase": 3,
   "name": "GitHub Links",
   "key": "github_links",
   "group": "Delivery (GitHub)",
@@ -1757,6 +1937,8 @@
  },
  {
   "n": "N11",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "GitHub Sync State",
   "key": "sync_state",
   "group": "Delivery (GitHub)",
@@ -1781,6 +1963,8 @@
  },
  {
   "n": "N12",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "GitHub State",
   "key": "gh_state",
   "group": "Delivery (GitHub)",
@@ -1803,6 +1987,8 @@
  },
  {
   "n": "N13",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Issues Closed (#)",
   "key": "issues_closed",
   "group": "Delivery (GitHub)",
@@ -1821,6 +2007,8 @@
  },
  {
   "n": "N14",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Issues Total (#)",
   "key": "issues_total",
   "group": "Delivery (GitHub)",
@@ -1839,6 +2027,8 @@
  },
  {
   "n": "N15",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Delivery Progress %",
   "key": "delivery_progress_pct",
   "group": "Delivery (GitHub)",
@@ -1858,6 +2048,8 @@
  },
  {
   "n": "N16",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Open PRs (#)",
   "key": "open_prs",
   "group": "Delivery (GitHub)",
@@ -1876,6 +2068,8 @@
  },
  {
   "n": "N17",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Last GitHub Activity",
   "key": "gh_last_activity",
   "group": "Delivery (GitHub)",
@@ -1894,6 +2088,8 @@
  },
  {
   "n": "N32",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Merged PRs (#)",
   "key": "merged_prs",
   "group": "Delivery (GitHub)",
@@ -1912,6 +2108,8 @@
  },
  {
   "n": "N33",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Project Status (GitHub)",
   "key": "gh_project_status",
   "group": "Delivery (GitHub)",
@@ -1934,6 +2132,8 @@
  },
  {
   "n": "N34",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Iteration / Sprint (GitHub)",
   "key": "gh_iteration",
   "group": "Delivery (GitHub)",
@@ -1952,6 +2152,8 @@
  },
  {
   "n": "N35",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "GitHub Target Date",
   "key": "gh_target_date",
   "group": "Delivery (GitHub)",
@@ -1970,6 +2172,8 @@
  },
  {
   "n": "N36",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Blocked Issues (#)",
   "key": "blocked_issues",
   "group": "Delivery (GitHub)",
@@ -1988,6 +2192,8 @@
  },
  {
   "n": "N37",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Stale Issues (#)",
   "key": "stale_issues",
   "group": "Delivery (GitHub)",
@@ -2006,6 +2212,8 @@
  },
  {
   "n": "N38",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Scope Added (#)",
   "key": "scope_added",
   "group": "Delivery (GitHub)",
@@ -2024,6 +2232,8 @@
  },
  {
   "n": "N39",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Schedule Variance (pp)",
   "key": "schedule_variance_pp",
   "group": "Delivery (GitHub)",
@@ -2042,6 +2252,8 @@
  },
  {
   "n": "N40",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Latest Release",
   "key": "latest_release",
   "group": "Delivery (GitHub)",
@@ -2060,6 +2272,8 @@
  },
  {
   "n": "N41",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "CI Status",
   "key": "ci_status",
   "group": "Delivery (GitHub)",
@@ -2082,6 +2296,8 @@
  },
  {
   "n": "N42",
+  "storage": "Related table, GitHub-synced",
+  "phase": 3,
   "name": "Repositories",
   "key": "repositories",
   "group": "Delivery (GitHub)",
@@ -2100,6 +2316,8 @@
  },
  {
   "n": "A1",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 5,
   "name": "Crowd Rank",
   "key": "crowd_rank",
   "group": "Alignment",
@@ -2118,6 +2336,8 @@
  },
  {
   "n": "A2",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 5,
   "name": "Crowd Score",
   "key": "crowd_score",
   "group": "Alignment",
@@ -2136,6 +2356,8 @@
  },
  {
   "n": "A3",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 5,
   "name": "Consensus",
   "key": "crowd_consensus",
   "group": "Alignment",
@@ -2154,6 +2376,8 @@
  },
  {
   "n": "A4",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 5,
   "name": "Votes (#)",
   "key": "crowd_votes",
   "group": "Alignment",
@@ -2172,6 +2396,8 @@
  },
  {
   "n": "N18",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Visibility",
   "key": "visibility",
   "group": "Trust",
@@ -2193,6 +2419,8 @@
  },
  {
   "n": "N19",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Last Reviewed",
   "key": "last_reviewed_at",
   "group": "Trust",
@@ -2211,6 +2439,8 @@
  },
  {
   "n": "N20",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
   "name": "Review Overdue",
   "key": "review_overdue",
   "group": "Trust",
@@ -2232,6 +2462,8 @@
  },
  {
   "n": "N21",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Created At",
   "key": "created_at",
   "group": "Trust",
@@ -2250,6 +2482,8 @@
  },
  {
   "n": "N23",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Created By",
   "key": "created_by",
   "group": "Trust",
@@ -2268,6 +2502,8 @@
  },
  {
   "n": "N24",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Last Edited By",
   "key": "last_edited_by",
   "group": "Trust",
@@ -2286,6 +2522,8 @@
  },
  {
   "n": "N25",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Phase Changed At",
   "key": "phase_changed_at",
   "group": "Trust",
@@ -2304,6 +2542,8 @@
  },
  {
   "n": "N26",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
   "name": "Days in Current Phase",
   "key": "days_in_phase",
   "group": "Trust",
@@ -2322,6 +2562,8 @@
  },
  {
   "n": "N27",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
   "name": "Item Age (days)",
   "key": "item_age_days",
   "group": "Trust",
@@ -2340,6 +2582,8 @@
  },
  {
   "n": "N28",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Status Changed At",
   "key": "status_changed_at",
   "group": "Trust",
@@ -2358,6 +2602,8 @@
  },
  {
   "n": "N29",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Created Via",
   "key": "created_via",
   "group": "Trust",
@@ -2381,6 +2627,8 @@
  },
  {
   "n": "N30",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "AI Draft (needs review)",
   "key": "ai_draft",
   "group": "Trust",
@@ -2399,6 +2647,8 @@
  },
  {
   "n": "N31",
+  "storage": "Related table",
+  "phase": 4,
   "name": "Source Document",
   "key": "source_document",
   "group": "Trust",
@@ -2417,6 +2667,8 @@
  },
  {
   "n": "N22",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Archived",
   "key": "archived",
   "group": "Trust",
@@ -2435,6 +2687,8 @@
  },
  {
   "n": "V1",
+  "storage": "Related table",
+  "phase": 1,
   "name": "Home Project",
   "key": "home_project",
   "group": "What",
@@ -2454,6 +2708,8 @@
  },
  {
   "n": "V2",
+  "storage": "Related table",
+  "phase": 1,
   "name": "Contributing Teams",
   "key": "contributing_teams",
   "group": "What",
@@ -2473,6 +2729,8 @@
  },
  {
   "n": "V3",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
   "name": "Rank in Project",
   "key": "project_rank",
   "group": "What",
@@ -2491,6 +2749,8 @@
  },
  {
   "n": "V4",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Previous Rank",
   "key": "previous_rank",
   "group": "What",
@@ -2509,6 +2769,8 @@
  },
  {
   "n": "V5",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Value Proposition (customer-safe)",
   "key": "value_proposition",
   "group": "What",
@@ -2527,6 +2789,8 @@
  },
  {
   "n": "V6",
+  "storage": "Related table",
+  "phase": 1,
   "name": "Target Segments (customer-safe)",
   "key": "target_segments",
   "group": "What",
@@ -2545,6 +2809,8 @@
  },
  {
   "n": "V7",
+  "storage": "Related table",
+  "phase": 1,
   "name": "Screenshots",
   "key": "screenshots",
   "group": "What",
@@ -2563,6 +2829,8 @@
  },
  {
   "n": "V8",
+  "storage": "Column on items",
+  "phase": 1,
   "name": "Date Precision",
   "key": "date_precision",
   "group": "When",
@@ -2585,6 +2853,8 @@
  },
  {
   "n": "V9",
+  "storage": "Column on items (jsonb)",
+  "phase": 1,
   "name": "Effort by Skill",
   "key": "effort_by_skill",
   "group": "Why",
@@ -2603,6 +2873,8 @@
  },
  {
   "n": "V10",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 5,
   "name": "Fit by Team",
   "key": "fit_by_team",
   "group": "Why",
@@ -2627,6 +2899,8 @@
  },
  {
   "n": "V11",
+  "storage": "Column on items",
+  "phase": 4,
   "name": "Spec Status",
   "key": "spec_status",
   "group": "Spec",
@@ -2650,6 +2924,8 @@
  },
  {
   "n": "V12",
+  "storage": "Related table",
+  "phase": 4,
   "name": "Documents",
   "key": "documents",
   "group": "Spec",
@@ -2668,6 +2944,8 @@
  },
  {
   "n": "V13",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 4,
   "name": "Ready for Build",
   "key": "ready_for_build",
   "group": "Spec",
@@ -2690,6 +2968,8 @@
  },
  {
   "n": "V14",
+  "storage": "System-set column (read-only)",
+  "phase": 4,
   "name": "Ready for Build By / At",
   "key": "ready_for_build_by",
   "group": "Spec",
@@ -2708,6 +2988,8 @@
  },
  {
   "n": "V15",
+  "storage": "Column on items",
+  "phase": 4,
   "name": "Agent-ready",
   "key": "agent_ready",
   "group": "Spec",
@@ -2729,6 +3011,8 @@
  },
  {
   "n": "V16",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 4,
   "name": "Breakdown Route",
   "key": "breakdown_route",
   "group": "Delivery (GitHub)",
@@ -2751,6 +3035,8 @@
  },
  {
   "n": "V17",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 4,
   "name": "Breakdown Status",
   "key": "breakdown_status",
   "group": "Delivery (GitHub)",
@@ -2775,6 +3061,8 @@
  },
  {
   "n": "V18",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
   "name": "Planned Scope (#)",
   "key": "planned_scope",
   "group": "Delivery (GitHub)",
@@ -2793,6 +3081,8 @@
  },
  {
   "n": "V19",
+  "storage": "Column on items",
+  "phase": 5,
   "name": "Planning Status",
   "key": "planning_status",
   "group": "Planning",
@@ -2817,6 +3107,8 @@
  },
  {
   "n": "V20",
+  "storage": "Related table",
+  "phase": 5,
   "name": "Cycle",
   "key": "cycle",
   "group": "Planning",
@@ -2835,6 +3127,8 @@
  },
  {
   "n": "V21",
+  "storage": "System-set column (read-only)",
+  "phase": 5,
   "name": "Candidate Tag",
   "key": "candidate_tag",
   "group": "Planning",
@@ -2859,6 +3153,8 @@
  },
  {
   "n": "V22",
+  "storage": "System-set column (read-only)",
+  "phase": 5,
   "name": "Deferred Count",
   "key": "deferred_count",
   "group": "Planning",
@@ -2877,6 +3173,8 @@
  },
  {
   "n": "V23",
+  "storage": "Column on items",
+  "phase": 5,
   "name": "Deferral Reason",
   "key": "deferral_reason",
   "group": "Planning",
@@ -2895,6 +3193,8 @@
  },
  {
   "n": "V24",
+  "storage": "System-set column (read-only)",
+  "phase": 5,
   "name": "Added After Commit",
   "key": "added_after_commit",
   "group": "Planning",
@@ -2916,6 +3216,8 @@
  },
  {
   "n": "V25",
+  "storage": "System-set column (read-only)",
+  "phase": 7,
   "name": "Current Gate",
   "key": "current_gate",
   "group": "Gates",
@@ -2941,6 +3243,8 @@
  },
  {
   "n": "V26",
+  "storage": "System-set column (read-only)",
+  "phase": 7,
   "name": "Gate Status",
   "key": "gate_status",
   "group": "Gates",
@@ -2968,6 +3272,8 @@
  },
  {
   "n": "V27",
+  "storage": "Column on items",
+  "phase": 7,
   "name": "Next Gate Due",
   "key": "next_gate_due",
   "group": "Gates",
@@ -2986,6 +3292,8 @@
  },
  {
   "n": "V28",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 8,
   "name": "Alignment Status",
   "key": "alignment_status",
   "group": "Alignment",
@@ -3012,6 +3320,8 @@
  },
  {
   "n": "V29",
+  "storage": "Column on items",
+  "phase": 8,
   "name": "Why State",
   "key": "align_why",
   "group": "Alignment",
@@ -3036,6 +3346,8 @@
  },
  {
   "n": "V30",
+  "storage": "Column on items",
+  "phase": 8,
   "name": "What State",
   "key": "align_what",
   "group": "Alignment",
@@ -3060,6 +3372,8 @@
  },
  {
   "n": "V31",
+  "storage": "Column on items",
+  "phase": 8,
   "name": "How State",
   "key": "align_how",
   "group": "Alignment",
@@ -3084,6 +3398,8 @@
  },
  {
   "n": "V32",
+  "storage": "Column on items",
+  "phase": 8,
   "name": "When State",
   "key": "align_when",
   "group": "Alignment",
@@ -3108,6 +3424,8 @@
  },
  {
   "n": "V33",
+  "storage": "Column on items",
+  "phase": 7,
   "name": "Outcome Status",
   "key": "outcome_status",
   "group": "Outcomes",
@@ -3133,6 +3451,8 @@
  },
  {
   "n": "V34",
+  "storage": "Column on items",
+  "phase": 7,
   "name": "Outcome Review Date",
   "key": "outcome_review_date",
   "group": "Outcomes",
@@ -3151,6 +3471,8 @@
  },
  {
   "n": "V35",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 7,
   "name": "Value vs Prediction (%)",
   "key": "value_variance_pct",
   "group": "Outcomes",
@@ -3169,6 +3491,8 @@
  },
  {
   "n": "V36",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 7,
   "name": "Time to First Use (days)",
   "key": "time_to_first_use_days",
   "group": "Outcomes",
@@ -3188,6 +3512,8 @@
  },
  {
   "n": "V37",
+  "storage": "Column on items",
+  "phase": 7,
   "name": "Retention (%)",
   "key": "retention_pct",
   "group": "Outcomes",
@@ -3206,6 +3532,8 @@
  },
  {
   "n": "V38",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
   "name": "Created Via Values",
   "key": "created_via_values",
   "group": "Trust",
@@ -3231,6 +3559,8 @@
  },
  {
   "n": "V39",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 1,
   "name": "Locked (GitHub-driven)",
   "key": "locked_by_source",
   "group": "Trust",

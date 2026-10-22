@@ -30,7 +30,7 @@ afterAll(async () => {
 const ranks = async (tenant: string, cycle: string | null = null) =>
   (
     await db.admin.query(
-      "select title, stack_rank from public.items where tenant_id = $1 and cycle_id is not distinct from $2 order by stack_rank",
+      "select initiative_name as title, stack_rank from public.items where tenant_id = $1 and cycle_id is not distinct from $2 order by stack_rank",
       [tenant, cycle],
     )
   ).rows.map((r) => [r.title, r.stack_rank]);
@@ -41,7 +41,7 @@ const addItem = (user: string, tenant: string, title: string, project: string, o
     async (q) =>
       (
         await q(
-          "insert into public.items (tenant_id, title, home_project_id, cycle_id) values ($1, $2, $3, $4) returning id, key, stack_rank",
+          "insert into public.items (tenant_id, initiative_name, home_project_id, cycle_id) values ($1, $2, $3, $4) returning id, item_code as key, stack_rank",
           [tenant, title, project, opts.cycle ?? null],
         )
       ).rows[0],
@@ -69,7 +69,7 @@ describe("who can do what", () => {
   it("viewer, commenter and leadership cannot change items", async () => {
     for (const u of [f.carol, commenter, leader]) {
       expect(await errorCode(addItem(u, f.tenantA, "Nope", f.seedA.project))).toBe(DENIED);
-      const n = await db.asUser(u, async (q) => (await q("update public.items set title = 'x'")).rowCount, { commit: true });
+      const n = await db.asUser(u, async (q) => (await q("update public.items set initiative_name = 'x'")).rowCount, { commit: true });
       expect(n).toBe(0);
       const d = await db.asUser(u, async (q) => (await q("delete from public.items")).rowCount, { commit: true });
       expect(d).toBe(0);
@@ -81,7 +81,7 @@ describe("who can do what", () => {
     const a = await addItem(creator, f.tenantA, "By creator", f.seedA.project);
     const b = await addItem(f.alice, f.tenantA, "By admin", f.seedA.project);
     for (const [u, id] of [[creator, a.id], [f.alice, b.id]] as const) {
-      const n = await db.asUser(u, async (q) => (await q("update public.items set title = title || '!' where id = $1", [id])).rowCount, { commit: true });
+      const n = await db.asUser(u, async (q) => (await q("update public.items set initiative_name = initiative_name || '!' where id = $1", [id])).rowCount, { commit: true });
       expect(n).toBe(1);
     }
     for (const id of [a.id, b.id]) {
@@ -114,7 +114,7 @@ describe("quick-add defaults, keys and stack rank", () => {
 
   it("keys count per tenant and never repeat", async () => {
     const x = await addItem(f.bob, f.tenantB, "B item", f.seedB.project);
-    const keysB = (await db.admin.query("select key from public.items where tenant_id = $1 order by key", [f.tenantB])).rows.map((r) => r.key);
+    const keysB = (await db.admin.query("select item_code as key from public.items where tenant_id = $1 order by item_code", [f.tenantB])).rows.map((r) => r.key);
     expect(new Set(keysB).size).toBe(keysB.length);
     expect(keysB).toContain("R-01"); // tenant B starts at R-01 independently of tenant A
     expect(x.key).toBe(`R-${String(keysB.length).padStart(2, "0")}`);
@@ -150,7 +150,7 @@ describe("move_item: re-rank in one transaction, audited", () => {
   });
 
   it("moves an item down", async () => {
-    const first = (await db.admin.query("select id, title from public.items where tenant_id = $1 and cycle_id is null and stack_rank = 1", [f.tenantA])).rows[0];
+    const first = (await db.admin.query("select id, initiative_name as title from public.items where tenant_id = $1 and cycle_id is null and stack_rank = 1", [f.tenantA])).rows[0];
     const n = (await ranks(f.tenantA)).length;
     await move(creator, first.id, n);
     const after = await ranks(f.tenantA);
@@ -199,7 +199,7 @@ describe("move_item: re-rank in one transaction, audited", () => {
     const owner = await createUser(db, "delete-me@example.test");
     const tenant = await db.asUser(owner, async (q) => (await q("select public.create_tenant('Gone') as id")).rows[0].id as string, { commit: true });
     const project = (await db.admin.query("insert into public.projects (tenant_id, name) values ($1, 'P') returning id", [tenant])).rows[0].id;
-    for (const n of ["a", "b", "c"]) await db.admin.query("insert into public.items (tenant_id, title, home_project_id) values ($1, $2, $3)", [tenant, n, project]);
+    for (const n of ["a", "b", "c"]) await db.admin.query("insert into public.items (tenant_id, initiative_name, home_project_id) values ($1, $2, $3)", [tenant, n, project]);
     await db.admin.query("delete from public.tenants where id = $1", [tenant]);
     expect((await db.admin.query("select count(*)::int n from public.items where tenant_id = $1", [tenant])).rows[0].n).toBe(0);
   });
@@ -208,7 +208,7 @@ describe("move_item: re-rank in one transaction, audited", () => {
 describe("GitHub-driven fields are not user-writable", () => {
   const columns: [string, string][] = [
     ["status", "'closed'"],
-    ["delivery_progress", "50"],
+    ["delivery_progress_pct", "50"],
     ["planned_scope", "4"],
     ["scope_added", "2"],
     ["github_issue_url", "'https://github.com/x/y/issues/1'"],
@@ -223,14 +223,14 @@ describe("GitHub-driven fields are not user-writable", () => {
   it.each(columns)("%s cannot be set on insert either", async (col, val) => {
     const code = await errorCode(
       db.asUser(f.alice, (q) =>
-        q(`insert into public.items (tenant_id, title, home_project_id, ${col}) values ($1, 'x', $2, ${val})`, [f.tenantA, f.seedA.project]),
+        q(`insert into public.items (tenant_id, initiative_name, home_project_id, ${col}) values ($1, 'x', $2, ${val})`, [f.tenantA, f.seedA.project]),
       ),
     );
     expect(code).toBe(DENIED);
   });
 
   it("neither can key, rank, previous rank, cycle or tenant", async () => {
-    for (const set of ["key = 'R-99'", "stack_rank = 99", "previous_rank = 1", "cycle_id = gen_random_uuid()", `tenant_id = '${f.tenantB}'`]) {
+    for (const set of ["item_code = 'R-99'", "stack_rank = 99", "previous_rank = 1", "cycle_id = gen_random_uuid()", `tenant_id = '${f.tenantB}'`]) {
       expect(await errorCode(db.asUser(f.alice, (q) => q(`update public.items set ${set} where tenant_id = $1`, [f.tenantA]))), set).toBe(DENIED);
     }
   });
@@ -238,7 +238,7 @@ describe("GitHub-driven fields are not user-writable", () => {
   it("the sync engine (service role) can write them, and it is audited with its source", async () => {
     const id = await fresh("Sync target");
     await db.asService(
-      (q) => q("update public.items set status = 'in_progress', delivery_progress = 40, github_issue_url = 'https://github.com/x/y/issues/7', last_synced_at = now() where id = $1", [id]),
+      (q) => q("update public.items set status = 'in_progress', delivery_progress_pct = 40, github_issue_url = 'https://github.com/x/y/issues/7', last_synced_at = now() where id = $1", [id]),
       { via: "GitHub webhook", commit: true },
     );
     const a = (await db.admin.query("select actor_id, via, new from public.audit_log where entity = 'items' and entity_id = $1 and field = 'status' order by id desc limit 1", [id])).rows[0];
@@ -249,18 +249,18 @@ describe("GitHub-driven fields are not user-writable", () => {
 describe("Claude and service accounts never set rank, Decision or Value", () => {
   it("a human editor can set value and decision", async () => {
     const id = await fresh("Valued");
-    const n = await db.asUser(creator, async (q) => (await q("update public.items set value = 120000, confidence = 70, decision = 'go' where id = $1", [id])).rowCount, { commit: true, via: "UI" });
+    const n = await db.asUser(creator, async (q) => (await q("update public.items set value_12m = 120000, confidence = 'High', decision = 'Go' where id = $1", [id])).rowCount, { commit: true, via: "UI" });
     expect(n).toBe(1);
   });
 
   it("source 'Claude MCP' is blocked from value, decision and rank, but may edit other fields", async () => {
     const id = await fresh("Claude target");
-    for (const set of ["value = 1", "decision = 'stop'"]) {
+    for (const set of ["value_12m = 1", "decision = 'Kill'"]) {
       expect(await errorCode(db.asUser(f.alice, (q) => q(`update public.items set ${set} where id = $1`, [id]), { via: "Claude MCP" })), set).toBe(BLOCKED);
     }
     expect(await errorCode(move(f.alice, id, 1, "Claude MCP"))).toBe(BLOCKED);
-    expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.items (tenant_id, title, home_project_id, value) values ($1, 'AI draft', $2, 5)", [f.tenantA, f.seedA.project]), { via: "Claude MCP" }))).toBe(BLOCKED);
-    expect(await db.asUser(f.alice, async (q) => (await q("update public.items set title = 'Renamed by Claude', summary = 'draft' where id = $1", [id])).rowCount, { via: "Claude MCP", commit: true })).toBe(1);
+    expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.items (tenant_id, initiative_name, home_project_id, value_12m) values ($1, 'AI draft', $2, 5)", [f.tenantA, f.seedA.project]), { via: "Claude MCP" }))).toBe(BLOCKED);
+    expect(await db.asUser(f.alice, async (q) => (await q("update public.items set initiative_name = 'Renamed by Claude', summary = 'draft' where id = $1", [id])).rowCount, { via: "Claude MCP", commit: true })).toBe(1);
     // Claude can add a draft item; it just goes to the end of the list and has no value or decision
     const draft = await addItem(f.alice, f.tenantA, "AI draft", f.seedA.project, { via: "Claude MCP" });
     expect(draft.stack_rank).toBeGreaterThan(0);
@@ -277,7 +277,7 @@ describe("Claude and service accounts never set rank, Decision or Value", () => 
 
   it("a service-account member is blocked the same way", async () => {
     const id = await fresh("Bot target");
-    expect(await errorCode(db.asUser(bot, (q) => q("update public.items set value = 9 where id = $1", [id]), { via: "API" }))).toBe(BLOCKED);
+    expect(await errorCode(db.asUser(bot, (q) => q("update public.items set value_12m = 9 where id = $1", [id]), { via: "API" }))).toBe(BLOCKED);
     expect(await errorCode(move(bot, id, 1, "API"))).toBe(BLOCKED);
   });
 });
@@ -285,9 +285,9 @@ describe("Claude and service accounts never set rank, Decision or Value", () => 
 describe("data integrity", () => {
   it("rejects references to another tenant's rows", async () => {
     // item -> project of another tenant
-    expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.items (tenant_id, title, home_project_id) values ($1, 'x', $2)", [f.tenantA, f.seedB.project])))).toBe(FK);
+    expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.items (tenant_id, initiative_name, home_project_id) values ($1, 'x', $2)", [f.tenantA, f.seedB.project])))).toBe(FK);
     // item -> owner who is not a member of the tenant
-    expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.items (tenant_id, title, home_project_id, owner_user_id) values ($1, 'x', $2, $3)", [f.tenantA, f.seedA.project, f.bob])))).toBe(FK);
+    expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.items (tenant_id, initiative_name, home_project_id, product_manager) values ($1, 'x', $2, $3)", [f.tenantA, f.seedA.project, f.bob])))).toBe(FK);
     // scope -> project of another tenant; item_teams -> team of another tenant
     expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.saved_scope_projects (tenant_id, scope_id, project_id) values ($1, $2, $3)", [f.tenantA, f.seedA.scope, f.seedB.project])))).toBe(FK);
     expect(await errorCode(db.asUser(f.alice, async (q) => q("insert into public.item_teams (tenant_id, item_id, team_id) values ($1, $2, $3)", [f.tenantA, await fresh("Linked"), f.seedB.team])))).toBe(FK);
@@ -299,23 +299,23 @@ describe("data integrity", () => {
 
   it("removing a member clears them as item owner", async () => {
     const id = await fresh("Owned");
-    await db.asUser(f.alice, (q) => q("update public.items set owner_user_id = $1 where id = $2", [commenter, id]), { commit: true });
+    await db.asUser(f.alice, (q) => q("update public.items set product_manager = $1 where id = $2", [commenter, id]), { commit: true });
     await db.asUser(f.alice, (q) => q("delete from public.tenant_members where tenant_id = $1 and user_id = $2", [f.tenantA, commenter]), { commit: true });
-    const owner = (await db.admin.query("select owner_user_id from public.items where id = $1", [id])).rows[0].owner_user_id;
+    const owner = (await db.admin.query("select product_manager from public.items where id = $1", [id])).rows[0].product_manager;
     expect(owner).toBeNull();
   });
 
   it("validates values", async () => {
     const target = await fresh("Validated");
     const bad: [string, unknown[]][] = [
-      ["moscow = 'maybe'", []], ["size = 'XXL'", []], ["confidence = 120", []], ["value = -1", []],
-      ["health = 'great'", []], ["date_precision = 'week'", []], ["start_date = '2026-05-01', end_date = '2026-04-01'", []],
-      ["title = '   '", []], ["effort_by_skill = '[1]'::jsonb", []],
+      ["moscow = 'maybe'", []], ["effort = 'XXL'", []], ["confidence = 'Extreme'", []], ["value_12m = -1", []],
+      ["health = 'great'", []], ["date_precision = 'week'", []], ["start_date = '2026-05-01', g2m_date_est = '2026-04-01'", []],
+      ["initiative_name = '   '", []], ["effort_by_skill = '[1]'::jsonb", []],
     ];
     for (const [set] of bad) {
       expect(await errorCode(db.asUser(f.alice, (q) => q(`update public.items set ${set} where id = $1`, [target]))), set).toBe(CHECK);
     }
-    for (const set of ["moscow = 'must'", "size = 'XL'", "health = 'at_risk'", "start_date = '2026-01-01', end_date = '2026-03-31'", "date_precision = 'quarter'"]) {
+    for (const set of ["moscow = 'Must'", "effort = 'XL'", "health = 'At Risk'", "start_date = '2026-01-01', g2m_date_est = '2026-03-31'", "date_precision = 'Quarter'"]) {
       expect(await errorCode(db.asUser(f.alice, (q) => q(`update public.items set ${set} where id = $1`, [target]))), set).toBeNull();
     }
   });
@@ -333,16 +333,16 @@ describe("audit of every write", () => {
     const mark = (await db.admin.query("select coalesce(max(id), 0) m from public.audit_log")).rows[0].m;
     const item = await db.asUser(
       creator,
-      async (q) => (await q("insert into public.items (tenant_id, title, home_project_id) values ($1, 'Audited', $2) returning id", [f.tenantA, f.seedA.project])).rows[0],
+      async (q) => (await q("insert into public.items (tenant_id, initiative_name, home_project_id) values ($1, 'Audited', $2) returning id", [f.tenantA, f.seedA.project])).rows[0],
       { via: "UI", commit: true },
     );
-    await db.asUser(creator, (q) => q("update public.items set title = 'Audited 2', moscow = 'could' where id = $1", [item.id]), { via: "UI", commit: true });
+    await db.asUser(creator, (q) => q("update public.items set initiative_name = 'Audited 2', moscow = 'Could' where id = $1", [item.id]), { via: "UI", commit: true });
     await db.asUser(creator, (q) => q("delete from public.items where id = $1", [item.id]), { via: "UI", commit: true });
     const rows = (await db.admin.query("select field, old, new, actor_id, via from public.audit_log where id > $1 and entity = 'items' and entity_id = $2 order by id", [mark, item.id])).rows;
     expect(rows.every((r) => r.actor_id === creator && r.via === "UI")).toBe(true);
-    expect(rows.find((r) => r.field === "title" && r.new === "Audited 2")).toMatchObject({ old: "Audited" });
-    expect(rows.find((r) => r.field === "moscow")).toMatchObject({ old: null, new: "could" });
-    expect(rows.find((r) => r.field === "title" && r.new === null)).toMatchObject({ old: "Audited 2" }); // delete
+    expect(rows.find((r) => r.field === "initiative_name" && r.new === "Audited 2")).toMatchObject({ old: "Audited" });
+    expect(rows.find((r) => r.field === "moscow")).toMatchObject({ old: null, new: "Could" });
+    expect(rows.find((r) => r.field === "initiative_name" && r.new === null)).toMatchObject({ old: "Audited 2" }); // delete
   });
 
   it("records project, team and scope writes", async () => {

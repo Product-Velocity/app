@@ -3,6 +3,7 @@
 Run from the repo root:  python3 tools/field-dictionary/export.py
 Needs: pip install openpyxl. The JSON is committed; re-run when the workbook changes.
 """
+import csv
 import json
 import re
 import openpyxl
@@ -10,6 +11,9 @@ import openpyxl
 SRC = "docs/reference/Roadmap_v4_field_dictionary.xlsx"
 OUT = "packages/domain/src/field-dictionary.json"
 VIEWS = ["Prioritisation", "Planning", "Delivery", "Go-to-market", "Outcomes", "Leadership", "Discovery", "History"]
+
+CSV_SRC = "docs/reference/item-fields.csv"
+csv_by_key = {r["key"]: r for r in csv.DictReader(open(CSV_SRC, encoding="utf-8"))}
 
 wb = openpyxl.load_workbook(SRC, data_only=True)
 dict_rows = list(wb["Field dictionary v4"].iter_rows(values_only=True))
@@ -34,6 +38,8 @@ for r in grid_rows[1:]:
     values = [v.strip() for v in re.split(r"\s·\s", str(allowed))] if allowed and str(allowed) != "None" and "·" in str(allowed) else []
     out.append({
         "n": str(g["#"]),
+        "storage": csv_by_key[key]["storage"],
+        "phase": int(csv_by_key[key]["ships_in_phase"]),
         "name": g["Field"],
         "key": key,
         "group": g["Group"],
@@ -50,6 +56,7 @@ for r in grid_rows[1:]:
     })
 
 assert len(out) == 165, len(out)
+assert {f["key"] for f in out} == set(csv_by_key), "workbook and CSV list different keys"
 assert len({f["key"] for f in out}) == 165, "duplicate field keys"
 with open(OUT, "w") as f:
     json.dump(out, f, indent=1, ensure_ascii=False)
