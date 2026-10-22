@@ -126,6 +126,10 @@ export async function twoTenantFixture(db: TestDb) {
       ]),
     { commit: true },
   );
+  // sample workspace data per tenant (positive controls for the Phase 1 tables)
+  const seedA = await seedWorkspace(db, tenantA);
+  const seedB = await seedWorkspace(db, tenantB);
+
   // one pending invitation per tenant (positive controls for the invitations table)
   for (const [admin, tenant, email] of [
     [alice, tenantA, "pending-a@example.test"],
@@ -137,7 +141,7 @@ export async function twoTenantFixture(db: TestDb) {
       { commit: true },
     );
   }
-  return { alice, bob, carol, dave, tenantA, tenantB };
+  return { alice, bob, carol, dave, tenantA, tenantB, seedA, seedB };
 }
 
 /** Postgres error code of a rejected promise, or null if it resolved. */
@@ -166,5 +170,35 @@ export function inviteRow(
   return q(
     "insert into public.invitations (tenant_id, email, role, is_approver, token_hash) values ($1, $2, $3, $4, $5)",
     [tenantId, email, role, isApprover, hashToken(token)],
+  );
+}
+
+/** Project, team, 3 items (ranks 1..3), one saved scope with its links, for one tenant. Written as the superuser. */
+export async function seedWorkspace(db: TestDb, tenantId: string) {
+  const one = async (sql: string, params: unknown[]) => (await db.admin.query(sql, params)).rows[0].id as string;
+  const project = await one("insert into public.projects (tenant_id, name) values ($1, 'Platform') returning id", [tenantId]);
+  const team = await one("insert into public.teams (tenant_id, name) values ($1, 'Core') returning id", [tenantId]);
+  const items: string[] = [];
+  for (const title of ["First", "Second", "Third"]) {
+    items.push(
+      await one("insert into public.items (tenant_id, title, home_project_id) values ($1, $2, $3) returning id", [tenantId, title, project]),
+    );
+  }
+  const scope = await one("insert into public.saved_scopes (tenant_id, name) values ($1, 'Everything') returning id", [tenantId]);
+  await db.admin.query("insert into public.saved_scope_projects (tenant_id, scope_id, project_id) values ($1, $2, $3)", [tenantId, scope, project]);
+  await db.admin.query("insert into public.item_teams (tenant_id, item_id, team_id) values ($1, $2, $3)", [tenantId, items[0], team]);
+  return { project, team, items, scope };
+}
+
+/** Add a member to a tenant as its admin. */
+export async function addMember(db: TestDb, admin: string, tenantId: string, userId: string, role: string, extra: { serviceAccount?: boolean } = {}) {
+  await db.asUser(
+    admin,
+    (q) =>
+      q(
+        "insert into public.tenant_members (tenant_id, user_id, role, is_service_account) values ($1, $2, $3, $4)",
+        [tenantId, userId, role, extra.serviceAccount ?? false],
+      ),
+    { commit: true },
   );
 }
