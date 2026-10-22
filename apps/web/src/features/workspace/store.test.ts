@@ -77,14 +77,14 @@ describe("SupabaseWorkspaceStore: views", () => {
   it("lists views and cleans what it reads", async () => {
     const { client } = fake([{ data: [{ id: "v1", name: "Planning", columns: ["moscow", "nope"], filters: [{ field: "nope", op: "is" }], group_by: "bogus" }] }]);
     expect(await new SupabaseWorkspaceStore(client, "t1").listViews()).toEqual([
-      { id: "v1", name: "Planning", columns: ["stack_rank", "item_code", "initiative_name", "moscow"], filters: [], groupBy: null },
+      { id: "v1", name: "Planning", baseView: null, columns: ["stack_rank", "item_code", "initiative_name", "moscow"], filters: [], groupBy: null },
     ]);
   });
   it("creates a view with its columns, filters and grouping", async () => {
     const { client, calls } = fake([{ data: { id: "v2" } }]);
     const r = await new SupabaseWorkspaceStore(client, "t1").createView(" My view ", def);
-    expect(r).toEqual({ ok: true, value: { id: "v2", name: "My view", ...def } });
-    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "My view", columns: def.columns, filters: def.filters, group_by: "health" })).toBe(true);
+    expect(r).toEqual({ ok: true, value: { id: "v2", name: "My view", baseView: null, ...def } });
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "My view", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false })).toBe(true);
   });
   it("updates only what changed and guards by tenant", async () => {
     const { client, calls } = fake([{ data: [{ id: "v1", name: "Renamed", columns: def.columns, filters: [], group_by: null }] }]);
@@ -97,6 +97,40 @@ describe("SupabaseWorkspaceStore: views", () => {
     expect(await new SupabaseWorkspaceStore(fake([{ data: [] }]).client, "t1").updateView("v1", { name: "x" })).toMatchObject({ ok: false });
     expect(await new SupabaseWorkspaceStore(fake([{ data: [{ id: "v1" }] }]).client, "t1").deleteView("v1")).toEqual({ ok: true, value: null });
     expect(await new SupabaseWorkspaceStore(fake([{ data: [] }]).client, "t1").deleteView("v1")).toMatchObject({ ok: false });
+  });
+});
+
+describe("default views and customer-safe views", () => {
+  it("customises a default view by inserting an override once, then updating it", async () => {
+    const first = fake([{ data: null }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", customer_safe: false }] }]);
+    const r = await new SupabaseWorkspaceStore(first.client, "t1").saveDefaultView("Planning", { ...def, customerSafe: true });
+    expect(r).toMatchObject({ ok: true, value: { id: "d1", baseView: "Planning" } });
+    expect(has(first.calls[1]!, "insert", { tenant_id: "t1", name: "Planning", base_view: "Planning", columns: def.columns, filters: def.filters, group_by: "health" })).toBe(true); // never customer-safe
+    const again = fake([{ data: { id: "d1" } }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", customer_safe: false }] }]);
+    await new SupabaseWorkspaceStore(again.client, "t1").saveDefaultView("Planning", def);
+    expect(again.calls[1]!.ops.some(([o]) => o === "update")).toBe(true);
+    expect(has(again.calls[1]!, "eq", "id", "d1")).toBe(true);
+  });
+  it("restores a default view by deleting the override of this tenant", async () => {
+    const { client, calls } = fake([{ data: null }]);
+    expect(await new SupabaseWorkspaceStore(client, "t1").restoreDefaultView("Planning")).toEqual({ ok: true, value: null });
+    expect(has(calls[0]!, "delete") && has(calls[0]!, "eq", "tenant_id", "t1") && has(calls[0]!, "eq", "base_view", "Planning")).toBe(true);
+  });
+  it("saves a customer-safe view with its flag, keeping only safe columns", async () => {
+    const { client, calls } = fake([{ data: { id: "v9" } }]);
+    const r = await new SupabaseWorkspaceStore(client, "t1").createView("For customers", { columns: ["stack_rank", "item_code", "initiative_name", "value_12m", "summary"], filters: [], groupBy: null, customerSafe: true });
+    expect(r).toMatchObject({ ok: true, value: { customerSafe: true, columns: ["item_code", "initiative_name", "summary"] } });
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "For customers", columns: ["item_code", "initiative_name", "summary"], filters: [], group_by: null, customer_safe: true })).toBe(true);
+  });
+  it("memory store: customising, restoring and who may", async () => {
+    const s = new MemoryWorkspaceStore();
+    await s.saveDefaultView("Delivery", def);
+    await s.saveDefaultView("Delivery", { ...def, groupBy: null });
+    expect((await s.listViews()).filter((v) => v.baseView === "Delivery")).toHaveLength(1);
+    await s.restoreDefaultView("Delivery");
+    expect(await s.listViews()).toHaveLength(0);
+    s.canWrite = false;
+    expect(await s.saveDefaultView("Delivery", def)).toMatchObject({ ok: false });
   });
 });
 

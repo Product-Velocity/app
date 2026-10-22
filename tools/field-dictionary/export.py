@@ -62,3 +62,15 @@ with open(OUT, "w") as f:
     json.dump(out, f, indent=1, ensure_ascii=False)
     f.write("\n")
 print(f"wrote {len(out)} fields to {OUT}")
+
+# The sheet "Grid columns and views" as a CSV the tests compare the default views against.
+GRID_CSV = "docs/reference/grid-views.csv"
+with open(GRID_CSV, "w", newline="", encoding="utf-8") as f:
+    w = csv.writer(f)
+    w.writerow(["key", "group", "editing", "customer_safe"] + VIEWS)
+    for r in grid_rows[1:]:
+        if r[0] is None:
+            continue
+        g = dict(zip(gh, r))
+        w.writerow([g["Field key"], g["Group"], g["Editing in grid"], "Y" if g["Customer-safe reports"] == "Y" else ""] + ["Y" if g.get(v) == "Y" else "" for v in VIEWS])
+print(f"wrote {GRID_CSV}")

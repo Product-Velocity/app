@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import {
-  FIELDS, FIELD_BY_KEY, filterSummary, groupableFields, opsFor, optionsFor, parseDate, type Filter, type FilterOp, type ViewDef,
+  FIELDS, FIELD_BY_KEY, filterSummary, groupableFields, opsFor, optionsFor, parseDate, type Filter, type FilterOp, type ViewDef, type ViewName,
 } from "@pv/domain";
 import { useWorkspace } from "../workspace/provider";
 import type { SavedView } from "../workspace/store";
@@ -120,17 +120,18 @@ export function GroupMenu({ groupBy, onChange }: { groupBy: string | null; onCha
 }
 
 // -------------------------------------------------------------------- views
-function NameDialog({ title, initial, action, onClose, onSubmit }: { title: string; initial: string; action: string; onClose: () => void; onSubmit: (name: string) => Promise<string | null> }) {
+function NameDialog({ title, initial, action, onClose, onSubmit, offerCustomerSafe = false }: { title: string; initial: string; action: string; onClose: () => void; onSubmit: (name: string, customerSafe: boolean) => Promise<string | null>; offerCustomerSafe?: boolean }) {
   const id = useId();
   const [name, setName] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [safe, setSafe] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
   const submit = async () => {
     if (busy || name.trim() === "") return;
     setBusy(true);
-    const err = await onSubmit(name);
+    const err = await onSubmit(name, safe);
     setBusy(false);
     if (err) setError(err); else onClose();
   };
@@ -140,6 +141,13 @@ function NameDialog({ title, initial, action, onClose, onSubmit }: { title: stri
         <h2 id={`${id}-t`}>{title}</h2>
         <label htmlFor={`${id}-n`} className="dialog-label">Name</label>
         <input id={`${id}-n`} ref={ref} value={name} maxLength={80} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void submit(); }} />
+        {offerCustomerSafe && (
+          <label className="columns-item dialog-check">
+            <input type="checkbox" checked={safe} onChange={(e) => setSafe(e.target.checked)} />
+            Customer-safe view
+            <span className="muted"> — only fields allowed in customer reports (never value, confidence, customers, decisions, key results, outcomes or markets). Other columns, filters and grouping are left out.</span>
+          </label>
+        )}
         {error && <p role="alert" className="quick-add-error">{error}</p>}
         <div className="dialog-actions">
           <button type="button" className="btn" onClick={onClose}>Cancel</button>
@@ -153,18 +161,21 @@ function NameDialog({ title, initial, action, onClose, onSubmit }: { title: stri
 type ViewsProps = {
   base: BaseView;
   views: SavedView[];
+  defaults: Partial<Record<ViewName, SavedView>>;
   def: ViewDef;
   dirty: boolean;
   onOpen: (b: BaseView) => void;
 };
 
 /** Saved views: open one, save the current columns, filters and grouping as a new view, update, rename or delete. */
-export function ViewsMenu({ base, views, def, dirty, onOpen }: ViewsProps) {
+export function ViewsMenu({ base, views, defaults, def, dirty, onOpen }: ViewsProps) {
   const { store, reload, canEdit } = useWorkspace();
   const [dialog, setDialog] = useState<null | "new" | "rename">(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const current = base.kind === "saved" ? views.find((v) => v.id === base.id) : undefined;
+  const builtin = base.kind === "builtin" ? base.name : null;
+  const customised = builtin ? defaults[builtin] : undefined;
 
   return (
     <>
@@ -175,12 +186,28 @@ export function ViewsMenu({ base, views, def, dirty, onOpen }: ViewsProps) {
             {views.length === 0 && <p className="scope-empty">None yet. Set up columns, filters and grouping, then save them.</p>}
             {views.map((v) => (
               <button key={v.id} type="button" role="menuitemradio" aria-checked={base.kind === "saved" && base.id === v.id} className="scope-item" onClick={() => { onOpen({ kind: "saved", id: v.id }); close(); }}>
-                <span>{v.name}</span><span className="scope-meta">{base.kind === "saved" && base.id === v.id ? "✓" : ""}</span>
+                <span>{v.name}{v.customerSafe && <span className="muted"> · customer-safe</span>}</span><span className="scope-meta">{base.kind === "saved" && base.id === v.id ? "✓" : ""}</span>
               </button>
             ))}
             {canEdit && (
               <div className="views-actions">
                 <button type="button" role="menuitem" className="scope-item" onClick={() => { close(); setDialog("new"); }}>Save current view as new…</button>
+                {builtin && (
+                  <>
+                    <button type="button" role="menuitem" className="scope-item" disabled={!dirty} onClick={async () => {
+                      const r = await store.saveDefaultView(builtin, def);
+                      close();
+                      if (r.ok) { await reload(); setMessage(null); } else setMessage(r.error);
+                    }}>Change the default “{builtin}” for everyone</button>
+                    {customised && (
+                      <button type="button" role="menuitem" className="scope-item" onClick={async () => {
+                        const r = await store.restoreDefaultView(builtin);
+                        close();
+                        if (r.ok) { await reload(); setMessage(null); } else setMessage(r.error);
+                      }}>Restore the original “{builtin}”</button>
+                    )}
+                  </>
+                )}
                 {current && (
                   <>
                     <button type="button" role="menuitem" className="scope-item" disabled={!dirty} onClick={async () => {
@@ -200,9 +227,9 @@ export function ViewsMenu({ base, views, def, dirty, onOpen }: ViewsProps) {
       {message && <span role="alert" className="quick-add-error"> {message}</span>}
       {dialog === "new" && (
         <NameDialog
-          title="Save view" initial="" action="Save view" onClose={() => setDialog(null)}
-          onSubmit={async (name) => {
-            const r = await store.createView(name, def);
+          title="Save view" initial="" action="Save view" onClose={() => setDialog(null)} offerCustomerSafe
+          onSubmit={async (name, customerSafe) => {
+            const r = await store.createView(name, { ...def, customerSafe });
             if (!r.ok) return r.error;
             await reload();
             onOpen({ kind: "saved", id: r.value.id });

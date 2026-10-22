@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildGroupedRows, filterSummary, groupableFields, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
-import { FIELD_BY_KEY } from "./registry";
+import { CUSTOMER_SAFE_KEYS, buildGroupedRows, filterSummary, groupableFields, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
+import { FIELDS, FIELD_BY_KEY } from "./registry";
 
 const row = (o: Record<string, unknown> = {}) => ({ id: "i1", item_code: "R-01", initiative_name: "Faster search results", stack_rank: 1, home_project: "p1", ...o });
 const ctx = { me: "u1", today: new Date(Date.UTC(2027, 3, 14)) };
@@ -139,5 +139,33 @@ describe("sanitizeView", () => {
   it("copes with garbage", () => {
     expect(sanitizeView(null).columns).toEqual(["stack_rank", "item_code", "initiative_name"]);
     expect(sanitizeView({ columns: "x", filters: 5, groupBy: 3 })).toEqual({ columns: ["stack_rank", "item_code", "initiative_name"], filters: [], groupBy: null });
+  });
+});
+
+describe("customer-safe views", () => {
+  it("keep only the fields the sheet marks customer-safe, in columns, filters and grouping", () => {
+    const v = sanitizeView({
+      customerSafe: true,
+      columns: ["stack_rank", "item_code", "initiative_name", "roadmap_category", "value_12m", "confidence", "target_scope", "summary"],
+      filters: [{ field: "value_12m", op: "empty" }, { field: "roadmap_category", op: "is", value: "Revenue" }],
+      groupBy: "confidence",
+    });
+    expect(v.customerSafe).toBe(true);
+    expect(v.columns).toEqual(["item_code", "initiative_name", "roadmap_category", "summary"]);
+    expect(v.filters.map((f) => f.field)).toEqual(["roadmap_category"]);
+    expect(v.groupBy).toBeNull();
+  });
+  it("never lets a commercial field through", () => {
+    const commercial = FIELDS.filter((f) => /^(value_(?!proposition)|confidence|customers_|customer|target_customers|decision|kr_|realized|outcome|adoption|time_to_first_revenue|target_scope|live_scope)/.test(f.key));
+    expect(commercial.length).toBeGreaterThan(20);
+    for (const f of commercial) expect(CUSTOMER_SAFE_KEYS, f.key).not.toContain(f.key);
+  });
+  it("differ from the sheet's flag only by the two markets fields (docs/03 calls markets commercial)", () => {
+    const sheet = FIELDS.filter((f) => f.customerSafe).map((f) => f.key);
+    expect(sheet.filter((k) => !CUSTOMER_SAFE_KEYS.includes(k))).toEqual(["target_scope", "live_scope"]);
+  });
+  it("leave ordinary views alone", () => {
+    expect(sanitizeView({ columns: ["value_12m"], filters: [], groupBy: null }).columns).toContain("value_12m");
+    expect(sanitizeView({ columns: ["value_12m"], filters: [], groupBy: null }).customerSafe).toBeUndefined();
   });
 });

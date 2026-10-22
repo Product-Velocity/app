@@ -84,3 +84,6 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Grouping is our own (header rows in a flat list), collapsible, off by default; no AG Grid Enterprise · Ashu/Claude (issue #9)
 - 2026-10-22 · Command palette (Ctrl+K / ⌘K): views, scopes, projects, grouping, filters, add, import, export, undo, navigation, and finding an initiative by code or name · Claude (issue #9)
 - 2026-10-22 · "Add project" moved into the project dropdown at the top (admins: "+ New project"); the separate button on the Roadmap page is gone · Ashu (request R-005)
+- 2026-10-22 · Default views stay generated from the sheet; customising one stores an override row (`base_view`) and "Restore" deletes it, so defaults can change with the dictionary until someone customises them · Claude (issue #39)
+- 2026-10-22 · Visibility rule: every role that can read a workspace sees all columns in internal views; only views marked customer-safe are limited to customer-safe fields · Ashu (confirmed in chat, issue #39)
+- 2026-10-22 · Customer-safe views exclude Target Markets and Live Markets although the sheet flags them safe, because docs/03 and CLAUDE.md rule 2 call markets commercial. Stricter rule wins; **Ashu to confirm or flip the sheet flag** · Claude (issue #39)

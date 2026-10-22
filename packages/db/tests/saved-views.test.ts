@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { addMember, createTestDb, createUser, errorCode, twoTenantFixture, type TestDb } from "./helpers";
 
@@ -76,6 +77,55 @@ describe("saved views: constraints", () => {
     const id = await add(creator, "Locked columns");
     expect(await errorCode(db.asUser(creator, (q) => q("update public.saved_views set tenant_id = $1 where id = $2", [f.tenantB, id])))).toBe(DENIED);
     expect(await errorCode(db.asUser(creator, (q) => q("update public.saved_views set created_by = null where id = $1", [id])))).toBe(DENIED);
+  });
+});
+
+describe("default view overrides and customer-safe views (0012)", () => {
+  const ins = (user: string, name: string, cols: string, extra: string, tenant = f.tenantA) =>
+    db.asUser(user, (q) => q(`insert into public.saved_views (tenant_id, name, columns, ${extra.split("|")[0]}) values ($1, $2, ${cols}, ${extra.split("|")[1]})`, [tenant, name]), { commit: true, via: "UI" });
+
+  it("the database list of customer-safe fields is the sheet's flag minus the two markets fields", async () => {
+    const sheet = readFileSync(new URL("../../../docs/reference/grid-views.csv", import.meta.url), "utf8").trim().split(/\r?\n/).slice(1).map((l) => l.split(","));
+    const expected = sheet.filter((r) => r[3] === "Y" && !["target_scope", "live_scope"].includes(r[0]!)).map((r) => r[0]);
+    const { rows } = await db.admin.query("select unnest(public.customer_safe_field_keys()) as k");
+    expect(rows.map((r) => r.k).sort()).toEqual([...expected].sort());
+  });
+  it("a customer-safe view can only hold customer-safe fields", async () => {
+    await ins(creator, "Safe view", "array['item_code','initiative_name','roadmap_category']", "customer_safe|true");
+    for (const bad of ["array['item_code','value_12m']", "array['item_code','confidence']", "array['target_scope']", "array['stack_rank']"]) {
+      expect(await errorCode(ins(creator, `Unsafe ${bad}`, bad, "customer_safe|true")), bad).toBe(CHECK);
+    }
+    await ins(creator, "Ordinary with value", "array['item_code','value_12m']", "customer_safe|false"); // an internal view may
+  });
+  it("turning customer-safe on for a view with commercial columns is refused", async () => {
+    const id = await add(creator, "Has value", "");
+    await db.asUser(creator, (q) => q("update public.saved_views set columns = array['item_code','value_12m'] where id = $1", [id]), { commit: true });
+    expect(await errorCode(db.asUser(creator, (q) => q("update public.saved_views set customer_safe = true where id = $1", [id])))).toBe(CHECK);
+  });
+  it("a default view can be customised once per workspace and only with a known name; deleting restores the default", async () => {
+    await ins(creator, "Planning", "array['item_code','start_date']", "base_view|'Planning'");
+    expect(await errorCode(ins(f.alice, "Planning again", "array['item_code']", "base_view|'Planning'"))).toBe(UNIQUE);
+    expect(await errorCode(ins(creator, "Made up", "array['item_code']", "base_view|'Made up'"))).toBe(CHECK);
+    expect(await ins(f.bob, "Planning", "array['item_code']", "base_view|'Planning'", f.tenantB)).toBeTruthy(); // another workspace
+    expect(await db.asUser(creator, async (q) => (await q("delete from public.saved_views where tenant_id = $1 and base_view = 'Planning'", [f.tenantA])).rowCount, { commit: true, via: "UI" })).toBe(1);
+    await ins(creator, "Planning", "array['item_code']", "base_view|'Planning'"); // can be customised again after a restore
+  });
+  it("a customised default is never customer-safe, and base_view cannot be changed afterwards", async () => {
+    expect(await errorCode(ins(creator, "Leadership", "array['item_code']", "base_view, customer_safe|'Leadership', true"))).toBe(CHECK);
+    const id = (await db.admin.query("select id from public.saved_views where tenant_id = $1 and base_view = 'Planning'", [f.tenantA])).rows[0].id;
+    expect(await errorCode(db.asUser(creator, (q) => q("update public.saved_views set base_view = 'Delivery' where id = $1", [id])))).toBe(DENIED);
+  });
+  it("viewers and leadership cannot customise a default; other workspaces cannot see the overrides", async () => {
+    for (const u of [viewer, leader]) expect(await errorCode(ins(u, "Discovery", "array['item_code']", "base_view|'Discovery'"))).toBe(DENIED);
+    expect(await db.asUser(f.bob, async (q) => (await q("select 1 from public.saved_views where tenant_id = $1 and base_view is not null", [f.tenantA])).rowCount)).toBe(0);
+  });
+  it("customising and restoring a default is audited with actor and source", async () => {
+    await ins(creator, "Delivery", "array['item_code']", "base_view|'Delivery'");
+    const id = (await db.admin.query("select id from public.saved_views where tenant_id = $1 and base_view = 'Delivery'", [f.tenantA])).rows[0].id;
+    await db.asUser(creator, (q) => q("delete from public.saved_views where id = $1", [id]), { commit: true, via: "UI" });
+    const { rows } = await db.admin.query("select field, old, new, via, actor_id from public.audit_log where entity = 'saved_views' and entity_id = $1 and field = 'base_view' order by at", [id]);
+    expect(rows[0]).toMatchObject({ new: "Delivery", via: "UI", actor_id: creator });
+    expect(rows[1]).toMatchObject({ old: "Delivery", new: null });
   });
 });
 

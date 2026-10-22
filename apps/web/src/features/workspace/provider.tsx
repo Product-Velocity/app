@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { SupabaseWorkspaceStore, type Project, type SavedView, type Scope, type WorkspaceStore } from "./store";
+import type { ViewName } from "@pv/domain";
 
 export type WorkspaceProject = Project;
 type Ctx = {
@@ -10,6 +11,8 @@ type Ctx = {
   projects: WorkspaceProject[];
   scopes: Scope[];
   views: SavedView[];
+  /** Customised default views by name (the built-in view is used when a name is missing). */
+  defaults: Partial<Record<ViewName, SavedView>>;
   /** True once scopes and views have been read (or failed). */
   ready: boolean;
   error: string | null;
@@ -30,7 +33,9 @@ export function useWorkspace(): Ctx {
 export function WorkspaceProvider({ store, projects: initialProjects, canEdit, canAdmin, children }: { store: WorkspaceStore; projects: WorkspaceProject[]; canEdit: boolean; canAdmin: boolean; children: ReactNode }) {
   const [projects, setProjects] = useState<WorkspaceProject[]>(initialProjects);
   const [scopes, setScopes] = useState<Scope[]>([]);
-  const [views, setViews] = useState<SavedView[]>([]);
+  const [allViews, setAllViews] = useState<SavedView[]>([]);
+  const views = useMemo(() => allViews.filter((v) => !v.baseView), [allViews]);
+  const defaults = useMemo(() => Object.fromEntries(allViews.filter((v) => v.baseView).map((v) => [v.baseView!, v])) as Partial<Record<ViewName, SavedView>>, [allViews]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +49,7 @@ export function WorkspaceProvider({ store, projects: initialProjects, canEdit, c
   }, [store]);
   const apply = useCallback((r: Awaited<ReturnType<typeof load>>) => {
     if (r.scopes) setScopes(r.scopes);
-    if (r.views) setViews(r.views);
+    if (r.views) setAllViews(r.views);
     if (r.projects && r.projects.length > 0) setProjects(r.projects);
     setError(r.error);
     setReady(true);
@@ -57,7 +62,7 @@ export function WorkspaceProvider({ store, projects: initialProjects, canEdit, c
     return () => { cancelled = true; };
   }, [load, apply]);
 
-  const value = useMemo(() => ({ store, projects, scopes, views, ready, error, reload, canEdit, canAdmin }), [store, projects, scopes, views, ready, error, reload, canEdit, canAdmin]);
+  const value = useMemo(() => ({ store, projects, scopes, views, defaults, ready, error, reload, canEdit, canAdmin }), [store, projects, scopes, views, defaults, ready, error, reload, canEdit, canAdmin]);
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
 

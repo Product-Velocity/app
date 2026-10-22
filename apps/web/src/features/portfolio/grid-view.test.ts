@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { baseDef, baseLabel, baseParam, parseBase, sameView } from "./grid-view";
+import { builtinDef, baseDef, baseLabel, baseParam, parseBase, sameView } from "./grid-view";
 
 const saved = [{ id: "v1", name: "My planning", columns: ["stack_rank", "item_code", "initiative_name", "moscow"], filters: [{ field: "moscow", op: "is" as const, value: "Must" }], groupBy: "health" }];
 
@@ -44,5 +44,16 @@ describe("address parameter", () => {
   it("labels", () => {
     expect(baseLabel({ kind: "saved", id: "v1" }, saved)).toBe("My planning");
     expect(baseLabel({ kind: "all" }, [])).toBe("All columns");
+  });
+});
+
+describe("customised default views", () => {
+  const custom = { id: "d1", name: "Planning", baseView: "Planning" as const, columns: ["stack_rank", "item_code", "initiative_name", "moscow"], filters: [], groupBy: "health" };
+  it("a default view uses the workspace's customised version when there is one, else the built-in", () => {
+    expect(baseDef({ kind: "builtin", name: "Planning" }, [], { Planning: custom })).toMatchObject({ groupBy: "health", columns: custom.columns });
+    expect(baseDef({ kind: "builtin", name: "Delivery" }, [], { Planning: custom })).toEqual(builtinDef("Delivery"));
+  });
+  it("restoring goes back to the dictionary's columns", () => {
+    expect(builtinDef("Planning").columns).toEqual(baseDef({ kind: "builtin", name: "Planning" }, [])!.columns);
   });
 });

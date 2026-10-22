@@ -314,6 +314,85 @@ test.describe("saved views", () => {
     await expect(foot(page)).toContainText("30 items");
   });
 
+  test("a default view can be changed for everyone, duplicated as it is, and restored", async ({ page }) => {
+    await open(page, "n=30&cols=all"); // every column rendered, so one added at the far right can be found
+    const chips = page.getByRole("group", { name: "View" });
+    await chips.getByRole("button", { name: "Delivery" }).click();
+    const before = await page.getByRole("columnheader").count();
+    await page.getByRole("button", { name: /^Columns/ }).click();
+    await page.getByLabel("Confidence", { exact: true }).check();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /^Views/ }).click();
+    await page.getByRole("menuitem", { name: /Change the default “Delivery” for everyone/ }).click();
+    await expect(page.locator(".view-dirty")).toHaveCount(0);
+    await expect(chips.getByRole("button", { name: "Delivery" })).toHaveAttribute("title", /changed by your workspace/);
+    // another default is untouched; coming back shows the changed Delivery
+    await chips.getByRole("button", { name: "Planning" }).click();
+    await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toHaveCount(0);
+    await chips.getByRole("button", { name: "Delivery" }).click();
+    await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toBeVisible();
+    // duplicate it as a saved view
+    await page.getByRole("button", { name: /^Views/ }).click();
+    await page.getByRole("menuitem", { name: /Save current view as new/ }).click();
+    await page.getByRole("dialog", { name: "Save view" }).getByLabel("Name").fill("Delivery plus");
+    await page.getByRole("dialog", { name: "Save view" }).getByRole("button", { name: "Save view" }).click();
+    await expect(page.getByRole("button", { name: /^Views Delivery plus/ })).toBeVisible();
+    // restore the original
+    await chips.getByRole("button", { name: "Delivery" }).click();
+    await page.getByRole("button", { name: /^Views/ }).click();
+    await page.getByRole("menuitem", { name: /Restore the original “Delivery”/ }).click();
+    await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toHaveCount(0);
+    expect(await page.getByRole("columnheader").count()).toBe(before);
+    await expect(chips.getByRole("button", { name: "Delivery" })).toHaveAttribute("title", "Default view");
+    await page.getByRole("button", { name: /^Views/ }).click();
+    await expect(page.getByRole("menuitem", { name: /Restore the original/ })).toHaveCount(0);
+  });
+
+  test("viewers cannot change a default view", async ({ page }) => {
+    await open(page, "n=10&role=viewer");
+    await page.getByRole("button", { name: /^Views/ }).click();
+    await expect(page.getByRole("menuitem", { name: /Change the default/ })).toHaveCount(0);
+  });
+
+  test("a customer-safe view keeps only customer-safe columns; the Columns picker says why others are off", async ({ page }) => {
+    await open(page);
+    await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Prioritisation" }).click();
+    await expect(page.getByRole("columnheader", { name: /Value \(EUR/ })).toBeVisible();
+    await page.getByRole("button", { name: /^Views/ }).click();
+    await page.getByRole("menuitem", { name: /Save current view as new/ }).click();
+    const d = page.getByRole("dialog", { name: "Save view" });
+    await d.getByLabel("Name").fill("For customers");
+    await d.getByLabel(/Customer-safe view/).check();
+    await d.getByRole("button", { name: "Save view" }).click();
+    await expect(page.getByRole("button", { name: /^Views For customers/ })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: /Value \(EUR/ })).toHaveCount(0);
+    await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("columnheader", { name: /Roadmap Category/ })).toBeVisible();
+    const stored = await page.evaluate(() => (window as unknown as { __pv: { store: { views: { name: string; customerSafe?: boolean; columns: string[] }[] } } }).__pv.store.views.find((v) => v.name === "For customers")!);
+    expect(stored.customerSafe).toBe(true);
+    expect(stored.columns).not.toContain("value_12m");
+    expect(stored.columns).not.toContain("stack_rank");
+    await page.getByRole("button", { name: /^Columns/ }).click();
+    const value = page.getByLabel(/^Value \(EUR/);
+    await expect(value).toBeDisabled();
+    await expect(page.locator("label", { has: value })).toContainText("not customer-safe");
+    await expect(page.getByLabel("Roadmap Category", { exact: true })).toBeEnabled();
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: /^Views/ }).click();
+    await expect(page.getByRole("menuitemradio", { name: /For customers/ })).toContainText("customer-safe");
+  });
+
+  test("the Columns picker reaches all 165 fields, grouped, with later phases marked", async ({ page }) => {
+    await open(page);
+    await page.getByRole("button", { name: /^Columns/ }).click();
+    const panel = page.getByRole("group", { name: "Choose columns" });
+    await expect(panel.locator('input[type="checkbox"]')).toHaveCount(165);
+    expect(await panel.locator("fieldset").count()).toBeGreaterThan(8);
+    await expect(panel.locator("fieldset").first().locator("legend")).toHaveText("What");
+    await expect(panel).toContainText("arrives in phase 7");
+  });
+
   test("a view name that already exists is explained", async ({ page }) => {
     await open(page);
     for (const expectError of [false, true]) {

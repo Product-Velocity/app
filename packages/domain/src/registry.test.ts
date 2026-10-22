@@ -91,3 +91,22 @@ describe("registry rules", () => {
     expect(DEFAULT_VIEWS.Prioritisation).toContain("value_12m");
   });
 });
+
+describe("default views and flags match the sheet 'Grid columns and views' (docs/reference/grid-views.csv)", () => {
+  const sheet = parseCsv(readFileSync(new URL("../../../docs/reference/grid-views.csv", import.meta.url), "utf8"));
+  const MODE_OF: Record<string, string> = { "Editable": "editable", "Computed (read-only)": "computed", "System (read-only)": "system", "Locked (GitHub)": "locked" };
+  it("lists the same 165 fields in the same order", () => {
+    expect(sheet.map((r) => r.key)).toEqual(FIELDS.map((f) => f.key));
+  });
+  it("gives each default view exactly the sheet's columns, in sheet order", () => {
+    for (const v of VIEW_NAMES) expect(DEFAULT_VIEWS[v], v).toEqual(sheet.filter((r) => r[v] === "Y").map((r) => r.key));
+  });
+  it("carries the group, editing mode and customer-safe flag of the sheet", () => {
+    for (const r of sheet) {
+      const f = FIELD_BY_KEY[r.key!]!;
+      expect(f.group, r.key).toBe(r.group);
+      expect(f.mode, r.key).toBe(MODE_OF[r.editing!]);
+      expect(f.customerSafe, r.key).toBe(r.customer_safe === "Y");
+    }
+  });
+});
