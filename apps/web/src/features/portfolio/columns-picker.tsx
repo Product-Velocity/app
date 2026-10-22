@@ -1,31 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
-import { DEFAULT_VIEWS, FIELDS, VIEW_NAMES, arrivesLabel, type ViewName } from "@pv/domain";
+import { FIELDS, arrivesLabel } from "@pv/domain";
 import { CORE_COLUMNS } from "./columns";
-
-export type ViewChoice = ViewName | "All columns";
-
-/** The default views of the field dictionary as chips (the saved views of issue #9 will join them). */
-export function ViewChips({ view, onView }: { view: ViewChoice; onView: (v: ViewChoice) => void }) {
-  const choices: ViewChoice[] = [...VIEW_NAMES, "All columns"];
-  return (
-    <div className="view-chips" role="group" aria-label="View">
-      {choices.map((v) => (
-        <button
-          key={v}
-          type="button"
-          className={v === view ? "view-chip view-chip-on" : "view-chip"}
-          aria-pressed={v === view}
-          title={v === "All columns" ? `All ${FIELDS.length} fields` : `${DEFAULT_VIEWS[v].length} columns`}
-          onClick={() => onView(v)}
-        >
-          {v}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 /** Show or hide single columns. Reordering, pinning and saved views come with the saved-views issue. */
 export function ColumnsPicker({ visible, onToggle }: { visible: ReadonlySet<string>; onToggle: (key: string) => void }) {

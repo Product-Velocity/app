@@ -149,7 +149,7 @@ test("Ctrl+Z undoes, Ctrl+Shift+Z redoes, and the buttons do the same", async ({
 });
 
 test("undo covers the last 20 changes, not more", async ({ page }) => {
-  await open(page);
+  await open(page, "n=50"); // the name column is in the default view; rendering all 165 columns would only slow the 47 key presses
   for (let i = 1; i <= 22; i++) await edit(page, "item-5", "initiative_name", `Edit ${i}`);
   await settle(page);
   expect((await pv(page)).status.undoCount).toBe(20);

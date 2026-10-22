@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BrandLogo } from "./brand-logo";
 import { HeaderTabs } from "./header-tabs";
+import { ScopeSwitcher } from "@/features/workspace/scope-switcher";
 
 export type HeaderTenant = { tenantId: string; tenantName: string };
 type Props = {
@@ -44,7 +45,7 @@ export function AppHeader({ tenantName, memberships, activeTenantId, switchActio
           <span>{tenantName}</span>
         )}
         <span aria-hidden="true">/</span>
-        <span className="scope-chip" title="Saved scopes and the project filter arrive with saved views">All projects</span>
+        <ScopeSwitcher />
       </div>
 
       <HeaderTabs current={current} />

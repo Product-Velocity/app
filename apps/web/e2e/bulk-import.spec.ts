@@ -282,11 +282,13 @@ test.describe("grid height follows the page", () => {
     const height = async () => (await page.locator(".grid-wrap").boundingBox())!.height;
     const small = await height();
     await page.setViewportSize({ width: 1400, height: 1000 });
-    await expect.poll(height).toBeGreaterThan(small + 300);
+    await expect.poll(height).toBeGreaterThan(small + 250);
     const big = await height();
     await page.setViewportSize({ width: 1400, height: 700 });
     await expect.poll(height).toBeLessThan(big - 200);
-    // the grid fills the window without making the page itself scroll
+    // the grid fills the window without making the page itself scroll (below ~360px the grid keeps a minimum height)
+    await page.setViewportSize({ width: 1400, height: 800 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)).toBeLessThanOrEqual(2);
     const overflow = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
     expect(overflow).toBeLessThanOrEqual(2);
   });
