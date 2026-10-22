@@ -7,8 +7,8 @@ import type { Lookups } from "./types";
 
 type Props = { controller: PortfolioController; lookups: Lookups; contextProject: string | null; inputRef: RefObject<HTMLInputElement | null> };
 
-/** What the line will become, in words, so a typo in a token is visible before Enter. */
-function summary(r: Extract<QuickAddResult, { ok: true }>, lookups: Lookups): string {
+/** What the line will become, as chips, so a typo in a token is visible before Enter. */
+function chips(r: Extract<QuickAddResult, { ok: true }>, lookups: Lookups): string[] {
   const d = r.draft;
   const project = lookups.projects.find((p) => p.id === d.home_project)?.name ?? "?";
   const person = lookups.members.find((m) => m.user_id === d.product_manager)?.email;
@@ -17,7 +17,7 @@ function summary(r: Extract<QuickAddResult, { ok: true }>, lookups: Lookups): st
     person ? `Product Manager: ${person}` : null,
     d.effort ? `Effort: ${d.effort}` : null,
     d.moscow ? `MoSCoW: ${d.moscow}` : null,
-  ].filter(Boolean).join(" · ");
+  ].filter((x): x is string => !!x);
 }
 
 /** One line adds one item: type the name (and tokens), press Enter. Paste a list to add many. */
@@ -89,7 +89,8 @@ export function QuickAddBar({ controller, lookups, contextProject, inputRef }: P
       />
       <div id={hintId} className="quick-add-hints" aria-live="polite">
         {message && <p className={message.kind === "error" ? "quick-add-error" : "quick-add-ok"}>{message.text}</p>}
-        {!message && parsed?.ok && <p className="quick-add-summary">{summary(parsed, lookups)}</p>}
+        {!message && parsed?.ok && chips(parsed, lookups).map((c) => <span key={c} className="token-chip">{c}</span>)}
+        {!message && parsed?.ok && <span className="quick-add-keys">Enter adds · paste a list to add many</span>}
         {!message && parsed && !parsed.ok && <p className="quick-add-summary">{parsed.error}</p>}
         {similar.length > 0 && (
           <p className="quick-add-similar">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { AppHeader } from "@/components/app-header";
 import { PortfolioController } from "@/features/portfolio/controller";
 import { MemoryDataSource, sampleItems } from "@/features/portfolio/memory-source";
 import { PortfolioGrid } from "@/features/portfolio/portfolio-grid";
@@ -22,9 +23,11 @@ export function HarnessClient({ n, latency, role, view, allColumns }: { n: numbe
     (window as unknown as { __pv: unknown }).__pv = { controller, source };
   }, [controller, source]);
   return (
-    <div style={{ padding: 16 }}>
-      <h1>Roadmap (test page)</h1>
-      <PortfolioGrid controller={controller} lookups={lookups} initialView={view as never} renderAllColumns={allColumns} />
+    <div className="shell">
+      <AppHeader tenantName="Meridian Media" email="ashu.mathura@example.test" roleLabel="Admin" isApprover current="grid" />
+      <main className="content">
+        <PortfolioGrid controller={controller} lookups={lookups} initialView={view as never} renderAllColumns={allColumns} headLeft={<h1>Roadmap (test page)</h1>} />
+      </main>
     </div>
   );
 }

@@ -17,7 +17,8 @@ test("keyboard only: Alt+N, type the name and tokens, Enter adds it at the end, 
   await page.keyboard.press("Alt+N");
   await expect(input(page)).toBeFocused();
   await page.keyboard.type("Brand new idea #market @bo M should");
-  await expect(page.locator(".quick-add-summary")).toContainText("Project: Marketplace · Product Manager: bo@example.test · Effort: M · MoSCoW: Should");
+  const chips = page.locator(".quick-add .token-chip");
+  await expect(chips).toHaveText(["Project: Marketplace", "Product Manager: bo@example.test", "Effort: M", "MoSCoW: Should"]);
   await page.keyboard.press("Enter");
   const row = rowByName(page, "Brand new idea");
   await expect(row).toHaveCount(1);
@@ -46,7 +47,7 @@ test("only the name is required; the project comes from the row you are on", asy
   await page.locator(`.ag-row[row-id="item-3"] [col-id="initiative_name"]`).click(); // item-3 is in Growth
   await page.keyboard.press("Alt+N");
   await page.keyboard.type("Just a name");
-  await expect(page.locator(".quick-add-summary")).toContainText("Project: Growth (from the row you are on)");
+  await expect(page.locator(".quick-add .token-chip")).toHaveText(["Project: Growth (from the row you are on)"]);
   await page.keyboard.press("Enter");
   await expect(rowByName(page, "Just a name").locator(`[col-id="home_project"]`)).toHaveText("Growth");
 });

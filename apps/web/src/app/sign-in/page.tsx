@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/auth/safe-next";
 import { signInWithProvider } from "./actions";
 import { PasswordForm } from "./sign-in-form";
+import { BrandLogo } from "@/components/brand-logo";
 
 export const metadata = { title: "Sign in · Product Velocity" };
 
@@ -26,6 +27,7 @@ export default async function SignInPage({
   return (
     <main className="auth-page">
       <div className="card auth-card">
+        <BrandLogo size={44} />
         <h1>Sign in to Product Velocity</h1>
         {params.error && ERRORS[params.error] && (
           <p role="alert" className="error">

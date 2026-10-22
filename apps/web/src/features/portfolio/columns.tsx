@@ -22,8 +22,17 @@ function HealthCell({ value }: { value: string | null }) {
   );
 }
 
-function ReadOnlyCell({ text, reason }: { text: string; reason: string | null }) {
-  return <span title={reason ?? undefined}>{text}</span>;
+function ReadOnlyCell({ text, reason, github }: { text: string; reason: string | null; github: boolean }) {
+  return (
+    <span className="lock-cell" title={reason ?? undefined}>
+      {github && (
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.4" role="img" aria-label="Set from GitHub">
+          <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" />
+        </svg>
+      )}
+      {text}
+    </span>
+  );
 }
 
 /** Column header: the field name, plus a words-only note when the field is read-only or from a later phase. */
@@ -44,7 +53,7 @@ const WIDTH: Record<string, number> = {
   Select: 150, Text: 190, "Long text": 240, Number: 112, Currency: 120, Date: 116, "Date range": 170, Person: 190, "Person or text": 170,
   People: 190, Boolean: 96, Tags: 170, Links: 200, Relation: 150, Files: 170, Thread: 150, Structured: 170, Note: 150, System: 130, Computed: 124,
 };
-const WIDE: Record<string, number> = { initiative_name: 320, home_project: 160, stack_rank: 104, item_code: 116, project_rank: 104, health: 130 };
+const WIDE: Record<string, number> = { initiative_name: 320, home_project: 160, stack_rank: 104, item_code: 116, project_rank: 124, health: 130 };
 
 const num = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 2 });
 const when = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -85,7 +94,7 @@ export function buildColumns({ controller, lookups, today, visible }: ColumnCont
       field: f.key as never,
       headerName: f.name,
       headerComponent: FieldHeader,
-      headerComponentParams: { phase: f.phase, locked: f.mode === "locked" || f.storage.startsWith("GitHub-synced") },
+      headerComponentParams: { phase: f.key === "project_rank" ? 1 : f.phase, locked: f.mode === "locked" || f.storage.startsWith("GitHub-synced") },
       headerTooltip: f.description ?? f.name,
       width: WIDE[f.key] ?? WIDTH[f.type] ?? 140,
       hide: !visible.has(f.key) && !(CORE_COLUMNS as readonly string[]).includes(f.key),
@@ -108,16 +117,16 @@ export function buildColumns({ controller, lookups, today, visible }: ColumnCont
         },
       };
     }
-    if (CORE_COLUMNS.includes(f.key as never)) base.pinned = "left";
+    if (CORE_COLUMNS.includes(f.key as never) || f.key === "project_rank") base.pinned = "left";
     if (f.key === "initiative_name") { base.flex = 1; base.minWidth = 300; }
     if (f.key === "project_rank" || f.key === "item_code") return base;
     if (f.key === "health") return { ...base, cellRenderer: HealthCell, ...pickerDef(f, optionsFor(f.key), true) };
     if (reason) {
-      return { ...base, cellRenderer: (p: { value: unknown }) => <ReadOnlyCell text={display(f, p.value) || (f.key === "status" ? "Not on GitHub" : "")} reason={reason} /> };
+      return { ...base, cellRenderer: (p: { value: unknown }) => <ReadOnlyCell text={display(f, p.value) || (f.key === "status" ? "Not on GitHub" : "")} reason={reason} github={f.mode === "locked" || f.storage.startsWith("GitHub-synced")} /> };
     }
     if (!canEdit) return base;
     base.valueSetter = setter(f.key) as never;
-    if (f.key === "home_project") return { ...base, ...pickerDef(f, projectOptions, false) };
+    if (f.key === "home_project") return { ...base, cellRenderer: (p: { value: unknown }) => (p.value ? <span className="proj-pill">{display(f, p.value)}</span> : null), ...pickerDef(f, projectOptions, false) };
     if (f.type === "Person") return { ...base, ...pickerDef(f, personOptions, true, "Unassigned") };
     if (f.type === "Boolean") {
       return {
@@ -143,7 +152,11 @@ export function buildColumns({ controller, lookups, today, visible }: ColumnCont
   }
   const reasonFree = (f: FieldDef) => readOnlyReason(f.key) === null;
 
-  return FIELDS.map(def);
+  // the left side reads like the prototype: global rank, rank in project, ID, initiative
+  const FIRST = ["stack_rank", "project_rank", "item_code", "initiative_name"];
+  const defs = FIELDS.map(def);
+  const rank = (d: ColDef<GridItem>) => { const i = FIRST.indexOf(String(d.colId)); return i < 0 ? FIRST.length : i; };
+  return [...defs].sort((a, b) => rank(a) - rank(b));
 }
 
 /** Column ids whose cells cannot be edited, with the reason (for the notice under the grid). */
