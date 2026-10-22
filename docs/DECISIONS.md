@@ -80,3 +80,4 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Change requests from chat are logged first in `docs/REQUESTS.md` (timestamped inbox Claude Code reads every session) · Ashu
 - 2026-10-22 · Correction: Initiative Group is an OPEN list per workspace (created on the fly, admins can rename/merge), not closed; supersedes the previous line · Ashu (request R-005)
 - 2026-10-22 · Board 2 rebuilt; issues are checked against the full spec (dictionary, sheets, decisions), not the prototype · Ashu (R-007, R-009)
+- 2026-10-22 · Projects v2 is back in R1 as an optional link to one organisation-owned Project per connection (reverses the 2026-10-22 decision of spike S2/S3). Date fields via the project and issue fields; Project Status, Iteration, GitHub Target Date read back. Spike S2b confirms first; issue fields stay the fallback · Ashu (R-010)

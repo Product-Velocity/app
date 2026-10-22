@@ -16,7 +16,7 @@ Item peek panel + detail (J/K), Gantt (two-level grouping, drag to move, clamped
 **Accept:** drag a Gantt bar updates dates with undo; swimlane regrouping works; leadership role cannot edit; views respect scopes.
 
 ## Phase 3 — GitHub sync (enterprise)
-Spikes S3b/S4b/S5b first (issue-field writes, sub-issue limits, non-owner install; needs a sandbox repo and a second account). No Projects v2 in R1. GitHub App install with approval-pending state, tracking issues, sub-issues (epics/tasks), webhook ingestion (idempotent), status/assignee/progress inbound, outbound field allowlist test, conflict surfacing, breakdown routes (Traditional first; In between and Full Claude behind flags in Phase 5).
+Spikes S3b/S4b/S5b first (issue-field writes, sub-issue limits, non-owner install; needs a sandbox repo and a second account). Optional organisation-owned Projects v2 link in R1 (reinstated, R-010; confirm in spike S2b first). GitHub App install with approval-pending state, tracking issues, sub-issues (epics/tasks), webhook ingestion (idempotent), status/assignee/progress inbound, outbound field allowlist test, conflict surfacing, breakdown routes (Traditional first; In between and Full Claude behind flags in Phase 5).
 **Accept:** create item → "Push to GitHub" creates one tracking issue; closing sub-issues updates progress; non-allowlisted field never appears in payloads (automated test); replaying a webhook changes nothing; install by non-owner shows waiting state and completes on approval; a conflict shows highlight and log entry.
 
 ## Phase 4 — Specs, readiness and Claude connection

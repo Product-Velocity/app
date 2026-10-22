@@ -5,7 +5,7 @@ GitHub App ("Product Velocity" bot); all writes are made by the app with an "on 
 Idempotent, retry-safe, webhook-driven with periodic reconciliation. Commercial fields **never** leave the app.
 
 ## Hierarchy mapping
-Initiative → **tracking issue** in the project's default repo. Epics and tasks → **sub-issues** (epic issue with task sub-issues). Dates and simple metadata go through **issue fields** (Start date, Target date), which are available on Free, Team and Enterprise organisations (spike S3). A Projects v2 mirror is **not** part of R1: GitHub Apps can only reach organisation-owned projects (spike S2). Hierarchy limits (spike S4): 100 sub-issues per parent, 8 levels; we use 3.
+Initiative → **tracking issue** in the project's default repo. Epics and tasks → **sub-issues** (epic issue with task sub-issues). Dates and simple metadata go through **issue fields** (Start date, Target date), which are available on Free, Team and Enterprise organisations (spike S3). **A Projects v2 link is part of R1 (reinstated 2026-10-22, R-010), as an optional per-connection setting:** one organisation-owned Project per connection; tracking issues and their sub-issues are added as items; the project date fields "Start date" / "Target date" are written from Planned Start / G2M Date (est) so the product roadmap shows in GitHub's Roadmap layout; Project Status, Iteration and Target date are read back (read-only). GitHub Apps can only reach **organisation-owned** projects (spike S2): user-owned projects are not supported and the setting says so. Everything works without a project; issue fields remain the fallback for dates. S2 is still second-hand and must be confirmed hands-on (private-project item access, webhook coverage) before building. Hierarchy limits (spike S4): 100 sub-issues per parent, 8 levels; we use 3.
 
 ## Field mapping
 | App | GitHub | Direction |
@@ -32,7 +32,7 @@ Project setting "Who breaks down the work": Product team in app / Engineering in
 Each work item records `created_by` (app / claude / engineer).
 
 ## Events
-Handle: `issues` (opened/edited/closed/reopened/assigned/labeled/transferred/deleted), `sub_issues`, `pull_request`, `check_suite/check_run`, `release`, `installation`, `installation_repositories`. (`projects_v2_item` is out of R1, spike S2.) Store each delivery in `sync_events` with `X-GitHub-Delivery` as the idempotency key; process via queue; verify signature; ack fast.
+Handle: `issues` (opened/edited/closed/reopened/assigned/labeled/transferred/deleted), `sub_issues`, `pull_request`, `check_suite/check_run`, `release`, `installation`, `installation_repositories`. (`projects_v2_item` is handled when a project is linked; confirm coverage in spike S2b.) Store each delivery in `sync_events` with `X-GitHub-Delivery` as the idempotency key; process via queue; verify signature; ack fast.
 
 ## Conflict handling
 Last-writer-wins per field except marker-block content (app wins). If both sides changed the same synced field since `last_synced_at`, write a `sync_conflicts` row and highlight it in the grid; never silently drop. Deleted/transferred issues unlink and flag the item. Rate limits: honour `Retry-After`, use conditional requests (ETag), batch with GraphQL where useful.
