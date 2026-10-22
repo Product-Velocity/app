@@ -37,7 +37,9 @@ The app only works end to end once these are set. Ashu does them; Claude cannot 
 
 Invitations do not send email: an admin copies the one-time link from Members and sends it themselves.
 
-## Confirmation email template (one-time, Supabase dashboard)
+## Confirmation email template (one-time, Supabase dashboard; needs a paid Supabase plan)
+> Editing email templates requires a paid Supabase plan (Pro). Until then, confirmation links only work when opened in the same browser that was used to sign up. This is acceptable while only Ashu and test users sign in; it goes on the go-live list below.
+
 Sign-up confirmation links must work even when opened in a different browser or app than the one used to sign up (for example the mail app's built-in browser). The default Supabase link does not, because it needs a secret stored in the original browser. The app supports a link that carries a one-time token instead.
 
 1. Supabase → **Authentication → Emails → Templates → Confirm signup**.
@@ -50,3 +52,21 @@ Sign-up confirmation links must work even when opened in a different browser or 
 3. Save. (`{{ .RedirectTo }}` is the app's `/auth/callback?next=...` address, hence the `&`.)
 
 The app still accepts the old link in the same browser, so nothing breaks if this step is skipped; it just fails for people who open the email elsewhere. The password reset issue (#13) will need the matching **Reset password** template with `type=recovery`.
+
+## Before going live for new customers (checklist)
+Not needed while only the team is testing. Do all of these before the first real customer signs in. Owner: Ashu unless noted.
+
+| # | Item | Why | Cost / effort |
+|---|---|---|---|
+| 1 | **Upgrade Supabase to a paid plan (Pro)** | Required to edit email templates (item 2); also gives backups, higher email and usage limits, and is where the custom domain add-on (item 5) lives | Paid, monthly. Check the current price on supabase.com/pricing |
+| 2 | **Paste the confirmation email template** from the section above (and the Reset password one when #13 is built) | Makes email links work from any browser or mail app | Free once on Pro. 5 minutes |
+| 3 | **Set up custom SMTP** (Supabase → Authentication → Emails → SMTP Settings; for example Resend) with a sender on `productvelocity.app` | The built-in sender only reaches members of your Supabase organisation and is heavily rate limited. Needs DNS records (SPF, DKIM) on the domain | Provider free tier may be enough at first. About 30 minutes |
+| 4 | **Verify the app's branding with Google** (Google Cloud console → Google Auth Platform → Branding → submit for verification) | Replaces the raw Supabase address on the Google sign-in screen with "Product Velocity" and the logo; also lets any Google user sign in, not only listed test users | Free. Needs a public privacy policy and terms page on `productvelocity.app`; Google review can take days |
+| 5 | **Supabase custom domain** (Project Settings → Add-ons → Custom Domain), for example `auth.productvelocity.app` | Sign-in screens (Google, GitHub) show your domain instead of `tnhlivowltvwvjhbknrc.supabase.co` | Paid add-on, check current price. Do it once, early: it changes the callback URLs in Supabase, Google and GitHub |
+| 6 | **Build password reset** (issue #13) | People who forget a password or signed up with Google/GitHub need a way in | Claude, after items 2 and 3 |
+| 7 | **Publish a privacy policy and terms page** | Needed for item 4 and for customers | Content decision for Ashu |
+| 8 | **Separate Supabase projects for Preview and Production** and use different keys | Preview deployments must never touch customer data | Free tier project, 15 minutes |
+| 9 | **Require the CI check on `main`** (GitHub branch protection) | Stops broken code reaching production | Free, 5 minutes |
+| 10 | **Set `SITE_URL`** to `https://productvelocity.app` in Vercel Production | Sign-in redirects and invite links always use the real domain | Free |
+
+Order that avoids rework: 1 → 5 → 3 → 2 → 7 → 4 → 6 → 8 → 9 → 10.
