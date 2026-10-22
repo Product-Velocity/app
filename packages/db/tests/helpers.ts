@@ -20,7 +20,7 @@ export type TestDb = {
   asUser: <T>(
     userId: string,
     fn: (q: Query) => Promise<T>,
-    opts?: { via?: string; commit?: boolean },
+    opts?: { via?: string; commit?: boolean; headers?: Record<string, string> },
   ) => Promise<T>;
   /** Run `fn` as the anonymous role. */
   asAnon: <T>(fn: (q: Query) => Promise<T>) => Promise<T>;
@@ -50,7 +50,7 @@ export async function createTestDb(opts: { migrations?: boolean } = {}): Promise
     role: string,
     claims: Record<string, unknown> | null,
     fn: (q: Query) => Promise<T>,
-    o: { via?: string; commit?: boolean } = {},
+    o: { via?: string; commit?: boolean; headers?: Record<string, string> } = {},
   ): Promise<T> {
     await admin.query("begin");
     try {
@@ -61,6 +61,9 @@ export async function createTestDb(opts: { migrations?: boolean } = {}): Promise
         ]);
       }
       if (o.via) await admin.query("select set_config('app.via', $1, true)", [o.via]);
+      if (o.headers) {
+        await admin.query("select set_config('request.headers', $1, true)", [JSON.stringify(o.headers)]);
+      }
       const out = await fn((sql, params) => admin.query(sql, params));
       await admin.query(o.commit ? "commit" : "rollback");
       return out;
@@ -85,10 +88,14 @@ export async function createTestDb(opts: { migrations?: boolean } = {}): Promise
   };
 }
 
-export async function createUser(db: TestDb, email: string): Promise<string> {
+export async function createUser(
+  db: TestDb,
+  email: string,
+  opts: { confirmed?: boolean } = {},
+): Promise<string> {
   const { rows } = await db.admin.query(
-    "insert into auth.users (email) values ($1) returning id",
-    [email],
+    "insert into auth.users (email, email_confirmed_at) values ($1, $2) returning id",
+    [email, opts.confirmed === false ? null : new Date()],
   );
   return rows[0].id as string;
 }
@@ -119,6 +126,17 @@ export async function twoTenantFixture(db: TestDb) {
       ]),
     { commit: true },
   );
+  // one pending invitation per tenant (positive controls for the invitations table)
+  for (const [admin, tenant, email] of [
+    [alice, tenantA, "pending-a@example.test"],
+    [bob, tenantB, "pending-b@example.test"],
+  ] as const) {
+    await db.asUser(
+      admin,
+      (q) => inviteRow(q, tenant, email, "creator", `fixture-${email}`),
+      { commit: true },
+    );
+  }
   return { alice, bob, carol, dave, tenantA, tenantB };
 }
 
@@ -130,4 +148,23 @@ export async function errorCode(p: Promise<unknown>): Promise<string | null> {
   } catch (e) {
     return (e as { code?: string }).code ?? "unknown";
   }
+}
+
+import { createHash } from "node:crypto";
+
+export const hashToken = (t: string) => createHash("sha256").update(t).digest("hex");
+
+/** Insert an invitation as the current user; `token` is hashed like the app does. */
+export function inviteRow(
+  q: Query,
+  tenantId: string,
+  email: string,
+  role: string,
+  token: string,
+  isApprover = false,
+) {
+  return q(
+    "insert into public.invitations (tenant_id, email, role, is_approver, token_hash) values ($1, $2, $3, $4, $5)",
+    [tenantId, email, role, isApprover, hashToken(token)],
+  );
 }
