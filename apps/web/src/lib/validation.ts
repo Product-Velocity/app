@@ -8,8 +8,6 @@ export function normalizeEmail(raw: unknown): string | null {
   return email;
 }
 
-export const MIN_PASSWORD_LENGTH = 10;
-
 export function parseTenantName(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const name = raw.trim();

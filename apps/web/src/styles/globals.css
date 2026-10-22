@@ -83,3 +83,22 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 .table th { text-align: left; font-weight: 600; background: var(--header-bg); }
 .table th, .table td { padding: 6px 8px; border-bottom: 1px solid var(--grey-2); height: var(--row-height); }
 .table select { width: auto; min-width: 140px; }
+
+/* ---- password fields ---- */
+.pw-wrap { position: relative; }
+.pw-wrap input { padding-right: 64px; }
+.pw-toggle { position: absolute; top: 3px; right: 3px; height: calc(var(--row-height) - 8px); padding: 0 10px; border: 0; border-radius: 4px; background: var(--grey-3); font: inherit; color: var(--blue-text); cursor: pointer; }
+.pw-toggle:hover { background: var(--grey-1); }
+.pw-meta { display: grid; gap: 6px; margin-top: -4px; }
+.meter { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.meter-seg { height: 6px; border-radius: 3px; background: var(--grey-1); }
+.meter-seg.lvl-0 { background: #8a1f1f; }
+.meter-seg.lvl-1 { background: #b26a00; }
+.meter-seg.lvl-2 { background: #3347d9; }
+.meter-seg.lvl-3 { background: #17653f; }
+.pw-strength { margin: 0; font-size: 12px; }
+.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 12px; color: #5b6272; }
+.checklist li.met { color: var(--green-text); }
+.match { margin: 0; font-size: 12px; }
+.match.ok { color: var(--green-text); }
+.match.bad { color: var(--red-text); }
