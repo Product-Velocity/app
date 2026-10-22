@@ -98,3 +98,8 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-23 · Default views are ordered lists of 15–25 columns (first three pinned) in `docs/reference/default-views.csv`; Leadership rebuilt around portfolio health, Discovery takes the old Leadership content, the old Discovery content becomes Timeline, History refocused on changes, Cycle review added (10 views) · Ashu (R-021)
 - 2026-10-23 · Grid design pass 2 (R-022): initiative name bold; health pill compact, no icon (text label kept); group header rows are summary rows with column-aligned aggregates; bulk bar and quick-add float above the grid. Supersedes the "quick-add is a form above the grid, scrolling with the page" detail of the first design pass; the separate form, no column-group band and ungrouped-by-default decisions stand.
 - 2026-10-23 · Group summary rows show only name, item count and health breakdown (no aggregates); quick-add floats above the bulk bar.
+- 2026-10-23 · Gantt bars run from Planned Start to G2M Date (est), as the dictionary says; Start Date and the actual dates wait for plan-versus-actual in phase 3 · Claude (issue #27)
+- 2026-10-23 · Moving a Gantt bar saves at once and is one undo step (issue text), not a confirmation as on the prototype board; keyboard changes are staged and saved with Enter · Claude (issue #27), docs win over the prototype
+- 2026-10-23 · Gantt bars are clamped to the visible window (cycles arrive in phase 5); an item without both dates is Unscheduled and a drop sets Planned Start to the drop day and G2M Date (est) four weeks later · Claude (issue #27)
+- 2026-10-23 · Grouping by team puts an item with several teams under each of them · Claude (issue #27), **Ashu to confirm**
+

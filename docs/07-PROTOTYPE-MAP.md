@@ -6,7 +6,7 @@ Published (view-only reference): https://claude.ai/artifact/WVtip16iTPYZdru67tsg
 |---|---|---|---|---|
 | 1 | Main | Roadmap grid with selection and bulk bar | 1 | Superseded in layout by 20 for portfolio |
 | 2 | Item-detail | Item + GitHub tab | 2–3 | Rebuilt 2026-10-22: breakdown strip, epics with nested tasks, "created by" and "Scope added" tags. Example data. Built in #26 as the item panel and page with tabs Overview, Spec, GitHub, Alignment, Activity (the board's "Fields" and "History"); the GitHub tab is an empty state until phase 3 |
-| 3 | Gantt | Two-level grouped Gantt | 2 | |
+| 3 | Gantt | Two-level grouped Gantt | 2 | Built in #27 (`docs/16-GANTT.md`): Baseline, Dependencies and Export from the board are not built; dragging saves at once with undo instead of asking for a confirmation |
 | 4 | Cards | Card view with swimlanes | 2 | |
 | 5 | AI-intake | AI intake with duplicate check | 4 | |
 | 6 | GitHub-setup | Connection, waiting for approval | 3 | |

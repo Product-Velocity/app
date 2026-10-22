@@ -19,3 +19,27 @@ export function makeHarness(n: number, latency: number, role: string) {
   const controller = new PortfolioController(source, items, harnessLookups, role, () => new Date(Date.UTC(2027, 3, 14)));
   return { controller, source };
 }
+
+/**
+ * Data for the Gantt test page (today is Wed 14 Apr 2027): most items have a Planned Start and a G2M Date (est) spread over
+ * the year, one in eleven has no dates (the Unscheduled lane), and the items cycle through three Initiative Groups and none.
+ */
+export function makeGanttHarness(n: number, role: string) {
+  const { controller, source } = makeHarness(n, 0, role);
+  const groups = ["Onboarding", "Platform health", "Retention", null];
+  const base = Date.UTC(2027, 0, 4);
+  const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  source.items.forEach((item, i) => {
+    const start = base + ((i * 13) % 300) * 86_400_000;
+    const unscheduled = i % 11 === 10;
+    item.planned_start = unscheduled ? null : iso(start);
+    item.g2m_date_est = unscheduled ? null : iso(start + (14 + ((i * 7) % 70)) * 86_400_000);
+    item.theme = groups[i % groups.length] ?? null;
+    item.contributing_teams = i % 5 === 0 ? "Core, Mobile" : i % 3 === 0 ? "Core" : null;
+  });
+  for (const r of controller.rows) {
+    const s = source.items.find((x) => x.id === r.id)!;
+    r.planned_start = s.planned_start; r.g2m_date_est = s.g2m_date_est; r.theme = s.theme; r.contributing_teams = s.contributing_teams;
+  }
+  return { controller, source };
+}

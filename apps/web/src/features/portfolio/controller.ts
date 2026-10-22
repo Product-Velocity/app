@@ -1,5 +1,5 @@
 import {
-  cleanRelated, cleanSkills, isRelatedField, summarizeChange, toDay, fromDay, type ActivityRow, type RelatedField, type RelatedValues,
+  cleanRelated, cleanSkills, isRelatedField, summarizeChange, toDay, type ActivityRow, type RelatedField, type RelatedValues,
   applyMove, canBeEmpty, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
   bulkEditReason, resolveGroup, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
