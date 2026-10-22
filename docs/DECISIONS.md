@@ -32,3 +32,4 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Dependency added: `@supabase/ssr` (MIT, free). Removed the unused browser Supabase client from issue 2 · Claude (issue #3)
 - 2026-10-22 · Email confirmation links use a one-time token hash (verifyOtp), not only the same-browser PKCE code, so they work from any browser or mail app · Claude (issue #3 follow-up)
 - 2026-10-22 · Paid Supabase plan, custom email template, custom SMTP, Google brand verification, Supabase custom domain, privacy policy page deferred to a go-live checklist in `docs/11`; not needed while only the team tests · Ashu
+- 2026-10-22 · Invite links show the workspace, invited email and role before sign-in (anonymous `invitation_preview`), with password sign-in and accept in one step; the invited email is fixed, not editable · Ashu/Claude (issue #3 follow-up)
