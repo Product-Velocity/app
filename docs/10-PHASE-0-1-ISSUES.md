@@ -14,3 +14,6 @@ GitHub issue creation was not permitted when these were drafted. Create one GitH
 7. **Quick-add row** — name only required, Enter creates; tokens `#project @person M should`; context inherited from view; paste a list adds many; similar-item hint; audited.
 8. **Multi-select bulk bar and paste-import from Excel** — select 3 rows and set a field in one undoable action; GitHub-driven fields rejected with a clear message; paste 50 rows with column-mapping preview; buttons "Update GitHub" (Phase 3) and "Export selection to file". Reference: prototype board 1.
 9. **Saved views, scope switcher and basic ⌘K palette** — "All projects" plus saved named scopes; views store filters, grouping, columns; ⌘K lists core actions; RLS tests for new tables.
+
+## Phase 2 and 3 issues (created 2026-10-22)
+Phase 2: #26 item peek panel and detail page, #27 Gantt, #28 card view, #29 leadership view and weekly update stub. Phase 3: #30 sandbox spikes S3b/S4b/S5b, #31 App install and connection settings, #32 webhook ingestion, #33 push to GitHub with the outbound allowlist test, #34 epics and tasks with the Traditional breakdown route, #35 inbound sync, #36 conflicts and sync log.
