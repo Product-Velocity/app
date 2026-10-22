@@ -41,6 +41,7 @@ Quick-add row (name only required, Enter creates), inline cell edit, autosave wi
 - Migrations are forward-only, reviewed, and applied through Supabase migrations; never edit applied ones.
 - Secrets only in environment variables. Never log tokens, emails of voters, or document contents.
 - **Read `docs/REQUESTS.md` at the start of every session.** It is the timestamped inbox of change requests from Ashu; pick up `open` items, mark them `done` with the commit when finished. Requests also go there when they edit reviewed docs.
+- **The prototype is inspiration, not the spec.** The spec is the field dictionary (165 fields), the workbook sheets, the docs, `docs/DECISIONS.md` and `docs/REQUESTS.md`. Issues are drafts: check each against them before building, and add what an issue misses (say so in the PR).
 - Use `/work-issue <number>` to pick up an issue. Use the issue template in `.github/ISSUE_TEMPLATE/work-item.md`.
 - Prefer boring, well-known libraries. Ask before adding a dependency with a licence or cost implication.
 - If the prototype, docs and issue disagree, stop and ask; do not guess.
