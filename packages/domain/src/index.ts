@@ -8,3 +8,4 @@ export * from "./quickadd";
 export * from "./spreadsheet";
 export * from "./views";
 export * from "./groups";
+export * from "./panel";
