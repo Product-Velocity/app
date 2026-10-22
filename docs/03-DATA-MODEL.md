@@ -2,6 +2,21 @@
 
 This replaces the earlier Excel field dictionary (`Roadmap_v3_field_dictionary_proposal.xlsx`), which predates teams, planning cycles, gates, outcomes, reports and breakdown routes. Types are logical; derive SQL. Every table has `id`, `tenant_id`, `created_at`, `updated_at`, `created_by`, `created_via` (UI / API / Claude MCP / GitHub / import / system) and RLS.
 
+## Item fields: the field dictionary is the specification
+**`docs/reference/item-fields.csv` (same content as `Roadmap_v4_field_dictionary.xlsx`) is the authoritative list of item fields: 165 fields.** This document only describes entities and relations. The field lists below are a summary and are superseded by the CSV wherever they differ.
+
+Each field has a `key`, `type`, `allowed_values`, `origin`, `storage` and `ships_in_phase`:
+- *Column on items / System-set column*: a real typed column on `items` (selects use a constrained text column or enum; allowed values come from `allowed_values`).
+- *Related table*: relations, links, tags, files and threads get their own table.
+- *Computed*: a view or function, never stored; it must still be available as a grid column.
+- *GitHub-synced*: stored, read-only in the app, written by the sync engine.
+- `ships_in_phase` says when the field gets its real data. **Every field with `ships_in_phase` 1 must exist in the schema by the end of Phase 1**, and every field of every phase must exist as a grid column (a field registry drives the Columns picker; fields from later phases show as "arrives in phase N" until then).
+
+Rules:
+1. Do not invent keys. Use the CSV `key` as the column name. If a field is wrong or missing, change the CSV (and the workbook) in the same PR and log it in `docs/DECISIONS.md`.
+2. A test must compare the field registry in code with the CSV and fail on any difference (keys, types, storage, phase).
+3. Editing mode (editable / computed / system / locked by GitHub) is in the "Grid columns and views" sheet of the workbook; the grid must follow it.
+
 ## Tenancy and people
 - `tenants`, `tenant_members(user_id, role[viewer|commenter|creator|admin|leadership], is_approver, is_service_account)`. Implemented in `packages/db/migrations/0001`. Tenants are created only through `create_tenant(name)` (caller becomes admin). Members, tenant name and audit visibility are admin-managed; viewers see the tenant and its members. `invitations(tenant_id, email, role, is_approver, token_hash, expires_at, accepted_at/by, revoked_at)` (migration 0003): admin-only, one pending invite per email, token stored only as a SHA-256 hash, valid 7 days, single use; `accept_invitation(token)` requires the caller's *confirmed* email to match the invited email and refuses existing members. `invitation_preview(token)` (0006) lets an invite link show the workspace name, invited email and role before sign-in, and `invitation_account_exists(token)` (0007) says whether that email already has an account (so the page opens in sign-in or create-account mode); both answer only for the exact token of a pending, unexpired invitation and are callable by anonymous visitors. `tenant_directory(tenant)` (0004) lists a tenant's members with emails for members of that tenant. A tenant can never lose its last admin (0005, applies to everyone including the service role). A service account can never be an approver (check constraint) and a write declared as `Claude MCP` cannot grant Approver (trigger).
 - `projects(name, default_repo, github_installation_id, who_breaks_down[product|engineering|either])`; `project_members`. **Implemented (migration 0008):** `projects(name, default_repo, who_breaks_down)`; admins write, every tenant member reads; names unique per tenant. `project_members` and `github_installation_id` come later: until then all tenant members see all projects.
