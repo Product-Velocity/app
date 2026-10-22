@@ -39,6 +39,7 @@ Quick-add row (name only required, Enter creates), inline cell edit, autosave wi
 - Small vertical slices, each ending in something Ashu can click. Follow `docs/06-BUILD-PLAN.md` order; do not start a later phase early.
 - Every PR: tests, migration (if any), RLS tests, updated docs if behaviour changed, screenshot for UI.
 - Migrations are forward-only, reviewed, and applied through Supabase migrations; never edit applied ones.
+- **The repo is public until go-live** (free Vercel/Supabase plans). Never commit secrets, real customer or voter data, or real commercial numbers. Go-live to-dos live in `docs/14-GO-LIVE-CHECKLIST.md`; add to it whenever something must happen before real customers.
 - Secrets only in environment variables. Never log tokens, emails of voters, or document contents.
 - **Read `docs/REQUESTS.md` at the start of every session.** It is the timestamped inbox of change requests from Ashu; pick up `open` items, mark them `done` with the commit when finished. Requests also go there when they edit reviewed docs.
 - **The prototype is inspiration, not the spec.** The spec is the field dictionary (165 fields), the workbook sheets, the docs, `docs/DECISIONS.md` and `docs/REQUESTS.md`. Issues are drafts: check each against them before building, and add what an issue misses (say so in the PR).

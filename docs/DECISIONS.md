@@ -87,3 +87,4 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Default views stay generated from the sheet; customising one stores an override row (`base_view`) and "Restore" deletes it, so defaults can change with the dictionary until someone customises them · Claude (issue #39)
 - 2026-10-22 · Visibility rule: every role that can read a workspace sees all columns in internal views; only views marked customer-safe are limited to customer-safe fields · Ashu (confirmed in chat, issue #39)
 - 2026-10-22 · Target Markets and Live Markets are customer-safe, as the sheet says; customer-safe views may hold them. This overrides the earlier wording in docs/03 and docs/13-HIERARCHY that hid markets from customer-safe views · Ashu (issue #39)
+- 2026-10-22 · Free Vercel/Supabase plans for now, so the repo stays public until go-live; making it private and upgrading plans is a go-live item (docs/14) · Ashu (R-012)
