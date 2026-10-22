@@ -301,3 +301,78 @@ describe("Initiative Group is an open list", () => {
     expect(source.items.at(-1)!.theme).toBe("Onboarding");
   });
 });
+
+describe("list fields of an item (item panel)", () => {
+  const panelSetup = () => {
+    const items = sampleItems(4, ["p1"], ["u1"]);
+    const source = new MemoryDataSource(items);
+    source.related.set("item-1", { tags: ["a"], target_scope: [], live_scope: [], target_segments: [], artifacts: [], depends_on: [], related_to: [], contributing_teams: [] });
+    const c = new PortfolioController(source, items, { ...lookups, teams: [{ id: "t1", name: "Core" }, { id: "t2", name: "Mobile" }] }, "creator", () => TODAY, () => 1_000);
+    return { c, source };
+  };
+  it("loads the lists of one item once", async () => {
+    const { c } = panelSetup();
+    expect(c.relatedOf("item-1")).toBeUndefined();
+    expect((await c.loadRelated("item-1")).tags).toEqual(["a"]);
+    expect(c.relatedOf("item-1")!.tags).toEqual(["a"]);
+  });
+  it("editing tags is optimistic, saved in the background, shown in the grid cell and undoable", async () => {
+    const { c, source } = panelSetup();
+    await c.loadRelated("item-1");
+    expect(c.editRelated("item-1", "tags", ["a", "  Urgent "])).toEqual({ ok: true, changed: true });
+    expect(c.relatedOf("item-1")!.tags).toEqual(["a", "Urgent"]);
+    expect(c.row("item-1")!.tags).toBe("a, Urgent");
+    expect(c.status.last?.text).toBe("R-01 Tags: added Urgent");
+    await c.flush();
+    expect(source.related.get("item-1")!.tags).toEqual(["a", "Urgent"]);
+    await c.undo();
+    expect(c.relatedOf("item-1")!.tags).toEqual(["a"]);
+    expect(c.row("item-1")!.tags).toBe("a");
+    expect(source.related.get("item-1")!.tags).toEqual(["a"]);
+    await c.redo();
+    expect(source.related.get("item-1")!.tags).toEqual(["a", "Urgent"]);
+  });
+  it("a failed save puts the list back and says why", async () => {
+    const { c, source } = panelSetup();
+    await c.loadRelated("item-1");
+    source.failRelated = "no permission";
+    c.editRelated("item-1", "tags", ["a", "b"]);
+    await c.flush();
+    expect(c.relatedOf("item-1")!.tags).toEqual(["a"]);
+    expect(c.status.error).toContain("no permission");
+  });
+  it("relations show item codes, teams show names, and bad values are explained", async () => {
+    const { c } = panelSetup();
+    await c.loadRelated("item-1");
+    c.editRelated("item-1", "depends_on", ["item-2", "item-3"]);
+    expect(c.row("item-1")!.depends_on).toBe("R-02; R-03");
+    c.editRelated("item-1", "contributing_teams", ["t2"]);
+    expect(c.row("item-1")!.contributing_teams).toBe("Mobile");
+    expect(c.editRelated("item-1", "related_to", ["item-1"])).toEqual({ ok: false, error: "An initiative cannot refer to itself." });
+    expect(c.editRelated("item-1", "artifacts", [{ label: "x", url: "ftp://x" }])).toEqual({ ok: false, error: "A link must start with http:// or https://." });
+  });
+  it("view-only roles cannot edit lists", async () => {
+    const items = sampleItems(2, ["p1"], ["u1"]);
+    const c = new PortfolioController(new MemoryDataSource(items), items, lookups, "viewer", () => TODAY, () => 1_000);
+    await c.loadRelated("item-1");
+    expect(c.editRelated("item-1", "tags", ["x"])).toEqual({ ok: false, error: READ_ONLY_MESSAGE });
+  });
+  it("effort by skill is a typed value with its own undo step", async () => {
+    const { c, source } = panelSetup();
+    expect(c.setValue("item-2", "effort_by_skill", { backend: "4", frontend: 2.5, data: 0 })).toEqual({ ok: true, changed: true });
+    expect(c.row("item-2")!.effort_by_skill).toEqual({ backend: 4, frontend: 2.5 });
+    await c.flush();
+    expect(source.items[1]!.effort_by_skill).toEqual({ backend: 4, frontend: 2.5 });
+    expect(c.setValue("item-2", "effort_by_skill", { backend: "lots" })).toMatchObject({ ok: false });
+    await c.undo();
+    expect(c.row("item-2")!.effort_by_skill ?? null).toBeNull();
+  });
+  it("restoreValue puts an old value back only while the field still holds what that change set", async () => {
+    const { c } = panelSetup();
+    c.edit("item-1", "health", "Delayed");
+    expect(c.restoreValue("item-1", "health", "At Risk", "On Track")).toEqual({ ok: false, error: "The value has changed since. Undo the newer change first." });
+    expect(c.restoreValue("item-1", "health", "Delayed", "On Track")).toEqual({ ok: true, changed: true });
+    expect(c.row("item-1")!.health).toBe("On Track");
+    expect(c.restoreValue("item-1", "status", "Backlog", "Completed")).toMatchObject({ ok: false });
+  });
+});

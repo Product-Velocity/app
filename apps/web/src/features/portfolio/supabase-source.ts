@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, type EditableField } from "@pv/domain";
+import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { CreateManyResult, NewItem, PortfolioDataSource, SaveResult } from "./data-source";
 import type { LoadedItem } from "./types";
 
@@ -23,7 +23,7 @@ export function friendlyError(error: DbError): string {
 const NUMERIC = new Set(FIELDS.filter((f) => f.type === "Number" || f.type === "Currency" || f.type === "Computed").map((f) => f.key));
 /** Computed values come from the items_computed view; the browser works out project_rank itself after a re-rank. */
 const COMPUTED_KEYS = FIELDS.filter((f) => f.storage.startsWith("Computed") && f.key !== "project_rank").map((f) => f.key);
-const INTERNAL_COLUMNS = new Set(["tenant_id", "cycle_id", "created_by", "updated_at", "last_edited_by", "github_issue_url", "last_synced_at", "created_via", "effort_by_skill"]);
+const INTERNAL_COLUMNS = new Set(["tenant_id", "cycle_id", "created_by", "updated_at", "last_edited_by", "github_issue_url", "last_synced_at", "created_via"]);
 
 const dbColumn = (field: string) => {
   const f = FIELD_BY_KEY[field];
@@ -141,5 +141,65 @@ export class SupabaseDataSource implements PortfolioDataSource {
   async moveItem(itemId: string, toRank: number): Promise<SaveResult> {
     const { error } = await this.client.rpc("move_item", { p_item: itemId, p_new_rank: toRank });
     return error ? { ok: false, error: friendlyError(error) } : { ok: true };
+  }
+
+  // ------------------------------------------------------------ list fields of one item (item panel)
+  async loadRelated(itemId: string): Promise<RelatedValues> {
+    const mine = (table: string, columns: string) => this.client.from(table).select(columns).eq("tenant_id", this.tenantId).eq("item_id", itemId);
+    const [tags, links, rels, teams] = await Promise.all([
+      mine("item_tags", "kind,value").order("value"),
+      mine("item_links", "label,url").order("created_at"),
+      mine("item_relations", "related_item_id,kind"),
+      mine("item_teams", "team_id"),
+    ]);
+    for (const r of [tags, links, rels, teams]) if (r.error) throw new Error(friendlyError(r.error));
+    const out = emptyRelated();
+    const TAG_FIELD: Record<string, RelatedField> = { tag: "tags", target_scope: "target_scope", live_scope: "live_scope", segment: "target_segments" };
+    for (const t of (tags.data ?? []) as unknown as { kind: string; value: string }[]) { const f = TAG_FIELD[t.kind]; if (f) (out[f] as string[]).push(t.value); }
+    out.artifacts = ((links.data ?? []) as unknown as Link[]).map((l) => ({ label: l.label ?? "", url: l.url }));
+    for (const r of (rels.data ?? []) as unknown as { related_item_id: string; kind: "depends_on" | "related_to" }[]) out[r.kind].push(r.related_item_id);
+    out.contributing_teams = ((teams.data ?? []) as unknown as { team_id: string }[]).map((t) => t.team_id);
+    return out;
+  }
+
+  async setRelated(itemId: string, field: RelatedField, value: unknown[]): Promise<SaveResult> {
+    const kinds: Partial<Record<RelatedField, string>> = { tags: "tag", target_scope: "target_scope", live_scope: "live_scope", target_segments: "segment" };
+    const base = { tenant_id: this.tenantId, item_id: itemId };
+    const run = async (table: string, columns: string, filter: Record<string, string>, same: (row: Record<string, unknown>, v: unknown) => boolean, toRow: (v: unknown) => Record<string, unknown>): Promise<SaveResult> => {
+      let q = this.client.from(table).select(columns).eq("tenant_id", this.tenantId).eq("item_id", itemId);
+      for (const [k, v] of Object.entries(filter)) q = q.eq(k, v);
+      const cur = await q;
+      if (cur.error) return { ok: false, error: friendlyError(cur.error) };
+      const rows = (cur.data ?? []) as unknown as Record<string, unknown>[];
+      const gone = rows.filter((r) => !value.some((v) => same(r, v)));
+      const fresh = value.filter((v) => !rows.some((r) => same(r, v)));
+      if (gone.length > 0) {
+        const d = await this.client.from(table).delete().eq("tenant_id", this.tenantId).in("id", gone.map((r) => String(r.id)));
+        if (d.error) return { ok: false, error: friendlyError(d.error) };
+      }
+      if (fresh.length > 0) {
+        const i = await this.client.from(table).insert(fresh.map((v) => ({ ...base, ...filter, ...toRow(v) })));
+        if (i.error) return { ok: false, error: friendlyError(i.error) };
+      }
+      return { ok: true };
+    };
+    if (kinds[field]) {
+      const kind = kinds[field]!;
+      return run("item_tags", "id,value", { kind }, (r, v) => String(r.value).toLowerCase() === String(v).toLowerCase(), (v) => ({ value: String(v) }));
+    }
+    if (field === "artifacts") {
+      return run("item_links", "id,label,url", {}, (r, v) => r.url === (v as Link).url && (r.label ?? "") === (v as Link).label, (v) => ({ label: (v as Link).label, url: (v as Link).url }));
+    }
+    if (field === "depends_on" || field === "related_to") {
+      return run("item_relations", "id,related_item_id", { kind: field }, (r, v) => r.related_item_id === v, (v) => ({ related_item_id: String(v) }));
+    }
+    return run("item_teams", "id,team_id", {}, (r, v) => r.team_id === v, (v) => ({ team_id: String(v) }));
+  }
+
+  async loadActivity(itemId: string): Promise<ActivityRow[]> {
+    const { data, error } = await this.client.rpc("item_activity", { p_item: itemId });
+    if (error) throw new Error(friendlyError(error));
+    return ((data ?? []) as { id: string | number; at: string; entity: string; entity_id: string; field: string; old: unknown; new: unknown; actor_id: string | null; via: string }[])
+      .map((r) => ({ id: Number(r.id), at: r.at, entity: r.entity, entityId: r.entity_id, field: r.field, old: r.old, new: r.new, actorId: r.actor_id, via: r.via }));
   }
 }

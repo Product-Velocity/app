@@ -12,7 +12,9 @@ export type CreateEdit = {
 };
 /** Field values of a new item by dictionary key; a name and a project are always there. */
 export type NewItemValues = Record<string, unknown> & { initiative_name: string; home_project: string };
-export type Edit = FieldEdit | RankEdit | CreateEdit;
+/** A list field of an item (tags, links, relations, teams) replaced as a whole; undo puts the old list back. */
+export type RelatedEdit = { type: "related"; itemId: string; key: string; field: string; before: unknown[]; after: unknown[] };
+export type Edit = FieldEdit | RankEdit | CreateEdit | RelatedEdit;
 /** One undo step. A bulk action is one entry with several edits. */
 export type Entry = { id: string; edits: Edit[]; /** Shown after undo and redo of a batch, for example "Set Effort on 3 items". */ label?: string };
 
@@ -70,12 +72,24 @@ function show(field: EditableField, v: unknown, r: Resolvers): string {
   if (f?.type === "Currency") return formatValue(Number(v));
   if (f?.type === "Date") return formatDate(String(v), r.today ?? new Date());
   if (f?.type === "Boolean") return v ? "Yes" : "No";
+  if (typeof v === "object") return Object.entries(v as Record<string, unknown>).map(([k, n]) => `${k} ${n}`).join(", ");
   return String(v);
 }
 
 /** "R-41 Health: On track to At risk": shown in the status strip after every change. */
 export function describeEdit(edit: Edit, r: Resolvers): string {
   if (edit.type === "create") return `Added ${edit.key === "…" ? "" : `${edit.key} `}"${edit.draft.initiative_name}"`;
+  if (edit.type === "related") return `${edit.key} ${fieldLabel(edit.field)}: ${describeListChange(edit.before, edit.after)}`;
   if (edit.type === "rank") return `${edit.key} moved from rank ${edit.before} to ${edit.after}`;
   return `${edit.key} ${fieldLabel(edit.field)}: ${show(edit.field, edit.before, r)} to ${show(edit.field, edit.after, r)}`;
+}
+
+const itemText = (v: unknown): string => (v && typeof v === "object" ? String((v as { label?: string; url?: string }).label || (v as { url?: string }).url || "") : String(v));
+const itemKey = (v: unknown): string => (v && typeof v === "object" ? JSON.stringify(v) : String(v));
+/** "added urgent, removed a" for a list that went from `before` to `after`. */
+export function describeListChange(before: readonly unknown[], after: readonly unknown[]): string {
+  const b = new Set(before.map(itemKey)), a = new Set(after.map(itemKey));
+  const added = after.filter((x) => !b.has(itemKey(x))).map(itemText);
+  const removed = before.filter((x) => !a.has(itemKey(x))).map(itemText);
+  return [added.length ? `added ${added.join(", ")}` : "", removed.length ? `removed ${removed.join(", ")}` : ""].filter(Boolean).join(", ") || "no change";
 }

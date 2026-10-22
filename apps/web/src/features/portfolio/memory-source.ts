@@ -1,4 +1,4 @@
-import { applyMove, type EditableField } from "@pv/domain";
+import { applyMove, columnOnItems, emptyRelated, FIELD_BY_KEY, type ActivityRow, type EditableField, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { CreateManyResult, NewItem, PortfolioDataSource, SaveResult } from "./data-source";
 import type { LoadedItem } from "./types";
 
@@ -16,6 +16,32 @@ export class MemoryDataSource implements PortfolioDataSource {
   readonly createCalls: { count: number; via?: string }[] = [];
   readonly deleteCalls: string[][] = [];
   private counter = 0;
+  /** List fields by item id, and the audit log the Activity tab shows (written by this source, as the database would). */
+  related = new Map<string, RelatedValues>();
+  activity: ActivityRow[] = [];
+  /** Who the writes are attributed to in `activity`. */
+  actorId: string | null = "u1";
+  private auditSeq = 0;
+  private clock = 0;
+  private audit(entity: string, entityId: string, field: string, old: unknown, value: unknown, tick = true) {
+    if (tick) this.clock++;
+    this.activity.unshift({ id: ++this.auditSeq, at: new Date(Date.UTC(2027, 3, 14, 10, 0, this.clock)).toISOString(), entity, entityId, field, old: old ?? null, new: value ?? null, actorId: this.actorId, via: "UI" });
+  }
+  /** The audit rows the database writes for one added or removed row of a list field. */
+  private auditListRow(field: RelatedField, itemId: string, x: unknown, added: boolean) {
+    const tagKind: Partial<Record<RelatedField, string>> = { tags: "tag", target_scope: "target_scope", live_scope: "live_scope", target_segments: "segment" };
+    const rowId = `${field}-${++this.auditSeq}`;
+    const cols: [string, string, unknown][] =
+      tagKind[field] ? [["item_tags", "kind", tagKind[field]], ["item_tags", "value", x]]
+      : field === "artifacts" ? [["item_links", "label", (x as { label: string }).label], ["item_links", "url", (x as { url: string }).url]]
+      : field === "contributing_teams" ? [["item_teams", "team_id", x]]
+      : [["item_relations", "kind", field], ["item_relations", "related_item_id", x]];
+    const entity = cols[0]![0];
+    this.clock++;
+    const put = (f: string, v: unknown) => (added ? this.audit(entity, rowId, f, null, v, false) : this.audit(entity, rowId, f, v, null, false));
+    put("id", rowId); put("item_id", itemId);
+    for (const [, f, v] of cols) put(f, v);
+  }
 
   constructor(items: LoadedItem[], opts: { latencyMs?: number } = {}) {
     this.items = items.map((i) => ({ ...i }));
@@ -37,8 +63,36 @@ export class MemoryDataSource implements PortfolioDataSource {
     if ("expected" in opts && (row as Record<string, unknown>)[field] !== opts.expected && !((row as Record<string, unknown>)[field] == null && opts.expected == null)) {
       return { ok: false, error: "It was changed by someone else.", conflict: true };
     }
+    this.audit("items", itemId, columnOnItems(FIELD_BY_KEY[field]!) ?? field, (row as Record<string, unknown>)[field], value);
     (row as Record<string, unknown>)[field] = value;
     return { ok: true };
+  }
+
+  async loadRelated(itemId: string): Promise<RelatedValues> {
+    await this.pause();
+    return structuredClone(this.related.get(itemId) ?? emptyRelated());
+  }
+  /** Return an error message to make setRelated fail. */
+  failRelated: string | null = null;
+  readonly relatedCalls: { itemId: string; field: RelatedField; value: unknown[] }[] = [];
+  async setRelated(itemId: string, field: RelatedField, value: unknown[]): Promise<SaveResult> {
+    this.relatedCalls.push({ itemId, field, value: structuredClone(value) });
+    await this.pause();
+    if (this.failRelated) return { ok: false, error: this.failRelated };
+    const cur = this.related.get(itemId) ?? emptyRelated();
+    const before = new Set((cur[field] as unknown[]).map((x) => JSON.stringify(x)));
+    const after = new Set(value.map((x) => JSON.stringify(x)));
+    for (const x of value) if (!before.has(JSON.stringify(x))) this.auditListRow(field, itemId, x, true);
+    for (const x of cur[field] as unknown[]) if (!after.has(JSON.stringify(x))) this.auditListRow(field, itemId, x, false);
+    (cur as Record<string, unknown[]>)[field] = structuredClone(value);
+    this.related.set(itemId, cur);
+    return { ok: true };
+  }
+  async loadActivity(itemId: string): Promise<ActivityRow[]> {
+    await this.pause();
+    // related rows are kept for the item that wrote them (their item_id audit row says which)
+    const mine = new Set(this.activity.filter((a) => a.field === "item_id" && a.entity !== "items" && (a.new === itemId || a.old === itemId)).map((a) => a.entityId));
+    return this.activity.filter((a) => (a.entity === "items" ? a.entityId === itemId : mine.has(a.entityId))).map((a) => ({ ...a }));
   }
 
   async createMany(items: NewItem[], opts: { via?: "import" } = {}): Promise<CreateManyResult> {

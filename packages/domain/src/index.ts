@@ -9,3 +9,4 @@ export * from "./spreadsheet";
 export * from "./views";
 export * from "./groups";
 export * from "./panel";
+export * from "./related";

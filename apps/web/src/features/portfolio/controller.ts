@@ -1,4 +1,5 @@
 import {
+  cleanRelated, cleanSkills, isRelatedField, type ActivityRow, type RelatedField, type RelatedValues,
   applyMove, canBeEmpty, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
   bulkEditReason, resolveGroup, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
@@ -223,21 +224,47 @@ export class PortfolioController {
     const checked = validateEdit(field, raw, { today: this.today() });
     if (!checked.ok) { this.notify(`${row.item_code} ${fieldLabel(field)}: ${checked.error}`); return { ok: false, error: checked.error }; }
     const v = field === "theme" ? { ...checked, value: this.canonicalGroup(checked.value) } : checked;
-    const before = row[field];
-    if (same(before, v.value)) return { ok: true, changed: false };
+    return this.commitField(row, field, v.value);
+  }
 
-    const edit: Edit = { type: "field", itemId, key: row.item_code, field, before, after: v.value };
+  /** Optimistic change of one field to an already typed value: undo step, status line, background save, revert on failure. */
+  private commitField(row: GridItem, field: EditableField, value: unknown): EditOutcome {
+    const itemId = row.id;
+    const before = row[field];
+    if (same(before, value)) return { ok: true, changed: false };
+    const edit: Edit = { type: "field", itemId, key: row.item_code, field, before, after: value };
     const entry: Entry = { id: `e${++this.entrySeq}`, edits: [edit] };
-    this.applyField(row, field, v.value);
+    this.applyField(row, field, value);
     this.stack.push(entry);
     this.state.notice = null;
     this.state.last = { text: describeEdit(edit, this.resolvers()), at: this.now() };
-    this.save(entry, `${row.item_code} ${fieldLabel(field)}`, () => this.source.updateField(itemId, field, v.value), () => {
+    this.save(entry, `${row.item_code} ${fieldLabel(field)}`, () => this.source.updateField(itemId, field, value), () => {
       // save failed: put the old value back
       const cur = this.byId.get(itemId);
-      if (cur && same(cur[field], v.value)) this.applyField(cur, field, before);
+      if (cur && same(cur[field], value)) this.applyField(cur, field, before);
     });
     return { ok: true, changed: true };
+  }
+
+  /** A field the panel edits with its own editor and hands over as a typed value (effort by skill). */
+  setValue(itemId: string, field: EditableField, value: unknown): EditOutcome {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
+    const row = this.byId.get(itemId);
+    if (!row) return { ok: false, error: "That item no longer exists." };
+    if (field !== "effort_by_skill") return { ok: false, error: "That field cannot be edited." };
+    const c = cleanSkills(value);
+    if (!c.ok) { this.notify(`${row.item_code} ${fieldLabel(field)}: ${c.error}`); return { ok: false, error: c.error }; }
+    return this.commitField(row, field, c.value);
+  }
+
+  /** Undo of one change from the Activity log: only while the field still holds what that change set. */
+  restoreValue(itemId: string, field: EditableField, expectedNow: unknown, value: unknown): EditOutcome {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
+    const row = this.byId.get(itemId);
+    if (!row) return { ok: false, error: "That item no longer exists." };
+    if (!EDITABLE_FIELDS.includes(field) && field !== "effort_by_skill") return { ok: false, error: readOnlyReason(field) ?? "That field cannot be edited." };
+    if (!same(row[field], expectedNow) && JSON.stringify(row[field]) !== JSON.stringify(expectedNow)) return { ok: false, error: "The value has changed since. Undo the newer change first." };
+    return this.commitField(row, field, value);
   }
 
   /** Delete or Backspace on a cell. */
@@ -297,11 +324,71 @@ export class PortfolioController {
     this.emit(changed);
   }
 
+  // ------------------------------------------------------- list fields (item panel)
+  private readonly relatedCache = new Map<string, RelatedValues>();
+  private readonly relatedLoading = new Map<string, Promise<RelatedValues>>();
+  /** What the panel knows of an item's list fields (undefined until `loadRelated` has finished). */
+  relatedOf(itemId: string): RelatedValues | undefined { return this.relatedCache.get(itemId); }
+  async loadRelated(itemId: string): Promise<RelatedValues> {
+    const have = this.relatedCache.get(itemId);
+    if (have) return have;
+    let p = this.relatedLoading.get(itemId);
+    if (!p) {
+      p = this.source.loadRelated(itemId).then((r) => { this.relatedCache.set(itemId, r); this.relatedLoading.delete(itemId); this.emit(); return r; }, (e) => { this.relatedLoading.delete(itemId); throw e; });
+      this.relatedLoading.set(itemId, p);
+    }
+    return p;
+  }
+  teams() { return this.lookups.teams ?? []; }
+  activity(itemId: string): Promise<ActivityRow[]> { return this.source.loadActivity(itemId); }
+
+  /** The grid cell of a list field shows the list as text. */
+  private listText(field: RelatedField, list: unknown[]): string | null {
+    const text = list.map((x) => {
+      if (field === "artifacts") { const l = x as { label: string; url: string }; return l.label ? `${l.label} (${l.url})` : l.url; }
+      if (field === "depends_on" || field === "related_to") return this.byId.get(String(x))?.item_code ?? "?";
+      if (field === "contributing_teams") return this.teams().find((t) => t.id === x)?.name ?? "unknown team";
+      return String(x);
+    }).join(field === "artifacts" || field === "depends_on" || field === "related_to" ? "; " : ", ");
+    return text || null;
+  }
+  private applyRelated(itemId: string, field: RelatedField, list: unknown[]) {
+    const cur = this.relatedCache.get(itemId);
+    if (cur) (cur as Record<string, unknown[]>)[field] = list;
+    const row = this.byId.get(itemId);
+    if (row) (row as Record<string, unknown>)[field] = this.listText(field, list);
+    this.emit(row ? [row] : []);
+  }
+
+  /** Replace one list field of an item (tags, links, relations, teams): optimistic, one undo step, saved in the background. */
+  editRelated(itemId: string, field: string, list: unknown[]): EditOutcome {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
+    const row = this.byId.get(itemId);
+    if (!row) return { ok: false, error: "That item no longer exists." };
+    if (!isRelatedField(field)) return { ok: false, error: "That field cannot be edited." };
+    const cur = this.relatedCache.get(itemId);
+    if (!cur) return { ok: false, error: "Wait for the list to load." };
+    const c = cleanRelated(field, list, { itemId, itemIds: this.rows.map((r) => r.id), teamIds: this.teams().map((t) => t.id) });
+    if (!c.ok) { this.notify(`${row.item_code} ${fieldLabel(field)}: ${c.error}`); return { ok: false, error: c.error }; }
+    const before = [...(cur[field] as unknown[])];
+    if (JSON.stringify(before) === JSON.stringify(c.value)) return { ok: true, changed: false };
+    const edit: Edit = { type: "related", itemId, key: row.item_code, field, before, after: c.value };
+    const entry: Entry = { id: `e${++this.entrySeq}`, edits: [edit] };
+    this.applyRelated(itemId, field, c.value);
+    this.stack.push(entry);
+    this.state.notice = null;
+    this.state.last = { text: describeEdit(edit, this.resolvers()), at: this.now() };
+    this.save(entry, `${row.item_code} ${fieldLabel(field)}`, () => this.source.setRelated(itemId, field, c.value), () => {
+      if (JSON.stringify(this.relatedCache.get(itemId)?.[field]) === JSON.stringify(c.value)) this.applyRelated(itemId, field, before);
+    });
+    return { ok: true, changed: true };
+  }
+
   // ---------------------------------------------------------------- saving
   /** Saves for the same cell go one after the other, so the last edit always wins. */
   private save(entry: Entry | null, label: string, run: () => Promise<{ ok: boolean; error?: string }>, revert: () => void, onDone?: (ok: boolean) => void, failVerb = "Could not save", queueKeyOverride?: string) {
     const edit = entry?.edits[0];
-    const queueKey = queueKeyOverride ?? (edit ? `${edit.itemId}:${edit.type === "field" ? edit.field : "rank"}` : "misc");
+    const queueKey = queueKeyOverride ?? (edit ? `${edit.itemId}:${edit.type === "field" ? edit.field : edit.type === "related" ? `rel:${edit.field}` : "rank"}` : "misc");
     this.state.pending++;
     this.emit();
     const prev = this.queues.get(queueKey) ?? Promise.resolve();
@@ -363,6 +450,19 @@ export class PortfolioController {
         this.requestFocus(edit.itemId);
         await this.runReplaySave(`${edit.key} rank`, () => this.source.moveItem(edit.itemId, target as number), () => {
           this.applyRanks(applyMove(this.rows, edit.itemId, expected as number).items);
+        }, restore);
+      } else if (edit.type === "related") {
+        const field = edit.field as RelatedField;
+        const cur = (await this.loadRelated(edit.itemId))[field] as unknown[];
+        if (JSON.stringify(cur) !== JSON.stringify(expected)) {
+          this.state.error = `Could not ${direction} ${edit.key} ${fieldLabel(field)}: it was changed in the meantime.`;
+          this.emit(); restore(); return;
+        }
+        this.applyRelated(edit.itemId, field, target as unknown[]);
+        this.state.last = { text: `${verb}: ${describeEdit(shown(edit), this.resolvers())}`, at: this.now() };
+        this.emit();
+        await this.runReplaySave(`${edit.key} ${fieldLabel(field)}`, () => this.source.setRelated(edit.itemId, field, target as unknown[]), () => {
+          this.applyRelated(edit.itemId, field, expected as unknown[]);
         }, restore);
       } else {
         if (!same(row[edit.field], expected)) {

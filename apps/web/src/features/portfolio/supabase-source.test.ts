@@ -197,3 +197,57 @@ describe("moveItem and friendlyError", () => {
     expect(friendlyError(null)).toBe("unknown error");
   });
 });
+
+describe("list fields of one item", () => {
+  it("loadRelated reads tags, links, relations and teams of this item in this tenant", async () => {
+    const { client, calls } = fake([
+      { data: [{ kind: "tag", value: "urgent" }, { kind: "segment", value: "SMB" }, { kind: "target_scope", value: "EU" }] },
+      { data: [{ label: "PRD", url: "https://x.test/prd" }] },
+      { data: [{ related_item_id: "i2", kind: "depends_on" }, { related_item_id: "i3", kind: "related_to" }] },
+      { data: [{ team_id: "t9" }] },
+    ]);
+    const r = await new SupabaseDataSource(client, "t1").loadRelated("i1");
+    expect(r).toMatchObject({ tags: ["urgent"], target_segments: ["SMB"], target_scope: ["EU"], live_scope: [], artifacts: [{ label: "PRD", url: "https://x.test/prd" }], depends_on: ["i2"], related_to: ["i3"], contributing_teams: ["t9"] });
+    for (const c of calls) expect(has(c, "eq", "tenant_id", "t1") && has(c, "eq", "item_id", "i1")).toBe(true);
+  });
+
+  it("setRelated for tags deletes the removed rows and inserts the new ones, in the right kind", async () => {
+    const { client, calls } = fake([{ data: [{ id: "r1", value: "old" }, { id: "r2", value: "keep" }] }, { data: null }, { data: null }]);
+    const r = await new SupabaseDataSource(client, "t1").setRelated("i1", "target_segments", ["Keep", "New"]);
+    expect(r).toEqual({ ok: true });
+    expect(has(calls[0]!, "eq", "kind", "segment")).toBe(true);
+    const del = calls.find((c) => c.ops.some(([o]) => o === "delete"))!;
+    expect(has(del, "in", "id", ["r1"])).toBe(true);
+    const ins = calls.find((c) => c.ops.some(([o]) => o === "insert"))!;
+    expect(has(ins, "insert", [{ tenant_id: "t1", item_id: "i1", kind: "segment", value: "New" }])).toBe(true);
+  });
+
+  it("setRelated for relations and teams uses their tables and the item's tenant", async () => {
+    const rel = fake([{ data: [] }, { data: null }]);
+    await new SupabaseDataSource(rel.client, "t1").setRelated("i1", "depends_on", ["i2"]);
+    expect(rel.calls[0]!.table).toBe("item_relations");
+    expect(has(rel.calls[1]!, "insert", [{ tenant_id: "t1", item_id: "i1", kind: "depends_on", related_item_id: "i2" }])).toBe(true);
+    const tm = fake([{ data: [{ id: "x", team_id: "t1" }] }, { data: null }, { data: null }]);
+    await new SupabaseDataSource(tm.client, "t1").setRelated("i1", "contributing_teams", ["t2"]);
+    expect(tm.calls[0]!.table).toBe("item_teams");
+  });
+
+  it("setRelated for links matches by label and address", async () => {
+    const { client, calls } = fake([{ data: [{ id: "l1", label: "PRD", url: "https://x.test/prd" }] }, { data: null }]);
+    await new SupabaseDataSource(client, "t1").setRelated("i1", "artifacts", [{ label: "PRD", url: "https://x.test/prd" }, { label: "", url: "https://y.test" }]);
+    expect(calls.some((c) => c.ops.some(([o]) => o === "delete"))).toBe(false);
+    expect(has(calls[1]!, "insert", [{ tenant_id: "t1", item_id: "i1", label: "", url: "https://y.test" }])).toBe(true);
+  });
+
+  it("setRelated reports a database error in words", async () => {
+    const { client } = fake([{ data: [] }, { error: { code: "42501" } }]);
+    expect(await new SupabaseDataSource(client, "t1").setRelated("i1", "tags", ["a"])).toEqual({ ok: false, error: "you do not have permission to change this" });
+  });
+
+  it("loadActivity calls item_activity and maps the rows", async () => {
+    const { client, calls } = fake([{ data: [{ id: "7", at: "2027-04-14T10:00:00Z", entity: "items", entity_id: "i1", field: "health", old: "On Track", new: "At Risk", actor_id: "u1", via: "UI" }] }]);
+    const rows = await new SupabaseDataSource(client, "t1").loadActivity("i1");
+    expect(calls[0]!.rpc).toBe("item_activity");
+    expect(rows).toEqual([{ id: 7, at: "2027-04-14T10:00:00Z", entity: "items", entityId: "i1", field: "health", old: "On Track", new: "At Risk", actorId: "u1", via: "UI" }]);
+  });
+});

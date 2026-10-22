@@ -18,6 +18,8 @@ export type Lookups = {
   members: { user_id: string; email: string }[];
   /** Initiative Groups of the workspace (the list admins tidy up); the grid adds any group that is typed. */
   groups?: string[];
+  /** Teams of the workspace, for Contributing Teams in the item panel. */
+  teams?: { id: string; name: string }[];
 };
 
 export type { Role };
