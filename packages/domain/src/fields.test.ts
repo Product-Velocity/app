@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import {
-  canEditItems, EDITABLE_FIELDS, FIELD_LABEL, HEALTH_OPTIONS, LOCKED_FIELDS, MOSCOW_OPTIONS, optionLabel, SIZE_OPTIONS, validateEdit,
-} from "./fields";
+import { canBeEmpty, canEditItems, EDITABLE_FIELDS, fieldLabel, optionsFor, readOnlyReason, validateEdit } from "./fields";
+import { FIELDS, FIELD_BY_KEY } from "./registry";
+
+const today = new Date(Date.UTC(2027, 0, 1));
 
 describe("who can edit", () => {
   it("only creators and admins", () => {
@@ -10,58 +11,104 @@ describe("who can edit", () => {
   });
 });
 
-describe("locked and editable fields", () => {
-  it("GitHub-driven fields are locked with a reason, and are never in the editable list", () => {
-    expect(Object.keys(LOCKED_FIELDS).sort()).toEqual(["delivery_progress", "status"]);
-    for (const reason of Object.values(LOCKED_FIELDS)) expect(reason).toMatch(/GitHub/);
-    for (const f of Object.keys(LOCKED_FIELDS)) expect(EDITABLE_FIELDS).not.toContain(f);
+describe("which cells can be edited follows the dictionary", () => {
+  it("only fields the dictionary calls Editable, from a shipped phase, are editable in the grid", () => {
+    for (const k of EDITABLE_FIELDS) {
+      const f = FIELD_BY_KEY[k]!;
+      expect(f.mode, k).toBe("editable");
+      expect(f.phase, k).toBeLessThanOrEqual(1);
+    }
+    expect(EDITABLE_FIELDS).toEqual(expect.arrayContaining(["initiative_name", "home_project", "moscow", "effort", "health", "value_12m", "confidence", "start_date", "g2m_date_est", "decision"]));
+  });
+  it("never lets a person edit locked, computed or system fields, or fields of later phases", () => {
+    for (const f of FIELDS.filter((x) => x.mode !== "editable" || x.phase > 1)) {
+      expect(EDITABLE_FIELDS, f.key).not.toContain(f.key);
+      if (f.key !== "stack_rank") expect(validateEdit(f.key, "x").ok, f.key).toBe(false);
+    }
+  });
+  it("explains why a cell is read-only", () => {
+    expect(readOnlyReason("status")).toMatch(/comes from GitHub/);
+    expect(readOnlyReason("delivery_progress_pct")).toMatch(/comes from GitHub/);
+    expect(readOnlyReason("value_weighted")).toMatch(/calculated/);
+    expect(readOnlyReason("item_code")).toMatch(/set by the system/);
+    expect(readOnlyReason("outcome_verdict")).toBe("Outcome Verdict arrives in phase 7.");
+    expect(readOnlyReason("tags")).toMatch(/item panel/);
+    expect(readOnlyReason("moscow")).toBeNull();
+    expect(readOnlyReason("stack_rank")).toBeNull();
   });
   it("every editable field has a label", () => {
-    for (const f of EDITABLE_FIELDS) expect(FIELD_LABEL[f]).toBeTruthy();
+    for (const f of EDITABLE_FIELDS) expect(fieldLabel(f)).toBeTruthy();
   });
 });
 
 describe("options carry text labels", () => {
-  it("MoSCoW, size and health", () => {
-    expect(MOSCOW_OPTIONS.map((o) => o.label)).toEqual(["Must", "Should", "Could", "Won't"]);
-    expect(SIZE_OPTIONS.map((o) => o.value)).toEqual(["XS", "S", "M", "L", "XL"]);
-    expect(HEALTH_OPTIONS.map((o) => o.label)).toEqual(["On track", "At risk", "Delayed"]);
-    expect(optionLabel("health", "at_risk")).toBe("At risk");
-    expect(optionLabel("moscow", "wont")).toBe("Won't");
-    expect(optionLabel("moscow", null)).toBe("");
+  it("come straight from the dictionary", () => {
+    expect(optionsFor("moscow").map((o) => o.label)).toEqual(["Must", "Should", "Could", "Won't"]);
+    expect(optionsFor("effort").map((o) => o.value)).toEqual(["XS", "S", "M", "L", "XL"]);
+    expect(optionsFor("health").map((o) => o.label)).toEqual(["On Track", "At Risk", "Delayed", "Blocked"]);
+    expect(optionsFor("confidence").map((o) => o.label)).toEqual(["High", "Medium", "Low"]);
+    expect(optionsFor("archived").map((o) => o.label)).toEqual(["Yes", "No"]);
+    expect(optionsFor("initiative_name")).toEqual([]);
   });
 });
 
 describe("validateEdit", () => {
-  it("title: required, trimmed, at most 300 characters", () => {
-    expect(validateEdit("title", "  Hello  ")).toEqual({ ok: true, value: "Hello" });
-    expect(validateEdit("title", "   ").ok).toBe(false);
-    expect(validateEdit("title", "x".repeat(301)).ok).toBe(false);
+  it("initiative name: required, trimmed, at most 300 characters", () => {
+    expect(validateEdit("initiative_name", "  Hello  ")).toEqual({ ok: true, value: "Hello" });
+    expect(validateEdit("initiative_name", "   ").ok).toBe(false);
+    expect(validateEdit("initiative_name", "x".repeat(301)).ok).toBe(false);
   });
-  it("confidence: a whole number 0 to 100, empty clears", () => {
-    expect(validateEdit("confidence", "70")).toEqual({ ok: true, value: 70 });
-    expect(validateEdit("confidence", "70%")).toEqual({ ok: true, value: 70 });
-    expect(validateEdit("confidence", "")).toEqual({ ok: true, value: null });
-    for (const bad of ["101", "-1", "7.5", "abc"]) expect(validateEdit("confidence", bad).ok).toBe(false);
-  });
-  it("enumerations accept only their values (or empty)", () => {
-    expect(validateEdit("moscow", "must")).toEqual({ ok: true, value: "must" });
+  it("selects accept only their values (any capitalisation), or empty", () => {
+    expect(validateEdit("moscow", "must")).toEqual({ ok: true, value: "Must" });
+    expect(validateEdit("moscow", "won't")).toEqual({ ok: true, value: "Won't" });
     expect(validateEdit("moscow", "")).toEqual({ ok: true, value: null });
     expect(validateEdit("moscow", "maybe").ok).toBe(false);
-    expect(validateEdit("size", "XXL").ok).toBe(false);
-    expect(validateEdit("health", "at_risk").ok).toBe(true);
+    expect(validateEdit("effort", "XXL").ok).toBe(false);
+    expect(validateEdit("health", "blocked")).toEqual({ ok: true, value: "Blocked" });
+    expect(validateEdit("confidence", "Medium")).toEqual({ ok: true, value: "Medium" });
+    expect(validateEdit("confidence", "70").ok).toBe(false);
   });
-  it("project is required, owner may be empty", () => {
-    expect(validateEdit("home_project_id", "").ok).toBe(false);
-    expect(validateEdit("home_project_id", "p1")).toEqual({ ok: true, value: "p1" });
-    expect(validateEdit("owner_user_id", "")).toEqual({ ok: true, value: null });
+  it("a select without a fixed list (initiative group) takes free text up to 120 characters", () => {
+    expect(validateEdit("theme", " Marketplace ")).toEqual({ ok: true, value: "Marketplace" });
+    expect(validateEdit("theme", "x".repeat(121)).ok).toBe(false);
+  });
+  it("project is required, people may be empty", () => {
+    expect(validateEdit("home_project", "").ok).toBe(false);
+    expect(validateEdit("home_project", "p1")).toEqual({ ok: true, value: "p1" });
+    expect(validateEdit("product_manager", "")).toEqual({ ok: true, value: null });
+    expect(validateEdit("sponsor", "u1")).toEqual({ ok: true, value: "u1" });
+  });
+  it("columns that cannot be empty say so", () => {
+    expect(canBeEmpty("visibility")).toBe(false);
+    expect(validateEdit("visibility", "").ok).toBe(false);
+    expect(canBeEmpty("moscow")).toBe(true);
   });
   it("value and dates use their own parsers", () => {
-    expect(validateEdit("value", "120k", { today: new Date(Date.UTC(2027, 0, 1)) })).toEqual({ ok: true, value: 120000 });
-    expect(validateEdit("start_date", "31 mar", { today: new Date(Date.UTC(2027, 0, 1)) })).toEqual({ ok: true, value: "2027-03-31" });
-    expect(validateEdit("end_date", "q1", { today: new Date(Date.UTC(2027, 0, 1)) })).toEqual({ ok: true, value: "2027-03-31" });
+    expect(validateEdit("value_12m", "120k", { today })).toEqual({ ok: true, value: 120000 });
+    expect(validateEdit("start_date", "31 mar", { today })).toEqual({ ok: true, value: "2027-03-31" });
+    expect(validateEdit("g2m_date_est", "q1", { today })).toEqual({ ok: true, value: "2027-03-31" });
+    expect(validateEdit("planned_start", "q1", { today })).toEqual({ ok: true, value: "2027-01-01" });
+    expect(validateEdit("next_review_date", "banana", { today }).ok).toBe(false);
   });
-  it("rejects an unknown field", () => {
-    expect(validateEdit("status" as never, "closed").ok).toBe(false);
+  it("numbers: plain, non-negative where the database requires it, whole where it counts things", () => {
+    expect(validateEdit("kr_target", "1,250.5")).toEqual({ ok: true, value: 1250.5 });
+    expect(validateEdit("kr_start", "-3")).toEqual({ ok: true, value: -3 });
+    expect(validateEdit("estimate_high_weeks", "-1").ok).toBe(false);
+    expect(validateEdit("customers_requesting", "2.5").ok).toBe(false);
+    expect(validateEdit("customers_requesting", "12")).toEqual({ ok: true, value: 12 });
+    expect(validateEdit("kr_target", "abc").ok).toBe(false);
+  });
+  it("yes/no, text and long text", () => {
+    expect(validateEdit("archived", "yes")).toEqual({ ok: true, value: true });
+    expect(validateEdit("archived", "No")).toEqual({ ok: true, value: false });
+    expect(validateEdit("archived", "maybe").ok).toBe(false);
+    expect(validateEdit("hypothesis", "We believe...")).toEqual({ ok: true, value: "We believe..." });
+    expect(validateEdit("hypothesis", "x".repeat(8001)).ok).toBe(false);
+    expect(validateEdit("kr_metric", "x".repeat(2001)).ok).toBe(false);
+    expect(validateEdit("summary", "x".repeat(4001)).ok).toBe(false);
+  });
+  it("rejects an unknown or locked field", () => {
+    expect(validateEdit("nope", "x").ok).toBe(false);
+    expect(validateEdit("status", "closed").ok).toBe(false);
   });
 });

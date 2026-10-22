@@ -11,7 +11,7 @@ const lookups: Lookups = {
   members: ["ana", "bo", "chen", "dee", "eli"].map((n, i) => ({ user_id: `u${i + 1}`, email: `${n}@example.test` })),
 };
 
-export function HarnessClient({ n, latency, role }: { n: number; latency: number; role: string }) {
+export function HarnessClient({ n, latency, role, view, allColumns }: { n: number; latency: number; role: string; view?: string; allColumns: boolean }) {
   const { controller, source } = useMemo(() => {
     const items = sampleItems(n, lookups.projects.map((p) => p.id), lookups.members.map((m) => m.user_id));
     const source = new MemoryDataSource(items, { latencyMs: latency });
@@ -24,7 +24,7 @@ export function HarnessClient({ n, latency, role }: { n: number; latency: number
   return (
     <div style={{ padding: 16 }}>
       <h1>Roadmap (test page)</h1>
-      <PortfolioGrid controller={controller} lookups={lookups} />
+      <PortfolioGrid controller={controller} lookups={lookups} initialView={view as never} renderAllColumns={allColumns} />
     </div>
   );
 }

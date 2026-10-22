@@ -1,121 +1,152 @@
 "use client";
 
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, IHeaderParams } from "ag-grid-community";
 import {
-  EDITABLE_FIELDS, formatDate, formatValue, HEALTH_OPTIONS, LOCKED_FIELDS, MOSCOW_OPTIONS, optionLabel, SIZE_OPTIONS,
-  type EditableField, type Health,
+  EDITABLE_FIELDS, FIELDS, formatDate, formatValue, isShipped, optionsFor, readOnlyReason,
+  type EditableField, type FieldDef,
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
-import { PickerEditor } from "./picker-editor";
+import { PickerEditor, type PickerOption } from "./picker-editor";
 import type { GridItem, Lookups } from "./types";
 
-const HEALTH_SYMBOL: Record<Health, string> = { on_track: "✓", at_risk: "▲", delayed: "✖" };
+const HEALTH_SYMBOL: Record<string, string> = { "On Track": "✓", "At Risk": "▲", "Delayed": "✖", "Blocked": "■" };
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, "-");
 
 /** Text label always, symbol and colour as extras (never colour alone). */
-function HealthCell({ value }: { value: Health | null }) {
+function HealthCell({ value }: { value: string | null }) {
   if (!value) return null;
   return (
-    <span className={`pill health-${value}`}>
-      <span aria-hidden="true">{HEALTH_SYMBOL[value]}</span> {optionLabel("health", value)}
+    <span className={`pill health-${slug(value)}`}>
+      <span aria-hidden="true">{HEALTH_SYMBOL[value] ?? "•"}</span> {value}
     </span>
   );
 }
 
-function LockedCell({ text, reason }: { text: string; reason: string }) {
-  return <span title={reason}>{text}</span>;
+function ReadOnlyCell({ text, reason }: { text: string; reason: string | null }) {
+  return <span title={reason ?? undefined}>{text}</span>;
 }
 
-export type ColumnContext = { controller: PortfolioController; lookups: Lookups; today: () => Date };
+/** Column header: the field name, plus a words-only note when the field is read-only or from a later phase. */
+function FieldHeader({ displayName, phase, locked }: IHeaderParams & { phase: number; locked: boolean }) {
+  return (
+    <span className="field-header">
+      <span className="field-header-name">{displayName}</span>
+      {locked && <span className="field-header-note">from GitHub</span>}
+      {phase > 1 && <span className="field-header-note">Arrives in phase {phase}</span>}
+    </span>
+  );
+}
 
-export function buildColumns({ controller, lookups, today }: ColumnContext): ColDef<GridItem>[] {
+/** The columns every view shows and keeps on the left, so a row always says which initiative it is. */
+export const CORE_COLUMNS = ["stack_rank", "item_code", "initiative_name"] as const;
+
+const WIDTH: Record<string, number> = {
+  Select: 150, Text: 190, "Long text": 240, Number: 112, Currency: 120, Date: 116, "Date range": 170, Person: 190, "Person or text": 170,
+  People: 190, Boolean: 96, Tags: 170, Links: 200, Relation: 150, Files: 170, Thread: 150, Structured: 170, Note: 150, System: 130, Computed: 124,
+};
+const WIDE: Record<string, number> = { initiative_name: 320, home_project: 160, stack_rank: 82, item_code: 84, project_rank: 92, health: 130 };
+
+const num = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 2 });
+const when = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+export type ColumnContext = { controller: PortfolioController; lookups: Lookups; today: () => Date; visible: ReadonlySet<string> };
+
+export function buildColumns({ controller, lookups, today, visible }: ColumnContext): ColDef<GridItem>[] {
   const editable = () => controller.canEdit;
-  const projectOptions = lookups.projects.map((p) => ({ value: p.id, label: p.name }));
-  const ownerOptions = lookups.members.map((m) => ({ value: m.user_id, label: m.email }));
+  const projectOptions: PickerOption[] = lookups.projects.map((p) => ({ value: p.id, label: p.name }));
+  const personOptions: PickerOption[] = lookups.members.map((m) => ({ value: m.user_id, label: m.email }));
   const setter = (field: EditableField) => (p: { data: GridItem; newValue: unknown }) =>
-    controller.edit(p.data.id, field, p.newValue == null ? "" : String(p.newValue)).ok &&
-    // the controller already applied the value; tell the grid the cell changed
-    true;
+    controller.edit(p.data.id, field, p.newValue == null ? "" : String(p.newValue)).ok;
 
-  const picker = (field: EditableField, options: { value: string; label: string }[], allowEmpty: boolean, emptyLabel?: string): Partial<ColDef<GridItem>> => ({
-    editable,
-    cellEditor: PickerEditor,
-    cellEditorPopup: true,
-    cellEditorParams: { options, allowEmpty, emptyLabel },
-    valueSetter: setter(field) as never,
-  });
+  const display = (f: FieldDef, v: unknown): string => {
+    if (v === null || v === undefined || v === "") return "";
+    switch (f.type) {
+      case "Currency": return formatValue(Number(v));
+      case "Date": return formatDate(String(v), today());
+      case "Boolean": return v ? "Yes" : "No";
+      case "Person": return lookups.members.find((m) => m.user_id === v)?.email ?? "unknown person";
+      case "Number": case "Computed": case "System":
+        if (typeof v === "boolean") return v ? "Yes" : "No";
+        if (typeof v === "number") return f.key.endsWith("_pct") ? `${num.format(v)}%` : f.key.endsWith("_pp") ? `${num.format(v)} pp` : num.format(v);
+        if (typeof v === "object") return JSON.stringify(v);
+        if (/^\d{4}-\d\d-\d\dT/.test(String(v))) return when.format(new Date(String(v)));
+        return String(v);
+      default:
+        if (f.key === "home_project") return lookups.projects.find((p) => p.id === v)?.name ?? "";
+        return String(v);
+    }
+  };
 
-  return [
-    {
-      colId: "stack_rank", field: "stack_rank", headerName: "Global", width: 78, sort: "asc", sortable: false,
-      editable, cellClass: "num cell-key-col",
-      valueFormatter: (p) => `#${p.value}`,
-      valueSetter: (p) => {
-        controller.editRank(p.data.id, String(p.newValue ?? "").replace(/^#/, ""));
-        return false; // the controller updated the rows; the grid refreshes from its change events
-      },
-    },
-    { colId: "project_rank", field: "project_rank", headerName: "In project", width: 86, cellClass: "num muted", valueFormatter: (p) => `#${p.value}` },
-    { colId: "key", field: "key", headerName: "ID", width: 78, cellClass: "mono muted" },
-    {
-      colId: "title", field: "title", headerName: "Initiative", flex: 1, minWidth: 280, editable,
-      valueSetter: setter("title") as never,
-    },
-    {
-      colId: "home_project_id", field: "home_project_id", headerName: "Project", width: 150,
-      valueFormatter: (p) => lookups.projects.find((x) => x.id === p.value)?.name ?? "",
-      ...picker("home_project_id", projectOptions, false),
-    },
-    {
-      colId: "owner_user_id", field: "owner_user_id", headerName: "Owner", width: 190,
-      valueFormatter: (p) => lookups.members.find((x) => x.user_id === p.value)?.email ?? "",
-      ...picker("owner_user_id", ownerOptions, true, "Unassigned"),
-    },
-    {
-      colId: "moscow", field: "moscow", headerName: "MoSCoW", width: 100,
-      valueFormatter: (p) => optionLabel("moscow", p.value),
-      ...picker("moscow", MOSCOW_OPTIONS, true),
-    },
-    { colId: "size", field: "size", headerName: "Size", width: 78, ...picker("size", SIZE_OPTIONS, true) },
-    {
-      colId: "health", field: "health", headerName: "Health", width: 124,
-      cellRenderer: HealthCell,
-      ...picker("health", HEALTH_OPTIONS, true),
-    },
-    {
-      colId: "value", field: "value", headerName: "Value", width: 104, editable, cellClass: "num",
-      valueFormatter: (p) => formatValue(p.value),
-      valueSetter: setter("value") as never,
-      cellEditorParams: { useFormatter: true },
-    },
-    {
-      colId: "confidence", field: "confidence", headerName: "Conf.", width: 78, editable, cellClass: "num",
-      valueFormatter: (p) => (p.value == null ? "" : `${p.value}%`),
-      valueSetter: setter("confidence") as never,
-    },
-    {
-      colId: "start_date", field: "start_date", headerName: "Start", width: 104, editable,
-      valueFormatter: (p) => formatDate(p.value, today()),
-      valueSetter: setter("start_date") as never,
-      cellEditorParams: { useFormatter: true },
-    },
-    {
-      colId: "end_date", field: "end_date", headerName: "End", width: 104, editable,
-      valueFormatter: (p) => formatDate(p.value, today()),
-      valueSetter: setter("end_date") as never,
-      cellEditorParams: { useFormatter: true },
-    },
-    {
-      colId: "status", field: "status", headerName: "Status (GitHub)", width: 132, editable: false,
-      cellClass: "cell-locked", headerClass: "header-locked",
-      cellRenderer: (p: { value: string | null }) => <LockedCell text={p.value ?? "Not on GitHub"} reason={LOCKED_FIELDS.status} />,
-    },
-    {
-      colId: "delivery_progress", field: "delivery_progress", headerName: "Progress (GitHub)", width: 148, editable: false,
-      cellClass: "cell-locked num", headerClass: "header-locked",
-      cellRenderer: (p: { value: number | null }) => <LockedCell text={p.value == null ? "" : `${p.value}%`} reason={LOCKED_FIELDS.delivery_progress} />,
-    },
-  ];
+  const def = (f: FieldDef): ColDef<GridItem> => {
+    const reason = f.key === "stack_rank" ? null : readOnlyReason(f.key);
+    const canEdit = reason === null && (f.key === "stack_rank" || EDITABLE_FIELDS.includes(f.key));
+    const base: ColDef<GridItem> = {
+      colId: f.key,
+      field: f.key as never,
+      headerName: f.name,
+      headerComponent: FieldHeader,
+      headerComponentParams: { phase: f.phase, locked: f.mode === "locked" || f.storage.startsWith("GitHub-synced") },
+      headerTooltip: f.description ?? f.name,
+      width: WIDE[f.key] ?? WIDTH[f.type] ?? 140,
+      hide: !visible.has(f.key) && !(CORE_COLUMNS as readonly string[]).includes(f.key),
+      sortable: false,
+      cellClass: [
+        ["Number", "Currency", "Computed"].includes(f.type) && f.key !== "item_code" ? "num" : "",
+        reason && f.key !== "item_code" ? "cell-locked" : "",
+        f.key === "item_code" ? "mono muted" : "",
+      ].filter(Boolean).join(" "),
+      editable: canEdit ? editable : false,
+      valueFormatter: (p) => display(f, p.value),
+    };
+    if (f.key === "stack_rank") {
+      return {
+        ...base, pinned: "left", sort: "asc", cellClass: "num cell-key-col", editable,
+        valueFormatter: (p) => `#${p.value}`,
+        valueSetter: (p) => {
+          controller.editRank(p.data.id, String(p.newValue ?? "").replace(/^#/, ""));
+          return false; // the controller updated the rows; the grid refreshes from its change events
+        },
+      };
+    }
+    if (CORE_COLUMNS.includes(f.key as never)) base.pinned = "left";
+    if (f.key === "initiative_name") { base.flex = 1; base.minWidth = 300; }
+    if (f.key === "project_rank" || f.key === "item_code") return base;
+    if (f.key === "health") return { ...base, cellRenderer: HealthCell, ...pickerDef(f, optionsFor(f.key), true) };
+    if (reason) {
+      return { ...base, cellRenderer: (p: { value: unknown }) => <ReadOnlyCell text={display(f, p.value) || (f.key === "status" ? "Not on GitHub" : "")} reason={reason} /> };
+    }
+    if (!canEdit) return base;
+    base.valueSetter = setter(f.key) as never;
+    if (f.key === "home_project") return { ...base, ...pickerDef(f, projectOptions, false) };
+    if (f.type === "Person") return { ...base, ...pickerDef(f, personOptions, true, "Unassigned") };
+    if (f.type === "Boolean") {
+      return {
+        ...base,
+        valueGetter: (p) => (p.data?.[f.key] == null ? "" : p.data[f.key] ? "Yes" : "No"),
+        valueFormatter: (p) => String(p.value ?? ""),
+        ...pickerDef(f, optionsFor(f.key), false),
+      };
+    }
+    if (f.type === "Select" && f.allowed.length > 0) return { ...base, ...pickerDef(f, optionsFor(f.key), true) };
+    if (f.type === "Currency" || f.type === "Date" || f.type === "Number") base.cellEditorParams = { useFormatter: true };
+    return base;
+  };
+
+  function pickerDef(f: FieldDef, options: PickerOption[], allowEmpty: boolean, emptyLabel?: string): Partial<ColDef<GridItem>> {
+    return {
+      editable: reasonFree(f) ? editable : false,
+      cellEditor: PickerEditor,
+      cellEditorPopup: true,
+      cellEditorParams: { options, allowEmpty, emptyLabel },
+      valueSetter: setter(f.key) as never,
+    };
+  }
+  const reasonFree = (f: FieldDef) => readOnlyReason(f.key) === null;
+
+  return FIELDS.map(def);
 }
 
-export const LOCKED_COLUMN_IDS = Object.keys(LOCKED_FIELDS) as (keyof typeof LOCKED_FIELDS)[];
-export const EDITABLE_COLUMN_IDS: string[] = [...EDITABLE_FIELDS];
+/** Column ids whose cells cannot be edited, with the reason (for the notice under the grid). */
+export const isReadOnlyColumn = (colId: string) => colId !== "stack_rank" && readOnlyReason(colId) !== null;
+export const isEditableColumn = (colId: string) => EDITABLE_FIELDS.includes(colId);
+export { isShipped };

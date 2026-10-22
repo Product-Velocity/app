@@ -1,12 +1,12 @@
-export type RankItem = { id: string; stack_rank: number; home_project_id: string };
+export type RankItem = { id: string; stack_rank: number; home_project: string };
 
 /** Order inside each project (1 = first by global rank), for the "In project" column. */
 export function projectRanks(items: RankItem[]): Map<string, number> {
   const out = new Map<string, number>();
   const count = new Map<string, number>();
   for (const it of [...items].sort((a, b) => a.stack_rank - b.stack_rank)) {
-    const n = (count.get(it.home_project_id) ?? 0) + 1;
-    count.set(it.home_project_id, n);
+    const n = (count.get(it.home_project) ?? 0) + 1;
+    count.set(it.home_project, n);
     out.set(it.id, n);
   }
   return out;

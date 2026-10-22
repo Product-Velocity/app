@@ -1,25 +1,17 @@
-import type { Health, Moscow, Role, Size } from "@pv/domain";
+import type { Role } from "@pv/domain";
 
-/** One row of the portfolio grid. `project_rank` is derived in the browser. */
-export type GridItem = {
+/**
+ * One row of the portfolio grid: every item field by its dictionary key (`initiative_name`, `value_12m`, ...),
+ * plus `home_project` (the project id) and the computed `project_rank`, which the browser recalculates after a re-rank.
+ */
+export type LoadedItem = {
   id: string;
-  key: string;
-  title: string;
+  item_code: string;
+  initiative_name: string;
   stack_rank: number;
-  home_project_id: string;
-  owner_user_id: string | null;
-  moscow: Moscow | null;
-  size: Size | null;
-  health: Health | null;
-  value: number | null;
-  confidence: number | null;
-  start_date: string | null;
-  end_date: string | null;
-  /** GitHub-driven: read-only here. */
-  status: string | null;
-  delivery_progress: number | null;
-  project_rank: number;
-};
+  home_project: string;
+} & Record<string, unknown>;
+export type GridItem = LoadedItem & { project_rank: number };
 
 export type Lookups = {
   projects: { id: string; name: string }[];

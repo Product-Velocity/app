@@ -3,7 +3,7 @@ import { describeEdit, UndoStack, type Entry } from "./undo";
 
 const entry = (n: number): Entry => ({
   id: `e${n}`,
-  edits: [{ type: "field", itemId: `i${n}`, key: `R-${n}`, field: "title", before: `a${n}`, after: `b${n}` }],
+  edits: [{ type: "field", itemId: `i${n}`, key: `R-${n}`, field: "initiative_name", before: `a${n}`, after: `b${n}` }],
 });
 
 describe("UndoStack", () => {
@@ -76,11 +76,11 @@ describe("UndoStack", () => {
 describe("describeEdit", () => {
   const labels = { project: (id: string) => `Project ${id}`, owner: (id: string) => `Owner ${id}` };
   it("says what changed in plain words", () => {
-    expect(describeEdit({ type: "field", itemId: "i", key: "R-41", field: "health", before: "on_track", after: "at_risk" }, labels)).toBe("R-41 Health: On track to At risk");
-    expect(describeEdit({ type: "field", itemId: "i", key: "R-07", field: "title", before: "Old", after: "New name" }, labels)).toBe("R-07 Initiative: Old to New name");
-    expect(describeEdit({ type: "field", itemId: "i", key: "R-07", field: "value", before: null, after: 120000 }, labels)).toBe("R-07 Value: empty to 120,000");
-    expect(describeEdit({ type: "field", itemId: "i", key: "R-07", field: "start_date", before: "2027-03-31", after: null }, labels)).toMatch(/R-07 Start: .* to empty/);
-    expect(describeEdit({ type: "field", itemId: "i", key: "R-07", field: "home_project_id", before: "p1", after: "p2" }, labels)).toBe("R-07 Project: Project p1 to Project p2");
+    expect(describeEdit({ type: "field", itemId: "i", key: "R-41", field: "health", before: "On Track", after: "At Risk" }, labels)).toBe("R-41 Health: On Track to At Risk");
+    expect(describeEdit({ type: "field", itemId: "i", key: "R-07", field: "initiative_name", before: "Old", after: "New name" }, labels)).toBe("R-07 Initiative Name: Old to New name");
+    expect(describeEdit({ type: "field", itemId: "i", key: "R-07", field: "value_12m", before: null, after: 120000 }, labels)).toBe("R-07 Value (EUR, 12-month run-rate): empty to 120,000");
+    expect(describeEdit({ type: "field", itemId: "i", key: "R-07", field: "start_date", before: "2027-03-31", after: null }, labels)).toMatch(/R-07 Start Date: .* to empty/);
+    expect(describeEdit({ type: "field", itemId: "i", key: "R-07", field: "home_project", before: "p1", after: "p2" }, labels)).toBe("R-07 Home Project: Project p1 to Project p2");
     expect(describeEdit({ type: "rank", itemId: "i", key: "R-07", before: 7, after: 2 }, labels)).toBe("R-07 moved from rank 7 to 2");
   });
 });

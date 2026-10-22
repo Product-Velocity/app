@@ -1,5 +1,6 @@
 import { formatDate } from "./dates";
-import { FIELD_LABEL, optionLabel, type EditableField } from "./fields";
+import { fieldLabel, type EditableField } from "./fields";
+import { FIELD_BY_KEY } from "./registry";
 import { formatValue } from "./money";
 
 export type FieldEdit = { type: "field"; itemId: string; key: string; field: EditableField; before: unknown; after: unknown };
@@ -56,19 +57,17 @@ export type Resolvers = { project: (id: string) => string; owner: (id: string) =
 
 function show(field: EditableField, v: unknown, r: Resolvers): string {
   if (v === null || v === undefined || v === "") return "empty";
-  switch (field) {
-    case "moscow": case "size": case "health": return optionLabel(field, String(v));
-    case "value": return formatValue(Number(v));
-    case "start_date": case "end_date": return formatDate(String(v), r.today ?? new Date());
-    case "home_project_id": return r.project(String(v));
-    case "owner_user_id": return r.owner(String(v));
-    case "confidence": return `${v}%`;
-    default: return String(v);
-  }
+  const f = FIELD_BY_KEY[field];
+  if (field === "home_project") return r.project(String(v));
+  if (f?.type === "Person") return r.owner(String(v));
+  if (f?.type === "Currency") return formatValue(Number(v));
+  if (f?.type === "Date") return formatDate(String(v), r.today ?? new Date());
+  if (f?.type === "Boolean") return v ? "Yes" : "No";
+  return String(v);
 }
 
 /** "R-41 Health: On track to At risk": shown in the status strip after every change. */
 export function describeEdit(edit: Edit, r: Resolvers): string {
   if (edit.type === "rank") return `${edit.key} moved from rank ${edit.before} to ${edit.after}`;
-  return `${edit.key} ${FIELD_LABEL[edit.field]}: ${show(edit.field, edit.before, r)} to ${show(edit.field, edit.after, r)}`;
+  return `${edit.key} ${fieldLabel(edit.field)}: ${show(edit.field, edit.before, r)} to ${show(edit.field, edit.after, r)}`;
 }

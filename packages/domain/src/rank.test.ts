@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applyMove, projectRanks, type RankItem } from "./rank";
 
 const items = (n: number, project = (i: number) => (i % 2 ? "p1" : "p2")): RankItem[] =>
-  Array.from({ length: n }, (_, i) => ({ id: `i${i + 1}`, stack_rank: i + 1, home_project_id: project(i + 1) }));
+  Array.from({ length: n }, (_, i) => ({ id: `i${i + 1}`, stack_rank: i + 1, home_project: project(i + 1) }));
 const order = (xs: RankItem[]) => xs.map((x) => `${x.id}:${x.stack_rank}`).join(" ");
 
 describe("projectRanks", () => {

@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ClientSideRowModelApiModule, ClientSideRowModelModule, CellApiModule, CellStyleModule, ColumnApiModule, CustomEditorModule,
   EventApiModule, ModuleRegistry, RowApiModule, TextEditorModule, themeQuartz, type CellKeyDownEvent, type GridApi,
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import { localToday, type EditableField } from "@pv/domain";
-import { buildColumns, EDITABLE_COLUMN_IDS, LOCKED_COLUMN_IDS } from "./columns";
+import { DEFAULT_VIEWS, FIELDS, type EditableField, type ViewName } from "@pv/domain";
+import { buildColumns, isEditableColumn, isReadOnlyColumn } from "./columns";
+import { ColumnsPicker } from "./columns-picker";
 import type { PortfolioController } from "./controller";
 import { StatusStrip, useStatus } from "./status-strip";
 import type { GridItem, Lookups } from "./types";
@@ -31,15 +32,27 @@ const theme = themeQuartz.withParams({
   spacing: 6,
 });
 
-export function PortfolioGrid({ controller, lookups }: { controller: PortfolioController; lookups: Lookups }) {
+export function PortfolioGrid({ controller, lookups, initialView = "Prioritisation", renderAllColumns = false }: { controller: PortfolioController; lookups: Lookups; initialView?: ViewName | "All columns"; renderAllColumns?: boolean }) {
   const apiRef = useRef<GridApi<GridItem> | null>(null);
   const status = useStatus(controller);
   const rowData = useMemo(() => [...controller.rows], [controller]);
 
+  const [view, setView] = useState<ViewName | "All columns">(initialView);
+  const [visible, setVisible] = useState<ReadonlySet<string>>(() => new Set(initialView === "All columns" ? FIELDS.map((f) => f.key) : DEFAULT_VIEWS[initialView]));
+  const pickView = (v: ViewName | "All columns") => {
+    setView(v);
+    setVisible(new Set(v === "All columns" ? FIELDS.map((f) => f.key) : DEFAULT_VIEWS[v]));
+  };
+  const toggle = (key: string) => setVisible((cur) => {
+    const next = new Set(cur);
+    if (!next.delete(key)) next.add(key);
+    return next;
+  });
   const columnDefs = useMemo(
-    () => buildColumns({ controller, lookups, today: () => localToday() }),
-    [controller, lookups],
+    () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible }),
+    [controller, lookups, visible],
   );
+  const showLater = FIELDS.some((f) => f.phase > 1 && visible.has(f.key));
 
   // A row whose rank changed jumps to its new place: keep the keyboard focus on it.
   useEffect(
@@ -78,17 +91,16 @@ export function PortfolioGrid({ controller, lookups }: { controller: PortfolioCo
     const colId = e.column.getColId();
     if (!ke || !e.data) return;
     if (e.api.getEditingCells().length > 0) return;
-    const locked = LOCKED_COLUMN_IDS.find((c) => c === colId);
-    if (locked && (ke.key === "Enter" || ke.key === "F2" || ke.key === "Delete" || ke.key === "Backspace" || ke.key.length === 1)) {
+    if (isReadOnlyColumn(colId) && (ke.key === "Enter" || ke.key === "F2" || ke.key === "Delete" || ke.key === "Backspace" || ke.key.length === 1)) {
       if (ke.key.length === 1 && (ke.metaKey || ke.ctrlKey)) return; // copy etc.
-      controller.notifyLocked(locked);
+      controller.notifyReadOnly(colId);
       return;
     }
     if (!controller.canEdit && (ke.key === "Enter" || ke.key === "F2" || ke.key === "Delete")) {
-      controller.edit(e.data.id, "title", e.data.title); // shows the view-only message
+      controller.edit(e.data.id, "initiative_name", e.data.initiative_name); // shows the view-only message
       return;
     }
-    if ((ke.key === "Delete" || ke.key === "Backspace") && EDITABLE_COLUMN_IDS.includes(colId)) {
+    if ((ke.key === "Delete" || ke.key === "Backspace") && isEditableColumn(colId)) {
       ke.preventDefault();
       const r = controller.clearCell(e.data.id, colId as EditableField);
       if (!r.ok) controller.notify(r.error);
@@ -107,6 +119,7 @@ export function PortfolioGrid({ controller, lookups }: { controller: PortfolioCo
   return (
     <section className="grid-card" aria-label="Roadmap" onKeyDownCapture={onWrapperKeyDown}>
       <StatusStrip controller={controller} />
+      <ColumnsPicker view={view} visible={visible} onView={pickView} onToggle={toggle} />
       <div className="grid-wrap" data-testid="grid">
         <AgGridReact<GridItem>
           theme={theme}
@@ -116,13 +129,14 @@ export function PortfolioGrid({ controller, lookups }: { controller: PortfolioCo
           defaultColDef={{ sortable: false, resizable: true, suppressMovable: true, cellDataType: false }}
           suppressMovableColumns
           enterNavigatesVerticallyAfterEdit
+          suppressColumnVirtualisation={renderAllColumns}
           stopEditingWhenCellsLoseFocus
           onGridReady={(e) => { apiRef.current = e.api; }}
           onCellKeyDown={onCellKeyDown}
+          headerHeight={showLater ? 46 : 32}
           onCellDoubleClicked={(e) => {
             const colId = e.column.getColId();
-            const locked = LOCKED_COLUMN_IDS.find((c) => c === colId);
-            if (locked) controller.notifyLocked(locked);
+            if (isReadOnlyColumn(colId)) controller.notifyReadOnly(colId);
             else if (!controller.canEdit) controller.notify("You have view-only access. Ask an admin for the Creator role to edit.");
           }}
         />

@@ -1,12 +1,11 @@
 import {
-  applyMove, canEditItems, describeEdit, EDITABLE_FIELDS, FIELD_LABEL, LOCKED_FIELDS, projectRanks, UndoStack, validateEdit,
+  applyMove, canBeEmpty, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
   type Edit, type EditableField, type Entry,
 } from "@pv/domain";
 import type { PortfolioDataSource } from "./data-source";
-import type { GridItem, Lookups } from "./types";
+import type { GridItem, Lookups, LoadedItem } from "./types";
 
 export const READ_ONLY_MESSAGE = "You have view-only access. Ask an admin for the Creator role to edit.";
-const NULLABLE: EditableField[] = ["owner_user_id", "moscow", "size", "health", "value", "confidence", "start_date", "end_date"];
 
 export type Status = {
   pending: number;
@@ -39,10 +38,10 @@ export class PortfolioController {
 
   constructor(
     private readonly source: PortfolioDataSource,
-    items: Omit<GridItem, "project_rank">[],
+    items: LoadedItem[],
     private readonly lookups: Lookups,
     private readonly role: string | null,
-    private readonly today: () => Date = () => new Date(),
+    private readonly today: () => Date = () => localToday(),
     private readonly now: () => number = () => Date.now(),
   ) {
     this.rows = items.map((i) => ({ ...i, project_rank: 0 }));
@@ -51,6 +50,8 @@ export class PortfolioController {
     this.recomputeProjectRanks();
   }
 
+  /** "Today" as the grid sees it (a fixed day on the test page). */
+  todayDate() { return this.today(); }
   get canEdit() { return canEditItems(this.role); }
   get status(): Status {
     return { ...this.state, canUndo: this.stack.canUndo, canRedo: this.stack.canRedo, undoCount: this.stack.undoCount };
@@ -84,7 +85,8 @@ export class PortfolioController {
 
   /** Message under the grid, for example when someone tries to edit a GitHub field. */
   notify(message: string | null) { this.state.notice = message; this.emit(); }
-  notifyLocked(field: keyof typeof LOCKED_FIELDS) { this.notify(LOCKED_FIELDS[field]); }
+  /** Explain why a cell cannot be edited (GitHub-driven, calculated, set by the system, or from a later phase). */
+  notifyReadOnly(field: string) { const why = readOnlyReason(field); if (why) this.notify(why); }
   dismissError() { this.state.error = null; this.emit(); }
 
   // ---------------------------------------------------------------- edits
@@ -92,19 +94,23 @@ export class PortfolioController {
     if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
     const row = this.byId.get(itemId);
     if (!row) return { ok: false, error: "That item no longer exists." };
-    if (!EDITABLE_FIELDS.includes(field)) return { ok: false, error: "That field cannot be edited." };
+    if (!EDITABLE_FIELDS.includes(field)) {
+      const error = readOnlyReason(field) ?? "That field cannot be edited.";
+      this.notify(error);
+      return { ok: false, error };
+    }
     const v = validateEdit(field, raw, { today: this.today() });
-    if (!v.ok) { this.notify(`${row.key} ${FIELD_LABEL[field]}: ${v.error}`); return { ok: false, error: v.error }; }
+    if (!v.ok) { this.notify(`${row.item_code} ${fieldLabel(field)}: ${v.error}`); return { ok: false, error: v.error }; }
     const before = row[field];
     if (same(before, v.value)) return { ok: true, changed: false };
 
-    const edit: Edit = { type: "field", itemId, key: row.key, field, before, after: v.value };
+    const edit: Edit = { type: "field", itemId, key: row.item_code, field, before, after: v.value };
     const entry: Entry = { id: `e${++this.entrySeq}`, edits: [edit] };
     this.applyField(row, field, v.value);
     this.stack.push(entry);
     this.state.notice = null;
     this.state.last = { text: describeEdit(edit, this.resolvers()), at: this.now() };
-    this.save(entry, `${row.key} ${FIELD_LABEL[field]}`, () => this.source.updateField(itemId, field, v.value), () => {
+    this.save(entry, `${row.item_code} ${fieldLabel(field)}`, () => this.source.updateField(itemId, field, v.value), () => {
       // save failed: put the old value back
       const cur = this.byId.get(itemId);
       if (cur && same(cur[field], v.value)) this.applyField(cur, field, before);
@@ -114,7 +120,7 @@ export class PortfolioController {
 
   /** Delete or Backspace on a cell. */
   clearCell(itemId: string, field: EditableField): EditOutcome {
-    if (!NULLABLE.includes(field)) return { ok: false, error: `${FIELD_LABEL[field]} cannot be empty.` };
+    if (!canBeEmpty(field)) return { ok: false, error: `${fieldLabel(field)} cannot be empty.` };
     return this.edit(itemId, field, "");
   }
 
@@ -125,7 +131,7 @@ export class PortfolioController {
     const n = /^\s*#?\d+\s*$/.test(raw) ? Number(raw.replace("#", "")) : NaN;
     if (!Number.isInteger(n) || n < 1) {
       const error = "Enter a rank as a whole number, 1 or higher.";
-      this.notify(`${row.key} rank: ${error}`);
+      this.notify(`${row.item_code} rank: ${error}`);
       return { ok: false, error };
     }
     return this.move(itemId, n);
@@ -136,13 +142,13 @@ export class PortfolioController {
     const before = row.stack_rank;
     const r = applyMove(this.rows, itemId, to);
     if (!r.changed) return { ok: true, changed: false };
-    const edit: Edit = { type: "rank", itemId, key: row.key, before, after: r.to };
+    const edit: Edit = { type: "rank", itemId, key: row.item_code, before, after: r.to };
     const entry: Entry = { id: `e${++this.entrySeq}`, edits: [edit] };
     const moved = this.applyRanks(r.items);
     this.stack.push(entry);
     this.state.notice = null;
     this.state.last = { text: describeEdit(edit, this.resolvers()), at: this.now() };
-    this.save(entry, `${row.key} rank`, () => this.source.moveItem(itemId, r.to), () => {
+    this.save(entry, `${row.item_code} rank`, () => this.source.moveItem(itemId, r.to), () => {
       const back = applyMove(this.rows, itemId, before);
       this.applyRanks(back.items);
     });
@@ -165,7 +171,7 @@ export class PortfolioController {
   private applyField(row: GridItem, field: EditableField, value: unknown) {
     (row as Record<string, unknown>)[field] = value;
     const changed = [row];
-    if (field === "home_project_id") for (const c of this.recomputeProjectRanks()) if (c !== row) changed.push(c);
+    if (field === "home_project") for (const c of this.recomputeProjectRanks()) if (c !== row) changed.push(c);
     this.emit(changed);
   }
 
@@ -232,13 +238,13 @@ export class PortfolioController {
         }, restore);
       } else {
         if (!same(row[edit.field], expected)) {
-          this.state.error = `Could not ${direction} ${edit.key} ${FIELD_LABEL[edit.field]}: it was changed in the meantime.`;
+          this.state.error = `Could not ${direction} ${edit.key} ${fieldLabel(edit.field)}: it was changed in the meantime.`;
           this.emit(); restore(); return;
         }
         this.applyField(row, edit.field, target);
         this.state.last = { text: `${verb}: ${describeEdit(shown(edit), this.resolvers())}`, at: this.now() };
         this.emit([row]);
-        await this.runReplaySave(`${edit.key} ${FIELD_LABEL[edit.field]}`, () => this.source.updateField(edit.itemId, edit.field, target, { expected }), () => {
+        await this.runReplaySave(`${edit.key} ${fieldLabel(edit.field)}`, () => this.source.updateField(edit.itemId, edit.field, target, { expected }), () => {
           const cur = this.byId.get(edit.itemId);
           if (cur) this.applyField(cur, edit.field, expected);
         }, restore);

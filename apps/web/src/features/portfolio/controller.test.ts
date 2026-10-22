@@ -19,20 +19,20 @@ function setup(opts: { role?: string; n?: number; latencyMs?: number } = {}) {
 describe("editing", () => {
   it("shows the change at once and saves in the background", async () => {
     const { c, source } = setup({ latencyMs: 20 });
-    const r = c.edit("item-1", "health", "at_risk");
+    const r = c.edit("item-1", "health", "At Risk");
     expect(r).toEqual({ ok: true, changed: true });
-    expect(c.row("item-1")!.health).toBe("at_risk"); // before the save returned
+    expect(c.row("item-1")!.health).toBe("At Risk"); // before the save returned
     expect(c.status.pending).toBe(1);
-    expect(c.status.last?.text).toBe("R-01 Health: On track to At risk");
+    expect(c.status.last?.text).toBe("R-01 Health: On Track to At Risk");
     await c.flush();
     expect(c.status.pending).toBe(0);
     expect(c.status.error).toBeNull();
-    expect(source.items[0]!.health).toBe("at_risk");
+    expect(source.items[0]!.health).toBe("At Risk");
   });
 
   it("does nothing for an unchanged value", async () => {
     const { c, source } = setup();
-    const r = c.edit("item-1", "size", "XS");
+    const r = c.edit("item-1", "effort", "XS");
     expect(r).toEqual({ ok: true, changed: false });
     expect(source.calls).toHaveLength(0);
     expect(c.status.canUndo).toBe(false);
@@ -41,12 +41,12 @@ describe("editing", () => {
   it("parses typed text: dates, values, confidence", async () => {
     const { c } = setup();
     c.edit("item-2", "start_date", "31 mar");
-    c.edit("item-2", "end_date", "q2");
-    c.edit("item-2", "value", "1.2m");
-    c.edit("item-2", "confidence", "80%");
+    c.edit("item-2", "g2m_date_est", "q2");
+    c.edit("item-2", "value_12m", "1.2m");
+    c.edit("item-2", "confidence", "Low");
     await c.flush();
     const r = c.row("item-2")!;
-    expect([r.start_date, r.end_date, r.value, r.confidence]).toEqual(["2027-03-31", "2027-06-30", 1200000, 80]);
+    expect([r.start_date, r.g2m_date_est, r.value_12m, r.confidence]).toEqual(["2027-03-31", "2027-06-30", 1200000, "Low"]);
   });
 
   it("rejects bad input with a message and changes nothing", async () => {
@@ -54,9 +54,9 @@ describe("editing", () => {
     const r = c.edit("item-1", "start_date", "banana");
     expect(r.ok).toBe(false);
     expect(c.row("item-1")!.start_date).toBe("2027-01-04");
-    expect(c.status.notice).toMatch(/R-01 Start/);
+    expect(c.status.notice).toMatch(/R-01 Start Date/);
     expect(source.calls).toHaveLength(0);
-    expect(c.edit("item-1", "title", "   ").ok).toBe(false);
+    expect(c.edit("item-1", "initiative_name", "   ").ok).toBe(false);
     expect(c.edit("item-1", "confidence", "150").ok).toBe(false);
   });
 
@@ -64,7 +64,7 @@ describe("editing", () => {
     for (const role of ["viewer", "commenter", "leadership", null]) {
       const { c, source } = setup({ role: role as string });
       expect(c.canEdit).toBe(false);
-      expect(c.edit("item-1", "title", "x").ok).toBe(false);
+      expect(c.edit("item-1", "initiative_name", "x").ok).toBe(false);
       expect(c.status.notice).toBe(READ_ONLY_MESSAGE);
       expect(c.editRank("item-1", "1").ok).toBe(false);
       await c.undo();
@@ -76,8 +76,8 @@ describe("editing", () => {
     const { c } = setup();
     expect(c.clearCell("item-2", "health")).toEqual({ ok: true, changed: true });
     expect(c.row("item-2")!.health).toBeNull();
-    expect(c.clearCell("item-2", "title").ok).toBe(false);
-    expect(c.clearCell("item-2", "home_project_id").ok).toBe(false);
+    expect(c.clearCell("item-2", "initiative_name").ok).toBe(false);
+    expect(c.clearCell("item-2", "home_project").ok).toBe(false);
     await c.flush();
   });
 
@@ -85,7 +85,7 @@ describe("editing", () => {
     const { c } = setup();
     expect(c.row("item-1")!.project_rank).toBe(1); // first in p1
     expect(c.row("item-3")!.project_rank).toBe(2);
-    c.edit("item-1", "home_project_id", "p2");
+    c.edit("item-1", "home_project", "p2");
     expect(c.row("item-3")!.project_rank).toBe(1);
     expect(c.row("item-1")!.project_rank).toBe(1); // first in p2 now (rank 1 globally)
     await c.flush();
@@ -96,13 +96,13 @@ describe("when a save fails", () => {
   it("puts the old value back, explains why, and forgets the change", async () => {
     const { c, source } = setup();
     source.failWhen = () => "permission denied";
-    c.edit("item-1", "health", "delayed");
+    c.edit("item-1", "health", "Delayed");
     await c.flush();
-    expect(c.row("item-1")!.health).toBe("on_track");
+    expect(c.row("item-1")!.health).toBe("On Track");
     expect(c.status.error).toBe("Could not save R-01 Health: permission denied. The change was reverted.");
     expect(c.status.canUndo).toBe(false);
     source.failWhen = null;
-    c.edit("item-1", "health", "delayed");
+    c.edit("item-1", "health", "Delayed");
     await c.flush();
     expect(c.status.error).toBeNull(); // cleared by the next success
   });
@@ -110,9 +110,9 @@ describe("when a save fails", () => {
   it("an exception from the source is handled like a failure", async () => {
     const { c, source } = setup();
     source.updateField = async () => { throw new Error("network down"); };
-    c.edit("item-1", "title", "New");
+    c.edit("item-1", "initiative_name", "New");
     await c.flush();
-    expect(c.row("item-1")!.title).toMatch(/Initiative number 1/);
+    expect(c.row("item-1")!.initiative_name).toMatch(/Initiative number 1/);
     expect(c.status.error).toMatch(/network down/);
   });
 });
@@ -129,76 +129,76 @@ describe("saves for the same cell keep their order", () => {
       order.push(String(v));
       return real(id, f, v, o);
     };
-    c.edit("item-1", "title", "First");
-    c.edit("item-1", "title", "Second");
+    c.edit("item-1", "initiative_name", "First");
+    c.edit("item-1", "initiative_name", "Second");
     await c.flush();
     expect(order).toEqual(["First", "Second"]);
-    expect(source.items[0]!.title).toBe("Second");
+    expect(source.items[0]!.initiative_name).toBe("Second");
   });
 });
 
 describe("undo and redo", () => {
   it("undoes and redoes field edits, saving each as its own audited write", async () => {
     const { c, source } = setup();
-    c.edit("item-1", "health", "at_risk");
-    c.edit("item-1", "moscow", "could");
+    c.edit("item-1", "health", "At Risk");
+    c.edit("item-1", "moscow", "Could");
     await c.flush();
     await c.undo();
-    expect(c.row("item-1")!.moscow).toBe("must");
+    expect(c.row("item-1")!.moscow).toBe("Must");
     expect(c.status.last?.text).toBe("Undid: R-01 MoSCoW: Could to Must");
     await c.undo();
-    expect(c.row("item-1")!.health).toBe("on_track");
+    expect(c.row("item-1")!.health).toBe("On Track");
     expect(c.status.canUndo).toBe(false);
     await c.redo();
-    expect(c.row("item-1")!.health).toBe("at_risk");
+    expect(c.row("item-1")!.health).toBe("At Risk");
     await c.flush();
-    expect(source.items[0]!.health).toBe("at_risk");
-    expect(source.items[0]!.moscow).toBe("must");
+    expect(source.items[0]!.health).toBe("At Risk");
+    expect(source.items[0]!.moscow).toBe("Must");
     // undo saves are guarded by the value they expect to replace
     expect(source.calls.filter((x) => x.type === "update" && "expected" in x).length).toBe(3);
   });
 
   it("keeps the last 20 changes", async () => {
     const { c } = setup();
-    for (let i = 0; i < 25; i++) c.edit("item-1", "title", `Name ${i}`);
+    for (let i = 0; i < 25; i++) c.edit("item-1", "initiative_name", `Name ${i}`);
     await c.flush();
     expect(c.status.undoCount).toBe(20);
     for (let i = 0; i < 25; i++) await c.undo();
-    expect(c.row("item-1")!.title).toBe("Name 4"); // 5 oldest edits can no longer be undone
+    expect(c.row("item-1")!.initiative_name).toBe("Name 4"); // 5 oldest edits can no longer be undone
   });
 
   it("does not undo over a change somebody else made", async () => {
     const { c, source } = setup();
-    c.edit("item-1", "health", "at_risk");
+    c.edit("item-1", "health", "At Risk");
     await c.flush();
-    source.items[0]!.health = "delayed"; // someone else changed it in the database
+    source.items[0]!.health = "Delayed"; // someone else changed it in the database
     await c.undo();
-    expect(c.row("item-1")!.health).toBe("at_risk"); // the grid still shows our value
+    expect(c.row("item-1")!.health).toBe("At Risk"); // the grid still shows our value
     expect(c.status.error).toMatch(/Could not undo|changed/i);
     expect(c.status.canUndo).toBe(true); // the step is kept, nothing was lost
-    expect(source.items[0]!.health).toBe("delayed");
+    expect(source.items[0]!.health).toBe("Delayed");
   });
 
   it("when the undo save fails, the value goes back and the step is kept", async () => {
     const { c, source } = setup();
-    c.edit("item-1", "size", "XL");
+    c.edit("item-1", "effort", "XL");
     await c.flush();
     source.failWhen = () => "offline";
     await c.undo();
-    expect(c.row("item-1")!.size).toBe("XL");
+    expect(c.row("item-1")!.effort).toBe("XL");
     expect(c.status.error).toMatch(/offline/);
     expect(c.status.canUndo).toBe(true);
     source.failWhen = null;
     await c.undo();
-    expect(c.row("item-1")!.size).toBe("XS");
+    expect(c.row("item-1")!.effort).toBe("XS");
   });
 
   it("a new edit clears the redo list", async () => {
     const { c } = setup();
-    c.edit("item-1", "title", "A");
+    c.edit("item-1", "initiative_name", "A");
     await c.flush(); await c.undo();
     expect(c.status.canRedo).toBe(true);
-    c.edit("item-1", "title", "B");
+    c.edit("item-1", "initiative_name", "B");
     expect(c.status.canRedo).toBe(false);
     await c.flush();
   });
@@ -223,7 +223,7 @@ describe("re-ranking", () => {
     expect(c.editRank("item-1", "0").ok).toBe(false);
     expect(c.editRank("item-1", "abc").ok).toBe(false);
     expect(c.editRank("item-1", "#3")).toEqual({ ok: true, changed: true });
-    expect(c.rows.filter((r) => r.home_project_id === "p1").map((r) => r.project_rank)).toEqual([1, 2, 3]);
+    expect(c.rows.filter((r) => r.home_project === "p1").map((r) => r.project_rank)).toEqual([1, 2, 3]);
     await c.flush();
   });
 
@@ -249,7 +249,7 @@ describe("re-ranking", () => {
 describe("notices", () => {
   it("explains locked GitHub cells", () => {
     const { c } = setup();
-    c.notifyLocked("status");
+    c.notifyReadOnly("status");
     expect(c.status.notice).toMatch(/GitHub/);
     c.notify(null);
     expect(c.status.notice).toBeNull();
@@ -258,7 +258,7 @@ describe("notices", () => {
     const { c } = setup();
     const seen: string[] = [];
     c.subscribe((rows) => seen.push(...rows.map((r) => r.id)));
-    c.edit("item-2", "title", "Changed");
+    c.edit("item-2", "initiative_name", "Changed");
     expect(seen).toContain("item-2");
     await c.flush();
   });
