@@ -5,7 +5,12 @@ import { formatValue } from "./money";
 
 export type FieldEdit = { type: "field"; itemId: string; key: string; field: EditableField; before: unknown; after: unknown };
 export type RankEdit = { type: "rank"; itemId: string; key: string; before: number; after: number };
-export type Edit = FieldEdit | RankEdit;
+/** An item added by quick-add. Undo deletes it; redo adds it again (it then gets a new code at the end of the list). */
+export type CreateEdit = {
+  type: "create"; itemId: string; key: string;
+  draft: { initiative_name: string; home_project: string; product_manager: string | null; effort: string | null; moscow: string | null };
+};
+export type Edit = FieldEdit | RankEdit | CreateEdit;
 /** One undo step. A bulk action is one entry with several edits. */
 export type Entry = { id: string; edits: Edit[] };
 
@@ -68,6 +73,7 @@ function show(field: EditableField, v: unknown, r: Resolvers): string {
 
 /** "R-41 Health: On track to At risk": shown in the status strip after every change. */
 export function describeEdit(edit: Edit, r: Resolvers): string {
+  if (edit.type === "create") return `Added ${edit.key === "…" ? "" : `${edit.key} `}"${edit.draft.initiative_name}"`;
   if (edit.type === "rank") return `${edit.key} moved from rank ${edit.before} to ${edit.after}`;
   return `${edit.key} ${fieldLabel(edit.field)}: ${show(edit.field, edit.before, r)} to ${show(edit.field, edit.after, r)}`;
 }

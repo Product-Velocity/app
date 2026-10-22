@@ -4,3 +4,4 @@ export * from "./fields";
 export * from "./undo";
 export * from "./rank";
 export * from "./registry";
+export * from "./quickadd";

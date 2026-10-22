@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, type EditableField } from "@pv/domain";
-import type { PortfolioDataSource, SaveResult } from "./data-source";
+import type { CreateResult, NewItem, PortfolioDataSource, SaveResult } from "./data-source";
 import type { LoadedItem } from "./types";
 
 /** Supabase returns at most 1,000 rows per request, so a 2,000-item workspace needs several pages. */
@@ -117,6 +117,25 @@ export class SupabaseDataSource implements PortfolioDataSource {
         : { ok: false, error: "the item was removed or you cannot edit it" };
     }
     return { ok: true };
+  }
+
+  async createItem(item: NewItem): Promise<CreateResult> {
+    const { data, error } = await this.client
+      .from("items")
+      .insert({
+        id: item.id, tenant_id: this.tenantId, initiative_name: item.initiative_name, home_project_id: item.home_project,
+        owner_user_id: item.product_manager, effort: item.effort, moscow: item.moscow,
+      })
+      .select("item_code,stack_rank")
+      .single();
+    if (error || !data) return { ok: false, error: friendlyError(error) };
+    return { ok: true, item_code: String(data.item_code), stack_rank: Number(data.stack_rank) };
+  }
+
+  async deleteItem(itemId: string): Promise<SaveResult> {
+    const { data, error } = await this.client.from("items").delete().eq("tenant_id", this.tenantId).eq("id", itemId).select("id");
+    if (error) return { ok: false, error: friendlyError(error) };
+    return data && data.length > 0 ? { ok: true } : { ok: false, error: "the item was already removed or you cannot delete it" };
   }
 
   async moveItem(itemId: string, toRank: number): Promise<SaveResult> {

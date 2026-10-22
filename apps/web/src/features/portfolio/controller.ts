@@ -1,6 +1,6 @@
 import {
   applyMove, canBeEmpty, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
-  type Edit, type EditableField, type Entry,
+  type Draft, type Edit, type EditableField, type Entry,
 } from "@pv/domain";
 import type { PortfolioDataSource } from "./data-source";
 import type { GridItem, Lookups, LoadedItem } from "./types";
@@ -33,6 +33,7 @@ export class PortfolioController {
   private readonly queues = new Map<string, Promise<unknown>>();
   private readonly listeners = new Set<(changed: GridItem[]) => void>();
   private readonly focusListeners = new Set<(id: string) => void>();
+  private readonly structureListeners = new Set<(add: GridItem[], remove: GridItem[]) => void>();
   private entrySeq = 0;
   private state = { pending: 0, error: null as string | null, notice: null as string | null, last: null as Status["last"], version: 0 };
 
@@ -43,6 +44,7 @@ export class PortfolioController {
     private readonly role: string | null,
     private readonly today: () => Date = () => localToday(),
     private readonly now: () => number = () => Date.now(),
+    private readonly newId: () => string = () => crypto.randomUUID(),
   ) {
     this.rows = items.map((i) => ({ ...i, project_rank: 0 }));
     this.rows.sort((a, b) => a.stack_rank - b.stack_rank);
@@ -59,6 +61,8 @@ export class PortfolioController {
   subscribe(fn: (changed: GridItem[]) => void) { this.listeners.add(fn); return () => { this.listeners.delete(fn); }; }
   /** The grid keeps the keyboard focus on a row whose rank changed (it jumps to its new place). */
   onFocusRequest(fn: (id: string) => void) { this.focusListeners.add(fn); return () => { this.focusListeners.delete(fn); }; }
+  /** The grid adds and removes rows when items are added or taken away again (undo). */
+  onStructure(fn: (add: GridItem[], remove: GridItem[]) => void) { this.structureListeners.add(fn); return () => { this.structureListeners.delete(fn); }; }
   private requestFocus(id: string) { for (const f of this.focusListeners) f(id); }
   row(id: string) { return this.byId.get(id); }
 
@@ -88,6 +92,67 @@ export class PortfolioController {
   /** Explain why a cell cannot be edited (GitHub-driven, calculated, set by the system, or from a later phase). */
   notifyReadOnly(field: string) { const why = readOnlyReason(field); if (why) this.notify(why); }
   dismissError() { this.state.error = null; this.emit(); }
+
+  // ---------------------------------------------------------------- adding
+  private buildRow(id: string, d: Draft, code = "…", rank = 0): GridItem {
+    return {
+      id, item_code: code, stack_rank: rank, project_rank: 0, initiative_name: d.initiative_name, home_project: d.home_project,
+      product_manager: d.product_manager, effort: d.effort, moscow: d.moscow, visibility: "Internal only", archived: false, date_precision: "Day",
+    };
+  }
+  private addRows(added: GridItem[]) {
+    for (const r of added) { this.rows.push(r); this.byId.set(r.id, r); }
+    this.rows.sort((a, b) => a.stack_rank - b.stack_rank);
+    const moved = this.recomputeProjectRanks();
+    for (const l of this.structureListeners) l(added, []);
+    this.emit(moved.filter((m) => !added.includes(m)));
+  }
+  private removeRows(removed: GridItem[]) {
+    for (const r of removed) { this.byId.delete(r.id); const i = this.rows.indexOf(r); if (i >= 0) this.rows.splice(i, 1); }
+    // close the gaps, as the database does after a delete
+    const changed: GridItem[] = [];
+    this.rows.sort((a, b) => a.stack_rank - b.stack_rank).forEach((r, i) => { if (r.stack_rank !== i + 1) { r.stack_rank = i + 1; changed.push(r); } });
+    for (const c of this.recomputeProjectRanks()) if (!changed.includes(c)) changed.push(c);
+    for (const l of this.structureListeners) l([], removed);
+    this.emit(changed);
+  }
+  private adopt(row: GridItem, r: { item_code: string; stack_rank: number }) {
+    row.item_code = r.item_code;
+    if (row.stack_rank !== r.stack_rank) { row.stack_rank = r.stack_rank; this.rows.sort((a, b) => a.stack_rank - b.stack_rank); this.recomputeProjectRanks(); }
+    this.emit([row]);
+  }
+
+  /** Quick-add: the items show at the end of the list at once and are saved one after the other. One undo step for the whole batch. */
+  createItems(drafts: Draft[]): { ok: true; created: number } | { ok: false; error: string } {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
+    if (drafts.length === 0) return { ok: true, created: 0 };
+    let rank = this.rows.reduce((n, r) => Math.max(n, r.stack_rank), 0);
+    const added = drafts.map((d) => this.buildRow(this.newId(), d, "…", ++rank));
+    const edits = added.map((row, i): Edit => ({ type: "create", itemId: row.id, key: "…", draft: drafts[i]! }));
+    const entry: Entry = { id: `e${++this.entrySeq}`, edits };
+    this.stack.push(entry);
+    this.state.notice = null;
+    this.state.last = { text: added.length === 1 ? describeEdit(edits[0]!, this.resolvers()) : `Added ${added.length} items`, at: this.now() };
+    this.addRows(added);
+    added.forEach((row, i) => {
+      let result: { item_code: string; stack_rank: number } | null = null;
+      this.save(null, `"${row.initiative_name}"`, async () => {
+        const r = await this.source.createItem({ id: row.id, ...drafts[i]! });
+        if (r.ok) result = r;
+        return r.ok ? { ok: true } : { ok: false, error: r.error };
+      }, () => {
+        this.removeRows([row].filter((x) => this.byId.has(x.id)));
+        const at = entry.edits.indexOf(edits[i]!);
+        if (at >= 0) entry.edits.splice(at, 1);
+        if (entry.edits.length === 0) this.stack.discard(entry);
+      }, (ok) => {
+        if (!ok || !result) return;
+        (edits[i] as { key: string }).key = result.item_code;
+        this.adopt(row, result);
+      }, "Could not add");
+    });
+    return { ok: true, created: added.length };
+  }
 
   // ---------------------------------------------------------------- edits
   edit(itemId: string, field: EditableField, raw: string): EditOutcome {
@@ -177,7 +242,7 @@ export class PortfolioController {
 
   // ---------------------------------------------------------------- saving
   /** Saves for the same cell go one after the other, so the last edit always wins. */
-  private save(entry: Entry | null, label: string, run: () => Promise<{ ok: boolean; error?: string }>, revert: () => void, onDone?: (ok: boolean) => void) {
+  private save(entry: Entry | null, label: string, run: () => Promise<{ ok: boolean; error?: string }>, revert: () => void, onDone?: (ok: boolean) => void, failVerb = "Could not save") {
     const edit = entry?.edits[0];
     const queueKey = edit ? `${edit.itemId}:${edit.type === "field" ? edit.field : "rank"}` : "misc";
     this.state.pending++;
@@ -192,7 +257,7 @@ export class PortfolioController {
       } else {
         revert();
         if (entry) this.stack.discard(entry);
-        this.state.error = `Could not save ${label}: ${res.error ?? "unknown error"}. The change was reverted.`;
+        this.state.error = `${failVerb} ${label}: ${res.error ?? "unknown error"}. The change was reverted.`;
         onDone?.(false);
         this.emit();
       }
@@ -214,10 +279,14 @@ export class PortfolioController {
     if (!entry) return;
     const restore = () => (direction === "undo" ? this.stack.restoreUndo(entry) : this.stack.restoreRedo(entry));
     const shown = (e: Edit): Edit =>
-      direction === "undo" ? ({ ...e, before: e.after, after: e.before } as Edit) : e;
+      direction === "undo" && e.type !== "create" ? ({ ...e, before: e.after, after: e.before } as Edit) : e;
     // newest edit first when undoing
     const edits = direction === "undo" ? [...entry.edits].reverse() : entry.edits;
     for (const edit of edits) {
+      if (edit.type === "create") {
+        if (!(await this.replayCreate(edit, direction, restore))) return;
+        continue;
+      }
       const row = this.byId.get(edit.itemId);
       const target = direction === "undo" ? edit.before : edit.after;
       const expected = direction === "undo" ? edit.after : edit.before;
@@ -250,6 +319,30 @@ export class PortfolioController {
         }, restore);
       }
     }
+  }
+
+  private async replayCreate(edit: Extract<Edit, { type: "create" }>, direction: "undo" | "redo", restore: () => void): Promise<boolean> {
+    let failed = false;
+    const fail = () => { failed = true; restore(); };
+    if (direction === "undo") {
+      const row = this.byId.get(edit.itemId);
+      if (!row) { this.state.error = `Could not undo: ${edit.key} no longer exists.`; this.emit(); restore(); return false; }
+      this.removeRows([row]);
+      this.state.last = { text: `Undid: ${describeEdit(edit, this.resolvers())}`, at: this.now() };
+      this.emit();
+      await this.runReplaySave(`removing ${edit.key}`, () => this.source.deleteItem(edit.itemId), () => this.addRows([row]), fail);
+    } else {
+      const row = this.buildRow(edit.itemId, edit.draft, "…", this.rows.reduce((n, r) => Math.max(n, r.stack_rank), 0) + 1);
+      this.addRows([row]);
+      this.state.last = { text: `Redid: ${describeEdit({ ...edit, key: "…" }, this.resolvers())}`, at: this.now() };
+      this.emit();
+      await this.runReplaySave(`adding "${edit.draft.initiative_name}"`, async () => {
+        const r = await this.source.createItem({ id: edit.itemId, ...edit.draft });
+        if (r.ok) { edit.key = r.item_code; this.adopt(row, r); return { ok: true }; }
+        return { ok: false, error: r.error };
+      }, () => this.removeRows([row]), fail);
+    }
+    return !failed;
   }
 
   private runReplaySave(label: string, run: () => Promise<{ ok: boolean; error?: string }>, revert: () => void, restore: () => void) {

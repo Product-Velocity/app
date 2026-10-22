@@ -1,5 +1,5 @@
 import { applyMove, type EditableField } from "@pv/domain";
-import type { PortfolioDataSource, SaveResult } from "./data-source";
+import type { CreateResult, NewItem, PortfolioDataSource, SaveResult } from "./data-source";
 import type { LoadedItem } from "./types";
 
 export type Op = { type: "update"; itemId: string; field: string; value: unknown; expected?: unknown } | { type: "move"; itemId: string; to: number };
@@ -11,6 +11,9 @@ export class MemoryDataSource implements PortfolioDataSource {
   latencyMs = 0;
   /** Return an error message to make that operation fail. */
   failWhen: ((op: Op) => string | null) | null = null;
+  /** Make the next adds fail with this message. */
+  failCreate: string | null = null;
+  private counter = 0;
 
   constructor(items: LoadedItem[], opts: { latencyMs?: number } = {}) {
     this.items = items.map((i) => ({ ...i }));
@@ -33,6 +36,23 @@ export class MemoryDataSource implements PortfolioDataSource {
       return { ok: false, error: "It was changed by someone else.", conflict: true };
     }
     (row as Record<string, unknown>)[field] = value;
+    return { ok: true };
+  }
+
+  async createItem(item: NewItem): Promise<CreateResult> {
+    await this.pause();
+    if (this.failCreate) return { ok: false, error: this.failCreate };
+    const max = this.items.reduce((n, i) => Math.max(n, i.stack_rank), 0);
+    this.counter = Math.max(this.counter, this.items.length) + 1;
+    const code = `R-${String(this.counter).padStart(2, "0")}`;
+    this.items.push({ ...item, item_code: code, stack_rank: max + 1 } as LoadedItem);
+    return { ok: true, item_code: code, stack_rank: max + 1 };
+  }
+
+  async deleteItem(itemId: string): Promise<SaveResult> {
+    await this.pause();
+    if (!this.items.some((i) => i.id === itemId)) return { ok: false, error: "The item no longer exists or you cannot delete it." };
+    this.items = this.items.filter((i) => i.id !== itemId).sort((a, b) => a.stack_rank - b.stack_rank).map((i, n) => ({ ...i, stack_rank: n + 1 }));
     return { ok: true };
   }
 

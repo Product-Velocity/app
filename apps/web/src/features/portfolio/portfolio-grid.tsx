@@ -3,19 +3,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ClientSideRowModelApiModule, ClientSideRowModelModule, CellApiModule, CellStyleModule, ColumnApiModule, CustomEditorModule,
-  EventApiModule, ModuleRegistry, RowApiModule, TextEditorModule, themeQuartz, type CellKeyDownEvent, type GridApi,
+  EventApiModule, ModuleRegistry, RowApiModule, ScrollApiModule, TextEditorModule, themeQuartz, type CellKeyDownEvent, type GridApi,
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { DEFAULT_VIEWS, FIELDS, type EditableField, type ViewName } from "@pv/domain";
 import { buildColumns, isEditableColumn, isReadOnlyColumn } from "./columns";
 import { ColumnsPicker } from "./columns-picker";
+import { QuickAddBar } from "./quick-add-bar";
 import type { PortfolioController } from "./controller";
 import { StatusStrip, useStatus } from "./status-strip";
 import type { GridItem, Lookups } from "./types";
 
 ModuleRegistry.registerModules([
   ClientSideRowModelModule, ClientSideRowModelApiModule, TextEditorModule, CustomEditorModule, CellStyleModule,
-  ColumnApiModule, CellApiModule, RowApiModule, EventApiModule,
+  ColumnApiModule, CellApiModule, RowApiModule, EventApiModule, ScrollApiModule,
 ]);
 
 const theme = themeQuartz.withParams({
@@ -34,6 +35,8 @@ const theme = themeQuartz.withParams({
 
 export function PortfolioGrid({ controller, lookups, initialView = "Prioritisation", renderAllColumns = false }: { controller: PortfolioController; lookups: Lookups; initialView?: ViewName | "All columns"; renderAllColumns?: boolean }) {
   const apiRef = useRef<GridApi<GridItem> | null>(null);
+  const quickAddRef = useRef<HTMLInputElement | null>(null);
+  const [contextProject, setContextProject] = useState<string | null>(null);
   const status = useStatus(controller);
   const rowData = useMemo(() => [...controller.rows], [controller]);
 
@@ -70,6 +73,20 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
     [controller],
   );
 
+  // Added and removed rows (quick-add and its undo).
+  useEffect(
+    () =>
+      controller.onStructure((add, remove) => {
+        const api = apiRef.current;
+        if (!api) return;
+        api.applyTransaction({ add, remove });
+        const last = add[add.length - 1];
+        // after the grid has placed the new rows (sorted by rank), scroll to the last one
+        if (last) setTimeout(() => { const node = api.getRowNode(last.id); if (node) api.ensureNodeVisible(node, "bottom"); }, 0);
+      }),
+    [controller],
+  );
+
   // Rows are changed in place by the controller; tell the grid which ones.
   useEffect(
     () =>
@@ -78,6 +95,18 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
       }),
     [controller],
   );
+
+  // Alt+N (Option+N) jumps to the quick-add row from anywhere on the page.
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.altKey && !e.metaKey && !e.ctrlKey && e.code === "KeyN" && controller.canEdit && quickAddRef.current) {
+        e.preventDefault();
+        quickAddRef.current.focus();
+      }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [controller]);
 
   // Warn before leaving with unsaved changes.
   useEffect(() => {
@@ -119,6 +148,9 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
   return (
     <section className="grid-card" aria-label="Roadmap" onKeyDownCapture={onWrapperKeyDown}>
       <StatusStrip controller={controller} />
+      {controller.canEdit && lookups.projects.length > 0 && (
+        <QuickAddBar controller={controller} lookups={lookups} contextProject={contextProject} inputRef={quickAddRef} />
+      )}
       <ColumnsPicker view={view} visible={visible} onView={pickView} onToggle={toggle} />
       <div className="grid-wrap" data-testid="grid">
         <AgGridReact<GridItem>
@@ -132,6 +164,10 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
           suppressColumnVirtualisation={renderAllColumns}
           stopEditingWhenCellsLoseFocus
           onGridReady={(e) => { apiRef.current = e.api; }}
+          onCellFocused={(e) => {
+            const row = e.rowIndex == null ? null : e.api.getDisplayedRowAtIndex(e.rowIndex)?.data;
+            if (row) setContextProject(row.home_project);
+          }}
           onCellKeyDown={onCellKeyDown}
           headerHeight={showLater ? 46 : 32}
           onCellDoubleClicked={(e) => {
@@ -142,7 +178,7 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
         />
       </div>
       <p className="grid-foot">
-        {controller.rows.length.toLocaleString("en-GB")} items · ranked by global Stack Rank · Enter or double-click to edit, Tab and Enter to move, Esc to cancel,
+        {controller.rows.length.toLocaleString("en-GB")} items · ranked by global Stack Rank · Alt+N adds an initiative, Enter or double-click to edit, Tab and Enter to move, Esc to cancel,
         Delete clears a cell
         {status.pending > 0 ? "" : ""}
       </p>

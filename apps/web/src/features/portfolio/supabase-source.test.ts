@@ -146,6 +146,27 @@ describe("column names", () => {
   });
 });
 
+describe("createItem and deleteItem", () => {
+  it("inserts with the id chosen by the browser and returns the code and rank the database assigned", async () => {
+    const { client, calls } = fake([{ data: { item_code: "R-12", stack_rank: "12" } }]);
+    const r = await new SupabaseDataSource(client, "t1").createItem({ id: "n1", initiative_name: "Faster", home_project: "p1", product_manager: "u1", effort: "M", moscow: "Should" });
+    expect(r).toEqual({ ok: true, item_code: "R-12", stack_rank: 12 });
+    expect(calls[0]!.table).toBe("items");
+    expect(has(calls[0]!, "insert", { id: "n1", tenant_id: "t1", initiative_name: "Faster", home_project_id: "p1", owner_user_id: "u1", effort: "M", moscow: "Should" })).toBe(true);
+  });
+  it("turns an insert error into words", async () => {
+    const { client } = fake([{ error: { code: "42501" } }]);
+    expect(await new SupabaseDataSource(client, "t1").createItem({ id: "n1", initiative_name: "x", home_project: "p", product_manager: null, effort: null, moscow: null })).toEqual({ ok: false, error: "you do not have permission to change this" });
+  });
+  it("deletes one item of the tenant", async () => {
+    const { client, calls } = fake([{ data: [{ id: "n1" }] }]);
+    expect(await new SupabaseDataSource(client, "t1").deleteItem("n1")).toEqual({ ok: true });
+    expect(has(calls[0]!, "eq", "tenant_id", "t1") && has(calls[0]!, "eq", "id", "n1")).toBe(true);
+    const gone = fake([{ data: [] }]);
+    expect(await new SupabaseDataSource(gone.client, "t1").deleteItem("n1")).toMatchObject({ ok: false });
+  });
+});
+
 describe("moveItem and friendlyError", () => {
   it("calls the move_item function", async () => {
     const { client, calls } = fake([{}]);
