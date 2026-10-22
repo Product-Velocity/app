@@ -8,8 +8,10 @@ import { supabaseEnv } from "./env";
  * the audit log through the x-pv-via header (see write_source() in the DB).
  */
 export async function createClient() {
-  const { url, anonKey } = supabaseEnv();
+  // read cookies first: it marks the route as dynamic, so `next build` never
+  // prerenders a page (and never needs the env vars) at build time
   const cookieStore = await cookies();
+  const { url, anonKey } = supabaseEnv();
   return createServerClient(url, anonKey, {
     global: { headers: { "x-pv-via": "UI" } },
     cookies: {
