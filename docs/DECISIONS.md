@@ -42,3 +42,9 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Spike S6: PDF via `puppeteer-core` + `@sparticuz/chromium-min` from an HTML print view; jobs via a Postgres queue table and Vercel Cron; Vercel Pro needed before the pilot; Python document functions to be verified (S6b) · Claude (issue #4)
 - 2026-10-22 · Spike S7: all new tenant tables use RLS pattern `tenant_id = any(array(select my_tenant_ids()))` plus a tenant_id index and a tenant_id filter in every query; SAML needs Supabase Pro or above · Claude (issue #4)
 - 2026-10-22 · Spike S8: `/mcp` authenticates through Supabase Auth's OAuth 2.1 server (beta); real Claude connection test (S8b) first thing in Phase 4 · Claude (issue #4)
+- 2026-10-22 · Row grouping for saved views: we build simple grouping ourselves (no AG Grid Enterprise licence) · Ashu
+- 2026-10-22 · "Projects v2 board mirror" (a copy of items onto a GitHub Projects board) is out of R1; the data sync (tracking issues, sub-issues, status/assignee/progress back, dates via issue fields) is unaffected · Ashu/Claude
+- 2026-10-22 · Stack rank: one global list per tenant and planning cycle; saved scopes only filter and never own a rank (interpretation of "unique per cycle and scope"); ranks change only through `move_item`, are kept dense, and are audited per changed item · Claude (issue #5), to confirm with Ashu
+- 2026-10-22 · Roles on Phase 1 tables: all tenant members read; creators and admins write items, scopes and links; only admins write projects and teams; no project-level membership yet · Claude (issue #5)
+- 2026-10-22 · Item keys are `R-01`, `R-02`, ... per tenant, never reused; enumerations stored lower-case (moscow, size, health, date precision); horizon and focus area are free text until defined · Claude (issue #5)
+- 2026-10-22 · Cross-tenant references are blocked by composite foreign keys; saved scopes use a join table instead of an array · Claude (issue #5)

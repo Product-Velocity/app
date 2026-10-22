@@ -56,6 +56,73 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "projects",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.projects set name = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.projects where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.projects (tenant_id, name) values ($1, 'Injected')", params: [v.tenantId] },
+      { sql: "update public.projects set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "teams",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.teams set name = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.teams where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.teams (tenant_id, name) values ($1, 'Injected')", params: [v.tenantId] },
+      { sql: "update public.teams set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "items",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.items set title = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.items where tenant_id = $1", params: [v.tenantId] },
+      {
+        sql: "insert into public.items (tenant_id, title, home_project_id) select $1, 'Injected', id from public.projects where tenant_id = $1",
+        params: [v.tenantId],
+      },
+      { sql: "update public.items set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+      // the re-rank function must refuse items of another tenant
+      { sql: "select public.move_item(id, 1) from public.items where tenant_id = $1 and stack_rank = 3", params: [v.tenantId] },
+    ],
+  },
+  {
+    table: "saved_scopes",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.saved_scopes set name = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.saved_scopes where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.saved_scopes (tenant_id, name) values ($1, 'Injected')", params: [v.tenantId] },
+      { sql: "update public.saved_scopes set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "saved_scope_projects",
+    tenantColumn: "tenant_id",
+    attacks: (v) => [
+      { sql: "delete from public.saved_scope_projects where tenant_id = $1", params: [v.tenantId] },
+      {
+        sql: "insert into public.saved_scope_projects (tenant_id, scope_id, project_id) select $1, scope_id, project_id from public.saved_scope_projects where tenant_id = $1",
+        params: [v.tenantId],
+      },
+    ],
+  },
+  {
+    table: "item_teams",
+    tenantColumn: "tenant_id",
+    attacks: (v) => [
+      { sql: "delete from public.item_teams where tenant_id = $1", params: [v.tenantId] },
+      {
+        sql: "insert into public.item_teams (tenant_id, item_id, team_id) select $1, i.id, t.id from public.items i, public.teams t where i.tenant_id = $1 and t.tenant_id = $1",
+        params: [v.tenantId],
+      },
+    ],
+  },
+  {
     table: "invitations",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [
@@ -101,7 +168,7 @@ describe("RLS covers every table", () => {
   });
 
   it("internal trigger functions are not callable by API roles, and no function has a mutable search_path", async () => {
-    for (const fn of ["audit_row()", "set_write_meta()", "guard_approver()", "audit_log_append_only()", "guard_last_admin()"]) {
+    for (const fn of ["audit_row()", "set_write_meta()", "guard_approver()", "audit_log_append_only()", "guard_last_admin()", "items_before_insert()", "items_guard()", "items_compact()"]) {
       for (const role of ["anon", "authenticated"]) {
         const { rows } = await db.admin.query("select has_function_privilege($1, $2, 'execute') as ok", [role, `public.${fn}`]);
         expect(rows[0].ok, `${role} can execute ${fn}`).toBe(false);
