@@ -44,13 +44,13 @@
    "Grow customer revenues",
    "Protect customer revenues",
    "Operational efficiency",
-   "Close the gap with competitors"
+   "Close capability gaps"
   ],
-  "allowedText": "New big bets · Grow customer revenues · Protect customer revenues · Operational efficiency · Close the gap with competitors",
+  "allowedText": "New big bets · Grow customer revenues · Protect customer revenues · Operational efficiency · Close capability gaps",
   "origin": "Input",
   "githubSync": "Optional: push as label (off by default).",
   "filledWhen": "After interviews",
-  "description": "New big bets, Grow customer revenues, Protect customer revenues, Operational efficiency, Close the gap with competitors"
+  "description": "New big bets, Grow customer revenues, Protect customer revenues, Operational efficiency, Close capability gaps"
  },
  {
   "n": "3",
