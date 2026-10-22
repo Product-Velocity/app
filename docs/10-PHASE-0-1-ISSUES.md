@@ -19,3 +19,5 @@ GitHub issue creation was not permitted when these were drafted. Create one GitH
 Phase 2: #26 item peek panel and detail page, #27 Gantt, #28 card view, #29 leadership view and weekly update stub. Phase 3: #30 sandbox spikes S3b/S4b/S5b, #31 App install and connection settings, #32 webhook ingestion, #33 push to GitHub with the outbound allowlist test, #34 epics and tasks with the Traditional breakdown route, #35 inbound sync, #36 conflicts and sync log.
 
 Audit 2026-10-22: #26–#36 amended against the field dictionary and the workbook sheets. Added: #38 Initiative Group open list, #39 default views and Columns picker, #40 suggestions engine, #41 optional outbound mappings.
+
+Accounts and staff (2026-10-23): #44 account page, #45 invitation emails, #46 platform staff foundation, #47 workspace settings, #48 admin console, #49 impersonation, #50 access grants. Spec: `docs/15`.
