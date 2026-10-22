@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { FIELDS, FIELD_BY_KEY, columnOnItems, type EditableField } from "@pv/domain";
+import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, type EditableField } from "@pv/domain";
 import type { PortfolioDataSource, SaveResult } from "./data-source";
 import type { LoadedItem } from "./types";
 
@@ -55,7 +55,7 @@ export class SupabaseDataSource implements PortfolioDataSource {
       const item: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(r)) {
         if (INTERNAL_COLUMNS.has(k)) continue;
-        item[k === "home_project_id" ? "home_project" : k] = NUMERIC.has(k) && v !== null && v !== undefined ? Number(v) : v;
+        item[KEY_BY_COLUMN[k] ?? k] = NUMERIC.has(k) && v !== null && v !== undefined ? Number(v) : v;
       }
       items.set(String(r.id), item);
     }

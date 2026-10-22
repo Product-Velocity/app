@@ -50,9 +50,13 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Cross-tenant references are blocked by composite foreign keys; saved scopes use a join table instead of an array · Claude (issue #5)
 - 2026-10-22 · The field dictionary (docs/reference/item-fields.csv, 165 fields) is the authoritative item spec; schema and grid columns must match it; each field has a storage type and a phase · Ashu/Claude
 - 2026-10-22 · The field dictionary (`docs/reference/item-fields.csv`) is the item spec: columns use its keys, selects store its allowed values as spelled, a registry in `@pv/domain` is tested against the CSV · Ashu (issue #19)
-- 2026-10-22 · The 0008 column `owner_user_id` becomes `product_manager` and `end_date` becomes `g2m_date_est` (the dictionary has no "owner" or "end date"; G2M date is the estimated end) · Claude (issue #19), to confirm with Ashu
+- 2026-10-22 · Database columns `owner_user_id` and `end_date` keep their names; the registry maps them to the dictionary fields `product_manager` and `g2m_date_est`. Visible labels always come from the dictionary and may differ from column names · Ashu (issue #19)
 - 2026-10-22 · `confidence` becomes High / Medium / Low (existing numbers: 70+ High, 40–69 Medium, below Low) · Claude (issue #19)
-- 2026-10-22 · `created_via` keeps the write-provenance values used by every table and the audit log; the dictionary's separate "Manual / Import / AI intake / GitHub" list (N29) and its note row V38 disagree, so it is not stored separately yet · Claude (issue #19), to confirm with Ashu
+- 2026-10-22 · `created_via` keeps the write-provenance values used by every table and the audit log; the dictionary's separate "Manual / Import / AI intake / GitHub" list (N29) and its note row V38 disagree, so it is not stored separately yet · Ashu/Claude (issue #19)
 - 2026-10-22 · Multi-value fields (tags, target/live scope, segments, artifacts, screenshots, depends on, related to) are related tables; the grid shows them as text and they are edited in the item panel (phase 2) · Claude (issue #19)
 - 2026-10-22 · Computed fields live in one view, `items_computed`; G2M quarter is shown as "Q2 2027"; fields that need later-phase data return null · Claude (issue #19)
 - 2026-10-22 · Item codes above R-99 are not zero-padded (fixes a collision at the 100th item of a tenant) · Claude (issue #19)
+- 2026-10-22 · Grid dates: `4/5` is read as day/month (4 May), plain words and quarters are understood; amounts accept `k` and `m` · Claude (issue #6)
+- 2026-10-22 · Stack rank is changed by typing a number in the rank cell (a move, audited per shifted item); it is never edited as a plain value · Claude (issue #6)
+- 2026-10-22 · Roles without write access (viewer, commenter, leadership) see the grid read-only with a notice; the database stays the real gate · Claude (issue #6)
+- 2026-10-22 · Undo is our own stack of 20 per page session (the built-in one does not track API edits); each undo is a guarded write so it never overwrites someone else's change · Claude (issue #6)

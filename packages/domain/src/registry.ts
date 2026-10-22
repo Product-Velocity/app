@@ -53,8 +53,14 @@ export const FIELDS: readonly FieldDef[] = (dictionary as Raw[]).map((r) => {
 
 export const FIELD_BY_KEY: Readonly<Record<string, FieldDef>> = Object.fromEntries(FIELDS.map((f) => [f.key, f]));
 
-/** Column on the `items` table when it differs from the field key (the relation stores the project id). */
-const COLUMN_NAME: Record<string, string> = { home_project: "home_project_id" };
+/** Column on the `items` table when it differs from the field key. Labels shown in the app come from the dictionary, never from column names. */
+const COLUMN_NAME: Record<string, string> = {
+  home_project: "home_project_id", // the relation stores the project id
+  product_manager: "owner_user_id", // a user id (tenant member); the grid shows the person
+  g2m_date_est: "end_date",
+};
+/** Field key for a database column of items, when the two differ. */
+export const KEY_BY_COLUMN: Readonly<Record<string, string>> = Object.fromEntries(Object.entries(COLUMN_NAME).map(([k, c]) => [c, k]));
 
 /** Fields stored in a related table, and which one. */
 const RELATED: Record<string, string> = {

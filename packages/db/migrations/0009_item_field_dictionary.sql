@@ -5,16 +5,14 @@
 -- (its destructive-statement prompt hangs); apply this file in the Supabase SQL editor or with pnpm db:migrate.
 
 -- ---------------------------------------------------------------------------
--- 1. Renames to dictionary keys
+-- 1. Renames to dictionary keys (owner_user_id and end_date keep their column names: they are the
+--    columns behind the dictionary fields product_manager and g2m_date_est, see the field registry)
 -- ---------------------------------------------------------------------------
 alter table public.items rename column key to item_code;
 alter table public.items rename column title to initiative_name;
 alter table public.items rename column value to value_12m;
 alter table public.items rename column size to effort;
-alter table public.items rename column owner_user_id to product_manager;   -- the owner of 0008 is the dictionary's Product Manager
-alter table public.items rename column end_date to g2m_date_est;           -- 0008 "End" is the estimated go-to-market date
 alter table public.items rename column delivery_progress to delivery_progress_pct;
-alter index public.items_owner_idx rename to items_product_manager_idx;
 
 -- ---------------------------------------------------------------------------
 -- 2. Selects: constrain to the dictionary's values (stored exactly as the dictionary spells them)
@@ -326,8 +324,8 @@ grant delete on public.item_relations to authenticated;
 -- items: people may write exactly the fields the dictionary marks "Editable" (stack rank only through move_item);
 -- computed, system-set and GitHub-driven (locked) columns stay out of reach of signed-in users.
 revoke insert, update on public.items from authenticated;
-grant insert (id, tenant_id, cycle_id, roadmap_category, initiative_phase, theme, initiative_name, focus_area, change_type, hypothesis, sponsor, request_origin, customers_requesting, product_manager, engineering_manager, designer, analyst, business_manager, kr_metric, kr_start, kr_target, value_type, value_12m, value_basis, time_to_first_revenue_months, confidence, effort, moscow, estimate_low_weeks, estimate_high_weeks, cost_of_not_doing, dependencies_blockers, decision, decided_by, decision_date, next_review_date, start_date, g2m_date_est, g2m_date_actual, audience, target_customers, gtm_enablement_notes, source, summary, health, horizon, planned_start, kr_unit, kr_direction, estimate_basis, visibility, last_reviewed_at, archived, home_project_id, value_proposition, date_precision, effort_by_skill) on public.items to authenticated;
-grant update (roadmap_category, initiative_phase, theme, initiative_name, focus_area, change_type, hypothesis, sponsor, request_origin, customers_requesting, product_manager, engineering_manager, designer, analyst, business_manager, kr_metric, kr_start, kr_target, value_type, value_12m, value_basis, time_to_first_revenue_months, confidence, effort, moscow, estimate_low_weeks, estimate_high_weeks, cost_of_not_doing, dependencies_blockers, decision, decided_by, decision_date, next_review_date, start_date, g2m_date_est, g2m_date_actual, audience, target_customers, gtm_enablement_notes, source, summary, health, horizon, planned_start, kr_unit, kr_direction, estimate_basis, visibility, last_reviewed_at, archived, home_project_id, value_proposition, date_precision, effort_by_skill) on public.items to authenticated;
+grant insert (id, tenant_id, cycle_id, roadmap_category, initiative_phase, theme, initiative_name, focus_area, change_type, hypothesis, sponsor, request_origin, customers_requesting, owner_user_id, engineering_manager, designer, analyst, business_manager, kr_metric, kr_start, kr_target, value_type, value_12m, value_basis, time_to_first_revenue_months, confidence, effort, moscow, estimate_low_weeks, estimate_high_weeks, cost_of_not_doing, dependencies_blockers, decision, decided_by, decision_date, next_review_date, start_date, end_date, g2m_date_actual, audience, target_customers, gtm_enablement_notes, source, summary, health, horizon, planned_start, kr_unit, kr_direction, estimate_basis, visibility, last_reviewed_at, archived, home_project_id, value_proposition, date_precision, effort_by_skill) on public.items to authenticated;
+grant update (roadmap_category, initiative_phase, theme, initiative_name, focus_area, change_type, hypothesis, sponsor, request_origin, customers_requesting, owner_user_id, engineering_manager, designer, analyst, business_manager, kr_metric, kr_start, kr_target, value_type, value_12m, value_basis, time_to_first_revenue_months, confidence, effort, moscow, estimate_low_weeks, estimate_high_weeks, cost_of_not_doing, dependencies_blockers, decision, decided_by, decision_date, next_review_date, start_date, end_date, g2m_date_actual, audience, target_customers, gtm_enablement_notes, source, summary, health, horizon, planned_start, kr_unit, kr_direction, estimate_basis, visibility, last_reviewed_at, archived, home_project_id, value_proposition, date_precision, effort_by_skill) on public.items to authenticated;
 
 revoke all on function public.items_system_fields() from public, anon, authenticated;
 
@@ -340,8 +338,8 @@ select
   s.id, s.tenant_id,
   s.value_weighted,
   round(s.value_weighted / nullif(s.estimate_high_weeks, 0), 2) as value_weighted_per_build_week,
-  case when s.g2m_date_est is null then null
-       else 'Q' || extract(quarter from s.g2m_date_est)::int || ' ' || extract(year from s.g2m_date_est)::int end as g2m_quarter,
+  case when s.end_date is null then null
+       else 'Q' || extract(quarter from s.end_date)::int || ' ' || extract(year from s.end_date)::int end as g2m_quarter,
   null::numeric as adoption_pct,
   null::numeric as kr_realized_pct,
   s.time_discovery_days,
