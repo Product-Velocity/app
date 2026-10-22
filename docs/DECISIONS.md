@@ -56,3 +56,7 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Multi-value fields (tags, target/live scope, segments, artifacts, screenshots, depends on, related to) are related tables; the grid shows them as text and they are edited in the item panel (phase 2) · Claude (issue #19)
 - 2026-10-22 · Computed fields live in one view, `items_computed`; G2M quarter is shown as "Q2 2027"; fields that need later-phase data return null · Claude (issue #19)
 - 2026-10-22 · Item codes above R-99 are not zero-padded (fixes a collision at the 100th item of a tenant) · Claude (issue #19)
+- 2026-10-22 · Grid dates: `4/5` is read as day/month (4 May), plain words and quarters are understood; amounts accept `k` and `m` · Claude (issue #6)
+- 2026-10-22 · Stack rank is changed by typing a number in the rank cell (a move, audited per shifted item); it is never edited as a plain value · Claude (issue #6)
+- 2026-10-22 · Roles without write access (viewer, commenter, leadership) see the grid read-only with a notice; the database stays the real gate · Claude (issue #6)
+- 2026-10-22 · Undo is our own stack of 20 per page session (the built-in one does not track API edits); each undo is a guarded write so it never overwrites someone else's change · Claude (issue #6)
