@@ -87,3 +87,13 @@ describe("describeEdit", () => {
     expect(describeEdit({ type: "rank", itemId: "i", key: "R-07", before: 7, after: 2 }, labels)).toBe("R-07 moved from rank 7 to 2");
   });
 });
+
+describe("describeEdit of list fields (tags, links, relations, teams)", () => {
+  const labels = { project: (id: string) => id, owner: (id: string) => id };
+  it("says what was added and removed, in words", () => {
+    expect(describeEdit({ type: "related", itemId: "i", key: "R-12", field: "tags", before: ["a"], after: ["a", "urgent"] }, labels)).toBe("R-12 Tags: added urgent");
+    expect(describeEdit({ type: "related", itemId: "i", key: "R-12", field: "tags", before: ["a", "b"], after: ["b"] }, labels)).toBe("R-12 Tags: removed a");
+    expect(describeEdit({ type: "related", itemId: "i", key: "R-12", field: "target_segments", before: ["a"], after: ["b"] }, labels)).toBe("R-12 Target Segments (customer-safe): added b, removed a");
+    expect(describeEdit({ type: "related", itemId: "i", key: "R-12", field: "artifacts", before: [], after: [{ label: "PRD", url: "https://x.test/p" }] }, labels)).toBe("R-12 Artifacts (links): added PRD");
+  });
+});

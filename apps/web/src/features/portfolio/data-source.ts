@@ -1,4 +1,4 @@
-import type { EditableField } from "@pv/domain";
+import type { ActivityRow, EditableField, RelatedField, RelatedValues } from "@pv/domain";
 import type { NewItemValues } from "@pv/domain";
 import type { LoadedItem } from "./types";
 
@@ -23,4 +23,10 @@ export interface PortfolioDataSource {
   deleteItems(itemIds: string[]): Promise<SaveResult>;
   /** Re-rank through move_item. */
   moveItem(itemId: string, toRank: number): Promise<SaveResult>;
+  /** The list fields of one item (tags, links, relations, teams), read when its panel opens. */
+  loadRelated(itemId: string): Promise<RelatedValues>;
+  /** Replace one list field of an item as a whole; the source adds and removes the rows that differ. */
+  setRelated(itemId: string, field: RelatedField, value: unknown[]): Promise<SaveResult>;
+  /** The audit log of one item (newest first), for the Activity tab. */
+  loadActivity(itemId: string): Promise<ActivityRow[]>;
 }

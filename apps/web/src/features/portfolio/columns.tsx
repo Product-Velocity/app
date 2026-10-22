@@ -2,10 +2,11 @@
 
 import type { ColDef, IHeaderParams } from "ag-grid-community";
 import {
-  EDITABLE_FIELDS, FIELDS, formatDate, formatValue, isShipped, optionsFor, readOnlyReason,
+  EDITABLE_FIELDS, FIELDS, isShipped, optionsFor, readOnlyReason,
   type EditableField, type FieldDef,
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
+import { formatField } from "./format";
 import { PickerEditor, type PickerOption } from "./picker-editor";
 import type { GridItem, Lookups } from "./types";
 
@@ -55,9 +56,6 @@ const WIDTH: Record<string, number> = {
 };
 const WIDE: Record<string, number> = { initiative_name: 320, home_project: 160, stack_rank: 104, item_code: 116, project_rank: 124, health: 130 };
 
-const num = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 2 });
-const when = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
-
 export type ColumnContext = {
   controller: PortfolioController;
   lookups: Lookups;
@@ -76,24 +74,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
   const setter = (field: EditableField) => (p: { data: GridItem; newValue: unknown }) =>
     controller.edit(p.data.id, field, p.newValue == null ? "" : String(p.newValue)).ok;
 
-  const display = (f: FieldDef, v: unknown): string => {
-    if (v === null || v === undefined || v === "") return "";
-    switch (f.type) {
-      case "Currency": return formatValue(Number(v));
-      case "Date": return formatDate(String(v), today());
-      case "Boolean": return v ? "Yes" : "No";
-      case "Person": return lookups.members.find((m) => m.user_id === v)?.email ?? "unknown person";
-      case "Number": case "Computed": case "System":
-        if (typeof v === "boolean") return v ? "Yes" : "No";
-        if (typeof v === "number") return f.key.endsWith("_pct") ? `${num.format(v)}%` : f.key.endsWith("_pp") ? `${num.format(v)} pp` : num.format(v);
-        if (typeof v === "object") return JSON.stringify(v);
-        if (/^\d{4}-\d\d-\d\dT/.test(String(v))) return when.format(new Date(String(v)));
-        return String(v);
-      default:
-        if (f.key === "home_project") return lookups.projects.find((p) => p.id === v)?.name ?? "";
-        return String(v);
-    }
-  };
+  const display = (f: FieldDef, v: unknown): string => formatField(f, v, { today: today(), members: lookups.members, projects: lookups.projects });
 
   const def = (f: FieldDef): ColDef<GridItem> => {
     const reason = f.key === "stack_rank" ? null : readOnlyReason(f.key);
@@ -129,7 +110,8 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
     }
     if (CORE_COLUMNS.includes(f.key as never) || f.key === "project_rank") base.pinned = "left";
     if (f.key === "initiative_name") { base.flex = 1; base.minWidth = 300; }
-    if (f.key === "project_rank" || f.key === "item_code") return base;
+    if (f.key === "item_code") return { ...base, cellClass: "mono muted cell-open", headerTooltip: "Click a code to open the item panel", tooltipValueGetter: () => "Open the item panel (Space on any cell does the same)" };
+    if (f.key === "project_rank") return base;
     if (f.key === "health") return { ...base, cellRenderer: HealthCell, ...pickerDef(f, optionsFor(f.key), true) };
     if (reason) {
       return { ...base, cellRenderer: (p: { value: unknown }) => <ReadOnlyCell text={display(f, p.value) || (f.key === "status" ? "Not on GitHub" : "")} reason={reason} github={f.mode === "locked" || f.storage.startsWith("GitHub-synced")} /> };
