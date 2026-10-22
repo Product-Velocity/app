@@ -11,5 +11,5 @@ export async function switchTenant(form: FormData) {
   if (typeof tenantId === "string" && memberships.some((m) => m.tenantId === tenantId)) {
     await rememberTenant(tenantId);
   }
-  redirect("/home");
+  redirect("/portfolio");
 }

@@ -33,6 +33,7 @@ export class PortfolioController {
   private readonly stack = new UndoStack(20);
   private readonly queues = new Map<string, Promise<unknown>>();
   private readonly listeners = new Set<(changed: GridItem[]) => void>();
+  private readonly focusListeners = new Set<(id: string) => void>();
   private entrySeq = 0;
   private state = { pending: 0, error: null as string | null, notice: null as string | null, last: null as Status["last"], version: 0 };
 
@@ -54,7 +55,10 @@ export class PortfolioController {
   get status(): Status {
     return { ...this.state, canUndo: this.stack.canUndo, canRedo: this.stack.canRedo, undoCount: this.stack.undoCount };
   }
-  subscribe(fn: (changed: GridItem[]) => void) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
+  subscribe(fn: (changed: GridItem[]) => void) { this.listeners.add(fn); return () => { this.listeners.delete(fn); }; }
+  /** The grid keeps the keyboard focus on a row whose rank changed (it jumps to its new place). */
+  onFocusRequest(fn: (id: string) => void) { this.focusListeners.add(fn); return () => { this.focusListeners.delete(fn); }; }
+  private requestFocus(id: string) { for (const f of this.focusListeners) f(id); }
   row(id: string) { return this.byId.get(id); }
 
   private resolvers() {
@@ -143,6 +147,7 @@ export class PortfolioController {
       this.applyRanks(back.items);
     });
     this.emit(moved);
+    this.requestFocus(itemId);
     return { ok: true, changed: true };
   }
 
@@ -221,6 +226,7 @@ export class PortfolioController {
         const changed = this.applyRanks(r.items);
         this.state.last = { text: `${verb}: ${describeEdit(shown(edit), this.resolvers())}`, at: this.now() };
         this.emit(changed);
+        this.requestFocus(edit.itemId);
         await this.runReplaySave(`${edit.key} rank`, () => this.source.moveItem(edit.itemId, target as number), () => {
           this.applyRanks(applyMove(this.rows, edit.itemId, expected as number).items);
         }, restore);

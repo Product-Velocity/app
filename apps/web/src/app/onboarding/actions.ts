@@ -14,5 +14,5 @@ export async function createTenant(_prev: OnboardingState, form: FormData): Prom
   const { data, error } = await supabase.rpc("create_tenant", { p_name: name });
   if (error || typeof data !== "string") return { error: "We could not create the workspace. Please try again." };
   await rememberTenant(data);
-  redirect("/home");
+  redirect("/portfolio");
 }
