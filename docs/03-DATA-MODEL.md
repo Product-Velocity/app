@@ -3,7 +3,7 @@
 This replaces the earlier Excel field dictionary (`Roadmap_v3_field_dictionary_proposal.xlsx`), which predates teams, planning cycles, gates, outcomes, reports and breakdown routes. Types are logical; derive SQL. Every table has `id`, `tenant_id`, `created_at`, `updated_at`, `created_by`, `created_via` (UI / API / Claude MCP / GitHub / import / system) and RLS.
 
 ## Tenancy and people
-- `tenants`, `tenant_members(user_id, role[viewer|commenter|creator|admin|leadership], is_approver)`.
+- `tenants`, `tenant_members(user_id, role[viewer|commenter|creator|admin|leadership], is_approver, is_service_account)`. Implemented in `packages/db/migrations/0001`. Tenants are created only through `create_tenant(name)` (caller becomes admin). Members, tenant name and audit visibility are admin-managed; viewers see the tenant and its members. A service account can never be an approver (check constraint) and a write declared as `Claude MCP` cannot grant Approver (trigger).
 - `projects(name, default_repo, github_installation_id, who_breaks_down[product|engineering|either])`; `project_members`.
 - `teams(name, project_ids[], github_team, focus_factor, split_maintenance, split_bugs, split_new, week_hours)`; `team_members(team_id, user_id|person_id, hours_per_week, skill_split jsonb)`; `time_off`. Unassigned engineers = `people` with no `team_members` row.
 - `saved_scopes(name, project_ids[])`, `saved_views`.
@@ -32,7 +32,7 @@ Never synced to GitHub: value, confidence, customer fields, decision, rationale,
 - `outcome_metrics(item_id, name, start, target, unit, source)`, `metric_values(metric_id, value, at, source)`, `outcome_reviews(item_id, at_days, decision, notes)`, `feedback_links`.
 - `reports(template, scope, audience_profile, format, params)`, `report_snapshots(report_id, storage_path, generated_by, fields_included, fields_withheld)`, `report_schedules`, `audience_profiles(name, visible_fields[])`.
 - `github_links(entity, entity_id, github_node_id, repo, sync_state, last_etag)`, `sync_events` (inbound webhooks, idempotency key), `sync_conflicts`.
-- `audit_log(entity, entity_id, field, old, new, actor_id, via, at)` — append-only.
+- `audit_log(tenant_id, entity, entity_id, field, old, new, actor_id, via, at)` — append-only (update, delete and truncate are rejected even for the service role); one row per changed field, written by triggers; readable by tenant admins only. `via` is taken from the transaction setting `app.via` (UI / API / Claude MCP / GitHub webhook / import / system), which only server code sets; if unset it is `API` for signed-in users and `system` otherwise.
 - `ai_usage(tenant_id, user_id, feature, tokens_in, tokens_out, at)` — drives allowances and token packs.
 - `claude_connections(user_id, last_used_at)`.
 
