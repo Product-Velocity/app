@@ -23,6 +23,8 @@ Tenant → Projects. Roles: **Viewer, Commenter, Creator, Admin**, plus separate
 ### 4.1 Roadmap grid [R1] (prototype boards 1, 20)
 Portfolio grid with global/in-project rank, per-team fit chips, quick-add, inline edit, bulk bar, Gantt and card views (boards 3, 4), item peek/detail (2). Field list in `03-DATA-MODEL.md`.
 
+**Full column set (requirement).** Every field in Ashu's grid sheet (`docs/reference/Roadmap_v4_field_dictionary.xlsx`) and in `03-DATA-MODEL.md` must exist as a grid column in the final platform. The prototype shows only a subset on purpose: the grid has a **Columns** picker (show/hide, reorder, pin), and saved views choose which columns appear (e.g. Prioritisation, Planning, Delivery, Go-to-market, Outcomes, Leadership). Nothing is dropped; fields are only hidden by default. Column visibility respects role and audience rules (e.g. commercial fields hidden from customer-safe views). Fields not yet delivered in a phase appear as columns when their phase ships. The v4 workbook already merges the original v3 sheet (126 fields) with the fields added since (39 new), 165 in total; sheet "Grid columns and views" lists each field with its default views, edit mode and customer-safe flag. If `03` and the workbook differ, treat the union as the column list.
+
 ### 4.2 GitHub sync [R1] — `04-GITHUB-SYNC.md` (boards 2, 6)
 GitHub App; tracking issue per initiative; epics and tasks as sub-issues; status/assignees/progress flow back. Breakdown routes: Traditional, In between, Full Claude.
 
