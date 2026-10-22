@@ -40,6 +40,7 @@ Quick-add row (name only required, Enter creates), inline cell edit, autosave wi
 - Every PR: tests, migration (if any), RLS tests, updated docs if behaviour changed, screenshot for UI.
 - Migrations are forward-only, reviewed, and applied through Supabase migrations; never edit applied ones.
 - Secrets only in environment variables. Never log tokens, emails of voters, or document contents.
+- **Read `docs/REQUESTS.md` at the start of every session.** It is the timestamped inbox of change requests from Ashu; pick up `open` items, mark them `done` with the commit when finished. Requests also go there when they edit reviewed docs.
 - Use `/work-issue <number>` to pick up an issue. Use the issue template in `.github/ISSUE_TEMPLATE/work-item.md`.
 - Prefer boring, well-known libraries. Ask before adding a dependency with a licence or cost implication.
 - If the prototype, docs and issue disagree, stop and ask; do not guess.

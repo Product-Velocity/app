@@ -1,0 +1,14 @@
+# Requests inbox
+
+**Claude Code: read this file at the start of every session, before picking up work.** Newest entries on top. Anything with status `open` is yours to pick up (or to turn into a GitHub issue first if it is large). When you finish one: set status to `done`, add the date, the commit or PR, and one line on what changed. If a request conflicts with the docs or the build plan, set it to `blocked` and ask Ashu.
+
+Why this file exists: decisions made in chat used to be edited quietly into reviewed docs, where they were easy to miss. Every change request from chat is now logged here first, with a timestamp. Rules and docs are still updated, but this is the list of what to do. Rationale stays in `docs/DECISIONS.md`.
+
+Times are Europe/Madrid. Status: `open` · `in progress` · `done` · `blocked`.
+
+| ID | Logged | Request | Status | Done / link |
+|---|---|---|---|---|
+| R-004 | 2026-10-22 21:28 | **Initiative Group (`theme`) is a closed list defined per workspace and managed by admins** (add, rename, retire values in settings; renaming updates existing items). Teams who need their own labels use the existing free-form **Tags** field (`tags`); no new field. Apply to schema, grid picker, quick-add and import mapping (unknown group value → ask, never create silently). Roadmap Category stays a fixed list of five values for now. See `docs/13-HIERARCHY-AND-INSIGHTS.md` §5. | open | |
+| R-003 | 2026-10-22 21:22 | Rename Roadmap Category value "Close the gap with competitors" to **"Close capability gaps"** (avoids a competitor wording). | done 2026-10-22 | `95b640d`, migration 0010. Run `pnpm db:test` (no Postgres was available when changed). |
+| R-002 | 2026-10-22 21:14 | Rename fields "Target Markets / Scope" and "Live Markets / Scope" to **Target Markets** and **Live Markets**; keys unchanged. Document the three meanings of "scope" in `docs/03`. | done 2026-10-22 | `edb8c00` |
+| R-001 | 2026-10-22 21:07 | Check GitHub Dependabot alert #1 (security) on the repo and fix or dismiss with a reason. | open | https://github.com/Product-Velocity/app/security/dependabot/1 |

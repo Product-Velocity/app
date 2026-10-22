@@ -74,3 +74,5 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · The grouped rows seen in the prototype are an example of grouping, not the default state: the grid is ungrouped by default; grouping comes with saved views (own implementation, no AG Grid Enterprise) · Ashu
 - 2026-10-22 · Renamed labels "Target Markets / Scope" and "Live Markets / Scope" to "Target Markets" and "Live Markets" (keys unchanged) to avoid clashing with portfolio scope and the delivery scope counts; clarified in `docs/03` · Ashu
 - 2026-10-22 · Roadmap Category value "Close the gap with competitors" renamed "Close capability gaps" (migration 0010) · Ashu
+- 2026-10-22 · Initiative Group = closed per-workspace list managed by admins; teams use free-form Tags; Roadmap Category fixed for now · Ashu (request R-004)
+- 2026-10-22 · Change requests from chat are logged first in `docs/REQUESTS.md` (timestamped inbox Claude Code reads every session) · Ashu
