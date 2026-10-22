@@ -101,7 +101,7 @@ describe("RLS covers every table", () => {
   });
 
   it("internal trigger functions are not callable by API roles, and no function has a mutable search_path", async () => {
-    for (const fn of ["audit_row()", "set_write_meta()", "guard_approver()", "audit_log_append_only()"]) {
+    for (const fn of ["audit_row()", "set_write_meta()", "guard_approver()", "audit_log_append_only()", "guard_last_admin()"]) {
       for (const role of ["anon", "authenticated"]) {
         const { rows } = await db.admin.query("select has_function_privilege($1, $2, 'execute') as ok", [role, `public.${fn}`]);
         expect(rows[0].ok, `${role} can execute ${fn}`).toBe(false);
