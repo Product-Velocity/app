@@ -74,3 +74,5 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · The grouped rows seen in the prototype are an example of grouping, not the default state: the grid is ungrouped by default; grouping comes with saved views (own implementation, no AG Grid Enterprise) · Ashu
 - 2026-10-22 · The Product Velocity icon (supplied by Ashu) replaces the "PV" badge: header, sign-in page and browser tab icon · Ashu
 - 2026-10-22 · Design pass: header, page head, table look and bulk bar follow the prototype; tabs that are not built are muted with their phase; Members and Security moved into the account menu; the eight dictionary views are chips · Ashu/Claude
+- 2026-10-22 · Renamed labels "Target Markets / Scope" and "Live Markets / Scope" to "Target Markets" and "Live Markets" (keys unchanged) to avoid clashing with portfolio scope and the delivery scope counts; clarified in `docs/03` · Ashu
+- 2026-10-22 · Roadmap Category value "Close the gap with competitors" renamed "Close capability gaps" (migration 0010) · Ashu
