@@ -289,3 +289,4 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 .palette-foot { padding: 6px 16px; border-top: 1px solid var(--grey-1); color: #5b6272; font-size: 11.5px; }
 .filter-chips { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; }
 .chip-x { border: 0; background: none; color: inherit; cursor: pointer; font: inherit; padding: 0 2px; }
+.dialog-check { align-items: flex-start; margin-top: 10px; }

@@ -131,23 +131,32 @@ export function buildGroupedRows<T extends { id: string }>(rows: T[], groupBy: s
 
 // -------------------------------------------------------------------- views
 /** What a saved view stores: the columns in order, the filters and the grouping. */
-export type ViewDef = { columns: string[]; filters: Filter[]; groupBy: string | null };
+export type ViewDef = { columns: string[]; filters: Filter[]; groupBy: string | null; customerSafe?: boolean };
+
+/** Fields a customer-safe view may hold: exactly the sheet's "Customer-safe reports" flag (Target and Live Markets are included, per Ashu). */
+export const CUSTOMER_SAFE_KEYS: readonly string[] = FIELDS.filter((f) => f.customerSafe).map((f) => f.key);
+export const isCustomerSafe = (key: string) => CUSTOMER_SAFE_KEYS.includes(key);
+/** The columns a view may show to an audience: all of them inside the workspace, only the safe ones for customers. */
+export const columnsFor = (columns: readonly string[], customerSafe: boolean) => (customerSafe ? columns.filter(isCustomerSafe) : [...columns]);
 
 /** Makes a stored or pasted view safe to apply: unknown columns, filters and groups are dropped; the core columns come first. */
 export function sanitizeView(input: unknown): ViewDef {
   const o = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  const customerSafe = o.customerSafe === true;
   const cols = Array.isArray(o.columns) ? o.columns.filter((c): c is string => typeof c === "string" && c in FIELD_BY_KEY) : [];
-  const columns = [...CORE_COLUMN_KEYS, ...new Set(cols.filter((c) => !(CORE_COLUMN_KEYS as readonly string[]).includes(c)))];
+  // the pinned core columns come first; a customer-safe view keeps only the core columns that are safe (ID and name)
+  const core = columnsFor(CORE_COLUMN_KEYS, customerSafe);
+  const columns = [...core, ...new Set(columnsFor(cols, customerSafe).filter((c) => !core.includes(c)))];
   const filters: Filter[] = [];
   if (Array.isArray(o.filters)) {
     for (const x of o.filters) {
       if (!x || typeof x !== "object") continue;
       const f = x as Record<string, unknown>;
       const def = typeof f.field === "string" ? FIELD_BY_KEY[f.field] : undefined;
-      if (!def || typeof f.op !== "string" || !OPS.includes(f.op as FilterOp) || !opsFor(def).some((p) => p.op === f.op)) continue;
+      if (!def || (customerSafe && !isCustomerSafe(def.key)) || typeof f.op !== "string" || !OPS.includes(f.op as FilterOp) || !opsFor(def).some((p) => p.op === f.op)) continue;
       filters.push({ field: def.key, op: f.op as FilterOp, ...(typeof f.value === "string" ? { value: f.value } : {}) });
     }
   }
-  const groupBy = typeof o.groupBy === "string" && groupableFields().some((g) => g.key === o.groupBy) ? o.groupBy : null;
-  return { columns, filters, groupBy };
+  const groupBy = typeof o.groupBy === "string" && groupableFields().some((g) => g.key === o.groupBy) && (!customerSafe || isCustomerSafe(o.groupBy)) ? o.groupBy : null;
+  return { columns, filters, groupBy, ...(customerSafe ? { customerSafe: true } : {}) };
 }

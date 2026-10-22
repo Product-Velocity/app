@@ -7,14 +7,20 @@ export type BaseView = { kind: "builtin"; name: ViewName } | { kind: "all" } | {
 export const ALL_COLUMNS_NAME = "All columns";
 
 /** The view definition behind a base view (null while a saved view has not been loaded or no longer exists). */
-export function baseDef(base: BaseView, saved: SavedView[]): ViewDef | null {
-  if (base.kind === "builtin") return sanitizeView({ columns: DEFAULT_VIEWS[base.name], filters: [], groupBy: null });
+export function baseDef(base: BaseView, saved: SavedView[], defaults: Partial<Record<ViewName, SavedView>> = {}): ViewDef | null {
+  if (base.kind === "builtin") {
+    const custom = defaults[base.name];
+    return sanitizeView(custom ?? { columns: DEFAULT_VIEWS[base.name], filters: [], groupBy: null });
+  }
   if (base.kind === "all") return sanitizeView({ columns: FIELDS.map((f) => f.key), filters: [], groupBy: null });
   const v = saved.find((s) => s.id === base.id);
   return v ? sanitizeView(v) : null;
 }
 
 export const sameView = (a: ViewDef, b: ViewDef) => JSON.stringify(sanitizeView(a)) === JSON.stringify(sanitizeView(b));
+
+/** The built-in definition of a default view, from the field dictionary (what "Restore default" goes back to). */
+export const builtinDef = (name: ViewName): ViewDef => sanitizeView({ columns: DEFAULT_VIEWS[name], filters: [], groupBy: null });
 
 /** From an address parameter: a default view name, "all", or a saved view id. */
 export function parseBase(param: string | null, fallback: BaseView): BaseView {

@@ -45,7 +45,7 @@ Sources (see `docs/reference/item-fields.csv` for exact keys and when each field
 ## 4. Rules that keep the narrative honest
 1. Roadmap Category is a fixed list. Initiative Group is an open list per workspace: new groups are created as people type, with autocomplete and near-duplicate hints, and admins can rename or merge groups so insights stay clean.
 2. Insights compare like with like: same cycle, same scope. Every insight states its scope.
-3. Commercial fields (value, customers, markets, outcomes) never sync to GitHub and are hidden from customer-safe views unless the audience profile allows them.
+3. Commercial fields (value, customers, outcomes) never sync to GitHub and are hidden from customer-safe views unless the audience profile allows them. Target and Live Markets are customer-safe (sheet flag, confirmed by Ashu); whether markets sync to GitHub is a separate question, and they are not on the outbound allowlist.
 4. No individual metrics: all insights aggregate to team or portfolio level.
 5. Claude writes the narrative from this data. People decide.
 

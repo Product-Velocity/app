@@ -1,11 +1,11 @@
 "use client";
 
 import { useId, useState } from "react";
-import { FIELDS, arrivesLabel } from "@pv/domain";
+import { FIELDS, arrivesLabel, isCustomerSafe } from "@pv/domain";
 import { CORE_COLUMNS } from "./columns";
 
 /** Show or hide single columns. Reordering, pinning and saved views come with the saved-views issue. */
-export function ColumnsPicker({ visible, onToggle }: { visible: ReadonlySet<string>; onToggle: (key: string) => void }) {
+export function ColumnsPicker({ visible, onToggle, customerSafe = false }: { visible: ReadonlySet<string>; onToggle: (key: string) => void; customerSafe?: boolean }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const groups = [...new Set(FIELDS.map((f) => f.group))];
@@ -23,11 +23,13 @@ export function ColumnsPicker({ visible, onToggle }: { visible: ReadonlySet<stri
               <legend>{g}</legend>
               {FIELDS.filter((f) => f.group === g).map((f) => {
                 const core = (CORE_COLUMNS as readonly string[]).includes(f.key);
+                const blocked = customerSafe && !isCustomerSafe(f.key) && !core;
                 return (
                   <label key={f.key} className="columns-item">
-                    <input type="checkbox" checked={core || visible.has(f.key)} disabled={core} onChange={() => onToggle(f.key)} />
+                    <input type="checkbox" checked={core || (!blocked && visible.has(f.key))} disabled={core || blocked} onChange={() => onToggle(f.key)} />
                     {f.name}
                     {arrivesLabel(f) && <span className="columns-later"> · {arrivesLabel(f)!.toLowerCase()}</span>}
+                    {blocked && <span className="columns-later"> · not customer-safe</span>}
                   </label>
                 );
               })}

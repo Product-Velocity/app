@@ -1,8 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sanitizeView, type ViewDef } from "@pv/domain";
+import { sanitizeView, type ViewDef, type ViewName } from "@pv/domain";
 
 export type Scope = { id: string; name: string; projectIds: string[] };
-export type SavedView = { id: string; name: string } & ViewDef;
+/** `baseView` is set on a customised default view (it replaces the built-in view of that name until restored). */
+export type SavedView = { id: string; name: string; baseView?: ViewName | null } & ViewDef;
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
 /** Saved scopes (which projects the roadmap shows) and saved views (columns, filters, grouping). */
@@ -20,7 +21,18 @@ export interface WorkspaceStore {
   createView(name: string, def: ViewDef): Promise<Result<SavedView>>;
   updateView(id: string, patch: { name?: string } & Partial<ViewDef>): Promise<Result<SavedView>>;
   deleteView(id: string): Promise<Result<null>>;
+  /** Customise a built-in default view for the whole workspace (creates or replaces the override). */
+  saveDefaultView(name: ViewName, def: ViewDef): Promise<Result<SavedView>>;
+  /** Back to the built-in default (deletes the override). */
+  restoreDefaultView(name: ViewName): Promise<Result<null>>;
 }
+
+const VIEW_COLUMNS = "id,name,columns,filters,group_by,base_view,customer_safe";
+type ViewRow = { id: string; name: string; columns: string[]; filters: unknown; group_by: string | null; base_view: string | null; customer_safe: boolean };
+const fromRow = (r: ViewRow): SavedView => ({
+  id: r.id, name: r.name, baseView: (r.base_view as ViewName | null) ?? null,
+  ...sanitizeView({ columns: r.columns, filters: r.filters, groupBy: r.group_by, customerSafe: r.customer_safe }),
+});
 
 export const validName = (name: string, max: number) => {
   const n = name.trim();
@@ -117,9 +129,9 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
   }
 
   async listViews(): Promise<SavedView[]> {
-    const { data, error } = await this.client.from("saved_views").select("id,name,columns,filters,group_by").eq("tenant_id", this.tenantId).order("name");
+    const { data, error } = await this.client.from("saved_views").select(VIEW_COLUMNS).eq("tenant_id", this.tenantId).order("name");
     if (error) throw new Error(friendly(error, "view"));
-    return (data ?? []).map((r) => ({ id: r.id, name: r.name, ...sanitizeView({ columns: r.columns, filters: r.filters, groupBy: r.group_by }) }));
+    return ((data ?? []) as ViewRow[]).map(fromRow);
   }
 
   async createView(name: string, def: ViewDef): Promise<Result<SavedView>> {
@@ -128,11 +140,29 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
     const clean = sanitizeView(def);
     const { data, error } = await this.client
       .from("saved_views")
-      .insert({ tenant_id: this.tenantId, name: n, columns: clean.columns, filters: clean.filters, group_by: clean.groupBy })
+      .insert({ tenant_id: this.tenantId, name: n, columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, customer_safe: clean.customerSafe === true })
       .select("id")
       .single();
     if (error || !data) return { ok: false, error: friendly(error, "view", n) };
-    return { ok: true, value: { id: data.id, name: n, ...clean } };
+    return { ok: true, value: { id: data.id, name: n, baseView: null, ...clean } };
+  }
+
+  async saveDefaultView(name: ViewName, def: ViewDef): Promise<Result<SavedView>> {
+    const clean = sanitizeView({ ...def, customerSafe: false });
+    const existing = await this.client.from("saved_views").select("id").eq("tenant_id", this.tenantId).eq("base_view", name).maybeSingle();
+    if (existing.error) return { ok: false, error: friendly(existing.error, "view", name) };
+    const fields = { columns: clean.columns, filters: clean.filters, group_by: clean.groupBy };
+    const { data, error } = existing.data
+      ? await this.client.from("saved_views").update(fields).eq("tenant_id", this.tenantId).eq("id", existing.data.id).select(VIEW_COLUMNS)
+      : await this.client.from("saved_views").insert({ tenant_id: this.tenantId, name, base_view: name, ...fields }).select(VIEW_COLUMNS);
+    const r = (data as ViewRow[] | null)?.[0];
+    if (error || !r) return { ok: false, error: error ? friendly(error, "view", name) : "You cannot change the default views. Ask an admin for the Creator role." };
+    return { ok: true, value: fromRow(r) };
+  }
+
+  async restoreDefaultView(name: ViewName): Promise<Result<null>> {
+    const { error } = await this.client.from("saved_views").delete().eq("tenant_id", this.tenantId).eq("base_view", name);
+    return error ? { ok: false, error: friendly(error, "view", name) } : { ok: true, value: null };
   }
 
   async updateView(id: string, patch: { name?: string } & Partial<ViewDef>): Promise<Result<SavedView>> {
@@ -143,17 +173,18 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
       row.name = n;
     }
     if (patch.columns || patch.filters || patch.groupBy !== undefined) {
-      const clean = sanitizeView({ columns: patch.columns, filters: patch.filters, groupBy: patch.groupBy ?? null });
+      const clean = sanitizeView({ columns: patch.columns, filters: patch.filters, groupBy: patch.groupBy ?? null, customerSafe: patch.customerSafe });
       if (patch.columns) row.columns = clean.columns;
       if (patch.filters) row.filters = clean.filters;
       if (patch.groupBy !== undefined) row.group_by = clean.groupBy;
+      if (patch.customerSafe !== undefined) row.customer_safe = clean.customerSafe === true;
     }
     const { data, error } = await this.client
-      .from("saved_views").update(row).eq("tenant_id", this.tenantId).eq("id", id).select("id,name,columns,filters,group_by");
+      .from("saved_views").update(row).eq("tenant_id", this.tenantId).eq("id", id).select(VIEW_COLUMNS);
     if (error) return { ok: false, error: friendly(error, "view", String(row.name ?? "")) };
     const r = data?.[0];
     if (!r) return { ok: false, error: "That view no longer exists or you cannot change it." };
-    return { ok: true, value: { id: r.id, name: r.name, ...sanitizeView({ columns: r.columns, filters: r.filters, groupBy: r.group_by }) } };
+    return { ok: true, value: fromRow(r as ViewRow) };
   }
 
   async deleteView(id: string): Promise<Result<null>> {
@@ -181,6 +212,8 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
   projects: Project[] = [];
   /** Set to false to make createProject refuse, as the database does for non-admins. */
   admin = true;
+  /** Set to false to make writes to the default views refuse, as the database does for viewers. */
+  canWrite = true;
   async listProjects() { return this.projects.map((p) => ({ ...p })); }
   async createProject(name: string): Promise<Result<Project>> {
     const f = this.fail<Project>(); if (f) return f;
@@ -221,7 +254,7 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
     const f = this.fail<SavedView>(); if (f) return f;
     const nm = validName(name, 80); if (!nm) return { ok: false, error: "Give the view a name (up to 80 characters)." };
     const d = this.dup(this.views, nm, "view"); if (d) return d;
-    const v = { id: `view-${++this.n}`, name: nm, ...sanitizeView(def) };
+    const v = { id: `view-${++this.n}`, name: nm, baseView: null, ...sanitizeView(def) };
     this.views.push(v);
     return { ok: true, value: v };
   }
@@ -233,14 +266,30 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
       const d = this.dup(this.views, nm, "view", id); if (d) return d;
       v.name = nm;
     }
-    const clean = sanitizeView({ columns: patch.columns ?? v.columns, filters: patch.filters ?? v.filters, groupBy: patch.groupBy === undefined ? v.groupBy : patch.groupBy });
+    const clean = sanitizeView({ columns: patch.columns ?? v.columns, filters: patch.filters ?? v.filters, groupBy: patch.groupBy === undefined ? v.groupBy : patch.groupBy, customerSafe: patch.customerSafe ?? v.customerSafe });
     v.columns = clean.columns; v.filters = clean.filters; v.groupBy = clean.groupBy;
+    if (patch.customerSafe !== undefined) v.customerSafe = clean.customerSafe;
     return { ok: true, value: { ...v } };
   }
   async deleteView(id: string): Promise<Result<null>> {
     const f = this.fail<null>(); if (f) return f;
     if (!this.views.some((x) => x.id === id)) return { ok: false, error: "That view no longer exists or you cannot delete it." };
     this.views = this.views.filter((x) => x.id !== id);
+    return { ok: true, value: null };
+  }
+  async saveDefaultView(name: ViewName, def: ViewDef): Promise<Result<SavedView>> {
+    const f = this.fail<SavedView>(); if (f) return f;
+    if (!this.canWrite) return { ok: false, error: "You cannot change the default views. Ask an admin for the Creator role." };
+    const clean = sanitizeView({ ...def, customerSafe: false });
+    const existing = this.views.find((v) => v.baseView === name);
+    if (existing) { Object.assign(existing, clean); return { ok: true, value: { ...existing } }; }
+    const v: SavedView = { id: `view-${++this.n}`, name, baseView: name, ...clean };
+    this.views.push(v);
+    return { ok: true, value: v };
+  }
+  async restoreDefaultView(name: ViewName): Promise<Result<null>> {
+    const f = this.fail<null>(); if (f) return f;
+    this.views = this.views.filter((v) => v.baseView !== name);
     return { ok: true, value: null };
   }
 }

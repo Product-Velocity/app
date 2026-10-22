@@ -8,7 +8,7 @@ import {
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import {
-  buildGroupedRows, CORE_COLUMN_KEYS, FIELD_BY_KEY, FIELDS, groupableFields, matchesFilters, matchesSearch, VIEW_NAMES, type EditableField, type Filter, type GroupRow, type ViewDef,
+  buildGroupedRows, CORE_COLUMN_KEYS, FIELD_BY_KEY, FIELDS, groupableFields, matchesFilters, matchesSearch, sanitizeView, VIEW_NAMES, type EditableField, type Filter, type GroupRow, type ViewDef,
 } from "@pv/domain";
 import { useWorkspace } from "../workspace/provider";
 import { setQueryParam, useScope } from "../workspace/scope";
@@ -92,7 +92,7 @@ const PRIORITISATION: BaseView = { kind: "builtin", name: "Prioritisation" };
 export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATION, renderAllColumns = false, me = null, headLeft, headRight }: GridProps) {
   const router = useRouter();
   const params = useSearchParams();
-  const { views, scopes, projects, canEdit: canEditWorkspace } = useWorkspace();
+  const { views, defaults, scopes, projects, canEdit: canEditWorkspace } = useWorkspace();
   const scope = useScope();
   const apiRef = useRef<GridApi<GridItem> | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -128,13 +128,13 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   // ---- the view: where it started (a default view, all columns or a saved view), plus changes made since
   const [base, setBase] = useState<BaseView>(() => parseBase(params.get("view"), initialBase));
   const [override, setOverride] = useState<ViewDef | null>(null);
-  const savedDef = baseDef(base, views);
+  const savedDef = baseDef(base, views, defaults);
   const baseMissing = base.kind === "saved" && savedDef === null && views.length > 0; // a deleted view falls back
-  const bDef = savedDef ?? baseDef(PRIORITISATION, [])!;
+  const bDef = savedDef ?? baseDef(PRIORITISATION, [], defaults)!;
   const def = override ?? bDef;
   const dirty = override !== null && !sameView(override, bDef);
   const openBase = (b: BaseView) => { setBase(b); setOverride(null); setQueryParam("view", baseParam(b)); };
-  const changeDef = (patch: Partial<ViewDef>) => setOverride({ ...def, ...patch });
+  const changeDef = (patch: Partial<ViewDef>) => setOverride(sanitizeView({ ...def, ...patch }));
   const visible = useMemo(() => new Set(def.columns), [def.columns]);
   const toggle = (key: string) => {
     if ((CORE_COLUMN_KEYS as readonly string[]).includes(key)) return;
@@ -377,7 +377,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     const on = base.kind === b.kind && (b.kind === "builtin" ? base.kind === "builtin" && base.name === b.name : true);
     return (
       <button key={name} type="button" className={on ? "view-chip view-chip-on" : "view-chip"} aria-pressed={on} onClick={() => openBase(b)}
-        title={b.kind === "all" ? `All ${FIELDS.length} fields` : "Default view"}>
+        title={b.kind === "all" ? `All ${FIELDS.length} fields` : b.kind === "builtin" && defaults[b.name] ? "Default view, changed by your workspace" : "Default view"}>
         {name}
       </button>
     );
@@ -404,10 +404,10 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         />
         <FiltersMenu filters={def.filters} onChange={setFilters} lookups={lookups} today={today} />
         <GroupMenu groupBy={def.groupBy} onChange={(g) => changeDef({ groupBy: g })} />
-        <ViewsMenu base={base} views={views} def={def} dirty={dirty} onOpen={openBase} />
+        <ViewsMenu base={base} views={views} defaults={defaults} def={def} dirty={dirty} onOpen={openBase} />
         {headRight}
         {controller.canEdit && lookups.projects.length > 0 && <button type="button" className="tool-btn" onClick={() => setImportText("")}>Import from spreadsheet</button>}
-        <ColumnsPicker visible={visible} onToggle={toggle} />
+        <ColumnsPicker visible={visible} onToggle={toggle} customerSafe={def.customerSafe === true} />
         <button type="button" className="tool-btn" onClick={exportAll}>Export</button>
         <button type="button" className="tool-btn" onClick={() => setPaletteOpen(true)} title="Commands and search">Commands {mac ? "⌘K" : "Ctrl+K"}</button>
       </span>
