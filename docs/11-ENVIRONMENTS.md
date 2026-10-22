@@ -66,6 +66,7 @@ Not needed while only the team is testing. Do all of these before the first real
 | 6 | **Build password reset** (issue #13) | People who forget a password or signed up with Google/GitHub need a way in | Claude, after items 2 and 3 |
 | 7 | **Publish a privacy policy and terms page** | Needed for item 4 and for customers | Content decision for Ashu |
 | 7b | **Turn on leaked-password protection** (Supabase → Authentication → Sign In / Providers → Email → "Prevent use of leaked passwords") | Rejects passwords found in known breaches (HaveIBeenPwned) on top of the app's own rules | Needs the paid plan, free once on Pro |
+| 7c | **Upgrade Vercel to Pro** | Cron every minute (webhook and job processing), function duration up to 800 s, and Vercel's Hobby plan is meant for non-commercial use (check current terms) | Paid, monthly. Check the price on vercel.com/pricing |
 | 8 | **Separate Supabase projects for Preview and Production** and use different keys | Preview deployments must never touch customer data | Free tier project, 15 minutes |
 | 9 | **Require the CI check on `main`** (GitHub branch protection) | Stops broken code reaching production | Free, 5 minutes |
 | 10 | **Set `SITE_URL`** to `https://productvelocity.app` in Vercel Production | Sign-in redirects and invite links always use the real domain | Free |

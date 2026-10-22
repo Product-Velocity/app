@@ -5,7 +5,7 @@ GitHub App ("Product Velocity" bot); all writes are made by the app with an "on 
 Idempotent, retry-safe, webhook-driven with periodic reconciliation. Commercial fields **never** leave the app.
 
 ## Hierarchy mapping
-Initiative → **tracking issue** in the project's default repo. Epics and tasks → **sub-issues** (epic issue with task sub-issues). Optional org-owned **Projects v2** mirror for dates/fields/board views. Issue fields and dependencies: later (spike S3).
+Initiative → **tracking issue** in the project's default repo. Epics and tasks → **sub-issues** (epic issue with task sub-issues). Dates and simple metadata go through **issue fields** (Start date, Target date), which are available on Free, Team and Enterprise organisations (spike S3). A Projects v2 mirror is **not** part of R1: GitHub Apps can only reach organisation-owned projects (spike S2). Hierarchy limits (spike S4): 100 sub-issues per parent, 8 levels; we use 3.
 
 ## Field mapping
 | App | GitHub | Direction |
@@ -15,7 +15,7 @@ Initiative → **tracking issue** in the project's default repo. Epics and tasks
 | assignees | assignees | both |
 | delivery progress | closed ÷ total sub-issues | GH → app |
 | PRs, CI, releases | linked PRs, checks, release tags | GH → app |
-| start/end dates | Projects v2 date fields (org projects only) | both, optional |
+| start/end dates | issue fields "Start date" and "Target date" (organisation fields) | both, optional; only these allowlisted fields are ever written |
 | value, confidence, customers, decisions, rationale, outcomes, key results | — | **never synced** |
 
 Add an automated test that serialises every outbound payload and fails if a non-allowlisted field name or value appears.
@@ -32,10 +32,11 @@ Project setting "Who breaks down the work": Product team in app / Engineering in
 Each work item records `created_by` (app / claude / engineer).
 
 ## Events
-Handle: `issues` (opened/edited/closed/reopened/assigned/labeled/transferred/deleted), `sub_issues`, `pull_request`, `check_suite/check_run`, `release`, `installation`, `installation_repositories`, `projects_v2_item` (spike S2). Store each delivery in `sync_events` with `X-GitHub-Delivery` as the idempotency key; process via queue; verify signature; ack fast.
+Handle: `issues` (opened/edited/closed/reopened/assigned/labeled/transferred/deleted), `sub_issues`, `pull_request`, `check_suite/check_run`, `release`, `installation`, `installation_repositories`. (`projects_v2_item` is out of R1, spike S2.) Store each delivery in `sync_events` with `X-GitHub-Delivery` as the idempotency key; process via queue; verify signature; ack fast.
 
 ## Conflict handling
 Last-writer-wins per field except marker-block content (app wins). If both sides changed the same synced field since `last_synced_at`, write a `sync_conflicts` row and highlight it in the grid; never silently drop. Deleted/transferred issues unlink and flag the item. Rate limits: honour `Retry-After`, use conditional requests (ETag), batch with GraphQL where useful.
 
-## Spikes before building (see `08`)
-S2 user-owned Projects v2 access and project webhooks; S3 issue-field availability on Enterprise Cloud; S4 sub-issue API limits (depth, count) and GraphQL vs REST; S5 App permissions minimum set.
+## Spike results (see `08`)
+- **S2** Projects v2 dropped from R1 (Apps reach organisation-owned projects only). **S3** issue fields work on Free organisations; dates map to them. **S4** 100 sub-issues per parent, 8 levels, REST endpoints exist; use REST for writes (`POST .../sub_issues` takes the numeric issue **id**), GraphQL for batched reads. **S5** proposed minimum App permissions: repository Issues (read/write), Pull requests (read), Checks (read), Metadata (read); organisation Issue fields (read/write); no Contents, Projects or Members. Events: `issues`, `sub_issues`, `pull_request`, `check_run`, `check_suite`, `release`, `installation`, `installation_repositories`.
+- Still to confirm hands-on at the start of Phase 3 (needs a sandbox repository and a second GitHub account): writing issue-field values as an App, the sub-issue limits, and the non-owner install request.

@@ -1,7 +1,9 @@
 # Claude, MCP and AI features
 
 ## Remote MCP server
-Hosted at `/mcp`, OAuth-authenticated; every call runs **as the signed-in user** with that user's role. Same policy layer as the UI. Tools (initial set, mirrors the "What Claude may do" table, board 14):
+Hosted at `/mcp`, OAuth-authenticated; every call runs **as the signed-in user** with that user's role. Same policy layer as the UI.
+
+**Authentication (spike S8):** built on Supabase Auth's OAuth 2.1 server (beta): PKCE, optional dynamic client registration, a consent page we build (`/oauth/consent`) with approve/deny, exact-match redirect URIs, ordinary Supabase tokens so RLS applies as the user. Claude custom connectors support OAuth with dynamic client registration; the Claude callback is `https://claude.ai/api/mcp/auth_callback` (may move to `claude.com`), tokens must refresh, and a 401 should carry a `WWW-Authenticate` header. `/mcp` must also publish protected-resource metadata. Open: tool schema size limits (not found), and a real connection test (S8b) at the start of Phase 4. When Claude acts, our server must set the write source `Claude MCP` itself in a way users cannot forge; today's `x-pv-via` header is advisory. Tools (initial set, mirrors the "What Claude may do" table, board 14):
 
 | Capability | Mode |
 |---|---|

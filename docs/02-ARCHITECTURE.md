@@ -14,13 +14,13 @@ Claude (remote MCP client) ──►  /mcp endpoint (acts as signed-in user)
 ## Decisions
 | Area | Decision | Notes |
 |---|---|---|
-| Hosting | Vercel | No LibreOffice; PDF = HTML print view rendered by headless Chromium job or browser print. Verify (spike S6). |
-| Auth | Supabase Auth: email, Google, GitHub; 2FA | SAML later via Supabase SSO (Pro/Enterprise) — verify plan. |
-| Tenancy | `tenant_id` on every row; RLS policies via `tenant_members` | Use `auth.jwt()` claims or a membership lookup function; never trust client-sent tenant_id. |
+| Hosting | Vercel (Pro before the pilot) | No LibreOffice; PDF = HTML print view rendered with `puppeteer-core` + `@sparticuz/chromium-min`. Spike S6: functions run 300 s by default, 800 s max on Pro; cron on Hobby is once a day, per-minute on Pro. Python document libraries on Vercel not yet verified (S6b before Phase 6). |
+| Auth | Supabase Auth: email, Google, GitHub; 2FA | SAML for projects needs the **Pro plan or above**, $0.015 per SSO monthly active user over quota; one identity provider per customer through the CLI; SSO accounts are never linked to a password or Google account with the same email (spike S7). |
+| Tenancy | `tenant_id` on every row; RLS policies via `tenant_members` | Never trust client-sent tenant_id. **Policy pattern (spike S7):** `tenant_id = any(array(select public.my_tenant_ids()))` (a definer function evaluated once per query), an index starting with `tenant_id`, and a `tenant_id` filter in every query. The per-row helper `is_tenant_member(tenant_id)` took 10 to 14 s on an unfiltered 1M-row table; the hoisted pattern takes under 1 ms (6 ms for a user in 25 tenants). The helper stays only on small tables. |
 | Roles | `tenant_members.role` + `is_approver` flag + project-level membership | Leadership viewer = portfolio read role. |
-| Grid | AG Grid Community, client-side | Load whole project (target ≤2,000 rows). Custom cell editors. |
-| Realtime | Supabase Realtime on item rows for the open project | Conflict highlighting: last-write-wins per field with version column; show "changed by X". |
-| Jobs | Queue table + worker (Vercel Cron / Supabase Edge Function / external Python worker) | Reports, webhooks processing, AI tasks. Pick in spike S6; keep behind an interface. |
+| Grid | AG Grid Community (MIT), client-side | Load whole project (target ≤2,000 rows). **Spike S1:** 2,000 rows ready in about 0.6 s, inline edits about 45 ms. Community lacks range selection, fill handle, clipboard, Excel export, rich select and **row grouping** (all Enterprise). We build our own: undo stack (from the change log; the built-in one does not track API bulk edits), paste-import, typed pickers (custom editors via `useGridCellEditor`) and, for saved views, simple grouping. |
+| Realtime | Supabase Realtime on item rows for the open project | Conflict highlighting: last-write-wins per field with version column; show "changed by X". Limits are per project, shared by all tenants: 200 / 500 / 10,000 concurrent connections on Free / Pro / Team (spike S7). |
+| Jobs | Queue table in Postgres, processed by Vercel Cron (every minute on Pro); webhook routes acknowledge fast and enqueue | Reports, webhook processing, AI tasks. Keep behind an interface; revisit if jobs exceed 800 s (spike S6). |
 | AI | Anthropic API server-side for intake, drafts, insights; MCP server for external Claude | Per-tenant usage metering from day one (needed for token packs). |
 | GitHub | GitHub App, installation per tenant/org; webhooks → queue → idempotent handlers | See `04`. |
 | Files | Supabase Storage for MD docs, screenshots, report outputs | Signed URLs; tenant-prefixed paths; virus scan LATER. |
