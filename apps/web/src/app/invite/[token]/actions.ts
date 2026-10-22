@@ -48,8 +48,9 @@ export async function signInAndAccept(_prev: AcceptState, form: FormData): Promi
   const { error } = await supabase.auth.signInWithPassword({ email: preview.email, password });
   if (error) {
     return {
-      error:
-        "The password is incorrect, or this email has no password yet. If you have not created an account, use Create account. You can also continue with Google or GitHub.",
+      error: preview.accountExists
+        ? "The password is incorrect, or this account has no password (for example it was created with Google or GitHub). Try again, or continue with Google or GitHub."
+        : "There is no account for this email yet. Choose Create account to set a password.",
     };
   }
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();

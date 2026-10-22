@@ -15,7 +15,7 @@ const ERRORS: Record<string, string> = {
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; mode?: string }>;
 }) {
   const params = await searchParams;
   const next = safeNext(params.next);
@@ -46,7 +46,7 @@ export default async function SignInPage({
         <div className="divider" role="separator">
           <span>or use email</span>
         </div>
-        <PasswordForm next={next} />
+        <PasswordForm next={next} mode={params.mode === "sign-up" ? "sign-up" : "sign-in"} />
       </div>
     </main>
   );

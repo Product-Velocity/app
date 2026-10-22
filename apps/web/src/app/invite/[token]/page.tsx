@@ -7,8 +7,15 @@ import { getInvitePreview } from "./preview";
 
 export const metadata = { title: "Join a workspace · Product Velocity", robots: { index: false } };
 
-export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
+export default async function InvitePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ mode?: string }>;
+}) {
   const { token } = await params;
+  const { mode: wanted } = await searchParams;
   const path = `/invite/${token}`;
   const supabase = await createClient();
   const preview = await getInvitePreview(supabase, token);
@@ -34,11 +41,18 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
     </p>
   );
 
+  // new people see "choose a password"; people who already have an account see "sign in"
+  const mode: "sign-in" | "create" =
+    wanted === "sign-in" || wanted === "create" ? wanted : preview.accountExists ? "sign-in" : "create";
+
   if (!data.user) {
     return (
       <Shell title={`Join ${preview.tenantName}`}>
         {summary}
-        <InviteSignIn token={token} email={preview.email} />
+        {mode === "sign-in" && !preview.accountExists && (
+          <p className="hint">There is no account for this email yet, so you probably want to create one.</p>
+        )}
+        <InviteSignIn token={token} email={preview.email} mode={mode} />
       </Shell>
     );
   }
