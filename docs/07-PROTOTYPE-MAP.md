@@ -5,7 +5,7 @@ Published (view-only reference): https://claude.ai/artifact/WVtip16iTPYZdru67tsg
 | # | File | What it shows | Phase | Known gaps |
 |---|---|---|---|---|
 | 1 | Main | Roadmap grid with selection and bulk bar | 1 | Superseded in layout by 20 for portfolio |
-| 2 | Item-detail | Item + GitHub tab | 2–3 | **Outdated:** shows 9 flat child issues; should show epics with nested tasks and a "created by" column |
+| 2 | Item-detail | Item + GitHub tab | 2–3 | Rebuilt 2026-10-22: breakdown strip, epics with nested tasks, "created by" and "Scope added" tags. Example data |
 | 3 | Gantt | Two-level grouped Gantt | 2 | |
 | 4 | Cards | Card view with swimlanes | 2 | |
 | 5 | AI-intake | AI intake with duplicate check | 4 | |
