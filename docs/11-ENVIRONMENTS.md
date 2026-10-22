@@ -15,3 +15,11 @@
 
 ## Secrets
 Secrets only in environment variables. `.env*` files are git-ignored except `.env.example`.
+
+## Database (Supabase)
+- Migrations live in `packages/db/migrations/NNNN_name.sql`. They are forward-only: `pnpm db:migrate` applies new files in order, each in one transaction, and refuses to run if an already-applied file was edited. Fix mistakes with a new migration.
+- Applying to a real project: set `DATABASE_URL` (Supabase > Project Settings > Database > Connection string) in your shell and run `pnpm db:migrate`. Do this for the Preview project first, then Production.
+- Suggested setup: two Supabase projects, `product-velocity-preview` (used by Vercel Preview and Development) and `product-velocity-prod` (Production only). Use different keys in each.
+- Tests (`pnpm db:test`) never touch Supabase. They create a throwaway database on the Postgres in `TEST_DATABASE_URL` and use `packages/db/tests/supabase-shim.sql` to imitate `auth.uid()` and the roles. CI runs a Postgres 16 service for this. Real-Supabase behaviour of the same policies is checked by running the migrations on the Preview project (still to do, see PR notes).
+- Variables and their Vercel type: see `.env.example`.
+- State of the real project `Provelo` (tnhlivowltvwvjhbknrc, eu-west-1): migrations 0001 and 0002 are applied and recorded in `pv_meta.schema_migrations` (0001 was first pasted into the SQL editor, 0002 applied by Claude). `pnpm db:migrate` against it should print "Up to date". The Supabase security advisor still lists three intentional warnings: `create_tenant` (the sign-up entry point) and `is_tenant_member` / `is_tenant_admin` (used by the RLS policies; they only reveal the caller's own membership).
