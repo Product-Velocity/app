@@ -59,3 +59,9 @@ Saved views, column reorder and pinning (#9), editing tags, links, files and rel
 
 ## Tests
 Controller and domain unit tests, Supabase source tests with a fake client, 20 browser tests (`pnpm --filter web exec playwright test` against a build with `NEXT_PUBLIC_E2E_HARNESS=1`, test page `/dev/grid`): keyboard, pickers, dates, locked cells, undo of 20, failed saves, rank, view-only, 2,000-item speed, accessibility (axe, WCAG A/AA).
+
+## Design pass 2 (request R-022, issue #55)
+- **Name:** Initiative Name is semibold/bold; IDs and other text stay regular.
+- **Health pill:** compact (about 20 px high, 12 px text) so it fits a 30–36 px row; no icon. The word is the signal ("On track", "At risk", "Off track"); colours meet AA contrast on the pill background.
+- **Group summary row** (only when grouped): group name, item count, health breakdown in words ("3 On track · 1 At risk"), then aggregates sit under the columns they summarise: sum for numbers (effort, value if shown), average for percentages, earliest–latest for dates, lowest–highest for Stack Rank. Collapse / expand stays. Aggregates only for columns that are shown and that the user may see; computed on the filtered rows.
+- **Floating bars:** the bulk bar overlays the bottom of the grid area (fixed, centred, shadow) and never changes the grid height or scroll position; it appears with at least one selected row. The quick-add bar floats directly above the grid (and above the bulk bar if both are shown) and stays visible while scrolling. The autosave strip stays where it is.
