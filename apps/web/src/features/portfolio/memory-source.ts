@@ -1,5 +1,5 @@
 import { applyMove, type EditableField } from "@pv/domain";
-import type { CreateResult, NewItem, PortfolioDataSource, SaveResult } from "./data-source";
+import type { CreateManyResult, NewItem, PortfolioDataSource, SaveResult } from "./data-source";
 import type { LoadedItem } from "./types";
 
 export type Op = { type: "update"; itemId: string; field: string; value: unknown; expected?: unknown } | { type: "move"; itemId: string; to: number };
@@ -13,6 +13,8 @@ export class MemoryDataSource implements PortfolioDataSource {
   failWhen: ((op: Op) => string | null) | null = null;
   /** Make the next adds fail with this message. */
   failCreate: string | null = null;
+  readonly createCalls: { count: number; via?: string }[] = [];
+  readonly deleteCalls: string[][] = [];
   private counter = 0;
 
   constructor(items: LoadedItem[], opts: { latencyMs?: number } = {}) {
@@ -39,20 +41,26 @@ export class MemoryDataSource implements PortfolioDataSource {
     return { ok: true };
   }
 
-  async createItem(item: NewItem): Promise<CreateResult> {
+  async createMany(items: NewItem[], opts: { via?: "import" } = {}): Promise<CreateManyResult> {
+    this.createCalls.push({ count: items.length, ...(opts.via ? { via: opts.via } : {}) });
     await this.pause();
     if (this.failCreate) return { ok: false, error: this.failCreate };
-    const max = this.items.reduce((n, i) => Math.max(n, i.stack_rank), 0);
-    this.counter = Math.max(this.counter, this.items.length) + 1;
-    const code = `R-${String(this.counter).padStart(2, "0")}`;
-    this.items.push({ ...item, item_code: code, stack_rank: max + 1 } as LoadedItem);
-    return { ok: true, item_code: code, stack_rank: max + 1 };
+    const out: { id: string; item_code: string; stack_rank: number }[] = [];
+    for (const item of items) {
+      const max = this.items.reduce((n, i) => Math.max(n, i.stack_rank), 0);
+      this.counter = Math.max(this.counter, this.items.length) + 1;
+      const code = `R-${String(this.counter).padStart(2, "0")}`;
+      this.items.push({ ...item, item_code: code, stack_rank: max + 1 } as LoadedItem);
+      out.push({ id: item.id, item_code: code, stack_rank: max + 1 });
+    }
+    return { ok: true, items: out };
   }
 
-  async deleteItem(itemId: string): Promise<SaveResult> {
+  async deleteItems(itemIds: string[]): Promise<SaveResult> {
+    this.deleteCalls.push([...itemIds]);
     await this.pause();
-    if (!this.items.some((i) => i.id === itemId)) return { ok: false, error: "The item no longer exists or you cannot delete it." };
-    this.items = this.items.filter((i) => i.id !== itemId).sort((a, b) => a.stack_rank - b.stack_rank).map((i, n) => ({ ...i, stack_rank: n + 1 }));
+    if (itemIds.some((id) => !this.items.some((i) => i.id === id))) return { ok: false, error: "An item no longer exists or you cannot delete it." };
+    this.items = this.items.filter((i) => !itemIds.includes(i.id)).sort((a, b) => a.stack_rank - b.stack_rank).map((i, n) => ({ ...i, stack_rank: n + 1 }));
     return { ok: true };
   }
 

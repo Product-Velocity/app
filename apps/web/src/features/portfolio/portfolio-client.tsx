@@ -13,7 +13,7 @@ type State = { kind: "loading" } | { kind: "error"; message: string } | { kind: 
 export function PortfolioClient({ tenantId, role, lookups }: { tenantId: string; role: string; lookups: Lookups }) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
-  const source = useMemo(() => new SupabaseDataSource(createClient(), tenantId), [tenantId]);
+  const source = useMemo(() => new SupabaseDataSource(createClient(), tenantId, createClient("import")), [tenantId]);
 
   useEffect(() => {
     let cancelled = false;

@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ClientSideRowModelApiModule, ClientSideRowModelModule, CellApiModule, CellStyleModule, ColumnApiModule, CustomEditorModule,
-  EventApiModule, ModuleRegistry, RowApiModule, ScrollApiModule, TextEditorModule, themeQuartz, type CellKeyDownEvent, type GridApi,
+  EventApiModule, ModuleRegistry, RowApiModule, RowSelectionModule, ScrollApiModule, TextEditorModule, themeQuartz, type CellKeyDownEvent, type GridApi,
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { DEFAULT_VIEWS, FIELDS, type EditableField, type ViewName } from "@pv/domain";
-import { buildColumns, isEditableColumn, isReadOnlyColumn } from "./columns";
+import { buildColumns, CORE_COLUMNS, isEditableColumn, isReadOnlyColumn } from "./columns";
 import { ColumnsPicker } from "./columns-picker";
+import { BulkBar } from "./bulk-bar";
+import { ImportDialog } from "./import-dialog";
 import { QuickAddBar } from "./quick-add-bar";
 import type { PortfolioController } from "./controller";
 import { StatusStrip, useStatus } from "./status-strip";
@@ -16,7 +18,7 @@ import type { GridItem, Lookups } from "./types";
 
 ModuleRegistry.registerModules([
   ClientSideRowModelModule, ClientSideRowModelApiModule, TextEditorModule, CustomEditorModule, CellStyleModule,
-  ColumnApiModule, CellApiModule, RowApiModule, EventApiModule, ScrollApiModule,
+  ColumnApiModule, CellApiModule, RowApiModule, EventApiModule, ScrollApiModule, RowSelectionModule,
 ]);
 
 const theme = themeQuartz.withParams({
@@ -37,7 +39,30 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
   const apiRef = useRef<GridApi<GridItem> | null>(null);
   const quickAddRef = useRef<HTMLInputElement | null>(null);
   const [contextProject, setContextProject] = useState<string | null>(null);
+  const [selected, setSelected] = useState<GridItem[]>([]);
+  const [importText, setImportText] = useState<string | null>(null);
   const status = useStatus(controller);
+  const cardRef = useRef<HTMLElement | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const footRef = useRef<HTMLParagraphElement | null>(null);
+  const [gridHeight, setGridHeight] = useState<number | null>(null);
+
+  // The grid fills the page below it: a taller window gives a taller grid, and it follows window resizes
+  // and changes in the bars above it (notices, quick-add hints, columns picker).
+  useEffect(() => {
+    const fit = () => {
+      const wrap = wrapRef.current;
+      if (!wrap) return;
+      const top = wrap.getBoundingClientRect().top + window.scrollY;
+      const foot = footRef.current?.offsetHeight ?? 0;
+      setGridHeight(Math.max(360, Math.floor(window.innerHeight - top - foot - 20)));
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    const ro = new ResizeObserver(fit);
+    for (const child of Array.from(cardRef.current?.children ?? [])) if (child !== wrapRef.current) ro.observe(child);
+    return () => { window.removeEventListener("resize", fit); ro.disconnect(); };
+  }, []);
   const rowData = useMemo(() => [...controller.rows], [controller]);
 
   const [view, setView] = useState<ViewName | "All columns">(initialView);
@@ -55,6 +80,7 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
     () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible }),
     [controller, lookups, visible],
   );
+  const exportFields = useMemo(() => FIELDS.filter((f) => visible.has(f.key) || (CORE_COLUMNS as readonly string[]).includes(f.key)), [visible]);
   const showLater = FIELDS.some((f) => f.phase > 1 && visible.has(f.key));
 
   // A row whose rank changed jumps to its new place: keep the keyboard focus on it.
@@ -146,13 +172,30 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
   };
 
   return (
-    <section className="grid-card" aria-label="Roadmap" onKeyDownCapture={onWrapperKeyDown}>
+    <section
+      ref={cardRef}
+      className="grid-card"
+      aria-label="Roadmap"
+      onKeyDownCapture={onWrapperKeyDown}
+      onPaste={(e) => {
+        // cells copied from a spreadsheet, pasted anywhere on the grid (not into a text box): open the import
+        if ((e.target as HTMLElement).closest("input, textarea, select, [contenteditable=true]") || !controller.canEdit) return;
+        const pasted = e.clipboardData.getData("text");
+        if (/[\t\n]/.test(pasted.trim())) { e.preventDefault(); setImportText(pasted); }
+      }}
+    >
       <StatusStrip controller={controller} />
       {controller.canEdit && lookups.projects.length > 0 && (
         <QuickAddBar controller={controller} lookups={lookups} contextProject={contextProject} inputRef={quickAddRef} />
       )}
-      <ColumnsPicker view={view} visible={visible} onView={pickView} onToggle={toggle} />
-      <div className="grid-wrap" data-testid="grid">
+      {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} exportFields={exportFields} onClear={() => apiRef.current?.deselectAll()} />}
+      <ColumnsPicker view={view} visible={visible} onView={pickView} onToggle={toggle}>
+        {controller.canEdit && lookups.projects.length > 0 && <button type="button" className="btn" onClick={() => setImportText("")}>Import from spreadsheet</button>}
+      </ColumnsPicker>
+      {importText !== null && (
+        <ImportDialog controller={controller} lookups={lookups} defaultProject={contextProject} initialText={importText} onClose={() => setImportText(null)} />
+      )}
+      <div ref={wrapRef} className="grid-wrap" data-testid="grid" style={gridHeight ? { height: gridHeight } : undefined}>
         <AgGridReact<GridItem>
           theme={theme}
           rowData={rowData}
@@ -160,6 +203,9 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
           getRowId={(p) => p.data.id}
           defaultColDef={{ sortable: false, resizable: true, suppressMovable: true, cellDataType: false }}
           suppressMovableColumns
+          rowSelection={{ mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false }}
+          selectionColumnDef={{ pinned: "left", width: 46, suppressHeaderMenuButton: true }}
+          onSelectionChanged={(e) => setSelected(e.api.getSelectedRows())}
           enterNavigatesVerticallyAfterEdit
           suppressColumnVirtualisation={renderAllColumns}
           stopEditingWhenCellsLoseFocus
@@ -177,7 +223,7 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
           }}
         />
       </div>
-      <p className="grid-foot">
+      <p ref={footRef} className="grid-foot">
         {controller.rows.length.toLocaleString("en-GB")} items · ranked by global Stack Rank · Alt+N adds an initiative, Enter or double-click to edit, Tab and Enter to move, Esc to cancel,
         Delete clears a cell
         {status.pending > 0 ? "" : ""}

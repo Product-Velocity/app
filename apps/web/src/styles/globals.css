@@ -111,7 +111,7 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 .notice-box { padding: 9px 14px; background: var(--blue-tint-2); border: 1px solid var(--blue-tint-1); border-radius: 8px; margin: 0 0 12px; }
 
 .grid-card { background: var(--bg); border: 1px solid var(--grey-1); border-radius: 8px; }
-.grid-wrap { height: min(72vh, 900px); min-height: 360px; }
+.grid-wrap { height: 72vh; min-height: 360px; } /* replaced by the measured height once the page is shown */
 .grid-foot { margin: 0; padding: 6px 12px; border-top: 1px solid var(--grey-1); font-size: 12px; color: #5b6272; }
 
 .strip { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 6px 12px; background: var(--header-bg); border-bottom: 1px solid var(--grey-1); border-radius: 8px 8px 0 0; font-size: 12.5px; }
@@ -168,3 +168,26 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .add-project input { height: 28px; padding: 0 8px; border: 1px solid var(--grey-1); border-radius: 6px; font: inherit; min-width: 240px; }
 .notice-box p { margin: 0 0 6px; }
+
+.bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 8px 12px; background: var(--blue-tint-2); border-bottom: 1px solid var(--blue-tint-1); font-size: 12.5px; }
+.bulk-count { color: var(--blue-text); }
+.bulk-set { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.bulk-set select, .bulk-set input, .dialog select, .dialog textarea, .import-map select { font: inherit; height: 28px; border: 1px solid #c9ceda; border-radius: 6px; padding: 0 6px; background: var(--bg); }
+.bulk-set input { min-width: 200px; padding: 0 8px; }
+.bulk-bar .btn { height: 28px; padding: 0 10px; font-size: 12.5px; }
+.bulk-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; }
+.bulk-later { font-size: 11px; color: #5b6272; margin-left: 4px; }
+.bulk-messages { flex-basis: 100%; }
+.bulk-messages p { margin: 0; }
+.dialog-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(20, 24, 40, .45); display: flex; align-items: flex-start; justify-content: center; padding: 4vh 16px; overflow: auto; }
+.dialog { background: var(--bg); border-radius: 10px; padding: 18px 20px; width: min(980px, 100%); box-shadow: 0 16px 48px rgba(20, 24, 40, .3); }
+.dialog h2 { margin: 0 0 10px; font-size: 16px; }
+.dialog h3 { margin: 14px 0 6px; font-size: 13px; }
+.dialog textarea { width: 100%; height: auto; padding: 6px 8px; font-family: var(--font-mono, monospace); font-size: 12px; }
+.dialog-label { display: block; font-weight: 600; margin-bottom: 4px; }
+.dialog-row { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 8px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.import-map, .import-preview { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.import-map th, .import-map td, .import-preview th, .import-preview td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--grey-1); vertical-align: top; }
+.import-preview-wrap { overflow-x: auto; max-width: 100%; }
+.muted { color: #5b6272; }

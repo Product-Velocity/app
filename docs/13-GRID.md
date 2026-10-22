@@ -24,8 +24,18 @@ A row above the grid. **Alt+N** puts the cursor there (⌥N on a Mac); type, pre
 - Plain text only: whatever is typed or pasted is a name, never an instruction. Pasting an email for AI intake is Phase 4.
 - Admins can add a project by name from the Roadmap page (a minimal stand-in until project setup exists), because an item needs a project.
 
+## Bulk bar, export and import (issue #8)
+- **Select rows** with the checkbox column (Space on the keyboard; the header checkbox selects all). A bar appears: "3 selected".
+- **Set a field on all selected rows:** choose a field, choose or type the value, "Apply to 3 items". One validation for all rows, one undo step (⌘Z undoes all 3; the strip says "Undid: Set MoSCoW on 3 items"), one audited change per row and field. Rows that already have the value are skipped. If one row cannot be saved it goes back and the others stay. An empty value clears the field where that is allowed.
+- **Rejected with a reason:** GitHub-driven fields (status, delivery progress, ...), calculated and system fields, fields of later phases and Stack Rank (one item at a time) are listed under "Cannot be set here"; choosing one shows why and the button stays off. The controller refuses them too, and the database column grants are the final gate.
+- **Update GitHub** is a disabled button ("arrives in phase 3"). **Export selection to file** downloads a CSV of the selected rows with the columns you are showing (project and people by name; Excel opens it; text that looks like a formula is defused). Viewers can select and export but not edit.
+- **Import from spreadsheet:** the button next to Columns, or paste cells copied from Excel or Google Sheets anywhere on the grid (Ctrl+V / ⌘V, not inside a text box). A dialog shows (1) how each column was read (guessed from the header names, changeable per column, "Do not import") and (2) a preview of the first 10 rows with the problems in words. Rows with problems are skipped; the rest are imported in one request (all or nothing), labelled "import" in the audit log, as one undo step. Up to 500 rows. Project names and people (email or the start of the email name) are looked up; a "project for rows that have none" can be chosen. If no header is recognised, tick "The first row has column names". Only fields a person can edit in a cell can be imported.
+
+## Grid height
+The grid fills the window below it (it grows with a taller window and shrinks with a shorter one, also while resizing, and follows bars that appear above it); minimum 360 px.
+
 ## Not in this issue
-Multi-select bulk edit and paste-import (#8), saved views, column reorder and pinning (#9), editing tags, links, files and relations (item panel, phase 2).
+Saved views, column reorder and pinning (#9), editing tags, links, files and relations (item panel, phase 2).
 
 ## Tests
 Controller and domain unit tests, Supabase source tests with a fake client, 20 browser tests (`pnpm --filter web exec playwright test` against a build with `NEXT_PUBLIC_E2E_HARNESS=1`, test page `/dev/grid`): keyboard, pickers, dates, locked cells, undo of 20, failed saves, rank, view-only, 2,000-item speed, accessibility (axe, WCAG A/AA).
