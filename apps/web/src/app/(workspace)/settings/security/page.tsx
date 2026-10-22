@@ -10,7 +10,7 @@ export default async function SecurityPage() {
   const verified = data?.totp ?? [];
 
   return (
-    <>
+    <div className="page-narrow">
       <h1>Security</h1>
       <h2>Two-factor sign-in</h2>
       <div className="card stack">
@@ -39,6 +39,6 @@ export default async function SecurityPage() {
           </>
         )}
       </div>
-    </>
+    </div>
   );
 }

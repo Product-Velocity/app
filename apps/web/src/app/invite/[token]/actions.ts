@@ -19,7 +19,7 @@ async function accept(supabase: Awaited<ReturnType<typeof createClient>>, token:
     return { error: NOT_VALID };
   }
   await rememberTenant(data as string);
-  redirect("/home");
+  redirect("/portfolio");
 }
 
 const tokenFrom = (form: FormData) => {

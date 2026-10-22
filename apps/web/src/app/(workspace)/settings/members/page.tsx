@@ -30,7 +30,7 @@ export default async function MembersPage() {
     : { data: [] };
 
   return (
-    <>
+    <div className="page-narrow">
       <h1>Members</h1>
       <p className="muted">
         Roles control what people can do. Approver is a separate permission: only Approvers can
@@ -135,6 +135,6 @@ export default async function MembersPage() {
           </div>
         </>
       )}
-    </>
+    </div>
   );
 }

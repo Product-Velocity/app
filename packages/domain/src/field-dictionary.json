@@ -1,0 +1,3583 @@
+[
+ {
+  "n": "1",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Initiative ID",
+  "key": "item_code",
+  "group": "What",
+  "type": "System",
+  "editing": "System (read-only)",
+  "customerSafe": true,
+  "views": [
+   "Prioritisation",
+   "Planning",
+   "Delivery",
+   "Go-to-market",
+   "Outcomes",
+   "Leadership",
+   "Discovery",
+   "History"
+  ],
+  "allowed": [],
+  "allowedText": "R-01, R-02, …",
+  "origin": "System",
+  "githubSync": "Shown in issue body as backlink.",
+  "filledWhen": "Now",
+  "description": "Stable ID (R-01...) so other sheets and dashboards can point to a row"
+ },
+ {
+  "n": "2",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Roadmap Category",
+  "key": "roadmap_category",
+  "group": "What",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": true,
+  "views": [
+   "Prioritisation"
+  ],
+  "allowed": [
+   "New big bets",
+   "Grow customer revenues",
+   "Protect customer revenues",
+   "Operational efficiency",
+   "Close the gap with competitors"
+  ],
+  "allowedText": "New big bets · Grow customer revenues · Protect customer revenues · Operational efficiency · Close the gap with competitors",
+  "origin": "Input",
+  "githubSync": "Optional: push as label (off by default).",
+  "filledWhen": "After interviews",
+  "description": "New big bets, Grow customer revenues, Protect customer revenues, Operational efficiency, Close the gap with competitors"
+ },
+ {
+  "n": "3",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Initiative Status",
+  "key": "status",
+  "group": "What",
+  "type": "Select",
+  "editing": "Locked (GitHub)",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation",
+   "Delivery",
+   "History"
+  ],
+  "allowed": [
+   "Backlog",
+   "Not Started",
+   "In Progress",
+   "Paused",
+   "Completed",
+   "Cancelled"
+  ],
+  "allowedText": "Backlog · Not Started · In Progress · Paused · Completed · Cancelled",
+  "origin": "Input",
+  "githubSync": "GitHub -> app. Tracking issue closed as completed -> Status Completed; closed as not planned -> Cancelled; first child issue in progress -> In Progress. Applied automatically, audit-logged.",
+  "filledWhen": "Now where known",
+  "description": "On Track, At Risk, Delayed, Blocked and so on"
+ },
+ {
+  "n": "4",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Initiative Phase",
+  "key": "initiative_phase",
+  "group": "What",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Delivery",
+   "History"
+  ],
+  "allowed": [
+   "Discover",
+   "Define",
+   "Build",
+   "Beta-test",
+   "Experiment",
+   "Roll-out",
+   "Completed",
+   "Sunset"
+  ],
+  "allowedText": "Discover · Define · Build · Beta-test · Experiment · Roll-out · Completed · Sunset",
+  "origin": "Input",
+  "githubSync": "Suggest only (never auto-set): first child issue in progress -> suggest Build.",
+  "filledWhen": "Now where known",
+  "description": "Discover, Define, Build, Beta-test, Experiment, Roll-out, Completed, Sunset"
+ },
+ {
+  "n": "5",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Stack Rank",
+  "key": "stack_rank",
+  "group": "What",
+  "type": "Number",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation",
+   "Planning",
+   "History"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Optional one-way push to a GitHub issue field \"Priority\" / label.",
+  "filledWhen": "After interviews",
+  "description": "Single priority order across the roadmap (1 = first)"
+ },
+ {
+  "n": "6",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Initiative Group",
+  "key": "theme",
+  "group": "What",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": true,
+  "views": [
+   "Prioritisation"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Optional: push as label.",
+  "filledWhen": "After interviews",
+  "description": "Theme that groups initiatives (for example bidding, partners, formats)"
+ },
+ {
+  "n": "7",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Initiative Name",
+  "key": "initiative_name",
+  "group": "What",
+  "type": "Text",
+  "editing": "Editable",
+  "customerSafe": true,
+  "views": [
+   "Prioritisation",
+   "Planning",
+   "Delivery",
+   "Go-to-market",
+   "Outcomes",
+   "Leadership",
+   "Discovery",
+   "History"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "App -> GitHub issue title on creation; app owns the title afterwards.",
+  "filledWhen": "Now",
+  "description": "Initiative name"
+ },
+ {
+  "n": "8",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Focus Area",
+  "key": "focus_area",
+  "group": "What",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": true,
+  "views": [
+   "Prioritisation"
+  ],
+  "allowed": [
+   "Formats",
+   "Demand/Optimisation",
+   "Publishers"
+  ],
+  "allowedText": "Formats · Demand/Optimisation · Publishers",
+  "origin": "Input",
+  "githubSync": "Optional: push as label.",
+  "filledWhen": "Now",
+  "description": "Formats, Demand/Optimisation, Publishers, Backlog (as in v1)"
+ },
+ {
+  "n": "9",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Change Type",
+  "key": "change_type",
+  "group": "What",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": true,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [
+   "New feature",
+   "Improvement to existing feature"
+  ],
+  "allowedText": "New feature · Improvement to existing feature",
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After interviews",
+  "description": "New feature, or Improvement to existing feature"
+ },
+ {
+  "n": "11",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Initiative Hypothesis (IF / THEN / RESULTING IN)",
+  "key": "hypothesis",
+  "group": "What",
+  "type": "Long text",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "App -> GitHub: included in the managed block of the issue body.",
+  "filledWhen": "During interviews",
+  "description": "IF we do X, THEN Y happens, RESULTING IN metric Z. Add 'BECAUSE' with evidence if known"
+ },
+ {
+  "n": "12",
+  "storage": "Related table",
+  "phase": 1,
+  "name": "Artifacts (links)",
+  "key": "artifacts",
+  "group": "What",
+  "type": "Links",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "App -> GitHub: listed in managed block of issue body.",
+  "filledWhen": "During interviews",
+  "description": "Links to spec, PRD, design, experiment results"
+ },
+ {
+  "n": "13",
+  "storage": "Related table",
+  "phase": 2,
+  "name": "Comments",
+  "key": "comments",
+  "group": "What",
+  "type": "Thread",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Not synced. GitHub comments are shown read-only in the drill-down panel.",
+  "filledWhen": "Ongoing",
+  "description": "Free text, including notes copied from Roadmap v1"
+ },
+ {
+  "n": "14",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Sponsor",
+  "key": "sponsor",
+  "group": "Who",
+  "type": "Person",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "History"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "Now",
+  "description": "Person who asked for or owns the case for the initiative"
+ },
+ {
+  "n": "15",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Request Origin",
+  "key": "request_origin",
+  "group": "Who",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [
+   "Customer",
+   "Sales",
+   "Leadership",
+   "Product analysis",
+   "Partner / vendor",
+   "Competitor move"
+  ],
+  "allowedText": "Customer · Sales · Leadership · Product analysis · Partner / vendor · Competitor move",
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "Now where known",
+  "description": "Who or what triggered the request: Customer, Sales, Leadership, Product analysis, Partner / vendor, Competitor move"
+ },
+ {
+  "n": "16",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Customers Requesting (#)",
+  "key": "customers_requesting",
+  "group": "Who",
+  "type": "Number",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Never synced (commercial).",
+  "filledWhen": "After interviews",
+  "description": "Number of customers who asked for it (evidence of demand)"
+ },
+ {
+  "n": "17",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Product Manager",
+  "key": "product_manager",
+  "group": "Who",
+  "type": "Person",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "After interviews",
+  "description": "Product manager responsible"
+ },
+ {
+  "n": "18",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Engineering Manager",
+  "key": "engineering_manager",
+  "group": "Who",
+  "type": "Person",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Suggestion only.",
+  "filledWhen": "After interviews",
+  "description": "Engineering manager responsible"
+ },
+ {
+  "n": "19",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Designer",
+  "key": "designer",
+  "group": "Who",
+  "type": "Person",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "As needed",
+  "description": "Designer, if any"
+ },
+ {
+  "n": "20",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Analyst",
+  "key": "analyst",
+  "group": "Who",
+  "type": "Person",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "As needed",
+  "description": "Analyst who measures it"
+ },
+ {
+  "n": "21",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Business Manager",
+  "key": "business_manager",
+  "group": "Who",
+  "type": "Person",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "After interviews",
+  "description": "Commercial owner (Demand, Publishers, Marketing)"
+ },
+ {
+  "n": "22",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Primary KR (Metric Name)",
+  "key": "kr_metric",
+  "group": "Why",
+  "type": "Text",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Never synced.",
+  "filledWhen": "After interviews",
+  "description": "The one metric the initiative should move"
+ },
+ {
+  "n": "23",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Primary KR Start Value",
+  "key": "kr_start",
+  "group": "Why",
+  "type": "Number",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After interviews",
+  "description": "Baseline value of that metric"
+ },
+ {
+  "n": "24",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Primary KR Target Value",
+  "key": "kr_target",
+  "group": "Why",
+  "type": "Number",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After interviews",
+  "description": "Target value of that metric"
+ },
+ {
+  "n": "26",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Value Type",
+  "key": "value_type",
+  "group": "Why",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [
+   "Incremental revenue",
+   "Defend existing revenue",
+   "Save money / operational efficiency"
+  ],
+  "allowedText": "Incremental revenue · Defend existing revenue · Save money / operational efficiency",
+  "origin": "Input",
+  "githubSync": "Never synced (commercial).",
+  "filledWhen": "After interviews",
+  "description": "Always one of: Incremental revenue, Defend existing revenue, Save money / operational efficiency"
+ },
+ {
+  "n": "27",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Value (EUR, 12-month run-rate)",
+  "key": "value_12m",
+  "group": "Why",
+  "type": "Currency",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation",
+   "Outcomes",
+   "History"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Never synced (commercial).",
+  "filledWhen": "After interviews",
+  "description": "Single universal value in EUR as a 12-month run-rate, comparable across all initiatives for stack ranking"
+ },
+ {
+  "n": "28",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Value Basis",
+  "key": "value_basis",
+  "group": "Why",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [
+   "Measured",
+   "Estimate (basis stated)",
+   "Partner claim",
+   "Not stated"
+  ],
+  "allowedText": "Measured · Estimate (basis stated) · Partner claim · Not stated",
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "Now",
+  "description": "Measured, Estimate (basis stated), Partner claim, Not stated"
+ },
+ {
+  "n": "29",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Time to First Revenue (months)",
+  "key": "time_to_first_revenue_months",
+  "group": "Why",
+  "type": "Number",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After interviews",
+  "description": "Months from start of work until the first revenue or saving shows up"
+ },
+ {
+  "n": "30",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Confidence",
+  "key": "confidence",
+  "group": "Why",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation"
+  ],
+  "allowed": [
+   "High",
+   "Medium",
+   "Low"
+  ],
+  "allowedText": "High · Medium · Low",
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After interviews",
+  "description": "High, Medium, Low confidence in the value"
+ },
+ {
+  "n": "31",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Effort (T-shirt)",
+  "key": "effort",
+  "group": "Why",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation",
+   "Planning"
+  ],
+  "allowed": [
+   "XS",
+   "S",
+   "M",
+   "L",
+   "XL"
+  ],
+  "allowedText": "XS · S · M · L · XL",
+  "origin": "Input",
+  "githubSync": "Optional: push to GitHub issue field \"Effort\" / label size:M.",
+  "filledWhen": "After the operating model talk",
+  "description": "T-shirt size"
+ },
+ {
+  "n": "32",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "MoSCoW",
+  "key": "moscow",
+  "group": "Why",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation"
+  ],
+  "allowed": [
+   "Must",
+   "Should",
+   "Could",
+   "Won't"
+  ],
+  "allowedText": "Must · Should · Could · Won't",
+  "origin": "Input",
+  "githubSync": "Optional: label.",
+  "filledWhen": "After interviews",
+  "description": "Must, Should, Could, Won't"
+ },
+ {
+  "n": "34",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Estimate low (weeks)",
+  "key": "estimate_low_weeks",
+  "group": "Why",
+  "type": "Number",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "Now where stated",
+  "description": "Estimate low, in weeks"
+ },
+ {
+  "n": "35",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Estimate high (weeks)",
+  "key": "estimate_high_weeks",
+  "group": "Why",
+  "type": "Number",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "Now where stated",
+  "description": "Estimate high, in weeks"
+ },
+ {
+  "n": "37",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
+  "name": "Confidence-weighted Value (EUR)",
+  "key": "value_weighted",
+  "group": "Why",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Value multiplied by the confidence factor (High 90%, Medium 60%, Low 30%; factors editable on the Lists sheet) (formula)"
+ },
+ {
+  "n": "38",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
+  "name": "Weighted Value per Build-Week (EUR)",
+  "key": "value_weighted_per_build_week",
+  "group": "Why",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Confidence-weighted value divided by the high build estimate in weeks: first ranking signal (formula)"
+ },
+ {
+  "n": "39",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Cost of Not Doing (strategic risk)",
+  "key": "cost_of_not_doing",
+  "group": "Why",
+  "type": "Text",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Never synced.",
+  "filledWhen": "After interviews",
+  "description": "What happens if we do not do it (lost revenue, churn, competitive gap, compliance)"
+ },
+ {
+  "n": "40",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Dependencies / Blockers",
+  "key": "dependencies_blockers",
+  "group": "Why",
+  "type": "Text",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Phase 2: GitHub \"blocked by\" on the tracking issue raises a Blocked suggestion.",
+  "filledWhen": "Ongoing",
+  "description": "What it waits on"
+ },
+ {
+  "n": "41",
+  "storage": "Related table",
+  "phase": 1,
+  "name": "Depends On (Initiative IDs)",
+  "key": "depends_on",
+  "group": "Why",
+  "type": "Relation",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [],
+  "allowedText": "e.g. R-12; R-20",
+  "origin": "Input",
+  "githubSync": "Phase 2: map to GitHub issue dependencies when both items are linked.",
+  "filledWhen": "After interviews",
+  "description": "Initiative IDs this one cannot start or finish without, for example R-12; R-20"
+ },
+ {
+  "n": "42",
+  "storage": "Related table",
+  "phase": 1,
+  "name": "Related / Overlaps With (Initiative IDs)",
+  "key": "related_to",
+  "group": "Why",
+  "type": "Relation",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After interviews",
+  "description": "Initiative IDs that overlap or share scope, to avoid double work and double counting"
+ },
+ {
+  "n": "44",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Decision",
+  "key": "decision",
+  "group": "Decision",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation",
+   "History"
+  ],
+  "allowed": [
+   "Go",
+   "Hold",
+   "Kill",
+   "Not yet decided"
+  ],
+  "allowedText": "Go · Hold · Kill · Not yet decided",
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After decision",
+  "description": "Go, Hold, Kill, Not yet decided"
+ },
+ {
+  "n": "45",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Decided By",
+  "key": "decided_by",
+  "group": "Decision",
+  "type": "Person or text",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After decision",
+  "description": "Person or forum that made the decision"
+ },
+ {
+  "n": "46",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Decision Date",
+  "key": "decision_date",
+  "group": "Decision",
+  "type": "Date",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After decision",
+  "description": "Date of the decision"
+ },
+ {
+  "n": "47",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Next Review Date",
+  "key": "next_review_date",
+  "group": "Decision",
+  "type": "Date",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "Every update",
+  "description": "Date to revisit the initiative so the roadmap does not go stale"
+ },
+ {
+  "n": "48",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
+  "name": "G2M Quarter",
+  "key": "g2m_quarter",
+  "group": "When",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": true,
+  "views": [
+   "Planning",
+   "Go-to-market",
+   "History"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "After dates are known",
+  "description": "Go-to-market quarter"
+ },
+ {
+  "n": "49",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Start Date",
+  "key": "start_date",
+  "group": "When",
+  "type": "Date",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "As work starts",
+  "description": "Date work started"
+ },
+ {
+  "n": "50",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "G2M Date (est)",
+  "key": "g2m_date_est",
+  "group": "When",
+  "type": "Date",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning",
+   "Delivery",
+   "Go-to-market",
+   "History"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Optional: push to GitHub issue field (date) / milestone due date.",
+  "filledWhen": "After planning",
+  "description": "Planned go-to-market date"
+ },
+ {
+  "n": "51",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "G2M Date (actual)",
+  "key": "g2m_date_actual",
+  "group": "When",
+  "type": "Date",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "At launch",
+  "description": "Actual go-to-market date (ends the last stage)"
+ },
+ {
+  "n": "52",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Start Discovery",
+  "key": "start_discovery",
+  "group": "When",
+  "type": "Date",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "System",
+  "githubSync": null,
+  "filledWhen": "As work moves",
+  "description": "Stage start dates drive the time columns"
+ },
+ {
+  "n": "53",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Start Definition",
+  "key": "start_definition",
+  "group": "When",
+  "type": "Date",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "System",
+  "githubSync": null,
+  "filledWhen": "As work moves",
+  "description": "Date this stage started; drives the stage time formulas"
+ },
+ {
+  "n": "54",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Start Building",
+  "key": "start_building",
+  "group": "When",
+  "type": "Date",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "System",
+  "githubSync": "Suggested from first child issue moving to in progress.",
+  "filledWhen": "As work moves",
+  "description": "Date this stage started; drives the stage time formulas"
+ },
+ {
+  "n": "55",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Start Beta-Test",
+  "key": "start_beta",
+  "group": "When",
+  "type": "Date",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "System",
+  "githubSync": null,
+  "filledWhen": "As work moves",
+  "description": "Date this stage started; drives the stage time formulas"
+ },
+ {
+  "n": "56",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Start Experiment",
+  "key": "start_experiment",
+  "group": "When",
+  "type": "Date",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "System",
+  "githubSync": null,
+  "filledWhen": "As work moves",
+  "description": "Date this stage started; drives the stage time formulas"
+ },
+ {
+  "n": "57",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Start Roll-Out",
+  "key": "start_rollout",
+  "group": "When",
+  "type": "Date",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "System",
+  "githubSync": null,
+  "filledWhen": "As work moves",
+  "description": "Date this stage started; drives the stage time formulas"
+ },
+ {
+  "n": "58",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Last Updated",
+  "key": "last_edited_at",
+  "group": "When",
+  "type": "System",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "System",
+  "githubSync": null,
+  "filledWhen": "Every update",
+  "description": "Date the row was last reviewed"
+ },
+ {
+  "n": "59",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Audience",
+  "key": "audience",
+  "group": "Go-to-market",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": true,
+  "views": [
+   "Go-to-market"
+  ],
+  "allowed": [
+   "Publishers",
+   "Demand partners",
+   "Brands and agencies",
+   "Internal",
+   "Mixed"
+  ],
+  "allowedText": "Publishers · Demand partners · Brands and agencies · Internal · Mixed",
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After interviews",
+  "description": "Publishers, Demand partners, Brands and agencies, Internal, Mixed"
+ },
+ {
+  "n": "60",
+  "storage": "Related table",
+  "phase": 1,
+  "name": "Target Markets / Scope",
+  "key": "target_scope",
+  "group": "Go-to-market",
+  "type": "Tags",
+  "editing": "Editable",
+  "customerSafe": true,
+  "views": [
+   "Go-to-market"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "Now where stated",
+  "description": "Intended scope: markets, publishers or partners"
+ },
+ {
+  "n": "61",
+  "storage": "Related table",
+  "phase": 1,
+  "name": "Live Markets / Scope",
+  "key": "live_scope",
+  "group": "Go-to-market",
+  "type": "Tags",
+  "editing": "Editable",
+  "customerSafe": true,
+  "views": [
+   "Go-to-market"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "As it launches",
+  "description": "Scope that is live now"
+ },
+ {
+  "n": "62",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Target Customers (#)",
+  "key": "target_customers",
+  "group": "Go-to-market",
+  "type": "Number",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Go-to-market"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After interviews",
+  "description": "Number of customers in the target scope"
+ },
+ {
+  "n": "63",
+  "storage": "Column on items",
+  "phase": 7,
+  "name": "Customers Live (#)",
+  "key": "customers_live",
+  "group": "Go-to-market",
+  "type": "Number",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Go-to-market"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "As it launches",
+  "description": "Number of target customers live now"
+ },
+ {
+  "n": "64",
+  "storage": "Column on items",
+  "phase": 7,
+  "name": "Roll-out %",
+  "key": "rollout_pct",
+  "group": "Go-to-market",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Go-to-market"
+  ],
+  "allowed": [
+   "0%",
+   "25%",
+   "50%",
+   "75%",
+   "100%"
+  ],
+  "allowedText": "0% · 25% · 50% · 75% · 100%",
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "As it launches",
+  "description": "Roll-out progress: 0%, 25%, 50%, 75%, 100%"
+ },
+ {
+  "n": "65",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 7,
+  "name": "% Adoption (live / target customers)",
+  "key": "adoption_pct",
+  "group": "Go-to-market",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Go-to-market",
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Customers live divided by target customers (formula)"
+ },
+ {
+  "n": "66",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "GTM / Enablement Notes",
+  "key": "gtm_enablement_notes",
+  "group": "Go-to-market",
+  "type": "Text",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Go-to-market"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "Before launch",
+  "description": "Enablement: sales, ops, publisher comms, release notes, pricing or terms changes"
+ },
+ {
+  "n": "67",
+  "storage": "Column on items",
+  "phase": 7,
+  "name": "Realized KR Value",
+  "key": "realized_kr_value",
+  "group": "Outcomes",
+  "type": "Number",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After launch",
+  "description": "Measured value of the primary KR"
+ },
+ {
+  "n": "68",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 7,
+  "name": "% Realized KR Value",
+  "key": "kr_realized_pct",
+  "group": "Outcomes",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Realized value as a share of target (formula)"
+ },
+ {
+  "n": "69",
+  "storage": "Column on items",
+  "phase": 7,
+  "name": "Realized EUR per year",
+  "key": "realized_per_year",
+  "group": "Outcomes",
+  "type": "Currency",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After launch",
+  "description": "Measured euros per year"
+ },
+ {
+  "n": "70",
+  "storage": "Column on items",
+  "phase": 7,
+  "name": "Measured Period",
+  "key": "measured_period",
+  "group": "Outcomes",
+  "type": "Date range",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After launch",
+  "description": "Period the realized value covers"
+ },
+ {
+  "n": "71",
+  "storage": "Column on items",
+  "phase": 7,
+  "name": "Outcome Verdict",
+  "key": "outcome_verdict",
+  "group": "Outcomes",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [
+   "Hit",
+   "Partial",
+   "Miss",
+   "Too early"
+  ],
+  "allowedText": "Hit · Partial · Miss · Too early",
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After measuring",
+  "description": "Hit, Partial, Miss, Too early"
+ },
+ {
+  "n": "72",
+  "storage": "Column on items",
+  "phase": 7,
+  "name": "Learning",
+  "key": "learning",
+  "group": "Outcomes",
+  "type": "Text",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After measuring",
+  "description": "What we learned"
+ },
+ {
+  "n": "73",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
+  "name": "Discovery Time (days)",
+  "key": "time_discovery_days",
+  "group": "Efficiency",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Days from stage start to the next stage start (formula)"
+ },
+ {
+  "n": "74",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
+  "name": "Definition Time (days)",
+  "key": "time_definition_days",
+  "group": "Efficiency",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Days spent in this stage (formula)"
+ },
+ {
+  "n": "75",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
+  "name": "Building Time (days)",
+  "key": "time_building_days",
+  "group": "Efficiency",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Days spent in this stage (formula)"
+ },
+ {
+  "n": "76",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
+  "name": "Beta-Test Time (days)",
+  "key": "time_beta_days",
+  "group": "Efficiency",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Days spent in this stage (formula)"
+ },
+ {
+  "n": "77",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
+  "name": "Experiment Time (days)",
+  "key": "time_experiment_days",
+  "group": "Efficiency",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Days spent in this stage (formula)"
+ },
+ {
+  "n": "78",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
+  "name": "Roll-Out Time (days)",
+  "key": "time_rollout_days",
+  "group": "Efficiency",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Days spent in this stage (formula)"
+ },
+ {
+  "n": "79",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
+  "name": "Time to Market (days)",
+  "key": "time_to_market_days",
+  "group": "Efficiency",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Days from Start Date to G2M Date (actual) (formula)"
+ },
+ {
+  "n": "80",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
+  "name": "Actual Build (weeks)",
+  "key": "actual_build_weeks",
+  "group": "Efficiency",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Building time in weeks (formula)"
+ },
+ {
+  "n": "81",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
+  "name": "Build vs Estimate High (%)",
+  "key": "build_vs_estimate_high_pct",
+  "group": "Efficiency",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Actual build weeks versus Carlos's high estimate (formula)"
+ },
+ {
+  "n": "82",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 3,
+  "name": "Blocked Days",
+  "key": "blocked_days",
+  "group": "Efficiency",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": "Phase 2: also from GitHub \"blocked\" label / blocked-by.",
+  "filledWhen": "Ongoing",
+  "description": "Days blocked"
+ },
+ {
+  "n": "83",
+  "storage": "Column on items",
+  "phase": 7,
+  "name": "Support Hours Saved per Month",
+  "key": "support_hours_saved_month",
+  "group": "Efficiency",
+  "type": "Number",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After launch",
+  "description": "Hours of support saved per month, where that is the claim"
+ },
+ {
+  "n": "84",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Source",
+  "key": "source",
+  "group": "Trust",
+  "type": "Text",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "Now",
+  "description": "Where the row came from"
+ },
+ {
+  "n": "N1",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Summary (participant-facing)",
+  "key": "summary",
+  "group": "What",
+  "type": "Long text",
+  "editing": "Editable",
+  "customerSafe": true,
+  "views": [
+   "Go-to-market"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "Before sharing",
+  "description": "Plain-language, 1-2 sentences (max ~280 chars). Shown to participants in alignment sessions and on shared roadmaps."
+ },
+ {
+  "n": "H1",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Health",
+  "key": "health",
+  "group": "What",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation",
+   "Delivery",
+   "History"
+  ],
+  "allowed": [
+   "On Track",
+   "At Risk",
+   "Delayed",
+   "Blocked"
+  ],
+  "allowedText": "On Track · At Risk · Delayed · Blocked",
+  "origin": "Input",
+  "githubSync": "Never auto-set. GitHub signals only create suggestions.",
+  "filledWhen": "Every update",
+  "description": "Human judgement on delivery health. Split out of v2 Initiative Status."
+ },
+ {
+  "n": "N2",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Horizon",
+  "key": "horizon",
+  "group": "What",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": true,
+  "views": [
+   "Prioritisation"
+  ],
+  "allowed": [
+   "Now",
+   "Next",
+   "Later"
+  ],
+  "allowedText": "Now · Next · Later",
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "Now where known",
+  "description": "Now/Next/Later bucket for the roadmap view. Empty = unscheduled."
+ },
+ {
+  "n": "N3",
+  "storage": "Related table",
+  "phase": 1,
+  "name": "Tags",
+  "key": "tags",
+  "group": "What",
+  "type": "Tags",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Optional: labels.",
+  "filledWhen": "As needed",
+  "description": "Free tags for ad-hoc filtering."
+ },
+ {
+  "n": "N4",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Planned Start",
+  "key": "planned_start",
+  "group": "When",
+  "type": "Date",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Optional: push to GitHub issue field (date).",
+  "filledWhen": "After planning",
+  "description": "Planned start of work. Together with G2M Date (est) forms the Gantt bar."
+ },
+ {
+  "n": "N5",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
+  "name": "G2M Slip (days)",
+  "key": "g2m_slip_days",
+  "group": "When",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Current G2M Date (est) minus the first estimate recorded after Decision = Go."
+ },
+ {
+  "n": "N6",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Primary KR Unit",
+  "key": "kr_unit",
+  "group": "Why",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [
+   "%",
+   "EUR",
+   "count",
+   "days",
+   "other"
+  ],
+  "allowedText": "% · EUR · count · days · other",
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After interviews",
+  "description": "Unit of the primary KR."
+ },
+ {
+  "n": "N7",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Primary KR Direction",
+  "key": "kr_direction",
+  "group": "Why",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [
+   "Increase",
+   "Decrease"
+  ],
+  "allowedText": "Increase · Decrease",
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "After interviews",
+  "description": "Whether the KR should go up or down."
+ },
+ {
+  "n": "N8",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Estimate Basis",
+  "key": "estimate_basis",
+  "group": "Why",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [
+   "Engineering-sized",
+   "PM estimate",
+   "Rough guess",
+   "Not stated"
+  ],
+  "allowedText": "Engineering-sized · PM estimate · Rough guess · Not stated",
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "Where stated",
+  "description": "Who/what the weeks estimate is based on."
+ },
+ {
+  "n": "N9",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Assignees",
+  "key": "assignees",
+  "group": "Delivery (GitHub)",
+  "type": "People",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Two-way with the tracking issue assignees; last write wins, audit-logged.",
+  "filledWhen": "As needed",
+  "description": "People working on the item. Mapped to GitHub logins; unmapped GitHub users show as external."
+ },
+ {
+  "n": "N10",
+  "storage": "Related table, GitHub-synced",
+  "phase": 3,
+  "name": "GitHub Links",
+  "key": "github_links",
+  "group": "Delivery (GitHub)",
+  "type": "Links",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Created from the app or linked to an existing issue.",
+  "filledWhen": "On link or create",
+  "description": "Linked issues/PRs: repo, number, role (tracking issue / child)."
+ },
+ {
+  "n": "N11",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "GitHub Sync State",
+  "key": "sync_state",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Locked (GitHub)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [
+   "Not linked",
+   "Synced",
+   "Pending",
+   "Conflict",
+   "Error"
+  ],
+  "allowedText": "Not linked · Synced · Pending · Conflict · Error",
+  "origin": "Computed",
+  "githubSync": "Derived from sync log.",
+  "filledWhen": "Automatic",
+  "description": "State of the link with the tracker."
+ },
+ {
+  "n": "N12",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "GitHub State",
+  "key": "gh_state",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Locked (GitHub)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [
+   "Open",
+   "Closed (completed)",
+   "Closed (not planned)"
+  ],
+  "allowedText": "Open · Closed (completed) · Closed (not planned)",
+  "origin": "GitHub",
+  "githubSync": "GitHub -> app, read-only.",
+  "filledWhen": "Automatic",
+  "description": "State of the tracking issue."
+ },
+ {
+  "n": "N13",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Issues Closed (#)",
+  "key": "issues_closed",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Locked (GitHub)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "GitHub",
+  "githubSync": "GitHub -> app, read-only.",
+  "filledWhen": "Automatic",
+  "description": "Closed child issues (sub-issues) across linked repos."
+ },
+ {
+  "n": "N14",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Issues Total (#)",
+  "key": "issues_total",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Locked (GitHub)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "GitHub",
+  "githubSync": "GitHub -> app, read-only.",
+  "filledWhen": "Automatic",
+  "description": "All child issues."
+ },
+ {
+  "n": "N15",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Delivery Progress %",
+  "key": "delivery_progress_pct",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Delivery",
+   "History"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Closed / total child issues (empty when there are none)."
+ },
+ {
+  "n": "N16",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Open PRs (#)",
+  "key": "open_prs",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Locked (GitHub)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "GitHub",
+  "githubSync": "GitHub -> app, read-only.",
+  "filledWhen": "Automatic",
+  "description": "Open pull requests linked to the item."
+ },
+ {
+  "n": "N17",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Last GitHub Activity",
+  "key": "gh_last_activity",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Locked (GitHub)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "GitHub",
+  "githubSync": "GitHub -> app, read-only.",
+  "filledWhen": "Automatic",
+  "description": "Last commit/comment/state change on linked issues."
+ },
+ {
+  "n": "N32",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Merged PRs (#)",
+  "key": "merged_prs",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Locked (GitHub)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "GitHub",
+  "githubSync": "GitHub -> app, read-only.",
+  "filledWhen": "Automatic",
+  "description": "Merged pull requests linked to the item."
+ },
+ {
+  "n": "N33",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Project Status (GitHub)",
+  "key": "gh_project_status",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Locked (GitHub)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [
+   "As defined in the linked GitHub Project (e.g. Todo",
+   "In Progress",
+   "Done)"
+  ],
+  "allowedText": "As defined in the linked GitHub Project (e.g. Todo · In Progress · Done)",
+  "origin": "GitHub",
+  "githubSync": "Projects v2 -> app, read-only.",
+  "filledWhen": "Automatic",
+  "description": "Value of the Status field of the item in the linked GitHub Project."
+ },
+ {
+  "n": "N34",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Iteration / Sprint (GitHub)",
+  "key": "gh_iteration",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Locked (GitHub)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "GitHub",
+  "githubSync": "Projects v2 -> app, read-only.",
+  "filledWhen": "Automatic",
+  "description": "Current iteration of the tracking issue or its active child issues in the linked Project."
+ },
+ {
+  "n": "N35",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "GitHub Target Date",
+  "key": "gh_target_date",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Locked (GitHub)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "GitHub",
+  "githubSync": "Projects v2 -> app, read-only.",
+  "filledWhen": "Automatic",
+  "description": "Target/end date set on the item in the linked GitHub Project, if any."
+ },
+ {
+  "n": "N36",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Blocked Issues (#)",
+  "key": "blocked_issues",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Locked (GitHub)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "GitHub",
+  "githubSync": "GitHub -> app, read-only.",
+  "filledWhen": "Automatic",
+  "description": "Child issues that are blocked (blocked-by relation or \"blocked\" label)."
+ },
+ {
+  "n": "N37",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Stale Issues (#)",
+  "key": "stale_issues",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Open child issues with no activity for N days (project setting, default 14)."
+ },
+ {
+  "n": "N38",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Scope Added (#)",
+  "key": "scope_added",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Child issues created after the item entered Build."
+ },
+ {
+  "n": "N39",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Schedule Variance (pp)",
+  "key": "schedule_variance_pp",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Delivery Progress % minus share of time elapsed between Planned Start and G2M Date (est). Negative = behind plan."
+ },
+ {
+  "n": "N40",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Latest Release",
+  "key": "latest_release",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Locked (GitHub)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "GitHub",
+  "githubSync": "GitHub -> app, read-only.",
+  "filledWhen": "Automatic",
+  "description": "Latest release/tag (name, date) in the linked repositories since the item started."
+ },
+ {
+  "n": "N41",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "CI Status",
+  "key": "ci_status",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Locked (GitHub)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [
+   "Passing",
+   "Failing",
+   "None"
+  ],
+  "allowedText": "Passing · Failing · None",
+  "origin": "GitHub",
+  "githubSync": "GitHub -> app, read-only.",
+  "filledWhen": "Automatic",
+  "description": "Status of checks on the default branch of the primary repo."
+ },
+ {
+  "n": "N42",
+  "storage": "Related table, GitHub-synced",
+  "phase": 3,
+  "name": "Repositories",
+  "key": "repositories",
+  "group": "Delivery (GitHub)",
+  "type": "Tags",
+  "editing": "Locked (GitHub)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "GitHub",
+  "githubSync": "GitHub -> app, read-only.",
+  "filledWhen": "Automatic",
+  "description": "Repositories that contain linked issues."
+ },
+ {
+  "n": "A1",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 5,
+  "name": "Crowd Rank",
+  "key": "crowd_rank",
+  "group": "Alignment",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "After session",
+  "description": "Rank from the latest closed alignment session that included the item."
+ },
+ {
+  "n": "A2",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 5,
+  "name": "Crowd Score",
+  "key": "crowd_score",
+  "group": "Alignment",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "After session",
+  "description": "Aggregated score (e.g. Borda or average ICE)."
+ },
+ {
+  "n": "A3",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 5,
+  "name": "Consensus",
+  "key": "crowd_consensus",
+  "group": "Alignment",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "After session",
+  "description": "0-100 agreement between participants (low = polarising)."
+ },
+ {
+  "n": "A4",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 5,
+  "name": "Votes (#)",
+  "key": "crowd_votes",
+  "group": "Alignment",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "After session",
+  "description": "Number of verified ballots including the item."
+ },
+ {
+  "n": "N18",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Visibility",
+  "key": "visibility",
+  "group": "Trust",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [
+   "Internal only",
+   "Shareable"
+  ],
+  "allowedText": "Internal only · Shareable",
+  "origin": "Input",
+  "githubSync": "Never synced to GitHub.",
+  "filledWhen": "Before sharing",
+  "description": "Controls whether an item may appear in shared roadmaps and alignment sessions."
+ },
+ {
+  "n": "N19",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Last Reviewed",
+  "key": "last_reviewed_at",
+  "group": "Trust",
+  "type": "Date",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "Every review",
+  "description": "Date someone pressed \"Mark reviewed\"."
+ },
+ {
+  "n": "N20",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
+  "name": "Review Overdue",
+  "key": "review_overdue",
+  "group": "Trust",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [
+   "Yes",
+   "No"
+  ],
+  "allowedText": "Yes · No",
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Next Review Date is in the past."
+ },
+ {
+  "n": "N21",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Created At",
+  "key": "created_at",
+  "group": "Trust",
+  "type": "System",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "System",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Timestamp when the item was created."
+ },
+ {
+  "n": "N23",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Created By",
+  "key": "created_by",
+  "group": "Trust",
+  "type": "System",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "System",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "User who created the item (or the AI intake on their behalf)."
+ },
+ {
+  "n": "N24",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Last Edited By",
+  "key": "last_edited_by",
+  "group": "Trust",
+  "type": "System",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "System",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "User who last changed the item."
+ },
+ {
+  "n": "N25",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Phase Changed At",
+  "key": "phase_changed_at",
+  "group": "Trust",
+  "type": "System",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "System",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "When the Phase last changed."
+ },
+ {
+  "n": "N26",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
+  "name": "Days in Current Phase",
+  "key": "days_in_phase",
+  "group": "Trust",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Days since Phase Changed At."
+ },
+ {
+  "n": "N27",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
+  "name": "Item Age (days)",
+  "key": "item_age_days",
+  "group": "Trust",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "Days since Created At."
+ },
+ {
+  "n": "N28",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Status Changed At",
+  "key": "status_changed_at",
+  "group": "Trust",
+  "type": "System",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "System",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "When Status or Health last changed."
+ },
+ {
+  "n": "N29",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Created Via",
+  "key": "created_via",
+  "group": "Trust",
+  "type": "Select",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [
+   "Manual",
+   "Import",
+   "AI intake",
+   "GitHub"
+  ],
+  "allowedText": "Manual · Import · AI intake · GitHub",
+  "origin": "System",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "How the item entered the platform."
+ },
+ {
+  "n": "N30",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "AI Draft (needs review)",
+  "key": "ai_draft",
+  "group": "Trust",
+  "type": "Boolean",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "System",
+  "githubSync": null,
+  "filledWhen": "Automatic",
+  "description": "True while AI-filled values have not been confirmed by a person."
+ },
+ {
+  "n": "N31",
+  "storage": "Related table",
+  "phase": 4,
+  "name": "Source Document",
+  "key": "source_document",
+  "group": "Trust",
+  "type": "Links",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "On AI intake or import",
+  "description": "Original email/document/URL the item was created from (stored file or link)."
+ },
+ {
+  "n": "N22",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Archived",
+  "key": "archived",
+  "group": "Trust",
+  "type": "Boolean",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "As needed",
+  "description": "Soft delete. Hidden from grids by default, kept for history."
+ },
+ {
+  "n": "V1",
+  "storage": "Related table",
+  "phase": 1,
+  "name": "Home Project",
+  "key": "home_project",
+  "group": "What",
+  "type": "Relation",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation",
+   "Planning"
+  ],
+  "allowed": [],
+  "allowedText": "Project",
+  "origin": "Input",
+  "githubSync": "Selects the repo for the tracking issue.",
+  "filledWhen": "Now",
+  "description": "Project that owns the item (team, repo, GitHub setup)."
+ },
+ {
+  "n": "V2",
+  "storage": "Related table",
+  "phase": 1,
+  "name": "Contributing Teams",
+  "key": "contributing_teams",
+  "group": "What",
+  "type": "Tags",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation",
+   "Planning"
+  ],
+  "allowed": [],
+  "allowedText": "Teams",
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "Now",
+  "description": "Teams whose capacity the item needs."
+ },
+ {
+  "n": "V3",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 2,
+  "name": "Rank in Project",
+  "key": "project_rank",
+  "group": "What",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": "Not synced.",
+  "filledWhen": "Now",
+  "description": "Position of the item within its project, from the global Stack Rank."
+ },
+ {
+  "n": "V4",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Previous Rank",
+  "key": "previous_rank",
+  "group": "What",
+  "type": "Number",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "System",
+  "githubSync": "Not synced.",
+  "filledWhen": "Cycle start",
+  "description": "Stack Rank in the previous cycle."
+ },
+ {
+  "n": "V5",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Value Proposition (customer-safe)",
+  "key": "value_proposition",
+  "group": "What",
+  "type": "Long text",
+  "editing": "Editable",
+  "customerSafe": true,
+  "views": [
+   "Go-to-market"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "Before alignment",
+  "description": "One or two sentences on the benefit, safe to show customers."
+ },
+ {
+  "n": "V6",
+  "storage": "Related table",
+  "phase": 1,
+  "name": "Target Segments (customer-safe)",
+  "key": "target_segments",
+  "group": "What",
+  "type": "Tags",
+  "editing": "Editable",
+  "customerSafe": true,
+  "views": [
+   "Go-to-market"
+  ],
+  "allowed": [],
+  "allowedText": "Segments",
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "Before alignment",
+  "description": "Who it is for, in customer-safe wording."
+ },
+ {
+  "n": "V7",
+  "storage": "Related table",
+  "phase": 1,
+  "name": "Screenshots",
+  "key": "screenshots",
+  "group": "What",
+  "type": "Files",
+  "editing": "Editable",
+  "customerSafe": true,
+  "views": [
+   "Go-to-market"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "Before alignment",
+  "description": "Images of the proposed solution."
+ },
+ {
+  "n": "V8",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Date Precision",
+  "key": "date_precision",
+  "group": "When",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": true,
+  "views": [
+   "Go-to-market"
+  ],
+  "allowed": [
+   "Day",
+   "Month",
+   "Quarter"
+  ],
+  "allowedText": "Day · Month · Quarter",
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "Now",
+  "description": "How exact dates may be shown outside the team."
+ },
+ {
+  "n": "V9",
+  "storage": "Column on items (jsonb)",
+  "phase": 1,
+  "name": "Effort by Skill",
+  "key": "effort_by_skill",
+  "group": "Why",
+  "type": "Structured",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [],
+  "allowedText": "Skill = person-weeks",
+  "origin": "Input",
+  "githubSync": "Estimates may come from sub-issues.",
+  "filledWhen": "After estimate",
+  "description": "Person-weeks per skill (backend, frontend, data, platform)."
+ },
+ {
+  "n": "V10",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 5,
+  "name": "Fit by Team",
+  "key": "fit_by_team",
+  "group": "Why",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation",
+   "Planning",
+   "History"
+  ],
+  "allowed": [
+   "fits",
+   "tight",
+   "over"
+  ],
+  "allowedText": "fits · tight · over",
+  "origin": "Computed",
+  "githubSync": "Not synced.",
+  "filledWhen": "Now",
+  "description": "Per-team result of the capacity check at this rank."
+ },
+ {
+  "n": "V11",
+  "storage": "Column on items",
+  "phase": 4,
+  "name": "Spec Status",
+  "key": "spec_status",
+  "group": "Spec",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [
+   "No spec",
+   "Draft",
+   "In review",
+   "Approved"
+  ],
+  "allowedText": "No spec · Draft · In review · Approved",
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "Now",
+  "description": "State of the item documents."
+ },
+ {
+  "n": "V12",
+  "storage": "Related table",
+  "phase": 4,
+  "name": "Documents",
+  "key": "documents",
+  "group": "Spec",
+  "type": "Relation",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Leadership"
+  ],
+  "allowed": [],
+  "allowedText": "PRD, business requirements, technical requirements, acceptance criteria, prototype, research",
+  "origin": "Input",
+  "githubSync": "Links may be added to the issue body.",
+  "filledWhen": "Now",
+  "description": "Item documents (links or MD files), versioned."
+ },
+ {
+  "n": "V13",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 4,
+  "name": "Ready for Build",
+  "key": "ready_for_build",
+  "group": "Spec",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [
+   "Not ready",
+   "Requested",
+   "Ready"
+  ],
+  "allowedText": "Not ready · Requested · Ready",
+  "origin": "Computed",
+  "githubSync": "Label optional.",
+  "filledWhen": "Before build",
+  "description": "Definition of Ready complete and approved."
+ },
+ {
+  "n": "V14",
+  "storage": "System-set column (read-only)",
+  "phase": 4,
+  "name": "Ready for Build By / At",
+  "key": "ready_for_build_by",
+  "group": "Spec",
+  "type": "System",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [],
+  "allowedText": "Person, date",
+  "origin": "System",
+  "githubSync": "Not synced.",
+  "filledWhen": "Before build",
+  "description": "Approver and time of approval."
+ },
+ {
+  "n": "V15",
+  "storage": "Column on items",
+  "phase": 4,
+  "name": "Agent-ready",
+  "key": "agent_ready",
+  "group": "Spec",
+  "type": "Boolean",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [
+   "Yes",
+   "No"
+  ],
+  "allowedText": "Yes · No",
+  "origin": "Computed",
+  "githubSync": "Label optional.",
+  "filledWhen": "Before build",
+  "description": "Spec, criteria and breakdown complete so a coding agent can start."
+ },
+ {
+  "n": "V16",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 4,
+  "name": "Breakdown Route",
+  "key": "breakdown_route",
+  "group": "Delivery (GitHub)",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [
+   "Traditional",
+   "In between",
+   "Full Claude"
+  ],
+  "allowedText": "Traditional · In between · Full Claude",
+  "origin": "Input",
+  "githubSync": "Decides who creates issues.",
+  "filledWhen": "Before build",
+  "description": "Who breaks the initiative into epics and tasks."
+ },
+ {
+  "n": "V17",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 4,
+  "name": "Breakdown Status",
+  "key": "breakdown_status",
+  "group": "Delivery (GitHub)",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning",
+   "Delivery"
+  ],
+  "allowed": [
+   "Not started",
+   "Draft proposed",
+   "Awaiting engineering",
+   "Complete"
+  ],
+  "allowedText": "Not started · Draft proposed · Awaiting engineering · Complete",
+  "origin": "Input",
+  "githubSync": "Complete can be set by label or in the app.",
+  "filledWhen": "Before build",
+  "description": "Progress of the breakdown."
+ },
+ {
+  "n": "V18",
+  "storage": "GitHub-synced column (read-only in app)",
+  "phase": 3,
+  "name": "Planned Scope (#)",
+  "key": "planned_scope",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": "From sub-issues.",
+  "filledWhen": "After breakdown",
+  "description": "Sub-issues existing when breakdown became Complete."
+ },
+ {
+  "n": "V19",
+  "storage": "Column on items",
+  "phase": 5,
+  "name": "Planning Status",
+  "key": "planning_status",
+  "group": "Planning",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [
+   "Candidate",
+   "Included",
+   "Committed",
+   "Deferred",
+   "Dropped"
+  ],
+  "allowedText": "Candidate · Included · Committed · Deferred · Dropped",
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "Each cycle",
+  "description": "Where the item stands in the planning cycle."
+ },
+ {
+  "n": "V20",
+  "storage": "Related table",
+  "phase": 5,
+  "name": "Cycle",
+  "key": "cycle",
+  "group": "Planning",
+  "type": "Relation",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [],
+  "allowedText": "Planning cycles",
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "Each cycle",
+  "description": "Cycle the item is planned in."
+ },
+ {
+  "n": "V21",
+  "storage": "System-set column (read-only)",
+  "phase": 5,
+  "name": "Candidate Tag",
+  "key": "candidate_tag",
+  "group": "Planning",
+  "type": "Select",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [
+   "Carry-over",
+   "Likely carry-over",
+   "Deferred",
+   "New",
+   "Backlog"
+  ],
+  "allowedText": "Carry-over · Likely carry-over · Deferred · New · Backlog",
+  "origin": "System",
+  "githubSync": "Not synced.",
+  "filledWhen": "Candidate selection",
+  "description": "Why the item is in the candidate pool."
+ },
+ {
+  "n": "V22",
+  "storage": "System-set column (read-only)",
+  "phase": 5,
+  "name": "Deferred Count",
+  "key": "deferred_count",
+  "group": "Planning",
+  "type": "Number",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "System",
+  "githubSync": "Not synced.",
+  "filledWhen": "Each cycle",
+  "description": "How many cycles the item has been pushed out."
+ },
+ {
+  "n": "V23",
+  "storage": "Column on items",
+  "phase": 5,
+  "name": "Deferral Reason",
+  "key": "deferral_reason",
+  "group": "Planning",
+  "type": "Text",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "On deferral",
+  "description": "Why the item was deferred."
+ },
+ {
+  "n": "V24",
+  "storage": "System-set column (read-only)",
+  "phase": 5,
+  "name": "Added After Commit",
+  "key": "added_after_commit",
+  "group": "Planning",
+  "type": "Boolean",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [
+   "Yes",
+   "No"
+  ],
+  "allowedText": "Yes · No",
+  "origin": "System",
+  "githubSync": "Not synced.",
+  "filledWhen": "Execution",
+  "description": "Item entered the cycle after the Commit date."
+ },
+ {
+  "n": "V25",
+  "storage": "System-set column (read-only)",
+  "phase": 7,
+  "name": "Current Gate",
+  "key": "current_gate",
+  "group": "Gates",
+  "type": "Select",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Planning",
+   "Go-to-market",
+   "History"
+  ],
+  "allowed": [
+   "G1",
+   "G2",
+   "G3",
+   "G4"
+  ],
+  "allowedText": "G1 · G2 · G3 · G4",
+  "origin": "System",
+  "githubSync": "Not synced.",
+  "filledWhen": "Now",
+  "description": "Next gate the item must pass."
+ },
+ {
+  "n": "V26",
+  "storage": "System-set column (read-only)",
+  "phase": 7,
+  "name": "Gate Status",
+  "key": "gate_status",
+  "group": "Gates",
+  "type": "Select",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Planning",
+   "History"
+  ],
+  "allowed": [
+   "Not started",
+   "In review",
+   "Waiting for Approver",
+   "Passed with conditions",
+   "Passed",
+   "Held",
+   "Stopped"
+  ],
+  "allowedText": "Not started · In review · Waiting for Approver · Passed with conditions · Passed · Held · Stopped",
+  "origin": "System",
+  "githubSync": "Not synced.",
+  "filledWhen": "Now",
+  "description": "State of the current gate."
+ },
+ {
+  "n": "V27",
+  "storage": "Column on items",
+  "phase": 7,
+  "name": "Next Gate Due",
+  "key": "next_gate_due",
+  "group": "Gates",
+  "type": "Date",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "Now",
+  "description": "Date the next gate decision is due."
+ },
+ {
+  "n": "V28",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 8,
+  "name": "Alignment Status",
+  "key": "alignment_status",
+  "group": "Alignment",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation",
+   "Planning",
+   "History"
+  ],
+  "allowed": [
+   "Not started",
+   "In review",
+   "Aligned",
+   "Contested",
+   "Overdue"
+  ],
+  "allowedText": "Not started · In review · Aligned · Contested · Overdue",
+  "origin": "Computed",
+  "githubSync": "Not synced.",
+  "filledWhen": "Alignment",
+  "description": "Overall state across Why, What, How and When."
+ },
+ {
+  "n": "V29",
+  "storage": "Column on items",
+  "phase": 8,
+  "name": "Why State",
+  "key": "align_why",
+  "group": "Alignment",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [
+   "Not started",
+   "In review",
+   "Aligned",
+   "Contested",
+   "Overdue"
+  ],
+  "allowedText": "Not started · In review · Aligned · Contested · Overdue",
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "Alignment",
+  "description": "Is it worth doing? Ranking and coins."
+ },
+ {
+  "n": "V30",
+  "storage": "Column on items",
+  "phase": 8,
+  "name": "What State",
+  "key": "align_what",
+  "group": "Alignment",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [
+   "Not started",
+   "In review",
+   "Aligned",
+   "Contested",
+   "Overdue"
+  ],
+  "allowedText": "Not started · In review · Aligned · Contested · Overdue",
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "Alignment",
+  "description": "Do we mean the same thing? Brief review."
+ },
+ {
+  "n": "V31",
+  "storage": "Column on items",
+  "phase": 8,
+  "name": "How State",
+  "key": "align_how",
+  "group": "Alignment",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [
+   "Not started",
+   "In review",
+   "Aligned",
+   "Contested",
+   "Overdue"
+  ],
+  "allowedText": "Not started · In review · Aligned · Contested · Overdue",
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "Alignment",
+  "description": "Can we build it safely? Engineering, design, security, legal."
+ },
+ {
+  "n": "V32",
+  "storage": "Column on items",
+  "phase": 8,
+  "name": "When State",
+  "key": "align_when",
+  "group": "Alignment",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning"
+  ],
+  "allowed": [
+   "Not started",
+   "In review",
+   "Aligned",
+   "Contested",
+   "Overdue"
+  ],
+  "allowedText": "Not started · In review · Aligned · Contested · Overdue",
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "Alignment",
+  "description": "Does it fit? Team leads confirm capacity."
+ },
+ {
+  "n": "V33",
+  "storage": "Column on items",
+  "phase": 7,
+  "name": "Outcome Status",
+  "key": "outcome_status",
+  "group": "Outcomes",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Outcomes",
+   "History"
+  ],
+  "allowed": [
+   "Not yet due",
+   "On target",
+   "Behind",
+   "Missed",
+   "Exceeded"
+  ],
+  "allowedText": "Not yet due · On target · Behind · Missed · Exceeded",
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "After launch",
+  "description": "Result of the latest outcome review."
+ },
+ {
+  "n": "V34",
+  "storage": "Column on items",
+  "phase": 7,
+  "name": "Outcome Review Date",
+  "key": "outcome_review_date",
+  "group": "Outcomes",
+  "type": "Date",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": "Not synced.",
+  "filledWhen": "After launch",
+  "description": "Date of the next outcome review."
+ },
+ {
+  "n": "V35",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 7,
+  "name": "Value vs Prediction (%)",
+  "key": "value_variance_pct",
+  "group": "Outcomes",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": "Not synced.",
+  "filledWhen": "After launch",
+  "description": "Realised value compared with the predicted value."
+ },
+ {
+  "n": "V36",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 7,
+  "name": "Time to First Use (days)",
+  "key": "time_to_first_use_days",
+  "group": "Outcomes",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Go-to-market",
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": "Not synced.",
+  "filledWhen": "After launch",
+  "description": "Days from launch to first customer use."
+ },
+ {
+  "n": "V37",
+  "storage": "Column on items",
+  "phase": 7,
+  "name": "Retention (%)",
+  "key": "retention_pct",
+  "group": "Outcomes",
+  "type": "Number",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "Not synced.",
+  "filledWhen": "After launch",
+  "description": "Share of adopters still using it."
+ },
+ {
+  "n": "V38",
+  "storage": "System-set column (read-only)",
+  "phase": 1,
+  "name": "Created Via Values",
+  "key": "created_via_values",
+  "group": "Trust",
+  "type": "Note",
+  "editing": "System (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [
+   "UI",
+   "Import",
+   "Claude (MCP)",
+   "GitHub",
+   "API",
+   "System"
+  ],
+  "allowedText": "UI · Import · Claude (MCP) · GitHub · API · System",
+  "origin": "System",
+  "githubSync": "Not synced.",
+  "filledWhen": "Always",
+  "description": "Extend Created Via (N29) with Claude (MCP)."
+ },
+ {
+  "n": "V39",
+  "storage": "Computed (view or function, not stored)",
+  "phase": 1,
+  "name": "Locked (GitHub-driven)",
+  "key": "locked_by_source",
+  "group": "Trust",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Discovery"
+  ],
+  "allowed": [
+   "Yes",
+   "No"
+  ],
+  "allowedText": "Yes · No",
+  "origin": "System",
+  "githubSync": "n/a",
+  "filledWhen": "Always",
+  "description": "True for fields set by GitHub (status, progress, PR, CI)."
+ }
+]

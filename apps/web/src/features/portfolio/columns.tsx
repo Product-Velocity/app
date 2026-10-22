@@ -1,0 +1,152 @@
+"use client";
+
+import type { ColDef, IHeaderParams } from "ag-grid-community";
+import {
+  EDITABLE_FIELDS, FIELDS, formatDate, formatValue, isShipped, optionsFor, readOnlyReason,
+  type EditableField, type FieldDef,
+} from "@pv/domain";
+import type { PortfolioController } from "./controller";
+import { PickerEditor, type PickerOption } from "./picker-editor";
+import type { GridItem, Lookups } from "./types";
+
+const HEALTH_SYMBOL: Record<string, string> = { "On Track": "✓", "At Risk": "▲", "Delayed": "✖", "Blocked": "■" };
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, "-");
+
+/** Text label always, symbol and colour as extras (never colour alone). */
+function HealthCell({ value }: { value: string | null }) {
+  if (!value) return null;
+  return (
+    <span className={`pill health-${slug(value)}`}>
+      <span aria-hidden="true">{HEALTH_SYMBOL[value] ?? "•"}</span> {value}
+    </span>
+  );
+}
+
+function ReadOnlyCell({ text, reason }: { text: string; reason: string | null }) {
+  return <span title={reason ?? undefined}>{text}</span>;
+}
+
+/** Column header: the field name, plus a words-only note when the field is read-only or from a later phase. */
+function FieldHeader({ displayName, phase, locked }: IHeaderParams & { phase: number; locked: boolean }) {
+  return (
+    <span className="field-header">
+      <span className="field-header-name">{displayName}</span>
+      {locked && <span className="field-header-note">from GitHub</span>}
+      {phase > 1 && <span className="field-header-note">Arrives in phase {phase}</span>}
+    </span>
+  );
+}
+
+/** The columns every view shows and keeps on the left, so a row always says which initiative it is. */
+export const CORE_COLUMNS = ["stack_rank", "item_code", "initiative_name"] as const;
+
+const WIDTH: Record<string, number> = {
+  Select: 150, Text: 190, "Long text": 240, Number: 112, Currency: 120, Date: 116, "Date range": 170, Person: 190, "Person or text": 170,
+  People: 190, Boolean: 96, Tags: 170, Links: 200, Relation: 150, Files: 170, Thread: 150, Structured: 170, Note: 150, System: 130, Computed: 124,
+};
+const WIDE: Record<string, number> = { initiative_name: 320, home_project: 160, stack_rank: 104, item_code: 116, project_rank: 104, health: 130 };
+
+const num = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 2 });
+const when = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+export type ColumnContext = { controller: PortfolioController; lookups: Lookups; today: () => Date; visible: ReadonlySet<string> };
+
+export function buildColumns({ controller, lookups, today, visible }: ColumnContext): ColDef<GridItem>[] {
+  const editable = () => controller.canEdit;
+  const projectOptions: PickerOption[] = lookups.projects.map((p) => ({ value: p.id, label: p.name }));
+  const personOptions: PickerOption[] = lookups.members.map((m) => ({ value: m.user_id, label: m.email }));
+  const setter = (field: EditableField) => (p: { data: GridItem; newValue: unknown }) =>
+    controller.edit(p.data.id, field, p.newValue == null ? "" : String(p.newValue)).ok;
+
+  const display = (f: FieldDef, v: unknown): string => {
+    if (v === null || v === undefined || v === "") return "";
+    switch (f.type) {
+      case "Currency": return formatValue(Number(v));
+      case "Date": return formatDate(String(v), today());
+      case "Boolean": return v ? "Yes" : "No";
+      case "Person": return lookups.members.find((m) => m.user_id === v)?.email ?? "unknown person";
+      case "Number": case "Computed": case "System":
+        if (typeof v === "boolean") return v ? "Yes" : "No";
+        if (typeof v === "number") return f.key.endsWith("_pct") ? `${num.format(v)}%` : f.key.endsWith("_pp") ? `${num.format(v)} pp` : num.format(v);
+        if (typeof v === "object") return JSON.stringify(v);
+        if (/^\d{4}-\d\d-\d\dT/.test(String(v))) return when.format(new Date(String(v)));
+        return String(v);
+      default:
+        if (f.key === "home_project") return lookups.projects.find((p) => p.id === v)?.name ?? "";
+        return String(v);
+    }
+  };
+
+  const def = (f: FieldDef): ColDef<GridItem> => {
+    const reason = f.key === "stack_rank" ? null : readOnlyReason(f.key);
+    const canEdit = reason === null && (f.key === "stack_rank" || EDITABLE_FIELDS.includes(f.key));
+    const base: ColDef<GridItem> = {
+      colId: f.key,
+      field: f.key as never,
+      headerName: f.name,
+      headerComponent: FieldHeader,
+      headerComponentParams: { phase: f.phase, locked: f.mode === "locked" || f.storage.startsWith("GitHub-synced") },
+      headerTooltip: f.description ?? f.name,
+      width: WIDE[f.key] ?? WIDTH[f.type] ?? 140,
+      hide: !visible.has(f.key) && !(CORE_COLUMNS as readonly string[]).includes(f.key),
+      sortable: false,
+      cellClass: [
+        ["Number", "Currency", "Computed"].includes(f.type) && f.key !== "item_code" ? "num" : "",
+        reason && f.key !== "item_code" ? "cell-locked" : "",
+        f.key === "item_code" ? "mono muted" : "",
+      ].filter(Boolean).join(" "),
+      editable: canEdit ? editable : false,
+      valueFormatter: (p) => display(f, p.value),
+    };
+    if (f.key === "stack_rank") {
+      return {
+        ...base, pinned: "left", sort: "asc", cellClass: "num cell-key-col", editable,
+        valueFormatter: (p) => `#${p.value}`,
+        valueSetter: (p) => {
+          controller.editRank(p.data.id, String(p.newValue ?? "").replace(/^#/, ""));
+          return false; // the controller updated the rows; the grid refreshes from its change events
+        },
+      };
+    }
+    if (CORE_COLUMNS.includes(f.key as never)) base.pinned = "left";
+    if (f.key === "initiative_name") { base.flex = 1; base.minWidth = 300; }
+    if (f.key === "project_rank" || f.key === "item_code") return base;
+    if (f.key === "health") return { ...base, cellRenderer: HealthCell, ...pickerDef(f, optionsFor(f.key), true) };
+    if (reason) {
+      return { ...base, cellRenderer: (p: { value: unknown }) => <ReadOnlyCell text={display(f, p.value) || (f.key === "status" ? "Not on GitHub" : "")} reason={reason} /> };
+    }
+    if (!canEdit) return base;
+    base.valueSetter = setter(f.key) as never;
+    if (f.key === "home_project") return { ...base, ...pickerDef(f, projectOptions, false) };
+    if (f.type === "Person") return { ...base, ...pickerDef(f, personOptions, true, "Unassigned") };
+    if (f.type === "Boolean") {
+      return {
+        ...base,
+        valueGetter: (p) => (p.data?.[f.key] == null ? "" : p.data[f.key] ? "Yes" : "No"),
+        valueFormatter: (p) => String(p.value ?? ""),
+        ...pickerDef(f, optionsFor(f.key), false),
+      };
+    }
+    if (f.type === "Select" && f.allowed.length > 0) return { ...base, ...pickerDef(f, optionsFor(f.key), true) };
+    if (f.type === "Currency" || f.type === "Date" || f.type === "Number") base.cellEditorParams = { useFormatter: true };
+    return base;
+  };
+
+  function pickerDef(f: FieldDef, options: PickerOption[], allowEmpty: boolean, emptyLabel?: string): Partial<ColDef<GridItem>> {
+    return {
+      editable: reasonFree(f) ? editable : false,
+      cellEditor: PickerEditor,
+      cellEditorPopup: true,
+      cellEditorParams: { options, allowEmpty, emptyLabel },
+      valueSetter: setter(f.key) as never,
+    };
+  }
+  const reasonFree = (f: FieldDef) => readOnlyReason(f.key) === null;
+
+  return FIELDS.map(def);
+}
+
+/** Column ids whose cells cannot be edited, with the reason (for the notice under the grid). */
+export const isReadOnlyColumn = (colId: string) => colId !== "stack_rank" && readOnlyReason(colId) !== null;
+export const isEditableColumn = (colId: string) => EDITABLE_FIELDS.includes(colId);
+export { isShipped };

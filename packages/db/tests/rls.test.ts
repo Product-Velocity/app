@@ -79,10 +79,10 @@ const probes: Probe[] = [
     table: "items",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [
-      { sql: "update public.items set title = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.items set initiative_name = 'pwned' where tenant_id = $1", params: [v.tenantId] },
       { sql: "delete from public.items where tenant_id = $1", params: [v.tenantId] },
       {
-        sql: "insert into public.items (tenant_id, title, home_project_id) select $1, 'Injected', id from public.projects where tenant_id = $1",
+        sql: "insert into public.items (tenant_id, initiative_name, home_project_id) select $1, 'Injected', id from public.projects where tenant_id = $1",
         params: [v.tenantId],
       },
       { sql: "update public.items set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
@@ -120,6 +120,41 @@ const probes: Probe[] = [
         sql: "insert into public.item_teams (tenant_id, item_id, team_id) select $1, i.id, t.id from public.items i, public.teams t where i.tenant_id = $1 and t.tenant_id = $1",
         params: [v.tenantId],
       },
+    ],
+  },
+  {
+    table: "item_tags",
+    tenantColumn: "tenant_id",
+    attacks: (v) => [
+      { sql: "delete from public.item_tags where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.item_tags (tenant_id, item_id, kind, value) select $1, item_id, 'tag', 'injected' from public.item_tags where tenant_id = $1", params: [v.tenantId] },
+    ],
+  },
+  {
+    table: "item_links",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.item_links set url = 'https://evil.test' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.item_links where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.item_links (tenant_id, item_id, label, url) select $1, item_id, 'x', 'https://evil.test' from public.item_links where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.item_links set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "item_files",
+    tenantColumn: "tenant_id",
+    attacks: (v) => [
+      { sql: "update public.item_files set name = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.item_files where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.item_files (tenant_id, item_id, name, storage_path) select $1, item_id, 'x', 'x' from public.item_files where tenant_id = $1", params: [v.tenantId] },
+    ],
+  },
+  {
+    table: "item_relations",
+    tenantColumn: "tenant_id",
+    attacks: (v) => [
+      { sql: "delete from public.item_relations where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.item_relations (tenant_id, item_id, related_item_id, kind) select $1, related_item_id, item_id, 'related_to' from public.item_relations where tenant_id = $1", params: [v.tenantId] },
     ],
   },
   {
@@ -168,7 +203,7 @@ describe("RLS covers every table", () => {
   });
 
   it("internal trigger functions are not callable by API roles, and no function has a mutable search_path", async () => {
-    for (const fn of ["audit_row()", "set_write_meta()", "guard_approver()", "audit_log_append_only()", "guard_last_admin()", "items_before_insert()", "items_guard()", "items_compact()"]) {
+    for (const fn of ["audit_row()", "set_write_meta()", "guard_approver()", "audit_log_append_only()", "guard_last_admin()", "items_before_insert()", "items_guard()", "items_compact()", "items_system_fields()"]) {
       for (const role of ["anon", "authenticated"]) {
         const { rows } = await db.admin.query("select has_function_privilege($1, $2, 'execute') as ok", [role, `public.${fn}`]);
         expect(rows[0].ok, `${role} can execute ${fn}`).toBe(false);

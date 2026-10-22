@@ -181,12 +181,17 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
   const items: string[] = [];
   for (const title of ["First", "Second", "Third"]) {
     items.push(
-      await one("insert into public.items (tenant_id, title, home_project_id) values ($1, $2, $3) returning id", [tenantId, title, project]),
+      await one("insert into public.items (tenant_id, initiative_name, home_project_id) values ($1, $2, $3) returning id", [tenantId, title, project]),
     );
   }
   const scope = await one("insert into public.saved_scopes (tenant_id, name) values ($1, 'Everything') returning id", [tenantId]);
   await db.admin.query("insert into public.saved_scope_projects (tenant_id, scope_id, project_id) values ($1, $2, $3)", [tenantId, scope, project]);
   await db.admin.query("insert into public.item_teams (tenant_id, item_id, team_id) values ($1, $2, $3)", [tenantId, items[0], team]);
+  // multi-value fields (positive controls for the related tables of migration 0009)
+  await db.admin.query("insert into public.item_tags (tenant_id, item_id, kind, value) values ($1, $2, 'tag', 'priority')", [tenantId, items[0]]);
+  await db.admin.query("insert into public.item_links (tenant_id, item_id, label, url) values ($1, $2, 'PRD', 'https://example.test/prd')", [tenantId, items[0]]);
+  await db.admin.query("insert into public.item_files (tenant_id, item_id, name, storage_path) values ($1, $2, 'shot.png', $3)", [tenantId, items[0], `${tenantId}/shot.png`]);
+  await db.admin.query("insert into public.item_relations (tenant_id, item_id, related_item_id, kind) values ($1, $2, $3, 'depends_on')", [tenantId, items[1], items[0]]);
   return { project, team, items, scope };
 }
 

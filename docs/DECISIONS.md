@@ -49,3 +49,10 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Item keys are `R-01`, `R-02`, ... per tenant, never reused; enumerations stored lower-case (moscow, size, health, date precision); horizon and focus area are free text until defined · Claude (issue #5)
 - 2026-10-22 · Cross-tenant references are blocked by composite foreign keys; saved scopes use a join table instead of an array · Claude (issue #5)
 - 2026-10-22 · The field dictionary (docs/reference/item-fields.csv, 165 fields) is the authoritative item spec; schema and grid columns must match it; each field has a storage type and a phase · Ashu/Claude
+- 2026-10-22 · The field dictionary (`docs/reference/item-fields.csv`) is the item spec: columns use its keys, selects store its allowed values as spelled, a registry in `@pv/domain` is tested against the CSV · Ashu (issue #19)
+- 2026-10-22 · The 0008 column `owner_user_id` becomes `product_manager` and `end_date` becomes `g2m_date_est` (the dictionary has no "owner" or "end date"; G2M date is the estimated end) · Claude (issue #19), to confirm with Ashu
+- 2026-10-22 · `confidence` becomes High / Medium / Low (existing numbers: 70+ High, 40–69 Medium, below Low) · Claude (issue #19)
+- 2026-10-22 · `created_via` keeps the write-provenance values used by every table and the audit log; the dictionary's separate "Manual / Import / AI intake / GitHub" list (N29) and its note row V38 disagree, so it is not stored separately yet · Claude (issue #19), to confirm with Ashu
+- 2026-10-22 · Multi-value fields (tags, target/live scope, segments, artifacts, screenshots, depends on, related to) are related tables; the grid shows them as text and they are edited in the item panel (phase 2) · Claude (issue #19)
+- 2026-10-22 · Computed fields live in one view, `items_computed`; G2M quarter is shown as "Q2 2027"; fields that need later-phase data return null · Claude (issue #19)
+- 2026-10-22 · Item codes above R-99 are not zero-padded (fixes a collision at the 100th item of a tenant) · Claude (issue #19)

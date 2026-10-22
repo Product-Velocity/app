@@ -4,7 +4,7 @@ import { ROLE_LABEL } from "@/lib/roles";
 import { switchTenant } from "./actions";
 
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
-  const { user, memberships, active } = await requireWorkspace("/home");
+  const { user, memberships, active } = await requireWorkspace("/portfolio");
   return (
     <div className="shell">
       <header className="topbar">
@@ -29,7 +29,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
           <span>{active.tenantName}</span>
         )}
         <nav aria-label="Main" className="nav">
-          <Link href="/home">Home</Link>
+          <Link href="/portfolio">Roadmap</Link>
           <Link href="/settings/members">Members</Link>
           <Link href="/settings/security">Security</Link>
         </nav>

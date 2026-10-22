@@ -6,7 +6,7 @@ export const metadata = { title: "Create your workspace · Product Velocity" };
 
 export default async function OnboardingPage() {
   const { supabase, user } = await requireUser("/onboarding");
-  if ((await loadMemberships(supabase, user.id)).length > 0) redirect("/home");
+  if ((await loadMemberships(supabase, user.id)).length > 0) redirect("/portfolio");
   return (
     <main className="auth-page">
       <div className="card auth-card">
