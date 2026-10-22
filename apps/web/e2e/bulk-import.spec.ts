@@ -20,9 +20,10 @@ test.describe("bulk bar", () => {
     await open(page);
     await select(page, "item-1", "item-2", "item-3");
     await expect(bar(page)).toContainText("3 selected");
-    await bar(page).getByLabel("Set").selectOption("moscow");
-    await bar(page).getByLabel("New value for MoSCoW").selectOption("Won't");
-    await bar(page).getByRole("button", { name: "Apply to 3 items" }).click();
+    await bar(page).getByRole("button", { name: /^Set MoSCoW/ }).click();
+    await expect(page.getByRole("menu", { name: "Set MoSCoW" })).toContainText("Set MoSCoW on 3 items to");
+    await expect(page.getByRole("menu", { name: "Set MoSCoW" })).toContainText("Currently: Must, Should, Could");
+    await page.getByRole("menuitem", { name: "Won't" }).click();
     for (const id of ["item-1", "item-2", "item-3"]) await expect(cell(page, id, "moscow")).toHaveText("Won't");
     await expect(page.locator(".strip")).toContainText("Set MoSCoW to Won't on 3 items");
     await expect(bar(page)).toContainText("Done: Set MoSCoW to Won't on 3 items");
@@ -38,12 +39,13 @@ test.describe("bulk bar", () => {
   test("GitHub-driven and other read-only fields are rejected with a clear message", async ({ page }) => {
     await open(page);
     await select(page, "item-1", "item-2");
-    await bar(page).getByLabel("Set").selectOption("status");
+    await bar(page).getByRole("button", { name: /^More fields/ }).click();
+    await bar(page).getByLabel("Set", { exact: true }).selectOption("status");
     await expect(bar(page)).toContainText("Initiative Status comes from GitHub and cannot be edited here");
     await expect(bar(page).getByRole("button", { name: /^Apply/ })).toBeDisabled();
-    await bar(page).getByLabel("Set").selectOption("item_code");
+    await bar(page).getByLabel("Set", { exact: true }).selectOption("item_code");
     await expect(bar(page)).toContainText("set by the system");
-    await bar(page).getByLabel("Set").selectOption("stack_rank");
+    await bar(page).getByLabel("Set", { exact: true }).selectOption("stack_rank");
     await expect(bar(page)).toContainText("one item at a time");
     await expect(cell(page, "item-1", "status")).toHaveText("Backlog");
   });
@@ -72,6 +74,41 @@ test.describe("bulk bar", () => {
     expect(lines[2]).toContain("Initiative number 2 with a reasonably long title");
   });
 
+  test("a field outside the quick buttons can be set through More fields", async ({ page }) => {
+    await open(page);
+    await select(page, "item-1", "item-2");
+    await bar(page).getByRole("button", { name: /^More fields/ }).click();
+    await bar(page).getByLabel("Set", { exact: true }).selectOption("effort");
+    await bar(page).getByLabel("New value for Effort (T-shirt)").selectOption("XL");
+    await bar(page).getByRole("button", { name: "Apply to 2 items" }).click();
+    await expect(cell(page, "item-1", "effort")).toHaveText("XL");
+    await expect(cell(page, "item-2", "effort")).toHaveText("XL");
+  });
+
+  test("the menu works from the keyboard and Escape closes it", async ({ page }) => {
+    await open(page);
+    await select(page, "item-4", "item-5");
+    await bar(page).getByRole("button", { name: /^Set Health/ }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("menuitem", { name: "(empty)" })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(page.getByRole("menuitem", { name: "On Track" })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await expect(bar(page).getByRole("button", { name: /^Set Health/ })).toBeFocused();
+  });
+
+  test("Select all N and Esc clears the selection", async ({ page }) => {
+    await open(page);
+    await select(page, "item-1");
+    await bar(page).getByRole("button", { name: "Select all 30" }).click();
+    await expect(bar(page)).toContainText("30 selected");
+    await expect(bar(page)).toContainText("Esc clears");
+    await cell(page, "item-2", "item_code").click();
+    await page.keyboard.press("Escape");
+    await expect(bar(page)).toHaveCount(0);
+  });
+
   test("clearing the selection hides the bar", async ({ page }) => {
     await open(page);
     await select(page, "item-1");
@@ -83,7 +120,8 @@ test.describe("bulk bar", () => {
     await open(page, `n=10&role=viewer&${ALL}`);
     await select(page, "item-1");
     await expect(bar(page).getByRole("button", { name: "Export selection to file" })).toBeVisible();
-    await expect(bar(page).getByLabel("Set")).toHaveCount(0);
+    await expect(bar(page).getByRole("button", { name: /^Set / })).toHaveCount(0);
+    await expect(bar(page).getByRole("button", { name: /^More fields/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Import from spreadsheet" })).toHaveCount(0);
   });
 });
@@ -181,6 +219,59 @@ test.describe("paste-import from a spreadsheet", () => {
     await expect(page.getByRole("status").filter({ hasText: "rows read" })).toBeVisible();
     results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length} (${v.help})`)).toEqual([]);
+  });
+});
+
+test.describe("header and page head follow the prototype", () => {
+  test("logo, workspace, scope, tabs (unbuilt ones muted), account menu", async ({ page }) => {
+    await open(page);
+    const header = page.getByRole("banner");
+    await expect(header.locator("img.brand-logo")).toBeVisible();
+    await expect(header).toContainText("Product Velocity");
+    await expect(header).toContainText("Meridian Media");
+    await expect(header.getByText("All projects")).toBeVisible();
+    await expect(header.getByRole("link", { name: "Grid" })).toHaveAttribute("aria-current", "page");
+    for (const t of ["Gantt", "Cards", "Planning", "Capacity", "Alignment", "Reports"]) {
+      await expect(header.locator(".tab-later", { hasText: t })).toHaveAttribute("aria-disabled", "true");
+    }
+    await expect(header.locator(".tab-later", { hasText: "Gantt" })).toContainText("arrives in phase 2");
+    await header.locator("summary").click();
+    await expect(header.getByRole("link", { name: "Members" })).toBeVisible();
+    await expect(header.getByRole("link", { name: "Security" })).toBeVisible();
+    await expect(header.getByRole("button", { name: "Sign out" })).toBeVisible();
+    await expect(header.locator(".avatar")).toHaveText("AM");
+    await expect(header.locator("summary")).toContainText("account menu for ashu.mathura@example.test");
+  });
+
+  test("the eight default views are chips; choosing one changes the columns", async ({ page }) => {
+    await open(page, "n=20");
+    const chips = page.getByRole("group", { name: "View" });
+    await expect(chips.getByRole("button")).toHaveCount(9);
+    await expect(chips.getByRole("button", { name: "Prioritisation" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("columnheader", { name: /Realized KR/ })).toHaveCount(0);
+    await chips.getByRole("button", { name: "Outcomes" }).click();
+    await expect(chips.getByRole("button", { name: "Outcomes" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("columnheader", { name: /Realized KR/ }).first()).toBeVisible();
+  });
+
+  test("Export in the page head downloads every row with the shown columns", async ({ page }) => {
+    await open(page, "n=12");
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Export", exact: true }).click();
+    const file = await download;
+    expect(file.suggestedFilename()).toMatch(/^roadmap-\d{4}-\d\d-\d\d\.csv$/);
+    const lines = readFileSync(await file.path(), "utf8").replace(/^\uFEFF/, "").trim().split("\r\n");
+    expect(lines).toHaveLength(13);
+  });
+
+  test("the checkbox column comes first, then global rank, rank in project, ID, initiative", async ({ page }) => {
+    await open(page, "n=10");
+    const heads = await page.getByRole("columnheader").allInnerTexts();
+    const names = heads.map((h) => h.split("\n")[0]!.trim()).filter(Boolean);
+    expect(names.slice(0, 4)).toEqual(["Stack Rank", "Rank in Project", "Initiative ID", "Initiative Name"]);
+    const box = await page.locator(`.ag-row[row-id="item-1"] input[type="checkbox"]`).first().boundingBox();
+    const rank = await page.locator(`.ag-row[row-id="item-1"] [col-id="stack_rank"]`).boundingBox();
+    expect(box!.x).toBeLessThan(rank!.x);
   });
 });
 

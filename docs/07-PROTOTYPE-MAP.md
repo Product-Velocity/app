@@ -34,7 +34,9 @@ Published (view-only reference): https://claude.ai/artifact/WVtip16iTPYZdru67tsg
 - Quick-add is a separate "Add an initiative" form above the grid, not the first table row.
 - No band of column-group headers (What / Why / When ...): it does not survive moving columns or custom views. The group is shown in the Columns picker and the header tooltip.
 - The grouped rows in the board are an example; the default grid is ungrouped. Grouping arrives with saved views (#9).
-- Everything else (header with scope switcher and tabs, view chips, checkbox column first, bulk bar with one "Set X" menu per field) follows the boards, minus what is not built yet (Gantt, Cards, fit band, ⌘K, AI drafts), which is left out or shown disabled.
+- The view chips are the eight default views of the field dictionary (Prioritisation, Planning, Delivery, Go-to-market, Outcomes, Leadership, Discovery, History) plus "All columns", not the boards' Default view / Leadership / My items (those saved views come with #9).
+- Members and Security are in the account menu (avatar), not in the tab bar.
+- Everything else follows the boards: header with logo, workspace and scope chip, tabs; page head with title, view chips and tools (Import, Columns, Export); checkbox column first, then global rank, rank in project, ID, initiative; lock icon on GitHub fields; project pills; the bulk bar with one "Set X ▾" menu per field, "Select all N" and "Esc clears". Not built yet and therefore shown muted or left out: Gantt, Cards, Planning, Capacity, Alignment and Reports tabs (muted, "arrives in phase N"), cycle chip, per-team fit band, ⌘K, AI draft chips.
 
 Not yet designed: onboarding / first run; GitLab setup; notifications; mobile views of the grid.
 Design tokens: white background; greys `#E6E9EF #EDEFF3 #F3F4F7 #EEF0F3`, header `#F8F9FC`; blue `#3347D9` (text `#2433A8`, tints `#E8EBFD #F4F7FE`); health green `#17653F/#E3F4EA`, amber `#7A4A00/#FDF0D5`, red `#8A1F1F/#FBE4E4`; 13px; 30–36px rows; IBM Plex Sans/Mono.

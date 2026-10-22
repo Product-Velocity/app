@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { bulkEditReason, canBeEmpty, EDITABLE_FIELDS, FIELDS, FIELD_BY_KEY, optionsFor, type FieldDef } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import { downloadCsv, selectionToCsv } from "./export-selection";
@@ -13,7 +13,13 @@ type Props = {
   /** The columns currently shown: what "Export selection to file" writes. */
   exportFields: FieldDef[];
   onClear: () => void;
+  onSelectAll: () => void;
+  /** Number of items in the grid, for "Select all 22". */
+  total: number;
 };
+
+/** The fields set most often get their own button, as on prototype board 1. */
+const QUICK_FIELDS = ["health", "moscow", "horizon", "focus_area"] as const;
 
 /** The value control for a field: a list for selects, people, projects and yes/no, a text box for the rest. */
 function valueOptions(f: FieldDef, lookups: Lookups): { value: string; label: string }[] | null {
@@ -24,12 +30,54 @@ function valueOptions(f: FieldDef, lookups: Lookups): { value: string; label: st
 }
 const HINT: Record<string, string> = { Date: "for example 31 mar, next friday, q2", Currency: "for example 120k or 1.2m", Number: "a number" };
 
+/** "Set MoSCoW ▾": a button that opens the list of values; choosing one applies it to every selected item. */
+function SetMenu({ def, selected, onPick }: { def: FieldDef; selected: GridItem[]; onPick: (value: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  const id = useId();
+  const options = optionsFor(def.key);
+  const current = [...new Set(selected.map((r) => (r[def.key] === null || r[def.key] === undefined ? "empty" : String(r[def.key]))))];
+  const items = [...(canBeEmpty(def.key) ? [{ value: "", label: "(empty)" }] : []), ...options];
+  const focusItem = (i: number) => (ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]')[i])?.focus();
+  const close = () => setOpen(false);
+  return (
+    <span
+      ref={ref}
+      className="set-menu"
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) close(); }}
+      onKeyDown={(e) => {
+        const els = Array.from(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+        const at = els.indexOf(document.activeElement as HTMLElement);
+        if (e.key === "Escape" && open) { e.stopPropagation(); close(); ref.current?.querySelector<HTMLElement>("button")?.focus(); }
+        else if (e.key === "ArrowDown" && open) { e.preventDefault(); focusItem(Math.min(els.length - 1, at + 1)); }
+        else if (e.key === "ArrowUp" && open) { e.preventDefault(); focusItem(Math.max(0, at - 1)); }
+      }}
+    >
+      <button type="button" className={open ? "bulk-btn bulk-btn-open" : "bulk-btn"} aria-haspopup="menu" aria-expanded={open} aria-controls={id} onClick={() => { setOpen((o) => !o); }}>
+        Set {def.name} ▾
+      </button>
+      {open && (
+        <div id={id} role="menu" aria-label={`Set ${def.name}`} className="set-menu-list">
+          <p className="set-menu-head">Set {def.name} on {selected.length} {selected.length === 1 ? "item" : "items"} to</p>
+          {items.map((o, i) => (
+            <button key={o.value || "__empty"} type="button" role="menuitem" className="set-menu-item" autoFocus={i === 0} onClick={() => { close(); onPick(o.value); }}>
+              {o.label}
+            </button>
+          ))}
+          <p className="set-menu-foot">Currently: {current.slice(0, 6).join(", ")}{current.length > 6 ? ", …" : ""}</p>
+        </div>
+      )}
+    </span>
+  );
+}
+
 /** Shown when rows are selected: set one field on all of them (one undo step), export them, or (later) update GitHub. */
-export function BulkBar({ controller, lookups, selected, exportFields, onClear }: Props) {
+export function BulkBar({ controller, lookups, selected, exportFields, onClear, onSelectAll, total }: Props) {
   const id = useId();
   const [field, setField] = useState("");
   const [value, setValue] = useState("");
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [more, setMore] = useState(false);
   const def = field ? FIELD_BY_KEY[field] : undefined;
   const reason = field ? bulkEditReason(field) : null;
   const options = def ? valueOptions(def, lookups) : null;
@@ -38,9 +86,9 @@ export function BulkBar({ controller, lookups, selected, exportFields, onClear }
   const n = selected.length;
   const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
-  const apply = () => {
-    if (!field || reason) return;
-    const r = controller.bulkEdit(selected.map((s) => s.id), field, value);
+  const apply = (f = field, v = value) => {
+    if (!f || bulkEditReason(f)) return;
+    const r = controller.bulkEdit(selected.map((s) => s.id), f, v);
     if (!r.ok) { setMessage({ kind: "error", text: r.error }); return; }
     setMessage({
       kind: "ok",
@@ -53,7 +101,25 @@ export function BulkBar({ controller, lookups, selected, exportFields, onClear }
   return (
     <div className="bulk-bar" role="region" aria-label="Bulk actions for the selected items">
       <strong className="bulk-count">{n} selected</strong>
+      {n < total && <button type="button" className="bulk-link" onClick={onSelectAll}>Select all {total}</button>}
+      {controller.canEdit && <span className="bulk-sep" aria-hidden="true" />}
+      {controller.canEdit && QUICK_FIELDS.map((k) => <SetMenu key={k} def={FIELD_BY_KEY[k]!} selected={selected} onPick={(v) => apply(k, v)} />)}
       {controller.canEdit && (
+        <button type="button" className={more ? "bulk-btn bulk-btn-open" : "bulk-btn"} aria-expanded={more} onClick={() => setMore((m) => !m)}>More fields ▾</button>
+      )}
+      <div className="bulk-actions">
+        {controller.canEdit && (
+          <button type="button" className="bulk-btn" disabled title="Arrives in phase 3, when GitHub sync is built">
+            Update GitHub <span className="bulk-later">arrives in phase 3</span>
+          </button>
+        )}
+        <button type="button" className="bulk-btn" onClick={() => downloadCsv(`roadmap-selection-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(selected, exportFields, lookups))}>
+          Export selection to file
+        </button>
+        <button type="button" className="bulk-btn" onClick={onClear}>Clear selection</button>
+      </div>
+      <span className="bulk-hint">Esc clears · changes can be undone with {mac ? "⌘Z" : "Ctrl+Z"}</span>
+      {controller.canEdit && more && (
       <div className="bulk-set">
         <label htmlFor={`${id}-field`}>Set</label>
         <select
@@ -85,22 +151,11 @@ export function BulkBar({ controller, lookups, selected, exportFields, onClear }
             />
           )
         )}
-        <button type="button" className="btn" disabled={!field || !!reason} onClick={apply}>
+        <button type="button" className="bulk-btn" disabled={!field || !!reason} onClick={() => apply()}>
           Apply to {n} {n === 1 ? "item" : "items"}
         </button>
       </div>
       )}
-      <div className="bulk-actions">
-        {controller.canEdit && (
-          <button type="button" className="btn" disabled title="Arrives in phase 3, when GitHub sync is built">
-            Update GitHub <span className="bulk-later">arrives in phase 3</span>
-          </button>
-        )}
-        <button type="button" className="btn" onClick={() => downloadCsv(`roadmap-selection-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(selected, exportFields, lookups))}>
-          Export selection to file
-        </button>
-        <button type="button" className="btn" onClick={onClear}>Clear selection</button>
-      </div>
       <div className="bulk-messages" aria-live="polite">
         {reason && <p className="quick-add-error">{reason}</p>}
         {message && <p className={message.kind === "error" ? "quick-add-error" : "quick-add-ok"}>{message.text}</p>}

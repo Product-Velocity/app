@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ClientSideRowModelApiModule, ClientSideRowModelModule, CellApiModule, CellStyleModule, ColumnApiModule, CustomEditorModule,
   EventApiModule, ModuleRegistry, RowApiModule, RowSelectionModule, ScrollApiModule, TextEditorModule, themeQuartz, type CellKeyDownEvent, type GridApi,
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import { DEFAULT_VIEWS, FIELDS, type EditableField, type ViewName } from "@pv/domain";
+import { DEFAULT_VIEWS, FIELDS, type EditableField } from "@pv/domain";
 import { buildColumns, CORE_COLUMNS, isEditableColumn, isReadOnlyColumn } from "./columns";
-import { ColumnsPicker } from "./columns-picker";
+import { ColumnsPicker, ViewChips, type ViewChoice } from "./columns-picker";
+import { downloadCsv, selectionToCsv } from "./export-selection";
 import { BulkBar } from "./bulk-bar";
 import { ImportDialog } from "./import-dialog";
 import { QuickAddBar } from "./quick-add-bar";
@@ -26,8 +27,13 @@ const theme = themeQuartz.withParams({
   fontSize: 13,
   headerFontSize: 12,
   headerFontWeight: 600,
-  rowHeight: 32,
-  headerHeight: 30,
+  headerTextColor: "#374151",
+  columnBorder: false,
+  headerColumnBorder: false,
+  rowBorder: { style: "solid", width: 1, color: "#F3F4F7" },
+  selectedRowBackgroundColor: "#F4F7FE",
+  rowHeight: 36,
+  headerHeight: 28,
   accentColor: "#3347D9",
   borderColor: "#E6E9EF",
   headerBackgroundColor: "#F8F9FC",
@@ -35,13 +41,25 @@ const theme = themeQuartz.withParams({
   spacing: 6,
 });
 
-export function PortfolioGrid({ controller, lookups, initialView = "Prioritisation", renderAllColumns = false }: { controller: PortfolioController; lookups: Lookups; initialView?: ViewName | "All columns"; renderAllColumns?: boolean }) {
+type GridProps = {
+  controller: PortfolioController;
+  lookups: Lookups;
+  initialView?: ViewChoice;
+  renderAllColumns?: boolean;
+  /** Page title and other server-rendered pieces of the page head. */
+  headLeft?: ReactNode;
+  headRight?: ReactNode;
+};
+
+export function PortfolioGrid({ controller, lookups, initialView = "Prioritisation", renderAllColumns = false, headLeft, headRight }: GridProps) {
   const apiRef = useRef<GridApi<GridItem> | null>(null);
   const quickAddRef = useRef<HTMLInputElement | null>(null);
   const [contextProject, setContextProject] = useState<string | null>(null);
   const [selected, setSelected] = useState<GridItem[]>([]);
   const [importText, setImportText] = useState<string | null>(null);
   const status = useStatus(controller);
+  const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+  const headRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const footRef = useRef<HTMLParagraphElement | null>(null);
@@ -55,19 +73,20 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
       if (!wrap) return;
       const top = wrap.getBoundingClientRect().top + window.scrollY;
       const foot = footRef.current?.offsetHeight ?? 0;
-      setGridHeight(Math.max(360, Math.floor(window.innerHeight - top - foot - 20)));
+      setGridHeight(Math.max(360, Math.floor(window.innerHeight - top - foot - 28)));
     };
     fit();
     window.addEventListener("resize", fit);
     const ro = new ResizeObserver(fit);
     for (const child of Array.from(cardRef.current?.children ?? [])) if (child !== wrapRef.current) ro.observe(child);
+    if (headRef.current) ro.observe(headRef.current);
     return () => { window.removeEventListener("resize", fit); ro.disconnect(); };
   }, []);
   const rowData = useMemo(() => [...controller.rows], [controller]);
 
-  const [view, setView] = useState<ViewName | "All columns">(initialView);
+  const [view, setView] = useState<ViewChoice>(initialView);
   const [visible, setVisible] = useState<ReadonlySet<string>>(() => new Set(initialView === "All columns" ? FIELDS.map((f) => f.key) : DEFAULT_VIEWS[initialView]));
-  const pickView = (v: ViewName | "All columns") => {
+  const pickView = (v: ViewChoice) => {
     setView(v);
     setVisible(new Set(v === "All columns" ? FIELDS.map((f) => f.key) : DEFAULT_VIEWS[v]));
   };
@@ -164,6 +183,7 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
 
   const onWrapperKeyDown = (e: React.KeyboardEvent) => {
     const t = e.target as HTMLElement;
+    if (e.key === "Escape" && !t.closest("input, textarea, select, [role=dialog], .set-menu") && selected.length > 0) { apiRef.current?.deselectAll(); return; }
     if (t.closest("input, textarea, [contenteditable=true]")) return; // let text fields keep their own undo
     if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
     const k = e.key.toLowerCase();
@@ -172,6 +192,18 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
   };
 
   return (
+    <>
+    <div ref={headRef} className="page-head">
+      {headLeft}
+      <ViewChips view={view} onView={pickView} />
+      <span className="chip">Ranked by global Stack Rank</span>
+      <span className="head-tools">
+        {headRight}
+        {controller.canEdit && lookups.projects.length > 0 && <button type="button" className="tool-btn" onClick={() => setImportText("")}>Import from spreadsheet</button>}
+        <ColumnsPicker visible={visible} onToggle={toggle} />
+        <button type="button" className="tool-btn" onClick={() => downloadCsv(`roadmap-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(controller.rows, exportFields, lookups))}>Export</button>
+      </span>
+    </div>
     <section
       ref={cardRef}
       className="grid-card"
@@ -188,10 +220,7 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
       {controller.canEdit && lookups.projects.length > 0 && (
         <QuickAddBar controller={controller} lookups={lookups} contextProject={contextProject} inputRef={quickAddRef} />
       )}
-      {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} exportFields={exportFields} onClear={() => apiRef.current?.deselectAll()} />}
-      <ColumnsPicker view={view} visible={visible} onView={pickView} onToggle={toggle}>
-        {controller.canEdit && lookups.projects.length > 0 && <button type="button" className="btn" onClick={() => setImportText("")}>Import from spreadsheet</button>}
-      </ColumnsPicker>
+      {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} exportFields={exportFields} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} total={controller.rows.length} />}
       {importText !== null && (
         <ImportDialog controller={controller} lookups={lookups} defaultProject={contextProject} initialText={importText} onClose={() => setImportText(null)} />
       )}
@@ -215,7 +244,7 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
             if (row) setContextProject(row.home_project);
           }}
           onCellKeyDown={onCellKeyDown}
-          headerHeight={showLater ? 46 : 32}
+          headerHeight={showLater ? 46 : 28}
           onCellDoubleClicked={(e) => {
             const colId = e.column.getColId();
             if (isReadOnlyColumn(colId)) controller.notifyReadOnly(colId);
@@ -224,10 +253,10 @@ export function PortfolioGrid({ controller, lookups, initialView = "Prioritisati
         />
       </div>
       <p ref={footRef} className="grid-foot">
-        {controller.rows.length.toLocaleString("en-GB")} items · ranked by global Stack Rank · Alt+N adds an initiative, Enter or double-click to edit, Tab and Enter to move, Esc to cancel,
-        Delete clears a cell
+        {controller.rows.length.toLocaleString("en-GB")} items · Alt+N adds an initiative · Enter edits a cell · Tab moves right · Esc cancels · Delete clears a cell · {mac ? "⌘Z" : "Ctrl+Z"} undoes · A lock means the value comes from GitHub
         {status.pending > 0 ? "" : ""}
       </p>
     </section>
+    </>
   );
 }

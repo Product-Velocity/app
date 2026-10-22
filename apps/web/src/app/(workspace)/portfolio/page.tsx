@@ -15,19 +15,19 @@ export default async function PortfolioPage() {
 
   return (
     <>
-      <div className="page-head">
-        <h1>Roadmap</h1>
-        <span className="chip">All projects</span>
-        <span className="chip">Ranked by global Stack Rank</span>
-        {active.role === "admin" && lookups.projects.length > 0 && <AddProject tenantId={active.tenantId} />}
-      </div>
       {lookups.projects.length === 0 && (
         <div className="notice-box">
           <p>There are no projects yet, and every item belongs to a project.</p>
           {active.role === "admin" ? <AddProject tenantId={active.tenantId} open /> : <p>Ask an admin to add the first project.</p>}
         </div>
       )}
-      <PortfolioClient tenantId={active.tenantId} role={active.role} lookups={lookups} />
+      <PortfolioClient
+        tenantId={active.tenantId}
+        role={active.role}
+        lookups={lookups}
+        headLeft={<h1>Roadmap</h1>}
+        headRight={active.role === "admin" && lookups.projects.length > 0 ? <AddProject tenantId={active.tenantId} /> : null}
+      />
     </>
   );
 }
