@@ -90,3 +90,4 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Free Vercel/Supabase plans for now, so the repo stays public until go-live; making it private and upgrading plans is a go-live item (docs/14) · Ashu (R-012)
 - 2026-10-23 · Platform staff are super users with full content access and impersonation for now (early-stage product improvement); built capability-based with levels (super-admin, operator, support) and a content_access_mode setting (open now, grant_required later) so no-content staff can be added as the team grows · Ashu (R-014)
 - 2026-10-23 · Account page, workspace settings, confirmed invitation emails and the internal admin console are specified in docs/15 · Ashu (R-015)
+- 2026-10-23 · Deleting an initiative in Product Velocity can close its GitHub tracking issue (not planned, fixed comment, never deleted); children are closed only if chosen; restore asks before reopening · Ashu (R-020, #53)
