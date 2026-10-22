@@ -6,3 +6,4 @@ export * from "./rank";
 export * from "./registry";
 export * from "./quickadd";
 export * from "./spreadsheet";
+export * from "./views";
