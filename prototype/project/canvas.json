@@ -1,0 +1,402 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-10-21T17:30:00Z"
+  },
+  "title": "Product Velocity Prototype",
+  "launch": {
+    "view": "canvas"
+  },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1100,
+      "title": "1 Roadmap grid",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Item-detail.dc.html": {
+      "x": 1520,
+      "y": 0,
+      "w": 1440,
+      "h": 1040,
+      "title": "2 Item detail with GitHub tab",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Gantt.dc.html": {
+      "x": 0,
+      "y": 1220,
+      "w": 1440,
+      "h": 1300,
+      "title": "3 Gantt, grouped two levels",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Cards.dc.html": {
+      "x": 1520,
+      "y": 1220,
+      "w": 1440,
+      "h": 1700,
+      "title": "4 Card view with swimlanes",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "AI-intake.dc.html": {
+      "x": 0,
+      "y": 3040,
+      "w": 1440,
+      "h": 1150,
+      "title": "5 AI intake with duplicate check",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "GitHub-setup.dc.html": {
+      "x": 1520,
+      "y": 3040,
+      "w": 1440,
+      "h": 1050,
+      "title": "6 GitHub connection, waiting for approval",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Leadership.dc.html": {
+      "x": 0,
+      "y": 4310,
+      "w": 1440,
+      "h": 1200,
+      "title": "7 Leadership view and weekly update",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Results-admin.dc.html": {
+      "x": 1520,
+      "y": 4310,
+      "w": 1440,
+      "h": 1200,
+      "title": "8 Alignment results, admin view",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Join.dc.html": {
+      "x": 0,
+      "y": 5630,
+      "w": 390,
+      "h": 844,
+      "title": "9 Participant: join"
+    },
+    "Rank-top5.dc.html": {
+      "x": 470,
+      "y": 5630,
+      "w": 390,
+      "h": 844,
+      "title": "10 Participant: pick top 5"
+    },
+    "Rank-duel.dc.html": {
+      "x": 940,
+      "y": 5630,
+      "w": 390,
+      "h": 844,
+      "title": "11 Participant: duels"
+    },
+    "Results-participant.dc.html": {
+      "x": 1410,
+      "y": 5630,
+      "w": 390,
+      "h": 844,
+      "title": "12 Participant: anonymous results"
+    },
+    "Item-spec.dc.html": {
+      "x": 0,
+      "y": 6594,
+      "w": 1440,
+      "h": 1250,
+      "title": "13 Item spec: documents, readiness, epics",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Connect-Claude.dc.html": {
+      "x": 1520,
+      "y": 6594,
+      "w": 1440,
+      "h": 1280,
+      "title": "14 Settings: Connect Claude",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Team-capacity.dc.html": {
+      "x": 0,
+      "y": 8000,
+      "w": 1440,
+      "h": 1560,
+      "title": "15 Team capacity setup",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Capacity-planner.dc.html": {
+      "x": 1520,
+      "y": 8000,
+      "w": 1440,
+      "h": 1250,
+      "title": "16 Capacity vs roadmap, with the fit line",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Alignment-setup.dc.html": {
+      "x": 0,
+      "y": 9370,
+      "w": 1440,
+      "h": 1560,
+      "title": "17 Alignment session setup: 100 coins and invitations",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Planning-cycles.dc.html": {
+      "x": 1520,
+      "y": 9370,
+      "w": 1440,
+      "h": 1320,
+      "title": "18 Planning cycles and candidate pool",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Rank-coins.dc.html": {
+      "x": 1880,
+      "y": 5630,
+      "w": 390,
+      "h": 844,
+      "title": "19 Participant: spend 100 coins"
+    },
+    "Portfolio.dc.html": {
+      "x": 0,
+      "y": 11050,
+      "w": 1440,
+      "h": 1150,
+      "title": "20 Portfolio roadmap: all projects, quick add, inline edit",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Reports.dc.html": {
+      "x": 1520,
+      "y": 11050,
+      "w": 1440,
+      "h": 1250,
+      "title": "21 Reports library and generate dialog",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Gate-review.dc.html": {
+      "x": 0,
+      "y": 12420,
+      "w": 1440,
+      "h": 1100,
+      "title": "22 Gate review: commit to build",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Insights.dc.html": {
+      "x": 1520,
+      "y": 12420,
+      "w": 1440,
+      "h": 1150,
+      "title": "23 Velocity and opportunities",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Outcomes.dc.html": {
+      "x": 0,
+      "y": 13700,
+      "w": 1440,
+      "h": 1150,
+      "title": "24 Item outcomes and adoption",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Pitch-1.dc.html": {
+      "x": 0,
+      "y": 15100,
+      "w": 1280,
+      "h": 720,
+      "title": "Pitch 1 of 8"
+    },
+    "Pitch-2.dc.html": {
+      "x": 1360,
+      "y": 15100,
+      "w": 1280,
+      "h": 720,
+      "title": "Pitch 2 of 8"
+    },
+    "Pitch-3.dc.html": {
+      "x": 2720,
+      "y": 15100,
+      "w": 1280,
+      "h": 720,
+      "title": "Pitch 3 of 8"
+    },
+    "Pitch-4.dc.html": {
+      "x": 0,
+      "y": 15900,
+      "w": 1280,
+      "h": 720,
+      "title": "Pitch 4 of 8"
+    },
+    "Pitch-5.dc.html": {
+      "x": 1360,
+      "y": 15900,
+      "w": 1280,
+      "h": 720,
+      "title": "Pitch 5 of 8"
+    },
+    "Pitch-6.dc.html": {
+      "x": 2720,
+      "y": 15900,
+      "w": 1280,
+      "h": 720,
+      "title": "Pitch 6 of 8"
+    },
+    "Pitch-7.dc.html": {
+      "x": 0,
+      "y": 16700,
+      "w": 1280,
+      "h": 720,
+      "title": "Pitch 7 of 8"
+    },
+    "Pitch-8.dc.html": {
+      "x": 1360,
+      "y": 16700,
+      "w": 1280,
+      "h": 720,
+      "title": "Pitch 8 of 8"
+    },
+    "Deep-1.dc.html": {
+      "x": 0,
+      "y": 17620,
+      "w": 1280,
+      "h": 720,
+      "title": "Deep dive 1 of 7"
+    },
+    "Deep-2.dc.html": {
+      "x": 1360,
+      "y": 17620,
+      "w": 1280,
+      "h": 720,
+      "title": "Deep dive 2 of 7"
+    },
+    "Deep-3.dc.html": {
+      "x": 2720,
+      "y": 17620,
+      "w": 1280,
+      "h": 720,
+      "title": "Deep dive 3 of 7"
+    },
+    "Deep-4.dc.html": {
+      "x": 0,
+      "y": 18420,
+      "w": 1280,
+      "h": 720,
+      "title": "Deep dive 4 of 7"
+    },
+    "Deep-5.dc.html": {
+      "x": 1360,
+      "y": 18420,
+      "w": 1280,
+      "h": 720,
+      "title": "Deep dive 5 of 7"
+    },
+    "Deep-6.dc.html": {
+      "x": 2720,
+      "y": 18420,
+      "w": 1280,
+      "h": 720,
+      "title": "Deep dive 6 of 7"
+    },
+    "Deep-7.dc.html": {
+      "x": 0,
+      "y": 19220,
+      "w": 1280,
+      "h": 720,
+      "title": "Deep dive 7 of 7"
+    },
+    "Pricing.dc.html": {
+      "x": 2720,
+      "y": 16700,
+      "w": 1280,
+      "h": 720,
+      "title": "Pitch 9: Pricing (draft)"
+    },
+    "Item-alignment.dc.html": {
+      "x": 1520,
+      "y": 13700,
+      "w": 1440,
+      "h": 1100,
+      "title": "25 Item alignment: why, what, how, when",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Concept-review.dc.html": {
+      "x": 3100,
+      "y": 13700,
+      "w": 390,
+      "h": 844,
+      "title": "26 Customer concept review (mobile)"
+    },
+    "Billing.dc.html": {
+      "x": 3600,
+      "y": 13700,
+      "w": 1440,
+      "h": 1000,
+      "title": "27 Plan and billing"
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Item-detail.dc.html",
+    "Gantt.dc.html",
+    "Cards.dc.html",
+    "AI-intake.dc.html",
+    "GitHub-setup.dc.html",
+    "Leadership.dc.html",
+    "Results-admin.dc.html",
+    "Join.dc.html",
+    "Rank-top5.dc.html",
+    "Rank-duel.dc.html",
+    "Results-participant.dc.html",
+    "Item-spec.dc.html",
+    "Connect-Claude.dc.html",
+    "Team-capacity.dc.html",
+    "Capacity-planner.dc.html",
+    "Alignment-setup.dc.html",
+    "Planning-cycles.dc.html",
+    "Rank-coins.dc.html",
+    "Portfolio.dc.html",
+    "Reports.dc.html",
+    "Gate-review.dc.html",
+    "Insights.dc.html",
+    "Outcomes.dc.html",
+    "Pitch-1.dc.html",
+    "Pitch-2.dc.html",
+    "Pitch-3.dc.html",
+    "Pitch-4.dc.html",
+    "Pitch-5.dc.html",
+    "Pitch-6.dc.html",
+    "Pitch-7.dc.html",
+    "Pitch-8.dc.html",
+    "Deep-1.dc.html",
+    "Deep-2.dc.html",
+    "Deep-3.dc.html",
+    "Deep-4.dc.html",
+    "Deep-5.dc.html",
+    "Deep-6.dc.html",
+    "Deep-7.dc.html",
+    "Pricing.dc.html",
+    "Item-alignment.dc.html",
+    "Concept-review.dc.html",
+    "Billing.dc.html"
+  ],
+  "notes": {},
+  "designSystems": []
+}

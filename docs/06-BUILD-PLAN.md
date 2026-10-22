@@ -1,0 +1,45 @@
+# Phased build plan
+
+Rules: one phase at a time; each phase ends in a demo Ashu can click; all phases include tests, RLS tests, audit logging and accessibility checks. "Done" = every acceptance criterion passes.
+
+## Phase 0 — Spikes and foundations (1–2 weeks)
+Run spikes S1–S6 (`08`). Repo, CI, Supabase project, Vercel, environments, lint/typecheck/test, migration tooling, design tokens, auth (email/Google/GitHub, 2FA), tenant + membership + RLS harness with a two-tenant test fixture.
+**Accept:** sign up, create tenant, invite member; RLS test suite proves a user in tenant A cannot read/write any tenant B row on every table; spike results written to `docs/08` with go/no-go; CI green.
+
+## Phase 1 — Roadmap core (grid first)
+Projects, items, teams (basic), portfolio scope, global stack rank, grid with quick-add, inline edit, autosave + undo, keyboard nav, bulk bar (multi-select edit), paste-import from Excel with column mapping, saved views, audit log, ⌘K palette (basic).
+**Accept:** add an item in <10 s from keyboard only (name + Enter); `#project @person M should` tokens parse; edit any editable cell inline; ⌘Z undoes last 20 changes incl. bulk; select 3 rows → set MoSCoW in one action; paste 50 rows from Excel with mapping preview; locked (GitHub-driven) cells reject edits and bulk edits; 2,000-item project loads and edits feel instant (<200 ms optimistic); all writes audited.
+
+## Phase 2 — Views and detail
+Item peek panel + detail (J/K), Gantt (two-level grouping, drag to move, clamped bars), card view with swimlanes, leadership view (read-only), weekly update draft stub.
+**Accept:** drag a Gantt bar updates dates with undo; swimlane regrouping works; leadership role cannot edit; views respect scopes.
+
+## Phase 3 — GitHub sync (enterprise)
+GitHub App install with approval-pending state, tracking issues, sub-issues (epics/tasks), webhook ingestion (idempotent), status/assignee/progress inbound, outbound field allowlist test, conflict surfacing, breakdown routes (Traditional first; In between and Full Claude behind flags in Phase 5).
+**Accept:** create item → "Push to GitHub" creates one tracking issue; closing sub-issues updates progress; non-allowlisted field never appears in payloads (automated test); replaying a webhook changes nothing; install by non-owner shows waiting state and completes on approval; a conflict shows highlight and log entry.
+
+## Phase 4 — Specs, readiness and Claude connection
+Item documents (link/MD, versions, statuses), Definition of Ready, Approver role and "Ready for build", epic/task proposal editor, MCP server (read/search, create drafts, documents, propose breakdown), AI intake with duplicate check, "via Claude" audit, Connect-Claude settings page.
+**Accept:** only an Approver can mark Ready for build; Claude identity cannot (test); intake of a pasted email yields draft items flagged "AI draft" with duplicate hints; prompt-injection fixtures are ignored; MCP calls obey the caller's role; revoking a connection works.
+
+## Phase 5 — Planning cycles, capacity and alignment (R1 core)
+Teams/capacity setup, fit line and capacity planner, planning cycles with candidate pool and triage, alignment sessions (top-5/duels, 100 coins, ICE), segments and groups, magic-link participant flow (mobile), anonymous results, admin results, invitation drafting + confirmed send, breakdown routes 2 and 3.
+**Accept:** capacity numbers match the worked example (Marketplace: 336 h × 0.8 × 0.5 = 134.4 h/week new work; Jan–Mar fit cumulative 50.5 of 69.4 pw); fit line is per team; coins normalisation unit tests match `02` incl. group <5 hidden; participant can't see names; a voter can't vote twice; invitations never send without confirmation; deleting a participant removes personal data but keeps aggregates.
+
+## Phase 6 — Reports
+Engine, audience profiles with server-side field filtering, snapshots, templates: Roadmap for sales, Pre-vote briefing, Monthly business review (PPTX/DOCX/XLSX/PDF), Claude narrative drafts, pre-flight checks.
+**Accept:** customer-safe report contains none of the withheld fields (test across all fields); quarter-level dates for customer-safe; PDF from print view; generated files open in PowerPoint/Word/Excel; snapshot history retained.
+
+**— Release 1 pilot: one team, one quarter —**
+
+## Phase 7 [R2] — Gates, velocity, outcomes
+Decision gates (criteria engine, decisions, conditions, auto-pass, fast lane, gate pack), velocity insights and opportunities, outcomes/adoption tab with metric ingestion (manual/CSV/API/webhook), outcome reviews, learning loop into candidate pool. Remaining reports. Scheduled reports.
+
+## Phase 8 [R2] — Alignment dimensions and customers
+Why/What/How/When with states, sign-offs, stakeholder lists, decision log, customer concept review (mobile), customers as a segment.
+
+## Phase 9 [R2] — Enterprise and agents
+SAML SSO, audit export, GitLab, engineers split across teams, **AI agents as capacity**, coding-agent hand-off, token packs and billing (Stripe), usage metering UI.
+
+## Always
+Billing (Stripe) can be stubbed until Phase 6 pilot ends; pricing in `09` is a draft.

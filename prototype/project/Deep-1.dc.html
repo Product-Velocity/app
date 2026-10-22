@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Decision gates keep speed and control</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4B5563;text-decoration:none}
+</style>
+</helmet>
+<div style="width:1280px;height:720px;box-sizing:border-box;background:#FFFFFF;color:#111827;font-family:'IBM Plex Sans',system-ui,sans-serif;padding:44px 72px 34px;display:flex;flex-direction:column">
+  <div style="font-size:15px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#3347D9">Deeper dive</div>
+  <h1 style="margin:8px 0 0;font-size:40px;line-height:1.15;font-weight:600;letter-spacing:-0.01em;max-width:1136px">Decision gates keep speed and control</h1>
+  <div style="flex:1;margin-top:26px;min-height:0"><div style="display:flex;gap:14px;margin-bottom:16px;height:340px">
+  <div style="flex:1;min-width:0;border:1px solid #E1E5EB;border-radius:12px;padding:16px 16px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="color:#C98A1B;font-size:20px">◆</span><span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:13px;font-weight:500;color:#7A4A00;background:#FDF0D5;white-space:nowrap">Gate 1</span></div>
+  <div style="font-size:20px;font-weight:600;line-height:1.2">Worth exploring</div>
+  <div style="font-size:14px;color:#6B7280;margin:3px 0 10px">Discover to Define</div>
+  <div style="flex:1"><div style="display:flex;gap:8px;padding:2px 0;font-size:15.5px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Evidence of the problem</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:15.5px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Hypothesis written</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:15.5px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Why is aligned</span></div></div>
+  <div style="margin-top:10px;padding-top:8px;border-top:1px solid #EDEFF3;font-size:14px;color:#4B5563"><strong style="font-weight:600;color:#111827">Decided by</strong> Product lead</div>
+</div>
+  <div style="flex:1;min-width:0;border:1px solid #E1E5EB;border-radius:12px;padding:16px 16px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="color:#C98A1B;font-size:20px">◆</span><span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:13px;font-weight:500;color:#7A4A00;background:#FDF0D5;white-space:nowrap">Gate 2</span></div>
+  <div style="font-size:20px;font-weight:600;line-height:1.2">Commit to build</div>
+  <div style="font-size:14px;color:#6B7280;margin:3px 0 10px">Define to Build</div>
+  <div style="flex:1"><div style="display:flex;gap:8px;padding:2px 0;font-size:15.5px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Spec and criteria approved</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:15.5px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>What and How aligned</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:15.5px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Fits team capacity</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:15.5px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Teams confirm When</span></div></div>
+  <div style="margin-top:10px;padding-top:8px;border-top:1px solid #EDEFF3;font-size:14px;color:#4B5563"><strong style="font-weight:600;color:#111827">Decided by</strong> An Approver</div>
+</div>
+  <div style="flex:1;min-width:0;border:1px solid #E1E5EB;border-radius:12px;padding:16px 16px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="color:#C98A1B;font-size:20px">◆</span><span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:13px;font-weight:500;color:#7A4A00;background:#FDF0D5;white-space:nowrap">Gate 3</span></div>
+  <div style="font-size:20px;font-weight:600;line-height:1.2">Ready to launch</div>
+  <div style="font-size:14px;color:#6B7280;margin:3px 0 10px">Build to Roll-out</div>
+  <div style="flex:1"><div style="display:flex;gap:8px;padding:2px 0;font-size:15.5px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Acceptance criteria met</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:15.5px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Go-to-market materials ready</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:15.5px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Success metrics measurable</span></div></div>
+  <div style="margin-top:10px;padding-top:8px;border-top:1px solid #EDEFF3;font-size:14px;color:#4B5563"><strong style="font-weight:600;color:#111827">Decided by</strong> Approver and go-to-market lead</div>
+</div>
+  <div style="flex:1;min-width:0;border:1px solid #E1E5EB;border-radius:12px;padding:16px 16px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="color:#C98A1B;font-size:20px">◆</span><span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:13px;font-weight:500;color:#7A4A00;background:#FDF0D5;white-space:nowrap">Gate 4</span></div>
+  <div style="font-size:20px;font-weight:600;line-height:1.2">Outcome review</div>
+  <div style="font-size:14px;color:#6B7280;margin:3px 0 10px">At +30, +60 and +90 days</div>
+  <div style="flex:1"><div style="display:flex;gap:8px;padding:2px 0;font-size:15.5px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Adoption vs target</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:15.5px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Key result vs target</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:15.5px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Customer feedback</span></div></div>
+  <div style="margin-top:10px;padding-top:8px;border-top:1px solid #EDEFF3;font-size:14px;color:#4B5563"><strong style="font-weight:600;color:#111827">Decided by</strong> Product lead and leadership</div>
+</div>
+</div>
+<div style="display:flex;gap:14px;align-items:stretch">
+  <div style="flex:1;padding:14px 18px;background:#F4F7FE;border:1px solid #D5DBFA;border-radius:12px;font-size:16px;line-height:1.5"><strong style="font-weight:600">Every gate ends in a logged decision:</strong> Go, Go with conditions, Hold or Stop, with who, when and why. Conditions become tracked tasks.</div>
+  <div style="flex:1;padding:14px 18px;background:#F4F7FE;border:1px solid #D5DBFA;border-radius:12px;font-size:16px;line-height:1.5"><strong style="font-weight:600">Built for speed:</strong> a gate passes automatically when its criteria are met and nobody objects. Small items use a fast lane with only gate 2.</div>
+</div></div>
+  <div style="display:flex;justify-content:space-between;font-size:14px;color:#6B7280"><span>Product Velocity</span><span>Deep dive 1 of 7</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

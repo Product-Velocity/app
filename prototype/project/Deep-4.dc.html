@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AI works with guardrails</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4B5563;text-decoration:none}
+</style>
+</helmet>
+<div style="width:1280px;height:720px;box-sizing:border-box;background:#FFFFFF;color:#111827;font-family:'IBM Plex Sans',system-ui,sans-serif;padding:44px 72px 34px;display:flex;flex-direction:column">
+  <div style="font-size:15px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#3347D9">Deeper dive</div>
+  <h1 style="margin:8px 0 0;font-size:40px;line-height:1.15;font-weight:600;letter-spacing:-0.01em;max-width:1136px">AI works with guardrails</h1>
+  <div style="flex:1;margin-top:26px;min-height:0"><div style="display:flex;gap:18px;margin-bottom:16px">
+  <div style="flex:1;border:1px solid #CFE8D8;background:#F7FBF8;border-radius:12px;padding:16px 18px"><div style="font-size:19px;font-weight:600;margin-bottom:6px;color:#17653F">Claude may</div><div style="display:flex;gap:8px;padding:2px 0;font-size:16px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Search items, documents and delivery status</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:16px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Create draft items and write documents</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:16px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Propose epics and tasks</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:16px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Draft the weekly update</span></div></div>
+  <div style="flex:1;border:1px solid #E8C88A;background:#FFFAEF;border-radius:12px;padding:16px 18px"><div style="font-size:19px;font-weight:600;margin-bottom:6px;color:#7A4A00">You confirm</div><div style="display:flex;gap:8px;padding:2px 0;font-size:16px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Creating issues in GitHub</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:16px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Sending alignment invitations</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:16px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Edits to existing fields, shown first</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:16px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Every change is logged "via Claude"</span></div></div>
+  <div style="flex:1;border:1px solid #F2C4C4;background:#FEF7F7;border-radius:12px;padding:16px 18px"><div style="font-size:19px;font-weight:600;margin-bottom:6px;color:#8A1F1F">Claude never</div><div style="display:flex;gap:8px;padding:2px 0;font-size:16px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Approves a gate</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:16px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Sets Stack Rank, Decision or Value</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:16px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Follows instructions hidden in documents</span></div><div style="display:flex;gap:8px;padding:2px 0;font-size:16px;line-height:1.4;color:#374151"><span style="color:#3347D9">•</span><span>Does more than your own role allows</span></div></div>
+</div>
+<div style="display:flex;gap:14px">
+  <div style="flex:1;min-width:0;border:1px solid #E1E5EB;border-radius:12px;padding:20px 22px;background:#fff;padding:14px 18px"><div style="font-size:21px;font-weight:600;margin-bottom:8px;line-height:1.25">Traditional</div><div style="font-size:17px;line-height:1.5;color:#374151">Product pushes the initiative. Engineers break it down in GitHub.</div></div>
+  <div style="flex:1;min-width:0;border:1px solid #E1E5EB;border-radius:12px;padding:20px 22px;background:#fff;padding:14px 18px"><div style="font-size:21px;font-weight:600;margin-bottom:8px;line-height:1.25">In between</div><div style="font-size:17px;line-height:1.5;color:#374151">Claude drafts the breakdown. Engineering shapes and accepts it.</div></div>
+  <div style="flex:1;min-width:0;border:1px solid #E1E5EB;border-radius:12px;padding:20px 22px;background:#fff;padding:14px 18px"><div style="font-size:21px;font-weight:600;margin-bottom:8px;line-height:1.25">Full Claude</div><div style="font-size:17px;line-height:1.5;color:#374151">Claude proposes, a person reviews, the app creates the issues.</div></div>
+</div></div>
+  <div style="display:flex;justify-content:space-between;font-size:14px;color:#6B7280"><span>Product Velocity</span><span>Deep dive 4 of 7</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Portfolio roadmap</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4B5563;text-decoration:none}a:hover{color:#111827}
+</style>
+</helmet>
+<div style="font-family:'IBM Plex Sans',system-ui,sans-serif;background:#FFFFFF;color:#111827;min-height:1150px;font-size:13px">
+  <header style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;padding:0 24px;min-height:46px;background:#fff;border-bottom:1px solid #EDEFF3;position:relative;z-index:30">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span aria-hidden="true" style="width:26px;height:26px;border-radius:7px;background:#3347D9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px">PV</span>
+      <span style="font-weight:600;font-size:14px">Product Velocity</span>
+    </div>
+    <div style="position:relative;display:flex;align-items:center;gap:8px;font-size:13px;color:#4B5563"><span>Meridian Media</span><span aria-hidden="true">/</span>
+      <span style="padding:4px 10px;border:1px solid #3347D9;border-radius:6px;background:#F4F7FE;color:#2433A8;font-weight:500">All projects ▾</span>
+      <div style="position:absolute;top:36px;left:118px;width:300px;background:#fff;border:1px solid #E1E5EB;border-radius:8px;box-shadow:0 8px 24px rgba(17,24,39,0.12);padding:6px 0;color:#111827">
+        <div style="padding:5px 12px;display:flex;justify-content:space-between;background:#F4F7FE;font-weight:500"><span>All projects</span><span style="color:#2433A8">✓ 4 projects</span></div>
+        <div style="padding:8px 12px 3px;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#4B5563">Saved scopes</div>
+        <div style="padding:5px 12px">Marketplace and Platform</div>
+        <div style="padding:5px 12px">Customer-facing work</div>
+        <div style="padding:8px 12px 3px;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#4B5563">Projects</div>
+        <div style="padding:5px 12px">Marketplace roadmap</div>
+        <div style="padding:5px 12px">Platform</div>
+        <div style="padding:5px 12px">Publisher portal</div>
+        <div style="padding:5px 12px">Consumer app</div>
+        <div style="padding:6px 12px;border-top:1px solid #EDEFF3;margin-top:4px;color:#2433A8">+ New scope</div>
+      </div>
+    </div>
+    <nav style="display:flex;gap:2px;flex-wrap:wrap;margin-left:150px">
+      <span style="padding:13px 10px;font-size:13px;color:#111827;font-weight:500;border-bottom:2px solid #3347D9">Grid</span>
+      <a href="Gantt.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Gantt</a>
+      <a href="Cards.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Cards</a>
+      <a href="Planning-cycles.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Planning</a>
+      <a href="Capacity-planner.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Capacity</a>
+      <a href="Results-admin.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Alignment</a>
+      <a href="Reports.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Reports</a>
+    </nav>
+    <div style="margin-left:auto"><span aria-label="Signed in as Ashu" style="width:28px;height:28px;border-radius:50%;background:#E8EBFD;color:#2433A8;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px">AS</span></div>
+  </header>
+
+  <main style="padding:14px 24px 24px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <h1 style="margin:0 10px 0 0;font-size:18px;font-weight:600">Roadmap</h1>
+      <div style="display:flex;gap:2px;font-size:12.5px"><span style="padding:3px 10px;border-radius:6px;background:#E8EBFD;color:#2433A8;font-weight:500">Default view</span><span style="padding:3px 10px;color:#4B5563">Leadership</span><span style="padding:3px 10px;color:#4B5563">My items</span></div>
+      <span style="padding:3px 10px;border:1px solid #E1E5EB;border-radius:6px;font-size:12.5px">Cycle: Q1 2027 · Planning</span>
+      <span style="padding:3px 10px;border:1px solid #E1E5EB;border-radius:6px;font-size:12.5px">Ranked by global Stack Rank</span>
+      <span style="margin-left:auto;padding:3px 10px;border:1px solid #E1E5EB;border-radius:6px;font-size:12.5px">Export</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-bottom:10px">
+      <sc-for list="{{teams}}" as="t" hint-placeholder-count="3">
+        <div style="border:1px solid #E6E9EF;border-radius:8px;padding:9px 12px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><strong style="font-weight:600">{{t.name}}</strong><span style="padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:500;color:{{t.c}};background:{{t.b}}">{{t.tag}}</span></div>
+          <div style="height:8px;border-radius:4px;background:#EEF0F3;overflow:hidden;margin:8px 0 5px"><div style="height:8px;background:{{t.bar}};width:{{t.pct}}%"></div></div>
+          <div style="font-size:12px;color:#4B5563">{{t.note}}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="padding:9px 14px;background:#F4F7FE;border:1px solid #D5DBFA;border-radius:8px;line-height:1.6;margin-bottom:12px"><strong style="font-weight:600">Fit is per team.</strong> Marketplace team and Bidder team are full by global rank #7. Host-read ads team has room, so R-42 fits even though it ranks #12. An item is above the line only when every team it needs has room.</div>
+
+    <section style="border:1px solid #E6E9EF;border-radius:8px;position:relative">
+      <!-- autosave status -->
+      <div style="display:flex;align-items:center;gap:12px;padding:6px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;border-radius:8px 8px 0 0;font-size:12.5px">
+        <span style="font-weight:500;color:#17653F">✓ All changes saved</span><span style="color:#4B5563">Last: R-41 Health On Track to At Risk, just now</span>
+        <span style="margin-left:auto;display:flex;gap:8px"><span style="padding:3px 10px;border:1px solid #E1E5EB;border-radius:6px;background:#fff">Undo ⌘Z</span></span>
+      </div>
+      <!-- quick add row -->
+      <div style="padding:8px 12px;background:#F4F7FE;border-bottom:1px solid #D5DBFA">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span aria-hidden="true" style="font-weight:600;color:#2433A8;width:16px">+</span>
+          <span style="font-weight:500">Self-serve invoice downloads<span style="display:inline-block;width:1px;height:15px;background:#3347D9;vertical-align:middle;margin-left:1px"></span></span>
+          <span style="padding:1px 8px;border-radius:999px;font-size:12px;background:#E8EBFD;color:#2433A8">#publisher-portal</span>
+          <span style="padding:1px 8px;border-radius:999px;font-size:12px;background:#E8EBFD;color:#2433A8">@priya</span>
+          <span style="padding:1px 8px;border-radius:999px;font-size:12px;background:#E8EBFD;color:#2433A8">M</span>
+          <span style="padding:1px 8px;border-radius:999px;font-size:12px;background:#E8EBFD;color:#2433A8">should</span>
+          <span style="margin-left:auto;font-size:12px;color:#4B5563">Enter adds · Tab for the next field · paste a list to add many</span>
+        </div>
+        <div style="margin:4px 0 0 24px;font-size:12px;color:#7A4A00">Similar item: R-20 Multi-currency invoicing (38% match). Add as evidence instead?</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:28px 52px 64px 54px minmax(0,1fr) 140px 150px 70px 56px 250px;height:28px;align-items:center;padding:0 12px;background:#F8F9FC;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #E6E9EF">
+        <span></span><span>Global</span><span>In project</span><span>ID</span><span>Initiative</span><span>Project</span><span>Status · Health</span><span>Value €k</span><span>Size</span><span>Teams and fit</span>
+      </div>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="12">
+        <div style="position:relative;display:grid;grid-template-columns:28px 52px 64px 54px minmax(0,1fr) 140px 150px 70px 56px 250px;min-height:36px;align-items:center;padding:3px 12px;border-bottom:1px solid #F3F4F7;font-size:12.5px;background:{{r.rowbg}}">
+          <span aria-hidden="true" style="width:16px;height:16px;border-radius:4px;border:1px solid #9CA3AF"></span>
+          <span style="font-weight:600">{{r.g}}</span>
+          <span style="color:#4B5563">{{r.pr}}</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#4B5563">{{r.id}}</span>
+          <span style="font-weight:500;padding-right:8px">{{r.name}}</span>
+          <span><span style="padding:1px 8px;border-radius:999px;font-size:11.5px;color:{{r.pc}};background:{{r.pb}}">{{r.proj}}</span></span>
+          <span style="display:flex;align-items:center;gap:6px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2.4" role="img" aria-label="Set from GitHub"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span style="color:#374151">{{r.status}}</span>
+            <span style="padding:0 7px;border-radius:999px;font-size:11.5px;color:{{r.hc}};background:{{r.hb}};outline:{{r.hout}}">{{r.health}}</span></span>
+          <span>{{r.value}}</span>
+          <span style="position:relative"><span style="display:inline-block;min-width:30px;padding:2px 6px;border-radius:4px;border:{{r.sbd}};background:{{r.sbg}};font-weight:500">{{r.size}}</span>
+            <span style="display:{{r.menu}};position:absolute;top:30px;left:-6px;z-index:15;width:130px;flex-direction:column;background:#fff;border:1px solid #E1E5EB;border-radius:8px;box-shadow:0 8px 24px rgba(17,24,39,0.14);padding:4px 0">
+              <span style="padding:5px 12px;color:#4B5563">XS · 2 weeks</span><span style="padding:5px 12px;color:#4B5563">S · 4 weeks</span><span style="padding:5px 12px;color:#4B5563">M · 8 weeks</span><span style="padding:5px 12px;color:#4B5563">L · 14 weeks</span><span style="padding:5px 12px;background:#E8EBFD;color:#2433A8;font-weight:500">XL · 24 weeks</span>
+              <span style="padding:5px 12px;border-top:1px solid #EDEFF3;margin-top:3px;font-size:11.5px;color:#4B5563">Type to filter · Enter picks</span>
+            </span></span>
+          <span style="display:flex;gap:5px;flex-wrap:wrap"><sc-for list="{{r.fits}}" as="f" hint-placeholder-count="2"><span style="padding:0 7px;border-radius:999px;font-size:11.5px;font-weight:500;color:{{f.c}};background:{{f.b}}">{{f.t}}</span></sc-for></span>
+        </div>
+      </sc-for>
+      <div style="padding:8px 12px;font-size:12px;color:#4B5563;display:flex;gap:16px;flex-wrap:wrap"><span>12 of 37 items shown · Q1 2027 pool</span><span style="margin-left:auto">Enter edits a cell · Tab moves right · Esc cancels · ⌘Z undoes · ⌘K opens commands · Lock icon means the value comes from GitHub</span></div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1150}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const TEAMS = [
+      { name: 'Marketplace team (MKT)', tag: 'Full at #7', c: '#8A1F1F', b: '#FBE4E4', bar: '#C0392B', pct: 100, note: 'Used 96% above its line, 3 items need more' },
+      { name: 'Bidder team (BID)', tag: 'Full at #6', c: '#8A1F1F', b: '#FBE4E4', bar: '#C0392B', pct: 100, note: 'Used 100% above its line, 2 items need more' },
+      { name: 'Host-read ads team (HRA)', tag: 'Room', c: '#17653F', b: '#E3F4EA', bar: '#3347D9', pct: 62, note: 'Used 62% above its line, nothing is waiting' }
+    ];
+    const PR = {
+      'Marketplace roadmap': ['#2433A8', '#E8EBFD'],
+      'Platform': ['#17653F', '#E3F4EA'],
+      'Publisher portal': ['#7A4A00', '#FDF0D5']
+    };
+    const H = {
+      'On Track': ['#17653F', '#E3F4EA'],
+      'At Risk': ['#7A4A00', '#FDF0D5'],
+      '': ['#374151', 'transparent']
+    };
+    const FIT = { fits: ['#17653F', '#E3F4EA'], tight: ['#7A4A00', '#FDF0D5'], over: ['#8A1F1F', '#FBE4E4'] };
+    const raw = [
+      [1, '#1', 'R-01', 'Budget pacing v2', 'Marketplace roadmap', 'In Progress', 'On Track', 480, 'L', [['MKT', 'fits']]],
+      [2, '#1', 'R-31', 'Data residency for EU customers', 'Platform', 'In Progress', 'On Track', 620, 'XL', [['BID', 'fits'], ['MKT', 'fits']]],
+      [3, '#2', 'R-07', 'Host-read ad marketplace listing', 'Marketplace roadmap', 'In Progress', 'On Track', 540, 'L', [['MKT', 'fits'], ['HRA', 'fits']]],
+      [4, '#3', 'R-11', 'Brand-safety category filters', 'Marketplace roadmap', 'In Progress', 'On Track', 300, 'M', [['MKT', 'fits']]],
+      [5, '#4', 'R-14', 'Agency API v2', 'Marketplace roadmap', 'In Progress', 'On Track', 410, 'XL', [['MKT', 'fits'], ['BID', 'tight']]],
+      [6, '#2', 'R-32', 'Public API rate limiting v2', 'Platform', 'Not Started', '', 180, 'L*', [['BID', 'tight']]],
+      [7, '#5', 'R-03', 'Deal IDs for private marketplaces', 'Marketplace roadmap', 'Not Started', '', 390, 'XL', [['MKT', 'tight'], ['BID', 'over']]],
+      [8, '#1', 'R-41', 'Publisher mobile app', 'Publisher portal', 'In Progress', 'At Risk*', 450, 'XL', [['HRA', 'fits']]],
+      [9, '#6', 'R-04', 'Publisher payout dashboard', 'Marketplace roadmap', 'In Progress', 'On Track', 210, 'M', [['MKT', 'over'], ['HRA', 'fits']]],
+      [10, '#3', 'R-33', 'Billing platform migration', 'Platform', 'Not Started', '', 260, 'L', [['BID', 'over']]],
+      [11, '#7', 'R-02', 'Floor price recommendations', 'Marketplace roadmap', 'In Progress', 'At Risk', 260, 'M', [['MKT', 'over']]],
+      [12, '#2', 'R-42', 'Show-level analytics', 'Publisher portal', 'Backlog', '', 140, 'M', [['HRA', 'fits']]]
+    ];
+    const rows = raw.map((r) => {
+      const hChanged = r[6].indexOf('*') > -1;
+      const health = r[6].replace('*', '');
+      const sChanged = r[8].indexOf('*') > -1;
+      const size = r[8].replace('*', '');
+      const editing = r[2] === 'R-03';
+      return {
+        g: '#' + r[0], pr: r[1] + ' here', id: r[2], name: r[3], proj: r[4], pc: PR[r[4]][0], pb: PR[r[4]][1],
+        status: r[5], health: health || '–', hc: H[health][0], hb: H[health][1],
+        hout: 'none',
+        value: r[7], size: size,
+        sbd: editing ? '2px solid #3347D9' : '1px solid transparent',
+        sbg: '#fff',
+        menu: editing ? 'flex' : 'none',
+        rowbg: editing ? '#F8F9FF' : '#FFFFFF',
+        fits: r[9].map((f) => ({ t: f[0] + ' ' + f[1], c: FIT[f[1]][0], b: FIT[f[1]][1] }))
+      };
+    });
+    return { teams: TEAMS, rows };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AI intake</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4B5563;text-decoration:none}a:hover{color:#111827}
+mark{background:#FFF0B8;color:inherit;padding:0 1px;border-radius:2px}
+</style>
+</helmet>
+<div style="font-family:'IBM Plex Sans',system-ui,sans-serif;background:#FFFFFF;color:#111827;min-height:1150px;font-size:13px">
+  <header style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;padding:0 24px;min-height:46px;background:#fff;border-bottom:1px solid #EDEFF3">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span aria-hidden="true" style="width:26px;height:26px;border-radius:7px;background:#3347D9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px">PV</span>
+      <span style="font-weight:600;font-size:14px">Product Velocity</span>
+    </div>
+    <div style="font-size:13px;color:#4B5563;display:flex;gap:6px;align-items:center"><span>Meridian Media</span><span aria-hidden="true">/</span><strong style="color:#111827;font-weight:500">Marketplace roadmap</strong></div>
+    <nav style="display:flex;gap:2px;flex-wrap:wrap;margin-left:8px">
+      <a href="Main.dc.html" style="padding:13px 10px;font-size:13px;color:#111827;font-weight:500;border-bottom:2px solid #3347D9">Grid</a>
+      <a href="Gantt.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Gantt</a>
+      <a href="Cards.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Cards</a>
+      <a href="Results-admin.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Alignment</a>
+      <a href="Leadership.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Updates</a>
+      <a href="GitHub-setup.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">GitHub</a>
+    </nav>
+    <div style="margin-left:auto"><span aria-label="Signed in as Ashu" style="width:28px;height:28px;border-radius:50%;background:#E8EBFD;color:#2433A8;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px">AS</span></div>
+  </header>
+
+  <main style="padding:14px 24px 24px">
+    <div style="font-size:12px;color:#4B5563;margin-bottom:6px"><a href="Main.dc.html" style="color:#2433A8">Grid</a> / Add with AI</div>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px">
+      <h1 style="margin:0;font-size:18px;font-weight:600">Add an initiative from a document</h1>
+      <div style="display:flex;gap:6px;align-items:center;font-size:12.5px;color:#4B5563;flex-wrap:wrap">
+        <span style="padding:2px 8px;border-radius:999px;background:#E8EBFD;color:#2433A8">1 Source</span>›
+        <span style="padding:2px 8px;border-radius:999px;background:#E8EBFD;color:#2433A8">2 Review draft</span>›
+        <span style="padding:2px 8px;border-radius:999px;background:#E8EBFD;color:#2433A8;font-weight:500">3 Check duplicates</span>›
+        <span style="padding:2px 8px;border-radius:999px;background:#EEF0F4">4 Create</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+      <!-- source -->
+      <section style="flex:1 1 340px;min-width:300px;border:1px solid #E6E9EF;border-radius:8px">
+        <div style="padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;font-weight:600;border-radius:8px 8px 0 0">Source</div>
+        <div style="padding:12px">
+          <div style="border:1px dashed #9CA3AF;border-radius:6px;padding:8px 10px;color:#4B5563;font-size:12.5px;margin-bottom:12px">Paste text, or drop an email (.eml), PDF, Word file or link. Max 20 pages.</div>
+          <div style="font-size:12px;color:#4B5563;line-height:1.7;margin-bottom:8px">
+            <div><span style="display:inline-block;width:56px">From</span><span style="color:#111827">Daan Mulder, Delta Podcast Network</span></div>
+            <div><span style="display:inline-block;width:56px">Subject</span><span style="color:#111827">Reach forecasts before we sell sponsorships</span></div>
+            <div><span style="display:inline-block;width:56px">Received</span><span style="color:#111827">20 Oct 2026</span></div>
+          </div>
+          <div style="font-size:13px;line-height:1.65;color:#1F2937;border-top:1px solid #EDEFF3;padding-top:10px">
+            <p style="margin:0 0 8px">Hi Lena, quick one.</p>
+            <p style="margin:0 0 8px"><mark>Three of our network partners asked us this month</mark> whether we can show <mark>expected reach per show</mark> before an advertiser commits. Right now we send spreadsheets by hand and <mark>deals stall for a week or two</mark>.</p>
+            <p style="margin:0 0 8px">If the marketplace gave us a forecast per show, I think we would <mark>close sponsorship deals about two weeks faster</mark>. Not sure how big this is for others, but <mark>the deals we lost this quarter all asked for it</mark>.</p>
+            <p style="margin:0 0 8px">Examples: <mark>example.com/delta-reach-examples</mark></p>
+            <p style="margin:0">Thanks, Daan</p>
+          </div>
+          <div style="margin-top:12px;font-size:12px;color:#4B5563">Highlighted text is what the draft is based on. The original is stored on the item as Source Document.</div>
+        </div>
+      </section>
+
+      <!-- draft -->
+      <section style="flex:999 1 520px;min-width:0;border:1px solid #E6E9EF;border-radius:8px">
+        <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;border-radius:8px 8px 0 0">
+          <strong style="font-weight:600">Draft initiative</strong>
+          <span style="padding:1px 8px;border-radius:999px;font-size:12px;background:#FDF0D5;color:#7A4A00;font-weight:500">AI draft · needs review</span>
+          <span style="margin-left:auto;font-size:12px;color:#4B5563">11 of 24 fields filled · 13 left for you</span>
+        </div>
+        <div style="padding:2px 12px 8px">
+          <sc-for list="{{fields}}" as="f" hint-placeholder-count="8">
+            <div style="display:grid;grid-template-columns:130px minmax(0,1fr) 78px;gap:10px;padding:7px 0;border-bottom:1px solid #F3F4F7;align-items:start">
+              <span style="color:#4B5563;font-size:12.5px;padding-top:1px">{{f.label}}</span>
+              <div>
+                <div style="font-size:13px;line-height:1.5;color:{{f.vc}}">{{f.value}}</div>
+                <div style="font-size:11.5px;color:#6B7280;margin-top:2px;font-style:italic">{{f.quote}}</div>
+              </div>
+              <span style="justify-self:end;padding:1px 8px;border-radius:999px;font-size:11.5px;color:{{f.sc}};background:{{f.sb}}">{{f.state}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;padding:10px 12px;border-top:1px solid #E6E9EF;background:#FBFBFD;border-radius:0 0 8px 8px">
+          <span style="font-size:12px;color:#4B5563;flex:1">Stack Rank, Decision and Value are never set by AI.</span>
+          <span style="padding:5px 12px;border:1px solid #E1E5EB;border-radius:6px;background:#fff">Discard</span>
+          <span style="padding:5px 12px;border:1px solid #E1E5EB;border-radius:6px;background:#fff">Save as draft</span>
+          <span style="padding:5px 12px;border-radius:6px;background:#3347D9;color:#fff;font-weight:500">Create initiative</span>
+        </div>
+      </section>
+
+      <!-- duplicates -->
+      <section style="flex:1 1 320px;min-width:300px;border:1px solid #E6E9EF;border-radius:8px">
+        <div style="padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;font-weight:600;border-radius:8px 8px 0 0">Possible duplicates</div>
+        <div style="padding:12px">
+          <div style="border:1px solid #3347D9;border-radius:8px;padding:10px 12px;background:#F7F9FF;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#4B5563">R-05</span><strong style="font-weight:600">Inventory forecast per show</strong><span style="margin-left:auto;font-weight:600;color:#2433A8">82% similar</span></div>
+            <div style="font-size:12px;color:#4B5563;margin-bottom:6px">Publisher tools · In Progress · <span style="color:#9A3412;font-weight:500">Delayed</span> · 4 customers requesting</div>
+            <div style="font-size:12.5px;line-height:1.5;color:#374151;margin-bottom:8px">Both forecast impressions per show for publishers. The email adds a new use: showing reach to advertisers before a deal closes.</div>
+            <div style="font-size:12px;color:#374151;margin-bottom:8px;padding:6px 8px;background:#fff;border:1px solid #E6E9EF;border-radius:6px">If added as evidence: customers requesting 4 → 7, the email is attached to R-05, and the BECAUSE line gains one source.</div>
+            <div style="display:flex;gap:8px"><span style="padding:4px 10px;border-radius:6px;background:#3347D9;color:#fff;font-weight:500;font-size:12.5px">Add as evidence to R-05</span><span style="padding:4px 10px;border:1px solid #E1E5EB;border-radius:6px;background:#fff;font-size:12.5px">Compare</span></div>
+          </div>
+          <div style="border:1px solid #E6E9EF;border-radius:8px;padding:10px 12px;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#4B5563">R-18</span><strong style="font-weight:600">Campaign reporting API</strong><span style="margin-left:auto;font-weight:500;color:#4B5563">41% similar</span></div>
+            <div style="font-size:12px;color:#4B5563;margin-bottom:4px">Platform &amp; API · Not Started</div>
+            <div style="font-size:12.5px;line-height:1.5;color:#374151">Overlaps on reporting, but the audience is agencies, not publishers.</div>
+          </div>
+          <div style="padding:8px 10px;background:#F8F9FC;border-radius:6px;font-size:12px;color:#4B5563;line-height:1.5;margin-bottom:10px">Matching uses meaning, not just words. It searched 22 initiatives and archived items. Nothing else scored above 30%.</div>
+          <div style="padding:6px 10px;border:1px solid #E1E5EB;border-radius:6px;text-align:center;font-size:12.5px">Create as a separate initiative anyway</div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1150}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const ST = {
+      'From email': ['#2433A8', '#E8EBFD'],
+      'Suggested': ['#7A4A00', '#FDF0D5'],
+      'Empty': ['#4B5563', '#EEF0F4'],
+      'Default': ['#4B5563', '#EEF0F4']
+    };
+    const raw = [
+      ['Name', 'Reach forecast for sponsorship deals', '“expected reach per show before an advertiser commits”', 'From email'],
+      ['Summary', 'Show advertisers the expected reach per show before they commit, so network partners can close sponsorship deals faster.', 'Written for participants. Max 280 characters.', 'From email'],
+      ['Hypothesis', 'IF the marketplace shows an expected-reach forecast per show, THEN network partners can quote sponsorships without manual spreadsheets, RESULTING IN deals closing about two weeks faster. BECAUSE the deals lost this quarter all asked for it (Delta Podcast Network).', '“close sponsorship deals about two weeks faster”', 'From email'],
+      ['Request origin', 'Customer', '“Three of our network partners asked us”', 'From email'],
+      ['Customers requesting', '3', '“Three of our network partners”', 'From email'],
+      ['Cost of not doing', 'Sponsorship deals in the network segment keep stalling or are lost.', '“deals stall for a week or two” · “the deals we lost this quarter”', 'From email'],
+      ['Artifacts', 'example.com/delta-reach-examples', '“Examples: example.com/delta-reach-examples”', 'From email'],
+      ['Focus area', 'Publishers', 'Inferred from the sender and topic. Confirm.', 'Suggested'],
+      ['Roadmap category', 'Grow customer revenues', 'Inferred from “close deals faster”. Confirm.', 'Suggested'],
+      ['Value basis', 'Partner claim', 'The only figure is the sender’s own estimate.', 'Suggested'],
+      ['Status · Phase', 'Backlog · Discover', 'Defaults for new items.', 'Default'],
+      ['Value (12m)', 'Not set', 'No figure in the source. Not estimated.', 'Empty'],
+      ['Sponsor', 'Not set', 'Nobody in the source asked for ownership.', 'Empty'],
+      ['Product manager', 'Not set', 'Recipient was Lena V. Assign?', 'Empty']
+    ];
+    return {
+      fields: raw.map((r) => ({
+        label: r[0], value: r[1], quote: r[2], state: r[3],
+        sc: ST[r[3]][0], sb: ST[r[3]][1], vc: r[3] === 'Empty' ? '#6B7280' : '#111827'
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

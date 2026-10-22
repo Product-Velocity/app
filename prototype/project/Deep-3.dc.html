@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Planning cycles and capacity</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4B5563;text-decoration:none}
+</style>
+</helmet>
+<div style="width:1280px;height:720px;box-sizing:border-box;background:#FFFFFF;color:#111827;font-family:'IBM Plex Sans',system-ui,sans-serif;padding:44px 72px 34px;display:flex;flex-direction:column">
+  <div style="font-size:15px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#3347D9">Deeper dive</div>
+  <h1 style="margin:8px 0 0;font-size:40px;line-height:1.15;font-weight:600;letter-spacing:-0.01em;max-width:1136px">Planning cycles and capacity</h1>
+  <div style="flex:1;margin-top:26px;min-height:0"><div style="display:flex;gap:8px;margin-bottom:18px"><div style="flex:1.2;min-width:0;border:1px solid #3347D9;background:#F4F7FE;border-radius:10px;padding:10px 12px"><div style="font-size:15px;font-weight:600;line-height:1.25">Candidate selection</div><div style="font-size:13.5px;color:#4B5563;margin-top:2px">21 to 28 Oct</div></div><div style="flex:1.2;min-width:0;border:1px solid #E6E9EF;background:#fff;border-radius:10px;padding:10px 12px"><div style="font-size:15px;font-weight:600;line-height:1.25">Alignment</div><div style="font-size:13.5px;color:#4B5563;margin-top:2px">29 Oct to 4 Nov</div></div><div style="flex:0.8;min-width:0;border:1px solid #E6E9EF;background:#fff;border-radius:10px;padding:10px 12px"><div style="font-size:15px;font-weight:600;line-height:1.25">Commit</div><div style="font-size:13.5px;color:#4B5563;margin-top:2px">9 Nov</div></div><div style="flex:1.4;min-width:0;border:1px solid #E6E9EF;background:#fff;border-radius:10px;padding:10px 12px"><div style="font-size:15px;font-weight:600;line-height:1.25">Prepare</div><div style="font-size:13.5px;color:#4B5563;margin-top:2px">9 Nov to 31 Dec</div></div><div style="flex:1.4;min-width:0;border:1px solid #E6E9EF;background:#fff;border-radius:10px;padding:10px 12px"><div style="font-size:15px;font-weight:600;line-height:1.25">Execution</div><div style="font-size:13.5px;color:#4B5563;margin-top:2px">4 Jan to 26 Mar</div></div><div style="flex:1.1;min-width:0;border:1px solid #E6E9EF;background:#fff;border-radius:10px;padding:10px 12px"><div style="font-size:15px;font-weight:600;line-height:1.25">Review</div><div style="font-size:13.5px;color:#4B5563;margin-top:2px">29 Mar to 2 Apr</div></div></div>
+<div style="display:flex;gap:22px;align-items:flex-start">
+  <div style="flex:1;min-width:0;border:1px solid #E1E5EB;border-radius:12px;padding:14px 18px">
+    <div style="font-size:18px;font-weight:600;margin-bottom:6px">The candidate pool builds itself</div>
+    <div style="display:flex;gap:10px;padding:6px 0;align-items:center"><span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:13px;font-weight:500;color:#2433A8;background:#E8EBFD;white-space:nowrap">Carry-over</span><span style="font-size:15.5px;color:#374151">committed, not completed</span></div><div style="display:flex;gap:10px;padding:6px 0;align-items:center"><span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:13px;font-weight:500;color:#7A4A00;background:#FDF0D5;white-space:nowrap">Likely carry-over</span><span style="font-size:15.5px;color:#374151">at risk of slipping</span></div><div style="display:flex;gap:10px;padding:6px 0;align-items:center"><span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:13px;font-weight:500;color:#7A4A00;background:#FDF0D5;white-space:nowrap">Deferred</span><span style="font-size:15.5px;color:#374151">pushed out, reason recorded</span></div><div style="display:flex;gap:10px;padding:6px 0;align-items:center"><span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:13px;font-weight:500;color:#17653F;background:#E3F4EA;white-space:nowrap">New</span><span style="font-size:15.5px;color:#374151">triaged since the last cutoff</span></div><div style="display:flex;gap:10px;padding:6px 0;align-items:center"><span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:13px;font-weight:500;color:#374151;background:#F2F3F6;white-space:nowrap">Backlog</span><span style="font-size:15.5px;color:#374151">pulled in from Horizon Next</span></div>
+    <div style="font-size:14.5px;color:#4B5563;margin-top:6px;line-height:1.4">Triage needs a hypothesis, a rough value and a rough effort.</div>
+  </div>
+  <div style="flex:1;min-width:0;border:1px solid #E1E5EB;border-radius:12px;overflow:hidden">
+    <div style="padding:12px 14px;background:#F8F9FC;font-size:18px;font-weight:600">Capacity per team <span style="font-weight:400;color:#6B7280;font-size:14px">new work per month</span></div>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 70px 80px 90px;gap:6px;padding:8px 12px;font-size:13.5px;font-weight:600;color:#4B5563"><span>Team</span><span>People</span><span>Hours</span><span>New work</span></div>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 70px 80px 90px;gap:6px;padding:8px 12px;border-top:1px solid #EDEFF3;font-size:15.5px"><span style="font-weight:500">Marketplace team</span><span>9</span><span>336 h</span><span>14.6 pw</span></div><div style="display:grid;grid-template-columns:minmax(0,1fr) 70px 80px 90px;gap:6px;padding:8px 12px;border-top:1px solid #EDEFF3;font-size:15.5px"><span style="font-weight:500">Consumer app team</span><span>7</span><span>264 h</span><span>11.4 pw</span></div><div style="display:grid;grid-template-columns:minmax(0,1fr) 70px 80px 90px;gap:6px;padding:8px 12px;border-top:1px solid #EDEFF3;font-size:15.5px"><span style="font-weight:500">Bidder team</span><span>8</span><span>312 h</span><span>10.8 pw</span></div><div style="display:grid;grid-template-columns:minmax(0,1fr) 70px 80px 90px;gap:6px;padding:8px 12px;border-top:1px solid #EDEFF3;font-size:15.5px"><span style="font-weight:500">Host-read ads team</span><span>5</span><span>180 h</span><span>9.4 pw</span></div>
+    <div style="padding:10px 14px;font-size:14.5px;color:#4B5563;line-height:1.4;border-top:1px solid #EDEFF3">Each team sets its own split of maintenance, bugs and new work.</div>
+  </div>
+</div></div>
+  <div style="display:flex;justify-content:space-between;font-size:14px;color:#6B7280"><span>Product Velocity</span><span>Deep dive 3 of 7</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

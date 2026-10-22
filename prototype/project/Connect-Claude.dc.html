@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Connect Claude</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4B5563;text-decoration:none}a:hover{color:#111827}
+</style>
+</helmet>
+<div style="font-family:'IBM Plex Sans',system-ui,sans-serif;background:#FFFFFF;color:#111827;min-height:1200px;font-size:13px">
+  <header style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;padding:0 24px;min-height:46px;background:#fff;border-bottom:1px solid #EDEFF3">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span aria-hidden="true" style="width:26px;height:26px;border-radius:7px;background:#3347D9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px">PV</span>
+      <span style="font-weight:600;font-size:14px">Product Velocity</span>
+    </div>
+    <div style="font-size:13px;color:#4B5563;display:flex;gap:6px;align-items:center"><span>Meridian Media</span><span aria-hidden="true">/</span><strong style="color:#111827;font-weight:500">Settings</strong></div>
+    <div style="margin-left:auto"><span aria-label="Signed in as Ashu" style="width:28px;height:28px;border-radius:50%;background:#E8EBFD;color:#2433A8;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px">AS</span></div>
+  </header>
+
+  <div style="display:flex;flex-wrap:wrap;align-items:flex-start">
+    <nav style="width:200px;flex:none;padding:16px 12px;border-right:1px solid #EDEFF3;min-height:1150px;box-sizing:border-box">
+      <div style="padding:6px 10px;color:#4B5563">Organisation</div>
+      <div style="padding:6px 10px;color:#4B5563">Members and roles</div>
+      <div style="padding:6px 10px;color:#4B5563">GitHub</div>
+      <div style="padding:6px 10px;border-radius:6px;background:#F3F4F7;font-weight:500">Connect Claude</div>
+      <div style="padding:6px 10px;color:#4B5563">Audit log</div>
+      <div style="padding:6px 10px;color:#4B5563">Project settings</div>
+    </nav>
+
+    <main style="flex:1 1 700px;min-width:0;padding:20px 28px 28px">
+      <h1 style="margin:0 0 4px;font-size:18px;font-weight:600">Connect Claude</h1>
+      <p style="margin:0 0 16px;color:#374151;line-height:1.5;max-width:720px">Claude can work in Product Velocity as you: brainstorm a feature, create the roadmap item, attach the design and write the spec. Everything it does is limited by your own role and recorded as "via Claude".</p>
+
+      <div style="border:1px solid #E6E9EF;border-radius:8px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;border-radius:8px 8px 0 0"><strong style="font-weight:600">1. Add the connector</strong><span style="padding:1px 8px;border-radius:999px;font-size:12px;background:#E3F4EA;color:#17653F;font-weight:500">Connected</span></div>
+        <div style="padding:12px;display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+          <div style="flex:1 1 360px;min-width:0">
+            <div style="font-size:12px;color:#4B5563;margin-bottom:4px">Server address</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><span style="flex:1;min-width:0;font-family:'IBM Plex Mono',monospace;font-size:12px;padding:6px 10px;border:1px solid #E1E5EB;border-radius:6px;background:#F8F9FC;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">https://mcp.pv.app/meridian-media</span><span style="padding:5px 12px;border:1px solid #E1E5EB;border-radius:6px;font-size:12.5px">Copy</span></div>
+            <ol style="margin:0;padding-left:18px;line-height:1.7;color:#1F2937">
+              <li>In Claude, open Settings, then Connectors, then Add custom connector.</li>
+              <li>Paste the address and sign in with your Product Velocity account.</li>
+              <li>Choose the projects Claude may use.</li>
+            </ol>
+          </div>
+          <div style="flex:1 1 300px;min-width:0;font-size:12.5px;line-height:1.6;color:#374151">
+            <div style="font-weight:600;color:#111827;margin-bottom:4px">Connected now</div>
+            <div>Ashu S. · Claude on the web · last used 12 min ago</div>
+            <div>Omar K. · Claude Code · last used yesterday</div>
+            <div style="margin-top:6px"><span style="color:#2433A8">Revoke access</span> for a person from here at any time.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #E6E9EF;border-radius:8px;margin-bottom:16px;overflow:hidden">
+        <div style="padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF"><strong style="font-weight:600">2. What Claude may do</strong><span style="margin-left:8px;font-size:12px;color:#4B5563">your role: Creator · Approver. Claude never has more than you.</span></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 170px 170px;height:26px;align-items:center;padding:0 12px;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #EDEFF3"><span>Action</span><span>Claude may</span><span>Needs your confirmation</span></div>
+        <sc-for list="{{perms}}" as="p" hint-placeholder-count="9">
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 170px 170px;min-height:34px;align-items:center;padding:4px 12px;border-bottom:1px solid #F3F4F7;font-size:12.5px">
+            <span style="padding-right:8px"><span style="font-weight:500">{{p.action}}</span><span style="display:block;font-size:11.5px;color:#4B5563">{{p.note}}</span></span>
+            <span><span style="padding:1px 8px;border-radius:999px;font-size:11.5px;color:{{p.c}};background:{{p.b}}">{{p.may}}</span></span>
+            <span style="color:#374151">{{p.confirm}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+        <div style="flex:1 1 380px;min-width:0;border:1px solid #E6E9EF;border-radius:8px">
+          <div style="padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;border-radius:8px 8px 0 0;font-weight:600">3. Roles and the Approver permission</div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 62px 62px 62px 62px;height:26px;align-items:center;padding:0 12px;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #EDEFF3"><span>Can</span><span>Viewer</span><span>Commenter</span><span>Creator</span><span>Admin</span></div>
+          <sc-for list="{{roles}}" as="r" hint-placeholder-count="6">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 62px 62px 62px 62px;min-height:30px;align-items:center;padding:3px 12px;border-bottom:1px solid #F3F4F7;font-size:12.5px;color:#374151"><span style="color:#111827">{{r.what}}</span><span>{{r.v}}</span><span>{{r.c}}</span><span>{{r.cr}}</span><span>{{r.a}}</span></div>
+          </sc-for>
+          <div style="padding:10px 12px;background:#F4F7FE;border-top:1px solid #D5DBFA;border-radius:0 0 8px 8px;font-size:12.5px;line-height:1.55">
+            <strong style="font-weight:600">Approver</strong> is a separate permission that can be added to any role. It alone can mark an item "Ready for build". Claude cannot hold it, even when you do.
+            <div style="margin-top:6px;color:#4B5563">Approvers in this project: Lena V., Priya N., Ashu S.</div>
+          </div>
+        </div>
+
+        <div style="flex:1 1 380px;min-width:0;border:1px solid #E6E9EF;border-radius:8px">
+          <div style="padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;border-radius:8px 8px 0 0;font-weight:600">4. Guardrails</div>
+          <div style="padding:10px 12px">
+            <sc-for list="{{rails}}" as="g" hint-placeholder-count="5">
+              <div style="display:flex;gap:10px;align-items:flex-start;padding:5px 0;font-size:12.5px;line-height:1.5">
+                <span aria-hidden="true" style="width:30px;height:17px;border-radius:9px;background:#3347D9;flex:none;margin-top:1px;position:relative"><span style="position:absolute;right:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff"></span></span>
+                <span>{{g.text}}<span style="display:block;font-size:11.5px;color:#4B5563">{{g.sub}}</span></span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #E6E9EF;border-radius:8px;margin-top:16px;overflow:hidden">
+        <div style="display:flex;align-items:center;padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF"><strong style="font-weight:600">5. Recent activity via Claude</strong><span style="margin-left:auto;font-size:12px;color:#2433A8">Open audit log</span></div>
+        <sc-for list="{{log}}" as="l" hint-placeholder-count="6">
+          <div style="display:grid;grid-template-columns:110px 130px minmax(0,1fr) 130px;min-height:32px;align-items:center;padding:3px 12px;border-bottom:1px solid #F3F4F7;font-size:12.5px">
+            <span style="color:#4B5563">{{l.when}}</span><span>{{l.who}}</span><span style="padding-right:8px">{{l.what}}</span>
+            <span><span style="padding:1px 8px;border-radius:999px;font-size:11.5px;color:{{l.c}};background:{{l.b}}">{{l.tag}}</span></span>
+          </div>
+        </sc-for>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1200}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const TAG = {
+      'Draft': ['#374151', '#F2F3F6'],
+      'Done': ['#17653F', '#E3F4EA'],
+      'Waiting for you': ['#7A4A00', '#FDF0D5'],
+      'Blocked': ['#8A1F1F', '#FBE4E4']
+    };
+    const P = [
+      ['Search and read items, documents and delivery status', 'Within projects you chose', 'Yes', 'No'],
+      ['Create a roadmap item as a draft', 'Marked "AI draft", Created Via "Claude (MCP)"', 'Yes', 'No'],
+      ['Edit fields on items', 'Not Stack Rank, Decision or Value', 'Yes', 'Each change shown first'],
+      ['Stack Rank, Decision and Value', 'These stay with the team', 'No', 'Not available'],
+      ['Add or update documents', 'PRD, requirements, criteria, links and Markdown files', 'Yes', 'No'],
+      ['Request approval', 'Notifies the Approvers', 'Yes', 'No'],
+      ['Mark ready for build', 'Approver permission only', 'No', 'Not available'],
+      ['Create epics and tasks in GitHub', 'Only after Ready for build', 'Yes', 'Always'],
+      ['Draft the weekly update', 'Saved as a draft, never sent', 'Yes', 'No'],
+      ['Send alignment invitations', 'Claude prepares them, you send', 'Yes', 'Always'],
+      ['Read team capacity', 'Used to check breakdowns against the window', 'Yes', 'No']
+    ].map((r) => ({
+      action: r[0], note: r[1], may: r[2], confirm: r[3],
+      c: r[2] === 'Yes' ? '#17653F' : '#6B7280', b: r[2] === 'Yes' ? '#E3F4EA' : '#F2F3F6'
+    }));
+    const Y = '✓', N = '–';
+    const roles = [
+      ['See items and documents', Y, Y, Y, Y],
+      ['Comment', N, Y, Y, Y],
+      ['Create and edit items', N, N, Y, Y],
+      ['Write documents, request approval', N, N, Y, Y],
+      ['Connect GitHub, manage members', N, N, N, Y],
+      ['Mark ready for build', 'add-on', 'add-on', 'add-on', 'add-on']
+    ].map((r) => ({ what: r[0], v: r[1], c: r[2], cr: r[3], a: r[4] }));
+    const rails = [
+      ['Claude acts with your role', 'It cannot see or change what you cannot.'],
+      ['New items are drafts', 'They show an "AI draft" chip until a person accepts them.'],
+      ['Stack Rank, Decision and Value are off limits', 'Commercial fields are never sent to GitHub either.'],
+      ['Documents and emails are treated as data', 'Instructions found inside a pasted document are not followed.'],
+      ['Every action is logged', 'Shown as "Ashu S. via Claude", with the conversation it came from.']
+    ].map((g) => ({ text: g[0], sub: g[1] }));
+    const log = [
+      ['2 h ago', 'Ashu S. via Claude', 'Edited PRD for R-03, v2 to v3', 'Draft'],
+      ['2 h ago', 'Ashu S. via Claude', 'Asked Approvers to review PRD and criteria on R-03', 'Waiting for you'],
+      ['Yesterday', 'Omar K. via Claude', 'Proposed 4 epics and 22 tasks for R-03', 'Draft'],
+      ['Yesterday', 'Omar K. via Claude', 'Tried to set Stack Rank on R-07', 'Blocked'],
+      ['14 Oct', 'Ashu S. via Claude', 'Created R-23 as a draft and linked a prototype', 'Done'],
+      ['12 Oct', 'Ashu S. via Claude', 'Drafted the weekly update for 12 Oct', 'Done']
+    ].map((l) => ({ when: l[0], who: l[1], what: l[2], tag: l[3], c: TAG[l[3]][0], b: TAG[l[3]][1] }));
+    return { perms: P, roles, rails, log };
+  }
+}
+</script>
+</body>
+</html>

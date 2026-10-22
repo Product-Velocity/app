@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Card view</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4B5563;text-decoration:none}a:hover{color:#111827}
+</style>
+</helmet>
+<div style="font-family:'IBM Plex Sans',system-ui,sans-serif;background:#FFFFFF;color:#111827;min-height:1700px;font-size:13px">
+  <header style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;padding:0 24px;min-height:46px;background:#fff;border-bottom:1px solid #EDEFF3">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span aria-hidden="true" style="width:26px;height:26px;border-radius:7px;background:#3347D9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px">PV</span>
+      <span style="font-weight:600;font-size:14px">Product Velocity</span>
+    </div>
+    <div style="font-size:13px;color:#4B5563;display:flex;gap:6px;align-items:center"><span>Meridian Media</span><span aria-hidden="true">/</span><strong style="color:#111827;font-weight:500">Marketplace roadmap</strong></div>
+    <nav style="display:flex;gap:2px;flex-wrap:wrap;margin-left:8px">
+      <a href="Main.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Grid</a>
+      <a href="Gantt.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Gantt</a>
+      <a href="Cards.dc.html" style="padding:13px 10px;font-size:13px;color:#111827;font-weight:500;border-bottom:2px solid #3347D9">Cards</a>
+      <a href="Results-admin.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Alignment</a>
+      <a href="Leadership.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Updates</a>
+      <a href="GitHub-setup.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">GitHub</a>
+    </nav>
+    <div style="margin-left:auto"><span aria-label="Signed in as Ashu" style="width:28px;height:28px;border-radius:50%;background:#E8EBFD;color:#2433A8;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px">AS</span></div>
+  </header>
+
+  <main style="padding:14px 24px 24px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+      <h1 style="margin:0;font-size:18px;font-weight:600">Cards</h1>
+      <span style="color:#4B5563;font-size:12.5px">22 initiatives</span>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:#4B5563">
+        <span style="padding:4px 8px;border:1px solid #E1E5EB;border-radius:6px">Columns <strong style="color:#111827;font-weight:500">Status</strong></span>
+        <span style="padding:4px 8px;border:1px solid #E1E5EB;border-radius:6px">Swimlanes <strong style="color:#111827;font-weight:500">MoSCoW</strong></span>
+        <span style="padding:4px 8px;border:1px solid #E1E5EB;border-radius:6px">Card shows <strong style="color:#111827;font-weight:500">Health · progress · owner · G2M · value</strong></span>
+        <span style="padding:4px 8px;border:1px solid #E1E5EB;border-radius:6px">Filters</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 10px;background:#F4F7FE;border:1px solid #D5DBFA;border-radius:6px;margin-bottom:10px;font-size:12.5px;color:#374151">
+      <span>Columns and swimlanes can be any single-select field: Status, Phase, Health, MoSCoW, Horizon, Theme, Focus area, Category.</span>
+      <span style="color:#2433A8">Drag across lanes to change MoSCoW. Dragging across Status columns asks for confirmation, because GitHub drives Status: moving a card to Completed needs the tracking issue to be closed.</span>
+    </div>
+
+    <!-- column headers -->
+    <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:6px">
+      <sc-for list="{{cols}}" as="c" hint-placeholder-count="5">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#F8F9FC;border:1px solid #E6E9EF;border-radius:6px;font-weight:600">{{c.name}}<span style="font-weight:400;color:#4B5563;font-size:12px">{{c.count}}</span></div>
+      </sc-for>
+    </div>
+
+    <sc-for list="{{lanes}}" as="lane" hint-placeholder-count="3">
+      <section style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;padding:5px 10px;background:#F5F7FA;border:1px solid #E6E9EF;border-radius:6px;margin-bottom:6px">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="3" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          <strong style="font-weight:600">{{lane.name}}</strong>
+          <span style="color:#4B5563;font-size:12px">{{lane.count}} items · {{lane.value}} value</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;align-items:start">
+          <sc-for list="{{lane.cells}}" as="cell" hint-placeholder-count="5">
+            <div style="min-height:70px;padding:6px;background:#FBFBFD;border:1px solid #EDEFF3;border-radius:6px">
+              <sc-for list="{{cell.cards}}" as="k" hint-placeholder-count="2">
+                <div style="background:#fff;border:1px solid #E1E5EB;border-radius:6px;padding:7px 9px;margin-bottom:6px">
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#4B5563">{{k.id}}</span>
+                    <span style="font-size:11px;font-weight:500;padding:0 6px;border-radius:999px;color:{{k.hc}};background:{{k.hb}}">{{k.health}}</span>
+                    <span style="margin-left:auto;font-size:11px;color:#374151;font-variant-numeric:tabular-nums">{{k.value}}</span>
+                  </div>
+                  <a href="Item-detail.dc.html" style="display:block;font-size:12.5px;font-weight:500;line-height:1.35;color:#111827;margin-bottom:6px">{{k.name}}</a>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <div style="flex:1;height:4px;border-radius:2px;background:#EEF0F3;overflow:hidden"><div style="height:4px;background:#3347D9;width:{{k.prog}}%"></div></div>
+                    <span style="font-size:11px;color:#4B5563;width:34px;text-align:right">{{k.progText}}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:5px;font-size:11px;color:#4B5563">
+                    <span style="width:18px;height:18px;border-radius:50%;background:#E8EBFD;color:#2433A8;font-weight:600;font-size:9px;display:flex;align-items:center;justify-content:center">{{k.pm}}</span>
+                    <span>{{k.g2m}}</span>
+                    <span style="margin-left:auto">{{k.phase}}</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </sc-for>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1700}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const D = [
+      ['R-01','Budget pacing v2','In Progress','On Track','Must',480,62,'Build','LV','2027-01-29',1],
+      ['R-02','Floor price recommendations','In Progress','At Risk','Should',260,41,'Build','LV','2026-12-11',7],
+      ['R-03','Deal IDs for private marketplaces','Not Started','','Must',390,0,'Define','OK','2027-04-16',5],
+      ['R-19','Real-time campaign alerts','In Progress','On Track','Should',120,45,'Build','LV','2026-12-04',18],
+      ['R-04','Publisher payout dashboard','In Progress','On Track','Must',210,88,'Beta-test','SD','2026-11-20',6],
+      ['R-05','Inventory forecast per show','In Progress','Delayed','Should',150,35,'Build','SD','2027-01-15',10],
+      ['R-06','Self-serve publisher onboarding','Backlog','','Could',120,0,'Discover','SD','2027-05-14',13],
+      ['R-16','SSO for publisher accounts','Not Started','','Could',80,0,'Define','OK','2027-04-02',16],
+      ['R-07','Host-read ad marketplace listing','In Progress','On Track','Must',540,74,'Experiment','IP','2026-11-27',2],
+      ['R-08','Dynamic ad insertion for music streams','In Progress','On Track','Should',320,28,'Build','IP','2027-03-05',8],
+      ['R-09','Interactive voice-response ads','Backlog','','Could',90,0,'Discover','IP','2027-08-27',15],
+      ['R-10','Creative A/B testing','In Progress','At Risk','Should',180,8,'Define','IP','2027-02-12',9],
+      ['R-22','Listener demographics import','Backlog','','Could',95,0,'Discover','IP','',21],
+      ['R-11','Brand-safety category filters','In Progress','On Track','Must',300,94,'Roll-out','OK','2026-10-30',3],
+      ['R-12','Invalid-traffic detection','Paused','','Should',200,30,'Build','OK','2027-02-26',12],
+      ['R-13','Publisher verification badges','Not Started','','Could',60,0,'Define','OK','2027-02-05',14],
+      ['R-14','Agency API v2','In Progress','On Track','Must',410,33,'Build','PN','2027-03-26',4],
+      ['R-15','Usage-based billing export','In Progress','Blocked','Should',140,20,'Build','PN','2026-12-18',11],
+      ['R-17','Audit log and data export','Completed','','Should',110,100,'Completed','PN','2026-08-28',99],
+      ['R-18','Campaign reporting API','Not Started','','Could',170,0,'Define','PN','2027-06-18',17],
+      ['R-20','Multi-currency invoicing','Backlog','','Could',100,0,'Discover','PN','2027-06-04',19],
+      ['R-21','Partner referral program','Backlog','','Could',70,0,'Discover','PN','',20]
+    ];
+    const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const fmt = (s) => s ? ('G2M ' + (+s.slice(8, 10)) + ' ' + MON[+s.slice(5, 7) - 1]) : 'No date';
+    const HC = {'On Track':['#17653F','#E3F4EA'],'At Risk':['#7A4A00','#FDF0D5'],'Delayed':['#9A3412','#FDE6D8'],'Blocked':['#A4161A','#FBE1E1']};
+    const colNames = ['Backlog', 'Not Started', 'In Progress', 'Paused', 'Completed'];
+    const laneNames = ['Must', 'Should', 'Could'];
+    const cols = colNames.map((n) => ({ name: n, count: D.filter((d) => d[2] === n).length }));
+    const lanes = laneNames.map((ln) => {
+      const inLane = D.filter((d) => d[4] === ln);
+      return {
+        name: ln,
+        count: inLane.length,
+        value: '€' + inLane.reduce((t, d) => t + d[5], 0) + 'k',
+        cells: colNames.map((cn) => ({
+          cards: inLane.filter((d) => d[2] === cn).sort((a, b) => a[10] - b[10]).map((d) => {
+            const hc = HC[d[3]] || ['#6B7280', 'transparent'];
+            return { id: d[0], name: d[1], health: d[3], hc: hc[0], hb: hc[1], value: '€' + d[5] + 'k', prog: d[6], progText: d[6] ? d[6] + '%' : '–', phase: d[7], pm: d[8], g2m: fmt(d[9]) };
+          })
+        }))
+      };
+    });
+    return { cols, lanes };
+  }
+}
+</script>
+</body>
+</html>

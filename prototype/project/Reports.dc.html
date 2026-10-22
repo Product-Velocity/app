@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reports</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4B5563;text-decoration:none}a:hover{color:#111827}
+</style>
+</helmet>
+<div style="font-family:'IBM Plex Sans',system-ui,sans-serif;background:#FFFFFF;color:#111827;min-height:1250px;font-size:13px">
+  <header style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;padding:0 24px;min-height:46px;background:#fff;border-bottom:1px solid #EDEFF3">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span aria-hidden="true" style="width:26px;height:26px;border-radius:7px;background:#3347D9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px">PV</span>
+      <span style="font-weight:600;font-size:14px">Product Velocity</span>
+    </div>
+    <div style="font-size:13px;color:#4B5563;display:flex;gap:8px;align-items:center"><span>Meridian Media</span><span aria-hidden="true">/</span><span style="padding:4px 10px;border:1px solid #E1E5EB;border-radius:6px;color:#111827;font-weight:500">All projects ▾</span></div>
+    <nav style="display:flex;gap:2px;flex-wrap:wrap;margin-left:8px">
+      <a href="Portfolio.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Grid</a>
+      <a href="Gantt.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Gantt</a>
+      <a href="Cards.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Cards</a>
+      <a href="Planning-cycles.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Planning</a>
+      <a href="Capacity-planner.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Capacity</a>
+      <a href="Results-admin.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Alignment</a>
+      <span style="padding:13px 10px;font-size:13px;color:#111827;font-weight:500;border-bottom:2px solid #3347D9">Reports</span>
+    </nav>
+    <div style="margin-left:auto"><span aria-label="Signed in as Ashu" style="width:28px;height:28px;border-radius:50%;background:#E8EBFD;color:#2433A8;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px">AS</span></div>
+  </header>
+
+  <main style="padding:16px 24px 24px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+      <h1 style="margin:0;font-size:18px;font-weight:600">Reports and presentations</h1>
+      <span style="font-size:12px;color:#4B5563">Templates with your branding. Each one decides who the audience is and which fields may appear.</span>
+      <span style="margin-left:auto;padding:4px 12px;border:1px solid #E1E5EB;border-radius:6px;font-size:12.5px">Upload your own template</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+      <section style="flex:1 1 760px;min-width:0">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-bottom:16px">
+          <sc-for list="{{templates}}" as="t" hint-placeholder-count="6">
+            <div style="border:{{t.bd}};border-radius:8px;overflow:hidden;background:#fff">
+              <div style="height:96px;background:#F3F4F7;padding:12px;box-sizing:border-box;display:flex;gap:8px;align-items:stretch">
+                <div style="flex:1;background:#fff;border:1px solid #E6E9EF;border-radius:4px;padding:8px;display:flex;flex-direction:column;gap:5px">
+                  <span style="height:6px;width:60%;background:{{t.col}};border-radius:2px"></span><span style="flex:1;background:#EEF0F3;border-radius:2px"></span><span style="height:4px;width:80%;background:#E1E5EB;border-radius:2px"></span><span style="height:4px;width:50%;background:#E1E5EB;border-radius:2px"></span>
+                </div>
+              </div>
+              <div style="padding:10px 12px">
+                <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><strong style="font-weight:600">{{t.name}}</strong><span style="font-size:11.5px;color:#4B5563;flex:none">{{t.fmt}}</span></div>
+                <div style="font-size:12px;color:#4B5563;line-height:1.45;margin:4px 0 8px;min-height:52px">{{t.desc}}</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:6px"><span style="padding:1px 8px;border-radius:999px;font-size:11.5px;color:{{t.ac}};background:{{t.ab}}">{{t.aud}}</span><span style="font-size:12px;color:#2433A8;font-weight:500">Generate</span></div>
+                <div style="font-size:11.5px;color:#6B7280;margin-top:6px">{{t.last}}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="border:1px solid #E6E9EF;border-radius:8px;margin-bottom:16px;overflow:hidden">
+          <div style="padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF"><strong style="font-weight:600">Scheduled</strong><span style="margin-left:8px;font-size:12px;color:#4B5563">generated as drafts, nothing goes out without review</span></div>
+          <sc-for list="{{sched}}" as="s" hint-placeholder-count="2">
+            <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1.2fr) 70px;min-height:36px;align-items:center;padding:4px 12px;border-bottom:1px solid #F3F4F7;font-size:12.5px;gap:8px">
+              <span style="font-weight:500">{{s.name}}</span><span style="color:#374151">{{s.when}}</span><span style="color:#4B5563">{{s.to}}</span>
+              <span><span style="padding:1px 8px;border-radius:999px;font-size:11.5px;background:#E3F4EA;color:#17653F">Active</span></span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="border:1px solid #E6E9EF;border-radius:8px;overflow:hidden">
+          <div style="padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF"><strong style="font-weight:600">History</strong><span style="margin-left:8px;font-size:12px;color:#4B5563">every file is a snapshot of the data at that time</span></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 110px minmax(0,1.2fr) 60px 80px;height:26px;align-items:center;padding:0 12px;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #EDEFF3;gap:8px"><span>Report</span><span>Scope</span><span>Audience</span><span>Created by</span><span>When</span><span>Files</span></div>
+          <sc-for list="{{history}}" as="h" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 110px minmax(0,1.2fr) 60px 80px;min-height:34px;align-items:center;padding:3px 12px;border-bottom:1px solid #F3F4F7;font-size:12.5px;gap:8px">
+              <span style="font-weight:500">{{h.name}}</span><span style="color:#374151">{{h.scope}}</span><span style="color:#374151">{{h.aud}}</span><span style="color:#374151">{{h.by}}</span><span style="color:#4B5563">{{h.when}}</span><span style="color:#2433A8">{{h.files}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <aside style="flex:1 1 400px;min-width:340px;border:1px solid #CBD2F5;border-radius:10px;box-shadow:0 6px 20px rgba(51,71,217,0.08)">
+        <div style="padding:10px 14px;background:#F4F7FE;border-bottom:1px solid #D5DBFA;border-radius:10px 10px 0 0;display:flex;justify-content:space-between;align-items:baseline"><strong style="font-weight:600;font-size:14px">Generate: Roadmap for sales</strong><span style="font-size:12px;color:#4B5563">Cancel</span></div>
+        <div style="padding:12px 14px;display:flex;flex-direction:column;gap:12px">
+          <div><div style="font-size:12px;color:#4B5563;margin-bottom:3px">Scope</div><div style="padding:6px 10px;border:1px solid #E1E5EB;border-radius:6px">All projects · above the line for Q1 2027 · 9 items</div></div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div style="flex:1 1 150px"><div style="font-size:12px;color:#4B5563;margin-bottom:3px">Audience</div><div style="padding:6px 10px;border:1px solid #E1E5EB;border-radius:6px;background:#F8F9FC">Customer-safe <span style="color:#6B7280">(set by template)</span></div></div>
+            <div style="flex:1 1 150px"><div style="font-size:12px;color:#4B5563;margin-bottom:3px">Timing shown as</div><div style="padding:6px 10px;border:1px solid #E1E5EB;border-radius:6px">Quarter only ▾</div></div>
+          </div>
+          <div><div style="font-size:12px;color:#4B5563;margin-bottom:3px">Format and destination</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><span style="padding:3px 12px;border-radius:6px;background:#3347D9;color:#fff;font-weight:500">PowerPoint</span><span style="padding:3px 12px;border-radius:6px;border:1px solid #E1E5EB">PDF</span><span style="padding:3px 12px;border-radius:6px;border:1px solid #E1E5EB">Word</span></div>
+            <div style="padding:6px 10px;border:1px solid #E1E5EB;border-radius:6px">Google Drive · Sales enablement / Q1 2027 ▾</div></div>
+          <div style="display:flex;gap:10px;align-items:flex-start;line-height:1.5">
+            <span aria-hidden="true" style="width:30px;height:17px;border-radius:9px;background:#3347D9;flex:none;margin-top:2px;position:relative"><span style="position:absolute;right:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff"></span></span>
+            <span>Claude tightens the "Why" text for customers<span style="display:block;font-size:11.5px;color:#4B5563">You review every slide before it is shared.</span></span>
+          </div>
+
+          <div>
+            <div style="font-size:12px;color:#4B5563;margin-bottom:4px">Included</div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap"><sc-for list="{{inc}}" as="x" hint-placeholder-count="6"><span style="padding:1px 8px;border-radius:999px;font-size:12px;background:#E3F4EA;color:#17653F">{{x}}</span></sc-for></div>
+            <div style="font-size:12px;color:#4B5563;margin:8px 0 4px">Withheld for this audience</div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap"><sc-for list="{{wh}}" as="x" hint-placeholder-count="7"><span style="padding:1px 8px;border-radius:999px;font-size:12px;background:#F2F3F6;color:#4B5563">{{x}}</span></sc-for></div>
+          </div>
+
+          <div style="padding:9px 12px;background:#FFF8E6;border:1px solid #E8C88A;border-radius:8px;line-height:1.55;font-size:12.5px;color:#5C3A00">
+            <div style="font-weight:600;margin-bottom:2px">2 things to check</div>
+            <div>R-11 and R-04 have no screenshot.</div>
+            <div>R-23 has no customer-safe summary. <span style="color:#2433A8;font-weight:500">Ask Claude to draft it</span></div>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="padding:7px 16px;border-radius:6px;background:#3347D9;color:#fff;font-weight:500">Generate draft</span>
+            <span style="padding:7px 14px;border:1px solid #E1E5EB;border-radius:6px">Preview outline</span>
+          </div>
+          <div style="font-size:12px;color:#4B5563;line-height:1.5">The file is a snapshot of today's data. Anyone with Reports access can regenerate it later.</div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1250}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const AUD = {
+      'Customer-safe': ['#17653F', '#E3F4EA'],
+      'Participants': ['#2433A8', '#E8EBFD'],
+      'Go-to-market team': ['#7A4A00', '#FDF0D5'],
+      'Leadership': ['#374151', '#F2F3F6'],
+      'Internal': ['#374151', '#F2F3F6']
+    };
+    const raw = [
+      ['Roadmap for sales', 'What, why and a screenshot for each planned item, with quarter-level timing. For client and prospect meetings.', 'Customer-safe', 'PPTX · PDF', 'Last: 3 Oct, Q4 roadmap', '#3347D9', true],
+      ['Pre-vote briefing', 'Every candidate with what, why, who it is for, predicted outcomes, effort and screenshots. Sent before voting.', 'Participants', 'DOCX · PDF', 'Used in 2 sessions', '#2B6CB0', false],
+      ['Go-to-market launch deck', 'Items releasing next month with value proposition, segments, dates and screenshots, plus a calendar overview.', 'Go-to-market team', 'PPTX', 'Last: 26 Sep', '#B7791F', false],
+      ['Monthly business review', 'Key initiatives with progress, health and key results, decisions needed, capacity and committed vs actual.', 'Leadership', 'PPTX · XLSX', 'Scheduled monthly', '#4B5563', false],
+      ['Alignment results', 'Ranking, group scores, comments and themes from one alignment session.', 'Leadership', 'DOCX · XLSX', 'Last: 14 Oct', '#4B5563', false],
+      ['Roadmap data export', 'Any grid view with the columns you choose. Field permissions still apply.', 'Internal', 'XLSX · CSV', 'Last: yesterday', '#4B5563', false]
+    ];
+    const templates = raw.map((r) => ({
+      name: r[0], desc: r[1], aud: r[2], ac: AUD[r[2]][0], ab: AUD[r[2]][1], fmt: r[3], last: r[4], col: r[5],
+      bd: r[6] ? '2px solid #3347D9' : '1px solid #E6E9EF'
+    }));
+    const sched = [
+      { name: 'Monthly business review', when: '1st of each month, 08:00', to: 'Draft to Ashu S. · Drive: Leadership / MBR' },
+      { name: 'Go-to-market launch deck', when: '25th of each month, 08:00', to: 'Draft to Priya N. · Drive: GTM / Launches' }
+    ];
+    const history = [
+      { name: 'Roadmap for sales', scope: 'Planned items, 3 projects', aud: 'Customer-safe', by: 'Ashu S.', when: '3 Oct', files: 'PPTX' },
+      { name: 'Monthly business review', scope: 'Key initiatives, September', aud: 'Leadership', by: 'Scheduled, edited by Ashu S.', when: '1 Oct', files: 'PPTX, XLSX' },
+      { name: 'Pre-vote briefing', scope: 'Q1 priorities, 13 items', aud: 'Participants', by: 'Claude, approved by Ashu S.', when: '20 Oct', files: 'DOCX' },
+      { name: 'Alignment results', scope: 'Q4 session, 87 ballots', aud: 'Leadership', by: 'Ashu S.', when: '14 Oct', files: 'DOCX' }
+    ];
+    const inc = ['What', 'Why', 'For whom', 'Customer-safe summary', 'Screenshot', 'Timing: quarter'];
+    const wh = ['Value', 'Effort', 'Stack Rank', 'Customer names', 'Internal notes', 'GitHub links', 'Exact dates'];
+    return { templates, sched, history, inc, wh };
+  }
+}
+</script>
+</body>
+</html>

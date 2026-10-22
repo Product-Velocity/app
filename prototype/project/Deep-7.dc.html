@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Security and trust</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4B5563;text-decoration:none}
+</style>
+</helmet>
+<div style="width:1280px;height:720px;box-sizing:border-box;background:#FFFFFF;color:#111827;font-family:'IBM Plex Sans',system-ui,sans-serif;padding:44px 72px 34px;display:flex;flex-direction:column">
+  <div style="font-size:15px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#3347D9">Deeper dive</div>
+  <h1 style="margin:8px 0 0;font-size:40px;line-height:1.15;font-weight:600;letter-spacing:-0.01em;max-width:1136px">Security and trust</h1>
+  <div style="flex:1;margin-top:26px;min-height:0"><div style="display:flex;flex-wrap:wrap;gap:16px"><div style="flex:1 1 30%;min-width:0;border:1px solid #E1E5EB;border-radius:12px;padding:18px 20px"><div style="font-size:20px;font-weight:600;margin-bottom:6px">Tenant isolation</div><div style="font-size:16.5px;line-height:1.5;color:#374151">Every organisation is separated at the database level with row-level security.</div></div><div style="flex:1 1 30%;min-width:0;border:1px solid #E1E5EB;border-radius:12px;padding:18px 20px"><div style="font-size:20px;font-weight:600;margin-bottom:6px">Roles and approvals</div><div style="font-size:16.5px;line-height:1.5;color:#374151">Admin, creator, commenter and viewer, plus a separate Approver permission.</div></div><div style="flex:1 1 30%;min-width:0;border:1px solid #E1E5EB;border-radius:12px;padding:18px 20px"><div style="font-size:20px;font-weight:600;margin-bottom:6px">Sign-in</div><div style="font-size:16.5px;line-height:1.5;color:#374151">Email, Google and GitHub, with two-factor authentication. SAML single sign-on is planned.</div></div><div style="flex:1 1 30%;min-width:0;border:1px solid #E1E5EB;border-radius:12px;padding:18px 20px"><div style="font-size:20px;font-weight:600;margin-bottom:6px">Audit trail</div><div style="font-size:16.5px;line-height:1.5;color:#374151">Every change is logged, including what was done via Claude and by whom.</div></div><div style="flex:1 1 30%;min-width:0;border:1px solid #E1E5EB;border-radius:12px;padding:18px 20px"><div style="font-size:20px;font-weight:600;margin-bottom:6px">AI guardrails</div><div style="font-size:16.5px;line-height:1.5;color:#374151">Claude acts with your role. Documents are treated as data, not instructions.</div></div><div style="flex:1 1 30%;min-width:0;border:1px solid #E1E5EB;border-radius:12px;padding:18px 20px"><div style="font-size:20px;font-weight:600;margin-bottom:6px">Participant privacy</div><div style="font-size:16.5px;line-height:1.5;color:#374151">Consent, retention and deletion for voters. Results are anonymous to participants.</div></div></div></div>
+  <div style="display:flex;justify-content:space-between;font-size:14px;color:#6B7280"><span>Product Velocity</span><span>Deep dive 7 of 7</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

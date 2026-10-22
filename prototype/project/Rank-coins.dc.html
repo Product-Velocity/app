@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spend your 100 coins</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width:390px;height:844px;box-sizing:border-box;background:#FFFFFF;color:#111827;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;display:flex;flex-direction:column">
+  <div style="padding:16px 20px 12px;border-bottom:1px solid #EDEFF3">
+    <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#4B5563;margin-bottom:6px"><span>Step 1 of 2 · Coins</span><span>about 3 min</span></div>
+    <h1 style="margin:0 0 4px;font-size:20px;font-weight:600">Spend your 100 coins</h1>
+    <div style="font-size:13px;color:#374151;line-height:1.4">Put more coins on what matters most to you. Up to 30 on one item.</div>
+    <div style="display:flex;align-items:baseline;gap:8px;margin-top:12px">
+      <span style="font-size:32px;font-weight:600;line-height:1;color:#2433A8">32</span><span style="font-size:14px;color:#374151">coins left</span><span style="margin-left:auto;font-size:12px;color:#4B5563">68 placed</span>
+    </div>
+    <div style="display:flex;height:10px;border-radius:5px;overflow:hidden;background:#EEF0F3;margin-top:8px"><span style="flex:30;background:#3347D9"></span><span style="flex:20;background:#6C7CE8"></span><span style="flex:10;background:#9AA6F0"></span><span style="flex:8;background:#C3CAF6"></span><span style="flex:32"></span></div>
+  </div>
+
+  <div style="flex:1;overflow:hidden;padding:8px 20px 0">
+    <sc-for list="{{items}}" as="i" hint-placeholder-count="7">
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F3F4F7;min-height:62px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:500;font-size:14px;line-height:1.3">{{i.title}}</div>
+          <div style="font-size:12px;color:#4B5563;line-height:1.35;margin-top:1px">{{i.desc}}</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:5px"><div style="flex:1;height:4px;border-radius:2px;background:#EEF0F3;overflow:hidden"><div style="height:4px;background:#3347D9;width:{{i.pct}}%"></div></div><span style="font-size:11px;color:{{i.mc}};width:56px">{{i.maxnote}}</span></div>
+        </div>
+        <button aria-label="Remove 5 coins" style="flex:none;width:44px;height:44px;border:1px solid #E1E5EB;border-radius:8px;background:#fff;font-size:20px;color:{{i.minus}}">−</button>
+        <span style="flex:none;width:30px;text-align:center;font-size:18px;font-weight:600;color:{{i.vc}}">{{i.v}}</span>
+        <button aria-label="Add 5 coins" style="flex:none;width:44px;height:44px;border:0;border-radius:8px;background:{{i.plusbg}};font-size:20px;font-weight:500;color:{{i.plusc}}">+</button>
+      </div>
+    </sc-for>
+    <div style="padding:10px 0;font-size:12.5px;color:#2433A8">6 more initiatives below</div>
+  </div>
+
+  <div style="padding:10px 20px 16px;border-top:1px solid #EDEFF3;background:#fff">
+    <div style="font-size:12px;color:#4B5563;margin-bottom:8px;line-height:1.4">Buttons move 5 coins at a time. Tap a number to type an exact amount.</div>
+    <div style="height:48px;border-radius:8px;background:#C7CCE8;color:#fff;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center">Place 32 more coins to continue</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const raw = [
+      ['Host-read ad marketplace listing', 'Let brands buy host-read podcast ads from the marketplace.', 30],
+      ['Budget pacing v2', 'Smoother daily spend so campaigns do not run out early.', 20],
+      ['Agency API v2', 'Agencies manage campaigns from their own tools.', 10],
+      ['Brand-safety category filters', 'Keep ads away from topics advertisers avoid.', 8],
+      ['Publisher payout dashboard', 'Earnings and payout status in one place.', 0],
+      ['Floor price recommendations', 'Suggested minimum prices for publishers.', 0],
+      ['Dynamic ad insertion for music streams', 'Insert ads into live music streams.', 0]
+    ];
+    const items = raw.map((r) => {
+      const v = r[2];
+      return {
+        title: r[0], desc: r[1], v: v,
+        pct: Math.round((v / 30) * 100),
+        maxnote: v >= 30 ? 'Maximum' : '',
+        mc: '#2433A8',
+        vc: v ? '#111827' : '#6B7280',
+        minus: v ? '#111827' : '#B8BEC9',
+        plusbg: v >= 30 ? '#EEF0F3' : '#E8EBFD',
+        plusc: v >= 30 ? '#B8BEC9' : '#2433A8'
+      };
+    });
+    return { items };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GitHub connection</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4B5563;text-decoration:none}a:hover{color:#111827}
+</style>
+</helmet>
+<div style="font-family:'IBM Plex Sans',system-ui,sans-serif;background:#FFFFFF;color:#111827;min-height:1050px;font-size:13px">
+  <header style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;padding:0 24px;min-height:46px;background:#fff;border-bottom:1px solid #EDEFF3">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span aria-hidden="true" style="width:26px;height:26px;border-radius:7px;background:#3347D9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px">PV</span>
+      <span style="font-weight:600;font-size:14px">Product Velocity</span>
+    </div>
+    <div style="font-size:13px;color:#4B5563;display:flex;gap:6px;align-items:center"><span>Meridian Media</span><span aria-hidden="true">/</span><strong style="color:#111827;font-weight:500">Marketplace roadmap</strong></div>
+    <nav style="display:flex;gap:2px;flex-wrap:wrap;margin-left:8px">
+      <a href="Main.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Grid</a>
+      <a href="Gantt.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Gantt</a>
+      <a href="Cards.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Cards</a>
+      <a href="Results-admin.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Alignment</a>
+      <a href="Leadership.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Updates</a>
+      <a href="GitHub-setup.dc.html" style="padding:13px 10px;font-size:13px;color:#111827;font-weight:500;border-bottom:2px solid #3347D9">GitHub</a>
+    </nav>
+    <div style="margin-left:auto"><span aria-label="Signed in as Ashu" style="width:28px;height:28px;border-radius:50%;background:#E8EBFD;color:#2433A8;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px">AS</span></div>
+  </header>
+
+  <main style="padding:14px 24px 24px">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+      <h1 style="margin:0;font-size:18px;font-weight:600">GitHub connections</h1>
+      <span style="color:#4B5563;font-size:12.5px">Project settings · A project can have several connections, to different organisations</span>
+    </div>
+
+    <!-- existing connections -->
+    <div style="border:1px solid #E6E9EF;border-radius:8px;overflow:hidden;margin-bottom:16px">
+      <div style="display:grid;grid-template-columns:minmax(0,1.3fr) 150px minmax(0,1fr) 150px 110px;height:26px;align-items:center;padding:0 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;font-size:12px;font-weight:600;color:#374151">
+        <span>Organisation or account</span><span>Plan</span><span>Scope</span><span>Linked Project</span><span>Status</span>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,1.3fr) 150px minmax(0,1fr) 150px 110px;height:32px;align-items:center;padding:0 12px;border-bottom:1px solid #F3F4F7">
+        <span style="font-weight:500">meridian-media</span><span style="color:#4B5563">Enterprise Cloud</span><span style="color:#4B5563">Waiting for approval</span><span style="color:#4B5563">–</span>
+        <span><span style="padding:1px 8px;border-radius:999px;font-size:12px;background:#FDF0D5;color:#7A4A00;font-weight:500">Pending</span></span>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,1.3fr) 150px minmax(0,1fr) 150px 110px;height:32px;align-items:center;padding:0 12px">
+        <span style="font-weight:500">harbor-labs <span style="color:#4B5563;font-weight:400">(personal account)</span></span><span style="color:#4B5563">Free</span><span style="color:#4B5563">2 repos · issues only</span><span style="color:#4B5563">Not available</span>
+        <span><span style="padding:1px 8px;border-radius:999px;font-size:12px;background:#E3F4EA;color:#17653F;font-weight:500">Connected</span></span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+      <!-- stepper -->
+      <nav aria-label="Setup steps" style="flex:0 0 250px;border:1px solid #E6E9EF;border-radius:8px;padding:6px 0">
+        <sc-for list="{{steps}}" as="s" hint-placeholder-count="6">
+          <div style="display:flex;gap:10px;align-items:center;padding:7px 12px;background:{{s.bg}}">
+            <span style="width:20px;height:20px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:{{s.nc}};background:{{s.nb}};border:1px solid {{s.nbd}}">{{s.n}}</span>
+            <span style="flex:1;font-size:12.5px;color:{{s.tc}};font-weight:{{s.fw}}">{{s.label}}</span>
+            <span style="font-size:11px;color:#4B5563">{{s.tag}}</span>
+          </div>
+        </sc-for>
+      </nav>
+
+      <section style="flex:999 1 520px;min-width:0">
+        <div style="border:1px solid #E6E9EF;border-radius:8px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;border-radius:8px 8px 0 0"><strong style="font-weight:600">2 · Install the app on meridian-media</strong><span style="padding:1px 8px;border-radius:999px;font-size:12px;background:#FDF0D5;color:#7A4A00;font-weight:500">Waiting for an organisation owner</span></div>
+          <div style="padding:12px">
+            <p style="margin:0 0 10px;line-height:1.55;color:#374151">You are a member of meridian-media, not an owner, so GitHub cannot install the app for you. GitHub sent an install request to the organisation owners. Product Velocity picks it up automatically once an owner approves.</p>
+            <div style="display:grid;grid-template-columns:130px 1fr;row-gap:6px;font-size:12.5px;margin-bottom:12px">
+              <span style="color:#4B5563">Requested</span><span>19 Oct 2026, 11:42, by you</span>
+              <span style="color:#4B5563">Sent to</span><span>Dana Whitfield, Raj Patel (organisation owners)</span>
+              <span style="color:#4B5563">Plan</span><span>GitHub Enterprise Cloud, EU data residency</span>
+              <span style="color:#4B5563">Last checked</span><span>2 minutes ago</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+              <span style="padding:5px 12px;border-radius:6px;background:#3347D9;color:#fff;font-weight:500">Send reminder</span>
+              <span style="padding:5px 12px;border:1px solid #E1E5EB;border-radius:6px">Copy approval link for the owner</span>
+              <span style="padding:5px 12px;border:1px solid #E1E5EB;border-radius:6px">Check status now</span>
+            </div>
+            <div style="padding:8px 10px;background:#F8F9FC;border-radius:6px;font-size:12px;color:#4B5563;line-height:1.5">If the organisation enforces SAML single sign-on, you may be asked to authorise your session once after install. Product Velocity never stores your GitHub password.</div>
+          </div>
+        </div>
+
+        <div style="border:1px solid #EDEFF3;border-radius:8px;margin-bottom:12px;background:#FCFCFE">
+          <div style="padding:7px 12px;border-bottom:1px solid #EDEFF3;font-weight:600;color:#4B5563">Next, after approval</div>
+          <div style="padding:10px 12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;font-size:12.5px;color:#4B5563">
+            <div><strong style="font-weight:600;color:#374151">3 · Repositories</strong><div style="margin-top:6px;line-height:1.8">☐ marketplace-core<br>☐ marketplace-web<br>☐ billing-service<br>☐ data-platform</div></div>
+            <div><strong style="font-weight:600;color:#374151">4 · Tracking issues go to</strong><div style="margin-top:6px;line-height:1.5">Default repository: <span style="padding:1px 8px;border:1px solid #E1E5EB;border-radius:6px;background:#fff">marketplace-core</span><br>Each initiative gets one Epic issue here. Child issues can live in any selected repo.</div></div>
+            <div><strong style="font-weight:600;color:#374151">5 · GitHub Project (optional)</strong><div style="margin-top:6px;line-height:1.5">Link <span style="padding:1px 8px;border:1px solid #E1E5EB;border-radius:6px;background:#fff">Marketplace roadmap #7</span><br>Adds items, sets Start and Target dates, reads Status back. Organisation-owned Projects only.</div></div>
+          </div>
+        </div>
+
+        <div style="border:1px solid #EDEFF3;border-radius:8px;background:#FCFCFE">
+          <div style="padding:7px 12px;border-bottom:1px solid #EDEFF3;font-weight:600;color:#4B5563">6 · Map people (preview)</div>
+          <div style="padding:4px 12px 8px">
+            <sc-for list="{{people}}" as="p" hint-placeholder-count="4">
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 110px;gap:10px;padding:5px 0;border-bottom:1px solid #F3F4F7;font-size:12.5px;color:#4B5563;align-items:center">
+                <span>{{p.pv}}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px">{{p.gh}}</span><span style="color:{{p.c}}">{{p.state}}</span>
+              </div>
+            </sc-for>
+            <div style="margin-top:6px;font-size:12px;color:#4B5563">People link their GitHub login once. Unmapped GitHub users show as external assignees.</div>
+          </div>
+        </div>
+      </section>
+
+      <aside style="flex:1 1 290px;min-width:280px;border:1px solid #E6E9EF;border-radius:8px">
+        <div style="padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;font-weight:600;border-radius:8px 8px 0 0">What the owner will see <span style="font-weight:400;color:#4B5563">(proposed)</span></div>
+        <div style="padding:10px 12px;font-size:12.5px;line-height:1.55;color:#374151">
+          <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#4B5563;margin-bottom:4px">Repository access, selected repos only</div>
+          <div style="margin-bottom:10px">Issues: read and write<br>Pull requests: read<br>Checks and commit status: read<br>Metadata: read<br>Contents: none</div>
+          <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#4B5563;margin-bottom:4px">Organisation access</div>
+          <div style="margin-bottom:10px">Projects: read and write<br>Members: read (to map people)</div>
+          <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#4B5563;margin-bottom:4px">Webhook events</div>
+          <div style="margin-bottom:10px">Issues, sub-issues, pull requests, check runs, releases, project items</div>
+          <div style="padding:8px 10px;background:#F8F9FC;border-radius:6px;font-size:12px;color:#4B5563">Product Velocity never reads source code. Commercial fields such as value, customers and decisions are never written to GitHub.</div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1050}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const raw = [
+      ['1', 'Choose provider', 'done'],
+      ['2', 'Install the app', 'current'],
+      ['3', 'Select repositories', 'locked'],
+      ['4', 'Default tracking repo', 'locked'],
+      ['5', 'Link a GitHub Project', 'locked'],
+      ['6', 'Map people', 'locked']
+    ];
+    const steps = raw.map((r) => {
+      const st = r[2];
+      return {
+        n: st === 'done' ? '✓' : r[0], label: r[1],
+        tag: st === 'done' ? 'GitHub' : (st === 'current' ? 'Waiting' : ''),
+        bg: st === 'current' ? '#F4F7FE' : 'transparent',
+        nc: st === 'done' ? '#fff' : (st === 'current' ? '#2433A8' : '#4B5563'),
+        nb: st === 'done' ? '#3347D9' : '#fff',
+        nbd: st === 'locked' ? '#E1E5EB' : '#3347D9',
+        tc: st === 'locked' ? '#4B5563' : '#111827',
+        fw: st === 'current' ? '600' : '400'
+      };
+    });
+    const people = [
+      { pv: 'Lena V. (lena@example.com)', gh: 'lena-v', state: 'Linked', c: '#17653F' },
+      { pv: 'Omar K. (omar@example.com)', gh: 'omar-kaya', state: 'Linked', c: '#17653F' },
+      { pv: 'Priya N. (priya@example.com)', gh: '–', state: 'Invite to link', c: '#7A4A00' },
+      { pv: 'External assignee', gh: 'dependabot-bot', state: 'Not a user', c: '#4B5563' }
+    ];
+    return { steps, people };
+  }
+}
+</script>
+</body>
+</html>

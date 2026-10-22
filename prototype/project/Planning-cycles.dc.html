@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Planning cycles</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4B5563;text-decoration:none}a:hover{color:#111827}
+</style>
+</helmet>
+<div style="font-family:'IBM Plex Sans',system-ui,sans-serif;background:#FFFFFF;color:#111827;min-height:1320px;font-size:13px">
+  <header style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;padding:0 24px;min-height:46px;background:#fff;border-bottom:1px solid #EDEFF3">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span aria-hidden="true" style="width:26px;height:26px;border-radius:7px;background:#3347D9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px">PV</span>
+      <span style="font-weight:600;font-size:14px">Product Velocity</span>
+    </div>
+    <div style="font-size:13px;color:#4B5563;display:flex;gap:6px;align-items:center"><span>Meridian Media</span><span aria-hidden="true">/</span><strong style="color:#111827;font-weight:500">Marketplace roadmap</strong></div>
+    <nav style="display:flex;gap:2px;flex-wrap:wrap;margin-left:8px">
+      <a href="Main.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Grid</a>
+      <a href="Gantt.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Gantt</a>
+      <a href="Cards.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Cards</a>
+      <span style="padding:13px 10px;font-size:13px;color:#111827;font-weight:500;border-bottom:2px solid #3347D9">Planning</span>
+      <a href="Capacity-planner.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Capacity</a>
+      <a href="Results-admin.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Alignment</a>
+      <a href="Leadership.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Updates</a>
+      <a href="GitHub-setup.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">GitHub</a>
+    </nav>
+    <div style="margin-left:auto"><span aria-label="Signed in as Ashu" style="width:28px;height:28px;border-radius:50%;background:#E8EBFD;color:#2433A8;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px">AS</span></div>
+  </header>
+
+  <main style="padding:16px 24px 24px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <h1 style="margin:0 12px 0 0;font-size:18px;font-weight:600">Planning cycles</h1>
+      <div style="display:flex;gap:2px;font-size:12.5px">
+        <span style="padding:4px 12px;border-radius:6px;color:#4B5563">Q4 2026 · Executing</span>
+        <span style="padding:4px 12px;border-radius:6px;background:#E8EBFD;color:#2433A8;font-weight:500">Q1 2027 · Planning</span>
+        <span style="padding:4px 12px;border-radius:6px;color:#4B5563">Q2 2027 · Upcoming</span>
+      </div>
+      <span style="margin-left:auto;padding:4px 12px;border:1px solid #E1E5EB;border-radius:6px;font-size:12.5px">Edit dates</span>
+    </div>
+
+    <!-- timeline -->
+    <div style="display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap">
+      <sc-for list="{{phases}}" as="p" hint-placeholder-count="6">
+        <div style="flex:{{p.flex}} 1 120px;min-width:0;border:1px solid {{p.bd}};background:{{p.bg}};border-radius:6px;padding:7px 10px">
+          <div style="display:flex;justify-content:space-between;gap:6px;align-items:baseline"><strong style="font-weight:600;color:{{p.tc}}">{{p.name}}</strong><span style="font-size:11px;font-weight:500;color:{{p.sc}}">{{p.state}}</span></div>
+          <div style="font-size:12px;color:#4B5563;margin-top:2px">{{p.dates}}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- tiles -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:14px">
+      <sc-for list="{{tiles}}" as="t" hint-placeholder-count="5">
+        <div style="border:1px solid #E6E9EF;border-radius:8px;padding:9px 12px">
+          <div style="font-size:12px;color:#4B5563">{{t.label}}</div>
+          <div style="font-size:20px;font-weight:600;margin-top:2px">{{t.value}}</div>
+          <div style="font-size:12px;color:{{t.sc}};margin-top:1px">{{t.sub}}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+      <section style="flex:1 1 880px;min-width:0;border:1px solid #E6E9EF;border-radius:8px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF"><strong style="font-weight:600">Candidate pool for Q1 2027</strong><span style="font-size:12px;color:#4B5563">built from the roadmap · tick the items to take into alignment</span>
+          <a href="Alignment-setup.dc.html" style="margin-left:auto;padding:4px 12px;border-radius:6px;background:#3347D9;color:#fff;font-weight:500;font-size:12.5px">Open alignment with 13 items</a></div>
+        <div style="display:grid;grid-template-columns:28px 112px 54px minmax(0,1fr) 150px 66px 78px 74px minmax(0,1.1fr);height:28px;align-items:center;padding:0 12px;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #EDEFF3">
+          <span></span><span>Why it is here</span><span>ID</span><span>Initiative</span><span>Status</span><span>Q4 rank</span><span>Remaining</span><span>Deferred</span><span>Note</span>
+        </div>
+        <sc-for list="{{pool}}" as="r" hint-placeholder-count="15">
+          <div style="display:grid;grid-template-columns:28px 112px 54px minmax(0,1fr) 150px 66px 78px 74px minmax(0,1.1fr);min-height:36px;align-items:center;padding:3px 12px;border-bottom:1px solid #F3F4F7;font-size:12.5px;background:{{r.rowbg}}">
+            <span aria-label="{{r.aria}}" style="width:16px;height:16px;border-radius:4px;border:1px solid {{r.cbd}};background:{{r.cbg}};color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">{{r.mark}}</span>
+            <span><span style="padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:500;color:{{r.rc}};background:{{r.rb}}">{{r.reason}}</span></span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#4B5563">{{r.id}}</span>
+            <span style="font-weight:500;padding-right:8px">{{r.name}}</span>
+            <span style="color:#374151">{{r.status}}</span>
+            <span style="color:#4B5563">{{r.q4}}</span>
+            <span style="font-weight:500">{{r.rem}}</span>
+            <span style="color:{{r.dc}}">{{r.def}}</span>
+            <span style="font-size:12px;color:{{r.nc}};padding-left:4px">{{r.note}}</span>
+          </div>
+        </sc-for>
+        <div style="padding:7px 12px;font-size:12px;color:#4B5563">Remaining effort counts unfinished work only. Items finishing in Q4, completed items and Horizon Later are left out automatically (9 items).</div>
+      </section>
+
+      <aside style="flex:1 1 340px;min-width:300px">
+        <div style="border:1px solid #E6E9EF;border-radius:8px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;border-radius:8px 8px 0 0"><strong style="font-weight:600">Inbox</strong><span style="margin-left:8px;font-size:12px;color:#4B5563">3 waiting for triage</span></div>
+          <sc-for list="{{inbox}}" as="i" hint-placeholder-count="3">
+            <div style="padding:8px 12px;border-bottom:1px solid #F3F4F7;font-size:12.5px;line-height:1.5">
+              <div style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:500">{{i.title}}</span><span style="color:#2433A8;flex:none">Triage</span></div>
+              <div style="font-size:12px;color:#4B5563">{{i.src}}</div>
+            </div>
+          </sc-for>
+          <div style="padding:8px 12px;font-size:12px;color:#4B5563;line-height:1.5">Triage needs a hypothesis, a rough value and a rough effort. Items without them cannot join alignment.</div>
+        </div>
+
+        <div style="border:1px solid #E6E9EF;border-radius:8px;margin-bottom:14px">
+          <div style="padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;border-radius:8px 8px 0 0;font-weight:600">Q4 2026 so far <span style="font-weight:400;color:#4B5563">committed plan vs reality</span></div>
+          <div style="padding:6px 12px;font-size:12.5px">
+            <sc-for list="{{q4}}" as="s" hint-placeholder-count="6">
+              <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #F3F4F7"><span>{{s.k}}</span><strong style="font-weight:600">{{s.v}}</strong></div>
+            </sc-for>
+            <div style="padding:6px 0 2px;font-size:12px;color:#4B5563;line-height:1.5">Commitment kept is the share of committed items not deferred or dropped.</div>
+          </div>
+        </div>
+
+        <div style="border:1px solid #E6E9EF;border-radius:8px">
+          <div style="padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;border-radius:8px 8px 0 0;font-weight:600">Left out automatically</div>
+          <div style="padding:8px 12px;font-size:12.5px;line-height:1.6;color:#374151">
+            <div><strong style="font-weight:600;color:#111827">Finishing in Q4:</strong> R-07, R-11, R-04, R-19</div>
+            <div><strong style="font-weight:600;color:#111827">Completed:</strong> R-17</div>
+            <div><strong style="font-weight:600;color:#111827">Horizon Later:</strong> R-09, R-18, R-20, R-21</div>
+            <div><strong style="font-weight:600;color:#111827">Not triaged:</strong> R-22</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1320}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const PH = {
+      Done: ['#17653F', '#F7FBF8', '#CFE8D8'],
+      Now: ['#2433A8', '#F4F7FE', '#3347D9'],
+      Next: ['#4B5563', '#FFFFFF', '#E6E9EF']
+    };
+    const ph = [
+      ['Candidate selection', '21 to 28 Oct', 'Now', 1.2],
+      ['Alignment', '29 Oct to 4 Nov', 'Next', 1.2],
+      ['Commit', '9 Nov', 'Next', 0.7],
+      ['Prepare: specs and breakdowns', '9 Nov to 31 Dec', 'Next', 2.2],
+      ['Execution', '4 Jan to 26 Mar', 'Next', 2.2],
+      ['Review', '29 Mar to 2 Apr', 'Next', 1]
+    ];
+    const phases = ph.map((p) => ({
+      name: p[0], dates: p[1], state: p[2] === 'Now' ? 'Now' : '', flex: p[3],
+      tc: p[2] === 'Now' ? '#2433A8' : '#111827', sc: '#2433A8',
+      bg: PH[p[2]][1], bd: PH[p[2]][2]
+    }));
+    const tiles = [
+      { label: 'Candidates in pool', value: '15', sub: '13 included · 2 left out by you', sc: '#4B5563' },
+      { label: 'Remaining effort, included', value: '128.1 pw', sub: 'person-weeks', sc: '#4B5563' },
+      { label: 'Capacity, Jan to Mar', value: '43.8 pw', sub: 'Marketplace team', sc: '#4B5563' },
+      { label: 'Effort vs capacity', value: '2.9×', sub: 'Typical is 2 to 3×. The fit line decides the rest.', sc: '#17653F' },
+      { label: 'Needs attention', value: '2', sub: 'R-25 has no value estimate · R-12 is paused', sc: '#7A4A00' }
+    ];
+    const R = {
+      'Carry-over': ['#2433A8', '#E8EBFD'],
+      'Likely carry-over': ['#7A4A00', '#FDF0D5'],
+      'Deferred': ['#7A4A00', '#FDF0D5'],
+      'New': ['#17653F', '#E3F4EA'],
+      'Backlog': ['#374151', '#F2F3F6']
+    };
+    const rows = [
+      [true, 'Carry-over', 'R-01', 'Budget pacing v2', 'In Progress · On Track', '#1', 5.3, '', 'Continue by default'],
+      [true, 'Carry-over', 'R-14', 'Agency API v2', 'In Progress · On Track', '#4', 16.1, '', 'Continue by default'],
+      [true, 'Carry-over', 'R-08', 'Dynamic ad insertion for music streams', 'In Progress · On Track', '#8', 17.3, '', 'Continue by default'],
+      [true, 'Carry-over', 'R-10', 'Creative A/B testing', 'In Progress · At Risk', '#9', 7.4, '', 'Continue by default'],
+      [true, 'Carry-over', 'R-05', 'Inventory forecast per show', 'In Progress · Delayed', '#10', 9.1, '2×', 'Deferred twice already. Delayed.'],
+      [true, 'Carry-over', 'R-12', 'Invalid-traffic detection', 'Paused', '#12', 9.8, '1×', 'Paused since 14 Sep. Resume, defer or drop?'],
+      [true, 'Likely carry-over', 'R-02', 'Floor price recommendations', 'In Progress · At Risk', '#7', 4.7, '', 'Due 11 Dec and at risk'],
+      [true, 'Likely carry-over', 'R-15', 'Usage-based billing export', 'In Progress · Blocked', '#11', 6.4, '', 'Due 18 Dec and blocked'],
+      [true, 'Deferred', 'R-03', 'Deal IDs for private marketplaces', 'Not Started', '#5', 24.0, '1×', 'Deferred from Q4: spec was not ready'],
+      [true, 'Backlog', 'R-06', 'Self-serve publisher onboarding', 'Backlog', '–', 8.0, '', 'Horizon Next, pulled in by you'],
+      [true, 'New', 'R-23', 'Agency campaign templates', 'Backlog · AI draft', '–', 8.0, '', 'Created via Claude, triaged 19 Oct'],
+      [true, 'New', 'R-24', 'Brand lift measurement', 'Backlog', '–', 8.0, '', 'Created by Priya N., triaged 16 Oct'],
+      [true, 'New', 'R-25', 'Listener consent signals', 'Backlog', '–', 4.0, '', 'No value estimate yet'],
+      [false, 'Backlog', 'R-16', 'SSO for publisher accounts', 'Not Started', '–', 8.0, '', 'Horizon Next, not selected'],
+      [false, 'Backlog', 'R-13', 'Publisher verification badges', 'Not Started', '–', 4.0, '', 'Horizon Next, not selected']
+    ];
+    const pool = rows.map((r) => {
+      const warn = r[2] === 'R-25' || r[2] === 'R-12';
+      return {
+        mark: r[0] ? '✓' : '', aria: r[0] ? 'Included' : 'Not included',
+        cbg: r[0] ? '#3347D9' : '#fff', cbd: r[0] ? '#3347D9' : '#9CA3AF',
+        rowbg: r[0] ? '#FFFFFF' : '#FBFBFD',
+        reason: r[1], rc: R[r[1]][0], rb: R[r[1]][1],
+        id: r[2], name: r[3], status: r[4], q4: r[5], rem: r[6].toFixed(1) + ' pw',
+        def: r[7] || '–', dc: r[7] === '2×' ? '#8A1F1F' : '#4B5563',
+        note: r[8], nc: warn ? '#7A4A00' : '#4B5563'
+      };
+    });
+    const inbox = [
+      { title: 'Programmatic guaranteed deals', src: 'Email from Omar K. · 20 Oct' },
+      { title: 'Podcast network reach forecast', src: 'AI intake · 82% match with R-05, suggested as evidence' },
+      { title: 'Self-serve creative upload', src: 'Claude draft · 18 Oct' }
+    ];
+    const q4 = [
+      { k: 'Committed at kick-off', v: '14' },
+      { k: 'Completed', v: '5' },
+      { k: 'Added after commit', v: '3' },
+      { k: 'Deferred to next cycle', v: '2' },
+      { k: 'Dropped', v: '1' },
+      { k: 'Commitment kept', v: '79%' }
+    ];
+    return { phases, tiles, pool, inbox, q4 };
+  }
+}
+</script>
+</body>
+</html>

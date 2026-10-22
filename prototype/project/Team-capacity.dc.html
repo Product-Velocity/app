@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Teams and capacity</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4B5563;text-decoration:none}a:hover{color:#111827}
+</style>
+</helmet>
+<div style="font-family:'IBM Plex Sans',system-ui,sans-serif;background:#FFFFFF;color:#111827;min-height:1560px;font-size:13px">
+  <header style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;padding:0 24px;min-height:46px;background:#fff;border-bottom:1px solid #EDEFF3">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span aria-hidden="true" style="width:26px;height:26px;border-radius:7px;background:#3347D9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px">PV</span>
+      <span style="font-weight:600;font-size:14px">Product Velocity</span>
+    </div>
+    <div style="font-size:13px;color:#4B5563;display:flex;gap:6px;align-items:center"><span>Meridian Media</span><span aria-hidden="true">/</span><strong style="color:#111827;font-weight:500">Settings</strong></div>
+    <div style="margin-left:auto"><span aria-label="Signed in as Ashu" style="width:28px;height:28px;border-radius:50%;background:#E8EBFD;color:#2433A8;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px">AS</span></div>
+  </header>
+
+  <div style="display:flex;flex-wrap:wrap;align-items:flex-start">
+    <nav style="width:200px;flex:none;padding:16px 12px;border-right:1px solid #EDEFF3;min-height:1510px;box-sizing:border-box">
+      <div style="padding:6px 10px;color:#4B5563">Organisation</div>
+      <div style="padding:6px 10px;color:#4B5563">Members and roles</div>
+      <div style="padding:6px 10px;border-radius:6px;background:#F3F4F7;font-weight:500">Teams and capacity</div>
+      <div style="padding:6px 10px;color:#4B5563">GitHub</div>
+      <a href="Connect-Claude.dc.html" style="display:block;padding:6px 10px">Connect Claude</a>
+      <div style="padding:6px 10px;color:#4B5563">Audit log</div>
+      <div style="padding:6px 10px;color:#4B5563">Project settings</div>
+    </nav>
+
+    <main style="flex:1 1 700px;min-width:0;padding:20px 28px 28px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+        <h1 style="margin:0;font-size:18px;font-weight:600">Teams and capacity</h1>
+        <span style="margin-left:auto;padding:4px 10px;border:1px solid #E1E5EB;border-radius:6px;font-size:12.5px">Import GitHub teams</span>
+        <span style="padding:4px 12px;border-radius:6px;background:#3347D9;color:#fff;font-weight:500;font-size:12.5px">+ New team</span>
+      </div>
+      <p style="margin:0 0 14px;color:#374151;line-height:1.5;max-width:780px">Every engineer belongs to a team. Each team has its own members, hours, skills, time split and the projects it serves. Planning checks work against the capacity of the teams it needs.</p>
+
+      <!-- teams overview -->
+      <section style="border:1px solid #E6E9EF;border-radius:8px;margin-bottom:16px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) 70px 90px 190px 110px minmax(0,1.4fr);height:28px;align-items:center;padding:0 12px;background:#F8F9FC;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #E6E9EF;gap:8px">
+          <span>Team</span><span>GitHub team</span><span>Members</span><span>Hours per week</span><span>Time split: maintenance · bugs · new</span><span>New work, pw per month</span><span>Serves projects</span>
+        </div>
+        <sc-for list="{{teams}}" as="t" hint-placeholder-count="4">
+          <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) 70px 90px 190px 110px minmax(0,1.4fr);min-height:40px;align-items:center;padding:4px 12px;border-bottom:1px solid #F3F4F7;font-size:12.5px;gap:8px;background:{{t.bg}};border-left:3px solid {{t.bl}}">
+            <span style="font-weight:600">{{t.name}}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#4B5563">{{t.gh}}</span>
+            <span>{{t.members}}</span><span>{{t.hours}} h</span>
+            <span style="display:flex;align-items:center;gap:8px"><span style="display:flex;height:10px;width:100px;border-radius:5px;overflow:hidden"><span style="flex:{{t.m}};background:#C9CFDB"></span><span style="flex:{{t.b}};background:#E1E5EB"></span><span style="flex:{{t.n}};background:#3347D9"></span></span><span style="font-size:12px;color:#374151">{{t.m}} · {{t.b}} · {{t.n}}</span></span>
+            <span style="font-weight:600">{{t.pw}}</span>
+            <span style="display:flex;gap:5px;flex-wrap:wrap"><sc-for list="{{t.proj}}" as="p" hint-placeholder-count="2"><span style="padding:1px 8px;border-radius:999px;font-size:11.5px;background:#F2F3F6;color:#374151">{{p}}</span></sc-for></span>
+          </div>
+        </sc-for>
+        <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) 70px 90px 190px 110px minmax(0,1.4fr);min-height:32px;align-items:center;padding:4px 12px;font-size:12.5px;font-weight:600;background:#FBFBFD;gap:8px"><span>All teams</span><span></span><span>29</span><span>1,092 h</span><span></span><span>46.2</span><span style="font-weight:400;color:#4B5563">3 engineers are not in a team yet</span></div>
+      </section>
+
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+        <!-- selected team -->
+        <div style="flex:3 1 700px;min-width:0">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <h2 style="margin:0;font-size:15px;font-weight:600">Marketplace team</h2>
+            <span style="padding:2px 8px;border-radius:999px;font-size:12px;background:#F2F3F6;color:#374151">GitHub team meridian-media/marketplace-eng · 9 members synced</span>
+            <span style="margin-left:auto;padding:3px 10px;border:1px solid #E1E5EB;border-radius:6px;font-size:12.5px">Sync members now</span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px">
+            <sc-for list="{{skills}}" as="s" hint-placeholder-count="4">
+              <div style="border:1px solid #E6E9EF;border-radius:8px;padding:9px 12px">
+                <div style="display:flex;justify-content:space-between;align-items:baseline"><strong style="font-weight:600">{{s.name}}</strong><span style="font-size:12px;color:#4B5563">{{s.people}} people</span></div>
+                <div style="margin-top:4px;font-size:12.5px;color:#374151">{{s.hours}} h per week</div>
+                <div style="margin-top:2px"><span style="font-size:18px;font-weight:600">{{s.pw}}</span><span style="font-size:12px;color:#4B5563"> pw per month</span></div>
+              </div>
+            </sc-for>
+          </div>
+
+          <section style="border:1px solid #E6E9EF;border-radius:8px;margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;border-radius:8px 8px 0 0"><strong style="font-weight:600">How this team spends its time</strong><span style="font-size:12px;color:#4B5563">per quarter, editable</span>
+              <span style="margin-left:auto;display:flex;gap:2px;font-size:12.5px"><span style="padding:2px 10px;border-radius:6px;color:#4B5563">Q4 2026</span><span style="padding:2px 10px;border-radius:6px;background:#E8EBFD;color:#2433A8;font-weight:500">Q1 2027</span><span style="padding:2px 10px;border-radius:6px;color:#4B5563">Q2 2027</span></span></div>
+            <div style="padding:12px">
+              <div style="display:flex;height:32px;border-radius:6px;overflow:hidden;font-size:12px;font-weight:500">
+                <span style="flex:25;background:#C9CFDB;color:#1F2937;display:flex;align-items:center;padding:0 10px">Maintenance and tech debt 25%</span>
+                <span style="flex:25;background:#E1E5EB;color:#1F2937;display:flex;align-items:center;padding:0 10px">Bugs and issues 25%</span>
+                <span style="flex:50;background:#3347D9;color:#fff;display:flex;align-items:center;padding:0 10px">New work, the roadmap 50%</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;font-size:12.5px;align-items:center">
+                <span style="color:#4B5563">Focus factor</span><span style="padding:2px 10px;border:1px solid #E1E5EB;border-radius:6px;font-weight:500">80%</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;padding:4px 10px;background:#F4F7FE;border:1px solid #D5DBFA;border-radius:6px">336 h × 80% × 50% = 134 h per week · 14.6 person-weeks per month</span>
+              </div>
+            </div>
+          </section>
+
+          <section style="border:1px solid #E6E9EF;border-radius:8px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF"><strong style="font-weight:600">Members of Marketplace team</strong><span style="font-size:12px;color:#4B5563">drag a row to another team, or use the team menu</span><span style="margin-left:auto;padding:3px 10px;border-radius:6px;background:#3347D9;color:#fff;font-weight:500;font-size:12.5px">+ Add member</span></div>
+            <div style="display:grid;grid-template-columns:18px minmax(0,1.2fr) 150px 80px 120px minmax(0,1.4fr) 90px;height:26px;align-items:center;padding:0 12px;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #EDEFF3;gap:8px"><span></span><span>Member</span><span>Team</span><span>Hours</span><span>Availability</span><span>Skills</span><span>New work h/wk</span></div>
+            <sc-for list="{{members}}" as="m" hint-placeholder-count="9">
+              <div style="display:grid;grid-template-columns:18px minmax(0,1.2fr) 150px 80px 120px minmax(0,1.4fr) 90px;min-height:36px;align-items:center;padding:4px 12px;border-bottom:1px solid #F3F4F7;font-size:12.5px;gap:8px">
+                <svg width="10" height="14" viewBox="0 0 10 14" fill="#9CA3AF" role="img" aria-label="Drag to another team"><circle cx="2" cy="2" r="1.3"/><circle cx="8" cy="2" r="1.3"/><circle cx="2" cy="7" r="1.3"/><circle cx="8" cy="7" r="1.3"/><circle cx="2" cy="12" r="1.3"/><circle cx="8" cy="12" r="1.3"/></svg>
+                <span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:24px;height:24px;border-radius:50%;background:#E8EBFD;color:#2433A8;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:600;flex:none">{{m.ini}}</span><span style="min-width:0"><span style="font-weight:500">{{m.name}}</span><span style="display:block;font-size:11.5px;color:#4B5563;font-family:'IBM Plex Mono',monospace">{{m.gh}}</span></span></span>
+                <span><span style="padding:2px 8px;border:1px solid #E1E5EB;border-radius:6px;font-size:12px">Marketplace team ▾</span></span>
+                <span>{{m.h}}</span><span style="color:#374151">{{m.av}}</span>
+                <span style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{m.sk}}" as="k" hint-placeholder-count="2"><span style="padding:1px 8px;border-radius:999px;font-size:11.5px;background:#F2F3F6;color:#374151">{{k}}</span></sc-for></span>
+                <span>{{m.nw}}</span>
+              </div>
+            </sc-for>
+            <div style="display:grid;grid-template-columns:18px minmax(0,1.2fr) 150px 80px 120px minmax(0,1.4fr) 90px;min-height:32px;align-items:center;padding:4px 12px;font-size:12.5px;font-weight:600;background:#FBFBFD;gap:8px"><span></span><span>Total</span><span></span><span>336 h</span><span></span><span></span><span>134.4 h</span></div>
+            <div style="padding:8px 12px;font-size:12px;color:#4B5563;border-top:1px solid #F3F4F7">An engineer can split their hours across two teams, for example 80% Marketplace and 20% Bidder. Their hours then count in each team.</div>
+          </section>
+        </div>
+
+        <!-- right column -->
+        <div style="flex:1 1 300px;min-width:280px">
+          <section style="border:1px solid #E6E9EF;border-radius:8px;margin-bottom:14px">
+            <div style="display:flex;align-items:center;padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;border-radius:8px 8px 0 0"><strong style="font-weight:600">Not in a team yet</strong><span style="margin-left:8px;font-size:12px;color:#4B5563">3 engineers</span></div>
+            <sc-for list="{{unassigned}}" as="u" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #F3F4F7;font-size:12.5px">
+                <span style="width:24px;height:24px;border-radius:50%;background:#F2F3F6;color:#374151;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:600;flex:none">{{u.ini}}</span>
+                <span style="flex:1;min-width:0"><span style="font-weight:500">{{u.name}}</span><span style="display:block;font-size:11.5px;color:#4B5563;font-family:'IBM Plex Mono',monospace">{{u.gh}}</span></span>
+                <span style="padding:2px 8px;border:1px solid #E1E5EB;border-radius:6px;font-size:12px;flex:none">Assign to team ▾</span>
+              </div>
+            </sc-for>
+            <div style="padding:8px 12px;font-size:12px;color:#4B5563;line-height:1.5">Found in your GitHub organisation. They do not count towards any team's capacity until you assign them.</div>
+          </section>
+
+          <section style="border:1px solid #E6E9EF;border-radius:8px;margin-bottom:14px">
+            <div style="padding:7px 12px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;border-radius:8px 8px 0 0;font-weight:600">Time off and closures</div>
+            <div style="padding:6px 12px;font-size:12.5px;line-height:1.5">
+              <div style="display:flex;justify-content:space-between;padding:4px 0"><span>Company closure</span><span style="color:#4B5563">24 Dec to 1 Jan</span></div>
+              <div style="display:flex;justify-content:space-between;padding:4px 0"><span>Dara M. leave</span><span style="color:#4B5563">14 to 18 Dec</span></div>
+              <div style="display:flex;justify-content:space-between;padding:4px 0"><span>Chen W. leave</span><span style="color:#4B5563">21 to 23 Dec</span></div>
+              <div style="padding:6px 0 4px;color:#4B5563;border-top:1px solid #F3F4F7;margin-top:4px">December capacity is 25% lower for this team. Planning uses this automatically.</div>
+            </div>
+          </section>
+
+          <div style="padding:10px 12px;border:1px solid #E6E9EF;border-radius:8px;line-height:1.55;font-size:12.5px;color:#374151"><strong style="color:#111827;font-weight:600">Claude and capacity.</strong> Claude can read every team's capacity when it proposes epics, and say which team a breakdown overloads. It cannot change members, hours or the time split. Only Admins edit this page.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1560}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const T = [
+      ['Marketplace team', 'meridian-media/marketplace-eng', 9, 336, 25, 25, 50, '14.6', ['Marketplace roadmap'], true],
+      ['Consumer app team', 'meridian-media/consumer-app', 7, 264, 25, 25, 50, '11.4', ['Consumer app'], false],
+      ['Bidder team', 'meridian-media/bidder', 8, 312, 30, 30, 40, '10.8', ['Platform', 'Marketplace roadmap'], false],
+      ['Host-read ads team', 'meridian-media/host-read-ads', 5, 180, 20, 20, 60, '9.4', ['Publisher portal', 'Marketplace roadmap'], false]
+    ];
+    const teams = T.map((t) => ({
+      name: t[0], gh: t[1], members: t[2], hours: t[3], m: t[4], b: t[5], n: t[6], pw: t[7], proj: t[8],
+      bg: t[9] ? '#F4F7FE' : '#FFFFFF', bl: t[9] ? '#3347D9' : 'transparent'
+    }));
+    const skills = [
+      { name: 'Backend', people: 5, hours: 128, pw: '5.5' },
+      { name: 'Frontend', people: 3, hours: 108, pw: '4.7' },
+      { name: 'Data', people: 2, hours: 48, pw: '2.1' },
+      { name: 'Platform', people: 2, hours: 52, pw: '2.3' }
+    ];
+    const M = [
+      ['Alex K.', 'alexk', 40, 'Full time', ['Backend 60%', 'Data 40%']],
+      ['Bo L.', 'bo-l', 40, 'Full time', ['Backend 100%']],
+      ['Chen W.', 'chenw', 40, 'Full time', ['Frontend 70%', 'Backend 30%']],
+      ['Dara M.', 'dara-m', 40, 'Full time', ['Frontend 100%']],
+      ['Eli R.', 'eli-r', 32, 'Part time, 4 days', ['Data 100%']],
+      ['Fatima A.', 'fatima-a', 40, 'Full time', ['Platform 100%']],
+      ['Gus T.', 'gus-t', 40, 'Full time', ['Backend 100%']],
+      ['Hana S.', 'hana-s', 40, 'Full time', ['Frontend 100%']],
+      ['Ivo P.', 'ivo-p', 24, 'Part time, 60%', ['Platform 50%', 'Backend 50%']]
+    ];
+    const members = M.map((r) => ({
+      ini: r[0].split(' ').map((x) => x[0]).join(''),
+      name: r[0], gh: '@' + r[1], h: r[2] + ' h', av: r[3], sk: r[4],
+      nw: (r[2] * 0.4).toFixed(1) + ' h'
+    }));
+    const unassigned = [
+      { ini: 'JB', name: 'Jonas B.', gh: '@jonas-b' },
+      { ini: 'MD', name: 'Mina D.', gh: '@mina-d' },
+      { ini: 'RO', name: 'Raf O.', gh: '@raf-o' }
+    ];
+    return { teams, skills, members, unassigned };
+  }
+}
+</script>
+</body>
+</html>

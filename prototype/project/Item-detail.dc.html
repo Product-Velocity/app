@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Item detail</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#4B5563;text-decoration:none}a:hover{color:#111827}
+</style>
+</helmet>
+<div style="font-family:'IBM Plex Sans',system-ui,sans-serif;background:#FFFFFF;color:#111827;min-height:1040px;font-size:13px">
+  <header style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;padding:0 24px;min-height:46px;background:#fff;border-bottom:1px solid #EDEFF3">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span aria-hidden="true" style="width:26px;height:26px;border-radius:7px;background:#3347D9;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px">PV</span>
+      <span style="font-weight:600;font-size:14px">Product Velocity</span>
+    </div>
+    <div style="font-size:13px;color:#4B5563;display:flex;gap:6px;align-items:center"><span>Meridian Media</span><span aria-hidden="true">/</span><strong style="color:#111827;font-weight:500">Marketplace roadmap</strong></div>
+    <nav style="display:flex;gap:2px;flex-wrap:wrap;margin-left:8px">
+      <a href="Main.dc.html" style="padding:13px 10px;font-size:13px;color:#111827;font-weight:500;border-bottom:2px solid #3347D9">Grid</a>
+      <a href="Gantt.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Gantt</a>
+      <a href="Cards.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Cards</a>
+      <a href="Results-admin.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Alignment</a>
+      <a href="Leadership.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">Updates</a>
+      <a href="GitHub-setup.dc.html" style="padding:13px 10px;font-size:13px;border-bottom:2px solid transparent">GitHub</a>
+    </nav>
+    <div style="margin-left:auto"><span aria-label="Signed in as Ashu" style="width:28px;height:28px;border-radius:50%;background:#E8EBFD;color:#2433A8;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px">AS</span></div>
+  </header>
+
+  <main style="padding:12px 24px 24px">
+    <div style="font-size:12px;color:#4B5563;margin-bottom:8px"><a href="Main.dc.html" style="color:#2433A8">Grid</a> / Bidding &amp; pacing / <span style="font-family:'IBM Plex Mono',monospace">R-02</span></div>
+
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+      <h1 style="margin:0;font-size:18px;font-weight:600"><span style="font-family:'IBM Plex Mono',monospace;font-size:14px;color:#4B5563;margin-right:8px">R-02</span>Floor price recommendations</h1>
+      <span style="padding:2px 8px;border-radius:999px;font-size:12px;background:#EEF0F4;color:#374151">In Progress</span>
+      <span style="padding:2px 8px;border-radius:999px;font-size:12px;font-weight:500;background:#FDF0D5;color:#7A4A00">At Risk</span>
+      <span style="padding:2px 8px;border-radius:999px;font-size:12px;background:#EEF0F4;color:#374151">Build</span>
+      <span style="padding:2px 8px;border-radius:999px;font-size:12px;background:#EEF0F4;color:#374151">Should</span>
+      <div style="margin-left:auto;display:flex;gap:8px;font-size:12.5px">
+        <span style="padding:4px 10px;border:1px solid #E1E5EB;border-radius:6px">Mark reviewed</span>
+        <span style="padding:4px 10px;border:1px solid #E1E5EB;border-radius:6px;color:#2433A8">Open #1482 in GitHub ↗</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 12px;border:1px solid #F0D9A4;background:#FFF8E6;border-radius:6px;margin-bottom:12px;font-size:12.5px">
+      <strong style="font-weight:600;color:#7A4A00">Suggested health: Delayed</strong>
+      <span style="color:#374151">Progress is 15 points behind plan, 1 child issue is blocked, and the GitHub target date (18 Dec) is later than G2M (11 Dec).</span>
+      <span style="margin-left:auto;display:flex;gap:8px"><span style="padding:3px 10px;border-radius:6px;background:#3347D9;color:#fff;font-weight:500">Apply</span><span style="padding:3px 10px;border:1px solid #E1E5EB;border-radius:6px;background:#fff">Dismiss</span></span>
+    </div>
+
+    <div style="display:flex;gap:2px;border-bottom:1px solid #EDEFF3;margin-bottom:14px;font-size:13px">
+      <span style="padding:7px 12px;color:#4B5563">Overview</span>
+      <span style="padding:7px 12px;color:#4B5563">Fields</span>
+      <span style="padding:7px 12px;color:#111827;font-weight:500;border-bottom:2px solid #3347D9">GitHub</span>
+      <span style="padding:7px 12px;color:#4B5563">Alignment</span>
+      <span style="padding:7px 12px;color:#4B5563">History</span>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+      <section style="flex:999 1 600px;min-width:0">
+        <!-- tracking issue -->
+        <div style="border:1px solid #E6E9EF;border-radius:8px;padding:12px 14px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" stroke-width="2" aria-hidden="true"><circle cx="6" cy="5" r="2.2"/><circle cx="6" cy="19" r="2.2"/><circle cx="18" cy="8" r="2.2"/><path d="M6 7.2v9.6M18 10.2c0 4-6 3-12 6.5"/></svg>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#4B5563">meridian-media/marketplace-core #1482</span>
+            <span style="padding:1px 8px;border-radius:999px;font-size:12px;background:#E3F4EA;color:#17653F">Open</span>
+            <span style="padding:1px 8px;border-radius:999px;font-size:12px;background:#E8EBFD;color:#2433A8">Epic</span>
+            <span style="margin-left:auto;font-size:12px;color:#4B5563">Synced 4 min ago · <span style="color:#A4161A;font-weight:500">1 conflict: assignee</span></span>
+          </div>
+          <div style="font-weight:500;margin:6px 0 10px">[Epic] Floor price recommendations</div>
+          <div style="display:flex;gap:28px;flex-wrap:wrap;font-size:12.5px;color:#4B5563">
+            <div>Project status<div style="color:#111827;font-weight:500;margin-top:2px">In Progress</div></div>
+            <div>Iteration<div style="color:#111827;font-weight:500;margin-top:2px">Sprint 42</div></div>
+            <div>GitHub target date<div style="color:#A4161A;font-weight:500;margin-top:2px">18 Dec 26</div></div>
+            <div>Assignees<div style="display:flex;gap:4px;margin-top:2px"><span style="width:20px;height:20px;border-radius:50%;background:#E8EBFD;color:#2433A8;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center">MT</span><span style="width:20px;height:20px;border-radius:50%;background:#E8EBFD;color:#2433A8;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center">AS</span><span style="width:20px;height:20px;border-radius:50%;background:#E8EBFD;color:#2433A8;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center">JB</span></div></div>
+            <div>Last activity<div style="color:#111827;font-weight:500;margin-top:2px">3 hours ago</div></div>
+          </div>
+        </div>
+
+        <!-- metric strip -->
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px">
+          <div style="border:1px solid #E6E9EF;border-radius:8px;padding:8px 12px"><div style="font-size:12px;color:#4B5563">Delivery progress</div><div style="font-size:18px;font-weight:600;margin-top:2px">41%</div><div style="height:4px;border-radius:2px;background:#EEF0F3;margin-top:6px"><div style="height:4px;width:41%;border-radius:2px;background:#3347D9"></div></div><div style="font-size:12px;color:#4B5563;margin-top:4px">14 of 34 issues closed</div></div>
+          <div style="border:1px solid #E6E9EF;border-radius:8px;padding:8px 12px"><div style="font-size:12px;color:#4B5563">Schedule variance</div><div style="font-size:18px;font-weight:600;margin-top:2px;color:#A4161A">−15 pp</div><div style="font-size:12px;color:#4B5563;margin-top:10px">56% of time used</div></div>
+          <div style="border:1px solid #E6E9EF;border-radius:8px;padding:8px 12px"><div style="font-size:12px;color:#4B5563">Pull requests</div><div style="font-size:18px;font-weight:600;margin-top:2px">3 open · 6 merged</div><div style="font-size:12px;color:#4B5563;margin-top:10px">CI <span style="color:#17653F;font-weight:500">passing</span> on main</div></div>
+          <div style="border:1px solid #E6E9EF;border-radius:8px;padding:8px 12px"><div style="font-size:12px;color:#4B5563">Attention</div><div style="font-size:12.5px;margin-top:4px;line-height:1.6"><span style="color:#A4161A;font-weight:500">1 blocked</span> · 4 stale (14d+)<br>6 issues added since Build began</div></div>
+        </div>
+
+        <!-- sub-issues -->
+        <div style="border:1px solid #E6E9EF;border-radius:8px;overflow:hidden">
+          <div style="display:flex;align-items:center;padding:8px 14px;background:#F8F9FC;border-bottom:1px solid #E6E9EF"><strong style="font-weight:600">Child issues</strong><span style="margin-left:8px;color:#4B5563;font-size:12px">34 total · showing 9</span><span style="margin-left:auto;font-size:12px;color:#4B5563">Group by: none</span></div>
+          <div style="display:grid;grid-template-columns:60px minmax(0,1fr) 100px 90px 110px 70px;height:26px;align-items:center;padding:0 14px;font-size:12px;font-weight:600;color:#374151;border-bottom:1px solid #EDEFF3">
+            <span>Issue</span><span>Title</span><span>State</span><span>Assignee</span><span>Pull request</span><span>Updated</span>
+          </div>
+          <sc-for list="{{issues}}" as="i" hint-placeholder-count="6">
+            <div style="display:grid;grid-template-columns:60px minmax(0,1fr) 100px 90px 110px 70px;height:30px;align-items:center;padding:0 14px;font-size:12.5px;border-bottom:1px solid #F3F4F7">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#4B5563">{{i.num}}</span>
+              <span style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-right:10px">{{i.title}}</span>
+              <span><span style="padding:1px 8px;border-radius:999px;font-size:12px;color:{{i.c}};background:{{i.b}}">{{i.state}}</span></span>
+              <span style="color:#374151">{{i.who}}</span>
+              <span style="color:#4B5563;font-size:12px">{{i.pr}}</span>
+              <span style="color:#4B5563;font-size:12px">{{i.upd}}</span>
+            </div>
+          </sc-for>
+          <div style="padding:6px 14px;font-size:12px;color:#4B5563">Cached from GitHub via webhooks. Live data is fetched when you open an issue.</div>
+        </div>
+      </section>
+
+      <aside style="flex:1 1 340px;min-width:300px;border:1px solid #E6E9EF;border-radius:8px">
+        <div style="padding:8px 14px;background:#F8F9FC;border-bottom:1px solid #E6E9EF;font-weight:600;border-radius:8px 8px 0 0">Fields</div>
+        <div style="padding:8px 14px;font-size:12.5px">
+          <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#4B5563;margin:4px 0">What</div>
+          <div style="display:grid;grid-template-columns:120px 1fr;row-gap:4px;margin-bottom:10px"><span style="color:#4B5563">Group</span><span>Bidding &amp; pacing</span><span style="color:#4B5563">Focus area</span><span>Demand/Optimisation</span><span style="color:#4B5563">Category</span><span>Grow customer revenues</span><span style="color:#4B5563">Change type</span><span>New feature</span></div>
+          <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#4B5563;margin:4px 0">Who</div>
+          <div style="display:grid;grid-template-columns:120px 1fr;row-gap:4px;margin-bottom:10px"><span style="color:#4B5563">Sponsor</span><span>Fleur de Bruijn</span><span style="color:#4B5563">Product manager</span><span>Lena V.</span><span style="color:#4B5563">Eng. manager</span><span>Marc T.</span><span style="color:#4B5563">Analyst</span><span>Aya S.</span></div>
+          <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#4B5563;margin:4px 0">Why</div>
+          <div style="display:grid;grid-template-columns:120px 1fr;row-gap:4px;margin-bottom:6px"><span style="color:#4B5563">Value (12m)</span><span>€260k · Medium confidence</span><span style="color:#4B5563">Weighted value</span><span>€156k · €19.5k per build-week</span><span style="color:#4B5563">Effort</span><span>M · 4 to 8 weeks</span><span style="color:#4B5563">Primary KR</span><span>Average fill rate, 71% → 77%</span></div>
+          <div style="padding:8px 10px;background:#F8F9FC;border-radius:6px;line-height:1.5;margin-bottom:10px;color:#374151"><strong style="font-weight:600;color:#111827">IF</strong> we recommend a floor price per placement from clearing-price history, <strong style="font-weight:600;color:#111827">THEN</strong> publishers set floors with confidence, <strong style="font-weight:600;color:#111827">RESULTING IN</strong> +6 points average fill rate. <strong style="font-weight:600;color:#111827">BECAUSE</strong> 3 pilot publishers raised floors without losing fill.</div>
+          <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#4B5563;margin:4px 0">When</div>
+          <div style="display:grid;grid-template-columns:120px 1fr;row-gap:4px;margin-bottom:10px"><span style="color:#4B5563">Planned start</span><span>17 Aug 26</span><span style="color:#4B5563">G2M (est)</span><span>11 Dec 26 · no slip yet</span><span style="color:#4B5563">Next review</span><span>4 Nov 26</span></div>
+          <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#4B5563;margin:4px 0">Phase history</div>
+          <div style="display:grid;grid-template-columns:90px 1fr auto;row-gap:4px;color:#374151"><span>Discover</span><span>4 Jun → 14 Jul</span><span>40 d</span><span>Define</span><span>14 Jul → 17 Aug</span><span>34 d</span><span>Build</span><span>17 Aug → now</span><span>65 d</span></div>
+          <div style="margin-top:6px;font-size:12px;color:#4B5563">Dates are editable. Each edit is logged.</div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const S = {
+      'Closed': ['#374151', '#EEF0F3'],
+      'In review': ['#2433A8', '#E8EBFD'],
+      'In progress': ['#2433A8', '#EEF1FE'],
+      'Blocked': ['#A4161A', '#FBE1E1'],
+      'Open': ['#374151', '#F3F4F6']
+    };
+    const raw = [
+      ['#1483', 'Collect clearing-price history per placement', 'Closed', 'Aya S.', 'PR #1520 merged', '2 d ago'],
+      ['#1484', 'Percentile model for floor suggestion', 'Closed', 'Marc T.', 'PR #1531 merged', '5 d ago'],
+      ['#1487', 'API: GET /floors/recommendations', 'In review', 'Marc T.', 'PR #1544 open', '3 h ago'],
+      ['#1490', 'Recommendation card in campaign setup', 'In progress', 'Aya S.', 'PR #1547 open', '1 d ago'],
+      ['#1493', 'Guardrails: maximum change per day', 'In progress', 'Jonas B.', 'PR #1550 draft', '1 d ago'],
+      ['#1496', 'Backfill 12 months of bid logs (waiting on data platform)', 'Blocked', 'Marc T.', '–', '6 d ago'],
+      ['#1499', 'Load test recommendation endpoint', 'Open', 'Unassigned', '–', '9 d ago'],
+      ['#1501', 'Docs and release notes', 'Open', 'Unassigned', '–', '12 d ago'],
+      ['#1505', 'Feature flag and gradual rollout', 'Open', 'Jonas B.', '–', '12 d ago']
+    ];
+    return { issues: raw.map((r) => ({ num: r[0], title: r[1], state: r[2], c: S[r[2]][0], b: S[r[2]][1], who: r[3], pr: r[4], upd: r[5] })) };
+  }
+}
+</script>
+</body>
+</html>

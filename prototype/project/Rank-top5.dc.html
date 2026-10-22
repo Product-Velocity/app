@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pick your top 5</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2433A8}a:hover{color:#111827}
+</style>
+</helmet>
+<div style="width:390px;height:844px;box-sizing:border-box;background:#FFFFFF;color:#111827;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;display:flex;flex-direction:column">
+  <div style="padding:16px 20px 10px;border-bottom:1px solid #EDEFF3">
+    <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#4B5563;margin-bottom:6px"><span>Step 1 of 2 · Top 5</span><span>about 1 min</span></div>
+    <h1 style="margin:0 0 4px;font-size:20px;font-weight:600">Pick your top 5</h1>
+    <div style="font-size:13px;color:#374151;line-height:1.4">Tap to add, drag to reorder. Number 1 matters most to you.</div>
+  </div>
+
+  <div style="flex:1;overflow:hidden;padding:12px 20px 0">
+    <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#4B5563;margin-bottom:6px">Your picks · 3 of 5</div>
+    <sc-for list="{{picks}}" as="p" hint-placeholder-count="3">
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #3347D9;background:#F4F7FE;border-radius:8px;margin-bottom:6px;min-height:52px">
+        <span style="width:26px;height:26px;border-radius:50%;background:#3347D9;color:#fff;font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:center;flex:none">{{p.n}}</span>
+        <div style="flex:1;min-width:0"><div style="font-weight:500;font-size:14px;line-height:1.3">{{p.title}}</div><div style="font-size:12px;color:#4B5563;line-height:1.35;margin-top:1px">{{p.desc}}</div></div>
+        <svg width="14" height="18" viewBox="0 0 10 14" fill="#6B7280" aria-label="Drag to reorder" role="img"><circle cx="2" cy="2" r="1.3"/><circle cx="8" cy="2" r="1.3"/><circle cx="2" cy="7" r="1.3"/><circle cx="8" cy="7" r="1.3"/><circle cx="2" cy="12" r="1.3"/><circle cx="8" cy="12" r="1.3"/></svg>
+      </div>
+    </sc-for>
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <div style="flex:1;border:1px dashed #9CA3AF;border-radius:8px;height:36px;display:flex;align-items:center;justify-content:center;font-size:12.5px;color:#4B5563">Pick #4</div>
+      <div style="flex:1;border:1px dashed #9CA3AF;border-radius:8px;height:36px;display:flex;align-items:center;justify-content:center;font-size:12.5px;color:#4B5563">Pick #5</div>
+    </div>
+
+    <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#4B5563;margin-bottom:6px">All initiatives · 18 more</div>
+    <sc-for list="{{rest}}" as="r" hint-placeholder-count="4">
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #E1E5EB;border-radius:8px;margin-bottom:6px;min-height:52px">
+        <div style="flex:1;min-width:0"><div style="font-weight:500;font-size:14px;line-height:1.3">{{r.title}}</div><div style="font-size:12px;color:#4B5563;line-height:1.35;margin-top:1px">{{r.desc}}</div></div>
+        <span style="flex:none;display:flex;align-items:center;justify-content:center;min-width:44px;height:44px;color:#4B5563;font-size:12px">Not sure</span>
+        <span style="flex:none;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:8px;background:#E8EBFD;color:#2433A8;font-size:22px;font-weight:500" aria-label="Add to my picks">+</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="padding:10px 20px 16px;border-top:1px solid #EDEFF3;background:#fff">
+    <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
+      <span style="width:22px;height:6px;border-radius:3px;background:#3347D9"></span><span style="width:22px;height:6px;border-radius:3px;background:#3347D9"></span><span style="width:22px;height:6px;border-radius:3px;background:#3347D9"></span><span style="width:22px;height:6px;border-radius:3px;background:#E1E5EB"></span><span style="width:22px;height:6px;border-radius:3px;background:#E1E5EB"></span>
+      <span style="margin-left:8px;font-size:12px;color:#4B5563">Pick 2 more to continue</span>
+    </div>
+    <div style="height:48px;border-radius:8px;background:#C7CCE8;color:#fff;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center">Next: 15 quick duels</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      picks: [
+        { n: 1, title: 'Host-read ad marketplace listing', desc: 'Let brands buy host-read podcast ads straight from the marketplace.' },
+        { n: 2, title: 'Budget pacing v2', desc: 'Smoother daily spend so campaigns do not run out early.' },
+        { n: 3, title: 'Brand-safety category filters', desc: 'Keep ads away from topics advertisers want to avoid.' }
+      ],
+      rest: [
+        { title: 'Agency API v2', desc: 'Let agencies manage campaigns from their own tools.' },
+        { title: 'Publisher payout dashboard', desc: 'See earnings and payout status in one place.' },
+        { title: 'Floor price recommendations', desc: 'Suggested minimum prices for publishers.' },
+        { title: 'Dynamic ad insertion for music streams', desc: 'Insert ads into live music streams.' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
