@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { rememberTenant } from "@/lib/session";
 import { siteUrl } from "@/lib/site-url";
-import { MIN_PASSWORD_LENGTH } from "@/lib/validation";
+import { checkPassword } from "@/lib/password";
 import { getInvitePreview } from "./preview";
 
 export type AcceptState = { error?: string; message?: string } | null;
@@ -63,13 +63,15 @@ export async function signInAndAccept(_prev: AcceptState, form: FormData): Promi
 export async function signUpForInvite(_prev: AcceptState, form: FormData): Promise<AcceptState> {
   const token = tokenFrom(form);
   const password = form.get("password");
+  const confirm = form.get("confirm");
   if (!token) return { error: NOT_VALID };
-  if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH) {
-    return { error: `Use a password of at least ${MIN_PASSWORD_LENGTH} characters.` };
-  }
   const supabase = await createClient();
   const preview = await getInvitePreview(supabase, token);
   if (!preview) return { error: NOT_VALID };
+  if (typeof password !== "string" || !checkPassword(password, { email: preview.email }).ok) {
+    return { error: "Choose a stronger password: follow the checklist under the password field." };
+  }
+  if (password !== confirm) return { error: "The two passwords do not match." };
 
   const next = `/invite/${token}`;
   const { error } = await supabase.auth.signUp({

@@ -29,7 +29,7 @@ The app only works end to end once these are set. Ashu does them; Claude cannot 
 1. **Authentication → URL Configuration**
    - Site URL: the production URL (the `*.vercel.app` domain for now).
    - Redirect URLs: add `https://<production-domain>/auth/callback`, a wildcard for previews such as `https://*-<your-vercel-team>.vercel.app/auth/callback`, and `http://localhost:3000/auth/callback`.
-2. **Authentication → Providers → Email**: keep "Confirm email" ON (invitations rely on a confirmed email). Set the minimum password length to 10.
+2. **Authentication → Providers → Email**: keep "Confirm email" ON (invitations rely on a confirmed email). Set the minimum password length to 10. Leave Supabase's "password requirements" (required character types) off: the app enforces its own rules (10+ characters, 2+ character kinds, not common, not part of the email) in the browser and on the server, and a stricter Supabase rule would make sign-up fail with a generic error.
 3. **Authentication → Providers → Google** and **GitHub**: create an OAuth app in each (Google Cloud Console → OAuth client of type Web application; GitHub → Settings → Developer settings → OAuth Apps). Use the callback URL shown in Supabase (`https://<project-ref>.supabase.co/auth/v1/callback`), paste the client ID and secret into Supabase and switch the provider on.
 4. **Authentication → Multi-Factor**: make sure TOTP is enabled (it is by default).
 5. **Email delivery**: Supabase's built-in sender is limited to a few emails per hour and only delivers to members of your Supabase organisation. That is fine for testing with your own address. **Before inviting real people to sign up with email and password, set up custom SMTP** (Authentication → SMTP Settings; Resend is a common free-tier choice). This is a cost and provider decision for Ashu.
@@ -65,6 +65,7 @@ Not needed while only the team is testing. Do all of these before the first real
 | 5 | **Supabase custom domain** (Project Settings → Add-ons → Custom Domain), for example `auth.productvelocity.app` | Sign-in screens (Google, GitHub) show your domain instead of `tnhlivowltvwvjhbknrc.supabase.co` | Paid add-on, check current price. Do it once, early: it changes the callback URLs in Supabase, Google and GitHub |
 | 6 | **Build password reset** (issue #13) | People who forget a password or signed up with Google/GitHub need a way in | Claude, after items 2 and 3 |
 | 7 | **Publish a privacy policy and terms page** | Needed for item 4 and for customers | Content decision for Ashu |
+| 7b | **Turn on leaked-password protection** (Supabase → Authentication → Sign In / Providers → Email → "Prevent use of leaked passwords") | Rejects passwords found in known breaches (HaveIBeenPwned) on top of the app's own rules | Needs the paid plan, free once on Pro |
 | 8 | **Separate Supabase projects for Preview and Production** and use different keys | Preview deployments must never touch customer data | Free tier project, 15 minutes |
 | 9 | **Require the CI check on `main`** (GitHub branch protection) | Stops broken code reaching production | Free, 5 minutes |
 | 10 | **Set `SITE_URL`** to `https://productvelocity.app` in Vercel Production | Sign-in redirects and invite links always use the real domain | Free |

@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/auth/safe-next";
 import { siteUrl } from "@/lib/site-url";
-import { MIN_PASSWORD_LENGTH, normalizeEmail } from "@/lib/validation";
+import { checkPassword } from "@/lib/password";
+import { normalizeEmail } from "@/lib/validation";
 
 export type AuthState = { error?: string; message?: string } | null;
 
@@ -30,11 +31,13 @@ export async function signInWithPassword(_prev: AuthState, form: FormData): Prom
 export async function signUp(_prev: AuthState, form: FormData): Promise<AuthState> {
   const email = normalizeEmail(form.get("email"));
   const password = form.get("password");
+  const confirm = form.get("confirm");
   const next = safeNext(form.get("next") as string | null);
   if (!email) return { error: "Enter a valid email address." };
-  if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH) {
-    return { error: `Use a password of at least ${MIN_PASSWORD_LENGTH} characters.` };
+  if (typeof password !== "string" || !checkPassword(password, { email }).ok) {
+    return { error: "Choose a stronger password: follow the checklist under the password field." };
   }
+  if (password !== confirm) return { error: "The two passwords do not match." };
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
     email,
