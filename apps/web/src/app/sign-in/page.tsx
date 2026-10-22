@@ -7,7 +7,8 @@ import { PasswordForm } from "./sign-in-form";
 export const metadata = { title: "Sign in · Product Velocity" };
 
 const ERRORS: Record<string, string> = {
-  callback: "That sign-in link did not work or has expired. Please try again.",
+  callback:
+    "That link could not sign you in. If you just confirmed your email, it is confirmed: sign in below. Otherwise the link may have expired, so please try again.",
   provider: "That sign-in method is not available right now. Use email, or try again later.",
 };
 

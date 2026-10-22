@@ -30,3 +30,4 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · A tenant must always keep one admin (DB-enforced, 0005) · Claude (issue #3)
 - 2026-10-22 · Write source for UI writes comes from the `x-pv-via` header set by server code; it is advisory until the MCP server is hardened in Phase 4 · Claude (issue #3)
 - 2026-10-22 · Dependency added: `@supabase/ssr` (MIT, free). Removed the unused browser Supabase client from issue 2 · Claude (issue #3)
+- 2026-10-22 · Email confirmation links use a one-time token hash (verifyOtp), not only the same-browser PKCE code, so they work from any browser or mail app · Claude (issue #3 follow-up)

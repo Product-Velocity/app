@@ -36,3 +36,17 @@ The app only works end to end once these are set. Ashu does them; Claude cannot 
 6. Optional on Vercel: set `SITE_URL` for Production.
 
 Invitations do not send email: an admin copies the one-time link from Members and sends it themselves.
+
+## Confirmation email template (one-time, Supabase dashboard)
+Sign-up confirmation links must work even when opened in a different browser or app than the one used to sign up (for example the mail app's built-in browser). The default Supabase link does not, because it needs a secret stored in the original browser. The app supports a link that carries a one-time token instead.
+
+1. Supabase → **Authentication → Emails → Templates → Confirm signup**.
+2. Replace the message body with:
+   ```html
+   <h2>Confirm your email</h2>
+   <p>Follow this link to confirm your email address for Product Velocity:</p>
+   <p><a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email">Confirm email</a></p>
+   ```
+3. Save. (`{{ .RedirectTo }}` is the app's `/auth/callback?next=...` address, hence the `&`.)
+
+The app still accepts the old link in the same browser, so nothing breaks if this step is skipped; it just fails for people who open the email elsewhere. The password reset issue (#13) will need the matching **Reset password** template with `type=recovery`.
