@@ -155,3 +155,16 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 .picker-option { padding: 5px 10px; cursor: pointer; }
 .picker-option.active { background: var(--blue-tint-1); color: var(--blue-text); font-weight: 500; }
 .picker-empty { padding: 5px 10px; color: #5b6272; }
+
+.quick-add { padding: 8px 12px; border-bottom: 1px solid var(--grey-1); }
+.quick-add-label { display: block; font-size: 12px; font-weight: 600; color: #5b6272; margin-bottom: 3px; }
+.quick-add-input { width: 100%; height: 34px; padding: 0 10px; border: 1px solid var(--grey-1); border-radius: 6px; font: inherit; background: var(--bg); }
+.quick-add-input:focus { outline: 2px solid #3347D9; outline-offset: 0; border-color: #3347D9; }
+.quick-add-hints p { margin: 4px 0 0; font-size: 12.5px; }
+.quick-add-summary, .quick-add-similar { color: #5b6272; }
+.quick-add-similar { color: var(--amber-text); }
+.quick-add-error { color: var(--red-text); font-weight: 500; }
+.quick-add-ok { color: var(--green-text); font-weight: 500; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.add-project input { height: 28px; padding: 0 8px; border: 1px solid var(--grey-1); border-radius: 6px; font: inherit; min-width: 240px; }
+.notice-box p { margin: 0 0 6px; }

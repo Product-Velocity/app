@@ -60,3 +60,8 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Stack rank is changed by typing a number in the rank cell (a move, audited per shifted item); it is never edited as a plain value · Claude (issue #6)
 - 2026-10-22 · Roles without write access (viewer, commenter, leadership) see the grid read-only with a notice; the database stays the real gate · Claude (issue #6)
 - 2026-10-22 · Undo is our own stack of 20 per page session (the built-in one does not track API edits); each undo is a guarded write so it never overwrites someone else's change · Claude (issue #6)
+- 2026-10-22 · Quick-add: `#project @person M should` tokens; size only in capitals and MoSCoW words only at the end of the line, so ordinary words stay in the name; context project = project of the row you are on, else the last used, else the only project · Claude (issue #7)
+- 2026-10-22 · Quick-add shortcut is Alt+N (a plain letter would start editing a cell); the new item gets its id in the browser so undo and redo can refer to it · Claude (issue #7)
+- 2026-10-22 · Undo of an add deletes the item (the audit log keeps the history); redo adds it again at the end with a new code · Claude (issue #7)
+- 2026-10-22 · The similar-item hint is word overlap on the loaded items (no AI yet); AI duplicate check comes with intake in Phase 4 · Claude (issue #7)
+- 2026-10-22 · Added a minimal "Add project" (admins, name only) on the Roadmap page, because the workspace had no way to create the first project and items need one. Full project setup stays a later slice · Claude (issue #7), to confirm with Ashu

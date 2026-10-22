@@ -108,6 +108,27 @@ describe("item codes", () => {
   });
 });
 
+describe("quick-add writes", () => {
+  it("a creator can add an item with a browser-chosen id, owner, effort and MoSCoW; it goes last and is audited as UI", async () => {
+    const id = crypto.randomUUID();
+    const row = await db.asUser(creator, async (q) =>
+      (await q("insert into public.items (id, tenant_id, initiative_name, home_project_id, owner_user_id, effort, moscow) values ($1, $2, 'Quick', $3, $4, 'M', 'Should') returning item_code, stack_rank", [id, f.tenantA, f.seedA.project, creator])).rows[0],
+      { commit: true, via: "UI" });
+    const max = (await db.admin.query("select max(stack_rank) as m from public.items where tenant_id = $1 and cycle_id is null", [f.tenantA])).rows[0].m;
+    expect(row.stack_rank).toBe(max);
+    expect(row.item_code).toMatch(/^R-\d+$/);
+    const audit = await db.admin.query("select via, actor_id from public.audit_log where entity = 'items' and entity_id = $1 and field = 'initiative_name'", [id]);
+    expect(audit.rows[0]).toMatchObject({ via: "UI", actor_id: creator });
+  });
+  it("undo of an add (delete) is allowed for the creator and closes the rank gap; a viewer cannot", async () => {
+    const id = await fresh();
+    expect(await db.asUser(viewer, async (q) => (await q("delete from public.items where id = $1", [id])).rowCount, { commit: true })).toBe(0);
+    expect(await db.asUser(creator, async (q) => (await q("delete from public.items where id = $1", [id])).rowCount, { commit: true })).toBe(1);
+    const { rows } = await db.admin.query("select stack_rank from public.items where tenant_id = $1 and cycle_id is null order by stack_rank", [f.tenantA]);
+    expect(rows.map((r) => r.stack_rank)).toEqual(rows.map((_, i) => i + 1));
+  });
+});
+
 describe("people fields cannot point outside the tenant", () => {
   it("rejects a sponsor from another tenant", async () => {
     const id = await fresh();
