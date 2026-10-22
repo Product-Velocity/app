@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ClientSideRowModelApiModule, ClientSideRowModelModule, CellApiModule, CellStyleModule, ColumnApiModule, CustomEditorModule,
-  EventApiModule, ModuleRegistry, RowApiModule, RowSelectionModule, ScrollApiModule, TextEditorModule, themeQuartz, type CellDoubleClickedEvent, type CellFocusedEvent, type CellKeyDownEvent, type ColumnMovedEvent, type GridApi,
+  EventApiModule, ModuleRegistry, RowApiModule, RowSelectionModule, ScrollApiModule, TextEditorModule, themeQuartz, type CellClickedEvent, type CellDoubleClickedEvent, type CellFocusedEvent, type CellKeyDownEvent, type ColumnMovedEvent, type GridApi,
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import {
@@ -14,6 +14,7 @@ import { useWorkspace } from "../workspace/provider";
 import { setQueryParam, useScope } from "../workspace/scope";
 import { buildColumns, isEditableColumn, isReadOnlyColumn } from "./columns";
 import { ColumnsPicker } from "./columns-picker";
+import { ItemPanel } from "./item-panel";
 import { ALL_COLUMNS_NAME, baseDef, baseLabel, baseParam, parseBase, sameView, type BaseView } from "./grid-view";
 import { CommandPalette } from "./command-palette";
 import type { Command } from "./palette";
@@ -107,6 +108,15 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const footRef = useRef<HTMLParagraphElement | null>(null);
   const [gridHeight, setGridHeight] = useState<number | null>(null);
+  // the item panel beside the grid: which item, kept in the address as ?item=R-12 so a refresh or a shared link opens it
+  const [peekId, setPeekId] = useState<string | null>(() => {
+    const code = params.get("item");
+    return code ? controller.rows.find((r) => r.item_code === code)?.id ?? null : null;
+  });
+  const openPeek = useCallback((id: string | null) => {
+    setPeekId(id);
+    setQueryParam("item", id ? controller.row(id)?.item_code ?? null : null);
+  }, [controller]);
 
   // The grid fills the page below it: a taller window gives a taller grid, and it follows window resizes
   // and changes in the bars above it (notices, quick-add hints, columns picker).
@@ -121,7 +131,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     fit();
     window.addEventListener("resize", fit);
     const ro = new ResizeObserver(fit);
-    for (const child of Array.from(cardRef.current?.children ?? [])) if (child !== wrapRef.current) ro.observe(child);
+    for (const child of Array.from(cardRef.current?.children ?? [])) if (child !== wrapRef.current && !child.classList.contains("grid-split")) ro.observe(child);
     if (headRef.current) ro.observe(headRef.current);
     return () => { window.removeEventListener("resize", fit); ro.disconnect(); };
   }, []);
@@ -253,6 +263,11 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     const colId = e.column.getColId();
     if (!ke || !e.data) return;
     if (e.api.getEditingCells().length > 0) return;
+    if (ke.key === " " && !ke.ctrlKey && !ke.metaKey && !ke.altKey && !isGroup(e.data) && colId !== "ag-Grid-SelectionColumn") {
+      ke.preventDefault(); // Space opens the item panel (the page would scroll otherwise)
+      openPeek(e.data.id);
+      return;
+    }
     if (isReadOnlyColumn(colId) && (ke.key === "Enter" || ke.key === "F2" || ke.key === "Delete" || ke.key === "Backspace" || ke.key.length === 1)) {
       if (ke.key.length === 1 && (ke.metaKey || ke.ctrlKey)) return; // copy etc.
       controller.notifyReadOnly(colId);
@@ -291,6 +306,45 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     if (isReadOnlyColumn(colId)) controller.notifyReadOnly(colId);
     else if (!controller.canEdit) controller.notify("You have view-only access. Ask an admin for the Creator role to edit.");
   }, [controller]);
+
+  // clicking the code (R-12) of an initiative opens its panel; the name stays a cell you select and edit
+  const onCellClicked = useCallback((e: CellClickedEvent<GridItem>) => {
+    const colId = e.column.getColId();
+    if (colId === "item_code" && e.data && !isGroup(e.data) && e.api.getEditingCells().length === 0) openPeek(e.data.id);
+  }, [openPeek]);
+
+  /** Items in the order the grid shows them now (scope, search, filters and grouping applied; rows in collapsed groups and group headers left out). */
+  const orderedIds = useMemo(() => displayRows.filter((r) => !isGroup(r)).map((r) => (r as GridItem).id), [displayRows]);
+  const step = useCallback((delta: 1 | -1) => {
+    if (orderedIds.length === 0 || !peekId) return;
+    const i = orderedIds.indexOf(peekId);
+    const next = orderedIds[i < 0 ? 0 : Math.min(orderedIds.length - 1, Math.max(0, i + delta))]!;
+    if (next === peekId) return;
+    openPeek(next);
+    const api = apiRef.current;
+    const node = api?.getRowNode(next);
+    if (api && node && node.rowIndex != null) { api.ensureNodeVisible(node, "middle"); api.setFocusedCell(node.rowIndex, "initiative_name"); }
+  }, [orderedIds, peekId, openPeek]);
+  const peekPosition = useMemo(() => {
+    const i = peekId ? orderedIds.indexOf(peekId) : -1;
+    return i < 0 ? undefined : { index: i, total: orderedIds.length };
+  }, [peekId, orderedIds]);
+
+  // J and K move to the next and previous initiative, Esc closes the panel; not while typing or in a menu or dialog
+  useEffect(() => {
+    if (!peekId) return;
+    const h = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement;
+      if (t !== document.body && !t.closest(".grid-card")) return;
+      if (t.closest("input, textarea, select, [contenteditable=true], [role=dialog], [role=menu], .ag-cell-edit-wrapper, .ag-popup")) return;
+      const go = e.key === "j" || e.key === "J" ? 1 : e.key === "k" || e.key === "K" ? -1 : 0;
+      if (e.key === "Escape") { e.preventDefault(); openPeek(null); }
+      else if (go !== 0) { e.preventDefault(); e.stopPropagation(); step(go); } // before the grid starts editing the cell with that letter
+    };
+    window.addEventListener("keydown", h, true);
+    return () => window.removeEventListener("keydown", h, true);
+  }, [peekId, openPeek, step]);
 
   const onWrapperKeyDown = (e: React.KeyboardEvent) => {
     const t = e.target as HTMLElement;
@@ -451,6 +505,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         <ImportDialog controller={controller} lookups={lookups} defaultProject={contextForQuickAdd} initialText={importText} onClose={() => setImportText(null)} />
       )}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} findItems={findItems} />
+      <div className={peekId ? "grid-split grid-split-open" : "grid-split"}>
       <div ref={wrapRef} className="grid-wrap" data-testid="grid" style={gridHeight ? { height: gridHeight } : undefined}>
         <AgGridReact<GridItem>
           theme={theme}
@@ -473,7 +528,15 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
           onCellKeyDown={onCellKeyDownStable}
           headerHeight={showLater ? 46 : 28}
           onCellDoubleClicked={onCellDoubleClicked}
+          onCellClicked={onCellClicked}
         />
+      </div>
+      {peekId && (
+        <ItemPanel
+          controller={controller} lookups={lookups} itemId={peekId} me={me} mode="peek" position={peekPosition}
+          onClose={() => openPeek(null)} onPrev={() => step(-1)} onNext={() => step(1)} height={gridHeight ?? undefined}
+        />
+      )}
       </div>
       <p ref={footRef} className="grid-foot">
         {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${FIELD_BY_KEY[def.groupBy]?.name}, rank order inside each group` : "Sorted by global Stack Rank"} · Alt+N adds an initiative · Enter edits a cell · Tab moves right · Esc cancels · Delete clears a cell · {mac ? "⌘Z" : "Ctrl+Z"} undoes · {mac ? "⌘K" : "Ctrl+K"} commands · A lock means the value comes from GitHub

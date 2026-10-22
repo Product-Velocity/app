@@ -110,7 +110,8 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
     }
     if (CORE_COLUMNS.includes(f.key as never) || f.key === "project_rank") base.pinned = "left";
     if (f.key === "initiative_name") { base.flex = 1; base.minWidth = 300; }
-    if (f.key === "project_rank" || f.key === "item_code") return base;
+    if (f.key === "item_code") return { ...base, cellClass: "mono muted cell-open", headerTooltip: "Click a code to open the item panel", tooltipValueGetter: () => "Open the item panel (Space on any cell does the same)" };
+    if (f.key === "project_rank") return base;
     if (f.key === "health") return { ...base, cellRenderer: HealthCell, ...pickerDef(f, optionsFor(f.key), true) };
     if (reason) {
       return { ...base, cellRenderer: (p: { value: unknown }) => <ReadOnlyCell text={display(f, p.value) || (f.key === "status" ? "Not on GitHub" : "")} reason={reason} github={f.mode === "locked" || f.storage.startsWith("GitHub-synced")} /> };

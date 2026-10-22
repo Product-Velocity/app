@@ -5,24 +5,13 @@ import { AppHeader } from "@/components/app-header";
 import { WorkspaceProvider } from "@/features/workspace/provider";
 import { MemoryWorkspaceStore } from "@/features/workspace/store";
 import { parseBase } from "@/features/portfolio/grid-view";
-import { PortfolioController } from "@/features/portfolio/controller";
-import { MemoryDataSource, sampleItems } from "@/features/portfolio/memory-source";
 import { PortfolioGrid } from "@/features/portfolio/portfolio-grid";
-import type { Lookups } from "@/features/portfolio/types";
+import { harnessLookups, makeHarness } from "../harness-data";
 
-const lookups: Lookups = {
-  projects: ["Platform", "Marketplace", "Growth", "Payments", "Mobile", "Data"].map((name, i) => ({ id: `p${i + 1}`, name })),
-  members: ["ana", "bo", "chen", "dee", "eli"].map((n, i) => ({ user_id: `u${i + 1}`, email: `${n}@example.test` })),
-  groups: ["Onboarding", "Platform health", "Retention"],
-};
+const lookups = harnessLookups;
 
 export function HarnessClient({ n, latency, role, view, allColumns }: { n: number; latency: number; role: string; view?: string; allColumns: boolean }) {
-  const { controller, source } = useMemo(() => {
-    const items = sampleItems(n, lookups.projects.map((p) => p.id), lookups.members.map((m) => m.user_id));
-    const source = new MemoryDataSource(items, { latencyMs: latency });
-    const controller = new PortfolioController(source, items, lookups, role, () => new Date(Date.UTC(2027, 3, 14)));
-    return { controller, source };
-  }, [n, latency, role]);
+  const { controller, source } = useMemo(() => makeHarness(n, latency, role), [n, latency, role]);
   const store = useMemo(() => Object.assign(new MemoryWorkspaceStore({ scopes: [{ id: "scope-a", name: "Marketplace and Platform", projectIds: ["p1", "p2"] }, { id: "scope-b", name: "Customer-facing work", projectIds: ["p3"] }] }), { projects: lookups.projects }), []);
   useEffect(() => {
     (window as unknown as { __pv: unknown }).__pv = { controller, source, store };

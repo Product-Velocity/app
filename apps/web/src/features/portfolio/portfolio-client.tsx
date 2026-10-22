@@ -9,8 +9,8 @@ import type { Lookups } from "./types";
 
 type State = { kind: "loading" } | { kind: "error"; message: string } | { kind: "ready"; controller: PortfolioController };
 
-/** Loads every item of the workspace, then shows the grid. */
-export function PortfolioClient({ tenantId, role, lookups, userId, headLeft, headRight }: { tenantId: string; role: string; lookups: Lookups; userId: string; headLeft?: ReactNode; headRight?: ReactNode }) {
+/** Loads every item of the workspace into a controller (the roadmap and the item page both start from it). */
+export function useWorkspaceController(tenantId: string, role: string, lookups: Lookups) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
   const source = useMemo(() => new SupabaseDataSource(createClient(), tenantId, createClient("import")), [tenantId]);
@@ -23,6 +23,13 @@ export function PortfolioClient({ tenantId, role, lookups, userId, headLeft, hea
       .catch((e: Error) => { if (!cancelled) setState({ kind: "error", message: e.message }); });
     return () => { cancelled = true; };
   }, [source, lookups, role, attempt]);
+  const retry = () => { setState({ kind: "loading" }); setAttempt((n) => n + 1); };
+  return { state, retry };
+}
+
+/** Loads every item of the workspace, then shows the grid. */
+export function PortfolioClient({ tenantId, role, lookups, userId, headLeft, headRight }: { tenantId: string; role: string; lookups: Lookups; userId: string; headLeft?: ReactNode; headRight?: ReactNode }) {
+  const { state, retry } = useWorkspaceController(tenantId, role, lookups);
 
   if (state.kind === "loading") return <><div className="page-head">{headLeft}</div><p role="status" className="muted">Loading the roadmap…</p></>;
   if (state.kind === "error") {
@@ -31,7 +38,7 @@ export function PortfolioClient({ tenantId, role, lookups, userId, headLeft, hea
         <div className="page-head">{headLeft}</div>
         <div role="alert" className="error">
           Could not load the roadmap: {state.message}{" "}
-          <button type="button" className="link-button" onClick={() => { setState({ kind: "loading" }); setAttempt((n) => n + 1); }}>Try again</button>
+          <button type="button" className="link-button" onClick={retry}>Try again</button>
         </div>
       </>
     );
