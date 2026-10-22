@@ -48,3 +48,4 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Roles on Phase 1 tables: all tenant members read; creators and admins write items, scopes and links; only admins write projects and teams; no project-level membership yet · Claude (issue #5)
 - 2026-10-22 · Item keys are `R-01`, `R-02`, ... per tenant, never reused; enumerations stored lower-case (moscow, size, health, date precision); horizon and focus area are free text until defined · Claude (issue #5)
 - 2026-10-22 · Cross-tenant references are blocked by composite foreign keys; saved scopes use a join table instead of an array · Claude (issue #5)
+- 2026-10-22 · The field dictionary (docs/reference/item-fields.csv, 165 fields) is the authoritative item spec; schema and grid columns must match it; each field has a storage type and a phase · Ashu/Claude

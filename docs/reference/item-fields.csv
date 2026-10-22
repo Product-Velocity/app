@@ -1,0 +1,166 @@
+id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_in_phase
+1,What,Initiative ID,item_code,System,"R-01, R-02, …",System,Auto-derive,Shown in issue body as backlink.,System-set column (read-only),1
+2,What,Roadmap Category,roadmap_category,Select,New big bets · Grow customer revenues · Protect customer revenues · Operational efficiency · Close the gap with competitors,Input,Keep,Optional: push as label (off by default).,Column on items,1
+3,What,Initiative Status,status,Select,Backlog · Not Started · In Progress · Paused · Completed · Cancelled,Input,Split,"GitHub -> app. Tracking issue closed as completed -> Status Completed; closed as not planned -> Cancelled; first child issue in progress -> In Progress. Applied automatically, audit-logged.",GitHub-synced column (read-only in app),3
+4,What,Initiative Phase,initiative_phase,Select,Discover · Define · Build · Beta-test · Experiment · Roll-out · Completed · Sunset,Input,Modify,Suggest only (never auto-set): first child issue in progress -> suggest Build.,Column on items,1
+5,What,Stack Rank,stack_rank,Number,,Input,Modify,"Optional one-way push to a GitHub issue field ""Priority"" / label.",Column on items,1
+6,What,Initiative Group,theme,Select,,Input,Modify,Optional: push as label.,Column on items,1
+7,What,Initiative Name,initiative_name,Text,,Input,Keep,App -> GitHub issue title on creation; app owns the title afterwards.,Column on items,1
+8,What,Focus Area,focus_area,Select,Formats · Demand/Optimisation · Publishers,Input,Fix,Optional: push as label.,Column on items,1
+9,What,Change Type,change_type,Select,New feature · Improvement to existing feature,Input,Keep,,Column on items,1
+11,What,Initiative Hypothesis (IF / THEN / RESULTING IN),hypothesis,Long text,,Input,Modify,App -> GitHub: included in the managed block of the issue body.,Column on items,1
+12,What,Artifacts (links),artifacts,Links,,Input,Modify,App -> GitHub: listed in managed block of issue body.,Related table,1
+13,What,Comments,comments,Thread,,Input,Replace,Not synced. GitHub comments are shown read-only in the drill-down panel.,Related table,2
+14,Who,Sponsor,sponsor,Person,,Input,Modify,Not synced.,Column on items,1
+15,Who,Request Origin,request_origin,Select,Customer · Sales · Leadership · Product analysis · Partner / vendor · Competitor move,Input,Keep,,Column on items,1
+16,Who,Customers Requesting (#),customers_requesting,Number,,Input,Keep,Never synced (commercial).,Column on items,1
+17,Who,Product Manager,product_manager,Person,,Input,Modify,Not synced.,Column on items,1
+18,Who,Engineering Manager,engineering_manager,Person,,Input,Modify,Suggestion only.,Column on items,1
+19,Who,Designer,designer,Person,,Input,Modify,Not synced.,Column on items,1
+20,Who,Analyst,analyst,Person,,Input,Modify,Not synced.,Column on items,1
+21,Who,Business Manager,business_manager,Person,,Input,Modify,Not synced.,Column on items,1
+22,Why,Primary KR (Metric Name),kr_metric,Text,,Input,Modify,Never synced.,Column on items,1
+23,Why,Primary KR Start Value,kr_start,Number,,Input,Keep,,Column on items,1
+24,Why,Primary KR Target Value,kr_target,Number,,Input,Keep,,Column on items,1
+26,Why,Value Type,value_type,Select,Incremental revenue · Defend existing revenue · Save money / operational efficiency,Input,Keep,Never synced (commercial).,Column on items,1
+27,Why,"Value (EUR, 12-month run-rate)",value_12m,Currency,,Input,Modify,Never synced (commercial).,Column on items,1
+28,Why,Value Basis,value_basis,Select,Measured · Estimate (basis stated) · Partner claim · Not stated,Input,Modify,,Column on items,1
+29,Why,Time to First Revenue (months),time_to_first_revenue_months,Number,,Input,Keep,,Column on items,1
+30,Why,Confidence,confidence,Select,High · Medium · Low,Input,Keep,,Column on items,1
+31,Why,Effort (T-shirt),effort,Select,XS · S · M · L · XL,Input,Modify,"Optional: push to GitHub issue field ""Effort"" / label size:M.",Column on items,1
+32,Why,MoSCoW,moscow,Select,Must · Should · Could · Won't,Input,Keep,Optional: label.,Column on items,1
+34,Why,Estimate low (weeks),estimate_low_weeks,Number,,Input,Modify,,Column on items,1
+35,Why,Estimate high (weeks),estimate_high_weeks,Number,,Input,Modify,,Column on items,1
+37,Why,Confidence-weighted Value (EUR),value_weighted,Computed,,Computed,Fix,,"Computed (view or function, not stored)",2
+38,Why,Weighted Value per Build-Week (EUR),value_weighted_per_build_week,Computed,,Computed,Fix,,"Computed (view or function, not stored)",2
+39,Why,Cost of Not Doing (strategic risk),cost_of_not_doing,Text,,Input,Keep,Never synced.,Column on items,1
+40,Why,Dependencies / Blockers,dependencies_blockers,Text,,Input,Modify,"Phase 2: GitHub ""blocked by"" on the tracking issue raises a Blocked suggestion.",Column on items,1
+41,Why,Depends On (Initiative IDs),depends_on,Relation,e.g. R-12; R-20,Input,Replace,Phase 2: map to GitHub issue dependencies when both items are linked.,Related table,1
+42,Why,Related / Overlaps With (Initiative IDs),related_to,Relation,,Input,Replace,,Related table,1
+44,Decision,Decision,decision,Select,Go · Hold · Kill · Not yet decided,Input,Modify,,Column on items,1
+45,Decision,Decided By,decided_by,Person or text,,Input,Modify,,Column on items,1
+46,Decision,Decision Date,decision_date,Date,,Input,Modify,,Column on items,1
+47,Decision,Next Review Date,next_review_date,Date,,Input,Modify,,Column on items,1
+48,When,G2M Quarter,g2m_quarter,Computed,,Computed,Auto-derive,,"Computed (view or function, not stored)",2
+49,When,Start Date,start_date,Date,,Computed,Auto-derive,,Column on items,1
+50,When,G2M Date (est),g2m_date_est,Date,,Input,Modify,Optional: push to GitHub issue field (date) / milestone due date.,Column on items,1
+51,When,G2M Date (actual),g2m_date_actual,Date,,Input,Modify,,Column on items,1
+52,When,Start Discovery,start_discovery,Date,,System,Auto-derive,,System-set column (read-only),1
+53,When,Start Definition,start_definition,Date,,System,Auto-derive,,System-set column (read-only),1
+54,When,Start Building,start_building,Date,,System,Auto-derive,Suggested from first child issue moving to in progress.,System-set column (read-only),1
+55,When,Start Beta-Test,start_beta,Date,,System,Auto-derive,,System-set column (read-only),1
+56,When,Start Experiment,start_experiment,Date,,System,Auto-derive,,System-set column (read-only),1
+57,When,Start Roll-Out,start_rollout,Date,,System,Auto-derive,,System-set column (read-only),1
+58,When,Last Updated,last_edited_at,System,,System,Replace,,System-set column (read-only),1
+59,Go-to-market,Audience,audience,Select,Publishers · Demand partners · Brands and agencies · Internal · Mixed,Input,Keep,,Column on items,1
+60,Go-to-market,Target Markets / Scope,target_scope,Tags,,Input,Modify,,Related table,1
+61,Go-to-market,Live Markets / Scope,live_scope,Tags,,Input,Modify,,Related table,1
+62,Go-to-market,Target Customers (#),target_customers,Number,,Input,Keep,,Column on items,1
+63,Go-to-market,Customers Live (#),customers_live,Number,,Input,Keep,,Column on items,7
+64,Go-to-market,Roll-out %,rollout_pct,Select,0% · 25% · 50% · 75% · 100%,Input,Keep,,Column on items,7
+65,Go-to-market,% Adoption (live / target customers),adoption_pct,Computed,,Computed,Modify,,"Computed (view or function, not stored)",7
+66,Go-to-market,GTM / Enablement Notes,gtm_enablement_notes,Text,,Input,Keep,,Column on items,1
+67,Outcomes,Realized KR Value,realized_kr_value,Number,,Input,Keep,,Column on items,7
+68,Outcomes,% Realized KR Value,kr_realized_pct,Computed,,Computed,Fix,,"Computed (view or function, not stored)",7
+69,Outcomes,Realized EUR per year,realized_per_year,Currency,,Input,Modify,,Column on items,7
+70,Outcomes,Measured Period,measured_period,Date range,,Input,Modify,,Column on items,7
+71,Outcomes,Outcome Verdict,outcome_verdict,Select,Hit · Partial · Miss · Too early,Input,Modify,,Column on items,7
+72,Outcomes,Learning,learning,Text,,Input,Keep,,Column on items,7
+73,Efficiency,Discovery Time (days),time_discovery_days,Computed,,Computed,Modify,,"Computed (view or function, not stored)",3
+74,Efficiency,Definition Time (days),time_definition_days,Computed,,Computed,Modify,,"Computed (view or function, not stored)",3
+75,Efficiency,Building Time (days),time_building_days,Computed,,Computed,Modify,,"Computed (view or function, not stored)",3
+76,Efficiency,Beta-Test Time (days),time_beta_days,Computed,,Computed,Modify,,"Computed (view or function, not stored)",3
+77,Efficiency,Experiment Time (days),time_experiment_days,Computed,,Computed,Modify,,"Computed (view or function, not stored)",3
+78,Efficiency,Roll-Out Time (days),time_rollout_days,Computed,,Computed,Modify,,"Computed (view or function, not stored)",3
+79,Efficiency,Time to Market (days),time_to_market_days,Computed,,Computed,Keep,,"Computed (view or function, not stored)",3
+80,Efficiency,Actual Build (weeks),actual_build_weeks,Computed,,Computed,Keep,,"Computed (view or function, not stored)",3
+81,Efficiency,Build vs Estimate High (%),build_vs_estimate_high_pct,Computed,,Computed,Fix,,"Computed (view or function, not stored)",3
+82,Efficiency,Blocked Days,blocked_days,Computed,,Computed,Auto-derive,"Phase 2: also from GitHub ""blocked"" label / blocked-by.","Computed (view or function, not stored)",3
+83,Efficiency,Support Hours Saved per Month,support_hours_saved_month,Number,,Input,Keep,,Column on items,7
+84,Trust,Source,source,Text,,Input,Modify,,Column on items,1
+N1,What,Summary (participant-facing),summary,Long text,,Input,New,,Column on items,1
+H1,What,Health,health,Select,On Track · At Risk · Delayed · Blocked,Input,New,Never auto-set. GitHub signals only create suggestions.,Column on items,1
+N2,What,Horizon,horizon,Select,Now · Next · Later,Input,New,,Column on items,1
+N3,What,Tags,tags,Tags,,Input,New,Optional: labels.,Related table,1
+N4,When,Planned Start,planned_start,Date,,Input,New,Optional: push to GitHub issue field (date).,Column on items,1
+N5,When,G2M Slip (days),g2m_slip_days,Computed,,Computed,New,,"Computed (view or function, not stored)",2
+N6,Why,Primary KR Unit,kr_unit,Select,% · EUR · count · days · other,Input,New,,Column on items,1
+N7,Why,Primary KR Direction,kr_direction,Select,Increase · Decrease,Input,New,,Column on items,1
+N8,Why,Estimate Basis,estimate_basis,Select,Engineering-sized · PM estimate · Rough guess · Not stated,Input,New,,Column on items,1
+N9,Delivery (GitHub),Assignees,assignees,People,,Input,New,"Two-way with the tracking issue assignees; last write wins, audit-logged.",GitHub-synced column (read-only in app),3
+N10,Delivery (GitHub),GitHub Links,github_links,Links,,Input,New,Created from the app or linked to an existing issue.,"Related table, GitHub-synced",3
+N11,Delivery (GitHub),GitHub Sync State,sync_state,Computed,Not linked · Synced · Pending · Conflict · Error,Computed,New,Derived from sync log.,GitHub-synced column (read-only in app),3
+N12,Delivery (GitHub),GitHub State,gh_state,Computed,Open · Closed (completed) · Closed (not planned),GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N13,Delivery (GitHub),Issues Closed (#),issues_closed,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N14,Delivery (GitHub),Issues Total (#),issues_total,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N15,Delivery (GitHub),Delivery Progress %,delivery_progress_pct,Computed,,Computed,New,,GitHub-synced column (read-only in app),3
+N16,Delivery (GitHub),Open PRs (#),open_prs,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N17,Delivery (GitHub),Last GitHub Activity,gh_last_activity,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N32,Delivery (GitHub),Merged PRs (#),merged_prs,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N33,Delivery (GitHub),Project Status (GitHub),gh_project_status,Computed,As defined in the linked GitHub Project (e.g. Todo · In Progress · Done),GitHub,New,"Projects v2 -> app, read-only.",GitHub-synced column (read-only in app),3
+N34,Delivery (GitHub),Iteration / Sprint (GitHub),gh_iteration,Computed,,GitHub,New,"Projects v2 -> app, read-only.",GitHub-synced column (read-only in app),3
+N35,Delivery (GitHub),GitHub Target Date,gh_target_date,Computed,,GitHub,New,"Projects v2 -> app, read-only.",GitHub-synced column (read-only in app),3
+N36,Delivery (GitHub),Blocked Issues (#),blocked_issues,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N37,Delivery (GitHub),Stale Issues (#),stale_issues,Computed,,Computed,New,,GitHub-synced column (read-only in app),3
+N38,Delivery (GitHub),Scope Added (#),scope_added,Computed,,Computed,New,,GitHub-synced column (read-only in app),3
+N39,Delivery (GitHub),Schedule Variance (pp),schedule_variance_pp,Computed,,Computed,New,,GitHub-synced column (read-only in app),3
+N40,Delivery (GitHub),Latest Release,latest_release,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N41,Delivery (GitHub),CI Status,ci_status,Computed,Passing · Failing · None,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N42,Delivery (GitHub),Repositories,repositories,Tags,,GitHub,New,"GitHub -> app, read-only.","Related table, GitHub-synced",3
+A1,Alignment,Crowd Rank,crowd_rank,Computed,,Computed,New,,"Computed (view or function, not stored)",5
+A2,Alignment,Crowd Score,crowd_score,Computed,,Computed,New,,"Computed (view or function, not stored)",5
+A3,Alignment,Consensus,crowd_consensus,Computed,,Computed,New,,"Computed (view or function, not stored)",5
+A4,Alignment,Votes (#),crowd_votes,Computed,,Computed,New,,"Computed (view or function, not stored)",5
+N18,Trust,Visibility,visibility,Select,Internal only · Shareable,Input,New,Never synced to GitHub.,Column on items,1
+N19,Trust,Last Reviewed,last_reviewed_at,Date,,Input,New,,Column on items,1
+N20,Trust,Review Overdue,review_overdue,Computed,Yes · No,Computed,New,,"Computed (view or function, not stored)",2
+N21,Trust,Created At,created_at,System,,System,New,,System-set column (read-only),1
+N23,Trust,Created By,created_by,System,,System,New,,System-set column (read-only),1
+N24,Trust,Last Edited By,last_edited_by,System,,System,New,,System-set column (read-only),1
+N25,Trust,Phase Changed At,phase_changed_at,System,,System,New,,System-set column (read-only),1
+N26,Trust,Days in Current Phase,days_in_phase,Computed,,Computed,New,,"Computed (view or function, not stored)",2
+N27,Trust,Item Age (days),item_age_days,Computed,,Computed,New,,"Computed (view or function, not stored)",2
+N28,Trust,Status Changed At,status_changed_at,System,,System,New,,System-set column (read-only),1
+N29,Trust,Created Via,created_via,Select,Manual · Import · AI intake · GitHub,System,New,,System-set column (read-only),1
+N30,Trust,AI Draft (needs review),ai_draft,Boolean,,System,New,,System-set column (read-only),1
+N31,Trust,Source Document,source_document,Links,,Input,New,,Related table,4
+N22,Trust,Archived,archived,Boolean,,Input,New,,Column on items,1
+V1,What,Home Project,home_project,Relation,Project,Input,New (v4),Selects the repo for the tracking issue.,Related table,1
+V2,What,Contributing Teams,contributing_teams,Tags,Teams,Input,New (v4),Not synced.,Related table,1
+V3,What,Rank in Project,project_rank,Computed,,Computed,New (v4),Not synced.,"Computed (view or function, not stored)",2
+V4,What,Previous Rank,previous_rank,Number,,System,New (v4),Not synced.,System-set column (read-only),1
+V5,What,Value Proposition (customer-safe),value_proposition,Long text,,Input,New (v4),Not synced.,Column on items,1
+V6,What,Target Segments (customer-safe),target_segments,Tags,Segments,Input,New (v4),Not synced.,Related table,1
+V7,What,Screenshots,screenshots,Files,,Input,New (v4),Not synced.,Related table,1
+V8,When,Date Precision,date_precision,Select,Day · Month · Quarter,Input,New (v4),Not synced.,Column on items,1
+V9,Why,Effort by Skill,effort_by_skill,Structured,Skill = person-weeks,Input,New (v4),Estimates may come from sub-issues.,Column on items (jsonb),1
+V10,Why,Fit by Team,fit_by_team,Computed,fits · tight · over,Computed,New (v4),Not synced.,"Computed (view or function, not stored)",5
+V11,Spec,Spec Status,spec_status,Select,No spec · Draft · In review · Approved,Input,New (v4),Not synced.,Column on items,4
+V12,Spec,Documents,documents,Relation,"PRD, business requirements, technical requirements, acceptance criteria, prototype, research",Input,New (v4),Links may be added to the issue body.,Related table,4
+V13,Spec,Ready for Build,ready_for_build,Computed,Not ready · Requested · Ready,Computed,New (v4),Label optional.,"Computed (view or function, not stored)",4
+V14,Spec,Ready for Build By / At,ready_for_build_by,System,"Person, date",System,New (v4),Not synced.,System-set column (read-only),4
+V15,Spec,Agent-ready,agent_ready,Boolean,Yes · No,Computed,New (v4),Label optional.,Column on items,4
+V16,Delivery (GitHub),Breakdown Route,breakdown_route,Select,Traditional · In between · Full Claude,Input,New (v4),Decides who creates issues.,GitHub-synced column (read-only in app),4
+V17,Delivery (GitHub),Breakdown Status,breakdown_status,Select,Not started · Draft proposed · Awaiting engineering · Complete,Input,New (v4),Complete can be set by label or in the app.,GitHub-synced column (read-only in app),4
+V18,Delivery (GitHub),Planned Scope (#),planned_scope,Computed,,Computed,New (v4),From sub-issues.,GitHub-synced column (read-only in app),3
+V19,Planning,Planning Status,planning_status,Select,Candidate · Included · Committed · Deferred · Dropped,Input,New (v4),Not synced.,Column on items,5
+V20,Planning,Cycle,cycle,Relation,Planning cycles,Input,New (v4),Not synced.,Related table,5
+V21,Planning,Candidate Tag,candidate_tag,Select,Carry-over · Likely carry-over · Deferred · New · Backlog,System,New (v4),Not synced.,System-set column (read-only),5
+V22,Planning,Deferred Count,deferred_count,Number,,System,New (v4),Not synced.,System-set column (read-only),5
+V23,Planning,Deferral Reason,deferral_reason,Text,,Input,New (v4),Not synced.,Column on items,5
+V24,Planning,Added After Commit,added_after_commit,Boolean,Yes · No,System,New (v4),Not synced.,System-set column (read-only),5
+V25,Gates,Current Gate,current_gate,Select,G1 · G2 · G3 · G4,System,New (v4),Not synced.,System-set column (read-only),7
+V26,Gates,Gate Status,gate_status,Select,Not started · In review · Waiting for Approver · Passed with conditions · Passed · Held · Stopped,System,New (v4),Not synced.,System-set column (read-only),7
+V27,Gates,Next Gate Due,next_gate_due,Date,,Input,New (v4),Not synced.,Column on items,7
+V28,Alignment,Alignment Status,alignment_status,Computed,Not started · In review · Aligned · Contested · Overdue,Computed,New (v4),Not synced.,"Computed (view or function, not stored)",8
+V29,Alignment,Why State,align_why,Select,Not started · In review · Aligned · Contested · Overdue,Input,New (v4),Not synced.,Column on items,8
+V30,Alignment,What State,align_what,Select,Not started · In review · Aligned · Contested · Overdue,Input,New (v4),Not synced.,Column on items,8
+V31,Alignment,How State,align_how,Select,Not started · In review · Aligned · Contested · Overdue,Input,New (v4),Not synced.,Column on items,8
+V32,Alignment,When State,align_when,Select,Not started · In review · Aligned · Contested · Overdue,Input,New (v4),Not synced.,Column on items,8
+V33,Outcomes,Outcome Status,outcome_status,Select,Not yet due · On target · Behind · Missed · Exceeded,Input,New (v4),Not synced.,Column on items,7
+V34,Outcomes,Outcome Review Date,outcome_review_date,Date,,Computed,New (v4),Not synced.,Column on items,7
+V35,Outcomes,Value vs Prediction (%),value_variance_pct,Computed,,Computed,New (v4),Not synced.,"Computed (view or function, not stored)",7
+V36,Outcomes,Time to First Use (days),time_to_first_use_days,Computed,,Computed,New (v4),Not synced.,"Computed (view or function, not stored)",7
+V37,Outcomes,Retention (%),retention_pct,Number,,Input,New (v4),Not synced.,Column on items,7
+V38,Trust,Created Via Values,created_via_values,Note,UI · Import · Claude (MCP) · GitHub · API · System,System,New (v4),Not synced.,System-set column (read-only),1
+V39,Trust,Locked (GitHub-driven),locked_by_source,Computed,Yes · No,System,New (v4),n/a,"Computed (view or function, not stored)",1
