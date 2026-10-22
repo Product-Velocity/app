@@ -84,3 +84,4 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Grouping is our own (header rows in a flat list), collapsible, off by default; no AG Grid Enterprise · Ashu/Claude (issue #9)
 - 2026-10-22 · Command palette (Ctrl+K / ⌘K): views, scopes, projects, grouping, filters, add, import, export, undo, navigation, and finding an initiative by code or name · Claude (issue #9)
 - 2026-10-22 · "Add project" moved into the project dropdown at the top (admins: "+ New project"); the separate button on the Roadmap page is gone · Ashu (request R-005)
+- 2026-10-22 · Free Vercel/Supabase plans for now, so the repo stays public until go-live; making it private and upgrading plans is a go-live item (docs/14) · Ashu (R-012)
