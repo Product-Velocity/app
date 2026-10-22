@@ -1,0 +1,16 @@
+{
+  "name": "s1-spike",
+  "private": true,
+  "type": "module",
+  "description": "Spike S1: AG Grid Community limits and performance. Not part of the pnpm workspace; run on its own (see README).",
+  "scripts": { "dev": "vite --host 127.0.0.1", "build": "vite build", "preview": "vite preview --host 127.0.0.1 --port 5199", "modules": "node list.mjs" },
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.1.2",
+    "ag-grid-community": "36.2.0",
+    "ag-grid-enterprise": "36.2.0",
+    "ag-grid-react": "36.2.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "vite": "^8.3.5"
+  }
+}
