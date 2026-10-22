@@ -49,7 +49,7 @@ describe("the schema holds every phase-1 field of the dictionary", () => {
 
   it("has no leftover column under an old name", async () => {
     const have = new Set(await columns("items"));
-    for (const old of ["key", "title", "value", "size", "owner_user_id", "end_date", "delivery_progress", "target_segments"]) {
+    for (const old of ["key", "title", "value", "size", "delivery_progress", "target_segments"]) {
       expect(have.has(old), old).toBe(false);
     }
   });
@@ -202,7 +202,7 @@ describe("computed fields (view items_computed)", () => {
   it("returns a row per item and calculates what it can", async () => {
     const id = await fresh();
     await db.admin.query(
-      `update public.items set value_12m = 100000, confidence = 'High', estimate_high_weeks = 10, g2m_date_est = '2027-05-20', start_date = '2027-01-01',
+      `update public.items set value_12m = 100000, confidence = 'High', estimate_high_weeks = 10, end_date = '2027-05-20', start_date = '2027-01-01',
          start_discovery = '2027-01-01', start_definition = '2027-01-15', start_building = '2027-02-01', start_beta = '2027-03-15', g2m_date_actual = '2027-04-01',
          next_review_date = '2020-01-01' where id = $1`, [id]);
     const r = (await db.admin.query("select * from public.items_computed where id = $1", [id])).rows[0];

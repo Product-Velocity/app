@@ -27,7 +27,7 @@ function fake(responses: { data?: unknown; error?: unknown }[]) {
 }
 const has = (c: Call, op: string, ...args: unknown[]) => c.ops.some(([o, a]) => o === op && JSON.stringify(a) === JSON.stringify(args));
 
-const row = (i: number) => ({ id: `i${i}`, tenant_id: "t1", cycle_id: null, item_code: `R-${i}`, initiative_name: "t", stack_rank: i, home_project_id: "p", product_manager: null, moscow: null, effort: null, health: null, value_12m: "1200.50", confidence: "High", start_date: null, g2m_date_est: null, status: null, delivery_progress_pct: "40.00", kr_target: "7" });
+const row = (i: number) => ({ id: `i${i}`, tenant_id: "t1", cycle_id: null, item_code: `R-${i}`, initiative_name: "t", stack_rank: i, home_project_id: "p", owner_user_id: null, moscow: null, effort: null, health: null, value_12m: "1200.50", confidence: "High", start_date: null, end_date: null, status: null, delivery_progress_pct: "40.00", kr_target: "7" });
 
 describe("loadItems", () => {
   it("reads every page, filtered by tenant and cycle, in rank order", async () => {
@@ -70,6 +70,9 @@ describe("loadItems", () => {
     expect(a).toMatchObject({ home_project: "p", tags: "b, a", target_segments: "EU", artifacts: "PRD (https://x.test)", depends_on: "R-2", contributing_teams: "Core", value_weighted: 1080.45, locked_by_source: false });
     expect(a).not.toHaveProperty("tenant_id");
     expect(a).not.toHaveProperty("home_project_id");
+    expect(a).toHaveProperty("product_manager", null); // read from owner_user_id
+    expect(a).toHaveProperty("g2m_date_est", null); // read from end_date
+    expect(a).not.toHaveProperty("owner_user_id");
     expect(b).toMatchObject({ tags: null, depends_on: null });
   });
 
@@ -134,6 +137,12 @@ describe("column names", () => {
     const b = fake([{ data: [{ id: "i1" }] }]);
     await new SupabaseDataSource(b.client, "t1").updateField("i1", "home_project", "p1", { expected: "p2" });
     expect(has(b.calls[0]!, "eq", "home_project_id", "p2")).toBe(true);
+    const c = fake([{ data: [{ id: "i1" }] }]);
+    await new SupabaseDataSource(c.client, "t1").updateField("i1", "product_manager", "u1");
+    expect(has(c.calls[0]!, "update", { owner_user_id: "u1" })).toBe(true);
+    const d = fake([{ data: [{ id: "i1" }] }]);
+    await new SupabaseDataSource(d.client, "t1").updateField("i1", "g2m_date_est", "2027-03-31");
+    expect(has(d.calls[0]!, "update", { end_date: "2027-03-31" })).toBe(true);
   });
 });
 

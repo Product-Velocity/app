@@ -287,7 +287,7 @@ describe("data integrity", () => {
     // item -> project of another tenant
     expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.items (tenant_id, initiative_name, home_project_id) values ($1, 'x', $2)", [f.tenantA, f.seedB.project])))).toBe(FK);
     // item -> owner who is not a member of the tenant
-    expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.items (tenant_id, initiative_name, home_project_id, product_manager) values ($1, 'x', $2, $3)", [f.tenantA, f.seedA.project, f.bob])))).toBe(FK);
+    expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.items (tenant_id, initiative_name, home_project_id, owner_user_id) values ($1, 'x', $2, $3)", [f.tenantA, f.seedA.project, f.bob])))).toBe(FK);
     // scope -> project of another tenant; item_teams -> team of another tenant
     expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.saved_scope_projects (tenant_id, scope_id, project_id) values ($1, $2, $3)", [f.tenantA, f.seedA.scope, f.seedB.project])))).toBe(FK);
     expect(await errorCode(db.asUser(f.alice, async (q) => q("insert into public.item_teams (tenant_id, item_id, team_id) values ($1, $2, $3)", [f.tenantA, await fresh("Linked"), f.seedB.team])))).toBe(FK);
@@ -299,9 +299,9 @@ describe("data integrity", () => {
 
   it("removing a member clears them as item owner", async () => {
     const id = await fresh("Owned");
-    await db.asUser(f.alice, (q) => q("update public.items set product_manager = $1 where id = $2", [commenter, id]), { commit: true });
+    await db.asUser(f.alice, (q) => q("update public.items set owner_user_id = $1 where id = $2", [commenter, id]), { commit: true });
     await db.asUser(f.alice, (q) => q("delete from public.tenant_members where tenant_id = $1 and user_id = $2", [f.tenantA, commenter]), { commit: true });
-    const owner = (await db.admin.query("select product_manager from public.items where id = $1", [id])).rows[0].product_manager;
+    const owner = (await db.admin.query("select owner_user_id from public.items where id = $1", [id])).rows[0].owner_user_id;
     expect(owner).toBeNull();
   });
 
@@ -309,13 +309,13 @@ describe("data integrity", () => {
     const target = await fresh("Validated");
     const bad: [string, unknown[]][] = [
       ["moscow = 'maybe'", []], ["effort = 'XXL'", []], ["confidence = 'Extreme'", []], ["value_12m = -1", []],
-      ["health = 'great'", []], ["date_precision = 'week'", []], ["start_date = '2026-05-01', g2m_date_est = '2026-04-01'", []],
+      ["health = 'great'", []], ["date_precision = 'week'", []], ["start_date = '2026-05-01', end_date = '2026-04-01'", []],
       ["initiative_name = '   '", []], ["effort_by_skill = '[1]'::jsonb", []],
     ];
     for (const [set] of bad) {
       expect(await errorCode(db.asUser(f.alice, (q) => q(`update public.items set ${set} where id = $1`, [target]))), set).toBe(CHECK);
     }
-    for (const set of ["moscow = 'Must'", "effort = 'XL'", "health = 'At Risk'", "start_date = '2026-01-01', g2m_date_est = '2026-03-31'", "date_precision = 'Quarter'"]) {
+    for (const set of ["moscow = 'Must'", "effort = 'XL'", "health = 'At Risk'", "start_date = '2026-01-01', end_date = '2026-03-31'", "date_precision = 'Quarter'"]) {
       expect(await errorCode(db.asUser(f.alice, (q) => q(`update public.items set ${set} where id = $1`, [target]))), set).toBeNull();
     }
   });

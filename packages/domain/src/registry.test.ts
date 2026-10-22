@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  COLUMN_ON_ITEMS, DEFAULT_VIEWS, FIELDS, FIELD_BY_KEY, VIEW_NAMES, arrivesLabel, columnOnItems, isShipped, relatedTable,
+  COLUMN_ON_ITEMS, DEFAULT_VIEWS, KEY_BY_COLUMN, FIELDS, FIELD_BY_KEY, VIEW_NAMES, arrivesLabel, columnOnItems, isShipped, relatedTable,
 } from "./registry";
 
 /** Minimal CSV reader for docs/reference/item-fields.csv (quoted fields, no embedded newlines). */
@@ -65,6 +65,9 @@ describe("registry rules", () => {
   it("knows which phase-1 fields are real columns and which live in related tables", () => {
     expect(columnOnItems(FIELD_BY_KEY.value_12m!)).toBe("value_12m");
     expect(columnOnItems(FIELD_BY_KEY.home_project!)).toBe("home_project_id");
+    expect(columnOnItems(FIELD_BY_KEY.product_manager!)).toBe("owner_user_id");
+    expect(columnOnItems(FIELD_BY_KEY.g2m_date_est!)).toBe("end_date");
+    expect(KEY_BY_COLUMN.owner_user_id).toBe("product_manager");
     expect(columnOnItems(FIELD_BY_KEY.tags!)).toBeNull();
     expect(relatedTable(FIELD_BY_KEY.tags!)).toBe("item_tags");
     expect(relatedTable(FIELD_BY_KEY.depends_on!)).toBe("item_relations");
