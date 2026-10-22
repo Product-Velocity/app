@@ -3,7 +3,7 @@
 --   deleting the row restores the default. The defaults themselves are generated from the field dictionary, not stored.
 -- customer_safe: the view may only hold fields the sheet "Grid columns and views" marks customer-safe, so a commercial
 --   field can never be in one. The list below is checked against docs/reference/grid-views.csv by packages/db/tests.
---   Target Markets and Live Markets are left out on purpose (docs/03: markets are commercial).
+--   Target Markets and Live Markets are included: the sheet flags them customer-safe and Ashu confirmed it.
 alter table public.saved_views
   add column base_view text
     check (base_view in ('Prioritisation', 'Planning', 'Delivery', 'Go-to-market', 'Outcomes', 'Leadership', 'Discovery', 'History')),
@@ -13,7 +13,7 @@ create unique index saved_views_base_unique on public.saved_views (tenant_id, ba
 
 create function public.customer_safe_field_keys() returns text[]
   language sql immutable parallel safe set search_path = ''
-as $$ select array['item_code', 'roadmap_category', 'theme', 'initiative_name', 'focus_area', 'change_type', 'g2m_quarter', 'audience', 'summary', 'horizon', 'value_proposition', 'target_segments', 'screenshots', 'date_precision']::text[] $$;
+as $$ select array['item_code', 'roadmap_category', 'theme', 'initiative_name', 'focus_area', 'change_type', 'g2m_quarter', 'audience', 'target_scope', 'live_scope', 'summary', 'horizon', 'value_proposition', 'target_segments', 'screenshots', 'date_precision']::text[] $$;
 
 alter table public.saved_views
   add constraint saved_views_customer_safe_columns check (not customer_safe or columns <@ public.customer_safe_field_keys()),

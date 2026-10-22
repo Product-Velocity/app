@@ -84,15 +84,15 @@ describe("default view overrides and customer-safe views (0012)", () => {
   const ins = (user: string, name: string, cols: string, extra: string, tenant = f.tenantA) =>
     db.asUser(user, (q) => q(`insert into public.saved_views (tenant_id, name, columns, ${extra.split("|")[0]}) values ($1, $2, ${cols}, ${extra.split("|")[1]})`, [tenant, name]), { commit: true, via: "UI" });
 
-  it("the database list of customer-safe fields is the sheet's flag minus the two markets fields", async () => {
+  it("the database list of customer-safe fields is the sheet's flag", async () => {
     const sheet = readFileSync(new URL("../../../docs/reference/grid-views.csv", import.meta.url), "utf8").trim().split(/\r?\n/).slice(1).map((l) => l.split(","));
-    const expected = sheet.filter((r) => r[3] === "Y" && !["target_scope", "live_scope"].includes(r[0]!)).map((r) => r[0]);
+    const expected = sheet.filter((r) => r[3] === "Y").map((r) => r[0]);
     const { rows } = await db.admin.query("select unnest(public.customer_safe_field_keys()) as k");
     expect(rows.map((r) => r.k).sort()).toEqual([...expected].sort());
   });
   it("a customer-safe view can only hold customer-safe fields", async () => {
     await ins(creator, "Safe view", "array['item_code','initiative_name','roadmap_category']", "customer_safe|true");
-    for (const bad of ["array['item_code','value_12m']", "array['item_code','confidence']", "array['target_scope']", "array['stack_rank']"]) {
+    for (const bad of ["array['item_code','value_12m']", "array['item_code','confidence']", "array['value_proposition','customers_requesting']", "array['stack_rank']"]) {
       expect(await errorCode(ins(creator, `Unsafe ${bad}`, bad, "customer_safe|true")), bad).toBe(CHECK);
     }
     await ins(creator, "Ordinary with value", "array['item_code','value_12m']", "customer_safe|false"); // an internal view may

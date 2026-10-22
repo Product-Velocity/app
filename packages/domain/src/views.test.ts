@@ -146,7 +146,7 @@ describe("customer-safe views", () => {
   it("keep only the fields the sheet marks customer-safe, in columns, filters and grouping", () => {
     const v = sanitizeView({
       customerSafe: true,
-      columns: ["stack_rank", "item_code", "initiative_name", "roadmap_category", "value_12m", "confidence", "target_scope", "summary"],
+      columns: ["stack_rank", "item_code", "initiative_name", "roadmap_category", "value_12m", "confidence", "summary"],
       filters: [{ field: "value_12m", op: "empty" }, { field: "roadmap_category", op: "is", value: "Revenue" }],
       groupBy: "confidence",
     });
@@ -156,13 +156,14 @@ describe("customer-safe views", () => {
     expect(v.groupBy).toBeNull();
   });
   it("never lets a commercial field through", () => {
-    const commercial = FIELDS.filter((f) => /^(value_(?!proposition)|confidence|customers_|customer|target_customers|decision|kr_|realized|outcome|adoption|time_to_first_revenue|target_scope|live_scope)/.test(f.key));
+    const commercial = FIELDS.filter((f) => /^(value_(?!proposition)|confidence|customers_|customer|target_customers|decision|kr_|realized|outcome|adoption|time_to_first_revenue)/.test(f.key));
     expect(commercial.length).toBeGreaterThan(20);
     for (const f of commercial) expect(CUSTOMER_SAFE_KEYS, f.key).not.toContain(f.key);
   });
-  it("differ from the sheet's flag only by the two markets fields (docs/03 calls markets commercial)", () => {
-    const sheet = FIELDS.filter((f) => f.customerSafe).map((f) => f.key);
-    expect(sheet.filter((k) => !CUSTOMER_SAFE_KEYS.includes(k))).toEqual(["target_scope", "live_scope"]);
+  it("are exactly the sheet's customer-safe flag, markets included", () => {
+    expect([...CUSTOMER_SAFE_KEYS]).toEqual(FIELDS.filter((f) => f.customerSafe).map((f) => f.key));
+    expect(CUSTOMER_SAFE_KEYS).toContain("target_scope");
+    expect(CUSTOMER_SAFE_KEYS).toContain("live_scope");
   });
   it("leave ordinary views alone", () => {
     expect(sanitizeView({ columns: ["value_12m"], filters: [], groupBy: null }).columns).toContain("value_12m");

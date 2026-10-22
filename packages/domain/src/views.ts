@@ -133,13 +133,8 @@ export function buildGroupedRows<T extends { id: string }>(rows: T[], groupBy: s
 /** What a saved view stores: the columns in order, the filters and the grouping. */
 export type ViewDef = { columns: string[]; filters: Filter[]; groupBy: string | null; customerSafe?: boolean };
 
-/**
- * The sheet marks Target Markets and Live Markets "customer-safe", but `docs/03` and CLAUDE.md rule 2 treat markets as commercial
- * (hidden from customer-safe views unless an audience profile allows them). The stricter rule wins until Ashu says otherwise.
- */
-export const CUSTOMER_SAFE_EXCLUDED: readonly string[] = ["target_scope", "live_scope"];
-/** Fields a customer-safe view may hold: the sheet's "Customer-safe reports" flag, minus the exclusions above. */
-export const CUSTOMER_SAFE_KEYS: readonly string[] = FIELDS.filter((f) => f.customerSafe && !CUSTOMER_SAFE_EXCLUDED.includes(f.key)).map((f) => f.key);
+/** Fields a customer-safe view may hold: exactly the sheet's "Customer-safe reports" flag (Target and Live Markets are included, per Ashu). */
+export const CUSTOMER_SAFE_KEYS: readonly string[] = FIELDS.filter((f) => f.customerSafe).map((f) => f.key);
 export const isCustomerSafe = (key: string) => CUSTOMER_SAFE_KEYS.includes(key);
 /** The columns a view may show to an audience: all of them inside the workspace, only the safe ones for customers. */
 export const columnsFor = (columns: readonly string[], customerSafe: boolean) => (customerSafe ? columns.filter(isCustomerSafe) : [...columns]);
