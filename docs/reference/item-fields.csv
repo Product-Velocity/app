@@ -53,8 +53,8 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 57,When,Start Roll-Out,start_rollout,Date,,System,Auto-derive,,System-set column (read-only),1
 58,When,Last Updated,last_edited_at,System,,System,Replace,,System-set column (read-only),1
 59,Go-to-market,Audience,audience,Select,Publishers · Demand partners · Brands and agencies · Internal · Mixed,Input,Keep,,Column on items,1
-60,Go-to-market,Target Markets / Scope,target_scope,Tags,,Input,Modify,,Related table,1
-61,Go-to-market,Live Markets / Scope,live_scope,Tags,,Input,Modify,,Related table,1
+60,Go-to-market,Target Markets,target_scope,Tags,,Input,Modify,,Related table,1
+61,Go-to-market,Live Markets,live_scope,Tags,,Input,Modify,,Related table,1
 62,Go-to-market,Target Customers (#),target_customers,Number,,Input,Keep,,Column on items,1
 63,Go-to-market,Customers Live (#),customers_live,Number,,Input,Keep,,Column on items,7
 64,Go-to-market,Roll-out %,rollout_pct,Select,0% · 25% · 50% · 75% · 100%,Input,Keep,,Column on items,7
