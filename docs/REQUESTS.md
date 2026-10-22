@@ -8,6 +8,7 @@ Times are Europe/Madrid. Status: `open` · `in progress` · `done` · `blocked`.
 
 | ID | Logged | Request | Status | Done / link |
 |---|---|---|---|---|
+| R-017 | 2026-10-23 00:30 | Prototype boards 28 Account, 29 Workspace settings, 30 Staff console and view-as banner (example data). | done 2026-10-23 | `prototype/project/`, published version 32 |
 | R-016 | 2026-10-23 00:14 | **Issues for accounts and platform staff** (spec `docs/15`): #44 account page, #45 invitation emails (ask Ashu before choosing the provider), #46 platform staff foundation, #47 workspace settings, #48 internal admin console, #49 staff content access and impersonation, #50 access grants and `grant_required` mode (before the first no-content staff). Suggested order: #46, #44, #45 now; #47, #48, #49 before the pilot; #50 later. Do not start Phase 3 work ahead of Phase 2 because of these. | open | #44–#50 |
 | R-015 | 2026-10-23 00:14 | Specify account page, workspace settings, confirmed invitation emails and the internal admin console. | done 2026-10-23 | `docs/15-ACCOUNTS-AND-ADMIN.md` |
 | R-014 | 2026-10-23 00:14 | **Platform staff are super users for now** (see and impersonate any workspace and its data, to improve the product early). Prepare super-admin levels so that later staff accounts can exist **without access to customer roadmaps**. Built capability-based, with `content_access_mode` open now and grant_required later. New rule 10 in `CLAUDE.md`. | done (design); build in #46, #49, #50 | `docs/15` §5 |

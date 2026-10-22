@@ -28,6 +28,9 @@ Published (view-only reference): https://claude.ai/artifact/WVtip16iTPYZdru67tsg
 | 25 | Item-alignment | Why/What/How/When per item, stakeholder sign-offs, customer concept review summary, decision log | 8 | New; example data |
 | 26 | Concept-review | Customer concept review (mobile, customer-safe) | 8 | New |
 | 27 | Billing | Plan, billable members, AI allowance and token packs, invoices | 9 | New; coding agents marked "Coming later" |
+| 28 | Account | Profile, sign-in methods, 2FA, sessions, my workspaces, export and delete | 1 | New 2026-10-23; spec `docs/15` §3 |
+| 29 | Workspace-settings | General, security, data, plan, staff access log | 2 | New; spec `docs/15` §4 |
+| 30 | Admin-console | Staff console (workspaces, staff levels and capabilities, platform settings) and the "viewing as a member" banner | 2 | New; spec `docs/15` §5; internal, not for customers |
 | – | Pitch-1…8, Deep-1…7, Pricing | Sales pitch, deeper dive, draft pricing (1280×720 slides) | n/a | Marketing only; not product UI |
 
 ## Where the app deliberately differs from boards 20 and 1 (decided with Ashu)
@@ -38,5 +41,5 @@ Published (view-only reference): https://claude.ai/artifact/WVtip16iTPYZdru67tsg
 - Members and Security are in the account menu (avatar), not in the tab bar.
 - Everything else follows the boards: header with logo, workspace and scope chip, tabs; page head with title, view chips and tools (Import, Columns, Export); checkbox column first, then global rank, rank in project, ID, initiative; lock icon on GitHub fields; project pills; the bulk bar with one "Set X ▾" menu per field, "Select all N" and "Esc clears". Not built yet and therefore shown muted or left out: Gantt, Cards, Planning, Capacity, Alignment and Reports tabs (muted, "arrives in phase N"), cycle chip, per-team fit band, ⌘K, AI draft chips.
 
-Not yet designed: onboarding / first run; GitLab setup; notifications; mobile views of the grid.
+Not yet designed: onboarding / first run (board 28–30 cover account, settings and staff); GitLab setup; notifications; mobile views of the grid.
 Design tokens: white background; greys `#E6E9EF #EDEFF3 #F3F4F7 #EEF0F3`, header `#F8F9FC`; blue `#3347D9` (text `#2433A8`, tints `#E8EBFD #F4F7FE`); health green `#17653F/#E3F4EA`, amber `#7A4A00/#FDF0D5`, red `#8A1F1F/#FBE4E4`; 13px; 30–36px rows; IBM Plex Sans/Mono.
