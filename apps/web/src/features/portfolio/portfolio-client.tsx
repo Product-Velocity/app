@@ -10,7 +10,7 @@ import type { Lookups } from "./types";
 type State = { kind: "loading" } | { kind: "error"; message: string } | { kind: "ready"; controller: PortfolioController };
 
 /** Loads every item of the workspace, then shows the grid. */
-export function PortfolioClient({ tenantId, role, lookups, headLeft, headRight }: { tenantId: string; role: string; lookups: Lookups; headLeft?: ReactNode; headRight?: ReactNode }) {
+export function PortfolioClient({ tenantId, role, lookups, userId, headLeft, headRight }: { tenantId: string; role: string; lookups: Lookups; userId: string; headLeft?: ReactNode; headRight?: ReactNode }) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
   const source = useMemo(() => new SupabaseDataSource(createClient(), tenantId, createClient("import")), [tenantId]);
@@ -36,5 +36,5 @@ export function PortfolioClient({ tenantId, role, lookups, headLeft, headRight }
       </>
     );
   }
-  return <PortfolioGrid controller={state.controller} lookups={lookups} headLeft={headLeft} headRight={headRight} />;
+  return <PortfolioGrid controller={state.controller} lookups={lookups} me={userId} headLeft={headLeft} headRight={headRight} />;
 }

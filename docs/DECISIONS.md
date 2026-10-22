@@ -78,6 +78,9 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-22 · Roadmap Category value "Close the gap with competitors" renamed "Close capability gaps" (migration 0010) · Ashu
 - 2026-10-22 · Initiative Group = closed per-workspace list managed by admins; teams use free-form Tags; Roadmap Category fixed for now · Ashu (request R-004)
 - 2026-10-22 · Change requests from chat are logged first in `docs/REQUESTS.md` (timestamped inbox Claude Code reads every session) · Ashu
-- 2026-10-22 · Correction: Initiative Group is an OPEN list per workspace (created on the fly, admins can rename/merge), not closed; supersedes the previous line · Ashu (request R-005)
-- 2026-10-22 · Board 2 rebuilt; issues are checked against the full spec (dictionary, sheets, decisions), not the prototype · Ashu (R-007, R-009)
-- 2026-10-22 · Projects v2 is back in R1 as an optional link to one organisation-owned Project per connection (reverses the 2026-10-22 decision of spike S2/S3). Date fields via the project and issue fields; Project Status, Iteration, GitHub Target Date read back. Spike S2b confirms first; issue fields stay the fallback · Ashu (R-010)
+- 2026-10-22 · Saved views store the ordered columns, the filters and the grouping, and are shared by the whole workspace (creators and admins write); private or role-limited views, pinned columns and sort orders come later · Claude (issue #9), to confirm with Ashu
+- 2026-10-22 · The portfolio scope (All projects, a saved scope, one project) is a separate choice from the view and lives in the address (`?scope=`); ranks stay global, a scope only filters · Claude (issue #9)
+- 2026-10-22 · Filters are a list that must all match; operators depend on the field type; rows just added stay visible and rows just edited stay until the filter changes (they do not jump away under the cursor) · Claude (issue #9)
+- 2026-10-22 · Grouping is our own (header rows in a flat list), collapsible, off by default; no AG Grid Enterprise · Ashu/Claude (issue #9)
+- 2026-10-22 · Command palette (Ctrl+K / ⌘K): views, scopes, projects, grouping, filters, add, import, export, undo, navigation, and finding an initiative by code or name · Claude (issue #9)
+- 2026-10-22 · "Add project" moved into the project dropdown at the top (admins: "+ New project"); the separate button on the Roadmap page is gone · Ashu (request R-005)

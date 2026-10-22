@@ -58,9 +58,18 @@ const WIDE: Record<string, number> = { initiative_name: 320, home_project: 160, 
 const num = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 2 });
 const when = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
-export type ColumnContext = { controller: PortfolioController; lookups: Lookups; today: () => Date; visible: ReadonlySet<string> };
+export type ColumnContext = {
+  controller: PortfolioController;
+  lookups: Lookups;
+  today: () => Date;
+  visible: ReadonlySet<string>;
+  /** Shown columns in the order the view wants them (dragging a header changes it). */
+  order: string[];
+  /** Sorted by global rank (off while rows are grouped: the grouping decides the order). */
+  sorted: boolean;
+};
 
-export function buildColumns({ controller, lookups, today, visible }: ColumnContext): ColDef<GridItem>[] {
+export function buildColumns({ controller, lookups, today, visible, order, sorted }: ColumnContext): ColDef<GridItem>[] {
   const editable = () => controller.canEdit;
   const projectOptions: PickerOption[] = lookups.projects.map((p) => ({ value: p.id, label: p.name }));
   const personOptions: PickerOption[] = lookups.members.map((m) => ({ value: m.user_id, label: m.email }));
@@ -99,6 +108,7 @@ export function buildColumns({ controller, lookups, today, visible }: ColumnCont
       width: WIDE[f.key] ?? WIDTH[f.type] ?? 140,
       hide: !visible.has(f.key) && !(CORE_COLUMNS as readonly string[]).includes(f.key),
       sortable: false,
+      suppressMovable: CORE_COLUMNS.includes(f.key as never) || f.key === "project_rank",
       cellClass: [
         ["Number", "Currency", "Computed"].includes(f.type) && f.key !== "item_code" ? "num" : "",
         reason && f.key !== "item_code" ? "cell-locked" : "",
@@ -109,7 +119,7 @@ export function buildColumns({ controller, lookups, today, visible }: ColumnCont
     };
     if (f.key === "stack_rank") {
       return {
-        ...base, pinned: "left", sort: "asc", cellClass: "num cell-key-col", editable,
+        ...base, pinned: "left", sort: sorted ? "asc" : null, cellClass: "num cell-key-col", editable,
         valueFormatter: (p) => `#${p.value}`,
         valueSetter: (p) => {
           controller.editRank(p.data.id, String(p.newValue ?? "").replace(/^#/, ""));
@@ -154,9 +164,14 @@ export function buildColumns({ controller, lookups, today, visible }: ColumnCont
 
   // the left side reads like the prototype: global rank, rank in project, ID, initiative
   const FIRST = ["stack_rank", "project_rank", "item_code", "initiative_name"];
-  const defs = FIELDS.map(def);
-  const rank = (d: ColDef<GridItem>) => { const i = FIRST.indexOf(String(d.colId)); return i < 0 ? FIRST.length : i; };
-  return [...defs].sort((a, b) => rank(a) - rank(b));
+  const pos = new Map(order.map((k, i) => [k, i]));
+  const registry = new Map(FIELDS.map((f, i) => [f.key, i]));
+  const rank = (d: ColDef<GridItem>) => {
+    const k = String(d.colId);
+    const first = FIRST.indexOf(k);
+    return first >= 0 ? first : FIRST.length + (pos.get(k) ?? 1000 + (registry.get(k) ?? 0));
+  };
+  return FIELDS.map(def).sort((a, b) => rank(a) - rank(b));
 }
 
 /** Column ids whose cells cannot be edited, with the reason (for the notice under the grid). */
