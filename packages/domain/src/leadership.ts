@@ -131,7 +131,9 @@ export function changesThisWeek(changes: readonly AuditChange[], rows: readonly 
     out.push({ itemId: c.itemId, kind: KINDS[c.field]!, text: `${r.item_code} ${r.initiative_name} ${text}`, at: c.at });
   }
   for (const [id, list] of ranks) {
-    const from = Number(list[0]!.old), to = Number(list[list.length - 1]!.new);
+    const first = list[0]!.old;
+    if (first === null || first === undefined) continue; // the first rank of a new initiative is not a move
+    const from = Number(first), to = Number(list[list.length - 1]!.new);
     if (from === to || Number.isNaN(from) || Number.isNaN(to)) continue;
     const r = byId.get(id)!;
     const n = Math.abs(from - to);

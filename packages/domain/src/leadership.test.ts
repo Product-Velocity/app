@@ -113,6 +113,9 @@ describe("changesThisWeek: what moved, from the audit log", () => {
     expect(m.map((x) => x.text)).toEqual(["R-07 Item 7 health changed from On Track to At Risk", "R-02 Item 2 status changed from Backlog to In Progress"]);
     expect(changesThisWeek([ch({ itemId: "b", field: "health", old: null, new: "On Track" })], rows)[0]!.text).toBe("R-02 Item 2 health set to On Track");
   });
+  it("a new initiative getting its first rank is not a move", () => {
+    expect(changesThisWeek([ch({ old: null, new: 12 })], rows)).toEqual([]);
+  });
   it("ignores items that are not in the scope", () => {
     expect(changesThisWeek([ch({ itemId: "zzz" })], rows)).toEqual([]);
   });
