@@ -52,3 +52,8 @@ Living list of things that must be done before real customers or real data. Owne
 - [ ] **Create the real GitHub App** (not the sandbox one) with least privilege (`docs/04`), its own webhook secret and private key, the Setup URL `/api/github/setup` and webhook URL `/api/github/webhook` on the production domain; put its variables in Vercel Production and rotate the sandbox App's key and secret (the sandbox App's key has been pasted into a Claude Code environment). Owner approval for permission changes applies to every customer install.
 - [ ] Decide whether `GITHUB_APP_WEBHOOK_SECRET` should stay the key for install-state tokens or get its own variable before many customers use it.
 
+
+## Website (see `docs/17`)
+- [ ] Domain, legal entity name and contact in the footer; legal pages reviewed.
+- [ ] Draft prices in `docs/09` are public while the repo is public: decide before go-live whether to keep them in the repo.
+- [ ] Every site claim checked against the claims rules in the brand guide.
