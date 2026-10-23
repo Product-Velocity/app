@@ -219,7 +219,7 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
         </div>
       )}
 
-      {rows.length === 0 ? <p>{all.length === 0 ? "No issues yet. Run “Check GitHub now” in Settings > GitHub to read them." : "Nothing here."}</p> : (
+      {rows.length === 0 ? <p>{all.length === 0 ? "No issues yet. Press “Check GitHub now” above to read them." : "Nothing here."}</p> : (
         <>
           <p className="muted">{rows.length} {rows.length === 1 ? "issue" : "issues"}{rows.length > visible.length ? `, showing the first ${visible.length}` : ""}</p>
           <table className="trash-table incoming-table">

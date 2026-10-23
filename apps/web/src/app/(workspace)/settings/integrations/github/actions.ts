@@ -116,18 +116,20 @@ export async function setRepoAccess(_prev: FormState, form: FormData): Promise<F
 }
 
 /** Compares GitHub with every linked item now (the same check that runs daily) and applies what differs. */
-export async function checkGithubNow(): Promise<void> {
+export async function checkGithubNow(form?: FormData): Promise<void> {
+  // started from the Incoming page or from Settings > GitHub: the answer goes back to where the button was
+  const back = form?.get("from") === "incoming" ? "/incoming" : PATH;
   const ctx = await adminOnly();
   const sc = githubSourceControl();
-  if (!ctx || !sc) redirect(`${PATH}?status=error`);
+  if (!ctx || !sc) redirect(`${back}?status=error`);
   const { data } = await ctx.supabase.from("github_connections").select("*").eq("tenant_id", ctx.active.tenantId).eq("state", "connected").maybeSingle();
-  if (!data) redirect(`${PATH}?status=error`);
+  if (!data) redirect(`${back}?status=error`);
   // The check takes tens of seconds (a few calls to GitHub and to the database for every linked item). It runs after the answer
   // has been sent, so the page does not freeze; the result appears under the button when it is done.
   const connection = data as ConnectionRow;
   after(async () => { await runCheck(createAdminClient({ via: "GitHub webhook" }), sc, connection); });
-  revalidatePath(PATH);
-  redirect(`${PATH}?status=started`);
+  revalidatePath(back);
+  redirect(`${back}?status=started&t=${Date.now()}`);
 }
 
 export async function retrySyncEvent(eventId: string): Promise<void> {

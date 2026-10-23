@@ -484,3 +484,4 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 .incoming-table td { vertical-align: top; }
 .incoming-rules { margin-top: 32px; border-top: 1px solid var(--border); padding-top: 12px; }
 .incoming-rules h2 { font-size: 15px; margin: 0 0 4px; }
+.incoming-check { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 8px; }
