@@ -6,6 +6,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { EDITABLE_FIELDS, FIELD_BY_KEY, activityEvents, canUndoActivity, panelSections, type ActivityEvent, type ActivityRow } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import { DeleteDialog } from "./delete-dialog";
+import { GithubPushDialog } from "./github-push-dialog";
 import { FieldRow, type FieldCtx } from "./item-fields";
 import { formatField } from "./format";
 import { useStatus } from "./status-strip";
@@ -49,6 +50,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
   const bodyRef = useRef<HTMLDivElement>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pushGithub, setPushGithub] = useState(false);
   const router = useRouter();
 
   // the lists of this item (tags, links, ...) are read when the panel opens on it
@@ -79,16 +81,24 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
           {mode === "peek" && onNext && <button type="button" className="btn ip-icon" onClick={onNext} aria-label="Next initiative (J)" title="Next (J)">↓</button>}
           {position && <span className="muted ip-pos" aria-live="polite">{position.index + 1} of {position.total}</span>}
           <span className="ip-spacer" />
+          {controller.canEdit && lookups.github?.connected && <button type="button" className="btn ip-link" onClick={() => setPushGithub(true)}>Update GitHub…</button>}
           {controller.canDelete(itemId) && <button type="button" className="btn ip-link" onClick={() => setConfirmDelete(true)}>Delete…</button>}
           {mode === "peek" && <Link className="btn ip-link" href={pageHref(row.item_code)}>Open full page</Link>}
           {mode === "page" && <Link className="btn ip-link" href={backHref}>Back to the roadmap</Link>}
           {mode === "peek" && onClose && <button type="button" className="btn ip-icon" onClick={onClose} aria-label="Close panel (Esc)" title="Close (Esc)">×</button>}
         </div>
+        {lookups.github?.links[itemId] && (() => { const l = lookups.github!.links[itemId]!; return (
+          <p className="ip-gh">
+            GitHub: {l.url && l.number ? <a href={l.url} target="_blank" rel="noreferrer">issue #{l.number}</a> : "no issue yet"}
+            {" · "}{l.state === "synced" ? "in sync when last sent" : l.state === "error" ? `last push failed${l.error ? `: ${l.error}` : ""}` : "waiting"}
+          </p>
+        ); })()}
         <p className="ip-code mono">{row.item_code}{project && <span className="proj-pill">{project}</span>}{status && <span className="muted"> · {status}</span>}</p>
         <h2 id={titleId} className="ip-title">{row.initiative_name}</h2>
         <p className="muted ip-rank">#{row.stack_rank} globally · #{row.project_rank} in {project || "its project"}</p>
       </header>
 
+      {pushGithub && <GithubPushDialog ids={[itemId]} onClose={() => setPushGithub(false)} />}
       {confirmDelete && <DeleteDialog controller={controller} ids={[itemId]} onClose={() => setConfirmDelete(false)} onDeleted={() => { if (mode === "peek") onClose?.(); else router.push(backHref); }} />}
 
       <div role="tablist" aria-label="Item sections" className="ip-tabs">

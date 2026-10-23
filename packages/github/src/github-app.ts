@@ -1,5 +1,5 @@
 import { createSign } from "node:crypto";
-import type { DeliverySummary, InstallationInfo, RepoInfo, SourceControl } from "./source-control";
+import { GitHubError, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl } from "./source-control";
 
 const API = "https://api.github.com";
 const b64url = (b: Buffer | string) => Buffer.from(b).toString("base64url");
@@ -110,6 +110,62 @@ export class GitHubAppSourceControl implements SourceControl {
     if (res.status === 403 || res.status === 404) return null;
     if (!res.ok) throw new Error(`GitHub issue type list failed (${res.status})`);
     return ((await res.json()) as { name: string }[]).map((t) => t.name);
+  }
+
+  private async call(installationId: number, method: string, path: string, body?: unknown): Promise<Response> {
+    const token = await this.installationToken(installationId);
+    const res = await this.request(path, token, { method, ...(body === undefined ? {} : { body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }) });
+    if (res.status === 429 || (res.status === 403 && res.headers.get("retry-after"))) {
+      throw new GitHubError(res.status, "GitHub is rate limiting this app; try again shortly", Number(res.headers.get("retry-after")) || 60);
+    }
+    return res;
+  }
+
+  private static ref(i: { number: number; id: number; node_id: string; html_url: string; body?: string | null; state: string }): IssueRef {
+    return { number: i.number, id: i.id, nodeId: i.node_id, htmlUrl: i.html_url, body: i.body ?? "", state: i.state === "closed" ? "closed" : "open" };
+  }
+
+  async createIssue(installationId: number, repo: string, input: IssueInput): Promise<IssueRef> {
+    const res = await this.call(installationId, "POST", `/repos/${repo}/issues`, input);
+    if (!res.ok) throw new GitHubError(res.status, `GitHub refused to create the issue (${res.status})`);
+    return GitHubAppSourceControl.ref((await res.json()) as Parameters<typeof GitHubAppSourceControl.ref>[0]);
+  }
+
+  async updateIssue(installationId: number, repo: string, number: number, input: { title?: string; body?: string }): Promise<IssueRef> {
+    const res = await this.call(installationId, "PATCH", `/repos/${repo}/issues/${number}`, input);
+    if (!res.ok) throw new GitHubError(res.status, `GitHub refused to update the issue (${res.status})`);
+    return GitHubAppSourceControl.ref((await res.json()) as Parameters<typeof GitHubAppSourceControl.ref>[0]);
+  }
+
+  async addLabels(installationId: number, repo: string, number: number, labels: string[]): Promise<void> {
+    const res = await this.call(installationId, "POST", `/repos/${repo}/issues/${number}/labels`, { labels });
+    if (!res.ok) throw new GitHubError(res.status, `GitHub refused to add labels (${res.status})`);
+  }
+
+  async getIssue(installationId: number, repo: string, number: number): Promise<IssueRef | null> {
+    const res = await this.call(installationId, "GET", `/repos/${repo}/issues/${number}`);
+    if (res.status === 404 || res.status === 410) return null;
+    if (!res.ok) throw new GitHubError(res.status, `GitHub could not read the issue (${res.status})`);
+    return GitHubAppSourceControl.ref((await res.json()) as Parameters<typeof GitHubAppSourceControl.ref>[0]);
+  }
+
+  async findIssueByMarker(installationId: number, repo: string, marker: string): Promise<IssueRef | null> {
+    for (let page = 1; page <= 3; page++) {
+      const res = await this.call(installationId, "GET", `/repos/${repo}/issues?state=all&sort=created&direction=desc&per_page=100&page=${page}`);
+      if (!res.ok) throw new GitHubError(res.status, `GitHub could not list issues (${res.status})`);
+      const rows = (await res.json()) as (Parameters<typeof GitHubAppSourceControl.ref>[0] & { pull_request?: unknown })[];
+      const hit = rows.find((r) => !r.pull_request && (r.body ?? "").includes(marker));
+      if (hit) return GitHubAppSourceControl.ref(hit);
+      if (rows.length < 100) break;
+    }
+    return null;
+  }
+
+  async ensureLabels(installationId: number, repo: string, labels: { name: string; color: string; description: string }[]): Promise<void> {
+    for (const l of labels) {
+      const res = await this.call(installationId, "POST", `/repos/${repo}/labels`, l);
+      if (!res.ok && res.status !== 422) throw new GitHubError(res.status, `GitHub refused to create the label ${l.name} (${res.status})`); // 422: it exists
+    }
   }
 
   async listRecentDeliveries(): Promise<DeliverySummary[]> {

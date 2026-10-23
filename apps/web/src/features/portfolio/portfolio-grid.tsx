@@ -22,6 +22,7 @@ import { FiltersMenu, GroupMenu, summarize, ViewsMenu } from "./view-controls";
 import { downloadCsv, selectionToCsv } from "./export-selection";
 import { BulkBar } from "./bulk-bar";
 import { DeleteDialog } from "./delete-dialog";
+import { GithubPushDialog } from "./github-push-dialog";
 import { ImportDialog } from "./import-dialog";
 import { QuickAddBar } from "./quick-add-bar";
 import type { PortfolioController } from "./controller";
@@ -101,6 +102,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const quickAddRef = useRef<HTMLInputElement | null>(null);
   const [contextProject, setContextProject] = useState<string | null>(null);
   const [selected, setSelected] = useState<GridItem[]>([]);
+  const [githubIds, setGithubIds] = useState<string[] | null>(null); // the "Update GitHub" confirmation is open for these items
   const [deleteIds, setDeleteIds] = useState<string[] | null>(null); // the delete confirmation is open for these items
   // closing the dialog puts the keyboard focus back on the grid, so Ctrl+Z (undo the delete) works at once
   const closeDelete = () => {
@@ -526,7 +528,8 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       {controller.canEdit && lookups.projects.length > 0 && (
         <QuickAddBar controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef} />
       )}
-      {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} exportFields={exportFields} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} total={visibleRows.length} />}
+      {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} exportFields={exportFields} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} onGithub={() => setGithubIds(selected.map((r) => r.id))} total={visibleRows.length} />}
+      {githubIds && <GithubPushDialog ids={githubIds} onClose={() => setGithubIds(null)} />}
       {deleteIds && <DeleteDialog controller={controller} ids={deleteIds} onClose={closeDelete} onDeleted={() => apiRef.current?.deselectAll()} />}
       {importText !== null && (
         <ImportDialog controller={controller} lookups={lookups} defaultProject={contextForQuickAdd} initialText={importText} onClose={() => setImportText(null)} />

@@ -60,11 +60,11 @@ test.describe("bulk bar", () => {
     await expect(cell(page, "item-1", "status")).toHaveText("Backlog");
   });
 
-  test("has an Update GitHub button (arrives in phase 3) and Export selection to file", async ({ page }) => {
+  test("has an Update GitHub button (disabled until GitHub is connected) and Export selection to file", async ({ page }) => {
     await open(page);
     await select(page, "item-1", "item-2");
     await expect(bar(page).getByRole("button", { name: /^Update GitHub/ })).toBeDisabled();
-    await expect(bar(page).getByRole("button", { name: /^Update GitHub/ })).toContainText("arrives in phase 3");
+    await expect(bar(page).getByRole("button", { name: /^Update GitHub/ })).toContainText("connect GitHub first");
     const download = page.waitForEvent("download");
     await bar(page).getByRole("button", { name: "Export selection to file" }).click();
     const file = await download;

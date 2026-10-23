@@ -18,6 +18,8 @@ type Props = {
   onSelectAll: () => void;
   /** Opens the delete confirmation for the selected rows. */
   onDelete: () => void;
+  /** Opens the "Update GitHub" confirmation for the selected rows. */
+  onGithub: () => void;
   /** Number of items in the grid, for "Select all 22". */
   total: number;
 };
@@ -77,7 +79,7 @@ function SetMenu({ def, selected, onPick }: { def: FieldDef; selected: GridItem[
 }
 
 /** Shown when rows are selected: set one field on all of them (one undo step), export them, or (later) update GitHub. */
-export function BulkBar({ controller, lookups, selected, exportFields, onClear, onSelectAll, onDelete, total }: Props) {
+export function BulkBar({ controller, lookups, selected, exportFields, onClear, onSelectAll, onDelete, onGithub, total }: Props) {
   const id = useId();
   const [field, setField] = useState("");
   const [value, setValue] = useState("");
@@ -118,9 +120,13 @@ export function BulkBar({ controller, lookups, selected, exportFields, onClear, 
       )}
       <div className="bulk-actions">
         {controller.canEdit && (
-          <button type="button" className="bulk-btn" disabled title="Arrives in phase 3, when GitHub sync is built">
-            Update GitHub <span className="bulk-later">arrives in phase 3</span>
-          </button>
+          lookups.github?.connected ? (
+            <button type="button" className="bulk-btn" onClick={onGithub} title="Create or update the GitHub tracking issue of each selected initiative (you confirm first)">Update GitHub…</button>
+          ) : (
+            <button type="button" className="bulk-btn" disabled title="An admin connects GitHub in Settings > GitHub">
+              Update GitHub <span className="bulk-later">connect GitHub first</span>
+            </button>
+          )
         )}
         <button type="button" className="bulk-btn" onClick={() => downloadCsv(`roadmap-selection-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(selected, exportFields, lookups))}>
           Export selection to file
