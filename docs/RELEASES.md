@@ -1,9 +1,10 @@
 # Release log
 
-The version is shown at the bottom of the account menu ("app v0.9.1 · build abc1234"). **A release is a pull request merged into `main`.** Every PR that changes what the app does bumps `version` in `apps/web/package.json` and adds a row at the top of this table (a test fails if the two disagree). Numbering while the product is pre-launch: `0.MINOR.PATCH`; a new feature or screen bumps MINOR, a fix or a docs-only change bumps PATCH. The build id is the first seven characters of the Git commit Vercel deployed.
+The version is shown at the bottom of the account menu ("app v0.10.1 · build abc1234"). **A release is a pull request merged into `main`.** Every PR that changes what the app does bumps `version` in `apps/web/package.json` and adds a row at the top of this table (a test fails if the two disagree). Numbering while the product is pre-launch: `0.MINOR.PATCH`; a new feature or screen bumps MINOR, a fix or a docs-only change bumps PATCH. The build id is the first seven characters of the Git commit Vercel deployed.
 
 | Version | Date | Key updates | PRs |
 |---|---|---|---|
+| 0.10.1 | 2026-10-23 | **Fix:** the "Open in Product Velocity" link in a GitHub tracking issue opened "no initiative found" because it used the internal id instead of the item code (R-12). Send the item again to correct the link in issues already created. | #PR |
 | 0.10.0 | 2026-10-23 | **Push to GitHub (#33):** "Update GitHub…" in the bulk bar and the item panel shows exactly what will be written (title, labels, the marked block) and sends it only after you confirm. One tracking issue per initiative in the project's default repository; sending again updates it, never duplicates it, and keeps text outside the marked block and labels people added. Only the name, summary, hypothesis, artifact links and a link back leave the app (a test fills all 165 fields and fails if any other appears). The item panel shows the linked issue. New migration 0019. | #83 |
 | 0.9.1 | 2026-10-23 | **Fix:** the GitHub settings page now refreshes itself every few seconds while it waits for GitHub's confirmation, so "Connected" appears without reloading. | #82 |
 | 0.9.0 | 2026-10-23 | **Version in the menu and a release log:** the account menu ends with "app v0.9.0 · build <commit>"; this log; a test keeps the log and the version in step. | #81 |

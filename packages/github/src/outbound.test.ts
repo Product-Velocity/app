@@ -12,7 +12,8 @@ describe("buildTrackingIssue", () => {
     expect(a.block.startsWith(`<!-- pv:begin item=${ID} -->`)).toBe(true);
     expect(a.block.endsWith(BLOCK_END)).toBe(true);
     expect(a.block).toContain("- [PRD](https://example.test/prd)");
-    expect(a.block).toContain(`https://productvelocity.app/portfolio/${ID}`);
+    expect(a.block).toContain("https://productvelocity.app/portfolio/R-12)"); // the item page is addressed by its code, not its id
+    expect(a.block).not.toContain(`/portfolio/${ID}`);
     expect(buildTrackingIssue(base).hash).toBe(a.hash);
     expect(buildTrackingIssue({ ...base, item: { ...base.item, summary: "Changed" } }).hash).not.toBe(a.hash);
   });
