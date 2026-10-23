@@ -20,13 +20,13 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
   const unique = [...new Set(ids)].slice(0, PUSH_LIMIT);
   const [items, projects, repos, links, artifacts] = await Promise.all([
     supabase.from("items").select("id, item_code, initiative_name, summary, hypothesis, home_project_id").eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
-    supabase.from("projects").select("id, name, default_repo").eq("tenant_id", tenantId),
+    supabase.from("projects").select("id, name, default_repo, tracker").eq("tenant_id", tenantId),
     supabase.from("github_repositories").select("full_name, access").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("removed_at", null),
     supabase.from("item_github_links").select("item_id, mode, repo_full_name, issue_number, html_url, sync_state, last_pushed_hash").eq("tenant_id", tenantId).in("item_id", unique),
     supabase.from("item_links").select("item_id, label, url").eq("tenant_id", tenantId).in("item_id", unique),
   ]);
   const rowById = new Map(((items.data ?? []) as Row[]).map((r) => [r.id, r]));
-  const projectById = new Map(((projects.data ?? []) as { id: string; name: string; default_repo: string | null }[]).map((p) => [p.id, p]));
+  const projectById = new Map(((projects.data ?? []) as { id: string; name: string; default_repo: string | null; tracker: string | null }[]).map((p) => [p.id, p]));
   const repoRows = (repos.data ?? []) as { full_name: string; access: string }[];
   const activeRepos = new Set(repoRows.map((r) => r.full_name.toLowerCase()));
   const readOnlyRepos = new Set(repoRows.filter((r) => r.access === "read_only").map((r) => r.full_name.toLowerCase()));
@@ -39,6 +39,7 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
     if (!row) return blockedItem(id, "This initiative no longer exists or you cannot see it.");
     const project = projectById.get(row.home_project_id);
     const link = linkByItem.get(id);
+    if (project?.tracker && project.tracker !== "github") return blockedItem(id, `${project.name} is linked to ${project.tracker === "jira" ? "Jira" : project.tracker}: a project has one tracker, so its initiatives are not sent to GitHub.`, { code: row.item_code, name: row.initiative_name, project: project.name });
     const built = buildTrackingIssue({ item: row, itemId: id, projectName: project?.name ?? "", appUrl, artifacts: artifactsByItem.get(id) ?? [] });
     const planLink: PlanLink | null = link ? { mode: link.mode, repo: link.repo_full_name, issueNumber: link.issue_number, syncState: link.sync_state, lastPushedHash: link.last_pushed_hash } : null;
     const d = planAction({ link: planLink, defaultRepo: project?.default_repo ?? null, activeRepos, readOnlyRepos, hash: built.hash, projectName: project?.name ?? "" });

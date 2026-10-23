@@ -131,3 +131,17 @@ describe("pull in", () => {
     expect(stray.rows[0].n).toBe(0);
   });
 });
+
+describe("a sync that finds nothing new writes nothing", () => {
+  it("re-sending the same light record does not rewrite the row; a real change does", async () => {
+    await upsert([row(80, { title: "Stable" })]);
+    const before = await get(80);
+    await new Promise((r) => setTimeout(r, 20));
+    const written = await upsert([row(80, { title: "Stable" })]);
+    expect(written.rows[0].n).toBe(0);
+    expect((await get(80)).updated_at.getTime()).toBe(before.updated_at.getTime());
+    const changed = await upsert([row(80, { title: "Edited", updated_at: T2 })]);
+    expect(changed.rows[0].n).toBe(1);
+    expect((await get(80)).title).toBe("Edited");
+  });
+});
