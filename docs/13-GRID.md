@@ -11,7 +11,7 @@ Page: `/portfolio` ("Roadmap" in the navigation). Reference: prototype board 20,
 - **Plain-language entry:** dates (`31 mar`, `next friday`, `q2`, `in 2 weeks`, `4/5` as day/month) and amounts (`120k`, `1.2m`).
 - **Rank:** type a new global rank in the Stack Rank cell; the row jumps there, the others shift, the keyboard focus stays on the row. "In project" order recalculates.
 - **Locked cells:** GitHub-driven, calculated, system-set and later-phase fields reject editing and say why under the grid. View-only roles (viewer, commenter, leadership) can look but not edit.
-- **Keyboard:** Alt+N adds an initiative, arrows move, Enter or F2 edits, Enter saves and moves down, Tab saves and moves right, Esc cancels, Delete clears an optional cell.
+- **Keyboard:** Alt+N adds an initiative, arrows move, Enter or F2 edits, Enter saves and moves down, Tab saves and moves right, Esc cancels, Delete clears an optional cell (or, with the checkbox column or a read-only cell focused and rows ticked, asks to delete the ticked rows).
 
 ## Initiative Group: an open list (issue #38)
 Initiative Group (`theme`) is an open list shared by the whole workspace (every project), not a closed list.

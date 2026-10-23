@@ -1,7 +1,7 @@
 import {
-  cleanRelated, cleanSkills, isRelatedField, summarizeChange, toDay, type ActivityRow, type RelatedField, type RelatedValues,
+  canPurge, canSeeTrash, cleanRelated, cleanSkills, isRelatedField, summarizeChange, toDay, type ActivityRow, type RelatedField, type RelatedValues,
   applyMove, canBeEmpty, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
-  bulkEditReason, resolveGroup, type Edit, type EditableField, type Entry, type NewItemValues,
+  bulkEditReason, resolveGroup, canDeleteItem, placeRestored, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
 import type { PortfolioDataSource } from "./data-source";
 import type { GridItem, Lookups, LoadedItem } from "./types";
@@ -46,6 +46,7 @@ export class PortfolioController {
     private readonly today: () => Date = () => localToday(),
     private readonly now: () => number = () => Date.now(),
     private readonly newId: () => string = () => crypto.randomUUID(),
+    private readonly me: string | null = null,
   ) {
     this.rows = items.map((i) => ({ ...i, project_rank: 0 }));
     this.rows.sort((a, b) => a.stack_rank - b.stack_rank);
@@ -70,6 +71,13 @@ export class PortfolioController {
   /** "Today" as the grid sees it (a fixed day on the test page). */
   todayDate() { return this.today(); }
   get canEdit() { return canEditItems(this.role); }
+  get canSeeTrash() { return canSeeTrash(this.role); }
+  get canPurge() { return canPurge(this.role); }
+  /** Admins delete any item, creators the ones they added; the database enforces the same. */
+  canDelete(itemId: string): boolean {
+    const row = this.byId.get(itemId);
+    return !!row && canDeleteItem(this.role, this.me, (row as Record<string, unknown>)._created_by as string | null);
+  }
   get status(): Status {
     return { ...this.state, canUndo: this.stack.canUndo, canRedo: this.stack.canRedo, undoCount: this.stack.undoCount };
   }
@@ -170,6 +178,69 @@ export class PortfolioController {
       }
     }, "Could not add");
     return { ok: true, created: added.length };
+  }
+
+  /** Put rows back where they were (same rank; the rows below shift down), as `restore_items` does. */
+  private reinsert(snapshots: { row: Record<string, unknown>; rank: number }[]): GridItem[] {
+    const order = placeRestored(this.rows.map((r) => r.id), snapshots.map((s) => ({ id: String(s.row.id), rank: s.rank })));
+    const added = snapshots.map((s) => ({ ...s.row, project_rank: 0 }) as GridItem);
+    for (const r of added) { this.rows.push(r); this.byId.set(r.id, r); }
+    const place = new Map(order.map((id, i) => [id, i + 1]));
+    const changed: GridItem[] = [];
+    for (const r of this.rows) { const n = place.get(r.id)!; if (r.stack_rank !== n) { r.stack_rank = n; if (!added.includes(r)) changed.push(r); } }
+    this.rows.sort((a, b) => a.stack_rank - b.stack_rank);
+    for (const c of this.recomputeProjectRanks()) if (!changed.includes(c) && !added.includes(c)) changed.push(c);
+    for (const l of this.structureListeners) l(added, []);
+    this.emit(changed);
+    return added;
+  }
+
+  /**
+   * Delete: the rows leave the grid at once, go to the Trash in ONE request, and one undo step (Ctrl+Z) brings them back
+   * at their old ranks. Items the person may not delete are skipped and listed; the rest still go.
+   */
+  deleteItems(itemIds: string[]): { ok: true; deleted: number; skipped: { id: string; name: string; reason: string }[] } | { ok: false; error: string } {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
+    const rows = [...new Set(itemIds)].map((id) => this.byId.get(id)).filter((r): r is GridItem => !!r);
+    const todo: GridItem[] = [];
+    const skipped: { id: string; name: string; reason: string }[] = [];
+    for (const r of rows) {
+      if (this.canDelete(r.id)) todo.push(r);
+      else skipped.push({ id: r.id, name: r.initiative_name, reason: "Only the person who added it or an admin can delete it." });
+    }
+    if (todo.length === 0) {
+      if (skipped.length > 0) this.notify(`Nothing deleted: ${skipped[0]!.reason}`);
+      return { ok: true, deleted: 0, skipped };
+    }
+    const edits = todo.map((row): Edit => ({ type: "delete", itemId: row.id, key: row.item_code, name: row.initiative_name, rank: row.stack_rank, row: { ...row } }));
+    const label = todo.length === 1 ? undefined : `Deleted ${todo.length} items`;
+    const entry: Entry = { id: `e${++this.entrySeq}`, edits, ...(label ? { label } : {}) };
+    this.stack.push(entry);
+    this.state.notice = skipped.length > 0 ? `${skipped.length} could not be deleted: ${skipped[0]!.reason}` : null;
+    this.state.last = { text: label ?? describeEdit(edits[0]!, this.resolvers()), at: this.now() };
+    this.removeRows(todo);
+    let failed: { id: string; reason: string }[] = [];
+    const what = todo.length === 1 ? todo[0]!.item_code : `${todo.length} items`;
+    this.save(null, what, async () => {
+      const r = await this.source.trashItems(todo.map((x) => x.id));
+      if (r.ok) failed = r.failed;
+      return r.ok ? { ok: true } : { ok: false, error: r.error };
+    }, () => {
+      this.reinsert(edits.filter((e): e is Extract<Edit, { type: "delete" }> => e.type === "delete").map((e) => ({ row: e.row, rank: e.rank })));
+      this.stack.discard(entry);
+    }, (ok) => {
+      if (!ok || failed.length === 0) return;
+      // some could not be deleted on the server: they come back, and the undo step no longer covers them
+      const bad = new Set(failed.map((f) => f.id));
+      const back = edits.filter((e): e is Extract<Edit, { type: "delete" }> => e.type === "delete" && bad.has(e.itemId));
+      // their place is the old rank minus the deleted items that were above them
+      const gone = edits.filter((e): e is Extract<Edit, { type: "delete" }> => e.type === "delete" && !bad.has(e.itemId));
+      this.reinsert(back.map((e) => ({ row: e.row, rank: e.rank - gone.filter((g) => g.rank < e.rank).length })));
+      entry.edits = entry.edits.filter((e) => !back.includes(e as never));
+      if (entry.edits.length === 0) this.stack.discard(entry);
+      this.state.error = `${failed.length} ${failed.length === 1 ? "item" : "items"} could not be deleted: ${failed[0]!.reason}`;
+    }, "Could not delete");
+    return { ok: true, deleted: todo.length, skipped };
   }
 
   /** Set one field on many rows: one validation, one undo step, one saved change per row (each audited by the database). */
@@ -417,7 +488,7 @@ export class PortfolioController {
   private listText(field: RelatedField, list: unknown[]): string | null {
     const text = list.map((x) => {
       if (field === "artifacts") { const l = x as { label: string; url: string }; return l.label ? `${l.label} (${l.url})` : l.url; }
-      if (field === "depends_on" || field === "related_to") return this.byId.get(String(x))?.item_code ?? "?";
+      if (field === "depends_on" || field === "related_to") return this.byId.get(String(x))?.item_code ?? "(deleted item)";
       if (field === "contributing_teams") return this.teams().find((t) => t.id === x)?.name ?? "unknown team";
       return String(x);
     }).join(field === "artifacts" || field === "depends_on" || field === "related_to" ? "; " : ", ");
@@ -494,15 +565,19 @@ export class PortfolioController {
     if (!entry) return;
     const restore = () => (direction === "undo" ? this.stack.restoreUndo(entry) : this.stack.restoreRedo(entry));
     const shown = (e: Edit): Edit =>
-      direction === "undo" && e.type !== "create" ? ({ ...e, before: e.after, after: e.before } as Edit) : e;
+      direction === "undo" && e.type !== "create" && e.type !== "delete" ? ({ ...e, before: e.after, after: e.before } as Edit) : e;
     if (entry.edits.length > 0 && entry.edits.every((e) => e.type === "create")) {
       await this.replayCreates(entry, entry.edits as Extract<Edit, { type: "create" }>[], direction, restore);
+      return;
+    }
+    if (entry.edits.length > 0 && entry.edits.every((e) => e.type === "delete")) {
+      await this.replayDeletes(entry, entry.edits as Extract<Edit, { type: "delete" }>[], direction, restore);
       return;
     }
     // newest edit first when undoing
     const edits = direction === "undo" ? [...entry.edits].reverse() : entry.edits;
     for (const edit of edits) {
-      if (edit.type === "create") continue; // never mixed with other edits
+      if (edit.type === "create" || edit.type === "delete") continue; // never mixed with other edits
 
       const row = this.byId.get(edit.itemId);
       const target = direction === "undo" ? edit.before : edit.after;
@@ -553,6 +628,37 @@ export class PortfolioController {
       this.state.last = { text: `${direction === "undo" ? "Undid" : "Redid"}: ${entry.label}`, at: this.now() };
       this.emit();
     }
+  }
+
+  /** Undo of a delete restores the batch from the Trash at the old ranks; redo deletes it again. */
+  private async replayDeletes(entry: Entry, edits: Extract<Edit, { type: "delete" }>[], direction: "undo" | "redo", restore: () => void) {
+    const text = entry.label ?? describeEdit(edits[0]!, this.resolvers());
+    const ids = edits.map((e) => e.itemId);
+    if (direction === "undo") {
+      if (ids.some((id) => this.byId.has(id))) { this.state.error = "Could not undo: an item is already back."; this.emit(); restore(); return; }
+      const added = this.reinsert(edits.map((e) => ({ row: e.row, rank: e.rank })));
+      this.state.last = { text: `Undid: ${text}`, at: this.now() };
+      this.emit();
+      await this.runReplaySave("restoring the items", async () => {
+        const r = await this.source.restoreItems(ids);
+        if (!r.ok) return { ok: false, error: r.error };
+        if (r.failed.length > 0) return { ok: false, error: r.failed[0]!.reason };
+        return { ok: true };
+      }, () => this.removeRows(added.filter((x) => this.byId.has(x.id))), restore);
+      return;
+    }
+    const rows = ids.map((id) => this.byId.get(id)).filter((r): r is GridItem => !!r);
+    if (rows.length !== ids.length) { this.state.error = "Could not redo: an item no longer exists."; this.emit(); restore(); return; }
+    for (const e of edits) { const r = this.byId.get(e.itemId)!; e.rank = r.stack_rank; e.row = { ...r }; }
+    this.removeRows(rows);
+    this.state.last = { text: `Redid: ${text}`, at: this.now() };
+    this.emit();
+    await this.runReplaySave("deleting the items again", async () => {
+      const r = await this.source.trashItems(ids);
+      if (!r.ok) return { ok: false, error: r.error };
+      if (r.failed.length > 0) return { ok: false, error: r.failed[0]!.reason };
+      return { ok: true };
+    }, () => this.reinsert(edits.map((e) => ({ row: e.row, rank: e.rank }))), restore);
   }
 
   /** Undo deletes the whole batch in one request; redo adds it back at the end (new codes). */

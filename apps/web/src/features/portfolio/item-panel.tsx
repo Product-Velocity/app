@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { EDITABLE_FIELDS, FIELD_BY_KEY, activityEvents, canUndoActivity, panelSections, type ActivityEvent, type ActivityRow } from "@pv/domain";
 import type { PortfolioController } from "./controller";
+import { DeleteDialog } from "./delete-dialog";
 import { FieldRow, type FieldCtx } from "./item-fields";
 import { formatField } from "./format";
 import { useStatus } from "./status-strip";
@@ -46,6 +48,8 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
   const ctx = useMemo<FieldCtx>(() => ({ controller, lookups }), [controller, lookups]);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const router = useRouter();
 
   // the lists of this item (tags, links, ...) are read when the panel opens on it
   useEffect(() => {
@@ -75,6 +79,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
           {mode === "peek" && onNext && <button type="button" className="btn ip-icon" onClick={onNext} aria-label="Next initiative (J)" title="Next (J)">↓</button>}
           {position && <span className="muted ip-pos" aria-live="polite">{position.index + 1} of {position.total}</span>}
           <span className="ip-spacer" />
+          {controller.canDelete(itemId) && <button type="button" className="btn ip-link" onClick={() => setConfirmDelete(true)}>Delete…</button>}
           {mode === "peek" && <Link className="btn ip-link" href={pageHref(row.item_code)}>Open full page</Link>}
           {mode === "page" && <Link className="btn ip-link" href={backHref}>Back to the roadmap</Link>}
           {mode === "peek" && onClose && <button type="button" className="btn ip-icon" onClick={onClose} aria-label="Close panel (Esc)" title="Close (Esc)">×</button>}
@@ -83,6 +88,8 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
         <h2 id={titleId} className="ip-title">{row.initiative_name}</h2>
         <p className="muted ip-rank">#{row.stack_rank} globally · #{row.project_rank} in {project || "its project"}</p>
       </header>
+
+      {confirmDelete && <DeleteDialog controller={controller} ids={[itemId]} onClose={() => setConfirmDelete(false)} onDeleted={() => { if (mode === "peek") onClose?.(); else router.push(backHref); }} />}
 
       <div role="tablist" aria-label="Item sections" className="ip-tabs">
         {TABS.map((t) => (
@@ -228,7 +235,7 @@ function ActivityTab({ controller, lookups, itemId, me }: { controller: Portfoli
             <li key={`${e.id}`}>
               <p>
                 <strong>{e.label}</strong>{" "}
-                {e.kind === "changed" ? <>changed from {fmt(e, e.old)} to {fmt(e, e.new)}</> : e.kind === "added" ? <>added {e.detail}</> : <>removed {e.detail}</>}
+                {e.field === "deleted_at" ? null : e.kind === "changed" ? <>changed from {fmt(e, e.old)} to {fmt(e, e.new)}</> : e.kind === "added" ? <>added {e.detail}</> : <>removed {e.detail}</>}
               </p>
               <p className="muted">
                 {who(e.actorId)} · {e.via} · <time dateTime={e.at}>{new Date(e.at).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</time>

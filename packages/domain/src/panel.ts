@@ -67,7 +67,7 @@ export type ActivityEvent = {
   detail?: string;
 };
 
-const HOUSEKEEPING = new Set(["id", "tenant_id", "created_at", "created_by", "created_via", "updated_at", "item_id"]);
+const HOUSEKEEPING = new Set(["id", "tenant_id", "created_at", "created_by", "created_via", "updated_at", "item_id", "deleted_by"]);
 const RELATED_FIELD: Record<string, (data: Record<string, unknown>) => string> = {
   item_tags: (d) => ({ tag: "tags", target_scope: "target_scope", live_scope: "live_scope", segment: "target_segments" }[String(d.kind)] ?? "tags"),
   item_links: () => "artifacts",
@@ -92,6 +92,10 @@ export function activityEvents(rows: readonly ActivityRow[]): ActivityEvent[] {
     if (r.entity === "items") {
       if (HOUSEKEEPING.has(r.field)) continue;
       const key = KEY_BY_COLUMN[r.field] ?? r.field;
+      if (key === "deleted_at") { // a delete or a restore: the label says which
+        out.push({ id: r.id, at: r.at, actorId: r.actorId, via: r.via, entity: "items", entityId: r.entityId, kind: "changed", field: key, label: r.new ? "Moved to the Trash" : "Restored from the Trash", old: r.old, new: r.new });
+        continue;
+      }
       out.push({ id: r.id, at: r.at, actorId: r.actorId, via: r.via, entity: "items", entityId: r.entityId, kind: "changed", field: key, label: FIELD_BY_KEY[key]?.name ?? r.field, old: r.old, new: r.new });
     } else if (RELATED_FIELD[r.entity]) {
       const k = `${r.entity}|${r.entityId}|${r.at}`;

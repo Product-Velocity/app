@@ -1,6 +1,6 @@
 import { applyMove, columnOnItems, emptyRelated, FIELD_BY_KEY, type ActivityRow, type EditableField, type RelatedField, type RelatedValues } from "@pv/domain";
-import type { CreateManyResult, NewItem, PortfolioDataSource, SaveResult } from "./data-source";
-import type { LoadedItem } from "./types";
+import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
+import type { LoadedItem, TrashedItem } from "./types";
 
 export type Op = { type: "update"; itemId: string; field: string; value: unknown; expected?: unknown } | { type: "move"; itemId: string; to: number };
 
@@ -108,6 +108,62 @@ export class MemoryDataSource implements PortfolioDataSource {
       out.push({ id: item.id, item_code: code, stack_rank: max + 1 });
     }
     return { ok: true, items: out };
+  }
+
+  /** The Trash: deleted rows with who and when; `failTrash` makes the next trash/restore/purge fail as a whole. */
+  trash: (TrashedItem & { row: LoadedItem })[] = [];
+  failTrash: string | null = null;
+  /** Ids the source refuses to delete, with the reason (stands in for the database's role check). */
+  refuse = new Map<string, string>();
+  readonly trashCalls: { op: "trash" | "restore" | "purge"; ids: string[] }[] = [];
+  deletedBy: string | null = "u1";
+  private async trashGate(op: "trash" | "restore" | "purge", ids: string[]) {
+    this.trashCalls.push({ op, ids: [...ids] });
+    await this.pause();
+    return this.failTrash;
+  }
+  async trashItems(itemIds: string[]): Promise<BatchResult> {
+    const err = await this.trashGate("trash", itemIds);
+    if (err) return { ok: false, error: err };
+    const failed: { id: string; reason: string }[] = [];
+    for (const id of itemIds) {
+      const row = this.items.find((i) => i.id === id);
+      const why = this.refuse.get(id) ?? (row ? null : "That item does not exist or you cannot change it.");
+      if (why || !row) { failed.push({ id, reason: why ?? "unknown" }); continue; }
+      this.trash.unshift({
+        id, item_code: row.item_code, initiative_name: row.initiative_name, home_project: row.home_project, theme: (row.theme as string | null) ?? null,
+        stack_rank: row.stack_rank, created_by: ((row as Record<string, unknown>)._created_by as string | null) ?? null,
+        deleted_at: new Date(Date.UTC(2027, 3, 14, 12)).toISOString(), deleted_by: this.deletedBy, row: { ...row },
+      });
+      this.audit("items", id, "deleted_at", null, "now");
+    }
+    const gone = new Set(itemIds.filter((id) => this.trash.some((t) => t.id === id)));
+    this.items = this.items.filter((i) => !gone.has(i.id)).sort((a, b) => a.stack_rank - b.stack_rank).map((i, n) => ({ ...i, stack_rank: n + 1 }));
+    return { ok: true, failed };
+  }
+  async restoreItems(itemIds: string[]): Promise<RestoreResult> {
+    const err = await this.trashGate("restore", itemIds);
+    if (err) return { ok: false, error: err };
+    const failed: { id: string; reason: string }[] = [];
+    const picked = itemIds.map((id) => this.trash.find((t) => t.id === id) ?? null);
+    itemIds.forEach((id, i) => { if (!picked[i]) failed.push({ id, reason: "It is not in the Trash." }); });
+    const back = picked.filter((t): t is NonNullable<typeof t> => !!t).sort((a, b) => a.stack_rank - b.stack_rank || a.id.localeCompare(b.id));
+    const order = [...this.items].sort((a, b) => a.stack_rank - b.stack_rank);
+    for (const t of back) order.splice(Math.min(t.stack_rank, order.length + 1) - 1, 0, { ...t.row });
+    this.items = order.map((i, n) => ({ ...i, stack_rank: n + 1 }));
+    this.trash = this.trash.filter((t) => !back.includes(t));
+    return { ok: true, restored: back.map((t) => ({ id: t.id, stack_rank: this.items.find((i) => i.id === t.id)!.stack_rank })), failed };
+  }
+  async loadTrash(): Promise<TrashedItem[]> {
+    await this.pause();
+    return this.trash.map((t) => ({ id: t.id, item_code: t.item_code, initiative_name: t.initiative_name, home_project: t.home_project, theme: t.theme, stack_rank: t.stack_rank, created_by: t.created_by, deleted_at: t.deleted_at, deleted_by: t.deleted_by }));
+  }
+  async purgeItems(itemIds: string[]): Promise<BatchResult> {
+    const err = await this.trashGate("purge", itemIds);
+    if (err) return { ok: false, error: err };
+    const failed = itemIds.filter((id) => !this.trash.some((t) => t.id === id)).map((id) => ({ id, reason: "Only items in the Trash can be deleted forever." }));
+    this.trash = this.trash.filter((t) => !itemIds.includes(t.id));
+    return { ok: true, failed };
   }
 
   async deleteItems(itemIds: string[]): Promise<SaveResult> {
