@@ -36,6 +36,7 @@ export function AccountMenu({ email, roleLabel, isApprover, showTrash }: { email
           <p className="menu-heading" id="menu-workspace">Workspace</p>
           <Link href="/settings/members" className="menu-link">Members</Link>
           <Link href="/settings/groups" className="menu-link">Initiative Groups</Link>
+          <Link href="/alignment" className="menu-link">Alignment</Link>
           {showTrash && <Link href="/trash" className="menu-link">Trash</Link>}
         </div>
         <div role="group" aria-labelledby="menu-integrations">

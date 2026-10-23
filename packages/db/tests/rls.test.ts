@@ -183,6 +183,26 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "alignment_sessions",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.alignment_sessions set status = 'closed' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.alignment_sessions where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.alignment_sessions (tenant_id, name, method) values ($1, 'Injected', 'coins')", params: [v.tenantId] },
+      { sql: "update public.alignment_sessions set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "alignment_items",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.alignment_items set shown_name = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.alignment_items where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.alignment_items (tenant_id, session_id, position) select tenant_id, session_id, 99 from public.alignment_items where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.alignment_items set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "sync_events",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

@@ -79,3 +79,27 @@ test("Copy to project: choose a project, the originals stay, and the dialog says
   await dialog.getByRole("button", { name: "Close" }).click();
   await expect(dialog).toHaveCount(0);
 });
+
+test("Start alignment session: admins only, needs two initiatives, and says nothing is sent", async ({ page }) => {
+  await page.goto("/dev/grid?n=20&role=admin");
+  await page.waitForSelector(".ag-row");
+  const boxes = page.locator('.ag-row[row-id] .ag-checkbox-input');
+  await boxes.nth(0).check();
+  await page.getByRole("button", { name: "Start alignment session…" }).click();
+  const dialog = page.getByRole("dialog", { name: /Start an alignment session with 1 initiative/ });
+  await expect(dialog).toContainText("Nothing is sent and nobody is invited");
+  await expect(dialog).toContainText("Select at least two initiatives");
+  await expect(dialog.getByRole("button", { name: "Create draft" })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await boxes.nth(1).check();
+  await page.getByRole("button", { name: "Start alignment session…" }).click();
+  await expect(page.getByRole("dialog", { name: /with 2 initiatives/ })).toBeVisible();
+});
+
+test("Start alignment session is not offered to a creator", async ({ page }) => {
+  await page.goto("/dev/grid?n=20&role=creator");
+  await page.waitForSelector(".ag-row");
+  await page.locator('.ag-row[row-id] .ag-checkbox-input').first().check();
+  await expect(page.getByRole("button", { name: "Copy to project…" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start alignment session…" })).toHaveCount(0);
+});
