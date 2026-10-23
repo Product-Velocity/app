@@ -42,3 +42,5 @@ Living list of things that must be done before real customers or real data. Owne
 
 ## Trash
 - [ ] Schedule `select public.purge_old_trash(30)` daily (Vercel cron calling a route that uses the service role, or Supabase pg_cron on a paid plan). Until it runs, deleted items stay in the Trash past 30 days. The function is only callable by the service role.
+
+- [ ] **Remove the spike harness for #30** before real customers: `apps/web/src/app/spikes/github/`, `apps/web/src/app/api/spikes/github-webhook/`, `apps/web/src/lib/spikes/`. Then point the GitHub App's webhook URL at the real webhook route and rotate the App private key and webhook secret that were used for the sandbox.
