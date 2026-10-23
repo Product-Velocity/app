@@ -1,6 +1,7 @@
 import { requireWorkspace } from "@/lib/session";
 import { githubAppSlug, type ConnectionRow } from "@/lib/github/server";
 import { AutoRefresh } from "./auto-refresh";
+import { RefreshButton } from "./refresh-button";
 import { ConnectForm, ProjectRow, RepoRow } from "./forms";
 import { checkGithubNow, continueOnGithub, disconnectGithub, refreshRepositories, retrySyncEvent } from "./actions";
 import Link from "next/link";
@@ -102,7 +103,12 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
             {linkedCount ?? 0} initiative(s) are linked to a GitHub issue. When one of those issues is closed, closed as not planned or reopened, GitHub tells the app and the initiative&rsquo;s Status follows
             (Completed, Cancelled, Not Started). A daily check repairs anything missed.
           </p>
-          {isAdmin && <form action={checkGithubNow}><button className="btn" type="submit">Check GitHub now</button></form>}
+          {isAdmin && (
+            <div className="row-form">
+              <RefreshButton label="Refresh the list" />
+              <form action={checkGithubNow}><button className="btn" type="submit">Check GitHub now</button></form>
+            </div>
+          )}
           {isAdmin && (
             <table className="table">
               <caption className="visually-hidden">Latest changes from GitHub</caption>
