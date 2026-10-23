@@ -5,6 +5,7 @@ import { bulkEditReason, canBeEmpty, EDITABLE_FIELDS, FIELDS, FIELD_BY_KEY, opti
 import type { PortfolioController } from "./controller";
 import { downloadCsv, selectionToCsv } from "./export-selection";
 import type { GridItem, Lookups } from "./types";
+import { useMenuBlur } from "./use-menu-blur";
 
 type Props = {
   controller: PortfolioController;
@@ -40,11 +41,12 @@ function SetMenu({ def, selected, onPick }: { def: FieldDef; selected: GridItem[
   const items = [...(canBeEmpty(def.key) ? [{ value: "", label: "(empty)" }] : []), ...options];
   const focusItem = (i: number) => (ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]')[i])?.focus();
   const close = () => setOpen(false);
+  const menuBlur = useMenuBlur(close);
   return (
     <span
       ref={ref}
       className="set-menu"
-      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) close(); }}
+      {...menuBlur}
       onKeyDown={(e) => {
         const els = Array.from(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
         const at = els.indexOf(document.activeElement as HTMLElement);
