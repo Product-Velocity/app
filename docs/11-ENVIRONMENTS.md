@@ -14,6 +14,7 @@
 5. Optional: require the CI check in branch protection for `main`.
 
 ## Secrets
+- Invitation emails (issue #45, Resend): `RESEND_API_KEY` (Secret), `EMAIL_FROM` (for example `Product Velocity <invites@your-verified-domain>`; the domain must be verified at Resend with SPF and DKIM, otherwise Resend refuses or only delivers to your own address) and, optional, `RESEND_WEBHOOK_SECRET` (Secret; the signing secret of a Resend webhook pointing at `/api/resend/webhook` for delivered, bounced and complained events). Without the first two the Members page says email is not set up and keeps the copy-link path. Turn **open and click tracking off** for the sending domain in Resend.
 - GitHub App (issue #31): `GITHUB_APP_SLUG`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY_B64` (the .pem, base64 on one line) and `GITHUB_APP_WEBHOOK_SECRET`, all Secret type, in every environment that uses GitHub. `SUPABASE_SERVICE_ROLE_KEY` must also be set: the webhook and install-return routes write connections with it. Steps for the App itself: `docs/04`. `CRON_SECRET` (Secret, Production): any long random string; Vercel sends it as a bearer token to the daily check at `/api/cron/github` (`apps/web/vercel.json`), which refuses everything else.
 Secrets only in environment variables. `.env*` files are git-ignored except `.env.example`.
 

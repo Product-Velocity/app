@@ -1,6 +1,8 @@
 import { requireWorkspace } from "@/lib/session";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
-import { InviteForm, MemberControls } from "./forms";
+import { InviteForm, MemberControls, ResendControls } from "./forms";
+import { emailStatusText } from "@/lib/email/invitation";
+import { emailConfigured } from "@/lib/email/resend";
 import { removeMember, revokeInvitation } from "./actions";
 
 export const metadata = { title: "Members · Product Velocity" };
@@ -22,7 +24,7 @@ export default async function MembersPage() {
   const { data: invites } = isAdmin
     ? await supabase
         .from("invitations")
-        .select("id, email, role, is_approver, expires_at")
+        .select("id, email, role, is_approver, expires_at, email_status, email_error, email_sent_at")
         .eq("tenant_id", active.tenantId)
         .is("accepted_at", null)
         .is("revoked_at", null)
@@ -91,7 +93,7 @@ export default async function MembersPage() {
         <>
           <h2>Invite someone</h2>
           <div className="card">
-            <InviteForm />
+            <InviteForm workspaceName={active.tenantName} emailEnabled={emailConfigured()} />
           </div>
 
           <h2>Pending invitations</h2>
@@ -105,6 +107,7 @@ export default async function MembersPage() {
                     <th scope="col">Email</th>
                     <th scope="col">Role</th>
                     <th scope="col">Expires</th>
+                    <th scope="col">Email</th>
                     <th scope="col">
                       <span className="visually-hidden">Revoke</span>
                     </th>
@@ -119,7 +122,9 @@ export default async function MembersPage() {
                         {i.is_approver ? " · Approver" : ""}
                       </td>
                       <td>{new Date(i.expires_at).toISOString().slice(0, 10)}</td>
-                      <td>
+                      <td>{emailStatusText(i.email_status, i.email_error, i.email_sent_at)}</td>
+                      <td className="stack">
+                        <ResendControls id={i.id} emailEnabled={emailConfigured()} />
                         <form action={revokeInvitation}>
                           <input type="hidden" name="id" value={i.id} />
                           <button className="btn" type="submit">
