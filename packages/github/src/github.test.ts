@@ -90,6 +90,7 @@ function fake(over: Partial<SourceControl> = {}): SourceControl {
     listIssueTypes: async () => ["Task", "Bug"],
     listRecentDeliveries: async () => [{ event: "issues", action: "opened", statusCode: 200, deliveredAt: "2026-10-23T00:00:00Z" }],
     listIssues: async () => [],
+    listSubIssues: async () => [],
     createIssue: async () => { throw new Error("not used"); },
     updateIssue: async () => { throw new Error("not used"); },
     addLabels: async () => undefined,

@@ -87,3 +87,14 @@ export function parseIssueEvent(event: string | null, payload: unknown): IssueEv
   if (i.state !== "open" && i.state !== "closed") return null;
   return { action: p.action, installationId: p.installation.id, repo: p.repository.full_name, number: i.number, issueId: i.id, nodeId: i.node_id, state: i.state, stateReason: typeof i.state_reason === "string" ? i.state_reason : null, updatedAt: i.updated_at, closedAt: typeof i.closed_at === "string" ? i.closed_at : null };
 }
+
+export type SubIssueEvent = { action: string; installationId: number; repo: string; parentNumber: number };
+
+/** A `sub_issues` delivery says which parent issue changed; only its repository and number are read. */
+export function parseSubIssueEvent(event: string | null, payload: unknown): SubIssueEvent | null {
+  if (event !== "sub_issues") return null;
+  const p = payload as { action?: unknown; installation?: { id?: unknown }; repository?: { full_name?: unknown }; parent_issue_repo?: { full_name?: unknown }; parent_issue?: { number?: unknown } };
+  const repo = p?.parent_issue_repo?.full_name ?? p?.repository?.full_name;
+  if (typeof p?.action !== "string" || typeof p.installation?.id !== "number" || typeof repo !== "string" || typeof p.parent_issue?.number !== "number") return null;
+  return { action: p.action, installationId: p.installation.id, repo, parentNumber: p.parent_issue.number };
+}

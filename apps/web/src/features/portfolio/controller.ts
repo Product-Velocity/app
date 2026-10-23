@@ -3,8 +3,8 @@ import {
   applyMove, canBeEmpty, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
   bulkEditReason, resolveGroup, canDeleteItem, placeRestored, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
-import type { PortfolioDataSource } from "./data-source";
-import type { GridItem, Lookups, LoadedItem } from "./types";
+import type { PortfolioDataSource, SaveResult } from "./data-source";
+import type { GridItem, Lookups, LoadedItem, IssueTreeRow } from "./types";
 
 export const READ_ONLY_MESSAGE = "You have view-only access. Ask an admin for the Creator role to edit.";
 
@@ -483,6 +483,17 @@ export class PortfolioController {
   }
   teams() { return this.lookups.teams ?? []; }
   activity(itemId: string): Promise<ActivityRow[]> { return this.source.loadActivity(itemId); }
+  issueTree(itemId: string): Promise<IssueTreeRow[]> { return this.source.loadIssueTree(itemId); }
+  /** "Mark breakdown complete": the database freezes Planned Scope; the row shows the new values at once. */
+  async completeBreakdown(itemId: string): Promise<SaveResult> {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
+    const r = await this.source.completeBreakdown(itemId);
+    if (!r.ok) { this.notify(r.error); return { ok: false, error: r.error }; }
+    const row = this.byId.get(itemId);
+    if (row) Object.assign(row, r.values);
+    this.emit();
+    return { ok: true };
+  }
 
   /** The grid cell of a list field shows the list as text. */
   private listText(field: RelatedField, list: unknown[]): string | null {

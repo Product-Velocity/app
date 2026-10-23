@@ -6,11 +6,11 @@ import { WorkspaceProvider } from "@/features/workspace/provider";
 import { MemoryWorkspaceStore } from "@/features/workspace/store";
 import { parseBase } from "@/features/portfolio/grid-view";
 import { PortfolioGrid } from "@/features/portfolio/portfolio-grid";
-import { bigLookups, harnessLookups, makeHarness } from "../harness-data";
+import { bigLookups, harnessLookups, makeHarness, withGithubTree } from "../harness-data";
 
-export function HarnessClient({ n, latency, role, view, allColumns, bigLists = false }: { n: number; latency: number; role: string; view?: string; allColumns: boolean; bigLists?: boolean }) {
-  const lookups = bigLists ? bigLookups : harnessLookups;
-  const { controller, source } = useMemo(() => makeHarness(n, latency, role, lookups), [n, latency, role, lookups]);
+export function HarnessClient({ n, latency, role, view, allColumns, bigLists = false, github = false }: { n: number; latency: number; role: string; view?: string; allColumns: boolean; bigLists?: boolean; github?: boolean }) {
+  const base = bigLists ? bigLookups : harnessLookups;
+  const { controller, source, lookups } = useMemo(() => { const h = makeHarness(n, latency, role, base); return { ...h, lookups: github ? withGithubTree(h.controller, h.source, "R-01", base) : base }; }, [n, latency, role, base, github]);
   const store = useMemo(() => Object.assign(new MemoryWorkspaceStore({ scopes: [{ id: "scope-a", name: "Marketplace and Platform", projectIds: ["p1", "p2"] }, { id: "scope-b", name: "Customer-facing work", projectIds: ["p3"] }] }), { projects: lookups.projects }), [lookups]);
   useEffect(() => {
     (window as unknown as { __pv: unknown }).__pv = { controller, source, store };

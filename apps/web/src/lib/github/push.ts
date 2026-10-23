@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildTrackingIssue, describePushError, planAction, pushTrackingIssue, type PlanLink, type SourceControl } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { ConnectionRow } from "./server";
+import { refreshTree } from "./sync";
 import { PUSH_LIMIT, type PlanItem, type PushItemResult } from "./push-types";
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -75,6 +76,7 @@ export async function executePush(opts: { supabase: SupabaseClient; admin: Admin
         results.push({ id: p.id, code, outcome: "unchanged" });
       } else {
         const saved = await record("synced", { number: r.issue.number, id: r.issue.id, node: r.issue.nodeId, url: r.issue.htmlUrl });
+        if (!saved.error) await refreshTree(opts.admin, opts.sc, installationId, opts.connection.id, { item_id: p.id, repo: p.repo!, number: r.issue.number }); // starts the Traditional breakdown route
         results.push({ id: p.id, code, outcome: r.kind, issueNumber: r.issue.number, issueUrl: r.issue.htmlUrl, ...(saved.error ? { message: "Sent to GitHub, but the link could not be saved. Pushing again will find the issue." } : {}) });
       }
     } catch (e) {

@@ -10,7 +10,7 @@ import { GithubPushDialog } from "./github-push-dialog";
 import { FieldRow, type FieldCtx } from "./item-fields";
 import { formatField } from "./format";
 import { useStatus } from "./status-strip";
-import type { Lookups } from "./types";
+import type { IssueTreeRow, Lookups } from "./types";
 
 type Tab = "overview" | "spec" | "github" | "alignment" | "activity";
 const TABS: { id: Tab; label: string }[] = [
@@ -125,7 +125,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
         {loadError && <p role="alert" className="pf-error">Could not load the lists of this initiative: {loadError}</p>}
         {tab === "overview" && <Overview ctx={ctx} itemId={itemId} />}
         {tab === "spec" && <EmptyTab title="Spec" text="Specs, documents and the readiness checklist arrive in phase 4. Until then the hypothesis and artifacts live on the Overview tab." />}
-        {tab === "github" && <GithubTab />}
+        {tab === "github" && <GithubTab controller={controller} lookups={lookups} itemId={itemId} />}
         {tab === "alignment" && <EmptyTab title="Alignment" text="Votes, sign-offs and the decision log for this initiative arrive with alignment, in phases 5 and 8." />}
         {tab === "activity" && <ActivityTab controller={controller} lookups={lookups} itemId={itemId} me={me} />}
       </div>
@@ -192,18 +192,80 @@ function EmptyTab({ title, text }: { title: string; text: string }) {
   );
 }
 
-/** Empty state with the layout GitHub sync will fill: epics with nested tasks (board 2). */
-function GithubTab() {
+/** The tracking issue's epics with the tasks nested under each, read-only: engineers change them in GitHub. */
+function GithubTab({ controller, lookups, itemId }: { controller: PortfolioController; lookups: Lookups; itemId: string }) {
+  useStatus(controller);
+  const link = lookups.github?.links[itemId];
+  const [rows, setRows] = useState<IssueTreeRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const row = controller.row(itemId) as Record<string, unknown> | undefined;
+  const status = row?.breakdown_status ? String(row.breakdown_status) : null;
+  const total = row?.issues_total == null ? null : Number(row.issues_total);
+  const closed = row?.issues_closed == null ? 0 : Number(row.issues_closed);
+  const planned = row?.planned_scope == null ? null : Number(row.planned_scope);
+  const added = row?.scope_added == null ? null : Number(row.scope_added);
+  const complete = status === "Complete";
+
+  useEffect(() => {
+    let cancelled = false;
+    controller.issueTree(itemId).then((r) => { if (!cancelled) { setRows(r); setError(null); } }, (e: Error) => { if (!cancelled) setError(e.message); });
+    return () => { cancelled = true; };
+  }, [controller, itemId, controller.status.version]);
+
+  if (!link?.number) {
+    return (
+      <div className="ip-empty">
+        <h3>GitHub</h3>
+        <p className="muted">No GitHub issue is linked to this initiative yet. Push it to GitHub from the grid (Update GitHub…) and its epics and tasks will appear here as engineers add them.</p>
+      </div>
+    );
+  }
+  if (error) return <p role="alert" className="pf-error">Could not load the issues: {error}</p>;
+  if (!rows) return <p role="status" className="muted">Loading the issues…</p>;
+  const epics = rows.filter((r) => r.level === 1);
+  const tasksOf = (e: IssueTreeRow) => rows.filter((r) => r.level === 2 && r.parentNumber === e.number);
+  const stateText = (r: IssueTreeRow) => (r.state === "open" ? "Open" : r.stateReason === "not_planned" ? "Closed (not planned)" : "Closed (completed)");
+  const progress = (list: IssueTreeRow[]) => { const live = list.filter((t) => !(t.state === "closed" && t.stateReason === "not_planned")); return `${live.filter((t) => t.state === "closed").length} of ${live.length} closed`; };
+  const counts = new Map<number | null, number>();
+  for (const r of rows) counts.set(r.parentNumber, (counts.get(r.parentNumber) ?? 0) + 1);
+  const nearLimit = [...counts.values()].some((c) => c >= 90);
+  const line = (r: IssueTreeRow) => (
+    <tr key={`${r.repo}#${r.number}`} className={r.level === 2 ? "ip-gh-task" : "ip-gh-epic"}>
+      <td className="mono">{r.level === 2 ? "↳ " : ""}<a href={`https://github.com/${r.repo}/issues/${r.number}`} target="_blank" rel="noreferrer">#{r.number}</a> <span className="muted">{r.repo.split("/")[1]}</span></td>
+      <td>{r.title}</td>
+      <td>{stateText(r)}</td>
+      <td>{r.assignees.length ? r.assignees.join(", ") : <span className="muted">Unassigned</span>}</td>
+      <td>{r.createdBy === "app" ? "Product Velocity" : r.createdBy === "claude" ? "Claude" : "Engineer"}</td>
+    </tr>
+  );
   return (
-    <div className="ip-empty">
+    <div className="ip-github">
       <h3>GitHub</h3>
-      <p className="muted">No GitHub issue is linked to this initiative yet. After GitHub sync ships (phase 3), the tracking issue appears here with its epics and the tasks nested under each epic.</p>
-      <table className="table ip-gh" aria-label="Epics and tasks (empty)">
-        <thead>
-          <tr>{["Issue", "Title", "State", "Assignee", "Created by", "Pull request", "Updated"].map((h) => <th key={h} scope="col">{h}</th>)}</tr>
-        </thead>
-        <tbody><tr><td colSpan={7} className="muted">Epics and tasks will be listed here.</td></tr></tbody>
+      <p>
+        <a href={link.url ?? undefined} target="_blank" rel="noreferrer">Issue #{link.number}</a> · Breakdown: {status ?? "not started"}
+        {total != null && <> · {closed} of {total} {total === 1 ? "task" : "tasks"} closed{complete ? "" : " (provisional until the breakdown is complete)"}</>}
+        {complete && planned != null && <> · Planned scope {planned}{added ? `, ${added} added since` : ""}</>}
+      </p>
+      {nearLimit && <p role="status" className="notice">A parent issue is close to GitHub&apos;s limit of 100 sub-issues. Group the work under more epics.</p>}
+      {message && <p role="status" className="notice">{message}</p>}
+      {controller.canEdit && !complete && status !== null && (
+        <p>
+          <button type="button" className="btn" onClick={async () => { const r = await controller.completeBreakdown(itemId); setMessage(r.ok ? "Breakdown marked complete. Planned scope is now fixed; later additions count as scope added." : r.error); }}>Mark breakdown complete</button>{" "}
+          <span className="muted">Engineers write the epics and tasks in GitHub; mark it complete when they are done.</span>
+        </p>
+      )}
+      <table className="table ip-gh" aria-label="Epics and tasks">
+        <thead><tr>{["Issue", "Title", "State", "Assignee", "Created by"].map((h) => <th key={h} scope="col">{h}</th>)}</tr></thead>
+        <tbody>
+          {epics.length === 0 && <tr><td colSpan={5} className="muted">No epics yet. Engineers add them as sub-issues of the tracking issue in GitHub.</td></tr>}
+          {epics.map((e) => {
+            const tasks = tasksOf(e);
+            return [line(e), tasks.length > 0 && <tr key={`${e.number}-p`} className="ip-gh-sum"><td /><td colSpan={4} className="muted">{progress(tasks)}</td></tr>, ...tasks.map(line)];
+          })}
+        </tbody>
       </table>
+      <p className="muted">Read-only: change epics and tasks in GitHub. This list updates when GitHub reports a change, and every day.</p>
     </div>
   );
 }

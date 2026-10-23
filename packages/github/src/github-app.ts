@@ -1,5 +1,5 @@
 import { createSign } from "node:crypto";
-import { GitHubError, type IssueSummary, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl } from "./source-control";
+import { GitHubError, type IssueSummary, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl, type SubIssue } from "./source-control";
 
 const API = "https://api.github.com";
 const b64url = (b: Buffer | string) => Buffer.from(b).toString("base64url");
@@ -132,6 +132,26 @@ export class GitHubAppSourceControl implements SourceControl {
       if (!res.ok) throw new GitHubError(res.status, `GitHub could not list issues (${res.status})`);
       const rows = (await res.json()) as { number: number; id: number; node_id: string; state: string; state_reason?: string | null; updated_at: string; closed_at?: string | null; pull_request?: unknown }[];
       for (const r of rows) if (!r.pull_request) out.push({ number: r.number, id: r.id, nodeId: r.node_id, state: r.state === "closed" ? "closed" : "open", stateReason: r.state_reason ?? null, updatedAt: r.updated_at, closedAt: r.closed_at ?? null });
+      if (rows.length < 100) break;
+    }
+    return out;
+  }
+
+  async listSubIssues(installationId: number, repo: string, number: number): Promise<SubIssue[] | null> {
+    const out: SubIssue[] = [];
+    for (let page = 1; page <= 2; page++) { // GitHub allows 100 sub-issues per parent
+      const res = await this.call(installationId, "GET", `/repos/${repo}/issues/${number}/sub_issues?per_page=100&page=${page}`);
+      if (res.status === 404) return null;
+      if (!res.ok) throw new GitHubError(res.status, `GitHub could not list sub-issues (${res.status})`);
+      const rows = (await res.json()) as { number: number; id: number; title: string; state: string; state_reason?: string | null; closed_at?: string | null; body?: string | null; repository_url?: string; assignees?: { login: string }[] }[];
+      for (const r of rows) {
+        const body = r.body ?? "";
+        out.push({
+          number: r.number, id: r.id, repo: r.repository_url ? r.repository_url.replace(/^.*\/repos\//, "") : repo, title: r.title.slice(0, 200),
+          state: r.state === "closed" ? "closed" : "open", stateReason: r.state_reason ?? null, closedAt: r.closed_at ?? null,
+          assignees: (r.assignees ?? []).map((a) => a.login), createdBy: body.includes("<!-- pv:source=claude -->") ? "claude" : body.includes("<!-- pv:begin") ? "app" : "engineer",
+        });
+      }
       if (rows.length < 100) break;
     }
     return out;

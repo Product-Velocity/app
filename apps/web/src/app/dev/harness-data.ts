@@ -108,3 +108,17 @@ export function makeLeadershipHarness(n: number, role: string) {
     : null;
   return { controller, source, changes, reviewed };
 }
+
+/**
+ * ?gh=1: the item has a pushed tracking issue with two epics and three tasks (one closed), and its breakdown awaits engineering.
+ * Returns the lookups with the link; the tree is read through the in-memory source.
+ */
+export function withGithubTree(controller: PortfolioController, source: MemoryDataSource, code: string, lookups: Lookups): Lookups {
+  const row = controller.rows.find((r) => r.item_code === code);
+  if (!row) return lookups;
+  const t = (number: number, level: 1 | 2, parentNumber: number | null, title: string, state: "open" | "closed", assignees: string[], createdBy: "app" | "claude" | "engineer" = "engineer") =>
+    ({ repo: "Acme/App", number, level, parentNumber, title, state, stateReason: null, assignees, createdBy, updatedAt: "2026-10-23T10:00:00Z" });
+  source.trees.set(row.id, [t(40, 1, null, "Import flow", "open", []), t(41, 1, null, "Export flow", "open", ["dev1"], "claude"), t(42, 2, 40, "Parse the file", "closed", ["dev1"]), t(43, 2, 40, "Map the columns", "open", ["dev2"]), t(44, 2, 41, "Write the CSV", "open", [])]);
+  Object.assign(row, { issues_total: 3, issues_closed: 1, breakdown_route: "Traditional", breakdown_status: "Awaiting engineering" });
+  return { ...lookups, github: { connected: true, links: { [row.id]: { mode: "push", number: 34, url: "https://github.com/Acme/App/issues/34", state: "synced", error: null, ghState: "open", lastActivity: "2026-10-23T10:00:00Z" } } } };
+}

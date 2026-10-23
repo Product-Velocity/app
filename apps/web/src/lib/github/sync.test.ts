@@ -100,7 +100,8 @@ describe("reconcileConnection", () => {
     const admin = fakeAdmin({ links: [{ id: "l1", item_id: "i1", repo_full_name: "Acme/App", issue_number: 31 }, { id: "l2", item_id: "i2", repo_full_name: "Acme/App", issue_number: 404 }] });
     const r = await reconcileConnection(admin, sc, connection);
     expect(r).toEqual({ checked: 2, changed: 1, missing: 1, repos: 1 });
-    expect(admin.calls.filter((c) => c.op === "rpc")).toHaveLength(1);
+    expect(admin.calls.filter((c) => c.op === "rpc" && c.table === "github_apply_issue")).toHaveLength(1);
+    expect(admin.calls.filter((c) => c.op === "rpc" && c.table === "github_apply_tree")).toHaveLength(1); // the epics and tasks of the linked item are read again
     expect(admin.calls.find((c) => c.table === "sync_events" && c.op === "insert")?.payload).toMatchObject({ source: "reconcile", issue_number: 31 });
     expect(admin.calls.filter((c) => c.table === "item_github_links" && c.op === "update").map((c) => c.payload)).toEqual(expect.arrayContaining([{ gh_closed_at: "2026-10-23T10:00:00Z" }, expect.objectContaining({ sync_state: "error" })]));
   });
@@ -110,5 +111,20 @@ describe("reconcileConnection", () => {
     const admin = fakeAdmin({ links: [{ id: "l1", item_id: "i1", repo_full_name: "Acme/App", issue_number: 31 }], rpcResult: { item_id: "i1", stale: false, changes: {} } });
     expect(await reconcileConnection(admin, sc, connection)).toEqual({ checked: 1, changed: 0, missing: 0, repos: 1 });
     expect(admin.calls.some((c) => c.table === "sync_events")).toBe(false);
+  });
+});
+
+describe("refreshTree", () => {
+  it("stores the tree with one counting rule and reports false when sub-issues are unavailable", async () => {
+    const { refreshTree } = await import("./sync");
+    const sc = new MemorySourceControl();
+    const sub = (number: number, state: "open" | "closed") => ({ number, id: number, repo: "Acme/App", title: `t${number}`, state, stateReason: null, closedAt: null, assignees: ["dev"], createdBy: "engineer" as const });
+    sc.subs.set("Acme/App#31", [sub(40, "open")]);
+    sc.subs.set("Acme/App#40", [sub(41, "closed"), sub(42, "open")]);
+    const admin = fakeAdmin({});
+    expect(await refreshTree(admin, sc, 9, "c1", { item_id: "i1", repo: "Acme/App", number: 31 })).toBe(true);
+    expect(admin.calls.find((c) => c.table === "github_apply_tree")?.payload).toMatchObject({ p_item: "i1", p_total: 2, p_closed: 1, p_pct: 50 });
+    sc.subs.set("Acme/App#31", null);
+    expect(await refreshTree(admin, sc, 9, "c1", { item_id: "i1", repo: "Acme/App", number: 31 })).toBe(false);
   });
 });

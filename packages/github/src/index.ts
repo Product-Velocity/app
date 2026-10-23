@@ -7,3 +7,4 @@ export * from "./diagnostics";
 export * from "./outbound";
 export * from "./push";
 export * from "./memory-source";
+export * from "./tree";

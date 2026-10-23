@@ -27,6 +27,12 @@ export type Lookups = {
 
 export type { Role };
 
+/** One epic (level 1) or task (level 2) under an initiative's tracking issue, as GitHub last reported it. */
+export type IssueTreeRow = {
+  repo: string; number: number; parentNumber: number | null; level: 1 | 2; title: string;
+  state: "open" | "closed"; stateReason: string | null; assignees: string[]; createdBy: "app" | "claude" | "engineer"; updatedAt: string;
+};
+
 /** One row of the Trash: what was deleted, by whom and when (no commercial fields). */
 export type TrashedItem = {
   id: string; item_code: string; initiative_name: string; home_project: string; theme: string | null;

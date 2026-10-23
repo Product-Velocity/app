@@ -1,6 +1,6 @@
 import { applyMove, columnOnItems, emptyRelated, FIELD_BY_KEY, type ActivityRow, type EditableField, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
-import type { LoadedItem, TrashedItem } from "./types";
+import type { IssueTreeRow, LoadedItem, TrashedItem } from "./types";
 
 export type Op = { type: "update"; itemId: string; field: string; value: unknown; expected?: unknown } | { type: "move"; itemId: string; to: number };
 
@@ -87,6 +87,13 @@ export class MemoryDataSource implements PortfolioDataSource {
     (cur as Record<string, unknown[]>)[field] = structuredClone(value);
     this.related.set(itemId, cur);
     return { ok: true };
+  }
+  trees = new Map<string, IssueTreeRow[]>();
+  async loadIssueTree(itemId: string): Promise<IssueTreeRow[]> { await this.pause(); return (this.trees.get(itemId) ?? []).map((r) => ({ ...r })); }
+  async completeBreakdown(itemId: string): Promise<{ ok: true; values: Record<string, unknown> } | { ok: false; error: string }> {
+    await this.pause();
+    const total = (this.trees.get(itemId) ?? []).filter((r) => r.level === 2).length;
+    return { ok: true, values: { breakdown_status: "Complete", breakdown_route: "Traditional", planned_scope: total, scope_added: 0 } };
   }
   async loadActivity(itemId: string): Promise<ActivityRow[]> {
     await this.pause();

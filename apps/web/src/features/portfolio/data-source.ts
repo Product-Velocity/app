@@ -1,6 +1,6 @@
 import type { ActivityRow, EditableField, RelatedField, RelatedValues } from "@pv/domain";
 import type { NewItemValues } from "@pv/domain";
-import type { LoadedItem, TrashedItem } from "./types";
+import type { IssueTreeRow, LoadedItem, TrashedItem } from "./types";
 
 export type SaveResult = { ok: true } | { ok: false; error: string; conflict?: boolean };
 /** What the database assigns to new items. */
@@ -41,4 +41,8 @@ export interface PortfolioDataSource {
   setRelated(itemId: string, field: RelatedField, value: unknown[]): Promise<SaveResult>;
   /** The audit log of one item (newest first), for the Activity tab. */
   loadActivity(itemId: string): Promise<ActivityRow[]>;
+  /** The epics and tasks under the item's tracking issue (read-only cache of GitHub). */
+  loadIssueTree(itemId: string): Promise<IssueTreeRow[]>;
+  /** Marks the breakdown complete (freezes Planned Scope). Returns the item fields it changed. */
+  completeBreakdown(itemId: string): Promise<{ ok: true; values: Record<string, unknown> } | { ok: false; error: string }>;
 }
