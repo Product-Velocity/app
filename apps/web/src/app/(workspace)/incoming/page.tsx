@@ -22,7 +22,7 @@ export default async function IncomingPage({ searchParams }: { searchParams: Pro
       </>
     );
   }
-  const { data: projects } = await supabase.from("projects").select("id, name").eq("tenant_id", active.tenantId).order("name");
+  const { data: projects } = await supabase.from("projects").select("id, name").eq("tenant_id", active.tenantId).or("tracker.is.null,tracker.eq.github").order("name");
   const c = conn as { last_check_at: string | null; last_check_summary: string | null };
   // "started" until a check that finished after the click has left its result
   const running = status === "started" && !(c.last_check_at && Date.parse(c.last_check_at) >= Number(t ?? 0));

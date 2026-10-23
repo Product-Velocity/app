@@ -28,24 +28,35 @@ const WHO = [
   { value: "engineering", label: "Engineering in GitHub" },
 ];
 
-export function ProjectRow({ project, repos, canEdit }: { project: { id: string; name: string; default_repo: string | null; who_breaks_down: string }; repos: string[]; canEdit: boolean }) {
+const TRACKERS = [
+  { value: "github", label: "GitHub" },
+  { value: "jira", label: "Jira (when connected)" },
+];
+
+export function ProjectRow({ project, repos, canEdit }: { project: { id: string; name: string; default_repo: string | null; who_breaks_down: string; tracker: string | null }; repos: string[]; canEdit: boolean }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveProjectGithub, null);
   const [repo, setRepo] = useState(project.default_repo ?? "");
   const [who, setWho] = useState(project.who_breaks_down);
+  const [tracker, setTracker] = useState(project.tracker ?? "");
+  const other = tracker !== "" && tracker !== "github"; // a project has one tracker: GitHub settings do not apply to a Jira project
   return (
     <tr>
       <th scope="row">{project.name}</th>
       <td>
-        <SelectField label={`Default repository for ${project.name}`} value={repo} onChange={setRepo} blank="No default repository" disabled={!canEdit} options={repos.map((r) => ({ value: r, label: r }))} />
+        <SelectField label={`Delivery tracker of ${project.name}`} value={tracker} onChange={(v) => { setTracker(v); if (v !== "" && v !== "github") setRepo(""); }} blank="Not set yet" disabled={!canEdit} options={TRACKERS} />
       </td>
       <td>
-        <SelectField label={`Who breaks down the work in ${project.name}`} value={who} onChange={setWho} disabled={!canEdit} options={WHO} />
+        <SelectField label={`Default repository for ${project.name}`} value={repo} onChange={setRepo} blank="No default repository" disabled={!canEdit || other} options={repos.map((r) => ({ value: r, label: r }))} />
+      </td>
+      <td>
+        <SelectField label={`Who breaks down the work in ${project.name}`} value={who} onChange={setWho} disabled={!canEdit || other} options={WHO} />
       </td>
       <td>
         {canEdit && (
           <form action={action}>
             <input type="hidden" name="project_id" value={project.id} />
             <input type="hidden" name="default_repo" value={repo} />
+            <input type="hidden" name="tracker" value={tracker} />
             <input type="hidden" name="who_breaks_down" value={who} />
             <button className="btn" type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</button>
             {state?.ok && <span role="status" className="muted"> {state.ok}</span>}

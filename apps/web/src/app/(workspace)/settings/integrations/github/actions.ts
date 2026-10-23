@@ -78,8 +78,10 @@ export async function saveProjectGithub(_prev: FormState, form: FormData): Promi
   const who = String(form.get("who_breaks_down") ?? "");
   if (!["product", "engineering", "either"].includes(who)) return { error: "Choose who breaks down the work." };
   const repo = String(form.get("default_repo") ?? "") || null;
-  const { error } = await ctx.supabase.from("projects").update({ default_repo: repo, who_breaks_down: who }).eq("id", String(form.get("project_id"))).eq("tenant_id", ctx.active.tenantId);
-  if (error) return { error: error.code === "PV005" ? "That repository is not available through the GitHub connection." : "We could not save that." };
+  const tracker = String(form.get("tracker") ?? "") || null;
+  if (tracker !== null && !["github", "jira"].includes(tracker)) return { error: "Choose a tracker from the list." };
+  const { error } = await ctx.supabase.from("projects").update({ default_repo: repo, who_breaks_down: who, tracker }).eq("id", String(form.get("project_id"))).eq("tenant_id", ctx.active.tenantId);
+  if (error) return { error: error.code === "PV005" ? "That repository is not available through the GitHub connection." : error.code === "PV008" ? error.message : "We could not save that." };
   revalidatePath(PATH);
   return { ok: "Saved" };
 }

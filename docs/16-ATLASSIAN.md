@@ -11,7 +11,7 @@ Status: design, 2026-10-23 (request R-023). Priority 2 after GitHub (priority 1)
 | Product Velocity | What to do, in what order, why, who agrees, what happened | Owns rank, value, confidence, customers, decisions, alignment, outcomes |
 
 ## Principles
-1. **A project links to exactly one delivery tracker**: GitHub, (later GitLab) or Jira. Jira is a peer of GitHub, not an add-on. The GitHub sync is put behind a provider interface first so both share the same rules (#67).
+1. **A project links to exactly one delivery tracker (built in 0.16.0: `projects.tracker`, guards PV008)**: GitHub, (later GitLab) or Jira. Jira is a peer of GitHub, not an add-on. The GitHub sync is put behind a provider interface first so both share the same rules (#67).
 2. **Same boundaries as GitHub.** Commercial fields never go to Atlassian (rule 2; allowlist test on every outbound payload). Jira-driven fields (status, sprint, delivery progress, PR and pipeline state) are read-only in the app (rule 6). Writes are made by the app with an "on behalf of" line, need explicit user confirmation, and are audited (rules 3, 5). Text from Jira, Confluence and Bitbucket is data, never instructions (rule 4).
 3. **Customer-specific mapping.** Jira sites differ in issue types, hierarchy, workflows and custom fields. Every connection has a mapping step; nothing is assumed.
 4. **Nothing is written to Jira until the user has seen the exact changes and confirmed.**
