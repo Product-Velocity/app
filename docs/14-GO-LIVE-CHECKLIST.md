@@ -32,8 +32,8 @@ Living list of things that must be done before real customers or real data. Owne
 - [ ] Validate draft prices (`docs/09`) with 3–5 buyer conversations; no invented competitor claims in any copy.
 - [ ] Billing (Stripe) built; seats and AI usage tracked from day one (Phase 9, pilot first).
 - [ ] Pilot plan: one team, one quarter, success measures from the PRD §7.
-- [ ] Onboarding and first-run flow designed and built (not yet designed).
-- [ ] Notifications designed and built (email, in-app, Slack?) (not yet designed).
+- [ ] Onboarding and first-run flow designed and built (issue #106; board 31 still to be designed).
+- [ ] Notifications designed and built (design note `docs/19-NOTIFICATIONS.md` first; issue #104; Slack is #154).
 - [ ] Open product questions answered: AI agents as capacity, engineers split across two teams.
 
 ## GitHub App
