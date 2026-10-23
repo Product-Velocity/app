@@ -4,7 +4,7 @@ The version is shown at the bottom of the account menu ("app v0.9.0 · build abc
 
 | Version | Date | Key updates | PRs |
 |---|---|---|---|
-| 0.9.0 | 2026-10-23 | **Version in the menu and a release log:** the account menu ends with "app v0.9.0 · build <commit>"; this log; a test keeps the log and the version in step. | #PR |
+| 0.9.0 | 2026-10-23 | **Version in the menu and a release log:** the account menu ends with "app v0.9.0 · build <commit>"; this log; a test keeps the log and the version in step. | #81 |
 | 0.8.0 | 2026-10-23 | **GitHub connection (#31):** Settings > GitHub to connect an organisation, "waiting for approval" for non-owners, repository list, default repository and "who breaks down the work" per project, disconnect; read-only **Test connection** page with a copyable report. New migration 0018. | #80 |
 | 0.7.0 | 2026-10-23 | **GitHub sandbox spikes (#30), admin-only:** one-click suite at `/spikes/github` (credentials, issue types, sub-issue depth, organisation Project read and write, issue-field discovery, webhooks). Results: Projects link and sub-issues are go; Epic is not available on a Free organisation. Throwaway code, removed before go-live. | #65, #75, #77, #78, #79 |
 | 0.6.0 | 2026-10-23 | Leadership view (read-only) with a weekly update draft (#29); delete initiatives with Trash and restore (#52); ordered default views, ten of them (#54); search box at the top of every long drop-down (R-018); fixes for menus in Safari and a dropped trash export. | #59, #60, #61, #62, #63, #64 |
