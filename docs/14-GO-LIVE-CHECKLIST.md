@@ -59,3 +59,4 @@ Living list of things that must be done before real customers or real data. Owne
 - [ ] Every site claim checked against the claims rules in the brand guide.
 - [ ] **Prune `sync_events`** (the sync log) after a retention period, for example 90 days, and decide the production Cron schedule (the free plan allows once a day; Pro allows every minute, which suits reconciliation).
 
+- [ ] Re-check the Vercel function region (`apps/web/vercel.json`, `dub1`) against where the customers and the paid Supabase project are; a multi-region setup needs a paid Vercel plan.

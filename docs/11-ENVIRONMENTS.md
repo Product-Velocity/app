@@ -73,3 +73,5 @@ Not needed while only the team is testing. Do all of these before the first real
 | 10 | **Set `SITE_URL`** to `https://productvelocity.app` in Vercel Production | Sign-in redirects and invite links always use the real domain | Free |
 
 Order that avoids rework: 1 → 5 → 3 → 2 → 7 → 4 → 6 → 8 → 9 → 10.
+
+Vercel functions run in `dub1` (Dublin, `apps/web/vercel.json`), next to the Supabase project (eu-west-1). Move both together.

@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { runConnectionDiagnostics, signInstallState, type CheckResult } from "@pv/github";
 import { githubAppSlug, githubSecret, githubSourceControl, refreshConnection, type ConnectionRow } from "@/lib/github/server";
-import { reconcileConnection, retryEvent } from "@/lib/github/sync";
+import { retryEvent, runCheck } from "@/lib/github/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireWorkspace } from "@/lib/session";
 
@@ -121,16 +122,12 @@ export async function checkGithubNow(): Promise<void> {
   if (!ctx || !sc) redirect(`${PATH}?status=error`);
   const { data } = await ctx.supabase.from("github_connections").select("*").eq("tenant_id", ctx.active.tenantId).eq("state", "connected").maybeSingle();
   if (!data) redirect(`${PATH}?status=error`);
-  let r;
-  try {
-    r = await reconcileConnection(createAdminClient({ via: "GitHub webhook" }), sc, data as ConnectionRow);
-  } catch (e) {
-    const why = e instanceof Error ? e.message.slice(0, 160) : "unknown";
-    console.error(JSON.stringify({ github: "check-now", error: why }));
-    redirect(`${PATH}?status=error&why=${encodeURIComponent(why)}`); // admins only: a short message, never a token or content
-  }
+  // The check takes tens of seconds (a few calls to GitHub and to the database for every linked item). It runs after the answer
+  // has been sent, so the page does not freeze; the result appears under the button when it is done.
+  const connection = data as ConnectionRow;
+  after(async () => { await runCheck(createAdminClient({ via: "GitHub webhook" }), sc, connection); });
   revalidatePath(PATH);
-  redirect(`${PATH}?status=checked&c=${r.checked}&ch=${r.changed}&m=${r.missing}`);
+  redirect(`${PATH}?status=started`);
 }
 
 export async function retrySyncEvent(eventId: string): Promise<void> {

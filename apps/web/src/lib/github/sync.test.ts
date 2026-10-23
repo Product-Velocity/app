@@ -128,3 +128,18 @@ describe("refreshTree", () => {
     expect(await refreshTree(admin, sc, 9, "c1", { item_id: "i1", repo: "Acme/App", number: 31 })).toBe(false);
   });
 });
+
+describe("runCheck", () => {
+  const connection = { id: "c1", tenant_id: "t1", expected_account: "Acme", installation_id: 9, account_login: "Acme", state: "connected" as const };
+  it("leaves a summary on the connection, also when the check fails", async () => {
+    const { runCheck } = await import("./sync");
+    const ok = fakeAdmin({ links: [] });
+    expect(await runCheck(ok, new MemorySourceControl(), connection)).toEqual({ checked: 0, changed: 0, missing: 0, repos: 0 });
+    expect(ok.calls.find((c) => c.table === "github_connections" && c.op === "update")?.payload).toMatchObject({ last_check_summary: "Checked 0 linked item(s): 0 changed, 0 issue(s) not found." });
+    const sc = new MemorySourceControl();
+    sc.listIssues = async () => { throw new Error("GitHub is rate limiting this app"); };
+    const bad = fakeAdmin({ links: [{ id: "l1", item_id: "i1", repo_full_name: "Acme/App", issue_number: 1 }] });
+    expect(await runCheck(bad, sc, connection)).toBeNull();
+    expect(bad.calls.find((c) => c.table === "github_connections" && c.op === "update")?.payload).toMatchObject({ last_check_summary: "The check failed: GitHub is rate limiting this app" });
+  });
+});
