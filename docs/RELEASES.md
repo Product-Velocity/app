@@ -1,9 +1,10 @@
 # Release log
 
-The version is shown at the bottom of the account menu ("app v0.9.0 · build abc1234"). **A release is a pull request merged into `main`.** Every PR that changes what the app does bumps `version` in `apps/web/package.json` and adds a row at the top of this table (a test fails if the two disagree). Numbering while the product is pre-launch: `0.MINOR.PATCH`; a new feature or screen bumps MINOR, a fix or a docs-only change bumps PATCH. The build id is the first seven characters of the Git commit Vercel deployed.
+The version is shown at the bottom of the account menu ("app v0.9.1 · build abc1234"). **A release is a pull request merged into `main`.** Every PR that changes what the app does bumps `version` in `apps/web/package.json` and adds a row at the top of this table (a test fails if the two disagree). Numbering while the product is pre-launch: `0.MINOR.PATCH`; a new feature or screen bumps MINOR, a fix or a docs-only change bumps PATCH. The build id is the first seven characters of the Git commit Vercel deployed.
 
 | Version | Date | Key updates | PRs |
 |---|---|---|---|
+| 0.9.1 | 2026-10-23 | **Fix:** the GitHub settings page now refreshes itself every few seconds while it waits for GitHub's confirmation, so "Connected" appears without reloading. | #PR |
 | 0.9.0 | 2026-10-23 | **Version in the menu and a release log:** the account menu ends with "app v0.9.0 · build <commit>"; this log; a test keeps the log and the version in step. | #81 |
 | 0.8.0 | 2026-10-23 | **GitHub connection (#31):** Settings > GitHub to connect an organisation, "waiting for approval" for non-owners, repository list, default repository and "who breaks down the work" per project, disconnect; read-only **Test connection** page with a copyable report. New migration 0018. | #80 |
 | 0.7.0 | 2026-10-23 | **GitHub sandbox spikes (#30), admin-only:** one-click suite at `/spikes/github` (credentials, issue types, sub-issue depth, organisation Project read and write, issue-field discovery, webhooks). Results: Projects link and sub-issues are go; Epic is not available on a Free organisation. Throwaway code, removed before go-live. | #65, #75, #77, #78, #79 |

@@ -1,5 +1,6 @@
 import { requireWorkspace } from "@/lib/session";
 import { githubAppSlug, type ConnectionRow } from "@/lib/github/server";
+import { AutoRefresh } from "./auto-refresh";
 import { ConnectForm, ProjectRow } from "./forms";
 import { continueOnGithub, disconnectGithub, refreshRepositories } from "./actions";
 import Link from "next/link";
@@ -52,6 +53,7 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
         Connect this workspace to a GitHub organisation. Product Velocity never copies commercial fields (value, confidence, customers, decisions) to GitHub.
         {" "}App name on GitHub: <strong>{githubAppSlug() ?? "not configured"}</strong>.
       </p>
+      {(state === "waiting_approval" || state === "installing") && <AutoRefresh />}
       {status && NOTICE[status] && <p role="status" className="notice">{NOTICE[status]}</p>}
 
       <div className="card stack">
