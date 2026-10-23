@@ -38,6 +38,19 @@ Status: design, 2026-10-23 (request R-023). Priority 2 after GitHub (priority 1)
 ## Confluence
 Link an initiative to one or more Confluence pages (URL plus title, checked on save). No reading of page content in the first version; no writing. Publishing reports to Confluence is a later option.
 
+## Choosing what comes in: pull in, leave out, ignore (R-024, applies to GitHub too)
+Not everything in the tracker belongs in the roadmap (bug tickets, chores, support requests). Nothing is pulled into Product Velocity just because it exists.
+- **Three states for every tracker issue the app knows about:** **Not pulled** (default for anything new), **Pulled in** (becomes or links to an item in the roadmap), **Ignored** (deliberately left out, with an optional reason). Not pulled and Ignored are both reversible at any time: "not" never means "never".
+- **Kept out of Product Velocity work:** not-pulled and ignored issues are not items. They do not appear in the grid, the Stack Rank, planning cycles, capacity or fit line, alignment, gates or reports. Product Velocity never writes to them (no updates, no transitions, no comments).
+- **Light record, so they can come back:** the app stores only key, title, type, status, link and parent (tenant data, RLS) so the **Incoming** list can show them and a later pull is one click. They are re-read on sync to keep status current but nothing else is derived.
+- **Incoming list:** a triage screen per connected project: filter by type, label, component, Jira project, age; select many; **Pull in** (choose level: Initiative, Epic or Task, and parent) or **Ignore** (with reason). Un-ignore and pull in later from the same list ("Ignored" filter).
+- **Rules for new arrivals:** simple saved rules per connection, for example "issue type Bug → Ignore", "label support → Ignore", "Jira project OPS → Ignore". Rules only decide the default state of new arrivals; they never change an item already pulled in, and a person can always override.
+- **Step 1 (read-only discovery):** the Jira map counts everything it read, including what will be ignored, because the slicing is the point. Accepting staged items is the same decision: pulled in or not.
+- **Hierarchy:** ignoring an epic or initiative-level issue ignores its children by default (shown as a suggestion the user confirms); pulling in a child whose parent is not pulled shows the parent as a plain reference.
+- **Insights without noise:** ignored bugs can still be counted at team level for "bug share vs plan" (read-only counts, never individual metrics, rule 8); they never enter ranking.
+- **Outbound is separate:** whether an item is pushed to the tracker stays a per-item action (today's "Push to GitHub"); the new part is the inbound choice. Pulled-in items follow the normal two-way rules.
+- Audit: every state change records actor, source and reason, and can be undone (rule 5). Bulk pull-in or ignore is one undo step.
+
 ## Security and operations
 - Tokens and refresh tokens encrypted at rest, in secrets only, never logged. Disconnect revokes and deletes them. Per-tenant, per-project connection records with tenant RLS and tests.
 - Jira data of a customer is tenant data. The repo is public until go-live: no real Jira data, site URLs or issue content in the repo, fixtures or screenshots. Test against a free Atlassian Cloud site created for the purpose (needs Ashu: see R-023).
