@@ -9,6 +9,7 @@ const DENIED = "42501";
 const FK = "23503";
 const CHECK = "23514";
 const UNIQUE = "23505";
+const EXCLUDE = "23P01"; // the live-rank exclusion constraint (0017) reports duplicates like this
 const BLOCKED = "PV004"; // Claude / service accounts cannot set rank, decision or value
 
 beforeAll(async () => {
@@ -30,7 +31,7 @@ afterAll(async () => {
 const ranks = async (tenant: string, cycle: string | null = null) =>
   (
     await db.admin.query(
-      "select initiative_name as title, stack_rank from public.items where tenant_id = $1 and cycle_id is not distinct from $2 order by stack_rank",
+      "select initiative_name as title, stack_rank from public.items where tenant_id = $1 and deleted_at is null and cycle_id is not distinct from $2 order by stack_rank",
       [tenant, cycle],
     )
   ).rows.map((r) => [r.title, r.stack_rank]);
@@ -71,8 +72,8 @@ describe("who can do what", () => {
       expect(await errorCode(addItem(u, f.tenantA, "Nope", f.seedA.project))).toBe(DENIED);
       const n = await db.asUser(u, async (q) => (await q("update public.items set initiative_name = 'x'")).rowCount, { commit: true });
       expect(n).toBe(0);
-      const d = await db.asUser(u, async (q) => (await q("delete from public.items")).rowCount, { commit: true });
-      expect(d).toBe(0);
+      expect(await errorCode(db.asUser(u, (q) => q("delete from public.items"), { commit: true }))).toBe(DENIED); // nobody deletes rows directly (0017)
+      expect(await db.asUser(u, async (q) => (await q("select ok from public.delete_items($1)", [[f.seedA.items[0]]])).rows[0].ok, { commit: true })).toBe(false);
       expect(await errorCode(move(u, f.seedA.items[2]!, 1))).toBe(DENIED);
     }
   });
@@ -84,9 +85,10 @@ describe("who can do what", () => {
       const n = await db.asUser(u, async (q) => (await q("update public.items set initiative_name = initiative_name || '!' where id = $1", [id])).rowCount, { commit: true });
       expect(n).toBe(1);
     }
-    for (const id of [a.id, b.id]) {
-      expect(await db.asUser(creator, async (q) => (await q("delete from public.items where id = $1", [id])).rowCount, { commit: true })).toBe(1);
-    }
+    // a creator deletes what they created; an admin's item is not theirs to delete (see items-trash.test.ts)
+    expect(await db.asUser(creator, async (q) => (await q("select ok from public.delete_items($1)", [[a.id]])).rows[0].ok, { commit: true })).toBe(true);
+    expect(await db.asUser(creator, async (q) => (await q("select ok from public.delete_items($1)", [[b.id]])).rows[0].ok, { commit: true })).toBe(false);
+    expect(await db.asUser(f.alice, async (q) => (await q("select ok from public.delete_items($1)", [[b.id]])).rows[0].ok, { commit: true })).toBe(true);
   });
 
   it("only admins manage projects and teams", async () => {
@@ -134,13 +136,13 @@ describe("quick-add defaults, keys and stack rank", () => {
         [f.tenantB],
       ),
     );
-    expect(code).toBe(UNIQUE);
+    expect(code).toBe(EXCLUDE);
   });
 });
 
 describe("move_item: re-rank in one transaction, audited", () => {
   it("moves an item up and keeps ranks unique and dense", async () => {
-    const t = (await db.admin.query("select id from public.items where tenant_id = $1 and cycle_id is null and stack_rank = 3", [f.tenantA])).rows[0].id;
+    const t = (await db.admin.query("select id from public.items where tenant_id = $1 and deleted_at is null and cycle_id is null and stack_rank = 3", [f.tenantA])).rows[0].id;
     const before = await ranks(f.tenantA);
     await move(f.alice, t, 1);
     const after = await ranks(f.tenantA);
@@ -150,7 +152,7 @@ describe("move_item: re-rank in one transaction, audited", () => {
   });
 
   it("moves an item down", async () => {
-    const first = (await db.admin.query("select id, initiative_name as title from public.items where tenant_id = $1 and cycle_id is null and stack_rank = 1", [f.tenantA])).rows[0];
+    const first = (await db.admin.query("select id, initiative_name as title from public.items where tenant_id = $1 and deleted_at is null and cycle_id is null and stack_rank = 1", [f.tenantA])).rows[0];
     const n = (await ranks(f.tenantA)).length;
     await move(creator, first.id, n);
     const after = await ranks(f.tenantA);
@@ -159,7 +161,7 @@ describe("move_item: re-rank in one transaction, audited", () => {
   });
 
   it("clamps out-of-range positions and ignores a move to the same place", async () => {
-    const id = (await db.admin.query("select id from public.items where tenant_id = $1 and cycle_id is null and stack_rank = 2", [f.tenantA])).rows[0].id;
+    const id = (await db.admin.query("select id from public.items where tenant_id = $1 and deleted_at is null and cycle_id is null and stack_rank = 2", [f.tenantA])).rows[0].id;
     await move(f.alice, id, 9999);
     expect((await ranks(f.tenantA)).at(-1)![1]).toBe((await ranks(f.tenantA)).length);
     await move(f.alice, id, -5);
@@ -170,7 +172,7 @@ describe("move_item: re-rank in one transaction, audited", () => {
   });
 
   it("writes one audit row per item whose rank changed, with actor and source, and sets previous_rank on the moved item", async () => {
-    const rows = (await db.admin.query("select id, stack_rank from public.items where tenant_id = $1 and cycle_id is null order by stack_rank", [f.tenantA])).rows;
+    const rows = (await db.admin.query("select id, stack_rank from public.items where tenant_id = $1 and deleted_at is null and cycle_id is null order by stack_rank", [f.tenantA])).rows;
     const last = rows.at(-1)!;
     const mark = (await db.admin.query("select coalesce(max(id), 0) m from public.audit_log")).rows[0].m;
     await db.asUser(f.alice, (q) => q("select public.move_item($1, 1)", [last.id]), { commit: true, via: "UI" });
@@ -189,8 +191,8 @@ describe("move_item: re-rank in one transaction, audited", () => {
   });
 
   it("deleting items closes the gaps in one statement", async () => {
-    const t = (await db.admin.query("select id from public.items where tenant_id = $1 and cycle_id is null and stack_rank in (1, 3)", [f.tenantA])).rows.map((r) => r.id);
-    await db.asUser(f.alice, (q) => q("delete from public.items where id = any($1)", [t]), { commit: true });
+    const t = (await db.admin.query("select id from public.items where tenant_id = $1 and deleted_at is null and cycle_id is null and stack_rank in (1, 3)", [f.tenantA])).rows.map((r) => r.id);
+    await db.asUser(f.alice, (q) => q("select * from public.delete_items($1)", [t]), { commit: true });
     const after = await ranks(f.tenantA);
     expect(after.map((r) => r[1])).toEqual(after.map((_, i) => i + 1));
   });
@@ -266,10 +268,10 @@ describe("Claude and service accounts never set rank, Decision or Value", () => 
     expect(draft.stack_rank).toBeGreaterThan(0);
   });
 
-  it("deleting an item as Claude closes the gap without counting as Claude setting a rank", async () => {
+  it("Claude cannot delete an item (a person confirms), and the rank list stays whole", async () => {
     const draft = await addItem(f.alice, f.tenantA, "Draft to delete", f.seedA.project, { via: "Claude MCP" });
-    const first = (await db.admin.query("select id from public.items where tenant_id = $1 and cycle_id is null and stack_rank = 1", [f.tenantA])).rows[0].id;
-    await db.asUser(f.alice, (q) => q("delete from public.items where id = $1", [first]), { via: "Claude MCP", commit: true });
+    const first = (await db.admin.query("select id from public.items where tenant_id = $1 and deleted_at is null and cycle_id is null and stack_rank = 1", [f.tenantA])).rows[0].id;
+    expect(await errorCode(db.asUser(f.alice, (q) => q("select * from public.delete_items($1)", [[first]]), { via: "Claude MCP", commit: true }))).toBe(BLOCKED);
     const after = await ranks(f.tenantA);
     expect(after.map((r) => r[1])).toEqual(after.map((_, i) => i + 1));
     expect(draft.id).toBeTruthy();
@@ -337,7 +339,7 @@ describe("audit of every write", () => {
       { via: "UI", commit: true },
     );
     await db.asUser(creator, (q) => q("update public.items set initiative_name = 'Audited 2', moscow = 'Could' where id = $1", [item.id]), { via: "UI", commit: true });
-    await db.asUser(creator, (q) => q("delete from public.items where id = $1", [item.id]), { via: "UI", commit: true });
+    await db.asUser(creator, (q) => q("select * from public.discard_new_items($1)", [[item.id]]), { via: "UI", commit: true });
     const rows = (await db.admin.query("select field, old, new, actor_id, via from public.audit_log where id > $1 and entity = 'items' and entity_id = $2 order by id", [mark, item.id])).rows;
     expect(rows.every((r) => r.actor_id === creator && r.via === "UI")).toBe(true);
     expect(rows.find((r) => r.field === "initiative_name" && r.new === "Audited 2")).toMatchObject({ old: "Audited" });
