@@ -121,13 +121,13 @@ export async function reconcileConnection(admin: Admin, sc: SourceControl, conne
   const treeJobs: { item_id: string; repo: string; number: number }[] = [];
   for (const [repo, repoLinks] of byRepo) {
     const issues = new Map<number, IssueSummary>((await sc.listIssues(connection.installation_id, repo)).map((i) => [i.number, i]));
-    for (const l of repoLinks) {
+    const one = async (l: { id: string; item_id: string; number: number }) => {
       result.checked++;
       const issue = issues.get(l.number);
       if (!issue) {
         result.missing++;
         await admin.from("item_github_links").update({ sync_state: "error", last_error: "The GitHub issue was not found (deleted or moved)." }).eq("id", l.id);
-        continue;
+        return;
       }
       const facts: IssueFacts = { repo, number: issue.number, issueId: issue.id, nodeId: issue.nodeId, state: issue.state, stateReason: issue.stateReason, updatedAt: issue.updatedAt, closedAt: issue.closedAt };
       const applied = await applyFacts(admin, connection.id, facts);
@@ -136,11 +136,26 @@ export async function reconcileConnection(admin: Admin, sc: SourceControl, conne
         await admin.from("sync_events").insert({ tenant_id: connection.tenant_id, connection_id: connection.id, delivery_id: `reconcile-${crypto.randomUUID()}`, source: "reconcile", event: "issues", action: "reconciled", repo_full_name: repo, issue_number: issue.number, summary: facts, item_id: l.item_id, state: "processed", attempts: 1, processed_at: new Date().toISOString(), applied: applied.changes });
       }
       treeJobs.push({ item_id: l.item_id, repo, number: l.number });
-    }
+    };
+    // several linked items at a time: each one is a few round trips to the database, and 30 in a row is slow
+    for (let i = 0; i < repoLinks.length; i += 6) await Promise.all(repoLinks.slice(i, i + 6).map(one));
   }
   // epics and tasks: several issues at a time, so a workspace with many linked items stays inside the time limit of the request
   for (let i = 0; i < treeJobs.length; i += 6) {
     await Promise.all(treeJobs.slice(i, i + 6).map((j) => refreshTree(admin, sc, connection.installation_id!, connection.id, j)));
   }
   return result;
+}
+
+/** A full check that always leaves its outcome on the connection (shown in Settings > GitHub), whether it worked or not. */
+export async function runCheck(admin: Admin, sc: SourceControl, connection: ConnectionRow): Promise<ReconcileResult | null> {
+  try {
+    const r = await reconcileConnection(admin, sc, connection);
+    await admin.from("github_connections").update({ last_check_at: new Date().toISOString(), last_check_summary: `Checked ${r.checked} linked item(s): ${r.changed} changed, ${r.missing} issue(s) not found.` }).eq("id", connection.id);
+    return r;
+  } catch (e) {
+    console.error(JSON.stringify({ github: "check", error: short(e) }));
+    await admin.from("github_connections").update({ last_check_at: new Date().toISOString(), last_check_summary: `The check failed: ${short(e)}`.slice(0, 300) }).eq("id", connection.id);
+    return null;
+  }
 }

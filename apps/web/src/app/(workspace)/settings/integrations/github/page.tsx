@@ -12,6 +12,7 @@ export const maxDuration = 60;
 export const metadata = { title: "GitHub · Product Velocity" };
 
 const NOTICE: Record<string, string> = {
+  started: "Checking GitHub in the background. This takes up to a minute; the result appears under the button and the page updates by itself.",
   waiting: "Request sent. An owner of the GitHub organisation must approve it; this page updates when GitHub confirms.",
   installed: "Installed on GitHub. Waiting for GitHub to confirm; this page updates when it does.",
   connected: "Connected.",
@@ -46,7 +47,7 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
   const isAdmin = active.role === "admin";
 
   const { data: conn } = await supabase.from("github_connections").select("*").eq("tenant_id", active.tenantId).neq("state", "disconnected").maybeSingle();
-  const c = conn as (ConnectionRow & { repository_selection: string | null; epic_type_available: boolean | null; repositories_synced_at: string | null }) | null;
+  const c = conn as (ConnectionRow & { repository_selection: string | null; epic_type_available: boolean | null; repositories_synced_at: string | null; last_check_at: string | null; last_check_summary: string | null }) | null;
   const { data: repoRows } = c ? await supabase.from("github_repositories").select("id, full_name, is_private, access").eq("connection_id", c.id).is("removed_at", null).order("full_name") : { data: [] };
   const { data: projectRows } = await supabase.from("projects").select("id, name, default_repo, who_breaks_down").eq("tenant_id", active.tenantId).order("name");
   const repos = (repoRows ?? []) as Repo[];
@@ -113,6 +114,8 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
               <form action={checkGithubNow}><button className="btn" type="submit">Check GitHub now</button></form>
             </div>
           )}
+          {c.last_check_at && <p className="muted" role="status">Last check {new Date(c.last_check_at).toLocaleString("en-GB")}: {c.last_check_summary}</p>}
+          {isAdmin && status === "started" && <AutoRefresh everyMs={3000} maxTries={30} />}
           {isAdmin && (
             <table className="table">
               <caption className="visually-hidden">Latest changes from GitHub</caption>
