@@ -28,7 +28,7 @@ Status: design, 2026-10-23 (request R-023). Priority 2 after GitHub (priority 1)
 - **Clean up** in the normal grid, with undo: merge duplicates, split large items, regroup under Initiative Groups, close or drop what is dead, rank the rest. Changes to linked items collect in a **pending change-set**.
 - **Review and push:** "What will change in Jira" shows every create, update, link and transition per issue; the user confirms (all, or selected). Pushes are idempotent and audited; undo creates the reverse change (a Jira transition cannot always be undone silently, so the preview says so).
 - **Maintain, two-way:** Product Velocity → Jira for the allowlisted fields (name, description, labels, parent links, dates, priority, MoSCoW as a label or custom field per mapping); Jira → Product Velocity for status, sprint, assignee, progress, dates, PR and pipeline state. Webhooks (or polling if webhooks are unsuitable) are idempotent. Conflicts are highlighted and logged as for GitHub (`docs/04`). Status changes in Jira always win for Jira-driven fields; transitions follow the customer's workflow rules, so the app only requests transitions that the workflow allows. **[SPIKE J3, J4]**
-- The step-2 wording was cut off in the request; this reading (clean up, then write back and maintain) is the assumption. Confirm with Ashu.
+- Confirmed by Ashu 2026-10-23: step 2 is clean up in Product Velocity, then write back and maintain two-way.
 
 ## Bitbucket (upstream and downstream)
 - **Downstream (read):** PR, branch, commit and pipeline state for each initiative, epic and task, found through Jira issue keys in branch names, commits and PR titles (via the Jira development information, or the Bitbucket API if that is not enough). Shown in the same place as GitHub PR and CI state. **[SPIKE J5]**
@@ -55,6 +55,6 @@ Link an initiative to one or more Confluence pages (URL plus title, checked on s
 | J6 | Rate limits and bulk read performance on a site with thousands of issues. |
 
 ## Open points
-- **GitLab order:** GitLab was "next after GitHub". Atlassian is now priority 2; confirm that GitLab moves after it.
+- **GitLab order (decided 2026-10-23):** GitHub is priority 1, Atlassian priority 2, GitLab priority 3.
 - Customer details to collect before the mapping design is final: Jira project keys in scope, hierarchy levels used, workflow per project, required custom fields, whether Jira Product Discovery is also used.
 - Self-hosted Jira or Bitbucket Data Center: out of scope (Cloud only).
