@@ -58,6 +58,7 @@ h2 { font-size: 14px; font-weight: 600; margin: 24px 0 8px; }
 .account summary::-webkit-details-marker { display: none; }
 .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--blue-tint-1); color: var(--blue-text); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 11px; }
 .account-menu { position: absolute; right: 0; top: 36px; min-width: 220px; background: var(--bg); border: 1px solid #e1e5eb; border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, .12); padding: 6px 0; }
+.account-version { margin: 4px 0 0; padding: 8px 12px 4px; border-top: 1px solid var(--grey-2); font-size: 12px; color: #5b6272; font-family: "IBM Plex Mono", monospace; }
 .account-who { margin: 0; padding: 6px 12px 8px; display: grid; gap: 1px; border-bottom: 1px solid var(--grey-2); margin-bottom: 4px; overflow-wrap: anywhere; }
 .menu-link { display: block; width: 100%; padding: 6px 12px; color: #111827; text-decoration: none; text-align: left; background: none; border: 0; font: inherit; cursor: pointer; }
 .menu-link:hover { background: var(--blue-tint-2); }
