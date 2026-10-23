@@ -36,7 +36,7 @@ function fakeAdmin(opts: { connection?: unknown; link?: unknown; links?: unknown
   return client as unknown as Parameters<typeof ingestIssueEvent>[0] & { calls: Call[] };
 }
 
-const ev = { action: "closed", installationId: 9, repo: "Acme/App", number: 31, issueId: 5, nodeId: "I_x", state: "closed" as const, stateReason: "completed", updatedAt: "2026-10-23T10:00:00Z", closedAt: "2026-10-23T09:59:00Z" };
+const ev = { action: "closed", installationId: 9, repo: "Acme/App", number: 31, issueId: 5, nodeId: "I_x", state: "closed" as const, stateReason: "completed", updatedAt: "2026-10-23T10:00:00Z", closedAt: "2026-10-23T09:59:00Z", title: "Fix the thing", issueType: "Bug" as string | null, labels: ["support"], htmlUrl: "https://github.com/Acme/App/issues/31" as string | null, parentNumber: null as number | null };
 const conn = { id: "c1", tenant_id: "t1" };
 const link = { id: "l1", item_id: "i1" };
 
@@ -63,10 +63,14 @@ describe("ingestIssueEvent", () => {
     expect(await ingestIssueEvent(admin, ev, "d-1")).toBe("duplicate");
     expect(admin.calls.some((c) => c.op === "rpc")).toBe(false);
   });
-  it("an issue nobody links, or an unknown installation, is ignored and not stored", async () => {
+  it("an issue nobody links is kept only as a light record for the Incoming list (never as a sync event); an unknown installation is ignored", async () => {
     const noLink = fakeAdmin({ connection: conn, link: null });
-    expect(await ingestIssueEvent(noLink, ev, "d-2")).toBe("ignored");
+    expect(await ingestIssueEvent(noLink, ev, "d-2")).toBe("processed");
     expect(noLink.calls.some((c) => c.op === "insert")).toBe(false);
+    expect(noLink.calls.find((c) => c.op === "rpc" && c.table === "tracker_upsert_issues")?.payload).toMatchObject({ p_connection: "c1", p_rows: [{ repo: "Acme/App", number: 31, title: "Fix the thing", type: "Bug", labels: ["support"] }] });
+    const gone = fakeAdmin({ connection: conn, link: null });
+    expect(await ingestIssueEvent(gone, { ...ev, action: "deleted" }, "d-2b")).toBe("ignored");
+    expect(gone.calls.some((c) => c.op === "rpc")).toBe(false);
     const noConn = fakeAdmin({ connection: null });
     expect(await ingestIssueEvent(noConn, ev, "d-3")).toBe("ignored");
   });

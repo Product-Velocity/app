@@ -164,10 +164,10 @@ describe("decideConnectionChange", () => {
 });
 
 describe("parseIssueEvent", () => {
-  const payload = (over: Record<string, unknown> = {}) => ({ action: "closed", installation: { id: 9 }, repository: { full_name: "Acme/App" }, issue: { number: 31, id: 5, node_id: "I_x", state: "closed", state_reason: "completed", updated_at: "2026-10-23T10:00:00Z", closed_at: "2026-10-23T09:59:00Z", title: "SECRET TITLE", body: "SECRET BODY", user: { login: "someone" } }, ...over });
-  it("reads only what the sync needs, never titles, bodies or people", () => {
+  const payload = (over: Record<string, unknown> = {}) => ({ action: "closed", installation: { id: 9 }, repository: { full_name: "Acme/App" }, issue: { number: 31, id: 5, node_id: "I_x", state: "closed", state_reason: "completed", updated_at: "2026-10-23T10:00:00Z", closed_at: "2026-10-23T09:59:00Z", title: "A title", html_url: "https://github.com/Acme/App/issues/31", type: { name: "Bug" }, labels: [{ name: "support" }], body: "SECRET BODY", user: { login: "someone" } }, ...over });
+  it("reads the light record (title, type, labels, link) and never bodies or people", () => {
     const e = parseIssueEvent("issues", payload());
-    expect(e).toEqual({ action: "closed", installationId: 9, repo: "Acme/App", number: 31, issueId: 5, nodeId: "I_x", state: "closed", stateReason: "completed", updatedAt: "2026-10-23T10:00:00Z", closedAt: "2026-10-23T09:59:00Z" });
+    expect(e).toEqual({ action: "closed", installationId: 9, repo: "Acme/App", number: 31, issueId: 5, nodeId: "I_x", state: "closed", stateReason: "completed", updatedAt: "2026-10-23T10:00:00Z", closedAt: "2026-10-23T09:59:00Z", title: "A title", issueType: "Bug", labels: ["support"], htmlUrl: "https://github.com/Acme/App/issues/31", parentNumber: null });
     expect(JSON.stringify(e)).not.toMatch(/SECRET|someone/);
   });
   it("ignores other events, pull requests and malformed payloads", () => {

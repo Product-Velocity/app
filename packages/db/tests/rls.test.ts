@@ -163,6 +163,26 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "tracker_issues",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.tracker_issues set pull_state = 'ignored' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.tracker_issues where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.tracker_issues (tenant_id, connection_id, repo_full_name, issue_number, title) select tenant_id, connection_id, 'evil/repo', 99, 'x' from public.tracker_issues where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.tracker_issues set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "tracker_rules",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.tracker_rules set removed_at = now() where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.tracker_rules where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.tracker_rules (tenant_id, connection_id, kind, value) select tenant_id, connection_id, 'type', 'Evil' from public.tracker_rules where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.tracker_rules set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "sync_events",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

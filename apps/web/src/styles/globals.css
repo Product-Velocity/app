@@ -474,3 +474,13 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 .push-list li.push-blocked { border-color: #c9a3a3; background: #fbf3f3; }
 .push-body { white-space: pre-wrap; font-family: "IBM Plex Mono", monospace; font-size: 12px; background: var(--grey-3); padding: 8px; border-radius: 4px; max-height: 240px; overflow: auto; }
 .ip-gh { margin: 2px 0 6px; font-size: 12px; color: #5b6272; }
+
+/* Incoming list (R-024) */
+.incoming-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-top: 12px; }
+.incoming-filters, .incoming-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+.incoming-filters input[type="search"] { min-width: 240px; }
+.incoming-filters select, .incoming-filters input, .incoming-actions select, .incoming-actions input { font: inherit; height: 28px; border: 1px solid #c9ceda; border-radius: var(--radius-sm); padding: 0 6px; background: var(--bg); }
+.incoming-actions { padding: 8px 10px; background: var(--blue-tint-2); border: 1px solid var(--blue-tint-1); border-radius: var(--radius-md); }
+.incoming-table td { vertical-align: top; }
+.incoming-rules { margin-top: 32px; border-top: 1px solid var(--border); padding-top: 12px; }
+.incoming-rules h2 { font-size: 15px; margin: 0 0 4px; }

@@ -130,8 +130,13 @@ export class GitHubAppSourceControl implements SourceControl {
     for (let page = 1; page <= 10; page++) {
       const res = await this.call(installationId, "GET", `/repos/${repo}/issues?state=all&sort=updated&direction=desc&per_page=100&page=${page}`);
       if (!res.ok) throw new GitHubError(res.status, `GitHub could not list issues (${res.status})`);
-      const rows = (await res.json()) as { number: number; id: number; node_id: string; state: string; state_reason?: string | null; updated_at: string; closed_at?: string | null; pull_request?: unknown }[];
-      for (const r of rows) if (!r.pull_request) out.push({ number: r.number, id: r.id, nodeId: r.node_id, state: r.state === "closed" ? "closed" : "open", stateReason: r.state_reason ?? null, updatedAt: r.updated_at, closedAt: r.closed_at ?? null });
+      const rows = (await res.json()) as { number: number; id: number; node_id: string; state: string; state_reason?: string | null; updated_at: string; closed_at?: string | null; pull_request?: unknown; title?: string; html_url?: string; type?: { name?: string } | null; labels?: ({ name?: string } | string)[]; parent_issue_url?: string | null }[];
+      for (const r of rows) if (!r.pull_request) out.push({
+        number: r.number, id: r.id, nodeId: r.node_id, state: r.state === "closed" ? "closed" : "open", stateReason: r.state_reason ?? null, updatedAt: r.updated_at, closedAt: r.closed_at ?? null,
+        title: (r.title ?? "").slice(0, 300), issueType: r.type?.name ?? null, htmlUrl: r.html_url ?? null,
+        labels: (r.labels ?? []).map((l) => (typeof l === "string" ? l : l.name ?? "")).filter(Boolean).slice(0, 30),
+        parentNumber: r.parent_issue_url ? Number(r.parent_issue_url.split("/").pop()) || null : null,
+      });
       if (rows.length < 100) break;
     }
     return out;
