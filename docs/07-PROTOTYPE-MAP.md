@@ -11,7 +11,7 @@ Published (view-only reference): https://claude.ai/artifact/WVtip16iTPYZdru67tsg
 | 5 | AI-intake | AI intake with duplicate check | 4 | |
 | 6 | GitHub-setup | Connection, waiting for approval | 3 | Built in #31 as Settings > GitHub (`/settings/integrations/github`: status, connect, waiting for approval, repositories, per-project default repository and "who breaks down the work") and Settings > GitHub > Test connection (R-025). The bulk bar's **Update GitHub…** and the item panel's **Update GitHub…** open a confirmation that lists what will be created or updated and the exact text of the managed block (#33). No board for the test page: it is a plain checklist with pass / fail / info and a copyable report. |
 | 7 | Leadership | Leadership view + weekly update | 2/4 | Built in #29 (`docs/18-LEADERSHIP.md`): health by project, needs attention, top items, what moved, mix, weekly update. Not built: present full screen, share read-only link, Now/Next/Later, alignment tile, sending (the issue says nothing is sent automatically) |
-| 8 | Results-admin | Alignment results (admin) | 5 | R2 dimensions not shown |
+| 8 | Results-admin | Alignment results (admin) | 5 | R2 dimensions not shown. Privacy model: `docs/19-ALIGNMENT-PRIVACY.md` |
 | 9–12 | Join, Rank-top5, Rank-duel, Results-participant | Participant mobile flow | 5 | |
 | 19 | Rank-coins | Participant 100 coins (mobile) | 5 | |
 | 13 | Item-spec | Documents, readiness, epics, breakdown route | 4 | |
