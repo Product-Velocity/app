@@ -45,6 +45,7 @@ export function AccountMenu({ email, roleLabel, isApprover, showTrash }: { email
         </div>
         <div role="group" aria-labelledby="menu-account">
           <p className="menu-heading" id="menu-account">Account</p>
+          <Link href="/account" className="menu-link">Account</Link>
           <Link href="/settings/security" className="menu-link">Security</Link>
           <form action="/auth/sign-out" method="post">
             <button className="menu-link menu-button" type="submit">Sign out</button>

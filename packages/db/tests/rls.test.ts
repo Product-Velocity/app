@@ -399,7 +399,7 @@ describe("roles inside a tenant", () => {
       "update public.tenant_members set is_approver = true",
       "update public.tenant_members set role = 'admin'",
       "update public.tenants set name = 'x'",
-      "delete from public.tenant_members",
+      "delete from public.tenant_members where user_id <> auth.uid()", // leaving is allowed for one's own row (0030, tests/leave-workspace.test.ts), never for others
     ]) {
       const affected = await db.asUser(f.carol, async (q) => (await q(sql)).rowCount, { commit: true });
       expect(affected, sql).toBe(0);
