@@ -195,9 +195,9 @@ async function s3b(token: string): Promise<Out> {
   if (!issue) return { verdict: "fail", summary: "Could not create the test issue.", fix: fixOf(r) };
   const probes: Record<string, unknown> = {};
   const orgFields = await gh("installation", "GET", `/orgs/${SANDBOX_ORG}/issue-fields`, undefined, token);
-  probes["GET /orgs/{org}/issue-fields"] = { status: orgFields.status, body: compact(orgFields.body) };
+  probes["GET /orgs/{org}/issue-fields"] = { status: orgFields.status, permissionGitHubNames: orgFields.headers["x-accepted-github-permissions"], body: compact(orgFields.body) };
   const values = await gh("installation", "GET", `${repo}/issues/${issue.number}/issue-field-values`, undefined, token);
-  probes["GET /repos/.../issues/{n}/issue-field-values"] = { status: values.status, body: compact(values.body) };
+  probes["GET /repos/.../issues/{n}/issue-field-values"] = { status: values.status, permissionGitHubNames: values.headers["x-accepted-github-permissions"], body: compact(values.body) };
   const g = await gql(token, `query($org:String!){organization(login:$org){issueFields(first:20){nodes{__typename}}}}`, { org: SANDBOX_ORG });
   probes["GraphQL organization.issueFields"] = { status: g.status, error: g.error, data: g.data };
   const issueGet = await gh("installation", "GET", `${repo}/issues/${issue.number}`, undefined, token);
@@ -216,19 +216,28 @@ async function webhooks(): Promise<Out> {
   if (!r.ok) return { verdict: "fail", summary: `Could not list deliveries (${r.status}).`, fix: fixOf(r), evidence: compact(r.body) };
   const list = Array.isArray(r.body) ? (r.body as Delivery[]) : [];
   const counts = summariseDeliveries(list);
-  const good = list.filter((d) => (d.status_code ?? 0) >= 200 && (d.status_code ?? 0) < 300).length;
-  const unauthorised = list.filter((d) => d.status_code === 401).length;
-  const bad = list.filter((d) => (d.status_code ?? 0) >= 400 && d.status_code !== 401);
+  // Deliveries come newest first. Only the latest 20 decide the verdict: an old failure (for example a ping sent
+  // before the route was deployed) must not hide that everything since then works.
+  const recent = list.slice(0, 20);
+  const good = recent.filter((d) => (d.status_code ?? 0) >= 200 && (d.status_code ?? 0) < 300).length;
+  const unauthorised = recent.filter((d) => d.status_code === 401).length;
+  const bad = recent.filter((d) => (d.status_code ?? 0) >= 400 && d.status_code !== 401);
+  const evidence = { allDeliveries: counts, latestTwenty: summariseDeliveries(recent) };
   if (list.length === 0) {
-    return { verdict: "fail", summary: "GitHub has sent no webhook deliveries yet.", fix: "In the App's settings, tick Webhook > Active and set the Webhook URL to https://productvelocity.app/api/spikes/github-webhook, then re-run the other checks (they generate events).", evidence: counts };
+    return { verdict: "fail", summary: "GitHub has sent no webhook deliveries yet.", fix: "In the App's settings, tick Webhook > Active and set the Webhook URL to https://productvelocity.app/api/spikes/github-webhook, then re-run the other checks (they generate events).", evidence };
   }
   if (unauthorised) {
-    return { verdict: "fail", summary: `${unauthorised} of ${list.length} deliveries were rejected with 401 (signature mismatch).`, fix: "The webhook secret in Vercel (GITHUB_APP_WEBHOOK_SECRET) differs from the App's. Make them identical, redeploy, then use 'Redeliver' on a delivery in the App's Advanced tab.", evidence: counts };
+    return { verdict: "fail", summary: `${unauthorised} of the latest ${recent.length} deliveries were rejected with 401 (signature mismatch).`, fix: "The webhook secret in Vercel (GITHUB_APP_WEBHOOK_SECRET) differs from the App's. Make them identical, redeploy, then use 'Redeliver' on a delivery in the App's Advanced tab.", evidence };
   }
   if (bad.length) {
-    return { verdict: "fail", summary: `${bad.length} deliveries got an error status.`, fix: "404 means the URL is wrong; 5xx means the route crashed (see Vercel logs).", evidence: counts };
+    return { verdict: "fail", summary: `${bad.length} of the latest ${recent.length} deliveries got an error status.`, fix: "404 means the URL is wrong; 5xx means the route crashed (see Vercel logs).", evidence };
   }
-  return { verdict: good ? "pass" : "fail", summary: `${good} of ${list.length} recent deliveries were accepted (2xx). Events seen are listed in the evidence.`, evidence: counts };
+  const old = list.slice(20).filter((d) => (d.status_code ?? 0) >= 400).length;
+  return {
+    verdict: good ? "pass" : "fail",
+    summary: `${good} of the latest ${recent.length} deliveries were accepted (2xx)${old ? `; ${old} older delivery(ies) failed, probably from before the route was deployed` : ""}.`,
+    evidence,
+  };
 }
 
 async function s5b(): Promise<Out> {
