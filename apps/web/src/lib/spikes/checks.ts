@@ -47,10 +47,27 @@ async function connection(): Promise<Out> {
   if (!mine) {
     return { verdict: "fail", summary: `The App is not installed on ${SANDBOX_ORG}.`, fix: "Install it: the App's page on GitHub > Install App > the org > Only select repositories > Test-Repo-01.", evidence: { installations: list.length } };
   }
+  if (mine.repository_selection === "all") {
+    return {
+      verdict: "fail",
+      summary: `The App is installed on ALL repositories of ${SANDBOX_ORG}, including ${SANDBOX_ORG}/app. The sandbox rule is ${SANDBOX_REPO} only.`,
+      fix: `Open https://github.com/organizations/${SANDBOX_ORG}/settings/installations/${mine.id}, under Repository access choose "Only select repositories", select ${SANDBOX_REPO}, and save.`,
+      evidence: { installedOn: list.map((i) => `${i.account?.login} (${i.repository_selection})`) },
+    };
+  }
+  const elsewhere = list.filter((i) => i !== mine);
+  if (elsewhere.length) {
+    return {
+      verdict: "fail",
+      summary: `The App is also installed outside the sandbox org: ${elsewhere.map((i) => `${i.account?.login} (${i.repository_selection})`).join(", ")}. That gives it access to unrelated repositories.`,
+      fix: "On GitHub, sign in as that account, go to Settings > Applications > Installed GitHub Apps > Product Velocity Sandbox > Configure, and uninstall it. Then retry the non-owner request with the Product-Velocity organisation as the target.",
+      evidence: { installedOn: list.map((i) => `${i.account?.login} (${i.repository_selection})`) },
+    };
+  }
   const gaps = permissionGaps(mine.permissions, { issues: "write", organization_projects: "write", issue_types: "read" });
   const missingEvents = ["issues", "projects_v2_item"].filter((e) => !mine.events?.includes(e));
   const pendingPerms = permissionGaps(appInfo.permissions, { issues: "write" }).length === 0 && gaps.length > 0;
-  const evidence = compact({ app: appInfo.slug, appPermissions: appInfo.permissions, installationPermissions: mine.permissions, installationEvents: mine.events, repositorySelection: mine.repository_selection });
+  const evidence = compact({ app: appInfo.slug, appPermissions: appInfo.permissions, installationPermissions: mine.permissions, installationEvents: mine.events, repositorySelection: mine.repository_selection, installedOn: list.map((i) => `${i.account?.login} (${i.repository_selection})`) });
   if (gaps.length || missingEvents.length) {
     return {
       verdict: "fail",
