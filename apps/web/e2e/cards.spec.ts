@@ -43,7 +43,7 @@ test.describe("the board", () => {
     await expect(page.locator(".kb-lane-head")).toHaveCount(0);
     expect(page.url()).toContain("lane=none");
     await columns.selectOption("status");
-    await expect(page.getByRole("note")).toContainText("Initiative Status comes from GitHub");
+    await expect(page.getByRole("note")).toContainText("Build Status comes from GitHub");
   });
 
   test("lanes collapse and expand; a lane with no cards starts collapsed", async ({ page }) => {

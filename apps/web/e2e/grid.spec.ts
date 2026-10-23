@@ -33,7 +33,7 @@ test("loads and shows the autosave strip without a Save button", async ({ page }
   await expect(strip(page)).toContainText("All changes saved");
   await expect(page.getByRole("button", { name: /^save/i })).toHaveCount(0);
   await expect(page.getByRole("columnheader", { name: "Initiative Name" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Initiative Status" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Build Status" })).toBeVisible();
   await expect(page.locator(".grid-foot")).toContainText("200 items");
 });
 
@@ -121,14 +121,14 @@ test("GitHub-driven cells are locked: double-click and keyboard explain why, not
   const before = await status.innerText();
   await status.dblclick();
   await expect(page.locator(".ag-cell-inline-editing")).toHaveCount(0);
-  await expect(page.locator(".strip-notice")).toContainText("Initiative Status comes from GitHub");
+  await expect(page.locator(".strip-notice")).toContainText("Build Status comes from GitHub");
   await page.locator(".strip-notice").waitFor();
   await cell(page, "item-1", "delivery_progress_pct").click();
   await page.keyboard.press("Enter");
   await expect(page.locator(".strip-notice")).toContainText("Delivery Progress % comes from GitHub");
   await page.keyboard.type("99");
   await expect(status).toHaveText(before);
-  await expect(page.getByRole("columnheader", { name: /Initiative Status/ })).toBeVisible(); // locked state is also in words
+  await expect(page.getByRole("columnheader", { name: /Build Status/ })).toBeVisible(); // locked state is also in words
 });
 
 test("Ctrl+Z undoes, Ctrl+Shift+Z redoes, and the buttons do the same", async ({ page }) => {
