@@ -10,3 +10,4 @@ export * from "./views";
 export * from "./groups";
 export * from "./panel";
 export * from "./related";
+export * from "./gantt";

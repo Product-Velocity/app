@@ -376,3 +376,55 @@ describe("list fields of an item (item panel)", () => {
     expect(c.restoreValue("item-1", "status", "Backlog", "Completed")).toMatchObject({ ok: false });
   });
 });
+
+describe("moving a Gantt bar: Planned Start and G2M Date (est) together", () => {
+  const dated = (role = "creator") => {
+    const items = sampleItems(4, ["p1"], ["u1"]).map((i) => ({ ...i, planned_start: "2027-03-01", g2m_date_est: "2027-03-31" }));
+    const source = new MemoryDataSource(items);
+    return { c: new PortfolioController(source, items, lookups, role, () => TODAY, () => 1_000), source };
+  };
+  it("changes both dates at once, saves each, and one undo puts both back", async () => {
+    const { c, source } = dated();
+    expect(c.setDates("item-1", { planned_start: "2027-03-08", g2m_date_est: "2027-04-07" })).toEqual({ ok: true, changed: true });
+    expect(c.row("item-1")).toMatchObject({ planned_start: "2027-03-08", g2m_date_est: "2027-04-07" });
+    expect(c.status.last?.text).toBe("R-01 Planned Start 1 Mar to 8 Mar, G2M Date (est) 31 Mar to 7 Apr");
+    expect(c.status.undoCount).toBe(1);
+    await c.flush();
+    expect(source.items[0]).toMatchObject({ planned_start: "2027-03-08", g2m_date_est: "2027-04-07" });
+    await c.undo();
+    expect(c.row("item-1")).toMatchObject({ planned_start: "2027-03-01", g2m_date_est: "2027-03-31" });
+    await c.flush();
+    expect(source.items[0]).toMatchObject({ planned_start: "2027-03-01", g2m_date_est: "2027-03-31" });
+    await c.redo();
+    expect(c.row("item-1")!.planned_start).toBe("2027-03-08");
+  });
+  it("saves only the date that changed (resizing one edge)", async () => {
+    const { c, source } = dated();
+    c.setDates("item-1", { planned_start: "2027-03-01", g2m_date_est: "2027-04-15" });
+    await c.flush();
+    expect(source.calls.map((o) => o.type === "update" && o.field)).toEqual(["g2m_date_est"]);
+  });
+  it("scheduling an item that had no dates sets both in one step", async () => {
+    const items = sampleItems(2, ["p1"], ["u1"]).map((i) => ({ ...i, planned_start: null, g2m_date_est: null }));
+    const c = new PortfolioController(new MemoryDataSource(items), items, lookups, "creator", () => TODAY, () => 1_000);
+    expect(c.setDates("item-1", { planned_start: "2027-05-03", g2m_date_est: "2027-05-30" })).toEqual({ ok: true, changed: true });
+    expect(c.status.undoCount).toBe(1);
+    await c.undo();
+    expect(c.row("item-1")).toMatchObject({ planned_start: null, g2m_date_est: null });
+  });
+  it("refuses a G2M date before the start, values that are not dates, and view-only roles", () => {
+    const { c } = dated();
+    expect(c.setDates("item-1", { planned_start: "2027-05-01", g2m_date_est: "2027-04-01" })).toEqual({ ok: false, error: "G2M Date (est) cannot be before Planned Start." });
+    expect(c.setDates("item-1", { planned_start: "soon", g2m_date_est: "2027-04-01" })).toEqual({ ok: false, error: "Planned Start is not a date." });
+    expect(dated("viewer").c.setDates("item-1", { planned_start: "2027-03-08", g2m_date_est: "2027-04-07" })).toEqual({ ok: false, error: READ_ONLY_MESSAGE });
+    expect(c.row("item-1")!.planned_start).toBe("2027-03-01");
+  });
+  it("a failed save puts that date back and says why", async () => {
+    const { c, source } = dated();
+    source.failWhen = (op) => (op.type === "update" && op.field === "g2m_date_est" ? "no permission" : null);
+    c.setDates("item-1", { planned_start: "2027-03-08", g2m_date_est: "2027-04-07" });
+    await c.flush();
+    expect(c.row("item-1")).toMatchObject({ planned_start: "2027-03-08", g2m_date_est: "2027-03-31" });
+    expect(c.status.error).toContain("no permission");
+  });
+});

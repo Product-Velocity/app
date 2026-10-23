@@ -223,7 +223,7 @@ test.describe("paste-import from a spreadsheet", () => {
 });
 
 test.describe("header and page head follow the prototype", () => {
-  test("logo, workspace, scope, tabs (unbuilt ones muted), account menu", async ({ page }) => {
+  test("logo, workspace, scope, tabs (Grid and Gantt built, unbuilt ones muted), account menu", async ({ page }) => {
     await open(page);
     const header = page.getByRole("banner");
     await expect(header.locator("img.brand-logo")).toBeVisible();
@@ -231,10 +231,11 @@ test.describe("header and page head follow the prototype", () => {
     await expect(header).toContainText("Meridian Media");
     await expect(header.getByText("All projects")).toBeVisible();
     await expect(header.getByRole("link", { name: "Grid" })).toHaveAttribute("aria-current", "page");
-    for (const t of ["Gantt", "Cards", "Planning", "Capacity", "Alignment", "Reports"]) {
+    await expect(header.getByRole("link", { name: "Gantt" })).toHaveAttribute("href", "/gantt");
+    for (const t of ["Cards", "Planning", "Capacity", "Alignment", "Reports"]) {
       await expect(header.locator(".tab-later", { hasText: t })).toHaveAttribute("aria-disabled", "true");
     }
-    await expect(header.locator(".tab-later", { hasText: "Gantt" })).toContainText("arrives in phase 2");
+    await expect(header.locator(".tab-later", { hasText: "Cards" })).toContainText("arrives in phase 2");
     await header.locator("summary").click();
     await expect(header.getByRole("link", { name: "Members" })).toBeVisible();
     await expect(header.getByRole("link", { name: "Security" })).toBeVisible();

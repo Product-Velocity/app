@@ -1,5 +1,5 @@
 import {
-  cleanRelated, cleanSkills, isRelatedField, type ActivityRow, type RelatedField, type RelatedValues,
+  cleanRelated, cleanSkills, isRelatedField, summarizeChange, toDay, type ActivityRow, type RelatedField, type RelatedValues,
   applyMove, canBeEmpty, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
   bulkEditReason, resolveGroup, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
@@ -265,6 +265,48 @@ export class PortfolioController {
     if (!EDITABLE_FIELDS.includes(field) && field !== "effort_by_skill") return { ok: false, error: readOnlyReason(field) ?? "That field cannot be edited." };
     if (!same(row[field], expectedNow) && JSON.stringify(row[field]) !== JSON.stringify(expectedNow)) return { ok: false, error: "The value has changed since. Undo the newer change first." };
     return this.commitField(row, field, value);
+  }
+
+  /**
+   * Planned Start and G2M Date (est) together: what moving or resizing a Gantt bar changes. One undo step, one saved
+   * change per date that differs (each audited by the database).
+   */
+  setDates(itemId: string, dates: { planned_start: string; g2m_date_est: string }): EditOutcome {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
+    const row = this.byId.get(itemId);
+    if (!row) return { ok: false, error: "That item no longer exists." };
+    for (const field of ["planned_start", "g2m_date_est"] as const) {
+      const reason = readOnlyReason(field);
+      if (reason) { this.notify(reason); return { ok: false, error: reason }; }
+      if (Number.isNaN(toDay(String(dates[field])))) { const error = `${fieldLabel(field)} is not a date.`; this.notify(error); return { ok: false, error }; }
+    }
+    const s = toDay(dates.planned_start), e = toDay(dates.g2m_date_est);
+    if (e < s) { const error = "G2M Date (est) cannot be before Planned Start."; this.notify(error); return { ok: false, error }; }
+    const edits: Edit[] = [];
+    for (const field of ["planned_start", "g2m_date_est"] as const) {
+      if (row[field] !== dates[field]) edits.push({ type: "field", itemId, key: row.item_code, field, before: row[field] ?? null, after: dates[field] });
+    }
+    if (edits.length === 0) return { ok: true, changed: false };
+    const before = { startDay: toDay(String(row.planned_start)), endDay: toDay(String(row.g2m_date_est)) };
+    const text = Number.isNaN(before.startDay) || Number.isNaN(before.endDay)
+      ? `${row.item_code} scheduled: Planned Start ${dates.planned_start}, G2M Date (est) ${dates.g2m_date_est}`
+      : `${row.item_code} ${summarizeChange(before, { startDay: s, endDay: e }, this.today())}`;
+    const entry: Entry = { id: `e${++this.entrySeq}`, edits, label: text };
+    this.stack.push(entry);
+    this.state.notice = null;
+    this.state.last = { text, at: this.now() };
+    for (const edit of edits) {
+      if (edit.type !== "field") continue;
+      this.applyField(row, edit.field, edit.after);
+      this.save(null, `${row.item_code} ${fieldLabel(edit.field)}`, () => this.source.updateField(itemId, edit.field, edit.after), () => {
+        const cur = this.byId.get(itemId);
+        if (cur && same(cur[edit.field], edit.after)) this.applyField(cur, edit.field, edit.before);
+        const at = entry.edits.indexOf(edit);
+        if (at >= 0) entry.edits.splice(at, 1);
+        if (entry.edits.length === 0) this.stack.discard(entry);
+      }, undefined, "Could not save", `${itemId}:${edit.field}`);
+    }
+    return { ok: true, changed: true };
   }
 
   /** Delete or Backspace on a cell. */

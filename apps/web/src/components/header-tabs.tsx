@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 /** Tabs of the product. The ones that are not built yet are shown muted with the phase they arrive in. */
 const TABS: { label: string; href?: string; phase?: number; id: string }[] = [
   { label: "Grid", href: "/portfolio", id: "grid" },
-  { label: "Gantt", phase: 2, id: "gantt" },
+  { label: "Gantt", href: "/gantt", id: "gantt" },
   { label: "Cards", phase: 2, id: "cards" },
   { label: "Planning", phase: 5, id: "planning" },
   { label: "Capacity", phase: 5, id: "capacity" },
@@ -14,9 +14,9 @@ const TABS: { label: string; href?: string; phase?: number; id: string }[] = [
   { label: "Reports", phase: 6, id: "reports" },
 ];
 
-export function HeaderTabs({ current }: { current?: "grid" }) {
+export function HeaderTabs({ current }: { current?: "grid" | "gantt" }) {
   const path = usePathname();
-  const active = current ?? (path.startsWith("/portfolio") ? "grid" : null);
+  const active = current ?? (path.startsWith("/portfolio") ? "grid" : path.startsWith("/gantt") ? "gantt" : null);
   return (
     <nav aria-label="Main" className="tabs">
       {TABS.map((t) =>
