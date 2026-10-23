@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BLOCK_END, BLOCK_START, buildTrackingIssue, describePushError, GitHubError, MemorySourceControl, mergeBody, OUTBOUND_ITEM_FIELDS, outsideBlock, projectLabel, pushTrackingIssue, sanitize } from "./index";
+import { planAction, BLOCK_END, BLOCK_START, buildTrackingIssue, describePushError, GitHubError, MemorySourceControl, mergeBody, OUTBOUND_ITEM_FIELDS, outsideBlock, projectLabel, pushTrackingIssue, sanitize } from "./index";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const base = { item: { item_code: "R-12", initiative_name: "Faster checkout", summary: "Cut steps.", hypothesis: "IF we cut steps THEN conversion rises" }, itemId: ID, projectName: "Mobile App", appUrl: "https://productvelocity.app", artifacts: [{ label: "PRD", url: "https://example.test/prd" }] };
@@ -103,5 +103,24 @@ describe("describePushError", () => {
     expect(describePushError(new GitHubError(404, "ghs_secret in body"))).not.toContain("ghs_");
     expect(describePushError(new GitHubError(429, "x", 30))).toContain("30");
     expect(describePushError(new Error("token ghs_abc"))).toBe("The push did not finish. Try again.");
+  });
+});
+
+describe("planAction", () => {
+  const active = new Set(["acme/road"]);
+  const base = { defaultRepo: "acme/road", activeRepos: active, hash: "h", projectName: "Mobile" };
+  const link = (over: Record<string, unknown> = {}) => ({ mode: "push" as const, repo: "acme/road", issueNumber: 7, syncState: "synced", lastPushedHash: "h", ...over });
+  it("creates, updates and skips unchanged items", () => {
+    expect(planAction({ ...base, link: null })).toEqual({ repo: "acme/road", action: "create" });
+    expect(planAction({ ...base, link: link({ lastPushedHash: "old" }) })).toMatchObject({ action: "update" });
+    expect(planAction({ ...base, link: link() })).toMatchObject({ action: "unchanged" });
+    expect(planAction({ ...base, link: link({ syncState: "error" }) })).toMatchObject({ action: "update" });
+  });
+  it("blocks a missing default repository and a repository that left the connection", () => {
+    expect(planAction({ ...base, defaultRepo: null, link: null })).toMatchObject({ action: "blocked", reason: expect.stringContaining("Mobile") });
+    expect(planAction({ ...base, activeRepos: new Set(), link: null })).toMatchObject({ action: "blocked" });
+  });
+  it("never pushes to a link that only follows an existing issue", () => {
+    for (const hash of ["h", "other"]) expect(planAction({ ...base, hash, link: link({ mode: "follow", repo: "Product-Velocity/app", issueNumber: 31 }) })).toMatchObject({ action: "blocked", reason: expect.stringContaining("#31") });
   });
 });
