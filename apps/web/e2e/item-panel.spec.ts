@@ -376,3 +376,11 @@ test.describe("accessibility", () => {
     expect(r.violations.map((v) => `${v.id}: ${v.nodes[0]?.html.slice(0, 120)}`)).toEqual([]);
   });
 });
+
+test("the account menu is grouped: Workspace, Integrations, Account", async ({ page }) => {
+  await page.goto("/dev/item/R-01");
+  await page.locator("details.account summary").click();
+  await expect(page.getByRole("group", { name: "Workspace" })).toContainText("Initiative Groups");
+  await expect(page.getByRole("group", { name: "Integrations" })).toContainText("GitHub");
+  await expect(page.getByRole("group", { name: "Account" })).toContainText("Sign out");
+});
