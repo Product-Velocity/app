@@ -7,6 +7,7 @@ import type { PortfolioController } from "./controller";
 import { downloadCsv, selectionToCsv } from "./export-selection";
 import type { GridItem, Lookups } from "./types";
 import { useMenuBlur } from "./use-menu-blur";
+import { useDismiss } from "./use-dismiss";
 
 type Props = {
   controller: PortfolioController;
@@ -47,6 +48,7 @@ function SetMenu({ def, selected, onPick }: { def: FieldDef; selected: GridItem[
   const focusItem = (i: number) => (ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]')[i])?.focus();
   const close = () => setOpen(false);
   const menuBlur = useMenuBlur(close);
+  useDismiss(ref, open, close);
   return (
     <span
       ref={ref}

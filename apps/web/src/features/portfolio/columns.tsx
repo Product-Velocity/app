@@ -10,15 +10,14 @@ import { formatField } from "./format";
 import { PickerEditor, type PickerOption } from "./picker-editor";
 import type { GridItem, Lookups } from "./types";
 
-const HEALTH_SYMBOL: Record<string, string> = { "On Track": "✓", "At Risk": "▲", "Delayed": "✖", "Blocked": "■" };
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, "-");
 
-/** Text label always, symbol and colour as extras (never colour alone). */
+/** A compact pill with the word and no icon: the label is the signal, colour is only an extra (never colour alone). */
 function HealthCell({ value }: { value: string | null }) {
   if (!value) return null;
   return (
     <span className={`pill health-${slug(value)}`}>
-      <span aria-hidden="true">{HEALTH_SYMBOL[value] ?? "•"}</span> {value}
+      {value}
     </span>
   );
 }
@@ -109,7 +108,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
       };
     }
     if (CORE_COLUMNS.includes(f.key as never)) base.pinned = "left";
-    if (f.key === "initiative_name") { base.flex = 1; base.minWidth = 300; }
+    if (f.key === "initiative_name") { base.flex = 1; base.minWidth = 300; base.cellClass = `${String(base.cellClass ?? "")} cell-name`.trim(); }
     if (f.key === "item_code") return { ...base, cellClass: "mono muted cell-open", headerTooltip: "Click a code to open the item panel", tooltipValueGetter: () => "Open the item panel (Space on any cell does the same)" };
     if (f.key === "project_rank") return base;
     if (f.key === "health") return { ...base, cellRenderer: HealthCell, ...pickerDef(f, optionsFor(f.key), true) };

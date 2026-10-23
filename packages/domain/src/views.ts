@@ -85,7 +85,15 @@ export function filterSummary(fl: Filter, labels: { person: (id: string) => stri
 }
 
 // ----------------------------------------------------------------- grouping
-export type GroupRow = { __group: true; id: string; key: string; label: string; count: number; collapsed: boolean };
+export type GroupRow = { __group: true; id: string; key: string; label: string; count: number; collapsed: boolean; /** "3 On Track · 1 At Risk": the health of the rows of the group, in words (empty when none has a health). */ healthSummary: string };
+
+/** The health of some rows in words, in the order of the dictionary's list: "3 On Track · 1 At Risk". Rows without a health are left out. */
+export function healthBreakdown(rows: readonly object[]): string {
+  const order = FIELD_BY_KEY.health?.allowed ?? [];
+  const counts = new Map<string, number>();
+  for (const r of rows) { const h = (r as Row).health; if (typeof h === "string" && h) counts.set(h, (counts.get(h) ?? 0) + 1); }
+  return [...counts.entries()].sort((a, b) => (order.indexOf(a[0]) < 0 ? 999 : order.indexOf(a[0])) - (order.indexOf(b[0]) < 0 ? 999 : order.indexOf(b[0]))).map(([h, n]) => `${n} ${h}`).join(" · ");
+}
 
 /** Fields the grid can group by: lists, people, yes/no and the project. */
 export function groupableFields(): FieldDef[] {
@@ -123,7 +131,7 @@ export function buildGroupedRows<T extends { id: string }>(rows: T[], groupBy: s
     const items = groups.get(k)!;
     const key = `${groupBy}:${k}`;
     const isCollapsed = collapsed.has(key);
-    out.push({ __group: true, id: `group:${key}`, key, label: label(groupBy, k === "" ? null : k), count: items.length, collapsed: isCollapsed });
+    out.push({ __group: true, id: `group:${key}`, key, label: label(groupBy, k === "" ? null : k), count: items.length, collapsed: isCollapsed, healthSummary: healthBreakdown(items) });
     if (!isCollapsed) out.push(...items);
   }
   return out;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CUSTOMER_SAFE_KEYS, buildGroupedRows, filterSummary, groupableFields, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
+import { CUSTOMER_SAFE_KEYS, buildGroupedRows, healthBreakdown, filterSummary, groupableFields, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
 import { FIELDS, FIELD_BY_KEY } from "./registry";
 
 const row = (o: Record<string, unknown> = {}) => ({ id: "i1", item_code: "R-01", initiative_name: "Faster search results", stack_rank: 1, home_project: "p1", ...o });
@@ -168,5 +168,17 @@ describe("customer-safe views", () => {
   it("leave ordinary views alone", () => {
     expect(sanitizeView({ columns: ["value_12m"], filters: [], groupBy: null }).columns).toContain("value_12m");
     expect(sanitizeView({ columns: ["value_12m"], filters: [], groupBy: null }).customerSafe).toBeUndefined();
+  });
+});
+
+describe("health breakdown of a group", () => {
+  it("counts health in words, in dictionary order, and leaves rows without health out", () => {
+    expect(healthBreakdown([{ health: "At Risk" }, { health: "On Track" }, { health: "On Track" }, { health: null }, {}])).toBe("2 On Track · 1 At Risk");
+    expect(healthBreakdown([])).toBe("");
+  });
+  it("is on every group row and follows the rows given (so the filter applies)", () => {
+    const rows = [{ id: "a", moscow: "Must", health: "Blocked" }, { id: "b", moscow: "Must", health: "On Track" }, { id: "c", moscow: "Should" }];
+    const out = buildGroupedRows(rows, "moscow", new Set(), (_f, v) => String(v));
+    expect(out.filter((x) => "__group" in x).map((x) => (x as { healthSummary: string }).healthSummary)).toEqual(["1 On Track · 1 Blocked", ""]);
   });
 });

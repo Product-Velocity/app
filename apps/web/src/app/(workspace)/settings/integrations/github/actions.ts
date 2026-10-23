@@ -58,9 +58,10 @@ export async function disconnectGithub(): Promise<void> {
 export async function refreshRepositories(): Promise<void> {
   const ctx = await adminOnly();
   const sc = githubSourceControl();
-  if (!ctx || !sc) redirect(`${PATH}?status=error`);
+  if (!ctx) redirect(`${PATH}?status=error&why=${encodeURIComponent("Only admins can run the check.")}`);
+  if (!sc) redirect(`${PATH}?status=error&why=${encodeURIComponent("The GitHub App is not configured on the server (App id or private key missing).")}`);
   const { data } = await ctx.supabase.from("github_connections").select("*").eq("tenant_id", ctx.active.tenantId).eq("state", "connected").maybeSingle();
-  if (!data) redirect(`${PATH}?status=error`);
+  if (!data) redirect(`${PATH}?status=error&why=${encodeURIComponent("No connected GitHub installation found for this workspace.")}`);
   try {
     await refreshConnection(createAdminClient({ via: "UI" }), sc, data as ConnectionRow);
   } catch {
@@ -124,8 +125,9 @@ export async function checkGithubNow(): Promise<void> {
   try {
     r = await reconcileConnection(createAdminClient({ via: "GitHub webhook" }), sc, data as ConnectionRow);
   } catch (e) {
-    console.error(JSON.stringify({ github: "check-now", error: e instanceof Error ? e.message.slice(0, 200) : "unknown" }));
-    redirect(`${PATH}?status=error`);
+    const why = e instanceof Error ? e.message.slice(0, 160) : "unknown";
+    console.error(JSON.stringify({ github: "check-now", error: why }));
+    redirect(`${PATH}?status=error&why=${encodeURIComponent(why)}`); // admins only: a short message, never a token or content
   }
   revalidatePath(PATH);
   redirect(`${PATH}?status=checked&c=${r.checked}&ch=${r.changed}&m=${r.missing}`);

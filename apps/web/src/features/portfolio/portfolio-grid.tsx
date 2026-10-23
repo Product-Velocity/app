@@ -80,6 +80,7 @@ function GroupRowRenderer(p: CustomCellRendererProps<GroupRow>) {
       </button>
       <span>{g.label}</span>
       <span className="group-count">{g.count} {g.count === 1 ? "item" : "items"}</span>
+      {g.healthSummary && <span className="group-health">{g.healthSummary}</span>}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState, type ReactNode } from "react";
 import { useMenuBlur } from "./use-menu-blur";
+import { useDismiss } from "./use-dismiss";
 
 /** A toolbar button that opens a small panel under it. Escape closes it and returns to the button; leaving it closes it too. */
 export function Popover({ label, active = false, align = "left", children }: { label: ReactNode; active?: boolean; align?: "left" | "right"; children: (close: () => void) => ReactNode }) {
@@ -10,6 +11,7 @@ export function Popover({ label, active = false, align = "left", children }: { l
   const id = useId();
   const close = () => setOpen(false);
   const menuBlur = useMenuBlur(close);
+  useDismiss(ref, open, close);
   return (
     <span
       ref={ref}

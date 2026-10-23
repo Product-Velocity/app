@@ -70,6 +70,7 @@ Saved views, column reorder and pinning (#9), editing tags, links, files and rel
 Controller and domain unit tests, Supabase source tests with a fake client, 20 browser tests (`pnpm --filter web exec playwright test` against a build with `NEXT_PUBLIC_E2E_HARNESS=1`, test page `/dev/grid`): keyboard, pickers, dates, locked cells, undo of 20, failed saves, rank, view-only, 2,000-item speed, accessibility (axe, WCAG A/AA).
 
 ## Design pass 2 (request R-022, issue #55)
+_Status (release 0.14.0): name, health pill and group summary rows are built; the floating bars (next two bullets) are not yet._
 - **Name:** Initiative Name is semibold/bold; IDs and other text stay regular.
 - **Health pill:** compact (about 20 px high, 12 px text) so it fits a 30–36 px row; no icon. The word is the signal ("On track", "At risk", "Off track"); colours meet AA contrast on the pill background.
 - **Group summary row** (only when grouped): only the group name, the item count and the health breakdown in words ("3 On track · 1 At risk"), computed on the filtered rows. No column aggregates. Collapse / expand stays.
