@@ -417,3 +417,30 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 .kc-menu { position: absolute; z-index: 10; left: 0; top: 100%; margin-top: 4px; min-width: 220px; background: var(--bg); border: 1px solid var(--grey-1); border-radius: 8px; box-shadow: 0 8px 24px rgba(20, 24, 40, .16); padding: 10px; display: grid; gap: 8px; }
 .kc-menu label { display: grid; gap: 3px; font-size: 12px; }
 .kc-menu-actions { display: flex; gap: 6px; }
+
+/* ---- Leadership view (issue #29) ---- */
+.leadership { display: grid; gap: 8px; }
+.leadership-main { flex: 1 1 auto; min-width: 0; display: grid; gap: 14px; align-content: start; }
+.lead-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.lead-tile { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--grey-1); border-radius: 8px; background: var(--bg); font-size: 12px; color: #3c4254; }
+.lead-num { font-size: 22px; font-weight: 600; color: #1b1f2a; }
+.lead-section { border: 1px solid var(--grey-1); border-radius: 8px; padding: 10px 14px 12px; background: var(--bg); }
+.lead-section h2 { margin: 0 0 6px; font-size: 14px; }
+.lead-table th, .lead-table td { height: auto; padding: 5px 8px; vertical-align: middle; }
+.lead-scroll { overflow-x: auto; }
+.lead-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; min-width: 160px; background: var(--grey-2); margin-bottom: 3px; }
+.lead-seg-on-track { background: #3f9d63; } .lead-seg-at-risk { background: #e0a31b; } .lead-seg-delayed { background: #d46a6a; }
+.lead-seg-blocked { background: #a11d2d; } .lead-seg-no-health { background: #b9bfd6; }
+.lead-words { font-size: 12px; }
+.lead-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.lead-name { font-weight: 500; }
+.lead-note { margin: 6px 0 0; font-size: 12px; }
+.lead-mix { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.lead-mix li { display: grid; grid-template-columns: 220px 1fr 90px; gap: 10px; align-items: center; }
+.lead-mix-bar { height: 10px; background: var(--grey-2); border-radius: 5px; overflow: hidden; }
+.lead-mix-bar span { display: block; height: 100%; background: var(--blue); }
+.lead-text { width: 100%; font: inherit; font-family: var(--font-mono); font-size: 12px; line-height: 1.5; padding: 8px; }
+.lead-readonly { white-space: pre-wrap; background: var(--header-bg); border: 1px solid var(--grey-1); border-radius: 6px; margin: 0; }
+.lead-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 4px; }
+.lead-status, .lead-sources { margin: 4px 0; font-size: 12px; }
+.lead-confirm { font-size: 12px; display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }

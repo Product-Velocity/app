@@ -106,4 +106,8 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-23 · Cards: a drag across a GitHub-driven axis (Initiative Status) is refused with the reason instead of asking for a confirmation as the prototype board does; Team lanes are view-only because an initiative can have several teams · Claude (issue #28)
 - 2026-10-23 · Cards keyboard way to move: Shift+arrows to the neighbouring column or lane, and an M / "Move…" menu for any cell · Claude (issue #28)
 - 2026-10-23 · The page-level scope and saved-view filter logic of Gantt and Cards is one shared hook (`useViewRows`) · Claude (issues #27, #28)
+- 2026-10-23 · Leadership view: the "Top items" table uses the Leadership list of `docs/reference/default-views.csv` (R-021 said #29 should), as a constant with a test against the CSV until #54 makes default views data · Claude (issue #29)
+- 2026-10-23 · The weekly update is stored (`weekly_updates`, one per workspace, week and scope) so a review survives a reload; creators and admins write it, leadership viewers and other read-only roles read only the reviewed text; editing clears the review; Claude cannot mark it reviewed · Claude (issue #29), **Ashu to confirm**
+- 2026-10-23 · "What moved this week" counts a rank change as the net move over the ISO week; a leadership viewer lands on `/leadership` after signing in · Claude (issue #29)
+- 2026-10-23 · Menus that close when the focus leaves them ignore a blur while a pointer is pressed inside, because Safari does not focus a clicked button (fix in its own PR) · Claude
 

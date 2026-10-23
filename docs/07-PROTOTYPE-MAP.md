@@ -10,7 +10,7 @@ Published (view-only reference): https://claude.ai/artifact/WVtip16iTPYZdru67tsg
 | 4 | Cards | Card view with swimlanes | 2 | Built in #28 (`docs/17-CARDS.md`): default is Initiative Phase by Initiative Group (Planning Status arrives in phase 5); the board's value sums and confirmation on a Status drag are not built, a drag across the GitHub-driven Status is refused instead |
 | 5 | AI-intake | AI intake with duplicate check | 4 | |
 | 6 | GitHub-setup | Connection, waiting for approval | 3 | |
-| 7 | Leadership | Leadership view + weekly update | 2/4 | |
+| 7 | Leadership | Leadership view + weekly update | 2/4 | Built in #29 (`docs/18-LEADERSHIP.md`): health by project, needs attention, top items, what moved, mix, weekly update. Not built: present full screen, share read-only link, Now/Next/Later, alignment tile, sending (the issue says nothing is sent automatically) |
 | 8 | Results-admin | Alignment results (admin) | 5 | R2 dimensions not shown |
 | 9–12 | Join, Rank-top5, Rank-duel, Results-participant | Participant mobile flow | 5 | |
 | 19 | Rank-coins | Participant 100 coins (mobile) | 5 | |

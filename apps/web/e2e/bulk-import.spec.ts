@@ -233,6 +233,7 @@ test.describe("header and page head follow the prototype", () => {
     await expect(header.getByRole("link", { name: "Grid" })).toHaveAttribute("aria-current", "page");
     await expect(header.getByRole("link", { name: "Gantt" })).toHaveAttribute("href", "/gantt");
     await expect(header.getByRole("link", { name: "Cards" })).toHaveAttribute("href", "/cards");
+    await expect(header.getByRole("link", { name: "Leadership" })).toHaveAttribute("href", "/leadership");
     for (const t of ["Planning", "Capacity", "Alignment", "Reports"]) {
       await expect(header.locator(".tab-later", { hasText: t })).toHaveAttribute("aria-disabled", "true");
     }
