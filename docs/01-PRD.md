@@ -4,7 +4,7 @@ Status: pre-build. Scope tags: **[R1]** first release, **[R2]** next, **[LATER]*
 
 ## 1. Positioning
 One-liner: *Product Velocity is the AI-first product management platform for fast-moving teams, where AI and human teams plan, align, build and learn together.*
-Tagline options: "From idea to launch, at AI speed." / "One roadmap for humans and AI." Pillars: **Clarity, Alignment, Velocity**. Story: **decide → deliver → learn**, with transparency across all.
+Tagline (decided by Ashu, 2026-10-23): "One roadmap for humans and AI." Supporting line: "It doesn't end at shipped." Pillars: **Clarity, Alignment, Velocity**. Story: **decide → deliver → learn**, with transparency across all.
 First audience: **enterprise buyers** (confirmed 2026-10-21). ICP wording: "fast-moving product teams inside larger organisations".
 Caveat: AI agents are **not** yet counted as capacity; do not market "AI and human teams" capacity planning until [R2] adds agent capacity.
 

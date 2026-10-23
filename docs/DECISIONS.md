@@ -133,3 +133,4 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-23 · Flow and speed are measured from the audit log (`item_stage_durations`), not from separate counters, so every status and phase change, whoever or whatever made it, counts and nothing can drift · Claude
 - 2026-10-23 · Webhook deliveries that touch no linked item are not stored (the app repo is busy); processing happens inline after the signature check, with a retry list and a daily reconciliation instead of a queue, which fits the free Vercel plan (S6) · Claude
 
+- 2026-10-23 · Decided (Ashu): the tagline is "One roadmap for humans and AI". "It doesn't end at shipped" stays as the supporting line for go-to-market and outcomes. "From idea to impact, at AI speed" is dropped: it echoes Jira Product Discovery ("From ideas to impact") and Dragonboat ("at AI speed"). See the competitor analysis (R-029).
