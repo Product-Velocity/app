@@ -49,6 +49,9 @@ Living list of things that must be done before real customers or real data. Owne
 - [ ] Decide how the Atlassian app is distributed (private app for the customer vs Marketplace listing) and who approves it on the customer's site.
 - [ ] Customer's real Jira data stays out of the repo, fixtures and screenshots; confirm data handling terms with the customer before the first read of their site.
 - [ ] Token storage, revoke-on-disconnect and rate-limit handling reviewed.
+- [ ] **Create the real GitHub App** (not the sandbox one) with least privilege (`docs/04`), its own webhook secret and private key, the Setup URL `/api/github/setup` and webhook URL `/api/github/webhook` on the production domain; put its variables in Vercel Production and rotate the sandbox App's key and secret (the sandbox App's key has been pasted into a Claude Code environment). Owner approval for permission changes applies to every customer install.
+- [ ] Decide whether `GITHUB_APP_WEBHOOK_SECRET` should stay the key for install-state tokens or get its own variable before many customers use it.
+
 
 ## Website (see `docs/17`)
 - [ ] Domain, legal entity name and contact in the footer; legal pages reviewed.

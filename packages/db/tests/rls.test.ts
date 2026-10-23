@@ -133,6 +133,26 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "github_connections",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.github_connections set state = 'disconnected' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.github_connections where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.github_connections (tenant_id, expected_account) values ($1, 'attacker')", params: [v.tenantId] },
+      { sql: "update public.github_connections set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "github_repositories",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.github_repositories set removed_at = now() where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.github_repositories where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.github_repositories (tenant_id, connection_id, github_repo_id, full_name) select tenant_id, id, 99, 'evil/repo' from public.github_connections where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.github_repositories set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "item_groups",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [
