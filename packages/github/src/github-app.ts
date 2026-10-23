@@ -1,5 +1,5 @@
 import { createSign } from "node:crypto";
-import { GitHubError, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl } from "./source-control";
+import { GitHubError, type IssueSummary, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl } from "./source-control";
 
 const API = "https://api.github.com";
 const b64url = (b: Buffer | string) => Buffer.from(b).toString("base64url");
@@ -123,6 +123,18 @@ export class GitHubAppSourceControl implements SourceControl {
 
   private static ref(i: { number: number; id: number; node_id: string; html_url: string; body?: string | null; state: string }): IssueRef {
     return { number: i.number, id: i.id, nodeId: i.node_id, htmlUrl: i.html_url, body: i.body ?? "", state: i.state === "closed" ? "closed" : "open" };
+  }
+
+  async listIssues(installationId: number, repo: string): Promise<IssueSummary[]> {
+    const out: IssueSummary[] = [];
+    for (let page = 1; page <= 10; page++) {
+      const res = await this.call(installationId, "GET", `/repos/${repo}/issues?state=all&sort=updated&direction=desc&per_page=100&page=${page}`);
+      if (!res.ok) throw new GitHubError(res.status, `GitHub could not list issues (${res.status})`);
+      const rows = (await res.json()) as { number: number; id: number; node_id: string; state: string; state_reason?: string | null; updated_at: string; pull_request?: unknown }[];
+      for (const r of rows) if (!r.pull_request) out.push({ number: r.number, id: r.id, nodeId: r.node_id, state: r.state === "closed" ? "closed" : "open", stateReason: r.state_reason ?? null, updatedAt: r.updated_at });
+      if (rows.length < 100) break;
+    }
+    return out;
   }
 
   async createIssue(installationId: number, repo: string, input: IssueInput): Promise<IssueRef> {

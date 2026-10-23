@@ -153,6 +153,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "sync_events",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.sync_events set state = 'processed' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.sync_events where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.sync_events (tenant_id, connection_id, delivery_id, event) select tenant_id, connection_id, 'evil', 'issues' from public.sync_events where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.sync_events set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "github_repositories",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

@@ -25,6 +25,8 @@ export class GitHubError extends Error {
   }
 }
 
+export type IssueSummary = { number: number; id: number; nodeId: string; state: "open" | "closed"; stateReason: string | null; updatedAt: string };
+
 export interface SourceControl {
   readonly provider: "github";
   /** The installation, or null when it does not exist (or does not belong to this App). */
@@ -35,6 +37,8 @@ export interface SourceControl {
   listRepositories(installationId: number): Promise<RepoInfo[]>;
   /** Issue type names of the organisation, or null when the App may not read them. */
   listIssueTypes(installationId: number, organisation: string): Promise<string[] | null>;
+  /** Issues of a repository in any state (pull requests excluded), newest activity first. Used to reconcile linked items. */
+  listIssues(installationId: number, repo: string): Promise<IssueSummary[]>;
   /** Creates an issue in `repo` ("owner/name"). */
   createIssue(installationId: number, repo: string, input: IssueInput): Promise<IssueRef>;
   /** Updates title and body of an issue. Labels are never replaced: people add their own. */

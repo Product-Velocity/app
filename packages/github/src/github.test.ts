@@ -89,6 +89,7 @@ function fake(over: Partial<SourceControl> = {}): SourceControl {
     listRepositories: async () => [{ id: 1, fullName: "Acme/roadmap", private: true }],
     listIssueTypes: async () => ["Task", "Bug"],
     listRecentDeliveries: async () => [{ event: "issues", action: "opened", statusCode: 200, deliveredAt: "2026-10-23T00:00:00Z" }],
+    listIssues: async () => [],
     createIssue: async () => { throw new Error("not used"); },
     updateIssue: async () => { throw new Error("not used"); },
     addLabels: async () => undefined,
@@ -128,7 +129,7 @@ describe("runConnectionDiagnostics", () => {
   });
 });
 
-import { decideConnectionChange, type ConnectionEvent } from "./index";
+import { decideConnectionChange, parseIssueEvent, type ConnectionEvent } from "./index";
 
 describe("decideConnectionChange", () => {
   const ev = (over: Record<string, unknown>) => ({ kind: "installation", action: "created", installationId: 5, accountLogin: "Acme", accountType: "Organization", repositorySelection: "selected", ...over }) as ConnectionEvent;
@@ -158,5 +159,21 @@ describe("decideConnectionChange", () => {
     expect(decideConnectionChange(repos, { id: "c1", state: "connected" }, [])).toEqual({ kind: "refresh", id: "c1" });
     expect(decideConnectionChange(repos, bound, [])).toEqual({ kind: "ignore" });
     expect(decideConnectionChange(repos, null, [waiting])).toEqual({ kind: "ignore" });
+  });
+});
+
+describe("parseIssueEvent", () => {
+  const payload = (over: Record<string, unknown> = {}) => ({ action: "closed", installation: { id: 9 }, repository: { full_name: "Acme/App" }, issue: { number: 31, id: 5, node_id: "I_x", state: "closed", state_reason: "completed", updated_at: "2026-10-23T10:00:00Z", title: "SECRET TITLE", body: "SECRET BODY", user: { login: "someone" } }, ...over });
+  it("reads only what the sync needs, never titles, bodies or people", () => {
+    const e = parseIssueEvent("issues", payload());
+    expect(e).toEqual({ action: "closed", installationId: 9, repo: "Acme/App", number: 31, issueId: 5, nodeId: "I_x", state: "closed", stateReason: "completed", updatedAt: "2026-10-23T10:00:00Z" });
+    expect(JSON.stringify(e)).not.toMatch(/SECRET|someone/);
+  });
+  it("ignores other events, pull requests and malformed payloads", () => {
+    expect(parseIssueEvent("pull_request", payload())).toBeNull();
+    expect(parseIssueEvent("issues", payload({ issue: { ...payload().issue, pull_request: {} } }))).toBeNull();
+    expect(parseIssueEvent("issues", payload({ issue: { ...payload().issue, state: "weird" } }))).toBeNull();
+    expect(parseIssueEvent("issues", payload({ issue: { ...payload().issue, updated_at: "not a date" } }))).toBeNull();
+    expect(parseIssueEvent("issues", { action: "closed" })).toBeNull();
   });
 });
