@@ -7,6 +7,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Daily safety net (Vercel Cron, free plan: once a day). Retries events that failed, then compares GitHub with every linked
  * item and repairs drift. Vercel sends `Authorization: Bearer <CRON_SECRET>`; anything else is refused.
  */
+export const maxDuration = 60;
+
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) return new Response("forbidden", { status: 403 });

@@ -123,7 +123,8 @@ export async function checkGithubNow(): Promise<void> {
   let r;
   try {
     r = await reconcileConnection(createAdminClient({ via: "GitHub webhook" }), sc, data as ConnectionRow);
-  } catch {
+  } catch (e) {
+    console.error(JSON.stringify({ github: "check-now", error: e instanceof Error ? e.message.slice(0, 200) : "unknown" }));
     redirect(`${PATH}?status=error`);
   }
   revalidatePath(PATH);

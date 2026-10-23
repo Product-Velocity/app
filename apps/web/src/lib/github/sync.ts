@@ -118,6 +118,7 @@ export async function reconcileConnection(admin: Admin, sc: SourceControl, conne
   for (const l of (links ?? []) as { id: string; item_id: string; repo_full_name: string; issue_number: number }[]) byRepo.set(l.repo_full_name, [...(byRepo.get(l.repo_full_name) ?? []), { id: l.id, item_id: l.item_id, number: l.issue_number }]);
 
   const result: ReconcileResult = { checked: 0, changed: 0, missing: 0, repos: byRepo.size };
+  const treeJobs: { item_id: string; repo: string; number: number }[] = [];
   for (const [repo, repoLinks] of byRepo) {
     const issues = new Map<number, IssueSummary>((await sc.listIssues(connection.installation_id, repo)).map((i) => [i.number, i]));
     for (const l of repoLinks) {
@@ -134,8 +135,12 @@ export async function reconcileConnection(admin: Admin, sc: SourceControl, conne
         result.changed++;
         await admin.from("sync_events").insert({ tenant_id: connection.tenant_id, connection_id: connection.id, delivery_id: `reconcile-${crypto.randomUUID()}`, source: "reconcile", event: "issues", action: "reconciled", repo_full_name: repo, issue_number: issue.number, summary: facts, item_id: l.item_id, state: "processed", attempts: 1, processed_at: new Date().toISOString(), applied: applied.changes });
       }
-      await refreshTree(admin, sc, connection.installation_id, connection.id, { item_id: l.item_id, repo, number: l.number });
+      treeJobs.push({ item_id: l.item_id, repo, number: l.number });
     }
+  }
+  // epics and tasks: several issues at a time, so a workspace with many linked items stays inside the time limit of the request
+  for (let i = 0; i < treeJobs.length; i += 6) {
+    await Promise.all(treeJobs.slice(i, i + 6).map((j) => refreshTree(admin, sc, connection.installation_id!, connection.id, j)));
   }
   return result;
 }
