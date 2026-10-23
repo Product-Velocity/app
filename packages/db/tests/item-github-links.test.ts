@@ -52,6 +52,20 @@ describe("pushing an item records one link, on behalf of the person who confirme
   });
 });
 
+describe("links that only follow a GitHub issue", () => {
+  it("a follow link can never be pushed to, even by an admin, and nothing about it changes", async () => {
+    await push(creator);
+    await db.admin.query("update public.item_github_links set mode = 'follow' where item_id = $1", [itemA]);
+    const before = await link();
+    for (const who of [creator, f.alice]) expect(await errorCode(push(who, { hash: "h9", number: 99 })), who).toBe("PV006");
+    expect(await link()).toEqual(before);
+    await db.admin.query("update public.item_github_links set mode = 'push' where item_id = $1", [itemA]);
+  });
+  it("mode is only push or follow", async () => {
+    expect(await errorCode(db.admin.query("update public.item_github_links set mode = 'write' where item_id = $1", [itemA]))).toBe("23514");
+  });
+});
+
 describe("who and what may be recorded", () => {
   it("viewers, service accounts, other workspaces' people and unknown people are refused", async () => {
     for (const who of [viewer, service, f.bob, "00000000-0000-0000-0000-000000000000"]) {

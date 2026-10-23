@@ -1,12 +1,12 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildTrackingIssue, describePushError, pushTrackingIssue, type SourceControl } from "@pv/github";
+import { buildTrackingIssue, describePushError, planAction, pushTrackingIssue, type PlanLink, type SourceControl } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { ConnectionRow } from "./server";
 import { PUSH_LIMIT, type PlanItem, type PushItemResult } from "./push-types";
 
 type Admin = ReturnType<typeof createAdminClient>;
-type Link = { item_id: string; repo_full_name: string; issue_number: number | null; html_url: string | null; sync_state: string; last_pushed_hash: string | null };
+type Link = { item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; html_url: string | null; sync_state: string; last_pushed_hash: string | null };
 type Row = { id: string; item_code: string; initiative_name: string; summary: string | null; hypothesis: string | null; home_project_id: string };
 
 const blockedItem = (id: string, reason: string, over: Partial<PlanItem> = {}): PlanItem => ({ id, code: "", name: "", project: "", repo: null, action: "blocked", title: "", labels: [], block: "", issueNumber: null, issueUrl: null, reason, ...over });
@@ -21,7 +21,7 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
     supabase.from("items").select("id, item_code, initiative_name, summary, hypothesis, home_project_id").eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
     supabase.from("projects").select("id, name, default_repo").eq("tenant_id", tenantId),
     supabase.from("github_repositories").select("full_name").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("removed_at", null),
-    supabase.from("item_github_links").select("item_id, repo_full_name, issue_number, html_url, sync_state, last_pushed_hash").eq("tenant_id", tenantId).in("item_id", unique),
+    supabase.from("item_github_links").select("item_id, mode, repo_full_name, issue_number, html_url, sync_state, last_pushed_hash").eq("tenant_id", tenantId).in("item_id", unique),
     supabase.from("item_links").select("item_id, label, url").eq("tenant_id", tenantId).in("item_id", unique),
   ]);
   const rowById = new Map(((items.data ?? []) as Row[]).map((r) => [r.id, r]));
@@ -36,13 +36,10 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
     if (!row) return blockedItem(id, "This initiative no longer exists or you cannot see it.");
     const project = projectById.get(row.home_project_id);
     const link = linkByItem.get(id);
-    const repo = link?.repo_full_name ?? project?.default_repo ?? null;
     const built = buildTrackingIssue({ item: row, itemId: id, projectName: project?.name ?? "", appUrl, artifacts: artifactsByItem.get(id) ?? [] });
-    const base = { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo, title: built.title, labels: built.labels, block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null };
-    if (!repo) return { ...base, action: "blocked", reason: `Choose a default repository for ${project?.name ?? "the project"} in Settings > GitHub first.` };
-    if (!link && !activeRepos.has(repo.toLowerCase())) return { ...base, action: "blocked", reason: `${repo} is no longer available through the GitHub connection.` };
-    if (link?.issue_number && link.sync_state === "synced" && link.last_pushed_hash === built.hash) return { ...base, action: "unchanged" };
-    return { ...base, action: link?.issue_number ? "update" : "create" };
+    const planLink: PlanLink | null = link ? { mode: link.mode, repo: link.repo_full_name, issueNumber: link.issue_number, syncState: link.sync_state, lastPushedHash: link.last_pushed_hash } : null;
+    const d = planAction({ link: planLink, defaultRepo: project?.default_repo ?? null, activeRepos, hash: built.hash, projectName: project?.name ?? "" });
+    return { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo: d.repo, action: d.action, title: built.title, labels: built.labels, block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null, ...(d.reason ? { reason: d.reason } : {}) };
   });
 }
 

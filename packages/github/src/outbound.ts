@@ -50,7 +50,7 @@ export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
   if (summary) parts.push("", "## Summary", summary);
   if (hypothesis) parts.push("", "## Hypothesis (IF / THEN / RESULTING IN)", hypothesis);
   if (links.length) parts.push("", "## Artifacts", ...links.map((a) => `- [${linkLabel(a.label)}](${a.url})`));
-  parts.push("", "---", `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept. [Open in Product Velocity](${i.appUrl}/portfolio/${i.itemId})`, BLOCK_END);
+  parts.push("", "---", `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept. [Open in Product Velocity](${i.appUrl}/portfolio/${encodeURIComponent(code)})`, BLOCK_END);
 
   const title = (code ? `${code}: ${name}` : name) || "Untitled initiative";
   const labels = [BASE_LABEL, projectLabel(i.projectName)];
