@@ -59,7 +59,7 @@ describe("bulk edit", () => {
       const r = c.bulkEdit(ids, field, "x");
       expect(r.ok).toBe(false);
     }
-    expect(c.bulkEdit(ids, "status", "Completed")).toEqual({ ok: false, error: "Initiative Status comes from GitHub and cannot be edited here. Change it on the GitHub issue." });
+    expect(c.bulkEdit(ids, "status", "Completed")).toEqual({ ok: false, error: "Build Status comes from GitHub and cannot be edited here. Change it on the GitHub issue." });
     expect(c.status.notice).toMatch(/comes from GitHub/);
     expect(source.calls).toHaveLength(0);
     expect(c.status.canUndo).toBe(false);

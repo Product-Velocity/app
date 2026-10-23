@@ -36,7 +36,7 @@ function fakeAdmin(opts: { connection?: unknown; link?: unknown; links?: unknown
   return client as unknown as Parameters<typeof ingestIssueEvent>[0] & { calls: Call[] };
 }
 
-const ev = { action: "closed", installationId: 9, repo: "Acme/App", number: 31, issueId: 5, nodeId: "I_x", state: "closed" as const, stateReason: "completed", updatedAt: "2026-10-23T10:00:00Z" };
+const ev = { action: "closed", installationId: 9, repo: "Acme/App", number: 31, issueId: 5, nodeId: "I_x", state: "closed" as const, stateReason: "completed", updatedAt: "2026-10-23T10:00:00Z", closedAt: "2026-10-23T09:59:00Z" };
 const conn = { id: "c1", tenant_id: "t1" };
 const link = { id: "l1", item_id: "i1" };
 
@@ -49,6 +49,14 @@ describe("ingestIssueEvent", () => {
     expect(JSON.stringify(inserted)).not.toMatch(/title|body|login/i);
     expect(admin.calls.find((c) => c.op === "rpc")?.payload).toMatchObject({ p_state: "closed", p_state_reason: "completed", p_number: 31 });
     expect(admin.calls.filter((c) => c.op === "update").pop()?.payload).toMatchObject({ state: "processed" });
+  });
+  it("records when the ticket closed as Build Completed, and clears it when the issue is reopened", async () => {
+    const admin = fakeAdmin({ connection: conn, link });
+    await ingestIssueEvent(admin, ev, "d-5");
+    expect(admin.calls.filter((c) => c.table === "item_github_links" && c.op === "update").pop()?.payload).toEqual({ gh_closed_at: "2026-10-23T09:59:00Z" });
+    const reopened = fakeAdmin({ connection: conn, link });
+    await ingestIssueEvent(reopened, { ...ev, action: "reopened", state: "open", stateReason: null, closedAt: null }, "d-6");
+    expect(reopened.calls.filter((c) => c.table === "item_github_links" && c.op === "update").pop()?.payload).toEqual({ gh_closed_at: null });
   });
   it("a replayed delivery is a duplicate and applies nothing", async () => {
     const admin = fakeAdmin({ connection: conn, link, insertError: { code: "23505", message: "duplicate key" } });
@@ -88,17 +96,17 @@ describe("reconcileConnection", () => {
   const connection = { id: "c1", tenant_id: "t1", expected_account: "Acme", installation_id: 9, account_login: "Acme", state: "connected" as const };
   it("compares GitHub with every linked item, flags a missing issue and logs only what changed", async () => {
     const sc = new MemorySourceControl();
-    sc.listed.set("Acme/App", [{ number: 31, id: 5, nodeId: "I_x", state: "closed", stateReason: "completed", updatedAt: "2026-10-23T10:00:00Z" }]);
+    sc.listed.set("Acme/App", [{ number: 31, id: 5, nodeId: "I_x", state: "closed", stateReason: "completed", updatedAt: "2026-10-23T10:00:00Z", closedAt: "2026-10-23T10:00:00Z" }]);
     const admin = fakeAdmin({ links: [{ id: "l1", item_id: "i1", repo_full_name: "Acme/App", issue_number: 31 }, { id: "l2", item_id: "i2", repo_full_name: "Acme/App", issue_number: 404 }] });
     const r = await reconcileConnection(admin, sc, connection);
     expect(r).toEqual({ checked: 2, changed: 1, missing: 1, repos: 1 });
     expect(admin.calls.filter((c) => c.op === "rpc")).toHaveLength(1);
     expect(admin.calls.find((c) => c.table === "sync_events" && c.op === "insert")?.payload).toMatchObject({ source: "reconcile", issue_number: 31 });
-    expect(admin.calls.find((c) => c.table === "item_github_links" && c.op === "update")?.payload).toMatchObject({ sync_state: "error" });
+    expect(admin.calls.filter((c) => c.table === "item_github_links" && c.op === "update").map((c) => c.payload)).toEqual(expect.arrayContaining([{ gh_closed_at: "2026-10-23T10:00:00Z" }, expect.objectContaining({ sync_state: "error" })]));
   });
   it("an unchanged issue is applied but leaves no log entry", async () => {
     const sc = new MemorySourceControl();
-    sc.listed.set("Acme/App", [{ number: 31, id: 5, nodeId: "I_x", state: "open", stateReason: null, updatedAt: "2026-10-23T10:00:00Z" }]);
+    sc.listed.set("Acme/App", [{ number: 31, id: 5, nodeId: "I_x", state: "open", stateReason: null, updatedAt: "2026-10-23T10:00:00Z", closedAt: null }]);
     const admin = fakeAdmin({ links: [{ id: "l1", item_id: "i1", repo_full_name: "Acme/App", issue_number: 31 }], rpcResult: { item_id: "i1", stale: false, changes: {} } });
     expect(await reconcileConnection(admin, sc, connection)).toEqual({ checked: 1, changed: 0, missing: 0, repos: 1 });
     expect(admin.calls.some((c) => c.table === "sync_events")).toBe(false);

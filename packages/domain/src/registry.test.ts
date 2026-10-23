@@ -32,7 +32,7 @@ const csv = parseCsv(readFileSync(new URL("../../../docs/reference/item-fields.c
 describe("field registry matches docs/reference/item-fields.csv", () => {
   it("has the same fields in the same order", () => {
     expect(FIELDS.map((f) => f.key)).toEqual(csv.map((r) => r.key));
-    expect(FIELDS).toHaveLength(165);
+    expect(FIELDS).toHaveLength(166);
   });
   it("has the same id, type, storage and phase for every field", () => {
     for (const r of csv) {
@@ -127,7 +127,7 @@ describe("default views match docs/reference/default-views.csv", () => {
 describe("group, editing mode and customer-safe flags match the sheet 'Grid columns and views' (docs/reference/grid-views.csv)", () => {
   const sheet = parseCsv(readFileSync(new URL("../../../docs/reference/grid-views.csv", import.meta.url), "utf8"));
   const MODE_OF: Record<string, string> = { "Editable": "editable", "Computed (read-only)": "computed", "System (read-only)": "system", "Locked (GitHub)": "locked" };
-  it("lists the same 165 fields in the same order", () => {
+  it("lists the same 166 fields in the same order", () => {
     expect(sheet.map((r) => r.key)).toEqual(FIELDS.map((f) => f.key));
   });
   it("carries the group, editing mode and customer-safe flag of the sheet", () => {

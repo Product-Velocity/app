@@ -101,3 +101,38 @@ describe("how long items stay in a stage", () => {
     expect(await errorCode(db.asUser(f.bob, (q) => q("select * from public.item_stage_durations($1)", [f.tenantA])))).toBe(DENIED);
   });
 });
+
+describe("initiative status belongs to people; build status to the tracker", () => {
+  it("a person with edit rights sets Initiative Status; nobody signed in can set Build Status", async () => {
+    const own = (await db.admin.query("select id from public.items where tenant_id = $1 and deleted_at is null limit 1", [f.tenantA])).rows[0].id as string;
+    await db.asUser(creator, (q) => q("update public.items set initiative_status = 'In Progress' where id = $1", [own]), { commit: true });
+    expect((await db.admin.query("select initiative_status from public.items where id = $1", [own])).rows[0].initiative_status).toBe("In Progress");
+    expect(await errorCode(db.asUser(creator, (q) => q("update public.items set status = 'Completed' where id = $1", [own])))).toBe(DENIED);
+    expect(await errorCode(db.asUser(creator, (q) => q("update public.items set initiative_status = 'Done-ish' where id = $1", [own]), { commit: true }))).toBe("23514");
+  });
+  it("a closed ticket never changes Initiative Status", async () => {
+    await db.admin.query("update public.items set initiative_status = 'In Progress' where id = $1", [itemA]);
+    await apply({ state: "closed", reason: "completed", at: "2026-10-24T10:00:00Z" });
+    const r = (await db.admin.query("select status, initiative_status from public.items where id = $1", [itemA])).rows[0];
+    expect(r).toMatchObject({ status: "Completed", initiative_status: "In Progress" });
+  });
+});
+
+describe("build cycle: from the phase becoming Build to the ticket closing", () => {
+  it("measures the days between the first time the phase was Build and the closing of the linked ticket", async () => {
+    await db.admin.query("select set_config('app.via', 'UI', false)");
+    await db.admin.query("update public.items set initiative_phase = 'Build' where id = $1", [itemA]);
+    const started = (await db.admin.query("select min(at) as t from public.audit_log where entity_id = $1 and field = 'initiative_phase' and new = to_jsonb('Build'::text)", [itemA])).rows[0].t as Date;
+    await db.admin.query("update public.item_github_links set gh_state = 'closed_completed', gh_closed_at = $2 where id = $1", [linkA, new Date(started.getTime() + 36 * 3600_000)]);
+    const [row] = await db.asUser(f.alice, async (q) => (await q("select * from public.item_build_cycle($1) where item_id = $2", [f.tenantA, itemA])).rows);
+    expect(new Date(row.build_started_at).getTime()).toBe(started.getTime());
+    expect(Number(row.build_days)).toBeCloseTo(1.5, 1);
+  });
+  it("is empty when the build has not started or the ticket closed as not planned, and refuses other workspaces", async () => {
+    await db.admin.query("update public.item_github_links set gh_state = 'closed_not_planned' where id = $1", [linkA]);
+    const [row] = await db.asUser(f.alice, async (q) => (await q("select * from public.item_build_cycle($1) where item_id = $2", [f.tenantA, itemA])).rows);
+    expect(row.build_completed_at).toBeNull();
+    expect(row.build_days).toBeNull();
+    expect(await errorCode(db.asUser(f.bob, (q) => q("select * from public.item_build_cycle($1)", [f.tenantA])))).toBe(DENIED);
+  });
+});

@@ -8,14 +8,20 @@ export type Applied = { item_id: string; stale: boolean; changes: Record<string,
 export type IngestResult = "duplicate" | "ignored" | "processed" | "error";
 
 /** What the database needs to apply an issue's state, from either a delivery or a reconciliation. */
-export type IssueFacts = { repo: string; number: number; issueId: number; nodeId: string; state: "open" | "closed"; stateReason: string | null; updatedAt: string };
+export type IssueFacts = { repo: string; number: number; issueId: number; nodeId: string; state: "open" | "closed"; stateReason: string | null; updatedAt: string; closedAt?: string | null };
 
 const short = (e: unknown) => (e instanceof Error ? e.message : "unknown error").slice(0, 280);
 
 async function applyFacts(admin: Admin, connectionId: string, f: IssueFacts): Promise<Applied> {
   const { data, error } = await admin.rpc("github_apply_issue", { p_connection: connectionId, p_repo: f.repo, p_number: f.number, p_issue_id: f.issueId, p_node_id: f.nodeId, p_state: f.state, p_state_reason: f.stateReason, p_updated_at: f.updatedAt });
   if (error) throw new Error(error.message);
-  return data as Applied;
+  const applied = data as Applied;
+  // when the ticket closed is Build Completed; reopening clears it. Older information (stale) never moves it.
+  if (applied && !applied.stale) {
+    const { error: e2 } = await admin.from("item_github_links").update({ gh_closed_at: f.state === "closed" ? (f.closedAt ?? f.updatedAt) : null }).eq("item_id", applied.item_id);
+    if (e2) throw new Error(e2.message);
+  }
+  return applied;
 }
 
 const factsOf = (s: Record<string, unknown>): IssueFacts => s as unknown as IssueFacts;
@@ -30,7 +36,7 @@ export async function ingestIssueEvent(admin: Admin, ev: IssueEvent, deliveryId:
   const { data: link } = await admin.from("item_github_links").select("id, item_id").eq("connection_id", conn.id).ilike("repo_full_name", ev.repo).eq("issue_number", ev.number).maybeSingle();
   if (!link) return "ignored";
 
-  const summary: IssueFacts = { repo: ev.repo, number: ev.number, issueId: ev.issueId, nodeId: ev.nodeId, state: ev.state, stateReason: ev.stateReason, updatedAt: ev.updatedAt };
+  const summary: IssueFacts = { repo: ev.repo, number: ev.number, issueId: ev.issueId, nodeId: ev.nodeId, state: ev.state, stateReason: ev.stateReason, updatedAt: ev.updatedAt, closedAt: ev.closedAt };
   const { data: row, error: insertError } = await admin
     .from("sync_events")
     .insert({ tenant_id: conn.tenant_id, connection_id: conn.id, delivery_id: deliveryId, source: "webhook", event: "issues", action: ev.action, repo_full_name: ev.repo, issue_number: ev.number, summary, item_id: link.item_id })
@@ -85,7 +91,7 @@ export async function reconcileConnection(admin: Admin, sc: SourceControl, conne
         await admin.from("item_github_links").update({ sync_state: "error", last_error: "The GitHub issue was not found (deleted or moved)." }).eq("id", l.id);
         continue;
       }
-      const facts: IssueFacts = { repo, number: issue.number, issueId: issue.id, nodeId: issue.nodeId, state: issue.state, stateReason: issue.stateReason, updatedAt: issue.updatedAt };
+      const facts: IssueFacts = { repo, number: issue.number, issueId: issue.id, nodeId: issue.nodeId, state: issue.state, stateReason: issue.stateReason, updatedAt: issue.updatedAt, closedAt: issue.closedAt };
       const applied = await applyFacts(admin, connection.id, facts);
       if (applied && Object.keys(applied.changes).length > 0) {
         result.changed++;

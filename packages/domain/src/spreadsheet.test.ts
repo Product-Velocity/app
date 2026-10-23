@@ -36,7 +36,8 @@ describe("guessMapping", () => {
   });
   it("never maps two columns to the same field, and never to a read-only field", () => {
     expect(guessMapping(["Name", "Initiative Name"])).toEqual(["initiative_name", null]);
-    expect(guessMapping(["Initiative ID", "Initiative Status", "Stack Rank", "Delivery Progress %"])).toEqual([null, null, null, null]);
+    expect(guessMapping(["Initiative ID", "Build Status", "Stack Rank", "Delivery Progress %"])).toEqual([null, null, null, null]);
+    expect(guessMapping(["Initiative Status"])).toEqual(["initiative_status"]); // people set it, so it can be imported
   });
   it("offers only editable fields from shipped phases", () => {
     const keys = importableFields().map((f) => f.key);

@@ -56,7 +56,7 @@
   "n": "3",
   "storage": "GitHub-synced column (read-only in app)",
   "phase": 3,
-  "name": "Initiative Status",
+  "name": "Build Status",
   "key": "status",
   "group": "What",
   "type": "Select",
@@ -3579,5 +3579,34 @@
   "githubSync": "n/a",
   "filledWhen": "Always",
   "description": "True for fields set by GitHub (status, progress, PR, CI)."
+ },
+ {
+  "n": "N43",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Initiative Status",
+  "key": "initiative_status",
+  "group": "What",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation",
+   "Delivery",
+   "History"
+  ],
+  "allowed": [
+   "Backlog",
+   "Not Started",
+   "In Progress",
+   "Paused",
+   "Completed",
+   "Cancelled"
+  ],
+  "allowedText": "Backlog · Not Started · In Progress · Paused · Completed · Cancelled",
+  "origin": "Input",
+  "githubSync": "Not synced. A closed linked ticket only sets Build Status and Build Completed; people decide where the initiative itself stands.",
+  "filledWhen": "Now where known",
+  "description": "Where the initiative itself stands, set by people (a closed GitHub or Jira ticket only means the build is complete: see Build Status)."
  }
 ]
