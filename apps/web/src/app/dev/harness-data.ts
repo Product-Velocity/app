@@ -16,7 +16,9 @@ export function makeHarness(n: number, latency: number, role: string) {
   const source = new MemoryDataSource(items, { latencyMs: latency });
   // the lists of the first item, so the panel has something to show
   source.related.set("item-1", { ...emptyRelated(), tags: ["priority", "q1"], artifacts: [{ label: "PRD", url: "https://example.test/prd" }], depends_on: ["item-2"] });
-  const controller = new PortfolioController(source, items, harnessLookups, role, () => new Date(Date.UTC(2027, 3, 14)));
+  // who added each item: the signed-in test user ("u1", Ana) added the odd-numbered ones, "u2" the even ones
+  for (const i of source.items) (i as Record<string, unknown>)._created_by = Number(i.id.replace("item-", "")) % 2 === 1 ? "u1" : "u2";
+  const controller = new PortfolioController(source, source.items.map((i) => ({ ...i })), harnessLookups, role, () => new Date(Date.UTC(2027, 3, 14)), undefined, undefined, "u1");
   return { controller, source };
 }
 

@@ -21,6 +21,7 @@ import type { Command } from "./palette";
 import { FiltersMenu, GroupMenu, summarize, ViewsMenu } from "./view-controls";
 import { downloadCsv, selectionToCsv } from "./export-selection";
 import { BulkBar } from "./bulk-bar";
+import { DeleteDialog } from "./delete-dialog";
 import { ImportDialog } from "./import-dialog";
 import { QuickAddBar } from "./quick-add-bar";
 import type { PortfolioController } from "./controller";
@@ -100,6 +101,16 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const quickAddRef = useRef<HTMLInputElement | null>(null);
   const [contextProject, setContextProject] = useState<string | null>(null);
   const [selected, setSelected] = useState<GridItem[]>([]);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null); // the delete confirmation is open for these items
+  // closing the dialog puts the keyboard focus back on the grid, so Ctrl+Z (undo the delete) works at once
+  const closeDelete = () => {
+    setDeleteIds(null);
+    requestAnimationFrame(() => {
+      const api = apiRef.current;
+      const first = api?.getFirstDisplayedRowIndex();
+      if (api && first !== undefined && first >= 0) api.setFocusedCell(first, "initiative_name");
+    });
+  };
   const [importText, setImportText] = useState<string | null>(null);
   const status = useStatus(controller);
   const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -268,6 +279,12 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       openPeek(e.data.id);
       return;
     }
+    // Delete or Backspace with rows ticked, on the checkbox column or a read-only cell: ask to delete them (on an editable cell it clears the cell)
+    if ((ke.key === "Delete" || ke.key === "Backspace") && controller.canEdit && (colId === "ag-Grid-SelectionColumn" || isReadOnlyColumn(colId)) && e.api.getSelectedRows().length > 0) {
+      ke.preventDefault();
+      setDeleteIds(e.api.getSelectedRows().map((r) => r.id));
+      return;
+    }
     if (isReadOnlyColumn(colId) && (ke.key === "Enter" || ke.key === "F2" || ke.key === "Delete" || ke.key === "Backspace" || ke.key.length === 1)) {
       if (ke.key.length === 1 && (ke.metaKey || ke.ctrlKey)) return; // copy etc.
       controller.notifyReadOnly(colId);
@@ -410,6 +427,8 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     if (dirty) out.push({ id: "view:reset", label: "Reset view changes", group: "Views", run: () => setOverride(null) });
     if (controller.canEdit && lookups.projects.length > 0) out.push({ id: "import", label: "Import from spreadsheet", group: "Actions", keywords: "paste excel csv", run: () => setImportText("") });
     out.push({ id: "export", label: "Export shown rows to file", group: "Actions", keywords: "csv download", run: exportAll });
+    if (controller.canEdit && selected.length > 0) out.push({ id: "delete", label: `Delete ${selected.length} selected ${selected.length === 1 ? "initiative" : "initiatives"}`, group: "Actions", keywords: "remove trash", hint: "Del", run: () => setDeleteIds(selected.map((r) => r.id)) });
+    if (controller.canSeeTrash) out.push({ id: "go:trash", label: "Open Trash", group: "Go to", keywords: "deleted restore", run: () => router.push("/trash") });
     if (controller.canEdit) {
       out.push({ id: "undo", label: "Undo last change", group: "Actions", hint: mac ? "⌘Z" : "Ctrl+Z", run: () => void controller.undo() });
       out.push({ id: "redo", label: "Redo", group: "Actions", run: () => void controller.redo() });
@@ -419,7 +438,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     return out;
     // the commands are rebuilt when what they act on changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [controller, lookups, views, scopes, projects, def, dirty, search, base, visibleRows, mac, focusQuickAdd, focusSearch]);
+  }, [controller, lookups, views, scopes, projects, def, dirty, search, base, visibleRows, mac, focusQuickAdd, focusSearch, selected]);
   const findItems = useMemo(
     () => (q: string) => controller.rows.filter((r) => matchesSearch(r, q)).slice(0, 6).map((r) => ({ id: r.id, label: `${r.item_code} ${r.initiative_name}`, run: () => locate(r.id) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -500,7 +519,8 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       {controller.canEdit && lookups.projects.length > 0 && (
         <QuickAddBar controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef} />
       )}
-      {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} exportFields={exportFields} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} total={visibleRows.length} />}
+      {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} exportFields={exportFields} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} total={visibleRows.length} />}
+      {deleteIds && <DeleteDialog controller={controller} ids={deleteIds} onClose={closeDelete} onDeleted={() => apiRef.current?.deselectAll()} />}
       {importText !== null && (
         <ImportDialog controller={controller} lookups={lookups} defaultProject={contextForQuickAdd} initialText={importText} onClose={() => setImportText(null)} />
       )}
@@ -539,7 +559,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       )}
       </div>
       <p ref={footRef} className="grid-foot">
-        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${FIELD_BY_KEY[def.groupBy]?.name}, rank order inside each group` : "Sorted by global Stack Rank"} · Alt+N adds an initiative · Enter edits a cell · Tab moves right · Esc cancels · Delete clears a cell · {mac ? "⌘Z" : "Ctrl+Z"} undoes · {mac ? "⌘K" : "Ctrl+K"} commands · A lock means the value comes from GitHub
+        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${FIELD_BY_KEY[def.groupBy]?.name}, rank order inside each group` : "Sorted by global Stack Rank"} · Alt+N adds an initiative · Enter edits a cell · Tab moves right · Esc cancels · Delete clears a cell (or deletes the ticked rows) · {mac ? "⌘Z" : "Ctrl+Z"} undoes · {mac ? "⌘K" : "Ctrl+K"} commands · A lock means the value comes from GitHub
         {status.pending > 0 ? "" : ""}
       </p>
     </section>

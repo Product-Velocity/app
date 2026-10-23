@@ -15,6 +15,8 @@ type Props = {
   exportFields: FieldDef[];
   onClear: () => void;
   onSelectAll: () => void;
+  /** Opens the delete confirmation for the selected rows. */
+  onDelete: () => void;
   /** Number of items in the grid, for "Select all 22". */
   total: number;
 };
@@ -74,7 +76,7 @@ function SetMenu({ def, selected, onPick }: { def: FieldDef; selected: GridItem[
 }
 
 /** Shown when rows are selected: set one field on all of them (one undo step), export them, or (later) update GitHub. */
-export function BulkBar({ controller, lookups, selected, exportFields, onClear, onSelectAll, total }: Props) {
+export function BulkBar({ controller, lookups, selected, exportFields, onClear, onSelectAll, onDelete, total }: Props) {
   const id = useId();
   const [field, setField] = useState("");
   const [value, setValue] = useState("");
@@ -118,6 +120,7 @@ export function BulkBar({ controller, lookups, selected, exportFields, onClear, 
         <button type="button" className="bulk-btn" onClick={() => downloadCsv(`roadmap-selection-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(selected, exportFields, lookups))}>
           Export selection to file
         </button>
+        {controller.canEdit && <button type="button" className="bulk-btn bulk-btn-danger" onClick={onDelete}>Delete…</button>}
         <button type="button" className="bulk-btn" onClick={onClear}>Clear selection</button>
       </div>
       <span className="bulk-hint">Esc clears · changes can be undone with {mac ? "⌘Z" : "Ctrl+Z"}</span>

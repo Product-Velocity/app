@@ -15,6 +15,8 @@ type Props = {
   isApprover: boolean;
   /** Tab to mark as the current one; when left out it follows the address of the page. */
   current?: "grid" | "gantt" | "cards" | "leadership";
+  /** Creators and admins get a link to the Trash in the account menu. */
+  showTrash?: boolean;
 };
 
 const initials = (email: string) => {
@@ -24,7 +26,7 @@ const initials = (email: string) => {
 };
 
 /** Top bar following prototype boards 20 and 1: logo, workspace and scope, tabs, account menu. */
-export function AppHeader({ tenantName, memberships, activeTenantId, switchAction, email, roleLabel, isApprover, current }: Props) {
+export function AppHeader({ tenantName, memberships, activeTenantId, switchAction, email, roleLabel, isApprover, current, showTrash }: Props) {
   return (
     <header className="topbar">
       <span className="brand-lockup">
@@ -62,6 +64,7 @@ export function AppHeader({ tenantName, memberships, activeTenantId, switchActio
           </p>
           <Link href="/settings/members" className="menu-link">Members</Link>
           <Link href="/settings/groups" className="menu-link">Initiative Groups</Link>
+          {showTrash && <Link href="/trash" className="menu-link">Trash</Link>}
           <Link href="/settings/security" className="menu-link">Security</Link>
           <form action="/auth/sign-out" method="post">
             <button className="menu-link menu-button" type="submit">Sign out</button>

@@ -14,7 +14,9 @@ export type CreateEdit = {
 export type NewItemValues = Record<string, unknown> & { initiative_name: string; home_project: string };
 /** A list field of an item (tags, links, relations, teams) replaced as a whole; undo puts the old list back. */
 export type RelatedEdit = { type: "related"; itemId: string; key: string; field: string; before: unknown[]; after: unknown[] };
-export type Edit = FieldEdit | RankEdit | CreateEdit | RelatedEdit;
+/** An item moved to the Trash. Undo brings it back at its old rank; redo deletes it again. `row` is what the grid showed. */
+export type DeleteEdit = { type: "delete"; itemId: string; key: string; name: string; rank: number; row: Record<string, unknown> };
+export type Edit = FieldEdit | RankEdit | CreateEdit | RelatedEdit | DeleteEdit;
 /** One undo step. A bulk action is one entry with several edits. */
 export type Entry = { id: string; edits: Edit[]; /** Shown after undo and redo of a batch, for example "Set Effort on 3 items". */ label?: string };
 
@@ -78,6 +80,7 @@ function show(field: EditableField, v: unknown, r: Resolvers): string {
 
 /** "R-41 Health: On track to At risk": shown in the status strip after every change. */
 export function describeEdit(edit: Edit, r: Resolvers): string {
+  if (edit.type === "delete") return `Deleted ${edit.key} "${edit.name}"`;
   if (edit.type === "create") return `Added ${edit.key === "…" ? "" : `${edit.key} `}"${edit.draft.initiative_name}"`;
   if (edit.type === "related") return `${edit.key} ${fieldLabel(edit.field)}: ${describeListChange(edit.before, edit.after)}`;
   if (edit.type === "rank") return `${edit.key} moved from rank ${edit.before} to ${edit.after}`;

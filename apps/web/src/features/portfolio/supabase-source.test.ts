@@ -174,12 +174,53 @@ describe("createMany and deleteItems", () => {
     const { client } = fake([{ error: { code: "23514" } }]);
     expect(await new SupabaseDataSource(client, "t1").createMany([{ id: "n1", initiative_name: "x", home_project: "p" }])).toEqual({ ok: false, error: "that value is not allowed" });
   });
-  it("deletes the items of the tenant in one request and notices when one was already gone", async () => {
-    const { client, calls } = fake([{ data: [{ id: "n1" }, { id: "n2" }] }]);
+  it("undo of an add calls discard_new_items once, and reports the first reason when one cannot be taken back", async () => {
+    const { client, calls } = fake([{ data: [{ id: "n1", ok: true, reason: null }, { id: "n2", ok: true, reason: null }] }]);
     expect(await new SupabaseDataSource(client, "t1").deleteItems(["n1", "n2"])).toEqual({ ok: true });
-    expect(has(calls[0]!, "eq", "tenant_id", "t1") && has(calls[0]!, "in", "id", ["n1", "n2"])).toBe(true);
-    const gone = fake([{ data: [{ id: "n1" }] }]);
-    expect(await new SupabaseDataSource(gone.client, "t1").deleteItems(["n1", "n2"])).toMatchObject({ ok: false });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.rpc).toBe("discard_new_items");
+    expect(calls[0]!.ops[0]![1]).toEqual([{ p_ids: ["n1", "n2"] }]);
+    const late = fake([{ data: [{ id: "n1", ok: false, reason: "Only the person who just added it can take it back; use Delete instead." }] }]);
+    expect(await new SupabaseDataSource(late.client, "t1").deleteItems(["n1"])).toEqual({ ok: false, error: "Only the person who just added it can take it back; use Delete instead." });
+  });
+});
+
+describe("Trash", () => {
+  it("trashItems sends one delete_items request and lists the items that could not be deleted", async () => {
+    const { client, calls } = fake([{ data: [{ id: "a", ok: true, reason: null }, { id: "b", ok: false, reason: "It is already in the Trash." }] }]);
+    expect(await new SupabaseDataSource(client, "t1").trashItems(["a", "b"])).toEqual({ ok: true, failed: [{ id: "b", reason: "It is already in the Trash." }] });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.rpc).toBe("delete_items");
+    expect(calls[0]!.ops[0]![1]).toEqual([{ p_ids: ["a", "b"] }]);
+  });
+  it("restoreItems returns the rank each item came back at", async () => {
+    const { client, calls } = fake([{ data: [{ id: "a", ok: true, reason: null, stack_rank: "4" }, { id: "b", ok: false, reason: "It is not in the Trash.", stack_rank: null }] }]);
+    expect(await new SupabaseDataSource(client, "t1").restoreItems(["a", "b"])).toEqual({ ok: true, restored: [{ id: "a", stack_rank: 4 }], failed: [{ id: "b", reason: "It is not in the Trash." }] });
+    expect(calls[0]!.rpc).toBe("restore_items");
+  });
+  it("purgeItems calls purge_items", async () => {
+    const { client, calls } = fake([{ data: [{ id: "a", ok: true, reason: null }] }]);
+    expect(await new SupabaseDataSource(client, "t1").purgeItems(["a"])).toEqual({ ok: true, failed: [] });
+    expect(calls[0]!.rpc).toBe("purge_items");
+  });
+  it("loadTrash reads trashed_items for this workspace", async () => {
+    const { client, calls } = fake([{ data: [{ id: "a", item_code: "R-02", initiative_name: "Old", home_project_id: "p1", theme: null, stack_rank: 2, created_by: "u1", deleted_at: "2027-04-13T10:00:00Z", deleted_by: "u2" }] }]);
+    const r = await new SupabaseDataSource(client, "t1").loadTrash();
+    expect(r).toEqual([{ id: "a", item_code: "R-02", initiative_name: "Old", home_project: "p1", theme: null, stack_rank: 2, created_by: "u1", deleted_at: "2027-04-13T10:00:00Z", deleted_by: "u2" }]);
+    expect(calls[0]!.rpc).toBe("trashed_items");
+    expect(calls[0]!.ops[0]![1]).toEqual([{ p_tenant: "t1" }]);
+  });
+  it("a failed request is turned into words", async () => {
+    const { client } = fake([{ error: { code: "PV004", message: "Claude and service accounts cannot delete, restore or remove items; ask a person" } }]);
+    expect(await new SupabaseDataSource(client, "t1").trashItems(["a"])).toMatchObject({ ok: false });
+  });
+  it("loadItems remembers who added each item (for who may delete it) but not as a grid column", async () => {
+    const r = { ...row(1), created_by: "u9", deleted_at: null, deleted_by: null };
+    const { client } = fake([{ data: [r] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }]);
+    const items = await new SupabaseDataSource(client, "t1").loadItems();
+    expect((items[0] as Record<string, unknown>)._created_by).toBe("u9");
+    expect(items[0]).not.toHaveProperty("created_by");
+    expect(items[0]).not.toHaveProperty("deleted_at");
   });
 });
 

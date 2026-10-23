@@ -9,10 +9,11 @@ const lookups: Lookups = {
 };
 const TODAY = new Date(Date.UTC(2027, 3, 14));
 
-function setup(opts: { role?: string; n?: number; latencyMs?: number } = {}) {
+function setup(opts: { role?: string; n?: number; latencyMs?: number; me?: string | null } = {}) {
   const items = sampleItems(opts.n ?? 6, ["p1", "p2"], ["u1", "u2"]);
+  for (const i of items) (i as Record<string, unknown>)._created_by = Number(i.id.replace("item-", "")) % 2 === 1 ? "u1" : "u2"; // odd: u1, even: u2
   const source = new MemoryDataSource(items, { latencyMs: opts.latencyMs ?? 0 });
-  const c = new PortfolioController(source, items, lookups, "role" in opts ? (opts.role as string) : "creator", () => TODAY, () => 1_000);
+  const c = new PortfolioController(source, items, lookups, "role" in opts ? (opts.role as string) : "creator", () => TODAY, () => 1_000, undefined, "me" in opts ? opts.me! : "u1");
   return { c, source };
 }
 
@@ -474,5 +475,129 @@ describe("moving a card: several fields as one undo step", () => {
     await c.flush();
     expect(c.row("item-2")).toMatchObject({ initiative_phase: "Define", theme: "Onboarding" });
     expect(c.status.error).toContain("no permission");
+  });
+});
+
+describe("delete, undo and the Trash", () => {
+  const ranks = (c: PortfolioController) => c.rows.map((r) => [r.id, r.stack_rank]);
+
+  it("the rows leave the grid at once, go to the Trash in ONE request, and the ranks close up", async () => {
+    const { c, source } = setup({ role: "admin", latencyMs: 15 });
+    const r = c.deleteItems(["item-2", "item-4", "item-5"]);
+    expect(r).toEqual({ ok: true, deleted: 3, skipped: [] });
+    expect(c.row("item-2")).toBeUndefined(); // before the save returned
+    expect(c.rows.map((x) => x.stack_rank)).toEqual([1, 2, 3]);
+    expect(c.status.last?.text).toBe("Deleted 3 items");
+    await c.flush();
+    expect(source.trashCalls).toEqual([{ op: "trash", ids: ["item-2", "item-4", "item-5"] }]);
+    expect(source.items.map((i) => i.id)).toEqual(["item-1", "item-3", "item-6"]);
+    expect(source.trash.map((t) => t.id).sort()).toEqual(["item-2", "item-4", "item-5"]);
+    expect(c.status.error).toBeNull();
+  });
+
+  it("one undo step restores them at the same ranks with the same fields; redo deletes them again", async () => {
+    const { c, source } = setup({ role: "admin" });
+    const before = ranks(c);
+    const name = c.row("item-3")!.initiative_name;
+    c.deleteItems(["item-2", "item-3"]);
+    await c.flush();
+    expect(c.status.undoCount).toBe(1);
+    await c.undo();
+    expect(ranks(c)).toEqual(before);
+    expect(c.row("item-3")!.initiative_name).toBe(name);
+    expect(source.items.map((i) => [i.id, i.stack_rank])).toEqual(before);
+    expect(source.trash).toHaveLength(0);
+    expect(c.status.last?.text).toBe("Undid: Deleted 2 items");
+    await c.redo();
+    expect(c.row("item-2")).toBeUndefined();
+    expect(c.rows.map((x) => x.stack_rank)).toEqual([1, 2, 3, 4]);
+    expect(source.trash.map((t) => t.id).sort()).toEqual(["item-2", "item-3"]);
+  });
+
+  it("deleting one item says which one in the status line", () => {
+    const { c } = setup({ role: "admin" });
+    c.deleteItems(["item-3"]);
+    expect(c.status.last?.text).toBe('Deleted R-03 "Initiative number 3 with a reasonably long title"');
+  });
+
+  it("a creator deletes only items they added; the others are skipped and named", async () => {
+    const { c, source } = setup({ role: "creator", me: "u1" });
+    const r = c.deleteItems(["item-1", "item-2", "item-3"]); // 1 and 3 are u1's, 2 is u2's
+    expect(r).toMatchObject({ ok: true, deleted: 2 });
+    expect((r as { skipped: unknown[] }).skipped).toEqual([{ id: "item-2", name: expect.any(String), reason: "Only the person who added it or an admin can delete it." }]);
+    expect(c.row("item-2")).toBeDefined();
+    expect(c.status.notice).toMatch(/1 could not be deleted/);
+    await c.flush();
+    expect(source.trashCalls[0]!.ids).toEqual(["item-1", "item-3"]);
+    expect(c.canDelete("item-2")).toBe(false);
+    expect(c.canDelete("item-5")).toBe(true);
+  });
+
+  it("viewers, commenters and leadership cannot delete, and nothing is sent", () => {
+    for (const role of ["viewer", "commenter", "leadership", null]) {
+      const { c, source } = setup({ role: role as string });
+      expect(c.deleteItems(["item-1"])).toMatchObject({ ok: false });
+      expect(c.row("item-1")).toBeDefined();
+      expect(source.trashCalls).toHaveLength(0);
+    }
+  });
+
+  it("when the server refuses some, they come back and only the others stay deleted", async () => {
+    const { c, source } = setup({ role: "admin" });
+    source.refuse.set("item-3", "Your role cannot delete initiatives.");
+    c.deleteItems(["item-2", "item-3"]);
+    await c.flush();
+    expect(c.row("item-2")).toBeUndefined();
+    expect(c.row("item-3")).toBeDefined();
+    expect(ranks(c)).toEqual(source.items.map((i) => [i.id, i.stack_rank]));
+    expect(c.status.error).toMatch(/1 item could not be deleted: Your role cannot delete initiatives\./);
+    await c.undo(); // the step now covers only the item that did go
+    expect(source.trash).toHaveLength(0);
+    expect(c.rows).toHaveLength(6);
+  });
+
+  it("when the whole request fails, everything comes back at its rank with a message", async () => {
+    const { c, source } = setup({ role: "admin" });
+    const before = ranks(c);
+    source.failTrash = "network down";
+    c.deleteItems(["item-1", "item-4"]);
+    await c.flush();
+    expect(ranks(c)).toEqual(before);
+    expect(c.status.error).toMatch(/Could not delete 2 items: network down\. The change was reverted\./);
+    expect(c.status.canUndo).toBe(false);
+  });
+
+  it("a failed undo puts the deleted state back and keeps the step", async () => {
+    const { c, source } = setup({ role: "admin" });
+    c.deleteItems(["item-2"]);
+    await c.flush();
+    source.failTrash = "offline";
+    await c.undo();
+    expect(c.row("item-2")).toBeUndefined();
+    expect(c.status.error).toMatch(/offline/);
+    expect(c.status.canUndo).toBe(true);
+  });
+
+  it("references to a deleted item read '(deleted item)'", async () => {
+    const { c, source } = setup({ role: "admin" });
+    source.related.set("item-1", { ...(await source.loadRelated("item-1")), depends_on: ["item-2"] });
+    await c.loadRelated("item-1");
+    c.editRelated("item-1", "depends_on", ["item-2", "item-3"]);
+    expect(c.row("item-1")!.depends_on).toBe("R-02; R-03");
+    c.deleteItems(["item-2"]);
+    c.editRelated("item-1", "related_to", []); // any change re-renders; the text of depends_on is checked below
+    // the cached list still holds the id; the grid text for a missing item
+    expect((c as unknown as { listText: (f: string, l: unknown[]) => string | null }).listText("depends_on", ["item-2", "item-3"])).toBe("(deleted item); R-03");
+  });
+
+  it("the Trash lists who deleted what; restore and delete forever go through the source", async () => {
+    const { c, source } = setup({ role: "admin" });
+    c.deleteItems(["item-2", "item-5"]);
+    await c.flush();
+    expect((await source.loadTrash()).map((t) => t.item_code)).toEqual(["R-05", "R-02"]);
+    const r = await source.restoreItems(["item-5"]);
+    expect(r).toMatchObject({ ok: true, restored: [{ id: "item-5", stack_rank: 5 }], failed: [] });
+    expect(await source.purgeItems(["item-2", "item-1"])).toEqual({ ok: true, failed: [{ id: "item-1", reason: "Only items in the Trash can be deleted forever." }] });
+    expect(source.trash).toHaveLength(0);
   });
 });

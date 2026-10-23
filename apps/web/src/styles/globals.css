@@ -444,3 +444,14 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 .lead-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 4px; }
 .lead-status, .lead-sources { margin: 4px 0; font-size: 12px; }
 .lead-confirm { font-size: 12px; display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+/* delete and Trash (#52) */
+.dialog-narrow { width: min(520px, 100%); }
+.delete-list { margin: 0 0 10px; padding-left: 18px; }
+.delete-note { background: #f4f5f8; border-radius: 6px; padding: 8px 10px; font-size: 12px; }
+.btn-danger { background: #b3261e; border-color: #b3261e; color: #fff; }
+.btn-danger:hover { background: #8f1d17; }
+.trash-table { width: 100%; border-collapse: collapse; }
+.trash-table th, .trash-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e6e8ee; font-size: 13px; }
+.trash-actions { display: flex; gap: 8px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
+.bulk-btn-danger { color: #b3261e; }

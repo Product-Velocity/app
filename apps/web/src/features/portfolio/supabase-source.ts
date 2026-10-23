@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
-import type { CreateManyResult, NewItem, PortfolioDataSource, SaveResult } from "./data-source";
-import type { LoadedItem } from "./types";
+import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
+import type { LoadedItem, TrashedItem } from "./types";
 
 /** Supabase returns at most 1,000 rows per request, so a 2,000-item workspace needs several pages. */
 export const PAGE_SIZE = 1000;
@@ -23,7 +23,7 @@ export function friendlyError(error: DbError): string {
 const NUMERIC = new Set(FIELDS.filter((f) => f.type === "Number" || f.type === "Currency" || f.type === "Computed").map((f) => f.key));
 /** Computed values come from the items_computed view; the browser works out project_rank itself after a re-rank. */
 const COMPUTED_KEYS = FIELDS.filter((f) => f.storage.startsWith("Computed") && f.key !== "project_rank").map((f) => f.key);
-const INTERNAL_COLUMNS = new Set(["tenant_id", "cycle_id", "created_by", "updated_at", "last_edited_by", "github_issue_url", "last_synced_at", "created_via"]);
+const INTERNAL_COLUMNS = new Set(["tenant_id", "cycle_id", "created_by", "updated_at", "last_edited_by", "github_issue_url", "last_synced_at", "created_via", "deleted_at", "deleted_by"]);
 
 const dbColumn = (field: string) => {
   const f = FIELD_BY_KEY[field];
@@ -58,6 +58,7 @@ export class SupabaseDataSource implements PortfolioDataSource {
         if (INTERNAL_COLUMNS.has(k)) continue;
         item[KEY_BY_COLUMN[k] ?? k] = NUMERIC.has(k) && v !== null && v !== undefined ? Number(v) : v;
       }
+      item._created_by = r.created_by ?? null; // who added it: decides who may delete it (not a grid column)
       items.set(String(r.id), item);
     }
 
@@ -132,10 +133,40 @@ export class SupabaseDataSource implements PortfolioDataSource {
     return { ok: true, items: data.map((r) => ({ id: String(r.id), item_code: String(r.item_code), stack_rank: Number(r.stack_rank) })) };
   }
 
-  async deleteItems(itemIds: string[]): Promise<SaveResult> {
-    const { data, error } = await this.client.from("items").delete().eq("tenant_id", this.tenantId).in("id", itemIds).select("id");
+  private async batch(fn: string, itemIds: string[]): Promise<{ ok: true; rows: { id: string; ok: boolean; reason: string | null; stack_rank?: number }[] } | { ok: false; error: string }> {
+    const { data, error } = await this.client.rpc(fn, { p_ids: itemIds });
     if (error) return { ok: false, error: friendlyError(error) };
-    return data && data.length === itemIds.length ? { ok: true } : { ok: false, error: "an item was already removed or you cannot delete it" };
+    return { ok: true, rows: (data ?? []) as { id: string; ok: boolean; reason: string | null; stack_rank?: number }[] };
+  }
+  private failedOf = (rows: { id: string; ok: boolean; reason: string | null }[]) => rows.filter((r) => !r.ok).map((r) => ({ id: r.id, reason: r.reason ?? "unknown reason" }));
+
+  async trashItems(itemIds: string[]): Promise<BatchResult> {
+    const r = await this.batch("delete_items", itemIds);
+    return r.ok ? { ok: true, failed: this.failedOf(r.rows) } : r;
+  }
+  async restoreItems(itemIds: string[]): Promise<RestoreResult> {
+    const r = await this.batch("restore_items", itemIds);
+    return r.ok ? { ok: true, restored: r.rows.filter((x) => x.ok).map((x) => ({ id: x.id, stack_rank: Number(x.stack_rank) })), failed: this.failedOf(r.rows) } : r;
+  }
+  async purgeItems(itemIds: string[]): Promise<BatchResult> {
+    const r = await this.batch("purge_items", itemIds);
+    return r.ok ? { ok: true, failed: this.failedOf(r.rows) } : r;
+  }
+  async loadTrash(): Promise<TrashedItem[]> {
+    const { data, error } = await this.client.rpc("trashed_items", { p_tenant: this.tenantId });
+    if (error) throw new Error(friendlyError(error));
+    return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+      id: String(r.id), item_code: String(r.item_code), initiative_name: String(r.initiative_name), home_project: String(r.home_project_id),
+      theme: (r.theme as string | null) ?? null, stack_rank: Number(r.stack_rank), created_by: (r.created_by as string | null) ?? null,
+      deleted_at: String(r.deleted_at), deleted_by: (r.deleted_by as string | null) ?? null,
+    }));
+  }
+
+  async deleteItems(itemIds: string[]): Promise<SaveResult> {
+    const r = await this.batch("discard_new_items", itemIds);
+    if (!r.ok) return r;
+    const bad = r.rows.find((x) => !x.ok);
+    return bad ? { ok: false, error: bad.reason ?? "an item was already removed or you cannot delete it" } : { ok: true };
   }
 
   async moveItem(itemId: string, toRank: number): Promise<SaveResult> {

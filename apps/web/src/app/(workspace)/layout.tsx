@@ -19,6 +19,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
         email={user.email ?? ""}
         roleLabel={ROLE_LABEL[active.role]}
         isApprover={active.isApprover}
+        showTrash={canEditItems(active.role)}
       />
       <main className="content">{children}</main>
     </div>
