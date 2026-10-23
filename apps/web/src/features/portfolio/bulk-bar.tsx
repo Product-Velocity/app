@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { bulkEditReason, canBeEmpty, EDITABLE_FIELDS, FIELDS, FIELD_BY_KEY, optionsFor, type FieldDef } from "@pv/domain";
+import { bulkEditReason, canBeEmpty, EDITABLE_FIELDS, FIELDS, FIELD_BY_KEY, fieldOptions, optionsFor, type FieldDef, type ListOption } from "@pv/domain";
+import { SelectField } from "@/components/search-list";
 import type { PortfolioController } from "./controller";
 import { downloadCsv, selectionToCsv } from "./export-selection";
 import type { GridItem, Lookups } from "./types";
@@ -87,6 +88,10 @@ export function BulkBar({ controller, lookups, selected, exportFields, onClear, 
   const options = def ? valueOptions(def, lookups) : null;
   const editable = FIELDS.filter((f) => bulkEditReason(f.key) === null && EDITABLE_FIELDS.includes(f.key));
   const blocked = FIELDS.filter((f) => bulkEditReason(f.key) !== null);
+  const fieldChoices: ListOption[] = [
+    ...fieldOptions(editable).map((o) => ({ ...o, group: "Can be set here" })),
+    ...fieldOptions(blocked).map((o) => ({ ...o, group: "Cannot be set here (GitHub, calculated, system, later phases, rank)" })),
+  ];
   const n = selected.length;
   const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -126,26 +131,14 @@ export function BulkBar({ controller, lookups, selected, exportFields, onClear, 
       <span className="bulk-hint">Esc clears · changes can be undone with {mac ? "⌘Z" : "Ctrl+Z"}</span>
       {controller.canEdit && more && (
       <div className="bulk-set">
-        <label htmlFor={`${id}-field`}>Set</label>
-        <select
-          id={`${id}-field`}
-          value={field}
-          onChange={(e) => { setField(e.target.value); setValue(""); setMessage(null); }}
-        >
-          <option value="">Choose a field…</option>
-          <optgroup label="Can be set here">
-            {editable.map((f) => <option key={f.key} value={f.key}>{f.name}</option>)}
-          </optgroup>
-          <optgroup label="Cannot be set here (GitHub, calculated, system, later phases, rank)">
-            {blocked.map((f) => <option key={f.key} value={f.key}>{f.name}</option>)}
-          </optgroup>
-        </select>
+        <span className="bulk-set-label" aria-hidden="true">Set</span>
+        <SelectField
+          id={`${id}-field`} label="Field to set" value={field} options={fieldChoices} blank="Choose a field…"
+          onChange={(v) => { setField(v); setValue(""); setMessage(null); }}
+        />
         {def && !reason && (
           options ? (
-            <select aria-label={`New value for ${def.name}`} value={value} onChange={(e) => setValue(e.target.value)}>
-              <option value="">{canBeEmpty(def.key) ? "(empty)" : "Choose…"}</option>
-              {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            <SelectField label={`New value for ${def.name}`} value={value} options={options} onChange={setValue} blank={canBeEmpty(def.key) ? "(empty)" : "Choose…"} />
           ) : (
             <input
               aria-label={`New value for ${def.name}`}

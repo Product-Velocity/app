@@ -1,6 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { chooseOption } from "./helpers";
+
+const fieldNames = Object.fromEntries((JSON.parse(readFileSync(new URL("../../../packages/domain/src/field-dictionary.json", import.meta.url), "utf8")) as { key: string; name: string }[]).map((f) => [f.key, f.name])) as Record<string, string> as Record<string, string>;
 
 const ALL = "view=All columns&cols=all";
 const open = async (page: Page, query = `n=30&${ALL}`) => {
@@ -40,12 +43,12 @@ test.describe("bulk bar", () => {
     await open(page);
     await select(page, "item-1", "item-2");
     await bar(page).getByRole("button", { name: /^More fields/ }).click();
-    await bar(page).getByLabel("Set", { exact: true }).selectOption("status");
+    await chooseOption(page, bar(page), "Field to set", "status");
     await expect(bar(page)).toContainText("Initiative Status comes from GitHub and cannot be edited here");
     await expect(bar(page).getByRole("button", { name: /^Apply/ })).toBeDisabled();
-    await bar(page).getByLabel("Set", { exact: true }).selectOption("item_code");
+    await chooseOption(page, bar(page), "Field to set", "item_code");
     await expect(bar(page)).toContainText("set by the system");
-    await bar(page).getByLabel("Set", { exact: true }).selectOption("stack_rank");
+    await chooseOption(page, bar(page), "Field to set", "stack_rank");
     await expect(bar(page)).toContainText("one item at a time");
     await expect(cell(page, "item-1", "status")).toHaveText("Backlog");
   });
@@ -78,7 +81,7 @@ test.describe("bulk bar", () => {
     await open(page);
     await select(page, "item-1", "item-2");
     await bar(page).getByRole("button", { name: /^More fields/ }).click();
-    await bar(page).getByLabel("Set", { exact: true }).selectOption("effort");
+    await chooseOption(page, bar(page), "Field to set", "effort");
     await bar(page).getByLabel("New value for Effort (T-shirt)").selectOption("XL");
     await bar(page).getByRole("button", { name: "Apply to 2 items" }).click();
     await expect(cell(page, "item-1", "effort")).toHaveText("XL");
@@ -141,13 +144,13 @@ test.describe("paste-import from a spreadsheet", () => {
     await page.getByRole("button", { name: "Import from spreadsheet" }).click();
     const dialog = page.getByRole("dialog", { name: /Import rows/ });
     await dialog.getByLabel(/Paste the cells/).fill(sheet(50));
-    await expect(dialog.getByLabel("Field for Initiative Name")).toHaveValue("initiative_name");
-    await expect(dialog.getByLabel("Field for Project")).toHaveValue("home_project");
-    await expect(dialog.getByLabel("Field for Owner")).toHaveValue("product_manager");
-    await expect(dialog.getByLabel("Field for Size")).toHaveValue("effort");
-    await expect(dialog.getByLabel("Field for MoSCoW")).toHaveValue("moscow");
-    await expect(dialog.getByLabel("Field for Value")).toHaveValue("value_12m");
-    await expect(dialog.getByLabel("Field for Start")).toHaveValue("start_date");
+    await expect(dialog.getByRole("button", { name: "Field for Initiative Name:" })).toContainText(fieldNames.initiative_name!);
+    await expect(dialog.getByRole("button", { name: "Field for Project:" })).toContainText(fieldNames.home_project!);
+    await expect(dialog.getByRole("button", { name: "Field for Owner:" })).toContainText(fieldNames.product_manager!);
+    await expect(dialog.getByRole("button", { name: "Field for Size:" })).toContainText(fieldNames.effort!);
+    await expect(dialog.getByRole("button", { name: "Field for MoSCoW:" })).toContainText(fieldNames.moscow!);
+    await expect(dialog.getByRole("button", { name: "Field for Value:" })).toContainText(fieldNames.value_12m!);
+    await expect(dialog.getByRole("button", { name: "Field for Start:" })).toContainText(fieldNames.start_date!);
     await expect(dialog.getByRole("status")).toContainText("50 rows read: 50 ready");
     await expect(dialog.locator(".import-preview tbody tr")).toHaveCount(10);
     await expect(dialog.locator(".import-preview tbody tr").first()).toContainText("Excel item 1");
@@ -182,9 +185,9 @@ test.describe("paste-import from a spreadsheet", () => {
     // none of these headers is a known field name, so the first row is not assumed to be a header
     await expect(dialog.getByLabel("The first row has column names")).not.toBeChecked();
     await dialog.getByLabel("The first row has column names").check();
-    await expect(dialog.getByLabel("Field for Idea")).toHaveValue("");
-    await dialog.getByLabel("Field for Idea").selectOption("initiative_name");
-    await dialog.getByLabel("Field for Importance").selectOption("moscow");
+    await expect(dialog.getByRole("button", { name: "Field for Idea:" })).toContainText("Do not import");
+    await chooseOption(page, dialog, "Field for Idea:", "initiative_name");
+    await chooseOption(page, dialog, "Field for Importance:", "moscow");
     await dialog.getByLabel(/Project for rows that have none/).selectOption({ label: "Growth" });
     await expect(dialog.getByRole("status")).toContainText("2 rows read: 2 ready");
     await dialog.getByRole("button", { name: "Import 2 rows" }).click();

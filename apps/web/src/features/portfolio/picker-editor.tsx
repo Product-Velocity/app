@@ -83,7 +83,7 @@ export function PickerEditor({ value, onValueChange, stopEditing, options, allow
       />
       {similar.length > 0 && <p role="status" className="picker-hint">Looks like {similar.map((g) => `“${g}”`).join(", ")}. Pick it from the list to reuse it.</p>}
       <ul id={listId} role="listbox" className="picker-list">
-        {shown.length === 0 && <li className="picker-empty">No match</li>}
+        {shown.length === 0 && <li className="picker-empty">No results</li>}
         {shown.map((o, i) => (
           <li
             key={o.value || "__empty"}

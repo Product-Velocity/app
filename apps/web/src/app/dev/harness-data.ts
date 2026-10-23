@@ -11,14 +11,19 @@ export const harnessLookups: Lookups = {
   teams: [{ id: "t1", name: "Core" }, { id: "t2", name: "Mobile" }],
 };
 
-export function makeHarness(n: number, latency: number, role: string) {
-  const items = sampleItems(n, harnessLookups.projects.map((p) => p.id), harnessLookups.members.map((m) => m.user_id));
+/** The same workspace with long lists of people and projects, for the searchable drop-downs (more than 8 options). */
+export const bigLookups: Lookups = {
+  ...harnessLookups,
+  projects: [...harnessLookups.projects, ...["Billing", "Search", "Identity", "Reporting", "Onboarding", "Support", "Security", "Partners"].map((name, i) => ({ id: `p${i + 7}`, name }))],
+  members: [...harnessLookups.members, ...["fay", "gus", "hana", "ivo", "jun", "kai", "lea"].map((n, i) => ({ user_id: `u${i + 6}`, email: `${n}@example.test` }))],
+};
+
+export function makeHarness(n: number, latency: number, role: string, lookups: Lookups = harnessLookups) {
+  const items = sampleItems(n, lookups.projects.map((p) => p.id), lookups.members.map((m) => m.user_id));
   const source = new MemoryDataSource(items, { latencyMs: latency });
   // the lists of the first item, so the panel has something to show
   source.related.set("item-1", { ...emptyRelated(), tags: ["priority", "q1"], artifacts: [{ label: "PRD", url: "https://example.test/prd" }], depends_on: ["item-2"] });
-  // who added each item: the signed-in test user ("u1", Ana) added the odd-numbered ones, "u2" the even ones
-  for (const i of source.items) (i as Record<string, unknown>)._created_by = Number(i.id.replace("item-", "")) % 2 === 1 ? "u1" : "u2";
-  const controller = new PortfolioController(source, source.items.map((i) => ({ ...i })), harnessLookups, role, () => new Date(Date.UTC(2027, 3, 14)), undefined, undefined, "u1");
+  const controller = new PortfolioController(source, items, lookups, role, () => new Date(Date.UTC(2027, 3, 14)));
   return { controller, source };
 }
 

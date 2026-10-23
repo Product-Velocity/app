@@ -1,3 +1,4 @@
+import { chooseOption } from "./helpers";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -16,7 +17,7 @@ const addFilter = async (page: Page, field: string, value?: string) => {
   if (!(await panel.isVisible())) await page.getByRole("button", { name: /^Filters/ }).click();
   await panel.getByRole("button", { name: "+ Add filter" }).click();
   const i = (await panel.locator(".filter-row").count());
-  await panel.getByLabel(`Field of filter ${i}`).selectOption(field);
+  await chooseOption(page, panel, `Field of filter ${i}:`, field);
   if (value) await panel.getByLabel(/^Value for/).last().selectOption(value);
 };
 
@@ -146,6 +147,8 @@ test.describe("scope switcher", () => {
     await open(page);
     await scopeButton(page).focus();
     await page.keyboard.press("Enter");
+    await expect(page.getByRole("searchbox", { name: "Search scopes and projects" })).toBeFocused(); // more than 8 entries: the search is first
+    await page.keyboard.press("ArrowDown");
     await expect(scopeMenu(page).getByRole("menuitemradio", { name: /All projects/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(scopeMenu(page).getByRole("menuitemradio", { name: /Marketplace and Platform/ })).toBeFocused();
