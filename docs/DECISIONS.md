@@ -111,3 +111,5 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-23 · "What moved this week" counts a rank change as the net move over the ISO week; a leadership viewer lands on `/leadership` after signing in · Claude (issue #29)
 - 2026-10-23 · Menus that close when the focus leaves them ignore a blur while a pointer is pressed inside, because Safari does not focus a clicked button (fix in its own PR) · Claude
 
+- 2026-10-23 · Search in long lists (R-018): the threshold is "more than 8 options" as written; a list with 8 or fewer stays a native select. Every word of the query must match the name, the field key or an import alias, in any order; a name that starts with the query is listed first; a ranked result list has no group headings · Claude
+- 2026-10-23 · Menus made of buttons (Group by, scope switcher, Views) keep their menu roles; the search box sits next to the menu, not inside it (a screen reader requires menu children to be menu items). Quick-add is typed tokens (#project @person +group), not a list, so it has no search box · Claude
