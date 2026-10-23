@@ -21,7 +21,21 @@ Initiative → **tracking issue** in the project's default repo. Epics and tasks
 Add an automated test that serialises every outbound payload and fails if a non-allowlisted field name or value appears.
 
 ## Install and approval flow
-Non-owner installers trigger GitHub's request-approval flow; the app shows "waiting for approval" (board 6) and polls installation events. Do not claim the app is connected until the installation webhook arrives.
+Built in #31 (`/settings/integrations/github`, code in `packages/github` and `apps/web/src/lib/github`).
+1. An admin (a person, never a service account or Claude) types the GitHub organisation name. The app stores a `github_connections` row in state **requested** and sends the admin to `https://github.com/apps/<slug>/installations/new` with a signed, one-hour `state` (workspace, admin, connection).
+2. GitHub returns the browser to the App's **Setup URL**, `/api/github/setup`. The route checks the state, that the signed-in user is that admin, and (for an install) asks GitHub that the installation exists and belongs to the organisation that was entered. It records the installation id and sets **installing**. A non-owner gets `setup_action=request` with no installation id: state **waiting approval**.
+3. Only GitHub's `installation` webhook (`created`, or `unsuspend` / `new_permissions_accepted`) at `/api/github/webhook` sets **connected**, then the repositories are read and Epic availability recorded. The app never claims to be connected before that. `installation deleted` disconnects; `suspend` suspends; `installation_repositories` re-reads the repositories (GitHub is the source of truth, a delivery is never trusted for the list).
+4. The webhook finds its connection by installation id, or, if the install-return step never happened, by the one open connection waiting for that organisation. Two workspaces waiting for the same organisation are not guessed: the install-return step binds those. One installation belongs to one workspace (unique index).
+5. **Disconnect** (`github_disconnect`) ends or cancels the connection, marks repositories removed and clears project default repositories. It does not uninstall the App on GitHub: that is the organisation owner's choice. Starting again creates a new connection.
+Repositories that leave the installation are marked removed and clear any project default that pointed at them (linked items are flagged once items sync, #33 onwards). A project's default repository can only be set to an active repository of the workspace's connection (database trigger).
+Tokens: installation tokens are created per installation, kept in server memory until a minute before they expire, never logged and never sent to a browser. The App private key and webhook secret are environment variables only; the webhook secret also signs the install state.
+Not built in #31: user mapping (app users to GitHub logins, with #35 assignees), linking a Projects v2 board (#42), delivery storage with idempotency keys (#32; handlers are idempotent upserts until then).
+
+### Setting up the GitHub App (one-time, by the App owner on GitHub)
+- Webhook: Active, URL `https://<app domain>/api/github/webhook`, secret equal to `GITHUB_APP_WEBHOOK_SECRET`.
+- **Setup URL**: `https://<app domain>/api/github/setup`, and tick "Redirect on update".
+- Permissions and events: see the spike results below (Issues read/write, Metadata read; later slices add Pull requests, Checks, Issue types, organisation Projects). An organisation owner must accept every permission change on the installation page.
+- The sandbox App used for the spikes is `product-velocity-sandbox` on `Product-Velocity` (Free plan). Create a separate App for real customers (docs/14).
 
 ## Breakdown routes
 Field `breakdown_route` + `breakdown_status`.

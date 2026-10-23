@@ -64,6 +64,7 @@ export function AppHeader({ tenantName, memberships, activeTenantId, switchActio
           </p>
           <Link href="/settings/members" className="menu-link">Members</Link>
           <Link href="/settings/groups" className="menu-link">Initiative Groups</Link>
+          <Link href="/settings/integrations/github" className="menu-link">GitHub</Link>
           {showTrash && <Link href="/trash" className="menu-link">Trash</Link>}
           <Link href="/settings/security" className="menu-link">Security</Link>
           <form action="/auth/sign-out" method="post">

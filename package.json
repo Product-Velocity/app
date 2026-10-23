@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
-    "test": "pnpm --filter web --filter @pv/domain test",
+    "test": "pnpm --filter web --filter @pv/domain --filter @pv/github test",
     "lint": "pnpm --filter web lint",
     "typecheck": "pnpm -r --if-present typecheck",
     "db:migrate": "pnpm --filter db migrate",

@@ -195,7 +195,10 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
   const view = await one("insert into public.saved_views (tenant_id, name, columns) values ($1, 'Seed view', array['stack_rank', 'item_code', 'initiative_name']) returning id", [tenantId]);
   await db.admin.query("insert into public.item_groups (tenant_id, name) values ($1, 'Seed group') on conflict do nothing", [tenantId]);
   await db.admin.query("insert into public.weekly_updates (tenant_id, week_start, scope_key, body) values ($1, '2026-10-12', 'all', 'Seed update') on conflict do nothing", [tenantId]);
-  return { project, team, items, scope, view };
+  // a connected GitHub connection with one repository (positive controls for migration 0018)
+  const conn = await one("insert into public.github_connections (tenant_id, expected_account, installation_id, account_login, account_type, repository_selection, state) values ($1, 'seed-org', $2, 'seed-org', 'Organization', 'selected', 'connected') returning id", [tenantId, Math.floor(Math.random() * 1e9) + 1]);
+  await db.admin.query("insert into public.github_repositories (tenant_id, connection_id, github_repo_id, full_name) values ($1, $2, 1, 'seed-org/roadmap')", [tenantId, conn]);
+  return { project, team, items, scope, view, connection: conn };
 }
 
 /** Add a member to a tenant as its admin. */

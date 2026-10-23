@@ -1,0 +1,133 @@
+import { createSign } from "node:crypto";
+import type { DeliverySummary, InstallationInfo, RepoInfo, SourceControl } from "./source-control";
+
+const API = "https://api.github.com";
+const b64url = (b: Buffer | string) => Buffer.from(b).toString("base64url");
+
+type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
+export type GitHubAppOptions = { appId: string; privateKeyPem: string; fetch?: FetchLike; now?: () => number };
+
+type RawInstallation = {
+  id: number;
+  account?: { login?: string; type?: string };
+  repository_selection?: string;
+  permissions?: Record<string, string>;
+  events?: string[];
+  suspended_at?: string | null;
+};
+
+function toInstallation(i: RawInstallation): InstallationInfo {
+  return {
+    id: i.id,
+    accountLogin: i.account?.login ?? "",
+    accountType: i.account?.type === "User" ? "User" : "Organization",
+    repositorySelection: i.repository_selection === "all" ? "all" : "selected",
+    permissions: i.permissions ?? {},
+    events: i.events ?? [],
+    suspended: Boolean(i.suspended_at),
+  };
+}
+
+/**
+ * GitHub App implementation of SourceControl. Installation tokens are created per installation, kept in memory only
+ * until a minute before they expire, and are never logged, returned or sent to a browser.
+ */
+export class GitHubAppSourceControl implements SourceControl {
+  readonly provider = "github" as const;
+  private readonly fetchImpl: FetchLike;
+  private readonly now: () => number;
+  private readonly tokens = new Map<number, { token: string; expiresAt: number }>();
+
+  constructor(private readonly opts: GitHubAppOptions) {
+    this.fetchImpl = opts.fetch ?? ((url, init) => fetch(url, init));
+    this.now = opts.now ?? (() => Date.now());
+  }
+
+  /** Short-lived App JWT (RS256). Exposed for tests. */
+  appJwt(): string {
+    const nowS = Math.floor(this.now() / 1000);
+    const head = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+    const body = b64url(JSON.stringify({ iat: nowS - 60, exp: nowS + 540, iss: this.opts.appId }));
+    const sig = createSign("RSA-SHA256").update(`${head}.${body}`).sign(this.opts.privateKeyPem);
+    return `${head}.${body}.${b64url(sig)}`;
+  }
+
+  private async request(path: string, token: string, init?: RequestInit): Promise<Response> {
+    return this.fetchImpl(`${API}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "product-velocity",
+        ...(init?.headers ?? {}),
+      },
+      cache: "no-store",
+    });
+  }
+
+  private async installationToken(installationId: number): Promise<string> {
+    const cached = this.tokens.get(installationId);
+    if (cached && cached.expiresAt - 60_000 > this.now()) return cached.token;
+    const res = await this.request(`/app/installations/${installationId}/access_tokens`, this.appJwt(), { method: "POST" });
+    if (!res.ok) throw new Error(`GitHub refused to create an installation token (${res.status})`);
+    const j = (await res.json()) as { token?: string; expires_at?: string };
+    if (!j.token) throw new Error("GitHub returned no installation token");
+    this.tokens.set(installationId, { token: j.token, expiresAt: j.expires_at ? Date.parse(j.expires_at) : this.now() + 3_000_000 });
+    return j.token;
+  }
+
+  async getInstallation(installationId: number): Promise<InstallationInfo | null> {
+    const res = await this.request(`/app/installations/${installationId}`, this.appJwt());
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`GitHub installation lookup failed (${res.status})`);
+    return toInstallation((await res.json()) as RawInstallation);
+  }
+
+  async listInstallations(): Promise<InstallationInfo[]> {
+    const res = await this.request("/app/installations?per_page=100", this.appJwt());
+    if (!res.ok) throw new Error(`GitHub installation list failed (${res.status})`);
+    return ((await res.json()) as RawInstallation[]).map(toInstallation);
+  }
+
+  async listRepositories(installationId: number): Promise<RepoInfo[]> {
+    const token = await this.installationToken(installationId);
+    const out: RepoInfo[] = [];
+    for (let page = 1; page <= 20; page++) {
+      const res = await this.request(`/installation/repositories?per_page=100&page=${page}`, token);
+      if (!res.ok) throw new Error(`GitHub repository list failed (${res.status})`);
+      const j = (await res.json()) as { repositories?: { id: number; full_name: string; private: boolean }[] };
+      const rows = j.repositories ?? [];
+      out.push(...rows.map((r) => ({ id: r.id, fullName: r.full_name, private: r.private })));
+      if (rows.length < 100) break;
+    }
+    return out;
+  }
+
+  async listIssueTypes(installationId: number, organisation: string): Promise<string[] | null> {
+    const token = await this.installationToken(installationId);
+    const res = await this.request(`/orgs/${encodeURIComponent(organisation)}/issue-types`, token);
+    if (res.status === 403 || res.status === 404) return null;
+    if (!res.ok) throw new Error(`GitHub issue type list failed (${res.status})`);
+    return ((await res.json()) as { name: string }[]).map((t) => t.name);
+  }
+
+  async listRecentDeliveries(): Promise<DeliverySummary[]> {
+    const res = await this.request("/app/hook/deliveries?per_page=50", this.appJwt());
+    if (!res.ok) throw new Error(`GitHub delivery list failed (${res.status})`);
+    return ((await res.json()) as { event: string; action: string | null; status_code: number; delivered_at: string }[]).map((d) => ({
+      event: d.event,
+      action: d.action,
+      statusCode: d.status_code,
+      deliveredAt: d.delivered_at,
+    }));
+  }
+}
+
+/** Builds the client from the environment, or null when the App is not configured on this server. */
+export function sourceControlFromEnv(env: Record<string, string | undefined>): GitHubAppSourceControl | null {
+  const appId = env.GITHUB_APP_ID;
+  const b64 = env.GITHUB_APP_PRIVATE_KEY_B64;
+  if (!appId || !b64) return null;
+  return new GitHubAppSourceControl({ appId, privateKeyPem: Buffer.from(b64, "base64").toString("utf8") });
+}

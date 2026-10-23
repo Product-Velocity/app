@@ -8,7 +8,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@pv/domain"],
+  transpilePackages: ["@pv/domain", "@pv/github"],
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
