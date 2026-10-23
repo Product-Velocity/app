@@ -14,7 +14,7 @@ type Props = {
   roleLabel: string;
   isApprover: boolean;
   /** Tab to mark as the current one; when left out it follows the address of the page. */
-  current?: "grid" | "gantt";
+  current?: "grid" | "gantt" | "cards";
 };
 
 const initials = (email: string) => {

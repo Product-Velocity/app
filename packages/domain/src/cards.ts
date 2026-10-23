@@ -74,6 +74,8 @@ function cellValues(row: Record<string, unknown>, key: string, ctx: AxisCtx): st
   const v = row[key];
   return v === null || v === undefined || v === "" ? [] : [String(v)];
 }
+/** The value of a card on an axis as a cell key ('' = no value; for a team axis, its first team). */
+export const cardValue = (row: Record<string, unknown>, key: string, ctx: AxisCtx): string => cellValues(row, key, ctx)[0] ?? NONE;
 const nameOf = (key: string, value: string, ctx: AxisCtx) => (key === "home_project" ? ctx.projects.find((p) => p.id === value)?.name ?? value : value);
 
 export type BoardRow = { id: string; stack_rank: number } & Record<string, unknown>;
