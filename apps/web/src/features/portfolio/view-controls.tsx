@@ -2,8 +2,9 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import {
-  FIELDS, FIELD_BY_KEY, filterSummary, groupableFields, opsFor, optionsFor, parseDate, type Filter, type FilterOp, type ViewDef, type ViewName,
+  FIELDS, FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupableFields, needsSearch, opsFor, optionsFor, parseDate, type Filter, type FilterOp, type ListOption, type ViewDef, type ViewName,
 } from "@pv/domain";
+import { menuSearchKeys, NoResults, SearchInput, SelectField } from "@/components/search-list";
 import { useWorkspace } from "../workspace/provider";
 import type { SavedView } from "../workspace/store";
 import { Popover } from "./popover";
@@ -11,6 +12,8 @@ import type { BaseView } from "./grid-view";
 import type { Lookups } from "./types";
 
 // ------------------------------------------------------------------ filters
+const FIELD_OPTIONS: ListOption[] = fieldOptions(FIELDS);
+
 function valueControl(f: Filter, lookups: Lookups, today: Date, onValue: (v: string) => void) {
   const def = FIELD_BY_KEY[f.field];
   if (!def || f.op === "empty" || f.op === "not_empty") return null;
@@ -20,14 +23,7 @@ function valueControl(f: Filter, lookups: Lookups, today: Date, onValue: (v: str
   else if (def.type === "Person") options = [{ value: "me", label: "me" }, ...lookups.members.map((m) => ({ value: m.user_id, label: m.email }))];
   else if (def.type === "Boolean") options = [{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }];
   else if (def.type === "Select" && def.allowed.length > 0) options = optionsFor(def.key);
-  if (options) {
-    return (
-      <select aria-label={label} value={f.value ?? ""} onChange={(e) => onValue(e.target.value)}>
-        <option value="">Choose…</option>
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-    );
-  }
+  if (options) return <SelectField label={label} value={f.value ?? ""} options={options} onChange={onValue} blank="Choose…" />;
   if (def.type === "Date") return <DateValue label={label} value={f.value ?? ""} today={today} onValue={onValue} />;
   return <input aria-label={label} value={f.value ?? ""} placeholder={def.type === "Number" || def.type === "Currency" ? "a number" : "text"} onChange={(e) => onValue(e.target.value)} />;
 }
@@ -55,7 +51,6 @@ function DateValue({ label, value, today, onValue }: { label: string; value: str
 }
 
 export function FiltersMenu({ filters, onChange, lookups, today }: { filters: Filter[]; onChange: (f: Filter[]) => void; lookups: Lookups; today: Date }) {
-  const groups = [...new Set(FIELDS.map((f) => f.group))];
   const patch = (i: number, p: Partial<Filter>) => onChange(filters.map((f, j) => (j === i ? { ...f, ...p } : f)));
   return (
     <Popover label={<>Filters{filters.length > 0 && <strong className="count-badge"> {filters.length}</strong>}</>} active={filters.length > 0}>
@@ -66,15 +61,10 @@ export function FiltersMenu({ filters, onChange, lookups, today }: { filters: Fi
             const ops = FIELD_BY_KEY[f.field] ? opsFor(FIELD_BY_KEY[f.field]!) : [];
             return (
               <div key={i} className="filter-row">
-                <select
-                  aria-label={`Field of filter ${i + 1}`}
-                  value={f.field}
-                  onChange={(e) => { const d = FIELD_BY_KEY[e.target.value]!; patch(i, { field: d.key, op: opsFor(d)[0]!.op, value: "" }); }}
-                >
-                  {groups.map((g) => (
-                    <optgroup key={g} label={g}>{FIELDS.filter((x) => x.group === g).map((x) => <option key={x.key} value={x.key}>{x.name}</option>)}</optgroup>
-                  ))}
-                </select>
+                <SelectField
+                  label={`Field of filter ${i + 1}`} value={f.field} options={FIELD_OPTIONS}
+                  onChange={(v) => { const d = FIELD_BY_KEY[v]!; patch(i, { field: d.key, op: opsFor(d)[0]!.op, value: "" }); }}
+                />
                 <select aria-label={`Operator of filter ${i + 1}`} value={f.op} onChange={(e) => patch(i, { op: e.target.value as FilterOp })}>
                   {ops.map((o) => <option key={o.op} value={o.op}>{o.label}</option>)}
                 </select>
@@ -102,20 +92,29 @@ export const summarize = (f: Filter, lookups: Lookups) =>
 
 // ----------------------------------------------------------------- grouping
 export function GroupMenu({ groupBy, onChange }: { groupBy: string | null; onChange: (g: string | null) => void }) {
-  const fields = groupableFields();
   return (
     <Popover label={<>Group by{groupBy && <strong className="count-badge"> {FIELD_BY_KEY[groupBy]?.name}</strong>}</>} active={!!groupBy}>
-      {(close) => (
-        <div className="group-panel" role="menu" aria-label="Group by">
-          <button type="button" role="menuitemradio" aria-checked={groupBy === null} className="scope-item" onClick={() => { onChange(null); close(); }}>No grouping</button>
-          {fields.map((f) => (
-            <button key={f.key} type="button" role="menuitemradio" aria-checked={groupBy === f.key} className="scope-item" onClick={() => { onChange(f.key); close(); }}>
-              {f.name}
-            </button>
-          ))}
-        </div>
-      )}
+      {(close) => <GroupPanel groupBy={groupBy} onPick={(g) => { onChange(g); close(); }} />}
     </Popover>
+  );
+}
+
+const GROUP_OPTIONS: ListOption[] = [{ value: "", label: "No grouping" }, ...fieldOptions(groupableFields())];
+function GroupPanel({ groupBy, onPick }: { groupBy: string | null; onPick: (g: string | null) => void }) {
+  const [query, setQuery] = useState("");
+  const shown = filterOptions(GROUP_OPTIONS, query);
+  return (
+    <>
+      {needsSearch(GROUP_OPTIONS.length) && <SearchInput value={query} onChange={setQuery} label="Search group by options" onKeyDown={menuSearchKeys} />}
+      <div className="group-panel" role="menu" aria-label="Group by">
+        {shown.map((o) => (
+          <button key={o.value || "none"} type="button" role="menuitemradio" aria-checked={(groupBy ?? "") === o.value} className="scope-item" onClick={() => onPick(o.value || null)}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {shown.length === 0 && <NoResults query={query} />}
+    </>
   );
 }
 
@@ -158,6 +157,28 @@ function NameDialog({ title, initial, action, onClose, onSubmit, offerCustomerSa
   );
 }
 
+/** The saved views to open, with a search box once there are more than 8 (its text resets when the menu closes). */
+function ViewsList({ views, base, onOpen, children }: { views: SavedView[]; base: BaseView; onOpen: (b: BaseView) => void; children?: React.ReactNode }) {
+  const [query, setQuery] = useState("");
+  const shown = filterOptions(views.map((v) => ({ view: v, label: v.name })), query);
+  return (
+    <>
+      {needsSearch(views.length) && <SearchInput value={query} onChange={setQuery} label="Search saved views" onKeyDown={menuSearchKeys} />}
+      <div role="menu" aria-label="Saved views">
+      <p className="scope-head">Saved views</p>
+      {views.length === 0 && <p className="scope-empty">None yet. Set up columns, filters and grouping, then save them.</p>}
+      {shown.map(({ view: v }) => (
+        <button key={v.id} type="button" role="menuitemradio" aria-checked={base.kind === "saved" && base.id === v.id} className="scope-item" onClick={() => onOpen({ kind: "saved", id: v.id })}>
+          <span>{v.name}{v.customerSafe && <span className="muted"> · customer-safe</span>}</span><span className="scope-meta">{base.kind === "saved" && base.id === v.id ? "✓" : ""}</span>
+        </button>
+      ))}
+      {views.length > 0 && shown.length === 0 && <NoResults query={query} />}
+      {children}
+      </div>
+    </>
+  );
+}
+
 type ViewsProps = {
   base: BaseView;
   views: SavedView[];
@@ -181,14 +202,8 @@ export function ViewsMenu({ base, views, defaults, def, dirty, onOpen }: ViewsPr
     <>
       <Popover label={<>Views{current && <strong className="count-badge"> {current.name}</strong>}</>} active={!!current} align="right">
         {(close) => (
-          <div className="views-panel" role="menu" aria-label="Saved views">
-            <p className="scope-head">Saved views</p>
-            {views.length === 0 && <p className="scope-empty">None yet. Set up columns, filters and grouping, then save them.</p>}
-            {views.map((v) => (
-              <button key={v.id} type="button" role="menuitemradio" aria-checked={base.kind === "saved" && base.id === v.id} className="scope-item" onClick={() => { onOpen({ kind: "saved", id: v.id }); close(); }}>
-                <span>{v.name}{v.customerSafe && <span className="muted"> · customer-safe</span>}</span><span className="scope-meta">{base.kind === "saved" && base.id === v.id ? "✓" : ""}</span>
-              </button>
-            ))}
+          <div className="views-panel">
+            <ViewsList views={views} base={base} onOpen={(b) => { onOpen(b); close(); }}>
             {canEdit && (
               <div className="views-actions">
                 <button type="button" role="menuitem" className="scope-item" onClick={() => { close(); setDialog("new"); }}>Save current view as new…</button>
@@ -221,6 +236,7 @@ export function ViewsMenu({ base, views, defaults, def, dirty, onOpen }: ViewsPr
                 )}
               </div>
             )}
+            </ViewsList>
           </div>
         )}
       </Popover>

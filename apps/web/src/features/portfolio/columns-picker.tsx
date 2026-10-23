@@ -1,27 +1,38 @@
 "use client";
 
 import { useId, useState } from "react";
-import { FIELDS, arrivesLabel, isCustomerSafe } from "@pv/domain";
+import { FIELDS, arrivesLabel, fieldOptions, filterOptions, isCustomerSafe, needsSearch } from "@pv/domain";
+import { NoResults, SearchInput } from "@/components/search-list";
 import { CORE_COLUMNS } from "./columns";
+
+const ALL_FIELDS = fieldOptions(FIELDS);
 
 /** Show or hide single columns. Reordering, pinning and saved views come with the saved-views issue. */
 export function ColumnsPicker({ visible, onToggle, customerSafe = false }: { visible: ReadonlySet<string>; onToggle: (key: string) => void; customerSafe?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const panelId = useId();
-  const groups = [...new Set(FIELDS.map((f) => f.group))];
+  const matching = new Set(filterOptions(ALL_FIELDS, query).map((o) => o.value));
+  const groups = [...new Set(FIELDS.filter((f) => matching.has(f.key)).map((f) => f.group))];
   const shown = FIELDS.filter((f) => visible.has(f.key) || (CORE_COLUMNS as readonly string[]).includes(f.key)).length;
 
   return (
     <span className="columns-anchor">
-      <button type="button" className="tool-btn" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((o) => !o)}>
+      <button type="button" className="tool-btn" aria-expanded={open} aria-controls={panelId} onClick={() => { setOpen((o) => !o); setQuery(""); }}>
         Columns ({shown} of {FIELDS.length})
       </button>
       {open && (
         <div id={panelId} className="columns-panel" role="group" aria-label="Choose columns" onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}>
+          {needsSearch(FIELDS.length) && (
+            <div className="columns-search">
+              <SearchInput value={query} onChange={setQuery} label="Search columns" placeholder="Search the 165 fields…" onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }} />
+            </div>
+          )}
+          {groups.length === 0 && <NoResults query={query} />}
           {groups.map((g) => (
             <fieldset key={g}>
               <legend>{g}</legend>
-              {FIELDS.filter((f) => f.group === g).map((f) => {
+              {FIELDS.filter((f) => f.group === g && matching.has(f.key)).map((f) => {
                 const core = (CORE_COLUMNS as readonly string[]).includes(f.key);
                 const blocked = customerSafe && !isCustomerSafe(f.key) && !core;
                 return (

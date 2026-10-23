@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { filterOptions, needsSearch } from "@pv/domain";
+import { menuSearchKeys, NoResults, SearchInput } from "@/components/search-list";
 import { useRouter } from "next/navigation";
 import { useWorkspace } from "./provider";
 import { ProjectDialog, ScopeDialog } from "./scope-dialog";
@@ -16,11 +18,18 @@ export function ScopeSwitcher() {
   const [open, setOpen] = useState(false);
   const [dialog, setDialog] = useState<{ scope: Scope | null } | null>(null);
   const [projectDialog, setProjectDialog] = useState(false);
+  const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
   const items = () => Array.from(ref.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"], [role="menuitem"]') ?? []);
   const close = (refocus = false) => { setOpen(false); if (refocus) ref.current?.querySelector<HTMLElement>(".scope-chip")?.focus(); };
   const pick = (s: Parameters<typeof select>[0]) => { select(s); close(true); };
+  // a search box once the menu lists more than 8 entries (All projects, the scopes and the projects)
+  const searchable = needsSearch(1 + scopes.length + projects.length);
+  const showAll = filterOptions([{ label: "All projects" }], query).length > 0;
+  const shownScopes = filterOptions(scopes.map((s) => ({ s, label: s.name })), query).map((x) => x.s);
+  const shownProjects = filterOptions(projects.map((p) => ({ p, label: p.name })), query).map((x) => x.p);
+  const nothing = !showAll && shownScopes.length === 0 && shownProjects.length === 0;
 
   const menuBlur = useMenuBlur(() => setOpen(false));
 
@@ -38,17 +47,21 @@ export function ScopeSwitcher() {
         else if (e.key === "ArrowUp") { e.preventDefault(); els[Math.max(0, at - 1)]?.focus(); }
       }}
     >
-      <button type="button" className="scope-chip" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+      <button type="button" className="scope-chip" aria-haspopup="menu" aria-expanded={open} onClick={() => { setOpen((o) => !o); setQuery(""); }}>
         {label} ▾
       </button>
       {open && (
-        <div className="scope-menu" role="menu" aria-label="Portfolio scope">
-          <button type="button" role="menuitemradio" aria-checked={selection.kind === "all"} className="scope-item" autoFocus onClick={() => pick({ kind: "all" })}>
-            <span>All projects</span><span className="scope-meta">{selection.kind === "all" ? "✓ " : ""}{projects.length} {projects.length === 1 ? "project" : "projects"}</span>
-          </button>
-          <p className="scope-head">Saved scopes</p>
+        <div className="scope-menu">
+          {searchable && <SearchInput value={query} onChange={setQuery} label="Search scopes and projects" onKeyDown={(e) => { if (e.key === "Enter") menuSearchKeys(e); }} />}
+          <div role="menu" aria-label="Portfolio scope">
+          {showAll && (
+            <button type="button" role="menuitemradio" aria-checked={selection.kind === "all"} className="scope-item" autoFocus={!searchable} onClick={() => pick({ kind: "all" })}>
+              <span>All projects</span><span className="scope-meta">{selection.kind === "all" ? "✓ " : ""}{projects.length} {projects.length === 1 ? "project" : "projects"}</span>
+            </button>
+          )}
+          {(shownScopes.length > 0 || scopes.length === 0) && <p className="scope-head">Saved scopes</p>}
           {scopes.length === 0 && <p className="scope-empty">{error ?? "None yet"}</p>}
-          {scopes.map((s) => (
+          {shownScopes.map((s) => (
             <div key={s.id} className="scope-row">
               <button type="button" role="menuitemradio" aria-checked={selection.kind === "scope" && selection.id === s.id} className="scope-item" onClick={() => pick({ kind: "scope", id: s.id })}>
                 <span>{s.name}</span><span className="scope-meta">{selection.kind === "scope" && selection.id === s.id ? "✓ " : ""}{s.projectIds.length} {s.projectIds.length === 1 ? "project" : "projects"}</span>
@@ -58,8 +71,8 @@ export function ScopeSwitcher() {
               )}
             </div>
           ))}
-          <p className="scope-head">Projects</p>
-          {projects.map((p) => (
+          {shownProjects.length > 0 && <p className="scope-head">Projects</p>}
+          {shownProjects.map((p) => (
             <button key={p.id} type="button" role="menuitemradio" aria-checked={selection.kind === "project" && selection.id === p.id} className="scope-item" onClick={() => pick({ kind: "project", id: p.id })}>
               <span>{p.name}</span><span className="scope-meta">{selection.kind === "project" && selection.id === p.id ? "✓" : ""}</span>
             </button>
@@ -70,6 +83,8 @@ export function ScopeSwitcher() {
           {canEdit && (
             <button type="button" role="menuitem" className="scope-item scope-new-scope" onClick={() => { close(); setDialog({ scope: null }); }}>+ New scope</button>
           )}
+          </div>
+          {nothing && <NoResults query={query} />}
         </div>
       )}
       {projectDialog && <ProjectDialog onClose={() => setProjectDialog(false)} onCreated={() => { setProjectDialog(false); router.refresh(); }} />}

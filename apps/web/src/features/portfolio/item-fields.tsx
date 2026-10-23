@@ -1,5 +1,6 @@
 "use client";
 
+import { SelectField } from "@/components/search-list";
 import { useId, useState, type ReactNode } from "react";
 import {
   canBeEmpty, optionsFor, panelField, resolveGroup, type FieldDef, type Link, type PanelField, type RelatedField,
@@ -98,16 +99,13 @@ function SelectControl({ id, f, row, ctx, disabled, onError, kind }: Common & { 
     : optionsFor(f.key);
   const current = kind === "boolean" ? (row[f.key] == null ? "" : row[f.key] ? "Yes" : "No") : row[f.key] == null ? "" : String(row[f.key]);
   const empty = kind === "project" ? false : canBeEmpty(f.key);
+  const blank = empty ? (kind === "person" ? "Unassigned" : "Not set") : current === "" ? "Choose…" : undefined;
+  const all = current !== "" && !options.some((o) => o.value === current) ? [...options, { value: current, label: current }] : options;
   return (
-    <select
-      id={id} value={current} disabled={disabled}
-      onChange={(e) => { const r = ctx.controller.edit(row.id, f.key, e.target.value); onError(r.ok ? null : r.error); }}
-    >
-      {empty && <option value="">{kind === "person" ? "Unassigned" : "Not set"}</option>}
-      {!empty && current === "" && <option value="">Choose…</option>}
-      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      {current !== "" && !options.some((o) => o.value === current) && <option value={current}>{current}</option>}
-    </select>
+    <SelectField
+      id={id} label={f.name} value={current} disabled={disabled} options={all} {...(blank !== undefined ? { blank } : {})}
+      onChange={(v) => { const r = ctx.controller.edit(row.id, f.key, v); onError(r.ok ? null : r.error); }}
+    />
   );
 }
 
