@@ -40,8 +40,8 @@ type Repo = { id: string; full_name: string; is_private: boolean; access: string
 type SyncEvent = { id: string; received_at: string; source: string; event: string; action: string | null; issue_number: number | null; repo_full_name: string | null; state: string; last_error: string | null; attempts: number; applied: Record<string, [unknown, unknown]> | null };
 type Project = { id: string; name: string; default_repo: string | null; who_breaks_down: "product" | "engineering" | "either" };
 
-export default async function GithubSettingsPage({ searchParams }: { searchParams: Promise<{ status?: string; c?: string; ch?: string; m?: string }> }) {
-  const { status, c: checkedN, ch: changedN, m: missingN } = await searchParams;
+export default async function GithubSettingsPage({ searchParams }: { searchParams: Promise<{ status?: string; c?: string; ch?: string; m?: string; why?: string }> }) {
+  const { status, c: checkedN, ch: changedN, m: missingN, why } = await searchParams;
   const { supabase, active } = await requireWorkspace("/settings/integrations/github");
   const isAdmin = active.role === "admin";
 
@@ -65,6 +65,7 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
       </p>
       {(state === "waiting_approval" || state === "installing") && <AutoRefresh />}
       {status && NOTICE[status] && <p role="status" className="notice">{NOTICE[status]}</p>}
+      {status === "error" && why && <p role="alert" className="notice">Reason: {why.slice(0, 200)}</p>}
       {status === "checked" && <p role="status" className="notice">Checked {checkedN} linked item(s) against GitHub: {changedN} changed, {missingN} issue(s) not found.</p>}
 
       <div className="card stack">

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AccountMenu } from "./account-menu";
 import { BrandLogo } from "./brand-logo";
 import { HeaderTabs } from "./header-tabs";
 import { ScopeSwitcher } from "@/features/workspace/scope-switcher";
@@ -17,12 +17,6 @@ type Props = {
   current?: "grid" | "gantt" | "cards" | "leadership";
   /** Creators and admins get a link to the Trash in the account menu. */
   showTrash?: boolean;
-};
-
-const initials = (email: string) => {
-  const name = email.split("@")[0] ?? "";
-  const parts = name.split(/[._-]+/).filter(Boolean);
-  return ((parts[0]?.[0] ?? "?") + (parts[1]?.[0] ?? parts[0]?.[1] ?? "")).toUpperCase();
 };
 
 /** Top bar following prototype boards 20 and 1: logo, workspace and scope, tabs, account menu. */
@@ -52,39 +46,7 @@ export function AppHeader({ tenantName, memberships, activeTenantId, switchActio
 
       <HeaderTabs current={current} />
 
-      <details className="account">
-        <summary>
-          <span className="avatar">{initials(email)}</span>
-          <span className="visually-hidden"> account menu for {email}</span>
-        </summary>
-        <div className="account-menu">
-          <p className="account-who">
-            <span title={email}>{email}</span>
-            <span className="muted">{roleLabel}{isApprover ? " · Approver" : ""}</span>
-          </p>
-          <div role="group" aria-labelledby="menu-workspace">
-            <p className="menu-heading" id="menu-workspace">Workspace</p>
-            <Link href="/settings/members" className="menu-link">Members</Link>
-            <Link href="/settings/groups" className="menu-link">Initiative Groups</Link>
-            {showTrash && <Link href="/trash" className="menu-link">Trash</Link>}
-          </div>
-          <div role="group" aria-labelledby="menu-integrations">
-            <p className="menu-heading" id="menu-integrations">Integrations</p>
-            <Link href="/settings/integrations/github" className="menu-link">GitHub</Link>
-          </div>
-          <div role="group" aria-labelledby="menu-account">
-            <p className="menu-heading" id="menu-account">Account</p>
-            <Link href="/settings/security" className="menu-link">Security</Link>
-            <form action="/auth/sign-out" method="post">
-              <button className="menu-link menu-button" type="submit">Sign out</button>
-            </form>
-          </div>
-          <p className="account-version" title="Release log: docs/RELEASES.md">
-            app v{process.env.NEXT_PUBLIC_APP_VERSION}
-            {process.env.NEXT_PUBLIC_APP_BUILD ? ` · build ${process.env.NEXT_PUBLIC_APP_BUILD}` : ""}
-          </p>
-        </div>
-      </details>
+      <AccountMenu email={email} roleLabel={roleLabel} isApprover={isApprover} showTrash={showTrash} />
     </header>
   );
 }

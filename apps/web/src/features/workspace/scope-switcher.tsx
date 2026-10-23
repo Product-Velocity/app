@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useWorkspace } from "./provider";
 import { ProjectDialog, ScopeDialog } from "./scope-dialog";
 import { useMenuBlur } from "../portfolio/use-menu-blur";
+import { useDismiss } from "../portfolio/use-dismiss";
 import { useScope } from "./scope";
 import type { Scope } from "./store";
 
@@ -32,6 +33,7 @@ export function ScopeSwitcher() {
   const nothing = !showAll && shownScopes.length === 0 && shownProjects.length === 0;
 
   const menuBlur = useMenuBlur(() => setOpen(false));
+  useDismiss(ref, open, () => setOpen(false));
 
   return (
     <div

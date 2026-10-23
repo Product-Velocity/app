@@ -1,9 +1,10 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { FIELDS, arrivesLabel, fieldOptions, filterOptions, isCustomerSafe, needsSearch } from "@pv/domain";
 import { NoResults, SearchInput } from "@/components/search-list";
 import { CORE_COLUMNS } from "./columns";
+import { useDismiss } from "./use-dismiss";
 
 const ALL_FIELDS = fieldOptions(FIELDS);
 
@@ -12,12 +13,14 @@ export function ColumnsPicker({ visible, onToggle, customerSafe = false }: { vis
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const panelId = useId();
+  const ref = useRef<HTMLSpanElement>(null);
+  useDismiss(ref, open, () => setOpen(false));
   const matching = new Set(filterOptions(ALL_FIELDS, query).map((o) => o.value));
   const groups = [...new Set(FIELDS.filter((f) => matching.has(f.key)).map((f) => f.group))];
   const shown = FIELDS.filter((f) => visible.has(f.key) || (CORE_COLUMNS as readonly string[]).includes(f.key)).length;
 
   return (
-    <span className="columns-anchor">
+    <span className="columns-anchor" ref={ref}>
       <button type="button" className="tool-btn" aria-expanded={open} aria-controls={panelId} onClick={() => { setOpen((o) => !o); setQuery(""); }}>
         Columns ({shown} of {FIELDS.length})
       </button>

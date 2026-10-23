@@ -53,6 +53,13 @@ export function CardsView({ controller, lookups, me, pageHref }: CardsProps) {
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  // a click anywhere outside the open Move menu (or its button) closes it
+  useEffect(() => {
+    if (!menuFor) return;
+    const down = (e: PointerEvent) => { if (!(e.target as HTMLElement).closest(".kc-menu, .kc-move")) setMenuFor(null); };
+    document.addEventListener("pointerdown", down, true);
+    return () => document.removeEventListener("pointerdown", down, true);
+  }, [menuFor]);
   // a moved card is a new element in another cell: give it the focus again once the board has been drawn
   const refocus = useCallback((id: string) => {
     requestAnimationFrame(() => requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-card="${id}"]`)?.focus()));

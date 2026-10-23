@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { filterOptions, needsSearch, type ListOption } from "@pv/domain";
 import { useMenuBlur } from "@/features/portfolio/use-menu-blur";
+import { useDismiss } from "@/features/portfolio/use-dismiss";
 
 /**
  * Search box for any long list (R-018): focused when the list opens, filters as you type. The caller decides what the
@@ -119,6 +120,8 @@ export function SelectField({ label, value, options, onChange, blank, id, classN
   const triggerRef = useRef<HTMLButtonElement>(null);
   const close = () => setOpen(false);
   const menuBlur = useMenuBlur(close);
+  const wrapRef = useRef<HTMLSpanElement>(null);
+  useDismiss(wrapRef, open, close);
 
   if (!needsSearch(options.length)) {
     const groups = [...new Set(options.map((o) => o.group).filter((g): g is string => !!g))];
@@ -135,6 +138,7 @@ export function SelectField({ label, value, options, onChange, blank, id, classN
   const pick = (o: ListOption) => { onChange(o.value); close(); triggerRef.current?.focus(); };
   return (
     <span
+      ref={wrapRef}
       className={`select-field${className ? ` ${className}` : ""}`}
       {...menuBlur}
       onKeyDown={(e) => { if (e.key === "Escape" && open) { e.stopPropagation(); close(); triggerRef.current?.focus(); } }}
