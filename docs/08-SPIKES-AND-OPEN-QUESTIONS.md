@@ -64,7 +64,7 @@ Setup: AG Grid 36.2.0, React, production build, 14 columns, headless Chromium in
 ### Hands-on checks still needed (not blocking Phase 1)
 | Check | When | Needs |
 |---|---|---|
-| S3b write issue-field values with a GitHub App; S4b sub-issue limits; S5b install by a non-owner | Start of Phase 3 | Ashu: a sandbox repository and a second GitHub account |
+| S3b write issue-field values with a GitHub App; S4b sub-issue limits; S5b install by a non-owner | Start of Phase 3 | Ashu: a sandbox repository and a second GitHub account (given 2026-10-23: `Product-Velocity/Test-Repo-01`, second account `dev-nbm`, org on the Free plan, project "Spike Project" exists) |
 | S6b PDF and Python document functions on a Vercel preview | Before Phase 6 | Ashu: Vercel access (Pro plan assumed) |
 | S8b real Claude connection to a minimal `/mcp` | Start of Phase 4 | Ashu: add a custom connector in Claude |
 
