@@ -119,6 +119,22 @@ test.describe("scope switcher", () => {
     await expect(scopeMenu(page)).toContainText("7 projects");
   });
 
+  test("menus work in Safari, which does not focus a button on click: the menu stays until the click lands", async ({ page }) => {
+    await open(page);
+    // what Safari does on mousedown: the clicked button is not focused, and the element that had the focus loses it
+    await page.evaluate(() => document.addEventListener("mousedown", (e) => { e.preventDefault(); (document.activeElement as HTMLElement | null)?.blur(); }, true));
+    await scopeButton(page).click();
+    await scopeMenu(page).getByRole("menuitem", { name: "+ New project" }).click();
+    await expect(page.getByRole("dialog", { name: "New project" })).toBeVisible();
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await scopeButton(page).click();
+    await scopeMenu(page).getByRole("menuitemradio", { name: /Customer-facing work/ }).click();
+    await expect(page.locator(".filter-chips")).toContainText("Scope: Customer-facing work");
+    await page.getByRole("button", { name: /^Views/ }).click();
+    await page.getByRole("menuitem", { name: /Save current view as new/ }).click();
+    await expect(page.getByRole("dialog", { name: "Save view" })).toBeVisible();
+  });
+
   test("view-only roles can switch scope but not create or edit scopes or projects", async ({ page }) => {
     await open(page, "n=10&role=viewer");
     await scopeButton(page).click();
