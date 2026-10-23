@@ -7,16 +7,16 @@ import { usePathname } from "next/navigation";
 const TABS: { label: string; href?: string; phase?: number; id: string }[] = [
   { label: "Grid", href: "/portfolio", id: "grid" },
   { label: "Gantt", href: "/gantt", id: "gantt" },
-  { label: "Cards", phase: 2, id: "cards" },
+  { label: "Cards", href: "/cards", id: "cards" },
   { label: "Planning", phase: 5, id: "planning" },
   { label: "Capacity", phase: 5, id: "capacity" },
   { label: "Alignment", phase: 5, id: "alignment" },
   { label: "Reports", phase: 6, id: "reports" },
 ];
 
-export function HeaderTabs({ current }: { current?: "grid" | "gantt" }) {
+export function HeaderTabs({ current }: { current?: "grid" | "gantt" | "cards" }) {
   const path = usePathname();
-  const active = current ?? (path.startsWith("/portfolio") ? "grid" : path.startsWith("/gantt") ? "gantt" : null);
+  const active = current ?? (path.startsWith("/portfolio") ? "grid" : path.startsWith("/gantt") ? "gantt" : path.startsWith("/cards") ? "cards" : null);
   return (
     <nav aria-label="Main" className="tabs">
       {TABS.map((t) =>

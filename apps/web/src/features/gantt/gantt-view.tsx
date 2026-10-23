@@ -3,16 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  PX_PER_DAY, applyKey, classifyRows, clampWindow, dayToX, defaultWindow, formatDate, fromDay, ganttGroupOptions, layoutLines, matchesFilters,
+  PX_PER_DAY, applyKey, classifyRows, clampWindow, dayToX, defaultWindow, formatDate, fromDay, ganttGroupOptions, layoutLines,
   moveRange, readOnlyReason, resizeRange, scheduleAt, summarizeChange, timelineTicks, xToDay, yearSpans, type Bar, type GanttRow, type Line, type Range, type Zoom,
 } from "@pv/domain";
 import type { PortfolioController } from "../portfolio/controller";
-import { baseDef, parseBase } from "../portfolio/grid-view";
 import { ItemPanel } from "../portfolio/item-panel";
-import { StatusStrip, useStatus } from "../portfolio/status-strip";
+import { StatusStrip } from "../portfolio/status-strip";
+import { useViewRows } from "../portfolio/use-view-rows";
 import type { GridItem, Lookups } from "../portfolio/types";
-import { setQueryParam, useScope } from "../workspace/scope";
-import { useWorkspace } from "../workspace/provider";
+import { setQueryParam } from "../workspace/scope";
 
 const LABEL_W = 300;
 const LINE_H = 28;
@@ -33,10 +32,8 @@ export type GanttProps = {
 
 /** Gantt: one bar per initiative from Planned Start to G2M Date (est), two-level grouping, drag or keys to change the dates. */
 export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
-  const status = useStatus(controller);
   const params = useSearchParams();
-  const { views, defaults } = useWorkspace();
-  const scope = useScope();
+  const { rows, scope, views, viewParam, filterName } = useViewRows(controller, me);
   const today = controller.todayDate();
   const canEdit = controller.canEdit;
   const groupOptions = useMemo(() => ganttGroupOptions(), []);
@@ -53,16 +50,6 @@ export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
   const setG2 = (g: string) => { setG2State(g); setQueryParam("g2", g === "home_project" ? null : g); };
   const openPeek = useCallback((id: string | null) => { setPeekState(id); setQueryParam("item", id ? controller.row(id)?.item_code ?? null : null); }, [controller]);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
-  const viewParam = params.get("view");
-  const filtersFrom = useMemo(() => baseDef(parseBase(viewParam, { kind: "builtin", name: "Prioritisation" }), views, defaults)?.filters ?? [], [viewParam, views, defaults]);
-
-  // ---- which items: the active scope and the filters of the chosen saved view
-  const rows = useMemo(
-    () => controller.rows.filter((r) => (scope.projectIds === null || scope.projectIds.includes(r.home_project)) && matchesFilters(r, filtersFrom, { me, today })),
-    // the controller changes its rows in place; the version says when
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [controller, status.version, scope.projectIds, filtersFrom, me],
-  );
   const { bars, unscheduled } = useMemo(() => classifyRows(rows), [rows]);
   const barOf = useMemo(() => new Map(bars.map((b) => [b.id, b])), [bars]);
   const rowOf = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
@@ -263,7 +250,6 @@ export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
   };
 
   const groupsUsed = [g1, g2].filter(Boolean);
-  const filterName = viewParam ? views.find((v) => v.id === viewParam)?.name : undefined;
   return (
     <div className="gantt-page">
       <div className="gantt-toolbar page-head">

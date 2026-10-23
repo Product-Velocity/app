@@ -43,3 +43,23 @@ export function makeGanttHarness(n: number, role: string) {
   }
   return { controller, source };
 }
+
+/**
+ * Data for the Cards test page: items cycle through the Initiative Phases and three Initiative Groups, so every
+ * column and lane has cards and a few have none.
+ */
+export function makeCardsHarness(n: number, role: string) {
+  const { controller, source } = makeHarness(n, 0, role);
+  const phases = ["Discover", "Define", "Build", "Beta-test", null];
+  const groups = ["Onboarding", "Platform health", "Retention", null];
+  source.items.forEach((item, i) => {
+    item.initiative_phase = phases[i % phases.length] ?? null;
+    item.theme = groups[(i * 3) % groups.length] ?? null;
+    item.contributing_teams = i % 5 === 0 ? "Core, Mobile" : i % 3 === 0 ? "Core" : null;
+  });
+  for (const r of controller.rows) {
+    const s = source.items.find((x) => x.id === r.id)!;
+    r.initiative_phase = s.initiative_phase; r.theme = s.theme; r.contributing_teams = s.contributing_teams;
+  }
+  return { controller, source };
+}

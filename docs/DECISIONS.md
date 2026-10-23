@@ -102,4 +102,8 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-23 · Moving a Gantt bar saves at once and is one undo step (issue text), not a confirmation as on the prototype board; keyboard changes are staged and saved with Enter · Claude (issue #27), docs win over the prototype
 - 2026-10-23 · Gantt bars are clamped to the visible window (cycles arrive in phase 5); an item without both dates is Unscheduled and a drop sets Planned Start to the drop day and G2M Date (est) four weeks later · Claude (issue #27)
 - 2026-10-23 · Grouping by team puts an item with several teams under each of them · Claude (issue #27), **Ashu to confirm**
+- 2026-10-23 · The Cards default is Initiative Phase by Initiative Group because Planning Status (the issue's default) arrives in phase 5; it is offered disabled and takes over as the default when it ships · Claude (issue #28), **Ashu to confirm**
+- 2026-10-23 · Cards: a drag across a GitHub-driven axis (Initiative Status) is refused with the reason instead of asking for a confirmation as the prototype board does; Team lanes are view-only because an initiative can have several teams · Claude (issue #28)
+- 2026-10-23 · Cards keyboard way to move: Shift+arrows to the neighbouring column or lane, and an M / "Move…" menu for any cell · Claude (issue #28)
+- 2026-10-23 · The page-level scope and saved-view filter logic of Gantt and Cards is one shared hook (`useViewRows`) · Claude (issues #27, #28)
 
