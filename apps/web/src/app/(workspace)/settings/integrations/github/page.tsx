@@ -1,7 +1,7 @@
 import { requireWorkspace } from "@/lib/session";
 import { githubAppSlug, type ConnectionRow } from "@/lib/github/server";
 import { AutoRefresh } from "./auto-refresh";
-import { ConnectForm, ProjectRow } from "./forms";
+import { ConnectForm, ProjectRow, RepoRow } from "./forms";
 import { continueOnGithub, disconnectGithub, refreshRepositories } from "./actions";
 import Link from "next/link";
 
@@ -30,7 +30,7 @@ const STATE: Record<ConnectionRow["state"], string> = {
   disconnected: "Not connected",
 };
 
-type Repo = { id: string; full_name: string; is_private: boolean };
+type Repo = { id: string; full_name: string; is_private: boolean; access: string };
 type Project = { id: string; name: string; default_repo: string | null; who_breaks_down: "product" | "engineering" | "either" };
 
 export default async function GithubSettingsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
@@ -40,7 +40,7 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
 
   const { data: conn } = await supabase.from("github_connections").select("*").eq("tenant_id", active.tenantId).neq("state", "disconnected").maybeSingle();
   const c = conn as (ConnectionRow & { repository_selection: string | null; epic_type_available: boolean | null; repositories_synced_at: string | null }) | null;
-  const { data: repoRows } = c ? await supabase.from("github_repositories").select("id, full_name, is_private").eq("connection_id", c.id).is("removed_at", null).order("full_name") : { data: [] };
+  const { data: repoRows } = c ? await supabase.from("github_repositories").select("id, full_name, is_private, access").eq("connection_id", c.id).is("removed_at", null).order("full_name") : { data: [] };
   const { data: projectRows } = await supabase.from("projects").select("id, name, default_repo, who_breaks_down").eq("tenant_id", active.tenantId).order("name");
   const repos = (repoRows ?? []) as Repo[];
   const projects = (projectRows ?? []) as Project[];
@@ -90,9 +90,24 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
 
       {c?.state === "connected" && (
         <div className="card stack">
+          <h2>Repositories</h2>
+          <p className="muted">
+            Product Velocity never writes to a repository marked read-only: it cannot be a project&rsquo;s default repository and a push to it is refused. Public repositories start read-only.
+          </p>
+          <table className="table">
+            <thead>
+              <tr><th scope="col">Repository</th><th scope="col">Visibility</th><th scope="col">Access</th><th scope="col"><span className="visually-hidden">Save</span></th></tr>
+            </thead>
+            <tbody>{repos.map((r) => <RepoRow key={r.id} repo={r} canEdit={isAdmin} />)}</tbody>
+          </table>
+        </div>
+      )}
+
+      {c?.state === "connected" && (
+        <div className="card stack">
           <h2>Projects</h2>
           <p className="muted">
-            Pick the default repository for each project (tracking issues are created there) and who breaks the work down. {repos.length} repositor{repos.length === 1 ? "y is" : "ies are"} available.
+            Pick the default repository for each project (tracking issues are created there) and who breaks the work down. {repos.filter((r) => r.access === "read_write").length} writable repositor{repos.filter((r) => r.access === "read_write").length === 1 ? "y is" : "ies are"} available.
           </p>
           <table className="table">
             <thead>
@@ -100,7 +115,7 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
             </thead>
             <tbody>
               {projects.map((p) => (
-                <ProjectRow key={p.id} project={p} repos={repos.map((r) => r.full_name)} canEdit={isAdmin} />
+                <ProjectRow key={p.id} project={p} repos={repos.filter((r) => r.access === "read_write").map((r) => r.full_name)} canEdit={isAdmin} />
               ))}
             </tbody>
           </table>

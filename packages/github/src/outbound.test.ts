@@ -120,6 +120,12 @@ describe("planAction", () => {
     expect(planAction({ ...base, defaultRepo: null, link: null })).toMatchObject({ action: "blocked", reason: expect.stringContaining("Mobile") });
     expect(planAction({ ...base, activeRepos: new Set(), link: null })).toMatchObject({ action: "blocked" });
   });
+  it("never writes to a repository marked read-only, whether it is new or already linked", () => {
+    const readOnlyRepos = new Set(["acme/road"]);
+    expect(planAction({ ...base, readOnlyRepos, link: null })).toMatchObject({ action: "blocked", reason: expect.stringContaining("read-only") });
+    expect(planAction({ ...base, readOnlyRepos, link: link({ lastPushedHash: "old" }) })).toMatchObject({ action: "blocked" });
+    expect(planAction({ ...base, readOnlyRepos: new Set(["other/repo"]), link: null })).toMatchObject({ action: "create" });
+  });
   it("never pushes to a link that only follows an existing issue", () => {
     for (const hash of ["h", "other"]) expect(planAction({ ...base, hash, link: link({ mode: "follow", repo: "Product-Velocity/app", issueNumber: 31 }) })).toMatchObject({ action: "blocked", reason: expect.stringContaining("#31") });
   });

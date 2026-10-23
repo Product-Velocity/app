@@ -97,3 +97,16 @@ describe("who and what may be recorded", () => {
     await db.admin.query("delete from public.items where id = $1", [itemA]).catch(() => undefined);
   });
 });
+
+describe("read-only repositories are never pushed to", () => {
+  it("a push to a read-only repository is refused and records nothing", async () => {
+    const other = (await db.admin.query("select id from public.items where tenant_id = $1 and deleted_at is null limit 1", [f.tenantA])).rows[0].id as string;
+    const ins = await db.admin.query("insert into public.github_repositories (tenant_id, connection_id, github_repo_id, full_name, is_private, access) values ($1, $2, 77, 'acme/roadmap', false, 'read_only') returning id", [f.tenantA, connA]);
+    const before = await db.admin.query("select count(*)::int as n from public.audit_log where entity = 'item_github_links'");
+    expect(await errorCode(push(creator, { item: other, number: 55 }))).toBe("PV007");
+    expect((await db.admin.query("select count(*)::int as n from public.audit_log where entity = 'item_github_links'")).rows[0].n).toBe(before.rows[0].n);
+    await db.admin.query("update public.github_repositories set access = 'read_write' where id = $1", [ins.rows[0].id]);
+    expect(await push(creator, { item: other, number: 56 })).toBeTruthy();
+    await db.admin.query("delete from public.github_repositories where id = $1", [ins.rows[0].id]);
+  });
+});

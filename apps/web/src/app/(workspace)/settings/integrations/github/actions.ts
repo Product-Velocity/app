@@ -99,3 +99,15 @@ export async function runConnectionTest(): Promise<{ results: CheckResult[] } | 
   });
   return { results };
 }
+
+/** Marks a repository read-only (never written to) or writable again. Clearing project defaults that use it happens in the database. */
+export async function setRepoAccess(_prev: FormState, form: FormData): Promise<FormState> {
+  const ctx = await adminOnly();
+  if (!ctx) return { error: "Only admins can change this." };
+  const access = String(form.get("access") ?? "");
+  if (!["read_write", "read_only"].includes(access)) return { error: "Choose read-only or can be written to." };
+  const { error } = await ctx.supabase.rpc("github_set_repo_access", { p_repo: String(form.get("repo_id")), p_access: access });
+  if (error) return { error: "We could not save that." };
+  revalidatePath(PATH);
+  return { ok: access === "read_only" ? "Now read-only" : "Saved" };
+}

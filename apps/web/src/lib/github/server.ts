@@ -44,7 +44,7 @@ export async function refreshConnection(admin: Admin, sc: SourceControl, c: Conn
   const live = new Set(repos.map((r) => r.id));
   for (const r of repos) {
     const row = existing.find((e) => e.github_repo_id === r.id);
-    if (!row) must(await admin.from("github_repositories").insert({ tenant_id: c.tenant_id, connection_id: c.id, github_repo_id: r.id, full_name: r.fullName, is_private: r.private }), "add repository");
+    if (!row) must(await admin.from("github_repositories").insert({ tenant_id: c.tenant_id, connection_id: c.id, github_repo_id: r.id, full_name: r.fullName, is_private: r.private, access: r.private ? "read_write" : "read_only" }), "add repository"); // public repositories start read-only
     else if (row.full_name !== r.fullName || row.removed_at) must(await admin.from("github_repositories").update({ full_name: r.fullName, is_private: r.private, removed_at: null }).eq("id", row.id), "update repository");
   }
   for (const gone of existing.filter((e) => !live.has(e.github_repo_id) && !e.removed_at)) {

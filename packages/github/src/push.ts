@@ -52,10 +52,11 @@ export type PlanLink = { mode: "push" | "follow"; repo: string; issueNumber: num
 export type PlanDecision = { repo: string | null; action: "create" | "update" | "unchanged" | "blocked"; reason?: string };
 
 /** What a push would do for one item. Pure, so the rules can be tested without GitHub or a database. */
-export function planAction(a: { link: PlanLink | null; defaultRepo: string | null; activeRepos: ReadonlySet<string>; hash: string; projectName: string }): PlanDecision {
+export function planAction(a: { link: PlanLink | null; defaultRepo: string | null; activeRepos: ReadonlySet<string>; /** lower-case names of repositories marked read-only */ readOnlyRepos?: ReadonlySet<string>; hash: string; projectName: string }): PlanDecision {
   const { link } = a;
   const repo = link?.repo ?? a.defaultRepo;
   if (link?.mode === "follow") return { repo, action: "blocked", reason: `It follows ${link.issueNumber ? `issue #${link.issueNumber}` : "an existing GitHub issue"} read-only: pushing to it is switched off.` };
+  if (repo && a.readOnlyRepos?.has(repo.toLowerCase())) return { repo, action: "blocked", reason: `${repo} is marked read-only in Settings > GitHub: the app never writes to it.` };
   if (!repo) return { repo, action: "blocked", reason: `Choose a default repository for ${a.projectName || "the project"} in Settings > GitHub first.` };
   if (!link && !a.activeRepos.has(repo.toLowerCase())) return { repo, action: "blocked", reason: `${repo} is no longer available through the GitHub connection.` };
   if (link?.issueNumber && link.syncState === "synced" && link.lastPushedHash === a.hash) return { repo, action: "unchanged" };
