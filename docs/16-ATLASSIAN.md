@@ -69,6 +69,7 @@ Not everything in the tracker belongs in the roadmap (bug tickets, chores, suppo
 | J6 | Rate limits and bulk read performance on a site with thousands of issues. |
 
 ## Open points
+- **Sign in with Atlassian (R-031, proposed by Ashu 2026-10-23):** an extra way to sign in, not the Jira connection. To settle in spike J1: Supabase Auth support for Atlassian (built in or custom OAuth/OIDC), whether the verified email is returned, and mapping a signed-in person to their Jira account id (feeds the user mapping for assignees, #35). Access to a workspace stays by invitation; sharing a Jira site never grants access.
 - **GitLab order (decided 2026-10-23):** GitHub is priority 1, Atlassian priority 2, GitLab priority 3.
 - Customer details to collect before the mapping design is final: Jira project keys in scope, hierarchy levels used, workflow per project, required custom fields, whether Jira Product Discovery is also used.
 - Self-hosted Jira or Bitbucket Data Center: out of scope (Cloud only).
