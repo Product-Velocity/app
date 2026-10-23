@@ -6,6 +6,9 @@ import { ConnectForm, ProjectRow, RepoRow } from "./forms";
 import { checkGithubNow, continueOnGithub, disconnectGithub, refreshRepositories, retrySyncEvent } from "./actions";
 import Link from "next/link";
 
+/** "Check GitHub now" reads every linked issue and its sub-issues: allow the longest run the plan offers. */
+export const maxDuration = 60;
+
 export const metadata = { title: "GitHub · Product Velocity" };
 
 const NOTICE: Record<string, string> = {
