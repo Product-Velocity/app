@@ -71,3 +71,7 @@ Not everything in the tracker belongs in the roadmap (bug tickets, chores, suppo
 - **GitLab order (decided 2026-10-23):** GitHub is priority 1, Atlassian priority 2, GitLab priority 3.
 - Customer details to collect before the mapping design is final: Jira project keys in scope, hierarchy levels used, workflow per project, required custom fields, whether Jira Product Discovery is also used.
 - Self-hosted Jira or Bitbucket Data Center: out of scope (Cloud only).
+
+## Parked: handover when the build starts (R-030)
+When an initiative's Initiative Phase moves to Build (or an Approver marks it Ready for build), the app offers the same confirmed push as for GitHub: create or refresh the Jira issue from the allowlisted fields, signal "ready for build" with a label or the workflow status chosen in the mapping, and never write without the person confirming. Build Status stays read-only and comes back from Jira; a closed Jira issue means the build is complete, not the initiative (R-029). Build it once, behind the tracker interface (#67), so GitHub and Jira behave the same.
+
