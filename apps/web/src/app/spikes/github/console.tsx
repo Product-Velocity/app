@@ -38,10 +38,10 @@ export function SpikeConsole() {
       </div>
       <form action={probeAction} style={{ display: "grid", gap: 6, marginBottom: 16 }}>
         <strong>Probe (S3b issue fields and anything else)</strong>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <select name="method" defaultValue="GET"><option>GET</option><option>POST</option><option>PATCH</option><option>PUT</option></select>
           <select name="auth" defaultValue="installation"><option value="installation">installation token</option><option value="app">App JWT</option></select>
-          <input name="path" required placeholder="/orgs/Product-Velocity/issue-fields" style={{ flex: 1 }} aria-label="API path" />
+          <input name="path" required placeholder="/orgs/Product-Velocity/issue-fields" style={{ flex: "1 1 360px", minWidth: 240 }} aria-label="API path" />
         </div>
         <textarea name="body" rows={4} placeholder="JSON body (optional)" aria-label="JSON body" />
         <button type="submit">Send</button>
