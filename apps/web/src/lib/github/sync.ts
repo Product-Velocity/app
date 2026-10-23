@@ -52,6 +52,21 @@ export async function ingestSubIssueEvent(admin: Admin, sc: SourceControl, ev: S
   return (await refreshTree(admin, sc, ev.installationId, conn.id, { item_id: link.item_id, repo: ev.repo, number: ev.parentNumber })) ? "processed" : "ignored";
 }
 
+type LightIssue = { number: number; id: number; title?: string; issueType?: string | null; labels?: string[]; state: "open" | "closed"; stateReason: string | null; htmlUrl?: string | null; parentNumber?: number | null; updatedAt: string };
+
+/** Records issues that are not part of an initiative as Not pulled (or Ignored by a saved rule, or Pulled when one already follows them). */
+export async function recordIncoming(admin: Admin, connectionId: string, repo: string, issues: LightIssue[]): Promise<number> {
+  let n = 0;
+  for (let i = 0; i < issues.length; i += 200) {
+    const rows = issues.slice(i, i + 200).filter((x) => x.title !== undefined).map((x) => ({ repo, number: x.number, id: x.id, title: x.title, type: x.issueType ?? null, labels: x.labels ?? [], state: x.state, reason: x.stateReason, parent: x.parentNumber ?? null, url: x.htmlUrl ?? null, updated_at: x.updatedAt }));
+    if (rows.length === 0) continue;
+    const { data, error } = await admin.rpc("tracker_upsert_issues", { p_connection: connectionId, p_rows: rows });
+    if (error) throw new Error(error.message);
+    n += Number(data ?? 0);
+  }
+  return n;
+}
+
 const factsOf = (s: Record<string, unknown>): IssueFacts => s as unknown as IssueFacts;
 
 /**
@@ -64,9 +79,14 @@ export async function ingestIssueEvent(admin: Admin, ev: IssueEvent, deliveryId:
   const { data: link } = await admin.from("item_github_links").select("id, item_id").eq("connection_id", conn.id).ilike("repo_full_name", ev.repo).eq("issue_number", ev.number).maybeSingle();
   if (!link) {
     // an epic or task under a linked initiative: its progress counts move, so the parent's tree is read again
-    if (!sc) return "ignored";
     const { data: node } = await admin.from("item_issue_tree").select("item_id").eq("tenant_id", conn.tenant_id).ilike("repo_full_name", ev.repo).eq("issue_number", ev.number).limit(1).maybeSingle();
-    if (!node) return "ignored";
+    if (!node) {
+      // a stranger to every initiative: keep the light record for the Incoming list (never stored as a sync event)
+      if (["deleted", "transferred"].includes(ev.action)) return "ignored";
+      await recordIncoming(admin, conn.id, ev.repo, [{ number: ev.number, id: ev.issueId, title: ev.title, issueType: ev.issueType, labels: ev.labels, state: ev.state, stateReason: ev.stateReason, htmlUrl: ev.htmlUrl, parentNumber: ev.parentNumber, updatedAt: ev.updatedAt }]);
+      return "processed";
+    }
+    if (!sc) return "ignored";
     const { data: parent } = await admin.from("item_github_links").select("repo_full_name, issue_number").eq("item_id", node.item_id).maybeSingle();
     if (!parent?.issue_number) return "ignored";
     return (await refreshTree(admin, sc, ev.installationId, conn.id, { item_id: node.item_id, repo: parent.repo_full_name, number: parent.issue_number })) ? "processed" : "ignored";
@@ -118,9 +138,12 @@ export async function reconcileConnection(admin: Admin, sc: SourceControl, conne
   for (const l of (links ?? []) as { id: string; item_id: string; repo_full_name: string; issue_number: number }[]) byRepo.set(l.repo_full_name, [...(byRepo.get(l.repo_full_name) ?? []), { id: l.id, item_id: l.item_id, number: l.issue_number }]);
 
   const result: ReconcileResult = { checked: 0, changed: 0, missing: 0, repos: byRepo.size };
+  const listed = new Map<string, IssueSummary[]>();
   const treeJobs: { item_id: string; repo: string; number: number }[] = [];
   for (const [repo, repoLinks] of byRepo) {
-    const issues = new Map<number, IssueSummary>((await sc.listIssues(connection.installation_id, repo)).map((i) => [i.number, i]));
+    const all = await sc.listIssues(connection.installation_id, repo);
+    listed.set(repo.toLowerCase(), all);
+    const issues = new Map<number, IssueSummary>(all.map((i) => [i.number, i]));
     const one = async (l: { id: string; item_id: string; number: number }) => {
       result.checked++;
       const issue = issues.get(l.number);
@@ -139,6 +162,12 @@ export async function reconcileConnection(admin: Admin, sc: SourceControl, conne
     };
     // several linked items at a time: each one is a few round trips to the database, and 30 in a row is slow
     for (let i = 0; i < repoLinks.length; i += 6) await Promise.all(repoLinks.slice(i, i + 6).map(one));
+  }
+  // every other issue of the repositories the App can read: the Incoming list (Not pulled unless a saved rule or a link says otherwise)
+  const { data: repos } = await admin.from("github_repositories").select("full_name").eq("connection_id", connection.id).is("removed_at", null);
+  for (const r of (repos ?? []) as { full_name: string }[]) {
+    const all = listed.get(r.full_name.toLowerCase()) ?? (await sc.listIssues(connection.installation_id, r.full_name));
+    await recordIncoming(admin, connection.id, r.full_name, all);
   }
   // epics and tasks: several issues at a time, so a workspace with many linked items stays inside the time limit of the request
   for (let i = 0; i < treeJobs.length; i += 6) {

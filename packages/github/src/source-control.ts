@@ -25,7 +25,11 @@ export class GitHubError extends Error {
   }
 }
 
-export type IssueSummary = { number: number; id: number; nodeId: string; state: "open" | "closed"; stateReason: string | null; updatedAt: string; closedAt: string | null };
+/** What the app keeps of an issue it does not own: key, title, type, labels, status, link, parent (the "light record" of docs/16). */
+export type IssueSummary = {
+  number: number; id: number; nodeId: string; state: "open" | "closed"; stateReason: string | null; updatedAt: string; closedAt: string | null;
+  title?: string; issueType?: string | null; labels?: string[]; htmlUrl?: string | null; parentNumber?: number | null;
+};
 
 /** A sub-issue as GitHub reports it. `repo` can differ from the parent's repository. */
 export type SubIssue = { number: number; id: number; repo: string; title: string; state: "open" | "closed"; stateReason: string | null; closedAt: string | null; assignees: string[]; createdBy: "app" | "claude" | "engineer" };

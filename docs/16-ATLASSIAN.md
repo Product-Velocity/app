@@ -39,6 +39,7 @@ Status: design, 2026-10-23 (request R-023). Priority 2 after GitHub (priority 1)
 Link an initiative to one or more Confluence pages (URL plus title, checked on save). No reading of page content in the first version; no writing. Publishing reports to Confluence is a later option.
 
 ## Choosing what comes in: pull in, leave out, ignore (R-024, applies to GitHub too)
+_Built for GitHub in release 0.15.0 (#76): tables `tracker_issues` and `tracker_rules`, page `/incoming`. Jira reuses the same model with `provider = jira` when #69 and #72 are built; levels (Initiative, Epic, Task) and parents arrive with the field mapping (#70). On GitHub a pulled-in issue becomes an Initiative that follows the issue read-only._
 Not everything in the tracker belongs in the roadmap (bug tickets, chores, support requests). Nothing is pulled into Product Velocity just because it exists.
 - **Three states for every tracker issue the app knows about:** **Not pulled** (default for anything new), **Pulled in** (becomes or links to an item in the roadmap), **Ignored** (deliberately left out, with an optional reason). Not pulled and Ignored are both reversible at any time: "not" never means "never".
 - **Kept out of Product Velocity work:** not-pulled and ignored issues are not items. They do not appear in the grid, the Stack Rank, planning cycles, capacity or fit line, alignment, gates or reports. Product Velocity never writes to them (no updates, no transitions, no comments).

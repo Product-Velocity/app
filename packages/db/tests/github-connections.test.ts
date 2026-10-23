@@ -17,6 +17,8 @@ beforeAll(async () => {
   await addMember(db, f.alice, f.tenantA, creator, "creator");
   await addMember(db, f.alice, f.tenantA, service, "admin", { serviceAccount: true });
   // start from a clean slate: remove the seeded connection so the tests control the state
+  await db.admin.query("delete from public.tracker_issues");
+  await db.admin.query("delete from public.tracker_rules");
   await db.admin.query("delete from public.sync_events");
   await db.admin.query("delete from public.item_github_links");
   await db.admin.query("delete from public.github_connections");
