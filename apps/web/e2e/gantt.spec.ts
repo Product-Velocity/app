@@ -37,6 +37,15 @@ test.describe("the chart", () => {
     await expect(page.locator(".gantt-today")).toBeVisible();
   });
 
+  test("a bar too short for its name shows the name beside it, so no bar is a blank box", async ({ page }) => {
+    await openFlat(page);
+    const widths = await page.$$eval("[data-bar]", (els) => els.map((e) => ({ id: e.getAttribute("data-bar")!, w: e.getBoundingClientRect().width, inside: (e.querySelector(".gbar-text")?.textContent ?? "").trim(), beside: (e.querySelector(".gbar-out")?.textContent ?? "").trim() })));
+    const short = widths.filter((b) => b.w <= 90);
+    expect(short.length).toBeGreaterThan(0); // the test data has short bars
+    for (const b of short) { expect(b.inside).toBe(""); expect(b.beside).toMatch(/^R-\d+ \S/); }
+    for (const b of widths.filter((x) => x.w > 90)) { expect(b.inside).toMatch(/^R-\d+ \S/); expect(b.beside).toBe(""); }
+  });
+
   test("the left column carries the health as a word, not only a colour", async ({ page }) => {
     await open(page, "n=14");
     await expect(page.locator('[data-item="item-2"] .gl-health')).toHaveText("At Risk");

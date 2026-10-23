@@ -21,6 +21,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "activity", label: "Activity" },
 ];
 
+const GH_STATE = { open: "open", closed_completed: "closed (completed)", closed_not_planned: "closed (not planned)" } as const;
 const defaultPageHref = (code: string) => `/portfolio/${encodeURIComponent(code)}`;
 
 export type ItemPanelProps = {
@@ -90,6 +91,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
         {lookups.github?.links[itemId] && (() => { const l = lookups.github!.links[itemId]!; return (
           <p className="ip-gh">
             GitHub: {l.url && l.number ? <a href={l.url} target="_blank" rel="noreferrer">issue #{l.number}</a> : "no issue yet"}
+            {l.ghState ? ` · ${GH_STATE[l.ghState]}` : ""}{l.lastActivity ? ` · last activity ${new Date(l.lastActivity).toLocaleDateString()}` : ""}
             {" · "}{l.mode === "follow" ? "followed read-only (nothing is written to it)" : l.state === "synced" ? "in sync when last sent" : l.state === "error" ? `last push failed${l.error ? `: ${l.error}` : ""}` : "waiting"}
           </p>
         ); })()}

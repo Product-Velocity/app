@@ -241,6 +241,7 @@ export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
         >
           {progress !== null && <span className="gbar-fill" style={{ width: `${progress}%` }} />}
           <span className="gbar-text">{w > 90 ? `${row.item_code} ${row.initiative_name}` : ""}</span>
+          {w <= 90 && <span className="gbar-out" aria-hidden="true">{row.item_code} {row.initiative_name}</span>}
           {!lockReason && <span className="gbar-h gbar-h-start" onPointerDown={(e) => startDrag(e, bar, "start")} onPointerMove={moveDrag} onPointerUp={endDrag} aria-hidden="true" />}
           {!lockReason && <span className="gbar-h gbar-h-end" onPointerDown={(e) => startDrag(e, bar, "end")} onPointerMove={moveDrag} onPointerUp={endDrag} aria-hidden="true" />}
           {tip && <span className="gbar-tip" role="status">{tip}</span>}

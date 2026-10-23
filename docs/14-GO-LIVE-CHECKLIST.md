@@ -57,3 +57,5 @@ Living list of things that must be done before real customers or real data. Owne
 - [ ] Domain, legal entity name and contact in the footer; legal pages reviewed.
 - [ ] Draft prices in `docs/09` are public while the repo is public: decide before go-live whether to keep them in the repo.
 - [ ] Every site claim checked against the claims rules in the brand guide.
+- [ ] **Prune `sync_events`** (the sync log) after a retention period, for example 90 days, and decide the production Cron schedule (the free plan allows once a day; Pro allows every minute, which suits reconciliation).
+

@@ -17,6 +17,7 @@ beforeAll(async () => {
   await addMember(db, f.alice, f.tenantA, creator, "creator");
   await addMember(db, f.alice, f.tenantA, service, "admin", { serviceAccount: true });
   // start from a clean slate: remove the seeded connection so the tests control the state
+  await db.admin.query("delete from public.sync_events");
   await db.admin.query("delete from public.item_github_links");
   await db.admin.query("delete from public.github_connections");
 });
@@ -28,6 +29,7 @@ const start = (user: string, tenant: string, account = "acme-corp", via = "UI") 
   db.asUser(user, async (q) => (await q("insert into public.github_connections (tenant_id, expected_account) values ($1, $2) returning id", [tenant, account])).rows[0].id as string, { commit: true, via });
 const conn = async (id: string) => (await db.admin.query("select * from public.github_connections where id = $1", [id])).rows[0];
 const reset = async () => {
+  await db.admin.query("delete from public.sync_events");
   await db.admin.query("delete from public.item_github_links");
   await db.admin.query("delete from public.github_connections");
 };

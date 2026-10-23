@@ -2,7 +2,7 @@ import { requireWorkspace } from "@/lib/session";
 import { githubAppSlug, type ConnectionRow } from "@/lib/github/server";
 import { AutoRefresh } from "./auto-refresh";
 import { ConnectForm, ProjectRow, RepoRow } from "./forms";
-import { continueOnGithub, disconnectGithub, refreshRepositories } from "./actions";
+import { checkGithubNow, continueOnGithub, disconnectGithub, refreshRepositories, retrySyncEvent } from "./actions";
 import Link from "next/link";
 
 export const metadata = { title: "GitHub · Product Velocity" };
@@ -18,6 +18,8 @@ const NOTICE: Record<string, string> = {
   "not-found": "GitHub did not recognise that installation. Try again.",
   "already-linked": "That GitHub installation is already connected to another workspace.",
   "not-admin": "Only admins can connect GitHub.",
+  retried: "Run again: it worked.",
+  "retry-failed": "It still failed. The reason is in the sync log below.",
   error: "Something went wrong. Try again, or run the connection test.",
 };
 
@@ -31,10 +33,11 @@ const STATE: Record<ConnectionRow["state"], string> = {
 };
 
 type Repo = { id: string; full_name: string; is_private: boolean; access: string };
+type SyncEvent = { id: string; received_at: string; source: string; event: string; action: string | null; issue_number: number | null; repo_full_name: string | null; state: string; last_error: string | null; attempts: number; applied: Record<string, [unknown, unknown]> | null };
 type Project = { id: string; name: string; default_repo: string | null; who_breaks_down: "product" | "engineering" | "either" };
 
-export default async function GithubSettingsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
-  const { status } = await searchParams;
+export default async function GithubSettingsPage({ searchParams }: { searchParams: Promise<{ status?: string; c?: string; ch?: string; m?: string }> }) {
+  const { status, c: checkedN, ch: changedN, m: missingN } = await searchParams;
   const { supabase, active } = await requireWorkspace("/settings/integrations/github");
   const isAdmin = active.role === "admin";
 
@@ -45,6 +48,9 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
   const repos = (repoRows ?? []) as Repo[];
   const projects = (projectRows ?? []) as Project[];
   const state = c?.state ?? "disconnected";
+  const { data: eventRows } = isAdmin && c ? await supabase.from("sync_events").select("id, received_at, source, event, action, issue_number, repo_full_name, state, last_error, attempts, applied").eq("tenant_id", active.tenantId).order("received_at", { ascending: false }).limit(15) : { data: [] };
+  const events = (eventRows ?? []) as SyncEvent[];
+  const { count: linkedCount } = c ? await supabase.from("item_github_links").select("id", { count: "exact", head: true }).eq("tenant_id", active.tenantId) : { count: 0 };
 
   return (
     <div className="page-narrow">
@@ -55,6 +61,7 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
       </p>
       {(state === "waiting_approval" || state === "installing") && <AutoRefresh />}
       {status && NOTICE[status] && <p role="status" className="notice">{NOTICE[status]}</p>}
+      {status === "checked" && <p role="status" className="notice">Checked {checkedN} linked item(s) against GitHub: {changedN} changed, {missingN} issue(s) not found.</p>}
 
       <div className="card stack">
         <h2>Status</h2>
@@ -87,6 +94,35 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
           </p>
         )}
       </div>
+
+      {c?.state === "connected" && (
+        <div className="card stack">
+          <h2>Sync</h2>
+          <p className="muted">
+            {linkedCount ?? 0} initiative(s) are linked to a GitHub issue. When one of those issues is closed, closed as not planned or reopened, GitHub tells the app and the initiative&rsquo;s Status follows
+            (Completed, Cancelled, Not Started). A daily check repairs anything missed.
+          </p>
+          {isAdmin && <form action={checkGithubNow}><button className="btn" type="submit">Check GitHub now</button></form>}
+          {isAdmin && (
+            <table className="table">
+              <caption className="visually-hidden">Latest changes from GitHub</caption>
+              <thead><tr><th scope="col">When</th><th scope="col">Issue</th><th scope="col">What happened</th><th scope="col">Result</th><th scope="col"><span className="visually-hidden">Retry</span></th></tr></thead>
+              <tbody>
+                {events.length === 0 && <tr><td colSpan={5} className="muted">Nothing yet. Close or reopen a linked issue on GitHub, or press &ldquo;Check GitHub now&rdquo;.</td></tr>}
+                {events.map((e) => (
+                  <tr key={e.id}>
+                    <td>{new Date(e.received_at).toLocaleString()}</td>
+                    <td>{e.repo_full_name ? `${e.repo_full_name}#${e.issue_number}` : "-"}</td>
+                    <td>{e.source === "reconcile" ? "Found by the check" : `GitHub: ${e.action ?? e.event}`}{e.applied && Object.keys(e.applied).length > 0 ? ` · ${Object.entries(e.applied).map(([k, v]) => `${k}: ${String(v[0] ?? "none")} → ${String(v[1])}`).join(", ")}` : ""}</td>
+                    <td>{e.state === "error" ? `Failed: ${e.last_error ?? "unknown"} (${e.attempts} tr${e.attempts === 1 ? "y" : "ies"})` : e.state === "processed" ? "Applied" : e.state}</td>
+                    <td>{e.state === "error" && <form action={retrySyncEvent.bind(null, e.id)}><button className="btn" type="submit">Run again</button></form>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {c?.state === "connected" && (
         <div className="card stack">

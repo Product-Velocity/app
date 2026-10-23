@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { runConnectionDiagnostics, signInstallState, type CheckResult } from "@pv/github";
 import { githubAppSlug, githubSecret, githubSourceControl, refreshConnection, type ConnectionRow } from "@/lib/github/server";
+import { reconcileConnection, retryEvent } from "@/lib/github/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireWorkspace } from "@/lib/session";
 
@@ -110,4 +111,29 @@ export async function setRepoAccess(_prev: FormState, form: FormData): Promise<F
   if (error) return { error: "We could not save that." };
   revalidatePath(PATH);
   return { ok: access === "read_only" ? "Now read-only" : "Saved" };
+}
+
+/** Compares GitHub with every linked item now (the same check that runs daily) and applies what differs. */
+export async function checkGithubNow(): Promise<void> {
+  const ctx = await adminOnly();
+  const sc = githubSourceControl();
+  if (!ctx || !sc) redirect(`${PATH}?status=error`);
+  const { data } = await ctx.supabase.from("github_connections").select("*").eq("tenant_id", ctx.active.tenantId).eq("state", "connected").maybeSingle();
+  if (!data) redirect(`${PATH}?status=error`);
+  let r;
+  try {
+    r = await reconcileConnection(createAdminClient({ via: "GitHub webhook" }), sc, data as ConnectionRow);
+  } catch {
+    redirect(`${PATH}?status=error`);
+  }
+  revalidatePath(PATH);
+  redirect(`${PATH}?status=checked&c=${r.checked}&ch=${r.changed}&m=${r.missing}`);
+}
+
+export async function retrySyncEvent(eventId: string): Promise<void> {
+  const ctx = await adminOnly();
+  if (!ctx) redirect(`${PATH}?status=not-admin`);
+  const ok = await retryEvent(createAdminClient({ via: "GitHub webhook" }), ctx.active.tenantId, eventId);
+  revalidatePath(PATH);
+  redirect(`${PATH}?status=${ok ? "retried" : "retry-failed"}`);
 }

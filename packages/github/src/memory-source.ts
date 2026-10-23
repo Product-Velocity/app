@@ -1,4 +1,4 @@
-import type { DeliverySummary, InstallationInfo, IssueInput, IssueRef, RepoInfo, SourceControl } from "./source-control";
+import type { DeliverySummary, InstallationInfo, IssueInput, IssueRef, IssueSummary, RepoInfo, SourceControl } from "./source-control";
 
 /** In-memory SourceControl for tests: records every call so a test can prove what was (not) sent. */
 export class MemorySourceControl implements SourceControl {
@@ -21,6 +21,9 @@ export class MemorySourceControl implements SourceControl {
   async listRepositories(): Promise<RepoInfo[]> { return []; }
   async listIssueTypes() { return null; }
   async listRecentDeliveries(): Promise<DeliverySummary[]> { return []; }
+  /** Issues GitHub would report for a repository, set by a test. */
+  listed = new Map<string, IssueSummary[]>();
+  async listIssues(_i: number, repo: string): Promise<IssueSummary[]> { this.tick("listIssues"); return this.listed.get(repo) ?? []; }
   async createIssue(_i: number, repo: string, input: IssueInput): Promise<IssueRef> {
     this.tick("createIssue", input);
     const number = ++this.n;

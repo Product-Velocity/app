@@ -63,3 +63,26 @@ export function decideConnectionChange(ev: ConnectionEvent, bound: ConnectionLit
   // two workspaces waiting for the same organisation cannot be told apart here: the install-return route binds those
   return pending.length === 1 ? { kind: "set", id: pending[0]!.id, state: "connected", adoptInstallation: true } : { kind: "ignore" };
 }
+
+export type IssueEvent = {
+  action: string;
+  installationId: number;
+  repo: string;
+  number: number;
+  issueId: number;
+  nodeId: string;
+  state: "open" | "closed";
+  stateReason: string | null;
+  updatedAt: string;
+};
+
+/** The few fields of an `issues` delivery the sync needs. Titles, bodies and people are never read. */
+export function parseIssueEvent(event: string | null, payload: unknown): IssueEvent | null {
+  if (event !== "issues") return null;
+  const p = payload as { action?: unknown; installation?: { id?: unknown }; repository?: { full_name?: unknown }; issue?: { number?: unknown; id?: unknown; node_id?: unknown; state?: unknown; state_reason?: unknown; updated_at?: unknown; pull_request?: unknown } };
+  const i = p?.issue;
+  if (typeof p?.action !== "string" || typeof p.installation?.id !== "number" || typeof p.repository?.full_name !== "string") return null;
+  if (!i || i.pull_request || typeof i.number !== "number" || typeof i.id !== "number" || typeof i.node_id !== "string" || typeof i.updated_at !== "string" || Number.isNaN(Date.parse(i.updated_at))) return null;
+  if (i.state !== "open" && i.state !== "closed") return null;
+  return { action: p.action, installationId: p.installation.id, repo: p.repository.full_name, number: i.number, issueId: i.id, nodeId: i.node_id, state: i.state, stateReason: typeof i.state_reason === "string" ? i.state_reason : null, updatedAt: i.updated_at };
+}
