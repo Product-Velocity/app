@@ -438,14 +438,14 @@ test.describe("saved views", () => {
     await open(page, "n=10");
     const order = () => page.evaluate(() => Array.from(document.querySelectorAll(".ag-header-cell[col-id]")).map((c) => c.getAttribute("col-id") as string));
     const before = await order();
-    expect(before.indexOf("roadmap_category")).toBeLessThan(before.indexOf("theme"));
-    const a = (await page.locator('.ag-header-cell[col-id="theme"]').boundingBox())!;
-    const b = (await page.locator('.ag-header-cell[col-id="roadmap_category"]').boundingBox())!;
+    expect(before.indexOf("theme")).toBeLessThan(before.indexOf("roadmap_category"));
+    const a = (await page.locator('.ag-header-cell[col-id="roadmap_category"]').boundingBox())!;
+    const b = (await page.locator('.ag-header-cell[col-id="theme"]').boundingBox())!;
     await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
     await page.mouse.down();
     await page.mouse.move(b.x + 6, b.y + b.height / 2, { steps: 15 });
     await page.mouse.up();
-    await expect.poll(async () => { const o = await order(); return o.indexOf("theme") < o.indexOf("roadmap_category"); }).toBe(true);
+    await expect.poll(async () => { const o = await order(); return o.indexOf("roadmap_category") < o.indexOf("theme"); }).toBe(true);
     await expect(page.locator(".view-dirty")).toContainText("You changed this view");
   });
 });

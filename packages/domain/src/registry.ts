@@ -1,4 +1,5 @@
 import dictionary from "./field-dictionary.json";
+import defaultViews from "./default-views.json";
 
 /**
  * The field registry: one entry per item field, in `docs/reference/item-fields.csv` order.
@@ -11,7 +12,7 @@ export type FieldType =
   | "Boolean" | "Tags" | "Links" | "Relation" | "Files" | "Thread" | "Structured" | "Note" | "System" | "Computed";
 export type EditMode = "editable" | "computed" | "system" | "locked";
 export const CURRENT_PHASE = 1;
-export const VIEW_NAMES = ["Prioritisation", "Planning", "Delivery", "Go-to-market", "Outcomes", "Leadership", "Discovery", "History"] as const;
+export const VIEW_NAMES = ["Prioritisation", "Planning", "Delivery", "Go-to-market", "Outcomes", "Leadership", "Discovery", "Timeline", "History", "Cycle review"] as const;
 export type ViewName = (typeof VIEW_NAMES)[number];
 
 export interface FieldDef {
@@ -27,7 +28,6 @@ export interface FieldDef {
   editable: boolean;
   customerSafe: boolean;
   allowed: string[];
-  views: ViewName[];
   githubSync: string | null;
   description: string | null;
 }
@@ -47,7 +47,7 @@ export const FIELDS: readonly FieldDef[] = (dictionary as Raw[]).map((r) => {
   return {
     id: r.n, key: r.key, name: r.name, group: r.group, type: r.type as FieldType, storage: r.storage, phase: r.phase,
     mode, editable: mode === "editable", customerSafe: r.customerSafe, allowed: r.allowed,
-    views: r.views as ViewName[], githubSync: r.githubSync, description: r.description,
+    githubSync: r.githubSync, description: r.description,
   };
 });
 
@@ -84,10 +84,24 @@ export function relatedTable(f: FieldDef): string | null {
 }
 export const COLUMN_ON_ITEMS: readonly string[] = FIELDS.map(columnOnItems).filter((c): c is string => c !== null);
 
-export const isShipped = (f: FieldDef) => f.phase <= CURRENT_PHASE;
+/** Fields built ahead of their dictionary phase (Rank in Project is computed from the stack rank, so the grid has it now). */
+const SHIPPED_EARLY: ReadonlySet<string> = new Set(["project_rank"]);
+export const isShipped = (f: FieldDef) => f.phase <= CURRENT_PHASE || SHIPPED_EARLY.has(f.key);
 export const arrivesLabel = (f: FieldDef) => (isShipped(f) ? null : `Arrives in phase ${f.phase}`);
 
-/** Default views: the column lists of the "Grid columns and views" sheet, in grid order. */
+/**
+ * The ten default views of R-021: ordered column lists from `docs/reference/default-views.csv`, generated into
+ * `default-views.json` by `tools/field-dictionary/export_views.py` and compared with the CSV by `registry.test.ts`.
+ * The first three columns of every view are pinned.
+ */
+export const ALL_DEFAULT_VIEWS = defaultViews as Readonly<Record<ViewName, { columns: string[]; pinned: string[] }>>;
+
+/** What a default view shows today: its listed columns in order, without fields of phases that have not shipped. */
 export const DEFAULT_VIEWS: Readonly<Record<ViewName, string[]>> = Object.fromEntries(
-  VIEW_NAMES.map((v) => [v, FIELDS.filter((f) => f.views.includes(v)).map((f) => f.key)]),
+  VIEW_NAMES.map((v) => [v, ALL_DEFAULT_VIEWS[v].columns.filter((k) => isShipped(FIELD_BY_KEY[k]!))]),
 ) as Record<ViewName, string[]>;
+
+/** The fields of a default view that arrive in a later phase: they appear in their listed position once the phase ships. */
+export const WAITING_IN_VIEW: Readonly<Record<ViewName, FieldDef[]>> = Object.fromEntries(
+  VIEW_NAMES.map((v) => [v, ALL_DEFAULT_VIEWS[v].columns.map((k) => FIELD_BY_KEY[k]!).filter((f) => !isShipped(f))]),
+) as Record<ViewName, FieldDef[]>;

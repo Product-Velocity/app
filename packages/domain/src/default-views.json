@@ -1,0 +1,287 @@
+{
+ "Prioritisation": {
+  "columns": [
+   "stack_rank",
+   "item_code",
+   "initiative_name",
+   "project_rank",
+   "home_project",
+   "theme",
+   "roadmap_category",
+   "moscow",
+   "horizon",
+   "value_12m",
+   "confidence",
+   "value_weighted",
+   "effort",
+   "value_weighted_per_build_week",
+   "decision",
+   "crowd_rank",
+   "fit_by_team",
+   "health"
+  ],
+  "pinned": [
+   "stack_rank",
+   "item_code",
+   "initiative_name"
+  ]
+ },
+ "Planning": {
+  "columns": [
+   "stack_rank",
+   "item_code",
+   "initiative_name",
+   "home_project",
+   "contributing_teams",
+   "planning_status",
+   "cycle",
+   "effort",
+   "effort_by_skill",
+   "estimate_low_weeks",
+   "estimate_high_weeks",
+   "fit_by_team",
+   "planned_start",
+   "g2m_date_est",
+   "depends_on",
+   "product_manager",
+   "engineering_manager",
+   "ready_for_build"
+  ],
+  "pinned": [
+   "stack_rank",
+   "item_code",
+   "initiative_name"
+  ]
+ },
+ "Delivery": {
+  "columns": [
+   "stack_rank",
+   "item_code",
+   "initiative_name",
+   "home_project",
+   "initiative_phase",
+   "status",
+   "health",
+   "delivery_progress_pct",
+   "schedule_variance_pp",
+   "g2m_date_est",
+   "g2m_slip_days",
+   "blocked_issues",
+   "stale_issues",
+   "scope_added",
+   "open_prs",
+   "ci_status",
+   "assignees",
+   "breakdown_status"
+  ],
+  "pinned": [
+   "stack_rank",
+   "item_code",
+   "initiative_name"
+  ]
+ },
+ "Go-to-market": {
+  "columns": [
+   "stack_rank",
+   "item_code",
+   "initiative_name",
+   "initiative_phase",
+   "audience",
+   "g2m_quarter",
+   "g2m_date_est",
+   "date_precision",
+   "target_scope",
+   "live_scope",
+   "target_segments",
+   "target_customers",
+   "customers_live",
+   "rollout_pct",
+   "adoption_pct",
+   "value_proposition",
+   "summary",
+   "gtm_enablement_notes",
+   "screenshots"
+  ],
+  "pinned": [
+   "stack_rank",
+   "item_code",
+   "initiative_name"
+  ]
+ },
+ "Outcomes": {
+  "columns": [
+   "stack_rank",
+   "item_code",
+   "initiative_name",
+   "initiative_phase",
+   "outcome_status",
+   "outcome_review_date",
+   "kr_metric",
+   "kr_unit",
+   "kr_start",
+   "kr_target",
+   "realized_kr_value",
+   "kr_realized_pct",
+   "adoption_pct",
+   "value_12m",
+   "realized_per_year",
+   "value_variance_pct",
+   "outcome_verdict",
+   "time_to_first_use_days",
+   "retention_pct",
+   "learning"
+  ],
+  "pinned": [
+   "stack_rank",
+   "item_code",
+   "initiative_name"
+  ]
+ },
+ "Leadership": {
+  "columns": [
+   "stack_rank",
+   "item_code",
+   "initiative_name",
+   "home_project",
+   "theme",
+   "roadmap_category",
+   "initiative_phase",
+   "health",
+   "delivery_progress_pct",
+   "g2m_quarter",
+   "g2m_slip_days",
+   "value_12m",
+   "confidence",
+   "decision",
+   "current_gate",
+   "fit_by_team",
+   "sponsor",
+   "next_review_date",
+   "summary"
+  ],
+  "pinned": [
+   "stack_rank",
+   "item_code",
+   "initiative_name"
+  ]
+ },
+ "Discovery": {
+  "columns": [
+   "stack_rank",
+   "item_code",
+   "initiative_name",
+   "initiative_phase",
+   "change_type",
+   "hypothesis",
+   "request_origin",
+   "customers_requesting",
+   "source",
+   "cost_of_not_doing",
+   "related_to",
+   "dependencies_blockers",
+   "value_type",
+   "value_basis",
+   "time_to_first_revenue_months",
+   "kr_metric",
+   "kr_target",
+   "artifacts",
+   "documents",
+   "spec_status",
+   "product_manager",
+   "designer",
+   "analyst",
+   "business_manager",
+   "ai_draft"
+  ],
+  "pinned": [
+   "stack_rank",
+   "item_code",
+   "initiative_name"
+  ]
+ },
+ "Timeline": {
+  "columns": [
+   "stack_rank",
+   "item_code",
+   "initiative_name",
+   "initiative_phase",
+   "days_in_phase",
+   "start_date",
+   "start_discovery",
+   "start_definition",
+   "start_building",
+   "start_beta",
+   "start_experiment",
+   "start_rollout",
+   "g2m_date_actual",
+   "time_discovery_days",
+   "time_definition_days",
+   "time_building_days",
+   "time_beta_days",
+   "time_experiment_days",
+   "time_rollout_days",
+   "time_to_market_days",
+   "actual_build_weeks",
+   "build_vs_estimate_high_pct",
+   "blocked_days"
+  ],
+  "pinned": [
+   "stack_rank",
+   "item_code",
+   "initiative_name"
+  ]
+ },
+ "History": {
+  "columns": [
+   "stack_rank",
+   "item_code",
+   "initiative_name",
+   "status",
+   "initiative_phase",
+   "previous_rank",
+   "decision",
+   "decided_by",
+   "decision_date",
+   "status_changed_at",
+   "phase_changed_at",
+   "last_edited_at",
+   "last_edited_by",
+   "created_at",
+   "created_by",
+   "created_via",
+   "last_reviewed_at",
+   "review_overdue",
+   "item_age_days",
+   "archived"
+  ],
+  "pinned": [
+   "stack_rank",
+   "item_code",
+   "initiative_name"
+  ]
+ },
+ "Cycle review": {
+  "columns": [
+   "stack_rank",
+   "item_code",
+   "initiative_name",
+   "home_project",
+   "planning_status",
+   "cycle",
+   "candidate_tag",
+   "deferred_count",
+   "deferral_reason",
+   "added_after_commit",
+   "previous_rank",
+   "effort",
+   "fit_by_team",
+   "moscow",
+   "decision"
+  ],
+  "pinned": [
+   "stack_rank",
+   "item_code",
+   "initiative_name"
+  ]
+ }
+}

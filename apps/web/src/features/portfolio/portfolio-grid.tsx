@@ -8,7 +8,7 @@ import {
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import {
-  buildGroupedRows, CORE_COLUMN_KEYS, FIELD_BY_KEY, FIELDS, groupableFields, matchesFilters, matchesSearch, sanitizeView, VIEW_NAMES, type EditableField, type Filter, type GroupRow, type ViewDef,
+  buildGroupedRows, CORE_COLUMN_KEYS, FIELD_BY_KEY, FIELDS, groupableFields, matchesFilters, matchesSearch, sanitizeView, VIEW_NAMES, WAITING_IN_VIEW, type EditableField, type Filter, type GroupRow, type ViewDef,
 } from "@pv/domain";
 import { useWorkspace } from "../workspace/provider";
 import { setQueryParam, useScope } from "../workspace/scope";
@@ -494,6 +494,13 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
             </span>
           ))}
         </div>
+      )}
+      {base.kind === "builtin" && WAITING_IN_VIEW[base.name].length > 0 && (
+        <p className="view-note" role="note">
+          {WAITING_IN_VIEW[base.name].length} more {WAITING_IN_VIEW[base.name].length === 1 ? "column" : "columns"} of this view arrive in later phases:{" "}
+          {WAITING_IN_VIEW[base.name].slice(0, 4).map((f) => `${f.name} (phase ${f.phase})`).join(", ")}
+          {WAITING_IN_VIEW[base.name].length > 4 ? ` and ${WAITING_IN_VIEW[base.name].length - 4} more` : ""}.
+        </p>
       )}
       {(dirty || baseMissing) && (
         <div className="view-dirty" role="status">
