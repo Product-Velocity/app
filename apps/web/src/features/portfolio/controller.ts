@@ -291,6 +291,36 @@ export class PortfolioController {
     const text = Number.isNaN(before.startDay) || Number.isNaN(before.endDay)
       ? `${row.item_code} scheduled: Planned Start ${dates.planned_start}, G2M Date (est) ${dates.g2m_date_est}`
       : `${row.item_code} ${summarizeChange(before, { startDay: s, endDay: e }, this.today())}`;
+    this.commitMany(row, edits, text);
+    return { ok: true, changed: true };
+  }
+
+  /**
+   * Several fields of one item as one undo step: what dropping a card on another column and lane changes.
+   * `null` clears a field. Everything is checked first; if one value is refused, nothing changes.
+   */
+  editFields(itemId: string, changes: Record<string, string | null>): EditOutcome {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
+    const row = this.byId.get(itemId);
+    if (!row) return { ok: false, error: "That item no longer exists." };
+    const edits: Edit[] = [];
+    for (const [field, raw] of Object.entries(changes)) {
+      if (!EDITABLE_FIELDS.includes(field)) { const error = readOnlyReason(field) ?? "That field cannot be edited."; this.notify(error); return { ok: false, error }; }
+      const checked = validateEdit(field, raw ?? "", { today: this.today() });
+      if (!checked.ok) { this.notify(`${row.item_code} ${fieldLabel(field)}: ${checked.error}`); return { ok: false, error: checked.error }; }
+      const value = field === "theme" ? this.canonicalGroup(checked.value) : checked.value;
+      if (!same(row[field], value)) edits.push({ type: "field", itemId, key: row.item_code, field, before: row[field] ?? null, after: value });
+    }
+    if (edits.length === 0) return { ok: true, changed: false };
+    const first = describeEdit(edits[0]!, this.resolvers());
+    const rest = edits.slice(1).map((e) => describeEdit(e, this.resolvers()).slice(row.item_code.length + 1));
+    this.commitMany(row, edits, [first, ...rest].join(", "));
+    return { ok: true, changed: true };
+  }
+
+  /** One undo step for several field edits of one item, each saved (and audited) on its own; a failed one is put back alone. */
+  private commitMany(row: GridItem, edits: Edit[], text: string) {
+    const itemId = row.id;
     const entry: Entry = { id: `e${++this.entrySeq}`, edits, label: text };
     this.stack.push(entry);
     this.state.notice = null;
@@ -306,7 +336,6 @@ export class PortfolioController {
         if (entry.edits.length === 0) this.stack.discard(entry);
       }, undefined, "Could not save", `${itemId}:${edit.field}`);
     }
-    return { ok: true, changed: true };
   }
 
   /** Delete or Backspace on a cell. */
