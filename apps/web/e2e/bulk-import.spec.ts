@@ -283,17 +283,17 @@ test.describe("header and page head follow the prototype", () => {
 
 test.describe("grid height follows the page", () => {
   test("a taller window gives a taller grid, and resizing grows and shrinks it", async ({ page }) => {
-    await page.setViewportSize({ width: 1400, height: 600 });
+    await page.setViewportSize({ width: 1400, height: 800 }); // the floating bars keep a band of about 110px under the grid, so go above the 360px minimum
     await open(page, "n=200");
     const height = async () => (await page.locator(".grid-wrap").boundingBox())!.height;
     const small = await height();
-    await page.setViewportSize({ width: 1400, height: 1000 });
+    await page.setViewportSize({ width: 1400, height: 1100 });
     await expect.poll(height).toBeGreaterThan(small + 250);
     const big = await height();
-    await page.setViewportSize({ width: 1400, height: 700 });
-    await expect.poll(height).toBeLessThan(big - 200);
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await expect.poll(height).toBeLessThan(big - 150);
     // the grid fills the window without making the page itself scroll (below ~360px the grid keeps a minimum height)
-    await page.setViewportSize({ width: 1400, height: 800 });
+    await page.setViewportSize({ width: 1400, height: 850 });
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)).toBeLessThanOrEqual(2);
     const overflow = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
     expect(overflow).toBeLessThanOrEqual(2);
