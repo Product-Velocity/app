@@ -89,7 +89,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
       width: WIDE[f.key] ?? WIDTH[f.type] ?? 140,
       hide: !visible.has(f.key) && !(CORE_COLUMNS as readonly string[]).includes(f.key),
       sortable: false,
-      suppressMovable: CORE_COLUMNS.includes(f.key as never) || f.key === "project_rank",
+      suppressMovable: CORE_COLUMNS.includes(f.key as never),
       cellClass: [
         ["Number", "Currency", "Computed"].includes(f.type) && f.key !== "item_code" ? "num" : "",
         reason && f.key !== "item_code" ? "cell-locked" : "",
@@ -108,7 +108,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
         },
       };
     }
-    if (CORE_COLUMNS.includes(f.key as never) || f.key === "project_rank") base.pinned = "left";
+    if (CORE_COLUMNS.includes(f.key as never)) base.pinned = "left";
     if (f.key === "initiative_name") { base.flex = 1; base.minWidth = 300; }
     if (f.key === "item_code") return { ...base, cellClass: "mono muted cell-open", headerTooltip: "Click a code to open the item panel", tooltipValueGetter: () => "Open the item panel (Space on any cell does the same)" };
     if (f.key === "project_rank") return base;

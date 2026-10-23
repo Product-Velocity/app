@@ -111,3 +111,6 @@ Append new decisions at the bottom: date, decision, reason, who decided.
 - 2026-10-23 · "What moved this week" counts a rank change as the net move over the ISO week; a leadership viewer lands on `/leadership` after signing in · Claude (issue #29)
 - 2026-10-23 · Menus that close when the focus leaves them ignore a blur while a pointer is pressed inside, because Safari does not focus a clicked button (fix in its own PR) · Claude
 
+- 2026-10-23 · Default views read from `default-views.csv` through a generated `default-views.json`; a view shows only shipped fields and the later-phase ones wait in their listed position (no placeholder columns). Rank in Project is built ahead of its dictionary phase (2) and is treated as shipped · Claude (issue #54)
+- 2026-10-23 · Only the first three columns (Stack Rank, Initiative ID, Initiative Name) are pinned; Rank in Project is no longer pinned or locked, because the file lists it at position 4 of Prioritisation only · Claude (issue #54)
+- 2026-10-23 · Migration 0016 replaces the `saved_views.base_view` check so Timeline and Cycle review can be customised like the other eight; it drops and re-adds a constraint only, no data is touched · Claude (issue #54)

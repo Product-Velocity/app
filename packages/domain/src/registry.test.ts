@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  COLUMN_ON_ITEMS, DEFAULT_VIEWS, KEY_BY_COLUMN, FIELDS, FIELD_BY_KEY, VIEW_NAMES, arrivesLabel, columnOnItems, isShipped, relatedTable,
+  ALL_DEFAULT_VIEWS, COLUMN_ON_ITEMS, DEFAULT_VIEWS, WAITING_IN_VIEW, KEY_BY_COLUMN, FIELDS, FIELD_BY_KEY, VIEW_NAMES, arrivesLabel, columnOnItems, isShipped, relatedTable,
 } from "./registry";
 
 /** Minimal CSV reader for docs/reference/item-fields.csv (quoted fields, no embedded newlines). */
@@ -81,25 +81,54 @@ describe("registry rules", () => {
     expect(arrivesLabel(FIELD_BY_KEY.outcome_verdict!)).toBe("Arrives in phase 7");
     expect(arrivesLabel(FIELD_BY_KEY.initiative_name!)).toBeNull();
   });
-  it("builds the eight default views from the sheet, only from known keys", () => {
-    expect(VIEW_NAMES).toEqual(["Prioritisation", "Planning", "Delivery", "Go-to-market", "Outcomes", "Leadership", "Discovery", "History"]);
-    for (const v of VIEW_NAMES) {
-      expect(DEFAULT_VIEWS[v].length).toBeGreaterThan(5);
-      for (const k of DEFAULT_VIEWS[v]) expect(FIELD_BY_KEY[k], `${v}: ${k}`).toBeDefined();
-    }
-    expect(DEFAULT_VIEWS.Prioritisation).toContain("stack_rank");
-    expect(DEFAULT_VIEWS.Prioritisation).toContain("value_12m");
+  it("has the ten default views of R-021, in the agreed order", () => {
+    expect(VIEW_NAMES).toEqual(["Prioritisation", "Planning", "Delivery", "Go-to-market", "Outcomes", "Leadership", "Discovery", "Timeline", "History", "Cycle review"]);
   });
 });
 
-describe("default views and flags match the sheet 'Grid columns and views' (docs/reference/grid-views.csv)", () => {
+describe("default views match docs/reference/default-views.csv", () => {
+  const rows = parseCsv(readFileSync(new URL("../../../docs/reference/default-views.csv", import.meta.url), "utf8"));
+  const inFile = (v: string) => rows.filter((r) => r.view === v);
+  it("every key exists in item-fields.csv and positions run 1..n", () => {
+    for (const v of VIEW_NAMES) {
+      inFile(v).forEach((r, i) => {
+        expect(FIELD_BY_KEY[r.key!], `${v}: ${r.key}`).toBeDefined();
+        expect(Number(r.position), `${v}: ${r.key}`).toBe(i + 1);
+      });
+    }
+    expect([...new Set(rows.map((r) => r.view))]).toEqual([...VIEW_NAMES]);
+  });
+  it("the code has exactly the file's keys, order and pinned columns (all phases)", () => {
+    for (const v of VIEW_NAMES) {
+      expect(ALL_DEFAULT_VIEWS[v].columns, v).toEqual(inFile(v).map((r) => r.key));
+      expect(ALL_DEFAULT_VIEWS[v].pinned, v).toEqual(inFile(v).filter((r) => r.pinned === "pinned").map((r) => r.key));
+    }
+  });
+  it("the first three columns of every view are pinned: Stack Rank, Initiative ID, Initiative Name", () => {
+    for (const v of VIEW_NAMES) expect(ALL_DEFAULT_VIEWS[v].pinned, v).toEqual(["stack_rank", "item_code", "initiative_name"]);
+  });
+  it("each view has 15 to 25 columns", () => {
+    for (const v of VIEW_NAMES) { expect(ALL_DEFAULT_VIEWS[v].columns.length, v).toBeGreaterThanOrEqual(15); expect(ALL_DEFAULT_VIEWS[v].columns.length, v).toBeLessThanOrEqual(25); }
+  });
+  it("a view shows only fields that have shipped; the others wait in their listed position", () => {
+    for (const v of VIEW_NAMES) {
+      expect(DEFAULT_VIEWS[v], v).toEqual(inFile(v).map((r) => r.key!).filter((k) => isShipped(FIELD_BY_KEY[k]!)));
+      expect(DEFAULT_VIEWS[v].length + WAITING_IN_VIEW[v].length, v).toBe(inFile(v).length);
+    }
+    expect(DEFAULT_VIEWS.Delivery).not.toContain("outcome_verdict");
+    expect(WAITING_IN_VIEW.Outcomes.length).toBeGreaterThan(0);
+  });
+  it("the pinned columns are always in the shown list, and Rank in Project keeps its position", () => {
+    for (const v of VIEW_NAMES) expect(DEFAULT_VIEWS[v].slice(0, 3), v).toEqual(["stack_rank", "item_code", "initiative_name"]);
+    expect(DEFAULT_VIEWS.Prioritisation[3]).toBe("project_rank");
+  });
+});
+
+describe("group, editing mode and customer-safe flags match the sheet 'Grid columns and views' (docs/reference/grid-views.csv)", () => {
   const sheet = parseCsv(readFileSync(new URL("../../../docs/reference/grid-views.csv", import.meta.url), "utf8"));
   const MODE_OF: Record<string, string> = { "Editable": "editable", "Computed (read-only)": "computed", "System (read-only)": "system", "Locked (GitHub)": "locked" };
   it("lists the same 165 fields in the same order", () => {
     expect(sheet.map((r) => r.key)).toEqual(FIELDS.map((f) => f.key));
-  });
-  it("gives each default view exactly the sheet's columns, in sheet order", () => {
-    for (const v of VIEW_NAMES) expect(DEFAULT_VIEWS[v], v).toEqual(sheet.filter((r) => r[v] === "Y").map((r) => r.key));
   });
   it("carries the group, editing mode and customer-safe flag of the sheet", () => {
     for (const r of sheet) {

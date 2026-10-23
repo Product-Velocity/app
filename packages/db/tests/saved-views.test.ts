@@ -110,6 +110,13 @@ describe("default view overrides and customer-safe views (0012)", () => {
     expect(await db.asUser(creator, async (q) => (await q("delete from public.saved_views where tenant_id = $1 and base_view = 'Planning'", [f.tenantA])).rowCount, { commit: true, via: "UI" })).toBe(1);
     await ins(creator, "Planning", "array['item_code']", "base_view|'Planning'"); // can be customised again after a restore
   });
+  it("the two views added by R-021 (Timeline, Cycle review) can be customised too; the check lists exactly ten names", async () => {
+    await ins(creator, "Timeline", "array['item_code']", "base_view|'Timeline'");
+    await ins(creator, "Cycle review", "array['item_code']", "base_view|'Cycle review'");
+    expect(await errorCode(ins(creator, "Timeline again", "array['item_code']", "base_view|'Timeline'"))).toBe(UNIQUE);
+    const names = (await db.admin.query("select pg_get_constraintdef(oid) as d from pg_constraint where conname = 'saved_views_base_view_check'")).rows[0].d as string;
+    expect((names.match(/'[^']+'::text/g) ?? []).length).toBe(10);
+  });
   it("a customised default is never customer-safe, and base_view cannot be changed afterwards", async () => {
     expect(await errorCode(ins(creator, "Leadership", "array['item_code']", "base_view, customer_safe|'Leadership', true"))).toBe(CHECK);
     const id = (await db.admin.query("select id from public.saved_views where tenant_id = $1 and base_view = 'Planning'", [f.tenantA])).rows[0].id;

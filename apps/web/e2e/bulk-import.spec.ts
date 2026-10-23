@@ -246,15 +246,15 @@ test.describe("header and page head follow the prototype", () => {
     await expect(header.locator("summary")).toContainText("account menu for ashu.mathura@example.test");
   });
 
-  test("the eight default views are chips; choosing one changes the columns", async ({ page }) => {
+  test("the ten default views are chips; choosing one changes the columns", async ({ page }) => {
     await open(page, "n=20");
     const chips = page.getByRole("group", { name: "View" });
-    await expect(chips.getByRole("button")).toHaveCount(9);
+    await expect(chips.getByRole("button")).toHaveCount(11); // ten views and All columns
     await expect(chips.getByRole("button", { name: "Prioritisation" })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("columnheader", { name: /Realized KR/ })).toHaveCount(0);
-    await chips.getByRole("button", { name: "Outcomes" }).click();
-    await expect(chips.getByRole("button", { name: "Outcomes" })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("columnheader", { name: /Realized KR/ }).first()).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: /Value Realized/ })).toHaveCount(0);
+    await chips.getByRole("button", { name: "Timeline" }).click();
+    await expect(chips.getByRole("button", { name: "Timeline" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("columnheader", { name: /Initiative Phase/ }).first()).toBeVisible();
   });
 
   test("Export in the page head downloads every row with the shown columns", async ({ page }) => {
@@ -267,11 +267,11 @@ test.describe("header and page head follow the prototype", () => {
     expect(lines).toHaveLength(13);
   });
 
-  test("the checkbox column comes first, then global rank, rank in project, ID, initiative", async ({ page }) => {
+  test("the checkbox column comes first, then the three pinned columns (rank, ID, initiative), then Rank in Project", async ({ page }) => {
     await open(page, "n=10");
     const heads = await page.getByRole("columnheader").allInnerTexts();
     const names = heads.map((h) => h.split("\n")[0]!.trim()).filter(Boolean);
-    expect(names.slice(0, 4)).toEqual(["Stack Rank", "Rank in Project", "Initiative ID", "Initiative Name"]);
+    expect(names.slice(0, 4)).toEqual(["Stack Rank", "Initiative ID", "Initiative Name", "Rank in Project"]);
     const box = await page.locator(`.ag-row[row-id="item-1"] input[type="checkbox"]`).first().boundingBox();
     const rank = await page.locator(`.ag-row[row-id="item-1"] [col-id="stack_rank"]`).boundingBox();
     expect(box!.x).toBeLessThan(rank!.x);
