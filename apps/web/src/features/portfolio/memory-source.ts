@@ -88,6 +88,12 @@ export class MemoryDataSource implements PortfolioDataSource {
     this.related.set(itemId, cur);
     return { ok: true };
   }
+  copies: { ids: string[]; project: string }[] = [];
+  async copyToProject(itemIds: string[], projectId: string) {
+    await this.pause();
+    this.copies.push({ ids: itemIds, project: projectId });
+    return { ok: true as const, copied: itemIds.map((id, i) => ({ id: `copy-${id}`, code: `R-${900 + i}` })), failed: [] };
+  }
   trees = new Map<string, IssueTreeRow[]>();
   async loadIssueTree(itemId: string): Promise<IssueTreeRow[]> { await this.pause(); return (this.trees.get(itemId) ?? []).map((r) => ({ ...r })); }
   async completeBreakdown(itemId: string): Promise<{ ok: true; values: Record<string, unknown> } | { ok: false; error: string }> {

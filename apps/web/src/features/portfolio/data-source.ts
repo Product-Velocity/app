@@ -41,6 +41,8 @@ export interface PortfolioDataSource {
   setRelated(itemId: string, field: RelatedField, value: unknown[]): Promise<SaveResult>;
   /** The audit log of one item (newest first), for the Activity tab. */
   loadActivity(itemId: string): Promise<ActivityRow[]>;
+  /** Copies initiatives into another project as new initiatives (planning fields, tags and links; no tracker link, status or decision). */
+  copyToProject(itemIds: string[], projectId: string): Promise<{ ok: true; copied: { id: string; code: string }[]; failed: { id: string; reason: string }[] } | { ok: false; error: string }>;
   /** The epics and tasks under the item's tracking issue (read-only cache of GitHub). */
   loadIssueTree(itemId: string): Promise<IssueTreeRow[]>;
   /** Marks the breakdown complete (freezes Planned Scope). Returns the item fields it changed. */
