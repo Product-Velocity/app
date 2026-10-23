@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspace } from "./provider";
 import { ProjectDialog, ScopeDialog } from "./scope-dialog";
+import { useMenuBlur } from "../portfolio/use-menu-blur";
 import { useScope } from "./scope";
 import type { Scope } from "./store";
 
@@ -21,11 +22,13 @@ export function ScopeSwitcher() {
   const close = (refocus = false) => { setOpen(false); if (refocus) ref.current?.querySelector<HTMLElement>(".scope-chip")?.focus(); };
   const pick = (s: Parameters<typeof select>[0]) => { select(s); close(true); };
 
+  const menuBlur = useMenuBlur(() => setOpen(false));
+
   return (
     <div
       ref={ref}
       className="scope-switcher"
-      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false); }}
+      {...menuBlur}
       onKeyDown={(e) => {
         if (!open) return;
         const els = items();
