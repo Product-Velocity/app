@@ -1,4 +1,4 @@
-# Website and brand (draft, 2026-10-23, request R-025)
+# Website and brand (draft, 2026-10-23, request R-027)
 
 Status: proposal, waiting for Ashu's decisions. The full briefing and proposal is the Claude Docs document "Product Velocity: website briefing and proposal"; the brand guide is the Design System artifact "Product Velocity brand guide" (voice, claims rules, colour, type, health pills). Both live in Ashu's claude.ai account; this file keeps the decisions that affect the code.
 

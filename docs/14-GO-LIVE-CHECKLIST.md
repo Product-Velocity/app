@@ -49,3 +49,8 @@ Living list of things that must be done before real customers or real data. Owne
 - [ ] Decide how the Atlassian app is distributed (private app for the customer vs Marketplace listing) and who approves it on the customer's site.
 - [ ] Customer's real Jira data stays out of the repo, fixtures and screenshots; confirm data handling terms with the customer before the first read of their site.
 - [ ] Token storage, revoke-on-disconnect and rate-limit handling reviewed.
+
+## Website (see `docs/17`)
+- [ ] Domain, legal entity name and contact in the footer; legal pages reviewed.
+- [ ] Draft prices in `docs/09` are public while the repo is public: decide before go-live whether to keep them in the repo.
+- [ ] Every site claim checked against the claims rules in the brand guide.
