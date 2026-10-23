@@ -5,6 +5,7 @@ export * from "./undo";
 export * from "./rank";
 export * from "./registry";
 export * from "./search-list";
+export * from "./trash";
 export * from "./quickadd";
 export * from "./spreadsheet";
 export * from "./views";
