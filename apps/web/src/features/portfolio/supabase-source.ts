@@ -234,6 +234,13 @@ export class SupabaseDataSource implements PortfolioDataSource {
       .map((r) => ({ id: Number(r.id), at: r.at, entity: r.entity, entityId: r.entity_id, field: r.field, old: r.old, new: r.new, actorId: r.actor_id, via: r.via }));
   }
 
+  async copyToProject(itemIds: string[], projectId: string) {
+    const { data, error } = await this.client.rpc("copy_items_to_project", { p_ids: itemIds, p_project: projectId });
+    if (error) return { ok: false as const, error: friendlyError(error) };
+    const rows = (data ?? []) as { id: string; ok: boolean; reason: string | null; new_id: string | null; new_code: string | null }[];
+    return { ok: true as const, copied: rows.filter((r) => r.ok && r.new_id).map((r) => ({ id: r.new_id!, code: r.new_code ?? "" })), failed: rows.filter((r) => !r.ok).map((r) => ({ id: r.id, reason: r.reason ?? "unknown reason" })) };
+  }
+
   async loadIssueTree(itemId: string): Promise<IssueTreeRow[]> {
     const { data, error } = await this.client.from("item_issue_tree").select("repo_full_name, issue_number, parent_number, level, title, state, state_reason, assignees, created_by, updated_at")
       .eq("tenant_id", this.tenantId).eq("item_id", itemId).order("level").order("issue_number");

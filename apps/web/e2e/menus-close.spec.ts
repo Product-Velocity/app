@@ -65,3 +65,17 @@ test("grouped rows show the health in words, and health pills have no icon", asy
   await expect(pill).toHaveText(/^(On Track|At Risk|Delayed|Blocked)$/);
   expect((await pill.boundingBox())!.height).toBeLessThanOrEqual(20.5);
 });
+
+test("Copy to project: choose a project, the originals stay, and the dialog says what a copy does not carry", async ({ page }) => {
+  await page.goto("/dev/grid?n=20");
+  await page.waitForSelector(".ag-row");
+  await page.locator('.ag-row[row-id] .ag-checkbox-input').first().check();
+  await page.getByRole("button", { name: "Copy to project…" }).click();
+  const dialog = page.getByRole("dialog", { name: /Copy 1 initiative to a project/ });
+  await expect(dialog).toContainText("no tracker link, status, delivery progress or decision");
+  await dialog.getByLabel("Copy into").selectOption({ label: "Marketplace" });
+  await dialog.getByRole("button", { name: "Copy 1" }).click();
+  await expect(dialog.getByRole("status")).toContainText("Copied 1 initiative into Marketplace");
+  await dialog.getByRole("button", { name: "Close" }).click();
+  await expect(dialog).toHaveCount(0);
+});

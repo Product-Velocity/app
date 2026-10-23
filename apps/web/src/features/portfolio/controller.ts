@@ -483,6 +483,11 @@ export class PortfolioController {
   }
   teams() { return this.lookups.teams ?? []; }
   activity(itemId: string): Promise<ActivityRow[]> { return this.source.loadActivity(itemId); }
+  /** Copy initiatives into another project (new initiatives; the originals stay). The new rows appear when the page reloads. */
+  async copyToProject(itemIds: string[], projectId: string) {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false as const, error: READ_ONLY_MESSAGE }; }
+    return this.source.copyToProject(itemIds, projectId);
+  }
   issueTree(itemId: string): Promise<IssueTreeRow[]> { return this.source.loadIssueTree(itemId); }
   /** "Mark breakdown complete": the database freezes Planned Scope; the row shows the new values at once. */
   async completeBreakdown(itemId: string): Promise<SaveResult> {
