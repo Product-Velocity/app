@@ -62,14 +62,23 @@ export function AppHeader({ tenantName, memberships, activeTenantId, switchActio
             <span title={email}>{email}</span>
             <span className="muted">{roleLabel}{isApprover ? " · Approver" : ""}</span>
           </p>
-          <Link href="/settings/members" className="menu-link">Members</Link>
-          <Link href="/settings/groups" className="menu-link">Initiative Groups</Link>
-          <Link href="/settings/integrations/github" className="menu-link">GitHub</Link>
-          {showTrash && <Link href="/trash" className="menu-link">Trash</Link>}
-          <Link href="/settings/security" className="menu-link">Security</Link>
-          <form action="/auth/sign-out" method="post">
-            <button className="menu-link menu-button" type="submit">Sign out</button>
-          </form>
+          <div role="group" aria-labelledby="menu-workspace">
+            <p className="menu-heading" id="menu-workspace">Workspace</p>
+            <Link href="/settings/members" className="menu-link">Members</Link>
+            <Link href="/settings/groups" className="menu-link">Initiative Groups</Link>
+            {showTrash && <Link href="/trash" className="menu-link">Trash</Link>}
+          </div>
+          <div role="group" aria-labelledby="menu-integrations">
+            <p className="menu-heading" id="menu-integrations">Integrations</p>
+            <Link href="/settings/integrations/github" className="menu-link">GitHub</Link>
+          </div>
+          <div role="group" aria-labelledby="menu-account">
+            <p className="menu-heading" id="menu-account">Account</p>
+            <Link href="/settings/security" className="menu-link">Security</Link>
+            <form action="/auth/sign-out" method="post">
+              <button className="menu-link menu-button" type="submit">Sign out</button>
+            </form>
+          </div>
           <p className="account-version" title="Release log: docs/RELEASES.md">
             app v{process.env.NEXT_PUBLIC_APP_VERSION}
             {process.env.NEXT_PUBLIC_APP_BUILD ? ` · build ${process.env.NEXT_PUBLIC_APP_BUILD}` : ""}
