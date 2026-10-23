@@ -1,4 +1,5 @@
 import type { Role } from "@pv/domain";
+import type { GithubLinkInfo } from "@/lib/github/push-types";
 
 /**
  * One row of the portfolio grid: every item field by its dictionary key (`initiative_name`, `value_12m`, ...),
@@ -20,6 +21,8 @@ export type Lookups = {
   groups?: string[];
   /** Teams of the workspace, for Contributing Teams in the item panel. */
   teams?: { id: string; name: string }[];
+  /** GitHub: whether the workspace is connected, and the tracking issue of each linked item. */
+  github?: { connected: boolean; links: Record<string, GithubLinkInfo> };
 };
 
 export type { Role };

@@ -4,6 +4,7 @@ The version is shown at the bottom of the account menu ("app v0.9.1 · build abc
 
 | Version | Date | Key updates | PRs |
 |---|---|---|---|
+| 0.10.0 | 2026-10-23 | **Push to GitHub (#33):** "Update GitHub…" in the bulk bar and the item panel shows exactly what will be written (title, labels, the marked block) and sends it only after you confirm. One tracking issue per initiative in the project's default repository; sending again updates it, never duplicates it, and keeps text outside the marked block and labels people added. Only the name, summary, hypothesis, artifact links and a link back leave the app (a test fills all 165 fields and fails if any other appears). The item panel shows the linked issue. New migration 0019. | #PR |
 | 0.9.1 | 2026-10-23 | **Fix:** the GitHub settings page now refreshes itself every few seconds while it waits for GitHub's confirmation, so "Connected" appears without reloading. | #82 |
 | 0.9.0 | 2026-10-23 | **Version in the menu and a release log:** the account menu ends with "app v0.9.0 · build <commit>"; this log; a test keeps the log and the version in step. | #81 |
 | 0.8.0 | 2026-10-23 | **GitHub connection (#31):** Settings > GitHub to connect an organisation, "waiting for approval" for non-owners, repository list, default repository and "who breaks down the work" per project, disconnect; read-only **Test connection** page with a copyable report. New migration 0018. | #80 |

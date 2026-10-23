@@ -198,6 +198,7 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
   // a connected GitHub connection with one repository (positive controls for migration 0018)
   const conn = await one("insert into public.github_connections (tenant_id, expected_account, installation_id, account_login, account_type, repository_selection, state) values ($1, 'seed-org', $2, 'seed-org', 'Organization', 'selected', 'connected') returning id", [tenantId, Math.floor(Math.random() * 1e9) + 1]);
   await db.admin.query("insert into public.github_repositories (tenant_id, connection_id, github_repo_id, full_name) values ($1, $2, 1, 'seed-org/roadmap')", [tenantId, conn]);
+  await db.admin.query("insert into public.item_github_links (tenant_id, item_id, connection_id, repo_full_name, issue_number, issue_id, html_url, sync_state) values ($1, $2, $3, 'seed-org/roadmap', 1, 1001, 'https://github.com/seed-org/roadmap/issues/1', 'synced')", [tenantId, items[0], conn]);
   return { project, team, items, scope, view, connection: conn };
 }
 

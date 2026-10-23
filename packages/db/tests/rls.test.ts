@@ -143,6 +143,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "item_github_links",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.item_github_links set sync_state = 'error' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.item_github_links where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.item_github_links (tenant_id, item_id, connection_id, repo_full_name) select tenant_id, item_id, connection_id, 'evil/repo' from public.item_github_links where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.item_github_links set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "github_repositories",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [
