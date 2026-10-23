@@ -12,3 +12,4 @@ export * from "./panel";
 export * from "./related";
 export * from "./gantt";
 export * from "./cards";
+export * from "./leadership";
