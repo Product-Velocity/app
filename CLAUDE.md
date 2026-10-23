@@ -38,7 +38,7 @@ Quick-add row (name only required, Enter creates), inline cell edit, autosave wi
 
 ## Working agreements
 - Small vertical slices, each ending in something Ashu can click. Follow `docs/06-BUILD-PLAN.md` order; do not start a later phase early.
-- Every PR: tests, migration (if any), RLS tests, updated docs if behaviour changed, screenshot for UI.
+- Every PR: tests, migration (if any), RLS tests, updated docs if behaviour changed, screenshot for UI. **A release is a merged PR:** bump `version` in `apps/web/package.json` and add a row at the top of `docs/RELEASES.md` (a test checks they agree); the version shows at the bottom of the account menu, and tell Ashu the version in the PR description.
 - Migrations are forward-only, reviewed, and applied through Supabase migrations; never edit applied ones.
 - **The repo is public until go-live** (free Vercel/Supabase plans). Never commit secrets, real customer or voter data, or real commercial numbers. Go-live to-dos live in `docs/14-GO-LIVE-CHECKLIST.md`; add to it whenever something must happen before real customers.
 - Secrets only in environment variables. Never log tokens, emails of voters, or document contents.

@@ -70,6 +70,10 @@ export function AppHeader({ tenantName, memberships, activeTenantId, switchActio
           <form action="/auth/sign-out" method="post">
             <button className="menu-link menu-button" type="submit">Sign out</button>
           </form>
+          <p className="account-version" title="Release log: docs/RELEASES.md">
+            app v{process.env.NEXT_PUBLIC_APP_VERSION}
+            {process.env.NEXT_PUBLIC_APP_BUILD ? ` · build ${process.env.NEXT_PUBLIC_APP_BUILD}` : ""}
+          </p>
         </div>
       </details>
     </header>
