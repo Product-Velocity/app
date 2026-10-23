@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
-import type { LoadedItem, TrashedItem } from "./types";
+import type { IssueTreeRow, LoadedItem, TrashedItem } from "./types";
 
 /** Supabase returns at most 1,000 rows per request, so a 2,000-item workspace needs several pages. */
 export const PAGE_SIZE = 1000;
@@ -232,5 +232,21 @@ export class SupabaseDataSource implements PortfolioDataSource {
     if (error) throw new Error(friendlyError(error));
     return ((data ?? []) as { id: string | number; at: string; entity: string; entity_id: string; field: string; old: unknown; new: unknown; actor_id: string | null; via: string }[])
       .map((r) => ({ id: Number(r.id), at: r.at, entity: r.entity, entityId: r.entity_id, field: r.field, old: r.old, new: r.new, actorId: r.actor_id, via: r.via }));
+  }
+
+  async loadIssueTree(itemId: string): Promise<IssueTreeRow[]> {
+    const { data, error } = await this.client.from("item_issue_tree").select("repo_full_name, issue_number, parent_number, level, title, state, state_reason, assignees, created_by, updated_at")
+      .eq("tenant_id", this.tenantId).eq("item_id", itemId).order("level").order("issue_number");
+    if (error) throw new Error(friendlyError(error));
+    return ((data ?? []) as { repo_full_name: string; issue_number: number; parent_number: number | null; level: number; title: string; state: string; state_reason: string | null; assignees: string[]; created_by: string; updated_at: string }[])
+      .map((r) => ({ repo: r.repo_full_name, number: r.issue_number, parentNumber: r.parent_number, level: r.level === 2 ? 2 : 1, title: r.title, state: r.state === "closed" ? "closed" : "open", stateReason: r.state_reason, assignees: r.assignees ?? [], createdBy: r.created_by === "app" || r.created_by === "claude" ? r.created_by : "engineer", updatedAt: r.updated_at }));
+  }
+
+  async completeBreakdown(itemId: string): Promise<{ ok: true; values: Record<string, unknown> } | { ok: false; error: string }> {
+    const { error } = await this.client.rpc("item_complete_breakdown", { p_item: itemId });
+    if (error) return { ok: false, error: friendlyError(error) };
+    const { data, error: e2 } = await this.client.from("items").select("breakdown_status, breakdown_route, planned_scope, scope_added").eq("tenant_id", this.tenantId).eq("id", itemId).single();
+    if (e2) return { ok: false, error: friendlyError(e2) };
+    return { ok: true, values: data as Record<string, unknown> };
   }
 }

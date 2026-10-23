@@ -94,7 +94,7 @@ test.describe("fields", () => {
     await expect(field(page, "value_weighted")).toContainText("calculated from other fields");
     await reveal(page, "Outcomes");
     await expect(field(page, "outcome_verdict")).toContainText("Arrives in phase 7");
-    await expect(panel(page).locator('[data-field]')).toHaveCount(166 - 1); // all 165 fields (health sits in its own block) plus none missing
+    await expect(panel(page).locator('[data-field]')).toHaveCount(166); // every dictionary field is in the panel, none missing
   });
 
   test("a value typed in the panel appears in the grid at once, and Ctrl+Z undoes it", async ({ page }) => {
@@ -267,14 +267,28 @@ test.describe("list fields", () => {
 });
 
 test.describe("tabs", () => {
-  test("Spec, GitHub and Alignment are honest empty states; the GitHub tab shows the epics-with-tasks columns", async ({ page }) => {
+  test("Spec, GitHub and Alignment are honest empty states; an unlinked initiative says so on the GitHub tab", async ({ page }) => {
     await open(page, "n=40&item=R-01");
     await panel(page).getByRole("tab", { name: "Spec" }).click();
     await expect(panel(page)).toContainText("arrive in phase 4");
     await panel(page).getByRole("tab", { name: "GitHub" }).click();
-    await expect(panel(page).getByRole("columnheader")).toHaveText(["Issue", "Title", "State", "Assignee", "Created by", "Pull request", "Updated"]);
+    await expect(panel(page)).toContainText("No GitHub issue is linked to this initiative yet");
     await panel(page).getByRole("tab", { name: "Alignment" }).click();
     await expect(panel(page)).toContainText("phases 5 and 8");
+  });
+
+  test("the GitHub tab lists epics with their tasks, and marking the breakdown complete freezes the planned scope", async ({ page }) => {
+    await open(page, "n=40&item=R-01&gh=1");
+    await panel(page).getByRole("tab", { name: "GitHub" }).click();
+    await expect(panel(page).getByRole("columnheader")).toHaveText(["Issue", "Title", "State", "Assignee", "Created by"]);
+    await expect(panel(page)).toContainText("Breakdown: Awaiting engineering");
+    await expect(panel(page)).toContainText("1 of 3 tasks closed (provisional until the breakdown is complete)");
+    await expect(panel(page).getByRole("row", { name: /Parse the file/ })).toContainText("Closed (completed)");
+    await expect(panel(page).getByRole("row", { name: /Export flow/ })).toContainText("Claude");
+    await expect(panel(page)).toContainText("1 of 2 closed");
+    await panel(page).getByRole("button", { name: "Mark breakdown complete" }).click();
+    await expect(panel(page)).toContainText("Planned scope 3");
+    await expect(panel(page).getByRole("button", { name: "Mark breakdown complete" })).toHaveCount(0);
   });
 
   test("the tabs work with the arrow keys", async ({ page }) => {

@@ -1,6 +1,6 @@
-import { parseConnectionEvent, parseIssueEvent, verifySignature } from "@pv/github";
+import { parseConnectionEvent, parseIssueEvent, parseSubIssueEvent, verifySignature } from "@pv/github";
 import { applyConnectionEvent, githubSecret, githubSourceControl } from "@/lib/github/server";
-import { ingestIssueEvent } from "@/lib/github/sync";
+import { ingestIssueEvent, ingestSubIssueEvent } from "@/lib/github/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -27,9 +27,21 @@ export async function POST(request: Request) {
   if (issue) {
     if (!delivery) return new Response("missing delivery id", { status: 400 });
     try {
-      return new Response(await ingestIssueEvent(createAdminClient({ via: "GitHub webhook" }), issue, delivery));
+      return new Response(await ingestIssueEvent(createAdminClient({ via: "GitHub webhook" }), issue, delivery, githubSourceControl() ?? undefined));
     } catch (e) {
       console.error(JSON.stringify({ github: "webhook", event, action: issue.action, delivery, error: e instanceof Error ? e.message.slice(0, 200) : "unknown" }));
+      return new Response("error", { status: 500 });
+    }
+  }
+
+  const sub = parseSubIssueEvent(event, payload);
+  if (sub) {
+    const scs = githubSourceControl();
+    if (!scs) return new Response("not configured", { status: 503 });
+    try {
+      return new Response(await ingestSubIssueEvent(createAdminClient({ via: "GitHub webhook" }), scs, sub));
+    } catch (e) {
+      console.error(JSON.stringify({ github: "webhook", event, action: sub.action, delivery, error: e instanceof Error ? e.message.slice(0, 200) : "unknown" }));
       return new Response("error", { status: 500 });
     }
   }

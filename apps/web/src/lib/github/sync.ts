@@ -1,5 +1,5 @@
 import "server-only";
-import type { IssueEvent, IssueSummary, SourceControl } from "@pv/github";
+import { readIssueTree, summariseTree, type IssueEvent, type IssueSummary, type SourceControl, type SubIssueEvent } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { ConnectionRow } from "./server";
 
@@ -24,17 +24,53 @@ async function applyFacts(admin: Admin, connectionId: string, f: IssueFacts): Pr
   return applied;
 }
 
+/**
+ * Rebuilds the epics-and-tasks tree of one linked initiative from GitHub and stores it with the delivery counts.
+ * Returns false when GitHub offers no sub-issues for the issue. Never throws into a delivery: the daily reconcile repairs a miss.
+ */
+export async function refreshTree(admin: Admin, sc: SourceControl, installationId: number, connectionId: string, link: { item_id: string; repo: string; number: number }): Promise<boolean> {
+  try {
+    const tree = await readIssueTree(sc, installationId, link.repo, link.number);
+    if (tree === null) return false;
+    const s = summariseTree(tree);
+    const nodes = tree.map((n) => ({ repo: n.repo, number: n.number, id: n.id, parent: n.parentNumber, level: n.level, title: n.title, state: n.state, reason: n.stateReason, closed_at: n.closedAt, assignees: n.assignees, created_by: n.createdBy }));
+    const { error } = await admin.rpc("github_apply_tree", { p_connection: connectionId, p_item: link.item_id, p_nodes: nodes, p_total: s.total, p_closed: s.closed, p_pct: s.progressPct });
+    if (error) throw new Error(error.message);
+    return true;
+  } catch (e) {
+    console.error(JSON.stringify({ github: "tree", error: short(e) }));
+    return false;
+  }
+}
+
+/** A `sub_issues` delivery: the parent changed, so its tree is read again. */
+export async function ingestSubIssueEvent(admin: Admin, sc: SourceControl, ev: SubIssueEvent): Promise<IngestResult> {
+  const { data: conn } = await admin.from("github_connections").select("id").eq("installation_id", ev.installationId).eq("state", "connected").maybeSingle();
+  if (!conn) return "ignored";
+  const { data: link } = await admin.from("item_github_links").select("item_id").eq("connection_id", conn.id).ilike("repo_full_name", ev.repo).eq("issue_number", ev.parentNumber).maybeSingle();
+  if (!link) return "ignored";
+  return (await refreshTree(admin, sc, ev.installationId, conn.id, { item_id: link.item_id, repo: ev.repo, number: ev.parentNumber })) ? "processed" : "ignored";
+}
+
 const factsOf = (s: Record<string, unknown>): IssueFacts => s as unknown as IssueFacts;
 
 /**
  * Stores and applies one `issues` delivery. Deliveries that do not touch a linked item are not stored at all (the app repo
  * alone produces plenty). The delivery id makes replays harmless: a second copy is reported as "duplicate" and changes nothing.
  */
-export async function ingestIssueEvent(admin: Admin, ev: IssueEvent, deliveryId: string): Promise<IngestResult> {
+export async function ingestIssueEvent(admin: Admin, ev: IssueEvent, deliveryId: string, sc?: SourceControl): Promise<IngestResult> {
   const { data: conn } = await admin.from("github_connections").select("id, tenant_id").eq("installation_id", ev.installationId).eq("state", "connected").maybeSingle();
   if (!conn) return "ignored";
   const { data: link } = await admin.from("item_github_links").select("id, item_id").eq("connection_id", conn.id).ilike("repo_full_name", ev.repo).eq("issue_number", ev.number).maybeSingle();
-  if (!link) return "ignored";
+  if (!link) {
+    // an epic or task under a linked initiative: its progress counts move, so the parent's tree is read again
+    if (!sc) return "ignored";
+    const { data: node } = await admin.from("item_issue_tree").select("item_id").eq("tenant_id", conn.tenant_id).ilike("repo_full_name", ev.repo).eq("issue_number", ev.number).limit(1).maybeSingle();
+    if (!node) return "ignored";
+    const { data: parent } = await admin.from("item_github_links").select("repo_full_name, issue_number").eq("item_id", node.item_id).maybeSingle();
+    if (!parent?.issue_number) return "ignored";
+    return (await refreshTree(admin, sc, ev.installationId, conn.id, { item_id: node.item_id, repo: parent.repo_full_name, number: parent.issue_number })) ? "processed" : "ignored";
+  }
 
   const summary: IssueFacts = { repo: ev.repo, number: ev.number, issueId: ev.issueId, nodeId: ev.nodeId, state: ev.state, stateReason: ev.stateReason, updatedAt: ev.updatedAt, closedAt: ev.closedAt };
   const { data: row, error: insertError } = await admin
@@ -47,6 +83,7 @@ export async function ingestIssueEvent(admin: Admin, ev: IssueEvent, deliveryId:
   try {
     const applied = await applyFacts(admin, conn.id, summary);
     await admin.from("sync_events").update({ state: "processed", attempts: 1, processed_at: new Date().toISOString(), applied: applied?.changes ?? null }).eq("id", row.id);
+    if (sc) await refreshTree(admin, sc, ev.installationId, conn.id, { item_id: link.item_id, repo: ev.repo, number: ev.number });
     return "processed";
   } catch (e) {
     await admin.from("sync_events").update({ state: "error", attempts: 1, last_error: short(e) }).eq("id", row.id);
@@ -97,6 +134,7 @@ export async function reconcileConnection(admin: Admin, sc: SourceControl, conne
         result.changed++;
         await admin.from("sync_events").insert({ tenant_id: connection.tenant_id, connection_id: connection.id, delivery_id: `reconcile-${crypto.randomUUID()}`, source: "reconcile", event: "issues", action: "reconciled", repo_full_name: repo, issue_number: issue.number, summary: facts, item_id: l.item_id, state: "processed", attempts: 1, processed_at: new Date().toISOString(), applied: applied.changes });
       }
+      await refreshTree(admin, sc, connection.installation_id, connection.id, { item_id: l.item_id, repo, number: l.number });
     }
   }
   return result;

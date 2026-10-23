@@ -200,6 +200,7 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
   await db.admin.query("insert into public.github_repositories (tenant_id, connection_id, github_repo_id, full_name) values ($1, $2, 1, 'seed-org/roadmap')", [tenantId, conn]);
   await db.admin.query("insert into public.item_github_links (tenant_id, item_id, connection_id, repo_full_name, issue_number, issue_id, html_url, sync_state) values ($1, $2, $3, 'seed-org/roadmap', 1, 1001, 'https://github.com/seed-org/roadmap/issues/1', 'synced')", [tenantId, items[0], conn]);
   await db.admin.query("insert into public.sync_events (tenant_id, connection_id, delivery_id, event, action, repo_full_name, issue_number, state) values ($1, $2, $3, 'issues', 'closed', 'seed-org/roadmap', 1, 'processed')", [tenantId, conn, `seed-${tenantId}`]);
+  await db.admin.query("insert into public.item_issue_tree (tenant_id, item_id, repo_full_name, issue_number, issue_id, level, title, state) values ($1, $2, 'seed-org/roadmap', 2, 1002, 1, 'Seed epic', 'open')", [tenantId, items[0]]);
   return { project, team, items, scope, view, connection: conn };
 }
 

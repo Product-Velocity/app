@@ -5,7 +5,7 @@ Published (view-only reference): https://claude.ai/artifact/WVtip16iTPYZdru67tsg
 | # | File | What it shows | Phase | Known gaps |
 |---|---|---|---|---|
 | 1 | Main | Roadmap grid with selection and bulk bar | 1 | Superseded in layout by 20 for portfolio |
-| 2 | Item-detail | Item + GitHub tab | 2–3 | Rebuilt 2026-10-22: breakdown strip, epics with nested tasks, "created by" and "Scope added" tags. Example data. Built in #26 as the item panel and page with tabs Overview, Spec, GitHub, Alignment, Activity (the board's "Fields" and "History"); the GitHub tab is an empty state until phase 3 |
+| 2 | Item-detail | Item + GitHub tab | 2–3 | Rebuilt 2026-10-22: breakdown strip, epics with nested tasks, "created by" and "Scope added" tags. Example data. Built in #26 as the item panel and page with tabs Overview, Spec, GitHub, Alignment, Activity (the board's "Fields" and "History"); the GitHub tab lists the epics with their tasks (state, assignee logins, created by) from release 0.13.0 (#34); it says so when no issue is linked; the PR column waits for #35 |
 | 3 | Gantt | Two-level grouped Gantt | 2 | Built in #27 (`docs/16-GANTT.md`): Baseline, Dependencies and Export from the board are not built; dragging saves at once with undo instead of asking for a confirmation |
 | 4 | Cards | Card view with swimlanes | 2 | Built in #28 (`docs/17-CARDS.md`): default is Initiative Phase by Initiative Group (Planning Status arrives in phase 5); the board's value sums and confirmation on a Status drag are not built, a drag across the GitHub-driven Status is refused instead |
 | 5 | AI-intake | AI intake with duplicate check | 4 | |
