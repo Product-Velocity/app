@@ -134,3 +134,42 @@ describe("repositories and project defaults", () => {
     expect(await start(f.alice, f.tenantA)).toBeTruthy();
   });
 });
+
+describe("repository access: some repositories are never written to", () => {
+  const setup = async () => {
+    await reset();
+    const id = await start(f.alice, f.tenantA);
+    await db.asService((q) => q("update public.github_connections set state = 'connected', installation_id = 21 where id = $1", [id]), { commit: true, via: "GitHub webhook" });
+    await db.asService((q) => q("insert into public.github_repositories (tenant_id, connection_id, github_repo_id, full_name, is_private, access) values ($1, $2, 1, 'Acme/Private', true, 'read_write'), ($1, $2, 2, 'Acme/Public', false, 'read_only')", [f.tenantA, id]), { commit: true, via: "GitHub webhook" });
+    return id;
+  };
+  const project = async () => (await db.admin.query("select id from public.projects where tenant_id = $1 limit 1", [f.tenantA])).rows[0].id as string;
+  const repoId = async (name: string) => (await db.admin.query("select id from public.github_repositories where full_name = $1", [name])).rows[0].id as string;
+  const setAccess = (user: string, id: string, access: string, via = "UI") => db.asUser(user, (q) => q("select public.github_set_repo_access($1, $2)", [id, access]), { commit: true, via });
+
+  it("a read-only repository cannot be a project's default, a writable one can", async () => {
+    await setup();
+    const p = await project();
+    expect(await errorCode(db.asUser(f.alice, (q) => q("update public.projects set default_repo = 'Acme/Public' where id = $1", [p]), { commit: true }))).toBe(GUARD);
+    await db.asUser(f.alice, (q) => q("update public.projects set default_repo = 'Acme/Private' where id = $1", [p]), { commit: true });
+    expect((await db.admin.query("select default_repo from public.projects where id = $1", [p])).rows[0].default_repo).toBe("Acme/Private");
+  });
+  it("only a human admin changes access; making a repository read-only clears project defaults that use it", async () => {
+    await setup();
+    const p = await project();
+    await db.admin.query("update public.projects set default_repo = 'Acme/Private' where id = $1", [p]);
+    const id = await repoId("Acme/Private");
+    for (const u of [creator, f.carol, service, f.bob]) expect(await errorCode(setAccess(u, id, "read_only")), u).toBe(DENIED);
+    expect(await errorCode(setAccess(f.alice, id, "read_only", "Claude MCP"))).toBe(DENIED);
+    expect(await errorCode(setAccess(f.alice, id, "sideways"))).toBe("22023");
+    await setAccess(f.alice, id, "read_only");
+    expect((await db.admin.query("select access from public.github_repositories where id = $1", [id])).rows[0].access).toBe("read_only");
+    expect((await db.admin.query("select default_repo from public.projects where id = $1", [p])).rows[0].default_repo).toBeNull();
+    await setAccess(f.alice, id, "read_write");
+    expect(await db.asUser(f.alice, async (q) => (await q("select access from public.github_repositories where id = $1", [id])).rows[0].access)).toBe("read_write");
+  });
+  it("signed-in users cannot edit the access column directly", async () => {
+    await setup();
+    expect(await errorCode(db.asUser(f.alice, (q) => q("update public.github_repositories set access = 'read_write'")))).toBe(DENIED);
+  });
+});

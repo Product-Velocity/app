@@ -20,13 +20,15 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
   const [items, projects, repos, links, artifacts] = await Promise.all([
     supabase.from("items").select("id, item_code, initiative_name, summary, hypothesis, home_project_id").eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
     supabase.from("projects").select("id, name, default_repo").eq("tenant_id", tenantId),
-    supabase.from("github_repositories").select("full_name").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("removed_at", null),
+    supabase.from("github_repositories").select("full_name, access").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("removed_at", null),
     supabase.from("item_github_links").select("item_id, mode, repo_full_name, issue_number, html_url, sync_state, last_pushed_hash").eq("tenant_id", tenantId).in("item_id", unique),
     supabase.from("item_links").select("item_id, label, url").eq("tenant_id", tenantId).in("item_id", unique),
   ]);
   const rowById = new Map(((items.data ?? []) as Row[]).map((r) => [r.id, r]));
   const projectById = new Map(((projects.data ?? []) as { id: string; name: string; default_repo: string | null }[]).map((p) => [p.id, p]));
-  const activeRepos = new Set(((repos.data ?? []) as { full_name: string }[]).map((r) => r.full_name.toLowerCase()));
+  const repoRows = (repos.data ?? []) as { full_name: string; access: string }[];
+  const activeRepos = new Set(repoRows.map((r) => r.full_name.toLowerCase()));
+  const readOnlyRepos = new Set(repoRows.filter((r) => r.access === "read_only").map((r) => r.full_name.toLowerCase()));
   const linkByItem = new Map(((links.data ?? []) as Link[]).map((l) => [l.item_id, l]));
   const artifactsByItem = new Map<string, { label: string; url: string }[]>();
   for (const a of (artifacts.data ?? []) as { item_id: string; label: string; url: string }[]) artifactsByItem.set(a.item_id, [...(artifactsByItem.get(a.item_id) ?? []), { label: a.label, url: a.url }]);
@@ -38,7 +40,7 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
     const link = linkByItem.get(id);
     const built = buildTrackingIssue({ item: row, itemId: id, projectName: project?.name ?? "", appUrl, artifacts: artifactsByItem.get(id) ?? [] });
     const planLink: PlanLink | null = link ? { mode: link.mode, repo: link.repo_full_name, issueNumber: link.issue_number, syncState: link.sync_state, lastPushedHash: link.last_pushed_hash } : null;
-    const d = planAction({ link: planLink, defaultRepo: project?.default_repo ?? null, activeRepos, hash: built.hash, projectName: project?.name ?? "" });
+    const d = planAction({ link: planLink, defaultRepo: project?.default_repo ?? null, activeRepos, readOnlyRepos, hash: built.hash, projectName: project?.name ?? "" });
     return { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo: d.repo, action: d.action, title: built.title, labels: built.labels, block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null, ...(d.reason ? { reason: d.reason } : {}) };
   });
 }
