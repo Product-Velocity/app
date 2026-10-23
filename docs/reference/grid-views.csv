@@ -164,3 +164,4 @@ time_to_first_use_days,Outcomes,Computed (read-only),,,,,Y,Y,,,
 retention_pct,Outcomes,Editable,,,,,,Y,,,
 created_via_values,Trust,System (read-only),,,,,,,,Y,
 locked_by_source,Trust,Computed (read-only),,,,,,,,Y,
+initiative_status,What,Editable,,Y,,Y,,,,,Y

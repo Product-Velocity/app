@@ -44,7 +44,7 @@ test.describe("bulk bar", () => {
     await select(page, "item-1", "item-2");
     await bar(page).getByRole("button", { name: /^More fields/ }).click();
     await chooseOption(page, bar(page), "Field to set", "status");
-    await expect(bar(page)).toContainText("Initiative Status comes from GitHub and cannot be edited here");
+    await expect(bar(page)).toContainText("Build Status comes from GitHub and cannot be edited here");
     await expect(bar(page).getByRole("button", { name: /^Apply/ })).toBeDisabled();
     await chooseOption(page, bar(page), "Field to set", "item_code");
     await expect(bar(page)).toContainText("set by the system");

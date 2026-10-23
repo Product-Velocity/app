@@ -25,7 +25,7 @@ export class GitHubError extends Error {
   }
 }
 
-export type IssueSummary = { number: number; id: number; nodeId: string; state: "open" | "closed"; stateReason: string | null; updatedAt: string };
+export type IssueSummary = { number: number; id: number; nodeId: string; state: "open" | "closed"; stateReason: string | null; updatedAt: string; closedAt: string | null };
 
 export interface SourceControl {
   readonly provider: "github";
