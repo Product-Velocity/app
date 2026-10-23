@@ -445,3 +445,19 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 .lead-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 4px; }
 .lead-status, .lead-sources { margin: 4px 0; font-size: 12px; }
 .lead-confirm { font-size: 12px; display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+/* searchable lists (R-018) */
+.sl { display: flex; flex-direction: column; }
+.search-input { margin: 6px 8px; height: 28px; border: 1px solid #c9ceda; border-radius: 6px; padding: 0 8px; font: inherit; background: var(--bg); }
+.search-empty { margin: 6px 12px 8px; color: #5b6272; font-size: 12px; }
+.sl-list { list-style: none; margin: 0; padding: 0 0 4px; max-height: 280px; overflow: auto; outline: none; }
+.sl-group { padding: 6px 12px 2px; font-size: 11px; font-weight: 600; color: #5b6272; text-transform: uppercase; letter-spacing: .03em; }
+.sl-option { padding: 5px 12px; cursor: pointer; font-size: 13px; }
+.sl-active { background: #eceefd; }
+.sl-disabled { color: #8a90a0; cursor: default; }
+.sl-check { color: #3347d9; }
+.select-field { display: inline-block; }
+.select-trigger { font: inherit; height: 28px; border: 1px solid #c9ceda; border-radius: 6px; padding: 0 8px; background: var(--bg); cursor: pointer; text-align: left; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-panel { position: fixed; z-index: 70; width: 320px; max-width: calc(100vw - 16px); background: var(--bg); border: 1px solid #e1e5eb; border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, .18); padding: 2px 0; }
+.columns-search { column-span: all; margin-bottom: 6px; }
+.columns-search .search-input { margin: 0; width: 100%; box-sizing: border-box; }

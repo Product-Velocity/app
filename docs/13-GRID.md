@@ -11,7 +11,7 @@ Page: `/portfolio` ("Roadmap" in the navigation). Reference: prototype board 20,
 - **Plain-language entry:** dates (`31 mar`, `next friday`, `q2`, `in 2 weeks`, `4/5` as day/month) and amounts (`120k`, `1.2m`).
 - **Rank:** type a new global rank in the Stack Rank cell; the row jumps there, the others shift, the keyboard focus stays on the row. "In project" order recalculates.
 - **Locked cells:** GitHub-driven, calculated, system-set and later-phase fields reject editing and say why under the grid. View-only roles (viewer, commenter, leadership) can look but not edit.
-- **Keyboard:** Alt+N adds an initiative, arrows move, Enter or F2 edits, Enter saves and moves down, Tab saves and moves right, Esc cancels, Delete clears an optional cell.
+- **Keyboard:** Alt+N adds an initiative, arrows move, Enter or F2 edits, Enter saves and moves down, Tab saves and moves right, Esc cancels, Delete clears an optional cell (or, with the checkbox column or a read-only cell focused and rows ticked, asks to delete the ticked rows).
 
 ## Initiative Group: an open list (issue #38)
 Initiative Group (`theme`) is an open list shared by the whole workspace (every project), not a closed list.
@@ -26,6 +26,7 @@ A row above the grid. **Alt+N** puts the cursor there (⌥N on a Mac); type, pre
 - **Context:** without `#project` the item goes to the project of the row you are on in the grid; otherwise the project you used last; otherwise the only project there is. (Saved scopes and the scope switcher come with #9 and will then be the context.)
 - **Paste a list:** several lines pasted into the row add one item per line (bullets and numbers removed, up to 200). Lines with a bad token are skipped and listed; the rest are added as one undo step.
 - **Similar-item hint:** while typing, up to three existing items that share most of their words are shown ("Looks similar to: R-07 …"). It never blocks.
+- **Search in long lists (R-018).** Any list with more than 8 options has a search box on top, focused when the list opens: it filters as you type (case-insensitive, anywhere in the name, every word must match, and the field key and import aliases count: "owner" finds Product Manager, "tshirt" finds Effort), Up and Down move, Enter picks, Esc closes and gives the focus back, "No results for “…”" is said in words. Applies to Group by, Filters (field and value lists), the bulk bar's "More fields" (field and value), the Columns picker (it filters the checkboxes), the import column mapping, the scope switcher, Views, and the pick-one fields in the item panel; the typed pickers in grid cells already filtered and now say "No results" too. Up to 8 options a list stays a plain select. One shared component (`components/search-list.tsx`, matching in `@pv/domain` `search-list.ts`). A ranked result list has no group headings.
 - **Undo:** adding is one undo step; undo deletes the items again (ranks close up), redo adds them back at the end with new codes.
 - **Audit:** the database records each new item (and every field) with who and source "UI". Not available to view-only roles.
 - Plain text only: whatever is typed or pasted is a name, never an instruction. Pasting an email for AI intake is Phase 4.

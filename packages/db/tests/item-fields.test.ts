@@ -120,11 +120,11 @@ describe("quick-add writes", () => {
     const audit = await db.admin.query("select via, actor_id from public.audit_log where entity = 'items' and entity_id = $1 and field = 'initiative_name'", [id]);
     expect(audit.rows[0]).toMatchObject({ via: "UI", actor_id: creator });
   });
-  it("undo of an add (delete) is allowed for the creator and closes the rank gap; a viewer cannot", async () => {
-    const id = await fresh();
-    expect(await db.asUser(viewer, async (q) => (await q("delete from public.items where id = $1", [id])).rowCount, { commit: true })).toBe(0);
-    expect(await db.asUser(creator, async (q) => (await q("delete from public.items where id = $1", [id])).rowCount, { commit: true })).toBe(1);
-    const { rows } = await db.admin.query("select stack_rank from public.items where tenant_id = $1 and cycle_id is null order by stack_rank", [f.tenantA]);
+  it("undo of an add (discard_new_items) is allowed for the person who added it and closes the rank gap; a viewer cannot", async () => {
+    const id = (await db.asUser(creator, async (q) => (await q("insert into public.items (tenant_id, initiative_name, home_project_id) values ($1, 'Just added', $2) returning id", [f.tenantA, f.seedA.project])).rows[0].id as string, { commit: true, via: "UI" }));
+    expect(await db.asUser(viewer, async (q) => (await q("select ok from public.discard_new_items($1)", [[id]])).rows[0].ok, { commit: true })).toBe(false);
+    expect(await db.asUser(creator, async (q) => (await q("select ok from public.discard_new_items($1)", [[id]])).rows[0].ok, { commit: true })).toBe(true);
+    const { rows } = await db.admin.query("select stack_rank from public.items where tenant_id = $1 and deleted_at is null and cycle_id is null order by stack_rank", [f.tenantA]);
     expect(rows.map((r) => r.stack_rank)).toEqual(rows.map((_, i) => i + 1));
   });
 });

@@ -23,3 +23,9 @@ export type Lookups = {
 };
 
 export type { Role };
+
+/** One row of the Trash: what was deleted, by whom and when (no commercial fields). */
+export type TrashedItem = {
+  id: string; item_code: string; initiative_name: string; home_project: string; theme: string | null;
+  stack_rank: number; created_by: string | null; deleted_at: string; deleted_by: string | null;
+};

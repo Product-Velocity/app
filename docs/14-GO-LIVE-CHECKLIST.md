@@ -39,3 +39,6 @@ Living list of things that must be done before real customers or real data. Owne
 ## GitHub App
 - [ ] Production GitHub App registered under the company organisation, with the minimum permissions from `docs/04` and the Projects permission only if spike S2b says it is needed.
 - [ ] Non-owner install and approval flow tested on a real enterprise organisation.
+
+## Trash
+- [ ] Schedule `select public.purge_old_trash(30)` daily (Vercel cron calling a route that uses the service role, or Supabase pg_cron on a paid plan). Until it runs, deleted items stay in the Trash past 30 days. The function is only callable by the service role.

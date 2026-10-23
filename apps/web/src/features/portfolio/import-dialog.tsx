@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { convertRows, guessMapping, importableFields, MAX_IMPORT, parseTable, resolveGroup, FIELD_BY_KEY, type ImportRow } from "@pv/domain";
+import { SelectField } from "@/components/search-list";
+import { convertRows, fieldOptions, guessMapping, importableFields, MAX_IMPORT, parseTable, resolveGroup, FIELD_BY_KEY, type ImportRow } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import type { Lookups } from "./types";
 
@@ -21,6 +22,7 @@ export function ImportDialog({ controller, lookups, defaultProject, initialText,
   const [project, setProject] = useState<string>(defaultProject ?? (lookups.projects.length === 1 ? lookups.projects[0]!.id : ""));
   const textRef = useRef<HTMLTextAreaElement>(null);
   const fields = useMemo(() => importableFields(), []);
+  const fieldChoices = useMemo(() => fieldOptions(fields).map((o) => ({ ...o, group: undefined })), [fields]);
 
   const width = table.reduce((n, r) => Math.max(n, r.length), 0);
   const body = hasHeader ? table.slice(1) : table;
@@ -96,10 +98,11 @@ export function ImportDialog({ controller, lookups, defaultProject, initialText,
                     <td>{hasHeader ? headers[i] || `Column ${i + 1}` : `Column ${i + 1}`}</td>
                     <td className="muted">{body[0]?.[i] ?? ""}</td>
                     <td>
-                      <select aria-label={`Field for ${hasHeader ? headers[i] || `column ${i + 1}` : `column ${i + 1}`}`} value={m ?? ""} onChange={(e) => setOverride((o) => ({ ...o, [i]: e.target.value || null }))}>
-                        <option value="">Do not import</option>
-                        {fields.map((f) => <option key={f.key} value={f.key} disabled={mapping.some((x, j) => x === f.key && j !== i)}>{f.name}</option>)}
-                      </select>
+                      <SelectField
+                        label={`Field for ${hasHeader ? headers[i] || `column ${i + 1}` : `column ${i + 1}`}`} value={m ?? ""} blank="Do not import"
+                        options={fieldChoices.map((o) => ({ ...o, disabled: mapping.some((x, j) => x === o.value && j !== i) }))}
+                        onChange={(v) => setOverride((o) => ({ ...o, [i]: v || null }))}
+                      />
                     </td>
                   </tr>
                 ))}

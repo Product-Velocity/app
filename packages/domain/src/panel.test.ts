@@ -108,3 +108,11 @@ describe("canUndoActivity", () => {
     expect(canUndoActivity(ev({ via: "GitHub webhook" }), "u1", "At Risk")).toMatchObject({ ok: false });
   });
 });
+
+describe("activity of a delete and a restore", () => {
+  const row = (id: number, field: string, old: unknown, value: unknown) => ({ id, at: `2027-04-14T10:00:0${id}Z`, entity: "items", entityId: "i1", field, old, new: value, actorId: "u1", via: "UI" });
+  it("says moved to the Trash and restored from the Trash, and hides who deleted it", () => {
+    const events = activityEvents([row(1, "deleted_at", null, "2027-04-14T10:00:01Z"), row(2, "deleted_by", null, "u1"), row(3, "deleted_at", "2027-04-14T10:00:01Z", null), row(4, "deleted_by", "u1", null)]);
+    expect(events.map((e) => e.label)).toEqual(["Restored from the Trash", "Moved to the Trash"]);
+  });
+});
