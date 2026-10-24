@@ -69,16 +69,9 @@ type GridProps = {
 const isGroup = (r: unknown): r is GroupRow => !!r && typeof r === "object" && (r as { __group?: boolean }).__group === true;
 
 /** Full-width header row of a group: a toggle, the group's name and how many items it holds. */
-/** An empty row at the end of the list, always there (adding and removing it with the selection would reset the focused cell): the floating bars sit over it, never over the last real row. */
-const SPACER_ID = "spacer:bulk-bar";
-const SPACER_HEIGHT = 72;
-const SPACER = { __group: true, id: SPACER_ID, key: "spacer", label: "", count: 0, collapsed: false, healthSummary: "", stack_rank: Number.MAX_SAFE_INTEGER } as GroupRow; // the rank keeps it last when the grid is sorted by Stack Rank
-const isSpacer = (r: unknown) => isGroup(r) && (r as GroupRow).id === SPACER_ID;
-
 function GroupRowRenderer(p: CustomCellRendererProps<GroupRow>) {
   const g = p.data;
   if (!g) return null;
-  if (g.id === SPACER_ID) return <div role="gridcell" aria-label="End of the list" className="spacer-cell" />;
   const toggle = (p.context as { toggleGroup: (key: string) => void }).toggleGroup;
   return (
     <div className="group-row">
@@ -147,8 +140,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       if (!wrap) return;
       const top = wrap.getBoundingClientRect().top + window.scrollY;
       const foot = footRef.current?.offsetHeight ?? 0;
-      const band = (cardRef.current?.querySelector<HTMLElement>(".float-band")?.offsetHeight ?? 0) + 8; // the floating bars have a fixed band of their own
-      setGridHeight(Math.max(360, Math.floor(window.innerHeight - top - foot - band - 36)));
+      setGridHeight(Math.max(360, Math.floor(window.innerHeight - top - foot - 36)));
     };
     fit();
     window.addEventListener("resize", fit);
@@ -341,7 +333,6 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     if (colId === "item_code" && e.data && !isGroup(e.data) && e.api.getEditingCells().length === 0) openPeek(e.data.id);
   }, [openPeek]);
 
-  const rowsForGrid = useMemo(() => (displayRows.length > 0 ? [...displayRows, SPACER] : displayRows), [displayRows]);
   /** Items in the order the grid shows them now (scope, search, filters and grouping applied; rows in collapsed groups and group headers left out). */
   const orderedIds = useMemo(() => displayRows.filter((r) => !isGroup(r)).map((r) => (r as GridItem).id), [displayRows]);
   const step = useCallback((delta: 1 | -1) => {
@@ -402,6 +393,12 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
 
   // ---- command palette (Ctrl+K / ⌘K)
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // the Help menu in the top bar can open the command palette
+  useEffect(() => {
+    const open = () => setPaletteOpen(true);
+    window.addEventListener("pv:open-palette", open);
+    return () => window.removeEventListener("pv:open-palette", open);
+  }, []);
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") { e.preventDefault(); setPaletteOpen(true); }
@@ -472,9 +469,12 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     <>
     <div ref={headRef} className="page-head">
       {headLeft}
-      <div className="view-chips" role="group" aria-label="View">
-        {VIEW_NAMES.map((n) => chipFor({ kind: "builtin", name: n }, n))}
-        {chipFor({ kind: "all" }, ALL_COLUMNS_NAME)}
+      <div className="view-row">
+        <div className="view-chips" role="group" aria-label="View">
+          {VIEW_NAMES.map((n) => chipFor({ kind: "builtin", name: n }, n))}
+          {chipFor({ kind: "all" }, ALL_COLUMNS_NAME)}
+        </div>
+        <ViewsMenu base={base} views={views} defaults={defaults} def={def} dirty={dirty} onOpen={openBase} />
       </div>
       <span className="head-tools">
         <input
@@ -487,14 +487,8 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
           onChange={(e) => setSearchText(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Escape") setSearchText(""); }}
         />
-        <FiltersMenu filters={def.filters} onChange={setFilters} lookups={lookups} today={today} />
         <GroupMenu groupBy={def.groupBy} onChange={(g) => changeDef({ groupBy: g })} />
-        <ViewsMenu base={base} views={views} defaults={defaults} def={def} dirty={dirty} onOpen={openBase} />
         {headRight}
-        {controller.canEdit && lookups.projects.length > 0 && <button type="button" className="tool-btn" onClick={() => setImportText("")}>Import from spreadsheet</button>}
-        <ColumnsPicker visible={visible} onToggle={toggle} customerSafe={def.customerSafe === true} />
-        <button type="button" className="tool-btn" onClick={exportAll}>Export</button>
-        <button type="button" className="tool-btn" onClick={() => setPaletteOpen(true)} title="Commands and search">Commands {mac ? "⌘K" : "Ctrl+K"}</button>
       </span>
       {(def.filters.length > 0 || scope.selection.kind !== "all") && (
         <div className="filter-chips" aria-label="Active scope and filters">
@@ -534,7 +528,23 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         if (/[\t\n]/.test(pasted.trim())) { e.preventDefault(); setImportText(pasted); }
       }}
     >
-      <StatusStrip controller={controller} />
+      <StatusStrip
+        controller={controller}
+        tools={
+          <>
+            <FiltersMenu filters={def.filters} onChange={setFilters} lookups={lookups} today={today} />
+            <ColumnsPicker visible={visible} onToggle={toggle} customerSafe={def.customerSafe === true} />
+            <button type="button" className="tool-btn" onClick={exportAll}>Export</button>
+          </>
+        }
+      />
+      {controller.canEdit && lookups.projects.length > 0 && (
+        <QuickAddBar
+          controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef}
+          extra={<button type="button" className="tool-btn" onClick={() => setImportText("")}>Import from spreadsheet</button>}
+        />
+      )}
+      {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} exportFields={exportFields} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} onGithub={() => setGithubIds(selected.map((r) => r.id))} total={visibleRows.length} />}
       {githubIds && <GithubPushDialog ids={githubIds} onClose={() => setGithubIds(null)} />}
       {deleteIds && <DeleteDialog controller={controller} ids={deleteIds} onClose={closeDelete} onDeleted={() => apiRef.current?.deselectAll()} />}
       {importText !== null && (
@@ -545,8 +555,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       <div ref={wrapRef} className="grid-wrap" data-testid="grid" style={gridHeight ? { height: gridHeight } : undefined}>
         <AgGridReact<GridItem>
           theme={theme}
-          rowData={rowsForGrid as unknown as GridItem[]}
-          getRowHeight={(p) => (isSpacer(p.data) ? SPACER_HEIGHT : undefined)}
+          rowData={displayRows as unknown as GridItem[]}
           columnDefs={columnDefs}
           getRowId={getRowId}
           context={gridContext}
@@ -576,19 +585,9 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       )}
       </div>
       <p ref={footRef} className="grid-foot">
-        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${FIELD_BY_KEY[def.groupBy]?.name}, rank order inside each group` : "Sorted by global Stack Rank"} · Alt+N adds an initiative · Enter edits a cell · Tab moves right · Esc cancels · Delete clears a cell (or deletes the ticked rows) · {mac ? "⌘Z" : "Ctrl+Z"} undoes · {mac ? "⌘K" : "Ctrl+K"} commands · A lock means the value comes from GitHub
+        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${FIELD_BY_KEY[def.groupBy]?.name}, rank order inside each group` : "Sorted by global Stack Rank"} · Keyboard shortcuts are under Help, top right · A lock means the value comes from GitHub
         {status.pending > 0 ? "" : ""}
       </p>
-      {/* The quick-add bar sits in a band of fixed height under the grid, so it never moves the grid. The bulk bar floats above it, over the bottom
-          of the grid; an empty row at the end of the list keeps it from covering the last real row. */}
-      <div className="float-band" style={{ height: controller.canEdit ? 100 : 0, marginTop: controller.canEdit ? 8 : 0 }}>
-        <div className="float-inner">
-          {controller.canEdit && lookups.projects.length > 0 && (
-            <QuickAddBar controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef} />
-          )}
-          {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} exportFields={exportFields} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} onGithub={() => setGithubIds(selected.map((r) => r.id))} total={visibleRows.length} />}
-        </div>
-      </div>
     </section>
     </>
   );

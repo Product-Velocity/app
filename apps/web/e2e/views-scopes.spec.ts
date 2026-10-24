@@ -467,7 +467,7 @@ test.describe("command palette", () => {
 
   test("lists the core actions: add item, go to view, search", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: /^Commands/ }).click();
+    await page.locator("body").press("Control+k");
     const options = page.getByRole("dialog", { name: "Command palette" }).getByRole("option");
     await expect(options.filter({ hasText: "Add initiative" })).toHaveCount(1);
     await expect(options.filter({ hasText: "Search initiatives" })).toHaveCount(1);

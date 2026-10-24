@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { PortfolioController } from "./controller";
 
 function ago(at: number, now: number) {
@@ -20,7 +20,8 @@ export function useStatus(c: PortfolioController) {
   return c.status;
 }
 
-export function StatusStrip({ controller }: { controller: PortfolioController }) {
+/** The saved/undo line. `tools` (Filters, Columns, Export) sit on the same line, between the saved text and Undo/Redo. */
+export function StatusStrip({ controller, tools }: { controller: PortfolioController; tools?: ReactNode }) {
   const status = useStatus(controller);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -45,6 +46,7 @@ export function StatusStrip({ controller }: { controller: PortfolioController })
         )}
         {status.last && <span className="strip-last">Last: {status.last.text}, {ago(status.last.at, now)}</span>}
       </div>
+      {tools && <div className="strip-tools">{tools}</div>}
       {controller.canEdit && (
         <div className="strip-actions">
           <button type="button" className="btn" disabled={!status.canUndo} onClick={() => void controller.undo()}>

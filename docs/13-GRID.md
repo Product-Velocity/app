@@ -70,8 +70,16 @@ Saved views, column reorder and pinning (#9), editing tags, links, files and rel
 Controller and domain unit tests, Supabase source tests with a fake client, 20 browser tests (`pnpm --filter web exec playwright test` against a build with `NEXT_PUBLIC_E2E_HARNESS=1`, test page `/dev/grid`): keyboard, pickers, dates, locked cells, undo of 20, failed saves, rank, view-only, 2,000-item speed, accessibility (axe, WCAG A/AA).
 
 ## Design pass 2 (request R-022, issue #55)
-_Status: complete. Name, health pill and group summary rows in 0.14.0; the floating bars in 0.20.0._
+_Status: the floating bars (0.20.0) were replaced in 0.22.0, see "Layout of the head (0.22.0)" below; the name, health pill and group summary rows stay._
 - **Name:** Initiative Name is semibold/bold; IDs and other text stay regular.
 - **Health pill:** compact (about 20 px high, 12 px text) so it fits a 30–36 px row; no icon. The word is the signal ("On track", "At risk", "Off track"); colours meet AA contrast on the pill background.
 - **Group summary row** (only when grouped): only the group name, the item count and the health breakdown in words ("3 On track · 1 At risk"), computed on the filtered rows. No column aggregates. Collapse / expand stays.
 - **Floating bars:** the bulk bar overlays the bottom of the grid area (fixed, centred, shadow) and never changes the grid height or scroll position; it appears with at least one selected row. The quick-add bar floats directly above the grid (and always above the bulk bar when both are shown (decided)) and stays visible while scrolling. The autosave strip stays where it is.
+
+
+## Layout of the head (0.22.0, Ashu 2026-10-24; replaces the floating bars)
+- **View row:** the ten default view chips, All columns, then **Views** (saved views menu) last.
+- **Head tools:** search and Group by. Nothing else.
+- **Saved-changes line (status strip):** "All changes saved", then **Filters, Columns and Export**, and Undo and Redo at the right.
+- **Add an initiative** line: label, input and **Import from spreadsheet** on one line, above the grid, as wide as the grid; the bulk-edit bar appears under it, also above the grid. The grid is sized to the space left, so the bars move it down when they appear (the "does not move" rule of 0.20.0 is dropped).
+- **Keyboard shortcuts** are under **Help** in the top bar (dialog with all shortcuts and a button that opens the command palette); the Commands button and the shortcut hints under the grid are removed.

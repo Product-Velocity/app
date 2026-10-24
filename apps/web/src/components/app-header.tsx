@@ -1,4 +1,5 @@
 import { AccountMenu } from "./account-menu";
+import { HelpMenu } from "./help-menu";
 import { BrandLogo } from "./brand-logo";
 import { HeaderTabs } from "./header-tabs";
 import { ScopeSwitcher } from "@/features/workspace/scope-switcher";
@@ -46,6 +47,7 @@ export function AppHeader({ tenantName, memberships, activeTenantId, switchActio
 
       <HeaderTabs current={current} />
 
+      <HelpMenu />
       <AccountMenu email={email} roleLabel={roleLabel} isApprover={isApprover} showTrash={showTrash} />
     </header>
   );

@@ -486,8 +486,17 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 .incoming-rules h2 { font-size: 15px; margin: 0 0 4px; }
 .incoming-check { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 8px; }
 
-/* Floating bars (R-022): a fixed-height band under the grid that holds the quick-add and, above it, the bulk bar */
-.float-band { position: sticky; bottom: 8px; margin-top: 8px; z-index: 25; pointer-events: none; }
-.float-inner { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: min(1100px, 100%); display: flex; flex-direction: column; gap: 8px; pointer-events: auto; }
-.float-inner .quick-add, .float-inner .bulk-bar { border: 1px solid #cbd2f5; border-radius: var(--radius-lg); box-shadow: var(--shadow-float); }
-.spacer-cell { height: 100%; }
+
+/* Layout of the roadmap head (0.22.0): Views after the view chips; Filters, Columns and Export on the saved-changes line; Import beside Add an initiative; Help in the top bar */
+.strip-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: 12px; }
+.strip-actions { margin-left: auto; }
+.quick-add-row { display: flex; align-items: center; gap: 10px; }
+.quick-add-row .quick-add-label { margin: 0; white-space: nowrap; }
+.quick-add-row .quick-add-input { flex: 1 1 auto; min-width: 0; }
+.help-btn { height: 28px; padding: 0 12px; border: 1px solid #c9ceda; border-radius: var(--radius-md); background: var(--bg); font: inherit; cursor: pointer; margin-right: 8px; }
+.help-btn:hover { background: var(--grey-3); }
+.help-list { display: grid; gap: 4px; margin: 4px 0 12px; }
+.help-list > div { display: grid; grid-template-columns: 200px 1fr; gap: 12px; }
+.help-list dt, .help-list dd { margin: 0; }
+kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3); border: 1px solid var(--grey-1); border-radius: 4px; padding: 1px 6px; }
+.view-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
