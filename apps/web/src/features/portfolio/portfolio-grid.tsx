@@ -108,11 +108,14 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   // closing the dialog puts the keyboard focus back on the grid, so Ctrl+Z (undo the delete) works at once
   const closeDelete = () => {
     setDeleteIds(null);
-    requestAnimationFrame(() => {
+    const focusFirst = () => {
       const api = apiRef.current;
       const first = api?.getFirstDisplayedRowIndex();
       if (api && first !== undefined && first >= 0) api.setFocusedCell(first, "initiative_name");
-    });
+    };
+    requestAnimationFrame(focusFirst);
+    // the bulk bar goes away when the selection clears and the grid resizes: once more after that has settled, if the focus was lost
+    setTimeout(() => { if (!apiRef.current?.getFocusedCell()) focusFirst(); }, 200);
   };
   const [importText, setImportText] = useState<string | null>(null);
   const status = useStatus(controller);
