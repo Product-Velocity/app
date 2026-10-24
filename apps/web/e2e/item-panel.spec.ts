@@ -64,8 +64,9 @@ test.describe("opening, closing and moving", () => {
     await open(page, "n=40&scope=scope-b"); // Customer-facing work: project p3 only
     const first = await page.evaluate(() => (window as unknown as { __pv: { controller: { rows: { id: string; home_project: string }[] } } }).__pv.controller.rows.filter((r) => r.home_project === "p3").slice(0, 2).map((r) => r.id));
     await cell(page, first[0]!, "item_code").click();
+    await expect(page).toHaveURL(new RegExp(`item=R-${first[0]!.replace("item-", "").padStart(2, "0")}`));
     await page.keyboard.press("j");
-    expect(page.url()).toContain(`item=R-${first[1]!.replace("item-", "").padStart(2, "0")}`);
+    await expect(page).toHaveURL(new RegExp(`item=R-${first[1]!.replace("item-", "").padStart(2, "0")}`));
   });
 
   test("typing J or K in a field does not move; the panel opens from a shared address", async ({ page }) => {

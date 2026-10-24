@@ -1,11 +1,11 @@
 "use client";
 
-import { useId, useMemo, useState, type RefObject } from "react";
+import { useId, useMemo, useState, type ReactNode, type RefObject } from "react";
 import { parseQuickAdd, parseQuickAddList, similarItems, type QuickAddCtx, type QuickAddResult } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import type { Lookups } from "./types";
 
-type Props = { controller: PortfolioController; lookups: Lookups; contextProject: string | null; inputRef: RefObject<HTMLInputElement | null> };
+type Props = { controller: PortfolioController; lookups: Lookups; contextProject: string | null; inputRef: RefObject<HTMLInputElement | null>; /** Shown on the same line as the input (the Import button). */ extra?: ReactNode };
 
 /** What the line will become, as chips, so a typo in a token is visible before Enter. */
 function chips(r: Extract<QuickAddResult, { ok: true }>, lookups: Lookups): string[] {
@@ -22,7 +22,7 @@ function chips(r: Extract<QuickAddResult, { ok: true }>, lookups: Lookups): stri
 }
 
 /** One line adds one item: type the name (and tokens), press Enter. Paste a list to add many. */
-export function QuickAddBar({ controller, lookups, contextProject, inputRef }: Props) {
+export function QuickAddBar({ controller, lookups, contextProject, inputRef, extra }: Props) {
   const [text, setText] = useState("");
   const [message, setMessage] = useState<{ kind: "error" | "ok"; text: string } | null>(null);
   const [lastProject, setLastProject] = useState<string | null>(null);
@@ -73,6 +73,7 @@ export function QuickAddBar({ controller, lookups, contextProject, inputRef }: P
 
   return (
     <div className="quick-add">
+      <div className="quick-add-row">
       <label className="quick-add-label" htmlFor={`${hintId}-input`}>Add an initiative</label>
       <input
         id={`${hintId}-input`}
@@ -90,6 +91,8 @@ export function QuickAddBar({ controller, lookups, contextProject, inputRef }: P
           else if (e.key === "Escape") { setText(""); setMessage(null); }
         }}
       />
+      {extra}
+      </div>
       <div id={hintId} className="quick-add-hints" aria-live="polite">
         {message && <p className={message.kind === "error" ? "quick-add-error" : "quick-add-ok"}>{message.text}</p>}
         {!message && parsed?.ok && chips(parsed, lookups).map((c) => <span key={c} className="token-chip">{c}</span>)}

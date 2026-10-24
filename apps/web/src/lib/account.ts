@@ -2,6 +2,7 @@
 
 export const LANGUAGES = [{ value: "en", label: "English" }] as const;
 export const DATE_FORMATS = [
+  { value: "locale", label: "Follow my browser's locale" },
   { value: "d MMM yyyy", label: "23 Oct 2026" },
   { value: "dd/mm/yyyy", label: "23/10/2026" },
   { value: "mm/dd/yyyy", label: "10/23/2026" },
@@ -9,7 +10,7 @@ export const DATE_FORMATS = [
 ] as const;
 
 export type Profile = { fullName: string; language: string; timeZone: string; dateFormat: string };
-export const DEFAULT_PROFILE: Profile = { fullName: "", language: "en", timeZone: "UTC", dateFormat: "d MMM yyyy" };
+export const DEFAULT_PROFILE: Profile = { fullName: "", language: "en", timeZone: "UTC", dateFormat: "locale" };
 
 /** What is stored for a person (Supabase user metadata) read back with defaults for anything missing or invalid. */
 export function profileFromMetadata(meta: Record<string, unknown> | null | undefined): Profile {

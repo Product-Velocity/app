@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CUSTOMER_SAFE_KEYS, buildGroupedRows, healthBreakdown, filterSummary, groupableFields, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
 import { FIELDS, FIELD_BY_KEY } from "./registry";
+import { setDateFormat } from "./dates";
 
 const row = (o: Record<string, unknown> = {}) => ({ id: "i1", item_code: "R-01", initiative_name: "Faster search results", stack_rank: 1, home_project: "p1", ...o });
 const ctx = { me: "u1", today: new Date(Date.UTC(2027, 3, 14)) };
@@ -69,7 +70,7 @@ describe("opsFor", () => {
     expect(names("moscow")).toEqual(["is", "is_not", "empty", "not_empty"]);
     expect(names("initiative_name")).toEqual(["contains", "is", "empty", "not_empty"]);
     expect(names("value_12m")).toEqual(["gt", "lt", "is", "empty", "not_empty"]);
-    expect(names("start_date")).toEqual(["before", "after", "is", "empty", "not_empty"]);
+    expect(names("start_date")).toEqual(["before", "after", "between", "is", "in_last", "in_next", "empty", "not_empty"]);
     expect(names("archived")).toEqual(["is"]);
     expect(names("product_manager")).toEqual(["is", "is_not", "empty", "not_empty"]);
   });
@@ -90,7 +91,13 @@ describe("filterSummary", () => {
     expect(filterSummary(f("moscow", "is", "Must"), labels)).toBe("MoSCoW is Must");
     expect(filterSummary(f("product_manager", "is", "me"), labels)).toBe("Product Manager is me");
     expect(filterSummary(f("home_project", "is_not", "p1"), labels)).toBe("Home Project is not Project p1");
+    setDateFormat("yyyy-mm-dd");
     expect(filterSummary(f("start_date", "before", "2027-04-01"), labels)).toBe("Start Date is before 2027-04-01");
+    setDateFormat("dd/mm/yyyy");
+    expect(filterSummary(f("start_date", "before", "2027-04-01"), labels)).toBe("Start Date is before 01/04/2027");
+    expect(filterSummary({ field: "start_date", op: "between", value: "2027-04-01", value2: "2027-06-30" }, labels)).toBe("Start Date is between 01/04/2027 and 30/06/2027");
+    expect(filterSummary(f("start_date", "in_last", "30"), labels)).toBe("Start Date is in the last 30 days");
+    setDateFormat("d MMM yyyy");
     expect(filterSummary(f("moscow", "empty"), labels)).toBe("MoSCoW is empty");
     expect(filterSummary(f("value_12m", "gt", "1000"), labels)).toBe("Value (EUR, 12-month run-rate) is greater than 1000");
   });
@@ -180,5 +187,29 @@ describe("health breakdown of a group", () => {
     const rows = [{ id: "a", moscow: "Must", health: "Blocked" }, { id: "b", moscow: "Must", health: "On Track" }, { id: "c", moscow: "Should" }];
     const out = buildGroupedRows(rows, "moscow", new Set(), (_f, v) => String(v));
     expect(out.filter((x) => "__group" in x).map((x) => (x as { healthSummary: string }).healthSummary)).toEqual(["1 On Track · 1 Blocked", ""]);
+  });
+});
+
+describe("date filters: older and younger than, ranges and rolling windows", () => {
+  const today = new Date(Date.UTC(2027, 3, 14)); // 14 April 2027
+  const rows = [{ start_date: "2027-03-01" }, { start_date: "2027-04-10" }, { start_date: "2027-04-20" }, { start_date: "2027-09-01" }, { start_date: null }];
+  const run = (filter: Filter) => rows.filter((r) => matchesFilters(r, [filter], { today })).map((r) => r.start_date);
+  it("before and after leave out empty dates", () => {
+    expect(run({ field: "start_date", op: "before", value: "2027-04-10" })).toEqual(["2027-03-01"]);
+    expect(run({ field: "start_date", op: "after", value: "2027-04-10" })).toEqual(["2027-04-20", "2027-09-01"]);
+  });
+  it("between includes both ends, in either order, and filters nothing until both dates are valid", () => {
+    expect(run({ field: "start_date", op: "between", value: "2027-04-10", value2: "2027-04-20" })).toEqual(["2027-04-10", "2027-04-20"]);
+    expect(run({ field: "start_date", op: "between", value: "2027-04-20", value2: "2027-04-10" })).toEqual(["2027-04-10", "2027-04-20"]);
+    expect(run({ field: "start_date", op: "between", value: "2027-04-10" })).toHaveLength(5);
+  });
+  it("in the last N days reaches back from today and in the next N days forward", () => {
+    expect(run({ field: "start_date", op: "in_last", value: "7" })).toEqual(["2027-04-10"]);
+    expect(run({ field: "start_date", op: "in_next", value: "10" })).toEqual(["2027-04-20"]);
+    expect(run({ field: "start_date", op: "in_next", value: "abc" })).toHaveLength(5);
+  });
+  it("survives a saved view round trip, including the second date", () => {
+    const v = sanitizeView({ columns: ["start_date"], filters: [{ field: "start_date", op: "between", value: "2027-04-01", value2: "2027-04-30" }] });
+    expect(v.filters).toEqual([{ field: "start_date", op: "between", value: "2027-04-01", value2: "2027-04-30" }]);
   });
 });

@@ -7,6 +7,7 @@ import {
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import { formatField } from "./format";
+import { DateEditor } from "./date-editor";
 import { PickerEditor, type PickerOption } from "./picker-editor";
 import type { GridItem, Lookups } from "./types";
 
@@ -139,7 +140,8 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
       };
     }
     if (f.type === "Select" && f.allowed.length > 0) return { ...base, ...pickerDef(f, optionsFor(f.key), true) };
-    if (f.type === "Currency" || f.type === "Date" || f.type === "Number") base.cellEditorParams = { useFormatter: true };
+    if (f.type === "Date") { base.cellEditor = DateEditor; base.cellEditorPopup = true; }
+    else if (f.type === "Currency" || f.type === "Number") base.cellEditorParams = { useFormatter: true };
     return base;
   };
 

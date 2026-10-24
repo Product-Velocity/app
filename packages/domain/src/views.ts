@@ -1,15 +1,17 @@
+import { formatDate, localToday } from "./dates";
 import { FIELDS, FIELD_BY_KEY, type FieldDef } from "./registry";
 
 /** The columns every view shows and keeps on the left, so a row always says which initiative it is. */
 export const CORE_COLUMN_KEYS = ["stack_rank", "item_code", "initiative_name"] as const;
 
 // ------------------------------------------------------------------ filters
-export type FilterOp = "is" | "is_not" | "contains" | "gt" | "lt" | "before" | "after" | "empty" | "not_empty";
-export type Filter = { field: string; op: FilterOp; value?: string };
+export type FilterOp = "is" | "is_not" | "contains" | "gt" | "lt" | "before" | "after" | "between" | "in_last" | "in_next" | "empty" | "not_empty";
+/** `value2` is the second date of "between". For "in the last / next" the value is a number of days. */
+export type Filter = { field: string; op: FilterOp; value?: string; value2?: string };
 
 const OP_LABEL: Record<FilterOp, string> = {
   is: "is", is_not: "is not", contains: "contains", gt: "is greater than", lt: "is less than",
-  before: "is before", after: "is after", empty: "is empty", not_empty: "is not empty",
+  before: "is before", after: "is after", between: "is between", in_last: "is in the last (days)", in_next: "is in the next (days)", empty: "is empty", not_empty: "is not empty",
 };
 const OPS = Object.keys(OP_LABEL) as FilterOp[];
 const NUMERIC = new Set(["Number", "Currency", "Computed"]);
@@ -19,13 +21,14 @@ const op = (o: FilterOp) => ({ op: o, label: OP_LABEL[o] });
 /** The operators that make sense for a field, in the order they are offered. */
 export function opsFor(f: FieldDef): { op: FilterOp; label: string }[] {
   if (f.type === "Boolean") return [op("is")];
-  if (f.type === "Date") return (["before", "after", "is", "empty", "not_empty"] as const).map(op);
+  if (f.type === "Date") return (["before", "after", "between", "is", "in_last", "in_next", "empty", "not_empty"] as const).map(op);
   if (NUMERIC.has(f.type)) return (["gt", "lt", "is", "empty", "not_empty"] as const).map(op);
   if (TEXTUAL.has(f.type)) return (["contains", "is", "empty", "not_empty"] as const).map(op);
   if (f.type === "Select" || f.type === "Person" || f.key === "home_project") return (["is", "is_not", "empty", "not_empty"] as const).map(op);
   return (["contains", "empty", "not_empty"] as const).map(op); // tags, links and other values shown as text
 }
 
+const ISO = /^\d{4}-\d\d-\d\d$/;
 type Row = Record<string, unknown>;
 export type FilterCtx = { me?: string | null; today?: Date };
 const blank = (v: unknown) => v === null || v === undefined || v === "";
@@ -57,9 +60,26 @@ export function matchesFilters(row: Row, filters: Filter[], ctx: FilterCtx = {})
         return fl.op === "gt" ? Number(v) > n : Number(v) < n;
       }
       case "before": case "after": {
-        if (!/^\d{4}-\d\d-\d\d$/.test(value)) return true;
+        if (!ISO.test(value)) return true;
         if (blank(v)) return false;
         return fl.op === "before" ? String(v) < value : String(v) > value;
+      }
+      case "between": {
+        // both ends included; the two dates may be given in either order; one missing end filters nothing yet
+        const b = fl.value2 ?? "";
+        if (!ISO.test(value) || !ISO.test(b)) return true;
+        if (blank(v)) return false;
+        const [lo, hi] = value <= b ? [value, b] : [b, value];
+        return String(v) >= lo && String(v) <= hi;
+      }
+      case "in_last": case "in_next": {
+        const n = Number(value);
+        if (value === "" || !Number.isInteger(n) || n < 0 || n > 3650) return true;
+        if (blank(v)) return false;
+        const t = ctx.today ?? localToday();
+        const day = (d: number) => new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate() + d)).toISOString().slice(0, 10);
+        const today = day(0);
+        return fl.op === "in_last" ? String(v) >= day(-n) && String(v) <= today : String(v) >= today && String(v) <= day(n);
       }
       default: return true;
     }
@@ -81,6 +101,14 @@ export function filterSummary(fl: Filter, labels: { person: (id: string) => stri
   let value = fl.value ?? "";
   if (value !== "" && def?.type === "Person") value = labels.person(value);
   else if (value !== "" && fl.field === "home_project") value = labels.project(value);
+  if (def?.type === "Date") {
+    // dates are shown in the person's own format
+    const show = (iso: string | undefined) => (iso && ISO.test(iso) ? formatDate(iso, localToday()) : iso ?? "");
+    if (fl.op === "between") return `${name} is between ${show(fl.value)} and ${show(fl.value2)}`;
+    if (fl.op === "in_last") return `${name} is in the last ${value} days`;
+    if (fl.op === "in_next") return `${name} is in the next ${value} days`;
+    value = show(value);
+  }
   return `${name} ${OP_LABEL[fl.op]}${value !== "" ? ` ${value}` : ""}`;
 }
 
@@ -162,7 +190,7 @@ export function sanitizeView(input: unknown): ViewDef {
       const f = x as Record<string, unknown>;
       const def = typeof f.field === "string" ? FIELD_BY_KEY[f.field] : undefined;
       if (!def || (customerSafe && !isCustomerSafe(def.key)) || typeof f.op !== "string" || !OPS.includes(f.op as FilterOp) || !opsFor(def).some((p) => p.op === f.op)) continue;
-      filters.push({ field: def.key, op: f.op as FilterOp, ...(typeof f.value === "string" ? { value: f.value } : {}) });
+      filters.push({ field: def.key, op: f.op as FilterOp, ...(typeof f.value === "string" ? { value: f.value } : {}), ...(typeof f.value2 === "string" ? { value2: f.value2 } : {}) });
     }
   }
   const groupBy = typeof o.groupBy === "string" && groupableFields().some((g) => g.key === o.groupBy) && (!customerSafe || isCustomerSafe(o.groupBy)) ? o.groupBy : null;

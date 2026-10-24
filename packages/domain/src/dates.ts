@@ -11,7 +11,33 @@ const WEEKDAYS: Record<string, number> = {
 };
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const HELP = "Could not read that date. Try 31 Mar, 2027-03-31, next friday or Q2.";
+const HELP = "Could not read that date. Try 31/03/2027, 31 Mar, next friday or Q2.";
+
+// ------------------------------------------------------------------ the person's date format
+/** What a person chose in their account ("locale" follows the browser) and what that resolves to. */
+export type DateFormat = "locale" | "d MMM yyyy" | "dd/mm/yyyy" | "mm/dd/yyyy" | "yyyy-mm-dd";
+export type ResolvedDateFormat = Exclude<DateFormat, "locale">;
+export const DATE_FORMAT_VALUES: readonly DateFormat[] = ["locale", "d MMM yyyy", "dd/mm/yyyy", "mm/dd/yyyy", "yyyy-mm-dd"];
+
+/** The order a locale writes numeric dates in: Dutch and British give dd/mm/yyyy, American mm/dd/yyyy, Swedish and Canadian French yyyy-mm-dd. */
+export function resolveDateFormat(format: DateFormat, locale?: string): ResolvedDateFormat {
+  if (format !== "locale") return format;
+  try {
+    const parts = new Intl.DateTimeFormat(locale || "en-GB", { year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(Date.UTC(2026, 10, 25)));
+    const order = parts.filter((p) => p.type === "day" || p.type === "month" || p.type === "year").map((p) => p.type[0]).join("");
+    if (order === "mdy") return "mm/dd/yyyy";
+    if (order === "ymd") return "yyyy-mm-dd";
+  } catch { /* an unknown locale: day first */ }
+  return "dd/mm/yyyy";
+}
+
+// One setting for the whole page (the browser runs one person at a time). The default keeps the older words format; the app sets the
+// person's own choice once at start, so every date shown, typed, pasted or imported follows it.
+let current: ResolvedDateFormat = "d MMM yyyy";
+export function setDateFormat(format: DateFormat, locale?: string): void { current = resolveDateFormat(format, locale); }
+export function getDateFormat(): ResolvedDateFormat { return current; }
+/** Which number comes first when someone types 03/04/2026. Year-first and word formats read it as day first. */
+const numericOrder = (): "dmy" | "mdy" => (current === "mm/dd/yyyy" ? "mdy" : "dmy");
 const pad = (n: number) => String(n).padStart(2, "0");
 const iso = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
 const daysInMonth = (y: number, m: number) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
@@ -47,8 +73,14 @@ export function parseDate(input: string, today: Date, opts: { edge?: "start" | "
   let m: RegExpMatchArray | null;
 
   if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))) return build(+m[1]!, +m[2]! - 1, +m[3]!, input.trim());
-  if ((m = s.match(/^(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2}|\d{4}))?$/))) {
-    return build(m[3] ? year2(m[3]) : ty, +m[2]! - 1, +m[1]!, input.trim());
+  if ((m = s.match(/^(\d{1,2})[./ -](\d{1,2})(?:[./ -](\d{2}|\d{4}))?$/))) {
+    const [a, b] = numericOrder() === "mdy" ? [+m[2]!, +m[1]!] : [+m[1]!, +m[2]!]; // day, month
+    return build(m[3] ? year2(m[3]) : ty, b - 1, a, input.trim());
+  }
+  // typed without separators: 310326 or 31032026 (day, month, year in the person's order)
+  if ((m = s.match(/^(\d{2})(\d{2})(\d{2}|\d{4})$/))) {
+    const [a, b] = numericOrder() === "mdy" ? [+m[2]!, +m[1]!] : [+m[1]!, +m[2]!];
+    return build(year2(m[3]!), b - 1, a, input.trim());
   }
   if ((m = s.match(/^(\d{1,2}) ([a-z]+)(?: (\d{4}))?$/)) && m[2]! in MONTHS) {
     return build(m[3] ? +m[3] : ty, MONTHS[m[2]!]!, +m[1]!, input.trim());
@@ -88,11 +120,18 @@ export function parseDate(input: string, today: Date, opts: { edge?: "start" | "
   return { ok: false, error: HELP };
 }
 
-/** "31 Mar", or "5 Jan 2028" when the year is not the current one. Can be typed back. */
+/** In the person's format: 31/03/2027, 03/31/2027, 2027-03-31, or the words "31 Mar" ("5 Jan 2028" when the year is not the current one). Can be typed back. */
 export function formatDate(value: string | null | undefined, today: Date): string {
   if (!value) return "";
   const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return value;
-  const day = +m[3]!, month = MONTH_SHORT[+m[2]! - 1];
-  return +m[1]! === today.getUTCFullYear() ? `${day} ${month}` : `${day} ${month} ${m[1]}`;
+  const [y, mo, d] = [m[1]!, m[2]!, m[3]!];
+  if (current === "dd/mm/yyyy") return `${d}/${mo}/${y}`;
+  if (current === "mm/dd/yyyy") return `${mo}/${d}/${y}`;
+  if (current === "yyyy-mm-dd") return `${y}-${mo}-${d}`;
+  const day = +d, month = MONTH_SHORT[+mo - 1];
+  return +y === today.getUTCFullYear() ? `${day} ${month}` : `${day} ${month} ${y}`;
 }
+
+/** The format written as a hint: dd/mm/yyyy. */
+export const dateFormatHint = (): string => (current === "d MMM yyyy" ? "31 Mar 2027" : current);
