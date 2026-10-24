@@ -187,10 +187,27 @@ test.describe("filters and search", () => {
     await addFilter(page, "start_date");
     const panel = page.getByRole("group", { name: "Filters", exact: true });
     await panel.getByLabel("Operator of filter 1").selectOption("before");
-    await panel.getByLabel("Value for Start Date").fill("1 feb 2027");
-    await expect(panel).toContainText("= 2027-02-01");
+    await panel.getByLabel("Value for Start Date", { exact: true }).fill("1 feb 2027");
+    await page.keyboard.press("Enter");
+    await expect(panel.getByLabel("Value for Start Date", { exact: true })).toHaveValue("1 Feb");
     await expect(foot(page)).toContainText("30 of 30 items shown".replace("30 of 30 items shown", "30 items")); // everything starts 4 Jan 2027
-    await panel.getByLabel("Value for Start Date").fill("1 jan 2027");
+    await panel.getByLabel("Value for Start Date", { exact: true }).fill("1 jan 2027");
+    await page.keyboard.press("Enter");
+    await expect(foot(page)).toContainText("0 of 30 items shown");
+  });
+
+  test("a date filter can be a range: between two dates, or in the last days", async ({ page }) => {
+    await open(page);
+    await addFilter(page, "start_date");
+    const panel = page.getByRole("group", { name: "Filters", exact: true });
+    await panel.getByLabel("Operator of filter 1").selectOption("between");
+    await panel.getByLabel("Start Date from", { exact: true }).fill("1 jan 2027");
+    await page.keyboard.press("Enter");
+    await panel.getByLabel("Start Date until", { exact: true }).fill("31 jan 2027");
+    await page.keyboard.press("Enter");
+    await expect(foot(page)).toContainText("30 items"); // everything starts 4 Jan 2027
+    await panel.getByLabel("Start Date until", { exact: true }).fill("3 jan 2027");
+    await page.keyboard.press("Enter");
     await expect(foot(page)).toContainText("0 of 30 items shown");
   });
 

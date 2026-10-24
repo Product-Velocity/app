@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, parseDate } from "./dates";
+import { afterEach } from "vitest";
+import { formatDate, parseDate, resolveDateFormat, setDateFormat } from "./dates";
 
 // Wednesday 14 April 2027
 const TODAY = new Date(Date.UTC(2027, 3, 14));
@@ -88,5 +89,40 @@ describe("formatDate", () => {
       const shown = formatDate(iso, TODAY);
       expect(ok(shown)).toBe(iso);
     }
+  });
+});
+
+describe("the person's date format", () => {
+  afterEach(() => setDateFormat("d MMM yyyy"));
+  it("follows the locale: day first for most, month first for the US, year first for Sweden", () => {
+    expect(resolveDateFormat("locale", "nl-NL")).toBe("dd/mm/yyyy");
+    expect(resolveDateFormat("locale", "en-GB")).toBe("dd/mm/yyyy");
+    expect(resolveDateFormat("locale", "en-US")).toBe("mm/dd/yyyy");
+    expect(resolveDateFormat("locale", "sv-SE")).toBe("yyyy-mm-dd");
+    expect(resolveDateFormat("locale", "xx-not-a-locale-zz")).toBe("dd/mm/yyyy");
+    expect(resolveDateFormat("yyyy-mm-dd", "en-US")).toBe("yyyy-mm-dd");
+  });
+  it("shows dates in full in the chosen format", () => {
+    setDateFormat("dd/mm/yyyy"); expect(formatDate("2027-03-31", TODAY)).toBe("31/03/2027");
+    setDateFormat("mm/dd/yyyy"); expect(formatDate("2027-03-31", TODAY)).toBe("03/31/2027");
+    setDateFormat("yyyy-mm-dd"); expect(formatDate("2027-03-31", TODAY)).toBe("2027-03-31");
+    setDateFormat("d MMM yyyy"); expect(formatDate("2027-03-31", TODAY)).toBe("31 Mar");
+    expect(formatDate("2028-01-05", TODAY)).toBe("5 Jan 2028");
+  });
+  it("reads numeric dates in that order, and what is shown can be typed back", () => {
+    setDateFormat("dd/mm/yyyy"); expect(ok("03/04/2027")).toBe("2027-04-03");
+    setDateFormat("mm/dd/yyyy"); expect(ok("03/04/2027")).toBe("2027-03-04");
+    expect(ok("12/31/27")).toBe("2027-12-31");
+    for (const f of ["dd/mm/yyyy", "mm/dd/yyyy", "yyyy-mm-dd", "d MMM yyyy"] as const) {
+      setDateFormat(f);
+      expect(ok(formatDate("2028-02-29", TODAY))).toBe("2028-02-29");
+    }
+  });
+  it("reads dates typed without separators and keeps ISO and words working in every format", () => {
+    setDateFormat("dd/mm/yyyy"); expect(ok("310327")).toBe("2027-03-31"); expect(ok("31032027")).toBe("2027-03-31");
+    setDateFormat("mm/dd/yyyy"); expect(ok("033127")).toBe("2027-03-31");
+    expect(ok("2027-03-31")).toBe("2027-03-31");
+    expect(ok("31 mar")).toBe("2027-03-31");
+    expect(ok("next friday")).toBe("2027-04-16");
   });
 });

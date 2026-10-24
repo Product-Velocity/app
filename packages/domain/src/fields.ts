@@ -61,6 +61,8 @@ const NON_NEGATIVE = new Set(["customers_requesting", "target_customers", "time_
 const WHOLE = new Set(["customers_requesting", "target_customers"]);
 /** Date fields where a quarter or month means its last day. */
 const END_DATES = new Set(["g2m_date_est", "g2m_date_actual"]);
+/** What a period such as "Q2" means for a date field: its first day for a start, its last day for an end. */
+export const dateEdge = (key: string): "start" | "end" => (END_DATES.has(key) ? "end" : "start");
 const TEXT_LIMIT: Record<string, number> = { Text: 2000, "Long text": 8000, "Person or text": 200 };
 
 /** Turn what a person typed (or picked) into the value to save, or say what is wrong. */

@@ -104,7 +104,7 @@ test("plain-language dates and amounts", async ({ page }) => {
   // typing back what is shown works
   await cell(page, "item-1", "start_date").click();
   await page.keyboard.press("Enter");
-  await expect(page.locator(".ag-cell-inline-editing input")).toHaveValue("31 Mar");
+  await expect(page.getByLabel("Date", { exact: true })).toHaveValue("31 Mar 2027");
   await page.keyboard.press("Escape");
 });
 

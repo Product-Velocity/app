@@ -2,9 +2,10 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import {
-  FIELDS, FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupableFields, needsSearch, opsFor, optionsFor, parseDate, type Filter, type FilterOp, type ListOption, type ViewDef, type ViewName,
+  FIELDS, FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupableFields, needsSearch, opsFor, optionsFor, type Filter, type FilterOp, type ListOption, type ViewDef, type ViewName,
 } from "@pv/domain";
 import { menuSearchKeys, NoResults, SearchInput, SelectField } from "@/components/search-list";
+import { DateInput } from "@/components/date-input";
 import { useWorkspace } from "../workspace/provider";
 import type { SavedView } from "../workspace/store";
 import { Popover } from "./popover";
@@ -14,7 +15,8 @@ import type { Lookups } from "./types";
 // ------------------------------------------------------------------ filters
 const FIELD_OPTIONS: ListOption[] = fieldOptions(FIELDS);
 
-function valueControl(f: Filter, lookups: Lookups, today: Date, onValue: (v: string) => void) {
+function valueControl(f: Filter, lookups: Lookups, today: Date, patch: (p: Partial<Filter>) => void) {
+  const onValue = (v: string) => patch({ value: v });
   const def = FIELD_BY_KEY[f.field];
   if (!def || f.op === "empty" || f.op === "not_empty") return null;
   const label = `Value for ${def.name}`;
@@ -24,30 +26,22 @@ function valueControl(f: Filter, lookups: Lookups, today: Date, onValue: (v: str
   else if (def.type === "Boolean") options = [{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }];
   else if (def.type === "Select" && def.allowed.length > 0) options = optionsFor(def.key);
   if (options) return <SelectField label={label} value={f.value ?? ""} options={options} onChange={onValue} blank="Choose…" />;
-  if (def.type === "Date") return <DateValue label={label} value={f.value ?? ""} today={today} onValue={onValue} />;
+  if (def.type === "Date") {
+    if (f.op === "in_last" || f.op === "in_next") {
+      return <span className="filter-date"><input type="number" min={0} max={3650} aria-label={`Number of days for ${def.name}`} value={f.value ?? ""} placeholder="days" onChange={(e) => onValue(e.target.value)} /> <span className="muted">days{f.op === "in_last" ? " back from today" : " from today"}</span></span>;
+    }
+    if (f.op === "between") {
+      return (
+        <span className="filter-date">
+          <DateInput label={`${def.name} from`} value={f.value ?? ""} today={today} edge="start" onCommit={onValue} />
+          <span className="muted">and</span>
+          <DateInput label={`${def.name} until`} value={f.value2 ?? ""} today={today} edge="end" onCommit={(v) => patch({ value2: v })} />
+        </span>
+      );
+    }
+    return <DateInput label={label} value={f.value ?? ""} today={today} edge={f.op === "after" ? "end" : "start"} onCommit={onValue} />;
+  }
   return <input aria-label={label} value={f.value ?? ""} placeholder={def.type === "Number" || def.type === "Currency" ? "a number" : "text"} onChange={(e) => onValue(e.target.value)} />;
-}
-
-/** A date typed in plain words (31 mar, q2, next friday); the filter stores the date. */
-function DateValue({ label, value, today, onValue }: { label: string; value: string; today: Date; onValue: (v: string) => void }) {
-  const [text, setText] = useState(value);
-  const [error, setError] = useState<string | null>(null);
-  return (
-    <span className="filter-date">
-      <input
-        aria-label={label}
-        value={text}
-        placeholder="31 mar, q2, next friday"
-        onChange={(e) => {
-          setText(e.target.value);
-          if (e.target.value.trim() === "") { setError(null); onValue(""); return; }
-          const r = parseDate(e.target.value, today, { edge: "start" });
-          if (r.ok) { setError(null); onValue(r.iso ?? ""); } else setError(r.error ?? "Could not read that date.");
-        }}
-      />
-      {error ? <span className="quick-add-error">{error}</span> : value && <span className="muted"> = {value}</span>}
-    </span>
-  );
 }
 
 export function FiltersMenu({ filters, onChange, lookups, today }: { filters: Filter[]; onChange: (f: Filter[]) => void; lookups: Lookups; today: Date }) {
@@ -63,12 +57,12 @@ export function FiltersMenu({ filters, onChange, lookups, today }: { filters: Fi
               <div key={i} className="filter-row">
                 <SelectField
                   label={`Field of filter ${i + 1}`} value={f.field} options={FIELD_OPTIONS}
-                  onChange={(v) => { const d = FIELD_BY_KEY[v]!; patch(i, { field: d.key, op: opsFor(d)[0]!.op, value: "" }); }}
+                  onChange={(v) => { const d = FIELD_BY_KEY[v]!; patch(i, { field: d.key, op: opsFor(d)[0]!.op, value: "", value2: undefined }); }}
                 />
-                <select aria-label={`Operator of filter ${i + 1}`} value={f.op} onChange={(e) => patch(i, { op: e.target.value as FilterOp })}>
+                <select aria-label={`Operator of filter ${i + 1}`} value={f.op} onChange={(e) => patch(i, { op: e.target.value as FilterOp, value2: undefined, ...(["in_last", "in_next"].includes(e.target.value) || ["in_last", "in_next"].includes(f.op) ? { value: "" } : {}) })}>
                   {ops.map((o) => <option key={o.op} value={o.op}>{o.label}</option>)}
                 </select>
-                {valueControl(f, lookups, today, (v) => patch(i, { value: v }))}
+                {valueControl(f, lookups, today, (p) => patch(i, p))}
                 <button type="button" className="tool-btn" aria-label={`Remove filter ${i + 1}`} onClick={() => onChange(filters.filter((_, j) => j !== i))}>Remove</button>
               </div>
             );

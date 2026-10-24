@@ -1,9 +1,10 @@
 "use client";
 
+import { DateInput } from "@/components/date-input";
 import { SelectField } from "@/components/search-list";
 import { useId, useState, type ReactNode } from "react";
 import {
-  canBeEmpty, optionsFor, panelField, resolveGroup, type FieldDef, type Link, type PanelField, type RelatedField,
+  canBeEmpty, dateEdge, optionsFor, panelField, resolveGroup, type FieldDef, type Link, type PanelField, type RelatedField,
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import { formatField } from "./format";
@@ -23,7 +24,8 @@ export function FieldRow({ f, row, ctx }: { f: FieldDef; row: GridItem; ctx: Fie
   const common = { id, f, row, ctx, disabled: !canEdit, onError: setError };
   let control: ReactNode;
   switch (p.kind) {
-    case "text": case "longtext": case "number": case "currency": case "date": control = <TextControl {...common} kind={p.kind} />; break;
+    case "date": control = <DateControl {...common} />; break;
+    case "text": case "longtext": case "number": case "currency": control = <TextControl {...common} kind={p.kind} />; break;
     case "select": case "boolean": case "person": case "project": control = <SelectControl {...common} kind={p.kind} />; break;
     case "group": control = <GroupControl {...common} />; break;
     case "rank": control = <RankControl {...common} />; break;
@@ -61,6 +63,21 @@ function ReadOnlyValue({ f, row, ctx, later }: { f: FieldDef; row: GridItem; ctx
 }
 
 // ---------------------------------------------------------------- one value
+/** A date: typed in the person's own format (or words), or picked from the calendar button. */
+function DateControl({ id, f, row, ctx, disabled, onError }: Common) {
+  return (
+    <DateInput
+      id={id}
+      label={f.name}
+      value={row[f.key] == null ? "" : String(row[f.key])}
+      today={ctx.controller.todayDate()}
+      edge={dateEdge(f.key)}
+      disabled={disabled}
+      onCommit={(iso) => { const r = ctx.controller.edit(row.id, f.key, iso); onError(r.ok ? null : r.error); }}
+    />
+  );
+}
+
 function TextControl({ id, f, row, ctx, disabled, onError, kind }: Common & { kind: "text" | "longtext" | "number" | "currency" | "date" }) {
   const stored = formatField(f, row[f.key], { today: ctx.controller.todayDate(), members: ctx.lookups.members, projects: ctx.lookups.projects });
   const raw = kind === "number" || kind === "text" || kind === "longtext" ? (row[f.key] == null ? "" : String(row[f.key])) : stored;

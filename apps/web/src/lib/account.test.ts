@@ -3,8 +3,8 @@ import { canUnlink, leaveMessage, profileFromMetadata, signedInRecently, validat
 
 describe("profile", () => {
   it("reads stored values with defaults for anything missing or invalid", () => {
-    expect(profileFromMetadata(null)).toEqual({ fullName: "", language: "en", timeZone: "UTC", dateFormat: "d MMM yyyy" });
-    expect(profileFromMetadata({ full_name: "Ashu", language: "xx", time_zone: "Europe/Amsterdam", date_format: "bogus" })).toEqual({ fullName: "Ashu", language: "en", timeZone: "Europe/Amsterdam", dateFormat: "d MMM yyyy" });
+    expect(profileFromMetadata(null)).toEqual({ fullName: "", language: "en", timeZone: "UTC", dateFormat: "locale" });
+    expect(profileFromMetadata({ full_name: "Ashu", language: "xx", time_zone: "Europe/Amsterdam", date_format: "bogus" })).toEqual({ fullName: "Ashu", language: "en", timeZone: "Europe/Amsterdam", dateFormat: "locale" });
   });
   it("validates the form: tidy name, known language, real time zone, known date format", () => {
     expect(validateProfile({ fullName: "  Ashu   M  ", language: "en", timeZone: "Europe/Amsterdam", dateFormat: "yyyy-mm-dd" })).toEqual({ ok: true, profile: { fullName: "Ashu M", language: "en", timeZone: "Europe/Amsterdam", dateFormat: "yyyy-mm-dd" } });
