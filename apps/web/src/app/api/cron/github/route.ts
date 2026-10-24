@@ -16,6 +16,7 @@ export async function GET(request: Request) {
   if (!sc) return new Response("not configured", { status: 503 });
 
   const admin = createAdminClient({ via: "GitHub webhook" });
+  await admin.rpc("alignment_close_due"); // alignment sessions past their closing time close (any workspace; the daily run is the safety net)
   const { data: connections } = await admin.from("github_connections").select("*").eq("state", "connected");
   const report: { retried: number; checked: number; changed: number; missing: number; failed: number } = { retried: 0, checked: 0, changed: 0, missing: 0, failed: 0 };
   for (const c of (connections ?? []) as ConnectionRow[]) {

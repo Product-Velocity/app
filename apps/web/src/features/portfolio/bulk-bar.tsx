@@ -9,6 +9,7 @@ import type { GridItem, Lookups } from "./types";
 import { useMenuBlur } from "./use-menu-blur";
 import { useDismiss } from "./use-dismiss";
 import { CopyDialog } from "./copy-dialog";
+import { AlignmentDialog } from "./alignment-dialog";
 
 type Props = {
   controller: PortfolioController;
@@ -89,6 +90,7 @@ export function BulkBar({ controller, lookups, selected, exportFields, onClear, 
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [more, setMore] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
+  const [alignOpen, setAlignOpen] = useState(false);
   const def = field ? FIELD_BY_KEY[field] : undefined;
   const reason = field ? bulkEditReason(field) : null;
   const options = def ? valueOptions(def, lookups) : null;
@@ -135,6 +137,7 @@ export function BulkBar({ controller, lookups, selected, exportFields, onClear, 
         <button type="button" className="bulk-btn" onClick={() => downloadCsv(`roadmap-selection-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(selected, exportFields, lookups))}>
           Export selection to file
         </button>
+        {controller.canPurge && <button type="button" className="bulk-btn" onClick={() => setAlignOpen(true)}>Start alignment session…</button>}
         {controller.canEdit && <button type="button" className="bulk-btn" onClick={() => setCopyOpen(true)}>Copy to project…</button>}
         {controller.canEdit && <button type="button" className="bulk-btn bulk-btn-danger" onClick={onDelete}>Delete…</button>}
         <button type="button" className="bulk-btn" onClick={onClear}>Clear selection</button>
@@ -165,6 +168,7 @@ export function BulkBar({ controller, lookups, selected, exportFields, onClear, 
         </button>
       </div>
       )}
+      {alignOpen && <AlignmentDialog ids={selected.map((r) => r.id)} onClose={() => setAlignOpen(false)} />}
       {copyOpen && <CopyDialog controller={controller} lookups={lookups} ids={selected.map((r) => r.id)} onClose={() => setCopyOpen(false)} />}
       <div className="bulk-messages" aria-live="polite">
         {reason && <p className="quick-add-error">{reason}</p>}

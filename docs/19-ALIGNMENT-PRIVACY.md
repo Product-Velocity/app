@@ -50,12 +50,15 @@ The joint score counts everyone (as in `docs/02`), unless the admin excludes a g
 - **Deletion on request:** an admin deletes a participant (or the person uses the link page). Personal data is removed; their ballot loses its link to a person (`participant_id` empty) and stays as an anonymous ballot, so counts and the snapshot are unchanged. If removing would drop a group below 5 voters on display, the group is shown as "Other" from then on.
 - **Deleting a workspace or a session** removes everything. Backups follow the platform's backup retention (go-live checklist).
 
-## 8. What this means for the issues
+## 8. Built so far (release 0.21.0, issue #123)
+`alignment_sessions` and `alignment_items` with the state machine (draft, open, closed, archived), settings locked once open (error PV009), a participant-safe snapshot of each initiative taken when the session opens (name, summary, value proposition), the closing time (lazily when a page is opened, and daily by the cron), a participant preview, admin-only changes through functions, audit with actor and source. `participants`, `ballots` and `votes` are not built yet: they hold personal data and come with #124 and #125. Sessions can be made from any selection; planning cycles (#121) are not built, so `cycle_id` stays empty for now.
+
+## 9. What this means for the issues
 - **#123 (setup):** sessions, items, settings locked once open, preview as a participant, states Draft, Open, Closed, Archived. Commercial fields never shown unless the audience profile allows. Works on "any selection" until planning cycles (#121) exist.
 - **#124 (invitations):** participants by paste or CSV, consent wording, Claude drafts, the admin edits, previews as a participant and confirms, then sending uses the same email path as #45 (Resend). Bounce handling, duplicates merged, unsubscribe stops reminders. A test proves nothing is sent without the confirm step, also through MCP, and a log spy proves no address is logged.
 - **#125 (participant flow):** magic link, consent, the method (top 5 with duels, 100 coins max 30 per item, ICE), progress saved, change until close, no double counting after reload or a flaky network (idempotent saves by ballot and item), 390 px mobile screens.
 
-## 9. Decisions (Ashu, 2026-10-24)
+## 10. Decisions (Ashu, 2026-10-24)
 - **Q1. Admins see who voted what?** Yes, behind a logged "Show names" action (rule 7 as written). Votes stay linked to the participant so people can change their vote until close.
 - **Q2. When?** At any time, also while the session is open, with a reason, always logged. (The proposal was after close only.)
 - **Q3. Small groups:** merge groups under 5 voters into "Other", shown only at 5 or more voters; per-group results appear only when no group would leak by subtraction; otherwise only the joint score.
