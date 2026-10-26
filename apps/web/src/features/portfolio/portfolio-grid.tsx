@@ -527,12 +527,12 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         if (/[\t\n]/.test(pasted.trim())) { e.preventDefault(); setImportText(pasted); }
       }}
     >
-      <div className="gbar" role="region" aria-label="Roadmap tools">
-        <div className="gbar-s1">
+      <div className="pvbar" role="region" aria-label="Roadmap tools">
+        <div className="pvbar-s1">
           <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} today={today} matching={visibleRows.length} total={controller.rows.length} def={def} saver={saver} dirty={dirty} />
           <ColumnsPanel def={def} defaultDef={bDef} customerSafe={def.customerSafe === true} onApply={changeColumns} saver={saver} dirty={dirty} shown={shownCount} />
           <GroupMenu groupBy={def.groupBy} onChange={(g) => changeDef({ groupBy: g })} />
-          <label className="gbar-search">
+          <label className="pvbar-search">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b6272" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
             <input
               ref={searchRef}
@@ -544,7 +544,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
               onKeyDown={(e) => { if (e.key === "Escape") setSearchText(""); }}
             />
           </label>
-          <span className="gbar-sep" aria-hidden="true" />
+          <span className="pvbar-sep" aria-hidden="true" />
           <Popover label={selected.length > 0 ? `Export ${selected.length}` : "Export"} active={selected.length > 0}>
             {(close) => (
               <div role="menu" aria-label="Export">
@@ -572,6 +572,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} total={visibleRows.length} />}
         {controller.canEdit && lookups.projects.length > 0 && <QuickAddBar controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef} />}
       </div>
+      {saver.dialogs}
       {githubIds && <GithubPushDialog ids={githubIds} onClose={() => setGithubIds(null)} />}
       {deleteIds && <DeleteDialog controller={controller} ids={deleteIds} onClose={closeDelete} onDeleted={() => apiRef.current?.deselectAll()} />}
       {importText !== null && (

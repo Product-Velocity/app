@@ -29,7 +29,7 @@ test.describe("the bar above the grid (0.30.0)", () => {
   test("when a label grows (Export 3, 2 filters) nothing wraps: search gives up width first", async ({ page }) => {
     await page.setViewportSize({ width: 1100, height: 800 });
     await open(page);
-    const before = (await page.locator(".gbar-search").boundingBox())!;
+    const before = (await page.locator(".pvbar-search").boundingBox())!;
     const y0 = (await filterBtn(page).boundingBox())!.y;
     await select(page, "item-1", "item-2", "item-3");
     await filterBtn(page).click();
@@ -38,7 +38,7 @@ test.describe("the bar above the grid (0.30.0)", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "Export 3" })).toBeVisible();
     await expect(filterBtn(page)).toContainText("2 filters");
-    const after = (await page.locator(".gbar-search").boundingBox())!;
+    const after = (await page.locator(".pvbar-search").boundingBox())!;
     expect(after.width).toBeLessThanOrEqual(before.width);
     const undo = (await page.getByRole("button", { name: /^Undo/ }).boundingBox())!;
     expect(Math.abs(undo.y - y0)).toBeLessThan(12);
@@ -49,11 +49,11 @@ test.describe("the bar above the grid (0.30.0)", () => {
     await open(page);
     await expect(page.locator(".bulk-bar")).toHaveCount(0);
     await select(page, "item-1");
-    const s1 = await box(page, ".gbar-s1"), bulk = await box(page, ".bulk-bar"), quick = await box(page, ".quick-add"), grid = await box(page, ".grid-wrap");
+    const s1 = await box(page, ".pvbar-s1"), bulk = await box(page, ".bulk-bar"), quick = await box(page, ".quick-add"), grid = await box(page, ".grid-wrap");
     expect(s1.y).toBeLessThan(bulk.y);
     expect(bulk.y).toBeLessThan(quick.y);
     expect(quick.y + quick.height).toBeLessThanOrEqual(grid.y + 0.5);
-    expect(Math.abs((await box(page, ".gbar")).width - grid.width)).toBeLessThan(40);
+    expect(Math.abs((await box(page, ".pvbar")).width - grid.width)).toBeLessThan(40);
     await page.keyboard.press("Escape");
     await expect(page.locator(".bulk-bar")).toHaveCount(0);
   });
@@ -242,11 +242,11 @@ test.describe("column picker", () => {
   test("accessibility: the bar and its two panels have no WCAG A/AA violations", async ({ page }) => {
     await open(page);
     await filterBtn(page).click();
-    let results = await new AxeBuilder({ page }).include(".gbar").withTags(["wcag2a", "wcag2aa"]).analyze();
+    let results = await new AxeBuilder({ page }).include(".pvbar").withTags(["wcag2a", "wcag2aa"]).analyze();
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
     await page.keyboard.press("Escape");
     await columnsBtn(page).click();
-    results = await new AxeBuilder({ page }).include(".gbar").withTags(["wcag2a", "wcag2aa"]).analyze();
+    results = await new AxeBuilder({ page }).include(".pvbar").withTags(["wcag2a", "wcag2aa"]).analyze();
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
   });
 });
@@ -275,7 +275,7 @@ test.describe("Add an initiative: type it in one line", () => {
     const row = page.locator(".ag-row", { has: page.locator('[col-id="initiative_name"]', { hasText: "Smart idea" }) });
     await expect(row.locator('[col-id="horizon"]')).toHaveText("Next");
     await expect(row.locator('[col-id="health"]')).toHaveText("At Risk");
-    await expect(row.locator('[col-id="g2m_date_est"]')).toContainText("2027");
+    await expect(row.locator('[col-id="g2m_date_est"]')).toHaveText("31 Dec");
   });
 
   test("a word it cannot read is explained before anything is added", async ({ page }) => {

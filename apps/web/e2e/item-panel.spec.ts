@@ -124,7 +124,7 @@ test.describe("fields", () => {
         for (let i = 0; i < 50; i++) {
           await new Promise((r) => requestAnimationFrame(() => r(null)));
           // the status strip names the change as soon as the grid and the panel have been painted
-          if (document.querySelector(".gbar")?.textContent?.includes(`MoSCoW: `) && document.querySelector(".gbar")?.textContent?.includes(`to ${v}`)) break;
+          if (document.querySelector(".pvbar")?.textContent?.includes(`MoSCoW: `) && document.querySelector(".pvbar")?.textContent?.includes(`to ${v}`)) break;
         }
         out.push(performance.now() - t0);
       }
@@ -256,7 +256,7 @@ test.describe("list fields", () => {
     const tags = field(page, "tags");
     await tags.getByLabel("Add to Tags").fill("nope");
     await tags.getByLabel("Add to Tags").press("Enter");
-    await expect(page.locator(".gbar")).toContainText("no permission");
+    await expect(page.locator(".pvbar")).toContainText("no permission");
     await expect(tags).not.toContainText("nope");
   });
 

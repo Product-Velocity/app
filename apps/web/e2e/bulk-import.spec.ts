@@ -28,7 +28,7 @@ test.describe("bulk bar", () => {
     await expect(page.getByRole("menu", { name: "Set MoSCoW" })).toContainText("Currently: Must, Should, Could");
     await page.getByRole("menuitem", { name: "Won't" }).click();
     for (const id of ["item-1", "item-2", "item-3"]) await expect(cell(page, id, "moscow")).toHaveText("Won't");
-    await expect(page.locator(".gbar")).toContainText("Set MoSCoW to Won't on 3 items");
+    await expect(page.locator(".pvbar")).toContainText("Set MoSCoW to Won't on 3 items");
     await expect(bar(page)).toContainText("Done: Set MoSCoW to Won't on 3 items");
     await settle(page);
     expect((await page.evaluate(() => (window as unknown as { __pv: { controller: { status: { undoCount: number } } } }).__pv.controller.status.undoCount))).toBe(1);
@@ -36,7 +36,7 @@ test.describe("bulk bar", () => {
     await expect(cell(page, "item-1", "moscow")).toHaveText("Must");
     await expect(cell(page, "item-2", "moscow")).toHaveText("Should");
     await expect(cell(page, "item-3", "moscow")).toHaveText("Could");
-    await expect(page.locator(".gbar")).toContainText("Undid: Set MoSCoW on 3 items");
+    await expect(page.locator(".pvbar")).toContainText("Undid: Set MoSCoW on 3 items");
   });
 
   test("GitHub-driven and other read-only fields are rejected with a clear message", async ({ page }) => {
@@ -158,7 +158,7 @@ test.describe("paste-import from a spreadsheet", () => {
     await dialog.getByRole("button", { name: "Import 50 rows" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.locator(".grid-foot")).toContainText("80 items");
-    await expect(page.locator(".gbar")).toContainText("Imported 50 items");
+    await expect(page.locator(".pvbar")).toContainText("Imported 50 items");
     await settle(page);
     const calls = await page.evaluate(() => (window as unknown as { __pv: { source: { createCalls: unknown[] } } }).__pv.source.createCalls);
     expect(calls).toEqual([{ count: 50, via: "import" }]); // one request, labelled as an import

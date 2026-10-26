@@ -58,7 +58,7 @@ test.describe("Description (Markdown)", () => {
     await settle(page);
     const stored = await page.evaluate(() => (window as unknown as { __pv: { source: { items: { id: string; description?: string }[] } } }).__pv.source.items.find((i) => i.id === "item-3")!.description);
     expect(stored).toContain("## Goal");
-    await expect(page.locator(".gbar")).toContainText("Description");
+    await expect(page.locator(".pvbar")).toContainText("Description");
     await field(page).getByRole("button", { name: "Preview" }).click();
     const preview = field(page).getByTestId("markdown-preview");
     await expect(preview.getByRole("heading", { name: "Goal" })).toBeVisible();
