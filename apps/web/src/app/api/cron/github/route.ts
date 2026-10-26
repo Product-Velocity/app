@@ -2,6 +2,7 @@ import { githubSourceControl } from "@/lib/github/server";
 import { retryEvent, runCheck } from "@/lib/github/sync";
 import type { ConnectionRow } from "@/lib/github/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { finalizeAllClosed } from "@/lib/alignment-results";
 
 /**
  * Daily safety net (Vercel Cron, free plan: once a day). Retries events that failed, then compares GitHub with every linked
@@ -16,7 +17,9 @@ export async function GET(request: Request) {
   if (!sc) return new Response("not configured", { status: 503 });
 
   const admin = createAdminClient({ via: "GitHub webhook" });
-  await admin.rpc("alignment_close_due"); // alignment sessions past their closing time close (any workspace; the daily run is the safety net)
+  await admin.rpc("alignment_purge_personal_data"); // participants' personal data is cleared when the retention time after closing has passed
+  await admin.rpc("alignment_close_due");
+  await finalizeAllClosed(); // the results of sessions that closed are stored once and never change // alignment sessions past their closing time close (any workspace; the daily run is the safety net)
   const { data: connections } = await admin.from("github_connections").select("*").eq("state", "connected");
   const report: { retried: number; checked: number; changed: number; missing: number; failed: number } = { retried: 0, checked: 0, changed: 0, missing: 0, failed: 0 };
   for (const c of (connections ?? []) as ConnectionRow[]) {

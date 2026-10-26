@@ -1,6 +1,6 @@
 # Alignment sessions: privacy model
 
-Status: **agreed by Ashu 2026-10-24** (issue #123, step 1; rule 7 in `CLAUDE.md`; PRD §4.7; `docs/03`), with one change from the proposal: admins may open names at any time, not only after close (Q2). Nothing in this note is built yet. The decisions are in section 9.
+Status: **agreed by Ashu 2026-10-24** (issue #123, step 1; rule 7 in `CLAUDE.md`; PRD §4.7; `docs/03`), with one change from the proposal: admins may open names at any time, not only after close (Q2). Built in releases 0.21.0 (setup), 0.24.0 (participants, invitations, participant flow); scoring and results are #126. The decisions are in section 10.
 
 ## 1. What must hold (the rules we are not free to bend)
 1. **Voters are anonymous to each other and to people reading results.** Participants see only anonymous aggregates; no one sees another person's ballot.
@@ -52,6 +52,12 @@ The joint score counts everyone (as in `docs/02`), unless the admin excludes a g
 
 ## 8. Built so far (release 0.21.0, issue #123)
 `alignment_sessions` and `alignment_items` with the state machine (draft, open, closed, archived), settings locked once open (error PV009), a participant-safe snapshot of each initiative taken when the session opens (name, summary, value proposition), the closing time (lazily when a page is opened, and daily by the cron), a participant preview, admin-only changes through functions, audit with actor and source. `participants`, `ballots` and `votes` are not built yet: they hold personal data and come with #124 and #125. Sessions can be made from any selection; planning cycles (#121) are not built, so `cycle_id` stays empty for now.
+
+## 8b. Built in 0.24.0 (issues #124 and #125)
+`alignment_participants`, `alignment_ballots`, `alignment_votes` (no API access at all; migrations 0033 and 0034), `alignment_mailings` (members can read the state, never an address). The confirm step is a database rule: `alignment_mailing_recipients()` raises PV010 until a person confirmed the mailing, and `alignment_mailing_confirm()` refuses Claude and service accounts (PV004). Personal links are 256-bit, stored as a hash (the previous hash is kept so a replaced link can still ask for a new one) and tied to the first browser by a cookie; asking for a new link is limited to one email a minute and six in all. Ballot saves carry a revision and an older one is ignored; the vote is replaced in one step, so repeating a submit changes nothing. Participant and ballot audit entries hold states only. Personal data is cleared by the daily job after the retention time. Resend delivery events (delivered, bounced, spam) update participants as they do invitations.
+
+## 8c. Built in 0.25.0 (issue #126)
+The scoring rules are pure functions in `packages/domain/src/alignment-scoring.ts` with golden tests (the worked example in `docs/02`). The stored result (`results_snapshot`) holds aggregates only: item scores and places, and groups of 5 or more voters (small ones merged into Other, or no group at all when they would still be under 5). It is written once when the session is closed and cannot change afterwards. "Show names" (`alignment_reveal_names`) needs an admin, a person (not Claude) and a reason; the audit entry is written before any name is returned. Participants see the joint result and their own answers only, and only if the admin allowed it.
 
 ## 9. What this means for the issues
 - **#123 (setup):** sessions, items, settings locked once open, preview as a participant, states Draft, Open, Closed, Archived. Commercial fields never shown unless the audience profile allows. Works on "any selection" until planning cycles (#121) exist.

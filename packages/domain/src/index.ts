@@ -16,3 +16,4 @@ export * from "./related";
 export * from "./gantt";
 export * from "./cards";
 export * from "./leadership";
+export * from "./alignment-scoring";
