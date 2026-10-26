@@ -527,3 +527,8 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .ballot-slider { display: grid; gap: 2px; }
 .ballot-slider input[type="range"] { width: 100%; min-height: 32px; }
 .ballot-save { min-height: 1.2em; margin: 0; }
+
+/* alignment results (0.25.0) */
+.page-wide { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 12px; }
+.score-bar { display: inline-block; width: 90px; height: 8px; background: var(--grey-2); border-radius: 4px; vertical-align: middle; overflow: hidden; }
+.score-bar > span { display: block; height: 100%; background: var(--blue); }

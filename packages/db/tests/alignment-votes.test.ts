@@ -133,3 +133,33 @@ describe("the three methods", () => {
     void sid;
   });
 });
+
+describe("results and names", () => {
+  const store = (sid: string, snap: unknown) => svc(async (q) => (await q("select public.alignment_results_store($1, $2::jsonb) as r", [sid, JSON.stringify(snap)])).rows[0]!.r as boolean);
+  it("the results are stored once, only for a closed session, and never change", async () => {
+    const { sid } = await setup("coins");
+    expect(await errorCode(store(sid, { joint: [] }))).toBe("22023");
+    await db.asUser(f.alice, (q) => q("select public.alignment_session_set_state($1, 'closed')", [sid]), { commit: true });
+    expect(await store(sid, { joint: [1] })).toBe(true);
+    expect(await store(sid, { joint: [2] })).toBe(false);
+    expect((await db.admin.query("select results_snapshot from public.alignment_sessions where id = $1", [sid])).rows[0].results_snapshot).toEqual({ joint: [1] });
+    expect(await errorCode(db.admin.query("update public.alignment_sessions set results_snapshot = '{}' where id = $1", [sid]))).toBe("PV009");
+    expect(await errorCode(db.admin.query("update public.alignment_sessions set results_snapshot = null where id = $1", [sid]))).toBe("PV009");
+  });
+  it("Show names needs a reason, an admin and a person; it is logged before the names come back, and it is not a ranked list", async () => {
+    const { sid, pid, ai } = await setup("coins", 4);
+    await get(pid);
+    await submit(pid, { coins: { [ai[0]!]: 30, [ai[1]!]: 30, [ai[2]!]: 30, [ai[3]!]: 10 } });
+    const reveal = (user: string, reason: string, via = "UI") => db.asUser(user, async (q) => (await q("select * from public.alignment_reveal_names($1, $2)", [sid, reason])).rows, { commit: true, via });
+    expect(await errorCode(reveal(f.alice, "no"))).toBe("22023");
+    expect(await errorCode(reveal(f.bob, "Checking a complaint"))).toBe("42501");
+    expect(await errorCode(reveal(f.alice, "Checking a complaint", "Claude MCP"))).toBe("PV004");
+    expect((await db.admin.query("select count(*)::int as n from public.audit_log where entity_id = $1 and field = 'names_revealed'", [sid])).rows[0].n).toBe(0);
+    const rows = await reveal(f.alice, "Checking a complaint from sales");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ email: "v@example.test", voted: true });
+    expect((rows[0].answers as { item: string; coins: number }[]).map((a) => a.coins)).toEqual([30, 30, 30, 10]);
+    const log = (await db.admin.query("select actor_id, new, via from public.audit_log where entity_id = $1 and field = 'names_revealed'", [sid])).rows;
+    expect(log).toEqual([{ actor_id: f.alice, new: "Checking a complaint from sales", via: "UI" }]);
+  });
+});
