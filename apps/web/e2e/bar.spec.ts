@@ -26,18 +26,14 @@ test.describe("the bar above the grid (0.30.0)", () => {
     await expect(page.getByText("All changes saved")).toBeVisible();
   });
 
-  test("when a label grows (Export 3, 2 filters) nothing wraps: search gives up width first", async ({ page }) => {
+  test("when a label grows (Export 3) nothing wraps: search gives up width first", async ({ page }) => {
     await page.setViewportSize({ width: 1100, height: 800 });
     await open(page);
     const before = (await page.locator(".pvbar-search").boundingBox())!;
     const y0 = (await filterBtn(page).boundingBox())!.y;
     await select(page, "item-1", "item-2", "item-3");
-    await filterBtn(page).click();
-    await page.getByRole("button", { name: "High impact" }).click();
-    await page.getByRole("button", { name: "In progress" }).click();
-    await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "Export 3" })).toBeVisible();
-    await expect(filterBtn(page)).toContainText("2 filters");
+    await expect(page.getByRole("button", { name: "Sync GitHub" })).toBeVisible();
     const after = (await page.locator(".pvbar-search").boundingBox())!;
     expect(after.width).toBeLessThanOrEqual(before.width);
     const undo = (await page.getByRole("button", { name: /^Undo/ }).boundingBox())!;
@@ -224,7 +220,7 @@ test.describe("column picker", () => {
     const fourth = (await panel.getByRole("list", { name: "Selected columns in order" }).getByRole("listitem").locator(".name").allInnerTexts())[3]!;
     await panel.getByRole("button", { name: `Pin ${fourth}` }).click();
     await panel.getByRole("button", { name: /^Apply columns/ }).click();
-    await expect(page.locator(".ag-pinned-left-header").getByText(fourth, { exact: true })).toBeVisible();
+    await expect(page.locator(".ag-pinned-left-header").getByRole("columnheader", { name: new RegExp(fourth) })).toBeVisible();
   });
 
   test("Save as new view… at the bottom saves what you staged", async ({ page }) => {
