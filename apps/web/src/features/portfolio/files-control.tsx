@@ -92,6 +92,7 @@ export function FilesControl({ itemId, disabled, onError }: { itemId: string; di
           </li>
         ))}
       </ul>
+      {files.length > 0 && <p className="muted">Only files with a share link go into the GitHub issue (private repositories only). Anyone with a link can open that file without signing in.</p>}
       {!disabled && (
         <>
           <label className="btn" htmlFor={id}>{busy ? "Uploading…" : "Attach files"}</label>

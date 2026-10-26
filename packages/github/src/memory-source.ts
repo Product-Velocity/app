@@ -21,7 +21,18 @@ export class MemorySourceControl implements SourceControl {
   async getInstallation(id: number): Promise<InstallationInfo | null> { return { id, accountLogin: "Acme", accountType: "Organization", repositorySelection: "selected", permissions: {}, events: [], suspended: false }; }
   async listInstallations() { return []; }
   async listRepositories(): Promise<RepoInfo[]> { return []; }
-  async listIssueTypes() { return null; }
+  /** Issue types of the organisation, or null when the App may not read them. */
+  types: string[] | null = null;
+  async listIssueTypes() { return this.types; }
+  milestones: { number: number; repo: string; title: string; dueOn: string }[] = [];
+  async ensureMilestone(_i: number, repo: string, m: { title: string; dueOn: string }) {
+    this.tick("ensureMilestone");
+    const found = this.milestones.find((x) => x.repo === repo && x.title === m.title);
+    if (found) return found.number;
+    const number = this.milestones.length + 1;
+    this.milestones.push({ number, repo, title: m.title, dueOn: m.dueOn });
+    return number;
+  }
   async listRecentDeliveries(): Promise<DeliverySummary[]> { return []; }
   /** Issues GitHub would report for a repository, set by a test. */
   subs = new Map<string, SubIssue[] | null>();
@@ -35,7 +46,7 @@ export class MemorySourceControl implements SourceControl {
     this.issues.set(`${repo}#${number}`, issue);
     return issue;
   }
-  async updateIssue(_i: number, repo: string, number: number, input: { title?: string; body?: string }): Promise<IssueRef> {
+  async updateIssue(_i: number, repo: string, number: number, input: { title?: string; body?: string; type?: string; milestone?: number }): Promise<IssueRef> {
     this.tick("updateIssue", input);
     const issue = this.issues.get(`${repo}#${number}`)!;
     Object.assign(issue, input);

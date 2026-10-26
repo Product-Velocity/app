@@ -37,4 +37,17 @@ describe("planPush and the one tracker of a project", () => {
       expect(pub[0]!.filesNote).toContain("public");
     }
   });
+  it("says when an attached file has no share link and so is not in the issue", async () => {
+    const base = { items: [item], projects: [{ id: "p1", name: "Core", default_repo: "Acme/App", tracker: "github" }], github_repositories: [{ full_name: "Acme/App", access: "read_write", is_private: true }] };
+    const [plan] = await planPush(fakeSupabase({ ...base, item_files: [{ item_id: "i1", name: "a.png", share_token: null }, { item_id: "i1", name: "b.png", share_token: "T".repeat(43) }] }), "t1", "https://app.example", connection, ["i1"]);
+    expect(plan!.filesNote).toContain("1 attached file has no share link");
+    expect(plan!.block).toContain("b.png");
+    expect(plan!.block).not.toContain("a.png");
+  });
+  it("puts the quarter of the G2M date in the preview as the milestone, and Change Type and Initiative Group as labels", async () => {
+    const tables = { items: [{ ...item, change_type: "New feature", g2m_date_est: "2026-11-14", theme: "Checkout" }], projects: [{ id: "p1", name: "Core", default_repo: "Acme/App", tracker: "github" }], github_repositories: [{ full_name: "Acme/App", access: "read_write", is_private: true }] };
+    const [plan] = await planPush(fakeSupabase(tables), "t1", "https://app.example", connection, ["i1"]);
+    expect(plan).toMatchObject({ milestone: "2026 Q4" });
+    expect(plan!.labels).toEqual(expect.arrayContaining(["pv:type/new-feature", "pv:group/checkout"]));
+  });
 });

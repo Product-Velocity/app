@@ -171,7 +171,7 @@ export class GitHubAppSourceControl implements SourceControl {
     return GitHubAppSourceControl.ref((await res.json()) as Parameters<typeof GitHubAppSourceControl.ref>[0]);
   }
 
-  async updateIssue(installationId: number, repo: string, number: number, input: { title?: string; body?: string }): Promise<IssueRef> {
+  async updateIssue(installationId: number, repo: string, number: number, input: { title?: string; body?: string; type?: string; milestone?: number }): Promise<IssueRef> {
     const res = await this.call(installationId, "PATCH", `/repos/${repo}/issues/${number}`, input);
     if (!res.ok) throw new GitHubError(res.status, `GitHub refused to update the issue (${res.status})`);
     return GitHubAppSourceControl.ref((await res.json()) as Parameters<typeof GitHubAppSourceControl.ref>[0]);
@@ -211,6 +211,21 @@ export class GitHubAppSourceControl implements SourceControl {
       const res = await this.call(installationId, "POST", `/repos/${repo}/labels`, l);
       if (!res.ok && res.status !== 422) throw new GitHubError(res.status, `GitHub refused to create the label ${l.name} (${res.status})`); // 422: it exists
     }
+  }
+
+  async ensureMilestone(installationId: number, repo: string, m: { title: string; dueOn: string }): Promise<number> {
+    for (let page = 1; page <= 5; page++) {
+      const res = await this.call(installationId, "GET", `/repos/${repo}/milestones?state=all&per_page=100&page=${page}`);
+      if (!res.ok) throw new GitHubError(res.status, `GitHub refused to list milestones (${res.status})`);
+      const list = (await res.json()) as { number: number; title: string }[];
+      const found = list.find((x) => x.title === m.title);
+      if (found) return found.number;
+      if (list.length < 100) break;
+    }
+    const res = await this.call(installationId, "POST", `/repos/${repo}/milestones`, { title: m.title, due_on: m.dueOn, description: "Managed by Product Velocity" });
+    if (res.status === 422) throw new GitHubError(422, "GitHub refused to create the milestone (422)");
+    if (!res.ok) throw new GitHubError(res.status, `GitHub refused to create the milestone (${res.status})`);
+    return ((await res.json()) as { number: number }).number;
   }
 
   async listRecentDeliveries(): Promise<DeliverySummary[]> {
