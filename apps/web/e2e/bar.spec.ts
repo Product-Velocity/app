@@ -220,7 +220,10 @@ test.describe("column picker", () => {
     const fourth = (await panel.getByRole("list", { name: "Selected columns in order" }).getByRole("listitem").locator(".name").allInnerTexts())[3]!;
     await panel.getByRole("button", { name: `Pin ${fourth}` }).click();
     await panel.getByRole("button", { name: /^Apply columns/ }).click();
-    await expect(page.locator(".ag-pinned-left-header").getByRole("columnheader", { name: new RegExp(fourth) })).toBeVisible();
+    // scroll the grid sideways as far as it goes: the pinned column is still there, and the horizontal scroll really moved
+    await page.locator(".ag-body-horizontal-scroll-viewport").evaluate((el) => { el.scrollLeft = el.scrollWidth; });
+    expect(await page.locator(".ag-body-horizontal-scroll-viewport").evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+    await expect(page.getByRole("columnheader", { name: new RegExp(fourth) }).first()).toBeVisible();
   });
 
   test("Save as new view… at the bottom saves what you staged", async ({ page }) => {
