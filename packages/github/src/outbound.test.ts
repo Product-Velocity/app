@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moscowLabel, rankBandLabel, planAction, BLOCK_END, BLOCK_START, buildTrackingIssue, describePushError, GitHubError, MemorySourceControl, mergeBody, OUTBOUND_ITEM_FIELDS, outsideBlock, projectLabel, pushTrackingIssue, sanitize } from "./index";
+import { groupLabel, changeTypeLabel, issueTypeCandidates, milestoneFor, moscowLabel, rankBandLabel, planAction, BLOCK_END, BLOCK_START, buildTrackingIssue, describePushError, GitHubError, MemorySourceControl, mergeBody, OUTBOUND_ITEM_FIELDS, outsideBlock, projectLabel, pushTrackingIssue, sanitize } from "./index";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const base = { item: { item_code: "R-12", initiative_name: "Faster checkout", summary: "Cut steps.", description: undefined as string | undefined, hypothesis: "IF we cut steps THEN conversion rises" }, itemId: ID, projectName: "Mobile App", appUrl: "https://productvelocity.app", artifacts: [{ label: "PRD", url: "https://example.test/prd" }] };
@@ -213,5 +213,102 @@ describe("planAction", () => {
   });
   it("never pushes to a link that only follows an existing issue", () => {
     for (const hash of ["h", "other"]) expect(planAction({ ...base, hash, link: link({ mode: "follow", repo: "Product-Velocity/app", issueNumber: 31 }) })).toMatchObject({ action: "blocked", reason: expect.stringContaining("#31") });
+  });
+});
+
+describe("share links of files (R-034)", () => {
+  const shared = [{ label: "Mockup v2.png", url: `https://productvelocity.app/f/${"T".repeat(43)}/Mockup%20v2.png` }];
+  it("adds a Files section with the share links", () => {
+    const b = buildTrackingIssue({ ...base, files: shared }).block;
+    expect(b).toContain("## Files");
+    expect(b).toContain(`- [Mockup v2.png](https://productvelocity.app/f/${"T".repeat(43)}/Mockup%20v2.png)`);
+    expect(b.indexOf("## Files")).toBeGreaterThan(b.indexOf("## Artifacts"));
+  });
+  it("has no Files section without links, and a changed link changes the hash", () => {
+    expect(buildTrackingIssue(base).block).not.toContain("## Files");
+    expect(buildTrackingIssue({ ...base, files: shared }).hash).not.toBe(buildTrackingIssue(base).hash);
+  });
+  it("drops anything that is not a plain http(s) address and cleans the label", () => {
+    const b = buildTrackingIssue({ ...base, files: [{ label: "x](javascript:alert(1))", url: "javascript:alert(1)" }, { label: "a b", url: "https://x.test/a b" }] }).block;
+    expect(b).not.toContain("## Files");
+  });
+});
+
+describe("type and milestone (R-034)", () => {
+  it("Change Type becomes a pv:type label, and the issue-type names to try", () => {
+    expect(changeTypeLabel("New feature")).toBe("pv:type/new-feature");
+    expect(changeTypeLabel("Improvement to existing feature")).toBe("pv:type/improvement");
+    expect(changeTypeLabel("Something else")).toBeNull();
+    expect(changeTypeLabel(undefined)).toBeNull();
+    expect(issueTypeCandidates("New feature")).toEqual(["Feature"]);
+    expect(issueTypeCandidates("Improvement to existing feature")).toEqual(["Improvement", "Enhancement"]);
+    expect(issueTypeCandidates(null)).toEqual([]);
+  });
+  it("the G2M date gives a calendar-quarter milestone with the quarter's last day as due date", () => {
+    expect(milestoneFor("2026-11-14")).toEqual({ title: "2026 Q4", dueOn: "2026-12-31T12:00:00Z" });
+    expect(milestoneFor("2027-01-01")).toEqual({ title: "2027 Q1", dueOn: "2027-03-31T12:00:00Z" });
+    expect(milestoneFor("2026-06-30")).toEqual({ title: "2026 Q2", dueOn: "2026-06-30T12:00:00Z" });
+    for (const bad of [null, undefined, "", "Q4", "2026-13-01", "2026-02-30", 5]) expect(milestoneFor(bad)).toBeNull();
+  });
+  it("a built issue carries the type label, the milestone and the type candidates, and any change moves the hash", () => {
+    const item = { ...base.item, change_type: "New feature", g2m_date_est: "2026-11-14" };
+    const a = buildTrackingIssue({ ...base, item });
+    expect(a.labels).toContain("pv:type/new-feature");
+    expect(a.milestone).toEqual({ title: "2026 Q4", dueOn: "2026-12-31T12:00:00Z" });
+    expect(a.typeCandidates).toEqual(["Feature"]);
+    expect(buildTrackingIssue({ ...base, item: { ...item, g2m_date_est: "2027-02-01" } }).hash).not.toBe(a.hash);
+    expect(buildTrackingIssue({ ...base, item: { ...item, change_type: "Improvement to existing feature" } }).hash).not.toBe(a.hash);
+    expect(buildTrackingIssue(base).milestone).toBeNull();
+  });
+  it("the date and the type never appear as text in the issue", () => {
+    const b = buildTrackingIssue({ ...base, item: { ...base.item, change_type: "New feature", g2m_date_est: "2026-11-14" } }).block;
+    expect(b).not.toContain("2026-11-14");
+    expect(b).not.toContain("New feature");
+  });
+});
+
+describe("pushing type and milestone", () => {
+  const item = { ...base.item, change_type: "New feature", g2m_date_est: "2026-11-14" };
+  const built2 = buildTrackingIssue({ ...base, item });
+  it("sets the org's issue type and a milestone on create, creating the milestone once", async () => {
+    const sc = new MemorySourceControl();
+    sc.types = ["Task", "Bug", "Feature"];
+    await pushTrackingIssue(sc, 1, "acme/road", ID, built2, null);
+    expect(sc.sent).toContainEqual(expect.objectContaining({ type: "Feature", milestone: 1 }));
+    expect(sc.milestones).toEqual([{ number: 1, repo: "acme/road", title: "2026 Q4", dueOn: "2026-12-31T12:00:00Z" }]);
+    await pushTrackingIssue(sc, 1, "acme/road", "22222222-2222-4222-8222-222222222222", buildTrackingIssue({ ...base, itemId: "22222222-2222-4222-8222-222222222222", item }), null);
+    expect(sc.milestones).toHaveLength(1);
+  });
+  it("without a matching org type or without the permission, only the label is used and the push still succeeds", async () => {
+    for (const types of [["Task", "Bug"], null]) {
+      const sc = new MemorySourceControl();
+      sc.types = types;
+      const r = await pushTrackingIssue(sc, 1, "acme/road", ID, built2, null);
+      expect(r.kind).toBe("created");
+      expect(sc.sent.find((x) => (x as { title?: string }).title)).not.toHaveProperty("type");
+      expect([...sc.issues.values()][0]!.labels).toContain("pv:type/new-feature");
+    }
+  });
+  it("an update moves the issue to the new milestone, and an item without a date leaves a milestone people chose alone", async () => {
+    const sc = new MemorySourceControl();
+    const r = (await pushTrackingIssue(sc, 1, "acme/road", ID, built2, null)) as { issue: { number: number } };
+    await pushTrackingIssue(sc, 1, "acme/road", ID, buildTrackingIssue({ ...base, item: { ...item, g2m_date_est: "2027-02-01" } }), { issueNumber: r.issue.number, lastPushedHash: built2.hash });
+    expect(sc.sent).toContainEqual(expect.objectContaining({ milestone: 2 }));
+    sc.sent.length = 0;
+    await pushTrackingIssue(sc, 1, "acme/road", ID, buildTrackingIssue({ ...base, item: { ...item, g2m_date_est: undefined, summary: "changed" } }), { issueNumber: r.issue.number, lastPushedHash: "old" });
+    expect(sc.sent.some((x) => "milestone" in (x as object))).toBe(false);
+  });
+});
+
+describe("Initiative Group label", () => {
+  it("becomes pv:group/<slug>, changes with the group, and is empty without one", () => {
+    expect(groupLabel("Checkout & Payments")).toBe("pv:group/checkout-payments");
+    expect(groupLabel("  ")).toBeNull();
+    expect(groupLabel(undefined)).toBeNull();
+    expect(groupLabel("x".repeat(60))).toBe(`pv:group/${"x".repeat(40)}`);
+    const a = buildTrackingIssue({ ...base, item: { ...base.item, theme: "Growth" } });
+    expect(a.labels).toContain("pv:group/growth");
+    expect(buildTrackingIssue({ ...base, item: { ...base.item, theme: "Retention" } }).hash).not.toBe(a.hash);
+    expect(a.block).not.toContain("Growth");
   });
 });

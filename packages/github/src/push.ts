@@ -28,11 +28,17 @@ export async function pushTrackingIssue(sc: SourceControl, installationId: numbe
   }
 
   await sc.ensureLabels(installationId, repo, built.labels.map((name) => ({ name, color: LABEL_COLOUR, description: "Managed by Product Velocity" })));
+  // type and milestone are extras: the type only when the organisation has a matching one (the pv:type label always goes along),
+  // the milestone only when the item has a G2M date (an item without one never touches a milestone people chose)
+  const orgTypes = built.typeCandidates.length ? await sc.listIssueTypes(installationId, repo.split("/")[0]!) : null;
+  const type = built.typeCandidates.map((c) => orgTypes?.find((t) => t.toLowerCase() === c.toLowerCase())).find((t): t is string => !!t);
+  const milestone = built.milestone ? await sc.ensureMilestone(installationId, repo, built.milestone) : undefined;
+  const extras = { ...(type ? { type } : {}), ...(milestone !== undefined ? { milestone } : {}) };
   if (!issue) {
-    const created = await sc.createIssue(installationId, repo, { title: built.title, body: built.block, labels: built.labels });
+    const created = await sc.createIssue(installationId, repo, { title: built.title, body: built.block, labels: built.labels, ...extras });
     return { kind: "created", issue: created, hash: built.hash };
   }
-  const updated = await sc.updateIssue(installationId, repo, issue.number, { title: built.title, body: mergeBody(issue.body, built.block) });
+  const updated = await sc.updateIssue(installationId, repo, issue.number, { title: built.title, body: mergeBody(issue.body, built.block), ...extras });
   await sc.addLabels(installationId, repo, issue.number, built.labels);
   for (const stale of (issue.labels ?? []).filter((l) => l.startsWith(OWNED_LABEL_PREFIX) && !built.labels.includes(l))) await sc.removeLabel(installationId, repo, issue.number, stale);
   return { kind: "updated", issue: updated, hash: built.hash };

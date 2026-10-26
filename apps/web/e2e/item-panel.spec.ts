@@ -260,10 +260,12 @@ test.describe("list fields", () => {
     await expect(tags).not.toContainText("nope");
   });
 
-  test("screenshots wait for file storage and say so", async ({ page }) => {
+  test("screenshots are a file list with an attach button (details in files.spec.ts)", async ({ page }) => {
+    await page.route("**/api/files?**", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ files: [] }) }));
     await open(page, "n=40&item=R-01");
     await reveal(page, "What");
-    await expect(field(page, "screenshots")).toContainText("file storage");
+    await expect(field(page, "screenshots")).toContainText("No files yet.");
+    await expect(field(page, "screenshots").getByText("Attach files")).toBeVisible();
   });
 });
 

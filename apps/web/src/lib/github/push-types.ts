@@ -11,11 +11,15 @@ export type PlanItem = {
   action: PlanAction;
   title: string;
   labels: string[];
+  /** Milestone the issue is put in (the calendar quarter of the G2M date), when the item has a date. */
+  milestone?: string;
   /** The managed block exactly as it will be written. */
   block: string;
   issueNumber: number | null;
   issueUrl: string | null;
   reason?: string;
+  /** Shared file links that were left out of the issue, and why (public repository). */
+  filesNote?: string;
 };
 export type PreviewResult = { ok: true; items: PlanItem[]; account: string } | { ok: false; error: string };
 

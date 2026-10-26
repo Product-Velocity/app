@@ -77,6 +77,19 @@ export async function runConnectionDiagnostics(i: DiagnosticsInput): Promise<Che
     summary: missingEvents.length ? `Not subscribed yet: ${missingEvents.join(", ")}.` : "All events subscribed.",
   });
 
+  const liveMissing = (["issues", "sub_issues"] as const).filter((e) => !installation.events.includes(e));
+  add(
+    liveMissing.length
+      ? {
+          id: "live-updates",
+          title: "Live updates from GitHub",
+          verdict: "info",
+          summary: `Not subscribed to: ${liveMissing.join(", ")}. Until then a ticket closed or a task added in GitHub (by an engineer or an agent) shows up only after the daily check or "Check GitHub now".`,
+          fix: "In the GitHub App's settings (Permissions & events), subscribe to Issues and Sub-issues, then accept the change on the installation page.",
+        }
+      : { id: "live-updates", title: "Live updates from GitHub", verdict: "pass", summary: "Issues and sub-issues changes arrive as they happen." },
+  );
+
   const repos = await safe(() => i.sc.listRepositories(i.installationId));
   if (!repos.ok) {
     add({ id: "repositories", title: "Repository access", verdict: "fail", summary: `Could not list repositories: ${repos.error}`, fix: "Check the installation permissions and try again." });

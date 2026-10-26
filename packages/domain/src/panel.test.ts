@@ -16,14 +16,14 @@ describe("panelField: how each of the 167 fields is shown in the item panel", ()
     expect(panelField(f("theme")).kind).toBe("group");
     expect(panelField(f("stack_rank")).kind).toBe("rank");
   });
-  it("tags, links, relations, teams and skills have typed editors; screenshots wait for file storage", () => {
+  it("tags, links, relations, teams and skills have typed editors; screenshots are a file list", () => {
     for (const k of ["tags", "target_scope", "live_scope", "target_segments"]) expect(panelField(f(k)).kind, k).toBe("tags");
     expect(panelField(f("artifacts")).kind).toBe("links");
     expect(panelField(f("depends_on")).kind).toBe("relations");
     expect(panelField(f("related_to")).kind).toBe("relations");
     expect(panelField(f("contributing_teams")).kind).toBe("teams");
     expect(panelField(f("effort_by_skill")).kind).toBe("skills");
-    expect(panelField(f("screenshots"))).toMatchObject({ kind: "readonly", reason: expect.stringContaining("file storage") });
+    expect(panelField(f("screenshots"))).toEqual({ kind: "files" });
   });
   it("locked, calculated and system fields say why they cannot be edited", () => {
     expect(panelField(f("status"))).toMatchObject({ kind: "readonly", reason: expect.stringContaining("comes from GitHub") });
