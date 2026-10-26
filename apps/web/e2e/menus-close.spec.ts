@@ -21,7 +21,7 @@ test.describe("menus close when you click somewhere else", () => {
 
   test("the Columns panel", async ({ page }) => {
     await open(page);
-    const button = page.getByRole("button", { name: /^Columns/ });
+    const button = page.getByRole("button", { name: /columns shown$/ });
     await button.click();
     await expect(page.getByRole("group", { name: "Choose columns" })).toBeVisible();
     await clickElsewhere(page);

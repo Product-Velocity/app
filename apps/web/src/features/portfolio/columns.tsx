@@ -65,9 +65,11 @@ export type ColumnContext = {
   order: string[];
   /** Sorted by global rank (off while rows are grouped: the grouping decides the order). */
   sorted: boolean;
+  /** Columns besides the core ones that stay on the left while the grid scrolls. */
+  pinned?: ReadonlySet<string>;
 };
 
-export function buildColumns({ controller, lookups, today, visible, order, sorted }: ColumnContext): ColDef<GridItem>[] {
+export function buildColumns({ controller, lookups, today, visible, order, sorted, pinned }: ColumnContext): ColDef<GridItem>[] {
   const editable = () => controller.canEdit;
   const projectOptions: PickerOption[] = lookups.projects.map((p) => ({ value: p.id, label: p.name }));
   const personOptions: PickerOption[] = lookups.members.map((m) => ({ value: m.user_id, label: m.email }));
@@ -109,6 +111,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
       };
     }
     if (CORE_COLUMNS.includes(f.key as never)) base.pinned = "left";
+    if (pinned?.has(f.key)) { base.pinned = "left"; base.suppressMovable = true; }
     if (f.key === "initiative_name") { base.flex = 1; base.minWidth = 300; base.cellClass = `${String(base.cellClass ?? "")} cell-name`.trim(); }
     if (f.key === "item_code") {
       return {

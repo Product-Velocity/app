@@ -13,12 +13,14 @@ import {
 import { useWorkspace } from "../workspace/provider";
 import { setQueryParam, useScope } from "../workspace/scope";
 import { buildColumns, isEditableColumn, isReadOnlyColumn } from "./columns";
-import { ColumnsPicker } from "./columns-picker";
+import { ColumnsPanel } from "./columns-panel";
+import { FilterPanel } from "./filter-panel";
+import { Popover } from "./popover";
 import { ItemPanel } from "./item-panel";
 import { ALL_COLUMNS_NAME, baseDef, baseLabel, baseParam, parseBase, sameView, type BaseView } from "./grid-view";
 import { CommandPalette } from "./command-palette";
 import type { Command } from "./palette";
-import { FiltersMenu, GroupMenu, summarize, ViewsMenu } from "./view-controls";
+import { GroupMenu, summarize, useViewSaver, ViewsMenu } from "./view-controls";
 import { downloadCsv, selectionToCsv } from "./export-selection";
 import { BulkBar } from "./bulk-bar";
 import { DeleteDialog } from "./delete-dialog";
@@ -26,7 +28,7 @@ import { GithubPushDialog } from "./github-push-dialog";
 import { ImportDialog } from "./import-dialog";
 import { QuickAddBar } from "./quick-add-bar";
 import type { PortfolioController } from "./controller";
-import { StatusStrip, useStatus } from "./status-strip";
+import { StatusAlerts, StatusInline, useStatus } from "./status-strip";
 import type { GridItem, Lookups } from "./types";
 
 ModuleRegistry.registerModules([
@@ -163,10 +165,9 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const openBase = (b: BaseView) => { setBase(b); setOverride(null); setQueryParam("view", baseParam(b)); };
   const changeDef = (patch: Partial<ViewDef>) => setOverride(sanitizeView({ ...def, ...patch }));
   const visible = useMemo(() => new Set(def.columns), [def.columns]);
-  const toggle = (key: string) => {
-    if ((CORE_COLUMN_KEYS as readonly string[]).includes(key)) return;
-    changeDef({ columns: visible.has(key) ? def.columns.filter((c) => c !== key) : [...def.columns, key] });
-  };
+  const changeColumns = (columns: string[], pinned: string[]) => changeDef({ columns, pinned });
+  const pinnedSet = useMemo(() => new Set(def.pinned ?? []), [def.pinned]);
+  const saver = useViewSaver(base, views, openBase);
 
   // ---- what rows show: scope, search, filters, grouping
   const [search, setSearch] = useState("");
@@ -204,8 +205,8 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const setSearchText = (t: string) => { resetShown(); setSearch(t); };
 
   const columnDefs = useMemo(
-    () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible, order: def.columns, sorted: def.groupBy === null }),
-    [controller, lookups, visible, def.columns, def.groupBy],
+    () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible, order: def.columns, sorted: def.groupBy === null, pinned: pinnedSet }),
+    [controller, lookups, visible, def.columns, def.groupBy, pinnedSet],
   );
   const exportFields = useMemo(() => def.columns.map((k) => FIELD_BY_KEY[k]!).filter(Boolean), [def.columns]);
   const showLater = def.columns.some((k) => (FIELD_BY_KEY[k]?.phase ?? 1) > 1 && k !== "project_rank");
@@ -423,6 +424,13 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     api.setFocusedCell(node.rowIndex, "initiative_name");
   };
   const exportAll = () => downloadCsv(`roadmap-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(visibleRows, exportFields, lookups));
+  /** The Export button: the selected rows when some are selected, else every row the filters show. */
+  const exportRows = () => (selected.length > 0
+    ? downloadCsv(`roadmap-selection-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(selected, exportFields, lookups))
+    : exportAll());
+  const exportCount = selected.length > 0 ? selected.length : visibleRows.length;
+  const syncIds = selected.length > 0 ? selected.map((r) => r.id) : visibleRows.map((r) => r.id);
+  const shownCount = FIELDS.filter((f) => visible.has(f.key) || (CORE_COLUMN_KEYS as readonly string[]).includes(f.key)).length;
   const commands = useMemo<Command[]>(() => {
     const out: Command[] = [];
     if (controller.canEdit && lookups.projects.length > 0) out.push({ id: "add", label: "Add initiative", group: "Actions", keywords: "new create quick add", hint: "Alt+N", run: focusQuickAdd });
@@ -480,20 +488,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         </div>
         <ViewsMenu base={base} views={views} defaults={defaults} def={def} dirty={dirty} onOpen={openBase} />
       </div>
-      <span className="head-tools">
-        <input
-          ref={searchRef}
-          className="search-box"
-          type="search"
-          aria-label="Search initiatives"
-          placeholder="Search initiatives"
-          value={search}
-          onChange={(e) => setSearchText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Escape") setSearchText(""); }}
-        />
-        <GroupMenu groupBy={def.groupBy} onChange={(g) => changeDef({ groupBy: g })} />
-        {headRight}
-      </span>
+      {headRight && <span className="head-tools">{headRight}</span>}
       {(def.filters.length > 0 || scope.selection.kind !== "all") && (
         <div className="filter-chips" aria-label="Active scope and filters">
           {scope.selection.kind !== "all" && <span className="token-chip">Scope: {scope.label}</span>}
@@ -532,23 +527,51 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         if (/[\t\n]/.test(pasted.trim())) { e.preventDefault(); setImportText(pasted); }
       }}
     >
-      <StatusStrip
-        controller={controller}
-        tools={
-          <>
-            <FiltersMenu filters={def.filters} onChange={setFilters} lookups={lookups} today={today} />
-            <ColumnsPicker visible={visible} onToggle={toggle} customerSafe={def.customerSafe === true} />
-            <button type="button" className="tool-btn" onClick={exportAll}>Export</button>
-          </>
-        }
-      />
-      {controller.canEdit && lookups.projects.length > 0 && (
-        <QuickAddBar
-          controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef}
-          extra={<button type="button" className="tool-btn" onClick={() => setImportText("")}>Import from spreadsheet</button>}
-        />
-      )}
-      {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} exportFields={exportFields} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} onGithub={() => setGithubIds(selected.map((r) => r.id))} total={visibleRows.length} />}
+      <div className="gbar" role="region" aria-label="Roadmap tools">
+        <div className="gbar-s1">
+          <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} today={today} matching={visibleRows.length} total={controller.rows.length} def={def} saver={saver} dirty={dirty} />
+          <ColumnsPanel def={def} defaultDef={bDef} customerSafe={def.customerSafe === true} onApply={changeColumns} saver={saver} dirty={dirty} shown={shownCount} />
+          <GroupMenu groupBy={def.groupBy} onChange={(g) => changeDef({ groupBy: g })} />
+          <label className="gbar-search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b6272" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
+            <input
+              ref={searchRef}
+              type="search"
+              aria-label="Search initiatives"
+              placeholder="Search initiatives"
+              value={search}
+              onChange={(e) => setSearchText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Escape") setSearchText(""); }}
+            />
+          </label>
+          <span className="gbar-sep" aria-hidden="true" />
+          <Popover label={selected.length > 0 ? `Export ${selected.length}` : "Export"} active={selected.length > 0}>
+            {(close) => (
+              <div role="menu" aria-label="Export">
+                <button type="button" role="menuitem" className="scope-item" onClick={() => { close(); exportRows(); }}>
+                  <span>CSV file ({exportCount.toLocaleString("en-GB")} {exportCount === 1 ? "row" : "rows"}{selected.length > 0 ? ", the selected ones" : filtered ? ", with the filters" : ""})</span>
+                </button>
+                <p className="scope-empty">The columns you see, in your date format. More formats come later.</p>
+              </div>
+            )}
+          </Popover>
+          {controller.canEdit && lookups.projects.length > 0 && <button type="button" className="tool-btn" onClick={() => setImportText("")}>Paste table</button>}
+          {controller.canEdit && (
+            lookups.github?.connected ? (
+              <button type="button" className="tool-btn" onClick={() => setGithubIds(syncIds)} title="Create or update the GitHub tracking issues. You review everything before anything is sent.">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M20 12a8 8 0 0 1-14 5M4 12a8 8 0 0 1 14-5" /><path d="M18 3v4h-4M6 21v-4h4" /></svg>
+                {selected.length > 0 ? `Sync ${selected.length} GitHub` : "Sync GitHub"}
+              </button>
+            ) : (
+              <button type="button" className="tool-btn" disabled title="An admin connects GitHub in Settings > GitHub">Sync GitHub</button>
+            )
+          )}
+          <StatusInline controller={controller} />
+        </div>
+        <StatusAlerts controller={controller} />
+        {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} total={visibleRows.length} />}
+        {controller.canEdit && lookups.projects.length > 0 && <QuickAddBar controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef} />}
+      </div>
       {githubIds && <GithubPushDialog ids={githubIds} onClose={() => setGithubIds(null)} />}
       {deleteIds && <DeleteDialog controller={controller} ids={deleteIds} onClose={closeDelete} onDeleted={() => apiRef.current?.deselectAll()} />}
       {importText !== null && (

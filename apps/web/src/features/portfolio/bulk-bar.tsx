@@ -4,7 +4,6 @@ import { useId, useRef, useState } from "react";
 import { bulkEditReason, canBeEmpty, EDITABLE_FIELDS, FIELDS, FIELD_BY_KEY, fieldOptions, optionsFor, type FieldDef, type ListOption } from "@pv/domain";
 import { SelectField } from "@/components/search-list";
 import type { PortfolioController } from "./controller";
-import { downloadCsv, selectionToCsv } from "./export-selection";
 import type { GridItem, Lookups } from "./types";
 import { useMenuBlur } from "./use-menu-blur";
 import { useDismiss } from "./use-dismiss";
@@ -15,14 +14,11 @@ type Props = {
   controller: PortfolioController;
   lookups: Lookups;
   selected: GridItem[];
-  /** The columns currently shown: what "Export selection to file" writes. */
-  exportFields: FieldDef[];
   onClear: () => void;
   onSelectAll: () => void;
   /** Opens the delete confirmation for the selected rows. */
   onDelete: () => void;
-  /** Opens the "Update GitHub" confirmation for the selected rows. */
-  onGithub: () => void;
+
   /** Number of items in the grid, for "Select all 22". */
   total: number;
 };
@@ -83,7 +79,7 @@ function SetMenu({ def, selected, onPick }: { def: FieldDef; selected: GridItem[
 }
 
 /** Shown when rows are selected: set one field on all of them (one undo step), export them, or (later) update GitHub. */
-export function BulkBar({ controller, lookups, selected, exportFields, onClear, onSelectAll, onDelete, onGithub, total }: Props) {
+export function BulkBar({ controller, lookups, selected, onClear, onSelectAll, onDelete, total }: Props) {
   const id = useId();
   const [field, setField] = useState("");
   const [value, setValue] = useState("");
@@ -125,18 +121,6 @@ export function BulkBar({ controller, lookups, selected, exportFields, onClear, 
         <button type="button" className={more ? "bulk-btn bulk-btn-open" : "bulk-btn"} aria-expanded={more} onClick={() => setMore((m) => !m)}>More fields ▾</button>
       )}
       <div className="bulk-actions">
-        {controller.canEdit && (
-          lookups.github?.connected ? (
-            <button type="button" className="bulk-btn" onClick={onGithub} title="Create or update the GitHub tracking issue of each selected initiative (you confirm first)">Update GitHub…</button>
-          ) : (
-            <button type="button" className="bulk-btn" disabled title="An admin connects GitHub in Settings > GitHub">
-              Update GitHub <span className="bulk-later">connect GitHub first</span>
-            </button>
-          )
-        )}
-        <button type="button" className="bulk-btn" onClick={() => downloadCsv(`roadmap-selection-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(selected, exportFields, lookups))}>
-          Export selection to file
-        </button>
         {controller.canPurge && <button type="button" className="bulk-btn" onClick={() => setAlignOpen(true)}>Start alignment session…</button>}
         {controller.canEdit && <button type="button" className="bulk-btn" onClick={() => setCopyOpen(true)}>Copy to project…</button>}
         {controller.canEdit && <button type="button" className="bulk-btn bulk-btn-danger" onClick={onDelete}>Delete…</button>}

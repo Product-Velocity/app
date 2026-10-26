@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import {
-  FIELDS, FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupableFields, needsSearch, opsFor, optionsFor, type Filter, type FilterOp, type ListOption, type ViewDef, type ViewName,
+  FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupableFields, needsSearch, optionsFor, type Filter, type ListOption, type ViewDef, type ViewName,
 } from "@pv/domain";
 import { menuSearchKeys, NoResults, SearchInput, SelectField } from "@/components/search-list";
 import { DateInput } from "@/components/date-input";
@@ -13,9 +13,7 @@ import type { BaseView } from "./grid-view";
 import type { Lookups } from "./types";
 
 // ------------------------------------------------------------------ filters
-const FIELD_OPTIONS: ListOption[] = fieldOptions(FIELDS);
-
-function valueControl(f: Filter, lookups: Lookups, today: Date, patch: (p: Partial<Filter>) => void) {
+export function valueControl(f: Filter, lookups: Lookups, today: Date, patch: (p: Partial<Filter>) => void) {
   const onValue = (v: string) => patch({ value: v });
   const def = FIELD_BY_KEY[f.field];
   if (!def || f.op === "empty" || f.op === "not_empty") return null;
@@ -44,39 +42,6 @@ function valueControl(f: Filter, lookups: Lookups, today: Date, patch: (p: Parti
   return <input aria-label={label} value={f.value ?? ""} placeholder={def.type === "Number" || def.type === "Currency" ? "a number" : "text"} onChange={(e) => onValue(e.target.value)} />;
 }
 
-export function FiltersMenu({ filters, onChange, lookups, today }: { filters: Filter[]; onChange: (f: Filter[]) => void; lookups: Lookups; today: Date }) {
-  const patch = (i: number, p: Partial<Filter>) => onChange(filters.map((f, j) => (j === i ? { ...f, ...p } : f)));
-  return (
-    <Popover label={<>Filters{filters.length > 0 && <strong className="count-badge"> {filters.length}</strong>}</>} active={filters.length > 0}>
-      {() => (
-        <div className="filters-panel" role="group" aria-label="Filters">
-          {filters.length === 0 && <p className="muted">No filters. Items must match all filters you add.</p>}
-          {filters.map((f, i) => {
-            const ops = FIELD_BY_KEY[f.field] ? opsFor(FIELD_BY_KEY[f.field]!) : [];
-            return (
-              <div key={i} className="filter-row">
-                <SelectField
-                  label={`Field of filter ${i + 1}`} value={f.field} options={FIELD_OPTIONS}
-                  onChange={(v) => { const d = FIELD_BY_KEY[v]!; patch(i, { field: d.key, op: opsFor(d)[0]!.op, value: "", value2: undefined }); }}
-                />
-                <select aria-label={`Operator of filter ${i + 1}`} value={f.op} onChange={(e) => patch(i, { op: e.target.value as FilterOp, value2: undefined, ...(["in_last", "in_next"].includes(e.target.value) || ["in_last", "in_next"].includes(f.op) ? { value: "" } : {}) })}>
-                  {ops.map((o) => <option key={o.op} value={o.op}>{o.label}</option>)}
-                </select>
-                {valueControl(f, lookups, today, (p) => patch(i, p))}
-                <button type="button" className="tool-btn" aria-label={`Remove filter ${i + 1}`} onClick={() => onChange(filters.filter((_, j) => j !== i))}>Remove</button>
-              </div>
-            );
-          })}
-          <div className="filters-actions">
-            <button type="button" className="tool-btn" onClick={() => onChange([...filters, { field: "moscow", op: "is", value: "" }])}>+ Add filter</button>
-            {filters.length > 0 && <button type="button" className="tool-btn" onClick={() => onChange([])}>Clear filters</button>}
-          </div>
-        </div>
-      )}
-    </Popover>
-  );
-}
-
 /** Words for a chip row or the palette. */
 export const summarize = (f: Filter, lookups: Lookups) =>
   filterSummary(f, {
@@ -87,7 +52,7 @@ export const summarize = (f: Filter, lookups: Lookups) =>
 // ----------------------------------------------------------------- grouping
 export function GroupMenu({ groupBy, onChange }: { groupBy: string | null; onChange: (g: string | null) => void }) {
   return (
-    <Popover label={<>Group by{groupBy && <strong className="count-badge"> {FIELD_BY_KEY[groupBy]?.name}</strong>}</>} active={!!groupBy}>
+    <Popover label={<>Group by: <strong className="count-badge">{groupBy ? FIELD_BY_KEY[groupBy]?.name : "None"}</strong></>} active={!!groupBy}>
       {(close) => <GroupPanel groupBy={groupBy} onPick={(g) => { onChange(g); close(); }} />}
     </Popover>
   );
@@ -113,7 +78,7 @@ function GroupPanel({ groupBy, onPick }: { groupBy: string | null; onPick: (g: s
 }
 
 // -------------------------------------------------------------------- views
-function NameDialog({ title, initial, action, onClose, onSubmit, offerCustomerSafe = false }: { title: string; initial: string; action: string; onClose: () => void; onSubmit: (name: string, customerSafe: boolean) => Promise<string | null>; offerCustomerSafe?: boolean }) {
+export function NameDialog({ title, initial, action, onClose, onSubmit, offerCustomerSafe = false }: { title: string; initial: string; action: string; onClose: () => void; onSubmit: (name: string, customerSafe: boolean) => Promise<string | null>; offerCustomerSafe?: boolean }) {
   const id = useId();
   const [name, setName] = useState(initial);
   const [error, setError] = useState<string | null>(null);
@@ -276,4 +241,45 @@ export function ViewsMenu({ base, views, defaults, def, dirty, onOpen }: ViewsPr
       )}
     </>
   );
+}
+
+/**
+ * Saving the current columns, filters and grouping from a panel (filters, columns): the same choices as the Views menu, so every panel that
+ * changes the view can end with "Save to this view". `save(def)` writes the given definition (the columns panel passes its staged one).
+ */
+export function useViewSaver(base: BaseView, views: SavedView[], onOpen: (b: BaseView) => void) {
+  const { store, reload, canEdit } = useWorkspace();
+  const [dialog, setDialog] = useState<null | ViewDef>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const current = base.kind === "saved" ? views.find((v) => v.id === base.id) : undefined;
+  const builtin = base.kind === "builtin" ? base.name : null;
+  const dialogs = dialog ? (
+    <NameDialog
+      title="Save view" initial="" action="Save view" onClose={() => setDialog(null)} offerCustomerSafe
+      onSubmit={async (name, customerSafe) => {
+        const r = await store.createView(name, { ...dialog, customerSafe });
+        if (!r.ok) return r.error;
+        await reload();
+        onOpen({ kind: "saved", id: r.value.id });
+        return null;
+      }}
+    />
+  ) : null;
+  return {
+    canSave: canEdit,
+    /** The name of the saved view that "Save to this view" overwrites, if the view in use is a saved one. */
+    currentName: current?.name ?? null,
+    builtinName: builtin,
+    message,
+    dialogs,
+    saveAsNew: (def: ViewDef) => { setMessage(null); setDialog(def); },
+    /** Overwrites the saved view in use, or the workspace's default view of that name, with `def`. */
+    saveHere: async (def: ViewDef): Promise<boolean> => {
+      const r = current ? await store.updateView(current.id, def) : builtin ? await store.saveDefaultView(builtin, def) : null;
+      if (!r) return false;
+      if (r.ok) { await reload(); setMessage(null); return true; }
+      setMessage(r.error);
+      return false;
+    },
+  };
 }

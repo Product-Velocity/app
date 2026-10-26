@@ -8,7 +8,7 @@ const open = async (page: Page, query = `n=200&${ALL}`) => {
   await page.waitForFunction(() => (window as unknown as { __pv?: unknown }).__pv !== undefined);
 };
 const cell = (page: Page, id: string, col: string) => page.locator(`.ag-row[row-id="${id}"] [col-id="${col}"]`);
-const strip = (page: Page) => page.locator(".strip");
+const strip = (page: Page) => page.locator(".gbar");
 const pv = (page: Page) => page.evaluate(() => {
   const w = window as unknown as { __pv: { controller: { status: unknown; rows: { id: string; stack_rank: number }[] } } };
   return { status: w.__pv.controller.status as { pending: number; error: string | null; undoCount: number }, ranks: w.__pv.controller.rows.map((r) => r.id) };
