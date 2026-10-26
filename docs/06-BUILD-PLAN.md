@@ -1,6 +1,6 @@
 # Phased build plan
 
-Rules: one phase at a time; each phase ends in a demo Ashu can click; all phases include tests, RLS tests, audit logging and accessibility checks. "Done" = every acceptance criterion passes.
+Rules: one phase at a time, **except that Phase 4 may run in parallel with Phase 3b and 3c (Ashu, 2026-10-24)**; each phase ends in a demo Ashu can click; all phases include tests, RLS tests, audit logging and accessibility checks. "Done" = every acceptance criterion passes.
 
 ## Phase 0 — Spikes and foundations (1–2 weeks)
 Run spikes S1–S6 (`08`). Repo, CI, Supabase project, Vercel, environments, lint/typecheck/test, migration tooling, design tokens, auth (email/Google/GitHub, 2FA), tenant + membership + RLS harness with a two-tenant test fixture.
