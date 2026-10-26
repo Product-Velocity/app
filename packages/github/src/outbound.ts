@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 // Everything that may leave the app for GitHub (CLAUDE.md rule 2). Repositories can be public, so this list is the
 // ONLY place a field is allowed to be read for a GitHub payload: value, confidence, customers, decisions, rationale,
 // key results, outcomes and markets are never listed, and a test fails if any of them ever reaches a payload.
-export const OUTBOUND_ITEM_FIELDS = ["item_code", "initiative_name", "summary", "hypothesis"] as const;
+export const OUTBOUND_ITEM_FIELDS = ["item_code", "initiative_name", "summary", "description", "hypothesis"] as const;
 export type OutboundField = (typeof OUTBOUND_ITEM_FIELDS)[number];
 
 export type Artifact = { label: string; url: string };
@@ -43,11 +43,13 @@ export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
   const code = text(i.item.item_code, 20);
   const name = text(i.item.initiative_name, 200);
   const summary = sanitize(text(i.item.summary, 4000));
+  const description = sanitize(text(i.item.description, 20000));
   const hypothesis = sanitize(text(i.item.hypothesis, 4000));
   const links = i.artifacts.filter((a) => /^https?:\/\//i.test(a.url) && !/[\s()<>]/.test(a.url)).slice(0, 20);
 
   const parts = [MARKER(i.itemId)];
   if (summary) parts.push("", "## Summary", summary);
+  if (description) parts.push("", "## Description", description);
   if (hypothesis) parts.push("", "## Hypothesis (IF / THEN / RESULTING IN)", hypothesis);
   if (links.length) parts.push("", "## Artifacts", ...links.map((a) => `- [${linkLabel(a.label)}](${a.url})`));
   parts.push("", "---", `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept. [Open in Product Velocity](${i.appUrl}/portfolio/${encodeURIComponent(code)})`, BLOCK_END);

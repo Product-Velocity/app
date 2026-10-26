@@ -56,7 +56,7 @@ export function canEditItems(role: string | null | undefined): boolean {
 
 export type EditResult = { ok: true; value: string | number | boolean | null } | { ok: false; error: string };
 
-const MAX_LENGTH: Record<string, number> = { initiative_name: 300, summary: 4000, value_proposition: 4000, theme: 120 };
+const MAX_LENGTH: Record<string, number> = { initiative_name: 300, summary: 4000, description: 20000, value_proposition: 4000, theme: 120 };
 const NON_NEGATIVE = new Set(["customers_requesting", "target_customers", "time_to_first_revenue_months", "estimate_low_weeks", "estimate_high_weeks"]);
 const WHOLE = new Set(["customers_requesting", "target_customers"]);
 /** Date fields where a quarter or month means its last day. */

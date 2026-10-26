@@ -3608,5 +3608,23 @@
   "githubSync": "Not synced. A closed linked ticket only sets Build Status and Build Completed; people decide where the initiative itself stands.",
   "filledWhen": "Now where known",
   "description": "Where the initiative itself stands, set by people (a closed GitHub or Jira ticket only means the build is complete: see Build Status)."
+ },
+ {
+  "n": "N44",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Description",
+  "key": "description",
+  "group": "What",
+  "type": "Long text",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Input",
+  "githubSync": "App -> GitHub: own section 'Description' of the managed block of the issue body (Markdown). Do not put value, customers or decisions in it.",
+  "filledWhen": "Before the push",
+  "description": "The technical description that engineers and agents work from, written in Markdown (headings, lists, links, tables). It becomes its own section of the tracking issue. It is visible to everyone who can see the issue, so keep value, customers and decisions out of it."
  }
 ]

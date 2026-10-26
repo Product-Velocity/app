@@ -61,6 +61,7 @@
    "home_project",
    "initiative_phase",
    "initiative_status",
+   "description",
    "status",
    "health",
    "delivery_progress_pct",

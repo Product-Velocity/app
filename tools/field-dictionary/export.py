@@ -29,15 +29,15 @@ grid_rows = list(wb["Grid columns and views"].iter_rows(values_only=True))
 gh = list(grid_rows[0])
 out = []
 for r in grid_rows[1:]:
-    if r[0] is None:
-        continue
     g = dict(zip(gh, r))
     key = g["Field key"]
+    if key is None:  # blank and note rows; rows added later have no number on this sheet
+        continue
     d = by_key.get(key, {})
     allowed = d.get("Allowed values")
     values = [v.strip() for v in re.split(r"\s·\s", str(allowed))] if allowed and str(allowed) != "None" and "·" in str(allowed) else []
     out.append({
-        "n": str(g["#"]),
+        "n": str(d.get("#") or g["#"]),
         "storage": csv_by_key[key]["storage"],
         "phase": int(csv_by_key[key]["ships_in_phase"]),
         "name": g["Field"],
@@ -55,9 +55,9 @@ for r in grid_rows[1:]:
         "description": d.get("Description"),
     })
 
-assert len(out) == 165, len(out)
+assert len(out) == len(csv_by_key), len(out)
 assert {f["key"] for f in out} == set(csv_by_key), "workbook and CSV list different keys"
-assert len({f["key"] for f in out}) == 165, "duplicate field keys"
+assert len({f["key"] for f in out}) == len(out), "duplicate field keys"
 with open(OUT, "w") as f:
     json.dump(out, f, indent=1, ensure_ascii=False)
     f.write("\n")
@@ -69,7 +69,7 @@ with open(GRID_CSV, "w", newline="", encoding="utf-8") as f:
     w = csv.writer(f)
     w.writerow(["key", "group", "editing", "customer_safe"] + VIEWS)
     for r in grid_rows[1:]:
-        if r[0] is None:
+        if r[2] is None:  # blank and note rows (rows added later have no number on this sheet)
             continue
         g = dict(zip(gh, r))
         w.writerow([g["Field key"], g["Group"], g["Editing in grid"], "Y" if g["Customer-safe reports"] == "Y" else ""] + ["Y" if g.get(v) == "Y" else "" for v in VIEWS])

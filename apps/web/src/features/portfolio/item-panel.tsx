@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { EDITABLE_FIELDS, FIELD_BY_KEY, activityEvents, canUndoActivity, panelSections, type ActivityEvent, type ActivityRow } from "@pv/domain";
+import { EDITABLE_FIELDS, FIELD_BY_KEY, activityEvents, canUndoActivity, isOpenableUrl, panelSections, trackerIssueLabel, type ActivityEvent, type ActivityRow } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import { DeleteDialog } from "./delete-dialog";
 import { GithubPushDialog } from "./github-push-dialog";
@@ -96,7 +96,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
             {" · "}{l.mode === "follow" ? "followed read-only (nothing is written to it)" : l.state === "synced" ? "in sync when last sent" : l.state === "error" ? `last push failed${l.error ? `: ${l.error}` : ""}` : "waiting"}
           </p>
         ); })()}
-        <p className="ip-code mono">{row.item_code}{project && <span className="proj-pill">{project}</span>}{status && <span className="muted"> · {status}</span>}</p>
+        <p className="ip-code mono">{row.item_code}{(() => { const l = lookups.github?.links[itemId]; const label = l ? trackerIssueLabel(l.url, l.number) : null; return label && isOpenableUrl(l?.url) ? <a className="issue-link" href={l.url!} target="_blank" rel="noreferrer noopener" aria-label={`Open issue ${label} in a new tab`}>{label}</a> : null; })()}{project && <span className="proj-pill">{project}</span>}{status && <span className="muted"> · {status}</span>}</p>
         <h2 id={titleId} className="ip-title">{row.initiative_name}</h2>
         <p className="muted ip-rank">#{row.stack_rank} globally · #{row.project_rank} in {project || "its project"}</p>
       </header>

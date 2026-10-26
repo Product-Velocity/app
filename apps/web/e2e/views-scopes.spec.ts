@@ -419,11 +419,11 @@ test.describe("saved views", () => {
     await expect(page.getByRole("menuitemradio", { name: /For customers/ })).toContainText("customer-safe");
   });
 
-  test("the Columns picker reaches all 166 fields, grouped, with later phases marked", async ({ page }) => {
+  test("the Columns picker reaches all 167 fields, grouped, with later phases marked", async ({ page }) => {
     await open(page);
     await page.getByRole("button", { name: /^Columns/ }).click();
     const panel = page.getByRole("group", { name: "Choose columns" });
-    await expect(panel.locator('input[type="checkbox"]')).toHaveCount(166);
+    await expect(panel.locator('input[type="checkbox"]')).toHaveCount(167);
     expect(await panel.locator("fieldset").count()).toBeGreaterThan(8);
     await expect(panel.locator("fieldset").first().locator("legend")).toHaveText("What");
     await expect(panel).toContainText("arrives in phase 7");
