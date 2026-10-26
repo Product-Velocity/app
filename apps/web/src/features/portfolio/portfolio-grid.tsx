@@ -373,7 +373,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
 
   const onWrapperKeyDown = (e: React.KeyboardEvent) => {
     const t = e.target as HTMLElement;
-    if (e.key === "Escape" && !t.closest("input, textarea, select, [role=dialog], .set-menu") && selected.length > 0) { apiRef.current?.deselectAll(); return; }
+    if (e.key === "Escape" && !t.closest("input, textarea, select, [role=dialog], .set-menu, .popover-anchor") && selected.length > 0) { apiRef.current?.deselectAll(); return; }
     if (t.closest("input, textarea, [contenteditable=true]")) return; // let text fields keep their own undo
     if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
     const k = e.key.toLowerCase();

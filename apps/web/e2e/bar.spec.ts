@@ -54,7 +54,7 @@ test.describe("the bar above the grid (0.30.0)", () => {
     expect(bulk.y).toBeLessThan(quick.y);
     expect(quick.y + quick.height).toBeLessThanOrEqual(grid.y + 0.5);
     expect(Math.abs((await box(page, ".pvbar")).width - grid.width)).toBeLessThan(40);
-    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Clear selection" }).click();
     await expect(page.locator(".bulk-bar")).toHaveCount(0);
   });
 
@@ -171,7 +171,7 @@ test.describe("filter panel", () => {
 
 test.describe("column picker", () => {
   test("three panes: categories with counts, a checklist, and the selected columns in order", async ({ page }) => {
-    await open(page, "n=30&role=admin&view=Prioritisation");
+    await open(page, "n=30&role=admin&view=Prioritisation&cols=all");
     await columnsBtn(page).click();
     const panel = columnsPanel(page);
     await expect(panel.getByRole("navigation", { name: "Column categories" })).toContainText("All columns");
@@ -182,7 +182,7 @@ test.describe("column picker", () => {
   });
 
   test("changes are staged: Cancel discards them, Apply puts them in the grid, Reset goes back to the view", async ({ page }) => {
-    await open(page, "n=30&role=admin&view=Prioritisation");
+    await open(page, "n=30&role=admin&view=Prioritisation&cols=all");
     const header = (name: RegExp) => page.getByRole("columnheader", { name });
     await columnsBtn(page).click();
     await columnsPanel(page).getByRole("button", { name: /^When/ }).click();
@@ -201,7 +201,7 @@ test.describe("column picker", () => {
   });
 
   test("a fifth column cannot be pinned and says why; moving the pinned column out of the first four drops its pin", async ({ page }) => {
-    await open(page, "n=30&role=admin&view=Prioritisation");
+    await open(page, "n=30&role=admin&view=Prioritisation&cols=all");
     await columnsBtn(page).click();
     const panel = columnsPanel(page);
     const list = panel.getByRole("list", { name: "Selected columns in order" });
@@ -218,7 +218,7 @@ test.describe("column picker", () => {
   });
 
   test("a pinned column stays on the left", async ({ page }) => {
-    await open(page, "n=30&role=admin&view=Prioritisation");
+    await open(page, "n=30&role=admin&view=Prioritisation&cols=all");
     await columnsBtn(page).click();
     const panel = columnsPanel(page);
     const fourth = (await panel.getByRole("list", { name: "Selected columns in order" }).getByRole("listitem").locator(".name").allInnerTexts())[3]!;
@@ -228,7 +228,7 @@ test.describe("column picker", () => {
   });
 
   test("Save as new view… at the bottom saves what you staged", async ({ page }) => {
-    await open(page, "n=30&role=admin&view=Prioritisation");
+    await open(page, "n=30&role=admin&view=Prioritisation&cols=all");
     await columnsBtn(page).click();
     await columnsPanel(page).getByRole("button", { name: /^When/ }).click();
     await columnsPanel(page).getByRole("checkbox", { name: /Planned Start/ }).check();

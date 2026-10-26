@@ -111,7 +111,6 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
       };
     }
     if (CORE_COLUMNS.includes(f.key as never)) base.pinned = "left";
-    if (pinned?.has(f.key)) { base.pinned = "left"; base.suppressMovable = true; }
     if (f.key === "initiative_name") { base.flex = 1; base.minWidth = 300; base.cellClass = `${String(base.cellClass ?? "")} cell-name`.trim(); }
     if (f.key === "item_code") {
       return {
@@ -185,7 +184,8 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
     const first = FIRST.indexOf(k);
     return first >= 0 ? first : FIRST.length + (pos.get(k) ?? 1000 + (registry.get(k) ?? 0));
   };
-  return FIELDS.map(def).sort((a, b) => rank(a) - rank(b));
+  const pin = (c: ColDef<GridItem>): ColDef<GridItem> => (pinned?.has(String(c.colId)) ? { ...c, pinned: "left", suppressMovable: true } : c);
+  return FIELDS.map(def).map(pin).sort((a, b) => rank(a) - rank(b));
 }
 
 /** Column ids whose cells cannot be edited, with the reason (for the notice under the grid). */
