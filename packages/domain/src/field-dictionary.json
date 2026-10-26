@@ -2823,7 +2823,7 @@
   "allowed": [],
   "allowedText": null,
   "origin": "Input",
-  "githubSync": "Not synced.",
+  "githubSync": "Share links (not the files) go into the issue's Files section, in private repositories only.",
   "filledWhen": "Before alignment",
   "description": "Images of the proposed solution."
  },

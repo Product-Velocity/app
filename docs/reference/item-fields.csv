@@ -131,7 +131,7 @@ V3,What,Rank in Project,project_rank,Computed,,Computed,New (v4),Not synced.,"Co
 V4,What,Previous Rank,previous_rank,Number,,System,New (v4),Not synced.,System-set column (read-only),1
 V5,What,Value Proposition (customer-safe),value_proposition,Long text,,Input,New (v4),Not synced.,Column on items,1
 V6,What,Target Segments (customer-safe),target_segments,Tags,Segments,Input,New (v4),Not synced.,Related table,1
-V7,What,Screenshots,screenshots,Files,,Input,New (v4),Not synced.,Related table,1
+V7,What,Screenshots,screenshots,Files,,Input,New (v4),"Share links (not the files) go into the issue's Files section, in private repositories only.",Related table,1
 V8,When,Date Precision,date_precision,Select,Day · Month · Quarter,Input,New (v4),Not synced.,Column on items,1
 V9,Why,Effort by Skill,effort_by_skill,Structured,Skill = person-weeks,Input,New (v4),Estimates may come from sub-issues.,Column on items (jsonb),1
 V10,Why,Fit by Team,fit_by_team,Computed,fits · tight · over,Computed,New (v4),Not synced.,"Computed (view or function, not stored)",5

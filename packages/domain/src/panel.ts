@@ -7,7 +7,7 @@ import { readOnlyReason } from "./fields";
  */
 export type PanelKind =
   | "text" | "longtext" | "number" | "currency" | "date" | "select" | "person" | "boolean" | "group" | "project" | "rank"
-  | "tags" | "links" | "relations" | "teams" | "skills"
+  | "tags" | "links" | "relations" | "teams" | "skills" | "files"
   | "readonly" | "later";
 
 export type PanelField = { kind: PanelKind; /** Why it cannot be edited, or when it arrives. */ reason?: string; phase?: number };
@@ -18,7 +18,7 @@ export function panelField(f: FieldDef): PanelField {
   if (f.key === "stack_rank") return { kind: "rank" };
   if (!isShipped(f) && f.mode !== "locked" && f.mode !== "computed" && f.mode !== "system") return { kind: "later", phase: f.phase, reason: `Arrives in phase ${f.phase}.` };
   if (f.mode !== "editable") return { kind: "readonly", reason: readOnlyReason(f.key) ?? undefined, ...(isShipped(f) ? {} : { phase: f.phase }) };
-  if (f.key === "screenshots") return { kind: "readonly", reason: "Screenshots can be attached once file storage is set up. It is not part of this release." };
+  if (f.key === "screenshots") return { kind: "files" };
   if (f.key === "home_project") return { kind: "project" };
   if (f.key === "theme") return { kind: "group" };
   if (f.key === "effort_by_skill") return { kind: "skills" };
