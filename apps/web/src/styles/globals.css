@@ -507,3 +507,9 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .date-pick { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid #c9ceda; border-radius: var(--radius-sm); background: var(--bg); color: var(--ink-muted); cursor: pointer; }
 .date-pick:hover:not(:disabled) { background: var(--grey-3); color: var(--ink); }
 .date-native { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; right: 0; bottom: 0; }
+
+/* alignment participants (0.24.0) */
+.table-wrap { overflow-x: auto; }
+.btn-link { background: none; border: 0; padding: 0 4px; color: var(--blue-text); cursor: pointer; text-decoration: underline; font: inherit; }
+.mail-preview { white-space: pre-wrap; word-break: break-word; font-family: var(--font-sans); margin: 0; }
+.plain-list { padding-left: 20px; display: grid; gap: 8px; }

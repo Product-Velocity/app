@@ -26,6 +26,8 @@ type Probe = {
   table: string;
   /** Rows visible to a user of the *other* tenant must be zero. */
   tenantColumn: string;
+  /** Personal data: nobody reads the table through the API at all (functions only), so reads must be denied even for the tenant's own admin. */
+  private?: boolean;
   /** Statements run as the attacker; each must either be denied or affect 0 rows. */
   attacks: (victim: { tenantId: string; memberId: string }, attacker: { userId: string; tenantId: string }) => { sql: string; params: unknown[] }[];
 };
@@ -193,6 +195,38 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "alignment_participants",
+    tenantColumn: "tenant_id",
+    private: true,
+    attacks: (v, a) => [
+      { sql: "update public.alignment_participants set name = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.alignment_participants where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.alignment_participants (tenant_id, session_id, email, group_id) select tenant_id, session_id, 'x@example.test', 'everyone' from public.alignment_participants where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.alignment_participants set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "alignment_ballots",
+    tenantColumn: "tenant_id",
+    private: true,
+    attacks: (v, a) => [
+      { sql: "update public.alignment_ballots set state = 'submitted' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.alignment_ballots where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.alignment_ballots (tenant_id, session_id, group_id) select tenant_id, session_id, 'everyone' from public.alignment_ballots where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.alignment_ballots set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "alignment_mailings",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.alignment_mailings set status = 'confirmed' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.alignment_mailings where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.alignment_mailings (tenant_id, session_id, kind, subject, body) select tenant_id, session_id, 'invitation', 'x', 'y' from public.alignment_mailings where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.alignment_mailings set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "alignment_items",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [
@@ -356,6 +390,10 @@ describe.each([
         const { attackerKey, victim } = get();
         const userId = f[attackerKey];
         // audit_log is admin-only, and both attackers are admins of their own tenant
+        if (p.private) {
+          expect(await errorCode(db.asUser(userId, (q) => q(`select * from public.${p.table} where ${p.tenantColumn} = $1`, [f[victim]])))).toBe(DENIED);
+          return;
+        }
         const rows = await db.asUser(userId, async (q) =>
           (await q(`select * from public.${p.table} where ${p.tenantColumn} = $1`, [f[victim]])).rows,
         );
@@ -364,6 +402,12 @@ describe.each([
 
       it("positive control: the user does see their own tenant's rows", async () => {
         const { attackerKey, own } = get();
+        if (p.private) {
+          // the rows exist, but only the server reads them; the admin's own read is refused as well
+          expect(Number((await db.admin.query(`select count(*) from public.${p.table} where ${p.tenantColumn} = $1`, [f[own]])).rows[0].count)).toBeGreaterThan(0);
+          expect(await errorCode(db.asUser(f[attackerKey], (q) => q(`select * from public.${p.table} where ${p.tenantColumn} = $1`, [f[own]])))).toBe(DENIED);
+          return;
+        }
         const rows = await db.asUser(f[attackerKey], async (q) =>
           (await q(`select * from public.${p.table} where ${p.tenantColumn} = $1`, [f[own]])).rows,
         );
