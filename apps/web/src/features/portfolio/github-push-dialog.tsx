@@ -62,7 +62,7 @@ export function GithubPushDialog({ ids, onClose, onDone }: Props) {
         {phase.kind === "preview" && (
           <>
             <p>
-              Product Velocity will write the following to <strong>{phase.account}</strong> on GitHub. Only the name, summary, hypothesis, artifact links and a link back are sent; value, confidence,
+              Product Velocity will write the following to <strong>{phase.account}</strong> on GitHub. Only the name, summary, description, hypothesis, artifact links, links to files you chose to share (private repositories only), a few labels, a milestone and a link back are sent; value, confidence,
               customers, decisions and other commercial fields never leave the app. The repository may be public.
             </p>
             <ul className="push-list">
