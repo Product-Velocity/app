@@ -174,9 +174,9 @@ test.describe("filters and search", () => {
 
   test('"me" works for people fields; several filters must all match', async ({ page }) => {
     await open(page);
-    await addFilter(page, "product_manager", "me");
-    await expect(foot(page)).toContainText("5 of 30 items shown");
+    // (a rule equal to a quick filter is shown as that quick filter, so the "me" rule goes second)
     await addFilter(page, "health", "Delayed");
+    await addFilter(page, "product_manager", "me");
     await expect(foot(page)).toContainText("2 of 30 items shown");
     await page.getByRole("group", { name: "Filters", exact: true }).getByRole("button", { name: "Clear all" }).click();
     await expect(foot(page)).toContainText("30 items");
