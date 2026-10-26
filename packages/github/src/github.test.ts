@@ -95,6 +95,7 @@ function fake(over: Partial<SourceControl> = {}): SourceControl {
     updateIssue: async () => { throw new Error("not used"); },
     addLabels: async () => undefined,
     removeLabel: async () => undefined,
+    ensureMilestone: async () => 1,
     getIssue: async () => null,
     findIssueByMarker: async () => null,
     ensureLabels: async () => undefined,

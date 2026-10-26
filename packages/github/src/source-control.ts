@@ -14,7 +14,7 @@ export type RepoInfo = { id: number; fullName: string; private: boolean };
 
 export type DeliverySummary = { event: string; action: string | null; statusCode: number; deliveredAt: string };
 
-export type IssueInput = { title: string; body: string; labels: string[] };
+export type IssueInput = { title: string; body: string; labels: string[]; /** Organisation issue type name; only sent when the organisation has it. */ type?: string; /** Milestone number in the same repository. */ milestone?: number };
 export type IssueRef = { number: number; id: number; nodeId: string; htmlUrl: string; body: string; state: "open" | "closed"; /** The labels on the issue, when GitHub reported them. */ labels?: string[] };
 
 /** Raised for GitHub errors. Carries the status only: never the response body, headers or any token. */
@@ -51,7 +51,7 @@ export interface SourceControl {
   /** Creates an issue in `repo` ("owner/name"). */
   createIssue(installationId: number, repo: string, input: IssueInput): Promise<IssueRef>;
   /** Updates title and body of an issue. Labels are never replaced: people add their own. */
-  updateIssue(installationId: number, repo: string, number: number, input: { title?: string; body?: string }): Promise<IssueRef>;
+  updateIssue(installationId: number, repo: string, number: number, input: { title?: string; body?: string; type?: string; milestone?: number }): Promise<IssueRef>;
   /** Adds labels to an issue (idempotent); existing labels stay. */
   addLabels(installationId: number, repo: string, number: number, labels: string[]): Promise<void>;
   /** Removes one label from an issue (a label that is not there is fine). The app only ever removes labels in its own `pv:` namespace. */
@@ -61,6 +61,8 @@ export interface SourceControl {
   findIssueByMarker(installationId: number, repo: string, marker: string): Promise<IssueRef | null>;
   /** Makes sure the labels exist (an App's labels on a new issue are otherwise dropped silently). */
   ensureLabels(installationId: number, repo: string, labels: { name: string; color: string; description: string }[]): Promise<void>;
+  /** The number of the milestone with this title in the repository (open or closed), created with the due date when missing. */
+  ensureMilestone(installationId: number, repo: string, milestone: { title: string; dueOn: string }): Promise<number>;
   /** The newest webhook deliveries the App received, newest first. */
   listRecentDeliveries(): Promise<DeliverySummary[]>;
 }

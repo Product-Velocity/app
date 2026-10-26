@@ -10,12 +10,12 @@ import { PUSH_LIMIT, type PlanItem, type PushItemResult } from "./push-types";
 
 type Admin = ReturnType<typeof createAdminClient>;
 type Link = { item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; html_url: string | null; sync_state: string; last_pushed_hash: string | null };
-type Row = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; stack_rank: number; home_project_id: string };
+type Row = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; stack_rank: number; change_type: string | null; g2m_date_est: string | null; theme: string | null; home_project_id: string };
 
-type SharedFile = { item_id: string; name: string; share_token: string };
+type SharedFile = { item_id: string; name: string; share_token: string | null };
 const sharedFilesByItem = (rows: SharedFile[], appUrl: string) => {
   const m = new Map<string, { label: string; url: string }[]>();
-  for (const r of rows) m.set(r.item_id, [...(m.get(r.item_id) ?? []), { label: r.name, url: shareUrl(appUrl, r.share_token, r.name) }]);
+  for (const r of rows) if (r.share_token) m.set(r.item_id, [...(m.get(r.item_id) ?? []), { label: r.name, url: shareUrl(appUrl, r.share_token, r.name) }]);
   return m;
 };
 
@@ -28,12 +28,12 @@ const blockedItem = (id: string, reason: string, over: Partial<PlanItem> = {}): 
 export async function planPush(supabase: SupabaseClient, tenantId: string, appUrl: string, connection: ConnectionRow, ids: string[]): Promise<PlanItem[]> {
   const unique = [...new Set(ids)].slice(0, PUSH_LIMIT);
   const [items, projects, repos, links, artifacts, sharedFiles] = await Promise.all([
-    supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis, moscow, stack_rank, home_project_id").eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
+    supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis, moscow, stack_rank, change_type, g2m_date_est, theme, home_project_id").eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
     supabase.from("projects").select("id, name, default_repo, tracker").eq("tenant_id", tenantId),
     supabase.from("github_repositories").select("full_name, access, is_private").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("removed_at", null),
     supabase.from("item_github_links").select("item_id, mode, repo_full_name, issue_number, html_url, sync_state, last_pushed_hash").eq("tenant_id", tenantId).in("item_id", unique),
     supabase.from("item_links").select("item_id, label, url").eq("tenant_id", tenantId).in("item_id", unique),
-    supabase.from("item_files").select("item_id, name, share_token").eq("tenant_id", tenantId).in("item_id", unique).not("share_token", "is", null).order("created_at"),
+    supabase.from("item_files").select("item_id, name, share_token").eq("tenant_id", tenantId).in("item_id", unique).order("created_at"),
   ]);
   const rowById = new Map(((items.data ?? []) as Row[]).map((r) => [r.id, r]));
   const projectById = new Map(((projects.data ?? []) as { id: string; name: string; default_repo: string | null; tracker: string | null }[]).map((p) => [p.id, p]));
@@ -45,7 +45,10 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
   const artifactsByItem = new Map<string, { label: string; url: string }[]>();
   for (const a of (artifacts.data ?? []) as { item_id: string; label: string; url: string }[]) artifactsByItem.set(a.item_id, [...(artifactsByItem.get(a.item_id) ?? []), { label: a.label, url: a.url }]);
 
-  const filesByItem = sharedFilesByItem((sharedFiles.data ?? []) as SharedFile[], appUrl);
+  const fileRows = (sharedFiles.data ?? []) as SharedFile[];
+  const filesByItem = sharedFilesByItem(fileRows, appUrl);
+  const unsharedByItem = new Map<string, number>();
+  for (const r of fileRows) if (!r.share_token) unsharedByItem.set(r.item_id, (unsharedByItem.get(r.item_id) ?? 0) + 1);
 
   return unique.map((id) => {
     const row = rowById.get(id);
@@ -60,7 +63,9 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
     const built = buildTrackingIssue({ item: row, itemId: id, projectName: project?.name ?? "", appUrl, artifacts: artifactsByItem.get(id) ?? [], files: filesOk ? itemFiles : [] });
     const d = planAction({ link: planLink, defaultRepo: project?.default_repo ?? null, activeRepos, readOnlyRepos, hash: built.hash, projectName: project?.name ?? "" });
     const withheld = itemFiles.length > 0 && !filesOk ? { filesNote: `${itemFiles.length === 1 ? "A shared file link was" : `${itemFiles.length} shared file links were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could open the links. Files are only linked in private repositories.` } : {};
-    return { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo: d.repo, action: d.action, title: built.title, labels: built.labels, block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null, ...(d.reason ? { reason: d.reason } : {}), ...withheld };
+    const unshared = unsharedByItem.get(id) ?? 0;
+    const note = withheld.filesNote ?? (unshared ? `${unshared === 1 ? "1 attached file has" : `${unshared} attached files have`} no share link, so ${unshared === 1 ? "it is" : "they are"} not in the issue. Turn a link on in the item's Screenshots field to include it.` : undefined);
+    return { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo: d.repo, action: d.action, title: built.title, labels: built.labels, ...(built.milestone ? { milestone: built.milestone.title } : {}), block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null, ...(d.reason ? { reason: d.reason } : {}), ...(note ? { filesNote: note } : {}) };
   });
 }
 
@@ -71,7 +76,7 @@ export async function executePush(opts: { supabase: SupabaseClient; admin: Admin
   const [links, artifacts, items, sharedFiles, repoPrivacy] = await Promise.all([
     opts.supabase.from("item_github_links").select("item_id, issue_number, last_pushed_hash").eq("tenant_id", opts.tenantId).in("item_id", plan.map((p) => p.id)),
     opts.supabase.from("item_links").select("item_id, label, url").eq("tenant_id", opts.tenantId).in("item_id", plan.map((p) => p.id)),
-    opts.supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis, moscow, stack_rank").eq("tenant_id", opts.tenantId).in("id", plan.map((p) => p.id)),
+    opts.supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis, moscow, stack_rank, change_type, g2m_date_est, theme").eq("tenant_id", opts.tenantId).in("id", plan.map((p) => p.id)),
     opts.supabase.from("item_files").select("item_id, name, share_token").eq("tenant_id", opts.tenantId).in("item_id", plan.map((p) => p.id)).not("share_token", "is", null).order("created_at"),
     opts.supabase.from("github_repositories").select("full_name, is_private").eq("tenant_id", opts.tenantId).eq("connection_id", opts.connection.id).is("removed_at", null),
   ]);
