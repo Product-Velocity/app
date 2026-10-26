@@ -1,6 +1,7 @@
 import { CONSENT_LINES, METHODS } from "@/lib/alignment";
 import { resolveLink, sameBrowser } from "@/lib/alignment-link";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { finalResults } from "@/lib/alignment-results";
 import { cleanProgress, type BallotItem, type Method } from "@/lib/alignment-ballot";
 import { Ballot } from "./ballot";
 import { LinkButton } from "./join-form";
@@ -43,11 +44,39 @@ export default async function ParticipantPage({ params }: { params: Promise<{ to
   const { participant: p, session: s } = link;
   if (s.status === "draft") return <Shell title={s.name}><p>This session has not opened yet. Try again when you get the invitation.</p></Shell>;
   if (s.status !== "open") {
+    // after the close: the anonymous results, only if the admin allowed it, and only to the browser the link belongs to
+    const snap = s.show_results && p.consent_at && (await sameBrowser(p)) ? await finalResults(s.id) : null;
+    if (!snap) {
+      return (
+        <Shell title={s.name}>
+          <p>This session is closed. Thank you for taking part.</p>
+          {s.show_results && <p className="muted">The anonymous results are shown to the browser where you opened your link.</p>}
+        </Shell>
+      );
+    }
+    const admin = createAdminClient({ via: "system" });
+    const { data: ballot } = await admin.rpc("alignment_ballot_get", { p_participant: p.id });
+    const bid = (ballot as { ballot_id: string }[] | null)?.[0]?.ballot_id;
+    const { data: mineRows } = bid ? await admin.from("alignment_votes").select("alignment_item_id, rank, coins, impact, confidence, ease").eq("ballot_id", bid) : { data: [] };
+    const mine = new Map(((mineRows ?? []) as { alignment_item_id: string; rank: number | null; coins: number | null; impact: number | null; confidence: number | null; ease: number | null }[]).map((v) => [v.alignment_item_id, v]));
+    const names = new Map(snap.items.map((i) => [i.id, i.name]));
+    const yours = (id: string) => { const v = mine.get(id); if (!v) return ""; if (v.rank) return `Your place: ${v.rank}`; if (v.coins) return `Your coins: ${v.coins}`; return v.impact ? `Your scores: ${v.impact} / ${v.confidence} / ${v.ease}` : ""; };
     return (
-      <Shell title={s.name}>
-        <p>This session is closed. Thank you for taking part.</p>
-        {s.show_results && <p className="muted">The anonymous results will be shared here when they are ready.</p>}
-      </Shell>
+      <main className="auth-page">
+        <div className="card auth-card stack ballot-shell">
+          <h1>{s.name}: results</h1>
+          <p className="muted">What {snap.voters} {snap.voters === 1 ? "person" : "people"} decided. These results are anonymous.</p>
+          <ol className="plain-list">
+            {snap.results.joint.map((r) => (
+              <li key={r.itemId}>
+                <strong>{r.tied ? "= " : ""}{r.place}. {names.get(r.itemId)}</strong> · {r.score.toFixed(0)} / 100
+                {yours(r.itemId) && <span className="muted"> · {yours(r.itemId)}</span>}
+              </li>
+            ))}
+          </ol>
+          <p className="muted">Equal scores share a place.</p>
+        </div>
+      </main>
     );
   }
 

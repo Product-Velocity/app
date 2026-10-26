@@ -88,6 +88,7 @@ export default async function AlignmentSessionPage({ params, searchParams }: { p
         <p className="muted">Groups: {groups.map((g) => g.name).join(", ")} · {s.show_results ? "Participants see the anonymous results after the session closes." : "Participants do not see results."}</p>
       </div>
 
+      {isAdmin && state !== "draft" && <p><Link className="btn" href={`/alignment/${s.id}/results`}>{state === "open" ? "See the provisional results" : "See the results"}</Link></p>}
       {isAdmin && state !== "archived" && (
         <>
           <h2>Participants</h2>
