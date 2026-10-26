@@ -16,6 +16,8 @@ export type PlanItem = {
   issueNumber: number | null;
   issueUrl: string | null;
   reason?: string;
+  /** Shared file links that were left out of the issue, and why (public repository). */
+  filesNote?: string;
 };
 export type PreviewResult = { ok: true; items: PlanItem[]; account: string } | { ok: false; error: string };
 

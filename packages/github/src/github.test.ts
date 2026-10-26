@@ -94,6 +94,7 @@ function fake(over: Partial<SourceControl> = {}): SourceControl {
     createIssue: async () => { throw new Error("not used"); },
     updateIssue: async () => { throw new Error("not used"); },
     addLabels: async () => undefined,
+    removeLabel: async () => undefined,
     getIssue: async () => null,
     findIssueByMarker: async () => null,
     ensureLabels: async () => undefined,
@@ -108,6 +109,15 @@ describe("runConnectionDiagnostics", () => {
     expect(r.filter((x) => x.verdict === "fail")).toEqual([]);
     expect(r.find((x) => x.id === "issue-types")?.summary).toContain("No Epic");
     expect(r.find((x) => x.id === "permissions-later")?.verdict).toBe("info");
+  });
+  it("tells whether live updates for issues and sub-issues are on, and how to switch them on", async () => {
+    const inst = (events: string[]) => async () => ({ id: 1, accountLogin: "Acme", accountType: "Organization" as const, repositorySelection: "selected" as const, permissions: { issues: "write", metadata: "read" }, events, suspended: false });
+    const off = (await runConnectionDiagnostics({ sc: fake({ getInstallation: inst(["issues"]) }), ...input })).find((x) => x.id === "live-updates")!;
+    expect(off).toMatchObject({ verdict: "info" });
+    expect(off.summary).toContain("sub_issues");
+    expect(off.fix).toContain("Sub-issues");
+    const on = (await runConnectionDiagnostics({ sc: fake({ getInstallation: inst(["issues", "sub_issues"]) }), ...input })).find((x) => x.id === "live-updates")!;
+    expect(on.verdict).toBe("pass");
   });
   it("stops with a fix when GitHub does not know the installation", async () => {
     const r = await runConnectionDiagnostics({ sc: fake({ getInstallation: async () => null }), ...input });

@@ -1,14 +1,23 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { canLinkFilesInto } from "@pv/domain";
 import { buildTrackingIssue, describePushError, planAction, pushTrackingIssue, type PlanLink, type SourceControl } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { ConnectionRow } from "./server";
+import { shareUrl } from "@/lib/files/serve";
 import { refreshTree } from "./sync";
 import { PUSH_LIMIT, type PlanItem, type PushItemResult } from "./push-types";
 
 type Admin = ReturnType<typeof createAdminClient>;
 type Link = { item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; html_url: string | null; sync_state: string; last_pushed_hash: string | null };
 type Row = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; stack_rank: number; home_project_id: string };
+
+type SharedFile = { item_id: string; name: string; share_token: string };
+const sharedFilesByItem = (rows: SharedFile[], appUrl: string) => {
+  const m = new Map<string, { label: string; url: string }[]>();
+  for (const r of rows) m.set(r.item_id, [...(m.get(r.item_id) ?? []), { label: r.name, url: shareUrl(appUrl, r.share_token, r.name) }]);
+  return m;
+};
 
 const blockedItem = (id: string, reason: string, over: Partial<PlanItem> = {}): PlanItem => ({ id, code: "", name: "", project: "", repo: null, action: "blocked", title: "", labels: [], block: "", issueNumber: null, issueUrl: null, reason, ...over });
 
@@ -18,21 +27,25 @@ const blockedItem = (id: string, reason: string, over: Partial<PlanItem> = {}): 
  */
 export async function planPush(supabase: SupabaseClient, tenantId: string, appUrl: string, connection: ConnectionRow, ids: string[]): Promise<PlanItem[]> {
   const unique = [...new Set(ids)].slice(0, PUSH_LIMIT);
-  const [items, projects, repos, links, artifacts] = await Promise.all([
+  const [items, projects, repos, links, artifacts, sharedFiles] = await Promise.all([
     supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis, moscow, stack_rank, home_project_id").eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
     supabase.from("projects").select("id, name, default_repo, tracker").eq("tenant_id", tenantId),
-    supabase.from("github_repositories").select("full_name, access").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("removed_at", null),
+    supabase.from("github_repositories").select("full_name, access, is_private").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("removed_at", null),
     supabase.from("item_github_links").select("item_id, mode, repo_full_name, issue_number, html_url, sync_state, last_pushed_hash").eq("tenant_id", tenantId).in("item_id", unique),
     supabase.from("item_links").select("item_id, label, url").eq("tenant_id", tenantId).in("item_id", unique),
+    supabase.from("item_files").select("item_id, name, share_token").eq("tenant_id", tenantId).in("item_id", unique).not("share_token", "is", null).order("created_at"),
   ]);
   const rowById = new Map(((items.data ?? []) as Row[]).map((r) => [r.id, r]));
   const projectById = new Map(((projects.data ?? []) as { id: string; name: string; default_repo: string | null; tracker: string | null }[]).map((p) => [p.id, p]));
-  const repoRows = (repos.data ?? []) as { full_name: string; access: string }[];
+  const repoRows = (repos.data ?? []) as { full_name: string; access: string; is_private: boolean | null }[];
+  const privateRepos = new Set(repoRows.filter((r) => canLinkFilesInto(r.is_private)).map((r) => r.full_name.toLowerCase()));
   const activeRepos = new Set(repoRows.map((r) => r.full_name.toLowerCase()));
   const readOnlyRepos = new Set(repoRows.filter((r) => r.access === "read_only").map((r) => r.full_name.toLowerCase()));
   const linkByItem = new Map(((links.data ?? []) as Link[]).map((l) => [l.item_id, l]));
   const artifactsByItem = new Map<string, { label: string; url: string }[]>();
   for (const a of (artifacts.data ?? []) as { item_id: string; label: string; url: string }[]) artifactsByItem.set(a.item_id, [...(artifactsByItem.get(a.item_id) ?? []), { label: a.label, url: a.url }]);
+
+  const filesByItem = sharedFilesByItem((sharedFiles.data ?? []) as SharedFile[], appUrl);
 
   return unique.map((id) => {
     const row = rowById.get(id);
@@ -40,10 +53,14 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
     const project = projectById.get(row.home_project_id);
     const link = linkByItem.get(id);
     if (project?.tracker && project.tracker !== "github") return blockedItem(id, `${project.name} is linked to ${project.tracker === "jira" ? "Jira" : project.tracker}: a project has one tracker, so its initiatives are not sent to GitHub.`, { code: row.item_code, name: row.initiative_name, project: project.name });
-    const built = buildTrackingIssue({ item: row, itemId: id, projectName: project?.name ?? "", appUrl, artifacts: artifactsByItem.get(id) ?? [] });
     const planLink: PlanLink | null = link ? { mode: link.mode, repo: link.repo_full_name, issueNumber: link.issue_number, syncState: link.sync_state, lastPushedHash: link.last_pushed_hash } : null;
+    const itemFiles = filesByItem.get(id) ?? [];
+    const target = (link?.repo_full_name ?? project?.default_repo ?? "").toLowerCase();
+    const filesOk = privateRepos.has(target);
+    const built = buildTrackingIssue({ item: row, itemId: id, projectName: project?.name ?? "", appUrl, artifacts: artifactsByItem.get(id) ?? [], files: filesOk ? itemFiles : [] });
     const d = planAction({ link: planLink, defaultRepo: project?.default_repo ?? null, activeRepos, readOnlyRepos, hash: built.hash, projectName: project?.name ?? "" });
-    return { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo: d.repo, action: d.action, title: built.title, labels: built.labels, block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null, ...(d.reason ? { reason: d.reason } : {}) };
+    const withheld = itemFiles.length > 0 && !filesOk ? { filesNote: `${itemFiles.length === 1 ? "A shared file link was" : `${itemFiles.length} shared file links were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could open the links. Files are only linked in private repositories.` } : {};
+    return { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo: d.repo, action: d.action, title: built.title, labels: built.labels, block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null, ...(d.reason ? { reason: d.reason } : {}), ...withheld };
   });
 }
 
@@ -51,11 +68,15 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
 export async function executePush(opts: { supabase: SupabaseClient; admin: Admin; sc: SourceControl; connection: ConnectionRow; tenantId: string; actor: string; appUrl: string; ids: string[] }): Promise<PushItemResult[]> {
   const plan = await planPush(opts.supabase, opts.tenantId, opts.appUrl, opts.connection, opts.ids);
   const installationId = opts.connection.installation_id!;
-  const [links, artifacts, items] = await Promise.all([
+  const [links, artifacts, items, sharedFiles, repoPrivacy] = await Promise.all([
     opts.supabase.from("item_github_links").select("item_id, issue_number, last_pushed_hash").eq("tenant_id", opts.tenantId).in("item_id", plan.map((p) => p.id)),
     opts.supabase.from("item_links").select("item_id, label, url").eq("tenant_id", opts.tenantId).in("item_id", plan.map((p) => p.id)),
     opts.supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis, moscow, stack_rank").eq("tenant_id", opts.tenantId).in("id", plan.map((p) => p.id)),
+    opts.supabase.from("item_files").select("item_id, name, share_token").eq("tenant_id", opts.tenantId).in("item_id", plan.map((p) => p.id)).not("share_token", "is", null).order("created_at"),
+    opts.supabase.from("github_repositories").select("full_name, is_private").eq("tenant_id", opts.tenantId).eq("connection_id", opts.connection.id).is("removed_at", null),
   ]);
+  const filesBy = sharedFilesByItem((sharedFiles.data ?? []) as SharedFile[], opts.appUrl);
+  const privateRepos = new Set(((repoPrivacy.data ?? []) as { full_name: string; is_private: boolean | null }[]).filter((r) => canLinkFilesInto(r.is_private)).map((r) => r.full_name.toLowerCase()));
   const linkBy = new Map(((links.data ?? []) as { item_id: string; issue_number: number | null; last_pushed_hash: string | null }[]).map((l) => [l.item_id, l]));
   const itemBy = new Map(((items.data ?? []) as Row[]).map((r) => [r.id, r]));
 
@@ -65,7 +86,7 @@ export async function executePush(opts: { supabase: SupabaseClient; admin: Admin
     if (p.action === "blocked") { results.push({ id: p.id, code, outcome: "blocked", message: p.reason }); continue; }
     if (p.action === "unchanged") { results.push({ id: p.id, code, outcome: "unchanged", issueNumber: p.issueNumber ?? undefined, issueUrl: p.issueUrl ?? undefined }); continue; }
     const row = itemBy.get(p.id)!;
-    const built = buildTrackingIssue({ item: row, itemId: p.id, projectName: p.project, appUrl: opts.appUrl, artifacts: ((artifacts.data ?? []) as { item_id: string; label: string; url: string }[]).filter((a) => a.item_id === p.id) });
+    const built = buildTrackingIssue({ item: row, itemId: p.id, projectName: p.project, appUrl: opts.appUrl, artifacts: ((artifacts.data ?? []) as { item_id: string; label: string; url: string }[]).filter((a) => a.item_id === p.id), files: p.repo && privateRepos.has(p.repo.toLowerCase()) ? filesBy.get(p.id) ?? [] : [] });
     const record = (state: "synced" | "error", extra: { number?: number; id?: number; node?: string; url?: string; error?: string }) =>
       opts.admin.rpc("github_record_push", { p_actor: opts.actor, p_item: p.id, p_connection: opts.connection.id, p_repo: p.repo, p_number: extra.number ?? null, p_issue_id: extra.id ?? null, p_node_id: extra.node ?? null, p_url: extra.url ?? null, p_hash: built.hash, p_state: state, p_error: extra.error ?? null });
     try {

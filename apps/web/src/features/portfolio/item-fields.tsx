@@ -8,6 +8,7 @@ import {
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import { formatField } from "./format";
+import { FilesControl } from "./files-control";
 import { MarkdownPreview } from "./markdown-preview";
 import type { GridItem, Lookups } from "./types";
 
@@ -32,9 +33,10 @@ export function FieldRow({ f, row, ctx }: { f: FieldDef; row: GridItem; ctx: Fie
     case "rank": control = <RankControl {...common} />; break;
     case "tags": case "links": case "relations": case "teams": control = <ListControl {...common} kind={p.kind} />; break;
     case "skills": control = <SkillsControl {...common} />; break;
+    case "files": control = <FilesControl itemId={row.id} disabled={!canEdit} onError={setError} />; break;
     default: control = <ReadOnlyValue f={f} row={row} ctx={ctx} later={p.kind === "later"} />;
   }
-  const isList = ["tags", "links", "relations", "teams", "skills"].includes(p.kind);
+  const isList = ["tags", "links", "relations", "teams", "skills", "files"].includes(p.kind);
   return (
     <div className={`pf pf-${p.kind}`} data-field={f.key}>
       {isList ? <div className="pf-label" id={`${id}-l`}>{f.name}</div> : <label className="pf-label" htmlFor={id}>{f.name}</label>}

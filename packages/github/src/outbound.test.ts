@@ -215,3 +215,21 @@ describe("planAction", () => {
     for (const hash of ["h", "other"]) expect(planAction({ ...base, hash, link: link({ mode: "follow", repo: "Product-Velocity/app", issueNumber: 31 }) })).toMatchObject({ action: "blocked", reason: expect.stringContaining("#31") });
   });
 });
+
+describe("share links of files (R-034)", () => {
+  const shared = [{ label: "Mockup v2.png", url: `https://productvelocity.app/f/${"T".repeat(43)}/Mockup%20v2.png` }];
+  it("adds a Files section with the share links", () => {
+    const b = buildTrackingIssue({ ...base, files: shared }).block;
+    expect(b).toContain("## Files");
+    expect(b).toContain(`- [Mockup v2.png](https://productvelocity.app/f/${"T".repeat(43)}/Mockup%20v2.png)`);
+    expect(b.indexOf("## Files")).toBeGreaterThan(b.indexOf("## Artifacts"));
+  });
+  it("has no Files section without links, and a changed link changes the hash", () => {
+    expect(buildTrackingIssue(base).block).not.toContain("## Files");
+    expect(buildTrackingIssue({ ...base, files: shared }).hash).not.toBe(buildTrackingIssue(base).hash);
+  });
+  it("drops anything that is not a plain http(s) address and cleans the label", () => {
+    const b = buildTrackingIssue({ ...base, files: [{ label: "x](javascript:alert(1))", url: "javascript:alert(1)" }, { label: "a b", url: "https://x.test/a b" }] }).block;
+    expect(b).not.toContain("## Files");
+  });
+});

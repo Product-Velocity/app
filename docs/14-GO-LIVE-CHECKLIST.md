@@ -66,3 +66,5 @@ Living list of things that must be done before real customers or real data. Owne
 
 - [ ] Alignment emails (0.24.0): the Resend sender domain is verified and `RESEND_WEBHOOK_SECRET` is set (bounces and spam marks of participants arrive through the same webhook as invitations); `CRON_SECRET` is set so the daily job clears participants' personal data after the retention time.
 - [ ] Alignment participants: the join page wording (`CONSENT_LINES` in `apps/web/src/lib/alignment.ts`) is reviewed by whoever answers for privacy, the consent version is bumped when it changes, and a rate limit in front of `/a/*` (Vercel firewall) is switched on before real voters.
+
+- [ ] Files (0.28.0): put a rate limit in front of `/f/*` (Vercel firewall), check the Storage bucket `item-files` is private in Supabase, decide on a virus scan for uploads, and decide whether share links should expire.

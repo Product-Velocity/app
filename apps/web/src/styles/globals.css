@@ -519,3 +519,11 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .md-preview code { font-family: var(--font-mono, monospace); background: #f4f5f8; padding: 0 3px; border-radius: 3px; }
 .issue-link { margin-left: 8px; font-weight: 500; color: #3347d9; text-decoration: none; }
 .issue-link:hover, .issue-link:focus-visible { text-decoration: underline; }
+
+/* files on an initiative (R-034) */
+.files { display: grid; gap: 6px; }
+.files-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.files-row { display: grid; gap: 4px; }
+.files-share { display: flex; gap: 6px; }
+.files-share input { flex: 1; min-width: 0; font: 12px "IBM Plex Mono", monospace; }
+.files-actions { display: flex; gap: 6px; flex-wrap: wrap; }

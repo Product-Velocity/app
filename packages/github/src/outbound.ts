@@ -15,6 +15,8 @@ export type TrackingIssueInput = {
   /** Public address of this app, for the backlink (no trailing slash). */
   appUrl: string;
   artifacts: Artifact[];
+  /** Files with a login-free share link. The caller passes them ONLY for a private repository: anyone who can read the issue can open them. */
+  files?: Artifact[];
 };
 export type TrackingIssue = { title: string; block: string; labels: string[]; hash: string };
 
@@ -62,11 +64,14 @@ export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
   const hypothesis = sanitize(text(i.item.hypothesis, 4000));
   const links = i.artifacts.filter((a) => /^https?:\/\//i.test(a.url) && !/[\s()<>]/.test(a.url)).slice(0, 20);
 
+  const files = (i.files ?? []).filter((a) => /^https?:\/\//i.test(a.url) && !/[\s()<>]/.test(a.url)).slice(0, 20);
+
   const parts = [MARKER(i.itemId)];
   if (summary) parts.push("", "## Summary", summary);
   if (description) parts.push("", "## Description", description);
   if (hypothesis) parts.push("", "## Hypothesis (IF / THEN / RESULTING IN)", hypothesis);
   if (links.length) parts.push("", "## Artifacts", ...links.map((a) => `- [${linkLabel(a.label)}](${a.url})`));
+  if (files.length) parts.push("", "## Files", ...files.map((a) => `- [${linkLabel(a.label)}](${a.url})`));
   parts.push("", "---", `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept. [Open in Product Velocity](${i.appUrl}/portfolio/${encodeURIComponent(code)})`, BLOCK_END);
 
   const title = (code ? `${code}: ${name}` : name) || "Untitled initiative";
