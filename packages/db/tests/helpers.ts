@@ -205,6 +205,11 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
   await db.admin.query("insert into public.tracker_rules (tenant_id, connection_id, kind, value) values ($1, $2, 'type', 'Bug')", [tenantId, conn]);
   const sess = await one("insert into public.alignment_sessions (tenant_id, name, method) values ($1, 'Seed session', 'coins') returning id", [tenantId]);
   await db.admin.query("insert into public.alignment_items (tenant_id, session_id, item_id, position) values ($1, $2, $3, 1)", [tenantId, sess, items[0]]);
+  await db.admin.query("update public.alignment_sessions set groups = '[{\"id\":\"everyone\",\"name\":\"Everyone\"}]' where id = $1", [sess]);
+  const part = await one("insert into public.alignment_participants (tenant_id, session_id, email, email_hash, group_id) values ($1, $2, $3, encode(sha256(convert_to($3, 'UTF8')), 'hex'), 'everyone') returning id", [tenantId, sess, `seed-${tenantId}@example.test`]);
+  const ballot = await one("insert into public.alignment_ballots (tenant_id, session_id, participant_id, group_id) values ($1, $2, $3, 'everyone') returning id", [tenantId, sess, part]);
+  await db.admin.query("insert into public.alignment_votes (tenant_id, session_id, ballot_id, alignment_item_id, coins) select $1, $2, $3, id, 10 from public.alignment_items where session_id = $2", [tenantId, sess, ballot]);
+  await db.admin.query("insert into public.alignment_mailings (tenant_id, session_id, kind, subject, body, recipient_ids) values ($1, $2, 'invitation', 'Seed', 'Seed body', array[$3::uuid])", [tenantId, sess, part]);
   return { project, team, items, scope, view, connection: conn };
 }
 

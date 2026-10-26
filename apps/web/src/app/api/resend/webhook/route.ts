@@ -20,6 +20,10 @@ export async function POST(request: Request) {
   // a delivered message never overrides a bounce that arrived first
   const query = admin.from("invitations").update({ email_status: status }).eq("email_provider_id", id);
   const { error } = await (status === "delivered" ? query.eq("email_status", "sent") : query);
+  // the same events for alignment participants (invitations and reminders)
+  const pq = admin.from("alignment_participants").update({ email_status: status }).eq("email_provider_id", id);
+  const { error: perr } = await (status === "delivered" ? pq.eq("email_status", "sent") : pq);
+  if (perr) { console.error(JSON.stringify({ resend: "webhook-participants", event: event.type, error: perr.message.slice(0, 160) })); return new Response("error", { status: 500 }); }
   if (error) { console.error(JSON.stringify({ resend: "webhook", event: event.type, error: error.message.slice(0, 160) })); return new Response("error", { status: 500 }); }
   return new Response("ok");
 }
