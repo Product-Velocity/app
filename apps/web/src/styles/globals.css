@@ -301,7 +301,7 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 /* ---- item panel (issue #26) ---- */
 .grid-split { display: flex; align-items: stretch; min-width: 0; }
 .grid-split > .grid-wrap { flex: 1 1 auto; min-width: 0; }
-.item-panel { flex: 0 0 440px; width: 440px; max-width: 46vw; display: flex; flex-direction: column; border-left: 1px solid var(--grey-1); background: var(--bg); min-height: 0; }
+.item-panel { flex: 0 0 572px; width: 572px; max-width: 52vw; display: flex; flex-direction: column; border-left: 1px solid var(--grey-1); background: var(--bg); min-height: 0; }
 .item-panel-page { flex: 1 1 auto; width: auto; max-width: 780px; margin: 0 auto; border: 1px solid var(--grey-1); border-radius: 8px; }
 .ip-head { padding: 8px 14px 6px; border-bottom: 1px solid var(--grey-2); }
 .ip-nav { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
@@ -343,7 +343,7 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 .ip-gh { margin-top: 8px; font-size: 12px; }
 .ip-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .ip-log p { margin: 0; }
-@media (max-width: 900px) { .item-panel { position: fixed; inset: 0 0 0 auto; width: min(440px, 100vw); max-width: 100vw; z-index: 50; box-shadow: -8px 0 24px rgba(20, 24, 40, .18); height: 100vh !important; } }
+@media (max-width: 900px) { .item-panel { position: fixed; inset: 0 0 0 auto; width: min(572px, 100vw); max-width: 100vw; z-index: 50; box-shadow: -8px 0 24px rgba(20, 24, 40, .18); height: 100vh !important; } }
 .cell-open { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
 
 /* ---- Gantt (issue #27) ---- */
