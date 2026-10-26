@@ -513,3 +513,17 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .btn-link { background: none; border: 0; padding: 0 4px; color: var(--blue-text); cursor: pointer; text-decoration: underline; font: inherit; }
 .mail-preview { white-space: pre-wrap; word-break: break-word; font-family: var(--font-sans); margin: 0; }
 .plain-list { padding-left: 20px; display: grid; gap: 8px; }
+
+/* participant ballot, built for 390 px (0.24.0) */
+.ballot-shell { max-width: 560px; }
+.ballot { gap: 12px; }
+.ballot-card { border: 1px solid var(--grey-1); border-radius: 8px; padding: 12px; display: grid; gap: 6px; }
+.ballot-card p { margin: 0; }
+.ballot-card.selected { border-color: var(--blue); background: var(--blue-tint-2); }
+.ballot-big { min-height: 44px; min-width: 44px; font-size: 15px; }
+.ballot-sticky { position: sticky; top: 0; z-index: 2; background: var(--bg); border: 1px solid var(--grey-1); border-radius: 8px; padding: 8px 12px; }
+.ballot-stepper { display: grid; grid-template-columns: 56px 1fr 56px; gap: 8px; align-items: center; }
+.ballot-stepper input { text-align: center; min-height: 44px; font-size: 16px; }
+.ballot-slider { display: grid; gap: 2px; }
+.ballot-slider input[type="range"] { width: 100%; min-height: 32px; }
+.ballot-save { min-height: 1.2em; margin: 0; }

@@ -217,6 +217,17 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "alignment_votes",
+    tenantColumn: "tenant_id",
+    private: true,
+    attacks: (v, a) => [
+      { sql: "update public.alignment_votes set coins = 99 where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.alignment_votes where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.alignment_votes (tenant_id, session_id, ballot_id, alignment_item_id, coins) select tenant_id, session_id, ballot_id, alignment_item_id, 5 from public.alignment_votes where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.alignment_votes set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "alignment_mailings",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

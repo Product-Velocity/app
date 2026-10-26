@@ -93,8 +93,25 @@ create unique index alignment_ballots_participant on public.alignment_ballots (s
 create index alignment_ballots_tenant on public.alignment_ballots (tenant_id, session_id);
 create trigger alignment_ballots_meta before insert or update on public.alignment_ballots
   for each row execute function public.set_write_meta();
+-- the ballot's audit entries carry the state only: the generic audit would also record which participant owns it, and who voted what
+-- is opened only through the logged "Show names" action (docs/19 section 4)
+create function public.alignment_ballots_audit() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_old jsonb := case when tg_op = 'INSERT' then '{}'::jsonb else to_jsonb(old) end;
+  v_new jsonb := to_jsonb(new);
+  k text;
+begin
+  foreach k in array array['state', 'submitted_at'] loop
+    if coalesce(v_old -> k, 'null'::jsonb) is distinct from coalesce(v_new -> k, 'null'::jsonb) then
+      insert into public.audit_log (tenant_id, entity, entity_id, field, old, new, actor_id, via)
+      values (new.tenant_id, 'alignment_ballots', new.id, k, v_old -> k, v_new -> k, auth.uid(), public.write_source());
+    end if;
+  end loop;
+  return null;
+end $$;
 create trigger alignment_ballots_audit after insert or update on public.alignment_ballots
-  for each row execute function public.audit_row();
+  for each row execute function public.alignment_ballots_audit();
 alter table public.alignment_ballots enable row level security;
 revoke all on public.alignment_ballots from public, anon, authenticated;
 grant all on public.alignment_ballots to service_role;

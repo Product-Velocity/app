@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { generateInviteToken, hashInviteToken } from "@/lib/auth/invite-token";
 import { CONSENT_VERSION } from "@/lib/alignment";
 import { buildNewLinkEmail } from "@/lib/alignment-mail";
-import { browserCookie, hashSecret, newBrowserSecret, resolveLink } from "@/lib/alignment-link";
+import { browserCookie, hashSecret, newBrowserSecret, resolveLink, sameBrowser } from "@/lib/alignment-link";
 import { sendEmail } from "@/lib/email/resend";
 import { siteUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -58,4 +58,31 @@ export async function stopReminders(token: string): Promise<LinkResult> {
   const id = s.kind === "ok" ? s.participant.id : s.participantId;
   await admin.from("alignment_participants").update({ unsubscribed_at: new Date().toISOString() }).eq("id", id).is("unsubscribed_at", null);
   return { ok: "You will not get any more reminders for this session." };
+}
+
+/** The person behind a link, only if the link is current, the session is open and this is the browser it was first opened in. */
+async function ballotOwner(token: string) {
+  const link = await resolveLink(token);
+  if (link.kind !== "ok" || link.session.status !== "open" || !link.participant.consent_at) return null;
+  if (!(await sameBrowser(link.participant))) return null;
+  return link.participant.id;
+}
+
+/** Saves what the person has picked so far. A save older than the stored one is ignored, so reloads and slow networks cannot undo newer answers. */
+export async function saveBallotProgress(token: string, progress: unknown, revision: number): Promise<{ ok: boolean; revision?: number }> {
+  const id = await ballotOwner(token);
+  if (!id || !Number.isInteger(revision) || revision < 0 || revision > 1_000_000) return { ok: false };
+  const admin = createAdminClient({ via: "system" });
+  const { data, error } = await admin.rpc("alignment_ballot_save", { p_participant: id, p_progress: progress, p_revision: revision });
+  return error ? { ok: false } : { ok: true, revision: data as number };
+}
+
+/** Submits or changes the vote. The database checks the answers against the session's method; the message is safe to show. */
+export async function submitBallot(token: string, answers: unknown, revision: number): Promise<{ ok: boolean; error?: string }> {
+  const id = await ballotOwner(token);
+  if (!id || !Number.isInteger(revision) || revision < 0 || revision > 1_000_000) return { ok: false, error: "This link no longer works here. Open your latest email." };
+  const admin = createAdminClient({ via: "system" });
+  const { error } = await admin.rpc("alignment_ballot_submit", { p_participant: id, p_answers: answers, p_revision: revision });
+  if (error) return { ok: false, error: error.code === "22023" ? error.message.slice(0, 160) : "We could not save your vote. Please try again." };
+  return { ok: true };
 }
