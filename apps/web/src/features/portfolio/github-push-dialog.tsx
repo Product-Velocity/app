@@ -75,6 +75,7 @@ export function GithubPushDialog({ ids, onClose, onDone }: Props) {
                       <summary>See what will be written</summary>
                       <p><strong>Title:</strong> {p.title}</p>
                       <p><strong>Labels:</strong> {p.labels.join(", ")}</p>
+                      <p className="muted">Labels starting with “pv:” are managed here: new ones are added and ones that no longer apply are removed. Any other label is never touched.</p>
                       <pre className="push-body">{p.block}</pre>
                     </details>
                   )}

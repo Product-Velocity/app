@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 // Everything that may leave the app for GitHub (CLAUDE.md rule 2). Repositories can be public, so this list is the
 // ONLY place a field is allowed to be read for a GitHub payload: value, confidence, customers, decisions, rationale,
 // key results, outcomes and markets are never listed, and a test fails if any of them ever reaches a payload.
-export const OUTBOUND_ITEM_FIELDS = ["item_code", "initiative_name", "summary", "description", "hypothesis"] as const;
+export const OUTBOUND_ITEM_FIELDS = ["item_code", "initiative_name", "summary", "description", "hypothesis", "moscow", "stack_rank"] as const;
 export type OutboundField = (typeof OUTBOUND_ITEM_FIELDS)[number];
 
 export type Artifact = { label: string; url: string };
@@ -22,6 +22,21 @@ export const BLOCK_START = "<!-- pv:begin";
 export const BLOCK_END = "<!-- pv:end -->";
 export const MARKER = (itemId: string) => `<!-- pv:begin item=${itemId} -->`;
 export const BASE_LABEL = "product-velocity";
+/** Labels in this namespace belong to Product Velocity: a push adds the ones an item should have and removes the ones it should not. */
+export const OWNED_LABEL_PREFIX = "pv:";
+
+const MOSCOW: Record<string, string> = { Must: "must", Should: "should", Could: "could", "Won't": "wont" };
+/** "pv:moscow/must" for a known MoSCoW value, otherwise no label. */
+export function moscowLabel(v: unknown): string | null {
+  const slug = typeof v === "string" ? MOSCOW[v] : undefined;
+  return slug ? `${OWNED_LABEL_PREFIX}moscow/${slug}` : null;
+}
+/** Where an item sits in the global rank, as a band, never the number (the exact rank stays in the app): top 10, top 25, top 50, later. */
+export function rankBandLabel(rank: unknown): string | null {
+  const n = typeof rank === "number" ? rank : NaN;
+  if (!Number.isFinite(n) || n < 1) return null;
+  return `${OWNED_LABEL_PREFIX}rank/${n <= 10 ? "top-10" : n <= 25 ? "top-25" : n <= 50 ? "top-50" : "later"}`;
+}
 
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
@@ -55,7 +70,7 @@ export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
   parts.push("", "---", `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept. [Open in Product Velocity](${i.appUrl}/portfolio/${encodeURIComponent(code)})`, BLOCK_END);
 
   const title = (code ? `${code}: ${name}` : name) || "Untitled initiative";
-  const labels = [BASE_LABEL, projectLabel(i.projectName)];
+  const labels = [BASE_LABEL, projectLabel(i.projectName), moscowLabel(i.item.moscow), rankBandLabel(i.item.stack_rank)].filter((l): l is string => !!l);
   const block = parts.join("\n");
   return { title, block, labels, hash: createHash("sha256").update(JSON.stringify({ title, labels, block })).digest("hex") };
 }

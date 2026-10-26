@@ -7,6 +7,8 @@ import { FIELDS } from "@pv/domain";
 // part of `pnpm test`, which CI runs.
 const ID = "22222222-2222-4222-8222-222222222222";
 const allowed = new Set<string>(OUTBOUND_ITEM_FIELDS);
+// read, but only ever sent as a label (a MoSCoW value, a rank band), never as text: they are checked with real values below
+const DERIVED = new Set(["moscow", "stack_rank"]);
 const sentinel = (key: string) => `LEAK_${key.toUpperCase()}_9f3a`;
 
 const fullItem = () => Object.fromEntries([...FIELDS.map((f) => f.key), "id", "tenant_id", "home_project_id", "created_by", "owner_user_id"].map((k) => [k, sentinel(k)]));
@@ -30,7 +32,18 @@ describe("outbound GitHub payloads", () => {
       expect(wire, `${f.key} leaked into a GitHub payload`).not.toContain(sentinel(f.key));
     }
     for (const k of ["id", "tenant_id", "home_project_id", "created_by", "owner_user_id"]) expect(wire, `${k} leaked`).not.toContain(sentinel(k));
-    for (const k of allowed) expect(wire).toContain(sentinel(k)); // and the allowed ones really are sent
+    for (const k of allowed) if (!DERIVED.has(k)) expect(wire).toContain(sentinel(k)); // and the allowed ones really are sent
+  });
+
+  it("MoSCoW and the rank only leave as pv: labels: a value and a band, never the rank number or any other field", async () => {
+    const item = { ...fullItem(), moscow: "Should", stack_rank: 37 };
+    const built = buildTrackingIssue({ item, itemId: ID, projectName: "Mobile", appUrl: "https://productvelocity.app", artifacts: [] });
+    const sc = new MemorySourceControl();
+    await pushTrackingIssue(sc, 1, "acme/road", ID, built, null);
+    expect(built.labels).toEqual(expect.arrayContaining(["pv:moscow/should", "pv:rank/top-50"]));
+    const wire = JSON.stringify([built, sc.sent]);
+    expect(wire).not.toMatch(/\b37\b/);
+    for (const f of FIELDS) if (!allowed.has(f.key)) expect(wire, `${f.key} leaked`).not.toContain(sentinel(f.key));
   });
 
   it("never reads a commercial field of the item in the first place", () => {

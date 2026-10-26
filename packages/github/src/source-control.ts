@@ -15,7 +15,7 @@ export type RepoInfo = { id: number; fullName: string; private: boolean };
 export type DeliverySummary = { event: string; action: string | null; statusCode: number; deliveredAt: string };
 
 export type IssueInput = { title: string; body: string; labels: string[] };
-export type IssueRef = { number: number; id: number; nodeId: string; htmlUrl: string; body: string; state: "open" | "closed" };
+export type IssueRef = { number: number; id: number; nodeId: string; htmlUrl: string; body: string; state: "open" | "closed"; /** The labels on the issue, when GitHub reported them. */ labels?: string[] };
 
 /** Raised for GitHub errors. Carries the status only: never the response body, headers or any token. */
 export class GitHubError extends Error {
@@ -54,6 +54,8 @@ export interface SourceControl {
   updateIssue(installationId: number, repo: string, number: number, input: { title?: string; body?: string }): Promise<IssueRef>;
   /** Adds labels to an issue (idempotent); existing labels stay. */
   addLabels(installationId: number, repo: string, number: number, labels: string[]): Promise<void>;
+  /** Removes one label from an issue (a label that is not there is fine). The app only ever removes labels in its own `pv:` namespace. */
+  removeLabel(installationId: number, repo: string, number: number, label: string): Promise<void>;
   getIssue(installationId: number, repo: string, number: number): Promise<IssueRef | null>;
   /** Finds an issue whose body contains `marker` (used to recover from a create whose answer was lost). */
   findIssueByMarker(installationId: number, repo: string, marker: string): Promise<IssueRef | null>;

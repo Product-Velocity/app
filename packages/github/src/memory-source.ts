@@ -5,6 +5,8 @@ export class MemorySourceControl implements SourceControl {
   readonly provider = "github" as const;
   issues = new Map<string, IssueRef & { title: string; labels: string[] }>();
   labels = new Set<string>();
+  /** Labels removed from issues, in order. */
+  removed: string[] = [];
   calls: string[] = [];
   /** Payloads exactly as they would be serialised to GitHub. */
   sent: unknown[] = [];
@@ -43,6 +45,12 @@ export class MemorySourceControl implements SourceControl {
     this.tick("addLabels", labels);
     const issue = this.issues.get(`${repo}#${number}`)!;
     for (const l of labels) if (!issue.labels.includes(l)) issue.labels.push(l);
+  }
+  async removeLabel(_i: number, repo: string, number: number, label: string) {
+    this.tick("removeLabel", label);
+    const issue = this.issues.get(`${repo}#${number}`)!;
+    issue.labels = issue.labels.filter((l) => l !== label);
+    this.removed.push(label);
   }
   async getIssue(_i: number, repo: string, number: number) { this.tick("getIssue"); return this.issues.get(`${repo}#${number}`) ?? null; }
   async findIssueByMarker(_i: number, repo: string, marker: string) {

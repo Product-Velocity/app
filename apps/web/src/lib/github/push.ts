@@ -8,7 +8,7 @@ import { PUSH_LIMIT, type PlanItem, type PushItemResult } from "./push-types";
 
 type Admin = ReturnType<typeof createAdminClient>;
 type Link = { item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; html_url: string | null; sync_state: string; last_pushed_hash: string | null };
-type Row = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; home_project_id: string };
+type Row = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; stack_rank: number; home_project_id: string };
 
 const blockedItem = (id: string, reason: string, over: Partial<PlanItem> = {}): PlanItem => ({ id, code: "", name: "", project: "", repo: null, action: "blocked", title: "", labels: [], block: "", issueNumber: null, issueUrl: null, reason, ...over });
 
@@ -19,7 +19,7 @@ const blockedItem = (id: string, reason: string, over: Partial<PlanItem> = {}): 
 export async function planPush(supabase: SupabaseClient, tenantId: string, appUrl: string, connection: ConnectionRow, ids: string[]): Promise<PlanItem[]> {
   const unique = [...new Set(ids)].slice(0, PUSH_LIMIT);
   const [items, projects, repos, links, artifacts] = await Promise.all([
-    supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis, home_project_id").eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
+    supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis, moscow, stack_rank, home_project_id").eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
     supabase.from("projects").select("id, name, default_repo, tracker").eq("tenant_id", tenantId),
     supabase.from("github_repositories").select("full_name, access").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("removed_at", null),
     supabase.from("item_github_links").select("item_id, mode, repo_full_name, issue_number, html_url, sync_state, last_pushed_hash").eq("tenant_id", tenantId).in("item_id", unique),
@@ -54,7 +54,7 @@ export async function executePush(opts: { supabase: SupabaseClient; admin: Admin
   const [links, artifacts, items] = await Promise.all([
     opts.supabase.from("item_github_links").select("item_id, issue_number, last_pushed_hash").eq("tenant_id", opts.tenantId).in("item_id", plan.map((p) => p.id)),
     opts.supabase.from("item_links").select("item_id, label, url").eq("tenant_id", opts.tenantId).in("item_id", plan.map((p) => p.id)),
-    opts.supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis").eq("tenant_id", opts.tenantId).in("id", plan.map((p) => p.id)),
+    opts.supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis, moscow, stack_rank").eq("tenant_id", opts.tenantId).in("id", plan.map((p) => p.id)),
   ]);
   const linkBy = new Map(((links.data ?? []) as { item_id: string; issue_number: number | null; last_pushed_hash: string | null }[]).map((l) => [l.item_id, l]));
   const itemBy = new Map(((items.data ?? []) as Row[]).map((r) => [r.id, r]));

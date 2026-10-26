@@ -121,8 +121,11 @@ export class GitHubAppSourceControl implements SourceControl {
     return res;
   }
 
-  private static ref(i: { number: number; id: number; node_id: string; html_url: string; body?: string | null; state: string }): IssueRef {
-    return { number: i.number, id: i.id, nodeId: i.node_id, htmlUrl: i.html_url, body: i.body ?? "", state: i.state === "closed" ? "closed" : "open" };
+  private static ref(i: { number: number; id: number; node_id: string; html_url: string; body?: string | null; state: string; labels?: (string | { name?: string })[] }): IssueRef {
+    return {
+      number: i.number, id: i.id, nodeId: i.node_id, htmlUrl: i.html_url, body: i.body ?? "", state: i.state === "closed" ? "closed" : "open",
+      labels: (i.labels ?? []).map((l) => (typeof l === "string" ? l : l.name ?? "")).filter(Boolean),
+    };
   }
 
   async listIssues(installationId: number, repo: string): Promise<IssueSummary[]> {
@@ -177,6 +180,11 @@ export class GitHubAppSourceControl implements SourceControl {
   async addLabels(installationId: number, repo: string, number: number, labels: string[]): Promise<void> {
     const res = await this.call(installationId, "POST", `/repos/${repo}/issues/${number}/labels`, { labels });
     if (!res.ok) throw new GitHubError(res.status, `GitHub refused to add labels (${res.status})`);
+  }
+
+  async removeLabel(installationId: number, repo: string, number: number, label: string): Promise<void> {
+    const res = await this.call(installationId, "DELETE", `/repos/${repo}/issues/${number}/labels/${encodeURIComponent(label)}`);
+    if (!res.ok && res.status !== 404) throw new GitHubError(res.status, `GitHub refused to remove a label (${res.status})`); // 404: it was not there
   }
 
   async getIssue(installationId: number, repo: string, number: number): Promise<IssueRef | null> {
