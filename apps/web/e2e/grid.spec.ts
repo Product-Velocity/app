@@ -8,7 +8,7 @@ const open = async (page: Page, query = `n=200&${ALL}`) => {
   await page.waitForFunction(() => (window as unknown as { __pv?: unknown }).__pv !== undefined);
 };
 const cell = (page: Page, id: string, col: string) => page.locator(`.ag-row[row-id="${id}"] [col-id="${col}"]`);
-const strip = (page: Page) => page.locator(".strip");
+const strip = (page: Page) => page.locator(".pvbar");
 const pv = (page: Page) => page.evaluate(() => {
   const w = window as unknown as { __pv: { controller: { status: unknown; rows: { id: string; stack_rank: number }[] } } };
   return { status: w.__pv.controller.status as { pending: number; error: string | null; undoCount: number }, ranks: w.__pv.controller.rows.map((r) => r.id) };
@@ -200,7 +200,7 @@ test("a failed save puts the value back and says why", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.locator(".strip-alert")).toContainText("Could not save R-01 Health: permission denied");
   await expect(cell(page, "item-1", "health")).toContainText("On Track");
-  await expect(strip(page)).toContainText("Not all changes could be saved");
+  await expect(strip(page)).toContainText("Not all saved");
 });
 
 test("typing a new global rank moves the row, keeps the focus on it and can be undone", async ({ page }) => {

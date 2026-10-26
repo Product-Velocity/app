@@ -27,11 +27,11 @@ export interface WorkspaceStore {
   restoreDefaultView(name: ViewName): Promise<Result<null>>;
 }
 
-const VIEW_COLUMNS = "id,name,columns,filters,group_by,base_view,customer_safe";
-type ViewRow = { id: string; name: string; columns: string[]; filters: unknown; group_by: string | null; base_view: string | null; customer_safe: boolean };
+const VIEW_COLUMNS = "id,name,columns,filters,group_by,base_view,customer_safe,pinned";
+type ViewRow = { id: string; name: string; columns: string[]; filters: unknown; group_by: string | null; base_view: string | null; customer_safe: boolean; pinned?: string[] | null };
 const fromRow = (r: ViewRow): SavedView => ({
   id: r.id, name: r.name, baseView: (r.base_view as ViewName | null) ?? null,
-  ...sanitizeView({ columns: r.columns, filters: r.filters, groupBy: r.group_by, customerSafe: r.customer_safe }),
+  ...sanitizeView({ columns: r.columns, filters: r.filters, groupBy: r.group_by, customerSafe: r.customer_safe, pinned: r.pinned ?? [] }),
 });
 
 export const validName = (name: string, max: number) => {
@@ -140,7 +140,7 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
     const clean = sanitizeView(def);
     const { data, error } = await this.client
       .from("saved_views")
-      .insert({ tenant_id: this.tenantId, name: n, columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, customer_safe: clean.customerSafe === true })
+      .insert({ tenant_id: this.tenantId, name: n, columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, customer_safe: clean.customerSafe === true, pinned: clean.pinned ?? [] })
       .select("id")
       .single();
     if (error || !data) return { ok: false, error: friendly(error, "view", n) };
@@ -151,7 +151,7 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
     const clean = sanitizeView({ ...def, customerSafe: false });
     const existing = await this.client.from("saved_views").select("id").eq("tenant_id", this.tenantId).eq("base_view", name).maybeSingle();
     if (existing.error) return { ok: false, error: friendly(existing.error, "view", name) };
-    const fields = { columns: clean.columns, filters: clean.filters, group_by: clean.groupBy };
+    const fields = { columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, pinned: clean.pinned ?? [] };
     const { data, error } = existing.data
       ? await this.client.from("saved_views").update(fields).eq("tenant_id", this.tenantId).eq("id", existing.data.id).select(VIEW_COLUMNS)
       : await this.client.from("saved_views").insert({ tenant_id: this.tenantId, name, base_view: name, ...fields }).select(VIEW_COLUMNS);
@@ -172,8 +172,9 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
       if (!n) return { ok: false, error: "Give the view a name (up to 80 characters)." };
       row.name = n;
     }
-    if (patch.columns || patch.filters || patch.groupBy !== undefined) {
-      const clean = sanitizeView({ columns: patch.columns, filters: patch.filters, groupBy: patch.groupBy ?? null, customerSafe: patch.customerSafe });
+    if (patch.columns || patch.filters || patch.groupBy !== undefined || patch.pinned !== undefined) {
+      const clean = sanitizeView({ columns: patch.columns, filters: patch.filters, groupBy: patch.groupBy ?? null, customerSafe: patch.customerSafe, pinned: patch.pinned });
+      if (patch.columns || patch.pinned !== undefined) row.pinned = clean.pinned ?? [];
       if (patch.columns) row.columns = clean.columns;
       if (patch.filters) row.filters = clean.filters;
       if (patch.groupBy !== undefined) row.group_by = clean.groupBy;
@@ -266,8 +267,8 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
       const d = this.dup(this.views, nm, "view", id); if (d) return d;
       v.name = nm;
     }
-    const clean = sanitizeView({ columns: patch.columns ?? v.columns, filters: patch.filters ?? v.filters, groupBy: patch.groupBy === undefined ? v.groupBy : patch.groupBy, customerSafe: patch.customerSafe ?? v.customerSafe });
-    v.columns = clean.columns; v.filters = clean.filters; v.groupBy = clean.groupBy;
+    const clean = sanitizeView({ columns: patch.columns ?? v.columns, filters: patch.filters ?? v.filters, groupBy: patch.groupBy === undefined ? v.groupBy : patch.groupBy, customerSafe: patch.customerSafe ?? v.customerSafe, pinned: patch.pinned ?? v.pinned });
+    v.columns = clean.columns; v.filters = clean.filters; v.groupBy = clean.groupBy; v.pinned = clean.pinned;
     if (patch.customerSafe !== undefined) v.customerSafe = clean.customerSafe;
     return { ok: true, value: { ...v } };
   }
@@ -282,7 +283,7 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
     if (!this.canWrite) return { ok: false, error: "You cannot change the default views. Ask an admin for the Creator role." };
     const clean = sanitizeView({ ...def, customerSafe: false });
     const existing = this.views.find((v) => v.baseView === name);
-    if (existing) { Object.assign(existing, clean); return { ok: true, value: { ...existing } }; }
+    if (existing) { Object.assign(existing, clean); existing.pinned = clean.pinned; return { ok: true, value: { ...existing } }; }
     const v: SavedView = { id: `view-${++this.n}`, name, baseView: name, ...clean };
     this.views.push(v);
     return { ok: true, value: v };

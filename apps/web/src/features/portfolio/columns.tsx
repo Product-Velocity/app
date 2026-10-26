@@ -65,9 +65,11 @@ export type ColumnContext = {
   order: string[];
   /** Sorted by global rank (off while rows are grouped: the grouping decides the order). */
   sorted: boolean;
+  /** Columns besides the core ones that stay on the left while the grid scrolls. */
+  pinned?: ReadonlySet<string>;
 };
 
-export function buildColumns({ controller, lookups, today, visible, order, sorted }: ColumnContext): ColDef<GridItem>[] {
+export function buildColumns({ controller, lookups, today, visible, order, sorted, pinned }: ColumnContext): ColDef<GridItem>[] {
   const editable = () => controller.canEdit;
   const projectOptions: PickerOption[] = lookups.projects.map((p) => ({ value: p.id, label: p.name }));
   const personOptions: PickerOption[] = lookups.members.map((m) => ({ value: m.user_id, label: m.email }));
@@ -182,7 +184,8 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
     const first = FIRST.indexOf(k);
     return first >= 0 ? first : FIRST.length + (pos.get(k) ?? 1000 + (registry.get(k) ?? 0));
   };
-  return FIELDS.map(def).sort((a, b) => rank(a) - rank(b));
+  const pin = (c: ColDef<GridItem>): ColDef<GridItem> => (pinned?.has(String(c.colId)) ? { ...c, pinned: "left", suppressMovable: true } : c);
+  return FIELDS.map(def).map(pin).sort((a, b) => rank(a) - rank(b));
 }
 
 /** Column ids whose cells cannot be edited, with the reason (for the notice under the grid). */

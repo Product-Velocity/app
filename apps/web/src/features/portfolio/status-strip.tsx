@@ -67,3 +67,53 @@ export function StatusStrip({ controller, tools }: { controller: PortfolioContro
     </div>
   );
 }
+
+/** "All changes saved" and Undo / Redo for the bar above the grid: one short line of text and two icon buttons. */
+export function StatusInline({ controller }: { controller: PortfolioController }) {
+  const status = useStatus(controller);
+  const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+  const mod = mac ? "⌘" : "Ctrl+";
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 15_000); return () => clearInterval(t); }, []);
+  return (
+    <>
+      <span className="pvbar-last">{status.last ? `Last: ${status.last.text}, ${ago(status.last.at, now)}` : ""}</span>
+      {!controller.canEdit ? (
+        <span className="pvbar-status strip-note">View-only</span>
+      ) : status.pending > 0 ? (
+        <span className="pvbar-status strip-saving" role="status">Saving…</span>
+      ) : status.error ? (
+        <span className="pvbar-status strip-error">✖ Not all saved</span>
+      ) : (
+        <span className="pvbar-status" role="status" title={status.last ? `Last: ${status.last.text}` : undefined}><span className="strip-ok">✓ All changes saved</span></span>
+      )}
+      {controller.canEdit && (
+        <>
+          <button type="button" className="btn pvbar-undo" aria-label={`Undo (${mod}Z)`} title={`Undo ${mod}Z`} disabled={!status.canUndo} onClick={() => void controller.undo()}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M9 14 4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>
+          </button>
+          <button type="button" className="btn pvbar-undo" aria-label={`Redo (${mac ? "⇧⌘Z" : "Ctrl+Y"})`} title={`Redo ${mac ? "⇧⌘Z" : "Ctrl+Y"}`} disabled={!status.canRedo} onClick={() => void controller.redo()}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m15 14 5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h3" /></svg>
+          </button>
+        </>
+      )}
+    </>
+  );
+}
+
+/** Save errors and notices, under the first line of the bar. */
+export function StatusAlerts({ controller }: { controller: PortfolioController }) {
+  const status = useStatus(controller);
+  if (!status.error && !status.notice) return null;
+  return (
+    <div className="pvbar-alerts">
+      {status.error && (
+        <p role="alert" className="strip-alert">
+          {status.error}{" "}
+          <button type="button" className="link-button" onClick={() => controller.dismissError()}>Dismiss</button>
+        </p>
+      )}
+      {status.notice && <p role="status" className="strip-notice">{status.notice}</p>}
+    </div>
+  );
+}

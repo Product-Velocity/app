@@ -28,7 +28,7 @@ test.describe("bulk bar", () => {
     await expect(page.getByRole("menu", { name: "Set MoSCoW" })).toContainText("Currently: Must, Should, Could");
     await page.getByRole("menuitem", { name: "Won't" }).click();
     for (const id of ["item-1", "item-2", "item-3"]) await expect(cell(page, id, "moscow")).toHaveText("Won't");
-    await expect(page.locator(".strip")).toContainText("Set MoSCoW to Won't on 3 items");
+    await expect(page.locator(".pvbar")).toContainText("Set MoSCoW to Won't on 3 items");
     await expect(bar(page)).toContainText("Done: Set MoSCoW to Won't on 3 items");
     await settle(page);
     expect((await page.evaluate(() => (window as unknown as { __pv: { controller: { status: { undoCount: number } } } }).__pv.controller.status.undoCount))).toBe(1);
@@ -36,7 +36,7 @@ test.describe("bulk bar", () => {
     await expect(cell(page, "item-1", "moscow")).toHaveText("Must");
     await expect(cell(page, "item-2", "moscow")).toHaveText("Should");
     await expect(cell(page, "item-3", "moscow")).toHaveText("Could");
-    await expect(page.locator(".strip")).toContainText("Undid: Set MoSCoW on 3 items");
+    await expect(page.locator(".pvbar")).toContainText("Undid: Set MoSCoW on 3 items");
   });
 
   test("GitHub-driven and other read-only fields are rejected with a clear message", async ({ page }) => {
@@ -60,13 +60,13 @@ test.describe("bulk bar", () => {
     await expect(cell(page, "item-1", "status")).toHaveText("Backlog");
   });
 
-  test("has an Update GitHub button (disabled until GitHub is connected) and Export selection to file", async ({ page }) => {
+  test("Sync GitHub (disabled until GitHub is connected) and Export 2 are on the bar above the batch bar", async ({ page }) => {
     await open(page);
     await select(page, "item-1", "item-2");
-    await expect(bar(page).getByRole("button", { name: /^Update GitHub/ })).toBeDisabled();
-    await expect(bar(page).getByRole("button", { name: /^Update GitHub/ })).toContainText("connect GitHub first");
+    await expect(page.getByRole("button", { name: /^Sync 2 GitHub|^Sync GitHub/ })).toBeDisabled();
+    await page.getByRole("button", { name: "Export 2" }).click();
     const download = page.waitForEvent("download");
-    await bar(page).getByRole("button", { name: "Export selection to file" }).click();
+    await page.getByRole("menuitem", { name: /CSV file \(2 rows/ }).click();
     const file = await download;
     expect(file.suggestedFilename()).toMatch(/^roadmap-selection-\d{4}-\d\d-\d\d\.csv$/);
     const csv = readFileSync(await file.path(), "utf8");
@@ -122,10 +122,10 @@ test.describe("bulk bar", () => {
   test("view-only roles can select and export but not edit", async ({ page }) => {
     await open(page, `n=10&role=viewer&${ALL}`);
     await select(page, "item-1");
-    await expect(bar(page).getByRole("button", { name: "Export selection to file" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Export 1" })).toBeVisible();
     await expect(bar(page).getByRole("button", { name: /^Set / })).toHaveCount(0);
     await expect(bar(page).getByRole("button", { name: /^More fields/ })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Import from spreadsheet" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Paste table" })).toHaveCount(0);
   });
 });
 
@@ -141,7 +141,7 @@ const sheet = (rows: number, bad: number[] = []) => {
 test.describe("paste-import from a spreadsheet", () => {
   test("paste 50 rows: columns are mapped, a preview is shown, then import in one undoable step", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: "Import from spreadsheet" }).click();
+    await page.getByRole("button", { name: "Paste table" }).click();
     const dialog = page.getByRole("dialog", { name: /Import rows/ });
     await dialog.getByLabel(/Paste the cells/).fill(sheet(50));
     await expect(dialog.getByRole("button", { name: "Field for Initiative Name:" })).toContainText(fieldNames.initiative_name!);
@@ -158,7 +158,7 @@ test.describe("paste-import from a spreadsheet", () => {
     await dialog.getByRole("button", { name: "Import 50 rows" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.locator(".grid-foot")).toContainText("80 items");
-    await expect(page.locator(".strip")).toContainText("Imported 50 items");
+    await expect(page.locator(".pvbar")).toContainText("Imported 50 items");
     await settle(page);
     const calls = await page.evaluate(() => (window as unknown as { __pv: { source: { createCalls: unknown[] } } }).__pv.source.createCalls);
     expect(calls).toEqual([{ count: 50, via: "import" }]); // one request, labelled as an import
@@ -168,7 +168,7 @@ test.describe("paste-import from a spreadsheet", () => {
 
   test("rows with problems are shown with the reason and are skipped", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: "Import from spreadsheet" }).click();
+    await page.getByRole("button", { name: "Paste table" }).click();
     const dialog = page.getByRole("dialog", { name: /Import rows/ });
     await dialog.getByLabel(/Paste the cells/).fill(sheet(10, [2]));
     await expect(dialog.getByRole("status")).toContainText("10 rows read: 9 ready, 1 with problems");
@@ -179,7 +179,7 @@ test.describe("paste-import from a spreadsheet", () => {
 
   test("the mapping can be changed before importing", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: "Import from spreadsheet" }).click();
+    await page.getByRole("button", { name: "Paste table" }).click();
     const dialog = page.getByRole("dialog", { name: /Import rows/ });
     await dialog.getByLabel(/Paste the cells/).fill("Idea\tImportance\nA new idea\tshould\nAnother\tmust");
     // none of these headers is a known field name, so the first row is not assumed to be a header
@@ -217,7 +217,7 @@ test.describe("paste-import from a spreadsheet", () => {
     await select(page, "item-1", "item-2");
     let results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length} (${v.help})`)).toEqual([]);
-    await page.getByRole("button", { name: "Import from spreadsheet" }).click();
+    await page.getByRole("button", { name: "Paste table" }).click();
     await page.getByLabel(/Paste the cells/).fill(sheet(5, [1]));
     await expect(page.getByRole("status").filter({ hasText: "rows read" })).toBeVisible();
     results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
@@ -262,8 +262,9 @@ test.describe("header and page head follow the prototype", () => {
 
   test("Export in the page head downloads every row with the shown columns", async ({ page }) => {
     await open(page, "n=12");
-    const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export", exact: true }).click();
+    const download = page.waitForEvent("download");
+    await page.getByRole("menuitem", { name: /CSV file/ }).click();
     const file = await download;
     expect(file.suggestedFilename()).toMatch(/^roadmap-\d{4}-\d\d-\d\d\.csv$/);
     const lines = readFileSync(await file.path(), "utf8").replace(/^\uFEFF/, "").trim().split("\r\n");

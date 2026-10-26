@@ -135,3 +135,35 @@ describe("quick-add: +group", () => {
     expect((parseQuickAdd("Plain name", withGroups) as { draft: Record<string, unknown> }).draft).not.toHaveProperty("theme");
   });
 });
+
+describe("quick-add: horizon, health and dates", () => {
+  const today = new Date(Date.UTC(2027, 3, 14)); // Wednesday 14 April 2027
+  const c = { ...ctx, today };
+  const draft = (text: string) => { const r = parseQuickAdd(text, c); if (!r.ok) throw new Error(r.error); return r.draft; };
+  it("~now, ~next and ~later set the Horizon; a start of the word is enough", () => {
+    expect(draft("Faster search #platform ~now").horizon).toBe("Now");
+    expect(draft("Faster search #platform ~lat").horizon).toBe("Later");
+    expect(parseQuickAdd("Faster search #platform ~soonish", c)).toMatchObject({ ok: false });
+  });
+  it("!atrisk, !delayed, !blocked and !ontrack set the Health", () => {
+    expect(draft("Faster search #platform !atrisk").health).toBe("At Risk");
+    expect(draft("Faster search #platform !blocked").health).toBe("Blocked");
+    expect(draft("Faster search #platform !on").health).toBe("On Track");
+    expect(parseQuickAdd("Faster search #platform !fine", c)).toMatchObject({ ok: false });
+  });
+  it("start: and by: take a date the way a person types it", () => {
+    const d = draft("Faster search #platform start:friday by:31/05");
+    expect(d.planned_start).toBe("2027-04-16");
+    expect(d.g2m_date_est).toBe("2027-05-31");
+    expect(draft("Faster search #platform by:q2").g2m_date_est).toBe("2027-06-30"); // an end date: the end of the quarter
+    expect(draft("Faster search #platform start:q2").planned_start).toBe("2027-04-01");
+  });
+  it("refuses an unreadable date or an end before the start, and says which token", () => {
+    expect(parseQuickAdd("Faster search #platform by:banana", c)).toMatchObject({ ok: false, error: expect.stringContaining("by:banana") });
+    expect(parseQuickAdd("Faster search #platform start:1/6 by:1/5", c)).toMatchObject({ ok: false, error: "by: cannot be before start:." });
+  });
+  it("without today the date tokens are part of the name, the rest keeps working; the other tokens still work together", () => {
+    const r = parseQuickAdd("Faster search #platform by:friday ~next !delayed M should @bo", ctx);
+    expect(r).toMatchObject({ ok: true, draft: { initiative_name: "Faster search by:friday", horizon: "Next", health: "Delayed", effort: "M", moscow: "Should" } });
+  });
+});

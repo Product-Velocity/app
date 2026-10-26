@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CUSTOMER_SAFE_KEYS, buildGroupedRows, healthBreakdown, filterSummary, groupableFields, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
+import { QUICK_FILTERS, customFilters, quickFilterOn, toggleQuickFilter } from "./quick-filters";
 import { FIELDS, FIELD_BY_KEY } from "./registry";
 import { setDateFormat } from "./dates";
 
@@ -67,12 +68,12 @@ describe("matchesFilters", () => {
 describe("opsFor", () => {
   it("offers operators that fit the field type", () => {
     const names = (k: string) => opsFor(FIELD_BY_KEY[k]!).map((o) => o.op);
-    expect(names("moscow")).toEqual(["is", "is_not", "empty", "not_empty"]);
+    expect(names("moscow")).toEqual(["is", "any_of", "is_not", "empty", "not_empty"]);
     expect(names("initiative_name")).toEqual(["contains", "is", "empty", "not_empty"]);
     expect(names("value_12m")).toEqual(["gt", "lt", "is", "empty", "not_empty"]);
-    expect(names("start_date")).toEqual(["before", "after", "between", "is", "in_last", "in_next", "empty", "not_empty"]);
+    expect(names("start_date")).toEqual(["before", "after", "between", "is", "today", "this_week", "this_month", "in_last", "in_next", "empty", "not_empty"]);
     expect(names("archived")).toEqual(["is"]);
-    expect(names("product_manager")).toEqual(["is", "is_not", "empty", "not_empty"]);
+    expect(names("product_manager")).toEqual(["is", "any_of", "is_not", "empty", "not_empty"]);
   });
 });
 
@@ -211,5 +212,72 @@ describe("date filters: older and younger than, ranges and rolling windows", () 
   it("survives a saved view round trip, including the second date", () => {
     const v = sanitizeView({ columns: ["start_date"], filters: [{ field: "start_date", op: "between", value: "2027-04-01", value2: "2027-04-30" }] });
     expect(v.filters).toEqual([{ field: "start_date", op: "between", value: "2027-04-01", value2: "2027-04-30" }]);
+  });
+});
+
+describe("filters of the new filter panel", () => {
+  const rows = [
+    { id: "a", health: "At Risk", moscow: "Must", product_manager: "u1", created_at: "2026-10-26T09:00:00Z", initiative_status: "In Progress" },
+    { id: "b", health: "Blocked", moscow: "Should", product_manager: "u2", created_at: "2026-10-21T09:00:00Z", initiative_status: "Backlog" },
+    { id: "c", health: "On Track", moscow: "Must", product_manager: "u1", created_at: "2026-09-02T09:00:00Z", initiative_status: "In Progress" },
+    { id: "d", health: null, moscow: null, product_manager: null, created_at: null, initiative_status: null },
+  ];
+  const today = new Date(Date.UTC(2026, 9, 26)); // Monday 26 October 2026
+  const ids = (f: Filter[]) => rows.filter((r) => matchesFilters(r, f, { me: "u1", today })).map((r) => r.id);
+
+  it("is any of: any of the values; no value filters nothing", () => {
+    expect(ids([{ field: "health", op: "any_of", values: ["At Risk", "Blocked"] }])).toEqual(["a", "b"]);
+    expect(ids([{ field: "health", op: "any_of", values: [] }])).toEqual(["a", "b", "c", "d"]);
+    expect(ids([{ field: "product_manager", op: "any_of", values: ["me", "u2"] }])).toEqual(["a", "b", "c"]);
+  });
+  it("today, this week (Monday to Sunday) and this month work on a date and on a timestamp", () => {
+    expect(ids([{ field: "created_at", op: "today" }])).toEqual(["a"]);
+    expect(ids([{ field: "created_at", op: "this_week" }])).toEqual(["a"]);
+    expect(ids([{ field: "created_at", op: "this_month" }])).toEqual(["a", "b"]);
+    // on a Sunday the week still began on Monday
+    const sunday = new Date(Date.UTC(2026, 10, 1));
+    expect(matchesFilters({ created_at: "2026-10-26T12:00:00Z" }, [{ field: "created_at", op: "this_week" }], { today: sunday })).toBe(true);
+    expect(matchesFilters({ created_at: "2026-10-25T12:00:00Z" }, [{ field: "created_at", op: "this_week" }], { today: sunday })).toBe(false);
+  });
+  it("date operators also work on the app's own dates (created, last changed)", () => {
+    expect(opsFor(FIELD_BY_KEY.created_at!).map((o) => o.op)).toContain("this_week");
+    expect(ids([{ field: "created_at", op: "before", value: "2026-10-22" }])).toEqual(["b", "c"]);
+    expect(ids([{ field: "created_at", op: "between", value: "2026-10-01", value2: "2026-10-31" }])).toEqual(["a", "b"]);
+  });
+  it("a saved view keeps the values and drops what does not belong", () => {
+    const v = sanitizeView({ columns: [], filters: [{ field: "health", op: "any_of", values: ["At Risk", "At Risk", "", 7] }, { field: "moscow", op: "today" }] });
+    expect(v.filters).toEqual([{ field: "health", op: "any_of", values: ["At Risk"] }]);
+  });
+  it("pinned columns: only inside the first four places, after the core columns", () => {
+    const cols = ["stack_rank", "item_code", "initiative_name", "moscow", "health"];
+    expect(sanitizeView({ columns: cols, pinned: ["moscow", "health"] }).pinned).toEqual(["moscow"]);
+    expect(sanitizeView({ columns: cols, pinned: ["stack_rank", "nope"] }).pinned).toBeUndefined();
+    expect(sanitizeView({ columns: cols }).pinned).toBeUndefined();
+  });
+  it("says it in words", () => {
+    const labels = { person: (id: string) => `person ${id}`, project: (id: string) => id };
+    expect(filterSummary({ field: "health", op: "any_of", values: ["At Risk", "Blocked"] }, labels)).toBe("Health is any of At Risk, Blocked");
+    expect(filterSummary({ field: "created_at", op: "this_week" }, labels)).toBe("Created At is this week");
+  });
+});
+
+describe("quick filters", () => {
+  it("toggle on and off without touching other filters, and are recognised in the list", () => {
+    const other: Filter = { field: "horizon", op: "is", value: "Now" };
+    const attention = QUICK_FILTERS.find((q) => q.id === "attention")!;
+    const on = toggleQuickFilter([other], attention);
+    expect(on).toHaveLength(2);
+    expect(quickFilterOn(on, attention)).toBe(true);
+    expect(customFilters(on)).toEqual([other]);
+    expect(toggleQuickFilter(on, attention)).toEqual([other]);
+  });
+  it("every quick filter is a filter the engine accepts", () => {
+    for (const q of QUICK_FILTERS) {
+      expect(sanitizeView({ columns: [], filters: q.filters }).filters, q.id).toHaveLength(q.filters.length);
+    }
+  });
+  it("a rule the person added by hand that equals a quick filter shows as that quick filter", () => {
+    const rule: Filter = { field: "moscow", op: "is", value: "Must" };
+    expect(quickFilterOn([rule], QUICK_FILTERS.find((q) => q.id === "high-impact")!)).toBe(true);
   });
 });

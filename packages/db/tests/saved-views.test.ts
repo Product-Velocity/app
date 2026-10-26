@@ -168,3 +168,12 @@ describe("saved scopes (portfolio scope)", () => {
     expect(await errorCode(db.asUser(viewer, (q) => q("insert into public.saved_scopes (tenant_id, name) values ($1, 'Nope')", [f.tenantA])))).toBe(DENIED);
   });
 });
+
+describe("pinned columns (0.30.0)", () => {
+  it("a view stores up to four pinned column keys; more is refused", async () => {
+    const ok = await db.asUser(f.alice, (q) => q("insert into public.saved_views (tenant_id, name, columns, pinned) values ($1, 'Pinned view', array['stack_rank','item_code','initiative_name','moscow'], array['moscow']) returning pinned", [f.tenantA]), { commit: true });
+    expect(ok.rows[0].pinned).toEqual(["moscow"]);
+    const code = await errorCode(db.asUser(f.alice, (q) => q("insert into public.saved_views (tenant_id, name, columns, pinned) values ($1, 'Too many', array['stack_rank'], array['a','b','c','d','e'])", [f.tenantA]), { commit: true }));
+    expect(code).toBe("23514");
+  });
+});

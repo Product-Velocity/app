@@ -18,3 +18,4 @@ export * from "./gantt";
 export * from "./cards";
 export * from "./leadership";
 export * from "./alignment-scoring";
+export * from "./quick-filters";

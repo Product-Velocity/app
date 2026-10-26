@@ -30,7 +30,7 @@ test("keyboard only: Alt+N, type the name and tokens, Enter adds it at the end, 
   await expect(input(page)).toHaveValue("");
   await expect(input(page)).toBeFocused(); // ready for the next one
   await settle(page);
-  await expect(page.locator(".strip")).toContainText("All changes saved");
+  await expect(page.locator(".pvbar")).toContainText("All changes saved");
   await expect(row.locator(`[col-id="item_code"]`)).toHaveText("R-31"); // assigned by the (test) database
   await expect(page.locator(".grid-foot")).toContainText("31 items");
 });
@@ -97,7 +97,7 @@ test("undo takes a quick-added item away again", async ({ page }) => {
   await settle(page);
   await page.getByRole("button", { name: /^Undo/ }).click();
   await expect(rowByName(page, "Temporary")).toHaveCount(0);
-  await expect(page.locator(".strip")).toContainText('Undid: Added');
+  await expect(page.locator(".pvbar")).toContainText('Undid: Added');
 });
 
 test("view-only roles do not get the quick-add row", async ({ page }) => {

@@ -1,14 +1,14 @@
 "use client";
 
-import { useId, useMemo, useState, type ReactNode, type RefObject } from "react";
-import { parseQuickAdd, parseQuickAddList, similarItems, type QuickAddCtx, type QuickAddResult } from "@pv/domain";
+import { useId, useMemo, useState, type RefObject } from "react";
+import { formatDate, parseQuickAdd, parseQuickAddList, QUICK_ADD_TOKENS, similarItems, type QuickAddCtx, type QuickAddResult } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import type { Lookups } from "./types";
 
-type Props = { controller: PortfolioController; lookups: Lookups; contextProject: string | null; inputRef: RefObject<HTMLInputElement | null>; /** Shown on the same line as the input (the Import button). */ extra?: ReactNode };
+type Props = { controller: PortfolioController; lookups: Lookups; contextProject: string | null; inputRef: RefObject<HTMLInputElement | null> };
 
 /** What the line will become, as chips, so a typo in a token is visible before Enter. */
-function chips(r: Extract<QuickAddResult, { ok: true }>, lookups: Lookups): string[] {
+function chips(r: Extract<QuickAddResult, { ok: true }>, lookups: Lookups, today: Date): string[] {
   const d = r.draft;
   const project = lookups.projects.find((p) => p.id === d.home_project)?.name ?? "?";
   const person = lookups.members.find((m) => m.user_id === d.product_manager)?.email;
@@ -18,20 +18,25 @@ function chips(r: Extract<QuickAddResult, { ok: true }>, lookups: Lookups): stri
     d.effort ? `Effort: ${d.effort}` : null,
     d.moscow ? `MoSCoW: ${d.moscow}` : null,
     d.theme ? `Initiative Group: ${d.theme}${r.newGroup ? " (new group)" : ""}` : null,
+    d.horizon ? `Horizon: ${d.horizon}` : null,
+    d.health ? `Health: ${d.health}` : null,
+    d.planned_start ? `Planned Start: ${formatDate(d.planned_start, today)}` : null,
+    d.g2m_date_est ? `G2M Date (est): ${formatDate(d.g2m_date_est, today)}` : null,
   ].filter((x): x is string => !!x);
 }
 
 /** One line adds one item: type the name (and tokens), press Enter. Paste a list to add many. */
-export function QuickAddBar({ controller, lookups, contextProject, inputRef, extra }: Props) {
+export function QuickAddBar({ controller, lookups, contextProject, inputRef }: Props) {
+  const today = controller.todayDate();
   const [text, setText] = useState("");
   const [message, setMessage] = useState<{ kind: "error" | "ok"; text: string } | null>(null);
   const [lastProject, setLastProject] = useState<string | null>(null);
   const hintId = useId();
   const ctx = useMemo<QuickAddCtx>(
-    () => ({ projects: lookups.projects, members: lookups.members, defaultProject: contextProject ?? lastProject, groups: controller.groupNames() }),
+    () => ({ projects: lookups.projects, members: lookups.members, defaultProject: contextProject ?? lastProject, groups: controller.groupNames(), today }),
     // the group list grows as groups are typed, so it is read again when the text changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [lookups, contextProject, lastProject, controller, text],
+    [lookups, contextProject, lastProject, controller, text, today],
   );
   const parsed = useMemo(() => (text.trim() === "" ? null : parseQuickAdd(text, ctx)), [text, ctx]);
   const similar = useMemo(() => {
@@ -82,7 +87,7 @@ export function QuickAddBar({ controller, lookups, contextProject, inputRef, ext
         type="text"
         autoComplete="off"
         value={text}
-        placeholder="Name, then #project @person +group M should. Press Enter to add. Paste a list to add many."
+        placeholder="Name, then #project @person +group M should ~now !atrisk by:31/03. Enter adds. Paste a list to add many."
         aria-describedby={hintId}
         onChange={(e) => { setText(e.target.value); setMessage(null); }}
         onPaste={onPaste}
@@ -91,12 +96,17 @@ export function QuickAddBar({ controller, lookups, contextProject, inputRef, ext
           else if (e.key === "Escape") { setText(""); setMessage(null); }
         }}
       />
-      {extra}
       </div>
       <div id={hintId} className="quick-add-hints" aria-live="polite">
         {message && <p className={message.kind === "error" ? "quick-add-error" : "quick-add-ok"}>{message.text}</p>}
-        {!message && parsed?.ok && chips(parsed, lookups).map((c) => <span key={c} className="token-chip">{c}</span>)}
+        {!message && parsed?.ok && chips(parsed, lookups, today).map((c) => <span key={c} className="token-chip">{c}</span>)}
         {!message && parsed?.ok && <span className="quick-add-keys">Enter adds · paste a list to add many</span>}
+        {!message && !parsed && (
+          <p className="quick-add-legend">
+            {QUICK_ADD_TOKENS.filter((t) => t.important).map((t) => <span key={t.token} title={t.means}><kbd>{t.token}</kbd> {t.means.split(" (")[0]!.toLowerCase()}</span>)}
+            <span>more under <strong>Help</strong></span>
+          </p>
+        )}
         {!message && parsed && !parsed.ok && <p className="quick-add-summary">{parsed.error}</p>}
         {parsed?.ok && parsed.similarGroups && (
           <p className="quick-add-similar">

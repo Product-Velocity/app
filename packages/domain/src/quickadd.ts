@@ -1,3 +1,5 @@
+import { parseDate } from "./dates";
+import { FIELD_BY_KEY } from "./registry";
 import { nearDuplicates, resolveGroup } from "./groups";
 
 /**
@@ -11,6 +13,8 @@ export type QuickAddCtx = {
   defaultProject?: string | null;
   /** Initiative Groups of the workspace, for `+group`. */
   groups?: string[];
+  /** Today, for `start:` and `by:` dates ("friday", "31/03"). Without it those tokens are not read. */
+  today?: Date;
 };
 export type Draft = {
   initiative_name: string;
@@ -20,7 +24,27 @@ export type Draft = {
   moscow: string | null;
   /** Initiative Group, when the line has +group. */
   theme?: string;
+  /** Now, Next or Later, when the line has ~now, ~next or ~later. */
+  horizon?: string;
+  /** On Track, At Risk, Delayed or Blocked, when the line has !ontrack, !atrisk, !delayed or !blocked. */
+  health?: string;
+  /** Planned Start and G2M Date (est), as yyyy-mm-dd, when the line has start: or by:. */
+  planned_start?: string;
+  g2m_date_est?: string;
 };
+
+/** The tokens the line understands, for the help and the hint under the bar. Plain text only: nothing typed here is ever an instruction. */
+export const QUICK_ADD_TOKENS: { token: string; means: string; important: boolean }[] = [
+  { token: "#platform", means: "Project (the start of its name is enough)", important: true },
+  { token: "@anna", means: "Product Manager (the start of the email name)", important: true },
+  { token: "+growth", means: "Initiative Group (an unknown name creates a new group)", important: true },
+  { token: "M or XL", means: "Effort, as the last word (XS, S, M, L, XL)", important: true },
+  { token: "must", means: "MoSCoW, as the last word (must, should, could, won't)", important: true },
+  { token: "~now", means: "Horizon: ~now, ~next or ~later", important: false },
+  { token: "!atrisk", means: "Health: !ontrack, !atrisk, !delayed or !blocked", important: false },
+  { token: "start:mon", means: "Planned Start: a date in your own format, or words like friday, q2", important: false },
+  { token: "by:31/03", means: "G2M Date (est): same ways of typing a date", important: false },
+];
 export type QuickAddResult =
   | { ok: true; draft: Draft; projectInherited: boolean; /** A group that does not exist yet and will be created. */ newGroup?: string; /** Existing groups that look like the new one. */ similarGroups?: string[] }
   | { ok: false; error: string };
@@ -45,9 +69,17 @@ export function parseQuickAdd(input: string, ctx: QuickAddCtx): QuickAddResult {
   let projectQuery: string | null = null;
   let personQuery: string | null = null;
   let groupQuery: string | null = null;
+  let horizonQuery: string | null = null;
+  let healthQuery: string | null = null;
+  let startQuery: string | null = null;
+  let byQuery: string | null = null;
   const words: string[] = [];
   for (const t of tokens) {
-    if (/^#\S+/.test(t) && projectQuery === null) projectQuery = t.slice(1);
+    if (/^~[A-Za-z]+$/.test(t) && horizonQuery === null) horizonQuery = t.slice(1);
+    else if (/^![A-Za-z-]+$/.test(t) && healthQuery === null) healthQuery = t.slice(1);
+    else if (ctx.today && /^start:\S+$/i.test(t) && startQuery === null) startQuery = t.slice(6);
+    else if (ctx.today && /^by:\S+$/i.test(t) && byQuery === null) byQuery = t.slice(3);
+    else if (/^#\S+/.test(t) && projectQuery === null) projectQuery = t.slice(1);
     else if (/^@\S+/.test(t) && personQuery === null) personQuery = t.slice(1);
     else if (/^\+[A-Za-z0-9]\S*$/.test(t) && groupQuery === null) groupQuery = t.slice(1).replace(/[-_]+/g, " ");
     else words.push(t);
@@ -92,6 +124,23 @@ export function parseQuickAdd(input: string, ctx: QuickAddCtx): QuickAddResult {
     person = r.hit.user_id;
   }
   const draft: Draft = { initiative_name: name, home_project: home, product_manager: person, effort, moscow };
+  if (horizonQuery !== null) {
+    const r = pick((FIELD_BY_KEY.horizon?.allowed ?? []).map((v) => ({ v })), (x) => x.v, horizonQuery);
+    if ("error" in r) return { ok: false, error: `Horizon is ~now, ~next or ~later (not "${horizonQuery}").` };
+    draft.horizon = r.hit.v;
+  }
+  if (healthQuery !== null) {
+    const r = pick((FIELD_BY_KEY.health?.allowed ?? []).map((v) => ({ v })), (x) => x.v, healthQuery);
+    if ("error" in r) return { ok: false, error: `Health is !ontrack, !atrisk, !delayed or !blocked (not "${healthQuery}").` };
+    draft.health = r.hit.v;
+  }
+  for (const [query, key, edge, label] of [[startQuery, "planned_start", "start", "start:"], [byQuery, "g2m_date_est", "end", "by:"]] as const) {
+    if (query === null || !ctx.today) continue;
+    const d = parseDate(query.replace(/[-_]+(?=[a-z])/gi, " "), ctx.today, { edge });
+    if (!d.ok || !d.iso) return { ok: false, error: `${label}${query}: ${d.ok ? "that is not a date" : d.error}` };
+    draft[key] = d.iso;
+  }
+  if (draft.planned_start && draft.g2m_date_est && draft.g2m_date_est < draft.planned_start) return { ok: false, error: "by: cannot be before start:." };
   if (groupQuery === null) return { ok: true, projectInherited: inherited, draft };
   const groups = ctx.groups ?? [];
   const exact = resolveGroup(groupQuery, groups);

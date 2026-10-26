@@ -10,8 +10,8 @@ const open = async (page: Page, query = "n=20&role=admin") => {
 const row = (page: Page, id: string) => page.locator(`.ag-row[row-id="${id}"]`);
 const filtersPanel = (page: Page) => page.getByRole("group", { name: "Filters", exact: true });
 const addFilterRow = async (page: Page) => {
-  await page.getByRole("button", { name: /^Filters/ }).click();
-  await filtersPanel(page).getByRole("button", { name: "+ Add filter" }).click();
+  await page.getByRole("button", { name: /^(Add filter|\d+ filters?)/ }).click();
+  await filtersPanel(page).getByRole("button", { name: "+ Add rule" }).click();
 };
 
 test.describe("search in long drop-downs (R-018)", () => {
@@ -107,7 +107,7 @@ test.describe("search in long drop-downs (R-018)", () => {
 
   test("Columns: the picker has a search for the 165 fields; Esc still closes it", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: /^Columns/ }).click();
+    await page.getByRole("button", { name: /columns shown$/ }).click();
     const search = page.getByRole("searchbox", { name: "Search columns" });
     await expect(search).toBeFocused();
     const boxes = page.getByRole("group", { name: "Choose columns" }).getByRole("checkbox");
@@ -166,7 +166,7 @@ test.describe("search in long drop-downs (R-018)", () => {
 
   test("Import: the column mapping lists can be searched by alias", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: "Import from spreadsheet" }).click();
+    await page.getByRole("button", { name: "Paste table" }).click();
     const dialog = page.getByRole("dialog", { name: /Import rows/ });
     await dialog.getByLabel(/Paste the cells/).fill("Idea\tImportance\nA new idea\tshould");
     await dialog.getByLabel("The first row has column names").check();

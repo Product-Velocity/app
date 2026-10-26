@@ -14,8 +14,8 @@ const scopeMenu = (page: Page) => page.getByRole("menu", { name: "Portfolio scop
 const row = (page: Page, id: string) => page.locator(`.ag-row[row-id="${id}"]`);
 const addFilter = async (page: Page, field: string, value?: string) => {
   const panel = page.getByRole("group", { name: "Filters", exact: true });
-  if (!(await panel.isVisible())) await page.getByRole("button", { name: /^Filters/ }).click();
-  await panel.getByRole("button", { name: "+ Add filter" }).click();
+  if (!(await panel.isVisible())) await page.getByRole("button", { name: /^(Add filter|\d+ filters?)/ }).click();
+  await panel.getByRole("button", { name: "+ Add rule" }).click();
   const i = (await panel.locator(".filter-row").count());
   await chooseOption(page, panel, `Field of filter ${i}:`, field);
   if (value) await panel.getByLabel(/^Value for/).last().selectOption(value);
@@ -174,11 +174,11 @@ test.describe("filters and search", () => {
 
   test('"me" works for people fields; several filters must all match', async ({ page }) => {
     await open(page);
-    await addFilter(page, "product_manager", "me");
-    await expect(foot(page)).toContainText("5 of 30 items shown");
+    // (a rule equal to a quick filter is shown as that quick filter, so the "me" rule goes second)
     await addFilter(page, "health", "Delayed");
+    await addFilter(page, "product_manager", "me");
     await expect(foot(page)).toContainText("2 of 30 items shown");
-    await page.getByRole("group", { name: "Filters", exact: true }).getByRole("button", { name: "Clear filters" }).click();
+    await page.getByRole("group", { name: "Filters", exact: true }).getByRole("button", { name: "Clear all" }).click();
     await expect(foot(page)).toContainText("30 items");
   });
 
@@ -279,9 +279,9 @@ test.describe("saved views", () => {
   test("save columns, filters and grouping as a view; opening it restores all three; changes show as unsaved", async ({ page }) => {
     await open(page);
     // build a view: hide Confidence, filter Must, group by Health
-    await page.getByRole("button", { name: /^Columns/ }).click();
+    await page.getByRole("button", { name: /columns shown$/ }).click();
     await page.getByLabel("Confidence", { exact: true }).uncheck();
-    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: /^Apply columns/ }).click();
     await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toHaveCount(0);
     await addFilter(page, "moscow", "Must");
     await page.keyboard.press("Escape");
@@ -327,7 +327,7 @@ test.describe("saved views", () => {
     await page.getByRole("dialog", { name: "Save view" }).getByRole("button", { name: "Save view" }).click();
     await expect(foot(page)).toContainText("6 of 30 items shown");
     // change the filter, then update the view with it
-    await page.getByRole("button", { name: /^Filters/ }).click();
+    await page.getByRole("button", { name: /^(Add filter|\d+ filters?)/ }).click();
     await page.getByLabel("Value for Effort (T-shirt)").selectOption("L");
     await page.keyboard.press("Escape");
     await expect(page.locator(".view-dirty")).toBeVisible();
@@ -355,9 +355,9 @@ test.describe("saved views", () => {
     const chips = page.getByRole("group", { name: "View" });
     await chips.getByRole("button", { name: "Delivery" }).click();
     const before = await page.getByRole("columnheader").count();
-    await page.getByRole("button", { name: /^Columns/ }).click();
+    await page.getByRole("button", { name: /columns shown$/ }).click();
     await page.getByLabel("Confidence", { exact: true }).check();
-    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: /^Apply columns/ }).click();
     await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toBeVisible();
     await page.getByRole("button", { name: /^Views/ }).click();
     await page.getByRole("menuitem", { name: /Change the default “Delivery” for everyone/ }).click();
@@ -409,7 +409,7 @@ test.describe("saved views", () => {
     expect(stored.customerSafe).toBe(true);
     expect(stored.columns).not.toContain("value_12m");
     expect(stored.columns).not.toContain("stack_rank");
-    await page.getByRole("button", { name: /^Columns/ }).click();
+    await page.getByRole("button", { name: /columns shown$/ }).click();
     const value = page.getByLabel(/^Value \(EUR/);
     await expect(value).toBeDisabled();
     await expect(page.locator("label", { has: value })).toContainText("not customer-safe");
@@ -421,7 +421,7 @@ test.describe("saved views", () => {
 
   test("the Columns picker reaches all 167 fields, grouped, with later phases marked", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: /^Columns/ }).click();
+    await page.getByRole("button", { name: /columns shown$/ }).click();
     const panel = page.getByRole("group", { name: "Choose columns" });
     await expect(panel.locator('input[type="checkbox"]')).toHaveCount(167);
     expect(await panel.locator("fieldset").count()).toBeGreaterThan(8);
