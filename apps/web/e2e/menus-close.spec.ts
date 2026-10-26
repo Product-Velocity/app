@@ -10,7 +10,7 @@ const clickElsewhere = (page: Page) => page.getByRole("heading", { name: "Roadma
 test.describe("menus close when you click somewhere else", () => {
   test("Filters, Group by and Views panels", async ({ page }) => {
     await open(page);
-    for (const name of [/^Filters/, /^Group by/, /^Views/]) {
+    for (const name of [/^(Add filter|\d+ filters?)/, /^Group by/, /^Views/]) {
       const button = page.getByRole("button", { name });
       await button.click();
       await expect(button).toHaveAttribute("aria-expanded", "true");

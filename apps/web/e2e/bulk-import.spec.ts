@@ -60,13 +60,13 @@ test.describe("bulk bar", () => {
     await expect(cell(page, "item-1", "status")).toHaveText("Backlog");
   });
 
-  test("has an Update GitHub button (disabled until GitHub is connected) and Export selection to file", async ({ page }) => {
+  test("Sync GitHub (disabled until GitHub is connected) and Export 2 are on the bar above the batch bar", async ({ page }) => {
     await open(page);
     await select(page, "item-1", "item-2");
-    await expect(bar(page).getByRole("button", { name: /^Update GitHub/ })).toBeDisabled();
-    await expect(bar(page).getByRole("button", { name: /^Update GitHub/ })).toContainText("connect GitHub first");
+    await expect(page.getByRole("button", { name: /^Sync 2 GitHub|^Sync GitHub/ })).toBeDisabled();
+    await page.getByRole("button", { name: "Export 2" }).click();
     const download = page.waitForEvent("download");
-    await bar(page).getByRole("button", { name: "Export selection to file" }).click();
+    await page.getByRole("menuitem", { name: /CSV file \(2 rows/ }).click();
     const file = await download;
     expect(file.suggestedFilename()).toMatch(/^roadmap-selection-\d{4}-\d\d-\d\d\.csv$/);
     const csv = readFileSync(await file.path(), "utf8");
@@ -122,7 +122,7 @@ test.describe("bulk bar", () => {
   test("view-only roles can select and export but not edit", async ({ page }) => {
     await open(page, `n=10&role=viewer&${ALL}`);
     await select(page, "item-1");
-    await expect(bar(page).getByRole("button", { name: "Export selection to file" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Export 1" })).toBeVisible();
     await expect(bar(page).getByRole("button", { name: /^Set / })).toHaveCount(0);
     await expect(bar(page).getByRole("button", { name: /^More fields/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Paste table" })).toHaveCount(0);
@@ -262,8 +262,9 @@ test.describe("header and page head follow the prototype", () => {
 
   test("Export in the page head downloads every row with the shown columns", async ({ page }) => {
     await open(page, "n=12");
-    const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Export", exact: true }).click();
+    const download = page.waitForEvent("download");
+    await page.getByRole("menuitem", { name: /CSV file/ }).click();
     const file = await download;
     expect(file.suggestedFilename()).toMatch(/^roadmap-\d{4}-\d\d-\d\d\.csv$/);
     const lines = readFileSync(await file.path(), "utf8").replace(/^\uFEFF/, "").trim().split("\r\n");

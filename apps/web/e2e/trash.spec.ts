@@ -25,12 +25,12 @@ test.describe("delete, undo and the Trash", () => {
     await expect(dialog).toContainText("restore them for 30 days");
     await dialog.getByRole("button", { name: "Delete 3 initiatives" }).click();
     for (const id of ["item-2", "item-4", "item-6"]) await expect(page.locator(`.ag-row[row-id="${id}"]`)).toHaveCount(0);
-    await expect(page.locator(".gbar")).toContainText("Deleted 3 items");
+    await expect(page.locator(".pvbar")).toContainText("Deleted 3 items");
     expect(await rowIds(page)).toEqual(["item-1:1", "item-3:2", "item-5:3", "item-7:4", "item-8:5", "item-9:6", "item-10:7", "item-11:8", "item-12:9"]);
     await settle(page);
     await page.keyboard.press("Control+z");
     await expect(page.locator(`.ag-row[row-id="item-4"]`)).toHaveCount(1);
-    await expect(page.locator(".gbar")).toContainText("Undid: Deleted 3 items");
+    await expect(page.locator(".pvbar")).toContainText("Undid: Deleted 3 items");
     expect(await rowIds(page)).toEqual(Array.from({ length: 12 }, (_, i) => `item-${i + 1}:${i + 1}`));
     await page.keyboard.press("Control+Shift+z");
     await expect(page.locator(`.ag-row[row-id="item-4"]`)).toHaveCount(0);

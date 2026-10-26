@@ -5,7 +5,7 @@ for (const size of [{ width: 1600, height: 900 }, { width: 800, height: 520 }]) 
     await page.setViewportSize(size);
     await page.goto("/dev/grid?n=20");
     await page.waitForSelector(".ag-row");
-    await page.getByRole("button", { name: /^Import/ }).click();
+    await page.getByRole("button", { name: "Paste table" }).click();
     const dialog = page.getByRole("dialog");
     const box = dialog.locator("textarea");
     await expect(box).toBeVisible();

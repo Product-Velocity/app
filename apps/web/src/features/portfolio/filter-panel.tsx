@@ -104,7 +104,7 @@ export function FilterPanel({ filters, onChange, lookups, today, matching, total
               return (
                 <div key={i}>
                   {k > 0 && <p className="rule-and">AND</p>}
-                  <div className="rule-row">
+                  <div className="rule-row filter-row">
                     <span className="where">where</span>
                     <SelectField
                       label={`Field of filter ${i + 1}`} value={f.field} options={FIELD_OPTIONS}

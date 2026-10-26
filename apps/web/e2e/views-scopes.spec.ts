@@ -281,7 +281,7 @@ test.describe("saved views", () => {
     // build a view: hide Confidence, filter Must, group by Health
     await page.getByRole("button", { name: /columns shown$/ }).click();
     await page.getByLabel("Confidence", { exact: true }).uncheck();
-    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: /^Apply columns/ }).click();
     await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toHaveCount(0);
     await addFilter(page, "moscow", "Must");
     await page.keyboard.press("Escape");
@@ -357,7 +357,7 @@ test.describe("saved views", () => {
     const before = await page.getByRole("columnheader").count();
     await page.getByRole("button", { name: /columns shown$/ }).click();
     await page.getByLabel("Confidence", { exact: true }).check();
-    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: /^Apply columns/ }).click();
     await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toBeVisible();
     await page.getByRole("button", { name: /^Views/ }).click();
     await page.getByRole("menuitem", { name: /Change the default “Delivery” for everyone/ }).click();

@@ -200,7 +200,7 @@ test("a failed save puts the value back and says why", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.locator(".strip-alert")).toContainText("Could not save R-01 Health: permission denied");
   await expect(cell(page, "item-1", "health")).toContainText("On Track");
-  await expect(strip(page)).toContainText("Not all changes could be saved");
+  await expect(strip(page)).toContainText("Not all saved");
 });
 
 test("typing a new global rank moves the row, keeps the focus on it and can be undone", async ({ page }) => {
