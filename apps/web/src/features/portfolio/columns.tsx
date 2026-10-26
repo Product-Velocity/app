@@ -2,7 +2,7 @@
 
 import type { ColDef, IHeaderParams } from "ag-grid-community";
 import {
-  EDITABLE_FIELDS, FIELDS, isShipped, optionsFor, readOnlyReason,
+  EDITABLE_FIELDS, FIELDS, isOpenableUrl, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
   type EditableField, type FieldDef,
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
@@ -110,7 +110,24 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
     }
     if (CORE_COLUMNS.includes(f.key as never)) base.pinned = "left";
     if (f.key === "initiative_name") { base.flex = 1; base.minWidth = 300; base.cellClass = `${String(base.cellClass ?? "")} cell-name`.trim(); }
-    if (f.key === "item_code") return { ...base, cellClass: "mono muted cell-open", headerTooltip: "Click a code to open the item panel", tooltipValueGetter: () => "Open the item panel (Space on any cell does the same)" };
+    if (f.key === "item_code") {
+      return {
+        ...base, cellClass: "mono muted cell-open", headerTooltip: "Click a code to open the item panel", tooltipValueGetter: () => "Open the item panel (Space on any cell does the same)",
+        // the linked tracker issue sits next to the code and opens the ticket in a new tab
+        cellRenderer: (p: { value: unknown; data?: GridItem }) => {
+          const link = p.data ? lookups.github?.links[p.data.id] : undefined;
+          const label = link ? trackerIssueLabel(link.url, link.number) : null;
+          return (
+            <>
+              {String(p.value ?? "")}
+              {label && isOpenableUrl(link?.url) && (
+                <a className="issue-link" href={link.url!} target="_blank" rel="noreferrer noopener" aria-label={`Open issue ${label} in a new tab`} title="Open the ticket in a new tab">{label}</a>
+              )}
+            </>
+          );
+        },
+      };
+    }
     if (f.key === "project_rank") return base;
     if (f.key === "health") return { ...base, cellRenderer: HealthCell, ...pickerDef(f, optionsFor(f.key), true) };
     if (reason) {

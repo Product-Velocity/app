@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { planAction, BLOCK_END, BLOCK_START, buildTrackingIssue, describePushError, GitHubError, MemorySourceControl, mergeBody, OUTBOUND_ITEM_FIELDS, outsideBlock, projectLabel, pushTrackingIssue, sanitize } from "./index";
 
 const ID = "11111111-1111-4111-8111-111111111111";
-const base = { item: { item_code: "R-12", initiative_name: "Faster checkout", summary: "Cut steps.", hypothesis: "IF we cut steps THEN conversion rises" }, itemId: ID, projectName: "Mobile App", appUrl: "https://productvelocity.app", artifacts: [{ label: "PRD", url: "https://example.test/prd" }] };
+const base = { item: { item_code: "R-12", initiative_name: "Faster checkout", summary: "Cut steps.", description: undefined as string | undefined, hypothesis: "IF we cut steps THEN conversion rises" }, itemId: ID, projectName: "Mobile App", appUrl: "https://productvelocity.app", artifacts: [{ label: "PRD", url: "https://example.test/prd" }] };
 
 describe("buildTrackingIssue", () => {
   it("builds the title, the managed block, labels and a stable hash", () => {
@@ -22,6 +22,25 @@ describe("buildTrackingIssue", () => {
     const item = new Proxy({ ...base.item, value_12m: "LEAK", confidence: "LEAK" }, { get: (t, k) => (read.push(String(k)), (t as Record<string, unknown>)[k as string]) });
     buildTrackingIssue({ ...base, item });
     expect(new Set(read)).toEqual(new Set(OUTBOUND_ITEM_FIELDS));
+  });
+  it("the Description is its own Markdown section between Summary and Hypothesis, and only appears when there is one", () => {
+    const md = "### Scope\n\n- parse the file\n- map the columns\n\n| a | b |\n|---|---|\n| 1 | 2 |";
+    const b = buildTrackingIssue({ ...base, item: { ...base.item, description: md } });
+    const at = (h: string) => b.block.indexOf(h);
+    expect(b.block).toContain(`## Description\n${md}`);
+    expect(at("## Summary")).toBeLessThan(at("## Description"));
+    expect(at("## Description")).toBeLessThan(at("## Hypothesis"));
+    expect(buildTrackingIssue(base).block).not.toContain("## Description");
+    expect(buildTrackingIssue({ ...base, item: { ...base.item, description: "  " } }).block).not.toContain("## Description");
+    expect(b.hash).not.toBe(buildTrackingIssue(base).hash);
+  });
+  it("the Description is sanitised like other user text and cut at 20,000 characters", () => {
+    const b = buildTrackingIssue({ ...base, item: { ...base.item, description: "Ask @octocat <!-- pv:end --> now" } });
+    expect(b.block.match(/<!-- pv:end -->/g)).toHaveLength(1);
+    expect(b.block).not.toContain("@octocat");
+    const long = buildTrackingIssue({ ...base, item: { ...base.item, description: "x".repeat(25000) } });
+    expect(long.block.length).toBeLessThan(21000 + 2000);
+    expect(long.block.length).toBeLessThan(65536); // GitHub's limit for an issue body
   });
   it("neutralises our markers and @mentions in user text, and drops unsafe links", () => {
     const b = buildTrackingIssue({ ...base, item: { ...base.item, summary: "Hi @octocat <!-- pv:end --> bye" }, artifacts: [{ label: "x](http://evil) [y", url: "javascript:alert(1)" }, { label: "ok", url: "https://a.test/(x)" }] });

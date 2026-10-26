@@ -508,27 +508,14 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .date-pick:hover:not(:disabled) { background: var(--grey-3); color: var(--ink); }
 .date-native { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; right: 0; bottom: 0; }
 
-/* alignment participants (0.24.0) */
-.table-wrap { overflow-x: auto; }
-.btn-link { background: none; border: 0; padding: 0 4px; color: var(--blue-text); cursor: pointer; text-decoration: underline; font: inherit; }
-.mail-preview { white-space: pre-wrap; word-break: break-word; font-family: var(--font-sans); margin: 0; }
-.plain-list { padding-left: 20px; display: grid; gap: 8px; }
-
-/* participant ballot, built for 390 px (0.24.0) */
-.ballot-shell { max-width: 560px; }
-.ballot { gap: 12px; }
-.ballot-card { border: 1px solid var(--grey-1); border-radius: 8px; padding: 12px; display: grid; gap: 6px; }
-.ballot-card p { margin: 0; }
-.ballot-card.selected { border-color: var(--blue); background: var(--blue-tint-2); }
-.ballot-big { min-height: 44px; min-width: 44px; font-size: 15px; }
-.ballot-sticky { position: sticky; top: 0; z-index: 2; background: var(--bg); border: 1px solid var(--grey-1); border-radius: 8px; padding: 8px 12px; }
-.ballot-stepper { display: grid; grid-template-columns: 56px 1fr 56px; gap: 8px; align-items: center; }
-.ballot-stepper input { text-align: center; min-height: 44px; font-size: 16px; }
-.ballot-slider { display: grid; gap: 2px; }
-.ballot-slider input[type="range"] { width: 100%; min-height: 32px; }
-.ballot-save { min-height: 1.2em; margin: 0; }
-
-/* alignment results (0.25.0) */
-.page-wide { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 12px; }
-.score-bar { display: inline-block; width: 90px; height: 8px; background: var(--grey-2); border-radius: 4px; vertical-align: middle; overflow: hidden; }
-.score-bar > span { display: block; height: 100%; background: var(--blue); }
+/* Description: Markdown with a preview */
+.md-control { display: flex; flex-direction: column; gap: 6px; }
+.md-tabs { display: flex; gap: 6px; align-items: center; }
+.md-count { margin-left: auto; font-size: 12px; }
+.md-control textarea { min-height: 200px; font-family: var(--font-mono, monospace); font-size: 12px; }
+.md-preview { border: 1px solid #e1e5eb; border-radius: 6px; padding: 8px 12px; min-height: 120px; overflow: auto; max-height: 420px; }
+.md-preview h1, .md-preview h2, .md-preview h3 { font-size: 14px; margin: 12px 0 4px; }
+.md-preview table { border-collapse: collapse; } .md-preview th, .md-preview td { border: 1px solid #e1e5eb; padding: 3px 8px; }
+.md-preview code { font-family: var(--font-mono, monospace); background: #f4f5f8; padding: 0 3px; border-radius: 3px; }
+.issue-link { margin-left: 8px; font-weight: 500; color: #3347d9; text-decoration: none; }
+.issue-link:hover, .issue-link:focus-visible { text-decoration: underline; }

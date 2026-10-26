@@ -75,7 +75,8 @@ function show(field: EditableField, v: unknown, r: Resolvers): string {
   if (f?.type === "Date") return formatDate(String(v), r.today ?? new Date());
   if (f?.type === "Boolean") return v ? "Yes" : "No";
   if (typeof v === "object") return Object.entries(v as Record<string, unknown>).map(([k, n]) => `${k} ${n}`).join(", ");
-  return String(v);
+  const text = String(v).replace(/\s+/g, " ").trim();
+  return text.length > 60 ? `${text.slice(0, 50)}… (${text.length.toLocaleString("en-GB")} characters)` : text;
 }
 
 /** "R-41 Health: On track to At risk": shown in the status strip after every change. */

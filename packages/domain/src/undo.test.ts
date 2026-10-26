@@ -97,3 +97,15 @@ describe("describeEdit of list fields (tags, links, relations, teams)", () => {
     expect(describeEdit({ type: "related", itemId: "i", key: "R-12", field: "artifacts", before: [], after: [{ label: "PRD", url: "https://x.test/p" }] }, labels)).toBe("R-12 Artifacts (links): added PRD");
   });
 });
+
+describe("describeEdit with long text", () => {
+  const r = { project: (id: string) => id, owner: (id: string) => id };
+  it("shortens a long value so the status line stays one line, and keeps short values whole", () => {
+    const long = "## Goal\n\n" + "word ".repeat(200);
+    const text = describeEdit({ type: "field", itemId: "i", key: "R-03", field: "description", before: null, after: long }, r);
+    expect(text.length).toBeLessThan(120);
+    expect(text).toContain("R-03 Description: empty to ## Goal word");
+    expect(text).toMatch(/… \(1,007 characters\)$/);
+    expect(describeEdit({ type: "field", itemId: "i", key: "R-03", field: "hypothesis", before: null, after: "IF x THEN y" }, r)).toBe("R-03 Initiative Hypothesis (IF / THEN / RESULTING IN): empty to IF x THEN y");
+  });
+});

@@ -333,6 +333,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   // clicking the code (R-12) of an initiative opens its panel; the name stays a cell you select and edit
   const onCellClicked = useCallback((e: CellClickedEvent<GridItem>) => {
     const colId = e.column.getColId();
+    if ((e.event?.target as HTMLElement | null)?.closest?.("a.issue-link")) return; // the ticket link opens GitHub, not the panel
     if (colId === "item_code" && e.data && !isGroup(e.data) && e.api.getEditingCells().length === 0) openPeek(e.data.id);
   }, [openPeek]);
 

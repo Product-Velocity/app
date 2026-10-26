@@ -8,6 +8,7 @@ import {
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import { formatField } from "./format";
+import { MarkdownPreview } from "./markdown-preview";
 import type { GridItem, Lookups } from "./types";
 
 export type FieldCtx = { controller: PortfolioController; lookups: Lookups };
@@ -78,6 +79,23 @@ function DateControl({ id, f, row, ctx, disabled, onError }: Common) {
   );
 }
 
+/** The Description: Markdown in a taller box, with a Preview of how it reads in GitHub. */
+function MarkdownControl({ text, ...shared }: { text: string; id: string; value: string; disabled: boolean; onFocus: () => void; onChange: (e: { target: { value: string } }) => void; onBlur: (e: { target: { value: string } }) => void }) {
+  const [preview, setPreview] = useState(false);
+  return (
+    <div className="md-control">
+      <div className="md-tabs" role="group" aria-label="Description view">
+        <button type="button" className={preview ? "tool-btn" : "tool-btn tool-btn-on"} aria-pressed={!preview} onClick={() => setPreview(false)}>Write</button>
+        <button type="button" className={preview ? "tool-btn tool-btn-on" : "tool-btn"} aria-pressed={preview} onClick={() => setPreview(true)}>Preview</button>
+        <span className="muted md-count">{text.length.toLocaleString("en-GB")} of 20,000 characters · Markdown</span>
+      </div>
+      {preview ? <MarkdownPreview text={text} /> : (
+        <textarea {...shared} rows={12} spellCheck onKeyDown={(e) => { if (e.key === "Escape") { (e.target as HTMLElement).blur(); e.stopPropagation(); } }} />
+      )}
+    </div>
+  );
+}
+
 function TextControl({ id, f, row, ctx, disabled, onError, kind }: Common & { kind: "text" | "longtext" | "number" | "currency" | "date" }) {
   const stored = formatField(f, row[f.key], { today: ctx.controller.todayDate(), members: ctx.lookups.members, projects: ctx.lookups.projects });
   const raw = kind === "number" || kind === "text" || kind === "longtext" ? (row[f.key] == null ? "" : String(row[f.key])) : stored;
@@ -94,6 +112,7 @@ function TextControl({ id, f, row, ctx, disabled, onError, kind }: Common & { ki
     onChange: (e: { target: { value: string } }) => setDraft(e.target.value),
     onBlur: (e: { target: { value: string } }) => { if (draft !== null) commit(e.target.value); },
   };
+  if (kind === "longtext" && f.key === "description") return <MarkdownControl {...shared} text={draft ?? raw} />;
   if (kind === "longtext") {
     return <textarea {...shared} rows={4} onKeyDown={(e) => { if (e.key === "Escape") { setDraft(null); (e.target as HTMLElement).blur(); e.stopPropagation(); } }} />;
   }

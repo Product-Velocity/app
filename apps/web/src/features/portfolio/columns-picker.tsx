@@ -28,7 +28,7 @@ export function ColumnsPicker({ visible, onToggle, customerSafe = false }: { vis
         <div id={panelId} className="columns-panel" role="group" aria-label="Choose columns" onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}>
           {needsSearch(FIELDS.length) && (
             <div className="columns-search">
-              <SearchInput value={query} onChange={setQuery} label="Search columns" placeholder="Search the 166 fields…" onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }} />
+              <SearchInput value={query} onChange={setQuery} label="Search columns" placeholder={`Search the ${FIELDS.length} fields…`} onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }} />
             </div>
           )}
           {groups.length === 0 && <NoResults query={query} />}
