@@ -65,6 +65,15 @@ const END_DATES = new Set(["g2m_date_est", "g2m_date_actual"]);
 export const dateEdge = (key: string): "start" | "end" => (END_DATES.has(key) ? "end" : "start");
 const TEXT_LIMIT: Record<string, number> = { Text: 2000, "Long text": 8000, "Person or text": 200 };
 
+/** The longest text a field accepts (characters), or undefined for fields that are not free text. Same limits as `validateEdit`. */
+export function fieldMaxLength(key: string): number | undefined {
+  const f = FIELD_BY_KEY[key];
+  if (!f) return undefined;
+  if (f.type === "Select") return f.allowed.length === 0 ? MAX_LENGTH[key] ?? 120 : undefined;
+  if (f.type === "Text" || f.type === "Long text" || f.type === "Person or text") return MAX_LENGTH[key] ?? TEXT_LIMIT[f.type];
+  return undefined;
+}
+
 /** Turn what a person typed (or picked) into the value to save, or say what is wrong. */
 export function validateEdit(key: string, raw: string, ctx: { today?: Date } = {}): EditResult {
   const reason = readOnlyReason(key);
