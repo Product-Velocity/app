@@ -132,13 +132,13 @@ Negative checks in the same suite: a viewer-role connection cannot write; a requ
 ## 10. Decisions already taken and open questions
 Taken (2026-10-27 chat, applied from earlier decisions): admins-only workspace-level settings; Claude acts with the user's role; drafts are flagged; GitHub writes need confirmation; share links never go into public-repo issues.
 
-Open (Ashu to decide):
-1. **Phase order.** `docs/06` puts the MCP in Phase 4. CLAUDE.md says do not start a later phase early. Pull only **S8b (the connection spike)** forward, or the whole MCP? Recommendation: S8b now, the rest in Phase 4.
-2. **Can Claude set the planned dates and effort estimates?** The scenario assumes yes (they are not Value or Decision). Estimates are marked basis "Rough guess" and flagged AI draft.
-3. **Should `update_items` always need a confirmation,** or only for fields a human already filled? Recommendation: always for a human-filled field; free for empty fields.
-4. **Image upload size and path** is decided in S8b (base64 limits differ by client).
-5. **Per-workspace and per-user limits** (items per day, bytes per day) need numbers; start conservative (200 items, 100 MB) and watch.
-6. **Default state of the switch** for new workspaces: on or off? Recommendation: off until an admin turns it on (CLAUDE.md rule 3, privacy).
+Decided by Ashu on 2026-10-27 (recommendations accepted):
+1. **Phase order:** start with R-101 (S8b, the connection spike) now; the rest of the MCP stays in Phase 4 order.
+2. **Planned dates and effort estimates:** Claude may set them (estimate basis "Rough guess", item flagged AI draft).
+3. **Updates:** `update_items` always needs the diff and confirmation for fields a human already filled; empty fields can be filled without it. Build the rule as one function so it can change.
+4. **Defaults and limits:** Claude is **off** for new workspaces until an admin turns it on; start at 200 items and 100 MB per workspace per day and watch.
+
+Still open: image upload path and size (decided in the S8b spike, R-101).
 
 ## 11. Work slices (issues in PV, group "Claude MCP")
 1. **[MCP 1/7]** Spike S8b: minimal `/mcp`, OAuth connection from Claude, one read tool (`get_workspace_context`).
