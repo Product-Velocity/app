@@ -37,7 +37,7 @@ export type IssueSummary = {
 };
 
 /** A sub-issue as GitHub reports it. `repo` can differ from the parent's repository. */
-export type SubIssue = { number: number; id: number; repo: string; title: string; state: "open" | "closed"; stateReason: string | null; closedAt: string | null; assignees: string[]; createdBy: "app" | "claude" | "engineer" };
+export type SubIssue = { number: number; id: number; /** GraphQL id, needed to put the issue on a Project board. */ nodeId: string; repo: string; title: string; state: "open" | "closed"; stateReason: string | null; closedAt: string | null; assignees: string[]; createdBy: "app" | "claude" | "engineer" };
 
 export interface SourceControl {
   readonly provider: "github";

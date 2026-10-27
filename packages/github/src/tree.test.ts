@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MemorySourceControl } from "./memory-source";
 import { readIssueTree, summariseTree, type TreeNode } from "./tree";
 
-const sub = (number: number, state: "open" | "closed" = "open", stateReason: string | null = null) => ({ number, id: number, repo: "o/r", title: `t${number}`, state, stateReason, closedAt: null, assignees: [], createdBy: "engineer" as const });
+const sub = (number: number, state: "open" | "closed" = "open", stateReason: string | null = null) => ({ number, id: number, nodeId: `I_${number}`, repo: "o/r", title: `t${number}`, state, stateReason, closedAt: null, assignees: [], createdBy: "engineer" as const });
 const node = (number: number, level: 1 | 2, parentNumber: number | null, state: "open" | "closed" = "open", reason: string | null = null): TreeNode => ({ ...sub(number, state, reason), level, parentNumber });
 
 describe("issue tree", () => {

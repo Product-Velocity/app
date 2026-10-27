@@ -31,7 +31,7 @@ const scWithBoard = () => { const sc = new MemorySourceControl(); sc.boardFields
 describe("the preview shows what would go on the board", () => {
   it("lists the fields written from MoSCoW, the group, the G2M date and the effort estimate", async () => {
     const [plan] = await planPush(fakeSupabase(tables()), "t1", "https://app.example", connection, ["i1"], scWithBoard());
-    expect(plan!.board).toEqual({ title: "Product Velocity roadmap", included: true, writes: [{ field: "Priority", value: "P1" }, { field: "Initiative", value: "Growth" }, { field: "Due date", value: "2026-12-15" }, { field: "Size", value: "M" }], notes: [] });
+    expect(plan!.board).toEqual({ title: "Product Velocity roadmap", included: true, writes: [{ field: "Priority", value: "P1" }, { field: "Initiative", value: "Growth" }, { field: "Due date", value: "2026-12-15" }, { field: "Size", value: "M" }], notes: [], children: 0 });
   });
   it("a Won't initiative is shown as not added", async () => {
     const [plan] = await planPush(fakeSupabase(tables({ items: [{ ...row, moscow: "Won't" }] })), "t1", "https://app.example", connection, ["i1"], scWithBoard());
@@ -58,9 +58,10 @@ describe("the preview shows what would go on the board", () => {
 });
 
 describe("executePush and the board", () => {
-  function admin() {
+  function admin(treeOnBoard: { repo_full_name: string; issue_number: number }[] = []) {
     const calls: { fn: string; args: Record<string, unknown> }[] = [];
-    return { calls, rpc: async (fn: string, args: Record<string, unknown>) => { calls.push({ fn, args }); return { error: null }; } };
+    const chain = (rows: unknown[]) => { const q: Record<string, unknown> = {}; for (const m of ["eq", "select"]) q[m] = () => q; q.then = (r: (v: unknown) => void) => r({ data: rows, error: null }); return q; };
+    return { calls, rpc: async (fn: string, args: Record<string, unknown>) => { calls.push({ fn, args }); return { error: null }; }, from: () => ({ select: () => chain(treeOnBoard) }) };
   }
   const run = (sc: MemorySourceControl, a: ReturnType<typeof admin>, t = tables()) =>
     executePush({ supabase: fakeSupabase(t), admin: a as never, sc, connection, tenantId: "t1", actor: "u1", appUrl: "https://app.example", ids: ["i1"] });
@@ -95,5 +96,49 @@ describe("executePush and the board", () => {
     const sc = scWithBoard(), a = admin();
     await run(sc, a, tables({ items: [{ ...row, value_12m: "LEAK_VALUE", confidence: "LEAK_CONF", customers_requesting: "LEAK_CUSTOMER", decision: "LEAK_DECISION" }] }));
     expect(JSON.stringify([sc.sent, sc.boardItems])).not.toContain("LEAK_");
+  });
+
+  const sub = (number: number, state: "open" | "closed" = "open") => ({ number, id: number, nodeId: `I_${number}`, repo: "Acme/App", title: `t${number}`, state, stateReason: null, closedAt: null, assignees: [], createdBy: "engineer" as const });
+  const withChildren = () => { const sc = scWithBoard(); sc.subs.set("Acme/App#101", [sub(201), sub(202)]); sc.subs.set("Acme/App#201", [sub(301)]); return sc; };
+
+  it("also puts the children of every level on the board, without field values, and records them", async () => {
+    const sc = withChildren(), a = admin();
+    const [r] = await run(sc, a);
+    expect(r).toMatchObject({ outcome: "created", message: "3 child issues added to the board." });
+    expect(sc.boardItems.map((i) => i.issueNodeId)).toEqual(expect.arrayContaining(["I_201", "I_202", "I_301"]));
+    const kids = sc.boardItems.filter((i) => i.issueNodeId.startsWith("I_") && i.issueNodeId !== "I_node");
+    expect(kids.map((i) => i.values)).toEqual([{}, {}, {}]);
+    const rec = a.calls.find((c) => c.fn === "github_record_board_items")!;
+    expect(rec.args).toMatchObject({ p_item: "i1", p_board_id: "PVT_1" });
+    expect((rec.args.p_nodes as unknown[]).length).toBe(3);
+  });
+  it("children already on the board are not added again", async () => {
+    const sc = withChildren(), a = admin([{ repo_full_name: "Acme/App", issue_number: 201 }, { repo_full_name: "acme/app", issue_number: 301 }]);
+    const [r] = await run(sc, a);
+    expect(r!.message).toBe("1 child issue added to the board.");
+  });
+  it("a Won't initiative's children stay off the board too", async () => {
+    const sc = withChildren(), a = admin();
+    await run(sc, a, tables({ items: [{ ...row, moscow: "Won't" }] }));
+    expect(sc.boardItems).toHaveLength(0);
+  });
+  it("an initiative whose issue did not change still gets its new children when the cache knows of some", async () => {
+    const sc = withChildren(), a = admin();
+    sc.issues.set("Acme/App#7", { number: 7, id: 70, nodeId: "I_parent", htmlUrl: "u", body: "", state: "open", title: "R-01", labels: [] });
+    // the plan hash of the first run is what the link stores, so the issue itself is unchanged on the second run
+    const first = (await planPush(fakeSupabase(tables()), "t1", "https://app.example", connection, ["i1"], sc))[0]!;
+    expect(first.board!.children).toBe(0);
+    const link = (hash: string) => [{ item_id: "i1", mode: "push", repo_full_name: "Acme/App", issue_number: 7, html_url: "u", sync_state: "synced", last_pushed_hash: hash }];
+    const pending = tables({ item_github_links: link("x"), item_issue_tree: [{ item_id: "i1", repo_full_name: "Acme/App", issue_number: 201, board_id: null }, { item_id: "i1", repo_full_name: "Acme/App", issue_number: 202, board_id: "OLD_BOARD" }] });
+    const plan = (await planPush(fakeSupabase(pending), "t1", "https://app.example", connection, ["i1"], sc))[0]!;
+    expect(plan.board!.children).toBe(2); // one never on a board, one only on a board that is no longer linked
+  });
+  it("if adding children fails, the issue is not recorded as synced so the next send tries again", async () => {
+    const sc = withChildren(), a = admin();
+    sc.failOn = "addBoardItem";
+    const [r] = await run(sc, a);
+    expect(r!.outcome).toBe("error");
+    expect(a.calls.map((c) => c.fn)).toEqual(["github_record_push"]);
+    expect(a.calls[0]!.args.p_state).toBe("error");
   });
 });

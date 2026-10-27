@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PRIORITY_MAP, detectMapping, MemorySourceControl, parseBoard, planBoardItem, pushBoardItem, type BoardField } from "./index";
+import { childKey, childrenToAdd, DEFAULT_PRIORITY_MAP, detectMapping, MemorySourceControl, parseBoard, planBoardItem, pushBoardChildren, pushBoardItem, type BoardField } from "./index";
 
 const opts = (...names: string[]) => names.map((name, i) => ({ id: `o-${name}`, name, i }));
 // the board in Ashu's example: Priority, Status, Initiative (single selects), Due date, Size, plus fields PV never writes
@@ -126,5 +126,25 @@ describe("parseBoard", () => {
   });
   it("refuses anything that is not a board", () => {
     for (const bad of [null, "x", 5, {}, { ...stored, id: "" }, { ...stored, number: 1.5 }, { ...stored, url: "http://x" }, { ...stored, mapping: { priority: "Priority" } }, { ...stored, mapping: { ...mapping, priorityMap: { Must: 3 } } }, { ...stored, title: "x".repeat(201) }]) expect(parseBoard(bad)).toBeNull();
+  });
+});
+
+describe("children on the board", () => {
+  const tree = [1, 2, 3, 4].map((n) => ({ repo: "Acme/App", number: n, nodeId: `I_${n}` }));
+  it("adds only the children that are not on the board yet, at most `limit` per send, and says how many wait", () => {
+    const on = new Set([childKey("acme/app", 2)]); // case does not matter
+    expect(childrenToAdd(tree, on, 10)).toEqual({ add: [tree[0], tree[2], tree[3]], later: 0 });
+    expect(childrenToAdd(tree, on, 2)).toEqual({ add: [tree[0], tree[2]], later: 1 });
+    expect(childrenToAdd(tree, new Set(tree.map((t) => childKey(t.repo, t.number))), 10)).toEqual({ add: [], later: 0 });
+  });
+  it("a child without a GraphQL id cannot be added and is skipped", () => {
+    expect(childrenToAdd([{ repo: "a/b", number: 1, nodeId: "" }], new Set(), 5)).toEqual({ add: [], later: 0 });
+  });
+  it("puts each child on the board and writes no field values on it", async () => {
+    const sc = new MemorySourceControl();
+    const added = await pushBoardChildren(sc, 1, "PVT_1", tree.slice(0, 2));
+    expect(added).toEqual([{ repo: "Acme/App", number: 1, boardItemId: "PVTI_1" }, { repo: "Acme/App", number: 2, boardItemId: "PVTI_2" }]);
+    expect(sc.boardItems.map((i) => i.values)).toEqual([{}, {}]);
+    expect(sc.calls).not.toContain("setBoardValue");
   });
 });
