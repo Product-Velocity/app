@@ -16,7 +16,7 @@ Living list of things that must be done before real customers or real data. Owne
 - Before making the repo private, run a secret scan over the full git history; rotate any key that was ever committed.
 
 ## One-off migrations that must never be re-run
-- [ ] `packages/db/migrations/0040_reset_saved_views.sql` deleted every saved view in every workspace (R-97, 2026-10-27, test data only). It is applied once, forward-only. **Never re-run, copy or replay it against a database that holds real customer data** (a restore from a dump or a new environment built from the migrations folder is fine only while no real views exist).
+- [ ] `packages/db/migrations/0042_reset_saved_views.sql` deleted every saved view in every workspace (R-97, 2026-10-27, test data only). It is applied once, forward-only. **Never re-run, copy or replay it against a database that holds real customer data** (a restore from a dump or a new environment built from the migrations folder is fine only while no real views exist).
 
 ## Security and compliance
 - [ ] Dependabot alerts cleared; dependency audit in CI.

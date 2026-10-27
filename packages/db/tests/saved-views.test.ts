@@ -58,7 +58,7 @@ describe("saved views: who can do what", () => {
   });
 });
 
-describe("private views (0039)", () => {
+describe("private views (0041)", () => {
   const priv = (user: string, name: string, tenant = f.tenantA, extra = "") =>
     db.asUser(user, async (q) => (await q(`insert into public.saved_views (tenant_id, name, columns, owner_id, visibility${extra ? ", " + extra.split("|")[0] : ""}) values ($1, $2, array['item_code','initiative_name'], $3, 'private'${extra ? ", " + extra.split("|")[1] : ""}) returning id`, [tenant, name, user])).rows[0].id as string, { commit: true, via: "UI" });
 
@@ -104,7 +104,7 @@ describe("private views (0039)", () => {
   });
 });
 
-describe("view caps (0039)", () => {
+describe("view caps (0041)", () => {
   it("the 26th private view for one person is refused with a readable message; others are not affected", async () => {
     const who = await createUser(db, "capped@example.test");
     await addMember(db, f.alice, f.tenantA, who, "viewer");
@@ -133,7 +133,7 @@ describe("view caps (0039)", () => {
   });
 });
 
-describe("view layouts (0039)", () => {
+describe("view layouts (0041)", () => {
   const layout = (user: string, rows: unknown[], workspace = false, tenant = f.tenantA) =>
     db.asUser(user, (q) => q("select public.replace_view_layout($1, $2, $3::jsonb)", [tenant, workspace, JSON.stringify(rows)]), { commit: true, via: "UI" });
   const mine = async (user: string) => (await db.asUser(user, (q) => q("select builtin, in_bar, position from public.view_layouts where tenant_id = $1 and user_id is not null order by position", [f.tenantA]))).rows;
@@ -299,11 +299,11 @@ describe("pinned columns (0.30.0)", () => {
   });
 });
 
-describe("reset of all saved views (0040)", () => {
+describe("reset of all saved views (0042)", () => {
   it("deletes every saved view and customised built-in, in every workspace", async () => {
     await add(f.alice, "Before reset");
     await db.admin.query("insert into public.saved_views (tenant_id, name, columns, base_view) values ($1, 'Planning', array['item_code'], 'Planning') on conflict do nothing", [f.tenantB]);
-    await db.admin.query(readFileSync(new URL("../migrations/0040_reset_saved_views.sql", import.meta.url), "utf8"));
+    await db.admin.query(readFileSync(new URL("../migrations/0042_reset_saved_views.sql", import.meta.url), "utf8"));
     expect((await db.admin.query("select count(*)::int as n from public.saved_views")).rows[0].n).toBe(0);
   });
 });

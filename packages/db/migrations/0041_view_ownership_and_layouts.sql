@@ -1,4 +1,4 @@
--- 0039: view ownership, privacy, per-person bar layout (R-97, release 0.34.0).
+-- 0041: view ownership, privacy, per-person bar layout (R-97, release 0.35.0).
 -- A saved view is either a WORKSPACE view (owner_id null; everyone reads it, only admins write it) or a PRIVATE view
 -- (owner_id = its owner; only the owner reads and writes it, any member including view-only roles). A customised built-in
 -- (base_view) is a workspace view. "In bar" means shown in the Roadmap view bar; "pinned" stays the pinned columns (0036).
