@@ -151,11 +151,11 @@ export class GitHubAppSourceControl implements SourceControl {
       const res = await this.call(installationId, "GET", `/repos/${repo}/issues/${number}/sub_issues?per_page=100&page=${page}`);
       if (res.status === 404) return null;
       if (!res.ok) throw new GitHubError(res.status, `GitHub could not list sub-issues (${res.status})`);
-      const rows = (await res.json()) as { number: number; id: number; title: string; state: string; state_reason?: string | null; closed_at?: string | null; body?: string | null; repository_url?: string; assignees?: { login: string }[] }[];
+      const rows = (await res.json()) as { number: number; id: number; node_id?: string; title: string; state: string; state_reason?: string | null; closed_at?: string | null; body?: string | null; repository_url?: string; assignees?: { login: string }[] }[];
       for (const r of rows) {
         const body = r.body ?? "";
         out.push({
-          number: r.number, id: r.id, repo: r.repository_url ? r.repository_url.replace(/^.*\/repos\//, "") : repo, title: r.title.slice(0, 200),
+          number: r.number, id: r.id, nodeId: r.node_id ?? "", repo: r.repository_url ? r.repository_url.replace(/^.*\/repos\//, "") : repo, title: r.title.slice(0, 200),
           state: r.state === "closed" ? "closed" : "open", stateReason: r.state_reason ?? null, closedAt: r.closed_at ?? null,
           assignees: (r.assignees ?? []).map((a) => a.login), createdBy: body.includes("<!-- pv:source=claude -->") ? "claude" : body.includes("<!-- pv:begin") ? "app" : "engineer",
         });

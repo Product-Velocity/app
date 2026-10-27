@@ -123,3 +123,19 @@ export function parseBoard(v: unknown): Board | null {
   }
   return { id: b.id, number: b.number as number, title: b.title, url: b.url, mapping: { priority: out.priority!, group: out.group!, dueDate: out.dueDate!, size: out.size!, status: out.status!, priorityMap } };
 }
+
+export const childKey = (repo: string, number: number) => `${repo.toLowerCase()}#${number}`;
+export type ChildRef = { repo: string; number: number; nodeId: string };
+
+/** Children (epics and tasks, all levels) that are not on the board yet, at most `limit` per call; `later` is how many wait for the next send. */
+export function childrenToAdd(tree: ChildRef[], onBoard: ReadonlySet<string>, limit: number): { add: ChildRef[]; later: number } {
+  const missing = tree.filter((c) => c.nodeId && !onBoard.has(childKey(c.repo, c.number)));
+  return { add: missing.slice(0, limit), later: Math.max(missing.length - limit, 0) };
+}
+
+/** Adds each child to the board (adding twice returns the same item). Children are only added: PV writes no field values on them. */
+export async function pushBoardChildren(sc: SourceControl, installationId: number, boardId: string, add: ChildRef[]): Promise<{ repo: string; number: number; boardItemId: string }[]> {
+  const out: { repo: string; number: number; boardItemId: string }[] = [];
+  for (const c of add) out.push({ repo: c.repo, number: c.number, boardItemId: await sc.addBoardItem(installationId, boardId, c.nodeId) });
+  return out;
+}

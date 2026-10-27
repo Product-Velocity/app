@@ -122,7 +122,7 @@ describe("refreshTree", () => {
   it("stores the tree with one counting rule and reports false when sub-issues are unavailable", async () => {
     const { refreshTree } = await import("./sync");
     const sc = new MemorySourceControl();
-    const sub = (number: number, state: "open" | "closed") => ({ number, id: number, repo: "Acme/App", title: `t${number}`, state, stateReason: null, closedAt: null, assignees: ["dev"], createdBy: "engineer" as const });
+    const sub = (number: number, state: "open" | "closed") => ({ number, id: number, nodeId: `I_${number}`, repo: "Acme/App", title: `t${number}`, state, stateReason: null, closedAt: null, assignees: ["dev"], createdBy: "engineer" as const });
     sc.subs.set("Acme/App#31", [sub(40, "open")]);
     sc.subs.set("Acme/App#40", [sub(41, "closed"), sub(42, "open")]);
     const admin = fakeAdmin({});

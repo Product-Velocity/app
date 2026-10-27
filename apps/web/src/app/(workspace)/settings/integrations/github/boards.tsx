@@ -22,7 +22,7 @@ export function BoardsCard({ projects, canEdit }: { projects: ProjectBoard[]; ca
       <h2>GitHub Project boards</h2>
       <p className="muted">
         Link a project to one GitHub Project (an organisation board). Sending an initiative to GitHub then also adds it to the board and fills Priority (from MoSCoW), Initiative Group, Due date (from the G2M date) and Size (from the effort estimate). Won&rsquo;t initiatives stay in Product Velocity and are not added.
-        Delivery status is read from the board and never written. Child issues on the board stay in GitHub.
+        Delivery status is read from the board and never written. The epics and tasks under an initiative (all levels) are added to the board by a confirmed send, without field values: engineers and agents set those in GitHub.
       </p>
       {projects.map((p) => <BoardRow key={p.id} project={p} canEdit={canEdit} />)}
     </div>

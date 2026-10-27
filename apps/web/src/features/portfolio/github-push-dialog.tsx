@@ -80,6 +80,7 @@ export function GithubPushDialog({ ids, onClose, onDone }: Props) {
                         <p>
                           <strong>Project board “{p.board.title}”:</strong>{" "}
                           {p.board.included ? (p.board.writes.length ? p.board.writes.map((w) => `${w.field} ${w.value}`).join(", ") : "added, no fields to set") : "not added"}
+                          {p.board.included && p.board.children > 0 && ` Also adds ${p.board.children} child issue${p.board.children === 1 ? "" : "s"} (epics and tasks) to the board.`}
                           {p.board.notes.map((n) => <span key={n} className="muted"> {n}</span>)}
                         </p>
                       )}

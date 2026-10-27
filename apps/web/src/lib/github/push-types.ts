@@ -14,7 +14,7 @@ export type PlanItem = {
   /** Milestone the issue is put in (the calendar quarter of the G2M date), when the item has a date. */
   milestone?: string;
   /** The linked GitHub Project (board): what would be written there, and anything left out and why. */
-  board?: { title: string; included: boolean; writes: { field: string; value: string }[]; notes: string[] };
+  board?: { title: string; included: boolean; writes: { field: string; value: string }[]; notes: string[]; /** Children (epics and tasks) that this send would also put on the board. */ children: number };
   /** The managed block exactly as it will be written. */
   block: string;
   issueNumber: number | null;
