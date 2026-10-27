@@ -51,7 +51,7 @@ export function describePushError(e: unknown): string {
     if (e.status === 403 || e.status === 429) return e.retryAfterSeconds ? `GitHub is busy, try again in about ${e.retryAfterSeconds} seconds.` : "GitHub refused the request (the app may lack the Issues permission). Run the connection test.";
     if (e.status === 404) return "GitHub could not find the repository. Check the project's default repository.";
     if (e.status === 410) return "Issues are disabled in that repository.";
-    return `GitHub refused the request (${e.status}).`;
+    return `GitHub refused the request (${e.status})${e.detail ? `: ${e.detail}` : "."}`;
   }
   return "The push did not finish. Try again.";
 }

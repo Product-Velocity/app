@@ -20,7 +20,7 @@ export type TestDb = {
   asUser: <T>(
     userId: string,
     fn: (q: Query) => Promise<T>,
-    opts?: { via?: string; commit?: boolean; headers?: Record<string, string> },
+    opts?: { via?: string; commit?: boolean; headers?: Record<string, string>; claims?: Record<string, unknown> },
   ) => Promise<T>;
   /** Run `fn` as the anonymous role. */
   asAnon: <T>(fn: (q: Query) => Promise<T>) => Promise<T>;
@@ -50,7 +50,7 @@ export async function createTestDb(opts: { migrations?: boolean } = {}): Promise
     role: string,
     claims: Record<string, unknown> | null,
     fn: (q: Query) => Promise<T>,
-    o: { via?: string; commit?: boolean; headers?: Record<string, string> } = {},
+    o: { via?: string; commit?: boolean; headers?: Record<string, string>; claims?: Record<string, unknown> } = {},
   ): Promise<T> {
     await admin.query("begin");
     try {
@@ -75,7 +75,8 @@ export async function createTestDb(opts: { migrations?: boolean } = {}): Promise
 
   return {
     admin,
-    asUser: (userId, fn, o) => inRole("authenticated", { sub: userId, role: "authenticated" }, fn, o),
+    asUser: (userId, fn, o) =>
+      inRole("authenticated", { sub: userId, role: "authenticated", ...o?.claims }, fn, o),
     asAnon: (fn) => inRole("anon", null, fn),
     asService: (fn, o) => inRole("service_role", { role: "service_role" }, fn, o),
     close: async () => {

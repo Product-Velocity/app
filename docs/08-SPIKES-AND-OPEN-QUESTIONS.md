@@ -70,12 +70,18 @@ Setup: AG Grid 36.2.0, React, production build, 14 columns, headless Chromium in
 - **Not found:** limits on tool schema size or tool count.
 - **Decision:** build `/mcp` on Supabase's OAuth server. Risks: beta status; our `/mcp` must also publish protected-resource metadata. **S8b** at the start of Phase 4: deploy a minimal `/mcp` with one read-only tool and have Ashu add it as a custom connector in Claude. When Claude calls through our server it must set the write source `Claude MCP` itself, in a way a user cannot forge (today the `x-pv-via` header is advisory).
 
+### S8b result (built 2026-10-27, issue #178)
+**Built and tested here:** `/mcp` (POST, JSON-RPC over Streamable HTTP, stateless; `initialize`, `ping`, `tools/list`, `tools/call`), `/.well-known/oauth-protected-resource` and `.../mcp` (RFC 9728, pointing at `<supabase>/auth/v1`), a 401 with `WWW-Authenticate: Bearer resource_metadata=...`, `/oauth/consent` (approve/deny through `supabase.auth.oauth`), and one tool `get_workspace_context`. Tokens are checked with Supabase Auth on every call (`getUser`) and must carry a `client_id` claim, so a browser session token is refused and a revoked or expired token gives 401. The tool uses the caller's own token with the public anon key; the service role is not used on this path. Unit tests for the protocol and discovery; DB tests prove the forgery fix.
+**Write source, decided:** migration 0040 makes `write_source()` return `Claude MCP` for any token with a `client_id` claim (signed by Supabase, so users cannot add or drop it), and records a plain `x-pv-via: Claude MCP` header as `API`. Assumption to confirm in the live test: Supabase puts `client_id` in OAuth-issued access tokens. If it does not, the fallback is the MCP server setting `app.via` through a database function that checks the token.
+**NOT verified (needs the real Supabase OAuth server and Claude):** dynamic client registration, redirect URI (`claude.ai` vs `claude.com`), token refresh, that `client_id` is in the token, claude.ai and Claude Code connecting, the two-tenant check through a real OAuth token (RLS itself is covered by the existing two-tenant DB tests), and the questions in scope item 6 (tool schema size limits, image/base64 limits per client, Claude Code connecting). These stay open until the live test.
+**Known gaps for slice 2:** the consent screen cannot pass a chosen workspace to the token (Supabase OAuth has no such field), so this version returns every workspace the user belongs to; binding a connection to one workspace needs our own table. Revocation of a client grant, rate limits and `ai_usage` are slice 2.
+
 ### Hands-on checks still needed (not blocking Phase 1)
 | Check | When | Needs |
 |---|---|---|
 | S3b write issue-field values with a GitHub App; S4b sub-issue limits; S5b install by a non-owner | Start of Phase 3 | Ashu: a sandbox repository and a second GitHub account (S2b, S4b done 2026-10-23; S3b and S5b still open) (given 2026-10-23: `Product-Velocity/Test-Repo-01`, second account `dev-nbm`, org on the Free plan, project "Spike Project" exists) |
 | S6b PDF and Python document functions on a Vercel preview | Before Phase 6 | Ashu: Vercel access (Pro plan assumed) |
-| S8b real Claude connection to a minimal `/mcp` | Start of Phase 4 | Ashu: add a custom connector in Claude |
+| S8b real Claude connection to a minimal `/mcp` | Start of Phase 4 | **Built 0.34.0, live test open.** Server side done and tested (see "S8b result"); Ashu: switch on Supabase's OAuth server, set `MCP_ENABLED=true`, add the connector in claude.ai and Claude Code |
 
 ## Resolved 2026-10-21 (Ashu)
 - First pitch audience: enterprise buyers.

@@ -7,12 +7,12 @@ import { listBoardChoices, loadBoardFields, saveBoardLink, unlinkBoard, type Boa
 
 type ProjectBoard = { id: string; name: string; tracker: string | null; board: Board | null };
 
-const SLOTS: { key: "priority" | "group" | "dueDate" | "size" | "status"; label: string; types: string[]; hint: string }[] = [
-  { key: "priority", label: "Priority", types: ["SINGLE_SELECT"], hint: "written from MoSCoW" },
-  { key: "group", label: "Initiative Group", types: ["SINGLE_SELECT", "TEXT"], hint: "written from Initiative Group" },
-  { key: "dueDate", label: "Due date", types: ["DATE"], hint: "written from the G2M date" },
-  { key: "size", label: "Size", types: ["SINGLE_SELECT"], hint: "written from the effort estimate" },
-  { key: "status", label: "Delivery status", types: ["SINGLE_SELECT"], hint: "read from the board, never written" },
+const SLOTS: { key: "priority" | "group" | "dueDate" | "size" | "status"; pv: string; what: string; blank: string; types: string[] }[] = [
+  { key: "priority", pv: "Priority", what: "Written from MoSCoW: Must becomes P0, Should P1, Could P2. Won\u2019t is not added to the board.", blank: "Don\u2019t write", types: ["SINGLE_SELECT"] },
+  { key: "group", pv: "Initiative Group", what: "Written: the name of the Initiative Group.", blank: "Don\u2019t write", types: ["SINGLE_SELECT", "TEXT"] },
+  { key: "dueDate", pv: "G2M date", what: "Written as the date of the initiative.", blank: "Don\u2019t write", types: ["DATE"] },
+  { key: "size", pv: "Effort estimate", what: "Written as the size (XS, S, M, L, XL).", blank: "Don\u2019t write", types: ["SINGLE_SELECT"] },
+  { key: "status", pv: "Delivery Status", what: "Read from the board and shown in Product Velocity. Never written.", blank: "Don\u2019t read", types: ["SINGLE_SELECT"] },
 ];
 
 /** Links each PV project to an organisation GitHub Project (board) and shows how PV's fields map to the board's. */
@@ -22,7 +22,7 @@ export function BoardsCard({ projects, canEdit }: { projects: ProjectBoard[]; ca
       <h2>GitHub Project boards</h2>
       <p className="muted">
         Link a project to one GitHub Project (an organisation board). Sending an initiative to GitHub then also adds it to the board and fills Priority (from MoSCoW), Initiative Group, Due date (from the G2M date) and Size (from the effort estimate). Won&rsquo;t initiatives stay in Product Velocity and are not added.
-        Delivery status is read from the board and never written. The epics and tasks under an initiative (all levels) are added to the board by a confirmed send, without field values: engineers and agents set those in GitHub.
+        Delivery Status is read from the board and never written. The epics and tasks under an initiative (all levels) are added to the board by a confirmed send, without field values: engineers and agents set those in GitHub.
       </p>
       {projects.map((p) => <BoardRow key={p.id} project={p} canEdit={canEdit} />)}
     </div>
@@ -72,7 +72,7 @@ function BoardRow({ project, canEdit }: { project: ProjectBoard; canEdit: boolea
       {!other && project.board && !editing && (
         <p>
           Linked to <a href={project.board.url} target="_blank" rel="noopener noreferrer">{project.board.title}</a>.{" "}
-          <span className="muted">Fields: {SLOTS.filter((s) => project.board!.mapping[s.key]).map((s) => `${s.label} → ${project.board!.mapping[s.key]!.name}`).join(", ") || "none"}.</span>
+          <span className="muted">Fields: {SLOTS.filter((s) => project.board!.mapping[s.key]).map((s) => `${s.pv} → ${project.board!.mapping[s.key]!.name}`).join(", ") || "none"}.</span>
         </p>
       )}
       {!other && !project.board && !editing && <p className="muted">Not linked: initiatives are sent to the repository only.</p>}
@@ -84,18 +84,44 @@ function BoardRow({ project, canEdit }: { project: ProjectBoard; canEdit: boolea
       )}
       {editing && boards && (
         <div className="stack">
-          <SelectField label={`Board for ${project.name}`} value={boardId} onChange={(v) => void pick(v)} blank="Choose a board…" options={boards.map((b) => ({ value: b.id, label: `${b.title} (#${b.number})` }))} />
-          {fields && SLOTS.map((s) => (
-            <SelectField
-              key={s.key}
-              label={`${s.label} field (${s.hint})`}
-              value={chosen[s.key] ?? ""}
-              onChange={(v) => setChosen((c) => ({ ...c, [s.key]: v }))}
-              blank={s.key === "status" ? "Don't read" : "Don't write"}
-              options={fields.filter((f) => s.types.includes(f.dataType)).map((f) => ({ value: f.id, label: f.name }))}
-            />
-          ))}
-          {fields && <p className="muted">MoSCoW becomes Priority: Must → P0, Should → P1, Could → P2. Won&rsquo;t is not added to the board. Only options the board already has are used; a missing option is reported in the send preview.</p>}
+          <div className="field">
+            <label htmlFor={`${project.id}-board`}><strong>GitHub Project board</strong> for {project.name}</label>
+            <SelectField id={`${project.id}-board`} label={`Board for ${project.name}`} value={boardId} onChange={(v) => void pick(v)} blank="Choose a board…" options={boards.map((b) => ({ value: b.id, label: `${b.title} (#${b.number})` }))} />
+          </div>
+          {fields && (
+            <>
+              <p className="muted">We matched the board&rsquo;s fields to ours by name. For each Product Velocity field below, check which board field it uses, or choose &ldquo;Don&rsquo;t write&rdquo;.</p>
+              <table className="table">
+                <thead>
+                  <tr><th scope="col">Product Velocity field</th><th scope="col">What happens</th><th scope="col">Board field</th></tr>
+                </thead>
+                <tbody>
+                  {SLOTS.map((s) => {
+                    const id = `${project.id}-${s.key}`;
+                    const issueField = chosen[s.key] && project.board?.mapping.unwritable?.includes(chosen[s.key]!);
+                    return (
+                      <tr key={s.key}>
+                        <th scope="row"><label htmlFor={id}>{s.pv}</label></th>
+                        <td className="muted">{s.what}</td>
+                        <td>
+                          <SelectField
+                            id={id}
+                            label={`Board field for ${s.pv}`}
+                            value={chosen[s.key] ?? ""}
+                            onChange={(v) => setChosen((c) => ({ ...c, [s.key]: v }))}
+                            blank={s.blank}
+                            options={fields.filter((f) => s.types.includes(f.dataType)).map((f) => ({ value: f.id, label: f.name }))}
+                          />
+                          {issueField && <p className="muted">GitHub treats this as an issue field and does not allow it to be written through the board yet, so it is left as it is.</p>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <p className="muted">Only options the board already has are used (for example P0); a missing one is reported in the send preview and nothing is created on the board.</p>
+            </>
+          )}
           <div>
             <button type="button" className="btn btn-primary" onClick={save} disabled={pending || !boardId || !fields}>{pending ? "Saving…" : "Save board link"}</button>
             <button type="button" className="btn" onClick={() => { setEditing(false); setMessage(null); }}> Cancel</button>

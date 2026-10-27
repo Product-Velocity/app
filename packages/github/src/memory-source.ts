@@ -1,4 +1,4 @@
-import type { BoardField, BoardInfo, BoardValue, DeliverySummary, InstallationInfo, IssueInput, IssueRef, IssueSummary, RepoInfo, SourceControl, SubIssue } from "./source-control";
+import type { BoardItemStatus, BoardField, BoardInfo, BoardValue, DeliverySummary, InstallationInfo, IssueInput, IssueRef, IssueSummary, RepoInfo, SourceControl, SubIssue } from "./source-control";
 
 /** In-memory SourceControl for tests: records every call so a test can prove what was (not) sent. */
 export class MemorySourceControl implements SourceControl {
@@ -30,7 +30,11 @@ export class MemorySourceControl implements SourceControl {
   boardItems: { id: string; boardId: string; issueNodeId: string; values: Record<string, BoardValue> }[] = [];
   /** Name of a method that fails once when called (tests). */
   failOn: string | null = null;
-  private maybeFail(name: string) { if (this.failOn === name) { this.failOn = null; throw new Error(`${name} failed`); } }
+  /** The error a failing method throws (default: a plain Error). */
+  failWith: Error | null = null;
+  private maybeFail(name: string) { if (this.failOn === name) { this.failOn = null; throw this.failWith ?? new Error(`${name} failed`); } }
+  boardStatuses = new Map<string, BoardItemStatus[]>();
+  async listBoardItems(_i: number, boardId: string) { this.tick("listBoardItems"); this.maybeFail("listBoardItems"); return this.boardStatuses.get(boardId) ?? []; }
   async listBoards() { this.tick("listBoards"); return this.boards; }
   async getBoardFields(_i: number, boardId: string) { this.tick("getBoardFields"); return this.boardFields.get(boardId) ?? null; }
   async addBoardItem(_i: number, boardId: string, issueNodeId: string) {
@@ -42,8 +46,11 @@ export class MemorySourceControl implements SourceControl {
     this.boardItems.push(item);
     return item.id;
   }
+  /** A write to this field fails with this error (tests). */
+  failOnField: { id: string; error: Error } | null = null;
   async setBoardValue(_i: number, boardId: string, itemId: string, fieldId: string, value: BoardValue) {
     this.tick("setBoardValue", { fieldId, value });
+    if (this.failOnField?.id === fieldId) throw this.failOnField.error;
     this.maybeFail("setBoardValue");
     this.boardItems.find((x) => x.boardId === boardId && x.id === itemId)!.values[fieldId] = value;
   }

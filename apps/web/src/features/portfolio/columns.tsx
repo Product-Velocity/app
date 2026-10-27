@@ -54,7 +54,7 @@ const WIDTH: Record<string, number> = {
   Select: 150, Text: 190, "Long text": 240, Number: 112, Currency: 120, Date: 116, "Date range": 170, Person: 190, "Person or text": 170,
   People: 190, Boolean: 96, Tags: 170, Links: 200, Relation: 150, Files: 170, Thread: 150, Structured: 170, Note: 150, System: 130, Computed: 124,
 };
-const WIDE: Record<string, number> = { initiative_name: 320, home_project: 160, stack_rank: 104, item_code: 116, project_rank: 124, health: 130, last_synced: 150, synced_with: 300 };
+const WIDE: Record<string, number> = { initiative_name: 320, home_project: 160, stack_rank: 104, item_code: 116, project_rank: 124, health: 130, last_synced: 150, synced_with: 300, gh_project_status: 170 };
 
 export type ColumnContext = {
   controller: PortfolioController;
@@ -133,7 +133,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
     if (f.key === "project_rank") return base;
     if (f.key === "health") return { ...base, cellRenderer: HealthCell, ...pickerDef(f, optionsFor(f.key), true) };
     if (reason) {
-      return { ...base, cellRenderer: (p: { value: unknown }) => <ReadOnlyCell text={display(f, p.value) || (f.key === "status" ? "Not on GitHub" : f.key === "last_synced" || f.key === "synced_with" ? "Not synced" : "")} reason={reason} github={f.mode === "locked" || f.storage.startsWith("GitHub-synced")} /> };
+      return { ...base, cellRenderer: (p: { value: unknown }) => <ReadOnlyCell text={display(f, p.value) || (f.key === "status" ? "Not on GitHub" : f.key === "gh_project_status" ? "Not on a board" : f.key === "last_synced" || f.key === "synced_with" ? "Not synced" : "")} reason={reason} github={f.mode === "locked" || f.storage.startsWith("GitHub-synced")} /> };
     }
     if (!canEdit) return base;
     base.valueSetter = setter(f.key) as never;

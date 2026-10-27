@@ -112,6 +112,32 @@ describe("GitHubAppSourceControl: Projects (boards) over GraphQL", () => {
     expect(seen.at(-2)!.variables.v).toEqual({ singleSelectOptionId: "O1" });
     expect(seen.at(-1)!.variables.v).toEqual({ date: "2026-12-15" });
   });
+  it("reads the issues of a board with their status, page by page, and skips drafts and pull requests", async () => {
+    const seen: { variables: Record<string, unknown> }[] = [];
+    let page = 0;
+    const sc = make(graphqlFake((_q, v) => {
+      seen.push({ variables: v });
+      page++;
+      return page === 1
+        ? { data: { node: { items: { pageInfo: { hasNextPage: true, endCursor: "c1" }, nodes: [
+            { id: "PVTI_1", content: { id: "I_1", number: 175, repository: { nameWithOwner: "Acme/App" } }, fieldValueByName: { name: "Ready" } },
+            { id: "PVTI_2", content: {}, fieldValueByName: null }, // a draft
+            { id: "PVTI_3", content: { id: "PR_1", number: 7 }, fieldValueByName: null }, // a pull request (no repository asked)
+          ] } } } }
+        : { data: { node: { items: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [{ id: "PVTI_4", content: { id: "I_4", number: 176, repository: { nameWithOwner: "Acme/App" } }, fieldValueByName: null }] } } } };
+    }));
+    expect(await sc.listBoardItems(1, "PVT_1", "Status")).toEqual([
+      { itemId: "PVTI_1", issueNodeId: "I_1", repo: "Acme/App", number: 175, status: "Ready" },
+      { itemId: "PVTI_4", issueNodeId: "I_4", repo: "Acme/App", number: 176, status: null },
+    ]);
+    expect(seen.map((s) => s.variables.after)).toEqual([null, "c1"]);
+    expect(seen[0]!.variables.n).toBe("Status");
+  });
+  it("a GraphQL error carries GitHub's own message (type and text) as the detail of a 422", async () => {
+    const sc = make(graphqlFake(() => ({ errors: [{ type: "UNPROCESSABLE", message: "Field value is invalid for ghs_SECRET123" }] })));
+    const e = await sc.addBoardItem(1, "PVT_1", "I_x").catch((x) => x);
+    expect(e).toMatchObject({ status: 422, detail: "UNPROCESSABLE: Field value is invalid for [token]" });
+  });
   it("a Project the App cannot see is null, and a missing permission is a 403 with a plain message", async () => {
     expect(await make(graphqlFake(() => ({ data: { node: null } }))).getBoardFields(1, "PVT_x")).toBeNull();
     const denied = make(graphqlFake(() => ({ errors: [{ type: "FORBIDDEN", message: "Resource not accessible by integration" }] })));
@@ -136,6 +162,7 @@ function fake(over: Partial<SourceControl> = {}): SourceControl {
     ensureMilestone: async () => 1,
     listBoards: async () => [],
     getBoardFields: async () => null,
+    listBoardItems: async () => [],
     addBoardItem: async () => "PVTI_1",
     setBoardValue: async () => undefined,
     getIssue: async () => null,
@@ -161,6 +188,11 @@ describe("runConnectionDiagnostics", () => {
     expect(off.fix).toContain("Sub-issues");
     const on = (await runConnectionDiagnostics({ sc: fake({ getInstallation: inst(["issues", "sub_issues"]) }), ...input })).find((x) => x.id === "live-updates")!;
     expect(on.verdict).toBe("pass");
+  });
+  it("says whether board status arrives in real time", async () => {
+    const inst = (events: string[]) => async () => ({ id: 1, accountLogin: "Acme", accountType: "Organization" as const, repositorySelection: "selected" as const, permissions: { issues: "write", metadata: "read" }, events, suspended: false });
+    expect((await runConnectionDiagnostics({ sc: fake({ getInstallation: inst(["issues"]) }), ...input })).find((x) => x.id === "board-status-live")).toMatchObject({ verdict: "info" });
+    expect((await runConnectionDiagnostics({ sc: fake({ getInstallation: inst(["issues", "projects_v2_item"]) }), ...input })).find((x) => x.id === "board-status-live")!.verdict).toBe("pass");
   });
   it("says whether projects can be linked to a board, and how to allow it", async () => {
     const inst = (permissions: Record<string, string>) => async () => ({ id: 1, accountLogin: "Acme", accountType: "Organization" as const, repositorySelection: "selected" as const, permissions, events: ["issues"], suspended: false });
