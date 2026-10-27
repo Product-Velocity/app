@@ -12,12 +12,13 @@ const backend = (over: Partial<McpBackend> = {}): McpBackend => ({
   role: "creator",
   workspaceContext: vi.fn(async () => ctx),
   read: { searchData: noRead, itemDetail: noRead, groups: noRead, views: noRead, files: noRead },
+  write: { context: noRead, current: noRead, apply: noRead, savePending: noRead, loadPending: noRead, undo: noRead },
   meter: vi.fn(async () => ({ ok: true as const })),
   ...over,
 });
 /** A stand-in for the write tools of later slices, to prove the role gate now. */
 const writeTool = (run: ToolDef["run"] = vi.fn(async () => ({ created: 1 }))): ToolDef => ({
-  name: "create_items", title: "Create", description: "x", inputSchema: {}, annotations: {}, mode: "write", run,
+  name: "stand_in_write", title: "Create", description: "x", inputSchema: {}, annotations: {}, mode: "write", run,
 });
 const call = (name: string, b: McpBackend, tools = TOOLS) => handleRpc({ jsonrpc: "2.0", id: 9, method: "tools/call", params: { name, arguments: {} } }, b, tools) as Promise<{ result?: { isError?: boolean; content: { text: string }[] } }>;
 
@@ -58,10 +59,12 @@ describe("handleRpc", () => {
   it("notifications get no response", async () => {
     expect(await handleRpc({ jsonrpc: "2.0", method: "notifications/initialized" }, backend())).toBeNull();
   });
-  it("lists the read tools, all read-only", async () => {
+  it("lists the read tools (read-only) and then the write tools (not read-only)", async () => {
     const r = (await handleRpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }, backend())) as { result: { tools: { name: string; annotations: { readOnlyHint: boolean } }[] } };
-    expect(r.result.tools.map((t) => t.name)).toEqual(["get_workspace_context", "describe_fields", "search_items", "get_item", "list_groups", "list_views", "list_files"]);
-    for (const t of r.result.tools) expect(t.annotations.readOnlyHint, t.name).toBe(true);
+    const reads = ["get_workspace_context", "describe_fields", "search_items", "get_item", "list_groups", "list_views", "list_files"];
+    const writes = ["create_items", "update_items", "confirm_changes", "set_relations", "add_link", "remove_link", "undo_last"];
+    expect(r.result.tools.map((t) => t.name)).toEqual([...reads, ...writes]);
+    for (const t of r.result.tools) expect(t.annotations.readOnlyHint, t.name).toBe(reads.includes(t.name));
   });
   it("get_workspace_context returns the backend data wrapped as data", async () => {
     const b = backend();
@@ -96,7 +99,7 @@ describe("role gate", () => {
     for (const role of ["viewer", "commenter", "leadership"]) {
       const run = vi.fn(async () => ({}));
       const b = backend({ role });
-      const r = await call("create_items", b, [...TOOLS, writeTool(run)]);
+      const r = await call("stand_in_write", b, [...TOOLS, writeTool(run)]);
       expect(r.result?.isError, role).toBe(true);
       expect(r.result?.content[0]!.text).toMatch(/read-only/i);
       expect(run).not.toHaveBeenCalled();
@@ -106,7 +109,7 @@ describe("role gate", () => {
   it("lets creators and admins run a write tool", async () => {
     for (const role of ["creator", "admin"]) {
       const run = vi.fn(async () => ({ created: 1 }));
-      const r = await call("create_items", backend({ role }), [...TOOLS, writeTool(run)]);
+      const r = await call("stand_in_write", backend({ role }), [...TOOLS, writeTool(run)]);
       expect(r.result?.isError, role).toBeUndefined();
       expect(run).toHaveBeenCalledOnce();
     }
@@ -122,7 +125,7 @@ describe("rate limits", () => {
   it("meters every tool call and returns the readable limit message as the tool result", async () => {
     const run = vi.fn(async () => ({}));
     const b = backend({ meter: vi.fn(async () => ({ ok: false as const, reason: "workspace_items", limit: 200, used: 200 })) });
-    const r = await call("create_items", b, [...TOOLS, writeTool(run)]);
+    const r = await call("stand_in_write", b, [...TOOLS, writeTool(run)]);
     expect(r.result?.isError).toBe(true);
     expect(r.result?.content[0]!.text).toMatch(/daily limit of 200 items/);
     expect(run).not.toHaveBeenCalled();

@@ -6,6 +6,7 @@ export const CLAUDE_CAN = [
   "Create draft initiatives for you to review (marked as AI draft)",
   "Attach files and images to initiatives",
   "Preview what would go to GitHub (nothing is sent without your confirmation)",
+  "Fill empty fields on existing initiatives, and propose changes to filled ones that you confirm first",
 ] as const;
 
 export const CLAUDE_CANNOT = [

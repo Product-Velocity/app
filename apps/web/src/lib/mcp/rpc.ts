@@ -8,6 +8,8 @@ import { claudeMayWrite, limitMessage, type UsageResult } from "@pv/domain";
 import type { McpReader, WorkspaceContext } from "./read-model";
 import { READ_TOOLS } from "./read-tools";
 import { ToolInputError } from "./tool-error";
+import type { McpWriter } from "./write-model";
+import { WRITE_TOOLS } from "./write-tools";
 
 export type { WorkspaceContext } from "./read-model";
 export type McpBackend = {
@@ -17,6 +19,8 @@ export type McpBackend = {
   workspaceContext: () => Promise<WorkspaceContext>;
   /** Reads the workspace as the caller (docs/20 FR-3). */
   read: McpReader;
+  /** Writes the workspace as the caller (docs/20 FR-4). Only the tools with mode "write" use it, and only for roles that may write. */
+  write: McpWriter;
   /** Counts one call (and the items/bytes it writes) against the daily limits; refuses when a limit is reached. */
   meter: (items: number, bytes: number) => Promise<UsageResult>;
 };
@@ -28,6 +32,8 @@ export type ToolDef = {
   annotations: object;
   /** read tools work for every role; write tools need a role that may write (docs/20 section 7) */
   mode: "read" | "write";
+  /** How many items a call writes, for the daily limit (0 for reads and dry runs). Evaluated before the tool runs. */
+  weigh?: (backend: McpBackend, args: Record<string, unknown>) => number | Promise<number>;
   run: (backend: McpBackend, args: Record<string, unknown>) => Promise<unknown>;
 };
 
@@ -72,6 +78,7 @@ export const TOOLS: ToolDef[] = [
     run: (b) => b.workspaceContext(),
   },
   ...READ_TOOLS,
+  ...WRITE_TOOLS,
 ];
 
 const toolError = (id: RpcResponse["id"], text: string): RpcResponse => ({ jsonrpc: "2.0", id, result: { isError: true, content: [{ type: "text", text }] } });
@@ -109,15 +116,15 @@ export async function handleRpc(msg: Rpc, backend: McpBackend, tools: ToolDef[] 
         return toolError(id, "Your role in this workspace is read-only, so Claude cannot make changes here. Ask a workspace admin for the Creator role.");
       }
       try {
-        const usage = await backend.meter(0, 0);
-        if (!usage.ok) return toolError(id, limitMessage(usage));
         const args = (msg.params?.arguments ?? {}) as Record<string, unknown>;
+        const usage = await backend.meter(tool.weigh ? await tool.weigh(backend, args) : 0, 0);
+        if (!usage.ok) return toolError(id, limitMessage(usage));
         const data = await tool.run(backend, args);
         const text = JSON.stringify({ envelope: DATA_ENVELOPE, note: DATA_NOTE, data });
         return { jsonrpc: "2.0", id, result: { content: [{ type: "text", text }] } };
       } catch (e) {
         if (e instanceof ToolInputError) return toolError(id, e.message);
-        return toolError(id, "Could not read the workspace. Try again, or reconnect Product Velocity.");
+        return toolError(id, tool.mode === "write" ? "Could not complete that change. If it was a batch, check with search_items before trying again so nothing is created twice. Or reconnect Product Velocity." : "Could not read the workspace. Try again, or reconnect Product Velocity.");
       }
     }
     default:
