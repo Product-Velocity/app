@@ -8,7 +8,7 @@ import {
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import {
-  buildGroupedRows, CORE_COLUMN_KEYS, FIELD_BY_KEY, FIELDS, groupableFields, matchesFilters, matchesSearch, sanitizeView, sortRows, WAITING_IN_VIEW, type EditableField, type Filter, type GroupRow, type ViewDef,
+  buildGroupedRows, CORE_COLUMN_KEYS, FIELD_BY_KEY, FIELDS, groupableFields, matchesFilters, matchesSearch, refKey, sanitizeView, sortRows, WAITING_IN_VIEW, type EditableField, type Filter, type GroupRow, type ViewDef,
 } from "@pv/domain";
 import { useWorkspace } from "../workspace/provider";
 import { setQueryParam, useScope } from "../workspace/scope";
@@ -21,7 +21,7 @@ import { baseDef, baseParam, parseBase, sameView, type BaseView } from "./grid-v
 import { CommandPalette } from "./command-palette";
 import type { Command } from "./palette";
 import { GroupMenu, SortMenu, summarize } from "./view-controls";
-import { UnsavedBar, useViews, ViewBar } from "./view-bar";
+import { baseToRef, useViews, ViewBar } from "./view-bar";
 import { downloadCsv, selectionToCsv } from "./export-selection";
 import { BulkBar } from "./bulk-bar";
 import { DeleteDialog } from "./delete-dialog";
@@ -157,20 +157,45 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   }, []);
   // ---- the view: where it started (a default view, all columns or a saved view), plus changes made since
   const [base, setBase] = useState<BaseView>(() => parseBase(params.get("view"), initialBase));
-  const [override, setOverride] = useState<ViewDef | null>(null);
-  const savedDef = baseDef(base, views, defaults);
+  // What you change is kept while you move between views: filters, grouping and sort stay until you remove them; column changes stay with the view
+  // they were made in. Nothing is saved until you choose to, from the views menu. Opening a view that stores its own filters, grouping or sort uses them.
+  type Shared = { filters?: Filter[]; groupBy?: string | null; sort?: ViewDef["sort"] };
+  const [shared, setShared] = useState<Shared>({});
+  const [colOverrides, setColOverrides] = useState<Record<string, { columns: string[]; pinned: string[] }>>({});
+  const viewKey = refKey(baseToRef(base));
+  const savedDef = useMemo(() => baseDef(base, views, defaults), [base, views, defaults]);
   const baseMissing = base.kind === "saved" && savedDef === null && views.length > 0; // a deleted view falls back
-  const bDef = savedDef ?? baseDef(PRIORITISATION, [], defaults)!;
-  const def = override ?? bDef;
-  const dirty = override !== null && !sameView(override, bDef);
-  const openBaseRaw = (b: BaseView) => { setBase(b); setOverride(null); setQueryParam("view", baseParam(b)); };
-  const changeDef = (patch: Partial<ViewDef>) => setOverride(sanitizeView({ ...def, ...patch }));
+  const bDef = useMemo(() => savedDef ?? baseDef(PRIORITISATION, [], defaults)!, [savedDef, defaults]);
+  const co = colOverrides[viewKey];
+  const def = useMemo(
+    () => sanitizeView({
+      ...bDef,
+      ...(co ? { columns: co.columns, pinned: co.pinned } : {}),
+      ...(shared.filters !== undefined ? { filters: shared.filters } : {}),
+      ...("groupBy" in shared ? { groupBy: shared.groupBy } : {}),
+      ...("sort" in shared ? { sort: shared.sort } : {}),
+    }),
+    [bDef, co, shared],
+  );
+  const dirty = !sameView(def, bDef);
+  const openBaseRaw = (b: BaseView) => {
+    const target = baseDef(b, views, defaults);
+    if (target) setShared((p) => { const n = { ...p }; if (target.filters.length > 0) delete n.filters; if (target.groupBy) delete n.groupBy; if (target.sort) delete n.sort; return n; });
+    setBase(b);
+    setQueryParam("view", baseParam(b));
+  };
+  const changeDef = (patch: Partial<ViewDef>) => {
+    const next = sanitizeView({ ...def, ...patch });
+    setShared((p) => ({ ...p, ...("filters" in patch ? { filters: next.filters } : {}), ...("groupBy" in patch ? { groupBy: next.groupBy } : {}), ...("sort" in patch ? { sort: next.sort ?? null } : {}) }));
+    if ("columns" in patch || "pinned" in patch) setColOverrides((p) => ({ ...p, [viewKey]: { columns: next.columns, pinned: next.pinned ?? [] } }));
+  };
+  const clearColumns = () => setColOverrides((p) => { const n = { ...p }; delete n[viewKey]; return n; });
+  const resetChanges = () => { setShared({}); clearColumns(); };
   const visible = useMemo(() => new Set(def.columns), [def.columns]);
   const changeColumns = (columns: string[], pinned: string[]) => changeDef({ columns, pinned });
   const pinnedSet = useMemo(() => new Set(def.pinned ?? []), [def.pinned]);
   const viewsApi = useViews({
-    base, def, bDef, dirty, openBase: openBaseRaw, discard: () => setOverride(null),
-    restore: (b, d) => { setBase(b); setOverride(d); setQueryParam("view", baseParam(b)); },
+    base, def, bDef, dirty, openBase: openBaseRaw, discard: clearColumns, reset: resetChanges,
   });
 
   // ---- what rows show: scope, search, filters, grouping
@@ -448,7 +473,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     for (const f of groupableFields()) out.push({ id: `group:${f.key}`, label: `Group by ${f.name}`, group: "Grouping", run: () => changeDef({ groupBy: f.key }) });
     if (def.filters.length > 0) out.push({ id: "filters:clear", label: "Clear filters", group: "Filters", run: () => setFilters([]) });
     if (search) out.push({ id: "search:clear", label: "Clear search", group: "Filters", run: () => setSearchText("") });
-    if (dirty) out.push({ id: "view:reset", label: "Reset view changes", group: "Views", run: () => setOverride(null) });
+    if (dirty) out.push({ id: "view:reset", label: "Reset view changes", group: "Views", run: resetChanges });
     if (controller.canEdit && lookups.projects.length > 0) out.push({ id: "import", label: "Import from spreadsheet", group: "Actions", keywords: "paste excel csv", run: () => setImportText("") });
     out.push({ id: "export", label: "Export shown rows to file", group: "Actions", keywords: "csv download", run: exportAll });
     if (controller.canEdit && selected.length > 0) out.push({ id: "delete", label: `Delete ${selected.length} selected ${selected.length === 1 ? "initiative" : "initiatives"}`, group: "Actions", keywords: "remove trash", hint: "Del", run: () => setDeleteIds(selected.map((r) => r.id)) });
@@ -495,7 +520,6 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         </p>
       )}
       {baseMissing && <div className="view-dirty" role="status">That saved view no longer exists, showing Prioritisation.</div>}
-      <UnsavedBar api={viewsApi} />
     </div>
     <section
       ref={cardRef}

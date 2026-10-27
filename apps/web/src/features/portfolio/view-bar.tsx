@@ -29,22 +29,13 @@ type Dialog =
   | { kind: "make-private"; entry: MenuEntry };
 
 /** Everything the view bar, the unsaved-changes bar and the ⌘K palette do with views, in one place so the three stay the same. */
-export function useViews({ base, def, bDef, dirty, openBase: openRaw, discard, restore: restoreChanges }: { base: BaseView; def: ViewDef; bDef: ViewDef; dirty: boolean; openBase: (b: BaseView) => void; discard: () => void; restore: (b: BaseView, def: ViewDef) => void }) {
+export function useViews({ base, def, bDef, dirty, openBase, discard, reset }: { base: BaseView; def: ViewDef; bDef: ViewDef; dirty: boolean; openBase: (b: BaseView) => void; /** Drops the column changes of the open view (after they were saved). */ discard: () => void; /** Drops every unsaved change (filters, grouping, sort and columns). */ reset: () => void }) {
+  const openRaw = openBase;
   const { store, reload, views, defaults, layouts, userId, canAdmin } = useWorkspace();
   const [managing, setManaging] = useState(false);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [message, setMessage] = useState<{ text: string; cap: boolean } | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
-  // Opening another view drops unsaved changes without asking (the speed bar in CLAUDE.md); an Undo message brings them back.
-  const openBase = (b: BaseView) => {
-    const same = refKey(baseToRef(b)) === refKey(baseToRef(base));
-    if (dirty && !same) {
-      const prev = { base, def };
-      openRaw(b);
-      showToast({ text: "Unsaved changes discarded.", undo: async () => restoreChanges(prev.base, prev.def) });
-    } else openRaw(b);
-  };
-
   const barViews = useMemo(() => views.map((v) => ({ id: v.id, name: v.name, ownerId: v.ownerId, baseView: v.baseView })), [views]);
   const personal = useMemo(() => computeBar({ views: barViews, workspaceLayout: layouts.workspace, myLayout: layouts.mine, me: userId }), [barViews, layouts, userId]);
   // what an admin edits in "Manage": the workspace default, as everyone without a layout of their own sees it
@@ -115,6 +106,7 @@ export function useViews({ base, def, bDef, dirty, openBase: openRaw, discard, r
     if (!r.ok) { say(r.error); return r.error; }
     await reload();
     say(null);
+    discard(); // the changes now live in the new view
     openRaw({ kind: "saved", id: r.value.id });
     return null;
   };
@@ -205,6 +197,7 @@ export function useViews({ base, def, bDef, dirty, openBase: openRaw, discard, r
     out.push({ id: "view:all", label: "Go to view: All columns", group: "Views", keywords: "every field", run: () => openBase({ kind: "all" }) });
     for (const v of views) if (!v.baseView) out.push({ id: `view:${v.id}`, label: `Go to view: ${v.name}`, group: v.ownerId === null ? "Workspace views" : "My views", run: () => openBase({ kind: "saved", id: v.id }) });
     if (dirty) {
+      out.push({ id: "view:reset", label: "Reset view changes", group: "Views", keywords: "discard", run: reset });
       out.push({ id: "view:save-new", label: "Save as new view…", group: "Views", keywords: "save view", run: requestSave });
       if (updateAllowed) out.push({ id: "view:update", label: updateKind === "workspace" ? "Update the open view for everyone" : `Update view “${current?.name}”`, group: "Views", keywords: "save view", run: requestUpdate });
     }
@@ -225,9 +218,9 @@ export function useViews({ base, def, bDef, dirty, openBase: openRaw, discard, r
   return {
     base, current, builtinName, dirty, def, bDef, managing, setManaging, state: shown, personal, workspaceOnly, canAdmin, userId, views, defaults,
     message, say, toast, undoToast, setToast, dialog, setDialog,
-    toggleInBar, move, moveTo, resetLayout, duplicate, rename, remove, setScope, hide, restore, restoreOriginal, create, ownNames, viewOf, mayWrite,
+    reset, toggleInBar, move, moveTo, resetLayout, duplicate, rename, remove, setScope, hide, restore, restoreOriginal, create, ownNames, viewOf, mayWrite,
     update: { kind: updateKind, allowed: updateAllowed, label: updateLabel, blocked: updateBlocked, request: requestUpdate, run: doUpdate },
-    requestSave, commands, openBase, discard, bar: shown.bar, saveDialogProps: { ownNames },
+    requestSave, commands, openBase: openRaw, discard, bar: shown.bar, saveDialogProps: { ownNames },
   };
 }
 export type ViewsApi = ReturnType<typeof useViews>;
@@ -450,11 +443,25 @@ function MoreViews({ api, count }: { api: ViewsApi; count: number }) {
     <span ref={ref} className="popover-anchor" {...blur}
       onKeyDown={(e) => { if (e.key === "Escape" && open) { e.stopPropagation(); close(); btn.current?.focus(); } }}>
       <button ref={btn} type="button" className={open ? "tool-btn tool-btn-on" : "tool-btn"} aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen((o) => !o)}>
-        {count} more {count === 1 ? "view" : "views"}<Chevron open={open} />
+        {count} more {count === 1 ? "view" : "views"}{api.dirty && <span className="vm-dot" title="This view has changes you have not saved" aria-label="(this view has changes)"> ●</span>}<Chevron open={open} />
       </button>
       {open && (
         <div id={id} className="popover-panel popover-right views-panel vm-panel" role="dialog" aria-label="Views">
           {api.managing && <p className="panel-note" role="status">Editing the workspace default bar. People who set their own bar keep it.</p>}
+          <section aria-label="Current view" className="vm-current">
+            <p className="scope-head">Current view: {baseLabel(api.base, api.views)}{api.dirty ? " (changed)" : ""}</p>
+            {api.dirty && <p className="panel-note">{changeSummary(diffViews(api.bDef, api.def)) || "Changed"} since it was saved. Changes stay as you switch views until you reset or save them.</p>}
+            <div className="vm-current-actions">
+              {api.update.kind !== "none" && (
+                <span title={api.update.blocked ?? undefined}>
+                  <button type="button" className="tool-btn" disabled={!api.dirty || !api.update.allowed} onClick={() => { close(); api.update.request(); }}>{api.update.label}</button>
+                </span>
+              )}
+              <button type="button" className="tool-btn" onClick={() => { close(); api.requestSave(); }}>Save as new view…</button>
+              <button type="button" className="tool-btn" disabled={!api.dirty} onClick={() => { api.reset(); }}>Reset changes</button>
+            </div>
+            {api.update.blocked && api.dirty && <p className="panel-note">{api.update.blocked}</p>}
+          </section>
           {search && <SearchInput value={query} onChange={setQuery} label="Search views" onKeyDown={menuSearchKeys} />}
           {mine.length > 0 && (
             <section aria-label="My views">
@@ -546,27 +553,6 @@ export function ViewBar({ api }: { api: ViewsApi }) {
           <button type="button" className="chip-x" aria-label="Dismiss" onClick={() => api.setToast(null)}>×</button>
         </div>
       )}
-    </div>
-  );
-}
-
-// ------------------------------------------------------ unsaved-changes bar
-export function UnsavedBar({ api }: { api: ViewsApi }) {
-  if (!api.dirty) return null;
-  const diff = diffViews(api.bDef, api.def);
-  const summary = changeSummary(diff);
-  const u = api.update;
-  return (
-    <div className="view-dirty" role="status">
-      <span>You changed this view ({baseLabel(api.base, api.views)}){summary ? `: ${summary}` : ""}. The changes are not saved.</span>
-      {u.kind !== "none" && (
-        <span title={u.blocked ?? undefined}>
-          <button type="button" className="tool-btn" disabled={!u.allowed} aria-describedby={u.blocked ? "update-blocked" : undefined} onClick={u.request}>{u.label}</button>
-          {u.blocked && <span id="update-blocked" className="sr-only">{u.blocked}</span>}
-        </span>
-      )}
-      <button type="button" className="tool-btn" onClick={api.requestSave}>Save as new view…</button>
-      <button type="button" className="tool-btn" onClick={api.discard}>Reset</button>
     </div>
   );
 }

@@ -618,3 +618,6 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .sort-row { display: flex; }
 .sort-row > .scope-item:first-child { flex: 1 1 auto; }
 .sort-row > .scope-item:last-child { width: auto; }
+.vm-current { padding: 0 12px 6px; border-bottom: 1px solid #e1e5eb; margin-bottom: 4px; }
+.vm-current-actions { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 4px; }
+.vm-dot { color: var(--blue-text); font-size: 9px; vertical-align: middle; }

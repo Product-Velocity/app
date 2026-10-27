@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { goToView, viewTab } from "./helpers";
+import { goToView, hasChanges, moreViews, resetChanges, viewMenuAction, viewTab } from "./helpers";
 
 const open = async (page: Page, query = "n=30&role=admin") => {
   await page.goto(`/dev/grid?${query}`);
@@ -19,10 +19,10 @@ async function makeChange(page: Page) {
   await filterBtn(page).click();
   await page.getByRole("button", { name: "High impact" }).click();
   await page.keyboard.press("Escape");
-  await expect(page.locator(".view-dirty")).toBeVisible();
+  await expect(hasChanges(page)).toBeVisible();
 }
 async function saveAsNew(page: Page, name: string, scope?: "Only me" | "Workspace") {
-  await page.locator(".view-dirty").getByRole("button", { name: "Save as new view…" }).click();
+  await viewMenuAction(page, "Save as new view…");
   const d = page.getByRole("dialog", { name: "Save as new view" });
   await d.getByLabel("Name").fill(name);
   if (scope) await d.getByLabel(new RegExp(`^${scope}`)).check();
@@ -112,7 +112,7 @@ test.describe("the view bar (R-98)", () => {
 
   test("a ?view= link to someone else's private view falls back to the default view without an error page", async ({ page }) => {
     await open(page, "n=30&role=admin&view=view-does-not-exist");
-    await expect(page.locator(".view-dirty")).toContainText("no longer exists");
+    await expect(page.locator(".view-dirty")).toContainText("no longer exists"); // the only notice left: a view that was deleted
     await expect(viewTab(page, "Prioritisation")).toBeVisible();
   });
 
@@ -125,25 +125,55 @@ test.describe("the view bar (R-98)", () => {
 });
 
 test.describe("one save flow (R-99)", () => {
-  test("columns, filters, grouping and sort each make the bar show unsaved changes; search and scope do not", async ({ page }) => {
+  test("columns, filters, grouping and sort each mark the view as changed (a dot, no alert); search and scope do not", async ({ page }) => {
     await open(page);
-    const dirty = page.locator(".view-dirty");
+    const changed = hasChanges(page);
     await page.getByRole("searchbox", { name: "Search initiatives" }).fill("a");
-    await expect(dirty).toHaveCount(0);
+    await expect(changed).toHaveCount(0);
     await page.getByRole("searchbox", { name: "Search initiatives" }).fill("");
     await page.getByRole("button", { name: /^Group by/ }).click();
     await page.getByRole("menuitemradio", { name: "Health" }).click();
-    await expect(dirty).toContainText("grouping");
-    await dirty.getByRole("button", { name: "Reset" }).click();
+    await expect(changed).toBeVisible();
+    await moreViews(page).click();
+    await expect(menu(page)).toContainText("grouping");
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".view-dirty")).toHaveCount(0);
+    await resetChanges(page);
+    await expect(changed).toHaveCount(0);
     await page.getByRole("button", { name: /^Sort:/ }).click();
     await page.getByRole("menuitemradio", { name: "MoSCoW, high to low" }).click();
-    await expect(dirty).toContainText("sorted");
+    await expect(changed).toBeVisible();
     await expect(foot(page)).toContainText("Sorted by MoSCoW (high to low)");
-    await dirty.getByRole("button", { name: "Reset" }).click();
+    await resetChanges(page);
     await page.getByRole("button", { name: /columns shown$/ }).click();
     await page.getByLabel("Confidence", { exact: true }).uncheck();
     await page.getByRole("button", { name: /^Apply columns/ }).click();
-    await expect(dirty).toContainText("1 column");
+    await expect(changed).toBeVisible();
+  });
+
+  test("filters, grouping and sort stay when you switch views; columns stay with the view they were changed in; nothing asks to save", async ({ page }) => {
+    await open(page);
+    await makeChange(page); // High impact filter
+    await page.getByRole("button", { name: /^Group by/ }).click();
+    await page.getByRole("menuitemradio", { name: "Health" }).click();
+    await page.getByRole("button", { name: /columns shown$/ }).click();
+    await page.getByLabel("Confidence", { exact: true }).uncheck();
+    await page.getByRole("button", { name: /^Apply columns/ }).click();
+    const items = (await foot(page).textContent())!;
+    await viewTab(page, "Delivery").click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.locator(".view-dirty, .view-toast")).toHaveCount(0);
+    expect(await foot(page).textContent()).toBe(items); // same filter and grouping
+    await expect(page.getByRole("button", { name: /^Group by/ })).toContainText("Health");
+    await expect(page.locator(".filter-chips")).toBeVisible();
+    await viewTab(page, "Prioritisation").click();
+    await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toHaveCount(0); // its own column change is still there
+    await viewTab(page, "Delivery").click();
+    await expect(page.getByRole("button", { name: /^Group by/ })).toContainText("Health");
+    // removing the filter and grouping is up to the person
+    await resetChanges(page);
+    await expect(page.getByRole("button", { name: /^Group by/ })).toContainText("None");
+    await expect(page.locator(".filter-chips")).toHaveCount(0);
   });
 
   test("the Filters, Columns and Group by panels have no save control", async ({ page }) => {
@@ -170,7 +200,7 @@ test.describe("one save flow (R-99)", () => {
     await page.getByRole("menuitemradio", { name: "Effort (T-shirt), high to low" }).click();
     const matching = (await foot(page).textContent())!;
     await saveAsNew(page, "My planning");
-    await expect(page.locator(".view-dirty")).toHaveCount(0);
+    await expect(hasChanges(page)).toHaveCount(0);
     const s = await store(page);
     const v = s.views.find((x) => x.name === "My planning")!;
     expect(v.ownerId).toBe("u1");
@@ -197,7 +227,7 @@ test.describe("one save flow (R-99)", () => {
   test("a view-only role can save a private view, but not choose Workspace", async ({ page }) => {
     await open(page, "n=30&role=viewer");
     await makeChange(page);
-    await page.locator(".view-dirty").getByRole("button", { name: "Save as new view…" }).click();
+    await viewMenuAction(page, "Save as new view…");
     const d = page.getByRole("dialog", { name: "Save as new view" });
     await expect(d.getByLabel(/^Workspace/)).toHaveCount(0);
     await d.getByLabel("Name").fill("Viewer view");
@@ -213,7 +243,7 @@ test.describe("one save flow (R-99)", () => {
     await page.getByRole("button", { name: /Reset/ }).click().catch(() => undefined);
     await goToView(page, "Planning");
     await makeChange(page);
-    await page.locator(".view-dirty").getByRole("button", { name: "Save as new view…" }).click();
+    await viewMenuAction(page, "Save as new view…");
     const d = page.getByRole("dialog", { name: "Save as new view" });
     await d.getByLabel("Name").fill("same NAME");
     await expect(d.getByRole("alert")).toContainText("already have a view called");
@@ -228,41 +258,31 @@ test.describe("one save flow (R-99)", () => {
     await saveAsNew(page, "Mine");
     await page.getByRole("button", { name: /^Sort:/ }).click();
     await page.getByRole("menuitemradio", { name: "MoSCoW, low to high" }).click();
-    await page.locator(".view-dirty").getByRole("button", { name: "Update “Mine”" }).click();
-    await expect(page.locator(".view-dirty")).toHaveCount(0);
+    await viewMenuAction(page, "Update “Mine”");
+    await expect(hasChanges(page)).toHaveCount(0);
     expect((await store(page)).views.find((v) => v.name === "Mine")!.sort).toEqual({ field: "moscow", dir: "asc" });
     // a built-in is a workspace view: the admin confirms
     await viewTab(page, "Planning").click();
-    await makeChange(page);
-    await page.locator(".view-dirty").getByRole("button", { name: "Update for everyone" }).click();
+    await page.getByRole("button", { name: /^Sort:/ }).click();
+    await page.getByRole("menuitemradio", { name: "Effort (T-shirt), high to low" }).click();
+    await viewMenuAction(page, "Update for everyone");
     const c = page.getByRole("dialog", { name: "Update for everyone?" });
     await expect(c).toContainText("whole workspace");
     await c.getByRole("button", { name: "Update for everyone" }).click();
-    await expect(page.locator(".view-dirty")).toHaveCount(0);
+    await expect(hasChanges(page)).toHaveCount(0);
     await expect(viewTab(page, "Planning")).toHaveAttribute("title", /changed by your workspace/);
   });
 
   test("a member cannot update a workspace view: the button is disabled with the reason; Save as new view still works", async ({ page }) => {
     await open(page, "n=30&role=creator");
     await makeChange(page);
-    const update = page.locator(".view-dirty").getByRole("button", { name: "Update for everyone" });
+    await moreViews(page).click();
+    const update = menu(page).getByRole("button", { name: "Update for everyone" });
     await expect(update).toBeDisabled();
-    await expect(update.locator("..")).toHaveAttribute("title", "Workspace views can only be changed by an admin. Save as your own view instead.");
+    await expect(menu(page)).toContainText("Workspace views can only be changed by an admin. Save as your own view instead.");
+    await page.keyboard.press("Escape");
     await saveAsNew(page, "My own Prioritisation");
     expect((await store(page)).views.some((v) => v.name === "My own Prioritisation" && v.ownerId === "u1")).toBe(true);
-  });
-
-  test("switching views with unsaved changes discards them with an Undo message (no blocking dialog)", async ({ page }) => {
-    await open(page);
-    await makeChange(page);
-    await viewTab(page, "Delivery").click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(page.locator(".view-dirty")).toHaveCount(0);
-    const toast = page.locator(".view-toast");
-    await expect(toast).toContainText("Unsaved changes discarded");
-    await toast.getByRole("button", { name: "Undo" }).click();
-    await expect(viewTab(page, "Prioritisation")).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator(".view-dirty")).toBeVisible();
   });
 
   test("the palette has the same two actions: update the open view and save as new", async ({ page }) => {
@@ -277,7 +297,7 @@ test.describe("one save flow (R-99)", () => {
   test("an admin saves a workspace view; a customer-safe view says which columns it leaves out", async ({ page }) => {
     await open(page);
     await makeChange(page);
-    await page.locator(".view-dirty").getByRole("button", { name: "Save as new view…" }).click();
+    await viewMenuAction(page, "Save as new view…");
     const d = page.getByRole("dialog", { name: "Save as new view" });
     await d.getByLabel("Name").fill("For customers");
     await d.getByLabel(/^Workspace/).check();
@@ -394,7 +414,7 @@ test.describe("manage views (R-100)", () => {
       for (let i = 1; i <= 25; i++) await s.createView(`Filler ${i}`, { columns: ["item_code"], filters: [], groupBy: null });
     });
     await makeChange(page);
-    await page.locator(".view-dirty").getByRole("button", { name: "Save as new view…" }).click();
+    await viewMenuAction(page, "Save as new view…");
     const d = page.getByRole("dialog", { name: "Save as new view" });
     await d.getByLabel("Name").fill("The 26th");
     await d.getByRole("button", { name: "Save view" }).click();

@@ -16,3 +16,17 @@ export async function goToView(page: Page, name: string) {
   await page.getByRole("button", { name: /more views?$/ }).click();
   await page.getByRole("dialog", { name: "Views" }).locator(".vm-open", { hasText: new RegExp(`^${name}`) }).first().click();
 }
+
+/** The "N more views" button: it holds the views menu, where the open view's changes are saved or reset. */
+export const moreViews = (page: Page) => page.getByRole("button", { name: /more views?\b/ });
+/** True while the open view has changes that are not saved (a dot on the button, no alert). */
+export const hasChanges = (page: Page) => page.locator(".vm-dot");
+/** Runs an action from the "Current view" part of the views menu, then closes the menu. */
+export async function viewMenuAction(page: Page, name: string | RegExp) {
+  await moreViews(page).click();
+  await page.getByRole("dialog", { name: "Views" }).getByRole("button", { name }).click();
+}
+export async function resetChanges(page: Page) {
+  await viewMenuAction(page, "Reset changes");
+  if (await page.getByRole("dialog", { name: "Views" }).count()) await page.keyboard.press("Escape");
+}

@@ -1,4 +1,4 @@
-import { chooseOption, viewTab } from "./helpers";
+import { chooseOption, hasChanges, resetChanges, viewTab } from "./helpers";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -290,7 +290,7 @@ test.describe("grid view changes", () => {
     await addFilter(page, "moscow", "Must");
     await page.keyboard.press("Escape");
     await expect(foot(page)).toContainText("8 of 30");
-    await page.locator(".view-dirty").getByRole("button", { name: "Reset" }).click();
+    await resetChanges(page);
     await expect(foot(page)).toContainText("30 items");
   });
 
@@ -306,7 +306,7 @@ test.describe("grid view changes", () => {
     await page.mouse.move(b.x + 6, b.y + b.height / 2, { steps: 15 });
     await page.mouse.up();
     await expect.poll(async () => { const o = await order(); return o.indexOf("roadmap_category") < o.indexOf("theme"); }).toBe(true);
-    await expect(page.locator(".view-dirty")).toContainText("You changed this view");
+    await expect(hasChanges(page)).toBeVisible();
   });
 });
 

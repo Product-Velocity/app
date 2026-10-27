@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { viewTab } from "./helpers";
+import { hasChanges, viewMenuAction, viewTab } from "./helpers";
 
 const open = async (page: Page, query = "n=30&role=admin&view=All columns&cols=all") => {
   await page.goto(`/dev/grid?${query}`);
@@ -157,7 +157,8 @@ test.describe("filter panel", () => {
     await page.getByRole("button", { name: "High impact" }).click();
     await expect(filtersPanel(page).getByRole("button", { name: /Save/ })).toHaveCount(0);
     await page.keyboard.press("Escape");
-    await expect(page.locator(".view-dirty")).toContainText("1 filter");
+    await expect(hasChanges(page)).toBeVisible();
+    await expect(page.locator(".view-dirty")).toHaveCount(0); // no alert bar
   });
 
   test("three panes: categories with counts, a checklist, and the selected columns in order", async ({ page }) => {
@@ -220,14 +221,14 @@ test.describe("filter panel", () => {
     await expect(page.getByRole("columnheader", { name: new RegExp(fourth) }).first()).toBeVisible();
   });
 
-  test("the Columns panel has no save controls; the unsaved bar saves what you applied", async ({ page }) => {
+  test("the Columns panel has no save controls; the views menu saves what you applied", async ({ page }) => {
     await open(page, "n=30&role=admin&view=Prioritisation&cols=all");
     await columnsBtn(page).click();
     await columnsPanel(page).getByRole("button", { name: /^When/ }).click();
     await columnsPanel(page).getByRole("checkbox", { name: /Planned Start/ }).check();
     await expect(columnsPanel(page).getByRole("button", { name: /Save/ })).toHaveCount(0);
     await columnsPanel(page).getByRole("button", { name: /^Apply columns/ }).click();
-    await page.locator(".view-dirty").getByRole("button", { name: "Save as new view…" }).click();
+    await viewMenuAction(page, "Save as new view…");
     await page.getByRole("dialog", { name: "Save as new view" }).getByLabel("Name").fill("With start");
     await page.getByRole("button", { name: "Save view", exact: true }).click();
     await expect(viewTab(page, "With start")).toHaveAttribute("aria-pressed", "true");
