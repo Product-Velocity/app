@@ -20,6 +20,8 @@ export function friendlyError(error: DbError): string {
   return m || "unknown error";
 }
 
+/** Postgres returns numeric columns as strings. Only a string that is a number becomes one: a GitHub-driven column of type "Computed" can hold words (Delivery Status "Done", GitHub State "Open"). */
+const asNumber = (v: unknown) => (typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v);
 const NUMERIC = new Set(FIELDS.filter((f) => f.type === "Number" || f.type === "Currency" || f.type === "Computed").map((f) => f.key));
 /** Computed values come from the items_computed view; the browser works out project_rank itself after a re-rank. */
 const COMPUTED_KEYS = FIELDS.filter((f) => f.storage.startsWith("Computed") && f.key !== "project_rank").map((f) => f.key); // "Derived in the app" fields are not in the view
@@ -58,7 +60,7 @@ export class SupabaseDataSource implements PortfolioDataSource {
       const item: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(r)) {
         if (INTERNAL_COLUMNS.has(k)) continue;
-        item[KEY_BY_COLUMN[k] ?? k] = NUMERIC.has(k) && v !== null && v !== undefined ? Number(v) : v;
+        item[KEY_BY_COLUMN[k] ?? k] = NUMERIC.has(k) && v !== null && v !== undefined ? asNumber(v) : v;
       }
       item._created_by = r.created_by ?? null; // who added it: decides who may delete it (not a grid column)
       items.set(String(r.id), item);
@@ -69,7 +71,7 @@ export class SupabaseDataSource implements PortfolioDataSource {
     for (const c of computed) {
       const item = items.get(String(c.id));
       if (!item) continue;
-      for (const k of COMPUTED_KEYS) item[k] = c[k] === null || c[k] === undefined ? null : typeof c[k] === "string" && NUMERIC.has(k) ? Number(c[k]) : c[k];
+      for (const k of COMPUTED_KEYS) item[k] = c[k] === null || c[k] === undefined ? null : NUMERIC.has(k) ? asNumber(c[k]) : c[k];
     }
 
     // multi-value fields from the related tables, shown as text until the item panel exists
