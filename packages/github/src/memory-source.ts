@@ -46,8 +46,11 @@ export class MemorySourceControl implements SourceControl {
     this.boardItems.push(item);
     return item.id;
   }
+  /** A write to this field fails with this error (tests). */
+  failOnField: { id: string; error: Error } | null = null;
   async setBoardValue(_i: number, boardId: string, itemId: string, fieldId: string, value: BoardValue) {
     this.tick("setBoardValue", { fieldId, value });
+    if (this.failOnField?.id === fieldId) throw this.failOnField.error;
     this.maybeFail("setBoardValue");
     this.boardItems.find((x) => x.boardId === boardId && x.id === itemId)!.values[fieldId] = value;
   }
