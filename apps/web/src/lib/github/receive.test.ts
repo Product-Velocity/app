@@ -111,7 +111,7 @@ describe("receiveFromGithub: Sync with GitHub, the check", () => {
     await receiveFromGithub(admin, sc, connection, ["i1"]);
     const writes = asCalls(admin).filter((c) => c.op !== "select");
     expect(JSON.stringify(writes)).not.toMatch(/PWNED|Evil Corp|999999/);
-    expect(writes.filter((c) => c.op === "rpc").map((c) => c.table).sort()).toEqual(["github_apply_issue", "github_apply_tree"]); // the state, and the counts of epics and tasks: nothing else
+    expect(writes.filter((c) => c.op === "rpc").map((c) => c.table).sort()).toEqual(["github_apply_issue", "github_apply_tree", "github_apply_tree_counts"]); // the state, the counts of epics and tasks, and the blocked and stale numbers: nothing else
     expect(Object.keys(writes.find((c) => c.table === "github_apply_issue")!.payload as object).sort()).toEqual(["p_connection", "p_issue_id", "p_node_id", "p_number", "p_repo", "p_state", "p_state_reason", "p_updated_at"]);
     expect(writes.some((c) => c.table === "items")).toBe(false);
   });

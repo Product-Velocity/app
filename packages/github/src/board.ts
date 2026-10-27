@@ -13,6 +13,8 @@ export type BoardMapping = {
   size: FieldRef | null;
   /** Read back from the board (delivery status); never written. */
   status: FieldRef | null;
+  /** The board's iteration (sprint) field, read back only. Absent in a link saved before it was read: found by name when needed. */
+  iteration?: FieldRef | null;
   /** Fields GitHub refused as issue fields (they need another call than board fields): PV leaves them out and says so. */
   unwritable?: string[];
   /** MoSCoW value to the option name of the board's Priority field. A value that is not listed (Won't) stays out of the board. */
@@ -28,6 +30,7 @@ const NAMES = {
   dueDate: ["due date", "target date", "due", "target"],
   size: ["size", "effort", "t-shirt size"],
   status: ["status", "delivery status"],
+  iteration: ["iteration", "sprint", "iteration / sprint"],
 } as const;
 const norm = (s: string) => s.trim().toLowerCase();
 
@@ -46,6 +49,7 @@ export function detectMapping(fields: BoardField[]): BoardMapping {
     dueDate: find(NAMES.dueDate, ["DATE"]),
     size: find(NAMES.size, ["SINGLE_SELECT"]),
     status: find(NAMES.status, ["SINGLE_SELECT"]),
+    iteration: find(NAMES.iteration, ["ITERATION"]),
     priorityMap: { ...DEFAULT_PRIORITY_MAP },
   };
 }
@@ -145,9 +149,11 @@ export function parseBoard(v: unknown): Board | null {
     if (!pm || typeof pm !== "object" || Object.entries(pm).some(([k, x]) => typeof x !== "string" || x.length > 50 || k.length > 50)) return null;
     priorityMap = { ...(pm as Record<string, string>) };
   }
+  const it = ref(m.iteration);
+  if (it === undefined) return null;
   const uw = m.unwritable;
   if (uw !== undefined && (!Array.isArray(uw) || uw.some((x) => typeof x !== "string" || x.length > 100))) return null;
-  return { id: b.id, number: b.number as number, title: b.title, url: b.url, mapping: { priority: out.priority!, group: out.group!, dueDate: out.dueDate!, size: out.size!, status: out.status!, priorityMap, ...(uw && (uw as string[]).length ? { unwritable: uw as string[] } : {}) } };
+  return { id: b.id, number: b.number as number, title: b.title, url: b.url, mapping: { priority: out.priority!, group: out.group!, dueDate: out.dueDate!, size: out.size!, status: out.status!, ...(m.iteration !== undefined ? { iteration: it } : {}), priorityMap, ...(uw && (uw as string[]).length ? { unwritable: uw as string[] } : {}) } };
 }
 
 export const childKey = (repo: string, number: number) => `${repo.toLowerCase()}#${number}`;
@@ -166,8 +172,8 @@ export async function pushBoardChildren(sc: SourceControl, installationId: numbe
   return out;
 }
 
-export type StatusLink = { item_id: string; repo: string; number: number; projectItemId: string | null; current: string | null };
-export type StatusRow = { item_id: string; status: string | null; board_item_id: string };
+export type StatusLink = { item_id: string; repo: string; number: number; projectItemId: string | null; current: string | null; currentIteration?: string | null; currentTargetDate?: string | null };
+export type StatusRow = { item_id: string; status: string | null; board_item_id: string; iteration: string | null; target_date: string | null };
 
 /** What to write for Delivery Status: only initiatives whose status or board item changed, matched by repository and issue number. */
 export function planStatusApply(boardItems: BoardItemStatus[], links: StatusLink[]): StatusRow[] {
@@ -177,15 +183,18 @@ export function planStatusApply(boardItems: BoardItemStatus[], links: StatusLink
     const b = byIssue.get(childKey(l.repo, l.number));
     if (!b) continue; // not on the board: nothing is known, nothing is written
     const status = b.status === null ? null : b.status.slice(0, 100);
-    if (status !== l.current || b.itemId !== l.projectItemId) out.push({ item_id: l.item_id, status, board_item_id: b.itemId });
+    // iteration and date are only compared when the board was read for them (otherwise the stored values are left alone)
+    const iteration = b.iteration === undefined ? (l.currentIteration ?? null) : b.iteration === null ? null : b.iteration.slice(0, 100);
+    const targetDate = b.targetDate === undefined ? (l.currentTargetDate ?? null) : b.targetDate;
+    if (status !== l.current || b.itemId !== l.projectItemId || iteration !== (l.currentIteration ?? null) || targetDate !== (l.currentTargetDate ?? null)) out.push({ item_id: l.item_id, status, board_item_id: b.itemId, iteration, target_date: targetDate });
   }
   return out;
 }
 
 /** The board's statuses, or nothing when the board cannot be read (a failed read must not fail a whole check). */
-export async function readBoardStatuses(sc: SourceControl, installationId: number, boardId: string, statusField: string): Promise<BoardItemStatus[]> {
+export async function readBoardStatuses(sc: SourceControl, installationId: number, boardId: string, statusField: string, extra?: { iterationField?: string | null; dateField?: string | null }): Promise<BoardItemStatus[]> {
   try {
-    return await sc.listBoardItems(installationId, boardId, statusField);
+    return await sc.listBoardItems(installationId, boardId, statusField, extra);
   } catch {
     return [];
   }
