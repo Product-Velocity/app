@@ -25,13 +25,13 @@ let issueTexts: Record<string, { title: string; body: string }>;
 const inStep = { title: hashText("Faster export"), summary: hashText("S"), description: hashText("D"), hypothesis: hashText("H") };
 
 type Rpc = { name: string; args: Record<string, unknown> };
-function ctx(opts: { rows?: unknown[]; base?: unknown; pullError?: boolean } = {}) {
+function ctx(opts: { rows?: unknown[]; base?: unknown; pullError?: boolean; readError?: boolean } = {}) {
   const rpcs: Rpc[] = [];
   const rows = opts.rows ?? [pv];
   const q = (table: string) => {
     const r: Record<string, unknown> = {};
     for (const m of ["eq", "is", "in", "select"]) r[m] = () => r;
-    r.then = (resolve: (v: unknown) => void) => resolve({ data: table === "items" ? rows : [{ item_id: ITEM, mode: "push", sync_base: opts.base ?? inStep }], error: null });
+    r.then = (resolve: (v: unknown) => void) => resolve(opts.readError && table === "item_github_links" ? { data: null, error: { message: 'column "sync_base" does not exist' } } : { data: table === "items" ? rows : [{ item_id: ITEM, mode: "push", sync_base: opts.base ?? inStep }], error: null });
     return r;
   };
   const adminUi = { rpc: async (name: string, args: Record<string, unknown>) => { rpcs.push({ name, args }); order.push(name); return name === "github_apply_pull" ? (opts.pullError ? { data: null, error: { message: "boom" } } : { data: { initiative_name: "Faster export", description: "D" }, error: null }) : { data: null, error: null }; } };
@@ -69,6 +69,22 @@ describe("buildSyncPreview: the comparison", () => {
     issueTexts[ITEM] = { title: "R-1: Faster export", body: "somebody removed the markers" };
     const { ctx: c } = ctx();
     expect((await buildSyncPreview(c, [ITEM])).received[0]!.conflicts).toMatchObject([{ field: "block", kind: "block", defaultChoice: null }]);
+  });
+});
+
+describe("a failing read is never shown as in step", () => {
+  it("the preview says the texts could not be compared, with no 'In step' and no conflict", async () => {
+    issueTexts[ITEM] = { title: "R-1: Renamed in GitHub", body: bodyFor({}) };
+    const { ctx: c } = ctx({ readError: true });
+    const p = await buildSyncPreview(c, [ITEM]);
+    expect(p.received[0]).toMatchObject({ status: "error", message: expect.stringMatching(/could not be compared.*migration/) });
+  });
+  it("the confirm sends and applies nothing", async () => {
+    const { ctx: c, rpcs } = ctx({ readError: true });
+    const r = await confirmSync(c, [ITEM], []);
+    expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/could not be compared/) });
+    expect(pushCalls).toEqual([]);
+    expect(rpcs).toEqual([]);
   });
 });
 
