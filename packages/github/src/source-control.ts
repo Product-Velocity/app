@@ -24,9 +24,12 @@ export type BoardValue = { text: string } | { number: number } | { date: string 
 
 /** Raised for GitHub errors. Carries the status only: never the response body, headers or any token. */
 export class GitHubError extends Error {
-  constructor(readonly status: number, message: string, readonly retryAfterSeconds?: number) {
+  /** GitHub's own short explanation, for errors of the Projects (GraphQL) API and the step that failed; scrubbed of anything token-like. */
+  readonly detail?: string;
+  constructor(readonly status: number, message: string, readonly retryAfterSeconds?: number, detail?: string) {
     super(message);
     this.name = "GitHubError";
+    if (detail) this.detail = detail.replace(/gh[pousr]_[A-Za-z0-9_]+/g, "[token]").replace(/\s+/g, " ").trim().slice(0, 240);
   }
 }
 

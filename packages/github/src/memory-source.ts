@@ -30,7 +30,9 @@ export class MemorySourceControl implements SourceControl {
   boardItems: { id: string; boardId: string; issueNodeId: string; values: Record<string, BoardValue> }[] = [];
   /** Name of a method that fails once when called (tests). */
   failOn: string | null = null;
-  private maybeFail(name: string) { if (this.failOn === name) { this.failOn = null; throw new Error(`${name} failed`); } }
+  /** The error a failing method throws (default: a plain Error). */
+  failWith: Error | null = null;
+  private maybeFail(name: string) { if (this.failOn === name) { this.failOn = null; throw this.failWith ?? new Error(`${name} failed`); } }
   async listBoards() { this.tick("listBoards"); return this.boards; }
   async getBoardFields(_i: number, boardId: string) { this.tick("getBoardFields"); return this.boardFields.get(boardId) ?? null; }
   async addBoardItem(_i: number, boardId: string, issueNodeId: string) {
