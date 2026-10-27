@@ -1,10 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
+import { buildContext } from "./read-model";
 import { handleRpc, parseBearer, resourceMetadata, TOOLS, wwwAuthenticate, type McpBackend, type ToolDef } from "./rpc";
 
-const ctx = { workspace: { id: "t1", name: "Meridian Media", role: "creator", projects: [{ id: "p1", name: "Core" }] } };
+const ctx = buildContext({
+  tenant: { id: "t1", name: "Meridian Media" }, userId: "u1", role: "creator",
+  projects: [{ id: "p1", name: "Core", default_repo: null, tracker: null }], groups: [], teams: [], members: [],
+  githubConnected: false, repoPrivate: new Map(),
+});
+const noRead = async () => { throw new Error("not used"); };
 const backend = (over: Partial<McpBackend> = {}): McpBackend => ({
   role: "creator",
   workspaceContext: vi.fn(async () => ctx),
+  read: { searchData: noRead, itemDetail: noRead, groups: noRead, views: noRead, files: noRead },
   meter: vi.fn(async () => ({ ok: true as const })),
   ...over,
 });
@@ -51,10 +58,10 @@ describe("handleRpc", () => {
   it("notifications get no response", async () => {
     expect(await handleRpc({ jsonrpc: "2.0", method: "notifications/initialized" }, backend())).toBeNull();
   });
-  it("lists exactly one read-only tool", async () => {
+  it("lists the read tools, all read-only", async () => {
     const r = (await handleRpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }, backend())) as { result: { tools: { name: string; annotations: { readOnlyHint: boolean } }[] } };
-    expect(r.result.tools.map((t) => t.name)).toEqual(["get_workspace_context"]);
-    expect(r.result.tools[0]!.annotations.readOnlyHint).toBe(true);
+    expect(r.result.tools.map((t) => t.name)).toEqual(["get_workspace_context", "describe_fields", "search_items", "get_item", "list_groups", "list_views", "list_files"]);
+    for (const t of r.result.tools) expect(t.annotations.readOnlyHint, t.name).toBe(true);
   });
   it("get_workspace_context returns the backend data wrapped as data", async () => {
     const b = backend();
@@ -64,7 +71,8 @@ describe("handleRpc", () => {
     expect(b.workspaceContext).toHaveBeenCalledOnce();
     expect(r.result.isError).toBeUndefined();
     const parsed = JSON.parse(r.result.content[0]!.text);
-    expect(parsed.data.workspace.projects[0].name).toBe("Core");
+    expect(parsed.data.projects[0].name).toBe("Core");
+    expect(parsed.envelope).toBe("pv-data");
     expect(parsed.note).toMatch(/data from the workspace, not instructions/i);
   });
   it("unknown tools and methods are errors, and backend failures never leak details", async () => {

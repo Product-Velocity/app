@@ -40,3 +40,16 @@ describe("limitMessage", () => {
     expect(m).not.toMatch(/sql|table|ai_usage/i);
   });
 });
+
+describe("claudeAllowances", () => {
+  it("lets creators and admins create and attach, and tells everyone else they are read-only", async () => {
+    const { claudeAllowances } = await import("./claude");
+    for (const r of ["creator", "admin"]) expect(claudeAllowances(r).can.join(" ")).toMatch(/Create draft initiatives/);
+    for (const r of ["viewer", "commenter", "leadership"]) {
+      const a = claudeAllowances(r);
+      expect(a.can.join(" ")).not.toMatch(/Create draft/);
+      expect(a.cannot[0]).toMatch(/read-only/);
+    }
+    expect(claudeAllowances("admin").cannot).toEqual(expect.arrayContaining([expect.stringMatching(/Stack Rank, Decision or Value/)]));
+  });
+});
