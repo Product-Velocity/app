@@ -70,3 +70,31 @@ describe("small helpers", () => {
     expect(canLinkFilesInto(undefined)).toBe(false);
   });
 });
+
+import { base64ByteLength, decodeBase64File, sharingNote } from "./files";
+
+describe("files sent by Claude", () => {
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+  it("decodes base64, with or without a data URL prefix and line breaks", () => {
+    const b64 = png.toString("base64");
+    for (const input of [b64, `data:image/png;base64,${b64}`, `${b64.slice(0, 4)}\n${b64.slice(4)}`]) {
+      const r = decodeBase64File(input);
+      expect(r.ok && Buffer.from(r.bytes).equals(png)).toBe(true);
+    }
+  });
+  it("refuses empty, malformed and over-size text without decoding it", () => {
+    expect(decodeBase64File("")).toMatchObject({ ok: false });
+    expect(decodeBase64File(42)).toMatchObject({ ok: false });
+    expect(decodeBase64File("not base64 !!")).toMatchObject({ ok: false, error: expect.stringMatching(/base64/) });
+    const big = decodeBase64File("A".repeat(Math.ceil(11 * 1024 * 1024 * (4 / 3))));
+    expect(big).toEqual({ ok: false, error: "That file is larger than 10 MB." });
+    expect(base64ByteLength("AAAA")).toBe(3);
+  });
+  it("says in plain words who can open the file and what happens on GitHub", () => {
+    expect(sharingNote(true, { name: "acme/app", isPrivate: false })).toMatch(/Anyone who has this link.*PUBLIC repository.*will NOT be written/s);
+    expect(sharingNote(true, { name: "acme/app", isPrivate: true })).toMatch(/Anyone who has this link.*private.*added to the GitHub issue on the next push/s);
+    expect(sharingNote(true, { name: null, isPrivate: null })).toMatch(/Anyone who has this link.*will not be written/s);
+    expect(sharingNote(true, { name: "acme/app", isPrivate: null })).toMatch(/will not be written/);
+    expect(sharingNote(false, { name: "acme/app", isPrivate: true })).toMatch(/stopped working at once.*404/);
+  });
+});

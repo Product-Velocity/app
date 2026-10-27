@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { newShareToken, shareUrl } from "@/lib/files/serve";
+import { setFileSharing } from "@/lib/files/actions";
+import { shareUrl } from "@/lib/files/serve";
 import { siteUrl } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
@@ -14,8 +15,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
-  const token = body.on ? newShareToken() : null;
-  const { data, error } = await supabase.from("item_files").update({ share_token: token, share_updated_at: new Date().toISOString() }).eq("id", id).select("name").maybeSingle();
-  if (error || !data) return NextResponse.json({ error: "You do not have permission to change this link." }, { status: 403 });
-  return NextResponse.json({ shareUrl: token ? shareUrl(await siteUrl(), token, data.name) : null });
+  const r = await setFileSharing(supabase, id, body.on);
+  if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
+  return NextResponse.json({ shareUrl: r.token ? shareUrl(await siteUrl(), r.token, r.name) : null });
 }
