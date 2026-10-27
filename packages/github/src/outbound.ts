@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 // Everything that may leave the app for GitHub (CLAUDE.md rule 2). Repositories can be public, so this list is the
 // ONLY place a field is allowed to be read for a GitHub payload: value, confidence, customers, decisions, rationale,
 // key results, outcomes and markets are never listed, and a test fails if any of them ever reaches a payload.
-export const OUTBOUND_ITEM_FIELDS = ["item_code", "initiative_name", "summary", "description", "hypothesis", "moscow", "stack_rank", "change_type", "g2m_date_est", "theme"] as const;
+export const OUTBOUND_ITEM_FIELDS = ["item_code", "initiative_name", "summary", "description", "hypothesis", "moscow", "stack_rank", "change_type", "g2m_date_est", "theme", "priority"] as const;
 export type OutboundField = (typeof OUTBOUND_ITEM_FIELDS)[number];
 
 export type Artifact = { label: string; url: string };
@@ -81,6 +81,11 @@ export function sanitize(s: string): string {
 }
 const linkLabel = (s: string) => sanitize(s).replace(/[[\]\n\r]/g, " ").trim().slice(0, 120) || "link";
 
+/** "pv:priority/p1" for P0 to P3, otherwise no label. */
+export function priorityLabel(v: unknown): string | null {
+  return typeof v === "string" && /^P[0-3]$/.test(v) ? `${OWNED_LABEL_PREFIX}priority/${v.toLowerCase()}` : null;
+}
+
 /** Initiative Group as "pv:group/<name>". */
 export function groupLabel(v: unknown): string | null {
   const slug = typeof v === "string" ? v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "") : "";
@@ -111,7 +116,7 @@ export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
   parts.push("", "---", `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept. [Open in Product Velocity](${i.appUrl}/portfolio/${encodeURIComponent(code)})`, BLOCK_END);
 
   const title = (code ? `${code}: ${name}` : name) || "Untitled initiative";
-  const labels = [BASE_LABEL, projectLabel(i.projectName), moscowLabel(i.item.moscow), rankBandLabel(i.item.stack_rank), changeTypeLabel(i.item.change_type), groupLabel(i.item.theme)].filter((l): l is string => !!l);
+  const labels = [BASE_LABEL, projectLabel(i.projectName), moscowLabel(i.item.moscow), rankBandLabel(i.item.stack_rank), changeTypeLabel(i.item.change_type), groupLabel(i.item.theme), priorityLabel(i.item.priority)].filter((l): l is string => !!l);
   const block = parts.join("\n");
   const milestone = milestoneFor(i.item.g2m_date_est);
   return { title, block, labels, milestone, typeCandidates: issueTypeCandidates(i.item.change_type), hash: createHash("sha256").update(JSON.stringify({ title, labels, block, milestone })).digest("hex") };

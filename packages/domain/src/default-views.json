@@ -9,6 +9,7 @@
    "theme",
    "roadmap_category",
    "moscow",
+   "priority",
    "horizon",
    "value_12m",
    "confidence",
@@ -279,6 +280,7 @@
    "effort",
    "fit_by_team",
    "moscow",
+   "priority",
    "decision"
   ],
   "pinned": [

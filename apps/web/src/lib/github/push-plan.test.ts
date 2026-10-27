@@ -57,7 +57,7 @@ describe("planPush and the one tracker of a project", () => {
     expect(cols).toContain("end_date");
     expect(cols).not.toContain("g2m_date_est");
     // the same list is run against a real database in packages/db/tests/push-columns.test.ts: change both together
-    expect(ITEM_SELECT).toBe("id, item_code, initiative_name, summary, description, hypothesis, moscow, stack_rank, change_type, end_date, theme, home_project_id");
+    expect(ITEM_SELECT).toBe("id, item_code, initiative_name, summary, description, hypothesis, moscow, stack_rank, change_type, end_date, theme, priority, home_project_id");
   });
   it("a failed read says so instead of claiming the initiative does not exist", async () => {
     const failing = { from: () => ({ select: () => { const q: Record<string, unknown> = {}; for (const m of ["eq", "is", "in", "select", "not", "order"]) q[m] = () => q; q.then = (r: (v: unknown) => void) => r({ data: null, error: { message: "column x does not exist" } }); return q; } }) } as never;

@@ -10,7 +10,7 @@ import { PUSH_LIMIT, type PlanItem, type PushItemResult } from "./push-types";
 
 type Admin = ReturnType<typeof createAdminClient>;
 type Link = { item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; html_url: string | null; sync_state: string; last_pushed_hash: string | null };
-type Row = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; stack_rank: number; change_type: string | null; g2m_date_est: string | null; theme: string | null; home_project_id: string };
+type Row = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; stack_rank: number; change_type: string | null; g2m_date_est: string | null; theme: string | null; priority: string | null; home_project_id: string };
 
 type SharedFile = { item_id: string; name: string; share_token: string | null };
 const sharedFilesByItem = (rows: SharedFile[], appUrl: string) => {

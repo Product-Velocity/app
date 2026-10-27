@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupLabel, changeTypeLabel, issueTypeCandidates, milestoneFor, moscowLabel, rankBandLabel, planAction, BLOCK_END, BLOCK_START, buildTrackingIssue, describePushError, GitHubError, MemorySourceControl, mergeBody, OUTBOUND_ITEM_FIELDS, outsideBlock, projectLabel, pushTrackingIssue, sanitize } from "./index";
+import { priorityLabel, groupLabel, changeTypeLabel, issueTypeCandidates, milestoneFor, moscowLabel, rankBandLabel, planAction, BLOCK_END, BLOCK_START, buildTrackingIssue, describePushError, GitHubError, MemorySourceControl, mergeBody, OUTBOUND_ITEM_FIELDS, outsideBlock, projectLabel, pushTrackingIssue, sanitize } from "./index";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const base = { item: { item_code: "R-12", initiative_name: "Faster checkout", summary: "Cut steps.", description: undefined as string | undefined, hypothesis: "IF we cut steps THEN conversion rises" }, itemId: ID, projectName: "Mobile App", appUrl: "https://productvelocity.app", artifacts: [{ label: "PRD", url: "https://example.test/prd" }] };
@@ -310,5 +310,17 @@ describe("Initiative Group label", () => {
     expect(a.labels).toContain("pv:group/growth");
     expect(buildTrackingIssue({ ...base, item: { ...base.item, theme: "Retention" } }).hash).not.toBe(a.hash);
     expect(a.block).not.toContain("Growth");
+  });
+});
+
+describe("Priority label", () => {
+  it("P0 to P3 become pv:priority labels; anything else none; a change moves the hash", () => {
+    expect(priorityLabel("P0")).toBe("pv:priority/p0");
+    expect(priorityLabel("P3")).toBe("pv:priority/p3");
+    for (const bad of ["P4", "p1", "", null, undefined, 1]) expect(priorityLabel(bad)).toBeNull();
+    const a = buildTrackingIssue({ ...base, item: { ...base.item, priority: "P1" } });
+    expect(a.labels).toContain("pv:priority/p1");
+    expect(buildTrackingIssue({ ...base, item: { ...base.item, priority: "P2" } }).hash).not.toBe(a.hash);
+    expect(a.block).not.toContain("P1");
   });
 });

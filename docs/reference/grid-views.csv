@@ -166,3 +166,4 @@ created_via_values,Trust,System (read-only),,,,,,,,Y,
 locked_by_source,Trust,Computed (read-only),,,,,,,,Y,
 initiative_status,What,Editable,,Y,,Y,,,,,Y
 description,What,Editable,,,,,,,,,
+priority,Why,Editable,,Y,,,,,,,

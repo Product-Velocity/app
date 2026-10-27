@@ -3626,5 +3626,30 @@
   "githubSync": "App -> GitHub: own section 'Description' of the managed block of the issue body (Markdown). Do not put value, customers or decisions in it.",
   "filledWhen": "Before the push",
   "description": "The technical description that engineers and agents work from, written in Markdown (headings, lists, links, tables). It becomes its own section of the tracking issue. It is visible to everyone who can see the issue, so keep value, customers and decisions out of it."
+ },
+ {
+  "n": "N45",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Priority",
+  "key": "priority",
+  "group": "Why",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Prioritisation"
+  ],
+  "allowed": [
+   "P0",
+   "P1",
+   "P2",
+   "P3"
+  ],
+  "allowedText": "P0 · P1 · P2 · P3",
+  "origin": "Input",
+  "githubSync": "App -> GitHub: label pv:priority/p0..p3 and the Priority field of the linked GitHub Project (single select).",
+  "filledWhen": "Before the push",
+  "description": "How urgent this is, P0 to P3: P0 = drop other work, P1 = this cycle, P2 = soon, P3 = when there is room. It is a different question from MoSCoW (whether it is in scope at all): an initiative can be a Must and still be P2. It goes to GitHub as a label and as a field of the linked GitHub Project."
  }
 ]
