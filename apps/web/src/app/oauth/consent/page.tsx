@@ -38,7 +38,7 @@ export default async function ConsentPage({
     );
   }
 
-  const { data: flags } = await supabase.from("tenants").select("id, claude_enabled").in("id", memberships.map((m) => m.tenantId));
+  const { data: flags, error: flagError } = await supabase.from("tenants").select("id, claude_enabled").in("id", memberships.map((m) => m.tenantId));
   const on = new Set((flags ?? []).filter((t) => t.claude_enabled).map((t) => t.id as string));
   const choices = memberships.map((m) => ({ ...m, enabled: on.has(m.tenantId) }));
   const firstOn = choices.find((c) => c.tenantId === active.tenantId && c.enabled) ?? choices.find((c) => c.enabled);
@@ -48,6 +48,7 @@ export default async function ConsentPage({
       <div className="card auth-card">
         <BrandLogo size={44} />
         <h1>Connect {data.client.name} to Product Velocity?</h1>
+        {flagError && <p role="alert" className="error">This deployment&rsquo;s database is missing migration 0043, so Claude cannot be connected yet.</p>}
         {error && <p role="alert" className="error">{ERRORS[error] ?? ERRORS["1"]}</p>}
         <p>
           <strong>{data.client.name}</strong> will act as <strong>{data.user.email}</strong>, with your role in the workspace you choose.
@@ -63,7 +64,16 @@ export default async function ConsentPage({
                 <span>
                   {c.tenantName} · your role: {ROLE_LABEL[c.role]}
                   {claudeMayWrite(c.role) ? "" : " (Claude can read, not change)"}
-                  {!c.enabled && " · Claude is switched off here. A workspace admin can switch it on."}
+                  {!c.enabled && (
+                    <>
+                      {" · Claude is switched off here. "}
+                      {c.role === "admin" ? (
+                        <a href="/settings/claude">Switch it on under Connect Claude</a>
+                      ) : (
+                        "A workspace admin can switch it on."
+                      )}
+                    </>
+                  )}
                 </span>
               </label>
             ))}

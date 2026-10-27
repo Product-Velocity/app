@@ -13,7 +13,7 @@ export async function setClaudeEnabled(formData: FormData) {
   if (active.role !== "admin") return back("not-admin");
   const enabled = formData.get("enabled") === "on";
   const { error } = await supabase.from("tenants").update({ claude_enabled: enabled }).eq("id", active.tenantId);
-  if (error) return back("failed");
+  if (error) return back(error.code === "42703" || error.code === "PGRST204" ? "needs-migration" : "failed");
   revalidatePath(PATH);
   return back(enabled ? "switched-on" : "switched-off");
 }
