@@ -3,8 +3,8 @@
 import { requireWorkspace } from "@/lib/session";
 import { githubSourceControl, type ConnectionRow } from "@/lib/github/server";
 import { executePush, planPush } from "@/lib/github/push";
-import { PUSH_LIMIT, type ConfirmResult, type PreviewResult, type SyncPreviewResult } from "@/lib/github/push-types";
-import { receiveFromGithub } from "@/lib/github/receive";
+import { PUSH_LIMIT, type ConfirmResult, type PreviewResult, type SyncChoice, type SyncConfirmResult, type SyncPreviewResult } from "@/lib/github/push-types";
+import { buildSyncPreview, confirmSync, type SyncCtx } from "@/lib/github/sync-flow";
 import { siteUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -32,16 +32,30 @@ export async function previewGithubPush(ids: string[]): Promise<PreviewResult> {
   return { ok: true, items, account: g.connection.account_login ?? g.connection.expected_account };
 }
 
+/** The context a sync runs in: the signed-in person's client for reads, and two service clients labelled by source. */
+function syncCtx(g: Extract<Awaited<ReturnType<typeof gate>>, { ok: true }>): SyncCtx {
+  return { supabase: g.ctx.supabase, adminGithub: createAdminClient({ via: "GitHub webhook" }), adminUi: createAdminClient({ via: "UI" }), sc: g.sc, connection: g.connection, tenantId: g.ctx.active.tenantId, actor: g.ctx.user.id, appUrl: g.appUrl };
+}
+
 /**
  * "Sync with GitHub", step one: checks GitHub for the chosen initiatives and applies what GitHub owns (state, progress, children, board
- * Status), then works out what a send would write. Writes nothing to GitHub; the send is `confirmGithubPush`, after the person confirms.
+ * Status), compares the texts Product Velocity owns, then works out what a send would write. Writes nothing to GitHub; the send is
+ * `confirmGithubSync`, after the person confirmed and settled every conflict.
  */
 export async function startGithubSync(ids: string[]): Promise<SyncPreviewResult> {
   const g = await gate(ids);
   if (!g.ok) return { ok: false, error: g.error };
-  const received = await receiveFromGithub(createAdminClient({ via: "GitHub webhook" }), g.sc, g.connection, ids);
-  const send = await planPush(g.ctx.supabase, g.ctx.active.tenantId, g.appUrl, g.connection, ids, g.sc);
-  return { ok: true, account: g.connection.account_login ?? g.connection.expected_account, received, send };
+  const p = await buildSyncPreview(syncCtx(g), ids);
+  return { ok: true, account: p.account, received: p.received, send: p.send };
+}
+
+/** Applies the chosen texts and sends. GitHub is read again first: an edit made since the preview returns the new difference instead of overwriting. */
+export async function confirmGithubSync(ids: string[], choices: SyncChoice[]): Promise<SyncConfirmResult> {
+  const g = await gate(ids);
+  if (!g.ok) return { ok: false, error: g.error };
+  const valid = Array.isArray(choices) && choices.every((c) => c && typeof c.itemId === "string" && UUID.test(c.itemId) && ["title", "summary", "description", "hypothesis", "block"].includes(c.field) && (c.choice === "pv" || c.choice === "github") && typeof c.ghHash === "string" && /^[0-9a-f]{64}$/.test(c.ghHash));
+  if (!valid) return { ok: false, error: "The choices could not be read. Close the window and try again." };
+  return confirmSync(syncCtx(g), ids, choices);
 }
 
 /** Writes to GitHub after the person confirmed the preview. The plan is recomputed here; nothing from the browser is trusted but the ids. */

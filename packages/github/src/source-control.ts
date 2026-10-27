@@ -15,7 +15,7 @@ export type RepoInfo = { id: number; fullName: string; private: boolean };
 export type DeliverySummary = { event: string; action: string | null; statusCode: number; deliveredAt: string };
 
 export type IssueInput = { title: string; body: string; labels: string[]; /** Organisation issue type name; only sent when the organisation has it. */ type?: string; /** Milestone number in the same repository. */ milestone?: number };
-export type IssueRef = { number: number; id: number; nodeId: string; htmlUrl: string; body: string; state: "open" | "closed"; /** The labels on the issue, when GitHub reported them. */ labels?: string[]; /** Present when read from GitHub: why it closed, when it last changed and when it closed. */ stateReason?: string | null; updatedAt?: string; closedAt?: string | null };
+export type IssueRef = { number: number; id: number; nodeId: string; htmlUrl: string; body: string; state: "open" | "closed"; /** The labels on the issue, when GitHub reported them. */ labels?: string[]; /** Present when read from GitHub: why it closed, when it last changed and when it closed. */ title?: string; stateReason?: string | null; updatedAt?: string; closedAt?: string | null };
 
 /** An organisation-owned GitHub Project (a "board"). */
 export type BoardInfo = { id: string; number: number; title: string; url: string; closed: boolean };

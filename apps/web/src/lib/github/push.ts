@@ -50,7 +50,8 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
   return (await computePlan(supabase, tenantId, appUrl, connection, ids, sc)).items;
 }
 
-async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: string, connection: ConnectionRow, ids: string[], sc?: SourceControl): Promise<{ items: PlanItem[]; internal: Map<string, Internal> }> {
+/** `force`: initiatives whose Product Velocity text was chosen over GitHub's in a conflict. They are written even when nothing changed since the last send, because GitHub differs. */
+async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: string, connection: ConnectionRow, ids: string[], sc?: SourceControl, force?: ReadonlySet<string>): Promise<{ items: PlanItem[]; internal: Map<string, Internal> }> {
   const unique = [...new Set(ids)].slice(0, PUSH_LIMIT);
   const internal = new Map<string, Internal>();
   const [items, projects, repos, links, artifacts, sharedFiles, tree] = await Promise.all([
@@ -100,7 +101,7 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     const project = projectById.get(row.home_project_id);
     const link = linkByItem.get(id);
     if (project?.tracker && project.tracker !== "github") return blockedItem(id, `${project.name} is linked to ${project.tracker === "jira" ? "Jira" : project.tracker}: a project has one tracker, so its initiatives are not sent to GitHub.`, { code: row.item_code, name: row.initiative_name, project: project.name });
-    const planLink: PlanLink | null = link ? { mode: link.mode, repo: link.repo_full_name, issueNumber: link.issue_number, syncState: link.sync_state, lastPushedHash: link.last_pushed_hash } : null;
+    const planLink: PlanLink | null = link ? { mode: link.mode, repo: link.repo_full_name, issueNumber: link.issue_number, syncState: link.sync_state, lastPushedHash: force?.has(id) ? null : link.last_pushed_hash } : null;
     const itemFiles = filesByItem.get(id) ?? [];
     const target = (link?.repo_full_name ?? project?.default_repo ?? "").toLowerCase();
     const filesOk = privateRepos.has(target);
@@ -117,7 +118,7 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     // children (epics and tasks, all levels) that engineers or an agent added in GitHub are put on the board by a confirmed send, never in the background
     const pendingChildren = board && boardPlan?.include ? (treeByItem.get(id) ?? []).filter((t) => t.board_id !== board.id).length : 0;
     if (d.action === "unchanged" && pendingChildren > 0) d.action = "update";
-    internal.set(id, { projectId: project?.id, built, existing: link ? { issueNumber: link.issue_number, lastPushedHash: link.last_pushed_hash } : null, pendingChildren, ...(board && boardPlan ? { board, boardPlan } : {}) });
+    internal.set(id, { projectId: project?.id, built, existing: link ? { issueNumber: link.issue_number, lastPushedHash: force?.has(id) ? null : link.last_pushed_hash } : null, pendingChildren, ...(board && boardPlan ? { board, boardPlan } : {}) });
     const withheld = itemFiles.length > 0 && !filesOk ? { filesNote: `${itemFiles.length === 1 ? "A shared file link was" : `${itemFiles.length} shared file links were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could open the links. Files are only linked in private repositories.` } : {};
     const unshared = unsharedByItem.get(id) ?? 0;
     const note = withheld.filesNote ?? (unshared ? `${unshared === 1 ? "1 attached file has" : `${unshared} attached files have`} no share link, so ${unshared === 1 ? "it is" : "they are"} not in the issue. Turn a link on in the item's Screenshots field to include it.` : undefined);
@@ -128,8 +129,8 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
 }
 
 /** Sends the confirmed plan. Per item: push, then the board, then record the link on behalf of the person who confirmed. One item failing never stops the others. */
-export async function executePush(opts: { supabase: SupabaseClient; admin: Admin; sc: SourceControl; connection: ConnectionRow; tenantId: string; actor: string; appUrl: string; ids: string[] }): Promise<PushItemResult[]> {
-  const { items: plan, internal } = await computePlan(opts.supabase, opts.tenantId, opts.appUrl, opts.connection, opts.ids, opts.sc);
+export async function executePush(opts: { supabase: SupabaseClient; admin: Admin; sc: SourceControl; connection: ConnectionRow; tenantId: string; actor: string; appUrl: string; ids: string[]; /** Written even when unchanged since the last send (a Product Velocity text chosen over GitHub's). */ force?: ReadonlySet<string> }): Promise<PushItemResult[]> {
+  const { items: plan, internal } = await computePlan(opts.supabase, opts.tenantId, opts.appUrl, opts.connection, opts.ids, opts.sc, opts.force);
   const installationId = opts.connection.installation_id!;
 
   const results: PushItemResult[] = [];
