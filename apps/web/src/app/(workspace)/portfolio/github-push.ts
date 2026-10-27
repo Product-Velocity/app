@@ -3,7 +3,8 @@
 import { requireWorkspace } from "@/lib/session";
 import { githubSourceControl, type ConnectionRow } from "@/lib/github/server";
 import { executePush, planPush } from "@/lib/github/push";
-import { PUSH_LIMIT, type ConfirmResult, type PreviewResult, type SyncChoice, type SyncConfirmResult, type SyncPreviewResult } from "@/lib/github/push-types";
+import { PUSH_LIMIT, type ConfirmResult, type PreviewResult, type ReceivedLine, type SyncChoice, type SyncConfirmResult, type SyncPreviewResult } from "@/lib/github/push-types";
+import { receiveBoardStatus } from "@/lib/github/receive";
 import { buildSyncPreview, confirmSync, type SyncCtx } from "@/lib/github/sync-flow";
 import { siteUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -42,11 +43,20 @@ function syncCtx(g: Extract<Awaited<ReturnType<typeof gate>>, { ok: true }>): Sy
  * Status), compares the texts Product Velocity owns, then works out what a send would write. Writes nothing to GitHub; the send is
  * `confirmGithubSync`, after the person confirmed and settled every conflict.
  */
-export async function startGithubSync(ids: string[]): Promise<SyncPreviewResult> {
+export async function startGithubSync(ids: string[], opts?: { board?: boolean }): Promise<SyncPreviewResult> {
   const g = await gate(ids);
   if (!g.ok) return { ok: false, error: g.error };
-  const p = await buildSyncPreview(syncCtx(g), ids);
+  // the dialog checks in chunks of a few initiatives and reads the board once at the end (checkGithubBoard)
+  const p = await buildSyncPreview(syncCtx(g), ids, { board: opts?.board !== false });
   return { ok: true, account: p.account, received: p.received, send: p.send };
+}
+
+/** Reads the board Status once for the initiatives already checked, and applies it as Delivery Status (GitHub owns it). Writes nothing to GitHub. */
+export async function checkGithubBoard(ids: string[]): Promise<{ ok: true; lines: Record<string, ReceivedLine>; failed: boolean } | { ok: false; error: string }> {
+  const g = await gate(ids);
+  if (!g.ok) return { ok: false, error: g.error };
+  const b = await receiveBoardStatus(createAdminClient({ via: "GitHub webhook" }), g.sc, g.connection, ids);
+  return { ok: true, ...b };
 }
 
 /** Applies the chosen texts and sends. GitHub is read again first: an edit made since the preview returns the new difference instead of overwriting. */

@@ -101,9 +101,9 @@ async function recordBase(ctx: SyncCtx, itemId: string, hashes: Record<SyncTextF
 }
 
 /** Steps 1 to 4: check GitHub, apply what it owns, compare the texts, work out the send. Writes nothing to GitHub; an initiative found in step has its base recorded. */
-export async function buildSyncPreview(ctx: SyncCtx, ids: string[]): Promise<SyncPreview & { compares: Map<string, ItemCompare>; texts: Map<string, IssueTexts>; compareError?: string }> {
+export async function buildSyncPreview(ctx: SyncCtx, ids: string[], opts: { board?: boolean } = {}): Promise<SyncPreview & { compares: Map<string, ItemCompare>; texts: Map<string, IssueTexts>; compareError?: string }> {
   const texts = new Map<string, IssueTexts>();
-  const received = await receiveFromGithub(ctx.adminGithub, ctx.sc, ctx.connection, ids, texts);
+  const received = await receiveFromGithub(ctx.adminGithub, ctx.sc, ctx.connection, ids, texts, opts);
   const send = await planPush(ctx.supabase, ctx.tenantId, ctx.appUrl, ctx.connection, ids, ctx.sc);
   const { compares, error: compareError } = await compareItems(ctx, ids, texts, new Set(send.filter((p) => p.action === "unchanged").map((p) => p.id)));
   if (compareError) for (const r of received) if (r.status === "in_step" || r.status === "received" || r.status === "follows") { r.status = "error"; r.message = compareError; }
@@ -124,7 +124,8 @@ const strip = ({ account, received, send }: SyncPreview): SyncPreview => ({ acco
  * new base for every initiative that is now in step. One initiative failing never stops the others, and leaves its base unchanged.
  */
 export async function confirmSync(ctx: SyncCtx, ids: string[], choices: SyncChoice[]): Promise<SyncConfirmResult> {
-  const pre = await buildSyncPreview(ctx, ids);
+  // the board was read when the dialog opened and is read again after the send, so the confirm skips it
+  const pre = await buildSyncPreview(ctx, ids, { board: false });
   if (pre.compareError) return { ok: false, error: pre.compareError };
   // every conflict needs a choice, made on the text that is in GitHub now
   for (const r of pre.received) {
