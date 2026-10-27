@@ -166,3 +166,5 @@ V38,Trust,Created Via Values,created_via_values,Note,UI · Import · Claude (MCP
 V39,Trust,Locked (GitHub-driven),locked_by_source,Computed,Yes · No,System,New (v4),n/a,"Computed (view or function, not stored)",1
 N43,What,Initiative Status,initiative_status,Select,Backlog · Not Started · In Progress · Paused · Completed · Cancelled,Input,New,Not synced. A closed linked ticket only sets Build Status and Build Completed; people decide where the initiative itself stands.,Column on items,1
 N44,What,Description,description,Long text,,Input,New,"App -> GitHub: own section 'Description' of the managed block of the issue body (Markdown). Do not put value, customers or decisions in it.",Column on items,1
+N46,Delivery (GitHub),Last Synced,last_synced,Computed,,Computed,New,Not synced: shown from the GitHub link and read-only.,Derived in the app from the GitHub link (not stored),1
+N47,Delivery (GitHub),Synced With,synced_with,Computed,,Computed,New,Not synced: shown from the GitHub link and read-only.,Derived in the app from the GitHub link (not stored),1

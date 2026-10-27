@@ -166,3 +166,5 @@ created_via_values,Trust,System (read-only),,,,,,,,Y,
 locked_by_source,Trust,Computed (read-only),,,,,,,,Y,
 initiative_status,What,Editable,,Y,,Y,,,,,Y
 description,What,Editable,,,,,,,,,
+last_synced,Delivery (GitHub),Computed (read-only),,,,Y,,,,,
+synced_with,Delivery (GitHub),Computed (read-only),,,,Y,,,,,

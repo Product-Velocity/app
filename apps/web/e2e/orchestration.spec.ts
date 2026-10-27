@@ -110,3 +110,25 @@ test.describe("Description (Markdown)", () => {
     expect(ids.indexOf("description")).toBe(ids.indexOf("initiative_status") + 1);
   });
 });
+
+test.describe("Last Synced and Synced With", () => {
+  test("the Delivery view shows when and with what each initiative was last synced; others say Not synced", async ({ page }) => {
+    await open(page, "n=12&role=admin&gh=1&view=Delivery");
+    const synced = row(page, "item-1");
+    await expect(synced.locator('[col-id="synced_with"]')).toContainText('GitHub · Acme/App · board "Product Velocity roadmap"');
+    await expect(synced.locator('[col-id="last_synced"]')).not.toHaveText("");
+    await expect(synced.locator('[col-id="last_synced"]')).not.toContainText("Not synced");
+    await expect(row(page, "item-2").locator('[col-id="last_synced"]')).toContainText("Not synced");
+    await expect(row(page, "item-2").locator('[col-id="synced_with"]')).toContainText("Not synced");
+    await page.screenshot({ path: "../../docs/screenshots/last-synced-columns.png" });
+  });
+  test("the item panel says when it was last synced, and the two fields cannot be edited", async ({ page }) => {
+    await open(page, "n=12&role=admin&gh=1");
+    await row(page, "item-1").locator('[col-id="item_code"]').click({ position: { x: 8, y: 8 } });
+    const panel = page.getByTestId("item-panel");
+    await expect(panel.locator(".ip-gh")).toContainText("last synced");
+    for (const key of ["last_synced", "synced_with"]) {
+      await expect(panel.locator(`[data-field="${key}"]`).getByRole("textbox")).toHaveCount(0);
+    }
+  });
+});

@@ -9,7 +9,7 @@ Owner: Ashu (product owner, not a full-time engineer). Ask when a decision chang
 
 ## Source of truth
 - `docs/01-PRD.md` — what and why. `docs/06-BUILD-PLAN.md` — order of work and acceptance criteria.
-- `docs/reference/item-fields.csv` (= `Roadmap_v4_field_dictionary.xlsx`) — **the authoritative list of the 167 item fields**: key, type, storage, phase. Schema, grid columns and the field registry must match it exactly. Default view columns and their order: `docs/reference/default-views.csv`.
+- `docs/reference/item-fields.csv` (= `Roadmap_v4_field_dictionary.xlsx`) — **the authoritative list of the 169 item fields**: key, type, storage, phase. Schema, grid columns and the field registry must match it exactly. Default view columns and their order: `docs/reference/default-views.csv`.
 - **Brand guide** (voice, claims rules, colours, type, health pills, logo): the Claude design-system artifact https://claude.ai/artifact/BRo2cXTevzrX2pytjgb8Li (Draft 1, 2026-10-23, Ashu's review). Read its `project/README.md` and `project/tokens.json` with the Artifact tool before writing public copy, the website or UI styling; the app's `#3347D9`, IBM Plex and 13px type already match it. Where it and the product disagree (see `docs/DECISIONS.md`), ask.
 - `docs/03-DATA-MODEL.md`, `docs/04-GITHUB-SYNC.md`, `docs/05-AI-AND-MCP.md` — behaviour contracts.
 - `prototype/` — clickable design reference (Claude Design `.dc.html` boards). `docs/07-PROTOTYPE-MAP.md` maps screens to features. The prototype shows intent and layout; the docs win when they disagree. Prototype data is fictional (tenant "Meridian Media").

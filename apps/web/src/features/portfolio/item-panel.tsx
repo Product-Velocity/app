@@ -91,6 +91,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
         {lookups.github?.links[itemId] && (() => { const l = lookups.github!.links[itemId]!; return (
           <p className="ip-gh">
             GitHub: {l.url && l.number ? <a href={l.url} target="_blank" rel="noreferrer">issue #{l.number}</a> : "no issue yet"}
+            {row.last_synced ? ` · last synced ${new Date(String(row.last_synced)).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}` : ""}
             {l.ghState ? ` · ${GH_STATE[l.ghState]}` : ""}{l.lastActivity ? ` · last activity ${new Date(l.lastActivity).toLocaleDateString()}` : ""}
             {l.buildCompletedAt ? ` · build completed ${new Date(l.buildCompletedAt).toLocaleDateString()}${l.buildStartedAt ? ` (started ${new Date(l.buildStartedAt).toLocaleDateString()}${l.buildDays != null ? `, ${l.buildDays} days` : ""})` : ""}` : l.buildStartedAt ? ` · build started ${new Date(l.buildStartedAt).toLocaleDateString()}` : ""}
             {" · "}{l.mode === "follow" ? "followed read-only (nothing is written to it)" : l.state === "synced" ? "in sync when last sent" : l.state === "error" ? `last push failed${l.error ? `: ${l.error}` : ""}` : "waiting"}

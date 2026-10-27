@@ -107,7 +107,7 @@ export function SearchableList({ label, options, value, onPick }: { label: strin
 }
 
 /**
- * A drop-down to choose one value. Up to 8 options it is a plain select; with more it opens a searchable list, so the 167
+ * A drop-down to choose one value. Up to 8 options it is a plain select; with more it opens a searchable list, so the 169
  * fields, a long list of people or projects can be found by typing. `blank` adds a first "no value" choice.
  */
 export function SelectField({ label, value, options, onChange, blank, id, className, disabled }: {
