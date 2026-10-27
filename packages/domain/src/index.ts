@@ -21,3 +21,4 @@ export * from "./leadership";
 export * from "./alignment-scoring";
 export * from "./quick-filters";
 export * from "./view-bar";
+export * from "./claude";

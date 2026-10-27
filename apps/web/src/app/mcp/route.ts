@@ -12,13 +12,15 @@ export async function POST(req: NextRequest) {
   if (!mcpEnabled()) return new NextResponse("Not found", { status: 404 });
 
   const token = parseBearer(req.headers.get("authorization"));
-  const caller = token ? await authenticate(token) : null;
-  if (!caller) {
+  const auth = token ? await authenticate(token) : null;
+  if (!auth || !auth.ok) {
+    const f = auth ?? { http: 401 as const, error: "invalid_token", message: "Sign in again: this connection is missing, expired or revoked." };
     return json(
-      { error: "invalid_token", error_description: "Sign in again: this connection is missing, expired or revoked." },
-      { status: 401, headers: { "WWW-Authenticate": wwwAuthenticate(await siteUrl()) } },
+      { error: f.error, error_description: f.message },
+      { status: f.http, ...(f.http === 401 ? { headers: { "WWW-Authenticate": wwwAuthenticate(await siteUrl()) } } : {}) },
     );
   }
+  const { caller } = auth;
 
   let body: unknown;
   try {
