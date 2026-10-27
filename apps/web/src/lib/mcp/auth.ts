@@ -76,6 +76,7 @@ export async function authenticate(token: string): Promise<AuthResult> {
         },
         workspaceContext: read.workspaceContext,
         read: read.reader,
+        write: read.writer,
       },
     },
   };

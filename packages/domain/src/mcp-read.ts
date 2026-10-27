@@ -1,7 +1,7 @@
 // What Claude can read through the MCP server (docs/20-CLAUDE-MCP.md FR-2 and FR-3): the field schema and search.
 // Pure and shared with the grid's rules: the same registry, the same filter operators, the same filter engine.
 
-import { canEditItems, fieldMaxLength } from "./fields";
+import { EDITABLE_FIELDS, canEditItems, fieldMaxLength } from "./fields";
 import { FIELDS, FIELD_BY_KEY, isShipped, type FieldDef } from "./registry";
 import { matchesFilters, opsFor, sortRows, type Filter, type FilterCtx, type FilterOp, type SortDef } from "./views";
 
@@ -17,12 +17,18 @@ export const CLAUDE_FORBIDDEN_FIELDS: readonly string[] = [
   "ready_for_build", "ready_for_build_by", "current_gate", "gate_status",
 ];
 
+/** The list fields (tags, markets, segments, teams, links, relations) Claude can write; each lives in its own table. */
+export const CLAUDE_LIST_FIELDS: readonly string[] = ["tags", "target_scope", "live_scope", "target_segments", "contributing_teams", "artifacts", "depends_on", "related_to"];
+
 const editableBy = (f: FieldDef, role: string) => f.editable && isShipped(f) && canEditItems(role);
 
-/** True when Claude, acting as a person with this role, may set the field. */
+/**
+ * True when Claude, acting as a person with this role, may set the field: editable, shipped, not on the forbidden list, and
+ * of a kind the write tools can carry (a single value or one of the list fields; structured values need the app's panel).
+ */
 export function claudeMaySet(key: string, role: string): boolean {
   const f = FIELD_BY_KEY[key];
-  return Boolean(f) && editableBy(f!, role) && !CLAUDE_FORBIDDEN_FIELDS.includes(key);
+  return Boolean(f) && editableBy(f!, role) && !CLAUDE_FORBIDDEN_FIELDS.includes(key) && (EDITABLE_FIELDS.includes(key) || CLAUDE_LIST_FIELDS.includes(key));
 }
 
 export type FieldInfo = {
