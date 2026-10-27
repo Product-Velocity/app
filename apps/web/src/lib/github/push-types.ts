@@ -30,3 +30,10 @@ export type PushItemResult = { id: string; code: string; outcome: PushOutcome; i
 export type ConfirmResult = { ok: true; results: PushItemResult[] } | { ok: false; error: string };
 
 export type GithubLinkInfo = { mode: "push" | "follow"; number: number | null; url: string | null; state: "pending" | "synced" | "error"; error: string | null; ghState: "open" | "closed_completed" | "closed_not_planned" | null; lastActivity: string | null; buildStartedAt?: string | null; buildCompletedAt?: string | null; buildDays?: number | null };
+
+// Sync with GitHub: what the check found (applied already, because GitHub owns these fields) next to what a send would write.
+export type ReceivedLine = { label: string; from: string | null; to: string | null };
+export type ReceiveStatus = "in_step" | "received" | "not_on_github" | "follows" | "missing" | "error";
+export type ReceiveItem = { id: string; code: string; name: string; status: ReceiveStatus; /** The initiative only follows an existing issue: received, never sent. */ readOnly?: boolean; received: ReceivedLine[]; issueNumber: number | null; issueUrl: string | null; message?: string };
+export type SyncPreviewResult = { ok: true; account: string; received: ReceiveItem[]; send: PlanItem[] } | { ok: false; error: string };
+export type SyncConfirmResult = { ok: true; results: PushItemResult[] } | { ok: false; error: string };

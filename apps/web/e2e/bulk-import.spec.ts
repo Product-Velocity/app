@@ -60,10 +60,10 @@ test.describe("bulk bar", () => {
     await expect(cell(page, "item-1", "status")).toHaveText("Backlog");
   });
 
-  test("Sync GitHub (disabled until GitHub is connected) and Export 2 are on the bar above the batch bar", async ({ page }) => {
+  test("Sync with GitHub (disabled until GitHub is connected) and Export 2 are on the bar above the batch bar", async ({ page }) => {
     await open(page);
     await select(page, "item-1", "item-2");
-    await expect(page.getByRole("button", { name: /^Sync 2 GitHub|^Sync GitHub/ })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /^Sync 2 with GitHub|^Sync with GitHub/ })).toBeDisabled();
     await page.getByRole("button", { name: "Export 2" }).click();
     const download = page.waitForEvent("download");
     await page.getByRole("menuitem", { name: /CSV file \(2 rows/ }).click();

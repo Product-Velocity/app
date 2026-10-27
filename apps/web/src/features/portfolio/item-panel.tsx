@@ -82,7 +82,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
           {mode === "peek" && onNext && <button type="button" className="btn ip-icon" onClick={onNext} aria-label="Next initiative (J)" title="Next (J)">↓</button>}
           {position && <span className="muted ip-pos" aria-live="polite">{position.index + 1} of {position.total}</span>}
           <span className="ip-spacer" />
-          {controller.canEdit && lookups.github?.connected && lookups.github.links[itemId]?.mode !== "follow" && <button type="button" className="btn ip-link" onClick={() => setPushGithub(true)}>Update GitHub…</button>}
+          {controller.canEdit && lookups.github?.connected && <button type="button" className="btn ip-link" onClick={() => setPushGithub(true)} title="Checks GitHub for changes and sends yours. Nothing is sent until you confirm.">Sync with GitHub…</button>}
           {controller.canDelete(itemId) && <button type="button" className="btn ip-link" onClick={() => setConfirmDelete(true)}>Delete…</button>}
           {mode === "peek" && <Link className="btn ip-link" href={pageHref(row.item_code)}>Open full page</Link>}
           {mode === "page" && <Link className="btn ip-link" href={backHref}>Back to the roadmap</Link>}
