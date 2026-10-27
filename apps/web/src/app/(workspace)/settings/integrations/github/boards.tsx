@@ -7,12 +7,12 @@ import { listBoardChoices, loadBoardFields, saveBoardLink, unlinkBoard, type Boa
 
 type ProjectBoard = { id: string; name: string; tracker: string | null; board: Board | null };
 
-const SLOTS: { key: "priority" | "group" | "dueDate" | "size" | "status"; pv: string; what: string; blank: string; types: string[] }[] = [
-  { key: "priority", pv: "Priority", what: "Written from MoSCoW: Must becomes P0, Should P1, Could P2. Won\u2019t is not added to the board.", blank: "Don\u2019t write", types: ["SINGLE_SELECT"] },
-  { key: "group", pv: "Initiative Group", what: "Written: the name of the Initiative Group.", blank: "Don\u2019t write", types: ["SINGLE_SELECT", "TEXT"] },
-  { key: "dueDate", pv: "G2M date", what: "Written as the date of the initiative.", blank: "Don\u2019t write", types: ["DATE"] },
-  { key: "size", pv: "Effort estimate", what: "Written as the size (XS, S, M, L, XL).", blank: "Don\u2019t write", types: ["SINGLE_SELECT"] },
-  { key: "status", pv: "Delivery Status", what: "Read from the board and shown in Product Velocity. Never written.", blank: "Don\u2019t read", types: ["SINGLE_SELECT"] },
+const SLOTS: { key: "priority" | "group" | "dueDate" | "size" | "status"; pv: string; what: string; blank: string; types: string[]; needs: string }[] = [
+  { key: "priority", pv: "Priority", what: "Written from MoSCoW: Must becomes P0, Should P1, Could P2. Won\u2019t is not added to the board.", blank: "Don\u2019t write", types: ["SINGLE_SELECT"], needs: "single-select" },
+  { key: "group", pv: "Initiative Group", what: "Written: the name of the Initiative Group.", blank: "Don\u2019t write", types: ["SINGLE_SELECT", "TEXT"], needs: "single-select or text" },
+  { key: "dueDate", pv: "G2M date", what: "Written as the date of the initiative.", blank: "Don\u2019t write", types: ["DATE"], needs: "date" },
+  { key: "size", pv: "Effort estimate", what: "Written as the size (XS, S, M, L, XL).", blank: "Don\u2019t write", types: ["SINGLE_SELECT"], needs: "single-select" },
+  { key: "status", pv: "Delivery Status", what: "Read from the board and shown in Product Velocity. Never written.", blank: "Don\u2019t read", types: ["SINGLE_SELECT"], needs: "single-select" },
 ];
 
 /** Links each PV project to an organisation GitHub Project (board) and shows how PV's fields map to the board's. */
@@ -56,7 +56,9 @@ function BoardRow({ project, canEdit }: { project: ProjectBoard; canEdit: boolea
     setMessage(null);
     setFields(r.fields);
     const m = r.mapping;
-    setChosen(Object.fromEntries(SLOTS.map((s) => [s.key, (project.board?.id === id ? project.board.mapping[s.key]?.id : m[s.key]?.id) ?? ""])));
+    // an existing link keeps its choices; Delivery Status is new and only read, so a link saved before it existed gets the board's Status by name
+    const stored = project.board?.id === id ? project.board.mapping : null;
+    setChosen(Object.fromEntries(SLOTS.map((s) => [s.key, (s.key === "status" && !stored?.status ? m.status?.id : stored ? stored[s.key]?.id : m[s.key]?.id) ?? ""])));
   };
   const save = () => start(async () => {
     const r = await saveBoardLink(project.id, boardId, chosen);
@@ -98,20 +100,27 @@ function BoardRow({ project, canEdit }: { project: ProjectBoard; canEdit: boolea
                 <tbody>
                   {SLOTS.map((s) => {
                     const id = `${project.id}-${s.key}`;
+                    // a board field already used for another row is not offered again (Status, Priority and Size are not an Initiative Group)
+                    const taken = new Set(Object.entries(chosen).filter(([k, v]) => k !== s.key && v).map(([, v]) => v));
+                    const usable = fields.filter((f) => s.types.includes(f.dataType) && (!taken.has(f.id) || f.id === chosen[s.key]));
                     const issueField = chosen[s.key] && project.board?.mapping.unwritable?.includes(chosen[s.key]!);
                     return (
                       <tr key={s.key}>
                         <th scope="row"><label htmlFor={id}>{s.pv}</label></th>
                         <td className="muted">{s.what}</td>
                         <td>
+                          {usable.length === 0 ? (
+                            <p className="muted">This board has no free {s.needs} field for this. Add one in GitHub{s.key === "group" ? " (for example “Initiative”)" : ""}, then open this form again.</p>
+                          ) : (
                           <SelectField
                             id={id}
                             label={`Board field for ${s.pv}`}
                             value={chosen[s.key] ?? ""}
                             onChange={(v) => setChosen((c) => ({ ...c, [s.key]: v }))}
                             blank={s.blank}
-                            options={fields.filter((f) => s.types.includes(f.dataType)).map((f) => ({ value: f.id, label: f.name }))}
+                            options={usable.map((f) => ({ value: f.id, label: f.name }))}
                           />
+                          )}
                           {issueField && <p className="muted">GitHub treats this as an issue field and does not allow it to be written through the board yet, so it is left as it is.</p>}
                         </td>
                       </tr>
