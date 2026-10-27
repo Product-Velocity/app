@@ -17,6 +17,11 @@ export type DeliverySummary = { event: string; action: string | null; statusCode
 export type IssueInput = { title: string; body: string; labels: string[]; /** Organisation issue type name; only sent when the organisation has it. */ type?: string; /** Milestone number in the same repository. */ milestone?: number };
 export type IssueRef = { number: number; id: number; nodeId: string; htmlUrl: string; body: string; state: "open" | "closed"; /** The labels on the issue, when GitHub reported them. */ labels?: string[] };
 
+/** An organisation-owned GitHub Project (a "board"). */
+export type BoardInfo = { id: string; number: number; title: string; url: string; closed: boolean };
+export type BoardField = { id: string; name: string; dataType: "TEXT" | "NUMBER" | "DATE" | "SINGLE_SELECT" | "OTHER"; options?: { id: string; name: string }[] };
+export type BoardValue = { text: string } | { number: number } | { date: string } | { optionId: string };
+
 /** Raised for GitHub errors. Carries the status only: never the response body, headers or any token. */
 export class GitHubError extends Error {
   constructor(readonly status: number, message: string, readonly retryAfterSeconds?: number) {
@@ -63,6 +68,14 @@ export interface SourceControl {
   ensureLabels(installationId: number, repo: string, labels: { name: string; color: string; description: string }[]): Promise<void>;
   /** The number of the milestone with this title in the repository (open or closed), created with the due date when missing. */
   ensureMilestone(installationId: number, repo: string, milestone: { title: string; dueOn: string }): Promise<number>;
+  /** Open and closed organisation-owned Projects of an organisation (needs the Organization "Projects" permission). */
+  listBoards(installationId: number, organisation: string): Promise<BoardInfo[]>;
+  /** The fields of a Project, or null when it cannot be found. */
+  getBoardFields(installationId: number, boardId: string): Promise<BoardField[] | null>;
+  /** Adds an issue (by its node id) to a Project and returns the Project item id; adding it again returns the same item. */
+  addBoardItem(installationId: number, boardId: string, issueNodeId: string): Promise<string>;
+  /** Sets one field of a Project item. */
+  setBoardValue(installationId: number, boardId: string, itemId: string, fieldId: string, value: BoardValue): Promise<void>;
   /** The newest webhook deliveries the App received, newest first. */
   listRecentDeliveries(): Promise<DeliverySummary[]>;
 }

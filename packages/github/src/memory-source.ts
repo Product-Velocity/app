@@ -1,4 +1,4 @@
-import type { DeliverySummary, InstallationInfo, IssueInput, IssueRef, IssueSummary, RepoInfo, SourceControl, SubIssue } from "./source-control";
+import type { BoardField, BoardInfo, BoardValue, DeliverySummary, InstallationInfo, IssueInput, IssueRef, IssueSummary, RepoInfo, SourceControl, SubIssue } from "./source-control";
 
 /** In-memory SourceControl for tests: records every call so a test can prove what was (not) sent. */
 export class MemorySourceControl implements SourceControl {
@@ -24,6 +24,29 @@ export class MemorySourceControl implements SourceControl {
   /** Issue types of the organisation, or null when the App may not read them. */
   types: string[] | null = null;
   async listIssueTypes() { return this.types; }
+  /** Projects of the organisation, their fields and the items added to them. */
+  boards: BoardInfo[] = [];
+  boardFields = new Map<string, BoardField[]>();
+  boardItems: { id: string; boardId: string; issueNodeId: string; values: Record<string, BoardValue> }[] = [];
+  /** Name of a method that fails once when called (tests). */
+  failOn: string | null = null;
+  private maybeFail(name: string) { if (this.failOn === name) { this.failOn = null; throw new Error(`${name} failed`); } }
+  async listBoards() { this.tick("listBoards"); return this.boards; }
+  async getBoardFields(_i: number, boardId: string) { this.tick("getBoardFields"); return this.boardFields.get(boardId) ?? null; }
+  async addBoardItem(_i: number, boardId: string, issueNodeId: string) {
+    this.tick("addBoardItem");
+    this.maybeFail("addBoardItem");
+    const found = this.boardItems.find((x) => x.boardId === boardId && x.issueNodeId === issueNodeId);
+    if (found) return found.id;
+    const item = { id: `PVTI_${this.boardItems.length + 1}`, boardId, issueNodeId, values: {} };
+    this.boardItems.push(item);
+    return item.id;
+  }
+  async setBoardValue(_i: number, boardId: string, itemId: string, fieldId: string, value: BoardValue) {
+    this.tick("setBoardValue", { fieldId, value });
+    this.maybeFail("setBoardValue");
+    this.boardItems.find((x) => x.boardId === boardId && x.id === itemId)!.values[fieldId] = value;
+  }
   milestones: { number: number; repo: string; title: string; dueOn: string }[] = [];
   async ensureMilestone(_i: number, repo: string, m: { title: string; dueOn: string }) {
     this.tick("ensureMilestone");

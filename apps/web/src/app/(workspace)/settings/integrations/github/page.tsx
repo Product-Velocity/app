@@ -2,6 +2,8 @@ import { requireWorkspace } from "@/lib/session";
 import { githubAppSlug, type ConnectionRow } from "@/lib/github/server";
 import { AutoRefresh } from "./auto-refresh";
 import { RefreshButton } from "./refresh-button";
+import { parseBoard } from "@pv/github";
+import { BoardsCard } from "./boards";
 import { ConnectForm, ProjectRow, RepoRow } from "./forms";
 import { checkGithubNow, continueOnGithub, disconnectGithub, refreshRepositories, retrySyncEvent } from "./actions";
 import Link from "next/link";
@@ -39,7 +41,7 @@ const STATE: Record<ConnectionRow["state"], string> = {
 
 type Repo = { id: string; full_name: string; is_private: boolean; access: string };
 type SyncEvent = { id: string; received_at: string; source: string; event: string; action: string | null; issue_number: number | null; repo_full_name: string | null; state: string; last_error: string | null; attempts: number; applied: Record<string, [unknown, unknown]> | null };
-type Project = { id: string; name: string; default_repo: string | null; who_breaks_down: "product" | "engineering" | "either"; tracker: string | null };
+type Project = { id: string; name: string; default_repo: string | null; who_breaks_down: "product" | "engineering" | "either"; tracker: string | null; github_board?: unknown };
 
 export default async function GithubSettingsPage({ searchParams }: { searchParams: Promise<{ status?: string; c?: string; ch?: string; m?: string; why?: string }> }) {
   const { status, c: checkedN, ch: changedN, m: missingN, why } = await searchParams;
@@ -49,7 +51,7 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
   const { data: conn } = await supabase.from("github_connections").select("*").eq("tenant_id", active.tenantId).neq("state", "disconnected").maybeSingle();
   const c = conn as (ConnectionRow & { repository_selection: string | null; epic_type_available: boolean | null; repositories_synced_at: string | null; last_check_at: string | null; last_check_summary: string | null }) | null;
   const { data: repoRows } = c ? await supabase.from("github_repositories").select("id, full_name, is_private, access").eq("connection_id", c.id).is("removed_at", null).order("full_name") : { data: [] };
-  const { data: projectRows } = await supabase.from("projects").select("id, name, default_repo, who_breaks_down, tracker").eq("tenant_id", active.tenantId).order("name");
+  const { data: projectRows } = await supabase.from("projects").select("id, name, default_repo, who_breaks_down, tracker, github_board").eq("tenant_id", active.tenantId).order("name");
   const repos = (repoRows ?? []) as Repo[];
   const projects = (projectRows ?? []) as Project[];
   const state = c?.state ?? "disconnected";
@@ -169,6 +171,10 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
             </tbody>
           </table>
         </div>
+      )}
+
+      {c?.state === "connected" && (
+        <BoardsCard projects={projects.map((p) => ({ id: p.id, name: p.name, tracker: p.tracker, board: parseBoard(p.github_board) }))} canEdit={isAdmin} />
       )}
     </div>
   );

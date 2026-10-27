@@ -1,7 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { canLinkFilesInto, columnOnItems, FIELD_BY_KEY } from "@pv/domain";
-import { buildTrackingIssue, OUTBOUND_ITEM_FIELDS, describePushError, planAction, pushTrackingIssue, type PlanLink, type SourceControl } from "@pv/github";
+import { createHash } from "node:crypto";
+import { buildTrackingIssue, OUTBOUND_READ_FIELDS, describePushError, parseBoard, planAction, planBoardItem, pushBoardItem, pushTrackingIssue, type Board, type BoardField, type BoardPlan, type ExistingLink, type PlanLink, type SourceControl, type TrackingIssue } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { ConnectionRow } from "./server";
 import { shareUrl } from "@/lib/files/serve";
@@ -10,7 +11,7 @@ import { PUSH_LIMIT, type PlanItem, type PushItemResult } from "./push-types";
 
 type Admin = ReturnType<typeof createAdminClient>;
 type Link = { item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; html_url: string | null; sync_state: string; last_pushed_hash: string | null };
-type Row = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; stack_rank: number; change_type: string | null; g2m_date_est: string | null; theme: string | null; home_project_id: string };
+type Row = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; stack_rank: number; change_type: string | null; g2m_date_est: string | null; theme: string | null; effort: string | null; home_project_id: string };
 
 type SharedFile = { item_id: string; name: string; share_token: string | null };
 const sharedFilesByItem = (rows: SharedFile[], appUrl: string) => {
@@ -23,33 +24,43 @@ const sharedFilesByItem = (rows: SharedFile[], appUrl: string) => {
  * The `items` columns a push may read, taken from the field registry so a field stored under another column name
  * (G2M Date (est) lives in `end_date`) is asked for by its real column. A column that does not exist makes the whole read fail.
  */
-export const ITEM_SELECT = ["id", ...OUTBOUND_ITEM_FIELDS.map((k) => (k === "item_code" ? k : columnOnItems(FIELD_BY_KEY[k]!)!)), "home_project_id"].join(", ");
+export const ITEM_SELECT = ["id", ...OUTBOUND_READ_FIELDS.map((k) => (k === "item_code" ? k : columnOnItems(FIELD_BY_KEY[k]!)!)), "home_project_id"].join(", ");
 /** A row as read with ITEM_SELECT, with every allowlisted value under its field key (what the payload builder reads). */
 const asOutboundItem = (row: Record<string, unknown>): Row => {
   const out: Record<string, unknown> = { ...row };
-  for (const k of OUTBOUND_ITEM_FIELDS) if (k !== "item_code") out[k] = row[columnOnItems(FIELD_BY_KEY[k]!)!];
+  for (const k of OUTBOUND_READ_FIELDS) if (k !== "item_code") out[k] = row[columnOnItems(FIELD_BY_KEY[k]!)!];
   return out as Row;
 };
 
 const blockedItem = (id: string, reason: string, over: Partial<PlanItem> = {}): PlanItem => ({ id, code: "", name: "", project: "", repo: null, action: "blocked", title: "", labels: [], block: "", issueNumber: null, issueUrl: null, reason, ...over });
 
+/** What the confirm step needs for one item, beyond what the person sees in the preview. */
+type Internal = { built: TrackingIssue; existing: ExistingLink | null; board?: Board; boardPlan?: BoardPlan };
+
 /**
  * Works out what a push would do for each item, without writing anything. Only the allowlisted item columns are
- * selected (never `select *`), through the signed-in user's own client, so RLS applies.
+ * selected (never `select *`), through the signed-in user's own client, so RLS applies. With `sc`, the fields of a linked
+ * GitHub Project are read so the preview can show what would be written there.
  */
-export async function planPush(supabase: SupabaseClient, tenantId: string, appUrl: string, connection: ConnectionRow, ids: string[]): Promise<PlanItem[]> {
+export async function planPush(supabase: SupabaseClient, tenantId: string, appUrl: string, connection: ConnectionRow, ids: string[], sc?: SourceControl): Promise<PlanItem[]> {
+  return (await computePlan(supabase, tenantId, appUrl, connection, ids, sc)).items;
+}
+
+async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: string, connection: ConnectionRow, ids: string[], sc?: SourceControl): Promise<{ items: PlanItem[]; internal: Map<string, Internal> }> {
   const unique = [...new Set(ids)].slice(0, PUSH_LIMIT);
+  const internal = new Map<string, Internal>();
   const [items, projects, repos, links, artifacts, sharedFiles] = await Promise.all([
     supabase.from("items").select(ITEM_SELECT).eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
-    supabase.from("projects").select("id, name, default_repo, tracker").eq("tenant_id", tenantId),
+    supabase.from("projects").select("id, name, default_repo, tracker, github_board").eq("tenant_id", tenantId),
     supabase.from("github_repositories").select("full_name, access, is_private").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("removed_at", null),
     supabase.from("item_github_links").select("item_id, mode, repo_full_name, issue_number, html_url, sync_state, last_pushed_hash").eq("tenant_id", tenantId).in("item_id", unique),
     supabase.from("item_links").select("item_id, label, url").eq("tenant_id", tenantId).in("item_id", unique),
     supabase.from("item_files").select("item_id, name, share_token").eq("tenant_id", tenantId).in("item_id", unique).order("created_at"),
   ]);
-  if (items.error) return unique.map((id) => blockedItem(id, "The initiatives could not be read just now. Try again, and tell Ashu if it keeps happening."));
+  if (items.error) return { items: unique.map((id) => blockedItem(id, "The initiatives could not be read just now. Try again, and tell Ashu if it keeps happening.")), internal };
   const rowById = new Map(((items.data ?? []) as unknown as Record<string, unknown>[]).map(asOutboundItem).map((r) => [r.id, r]));
-  const projectById = new Map(((projects.data ?? []) as { id: string; name: string; default_repo: string | null; tracker: string | null }[]).map((p) => [p.id, p]));
+  type ProjectRow = { id: string; name: string; default_repo: string | null; tracker: string | null; github_board?: unknown };
+  const projectById = new Map(((projects.data ?? []) as ProjectRow[]).map((p) => [p.id, p]));
   const repoRows = (repos.data ?? []) as { full_name: string; access: string; is_private: boolean | null }[];
   const privateRepos = new Set(repoRows.filter((r) => canLinkFilesInto(r.is_private)).map((r) => r.full_name.toLowerCase()));
   const activeRepos = new Set(repoRows.map((r) => r.full_name.toLowerCase()));
@@ -63,7 +74,20 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
   const unsharedByItem = new Map<string, number>();
   for (const r of fileRows) if (!r.share_token) unsharedByItem.set(r.item_id, (unsharedByItem.get(r.item_id) ?? 0) + 1);
 
-  return unique.map((id) => {
+  // the fields of every linked board in this push, read once; null when the board cannot be read right now
+  const boards = new Map<string, Board>();
+  for (const id of unique) {
+    const b = parseBoard(projectById.get(rowById.get(id)?.home_project_id ?? "")?.github_board);
+    if (b) boards.set(b.id, b);
+  }
+  const boardFields = new Map<string, BoardField[] | null>();
+  if (sc) {
+    await Promise.all([...boards.keys()].map(async (boardId) => {
+      boardFields.set(boardId, await sc.getBoardFields(connection.installation_id!, boardId).catch(() => null));
+    }));
+  }
+
+  const planned = unique.map((id): PlanItem => {
     const row = rowById.get(id);
     if (!row) return blockedItem(id, "This initiative no longer exists or you cannot see it.");
     const project = projectById.get(row.home_project_id);
@@ -74,48 +98,61 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
     const target = (link?.repo_full_name ?? project?.default_repo ?? "").toLowerCase();
     const filesOk = privateRepos.has(target);
     const built = buildTrackingIssue({ item: row, itemId: id, projectName: project?.name ?? "", appUrl, artifacts: artifactsByItem.get(id) ?? [], files: filesOk ? itemFiles : [] });
+
+    // the linked GitHub Project: what would be written there is part of "changed", so changing a priority is a push
+    const board = parseBoard(project?.github_board);
+    const fields = board ? boardFields.get(board.id) : undefined;
+    const boardPlan = board && fields && link?.mode !== "follow" ? planBoardItem({ moscow: row.moscow, theme: row.theme, end_date: row.g2m_date_est, effort: row.effort }, fields, board.mapping) : undefined;
+    const boardNotes = board && sc && fields === null ? [`The board "${board.title}" could not be read just now, so it is left as it is.`] : [];
+    if (boardPlan) built.hash = createHash("sha256").update(`${built.hash}|${boardPlan.signature}`).digest("hex");
+
     const d = planAction({ link: planLink, defaultRepo: project?.default_repo ?? null, activeRepos, readOnlyRepos, hash: built.hash, projectName: project?.name ?? "" });
+    internal.set(id, { built, existing: link ? { issueNumber: link.issue_number, lastPushedHash: link.last_pushed_hash } : null, ...(board && boardPlan ? { board, boardPlan } : {}) });
     const withheld = itemFiles.length > 0 && !filesOk ? { filesNote: `${itemFiles.length === 1 ? "A shared file link was" : `${itemFiles.length} shared file links were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could open the links. Files are only linked in private repositories.` } : {};
     const unshared = unsharedByItem.get(id) ?? 0;
     const note = withheld.filesNote ?? (unshared ? `${unshared === 1 ? "1 attached file has" : `${unshared} attached files have`} no share link, so ${unshared === 1 ? "it is" : "they are"} not in the issue. Turn a link on in the item's Screenshots field to include it.` : undefined);
-    return { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo: d.repo, action: d.action, title: built.title, labels: built.labels, ...(built.milestone ? { milestone: built.milestone.title } : {}), block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null, ...(d.reason ? { reason: d.reason } : {}), ...(note ? { filesNote: note } : {}) };
+    const boardInfo = board && boardPlan ? { title: board.title, included: boardPlan.include, writes: boardPlan.writes.map((w) => ({ field: w.field.name, value: w.label })), notes: boardPlan.notes } : board && boardNotes.length ? { title: board.title, included: false, writes: [], notes: boardNotes } : undefined;
+    return { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo: d.repo, action: d.action, title: built.title, labels: built.labels, ...(built.milestone ? { milestone: built.milestone.title } : {}), ...(boardInfo ? { board: boardInfo } : {}), block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null, ...(d.reason ? { reason: d.reason } : {}), ...(note ? { filesNote: note } : {}) };
   });
+  return { items: planned, internal };
 }
 
-/** Sends the confirmed plan. Per item: push, then record the link on behalf of the person who confirmed. One item failing never stops the others. */
+/** Sends the confirmed plan. Per item: push, then the board, then record the link on behalf of the person who confirmed. One item failing never stops the others. */
 export async function executePush(opts: { supabase: SupabaseClient; admin: Admin; sc: SourceControl; connection: ConnectionRow; tenantId: string; actor: string; appUrl: string; ids: string[] }): Promise<PushItemResult[]> {
-  const plan = await planPush(opts.supabase, opts.tenantId, opts.appUrl, opts.connection, opts.ids);
+  const { items: plan, internal } = await computePlan(opts.supabase, opts.tenantId, opts.appUrl, opts.connection, opts.ids, opts.sc);
   const installationId = opts.connection.installation_id!;
-  const [links, artifacts, items, sharedFiles, repoPrivacy] = await Promise.all([
-    opts.supabase.from("item_github_links").select("item_id, issue_number, last_pushed_hash").eq("tenant_id", opts.tenantId).in("item_id", plan.map((p) => p.id)),
-    opts.supabase.from("item_links").select("item_id, label, url").eq("tenant_id", opts.tenantId).in("item_id", plan.map((p) => p.id)),
-    opts.supabase.from("items").select(ITEM_SELECT).eq("tenant_id", opts.tenantId).in("id", plan.map((p) => p.id)),
-    opts.supabase.from("item_files").select("item_id, name, share_token").eq("tenant_id", opts.tenantId).in("item_id", plan.map((p) => p.id)).not("share_token", "is", null).order("created_at"),
-    opts.supabase.from("github_repositories").select("full_name, is_private").eq("tenant_id", opts.tenantId).eq("connection_id", opts.connection.id).is("removed_at", null),
-  ]);
-  const filesBy = sharedFilesByItem((sharedFiles.data ?? []) as SharedFile[], opts.appUrl);
-  const privateRepos = new Set(((repoPrivacy.data ?? []) as { full_name: string; is_private: boolean | null }[]).filter((r) => canLinkFilesInto(r.is_private)).map((r) => r.full_name.toLowerCase()));
-  const linkBy = new Map(((links.data ?? []) as { item_id: string; issue_number: number | null; last_pushed_hash: string | null }[]).map((l) => [l.item_id, l]));
-  const itemBy = new Map(((items.data ?? []) as unknown as Record<string, unknown>[]).map(asOutboundItem).map((r) => [r.id, r]));
 
   const results: PushItemResult[] = [];
   for (const p of plan) {
     const code = p.code;
     if (p.action === "blocked") { results.push({ id: p.id, code, outcome: "blocked", message: p.reason }); continue; }
     if (p.action === "unchanged") { results.push({ id: p.id, code, outcome: "unchanged", issueNumber: p.issueNumber ?? undefined, issueUrl: p.issueUrl ?? undefined }); continue; }
-    const row = itemBy.get(p.id)!;
-    const built = buildTrackingIssue({ item: row, itemId: p.id, projectName: p.project, appUrl: opts.appUrl, artifacts: ((artifacts.data ?? []) as { item_id: string; label: string; url: string }[]).filter((a) => a.item_id === p.id), files: p.repo && privateRepos.has(p.repo.toLowerCase()) ? filesBy.get(p.id) ?? [] : [] });
+    const { built, existing, board, boardPlan } = internal.get(p.id)!;
     const record = (state: "synced" | "error", extra: { number?: number; id?: number; node?: string; url?: string; error?: string }) =>
       opts.admin.rpc("github_record_push", { p_actor: opts.actor, p_item: p.id, p_connection: opts.connection.id, p_repo: p.repo, p_number: extra.number ?? null, p_issue_id: extra.id ?? null, p_node_id: extra.node ?? null, p_url: extra.url ?? null, p_hash: built.hash, p_state: state, p_error: extra.error ?? null });
     try {
-      const r = await pushTrackingIssue(opts.sc, installationId, p.repo!, p.id, built, linkBy.get(p.id) ? { issueNumber: linkBy.get(p.id)!.issue_number, lastPushedHash: linkBy.get(p.id)!.last_pushed_hash } : null);
+      const r = await pushTrackingIssue(opts.sc, installationId, p.repo!, p.id, built, existing);
       if (r.kind === "missing") {
         await record("error", { error: "The GitHub issue no longer exists. Unlink it or create a new one." });
         results.push({ id: p.id, code, outcome: "missing", message: "The linked GitHub issue no longer exists (deleted or moved). Nothing was recreated." });
       } else if (r.kind === "unchanged") {
         results.push({ id: p.id, code, outcome: "unchanged" });
       } else {
-        const saved = await record("synced", { number: r.issue.number, id: r.issue.id, node: r.issue.nodeId, url: r.issue.htmlUrl });
+        const issue = { number: r.issue.number, id: r.issue.id, node: r.issue.nodeId, url: r.issue.htmlUrl };
+        let boardItem: string | null = null;
+        if (board && boardPlan?.include) {
+          try {
+            boardItem = await pushBoardItem(opts.sc, installationId, board.id, r.issue.nodeId, boardPlan);
+          } catch (e) {
+            // the issue is written but the board is not: not recorded as synced, so the next push does the board again
+            const message = `The issue was written, but the board "${board.title}" could not be updated: ${describePushError(e)}`;
+            await record("error", { ...issue, error: message });
+            results.push({ id: p.id, code, outcome: "error", issueNumber: r.issue.number, issueUrl: r.issue.htmlUrl, message });
+            continue;
+          }
+        }
+        const saved = await record("synced", issue);
+        if (!saved.error && boardItem) await opts.admin.rpc("github_record_project_item", { p_actor: opts.actor, p_item: p.id, p_project_item_id: boardItem });
         if (!saved.error) await refreshTree(opts.admin, opts.sc, installationId, opts.connection.id, { item_id: p.id, repo: p.repo!, number: r.issue.number }); // starts the Traditional breakdown route
         results.push({ id: p.id, code, outcome: r.kind, issueNumber: r.issue.number, issueUrl: r.issue.htmlUrl, ...(saved.error ? { message: "Sent to GitHub, but the link could not be saved. Pushing again will find the issue." } : {}) });
       }

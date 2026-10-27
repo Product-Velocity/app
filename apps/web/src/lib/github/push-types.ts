@@ -13,6 +13,8 @@ export type PlanItem = {
   labels: string[];
   /** Milestone the issue is put in (the calendar quarter of the G2M date), when the item has a date. */
   milestone?: string;
+  /** The linked GitHub Project (board): what would be written there, and anything left out and why. */
+  board?: { title: string; included: boolean; writes: { field: string; value: string }[]; notes: string[] };
   /** The managed block exactly as it will be written. */
   block: string;
   issueNumber: number | null;

@@ -62,7 +62,7 @@ export function GithubPushDialog({ ids, onClose, onDone }: Props) {
         {phase.kind === "preview" && (
           <>
             <p>
-              Product Velocity will write the following to <strong>{phase.account}</strong> on GitHub. Only the name, summary, description, hypothesis, artifact links, links to files you chose to share (private repositories only), a few labels, a milestone and a link back are sent; value, confidence,
+              Product Velocity will write the following to <strong>{phase.account}</strong> on GitHub. Only the name, summary, description, hypothesis, artifact links, links to files you chose to share (private repositories only), a few labels, a milestone, the fields of the linked GitHub Project board and a link back are sent; value, confidence,
               customers, decisions and other commercial fields never leave the app. The repository may be public.
             </p>
             <ul className="push-list">
@@ -76,6 +76,13 @@ export function GithubPushDialog({ ids, onClose, onDone }: Props) {
                       <p><strong>Title:</strong> {p.title}</p>
                       <p><strong>Labels:</strong> {p.labels.join(", ")}</p>
                       {p.milestone && <p><strong>Milestone:</strong> {p.milestone}</p>}
+                      {p.board && (
+                        <p>
+                          <strong>Project board “{p.board.title}”:</strong>{" "}
+                          {p.board.included ? (p.board.writes.length ? p.board.writes.map((w) => `${w.field} ${w.value}`).join(", ") : "added, no fields to set") : "not added"}
+                          {p.board.notes.map((n) => <span key={n} className="muted"> {n}</span>)}
+                        </p>
+                      )}
                       {p.filesNote && <p role="note" className="muted">{p.filesNote}</p>}
                       <p className="muted">Labels starting with “pv:” are managed here: new ones are added and ones that no longer apply are removed. Any other label is never touched.</p>
                       <pre className="push-body">{p.block}</pre>

@@ -27,7 +27,7 @@ async function gate(ids: string[]) {
 export async function previewGithubPush(ids: string[]): Promise<PreviewResult> {
   const g = await gate(ids);
   if (!g.ok) return { ok: false, error: g.error };
-  const items = await planPush(g.ctx.supabase, g.ctx.active.tenantId, g.appUrl, g.connection, ids);
+  const items = await planPush(g.ctx.supabase, g.ctx.active.tenantId, g.appUrl, g.connection, ids, g.sc);
   return { ok: true, items, account: g.connection.account_login ?? g.connection.expected_account };
 }
 
