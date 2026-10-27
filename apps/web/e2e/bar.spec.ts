@@ -21,7 +21,7 @@ test.describe("the bar above the grid (0.30.0)", () => {
     await open(page);
     const mid = async (b: ReturnType<Page["locator"]>) => { const x = (await b.first().boundingBox())!; return x.y + x.height / 2; };
     const ref = await mid(filterBtn(page));
-    for (const loc of [columnsBtn(page), page.getByRole("button", { name: /^Group by/ }), page.getByLabel("Search initiatives"), page.getByRole("button", { name: /^Export/ }), page.getByRole("button", { name: "Paste table" }), page.getByRole("button", { name: /^Sync GitHub/ }), page.getByRole("button", { name: /^Undo/ }), page.getByRole("button", { name: /^Redo/ })]) {
+    for (const loc of [columnsBtn(page), page.getByRole("button", { name: /^Group by/ }), page.getByLabel("Search initiatives"), page.getByRole("button", { name: /^Export/ }), page.getByRole("button", { name: "Paste table" }), page.getByRole("button", { name: /^Sync with GitHub/ }), page.getByRole("button", { name: /^Undo/ }), page.getByRole("button", { name: /^Redo/ })]) {
       expect(Math.abs((await mid(loc)) - ref)).toBeLessThan(6);
     }
     await expect(page.getByText("All changes saved")).toBeVisible();
@@ -34,7 +34,7 @@ test.describe("the bar above the grid (0.30.0)", () => {
     const y0 = (await filterBtn(page).boundingBox())!.y;
     await select(page, "item-1", "item-2", "item-3");
     await expect(page.getByRole("button", { name: "Export 3" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Sync GitHub" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sync with GitHub" })).toBeVisible();
     const after = (await page.locator(".pvbar-search").boundingBox())!;
     expect(after.width).toBeLessThanOrEqual(before.width);
     const undo = (await page.getByRole("button", { name: /^Undo/ }).boundingBox())!;
@@ -67,10 +67,10 @@ test.describe("the bar above the grid (0.30.0)", () => {
     expect((await dl).suggestedFilename()).toMatch(/^roadmap-selection-/);
   });
 
-  test("Sync GitHub is on the bar (disabled when GitHub is not connected); the batch bar no longer has it", async ({ page }) => {
+  test("Sync with GitHub is on the bar (disabled when GitHub is not connected); the batch bar no longer has it", async ({ page }) => {
     await open(page);
     await select(page, "item-1");
-    await expect(page.getByRole("button", { name: /^Sync GitHub/ })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /^Sync with GitHub/ })).toBeDisabled();
     await expect(page.locator(".bulk-bar").getByRole("button", { name: /GitHub/ })).toHaveCount(0);
   });
 

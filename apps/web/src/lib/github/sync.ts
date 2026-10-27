@@ -13,7 +13,7 @@ export type IssueFacts = { repo: string; number: number; issueId: number; nodeId
 
 const short = (e: unknown) => (e instanceof Error ? e.message : "unknown error").slice(0, 280);
 
-async function applyFacts(admin: Admin, connectionId: string, f: IssueFacts): Promise<Applied> {
+export async function applyFacts(admin: Admin, connectionId: string, f: IssueFacts): Promise<Applied> {
   const { data, error } = await admin.rpc("github_apply_issue", { p_connection: connectionId, p_repo: f.repo, p_number: f.number, p_issue_id: f.issueId, p_node_id: f.nodeId, p_state: f.state, p_state_reason: f.stateReason, p_updated_at: f.updatedAt });
   if (error) throw new Error(error.message);
   const applied = data as Applied;

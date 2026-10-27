@@ -121,10 +121,11 @@ export class GitHubAppSourceControl implements SourceControl {
     return res;
   }
 
-  private static ref(i: { number: number; id: number; node_id: string; html_url: string; body?: string | null; state: string; labels?: (string | { name?: string })[] }): IssueRef {
+  private static ref(i: { number: number; id: number; node_id: string; html_url: string; body?: string | null; state: string; state_reason?: string | null; updated_at?: string; closed_at?: string | null; labels?: (string | { name?: string })[] }): IssueRef {
     return {
       number: i.number, id: i.id, nodeId: i.node_id, htmlUrl: i.html_url, body: i.body ?? "", state: i.state === "closed" ? "closed" : "open",
       labels: (i.labels ?? []).map((l) => (typeof l === "string" ? l : l.name ?? "")).filter(Boolean),
+      stateReason: i.state_reason ?? null, ...(i.updated_at ? { updatedAt: i.updated_at } : {}), closedAt: i.closed_at ?? null,
     };
   }
 
