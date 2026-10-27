@@ -14,6 +14,8 @@ const LABEL: Record<string, string> = { gh_state: "GitHub State", status: "Build
 const word = (key: string, v: unknown) => (v === null || v === undefined || v === "" ? null : key === "gh_state" ? (GH_STATE[String(v)] ?? String(v)) : String(v));
 const short = (e: unknown) => (e instanceof Error ? e.message : "unknown error").slice(0, 200);
 
+/** The title and body as read from GitHub, held in memory for the comparison; never stored. */
+export type IssueTexts = { title: string; body: string };
 type LinkRow = { id: string; item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; html_url: string | null };
 type ItemRow = { id: string; item_code: string; initiative_name: string };
 
@@ -23,7 +25,7 @@ type ItemRow = { id: string; item_code: string; initiative_name: string };
  * and nothing it reads can reach a field GitHub does not own: only the issue's state and counts are passed on, never its text.
  * One initiative failing never stops the others. The result lists every initiative, also those that are already in step.
  */
-export async function receiveFromGithub(admin: Admin, sc: SourceControl, connection: ConnectionRow, ids: string[]): Promise<ReceiveItem[]> {
+export async function receiveFromGithub(admin: Admin, sc: SourceControl, connection: ConnectionRow, ids: string[], texts?: Map<string, IssueTexts>): Promise<ReceiveItem[]> {
   const tenantId = connection.tenant_id;
   const installationId = connection.installation_id;
   const unique = [...new Set(ids)];
@@ -48,6 +50,7 @@ export async function receiveFromGithub(admin: Admin, sc: SourceControl, connect
         await admin.from("item_github_links").update({ sync_state: "error", last_error: "The GitHub issue was not found (deleted or moved)." }).eq("id", link.id);
         return { ...base, status: "missing", received: [], ...where, message: "The GitHub issue no longer exists (deleted or moved). Nothing is recreated: a person decides." };
       }
+      texts?.set(id, { title: issue.title ?? "", body: issue.body });
       const facts: IssueFacts = { repo: link.repo_full_name, number: issue.number, issueId: issue.id, nodeId: issue.nodeId, state: issue.state, stateReason: issue.stateReason ?? null, updatedAt: issue.updatedAt ?? new Date().toISOString(), closedAt: issue.closedAt ?? null };
       const applied = await applyFacts(admin, connection.id, facts);
       const received: ReceivedLine[] = [];

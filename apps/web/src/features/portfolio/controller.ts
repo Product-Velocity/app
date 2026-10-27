@@ -409,6 +409,28 @@ export class PortfolioController {
     }
   }
 
+  /**
+   * Texts taken over from GitHub by Sync with GitHub are already saved by the server (and audited). Show them in the grid and make
+   * all of them one undo step; undoing writes the old texts back through the normal guarded edit.
+   */
+  recordTakenOver(changes: { itemId: string; field: EditableField; before: unknown; after: unknown }[]) {
+    const edits: Edit[] = [];
+    const touched: GridItem[] = [];
+    for (const c of changes) {
+      const row = this.byId.get(c.itemId);
+      if (!row) continue;
+      this.applyField(row, c.field, c.after);
+      touched.push(row);
+      edits.push({ type: "field", itemId: c.itemId, key: row.item_code, field: c.field, before: c.before ?? "", after: c.after ?? "" });
+    }
+    if (edits.length === 0) return;
+    const label = `Took over ${edits.length} text${edits.length === 1 ? "" : "s"} from GitHub`;
+    this.stack.push({ id: `e${++this.entrySeq}`, edits, label });
+    this.state.notice = null;
+    this.state.last = { text: label, at: this.now() };
+    this.emit(touched);
+  }
+
   /** Delete or Backspace on a cell. */
   clearCell(itemId: string, field: EditableField): EditOutcome {
     if (!canBeEmpty(field)) return { ok: false, error: `${fieldLabel(field)} cannot be empty.` };

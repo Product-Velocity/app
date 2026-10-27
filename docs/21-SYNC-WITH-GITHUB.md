@@ -1,6 +1,6 @@
 # PRD: Sync with GitHub (one button, both directions)
 
-Status: draft for Ashu's review, 2026-10-27. Request R-038 in `docs/REQUESTS.md`. Builds on `docs/04-GITHUB-SYNC.md` (what is sent and received today) and replaces the "Update GitHub" confirmation of 0.9 to 0.35. Slice 1 (S1, always check) is built in 0.37.0; slices 2 and 3 are not built yet.
+Status: draft for Ashu's review, 2026-10-27. Request R-038 in `docs/REQUESTS.md`. Builds on `docs/04-GITHUB-SYNC.md` (what is sent and received today) and replaces the "Update GitHub" confirmation of 0.9 to 0.35. Slice 1 (S1, always check) is built in 0.37.0 and slice 2 (S2, conflicts) in 0.38.0; slice 3 is not built yet.
 
 ## 1. Summary
 Today the roadmap has a **Sync GitHub** button that only *sends*. When nothing needs sending it says "Nothing to send" and stops, so GitHub is never asked whether anything changed on its side. Things arrive from GitHub only through webhooks and the separate "Check GitHub now" in Settings.

@@ -2,11 +2,11 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { confirmGithubPush, startGithubSync } from "@/app/(workspace)/portfolio/github-push";
-import type { PlanItem, PushItemResult, ReceiveItem, ReceiveStatus } from "@/lib/github/push-types";
+import { confirmGithubSync, startGithubSync } from "@/app/(workspace)/portfolio/github-push";
+import type { PlanItem, PushItemResult, ReceiveItem, ReceiveStatus, SyncChoice, SyncConflict, SyncPreview, TakenOver } from "@/lib/github/push-types";
 
-type Props = { ids: string[]; onClose: () => void; onDone?: () => void };
-type Phase = { kind: "loading" } | { kind: "preview"; received: ReceiveItem[]; send: PlanItem[]; account: string } | { kind: "sending" } | { kind: "done"; results: PushItemResult[] } | { kind: "error"; message: string };
+type Props = { ids: string[]; onClose: () => void; onDone?: () => void; /** Texts taken over from GitHub (already saved): the grid shows them and makes them one undo step. */ onTakenOver?: (changes: TakenOver[]) => void };
+type Phase = { kind: "loading" } | ({ kind: "preview" } & SyncPreview & { notice?: string }) | { kind: "sending" } | { kind: "done"; results: PushItemResult[] } | { kind: "error"; message: string };
 
 const WILL: Record<PlanItem["action"], (p: PlanItem) => string> = {
   create: (p) => `Will create a new issue in ${p.repo}`,
@@ -14,36 +14,75 @@ const WILL: Record<PlanItem["action"], (p: PlanItem) => string> = {
   unchanged: () => "Already up to date: nothing to send",
   blocked: (p) => `Cannot send: ${p.reason}`,
 };
-const STATUS: Record<ReceiveStatus, string> = { in_step: "In step", received: "Received", not_on_github: "Not on GitHub", follows: "In step", missing: "Issue not found", error: "Could not check" };
+const STATUS: Record<ReceiveStatus, string> = { in_step: "In step", received: "Received", conflict: "Conflict to settle", not_on_github: "Not on GitHub", follows: "In step", missing: "Issue not found", error: "Could not check" };
 const DID: Record<PushItemResult["outcome"], string> = { created: "Created", updated: "Updated", unchanged: "No change", missing: "Not sent", error: "Failed", blocked: "Not sent" };
+
+const keyOf = (itemId: string, field: string) => `${itemId}:${field}`;
+const defaults = (received: ReceiveItem[]): Record<string, "pv" | "github"> => {
+  const out: Record<string, "pv" | "github"> = {};
+  for (const r of received) for (const c of r.conflicts ?? []) if (c.defaultChoice) out[keyOf(r.id, c.field)] = c.defaultChoice;
+  return out;
+};
+const SHORT = 280;
+function Text({ text }: { text: string }) {
+  if (text.length <= SHORT) return <pre className="push-body">{text || "(empty)"}</pre>;
+  return <><pre className="push-body">{text.slice(0, SHORT)}…</pre><details><summary>Show full text</summary><pre className="push-body">{text}</pre></details></>;
+}
+const WHY: Record<SyncConflict["kind"], (label: string) => string> = {
+  github: (l) => `${l} was changed in GitHub. Product Velocity owns it, so nothing is overwritten until you choose.`,
+  both: (l) => `${l} was changed in Product Velocity and in GitHub. Choose which one to keep.`,
+  block: () => "The managed block was edited in GitHub and cannot be read field by field.",
+};
 
 /**
  * Sync with GitHub: checks GitHub first (and applies what GitHub owns), then shows exactly what would be written to GitHub and waits
  * for the person to confirm. Nothing is sent before that. With nothing to send it still shows what the check found, and offers Done.
  */
-export function GithubPushDialog({ ids, onClose, onDone }: Props) {
+export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
   const titleId = useId();
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const [choices, setChoices] = useState<Record<string, "pv" | "github">>({});
 
   useEffect(() => {
     let live = true;
     startGithubSync(ids).then(
-      (r) => live && setPhase(r.ok ? { kind: "preview", received: r.received, send: r.send, account: r.account } : { kind: "error", message: r.error }),
+      (r) => live && (r.ok && setChoices(defaults(r.received)), setPhase(r.ok ? { kind: "preview", received: r.received, send: r.send, account: r.account } : { kind: "error", message: r.error })),
       () => live && setPhase({ kind: "error", message: "We could not check GitHub. Try again." }),
     );
     return () => { live = false; };
   }, [ids]);
   useEffect(() => { confirmRef.current?.focus(); }, [phase.kind]);
 
-  const sendable = phase.kind === "preview" ? phase.send.filter((p) => p.action === "create" || p.action === "update") : [];
+  const preview = phase.kind === "preview" ? phase : null;
+  const conflicts = preview ? preview.received.flatMap((r) => (r.conflicts ?? []).map((c) => ({ r, c }))) : [];
+  const unchosen = conflicts.filter(({ r, c }) => !choices[keyOf(r.id, c.field)]);
+  // what a confirm will write to GitHub: the plan's sends, plus every initiative where Product Velocity's text was chosen over GitHub's
+  const sendIds = new Set(preview ? preview.send.filter((p) => p.action === "create" || p.action === "update").map((p) => p.id) : []);
+  for (const { r, c } of conflicts) if (choices[keyOf(r.id, c.field)] === "pv") sendIds.add(r.id);
+  for (const { r, c } of conflicts) if (c.field === "block" && choices[keyOf(r.id, c.field)] === "github" && !conflicts.some((x) => x.r.id === r.id && x.c.field !== "block" && choices[keyOf(r.id, x.c.field)] === "pv")) sendIds.delete(r.id);
+  const overwrites = conflicts.filter(({ r, c }) => choices[keyOf(r.id, c.field)] === "pv").length;
+  const needsConfirm = sendIds.size > 0 || conflicts.length > 0;
+
+  const choose = (all: "pv" | "github") => setChoices(Object.fromEntries(conflicts.map(({ r, c }) => [keyOf(r.id, c.field), all])));
   const send = async () => {
+    if (!preview) return;
+    const picks: SyncChoice[] = conflicts.map(({ r, c }) => ({ itemId: r.id, field: c.field, choice: choices[keyOf(r.id, c.field)]!, ghHash: c.ghHash }));
     setPhase({ kind: "sending" });
     try {
-      const r = await confirmGithubPush(sendable.map((p) => p.id));
-      setPhase(r.ok ? { kind: "done", results: r.results } : { kind: "error", message: r.error });
-      if (r.ok) { router.refresh(); onDone?.(); }
+      const r = await confirmGithubSync(ids, picks);
+      if (r.ok) {
+        setPhase({ kind: "done", results: r.results });
+        if (r.taken.length > 0) onTakenOver?.(r.taken);
+        router.refresh();
+        onDone?.();
+      } else if (r.stale) {
+        setChoices(defaults(r.stale.received));
+        setPhase({ kind: "preview", ...r.stale, notice: r.error });
+      } else {
+        setPhase({ kind: "error", message: r.error });
+      }
     } catch {
       setPhase({ kind: "error", message: "Sending did not finish. Check GitHub before trying again: an issue may already have been created, and pushing again will find it." });
     }
@@ -66,9 +105,16 @@ export function GithubPushDialog({ ids, onClose, onDone }: Props) {
         {phase.kind === "preview" && (
           <>
             <p>
+              {phase.notice && <strong role="alert" className="error">{phase.notice} </strong>}
               Product Velocity checked <strong>{phase.account}</strong> on GitHub. What GitHub owns (state, progress, epics and tasks, board Status) is already applied and listed under Received. Nothing is written to GitHub until you confirm. If you send, only the name, summary, description, hypothesis, artifact links, links to files you chose to share (private repositories only), a few labels, a milestone, the fields of the linked GitHub Project board and a link back go out; value, confidence,
               customers, decisions and other commercial fields never leave the app. The repository may be public.
             </p>
+            {conflicts.length > 1 && (
+              <div className="dialog-actions" role="group" aria-label="Settle all conflicts at once">
+                <button type="button" className="btn" onClick={() => choose("pv")}>Keep Product Velocity for all conflicts</button>
+                <button type="button" className="btn" onClick={() => choose("github")}>Keep GitHub for all conflicts</button>
+              </div>
+            )}
             <ul className="push-list">
               {phase.received.map((r) => {
                 const p = r.readOnly ? undefined : phase.send.find((x) => x.id === r.id);
@@ -87,6 +133,25 @@ export function GithubPushDialog({ ids, onClose, onDone }: Props) {
                         {r.received.map((l) => <span key={l.label} className="muted" style={{ display: "block" }}>{l.label}: {l.from ?? "empty"} → {l.to ?? "empty"}</span>)}
                       </>
                     )}
+                    {(r.conflicts ?? []).map((c) => {
+                      const name = `choice-${r.id}-${c.field}`;
+                      const value = choices[keyOf(r.id, c.field)];
+                      return (
+                        <fieldset key={c.field} className="push-conflict">
+                          <legend><strong>Conflict · {c.label}</strong></legend>
+                          <p className="muted">{WHY[c.kind](c.label)}{c.note ? ` ${c.note}` : ""}</p>
+                          {c.kind !== "block" && (
+                            <div className="push-sides">
+                              <div><strong>Product Velocity</strong><Text text={c.pv} /></div>
+                              <div><strong>GitHub</strong><Text text={c.github} /></div>
+                            </div>
+                          )}
+                          {c.kind === "block" && <p className="muted">{c.github}</p>}
+                          <label><input type="radio" name={name} checked={value === "pv"} onChange={() => setChoices({ ...choices, [keyOf(r.id, c.field)]: "pv" })} /> Keep Product Velocity{c.defaultChoice === "pv" ? " (default)" : ""}</label>{" "}
+                          <label><input type="radio" name={name} checked={value === "github"} onChange={() => setChoices({ ...choices, [keyOf(r.id, c.field)]: "github" })} /> Keep GitHub</label>
+                        </fieldset>
+                      );
+                    })}
                     {p && (
                       <>
                         <br /><span className="muted">{WILL[p.action](p)}</span>
@@ -116,10 +181,12 @@ export function GithubPushDialog({ ids, onClose, onDone }: Props) {
               })}
             </ul>
             <p className="muted">Text you or engineers write in the issue outside the marked block is kept. The marked block is overwritten the next time you send.</p>
+            {overwrites > 0 && <p role="note" className="muted">Keep Product Velocity replaces the text in GitHub with Product Velocity’s when you press Apply and send. Anything outside the marked block stays.</p>}
+            {unchosen.length > 0 && <p role="status" className="muted">Choose for {unchosen.length === 1 ? "the conflict above" : `all ${unchosen.length} open conflicts`} to continue.</p>}
             <div className="dialog-actions">
-              {sendable.length > 0 && <button type="button" className="btn" onClick={onClose}>Cancel</button>}
-              <button ref={confirmRef} type="button" className="btn btn-primary" onClick={sendable.length === 0 ? onClose : send}>
-                {sendable.length === 0 ? "Done" : `Send ${sendable.length} to GitHub`}
+              {needsConfirm && <button type="button" className="btn" onClick={onClose}>Cancel</button>}
+              <button ref={confirmRef} type="button" className="btn btn-primary" disabled={unchosen.length > 0} onClick={needsConfirm ? send : onClose}>
+                {!needsConfirm ? "Done" : sendIds.size > 0 ? "Apply and send" : "Apply"}
               </button>
             </div>
           </>

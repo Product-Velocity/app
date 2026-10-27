@@ -579,7 +579,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} total={visibleRows.length} />}
         {controller.canEdit && lookups.projects.length > 0 && <QuickAddBar controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef} />}
       </div>
-      {githubIds && <GithubPushDialog ids={githubIds} onClose={() => setGithubIds(null)} />}
+      {githubIds && <GithubPushDialog ids={githubIds} onClose={() => setGithubIds(null)} onTakenOver={(c) => controller.recordTakenOver(c)} />}
       {deleteIds && <DeleteDialog controller={controller} ids={deleteIds} onClose={closeDelete} onDeleted={() => apiRef.current?.deselectAll()} />}
       {importText !== null && (
         <ImportDialog controller={controller} lookups={lookups} defaultProject={contextForQuickAdd} initialText={importText} onClose={() => setImportText(null)} />
