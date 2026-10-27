@@ -90,6 +90,12 @@ export async function runConnectionDiagnostics(i: DiagnosticsInput): Promise<Che
       : { id: "live-updates", title: "Live updates from GitHub", verdict: "pass", summary: "Issues and sub-issues changes arrive as they happen." },
   );
 
+  const boardEvent = installation.events.includes("projects_v2_item");
+  add(
+    boardEvent
+      ? { id: "board-status-live", title: "Board status in real time", verdict: "pass", summary: "Changes of a board's Status reach Product Velocity as they happen." }
+      : { id: "board-status-live", title: "Board status in real time", verdict: "info", summary: "Not subscribed to Project item changes, so Delivery Status updates only at \"Check GitHub now\", at the daily check and when you send.", fix: "In the GitHub App's settings (Permissions & events) subscribe to Project item events (they need Organization Projects: Read and write), then accept the change on the installation page." },
+  );
   const boardsOk = permissionGaps(installation.permissions, { organization_projects: "write" }).length === 0;
   add(
     boardsOk

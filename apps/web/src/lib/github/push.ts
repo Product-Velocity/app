@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { buildTrackingIssue, OUTBOUND_READ_FIELDS, childKey, childrenToAdd, describePushError, parseBoard, planAction, planBoardItem, pushBoardChildren, pushBoardItem, pushTrackingIssue, readIssueTree, type Board, type BoardField, type BoardPlan, type ExistingLink, type PlanLink, type SourceControl, type TrackingIssue } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { ConnectionRow } from "./server";
+import { syncBoardStatuses } from "./board-sync";
 import { shareUrl } from "@/lib/files/serve";
 import { refreshTree } from "./sync";
 import { PUSH_LIMIT, type PlanItem, type PushItemResult } from "./push-types";
@@ -35,7 +36,7 @@ const asOutboundItem = (row: Record<string, unknown>): Row => {
 const blockedItem = (id: string, reason: string, over: Partial<PlanItem> = {}): PlanItem => ({ id, code: "", name: "", project: "", repo: null, action: "blocked", title: "", labels: [], block: "", issueNumber: null, issueUrl: null, reason, ...over });
 
 /** What the confirm step needs for one item, beyond what the person sees in the preview. */
-type Internal = { built: TrackingIssue; existing: ExistingLink | null; board?: Board; boardPlan?: BoardPlan; /** Children known to the cache that are not on the board yet. */ pendingChildren: number };
+type Internal = { projectId?: string; built: TrackingIssue; existing: ExistingLink | null; board?: Board; boardPlan?: BoardPlan; /** Children known to the cache that are not on the board yet. */ pendingChildren: number };
 
 /** At most this many children are put on the board per initiative and send, so one send stays quick; the rest follow at the next send. */
 export const CHILD_LIMIT = 40;
@@ -116,7 +117,7 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     // children (epics and tasks, all levels) that engineers or an agent added in GitHub are put on the board by a confirmed send, never in the background
     const pendingChildren = board && boardPlan?.include ? (treeByItem.get(id) ?? []).filter((t) => t.board_id !== board.id).length : 0;
     if (d.action === "unchanged" && pendingChildren > 0) d.action = "update";
-    internal.set(id, { built, existing: link ? { issueNumber: link.issue_number, lastPushedHash: link.last_pushed_hash } : null, pendingChildren, ...(board && boardPlan ? { board, boardPlan } : {}) });
+    internal.set(id, { projectId: project?.id, built, existing: link ? { issueNumber: link.issue_number, lastPushedHash: link.last_pushed_hash } : null, pendingChildren, ...(board && boardPlan ? { board, boardPlan } : {}) });
     const withheld = itemFiles.length > 0 && !filesOk ? { filesNote: `${itemFiles.length === 1 ? "A shared file link was" : `${itemFiles.length} shared file links were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could open the links. Files are only linked in private repositories.` } : {};
     const unshared = unsharedByItem.get(id) ?? 0;
     const note = withheld.filesNote ?? (unshared ? `${unshared === 1 ? "1 attached file has" : `${unshared} attached files have`} no share link, so ${unshared === 1 ? "it is" : "they are"} not in the issue. Turn a link on in the item's Screenshots field to include it.` : undefined);
@@ -136,7 +137,7 @@ export async function executePush(opts: { supabase: SupabaseClient; admin: Admin
     const code = p.code;
     if (p.action === "blocked") { results.push({ id: p.id, code, outcome: "blocked", message: p.reason }); continue; }
     if (p.action === "unchanged") { results.push({ id: p.id, code, outcome: "unchanged", issueNumber: p.issueNumber ?? undefined, issueUrl: p.issueUrl ?? undefined }); continue; }
-    const { built, existing, board, boardPlan, pendingChildren } = internal.get(p.id)!;
+    const { built, existing, board, boardPlan, pendingChildren, projectId } = internal.get(p.id)!;
     const onBoard = !!(board && boardPlan?.include);
     const record = (state: "synced" | "error", extra: { number?: number; id?: number; node?: string; url?: string; error?: string }) =>
       opts.admin.rpc("github_record_push", { p_actor: opts.actor, p_item: p.id, p_connection: opts.connection.id, p_repo: p.repo, p_number: extra.number ?? null, p_issue_id: extra.id ?? null, p_node_id: extra.node ?? null, p_url: extra.url ?? null, p_hash: built.hash, p_state: state, p_error: extra.error ?? null });
@@ -151,10 +152,11 @@ export async function executePush(opts: { supabase: SupabaseClient; admin: Admin
         // an issue that needed no change can still have children that are not on the board yet
         const issue = r.kind === "unchanged" ? { number: existing!.issueNumber! } : { number: r.issue.number, id: r.issue.id, node: r.issue.nodeId, url: r.issue.htmlUrl };
         let boardItem: string | null = null;
+        let skipped: { id: string; name: string }[] = [];
         let children: { added: { repo: string; number: number; boardItemId: string }[]; later: number } | null = null;
         if (board && boardPlan?.include) {
           try {
-            if (r.kind !== "unchanged") boardItem = await pushBoardItem(opts.sc, installationId, board.id, r.issue.nodeId, boardPlan);
+            if (r.kind !== "unchanged") { const pushed = await pushBoardItem(opts.sc, installationId, board.id, r.issue.nodeId, boardPlan); boardItem = pushed.itemId; skipped = pushed.skipped; }
             children = await addChildren(opts, p.id, p.repo!, issue.number, board.id);
           } catch (e) {
             // the issue is written but the board is not: not recorded as synced, so the next push does the board again
@@ -168,8 +170,14 @@ export async function executePush(opts: { supabase: SupabaseClient; admin: Admin
         if (!saved.error && boardItem) await opts.admin.rpc("github_record_project_item", { p_actor: opts.actor, p_item: p.id, p_project_item_id: boardItem });
         if (!saved.error && r.kind !== "unchanged") await refreshTree(opts.admin, opts.sc, installationId, opts.connection.id, { item_id: p.id, repo: p.repo!, number: issue.number }); // starts the Traditional breakdown route
         if (!saved.error && board && children?.added.length) await opts.admin.rpc("github_record_board_items", { p_connection: opts.connection.id, p_item: p.id, p_board_id: board.id, p_nodes: children.added.map((c) => ({ repo: c.repo, number: c.number, board_item_id: c.boardItemId })) });
+        // fields GitHub says are issue fields: remembered on the board link, so the preview says so and later sends leave them out
+        if (skipped.length && board && projectId) {
+          const known = new Set([...(board.mapping.unwritable ?? []), ...skipped.map((s) => s.id)]);
+          await opts.admin.from("projects").update({ github_board: { ...board, mapping: { ...board.mapping, unwritable: [...known] } } }).eq("id", projectId).eq("tenant_id", opts.tenantId);
+        }
+        const skipNote = skipped.length ? `${skipped.map((s) => `"${s.name}"`).join(" and ")} ${skipped.length === 1 ? "is a GitHub issue field" : "are GitHub issue fields"} and cannot be written through the board yet: left out.` : "";
         const childNote = children ? [children.added.length ? `${children.added.length} child issue${children.added.length === 1 ? "" : "s"} added to the board.` : "", children.later ? `${children.later} more will be added at the next send.` : ""].filter(Boolean).join(" ") : "";
-        const message = saved.error ? "Sent to GitHub, but the link could not be saved. Pushing again will find the issue." : childNote || undefined;
+        const message = saved.error ? "Sent to GitHub, but the link could not be saved. Pushing again will find the issue." : [childNote, skipNote].filter(Boolean).join(" ") || undefined;
         results.push({ id: p.id, code, outcome: r.kind === "unchanged" ? "updated" : r.kind, issueNumber: issue.number, ...(r.kind !== "unchanged" ? { issueUrl: r.issue.htmlUrl } : {}), ...(message ? { message } : {}) });
       }
     } catch (e) {
@@ -177,6 +185,11 @@ export async function executePush(opts: { supabase: SupabaseClient; admin: Admin
       await record("error", { error: message });
       results.push({ id: p.id, code, outcome: "error", message });
     }
+  }
+  // the boards this send touched: read their Status now, so Delivery Status is right as soon as the send is done (a failed read changes nothing)
+  const touched = [...new Set([...internal.values()].filter((x) => x.board && x.boardPlan?.include).map((x) => x.board!.id))];
+  if (touched.length > 0 && results.some((r) => r.outcome === "created" || r.outcome === "updated")) {
+    await syncBoardStatuses(opts.admin, opts.sc, opts.connection, { boardIds: touched }).catch((e) => console.error(JSON.stringify({ github: "board-status", error: describePushError(e) })));
   }
   return results;
 }
