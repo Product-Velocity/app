@@ -108,7 +108,7 @@ test.describe("scope switcher", () => {
   });
 
   test("admins add a project from the dropdown (+ New project)", async ({ page }) => {
-    await open(page);
+    await open(page, "n=30&role=admin");
     await scopeButton(page).click();
     await scopeMenu(page).getByRole("menuitem", { name: "+ New project" }).click();
     const dialog = page.getByRole("dialog", { name: "New project" });
@@ -121,7 +121,7 @@ test.describe("scope switcher", () => {
   });
 
   test("menus work in Safari, which does not focus a button on click: the menu stays until the click lands", async ({ page }) => {
-    await open(page);
+    await open(page, "n=30&role=admin");
     // what Safari does on mousedown: the clicked button is not focused, and the element that had the focus loses it
     await page.evaluate(() => document.addEventListener("mousedown", (e) => { e.preventDefault(); (document.activeElement as HTMLElement | null)?.blur(); }, true));
     await scopeButton(page).click();

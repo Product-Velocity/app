@@ -372,7 +372,7 @@ test.describe("manage views (R-100)", () => {
     await expect(moreBtn(page)).toHaveText(/^4 more views/);
     await moreBtn(page).click();
     await expect(rowOf(page, "Discovery")).toBeVisible();
-    await expect(menu(page).locator(".vm-open", { hasText: /^Timeline/ })).toHaveCount(0);
+    await expect(menu(page).getByRole("region", { name: "Workspace views" }).locator(".vm-open", { hasText: /^Timeline/ })).toHaveCount(0);
     const hidden = menu(page).getByRole("region", { name: "Hidden views" });
     await expect(hidden).toContainText("Timeline");
     expect((await store(page)).layouts[""]?.some((r) => r.ref.name === "Timeline" && r.hidden)).toBe(true);
