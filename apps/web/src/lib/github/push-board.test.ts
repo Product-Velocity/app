@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { detectMapping, MemorySourceControl, type BoardField } from "@pv/github";
+import { detectMapping, GitHubError, MemorySourceControl, type BoardField } from "@pv/github";
 
 vi.mock("server-only", () => ({}));
 vi.mock("./sync", () => ({ refreshTree: async () => undefined }));
@@ -61,7 +61,7 @@ describe("executePush and the board", () => {
   function admin(treeOnBoard: { repo_full_name: string; issue_number: number }[] = []) {
     const calls: { fn: string; args: Record<string, unknown> }[] = [];
     const chain = (rows: unknown[]) => { const q: Record<string, unknown> = {}; for (const m of ["eq", "select"]) q[m] = () => q; q.then = (r: (v: unknown) => void) => r({ data: rows, error: null }); return q; };
-    return { calls, rpc: async (fn: string, args: Record<string, unknown>) => { calls.push({ fn, args }); return { error: null }; }, from: () => ({ select: () => chain(treeOnBoard) }) };
+    return { calls, rpc: async (fn: string, args: Record<string, unknown>) => { calls.push({ fn, args }); return { error: null }; }, from: (table: string) => ({ select: () => chain(treeOnBoard), update: (v: Record<string, unknown>) => { calls.push({ fn: `update ${table}`, args: v }); return chain([]); } }) };
   }
   const run = (sc: MemorySourceControl, a: ReturnType<typeof admin>, t = tables()) =>
     executePush({ supabase: fakeSupabase(t), admin: a as never, sc, connection, tenantId: "t1", actor: "u1", appUrl: "https://app.example", ids: ["i1"] });
@@ -140,5 +140,22 @@ describe("executePush and the board", () => {
     expect(r!.outcome).toBe("error");
     expect(a.calls.map((c) => c.fn)).toEqual(["github_record_push"]);
     expect(a.calls[0]!.args.p_state).toBe("error");
+  });
+
+  it("a board field that GitHub says is an issue field is left out and remembered; the send still succeeds", async () => {
+    const sc = scWithBoard(), a = admin();
+    sc.failOnField = { id: "f-due", error: new GitHubError(422, "x", undefined, "VALIDATION: Issue field values cannot be updated using the updateProjectV2ItemFieldValue mutation, they must be updated using the updateIssueFieldValue mutation") };
+    const [r] = await run(sc, a);
+    expect(r).toMatchObject({ outcome: "created", message: expect.stringContaining('"Due date" is a GitHub issue field') });
+    expect(sc.boardItems[0]!.values).toEqual({ "f-prio": { optionId: "o-P1" }, "f-init": { optionId: "o-Growth" }, "f-size": { optionId: "o-M" } });
+    const saved = a.calls.find((c) => c.fn === "update projects")!;
+    expect((saved.args.github_board as { mapping: { unwritable: string[] } }).mapping.unwritable).toEqual(["f-due"]);
+    expect(a.calls.find((c) => c.fn === "github_record_push")!.args.p_state).toBe("synced");
+  });
+  it("once remembered, the preview says the field is left out and nothing is attempted on it", async () => {
+    const withUnwritable = { ...board, mapping: { ...board.mapping, unwritable: ["f-due"] } };
+    const [plan] = await planPush(fakeSupabase(tables({ projects: [{ id: "p1", name: "Core", default_repo: "Acme/App", tracker: "github", github_board: withUnwritable }] })), "t1", "https://app.example", connection, ["i1"], scWithBoard());
+    expect(plan!.board!.writes.map((w) => w.field)).not.toContain("Due date");
+    expect(plan!.board!.notes.join(" ")).toContain("GitHub issue field");
   });
 });

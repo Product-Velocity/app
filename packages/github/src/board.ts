@@ -13,6 +13,8 @@ export type BoardMapping = {
   size: FieldRef | null;
   /** Read back from the board (delivery status); never written. */
   status: FieldRef | null;
+  /** Fields GitHub refused as issue fields (they need another call than board fields): PV leaves them out and says so. */
+  unwritable?: string[];
   /** MoSCoW value to the option name of the board's Priority field. A value that is not listed (Won't) stays out of the board. */
   priorityMap: Record<string, string>;
 };
@@ -64,6 +66,7 @@ export function planBoardItem(item: ItemForBoard, fields: BoardField[], mapping:
   const writes: BoardWrite[] = [];
   const resolve = (ref: FieldRef | null): BoardField | null => {
     if (!ref) return null;
+    if (mapping.unwritable?.includes(ref.id)) { notes.push(`The board's "${ref.name}" is a GitHub issue field: it cannot be written through the board yet, so it is left as it is.`); return null; }
     const f = fields.find((x) => x.id === ref.id) ?? fields.find((x) => norm(x.name) === norm(ref.name));
     if (!f) notes.push(`The board no longer has a field "${ref.name}".`);
     return f ?? null;
@@ -87,11 +90,22 @@ export function planBoardItem(item: ItemForBoard, fields: BoardField[], mapping:
 }
 
 /** Adds the issue to the board (adding it again returns the same item) and writes the planned values. Returns the board item id. */
-export async function pushBoardItem(sc: SourceControl, installationId: number, boardId: string, issueNodeId: string, plan: BoardPlan): Promise<string> {
+export async function pushBoardItem(sc: SourceControl, installationId: number, boardId: string, issueNodeId: string, plan: BoardPlan): Promise<{ itemId: string; skipped: FieldRef[] }> {
   const itemId = await atStep("adding the issue to the board", () => sc.addBoardItem(installationId, boardId, issueNodeId));
-  for (const w of plan.writes) await atStep(`setting "${w.field.name}"`, () => sc.setBoardValue(installationId, boardId, itemId, w.field.id, w.value));
-  return itemId;
+  const skipped: FieldRef[] = [];
+  for (const w of plan.writes) {
+    try {
+      await atStep(`setting "${w.field.name}"`, () => sc.setBoardValue(installationId, boardId, itemId, w.field.id, w.value));
+    } catch (e) {
+      if (isIssueFieldError(e)) { skipped.push(w.field); continue; } // an issue field (Target date, Priority ...) is written another way: skip it, keep the rest
+      throw e;
+    }
+  }
+  return { itemId, skipped };
 }
+
+/** GitHub's answer when a board field is really an organisation issue field. */
+const isIssueFieldError = (e: unknown) => e instanceof GitHubError && /issue field values cannot be updated using the updateProjectV2ItemFieldValue/i.test(e.detail ?? "");
 
 /** A GitHub error that says which step it happened in; any other error is left alone. */
 async function atStep<T>(step: string, run: () => Promise<T>): Promise<T> {
@@ -131,7 +145,9 @@ export function parseBoard(v: unknown): Board | null {
     if (!pm || typeof pm !== "object" || Object.entries(pm).some(([k, x]) => typeof x !== "string" || x.length > 50 || k.length > 50)) return null;
     priorityMap = { ...(pm as Record<string, string>) };
   }
-  return { id: b.id, number: b.number as number, title: b.title, url: b.url, mapping: { priority: out.priority!, group: out.group!, dueDate: out.dueDate!, size: out.size!, status: out.status!, priorityMap } };
+  const uw = m.unwritable;
+  if (uw !== undefined && (!Array.isArray(uw) || uw.some((x) => typeof x !== "string" || x.length > 100))) return null;
+  return { id: b.id, number: b.number as number, title: b.title, url: b.url, mapping: { priority: out.priority!, group: out.group!, dueDate: out.dueDate!, size: out.size!, status: out.status!, priorityMap, ...(uw && (uw as string[]).length ? { unwritable: uw as string[] } : {}) } };
 }
 
 export const childKey = (repo: string, number: number) => `${repo.toLowerCase()}#${number}`;
