@@ -631,7 +631,9 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .consent-workspaces { border: 0; padding: 0; margin: 12px 0; display: grid; gap: 6px; }
 .consent-workspaces legend { font-weight: 600; padding: 0; margin-bottom: 4px; }
 .consent-workspaces label { display: flex; gap: 8px; align-items: baseline; }
-.consent-workspaces input { width: 16px; height: 16px; padding: 0; margin: 2px 0 0; flex: none; }
+/* beats the global input rule (width 100%, full row height), which otherwise stretches the radio and pushes the name out of the card */
+.consent-workspaces label input[type="radio"] { width: 16px; height: 16px; padding: 0; margin: 2px 0 0; flex: none; }
+.consent-workspaces label > span { font-weight: 500; }
 .consent-workspaces span { flex: 1; min-width: 0; }
 .push-conflict { border: 1px solid #d9b45a; border-radius: 6px; margin: 8px 0; padding: 6px 10px; }
 .push-conflict legend { padding: 0 4px; }
