@@ -394,7 +394,7 @@ function ActionsMenu({ api, entry, onDone }: { api: ViewsApi; entry: MenuEntry; 
   );
 }
 
-function MenuRow({ api, entry, index, onOpen }: { api: ViewsApi; entry: MenuEntry; index: number; onOpen: (r: ViewRef) => void }) {
+function MenuRow({ api, entry, index, onOpen, onDone }: { api: ViewsApi; entry: MenuEntry; index: number; onOpen: (r: ViewRef) => void; onDone: () => void }) {
   const active = refKey(baseToRef(api.base)) === refKey(entry.ref);
   return (
     <div className="vm-row" role="group" aria-label={entry.name}
@@ -414,7 +414,7 @@ function MenuRow({ api, entry, index, onOpen }: { api: ViewsApi; entry: MenuEntr
           <button type="button" className="vm-move" aria-label={`Move ${entry.name} later in the bar`} onClick={() => void api.move(entry.ref, 1)}>↓</button>
         </>
       )}
-      <ActionsMenu api={api} entry={entry} />
+      <ActionsMenu api={api} entry={entry} onDone={onDone} />
     </div>
   );
 }
@@ -443,7 +443,7 @@ function MoreViews({ api, count }: { api: ViewsApi; count: number }) {
     <span ref={ref} className="popover-anchor" {...blur}
       onKeyDown={(e) => { if (e.key === "Escape" && open) { e.stopPropagation(); close(); btn.current?.focus(); } }}>
       <button ref={btn} type="button" className={open ? "tool-btn tool-btn-on" : "tool-btn"} aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen((o) => !o)}>
-        {count} more {count === 1 ? "view" : "views"}{api.dirty && <span className="vm-dot" title="This view has changes you have not saved" aria-label="(this view has changes)"> ●</span>}<Chevron open={open} />
+        {count} more {count === 1 ? "view" : "views"}{api.dirty && <span className="vm-dot" title="This view has changes you have not saved" aria-hidden="true"> ●</span>}<Chevron open={open} />
       </button>
       {open && (
         <div id={id} className="popover-panel popover-right views-panel vm-panel" role="dialog" aria-label="Views">
@@ -466,13 +466,13 @@ function MoreViews({ api, count }: { api: ViewsApi; count: number }) {
           {mine.length > 0 && (
             <section aria-label="My views">
               <p className="scope-head">My views</p>
-              {mine.map((e, i) => <MenuRow key={refKey(e.ref)} api={api} entry={e} index={i} onOpen={onOpen} />)}
+              {mine.map((e, i) => <MenuRow key={refKey(e.ref)} api={api} entry={e} index={i} onOpen={onOpen} onDone={close} />)}
             </section>
           )}
           {workspace.length > 0 && (
             <section aria-label="Workspace views">
               <p className="scope-head">Workspace views</p>
-              {workspace.map((e, i) => <MenuRow key={refKey(e.ref)} api={api} entry={e} index={i} onOpen={onOpen} />)}
+              {workspace.map((e, i) => <MenuRow key={refKey(e.ref)} api={api} entry={e} index={i} onOpen={onOpen} onDone={close} />)}
             </section>
           )}
           {hidden.length > 0 && (

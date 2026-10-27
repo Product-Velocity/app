@@ -17,7 +17,7 @@ export function HarnessClient({ n, latency, role, view, allColumns, bigLists = f
     (window as unknown as { __pv: unknown }).__pv = { controller, source, store };
   }, [controller, source, store]);
   return (
-    <WorkspaceProvider store={store} projects={lookups.projects} canEdit={role === "creator" || role === "admin"} canAdmin={role === "admin" || role === "creator"} userId="u1">
+    <WorkspaceProvider store={store} projects={lookups.projects} canEdit={role === "creator" || role === "admin"} canAdmin={role === "admin"} userId="u1">
     <DatePrefs format={datefmt} />
     <div className="shell">
       <AppHeader tenantName="Meridian Media" email="ashu.mathura@example.test" roleLabel="Admin" isApprover current="grid" showTrash />

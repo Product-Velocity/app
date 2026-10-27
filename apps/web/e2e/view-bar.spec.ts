@@ -25,7 +25,7 @@ async function saveAsNew(page: Page, name: string, scope?: "Only me" | "Workspac
   await viewMenuAction(page, "Save as new view…");
   const d = page.getByRole("dialog", { name: "Save as new view" });
   await d.getByLabel("Name").fill(name);
-  if (scope) await d.getByLabel(new RegExp(`^${scope}`)).check();
+  if (scope) await d.getByLabel(new RegExp(`^\\s*${scope}`)).check();
   await d.getByRole("button", { name: "Save view" }).click();
   await expect(d).toHaveCount(0);
 }
@@ -112,7 +112,7 @@ test.describe("the view bar (R-98)", () => {
 
   test("a ?view= link to someone else's private view falls back to the default view without an error page", async ({ page }) => {
     await open(page, "n=30&role=admin&view=view-does-not-exist");
-    await expect(page.locator(".view-dirty")).toContainText("no longer exists"); // the only notice left: a view that was deleted
+    await expect(page.locator(".view-dirty")).toContainText("private to its owner"); // the only notice left
     await expect(viewTab(page, "Prioritisation")).toBeVisible();
   });
 
@@ -210,6 +210,8 @@ test.describe("one save flow (R-99)", () => {
     expect(v.filters.length).toBeGreaterThan(0);
     await expect(moreBtn(page)).toHaveText(/^6 more views/); // the new private view is not in the bar
     await viewTab(page, "Delivery").click();
+    await expect(page.locator(".group-row").first()).toBeVisible(); // grouping stays while switching views
+    await resetChanges(page);
     await expect(page.locator(".group-row")).toHaveCount(0);
     await goToView(page, "My planning");
     expect(await foot(page).textContent()).toBe(matching);
@@ -229,7 +231,7 @@ test.describe("one save flow (R-99)", () => {
     await makeChange(page);
     await viewMenuAction(page, "Save as new view…");
     const d = page.getByRole("dialog", { name: "Save as new view" });
-    await expect(d.getByLabel(/^Workspace/)).toHaveCount(0);
+    await expect(d.getByLabel(/^\s*Workspace/)).toHaveCount(0);
     await d.getByLabel("Name").fill("Viewer view");
     await d.getByRole("button", { name: "Save view" }).click();
     expect((await store(page)).views.map((v) => v.name)).toContain("Viewer view");
@@ -239,10 +241,8 @@ test.describe("one save flow (R-99)", () => {
     await open(page);
     await makeChange(page);
     await saveAsNew(page, "Same name");
-    await makeChange(page).catch(() => undefined);
-    await page.getByRole("button", { name: /Reset/ }).click().catch(() => undefined);
-    await goToView(page, "Planning");
-    await makeChange(page);
+    await page.getByRole("button", { name: /^Group by/ }).click();
+    await page.getByRole("menuitemradio", { name: "Health" }).click();
     await viewMenuAction(page, "Save as new view…");
     const d = page.getByRole("dialog", { name: "Save as new view" });
     await d.getByLabel("Name").fill("same NAME");
@@ -257,7 +257,7 @@ test.describe("one save flow (R-99)", () => {
     await makeChange(page);
     await saveAsNew(page, "Mine");
     await page.getByRole("button", { name: /^Sort:/ }).click();
-    await page.getByRole("menuitemradio", { name: "MoSCoW, low to high" }).click();
+    await page.getByRole("menuitemradio", { name: /^MoSCoW ↑/ }).click();
     await viewMenuAction(page, "Update “Mine”");
     await expect(hasChanges(page)).toHaveCount(0);
     expect((await store(page)).views.find((v) => v.name === "Mine")!.sort).toEqual({ field: "moscow", dir: "asc" });
@@ -300,7 +300,7 @@ test.describe("one save flow (R-99)", () => {
     await viewMenuAction(page, "Save as new view…");
     const d = page.getByRole("dialog", { name: "Save as new view" });
     await d.getByLabel("Name").fill("For customers");
-    await d.getByLabel(/^Workspace/).check();
+    await d.getByLabel(/^\s*Workspace/).check();
     await d.getByLabel(/Customer-safe view/).check();
     await expect(d).toContainText("not customer-safe and will be left out");
     await d.getByRole("button", { name: "Save view" }).click();

@@ -99,7 +99,7 @@ const PRIORITISATION: BaseView = { kind: "builtin", name: "Prioritisation" };
 export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATION, renderAllColumns = false, me = null, headLeft, headRight }: GridProps) {
   const router = useRouter();
   const params = useSearchParams();
-  const { views, defaults, scopes, projects } = useWorkspace();
+  const { views, defaults, scopes, projects, ready } = useWorkspace();
   const scope = useScope();
   const apiRef = useRef<GridApi<GridItem> | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -164,7 +164,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const [colOverrides, setColOverrides] = useState<Record<string, { columns: string[]; pinned: string[] }>>({});
   const viewKey = refKey(baseToRef(base));
   const savedDef = useMemo(() => baseDef(base, views, defaults), [base, views, defaults]);
-  const baseMissing = base.kind === "saved" && savedDef === null && views.length > 0; // a deleted view falls back
+  const baseMissing = base.kind === "saved" && savedDef === null && ready; // a deleted view, or someone else's private view (the database never returns it), falls back
   const bDef = useMemo(() => savedDef ?? baseDef(PRIORITISATION, [], defaults)!, [savedDef, defaults]);
   const co = colOverrides[viewKey];
   const def = useMemo(
@@ -519,7 +519,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
           {WAITING_IN_VIEW[base.name].length > 4 ? ` and ${WAITING_IN_VIEW[base.name].length - 4} more` : ""}.
         </p>
       )}
-      {baseMissing && <div className="view-dirty" role="status">That saved view no longer exists, showing Prioritisation.</div>}
+      {baseMissing && <div className="view-dirty" role="status">This view is private to its owner or no longer exists. Showing Prioritisation.</div>}
     </div>
     <section
       ref={cardRef}
