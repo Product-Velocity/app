@@ -625,10 +625,11 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 
 /* Connect Claude and the consent screen (docs/20 FR-1) */
 .check-row { display: flex; align-items: center; gap: 8px; font-weight: 600; }
-.check-row input { width: auto; }
+.check-row input { width: 16px; height: 16px; padding: 0; flex: none; }
 .two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
 .two-col ul, .consent-list { margin: 6px 0 0; padding-left: 18px; }
 .consent-workspaces { border: 0; padding: 0; margin: 12px 0; display: grid; gap: 6px; }
 .consent-workspaces legend { font-weight: 600; padding: 0; margin-bottom: 4px; }
 .consent-workspaces label { display: flex; gap: 8px; align-items: baseline; }
-.consent-workspaces input { width: auto; }
+.consent-workspaces input { width: 16px; height: 16px; padding: 0; margin: 2px 0 0; flex: none; }
+.consent-workspaces span { flex: 1; min-width: 0; }

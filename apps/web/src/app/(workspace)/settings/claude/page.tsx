@@ -14,6 +14,7 @@ const NOTICE: Record<string, string> = {
   "already-revoked": "That connection was already revoked.",
   "not-admin": "Only workspace admins can do that.",
   failed: "That did not work. Please try again.",
+  "needs-migration": "The database behind this deployment has not had migration 0043 applied yet, so the Claude switch cannot be saved. Apply the migration (docs/11-ENVIRONMENTS.md) and try again.",
 };
 
 type Conn = {
@@ -37,7 +38,8 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
   const isAdmin = active.role === "admin";
   const url = `${await siteUrl()}/mcp`;
 
-  const { data: tenant } = await supabase.from("tenants").select("claude_enabled").eq("id", active.tenantId).single();
+  const { data: tenant, error: tenantError } = await supabase.from("tenants").select("claude_enabled").eq("id", active.tenantId).single();
+  const notMigrated = Boolean(tenantError);
   const enabled = Boolean(tenant?.claude_enabled);
 
   // RLS: a person sees their own connections; an admin also sees everyone's in the workspaces they administer (no content)
@@ -75,7 +77,10 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
       {!mcpEnabled() && (
         <p role="status" className="notice">Claude connections are not available on this deployment yet. The connector URL below will work once it is switched on.</p>
       )}
-      {!enabled && (
+      {notMigrated && (
+        <p role="alert" className="notice">This deployment&rsquo;s database has not had migration 0043 applied yet, so the Claude switch and connections are not available. Apply the migration (docs/11-ENVIRONMENTS.md).</p>
+      )}
+      {!enabled && !notMigrated && (
         <p role="alert" className="notice" id="claude-off">
           Claude is switched off for {active.tenantName}, so nobody can connect or use an existing connection.{" "}
           {isAdmin ? "Switch it on below." : "A workspace admin can switch it on."}
@@ -95,7 +100,7 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
               Claude on the consent screen. Today: {usage.items} of {limits.items} items, {Math.round(usage.bytes / (1024 * 1024))} of {limits.mb} MB, {usage.calls} calls
               (daily limits for the workspace, counted in UTC).
             </p>
-            <div><button className="btn btn-primary" type="submit">Save</button></div>
+            <div><button className="btn btn-primary" type="submit" disabled={notMigrated}>Save</button></div>
           </form>
         </>
       )}
