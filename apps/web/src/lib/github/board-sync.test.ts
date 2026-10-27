@@ -37,7 +37,7 @@ describe("syncBoardStatuses", () => {
   it("applies the board's status to the initiatives whose status changed, and nothing else", async () => {
     const admin = fakeAdmin(tables());
     const r = await syncBoardStatuses(admin, scWith(), connection);
-    expect(r).toEqual({ boards: 1, updated: 1 });
+    expect(r).toEqual({ boards: 1, updated: 1, notes: [] });
     const calls = (admin as unknown as { calls: { fn: string; args: Record<string, unknown> }[] }).calls;
     expect(calls).toHaveLength(1);
     expect(calls[0]!.fn).toBe("github_apply_board_status");
@@ -45,12 +45,28 @@ describe("syncBoardStatuses", () => {
   });
   it("only the boards named are read; a board without a status field or one that cannot be read is skipped", async () => {
     const sc = scWith();
-    expect(await syncBoardStatuses(fakeAdmin(tables()), sc, connection, { boardIds: ["PVT_other"] })).toEqual({ boards: 0, updated: 0 });
-    expect(await syncBoardStatuses(fakeAdmin(tables({ projects: [{ id: "p1", github_board: { ...board, mapping: { ...board.mapping, status: null } } }] })), sc, connection)).toEqual({ boards: 0, updated: 0 });
-    expect(await syncBoardStatuses(fakeAdmin(tables()), new MemorySourceControl(), connection)).toEqual({ boards: 0, updated: 0 });
+    expect(await syncBoardStatuses(fakeAdmin(tables()), sc, connection, { boardIds: ["PVT_other"] })).toEqual({ boards: 0, updated: 0, notes: [] });
+    expect((await syncBoardStatuses(fakeAdmin(tables()), new MemorySourceControl(), connection)).boards).toBe(0);
+  });
+  it("a link saved without a Status field finds the board's Status by name, so nothing has to be saved again", async () => {
+    const sc = scWith();
+    sc.boardFields.set("PVT_1", [{ id: "F_S", name: "Status", dataType: "SINGLE_SELECT", options: [] }, { id: "F_P", name: "Priority", dataType: "SINGLE_SELECT", options: [] }]);
+    const admin = fakeAdmin(tables({ projects: [{ id: "p1", github_board: { ...board, mapping: { ...board.mapping, status: null } } }] }));
+    expect(await syncBoardStatuses(admin, sc, connection)).toEqual({ boards: 1, updated: 1, notes: [] });
+  });
+  it("says so when a board has no Status field at all, instead of silently skipping it", async () => {
+    const sc = scWith();
+    sc.boardFields.set("PVT_1", [{ id: "F_P", name: "Priority", dataType: "SINGLE_SELECT", options: [] }]);
+    const r = await syncBoardStatuses(fakeAdmin(tables({ projects: [{ id: "p1", github_board: { ...board, mapping: { ...board.mapping, status: null } } }] })), sc, connection);
+    expect(r.boards).toBe(0);
+    expect(r.notes).toEqual(['Board "Roadmap": no Status field found, so Delivery Status is not read.']);
+  });
+  it("says so when the board cannot be read or has no issues on it", async () => {
+    const r = await syncBoardStatuses(fakeAdmin(tables()), new MemorySourceControl(), connection);
+    expect(r.notes).toEqual(['Board "Roadmap": no issues were read from it.']);
   });
   it("a connection without an installation does nothing", async () => {
-    expect(await syncBoardStatuses(fakeAdmin(tables()), scWith(), { ...connection, installation_id: null })).toEqual({ boards: 0, updated: 0 });
+    expect(await syncBoardStatuses(fakeAdmin(tables()), scWith(), { ...connection, installation_id: null })).toEqual({ boards: 0, updated: 0, notes: [] });
   });
 });
 

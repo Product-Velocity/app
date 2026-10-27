@@ -183,7 +183,7 @@ export async function runCheck(admin: Admin, sc: SourceControl, connection: Conn
     const r = await reconcileConnection(admin, sc, connection);
     // the board's Status of every linked board (Delivery Status); a board that fails must not fail the check
     const board = await syncBoardStatuses(admin, sc, connection).catch((e) => { console.error(JSON.stringify({ github: "board-status", error: short(e) })); return null; });
-    await admin.from("github_connections").update({ last_check_at: new Date().toISOString(), last_check_summary: `Checked ${r.checked} linked item(s): ${r.changed} changed, ${r.missing} issue(s) not found.${board?.boards ? ` Board status: ${board.updated} updated.` : ""}` }).eq("id", connection.id);
+    await admin.from("github_connections").update({ last_check_at: new Date().toISOString(), last_check_summary: `Checked ${r.checked} linked item(s): ${r.changed} changed, ${r.missing} issue(s) not found.${board?.boards ? ` Board status: ${board.updated} updated.` : ""}${board?.notes.length ? ` ${board.notes.join(" ")}` : ""}` }).eq("id", connection.id);
     return r;
   } catch (e) {
     console.error(JSON.stringify({ github: "check", error: short(e) }));

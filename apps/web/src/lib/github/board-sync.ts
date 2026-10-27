@@ -1,5 +1,5 @@
 import "server-only";
-import { parseBoard, planStatusApply, readBoardStatuses, type SourceControl, type StatusLink } from "@pv/github";
+import { detectMapping, parseBoard, planStatusApply, readBoardStatuses, type SourceControl, type StatusLink } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { ConnectionRow } from "./server";
 
@@ -22,17 +22,20 @@ async function all<T>(build: (from: number, to: number) => PromiseLike<{ data: u
  * only initiatives whose status or board item changed (the function it calls writes nothing for an unchanged value). `boardIds`
  * limits the pass to boards named by a webhook or by a send. A board that cannot be read is skipped, never failing the rest.
  */
-export async function syncBoardStatuses(admin: Admin, sc: SourceControl, connection: ConnectionRow, opts: { boardIds?: string[] } = {}): Promise<{ boards: number; updated: number }> {
+export async function syncBoardStatuses(admin: Admin, sc: SourceControl, connection: ConnectionRow, opts: { boardIds?: string[] } = {}): Promise<{ boards: number; updated: number; notes: string[] }> {
   const installationId = connection.installation_id;
-  if (!installationId) return { boards: 0, updated: 0 };
+  if (!installationId) return { boards: 0, updated: 0, notes: [] };
   const { data: projects } = await admin.from("projects").select("id, github_board").eq("tenant_id", connection.tenant_id).not("github_board", "is", null);
   let boards = 0, updated = 0;
+  const notes: string[] = []; // what a person should know: a board that was skipped, and why
   for (const p of (projects ?? []) as { id: string; github_board: unknown }[]) {
     const board = parseBoard(p.github_board);
-    const field = board?.mapping.status;
-    if (!board || !field || (opts.boardIds && !opts.boardIds.includes(board.id))) continue;
+    if (!board || (opts.boardIds && !opts.boardIds.includes(board.id))) continue;
+    // a link saved before Delivery Status existed has no Status field chosen: find the board's own Status by name (it is only read, never written)
+    const field = board.mapping.status ?? detectMapping((await sc.getBoardFields(installationId, board.id).catch(() => null)) ?? []).status;
+    if (!field) { notes.push(`Board "${board.title}": no Status field found, so Delivery Status is not read.`); continue; }
     const onBoard = await readBoardStatuses(sc, installationId, board.id, field.name);
-    if (onBoard.length === 0) continue;
+    if (onBoard.length === 0) { notes.push(`Board "${board.title}": no issues were read from it.`); continue; }
     boards++;
     const current = new Map((await all<{ id: string; gh_project_status: string | null }>((a, b) => admin.from("items").select("id, gh_project_status").eq("tenant_id", connection.tenant_id).eq("home_project_id", p.id).is("deleted_at", null).order("id").range(a, b))).map((i) => [i.id, i.gh_project_status]));
     const links: StatusLink[] = (await all<{ item_id: string; repo_full_name: string; issue_number: number | null; project_item_id: string | null }>((a, b) => admin.from("item_github_links").select("item_id, repo_full_name, issue_number, project_item_id").eq("connection_id", connection.id).not("issue_number", "is", null).order("item_id").range(a, b)))
@@ -45,7 +48,7 @@ export async function syncBoardStatuses(admin: Admin, sc: SourceControl, connect
       updated += Number(data ?? 0);
     }
   }
-  return { boards, updated };
+  return { boards, updated, notes };
 }
 
 const norm = (s: string) => s.trim().toLowerCase();
