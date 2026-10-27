@@ -20,6 +20,8 @@ export type IssueRef = { number: number; id: number; nodeId: string; htmlUrl: st
 /** An organisation-owned GitHub Project (a "board"). */
 export type BoardInfo = { id: string; number: number; title: string; url: string; closed: boolean };
 export type BoardField = { id: string; name: string; dataType: "TEXT" | "NUMBER" | "DATE" | "SINGLE_SELECT" | "OTHER"; options?: { id: string; name: string }[] };
+/** One issue on a Project board with the board's status for it (the option name, null when none is set). */
+export type BoardItemStatus = { itemId: string; issueNodeId: string; repo: string; number: number; status: string | null };
 export type BoardValue = { text: string } | { number: number } | { date: string } | { optionId: string };
 
 /** Raised for GitHub errors. Carries the status only: never the response body, headers or any token. */
@@ -75,6 +77,8 @@ export interface SourceControl {
   listBoards(installationId: number, organisation: string): Promise<BoardInfo[]>;
   /** The fields of a Project, or null when it cannot be found. */
   getBoardFields(installationId: number, boardId: string): Promise<BoardField[] | null>;
+  /** The issues on a Project (up to 1,000) with the value of the named single-select field (the board's Status). */
+  listBoardItems(installationId: number, boardId: string, statusField: string): Promise<BoardItemStatus[]>;
   /** Adds an issue (by its node id) to a Project and returns the Project item id; adding it again returns the same item. */
   addBoardItem(installationId: number, boardId: string, issueNodeId: string): Promise<string>;
   /** Sets one field of a Project item. */

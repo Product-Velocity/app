@@ -1,6 +1,7 @@
 import "server-only";
 import { readIssueTree, summariseTree, type IssueEvent, type IssueSummary, type SourceControl, type SubIssueEvent } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
+import { syncBoardStatuses } from "./board-sync";
 import type { ConnectionRow } from "./server";
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -180,7 +181,9 @@ export async function reconcileConnection(admin: Admin, sc: SourceControl, conne
 export async function runCheck(admin: Admin, sc: SourceControl, connection: ConnectionRow): Promise<ReconcileResult | null> {
   try {
     const r = await reconcileConnection(admin, sc, connection);
-    await admin.from("github_connections").update({ last_check_at: new Date().toISOString(), last_check_summary: `Checked ${r.checked} linked item(s): ${r.changed} changed, ${r.missing} issue(s) not found.` }).eq("id", connection.id);
+    // the board's Status of every linked board (Delivery Status); a board that fails must not fail the check
+    const board = await syncBoardStatuses(admin, sc, connection).catch((e) => { console.error(JSON.stringify({ github: "board-status", error: short(e) })); return null; });
+    await admin.from("github_connections").update({ last_check_at: new Date().toISOString(), last_check_summary: `Checked ${r.checked} linked item(s): ${r.changed} changed, ${r.missing} issue(s) not found.${board?.boards ? ` Board status: ${board.updated} updated.` : ""}` }).eq("id", connection.id);
     return r;
   } catch (e) {
     console.error(JSON.stringify({ github: "check", error: short(e) }));

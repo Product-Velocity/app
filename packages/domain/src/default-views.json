@@ -63,6 +63,7 @@
    "initiative_status",
    "description",
    "status",
+   "gh_project_status",
    "last_synced",
    "synced_with",
    "health",

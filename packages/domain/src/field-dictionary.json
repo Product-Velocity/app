@@ -2109,8 +2109,8 @@
  {
   "n": "N33",
   "storage": "GitHub-synced column (read-only in app)",
-  "phase": 3,
-  "name": "Project Status (GitHub)",
+  "phase": 1,
+  "name": "Delivery Status",
   "key": "gh_project_status",
   "group": "Delivery (GitHub)",
   "type": "Computed",
@@ -2119,16 +2119,12 @@
   "views": [
    "Delivery"
   ],
-  "allowed": [
-   "As defined in the linked GitHub Project (e.g. Todo",
-   "In Progress",
-   "Done)"
-  ],
-  "allowedText": "As defined in the linked GitHub Project (e.g. Todo · In Progress · Done)",
+  "allowed": [],
+  "allowedText": null,
   "origin": "GitHub",
-  "githubSync": "Projects v2 -> app, read-only.",
-  "filledWhen": "Automatic",
-  "description": "Value of the Status field of the item in the linked GitHub Project."
+  "githubSync": "Projects v2 -> app, read-only (the board's Status field, in real time through the projects_v2_item event and at every check).",
+  "filledWhen": "After the initiative is on the board",
+  "description": "Where the initiative stands on the linked GitHub Project board, in the board's own words (for example Backlog, Ready, In progress, On staging, Done). Read from the board, never written by Product Velocity, and separate from Build Status (the issue's open or closed state) and from Initiative Status (set by people)."
  },
  {
   "n": "N34",
