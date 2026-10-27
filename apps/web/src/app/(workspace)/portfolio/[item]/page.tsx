@@ -7,6 +7,8 @@ export async function generateMetadata({ params }: { params: Promise<{ item: str
   return { title: `${decodeURIComponent(item)} · Product Velocity` };
 }
 
+export const maxDuration = 60;
+
 /** One initiative on a page of its own. The address is shareable; the data and the role rules are the same as in the grid. */
 export default async function ItemPage({ params }: { params: Promise<{ item: string }> }) {
   const { item } = await params;

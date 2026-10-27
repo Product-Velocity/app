@@ -115,4 +115,19 @@ describe("receiveFromGithub: Sync with GitHub, the check", () => {
     expect(Object.keys(writes.find((c) => c.table === "github_apply_issue")!.payload as object).sort()).toEqual(["p_connection", "p_issue_id", "p_node_id", "p_number", "p_repo", "p_state", "p_state_reason", "p_updated_at"]);
     expect(writes.some((c) => c.table === "items")).toBe(false);
   });
+
+  it("a chunked caller skips the board read, which then runs once on its own", async () => {
+    const sc = new MemorySourceControl();
+    issue(sc, 31);
+    const chunked = fakeAdmin({ links: [link("i1", 31)] });
+    await receiveFromGithub(chunked, sc, connection, ["i1"], undefined, { board: false });
+    expect(asCalls(chunked).some((c) => c.table === "projects")).toBe(false);
+    const whole = fakeAdmin({ links: [link("i1", 31)] });
+    await receiveFromGithub(whole, sc, connection, ["i1"]);
+    expect(asCalls(whole).some((c) => c.table === "projects")).toBe(true);
+    const { receiveBoardStatus } = await import("./receive");
+    const alone = fakeAdmin({ links: [] });
+    expect(await receiveBoardStatus(alone, sc, connection, ["i1"])).toEqual({ lines: {}, failed: false });
+    expect(asCalls(alone).filter((c) => c.table === "projects")).toHaveLength(1); // one pass over the boards, not one per initiative
+  });
 });

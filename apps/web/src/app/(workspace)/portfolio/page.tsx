@@ -3,6 +3,8 @@ import { PortfolioClient } from "@/features/portfolio/portfolio-client";
 import { loadLookups } from "@/features/portfolio/lookups";
 
 export const metadata = { title: "Roadmap · Product Velocity" };
+// Sync with GitHub runs its checks as server actions from this page; each request is a few initiatives, but a slow GitHub needs room
+export const maxDuration = 60;
 
 export default async function PortfolioPage() {
   const { supabase, active, user } = await requireWorkspace("/portfolio");

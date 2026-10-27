@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { confirmGithubSync, startGithubSync } from "@/app/(workspace)/portfolio/github-push";
+import { checkGithubBoard, confirmGithubSync, startGithubSync } from "@/app/(workspace)/portfolio/github-push";
+import { applyBoardLines, boardCandidates, chunk, CHECK_CHUNK, failedCard, mergeChecked } from "./sync-progress";
 import type { PlanItem, PushItemResult, ReceiveItem, ReceiveStatus, SyncChoice, SyncConflict, SyncPreview, TakenOver } from "@/lib/github/push-types";
 
 type Props = { ids: string[]; onClose: () => void; onDone?: () => void; /** Texts taken over from GitHub (already saved): the grid shows them and makes them one undo step. */ onTakenOver?: (changes: TakenOver[]) => void };
@@ -45,14 +46,47 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
   const confirmRef = useRef<HTMLButtonElement>(null);
   const [choices, setChoices] = useState<Record<string, "pv" | "github">>({});
 
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>({ done: 0, total: ids.length });
+  const [retrying, setRetrying] = useState<string | null>(null);
+
+  // the check runs in chunks of a few initiatives, so cards appear as they are ready (up to 25); the board is read once at the end
   useEffect(() => {
     let live = true;
-    startGithubSync(ids).then(
-      (r) => live && (r.ok && setChoices(defaults(r.received)), setPhase(r.ok ? { kind: "preview", received: r.received, send: r.send, account: r.account } : { kind: "error", message: r.error })),
-      () => live && setPhase({ kind: "error", message: "We could not check GitHub. Try again." }),
-    );
+    (async () => {
+      let state = { received: [] as ReceiveItem[], send: [] as PlanItem[] };
+      let account = "";
+      setProgress({ done: 0, total: ids.length });
+      for (const part of chunk(ids, CHECK_CHUNK)) {
+        const r = await startGithubSync(part, { board: false }).catch(() => null);
+        if (!live) return;
+        if (r && !r.ok) { setPhase({ kind: "error", message: r.error }); setProgress(null); return; }
+        const fresh = r ? { received: r.received, send: r.send } : { received: part.map(failedCard), send: [] };
+        if (r) account = r.account;
+        state = mergeChecked(ids, state, fresh);
+        setChoices((prev) => ({ ...defaults(state.received), ...prev }));
+        setPhase({ kind: "preview", ...state, account });
+        setProgress({ done: state.received.length, total: ids.length });
+      }
+      const linked = boardCandidates(state.received);
+      if (linked.length > 0) {
+        const b = await checkGithubBoard(linked).catch(() => null);
+        if (!live) return;
+        if (b && b.ok) { state = { ...state, received: applyBoardLines(state.received, b.lines, b.failed) }; setPhase({ kind: "preview", ...state, account }); }
+      }
+      setProgress(null);
+    })();
     return () => { live = false; };
   }, [ids]);
+
+  /** Checks one initiative again after its card said it could not be checked. */
+  const retry = async (id: string) => {
+    setRetrying(id);
+    const r = await startGithubSync([id], { board: false }).catch(() => null);
+    setRetrying(null);
+    if (!r || !r.ok) return;
+    setPhase((p) => (p.kind === "preview" ? { ...p, ...mergeChecked(ids, p, { received: r.received, send: r.send }) } : p));
+    setChoices((prev) => ({ ...defaults(r.received), ...prev }));
+  };
   useEffect(() => { confirmRef.current?.focus(); }, [phase.kind]);
 
   const preview = phase.kind === "preview" ? phase : null;
@@ -63,7 +97,10 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
   for (const { r, c } of conflicts) if (choices[keyOf(r.id, c.field)] === "pv") sendIds.add(r.id);
   for (const { r, c } of conflicts) if (c.field === "block" && choices[keyOf(r.id, c.field)] === "github" && !conflicts.some((x) => x.r.id === r.id && x.c.field !== "block" && choices[keyOf(r.id, x.c.field)] === "pv")) sendIds.delete(r.id);
   const overwrites = conflicts.filter(({ r, c }) => choices[keyOf(r.id, c.field)] === "pv").length;
-  const needsConfirm = sendIds.size > 0 || conflicts.length > 0;
+  // only initiatives with something to apply or send go to the confirm, which checks GitHub again for exactly those
+  const actionIds = preview ? ids.filter((id) => sendIds.has(id) || conflicts.some((x) => x.r.id === id)) : [];
+  const needsConfirm = actionIds.length > 0;
+  const checking = progress !== null;
 
   const choose = (all: "pv" | "github") => setChoices(Object.fromEntries(conflicts.map(({ r, c }) => [keyOf(r.id, c.field), all])));
   const send = async () => {
@@ -71,7 +108,7 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
     const picks: SyncChoice[] = conflicts.map(({ r, c }) => ({ itemId: r.id, field: c.field, choice: choices[keyOf(r.id, c.field)]!, ghHash: c.ghHash }));
     setPhase({ kind: "sending" });
     try {
-      const r = await confirmGithubSync(ids, picks);
+      const r = await confirmGithubSync(actionIds, picks);
       if (r.ok) {
         setPhase({ kind: "done", results: r.results });
         if (r.taken.length > 0) onTakenOver?.(r.taken);
@@ -93,7 +130,7 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
       <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <h2 id={titleId}>{phase.kind === "done" ? "Synced with GitHub" : "Sync with GitHub"}</h2>
 
-        {phase.kind === "loading" && <p role="status">Checking GitHub…</p>}
+        {phase.kind === "loading" && <p role="status">Checking GitHub… {progress ? `${progress.done} of ${progress.total}` : ""}</p>}
         {phase.kind === "sending" && <p role="status">Sending to GitHub… keep this window open.</p>}
         {phase.kind === "error" && (
           <>
@@ -115,6 +152,7 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
                 <button type="button" className="btn" onClick={() => choose("github")}>Keep GitHub for all conflicts</button>
               </div>
             )}
+            {progress && <p role="status" aria-live="polite" className="muted">Checked {progress.done} of {progress.total}…</p>}
             <ul className="push-list">
               {phase.received.map((r) => {
                 const p = r.readOnly ? undefined : phase.send.find((x) => x.id === r.id);
@@ -125,6 +163,7 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
                     <strong>{r.code}</strong> {r.name} · <span className="push-pill">{label}</span>
                     {r.issueNumber && r.issueUrl && <> · <a href={r.issueUrl} target="_blank" rel="noreferrer">issue #{r.issueNumber}</a></>}
                     {r.message && <><br /><span className="muted">{r.message}</span></>}
+                    {r.status === "error" && !checking && <> <button type="button" className="btn" disabled={retrying === r.id} onClick={() => retry(r.id)}>{retrying === r.id ? "Checking…" : "Try again"}</button></>}
                     {r.readOnly && <><br /><span className="muted">Follows this issue read-only: nothing to send.</span></>}
                     {(r.status === "in_step" || r.status === "follows") && !sends && <><br /><span className="muted">Everything is in step.</span></>}
                     {r.received.length > 0 && (
@@ -185,8 +224,8 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
             {unchosen.length > 0 && <p role="status" className="muted">Choose for {unchosen.length === 1 ? "the conflict above" : `all ${unchosen.length} open conflicts`} to continue.</p>}
             <div className="dialog-actions">
               {needsConfirm && <button type="button" className="btn" onClick={onClose}>Cancel</button>}
-              <button ref={confirmRef} type="button" className="btn btn-primary" disabled={unchosen.length > 0} onClick={needsConfirm ? send : onClose}>
-                {!needsConfirm ? "Done" : sendIds.size > 0 ? "Apply and send" : "Apply"}
+              <button ref={confirmRef} type="button" className="btn btn-primary" disabled={unchosen.length > 0 || checking} onClick={needsConfirm ? send : onClose}>
+                {checking ? "Checking…" : !needsConfirm ? "Done" : sendIds.size > 0 ? "Apply and send" : "Apply"}
               </button>
             </div>
           </>
