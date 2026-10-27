@@ -1,4 +1,4 @@
-import { chooseOption } from "./helpers";
+import { chooseOption, hasChanges, resetChanges, viewTab } from "./helpers";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -108,7 +108,7 @@ test.describe("scope switcher", () => {
   });
 
   test("admins add a project from the dropdown (+ New project)", async ({ page }) => {
-    await open(page);
+    await open(page, "n=30&role=admin");
     await scopeButton(page).click();
     await scopeMenu(page).getByRole("menuitem", { name: "+ New project" }).click();
     const dialog = page.getByRole("dialog", { name: "New project" });
@@ -121,7 +121,7 @@ test.describe("scope switcher", () => {
   });
 
   test("menus work in Safari, which does not focus a button on click: the menu stays until the click lands", async ({ page }) => {
-    await open(page);
+    await open(page, "n=30&role=admin");
     // what Safari does on mousedown: the clicked button is not focused, and the element that had the focus loses it
     await page.evaluate(() => document.addEventListener("mousedown", (e) => { e.preventDefault(); (document.activeElement as HTMLElement | null)?.blur(); }, true));
     await scopeButton(page).click();
@@ -131,9 +131,8 @@ test.describe("scope switcher", () => {
     await scopeButton(page).click();
     await scopeMenu(page).getByRole("menuitemradio", { name: /Customer-facing work/ }).click();
     await expect(page.locator(".filter-chips")).toContainText("Scope: Customer-facing work");
-    await page.getByRole("button", { name: /^Views/ }).click();
-    await page.getByRole("menuitem", { name: /Save current view as new/ }).click();
-    await expect(page.getByRole("dialog", { name: "Save view" })).toBeVisible();
+    await page.getByRole("button", { name: /more views$/ }).click();
+    await expect(page.getByRole("dialog", { name: "Views" })).toBeVisible();
   });
 
   test("view-only roles can switch scope but not create or edit scopes or projects", async ({ page }) => {
@@ -275,150 +274,7 @@ test.describe("grouping", () => {
   });
 });
 
-test.describe("saved views", () => {
-  test("save columns, filters and grouping as a view; opening it restores all three; changes show as unsaved", async ({ page }) => {
-    await open(page);
-    // build a view: hide Confidence, filter Must, group by Health
-    await page.getByRole("button", { name: /columns shown$/ }).click();
-    await page.getByLabel("Confidence", { exact: true }).uncheck();
-    await page.getByRole("button", { name: /^Apply columns/ }).click();
-    await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toHaveCount(0);
-    await addFilter(page, "moscow", "Must");
-    await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: /^Group by/ }).click();
-    await page.getByRole("menuitemradio", { name: "Health" }).click();
-    await expect(page.locator(".view-dirty")).toContainText("You changed this view (Prioritisation)");
-    // save
-    await page.getByRole("button", { name: /^Views/ }).click();
-    await page.getByRole("menuitem", { name: /Save current view as new/ }).click();
-    const dialog = page.getByRole("dialog", { name: "Save view" });
-    await dialog.getByLabel("Name").fill("My planning");
-    await dialog.getByRole("button", { name: "Save view" }).click();
-    await expect(page.getByRole("button", { name: /^Views My planning/ })).toBeVisible();
-    await expect(page.locator(".view-dirty")).toHaveCount(0);
-    expect(page.url()).toContain("view=view-");
-    // leave for another view, then come back through the Views menu
-    await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Delivery" }).click();
-    await expect(foot(page)).toContainText("30 items");
-    await expect(page.locator(".group-row")).toHaveCount(0);
-    await page.getByRole("button", { name: /^Views/ }).click();
-    await page.getByRole("menuitemradio", { name: "My planning" }).click();
-    await expect(foot(page)).toContainText("8 of 30 items shown");
-    await expect(page.getByRole("button", { name: /^Collapse group/ }).first()).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("columnheader", { name: /MoSCoW/ })).toBeVisible();
-    await expect(page.locator(".filter-chips")).toContainText("MoSCoW is Must");
-  });
-
-  test("a saved view is shared: it is in the list for everyone; viewers can open but not save", async ({ page }) => {
-    await open(page, "n=10&role=viewer");
-    await page.getByRole("button", { name: /^Views/ }).click();
-    await expect(page.getByRole("menu", { name: "Saved views" })).toContainText("None yet");
-    await expect(page.getByRole("menuitem")).toHaveCount(0);
-  });
-
-  test("update, rename and delete a saved view", async ({ page }) => {
-    await open(page);
-    await addFilter(page, "effort", "M");
-    await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: /^Views/ }).click();
-    await page.getByRole("menuitem", { name: /Save current view as new/ }).click();
-    await page.getByRole("dialog", { name: "Save view" }).getByLabel("Name").fill("Mediums");
-    await page.getByRole("dialog", { name: "Save view" }).getByRole("button", { name: "Save view" }).click();
-    await expect(foot(page)).toContainText("6 of 30 items shown");
-    // change the filter, then update the view with it
-    await page.getByRole("button", { name: /^(Add filter|\d+ filters?)/ }).click();
-    await page.getByLabel("Value for Effort (T-shirt)").selectOption("L");
-    await page.keyboard.press("Escape");
-    await expect(page.locator(".view-dirty")).toBeVisible();
-    await page.getByRole("button", { name: /^Views Mediums/ }).click();
-    await page.getByRole("menuitem", { name: /Update “Mediums”/ }).click();
-    await expect(page.locator(".view-dirty")).toHaveCount(0);
-    expect(await page.evaluate(() => (window as unknown as { __pv: { store: { views: { filters: { value: string }[] }[] } } }).__pv.store.views[0]!.filters[0]!.value)).toBe("L");
-    // rename
-    await page.getByRole("button", { name: /^Views Mediums/ }).click();
-    await page.getByRole("menuitem", { name: /Rename “Mediums”/ }).click();
-    await page.getByRole("dialog", { name: "Rename view" }).getByLabel("Name").fill("Larges");
-    await page.getByRole("dialog", { name: "Rename view" }).getByRole("button", { name: "Rename" }).click();
-    await expect(page.getByRole("button", { name: /^Views Larges/ })).toBeVisible();
-    // delete (asks first)
-    await page.getByRole("button", { name: /^Views Larges/ }).click();
-    await page.getByRole("menuitem", { name: /Delete “Larges”/ }).click();
-    await expect(page.getByRole("dialog", { name: "Delete view" })).toContainText("removed for everyone");
-    await page.getByRole("dialog", { name: "Delete view" }).getByRole("button", { name: "Yes, delete view" }).click();
-    await expect(page.getByRole("button", { name: /^Views$/ })).toBeVisible();
-    await expect(foot(page)).toContainText("30 items");
-  });
-
-  test("a default view can be changed for everyone, duplicated as it is, and restored", async ({ page }) => {
-    await open(page, "n=30&cols=all"); // every column rendered, so one added at the far right can be found
-    const chips = page.getByRole("group", { name: "View" });
-    await chips.getByRole("button", { name: "Delivery" }).click();
-    const before = await page.getByRole("columnheader").count();
-    await page.getByRole("button", { name: /columns shown$/ }).click();
-    await page.getByLabel("Confidence", { exact: true }).check();
-    await page.getByRole("button", { name: /^Apply columns/ }).click();
-    await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: /^Views/ }).click();
-    await page.getByRole("menuitem", { name: /Change the default “Delivery” for everyone/ }).click();
-    await expect(page.locator(".view-dirty")).toHaveCount(0);
-    await expect(chips.getByRole("button", { name: "Delivery" })).toHaveAttribute("title", /changed by your workspace/);
-    // another default is untouched; coming back shows the changed Delivery
-    await chips.getByRole("button", { name: "Planning" }).click();
-    await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toHaveCount(0);
-    await chips.getByRole("button", { name: "Delivery" }).click();
-    await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toBeVisible();
-    // duplicate it as a saved view
-    await page.getByRole("button", { name: /^Views/ }).click();
-    await page.getByRole("menuitem", { name: /Save current view as new/ }).click();
-    await page.getByRole("dialog", { name: "Save view" }).getByLabel("Name").fill("Delivery plus");
-    await page.getByRole("dialog", { name: "Save view" }).getByRole("button", { name: "Save view" }).click();
-    await expect(page.getByRole("button", { name: /^Views Delivery plus/ })).toBeVisible();
-    // restore the original
-    await chips.getByRole("button", { name: "Delivery" }).click();
-    await page.getByRole("button", { name: /^Views/ }).click();
-    await page.getByRole("menuitem", { name: /Restore the original “Delivery”/ }).click();
-    await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toHaveCount(0);
-    expect(await page.getByRole("columnheader").count()).toBe(before);
-    await expect(chips.getByRole("button", { name: "Delivery" })).toHaveAttribute("title", "Default view");
-    await page.getByRole("button", { name: /^Views/ }).click();
-    await expect(page.getByRole("menuitem", { name: /Restore the original/ })).toHaveCount(0);
-  });
-
-  test("viewers cannot change a default view", async ({ page }) => {
-    await open(page, "n=10&role=viewer");
-    await page.getByRole("button", { name: /^Views/ }).click();
-    await expect(page.getByRole("menuitem", { name: /Change the default/ })).toHaveCount(0);
-  });
-
-  test("a customer-safe view keeps only customer-safe columns; the Columns picker says why others are off", async ({ page }) => {
-    await open(page);
-    await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Prioritisation" }).click();
-    await expect(page.getByRole("columnheader", { name: /Value \(EUR/ })).toBeVisible();
-    await page.getByRole("button", { name: /^Views/ }).click();
-    await page.getByRole("menuitem", { name: /Save current view as new/ }).click();
-    const d = page.getByRole("dialog", { name: "Save view" });
-    await d.getByLabel("Name").fill("For customers");
-    await d.getByLabel(/Customer-safe view/).check();
-    await d.getByRole("button", { name: "Save view" }).click();
-    await expect(page.getByRole("button", { name: /^Views For customers/ })).toBeVisible();
-    await expect(page.getByRole("columnheader", { name: /Value \(EUR/ })).toHaveCount(0);
-    await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("columnheader", { name: /Roadmap Category/ })).toBeVisible();
-    const stored = await page.evaluate(() => (window as unknown as { __pv: { store: { views: { name: string; customerSafe?: boolean; columns: string[] }[] } } }).__pv.store.views.find((v) => v.name === "For customers")!);
-    expect(stored.customerSafe).toBe(true);
-    expect(stored.columns).not.toContain("value_12m");
-    expect(stored.columns).not.toContain("stack_rank");
-    await page.getByRole("button", { name: /columns shown$/ }).click();
-    const value = page.getByLabel(/^Value \(EUR/);
-    await expect(value).toBeDisabled();
-    await expect(page.locator("label", { has: value })).toContainText("not customer-safe");
-    await expect(page.getByLabel("Roadmap Category", { exact: true })).toBeEnabled();
-    await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: /^Views/ }).click();
-    await expect(page.getByRole("menuitemradio", { name: /For customers/ })).toContainText("customer-safe");
-  });
-
+test.describe("grid view changes", () => {
   test("the Columns picker reaches all 169 fields, grouped, with later phases marked", async ({ page }) => {
     await open(page);
     await page.getByRole("button", { name: /columns shown$/ }).click();
@@ -429,25 +285,12 @@ test.describe("saved views", () => {
     await expect(panel).toContainText("arrives in phase 7");
   });
 
-  test("a view name that already exists is explained", async ({ page }) => {
-    await open(page);
-    for (const expectError of [false, true]) {
-      await page.getByRole("button", { name: /^Views/ }).click();
-      await page.getByRole("menuitem", { name: /Save current view as new/ }).click();
-      const d = page.getByRole("dialog", { name: "Save view" });
-      await d.getByLabel("Name").fill("Same name");
-      await d.getByRole("button", { name: "Save view" }).click();
-      if (expectError) await expect(d.getByRole("alert")).toContainText('There is already a view called "Same name"');
-      else await expect(page.getByRole("dialog")).toHaveCount(0);
-    }
-  });
-
   test("Reset puts the view back as it was saved", async ({ page }) => {
     await open(page);
     await addFilter(page, "moscow", "Must");
     await page.keyboard.press("Escape");
     await expect(foot(page)).toContainText("8 of 30");
-    await page.locator(".view-dirty").getByRole("button", { name: "Reset" }).click();
+    await resetChanges(page);
     await expect(foot(page)).toContainText("30 items");
   });
 
@@ -463,7 +306,7 @@ test.describe("saved views", () => {
     await page.mouse.move(b.x + 6, b.y + b.height / 2, { steps: 15 });
     await page.mouse.up();
     await expect.poll(async () => { const o = await order(); return o.indexOf("roadmap_category") < o.indexOf("theme"); }).toBe(true);
-    await expect(page.locator(".view-dirty")).toContainText("You changed this view");
+    await expect(hasChanges(page)).toBeVisible();
   });
 });
 
@@ -478,7 +321,7 @@ test.describe("command palette", () => {
     await expect(dialog.getByRole("option").first()).toContainText("Go to view: Planning");
     await page.keyboard.press("Enter");
     await expect(dialog).toHaveCount(0);
-    await expect(page.getByRole("group", { name: "View" }).getByRole("button", { name: "Planning" })).toHaveAttribute("aria-pressed", "true");
+    await expect(viewTab(page, "Planning")).toHaveAttribute("aria-pressed", "true");
     expect(page.url()).toContain("view=Planning");
   });
 

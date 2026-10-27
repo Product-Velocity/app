@@ -198,7 +198,33 @@ export function buildGroupedRows<T extends { id: string }>(rows: T[], groupBy: s
 
 // -------------------------------------------------------------------- views
 /** What a saved view stores: the columns in order, the filters and the grouping. */
-export type ViewDef = { columns: string[]; filters: Filter[]; groupBy: string | null; customerSafe?: boolean; /** Columns pinned to the left besides the core ones; only within the first four places. */ pinned?: string[] };
+export type ViewDef = { columns: string[]; filters: Filter[]; groupBy: string | null; customerSafe?: boolean; /** Columns pinned to the left besides the core ones; only within the first four places. */ pinned?: string[]; /** One sort; null or missing means the global Stack Rank order. */ sort?: SortDef | null };
+
+/** One sort column and direction (a view holds one; multi-column sort is later). */
+export type SortDef = { field: string; dir: "asc" | "desc" };
+/** Fields a view can be sorted by: everything except long text. */
+export const sortableFields = () => FIELDS.filter((f) => f.type !== "Long text");
+const isSortable = (key: string) => key in FIELD_BY_KEY && FIELD_BY_KEY[key]!.type !== "Long text";
+
+/**
+ * Orders rows by a view's sort; empty values go last in both directions and ties keep the Stack Rank order.
+ * Numbers compare as numbers, everything else as text (dates are stored as ISO text, which sorts correctly).
+ */
+export function sortRows<T extends Record<string, unknown>>(rows: readonly T[], sort: SortDef | null | undefined): T[] {
+  if (!sort) return [...rows];
+  const dir = sort.dir === "desc" ? -1 : 1;
+  const empty = (v: unknown) => v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0);
+  const rank = (r: T) => (typeof r.stack_rank === "number" ? r.stack_rank : Number.MAX_SAFE_INTEGER);
+  return [...rows].sort((a, b) => {
+    const x = a[sort.field], y = b[sort.field];
+    if (empty(x) !== empty(y)) return empty(x) ? 1 : -1;
+    if (!empty(x)) {
+      const c = typeof x === "number" && typeof y === "number" ? x - y : String(Array.isArray(x) ? x.join(", ") : x).localeCompare(String(Array.isArray(y) ? y.join(", ") : y), "en", { numeric: true, sensitivity: "base" });
+      if (c !== 0) return c * dir;
+    }
+    return rank(a) - rank(b);
+  });
+}
 
 /** At most four columns stay on the left while the grid scrolls: the core columns, then pinned ones in the places left of the four. */
 export const MAX_PINNED = 4;
@@ -231,5 +257,7 @@ export function sanitizeView(input: unknown): ViewDef {
   const groupBy = typeof o.groupBy === "string" && groupableFields().some((g) => g.key === o.groupBy) && (!customerSafe || isCustomerSafe(o.groupBy)) ? o.groupBy : null;
   const asked = Array.isArray(o.pinned) ? o.pinned.filter((c): c is string => typeof c === "string") : [];
   const pinned = columns.slice(core.length, MAX_PINNED).filter((c) => asked.includes(c));
-  return { columns, filters, groupBy, ...(customerSafe ? { customerSafe: true } : {}), ...(pinned.length > 0 ? { pinned } : {}) };
+  const rawSort = o.sort && typeof o.sort === "object" ? (o.sort as Record<string, unknown>) : null;
+  const sort: SortDef | null = rawSort && typeof rawSort.field === "string" && isSortable(rawSort.field) && (!customerSafe || isCustomerSafe(rawSort.field)) ? { field: rawSort.field, dir: rawSort.dir === "desc" ? "desc" : "asc" } : null;
+  return { columns, filters, groupBy, ...(customerSafe ? { customerSafe: true } : {}), ...(pinned.length > 0 ? { pinned } : {}), ...(sort ? { sort } : {}) };
 }

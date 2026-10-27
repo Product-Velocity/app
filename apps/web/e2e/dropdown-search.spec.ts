@@ -141,10 +141,14 @@ test.describe("search in long drop-downs (R-018)", () => {
     await expect(page.getByRole("banner").locator(".scope-chip")).toContainText("Growth");
   });
 
-  test("Views: a search shows only when there are more than 8 saved views", async ({ page }) => {
+  test("More views: the 11 default views are more than 8, so the menu has a search box that filters them", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: /^Views/ }).click();
-    await expect(page.getByRole("searchbox", { name: "Search saved views" })).toHaveCount(0);
+    await page.getByRole("button", { name: /more views$/ }).click();
+    const search = page.getByRole("searchbox", { name: "Search views" });
+    await expect(search).toBeVisible();
+    await search.fill("time");
+    await expect(page.locator(".vm-open")).toHaveCount(1);
+    await expect(page.locator(".vm-open")).toContainText("Timeline");
   });
 
   test("Bulk bar, More fields: search the field list and set a value from the keyboard", async ({ page }) => {

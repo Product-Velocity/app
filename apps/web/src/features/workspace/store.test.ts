@@ -17,8 +17,12 @@ function fake(responses: { data?: unknown; error?: unknown }[]) {
     });
     return proxy;
   };
-  const client = { from: (table: string) => { const c: Call = { table, ops: [] }; calls.push(c); return make(c); } } as unknown as SupabaseClient;
-  return { client, calls };
+  const rpcs: { name: string; args: unknown }[] = [];
+  const client = {
+    from: (table: string) => { const c: Call = { table, ops: [] }; calls.push(c); return make(c); },
+    rpc: async (name: string, args: unknown) => { rpcs.push({ name, args }); const res = responses.shift() ?? {}; return { data: null, error: res.error ?? null }; },
+  } as unknown as SupabaseClient;
+  return { client, calls, rpcs };
 }
 const has = (c: Call, op: string, ...args: unknown[]) => c.ops.some(([o, a]) => o === op && JSON.stringify(a) === JSON.stringify(args));
 const def = { columns: ["stack_rank", "item_code", "initiative_name", "moscow"], filters: [{ field: "moscow", op: "is" as const, value: "Must" }], groupBy: "health" };
@@ -77,14 +81,39 @@ describe("SupabaseWorkspaceStore: views", () => {
   it("lists views and cleans what it reads", async () => {
     const { client } = fake([{ data: [{ id: "v1", name: "Planning", columns: ["moscow", "nope"], filters: [{ field: "nope", op: "is" }], group_by: "bogus" }] }]);
     expect(await new SupabaseWorkspaceStore(client, "t1").listViews()).toEqual([
-      { id: "v1", name: "Planning", baseView: null, columns: ["stack_rank", "item_code", "initiative_name", "moscow"], filters: [], groupBy: null },
+      { id: "v1", name: "Planning", baseView: null, ownerId: null, columns: ["stack_rank", "item_code", "initiative_name", "moscow"], filters: [], groupBy: null },
     ]);
   });
   it("creates a view with its columns, filters and grouping", async () => {
     const { client, calls } = fake([{ data: { id: "v2" } }]);
-    const r = await new SupabaseWorkspaceStore(client, "t1").createView(" My view ", def);
-    expect(r).toEqual({ ok: true, value: { id: "v2", name: "My view", baseView: null, ...def } });
-    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "My view", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: [] })).toBe(true);
+    const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView(" My view ", def);
+    expect(r).toEqual({ ok: true, value: { id: "v2", name: "My view", baseView: null, ownerId: "u1", ...def } });
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "My view", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: [], sort: null, visibility: "private", owner_id: "u1" })).toBe(true);
+  });
+  it("creates a workspace view only when asked, with no owner and its sort", async () => {
+    const { client, calls } = fake([{ data: { id: "v3" } }]);
+    const sort = { field: "moscow", dir: "desc" as const };
+    const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView("Shared", { ...def, sort }, { workspace: true });
+    expect(r).toMatchObject({ ok: true, value: { ownerId: null, sort } });
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "Shared", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: [], sort, visibility: "workspace", owner_id: null })).toBe(true);
+  });
+  it("a private view is never customer-safe, and saving needs to know who is signed in", async () => {
+    const { client, calls } = fake([{ data: { id: "v4" } }]);
+    await new SupabaseWorkspaceStore(client, "t1", "u1").createView("Mine", { columns: ["item_code"], filters: [], groupBy: null, customerSafe: true });
+    expect(JSON.stringify(calls[0]!.ops)).toContain('"customer_safe":false');
+    expect(await new SupabaseWorkspaceStore(fake([]).client, "t1").createView("x", def)).toMatchObject({ ok: false });
+  });
+  it("shows the database's readable cap message", async () => {
+    const { client } = fake([{ error: { code: "23514", message: "You can have at most 25 private views. Delete one first." } }]);
+    expect(await new SupabaseWorkspaceStore(client, "t1", "u1").createView("26th", def)).toEqual({ ok: false, error: "You can have at most 25 private views. Delete one first." });
+  });
+  it("publishes and unpublishes a view by changing its owner", async () => {
+    const up = fake([{ data: [{ id: "v1", name: "A", columns: def.columns, filters: [], group_by: null, owner_id: null }] }]);
+    expect(await new SupabaseWorkspaceStore(up.client, "t1", "u1").setViewScope("v1", true)).toMatchObject({ ok: true, value: { ownerId: null } });
+    expect(has(up.calls[0]!, "update", { visibility: "workspace", owner_id: null, customer_safe: false })).toBe(true);
+    const down = fake([{ data: [{ id: "v1", name: "A", columns: def.columns, filters: [], group_by: null, owner_id: "u1" }] }]);
+    await new SupabaseWorkspaceStore(down.client, "t1", "u1").setViewScope("v1", false);
+    expect(has(down.calls[0]!, "update", { visibility: "private", owner_id: "u1", customer_safe: false })).toBe(true);
   });
   it("updates only what changed and guards by tenant", async () => {
     const { client, calls } = fake([{ data: [{ id: "v1", name: "Renamed", columns: def.columns, filters: [], group_by: null }] }]);
@@ -118,9 +147,9 @@ describe("default views and customer-safe views", () => {
   });
   it("saves a customer-safe view with its flag, keeping only safe columns", async () => {
     const { client, calls } = fake([{ data: { id: "v9" } }]);
-    const r = await new SupabaseWorkspaceStore(client, "t1").createView("For customers", { columns: ["stack_rank", "item_code", "initiative_name", "value_12m", "summary"], filters: [], groupBy: null, customerSafe: true });
+    const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView("For customers", { columns: ["stack_rank", "item_code", "initiative_name", "value_12m", "summary"], filters: [], groupBy: null, customerSafe: true }, { workspace: true });
     expect(r).toMatchObject({ ok: true, value: { customerSafe: true, columns: ["item_code", "initiative_name", "summary"] } });
-    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "For customers", columns: ["item_code", "initiative_name", "summary"], filters: [], group_by: null, customer_safe: true, pinned: [] })).toBe(true);
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "For customers", columns: ["item_code", "initiative_name", "summary"], filters: [], group_by: null, customer_safe: true, pinned: [], sort: null, visibility: "workspace", owner_id: null })).toBe(true);
   });
   it("memory store: customising, restoring and who may", async () => {
     const s = new MemoryWorkspaceStore();
@@ -164,5 +193,77 @@ describe("MemoryWorkspaceStore", () => {
     const v = (await s.createView("V", def)) as { ok: true; value: { id: string } };
     expect(await s.updateView(v.value.id, { groupBy: null })).toMatchObject({ ok: true, value: { groupBy: null } });
     expect(await s.deleteView(v.value.id)).toEqual({ ok: true, value: null });
+  });
+});
+
+
+describe("layouts", () => {
+  it("reads the workspace default and the person's own rows, in order", async () => {
+    const { client, calls } = fake([{ data: [
+      { user_id: null, view_id: null, builtin: "Timeline", in_bar: true, position: 0, hidden: false },
+      { user_id: null, view_id: null, builtin: "History", in_bar: false, position: 1, hidden: true },
+      { user_id: "u1", view_id: "v1", builtin: null, in_bar: true, position: 0, hidden: false },
+    ] }]);
+    const l = await new SupabaseWorkspaceStore(client, "t1", "u1").listLayouts();
+    expect(l.workspace).toEqual([{ ref: { kind: "builtin", name: "Timeline" }, inBar: true, position: 0 }, { ref: { kind: "builtin", name: "History" }, inBar: false, position: 1, hidden: true }]);
+    expect(l.mine).toEqual([{ ref: { kind: "saved", id: "v1" }, inBar: true, position: 0 }]);
+    expect(has(calls[0]!, "eq", "tenant_id", "t1")).toBe(true);
+  });
+  it("replaces a layout in one database call and refuses a seventh view before asking", async () => {
+    const { client, rpcs } = fake([{}]);
+    const s = new SupabaseWorkspaceStore(client, "t1", "u1");
+    expect(await s.replaceLayout(false, [{ ref: { kind: "builtin", name: "Planning" }, inBar: true, position: 0 }, { ref: { kind: "saved", id: "v1" }, inBar: false, position: 1 }])).toEqual({ ok: true, value: null });
+    expect(rpcs).toEqual([{ name: "replace_view_layout", args: { p_tenant: "t1", p_workspace: false, p_rows: [
+      { view_id: null, builtin: "Planning", in_bar: true, position: 0, hidden: false },
+      { view_id: "v1", builtin: null, in_bar: false, position: 1, hidden: false },
+    ] } }]);
+    const seven = ["Prioritisation", "Planning", "Delivery", "Go-to-market", "Outcomes", "Leadership", "Discovery"].map((name, position) => ({ ref: { kind: "builtin" as const, name: name as never }, inBar: true, position }));
+    expect(await s.replaceLayout(false, seven)).toEqual({ ok: false, error: "Your bar is full (6). Remove one first." });
+    expect(rpcs).toHaveLength(1); // the seventh never reached the database
+  });
+});
+
+describe("memory store: ownership, caps and layouts", () => {
+  const mk = (admin: boolean) => new MemoryWorkspaceStore({ me: "u1", admin, views: [{ id: "w1", name: "Shared", ownerId: null, ...def }, { id: "x1", name: "Someone else's", ownerId: "u2", ...def }] });
+  it("never lists another person's private view", async () => {
+    expect((await mk(false).listViews()).map((v) => v.name)).toEqual(["Shared"]);
+  });
+  it("a member saves private views, cannot change workspace views, and cannot make a workspace view", async () => {
+    const s = mk(false);
+    const mine = await s.createView("Mine", def);
+    expect(mine).toMatchObject({ ok: true, value: { ownerId: "u1" } });
+    expect(await s.updateView("w1", { name: "Nope" })).toMatchObject({ ok: false });
+    expect(await s.deleteView("w1")).toMatchObject({ ok: false });
+    expect(await s.createView("Public", def, { workspace: true })).toMatchObject({ ok: false });
+    expect(await s.updateView("x1", { name: "Nope" })).toMatchObject({ ok: false }); // not visible
+  });
+  it("an admin changes workspace views and publishes their own private view", async () => {
+    const s = mk(true);
+    expect(await s.updateView("w1", { name: "Renamed" })).toMatchObject({ ok: true });
+    const mine = (await s.createView("Mine", def)) as { ok: true; value: { id: string } };
+    expect(await s.setViewScope(mine.value.id, true)).toMatchObject({ ok: true, value: { ownerId: null } });
+  });
+  it("names are unique per owner: a private view may reuse a workspace name", async () => {
+    const s = mk(false);
+    expect(await s.createView("Shared", def)).toMatchObject({ ok: true });
+    expect(await s.createView(" shared ", def)).toMatchObject({ ok: false });
+  });
+  it("the 26th private view is refused with a readable message", async () => {
+    const s = mk(false);
+    for (let i = 1; i <= 25; i++) expect((await s.createView(`V${i}`, def)).ok).toBe(true);
+    expect(await s.createView("V26", def)).toEqual({ ok: false, error: "You can have at most 25 private views. Delete one first." });
+  });
+  it("layouts are per person; only admins write the workspace one; deleting a view clears it from layouts", async () => {
+    const s = mk(false);
+    const row = { ref: { kind: "saved" as const, id: "w1" }, inBar: true, position: 0 };
+    expect(await s.replaceLayout(false, [row])).toEqual({ ok: true, value: null });
+    expect((await s.listLayouts()).mine).toHaveLength(1);
+    expect(await s.replaceLayout(true, [row])).toMatchObject({ ok: false });
+    await s.replaceLayout(false, []);
+    expect((await s.listLayouts()).mine).toHaveLength(0);
+    const a = mk(true);
+    await a.replaceLayout(false, [row]);
+    await a.deleteView("w1");
+    expect((await a.listLayouts()).mine).toHaveLength(0);
   });
 });

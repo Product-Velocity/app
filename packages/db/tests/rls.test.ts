@@ -288,6 +288,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "view_layouts",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.view_layouts set position = 9 where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.view_layouts where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.view_layouts (tenant_id, builtin, position) values ($1, 'Planning', 0)", params: [v.tenantId] },
+      { sql: "update public.view_layouts set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "item_tags",
     tenantColumn: "tenant_id",
     attacks: (v) => [

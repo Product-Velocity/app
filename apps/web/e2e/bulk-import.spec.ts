@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { chooseOption } from "./helpers";
+import { chooseOption, goToView, viewTab } from "./helpers";
 
 const fieldNames = Object.fromEntries((JSON.parse(readFileSync(new URL("../../../packages/domain/src/field-dictionary.json", import.meta.url), "utf8")) as { key: string; name: string }[]).map((f) => [f.key, f.name])) as Record<string, string> as Record<string, string>;
 
@@ -249,14 +249,14 @@ test.describe("header and page head follow the prototype", () => {
     await expect(header.locator("summary")).toContainText("account menu for ashu.mathura@example.test");
   });
 
-  test("the ten default views are chips; choosing one changes the columns", async ({ page }) => {
+  test("six default views are tabs and the rest are in the menu; choosing one changes the columns", async ({ page }) => {
     await open(page, "n=20");
-    const chips = page.getByRole("group", { name: "View" });
-    await expect(chips.getByRole("button")).toHaveCount(11); // ten views and All columns
-    await expect(chips.getByRole("button", { name: "Prioritisation" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".view-chip")).toHaveCount(6);
+    await expect(page.getByRole("button", { name: "5 more views" })).toBeVisible();
+    await expect(viewTab(page, "Prioritisation")).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("columnheader", { name: /Value Realized/ })).toHaveCount(0);
-    await chips.getByRole("button", { name: "Timeline" }).click();
-    await expect(chips.getByRole("button", { name: "Timeline" })).toHaveAttribute("aria-pressed", "true");
+    await goToView(page, "Timeline");
+    await expect(viewTab(page, "Timeline")).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("columnheader", { name: /Initiative Phase/ }).first()).toBeVisible();
   });
 

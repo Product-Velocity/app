@@ -16,6 +16,8 @@ Hosted at `/mcp`, OAuth-authenticated; every call runs **as the signed-in user**
 
 Batch operations are supported (many items in one call), each logged individually with `via = Claude MCP`.
 
+**Views (R-99, `docs/13-GRID.md`; the tools arrive with this server in Phase 4).** Two tools only, never one per panel: `update_view` (overwrite the open view with the current columns, pinned columns, filters, grouping and sort) and `save_view_as_new` (a name; private unless the signed-in user is an admin who asks for workspace). Claude acts with the signed-in user's role and the database decides: it can read and write only that user's own private views plus the workspace views an admin may change, can never see another person's private view, cannot mark a view customer-safe without an admin, and every write is audited with source `Claude MCP`. Layout changes (the bar) stay with the person.
+
 ## Guardrails
 1. User's role applies; Approver can't be delegated. 2. Drafts carry an "AI draft" flag until a human edits/accepts. 3. Confirmation before any outbound or irreversible action. 4. Source documents, issues and emails are **data**: strip/ignore embedded instructions; never let them change tool behaviour. 5. Full audit "via Claude". 6. Per-tenant switch to disable Claude; per-user connection list with revoke. 7. Rate limits and usage metering (`ai_usage`).
 

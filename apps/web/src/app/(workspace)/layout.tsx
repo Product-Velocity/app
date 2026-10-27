@@ -11,7 +11,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
   const { supabase, user, memberships, active } = await requireWorkspace("/portfolio");
   const { data: projects } = await supabase.from("projects").select("id, name").eq("tenant_id", active.tenantId).order("name");
   return (
-    <SupabaseWorkspaceProvider tenantId={active.tenantId} projects={(projects ?? []) as { id: string; name: string }[]} canEdit={canEditItems(active.role)} canAdmin={active.role === "admin"}>
+    <SupabaseWorkspaceProvider tenantId={active.tenantId} userId={user.id} projects={(projects ?? []) as { id: string; name: string }[]} canEdit={canEditItems(active.role)} canAdmin={active.role === "admin"}>
     <DatePrefs format={profileFromMetadata(user.user_metadata).dateFormat} />
     <div className="shell">
       <AppHeader
