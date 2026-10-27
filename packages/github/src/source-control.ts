@@ -46,6 +46,8 @@ export type IssueSummary = {
 /** A sub-issue as GitHub reports it. `repo` can differ from the parent's repository. */
 export type SubIssue = { number: number; id: number; /** GraphQL id, needed to put the issue on a Project board. */ nodeId: string; repo: string; title: string; state: "open" | "closed"; stateReason: string | null; closedAt: string | null; assignees: string[]; createdBy: "app" | "claude" | "engineer"; /** When the issue last changed, and its labels: for the stale and blocked counts. */ updatedAt?: string; labels?: string[] };
 
+import type { PrRef, ReleaseRef } from "./delivery";
+
 export interface SourceControl {
   readonly provider: "github";
   /** The installation, or null when it does not exist (or does not belong to this App). */
@@ -83,6 +85,14 @@ export interface SourceControl {
   listBoardItems(installationId: number, boardId: string, statusField: string, extra?: { iterationField?: string | null; dateField?: string | null }): Promise<BoardItemStatus[]>;
   /** The values of an item on a Project by field id (single-select option names, dates, texts), or null when the item cannot be found. Read-only. */
   getBoardItemValues(installationId: number, itemId: string): Promise<Record<string, BoardItemValue> | null>;
+  /** The pull requests that close or are linked to these issues (GitHub's "Development" links), open, merged or closed. Read-only. */
+  listLinkedPullRequests(installationId: number, issues: { repo: string; number: number }[]): Promise<PrRef[]>;
+  /** GitHub's rollup state (SUCCESS, FAILURE, ERROR, PENDING, EXPECTED) of the checks on the default branch of a repository; null when there are none. Read-only. */
+  getDefaultBranchRollup(installationId: number, repo: string): Promise<string | null>;
+  /** The most recent published (not draft) releases of a repository, newest first. Read-only. */
+  listReleases(installationId: number, repo: string): Promise<ReleaseRef[]>;
+  /** The pull requests (repo, number) that a pull request closes: for a webhook that names only the pull request. Read-only. */
+  getClosingIssues(installationId: number, repo: string, pullNumber: number): Promise<{ repo: string; number: number }[]>;
   /** Adds an issue (by its node id) to a Project and returns the Project item id; adding it again returns the same item. */
   addBoardItem(installationId: number, boardId: string, issueNodeId: string): Promise<string>;
   /** Sets one field of a Project item. */

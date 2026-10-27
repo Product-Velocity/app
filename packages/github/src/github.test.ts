@@ -93,6 +93,53 @@ describe("GitHubAppSourceControl: sub-issues carry their labels and last activit
   });
 });
 
+describe("GitHubAppSourceControl: pull requests, checks and releases (read-only)", () => {
+  const withReplies = (graphql: (q: string, v: Record<string, unknown>) => unknown, rest: (url: string) => Response = () => new Response("{}", { status: 404 }), seen: { query: string; variables: Record<string, unknown> }[] = []) =>
+    new GitHubAppSourceControl({ appId: "1", privateKeyPem: privateKey, fetch: (async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/access_tokens")) return new Response(JSON.stringify({ token: "t" }), { status: 201 });
+      if (url.endsWith("/graphql")) { const b = JSON.parse(String(init?.body)) as { query: string; variables: Record<string, unknown> }; seen.push(b); return new Response(JSON.stringify(graphql(b.query, b.variables)), { status: 200 }); }
+      return rest(url);
+    }) as typeof fetch });
+
+  it("lists the pull requests linked to issues, one request per repository, with their state", async () => {
+    const seen: { query: string; variables: Record<string, unknown> }[] = [];
+    const sc = withReplies(() => ({ data: { repository: {
+      i0: { closedByPullRequestsReferences: { nodes: [{ number: 7, state: "OPEN", repository: { nameWithOwner: "Acme/App" } }, { number: 8, state: "MERGED", repository: { nameWithOwner: "Acme/App" } }] } },
+      i1: { closedByPullRequestsReferences: { nodes: [{ number: 9, state: "CLOSED" }] } },
+      i2: null,
+    } } }), undefined, seen);
+    const prs = await sc.listLinkedPullRequests(1, [{ repo: "Acme/App", number: 1 }, { repo: "Acme/App", number: 2 }, { repo: "Acme/App", number: 3 }]);
+    expect(prs).toEqual([{ repo: "Acme/App", number: 7, state: "open" }, { repo: "Acme/App", number: 8, state: "merged" }, { repo: "Acme/App", number: 9, state: "closed" }]);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.variables).toEqual({ o: "Acme", n: "App" });
+    expect(seen[0]!.query).toContain("issue(number:1)");
+  });
+  it("splits many issues into requests of 40, and only ever puts whole numbers into the query", async () => {
+    const seen: { query: string; variables: Record<string, unknown> }[] = [];
+    const sc = withReplies(() => ({ data: { repository: {} } }), undefined, seen);
+    const issues = Array.from({ length: 85 }, (_, i) => ({ repo: "Acme/App", number: i + 1 }));
+    await sc.listLinkedPullRequests(1, [...issues, { repo: "Acme/App", number: 1.5 }, { repo: "Acme/App", number: -3 }, { repo: "evil/repo\" }{", number: 5 }, { repo: "Acme/App", number: Number("12) { x } #") }]);
+    expect(seen).toHaveLength(3);
+    expect(seen.every((s) => !s.query.includes("1.5") && !s.query.includes("-3") && !s.query.includes("evil") && !s.query.includes("x }"))).toBe(true);
+  });
+  it("reads the checks rollup of the default branch, or null when there are none", async () => {
+    expect(await withReplies(() => ({ data: { repository: { defaultBranchRef: { target: { statusCheckRollup: { state: "FAILURE" } } } } } })).getDefaultBranchRollup(1, "Acme/App")).toBe("FAILURE");
+    expect(await withReplies(() => ({ data: { repository: { defaultBranchRef: { target: { statusCheckRollup: null } } } } })).getDefaultBranchRollup(1, "Acme/App")).toBeNull();
+    expect(await withReplies(() => ({ data: { repository: null } })).getDefaultBranchRollup(1, "Acme/App")).toBeNull();
+  });
+  it("lists published releases only (drafts are skipped), and a repository without releases is empty", async () => {
+    const sc = withReplies(() => ({}), (url) => url.includes("/releases")
+      ? new Response(JSON.stringify([{ tag_name: "v2", name: "Two", draft: false, published_at: "2026-10-20T08:00:00Z" }, { tag_name: "v3-draft", draft: true, published_at: null }, { tag_name: "v1", name: null, draft: false, published_at: "2026-09-01T08:00:00Z" }]), { status: 200 })
+      : new Response("{}", { status: 404 }));
+    expect(await sc.listReleases(1, "Acme/App")).toEqual([{ repo: "Acme/App", tag: "v2", name: "Two", publishedAt: "2026-10-20T08:00:00Z" }, { repo: "Acme/App", tag: "v1", name: null, publishedAt: "2026-09-01T08:00:00Z" }]);
+    expect(await withReplies(() => ({})).listReleases(1, "Acme/none")).toEqual([]);
+  });
+  it("names the issues that a pull request closes", async () => {
+    const sc = withReplies(() => ({ data: { repository: { pullRequest: { closingIssuesReferences: { nodes: [{ number: 12, repository: { nameWithOwner: "Acme/App" } }, { number: 13 }] } } } } }));
+    expect(await sc.getClosingIssues(1, "Acme/App", 40)).toEqual([{ repo: "Acme/App", number: 12 }, { repo: "Acme/App", number: 13 }]);
+  });
+});
+
 describe("GitHubAppSourceControl: Projects (boards) over GraphQL", () => {
   const graphqlFake = (reply: (query: string, variables: Record<string, unknown>) => unknown, seen: { query: string; variables: Record<string, unknown> }[] = []) =>
     async (url: string, init?: RequestInit) => {
@@ -195,6 +242,10 @@ function fake(over: Partial<SourceControl> = {}): SourceControl {
     listBoards: async () => [],
     getBoardFields: async () => null,
     getBoardItemValues: async () => null,
+    listLinkedPullRequests: async () => [],
+    getDefaultBranchRollup: async () => null,
+    listReleases: async () => [],
+    getClosingIssues: async () => [],
     listBoardItems: async () => [],
     addBoardItem: async () => "PVTI_1",
     setBoardValue: async () => undefined,
