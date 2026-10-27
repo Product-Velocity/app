@@ -2,6 +2,8 @@ import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseEnv } from "@/lib/supabase/env";
 import { refusalFor, type ConnectionStatus, type UsageResult } from "@pv/domain";
+import { siteUrl } from "@/lib/site-url";
+import { makeReader } from "./reader";
 import type { McpBackend } from "./rpc";
 
 /** The /mcp switch. Off unless MCP_ENABLED=true (tenant switch comes with slice 2). */
@@ -58,6 +60,7 @@ export async function authenticate(token: string): Promise<AuthResult> {
   const tenantName = a.tenant_name ?? "Workspace";
   const role = a.role!;
 
+  const read = makeReader(supabase, { id: tenantId, name: tenantName }, u.user.id, role, siteUrl);
   return {
     ok: true,
     caller: {
@@ -71,19 +74,8 @@ export async function authenticate(token: string): Promise<AuthResult> {
           if (me || !data) throw new Error("usage");
           return data as UsageResult;
         },
-        async workspaceContext() {
-          // RLS limits this to what the person may see; the connection narrows it to its own workspace
-          const { data: projects, error: pe } = await supabase.from("projects").select("id, name").eq("tenant_id", tenantId).order("name");
-          if (pe) throw new Error("projects");
-          return {
-            workspace: {
-              id: tenantId,
-              name: tenantName,
-              role,
-              projects: (projects ?? []).map((p) => ({ id: p.id as string, name: p.name as string })),
-            },
-          };
-        },
+        workspaceContext: read.workspaceContext,
+        read: read.reader,
       },
     },
   };

@@ -57,3 +57,14 @@ export function limitMessage(r: Extract<UsageResult, { ok: false }>): string {
       return `A daily limit for Claude was reached. ${reset}`;
   }
 }
+
+/** What Claude may do for the signed-in person's role: the lists `get_workspace_context` returns, so Claude can explain its limits without guessing. */
+export function claudeAllowances(role: string): { can: string[]; cannot: string[] } {
+  const write = claudeMayWrite(role);
+  return {
+    can: write ? [...CLAUDE_CAN] : [CLAUDE_CAN[0], CLAUDE_CAN[3]],
+    cannot: write
+      ? [...CLAUDE_CANNOT]
+      : ["Create or change anything: your role in this workspace is read-only (a workspace admin can give you the Creator role)", ...CLAUDE_CANNOT],
+  };
+}
