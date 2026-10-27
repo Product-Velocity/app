@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, syncedWith, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
+import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
 import type { IssueTreeRow, LoadedItem, TrashedItem } from "./types";
 
@@ -104,9 +104,12 @@ export class SupabaseDataSource implements PortfolioDataSource {
     const boardTitle = new Map<string, string>();
     if (syncLinks.size > 0) for (const p of await this.fetchAll<{ id: string; github_board: { title?: unknown } | null }>("projects", "id,github_board")) if (typeof p.github_board?.title === "string") boardTitle.set(p.id, p.github_board.title);
 
+    const today = localToday().toISOString().slice(0, 10);
     for (const [id, item] of items) {
       const sl = syncLinks.get(id);
       item.last_synced = lastSyncedAt(sl, syncMark.get(id) ?? null);
+      // Schedule Variance (pp) depends on today's date, so it is worked out here and never stored
+      item.schedule_variance_pp = scheduleVariancePp(item.delivery_progress_pct as number | null, item.planned_start as string | null, item.g2m_date_est as string | null, today);
       item.synced_with = syncedWith(sl, boardTitle.get(String(item.home_project)) ?? null) || null;
       item.tags = (tags.get("tag")?.get(id) ?? []).join(", ") || null;
       item.target_scope = (tags.get("target_scope")?.get(id) ?? []).join(", ") || null;
