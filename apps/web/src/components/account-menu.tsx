@@ -43,6 +43,7 @@ export function AccountMenu({ email, roleLabel, isApprover, showTrash }: { email
           <p className="menu-heading" id="menu-integrations">Integrations</p>
           <Link href="/incoming" className="menu-link">Incoming issues</Link>
           <Link href="/settings/integrations/github" className="menu-link">GitHub</Link>
+          <Link href="/settings/claude" className="menu-link">Connect Claude</Link>
         </div>
         <div role="group" aria-labelledby="menu-account">
           <p className="menu-heading" id="menu-account">Account</p>
