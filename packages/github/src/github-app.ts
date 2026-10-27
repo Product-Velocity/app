@@ -1,5 +1,5 @@
 import { createSign } from "node:crypto";
-import { GitHubError, type IssueSummary, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl, type SubIssue } from "./source-control";
+import { GitHubError, type BoardField, type BoardInfo, type BoardValue, type IssueSummary, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl, type SubIssue } from "./source-control";
 
 const API = "https://api.github.com";
 const b64url = (b: Buffer | string) => Buffer.from(b).toString("base64url");
@@ -211,6 +211,56 @@ export class GitHubAppSourceControl implements SourceControl {
       const res = await this.call(installationId, "POST", `/repos/${repo}/labels`, l);
       if (!res.ok && res.status !== 422) throw new GitHubError(res.status, `GitHub refused to create the label ${l.name} (${res.status})`); // 422: it exists
     }
+  }
+
+  private async graphql<T>(installationId: number, query: string, variables: Record<string, unknown>): Promise<T> {
+    const res = await this.call(installationId, "POST", "/graphql", { query, variables });
+    if (!res.ok) throw new GitHubError(res.status, `GitHub refused the Projects request (${res.status})`);
+    const body = (await res.json()) as { data?: T; errors?: { type?: string; message?: string }[] };
+    if (body.errors?.length) {
+      const denied = body.errors.some((e) => e.type === "FORBIDDEN" || e.type === "INSUFFICIENT_SCOPES" || /not accessible by integration|forbidden/i.test(e.message ?? ""));
+      throw new GitHubError(denied ? 403 : 422, denied ? "The App may not use Projects: grant the Organization Projects permission" : "GitHub could not do that on the Project");
+    }
+    if (!body.data) throw new GitHubError(502, "GitHub returned no data for the Projects request");
+    return body.data;
+  }
+
+  async listBoards(installationId: number, organisation: string): Promise<BoardInfo[]> {
+    const d = await this.graphql<{ organization: { projectsV2: { nodes: { id: string; number: number; title: string; url: string; closed: boolean }[] } } | null }>(
+      installationId,
+      `query($org:String!){organization(login:$org){projectsV2(first:100){nodes{id number title url closed}}}}`,
+      { org: organisation },
+    );
+    return (d.organization?.projectsV2.nodes ?? []).map((p) => ({ id: p.id, number: p.number, title: p.title, url: p.url, closed: p.closed }));
+  }
+
+  async getBoardFields(installationId: number, boardId: string): Promise<BoardField[] | null> {
+    const d = await this.graphql<{ node: { fields: { nodes: { id?: string; name?: string; dataType?: string; options?: { id: string; name: string }[] }[] } } | null }>(
+      installationId,
+      `query($p:ID!){node(id:$p){... on ProjectV2{fields(first:100){nodes{... on ProjectV2Field{id name dataType} ... on ProjectV2SingleSelectField{id name dataType options{id name}} ... on ProjectV2IterationField{id name dataType}}}}}}`,
+      { p: boardId },
+    );
+    if (!d.node?.fields) return null;
+    const known = new Set(["TEXT", "NUMBER", "DATE", "SINGLE_SELECT"]);
+    return d.node.fields.nodes.filter((f) => f.id && f.name).map((f) => ({ id: f.id!, name: f.name!, dataType: (known.has(f.dataType ?? "") ? f.dataType : "OTHER") as BoardField["dataType"], ...(f.options ? { options: f.options } : {}) }));
+  }
+
+  async addBoardItem(installationId: number, boardId: string, issueNodeId: string): Promise<string> {
+    const d = await this.graphql<{ addProjectV2ItemById: { item: { id: string } } }>(
+      installationId,
+      `mutation($p:ID!,$c:ID!){addProjectV2ItemById(input:{projectId:$p,contentId:$c}){item{id}}}`,
+      { p: boardId, c: issueNodeId },
+    );
+    return d.addProjectV2ItemById.item.id;
+  }
+
+  async setBoardValue(installationId: number, boardId: string, itemId: string, fieldId: string, value: BoardValue): Promise<void> {
+    const v = "optionId" in value ? { singleSelectOptionId: value.optionId } : value;
+    await this.graphql(
+      installationId,
+      `mutation($p:ID!,$i:ID!,$f:ID!,$v:ProjectV2FieldValue!){updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:$v}){projectV2Item{id}}}`,
+      { p: boardId, i: itemId, f: fieldId, v },
+    );
   }
 
   async ensureMilestone(installationId: number, repo: string, m: { title: string; dueOn: string }): Promise<number> {

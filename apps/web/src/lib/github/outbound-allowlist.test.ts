@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { buildTrackingIssue, MemorySourceControl, OUTBOUND_ITEM_FIELDS, pushTrackingIssue } from "@pv/github";
+import { buildTrackingIssue, MemorySourceControl, OUTBOUND_READ_FIELDS, pushTrackingIssue } from "@pv/github";
 import { FIELDS } from "@pv/domain";
 
 // CLAUDE.md rule 2, issue #33: commercial fields never reach GitHub. Every one of the 165 dictionary fields gets a unique
 // sentinel value; only the allowlisted ones may appear anywhere in what would be sent. This test cannot be skipped: it is
 // part of `pnpm test`, which CI runs.
 const ID = "22222222-2222-4222-8222-222222222222";
-const allowed = new Set<string>(OUTBOUND_ITEM_FIELDS);
+const allowed = new Set<string>(OUTBOUND_READ_FIELDS);
 // read, but only ever sent as a label (MoSCoW value, rank band, Change Type), an issue type or a milestone (G2M date), never as text: they are checked with real values below
-const DERIVED = new Set(["moscow", "stack_rank", "change_type", "g2m_date_est", "theme"]);
+const DERIVED = new Set(["moscow", "stack_rank", "change_type", "g2m_date_est", "theme", "effort"]);
 const sentinel = (key: string) => `LEAK_${key.toUpperCase()}_9f3a`;
 
 const fullItem = () => Object.fromEntries([...FIELDS.map((f) => f.key), "id", "tenant_id", "home_project_id", "created_by", "owner_user_id"].map((k) => [k, sentinel(k)]));
@@ -17,7 +17,7 @@ describe("outbound GitHub payloads", () => {
   it("covers the whole field dictionary", () => {
     expect(FIELDS.length).toBeGreaterThanOrEqual(165);
     expect(FIELDS.some((f) => f.key === "value_12m")).toBe(true);
-    for (const k of OUTBOUND_ITEM_FIELDS) expect(FIELDS.some((f) => f.key === k) || k === "item_code").toBe(true);
+    for (const k of OUTBOUND_READ_FIELDS) expect(FIELDS.some((f) => f.key === k) || k === "item_code").toBe(true);
   });
 
   it("serialises to nothing but allowlisted fields, even when every field of the item is filled", async () => {

@@ -90,6 +90,13 @@ export async function runConnectionDiagnostics(i: DiagnosticsInput): Promise<Che
       : { id: "live-updates", title: "Live updates from GitHub", verdict: "pass", summary: "Issues and sub-issues changes arrive as they happen." },
   );
 
+  const boardsOk = permissionGaps(installation.permissions, { organization_projects: "write" }).length === 0;
+  add(
+    boardsOk
+      ? { id: "boards", title: "GitHub Project boards", verdict: "pass", summary: "The App may read and write organisation Projects, so a project can be linked to a board." }
+      : { id: "boards", title: "GitHub Project boards", verdict: "info", summary: "The App may not use organisation Projects yet, so projects cannot be linked to a board.", fix: "In the GitHub App's settings (Permissions) set Organization permissions > Projects to Read and write, then accept the change on the installation page." },
+  );
+
   const repos = await safe(() => i.sc.listRepositories(i.installationId));
   if (!repos.ok) {
     add({ id: "repositories", title: "Repository access", verdict: "fail", summary: `Could not list repositories: ${repos.error}`, fix: "Check the installation permissions and try again." });

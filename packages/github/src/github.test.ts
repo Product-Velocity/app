@@ -81,6 +81,44 @@ describe("GitHubAppSourceControl", () => {
   });
 });
 
+describe("GitHubAppSourceControl: Projects (boards) over GraphQL", () => {
+  const graphqlFake = (reply: (query: string, variables: Record<string, unknown>) => unknown, seen: { query: string; variables: Record<string, unknown> }[] = []) =>
+    async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/access_tokens")) return new Response(JSON.stringify({ token: "t" }), { status: 201 });
+      if (url.endsWith("/graphql")) {
+        const body = JSON.parse(String(init?.body)) as { query: string; variables: Record<string, unknown> };
+        seen.push(body);
+        return new Response(JSON.stringify(reply(body.query, body.variables)), { status: 200 });
+      }
+      return new Response("{}", { status: 404 });
+    };
+  const make = (f: (url: string, init?: RequestInit) => Promise<Response>) => new GitHubAppSourceControl({ appId: "1", privateKeyPem: privateKey, fetch: f as typeof fetch });
+
+  it("lists boards, reads fields with their single-select options, adds an issue and writes values", async () => {
+    const seen: { query: string; variables: Record<string, unknown> }[] = [];
+    const sc = make(graphqlFake((q) => {
+      if (q.includes("projectsV2")) return { data: { organization: { projectsV2: { nodes: [{ id: "PVT_1", number: 3, title: "Roadmap", url: "https://github.com/orgs/Acme/projects/3", closed: false }] } } } };
+      if (q.includes("fields(first")) return { data: { node: { fields: { nodes: [{ id: "F1", name: "Priority", dataType: "SINGLE_SELECT", options: [{ id: "O1", name: "P0" }] }, { id: "F2", name: "Due date", dataType: "DATE" }, { id: "F3", name: "Iteration", dataType: "ITERATION" }, {}] } } } };
+      if (q.includes("addProjectV2ItemById")) return { data: { addProjectV2ItemById: { item: { id: "PVTI_9" } } } };
+      return { data: { updateProjectV2ItemFieldValue: { projectV2Item: { id: "PVTI_9" } } } };
+    }, seen));
+    expect(await sc.listBoards(1, "Acme")).toEqual([{ id: "PVT_1", number: 3, title: "Roadmap", url: "https://github.com/orgs/Acme/projects/3", closed: false }]);
+    expect(await sc.getBoardFields(1, "PVT_1")).toEqual([
+      { id: "F1", name: "Priority", dataType: "SINGLE_SELECT", options: [{ id: "O1", name: "P0" }] }, { id: "F2", name: "Due date", dataType: "DATE" }, { id: "F3", name: "Iteration", dataType: "OTHER" },
+    ]);
+    expect(await sc.addBoardItem(1, "PVT_1", "I_node")).toBe("PVTI_9");
+    await sc.setBoardValue(1, "PVT_1", "PVTI_9", "F1", { optionId: "O1" });
+    await sc.setBoardValue(1, "PVT_1", "PVTI_9", "F2", { date: "2026-12-15" });
+    expect(seen.at(-2)!.variables.v).toEqual({ singleSelectOptionId: "O1" });
+    expect(seen.at(-1)!.variables.v).toEqual({ date: "2026-12-15" });
+  });
+  it("a Project the App cannot see is null, and a missing permission is a 403 with a plain message", async () => {
+    expect(await make(graphqlFake(() => ({ data: { node: null } }))).getBoardFields(1, "PVT_x")).toBeNull();
+    const denied = make(graphqlFake(() => ({ errors: [{ type: "FORBIDDEN", message: "Resource not accessible by integration" }] })));
+    await expect(denied.listBoards(1, "Acme")).rejects.toMatchObject({ status: 403, message: expect.stringContaining("Organization Projects permission") });
+  });
+});
+
 function fake(over: Partial<SourceControl> = {}): SourceControl {
   return {
     provider: "github",
@@ -96,6 +134,10 @@ function fake(over: Partial<SourceControl> = {}): SourceControl {
     addLabels: async () => undefined,
     removeLabel: async () => undefined,
     ensureMilestone: async () => 1,
+    listBoards: async () => [],
+    getBoardFields: async () => null,
+    addBoardItem: async () => "PVTI_1",
+    setBoardValue: async () => undefined,
     getIssue: async () => null,
     findIssueByMarker: async () => null,
     ensureLabels: async () => undefined,
@@ -118,6 +160,14 @@ describe("runConnectionDiagnostics", () => {
     expect(off.summary).toContain("sub_issues");
     expect(off.fix).toContain("Sub-issues");
     const on = (await runConnectionDiagnostics({ sc: fake({ getInstallation: inst(["issues", "sub_issues"]) }), ...input })).find((x) => x.id === "live-updates")!;
+    expect(on.verdict).toBe("pass");
+  });
+  it("says whether projects can be linked to a board, and how to allow it", async () => {
+    const inst = (permissions: Record<string, string>) => async () => ({ id: 1, accountLogin: "Acme", accountType: "Organization" as const, repositorySelection: "selected" as const, permissions, events: ["issues"], suspended: false });
+    const off = (await runConnectionDiagnostics({ sc: fake({ getInstallation: inst({ issues: "write", metadata: "read" }) }), ...input })).find((x) => x.id === "boards")!;
+    expect(off).toMatchObject({ verdict: "info" });
+    expect(off.fix).toContain("Projects");
+    const on = (await runConnectionDiagnostics({ sc: fake({ getInstallation: inst({ issues: "write", metadata: "read", organization_projects: "write" }) }), ...input })).find((x) => x.id === "boards")!;
     expect(on.verdict).toBe("pass");
   });
   it("stops with a fix when GitHub does not know the installation", async () => {
