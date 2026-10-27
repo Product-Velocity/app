@@ -152,13 +152,13 @@ export class GitHubAppSourceControl implements SourceControl {
       const res = await this.call(installationId, "GET", `/repos/${repo}/issues/${number}/sub_issues?per_page=100&page=${page}`);
       if (res.status === 404) return null;
       if (!res.ok) throw new GitHubError(res.status, `GitHub could not list sub-issues (${res.status})`);
-      const rows = (await res.json()) as { number: number; id: number; node_id?: string; title: string; state: string; state_reason?: string | null; closed_at?: string | null; body?: string | null; repository_url?: string; assignees?: { login: string }[] }[];
+      const rows = (await res.json()) as { number: number; id: number; node_id?: string; title: string; state: string; state_reason?: string | null; closed_at?: string | null; updated_at?: string; labels?: ({ name?: string } | string)[]; body?: string | null; repository_url?: string; assignees?: { login: string }[] }[];
       for (const r of rows) {
         const body = r.body ?? "";
         out.push({
           number: r.number, id: r.id, nodeId: r.node_id ?? "", repo: r.repository_url ? r.repository_url.replace(/^.*\/repos\//, "") : repo, title: r.title.slice(0, 200),
           state: r.state === "closed" ? "closed" : "open", stateReason: r.state_reason ?? null, closedAt: r.closed_at ?? null,
-          assignees: (r.assignees ?? []).map((a) => a.login), createdBy: body.includes("<!-- pv:source=claude -->") ? "claude" : body.includes("<!-- pv:begin") ? "app" : "engineer",
+          assignees: (r.assignees ?? []).map((a) => a.login), ...(r.updated_at ? { updatedAt: r.updated_at } : {}), labels: (r.labels ?? []).map((l) => (typeof l === "string" ? l : l.name ?? "")).filter(Boolean), createdBy: body.includes("<!-- pv:source=claude -->") ? "claude" : body.includes("<!-- pv:begin") ? "app" : "engineer",
         });
       }
       if (rows.length < 100) break;
@@ -244,25 +244,25 @@ export class GitHubAppSourceControl implements SourceControl {
       { p: boardId },
     );
     if (!d.node?.fields) return null;
-    const known = new Set(["TEXT", "NUMBER", "DATE", "SINGLE_SELECT"]);
+    const known = new Set(["TEXT", "NUMBER", "DATE", "SINGLE_SELECT", "ITERATION"]);
     return d.node.fields.nodes.filter((f) => f.id && f.name).map((f) => ({ id: f.id!, name: f.name!, dataType: (known.has(f.dataType ?? "") ? f.dataType : "OTHER") as BoardField["dataType"], ...(f.options ? { options: f.options } : {}) }));
   }
 
-  async listBoardItems(installationId: number, boardId: string, statusField: string): Promise<BoardItemStatus[]> {
-    type Node = { id: string; content: { id?: string; number?: number; repository?: { nameWithOwner?: string } } | null; fieldValueByName: { name?: string } | null };
+  async listBoardItems(installationId: number, boardId: string, statusField: string, extra: { iterationField?: string | null; dateField?: string | null } = {}): Promise<BoardItemStatus[]> {
+    type Node = { id: string; content: { id?: string; number?: number; repository?: { nameWithOwner?: string } } | null; fieldValueByName: { name?: string } | null; it: { title?: string } | null; dt: { date?: string } | null };
     const out: BoardItemStatus[] = [];
     let after: string | null = null;
     for (let page = 0; page < 10; page++) { // 1,000 items
       const d: { node: { items: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: Node[] } } | null } = await this.graphql(
         installationId,
-        `query($p:ID!,$n:String!,$after:String){node(id:$p){... on ProjectV2{items(first:100,after:$after){pageInfo{hasNextPage endCursor} nodes{id content{... on Issue{id number repository{nameWithOwner}}} fieldValueByName(name:$n){... on ProjectV2ItemFieldSingleSelectValue{name}}}}}}}`,
-        { p: boardId, n: statusField, after },
+        `query($p:ID!,$n:String!,$i:String!,$d:String!,$after:String){node(id:$p){... on ProjectV2{items(first:100,after:$after){pageInfo{hasNextPage endCursor} nodes{id content{... on Issue{id number repository{nameWithOwner}}} fieldValueByName(name:$n){... on ProjectV2ItemFieldSingleSelectValue{name}} it:fieldValueByName(name:$i){... on ProjectV2ItemFieldIterationValue{title}} dt:fieldValueByName(name:$d){... on ProjectV2ItemFieldDateValue{date}}}}}}}`,
+        { p: boardId, n: statusField, i: extra.iterationField ?? "", d: extra.dateField ?? "", after },
       );
       if (!d.node) break;
       for (const n of d.node.items.nodes) {
         const c = n.content;
         if (!c?.id || typeof c.number !== "number" || !c.repository?.nameWithOwner) continue; // drafts, pull requests and notes are not initiatives
-        out.push({ itemId: n.id, issueNodeId: c.id, repo: c.repository.nameWithOwner, number: c.number, status: n.fieldValueByName?.name ?? null });
+        out.push({ itemId: n.id, issueNodeId: c.id, repo: c.repository.nameWithOwner, number: c.number, status: n.fieldValueByName?.name ?? null, ...(extra.iterationField ? { iteration: n.it?.title ?? null } : {}), ...(extra.dateField ? { targetDate: n.dt?.date?.slice(0, 10) ?? null } : {}) });
       }
       if (!d.node.items.pageInfo.hasNextPage) break;
       after = d.node.items.pageInfo.endCursor;

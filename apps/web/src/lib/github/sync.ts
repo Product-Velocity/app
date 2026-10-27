@@ -1,4 +1,5 @@
 import "server-only";
+import { countBlockedStale } from "@pv/domain";
 import { readIssueTree, summariseTree, type IssueEvent, type IssueSummary, type SourceControl, type SubIssueEvent } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { syncBoardStatuses } from "./board-sync";
@@ -37,6 +38,10 @@ export async function refreshTree(admin: Admin, sc: SourceControl, installationI
     const nodes = tree.map((n) => ({ repo: n.repo, number: n.number, id: n.id, parent: n.parentNumber, level: n.level, title: n.title, state: n.state, reason: n.stateReason, closed_at: n.closedAt, assignees: n.assignees, created_by: n.createdBy }));
     const { error } = await admin.rpc("github_apply_tree", { p_connection: connectionId, p_item: link.item_id, p_nodes: nodes, p_total: s.total, p_closed: s.closed, p_pct: s.progressPct });
     if (error) throw new Error(error.message);
+    // blocked and stale child issues, counted once here (the rule is in @pv/domain); the daily check refreshes them as time passes
+    const bs = countBlockedStale(tree.map((n) => ({ state: n.state, updatedAt: n.updatedAt, labels: n.labels })), new Date());
+    const { error: e2 } = await admin.rpc("github_apply_tree_counts", { p_connection: connectionId, p_item: link.item_id, p_blocked: bs.blocked, p_stale: bs.stale });
+    if (e2) throw new Error(e2.message);
     return true;
   } catch (e) {
     console.error(JSON.stringify({ github: "tree", error: short(e) }));
