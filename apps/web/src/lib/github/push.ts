@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { canLinkFilesInto } from "@pv/domain";
-import { buildTrackingIssue, describePushError, planAction, pushTrackingIssue, type PlanLink, type SourceControl } from "@pv/github";
+import { canLinkFilesInto, columnOnItems, FIELD_BY_KEY } from "@pv/domain";
+import { buildTrackingIssue, OUTBOUND_ITEM_FIELDS, describePushError, planAction, pushTrackingIssue, type PlanLink, type SourceControl } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { ConnectionRow } from "./server";
 import { shareUrl } from "@/lib/files/serve";
@@ -19,6 +19,18 @@ const sharedFilesByItem = (rows: SharedFile[], appUrl: string) => {
   return m;
 };
 
+/**
+ * The `items` columns a push may read, taken from the field registry so a field stored under another column name
+ * (G2M Date (est) lives in `end_date`) is asked for by its real column. A column that does not exist makes the whole read fail.
+ */
+export const ITEM_SELECT = ["id", ...OUTBOUND_ITEM_FIELDS.map((k) => (k === "item_code" ? k : columnOnItems(FIELD_BY_KEY[k]!)!)), "home_project_id"].join(", ");
+/** A row as read with ITEM_SELECT, with every allowlisted value under its field key (what the payload builder reads). */
+const asOutboundItem = (row: Record<string, unknown>): Row => {
+  const out: Record<string, unknown> = { ...row };
+  for (const k of OUTBOUND_ITEM_FIELDS) if (k !== "item_code") out[k] = row[columnOnItems(FIELD_BY_KEY[k]!)!];
+  return out as Row;
+};
+
 const blockedItem = (id: string, reason: string, over: Partial<PlanItem> = {}): PlanItem => ({ id, code: "", name: "", project: "", repo: null, action: "blocked", title: "", labels: [], block: "", issueNumber: null, issueUrl: null, reason, ...over });
 
 /**
@@ -28,14 +40,15 @@ const blockedItem = (id: string, reason: string, over: Partial<PlanItem> = {}): 
 export async function planPush(supabase: SupabaseClient, tenantId: string, appUrl: string, connection: ConnectionRow, ids: string[]): Promise<PlanItem[]> {
   const unique = [...new Set(ids)].slice(0, PUSH_LIMIT);
   const [items, projects, repos, links, artifacts, sharedFiles] = await Promise.all([
-    supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis, moscow, stack_rank, change_type, g2m_date_est, theme, home_project_id").eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
+    supabase.from("items").select(ITEM_SELECT).eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
     supabase.from("projects").select("id, name, default_repo, tracker").eq("tenant_id", tenantId),
     supabase.from("github_repositories").select("full_name, access, is_private").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("removed_at", null),
     supabase.from("item_github_links").select("item_id, mode, repo_full_name, issue_number, html_url, sync_state, last_pushed_hash").eq("tenant_id", tenantId).in("item_id", unique),
     supabase.from("item_links").select("item_id, label, url").eq("tenant_id", tenantId).in("item_id", unique),
     supabase.from("item_files").select("item_id, name, share_token").eq("tenant_id", tenantId).in("item_id", unique).order("created_at"),
   ]);
-  const rowById = new Map(((items.data ?? []) as Row[]).map((r) => [r.id, r]));
+  if (items.error) return unique.map((id) => blockedItem(id, "The initiatives could not be read just now. Try again, and tell Ashu if it keeps happening."));
+  const rowById = new Map(((items.data ?? []) as unknown as Record<string, unknown>[]).map(asOutboundItem).map((r) => [r.id, r]));
   const projectById = new Map(((projects.data ?? []) as { id: string; name: string; default_repo: string | null; tracker: string | null }[]).map((p) => [p.id, p]));
   const repoRows = (repos.data ?? []) as { full_name: string; access: string; is_private: boolean | null }[];
   const privateRepos = new Set(repoRows.filter((r) => canLinkFilesInto(r.is_private)).map((r) => r.full_name.toLowerCase()));
@@ -76,14 +89,14 @@ export async function executePush(opts: { supabase: SupabaseClient; admin: Admin
   const [links, artifacts, items, sharedFiles, repoPrivacy] = await Promise.all([
     opts.supabase.from("item_github_links").select("item_id, issue_number, last_pushed_hash").eq("tenant_id", opts.tenantId).in("item_id", plan.map((p) => p.id)),
     opts.supabase.from("item_links").select("item_id, label, url").eq("tenant_id", opts.tenantId).in("item_id", plan.map((p) => p.id)),
-    opts.supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis, moscow, stack_rank, change_type, g2m_date_est, theme").eq("tenant_id", opts.tenantId).in("id", plan.map((p) => p.id)),
+    opts.supabase.from("items").select(ITEM_SELECT).eq("tenant_id", opts.tenantId).in("id", plan.map((p) => p.id)),
     opts.supabase.from("item_files").select("item_id, name, share_token").eq("tenant_id", opts.tenantId).in("item_id", plan.map((p) => p.id)).not("share_token", "is", null).order("created_at"),
     opts.supabase.from("github_repositories").select("full_name, is_private").eq("tenant_id", opts.tenantId).eq("connection_id", opts.connection.id).is("removed_at", null),
   ]);
   const filesBy = sharedFilesByItem((sharedFiles.data ?? []) as SharedFile[], opts.appUrl);
   const privateRepos = new Set(((repoPrivacy.data ?? []) as { full_name: string; is_private: boolean | null }[]).filter((r) => canLinkFilesInto(r.is_private)).map((r) => r.full_name.toLowerCase()));
   const linkBy = new Map(((links.data ?? []) as { item_id: string; issue_number: number | null; last_pushed_hash: string | null }[]).map((l) => [l.item_id, l]));
-  const itemBy = new Map(((items.data ?? []) as Row[]).map((r) => [r.id, r]));
+  const itemBy = new Map(((items.data ?? []) as unknown as Record<string, unknown>[]).map(asOutboundItem).map((r) => [r.id, r]));
 
   const results: PushItemResult[] = [];
   for (const p of plan) {
