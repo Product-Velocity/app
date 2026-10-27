@@ -19,9 +19,9 @@ export type IssueRef = { number: number; id: number; nodeId: string; htmlUrl: st
 
 /** An organisation-owned GitHub Project (a "board"). */
 export type BoardInfo = { id: string; number: number; title: string; url: string; closed: boolean };
-export type BoardField = { id: string; name: string; dataType: "TEXT" | "NUMBER" | "DATE" | "SINGLE_SELECT" | "OTHER"; options?: { id: string; name: string }[] };
+export type BoardField = { id: string; name: string; dataType: "TEXT" | "NUMBER" | "DATE" | "SINGLE_SELECT" | "ITERATION" | "OTHER"; options?: { id: string; name: string }[] };
 /** One issue on a Project board with the board's status for it (the option name, null when none is set). */
-export type BoardItemStatus = { itemId: string; issueNodeId: string; repo: string; number: number; status: string | null };
+export type BoardItemStatus = { itemId: string; issueNodeId: string; repo: string; number: number; status: string | null; /** The board's iteration (sprint) title and date field, when those fields were asked for. */ iteration?: string | null; targetDate?: string | null };
 /** What the board shows for one field of one item: the option name of a single-select, a date (yyyy-mm-dd) or a text. */
 export type BoardItemValue = { option?: string; date?: string; text?: string };
 export type BoardValue = { text: string } | { number: number } | { date: string } | { optionId: string };
@@ -44,7 +44,7 @@ export type IssueSummary = {
 };
 
 /** A sub-issue as GitHub reports it. `repo` can differ from the parent's repository. */
-export type SubIssue = { number: number; id: number; /** GraphQL id, needed to put the issue on a Project board. */ nodeId: string; repo: string; title: string; state: "open" | "closed"; stateReason: string | null; closedAt: string | null; assignees: string[]; createdBy: "app" | "claude" | "engineer" };
+export type SubIssue = { number: number; id: number; /** GraphQL id, needed to put the issue on a Project board. */ nodeId: string; repo: string; title: string; state: "open" | "closed"; stateReason: string | null; closedAt: string | null; assignees: string[]; createdBy: "app" | "claude" | "engineer"; /** When the issue last changed, and its labels: for the stale and blocked counts. */ updatedAt?: string; labels?: string[] };
 
 export interface SourceControl {
   readonly provider: "github";
@@ -80,7 +80,7 @@ export interface SourceControl {
   /** The fields of a Project, or null when it cannot be found. */
   getBoardFields(installationId: number, boardId: string): Promise<BoardField[] | null>;
   /** The issues on a Project (up to 1,000) with the value of the named single-select field (the board's Status). */
-  listBoardItems(installationId: number, boardId: string, statusField: string): Promise<BoardItemStatus[]>;
+  listBoardItems(installationId: number, boardId: string, statusField: string, extra?: { iterationField?: string | null; dateField?: string | null }): Promise<BoardItemStatus[]>;
   /** The values of an item on a Project by field id (single-select option names, dates, texts), or null when the item cannot be found. Read-only. */
   getBoardItemValues(installationId: number, itemId: string): Promise<Record<string, BoardItemValue> | null>;
   /** Adds an issue (by its node id) to a Project and returns the Project item id; adding it again returns the same item. */

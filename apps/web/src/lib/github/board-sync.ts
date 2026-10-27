@@ -34,13 +34,16 @@ export async function syncBoardStatuses(admin: Admin, sc: SourceControl, connect
     // a link saved before Delivery Status existed has no Status field chosen: find the board's own Status by name (it is only read, never written)
     const field = board.mapping.status ?? detectMapping((await sc.getBoardFields(installationId, board.id).catch(() => null)) ?? []).status;
     if (!field) { notes.push(`Board "${board.title}": no Status field found, so Delivery Status is not read.`); continue; }
-    const onBoard = await readBoardStatuses(sc, installationId, board.id, field.name);
+    // the board's iteration (sprint) and date fields are only read back: found by name when the link does not name them
+    const boardFields = board.mapping.iteration === undefined ? await sc.getBoardFields(installationId, board.id).catch(() => null) : null;
+    const iterationField = board.mapping.iteration ?? (boardFields ? detectMapping(boardFields).iteration : null) ?? null;
+    const onBoard = await readBoardStatuses(sc, installationId, board.id, field.name, { iterationField: iterationField?.name ?? null, dateField: board.mapping.dueDate?.name ?? null });
     if (onBoard.length === 0) { notes.push(`Board "${board.title}": no issues were read from it.`); continue; }
     boards++;
-    const current = new Map((await all<{ id: string; gh_project_status: string | null }>((a, b) => admin.from("items").select("id, gh_project_status").eq("tenant_id", connection.tenant_id).eq("home_project_id", p.id).is("deleted_at", null).order("id").range(a, b))).map((i) => [i.id, i.gh_project_status]));
+    const current = new Map((await all<{ id: string; gh_project_status: string | null; gh_iteration: string | null; gh_target_date: string | null }>((a, b) => admin.from("items").select("id, gh_project_status, gh_iteration, gh_target_date").eq("tenant_id", connection.tenant_id).eq("home_project_id", p.id).is("deleted_at", null).order("id").range(a, b))).map((i) => [i.id, i]));
     const links: StatusLink[] = (await all<{ item_id: string; repo_full_name: string; issue_number: number | null; project_item_id: string | null }>((a, b) => admin.from("item_github_links").select("item_id, repo_full_name, issue_number, project_item_id").eq("connection_id", connection.id).not("issue_number", "is", null).order("item_id").range(a, b)))
       .filter((l) => current.has(l.item_id) && l.issue_number !== null)
-      .map((l) => ({ item_id: l.item_id, repo: l.repo_full_name, number: l.issue_number!, projectItemId: l.project_item_id, current: current.get(l.item_id) ?? null }));
+      .map((l) => ({ item_id: l.item_id, repo: l.repo_full_name, number: l.issue_number!, projectItemId: l.project_item_id, current: current.get(l.item_id)?.gh_project_status ?? null, currentIteration: current.get(l.item_id)?.gh_iteration ?? null, currentTargetDate: current.get(l.item_id)?.gh_target_date ?? null }));
     const rows = planStatusApply(onBoard, links);
     for (let i = 0; i < rows.length; i += 200) {
       const { data, error } = await admin.rpc("github_apply_board_status", { p_connection: connection.id, p_rows: rows.slice(i, i + 200) });

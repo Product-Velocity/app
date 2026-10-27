@@ -41,7 +41,7 @@ describe("syncBoardStatuses", () => {
     const calls = (admin as unknown as { calls: { fn: string; args: Record<string, unknown> }[] }).calls;
     expect(calls).toHaveLength(1);
     expect(calls[0]!.fn).toBe("github_apply_board_status");
-    expect(calls[0]!.args.p_rows).toEqual([{ item_id: "i1", status: "Ready", board_item_id: "PVTI_175" }]);
+    expect(calls[0]!.args.p_rows).toEqual([{ item_id: "i1", status: "Ready", board_item_id: "PVTI_175", iteration: null, target_date: null }]);
   });
   it("only the boards named are read; a board without a status field or one that cannot be read is skipped", async () => {
     const sc = scWith();

@@ -26,6 +26,7 @@ import { downloadCsv, selectionToCsv } from "./export-selection";
 import { BulkBar } from "./bulk-bar";
 import { DeleteDialog } from "./delete-dialog";
 import { GithubPushDialog } from "./github-push-dialog";
+import { agoLabel, latestTime } from "./last-sync";
 import { ImportDialog } from "./import-dialog";
 import { QuickAddBar } from "./quick-add-bar";
 import type { PortfolioController } from "./controller";
@@ -298,6 +299,15 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     [controller],
   );
 
+  // GitHub changes items behind the grid's back (webhooks, Sync with GitHub): pick them up when the tab comes back and every minute while it is visible.
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") void controller.refreshFromServer(); };
+    const timer = window.setInterval(refresh, 60_000);
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); window.removeEventListener("focus", refresh); };
+  }, [controller]);
+
   // Warn before leaving with unsaved changes.
   useEffect(() => {
     const h = (e: BeforeUnloadEvent) => { if (controller.status.pending > 0) { e.preventDefault(); e.returnValue = ""; } };
@@ -494,6 +504,10 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     [controller, displayRows],
   );
 
+  // the latest time any initiative was in step with GitHub (the Last Synced column), as "4 minutes ago"; recomputed every 30 seconds
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setNowTick(Date.now()), 30_000); return () => clearInterval(t); }, []);
+  const lastGithubSync = useMemo(() => latestTime(controller.rows.map((r) => r.last_synced)), [controller.rows]);
   const contextForQuickAdd = contextProject ?? (projectIds && projectIds.length === 1 ? projectIds[0]! : null);
   return (
     <>
@@ -579,7 +593,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} total={visibleRows.length} />}
         {controller.canEdit && lookups.projects.length > 0 && <QuickAddBar controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef} />}
       </div>
-      {githubIds && <GithubPushDialog ids={githubIds} onClose={() => setGithubIds(null)} onTakenOver={(c) => controller.recordTakenOver(c)} />}
+      {githubIds && <GithubPushDialog ids={githubIds} onClose={() => setGithubIds(null)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer(); }} />}
       {deleteIds && <DeleteDialog controller={controller} ids={deleteIds} onClose={closeDelete} onDeleted={() => apiRef.current?.deselectAll()} />}
       {importText !== null && (
         <ImportDialog controller={controller} lookups={lookups} defaultProject={contextForQuickAdd} initialText={importText} onClose={() => setImportText(null)} />
@@ -621,6 +635,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       <p ref={footRef} className="grid-foot">
         {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${FIELD_BY_KEY[def.groupBy]?.name}, ${def.sort ? `sorted by ${FIELD_BY_KEY[def.sort.field]?.name} inside each group` : "rank order inside each group"}` : def.sort ? `Sorted by ${FIELD_BY_KEY[def.sort.field]?.name} (${def.sort.dir === "asc" ? "low to high" : "high to low"})` : "Sorted by global Stack Rank"} · Keyboard shortcuts are under Help, top right · A lock means the value comes from GitHub
         {status.pending > 0 ? "" : ""}
+        {lastGithubSync && <> · <span title="The latest time any initiative was in step with GitHub">Last synced with GitHub {agoLabel(lastGithubSync, nowTick)}</span></>}
       </p>
     </section>
     </>

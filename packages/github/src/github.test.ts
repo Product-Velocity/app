@@ -81,6 +81,18 @@ describe("GitHubAppSourceControl", () => {
   });
 });
 
+describe("GitHubAppSourceControl: sub-issues carry their labels and last activity", () => {
+  it("maps updated_at and label names (objects or strings) for the stale and blocked counts", async () => {
+    const f = async (url: string) => url.endsWith("/access_tokens") ? new Response(JSON.stringify({ token: "t" }), { status: 201 })
+      : new Response(JSON.stringify([{ number: 5, id: 50, node_id: "I_5", title: "Task", state: "open", updated_at: "2026-10-01T10:00:00Z", labels: [{ name: "blocked" }, "bug", {}], repository_url: "https://api.github.com/repos/Acme/App", assignees: [] }, { number: 6, id: 60, title: "No data", state: "closed" }]), { status: 200 });
+    const sc = new GitHubAppSourceControl({ appId: "1", privateKeyPem: privateKey, fetch: f as typeof fetch });
+    const rows = await sc.listSubIssues(1, "Acme/App", 1);
+    expect(rows![0]).toMatchObject({ number: 5, updatedAt: "2026-10-01T10:00:00Z", labels: ["blocked", "bug"] });
+    expect(rows![1]!.updatedAt).toBeUndefined();
+    expect(rows![1]!.labels).toEqual([]);
+  });
+});
+
 describe("GitHubAppSourceControl: Projects (boards) over GraphQL", () => {
   const graphqlFake = (reply: (query: string, variables: Record<string, unknown>) => unknown, seen: { query: string; variables: Record<string, unknown> }[] = []) =>
     async (url: string, init?: RequestInit) => {
@@ -104,7 +116,7 @@ describe("GitHubAppSourceControl: Projects (boards) over GraphQL", () => {
     }, seen));
     expect(await sc.listBoards(1, "Acme")).toEqual([{ id: "PVT_1", number: 3, title: "Roadmap", url: "https://github.com/orgs/Acme/projects/3", closed: false }]);
     expect(await sc.getBoardFields(1, "PVT_1")).toEqual([
-      { id: "F1", name: "Priority", dataType: "SINGLE_SELECT", options: [{ id: "O1", name: "P0" }] }, { id: "F2", name: "Due date", dataType: "DATE" }, { id: "F3", name: "Iteration", dataType: "OTHER" },
+      { id: "F1", name: "Priority", dataType: "SINGLE_SELECT", options: [{ id: "O1", name: "P0" }] }, { id: "F2", name: "Due date", dataType: "DATE" }, { id: "F3", name: "Iteration", dataType: "ITERATION" },
     ]);
     expect(await sc.addBoardItem(1, "PVT_1", "I_node")).toBe("PVTI_9");
     await sc.setBoardValue(1, "PVT_1", "PVTI_9", "F1", { optionId: "O1" });
@@ -137,6 +149,21 @@ describe("GitHubAppSourceControl: Projects (boards) over GraphQL", () => {
     const sc = make(graphqlFake(() => ({ errors: [{ type: "UNPROCESSABLE", message: "Field value is invalid for ghs_SECRET123" }] })));
     const e = await sc.addBoardItem(1, "PVT_1", "I_x").catch((x) => x);
     expect(e).toMatchObject({ status: 422, detail: "UNPROCESSABLE: Field value is invalid for [token]" });
+  });
+  it("reads the board's iteration and date next to the status only when asked, and passes the field names", async () => {
+    const seen: { variables: Record<string, unknown> }[] = [];
+    const sc = make(graphqlFake((_q, v) => {
+      seen.push({ variables: v });
+      return { data: { node: { items: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [{ id: "PVTI_1", content: { id: "I_1", number: 175, repository: { nameWithOwner: "Acme/App" } }, fieldValueByName: { name: "Ready" }, it: { title: "Sprint 4" }, dt: { date: "2026-12-15T00:00:00Z" } }, { id: "PVTI_2", content: { id: "I_2", number: 176, repository: { nameWithOwner: "Acme/App" } }, fieldValueByName: null, it: null, dt: null }] } } } };
+    }));
+    expect(await sc.listBoardItems(1, "PVT_1", "Status", { iterationField: "Iteration", dateField: "Target date" })).toEqual([
+      { itemId: "PVTI_1", issueNodeId: "I_1", repo: "Acme/App", number: 175, status: "Ready", iteration: "Sprint 4", targetDate: "2026-12-15" },
+      { itemId: "PVTI_2", issueNodeId: "I_2", repo: "Acme/App", number: 176, status: null, iteration: null, targetDate: null },
+    ]);
+    expect(seen[0]!.variables).toMatchObject({ n: "Status", i: "Iteration", d: "Target date" });
+    const plain = await sc.listBoardItems(1, "PVT_1", "Status");
+    expect(plain[0]).not.toHaveProperty("iteration");
+    expect(plain[0]).not.toHaveProperty("targetDate");
   });
   it("reads the values of a board item by field id: option names, dates and texts", async () => {
     const sc = make(graphqlFake(() => ({ data: { node: { fieldValues: { nodes: [{ name: "P0", field: { id: "F1" } }, { date: "2026-12-31", field: { id: "F2" } }, { text: "Mobile", field: { id: "F3" } }, {}, null, { name: "No field" }] } } } })));

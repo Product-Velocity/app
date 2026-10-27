@@ -131,6 +131,18 @@ describe("refreshTree", () => {
     sc.subs.set("Acme/App#31", null);
     expect(await refreshTree(admin, sc, 9, "c1", { item_id: "i1", repo: "Acme/App", number: 31 })).toBe(false);
   });
+  it("counts blocked and stale open children once, with the domain rule, and stores only the two numbers", async () => {
+    const { refreshTree } = await import("./sync");
+    const sc = new MemorySourceControl();
+    const old = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const recent = new Date(Date.now() - 86_400_000).toISOString();
+    const sub = (number: number, state: "open" | "closed", updatedAt: string, labels: string[] = []) => ({ number, id: number, nodeId: `I_${number}`, repo: "Acme/App", title: `t${number}`, state, stateReason: null, closedAt: null, assignees: [], createdBy: "engineer" as const, updatedAt, labels });
+    sc.subs.set("Acme/App#31", [sub(40, "open", recent, ["blocked"])]);
+    sc.subs.set("Acme/App#40", [sub(41, "open", old), sub(42, "closed", old, ["blocked"]), sub(43, "open", old, ["Blocked"])]);
+    const admin = fakeAdmin({});
+    await refreshTree(admin, sc, 9, "c1", { item_id: "i1", repo: "Acme/App", number: 31 });
+    expect(admin.calls.find((c) => c.table === "github_apply_tree_counts")?.payload).toEqual({ p_connection: "c1", p_item: "i1", p_blocked: 2, p_stale: 2 });
+  });
 });
 
 describe("runCheck", () => {
