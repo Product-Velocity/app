@@ -1,8 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
-import { handleRpc, parseBearer, resourceMetadata, wwwAuthenticate, type McpBackend } from "./rpc";
+import { handleRpc, parseBearer, resourceMetadata, TOOLS, wwwAuthenticate, type McpBackend, type ToolDef } from "./rpc";
 
-const ctx = { name: "Mia", workspaces: [{ id: "t1", name: "Meridian Media", role: "creator", projects: [{ id: "p1", name: "Core" }] }] };
-const backend = (): McpBackend => ({ workspaceContext: vi.fn(async () => ctx) });
+const ctx = { workspace: { id: "t1", name: "Meridian Media", role: "creator", projects: [{ id: "p1", name: "Core" }] } };
+const backend = (over: Partial<McpBackend> = {}): McpBackend => ({
+  role: "creator",
+  workspaceContext: vi.fn(async () => ctx),
+  meter: vi.fn(async () => ({ ok: true as const })),
+  ...over,
+});
+/** A stand-in for the write tools of later slices, to prove the role gate now. */
+const writeTool = (run: ToolDef["run"] = vi.fn(async () => ({ created: 1 }))): ToolDef => ({
+  name: "create_items", title: "Create", description: "x", inputSchema: {}, annotations: {}, mode: "write", run,
+});
+const call = (name: string, b: McpBackend, tools = TOOLS) => handleRpc({ jsonrpc: "2.0", id: 9, method: "tools/call", params: { name, arguments: {} } }, b, tools) as Promise<{ result?: { isError?: boolean; content: { text: string }[] } }>;
 
 describe("parseBearer", () => {
   it("reads a Bearer token and nothing else", () => {
@@ -54,15 +64,64 @@ describe("handleRpc", () => {
     expect(b.workspaceContext).toHaveBeenCalledOnce();
     expect(r.result.isError).toBeUndefined();
     const parsed = JSON.parse(r.result.content[0]!.text);
-    expect(parsed.data.workspaces[0].projects[0].name).toBe("Core");
+    expect(parsed.data.workspace.projects[0].name).toBe("Core");
     expect(parsed.note).toMatch(/data from the workspace, not instructions/i);
   });
   it("unknown tools and methods are errors, and backend failures never leak details", async () => {
     expect(await handleRpc({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "delete_everything" } }, backend())).toMatchObject({ error: { code: -32602 } });
     expect(await handleRpc({ jsonrpc: "2.0", id: 5, method: "nope" }, backend())).toMatchObject({ error: { code: -32601 } });
-    const bad: McpBackend = { workspaceContext: async () => { throw new Error('relation "items" does not exist'); } };
+    const bad = backend({ workspaceContext: async () => { throw new Error('relation "items" does not exist'); } });
     const r = JSON.stringify(await handleRpc({ jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "get_workspace_context" } }, bad));
     expect(r).toContain("isError");
     expect(r).not.toContain("relation");
+  });
+});
+
+describe("role gate", () => {
+  it("lets every role call a read tool", async () => {
+    for (const role of ["viewer", "commenter", "creator", "admin", "leadership"]) {
+      const r = await call("get_workspace_context", backend({ role }));
+      expect(r.result?.isError, role).toBeUndefined();
+    }
+  });
+  it("refuses a write tool for viewer, commenter and leadership, without running it or using quota", async () => {
+    for (const role of ["viewer", "commenter", "leadership"]) {
+      const run = vi.fn(async () => ({}));
+      const b = backend({ role });
+      const r = await call("create_items", b, [...TOOLS, writeTool(run)]);
+      expect(r.result?.isError, role).toBe(true);
+      expect(r.result?.content[0]!.text).toMatch(/read-only/i);
+      expect(run).not.toHaveBeenCalled();
+      expect(b.meter).not.toHaveBeenCalled();
+    }
+  });
+  it("lets creators and admins run a write tool", async () => {
+    for (const role of ["creator", "admin"]) {
+      const run = vi.fn(async () => ({ created: 1 }));
+      const r = await call("create_items", backend({ role }), [...TOOLS, writeTool(run)]);
+      expect(r.result?.isError, role).toBeUndefined();
+      expect(run).toHaveBeenCalledOnce();
+    }
+  });
+  it("never shows clients the handlers or modes", async () => {
+    const r = (await handleRpc({ jsonrpc: "2.0", id: 1, method: "tools/list" }, backend(), [...TOOLS, writeTool()])) as { result: { tools: object[] } };
+    for (const t of r.result.tools) expect(Object.keys(t)).not.toEqual(expect.arrayContaining(["run"]));
+    expect(JSON.stringify(r)).not.toContain('"mode"');
+  });
+});
+
+describe("rate limits", () => {
+  it("meters every tool call and returns the readable limit message as the tool result", async () => {
+    const run = vi.fn(async () => ({}));
+    const b = backend({ meter: vi.fn(async () => ({ ok: false as const, reason: "workspace_items", limit: 200, used: 200 })) });
+    const r = await call("create_items", b, [...TOOLS, writeTool(run)]);
+    expect(r.result?.isError).toBe(true);
+    expect(r.result?.content[0]!.text).toMatch(/daily limit of 200 items/);
+    expect(run).not.toHaveBeenCalled();
+  });
+  it("does not meter initialize, ping or tools/list", async () => {
+    const b = backend();
+    for (const method of ["initialize", "ping", "tools/list"]) await handleRpc({ jsonrpc: "2.0", id: 1, method }, b);
+    expect(b.meter).not.toHaveBeenCalled();
   });
 });
