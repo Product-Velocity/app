@@ -193,6 +193,7 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
   await db.admin.query("insert into public.item_files (tenant_id, item_id, name, storage_path) values ($1, $2, 'shot.png', $3)", [tenantId, items[0], `${tenantId}/shot.png`]);
   await db.admin.query("insert into public.item_relations (tenant_id, item_id, related_item_id, kind) values ($1, $2, $3, 'depends_on')", [tenantId, items[1], items[0]]);
   const view = await one("insert into public.saved_views (tenant_id, name, columns) values ($1, 'Seed view', array['stack_rank', 'item_code', 'initiative_name']) returning id", [tenantId]);
+  await db.admin.query("insert into public.view_layouts (tenant_id, builtin, position) values ($1, 'Prioritisation', 0)", [tenantId]);
   await db.admin.query("insert into public.item_groups (tenant_id, name) values ($1, 'Seed group') on conflict do nothing", [tenantId]);
   await db.admin.query("insert into public.weekly_updates (tenant_id, week_start, scope_key, body) values ($1, '2026-10-12', 'all', 'Seed update') on conflict do nothing", [tenantId]);
   // a connected GitHub connection with one repository (positive controls for migration 0018)
