@@ -431,6 +431,32 @@ export class PortfolioController {
     this.emit(touched);
   }
 
+  /**
+   * The grid loads once, but GitHub (webhooks, Sync with GitHub) and other people change items in the database meanwhile.
+   * Fetch again and copy the values that differ into the rows we already show. Skipped while saves are pending, so a
+   * stale read never overwrites an edit in flight; the next refresh catches up. Rank and added or removed items are left alone.
+   */
+  async refreshFromServer(): Promise<void> {
+    if (this.state.pending > 0) return;
+    let fresh: LoadedItem[];
+    try { fresh = await this.source.loadItems(); } catch { return; } // a failed background refresh must not disturb the grid
+    if (this.state.pending > 0) return;
+    const changed: GridItem[] = [];
+    for (const f of fresh) {
+      const row = this.byId.get(f.id);
+      if (!row) continue;
+      const rec = row as unknown as Record<string, unknown>;
+      let touched = false;
+      for (const [k, v] of Object.entries(f as unknown as Record<string, unknown>)) {
+        if (k === "stack_rank" || k === "project_rank" || same(rec[k], v)) continue;
+        rec[k] = v;
+        touched = true;
+      }
+      if (touched) changed.push(row);
+    }
+    if (changed.length > 0) this.emit(changed);
+  }
+
   /** Delete or Backspace on a cell. */
   clearCell(itemId: string, field: EditableField): EditOutcome {
     if (!canBeEmpty(field)) return { ok: false, error: `${fieldLabel(field)} cannot be empty.` };
