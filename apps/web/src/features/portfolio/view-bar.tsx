@@ -494,9 +494,10 @@ export function ViewBar({ api }: { api: ViewsApi }) {
   const [fits, setFits] = useState(6);
   const [dragging, setDragging] = useState<string | null>(null);
   useEffect(() => {
-    const el = rowRef.current;
+    // measured on the header, not on the row: the row is only as wide as its tabs. 360px is left for the title, the menu button and tools.
+    const el = rowRef.current?.parentElement;
     if (!el) return;
-    const measure = () => setFits(Math.max(1, Math.min(6, Math.floor((el.clientWidth - 150) / TAB_WIDTH))));
+    const measure = () => setFits(Math.max(1, Math.min(6, Math.floor((el.clientWidth - 360) / TAB_WIDTH))));
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
