@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { buildTrackingIssue, OUTBOUND_READ_FIELDS, childKey, childrenToAdd, describePushError, parseBoard, planAction, planBoardItem, pushBoardChildren, pushBoardItem, pushTrackingIssue, readIssueTree, type Board, type BoardField, type BoardPlan, type ExistingLink, type PlanLink, type SourceControl, type TrackingIssue } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { ConnectionRow } from "./server";
+import { syncBoardStatuses } from "./board-sync";
 import { shareUrl } from "@/lib/files/serve";
 import { refreshTree } from "./sync";
 import { PUSH_LIMIT, type PlanItem, type PushItemResult } from "./push-types";
@@ -177,6 +178,11 @@ export async function executePush(opts: { supabase: SupabaseClient; admin: Admin
       await record("error", { error: message });
       results.push({ id: p.id, code, outcome: "error", message });
     }
+  }
+  // the boards this send touched: read their Status now, so Delivery Status is right as soon as the send is done (a failed read changes nothing)
+  const touched = [...new Set([...internal.values()].filter((x) => x.board && x.boardPlan?.include).map((x) => x.board!.id))];
+  if (touched.length > 0 && results.some((r) => r.outcome === "created" || r.outcome === "updated")) {
+    await syncBoardStatuses(opts.admin, opts.sc, opts.connection, { boardIds: touched }).catch((e) => console.error(JSON.stringify({ github: "board-status", error: describePushError(e) })));
   }
   return results;
 }

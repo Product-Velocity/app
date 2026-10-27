@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { GitHubError, type BoardField, type BoardValue, type SourceControl } from "./source-control";
+import { GitHubError, type BoardField, type BoardItemStatus, type BoardValue, type SourceControl } from "./source-control";
 
 // What Product Velocity writes to a GitHub Project (a "board") for an initiative. Only four item values are ever read here:
 // MoSCoW, Initiative Group (theme), the G2M date and the T-shirt effort estimate (docs/04). Value, confidence, customers,
@@ -148,4 +148,29 @@ export async function pushBoardChildren(sc: SourceControl, installationId: numbe
   const out: { repo: string; number: number; boardItemId: string }[] = [];
   for (const c of add) out.push({ repo: c.repo, number: c.number, boardItemId: await atStep(`adding child ${c.repo}#${c.number} to the board`, () => sc.addBoardItem(installationId, boardId, c.nodeId)) });
   return out;
+}
+
+export type StatusLink = { item_id: string; repo: string; number: number; projectItemId: string | null; current: string | null };
+export type StatusRow = { item_id: string; status: string | null; board_item_id: string };
+
+/** What to write for Delivery Status: only initiatives whose status or board item changed, matched by repository and issue number. */
+export function planStatusApply(boardItems: BoardItemStatus[], links: StatusLink[]): StatusRow[] {
+  const byIssue = new Map(boardItems.map((b) => [childKey(b.repo, b.number), b]));
+  const out: StatusRow[] = [];
+  for (const l of links) {
+    const b = byIssue.get(childKey(l.repo, l.number));
+    if (!b) continue; // not on the board: nothing is known, nothing is written
+    const status = b.status === null ? null : b.status.slice(0, 100);
+    if (status !== l.current || b.itemId !== l.projectItemId) out.push({ item_id: l.item_id, status, board_item_id: b.itemId });
+  }
+  return out;
+}
+
+/** The board's statuses, or nothing when the board cannot be read (a failed read must not fail a whole check). */
+export async function readBoardStatuses(sc: SourceControl, installationId: number, boardId: string, statusField: string): Promise<BoardItemStatus[]> {
+  try {
+    return await sc.listBoardItems(installationId, boardId, statusField);
+  } catch {
+    return [];
+  }
 }

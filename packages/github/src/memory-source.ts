@@ -1,4 +1,4 @@
-import type { BoardField, BoardInfo, BoardValue, DeliverySummary, InstallationInfo, IssueInput, IssueRef, IssueSummary, RepoInfo, SourceControl, SubIssue } from "./source-control";
+import type { BoardItemStatus, BoardField, BoardInfo, BoardValue, DeliverySummary, InstallationInfo, IssueInput, IssueRef, IssueSummary, RepoInfo, SourceControl, SubIssue } from "./source-control";
 
 /** In-memory SourceControl for tests: records every call so a test can prove what was (not) sent. */
 export class MemorySourceControl implements SourceControl {
@@ -33,6 +33,8 @@ export class MemorySourceControl implements SourceControl {
   /** The error a failing method throws (default: a plain Error). */
   failWith: Error | null = null;
   private maybeFail(name: string) { if (this.failOn === name) { this.failOn = null; throw this.failWith ?? new Error(`${name} failed`); } }
+  boardStatuses = new Map<string, BoardItemStatus[]>();
+  async listBoardItems(_i: number, boardId: string) { this.tick("listBoardItems"); this.maybeFail("listBoardItems"); return this.boardStatuses.get(boardId) ?? []; }
   async listBoards() { this.tick("listBoards"); return this.boards; }
   async getBoardFields(_i: number, boardId: string) { this.tick("getBoardFields"); return this.boardFields.get(boardId) ?? null; }
   async addBoardItem(_i: number, boardId: string, issueNodeId: string) {
