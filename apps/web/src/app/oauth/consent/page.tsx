@@ -48,7 +48,7 @@ export default async function ConsentPage({
       <div className="card auth-card">
         <BrandLogo size={44} />
         <h1>Connect {data.client.name} to Product Velocity?</h1>
-        {flagError && <p role="alert" className="error">This deployment's database is missing migration 0043, so Claude cannot be connected yet.</p>}
+        {flagError && <p role="alert" className="error">This deployment&rsquo;s database is missing migration 0043, so Claude cannot be connected yet.</p>}
         {error && <p role="alert" className="error">{ERRORS[error] ?? ERRORS["1"]}</p>}
         <p>
           <strong>{data.client.name}</strong> will act as <strong>{data.user.email}</strong>, with your role in the workspace you choose.

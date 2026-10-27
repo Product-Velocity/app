@@ -14,7 +14,7 @@ const NOTICE: Record<string, string> = {
   "already-revoked": "That connection was already revoked.",
   "not-admin": "Only workspace admins can do that.",
   failed: "That did not work. Please try again.",
-  "needs-migration": "This deployment's database has not had migration 0043 applied yet, so the Claude switch cannot be saved. Apply the migration (docs/11-ENVIRONMENTS.md) and try again.",
+  "needs-migration": "The database behind this deployment has not had migration 0043 applied yet, so the Claude switch cannot be saved. Apply the migration (docs/11-ENVIRONMENTS.md) and try again.",
 };
 
 type Conn = {
@@ -78,7 +78,7 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
         <p role="status" className="notice">Claude connections are not available on this deployment yet. The connector URL below will work once it is switched on.</p>
       )}
       {notMigrated && (
-        <p role="alert" className="notice">This deployment's database has not had migration 0043 applied yet, so the Claude switch and connections are not available. Apply the migration (docs/11-ENVIRONMENTS.md).</p>
+        <p role="alert" className="notice">This deployment&rsquo;s database has not had migration 0043 applied yet, so the Claude switch and connections are not available. Apply the migration (docs/11-ENVIRONMENTS.md).</p>
       )}
       {!enabled && !notMigrated && (
         <p role="alert" className="notice" id="claude-off">
