@@ -8,9 +8,9 @@ const open = async (page: Page) => {
 const clickElsewhere = (page: Page) => page.getByRole("heading", { name: "Roadmap (test page)" }).click();
 
 test.describe("menus close when you click somewhere else", () => {
-  test("Filters, Group by and Views panels", async ({ page }) => {
+  test("Filters, Group by and the more views menu", async ({ page }) => {
     await open(page);
-    for (const name of [/^(Add filter|\d+ filters?)/, /^Group by/, /^Views/]) {
+    for (const name of [/^(Add filter|\d+ filters?)/, /^Group by/, /more views$/]) {
       const button = page.getByRole("button", { name });
       await button.click();
       await expect(button).toHaveAttribute("aria-expanded", "true");

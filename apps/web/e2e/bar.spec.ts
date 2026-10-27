@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { viewTab } from "./helpers";
 
 const open = async (page: Page, query = "n=30&role=admin&view=All columns&cols=all") => {
   await page.goto(`/dev/grid?${query}`);
@@ -150,22 +151,15 @@ test.describe("filter panel", () => {
     await expect(filtersPanel(page)).toContainText(/\d+ of 30 initiatives match/);
   });
 
-  test("the panel ends with Save to this view: a default view offers Save as new view…, a saved view offers Save to it", async ({ page }) => {
+  test("the Filters panel has no save controls: saving is done from the view bar", async ({ page }) => {
     await open(page);
     await filterBtn(page).click();
     await page.getByRole("button", { name: "High impact" }).click();
-    await filtersPanel(page).getByRole("button", { name: "Save as new view…" }).click();
-    await page.getByRole("dialog", { name: "Save view" }).getByLabel("Name").fill("Must haves");
-    await page.getByRole("button", { name: "Save view", exact: true }).click();
-    await expect(page.getByRole("button", { name: /^Views/ })).toContainText("Must haves");
-    await filterBtn(page).click();
-    await expect(filtersPanel(page).getByRole("button", { name: "Save to “Must haves”" })).toBeDisabled(); // nothing changed since saving
-    await page.getByRole("button", { name: "In progress" }).click();
-    await expect(filtersPanel(page).getByRole("button", { name: "Save to “Must haves”" })).toBeEnabled();
+    await expect(filtersPanel(page).getByRole("button", { name: /Save/ })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".view-dirty")).toContainText("1 filter");
   });
-});
 
-test.describe("column picker", () => {
   test("three panes: categories with counts, a checklist, and the selected columns in order", async ({ page }) => {
     await open(page, "n=30&role=admin&view=Prioritisation&cols=all");
     await columnsBtn(page).click();
@@ -226,15 +220,17 @@ test.describe("column picker", () => {
     await expect(page.getByRole("columnheader", { name: new RegExp(fourth) }).first()).toBeVisible();
   });
 
-  test("Save as new view… at the bottom saves what you staged", async ({ page }) => {
+  test("the Columns panel has no save controls; the unsaved bar saves what you applied", async ({ page }) => {
     await open(page, "n=30&role=admin&view=Prioritisation&cols=all");
     await columnsBtn(page).click();
     await columnsPanel(page).getByRole("button", { name: /^When/ }).click();
     await columnsPanel(page).getByRole("checkbox", { name: /Planned Start/ }).check();
-    await columnsPanel(page).getByRole("button", { name: "Save as new view…" }).click();
-    await page.getByRole("dialog", { name: "Save view" }).getByLabel("Name").fill("With start");
+    await expect(columnsPanel(page).getByRole("button", { name: /Save/ })).toHaveCount(0);
+    await columnsPanel(page).getByRole("button", { name: /^Apply columns/ }).click();
+    await page.locator(".view-dirty").getByRole("button", { name: "Save as new view…" }).click();
+    await page.getByRole("dialog", { name: "Save as new view" }).getByLabel("Name").fill("With start");
     await page.getByRole("button", { name: "Save view", exact: true }).click();
-    await expect(page.getByRole("button", { name: /^Views/ })).toContainText("With start");
+    await expect(viewTab(page, "With start")).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("columnheader", { name: /Planned Start/ }).first()).toBeVisible();
   });
 
