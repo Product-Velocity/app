@@ -1,0 +1,37 @@
+"Initiative Name"	"Home Project"	"Summary (participant-facing)"	"Initiative Hypothesis (IF / THEN / RESULTING IN)"	"Description"	"Roadmap Category"	"Change Type"	"Initiative Group"	"MoSCoW"	"Effort (T-shirt)"	"Horizon"	"Initiative Phase"	"Audience"	"Visibility"	"Source"
+"Sync with GitHub: check both ways, per-initiative preview, conflict choice"	"Product Velocity"	"One Sync with GitHub button that always checks GitHub and works out what to send, with a per-initiative preview and a Keep Product Velocity or Keep GitHub choice for conflicts."	"IF the sync button always checks GitHub and shows a per-initiative preview with a choice for conflicts THEN people can trust that Product Velocity and GitHub are in step RESULTING IN no silently lost edits and no more checking by hand whether the data is current."	"## Story
+As a creator in Product Velocity, when I select initiatives and press **Sync with GitHub**, I want PV to check GitHub for changes *and* work out what to send, in one step, so that I always know both sides are in step and nothing is overwritten without my say-so.
+
+## What changes
+- Today the button only sends; with nothing to send it says ""Nothing to send"" and GitHub is never asked. After this change **it always checks GitHub first**.
+- One preview card per initiative with three parts: **Received** (what GitHub owns, applied), **Conflicts** (text changed in GitHub and/or in PV: choose **Keep Product Velocity** or **Keep GitHub**), **To send** (confirmed by you).
+- Nothing is overwritten silently in either direction.
+
+## Who owns what
+- **GitHub owns delivery:** Build Status, delivery progress, children (epics and tasks), Delivery Status (board Status). Applied on sync, read-only in PV.
+- **PV owns the initiative:** name, Summary, Description, Hypothesis. A change made in GitHub is shown as a conflict, never ignored and never applied without a choice.
+- **Never travels:** value, confidence, customers, decisions, key results, rank.
+
+## Flow
+1. Select and press **Sync with GitHub** (creators and admins).
+2. Read-only check of GitHub: issue, children, board Status.
+3. Apply what GitHub owns.
+4. Compare the PV-owned texts three ways (last agreed, PV now, GitHub now).
+5. Preview per initiative; settle conflicts; bulk ""keep all"" buttons.
+6. **Apply and send** (or **Done** when everything is in step); results per initiative.
+
+## Acceptance criteria
+- With nothing to send the sync still checks GitHub, shows what it found and offers **Done**.
+- An issue closed in GitHub appears under Received and is audited.
+- A title or description edited in GitHub only is a conflict (default **Keep Product Velocity**); edited on both sides: no default, **Apply and send** disabled until chosen.
+- **Keep GitHub** changes PV (one undo step); **Keep Product Velocity** overwrites GitHub only after confirmation; text outside the managed block is never touched.
+- An edit made in GitHub between preview and confirm is caught at confirm.
+- Received text can never change a non-allowlisted field (hostile-text test); two-tenant isolation tests pass; keyboard-only and WCAG AA.
+
+## Slices
+1. **Always check** (no new data): dialog and button, receive, no dead end, Last Synced.
+2. **Conflicts** (one migration: `sync_base` hashes): block and title splitting, three-way compare, choice per field, re-read at confirm.
+3. **Reach:** progress for 25, MCP tools, assignees, board values as optional conflicts.
+
+Full spec: `docs/21-SYNC-WITH-GITHUB.md` (draft, not built).
+"	"Close capability gaps"	"Improvement to existing feature"	"github-sync"	"Must"	"L"	"Now"	"Define"	"Internal"	"Internal only"	"Ashu request R-038, 2026-10-27; spec docs/21-SYNC-WITH-GITHUB.md"
