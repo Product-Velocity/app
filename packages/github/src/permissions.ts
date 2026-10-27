@@ -9,7 +9,7 @@ export const PERMISSIONS_LATER: Record<string, Level> = {
   issue_types: "read",
   organization_projects: "write",
 };
-export const EVENTS_LATER = ["issues", "sub_issues", "pull_request", "check_run", "check_suite", "release"] as const;
+export const EVENTS_LATER = ["issues", "sub_issues", "projects_v2_item", "pull_request", "check_run", "check_suite", "release"] as const;
 
 const RANK: Record<string, number> = { read: 1, write: 2, admin: 3 };
 

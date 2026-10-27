@@ -118,6 +118,8 @@ test.describe("Last Synced and Synced With", () => {
     await expect(synced.locator('[col-id="synced_with"]')).toContainText('GitHub · Acme/App · board "Product Velocity roadmap"');
     await expect(synced.locator('[col-id="last_synced"]')).not.toHaveText("");
     await expect(synced.locator('[col-id="last_synced"]')).not.toContainText("Not synced");
+    await expect(synced.locator('[col-id="gh_project_status"]')).toContainText("On staging");
+    await expect(row(page, "item-2").locator('[col-id="gh_project_status"]')).toContainText("Not on a board");
     await expect(row(page, "item-2").locator('[col-id="last_synced"]')).toContainText("Not synced");
     await expect(row(page, "item-2").locator('[col-id="synced_with"]')).toContainText("Not synced");
     await page.screenshot({ path: "../../docs/screenshots/last-synced-columns.png" });
@@ -127,6 +129,7 @@ test.describe("Last Synced and Synced With", () => {
     await row(page, "item-1").locator('[col-id="item_code"]').click({ position: { x: 8, y: 8 } });
     const panel = page.getByTestId("item-panel");
     await expect(panel.locator(".ip-gh")).toContainText("last synced");
+    await expect(panel.locator(".ip-gh")).toContainText("delivery status On staging");
     for (const key of ["last_synced", "synced_with"]) {
       await expect(panel.locator(`[data-field="${key}"]`).getByRole("textbox")).toHaveCount(0);
     }

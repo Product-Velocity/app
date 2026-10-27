@@ -104,8 +104,8 @@ describe("pushBoardItem", () => {
   const plan = planBoardItem(item, fields, mapping);
   it("adds the issue once and writes each value", async () => {
     const sc = new MemorySourceControl();
-    const id1 = await pushBoardItem(sc, 1, "PVT_1", "I_node", plan);
-    const id2 = await pushBoardItem(sc, 1, "PVT_1", "I_node", plan);
+    const id1 = (await pushBoardItem(sc, 1, "PVT_1", "I_node", plan)).itemId;
+    const id2 = (await pushBoardItem(sc, 1, "PVT_1", "I_node", plan)).itemId;
     expect(id2).toBe(id1);
     expect(sc.boardItems).toHaveLength(1);
     expect(sc.boardItems[0]!.values).toEqual({ "f-prio": { optionId: "o-P1" }, "f-init": { optionId: "o-Growth" }, "f-due": { date: "2026-12-15" }, "f-size": { optionId: "o-M" } });
@@ -173,5 +173,35 @@ describe("board errors say which step failed and what GitHub said", () => {
   it("errors without detail read as before", () => {
     expect(describePushError(new GitHubError(422, "x"))).toBe("GitHub refused the request (422).");
     expect(describePushError(new GitHubError(404, "x"))).toBe("GitHub could not find the repository. Check the project's default repository.");
+  });
+});
+
+describe("GitHub issue fields on a board (Ashu's board: Target date)", () => {
+  const issueFieldError = () => new GitHubError(422, "x", undefined, "VALIDATION: Issue field values cannot be updated using the updateProjectV2ItemFieldValue mutation, they must be updated using the updateIssueFieldValue mutation");
+  const plan = planBoardItem(item, fields, mapping);
+
+  it("a field GitHub says is an issue field is skipped and reported; the other fields are still written and nothing fails", async () => {
+    const sc = new MemorySourceControl();
+    sc.failOnField = { id: "f-due", error: issueFieldError() };
+    const r = await pushBoardItem(sc, 1, "PVT_1", "I_node", plan);
+    expect(r.skipped).toEqual([{ id: "f-due", name: "Due date" }]);
+    expect(sc.boardItems[0]!.values).toEqual({ "f-prio": { optionId: "o-P1" }, "f-init": { optionId: "o-Growth" }, "f-size": { optionId: "o-M" } });
+  });
+  it("any other error is still a failure that names the step", async () => {
+    const sc = new MemorySourceControl();
+    sc.failOnField = { id: "f-prio", error: new GitHubError(422, "x", undefined, "UNPROCESSABLE: bad option") };
+    await expect(pushBoardItem(sc, 1, "PVT_1", "I_node", plan)).rejects.toMatchObject({ detail: expect.stringContaining('setting "Priority"') });
+  });
+  it("a field known to be unwritable is left out of the plan, with a plain note, and does not change the signature of the rest", () => {
+    const p = planBoardItem(item, fields, { ...mapping, unwritable: ["f-due"] });
+    expect(p.writes.map((w) => w.field.name)).toEqual(["Priority", "Initiative", "Size"]);
+    expect(p.notes.join(" ")).toContain('"Due date" is a GitHub issue field');
+    expect(p.include).toBe(true);
+  });
+  it("the unwritable list survives being stored and read back, and bad ones are refused", () => {
+    const stored = { id: "PVT_1", number: 3, title: "Roadmap", url: "https://github.com/orgs/Acme/projects/3", mapping: { ...mapping, unwritable: ["f-due"] } };
+    expect(parseBoard(stored)?.mapping.unwritable).toEqual(["f-due"]);
+    expect(parseBoard({ ...stored, mapping: { ...mapping, unwritable: "f-due" } })).toBeNull();
+    expect(parseBoard({ ...stored, mapping: { ...mapping, unwritable: [5] } })).toBeNull();
   });
 });

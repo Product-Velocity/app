@@ -97,7 +97,7 @@ N15,Delivery (GitHub),Delivery Progress %,delivery_progress_pct,Computed,,Comput
 N16,Delivery (GitHub),Open PRs (#),open_prs,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
 N17,Delivery (GitHub),Last GitHub Activity,gh_last_activity,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
 N32,Delivery (GitHub),Merged PRs (#),merged_prs,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
-N33,Delivery (GitHub),Project Status (GitHub),gh_project_status,Computed,As defined in the linked GitHub Project (e.g. Todo · In Progress · Done),GitHub,New,"Projects v2 -> app, read-only.",GitHub-synced column (read-only in app),3
+N33,Delivery (GitHub),Delivery Status,gh_project_status,Computed,,GitHub,New,"Projects v2 -> app, read-only (the board's Status field).",GitHub-synced column (read-only in app),1
 N34,Delivery (GitHub),Iteration / Sprint (GitHub),gh_iteration,Computed,,GitHub,New,"Projects v2 -> app, read-only.",GitHub-synced column (read-only in app),3
 N35,Delivery (GitHub),GitHub Target Date,gh_target_date,Computed,,GitHub,New,"Projects v2 -> app, read-only.",GitHub-synced column (read-only in app),3
 N36,Delivery (GitHub),Blocked Issues (#),blocked_issues,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3

@@ -108,3 +108,15 @@ export function parseSubIssueEvent(event: string | null, payload: unknown): SubI
   if (typeof p?.action !== "string" || typeof p.installation?.id !== "number" || typeof repo !== "string" || typeof p.parent_issue?.number !== "number") return null;
   return { action: p.action, installationId: p.installation.id, repo, parentNumber: p.parent_issue.number };
 }
+
+export type ProjectItemEvent = { installationId: number; action: string; itemNodeId: string; boardId: string; /** The board field that changed, when GitHub says. */ fieldName: string | null };
+
+/** A `projects_v2_item` delivery (an item of a Project board changed). Reads only ids and the name of the changed field, never values. */
+export function parseProjectItemEvent(event: string | null, payload: unknown): ProjectItemEvent | null {
+  if (event !== "projects_v2_item") return null;
+  const p = payload as { action?: unknown; installation?: { id?: unknown }; projects_v2_item?: { node_id?: unknown; project_node_id?: unknown }; changes?: { field_value?: { field_name?: unknown } } } | null;
+  const item = p?.projects_v2_item;
+  if (typeof p?.installation?.id !== "number" || typeof p.action !== "string" || typeof item?.node_id !== "string" || typeof item.project_node_id !== "string") return null;
+  const fieldName = p.changes?.field_value?.field_name;
+  return { installationId: p.installation.id, action: p.action, itemNodeId: item.node_id, boardId: item.project_node_id, fieldName: typeof fieldName === "string" ? fieldName : null };
+}

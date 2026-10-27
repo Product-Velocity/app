@@ -1,5 +1,5 @@
 import { createSign } from "node:crypto";
-import { GitHubError, type BoardField, type BoardInfo, type BoardValue, type IssueSummary, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl, type SubIssue } from "./source-control";
+import { GitHubError, type BoardItemStatus, type BoardField, type BoardInfo, type BoardValue, type IssueSummary, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl, type SubIssue } from "./source-control";
 
 const API = "https://api.github.com";
 const b64url = (b: Buffer | string) => Buffer.from(b).toString("base64url");
@@ -245,6 +245,28 @@ export class GitHubAppSourceControl implements SourceControl {
     if (!d.node?.fields) return null;
     const known = new Set(["TEXT", "NUMBER", "DATE", "SINGLE_SELECT"]);
     return d.node.fields.nodes.filter((f) => f.id && f.name).map((f) => ({ id: f.id!, name: f.name!, dataType: (known.has(f.dataType ?? "") ? f.dataType : "OTHER") as BoardField["dataType"], ...(f.options ? { options: f.options } : {}) }));
+  }
+
+  async listBoardItems(installationId: number, boardId: string, statusField: string): Promise<BoardItemStatus[]> {
+    type Node = { id: string; content: { id?: string; number?: number; repository?: { nameWithOwner?: string } } | null; fieldValueByName: { name?: string } | null };
+    const out: BoardItemStatus[] = [];
+    let after: string | null = null;
+    for (let page = 0; page < 10; page++) { // 1,000 items
+      const d: { node: { items: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: Node[] } } | null } = await this.graphql(
+        installationId,
+        `query($p:ID!,$n:String!,$after:String){node(id:$p){... on ProjectV2{items(first:100,after:$after){pageInfo{hasNextPage endCursor} nodes{id content{... on Issue{id number repository{nameWithOwner}}} fieldValueByName(name:$n){... on ProjectV2ItemFieldSingleSelectValue{name}}}}}}}`,
+        { p: boardId, n: statusField, after },
+      );
+      if (!d.node) break;
+      for (const n of d.node.items.nodes) {
+        const c = n.content;
+        if (!c?.id || typeof c.number !== "number" || !c.repository?.nameWithOwner) continue; // drafts, pull requests and notes are not initiatives
+        out.push({ itemId: n.id, issueNodeId: c.id, repo: c.repository.nameWithOwner, number: c.number, status: n.fieldValueByName?.name ?? null });
+      }
+      if (!d.node.items.pageInfo.hasNextPage) break;
+      after = d.node.items.pageInfo.endCursor;
+    }
+    return out;
   }
 
   async addBoardItem(installationId: number, boardId: string, issueNodeId: string): Promise<string> {

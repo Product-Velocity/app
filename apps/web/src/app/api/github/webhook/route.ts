@@ -1,4 +1,5 @@
-import { parseConnectionEvent, parseIssueEvent, parseSubIssueEvent, verifySignature } from "@pv/github";
+import { parseConnectionEvent, parseIssueEvent, parseProjectItemEvent, parseSubIssueEvent, verifySignature } from "@pv/github";
+import { ingestProjectItemEvent } from "@/lib/github/board-sync";
 import { applyConnectionEvent, githubSecret, githubSourceControl } from "@/lib/github/server";
 import { ingestIssueEvent, ingestSubIssueEvent } from "@/lib/github/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -42,6 +43,18 @@ export async function POST(request: Request) {
       return new Response(await ingestSubIssueEvent(createAdminClient({ via: "GitHub webhook" }), scs, sub));
     } catch (e) {
       console.error(JSON.stringify({ github: "webhook", event, action: sub.action, delivery, error: e instanceof Error ? e.message.slice(0, 200) : "unknown" }));
+      return new Response("error", { status: 500 });
+    }
+  }
+
+  const board = parseProjectItemEvent(event, payload);
+  if (board) {
+    const scb = githubSourceControl();
+    if (!scb) return new Response("not configured", { status: 503 });
+    try {
+      return new Response(await ingestProjectItemEvent(createAdminClient({ via: "GitHub webhook" }), scb, board));
+    } catch (e) {
+      console.error(JSON.stringify({ github: "webhook", event, action: board.action, delivery, error: e instanceof Error ? e.message.slice(0, 200) : "unknown" }));
       return new Response("error", { status: 500 });
     }
   }
