@@ -51,11 +51,16 @@ export async function readIssueTexts(sc: SourceControl, connection: ConnectionRo
  * linked before this existed, Product Velocity's text counts as the base when nothing changed there since the last send (`unchanged`),
  * and otherwise there is no base and any difference is a conflict, never a silent overwrite.
  */
-async function compareItems(ctx: SyncCtx, ids: string[], issues: Map<string, IssueTexts>, unchanged: ReadonlySet<string>): Promise<Map<string, ItemCompare>> {
+async function compareItems(ctx: SyncCtx, ids: string[], issues: Map<string, IssueTexts>, unchanged: ReadonlySet<string>): Promise<{ compares: Map<string, ItemCompare>; error?: string }> {
   const [items, links] = await Promise.all([
     ctx.supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis").eq("tenant_id", ctx.tenantId).is("deleted_at", null).in("id", ids),
     ctx.supabase.from("item_github_links").select("item_id, mode, sync_base").eq("tenant_id", ctx.tenantId).eq("connection_id", ctx.connection.id).in("item_id", ids),
   ]);
+  // a read that fails must never look like "in step": without both reads nothing can be compared
+  if (items.error || links.error) {
+    console.error(JSON.stringify({ github: "compare", error: (items.error ?? links.error)!.message.slice(0, 200) }));
+    return { compares: new Map(), error: "The texts could not be compared with GitHub just now (the database refused the read). Nothing was sent. If this keeps happening, check that the latest database migration has been applied." };
+  }
   const linkBy = new Map(((links.data ?? []) as BaseRow[]).map((l) => [l.item_id, l]));
   const out = new Map<string, ItemCompare>();
   for (const r of (items.data ?? []) as PvRow[]) {
@@ -73,7 +78,7 @@ async function compareItems(ctx: SyncCtx, ids: string[], issues: Map<string, Iss
     const cmp = compareIssue({ code: r.item_code, pv: r, issue, base });
     out.set(r.id, { code: r.item_code, cmp, blockHash: blockHashOf(issue.body), baseComplete: SYNC_TEXT_FIELDS.every((f) => link.sync_base?.[f] === pvHashes[f]), pvHashes });
   }
-  return out;
+  return { compares: out };
 }
 
 const BLOCK_NOTE = "The managed block in GitHub was edited so that it cannot be read field by field. Keep Product Velocity rewrites the block; Keep GitHub leaves the issue as it is and sends nothing for this initiative.";
@@ -96,18 +101,19 @@ async function recordBase(ctx: SyncCtx, itemId: string, hashes: Record<SyncTextF
 }
 
 /** Steps 1 to 4: check GitHub, apply what it owns, compare the texts, work out the send. Writes nothing to GitHub; an initiative found in step has its base recorded. */
-export async function buildSyncPreview(ctx: SyncCtx, ids: string[]): Promise<SyncPreview & { compares: Map<string, ItemCompare>; texts: Map<string, IssueTexts> }> {
+export async function buildSyncPreview(ctx: SyncCtx, ids: string[]): Promise<SyncPreview & { compares: Map<string, ItemCompare>; texts: Map<string, IssueTexts>; compareError?: string }> {
   const texts = new Map<string, IssueTexts>();
   const received = await receiveFromGithub(ctx.adminGithub, ctx.sc, ctx.connection, ids, texts);
   const send = await planPush(ctx.supabase, ctx.tenantId, ctx.appUrl, ctx.connection, ids, ctx.sc);
-  const compares = await compareItems(ctx, ids, texts, new Set(send.filter((p) => p.action === "unchanged").map((p) => p.id)));
+  const { compares, error: compareError } = await compareItems(ctx, ids, texts, new Set(send.filter((p) => p.action === "unchanged").map((p) => p.id)));
+  if (compareError) for (const r of received) if (r.status === "in_step" || r.status === "received" || r.status === "follows") { r.status = "error"; r.message = compareError; }
   for (const r of received) {
     const c = compares.get(r.id);
     const conflicts = conflictsOf(c);
     if (conflicts.length > 0) { r.conflicts = conflicts; if (r.status === "in_step" || r.status === "received") r.status = "conflict"; }
     else if (c && !c.baseComplete && c.cmp.fields.every((f) => f.verdict === "none")) await recordBase(ctx, r.id, c.pvHashes);
   }
-  return { account: ctx.connection.account_login ?? ctx.connection.expected_account, received, send, compares, texts };
+  return { account: ctx.connection.account_login ?? ctx.connection.expected_account, received, send, compares, texts, ...(compareError ? { compareError } : {}) };
 }
 
 const strip = ({ account, received, send }: SyncPreview): SyncPreview => ({ account, received, send });
@@ -119,6 +125,7 @@ const strip = ({ account, received, send }: SyncPreview): SyncPreview => ({ acco
  */
 export async function confirmSync(ctx: SyncCtx, ids: string[], choices: SyncChoice[]): Promise<SyncConfirmResult> {
   const pre = await buildSyncPreview(ctx, ids);
+  if (pre.compareError) return { ok: false, error: pre.compareError };
   // every conflict needs a choice, made on the text that is in GitHub now
   for (const r of pre.received) {
     for (const c of r.conflicts ?? []) {
