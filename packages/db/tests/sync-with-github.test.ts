@@ -64,6 +64,44 @@ describe("github_apply_pull changes only the four allowlisted texts", () => {
   });
 });
 
+describe("github_apply_pull also takes over the four board values, and only those", () => {
+  const col = async (id: string) => (await db.admin.query("select moscow, theme, end_date::text as end_date, effort, value_12m, confidence, decision from public.items where id = $1", [id])).rows[0];
+  it("sets MoSCoW, an existing Initiative Group, the date and the size, returns what was replaced, audits the person", async () => {
+    await db.admin.query("insert into public.item_groups (tenant_id, name) values ($1, 'Platform') on conflict do nothing", [f.tenantA]);
+    const before = await col(itemA);
+    const replaced = await pull(creator, itemA, { moscow: "Should", theme: "platform", end_date: "2027-03-31", effort: "XL" }, { priority: H("1"), group: H("2"), due: H("3"), size: H("4") });
+    expect(replaced).toEqual({ moscow: before.moscow, theme: before.theme, end_date: before.end_date, effort: before.effort });
+    expect(await col(itemA)).toMatchObject({ moscow: "Should", theme: "Platform", end_date: "2027-03-31", effort: "XL", value_12m: before.value_12m, confidence: before.confidence, decision: before.decision });
+    const a = (await db.admin.query("select actor_id, via from public.audit_log where entity = 'items' and entity_id = $1 and field = 'moscow' order by id desc limit 1", [itemA])).rows[0];
+    expect(a).toMatchObject({ actor_id: creator, via: "UI" });
+    expect((await link(itemA)).sync_base).toMatchObject({ priority: H("1"), group: H("2"), due: H("3"), size: H("4") });
+  });
+  it("refuses a value that does not belong, and an Initiative Group that does not exist (nothing is created)", async () => {
+    const before = await col(itemA);
+    for (const bad of [{ moscow: "Won't" }, { moscow: "P0" }, { effort: "XXL" }, { end_date: "tomorrow" }, { end_date: "2027-13-45" }, { theme: "Invented by GitHub" }]) {
+      expect(await errorCode(pull(creator, itemA, bad)), JSON.stringify(bad)).toBe("22023");
+    }
+    expect(await col(itemA)).toEqual(before);
+    expect((await db.admin.query("select count(*)::int as n from public.item_groups where tenant_id = $1 and name = 'Invented by GitHub'", [f.tenantA])).rows[0].n).toBe(0);
+  });
+  it("a date before Planned Start is refused by the table's own check and changes nothing", async () => {
+    await db.admin.query("update public.items set start_date = '2027-03-15' where id = $1", [itemA]);
+    const before = await col(itemA);
+    await expect(pull(creator, itemA, { end_date: "2027-01-01" })).rejects.toBeTruthy();
+    expect(await col(itemA)).toEqual(before);
+    await db.admin.query("update public.items set start_date = null where id = $1", [itemA]);
+  });
+  it("a group of another workspace is not found: groups are looked up in the item's own workspace", async () => {
+    await db.admin.query("insert into public.item_groups (tenant_id, name) values ($1, 'OnlyInB') on conflict do nothing", [f.tenantB]);
+    expect(await errorCode(pull(creator, itemA, { theme: "OnlyInB" }))).toBe("22023");
+  });
+  it("the board keys are accepted in the base as hashes only", async () => {
+    await expect(record(creator, itemA, { priority: "P0" })).rejects.toBeTruthy();
+    await record(creator, itemA, { due: H("a") });
+    expect((await link(itemA)).sync_base).toMatchObject({ due: H("a") });
+  });
+});
+
 describe("who may sync, and across workspaces", () => {
   it("viewers, service accounts and strangers are refused; the item stays as it was", async () => {
     const before = await item(itemA);

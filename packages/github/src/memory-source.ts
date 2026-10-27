@@ -1,4 +1,4 @@
-import type { BoardItemStatus, BoardField, BoardInfo, BoardValue, DeliverySummary, InstallationInfo, IssueInput, IssueRef, IssueSummary, RepoInfo, SourceControl, SubIssue } from "./source-control";
+import type { BoardItemValue, BoardItemStatus, BoardField, BoardInfo, BoardValue, DeliverySummary, InstallationInfo, IssueInput, IssueRef, IssueSummary, RepoInfo, SourceControl, SubIssue } from "./source-control";
 
 /** In-memory SourceControl for tests: records every call so a test can prove what was (not) sent. */
 export class MemorySourceControl implements SourceControl {
@@ -37,6 +37,20 @@ export class MemorySourceControl implements SourceControl {
   async listBoardItems(_i: number, boardId: string) { this.tick("listBoardItems"); this.maybeFail("listBoardItems"); return this.boardStatuses.get(boardId) ?? []; }
   async listBoards() { this.tick("listBoards"); return this.boards; }
   async getBoardFields(_i: number, boardId: string) { this.tick("getBoardFields"); return this.boardFields.get(boardId) ?? null; }
+  async getBoardItemValues(_i: number, itemId: string): Promise<Record<string, BoardItemValue> | null> {
+    this.tick("getBoardItemValues");
+    this.maybeFail("getBoardItemValues");
+    const item = this.boardItems.find((x) => x.id === itemId);
+    if (!item) return null;
+    const fields = this.boardFields.get(item.boardId) ?? [];
+    const out: Record<string, BoardItemValue> = {};
+    for (const [fieldId, v] of Object.entries(item.values)) {
+      if ("optionId" in v) { const name = fields.find((f) => f.id === fieldId)?.options?.find((o) => o.id === v.optionId)?.name; if (name) out[fieldId] = { option: name }; }
+      else if ("date" in v) out[fieldId] = { date: v.date };
+      else if ("text" in v) out[fieldId] = { text: v.text };
+    }
+    return out;
+  }
   async addBoardItem(_i: number, boardId: string, issueNodeId: string) {
     this.tick("addBoardItem");
     this.maybeFail("addBoardItem");

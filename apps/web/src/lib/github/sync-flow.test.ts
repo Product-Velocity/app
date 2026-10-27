@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildTrackingIssue, hashText, MemorySourceControl } from "@pv/github";
+import { buildTrackingIssue, hashBoardValue as hashBoard, hashText, MemorySourceControl } from "@pv/github";
 
 vi.mock("server-only", () => ({}));
 const order: string[] = [];
@@ -19,23 +19,34 @@ vi.mock("./receive", () => ({
 const { confirmSync, buildSyncPreview } = await import("./sync-flow");
 
 const ITEM = "11111111-1111-4111-8111-111111111111";
-const pv = { id: ITEM, item_code: "R-1", initiative_name: "Faster export", summary: "S", description: "D", hypothesis: "H" };
+const pv = { id: ITEM, item_code: "R-1", initiative_name: "Faster export", summary: "S", description: "D", hypothesis: "H", moscow: "Must", theme: "Mobile", end_date: "2026-12-31", effort: "M", home_project_id: "p1" };
 const bodyFor = (over: Record<string, unknown>) => buildTrackingIssue({ item: { ...pv, ...over }, itemId: ITEM, projectName: "Mobile", appUrl: "https://pv.test", artifacts: [] }).block;
 let issueTexts: Record<string, { title: string; body: string }>;
 const inStep = { title: hashText("Faster export"), summary: hashText("S"), description: hashText("D"), hypothesis: hashText("H") };
 
+const BOARD = { id: "B", number: 1, title: "Roadmap", url: "https://github.com/orgs/x/projects/1", mapping: { priority: { id: "fp", name: "Priority" }, group: null, dueDate: { id: "fd", name: "Due date" }, size: { id: "fs", name: "Size" }, status: null, priorityMap: { Must: "P0", Should: "P1", Could: "P2" } } };
+/** A board whose item shows these values by field id (single-select option names and dates). */
+function boardSc(values: Record<string, object> | null | undefined) {
+  const sc = new MemorySourceControl();
+  sc.boardFields.set("B", [{ id: "fp", name: "Priority", dataType: "SINGLE_SELECT", options: [{ id: "o0", name: "P0" }, { id: "o1", name: "P1" }, { id: "o2", name: "P2" }] }, { id: "fd", name: "Due date", dataType: "DATE" }, { id: "fs", name: "Size", dataType: "SINGLE_SELECT", options: [{ id: "s1", name: "M" }, { id: "s2", name: "XL" }] }]);
+  if (values) sc.boardItems.push({ id: "PVTI_1", boardId: "B", issueNodeId: "I_1", values: values as never });
+  return sc;
+}
+const onBoard = { fp: { optionId: "o0" }, fd: { date: "2026-12-31" }, fs: { optionId: "s1" } };
+const boardBase = { priority: hashBoard("P0"), due: hashBoard("2026-12-31"), size: hashBoard("M") };
+
 type Rpc = { name: string; args: Record<string, unknown> };
-function ctx(opts: { rows?: unknown[]; base?: unknown; pullError?: boolean; readError?: boolean } = {}) {
+function ctx(opts: { rows?: unknown[]; base?: unknown; pullError?: boolean; readError?: boolean; board?: Record<string, object> | null } = {}) {
   const rpcs: Rpc[] = [];
   const rows = opts.rows ?? [pv];
   const q = (table: string) => {
     const r: Record<string, unknown> = {};
-    for (const m of ["eq", "is", "in", "select"]) r[m] = () => r;
-    r.then = (resolve: (v: unknown) => void) => resolve(opts.readError && table === "item_github_links" ? { data: null, error: { message: 'column "sync_base" does not exist' } } : { data: table === "items" ? rows : [{ item_id: ITEM, mode: "push", sync_base: opts.base ?? inStep }], error: null });
+    for (const m of ["eq", "is", "in", "select", "not"]) r[m] = () => r;
+    r.then = (resolve: (v: unknown) => void) => resolve(table === "projects" ? { data: opts.board ? [{ id: "p1", github_board: BOARD }] : [], error: null } : table === "item_groups" ? { data: [{ name: "Mobile" }, { name: "Platform" }], error: null } : opts.readError && table === "item_github_links" ? { data: null, error: { message: 'column "sync_base" does not exist' } } : { data: table === "items" ? rows : [{ item_id: ITEM, mode: "push", sync_base: opts.base ?? inStep, project_item_id: opts.board ? "PVTI_1" : null }], error: null });
     return r;
   };
   const adminUi = { rpc: async (name: string, args: Record<string, unknown>) => { rpcs.push({ name, args }); order.push(name); return name === "github_apply_pull" ? (opts.pullError ? { data: null, error: { message: "boom" } } : { data: { initiative_name: "Faster export", description: "D" }, error: null }) : { data: null, error: null }; } };
-  return { rpcs, ctx: { supabase: { from: q }, adminGithub: {}, adminUi, sc: new MemorySourceControl(), connection: { id: "c1", tenant_id: "t1", expected_account: "Acme", installation_id: 9, account_login: "Acme", state: "connected" }, tenantId: "t1", actor: "u1", appUrl: "https://pv.test" } as never };
+  return { rpcs, ctx: { supabase: { from: q }, adminGithub: {}, adminUi, sc: boardSc(opts.board), connection: { id: "c1", tenant_id: "t1", expected_account: "Acme", installation_id: 9, account_login: "Acme", state: "connected" }, tenantId: "t1", actor: "u1", appUrl: "https://pv.test" } as never };
 }
 
 beforeEach(() => { order.length = 0; pushCalls.length = 0; plan = [{ id: ITEM, action: "unchanged" }]; pushResults = {}; issueTexts = { [ITEM]: { title: "R-1: Faster export", body: bodyFor({}) } }; });
@@ -148,5 +159,75 @@ describe("confirmSync", () => {
     const { ctx: c, rpcs } = ctx();
     await confirmSync(c, [ITEM], [{ itemId: ITEM, field: "title", choice: "pv", ghHash: titleConflictHash() }]);
     expect(rpcs.some((x) => x.name === "github_record_base")).toBe(false);
+  });
+});
+
+
+describe("board values: Priority, Due date and Size changed on the GitHub Project board", () => {
+  const withBase = () => ({ ...inStep, ...boardBase });
+  it("a board value equal to Product Velocity's is quiet, and the agreement is recorded when no board base was known", async () => {
+    const { ctx: c, rpcs } = ctx({ board: onBoard, base: inStep });
+    const p = await buildSyncPreview(c, [ITEM]);
+    expect(p.received[0]).toMatchObject({ status: "in_step" });
+    expect(rpcs.find((r) => r.name === "github_record_base")?.args).toMatchObject({ p_base: { ...inStep, ...boardBase } });
+  });
+  it("a Priority changed only on the board is a conflict on the board, defaulting to Keep Product Velocity", async () => {
+    const { ctx: c } = ctx({ board: { ...onBoard, fp: { optionId: "o1" } }, base: withBase() });
+    const p = await buildSyncPreview(c, [ITEM]);
+    expect(p.received[0]).toMatchObject({ status: "conflict", conflicts: [{ field: "priority", label: "Priority", kind: "github", where: "board", pv: "P0", github: "P1", defaultChoice: "pv" }] });
+  });
+  it("changed on both sides: no default; a size the board shows that Product Velocity does not know cannot be taken over", async () => {
+    const { ctx: c } = ctx({ board: { ...onBoard, fs: { optionId: "s2" } }, base: withBase(), rows: [{ ...pv, effort: "S" }] });
+    const p = await buildSyncPreview(c, [ITEM]);
+    expect(p.received[0]!.conflicts).toMatchObject([{ field: "size", kind: "both", defaultChoice: null }]);
+  });
+  it("Keep GitHub takes the board's value into the allowlisted column only, then sends, then records the agreed hashes", async () => {
+    const { ctx: c, rpcs } = ctx({ board: { ...onBoard, fp: { optionId: "o1" }, fd: { date: "2027-02-01" } }, base: withBase() });
+    const p = await buildSyncPreview(c, [ITEM]);
+    const picks = p.received[0]!.conflicts!.map((x) => ({ itemId: ITEM, field: x.field, choice: "github" as const, ghHash: x.ghHash }));
+    expect(picks.map((x) => x.field).sort()).toEqual(["due", "priority"]);
+    order.length = 0;
+    const r = await confirmSync(c, [ITEM], picks);
+    expect(r).toMatchObject({ ok: true, taken: expect.arrayContaining([{ itemId: ITEM, code: "R-1", field: "moscow", before: null, after: "Should" }, { itemId: ITEM, code: "R-1", field: "end_date", before: null, after: "2027-02-01" }]) });
+    expect(rpcs.find((x) => x.name === "github_apply_pull")?.args).toMatchObject({ p_fields: { moscow: "Should", end_date: "2027-02-01" } });
+    expect(Object.keys((rpcs.find((x) => x.name === "github_apply_pull")!.args.p_fields as object)).sort()).toEqual(["end_date", "moscow"]);
+    expect(order.indexOf("github_apply_pull")).toBeLessThan(order.indexOf("send"));
+    expect(rpcs.filter((x) => x.name === "github_record_base").at(-1)?.args).toMatchObject({ p_base: { priority: hashBoard("P1"), due: hashBoard("2027-02-01"), size: hashBoard("M") } });
+  });
+  it("Keep Product Velocity forces the write of the board value, and an empty Product Velocity value is never forced", async () => {
+    const { ctx: c } = ctx({ board: { ...onBoard, fp: { optionId: "o1" } }, base: withBase() });
+    const p = await buildSyncPreview(c, [ITEM]);
+    const hash = p.received[0]!.conflicts![0]!.ghHash;
+    await confirmSync(c, [ITEM], [{ itemId: ITEM, field: "priority", choice: "pv", ghHash: hash }]);
+    expect([...pushCalls.at(-1)!.force!]).toEqual([ITEM]);
+    pushCalls.length = 0;
+    const empty = ctx({ board: { ...onBoard, fs: { optionId: "s2" } }, base: withBase(), rows: [{ ...pv, effort: null }] });
+    const q = await buildSyncPreview(empty.ctx, [ITEM]);
+    expect(q.received[0]!.conflicts).toMatchObject([{ field: "size", pv: "(empty)", defaultChoice: "github" }]);
+    await confirmSync(empty.ctx, [ITEM], [{ itemId: ITEM, field: "size", choice: "pv", ghHash: q.received[0]!.conflicts![0]!.ghHash }]);
+    expect(pushCalls.at(-1)!.force?.size ?? 0).toBe(0);
+  });
+  it("a value that cannot be taken over refuses Keep GitHub on the server too, and nothing is applied or sent", async () => {
+    const sc = boardSc({ ...onBoard, fp: { optionId: "o2" } });
+    sc.boardFields.set("B", [{ id: "fp", name: "Priority", dataType: "SINGLE_SELECT", options: [{ id: "o2", name: "P3" }] }]);
+    const { ctx: c, rpcs } = ctx({ board: onBoard, base: withBase() });
+    (c as { sc: unknown }).sc = sc;
+    const p = await buildSyncPreview(c, [ITEM]);
+    expect(p.received[0]!.conflicts).toMatchObject([{ field: "priority", githubPullable: false, defaultChoice: "pv" }]);
+    const r = await confirmSync(c, [ITEM], [{ itemId: ITEM, field: "priority", choice: "github", ghHash: p.received[0]!.conflicts![0]!.ghHash }]);
+    expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/cannot be taken over/) });
+    expect(rpcs.some((x) => x.name === "github_apply_pull")).toBe(false);
+    expect(pushCalls).toEqual([]);
+  });
+  it("a board that cannot be read is a note on the card, never 'compared and fine'", async () => {
+    const { ctx: c } = ctx({ board: onBoard, base: withBase() });
+    (c as { sc: { failOn: string | null } }).sc.failOn = "getBoardItemValues";
+    const p = await buildSyncPreview(c, [ITEM]);
+    expect(p.received[0]!.message).toMatch(/board values .* could not be read/);
+  });
+  it("an initiative that is not on a board has no board comparison", async () => {
+    const { ctx: c } = ctx({ board: null });
+    const p = await buildSyncPreview(c, [ITEM]);
+    expect(p.received[0]!.status).toBe("in_step");
   });
 });

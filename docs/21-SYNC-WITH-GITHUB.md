@@ -1,6 +1,6 @@
 # PRD: Sync with GitHub (one button, both directions)
 
-Status: draft for Ashu's review, 2026-10-27. Request R-038 in `docs/REQUESTS.md`. Builds on `docs/04-GITHUB-SYNC.md` (what is sent and received today) and replaces the "Update GitHub" confirmation of 0.9 to 0.35. Slice 1 (S1, always check) is built in 0.37.0 and slice 2 (S2, conflicts) in 0.38.0 (checked by Ashu on a real issue); of slice 3 only progress for 25 is built (0.39.0). Assignees (needs #35), the MCP tools (need `docs/20` write tools) and board values as optional conflicts are not built.
+Status: draft for Ashu's review, 2026-10-27. Request R-038 in `docs/REQUESTS.md`. Builds on `docs/04-GITHUB-SYNC.md` (what is sent and received today) and replaces the "Update GitHub" confirmation of 0.9 to 0.35. Slice 1 (S1, always check) is built in 0.37.0 and slice 2 (S2, conflicts) in 0.38.0 (checked by Ashu on a real issue); of slice 3, progress for 25 (0.39.0) and board values as conflicts (0.40.0, migration 0045) are built. Assignees (needs #35) and the MCP tools (need `docs/20` write tools) are not built.
 
 ## 1. Summary
 Today the roadmap has a **Sync GitHub** button that only *sends*. When nothing needs sending it says "Nothing to send" and stops, so GitHub is never asked whether anything changed on its side. Things arrive from GitHub only through webhooks and the separate "Check GitHub now" in Settings.
@@ -47,7 +47,8 @@ After this change, pressing **Sync with GitHub** on a selection always does two 
 | Delivery Status (board Status) | GitHub (board) | GitHub to PV, always applied | Cannot conflict |
 | Initiative name (issue title) | PV | PV to GitHub; a change made in GitHub is a conflict | Conflict: choose a side |
 | Summary, Description, Hypothesis (sections of the managed block) | PV | PV to GitHub; a change made in GitHub is a conflict | Conflict per field: choose a side |
-| Labels `pv:*`, milestone, issue type, Priority, Initiative group, Due date, Size | PV | PV to GitHub | Not compared in this release; PV's value is written (the preview shows it as today) |
+| Priority (from MoSCoW), Initiative Group, Due date (G2M date), Size (effort) on the board | PV | PV to GitHub; a change made on the board is a conflict (0.40.0) | Conflict per value: choose a side. Not compared: an empty board value, an issue field, a Won't initiative |
+| Labels `pv:*`, milestone, issue type | PV | PV to GitHub | Not compared; PV's value is written (the preview shows it as today) |
 | Labels and text outside the managed block, comments | People in GitHub | Never touched by PV | Not applicable |
 | Value, confidence, customers, decisions, key results, outcomes, rank | PV only | Never | Not applicable |
 | Assignees | Both (later) | Later | Later |
