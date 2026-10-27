@@ -63,7 +63,7 @@ export async function checkGithubBoard(ids: string[]): Promise<{ ok: true; lines
 export async function confirmGithubSync(ids: string[], choices: SyncChoice[]): Promise<SyncConfirmResult> {
   const g = await gate(ids);
   if (!g.ok) return { ok: false, error: g.error };
-  const valid = Array.isArray(choices) && choices.every((c) => c && typeof c.itemId === "string" && UUID.test(c.itemId) && ["title", "summary", "description", "hypothesis", "block"].includes(c.field) && (c.choice === "pv" || c.choice === "github") && typeof c.ghHash === "string" && /^[0-9a-f]{64}$/.test(c.ghHash));
+  const valid = Array.isArray(choices) && choices.every((c) => c && typeof c.itemId === "string" && UUID.test(c.itemId) && ["title", "summary", "description", "hypothesis", "block", "priority", "group", "due", "size"].includes(c.field) && (c.choice === "pv" || c.choice === "github") && typeof c.ghHash === "string" && /^[0-9a-f]{64}$/.test(c.ghHash));
   if (!valid) return { ok: false, error: "The choices could not be read. Close the window and try again." };
   return confirmSync(syncCtx(g), ids, choices);
 }

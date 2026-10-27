@@ -138,6 +138,11 @@ describe("GitHubAppSourceControl: Projects (boards) over GraphQL", () => {
     const e = await sc.addBoardItem(1, "PVT_1", "I_x").catch((x) => x);
     expect(e).toMatchObject({ status: 422, detail: "UNPROCESSABLE: Field value is invalid for [token]" });
   });
+  it("reads the values of a board item by field id: option names, dates and texts", async () => {
+    const sc = make(graphqlFake(() => ({ data: { node: { fieldValues: { nodes: [{ name: "P0", field: { id: "F1" } }, { date: "2026-12-31", field: { id: "F2" } }, { text: "Mobile", field: { id: "F3" } }, {}, null, { name: "No field" }] } } } })));
+    expect(await sc.getBoardItemValues(1, "PVTI_1")).toEqual({ F1: { option: "P0" }, F2: { date: "2026-12-31" }, F3: { text: "Mobile" } });
+    expect(await make(graphqlFake(() => ({ data: { node: null } }))).getBoardItemValues(1, "PVTI_x")).toBeNull();
+  });
   it("a Project the App cannot see is null, and a missing permission is a 403 with a plain message", async () => {
     expect(await make(graphqlFake(() => ({ data: { node: null } }))).getBoardFields(1, "PVT_x")).toBeNull();
     const denied = make(graphqlFake(() => ({ errors: [{ type: "FORBIDDEN", message: "Resource not accessible by integration" }] })));
@@ -162,6 +167,7 @@ function fake(over: Partial<SourceControl> = {}): SourceControl {
     ensureMilestone: async () => 1,
     listBoards: async () => [],
     getBoardFields: async () => null,
+    getBoardItemValues: async () => null,
     listBoardItems: async () => [],
     addBoardItem: async () => "PVTI_1",
     setBoardValue: async () => undefined,

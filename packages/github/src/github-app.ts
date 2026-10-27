@@ -1,5 +1,5 @@
 import { createSign } from "node:crypto";
-import { GitHubError, type BoardItemStatus, type BoardField, type BoardInfo, type BoardValue, type IssueSummary, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl, type SubIssue } from "./source-control";
+import { GitHubError, type BoardItemStatus, type BoardItemValue, type BoardField, type BoardInfo, type BoardValue, type IssueSummary, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl, type SubIssue } from "./source-control";
 
 const API = "https://api.github.com";
 const b64url = (b: Buffer | string) => Buffer.from(b).toString("base64url");
@@ -266,6 +266,25 @@ export class GitHubAppSourceControl implements SourceControl {
       }
       if (!d.node.items.pageInfo.hasNextPage) break;
       after = d.node.items.pageInfo.endCursor;
+    }
+    return out;
+  }
+
+  async getBoardItemValues(installationId: number, itemId: string): Promise<Record<string, BoardItemValue> | null> {
+    type V = { name?: string; date?: string; text?: string; field?: { id?: string } };
+    const d: { node: { fieldValues: { nodes: (V | null)[] } } | null } = await this.graphql(
+      installationId,
+      `query($i:ID!){node(id:$i){... on ProjectV2Item{fieldValues(first:50){nodes{... on ProjectV2ItemFieldSingleSelectValue{name field{... on ProjectV2FieldCommon{id}}} ... on ProjectV2ItemFieldDateValue{date field{... on ProjectV2FieldCommon{id}}} ... on ProjectV2ItemFieldTextValue{text field{... on ProjectV2FieldCommon{id}}}}}}}}`,
+      { i: itemId },
+    );
+    if (!d.node?.fieldValues) return null;
+    const out: Record<string, BoardItemValue> = {};
+    for (const n of d.node.fieldValues.nodes) {
+      const id = n?.field?.id;
+      if (!n || !id) continue;
+      if (typeof n.name === "string") out[id] = { option: n.name };
+      else if (typeof n.date === "string") out[id] = { date: n.date.slice(0, 10) };
+      else if (typeof n.text === "string") out[id] = { text: n.text };
     }
     return out;
   }

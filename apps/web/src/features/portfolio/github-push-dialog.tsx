@@ -29,9 +29,9 @@ function Text({ text }: { text: string }) {
   if (text.length <= SHORT) return <pre className="push-body">{text || "(empty)"}</pre>;
   return <><pre className="push-body">{text.slice(0, SHORT)}…</pre><details><summary>Show full text</summary><pre className="push-body">{text}</pre></details></>;
 }
-const WHY: Record<SyncConflict["kind"], (label: string) => string> = {
-  github: (l) => `${l} was changed in GitHub. Product Velocity owns it, so nothing is overwritten until you choose.`,
-  both: (l) => `${l} was changed in Product Velocity and in GitHub. Choose which one to keep.`,
+const WHY: Record<SyncConflict["kind"], (label: string, where?: "board") => string> = {
+  github: (l, w) => `${l} was changed ${w ? "on the GitHub Project board" : "in GitHub"}. Product Velocity owns it, so nothing is overwritten until you choose.`,
+  both: (l, w) => `${l} was changed in Product Velocity and ${w ? "on the GitHub Project board" : "in GitHub"}. Choose which one to keep.`,
   block: () => "The managed block was edited in GitHub and cannot be read field by field.",
 };
 
@@ -102,7 +102,8 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
   const needsConfirm = actionIds.length > 0;
   const checking = progress !== null;
 
-  const choose = (all: "pv" | "github") => setChoices(Object.fromEntries(conflicts.map(({ r, c }) => [keyOf(r.id, c.field), all])));
+  // "Keep GitHub for all" skips the values that cannot be taken over from the board: those stay Keep Product Velocity
+  const choose = (all: "pv" | "github") => setChoices(Object.fromEntries(conflicts.map(({ r, c }) => [keyOf(r.id, c.field), c.githubPullable === false ? "pv" : all])));
   const send = async () => {
     if (!preview) return;
     const picks: SyncChoice[] = conflicts.map(({ r, c }) => ({ itemId: r.id, field: c.field, choice: choices[keyOf(r.id, c.field)]!, ghHash: c.ghHash }));
@@ -111,7 +112,8 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
       const r = await confirmGithubSync(actionIds, picks);
       if (r.ok) {
         setPhase({ kind: "done", results: r.results });
-        if (r.taken.length > 0) onTakenOver?.(r.taken);
+        // the grid knows the G2M date by its dictionary key, not by its column
+        if (r.taken.length > 0) onTakenOver?.(r.taken.map((t) => (t.field === "end_date" ? { ...t, field: "g2m_date_est" as never } : t)));
         router.refresh();
         onDone?.();
       } else if (r.stale) {
@@ -178,7 +180,7 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
                       return (
                         <fieldset key={c.field} className="push-conflict">
                           <legend><strong>Conflict · {c.label}</strong></legend>
-                          <p className="muted">{WHY[c.kind](c.label)}{c.note ? ` ${c.note}` : ""}</p>
+                          <p className="muted">{WHY[c.kind](c.label, c.where)}{c.note ? ` ${c.note}` : ""}</p>
                           {c.kind !== "block" && (
                             <div className="push-sides">
                               <div><strong>Product Velocity</strong><Text text={c.pv} /></div>
@@ -187,7 +189,7 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
                           )}
                           {c.kind === "block" && <p className="muted">{c.github}</p>}
                           <label><input type="radio" name={name} checked={value === "pv"} onChange={() => setChoices({ ...choices, [keyOf(r.id, c.field)]: "pv" })} /> Keep Product Velocity{c.defaultChoice === "pv" ? " (default)" : ""}</label>{" "}
-                          <label><input type="radio" name={name} checked={value === "github"} onChange={() => setChoices({ ...choices, [keyOf(r.id, c.field)]: "github" })} /> Keep GitHub</label>
+                          <label><input type="radio" name={name} checked={value === "github"} disabled={c.githubPullable === false} onChange={() => setChoices({ ...choices, [keyOf(r.id, c.field)]: "github" })} /> Keep GitHub{c.githubPullable === false ? " (not possible)" : c.defaultChoice === "github" ? " (default)" : ""}</label>
                         </fieldset>
                       );
                     })}

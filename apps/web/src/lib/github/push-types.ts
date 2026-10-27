@@ -36,7 +36,7 @@ export type ReceivedLine = { label: string; from: string | null; to: string | nu
 export type ReceiveStatus = "in_step" | "received" | "conflict" | "not_on_github" | "follows" | "missing" | "error";
 /** A text that Product Velocity owns and that differs from GitHub. `github`: changed only in GitHub; `both`: changed on both sides; `block`: the managed block cannot be read field by field. */
 export type SyncConflict = {
-  field: "title" | "summary" | "description" | "hypothesis" | "block";
+  field: "title" | "summary" | "description" | "hypothesis" | "block" | "priority" | "group" | "due" | "size";
   label: string;
   kind: "github" | "both" | "block";
   pv: string;
@@ -44,15 +44,19 @@ export type SyncConflict = {
   /** Hash of GitHub's text when it was read; the confirm compares it with a fresh read. */
   ghHash: string;
   /** Keep Product Velocity for a change made only in GitHub; no default when both changed or the block is unreadable. */
-  defaultChoice: "pv" | null;
+  defaultChoice: "pv" | "github" | null;
   note?: string;
+  /** The value lives on the GitHub Project board, not in the issue. */
+  where?: "board";
+  /** False when the board's value cannot be taken over (for example an unknown priority): only Keep Product Velocity is offered. */
+  githubPullable?: false;
 };
 export type SyncChoice = { itemId: string; field: SyncConflict["field"]; choice: "pv" | "github"; ghHash: string };
 export type ReceiveItem = { id: string; code: string; name: string; status: ReceiveStatus; /** The initiative only follows an existing issue: received, never sent. */ readOnly?: boolean; received: ReceivedLine[]; conflicts?: SyncConflict[]; issueNumber: number | null; issueUrl: string | null; message?: string };
 export type SyncPreview = { account: string; received: ReceiveItem[]; send: PlanItem[] };
 export type SyncPreviewResult = ({ ok: true } & SyncPreview) | { ok: false; error: string };
 /** A text taken over from GitHub: what the grid shows and what one undo step puts back. */
-export type TakenOver = { itemId: string; code: string; field: "initiative_name" | "summary" | "description" | "hypothesis"; before: string | null; after: string | null };
+export type TakenOver = { itemId: string; code: string; field: "initiative_name" | "summary" | "description" | "hypothesis" | "moscow" | "theme" | "end_date" | "effort"; before: string | null; after: string | null };
 export type SyncConfirmResult =
   | { ok: true; results: PushItemResult[]; taken: TakenOver[] }
   /** `stale`: GitHub changed after the preview; nothing was applied or sent and the new difference is returned. */
