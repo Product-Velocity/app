@@ -120,3 +120,22 @@ export function parseProjectItemEvent(event: string | null, payload: unknown): P
   const fieldName = p.changes?.field_value?.field_name;
   return { installationId: p.installation.id, action: p.action, itemNodeId: item.node_id, boardId: item.project_node_id, fieldName: typeof fieldName === "string" ? fieldName : null };
 }
+
+export type DeliveryEvent =
+  | { kind: "pull_request"; action: string; installationId: number; repo: string; number: number }
+  | { kind: "check_suite"; action: string; installationId: number; repo: string; headBranch: string; defaultBranch: string }
+  | { kind: "release"; action: string; installationId: number; repo: string };
+
+/**
+ * `pull_request`, `check_suite` and `release` deliveries, reduced to which repository (and pull request or branch) changed. Nothing
+ * else of the payload is read: no titles, bodies, branch contents or people. Anything that is not shaped like one returns null.
+ */
+export function parseDeliveryEvent(event: string | null, payload: unknown): DeliveryEvent | null {
+  const p = payload as { action?: unknown; installation?: { id?: unknown }; repository?: { full_name?: unknown; default_branch?: unknown }; pull_request?: { number?: unknown }; check_suite?: { head_branch?: unknown } } | null;
+  if (typeof p?.action !== "string" || typeof p.installation?.id !== "number" || typeof p.repository?.full_name !== "string" || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(p.repository.full_name)) return null;
+  const base = { action: p.action, installationId: p.installation.id, repo: p.repository.full_name };
+  if (event === "pull_request") return typeof p.pull_request?.number === "number" && Number.isInteger(p.pull_request.number) && p.pull_request.number > 0 ? { kind: "pull_request", ...base, number: p.pull_request.number } : null;
+  if (event === "check_suite") return typeof p.check_suite?.head_branch === "string" && typeof p.repository.default_branch === "string" ? { kind: "check_suite", ...base, headBranch: p.check_suite.head_branch, defaultBranch: p.repository.default_branch } : null;
+  if (event === "release") return { kind: "release", ...base };
+  return null;
+}

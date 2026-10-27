@@ -1,3 +1,4 @@
+import type { PrRef, ReleaseRef } from "./delivery";
 import type { BoardItemValue, BoardItemStatus, BoardField, BoardInfo, BoardValue, DeliverySummary, InstallationInfo, IssueInput, IssueRef, IssueSummary, RepoInfo, SourceControl, SubIssue } from "./source-control";
 
 /** In-memory SourceControl for tests: records every call so a test can prove what was (not) sent. */
@@ -37,6 +38,18 @@ export class MemorySourceControl implements SourceControl {
   async listBoardItems(_i: number, boardId: string) { this.tick("listBoardItems"); this.maybeFail("listBoardItems"); return this.boardStatuses.get(boardId) ?? []; }
   async listBoards() { this.tick("listBoards"); return this.boards; }
   async getBoardFields(_i: number, boardId: string) { this.tick("getBoardFields"); return this.boardFields.get(boardId) ?? null; }
+  /** What GitHub would answer, set by a test: linked pull requests by "repo#issue", the checks rollup of a repository, releases of a repository, and the issues a pull request closes by "repo#pr". */
+  linkedPrs = new Map<string, PrRef[]>();
+  rollups = new Map<string, string | null>();
+  releases = new Map<string, ReleaseRef[]>();
+  closing = new Map<string, { repo: string; number: number }[]>();
+  async listLinkedPullRequests(_i: number, issues: { repo: string; number: number }[]): Promise<PrRef[]> {
+    this.tick("listLinkedPullRequests"); this.maybeFail("listLinkedPullRequests");
+    return issues.flatMap((i) => this.linkedPrs.get(`${i.repo}#${i.number}`) ?? []);
+  }
+  async getDefaultBranchRollup(_i: number, repo: string): Promise<string | null> { this.tick("getDefaultBranchRollup"); this.maybeFail("getDefaultBranchRollup"); return this.rollups.get(repo) ?? null; }
+  async listReleases(_i: number, repo: string): Promise<ReleaseRef[]> { this.tick("listReleases"); this.maybeFail("listReleases"); return this.releases.get(repo) ?? []; }
+  async getClosingIssues(_i: number, repo: string, pullNumber: number) { this.tick("getClosingIssues"); return this.closing.get(`${repo}#${pullNumber}`) ?? []; }
   async getBoardItemValues(_i: number, itemId: string): Promise<Record<string, BoardItemValue> | null> {
     this.tick("getBoardItemValues");
     this.maybeFail("getBoardItemValues");

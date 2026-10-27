@@ -4,6 +4,7 @@ import type { createAdminClient } from "@/lib/supabase/admin";
 import { syncBoardStatuses } from "./board-sync";
 import type { ReceiveItem, ReceivedLine } from "./push-types";
 import type { ConnectionRow } from "./server";
+import { newExtrasCache } from "./extras";
 import { applyFacts, refreshTree, type IssueFacts } from "./sync";
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -29,6 +30,7 @@ export async function receiveFromGithub(admin: Admin, sc: SourceControl, connect
   const tenantId = connection.tenant_id;
   const installationId = connection.installation_id;
   const unique = [...new Set(ids)];
+  const extrasCache = newExtrasCache();
   const [{ data: items }, { data: links }] = await Promise.all([
     admin.from("items").select("id, item_code, initiative_name").eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
     admin.from("item_github_links").select("id, item_id, mode, repo_full_name, issue_number, html_url").eq("tenant_id", tenantId).eq("connection_id", connection.id).in("item_id", unique),
@@ -60,7 +62,7 @@ export async function receiveFromGithub(admin: Admin, sc: SourceControl, connect
           await admin.from("sync_events").insert({ tenant_id: tenantId, connection_id: connection.id, delivery_id: `reconcile-${crypto.randomUUID()}`, source: "reconcile", event: "issues", action: "synced", repo_full_name: link.repo_full_name, issue_number: issue.number, summary: facts, item_id: id, state: "processed", attempts: 1, processed_at: new Date().toISOString(), applied: applied.changes });
         }
       }
-      await refreshTree(admin, sc, installationId, connection.id, { item_id: id, repo: link.repo_full_name, number: link.issue_number });
+      await refreshTree(admin, sc, installationId, connection.id, { item_id: id, repo: link.repo_full_name, number: link.issue_number }, extrasCache);
       // the check itself is what Last Synced shows, also when GitHub had nothing new
       await admin.from("item_github_links").update({ gh_synced_at: new Date().toISOString() }).eq("id", link.id);
       return { ...base, status: link.mode === "follow" && received.length === 0 ? "follows" : received.length > 0 ? "received" : "in_step", received, ...where };

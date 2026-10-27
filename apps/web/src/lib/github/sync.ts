@@ -3,6 +3,7 @@ import { countBlockedStale } from "@pv/domain";
 import { readIssueTree, summariseTree, type IssueEvent, type IssueSummary, type SourceControl, type SubIssueEvent } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { syncBoardStatuses } from "./board-sync";
+import { newExtrasCache, refreshExtras, type ExtrasCache } from "./extras";
 import type { ConnectionRow } from "./server";
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -30,7 +31,7 @@ export async function applyFacts(admin: Admin, connectionId: string, f: IssueFac
  * Rebuilds the epics-and-tasks tree of one linked initiative from GitHub and stores it with the delivery counts.
  * Returns false when GitHub offers no sub-issues for the issue. Never throws into a delivery: the daily reconcile repairs a miss.
  */
-export async function refreshTree(admin: Admin, sc: SourceControl, installationId: number, connectionId: string, link: { item_id: string; repo: string; number: number }): Promise<boolean> {
+export async function refreshTree(admin: Admin, sc: SourceControl, installationId: number, connectionId: string, link: { item_id: string; repo: string; number: number }, cache?: ExtrasCache): Promise<boolean> {
   try {
     const tree = await readIssueTree(sc, installationId, link.repo, link.number);
     if (tree === null) return false;
@@ -42,6 +43,8 @@ export async function refreshTree(admin: Admin, sc: SourceControl, installationI
     const bs = countBlockedStale(tree.map((n) => ({ state: n.state, updatedAt: n.updatedAt, labels: n.labels })), new Date());
     const { error: e2 } = await admin.rpc("github_apply_tree_counts", { p_connection: connectionId, p_item: link.item_id, p_blocked: bs.blocked, p_stale: bs.stale });
     if (e2) throw new Error(e2.message);
+    // pull requests, checks, releases and repositories of the same initiative; never fails the tree
+    await refreshExtras(admin, sc, installationId, connectionId, link.item_id, cache);
     return true;
   } catch (e) {
     console.error(JSON.stringify({ github: "tree", error: short(e) }));
@@ -176,8 +179,9 @@ export async function reconcileConnection(admin: Admin, sc: SourceControl, conne
     await recordIncoming(admin, connection.id, r.full_name, all);
   }
   // epics and tasks: several issues at a time, so a workspace with many linked items stays inside the time limit of the request
+  const extrasCache = newExtrasCache(); // each repository's checks and releases are read once for the whole pass
   for (let i = 0; i < treeJobs.length; i += 6) {
-    await Promise.all(treeJobs.slice(i, i + 6).map((j) => refreshTree(admin, sc, connection.installation_id!, connection.id, j)));
+    await Promise.all(treeJobs.slice(i, i + 6).map((j) => refreshTree(admin, sc, connection.installation_id!, connection.id, j, extrasCache)));
   }
   return result;
 }
