@@ -298,6 +298,15 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     [controller],
   );
 
+  // GitHub changes items behind the grid's back (webhooks, Sync with GitHub): pick them up when the tab comes back and every minute while it is visible.
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") void controller.refreshFromServer(); };
+    const timer = window.setInterval(refresh, 60_000);
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); window.removeEventListener("focus", refresh); };
+  }, [controller]);
+
   // Warn before leaving with unsaved changes.
   useEffect(() => {
     const h = (e: BeforeUnloadEvent) => { if (controller.status.pending > 0) { e.preventDefault(); e.returnValue = ""; } };
@@ -579,7 +588,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} total={visibleRows.length} />}
         {controller.canEdit && lookups.projects.length > 0 && <QuickAddBar controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef} />}
       </div>
-      {githubIds && <GithubPushDialog ids={githubIds} onClose={() => setGithubIds(null)} onTakenOver={(c) => controller.recordTakenOver(c)} />}
+      {githubIds && <GithubPushDialog ids={githubIds} onClose={() => setGithubIds(null)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer(); }} />}
       {deleteIds && <DeleteDialog controller={controller} ids={deleteIds} onClose={closeDelete} onDeleted={() => apiRef.current?.deselectAll()} />}
       {importText !== null && (
         <ImportDialog controller={controller} lookups={lookups} defaultProject={contextForQuickAdd} initialText={importText} onClose={() => setImportText(null)} />

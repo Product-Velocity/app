@@ -103,7 +103,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
         <p className="muted ip-rank">#{row.stack_rank} globally · #{row.project_rank} in {project || "its project"}</p>
       </header>
 
-      {pushGithub && <GithubPushDialog ids={[itemId]} onClose={() => setPushGithub(false)} onTakenOver={(c) => controller.recordTakenOver(c)} />}
+      {pushGithub && <GithubPushDialog ids={[itemId]} onClose={() => setPushGithub(false)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer(); }} />}
       {confirmDelete && <DeleteDialog controller={controller} ids={[itemId]} onClose={() => setConfirmDelete(false)} onDeleted={() => { if (mode === "peek") onClose?.(); else router.push(backHref); }} />}
 
       <div role="tablist" aria-label="Item sections" className="ip-tabs">
