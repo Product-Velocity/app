@@ -4,6 +4,8 @@ import { DEFAULT_VIEWS, VIEW_NAMES, type SearchNames, type SearchRow } from "@pv
 import { SupabaseDataSource } from "@/features/portfolio/supabase-source";
 import { shareUrl } from "@/lib/files/serve";
 import { buildContext, type FileInfo, type ItemDetail, type McpReader, type Member, type ViewInfo, type WorkspaceContext } from "./read-model";
+import { ToolInputError } from "./tool-error";
+import type { ApplyResult, McpWriter, PendingRow, UndoResult } from "./write-model";
 
 const FILE_CAP = 200;
 type Err = { message?: string } | null;
@@ -72,17 +74,20 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
         ds.loadActivity(id),
         supabase.from("item_files").select(FILE_COLS).eq("tenant_id", tenant.id).eq("item_id", id).order("created_at"),
         supabase.from("item_github_links").select("issue_number, html_url, mode, sync_state, last_error, gh_state, gh_last_activity").eq("tenant_id", tenant.id).eq("item_id", id).maybeSingle(),
-        supabase.from("item_relations").select("item_id").eq("tenant_id", tenant.id).eq("related_item_id", id).eq("kind", "depends_on"),
+        supabase.from("item_relations").select("item_id, kind").eq("tenant_id", tenant.id).eq("related_item_id", id).in("kind", ["depends_on", "related_to"]),
         teams(),
       ]);
+      const backRows = (back.data ?? []) as { item_id: string; kind: "depends_on" | "related_to" }[];
       const l = link.data as { issue_number: number | null; html_url: string | null; mode: string; sync_state: string; last_error: string | null; gh_state: string | null; gh_last_activity: string | null } | null;
       return {
         row,
         links: related.artifacts.map((a) => ({ label: a.label, url: a.url })),
         tags: { tags: related.tags, target_scope: related.target_scope, live_scope: related.live_scope, target_segments: related.target_segments },
         relations: {
-          depends_on: rel(related.depends_on), related_to: rel(related.related_to),
-          depended_on_by: rel(((back.data ?? []) as { item_id: string }[]).map((x) => x.item_id)),
+          depends_on: rel(related.depends_on),
+          // related-to reads the same from both sides: what this one points to and what points to it
+          related_to: rel([...new Set([...related.related_to, ...backRows.filter((x) => x.kind === "related_to").map((x) => x.item_id)])]),
+          depended_on_by: rel(backRows.filter((x) => x.kind === "depends_on").map((x) => x.item_id)),
         },
         teams: related.contributing_teams.map((t) => teamList.find((x) => x.id === t)?.name ?? "unknown team"),
         files: await fileInfo(must(files, "files") as never),
@@ -125,6 +130,71 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     },
   };
 
+  const groupNames = memo(async () => (must(await supabase.from("item_groups").select("name").eq("tenant_id", tenant.id).order("name"), "groups") as { name: string }[]).map((g) => g.name));
+
+  /** A refusal worth showing (PV005 are our own sentences; 42501 is the database saying no) becomes a message for Claude. */
+  const refusal = (e: { code?: string; message?: string }): never => {
+    if (e.code === "PV005" && e.message) throw new ToolInputError(e.message);
+    if (e.code === "42501") throw new ToolInputError("The database refused this: your role or this connection may not write here. Check get_workspace_context for what Claude may do.");
+    throw new Error("write");
+  };
+
+  const writer: McpWriter = {
+    async context(r) {
+      const [p, m, g, t, all] = await Promise.all([projects(), people(), groupNames(), teams(), rows()]);
+      return {
+        role: r,
+        projects: p.map((x) => ({ id: x.id, name: x.name })),
+        members: m.map((x) => ({ id: x.id, name: x.name })),
+        groups: g, teams: t.map((x) => ({ id: x.id, name: x.name })),
+        items: all.map((x) => ({ id: x.id, code: String(x.item_code) })),
+        today: new Date(),
+      };
+    },
+
+    async current(ref) {
+      const row = await findRow(ref);
+      if (!row) return null;
+      const [tagRows, teamRows] = await Promise.all([
+        supabase.from("item_tags").select("kind, value").eq("tenant_id", tenant.id).eq("item_id", row.id),
+        supabase.from("item_teams").select("team_id").eq("tenant_id", tenant.id).eq("item_id", row.id),
+      ]);
+      const lists: Record<string, string[]> = { tags: [], target_scope: [], live_scope: [], target_segments: [], contributing_teams: [] };
+      const KIND: Record<string, string> = { tag: "tags", target_scope: "target_scope", live_scope: "live_scope", segment: "target_segments" };
+      for (const t of must(tagRows, "tags") as { kind: string; value: string }[]) lists[KIND[t.kind]!]?.push(t.value);
+      for (const t of must(teamRows, "teams") as { team_id: string }[]) lists.contributing_teams!.push(t.team_id);
+      return { id: row.id, code: String(row.item_code), current: row as Record<string, unknown>, lists };
+    },
+
+    async apply(tool, units, opts = {}) {
+      const { data, error } = await supabase.rpc("mcp_apply", { p_tool: tool, p_units: units, p_all_or_nothing: opts.allOrNothing ?? false, p_pending: opts.pending ?? null });
+      if (error) return refusal(error);
+      return data as ApplyResult;
+    },
+
+    async savePending(diff, changes) {
+      const { data, error } = await supabase.rpc("mcp_pending_save", { p_diff: diff, p_units: changes });
+      if (error) return refusal(error);
+      const r = (data as { id: string; expires_at: string }[])[0];
+      if (!r) throw new Error("pending");
+      return r;
+    },
+
+    async loadPending(id) {
+      if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+      const { data, error } = await supabase.from("mcp_pending_changes").select("id, units, expires_at, applied_at").eq("tenant_id", tenant.id).eq("id", id).maybeSingle();
+      if (error) throw new Error("pending");
+      const r = data as { id: string; units: PendingRow["changes"]; expires_at: string; applied_at: string | null } | null;
+      return r ? { id: r.id, changes: r.units, expires_at: r.expires_at, applied_at: r.applied_at } : null;
+    },
+
+    async undo() {
+      const { data, error } = await supabase.rpc("mcp_undo_last");
+      if (error) return refusal(error);
+      return data as UndoResult;
+    },
+  };
+
   const workspaceContext = async (): Promise<WorkspaceContext> => {
     const [p, t, m, g, conn, repos] = await Promise.all([
       projects(), teams(), people(),
@@ -140,5 +210,5 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     });
   };
 
-  return { reader, workspaceContext };
+  return { reader, writer, workspaceContext };
 }

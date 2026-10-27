@@ -158,6 +158,15 @@ export async function twoTenantFixture(db: TestDb) {
       commit: true,
       claims: { client_id: client },
     });
+    // a change set and a pending diff per tenant (positive controls for migration 0045)
+    await db.asUser(
+      admin,
+      async (q) => {
+        await q("select public.mcp_open_change_set('seed')");
+        await q("select public.mcp_pending_save('[]'::jsonb, '[]'::jsonb)");
+      },
+      { commit: true, claims: { client_id: client } },
+    );
   }
   return { alice, bob, carol, dave, tenantA, tenantB, seedA, seedB };
 }

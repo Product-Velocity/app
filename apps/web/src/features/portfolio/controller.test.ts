@@ -601,3 +601,28 @@ describe("delete, undo and the Trash", () => {
     expect(source.trash).toHaveLength(0);
   });
 });
+
+describe("refreshFromServer", () => {
+  it("shows values changed in the database behind the grid's back (GitHub webhook, sync)", async () => {
+    const { c, source } = setup();
+    const seen: string[] = [];
+    c.subscribe((changed) => seen.push(...changed.map((r) => r.id)));
+    (source.items[0] as Record<string, unknown>).build_status = "Changed in GitHub";
+    await c.refreshFromServer();
+    expect((c.row("item-1") as Record<string, unknown>).build_status).toBe("Changed in GitHub");
+    expect(seen).toEqual(["item-1"]);
+  });
+
+  it("leaves rows alone while a save is pending", async () => {
+    const { c, source } = setup({ latencyMs: 20 });
+    c.edit("item-1", "health", "At Risk");
+    expect(c.status.pending).toBe(1);
+    (source.items[2] as Record<string, unknown>).build_status = "Changed in GitHub";
+    await c.refreshFromServer();
+    expect((c.row("item-3") as Record<string, unknown>).build_status).not.toBe("Changed in GitHub");
+    expect(c.row("item-1")!.health).toBe("At Risk");
+    await c.flush();
+    await c.refreshFromServer(); // once saves are done, the next refresh catches up
+    expect((c.row("item-3") as Record<string, unknown>).build_status).toBe("Changed in GitHub");
+  });
+});

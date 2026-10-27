@@ -366,6 +366,25 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "mcp_change_sets",
+    tenantColumn: "tenant_id",
+    attacks: (v) => [
+      { sql: "update public.mcp_change_sets set undone_at = now() where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.mcp_change_sets where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.mcp_change_sets (tenant_id, connection_id, user_id, tool) select tenant_id, id, user_id, 'evil' from public.mcp_connections where tenant_id = $1", params: [v.tenantId] },
+      { sql: "select public.mcp_open_change_set('evil')", params: [] },
+    ],
+  },
+  {
+    table: "mcp_pending_changes",
+    tenantColumn: "tenant_id",
+    attacks: (v) => [
+      { sql: "update public.mcp_pending_changes set applied_at = now() where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.mcp_pending_changes where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.mcp_pending_changes (tenant_id, connection_id, user_id, diff, units, expires_at) select tenant_id, connection_id, user_id, '[]', '[]', now() + interval '1 hour' from public.mcp_pending_changes where tenant_id = $1", params: [v.tenantId] },
+    ],
+  },
+  {
     table: "audit_log",
     tenantColumn: "tenant_id",
     attacks: (v) => [
