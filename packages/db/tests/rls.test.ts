@@ -346,6 +346,26 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "mcp_connections",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.mcp_connections set revoked_at = now() where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.mcp_connections where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.mcp_connections (tenant_id, user_id, client_id, client_name) values ($1, $2, 'evil', 'Evil')", params: [v.tenantId, a.userId] },
+      { sql: "update public.mcp_connections set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+      { sql: "select public.mcp_connect($1, 'evil', 'Evil')", params: [v.tenantId] },
+    ],
+  },
+  {
+    table: "ai_usage",
+    tenantColumn: "tenant_id",
+    attacks: (v) => [
+      { sql: "update public.ai_usage set calls = 0 where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.ai_usage where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.ai_usage (connection_id, day, tenant_id) select connection_id, current_date + 1, tenant_id from public.ai_usage where tenant_id = $1", params: [v.tenantId] },
+    ],
+  },
+  {
     table: "audit_log",
     tenantColumn: "tenant_id",
     attacks: (v) => [
@@ -378,7 +398,7 @@ describe("RLS covers every table", () => {
   });
 
   it("internal trigger functions are not callable by API roles, and no function has a mutable search_path", async () => {
-    for (const fn of ["audit_row()", "set_write_meta()", "guard_approver()", "audit_log_append_only()", "guard_last_admin()", "items_before_insert()", "items_guard()", "items_compact()", "items_system_fields()"]) {
+    for (const fn of ["audit_row()", "set_write_meta()", "guard_approver()", "audit_log_append_only()", "guard_last_admin()", "items_before_insert()", "items_guard()", "items_compact()", "items_system_fields()", "guard_claude_switch()", "audit_log_set_connection()", "mcp_current_connection()", "is_claude_token()"]) {
       for (const role of ["anon", "authenticated"]) {
         const { rows } = await db.admin.query("select has_function_privilege($1, $2, 'execute') as ok", [role, `public.${fn}`]);
         expect(rows[0].ok, `${role} can execute ${fn}`).toBe(false);

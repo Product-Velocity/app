@@ -142,6 +142,23 @@ export async function twoTenantFixture(db: TestDb) {
       { commit: true },
     );
   }
+
+  // one Claude connection with one metered call per tenant (positive controls for mcp_connections and ai_usage)
+  for (const [admin, tenant, client] of [
+    [alice, tenantA, "client-a"],
+    [bob, tenantB, "client-b"],
+  ] as const) {
+    await db.admin.query("update public.tenants set claude_enabled = true where id = $1", [tenant]);
+    const conn = await db.asUser(
+      admin,
+      async (q) => (await q("select public.mcp_connect($1, $2, 'Claude') as id", [tenant, client])).rows[0].id as string,
+      { commit: true },
+    );
+    await db.asUser(admin, (q) => q("select public.mcp_record_call($1, 0, 0)", [conn]), {
+      commit: true,
+      claims: { client_id: client },
+    });
+  }
   return { alice, bob, carol, dave, tenantA, tenantB, seedA, seedB };
 }
 
