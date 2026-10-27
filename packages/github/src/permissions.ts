@@ -8,6 +8,8 @@ export const PERMISSIONS_LATER: Record<string, Level> = {
   checks: "read",
   issue_types: "read",
   organization_projects: "write",
+  contents: "read", // releases
+  statuses: "read", // the checks rollup of the default branch
 };
 export const EVENTS_LATER = ["issues", "sub_issues", "projects_v2_item", "pull_request", "check_run", "check_suite", "release"] as const;
 

@@ -1,4 +1,5 @@
 import { createSign } from "node:crypto";
+import type { PrRef, ReleaseRef } from "./delivery";
 import { GitHubError, type BoardItemStatus, type BoardItemValue, type BoardField, type BoardInfo, type BoardValue, type IssueSummary, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl, type SubIssue } from "./source-control";
 
 const API = "https://api.github.com";
@@ -268,6 +269,52 @@ export class GitHubAppSourceControl implements SourceControl {
       after = d.node.items.pageInfo.endCursor;
     }
     return out;
+  }
+
+  async listLinkedPullRequests(installationId: number, issues: { repo: string; number: number }[]): Promise<PrRef[]> {
+    const byRepo = new Map<string, number[]>();
+    for (const i of issues) if (Number.isInteger(i.number) && i.number > 0 && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(i.repo)) byRepo.set(i.repo, [...(byRepo.get(i.repo) ?? []), i.number]);
+    const out: PrRef[] = [];
+    for (const [repo, numbers] of byRepo) {
+      const [owner, name] = repo.split("/") as [string, string];
+      for (let at = 0; at < numbers.length; at += 40) { // one request per 40 issues of a repository
+        const part = numbers.slice(at, at + 40);
+        const body = part.map((n, k) => `i${k}:issue(number:${n}){closedByPullRequestsReferences(first:20,includeClosedPrs:true){nodes{number state repository{nameWithOwner}}}}`).join(" ");
+        const d = await this.graphql<{ repository: Record<string, { closedByPullRequestsReferences: { nodes: { number: number; state: string; repository?: { nameWithOwner?: string } }[] } } | null> | null }>(installationId, `query($o:String!,$n:String!){repository(owner:$o,name:$n){${body}}}`, { o: owner, n: name });
+        for (const v of Object.values(d.repository ?? {})) {
+          for (const p of v?.closedByPullRequestsReferences.nodes ?? []) out.push({ repo: p.repository?.nameWithOwner ?? repo, number: p.number, state: p.state === "MERGED" ? "merged" : p.state === "OPEN" ? "open" : "closed" });
+        }
+      }
+    }
+    return out;
+  }
+
+  async getDefaultBranchRollup(installationId: number, repo: string): Promise<string | null> {
+    const [owner, name] = repo.split("/") as [string, string];
+    const d = await this.graphql<{ repository: { defaultBranchRef: { target: { statusCheckRollup?: { state?: string } | null } | null } | null } | null }>(
+      installationId,
+      `query($o:String!,$n:String!){repository(owner:$o,name:$n){defaultBranchRef{target{... on Commit{statusCheckRollup{state}}}}}}`,
+      { o: owner, n: name },
+    );
+    return d.repository?.defaultBranchRef?.target?.statusCheckRollup?.state ?? null;
+  }
+
+  async listReleases(installationId: number, repo: string): Promise<ReleaseRef[]> {
+    const res = await this.call(installationId, "GET", `/repos/${repo}/releases?per_page=20`);
+    if (res.status === 404) return [];
+    if (!res.ok) throw new GitHubError(res.status, `GitHub could not list releases (${res.status})`);
+    const rows = (await res.json()) as { tag_name?: string; name?: string | null; draft?: boolean; published_at?: string | null }[];
+    return rows.filter((r) => !r.draft && typeof r.published_at === "string" && r.tag_name).map((r) => ({ repo, tag: r.tag_name!.slice(0, 100), name: r.name ? r.name.slice(0, 100) : null, publishedAt: r.published_at! }));
+  }
+
+  async getClosingIssues(installationId: number, repo: string, pullNumber: number): Promise<{ repo: string; number: number }[]> {
+    const [owner, name] = repo.split("/") as [string, string];
+    const d = await this.graphql<{ repository: { pullRequest: { closingIssuesReferences: { nodes: { number: number; repository?: { nameWithOwner?: string } }[] } } | null } | null }>(
+      installationId,
+      `query($o:String!,$n:String!,$p:Int!){repository(owner:$o,name:$n){pullRequest(number:$p){closingIssuesReferences(first:20){nodes{number repository{nameWithOwner}}}}}}`,
+      { o: owner, n: name, p: pullNumber },
+    );
+    return (d.repository?.pullRequest?.closingIssuesReferences.nodes ?? []).map((i) => ({ repo: i.repository?.nameWithOwner ?? repo, number: i.number }));
   }
 
   async getBoardItemValues(installationId: number, itemId: string): Promise<Record<string, BoardItemValue> | null> {
