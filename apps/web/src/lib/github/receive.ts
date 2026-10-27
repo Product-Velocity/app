@@ -25,7 +25,7 @@ type ItemRow = { id: string; item_code: string; initiative_name: string };
  * and nothing it reads can reach a field GitHub does not own: only the issue's state and counts are passed on, never its text.
  * One initiative failing never stops the others. The result lists every initiative, also those that are already in step.
  */
-export async function receiveFromGithub(admin: Admin, sc: SourceControl, connection: ConnectionRow, ids: string[], texts?: Map<string, IssueTexts>): Promise<ReceiveItem[]> {
+export async function receiveFromGithub(admin: Admin, sc: SourceControl, connection: ConnectionRow, ids: string[], texts?: Map<string, IssueTexts>, opts: { board?: boolean } = {}): Promise<ReceiveItem[]> {
   const tenantId = connection.tenant_id;
   const installationId = connection.installation_id;
   const unique = [...new Set(ids)];
@@ -73,27 +73,42 @@ export async function receiveFromGithub(admin: Admin, sc: SourceControl, connect
   const out: ReceiveItem[] = [];
   for (let i = 0; i < unique.length; i += CONCURRENCY) out.push(...(await Promise.all(unique.slice(i, i + CONCURRENCY).map(one))));
 
-  // the board's Status once per board, not per initiative; a board that cannot be read is a note, never a failure
-  if (installationId) {
-    const before = new Map<string, string | null>();
+  // the board's Status once per board, not per initiative; a chunked caller reads it once at the end instead
+  if (opts.board !== false) {
     const linked = out.filter((r) => r.status !== "not_on_github" && r.status !== "error" && r.status !== "missing").map((r) => r.id);
-    if (linked.length > 0) {
-      const { data: cur } = await admin.from("items").select("id, gh_project_status").eq("tenant_id", tenantId).in("id", linked);
-      for (const c of (cur ?? []) as { id: string; gh_project_status: string | null }[]) before.set(c.id, c.gh_project_status);
-      try {
-        await syncBoardStatuses(admin, sc, connection);
-        const { data: after } = await admin.from("items").select("id, gh_project_status").eq("tenant_id", tenantId).in("id", linked);
-        for (const a of (after ?? []) as { id: string; gh_project_status: string | null }[]) {
-          if ((before.get(a.id) ?? null) === (a.gh_project_status ?? null)) continue;
-          const r = out.find((x) => x.id === a.id)!;
-          r.received.push({ label: "Delivery Status", from: before.get(a.id) ?? null, to: a.gh_project_status ?? null });
-          if (r.status === "in_step" || r.status === "follows") r.status = "received";
-        }
-      } catch (e) {
-        console.error(JSON.stringify({ github: "receive-board", error: short(e) }));
-        for (const r of out) if (linked.includes(r.id)) r.message = r.message ?? "The board could not be read just now, so Delivery Status was left as it is.";
-      }
+    const b = await receiveBoardStatus(admin, sc, connection, linked);
+    for (const r of out) {
+      const line = b.lines[r.id];
+      if (line) { r.received.push(line); if (r.status === "in_step" || r.status === "follows") r.status = "received"; }
+      if (b.failed && linked.includes(r.id)) r.message = r.message ?? BOARD_UNREADABLE;
     }
   }
   return out;
+}
+
+const BOARD_UNREADABLE = "The board could not be read just now, so Delivery Status was left as it is.";
+
+/**
+ * Reads the Status of every linked board once and reports, per initiative, what changed as Delivery Status (applied already: GitHub owns it).
+ * A board that cannot be read is reported as `failed`, never thrown.
+ */
+export async function receiveBoardStatus(admin: Admin, sc: SourceControl, connection: ConnectionRow, ids: string[]): Promise<{ lines: Record<string, ReceivedLine>; failed: boolean }> {
+  const lines: Record<string, ReceivedLine> = {};
+  if (!connection.installation_id || ids.length === 0) return { lines, failed: false };
+  const tenantId = connection.tenant_id;
+  const read = () => admin.from("items").select("id, gh_project_status").eq("tenant_id", tenantId).in("id", ids);
+  const { data: cur } = await read();
+  const before = new Map(((cur ?? []) as { id: string; gh_project_status: string | null }[]).map((c) => [c.id, c.gh_project_status]));
+  try {
+    await syncBoardStatuses(admin, sc, connection);
+    const { data: after } = await read();
+    for (const a of (after ?? []) as { id: string; gh_project_status: string | null }[]) {
+      if ((before.get(a.id) ?? null) === (a.gh_project_status ?? null)) continue;
+      lines[a.id] = { label: "Delivery Status", from: before.get(a.id) ?? null, to: a.gh_project_status ?? null };
+    }
+    return { lines, failed: false };
+  } catch (e) {
+    console.error(JSON.stringify({ github: "receive-board", error: short(e) }));
+    return { lines, failed: true };
+  }
 }
