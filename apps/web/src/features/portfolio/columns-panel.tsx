@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { arrivesLabel, columnsFor, CORE_COLUMN_KEYS, FIELDS, FIELD_BY_KEY, fieldOptions, filterOptions, isCustomerSafe, MAX_PINNED, needsSearch, type ViewDef } from "@pv/domain";
 import { NoResults, SearchInput } from "@/components/search-list";
 import { Popover } from "./popover";
-import type { useViewSaver } from "./view-controls";
 
 const ALL_FIELDS = fieldOptions(FIELDS);
 const GROUPS = [...new Set(FIELDS.map((f) => f.group))];
@@ -16,11 +15,9 @@ type Props = {
   defaultDef: ViewDef;
   customerSafe: boolean;
   onApply: (columns: string[], pinned: string[]) => void;
-  saver: ReturnType<typeof useViewSaver>;
-  dirty: boolean;
 };
 
-function Body({ def, defaultDef, customerSafe, onApply, saver, dirty, close }: Props & { close: () => void }) {
+function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close: () => void }) {
   const core = useMemo(() => columnsFor(CORE_COLUMN_KEYS, customerSafe), [customerSafe]);
   const [columns, setColumns] = useState<string[]>(def.columns);
   const [pinned, setPinned] = useState<string[]>(def.pinned ?? []);
@@ -28,7 +25,6 @@ function Body({ def, defaultDef, customerSafe, onApply, saver, dirty, close }: P
   const [query, setQuery] = useState("");
   const [tip, setTip] = useState<string | null>(null);
   const [drag, setDrag] = useState<{ key: string | null; over: string | null }>({ key: null, over: null });
-  const [saved, setSaved] = useState<string | null>(null);
 
   const isCore = (k: string) => core.includes(k);
   const blocked = (k: string) => customerSafe && !isCustomerSafe(k) && !isCore(k);
@@ -69,7 +65,6 @@ function Body({ def, defaultDef, customerSafe, onApply, saver, dirty, close }: P
     setPinned((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
   };
   const reset = () => { setColumns(defaultDef.columns); setPinned(defaultDef.pinned ?? []); setTip(null); };
-  const staged: ViewDef = { ...def, columns, pinned: effectivePinned };
 
   return (
     <div role="group" aria-label="Choose columns">
@@ -170,17 +165,9 @@ function Body({ def, defaultDef, customerSafe, onApply, saver, dirty, close }: P
         <button type="button" className="btn btn-link" onClick={reset}>Reset to view default</button>
         <span className="grow" />
         <span className="panel-note">{effectivePinned.length + core.length} pinned</span>
-        {saver.canSave && (saver.currentName || saver.builtinName) && (
-          <button type="button" className="btn" disabled={!dirty && JSON.stringify(columns) === JSON.stringify(def.columns) && JSON.stringify(effectivePinned) === JSON.stringify(def.pinned ?? [])}
-            onClick={async () => { onApply(columns, effectivePinned); setSaved(null); if (await saver.saveHere(staged)) setSaved(saver.currentName ? `Saved to “${saver.currentName}”.` : `Saved as the default “${saver.builtinName}”.`); }}>
-            {saver.currentName ? `Save to “${saver.currentName}”` : `Save as default “${saver.builtinName}”`}
-          </button>
-        )}
-        {saver.canSave && <button type="button" className="btn" onClick={() => { onApply(columns, effectivePinned); saver.saveAsNew(staged); }}>Save as new view…</button>}
         <button type="button" className="btn" onClick={close}>Cancel</button>
         <button type="button" className="btn btn-primary" onClick={() => { onApply(columns, effectivePinned); close(); }}>Apply columns ({columns.length})</button>
       </div>
-      {(saved || saver.message) && <p className="panel-note" role="status" style={{ padding: "0 20px 12px" }}>{saver.message ?? saved}</p>}
     </div>
   );
 }

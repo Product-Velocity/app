@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import {
   customFilters, FIELDS, FIELD_BY_KEY, fieldOptions, opsFor, optionsFor, QUICK_FILTERS, quickFilterOn, toggleQuickFilter,
-  type Filter, type FilterOp, type ListOption, type ViewDef,
+  type Filter, type FilterOp, type ListOption,
 } from "@pv/domain";
 import { SelectField } from "@/components/search-list";
 import { Popover } from "./popover";
-import { valueControl, type useViewSaver } from "./view-controls";
+import { valueControl } from "./view-controls";
 import type { Lookups } from "./types";
 
 const FIELD_OPTIONS: ListOption[] = fieldOptions(FIELDS);
@@ -60,19 +59,15 @@ type Props = {
   /** How many initiatives match right now, and how many there are in all. */
   matching: number;
   total: number;
-  def: ViewDef;
-  saver: ReturnType<typeof useViewSaver>;
-  dirty: boolean;
 };
 
 /**
  * Filters, as a panel that expands from the bar: one-click quick filters, and rules that must all match (AND). A rule has a field, an
  * operator that fits it and a value; several values in one rule match any of them. Filters apply as you go. Rules without a value are ignored.
  */
-export function FilterPanel({ filters, onChange, lookups, today, matching, total, def, saver, dirty }: Props) {
+export function FilterPanel({ filters, onChange, lookups, today, matching, total }: Props) {
   const custom = customFilters(filters).map((f) => ({ f, i: filters.indexOf(f) })).filter((x) => x.i >= 0);
   const patch = (i: number, p: Partial<Filter>) => onChange(filters.map((f, j) => (j === i ? { ...f, ...p } : f)));
-  const [message, setMessage] = useState<string | null>(null);
   const n = filters.length;
   return (
     <Popover wide label={n === 0 ? "Add filter" : `${n} ${n === 1 ? "filter" : "filters"}`} active={n > 0}>
@@ -140,19 +135,8 @@ export function FilterPanel({ filters, onChange, lookups, today, matching, total
             <span className="panel-note">Applied as you go</span>
             <span className="grow" />
             {n > 0 && <button type="button" className="btn btn-link" onClick={() => onChange([])}>Clear all</button>}
-            {saver.canSave && (
-              <>
-                {(saver.currentName || saver.builtinName) && (
-                  <button type="button" className="btn" disabled={!dirty} onClick={async () => { setMessage(null); if (await saver.saveHere(def)) setMessage(saver.currentName ? `Saved to “${saver.currentName}”.` : `Saved as the default “${saver.builtinName}”.`); }}>
-                    {saver.currentName ? `Save to “${saver.currentName}”` : `Save as default “${saver.builtinName}”`}
-                  </button>
-                )}
-                <button type="button" className="btn" onClick={() => saver.saveAsNew(def)}>Save as new view…</button>
-              </>
-            )}
             <button type="button" className="btn btn-primary" onClick={close}>Done</button>
           </div>
-          {(message || saver.message) && <p className="panel-note" role="status" style={{ padding: "0 20px 12px" }}>{saver.message ?? message}</p>}
         </div>
       )}
     </Popover>
