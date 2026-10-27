@@ -112,6 +112,11 @@ describe("GitHubAppSourceControl: Projects (boards) over GraphQL", () => {
     expect(seen.at(-2)!.variables.v).toEqual({ singleSelectOptionId: "O1" });
     expect(seen.at(-1)!.variables.v).toEqual({ date: "2026-12-15" });
   });
+  it("a GraphQL error carries GitHub's own message (type and text) as the detail of a 422", async () => {
+    const sc = make(graphqlFake(() => ({ errors: [{ type: "UNPROCESSABLE", message: "Field value is invalid for ghs_SECRET123" }] })));
+    const e = await sc.addBoardItem(1, "PVT_1", "I_x").catch((x) => x);
+    expect(e).toMatchObject({ status: 422, detail: "UNPROCESSABLE: Field value is invalid for [token]" });
+  });
   it("a Project the App cannot see is null, and a missing permission is a 403 with a plain message", async () => {
     expect(await make(graphqlFake(() => ({ data: { node: null } }))).getBoardFields(1, "PVT_x")).toBeNull();
     const denied = make(graphqlFake(() => ({ errors: [{ type: "FORBIDDEN", message: "Resource not accessible by integration" }] })));

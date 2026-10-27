@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { BoardField, BoardValue, SourceControl } from "./source-control";
+import { GitHubError, type BoardField, type BoardValue, type SourceControl } from "./source-control";
 
 // What Product Velocity writes to a GitHub Project (a "board") for an initiative. Only four item values are ever read here:
 // MoSCoW, Initiative Group (theme), the G2M date and the T-shirt effort estimate (docs/04). Value, confidence, customers,
@@ -88,9 +88,19 @@ export function planBoardItem(item: ItemForBoard, fields: BoardField[], mapping:
 
 /** Adds the issue to the board (adding it again returns the same item) and writes the planned values. Returns the board item id. */
 export async function pushBoardItem(sc: SourceControl, installationId: number, boardId: string, issueNodeId: string, plan: BoardPlan): Promise<string> {
-  const itemId = await sc.addBoardItem(installationId, boardId, issueNodeId);
-  for (const w of plan.writes) await sc.setBoardValue(installationId, boardId, itemId, w.field.id, w.value);
+  const itemId = await atStep("adding the issue to the board", () => sc.addBoardItem(installationId, boardId, issueNodeId));
+  for (const w of plan.writes) await atStep(`setting "${w.field.name}"`, () => sc.setBoardValue(installationId, boardId, itemId, w.field.id, w.value));
   return itemId;
+}
+
+/** A GitHub error that says which step it happened in; any other error is left alone. */
+async function atStep<T>(step: string, run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (e) {
+    if (e instanceof GitHubError) throw new GitHubError(e.status, e.message, e.retryAfterSeconds, `${step}${e.detail ? `: ${e.detail}` : ""}`);
+    throw e;
+  }
 }
 
 /** A linked board as stored in `projects.github_board`. */
@@ -136,6 +146,6 @@ export function childrenToAdd(tree: ChildRef[], onBoard: ReadonlySet<string>, li
 /** Adds each child to the board (adding twice returns the same item). Children are only added: PV writes no field values on them. */
 export async function pushBoardChildren(sc: SourceControl, installationId: number, boardId: string, add: ChildRef[]): Promise<{ repo: string; number: number; boardItemId: string }[]> {
   const out: { repo: string; number: number; boardItemId: string }[] = [];
-  for (const c of add) out.push({ repo: c.repo, number: c.number, boardItemId: await sc.addBoardItem(installationId, boardId, c.nodeId) });
+  for (const c of add) out.push({ repo: c.repo, number: c.number, boardItemId: await atStep(`adding child ${c.repo}#${c.number} to the board`, () => sc.addBoardItem(installationId, boardId, c.nodeId)) });
   return out;
 }

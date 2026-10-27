@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { childKey, childrenToAdd, DEFAULT_PRIORITY_MAP, detectMapping, MemorySourceControl, parseBoard, planBoardItem, pushBoardChildren, pushBoardItem, type BoardField } from "./index";
+import { GitHubError, describePushError, childKey, childrenToAdd, DEFAULT_PRIORITY_MAP, detectMapping, MemorySourceControl, parseBoard, planBoardItem, pushBoardChildren, pushBoardItem, type BoardField } from "./index";
 
 const opts = (...names: string[]) => names.map((name, i) => ({ id: `o-${name}`, name, i }));
 // the board in Ashu's example: Priority, Status, Initiative (single selects), Due date, Size, plus fields PV never writes
@@ -146,5 +146,32 @@ describe("children on the board", () => {
     expect(added).toEqual([{ repo: "Acme/App", number: 1, boardItemId: "PVTI_1" }, { repo: "Acme/App", number: 2, boardItemId: "PVTI_2" }]);
     expect(sc.boardItems.map((i) => i.values)).toEqual([{}, {}]);
     expect(sc.calls).not.toContain("setBoardValue");
+  });
+});
+
+describe("board errors say which step failed and what GitHub said", () => {
+  const plan = planBoardItem(item, fields, mapping);
+  it("a failure while adding names the step", async () => {
+    const sc = new MemorySourceControl();
+    sc.failWith = new GitHubError(422, "x", undefined, "UNPROCESSABLE: Could not resolve to a node with the global id of 'abc'");
+    sc.failOn = "addBoardItem";
+    await expect(pushBoardItem(sc, 1, "PVT_1", "I_node", plan)).rejects.toMatchObject({ status: 422, detail: expect.stringContaining("adding the issue to the board") });
+  });
+  it("a failure while setting a field names the field", async () => {
+    const sc = new MemorySourceControl();
+    sc.failWith = new GitHubError(422, "x", undefined, "UNPROCESSABLE: bad option");
+    sc.failOn = "setBoardValue";
+    const e = await pushBoardItem(sc, 1, "PVT_1", "I_node", plan).catch((x) => x);
+    expect(describePushError(e)).toBe('GitHub refused the request (422): setting "Priority": UNPROCESSABLE: bad option');
+  });
+  it("tokens and long texts never reach the message", () => {
+    const e = new GitHubError(422, "x", undefined, `oops ghs_ABCDEF1234567890 ${"y".repeat(400)}`);
+    const text = describePushError(e);
+    expect(text).not.toContain("ghs_ABCDEF");
+    expect(text.length).toBeLessThan(400);
+  });
+  it("errors without detail read as before", () => {
+    expect(describePushError(new GitHubError(422, "x"))).toBe("GitHub refused the request (422).");
+    expect(describePushError(new GitHubError(404, "x"))).toBe("GitHub could not find the repository. Check the project's default repository.");
   });
 });

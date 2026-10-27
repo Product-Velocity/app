@@ -219,7 +219,9 @@ export class GitHubAppSourceControl implements SourceControl {
     const body = (await res.json()) as { data?: T; errors?: { type?: string; message?: string }[] };
     if (body.errors?.length) {
       const denied = body.errors.some((e) => e.type === "FORBIDDEN" || e.type === "INSUFFICIENT_SCOPES" || /not accessible by integration|forbidden/i.test(e.message ?? ""));
-      throw new GitHubError(denied ? 403 : 422, denied ? "The App may not use Projects: grant the Organization Projects permission" : "GitHub could not do that on the Project");
+      const detail = body.errors.map((e) => `${e.type ?? "ERROR"}: ${e.message ?? ""}`).join("; ");
+      console.error(JSON.stringify({ github: "graphql", errors: body.errors.map((e) => ({ type: e.type ?? null, message: String(e.message ?? "").slice(0, 300) })) })); // for the server log: GitHub's words about the person's own Project, no tokens
+      throw new GitHubError(denied ? 403 : 422, denied ? "The App may not use Projects: grant the Organization Projects permission" : "GitHub could not do that on the Project", undefined, detail);
     }
     if (!body.data) throw new GitHubError(502, "GitHub returned no data for the Projects request");
     return body.data;
