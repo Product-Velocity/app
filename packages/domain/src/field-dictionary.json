@@ -3626,5 +3626,45 @@
   "githubSync": "App -> GitHub: own section 'Description' of the managed block of the issue body (Markdown). Do not put value, customers or decisions in it.",
   "filledWhen": "Before the push",
   "description": "The technical description that engineers and agents work from, written in Markdown (headings, lists, links, tables). It becomes its own section of the tracking issue. It is visible to everyone who can see the issue, so keep value, customers and decisions out of it."
+ },
+ {
+  "n": "N46",
+  "storage": "Derived in the app from the GitHub link (not stored)",
+  "phase": 1,
+  "name": "Last Synced",
+  "key": "last_synced",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": "Not synced: shown from the GitHub link, read-only.",
+  "filledWhen": "After the first send or check",
+  "description": "When this initiative was last in step with its tracker: the latest of the last confirmed send and the last time GitHub's changes were applied. Empty when it is not on a tracker."
+ },
+ {
+  "n": "N47",
+  "storage": "Derived in the app from the GitHub link (not stored)",
+  "phase": 1,
+  "name": "Synced With",
+  "key": "synced_with",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": "Not synced: shown from the GitHub link, read-only.",
+  "filledWhen": "After the first send or check",
+  "description": "Where this initiative syncs to, for example GitHub, the repository, and the Project board it is on. Says when the last send failed or when it only follows an issue read-only."
  }
 ]

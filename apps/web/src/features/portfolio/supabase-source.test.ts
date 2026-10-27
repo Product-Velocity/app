@@ -51,7 +51,7 @@ describe("loadItems", () => {
   it("also reads the calculated view and every related table, each filtered by tenant", async () => {
     const { client, calls } = fake([{ data: [row(1)] }]);
     await new SupabaseDataSource(client, "t1").loadItems();
-    expect(calls.map((c) => c.table)).toEqual(["items", "items_computed", "item_tags", "item_links", "item_files", "item_relations", "teams", "item_teams"]);
+    expect(calls.map((c) => c.table)).toEqual(["items", "items_computed", "item_tags", "item_links", "item_files", "item_relations", "teams", "item_teams", "item_github_links"]);
     for (const c of calls) expect(has(c, "eq", "tenant_id", "t1"), String(c.table)).toBe(true);
   });
 
@@ -74,6 +74,20 @@ describe("loadItems", () => {
     expect(a).toHaveProperty("g2m_date_est", null); // read from end_date
     expect(a).not.toHaveProperty("owner_user_id");
     expect(b).toMatchObject({ tags: null, depends_on: null });
+  });
+
+  it("works out Last Synced and Synced With from the GitHub link, the item's own sync mark and the linked board", async () => {
+    const linked = { ...row(1), last_synced_at: "2026-10-27T12:00:00Z" };
+    const { client, calls } = fake([
+      { data: [linked, row(2)] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] },
+      { data: [{ item_id: "i1", mode: "push", repo_full_name: "Acme/App", issue_number: 38, sync_state: "synced", last_pushed_at: "2026-10-27T10:00:00Z", gh_synced_at: "2026-10-27T11:00:00Z", project_item_id: "PVTI_1" }] },
+      { data: [{ id: "p", github_board: { title: "Product Velocity roadmap" } }] },
+    ]);
+    const [a, b] = await new SupabaseDataSource(client, "t1").loadItems();
+    expect(a).toMatchObject({ last_synced: "2026-10-27T12:00:00Z", synced_with: 'GitHub · Acme/App · board "Product Velocity roadmap"' });
+    expect(b).toMatchObject({ last_synced: null, synced_with: null });
+    expect(a).not.toHaveProperty("last_synced_at"); // the raw column stays internal
+    expect(calls.find((c) => c.table === "items_computed")!.ops.map(([, args]) => String(args[0])).join(",")).not.toContain("synced_with"); // not asked of the view
   });
 
   it("turns numeric strings into numbers", async () => {

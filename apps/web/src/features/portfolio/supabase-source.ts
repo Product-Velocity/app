@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
+import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, syncedWith, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
 import type { IssueTreeRow, LoadedItem, TrashedItem } from "./types";
 
@@ -22,7 +22,7 @@ export function friendlyError(error: DbError): string {
 
 const NUMERIC = new Set(FIELDS.filter((f) => f.type === "Number" || f.type === "Currency" || f.type === "Computed").map((f) => f.key));
 /** Computed values come from the items_computed view; the browser works out project_rank itself after a re-rank. */
-const COMPUTED_KEYS = FIELDS.filter((f) => f.storage.startsWith("Computed") && f.key !== "project_rank").map((f) => f.key);
+const COMPUTED_KEYS = FIELDS.filter((f) => f.storage.startsWith("Computed") && f.key !== "project_rank").map((f) => f.key); // "Derived in the app" fields are not in the view
 const INTERNAL_COLUMNS = new Set(["tenant_id", "cycle_id", "created_by", "updated_at", "last_edited_by", "github_issue_url", "last_synced_at", "created_via", "deleted_at", "deleted_by"]);
 
 const dbColumn = (field: string) => {
@@ -52,7 +52,9 @@ export class SupabaseDataSource implements PortfolioDataSource {
   async loadItems(): Promise<LoadedItem[]> {
     const rows = await this.fetchAll<Record<string, unknown>>("items", "*", ["stack_rank", "id"], true);
     const items = new Map<string, Record<string, unknown>>();
+    const syncMark = new Map<string, string | null>(); // items.last_synced_at: set when GitHub's changes were applied to the item
     for (const r of rows) {
+      syncMark.set(String(r.id), (r.last_synced_at as string | null) ?? null);
       const item: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(r)) {
         if (INTERNAL_COLUMNS.has(k)) continue;
@@ -92,7 +94,18 @@ export class SupabaseDataSource implements PortfolioDataSource {
     const teams = new Map<string, string[]>();
     for (const t of await this.fetchAll<{ item_id: string; team_id: string }>("item_teams", "item_id,team_id")) add(teams, t.item_id, teamNames.get(t.team_id) ?? "unknown team");
 
+    // Last Synced and Synced With: derived from the GitHub link of each initiative
+    const syncLinks = new Map<string, SyncLink>();
+    for (const l of await this.fetchAll<{ item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; sync_state: "pending" | "synced" | "error"; last_pushed_at: string | null; gh_synced_at: string | null; project_item_id: string | null }>("item_github_links", "item_id,mode,repo_full_name,issue_number,sync_state,last_pushed_at,gh_synced_at,project_item_id", ["item_id"])) {
+      syncLinks.set(l.item_id, { mode: l.mode, repo: l.repo_full_name, issueNumber: l.issue_number, syncState: l.sync_state, lastPushedAt: l.last_pushed_at, ghSyncedAt: l.gh_synced_at, hasBoardItem: Boolean(l.project_item_id) });
+    }
+    const boardTitle = new Map<string, string>();
+    if (syncLinks.size > 0) for (const p of await this.fetchAll<{ id: string; github_board: { title?: unknown } | null }>("projects", "id,github_board")) if (typeof p.github_board?.title === "string") boardTitle.set(p.id, p.github_board.title);
+
     for (const [id, item] of items) {
+      const sl = syncLinks.get(id);
+      item.last_synced = lastSyncedAt(sl, syncMark.get(id) ?? null);
+      item.synced_with = syncedWith(sl, boardTitle.get(String(item.home_project)) ?? null) || null;
       item.tags = (tags.get("tag")?.get(id) ?? []).join(", ") || null;
       item.target_scope = (tags.get("target_scope")?.get(id) ?? []).join(", ") || null;
       item.live_scope = (tags.get("live_scope")?.get(id) ?? []).join(", ") || null;

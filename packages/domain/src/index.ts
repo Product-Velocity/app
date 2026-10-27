@@ -7,6 +7,7 @@ export * from "./registry";
 export * from "./search-list";
 export * from "./trash";
 export * from "./files";
+export * from "./sync-info";
 export * from "./tracker";
 export * from "./quickadd";
 export * from "./spreadsheet";

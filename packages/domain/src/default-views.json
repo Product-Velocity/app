@@ -63,6 +63,8 @@
    "initiative_status",
    "description",
    "status",
+   "last_synced",
+   "synced_with",
    "health",
    "delivery_progress_pct",
    "schedule_variance_pp",

@@ -4,7 +4,7 @@ import { activityEvents, canUndoActivity, panelField, panelSections, type Activi
 
 const f = (key: string) => FIELDS.find((x) => x.key === key)!;
 
-describe("panelField: how each of the 167 fields is shown in the item panel", () => {
+describe("panelField: how each of the 169 fields is shown in the item panel", () => {
   it("scalar editable fields get their own editor", () => {
     expect(panelField(f("initiative_name")).kind).toBe("text");
     expect(panelField(f("hypothesis")).kind).toBe("longtext");
@@ -44,7 +44,7 @@ describe("panelField: how each of the 167 fields is shown in the item panel", ()
 });
 
 describe("panelSections", () => {
-  it("lists all 167 fields once, in the sheet's group order", () => {
+  it("lists all 169 fields once, in the sheet's group order", () => {
     const s = panelSections();
     expect(s.map((x) => x.group).slice(0, 4)).toEqual(["What", "Who", "Why", "Decision"]);
     expect(s.flatMap((x) => x.fields).map((x) => x.key).sort()).toEqual(FIELDS.map((x) => x.key).sort());
