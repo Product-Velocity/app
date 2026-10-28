@@ -642,3 +642,20 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .push-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .push-sides pre { white-space: pre-wrap; word-break: break-word; margin: 2px 0; }
 @media (max-width: 640px) { .push-sides { grid-template-columns: 1fr; } }
+
+/* Workspace members grid (issue #216) */
+.page-wide { max-width: 1280px; margin: 0 auto; padding-top: 8px; }
+.members-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.members-toolbar .chip { cursor: pointer; font: inherit; font-size: 12.5px; }
+.members-toolbar .chip-on { border-color: var(--blue); background: var(--blue-tint-2); color: var(--blue-text); font-weight: 600; }
+.members-search { margin-left: auto; width: auto; flex: 0 1 260px; min-width: 200px; height: 28px; font: inherit; border: 1px solid #c9ceda; border-radius: 6px; padding: 0 8px; }
+.members-card { padding: 0; overflow-x: auto; }
+.members-table .col-check { width: 32px; text-align: center; }
+.members-table .row-selected { background: var(--blue-tint-2); }
+.members-table td { vertical-align: middle; }
+.members-table select { min-width: 120px; }
+.notice-error { background: #fdf0ef; border-color: #f0c4c0; }
+.status-text { font-weight: 500; }
+.status-requested { color: #8a5a00; }
+.status-paused, .status-revoked { color: #5b6272; }
+.members-table .status-text + .bulk-link { margin-left: 8px; }

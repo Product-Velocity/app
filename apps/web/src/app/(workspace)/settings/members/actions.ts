@@ -7,9 +7,11 @@ import { parseRole } from "@/lib/roles";
 import { parseInviteForm } from "@/lib/validation";
 import { githubUsernameMessage } from "@/lib/github-username";
 import { siteUrl } from "@/lib/site-url";
-import { sendEmail } from "@/lib/email/resend";
+import { emailConfigured, sendEmail } from "@/lib/email/resend";
 import { buildInvitationEmail, sendLimit } from "@/lib/email/invitation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { buildAccessApprovedEmail } from "@/lib/email/access";
+import { statusAfterSignup, type MemberStatus } from "@pv/domain";
 
 export type InviteState = { error?: string; link?: string; email?: string; emailed?: boolean; emailNote?: string } | null;
 export type SaveResult = { ok: true } | { ok: false; error: string };
@@ -94,18 +96,6 @@ export async function resendInvitation(_prev: InviteState, form: FormData): Prom
   return { link, email: inv.email, ...(result ? { emailed: result.emailed, emailNote: result.note } : {}) };
 }
 
-export async function revokeInvitation(form: FormData): Promise<void> {
-  const { supabase, active } = await requireWorkspace(PATH);
-  const id = form.get("id");
-  if (active.role !== "admin" || typeof id !== "string") return;
-  await supabase
-    .from("invitations")
-    .update({ revoked_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("tenant_id", active.tenantId);
-  revalidatePath(PATH);
-}
-
 /** An admin sets (or clears) the GitHub username of a member; the database checks the role again and that the name is free in this workspace. */
 export async function setMemberGithubUsername(userId: string, username: string): Promise<SaveResult> {
   const { supabase, active } = await requireWorkspace(PATH);
@@ -132,10 +122,58 @@ export async function updateMember(memberId: string, role: string, isApprover: b
   return { ok: true };
 }
 
-export async function removeMember(form: FormData): Promise<void> {
+export type StatusResult = { key: string; email: string | null; ok: boolean; reason?: string; emailed?: boolean };
+export type StatusOutcome = { ok: true; results: StatusResult[] } | { ok: false; error: string };
+
+/**
+ * Batch status change from the members grid. `memberIds` are workspace members (active, paused, revoked, requested); `invitationIds` are
+ * pending invitations, which can only be cancelled (Revoked). Each row is reported separately. Becoming active from Requested Access
+ * emails the person a confirmation with the link back (FR-4.3); a failed email never undoes the approval.
+ */
+export async function changeMemberStatus(memberIds: string[], invitationIds: string[], status: string): Promise<StatusOutcome> {
   const { supabase, active } = await requireWorkspace(PATH);
-  const id = form.get("id");
-  if (active.role !== "admin" || typeof id !== "string") return;
-  await supabase.from("tenant_members").delete().eq("id", id).eq("tenant_id", active.tenantId);
+  if (active.role !== "admin") return { ok: false, error: "Only admins can change a member's status." };
+  if (status !== "active" && status !== "paused" && status !== "revoked") return { ok: false, error: "Choose a status." };
+  if (memberIds.length + invitationIds.length === 0) return { ok: false, error: "Select at least one row." };
+  if (memberIds.length + invitationIds.length > 500) return { ok: false, error: "Select at most 500 rows at a time." };
+  const results: StatusResult[] = [];
+
+  if (memberIds.length > 0) {
+    const { data, error } = await supabase.rpc("set_member_status", { p_ids: memberIds, p_status: status });
+    if (error) return { ok: false, error: "We could not change the status." };
+    const rows = (data ?? []) as { member_id: string; email: string | null; previous_status: string | null; ok: boolean; reason: string | null }[];
+    const mail = emailConfigured() ? await approvalMailer(active.tenantName) : null;
+    for (const r of rows) {
+      const out: StatusResult = { key: r.member_id, email: r.email, ok: r.ok, ...(r.reason ? { reason: r.reason } : {}) };
+      if (r.ok && r.email && r.previous_status && statusAfterSignup(r.previous_status as MemberStatus, "active") && status === "active") {
+        out.emailed = mail ? await mail(r.email) : false;
+      }
+      results.push(out);
+    }
+  }
+
+  if (invitationIds.length > 0) {
+    if (status !== "revoked") {
+      for (const id of invitationIds) results.push({ key: id, email: null, ok: false, reason: "An invitation can only be cancelled. The person becomes Active when they accept it." });
+    } else {
+      const { data } = await supabase
+        .from("invitations")
+        .update({ revoked_at: new Date().toISOString() })
+        .in("id", invitationIds)
+        .eq("tenant_id", active.tenantId)
+        .is("accepted_at", null)
+        .is("revoked_at", null)
+        .select("id, email");
+      const done = new Map((data ?? []).map((i) => [i.id as string, i.email as string]));
+      for (const id of invitationIds) results.push(done.has(id) ? { key: id, email: done.get(id)!, ok: true } : { key: id, email: null, ok: false, reason: "That invitation is no longer pending." });
+    }
+  }
   revalidatePath(PATH);
+  return { ok: true, results };
+}
+
+async function approvalMailer(workspace: string): Promise<(to: string) => Promise<boolean>> {
+  const link = `${await siteUrl()}/`;
+  const mail = buildAccessApprovedEmail({ workspace, link });
+  return async (to) => (await sendEmail({ to, ...mail })).ok;
 }

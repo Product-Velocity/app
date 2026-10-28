@@ -46,6 +46,7 @@ export async function loadMemberships(
     .from("tenant_members")
     .select("tenant_id, role, is_approver, tenants(name)")
     .eq("user_id", userId)
+    .eq("status", "active") // requested, paused and revoked people have no workspace (docs/15 section 3b)
     .order("created_at");
   if (error) throw new Error(`Could not load memberships: ${error.message}`);
   return (data ?? []).map((row) => {
