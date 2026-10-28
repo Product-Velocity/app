@@ -193,12 +193,8 @@
   "views": [
    "Prioritisation"
   ],
-  "allowed": [
-   "Formats",
-   "Demand/Optimisation",
-   "Publishers"
-  ],
-  "allowedText": "Formats · Demand/Optimisation · Publishers",
+  "allowed": [],
+  "allowedText": null,
   "origin": "Input",
   "githubSync": "Optional: push as label.",
   "filledWhen": "Now",
@@ -1167,14 +1163,8 @@
   "views": [
    "Go-to-market"
   ],
-  "allowed": [
-   "Publishers",
-   "Demand partners",
-   "Brands and agencies",
-   "Internal",
-   "Mixed"
-  ],
-  "allowedText": "Publishers · Demand partners · Brands and agencies · Internal · Mixed",
+  "allowed": [],
+  "allowedText": null,
   "origin": "Input",
   "githubSync": null,
   "filledWhen": "After interviews",

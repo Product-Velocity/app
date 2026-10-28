@@ -11,6 +11,8 @@ export type WorkspaceContext = {
   you: { id: string; role: string; may: string[]; may_not: string[] };
   projects: { id: string; name: string; default_repo: string | null; tracker: string | null; github: { connected: boolean; repo_private: boolean | null } }[];
   groups: string[];
+  /** The values in use of the open-list fields (Focus Area, Audience), so Claude reuses an existing spelling (issue #246). */
+  open_lists?: Record<string, string[]>;
   teams: { id: string; name: string }[];
   members: Member[];
   cycles: { id: string; name: string }[];
@@ -57,6 +59,7 @@ export function buildContext(i: {
   tenant: { id: string; name: string }; userId: string; role: string;
   projects: { id: string; name: string; default_repo: string | null; tracker: string | null }[];
   groups: string[]; teams: { id: string; name: string }[]; members: Member[];
+  openLists?: Record<string, string[]>;
   githubConnected: boolean; repoPrivate: ReadonlyMap<string, boolean>;
 }): WorkspaceContext {
   const a = claudeAllowances(i.role);
@@ -67,7 +70,7 @@ export function buildContext(i: {
       ...p,
       github: { connected: i.githubConnected && p.tracker !== "jira" && p.tracker !== "gitlab", repo_private: p.default_repo ? i.repoPrivate.get(p.default_repo.toLowerCase()) ?? null : null },
     })),
-    groups: i.groups, teams: i.teams, members: i.members,
+    groups: i.groups, ...(i.openLists ? { open_lists: i.openLists } : {}), teams: i.teams, members: i.members,
     cycles: [],
     notes: ["Planning cycles arrive in a later phase, so there are none yet.", "A person's name is the email address they signed up with; filters accept it."],
   };

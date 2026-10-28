@@ -6,7 +6,7 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 5,What,Stack Rank,stack_rank,Number,,Input,Modify,"Optional one-way push to a GitHub issue field ""Priority"" / label.",Column on items,1
 6,What,Initiative Group,theme,Select,,Input,Modify,Optional: push as label.,Column on items,1
 7,What,Initiative Name,initiative_name,Text,,Input,Keep,App -> GitHub issue title on creation; app owns the title afterwards.,Column on items,1
-8,What,Focus Area,focus_area,Select,Formats · Demand/Optimisation · Publishers,Input,Fix,Optional: push as label.,Column on items,1
+8,What,Focus Area,focus_area,Select,,Input,Fix,Optional: push as label.,Column on items,1
 9,What,Change Type,change_type,Select,New feature · Improvement to existing feature,Input,Keep,,Column on items,1
 11,What,Initiative Hypothesis (IF / THEN / RESULTING IN),hypothesis,Long text,,Input,Modify,App -> GitHub: included in the managed block of the issue body.,Column on items,1
 12,What,Artifacts (links),artifacts,Links,,Input,Modify,App -> GitHub: listed in managed block of issue body.,Related table,1
@@ -52,7 +52,7 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 56,When,Start Experiment,start_experiment,Date,,System,Auto-derive,,System-set column (read-only),1
 57,When,Start Roll-Out,start_rollout,Date,,System,Auto-derive,,System-set column (read-only),1
 58,When,Last Updated,last_edited_at,System,,System,Replace,,System-set column (read-only),1
-59,Go-to-market,Audience,audience,Select,Publishers · Demand partners · Brands and agencies · Internal · Mixed,Input,Keep,,Column on items,1
+59,Go-to-market,Audience,audience,Select,,Input,Keep,,Column on items,1
 60,Go-to-market,Target Markets,target_scope,Tags,,Input,Modify,,Related table,1
 61,Go-to-market,Live Markets,live_scope,Tags,,Input,Modify,,Related table,1
 62,Go-to-market,Target Customers (#),target_customers,Number,,Input,Keep,,Column on items,1

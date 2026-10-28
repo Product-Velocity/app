@@ -1,7 +1,7 @@
 import { parseDate } from "./dates";
 import { parseValue } from "./money";
 import { parseQuarter, quarterChoices } from "./quarters";
-import { FIELDS, FIELD_BY_KEY, isShipped, type FieldDef } from "./registry";
+import { FIELDS, FIELD_BY_KEY, OPEN_LIST_FIELDS, isOpenList, isShipped, type FieldDef } from "./registry";
 
 export type Role = "viewer" | "commenter" | "creator" | "admin" | "leadership";
 
@@ -43,8 +43,26 @@ export function bulkEditReason(key: string): string | null {
 
 export const YES_NO: Option[] = [{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }];
 
+/**
+ * Open lists (issue #246): selects with no fixed values, where people type any value and the app suggests the values already in use.
+ * Initiative Group is one too, with its own table of names; these two keep their values on the initiatives only.
+ */
+export { OPEN_LIST_FIELDS, isOpenList };
+
+/** The distinct values in use, without empty ones, A to Z: what an open list offers while typing. */
+export function openListValues(inUse: Iterable<unknown>): string[] {
+  const seen = new Map<string, string>();
+  for (const v of inUse) {
+    if (typeof v !== "string") continue;
+    const t = v.replace(/\s+/g, " ").trim();
+    if (t !== "" && !seen.has(t.toLowerCase())) seen.set(t.toLowerCase(), t);
+  }
+  return [...seen.values()].sort((a, b) => a.localeCompare(b, "en"));
+}
+
 /** Options of a select field, exactly as the dictionary spells them (a text label is always shown). */
 export function optionsFor(key: string, inUse: Iterable<unknown> = []): Option[] {
+  if (isOpenList(key)) return openListValues(inUse).map((v) => ({ value: v, label: v })); // the values already in use
   if (key === "g2m_quarter") return quarterChoices(inUse).map((v) => ({ value: v, label: v })); // the generated range plus every quarter already in use
   const f = FIELD_BY_KEY[key];
   if (f?.type === "Boolean") return YES_NO;
@@ -91,7 +109,8 @@ export function validateEdit(key: string, raw: string, ctx: { today?: Date } = {
     case "Select": {
       if (f.allowed.length === 0) {
         const max = MAX_LENGTH[key] ?? 120;
-        return text.length > max ? { ok: false, error: `Keep it under ${max} characters.` } : { ok: true, value: text };
+        const one = isOpenList(key) ? text.replace(/\s+/g, " ") : text; // one spelling: no double spaces
+        return one.length > max ? { ok: false, error: `Keep it under ${max} characters.` } : { ok: true, value: one };
       }
       if (key === "g2m_quarter") {
         // any calendar quarter, not only the offered range: a quarter in use stays valid after it leaves the range
