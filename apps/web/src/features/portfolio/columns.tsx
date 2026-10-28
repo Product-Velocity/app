@@ -190,7 +190,10 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
   // Description is Markdown: one plain line in the cell, the rendered text on hover
   const withMarkdown = (c: ColDef<GridItem>): ColDef<GridItem> =>
     c.colId === "description"
-      ? { ...c, valueFormatter: (p) => markdownToPlainText(String(p.value ?? "")), tooltipValueGetter: (p) => String(p.value ?? ""), tooltipComponent: MarkdownTooltip }
+      ? { ...c, valueFormatter: (p) => markdownToPlainText(String(p.value ?? "")),
+        // an empty title stops the browser adding its own plain-text hover on top of the rendered one
+        cellRenderer: (p: { valueFormatted?: string | null }) => <span className="cell-text" title="">{p.valueFormatted ?? ""}</span>,
+        tooltipValueGetter: (p) => String(p.value ?? ""), tooltipComponent: MarkdownTooltip }
       : c;
   return FIELDS.map(def).map(withMarkdown).map(pin).sort((a, b) => rank(a) - rank(b));
 }
