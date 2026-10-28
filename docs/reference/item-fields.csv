@@ -41,7 +41,7 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 45,Decision,Decided By,decided_by,Person or text,,Input,Modify,,Column on items,1
 46,Decision,Decision Date,decision_date,Date,,Input,Modify,,Column on items,1
 47,Decision,Next Review Date,next_review_date,Date,,Input,Modify,,Column on items,1
-48,When,G2M Quarter,g2m_quarter,Computed,,Computed,Auto-derive,,"Computed (view or function, not stored)",2
+48,When,Planned Quarter,g2m_quarter,Select,,Input,Modify,,Column on items,1
 49,When,Start Date,start_date,Date,,Computed,Auto-derive,,Column on items,1
 50,When,G2M Date (est),g2m_date_est,Date,,Input,Modify,Optional: push to GitHub issue field (date) / milestone due date.,Column on items,1
 51,When,G2M Date (actual),g2m_date_actual,Date,,Input,Modify,,Column on items,1

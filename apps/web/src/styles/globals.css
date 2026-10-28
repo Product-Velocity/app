@@ -705,3 +705,4 @@ a.scope-link:hover, a.scope-link:focus-visible { background: var(--blue-tint-2);
 .docs-meta input { min-width: 260px; }
 .docs-text { width: 100%; box-sizing: border-box; min-height: 240px; resize: vertical; font-family: var(--font-mono, monospace); font-size: 12px; padding: 6px 8px; border: 1px solid #c9ceda; border-radius: 6px; }
 .docs-versions { margin-top: 8px; }
+

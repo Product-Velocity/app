@@ -117,6 +117,19 @@ describe("what Claude may never set", () => {
     expect((await item(id))[col]).toBeNull();
   });
 
+  it("lets Claude set Planned Quarter (not person-only); the change is an AI draft and audited as Claude MCP", async () => {
+    const id = createdId(await create(cora, [row("Quarter by Claude", { g2m_quarter: "Q3 2027" })]));
+    expect((await item(id)).g2m_quarter).toBe("Q3 2027");
+    const r = await apply(cora, "update_items", [{ ops: [{ op: "update_item", id, set: { g2m_quarter: "Q4 2027" } }] }]);
+    expect(r.units[0]).toMatchObject({ ok: true });
+    expect((await item(id)).g2m_quarter).toBe("Q4 2027");
+    const log = (await db.admin.query("select old, new, via from public.audit_log where entity = 'items' and entity_id = $1 and field = 'g2m_quarter' order by at", [id])).rows;
+    expect(log.map((l) => [l.old, l.new, l.via])).toEqual([[null, "Q3 2027", "Claude MCP"], ["Q3 2027", "Q4 2027", "Claude MCP"]]);
+    expect((await item(id)).ai_draft).toBe(true);
+    const bad = await apply(cora, "update_items", [{ ops: [{ op: "update_item", id, set: { g2m_quarter: "Q9 2027" } }] }]);
+    expect(bad.units[0]).toMatchObject({ ok: false });
+  });
+
   it("refuses the other commercial fields even when a Value Type basis is sent with them", async () => {
     const id = createdId(await create(cora, [row("Basis does not unlock value")]));
     const r = await apply(cora, "update_items", [{ ops: [{ op: "update_item", id, set: { value_12m: 100 }, value_type_basis: "The person said so, in words" }] }]);

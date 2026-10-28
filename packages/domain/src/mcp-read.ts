@@ -3,6 +3,7 @@
 
 import { EDITABLE_FIELDS, canEditItems, fieldMaxLength } from "./fields";
 import { FIELDS, FIELD_BY_KEY, isShipped, type FieldDef } from "./registry";
+import { parseQuarter } from "./quarters";
 import { matchesFilters, opsFor, sortRows, type Filter, type FilterCtx, type FilterOp, type SortDef } from "./views";
 
 /**
@@ -120,6 +121,10 @@ function checkFilter(raw: unknown, names: SearchNames): { ok: true; filter: Filt
     if (isProject) {
       const id = resolve(s, names.projects);
       return id ? { ok: true, value: id } : { ok: false, error: `No project called "${s}". Projects: ${list(names.projects.map((p) => p.name))}.` };
+    }
+    if (def.key === "g2m_quarter" && (op === "is" || op === "is_not" || op === "any_of")) {
+      const q = parseQuarter(s);
+      return q ? { ok: true, value: q } : { ok: false, error: `"${s}" is not a quarter. Use a calendar quarter such as "Q3 2027".` };
     }
     if (def.type === "Select" && def.allowed.length > 0 && (op === "is" || op === "is_not" || op === "any_of")) {
       const hit = def.allowed.find((a) => a.toLowerCase() === s.toLowerCase());

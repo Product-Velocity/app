@@ -327,3 +327,16 @@ describe("Value Type: the one value field Claude may set, only with the person's
     expect(buildUpdate({ item: "R-01", set: { moscow: "Must", value_type_basis: BASIS } }, now, ctx)).toMatchObject({ ok: false, error: expect.stringMatching(/only goes together/) });
   });
 });
+
+describe("Planned Quarter through MCP (R-114)", () => {
+  it("is listed as an editable select with allowed values, under the unchanged key, and Claude may set it", () => {
+    const f = describeFields({ role: "creator", reachesGithub: () => false }).find((x) => x.key === "g2m_quarter")!;
+    expect(f).toMatchObject({ label: "Planned Quarter", type: "Select", editable: true, claude_may_set: true });
+    expect(f.allowed).toContain("Q3 2027");
+    expect(describeFields({ role: "creator", reachesGithub: () => false }).some((x) => x.label === "G2M Quarter")).toBe(false);
+  });
+  it("accepts any calendar quarter on create, normalised, and refuses anything else in words", () => {
+    expect(ok({ name: "A", project: "Platform", g2m_quarter: "q3 2027" }).row.g2m_quarter).toBe("Q3 2027");
+    expect(err({ name: "A", project: "Platform", g2m_quarter: "FY27 Q3" })).toMatch(/quarter such as Q3 2027/);
+  });
+});

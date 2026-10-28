@@ -43,7 +43,7 @@ const ALIASES: Record<string, string> = {
   title: "initiative_name", name: "initiative_name", initiative: "initiative_name", project: "home_project", owner: "product_manager",
   pm: "product_manager", manager: "product_manager", size: "effort", tshirt: "effort", value: "value_12m", valueeur: "value_12m",
   start: "start_date", end: "g2m_date_est", enddate: "g2m_date_est", g2m: "g2m_date_est", g2mdate: "g2m_date_est", group: "theme",
-  category: "roadmap_category", phase: "initiative_phase", sponsor: "sponsor", description: "summary",
+  g2mquarter: "g2m_quarter", quarter: "g2m_quarter", category: "roadmap_category", phase: "initiative_phase", sponsor: "sponsor", description: "summary",
 };
 
 /** Fields a paste can fill: the ones a person can edit in a cell today. */

@@ -149,7 +149,7 @@ function coerce(key: string, raw: unknown, ctx: WriteCtx): Scalar {
   const text = typeof raw === "boolean" ? (raw ? "Yes" : "No") : String(raw);
   const v = validateEdit(key, text, { today: ctx.today });
   if (!v.ok) {
-    if (f.type === "Select" && f.allowed.length > 0) return fail(`${nameOf}: "${text}" is not one of ${f.allowed.join(", ")}.`);
+    if (f.type === "Select" && f.allowed.length > 0 && key !== "g2m_quarter") return fail(`${nameOf}: "${text}" is not one of ${f.allowed.join(", ")}.`);
     return fail(`${nameOf}: ${v.error}`);
   }
   return { ok: true, column, value: v.value, display: v.value };

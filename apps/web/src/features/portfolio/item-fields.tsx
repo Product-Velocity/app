@@ -4,7 +4,7 @@ import { DateInput } from "@/components/date-input";
 import { SelectField } from "@/components/search-list";
 import { useId, useState, type ReactNode } from "react";
 import {
-  canBeEmpty, dateEdge, optionsFor, panelField, resolveGroup, type FieldDef, type Link, type PanelField, type RelatedField,
+  canBeEmpty, dateEdge, optionsFor, panelField, quarterMismatch, resolveGroup, type FieldDef, type Link, type PanelField, type RelatedField,
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import { formatField } from "./format";
@@ -43,6 +43,7 @@ export function FieldRow({ f, row, ctx }: { f: FieldDef; row: GridItem; ctx: Fie
       {badge(f, p)}
       <div className="pf-control" {...(isList ? { role: "group", "aria-labelledby": `${id}-l` } : {})}>{control}</div>
       {hint && <p className="pf-hint">{hint}</p>}
+      {f.key === "g2m_quarter" && quarterMismatch(row.g2m_quarter, row.g2m_date_est) && <p className="pf-hint" role="status">G2M date is outside the planned quarter. Nothing was changed.</p>}
       {f.description && !["readonly", "later", "select"].includes(p.kind) && <p className="pf-help">{f.description}</p>}
       {p.kind === "currency" && <p className="pf-help">{ctx.lookups.currency ? `Amounts are in ${ctx.lookups.currency}, the organization currency.` : "No organization currency is set yet. An admin sets it under Workspace settings."}</p>}
       {error && <p role="alert" className="pf-error">{error}</p>}

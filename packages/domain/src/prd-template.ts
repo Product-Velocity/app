@@ -114,7 +114,7 @@ export function prdPrompt(args: PrdPromptArgs): { description: string; text: str
     "ORDER OF WORK",
     "1. get_workspace_context and describe_fields (keys, allowed values, which fields you may set).",
     "2. Read the brief. Decide the modules. Draft the PRD in your head; do not write anything yet.",
-    "3. Send ONE message listing what you could not fill, grouped by module and skippable. Typical: Sponsor, Product Manager, Primary KR, G2M Quarter, Effort, Business Value Type, rollout thresholds. Wait for the answer.",
+    "3. Send ONE message listing what you could not fill, grouped by module and skippable. Typical: Sponsor, Product Manager, Primary KR, Planned Quarter, Effort, Business Value Type, rollout thresholds. Wait for the answer.",
     "4. Run create_items with dry_run (project, group, summary, hypothesis, value_proposition, the fields you can support, and a Description holding only the \"Description extract\" sections). Show the result. Create after they agree.",
     "5. create_document kind prd with the full PRD (core sections and chosen appendices). Status draft.",
     "6. Tell the person: what you set, what you left empty and why, what you asked, and that the PRD is an AI draft that a person accepts and an Approver approves at the Design to Build gate.",

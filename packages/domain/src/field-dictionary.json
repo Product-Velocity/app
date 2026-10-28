@@ -931,13 +931,13 @@
  },
  {
   "n": "48",
-  "storage": "Computed (view or function, not stored)",
-  "phase": 2,
-  "name": "G2M Quarter",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "Planned Quarter",
   "key": "g2m_quarter",
   "group": "When",
-  "type": "Computed",
-  "editing": "Computed (read-only)",
+  "type": "Select",
+  "editing": "Editable",
   "customerSafe": true,
   "views": [
    "Planning",
@@ -946,10 +946,10 @@
   ],
   "allowed": [],
   "allowedText": null,
-  "origin": "Computed",
+  "origin": "Input",
   "githubSync": null,
-  "filledWhen": "After dates are known",
-  "description": "Go-to-market quarter"
+  "filledWhen": "When planning",
+  "description": "Calendar quarter the work is planned for, chosen by a person"
  },
  {
   "n": "49",
