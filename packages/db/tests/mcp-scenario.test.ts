@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { FIELD_BY_KEY, KEY_BY_COLUMN, WRITE_SCALAR_KEYS, type SearchRow, type WriteCtx } from "@pv/domain";
-import { buildContext } from "../../../apps/web/src/lib/mcp/read-model";
+import { buildContext, type DocInfo } from "../../../apps/web/src/lib/mcp/read-model";
 import { handleRpc, TOOLS, type McpBackend } from "../../../apps/web/src/lib/mcp/rpc";
 import { ToolInputError } from "../../../apps/web/src/lib/mcp/tool-error";
-import type { ApplyResult, CurrentItem, McpFiles, McpWriter, PendingChange, PendingRow, UndoResult } from "../../../apps/web/src/lib/mcp/write-model";
+import type { ApplyResult, CurrentItem, McpDocuments, McpFiles, McpWriter, PendingChange, PendingRow, UndoResult } from "../../../apps/web/src/lib/mcp/write-model";
 import { addMember, createTestDb, createUser, twoTenantFixture, type TestDb } from "./helpers";
 
 // The 2026-10-27 scenario of docs/20 section 2 and issue #182, replayed through the real tool code (handleRpc and the write tools)
@@ -50,8 +50,30 @@ function sqlWriter(user: string, tenant: string): McpWriter {
     },
     async repoFor() { return { name: "acme/private-app", isPrivate: true }; },
   };
+  const info = (r: Record<string, unknown>, code: string, withBody = false): DocInfo => ({
+    id: r.id as string, item_code: code, kind: r.kind as string, title: r.title as string, status: r.status as string, version: r.version as number, ai_draft: r.ai_draft as boolean,
+    characters: (r.body as string).length, updated_at: new Date(r.updated_at as string).toISOString(), approved_at: r.approved_at ? new Date(r.approved_at as string).toISOString() : null, ...(withBody ? { body: r.body as string } : {}),
+  });
+  const documents: McpDocuments = {
+    async create(item, doc) {
+      try {
+        return await as(async (q) => info((await q("insert into public.item_documents (tenant_id, item_id, kind, title, body, status) values ($1, $2, $3, $4, $5, coalesce($6, 'draft')) returning *", [tenant, item.id, doc.kind, doc.title, doc.body, doc.status ?? null])).rows[0]!, item.code));
+      } catch { throw new ToolInputError("The database refused this: your role or this connection may not write here."); }
+    },
+    async update(id, expectedVersion, patch) {
+      const cols = Object.keys(patch) as (keyof typeof patch)[];
+      const set = cols.map((c, i) => `${c} = $${i + 4}`).join(", ");
+      return as(async (q) => {
+        const r = await q(`update public.item_documents set ${set} where tenant_id = $1 and id = $2 and version = $3 returning *, (select item_code from public.items where id = item_id) as code`, [tenant, id, expectedVersion, ...cols.map((c) => patch[c])]);
+        if (r.rows[0]) return { ok: true as const, doc: info(r.rows[0], r.rows[0].code as string) };
+        const cur = (await q("select d.*, i.item_code as code from public.item_documents d join public.items i on i.id = d.item_id where d.tenant_id = $1 and d.id = $2", [tenant, id])).rows[0];
+        return cur ? { ok: false as const, reason: "conflict" as const, current: info(cur, cur.code as string, true) } : { ok: false as const, reason: "missing" as const };
+      });
+    },
+  };
   return {
     files,
+    documents,
     async context(role): Promise<WriteCtx> {
       return as(async (q) => {
         const members = (await q("select user_id, email from public.tenant_directory($1)", [tenant])).rows.map((r) => ({ id: r.user_id as string, name: r.email as string }));
@@ -144,7 +166,8 @@ afterAll(async () => {
 });
 
 describe("the 2026-10-27 scenario, as a creator, with no service role", () => {
-  const fields = Object.fromEntries(WRITE_SCALAR_KEYS.filter((k) => sample(k) !== undefined).map((k) => [k, sample(k)]));
+  // Value Type is settable only with the person's own words (R-113 slice 3), so the sample carries them
+  const fields: Record<string, unknown> = { ...Object.fromEntries(WRITE_SCALAR_KEYS.filter((k) => sample(k) !== undefined).map((k) => [k, sample(k)])), value_type_basis: "Ashu: this one is incremental revenue" };
   const names = ["Views data model", "View bar", "One save flow", "Manage actions"];
   let b: McpBackend;
   const codes: string[] = [];
@@ -178,6 +201,10 @@ describe("the 2026-10-27 scenario, as a creator, with no service role", () => {
     expect(rows.map((r) => r.stack_rank)).toEqual([max - 3, max - 2, max - 1, max]);
     expect((await db.admin.query("select count(*)::int as n from public.item_tags where item_id = any($1)", [rows.map((r) => r.id)])).rows[0].n).toBe(8);
     expect((await db.admin.query("select name from public.item_groups where tenant_id = $1 and name = 'Roadmap views'", [f.tenantA])).rowCount).toBe(1);
+    // Value Type went in with the person's words, recorded on its audit row (R-113 slice 3); the rest of Value stayed empty
+    expect(rows.every((r) => r.value_type !== null)).toBe(true);
+    const basis = (await db.admin.query("select distinct basis, via from public.audit_log where entity = 'items' and field = 'value_type' and entity_id = any($1)", [rows.map((r) => r.id)])).rows;
+    expect(basis).toEqual([{ basis: "Ashu: this one is incremental revenue", via: "Claude MCP" }]);
   });
 
   it("links them in order, with both directions visible", async () => {
@@ -362,5 +389,91 @@ describe("files and share links through the real file tools (issue #183)", () =>
     expect((await db.admin.query("select 1 from public.item_files where name = 'by-id.png'")).rowCount).toBe(0);
     const row = (await db.admin.query("select share_token from public.item_files where id = $1", [id])).rows[0];
     expect(row.share_token).toBeNull();
+  });
+});
+
+describe("documents through the real document tools (R-113)", () => {
+  let viewer: string, bobUser: string;
+  let item: { id: string; code: string };
+
+  const infoRow = (r: Record<string, unknown>, withBody = false): DocInfo => ({
+    id: r.id as string, item_code: r.code as string, kind: r.kind as string, title: r.title as string, status: r.status as string, version: r.version as number, ai_draft: r.ai_draft as boolean,
+    characters: (r.body as string).length, updated_at: new Date(r.updated_at as string).toISOString(), approved_at: null, ...(withBody ? { body: r.body as string } : {}),
+  });
+  const backendAs = (role: string, user: string, tenant: string): McpBackend => ({
+    ...backendFor(role, sqlWriter(user, tenant)),
+    read: {
+      itemDetail: async (ref: string) => {
+        const r = (await db.asUser(user, async (q) => (await q("select id, item_code from public.items where tenant_id = $1 and (id::text = $2 or lower(item_code) = lower($2))", [tenant, ref])).rows[0], { claims: { client_id: CLIENT } })) as { id: string; item_code: string } | undefined;
+        return r ? { row: { id: r.id, item_code: r.item_code } as SearchRow, links: [], tags: {}, relations: { depends_on: [], depended_on_by: [], related_to: [] }, teams: [], files: [], github: null, activity: [] } : null;
+      },
+      documents: async (ref: string) => db.asUser(user, async (q) => {
+        const rows = (await q("select d.*, i.item_code as code from public.item_documents d join public.items i on i.id = d.item_id where d.tenant_id = $1 and (i.id::text = $2 or lower(i.item_code) = lower($2)) order by d.created_at", [tenant, ref])).rows;
+        return rows.map((r) => infoRow(r));
+      }, { claims: { client_id: CLIENT } }),
+      document: async (id: string) => db.asUser(user, async (q) => {
+        const r = (await q("select d.*, i.item_code as code from public.item_documents d join public.items i on i.id = d.item_id where d.tenant_id = $1 and d.id::text = $2", [tenant, id])).rows[0];
+        return r ? infoRow(r, true) : null;
+      }, { claims: { client_id: CLIENT } }),
+    } as never,
+  });
+
+  beforeAll(async () => {
+    viewer = await createUser(db, "vic@example.test");
+    await addMember(db, f.alice, f.tenantA, viewer, "viewer");
+    bobUser = f.bob;
+    const r = (await db.admin.query("select id, item_code from public.items where tenant_id = $1 and deleted_at is null order by item_code limit 1", [f.tenantA])).rows[0]!;
+    item = { id: r.id as string, code: r.item_code as string };
+  });
+
+  it("creates a PRD as an AI draft through a Claude token, versions every save and keeps the text out of the audit log", async () => {
+    const b = backendAs("creator", cora, f.tenantA);
+    const made = await call(b, "create_document", { item: item.code, title: "PRD: Views", body: "# PRD\n\nsecret commercial text" });
+    expect(made.isError, made.text).toBe(false);
+    const id = made.data.document.id as string;
+    expect((await db.admin.query("select ai_draft, created_via, version, kind from public.item_documents where id = $1", [id])).rows[0]).toMatchObject({ ai_draft: true, created_via: "Claude MCP", version: 1, kind: "prd" });
+    const up = await call(b, "update_document", { document: id, base_version: 1, body: "# PRD v2\n\nsecret commercial text", status: "in_review" });
+    expect(up.data).toMatchObject({ status: "updated", document: { version: 2, status: "in_review" } });
+    expect((await db.admin.query("select version from public.item_document_versions where document_id = $1 order by 1", [id])).rows.map((r) => r.version)).toEqual([1, 2]);
+    const audit = (await db.admin.query("select field, new, via, connection_id is not null as conn from public.audit_log where entity = 'item_documents' and entity_id = $1", [id])).rows;
+    expect(audit.length).toBeGreaterThan(0);
+    expect(audit.every((a) => a.via === "Claude MCP" && a.conn)).toBe(true);
+    expect(JSON.stringify(audit)).not.toContain("secret commercial");
+  });
+
+  it("a stale base_version is refused with the current text, and nothing is overwritten", async () => {
+    const b = backendAs("creator", cora, f.tenantA);
+    const id = (await call(b, "create_document", { item: item.code, title: "Race", body: "one" })).data.document.id as string;
+    await db.asUser(cora, (q) => q("update public.item_documents set body = 'a person edited this' where id = $1", [id]), { commit: true, via: "UI" });
+    const r = await call(b, "update_document", { document: id, base_version: 1, body: "claude overwrite" });
+    expect(r.data).toMatchObject({ status: "conflict", nothing_changed: true, current: { version: 2, body: "a person edited this" } });
+    expect((await db.admin.query("select body from public.item_documents where id = $1", [id])).rows[0].body).toBe("a person edited this");
+  });
+
+  it("Claude cannot approve, even a person's own approver permission does not help through a Claude token", async () => {
+    const b = backendAs("creator", cora, f.tenantA);
+    const id = (await call(b, "create_document", { item: item.code, title: "Approve me", body: "x" })).data.document.id as string;
+    expect((await call(b, "update_document", { document: id, base_version: 1, status: "approved" })).text).toMatch(/Approver/);
+    await db.admin.query("update public.tenant_members set is_approver = true where tenant_id = $1 and user_id = $2", [f.tenantA, cora]);
+    await expect(db.asUser(cora, (q) => q("update public.item_documents set status = 'approved' where id = $1", [id]), { commit: true, claims: { client_id: CLIENT } })).rejects.toMatchObject({ code: "PV004" });
+    await db.admin.query("update public.tenant_members set is_approver = false where tenant_id = $1 and user_id = $2", [f.tenantA, cora]);
+    expect((await db.admin.query("select status from public.item_documents where id = $1", [id])).rows[0].status).toBe("draft");
+  });
+
+  it("a viewer's connection can read but not write; another workspace cannot reach the document", async () => {
+    const owner = backendAs("creator", cora, f.tenantA);
+    const id = (await call(owner, "create_document", { item: item.code, title: "Private", body: "tenant A only" })).data.document.id as string;
+    const v = backendAs("viewer", viewer, f.tenantA);
+    expect((await call(v, "get_document", { document: id })).data.body).toBe("tenant A only");
+    expect((await call(v, "create_document", { item: item.code, title: "x", body: "x" })).text).toMatch(/read-only/);
+    expect((await call(v, "update_document", { document: id, base_version: 1, body: "x" })).text).toMatch(/read-only/);
+    const other = backendAs("admin", bobUser, f.tenantB);
+    const r = await call(other, "get_document", { document: id });
+    expect(r.isError).toBe(true);
+    expect(r.text).toMatch(/No document/);
+    expect(r.text).not.toMatch(/tenant A only/);
+    const u = await call(other, "update_document", { document: id, base_version: 1, body: "hijack" });
+    expect(u.isError).toBe(true);
+    expect((await db.admin.query("select body from public.item_documents where id = $1", [id])).rows[0].body).toBe("tenant A only");
   });
 });

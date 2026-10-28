@@ -3,7 +3,7 @@
  * caller's own token, and the tests use a stand-in.
  */
 import type { FileRepo, UpdateCurrent, WriteCtx } from "@pv/domain";
-import type { FileInfo } from "./read-model";
+import type { DocInfo, FileInfo } from "./read-model";
 
 /** One all-or-nothing group of writes handed to `mcp_apply` (migration 0045). */
 export type ApplyUnit = { ops: Record<string, unknown>[] };
@@ -33,6 +33,14 @@ export type McpFiles = {
   repoFor: (itemId: string) => Promise<FileRepo>;
 };
 
+/** Documents, as the signed-in person: rows are written with the person's token, so the role check, row-level security, the version log and the audit apply. */
+export type McpDocuments = {
+  /** Adds a document to an initiative. Throws ToolInputError when the role or the database refuses. */
+  create: (item: { id: string; code: string }, doc: { kind: string; title: string; body: string; status?: string }) => Promise<DocInfo>;
+  /** Changes a document that is still at `expectedVersion`. Returns `conflict` (with the current version) when somebody saved in between; nothing is written then. */
+  update: (id: string, expectedVersion: number, patch: { kind?: string; title?: string; body?: string; status?: string }) => Promise<{ ok: true; doc: DocInfo } | { ok: false; reason: "missing" } | { ok: false; reason: "conflict"; current: DocInfo }>;
+};
+
 /** Writing the workspace as the signed-in person. Every method runs with the person's own token (no service role). */
 export type McpWriter = {
   /** What validation needs to know about the workspace. */
@@ -47,4 +55,5 @@ export type McpWriter = {
   /** Reverses the last change set made through this connection. */
   undo: () => Promise<UndoResult>;
   files: McpFiles;
+  documents: McpDocuments;
 };

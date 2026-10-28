@@ -696,3 +696,12 @@ a.scope-link:hover, a.scope-link:focus-visible { background: var(--blue-tint-2);
 .delete-account { margin-top: 6px; }
 .delete-account summary { cursor: pointer; color: #b42318; }
 .btn-danger { background: #b42318; border-color: #b42318; color: #fff; }
+/* Documents on an initiative (Spec tab) */
+.docs-list { list-style: none; padding: 0; margin: 8px 0; }
+.docs-row { padding: 6px 0; border-bottom: 1px solid var(--grey-2); }
+.docs-editor { margin: 8px 0 12px; padding: 8px 0 0 12px; border-left: 2px solid var(--grey-2); }
+.docs-meta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 6px; }
+.docs-meta input, .docs-meta select { font: inherit; height: 28px; border: 1px solid #c9ceda; border-radius: 6px; padding: 0 6px; background: var(--bg); }
+.docs-meta input { min-width: 260px; }
+.docs-text { width: 100%; box-sizing: border-box; min-height: 240px; resize: vertical; font-family: var(--font-mono, monospace); font-size: 12px; padding: 6px 8px; border: 1px solid #c9ceda; border-radius: 6px; }
+.docs-versions { margin-top: 8px; }

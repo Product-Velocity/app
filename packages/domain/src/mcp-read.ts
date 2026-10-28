@@ -8,14 +8,18 @@ import { matchesFilters, opsFor, sortRows, type Filter, type FilterCtx, type Fil
 /**
  * Fields Claude may never set, whatever the role (CLAUDE.md rule 3; docs/20 section 5): Stack Rank, Decision and its trail,
  * Value and everything commercial that hangs on it, and the Ready for build mark. The database also refuses some of them;
- * this list keeps them out of the tool schemas too.
+ * this list keeps them out of the tool schemas too. Business Value Type is not on it: it is the one exception (docs/22 section 6), set only
+ * with the person's own words as the basis (`value_type_basis`, `CLAUDE_BASIS_FIELDS`).
  */
 export const CLAUDE_FORBIDDEN_FIELDS: readonly string[] = [
   "stack_rank", "previous_rank",
   "decision", "decided_by", "decision_date",
-  "value_type", "value_12m", "value_basis", "confidence", "time_to_first_revenue_months", "customers_requesting",
+  "value_12m", "value_basis", "confidence", "time_to_first_revenue_months", "customers_requesting",
   "ready_for_build", "ready_for_build_by", "current_gate", "gate_status",
 ];
+
+/** Fields Claude may set only together with the person's own words as the basis (CLAUDE.md rule 3). */
+export const CLAUDE_BASIS_FIELDS: readonly string[] = ["value_type"];
 
 /** The list fields (tags, markets, segments, teams, links, relations) Claude can write; each lives in its own table. */
 export const CLAUDE_LIST_FIELDS: readonly string[] = ["tags", "target_scope", "live_scope", "target_segments", "contributing_teams", "artifacts", "depends_on", "related_to"];
@@ -40,6 +44,8 @@ export type FieldInfo = {
   editable: boolean;
   /** Whether Claude may set it for this caller (false for the forbidden list and everything read-only). */
   claude_may_set: boolean;
+  /** True when Claude must also send value_type_basis: the person's own words that say it. */
+  needs_basis?: boolean;
   phase: number;
   shipped: boolean;
   reaches_github: boolean;
@@ -60,6 +66,7 @@ export function describeFields(o: { role: string; reachesGithub: (key: string) =
       ...(max !== undefined ? { max_length: max } : {}),
       editable: editableBy(f, o.role),
       claude_may_set: claudeMaySet(f.key, o.role),
+      ...(CLAUDE_BASIS_FIELDS.includes(f.key) ? { needs_basis: true } : {}),
       phase: f.phase, shipped: isShipped(f),
       reaches_github: o.reachesGithub(f.key),
       customer_safe: f.customerSafe,

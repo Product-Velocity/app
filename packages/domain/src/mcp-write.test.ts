@@ -283,3 +283,47 @@ describe("link notes", () => {
     expect(linkLoginNote("not a url")).toBeNull();
   });
 });
+
+describe("Value Type: the one value field Claude may set, only with the person's own words", () => {
+  const BASIS = "Ashu: this is about growing the revenue we already have";
+  const TYPE = "Increase revenue";
+  const now = { current: { id: "i1", item_code: "R-01", value_type: null }, lists: {} as Record<string, string[]> };
+
+  it("is settable and described as needing a basis, while the rest of Value stays forbidden", () => {
+    expect(CLAUDE_FORBIDDEN_FIELDS).not.toContain("value_type");
+    for (const k of ["value_12m", "value_basis", "confidence", "time_to_first_revenue_months", "customers_requesting", "decision", "stack_rank"]) expect(CLAUDE_FORBIDDEN_FIELDS).toContain(k);
+    const f = describeFields({ role: "creator", reachesGithub: () => false }).find((x) => x.key === "value_type")!;
+    expect(f).toMatchObject({ claude_may_set: true, needs_basis: true });
+    expect(describeFields({ role: "viewer", reachesGithub: () => false }).find((x) => x.key === "value_type")!.claude_may_set).toBe(false);
+    expect(WRITE_SCALAR_KEYS).toContain("value_type");
+  });
+
+  it("create: needs a basis of at least a short sentence, returns it with the row, and refuses a basis on its own", () => {
+    expect(err({ name: "A", project: "Platform", value_type: TYPE })).toMatch(/own words/i);
+    expect(err({ name: "A", project: "Platform", value_type: TYPE, value_type_basis: "yes" })).toMatch(/own words/i);
+    expect(err({ name: "A", project: "Platform", value_type: TYPE, value_type_basis: "x".repeat(501) })).toMatch(/500/);
+    expect(err({ name: "A", project: "Platform", value_type_basis: BASIS })).toMatch(/only goes together with value_type/);
+    const p = ok({ name: "A", project: "Platform", value_type: TYPE, value_type_basis: `  ${BASIS}  ` });
+    expect(p.row).toMatchObject({ value_type: TYPE });
+    expect(p.row).not.toHaveProperty("value_type_basis");
+    expect(p.basis).toBe(BASIS);
+  });
+
+  it("create: a value outside the allowed list is refused with the allowed ones", () => {
+    expect(err({ name: "A", project: "Platform", value_type: "Revenue", value_type_basis: BASIS })).toMatch(/Increase revenue/);
+  });
+
+  it("create: the basis does not unlock the other commercial fields", () => {
+    for (const k of ["value_12m", "confidence", "decision", "value_basis"]) expect(err({ name: "A", project: "Platform", value_type: TYPE, value_type_basis: BASIS, [k]: "x" })).toMatch(/Only a person/);
+  });
+
+  it("update: a basis is required, travels with the change, and a filled field still waits for confirmation", () => {
+    const need = buildUpdate({ item: "R-01", set: { value_type: TYPE } }, now, ctx);
+    expect(need).toMatchObject({ ok: false, error: expect.stringMatching(/own words/i) });
+    const fill = buildUpdate({ item: "R-01", set: { value_type: TYPE, value_type_basis: BASIS } }, now, ctx);
+    expect(fill.ok && fill.changes).toEqual([expect.objectContaining({ field: "value_type", confirm: false, basis: BASIS })]);
+    const held = buildUpdate({ item: "R-01", set: { value_type: "Defend revenue", value_type_basis: BASIS } }, { ...now, current: { ...now.current, value_type: TYPE } }, ctx);
+    expect(held.ok && held.changes[0]).toMatchObject({ confirm: true, old: TYPE, new: "Defend revenue", basis: BASIS });
+    expect(buildUpdate({ item: "R-01", set: { moscow: "Must", value_type_basis: BASIS } }, now, ctx)).toMatchObject({ ok: false, error: expect.stringMatching(/only goes together/) });
+  });
+});

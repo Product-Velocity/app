@@ -112,6 +112,7 @@ A customer connects Claude (claude.ai, the desktop app or Claude Code) to their 
 | `preview_github_push` | read | creator, admin |
 | `confirm_github_push` | outbound; explicit confirmation | creator, admin |
 | Approve, Ready for build, Stack Rank, Decision, Value, Approver, roles, members, delete | **not offered** | nobody |
+| Business Value Type (only) | with the person's own words as `value_type_basis` (R-113, `docs/22`) | creator, admin |
 
 ## 8. The scenario this must pass (end-to-end test)
 As a signed-in **creator** (not admin, no database access) in a workspace with one project and a private repository:

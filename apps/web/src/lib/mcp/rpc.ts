@@ -6,6 +6,7 @@
 
 import { claudeMayWrite, limitMessage, type UsageResult } from "@pv/domain";
 import type { McpReader, WorkspaceContext } from "./read-model";
+import { DOCUMENT_READ_TOOLS, DOCUMENT_WRITE_TOOLS } from "./document-tools";
 import { FILE_TOOLS } from "./file-tools";
 import { READ_TOOLS } from "./read-tools";
 import { ToolInputError } from "./tool-error";
@@ -81,8 +82,10 @@ export const TOOLS: ToolDef[] = [
     run: (b) => b.workspaceContext(),
   },
   ...READ_TOOLS,
+  ...DOCUMENT_READ_TOOLS,
   ...WRITE_TOOLS,
   ...FILE_TOOLS,
+  ...DOCUMENT_WRITE_TOOLS,
 ];
 
 const toolError = (id: RpcResponse["id"], text: string): RpcResponse => ({ jsonrpc: "2.0", id, result: { isError: true, content: [{ type: "text", text }] } });

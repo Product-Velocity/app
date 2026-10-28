@@ -5,9 +5,9 @@ import { SupabaseDataSource } from "@/features/portfolio/supabase-source";
 import { addItemFile, removeItemFile, setFileSharing } from "@/lib/files/actions";
 import { shareUrl } from "@/lib/files/serve";
 import { supabaseFileStore, type FileStore } from "@/lib/files/store";
-import { buildContext, type FileInfo, type ItemDetail, type McpReader, type Member, type ViewInfo, type WorkspaceContext } from "./read-model";
+import { buildContext, type DocInfo, type FileInfo, type ItemDetail, type McpReader, type Member, type ViewInfo, type WorkspaceContext } from "./read-model";
 import { ToolInputError } from "./tool-error";
-import type { ApplyResult, McpFiles, McpWriter, PendingRow, UndoResult } from "./write-model";
+import type { ApplyResult, McpDocuments, McpFiles, McpWriter, PendingRow, UndoResult } from "./write-model";
 
 const FILE_CAP = 200;
 type Err = { message?: string } | null;
@@ -57,6 +57,22 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     }));
   };
   const FILE_COLS = "id, item_id, name, mime_type, size_bytes, share_token";
+
+  const DOC_COLS = "id, item_id, kind, title, status, version, ai_draft, updated_at, approved_at, body";
+  type DocRow = { id: string; item_id: string; kind: string; title: string; status: string; version: number; ai_draft: boolean; updated_at: string; approved_at: string | null; body: string };
+  const docInfo = (d: DocRow, code: string, withBody = false): DocInfo => ({
+    id: d.id, item_code: code, kind: d.kind, title: d.title, status: d.status, version: d.version, ai_draft: d.ai_draft,
+    characters: d.body.length, updated_at: d.updated_at, approved_at: d.approved_at, ...(withBody ? { body: d.body } : {}),
+  });
+  const loadDoc = async (id: string, withBody: boolean): Promise<DocInfo | null> => {
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+    const { data, error } = await supabase.from("item_documents").select(DOC_COLS).eq("tenant_id", tenant.id).eq("id", id).maybeSingle();
+    if (error) throw new Error("documents");
+    if (!data) return null;
+    const d = data as DocRow;
+    const code = String((await rows()).find((r) => r.id === d.item_id)?.item_code ?? "");
+    return docInfo(d, code, withBody);
+  };
 
   const reader: McpReader = {
     async searchData() {
@@ -130,6 +146,17 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       const list = must(await q, "files") as never[];
       return { files: await fileInfo(list.slice(0, FILE_CAP)), truncated: list.length > FILE_CAP };
     },
+
+    async documents(ref) {
+      const row = await findRow(ref);
+      if (!row) return null;
+      const list = must(await supabase.from("item_documents").select(DOC_COLS).eq("tenant_id", tenant.id).eq("item_id", row.id).order("created_at"), "documents") as DocRow[];
+      return list.map((d) => docInfo(d, String(row.item_code)));
+    },
+
+    async document(id) {
+      return loadDoc(id, true);
+    },
   };
 
   const groupNames = memo(async () => (must(await supabase.from("item_groups").select("name").eq("tenant_id", tenant.id).order("name"), "groups") as { name: string }[]).map((g) => g.name));
@@ -182,8 +209,25 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       return { name, isPrivate: (data as { is_private: boolean | null } | null)?.is_private ?? null };
     },
   };
+  const documents: McpDocuments = {
+    async create(item, doc) {
+      const { data, error } = await supabase.from("item_documents").insert({ tenant_id: tenant.id, item_id: item.id, kind: doc.kind, title: doc.title, body: doc.body, ...(doc.status ? { status: doc.status } : {}) }).select(DOC_COLS).single();
+      if (error) return refusal(error);
+      return docInfo(data as DocRow, item.code);
+    },
+    async update(id, expectedVersion, patch) {
+      const { data, error } = await supabase.from("item_documents").update(patch).eq("tenant_id", tenant.id).eq("id", id).eq("version", expectedVersion).select(DOC_COLS);
+      if (error) return refusal(error);
+      const rowsBack = (data ?? []) as DocRow[];
+      const code = async (itemId: string) => String((await rows()).find((r) => r.id === itemId)?.item_code ?? "");
+      if (rowsBack[0]) return { ok: true, doc: docInfo(rowsBack[0], await code(rowsBack[0].item_id)) };
+      const now = await loadDoc(id, true);
+      return now ? { ok: false, reason: "conflict", current: now } : { ok: false, reason: "missing" };
+    },
+  };
   const writer: McpWriter = {
     files,
+    documents,
     async context(r) {
       const [p, m, g, t, all] = await Promise.all([projects(), people(), groupNames(), teams(), rows()]);
       return {

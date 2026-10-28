@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { EDITABLE_FIELDS, FIELD_BY_KEY, activityEvents, canUndoActivity, isOpenableUrl, panelSections, trackerIssueLabel, type ActivityEvent, type ActivityRow } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import { DeleteDialog } from "./delete-dialog";
+import { DocumentsTab } from "./documents-tab";
 import { GithubPushDialog } from "./github-push-dialog";
 import { FieldRow, type FieldCtx } from "./item-fields";
 import { formatField } from "./format";
@@ -175,7 +176,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
       <div ref={bodyRef} className="ip-body" role="tabpanel" id={`${titleId}-panel-${tab}`} aria-labelledby={`${titleId}-tab-${tab}`}>
         {loadError && <p role="alert" className="pf-error">Could not load the lists of this initiative: {loadError}</p>}
         {tab === "overview" && <Overview ctx={ctx} itemId={itemId} />}
-        {tab === "spec" && <EmptyTab title="Spec" text="Specs, documents and the readiness checklist arrive in phase 4. Until then the hypothesis and artifacts live on the Overview tab." />}
+        {tab === "spec" && <DocumentsTab itemId={itemId} canEdit={controller.canEdit} />}
         {tab === "github" && <GithubTab controller={controller} lookups={lookups} itemId={itemId} />}
         {tab === "alignment" && <EmptyTab title="Alignment" text="Votes, sign-offs and the decision log for this initiative arrive with alignment, in phases 5 and 8." />}
         {tab === "activity" && <ActivityTab controller={controller} lookups={lookups} itemId={itemId} me={me} />}
