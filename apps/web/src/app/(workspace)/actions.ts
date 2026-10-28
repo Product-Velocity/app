@@ -10,6 +10,7 @@ export async function switchTenant(form: FormData) {
   // only tenants the user belongs to can be selected
   if (typeof tenantId === "string" && memberships.some((m) => m.tenantId === tenantId)) {
     await rememberTenant(tenantId);
+    redirect(`/w/${tenantId}/portfolio`);
   }
   redirect("/portfolio");
 }

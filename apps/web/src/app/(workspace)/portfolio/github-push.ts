@@ -17,7 +17,7 @@ async function gate(ids: string[]) {
   if (!Array.isArray(ids) || ids.length === 0 || !ids.every((i) => typeof i === "string" && UUID.test(i))) return { ok: false, error: "Choose at least one initiative." } as const;
   if (ids.length > PUSH_LIMIT) return { ok: false, error: `Sync up to ${PUSH_LIMIT} initiatives at a time.` } as const;
   const { data: me } = await ctx.supabase.from("tenant_members").select("is_service_account").eq("tenant_id", ctx.active.tenantId).eq("user_id", ctx.user.id).maybeSingle();
-  if (!["creator", "admin"].includes(ctx.active.role) || me?.is_service_account) return { ok: false, error: "Only creators and admins can send to GitHub." } as const;
+  if (!["creator", "admin"].includes(ctx.active.role) || me?.is_service_account || ctx.active.platform) return { ok: false, error: "Only creators and admins of the account can send to GitHub." } as const;
   const { data: conn } = await ctx.supabase.from("github_connections").select("*").eq("tenant_id", ctx.active.tenantId).eq("state", "connected").maybeSingle();
   if (!conn) return { ok: false, error: "This workspace is not connected to GitHub. An admin can connect it in Settings > GitHub." } as const;
   const sc = githubSourceControl();

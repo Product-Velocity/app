@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { SelectField } from "@/components/search-list";
 import { DATE_FORMATS, LANGUAGES, type Profile } from "@/lib/account";
-import { changeEmail, changePassword, saveGithubUsername, saveProfile, type FormState } from "./actions";
+import { changeEmail, changePassword, chooseNotificationEmail, removeLinkedEmail, saveGithubUsername, saveProfile, startLinkEmail, verifyLinkEmail, type FormState } from "./actions";
 
 const Message = ({ state }: { state: FormState }) => (
   <>
@@ -70,5 +70,55 @@ export function GithubUsernameForm({ current, workspace }: { current: string; wo
       <Message state={state} />
       <button className="btn" type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</button>
     </form>
+  );
+}
+
+export type LinkedEmail = { email: string; is_sign_in: boolean; verified: boolean; use_for_notifications: boolean };
+
+/** R-111 FR-4: more addresses on one identity. Add, verify with a code, choose where notifications go, remove. */
+export function LinkedEmails({ emails }: { emails: LinkedEmail[] }) {
+  const [start, startAction, starting] = useActionState<FormState, FormData>(startLinkEmail, null);
+  const [verify, verifyAction, verifying] = useActionState<FormState, FormData>(verifyLinkEmail, null);
+  const pending = emails.filter((e) => !e.verified && !e.is_sign_in);
+  return (
+    <div className="stack">
+      <p className="muted">
+        One person, one sign-in, several addresses. You can sign in with any verified address. An address on a company&rsquo;s authorized domain
+        asks that company&rsquo;s admins to let you in. An address can belong to one person only.
+      </p>
+      <ul className="plain-list" data-testid="linked-emails">
+        {emails.map((e) => (
+          <li key={e.email} className="row-form">
+            <strong>{e.email}</strong>
+            {e.is_sign_in && <span className="muted">Sign-in address</span>}
+            {!e.is_sign_in && <span className="muted">{e.verified ? "Verified" : "Not verified yet"}</span>}
+            {e.verified && e.use_for_notifications && <span className="muted">· Notifications go here</span>}
+            {e.verified && !e.use_for_notifications && (
+              <form action={chooseNotificationEmail}><input type="hidden" name="email" value={e.is_sign_in ? "" : e.email} /><button className="btn" type="submit">Use for notifications</button></form>
+            )}
+            {!e.is_sign_in && (
+              <form action={removeLinkedEmail}><input type="hidden" name="email" value={e.email} /><button className="btn" type="submit" aria-label={`Remove ${e.email}`}>Remove</button></form>
+            )}
+          </li>
+        ))}
+      </ul>
+      <form action={startAction} className="row-form">
+        <label>Add an address<input name="email" type="email" required maxLength={254} autoComplete="off" /></label>
+        <button className="btn" type="submit" disabled={starting}>{starting ? "Sending…" : "Send code"}</button>
+      </form>
+      <Message state={start} />
+      {(pending.length > 0 || start?.ok) && (
+        <form action={verifyAction} className="row-form">
+          <label>Address
+            <select name="email" defaultValue={pending[0]?.email}>
+              {pending.map((e) => <option key={e.email} value={e.email}>{e.email}</option>)}
+            </select>
+          </label>
+          <label>6-digit code<input name="code" inputMode="numeric" pattern="[0-9 ]{6,7}" required maxLength={7} autoComplete="one-time-code" /></label>
+          <button className="btn btn-primary" type="submit" disabled={verifying}>{verifying ? "Checking…" : "Verify"}</button>
+        </form>
+      )}
+      <Message state={verify} />
+    </div>
   );
 }

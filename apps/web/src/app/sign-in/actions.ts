@@ -6,6 +6,7 @@ import { safeNext } from "@/lib/auth/safe-next";
 import { siteUrl } from "@/lib/site-url";
 import { checkPassword } from "@/lib/password";
 import { normalizeEmail } from "@/lib/validation";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type AuthState = { error?: string; message?: string } | null;
 
@@ -20,7 +21,9 @@ export async function signInWithPassword(_prev: AuthState, form: FormData): Prom
     return { error: "Enter your email and password." };
   }
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  // R-111 FR-4.2: a verified linked address opens the same person. Anything unknown stays as typed, so the answer never differs.
+  const signInEmail = await resolveSignInEmail(email);
+  const { error } = await supabase.auth.signInWithPassword({ email: signInEmail, password });
   if (error) {
     // same wording for unknown email, wrong password and unconfirmed email
     return { error: "Email or password is incorrect, or the email is not confirmed yet." };
@@ -60,4 +63,13 @@ export async function signInWithProvider(form: FormData): Promise<void> {
   });
   if (error || !data.url) redirect(`/sign-in?error=provider&next=${encodeURIComponent(next)}`);
   redirect(data.url);
+}
+
+async function resolveSignInEmail(email: string): Promise<string> {
+  try {
+    const { data } = await createAdminClient({ via: "system" }).rpc("resolve_sign_in_email", { p_email: email });
+    return typeof data === "string" && data ? data : email;
+  } catch {
+    return email; // no service key (local development): a linked address simply does not resolve
+  }
 }

@@ -66,6 +66,8 @@ export async function createInvitation(_prev: InviteState, form: FormData): Prom
     if (error.code === "23505") {
       return { error: "There is already a pending invitation for that email. Revoke it first to create a new link." };
     }
+    if (error.code === "PV012") return { error: "This workspace only invites people at its authorized domains. Change that under Workspace settings, or invite an address on one of them." };
+    if (error.code === "PV022") return { error: "Platform admins cannot invite people into a customer account." };
     return { error: "We could not create the invitation." };
   }
   const link = `${await siteUrl()}/invite/${token}`;

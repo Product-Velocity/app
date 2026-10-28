@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { stripAccountPath } from "@/lib/account-path";
 
 /** Tabs of the product. The ones that are not built yet are shown muted with the phase they arrive in. */
 const TABS: { label: string; href?: string; phase?: number; id: string }[] = [
@@ -15,14 +16,16 @@ const TABS: { label: string; href?: string; phase?: number; id: string }[] = [
   { label: "Reports", phase: 6, id: "reports" },
 ];
 
-export function HeaderTabs({ current }: { current?: "grid" | "gantt" | "cards" | "leadership" }) {
-  const path = usePathname();
+export function HeaderTabs({ current, accountId }: { current?: "grid" | "gantt" | "cards" | "leadership"; accountId?: string }) {
+  // the address may or may not carry /w/{account} on the server and the client; the tabs always do once the account is known
+  const path = stripAccountPath(usePathname());
+  const prefix = accountId ? `/w/${accountId}` : "";
   const active = current ?? (path.startsWith("/portfolio") ? "grid" : path.startsWith("/gantt") ? "gantt" : path.startsWith("/cards") ? "cards" : path.startsWith("/leadership") ? "leadership" : null);
   return (
     <nav aria-label="Main" className="tabs">
       {TABS.map((t) =>
         t.href ? (
-          <Link key={t.id} href={t.href} className={active === t.id ? "tab tab-active" : "tab"} aria-current={active === t.id ? "page" : undefined}>
+          <Link key={t.id} href={`${prefix}${t.href}`} className={active === t.id ? "tab tab-active" : "tab"} aria-current={active === t.id ? "page" : undefined}>
             {t.label}
           </Link>
         ) : (

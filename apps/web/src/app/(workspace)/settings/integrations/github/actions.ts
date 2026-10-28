@@ -15,7 +15,7 @@ export type FormState = { error?: string; ok?: string } | null;
 async function adminOnly() {
   const ctx = await requireWorkspace(PATH);
   const { data: me } = await ctx.supabase.from("tenant_members").select("is_service_account").eq("tenant_id", ctx.active.tenantId).eq("user_id", ctx.user.id).maybeSingle();
-  if (ctx.active.role !== "admin" || me?.is_service_account) return null;
+  if (ctx.active.role !== "admin" || me?.is_service_account || ctx.active.platform) return null; // platform admins never reach integration secrets or send to GitHub (rule 10)
   return ctx;
 }
 

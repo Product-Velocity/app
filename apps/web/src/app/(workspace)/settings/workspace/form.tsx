@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { saveWorkspace, type WorkspaceState } from "./actions";
 
-export type WorkspaceValues = { name: string; country: string; currency: string; timeZone: string; domains: string };
+export type WorkspaceValues = { name: string; country: string; currency: string; timeZone: string; domains: string; restrictInvites: boolean };
 
 export function WorkspaceForm({ values, countries, currencies, timeZones, canEdit }: { values: WorkspaceValues; countries: string[]; currencies: string[]; timeZones: string[]; canEdit: boolean }) {
   const [state, action, pending] = useActionState<WorkspaceState, FormData>(saveWorkspace, null);
@@ -35,6 +35,16 @@ export function WorkspaceForm({ values, countries, currencies, timeZones, canEdi
           Someone who signs up with a confirmed address at one of these domains appears in Members as Requested Access, your admins are
           emailed, and they get no access until you approve them. Domains are not verified by DNS yet, so only list domains you own.
           Separate several with commas. Free email providers are not accepted.
+        </p>
+      </div>
+      <div className="field">
+        <label className="check">
+          <input type="checkbox" name="restrict_invites" defaultChecked={values.restrictInvites} disabled={!canEdit} aria-describedby="ws-restrict-help" />
+          {" "}Restrict invites to authorized domains
+        </label>
+        <p id="ws-restrict-help" className="hint">
+          Off by default. Off: you can invite anyone, for example a consultant who works with several companies. On: invitations to addresses
+          outside the domains above are refused.
         </p>
       </div>
       {state?.error && <p role="alert" className="error">{state.error}</p>}
