@@ -325,6 +325,25 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "item_documents",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.item_documents set body = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.item_documents where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.item_documents (tenant_id, item_id, title) select $1, item_id, 'x' from public.item_documents where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.item_documents set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "item_document_versions",
+    tenantColumn: "tenant_id",
+    attacks: (v) => [
+      { sql: "update public.item_document_versions set body = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.item_document_versions where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.item_document_versions (tenant_id, document_id, version, title, body) select $1, document_id, 99, 'x', 'x' from public.item_document_versions where tenant_id = $1", params: [v.tenantId] },
+    ],
+  },
+  {
     table: "item_relations",
     tenantColumn: "tenant_id",
     attacks: (v) => [

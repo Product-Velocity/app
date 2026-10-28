@@ -1,6 +1,6 @@
 # Claude writes a PRD and creates the initiative (R-112)
 
-Status: spec, written 2026-10-28 from Ashu's decisions in chat. Builds on `docs/20-CLAUDE-MCP.md` (slices 1 to 5) and `docs/05-AI-AND-MCP.md`. Nothing here is built yet.
+Status: spec, written 2026-10-28 from Ashu's decisions in chat. Builds on `docs/20-CLAUDE-MCP.md` (slices 1 to 5) and `docs/05-AI-AND-MCP.md`. **Built so far (0.47.0): slices 1 and 2 of section 8** (documents on the initiative and the four MCP document tools). Slices 3 to 6 are open.
 
 ## 1. What this is
 A person asks Claude (through the Product Velocity MCP server) to "write a PRD and create the initiative". Claude follows a fixed PRD structure, creates the initiative, fills every field it can **support from what the person said**, asks one short batch of questions for the rest, and stores the **full PRD as a document on the initiative**. The full PRD never goes to GitHub; the Description carries only an extract.
@@ -83,14 +83,15 @@ Claude may set **Value Type only** (for example new revenue, grow revenue, save 
 After reading the person's brief, Claude lists what it could not fill, **once, in one message**, grouped by module and ordered by importance, each with "skip" allowed. It asks only for fields not already answered by the text. Typical set: Sponsor, Product Manager, Primary KR, G2M Quarter, Effort, Value Type, thresholds in D1. Answers are used in the same run; unanswered items are left empty (nothing is blocked by a missing field; validation by stage comes with #101 and will then be shown as warnings).
 
 ## 8. Build slices
-1. **Documents on the initiative.** Table `item_documents` (+ versions) with RLS, indexed from `tenant_id`, two-tenant test, added to the probe list in `packages/db/tests/rls.test.ts`; audit; Documents tab in the item panel (read, edit, versions); the field stays off the GitHub allowlist and the sentinel test proves it.
-2. **MCP document tools.** `write_document`, `update_document` (carries the version it was based on; a newer human edit is never overwritten), `get_document`, `list_documents`. Read results are wrapped as data. Same role gate (creator and admin write), daily limits and `undo_last`.
+1. **Documents on the initiative (built 0.47.0, in the Spec tab).** Table `item_documents` (+ versions) with RLS, indexed from `tenant_id`, two-tenant test, added to the probe list in `packages/db/tests/rls.test.ts`; audit; Documents tab in the item panel (read, edit, versions); the field stays off the GitHub allowlist and the sentinel test proves it.
+2. **MCP document tools (built 0.47.0).** `create_document`, `update_document` (carries the version it was based on; a newer human edit is never overwritten), `get_document`, `list_documents`. Read results are wrapped as data. Same role gate (creator and admin write) and daily limits; not `undo_last` (versions instead).
 3. **Value Type exception** (section 6).
 4. **`write_prd` prompt and server instructions.** The MCP server advertises `prompts` and `instructions` (today `capabilities` has only `tools`, `apps/web/src/lib/mcp/rpc.ts`). The prompt holds the template, the At-a-glance rule, the modules and flags, the "never guess" rules and the single batch of questions. Golden-input evals for the prompt.
 5. **Extract and copy.** Tool-side helper that builds the Description extract from the flagged modules and copies the Hypothesis and Value Proposition blocks, with the diff rule.
 6. **Scenario test.** One end-to-end test: a short brief → initiative, document, extract, copied fields, one question batch, a skipped module; plus hostile text in the brief and the document (data, not instructions), and a check that no PRD-only module text appears in any GitHub payload.
 
-## 9. Open points
-- Should customers (read-only roles) see the PRD document? Proposal: same visibility as the initiative, creators and admins write.
-- Do approvers need a "PRD approved" status separate from Spec Status? Proposal: reuse Spec Status.
+## 9. Decisions and open points
+- **Decided 2026-10-28 (Ashu):** the PRD document has the same visibility as the initiative (creators and admins write). Approval is wanted and is part of the lifecycle flow still to be built: the initiative moves by decision gate from Discovery to Design, then to Build (**this is where the PRD is approved**), then to Test after beta testing, then Go-to-market (test the hypotheses, roll out). Until that flow exists the document has the status field (draft, in review, approved) with the Approver rule in the database, but the panel offers no approve button: the gate will call it.
+- Document statuses are separate from Spec Status; how the gate sets both is part of the lifecycle flow.
 - Template editable per workspace: later, not in this spec.
+- Undo: documents are not covered by `undo_last`; every save keeps the previous version and a person can restore it (decided in the build, 0.47.0).

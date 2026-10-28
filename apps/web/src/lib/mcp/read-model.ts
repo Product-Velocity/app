@@ -90,6 +90,11 @@ export type ItemDetail = {
   github: { issue_number: number | null; url: string | null; mode: string; state: string; error: string | null; github_state: string | null; last_activity: string | null } | null;
   activity: { at: string; field: string; old: unknown; new: unknown; by: string | null; via: string }[];
 };
+/** A document on an initiative. `body` is only present when one document is read. */
+export type DocInfo = {
+  id: string; item_code: string; kind: string; title: string; status: string; version: number; ai_draft: boolean;
+  characters: number; updated_at: string; approved_at: string | null; body?: string;
+};
 /** Reading the workspace as the signed-in person. Every method runs with the person's own token, so row-level security applies. */
 export type McpReader = {
   /** All initiatives in global rank order, the names behind their ids, and who "me" is. */
@@ -100,4 +105,8 @@ export type McpReader = {
   views: () => Promise<ViewInfo[]>;
   /** Files of one initiative, or null when that initiative does not exist; with no reference, files of the whole workspace (capped). */
   files: (ref?: string) => Promise<{ files: FileInfo[]; truncated: boolean } | null>;
+  /** Documents of one initiative (no text), or null when that initiative does not exist. */
+  documents: (ref: string) => Promise<DocInfo[] | null>;
+  /** One document with its text, or null when it does not exist or cannot be read. */
+  document: (id: string) => Promise<DocInfo | null>;
 };

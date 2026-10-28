@@ -42,6 +42,7 @@ function writer(over: Partial<McpWriter> = {}): { w: McpWriter; spy: Spy } {
     loadPending: vi.fn(async (id) => spy.pending.find((p) => p.id === id) ?? null),
     undo: vi.fn(async () => ({ undone: true, tool: "create_items", reverted: 2, skipped: [] })),
     files: {} as never,
+    documents: {} as never,
     ...over,
   };
   return { w, spy };

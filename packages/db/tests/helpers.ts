@@ -218,6 +218,7 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
   await db.admin.query("insert into public.item_tags (tenant_id, item_id, kind, value) values ($1, $2, 'tag', 'priority')", [tenantId, items[0]]);
   await db.admin.query("insert into public.item_links (tenant_id, item_id, label, url) values ($1, $2, 'PRD', 'https://example.test/prd')", [tenantId, items[0]]);
   await db.admin.query("insert into public.item_files (tenant_id, item_id, name, storage_path) values ($1, $2, 'shot.png', $3)", [tenantId, items[0], `${tenantId}/shot.png`]);
+  await db.admin.query("insert into public.item_documents (tenant_id, item_id, kind, title, body) values ($1, $2, 'prd', 'PRD', '# PRD')", [tenantId, items[0]]);
   await db.admin.query("insert into public.item_relations (tenant_id, item_id, related_item_id, kind) values ($1, $2, $3, 'depends_on')", [tenantId, items[1], items[0]]);
   const view = await one("insert into public.saved_views (tenant_id, name, columns) values ($1, 'Seed view', array['stack_rank', 'item_code', 'initiative_name']) returning id", [tenantId]);
   await db.admin.query("insert into public.view_layouts (tenant_id, builtin, position) values ($1, 'Prioritisation', 0)", [tenantId]);
