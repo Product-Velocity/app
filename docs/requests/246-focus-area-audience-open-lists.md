@@ -1,6 +1,8 @@
 ---
 issue: 246
 status: done
+done: 2026-10-28
+link: PR #248
 logged: 2026-10-28
 title: Focus Area and Audience move from fixed values to free format
 ---
