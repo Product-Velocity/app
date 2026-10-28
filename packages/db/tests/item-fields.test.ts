@@ -256,7 +256,7 @@ describe("computed fields (view items_computed)", () => {
   it("has one column per computed field of the dictionary", async () => {
     const have = (await columns("items_computed")).filter((c) => c !== "id" && c !== "tenant_id").sort();
     expect(have).toEqual(computed.map((x) => x.key).sort());
-    expect(computed.length).toBe(30);
+    expect(computed.length).toBe(29);
   });
   it("returns a row per item and calculates what it can", async () => {
     const id = await fresh();
@@ -267,7 +267,7 @@ describe("computed fields (view items_computed)", () => {
     const r = (await db.admin.query("select * from public.items_computed where id = $1", [id])).rows[0];
     expect(Number(r.value_weighted)).toBe(90000);
     expect(Number(r.value_weighted_per_build_week)).toBe(9000);
-    expect(r.g2m_quarter).toBe("Q2 2027");
+    expect(r).not.toHaveProperty("g2m_quarter"); // Planned Quarter is stored since R-114
     expect(r.time_discovery_days).toBe(14);
     expect(r.time_building_days).toBe(42);
     expect(Number(r.actual_build_weeks)).toBe(6);
@@ -295,5 +295,45 @@ describe("the registry knows every column it claims", () => {
   it("lists status as locked and a column that really exists", async () => {
     expect(FIELD_BY_KEY.status!.mode).toBe("locked");
     expect(await columns("items")).toContain("status");
+  });
+});
+
+describe("Planned Quarter (R-114): stored, set by a person, independent of the G2M date", () => {
+  it("is a column on items, no longer a computed column", async () => {
+    expect(await columns("items")).toContain("g2m_quarter");
+    expect(await columns("items_computed")).not.toContain("g2m_quarter");
+    expect(columnOnItems(FIELD_BY_KEY.g2m_quarter!)).toBe("g2m_quarter");
+  });
+  it("takes calendar quarters only, and can be cleared", async () => {
+    const id = await fresh();
+    await db.admin.query("update public.items set g2m_quarter = 'Q3 2027' where id = $1", [id]);
+    await db.admin.query("update public.items set g2m_quarter = 'Q1 2019' where id = $1", [id]); // a value outside the offered range is still valid
+    for (const bad of ["Q5 2027", "Q3 27", "FY27 Q3", "2027-Q3", ""]) {
+      expect(await errorCode(db.admin.query("update public.items set g2m_quarter = $1 where id = $2", [bad, id])), bad).toBe(CHECK);
+    }
+    await db.admin.query("update public.items set g2m_quarter = null where id = $1", [id]);
+  });
+  it("does not change when the G2M date changes, in either direction", async () => {
+    const id = await fresh();
+    await db.admin.query("update public.items set g2m_quarter = 'Q3 2027', end_date = '2027-08-15' where id = $1", [id]);
+    await db.admin.query("update public.items set end_date = '2028-01-20' where id = $1", [id]);
+    expect((await db.admin.query("select g2m_quarter from public.items where id = $1", [id])).rows[0].g2m_quarter).toBe("Q3 2027");
+    await db.admin.query("update public.items set end_date = null where id = $1", [id]);
+    expect((await db.admin.query("select g2m_quarter from public.items where id = $1", [id])).rows[0].g2m_quarter).toBe("Q3 2027");
+  });
+  it("is written by a creator, audited with old and new value, and refused for a viewer", async () => {
+    const id = await fresh();
+    await db.asUser(creator, (q) => q("update public.items set g2m_quarter = 'Q3 2027' where id = $1", [id]), { commit: true, via: "UI" });
+    await db.asUser(creator, (q) => q("update public.items set g2m_quarter = 'Q4 2027' where id = $1", [id]), { commit: true, via: "UI" });
+    const { rows } = await db.admin.query("select old, new, via, actor_id from public.audit_log where entity = 'items' and entity_id = $1 and field = 'g2m_quarter' order by at", [id]);
+    expect(rows.map((r) => [r.old, r.new])).toEqual([[null, "Q3 2027"], ["Q3 2027", "Q4 2027"]]);
+    expect(rows.every((r) => r.via === "UI" && r.actor_id === creator)).toBe(true);
+    const n = await db.asUser(viewer, async (q) => (await q("update public.items set g2m_quarter = 'Q1 2028' where id = $1", [id])).rowCount, { commit: true });
+    expect(n).toBe(0);
+  });
+  it("is tenant scoped: another tenant's member cannot change it", async () => {
+    const id = await fresh();
+    const n = await db.asUser(f.bob, async (q) => (await q("update public.items set g2m_quarter = 'Q1 2028' where id = $1", [id])).rowCount, { commit: true });
+    expect(n).toBe(0);
   });
 });

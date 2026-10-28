@@ -1,3 +1,4 @@
+import { compareQuarters, isQuarter } from "./quarters";
 import { formatDate, localToday } from "./dates";
 import { FIELDS, FIELD_BY_KEY, type FieldDef } from "./registry";
 
@@ -182,6 +183,7 @@ export function buildGroupedRows<T extends { id: string }>(rows: T[], groupBy: s
   const order = def && def.allowed.length > 0 ? def.allowed : null;
   const keys = [...groups.keys()].sort((a, b) => {
     if (a === "" || b === "") return a === "" ? 1 : -1;
+    if (groupBy === "g2m_quarter" && isQuarter(a) && isQuarter(b)) return compareQuarters(a, b); // time order, also for quarters outside the offered range
     if (order) return (order.indexOf(a) < 0 ? 999 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 999 : order.indexOf(b));
     return label(groupBy, a).localeCompare(label(groupBy, b));
   });
@@ -238,7 +240,7 @@ export function sortRows<T extends Record<string, unknown>>(rows: readonly T[], 
     const x = a[sort.field], y = b[sort.field];
     if (empty(x) !== empty(y)) return empty(x) ? 1 : -1;
     if (!empty(x)) {
-      const c = typeof x === "number" && typeof y === "number" ? x - y : String(Array.isArray(x) ? x.join(", ") : x).localeCompare(String(Array.isArray(y) ? y.join(", ") : y), "en", { numeric: true, sensitivity: "base" });
+      const c = typeof x === "number" && typeof y === "number" ? x - y : sort.field === "g2m_quarter" && isQuarter(x) && isQuarter(y) ? compareQuarters(x, y) : String(Array.isArray(x) ? x.join(", ") : x).localeCompare(String(Array.isArray(y) ? y.join(", ") : y), "en", { numeric: true, sensitivity: "base" });
       if (c !== 0) return c * dir;
     }
     return rank(a) - rank(b);

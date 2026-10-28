@@ -295,6 +295,8 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         if (!api) return;
         const here = changed.filter((r) => api.getRowNode(r.id));
         if (here.length > 0) api.applyTransaction({ update: here });
+        // the warning mark of Planned Quarter depends on G2M Date (est), so its cell redraws even when its own value did not change
+        if (here.length > 0 && api.getColumn("g2m_quarter")) api.refreshCells({ rowNodes: here.map((r) => api.getRowNode(r.id)!), columns: ["g2m_quarter"], force: true });
         if (here.length > 0 && groupedRef.current) setTick((t) => t + 1);
       }),
     [controller],
@@ -543,7 +545,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     >
       <div className="pvbar" role="region" aria-label="Roadmap tools">
         <div className="pvbar-s1">
-          <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} today={today} matching={visibleRows.length} total={controller.rows.length} />
+          <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} quarters={controller.rows.map((r) => r.g2m_quarter)} today={today} matching={visibleRows.length} total={controller.rows.length} />
           <ColumnsPanel def={def} defaultDef={bDef} customerSafe={def.customerSafe === true} onApply={changeColumns} shown={shownCount} />
           <GroupMenu groupBy={def.groupBy} onChange={(g) => changeDef({ groupBy: g })} />
           <SortMenu sort={shownSort} columns={def.columns} onChange={(sort) => changeDef({ sort })} />

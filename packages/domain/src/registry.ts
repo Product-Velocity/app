@@ -1,5 +1,6 @@
 import dictionary from "./field-dictionary.json";
 import defaultViews from "./default-views.json";
+import { generatedQuarters } from "./quarters";
 
 /**
  * The field registry: one entry per item field, in `docs/reference/item-fields.csv` order.
@@ -50,6 +51,9 @@ export const FIELDS: readonly FieldDef[] = (dictionary as Raw[]).map((r) => {
     githubSync: r.githubSync, description: r.description,
   };
 });
+
+// Planned Quarter (R-114): its list is generated (previous year to next 3 years) so it moves forward with time, not fixed in the dictionary.
+Object.defineProperty(FIELDS.find((f) => f.key === "g2m_quarter")!, "allowed", { get: () => generatedQuarters(), enumerable: true });
 
 export const FIELD_BY_KEY: Readonly<Record<string, FieldDef>> = Object.fromEntries(FIELDS.map((f) => [f.key, f]));
 

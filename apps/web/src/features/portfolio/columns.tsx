@@ -2,7 +2,7 @@
 
 import type { ColDef, IHeaderParams } from "ag-grid-community";
 import {
-  EDITABLE_FIELDS, FIELDS, isOpenableUrl, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
+  EDITABLE_FIELDS, FIELDS, compareQuarters, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
   type EditableField, type FieldDef,
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
@@ -158,6 +158,16 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
         cellEditorPopup: true,
         cellEditorParams: () => ({ options: controller.groupNames().map((g) => ({ value: g, label: g })), allowEmpty: true, emptyLabel: "No group", allowCreate: true }),
         valueSetter: setter(f.key) as never,
+      };
+    }
+    if (f.key === "g2m_quarter") {
+      // Planned Quarter: the generated quarters plus every quarter already used, so one that left the range stays selectable
+      return {
+        ...base,
+        // a G2M Date (est) outside the quarter is a hint, never a change (FR-5): a warning sign after the quarter, explained in the tooltip
+        valueFormatter: (p) => `${String(p.value ?? "")}${p.data && quarterMismatch(p.data.g2m_quarter, p.data.g2m_date_est) ? " \u26A0" : ""}`,
+        tooltipValueGetter: (p) => (p.data && quarterMismatch(p.data.g2m_quarter, p.data.g2m_date_est) ? "G2M date is outside the planned quarter" : (f.description ?? f.name)),
+        comparator: (a: unknown, b: unknown) => (isQuarter(a) && isQuarter(b) ? compareQuarters(a, b) : String(a ?? "").localeCompare(String(b ?? ""))), ...pickerDef(f, [], true, "Unscheduled"), cellEditorParams: () => ({ options: optionsFor(f.key, controller.rows.map((r) => r.g2m_quarter)), allowEmpty: true, emptyLabel: "Unscheduled" }),
       };
     }
     if (f.type === "Select" && f.allowed.length > 0) return { ...base, ...pickerDef(f, optionsFor(f.key), true) };

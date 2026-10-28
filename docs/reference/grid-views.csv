@@ -41,7 +41,7 @@ decision,Decision,Editable,,Y,,,,,,,Y
 decided_by,Decision,Editable,,,,,,,Y,,
 decision_date,Decision,Editable,,,,,,,Y,,
 next_review_date,Decision,Editable,,,,,,,Y,,
-g2m_quarter,When,Computed (read-only),Y,,Y,,Y,,,,Y
+g2m_quarter,When,Editable,Y,,Y,,Y,,,,Y
 start_date,When,Editable,,,,,,,,Y,
 g2m_date_est,When,Editable,,,Y,Y,Y,,,,Y
 g2m_date_actual,When,Editable,,,,,,,,Y,

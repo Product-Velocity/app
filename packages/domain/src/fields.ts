@@ -1,5 +1,6 @@
 import { parseDate } from "./dates";
 import { parseValue } from "./money";
+import { parseQuarter, quarterChoices } from "./quarters";
 import { FIELDS, FIELD_BY_KEY, isShipped, type FieldDef } from "./registry";
 
 export type Role = "viewer" | "commenter" | "creator" | "admin" | "leadership";
@@ -43,7 +44,8 @@ export function bulkEditReason(key: string): string | null {
 export const YES_NO: Option[] = [{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }];
 
 /** Options of a select field, exactly as the dictionary spells them (a text label is always shown). */
-export function optionsFor(key: string): Option[] {
+export function optionsFor(key: string, inUse: Iterable<unknown> = []): Option[] {
+  if (key === "g2m_quarter") return quarterChoices(inUse).map((v) => ({ value: v, label: v })); // the generated range plus every quarter already in use
   const f = FIELD_BY_KEY[key];
   if (f?.type === "Boolean") return YES_NO;
   return (f?.allowed ?? []).map((v) => ({ value: v, label: v }));
@@ -90,6 +92,11 @@ export function validateEdit(key: string, raw: string, ctx: { today?: Date } = {
       if (f.allowed.length === 0) {
         const max = MAX_LENGTH[key] ?? 120;
         return text.length > max ? { ok: false, error: `Keep it under ${max} characters.` } : { ok: true, value: text };
+      }
+      if (key === "g2m_quarter") {
+        // any calendar quarter, not only the offered range: a quarter in use stays valid after it leaves the range
+        const q = parseQuarter(text);
+        return q ? { ok: true, value: q } : { ok: false, error: "Choose a quarter such as Q3 2027." };
       }
       const hit = f.allowed.find((v) => v.toLowerCase() === text.toLowerCase());
       return hit ? { ok: true, value: hit } : { ok: false, error: "Choose one of the listed options." };

@@ -80,7 +80,7 @@ Claude may set **Business Value Type only** (for example new revenue, grow reven
 - Build: migration relaxing `items_guard` for `value_type` alone, `describe_fields` reporting it as `claude_may_set` with the `basis` requirement, tests that every other forbidden field is still refused, and that a call without `basis` is refused.
 
 ## 7. What Claude asks
-After reading the person's brief, Claude lists what it could not fill, **once, in one message**, grouped by module and ordered by importance, each with "skip" allowed. It asks only for fields not already answered by the text. Typical set: Sponsor, Product Manager, Primary KR, G2M Quarter, Effort, Business Value Type, thresholds in D1. Answers are used in the same run; unanswered items are left empty (nothing is blocked by a missing field; validation by stage comes with #101 and will then be shown as warnings).
+After reading the person's brief, Claude lists what it could not fill, **once, in one message**, grouped by module and ordered by importance, each with "skip" allowed. It asks only for fields not already answered by the text. Typical set: Sponsor, Product Manager, Primary KR, Planned Quarter, Effort, Business Value Type, thresholds in D1. Answers are used in the same run; unanswered items are left empty (nothing is blocked by a missing field; validation by stage comes with #101 and will then be shown as warnings).
 
 ## 8. Build slices
 1. **Documents on the initiative (built 0.47.0, in the Spec tab).** Table `item_documents` (+ versions) with RLS, indexed from `tenant_id`, two-tenant test, added to the probe list in `packages/db/tests/rls.test.ts`; audit; Documents tab in the item panel (read, edit, versions); the field stays off the GitHub allowlist and the sentinel test proves it.
