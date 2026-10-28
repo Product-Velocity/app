@@ -6,6 +6,7 @@ import { ROLES, ROLE_LABEL, type Role } from "@/lib/roles";
 import { emailStatusText } from "@/lib/email/invitation";
 import type { ReactNode } from "react";
 import type { SaveResult, StatusOutcome } from "./actions";
+import { ResendControls } from "./forms";
 
 /** The writes the grid makes. The page passes the real server actions; the test page at /dev/members passes in-memory ones. */
 export type MemberActions = {
@@ -49,7 +50,7 @@ export function MembersGrid(props: {
   actions: MemberActions;
   /** The invitation form (the Create new invite drawer). */
   inviteForm?: ReactNode;
-  /** Renders the Resend / New link controls of a pending invitation. */
+  /** Replaces the Resend / New link controls of a pending invitation (the test page does; a server page cannot pass a function). */
   renderResend?: (invitationId: string) => ReactNode;
 }) {
   const [rows, setRows] = useState(props.rows);
@@ -201,7 +202,7 @@ export function MembersGrid(props: {
 }
 
 function GridRowView(props: {
-  r: GridRow; isAdmin: boolean; selfUserId: string; actions: MemberActions; renderResend?: (invitationId: string) => ReactNode; selected: boolean; selectable: boolean;
+  r: GridRow; isAdmin: boolean; selfUserId: string; actions: MemberActions; emailEnabled: boolean; renderResend?: (invitationId: string) => ReactNode; selected: boolean; selectable: boolean;
   onToggle: () => void; onStatus: (s: "active" | "paused" | "revoked") => void;
 }) {
   const { r, isAdmin } = props;
@@ -267,7 +268,7 @@ function GridRowView(props: {
           <GithubName userId={r.user_id} current={r.github_username ?? ""} label={r.email} save={props.actions.setMemberGithubUsername} />
         ) : r.github_username ? `@${r.github_username}` : <span className="muted">none</span>}
       </td>
-      {isAdmin && <td>{invited && r.invitation_id ? props.renderResend?.(r.invitation_id) : null}</td>}
+      {isAdmin && <td>{invited && r.invitation_id ? (props.renderResend ?? ((id) => <ResendControls id={id} emailEnabled={props.emailEnabled} />))(r.invitation_id) : null}</td>}
     </tr>
   );
 }
