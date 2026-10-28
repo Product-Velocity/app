@@ -47,11 +47,10 @@ test.describe("ordered default views (R-021, default-views.csv)", () => {
     expect(await page.locator(".ag-body-horizontal-scroll-viewport").evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
   });
 
-  test("a view with columns from later phases says so in words; a complete view says nothing", async ({ page }) => {
+  test("the grid no longer shows a note about columns that arrive in later phases", async ({ page }) => {
     await open(page);
     await goToView(page, "Delivery");
-    await expect(page.getByRole("note")).toContainText(/more columns of this view arrive in later phases/);
-    await expect(page.getByRole("note")).toContainText(/\(phase 3\)/);
+    await expect(page.getByText(/arrive in later phases/)).toHaveCount(0);
     await goToView(page, "All columns");
     await expect(page.getByRole("note")).toHaveCount(0);
   });
