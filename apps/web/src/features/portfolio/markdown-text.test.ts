@@ -11,6 +11,11 @@ describe("markdownToPlainText", () => {
   it("shows raw HTML tags as nothing and images as their alt text", () => {
     expect(markdownToPlainText("<b>hi</b> ![logo](https://x.test/a.png)")).toBe("hi logo");
   });
+  it("cuts a long description to one short line", () => {
+    const out = markdownToPlainText("word ".repeat(5000));
+    expect(out.length).toBeLessThanOrEqual(241);
+    expect(out.endsWith("…")).toBe(true);
+  });
   it("is empty for empty input", () => {
     expect(markdownToPlainText("")).toBe("");
   });
