@@ -22,7 +22,7 @@ Planning,2,item_code,pinned
 Planning,3,initiative_name,pinned
 Planning,4,home_project,
 Planning,5,contributing_teams,
-Planning,6,planning_status,
+Planning,6,initiative_status,
 Planning,7,cycle,
 Planning,8,effort,
 Planning,9,effort_by_skill,
@@ -40,24 +40,23 @@ Delivery,2,item_code,pinned
 Delivery,3,initiative_name,pinned
 Delivery,4,home_project,
 Delivery,5,initiative_phase,
-Delivery,6,initiative_status,
+Delivery,6,planning_status,
 Delivery,7,description,
 Delivery,8,status,
-Delivery,9,gh_project_status,
-Delivery,10,last_synced,
-Delivery,11,synced_with,
-Delivery,12,health,
-Delivery,13,delivery_progress_pct,
-Delivery,14,schedule_variance_pp,
-Delivery,15,g2m_date_est,
-Delivery,16,g2m_slip_days,
-Delivery,17,blocked_issues,
-Delivery,18,stale_issues,
-Delivery,19,scope_added,
-Delivery,20,open_prs,
-Delivery,21,ci_status,
-Delivery,22,assignees,
-Delivery,23,breakdown_status,
+Delivery,9,last_synced,
+Delivery,10,synced_with,
+Delivery,11,health,
+Delivery,12,delivery_progress_pct,
+Delivery,13,schedule_variance_pp,
+Delivery,14,g2m_date_est,
+Delivery,15,g2m_slip_days,
+Delivery,16,blocked_issues,
+Delivery,17,stale_issues,
+Delivery,18,scope_added,
+Delivery,19,open_prs,
+Delivery,20,ci_status,
+Delivery,21,assignees,
+Delivery,22,breakdown_status,
 Go-to-market,1,stack_rank,pinned
 Go-to-market,2,item_code,pinned
 Go-to-market,3,initiative_name,pinned
@@ -167,7 +166,7 @@ Timeline,23,blocked_days,
 History,1,stack_rank,pinned
 History,2,item_code,pinned
 History,3,initiative_name,pinned
-History,4,initiative_status,
+History,4,planning_status,
 History,5,status,
 History,6,initiative_phase,
 History,7,previous_rank,
@@ -189,7 +188,7 @@ Cycle review,1,stack_rank,pinned
 Cycle review,2,item_code,pinned
 Cycle review,3,initiative_name,pinned
 Cycle review,4,home_project,
-Cycle review,5,planning_status,
+Cycle review,5,initiative_status,
 Cycle review,6,cycle,
 Cycle review,7,candidate_tag,
 Cycle review,8,deferred_count,
