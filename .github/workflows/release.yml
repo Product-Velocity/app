@@ -1,8 +1,8 @@
 name: Release
 
 # Issue #238: gives merged release fragments their version, writes docs/RELEASES.md and bumps apps/web/package.json.
-# Needs (repository settings): Actions may push to main (Settings, Actions, General, Workflow permissions: read and write),
-# and if main is protected, github-actions[bot] must be allowed to bypass the pull request requirement. See docs/23-PARALLEL-WORK.md.
+# Needs (repository settings): Actions may push to main (Settings, Actions, General, Workflow permissions: read and write). If main
+# requires pull requests or the merge queue, add the secret RELEASE_TOKEN (see docs/23-PARALLEL-WORK.md): the default token cannot bypass those.
 on:
   push:
     branches: [main]
@@ -24,6 +24,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # RELEASE_TOKEN (optional secret): a token of an admin who may bypass the rules on main. Needed once main requires pull requests
+          # or the merge queue, because the default token cannot bypass them. Without it the default token is used.
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22

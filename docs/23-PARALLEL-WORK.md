@@ -21,9 +21,27 @@ Issue #238. Parallel agents kept colliding on numbers that someone had to pick b
 7. **One concern per PR.** The PR description says "version assigned when merged", never a number.
 
 ## Settings for Ashu (GitHub, cannot be done from code)
-1. **Merge queue on `main`** (Settings, Branches, branch protection rule for `main`, "Require merge queue"), and "Require branches to be up to date before merging". CI then runs on the merged result of each PR, which is the only guard against the semantic conflicts in rule 3.
-2. **Let the release workflow push to `main`:** Settings, Actions, General, Workflow permissions: "Read and write permissions". If `main` requires pull requests, allow `github-actions[bot]` to bypass that rule (or the release commit is refused and the fragment stays in place; nothing is lost and the next merge retries it).
-3. Optional: CODEOWNERS for `packages/db/migrations/` so a migration always gets a second look.
+All of this is in the repository on github.com: `https://github.com/Product-Velocity/app/settings`. You need the Admin role.
+
+**A. Let the release workflow push (do this first, two minutes).**
+1. Open `https://github.com/Product-Velocity/app/settings/actions`.
+2. Scroll to **Workflow permissions**, choose **Read and write permissions**, press **Save**. (If the option is greyed out, an organization setting overrides it: `https://github.com/organizations/Product-Velocity/settings/actions`, same section.)
+
+**B. Merge queue and "branch must be up to date" (protects against two branches replacing the same SQL function).**
+1. Open `https://github.com/Product-Velocity/app/settings/rules` and press **New ruleset**, then **New branch ruleset**.
+2. Name it `main`. **Enforcement status:** Active. **Target branches:** Add target, **Include default branch**.
+3. Tick **Require a pull request before merging**.
+4. Tick **Require status checks to pass**, tick **Require branches to be up to date before merging**, press **Add checks** and add `check` (the CI job; it appears after one CI run).
+5. Tick **Require merge queue**. Leave the defaults. (Available because the repository is public and owned by an organization; once it goes private it needs GitHub Enterprise Cloud, note it in `docs/14`.)
+6. **Bypass list:** add **Repository admin** (so you can still fix things in an emergency). Press **Create**.
+The CI workflow already listens for the merge queue (`merge_group`), so queued pull requests get their checks.
+
+**C. Only if you did B: a token so the release workflow can still push to `main`.** The default workflow token cannot bypass a rule that requires pull requests.
+1. Your profile picture, **Settings**, **Developer settings**, **Personal access tokens**, **Fine-grained tokens**, **Generate new token**. Name `release`, expiry 1 year, **Resource owner: Product-Velocity**, **Only select repositories: app**, **Repository permissions: Contents: Read and write**. Generate and copy it (an organization owner may have to approve it).
+2. Open `https://github.com/Product-Velocity/app/settings/secrets/actions`, **New repository secret**, name `RELEASE_TOKEN`, paste the token, **Add secret**.
+Release commits then appear under your name; because you are in the bypass list they go straight to `main`.
+
+Optional: CODEOWNERS for `packages/db/migrations/` so a migration always gets a second look.
 
 ## Not done on purpose
 No lock file or claim bot: the issue assignee and the open pull requests are the claim register. If it turns out agents still collide, a "claimed areas" file would be the next step.
