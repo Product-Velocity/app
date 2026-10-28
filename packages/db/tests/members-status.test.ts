@@ -110,7 +110,8 @@ describe("non-active members have no access", () => {
 
 describe("members_grid", () => {
   it("lists every status and the pending invitations for admins, with login and create dates", async () => {
-    await db.admin.query("update auth.users set last_sign_in_at = '2026-10-01T10:00:00Z', raw_user_meta_data = '{\"full_name\":\"Carol C\"}' where id = $1", [f.carol]);
+    await db.admin.query("update auth.users set raw_user_meta_data = '{\"full_name\":\"Carol C\"}' where id = $1", [f.carol]);
+    await db.admin.query("update public.tenant_members set last_login_at = '2026-10-01T10:00:00Z' where user_id = $1 and tenant_id = $2", [f.carol, f.tenantA]); // per membership (migration 0050)
     const rows = await db.asUser(f.alice, async (q) => (await q("select * from public.members_grid($1)", [f.tenantA])).rows);
     const statuses = new Set(rows.map((r: { status: string }) => r.status));
     expect([...statuses].sort()).toEqual(["active", "invited", "paused", "requested", "revoked"]);
