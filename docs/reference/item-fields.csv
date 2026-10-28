@@ -22,9 +22,9 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 22,Why,Primary KR (Metric Name),kr_metric,Text,,Input,Modify,Never synced.,Column on items,1
 23,Why,Primary KR Start Value,kr_start,Number,,Input,Keep,,Column on items,1
 24,Why,Primary KR Target Value,kr_target,Number,,Input,Keep,,Column on items,1
-26,Why,Value Type,value_type,Select,Incremental revenue · Defend existing revenue · Save money / operational efficiency,Input,Keep,Never synced (commercial).,Column on items,1
-27,Why,"Value (EUR, 12-month run-rate)",value_12m,Currency,,Input,Modify,Never synced (commercial).,Column on items,1
-28,Why,Value Basis,value_basis,Select,Measured · Estimate (basis stated) · Partner claim · Not stated,Input,Modify,,Column on items,1
+26,Why,Business Value Type,value_type,Select,New revenue · Increase revenue · Defend revenue · Decrease costs · Other,Input,Keep,Never synced (commercial).,Column on items,1
+27,Why,Business Value (12m run-rate),value_12m,Currency,,Input,Modify,Never synced (commercial).,Column on items,1
+28,Why,Business Value Basis,value_basis,Select,Measured · Estimate (basis stated) · Partner claim · Not stated,Input,Modify,,Column on items,1
 29,Why,Time to First Revenue (months),time_to_first_revenue_months,Number,,Input,Keep,,Column on items,1
 30,Why,Confidence,confidence,Select,High · Medium · Low,Input,Keep,,Column on items,1
 31,Why,Effort (T-shirt),effort,Select,XS · S · M · L · XL,Input,Modify,"Optional: push to GitHub issue field ""Effort"" / label size:M.",Column on items,1

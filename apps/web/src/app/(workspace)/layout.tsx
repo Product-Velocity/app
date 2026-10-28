@@ -8,6 +8,8 @@ import { SupabaseWorkspaceProvider } from "@/features/workspace/provider";
 import { canEditItems } from "@pv/domain";
 import { PlatformBanner } from "@/components/platform-banner";
 import { isPlatformAdmin, loginIsStale } from "@/lib/session";
+import { LastLocationTracker, UserPrefsProvider } from "@/components/user-prefs";
+import { lastLocationFromMetadata, panelWidthFromMetadata } from "@/lib/user-prefs";
 
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const { supabase, user, memberships, active } = await requireWorkspace("/portfolio");
@@ -24,6 +26,8 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
     : 0;
   return (
     <SupabaseWorkspaceProvider tenantId={active.tenantId} userId={user.id} projects={(projects ?? []) as { id: string; name: string }[]} canEdit={canEditItems(active.role)} canAdmin={active.role === "admin"}>
+    <UserPrefsProvider panelWidth={panelWidthFromMetadata(user.user_metadata)}>
+    <LastLocationTracker initial={lastLocationFromMetadata(user.user_metadata, active.tenantId)} />
     <DatePrefs format={profileFromMetadata(user.user_metadata).dateFormat} />
     <div className="shell">
       <AppHeader
@@ -47,6 +51,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
       )}
       <main className="content">{children}</main>
     </div>
+    </UserPrefsProvider>
     </SupabaseWorkspaceProvider>
   );
 }
