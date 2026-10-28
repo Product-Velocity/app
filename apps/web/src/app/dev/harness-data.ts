@@ -144,6 +144,7 @@ export function makeReportsHarness(n: number, role: string) {
     const at = (n: number) => new Date(d0 + n * 86_400_000).toISOString().slice(0, 10);
     Object.assign(r, {
       start_discovery: at(0), start_date: at(5), start_definition: at(15), start_building: at(40),
+      kr_metric: i % 4 === 0 ? `Metric ${i}` : null, kr_start: i % 4 === 0 ? i : null, kr_target: i % 4 === 0 ? i + 10 : null, kr_unit: i % 4 === 0 ? "count" : null, kr_direction: i % 4 === 0 ? "Increase" : null,
       g2m_date_actual: i % 3 === 0 ? at(60 + (i % 4) * 10) : null, g2m_date_est: at(120), planned_start: at(0),
     });
   }

@@ -78,7 +78,7 @@ test("a multi-team initiative counts once per team and the chart says so", async
 
 test("no matches shows the empty message in every module and keeps the layout", async ({ page }) => {
   await open(page, "&f.initiative_phase=Build&d=initiative_phase:Discover");
-  await expect(page.getByText("No data matching current filters")).toHaveCount(7);
+  await expect(page.getByText("No data matching current filters")).toHaveCount(8);
   await expect(page.getByRole("button", { name: "Reset filters" })).toBeEnabled();
 });
 
@@ -140,7 +140,7 @@ test("Time to Market follows the filters and shows the empty message when nothin
   const builds = live.filter((x) => x.phase === "Build" && x.i % 3 === 0).map((x) => 60 + (x.i % 4) * 10);
   await expect(kpi(page, "count")).toHaveText(String(builds.length));
   await open(page, "&f.initiative_phase=Build&d=initiative_phase:Discover");
-  await expect(page.getByText("No data matching current filters")).toHaveCount(7);
+  await expect(page.getByText("No data matching current filters")).toHaveCount(8);
 });
 
 test("clicking a team bar filters everything like the other charts", async ({ page }) => {
@@ -175,4 +175,24 @@ test("timeline: pages in 30 at a time, switches scale and colour, and opens an i
   await expect(t).toContainText(`Showing ${live.length} of ${live.length}`);
   await clickAt(page, "timeline", { xAxisIndex: 0, yAxisIndex: 0 }, [Date.UTC(2027, 1, 5), 0]);
   await expect(page.getByTestId("item-panel")).toContainText("R-01");
+});
+
+// ---- step 3: Impact and Effort (version 1, with a placeholder for achieved impact)
+test("Impact and Effort says how many initiatives have no Primary KR, and holds a placeholder for achieved impact", async ({ page }) => {
+  await open(page);
+  const withKr = live.filter((x) => x.i % 4 === 0).length;
+  await expect(page.locator('[data-kpi="no-kr"]')).toHaveText(String(live.length - withKr));
+  const t = page.locator('section[aria-label="Impact and Effort"]');
+  await expect(t.getByTestId("impact-placeholder")).toContainText("phase 7");
+  await expect(t.getByTestId("impact-placeholder")).toContainText("nothing here is estimated");
+  await expect(t.getByRole("table", { name: "Primary KRs" }).locator("tbody tr")).toHaveCount(Math.min(15, withKr));
+  await expect(page.getByRole("button", { name: /^PDF summary/ })).toBeDisabled();
+});
+
+test("clicking an effort bar filters like the other charts, and the KR note follows the filters", async ({ page }) => {
+  await open(page);
+  await clickAt(page, "impact-effort", { xAxisIndex: 0, yAxisIndex: 0 }, ["XS", 1]);
+  await expect(page.locator(".rp-pill")).toHaveText(/Effort: XS/);
+  await expect(rowsShown(page)).toHaveCount(live.filter((x) => x.i % 5 === 0).length);
+  await expect(page.locator('[data-kpi="no-kr"]')).toHaveText(String(live.filter((x) => x.i % 5 === 0 && x.i % 4 !== 0).length));
 });

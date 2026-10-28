@@ -750,3 +750,5 @@ a.scope-link:hover, a.scope-link:focus-visible { background: var(--blue-tint-2);
 .seg-group { display: inline-flex; gap: 4px; }
 .seg-group .tool-btn[aria-pressed="true"] { background: var(--blue-tint-1); border-color: var(--blue); color: var(--blue-text); }
 .rp-legend-item { cursor: default; }
+.rp-placeholder { border: 1px dashed var(--border); border-radius: var(--radius-md); padding: 12px; background: var(--surface); color: var(--ink-muted); font-size: 12.5px; }
+.rp-placeholder p { margin: 4px 0 0; }

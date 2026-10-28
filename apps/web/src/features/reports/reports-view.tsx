@@ -14,6 +14,7 @@ import { Popover } from "../portfolio/popover";
 import { StatusStrip, useStatus } from "../portfolio/status-strip";
 import type { GridItem, Lookups } from "../portfolio/types";
 import { useScope } from "../workspace/scope";
+import { ImpactEffort } from "./impact-chart";
 import { StackedChart } from "./stacked-chart";
 import { TimelineChart } from "./timeline-chart";
 import { TimeToMarket } from "./ttm-charts";
@@ -119,6 +120,7 @@ export function ReportsView({ controller, lookups, me }: { controller: Portfolio
         <label className="rp-toggle"><input type="checkbox" checked={state.aiDrafts} onChange={(e) => setState((s) => ({ ...s, aiDrafts: e.target.checked }))} />Include AI drafts</label>
         <button type="button" className="tool-btn" disabled={!anything} onClick={() => setState((s) => ({ ...emptyReport(), archived: s.archived, aiDrafts: s.aiDrafts }))}>Reset filters</button>
         <button type="button" className="tool-btn" disabled={rows.length === 0} onClick={exportCsv}>Export CSV ({rows.length.toLocaleString("en-GB")})</button>
+        <button type="button" className="tool-btn" disabled title="A PDF summary of this page (filters, Time to Market card and charts) comes later (issue #233, P1)">PDF summary (later)</button>
       </div>
 
       {state.drill.length > 0 && (
@@ -140,6 +142,7 @@ export function ReportsView({ controller, lookups, me }: { controller: Portfolio
         <StackedChart title="Health by Team" data={teamHealth} rowDim="team" colDim="health" label={label} state={state} onPick={pick} />
       </div>
 
+      <ImpactEffort rows={rows} onPick={pick} onOpen={setPeekId} nameOf={nameOf} />
       <TimeToMarket rows={rows} ctx={ctx} label={label} onPick={pick} onOpen={setPeekId} nameOf={nameOf} />
       <TimelineChart rows={rows} today={controller.todayDate()} onOpen={setPeekId} />
 
