@@ -34,7 +34,7 @@ Rules: the bullets must agree with section 4 (Scope); Claude writes section 4 fr
 | B1 UX Flows & Wireframes, B2 Prototype Screens | links | Future workflow, AI interactions, launch scope | Artifacts (`add_link`), Screenshots (`add_file`), Tags |
 | B3 Initial Master Prompt, B4 Evaluation Plan | PRD only | Tone, inputs, instructions, examples, output format; quality criteria, typical / edge / negative cases | none |
 | C1 to C9 Model Selection, Input Specifications, Output Checklist, Final Master Prompt, Data & RAG, Evaluation Set, Test Results, Edge-Case Handling, Evaluation Automation | PRD only | As in the 4D template | none (Spec Status and Agent-ready are set by people) |
-| **D1 Rollout Plan** | PRD only | See section 5 | Start Experiment, Start Roll-Out, Roll-out %, Target Markets, Target Segments, Target Customers, Next Review Date |
+| **D1 Rollout Plan** | PRD only | See section 5 | Target Markets, Target Segments, Target Customers, Next Review Date. Start Experiment and Start Roll-Out are set by the lifecycle (not editable) and Roll-out % arrives in phase 7, so those dates stay in the PRD text only (found while building slice 4) |
 | D2 Operational Readiness | PRD only | Technical, organizational | Dependencies / Blockers, Contributing Teams, Depends On, Effort, Estimate low / high (basis "Rough guess") |
 | D3 Go-to-Market | PRD only | Marketing assets, internal communications | GTM / Enablement Notes, Audience, Target Customers |
 | D4 Legal & Risk | PRD only | Data, privacy, policy, compliance | Dependencies / Blockers, a tag |
@@ -69,7 +69,7 @@ The module is a table, written **before** launch. One row per experiment:
 
 Rules:
 - Claude drafts the structure. **Thresholds and decision rules come from the person.** Anything not given is written "to define" and listed in the questions; Claude never fills a number.
-- Dates and populations map to the fields above. The checkpoint date goes in Next Review Date.
+- Populations map to the fields above and the checkpoint date goes in Next Review Date. The experiment and roll-out start dates and Roll-out % are not Claude's to set (see the table), so they stay in the PRD.
 - After each experiment the outcome review (Phase 5) compares the actual result with the rule written beforehand. People set Outcome Verdict and Learning.
 - Later option, not in this spec: each experiment as a child initiative with Depends On.
 
@@ -86,7 +86,7 @@ After reading the person's brief, Claude lists what it could not fill, **once, i
 1. **Documents on the initiative (built 0.47.0, in the Spec tab).** Table `item_documents` (+ versions) with RLS, indexed from `tenant_id`, two-tenant test, added to the probe list in `packages/db/tests/rls.test.ts`; audit; Documents tab in the item panel (read, edit, versions); the field stays off the GitHub allowlist and the sentinel test proves it.
 2. **MCP document tools (built 0.47.0).** `create_document`, `update_document` (carries the version it was based on; a newer human edit is never overwritten), `get_document`, `list_documents`. Read results are wrapped as data. Same role gate (creator and admin write) and daily limits; not `undo_last` (versions instead).
 3. **Business Value Type exception** (section 6; built 0.48.0, migration 0056).
-4. **`write_prd` prompt and server instructions.** The MCP server advertises `prompts` and `instructions` (today `capabilities` has only `tools`, `apps/web/src/lib/mcp/rpc.ts`). The prompt holds the template, the At-a-glance rule, the modules and flags, the "never guess" rules and the single batch of questions. Golden-input evals for the prompt.
+4. **`write_prd` prompt and server instructions (built 0.49.0).** The MCP server advertises `prompts` and `instructions` (today `capabilities` has only `tools`, `apps/web/src/lib/mcp/rpc.ts`). The prompt holds the template, the At-a-glance rule, the modules and flags, the "never guess" rules and the single batch of questions. Golden-input evals for the prompt.
 5. **Extract and copy.** Tool-side helper that builds the Description extract from the flagged modules and copies the Hypothesis and Value Proposition blocks, with the diff rule.
 6. **Scenario test.** One end-to-end test: a short brief → initiative, document, extract, copied fields, one question batch, a skipped module; plus hostile text in the brief and the document (data, not instructions), and a check that no PRD-only module text appears in any GitHub payload.
 

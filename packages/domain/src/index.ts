@@ -27,3 +27,4 @@ export * from "./mcp-write";
 export * from "./delivery";
 export * from "./members";
 export * from "./documents";
+export * from "./prd-template";
