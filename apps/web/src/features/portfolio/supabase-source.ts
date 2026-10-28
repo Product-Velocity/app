@@ -96,9 +96,17 @@ export class SupabaseDataSource implements PortfolioDataSource {
     const teams = new Map<string, string[]>();
     for (const t of await this.fetchAll<{ item_id: string; team_id: string }>("item_teams", "item_id,team_id")) add(teams, t.item_id, teamNames.get(t.team_id) ?? "unknown team");
 
+    // Assignees: the people assigned here (their emails) and the GitHub logins on the issue that nobody is matched to
+    const ghLogins = new Map<string, string[]>();
+    const emails = new Map<string, string>();
+    const { data: directory } = await this.client.rpc("tenant_directory", { p_tenant: this.tenantId });
+    for (const d of (directory ?? []) as { user_id: string; email: string }[]) emails.set(d.user_id, d.email);
+    const usernames = new Set((await this.fetchAll<{ user_id: string; github_username: string | null }>("tenant_members", "user_id,github_username")).map((m) => m.github_username?.toLowerCase()).filter((u): u is string => !!u));
+
     // Last Synced and Synced With: derived from the GitHub link of each initiative
     const syncLinks = new Map<string, SyncLink>();
-    for (const l of await this.fetchAll<{ item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; sync_state: "pending" | "synced" | "error"; last_pushed_at: string | null; gh_synced_at: string | null; project_item_id: string | null }>("item_github_links", "item_id,mode,repo_full_name,issue_number,sync_state,last_pushed_at,gh_synced_at,project_item_id", ["item_id"])) {
+    for (const l of await this.fetchAll<{ item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; sync_state: "pending" | "synced" | "error"; last_pushed_at: string | null; gh_synced_at: string | null; project_item_id: string | null; gh_assignees: string[] | null }>("item_github_links", "item_id,mode,repo_full_name,issue_number,sync_state,last_pushed_at,gh_synced_at,project_item_id,gh_assignees", ["item_id"])) {
+      if (l.gh_assignees?.length) ghLogins.set(l.item_id, l.gh_assignees);
       syncLinks.set(l.item_id, { mode: l.mode, repo: l.repo_full_name, issueNumber: l.issue_number, syncState: l.sync_state, lastPushedAt: l.last_pushed_at, ghSyncedAt: l.gh_synced_at, hasBoardItem: Boolean(l.project_item_id) });
     }
     const boardTitle = new Map<string, string>();
@@ -110,6 +118,8 @@ export class SupabaseDataSource implements PortfolioDataSource {
       item.last_synced = lastSyncedAt(sl, syncMark.get(id) ?? null);
       // Schedule Variance (pp) depends on today's date, so it is worked out here and never stored
       item.schedule_variance_pp = scheduleVariancePp(item.delivery_progress_pct as number | null, item.planned_start as string | null, item.g2m_date_est as string | null, today);
+      const assigned = (Array.isArray(item.assignees) ? item.assignees : []) as string[];
+      item.assignees = [...assigned.map((u) => emails.get(u) ?? "unknown person"), ...(ghLogins.get(id) ?? []).filter((l) => !usernames.has(l.toLowerCase())).map((l) => `@${l}`)].join(", ") || null;
       item.synced_with = syncedWith(sl, boardTitle.get(String(item.home_project)) ?? null) || null;
       item.tags = (tags.get("tag")?.get(id) ?? []).join(", ") || null;
       item.target_scope = (tags.get("target_scope")?.get(id) ?? []).join(", ") || null;
@@ -195,23 +205,30 @@ export class SupabaseDataSource implements PortfolioDataSource {
   // ------------------------------------------------------------ list fields of one item (item panel)
   async loadRelated(itemId: string): Promise<RelatedValues> {
     const mine = (table: string, columns: string) => this.client.from(table).select(columns).eq("tenant_id", this.tenantId).eq("item_id", itemId);
-    const [tags, links, rels, teams] = await Promise.all([
+    const [tags, links, rels, teams, assigned] = await Promise.all([
       mine("item_tags", "kind,value").order("value"),
       mine("item_links", "label,url").order("created_at"),
       mine("item_relations", "related_item_id,kind"),
       mine("item_teams", "team_id"),
+      this.client.from("items").select("assignee_ids").eq("tenant_id", this.tenantId).eq("id", itemId).maybeSingle(),
     ]);
-    for (const r of [tags, links, rels, teams]) if (r.error) throw new Error(friendlyError(r.error));
+    for (const r of [tags, links, rels, teams, assigned]) if (r.error) throw new Error(friendlyError(r.error));
     const out = emptyRelated();
     const TAG_FIELD: Record<string, RelatedField> = { tag: "tags", target_scope: "target_scope", live_scope: "live_scope", segment: "target_segments" };
     for (const t of (tags.data ?? []) as unknown as { kind: string; value: string }[]) { const f = TAG_FIELD[t.kind]; if (f) (out[f] as string[]).push(t.value); }
     out.artifacts = ((links.data ?? []) as unknown as Link[]).map((l) => ({ label: l.label ?? "", url: l.url }));
     for (const r of (rels.data ?? []) as unknown as { related_item_id: string; kind: "depends_on" | "related_to" }[]) out[r.kind].push(r.related_item_id);
     out.contributing_teams = ((teams.data ?? []) as unknown as { team_id: string }[]).map((t) => t.team_id);
+    out.assignees = ((assigned.data as { assignee_ids?: string[] } | null)?.assignee_ids ?? []).map(String);
     return out;
   }
 
   async setRelated(itemId: string, field: RelatedField, value: unknown[]): Promise<SaveResult> {
+    if (field === "assignees") {
+      // the database checks the role and that everyone is a member of the workspace; the change is audited on the item
+      const { error } = await this.client.rpc("set_item_assignees", { p_item: itemId, p_user_ids: value.map(String) });
+      return error ? { ok: false, error: friendlyError(error) } : { ok: true };
+    }
     const kinds: Partial<Record<RelatedField, string>> = { tags: "tag", target_scope: "target_scope", live_scope: "live_scope", target_segments: "segment" };
     const base = { tenant_id: this.tenantId, item_id: itemId };
     const run = async (table: string, columns: string, filter: Record<string, string>, same: (row: Record<string, unknown>, v: unknown) => boolean, toRow: (v: unknown) => Record<string, unknown>): Promise<SaveResult> => {

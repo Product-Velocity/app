@@ -17,3 +17,12 @@ describe("parseDeliveryEvent", () => {
     expect(parseDeliveryEvent("release", null)).toBeNull();
   });
 });
+
+import { parseIssueEvent } from "./webhook";
+describe("parseIssueEvent: assignees", () => {
+  const payload = (assignees: unknown) => ({ action: "assigned", installation: { id: 9 }, repository: { full_name: "Acme/App" }, issue: { number: 7, id: 70, node_id: "I_7", state: "open", updated_at: "2026-10-27T10:00:00Z", title: "t", assignees } });
+  it("reads only the logins of the assignees", () => {
+    expect(parseIssueEvent("issues", payload([{ login: "ana-gh", id: 1, email: "x" }, { login: 5 }, null, {}]))?.assignees).toEqual(["ana-gh"]);
+    expect(parseIssueEvent("issues", payload(undefined))?.assignees).toEqual([]);
+  });
+});

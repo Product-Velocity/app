@@ -1,6 +1,6 @@
 import { requireWorkspace } from "@/lib/session";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
-import { InviteForm, MemberControls, ResendControls } from "./forms";
+import { InviteForm, MemberControls, MemberGithubUsername, ResendControls } from "./forms";
 import { emailStatusText } from "@/lib/email/invitation";
 import { emailConfigured } from "@/lib/email/resend";
 import { removeMember, revokeInvitation } from "./actions";
@@ -21,6 +21,8 @@ export default async function MembersPage() {
   const isAdmin = active.role === "admin";
 
   const { data: people } = await supabase.rpc("tenant_directory", { p_tenant: active.tenantId });
+  const { data: names } = await supabase.from("tenant_members").select("user_id, github_username").eq("tenant_id", active.tenantId);
+  const githubName = new Map(((names ?? []) as { user_id: string; github_username: string | null }[]).map((n) => [n.user_id, n.github_username ?? ""]));
   const { data: invites } = isAdmin
     ? await supabase
         .from("invitations")
@@ -46,6 +48,7 @@ export default async function MembersPage() {
               <th scope="col">Email</th>
               <th scope="col">Role</th>
               <th scope="col">Approver</th>
+              <th scope="col">GitHub username</th>
               {isAdmin && (
                 <th scope="col">
                   <span className="visually-hidden">Remove</span>
@@ -73,6 +76,13 @@ export default async function MembersPage() {
                     <td>{p.is_approver ? "Approver" : "No"}</td>
                   </>
                 )}
+                <td>
+                  {isAdmin && !p.is_service_account ? (
+                    <MemberGithubUsername userId={p.user_id} current={githubName.get(p.user_id) ?? ""} label={p.email} />
+                  ) : (
+                    githubName.get(p.user_id) ? `@${githubName.get(p.user_id)}` : <span className="muted">none</span>
+                  )}
+                </td>
                 {isAdmin && (
                   <td>
                     <form action={removeMember}>

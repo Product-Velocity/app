@@ -5,6 +5,7 @@ import { requireWorkspace } from "@/lib/session";
 import { generateInviteToken, hashInviteToken } from "@/lib/auth/invite-token";
 import { parseRole } from "@/lib/roles";
 import { parseInviteForm } from "@/lib/validation";
+import { githubUsernameMessage } from "@/lib/github-username";
 import { siteUrl } from "@/lib/site-url";
 import { sendEmail } from "@/lib/email/resend";
 import { buildInvitationEmail, sendLimit } from "@/lib/email/invitation";
@@ -103,6 +104,16 @@ export async function revokeInvitation(form: FormData): Promise<void> {
     .eq("id", id)
     .eq("tenant_id", active.tenantId);
   revalidatePath(PATH);
+}
+
+/** An admin sets (or clears) the GitHub username of a member; the database checks the role again and that the name is free in this workspace. */
+export async function setMemberGithubUsername(userId: string, username: string): Promise<SaveResult> {
+  const { supabase, active } = await requireWorkspace(PATH);
+  if (active.role !== "admin") return { ok: false, error: "Only an admin can set someone else's GitHub username." };
+  const { error } = await supabase.rpc("set_github_username", { p_tenant: active.tenantId, p_user: userId, p_username: username });
+  if (error) return { ok: false, error: githubUsernameMessage(error.code) };
+  revalidatePath(PATH);
+  return { ok: true };
 }
 
 export async function updateMember(memberId: string, role: string, isApprover: boolean): Promise<SaveResult> {

@@ -1,6 +1,6 @@
 import { requireWorkspace } from "@/lib/session";
 import { canUnlink, LINKABLE, leaveMessage, PROVIDER_LABEL, profileFromMetadata, timeZones } from "@/lib/account";
-import { EmailForm, PasswordForm, ProfileForm } from "./forms";
+import { EmailForm, GithubUsernameForm, PasswordForm, ProfileForm } from "./forms";
 import { leaveWorkspace, linkProvider, signOutSessions, unlinkProvider } from "./actions";
 import { switchTenant } from "../actions";
 import Link from "next/link";
@@ -28,6 +28,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   const identities = ids?.identities ?? [];
   const hasPassword = identities.some((i) => i.provider === "email");
   const profile = profileFromMetadata(user.user_metadata);
+  const { data: mine } = await supabase.from("tenant_members").select("github_username").eq("tenant_id", active.tenantId).eq("user_id", user.id).maybeSingle();
 
   return (
     <div className="page-narrow">
@@ -36,6 +37,9 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
       <h2>Profile</h2>
       <div className="card"><ProfileForm profile={profile} zones={timeZones()} /></div>
+
+      <h2>GitHub</h2>
+      <div className="card"><GithubUsernameForm current={(mine?.github_username as string | null) ?? ""} workspace={active.tenantName} /></div>
 
       <h2>Email</h2>
       <div className="card"><EmailForm email={user.email ?? ""} hasPassword={hasPassword} /></div>

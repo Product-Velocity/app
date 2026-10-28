@@ -130,4 +130,16 @@ describe("receiveFromGithub: Sync with GitHub, the check", () => {
     expect(await receiveBoardStatus(alone, sc, connection, ["i1"])).toEqual({ lines: {}, failed: false });
     expect(asCalls(alone).filter((c) => c.table === "projects")).toHaveLength(1); // one pass over the boards, not one per initiative
   });
+
+  it("stores the logins GitHub shows on the issue, matched later to people, and nothing about them goes anywhere else", async () => {
+    const sc = new MemorySourceControl();
+    issue(sc, 31, { assignees: ["Ana-GH", "ben-gh"] });
+    const admin = fakeAdmin({ links: [link("i1", 31)] });
+    await receiveFromGithub(admin, sc, connection, ["i1"]);
+    expect(asCalls(admin).find((c) => c.table === "github_apply_assignees")?.payload).toEqual({ p_connection: "c1", p_item: "i1", p_logins: ["Ana-GH", "ben-gh"] });
+    const none = fakeAdmin({ links: [link("i1", 31)] });
+    issue(sc, 31);
+    await receiveFromGithub(none, sc, connection, ["i1"]);
+    expect(asCalls(none).some((c) => c.table === "github_apply_assignees")).toBe(false); // an answer without assignees changes nothing
+  });
 });

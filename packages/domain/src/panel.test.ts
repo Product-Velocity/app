@@ -4,6 +4,13 @@ import { activityEvents, canUndoActivity, panelField, panelSections, type Activi
 
 const f = (key: string) => FIELDS.find((x) => x.key === key)!;
 
+describe("panelField: assignees", () => {
+  it("is the one GitHub-synced field a person edits, as a list of people; the other GitHub fields stay read-only", () => {
+    expect(panelField(f("assignees")).kind).toBe("people");
+    for (const key of ["gh_state", "issues_total", "open_prs", "ci_status", "blocked_issues", "gh_iteration"]) expect(panelField(f(key)).kind, key).toBe("readonly");
+  });
+});
+
 describe("panelField: how each of the 169 fields is shown in the item panel", () => {
   it("scalar editable fields get their own editor", () => {
     expect(panelField(f("initiative_name")).kind).toBe("text");

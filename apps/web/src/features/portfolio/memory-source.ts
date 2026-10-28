@@ -82,8 +82,11 @@ export class MemoryDataSource implements PortfolioDataSource {
     const cur = this.related.get(itemId) ?? emptyRelated();
     const before = new Set((cur[field] as unknown[]).map((x) => JSON.stringify(x)));
     const after = new Set(value.map((x) => JSON.stringify(x)));
-    for (const x of value) if (!before.has(JSON.stringify(x))) this.auditListRow(field, itemId, x, true);
-    for (const x of cur[field] as unknown[]) if (!after.has(JSON.stringify(x))) this.auditListRow(field, itemId, x, false);
+    if (field === "assignees") this.audit("items", itemId, "assignee_ids", [...(cur.assignees ?? [])], [...value], false); // the database audits it on the item
+    else {
+      for (const x of value) if (!before.has(JSON.stringify(x))) this.auditListRow(field, itemId, x, true);
+      for (const x of cur[field] as unknown[]) if (!after.has(JSON.stringify(x))) this.auditListRow(field, itemId, x, false);
+    }
     (cur as Record<string, unknown[]>)[field] = structuredClone(value);
     this.related.set(itemId, cur);
     return { ok: true };

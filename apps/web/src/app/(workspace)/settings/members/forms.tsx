@@ -2,7 +2,7 @@
 
 import { useActionState, useRef, useState, useTransition } from "react";
 import { ROLES, ROLE_HELP, ROLE_LABEL, type Role } from "@/lib/roles";
-import { createInvitation, resendInvitation, updateMember, type InviteState } from "./actions";
+import { createInvitation, resendInvitation, setMemberGithubUsername, updateMember, type InviteState } from "./actions";
 
 /**
  * Invite someone in two steps: fill in, then review. Nothing is sent until the admin confirms in the review: "Send invitation email"
@@ -153,6 +153,27 @@ export function MemberControls(props: { memberId: string; role: Role; isApprover
           {status}
         </span>
       </td>
+    </>
+  );
+}
+
+/** The GitHub username of a member, edited by an admin (it matches the person with the assignees of GitHub issues). */
+export function MemberGithubUsername({ userId, current, label }: { userId: string; current: string; label: string }) {
+  const [value, setValue] = useState(current);
+  const [status, setStatus] = useState("");
+  const [, startTransition] = useTransition();
+  const save = () => {
+    if (value.trim() === current) return;
+    setStatus("Saving…");
+    startTransition(async () => {
+      const r = await setMemberGithubUsername(userId, value);
+      setStatus(r.ok ? "Saved" : r.error);
+    });
+  };
+  return (
+    <>
+      <input aria-label={`GitHub username of ${label}`} value={value} maxLength={40} autoComplete="off" spellCheck={false} placeholder="none" onChange={(e) => setValue(e.target.value)} onBlur={save} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); save(); } }} />
+      <span role="status" className="muted" aria-live="polite"> {status}</span>
     </>
   );
 }
