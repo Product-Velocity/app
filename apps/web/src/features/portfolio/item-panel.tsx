@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { EDITABLE_FIELDS, FIELD_BY_KEY, activityEvents, canUndoActivity, isOpenableUrl, panelSections, trackerIssueLabel, type ActivityEvent, type ActivityRow } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import { DeleteDialog } from "./delete-dialog";
@@ -11,6 +11,8 @@ import { FieldRow, type FieldCtx } from "./item-fields";
 import { formatField } from "./format";
 import { useStatus } from "./status-strip";
 import type { IssueTreeRow, Lookups } from "./types";
+import { useUserPrefs } from "@/components/user-prefs";
+import { PANEL_WIDTH_DEFAULT, PANEL_WIDTH_MIN, clampPanelWidth } from "@/lib/user-prefs";
 
 type Tab = "overview" | "spec" | "github" | "alignment" | "activity";
 const TABS: { id: Tab; label: string }[] = [
@@ -20,6 +22,43 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "alignment", label: "Alignment" },
   { id: "activity", label: "Activity" },
 ];
+
+/** The width of the peek panel: dragged by its left edge or with the arrow keys, remembered in the person's profile. */
+function usePanelWidth(enabled: boolean) {
+  const prefs = useUserPrefs();
+  const [width, setWidth] = useState(() => clampPanelWidth(prefs?.panelWidth ?? PANEL_WIDTH_DEFAULT));
+  const [dragging, setDragging] = useState(false);
+  const latest = useRef(width);
+  const start = useRef<{ x: number; w: number } | null>(null);
+  const apply = useCallback((w: number) => { const c = clampPanelWidth(w, window.innerWidth); latest.current = c; setWidth(c); }, []);
+  const save = useCallback(() => prefs?.savePanelWidth(latest.current), [prefs]);
+  // a window that shrinks never leaves the panel wider than allowed
+  useEffect(() => {
+    if (!enabled) return;
+    const onResize = () => setWidth((w) => clampPanelWidth(w, window.innerWidth));
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [enabled]);
+  const handlers = {
+    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); start.current = { x: e.clientX, w: latest.current }; setDragging(true); },
+    onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => { if (start.current) apply(start.current.w + (start.current.x - e.clientX)); },
+    onPointerUp: () => { if (!start.current) return; start.current = null; setDragging(false); save(); },
+    onPointerCancel: () => { start.current = null; setDragging(false); },
+    onDoubleClick: () => { apply(PANEL_WIDTH_DEFAULT); save(); },
+    onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+      const step = e.shiftKey ? 96 : 24;
+      if (e.key === "ArrowLeft") apply(latest.current + step);
+      else if (e.key === "ArrowRight") apply(latest.current - step);
+      else if (e.key === "Home") apply(PANEL_WIDTH_DEFAULT);
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    onKeyUp: (e: React.KeyboardEvent<HTMLDivElement>) => { if (["ArrowLeft", "ArrowRight", "Home"].includes(e.key)) save(); },
+  };
+  return { width, dragging, handlers };
+}
 
 const GH_STATE = { open: "open", closed_completed: "closed (completed)", closed_not_planned: "closed (not planned)" } as const;
 const defaultPageHref = (code: string) => `/portfolio/${encodeURIComponent(code)}`;
@@ -53,6 +92,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pushGithub, setPushGithub] = useState(false);
   const router = useRouter();
+  const resize = usePanelWidth(mode === "peek");
 
   // the lists of this item (tags, links, ...) are read when the panel opens on it
   useEffect(() => {
@@ -75,18 +115,27 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
   const status = row.status ? String(row.status) : "";
 
   return (
-    <aside className={`item-panel item-panel-${mode}`} aria-labelledby={titleId} style={height ? { height } : undefined} data-testid="item-panel">
+    <aside className={`item-panel item-panel-${mode}`} aria-labelledby={titleId} style={{ ...(height ? { height } : {}), ...(mode === "peek" ? { width: resize.width, flexBasis: resize.width } : {}) }} data-testid="item-panel">
+      {mode === "peek" && (
+        <div
+          role="separator" aria-orientation="vertical" aria-label="Panel width. Drag, or use the left and right arrow keys; double-click to reset."
+          aria-valuemin={PANEL_WIDTH_MIN} aria-valuenow={resize.width} tabIndex={0} className={resize.dragging ? "ip-resize ip-resize-on" : "ip-resize"} data-testid="panel-resize"
+          {...resize.handlers}
+        />
+      )}
       <header className="ip-head">
         <div className="ip-nav">
           {mode === "peek" && onPrev && <button type="button" className="btn ip-icon" onClick={onPrev} aria-label="Previous initiative (K)" title="Previous (K)">↑</button>}
           {mode === "peek" && onNext && <button type="button" className="btn ip-icon" onClick={onNext} aria-label="Next initiative (J)" title="Next (J)">↓</button>}
           {position && <span className="muted ip-pos" aria-live="polite">{position.index + 1} of {position.total}</span>}
           <span className="ip-spacer" />
+          {mode === "peek" && onClose && <button type="button" className="btn ip-icon" onClick={onClose} aria-label="Close panel (Esc)" title="Close (Esc)">×</button>}
+        </div>
+        <div className="ip-actions">
           {controller.canEdit && lookups.github?.connected && <button type="button" className="btn ip-link" onClick={() => setPushGithub(true)} title="Checks GitHub for changes and sends yours. Nothing is sent until you confirm.">Sync with GitHub…</button>}
           {controller.canDelete(itemId) && <button type="button" className="btn ip-link" onClick={() => setConfirmDelete(true)}>Delete…</button>}
           {mode === "peek" && <Link className="btn ip-link" href={pageHref(row.item_code)}>Open full page</Link>}
           {mode === "page" && <Link className="btn ip-link" href={backHref}>Back to the roadmap</Link>}
-          {mode === "peek" && onClose && <button type="button" className="btn ip-icon" onClick={onClose} aria-label="Close panel (Esc)" title="Close (Esc)">×</button>}
         </div>
         {lookups.github?.links[itemId] && (() => { const l = lookups.github!.links[itemId]!; return (
           <p className="ip-gh">
@@ -135,19 +184,40 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
   );
 }
 
+/** Whether a field answers a search: every word is found in its name, key or help text. */
+const fieldMatches = (f: { name: string; key: string; description?: string | null }, q: string) => {
+  const hay = `${f.name} ${f.key} ${f.description ?? ""}`.toLowerCase();
+  return q.toLowerCase().split(/\s+/).filter(Boolean).every((w) => hay.includes(w));
+};
+
 function Overview({ ctx, itemId }: { ctx: FieldCtx; itemId: string }) {
   const row = ctx.controller.row(itemId)!;
   const sections = useMemo(() => panelSections(), []);
+  const [query, setQuery] = useState("");
+  const q = query.trim();
+  const shown = useMemo(
+    () => sections.map((s) => ({ ...s, total: s.fields.length, fields: s.fields.filter((f) => f.key !== "health" && (!q || fieldMatches(f, q))) })).filter((s) => !q || s.fields.length > 0),
+    [sections, q],
+  );
+  const healthShown = !q || fieldMatches(FIELD_BY_KEY.health!, q);
+  const found = shown.reduce((n, s) => n + s.fields.length, 0) + (q && healthShown ? 1 : 0);
   return (
     <div className="ip-overview">
-      <HealthBlock ctx={ctx} itemId={itemId} />
-      {sections.map((s) => (
-        <details key={s.group} className="ip-section" open={!s.allLater && ["What", "Who", "Why", "When"].includes(s.group)}>
+      <div className="ip-search" role="search">
+        <input
+          type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search fields" aria-label="Search the fields of this initiative"
+          onKeyDown={(e) => { if (e.key === "Escape" && query) { setQuery(""); e.stopPropagation(); } }}
+        />
+        {q && <span className="muted ip-search-count" role="status">{found === 0 ? "No field matches." : `${found} ${found === 1 ? "field" : "fields"}`}</span>}
+      </div>
+      {healthShown && <HealthBlock ctx={ctx} itemId={itemId} />}
+      {shown.map((s) => (
+        <details key={`${s.group}-${q ? "q" : "all"}`} className="ip-section" open={q ? true : !s.allLater && ["What", "Who", "Why", "When"].includes(s.group)}>
           <summary>
             <h3>{s.group}</h3>
-            <span className="muted">{s.allLater ? `arrives in phase ${Math.min(...s.fields.map((f) => f.phase))}` : `${s.fields.length} fields`}</span>
+            <span className="muted">{q ? `${s.fields.length} matching` : s.allLater ? `arrives in phase ${Math.min(...s.fields.map((f) => f.phase))}` : `${s.total} fields`}</span>
           </summary>
-          <div className="ip-fields">{s.fields.filter((f) => f.key !== "health").map((f) => <FieldRow key={f.key} f={f} row={row} ctx={ctx} />)}</div>
+          <div className="ip-fields">{s.fields.map((f) => <FieldRow key={f.key} f={f} row={row} ctx={ctx} />)}</div>
         </details>
       ))}
     </div>

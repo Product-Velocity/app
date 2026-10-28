@@ -11,7 +11,7 @@ describe("selectionToCsv", () => {
   it("writes the shown columns with their dictionary names and readable values", () => {
     const csv = selectionToCsv([row({ product_manager: "u1", value_12m: 1200.5, archived: false }), row({ item_code: "R-02", initiative_name: "B, with comma" })], fields, lookups);
     expect(csv).toBe(
-      'Initiative ID,Initiative Name,Home Project,Product Manager,"Value (EUR, 12-month run-rate)",Archived\r\n' +
+      'Initiative ID,Initiative Name,Home Project,Product Manager,Business Value (12m run-rate),Archived\r\n' +
       "R-01,A,Platform,ana@example.test,1200.5,false\r\n" +
       'R-02,"B, with comma",Platform,,,\r\n',
     );

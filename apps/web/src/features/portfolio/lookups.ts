@@ -3,7 +3,7 @@ import type { Lookups } from "./types";
 
 /** What the grid and the item panel need besides the items: projects, people, Initiative Groups and teams of the workspace. */
 export async function loadLookups(supabase: SupabaseClient, tenantId: string): Promise<Lookups> {
-  const [projects, groups, teams, people, connection, links, cycle, usernames] = await Promise.all([
+  const [projects, groups, teams, people, connection, links, cycle, usernames, tenant] = await Promise.all([
     supabase.from("projects").select("id, name").eq("tenant_id", tenantId).order("name"),
     supabase.from("item_groups").select("name").eq("tenant_id", tenantId).order("name"),
     supabase.from("teams").select("id, name").eq("tenant_id", tenantId).order("name"),
@@ -12,10 +12,12 @@ export async function loadLookups(supabase: SupabaseClient, tenantId: string): P
     supabase.from("item_github_links").select("item_id, mode, issue_number, html_url, sync_state, last_error, gh_state, gh_last_activity").eq("tenant_id", tenantId),
     supabase.rpc("item_build_cycle", { p_tenant: tenantId }),
     supabase.from("tenant_members").select("user_id, github_username").eq("tenant_id", tenantId),
+    supabase.from("tenants").select("currency").eq("id", tenantId).maybeSingle(),
   ]);
   const githubName = new Map(((usernames.data ?? []) as { user_id: string; github_username: string | null }[]).map((m) => [m.user_id, m.github_username]));
   const build = new Map(((cycle.data ?? []) as { item_id: string; build_started_at: string | null; build_completed_at: string | null; build_days: number | string | null }[]).map((r) => [r.item_id, r]));
   return {
+    currency: (tenant.data as { currency: string | null } | null)?.currency ?? null,
     projects: (projects.data ?? []) as { id: string; name: string }[],
     members: ((people.data ?? []) as { user_id: string; email: string }[]).map((p) => ({ user_id: p.user_id, email: p.email, github_username: githubName.get(p.user_id) ?? null })),
     groups: ((groups.data ?? []) as { name: string }[]).map((g) => g.name),

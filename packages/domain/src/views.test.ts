@@ -100,7 +100,7 @@ describe("filterSummary", () => {
     expect(filterSummary(f("start_date", "in_last", "30"), labels)).toBe("Start Date is in the last 30 days");
     setDateFormat("d MMM yyyy");
     expect(filterSummary(f("moscow", "empty"), labels)).toBe("MoSCoW is empty");
-    expect(filterSummary(f("value_12m", "gt", "1000"), labels)).toBe("Value (EUR, 12-month run-rate) is greater than 1000");
+    expect(filterSummary(f("value_12m", "gt", "1000"), labels)).toBe("Business Value (12m run-rate) is greater than 1000");
   });
 });
 
