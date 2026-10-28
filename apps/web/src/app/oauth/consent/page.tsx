@@ -8,7 +8,9 @@ import { decide } from "./actions";
 export const metadata = { title: "Connect Claude · Product Velocity" };
 
 const ERRORS: Record<string, string> = {
-  choose: "Choose a workspace first.",
+  choose: "Choose at least one workspace first.",
+  single: "One of the workspaces you chose allows Claude only on its own. Choose that one alone, or leave it out.",
+  "needs-migration": "This deployment's database does not support several workspaces yet (migration 0058). Choose one workspace.",
   off: "Claude is switched off for that workspace. A workspace admin can switch it on under Connect Claude.",
   "1": "That did not work. Please try again.",
 };
@@ -38,9 +40,12 @@ export default async function ConsentPage({
     );
   }
 
-  const { data: flags, error: flagError } = await supabase.from("tenants").select("id, claude_enabled").in("id", memberships.map((m) => m.tenantId));
+  const ids = memberships.map((m) => m.tenantId);
+  let { data: flags, error: flagError } = await supabase.from("tenants").select("id, claude_enabled, claude_single_only").in("id", ids);
+  if (flagError) ({ data: flags, error: flagError } = (await supabase.from("tenants").select("id, claude_enabled").in("id", ids)) as never); // before migration 0058
   const on = new Set((flags ?? []).filter((t) => t.claude_enabled).map((t) => t.id as string));
-  const choices = memberships.map((m) => ({ ...m, enabled: on.has(m.tenantId) }));
+  const single = new Set(((flags ?? []) as { id: string; claude_single_only?: boolean }[]).filter((t) => t.claude_single_only).map((t) => t.id));
+  const choices = memberships.map((m) => ({ ...m, enabled: on.has(m.tenantId), single: single.has(m.tenantId) }));
   const firstOn = choices.find((c) => c.tenantId === active.tenantId && c.enabled) ?? choices.find((c) => c.enabled);
 
   return (
@@ -51,19 +56,20 @@ export default async function ConsentPage({
         {flagError && <p role="alert" className="error">This deployment&rsquo;s database is missing migration 0043, so Claude cannot be connected yet.</p>}
         {error && <p role="alert" className="error">{ERRORS[error] ?? ERRORS["1"]}</p>}
         <p>
-          <strong>{data.client.name}</strong> will act as <strong>{data.user.email}</strong>, with your role in the workspace you choose.
+          <strong>{data.client.name}</strong> will act as <strong>{data.user.email}</strong>, with your role in each workspace you choose. Choose one, or several: with several, Claude has to name the workspace on every request and asks you when you have not said.
         </p>
 
         <form action={decide} className="stack">
           <input type="hidden" name="authorization_id" value={id} />
           <fieldset className="consent-workspaces">
-            <legend>Workspace</legend>
+            <legend>Workspaces</legend>
             {choices.map((c) => (
               <label key={c.tenantId}>
-                <input type="radio" name="tenant_id" value={c.tenantId} defaultChecked={firstOn?.tenantId === c.tenantId} disabled={!c.enabled} required />
+                <input type="checkbox" name="tenant_id" value={c.tenantId} defaultChecked={firstOn?.tenantId === c.tenantId} disabled={!c.enabled} />
                 <span>
                   {c.tenantName} · your role: {ROLE_LABEL[c.role]}
                   {claudeMayWrite(c.role) ? "" : " (Claude can read, not change)"}
+                  {c.enabled && c.single && " · its admins allow Claude here only on its own: choose it alone"}
                   {!c.enabled && (
                     <>
                       {" · Claude is switched off here. "}

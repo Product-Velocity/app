@@ -112,13 +112,13 @@ describe("create_items", () => {
     expect(r.data.items[0]).toMatchObject({ status: "valid", values: { estimate_basis: "Rough guess" } });
     expect(r.data.items[1]).toMatchObject({ status: "error", error: expect.stringMatching(/Core, Reports/) });
     expect(spy.applied).toEqual([]);
-    expect(meter).toHaveBeenCalledWith(0, 0);
+    expect(meter).toHaveBeenCalledWith(0, 0, true);
   });
 
   it("counts the items it writes against the daily limit", async () => {
     const meter = okMeter();
     await call(backend("creator", writer().w, meter), "create_items", { items: [{ name: "A", project: "Core" }, { name: "B", project: "Core" }, { name: "C", project: "Core" }] });
-    expect(meter).toHaveBeenCalledWith(3, 0);
+    expect(meter).toHaveBeenCalledWith(3, 0, true);
     const { w, spy } = writer();
     const refused = await call(backend("creator", w, vi.fn<McpBackend["meter"]>(async (): Promise<UsageResult> => ({ ok: false, reason: "workspace_items", limit: 200, used: 200 }))), "create_items", { items: [{ name: "A", project: "Core" }] });
     expect(refused.text).toMatch(/daily limit of 200 items/);
@@ -266,9 +266,9 @@ describe("update_items and confirm_changes", () => {
     const { w } = writer();
     const b = backend("creator", w, meter);
     const held = await call(b, "update_items", { updates: [{ item: "R-01", set: { moscow: "Should" } }, { item: "R-02", set: { summary: "x" } }] });
-    expect(meter).toHaveBeenLastCalledWith(2, 0);
+    expect(meter).toHaveBeenLastCalledWith(2, 0, true);
     await call(b, "confirm_changes", { diff_id: held.data.needs_confirmation.diff_id });
-    expect(meter).toHaveBeenLastCalledWith(1, 0);
+    expect(meter).toHaveBeenLastCalledWith(1, 0, true);
   });
 });
 

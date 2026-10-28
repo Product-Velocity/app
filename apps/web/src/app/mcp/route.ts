@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { authenticate, mcpEnabled } from "@/lib/mcp/auth";
-import { handleRpc, parseBearer, wwwAuthenticate } from "@/lib/mcp/rpc";
+import { handleMulti } from "@/lib/mcp/multi";
+import { parseBearer, wwwAuthenticate } from "@/lib/mcp/rpc";
 import { siteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
     if (!m || typeof m !== "object" || (m as { jsonrpc?: string }).jsonrpc !== "2.0") {
       return json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid request" } }, { status: 400 });
     }
-    const r = await handleRpc(m as Parameters<typeof handleRpc>[0], caller.backend);
+    const r = await handleMulti(m as Parameters<typeof handleMulti>[0], caller.workspaces, caller.unavailable);
     if (r) out.push(r);
   }
   if (out.length === 0) return new NextResponse(null, { status: 202 });
