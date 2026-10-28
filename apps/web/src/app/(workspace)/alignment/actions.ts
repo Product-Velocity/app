@@ -126,7 +126,7 @@ export async function confirmAndSend(form: FormData): Promise<void> {
   const { supabase, active } = await requireWorkspace(PATH);
   const session = String(form.get("session")), id = String(form.get("id"));
   const expected = Number(form.get("expected"));
-  if (active.role !== "admin" || !UUID.test(session) || !UUID.test(id) || !Number.isInteger(expected)) redirect(`${PATH}/${session}?status=not-allowed`);
+  if (active.role !== "admin" || active.platform || !UUID.test(session) || !UUID.test(id) || !Number.isInteger(expected)) redirect(`${PATH}/${session}?status=not-allowed`);
   const { error } = await supabase.rpc("alignment_mailing_confirm", { p_id: id, p_expected: expected });
   if (error) redirect(`${MAIL(session, id)}?notice=${encodeURIComponent(error.code === "22023" ? error.message : error.code === "PV004" ? "Only a person can confirm sending." : "We could not confirm.")}`);
   await runSending(session, id);
@@ -136,7 +136,7 @@ export async function confirmAndSend(form: FormData): Promise<void> {
 export async function continueSending(form: FormData): Promise<void> {
   const { active } = await requireWorkspace(PATH);
   const session = String(form.get("session")), id = String(form.get("id"));
-  if (active.role !== "admin" || !UUID.test(session) || !UUID.test(id)) redirect(`${PATH}/${session}?status=not-allowed`);
+  if (active.role !== "admin" || active.platform || !UUID.test(session) || !UUID.test(id)) redirect(`${PATH}/${session}?status=not-allowed`);
   await runSending(session, id);
 }
 

@@ -1,6 +1,6 @@
 import { requireWorkspace } from "@/lib/session";
 import { canUnlink, LINKABLE, leaveMessage, PROVIDER_LABEL, profileFromMetadata, timeZones } from "@/lib/account";
-import { EmailForm, GithubUsernameForm, PasswordForm, ProfileForm } from "./forms";
+import { EmailForm, GithubUsernameForm, LinkedEmails, PasswordForm, ProfileForm, type LinkedEmail } from "./forms";
 import { leaveWorkspace, linkProvider, signOutSessions, unlinkProvider } from "./actions";
 import { switchTenant } from "../actions";
 import Link from "next/link";
@@ -15,6 +15,10 @@ const NOTICE: Record<string, string> = {
   "bad-provider": "That sign-in method is not available.",
   "signed-out-others": "Signed out of all your other devices.",
   left: "You left the workspace.",
+  "email-removed": "Address removed.",
+  "email-removed-review": "Address removed. Access that came only through it now waits for the workspace admin to review.",
+  "email-failed": "We could not do that. Please try again.",
+  "notify-saved": "Notification address saved.",
   "last-admin": leaveMessage("PV003"),
   "leave-failed": leaveMessage(undefined),
 };
@@ -28,6 +32,8 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   const identities = ids?.identities ?? [];
   const hasPassword = identities.some((i) => i.provider === "email");
   const profile = profileFromMetadata(user.user_metadata);
+  const { data: emailRows } = await supabase.rpc("my_emails");
+  const emails = (emailRows ?? []) as LinkedEmail[];
   const { data: mine } = await supabase.from("tenant_members").select("github_username").eq("tenant_id", active.tenantId).eq("user_id", user.id).maybeSingle();
 
   return (
@@ -43,6 +49,9 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
       <h2>Email</h2>
       <div className="card"><EmailForm email={user.email ?? ""} hasPassword={hasPassword} /></div>
+
+      <h2>Linked emails</h2>
+      <div className="card"><LinkedEmails emails={emails} /></div>
 
       <h2>Password</h2>
       <div className="card"><PasswordForm hasPassword={hasPassword} /></div>

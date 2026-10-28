@@ -42,3 +42,24 @@ export function buildAccessApprovedEmail(input: { workspace: string; link: strin
   ].join("\n");
   return { subject, text, html };
 }
+
+/** To an address someone wants to link to their account (R-111 FR-4.1): the code only; no link to click, so it cannot be phished from a mailbox. */
+export function buildLinkCodeEmail(input: { code: string }): PlainEmail {
+  const subject = `Your Product Velocity code: ${input.code}`;
+  const text = [
+    `Your code is ${input.code}.`,
+    "",
+    "Enter it on the Account page of Product Velocity to add this address to your account. It works for 15 minutes.",
+    "",
+    "If you did not ask for this, ignore this email: nothing is added without the code.",
+    "",
+    "Product Velocity",
+  ].join("\n");
+  const html = [
+    `<p>Your code is <strong style="font-size:18px;letter-spacing:2px">${escapeHtml(input.code)}</strong>.</p>`,
+    "<p>Enter it on the Account page of Product Velocity to add this address to your account. It works for 15 minutes.</p>",
+    "<p>If you did not ask for this, ignore this email: nothing is added without the code.</p>",
+    "<p>Product Velocity</p>",
+  ].join("\n");
+  return { subject, text, html };
+}

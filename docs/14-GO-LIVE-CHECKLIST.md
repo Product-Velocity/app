@@ -25,6 +25,15 @@ Living list of things that must be done before real customers or real data. Owne
 - [ ] Legal wording reviewed before real customers or participants are invited (consent, retention, "no delivery promises"); not needed for the fictional-data prototype (decided 2026-10-21).
 - [ ] Prototype link "anyone with the link": remove or restrict once any real data is shown.
 
+## Platform admin access and audit (R-111, 0.46.0)
+- [ ] **Apply migrations 0050, 0051 and 0052** to the production database (forward-only; they add columns and tables, drop nothing). Then create the **first platform admin** with the service role: `insert into platform.admins (user_id) select id from auth.users where email = '<your email>';` (the person must have signed up and confirmed that email). Add others from Platform > Access settings.
+- [ ] Platform admins **must use two-factor**: today it applies only if the admin enrolled. Make enrolment mandatory for platform admins before the pilot.
+- [ ] Decide the **audit log retention period** and export format (CSV up to 5,000 rows today); the log is append-only, so a retention job needs its own migration and a documented exception.
+- [ ] State in the terms and privacy policy that platform admins can enter customer accounts, that every entry and every change is logged and visible to the account's admins (see also the staff access item below).
+- [ ] Decide whether read-only should become the platform default before real customers (today it is read & write, as the issue asked); Platform > Access settings changes it without a deployment.
+- [ ] Linked emails: decide how two existing accounts that own the same address are merged (today a person asks support; nothing merges silently).
+- [ ] Domain claims are still unverified by DNS (R-110): a verified linked email on a domain that two workspaces list asks both of them.
+
 ## Staff access (see `docs/15`)
 - [ ] Terms and privacy policy state plainly that Product Velocity staff can access customer data (open content access), why, and that every access is logged and visible to customer admins.
 - [ ] Staff access log visible to workspace admins; staff accounts require 2FA; at least two super-admins.

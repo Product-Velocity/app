@@ -3,14 +3,13 @@ import { HelpMenu } from "./help-menu";
 import { BrandLogo } from "./brand-logo";
 import { HeaderTabs } from "./header-tabs";
 import { ScopeSwitcher } from "@/features/workspace/scope-switcher";
-
-export type HeaderTenant = { tenantId: string; tenantName: string };
+import { AccountSwitcher, type SwitcherAccount } from "./account-switcher";
 type Props = {
   tenantName: string;
-  /** Set when the person belongs to more than one workspace: shows a switcher instead of the name. */
-  memberships?: HeaderTenant[];
+  /** The accounts the person can open; more than one (or a platform role) turns the name into the account switcher. */
+  accounts?: SwitcherAccount[];
   activeTenantId?: string;
-  switchAction?: (form: FormData) => void | Promise<void>;
+  isPlatformAdmin?: boolean;
   email: string;
   roleLabel: string;
   isApprover: boolean;
@@ -18,10 +17,12 @@ type Props = {
   current?: "grid" | "gantt" | "cards" | "leadership";
   /** Creators and admins get a link to the Trash in the account menu. */
   showTrash?: boolean;
+  /** Admins (and platform admins inside the account) get the Audit log link. */
+  showAudit?: boolean;
 };
 
 /** Top bar following prototype boards 20 and 1: logo, workspace and scope, tabs, account menu. */
-export function AppHeader({ tenantName, memberships, activeTenantId, switchAction, email, roleLabel, isApprover, current, showTrash }: Props) {
+export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmin, email, roleLabel, isApprover, current, showTrash, showAudit }: Props) {
   return (
     <header className="topbar">
       <span className="brand-lockup">
@@ -30,14 +31,8 @@ export function AppHeader({ tenantName, memberships, activeTenantId, switchActio
       </span>
 
       <div className="scope">
-        {memberships && memberships.length > 1 && switchAction ? (
-          <form action={switchAction} className="inline-form">
-            <label htmlFor="tenant" className="visually-hidden">Workspace</label>
-            <select id="tenant" name="tenantId" defaultValue={activeTenantId}>
-              {memberships.map((m) => <option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}
-            </select>
-            <button className="btn" type="submit">Switch</button>
-          </form>
+        {activeTenantId && accounts ? (
+          <AccountSwitcher accounts={accounts} activeId={activeTenantId} activeName={tenantName} isPlatformAdmin={!!isPlatformAdmin} />
         ) : (
           <span>{tenantName}</span>
         )}
@@ -45,10 +40,10 @@ export function AppHeader({ tenantName, memberships, activeTenantId, switchActio
         <ScopeSwitcher />
       </div>
 
-      <HeaderTabs current={current} />
+      <HeaderTabs current={current} accountId={activeTenantId} />
 
       <HelpMenu />
-      <AccountMenu email={email} roleLabel={roleLabel} isApprover={isApprover} showTrash={showTrash} />
+      <AccountMenu email={email} roleLabel={roleLabel} isApprover={isApprover} showTrash={showTrash} showAudit={showAudit} />
     </header>
   );
 }

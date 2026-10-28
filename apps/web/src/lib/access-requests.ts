@@ -16,17 +16,20 @@ export async function syncDomainAccess(supabase: SupabaseClient, requesterEmail:
   const { data, error } = await supabase.rpc("request_access_by_domain");
   if (error || !Array.isArray(data)) return [];
   const rows = data as { tenant_id: string; tenant_name: string; created: boolean }[];
-  const fresh = rows.filter((r) => r.created);
-  if (fresh.length > 0 && emailConfigured()) {
-    const admin = createAdminClient({ via: "system" });
-    const link = `${await siteUrl()}/settings/members`;
-    for (const r of fresh) {
-      const { data: emails } = await admin.rpc("tenant_admin_emails", { p_tenant: r.tenant_id });
-      const mail = buildAccessRequestEmail({ workspace: r.tenant_name, requester: requesterEmail, link });
-      for (const to of ((emails ?? []) as string[]).slice(0, 10)) await sendEmail({ to, ...mail });
-    }
-  }
+  await notifyAdminsOfRequests(rows.filter((r) => r.created).map((r) => ({ tenantId: r.tenant_id, tenantName: r.tenant_name })), requesterEmail);
   return rows.map((r) => ({ tenantId: r.tenant_id, tenantName: r.tenant_name }));
+}
+
+/** Emails the admins of each workspace that has a new Requested Access row (from the sign-up check or from verifying a linked email). */
+export async function notifyAdminsOfRequests(fresh: PendingAccess[], requesterEmail: string): Promise<void> {
+  if (fresh.length === 0 || !emailConfigured()) return;
+  const admin = createAdminClient({ via: "system" });
+  const link = `${await siteUrl()}/settings/members`;
+  for (const r of fresh) {
+    const { data: emails } = await admin.rpc("tenant_admin_emails", { p_tenant: r.tenantId });
+    const mail = buildAccessRequestEmail({ workspace: r.tenantName, requester: requesterEmail, link });
+    for (const to of ((emails ?? []) as string[]).slice(0, 10)) await sendEmail({ to, ...mail });
+  }
 }
 
 export type AccessState = { tenantId: string; tenantName: string; status: "requested" | "paused" | "revoked"; since: string };

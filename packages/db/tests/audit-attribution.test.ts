@@ -55,6 +55,14 @@ describe("audit attribution (FR-6.2, FR-6.5)", () => {
     expect((await entries(f.tenantB, "items", "initiative_name")).at(-1)).toMatchObject({ screen: "gantt", old: "Renamed by a creator", new: "Renamed again" });
   });
 
+  it("takes the screen from the request header, but only a short plain label", async () => {
+    const item = (await db.admin.query("select id from public.items where tenant_id = $1 limit 1", [f.tenantA])).rows[0].id;
+    await db.asUser(f.alice, (q) => q("update public.items set initiative_name = 'via header' where id = $1", [item]), { commit: true, headers: { "x-pv-screen": "cards" } });
+    expect((await entries(f.tenantA, "items", "initiative_name")).at(-1).screen).toBe("cards");
+    await db.asUser(f.alice, (q) => q("update public.items set initiative_name = 'via header 2' where id = $1", [item]), { commit: true, headers: { "x-pv-screen": "<script>alert(1)</script>" } });
+    expect((await entries(f.tenantA, "items", "initiative_name")).at(-1).screen).toBeNull();
+  });
+
   it("cannot be forged or changed by a client (append-only, no insert grant)", async () => {
     expect(await errorCode(db.asUser(f.alice, (q) => q("update public.audit_log set actor_name = 'x' where tenant_id = $1", [f.tenantA])))).toBeTruthy();
     expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.audit_log (tenant_id, entity, field, via, actor_name) values ($1, 'tenants', 'name', 'UI', 'x')", [f.tenantA])))).toBe("42501");

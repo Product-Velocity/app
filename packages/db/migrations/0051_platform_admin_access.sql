@@ -221,7 +221,8 @@ create or replace function public.audit_log_snapshot() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
   u record;
-  v_screen text := left(nullif(current_setting('app.screen', true), ''), 40);
+  v_screen text := coalesce(nullif(current_setting('app.screen', true), ''),
+                            nullif(nullif(current_setting('request.headers', true), '')::jsonb ->> 'x-pv-screen', ''));
   v_member text;
 begin
   if new.actor_id is not null then
@@ -238,7 +239,8 @@ begin
       new.actor_role := v_member;
     end if;
   end if;
-  new.screen := v_screen;
+  -- advisory context for the reader of the log (which tab the change came from), so only a short plain label is kept
+  new.screen := case when v_screen ~ '^[a-z0-9_-]{1,30}$' then v_screen else null end;
   new.batch_id := nullif(current_setting('pv.batch_id', true), '')::uuid;
   new.project_id := case new.entity
     when 'projects' then new.entity_id
@@ -445,7 +447,7 @@ end $$;
 
 -- The audit log across all accounts (FR-6.6) and the configuration log (FR-2.7).
 create function public.platform_audit_search(
-  p_tenant uuid default null, p_actor text default null, p_field text default null, p_project uuid default null,
+  p_tenant uuid default null, p_actor text default null, p_action text default null, p_project uuid default null,
   p_from timestamptz default null, p_to timestamptz default null, p_limit integer default 200, p_before bigint default null)
 returns setof public.audit_log
 language plpgsql stable security definer set search_path = '' as $$
@@ -455,7 +457,7 @@ begin
     select a.* from public.audit_log a
      where (p_tenant is null or a.tenant_id = p_tenant)
        and (p_actor is null or a.actor_name ilike '%' || p_actor || '%' or a.actor_email ilike '%' || p_actor || '%')
-       and (p_field is null or a.field = p_field)
+       and (p_action is null or a.field ilike '%' || p_action || '%' or a.entity ilike '%' || p_action || '%')
        and (p_project is null or a.project_id = p_project)
        and (p_from is null or a.at >= p_from) and (p_to is null or a.at < p_to)
        and (p_before is null or a.id < p_before)

@@ -659,3 +659,16 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .status-requested { color: #8a5a00; }
 .status-paused, .status-revoked { color: #5b6272; }
 .members-table .status-text + .bulk-link { margin-left: 8px; }
+
+/* R-111: platform admin banner and console */
+.platform-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 6px 16px; background: #fff7e0; border-bottom: 1px solid #e8c766; color: #5b4300; font-size: 13px; }
+.platform-banner-ro { background: #eef2ff; border-bottom-color: #a5b4fc; color: #232d6b; }
+.platform-banner .platform-level { font-weight: 600; padding: 1px 8px; border: 1px solid currentColor; border-radius: 10px; }
+.platform-banner form { margin-left: auto; }
+.badge-platform { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid #b7791f; border-radius: 8px; background: #fff7e0; color: #5b4300; font-size: 11px; font-weight: 600; }
+.table-wrap { overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th, .data-table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e1e5eb; vertical-align: top; }
+.data-table th { font-size: 12px; color: #4b5563; font-weight: 600; white-space: nowrap; }
+.filter-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin: 12px 0; }
+.filter-bar label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #4b5563; }

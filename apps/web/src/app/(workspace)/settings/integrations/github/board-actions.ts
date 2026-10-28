@@ -19,7 +19,7 @@ const SLOTS = {
 async function gate() {
   const ctx = await requireWorkspace(PATH);
   const { data: me } = await ctx.supabase.from("tenant_members").select("is_service_account").eq("tenant_id", ctx.active.tenantId).eq("user_id", ctx.user.id).maybeSingle();
-  if (ctx.active.role !== "admin" || me?.is_service_account) return { ok: false, error: "Only admins can change this." } as const;
+  if (ctx.active.role !== "admin" || me?.is_service_account || ctx.active.platform) return { ok: false, error: "Only admins of the account can change this." } as const;
   const sc = githubSourceControl();
   if (!sc) return { ok: false, error: "The GitHub App is not set up for this deployment yet." } as const;
   const { data } = await ctx.supabase.from("github_connections").select("*").eq("tenant_id", ctx.active.tenantId).eq("state", "connected").maybeSingle();

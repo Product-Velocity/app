@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash, randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
@@ -8,6 +9,9 @@ import { checkPassword } from "@/lib/password";
 import { githubUsernameMessage } from "@/lib/github-username";
 import { loadMemberships, requireUser, requireWorkspace } from "@/lib/session";
 import { siteUrl } from "@/lib/site-url";
+import { emailConfigured, sendEmail } from "@/lib/email/resend";
+import { buildLinkCodeEmail } from "@/lib/email/access";
+import { notifyAdminsOfRequests } from "@/lib/access-requests";
 
 export type FormState = { ok?: string; error?: string } | null;
 const PATH = "/account";
@@ -109,4 +113,69 @@ export async function leaveWorkspace(form: FormData): Promise<void> {
   revalidatePath(PATH);
   if (error) redirect(`${PATH}?status=${error.code === "PV003" ? "last-admin" : "leave-failed"}`);
   redirect(`${PATH}?status=left`);
+}
+
+/* ---- Linked verified emails (R-111 FR-4) ---- */
+
+const LINK_ERROR: Record<string, string> = {
+  PV030: "You can link at most 10 addresses.",
+  PV031: "That address is already on your account.",
+  PV032: "Please wait a minute before asking for another code.",
+  "22023": "Enter a valid email address.",
+};
+const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
+
+/**
+ * Step 1: send a 6-digit code to the new address. The answer is the same whether or not the address can be linked (another person may
+ * already have it), so the form never reveals who has which address. The database keeps only a hash of the code.
+ */
+export async function startLinkEmail(_prev: FormState, form: FormData): Promise<FormState> {
+  const { supabase } = await requireUser(PATH);
+  const email = String(form.get("email") ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return { error: "Enter a valid email address." };
+  if (!emailConfigured()) return { error: "Email is not set up on this deployment yet, so we cannot send a code." };
+  const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  const { data, error } = await supabase.rpc("link_email_start", { p_email: email, p_code_hash: sha256(code) });
+  if (error) return { error: LINK_ERROR[error.code ?? ""] ?? "We could not start that. Please try again." };
+  const send = (Array.isArray(data) ? data[0] : data) as { send?: boolean } | null;
+  if (send?.send) {
+    const res = await sendEmail({ to: email, ...buildLinkCodeEmail({ code }) });
+    if (!res.ok) return { error: res.error };
+  }
+  revalidatePath(PATH);
+  return { ok: `If ${email} can be added, we sent it a 6-digit code. Enter it below within 15 minutes.` };
+}
+
+/** Step 2: the code verifies the address. Authorized domains that include it then get a Requested Access row and their admins are told. */
+export async function verifyLinkEmail(_prev: FormState, form: FormData): Promise<FormState> {
+  const { supabase, user } = await requireUser(PATH);
+  const email = String(form.get("email") ?? "").trim().toLowerCase();
+  const code = String(form.get("code") ?? "").replace(/\s/g, "");
+  if (!/^\d{6}$/.test(code)) return { error: "Enter the 6-digit code." };
+  const { data, error } = await supabase.rpc("link_email_verify", { p_email: email, p_code: code });
+  if (error) return { error: "We could not check that code. Please try again." };
+  const rows = (data ?? []) as { ok: boolean; tenant_id: string | null; tenant_name: string | null; created: boolean }[];
+  if (!rows[0]?.ok) return { error: "That code is wrong or has expired. Ask for a new one." };
+  const fresh = rows.filter((r) => r.created && r.tenant_id).map((r) => ({ tenantId: r.tenant_id!, tenantName: r.tenant_name ?? "Workspace" }));
+  await notifyAdminsOfRequests(fresh, user.email ?? email);
+  revalidatePath(PATH);
+  return {
+    ok: fresh.length > 0
+      ? `${email} is verified. ${fresh.map((f) => f.tenantName).join(", ")} ${fresh.length === 1 ? "has" : "have"} been asked to review your access.`
+      : `${email} is verified.`,
+  };
+}
+
+export async function removeLinkedEmail(form: FormData): Promise<void> {
+  const { supabase } = await requireUser(PATH);
+  const { data, error } = await supabase.rpc("remove_linked_email", { p_email: String(form.get("email") ?? "") });
+  revalidatePath(PATH);
+  redirect(`${PATH}?status=${error ? "email-failed" : Number(data) > 0 ? "email-removed-review" : "email-removed"}`);
+}
+
+export async function chooseNotificationEmail(form: FormData): Promise<void> {
+  const { supabase } = await requireUser(PATH);
+  const { error } = await supabase.rpc("set_notification_email", { p_email: String(form.get("email") ?? "") });
+  revalidatePath(PATH);
+  redirect(`${PATH}?status=${error ? "email-failed" : "notify-saved"}`);
 }

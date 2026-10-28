@@ -11,7 +11,7 @@ const initials = (email: string) => {
 };
 
 /** The avatar menu. It closes on a click anywhere else, on Escape, and as soon as a link in it is used. */
-export function AccountMenu({ email, roleLabel, isApprover, showTrash }: { email: string; roleLabel: string; isApprover: boolean; showTrash?: boolean }) {
+export function AccountMenu({ email, roleLabel, isApprover, showTrash, showAudit }: { email: string; roleLabel: string; isApprover: boolean; showTrash?: boolean; showAudit?: boolean }) {
   const ref = useRef<HTMLDetailsElement>(null);
   const close = () => { if (ref.current) ref.current.open = false; };
   // always listening: the "toggle" event that sets `open` arrives a moment after the click, and a fast second click must still close it
@@ -37,6 +37,7 @@ export function AccountMenu({ email, roleLabel, isApprover, showTrash }: { email
           <Link href="/settings/workspace" className="menu-link">Workspace settings</Link>
           <Link href="/settings/members" className="menu-link">Members</Link>
           <Link href="/settings/groups" className="menu-link">Initiative Groups</Link>
+          {showAudit && <Link href="/settings/audit" className="menu-link">Audit log</Link>}
           <Link href="/alignment" className="menu-link">Alignment</Link>
           {showTrash && <Link href="/trash" className="menu-link">Trash</Link>}
         </div>

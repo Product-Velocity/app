@@ -1,5 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { supabaseEnv } from "./env";
 
 /**
@@ -12,8 +12,9 @@ export async function createClient() {
   // prerenders a page (and never needs the env vars) at build time
   const cookieStore = await cookies();
   const { url, anonKey } = supabaseEnv();
+  const screen = (await headers()).get("x-pv-screen"); // set by the proxy: the audit log shows which screen a change came from
   return createServerClient(url, anonKey, {
-    global: { headers: { "x-pv-via": "UI" } },
+    global: { headers: { "x-pv-via": "UI", ...(screen ? { "x-pv-screen": screen } : {}) } },
     cookies: {
       getAll: () => cookieStore.getAll(),
       setAll(list) {

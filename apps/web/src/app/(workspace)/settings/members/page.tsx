@@ -11,7 +11,7 @@ export const metadata = { title: "Members · Product Velocity" };
 export default async function MembersPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const { status } = await searchParams;
   const { supabase, user, active } = await requireWorkspace("/settings/members");
-  const isAdmin = active.role === "admin";
+  const isAdmin = active.role === "admin" && !active.platform; // a platform admin reads the roster; who has access is the customer's decision
   const initialFilter = (MEMBER_STATUSES as readonly string[]).includes(status ?? "") ? (status as MemberStatus) : "all";
 
   let rows: GridRow[] = [];
