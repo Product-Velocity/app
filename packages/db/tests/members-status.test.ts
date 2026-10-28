@@ -164,8 +164,8 @@ describe("set_member_status (batch)", () => {
     const mb = (await db.admin.query("select id from public.tenant_members where user_id = $1", [b.id])).rows[0].id;
     await db.asUser(f.alice, (q) => q("select * from public.set_member_status(array[$1::uuid], 'active')", [ma]), { commit: true });
     // requested -> paused is not allowed; active -> paused is
-    const out = await db.asUser(f.alice, async (q) => (await q("select * from public.set_member_status(array[$1::uuid, $2::uuid], 'paused')", [ma, mb])).rows, { commit: true });
-    const byEmail = Object.fromEntries(out.map((r: { email: string }) => [r.email, r]));
+    const out: { email: string; ok: boolean; reason: string }[] = await db.asUser(f.alice, async (q) => (await q("select * from public.set_member_status(array[$1::uuid, $2::uuid], 'paused')", [ma, mb])).rows, { commit: true });
+    const byEmail = Object.fromEntries(out.map((r) => [r.email, r]));
     expect(byEmail["mix-a@acme.test"].ok).toBe(true);
     expect(byEmail["mix-b@acme.test"]).toMatchObject({ ok: false });
     expect(byEmail["mix-b@acme.test"].reason).toMatch(/cannot become paused/);

@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useRef, useState, useTransition } from "react";
+import { useActionState, useRef, useState } from "react";
 import { ROLES, ROLE_HELP, ROLE_LABEL, type Role } from "@/lib/roles";
-import { createInvitation, resendInvitation, setMemberGithubUsername, updateMember, type InviteState } from "./actions";
+import { createInvitation, resendInvitation, type InviteState } from "./actions";
 
 /**
  * Invite someone in two steps: fill in, then review. Nothing is sent until the admin confirms in the review: "Send invitation email"
@@ -97,83 +97,5 @@ export function ResendControls({ id, emailEnabled }: { id: string; emailEnabled:
       {state?.error && <p role="alert" className="error">{state.error}</p>}
       {state?.link && <LinkNotice state={state} />}
     </div>
-  );
-}
-
-export function MemberControls(props: { memberId: string; role: Role; isApprover: boolean; disabled: boolean }) {
-  const [role, setRole] = useState<Role>(props.role);
-  const [approver, setApprover] = useState(props.isApprover);
-  const [status, setStatus] = useState<string>("");
-  const [, startTransition] = useTransition();
-
-  function save(nextRole: Role, nextApprover: boolean) {
-    const prev = { role, approver };
-    setRole(nextRole);
-    setApprover(nextApprover);
-    setStatus("Saving…");
-    startTransition(async () => {
-      const result = await updateMember(props.memberId, nextRole, nextApprover);
-      if (result.ok) {
-        setStatus("Saved");
-      } else {
-        setRole(prev.role);
-        setApprover(prev.approver);
-        setStatus(result.error);
-      }
-    });
-  }
-
-  return (
-    <>
-      <td>
-        <select
-          aria-label="Role"
-          value={role}
-          disabled={props.disabled}
-          onChange={(e) => save(e.target.value as Role, approver)}
-        >
-          {ROLES.map((r) => (
-            <option key={r} value={r}>
-              {ROLE_LABEL[r]}
-            </option>
-          ))}
-        </select>
-      </td>
-      <td>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={approver}
-            disabled={props.disabled}
-            onChange={(e) => save(role, e.target.checked)}
-          />{" "}
-          Approver
-        </label>
-        <span className="status" role="status" aria-live="polite">
-          {status}
-        </span>
-      </td>
-    </>
-  );
-}
-
-/** The GitHub username of a member, edited by an admin (it matches the person with the assignees of GitHub issues). */
-export function MemberGithubUsername({ userId, current, label }: { userId: string; current: string; label: string }) {
-  const [value, setValue] = useState(current);
-  const [status, setStatus] = useState("");
-  const [, startTransition] = useTransition();
-  const save = () => {
-    if (value.trim() === current) return;
-    setStatus("Saving…");
-    startTransition(async () => {
-      const r = await setMemberGithubUsername(userId, value);
-      setStatus(r.ok ? "Saved" : r.error);
-    });
-  };
-  return (
-    <>
-      <input aria-label={`GitHub username of ${label}`} value={value} maxLength={40} autoComplete="off" spellCheck={false} placeholder="none" onChange={(e) => setValue(e.target.value)} onBlur={save} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); save(); } }} />
-      <span role="status" className="muted" aria-live="polite"> {status}</span>
-    </>
   );
 }
