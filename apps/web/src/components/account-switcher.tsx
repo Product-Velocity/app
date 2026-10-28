@@ -73,12 +73,13 @@ export function AccountSwitcher({ accounts, activeId, activeName, isPlatformAdmi
             {shownRecent.map((a) => row(a, `r-${a.tenantId}`))}
             {shown.length > 0 && <p className="scope-head">{accounts.length === 1 ? "Your account" : "All your accounts"}</p>}
             {shown.map((a) => row(a, a.tenantId))}
-            {isPlatformAdmin && !searching && (
+            {!searching && (
               <>
-                <p className="scope-head">Platform</p>
-                <Link role="menuitem" href="/platform" className="scope-item" data-testid="all-accounts-link" onClick={() => close()}>
-                  <span>All accounts console</span><span className="scope-meta">platform admins</span>
-                </Link>
+                <p className="scope-head">More</p>
+                <Link role="menuitem" href="/onboarding?new=1" className="scope-item scope-link" data-testid="new-account-link" onClick={() => close()}>+ New account</Link>
+                {isPlatformAdmin && (
+                  <Link role="menuitem" href="/platform" className="scope-item scope-link" data-testid="all-accounts-link" onClick={() => close()}>All accounts console (platform admins)</Link>
+                )}
               </>
             )}
           </div>

@@ -27,6 +27,7 @@ Living list of things that must be done before real customers or real data. Owne
 
 ## Platform admin access and audit (R-111, 0.46.0)
 - [ ] **Apply migrations 0050, 0051 and 0052** to the production database (forward-only; they add columns and tables, drop nothing). Then create the **first platform admin** with the service role: `insert into platform.admins (user_id) select id from auth.users where email = '<your email>';` (the person must have signed up and confirmed that email). Add others from Platform > Access settings.
+- [ ] **Deleting an account** (0053) does not remove its files in storage or its GitHub App installation: add that cleanup (and decide on a waiting period or soft delete) before real customers.
 - [ ] Platform admins **must use two-factor**: today it applies only if the admin enrolled. Make enrolment mandatory for platform admins before the pilot.
 - [ ] Decide the **audit log retention period** and export format (CSV up to 5,000 rows today); the log is append-only, so a retention job needs its own migration and a documented exception.
 - [ ] State in the terms and privacy policy that platform admins can enter customer accounts, that every entry and every change is logged and visible to the account's admins (see also the staff access item below).

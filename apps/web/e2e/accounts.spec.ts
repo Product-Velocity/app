@@ -14,6 +14,12 @@ test.describe("account switcher (FR-1)", () => {
     await expect(menu.getByText("Recent")).toBeVisible();
     await expect(menu.getByRole("menuitemradio", { name: /Harbor Logistics/ })).toBeVisible();
     await expect(page.getByTestId("all-accounts-link")).toHaveCount(0); // platform admins only
+    await expect(page.getByTestId("new-account-link")).toHaveAttribute("href", "/onboarding?new=1");
+    // the search box stays inside the menu (it used to overflow)
+    const menuBox = await page.getByTestId("account-menu").boundingBox();
+    const searchBox = await page.getByLabel("Search accounts").boundingBox();
+    expect(menuBox!.width).toBeGreaterThanOrEqual(320);
+    expect(searchBox!.x + searchBox!.width).toBeLessThanOrEqual(menuBox!.x + menuBox!.width + 0.5);
     await page.screenshot({ path: "../../docs/screenshots/account-switcher.png" });
     await page.getByRole("searchbox", { name: "Search accounts" }).or(page.getByRole("combobox", { name: "Search accounts" })).fill("north");
     await expect(menu.getByRole("menuitemradio")).toHaveCount(1);
@@ -37,6 +43,9 @@ test.describe("account switcher (FR-1)", () => {
     await page.goto("/dev/accounts?accounts=1&platform=1");
     await page.getByTestId("account-chip").click();
     await expect(page.getByTestId("all-accounts-link")).toHaveAttribute("href", "/platform");
+    // one link per row: nothing else in the row is a link
+    await expect(page.getByTestId("all-accounts-link").getByRole("link")).toHaveCount(0);
+    await page.screenshot({ path: "../../docs/screenshots/account-switcher-platform.png" });
   });
 });
 
@@ -105,6 +114,12 @@ test.describe("All accounts console (FR-2.2)", () => {
     await expect(rows.nth(1)).toContainText("No activity yet");
     await expect(rows.nth(1).getByRole("button", { name: "Remove restriction" })).toBeVisible();
     await expect(page.getByTestId("enter-account")).toHaveCount(2);
+    // delete asks for the account name first
+    const del = rows.nth(0).locator("details.delete-account");
+    await del.locator("summary").click();
+    await expect(del).toContainText("Deletes Meridian Media with its 12 members, 4 projects");
+    await expect(del.getByLabel("Type Meridian Media to confirm deleting it")).toBeVisible();
+    await expect(del.getByTestId("delete-account")).toBeVisible();
     await page.screenshot({ path: "../../docs/screenshots/platform-console.png" });
   });
   test("has no accessibility violations", async ({ page }) => {
