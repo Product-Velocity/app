@@ -1,6 +1,6 @@
 # Claude writes a discovery document (issue #244)
 
-Status: spec, 2026-10-28, from Ashu's chat and the example document "Discovery: Improving retention and loyalty". Builds on `docs/22-CLAUDE-PRD-FLOW.md`. Nothing here is built yet.
+Status: 2026-10-28, from Ashu's chat and the example document "Discovery: Improving retention and loyalty". Builds on `docs/22-CLAUDE-PRD-FLOW.md`. **Built: slices 1, 2, 4 and 5. Slice 3 (the extract tool) is skipped on purpose: Ashu copies the chosen solution's values by hand for now.**
 
 ## 1. What a discovery is
 The step before the PRD: an objective tied to a company OKR, key results with guardrails, the problem and the evidence, risks, a ranked table of candidate solutions, next steps to decision gate 1 (align on which initiative to pursue) and a test plan. It ends when people choose a solution; the PRD then works out that one.
@@ -9,6 +9,8 @@ The step before the PRD: an objective tied to a company OKR, key results with gu
 1. A new document kind **`discovery`** (migration changes the kind check; `research` stays for other research).
 2. **Key results stay in the document.** The fields keep one Primary KR (name, unit, direction, start, target); several KRs and guardrails are not new fields.
 3. **Only the chosen solution is registered.** The other solutions stay in the discovery document.
+
+**Because slice 3 is skipped,** `write_discovery` fills only the initiative's name, phase (Discover), project, group and optional tags. It does not copy the hypothesis, MoSCoW, Effort or key results into fields, and puts nothing in the Description or summary; its closing message says which values are in the document for the person to copy.
 
 ## 3. What Product Velocity holds
 - **One initiative**, in the Initiative Phase "Discover". It starts as the opportunity ("Discovery: <topic>") and, when a solution is chosen, is **updated into that solution** (name, hypothesis, MoSCoW, Effort, primary KR) through the normal diff-and-confirm. If the person already names the chosen solution, it is created as that solution at once.
@@ -53,11 +55,11 @@ Everything else (other KRs, guardrails, evidence, competitors, the other solutio
 - **Reuse:** when the initiative has a discovery document, `write_prd` reads it first (`get_document`) and reuses the objective, KRs, hypothesis, evidence and risks instead of asking again.
 
 ## 8. Build slices
-1. **Document kind `discovery`:** migration (kind check), `DOC_KINDS` and labels, the panel's kind list, tests including the GitHub guard.
-2. **Discovery template and `write_discovery`:** `packages/domain/src/discovery-template.ts` (sections, rules, field mapping), the prompt and server instructions beside `write_prd`, drift test like the PRD template's.
-3. **KR extraction:** `apply_discovery_extract {document, preview?}` copies the chosen solution's hypothesis, MoSCoW, Effort and the primary KR into the initiative (same preview and diff rules as `apply_prd_extract`); never touches people-only fields.
-4. **PRD template changes** (section 7) and the "read the discovery first" rule.
-5. **End-to-end test:** brief and example document to discovery document to chosen initiative; placeholders stay "to define"; no GitHub leak; hostile text in the source; the other solutions are not registered.
+1. **Document kind `discovery` (built):** migration `20261028221809_discovery_document_kind.sql`, (kind check), `DOC_KINDS` and labels, the panel's kind list, tests including the GitHub guard.
+2. **Discovery template and `write_discovery` (built):** `packages/domain/src/discovery-template.ts` (sections, rules, field mapping), the prompt and server instructions beside `write_prd`, drift test like the PRD template's.
+3. **KR extraction (skipped, Ashu 2026-10-28: done by hand for now; revisit later):** `apply_discovery_extract {document, preview?}` copies the chosen solution's hypothesis, MoSCoW, Effort and the primary KR into the initiative (same preview and diff rules as `apply_prd_extract`); never touches people-only fields.
+4. **PRD template changes** (section 7) and the "read the discovery first" rule (built).
+5. **End-to-end test (built, `packages/db/tests/mcp-scenario.test.ts`, "the discovery flow end to end"):** brief and example document to discovery document to chosen initiative; placeholders stay "to define"; no GitHub leak; hostile text in the source; the other solutions are not registered.
 
 ## 9. Open points
 - If nobody has chosen yet, the opportunity initiative exists only to hold the document. Proposal: that is fine, and it is renamed when the choice is made.
