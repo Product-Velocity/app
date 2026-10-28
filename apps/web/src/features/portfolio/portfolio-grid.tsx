@@ -553,7 +553,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
           <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} today={today} matching={visibleRows.length} total={controller.rows.length} />
           <ColumnsPanel def={def} defaultDef={bDef} customerSafe={def.customerSafe === true} onApply={changeColumns} shown={shownCount} />
           <GroupMenu groupBy={def.groupBy} onChange={(g) => changeDef({ groupBy: g })} />
-          <SortMenu sort={shownSort} onChange={(sort) => changeDef({ sort })} />
+          <SortMenu sort={shownSort} columns={def.columns} onChange={(sort) => changeDef({ sort })} />
           <label className="pvbar-search">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b6272" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
             <input
