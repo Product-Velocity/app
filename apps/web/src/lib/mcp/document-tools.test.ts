@@ -121,3 +121,30 @@ describe("document tools", () => {
     expect((await s.call("create_document", { item: "R-01", title: "x", body: "x" })).text).toMatch(/refused/);
   });
 });
+
+describe("apply_prd_extract", () => {
+  const PRD = "## 3. Problem\nA.\n\nIF a\nTHEN b\nRESULTING IN c\n\n## A1 Story\nSECRET\n### Customer value proposition\nOne login.\n";
+  it("refuses a document that is not a PRD, a missing document and a PRD with nothing to copy", async () => {
+    const s = setup({ docs: [doc({ id: "r1", kind: "research", body: PRD }), doc({ id: "e1", body: "just words" })] });
+    expect((await s.call("apply_prd_extract", { document: "r1" })).text).toMatch(/only a PRD/);
+    expect((await s.call("apply_prd_extract", { document: "nope" })).text).toMatch(/No document/);
+    const none = await s.call("apply_prd_extract", { document: "e1" });
+    expect(none.isError).toBe(true);
+    expect(none.text).toMatch(/nothing to copy/i);
+  });
+
+  it("preview returns what would be set and what stays out, and writes nothing", async () => {
+    const s = setup({ docs: [doc({ id: "p1", version: 2, body: PRD })] });
+    const r = await s.call("apply_prd_extract", { document: "p1", preview: true });
+    expect(r.data).toMatchObject({ preview: true, nothing_written: true, item: "R-01", document_version: 2, included_sections: ["3"] });
+    expect(Object.keys(r.data.would_set).sort()).toEqual(["description", "hypothesis", "value_proposition"]);
+    expect(r.data.would_set.description).not.toContain("SECRET");
+    expect(r.data.left_out).toEqual([expect.objectContaining({ id: "A1" })]);
+    expect(s.meter).toHaveBeenCalledTimes(1); // a call, no item written
+  });
+
+  it("is a write tool: a viewer gets the read-only refusal", async () => {
+    const s = setup({ role: "viewer", docs: [doc({ id: "p1", body: PRD })] });
+    expect((await s.call("apply_prd_extract", { document: "p1" })).text).toMatch(/read-only/i);
+  });
+});
