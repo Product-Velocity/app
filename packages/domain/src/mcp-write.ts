@@ -4,7 +4,7 @@
 
 import { EDITABLE_FIELDS, canBeEmpty, canEditItems, readOnlyReason, validateEdit } from "./fields";
 import { cleanGroupName, resolveGroup } from "./groups";
-import { CLAUDE_FORBIDDEN_FIELDS, CLAUDE_LIST_FIELDS, claudeMaySet } from "./mcp-read";
+import { CLAUDE_BASIS_FIELDS, CLAUDE_FORBIDDEN_FIELDS, CLAUDE_LIST_FIELDS, claudeMaySet } from "./mcp-read";
 import { cleanRelated, type Link } from "./related";
 import { FIELD_BY_KEY, columnOnItems } from "./registry";
 
@@ -22,7 +22,21 @@ export const WRITE_SCALAR_KEYS: readonly string[] = EDITABLE_FIELDS.filter((k) =
 /** Words that mean an approval, which is not a dictionary field but must still be refused in plain words. */
 const APPROVAL_WORDS = new Set(["approver", "is_approver", "approve", "approved", "approval", "ready_for_build", "ready for build", "readyforbuild"]);
 
-const FORBIDDEN_NOTE = "Only a person can set it: Claude never sets Stack Rank, Decision, Value or the fields around them, never approves, and never marks work ready for build.";
+const FORBIDDEN_NOTE = "Only a person can set it: Claude never sets Stack Rank, Decision, Value or the fields around them (Value Type is the one exception, and only with the person's own words as value_type_basis), never approves, and never marks work ready for build.";
+
+/** The key that carries the person's own words next to a field Claude may set only with a basis (Value Type). */
+export const BASIS_KEY = "value_type_basis";
+export const MIN_BASIS = 8;
+export const MAX_BASIS = 500;
+const BASIS_HELP = `${BASIS_KEY}: the person's own words that say which Value Type it is (their answer or their sentence), at least a short sentence. Never your own inference: if the person has not said it, leave Value Type empty and ask them.`;
+
+/** The basis Claude sent, trimmed, or a sentence saying what is wrong with it. */
+function cleanBasis(raw: unknown): { ok: true; basis: string } | { ok: false; error: string } {
+  const b = typeof raw === "string" ? raw.trim() : "";
+  if (b.length < MIN_BASIS) return { ok: false, error: `Value Type needs ${BASIS_HELP}` };
+  if (b.length > MAX_BASIS) return { ok: false, error: `${BASIS_KEY} is longer than ${MAX_BASIS} characters; quote the sentence that says it.` };
+  return { ok: true, basis: b };
+}
 
 /** The refusal for a field Claude may never set, or null for any other field. */
 export function forbiddenMessage(key: string): string | null {
@@ -104,6 +118,7 @@ function resolveProject(raw: string, ctx: WriteCtx): { ok: true; id: string; nam
 
 /** Why a key cannot be written by Claude, or null when it can (a single value or a list field). */
 function whyNot(key: string): string | null {
+  if (key === BASIS_KEY) return null; // checked together with value_type
   const forbidden = forbiddenMessage(key);
   if (forbidden) return forbidden;
   const f = FIELD_BY_KEY[key];
@@ -152,7 +167,7 @@ export function stageWarnings(_values: Record<string, unknown>): string[] {
 
 export type GroupNote = { name: string; created: boolean; similar: string[] };
 export type PreparedItem =
-  | { ok: true; row: Record<string, unknown>; values: Record<string, unknown>; lists: ListOp[]; group: GroupNote | null; warnings: string[] }
+  | { ok: true; row: Record<string, unknown>; values: Record<string, unknown>; lists: ListOp[]; group: GroupNote | null; warnings: string[]; /** The person's own words behind Value Type, when it is set. */ basis?: string }
   | Fail;
 
 /** Reads a list field's argument into the values the tables hold: tags as text, teams as ids, links as {label, url}, relations as ids. */
@@ -244,7 +259,7 @@ export function prepareNewItem(raw: unknown, ctx: WriteCtx): PreparedItem {
   }
 
   for (const [k, v] of Object.entries(args)) {
-    if (ALIASES[k] || v === undefined) continue;
+    if (ALIASES[k] || v === undefined || k === BASIS_KEY) continue;
     if (CLAUDE_LIST_FIELDS.includes(k)) {
       const l = listValues(k, v, ctx);
       if (!l.ok) return l;
@@ -259,19 +274,28 @@ export function prepareNewItem(raw: unknown, ctx: WriteCtx): PreparedItem {
     values[k] = c.display;
   }
 
+  let basis: string | undefined;
+  if ("value_type" in row) {
+    const c = cleanBasis(args[BASIS_KEY]);
+    if (!c.ok) return fail(c.error);
+    basis = c.basis;
+  } else if (args[BASIS_KEY] !== undefined) {
+    return fail(`${BASIS_KEY} only goes together with value_type.`);
+  }
+
   if (ESTIMATE_KEYS.some((k) => k in values) && !("estimate_basis" in values)) {
     row.estimate_basis = "Rough guess";
     values.estimate_basis = "Rough guess";
     warnings.push("Estimates were set by Claude, so Estimate Basis is Rough guess until a person checks them.");
   }
   warnings.push(...stageWarnings(values));
-  return { ok: true, row, values, lists, group, warnings };
+  return { ok: true, row, values, lists, group, warnings, ...(basis ? { basis } : {}) };
 }
 
 /** What the person sees for one field of a diff. `confirm` is true when the field already holds something. */
 export type DiffLine = { field: string; label: string; old: unknown; new: unknown; confirm: boolean };
 /** One field of an update: the line to show, what was stored when it was read (to spot a change in between) and the writes that make it so. */
-export type UpdateChange = DiffLine & { before: unknown; cols: Record<string, unknown>; lists: ListOp[] };
+export type UpdateChange = DiffLine & { before: unknown; cols: Record<string, unknown>; lists: ListOp[]; /** The person's own words behind a Value Type change. */ basis?: string };
 export type PreparedUpdate =
   | { ok: true; item: string; code: string; set: Record<string, unknown>; lists: ListOp[]; lines: DiffLine[]; changes: UpdateChange[]; group: GroupNote | null; warnings: string[] }
   | Fail;
@@ -299,7 +323,17 @@ export function buildUpdate(raw: unknown, now: UpdateCurrent, ctx: WriteCtx): Pr
   let group: GroupNote | null = null;
   const label = (key: string) => FIELD_BY_KEY[key]?.name ?? key;
 
-  for (const [k0, v] of Object.entries(set as Record<string, unknown>)) {
+  const setArgs = set as Record<string, unknown>;
+  if (BASIS_KEY in setArgs && !("value_type" in setArgs)) return fail(`${code}: ${BASIS_KEY} only goes together with value_type.`);
+  let basis: string | undefined;
+  if ("value_type" in setArgs) {
+    const c = cleanBasis(setArgs[BASIS_KEY]);
+    if (!c.ok) return fail(`${code}: ${c.error}`);
+    basis = c.basis;
+  }
+
+  for (const [k0, v] of Object.entries(setArgs)) {
+    if (k0 === BASIS_KEY) continue;
     const key = ALIASES[k0] ?? k0;
     const why = whyNot(key);
     if (why) return fail(`${code}: ${why}`);
@@ -352,7 +386,7 @@ export function buildUpdate(raw: unknown, now: UpdateCurrent, ctx: WriteCtx): Pr
       key === "home_project" ? ctx.projects.find((p) => p.id === stored)?.name ?? stored
       : FIELD_BY_KEY[key]?.type === "Person" ? ctx.members.find((m) => m.id === stored)?.name ?? stored
       : stored;
-    changes.push({ field: key, label: label(key), old: isEmpty(oldShown) ? null : oldShown, new: shown, confirm: requiresConfirmation(stored), before: stored ?? null, cols: { [column]: value }, lists: [] });
+    changes.push({ field: key, label: label(key), old: isEmpty(oldShown) ? null : oldShown, new: shown, confirm: requiresConfirmation(stored), before: stored ?? null, cols: { [column]: value }, lists: [], ...(key === "value_type" && basis ? { basis } : {}) });
   }
 
   const estimates = changes.filter((c) => ESTIMATE_KEYS.includes(c.field));

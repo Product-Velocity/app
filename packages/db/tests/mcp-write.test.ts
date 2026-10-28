@@ -98,7 +98,7 @@ describe("create: an AI draft, as the person, without the service role", () => {
 
 describe("what Claude may never set", () => {
   const forbidden: [string, unknown][] = [
-    ["value_12m", 100], ["decision", "Go"], ["decided_by", "Ashu"], ["decision_date", "2026-10-27"], ["value_type", "Revenue"],
+    ["value_12m", 100], ["decision", "Go"], ["decided_by", "Ashu"], ["decision_date", "2026-10-27"],
     ["value_basis", "Guess"], ["confidence", "High"], ["time_to_first_revenue_months", 3], ["customers_requesting", 4],
   ];
 
@@ -115,6 +115,13 @@ describe("what Claude may never set", () => {
     const r = await apply(cora, "update_items", [{ ops: [{ op: "update_item", id, set: { [col]: value } }] }]);
     expect(r.units[0]).toMatchObject({ ok: false, error: expect.stringMatching(/cannot set/i) });
     expect((await item(id))[col]).toBeNull();
+  });
+
+  it("refuses the other commercial fields even when a Value Type basis is sent with them", async () => {
+    const id = createdId(await create(cora, [row("Basis does not unlock value")]));
+    const r = await apply(cora, "update_items", [{ ops: [{ op: "update_item", id, set: { value_12m: 100 }, value_type_basis: "The person said so, in words" }] }]);
+    expect(r.units[0]).toMatchObject({ ok: false, error: expect.stringMatching(/cannot set/i) });
+    expect((await item(id)).value_12m).toBeNull();
   });
 
   it("refuses Stack Rank, directly or through the tool", async () => {
@@ -352,5 +359,70 @@ describe("undo_last", () => {
     expect((await item(createdId(r))).deleted_at).toBeNull();
     const again = await db.asUser(f.alice, async (q) => (await q("select public.mcp_undo_last() as r")).rows[0]!.r as { undone: boolean }, { commit: true, claims: { client_id: "client-a" } });
     expect(again.undone).toBe(false);
+  });
+});
+
+describe("Value Type: the one value field Claude may set, only with the person's own words (R-112 slice 3)", () => {
+  const BASIS = "Ashu: this one is about growing revenue we already have";
+  const TYPE = "Incremental revenue";
+  const audit = async (id: string) => (await db.admin.query("select old, new, via, basis from public.audit_log where entity = 'items' and entity_id = $1 and field = 'value_type' order by id", [id])).rows;
+
+  it("refuses it without a basis, on create and on update, and nothing is written", async () => {
+    const c = await create(cora, [row("No basis", { value_type: TYPE })]);
+    expect(c.units[0]).toMatchObject({ ok: false, error: expect.stringMatching(/own words/i) });
+    expect((await db.admin.query("select 1 from public.items where initiative_name = 'No basis'")).rowCount).toBe(0);
+    const id = createdId(await create(cora, [row("Update without basis")]));
+    const u = await apply(cora, "update_items", [{ ops: [{ op: "update_item", id, set: { value_type: TYPE } }] }]);
+    expect(u.units[0]).toMatchObject({ ok: false, error: expect.stringMatching(/own words/i) });
+    expect((await item(id)).value_type).toBeNull();
+  });
+
+  it("refuses a basis that is too short", async () => {
+    const id = createdId(await create(cora, [row("Short basis")]));
+    const u = await apply(cora, "update_items", [{ ops: [{ op: "update_item", id, set: { value_type: TYPE }, value_type_basis: "yes" }] }]);
+    expect(u.units[0]).toMatchObject({ ok: false });
+    expect((await item(id)).value_type).toBeNull();
+  });
+
+  it("sets it with a basis on create and on update, and the audit row carries the person's words and source Claude MCP", async () => {
+    const id = createdId(await apply(cora, "create_items", [{ ops: [{ op: "create_item", row: row("With basis", { value_type: TYPE }), value_type_basis: BASIS }] }]));
+    expect((await item(id)).value_type).toBe(TYPE);
+    expect(await audit(id)).toEqual([expect.objectContaining({ via: "Claude MCP", basis: BASIS, new: TYPE })]);
+    const u = await apply(cora, "update_items", [{ ops: [{ op: "update_item", id, set: { value_type: "Save money / operational efficiency" }, value_type_basis: "Ashu: actually this saves support cost" }] }]);
+    expect(u.units[0]).toMatchObject({ ok: true });
+    expect((await audit(id)).at(-1)).toMatchObject({ basis: "Ashu: actually this saves support cost", new: "Save money / operational efficiency" });
+  });
+
+  it("the basis belongs to one operation: a later write in the same call without it is refused", async () => {
+    const a = createdId(await create(cora, [row("Basis scope A")]));
+    const b = createdId(await create(cora, [row("Basis scope B")]));
+    const r = await apply(cora, "update_items", [{ ops: [
+      { op: "update_item", id: a, set: { value_type: TYPE }, value_type_basis: BASIS },
+      { op: "update_item", id: b, set: { value_type: TYPE } },
+    ] }]);
+    expect(r.units[0]).toMatchObject({ ok: false });
+    expect((await item(b)).value_type).toBeNull();
+  });
+
+  it("a Claude token that skips mcp_apply is refused by the database (PV004)", async () => {
+    const id = createdId(await create(cora, [row("Direct write")]));
+    expect(await errorCode(asClaude(cora, (q) => q("update public.items set value_type = $2 where id = $1", [id, TYPE])))).toBe("PV004");
+    expect(await errorCode(asClaude(cora, (q) => q("insert into public.items (tenant_id, initiative_name, home_project_id, value_type) values ($1, 'Direct insert', $2, $3)", [f.tenantA, f.seedA.project, TYPE])))).toBe("PV004");
+    expect((await item(id)).value_type).toBeNull();
+  });
+
+  it("a person setting it in the app is unaffected and the audit row has no basis", async () => {
+    const id = createdId(await create(cora, [row("Human value type")]));
+    await db.asUser(ben, (q) => q("update public.items set value_type = $2 where id = $1", [id, TYPE]), { commit: true, via: "UI" });
+    expect((await audit(id)).at(-1)).toMatchObject({ via: "UI", basis: null, new: TYPE });
+  });
+
+  it("undo_last puts the previous Value Type back without a new claim, and says so in the audit row", async () => {
+    const id = createdId(await create(cora, [row("Undo value type")]));
+    await apply(cora, "update_items", [{ ops: [{ op: "update_item", id, set: { value_type: TYPE }, value_type_basis: BASIS }] }]);
+    const undone = await asClaude(cora, async (q) => (await q("select public.mcp_undo_last() as r")).rows[0]!.r as { undone: boolean });
+    expect(undone.undone).toBe(true);
+    expect((await item(id)).value_type).toBeNull();
+    expect((await audit(id)).at(-1)).toMatchObject({ basis: expect.stringMatching(/undo/i), new: null });
   });
 });

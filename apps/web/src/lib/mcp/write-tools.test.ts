@@ -316,3 +316,53 @@ describe("failures never leak", () => {
     expect(r.text).toMatch(/search_items/);
   });
 });
+
+describe("Value Type through the tools (R-112 slice 3)", () => {
+  const BASIS = "Ashu: this is about growing the revenue we already have";
+  it("offers value_type with value_type_basis in both schemas", () => {
+    const create = JSON.parse(JSON.stringify(TOOLS.find((t) => t.name === "create_items")!.inputSchema)).properties.items.items.properties;
+    const upd = JSON.parse(JSON.stringify(TOOLS.find((t) => t.name === "update_items")!.inputSchema)).properties.updates.items.properties.set.properties;
+    for (const p of [create, upd]) {
+      expect(p.value_type.enum).toEqual(expect.arrayContaining(["Incremental revenue", "Defend existing revenue"]));
+      expect(p.value_type_basis).toMatchObject({ type: "string" });
+    }
+  });
+
+  it("create_items refuses it without the person's words and passes them to the write with them", async () => {
+    const { w, spy } = writer();
+    const b = backend("creator", w);
+    const bad = await call(b, "create_items", { items: [{ name: "A", project: "Core", value_type: "Incremental revenue" }] });
+    expect(bad.data.items[0]).toMatchObject({ status: "error", error: expect.stringMatching(/own words/i) });
+    expect(spy.applied).toHaveLength(0);
+    const good = await call(b, "create_items", { items: [{ name: "A", project: "Core", value_type: "Incremental revenue", value_type_basis: BASIS }] });
+    expect(good.data).toMatchObject({ created: 1 });
+    expect(spy.applied[0]!.units[0]!.ops[0]).toMatchObject({ op: "create_item", row: { value_type: "Incremental revenue" }, value_type_basis: BASIS });
+  });
+
+  it("update_items fills an empty Value Type at once with the basis, and holds a changed one until confirm_changes carries the same basis", async () => {
+    const { w, spy } = writer();
+    const b = backend("creator", w);
+    const fill = await call(b, "update_items", { updates: [{ item: "R-02", set: { value_type: "Save money / operational efficiency", value_type_basis: BASIS } }] });
+    expect(fill.data.items[0]).toMatchObject({ status: "applied" });
+    expect(spy.applied[0]!.units[0]!.ops[0]).toMatchObject({ op: "update_item", set: { value_type: "Save money / operational efficiency" }, value_type_basis: BASIS });
+
+    store["R-02"]!.current.value_type = "Save money / operational efficiency";
+    try {
+      const held = await call(b, "update_items", { updates: [{ item: "R-02", set: { value_type: "Defend existing revenue", value_type_basis: "Ashu: on reflection this is about defending revenue" } }] });
+      expect(held.data.items[0]).toMatchObject({ status: "needs_confirmation" });
+      expect(spy.applied).toHaveLength(1); // nothing written yet
+      const done = await call(b, "confirm_changes", { diff_id: held.data.needs_confirmation.diff_id });
+      expect(done.data.applied).toEqual([expect.objectContaining({ field: "value_type" })]);
+      expect(spy.applied[1]!.units[0]!.ops[0]).toMatchObject({ op: "update_item", set: { value_type: "Defend existing revenue" }, value_type_basis: "Ashu: on reflection this is about defending revenue" });
+    } finally {
+      delete store["R-02"]!.current.value_type;
+    }
+  });
+
+  it("refuses the other value fields even with a basis, and the description tells Claude never to infer it", async () => {
+    const { w } = writer();
+    const r = await call(backend("creator", w), "update_items", { updates: [{ item: "R-02", set: { value_12m: 100, value_type_basis: BASIS } }] });
+    expect(r.data.items[0]).toMatchObject({ status: "error" });
+    expect(TOOLS.find((t) => t.name === "create_items")!.description).toMatch(/Never infer it/);
+  });
+});

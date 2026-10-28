@@ -166,7 +166,8 @@ afterAll(async () => {
 });
 
 describe("the 2026-10-27 scenario, as a creator, with no service role", () => {
-  const fields = Object.fromEntries(WRITE_SCALAR_KEYS.filter((k) => sample(k) !== undefined).map((k) => [k, sample(k)]));
+  // Value Type is settable only with the person's own words (R-112 slice 3), so the sample carries them
+  const fields: Record<string, unknown> = { ...Object.fromEntries(WRITE_SCALAR_KEYS.filter((k) => sample(k) !== undefined).map((k) => [k, sample(k)])), value_type_basis: "Ashu: this one is incremental revenue" };
   const names = ["Views data model", "View bar", "One save flow", "Manage actions"];
   let b: McpBackend;
   const codes: string[] = [];
@@ -200,6 +201,10 @@ describe("the 2026-10-27 scenario, as a creator, with no service role", () => {
     expect(rows.map((r) => r.stack_rank)).toEqual([max - 3, max - 2, max - 1, max]);
     expect((await db.admin.query("select count(*)::int as n from public.item_tags where item_id = any($1)", [rows.map((r) => r.id)])).rows[0].n).toBe(8);
     expect((await db.admin.query("select name from public.item_groups where tenant_id = $1 and name = 'Roadmap views'", [f.tenantA])).rowCount).toBe(1);
+    // Value Type went in with the person's words, recorded on its audit row (R-112 slice 3); the rest of Value stayed empty
+    expect(rows.every((r) => r.value_type !== null)).toBe(true);
+    const basis = (await db.admin.query("select distinct basis, via from public.audit_log where entity = 'items' and field = 'value_type' and entity_id = any($1)", [rows.map((r) => r.id)])).rows;
+    expect(basis).toEqual([{ basis: "Ashu: this one is incremental revenue", via: "Claude MCP" }]);
   });
 
   it("links them in order, with both directions visible", async () => {
