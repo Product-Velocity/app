@@ -3,18 +3,20 @@ import { requireWorkspace } from "@/lib/session";
 import { mcpEnabled } from "@/lib/mcp/auth";
 import { siteUrl } from "@/lib/site-url";
 import { CopyUrl } from "./copy-url";
-import { revokeConnection, setClaudeEnabled } from "./actions";
+import { revokeConnection, setClaudeEnabled, setClaudeSingleOnly } from "./actions";
 
 export const metadata = { title: "Connect Claude · Product Velocity" };
 
 const NOTICE: Record<string, string> = {
   "switched-on": "Claude is switched on for this workspace.",
   "switched-off": "Claude is switched off for this workspace. Every connection stops working on its next call.",
+  "single-on": "Claude may now be used in this workspace only on its own. A connection that also covers other workspaces stops working here on its next call.",
+  "single-off": "Claude may be used in this workspace together with other workspaces again.",
   revoked: "Connection revoked. Claude's next call will be refused.",
   "already-revoked": "That connection was already revoked.",
   "not-admin": "Only workspace admins can do that.",
   failed: "That did not work. Please try again.",
-  "needs-migration": "The database behind this deployment has not had migration 0043 applied yet, so the Claude switch cannot be saved. Apply the migration (docs/11-ENVIRONMENTS.md) and try again.",
+  "needs-migration": "The database behind this deployment has not had the Claude migrations applied yet (0043, and 0058 for the \"only on its own\" setting), so that cannot be saved. Apply them (docs/11-ENVIRONMENTS.md) and try again.",
 };
 
 type Conn = {
@@ -38,9 +40,13 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
   const isAdmin = active.role === "admin";
   const url = `${await siteUrl()}/mcp`;
 
-  const { data: tenant, error: tenantError } = await supabase.from("tenants").select("claude_enabled").eq("id", active.tenantId).single();
+  let { data: tenant, error: tenantError } = await supabase.from("tenants").select("claude_enabled, claude_single_only").eq("id", active.tenantId).single();
+  let hasSingleOnly = !tenantError;
+  if (tenantError) ({ data: tenant, error: tenantError } = (await supabase.from("tenants").select("claude_enabled").eq("id", active.tenantId).single()) as never); // before migration 0058
   const notMigrated = Boolean(tenantError);
   const enabled = Boolean(tenant?.claude_enabled);
+  const singleOnly = Boolean((tenant as { claude_single_only?: boolean } | null)?.claude_single_only);
+  hasSingleOnly = hasSingleOnly && !notMigrated;
 
   // RLS: a person sees their own connections; an admin also sees everyone's in the workspaces they administer (no content)
   const { data: rows } = await supabase
@@ -102,6 +108,18 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
             </p>
             <div><button className="btn btn-primary" type="submit" disabled={notMigrated}>Save</button></div>
           </form>
+          <form action={setClaudeSingleOnly} className="card stack">
+            <label className="check-row">
+              <input type="checkbox" name="single_only" defaultChecked={singleOnly} disabled={!hasSingleOnly} />
+              <span>Claude may be used in {active.tenantName} only on its own</span>
+            </label>
+            <p className="muted">
+              A person can connect Claude to several of their workspaces at once; Claude then names the workspace on every request and can read and report across them in one chat.
+              Tick this if what is in {active.tenantName} must never be in the same chat as another workspace (for example a client&rsquo;s confidential roadmap).
+              A connection that covers other workspaces stops working here; one that covers only {active.tenantName} is not affected.
+            </p>
+            <div><button className="btn btn-primary" type="submit" disabled={!hasSingleOnly}>Save</button></div>
+          </form>
         </>
       )}
 
@@ -125,7 +143,7 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
         <ol>
           <li>Open Settings, then Connectors, and choose Add custom connector.</li>
           <li>Paste the connector URL above and name it Product Velocity.</li>
-          <li>Connect, sign in if asked, choose the workspace and approve on the consent screen.</li>
+          <li>Connect, sign in if asked, choose one or several workspaces and approve on the consent screen. With several, Claude asks which one you mean whenever you have not said.</li>
         </ol>
         <p><strong>In Claude Code</strong></p>
         <ol>
