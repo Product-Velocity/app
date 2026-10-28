@@ -51,7 +51,7 @@ A customer connects Claude (claude.ai, the desktop app or Claude Code) to their 
 
 ### FR-1 Connect and manage
 - `/mcp` on the app domain, OAuth 2.1 through Supabase Auth's OAuth server (spike S8b first, see `docs/08`), publishing protected-resource metadata; 401 carries `WWW-Authenticate`.
-- Consent page `/oauth/consent`: names the client, the workspace, the role Claude will have and what Claude can and cannot do; approve or deny. The user chooses the workspace when they belong to several.
+- Consent page `/oauth/consent`: names the client, the workspace, the role Claude will have and what Claude can and cannot do; approve or deny. The user chooses the workspace when they belong to several. **Several workspaces (R-115):** the person may tick more than one; Claude then names the workspace on every request, asks when it was not said, and confirms a switch of the workspace it changes. Admins can forbid use together with other workspaces. See `docs/05`.
 - **Connect Claude** page (account menu): the connector URL to copy, step-by-step setup for claude.ai and Claude Code, the list of this person's connections (client, workspace, created, last used, calls) and **Revoke**. Revoking takes effect on the next call.
 - Workspace admins can switch Claude off for the whole workspace and see all connections (names, not content).
 - The write source `Claude MCP` is set by the server from the authenticated connection. The advisory `x-pv-via` header is ignored.

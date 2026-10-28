@@ -255,13 +255,13 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     },
 
     async apply(tool, units, opts = {}) {
-      const { data, error } = await supabase.rpc("mcp_apply", { p_tool: tool, p_units: units, p_all_or_nothing: opts.allOrNothing ?? false, p_pending: opts.pending ?? null });
+      const { data, error } = await supabase.rpc("mcp_apply", { p_tool: tool, p_units: units, p_all_or_nothing: opts.allOrNothing ?? false, p_pending: opts.pending ?? null, p_tenant: tenant.id });
       if (error) return refusal(error);
       return data as ApplyResult;
     },
 
     async savePending(diff, changes) {
-      const { data, error } = await supabase.rpc("mcp_pending_save", { p_diff: diff, p_units: changes });
+      const { data, error } = await supabase.rpc("mcp_pending_save", { p_diff: diff, p_units: changes, p_tenant: tenant.id });
       if (error) return refusal(error);
       const r = (data as { id: string; expires_at: string }[])[0];
       if (!r) throw new Error("pending");
@@ -277,7 +277,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     },
 
     async undo() {
-      const { data, error } = await supabase.rpc("mcp_undo_last");
+      const { data, error } = await supabase.rpc("mcp_undo_last", { p_tenant: tenant.id });
       if (error) return refusal(error);
       return data as UndoResult;
     },
