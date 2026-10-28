@@ -13,6 +13,15 @@ echarts.use([BarChart, PieChart, ScatterChart, CustomChart, GridComponent, Toolt
 export const PALETTE = ["#3347d9", "#0f8a6a", "#c27a00", "#a23b8f", "#2b7fb8", "#b4472f", "#5b6577", "#6a8f1f", "#8f5bd6", "#1f7a8c"];
 export const CHART_FONT = '"IBM Plex Sans", system-ui, sans-serif';
 
+/** The same rounded white card for every tooltip. */
+const TOOLTIP = {
+  backgroundColor: "#ffffff", borderColor: "#e5e7eb", borderWidth: 1, padding: [8, 12], textStyle: { color: "#111827", fontFamily: CHART_FONT, fontSize: 12 },
+  extraCssText: "border-radius: 10px; box-shadow: 0 6px 20px rgba(17, 24, 39, 0.14);",
+};
+
+/** One corner radius for the whole page, so bars, donut slices and timeline bars match. */
+export const RADIUS = 6;
+
 type Props = {
   option: EChartsCoreOption;
   height: number;
@@ -46,7 +55,8 @@ export function EChart({ option, height, label, name, onClick }: Props) {
   }, [name]);
 
   useEffect(() => {
-    chart.current?.setOption({ textStyle: { fontFamily: CHART_FONT, fontSize: 12 }, animationDuration: 250, ...option }, true);
+    const o = option as { tooltip?: Record<string, unknown> };
+    chart.current?.setOption({ textStyle: { fontFamily: CHART_FONT, fontSize: 12 }, animationDuration: 400, animationEasing: "cubicOut", ...option, tooltip: { ...TOOLTIP, ...o.tooltip } }, true);
   }, [option]);
 
   return <div ref={box} role="img" aria-label={label} data-chart={name} style={{ width: "100%", height }} />;
