@@ -268,6 +268,22 @@ describe("saved views: audit", () => {
     expect(rows.find((r) => r.field === "group_by")).toMatchObject({ old: null, new: "moscow" });
     expect(rows.find((r) => r.field === "name" && r.new === null)).toMatchObject({ old: "Audited view 2" }); // delete
   });
+  it("records the old and new sort on each Update, including clearing it (issue #207)", async () => {
+    const id = await add(admin2, "Sorted audit");
+    const set = (v: string | null) => db.asUser(admin2, (q) => q("update public.saved_views set sort = $2::jsonb where id = $1", [id, v]), { commit: true, via: "UI" });
+    await set('{"field":"moscow","dir":"asc"}');
+    await set('{"field":"effort","dir":"desc"}');
+    await set(null);
+    const { rows } = await db.admin.query("select old, new, via, actor_id from public.audit_log where entity = 'saved_views' and entity_id = $1 and field = 'sort' order by at", [id]);
+    expect(rows).toHaveLength(3);
+    expect(rows[0].new).toEqual({ field: "moscow", dir: "asc" });
+    expect(rows[0].old).toBeNull();
+    expect(rows[1].old).toEqual({ field: "moscow", dir: "asc" });
+    expect(rows[1].new).toEqual({ field: "effort", dir: "desc" });
+    expect(rows[2].old).toEqual({ field: "effort", dir: "desc" });
+    expect(rows[2].new).toBeNull();
+    expect(rows[2]).toMatchObject({ via: "UI", actor_id: admin2 });
+  });
 });
 
 describe("saved scopes (portfolio scope)", () => {
