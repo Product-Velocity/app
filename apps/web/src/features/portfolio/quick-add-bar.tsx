@@ -25,6 +25,9 @@ function chips(r: Extract<QuickAddResult, { ok: true }>, lookups: Lookups, today
   ].filter((x): x is string => !!x);
 }
 
+/** The words shown inside the empty box: what Enter does, then the most used words (the rest are under Help). */
+const PLACEHOLDER = `Enter adds. Paste a list to add many. ${QUICK_ADD_TOKENS.filter((t) => t.important).map((t) => `${t.token} ${t.means.split(" (")[0]!.toLowerCase()}`).join("; ")}; more under Help`;
+
 /** One line adds one item: type the name (and tokens), press Enter. Paste a list to add many. */
 export function QuickAddBar({ controller, lookups, contextProject, inputRef }: Props) {
   const today = controller.todayDate();
@@ -87,7 +90,7 @@ export function QuickAddBar({ controller, lookups, contextProject, inputRef }: P
         type="text"
         autoComplete="off"
         value={text}
-        placeholder="Name, then #project @person +group M should ~now !atrisk by:31/03. Enter adds. Paste a list to add many."
+        placeholder={PLACEHOLDER}
         aria-describedby={hintId}
         onChange={(e) => { setText(e.target.value); setMessage(null); }}
         onPaste={onPaste}
@@ -101,12 +104,6 @@ export function QuickAddBar({ controller, lookups, contextProject, inputRef }: P
         {message && <p className={message.kind === "error" ? "quick-add-error" : "quick-add-ok"}>{message.text}</p>}
         {!message && parsed?.ok && chips(parsed, lookups, today).map((c) => <span key={c} className="token-chip">{c}</span>)}
         {!message && parsed?.ok && <span className="quick-add-keys">Enter adds · paste a list to add many</span>}
-        {!message && !parsed && (
-          <p className="quick-add-legend">
-            {QUICK_ADD_TOKENS.filter((t) => t.important).map((t) => <span key={t.token} title={t.means}><kbd>{t.token}</kbd> {t.means.split(" (")[0]!.toLowerCase()}</span>)}
-            <span>more under <strong>Help</strong></span>
-          </p>
-        )}
         {!message && parsed && !parsed.ok && <p className="quick-add-summary">{parsed.error}</p>}
         {parsed?.ok && parsed.similarGroups && (
           <p className="quick-add-similar">

@@ -8,7 +8,7 @@ import {
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import {
-  buildGroupedRows, CORE_COLUMN_KEYS, effectiveSort, FIELD_BY_KEY, FIELDS, groupableFields, matchesFilters, matchesSearch, refKey, sanitizeView, sortRows, WAITING_IN_VIEW, type EditableField, type Filter, type GroupRow, type ViewDef,
+  buildGroupedRows, CORE_COLUMN_KEYS, effectiveSort, FIELD_BY_KEY, FIELDS, groupableFields, matchesFilters, matchesSearch, refKey, sanitizeView, sortRows, type EditableField, type Filter, type GroupRow, type ViewDef,
 } from "@pv/domain";
 import { useWorkspace } from "../workspace/provider";
 import { setQueryParam, useScope } from "../workspace/scope";
@@ -527,13 +527,6 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
           ))}
         </div>
       )}
-      {base.kind === "builtin" && WAITING_IN_VIEW[base.name].length > 0 && (
-        <p className="view-note" role="note">
-          {WAITING_IN_VIEW[base.name].length} more {WAITING_IN_VIEW[base.name].length === 1 ? "column" : "columns"} of this view arrive in later phases:{" "}
-          {WAITING_IN_VIEW[base.name].slice(0, 4).map((f) => `${f.name} (phase ${f.phase})`).join(", ")}
-          {WAITING_IN_VIEW[base.name].length > 4 ? ` and ${WAITING_IN_VIEW[base.name].length - 4} more` : ""}.
-        </p>
-      )}
       {baseMissing && <div className="view-dirty" role="status">This view is private to its owner or no longer exists. Showing Prioritisation.</div>}
     </div>
     <section
@@ -553,7 +546,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
           <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} today={today} matching={visibleRows.length} total={controller.rows.length} />
           <ColumnsPanel def={def} defaultDef={bDef} customerSafe={def.customerSafe === true} onApply={changeColumns} shown={shownCount} />
           <GroupMenu groupBy={def.groupBy} onChange={(g) => changeDef({ groupBy: g })} />
-          <SortMenu sort={shownSort} onChange={(sort) => changeDef({ sort })} />
+          <SortMenu sort={shownSort} columns={def.columns} onChange={(sort) => changeDef({ sort })} />
           <label className="pvbar-search">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b6272" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
             <input

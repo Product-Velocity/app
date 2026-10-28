@@ -529,7 +529,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .pvbar-s1 .tool-btn svg, .pvbar-s1 .btn svg { flex: none; }
 .pvbar-search { display: flex; align-items: center; gap: 6px; flex: 1 1 120px; min-width: 100px; max-width: 240px; height: 30px; padding: 0 10px; border: 1px solid #cfd5e3; border-radius: 6px; box-sizing: border-box; background: var(--bg); }
 .pvbar-search:focus-within { outline: 2px solid #3347D9; outline-offset: 0; border-color: #3347D9; }
-.pvbar-search input { border: 0; outline: 0; font: inherit; width: 100%; min-width: 0; background: transparent; }
+.pvbar-search input[type="search"] { border: 0; outline: 0; font: inherit; width: 100%; min-width: 0; height: 100%; padding: 0; border-radius: 0; background: transparent; } /* beats the global input rule, which drew a second box inside the bar */
 .pvbar-sep { width: 1px; height: 20px; background: var(--grey-1); margin: 0 2px; flex: none; }
 .pvbar-spacer { flex: 1 1 0; min-width: 0; }
 .pvbar-status { font-size: 12px; color: #5b6272; white-space: nowrap; flex: none; }
@@ -588,8 +588,6 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .lock-on { color: #0b7a4b; }
 .cp-tip { margin: 6px 0 0; padding: 8px 10px; border-radius: 6px; background: #1f2430; color: #fff; font-size: 12px; }
 .cp-body { display: flex; }
-.quick-add-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; color: #5b6272; }
-.quick-add-legend kbd { font-size: 11.5px; }
 .pvbar-last { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; font-size: 12px; color: #5b6272; }
 
 /* ---- view bar (0.34.0): six tabs, "N more views", unsaved-changes bar ---- */
@@ -602,7 +600,12 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .vm-more { border: 0; background: none; padding: 0 5px; font: inherit; color: #4b5563; cursor: pointer; border-radius: 4px; line-height: 1.6; }
 .vm-more:hover, .vm-more:focus-visible { background: var(--grey-3); color: #111827; }
 .vm-actions-panel { min-width: 190px; left: 0; top: 100%; }
-.vm-panel { min-width: 380px; max-height: 70vh; overflow: auto; }
+.vm-panel { width: min(500px, calc(100vw - 32px)); max-height: 70vh; overflow: auto; }
+.vm-panel input.search-input { width: calc(100% - 16px); box-sizing: border-box; }
+.vm-panel .vm-actions-panel { left: auto; right: 0; }
+/* the "N more views" button: blue outline, white inside, like the filter button */
+.tool-btn.more-views-btn { height: 30px; padding: 0 12px; border: 1px solid var(--blue); border-radius: 8px; background: var(--bg); color: #111827; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tool-btn.more-views-btn:hover { background: var(--blue-tint-2); }
 .vm-row { display: flex; align-items: center; gap: 4px; padding: 1px 8px; }
 .vm-row:hover { background: var(--blue-tint-2); }
 .vm-open { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-width: 0; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; padding: 5px 4px; color: inherit; }
