@@ -56,6 +56,12 @@ describe("documents on an initiative", () => {
     expect(rows[1].new).toEqual({ characters: 19 });
   });
 
+  it("accepts the discovery kind (issue #244) and still refuses an unknown one", async () => {
+    const id = await db.asUser(creator, async (q) => (await q("insert into public.item_documents (tenant_id, item_id, kind, title, body) values ($1, $2, 'discovery', 'Discovery: X', '# D') returning id", [f.tenantA, item])).rows[0].id as string, { commit: true, via: "UI" });
+    expect((await row(id)).kind).toBe("discovery");
+    expect(await errorCode(db.asUser(creator, (q) => q("insert into public.item_documents (tenant_id, item_id, kind, title) values ($1, $2, 'discoveries', 'x')", [f.tenantA, item]), { via: "UI" }))).toBe(CHECK);
+  });
+
   it("refuses an empty title, a bad kind and a text over the limit", async () => {
     expect(await errorCode(add(creator, "  "))).toBe(CHECK);
     expect(await errorCode(db.asUser(creator, (q) => q("insert into public.item_documents (tenant_id, item_id, kind, title) values ($1, $2, 'memo', 'x')", [f.tenantA, item]), { via: "UI" }))).toBe(CHECK);

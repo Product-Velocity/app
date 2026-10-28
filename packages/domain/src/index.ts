@@ -33,3 +33,4 @@ export * from "./prd-extract";
 export * from "./reports";
 export * from "./time-to-market";
 export * from "./impact";
+export * from "./discovery-template";

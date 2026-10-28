@@ -5,9 +5,9 @@ import { PRD_CORE, PRD_DEFAULT_MODULES, PRD_MODULES, PRD_RULES, prdPrompt, serve
 const all = [...PRD_CORE, ...PRD_MODULES];
 
 describe("the PRD template", () => {
-  it("has the nine core sections in order and every module of the 4D template", () => {
+  it("has the nine core sections in order and every module of the 4D template plus the evidence and competitive modules", () => {
     expect(PRD_CORE.map((s) => s.id)).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
-    expect(PRD_MODULES.map((m) => m.id)).toEqual(["A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "D1", "D2", "D3", "D4", "D5", "D6", "D7"]);
+    expect(PRD_MODULES.map((m) => m.id)).toEqual(["A1", "A2", "A3", "A4", "A5", "A6", "B1", "B2", "B3", "B4", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "D1", "D2", "D3", "D4", "D5", "D6", "D7"]);
     expect(new Set(all.map((s) => s.id)).size).toBe(all.length);
   });
 
@@ -46,7 +46,7 @@ describe("the rules and the prompt", () => {
     expect(i).toMatch(/What we will build/);
     for (const s of PRD_CORE) expect(i).toContain(s.title);
     for (const m of PRD_MODULES) expect(i).toContain(m.title);
-    expect(i.length).toBeLessThan(6500);
+    expect(i.length).toBeLessThan(9500);
   });
 
   it("the prompt includes the brief as quoted data, the chosen modules, the order of work and the rollout rules", () => {

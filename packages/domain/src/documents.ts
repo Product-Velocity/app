@@ -1,7 +1,7 @@
 // Documents on an initiative (R-113, docs/22-CLAUDE-PRD-FLOW.md). What may be stored and how input is checked.
 // A document is Markdown kept in Product Velocity. It is never read for a GitHub payload.
 
-export const DOC_KINDS = ["prd", "business_req", "tech_req", "acceptance", "prototype", "research", "other"] as const;
+export const DOC_KINDS = ["prd", "discovery", "business_req", "tech_req", "acceptance", "prototype", "research", "other"] as const;
 export type DocKind = (typeof DOC_KINDS)[number];
 /** Statuses Claude may set. "approved" is a person with the Approver permission, never Claude (CLAUDE.md rule 3). */
 export const DOC_STATUSES = ["draft", "in_review", "approved"] as const;
@@ -13,7 +13,7 @@ export const MAX_DOC_TITLE = 200;
 export const MAX_DOCS_PER_ITEM = 20;
 
 export const DOC_KIND_LABEL: Record<DocKind, string> = {
-  prd: "PRD", business_req: "Business requirements", tech_req: "Technical requirements", acceptance: "Acceptance criteria",
+  prd: "PRD", discovery: "Discovery", business_req: "Business requirements", tech_req: "Technical requirements", acceptance: "Acceptance criteria",
   prototype: "Prototype", research: "Research", other: "Other",
 };
 
