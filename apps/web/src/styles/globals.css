@@ -682,3 +682,9 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .data-table th { font-size: 12px; color: #4b5563; font-weight: 600; white-space: nowrap; }
 .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin: 12px 0; }
 .filter-bar label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #4b5563; }
+
+/* Description cell and its hover card (0.45.2 to 0.45.4); a test keeps these from being lost in a merge */
+.md-tooltip { max-width: 520px; max-height: 360px; overflow: auto; background: #fff; border: 1px solid #c9cfd8; border-radius: 6px; box-shadow: 0 6px 20px rgba(20, 30, 60, .18); font-size: 13px; }
+.md-tooltip .md-preview { border: 0; min-height: 0; max-height: none; }
+.ag-cell .cell-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-cell .cell-text-fade { text-overflow: clip; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
