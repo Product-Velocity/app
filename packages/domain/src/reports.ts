@@ -4,24 +4,24 @@ import { FIELD_BY_KEY } from "./registry";
  * Reports tab (issue #233): filters, click-to-filter drill-down and the counts behind the charts. Pure functions over the rows the
  * grid already holds, so a count here is the count the Grid tab gives for the same filters.
  */
-export const REPORT_DIMS = ["product_manager", "initiative_phase", "focus_area", "team", "quarter", "effort", "group", "initiative_status", "health"] as const;
+export const REPORT_DIMS = ["product_manager", "engineering_manager", "initiative_phase", "focus_area", "team", "quarter", "effort", "group", "initiative_status", "health", "moscow"] as const;
 export type ReportDim = (typeof REPORT_DIMS)[number];
 /** The dimensions of the filter bar (status and health are reached by clicking the charts). */
-export const BAR_DIMS: readonly ReportDim[] = ["product_manager", "initiative_phase", "focus_area", "team", "quarter", "effort", "group"];
+export const BAR_DIMS: readonly ReportDim[] = ["product_manager", "engineering_manager", "initiative_phase", "focus_area", "team", "quarter", "effort", "group"];
 
 /** The value of "nothing set" in a filter, a drill-down pill and a chart (labelled in words: Unscheduled, Not set, ...). */
 export const UNSET = "__none";
 
 /** The row field behind each dimension (team has its own splitting). */
 export const DIM_FIELD: Record<ReportDim, string> = {
-  product_manager: "product_manager", initiative_phase: "initiative_phase", focus_area: "focus_area", team: "contributing_teams", quarter: "g2m_quarter",
-  effort: "effort", group: "theme", initiative_status: "initiative_status", health: "health",
+  product_manager: "product_manager", engineering_manager: "engineering_manager", initiative_phase: "initiative_phase", focus_area: "focus_area", team: "contributing_teams", quarter: "g2m_quarter",
+  effort: "effort", group: "theme", initiative_status: "initiative_status", health: "health", moscow: "moscow",
 };
 export const DIM_LABEL: Record<ReportDim, string> = {
-  product_manager: "Product Manager", initiative_phase: "Initiative Phase", focus_area: "Focus Area", team: "Team", quarter: "Planned Quarter", effort: "Effort",
-  group: "Initiative Group", initiative_status: "Initiative Status", health: "Health",
+  product_manager: "Product Manager", engineering_manager: "Engineering Manager", initiative_phase: "Initiative Phase", focus_area: "Focus Area", team: "Team", quarter: "Planned Quarter", effort: "Effort",
+  group: "Initiative Group", initiative_status: "Initiative Status", health: "Health", moscow: "MoSCoW",
 };
-export const unsetLabel = (dim: ReportDim) => (dim === "quarter" ? "Unscheduled" : dim === "product_manager" ? "No Product Manager" : dim === "team" ? "No team" : "Not set");
+export const unsetLabel = (dim: ReportDim) => (dim === "quarter" ? "Unscheduled" : dim === "product_manager" ? "No Product Manager" : dim === "engineering_manager" ? "No Engineering Manager" : dim === "team" ? "No team" : "Not set");
 
 export type ReportRow = { id: string; archived?: unknown; ai_draft?: unknown } & Record<string, unknown>;
 export type ReportCtx = { /** Known team names (a team name may contain a comma-free list separator only). */ teamNames?: readonly string[] };
@@ -34,8 +34,10 @@ export type ReportState = {
   archived: boolean;
   /** Include unreviewed AI drafts (on by default). */
   aiDrafts: boolean;
+  /** Stacked bars show each bar as 100% (the share of each value) instead of counts. */
+  percent: boolean;
 };
-export const emptyReport = (): ReportState => ({ filters: {}, drill: [], archived: false, aiDrafts: true });
+export const emptyReport = (): ReportState => ({ filters: {}, drill: [], archived: false, aiDrafts: true, percent: false });
 
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
@@ -77,7 +79,7 @@ const allowed = (key: string): string[] => FIELD_BY_KEY[key]?.allowed ?? [];
 /** Canonical order of a dimension's values (the dictionary's order); other dimensions sort by name with "not set" last. */
 const ORDER: Partial<Record<ReportDim, string[]>> = {
   get initiative_phase() { return allowed("initiative_phase"); }, get initiative_status() { return allowed("initiative_status"); },
-  get health() { return allowed("health"); }, get effort() { return allowed("effort"); },
+  get health() { return allowed("health"); }, get effort() { return allowed("effort"); }, get moscow() { return allowed("moscow"); },
 };
 export function compareValues(dim: ReportDim, a: string, b: string): number {
   if (a === UNSET || b === UNSET) return a === b ? 0 : a === UNSET ? 1 : -1;
@@ -107,6 +109,15 @@ export function stackCounts(rows: readonly ReportRow[], rowDim: ReportDim, colDi
   };
 }
 
+export type Share = { key: string; count: number; percent: number };
+/** How the rows divide over one dimension, for the donuts: largest first in dimension order, an item with several teams counted once per team. */
+export function shareOf(rows: readonly ReportRow[], dim: ReportDim, ctx: ReportCtx = {}): Share[] {
+  const by = new Map<string, number>();
+  for (const r of rows) for (const k of valuesOf(r, dim, ctx)) by.set(k, (by.get(k) ?? 0) + 1);
+  const total = [...by.values()].reduce((a, b) => a + b, 0);
+  return [...by].sort((a, b) => compareValues(dim, a[0], b[0])).map(([key, count]) => ({ key, count, percent: total === 0 ? 0 : (count / total) * 100 }));
+}
+
 // ---- the address (so a view can be shared)
 const FILTER_PREFIX = "f.";
 const isDim = (v: string): v is ReportDim => (REPORT_DIMS as readonly string[]).includes(v);
@@ -117,6 +128,7 @@ export function serializeReport(state: ReportState): URLSearchParams {
   for (const d of state.drill) p.append("d", `${d.dim}:${d.value}`);
   if (state.archived) p.set("arch", "1");
   if (!state.aiDrafts) p.set("draft", "0");
+  if (state.percent) p.set("pct", "1");
   return p;
 }
 
@@ -130,6 +142,7 @@ export function parseReport(p: URLSearchParams): ReportState {
   }
   s.archived = p.get("arch") === "1";
   s.aiDrafts = p.get("draft") !== "0";
+  s.percent = p.get("pct") === "1";
   return s;
 }
 
@@ -138,6 +151,6 @@ export function parseReport(p: URLSearchParams): ReportState {
  * the Reports tab never shows them to any role (issue #233 FR-5.1).
  */
 export const REPORT_GRID_COLUMNS: readonly string[] = [
-  "item_code", "initiative_name", "home_project", "product_manager", "initiative_phase", "initiative_status", "health", "contributing_teams",
+  "item_code", "initiative_name", "home_project", "product_manager", "engineering_manager", "initiative_phase", "initiative_status", "health", "contributing_teams",
   "theme", "focus_area", "effort", "g2m_quarter", "planned_start", "g2m_date_est",
 ];

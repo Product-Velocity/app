@@ -2,12 +2,12 @@
 
 import { useEffect, useRef } from "react";
 import * as echarts from "echarts/core";
-import { BarChart, CustomChart, ScatterChart } from "echarts/charts";
-import { AriaComponent, DataZoomComponent, GridComponent, MarkLineComponent, TooltipComponent } from "echarts/components";
+import { BarChart, CustomChart, PieChart, ScatterChart } from "echarts/charts";
+import { AriaComponent, DataZoomComponent, GridComponent, LegendComponent, MarkLineComponent, TooltipComponent } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
 import type { EChartsCoreOption, ECharts } from "echarts/core";
 
-echarts.use([BarChart, ScatterChart, CustomChart, GridComponent, TooltipComponent, DataZoomComponent, MarkLineComponent, AriaComponent, SVGRenderer]);
+echarts.use([BarChart, PieChart, ScatterChart, CustomChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, MarkLineComponent, AriaComponent, SVGRenderer]);
 
 /** One palette for every chart (the same as the bar charts of the Reports tab); the brand blue first. */
 export const PALETTE = ["#3347d9", "#0f8a6a", "#c27a00", "#a23b8f", "#2b7fb8", "#b4472f", "#5b6577", "#6a8f1f", "#8f5bd6", "#1f7a8c"];

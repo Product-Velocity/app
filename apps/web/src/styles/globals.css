@@ -752,3 +752,7 @@ a.scope-link:hover, a.scope-link:focus-visible { background: var(--blue-tint-2);
 .rp-legend-item { cursor: default; }
 .rp-placeholder { border: 1px dashed var(--border); border-radius: var(--radius-md); padding: 12px; background: var(--surface); color: var(--ink-muted); font-size: 12.5px; }
 .rp-placeholder p { margin: 4px 0 0; }
+.rp-donuts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+.rp-donut { min-width: 0; }
+.rp-chart-tools { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+.rp-chart-tools .tool-btn[aria-pressed="true"] { background: var(--blue-tint-1); border-color: var(--blue); color: var(--blue-text); }

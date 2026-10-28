@@ -78,7 +78,7 @@ test("a multi-team initiative counts once per team and the chart says so", async
 
 test("no matches shows the empty message in every module and keeps the layout", async ({ page }) => {
   await open(page, "&f.initiative_phase=Build&d=initiative_phase:Discover");
-  await expect(page.getByText("No data matching current filters")).toHaveCount(8);
+  await expect(page.getByText("No data matching current filters")).toHaveCount(10);
   await expect(page.getByRole("button", { name: "Reset filters" })).toBeEnabled();
 });
 
@@ -140,7 +140,7 @@ test("Time to Market follows the filters and shows the empty message when nothin
   const builds = live.filter((x) => x.phase === "Build" && x.i % 3 === 0).map((x) => 60 + (x.i % 4) * 10);
   await expect(kpi(page, "count")).toHaveText(String(builds.length));
   await open(page, "&f.initiative_phase=Build&d=initiative_phase:Discover");
-  await expect(page.getByText("No data matching current filters")).toHaveCount(8);
+  await expect(page.getByText("No data matching current filters")).toHaveCount(10);
 });
 
 test("clicking a team bar filters everything like the other charts", async ({ page }) => {
@@ -195,4 +195,65 @@ test("clicking an effort bar filters like the other charts, and the KR note foll
   await expect(page.locator(".rp-pill")).toHaveText(/Effort: XS/);
   await expect(rowsShown(page)).toHaveCount(live.filter((x) => x.i % 5 === 0).length);
   await expect(page.locator('[data-kpi="no-kr"]')).toHaveText(String(live.filter((x) => x.i % 5 === 0 && x.i % 4 !== 0).length));
+});
+
+// ---- step 4: overview donuts, Team by Phase, percent view, Engineering Manager
+const em = (i: number) => (i % 6 === 0 ? null : `u${(i % 5) + 1}`);
+
+test("Engineering Manager filters the list like Product Manager and is a column", async ({ page }) => {
+  await open(page);
+  await page.getByRole("button", { name: /^Engineering Manager/ }).click();
+  await page.getByRole("checkbox", { name: "ana@example.test" }).check();
+  await expect(rowsShown(page)).toHaveCount(live.filter((x) => em(x.i) === "u1").length);
+  await expect(page.getByRole("columnheader", { name: "Engineering Manager" })).toBeVisible();
+  await page.getByRole("checkbox", { name: "ana@example.test" }).uncheck();
+  await page.getByRole("checkbox", { name: "No Engineering Manager" }).check();
+  await expect(rowsShown(page)).toHaveCount(live.filter((x) => em(x.i) === null).length);
+});
+
+test("the overview draws a donut for each field with more than one value and names the single-valued ones", async ({ page }) => {
+  await open(page);
+  const o = page.locator('section[aria-label="Overview"]');
+  await expect(o.locator('[data-chart^="donut-"]')).toHaveCount(4); // status, phase, team, MoSCoW; Focus Area is empty everywhere
+  await expect(o).toContainText(`Focus Area: Not set (all ${live.length})`);
+  await o.getByText("Show as table").click();
+  await expect(o.getByRole("table", { name: "Overview shares" }).locator("tbody tr").first()).toBeVisible();
+});
+
+test("clicking a donut slice filters like any other chart", async ({ page }) => {
+  await open(page);
+  const chart = page.locator('[data-chart="donut-moscow"]');
+  await chart.scrollIntoViewIfNeeded();
+  const box = (await chart.boundingBox())!;
+  const must = live.filter((x) => x.i % 4 === 0).length;
+  // where ECharts drew the first slice (its own layout: screen angles, clockwise, 12 o clock is 3π/2)
+  const l = await page.evaluate(() => (window as unknown as { __charts: Record<string, { getModel: () => { getSeriesByIndex: (i: number) => { getData: () => { getItemLayout: (i: number) => { cx: number; cy: number; r0: number; r: number; startAngle: number; endAngle: number } } } } }> }).__charts["donut-moscow"]!.getModel().getSeriesByIndex(0).getData().getItemLayout(0));
+  const mid = (l.startAngle + l.endAngle) / 2, r = (l.r0 + l.r) / 2;
+  await page.mouse.click(box.x + l.cx + r * Math.cos(mid), box.y + l.cy + r * Math.sin(mid));
+  await expect(page.locator(".rp-pill")).toHaveText(/MoSCoW: Must/);
+  await expect(rowsShown(page)).toHaveCount(must);
+});
+
+test("Initiatives by Team and Phase counts per team and filters on both", async ({ page }) => {
+  await open(page);
+  const chart = page.locator('section[aria-label="Initiatives by Team and Phase"]');
+  await expect(chart.locator(".rp-note")).toContainText("once per team");
+  const total = await chart.locator(".rp-seg").evaluateAll((els) => els.reduce((n, e) => n + Number(e.getAttribute("aria-label")!.split(": ").pop()), 0));
+  expect(total).toBe(live.reduce((n, x) => n + (x.i % 5 === 0 ? 2 : x.i % 2 === 0 ? 1 : 1), 0)); // two teams, one team, or none (counted as "No team")
+  await chart.locator(".rp-seg").first().click();
+  await expect(page.locator(".rp-pill")).toHaveCount(2);
+});
+
+test("the percent view makes every bar 100%, says the share in each segment and is kept in the address", async ({ page }) => {
+  await open(page);
+  await page.getByRole("button", { name: "Share of each bar (%)" }).click();
+  await expect(page).toHaveURL(/pct=1/);
+  const chart = page.locator('section[aria-label="Initiatives by Product Manager and Phase"]');
+  await expect(chart.locator(".rp-seg").first()).toHaveText(/^\d+%$/);
+  await expect(chart.locator(".rp-seg").first()).toHaveAttribute("aria-label", /: \d+ \(\d+%\)$/);
+  const widths = await chart.locator(".rp-row .rp-bar").evaluateAll((els) => els.map((e) => (e as HTMLElement).style.width));
+  expect(new Set(widths)).toEqual(new Set(["100%"]));
+  await page.reload();
+  await page.waitForSelector(".reports");
+  await expect(page.getByRole("button", { name: "Share of each bar (%)" })).toHaveAttribute("aria-pressed", "true");
 });
