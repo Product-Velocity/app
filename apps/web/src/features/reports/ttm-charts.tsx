@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { DIM_LABEL, phaseDurations, ttmBy, ttmSummary, unsetLabel, type ReportCtx, type ReportDim, type ReportRow } from "@pv/domain";
 import type { EChartsCoreOption } from "echarts/core";
-import { CHART_FONT, EChart, PALETTE } from "./echart";
+import { CHART_FONT, EChart, PALETTE, RADIUS } from "./echart";
 
 const days = (n: number | null) => (n === null ? "–" : `${Math.round(n * 10) / 10}`);
 const DAY_MS = 86_400_000;
@@ -31,7 +31,7 @@ function barOption(groups: Group[], colour: string): EChartsCoreOption {
     tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, textStyle: { fontFamily: CHART_FONT }, formatter: (p: unknown) => { const g = groups[(p as { dataIndex: number }[])[0]!.dataIndex]!; return `<b>${g.label}</b><br/>Median ${days(g.median)} days<br/>Average ${days(g.average)} days<br/>${g.count} ${g.count === 1 ? "initiative" : "initiatives"}`; } },
     xAxis: { type: "value", name: "days", nameLocation: "end", axisLabel: { color: "#4b5563" }, splitLine: { lineStyle: { color: "#edeff3" } } },
     yAxis: { type: "category", inverse: true, data: groups.map((g) => g.label), axisLabel: { color: "#111827" }, axisTick: { show: false } },
-    series: [{ type: "bar", barMaxWidth: 22, itemStyle: { color: colour, borderRadius: [0, 3, 3, 0] }, label: { show: true, position: "right", color: "#111827", formatter: (p: { dataIndex: number }) => `${days(groups[p.dataIndex]!.median)} d (n=${groups[p.dataIndex]!.count})` }, emphasis: { itemStyle: { color: "#2433a8" } }, data: groups.map((g) => g.median) }],
+    series: [{ type: "bar", barMaxWidth: 22, showBackground: true, backgroundStyle: { color: "#f3f4f7", borderRadius: [0, RADIUS, RADIUS, 0] }, itemStyle: { color: colour, borderRadius: [0, RADIUS, RADIUS, 0] }, label: { show: true, position: "right", color: "#111827", formatter: (p: { dataIndex: number }) => `${days(groups[p.dataIndex]!.median)} d (n=${groups[p.dataIndex]!.count})` }, emphasis: { itemStyle: { color: "#2433a8" } }, data: groups.map((g) => g.median) }],
   };
 }
 
@@ -57,7 +57,7 @@ export function TimeToMarket({ rows, ctx, label, onPick, onOpen, nameOf }: Props
     tooltip: { textStyle: { fontFamily: CHART_FONT }, formatter: (p: unknown) => { const d = (p as { data: [number, number, string] }).data; return `<b>${nameOf(d[2])}</b><br/>${d[1]} days<br/>Went to market ${new Date(d[0]).toISOString().slice(0, 10)}`; } },
     xAxis: { type: "time", name: "G2M Date (actual)", nameLocation: "middle", nameGap: 28, axisLabel: { color: "#4b5563", hideOverlap: true }, splitLine: { show: false } },
     yAxis: { type: "value", name: "days", axisLabel: { color: "#4b5563" }, splitLine: { lineStyle: { color: "#edeff3" } } },
-    series: [{ type: "scatter", symbolSize: 11, itemStyle: { color: PALETTE[0], opacity: 0.8 }, emphasis: { itemStyle: { color: "#2433a8", opacity: 1 } }, data: sum.points.map((p) => [p.end * DAY_MS, p.days, p.id]),
+    series: [{ type: "scatter", symbolSize: 12, itemStyle: { color: PALETTE[0], opacity: 0.85, borderColor: "#fff", borderWidth: 2 }, emphasis: { itemStyle: { color: "#2433a8", opacity: 1 } }, data: sum.points.map((p) => [p.end * DAY_MS, p.days, p.id]),
       markLine: sum.median === null ? undefined : { silent: true, symbol: "none", lineStyle: { color: "#c27a00", type: "dashed" }, label: { formatter: `median ${days(sum.median)}`, color: "#7a4a00" }, data: [{ yAxis: sum.median }] } }],
   }), [sum, nameOf]);
   const phaseOption = useMemo<EChartsCoreOption>(() => barOption(phases.map((p) => ({ key: p.phase, label: p.phase, median: p.median, average: p.average, count: p.count })), PALETTE[1]!), [phases]);

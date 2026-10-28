@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { effortKr, unsetLabel, type ReportRow } from "@pv/domain";
 import type { EChartsCoreOption } from "echarts/core";
-import { CHART_FONT, EChart, PALETTE } from "./echart";
+import { CHART_FONT, EChart, PALETTE, RADIUS } from "./echart";
 
 const SHOWN = 15;
 const fmt = (n: number | null) => (n === null ? "–" : new Intl.NumberFormat("en-GB", { maximumFractionDigits: 2 }).format(n));
@@ -29,9 +29,14 @@ export function ImpactEffort({ rows, onPick, onOpen, nameOf }: Props) {
     xAxis: { type: "category", data: s.sizes.map((g) => label(g.key)), axisLabel: { color: "#111827" }, axisTick: { show: false } },
     yAxis: { type: "value", minInterval: 1, name: "initiatives", axisLabel: { color: "#4b5563" }, splitLine: { lineStyle: { color: "#edeff3" } } },
     series: [
-      { name: "With a Primary KR", type: "bar", stack: "n", barMaxWidth: 40, itemStyle: { color: PALETTE[0] }, label: { show: true, color: "#fff", formatter: (p: { value: number }) => (p.value > 0 ? String(p.value) : "") }, data: s.sizes.map((g) => g.withKr) },
-      { name: "No Primary KR", type: "bar", stack: "n", barMaxWidth: 40, itemStyle: { color: "#9aa3b2" }, label: { show: true, color: "#fff", formatter: (p: { value: number }) => (p.value > 0 ? String(p.value) : "") }, data: s.sizes.map((g) => g.withoutKr) },
-    ],
+      { name: "With a Primary KR", color: PALETTE[0]!, values: s.sizes.map((g) => g.withKr) },
+      { name: "No Primary KR", color: "#9aa3b2", values: s.sizes.map((g) => g.withoutKr) },
+    ].map((x, series, all) => ({
+      name: x.name, type: "bar", stack: "n", barMaxWidth: 44, emphasis: { focus: "series" },
+      label: { show: true, color: "#fff", fontWeight: 600, formatter: (p: { value: number }) => (p.value > 0 ? String(p.value) : "") },
+      // rounded top corners on the highest segment of each bar only, white gaps between segments
+      data: x.values.map((v, i) => ({ value: v, itemStyle: { color: x.color, borderColor: "#fff", borderWidth: 1.5, borderRadius: all.slice(series + 1).every((o) => o.values[i] === 0) ? [RADIUS, RADIUS, 0, 0] : 0 } })),
+    })),
   }), [s]);
 
   return (

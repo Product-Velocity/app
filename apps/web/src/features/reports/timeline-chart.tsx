@@ -49,7 +49,7 @@ export function TimelineChart({ rows, today, onOpen }: Props) {
           const h = api.size([0, 1])[1] * 0.6;
           const w = Math.max(b[0] - a[0], 3);
           return { type: "group", children: [
-            { type: "rect", shape: { x: a[0], y: a[1] - h / 2, width: w, height: h, r: 2 }, style: { fill: api.value(5) as string, stroke: "#fff", lineWidth: 1 } },
+            { type: "rect", shape: { x: a[0], y: a[1] - h / 2, width: w, height: h, r: 5 }, style: { fill: api.value(5) as string, stroke: "#fff", lineWidth: 1 } },
             ...(w > 64 ? [{ type: "text", style: { text: api.value(3) as string, x: a[0] + 6, y: a[1], fill: "#fff", fontSize: 11, fontFamily: CHART_FONT, textVerticalAlign: "middle" } }] : []),
           ] };
         },
