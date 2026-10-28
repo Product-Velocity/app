@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "migrate": "node src/migrate-cli.mjs",
+    "new": "node src/new-migration.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
