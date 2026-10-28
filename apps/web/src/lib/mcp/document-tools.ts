@@ -52,13 +52,13 @@ const createDocument: ToolDef = {
   title: "Create a document on an initiative",
   description:
     `Creates a Markdown document (up to ${MAX_DOC_CHARS.toLocaleString("en")} characters, ${MAX_DOCS_PER_ITEM} per initiative) on an initiative, as the signed-in person. ` +
-    "Use kind prd for the full PRD. It is saved as an AI draft until a person accepts it, and as version 1. " + NOT_GITHUB + " Put the parts that builders need in the initiative's Description, not here. " +
+    "Use kind prd for the full PRD and kind discovery for a discovery document. It is saved as an AI draft until a person accepts it, and as version 1. " + NOT_GITHUB + " Put the parts that builders need in the initiative's Description, not here. " +
     "Status can be draft or in_review; a person with the Approver permission approves, never you. " + DATA,
   inputSchema: {
     type: "object",
     properties: {
       item: ITEM,
-      kind: { type: "string", enum: [...DOC_KINDS], description: "prd (default), business_req, tech_req, acceptance, prototype, research or other." },
+      kind: { type: "string", enum: [...DOC_KINDS], description: "prd (default), discovery, business_req, tech_req, acceptance, prototype, research or other." },
       title: { type: "string", maxLength: 200, description: "For example \"PRD: Account switcher\"." },
       body: { type: "string", description: "The document as Markdown." },
       status: { type: "string", enum: ["draft", "in_review"], description: "Default draft." },

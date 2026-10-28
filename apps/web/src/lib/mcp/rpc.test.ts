@@ -54,15 +54,25 @@ describe("handleRpc", () => {
   });
   it("lists the write_prd prompt and returns the template with the brief quoted as data", async () => {
     const l = (await handleRpc({ jsonrpc: "2.0", id: 5, method: "prompts/list" }, backend())) as { result: { prompts: { name: string; arguments: { name: string; required: boolean }[] }[] } };
-    expect(l.result.prompts.map((p) => p.name)).toEqual(["write_prd"]);
+    expect(l.result.prompts.map((p) => p.name)).toEqual(["write_prd", "write_discovery"]);
     expect(l.result.prompts[0]!.arguments.map((a) => a.name)).toEqual(["brief", "modules", "item"]);
-    expect(l.result.prompts[0]!.arguments.every((a) => a.required === false)).toBe(true);
+    expect(l.result.prompts.every((p) => p.arguments.every((a) => a.required === false))).toBe(true);
+    expect(l.result.prompts[1]!.arguments.map((a) => a.name)).toEqual(["brief", "item"]);
     const g = (await handleRpc({ jsonrpc: "2.0", id: 6, method: "prompts/get", params: { name: "write_prd", arguments: { brief: "Add an account switcher", modules: "A1, D1" } } }, backend())) as { result: { messages: { role: string; content: { type: string; text: string } }[] } };
     const text = g.result.messages[0]!.content.text;
     expect(g.result.messages[0]).toMatchObject({ role: "user", content: { type: "text" } });
     expect(text).toContain('"""\nAdd an account switcher\n"""');
     expect(text).toMatch(/Include these appendices: A1, D1/);
     expect(text).toMatch(/Never guess/);
+  });
+  it("returns the discovery template for write_discovery, with the brief quoted as data", async () => {
+    const g = (await handleRpc({ jsonrpc: "2.0", id: 11, method: "prompts/get", params: { name: "write_discovery", arguments: { brief: "Improve retention for 50+ travellers", item: "R-07" } } }, backend())) as { result: { description: string; messages: { content: { text: string } }[] } };
+    const text = g.result.messages[0]!.content.text;
+    expect(g.result.description).toMatch(/discovery/i);
+    expect(text).toContain('"""\nImprove retention for 50+ travellers\n"""');
+    expect(text).toMatch(/Attach the discovery to the existing initiative R-07/);
+    expect(text).toMatch(/Only the chosen solution becomes an initiative/);
+    expect(text).not.toMatch(/Include these appendices/); // not the PRD prompt
   });
   it("refuses an unknown prompt and ignores arguments that are not text", async () => {
     expect(await handleRpc({ jsonrpc: "2.0", id: 7, method: "prompts/get", params: { name: "other" } }, backend())).toMatchObject({ error: { code: -32602 } });
