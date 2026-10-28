@@ -170,7 +170,7 @@ const createItems: ToolDef = {
 };
 
 // ------------------------------------------------------------------ update_items and confirm_changes
-const updateItems: ToolDef = {
+export const updateItems: ToolDef = {
   name: "update_items",
   title: "Change initiatives",
   description:

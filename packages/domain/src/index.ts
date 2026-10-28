@@ -29,3 +29,4 @@ export * from "./delivery";
 export * from "./members";
 export * from "./documents";
 export * from "./prd-template";
+export * from "./prd-extract";
