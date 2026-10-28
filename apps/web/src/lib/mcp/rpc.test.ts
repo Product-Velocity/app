@@ -48,9 +48,26 @@ describe("OAuth discovery", () => {
 });
 
 describe("handleRpc", () => {
-  it("initialize negotiates a supported version and advertises tools only", async () => {
+  it("initialize negotiates a supported version, advertises tools and prompts and sends the PRD instructions", async () => {
     const r = await handleRpc({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18" } }, backend());
-    expect(r).toMatchObject({ id: 1, result: { protocolVersion: "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "product-velocity" } } });
+    expect(r).toMatchObject({ id: 1, result: { protocolVersion: "2025-06-18", capabilities: { tools: {}, prompts: {} }, serverInfo: { name: "product-velocity" }, instructions: expect.stringContaining("At a glance") } });
+  });
+  it("lists the write_prd prompt and returns the template with the brief quoted as data", async () => {
+    const l = (await handleRpc({ jsonrpc: "2.0", id: 5, method: "prompts/list" }, backend())) as { result: { prompts: { name: string; arguments: { name: string; required: boolean }[] }[] } };
+    expect(l.result.prompts.map((p) => p.name)).toEqual(["write_prd"]);
+    expect(l.result.prompts[0]!.arguments.map((a) => a.name)).toEqual(["brief", "modules", "item"]);
+    expect(l.result.prompts[0]!.arguments.every((a) => a.required === false)).toBe(true);
+    const g = (await handleRpc({ jsonrpc: "2.0", id: 6, method: "prompts/get", params: { name: "write_prd", arguments: { brief: "Add an account switcher", modules: "A1, D1" } } }, backend())) as { result: { messages: { role: string; content: { type: string; text: string } }[] } };
+    const text = g.result.messages[0]!.content.text;
+    expect(g.result.messages[0]).toMatchObject({ role: "user", content: { type: "text" } });
+    expect(text).toContain('"""\nAdd an account switcher\n"""');
+    expect(text).toMatch(/Include these appendices: A1, D1/);
+    expect(text).toMatch(/Never guess/);
+  });
+  it("refuses an unknown prompt and ignores arguments that are not text", async () => {
+    expect(await handleRpc({ jsonrpc: "2.0", id: 7, method: "prompts/get", params: { name: "other" } }, backend())).toMatchObject({ error: { code: -32602 } });
+    const g = (await handleRpc({ jsonrpc: "2.0", id: 8, method: "prompts/get", params: { name: "write_prd", arguments: { brief: { x: 1 }, modules: 5 } } }, backend())) as { result: { messages: { content: { text: string } }[] } };
+    expect(g.result.messages[0]!.content.text).toMatch(/has not given a brief yet/);
   });
   it("falls back to the latest version it supports", async () => {
     const r = await handleRpc({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "1999-01-01" } }, backend());

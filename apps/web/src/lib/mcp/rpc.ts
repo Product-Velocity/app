@@ -4,7 +4,7 @@
  * database or knows about tokens. See docs/20-CLAUDE-MCP.md.
  */
 
-import { claudeMayWrite, limitMessage, type UsageResult } from "@pv/domain";
+import { claudeMayWrite, limitMessage, prdPrompt, serverInstructions, type UsageResult } from "@pv/domain";
 import type { McpReader, WorkspaceContext } from "./read-model";
 import { DOCUMENT_READ_TOOLS, DOCUMENT_WRITE_TOOLS } from "./document-tools";
 import { FILE_TOOLS } from "./file-tools";
@@ -88,6 +88,21 @@ export const TOOLS: ToolDef[] = [
   ...DOCUMENT_WRITE_TOOLS,
 ];
 
+const WRITE_PRD = "write_prd";
+/** The prompts a person can start from Claude (docs/22-CLAUDE-PRD-FLOW.md). Text only: the prompt carries no data of its own and runs no tool. */
+const PROMPTS = [
+  {
+    name: WRITE_PRD,
+    title: "Write a PRD and create the initiative",
+    description: "Write a PRD in your usual format, create the initiative with every field the brief supports, and keep the full PRD as a document that never reaches GitHub. Asks once for what is missing; skipping is always allowed.",
+    arguments: [
+      { name: "brief", description: "What the initiative is, in your own words (optional; Claude asks if empty).", required: false },
+      { name: "modules", description: "Optional appendix modules to include, by id, e.g. A1, D1, D4 (default: Claude chooses and tells you).", required: false },
+      { name: "item", description: "Optional existing initiative code, e.g. R-12, to update instead of creating a new one.", required: false },
+    ],
+  },
+];
+
 const toolError = (id: RpcResponse["id"], text: string): RpcResponse => ({ jsonrpc: "2.0", id, result: { isError: true, content: [{ type: "text", text }] } });
 // the registry's handlers and modes stay server-side; clients only see the description of a tool
 const publicTool = (t: ToolDef) => ({ name: t.name, title: t.title, description: t.description, inputSchema: t.inputSchema, annotations: t.annotations });
@@ -106,10 +121,20 @@ export async function handleRpc(msg: Rpc, backend: McpBackend, tools: ToolDef[] 
         id,
         result: {
           protocolVersion: VERSIONS.includes(asked) ? asked : VERSIONS[0],
-          capabilities: { tools: {} },
+          capabilities: { tools: {}, prompts: {} },
           serverInfo: { name: "product-velocity", version: "0.1.0" },
+          instructions: serverInstructions(),
         },
       };
+    }
+    case "prompts/list":
+      return { jsonrpc: "2.0", id, result: { prompts: PROMPTS } };
+    case "prompts/get": {
+      if (msg.params?.name !== WRITE_PRD) return err(id, -32602, "Unknown prompt");
+      const a = (msg.params?.arguments ?? {}) as Record<string, unknown>;
+      const text = (v: unknown) => (typeof v === "string" ? v.slice(0, 20_000) : undefined);
+      const p = prdPrompt({ brief: text(a.brief), modules: text(a.modules), item: text(a.item) });
+      return { jsonrpc: "2.0", id, result: { description: p.description, messages: [{ role: "user", content: { type: "text", text: p.text } }] } };
     }
     case "ping":
       return { jsonrpc: "2.0", id, result: {} };
