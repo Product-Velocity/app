@@ -8,7 +8,7 @@ import {
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import {
-  buildGroupedRows, CORE_COLUMN_KEYS, FIELD_BY_KEY, FIELDS, groupableFields, matchesFilters, matchesSearch, refKey, sanitizeView, sortRows, WAITING_IN_VIEW, type EditableField, type Filter, type GroupRow, type ViewDef,
+  buildGroupedRows, CORE_COLUMN_KEYS, effectiveSort, FIELD_BY_KEY, FIELDS, groupableFields, matchesFilters, matchesSearch, refKey, sanitizeView, sortRows, WAITING_IN_VIEW, type EditableField, type Filter, type GroupRow, type ViewDef,
 } from "@pv/domain";
 import { useWorkspace } from "../workspace/provider";
 import { setQueryParam, useScope } from "../workspace/scope";
@@ -179,6 +179,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     [bDef, co, shared],
   );
   const dirty = !sameView(def, bDef);
+  const shownSort = effectiveSort(def); // a saved sort on a column the view does not show falls back to the default order, quietly
   const openBaseRaw = (b: BaseView) => {
     const target = baseDef(b, views, defaults);
     if (target) setShared((p) => { const n = { ...p }; if (target.filters.length > 0) delete n.filters; if (target.groupBy) delete n.groupBy; if (target.sort) delete n.sort; return n; });
@@ -224,9 +225,9 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     [controller, tick, projectIds, search, def.filters, added, me],
   );
   const displayRows = useMemo(
-    () => buildGroupedRows(sortRows(visibleRows as unknown as Record<string, unknown>[], def.sort) as unknown as typeof visibleRows, def.groupBy, collapsed, groupLabel),
+    () => buildGroupedRows(sortRows(visibleRows as unknown as Record<string, unknown>[], shownSort) as unknown as typeof visibleRows, def.groupBy, collapsed, groupLabel),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [visibleRows, def.groupBy, def.sort, collapsed, lookups],
+    [visibleRows, def.groupBy, shownSort, collapsed, lookups],
   );
   const toggleGroup = useCallback((key: string) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(key)) n.add(key); return n; }), []);
   const gridContext = useMemo(() => ({ toggleGroup }), [toggleGroup]);
@@ -235,8 +236,8 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const setSearchText = (t: string) => { resetShown(); setSearch(t); };
 
   const columnDefs = useMemo(
-    () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible, order: def.columns, sorted: def.groupBy === null && !def.sort, pinned: pinnedSet }),
-    [controller, lookups, visible, def.columns, def.groupBy, def.sort, pinnedSet],
+    () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible, order: def.columns, sorted: def.groupBy === null && !shownSort, pinned: pinnedSet }),
+    [controller, lookups, visible, def.columns, def.groupBy, shownSort, pinnedSet],
   );
   const exportFields = useMemo(() => def.columns.map((k) => FIELD_BY_KEY[k]!).filter(Boolean), [def.columns]);
   const showLater = def.columns.some((k) => (FIELD_BY_KEY[k]?.phase ?? 1) > 1 && k !== "project_rank");
@@ -552,7 +553,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
           <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} today={today} matching={visibleRows.length} total={controller.rows.length} />
           <ColumnsPanel def={def} defaultDef={bDef} customerSafe={def.customerSafe === true} onApply={changeColumns} shown={shownCount} />
           <GroupMenu groupBy={def.groupBy} onChange={(g) => changeDef({ groupBy: g })} />
-          <SortMenu sort={def.sort ?? null} onChange={(sort) => changeDef({ sort })} />
+          <SortMenu sort={shownSort} onChange={(sort) => changeDef({ sort })} />
           <label className="pvbar-search">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b6272" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
             <input
@@ -633,7 +634,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       )}
       </div>
       <p ref={footRef} className="grid-foot">
-        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${FIELD_BY_KEY[def.groupBy]?.name}, ${def.sort ? `sorted by ${FIELD_BY_KEY[def.sort.field]?.name} inside each group` : "rank order inside each group"}` : def.sort ? `Sorted by ${FIELD_BY_KEY[def.sort.field]?.name} (${def.sort.dir === "asc" ? "low to high" : "high to low"})` : "Sorted by global Stack Rank"} · Keyboard shortcuts are under Help, top right · A lock means the value comes from GitHub
+        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${FIELD_BY_KEY[def.groupBy]?.name}, ${shownSort ? `sorted by ${FIELD_BY_KEY[shownSort.field]?.name} inside each group` : "rank order inside each group"}` : shownSort ? `Sorted by ${FIELD_BY_KEY[shownSort.field]?.name} (${shownSort.dir === "asc" ? "low to high" : "high to low"})` : "Sorted by global Stack Rank"} · Keyboard shortcuts are under Help, top right · A lock means the value comes from GitHub
         {status.pending > 0 ? "" : ""}
         {lastGithubSync && <> · <span title="The latest time any initiative was in step with GitHub">Last synced with GitHub {agoLabel(lastGithubSync, nowTick)}</span></>}
       </p>

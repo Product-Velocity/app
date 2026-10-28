@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupableFields, needsSearch, optionsFor, sortableFields, type Filter, type ListOption, type SortDef,
+  FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupableFields, needsSearch, optionsFor, sortableFields, sortDirectionLabels, type Filter, type ListOption, type SortDef,
 } from "@pv/domain";
 import { menuSearchKeys, NoResults, SearchInput, SelectField } from "@/components/search-list";
 import { DateInput } from "@/components/date-input";
@@ -76,30 +76,54 @@ function GroupPanel({ groupBy, onPick }: { groupBy: string | null; onPick: (g: s
 
 // --------------------------------------------------------------------- sort
 const SORT_OPTIONS: ListOption[] = fieldOptions(sortableFields());
-/** One sort for the grid (and for a saved view). No sort means the global Stack Rank order. */
+/**
+ * One sort for the grid (and for a saved view), in two steps like the other toolbar panels: pick a column, then a direction and Apply.
+ * Nothing changes in the grid before Apply. No sort means the global Stack Rank order.
+ */
 export function SortMenu({ sort, onChange }: { sort: SortDef | null; onChange: (s: SortDef | null) => void }) {
+  const text = sort && FIELD_BY_KEY[sort.field] ? `${FIELD_BY_KEY[sort.field]!.name}, ${sortDirectionLabels(sort.field)[sort.dir]}` : "Stack Rank";
   return (
-    <Popover label={<>Sort: <strong className="count-badge">{sort ? `${FIELD_BY_KEY[sort.field]?.name} ${sort.dir === "asc" ? "↑" : "↓"}` : "Stack Rank"}</strong></>} active={!!sort}>
-      {(close) => <SortPanel sort={sort} onPick={(s) => { onChange(s); close(); }} />}
+    <Popover label={<>Sort: <strong className="count-badge">{text}</strong></>} active={!!sort}>
+      {(close) => <SortPanel sort={sort} onApply={(s) => { onChange(s); close(); }} />}
     </Popover>
   );
 }
-function SortPanel({ sort, onPick }: { sort: SortDef | null; onPick: (s: SortDef | null) => void }) {
+function SortPanel({ sort, onApply }: { sort: SortDef | null; onApply: (s: SortDef | null) => void }) {
   const [query, setQuery] = useState("");
+  const [field, setField] = useState<string | null>(null); // step 2 once a column is picked
+  const [dir, setDir] = useState<SortDef["dir"]>("asc");
   const shown = filterOptions(SORT_OPTIONS, query);
+  if (field) {
+    const words = sortDirectionLabels(field);
+    return (
+      <div className="sort-step" role="group" aria-label={`Sort by ${FIELD_BY_KEY[field]?.name}`}>
+        <p className="scope-head">Sort by {FIELD_BY_KEY[field]?.name}</p>
+        <div role="radiogroup" aria-label="Direction">
+          {(["asc", "desc"] as const).map((d) => (
+            <button key={d} type="button" role="radio" aria-checked={dir === d} className="scope-item" onClick={() => setDir(d)}>{words[d]}{dir === d && <span className="scope-meta" aria-hidden="true"> ✓</span>}</button>
+          ))}
+        </div>
+        <div className="sort-actions">
+          <button type="button" className="tool-btn" onClick={() => setField(null)}>Back</button>
+          <button type="button" className="tool-btn tool-btn-on" onClick={() => onApply({ field, dir })}>Apply</button>
+        </div>
+      </div>
+    );
+  }
   return (
     <>
       {needsSearch(SORT_OPTIONS.length) && <SearchInput value={query} onChange={setQuery} label="Search sort fields" onKeyDown={menuSearchKeys} />}
       <div className="group-panel" role="menu" aria-label="Sort by">
-        <button type="button" role="menuitemradio" aria-checked={sort === null} className="scope-item" onClick={() => onPick(null)}>Global Stack Rank</button>
         {shown.map((o) => (
-          <span key={o.value} className="sort-row">
-            <button type="button" role="menuitemradio" aria-checked={sort?.field === o.value && sort.dir === "asc"} className="scope-item" onClick={() => onPick({ field: o.value, dir: "asc" })}>{o.label} <span className="scope-meta">↑ low to high / A to Z</span></button>
-            <button type="button" role="menuitemradio" aria-checked={sort?.field === o.value && sort.dir === "desc"} className="scope-item" aria-label={`${o.label}, high to low`} onClick={() => onPick({ field: o.value, dir: "desc" })}>↓</button>
-          </span>
+          <button key={o.value} type="button" role="menuitemradio" aria-checked={sort?.field === o.value} className="scope-item" onClick={() => { setField(o.value); setDir(sort?.field === o.value ? sort.dir : "asc"); }}>
+            {o.label}{sort?.field === o.value && <span className="scope-meta"> current</span>}
+          </button>
         ))}
       </div>
       {shown.length === 0 && <NoResults query={query} />}
+      <div className="sort-actions">
+        <button type="button" className="tool-btn" disabled={!sort} onClick={() => onApply(null)}>Clear sort</button>
+      </div>
     </>
   );
 }

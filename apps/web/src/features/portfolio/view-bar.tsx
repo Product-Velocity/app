@@ -181,7 +181,7 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset }: {
   const updateLabel = updateKind === "workspace" ? "Update for everyone" : current ? `Update “${current.name}”` : "Update";
   const updateBlocked = updateKind === "workspace" && !canAdmin ? "Workspace views can only be changed by an admin. Save as your own view instead." : null;
   const doUpdate = async () => {
-    const r = current ? await store.updateView(current.id, def) : builtinName ? await store.saveDefaultView(builtinName, def) : null;
+    const r = current ? await store.updateView(current.id, { ...def, sort: def.sort ?? null }) : builtinName ? await store.saveDefaultView(builtinName, def) : null;
     if (!r) return;
     if (!r.ok) { say(r.error); return; }
     await reload(); say(null);

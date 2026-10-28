@@ -30,3 +30,11 @@ export async function resetChanges(page: Page) {
   await viewMenuAction(page, "Reset changes");
   if (await page.getByRole("dialog", { name: "Views" }).count()) await page.keyboard.press("Escape");
 }
+
+/** The two-step sort: open Sort, pick the column, pick the direction by its words (A-Z, Z-A, Low to high, ...) and press Apply. */
+export async function applySort(page: Page, column: string, direction: string) {
+  await page.getByRole("button", { name: /^Sort:/ }).click();
+  await page.getByRole("menuitemradio", { name: new RegExp(`^${column.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) }).click();
+  await page.getByRole("radio", { name: direction, exact: true }).click();
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+}

@@ -206,6 +206,25 @@ export type SortDef = { field: string; dir: "asc" | "desc" };
 export const sortableFields = () => FIELDS.filter((f) => f.type !== "Long text");
 const isSortable = (key: string) => key in FIELD_BY_KEY && FIELD_BY_KEY[key]!.type !== "Long text";
 
+/** Direction words that fit the column's data: A-Z for text, low to high for numbers, oldest first for dates. */
+export function sortDirectionLabels(fieldKey: string): { asc: string; desc: string } {
+  const t = FIELD_BY_KEY[fieldKey]?.type;
+  if (t === "Number" || t === "Currency") return { asc: "Low to high", desc: "High to low" };
+  if (t === "Date" || t === "Date range") return { asc: "Oldest first", desc: "Newest first" };
+  return { asc: "A-Z", desc: "Z-A" };
+}
+
+/** "Sorted by Stack Rank, Low to high"; no sort reads as the default order. */
+export function sortSummary(sort: SortDef | null | undefined): string {
+  if (!sort || !(sort.field in FIELD_BY_KEY)) return "Sorted by global Stack Rank";
+  return `Sorted by ${FIELD_BY_KEY[sort.field]!.name}, ${sortDirectionLabels(sort.field)[sort.dir]}`;
+}
+
+/** The sort that applies to the grid: a saved sort on a column the view no longer shows falls back to the default order, without an error. */
+export function effectiveSort(view: { columns: readonly string[]; sort?: SortDef | null }): SortDef | null {
+  return view.sort && view.columns.includes(view.sort.field) ? view.sort : null;
+}
+
 /**
  * Orders rows by a view's sort; empty values go last in both directions and ties keep the Stack Rank order.
  * Numbers compare as numbers, everything else as text (dates are stored as ISO text, which sorts correctly).

@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { goToView, hasChanges, moreViews, resetChanges, viewMenuAction, viewTab } from "./helpers";
+import { applySort, goToView, hasChanges, moreViews, resetChanges, viewMenuAction, viewTab } from "./helpers";
 
 const open = async (page: Page, query = "n=30&role=admin") => {
   await page.goto(`/dev/grid?${query}`);
@@ -140,8 +140,7 @@ test.describe("one save flow (R-99)", () => {
     await expect(page.locator(".view-dirty")).toHaveCount(0);
     await resetChanges(page);
     await expect(changed).toHaveCount(0);
-    await page.getByRole("button", { name: /^Sort:/ }).click();
-    await page.getByRole("menuitemradio", { name: "MoSCoW, high to low" }).click();
+    await applySort(page, "MoSCoW", "Z-A");
     await expect(changed).toBeVisible();
     await expect(foot(page)).toContainText("Sorted by MoSCoW (high to low)");
     await resetChanges(page);
@@ -196,8 +195,7 @@ test.describe("one save flow (R-99)", () => {
     await makeChange(page);
     await page.getByRole("button", { name: /^Group by/ }).click();
     await page.getByRole("menuitemradio", { name: "Health" }).click();
-    await page.getByRole("button", { name: /^Sort:/ }).click();
-    await page.getByRole("menuitemradio", { name: "Effort (T-shirt), high to low" }).click();
+    await applySort(page, "Effort (T-shirt)", "Z-A");
     const matching = (await foot(page).textContent())!;
     await saveAsNew(page, "My planning");
     await expect(hasChanges(page)).toHaveCount(0);
@@ -256,15 +254,13 @@ test.describe("one save flow (R-99)", () => {
     await open(page);
     await makeChange(page);
     await saveAsNew(page, "Mine");
-    await page.getByRole("button", { name: /^Sort:/ }).click();
-    await page.getByRole("menuitemradio", { name: /^MoSCoW ↑/ }).click();
+    await applySort(page, "MoSCoW", "A-Z");
     await viewMenuAction(page, "Update “Mine”");
     await expect(hasChanges(page)).toHaveCount(0);
     expect((await store(page)).views.find((v) => v.name === "Mine")!.sort).toEqual({ field: "moscow", dir: "asc" });
     // a built-in is a workspace view: the admin confirms
     await viewTab(page, "Planning").click();
-    await page.getByRole("button", { name: /^Sort:/ }).click();
-    await page.getByRole("menuitemradio", { name: "Effort (T-shirt), high to low" }).click();
+    await applySort(page, "Effort (T-shirt)", "Z-A");
     await viewMenuAction(page, "Update for everyone");
     const c = page.getByRole("dialog", { name: "Update for everyone?" });
     await expect(c).toContainText("whole workspace");
@@ -426,6 +422,88 @@ test.describe("manage views (R-100)", () => {
     await moreBtn(page).click();
     await rowOf(page, "Planning").getByRole("button", { name: "Actions for Planning" }).click();
     const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations.map((x) => x.id)).toEqual([]);
+  });
+});
+
+test.describe("sort: two steps, saved with the view (issue #207)", () => {
+  const firstRow = (page: Page) => page.locator('.ag-row[row-index="0"] [col-id="initiative_name"]').first().innerText();
+
+  test("column first, then direction, then Apply: the grid does not re-sort before Apply", async ({ page }) => {
+    await open(page);
+    const before = await firstRow(page);
+    await page.getByRole("button", { name: /^Sort:/ }).click();
+    await page.getByRole("menuitemradio", { name: /^Initiative Name/ }).click();
+    await expect(page.getByRole("group", { name: "Sort by Initiative Name" })).toBeVisible();
+    await page.getByRole("radio", { name: "Z-A", exact: true }).click();
+    expect(await firstRow(page)).toBe(before);
+    await expect(foot(page)).toContainText("Sorted by global Stack Rank");
+    await expect(hasChanges(page)).toHaveCount(0);
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(page.getByRole("button", { name: /^Sort:/ })).toContainText("Initiative Name, Z-A");
+    await expect(hasChanges(page)).toBeVisible();
+    await moreBtn(page).click();
+    await expect(menu(page)).toContainText("sorted");
+  });
+
+  test("direction words fit the data: A-Z for text, Low to high for numbers", async ({ page }) => {
+    await open(page);
+    await page.getByRole("button", { name: /^Sort:/ }).click();
+    await page.getByRole("menuitemradio", { name: /^Stack Rank/ }).click();
+    await expect(page.getByRole("radio", { name: "Low to high", exact: true })).toBeVisible();
+    await expect(page.getByRole("radio", { name: "High to low", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Back" }).click();
+    await page.getByRole("menuitemradio", { name: /^Initiative Name/ }).click();
+    await expect(page.getByRole("radio", { name: "A-Z", exact: true })).toBeVisible();
+    await expect(page.getByRole("radio", { name: "Z-A", exact: true })).toBeVisible();
+  });
+
+  test("Update stores the sort; Save as new view stores it; Reset restores the saved sort; switching views loads each view's own", async ({ page }) => {
+    await open(page);
+    await makeChange(page);
+    await saveAsNew(page, "Sorted view");
+    await applySort(page, "MoSCoW", "A-Z");
+    await viewMenuAction(page, "Update “Sorted view”");
+    await expect(hasChanges(page)).toHaveCount(0);
+    expect((await store(page)).views.find((v) => v.name === "Sorted view")!.sort).toEqual({ field: "moscow", dir: "asc" });
+    // change it, then Reset: back to the saved sort
+    await applySort(page, "Initiative Name", "Z-A");
+    await resetChanges(page);
+    await expect(page.getByRole("button", { name: /^Sort:/ })).toContainText("MoSCoW, A-Z");
+    // clearing is a saved state too
+    await page.getByRole("button", { name: /^Sort:/ }).click();
+    await page.getByRole("button", { name: "Clear sort" }).click();
+    await expect(page.getByRole("button", { name: /^Sort:/ })).toContainText("Stack Rank");
+    await viewMenuAction(page, "Update “Sorted view”");
+    expect((await store(page)).views.find((v) => v.name === "Sorted view")!.sort ?? null).toBeNull();
+  });
+
+  test("Update on a built-in view (admin) stores the sort and a different view keeps its own", async ({ page }) => {
+    await open(page);
+    await viewTab(page, "Planning").click();
+    await applySort(page, "Initiative Name", "Z-A");
+    await viewMenuAction(page, "Update for everyone");
+    await page.getByRole("dialog", { name: "Update for everyone?" }).getByRole("button", { name: "Update for everyone" }).click();
+    expect((await store(page)).views.find((v) => v.name === "Planning")!.sort).toEqual({ field: "initiative_name", dir: "desc" });
+  });
+
+  test("a saved sort on a column the view does not show falls back to the default order, with no error", async ({ page }) => {
+    await open(page);
+    await applySort(page, "MoSCoW", "A-Z");
+    await page.getByRole("button", { name: /columns shown$/ }).click();
+    await page.getByLabel("MoSCoW", { exact: true }).uncheck();
+    await page.getByRole("button", { name: /^Apply columns/ }).click();
+    await expect(page.getByRole("button", { name: /^Sort:/ })).toContainText("Stack Rank");
+    await expect(page.getByRole("alert").filter({ hasText: /./ })).toHaveCount(0);
+  });
+
+  test("the sort panel has no accessibility violations in both steps", async ({ page }) => {
+    await open(page);
+    await page.getByRole("button", { name: /^Sort:/ }).click();
+    let r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations.map((x) => x.id)).toEqual([]);
+    await page.getByRole("menuitemradio", { name: /^Initiative Name/ }).click();
+    r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
     expect(r.violations.map((x) => x.id)).toEqual([]);
   });
 });

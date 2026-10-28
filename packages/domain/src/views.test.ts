@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CUSTOMER_SAFE_KEYS, buildGroupedRows, healthBreakdown, filterSummary, groupableFields, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
+import { CUSTOMER_SAFE_KEYS, buildGroupedRows, effectiveSort, sortDirectionLabels, sortSummary, healthBreakdown, filterSummary, groupableFields, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
 import { QUICK_FILTERS, customFilters, quickFilterOn, toggleQuickFilter } from "./quick-filters";
 import { FIELDS, FIELD_BY_KEY } from "./registry";
 import { setDateFormat } from "./dates";
@@ -279,5 +279,26 @@ describe("quick filters", () => {
   it("a rule the person added by hand that equals a quick filter shows as that quick filter", () => {
     const rule: Filter = { field: "moscow", op: "is", value: "Must" };
     expect(quickFilterOn([rule], QUICK_FILTERS.find((q) => q.id === "high-impact")!)).toBe(true);
+  });
+});
+
+describe("sort labels and fallback (issue #207)", () => {
+  it("words the directions to fit the data", () => {
+    expect(sortDirectionLabels("initiative_name")).toEqual({ asc: "A-Z", desc: "Z-A" });
+    expect(sortDirectionLabels("effort")).toEqual({ asc: "A-Z", desc: "Z-A" }); // a T-shirt select is text
+    expect(sortDirectionLabels("stack_rank")).toEqual({ asc: "Low to high", desc: "High to low" });
+    const date = FIELDS.find((f) => f.type === "Date")!;
+    expect(sortDirectionLabels(date.key)).toEqual({ asc: "Oldest first", desc: "Newest first" });
+    const num = FIELDS.find((f) => f.type === "Number")!;
+    expect(sortDirectionLabels(num.key).asc).toBe("Low to high");
+  });
+  it("summarises the sort, or the default order", () => {
+    expect(sortSummary({ field: "initiative_name", dir: "desc" })).toBe("Sorted by Initiative Name, Z-A");
+    expect(sortSummary(null)).toBe("Sorted by global Stack Rank");
+  });
+  it("ignores a saved sort whose column the view does not show", () => {
+    expect(effectiveSort({ columns: ["initiative_name"], sort: { field: "moscow", dir: "asc" } })).toBeNull();
+    expect(effectiveSort({ columns: ["initiative_name", "moscow"], sort: { field: "moscow", dir: "asc" } })).toEqual({ field: "moscow", dir: "asc" });
+    expect(effectiveSort({ columns: ["moscow"] })).toBeNull();
   });
 });

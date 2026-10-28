@@ -616,9 +616,8 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .vm-foot { display: flex; justify-content: space-between; gap: 8px; padding: 6px 12px 2px; border-top: 1px solid #e1e5eb; margin-top: 4px; }
 .view-toast { display: inline-flex; align-items: center; gap: 8px; padding: 3px 10px; background: var(--blue-tint-1); color: var(--blue-text); border-radius: 6px; font-size: 12.5px; }
 .dialog-fieldset { border: 0; padding: 0; margin: 8px 0; }
-.sort-row { display: flex; }
-.sort-row > .scope-item:first-child { flex: 1 1 auto; }
-.sort-row > .scope-item:last-child { width: auto; }
+.sort-step { display: flex; flex-direction: column; gap: 4px; min-width: 220px; }
+.sort-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 6px 4px 2px; }
 .vm-current { padding: 0 12px 6px; border-bottom: 1px solid #e1e5eb; margin-bottom: 4px; }
 .vm-current-actions { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 4px; }
 .vm-dot { color: var(--blue-text); font-size: 9px; vertical-align: middle; }

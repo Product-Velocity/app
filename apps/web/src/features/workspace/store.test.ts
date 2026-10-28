@@ -134,7 +134,7 @@ describe("default views and customer-safe views", () => {
     const first = fake([{ data: null }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", customer_safe: false }] }]);
     const r = await new SupabaseWorkspaceStore(first.client, "t1").saveDefaultView("Planning", { ...def, customerSafe: true });
     expect(r).toMatchObject({ ok: true, value: { id: "d1", baseView: "Planning" } });
-    expect(has(first.calls[1]!, "insert", { tenant_id: "t1", name: "Planning", base_view: "Planning", columns: def.columns, filters: def.filters, group_by: "health", pinned: [] })).toBe(true); // never customer-safe
+    expect(has(first.calls[1]!, "insert", { tenant_id: "t1", name: "Planning", base_view: "Planning", columns: def.columns, filters: def.filters, group_by: "health", pinned: [], sort: null })).toBe(true); // never customer-safe
     const again = fake([{ data: { id: "d1" } }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", customer_safe: false }] }]);
     await new SupabaseWorkspaceStore(again.client, "t1").saveDefaultView("Planning", def);
     expect(again.calls[1]!.ops.some(([o]) => o === "update")).toBe(true);
@@ -265,5 +265,42 @@ describe("memory store: ownership, caps and layouts", () => {
     await a.replaceLayout(false, [row]);
     await a.deleteView("w1");
     expect((await a.listLayouts()).mine).toHaveLength(0);
+  });
+});
+
+describe("saving a sort with a view (issue #207)", () => {
+  const sort = { field: "moscow", dir: "desc" as const };
+  const viewRow = { id: "v1", name: "V", columns: def.columns, filters: [], group_by: null, sort };
+  it("Update writes the sort, and writes null when the definition has no sort (no sort is a saved state)", async () => {
+    const a = fake([{ data: [viewRow] }]);
+    await new SupabaseWorkspaceStore(a.client, "t1").updateView("v1", { ...def, sort });
+    expect(has(a.calls[0]!, "update", { sort, pinned: [], columns: def.columns, filters: def.filters, group_by: "health" })).toBe(true);
+    const b = fake([{ data: [{ ...viewRow, sort: null }] }]);
+    await new SupabaseWorkspaceStore(b.client, "t1").updateView("v1", { ...def, sort: null });
+    expect(has(b.calls[0]!, "update", { sort: null, pinned: [], columns: def.columns, filters: def.filters, group_by: "health" })).toBe(true);
+  });
+  it("Update on a built-in view stores the sort too (it used to be dropped)", async () => {
+    const first = fake([{ data: null }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", sort }] }]);
+    const r = await new SupabaseWorkspaceStore(first.client, "t1").saveDefaultView("Planning", { ...def, sort });
+    expect(r).toMatchObject({ ok: true, value: { sort } });
+    expect(has(first.calls[1]!, "insert", { tenant_id: "t1", name: "Planning", base_view: "Planning", columns: def.columns, filters: def.filters, group_by: "health", pinned: [], sort })).toBe(true);
+    const again = fake([{ data: { id: "d1" } }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", sort: null }] }]);
+    await new SupabaseWorkspaceStore(again.client, "t1").saveDefaultView("Planning", { ...def });
+    expect(has(again.calls[1]!, "update", { columns: def.columns, filters: def.filters, group_by: "health", pinned: [], sort: null })).toBe(true);
+  });
+  it("a view read back carries its sort", async () => {
+    const { client } = fake([{ data: [viewRow] }]);
+    expect((await new SupabaseWorkspaceStore(client, "t1").listViews())[0]!.sort).toEqual(sort);
+  });
+  it("the in-memory store keeps and clears the sort on Update, for views and built-ins", async () => {
+    const s = new MemoryWorkspaceStore({ me: "u1", admin: true });
+    const v = (await s.createView("V", { ...def, sort })) as { ok: true; value: { id: string } };
+    expect((await s.listViews())[0]!.sort).toEqual(sort);
+    await s.updateView(v.value.id, { ...def, sort: null });
+    expect((await s.listViews())[0]!.sort).toBeUndefined();
+    await s.saveDefaultView("Planning", { ...def, sort });
+    expect((await s.listViews()).find((x) => x.baseView === "Planning")!.sort).toEqual(sort);
+    await s.saveDefaultView("Planning", { ...def });
+    expect((await s.listViews()).find((x) => x.baseView === "Planning")!.sort).toBeUndefined();
   });
 });
