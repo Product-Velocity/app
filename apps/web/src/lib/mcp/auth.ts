@@ -4,7 +4,7 @@ import { supabaseEnv } from "@/lib/supabase/env";
 import { refusalFor, type ConnectionStatus, type UsageResult } from "@pv/domain";
 import { siteUrl } from "@/lib/site-url";
 import { makeReader } from "./reader";
-import type { McpBackend } from "./rpc";
+import type { Unavailable, WorkspaceHandle } from "./multi";
 
 /** The /mcp switch. Off unless MCP_ENABLED=true (tenant switch comes with slice 2). */
 export const mcpEnabled = () => process.env.MCP_ENABLED === "true";
@@ -22,7 +22,8 @@ export function clientFor(token: string) {
   });
 }
 
-export type McpCaller = { userId: string; clientId: string; connectionId: string; backend: McpBackend };
+/** The person, the OAuth client, and one handle per workspace the connection covers and the database said is usable. */
+export type McpCaller = { userId: string; clientId: string; workspaces: WorkspaceHandle[]; unavailable: Unavailable[] };
 
 export type AuthResult =
   | { ok: true; caller: McpCaller }
@@ -50,27 +51,31 @@ export async function authenticate(token: string): Promise<AuthResult> {
   const clientId = typeof c?.claims?.client_id === "string" ? c.claims.client_id : null;
   if (!clientId) return unauthorized;
 
-  const { data: rows, error: ae } = await supabase.rpc("mcp_authorize");
-  const a = (rows as { status: ConnectionStatus; connection_id: string | null; tenant_id: string | null; tenant_name: string | null; role: string | null }[] | null)?.[0];
-  if (ae || !a) return { ok: false, http: 401, error: "invalid_token", message: "Could not check this connection. Try again." };
-  const refusal = refusalFor(a.status);
-  if (refusal) return { ok: false, ...refusal };
-  const connectionId = a.connection_id!;
-  const tenantId = a.tenant_id!;
-  const tenantName = a.tenant_name ?? "Workspace";
-  const role = a.role!;
+  const { data: rows, error: ae } = await supabase.rpc("mcp_authorize_all");
+  type Row = { status: ConnectionStatus; connection_id: string | null; tenant_id: string | null; tenant_name: string | null; role: string | null; last_write_at: string | null };
+  const list = (rows as Row[] | null) ?? [];
+  if (ae || list.length === 0) return { ok: false, http: 401, error: "invalid_token", message: "Could not check this connection. Try again." };
+  const usable = list.filter((r) => r.status === "ok");
+  if (usable.length === 0) {
+    // nothing usable: say why, using the first reason (they are all about the same connection)
+    const refusal = refusalFor(list[0]!.status);
+    return refusal ? { ok: false, ...refusal } : unauthorized;
+  }
 
-  const read = makeReader(supabase, { id: tenantId, name: tenantName }, u.user.id, role, siteUrl);
-  return {
-    ok: true,
-    caller: {
-      userId: u.user.id,
-      clientId,
-      connectionId,
+  const workspaces: WorkspaceHandle[] = usable.map((a) => {
+    const connectionId = a.connection_id!;
+    const name = a.tenant_name ?? "Workspace";
+    const role = a.role!;
+    const read = makeReader(supabase, { id: a.tenant_id!, name }, u.user.id, role, siteUrl);
+    return {
+      id: a.tenant_id!,
+      name,
+      role,
+      lastWriteAt: a.last_write_at,
       backend: {
         role,
-        async meter(items, bytes): Promise<UsageResult> {
-          const { data, error: me } = await supabase.rpc("mcp_record_call", { p_connection: connectionId, p_items: items, p_bytes: bytes });
+        async meter(items, bytes, write): Promise<UsageResult> {
+          const { data, error: me } = await supabase.rpc("mcp_record_call", { p_connection: connectionId, p_items: items, p_bytes: bytes, p_write: write === true });
           if (me || !data) throw new Error("usage");
           return data as UsageResult;
         },
@@ -78,6 +83,8 @@ export async function authenticate(token: string): Promise<AuthResult> {
         read: read.reader,
         write: read.writer,
       },
-    },
-  };
+    };
+  });
+  const unavailable = list.filter((r) => r.status !== "ok").map((r) => ({ name: r.tenant_name ?? "Workspace", status: r.status }));
+  return { ok: true, caller: { userId: u.user.id, clientId, workspaces, unavailable } };
 }

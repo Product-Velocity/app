@@ -24,7 +24,7 @@ export type McpBackend = {
   /** Writes the workspace as the caller (docs/20 FR-4). Only the tools with mode "write" use it, and only for roles that may write. */
   write: McpWriter;
   /** Counts one call (and the items/bytes it writes) against the daily limits; refuses when a limit is reached. */
-  meter: (items: number, bytes: number) => Promise<UsageResult>;
+  meter: (items: number, bytes: number, write?: boolean) => Promise<UsageResult>;
 };
 export type ToolDef = {
   name: string;
@@ -149,7 +149,7 @@ export async function handleRpc(msg: Rpc, backend: McpBackend, tools: ToolDef[] 
       }
       try {
         const args = (msg.params?.arguments ?? {}) as Record<string, unknown>;
-        const usage = await backend.meter(tool.weigh ? await tool.weigh(backend, args) : 0, tool.weighBytes ? tool.weighBytes(args) : 0);
+        const usage = await backend.meter(tool.weigh ? await tool.weigh(backend, args) : 0, tool.weighBytes ? tool.weighBytes(args) : 0, tool.mode === "write");
         if (!usage.ok) return toolError(id, limitMessage(usage));
         const data = await tool.run(backend, args);
         const text = JSON.stringify({ envelope: DATA_ENVELOPE, note: DATA_NOTE, data });
