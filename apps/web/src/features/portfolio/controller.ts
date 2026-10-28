@@ -1,7 +1,7 @@
 import {
   canPurge, canSeeTrash, cleanRelated, cleanSkills, isRelatedField, summarizeChange, toDay, type ActivityRow, type RelatedField, type RelatedValues,
   applyMove, canBeEmpty, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
-  bulkEditReason, resolveGroup, canDeleteItem, placeRestored, type Edit, type EditableField, type Entry, type NewItemValues,
+  bulkEditReason, isOpenList, openListValues, resolveGroup, canDeleteItem, placeRestored, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
 import type { PortfolioDataSource, SaveResult } from "./data-source";
 import type { GridItem, Lookups, LoadedItem, IssueTreeRow } from "./types";
@@ -59,6 +59,18 @@ export class PortfolioController {
   /** Initiative Groups: the workspace list plus any group typed or loaded here, A to Z. Open list: typing a new one creates it. */
   private readonly groups = new Set<string>();
   groupNames(): string[] { return [...this.groups].sort((a, b) => a.localeCompare(b, "en")); }
+  /** The values in use of an open-list field (Focus Area, Audience), A to Z: what its editors suggest (issue #246). */
+  openValues(key: string): string[] { return openListValues(this.rows.map((r) => r[key])); }
+  /** A typed value of an open-list field in the spelling of the existing one (only the case differs). */
+  private canonicalOpen(field: string, value: unknown): unknown {
+    if (typeof value !== "string") return value;
+    const r = resolveGroup(value, this.openValues(field));
+    return r.kind === "empty" ? null : r.name;
+  }
+  /** The value to save: groups and open-list values keep one spelling. */
+  private canonicalValue(field: string, value: unknown): unknown {
+    return field === "theme" ? this.canonicalGroup(value) : isOpenList(field) ? this.canonicalOpen(field, value) : value;
+  }
   /** A typed group in the spelling of the existing one (only the case differs), and remember a new one. */
   private canonicalGroup(value: unknown): unknown {
     if (typeof value !== "string") return value;
@@ -147,7 +159,12 @@ export class PortfolioController {
    * One undo step for the whole batch.
    */
   createItems(rawDrafts: NewItemValues[], opts: { via?: "import"; label?: string } = {}): { ok: true; created: number } | { ok: false; error: string } {
-    const drafts = rawDrafts.map((d) => ("theme" in d && d.theme ? { ...d, theme: this.canonicalGroup(d.theme) } : d));
+    const drafts = rawDrafts.map((d) => {
+      let out = d;
+      if ("theme" in d && d.theme) out = { ...out, theme: this.canonicalGroup(d.theme) };
+      for (const k of ["focus_area", "audience"] as const) if (k in out && out[k]) out = { ...out, [k]: this.canonicalOpen(k, out[k]) };
+      return out;
+    });
     if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
     if (drafts.length === 0) return { ok: true, created: 0 };
     let rank = this.rows.reduce((n, r) => Math.max(n, r.stack_rank), 0);
@@ -254,7 +271,7 @@ export class PortfolioController {
     }
     const checked = validateEdit(field, raw, { today: this.today() });
     if (!checked.ok) { this.notify(`${fieldLabel(field)}: ${checked.error}`); return { ok: false, error: checked.error }; }
-    const v = field === "theme" ? { ...checked, value: this.canonicalGroup(checked.value) } : checked;
+    const v = { ...checked, value: this.canonicalValue(field, checked.value) } as typeof checked;
     const rows = itemIds.map((id) => this.byId.get(id)).filter((r): r is GridItem => !!r);
     const todo = rows.filter((r) => !same(r[field], v.value));
     const unchanged = rows.length - todo.length;
@@ -294,7 +311,7 @@ export class PortfolioController {
     }
     const checked = validateEdit(field, raw, { today: this.today() });
     if (!checked.ok) { this.notify(`${row.item_code} ${fieldLabel(field)}: ${checked.error}`); return { ok: false, error: checked.error }; }
-    const v = field === "theme" ? { ...checked, value: this.canonicalGroup(checked.value) } : checked;
+    const v = { ...checked, value: this.canonicalValue(field, checked.value) } as typeof checked;
     return this.commitField(row, field, v.value);
   }
 
@@ -379,7 +396,7 @@ export class PortfolioController {
       if (!EDITABLE_FIELDS.includes(field)) { const error = readOnlyReason(field) ?? "That field cannot be edited."; this.notify(error); return { ok: false, error }; }
       const checked = validateEdit(field, raw ?? "", { today: this.today() });
       if (!checked.ok) { this.notify(`${row.item_code} ${fieldLabel(field)}: ${checked.error}`); return { ok: false, error: checked.error }; }
-      const value = field === "theme" ? this.canonicalGroup(checked.value) : checked.value;
+      const value = this.canonicalValue(field, checked.value);
       if (!same(row[field], value)) edits.push({ type: "field", itemId, key: row.item_code, field, before: row[field] ?? null, after: value });
     }
     if (edits.length === 0) return { ok: true, changed: false };

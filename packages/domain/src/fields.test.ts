@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { bulkEditReason, canBeEmpty, canEditItems, EDITABLE_FIELDS, fieldLabel, optionsFor, readOnlyReason, validateEdit } from "./fields";
-import { FIELDS, FIELD_BY_KEY } from "./registry";
+import { bulkEditReason, canBeEmpty, canEditItems, EDITABLE_FIELDS, fieldLabel, fieldMaxLength, openListValues, optionsFor, readOnlyReason, validateEdit } from "./fields";
+import { FIELDS, FIELD_BY_KEY, isOpenList } from "./registry";
 
 const today = new Date(Date.UTC(2027, 0, 1));
 
@@ -126,5 +126,36 @@ describe("validateEdit", () => {
   it("rejects an unknown or locked field", () => {
     expect(validateEdit("nope", "x").ok).toBe(false);
     expect(validateEdit("status", "closed").ok).toBe(false);
+  });
+});
+
+describe("open lists: Focus Area and Audience (issue #246)", () => {
+  it("are selects with no fixed values, like Initiative Group", () => {
+    for (const k of ["focus_area", "audience"]) {
+      expect(FIELD_BY_KEY[k]!.type).toBe("Select");
+      expect(FIELD_BY_KEY[k]!.allowed).toEqual([]);
+      expect(isOpenList(k)).toBe(true);
+    }
+    expect(isOpenList("moscow")).toBe(false);
+    expect(isOpenList("theme")).toBe(false); // Initiative Group keeps its own table of names
+  });
+
+  it("accept any text, one spelling (no double spaces), up to 120 characters", () => {
+    expect(validateEdit("focus_area", "  Customer   loyalty ")).toEqual({ ok: true, value: "Customer loyalty" });
+    expect(validateEdit("audience", "Brands and agencies")).toEqual({ ok: true, value: "Brands and agencies" });
+    expect(validateEdit("audience", "x".repeat(121))).toMatchObject({ ok: false, error: expect.stringMatching(/120/) });
+    expect(validateEdit("focus_area", "")).toEqual({ ok: true, value: null });
+  });
+
+  it("offer the values in use, once each (any case), A to Z, never an empty one", () => {
+    const inUse = ["Pricing", "loyalty", "Pricing", "pricing ", "", null, undefined, 4, "Loyalty"];
+    expect(optionsFor("focus_area", inUse)).toEqual([{ value: "loyalty", label: "loyalty" }, { value: "Pricing", label: "Pricing" }]);
+    expect(optionsFor("audience")).toEqual([]);
+    expect(openListValues(["b", "A", "a"])).toEqual(["A", "b"]);
+  });
+
+  it("are written like Initiative Group is: a text with a limit, no list of allowed values", () => {
+    expect(fieldMaxLength("focus_area")).toBe(120);
+    expect(fieldMaxLength("audience")).toBe(120);
   });
 });

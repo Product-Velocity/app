@@ -30,6 +30,7 @@ export function FieldRow({ f, row, ctx }: { f: FieldDef; row: GridItem; ctx: Fie
     case "text": case "longtext": case "number": case "currency": control = <TextControl {...common} kind={p.kind} />; break;
     case "select": case "boolean": case "person": case "project": control = <SelectControl {...common} kind={p.kind} />; break;
     case "group": control = <GroupControl {...common} />; break;
+    case "openlist": control = <OpenListControl {...common} />; break;
     case "rank": control = <RankControl {...common} />; break;
     case "tags": case "links": case "relations": case "teams": case "people": control = <ListControl {...common} kind={p.kind} />; break;
     case "skills": control = <SkillsControl {...common} />; break;
@@ -147,6 +148,37 @@ function SelectControl({ id, f, row, ctx, disabled, onError, kind }: Common & { 
       id={id} label={f.name} value={current} disabled={disabled} options={all} {...(blank !== undefined ? { blank } : {})}
       onChange={(v) => { const r = ctx.controller.edit(row.id, f.key, v); onError(r.ok ? null : r.error); }}
     />
+  );
+}
+
+/** Focus Area and Audience are open lists (issue #246): pick a value already in use or type a new one. */
+function OpenListControl({ id, f, row, ctx, disabled, onError }: Common) {
+  const stored = row[f.key] == null ? "" : String(row[f.key]);
+  const [draft, setDraft] = useState<string | null>(null);
+  const names = ctx.controller.openValues(f.key);
+  const shown = draft ?? stored;
+  const r = draft !== null ? resolveGroup(draft, names) : null;
+  const commit = (text: string) => {
+    setDraft(null);
+    if (text.trim() === stored) { onError(null); return; }
+    const res = ctx.controller.edit(row.id, f.key, text);
+    onError(res.ok ? null : res.error);
+  };
+  return (
+    <>
+      <input
+        id={id} type="text" list={`${id}-list`} value={shown} disabled={disabled} autoComplete="off" maxLength={120} placeholder={`Type to pick or add a ${f.name.toLowerCase()}`}
+        onFocus={() => setDraft(stored)} onChange={(e) => setDraft(e.target.value)}
+        onBlur={(e) => { if (draft !== null) commit(e.target.value); }}
+        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLElement).blur(); else if (e.key === "Escape") { setDraft(null); e.stopPropagation(); (e.target as HTMLElement).blur(); } }}
+      />
+      <datalist id={`${id}-list`}>{names.map((g) => <option key={g} value={g} />)}</datalist>
+      {r?.kind === "new" && (
+        <p role="status" className="pf-hint">
+          “{r.name}” is a new value for {f.name}.{r.similar.length > 0 && ` Looks like ${r.similar.map((s) => `“${s}”`).join(", ")}: type it exactly to reuse it.`}
+        </p>
+      )}
+    </>
   );
 }
 

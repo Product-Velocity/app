@@ -6,7 +6,7 @@ import { EDITABLE_FIELDS, canBeEmpty, canEditItems, readOnlyReason, validateEdit
 import { cleanGroupName, resolveGroup } from "./groups";
 import { CLAUDE_BASIS_FIELDS, CLAUDE_FORBIDDEN_FIELDS, CLAUDE_LIST_FIELDS, claudeMaySet } from "./mcp-read";
 import { cleanRelated, type Link } from "./related";
-import { FIELD_BY_KEY, columnOnItems } from "./registry";
+import { FIELD_BY_KEY, columnOnItems, isOpenList } from "./registry";
 
 export const MAX_WRITE_BATCH = 50;
 /** A diff from update_items can be confirmed for this long. */
@@ -58,6 +58,8 @@ export type WriteCtx = {
   groups: string[];
   teams: { id: string; name: string }[];
   items: { id: string; code: string }[];
+  /** The values in use of the open-list fields (Focus Area, Audience), so a new spelling of an existing value uses the existing one (issue #246). */
+  openLists?: Record<string, string[]>;
   today?: Date;
 };
 export type ListOp = { op: "list_add" | "list_remove"; field: string; value: unknown };
@@ -97,7 +99,7 @@ export function cleanRelation(from: unknown, to: unknown, items: readonly { id: 
   return { ok: true, from: a.id, to: b.id };
 }
 
-type Scalar = { ok: true; column: string; value: unknown; display: unknown } | Fail;
+type Scalar = { ok: true; column: string; value: unknown; display: unknown; /** A hint for Claude to pass on, such as a look-alike of an existing value. */ note?: string } | Fail;
 
 function resolveMember(raw: string, ctx: WriteCtx): { ok: true; id: string; name: string } | Fail {
   const s = norm(raw);
@@ -151,6 +153,14 @@ function coerce(key: string, raw: unknown, ctx: WriteCtx): Scalar {
   if (!v.ok) {
     if (f.type === "Select" && f.allowed.length > 0 && key !== "g2m_quarter") return fail(`${nameOf}: "${text}" is not one of ${f.allowed.join(", ")}.`);
     return fail(`${nameOf}: ${v.error}`);
+  }
+  if (isOpenList(key) && typeof v.value === "string") {
+    // an open list: the same value in another case is the existing spelling; a new one that looks like an existing one is pointed out
+    const r = resolveGroup(v.value, ctx.openLists?.[key] ?? []);
+    if (r.kind === "existing") return { ok: true, column, value: r.name, display: r.name };
+    if (r.kind === "new" && r.similar.length > 0) {
+      return { ok: true, column, value: r.name, display: r.name, note: `${f.name} "${r.name}" is new. Did you mean ${r.similar.map((s) => `"${s}"`).join(" or ")}? Say so and I will change it.` };
+    }
   }
   return { ok: true, column, value: v.value, display: v.value };
 }
@@ -269,6 +279,7 @@ export function prepareNewItem(raw: unknown, ctx: WriteCtx): PreparedItem {
     }
     const c = coerce(k, v, ctx);
     if (!c.ok) return c;
+    if (c.note) warnings.push(c.note);
     if (c.value === null) continue; // an empty value on a new item is just absent
     row[c.column] = c.value;
     values[k] = c.display;
@@ -377,6 +388,7 @@ export function buildUpdate(raw: unknown, now: UpdateCurrent, ctx: WriteCtx): Pr
     } else {
       const c = coerce(key, v, ctx);
       if (!c.ok) return fail(`${code}: ${c.error}`);
+      if (c.note) warnings.push(c.note);
       value = c.value; shown = c.display; column = c.column;
     }
 
