@@ -362,9 +362,9 @@ describe("undo_last", () => {
   });
 });
 
-describe("Value Type: the one value field Claude may set, only with the person's own words (R-112 slice 3)", () => {
+describe("Value Type: the one value field Claude may set, only with the person's own words (R-113 slice 3)", () => {
   const BASIS = "Ashu: this one is about growing revenue we already have";
-  const TYPE = "Incremental revenue";
+  const TYPE = "Increase revenue";
   const audit = async (id: string) => (await db.admin.query("select old, new, via, basis from public.audit_log where entity = 'items' and entity_id = $1 and field = 'value_type' order by id", [id])).rows;
 
   it("refuses it without a basis, on create and on update, and nothing is written", async () => {
@@ -388,9 +388,9 @@ describe("Value Type: the one value field Claude may set, only with the person's
     const id = createdId(await apply(cora, "create_items", [{ ops: [{ op: "create_item", row: row("With basis", { value_type: TYPE }), value_type_basis: BASIS }] }]));
     expect((await item(id)).value_type).toBe(TYPE);
     expect(await audit(id)).toEqual([expect.objectContaining({ via: "Claude MCP", basis: BASIS, new: TYPE })]);
-    const u = await apply(cora, "update_items", [{ ops: [{ op: "update_item", id, set: { value_type: "Save money / operational efficiency" }, value_type_basis: "Ashu: actually this saves support cost" }] }]);
+    const u = await apply(cora, "update_items", [{ ops: [{ op: "update_item", id, set: { value_type: "Decrease costs" }, value_type_basis: "Ashu: actually this saves support cost" }] }]);
     expect(u.units[0]).toMatchObject({ ok: true });
-    expect((await audit(id)).at(-1)).toMatchObject({ basis: "Ashu: actually this saves support cost", new: "Save money / operational efficiency" });
+    expect((await audit(id)).at(-1)).toMatchObject({ basis: "Ashu: actually this saves support cost", new: "Decrease costs" });
   });
 
   it("the basis belongs to one operation: a later write in the same call without it is refused", async () => {

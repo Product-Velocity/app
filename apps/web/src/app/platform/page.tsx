@@ -12,6 +12,8 @@ const NOTICE: Record<string, string> = {
   "account-unrestricted": "The read-only restriction on that account was removed. The change is in its audit log.",
   "plan-saved": "Plan saved.",
   "bad-plan": "Enter a plan name of 1 to 40 characters.",
+  deleted: "Account deleted. This is recorded in the configuration log.",
+  "delete-name": "The name you typed does not match, so nothing was deleted.",
   failed: "That did not work. Please try again.",
 };
 
@@ -31,7 +33,7 @@ export default async function PlatformAccountsPage({ searchParams }: { searchPar
         . Entering an account is logged in that account&rsquo;s audit log, and a banner stays on screen while you are inside.
       </p>
       {notice && NOTICE[notice] && (
-        <p role="status" className={notice === "reauth" || notice === "failed" || notice === "enter-failed" ? "notice notice-error" : "notice"}>{NOTICE[notice]}</p>
+        <p role="status" className={notice === "reauth" || notice === "failed" || notice === "enter-failed" || notice === "delete-name" ? "notice notice-error" : "notice"}>{NOTICE[notice]}</p>
       )}
       {notice === "reauth" && (
         <form action="/auth/sign-out" method="post">

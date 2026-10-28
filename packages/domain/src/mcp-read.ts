@@ -8,7 +8,7 @@ import { matchesFilters, opsFor, sortRows, type Filter, type FilterCtx, type Fil
 /**
  * Fields Claude may never set, whatever the role (CLAUDE.md rule 3; docs/20 section 5): Stack Rank, Decision and its trail,
  * Value and everything commercial that hangs on it, and the Ready for build mark. The database also refuses some of them;
- * this list keeps them out of the tool schemas too. Value Type is not on it: it is the one exception (docs/22 section 6), set only
+ * this list keeps them out of the tool schemas too. Business Value Type is not on it: it is the one exception (docs/22 section 6), set only
  * with the person's own words as the basis (`value_type_basis`, `CLAUDE_BASIS_FIELDS`).
  */
 export const CLAUDE_FORBIDDEN_FIELDS: readonly string[] = [

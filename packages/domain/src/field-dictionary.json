@@ -518,7 +518,7 @@
   "n": "26",
   "storage": "Column on items",
   "phase": 1,
-  "name": "Value Type",
+  "name": "Business Value Type",
   "key": "value_type",
   "group": "Why",
   "type": "Select",
@@ -528,21 +528,23 @@
    "Leadership"
   ],
   "allowed": [
-   "Incremental revenue",
-   "Defend existing revenue",
-   "Save money / operational efficiency"
+   "New revenue",
+   "Increase revenue",
+   "Defend revenue",
+   "Decrease costs",
+   "Other"
   ],
-  "allowedText": "Incremental revenue · Defend existing revenue · Save money / operational efficiency",
+  "allowedText": "New revenue · Increase revenue · Defend revenue · Decrease costs · Other",
   "origin": "Input",
   "githubSync": "Never synced (commercial).",
   "filledWhen": "After interviews",
-  "description": "Always one of: Incremental revenue, Defend existing revenue, Save money / operational efficiency"
+  "description": "Always one of: New revenue, Increase revenue, Defend revenue, Decrease costs, Other"
  },
  {
   "n": "27",
   "storage": "Column on items",
   "phase": 1,
-  "name": "Value (EUR, 12-month run-rate)",
+  "name": "Business Value (12m run-rate)",
   "key": "value_12m",
   "group": "Why",
   "type": "Currency",
@@ -558,13 +560,13 @@
   "origin": "Input",
   "githubSync": "Never synced (commercial).",
   "filledWhen": "After interviews",
-  "description": "Single universal value in EUR as a 12-month run-rate, comparable across all initiatives for stack ranking"
+  "description": "Single universal value in the organization currency as a 12-month run-rate, comparable across all initiatives for stack ranking"
  },
  {
   "n": "28",
   "storage": "Column on items",
   "phase": 1,
-  "name": "Value Basis",
+  "name": "Business Value Basis",
   "key": "value_basis",
   "group": "Why",
   "type": "Select",

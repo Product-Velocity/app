@@ -44,6 +44,7 @@ export function FieldRow({ f, row, ctx }: { f: FieldDef; row: GridItem; ctx: Fie
       <div className="pf-control" {...(isList ? { role: "group", "aria-labelledby": `${id}-l` } : {})}>{control}</div>
       {hint && <p className="pf-hint">{hint}</p>}
       {f.description && !["readonly", "later", "select"].includes(p.kind) && <p className="pf-help">{f.description}</p>}
+      {p.kind === "currency" && <p className="pf-help">{ctx.lookups.currency ? `Amounts are in ${ctx.lookups.currency}, the organization currency.` : "No organization currency is set yet. An admin sets it under Workspace settings."}</p>}
       {error && <p role="alert" className="pf-error">{error}</p>}
     </div>
   );

@@ -1,6 +1,6 @@
-# Claude writes a PRD and creates the initiative (R-112)
+# Claude writes a PRD and creates the initiative (R-113)
 
-Status: spec, written 2026-10-28 from Ashu's decisions in chat. Builds on `docs/20-CLAUDE-MCP.md` (slices 1 to 5) and `docs/05-AI-AND-MCP.md`. **Built so far: slices 1 and 2 of section 8 (0.47.0: documents on the initiative and the four MCP document tools) and slice 3 (0.48.0: the Value Type exception).** Slices 4 to 6 are open.
+Status: spec, written 2026-10-28 from Ashu's decisions in chat. Builds on `docs/20-CLAUDE-MCP.md` (slices 1 to 5) and `docs/05-AI-AND-MCP.md`. **Built so far: slices 1 and 2 of section 8 (0.47.0: documents on the initiative and the four MCP document tools) and slice 3 (0.48.0: the Business Value Type exception).** Slices 4 to 6 are open.
 
 ## 1. What this is
 A person asks Claude (through the Product Velocity MCP server) to "write a PRD and create the initiative". Claude follows a fixed PRD structure, creates the initiative, fills every field it can **support from what the person said**, asks one short batch of questions for the rest, and stores the **full PRD as a document on the initiative**. The full PRD never goes to GitHub; the Description carries only an extract.
@@ -10,7 +10,7 @@ Every module is optional. A PRD that has nothing for a module leaves it out: no 
 ## 2. Principles
 1. **Never guess.** A field is set only when the person's own words or an answered question support it. No invented numbers, thresholds, dates, customers or competitor claims (rule 9).
 2. **Skip is free.** "Skip" is a valid answer to any question and is never asked twice in the same run.
-3. **People-only fields stay people-only** (rule 3), with one narrow exception: Value Type (section 6).
+3. **People-only fields stay people-only** (rule 3), with one narrow exception: Business Value Type (section 6).
 4. **The full PRD is data in PV, not on GitHub** (rule 2). Which module goes where is fixed in the template (section 4), not judged by Claude.
 5. Everything Claude writes is an AI draft, audited with source `Claude MCP`, and undoable with `undo_last`.
 
@@ -27,7 +27,7 @@ Rules: the bullets must agree with section 4 (Scope); Claude writes section 4 fr
 
 | Module | Flag | Content | Fields it can fill |
 |---|---|---|---|
-| **A1 Company Value Story** | PRD only | The company goal served (new revenue / grow existing revenue / save costs / other), **how** the initiative moves it (mechanism), assumptions and the evidence for each, cost of not doing it. Replaces "Business Value Map". | Primary KR (name, unit, direction, start, target), Cost of Not Doing, Focus Area, Roadmap Category, Change Type; Value Type only under section 6 |
+| **A1 Company Value Story** | PRD only | The company goal served (new revenue / grow existing revenue / save costs / other), **how** the initiative moves it (mechanism), assumptions and the evidence for each, cost of not doing it. Replaces "Business Value Map". | Primary KR (name, unit, direction, start, target), Cost of Not Doing, Focus Area, Roadmap Category, Change Type; Business Value Type only under section 6 |
 | A2 Feature Value Map | PRD only | Customers, end users, current products and services | Request Origin, Target Segments, Audience, Related To |
 | A3 User Value Map | PRD only | Persona, current journey, pain points, AI opportunities | feeds the two copy blocks below |
 | A4 AI Solution Hypothesis | PRD only | Options evaluated (diverge), decision matrix (converge), recommended option | none; Decision, Decided By, Decision Date stay with people |
@@ -73,19 +73,19 @@ Rules:
 - After each experiment the outcome review (Phase 5) compares the actual result with the rule written beforehand. People set Outcome Verdict and Learning.
 - Later option, not in this spec: each experiment as a child initiative with Depends On.
 
-## 6. Value Type exception to rule 3 (decided 2026-10-28)
-Claude may set **Value Type only** (for example new revenue, grow revenue, save cost), and only when the person stated it or answered Claude's question about it. It is not inferred from tone.
+## 6. Business Value Type exception to rule 3 (decided 2026-10-28)
+Claude may set **Business Value Type only** (for example new revenue, grow revenue, save cost), and only when the person stated it or answered Claude's question about it. It is not inferred from tone.
 - The tool requires a `basis`: the person's own words. The audit log stores it; the field shows as an AI draft the person can change.
 - Value, Value Basis, Confidence, Time to First Revenue, Customers Requesting, Stack Rank, Decision and the gate fields stay people-only, still refused by the tools and by `items_guard` (`PV004`).
 - Build: migration relaxing `items_guard` for `value_type` alone, `describe_fields` reporting it as `claude_may_set` with the `basis` requirement, tests that every other forbidden field is still refused, and that a call without `basis` is refused.
 
 ## 7. What Claude asks
-After reading the person's brief, Claude lists what it could not fill, **once, in one message**, grouped by module and ordered by importance, each with "skip" allowed. It asks only for fields not already answered by the text. Typical set: Sponsor, Product Manager, Primary KR, G2M Quarter, Effort, Value Type, thresholds in D1. Answers are used in the same run; unanswered items are left empty (nothing is blocked by a missing field; validation by stage comes with #101 and will then be shown as warnings).
+After reading the person's brief, Claude lists what it could not fill, **once, in one message**, grouped by module and ordered by importance, each with "skip" allowed. It asks only for fields not already answered by the text. Typical set: Sponsor, Product Manager, Primary KR, G2M Quarter, Effort, Business Value Type, thresholds in D1. Answers are used in the same run; unanswered items are left empty (nothing is blocked by a missing field; validation by stage comes with #101 and will then be shown as warnings).
 
 ## 8. Build slices
 1. **Documents on the initiative (built 0.47.0, in the Spec tab).** Table `item_documents` (+ versions) with RLS, indexed from `tenant_id`, two-tenant test, added to the probe list in `packages/db/tests/rls.test.ts`; audit; Documents tab in the item panel (read, edit, versions); the field stays off the GitHub allowlist and the sentinel test proves it.
 2. **MCP document tools (built 0.47.0).** `create_document`, `update_document` (carries the version it was based on; a newer human edit is never overwritten), `get_document`, `list_documents`. Read results are wrapped as data. Same role gate (creator and admin write) and daily limits; not `undo_last` (versions instead).
-3. **Value Type exception** (section 6; built 0.48.0, migration 0054).
+3. **Business Value Type exception** (section 6; built 0.48.0, migration 0056).
 4. **`write_prd` prompt and server instructions.** The MCP server advertises `prompts` and `instructions` (today `capabilities` has only `tools`, `apps/web/src/lib/mcp/rpc.ts`). The prompt holds the template, the At-a-glance rule, the modules and flags, the "never guess" rules and the single batch of questions. Golden-input evals for the prompt.
 5. **Extract and copy.** Tool-side helper that builds the Description extract from the flagged modules and copies the Hypothesis and Value Proposition blocks, with the diff rule.
 6. **Scenario test.** One end-to-end test: a short brief → initiative, document, extract, copied fields, one question batch, a skipped module; plus hostile text in the brief and the document (data, not instructions), and a check that no PRD-only module text appears in any GitHub payload.

@@ -11,7 +11,7 @@ export const CLAUDE_CAN = [
 
 export const CLAUDE_CANNOT = [
   "Approve anything or mark work ready for build",
-  "Set Stack Rank, Decision or Value (Value Type only when you tell it which one, and your words are recorded)",
+  "Set Stack Rank, Decision or Value (Business Value Type only when you tell it which one, and your words are recorded)",
   "Delete initiatives",
   "Change roles, members or settings",
 ] as const;

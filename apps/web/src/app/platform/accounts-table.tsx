@@ -1,5 +1,5 @@
 import { formatWhen } from "@/lib/audit-log";
-import { enterAccount, setAccountLevel, setPlan } from "./actions";
+import { deleteAccount, enterAccount, setAccountLevel, setPlan } from "./actions";
 
 export type AccountRow = { tenant_id: string; name: string; plan: string; owner_email: string | null; member_count: number; project_count: number; last_activity: string | null; access_override: string | null };
 
@@ -45,6 +45,15 @@ export function AccountsTable({ rows }: { rows: AccountRow[] }) {
                     <input name="reason" maxLength={500} placeholder="Reason (optional)" aria-label={`Reason for entering ${a.name}`} />
                     <button className="btn btn-primary" type="submit" data-testid="enter-account">Enter</button>
                   </form>
+                  <details className="delete-account">
+                    <summary>Delete…</summary>
+                    <form action={deleteAccount} className="stack">
+                      <input type="hidden" name="tenant" value={a.tenant_id} />
+                      <p className="error">Deletes <strong>{a.name}</strong> with its {a.member_count} members, {a.project_count} projects and all initiatives. This cannot be undone.</p>
+                      <label>Type the account name to confirm<input name="confirm_name" autoComplete="off" required aria-label={`Type ${a.name} to confirm deleting it`} /></label>
+                      <button className="btn btn-danger" type="submit" data-testid="delete-account">Delete account for good</button>
+                    </form>
+                  </details>
                 </td>
               </tr>
             ))}

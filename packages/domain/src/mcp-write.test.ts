@@ -286,7 +286,7 @@ describe("link notes", () => {
 
 describe("Value Type: the one value field Claude may set, only with the person's own words", () => {
   const BASIS = "Ashu: this is about growing the revenue we already have";
-  const TYPE = "Incremental revenue";
+  const TYPE = "Increase revenue";
   const now = { current: { id: "i1", item_code: "R-01", value_type: null }, lists: {} as Record<string, string[]> };
 
   it("is settable and described as needing a basis, while the rest of Value stays forbidden", () => {
@@ -310,7 +310,7 @@ describe("Value Type: the one value field Claude may set, only with the person's
   });
 
   it("create: a value outside the allowed list is refused with the allowed ones", () => {
-    expect(err({ name: "A", project: "Platform", value_type: "Revenue", value_type_basis: BASIS })).toMatch(/Incremental revenue/);
+    expect(err({ name: "A", project: "Platform", value_type: "Revenue", value_type_basis: BASIS })).toMatch(/Increase revenue/);
   });
 
   it("create: the basis does not unlock the other commercial fields", () => {
@@ -322,8 +322,8 @@ describe("Value Type: the one value field Claude may set, only with the person's
     expect(need).toMatchObject({ ok: false, error: expect.stringMatching(/own words/i) });
     const fill = buildUpdate({ item: "R-01", set: { value_type: TYPE, value_type_basis: BASIS } }, now, ctx);
     expect(fill.ok && fill.changes).toEqual([expect.objectContaining({ field: "value_type", confirm: false, basis: BASIS })]);
-    const held = buildUpdate({ item: "R-01", set: { value_type: "Defend existing revenue", value_type_basis: BASIS } }, { ...now, current: { ...now.current, value_type: TYPE } }, ctx);
-    expect(held.ok && held.changes[0]).toMatchObject({ confirm: true, old: TYPE, new: "Defend existing revenue", basis: BASIS });
+    const held = buildUpdate({ item: "R-01", set: { value_type: "Defend revenue", value_type_basis: BASIS } }, { ...now, current: { ...now.current, value_type: TYPE } }, ctx);
+    expect(held.ok && held.changes[0]).toMatchObject({ confirm: true, old: TYPE, new: "Defend revenue", basis: BASIS });
     expect(buildUpdate({ item: "R-01", set: { moscow: "Must", value_type_basis: BASIS } }, now, ctx)).toMatchObject({ ok: false, error: expect.stringMatching(/only goes together/) });
   });
 });

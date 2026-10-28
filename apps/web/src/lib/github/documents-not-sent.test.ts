@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// R-112 / rule 2: the full PRD and other documents stay in Product Velocity. No code that builds or reads a GitHub payload may touch them.
+// R-113 / rule 2: the full PRD and other documents stay in Product Velocity. No code that builds or reads a GitHub payload may touch them.
 const roots = [join(__dirname), join(__dirname, "../../../../../packages/github/src")];
 const sources = (dir: string): string[] =>
   readdirSync(dir).flatMap((n) => {

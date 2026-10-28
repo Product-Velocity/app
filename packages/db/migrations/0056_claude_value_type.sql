@@ -1,7 +1,7 @@
--- R-112 slice 3: Value Type is the one value field Claude may set (CLAUDE.md rule 3, docs/22 section 6).
+-- R-113 slice 3: Business Value Type is the one value field Claude may set (CLAUDE.md rule 3, docs/22 section 6).
 -- Only when the person stated it or answered a question about it, with their own words recorded as the basis. Everything else that is
 -- commercial (Value, Value Basis, Confidence, Time to First Revenue, Customers Requesting), Stack Rank and Decision stays people-only.
--- How it is enforced: mcp_apply refuses a Value Type without a basis (at least 8 characters) and puts the basis in the transaction-local
+-- How it is enforced: mcp_apply refuses a Business Value Type without a basis (at least 8 characters) and puts the basis in the transaction-local
 -- setting pv.value_type_basis for that one operation; items_guard lets a Claude token change value_type only while it is set; the audit row
 -- of the change carries the basis (audit_log.basis). A token that skips mcp_apply has no basis and is refused with PV004, as before.
 
@@ -24,7 +24,7 @@ language plpgsql set search_path = '' as $$
 begin
   if p_row ? 'value_type' then
     if length(btrim(coalesce(p_basis, ''))) < 8 then
-      raise exception 'Value Type needs the person''s own words as its basis (value_type_basis), at least a short sentence.' using errcode = 'PV005';
+      raise exception 'Business Value Type needs the person''s own words as its basis (value_type_basis), at least a short sentence.' using errcode = 'PV005';
     end if;
     perform set_config('pv.value_type_basis', left(btrim(p_basis), 500), true);
   else
@@ -66,12 +66,12 @@ begin
        and coalesce(current_setting('pv.rank_internal', true), '') <> 'on' then
       raise exception 'Claude and service accounts cannot set Stack Rank, Value or Decision' using errcode = 'PV004';
     end if;
-    -- Value Type is the one exception (rule 3): a Claude token may set it only inside mcp_apply, which records the person's own words
+    -- Business Value Type is the one exception (rule 3): a Claude token may set it only inside mcp_apply, which records the person's own words
     -- in pv.value_type_basis for this statement; service accounts never may
     if (tg_op = 'INSERT' and v_new -> 'value_type' is not null and v_new -> 'value_type' <> 'null'::jsonb)
        or (tg_op = 'UPDATE' and coalesce(v_new -> 'value_type', 'null'::jsonb) is distinct from coalesce(v_old -> 'value_type', 'null'::jsonb)) then
       if not v_claude or coalesce(current_setting('pv.value_type_basis', true), '') = '' then
-        raise exception 'Claude can set Value Type only with the person''s own words as the basis' using errcode = 'PV004';
+        raise exception 'Claude can set Business Value Type only with the person''s own words as the basis' using errcode = 'PV004';
       end if;
     end if;
   end if;
@@ -266,7 +266,7 @@ begin
     end loop;
     select string_agg(quote_ident(k) || ' = r.' || quote_ident(k), ', ') into v_sets from jsonb_object_keys(v_set) k;
     if v_sets is not null then
-      -- putting a Value Type back is not a new claim: say so in the audit row
+      -- putting a Business Value Type back is not a new claim: say so in the audit row
       if v_set ? 'value_type' then perform set_config('pv.value_type_basis', 'undo of an earlier change made through Claude', true); end if;
       execute format('update public.items t set %s from jsonb_populate_record(null::public.items, $1) r where t.id = $2 and t.tenant_id = $3', v_sets)
         using v_set, i.item_id, prev.tenant_id;

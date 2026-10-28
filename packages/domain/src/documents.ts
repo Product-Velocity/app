@@ -1,4 +1,4 @@
-// Documents on an initiative (R-112, docs/22-CLAUDE-PRD-FLOW.md). What may be stored and how input is checked.
+// Documents on an initiative (R-113, docs/22-CLAUDE-PRD-FLOW.md). What may be stored and how input is checked.
 // A document is Markdown kept in Product Velocity. It is never read for a GitHub payload.
 
 export const DOC_KINDS = ["prd", "business_req", "tech_req", "acceptance", "prototype", "research", "other"] as const;

@@ -1,4 +1,4 @@
--- R-112 slice 1: documents on an initiative (docs/22-CLAUDE-PRD-FLOW.md).
+-- R-113 slice 1: documents on an initiative (docs/22-CLAUDE-PRD-FLOW.md).
 -- A versioned Markdown document (the full PRD, requirements, research ...). It is never read for a GitHub payload.
 -- Approval is a person with the Approver permission, never Claude (rule 3); the lifecycle flow that drives it comes later.
 
