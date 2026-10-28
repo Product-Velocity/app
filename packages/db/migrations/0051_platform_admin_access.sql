@@ -65,6 +65,13 @@ create trigger config_log_append_only before update or delete on platform.config
 create trigger config_log_no_truncate before truncate on platform.config_log
   for each statement execute function public.audit_log_append_only();
 
+-- RLS on, with no policies: API roles read and write nothing even if a grant is ever added by mistake. The security-definer
+-- functions below run as the table owner, which bypasses RLS, so they are unaffected.
+alter table platform.admins enable row level security;
+alter table platform.settings enable row level security;
+alter table platform.account_overrides enable row level security;
+alter table platform.entries enable row level security;
+alter table platform.config_log enable row level security;
 revoke all on all tables in schema platform from public, anon, authenticated;
 grant all on all tables in schema platform to service_role;
 
@@ -393,7 +400,7 @@ begin
   perform platform.require_admin();
   if p_level not in ('read_write', 'read_only') then raise exception 'invalid access level' using errcode = '22023'; end if;
   select default_access_level into v_old from platform.settings;
-  update platform.settings set default_access_level = p_level;
+  update platform.settings set default_access_level = p_level where id;
   perform platform.log_config('default_access_level', null, null, to_jsonb(v_old), to_jsonb(p_level));
 end $$;
 
