@@ -6,6 +6,7 @@
 
 import { claudeMayWrite, limitMessage, type UsageResult } from "@pv/domain";
 import type { McpReader, WorkspaceContext } from "./read-model";
+import { FILE_TOOLS } from "./file-tools";
 import { READ_TOOLS } from "./read-tools";
 import { ToolInputError } from "./tool-error";
 import type { McpWriter } from "./write-model";
@@ -34,6 +35,8 @@ export type ToolDef = {
   mode: "read" | "write";
   /** How many items a call writes, for the daily limit (0 for reads and dry runs). Evaluated before the tool runs. */
   weigh?: (backend: McpBackend, args: Record<string, unknown>) => number | Promise<number>;
+  /** How many bytes a call uploads, for the daily byte limit (estimated from the arguments, before the tool runs). */
+  weighBytes?: (args: Record<string, unknown>) => number;
   run: (backend: McpBackend, args: Record<string, unknown>) => Promise<unknown>;
 };
 
@@ -79,6 +82,7 @@ export const TOOLS: ToolDef[] = [
   },
   ...READ_TOOLS,
   ...WRITE_TOOLS,
+  ...FILE_TOOLS,
 ];
 
 const toolError = (id: RpcResponse["id"], text: string): RpcResponse => ({ jsonrpc: "2.0", id, result: { isError: true, content: [{ type: "text", text }] } });
@@ -117,7 +121,7 @@ export async function handleRpc(msg: Rpc, backend: McpBackend, tools: ToolDef[] 
       }
       try {
         const args = (msg.params?.arguments ?? {}) as Record<string, unknown>;
-        const usage = await backend.meter(tool.weigh ? await tool.weigh(backend, args) : 0, 0);
+        const usage = await backend.meter(tool.weigh ? await tool.weigh(backend, args) : 0, tool.weighBytes ? tool.weighBytes(args) : 0);
         if (!usage.ok) return toolError(id, limitMessage(usage));
         const data = await tool.run(backend, args);
         const text = JSON.stringify({ envelope: DATA_ENVELOPE, note: DATA_NOTE, data });

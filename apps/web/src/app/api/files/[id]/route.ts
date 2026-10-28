@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { removeItemFile } from "@/lib/files/actions";
 import { supabaseFileStore } from "@/lib/files/store";
 import { createClient } from "@/lib/supabase/server";
 
@@ -8,10 +9,6 @@ export async function DELETE(_: Request, ctx: { params: Promise<{ id: string }> 
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
-  const { data: row } = await supabase.from("item_files").select("storage_path").eq("id", id).maybeSingle();
-  if (!row) return NextResponse.json({ error: "File not found." }, { status: 404 });
-  const { data: gone, error } = await supabase.from("item_files").delete().eq("id", id).select("id");
-  if (error || !gone?.length) return NextResponse.json({ error: "You do not have permission to remove this file." }, { status: 403 });
-  await supabaseFileStore().remove(row.storage_path).catch(() => undefined);
-  return NextResponse.json({ ok: true });
+  const r = await removeItemFile(supabase, supabaseFileStore(), id);
+  return r.ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: r.error }, { status: r.status });
 }

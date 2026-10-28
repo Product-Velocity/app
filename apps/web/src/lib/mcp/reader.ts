@@ -2,10 +2,12 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_VIEWS, VIEW_NAMES, type SearchNames, type SearchRow } from "@pv/domain";
 import { SupabaseDataSource } from "@/features/portfolio/supabase-source";
+import { addItemFile, removeItemFile, setFileSharing } from "@/lib/files/actions";
 import { shareUrl } from "@/lib/files/serve";
+import { supabaseFileStore, type FileStore } from "@/lib/files/store";
 import { buildContext, type FileInfo, type ItemDetail, type McpReader, type Member, type ViewInfo, type WorkspaceContext } from "./read-model";
 import { ToolInputError } from "./tool-error";
-import type { ApplyResult, McpWriter, PendingRow, UndoResult } from "./write-model";
+import type { ApplyResult, McpFiles, McpWriter, PendingRow, UndoResult } from "./write-model";
 
 const FILE_CAP = 200;
 type Err = { message?: string } | null;
@@ -19,7 +21,7 @@ const must = <T>(r: { data: T | null; error: Err }, what: string): T => {
  * row-level security decides what is visible; the tenant filter is repeated on every query as the second check (CLAUDE.md rule 1).
  * Items load through the grid's own data source, which is what makes a search return the grid's set.
  */
-export function makeReader(supabase: SupabaseClient, tenant: { id: string; name: string }, userId: string, role: string, appUrl: () => Promise<string>) {
+export function makeReader(supabase: SupabaseClient, tenant: { id: string; name: string }, userId: string, role: string, appUrl: () => Promise<string>, store: () => FileStore = supabaseFileStore) {
   const ds = new SupabaseDataSource(supabase, tenant.id);
   const memo = <T>(fn: () => Promise<T>) => {
     let p: Promise<T> | null = null;
@@ -139,7 +141,49 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     throw new Error("write");
   };
 
+    /** Files: the same functions as the item panel (`lib/files/actions`), called with the caller's own client. */
+  const asRefusal = (r: { error: string }): never => {
+    throw new ToolInputError(r.error);
+  };
+  const files: McpFiles = {
+    async get(id) {
+      if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+      const { data, error } = await supabase.from("item_files").select("id, item_id, name, share_token").eq("tenant_id", tenant.id).eq("id", id).maybeSingle();
+      if (error) throw new Error("files");
+      if (!data) return null;
+      const f = data as { id: string; item_id: string; name: string; share_token: string | null };
+      const code = String((await rows()).find((r) => r.id === f.item_id)?.item_code ?? "");
+      return { ...f, item_code: code };
+    },
+    async add(item, name, bytes, mime) {
+      const r = await addItemFile(supabase, store(), { itemId: item.id, name, bytes, declaredType: mime });
+      if (!r.ok) return asRefusal(r);
+      const [info] = await fileInfo([{ ...r.row, item_id: item.id } as never]);
+      return { ...info!, item_code: item.code };
+    },
+    async setSharing(file, on) {
+      const r = await setFileSharing(supabase, file.id, on);
+      if (!r.ok) return asRefusal(r);
+      return r.token ? shareUrl(await appUrl(), r.token, r.name) : null;
+    },
+    async remove(file) {
+      const r = await removeItemFile(supabase, store(), file.id);
+      if (!r.ok) asRefusal(r);
+    },
+    async repoFor(itemId) {
+      const [link, row] = await Promise.all([
+        supabase.from("item_github_links").select("repo_full_name").eq("tenant_id", tenant.id).eq("item_id", itemId).maybeSingle(),
+        rows().then((all) => all.find((r) => r.id === itemId)),
+      ]);
+      let name = (link.data as { repo_full_name: string } | null)?.repo_full_name ?? null;
+      if (!name && row?.home_project) name = (await projects()).find((p) => p.id === row.home_project)?.default_repo ?? null;
+      if (!name) return { name: null, isPrivate: null };
+      const { data } = await supabase.from("github_repositories").select("is_private").eq("tenant_id", tenant.id).ilike("full_name", name).is("removed_at", null).maybeSingle();
+      return { name, isPrivate: (data as { is_private: boolean | null } | null)?.is_private ?? null };
+    },
+  };
   const writer: McpWriter = {
+    files,
     async context(r) {
       const [p, m, g, t, all] = await Promise.all([projects(), people(), groupNames(), teams(), rows()]);
       return {
