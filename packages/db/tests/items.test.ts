@@ -209,7 +209,7 @@ describe("move_item: re-rank in one transaction, audited", () => {
 
 describe("GitHub-driven fields are not user-writable", () => {
   const columns: [string, string][] = [
-    ["status", "'closed'"],
+    ["status", "'Done'"],
     ["delivery_progress_pct", "50"],
     ["planned_scope", "4"],
     ["scope_added", "2"],
@@ -240,11 +240,11 @@ describe("GitHub-driven fields are not user-writable", () => {
   it("the sync engine (service role) can write them, and it is audited with its source", async () => {
     const id = await fresh("Sync target");
     await db.asService(
-      (q) => q("update public.items set status = 'in_progress', delivery_progress_pct = 40, github_issue_url = 'https://github.com/x/y/issues/7', last_synced_at = now() where id = $1", [id]),
+      (q) => q("update public.items set status = 'In progress', delivery_progress_pct = 40, github_issue_url = 'https://github.com/x/y/issues/7', last_synced_at = now() where id = $1", [id]),
       { via: "GitHub webhook", commit: true },
     );
     const a = (await db.admin.query("select actor_id, via, new from public.audit_log where entity = 'items' and entity_id = $1 and field = 'status' order by id desc limit 1", [id])).rows[0];
-    expect(a).toMatchObject({ actor_id: null, via: "GitHub webhook", new: "in_progress" });
+    expect(a).toMatchObject({ actor_id: null, via: "GitHub webhook", new: "In progress" });
   });
 });
 

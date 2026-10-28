@@ -96,7 +96,7 @@ export function makeLeadershipHarness(n: number, role: string) {
   const changes = [
     { itemId: "item-6", field: "stack_rank", old: 9, new: 6, at: at(-2), actorId: "u1", via: "UI" },
     { itemId: "item-3", field: "health", old: "On Track", new: "At Risk", at: at(-1), actorId: "u2", via: "UI" },
-    { itemId: "item-2", field: "status", old: "Backlog", new: "In Progress", at: at(-1, 11), actorId: null, via: "GitHub webhook" },
+    { itemId: "item-2", field: "status", old: "Not started", new: "In progress", at: at(-1, 11), actorId: null, via: "GitHub webhook" },
     { itemId: "item-1", field: "stack_rank", old: 3, new: 2, at: at(-2, 8), actorId: "u1", via: "UI" },
     { itemId: "item-1", field: "stack_rank", old: 2, new: 1, at: at(-2, 10), actorId: "u1", via: "UI" },
     { itemId: "item-4", field: "stack_rank", old: 6, new: 7, at: at(-2, 8), actorId: "u1", via: "UI" },
@@ -130,7 +130,7 @@ export function withGithubTree(controller: PortfolioController, source: MemoryDa
 export function makeReportsHarness(n: number, role: string) {
   const { controller, source } = makeHarness(n, 0, role);
   const phases = ["Discover", "Define", "Build", "Beta-test"];
-  const statuses = ["In Progress", "Not Started", "Paused"];
+  const statuses = ["Active", "On hold", "Cancelled"];
   const quarters = ["Q3 2027", "Q4 2027", null];
   for (const r of controller.rows) {
     const i = Number(r.id.replace("item-", "")) - 1;

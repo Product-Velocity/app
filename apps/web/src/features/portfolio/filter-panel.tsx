@@ -13,7 +13,7 @@ const FIELD_OPTIONS: ListOption[] = fieldOptions(FIELDS);
 const ICON: Record<string, string> = {
   "created-today": "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4", "created-week": "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4", "created-month": "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4",
   mine: "M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM4 21a8 8 0 0 1 16 0", "high-impact": "M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.4l6-.8z",
-  attention: "M12 3 2 20h20zM12 10v5M12 18v.5", "in-progress": "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2",
+  attention: "M12 3 2 20h20zM12 10v5M12 18v.5", "active": "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2",
 };
 
 /** The choices a field offers for "is any of": its list, people (with "me"), projects or yes and no. */

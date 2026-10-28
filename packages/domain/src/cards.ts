@@ -18,8 +18,8 @@ export type AxisOption = {
 
 const TEAM_REASON = "An initiative can have several teams, so its cards cannot be moved between team lanes. Change the teams in the item panel.";
 
-/** Planning Status is the issue's default column field but arrives in phase 5; the board offers it, disabled, until then. */
-const COMING = ["planning_status"];
+/** Fields the board lists but cannot use yet (disabled, with their phase). None now: Planning Status shipped with the status alignment (issue #247). */
+const COMING: string[] = [];
 
 export function axisOptions(): AxisOption[] {
   const out: AxisOption[] = [];
@@ -43,10 +43,13 @@ export function axisOptions(): AxisOption[] {
 const OPTION_BY_KEY = new Map(axisOptions().map((o) => [o.key, o]));
 export const axisLabel = (key: string) => OPTION_BY_KEY.get(key)?.label ?? FIELD_BY_KEY[key]?.name ?? key;
 
-/** The column field of a new board: Planning Status once it ships, Initiative Phase until then. */
+/**
+ * The column field of a new board. The original plan was Planning Status once it shipped; Planning Status shipped with the status
+ * alignment (issue #247) but a board that silently changes its columns would surprise people, so Initiative Phase stays the default
+ * until Ashu says otherwise (question in the PR).
+ */
 export function defaultColumnField(): string {
-  const p = FIELD_BY_KEY.planning_status;
-  return p && isShipped(p) ? "planning_status" : "initiative_phase";
+  return "initiative_phase";
 }
 
 export type AxisCtx = {

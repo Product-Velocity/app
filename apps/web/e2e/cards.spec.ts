@@ -120,7 +120,7 @@ test.describe("moving cards", () => {
     await open(page);
     await page.getByLabel("Columns").selectOption("status");
     const col = await page.evaluate(() => (window as unknown as { __pv: { controller: { row: (id: string) => { status: string | null } } } }).__pv.controller.row("item-1").status);
-    const other = col === "In Progress" ? "Completed" : "In Progress";
+    const other = col === "In progress" ? "Done" : "In progress";
     await card(page, "item-1").dragTo(cell(page, "Onboarding", other));
     await expect(page.locator(".strip")).toContainText("comes from GitHub");
     expect(await val(page, "item-1", "status")).toBe(col);

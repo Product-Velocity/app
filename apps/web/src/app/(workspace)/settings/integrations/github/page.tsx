@@ -107,8 +107,8 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
         <div className="card stack">
           <h2>Sync</h2>
           <p className="muted">
-            {linkedCount ?? 0} initiative(s) are linked to a GitHub issue. When one of those issues is closed, closed as not planned or reopened, GitHub tells the app and the initiative&rsquo;s Status follows
-            (Completed, Cancelled, Not Started). A daily check repairs anything missed.
+            {linkedCount ?? 0} initiative(s) are linked to a GitHub issue. When one of those issues is closed, closed as not planned or reopened, GitHub tells the app and the initiative&rsquo;s Build Status follows
+            (Done, Cancelled, Not started). A daily check repairs anything missed.
           </p>
           {isAdmin && (
             <div className="row-form">
