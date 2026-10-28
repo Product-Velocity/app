@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { DIM_LABEL, drillOn, shareOf, unsetLabel, type ReportCtx, type ReportDim, type ReportRow, type ReportState } from "@pv/domain";
 import type { EChartsCoreOption } from "echarts/core";
-import { CHART_FONT, EChart, PALETTE } from "./echart";
+import { CHART_FONT, EChart, PALETTE, RADIUS } from "./echart";
 
 const DONUT_DIMS: readonly ReportDim[] = ["initiative_status", "initiative_phase", "focus_area", "team", "moscow"];
 
@@ -47,16 +47,21 @@ function Donut({ dim, shares, state, label, onPick }: { dim: ReportDim; shares: 
     tooltip: { trigger: "item", textStyle: { fontFamily: CHART_FONT }, formatter: (p: { name: string; value: number; percent: number }) => `<b>${p.name}</b><br/>${p.value} (${Math.round(p.percent)}%)` },
     legend: { bottom: 0, type: "scroll", itemWidth: 10, itemHeight: 10, textStyle: { fontFamily: CHART_FONT, color: "#111827", fontSize: 11 } },
     series: [{
-      type: "pie", radius: ["46%", "72%"], center: ["50%", "42%"], avoidLabelOverlap: true, minAngle: 8,
-      itemStyle: { borderColor: "#fff", borderWidth: 2 },
-      label: { show: true, position: "inside", formatter: (p: { percent: number }) => (p.percent >= 9 ? `${Math.round(p.percent)}%` : ""), color: "#fff", fontSize: 11, fontWeight: 600 },
+      type: "pie", radius: ["42%", "74%"], center: ["50%", "42%"], avoidLabelOverlap: true, minAngle: 8, padAngle: 3,
+      itemStyle: { borderRadius: RADIUS + 2, borderColor: "#fff", borderWidth: 2 },
+      emphasis: { scaleSize: 6, itemStyle: { shadowBlur: 12, shadowColor: "rgba(17, 24, 39, 0.25)" } },
+      label: { show: true, position: "inside", formatter: (p: { percent: number }) => (p.percent >= 12 ? `${Math.round(p.percent)}%` : ""), color: "#fff", fontSize: 11, fontWeight: 600 },
       data: shares.map((s, i) => ({ name: s.key === "__none" ? unsetLabel(dim) : label(dim, s.key), value: s.count, itemStyle: { color: PALETTE[i % PALETTE.length], ...(drillOn(state, dim, s.key) ? { borderColor: "#111827", borderWidth: 3 } : {}) } })),
     }],
   }), [shares, dim, state, label]);
+  const total = shares.reduce((n, s) => n + s.count, 0);
   return (
     <div className="rp-donut">
       <h3 className="rp-sub">{DIM_LABEL[dim]}</h3>
+      <div className="rp-donut-box">
+        <div className="rp-donut-total" aria-hidden="true"><b>{total}</b><span>{total === 1 ? "initiative" : "initiatives"}</span></div>
       <EChart name={`donut-${dim}`} label={`${DIM_LABEL[dim]}: share of initiatives`} height={230} option={option} onClick={(p) => { const s = shares[(p as { dataIndex?: number }).dataIndex ?? -1]; if (s) onPick([{ dim, key: s.key }]); }} />
+      </div>
     </div>
   );
 }
