@@ -529,7 +529,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .pvbar-s1 .tool-btn svg, .pvbar-s1 .btn svg { flex: none; }
 .pvbar-search { display: flex; align-items: center; gap: 6px; flex: 1 1 120px; min-width: 100px; max-width: 240px; height: 30px; padding: 0 10px; border: 1px solid #cfd5e3; border-radius: 6px; box-sizing: border-box; background: var(--bg); }
 .pvbar-search:focus-within { outline: 2px solid #3347D9; outline-offset: 0; border-color: #3347D9; }
-.pvbar-search input { border: 0; outline: 0; font: inherit; width: 100%; min-width: 0; background: transparent; }
+.pvbar-search input[type="search"] { border: 0; outline: 0; font: inherit; width: 100%; min-width: 0; height: 100%; padding: 0; border-radius: 0; background: transparent; } /* beats the global input rule, which drew a second box inside the bar */
 .pvbar-sep { width: 1px; height: 20px; background: var(--grey-1); margin: 0 2px; flex: none; }
 .pvbar-spacer { flex: 1 1 0; min-width: 0; }
 .pvbar-status { font-size: 12px; color: #5b6272; white-space: nowrap; flex: none; }

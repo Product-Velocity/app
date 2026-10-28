@@ -497,6 +497,23 @@ test.describe("sort: two steps, saved with the view (issue #207)", () => {
     await expect(page.getByRole("alert").filter({ hasText: /./ })).toHaveCount(0);
   });
 
+  test("only columns the view shows can be sorted, so the button always names what you picked", async ({ page }) => {
+    await open(page);
+    await page.getByRole("button", { name: /^Sort:/ }).click();
+    await expect(page.getByRole("menuitemradio", { name: /^Primary KR Target Value/ })).toHaveCount(0); // not a shown column here
+    await page.keyboard.press("Escape");
+    await applySort(page, "Initiative Name", "A-Z");
+    await expect(page.getByRole("button", { name: /^Sort:/ })).toContainText("Initiative Name, A-Z");
+    await viewTab(page, "Planning").click(); // sort stays while switching views; its column is shown there too
+    await expect(page.getByRole("button", { name: /^Sort:/ })).toContainText("Initiative Name, A-Z");
+  });
+
+  test("the search box in the bar is one box, not a box inside a box", async ({ page }) => {
+    await open(page);
+    const h = await page.locator(".pvbar-search input").evaluate((el) => { const c = getComputedStyle(el); return { border: c.borderTopWidth, pad: c.paddingLeft }; });
+    expect(h).toEqual({ border: "0px", pad: "0px" });
+  });
+
   test("the sort panel has no accessibility violations in both steps", async ({ page }) => {
     await open(page);
     await page.getByRole("button", { name: /^Sort:/ }).click();
