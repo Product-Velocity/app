@@ -1,6 +1,8 @@
-# Requests inbox
+# Requests inbox (archive up to R-115)
 
-**Claude Code: read this file at the start of every session, before picking up work.** Newest entries on top. Anything with status `open` is yours to pick up (or to turn into a GitHub issue first if it is large). When you finish one: set status to `done`, add the date, the commit or PR, and one line on what changed. If a request conflicts with the docs or the build plan, set it to `blocked` and ask Ashu.
+**New requests are no longer rows here: one file each in `docs/requests/`, numbered by GitHub issue (issue #238, `docs/23-PARALLEL-WORK.md`). Do not add rows. A row below that is still `open` or `in progress` is still yours to pick up; finish it in this table.**
+
+**Claude Code: read this file (and `docs/requests/`) at the start of every session, before picking up work.** Newest entries on top. Anything with status `open` is yours to pick up (or to turn into a GitHub issue first if it is large). When you finish one: set status to `done`, add the date, the commit or PR, and one line on what changed. If a request conflicts with the docs or the build plan, set it to `blocked` and ask Ashu.
 
 Why this file exists: decisions made in chat used to be edited quietly into reviewed docs, where they were easy to miss. Every change request from chat is now logged here first, with a timestamp. Rules and docs are still updated, but this is the list of what to do. Rationale stays in `docs/DECISIONS.md`.
 

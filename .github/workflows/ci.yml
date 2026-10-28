@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+  merge_group: # the GitHub merge queue runs the checks on the merged result (docs/23-PARALLEL-WORK.md)
   push:
     branches: [main]
 

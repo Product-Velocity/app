@@ -34,6 +34,22 @@ describe("forward-only migrations", () => {
     expect(await migrate(db.admin, dir)).toEqual([]);
   });
 
+  it("applies timestamp-named files after the legacy ones, in time order", async () => {
+    const d = dirWith({
+      "0001_a.sql": "create table public.t_ts_a (id int);",
+      "0058_z.sql": "create table public.t_ts_z (id int);",
+      "20261029090000_later.sql": "create table public.t_ts_later (id int);",
+      "20261028100000_first.sql": "create table public.t_ts_first (id int);",
+      "ignored.sql": "this is not a migration",
+    });
+    const fresh = await createTestDb({ migrations: false }); // its own database: the shared one already holds other files
+    try {
+      expect(await migrate(fresh.admin, d)).toEqual(["0001_a.sql", "0058_z.sql", "20261028100000_first.sql", "20261029090000_later.sql"]);
+    } finally {
+      await fresh.close();
+    }
+  });
+
   it("applies only new files", async () => {
     writeFileSync(path.join(dir, "0003_c.sql"), "create table public.t_c (id int);");
     expect(await migrate(db.admin, dir)).toEqual(["0003_c.sql"]);

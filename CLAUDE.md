@@ -5,7 +5,7 @@ Read this first, every session. It is short on purpose. Details live in `docs/`.
 ## What we are building
 Product Velocity: an AI-first, multi-tenant web platform for product management. One global roadmap and stack rank; alignment on why/what/how/when (including customers); decision gates; capacity-aware planning; two-way GitHub sync (GitLab later); reports per audience; velocity insights; outcomes and adoption after launch. Claude is a first-class user through a remote MCP server.
 
-Owner: Ashu (product owner, not a full-time engineer). Ask when a decision changes scope or cannot be undone; otherwise decide, and write the decision down in `docs/DECISIONS.md`.
+Owner: Ashu (product owner, not a full-time engineer). Ask when a decision changes scope or cannot be undone; otherwise decide, and write the decision down as a file in `docs/decisions/`.
 
 ## Source of truth
 - `docs/01-PRD.md` — what and why. `docs/06-BUILD-PLAN.md` — order of work and acceptance criteria.
@@ -39,12 +39,13 @@ Quick-add row (name only required, Enter creates), inline cell edit, autosave wi
 
 ## Working agreements
 - Small vertical slices, each ending in something Ashu can click. Follow `docs/06-BUILD-PLAN.md` order; do not start a later phase early.
-- Every PR: tests, migration (if any), RLS tests, updated docs if behaviour changed, screenshot for UI. **A release is a merged PR:** bump `version` in `apps/web/package.json` and add a row at the top of `docs/RELEASES.md` (a test checks they agree); the version shows at the bottom of the account menu, and tell Ashu the version in the PR description.
-- Migrations are forward-only, reviewed, and applied through Supabase migrations; never edit applied ones.
+- Every PR: tests, migration (if any), RLS tests, updated docs if behaviour changed, screenshot for UI. **A release is a merged PR:** add a release fragment in `docs/releases/unreleased/` (format in its README) and never bump `version` or edit `docs/RELEASES.md` by hand: the version is assigned when the PR is merged (`tools/release/assemble.mjs`, run by `.github/workflows/release.yml`), so the PR description says "version assigned when merged". The version shows at the bottom of the account menu.
+- Migrations are forward-only, reviewed, and applied through Supabase migrations; never edit applied ones. Name a new one with `pnpm db:new <name>` (a UTC timestamp, `YYYYMMDDHHMMSS_name.sql`): the numbered set 0001 to 0058 is frozen and a test refuses new four-digit names.
+- **Parallel agents (`docs/23-PARALLEL-WORK.md`).** Claim before you start (assign the GitHub issue, say which area), check open PRs for the same files, and never replace a SQL function that another open branch also replaces. Merge `main` into your branch before opening a PR and re-run the whole suite. Never rewrite or force-push a branch someone else uses. Request ids are GitHub issue numbers: create the issue first.
 - **The repo is public until go-live** (free Vercel/Supabase plans). Never commit secrets, real customer or voter data, or real commercial numbers. Go-live to-dos live in `docs/14-GO-LIVE-CHECKLIST.md`; add to it whenever something must happen before real customers.
 - Secrets only in environment variables. Never log tokens, emails of voters, or document contents.
-- **Read `docs/REQUESTS.md` at the start of every session.** It is the timestamped inbox of change requests from Ashu; pick up `open` items, mark them `done` with the commit when finished. Requests also go there when they edit reviewed docs.
-- **The prototype is inspiration, not the spec.** The spec is the field dictionary (165 fields), the workbook sheets, the docs, `docs/DECISIONS.md` and `docs/REQUESTS.md`. Issues are drafts: check each against them before building, and add what an issue misses (say so in the PR).
+- **Read `docs/requests/` (files with `status: open`) and any row still open in the archive `docs/REQUESTS.md` at the start of every session.** They are the inbox of change requests from Ashu; pick up open items, mark them `done` with the PR when finished. A new request is a GitHub issue first (its number is the id), then one file in `docs/requests/`; requests also go there when they edit reviewed docs.
+- **The prototype is inspiration, not the spec.** The spec is the field dictionary (165 fields), the workbook sheets, the docs, `docs/decisions/` (and the archive `docs/DECISIONS.md`) and `docs/requests/` (and the archive `docs/REQUESTS.md`). Issues are drafts: check each against them before building, and add what an issue misses (say so in the PR).
 - Use `/work-issue <number>` to pick up an issue. Use the issue template in `.github/ISSUE_TEMPLATE/work-item.md`.
 - Prefer boring, well-known libraries. Ask before adding a dependency with a licence or cost implication.
 - If the prototype, docs and issue disagree, stop and ask; do not guess.

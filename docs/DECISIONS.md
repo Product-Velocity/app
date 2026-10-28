@@ -1,6 +1,8 @@
 # Decision log
 
-Append new decisions at the bottom: date, decision, reason, who decided.
+**Archive up to 2026-10-28. New decisions are one file each in `docs/decisions/` (issue #238, `docs/23-PARALLEL-WORK.md`); do not add lines here.**
+
+The format of the lines below: date, decision, reason, who decided.
 
 - 2026-10-21 · Portfolio is a scope, not a container; one global stack rank per cycle · Ashu
 - 2026-10-21 · Alignment methods R1: top-5 + duels, 100 coins (normalised per group), ICE · Ashu
