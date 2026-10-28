@@ -30,3 +30,4 @@ export * from "./members";
 export * from "./documents";
 export * from "./prd-template";
 export * from "./prd-extract";
+export * from "./reports";

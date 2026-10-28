@@ -122,3 +122,23 @@ export function withGithubTree(controller: PortfolioController, source: MemoryDa
   Object.assign(row, { issues_total: 3, issues_closed: 1, breakdown_route: "Traditional", breakdown_status: "Awaiting engineering", last_synced: "2026-10-27T10:15:00Z", gh_project_status: "On staging", synced_with: 'GitHub · Acme/App · board "Product Velocity roadmap"' });
   return { ...lookups, github: { connected: true, links: { [row.id]: { mode: "push", number: 34, url: "https://github.com/Acme/App/issues/34", state: "synced", error: null, ghState: "open", lastActivity: "2026-10-23T10:00:00Z" } } } };
 }
+
+/**
+ * Data for the Reports test page: Initiative Phase, Initiative Status and Planned Quarter cycle, a few items have two teams, some no quarter,
+ * and every seventh is archived. Fully known, so the tests can count what each filter must show.
+ */
+export function makeReportsHarness(n: number, role: string) {
+  const { controller, source } = makeHarness(n, 0, role);
+  const phases = ["Discover", "Define", "Build", "Beta-test"];
+  const statuses = ["In Progress", "Not Started", "Paused"];
+  const quarters = ["Q3 2027", "Q4 2027", null];
+  for (const r of controller.rows) {
+    const i = Number(r.id.replace("item-", "")) - 1;
+    Object.assign(r, {
+      initiative_phase: phases[i % 4], initiative_status: statuses[i % 3], g2m_quarter: quarters[i % 3],
+      theme: ["Onboarding", "Retention", null][i % 3], archived: i % 7 === 6,
+      contributing_teams: i % 5 === 0 ? "Core, Mobile" : i % 2 === 0 ? "Core" : null,
+    });
+  }
+  return { controller, source };
+}

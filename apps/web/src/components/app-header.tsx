@@ -14,7 +14,7 @@ type Props = {
   roleLabel: string;
   isApprover: boolean;
   /** Tab to mark as the current one; when left out it follows the address of the page. */
-  current?: "grid" | "gantt" | "cards" | "leadership";
+  current?: "grid" | "gantt" | "cards" | "leadership" | "reports";
   /** Creators and admins get a link to the Trash in the account menu. */
   showTrash?: boolean;
   /** Admins (and platform admins inside the account) get the Audit log link. */
