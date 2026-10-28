@@ -4,7 +4,7 @@
  * database or knows about tokens. See docs/20-CLAUDE-MCP.md.
  */
 
-import { claudeMayWrite, limitMessage, prdPrompt, serverInstructions, type UsageResult } from "@pv/domain";
+import { claudeMayWrite, discoveryPrompt, limitMessage, prdPrompt, serverInstructions, type UsageResult } from "@pv/domain";
 import type { McpReader, WorkspaceContext } from "./read-model";
 import { DOCUMENT_READ_TOOLS, DOCUMENT_WRITE_TOOLS } from "./document-tools";
 import { FILE_TOOLS } from "./file-tools";
@@ -89,6 +89,7 @@ export const TOOLS: ToolDef[] = [
 ];
 
 const WRITE_PRD = "write_prd";
+const WRITE_DISCOVERY = "write_discovery";
 /** The prompts a person can start from Claude (docs/22-CLAUDE-PRD-FLOW.md). Text only: the prompt carries no data of its own and runs no tool. */
 const PROMPTS = [
   {
@@ -99,6 +100,15 @@ const PROMPTS = [
       { name: "brief", description: "What the initiative is, in your own words (optional; Claude asks if empty).", required: false },
       { name: "modules", description: "Optional appendix modules to include, by id, e.g. A1, D1, D4 (default: Claude chooses and tells you).", required: false },
       { name: "item", description: "Optional existing initiative code, e.g. R-12, to update instead of creating a new one.", required: false },
+    ],
+  },
+  {
+    name: WRITE_DISCOVERY,
+    title: "Write a discovery document and register its initiative",
+    description: "Write a discovery (objective and key results, problem, evidence, risks, potential solutions, next steps, test plan) as a document that never reaches GitHub, and create the one initiative that holds it. Asks once for what is missing; placeholders stay \"to define\"; skipping is always allowed.",
+    arguments: [
+      { name: "brief", description: "What the discovery is about, in your own words (optional; Claude asks if empty).", required: false },
+      { name: "item", description: "Optional existing initiative code, e.g. R-12, to attach the discovery to instead of creating a new initiative.", required: false },
     ],
   },
 ];
@@ -130,10 +140,11 @@ export async function handleRpc(msg: Rpc, backend: McpBackend, tools: ToolDef[] 
     case "prompts/list":
       return { jsonrpc: "2.0", id, result: { prompts: PROMPTS } };
     case "prompts/get": {
-      if (msg.params?.name !== WRITE_PRD) return err(id, -32602, "Unknown prompt");
+      const which = msg.params?.name;
+      if (which !== WRITE_PRD && which !== WRITE_DISCOVERY) return err(id, -32602, "Unknown prompt");
       const a = (msg.params?.arguments ?? {}) as Record<string, unknown>;
       const text = (v: unknown) => (typeof v === "string" ? v.slice(0, 20_000) : undefined);
-      const p = prdPrompt({ brief: text(a.brief), modules: text(a.modules), item: text(a.item) });
+      const p = which === WRITE_DISCOVERY ? discoveryPrompt({ brief: text(a.brief), item: text(a.item) }) : prdPrompt({ brief: text(a.brief), modules: text(a.modules), item: text(a.item) });
       return { jsonrpc: "2.0", id, result: { description: p.description, messages: [{ role: "user", content: { type: "text", text: p.text } }] } };
     }
     case "ping":
