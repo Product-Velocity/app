@@ -2,7 +2,7 @@ import { requireWorkspace } from "@/lib/session";
 import { MEMBER_STATUSES, type MemberStatus } from "@pv/domain";
 import { emailConfigured } from "@/lib/email/resend";
 import { MembersGrid, type GridRow } from "./members-grid";
-import { InviteForm, ResendControls } from "./forms";
+import { InviteForm } from "./forms";
 import { changeMemberStatus, setMemberGithubUsername, updateMember } from "./actions";
 import type { Role } from "@/lib/roles";
 
@@ -48,7 +48,6 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
         initialFilter={initialFilter}
         actions={{ changeMemberStatus, updateMember, setMemberGithubUsername }}
         inviteForm={isAdmin ? <InviteForm workspaceName={active.tenantName} emailEnabled={emailConfigured()} /> : null}
-        renderResend={(id) => <ResendControls id={id} emailEnabled={emailConfigured()} />}
       />
     </div>
   );

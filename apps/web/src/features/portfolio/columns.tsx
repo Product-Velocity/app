@@ -7,6 +7,8 @@ import {
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import { formatField } from "./format";
+import { markdownToPlainText } from "./markdown-text";
+import { MarkdownTooltip } from "./markdown-tooltip";
 import { DateEditor } from "./date-editor";
 import { PickerEditor, type PickerOption } from "./picker-editor";
 import type { GridItem, Lookups } from "./types";
@@ -185,7 +187,15 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
     return first >= 0 ? first : FIRST.length + (pos.get(k) ?? 1000 + (registry.get(k) ?? 0));
   };
   const pin = (c: ColDef<GridItem>): ColDef<GridItem> => (pinned?.has(String(c.colId)) ? { ...c, pinned: "left", suppressMovable: true } : c);
-  return FIELDS.map(def).map(pin).sort((a, b) => rank(a) - rank(b));
+  // Description is Markdown: one plain line in the cell, the rendered text on hover
+  const withMarkdown = (c: ColDef<GridItem>): ColDef<GridItem> =>
+    c.colId === "description"
+      ? { ...c, valueFormatter: (p) => markdownToPlainText(String(p.value ?? "")),
+        // the text fades out instead of ending in "...": the browser adds its own plain-text hover to text cut off by an ellipsis, on top of the rendered one
+        cellRenderer: (p: { valueFormatted?: string | null }) => <span className="cell-text cell-text-fade" title="">{p.valueFormatted ?? ""}</span>,
+        tooltipValueGetter: (p) => String(p.value ?? ""), tooltipComponent: MarkdownTooltip }
+      : c;
+  return FIELDS.map(def).map(withMarkdown).map(pin).sort((a, b) => rank(a) - rank(b));
 }
 
 /** Column ids whose cells cannot be edited, with the reason (for the notice under the grid). */

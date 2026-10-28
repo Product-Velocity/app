@@ -614,6 +614,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
           onGridReady={onGridReady}
           onCellFocused={onCellFocused}
           onCellKeyDown={onCellKeyDownStable}
+          tooltipShowDelay={500}
           headerHeight={showLater ? 46 : 28}
           onCellDoubleClicked={onCellDoubleClicked}
           onCellClicked={onCellClicked}
