@@ -95,6 +95,7 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
   // what a confirm will write to GitHub: the plan's sends, plus every initiative where Product Velocity's text was chosen over GitHub's
   const sendIds = new Set(preview ? preview.send.filter((p) => p.action === "create" || p.action === "update").map((p) => p.id) : []);
   for (const { r, c } of conflicts) if (choices[keyOf(r.id, c.field)] === "pv") sendIds.add(r.id);
+  for (const r of preview?.received ?? []) if (r.assigneeSend) sendIds.add(r.id); // assignees changed in Product Velocity go out with the send
   for (const { r, c } of conflicts) if (c.field === "block" && choices[keyOf(r.id, c.field)] === "github" && !conflicts.some((x) => x.r.id === r.id && x.c.field !== "block" && choices[keyOf(r.id, x.c.field)] === "pv")) sendIds.delete(r.id);
   const overwrites = conflicts.filter(({ r, c }) => choices[keyOf(r.id, c.field)] === "pv").length;
   // only initiatives with something to apply or send go to the confirm, which checks GitHub again for exactly those
@@ -103,7 +104,7 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
   const checking = progress !== null;
 
   // "Keep GitHub for all" skips the values that cannot be taken over from the board: those stay Keep Product Velocity
-  const choose = (all: "pv" | "github") => setChoices(Object.fromEntries(conflicts.map(({ r, c }) => [keyOf(r.id, c.field), c.githubPullable === false ? "pv" : all])));
+  const choose = (all: "pv" | "github") => setChoices(Object.fromEntries(conflicts.map(({ r, c }) => [keyOf(r.id, c.field), c.githubPullable === false ? "pv" : c.pvPossible === false ? "github" : all])));
   const send = async () => {
     if (!preview) return;
     const picks: SyncChoice[] = conflicts.map(({ r, c }) => ({ itemId: r.id, field: c.field, choice: choices[keyOf(r.id, c.field)]!, ghHash: c.ghHash }));
@@ -158,7 +159,8 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
             <ul className="push-list">
               {phase.received.map((r) => {
                 const p = r.readOnly ? undefined : phase.send.find((x) => x.id === r.id);
-                const sends = p?.action === "create" || p?.action === "update";
+                const sendsIssue = p?.action === "create" || p?.action === "update";
+                const sends = sendsIssue || !!r.assigneeSend;
                 const label = sends && r.status !== "received" && r.status !== "error" && r.status !== "missing" ? "To send" : STATUS[r.status];
                 return (
                   <li key={r.id} className={r.status === "error" || r.status === "missing" || p?.action === "blocked" ? "push-blocked" : undefined}>
@@ -168,6 +170,10 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
                     {r.status === "error" && !checking && <> <button type="button" className="btn" disabled={retrying === r.id} onClick={() => retry(r.id)}>{retrying === r.id ? "Checking…" : "Try again"}</button></>}
                     {r.readOnly && <><br /><span className="muted">Follows this issue read-only: nothing to send.</span></>}
                     {(r.status === "in_step" || r.status === "follows") && !sends && <><br /><span className="muted">Everything is in step.</span></>}
+                    {r.assigneeSend && (r.assigneeSend.add.length > 0 || r.assigneeSend.remove.length > 0) && (
+                      <><br /><strong>Assignees to send</strong>{" "}
+                        <span className="muted">{[...r.assigneeSend.add.map((l) => `add @${l}`), ...r.assigneeSend.remove.map((l) => `remove @${l}`)].join(", ")}</span></>
+                    )}
                     {r.received.length > 0 && (
                       <>
                         <br /><strong>Received from GitHub</strong> (already applied)
@@ -188,7 +194,7 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
                             </div>
                           )}
                           {c.kind === "block" && <p className="muted">{c.github}</p>}
-                          <label><input type="radio" name={name} checked={value === "pv"} onChange={() => setChoices({ ...choices, [keyOf(r.id, c.field)]: "pv" })} /> Keep Product Velocity{c.defaultChoice === "pv" ? " (default)" : ""}</label>{" "}
+                          <label><input type="radio" name={name} checked={value === "pv"} disabled={c.pvPossible === false} onChange={() => setChoices({ ...choices, [keyOf(r.id, c.field)]: "pv" })} /> Keep Product Velocity{c.pvPossible === false ? " (not possible)" : c.defaultChoice === "pv" ? " (default)" : ""}</label>{" "}
                           <label><input type="radio" name={name} checked={value === "github"} disabled={c.githubPullable === false} onChange={() => setChoices({ ...choices, [keyOf(r.id, c.field)]: "github" })} /> Keep GitHub{c.githubPullable === false ? " (not possible)" : c.defaultChoice === "github" ? " (default)" : ""}</label>
                         </fieldset>
                       );
@@ -196,7 +202,7 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
                     {p && (
                       <>
                         <br /><span className="muted">{WILL[p.action](p)}</span>
-                        {sends && (
+                        {sendsIssue && (
                           <details>
                             <summary>See what will be written</summary>
                             <p><strong>Title:</strong> {p.title}</p>

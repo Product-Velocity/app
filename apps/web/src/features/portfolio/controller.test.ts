@@ -307,7 +307,7 @@ describe("list fields of an item (item panel)", () => {
   const panelSetup = () => {
     const items = sampleItems(4, ["p1"], ["u1"]);
     const source = new MemoryDataSource(items);
-    source.related.set("item-1", { tags: ["a"], target_scope: [], live_scope: [], target_segments: [], artifacts: [], depends_on: [], related_to: [], contributing_teams: [] });
+    source.related.set("item-1", { tags: ["a"], target_scope: [], live_scope: [], target_segments: [], artifacts: [], depends_on: [], related_to: [], contributing_teams: [], assignees: [] });
     const c = new PortfolioController(source, items, { ...lookups, teams: [{ id: "t1", name: "Core" }, { id: "t2", name: "Mobile" }] }, "creator", () => TODAY, () => 1_000);
     return { c, source };
   };

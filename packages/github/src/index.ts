@@ -12,3 +12,4 @@ export * from "./board";
 export * from "./inbound";
 export * from "./board-compare";
 export * from "./delivery";
+export * from "./assignees";

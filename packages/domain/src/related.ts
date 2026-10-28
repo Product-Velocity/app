@@ -3,17 +3,19 @@
  * (item_tags, item_links, item_relations, item_teams); the panel edits each list as a whole and the data source
  * works out which rows to add and remove.
  */
-export const RELATED_FIELDS = ["tags", "target_scope", "live_scope", "target_segments", "artifacts", "depends_on", "related_to", "contributing_teams"] as const;
+export const RELATED_FIELDS = ["tags", "target_scope", "live_scope", "target_segments", "artifacts", "depends_on", "related_to", "contributing_teams", "assignees"] as const;
 export type RelatedField = (typeof RELATED_FIELDS)[number];
 export type Link = { label: string; url: string };
 export type RelatedValues = {
   tags: string[]; target_scope: string[]; live_scope: string[]; target_segments: string[];
   artifacts: Link[]; depends_on: string[]; related_to: string[]; contributing_teams: string[];
+  /** The people assigned in Product Velocity, as member user ids (matched to the issue's assignees through their GitHub username). */
+  assignees: string[];
 };
-export const emptyRelated = (): RelatedValues => ({ tags: [], target_scope: [], live_scope: [], target_segments: [], artifacts: [], depends_on: [], related_to: [], contributing_teams: [] });
+export const emptyRelated = (): RelatedValues => ({ tags: [], target_scope: [], live_scope: [], target_segments: [], artifacts: [], depends_on: [], related_to: [], contributing_teams: [], assignees: [] });
 export const isRelatedField = (key: string): key is RelatedField => (RELATED_FIELDS as readonly string[]).includes(key);
 
-export type RelatedCtx = { itemId: string; itemIds: readonly string[]; teamIds: readonly string[] };
+export type RelatedCtx = { itemId: string; itemIds: readonly string[]; teamIds: readonly string[]; memberIds?: readonly string[] };
 export type Cleaned<T> = { ok: true; value: T } | { ok: false; error: string };
 const MAX_ENTRIES = 50;
 
@@ -43,6 +45,15 @@ export function cleanRelated(field: RelatedField, raw: readonly unknown[], ctx: 
         if (!out.includes(id)) out.push(id);
       }
       return out.length > MAX_ENTRIES ? { ok: false, error: `At most ${MAX_ENTRIES} entries.` } : { ok: true, value: out };
+    }
+    case "assignees": {
+      const out: string[] = [];
+      for (const x of raw) {
+        const id = String(x);
+        if (!(ctx.memberIds ?? []).includes(id)) return { ok: false, error: "Only members of this workspace can be assigned." };
+        if (!out.includes(id)) out.push(id);
+      }
+      return out.length > 10 ? { ok: false, error: "At most 10 people can be assigned." } : { ok: true, value: out };
     }
     case "contributing_teams": {
       const out: string[] = [];

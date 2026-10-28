@@ -27,6 +27,12 @@ export async function applyFacts(admin: Admin, connectionId: string, f: IssueFac
   return applied;
 }
 
+/** Stores the logins GitHub shows on a linked issue (only when they changed). Used to match the assignees with people by their GitHub username. */
+export async function applyAssignees(admin: Admin, connectionId: string, itemId: string, logins: readonly string[]): Promise<void> {
+  const { error } = await admin.rpc("github_apply_assignees", { p_connection: connectionId, p_item: itemId, p_logins: [...logins] });
+  if (error) throw new Error(error.message);
+}
+
 /**
  * Rebuilds the epics-and-tasks tree of one linked initiative from GitHub and stores it with the delivery counts.
  * Returns false when GitHub offers no sub-issues for the issue. Never throws into a delivery: the daily reconcile repairs a miss.
@@ -111,6 +117,7 @@ export async function ingestIssueEvent(admin: Admin, ev: IssueEvent, deliveryId:
 
   try {
     const applied = await applyFacts(admin, conn.id, summary);
+    if (ev.assignees) await applyAssignees(admin, conn.id, link.item_id, ev.assignees); // who is assigned now, whatever the action
     await admin.from("sync_events").update({ state: "processed", attempts: 1, processed_at: new Date().toISOString(), applied: applied?.changes ?? null }).eq("id", row.id);
     if (sc) await refreshTree(admin, sc, ev.installationId, conn.id, { item_id: link.item_id, repo: ev.repo, number: ev.number });
     return "processed";
@@ -163,6 +170,7 @@ export async function reconcileConnection(admin: Admin, sc: SourceControl, conne
       }
       const facts: IssueFacts = { repo, number: issue.number, issueId: issue.id, nodeId: issue.nodeId, state: issue.state, stateReason: issue.stateReason, updatedAt: issue.updatedAt, closedAt: issue.closedAt };
       const applied = await applyFacts(admin, connection.id, facts);
+      if (issue.assignees) await applyAssignees(admin, connection.id, l.item_id, issue.assignees);
       if (applied && Object.keys(applied.changes).length > 0) {
         result.changed++;
         await admin.from("sync_events").insert({ tenant_id: connection.tenant_id, connection_id: connection.id, delivery_id: `reconcile-${crypto.randomUUID()}`, source: "reconcile", event: "issues", action: "reconciled", repo_full_name: repo, issue_number: issue.number, summary: facts, item_id: l.item_id, state: "processed", attempts: 1, processed_at: new Date().toISOString(), applied: applied.changes });

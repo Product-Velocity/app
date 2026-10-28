@@ -51,8 +51,9 @@ describe("loadItems", () => {
   it("also reads the calculated view and every related table, each filtered by tenant", async () => {
     const { client, calls } = fake([{ data: [row(1)] }]);
     await new SupabaseDataSource(client, "t1").loadItems();
-    expect(calls.map((c) => c.table)).toEqual(["items", "items_computed", "item_tags", "item_links", "item_files", "item_relations", "teams", "item_teams", "item_github_links"]);
-    for (const c of calls) expect(has(c, "eq", "tenant_id", "t1"), String(c.table)).toBe(true);
+    expect(calls.map((c) => c.table ?? `rpc ${c.rpc}`)).toEqual(["items", "items_computed", "item_tags", "item_links", "item_files", "item_relations", "teams", "item_teams", "rpc tenant_directory", "tenant_members", "item_github_links"]);
+    for (const c of calls.filter((x) => x.table)) expect(has(c, "eq", "tenant_id", "t1"), String(c.table)).toBe(true);
+    expect(calls.find((c) => c.rpc === "tenant_directory")!.ops).toEqual([["args", [{ p_tenant: "t1" }]]]); // the people of this workspace only
   });
 
   it("names the project field home_project, drops internal columns and shows related values as text", async () => {
@@ -79,7 +80,7 @@ describe("loadItems", () => {
   it("works out Last Synced and Synced With from the GitHub link, the item's own sync mark and the linked board", async () => {
     const linked = { ...row(1), last_synced_at: "2026-10-27T12:00:00Z" };
     const { client, calls } = fake([
-      { data: [linked, row(2)] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] },
+      { data: [linked, row(2)] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] },
       { data: [{ item_id: "i1", mode: "push", repo_full_name: "Acme/App", issue_number: 38, sync_state: "synced", last_pushed_at: "2026-10-27T10:00:00Z", gh_synced_at: "2026-10-27T11:00:00Z", project_item_id: "PVTI_1" }] },
       { data: [{ id: "p", github_board: { title: "Product Velocity roadmap" } }] },
     ]);
@@ -265,10 +266,32 @@ describe("list fields of one item", () => {
       { data: [{ label: "PRD", url: "https://x.test/prd" }] },
       { data: [{ related_item_id: "i2", kind: "depends_on" }, { related_item_id: "i3", kind: "related_to" }] },
       { data: [{ team_id: "t9" }] },
+      { data: { assignee_ids: ["u1", "u2"] } },
     ]);
     const r = await new SupabaseDataSource(client, "t1").loadRelated("i1");
-    expect(r).toMatchObject({ tags: ["urgent"], target_segments: ["SMB"], target_scope: ["EU"], live_scope: [], artifacts: [{ label: "PRD", url: "https://x.test/prd" }], depends_on: ["i2"], related_to: ["i3"], contributing_teams: ["t9"] });
-    for (const c of calls) expect(has(c, "eq", "tenant_id", "t1") && has(c, "eq", "item_id", "i1")).toBe(true);
+    expect(r).toMatchObject({ tags: ["urgent"], target_segments: ["SMB"], target_scope: ["EU"], live_scope: [], artifacts: [{ label: "PRD", url: "https://x.test/prd" }], depends_on: ["i2"], related_to: ["i3"], contributing_teams: ["t9"], assignees: ["u1", "u2"] });
+    for (const c of calls) expect(has(c, "eq", "tenant_id", "t1") && (has(c, "eq", "item_id", "i1") || (c.table === "items" && has(c, "eq", "id", "i1")))).toBe(true); // the item itself holds its assignees
+  });
+
+  it("setRelated for assignees goes through the database function, which checks the role and the workspace", async () => {
+    const ok = fake([{ data: null }]);
+    expect(await new SupabaseDataSource(ok.client, "t1").setRelated("i1", "assignees", ["u1", "u2"])).toEqual({ ok: true });
+    expect(ok.calls[0]).toMatchObject({ rpc: "set_item_assignees", ops: [["args", [{ p_item: "i1", p_user_ids: ["u1", "u2"] }]]] });
+    const refused = fake([{ error: { message: "Only a creator or admin can change assignees.", code: "42501" } }]);
+    expect(await new SupabaseDataSource(refused.client, "t1").setRelated("i1", "assignees", ["u1"])).toMatchObject({ ok: false });
+  });
+
+  it("shows the assignees as emails, with the GitHub logins nobody is matched to", async () => {
+    const withPeople = { ...row(1), assignee_ids: ["u1", "u2"] };
+    const { client } = fake([
+      { data: [withPeople] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] },
+      { data: [{ user_id: "u1", email: "ana@acme.test" }, { user_id: "u2", email: "ben@acme.test" }] },
+      { data: [{ user_id: "u1", github_username: "Ana-GH" }, { user_id: "u2", github_username: null }] },
+      { data: [{ item_id: "i1", mode: "push", repo_full_name: "Acme/App", issue_number: 1, sync_state: "synced", last_pushed_at: null, gh_synced_at: null, project_item_id: null, gh_assignees: ["ana-gh", "stranger"] }] },
+      { data: [] },
+    ]);
+    const [a] = await new SupabaseDataSource(client, "t1").loadItems();
+    expect(a!.assignees).toBe("ana@acme.test, ben@acme.test, @stranger"); // ana-gh is matched to a member, stranger is not
   });
 
   it("setRelated for tags deletes the removed rows and inserts the new ones, in the right kind", async () => {

@@ -122,11 +122,11 @@ export class GitHubAppSourceControl implements SourceControl {
     return res;
   }
 
-  private static ref(i: { number: number; id: number; node_id: string; html_url: string; title?: string; body?: string | null; state: string; state_reason?: string | null; updated_at?: string; closed_at?: string | null; labels?: (string | { name?: string })[] }): IssueRef {
+  private static ref(i: { number: number; id: number; node_id: string; html_url: string; title?: string; body?: string | null; state: string; state_reason?: string | null; updated_at?: string; closed_at?: string | null; assignees?: { login?: string }[]; labels?: (string | { name?: string })[] }): IssueRef {
     return {
       number: i.number, id: i.id, nodeId: i.node_id, htmlUrl: i.html_url, body: i.body ?? "", state: i.state === "closed" ? "closed" : "open",
       labels: (i.labels ?? []).map((l) => (typeof l === "string" ? l : l.name ?? "")).filter(Boolean),
-      ...(typeof i.title === "string" ? { title: i.title } : {}), stateReason: i.state_reason ?? null, ...(i.updated_at ? { updatedAt: i.updated_at } : {}), closedAt: i.closed_at ?? null,
+      ...(typeof i.title === "string" ? { title: i.title } : {}), ...(Array.isArray(i.assignees) ? { assignees: i.assignees.map((a) => a.login ?? "").filter(Boolean) } : {}), stateReason: i.state_reason ?? null, ...(i.updated_at ? { updatedAt: i.updated_at } : {}), closedAt: i.closed_at ?? null,
     };
   }
 
@@ -135,12 +135,13 @@ export class GitHubAppSourceControl implements SourceControl {
     for (let page = 1; page <= 10; page++) {
       const res = await this.call(installationId, "GET", `/repos/${repo}/issues?state=all&sort=updated&direction=desc&per_page=100&page=${page}`);
       if (!res.ok) throw new GitHubError(res.status, `GitHub could not list issues (${res.status})`);
-      const rows = (await res.json()) as { number: number; id: number; node_id: string; state: string; state_reason?: string | null; updated_at: string; closed_at?: string | null; pull_request?: unknown; title?: string; html_url?: string; type?: { name?: string } | null; labels?: ({ name?: string } | string)[]; parent_issue_url?: string | null }[];
+      const rows = (await res.json()) as { number: number; id: number; node_id: string; state: string; state_reason?: string | null; updated_at: string; closed_at?: string | null; pull_request?: unknown; title?: string; html_url?: string; type?: { name?: string } | null; labels?: ({ name?: string } | string)[]; parent_issue_url?: string | null; assignees?: { login?: string }[] }[];
       for (const r of rows) if (!r.pull_request) out.push({
         number: r.number, id: r.id, nodeId: r.node_id, state: r.state === "closed" ? "closed" : "open", stateReason: r.state_reason ?? null, updatedAt: r.updated_at, closedAt: r.closed_at ?? null,
         title: (r.title ?? "").slice(0, 300), issueType: r.type?.name ?? null, htmlUrl: r.html_url ?? null,
         labels: (r.labels ?? []).map((l) => (typeof l === "string" ? l : l.name ?? "")).filter(Boolean).slice(0, 30),
         parentNumber: r.parent_issue_url ? Number(r.parent_issue_url.split("/").pop()) || null : null,
+        assignees: (r.assignees ?? []).map((a) => a.login ?? "").filter(Boolean).slice(0, 50),
       });
       if (rows.length < 100) break;
     }
@@ -194,6 +195,13 @@ export class GitHubAppSourceControl implements SourceControl {
     if (res.status === 404 || res.status === 410) return null;
     if (!res.ok) throw new GitHubError(res.status, `GitHub could not read the issue (${res.status})`);
     return GitHubAppSourceControl.ref((await res.json()) as Parameters<typeof GitHubAppSourceControl.ref>[0]);
+  }
+
+  async setIssueAssignees(installationId: number, repo: string, number: number, logins: string[]): Promise<string[]> {
+    const res = await this.call(installationId, "PATCH", `/repos/${repo}/issues/${number}`, { assignees: logins });
+    if (!res.ok) throw new GitHubError(res.status, `GitHub refused to change the assignees (${res.status})`);
+    const issue = GitHubAppSourceControl.ref((await res.json()) as Parameters<typeof GitHubAppSourceControl.ref>[0]);
+    return issue.assignees ?? [];
   }
 
   async findIssueByMarker(installationId: number, repo: string, marker: string): Promise<IssueRef | null> {

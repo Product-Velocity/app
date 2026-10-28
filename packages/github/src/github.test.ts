@@ -93,6 +93,36 @@ describe("GitHubAppSourceControl: sub-issues carry their labels and last activit
   });
 });
 
+describe("GitHubAppSourceControl: assignees", () => {
+  const rest = (seen: { url: string; init?: RequestInit }[], reply: () => Response) => new GitHubAppSourceControl({ appId: "1", privateKeyPem: privateKey, fetch: (async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/access_tokens")) return new Response(JSON.stringify({ token: "t" }), { status: 201 });
+    seen.push({ url, init });
+    return reply();
+  }) as typeof fetch });
+  it("reads the assignees of an issue", async () => {
+    const sc = rest([], () => new Response(JSON.stringify({ number: 1, id: 1, node_id: "I_1", html_url: "https://github.com/a/b/issues/1", body: "", state: "open", assignees: [{ login: "ana-gh" }, {}, { login: "Ben" }] }), { status: 200 }));
+    expect((await sc.getIssue(1, "Acme/App", 1))?.assignees).toEqual(["ana-gh", "Ben"]);
+  });
+  it("replaces the assignees with one PATCH of only that field, and returns what GitHub really set", async () => {
+    const seen: { url: string; init?: RequestInit }[] = [];
+    const sc = rest(seen, () => new Response(JSON.stringify({ number: 1, id: 1, node_id: "I_1", html_url: "https://github.com/a/b/issues/1", body: "", state: "open", assignees: [{ login: "ana-gh" }] }), { status: 200 }));
+    expect(await sc.setIssueAssignees(1, "Acme/App", 1, ["ana-gh", "not-a-collaborator"])).toEqual(["ana-gh"]); // GitHub skipped the second
+    const call = seen.at(-1)!;
+    expect(call.url).toContain("/repos/Acme/App/issues/1");
+    expect(call.init?.method).toBe("PATCH");
+    expect(JSON.parse(String(call.init?.body))).toEqual({ assignees: ["ana-gh", "not-a-collaborator"] });
+  });
+  it("a refusal is an error with the status only", async () => {
+    const sc = rest([], () => new Response("{}", { status: 403 }));
+    await expect(sc.setIssueAssignees(1, "Acme/App", 1, ["x"])).rejects.toMatchObject({ status: 403 });
+  });
+  it("lists the assignees of every issue of a repository", async () => {
+    const sc = rest([], () => new Response(JSON.stringify([{ number: 1, id: 1, node_id: "I_1", state: "open", updated_at: "2026-10-27T10:00:00Z", assignees: [{ login: "ana-gh" }] }, { number: 2, id: 2, node_id: "I_2", state: "open", updated_at: "2026-10-27T10:00:00Z" }]), { status: 200 }));
+    const rows = await sc.listIssues(1, "Acme/App");
+    expect(rows.map((r) => r.assignees)).toEqual([["ana-gh"], []]);
+  });
+});
+
 describe("GitHubAppSourceControl: pull requests, checks and releases (read-only)", () => {
   const withReplies = (graphql: (q: string, v: Record<string, unknown>) => unknown, rest: (url: string) => Response = () => new Response("{}", { status: 404 }), seen: { query: string; variables: Record<string, unknown> }[] = []) =>
     new GitHubAppSourceControl({ appId: "1", privateKeyPem: privateKey, fetch: (async (url: string, init?: RequestInit) => {
@@ -246,6 +276,7 @@ function fake(over: Partial<SourceControl> = {}): SourceControl {
     getDefaultBranchRollup: async () => null,
     listReleases: async () => [],
     getClosingIssues: async () => [],
+    setIssueAssignees: async () => [],
     listBoardItems: async () => [],
     addBoardItem: async () => "PVTI_1",
     setBoardValue: async () => undefined,
@@ -342,9 +373,9 @@ describe("decideConnectionChange", () => {
 
 describe("parseIssueEvent", () => {
   const payload = (over: Record<string, unknown> = {}) => ({ action: "closed", installation: { id: 9 }, repository: { full_name: "Acme/App" }, issue: { number: 31, id: 5, node_id: "I_x", state: "closed", state_reason: "completed", updated_at: "2026-10-23T10:00:00Z", closed_at: "2026-10-23T09:59:00Z", title: "A title", html_url: "https://github.com/Acme/App/issues/31", type: { name: "Bug" }, labels: [{ name: "support" }], body: "SECRET BODY", user: { login: "someone" } }, ...over });
-  it("reads the light record (title, type, labels, link) and never bodies or people", () => {
+  it("reads the light record (title, type, labels, link, the assignee logins used only to match members) and never bodies or authors", () => {
     const e = parseIssueEvent("issues", payload());
-    expect(e).toEqual({ action: "closed", installationId: 9, repo: "Acme/App", number: 31, issueId: 5, nodeId: "I_x", state: "closed", stateReason: "completed", updatedAt: "2026-10-23T10:00:00Z", closedAt: "2026-10-23T09:59:00Z", title: "A title", issueType: "Bug", labels: ["support"], htmlUrl: "https://github.com/Acme/App/issues/31", parentNumber: null });
+    expect(e).toEqual({ action: "closed", installationId: 9, repo: "Acme/App", number: 31, issueId: 5, nodeId: "I_x", state: "closed", stateReason: "completed", updatedAt: "2026-10-23T10:00:00Z", closedAt: "2026-10-23T09:59:00Z", title: "A title", issueType: "Bug", labels: ["support"], htmlUrl: "https://github.com/Acme/App/issues/31", parentNumber: null, assignees: [] });
     expect(JSON.stringify(e)).not.toMatch(/SECRET|someone/);
   });
   it("ignores other events, pull requests and malformed payloads", () => {

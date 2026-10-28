@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildTrackingIssue, hashBoardValue as hashBoard, hashText, MemorySourceControl } from "@pv/github";
+import { buildTrackingIssue, hashAssignees, hashBoardValue as hashBoard, hashText, MemorySourceControl } from "@pv/github";
 
 vi.mock("server-only", () => ({}));
 const order: string[] = [];
@@ -19,9 +19,12 @@ vi.mock("./receive", () => ({
 const { confirmSync, buildSyncPreview } = await import("./sync-flow");
 
 const ITEM = "11111111-1111-4111-8111-111111111111";
-const pv = { id: ITEM, item_code: "R-1", initiative_name: "Faster export", summary: "S", description: "D", hypothesis: "H", moscow: "Must", theme: "Mobile", end_date: "2026-12-31", effort: "M", home_project_id: "p1" };
+const U_ANA = "11111111-aaaa-4aaa-8aaa-aaaaaaaaaaaa", U_BEN = "22222222-bbbb-4bbb-8bbb-bbbbbbbbbbbb", U_CAT = "33333333-cccc-4ccc-8ccc-cccccccccccc";
+const MEMBERS = [{ user_id: U_ANA, github_username: "ana-gh" }, { user_id: U_BEN, github_username: "ben-gh" }, { user_id: U_CAT, github_username: null }];
+const DIRECTORY = [{ user_id: U_ANA, email: "ana@acme.test" }, { user_id: U_BEN, email: "ben@acme.test" }, { user_id: U_CAT, email: "cat@acme.test" }];
+const pv = { assignee_ids: [] as string[], id: ITEM, item_code: "R-1", initiative_name: "Faster export", summary: "S", description: "D", hypothesis: "H", moscow: "Must", theme: "Mobile", end_date: "2026-12-31", effort: "M", home_project_id: "p1" };
 const bodyFor = (over: Record<string, unknown>) => buildTrackingIssue({ item: { ...pv, ...over }, itemId: ITEM, projectName: "Mobile", appUrl: "https://pv.test", artifacts: [] }).block;
-let issueTexts: Record<string, { title: string; body: string }>;
+let issueTexts: Record<string, { title: string; body: string; assignees?: string[] }>;
 const inStep = { title: hashText("Faster export"), summary: hashText("S"), description: hashText("D"), hypothesis: hashText("H") };
 
 const BOARD = { id: "B", number: 1, title: "Roadmap", url: "https://github.com/orgs/x/projects/1", mapping: { priority: { id: "fp", name: "Priority" }, group: null, dueDate: { id: "fd", name: "Due date" }, size: { id: "fs", name: "Size" }, status: null, priorityMap: { Must: "P0", Should: "P1", Could: "P2" } } };
@@ -36,17 +39,17 @@ const onBoard = { fp: { optionId: "o0" }, fd: { date: "2026-12-31" }, fs: { opti
 const boardBase = { priority: hashBoard("P0"), due: hashBoard("2026-12-31"), size: hashBoard("M") };
 
 type Rpc = { name: string; args: Record<string, unknown> };
-function ctx(opts: { rows?: unknown[]; base?: unknown; pullError?: boolean; readError?: boolean; board?: Record<string, object> | null } = {}) {
+function ctx(opts: { rows?: unknown[]; base?: unknown; pullError?: boolean; readError?: boolean; board?: Record<string, object> | null; publicRepo?: boolean; ghAssignees?: string[] } = {}) {
   const rpcs: Rpc[] = [];
   const rows = opts.rows ?? [pv];
   const q = (table: string) => {
     const r: Record<string, unknown> = {};
     for (const m of ["eq", "is", "in", "select", "not"]) r[m] = () => r;
-    r.then = (resolve: (v: unknown) => void) => resolve(table === "projects" ? { data: opts.board ? [{ id: "p1", github_board: BOARD }] : [], error: null } : table === "item_groups" ? { data: [{ name: "Mobile" }, { name: "Platform" }], error: null } : opts.readError && table === "item_github_links" ? { data: null, error: { message: 'column "sync_base" does not exist' } } : { data: table === "items" ? rows : [{ item_id: ITEM, mode: "push", sync_base: opts.base ?? inStep, project_item_id: opts.board ? "PVTI_1" : null }], error: null });
+    r.then = (resolve: (v: unknown) => void) => resolve(table === "tenant_members" ? { data: MEMBERS, error: null } : table === "github_repositories" ? { data: [{ full_name: "Acme/App", is_private: opts.publicRepo !== true }], error: null } : table === "projects" ? { data: opts.board ? [{ id: "p1", github_board: BOARD }] : [], error: null } : table === "item_groups" ? { data: [{ name: "Mobile" }, { name: "Platform" }], error: null } : opts.readError && table === "item_github_links" ? { data: null, error: { message: 'column "sync_base" does not exist' } } : { data: table === "items" ? rows : [{ item_id: ITEM, mode: "push", sync_base: opts.base ?? inStep, project_item_id: opts.board ? "PVTI_1" : null, repo_full_name: "Acme/App", issue_number: 31 }], error: null });
     return r;
   };
   const adminUi = { rpc: async (name: string, args: Record<string, unknown>) => { rpcs.push({ name, args }); order.push(name); return name === "github_apply_pull" ? (opts.pullError ? { data: null, error: { message: "boom" } } : { data: { initiative_name: "Faster export", description: "D" }, error: null }) : { data: null, error: null }; } };
-  return { rpcs, ctx: { supabase: { from: q }, adminGithub: {}, adminUi, sc: boardSc(opts.board), connection: { id: "c1", tenant_id: "t1", expected_account: "Acme", installation_id: 9, account_login: "Acme", state: "connected" }, tenantId: "t1", actor: "u1", appUrl: "https://pv.test" } as never };
+  return { rpcs, ctx: { supabase: { from: q, rpc: async () => ({ data: DIRECTORY, error: null }) }, adminGithub: adminUi, adminUi, sc: boardSc(opts.board), connection: { id: "c1", tenant_id: "t1", expected_account: "Acme", installation_id: 9, account_login: "Acme", state: "connected" }, tenantId: "t1", actor: "u1", appUrl: "https://pv.test" } as never };
 }
 
 beforeEach(() => { order.length = 0; pushCalls.length = 0; plan = [{ id: ITEM, action: "unchanged" }]; pushResults = {}; issueTexts = { [ITEM]: { title: "R-1: Faster export", body: bodyFor({}) } }; });
@@ -229,5 +232,98 @@ describe("board values: Priority, Due date and Size changed on the GitHub Projec
     const { ctx: c } = ctx({ board: null });
     const p = await buildSyncPreview(c, [ITEM]);
     expect(p.received[0]!.status).toBe("in_step");
+  });
+});
+
+describe("assignees: the tracking issue's assignees against the people assigned in Product Velocity", () => {
+  const withPeople = (pvIds: string[], gh: string[], o: { base?: object; publicRepo?: boolean; assignable?: string[] | null } = {}) => {
+    issueTexts[ITEM] = { title: "R-1: Faster export", body: bodyFor({}), assignees: gh };
+    const c = ctx({ rows: [{ ...pv, assignee_ids: pvIds }], base: o.base ?? { ...inStep, assignees: hashAssignees(["ana-gh"]) }, publicRepo: o.publicRepo });
+    const sc = (c.ctx as { sc: InstanceType<typeof MemorySourceControl> }).sc;
+    sc.issues.set("Acme/App#31", { number: 31, id: 31, nodeId: "I_31", htmlUrl: "https://github.com/Acme/App/issues/31", body: "", state: "open", title: "t", labels: [] } as never);
+    if (o.assignable !== undefined) sc.assignable = o.assignable === null ? null : new Set(o.assignable);
+    return { ...c, sc };
+  };
+  const lastBase = (rpcs: Rpc[]) => rpcs.filter((x) => x.name === "github_record_base").at(-1)?.args.p_base as Record<string, string> | undefined;
+
+  it("is quiet when the matched people are the same, and remembers the agreement when none was stored", async () => {
+    const { ctx: c, rpcs } = withPeople([U_ANA], ["Ana-GH"], { base: inStep });
+    const p = await buildSyncPreview(c, [ITEM]);
+    expect(p.received[0]).toMatchObject({ status: "in_step" });
+    expect(p.received[0]!.conflicts).toBeUndefined();
+    expect(rpcs.find((r) => r.name === "github_record_base")?.args.p_base).toMatchObject({ assignees: hashAssignees(["ana-gh"]) });
+  });
+  it("assigned only in GitHub is a conflict defaulting to Keep Product Velocity; nobody in Product Velocity defaults to Keep GitHub", async () => {
+    const a = await buildSyncPreview(withPeople([U_ANA], ["ana-gh", "ben-gh"]).ctx, [ITEM]);
+    expect(a.received[0]).toMatchObject({ status: "conflict", conflicts: [{ field: "assignees", label: "Assignees", kind: "github", pv: "ana@acme.test", github: "ana@acme.test, ben@acme.test", defaultChoice: "pv" }] });
+    const b = await buildSyncPreview(withPeople([], ["ben-gh"], { base: { ...inStep, assignees: hashAssignees([]) } }).ctx, [ITEM]);
+    expect(b.received[0]!.conflicts).toMatchObject([{ field: "assignees", pv: "(nobody)", defaultChoice: "github" }]);
+  });
+  it("changed on both sides has no default", async () => {
+    const p = await buildSyncPreview(withPeople([U_BEN], ["ana-gh", "ben-gh"]).ctx, [ITEM]);
+    expect(p.received[0]!.conflicts).toMatchObject([{ field: "assignees", kind: "both", defaultChoice: null }]);
+  });
+  it("changed only in Product Velocity is part of the send, and is written after the confirm with a stranger's login kept", async () => {
+    const { ctx: c, rpcs, sc } = withPeople([U_ANA, U_BEN], ["ana-gh", "stranger"]);
+    const p = await buildSyncPreview(c, [ITEM]);
+    expect(p.received[0]!.assigneeSend).toEqual({ add: ["ben-gh"], remove: [] });
+    expect(p.received[0]!.conflicts).toBeUndefined();
+    const r = await confirmSync(c, [ITEM], []);
+    expect(sc.issues.get("Acme/App#31")!.assignees).toEqual(["ana-gh", "ben-gh", "stranger"]);
+    expect(r).toMatchObject({ ok: true, results: expect.arrayContaining([{ id: ITEM, code: "R-1", outcome: "updated", issueNumber: 31, message: "Assignees updated." }]) });
+    expect(lastBase(rpcs)).toMatchObject({ assignees: hashAssignees(["ana-gh", "ben-gh"]) });
+    expect(rpcs.find((x) => x.name === "github_apply_assignees")?.args).toMatchObject({ p_item: ITEM, p_logins: ["ana-gh", "ben-gh", "stranger"] }); // what GitHub now shows is stored
+  });
+  it("Keep GitHub takes the matched people (and keeps those without a username) through the allowlisted function, and writes nothing to GitHub", async () => {
+    const { ctx: c, rpcs, sc } = withPeople([U_ANA, U_CAT], ["ana-gh", "ben-gh"]);
+    const p = await buildSyncPreview(c, [ITEM]);
+    const hash = p.received[0]!.conflicts![0]!.ghHash;
+    await confirmSync(c, [ITEM], [{ itemId: ITEM, field: "assignees", choice: "github", ghHash: hash }]);
+    expect(rpcs.find((x) => x.name === "github_pull_assignees")?.args).toEqual({ p_actor: "u1", p_item: ITEM, p_user_ids: [U_ANA, U_BEN, U_CAT].sort(), p_base: null });
+    expect(sc.calls).not.toContain("setIssueAssignees");
+    expect(lastBase(rpcs)).toMatchObject({ assignees: hashAssignees(["ana-gh", "ben-gh"]) });
+  });
+  it("Keep Product Velocity writes the issue's assignees and records the agreement", async () => {
+    const { ctx: c, rpcs, sc } = withPeople([U_BEN], ["ana-gh", "ben-gh"]);
+    const p = await buildSyncPreview(c, [ITEM]);
+    await confirmSync(c, [ITEM], [{ itemId: ITEM, field: "assignees", choice: "pv", ghHash: p.received[0]!.conflicts![0]!.ghHash }]);
+    expect(sc.issues.get("Acme/App#31")!.assignees).toEqual(["ben-gh"]);
+    expect(rpcs.some((x) => x.name === "github_pull_assignees")).toBe(false);
+    expect(lastBase(rpcs)).toMatchObject({ assignees: hashAssignees(["ben-gh"]) });
+  });
+  it("GitHub skipping a person who is not a collaborator is reported, and the agreement is not recorded", async () => {
+    const { ctx: c, rpcs } = withPeople([U_ANA, U_BEN], ["ana-gh"], { assignable: ["ana-gh"] });
+    const r = await confirmSync(c, [ITEM], []);
+    expect(r).toMatchObject({ ok: true, results: expect.arrayContaining([expect.objectContaining({ id: ITEM, outcome: "error", message: expect.stringMatching(/@ben-gh.*collaborators/) })]) });
+    expect(lastBase(rpcs)?.assignees).toBeUndefined();
+  });
+  it("on a public repository assignees are read but never written: only Keep GitHub is offered, the send skips them, and the server refuses Keep Product Velocity", async () => {
+    const both = withPeople([U_BEN], ["ana-gh", "ben-gh"], { publicRepo: true });
+    const p = await buildSyncPreview(both.ctx, [ITEM]);
+    expect(p.received[0]!.conflicts).toMatchObject([{ field: "assignees", pvPossible: false, defaultChoice: "github", note: expect.stringMatching(/public/) }]);
+    const r = await confirmSync(both.ctx, [ITEM], [{ itemId: ITEM, field: "assignees", choice: "pv", ghHash: p.received[0]!.conflicts![0]!.ghHash }]);
+    expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/public repository/) });
+    expect(both.sc.calls).not.toContain("setIssueAssignees");
+    const send = withPeople([U_ANA, U_BEN], ["ana-gh"], { publicRepo: true });
+    const q = await buildSyncPreview(send.ctx, [ITEM]);
+    expect(q.received[0]!.assigneeSend).toBeUndefined();
+    expect(q.received[0]!.message).toMatch(/not written to a public repository/);
+    await confirmSync(send.ctx, [ITEM], []);
+    expect(send.sc.calls).not.toContain("setIssueAssignees");
+  });
+  it("an edit made after the preview is caught", async () => {
+    const { ctx: c, rpcs, sc } = withPeople([U_BEN], ["ana-gh", "ben-gh"]);
+    const r = await confirmSync(c, [ITEM], [{ itemId: ITEM, field: "assignees", choice: "pv", ghHash: hashAssignees(["ana-gh"]) }]);
+    expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/changed after you looked/) });
+    expect(sc.calls).not.toContain("setIssueAssignees");
+    expect(rpcs.some((x) => x.name === "github_pull_assignees")).toBe(false);
+  });
+  it("a failing pull leaves that initiative unsent", async () => {
+    const { ctx: c } = withPeople([U_ANA], ["ana-gh", "ben-gh"]);
+    (c as unknown as { adminUi: { rpc: unknown } }).adminUi.rpc = async (name: string) => (name === "github_pull_assignees" ? { data: null, error: { message: "boom" } } : { data: null, error: null });
+    const p = await buildSyncPreview(c, [ITEM]);
+    const r = await confirmSync(c, [ITEM], [{ itemId: ITEM, field: "assignees", choice: "github", ghHash: p.received[0]!.conflicts![0]!.ghHash }]);
+    expect(r).toMatchObject({ ok: true, results: [{ id: ITEM, outcome: "error" }] });
+    expect(pushCalls).toEqual([]);
   });
 });

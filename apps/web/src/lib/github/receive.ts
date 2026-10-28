@@ -5,7 +5,7 @@ import { syncBoardStatuses } from "./board-sync";
 import type { ReceiveItem, ReceivedLine } from "./push-types";
 import type { ConnectionRow } from "./server";
 import { newExtrasCache } from "./extras";
-import { applyFacts, refreshTree, type IssueFacts } from "./sync";
+import { applyAssignees, applyFacts, refreshTree, type IssueFacts } from "./sync";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -16,7 +16,7 @@ const word = (key: string, v: unknown) => (v === null || v === undefined || v ==
 const short = (e: unknown) => (e instanceof Error ? e.message : "unknown error").slice(0, 200);
 
 /** The title and body as read from GitHub, held in memory for the comparison; never stored. */
-export type IssueTexts = { title: string; body: string };
+export type IssueTexts = { title: string; body: string; /** Logins assigned to the issue now. */ assignees: string[] };
 type LinkRow = { id: string; item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; html_url: string | null };
 type ItemRow = { id: string; item_code: string; initiative_name: string };
 
@@ -52,9 +52,10 @@ export async function receiveFromGithub(admin: Admin, sc: SourceControl, connect
         await admin.from("item_github_links").update({ sync_state: "error", last_error: "The GitHub issue was not found (deleted or moved)." }).eq("id", link.id);
         return { ...base, status: "missing", received: [], ...where, message: "The GitHub issue no longer exists (deleted or moved). Nothing is recreated: a person decides." };
       }
-      texts?.set(id, { title: issue.title ?? "", body: issue.body });
+      texts?.set(id, { title: issue.title ?? "", body: issue.body, assignees: issue.assignees ?? [] });
       const facts: IssueFacts = { repo: link.repo_full_name, number: issue.number, issueId: issue.id, nodeId: issue.nodeId, state: issue.state, stateReason: issue.stateReason ?? null, updatedAt: issue.updatedAt ?? new Date().toISOString(), closedAt: issue.closedAt ?? null };
       const applied = await applyFacts(admin, connection.id, facts);
+      if (issue.assignees) await applyAssignees(admin, connection.id, id, issue.assignees);
       const received: ReceivedLine[] = [];
       if (applied && !applied.stale) {
         for (const [key, [from, to]] of Object.entries(applied.changes)) received.push({ label: LABEL[key] ?? key, from: word(key, from), to: word(key, to) });

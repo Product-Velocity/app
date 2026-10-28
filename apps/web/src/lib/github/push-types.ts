@@ -36,7 +36,7 @@ export type ReceivedLine = { label: string; from: string | null; to: string | nu
 export type ReceiveStatus = "in_step" | "received" | "conflict" | "not_on_github" | "follows" | "missing" | "error";
 /** A text that Product Velocity owns and that differs from GitHub. `github`: changed only in GitHub; `both`: changed on both sides; `block`: the managed block cannot be read field by field. */
 export type SyncConflict = {
-  field: "title" | "summary" | "description" | "hypothesis" | "block" | "priority" | "group" | "due" | "size";
+  field: "title" | "summary" | "description" | "hypothesis" | "block" | "priority" | "group" | "due" | "size" | "assignees";
   label: string;
   kind: "github" | "both" | "block";
   pv: string;
@@ -50,9 +50,11 @@ export type SyncConflict = {
   where?: "board";
   /** False when the board's value cannot be taken over (for example an unknown priority): only Keep Product Velocity is offered. */
   githubPullable?: false;
+  /** False when Product Velocity's value cannot be written to GitHub (assignees on a public repository): only Keep GitHub is offered. */
+  pvPossible?: false;
 };
 export type SyncChoice = { itemId: string; field: SyncConflict["field"]; choice: "pv" | "github"; ghHash: string };
-export type ReceiveItem = { id: string; code: string; name: string; status: ReceiveStatus; /** The initiative only follows an existing issue: received, never sent. */ readOnly?: boolean; received: ReceivedLine[]; conflicts?: SyncConflict[]; issueNumber: number | null; issueUrl: string | null; message?: string };
+export type ReceiveItem = { id: string; code: string; name: string; status: ReceiveStatus; /** The initiative only follows an existing issue: received, never sent. */ readOnly?: boolean; received: ReceivedLine[]; conflicts?: SyncConflict[]; /** Assignees a send would add to or remove from the issue (Product Velocity changed them, GitHub did not). */ assigneeSend?: { add: string[]; remove: string[] }; issueNumber: number | null; issueUrl: string | null; message?: string };
 export type SyncPreview = { account: string; received: ReceiveItem[]; send: PlanItem[] };
 export type SyncPreviewResult = ({ ok: true } & SyncPreview) | { ok: false; error: string };
 /** A text taken over from GitHub: what the grid shows and what one undo step puts back. */

@@ -15,7 +15,7 @@ export type RepoInfo = { id: number; fullName: string; private: boolean };
 export type DeliverySummary = { event: string; action: string | null; statusCode: number; deliveredAt: string };
 
 export type IssueInput = { title: string; body: string; labels: string[]; /** Organisation issue type name; only sent when the organisation has it. */ type?: string; /** Milestone number in the same repository. */ milestone?: number };
-export type IssueRef = { number: number; id: number; nodeId: string; htmlUrl: string; body: string; state: "open" | "closed"; /** The labels on the issue, when GitHub reported them. */ labels?: string[]; /** Present when read from GitHub: why it closed, when it last changed and when it closed. */ title?: string; stateReason?: string | null; updatedAt?: string; closedAt?: string | null };
+export type IssueRef = { number: number; id: number; nodeId: string; htmlUrl: string; body: string; state: "open" | "closed"; /** The labels on the issue, when GitHub reported them. */ labels?: string[]; /** Present when read from GitHub: why it closed, when it last changed and when it closed. */ title?: string; stateReason?: string | null; updatedAt?: string; closedAt?: string | null; /** Logins assigned to the issue, when read from GitHub. */ assignees?: string[] };
 
 /** An organisation-owned GitHub Project (a "board"). */
 export type BoardInfo = { id: string; number: number; title: string; url: string; closed: boolean };
@@ -40,7 +40,7 @@ export class GitHubError extends Error {
 /** What the app keeps of an issue it does not own: key, title, type, labels, status, link, parent (the "light record" of docs/16). */
 export type IssueSummary = {
   number: number; id: number; nodeId: string; state: "open" | "closed"; stateReason: string | null; updatedAt: string; closedAt: string | null;
-  title?: string; issueType?: string | null; labels?: string[]; htmlUrl?: string | null; parentNumber?: number | null;
+  title?: string; issueType?: string | null; labels?: string[]; htmlUrl?: string | null; parentNumber?: number | null; assignees?: string[];
 };
 
 /** A sub-issue as GitHub reports it. `repo` can differ from the parent's repository. */
@@ -71,6 +71,8 @@ export interface SourceControl {
   /** Removes one label from an issue (a label that is not there is fine). The app only ever removes labels in its own `pv:` namespace. */
   removeLabel(installationId: number, repo: string, number: number, label: string): Promise<void>;
   getIssue(installationId: number, repo: string, number: number): Promise<IssueRef | null>;
+  /** Replaces the assignees of an issue and returns the logins GitHub really set: it silently skips people who cannot be assigned (not collaborators). */
+  setIssueAssignees(installationId: number, repo: string, number: number, logins: string[]): Promise<string[]>;
   /** Finds an issue whose body contains `marker` (used to recover from a create whose answer was lost). */
   findIssueByMarker(installationId: number, repo: string, marker: string): Promise<IssueRef | null>;
   /** Makes sure the labels exist (an App's labels on a new issue are otherwise dropped silently). */

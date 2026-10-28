@@ -83,6 +83,25 @@ describe("ingestIssueEvent", () => {
   });
 });
 
+describe("assignees of a delivery and of the daily check", () => {
+  it("an issues delivery stores who is assigned now, and never writes the logins into the sync event", async () => {
+    const admin = fakeAdmin({ connection: conn, link });
+    await ingestIssueEvent(admin, { ...ev, assignees: ["ana-gh"] }, "d-9");
+    expect(admin.calls.find((c) => c.table === "github_apply_assignees")?.payload).toEqual({ p_connection: "c1", p_item: "i1", p_logins: ["ana-gh"] });
+    expect(JSON.stringify(admin.calls.find((c) => c.op === "insert")!.payload)).not.toContain("ana-gh");
+    const quiet = fakeAdmin({ connection: conn, link });
+    await ingestIssueEvent(quiet, ev, "d-10");
+    expect(quiet.calls.some((c) => c.table === "github_apply_assignees")).toBe(false);
+  });
+  it("the daily check stores the assignees of every linked issue it reads", async () => {
+    const sc = new MemorySourceControl();
+    sc.listed.set("Acme/App", [{ number: 31, id: 5, nodeId: "I_x", state: "open", stateReason: null, updatedAt: "2026-10-23T10:00:00Z", closedAt: null, assignees: ["ana-gh"] }]);
+    const admin = fakeAdmin({ links: [{ id: "l1", item_id: "i1", repo_full_name: "Acme/App", issue_number: 31 }], rpcResult: { item_id: "i1", stale: false, changes: {} } });
+    await reconcileConnection(admin, sc, { id: "c1", tenant_id: "t1", expected_account: "Acme", installation_id: 9, account_login: "Acme", state: "connected" });
+    expect(admin.calls.find((c) => c.table === "github_apply_assignees")?.payload).toEqual({ p_connection: "c1", p_item: "i1", p_logins: ["ana-gh"] });
+  });
+});
+
 describe("retryEvent", () => {
   const event = { id: "e1", connection_id: "c1", attempts: 1, state: "error", summary: { repo: "Acme/App", number: 31, issueId: 5, nodeId: "I_x", state: "closed", stateReason: "completed", updatedAt: "2026-10-23T10:00:00Z" } };
   it("applies the stored facts again and counts the attempt", async () => {
