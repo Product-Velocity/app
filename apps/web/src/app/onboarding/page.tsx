@@ -10,7 +10,7 @@ export const metadata = { title: "Create your workspace · Product Velocity" };
 export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ new?: string }> }) {
   const { new: wantsNew } = await searchParams;
   const { supabase, user } = await requireUser("/onboarding");
-  if ((await loadMemberships(supabase, user.id)).length > 0) redirect("/portfolio");
+  if (wantsNew !== "1" && (await loadMemberships(supabase, user.id)).length > 0) redirect("/portfolio"); // ?new=1 is the switcher's "+ New account"
   // someone at an authorized domain waits for their admin instead of starting a second workspace (they can still choose to)
   if (wantsNew !== "1") {
     const asked = user.email ? await syncDomainAccess(supabase, user.email) : [];
@@ -21,9 +21,9 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   return (
     <main className="auth-page">
       <div className="card auth-card">
-        <h1>Create your workspace</h1>
+        <h1>{wantsNew === "1" ? "Create a new account" : "Create your workspace"}</h1>
         <p className="muted">
-          You will be its first admin. You can invite your team next. If someone already invited
+          You will be its first admin. You can invite your team next, from Members in the account menu. If someone already invited
           you, open the invitation link they sent instead.
         </p>
         <CreateTenantForm suggestedDomain={suggested} countries={countryOptions()} currencies={currencyOptions()} timeZones={timeZoneOptions()} />

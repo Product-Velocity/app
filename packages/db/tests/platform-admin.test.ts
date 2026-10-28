@@ -290,6 +290,32 @@ describe("platform-wide audit log (FR-6.6)", () => {
   });
 });
 
+describe("deleting an account (typed confirmation)", () => {
+  it("is refused to everyone but platform admins, and to a wrong name", async () => {
+    await reset();
+    expect(await errorCode(db.asUser(f.alice, (q) => q("select public.platform_delete_account($1, 'Tenant A')", [f.tenantA])))).toBe("42501");
+    expect(await errorCode(asPat((q) => q("select public.platform_delete_account($1, 'tenant a')", [f.tenantA])))).toBe("PV024");
+    expect(await errorCode(asPat((q) => q("select public.platform_delete_account(gen_random_uuid(), 'x')")))).toBe("P0002");
+    expect((await db.admin.query("select 1 from public.tenants where id = $1", [f.tenantA])).rowCount).toBe(1);
+  });
+
+  it("removes that account and all its data, leaves the other account whole, and logs who did it", async () => {
+    const before = (await db.admin.query("select count(*)::int n from public.items where tenant_id = $1", [f.tenantB])).rows[0].n;
+    await enter(f.tenantA); // an open entry must not block the cascade
+    const name = (await db.admin.query("select name from public.tenants where id = $1", [f.tenantA])).rows[0].name;
+    await asPat((q) => q("select public.platform_delete_account($1, $2)", [f.tenantA, name]), { commit: true });
+    for (const t of ["tenants", "tenant_members", "projects", "items", "invitations"]) {
+      expect((await db.admin.query(`select 1 from public.${t} where ${t === "tenants" ? "id" : "tenant_id"} = $1`, [f.tenantA])).rowCount, t).toBe(0);
+    }
+    expect((await db.admin.query("select count(*)::int n from public.items where tenant_id = $1", [f.tenantB])).rows[0].n).toBe(before);
+    // the members of the deleted account lose it; their other accounts stay
+    expect(await db.asUser(f.alice, async (q) => (await q("select 1 from public.tenants")).rowCount)).toBe(0);
+    const log = await asPat<{ field: string; actor_email: string; old: { name: string; members: number } }[]>(async (q) => (await q("select * from public.platform_config_log()")).rows);
+    expect(log[0]).toMatchObject({ field: "account_deleted", actor_email: "pat@platform.test" });
+    expect(log[0].old).toMatchObject({ name, members: 2 });
+  });
+});
+
 describe("guard coverage", () => {
   it("every public table with a tenant has the read-only guard, so a new table cannot be forgotten", async () => {
     const { rows } = await db.admin.query(

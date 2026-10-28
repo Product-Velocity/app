@@ -73,3 +73,13 @@ export async function setPlan(form: FormData): Promise<void> {
   const { error } = await supabase.rpc("platform_set_plan", { p_tenant: tenant, p_plan: plan });
   done("/platform", error ? "failed" : "plan-saved");
 }
+
+/** Deletes an account for good. The database refuses unless the exact account name is typed; the deletion is recorded in the configuration log. */
+export async function deleteAccount(form: FormData): Promise<void> {
+  const tenant = String(form.get("tenant") ?? "");
+  const name = String(form.get("confirm_name") ?? "");
+  const { supabase } = await requirePlatformAdmin("/platform");
+  if (!UUID.test(tenant)) done("/platform", "bad-account");
+  const { error } = await supabase.rpc("platform_delete_account", { p_tenant: tenant, p_confirm_name: name });
+  done("/platform", error ? (error.code === "PV024" ? "delete-name" : "failed") : "deleted");
+}
