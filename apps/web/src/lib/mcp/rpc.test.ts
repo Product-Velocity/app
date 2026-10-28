@@ -79,7 +79,7 @@ describe("handleRpc", () => {
   it("lists the read tools (read-only) and then the write tools (not read-only)", async () => {
     const r = (await handleRpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }, backend())) as { result: { tools: { name: string; annotations: { readOnlyHint: boolean } }[] } };
     const reads = ["get_workspace_context", "describe_fields", "search_items", "get_item", "list_groups", "list_views", "list_files", "list_documents", "get_document"];
-    const writes = ["create_items", "update_items", "confirm_changes", "set_relations", "add_link", "remove_link", "undo_last", "add_file", "set_file_sharing", "remove_file", "create_document", "update_document"];
+    const writes = ["create_items", "update_items", "confirm_changes", "set_relations", "add_link", "remove_link", "undo_last", "add_file", "set_file_sharing", "remove_file", "create_document", "update_document", "apply_prd_extract"];
     expect(r.result.tools.map((t) => t.name)).toEqual([...reads, ...writes]);
     for (const t of r.result.tools) expect(t.annotations.readOnlyHint, t.name).toBe(reads.includes(t.name));
   });
