@@ -14,7 +14,10 @@ import { Popover } from "../portfolio/popover";
 import { StatusStrip, useStatus } from "../portfolio/status-strip";
 import type { GridItem, Lookups } from "../portfolio/types";
 import { useScope } from "../workspace/scope";
+import { ImpactEffort } from "./impact-chart";
 import { StackedChart } from "./stacked-chart";
+import { TimelineChart } from "./timeline-chart";
+import { TimeToMarket } from "./ttm-charts";
 
 const SHOWN = 200;
 const FIELD_OF = (key: string) => FIELD_BY_KEY[key]!;
@@ -80,6 +83,7 @@ export function ReportsView({ controller, lookups, me }: { controller: Portfolio
   const teamStatus = useMemo(() => stackCounts(rows, "team", "initiative_status", ctx), [rows, ctx]);
   const teamHealth = useMemo(() => stackCounts(rows, "team", "health", ctx), [rows, ctx]);
 
+  const nameOf = useCallback((id: string) => String(inScope.find((r) => r.id === id)?.initiative_name ?? id), [inScope]);
   const fields = REPORT_GRID_COLUMNS.map(FIELD_OF);
   const fmt = (f: (typeof fields)[number], r: GridItem) => formatField(f, r[f.key], { today: controller.todayDate(), members: lookups.members, projects: lookups.projects });
   const exportCsv = () => downloadCsv(`reports-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(rows, fields, lookups));
@@ -116,6 +120,7 @@ export function ReportsView({ controller, lookups, me }: { controller: Portfolio
         <label className="rp-toggle"><input type="checkbox" checked={state.aiDrafts} onChange={(e) => setState((s) => ({ ...s, aiDrafts: e.target.checked }))} />Include AI drafts</label>
         <button type="button" className="tool-btn" disabled={!anything} onClick={() => setState((s) => ({ ...emptyReport(), archived: s.archived, aiDrafts: s.aiDrafts }))}>Reset filters</button>
         <button type="button" className="tool-btn" disabled={rows.length === 0} onClick={exportCsv}>Export CSV ({rows.length.toLocaleString("en-GB")})</button>
+        <button type="button" className="tool-btn" disabled title="A PDF summary of this page (filters, Time to Market card and charts) comes later (issue #233, P1)">PDF summary (later)</button>
       </div>
 
       {state.drill.length > 0 && (
@@ -136,6 +141,10 @@ export function ReportsView({ controller, lookups, me }: { controller: Portfolio
         <StackedChart title="Status by Team" data={teamStatus} rowDim="team" colDim="initiative_status" label={label} state={state} onPick={pick} />
         <StackedChart title="Health by Team" data={teamHealth} rowDim="team" colDim="health" label={label} state={state} onPick={pick} />
       </div>
+
+      <ImpactEffort rows={rows} onPick={pick} onOpen={setPeekId} nameOf={nameOf} />
+      <TimeToMarket rows={rows} ctx={ctx} label={label} onPick={pick} onOpen={setPeekId} nameOf={nameOf} />
+      <TimelineChart rows={rows} today={controller.todayDate()} onOpen={setPeekId} />
 
       <section className="rp-card" aria-label="Initiatives">
         <h2 className="rp-title">Initiatives</h2>

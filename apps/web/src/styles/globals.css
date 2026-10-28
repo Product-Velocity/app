@@ -737,3 +737,18 @@ a.scope-link:hover, a.scope-link:focus-visible { background: var(--blue-tint-2);
 .rp-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
 .rp-table th, .rp-table td { text-align: left; padding: 4px 10px; border-bottom: 1px solid var(--grey-2); white-space: nowrap; }
 .rp-table th { position: sticky; top: 0; background: var(--header-bg); font-weight: 600; }
+.rp-wide { margin-bottom: 12px; }
+.rp-kpis { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0 12px; }
+.rp-kpi { display: flex; flex-direction: column; min-width: 120px; padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.rp-kpi-n { font-size: 22px; font-weight: 600; font-family: var(--font-mono); }
+.rp-kpi-l { font-size: 12px; color: var(--ink-muted); max-width: 200px; }
+.rp-ttm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
+.rp-sub { margin: 0 0 4px; font-size: 12.5px; font-weight: 600; }
+.rp-details { margin: 4px 0 0; font-size: 12px; }
+.rp-details summary { cursor: pointer; color: var(--blue-text); }
+.rp-bar-tools { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
+.seg-group { display: inline-flex; gap: 4px; }
+.seg-group .tool-btn[aria-pressed="true"] { background: var(--blue-tint-1); border-color: var(--blue); color: var(--blue-text); }
+.rp-legend-item { cursor: default; }
+.rp-placeholder { border: 1px dashed var(--border); border-radius: var(--radius-md); padding: 12px; background: var(--surface); color: var(--ink-muted); font-size: 12.5px; }
+.rp-placeholder p { margin: 4px 0 0; }

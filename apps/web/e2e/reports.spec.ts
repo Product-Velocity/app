@@ -11,7 +11,7 @@ const open = async (page: Page, query = "") => {
   await page.waitForSelector(".reports");
 };
 const summary = (page: Page) => page.locator(".page-head [role=status]");
-const rowsShown = (page: Page) => page.locator(".rp-table tbody tr");
+const rowsShown = (page: Page) => page.locator('section[aria-label="Initiatives"] .rp-table tbody tr');
 
 test("shows every live initiative, archived ones only with the toggle", async ({ page }) => {
   await open(page);
@@ -78,7 +78,7 @@ test("a multi-team initiative counts once per team and the chart says so", async
 
 test("no matches shows the empty message in every module and keeps the layout", async ({ page }) => {
   await open(page, "&f.initiative_phase=Build&d=initiative_phase:Discover");
-  await expect(page.getByText("No data matching current filters")).toHaveCount(5);
+  await expect(page.getByText("No data matching current filters")).toHaveCount(8);
   await expect(page.getByRole("button", { name: "Reset filters" })).toBeEnabled();
 });
 
@@ -103,4 +103,96 @@ test("has no accessibility violations", async ({ page }) => {
   await open(page);
   const r = await new AxeBuilder({ page }).include(".reports").analyze();
   expect(r.violations.map((v) => v.id + ": " + v.nodes.map((n) => n.target).join(" | "))).toEqual([]);
+});
+
+// ---- step 2: Time to Market and the timeline
+/** Discovery starts on day i; Start Date is 5 days later; every third item went to market 60 + (i % 4) * 10 days after discovery. */
+const done = live.filter((x) => x.i % 3 === 0).map((x) => 60 + (x.i % 4) * 10);
+const med = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
+const kpi = (page: Page, name: string) => page.locator(`[data-kpi="${name}"]`);
+type ChartsWindow = { __charts: Record<string, { convertToPixel: (f: object, v: unknown) => number | number[] }> };
+/** Click where the chart draws a value: its pixel position inside the chart box. */
+const clickAt = async (page: Page, chart: string, finder: object, value: unknown) => {
+  await page.locator(`[data-chart="${chart}"]`).evaluate((e) => e.scrollIntoView({ block: "start" })); // a tall chart: its first line must be on screen
+  const px = await page.evaluate(([c, f, v]) => (window as unknown as ChartsWindow).__charts[c as string]!.convertToPixel(f as object, v), [chart, finder, value] as const);
+  const box = (await page.locator(`[data-chart="${chart}"]`).boundingBox())!;
+  const [x, y] = px as number[];
+  await page.mouse.click(box.x + x!, box.y + y!);
+};
+
+test("Time to Market card shows median, average, how many were counted and how many were left out", async ({ page }) => {
+  await open(page);
+  await expect(kpi(page, "count")).toHaveText(String(done.length));
+  await expect(kpi(page, "excluded")).toHaveText(String(live.length - done.length));
+  await expect(kpi(page, "median")).toHaveText(String(Math.round(med(done) * 10) / 10));
+  await expect(kpi(page, "average")).toHaveText(String(Math.round((done.reduce((a, b) => a + b, 0) / done.length) * 10) / 10));
+});
+
+test("the dots table lists exactly the counted initiatives", async ({ page }) => {
+  await open(page);
+  const scatter = page.locator('[data-chart="ttm-scatter"]').locator("xpath=following-sibling::details");
+  await scatter.locator("summary").click();
+  await expect(scatter.locator("tbody tr")).toHaveCount(done.length);
+});
+
+test("Time to Market follows the filters and shows the empty message when nothing is left", async ({ page }) => {
+  await open(page, "&f.initiative_phase=Build");
+  const builds = live.filter((x) => x.phase === "Build" && x.i % 3 === 0).map((x) => 60 + (x.i % 4) * 10);
+  await expect(kpi(page, "count")).toHaveText(String(builds.length));
+  await open(page, "&f.initiative_phase=Build&d=initiative_phase:Discover");
+  await expect(page.getByText("No data matching current filters")).toHaveCount(8);
+});
+
+test("clicking a team bar filters everything like the other charts", async ({ page }) => {
+  await open(page);
+  await clickAt(page, "ttm-team", { xAxisIndex: 0, yAxisIndex: 0 }, [5, "Core"]);
+  const pill = page.locator(".rp-pill");
+  await expect(pill).toHaveText(/Team: Core/);
+  await expect(rowsShown(page)).toHaveCount(live.filter((x) => x.core).length);
+  await pill.click();
+  await expect(pill).toHaveCount(0);
+});
+
+test("clicking a dot opens the initiative", async ({ page }) => {
+  await open(page);
+  await page.locator('[data-chart="ttm-scatter"]').scrollIntoViewIfNeeded();
+  const first = done.length > 0 ? live.find((x) => x.i % 3 === 0)! : null;
+  const end = Date.UTC(2027, 1, 1) + (first!.i + 60 + (first!.i % 4) * 10) * 86_400_000;
+  await clickAt(page, "ttm-scatter", { xAxisIndex: 0, yAxisIndex: 0 }, [end, 60 + (first!.i % 4) * 10]);
+  await expect(page.getByTestId("item-panel")).toContainText("R-01");
+});
+
+test("timeline: pages in 30 at a time, switches scale and colour, and opens an initiative from a bar", async ({ page }) => {
+  await open(page);
+  const t = page.locator('section[aria-label="Timeline"]');
+  await expect(t).toContainText(`Showing 30 of ${live.length} initiatives with dates`);
+  await expect(t.locator(".rp-legend-item")).toContainText(["Discover", "Define", "Build"]);
+  await t.getByRole("button", { name: "Colour by Health" }).click();
+  await expect(t.locator(".rp-legend-item")).toContainText(["On Track"]);
+  await t.getByRole("button", { name: "Quarters" }).click();
+  await expect(t.getByRole("button", { name: "Quarters" })).toHaveAttribute("aria-pressed", "true");
+  await t.getByRole("button", { name: /^Show \d+ more/ }).click();
+  await expect(t).toContainText(`Showing ${live.length} of ${live.length}`);
+  await clickAt(page, "timeline", { xAxisIndex: 0, yAxisIndex: 0 }, [Date.UTC(2027, 1, 5), 0]);
+  await expect(page.getByTestId("item-panel")).toContainText("R-01");
+});
+
+// ---- step 3: Impact and Effort (version 1, with a placeholder for achieved impact)
+test("Impact and Effort says how many initiatives have no Primary KR, and holds a placeholder for achieved impact", async ({ page }) => {
+  await open(page);
+  const withKr = live.filter((x) => x.i % 4 === 0).length;
+  await expect(page.locator('[data-kpi="no-kr"]')).toHaveText(String(live.length - withKr));
+  const t = page.locator('section[aria-label="Impact and Effort"]');
+  await expect(t.getByTestId("impact-placeholder")).toContainText("phase 7");
+  await expect(t.getByTestId("impact-placeholder")).toContainText("nothing here is estimated");
+  await expect(t.getByRole("table", { name: "Primary KRs" }).locator("tbody tr")).toHaveCount(Math.min(15, withKr));
+  await expect(page.getByRole("button", { name: /^PDF summary/ })).toBeDisabled();
+});
+
+test("clicking an effort bar filters like the other charts, and the KR note follows the filters", async ({ page }) => {
+  await open(page);
+  await clickAt(page, "impact-effort", { xAxisIndex: 0, yAxisIndex: 0 }, ["XS", 1]);
+  await expect(page.locator(".rp-pill")).toHaveText(/Effort: XS/);
+  await expect(rowsShown(page)).toHaveCount(live.filter((x) => x.i % 5 === 0).length);
+  await expect(page.locator('[data-kpi="no-kr"]')).toHaveText(String(live.filter((x) => x.i % 5 === 0 && x.i % 4 !== 0).length));
 });
