@@ -139,6 +139,13 @@ export function makeReportsHarness(n: number, role: string) {
       theme: ["Onboarding", "Retention", null][i % 3], archived: i % 7 === 6,
       contributing_teams: i % 5 === 0 ? "Core, Mobile" : i % 2 === 0 ? "Core" : null,
     });
+    // dates for Time to Market and the timeline: discovery starts on day i of 2027-02-01; every third item has gone to market 60 to 90 days later
+    const d0 = Date.UTC(2027, 1, 1) + i * 86_400_000;
+    const at = (n: number) => new Date(d0 + n * 86_400_000).toISOString().slice(0, 10);
+    Object.assign(r, {
+      start_discovery: at(0), start_date: at(5), start_definition: at(15), start_building: at(40),
+      g2m_date_actual: i % 3 === 0 ? at(60 + (i % 4) * 10) : null, g2m_date_est: at(120), planned_start: at(0),
+    });
   }
   return { controller, source };
 }

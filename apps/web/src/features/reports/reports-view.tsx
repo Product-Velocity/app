@@ -15,6 +15,8 @@ import { StatusStrip, useStatus } from "../portfolio/status-strip";
 import type { GridItem, Lookups } from "../portfolio/types";
 import { useScope } from "../workspace/scope";
 import { StackedChart } from "./stacked-chart";
+import { TimelineChart } from "./timeline-chart";
+import { TimeToMarket } from "./ttm-charts";
 
 const SHOWN = 200;
 const FIELD_OF = (key: string) => FIELD_BY_KEY[key]!;
@@ -80,6 +82,7 @@ export function ReportsView({ controller, lookups, me }: { controller: Portfolio
   const teamStatus = useMemo(() => stackCounts(rows, "team", "initiative_status", ctx), [rows, ctx]);
   const teamHealth = useMemo(() => stackCounts(rows, "team", "health", ctx), [rows, ctx]);
 
+  const nameOf = useCallback((id: string) => String(inScope.find((r) => r.id === id)?.initiative_name ?? id), [inScope]);
   const fields = REPORT_GRID_COLUMNS.map(FIELD_OF);
   const fmt = (f: (typeof fields)[number], r: GridItem) => formatField(f, r[f.key], { today: controller.todayDate(), members: lookups.members, projects: lookups.projects });
   const exportCsv = () => downloadCsv(`reports-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(rows, fields, lookups));
@@ -136,6 +139,9 @@ export function ReportsView({ controller, lookups, me }: { controller: Portfolio
         <StackedChart title="Status by Team" data={teamStatus} rowDim="team" colDim="initiative_status" label={label} state={state} onPick={pick} />
         <StackedChart title="Health by Team" data={teamHealth} rowDim="team" colDim="health" label={label} state={state} onPick={pick} />
       </div>
+
+      <TimeToMarket rows={rows} ctx={ctx} label={label} onPick={pick} onOpen={setPeekId} nameOf={nameOf} />
+      <TimelineChart rows={rows} today={controller.todayDate()} onOpen={setPeekId} />
 
       <section className="rp-card" aria-label="Initiatives">
         <h2 className="rp-title">Initiatives</h2>
