@@ -662,3 +662,4 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .md-tooltip { max-width: 520px; max-height: 360px; overflow: auto; background: #fff; border: 1px solid #c9cfd8; border-radius: 6px; box-shadow: 0 6px 20px rgba(20, 30, 60, .18); font-size: 13px; }
 .md-tooltip .md-preview { border: 0; min-height: 0; max-height: none; }
 .ag-cell .cell-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-cell .cell-text-fade { text-overflow: clip; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }

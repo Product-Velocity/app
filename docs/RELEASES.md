@@ -4,6 +4,7 @@ The version is shown at the bottom of the account menu ("app v0.30.0 · build ab
 
 | Version | Date | Key updates | PRs |
 |---|---|---|---|
+| 0.45.4 | 2026-10-28 | **Fix: a second plain-text hover still appeared over the rendered Description hover.** The Description cell text now fades out at the cell edge instead of ending in "...", so the browser no longer shows its own hover for cut-off text. Other columns are unchanged. | - |
 | 0.45.3 | 2026-10-28 | **Fix: a long Description showed an empty cell, and a second plain-text hover appeared on top of the rendered one.** The Description cell text is now cut to about 240 characters (the full text stays in the hover), and the browser's own hover is switched off so only the rendered one shows. | - |
 | 0.45.2 | 2026-10-28 | **Description reads cleanly in the grid.** The Description cell shows plain text on one line (no `#`, `**` or link syntax); hovering it shows the full text rendered as Markdown (headings, lists, tables, links; raw HTML is still shown as text, never rendered). | - |
 | 0.45.1 | 2026-10-28 | **Fix: the Members page failed to load (server error) after 0.45.0.** The page passed a function from the server page to the client grid, which Next.js refuses; the Resend controls are now created inside the grid. No migration. | this PR |
