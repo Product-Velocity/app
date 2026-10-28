@@ -40,7 +40,7 @@ describe("POST /mcp refusals", () => {
   it("an allowed caller reaches the tools", async () => {
     authenticate.mockResolvedValue({
       ok: true,
-      caller: { userId: "u", clientId: "c", connectionId: "k", backend: { role: "viewer", meter: async () => ({ ok: true }), workspaceContext: async () => ({ workspace: { id: "t", name: "W", role: "viewer", projects: [] } }) } },
+      caller: { userId: "u", clientId: "c", unavailable: [], workspaces: [{ id: "t", name: "W", role: "viewer", lastWriteAt: null, backend: { role: "viewer", meter: async () => ({ ok: true }), workspaceContext: async () => ({ workspace: { id: "t", name: "W", role: "viewer", projects: [] } }) } }] },
     });
     const r = await post("t");
     expect(r.status).toBe(200);

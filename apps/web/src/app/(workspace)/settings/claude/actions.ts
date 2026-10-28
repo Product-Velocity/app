@@ -18,17 +18,30 @@ export async function setClaudeEnabled(formData: FormData) {
   return back(enabled ? "switched-on" : "switched-off");
 }
 
+/** Workspace admins may forbid Claude from being used in this workspace together with others (R-114): it then works here only on its own. */
+export async function setClaudeSingleOnly(formData: FormData) {
+  const { supabase, active } = await requireWorkspace(PATH);
+  if (active.role !== "admin") return back("not-admin");
+  const only = formData.get("single_only") === "on";
+  const { error } = await supabase.from("tenants").update({ claude_single_only: only }).eq("id", active.tenantId);
+  if (error) return back(error.code === "42703" || error.code === "PGRST204" ? "needs-migration" : "failed");
+  revalidatePath(PATH);
+  return back(only ? "single-on" : "single-off");
+}
+
 /** Revokes a connection. The next call from Claude is refused; the person's own revoke also ends the OAuth grant. */
 export async function revokeConnection(formData: FormData) {
-  const { supabase } = await requireWorkspace(PATH);
+  const { supabase, user } = await requireWorkspace(PATH);
   const id = String(formData.get("id") ?? "");
   const clientId = String(formData.get("client_id") ?? "");
   const own = formData.get("own") === "1";
   const { data, error } = await supabase.rpc("mcp_revoke", { p_id: id });
   if (error) return back("failed");
   if (data && own && clientId) {
-    // ends refresh tokens at the OAuth server too; our own check already refuses the next call, so a failure here is not shown
-    await supabase.auth.oauth.revokeGrant({ clientId }).catch(() => undefined);
+    // One approval can cover several workspaces: the OAuth grant ends only when the last of them is revoked. Our own check already
+    // refuses the revoked workspace on the next call; a failure here is not shown.
+    const { count } = await supabase.from("mcp_connections").select("id", { count: "exact", head: true }).eq("client_id", clientId).eq("user_id", user.id).is("revoked_at", null);
+    if (!count) await supabase.auth.oauth.revokeGrant({ clientId }).catch(() => undefined);
   }
   revalidatePath(PATH);
   return back(data ? "revoked" : "already-revoked");
