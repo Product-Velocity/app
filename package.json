@@ -12,6 +12,7 @@
     "lint": "pnpm --filter web lint",
     "typecheck": "pnpm -r --if-present typecheck",
     "db:migrate": "pnpm --filter db migrate",
-    "db:test": "pnpm --filter db test"
+    "db:test": "pnpm --filter db test",
+    "db:new": "pnpm --filter db new"
   }
 }

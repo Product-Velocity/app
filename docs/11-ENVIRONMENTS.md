@@ -19,7 +19,7 @@
 Secrets only in environment variables. `.env*` files are git-ignored except `.env.example`.
 
 ## Database (Supabase)
-- Migrations live in `packages/db/migrations/NNNN_name.sql`. They are forward-only: `pnpm db:migrate` applies new files in order, each in one transaction, and refuses to run if an already-applied file was edited. Fix mistakes with a new migration.
+- Migrations live in `packages/db/migrations/`: the numbered set `NNNN_name.sql` (0001 to 0058, frozen) and, from issue #238, `YYYYMMDDHHMMSS_name.sql` named by UTC timestamp (`pnpm db:new <name>` creates one), so two branches never pick the same number. They are forward-only: `pnpm db:migrate` applies new files in order, each in one transaction, and refuses to run if an already-applied file was edited. Fix mistakes with a new migration.
 - Applying to a real project: set `DATABASE_URL` (Supabase > Project Settings > Database > Connection string) in your shell and run `pnpm db:migrate`. Do this for the Preview project first, then Production.
 - Suggested setup: two Supabase projects, `product-velocity-preview` (used by Vercel Preview and Development) and `product-velocity-prod` (Production only). Use different keys in each.
 - Tests (`pnpm db:test`) never touch Supabase. They create a throwaway database on the Postgres in `TEST_DATABASE_URL` and use `packages/db/tests/supabase-shim.sql` to imitate `auth.uid()` and the roles. CI runs a Postgres 16 service for this. Real-Supabase behaviour of the same policies is checked by running the migrations on the Preview project (still to do, see PR notes).

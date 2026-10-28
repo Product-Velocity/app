@@ -1,6 +1,6 @@
 # Release log
 
-The version is shown at the bottom of the account menu ("app v0.30.0 · build abc1234"). **A release is a pull request merged into `main`.** Every PR that changes what the app does bumps `version` in `apps/web/package.json` and adds a row at the top of this table (a test fails if the two disagree). Numbering while the product is pre-launch: `0.MINOR.PATCH`; a new feature or screen bumps MINOR, a fix or a docs-only change bumps PATCH. The build id is the first seven characters of the Git commit Vercel deployed.
+The version is shown at the bottom of the account menu ("app v0.30.0 · build abc1234"). **A release is a pull request merged into `main`.** Do not edit this table or `version` in a feature PR: add a release fragment in `docs/releases/unreleased/` instead, and the release workflow gives it the next version when it is merged (issue #238, `docs/23-PARALLEL-WORK.md`). A test fails if `version` and the top row disagree. Numbering while the product is pre-launch: `0.MINOR.PATCH`; a new feature or screen is `bump: minor`, a fix or a docs-only change is `bump: patch`. The build id is the first seven characters of the Git commit Vercel deployed.
 
 | Version | Date | Key updates | PRs |
 |---|---|---|---|

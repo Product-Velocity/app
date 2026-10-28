@@ -1,0 +1,47 @@
+name: Release
+
+# Issue #238: gives merged release fragments their version, writes docs/RELEASES.md and bumps apps/web/package.json.
+# Needs (repository settings): Actions may push to main (Settings, Actions, General, Workflow permissions: read and write),
+# and if main is protected, github-actions[bot] must be allowed to bypass the pull request requirement. See docs/23-PARALLEL-WORK.md.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/releases/unreleased/*.md"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Assemble the release
+        run: |
+          PR=$(git log -1 --format=%s | grep -oE '#[0-9]+' | head -1 || true)
+          node tools/release/assemble.mjs --pr "$PR"
+      - name: Commit and push
+        run: |
+          if git diff --quiet; then echo "Nothing to release."; exit 0; fi
+          VERSION=$(node -p "require('./apps/web/package.json').version")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A docs/releases docs/RELEASES.md apps/web/package.json
+          git commit -m "release: v${VERSION}"
+          for i in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            git pull --rebase origin main
+          done
+          echo "Could not push the release commit." >&2
+          exit 1
