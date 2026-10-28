@@ -110,6 +110,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           </tbody>
         </table>
         <p className="muted">A workspace always keeps at least one admin, so its last admin cannot leave. Leaving does not delete the work you did there.</p>
+        <p><Link className="btn" href="/onboarding?new=1">+ New account</Link> You become its first admin and can invite people from Members in the account menu.</p>
       </div>
 
       <h2>Notifications</h2>
