@@ -250,10 +250,8 @@ test.describe("filter panel", () => {
 test.describe("Add an initiative: type it in one line", () => {
   test("the most important words are shown in the bar, the rest are under Help", async ({ page }) => {
     await open(page);
-    const legend = page.locator(".quick-add-legend");
-    await expect(legend).toContainText("#platform");
-    await expect(legend).toContainText("@anna");
-    await expect(legend).toContainText("+growth");
+    const box = await page.getByPlaceholder(/^Enter adds/).getAttribute("placeholder");
+    for (const w of ["Paste a list to add many", "#platform", "@anna", "+growth", "more under Help"]) expect(box).toContain(w);
     await page.goto("/dev/item/R-01");
     await page.getByRole("button", { name: "Help" }).click();
     const dialog = page.getByRole("dialog", { name: /keyboard shortcuts/i });

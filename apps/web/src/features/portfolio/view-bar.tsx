@@ -442,7 +442,7 @@ function MoreViews({ api, count }: { api: ViewsApi; count: number }) {
   return (
     <span ref={ref} className="popover-anchor" {...blur}
       onKeyDown={(e) => { if (e.key === "Escape" && open) { e.stopPropagation(); close(); btn.current?.focus(); } }}>
-      <button ref={btn} type="button" className={open ? "tool-btn tool-btn-on" : "tool-btn"} aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen((o) => !o)}>
+      <button ref={btn} type="button" className="tool-btn more-views-btn" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen((o) => !o)}>
         {count} more {count === 1 ? "view" : "views"}{api.dirty && <span className="vm-dot" title="This view has changes you have not saved" aria-hidden="true"> ●</span>}<Chevron open={open} />
       </button>
       {open && (
