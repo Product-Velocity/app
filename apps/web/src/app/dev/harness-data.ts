@@ -136,7 +136,7 @@ export function makeReportsHarness(n: number, role: string) {
     const i = Number(r.id.replace("item-", "")) - 1;
     Object.assign(r, {
       initiative_phase: phases[i % 4], initiative_status: statuses[i % 3], g2m_quarter: quarters[i % 3],
-      theme: ["Onboarding", "Retention", null][i % 3], archived: i % 7 === 6,
+      theme: ["Onboarding", "Retention", null][i % 3], archived: i % 7 === 6, engineering_manager: i % 6 === 0 ? null : `u${(i % 5) + 1}`,
       contributing_teams: i % 5 === 0 ? "Core, Mobile" : i % 2 === 0 ? "Core" : null,
     });
     // dates for Time to Market and the timeline: discovery starts on day i of 2027-02-01; every third item has gone to market 60 to 90 days later

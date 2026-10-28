@@ -1,0 +1,4 @@
+---
+bump: minor
+---
+**Reports tab, step 2 (R-115, issue #233): Time to Market and the timeline.** An **Overall Time to Market** card (median and average days, how many initiatives were counted and how many left out), median days by Team and by Effort (click a bar to filter like the other charts), median days spent in each phase, and a dot for every initiative that went to market (click a dot to open it). Time to Market is G2M Date (actual) minus the earlier of Start Discovery and Start Date. A **Timeline** shows a bar per phase for each initiative, by months or quarters, coloured by Phase or Health, with a Today line, zoom, and 30 initiatives at a time. Every chart has a "Show as table" with the same numbers for keyboard and screen-reader use. The charts use Apache ECharts (Apache-2.0). No migration.

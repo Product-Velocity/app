@@ -14,6 +14,7 @@ import { Popover } from "../portfolio/popover";
 import { StatusStrip, useStatus } from "../portfolio/status-strip";
 import type { GridItem, Lookups } from "../portfolio/types";
 import { useScope } from "../workspace/scope";
+import { Donuts } from "./donuts";
 import { ImpactEffort } from "./impact-chart";
 import { StackedChart } from "./stacked-chart";
 import { TimelineChart } from "./timeline-chart";
@@ -52,7 +53,7 @@ export function ReportsView({ controller, lookups, me }: { controller: Portfolio
 
   const label = useCallback((dim: ReportDim, key: string) => {
     if (key === UNSET) return unsetLabel(dim);
-    if (dim === "product_manager") return lookups.members.find((m) => m.user_id === key)?.email ?? "unknown person";
+    if (dim === "product_manager" || dim === "engineering_manager") return lookups.members.find((m) => m.user_id === key)?.email ?? "unknown person";
     return key;
   }, [lookups.members]);
 
@@ -61,12 +62,12 @@ export function ReportsView({ controller, lookups, me }: { controller: Portfolio
     const inUse = new Set<string>();
     for (const r of inScope) { const v = r[DIM_FIELD[dim]]; if (typeof v === "string" && v) (dim === "team" ? v.split(/,\s*/) : [v]).forEach((x) => inUse.add(x)); }
     let list: string[];
-    if (dim === "product_manager") list = lookups.members.map((m) => m.user_id);
+    if (dim === "product_manager" || dim === "engineering_manager") list = lookups.members.map((m) => m.user_id);
     else if (dim === "team") list = teamNames;
     else if (dim === "group") list = lookups.groups ?? [];
     else if (dim === "quarter") list = quarterChoices(inUse);
     else list = optionsFor(DIM_FIELD[dim]).map((o) => o.value);
-    return [...new Set([...list, ...inUse].filter((v) => dim !== "team" || teamNames.includes(v)))].concat(UNSET).sort((a, b) => (dim === "quarter" || dim === "product_manager" ? 0 : compareValues(dim, a, b)));
+    return [...new Set([...list, ...inUse].filter((v) => dim !== "team" || teamNames.includes(v)))].concat(UNSET).sort((a, b) => (dim === "quarter" || dim === "product_manager" || dim === "engineering_manager" ? 0 : compareValues(dim, a, b)));
   }, [inScope, lookups.members, lookups.groups, teamNames]);
 
   const setFilter = (dim: ReportDim, values: string[]) => setState((s) => ({ ...s, filters: { ...s.filters, [dim]: values } }));
@@ -78,6 +79,7 @@ export function ReportsView({ controller, lookups, me }: { controller: Portfolio
   const barCount = BAR_DIMS.reduce((n, d) => n + (state.filters[d]?.length ? 1 : 0), 0);
   const anything = barCount > 0 || state.drill.length > 0;
 
+  const teamPhase = useMemo(() => stackCounts(rows, "team", "initiative_phase", ctx), [rows, ctx]);
   const pmPhase = useMemo(() => stackCounts(rows, "product_manager", "initiative_phase", ctx), [rows, ctx]);
   const groupTeam = useMemo(() => stackCounts(rows, "group", "team", ctx), [rows, ctx]);
   const teamStatus = useMemo(() => stackCounts(rows, "team", "initiative_status", ctx), [rows, ctx]);
@@ -135,11 +137,18 @@ export function ReportsView({ controller, lookups, me }: { controller: Portfolio
         </ul>
       )}
 
+      <Donuts rows={rows} ctx={ctx} state={state} label={label} onPick={pick} />
+
+      <div className="rp-chart-tools" role="group" aria-label="Bar charts show">
+        <span className="muted">Bars show</span>
+        {([false, true] as const).map((p) => <button key={String(p)} type="button" className="tool-btn" aria-pressed={state.percent === p} onClick={() => setState((s) => ({ ...s, percent: p }))}>{p ? "Share of each bar (%)" : "Counts"}</button>)}
+      </div>
       <div className="rp-grid">
-        <StackedChart title="Initiatives by Product Manager and Phase" data={pmPhase} rowDim="product_manager" colDim="initiative_phase" label={label} state={state} onPick={pick} />
-        <StackedChart title="Initiatives by Group and Team" note={multiTeam ? "An initiative with several teams counts once per team, so the bars can add up to more than the number of initiatives." : undefined} data={groupTeam} rowDim="group" colDim="team" label={label} state={state} onPick={pick} />
-        <StackedChart title="Status by Team" data={teamStatus} rowDim="team" colDim="initiative_status" label={label} state={state} onPick={pick} />
-        <StackedChart title="Health by Team" data={teamHealth} rowDim="team" colDim="health" label={label} state={state} onPick={pick} />
+        <StackedChart title="Initiatives by Product Manager and Phase" data={pmPhase} rowDim="product_manager" colDim="initiative_phase" label={label} state={state} percent={state.percent} onPick={pick} />
+        <StackedChart title="Initiatives by Team and Phase" note={multiTeam ? "An initiative with several teams counts once per team." : undefined} data={teamPhase} rowDim="team" colDim="initiative_phase" label={label} state={state} percent={state.percent} onPick={pick} />
+        <StackedChart title="Initiatives by Group and Team" note={multiTeam ? "An initiative with several teams counts once per team, so the bars can add up to more than the number of initiatives." : undefined} data={groupTeam} rowDim="group" colDim="team" label={label} state={state} percent={state.percent} onPick={pick} />
+        <StackedChart title="Status by Team" data={teamStatus} rowDim="team" colDim="initiative_status" label={label} state={state} percent={state.percent} onPick={pick} />
+        <StackedChart title="Health by Team" data={teamHealth} rowDim="team" colDim="health" label={label} state={state} percent={state.percent} onPick={pick} />
       </div>
 
       <ImpactEffort rows={rows} onPick={pick} onOpen={setPeekId} nameOf={nameOf} />

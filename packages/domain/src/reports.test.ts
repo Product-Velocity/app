@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { UNSET, drillOn, emptyReport, matchesReport, parseReport, serializeReport, stackCounts, toggleDrill, valuesOf, type ReportRow } from "./reports";
+import { UNSET, drillOn, shareOf, emptyReport, matchesReport, parseReport, serializeReport, stackCounts, toggleDrill, valuesOf, type ReportRow } from "./reports";
 
 const row = (o: Partial<ReportRow> & Record<string, unknown>): ReportRow => ({ id: o.id ?? "x", archived: false, ...o }) as ReportRow;
 const ctx = { teamNames: ["Growth", "Platform", "Data"] };
@@ -65,6 +65,30 @@ describe("stackCounts", () => {
     expect(growth.total).toBe(2);
     expect(platform.total).toBe(1);
     expect(s.rows.reduce((n, r) => n + r.total, 0)).toBe(4); // 3 items, one counted twice
+  });
+});
+
+describe("Engineering Manager, MoSCoW and shares (step 4)", () => {
+  const more = [
+    row({ id: "a", engineering_manager: "e1", moscow: "Must", initiative_phase: "Build", contributing_teams: "Growth, Platform" }),
+    row({ id: "b", engineering_manager: "e1", moscow: "Should", initiative_phase: "Build", contributing_teams: "Growth" }),
+    row({ id: "c", engineering_manager: null, moscow: "Must", initiative_phase: "Define" }),
+  ];
+  it("filters by Engineering Manager like Product Manager, and none is its own value", () => {
+    expect(more.filter((r) => matchesReport(r, { ...emptyReport(), filters: { engineering_manager: ["e1"] } }, ctx)).map((r) => r.id)).toEqual(["a", "b"]);
+    expect(more.filter((r) => matchesReport(r, { ...emptyReport(), filters: { engineering_manager: [UNSET] } }, ctx)).map((r) => r.id)).toEqual(["c"]);
+  });
+  it("shares: counts and percent per value in the field's order, teams once per team", () => {
+    expect(shareOf(more, "moscow").map((s) => [s.key, s.count, Math.round(s.percent)])).toEqual([["Must", 2, 67], ["Should", 1, 33]]);
+    expect(shareOf(more, "initiative_phase").map((s) => s.key)).toEqual(["Define", "Build"]);
+    expect(shareOf(more, "team", ctx).map((s) => [s.key, s.count])).toEqual([["Growth", 2], ["Platform", 1], [UNSET, 1]]);
+    expect(shareOf([], "moscow")).toEqual([]);
+  });
+  it("the percent view is kept in the address", () => {
+    const s = { ...emptyReport(), percent: true };
+    expect(serializeReport(s).toString()).toBe("pct=1");
+    expect(parseReport(new URLSearchParams("pct=1")).percent).toBe(true);
+    expect(parseReport(new URLSearchParams("")).percent).toBe(false);
   });
 });
 
