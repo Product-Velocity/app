@@ -35,8 +35,16 @@ describe("cleanRelated: relations and teams", () => {
     expect(cleanRelated("contributing_teams", ["t1", "t1"], ctx)).toEqual({ ok: true, value: ["t1"] });
     expect(cleanRelated("contributing_teams", ["t9"], ctx)).toEqual({ ok: false, error: "That team does not exist." });
   });
+  it("assignees: only members of the workspace, once each, at most 10", () => {
+    const ctx = { itemId: "a", itemIds: ["a"], teamIds: [], memberIds: ["u1", "u2", ...Array.from({ length: 12 }, (_, i) => `m${i}`)] };
+    expect(cleanRelated("assignees", ["u1", "u2", "u1"], ctx)).toEqual({ ok: true, value: ["u1", "u2"] });
+    expect(cleanRelated("assignees", ["u1", "stranger"], ctx)).toMatchObject({ ok: false, error: expect.stringMatching(/members of this workspace/) });
+    expect(cleanRelated("assignees", ["u1"], { itemId: "a", itemIds: [], teamIds: [] })).toMatchObject({ ok: false }); // no member list, nobody can be assigned
+    expect(cleanRelated("assignees", Array.from({ length: 11 }, (_, i) => `m${i}`), ctx)).toMatchObject({ ok: false, error: expect.stringMatching(/At most 10/) });
+    expect(cleanRelated("assignees", [], ctx)).toEqual({ ok: true, value: [] });
+  });
   it("knows its fields", () => {
-    expect([...RELATED_FIELDS].sort()).toEqual(["artifacts", "contributing_teams", "depends_on", "live_scope", "related_to", "tags", "target_scope", "target_segments"]);
+    expect([...RELATED_FIELDS].sort()).toEqual(["artifacts", "assignees", "contributing_teams", "depends_on", "live_scope", "related_to", "tags", "target_scope", "target_segments"]);
   });
 });
 

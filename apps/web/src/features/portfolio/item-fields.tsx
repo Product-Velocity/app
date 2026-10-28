@@ -31,12 +31,12 @@ export function FieldRow({ f, row, ctx }: { f: FieldDef; row: GridItem; ctx: Fie
     case "select": case "boolean": case "person": case "project": control = <SelectControl {...common} kind={p.kind} />; break;
     case "group": control = <GroupControl {...common} />; break;
     case "rank": control = <RankControl {...common} />; break;
-    case "tags": case "links": case "relations": case "teams": control = <ListControl {...common} kind={p.kind} />; break;
+    case "tags": case "links": case "relations": case "teams": case "people": control = <ListControl {...common} kind={p.kind} />; break;
     case "skills": control = <SkillsControl {...common} />; break;
     case "files": control = <FilesControl itemId={row.id} disabled={!canEdit} onError={setError} />; break;
     default: control = <ReadOnlyValue f={f} row={row} ctx={ctx} later={p.kind === "later"} />;
   }
-  const isList = ["tags", "links", "relations", "teams", "skills", "files"].includes(p.kind);
+  const isList = ["tags", "links", "relations", "teams", "people", "skills", "files"].includes(p.kind);
   return (
     <div className={`pf pf-${p.kind}`} data-field={f.key}>
       {isList ? <div className="pf-label" id={`${id}-l`}>{f.name}</div> : <label className="pf-label" htmlFor={id}>{f.name}</label>}
@@ -50,6 +50,7 @@ export function FieldRow({ f, row, ctx }: { f: FieldDef; row: GridItem; ctx: Fie
 }
 
 function badge(f: FieldDef, p: PanelField): ReactNode {
+  if (p.kind === "people") return <span className="pf-badge">Two-way with GitHub</span>;
   if (p.kind === "later") return <span className="pf-badge">Arrives in phase {p.phase}</span>;
   if (isGithub(f)) return <span className="pf-badge">From GitHub</span>;
   if (p.kind === "readonly" && f.mode === "computed") return <span className="pf-badge">Calculated</span>;
@@ -206,7 +207,7 @@ function useRelated(ctx: FieldCtx, itemId: string) {
   return ctx.controller.relatedOf(itemId);
 }
 
-function ListControl({ f, row, ctx, disabled, onError, kind }: Common & { kind: "tags" | "links" | "relations" | "teams" }) {
+function ListControl({ f, row, ctx, disabled, onError, kind }: Common & { kind: "tags" | "links" | "relations" | "teams" | "people" }) {
   const related = useRelated(ctx, row.id);
   if (!related) return <span className="muted" role="status">Loading…</span>;
   const field = f.key as RelatedField;
@@ -215,6 +216,7 @@ function ListControl({ f, row, ctx, disabled, onError, kind }: Common & { kind: 
   if (kind === "tags") return <TagsEditor name={f.name} values={list as string[]} disabled={disabled} onChange={set} />;
   if (kind === "links") return <LinksEditor values={list as Link[]} disabled={disabled} onChange={set} />;
   if (kind === "relations") return <RelationsEditor ids={list as string[]} self={row.id} ctx={ctx} disabled={disabled} onChange={set} onError={onError} />;
+  if (kind === "people") return <PeopleEditor ids={list as string[]} ctx={ctx} disabled={disabled} onChange={set} />;
   return <TeamsEditor ids={list as string[]} ctx={ctx} disabled={disabled} onChange={set} />;
 }
 
@@ -317,6 +319,23 @@ function TeamsEditor({ ids, ctx, disabled, onChange }: { ids: string[]; ctx: Fie
         <label key={t.id} className="check">
           <input type="checkbox" disabled={disabled} checked={ids.includes(t.id)} onChange={(e) => onChange(e.target.checked ? [...ids, t.id] : ids.filter((x) => x !== t.id))} />
           {t.name}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+/** The people assigned in Product Velocity. They are matched to the issue's assignees by their GitHub username, so a person without one is marked. */
+function PeopleEditor({ ids, ctx, disabled, onChange }: { ids: string[]; ctx: FieldCtx; disabled: boolean; onChange: (l: string[]) => boolean }) {
+  const members = ctx.controller.members();
+  if (members.length === 0) return <span className="muted">There is nobody to assign yet.</span>;
+  return (
+    <div className="pf-checks">
+      {members.map((m) => (
+        <label key={m.user_id} className="check">
+          <input type="checkbox" disabled={disabled} checked={ids.includes(m.user_id)} onChange={(e) => onChange(e.target.checked ? [...ids, m.user_id] : ids.filter((x) => x !== m.user_id))} />
+          {m.email}
+          {m.github_username ? <span className="muted"> · @{m.github_username}</span> : <span className="muted"> · no GitHub username (set on the Account page), so not synced</span>}
         </label>
       ))}
     </div>

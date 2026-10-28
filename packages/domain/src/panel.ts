@@ -7,7 +7,7 @@ import { readOnlyReason } from "./fields";
  */
 export type PanelKind =
   | "text" | "longtext" | "number" | "currency" | "date" | "select" | "person" | "boolean" | "group" | "project" | "rank"
-  | "tags" | "links" | "relations" | "teams" | "skills" | "files"
+  | "tags" | "links" | "relations" | "teams" | "people" | "skills" | "files"
   | "readonly" | "later";
 
 export type PanelField = { kind: PanelKind; /** Why it cannot be edited, or when it arrives. */ reason?: string; phase?: number };
@@ -16,6 +16,7 @@ const TAG_FIELDS = new Set(["tags", "target_scope", "live_scope", "target_segmen
 
 export function panelField(f: FieldDef): PanelField {
   if (f.key === "stack_rank") return { kind: "rank" };
+  if (f.key === "assignees") return { kind: "people" }; // the one GitHub-synced field a person also edits: written to GitHub only after the sync preview is confirmed
   if (!isShipped(f) && f.mode !== "locked" && f.mode !== "computed" && f.mode !== "system") return { kind: "later", phase: f.phase, reason: `Arrives in phase ${f.phase}.` };
   if (f.mode !== "editable") return { kind: "readonly", reason: readOnlyReason(f.key) ?? undefined, ...(isShipped(f) ? {} : { phase: f.phase }) };
   if (f.key === "screenshots") return { kind: "files" };

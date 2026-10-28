@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { SelectField } from "@/components/search-list";
 import { DATE_FORMATS, LANGUAGES, type Profile } from "@/lib/account";
-import { changeEmail, changePassword, saveProfile, type FormState } from "./actions";
+import { changeEmail, changePassword, saveGithubUsername, saveProfile, type FormState } from "./actions";
 
 const Message = ({ state }: { state: FormState }) => (
   <>
@@ -57,6 +57,18 @@ export function PasswordForm({ hasPassword }: { hasPassword: boolean }) {
       <p className="muted">At least 10 characters, mixing letters with digits or symbols, and not a common password.</p>
       <div><button className="btn" type="submit" disabled={pending}>{pending ? "Saving…" : hasPassword ? "Change password" : "Set password"}</button></div>
       <Message state={state} />
+    </form>
+  );
+}
+
+export function GithubUsernameForm({ current, workspace }: { current: string; workspace: string }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(saveGithubUsername, null);
+  return (
+    <form action={action} className="stack">
+      <label>GitHub username in {workspace}<input name="github_username" defaultValue={current} maxLength={40} autoComplete="off" spellCheck={false} placeholder="for example ana-gh" /></label>
+      <p className="hint">Used to match you with the people assigned on GitHub issues. Anyone in this workspace can see it. Leave it empty to stop matching.</p>
+      <Message state={state} />
+      <button className="btn" type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</button>
     </form>
   );
 }

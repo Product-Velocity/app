@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { canUnlink, LINKABLE, signedInRecently, validateProfile } from "@/lib/account";
 import { checkPassword } from "@/lib/password";
-import { loadMemberships, requireUser } from "@/lib/session";
+import { githubUsernameMessage } from "@/lib/github-username";
+import { loadMemberships, requireUser, requireWorkspace } from "@/lib/session";
 import { siteUrl } from "@/lib/site-url";
 
 export type FormState = { ok?: string; error?: string } | null;
@@ -23,6 +24,16 @@ async function reauthenticate(supabase: SupabaseClient, user: User, password: st
     return error ? "That is not your current password." : null;
   }
   return signedInRecently(user.last_sign_in_at) ? null : "For your safety, sign out and sign in again, then try this within 15 minutes.";
+}
+
+/** The person's own GitHub username in the active workspace: it matches them with the assignees of GitHub issues. Checked again by the database. */
+export async function saveGithubUsername(_prev: FormState, form: FormData): Promise<FormState> {
+  const { supabase, user, active } = await requireWorkspace(PATH);
+  const value = String(form.get("github_username") ?? "");
+  const { error } = await supabase.rpc("set_github_username", { p_tenant: active.tenantId, p_user: user.id, p_username: value });
+  if (error) return { error: githubUsernameMessage(error.code) };
+  revalidatePath(PATH);
+  return { ok: value.trim() ? "Saved." : "Removed." };
 }
 
 export async function saveProfile(_prev: FormState, form: FormData): Promise<FormState> {

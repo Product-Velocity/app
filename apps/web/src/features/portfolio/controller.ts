@@ -504,6 +504,7 @@ export class PortfolioController {
     return p;
   }
   teams() { return this.lookups.teams ?? []; }
+  members() { return this.lookups.members ?? []; }
   activity(itemId: string): Promise<ActivityRow[]> { return this.source.loadActivity(itemId); }
   /** Copy initiatives into another project (new initiatives; the originals stay). The new rows appear when the page reloads. */
   async copyToProject(itemIds: string[], projectId: string) {
@@ -528,6 +529,7 @@ export class PortfolioController {
       if (field === "artifacts") { const l = x as { label: string; url: string }; return l.label ? `${l.label} (${l.url})` : l.url; }
       if (field === "depends_on" || field === "related_to") return this.byId.get(String(x))?.item_code ?? "(deleted item)";
       if (field === "contributing_teams") return this.teams().find((t) => t.id === x)?.name ?? "unknown team";
+      if (field === "assignees") return this.members().find((m) => m.user_id === x)?.email ?? "unknown person";
       return String(x);
     }).join(field === "artifacts" || field === "depends_on" || field === "related_to" ? "; " : ", ");
     return text || null;
@@ -548,7 +550,7 @@ export class PortfolioController {
     if (!isRelatedField(field)) return { ok: false, error: "That field cannot be edited." };
     const cur = this.relatedCache.get(itemId);
     if (!cur) return { ok: false, error: "Wait for the list to load." };
-    const c = cleanRelated(field, list, { itemId, itemIds: this.rows.map((r) => r.id), teamIds: this.teams().map((t) => t.id) });
+    const c = cleanRelated(field, list, { itemId, itemIds: this.rows.map((r) => r.id), teamIds: this.teams().map((t) => t.id), memberIds: this.members().map((m) => m.user_id) });
     if (!c.ok) { this.notify(`${row.item_code} ${fieldLabel(field)}: ${c.error}`); return { ok: false, error: c.error }; }
     const before = [...(cur[field] as unknown[])];
     if (JSON.stringify(before) === JSON.stringify(c.value)) return { ok: true, changed: false };

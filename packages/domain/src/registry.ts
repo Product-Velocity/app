@@ -58,6 +58,7 @@ const COLUMN_NAME: Record<string, string> = {
   home_project: "home_project_id", // the relation stores the project id
   product_manager: "owner_user_id", // a user id (tenant member); the grid shows the person
   g2m_date_est: "end_date",
+  assignees: "assignee_ids", // member user ids; the grid shows their emails and the unmatched GitHub logins
 };
 /** Field key for a database column of items, when the two differ. */
 export const KEY_BY_COLUMN: Readonly<Record<string, string>> = Object.fromEntries(Object.entries(COLUMN_NAME).map(([k, c]) => [c, k]));

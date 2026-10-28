@@ -121,6 +121,16 @@ export class MemorySourceControl implements SourceControl {
     this.removed.push(label);
   }
   async getIssue(_i: number, repo: string, number: number) { this.tick("getIssue"); return this.issues.get(`${repo}#${number}`) ?? null; }
+  /** Logins GitHub accepts as assignees (collaborators); anyone else is silently skipped, as GitHub does. `null` accepts everyone. */
+  assignable: Set<string> | null = null;
+  async setIssueAssignees(_i: number, repo: string, number: number, logins: string[]): Promise<string[]> {
+    this.tick("setIssueAssignees", { repo, number, logins });
+    this.maybeFail("setIssueAssignees");
+    const issue = this.issues.get(`${repo}#${number}`);
+    if (!issue) throw new Error("no such issue");
+    issue.assignees = logins.filter((l) => !this.assignable || this.assignable.has(l.toLowerCase()));
+    return issue.assignees;
+  }
   async findIssueByMarker(_i: number, repo: string, marker: string) {
     this.tick("findIssueByMarker");
     return [...this.issues.entries()].find(([k, v]) => k.startsWith(`${repo}#`) && v.body.includes(marker))?.[1] ?? null;
