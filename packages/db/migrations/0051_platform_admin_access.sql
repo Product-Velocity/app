@@ -163,8 +163,7 @@ $$;
 create function platform.readonly_guard() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare
-  v_row jsonb := to_jsonb(case when tg_op = 'DELETE' then old else new end);
-  v_tenant uuid := (case when tg_table_name = 'tenants' then v_row ->> 'id' else v_row ->> 'tenant_id' end)::uuid;
+  v_tenant uuid;
 begin
   if auth.uid() is null then return case when tg_op = 'DELETE' then old else new end; end if;
   -- fast path for the 99.99% of writers who have no entry: remember that for the rest of the transaction (bulk deletes touch thousands of rows)
@@ -173,6 +172,8 @@ begin
     perform set_config('pv.no_platform_entry', auth.uid()::text, true);
     return case when tg_op = 'DELETE' then old else new end;
   end if;
+  v_tenant := (case when tg_table_name = 'tenants' then to_jsonb(case when tg_op = 'DELETE' then old else new end) ->> 'id'
+                    else to_jsonb(case when tg_op = 'DELETE' then old else new end) ->> 'tenant_id' end)::uuid;
   if platform.has_entry(auth.uid(), v_tenant)
      and platform.effective_level(auth.uid(), v_tenant) = 'read_only'
      and not exists (select 1 from public.tenant_members m where m.tenant_id = v_tenant and m.user_id = auth.uid() and m.status = 'active') then
