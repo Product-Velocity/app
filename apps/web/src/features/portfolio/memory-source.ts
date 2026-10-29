@@ -99,6 +99,14 @@ export class MemoryDataSource implements PortfolioDataSource {
   }
   trees = new Map<string, IssueTreeRow[]>();
   async loadIssueTree(itemId: string): Promise<IssueTreeRow[]> { await this.pause(); return (this.trees.get(itemId) ?? []).map((r) => ({ ...r })); }
+  /** Who owns each linked item in the test page (default: read only). */
+  linkModes = new Map<string, "push" | "follow">();
+  async setLinkMode(itemId: string, mode: "push" | "follow"): Promise<{ ok: true; before: "push" | "follow" } | { ok: false; error: string }> {
+    await this.pause();
+    const before = this.linkModes.get(itemId) ?? "follow";
+    this.linkModes.set(itemId, mode);
+    return { ok: true, before };
+  }
   async completeBreakdown(itemId: string): Promise<{ ok: true; values: Record<string, unknown> } | { ok: false; error: string }> {
     await this.pause();
     const total = (this.trees.get(itemId) ?? []).filter((r) => r.level === 2).length;

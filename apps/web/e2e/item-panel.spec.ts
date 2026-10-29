@@ -294,6 +294,20 @@ test.describe("tabs", () => {
     await expect(panel(page).getByRole("button", { name: "Mark breakdown complete" })).toHaveCount(0);
   });
 
+  test("the GitHub tab says who owns the initiative; it can be made read only and back, with nothing sent to GitHub", async ({ page }) => {
+    await open(page, "n=40&item=R-01&gh=1");
+    await panel(page).getByRole("tab", { name: "GitHub" }).click();
+    await expect(panel(page)).toContainText("Product Velocity owns what this initiative is");
+    await panel(page).getByRole("button", { name: "Make read only" }).click();
+    await expect(panel(page).getByRole("status").filter({ hasText: "read only again" })).toContainText("Nothing is sent to GitHub");
+    await expect(panel(page)).toContainText("Read only. This initiative follows the issue");
+    await panel(page).getByRole("button", { name: "Take ownership" }).click();
+    await expect(panel(page).getByRole("status").filter({ hasText: "now owns this initiative" })).toContainText("Nothing was written to GitHub");
+    await panel(page).getByRole("button", { name: "Undo" }).click();
+    await expect(panel(page)).toContainText("Read only. This initiative follows the issue");
+    await expect(panel(page).getByRole("button", { name: "Take ownership" })).toBeVisible();
+  });
+
   test("the tabs work with the arrow keys", async ({ page }) => {
     await open(page, "n=40&item=R-01");
     await panel(page).getByRole("tab", { name: "Overview" }).focus();

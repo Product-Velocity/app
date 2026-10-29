@@ -1,4 +1,6 @@
 export type PullState = "not_pulled" | "pulled" | "ignored";
+/** Who owns a pulled-in item: read only (it follows the issue) or Product Velocity (what the initiative is gets sent after a preview and a confirmation). */
+export type Ownership = "follow" | "push";
 
 /** The light record of a tracker issue the app has seen but that is not (yet) an initiative. */
 export type IncomingIssue = {
@@ -26,7 +28,7 @@ export type RuleResult = { ok: true } | { ok: false; error: string };
 export interface IncomingSource {
   load(): Promise<{ connectionId: string; issues: IncomingIssue[]; rules: IncomingRule[] }>;
   setState(ids: string[], state: "not_pulled" | "ignored", reason: string | null): Promise<BatchOutcome[]>;
-  pullIn(ids: string[], projectId: string): Promise<BatchOutcome[]>;
+  pullIn(ids: string[], projectId: string, ownership: Ownership): Promise<BatchOutcome[]>;
   /** Undo of a pull-in: the new initiatives are discarded again. */
   discardItems(itemIds: string[]): Promise<{ ok: boolean; error?: string }>;
   addRule(connectionId: string, kind: IncomingRule["kind"], value: string): Promise<RuleResult>;

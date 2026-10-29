@@ -284,6 +284,12 @@ export class SupabaseDataSource implements PortfolioDataSource {
       .map((r) => ({ repo: r.repo_full_name, number: r.issue_number, parentNumber: r.parent_number, level: r.level === 2 ? 2 : 1, title: r.title, state: r.state === "closed" ? "closed" : "open", stateReason: r.state_reason, assignees: r.assignees ?? [], createdBy: r.created_by === "app" || r.created_by === "claude" ? r.created_by : "engineer", updatedAt: r.updated_at }));
   }
 
+  async setLinkMode(itemId: string, mode: "push" | "follow"): Promise<{ ok: true; before: "push" | "follow" } | { ok: false; error: string }> {
+    const { data, error } = await this.client.rpc("item_set_link_mode", { p_item: itemId, p_mode: mode });
+    if (error) return { ok: false, error: friendlyError(error) };
+    return { ok: true, before: data === "push" ? "push" : "follow" };
+  }
+
   async completeBreakdown(itemId: string): Promise<{ ok: true; values: Record<string, unknown> } | { ok: false; error: string }> {
     const { error } = await this.client.rpc("item_complete_breakdown", { p_item: itemId });
     if (error) return { ok: false, error: friendlyError(error) };

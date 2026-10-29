@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
-import { RULE_LABEL, type BatchOutcome, type IncomingIssue, type IncomingRule, type IncomingSource, type PullState } from "./types";
+import { RULE_LABEL, type BatchOutcome, type IncomingIssue, type IncomingRule, type IncomingSource, type Ownership, type PullState } from "./types";
 
 type Props = { source: IncomingSource; projects: { id: string; name: string }[]; canEdit: boolean; canAdmin: boolean; now?: number };
 type Undo = { label: string; run: () => Promise<string> };
@@ -12,6 +12,7 @@ const TABS: { id: PullState; label: string; hint: string }[] = [
   { id: "pulled", label: "Pulled in", hint: "Already initiatives; they follow their issue read-only." },
 ];
 const SHOWN = 200;
+const OWNERSHIP: { id: Ownership; label: string }[] = [{ id: "follow", label: "Read only" }, { id: "push", label: "Product Velocity owns it" }];
 const DAY = 86_400_000;
 const AGES = [{ id: "any", label: "Any age", days: 0 }, { id: "30", label: "Older than 30 days", days: 30 }, { id: "90", label: "Older than 90 days", days: 90 }, { id: "new", label: "Last 7 days", days: -7 }];
 
@@ -40,6 +41,7 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
   const [state, setState] = useState("");
   const [age, setAge] = useState("any");
   const [project, setProject] = useState(projects[0]?.id ?? "");
+  const [ownership, setOwnership] = useState<Ownership>("follow");
   const [reason, setReason] = useState("");
   const [shown, setShown] = useState(SHOWN);
   const [children, setChildren] = useState<IncomingIssue[] | null>(null);
@@ -128,13 +130,13 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
   const pull = async () => {
     if (!project || chosen.length === 0) return;
     setBusy(true); setMessage(null);
-    const r = await source.pullIn(chosen.map((i) => i.id), project);
+    const r = await source.pullIn(chosen.map((i) => i.id), project, ownership);
     setBusy(false);
     const done = r.filter((o) => o.ok);
     apply(r, (i, o) => ({ ...i, pullState: "pulled", itemId: o.itemId ?? null, ignoreReason: null }));
     if (done.length === 0) { setMessage(`Nothing was pulled in.${failedText(r)}`); return; }
     const where = projects.find((p) => p.id === project)?.name ?? "the project";
-    setMessage(`Pulled ${done.length} ${done.length === 1 ? "issue" : "issues"} into ${where} as initiatives (${done.slice(0, 3).map((o) => o.itemCode).filter(Boolean).join(", ")}${done.length > 3 ? ", …" : ""}). They follow the issue read-only; nothing was written to GitHub.${failedText(r)}`);
+    setMessage(`Pulled ${done.length} ${done.length === 1 ? "issue" : "issues"} into ${where} as initiatives (${done.slice(0, 3).map((o) => o.itemCode).filter(Boolean).join(", ")}${done.length > 3 ? ", …" : ""}). ${ownership === "push" ? "Product Velocity owns what they are; nothing is written to GitHub until you sync and confirm" : "They follow the issue read-only"}; nothing was written to GitHub.${failedText(r)}`);
     setUndo({
       label: "Undo pull in",
       run: async () => {
@@ -197,6 +199,7 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
             <>
               <label className="visually-hidden" htmlFor={`${id}-project`}>Project for the new initiatives</label>
               <select id={`${id}-project`} value={project} onChange={(e) => setProject(e.target.value)}>{projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+              <select aria-label="Who owns the new initiatives" value={ownership} onChange={(e) => setOwnership(e.target.value as Ownership)}>{OWNERSHIP.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select>
               <button type="button" className="btn btn-primary" disabled={busy || picked.size === 0 || !project} onClick={() => void pull()}>Pull in {picked.size > 0 ? picked.size : ""}</button>
               <input aria-label="Reason for ignoring (optional)" placeholder="Reason (optional)" maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} />
               <button type="button" className="btn" disabled={busy || picked.size === 0} onClick={() => void ignore()}>Ignore {picked.size > 0 ? picked.size : ""}</button>
@@ -207,6 +210,7 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
               <button type="button" className="btn" disabled={busy || picked.size === 0} onClick={() => void setStateFor(chosen, "not_pulled", null)}>Bring back to Not pulled</button>
               <button type="button" className="btn btn-primary" disabled={busy || picked.size === 0 || !project} onClick={() => void pull()}>Pull in {picked.size > 0 ? picked.size : ""}</button>
               <select aria-label="Project for the new initiatives" value={project} onChange={(e) => setProject(e.target.value)}>{projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+              <select aria-label="Who owns the new initiatives" value={ownership} onChange={(e) => setOwnership(e.target.value as Ownership)}>{OWNERSHIP.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select>
             </>
           )}
         </div>

@@ -566,6 +566,20 @@ export class PortfolioController {
     return { ok: true };
   }
 
+  /**
+   * Takes ownership of a linked initiative ("push": Product Velocity sends what it is, after a preview and a confirmation) or makes it
+   * read only again ("follow"). Writes nothing to the tracker. Returns the mode before, so the caller can offer the undo.
+   */
+  async setLinkMode(itemId: string, mode: "push" | "follow"): Promise<{ ok: true; before: "push" | "follow" } | { ok: false; error: string }> {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
+    const r = await this.source.setLinkMode(itemId, mode);
+    if (!r.ok) { this.notify(r.error); return r; }
+    const link = this.lookups.github?.links[itemId];
+    if (link) link.mode = mode;
+    this.emit();
+    return r;
+  }
+
   /** The grid cell of a list field shows the list as text. */
   private listText(field: RelatedField, list: unknown[]): string | null {
     const text = list.map((x) => {

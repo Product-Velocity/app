@@ -76,6 +76,15 @@ Each tracker keeps its **own** sync engine; there is no shared lowest-common-den
 - **Rules for new arrivals** (admins): issue type, label or repository is X, then Ignore. A rule decides only the first time an issue appears; it never changes known issues or pulled-in initiatives. Rules are switched off, not deleted.
 - **Audit:** every change of state, reason and initiative link is audited with actor and source.
 
+## Who owns a pulled-in item: Read only or Product Velocity (issue #256, request 253)
+Ownership is the link mode (`item_github_links.mode`), not a new field and not the free-text Source field.
+- **Read only (`follow`)**: the initiative follows the issue; nothing is ever sent to it (today's pull-in).
+- **Product Velocity owns it (`push`)**: PV owns what the initiative is (name, summary, description, hypothesis, board values) and sends it through Sync with GitHub after a preview and a confirmation. Status, progress, PR and CI stay GitHub's in both modes; Initiative Status is never set by GitHub (rule 6).
+- **Choose at pull-in:** the Incoming list has a choice next to the project (default Read only); `tracker_pull_in(p_ids, p_project, p_mode)`. **Or later:** the GitHub tab of the item panel has **Take ownership** / **Make read only** (`item_set_link_mode`, creators and admins, not service accounts), with an Undo that puts the previous mode back.
+- **Taking ownership writes nothing to GitHub.** The next Sync with GitHub previews what would go out: the title gets its `R-12:` code prefix and the managed block is added to the end of the issue body; text outside the block is kept (the first send can only be settled on a real issue: see the risks in the pull request).
+- **Audit:** the change of mode is audited by `item_github_links_audit` (actor, source, old and new value).
+- **Not built yet:** the new items inside the Sync dialog itself (step 1) and an ownership column in the grid. A grid column would be a new field and the field dictionary is fixed at 169, so it needs a decision first.
+
 ## GitHub Project boards (built in part, 0.31.0, R-037)
 - **One board per PV project.** `projects.github_board` (jsonb, admins only, migration 0037) holds the organisation Project (node id, number, title, url) and the field mapping. Only organisation-owned Projects can be linked (the App cannot reach personal ones). The App needs Organization permission **Projects: read and write**; the connection check says whether it has it. Linking, changing and unlinking are in Settings > GitHub > GitHub Project boards; the chosen board is checked against GitHub again on save.
 - **What PV writes on the board item** (and only these; empty values write nothing and nothing is ever cleared): **Priority** from MoSCoW (Must P0, Should P1, Could P2; the map is stored per board), **Initiative** from Initiative Group (single select or text), **Due date** from the G2M Date (est), **Size** from the T-shirt effort estimate (XS to XL). MoSCoW, theme, G2M date and effort are the only item values read for the board (`BOARD_ONLY_FIELDS` and `planBoardItem`); the allowlist tests cover them.

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { BatchOutcome, IncomingIssue, IncomingRule, IncomingSource, PullState, RuleResult } from "./types";
+import type { BatchOutcome, IncomingIssue, IncomingRule, IncomingSource, PullState, RuleResult, Ownership } from "./types";
 
 const PAGE = 1000;
 const msg = (e: { message?: string } | null) => (e?.message ?? "Something went wrong.").slice(0, 200);
@@ -33,7 +33,7 @@ export class SupabaseIncomingSource implements IncomingSource {
     return ((data ?? []) as { id: string; ok: boolean; reason: string | null; item_id?: string | null; item_code?: string | null }[]).map((r) => ({ id: r.id, ok: r.ok, reason: r.reason, itemId: r.item_id ?? null, itemCode: r.item_code ?? null }));
   }
   setState(ids: string[], state: "not_pulled" | "ignored", reason: string | null) { return this.batch("tracker_set_state", { p_ids: ids, p_state: state, p_reason: reason }); }
-  pullIn(ids: string[], projectId: string) { return this.batch("tracker_pull_in", { p_ids: ids, p_project: projectId }); }
+  pullIn(ids: string[], projectId: string, ownership: Ownership) { return this.batch("tracker_pull_in", { p_ids: ids, p_project: projectId, p_mode: ownership }); }
   async discardItems(itemIds: string[]) {
     const { data, error } = await this.client.rpc("discard_new_items", { p_ids: itemIds });
     if (error) return { ok: false, error: msg(error) };

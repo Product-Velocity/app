@@ -47,4 +47,6 @@ export interface PortfolioDataSource {
   loadIssueTree(itemId: string): Promise<IssueTreeRow[]>;
   /** Marks the breakdown complete (freezes Planned Scope). Returns the item fields it changed. */
   completeBreakdown(itemId: string): Promise<{ ok: true; values: Record<string, unknown> } | { ok: false; error: string }>;
+  /** Who owns a linked initiative: "push" = Product Velocity (sends after a preview and a confirmation), "follow" = read only. Writes nothing to the tracker. Returns the mode before. */
+  setLinkMode(itemId: string, mode: "push" | "follow"): Promise<{ ok: true; before: "push" | "follow" } | { ok: false; error: string }>;
 }

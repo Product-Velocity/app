@@ -626,3 +626,31 @@ describe("refreshFromServer", () => {
     expect((c.row("item-3") as Record<string, unknown>).build_status).toBe("Changed in GitHub");
   });
 });
+
+describe("who owns a linked initiative (issue #256)", () => {
+  const withLink = (role: string) => {
+    const items = sampleItems(2, ["p1"], ["u1"]);
+    const link = { mode: "follow" as const, number: 142, url: "https://github.com/acme/app/issues/142", state: "synced" as const, error: null, ghState: "open" as const, lastActivity: null };
+    const l: Lookups = { ...lookups, github: { connected: true, links: { "item-1": link } } };
+    const source = new MemoryDataSource(items, { latencyMs: 0 });
+    return { c: new PortfolioController(source, items, l, role, () => TODAY, () => 1_000, undefined, "u1"), source, link };
+  };
+
+  it("taking ownership changes the mode at once and returns the previous one, so it can be undone", async () => {
+    const { c, source, link } = withLink("creator");
+    const r = await c.setLinkMode("item-1", "push");
+    expect(r).toEqual({ ok: true, before: "follow" });
+    expect(link.mode).toBe("push");
+    expect(source.linkModes.get("item-1")).toBe("push");
+    expect(await c.setLinkMode("item-1", "follow")).toEqual({ ok: true, before: "push" });
+    expect(link.mode).toBe("follow");
+  });
+
+  it("a viewer cannot change it, and nothing is saved", async () => {
+    const { c, source, link } = withLink("viewer");
+    const r = await c.setLinkMode("item-1", "push");
+    expect(r).toEqual({ ok: false, error: READ_ONLY_MESSAGE });
+    expect(link.mode).toBe("follow");
+    expect(source.linkModes.size).toBe(0);
+  });
+});

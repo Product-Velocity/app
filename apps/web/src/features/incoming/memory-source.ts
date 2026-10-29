@@ -1,10 +1,12 @@
-import type { BatchOutcome, IncomingIssue, IncomingRule, IncomingSource } from "./types";
+import type { BatchOutcome, IncomingIssue, IncomingRule, IncomingSource, Ownership } from "./types";
 
 /** In-memory stand-in for the test page: fictional issues, the same rules as the database functions (no writes anywhere). */
 export class MemoryIncomingSource implements IncomingSource {
   issues: IncomingIssue[];
   rules: IncomingRule[] = [{ id: "r1", kind: "label", value: "support" }];
   private nextItem = 1;
+  /** Who owns each pulled-in item (test page: lets a test see what was asked for). */
+  ownership = new Map<string, Ownership>();
   constructor(seed?: IncomingIssue[]) {
     this.issues = seed ?? sampleIncoming();
   }
@@ -18,13 +20,14 @@ export class MemoryIncomingSource implements IncomingSource {
       return { id, ok: true, reason: null };
     });
   }
-  async pullIn(ids: string[]): Promise<BatchOutcome[]> {
+  async pullIn(ids: string[], _projectId: string, ownership: Ownership): Promise<BatchOutcome[]> {
     return ids.map((id) => {
       const i = this.issues.find((x) => x.id === id);
       if (!i) return { id, ok: false, reason: "Issue not found." };
       if (i.pullState === "pulled") return { id, ok: false, reason: "Already an initiative." };
       const code = `R-${100 + this.nextItem++}`;
       i.pullState = "pulled"; i.itemId = `item-${code}`; i.ignoreReason = null;
+      this.ownership.set(i.itemId, ownership);
       return { id, ok: true, reason: null, itemId: i.itemId, itemCode: code };
     });
   }
