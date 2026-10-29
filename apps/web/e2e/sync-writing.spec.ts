@@ -92,6 +92,17 @@ test.describe("Sync with GitHub: new issues first", () => {
     await expect(page.getByRole("dialog", { name: "Sync with GitHub: new issues first" })).toHaveCount(0);
   });
 
+  test("Cancel leaves the step without writing anything; the layout is the list, then what to do, then the rules", async ({ page }) => {
+    await openNew(page, "1");
+    const dlg = page.getByRole("dialog", { name: "Sync with GitHub: new issues first" });
+    await expect(dlg.getByRole("heading", { name: "What to do with the selected issues" })).toBeVisible();
+    await expect(dlg.getByRole("button", { name: "Cancel" })).toBeVisible();
+    await expect(dlg.getByRole("button", { name: "Continue to sync" })).toBeVisible();
+    await dlg.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByTestId("calls")).toHaveText("");
+  });
+
   test("the step can be left with Escape, and nothing is written", async ({ page }) => {
     await openNew(page, "1");
     await expect(page.getByRole("dialog", { name: "Sync with GitHub: new issues first" })).toBeVisible();

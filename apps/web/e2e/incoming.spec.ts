@@ -14,11 +14,11 @@ test.describe("Incoming list", () => {
     await expect(tab(page, /Not pulled/)).toContainText("8");
     await expect(tab(page, /Ignored/)).toContainText("1");
     await expect(tab(page, /Pulled in/)).toContainText("1");
-    await page.getByLabel("Issue type").selectOption("Bug");
+    await page.getByLabel("Issue type", { exact: true }).selectOption("Bug");
     await expect(page.getByRole("row", { name: /Checkout fails/ })).toBeVisible();
     await expect(page.getByRole("row", { name: /Export the roadmap/ })).toHaveCount(0);
-    await page.getByLabel("Issue type").selectOption("");
-    await page.getByLabel("Repository").selectOption("Acme/Notes");
+    await page.getByLabel("Issue type", { exact: true }).selectOption("");
+    await page.getByLabel("Repository", { exact: true }).selectOption("Acme/Notes");
     await expect(page.getByRole("row", { name: /Old spike notes/ })).toBeVisible();
     await expect(page.getByRole("row", { name: /Checkout fails/ })).toHaveCount(0);
   });
@@ -48,7 +48,7 @@ test.describe("Incoming list", () => {
     await expect(tab(page, /Not pulled/)).toContainText("9");
     await tab(page, /Not pulled/).click();
     await pick(page, 102);
-    await page.getByLabel("Project for the new initiatives").selectOption({ label: "Marketplace" });
+    await page.getByLabel("Pull in to project").selectOption({ label: "Marketplace" });
     await page.getByRole("button", { name: /^Pull in 1/ }).click();
     const status = page.getByRole("status").filter({ hasText: "Pulled 1 issue into Marketplace" });
     await expect(status).toContainText("nothing was written to GitHub");
@@ -97,5 +97,72 @@ test.describe("Incoming list", () => {
     await expect(page.getByRole("button", { name: "Add rule" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Pull in/ })).toHaveCount(0);
     await expect(page.getByText("Only admins change the rules.")).toBeVisible();
+  });
+
+  test("the filters sit next to each other in one row", async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await open(page);
+    const ys = await page.locator(".incoming-filters > *").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+    expect(ys.length).toBe(6);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(6); // the same line, not stacked
+  });
+
+  test("the order is the issues, then what to do with them, then the rules; the dropdowns have names", async ({ page }) => {
+    await open(page);
+    const y = async (loc: ReturnType<Page["locator"]>) => (await loc.first().boundingBox())!.y;
+    const list = await y(page.getByRole("region", { name: "Issues", exact: true }));
+    const bring = await y(page.getByRole("heading", { name: "What to do with the selected issues" }));
+    const rules = await y(page.getByRole("heading", { name: "Rules for future arrivals" }));
+    expect(list).toBeLessThan(bring);
+    expect(bring).toBeLessThan(rules);
+    for (const name of ["Pull in to project", "Who owns the new initiatives", "Reason for ignoring (optional)"]) await expect(page.getByLabel(name)).toBeVisible();
+    await expect(page.getByText("A rule applies only to issues that arrive from now on")).toBeVisible();
+  });
+
+  test("a long list scrolls inside its own box and the header stays in view", async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 400 });
+    await open(page);
+    const box = page.getByRole("region", { name: "Issues", exact: true });
+    const m = await box.evaluate((el) => ({ scrolls: el.scrollHeight > el.clientHeight, overflow: getComputedStyle(el).overflowY }));
+    expect(m).toEqual({ scrolls: true, overflow: "auto" });
+    const head = page.locator(".incoming-table thead th").nth(1);
+    const fromTop = async () => (await head.boundingBox())!.y - (await box.boundingBox())!.y; // where the header sits inside the box
+    const before = await fromTop();
+    await box.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    await expect(page.getByRole("row", { name: /Old spike notes/ })).toBeVisible(); // the last row has scrolled into view
+    expect(Math.abs((await fromTop()) - before)).toBeLessThan(3); // and the header is still pinned at the top of the box
+  });
+
+  test("Select all shown, Invert selection and Clear", async ({ page }) => {
+    await open(page);
+    const count = page.locator(".incoming-pick");
+    await expect(count).toContainText("0 of 8 issues selected");
+    await pick(page, 101);
+    await page.getByRole("button", { name: "Invert selection" }).click();
+    await expect(count).toContainText("7 of 8 issues selected");
+    await expect(page.getByRole("checkbox", { name: /Select #101 / })).not.toBeChecked();
+    await page.getByRole("button", { name: "Select all shown" }).click();
+    await expect(count).toContainText("8 of 8 issues selected");
+    await page.getByRole("button", { name: "Clear" }).click();
+    await expect(count).toContainText("0 of 8 issues selected");
+  });
+
+  test("ignore everything of one type and keep it ignored for later arrivals; the rule is offered only for exactly one condition", async ({ page }) => {
+    await open(page);
+    await expect(page.getByText("Also ignore future issues like this")).toHaveCount(0); // no filter, nothing to save
+    await page.getByLabel("Issue type", { exact: true }).selectOption("Feature");
+    await expect(page.getByLabel(/Also ignore future issues like this \(issue type is Feature\)/)).toBeVisible();
+    await page.getByRole("button", { name: "Select all shown" }).click();
+    await page.getByLabel(/Also ignore future issues like this/).check();
+    await page.getByRole("button", { name: /^Ignore 3/ }).click();
+    await page.getByRole("button", { name: "Only the selected" }).click(); // #106 has sub-issues that are not selected: asked first
+    const status = page.getByRole("status").filter({ hasText: "Ignored 3 issues" });
+    await expect(status).toContainText("Saved for issues that arrive from now on: Issue type is Feature → Ignore");
+    await expect(page.locator(".incoming-rules li", { hasText: "Issue type is Feature" })).toContainText("→ Ignore"); // now in the rules list
+    // and with a second condition the rule is not offered, and the reason is given
+    await page.getByLabel("Issue type", { exact: true }).selectOption("Task");
+    await page.getByLabel("Label", { exact: true }).selectOption({ index: 1 });
+    await expect(page.getByLabel(/Also ignore future issues like this/)).toHaveCount(0);
+    await expect(page.getByText(/filter on exactly one of type, label or repository/)).toBeVisible();
   });
 });

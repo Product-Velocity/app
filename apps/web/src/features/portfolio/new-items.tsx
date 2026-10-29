@@ -41,7 +41,7 @@ export function supabaseNewItems(tenantId: string, role: string): NewItemsConfig
  * Step 1 of Sync: what is new in the tracker, to decide on before the initiatives are compared. With nothing new (or if it cannot be
  * found out) it moves on by itself, so it never stands in the way of the sync. Nothing is written to the tracker in this step.
  */
-export function NewItemsStep({ config, onContinue }: { config: NewItemsConfig; onContinue: () => void }) {
+export function NewItemsStep({ config, onContinue, onCancel, onChanged }: { config: NewItemsConfig; onContinue: () => void; onCancel: () => void; /** Initiatives were created or removed here: the grid behind this window reads the roadmap again. */ onChanged?: () => void }) {
   const [shown, setShown] = useState<{ count: number; projects: { id: string; name: string }[] } | null>(null);
 
   useEffect(() => {
@@ -67,8 +67,11 @@ export function NewItemsStep({ config, onContinue }: { config: NewItemsConfig; o
         GitHub has <strong>{shown.count}</strong> {shown.count === 1 ? "issue" : "issues"} that {shown.count === 1 ? "is" : "are"} not an initiative yet. Decide what to do with them, or skip this and continue.
         Pulling in creates an initiative (read only, or owned by Product Velocity). Nothing is written to GitHub in this step.
       </p>
-      <IncomingView embedded source={config.source} projects={shown.projects} canEdit={config.canEdit} canAdmin={config.canAdmin} />
-      <div className="dialog-actions"><button type="button" className="btn btn-primary" onClick={onContinue}>Continue to sync</button></div>
+      <IncomingView embedded source={config.source} projects={shown.projects} canEdit={config.canEdit} canAdmin={config.canAdmin} {...(onChanged ? { onChanged } : {})} />
+      <div className="dialog-actions">
+        <button type="button" className="btn" onClick={onCancel}>Cancel</button>
+        <button type="button" className="btn btn-primary" onClick={onContinue}>Continue to sync</button>
+      </div>
     </>
   );
 }

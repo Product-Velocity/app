@@ -627,6 +627,34 @@ describe("refreshFromServer", () => {
   });
 });
 
+describe("refreshFromServer: initiatives created or removed elsewhere (issue #272)", () => {
+  it("adds an initiative that was created elsewhere (a pull-in from the Sync window) and tells the grid", async () => {
+    const { c, source } = setup({ n: 3 });
+    const structure: string[] = [];
+    c.onStructure((add, remove) => structure.push(`+${add.map((r) => r.id).join(",")} -${remove.map((r) => r.id).join(",")}`));
+    source.items.push({ ...source.items[0]!, id: "item-new", item_code: "R-99", initiative_name: "Pulled in from GitHub", stack_rank: 4 });
+    await c.refreshFromServer();
+    expect(c.row("item-new")).toMatchObject({ item_code: "R-99", initiative_name: "Pulled in from GitHub" });
+    expect(c.rows.map((r) => r.id)).toEqual(["item-1", "item-2", "item-3", "item-new"]);
+    expect(structure).toEqual(["+item-new -"]);
+  });
+
+  it("drops an initiative that was removed elsewhere (the undo of a pull-in) and closes the rank gap", async () => {
+    const { c, source } = setup({ n: 4 });
+    source.items.splice(1, 1); // item-2 is gone on the server
+    await c.refreshFromServer();
+    expect(c.row("item-2")).toBeUndefined();
+    expect(c.rows.map((r) => [r.id, r.stack_rank])).toEqual([["item-1", 1], ["item-3", 2], ["item-4", 3]]);
+  });
+
+  it("never takes an empty answer as \"everything was removed\"", async () => {
+    const { c, source } = setup({ n: 3 });
+    source.items.length = 0;
+    await c.refreshFromServer();
+    expect(c.rows).toHaveLength(3);
+  });
+});
+
 describe("who owns a linked initiative (issue #256)", () => {
   const withLink = (role: string) => {
     const items = sampleItems(2, ["p1"], ["u1"]);

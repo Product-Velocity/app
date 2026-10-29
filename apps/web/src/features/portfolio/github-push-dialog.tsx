@@ -200,7 +200,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, onClose, onDon
       <div className="dialog-backdrop" onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
         <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={focusDialog}>
           <h2 id={titleId}>Sync with GitHub: new issues first</h2>
-          <NewItemsStep config={newItems} onContinue={continueToSync} />
+          <NewItemsStep config={newItems} onContinue={continueToSync} onCancel={onClose} {...(onDone ? { onChanged: onDone } : {})} />
         </div>
       </div>
     );
