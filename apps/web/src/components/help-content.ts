@@ -49,11 +49,49 @@ for (const k of COMMERCIAL_KEYS) OVERRIDES[k] = same(COMMERCIAL);
 export type ColumnRow = { key: string; group: string; column: string; what: string; github: string; jira: string; access: string };
 
 /** First sentence of the dictionary description, kept short. */
-const short = (text: string | null): string => {
+const sentence = (text: string | null): string => {
   const t = (text ?? "").replace(/\s+/g, " ").trim();
   const first = t.split(/(?<=[.!?])\s/)[0] ?? "";
   return first.length > 120 ? `${first.slice(0, 117).trimEnd()}…` : first;
 };
+
+/** Open lists and generated lists have no fixed values to print: say how they work instead. */
+const OPEN_LISTS: Record<string, string> = {
+  theme: "The Initiative Group the item belongs to. Open list: type any name; groups are managed in Settings.",
+  focus_area: "The area of the product the item works on. Open list: type any value; the values already in use are offered.",
+  audience: "Who the item is for. Open list: type any value; the values already in use are offered.",
+  g2m_quarter: "Calendar quarter the work is planned for, chosen by a person. Any quarter from last year to three years ahead.",
+};
+
+/** Dictionary descriptions that are out of date or only repeat the values. */
+const WHAT_OVERRIDES: Record<string, string> = {
+  status: "State of the tracking issue's work, set by the tracker.",
+  initiative_phase: "Where the initiative is in its lifecycle, set by people.",
+  roadmap_category: "Strategic category of the initiative.",
+  change_type: "Kind of change.",
+  value_type: "How the initiative creates business value.",
+  value_basis: "How the business value was arrived at.",
+  confidence: "Confidence in the business value.",
+  moscow: "Priority class.",
+  decision: "Go or no-go call, set by people only.",
+  horizon: "Now, Next or Later bucket for the roadmap view. Empty means unscheduled.",
+  outcome_verdict: "Outcome compared with the key result.",
+  created_via_values: "The ways an item can be created.",
+  locked_by_source: "True when the value comes from the tracker (status, progress, PR, CI).",
+};
+
+/** What the column is, and, when it holds one of a fixed set of states, every state in full. */
+function describe(f: FieldDef): string {
+  if (OPEN_LISTS[f.key]) return OPEN_LISTS[f.key]!;
+  let lead = WHAT_OVERRIDES[f.key] ?? sentence(f.description);
+  if (f.allowed.length > 0) {
+    if (!WHAT_OVERRIDES[f.key]) lead = (lead.includes(":") ? lead.split(":")[0]! : lead).replace(/^Always one of$/, "");
+    // a description that only repeats the values adds nothing
+    if (f.allowed.some((v) => lead.startsWith(v)) || lead.endsWith("so on")) lead = "";
+    return `${lead ? `${lead.replace(/[.?!\s]+$/, "")}${/[?]$/.test(lead) ? "?" : "."} ` : ""}Values: ${f.allowed.join(" · ")}.`;
+  }
+  return lead;
+}
 
 function derive(f: FieldDef): Link {
   const g = f.githubSync?.trim() ?? "";
@@ -78,7 +116,7 @@ export function accessLabel(keys: string[]): string {
 /** One row for every column in the dictionary, in dictionary order. */
 export const COLUMN_ROWS: ColumnRow[] = FIELDS.map((f) => {
   const link = OVERRIDES[f.key] ?? derive(f);
-  return { key: f.key, group: f.group, column: f.name, what: short(f.description), github: link.github, jira: link.jira, access: accessLabel([f.key]) };
+  return { key: f.key, group: f.group, column: f.name, what: describe(f), github: link.github, jira: link.jira, access: accessLabel([f.key]) };
 });
 
 export const COLUMN_GROUPS: string[] = [...new Set(COLUMN_ROWS.map((r) => r.group))];
