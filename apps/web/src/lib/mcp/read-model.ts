@@ -2,7 +2,7 @@
  * Pure shaping for the MCP read tools (docs/20-CLAUDE-MCP.md FR-2, FR-3): what a workspace looks like to Claude.
  * No database here; `reader.ts` fetches and these functions present.
  */
-import { claudeAllowances, FIELD_BY_KEY, type SearchNames, type SearchRow } from "@pv/domain";
+import { claudeAllowances, FIELD_BY_KEY, type ProfileSections, type ProfileSummary, type SearchNames, type SearchRow } from "@pv/domain";
 import { OUTBOUND_READ_FIELDS } from "@pv/github";
 
 export type Member = { id: string; name: string; role: string };
@@ -16,6 +16,8 @@ export type WorkspaceContext = {
   teams: { id: string; name: string }[];
   members: Member[];
   cycles: { id: string; name: string }[];
+  /** The company website and what is known about the company (issue #269): read get_company_profile before writing a PRD or discovery. */
+  company?: { url: string | null; profile: ProfileSummary };
   notes: string[];
 };
 
@@ -60,6 +62,7 @@ export function buildContext(i: {
   projects: { id: string; name: string; default_repo: string | null; tracker: string | null }[];
   groups: string[]; teams: { id: string; name: string }[]; members: Member[];
   openLists?: Record<string, string[]>;
+  company?: { url: string | null; profile: ProfileSummary };
   githubConnected: boolean; repoPrivate: ReadonlyMap<string, boolean>;
 }): WorkspaceContext {
   const a = claudeAllowances(i.role);
@@ -70,7 +73,7 @@ export function buildContext(i: {
       ...p,
       github: { connected: i.githubConnected && p.tracker !== "jira" && p.tracker !== "gitlab", repo_private: p.default_repo ? i.repoPrivate.get(p.default_repo.toLowerCase()) ?? null : null },
     })),
-    groups: i.groups, ...(i.openLists ? { open_lists: i.openLists } : {}), teams: i.teams, members: i.members,
+    groups: i.groups, ...(i.openLists ? { open_lists: i.openLists } : {}), ...(i.company ? { company: i.company } : {}), teams: i.teams, members: i.members,
     cycles: [],
     notes: ["Planning cycles arrive in a later phase, so there are none yet.", "A person's name is the email address they signed up with; filters accept it."],
   };
@@ -98,6 +101,11 @@ export type DocInfo = {
   id: string; item_code: string; kind: string; title: string; status: string; version: number; ai_draft: boolean;
   characters: number; updated_at: string; approved_at: string | null; body?: string;
 };
+/** The company profile as stored (issue #269). `profile` is null until one exists. */
+export type CompanyProfileData = {
+  url: string | null;
+  profile: { status: string; version: number; ai_draft: boolean; researched_at: string | null; confirmed_at: string | null; updated_at: string; sections: ProfileSections } | null;
+};
 /** Reading the workspace as the signed-in person. Every method runs with the person's own token, so row-level security applies. */
 export type McpReader = {
   /** All initiatives in global rank order, the names behind their ids, and who "me" is. */
@@ -112,4 +120,6 @@ export type McpReader = {
   documents: (ref: string) => Promise<DocInfo[] | null>;
   /** One document with its text, or null when it does not exist or cannot be read. */
   document: (id: string) => Promise<DocInfo | null>;
+  /** The company website and profile of this workspace. */
+  companyProfile: () => Promise<CompanyProfileData>;
 };

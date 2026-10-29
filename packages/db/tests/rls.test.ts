@@ -335,6 +335,23 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "company_profiles",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.company_profiles set sections = '{}' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.company_profiles (tenant_id, sections) values ($1, '{}')", params: [v.tenantId] },
+      { sql: "update public.company_profiles set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "company_profile_versions",
+    tenantColumn: "tenant_id",
+    attacks: (v) => [
+      { sql: "update public.company_profile_versions set sections = '{}' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.company_profile_versions (tenant_id, version, sections) values ($1, 99, '{}')", params: [v.tenantId] },
+    ],
+  },
+  {
     table: "item_document_versions",
     tenantColumn: "tenant_id",
     attacks: (v) => [

@@ -1,7 +1,7 @@
-import { parseEmailDomains } from "@pv/domain";
+import { parseCompanyUrl, parseEmailDomains } from "@pv/domain";
 
 /** Country, currency, time zone and authorized domains of a workspace (FR-1.2), read from a form. Lists come from the runtime's Intl data. */
-export type WorkspaceProfile = { country: string | null; currency: string | null; timeZone: string | null; domains: string[] };
+export type WorkspaceProfile = { country: string | null; currency: string | null; timeZone: string | null; domains: string[]; companyUrl: string | null };
 
 const supported = (key: "currency" | "timeZone"): string[] => {
   try { return (Intl as unknown as { supportedValuesOf: (k: string) => string[] }).supportedValuesOf(key); } catch { return []; }
@@ -36,5 +36,7 @@ export function parseWorkspaceProfile(form: FormData, opts: { requireDomain: boo
   const parsed = parseEmailDomains(text(form.get("domains")));
   if (!parsed.ok) return { error: parsed.error };
   if (opts.requireDomain && parsed.domains.length === 0) return { error: "Add at least one authorized email domain, for example your company's." };
-  return { country, currency, timeZone, domains: parsed.domains };
+  const url = parseCompanyUrl(text(form.get("company_url")));
+  if (!url.ok) return { error: url.error };
+  return { country, currency, timeZone, domains: parsed.domains, companyUrl: url.url };
 }

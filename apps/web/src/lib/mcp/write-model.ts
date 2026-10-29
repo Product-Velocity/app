@@ -2,8 +2,8 @@
  * Types for the MCP write tools (docs/20-CLAUDE-MCP.md FR-4). No database here; `reader.ts` implements the writer with the
  * caller's own token, and the tests use a stand-in.
  */
-import type { FileRepo, UpdateCurrent, WriteCtx } from "@pv/domain";
-import type { DocInfo, FileInfo } from "./read-model";
+import type { FileRepo, ProfileSections, UpdateCurrent, WriteCtx } from "@pv/domain";
+import type { CompanyProfileData, DocInfo, FileInfo } from "./read-model";
 
 /** One all-or-nothing group of writes handed to `mcp_apply` (migration 0045). */
 export type ApplyUnit = { ops: Record<string, unknown>[] };
@@ -41,6 +41,14 @@ export type McpDocuments = {
   update: (id: string, expectedVersion: number, patch: { kind?: string; title?: string; body?: string; status?: string }) => Promise<{ ok: true; doc: DocInfo } | { ok: false; reason: "missing" } | { ok: false; reason: "conflict"; current: DocInfo }>;
 };
 
+/** The company profile, as the signed-in person. Confirming it is never offered here: only a workspace admin does, in the app. */
+export type McpProfile = {
+  /** Saves the first profile as a draft. Throws ToolInputError when it already exists or the role refuses. */
+  create: (sections: ProfileSections, researched: boolean) => Promise<NonNullable<CompanyProfileData["profile"]>>;
+  /** Replaces the sections of the profile still at `expectedVersion`; `conflict` (with the current profile) when somebody saved in between. */
+  update: (expectedVersion: number, sections: ProfileSections, researched: boolean) => Promise<{ ok: true; profile: NonNullable<CompanyProfileData["profile"]> } | { ok: false; reason: "conflict"; current: NonNullable<CompanyProfileData["profile"]> | null }>;
+};
+
 /** Writing the workspace as the signed-in person. Every method runs with the person's own token (no service role). */
 export type McpWriter = {
   /** What validation needs to know about the workspace. */
@@ -56,4 +64,5 @@ export type McpWriter = {
   undo: () => Promise<UndoResult>;
   files: McpFiles;
   documents: McpDocuments;
+  profile: McpProfile;
 };

@@ -17,7 +17,7 @@ export async function saveWorkspace(_prev: WorkspaceState, form: FormData): Prom
   if ("error" in profile) return { error: profile.error };
   const { data, error } = await supabase
     .from("tenants")
-    .update({ name, country: profile.country, currency: profile.currency, time_zone: profile.timeZone, allowed_email_domains: profile.domains, restrict_invites_to_domains: form.get("restrict_invites") === "on" })
+    .update({ name, country: profile.country, currency: profile.currency, time_zone: profile.timeZone, allowed_email_domains: profile.domains, company_url: profile.companyUrl, restrict_invites_to_domains: form.get("restrict_invites") === "on" })
     .eq("id", active.tenantId)
     .select("id");
   if (error?.code === "PV011") return { error: "Free email providers such as gmail.com cannot be authorized domains." };

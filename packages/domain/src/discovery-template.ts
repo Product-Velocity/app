@@ -2,6 +2,7 @@
 // Data first, so the prompt, the server instructions and the tests agree. A discovery is a document (kind `discovery`) on ONE initiative;
 // it never reaches GitHub, and only the chosen solution is registered in Product Velocity (Ashu, 2026-10-28).
 
+import { PROFILE_USE_RULE } from "./company-profile";
 import { ALIGN_RULE, LIGHT_EVIDENCE_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
 import { FIELD_BY_KEY } from "./registry";
 
@@ -27,6 +28,7 @@ export const DISCOVERY_RULES = [
   "Skipping is free. Every section is optional; a discovery with nothing for a section leaves it out entirely. \"Skip\" is a valid answer and is never asked twice.",
   "Ask once. After reading the brief and the sources, list everything you could not fill in ONE message, grouped by section, most important first, each skippable: typically the company OKR, the KR baselines and targets (and which is Primary or a guardrail), where the evidence is, which solutions to list or whether to propose some, which one is chosen, and the test metrics.",
   ALIGN_RULE,
+  PROFILE_USE_RULE,
   PRIOR_KNOWLEDGE_RULE,
   LIGHT_EVIDENCE_RULE,
   "Show before you write. Run create_items with dry_run first, show it, create after the person agrees.",
@@ -62,7 +64,7 @@ export function discoveryPrompt(args: DiscoveryPromptArgs): { description: strin
     item ? `Attach the discovery to the existing initiative ${item} (read it with get_item first): use create_document on it and do not create a new initiative.` : "Create one new initiative to hold the document.",
     "",
     "ORDER OF WORK",
-    "1. get_workspace_context and describe_fields (keys, allowed values, which fields you may set).",
+    "1. get_workspace_context, get_company_profile and describe_fields (keys, allowed values, which fields you may set; the company profile for language, personas, glossary and voice).",
     "2. Read the brief and every source the person gave. If you cannot open a source, say so; never pretend you read it.",
     "3. Look for related work (the prior-knowledge rule), then send ONE message: what you could not fill (grouped by section, skippable), whether evidence is light, and the draft-and-save or align-first question. Wait for the answer.",
     `4. ${item ? "Skip this step (the initiative exists)." : `create_items with dry_run: one initiative, named "Discovery: <topic>" (or after the chosen solution when the person has already chosen), Initiative Phase "${DISCOVERY_PHASE}", project and group. Show it and create after they agree.`}`,

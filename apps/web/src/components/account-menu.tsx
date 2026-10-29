@@ -35,6 +35,7 @@ export function AccountMenu({ email, roleLabel, isApprover, showTrash, showAudit
         <div role="group" aria-labelledby="menu-workspace">
           <p className="menu-heading" id="menu-workspace">Workspace</p>
           <Link href="/settings/workspace" className="menu-link">Workspace settings</Link>
+          <Link href="/settings/company-profile" className="menu-link">Company profile</Link>
           <Link href="/settings/members" className="menu-link">Members</Link>
           <Link href="/settings/groups" className="menu-link">Initiative Groups</Link>
           {showAudit && <Link href="/settings/audit" className="menu-link">Audit log</Link>}
