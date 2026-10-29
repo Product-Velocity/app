@@ -46,7 +46,48 @@ const OVERRIDES: Record<string, Link> = {
 const COMMERCIAL_KEYS = ["value_12m", "value_type", "value_basis", "confidence", "customers_requesting", "kr_metric", "kr_start", "kr_target", "decision", "realized_kr_value", "realized_per_year", "cost_of_not_doing"];
 for (const k of COMMERCIAL_KEYS) OVERRIDES[k] = same(COMMERCIAL);
 
-export type ColumnRow = { key: string; group: string; column: string; what: string; github: string; jira: string; access: string };
+export type ColumnRow = { key: string; group: string; column: string; what: string; github: string; jira: string; access: string; updated: string };
+
+/**
+ * How a value gets changed (docs/04-GITHUB-SYNC.md, docs/21-SYNC-WITH-GITHUB.md):
+ * a person editing, the Sync with GitHub button, the daily check (also "Check GitHub now" in Settings), or a webhook from the tracker.
+ */
+export const UPDATE_EDIT = "You edit it";
+export const UPDATE_MANUAL = "Manual sync (Sync with GitHub)";
+export const UPDATE_AUTO = "Auto sync (daily check)";
+export const UPDATE_WEBHOOK = "Webhook (real time)";
+export const UPDATE_CALCULATED = "Calculated from other columns";
+export const UPDATE_SYSTEM = "Set by the system";
+const join = (...parts: string[]) => parts.join(" · ");
+const TRACKER = join(UPDATE_WEBHOOK, UPDATE_AUTO, UPDATE_MANUAL);
+
+const UPDATE_OVERRIDES: Record<string, string> = {
+  // the tracker's own state: read in real time, repaired daily, and read again by the button
+  status: TRACKER, gh_state: TRACKER, issues_closed: TRACKER, issues_total: TRACKER, delivery_progress_pct: TRACKER, blocked_issues: TRACKER,
+  stale_issues: TRACKER, open_prs: TRACKER, merged_prs: TRACKER, ci_status: TRACKER, latest_release: TRACKER, repositories: TRACKER, gh_last_activity: TRACKER,
+  // the board's Status field arrives by webhook; iteration and target date are read with it
+  gh_project_status: TRACKER,
+  gh_iteration: join(UPDATE_AUTO, UPDATE_MANUAL, "read again whenever Status changes"),
+  gh_target_date: join(UPDATE_AUTO, UPDATE_MANUAL, "read again whenever Status changes"),
+  // texts: you own them, Sync with GitHub compares and sends after you confirm
+  initiative_name: join(UPDATE_EDIT, UPDATE_MANUAL), summary: join(UPDATE_EDIT, UPDATE_MANUAL), description: join(UPDATE_EDIT, UPDATE_MANUAL), hypothesis: join(UPDATE_EDIT, UPDATE_MANUAL),
+  screenshots: join(UPDATE_EDIT, UPDATE_MANUAL),
+  assignees: join(UPDATE_EDIT, UPDATE_MANUAL, "GitHub's side arrives by webhook"),
+  github_links: join(UPDATE_MANUAL, "or Pull in from Incoming issues"),
+  sync_state: "After every sync", last_synced: "After every sync", synced_with: "After every sync",
+  planned_scope: "You, with Mark breakdown complete", breakdown_route: "Set when the tracking issue is first sent", breakdown_status: join("Set when the tracking issue is first sent", "you mark it complete"),
+  scope_added: join(UPDATE_CALCULATED, "after every tracker read"), schedule_variance_pp: join(UPDATE_CALCULATED, "after every tracker read"),
+};
+
+function updatedBy(f: FieldDef, link: Link): string {
+  const o = UPDATE_OVERRIDES[f.key];
+  if (o) return o;
+  if (f.mode === "computed") return UPDATE_CALCULATED;
+  if (f.mode === "system") return UPDATE_SYSTEM;
+  if (f.mode === "locked" || f.storage.startsWith("GitHub-synced")) return TRACKER;
+  // an editable column the tracker can carry (an optional label, field or date) is sent by Sync with GitHub
+  return /^(optional|app -> github)/i.test(link.github) ? join(UPDATE_EDIT, UPDATE_MANUAL) : UPDATE_EDIT;
+}
 
 /** First sentence of the dictionary description, kept short. */
 const sentence = (text: string | null): string => {
@@ -98,7 +139,7 @@ function derive(f: FieldDef): Link {
   if (g === "" || /^(not synced|n\/a)/i.test(g)) return same(NONE);
   if (/^never synced/i.test(g)) return same(COMMERCIAL);
   if (f.mode === "locked" || f.storage.startsWith("GitHub-synced")) return { github: "From GitHub, read-only", jira: "From Jira, read-only (planned)" };
-  return { github: "Optional: see the item panel", jira: "Per mapping (planned)" };
+  return { github: sentence(g), jira: "Per mapping (planned)" };
 }
 
 /** "Read/write", "Read-only (tracker)" or "Read-only", from the dictionary. */
@@ -116,13 +157,16 @@ export function accessLabel(keys: string[]): string {
 /** One row for every column in the dictionary, in dictionary order. */
 export const COLUMN_ROWS: ColumnRow[] = FIELDS.map((f) => {
   const link = OVERRIDES[f.key] ?? derive(f);
-  return { key: f.key, group: f.group, column: f.name, what: describe(f), github: link.github, jira: link.jira, access: accessLabel([f.key]) };
+  return { key: f.key, group: f.group, column: f.name, what: describe(f), github: link.github, jira: link.jira, access: accessLabel([f.key]), updated: updatedBy(f, link) };
 });
 
 export const COLUMN_GROUPS: string[] = [...new Set(COLUMN_ROWS.map((r) => r.group))];
 export const OVERRIDE_KEYS: string[] = Object.keys(OVERRIDES);
+export const UPDATE_OVERRIDE_KEYS: string[] = Object.keys(UPDATE_OVERRIDES);
 
 export const COLUMNS_NOTE = "Jira is planned: its mapping is chosen per customer. Nothing goes to GitHub or Jira until you confirm.";
+
+export const UPDATE_LEGEND = "Webhook: GitHub tells the app the moment something changes. Auto sync: the app compares with GitHub once a day and repairs any difference. Manual sync: you press Sync with GitHub (or Check GitHub now in Settings), which also reads GitHub first.";
 
 export type Table = { head: string[]; rows: string[][] };
 
