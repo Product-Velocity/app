@@ -37,12 +37,16 @@ function fakeApi(scenario: string, onCall: (code: string) => void): SyncApi {
   };
 }
 
-/** The first step of Sync with in-memory issues: `new=1` has some, `new=0` has none, no value leaves the step out. */
-function fakeNewItems(which: string | undefined): NewItemsConfig | undefined {
-  if (which !== "0" && which !== "1") return undefined;
+/**
+ * The first step of Sync with in-memory issues: `new=1` has some, `new=0` has none, `new=err` has some and the read of GitHub fails,
+ * `new=hang` has some and the read of GitHub never answers; no value leaves the step out.
+ */
+function fakeNewItems(which: string | undefined, onRefresh: () => void): NewItemsConfig | undefined {
+  if (which !== "0" && which !== "1" && which !== "err" && which !== "hang") return undefined;
   const source = new MemoryIncomingSource(which === "0" ? [] : undefined);
   return {
     source,
+    refresh: async () => { onRefresh(); if (which === "err") throw new Error("GitHub could not be read"); if (which === "hang") await new Promise(() => undefined); },
     count: async () => (await source.load()).issues.filter((i) => i.pullState === "not_pulled").length,
     projects: async () => [{ id: "p1", name: "Platform" }, { id: "p2", name: "Marketplace" }],
     canEdit: true,
@@ -54,11 +58,13 @@ export function SyncHarness({ scenario, newIssues }: { scenario: string; newIssu
   const [open, setOpen] = useState(false);
   const [calls, setCalls] = useState<string[]>([]);
   const api = useMemo(() => fakeApi(scenario, (c) => setCalls((prev) => [...prev, c])), [scenario]);
-  const newItems = useMemo(() => fakeNewItems(newIssues), [newIssues]);
+  const [refreshes, setRefreshes] = useState(0);
+  const newItems = useMemo(() => fakeNewItems(newIssues, () => setRefreshes((n) => n + 1)), [newIssues]);
   return (
     <div className="shell"><main className="content">
       <button type="button" className="btn" onClick={() => setOpen(true)}>Open sync</button>
       <output data-testid="calls">{calls.join(",")}</output>
+      <output data-testid="refreshes">{refreshes}</output>
       {open && <GithubPushDialog ids={IDS} api={api} newItems={newItems} onClose={() => setOpen(false)} />}
     </main></div>
   );

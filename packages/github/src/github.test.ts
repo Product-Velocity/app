@@ -123,6 +123,40 @@ describe("GitHubAppSourceControl: assignees", () => {
   });
 });
 
+describe("GitHubAppSourceControl: listing only what changed lately (issue #272)", () => {
+  const page = (n: number, from: number) => JSON.stringify(Array.from({ length: n }, (_, i) => ({ number: from + i, id: from + i, node_id: `I_${from + i}`, state: "open", updated_at: "2026-10-29T10:00:00Z" })));
+  const rest = (urls: string[], reply: (url: string) => Response) => new GitHubAppSourceControl({ appId: "1", privateKeyPem: privateKey, fetch: (async (url: string) => {
+    if (url.endsWith("/access_tokens")) return new Response(JSON.stringify({ token: "t" }), { status: 201 });
+    urls.push(url);
+    return reply(url);
+  }) as typeof fetch });
+
+  it("asks GitHub only for issues changed since a time, so a quiet repository costs one request", async () => {
+    const urls: string[] = [];
+    const sc = rest(urls, () => new Response("[]", { status: 200 }));
+    expect(await sc.listIssues(1, "Acme/App", { since: "2026-10-28T08:00:00Z" })).toEqual([]);
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain("since=2026-10-28T08%3A00%3A00Z");
+    expect(urls[0]).toContain("sort=updated&direction=desc");
+  });
+
+  it("stops at the number of pages asked for, even when every page is full", async () => {
+    const urls: string[] = [];
+    let n = 0;
+    const sc = rest(urls, () => new Response(page(100, (n++) * 100 + 1), { status: 200 }));
+    const rows = await sc.listIssues(1, "Acme/App", { maxPages: 2 });
+    expect(urls).toHaveLength(2);
+    expect(rows).toHaveLength(200);
+  });
+
+  it("without options it reads as before: no since, up to ten pages", async () => {
+    const urls: string[] = [];
+    const sc = rest(urls, () => new Response("[]", { status: 200 }));
+    await sc.listIssues(1, "Acme/App");
+    expect(urls[0]).not.toContain("since=");
+  });
+});
+
 describe("GitHubAppSourceControl: pull requests, checks and releases (read-only)", () => {
   const withReplies = (graphql: (q: string, v: Record<string, unknown>) => unknown, rest: (url: string) => Response = () => new Response("{}", { status: 404 }), seen: { query: string; variables: Record<string, unknown> }[] = []) =>
     new GitHubAppSourceControl({ appId: "1", privateKeyPem: privateKey, fetch: (async (url: string, init?: RequestInit) => {

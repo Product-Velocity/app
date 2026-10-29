@@ -59,7 +59,8 @@ export interface SourceControl {
   /** Issue type names of the organisation, or null when the App may not read them. */
   listIssueTypes(installationId: number, organisation: string): Promise<string[] | null>;
   /** Issues of a repository in any state (pull requests excluded), newest activity first. Used to reconcile linked items. */
-  listIssues(installationId: number, repo: string): Promise<IssueSummary[]>;
+  /** `since`: only issues changed after this time (ISO). `maxPages`: stop after this many pages of 100 (default 10, the most the daily check reads). */
+  listIssues(installationId: number, repo: string, opts?: { since?: string; maxPages?: number }): Promise<IssueSummary[]>;
   /** Direct sub-issues of an issue (one level, all pages), or null when sub-issues are not available for it. */
   listSubIssues(installationId: number, repo: string, number: number): Promise<SubIssue[] | null>;
   /** Creates an issue in `repo` ("owner/name"). */

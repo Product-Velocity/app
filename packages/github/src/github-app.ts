@@ -130,10 +130,11 @@ export class GitHubAppSourceControl implements SourceControl {
     };
   }
 
-  async listIssues(installationId: number, repo: string): Promise<IssueSummary[]> {
+  async listIssues(installationId: number, repo: string, opts: { since?: string; maxPages?: number } = {}): Promise<IssueSummary[]> {
     const out: IssueSummary[] = [];
-    for (let page = 1; page <= 10; page++) {
-      const res = await this.call(installationId, "GET", `/repos/${repo}/issues?state=all&sort=updated&direction=desc&per_page=100&page=${page}`);
+    const since = opts.since ? `&since=${encodeURIComponent(opts.since)}` : "";
+    for (let page = 1; page <= Math.max(1, Math.min(10, opts.maxPages ?? 10)); page++) {
+      const res = await this.call(installationId, "GET", `/repos/${repo}/issues?state=all&sort=updated&direction=desc&per_page=100&page=${page}${since}`);
       if (!res.ok) throw new GitHubError(res.status, `GitHub could not list issues (${res.status})`);
       const rows = (await res.json()) as { number: number; id: number; node_id: string; state: string; state_reason?: string | null; updated_at: string; closed_at?: string | null; pull_request?: unknown; title?: string; html_url?: string; type?: { name?: string } | null; labels?: ({ name?: string } | string)[]; parent_issue_url?: string | null; assignees?: { login?: string }[] }[];
       for (const r of rows) if (!r.pull_request) out.push({

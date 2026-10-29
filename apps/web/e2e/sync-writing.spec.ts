@@ -92,6 +92,25 @@ test.describe("Sync with GitHub: new issues first", () => {
     await expect(page.getByRole("dialog", { name: "Sync with GitHub: new issues first" })).toHaveCount(0);
   });
 
+  test("GitHub is read first, once, so the list is current; the step shows after that", async ({ page }) => {
+    await openNew(page, "1");
+    await expect(page.getByRole("dialog", { name: "Sync with GitHub: new issues first" }).getByText(/8 issues that are not an initiative yet/)).toBeVisible();
+    await expect(page.getByTestId("refreshes")).toHaveText("1");
+  });
+
+  test("when GitHub cannot be read the step still shows what it has", async ({ page }) => {
+    await openNew(page, "err");
+    await expect(page.getByRole("dialog", { name: "Sync with GitHub: new issues first" }).getByText(/8 issues that are not an initiative yet/)).toBeVisible();
+    await expect(page.getByTestId("refreshes")).toHaveText("1");
+  });
+
+  test("when GitHub does not answer the step stops waiting after a few seconds", async ({ page }) => {
+    await openNew(page, "hang");
+    const dlg = page.getByRole("dialog", { name: "Sync with GitHub: new issues first" });
+    await expect(dlg.getByRole("status")).toContainText("Checking GitHub for new issues");
+    await expect(dlg.getByText(/8 issues that are not an initiative yet/)).toBeVisible({ timeout: 15_000 });
+  });
+
   test("Cancel leaves the step without writing anything; the layout is the list, then what to do, then the rules", async ({ page }) => {
     await openNew(page, "1");
     const dlg = page.getByRole("dialog", { name: "Sync with GitHub: new issues first" });
