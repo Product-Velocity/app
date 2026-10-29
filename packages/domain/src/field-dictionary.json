@@ -3589,13 +3589,14 @@
   "allowed": [
    "Active",
    "On hold",
+   "Completed",
    "Cancelled"
   ],
-  "allowedText": "Active · On hold · Cancelled",
+  "allowedText": "Active · On hold · Completed · Cancelled",
   "origin": "Input",
   "githubSync": "Not synced. A closed linked ticket only sets Build Status and Build Completed; people decide where the initiative itself stands.",
   "filledWhen": "Now where known",
-  "description": "Whether the initiative is alive, set by people: Active, On hold or Cancelled. Completed and Sunset come from Initiative Phase; Backlog and Not started are Planning Status. A closed GitHub or Jira ticket only means the build is done: see Build Status."
+  "description": "Whether the initiative is alive, finished or dead, set by people: Active, On hold, Completed or Cancelled. Initiative Phase says where it is in the lifecycle; Backlog and Not started are Planning Status. A closed GitHub or Jira ticket only means the build is done: see Build Status."
  },
  {
   "n": "N44",
