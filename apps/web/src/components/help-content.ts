@@ -242,6 +242,8 @@ export const CLAUDE_OPTIONS: Table = {
   rows: [
     ["Discovery document", "Prompt write_discovery (optional: brief, item)", "Document of kind Discovery and one initiative in Discover", "Yes, never sent to GitHub"],
     ["PRD", "Prompt write_prd (optional: brief, modules like A1 D1 D4, item)", "PRD document and initiative fields it can support", "Full PRD yes; only the extract goes to the Description"],
+    ["Company profile", "Prompt research_company (optional: url, focus). Set the Company website in Workspace settings first", "A draft of your industry, position, products, personas, competitors, partners, glossary and voice, with sources. An admin confirms it under Company profile in the account menu", "Yes, never sent to GitHub"],
+    ["Partner and term research", "Automatic when a brief names partners, vendors or unfamiliar terms (in write_discovery and write_prd)", "A \"Context and partner research\" section (appendix A7 in a PRD) that checks your claims against what the partner publishes", "Yes, never sent to GitHub"],
     ["Update a document", "Name the initiative, e.g. R-12", "A new version; the old one is kept", "Yes"],
     ["Other documents", "Ask for business requirements, technical requirements, acceptance criteria, research", "A document on the initiative", "Yes"],
     ["Several initiatives", "Paste notes or a PRD and ask for initiatives", "A dry run first, then created after you agree", "Fields only"],
@@ -250,6 +252,10 @@ export const CLAUDE_OPTIONS: Table = {
 
 export const CLAUDE_RULES = [
   "Connect Claude first: account menu, Connect Claude. Claude then works as you, with your role.",
+  "Claude first asks whether to save the draft or show it here to align. Say which in your prompt to skip the question.",
+  "Claude reads your confirmed company profile and related initiatives' PRDs and discoveries before it writes, and tells you what it used. What you say in the run wins over the profile.",
+  "Claude says so when discovery evidence or the PRD roll-out plan (D1) is light, and suggests what to add. It checks claims about partners against what they publish and flags mismatches as questions; it never invents what a partner offers.",
+  "Only an admin confirms the company profile, never Claude. A change by Claude sends a confirmed profile back to draft. After a Product Velocity update, reconnect it in Claude to pick up new tools and prompts.",
   "Claude asks once for what is missing. Answer, or say skip. It never invents numbers, dates, customers or competitors; gaps read \"to define\".",
   "Claude shows a dry run or a diff before writing. It never sets Stack Rank, Decision, Business Value or Confidence, and never approves.",
   "Everything it writes is an AI draft and can be undone with undo_last.",
@@ -263,6 +269,9 @@ export const CLAUDE_PROMPTS: { when: string; prompt: string }[] = [
   { when: "Find overlap before you add", prompt: "Search for initiatives related to loyalty and retention. Tell me which overlap with this brief and which I should link with Related To." },
   { when: "Improve a draft", prompt: "Review the PRD of R-12. List unclear acceptance criteria, missing risks and anything that sounds like a claim without evidence. Do not change anything yet." },
   { when: "Tighten the rollout", prompt: "Check D1 of R-12. Does every experiment have a metric, a threshold and a decision rule? Suggest what to add and write \"to define\" where I must decide." },
+  { when: "Teach Claude your company", prompt: "Use research_company. Read our website, show me what you found section by section, and save it as a draft only after I agree." },
+  { when: "Check a partner claim", prompt: "Use write_prd. Brief: integrate with Partner Y to bring X to our customers. Research Y first and tell me where my claim about Y is not supported." },
+  { when: "Discuss before saving", prompt: "Use write_discovery. Show the draft here first; do not save anything until I say so." },
   { when: "Fix a mistake", prompt: "Undo your last change." },
 ];
 

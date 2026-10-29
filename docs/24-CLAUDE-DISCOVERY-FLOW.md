@@ -25,6 +25,7 @@ The step before the PRD: an objective tied to a company OKR, key results with gu
 5. Potential solutions: the ranked table (hypothesis as IF / THEN / RESULTING IN, pillar, MoSCoW, estimated impact, confidence, effort, success metrics, risks, competitors) and the Prioritisation link.
 6. Next steps (decision gate 1 and what follows).
 7. Testing success: the AB(C) test, the metrics, the guardrails and why each matters.
+8. Context and partner research (issue #274): the third parties and terms of the brief, what each partner publicly offers, the sense-check of the brief's claims against it, with sources and dates (see `docs/22` section 8b).
 Every section is optional; a discovery with no competitive research simply has none.
 
 ## 5. Rules (the same spirit as the PRD flow)

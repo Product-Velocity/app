@@ -33,7 +33,7 @@ describe("sections", () => {
     expect(profileToMarkdown({ voice: "Plain", industry: "Media" })).toBe("## Industry and space\nMedia\n\n## Voice and tone\nPlain");
   });
   it("covers what Ashu listed: industry, position, products, personas, competitors, glossary", () => {
-    expect(PROFILE_SECTIONS.map((s) => s.key)).toEqual(expect.arrayContaining(["industry", "position", "products", "personas", "competitors", "glossary"]));
+    expect(PROFILE_SECTIONS.map((s) => s.key)).toEqual(expect.arrayContaining(["industry", "position", "products", "personas", "competitors", "partners", "glossary"]));
   });
 });
 

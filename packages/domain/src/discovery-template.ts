@@ -3,7 +3,7 @@
 // it never reaches GitHub, and only the chosen solution is registered in Product Velocity (Ashu, 2026-10-28).
 
 import { PROFILE_USE_RULE } from "./company-profile";
-import { ALIGN_RULE, LIGHT_EVIDENCE_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
+import { ALIGN_RULE, CONTEXT_RESEARCH_RULE, LIGHT_EVIDENCE_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
 import { FIELD_BY_KEY } from "./registry";
 
 export type DiscoverySection = { id: string; title: string; covers: string };
@@ -17,6 +17,7 @@ export const DISCOVERY_SECTIONS: readonly DiscoverySection[] = [
   { id: "5", title: "Potential solutions", covers: "A ranked table: hypothesis (IF / THEN / RESULTING IN), product strategic pillar, MoSCoW, estimated impact, confidence, effort, success metrics, risks, competitors, and the link to the prioritisation. The order is a proposal. Impact and confidence are the person's own figures, or \"to define\". Mark each row you drafted \"proposed by Claude\" until the person accepts it. These solutions stay in the document; only the chosen one becomes an initiative." },
   { id: "6", title: "Next steps", covers: "How the work continues after decision gate 1 (align on which solution to pursue): define the UX and technical options for the chosen one, refine the impact and effort, collect stakeholder input, define the hypothesis to test, define the go-to-market plan." },
   { id: "7", title: "Testing success", covers: "How the solutions will be tested (for example AB(C) tests), the metrics, the guardrail metrics and why each guardrail matters." },
+  { id: "8", title: "Context and partner research", covers: "The third parties and terms of this brief: what each partner publicly offers, the sense-check of the brief's claims against it (consistent, partly consistent, not supported, unverified) with sources and dates, and glossary terms found. Only what sources show." },
 ];
 
 /** The initiative fields a discovery may set (the rest is the person's to do by hand when a solution is chosen). */
@@ -30,6 +31,7 @@ export const DISCOVERY_RULES = [
   ALIGN_RULE,
   PROFILE_USE_RULE,
   PRIOR_KNOWLEDGE_RULE,
+  CONTEXT_RESEARCH_RULE,
   LIGHT_EVIDENCE_RULE,
   "Show before you write. Run create_items with dry_run first, show it, create after the person agrees.",
   "The discovery is a document: create_document with kind discovery (status draft). It holds commercial figures, stays in Product Velocity and never reaches GitHub. Write headings exactly as \"## 1. Objective and key results\" so they can be found.",
@@ -66,7 +68,7 @@ export function discoveryPrompt(args: DiscoveryPromptArgs): { description: strin
     "ORDER OF WORK",
     "1. get_workspace_context, get_company_profile and describe_fields (keys, allowed values, which fields you may set; the company profile for language, personas, glossary and voice).",
     "2. Read the brief and every source the person gave. If you cannot open a source, say so; never pretend you read it.",
-    "3. Look for related work (the prior-knowledge rule), then send ONE message: what you could not fill (grouped by section, skippable), whether evidence is light, and the draft-and-save or align-first question. Wait for the answer.",
+    "3. Look for related work (the prior-knowledge rule) and research the third parties and terms of the brief (the context-research rule), then send ONE message: what you could not fill (grouped by section, skippable), whether evidence is light, and the draft-and-save or align-first question. Wait for the answer.",
     `4. ${item ? "Skip this step (the initiative exists)." : `create_items with dry_run: one initiative, named "Discovery: <topic>" (or after the chosen solution when the person has already chosen), Initiative Phase "${DISCOVERY_PHASE}", project and group. Show it and create after they agree.`}`,
     "5. create_document kind discovery with the full discovery (sections as below), status draft.",
     "6. Tell the person: what you created, what is left \"to define\", which solutions are in the document, which one (if any) is chosen and which values they will copy into the initiative by hand, that it is an AI draft, and that an Approver approves it at the Discover to Define gate.",
