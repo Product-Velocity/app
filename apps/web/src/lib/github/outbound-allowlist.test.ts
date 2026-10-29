@@ -11,39 +11,50 @@ const allowed = new Set<string>(OUTBOUND_READ_FIELDS);
 const DERIVED = new Set(["moscow", "stack_rank", "change_type", "g2m_date_est", "theme", "effort"]);
 const sentinel = (key: string) => `LEAK_${key.toUpperCase()}_9f3a`;
 
+/**
+ * Every tracker the app can write to is listed here with a way to capture exactly what it would send for an item. A new provider (Jira)
+ * is added to this list, and then the same leak checks below run against it: no commercial field in any outbound payload (rule 2).
+ */
+type OutboundProvider = { name: string; wire: (item: Record<string, unknown>, artifacts: { label: string; url: string }[]) => Promise<string> };
+const OUTBOUND_PROVIDERS: OutboundProvider[] = [
+  {
+    name: "GitHub",
+    wire: async (item, artifacts) => {
+      const built = buildTrackingIssue({ item, itemId: ID, projectName: "Mobile", appUrl: "https://productvelocity.app", artifacts });
+      const sc = new MemorySourceControl();
+      await pushTrackingIssue(sc, 1, "acme/road", ID, built, null); // the real push path, capturing exactly what would be serialised
+      return JSON.stringify([built, sc.sent]);
+    },
+  },
+];
+
 const fullItem = () => Object.fromEntries([...FIELDS.map((f) => f.key), "id", "tenant_id", "home_project_id", "created_by", "owner_user_id"].map((k) => [k, sentinel(k)]));
+
+describe.each(OUTBOUND_PROVIDERS)("outbound $name payloads", ({ wire }) => {
+  it("serialises to nothing but allowlisted fields, even when every field of the item is filled", async () => {
+    const w = await wire(fullItem(), [{ label: "PRD", url: "https://example.test/prd" }]);
+    for (const f of FIELDS) {
+      if (allowed.has(f.key)) continue;
+      expect(w, `${f.key} leaked into a payload`).not.toContain(sentinel(f.key));
+    }
+    for (const k of ["id", "tenant_id", "home_project_id", "created_by", "owner_user_id"]) expect(w, `${k} leaked`).not.toContain(sentinel(k));
+    for (const k of allowed) if (!DERIVED.has(k)) expect(w).toContain(sentinel(k)); // and the allowed ones really are sent
+  });
+
+  it("MoSCoW and the rank only leave as pv: labels: a value and a band, never the rank number or any other field", async () => {
+    const w = await wire({ ...fullItem(), moscow: "Should", stack_rank: 37 }, []);
+    expect(w).toContain("pv:moscow/should");
+    expect(w).toContain("pv:rank/top-50");
+    expect(w).not.toMatch(/\b37\b/);
+    for (const f of FIELDS) if (!allowed.has(f.key)) expect(w, `${f.key} leaked`).not.toContain(sentinel(f.key));
+  });
+});
 
 describe("outbound GitHub payloads", () => {
   it("covers the whole field dictionary", () => {
     expect(FIELDS.length).toBeGreaterThanOrEqual(165);
     expect(FIELDS.some((f) => f.key === "value_12m")).toBe(true);
     for (const k of OUTBOUND_READ_FIELDS) expect(FIELDS.some((f) => f.key === k) || k === "item_code").toBe(true);
-  });
-
-  it("serialises to nothing but allowlisted fields, even when every field of the item is filled", async () => {
-    const item = fullItem();
-    const built = buildTrackingIssue({ item, itemId: ID, projectName: "Mobile", appUrl: "https://productvelocity.app", artifacts: [{ label: "PRD", url: "https://example.test/prd" }] });
-    // and through the real push path, capturing exactly what would be serialised to GitHub
-    const sc = new MemorySourceControl();
-    await pushTrackingIssue(sc, 1, "acme/road", ID, built, null);
-    const wire = JSON.stringify([built, sc.sent]);
-    for (const f of FIELDS) {
-      if (allowed.has(f.key)) continue;
-      expect(wire, `${f.key} leaked into a GitHub payload`).not.toContain(sentinel(f.key));
-    }
-    for (const k of ["id", "tenant_id", "home_project_id", "created_by", "owner_user_id"]) expect(wire, `${k} leaked`).not.toContain(sentinel(k));
-    for (const k of allowed) if (!DERIVED.has(k)) expect(wire).toContain(sentinel(k)); // and the allowed ones really are sent
-  });
-
-  it("MoSCoW and the rank only leave as pv: labels: a value and a band, never the rank number or any other field", async () => {
-    const item = { ...fullItem(), moscow: "Should", stack_rank: 37 };
-    const built = buildTrackingIssue({ item, itemId: ID, projectName: "Mobile", appUrl: "https://productvelocity.app", artifacts: [] });
-    const sc = new MemorySourceControl();
-    await pushTrackingIssue(sc, 1, "acme/road", ID, built, null);
-    expect(built.labels).toEqual(expect.arrayContaining(["pv:moscow/should", "pv:rank/top-50"]));
-    const wire = JSON.stringify([built, sc.sent]);
-    expect(wire).not.toMatch(/\b37\b/);
-    for (const f of FIELDS) if (!allowed.has(f.key)) expect(wire, `${f.key} leaked`).not.toContain(sentinel(f.key));
   });
 
   it("never reads a commercial field of the item in the first place", () => {
