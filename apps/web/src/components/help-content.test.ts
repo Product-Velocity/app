@@ -81,3 +81,31 @@ describe("Help guide: how each column is updated", () => {
     expect(row("created_at").updated).toBe("Set by the system");
   });
 });
+
+describe("Help guide: exact target fields", () => {
+  const row = (k: string) => COLUMN_ROWS.find((x) => x.key === k)!;
+  it("names the exact GitHub target of what the app sends", () => {
+    expect(row("initiative_name").github).toMatch(/issue title/);
+    expect(row("description").github).toMatch(/## Description/);
+    expect(row("moscow").github).toMatch(/pv:moscow\//);
+    expect(row("moscow").github).toMatch(/Priority/);
+    expect(row("stack_rank").github).toMatch(/pv:rank\//);
+    expect(row("effort").github).toMatch(/Size/);
+    expect(row("g2m_date_est").github).toMatch(/milestone/);
+    expect(row("theme").github).toMatch(/pv:group\//);
+  });
+  it("names the exact GitHub source of what the app reads", () => {
+    expect(row("status").github).toMatch(/^Read from issue state/);
+    expect(row("ci_status").github).toMatch(/default branch/);
+    expect(row("gh_project_status").github).toMatch(/field Status/);
+  });
+  it("does not claim a send that is not built", () => {
+    for (const k of ["roadmap_category", "focus_area", "tags", "planned_start"]) {
+      expect(row(k).github, k).toMatch(/Not sent yet/);
+      expect(row(k).updated, k).toBe("You edit it");
+    }
+  });
+  it("gives a Jira target for every column the app sends", () => {
+    for (const r of COLUMN_ROWS.filter((x) => x.github.startsWith("Sent to"))) expect(r.jira, r.key).toMatch(/^Sent to /);
+  });
+});

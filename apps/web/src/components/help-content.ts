@@ -13,34 +13,57 @@ type Link = { github: string; jira: string };
 const NONE = "Not synced";
 const COMMERCIAL = "Never synced (commercial)";
 const same = (text: string): Link => ({ github: text, jira: text });
-const BODY: Link = { github: "Issue body (managed block)", jira: "Description" };
-const LABELS: Link = { github: "Optional: label", jira: "Optional: label or custom field" };
-const TRACKER_COUNTS: Link = { github: "Sub-issues of the tracking issue", jira: "Child issues of the epic" };
-const BOARD: Link = { github: "Projects v2 board", jira: "Board status, sprint, due date" };
+const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+const sent = (github: string, jira: string): Link => ({ github: `Sent to ${lower(github)}`, jira: `Sent to ${jira}` });
+const read = (github: string, jira: string): Link => ({ github: `Read from ${lower(github)}`, jira: `Read from ${jira}` });
+const JIRA_PER_MAPPING = "per mapping";
+const NOT_YET = "Not sent yet (an optional label is planned)";
 
+/**
+ * Exact GitHub targets are from the push and read code (docs/04-GITHUB-SYNC.md): the tracking issue's title and managed block, the labels in the `pv:`
+ * namespace, the milestone, the organisation's issue type, the linked Project board's fields, and what is read back from issues, pull requests, checks and releases.
+ * Jira names are the planned targets (docs/16-ATLASSIAN.md); the customer's mapping decides the final field.
+ */
 const OVERRIDES: Record<string, Link> = {
-  item_code: { github: "Backlink in the issue body", jira: "Backlink in the issue description" },
-  initiative_name: { github: "Issue title", jira: "Summary" },
-  description: BODY, hypothesis: BODY, summary: BODY,
-  initiative_phase: { github: "Not synced. May suggest Build when work starts", jira: NONE },
+  item_code: sent("Issue title prefix \"R-12: \" and the link back in the issue body", "Summary prefix and a link back in Description"),
+  initiative_name: sent("Issue title (after the \"R-12: \" prefix)", "Summary"),
+  summary: sent("Issue body, managed block, section \"## Summary\"", "Description"),
+  description: sent("Issue body, managed block, section \"## Description\"", "Description"),
+  hypothesis: sent("Issue body, managed block, section \"## Hypothesis (IF / THEN / RESULTING IN)\"", "Description"),
+  artifacts: sent("Issue body, managed block, section \"## Artifacts\" (links)", "Issue links or Description"),
+  screenshots: sent("Issue body, section \"## Files\" (share links, private repositories only)", "Not planned"),
+  initiative_phase: { github: "Not synced. May suggest Build when the first child issue starts", jira: NONE },
   initiative_status: same("Not synced. A closed issue never sets it"),
   health: { github: "Not synced. Signals only suggest", jira: NONE },
-  stack_rank: { github: "Optional: Priority field or label", jira: "Optional: Priority" },
-  moscow: LABELS, effort: { github: "Optional: size field or label", jira: LABELS.jira }, theme: LABELS, tags: { github: "Optional: labels", jira: "Labels" },
-  roadmap_category: LABELS, focus_area: LABELS,
-  planned_start: { github: "Optional: date field", jira: "Optional: start date" },
-  g2m_date_est: { github: "Optional: date field, milestone due date", jira: "Optional: due date" },
-  home_project: { github: "Chooses the repository", jira: "Chooses the Jira project" },
-  assignees: { github: "Issue assignees, two-way", jira: "Assignee" },
-  github_links: { github: "Tracking issue", jira: "Jira issue link" },
-  status: { github: "Issue open or closed", jira: "Status category" },
-  issues_closed: TRACKER_COUNTS, issues_total: TRACKER_COUNTS, delivery_progress_pct: TRACKER_COUNTS, blocked_issues: TRACKER_COUNTS,
-  planned_scope: TRACKER_COUNTS,
-  open_prs: { github: "Pull requests", jira: "Bitbucket via issue keys" }, merged_prs: { github: "Pull requests", jira: "Bitbucket via issue keys" },
-  ci_status: { github: "Checks on the pull request", jira: "Bitbucket pipelines" }, latest_release: { github: "Latest release", jira: "Fix version" },
-  gh_project_status: BOARD, gh_iteration: { github: "Projects v2 iteration", jira: "Sprint" }, gh_target_date: { github: "Projects v2 target date", jira: "Due date" },
-  gh_last_activity: { github: "Issue activity", jira: "Issue updated" },
-  repositories: { github: "Repositories of the linked issues", jira: "Jira projects of the linked issues" },
+  stack_rank: sent("Label pv:rank/top-10, top-25, top-50 or later (the band, never the number)", `Priority (${JIRA_PER_MAPPING})`),
+  moscow: sent("Label pv:moscow/must, should, could or wont; board field Priority (P0, P1, P2)", `Label or custom field (${JIRA_PER_MAPPING})`),
+  theme: sent("Label pv:group/<name>; board field Initiative", `Labels (${JIRA_PER_MAPPING})`),
+  change_type: sent("Label pv:type/new-feature or improvement; issue Type Feature, Improvement or Enhancement", "Issue type"),
+  effort: sent("Project board field Size (XS to XL)", `Custom field (${JIRA_PER_MAPPING})`),
+  g2m_date_est: sent("Milestone \"YYYY Qn\" (due on the quarter's last day); board field Due date", "Due date"),
+  home_project: sent("The repository that holds the tracking issue; label pv:project/<project>", "The Jira project of the issue"),
+  roadmap_category: same(NOT_YET), focus_area: same(NOT_YET), tags: same(NOT_YET), planned_start: same("Not sent yet (the board's Start date is planned)"),
+  assignees: { github: "Both: issue Assignees", jira: "Both: Assignee" },
+  github_links: { github: "The tracking issue (repository and issue number)", jira: "The Jira issue (key)" },
+  status: read("Issue state: open, closed as completed (Done), closed as not planned (Cancelled)", "Status category (To Do, In Progress, Done)"),
+  gh_state: read("Issue state and state reason", "Status"),
+  issues_closed: read("State of the tracking issue's sub-issues", "Status of the epic's child issues"),
+  issues_total: read("Count of the tracking issue's sub-issues (epics and tasks)", "Count of the epic's child issues"),
+  delivery_progress_pct: read("Closed divided by total sub-issues", "Closed divided by total child issues"),
+  blocked_issues: read("Label \"blocked\" on epics and tasks", "Flagged or blocked status (per mapping)"),
+  stale_issues: read("Issue updated date: no activity for 14 days", "Updated date"),
+  gh_last_activity: read("Issue updated date", "Updated date"),
+  open_prs: read("Pull requests linked to the issues (closing references), open", "Development panel (Bitbucket pull requests via the issue key)"),
+  merged_prs: read("Pull requests linked to the issues (closing references), merged", "Development panel (Bitbucket pull requests via the issue key)"),
+  ci_status: read("Checks on the default branch of the primary repository (Passing, Failing, None)", "Development panel (Bitbucket pipelines)"),
+  latest_release: read("Latest published release of the linked repositories", "Fix versions (released)"),
+  repositories: read("Repositories of the linked issues", "Jira projects of the linked issues"),
+  gh_project_status: read("Project board field Status (the field chosen for the board)", "Board column (status)"),
+  gh_iteration: read("Project board field Iteration", "Sprint"),
+  gh_target_date: read("Project board field Due date or Target date", "Due date"),
+  planned_scope: { github: "Counted from the sub-issues when you mark the breakdown complete", jira: "Counted from the child issues" },
+  breakdown_route: { github: "Set by the app when the tracking issue is first sent", jira: "Set by the app" },
+  breakdown_status: { github: "Marked complete in the app; set to Awaiting engineering when the issue is first sent", jira: "Marked complete in the app" },
 };
 
 const COMMERCIAL_KEYS = ["value_12m", "value_type", "value_basis", "confidence", "customers_requesting", "kr_metric", "kr_start", "kr_target", "decision", "realized_kr_value", "realized_per_year", "cost_of_not_doing"];
@@ -86,7 +109,7 @@ function updatedBy(f: FieldDef, link: Link): string {
   if (f.mode === "system") return UPDATE_SYSTEM;
   if (f.mode === "locked" || f.storage.startsWith("GitHub-synced")) return TRACKER;
   // an editable column the tracker can carry (an optional label, field or date) is sent by Sync with GitHub
-  return /^(optional|app -> github)/i.test(link.github) ? join(UPDATE_EDIT, UPDATE_MANUAL) : UPDATE_EDIT;
+  return /^(sent to|both)/i.test(link.github) ? join(UPDATE_EDIT, UPDATE_MANUAL) : UPDATE_EDIT;
 }
 
 /** First sentence of the dictionary description, kept short. */
