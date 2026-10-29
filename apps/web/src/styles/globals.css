@@ -787,3 +787,27 @@ a.scope-link:hover, a.scope-link:focus-visible { background: var(--blue-tint-2);
 .rp-swatch { border-radius: 50%; }
 .rp-kpi { border-radius: var(--radius-lg); }
 .dialog:focus { outline: none; } /* focus goes into the window when it opens; the controls inside show their own focus */
+
+/* Incoming: the controls sit next to each other (the global rule makes every input and select full width), the list scrolls inside its own box */
+.incoming-filters select, .incoming-filters input, .incoming-actions select, .incoming-actions input:not([type="checkbox"]) { width: auto; }
+.incoming-filters input[type="search"] { flex: 1 1 220px; min-width: 180px; width: auto; }
+.incoming-pick { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin: 10px 0 6px; }
+.incoming-pick-buttons { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.incoming-pick-buttons .btn { height: 28px; padding: 0 10px; }
+.incoming-scroll { max-height: min(46vh, 420px); overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.incoming-scroll:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.incoming-table { min-width: 760px; width: 100%; margin: 0; }
+.incoming-table thead th { position: sticky; top: 0; z-index: 1; background: var(--bg); box-shadow: 0 1px 0 var(--border); }
+.incoming-bring { margin-top: 14px; }
+.incoming-bring h3 { margin: 0 0 4px; font-size: 13px; }
+.incoming-actions { align-items: flex-end; }
+.in-field { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #5b6272; }
+.in-field select, .in-field input { color: var(--text, inherit); }
+.in-grow { flex: 1 1 220px; }
+.in-grow input { width: 100%; }
+.in-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; }
+.in-check input { width: auto; }
+.in-note { flex-basis: 100%; font-size: 12px; }
+.spin { animation: pv-spin .8s linear infinite; }
+@keyframes pv-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }

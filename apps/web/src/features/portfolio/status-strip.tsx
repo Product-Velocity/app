@@ -75,6 +75,14 @@ export function StatusInline({ controller }: { controller: PortfolioController }
   const mod = mac ? "⌘" : "Ctrl+";
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 15_000); return () => clearInterval(t); }, []);
+  // reading the roadmap again: values changed by GitHub, initiatives pulled in or removed elsewhere
+  const [refresh, setRefresh] = useState<"idle" | "running" | "done">("idle");
+  const reload = async () => {
+    setRefresh("running");
+    await controller.refreshFromServer();
+    setRefresh("done");
+    setTimeout(() => setRefresh("idle"), 2500);
+  };
   return (
     <>
       <span className="pvbar-last">{status.last ? `Last: ${status.last.text}, ${ago(status.last.at, now)}` : ""}</span>
@@ -97,6 +105,10 @@ export function StatusInline({ controller }: { controller: PortfolioController }
           </button>
         </>
       )}
+      <button type="button" className="btn pvbar-undo" aria-label="Refresh data" title="Refresh data: read the roadmap again" disabled={refresh === "running" || status.pending > 0} onClick={() => void reload()}>
+        <svg className={refresh === "running" ? "spin" : undefined} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></svg>
+      </button>
+      <span className="visually-hidden" role="status">{refresh === "running" ? "Refreshing data…" : refresh === "done" ? "Data refreshed." : ""}</span>
     </>
   );
 }

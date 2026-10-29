@@ -95,7 +95,14 @@ export class MemorySourceControl implements SourceControl {
   subs = new Map<string, SubIssue[] | null>();
   async listSubIssues(_i: number, repo: string, number: number): Promise<SubIssue[] | null> { this.tick("listSubIssues"); const k = `${repo}#${number}`; return this.subs.has(k) ? this.subs.get(k)! : []; }
   listed = new Map<string, IssueSummary[]>();
-  async listIssues(_i: number, repo: string): Promise<IssueSummary[]> { this.tick("listIssues"); return this.listed.get(repo) ?? []; }
+  /** The options of the last listIssues call (tests). */
+  lastListOptions: { since?: string; maxPages?: number } | undefined;
+  async listIssues(_i: number, repo: string, opts?: { since?: string; maxPages?: number }): Promise<IssueSummary[]> {
+    this.tick("listIssues");
+    this.lastListOptions = opts;
+    const all = this.listed.get(repo) ?? [];
+    return opts?.since ? all.filter((i) => Date.parse(i.updatedAt) > Date.parse(opts.since!)) : all;
+  }
   async createIssue(_i: number, repo: string, input: IssueInput): Promise<IssueRef> {
     this.tick("createIssue", input);
     const number = ++this.n;

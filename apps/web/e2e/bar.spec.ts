@@ -208,6 +208,23 @@ test.describe("filter panel", () => {
     await expect(panel.getByRole("button", { name: `Pin ${fourth}` })).toBeVisible(); // pushed to the fifth place: no longer pinned
   });
 
+  test("Refresh data sits after Redo, reads the roadmap again, and an initiative created elsewhere appears", async ({ page }) => {
+    await open(page, "n=12&role=admin");
+    const redo = page.getByRole("button", { name: /^Redo/ });
+    const refresh = page.getByRole("button", { name: "Refresh data" });
+    await expect(refresh).toBeVisible();
+    expect((await refresh.boundingBox())!.x).toBeGreaterThan((await redo.boundingBox())!.x);
+    // an initiative that was pulled in from the Sync window (another route into the same database)
+    await page.evaluate(() => {
+      const pv = (window as unknown as { __pv: { source: { items: Record<string, unknown>[] } } }).__pv;
+      pv.source.items.push({ ...pv.source.items[0]!, id: "item-pulled", item_code: "R-77", initiative_name: "Pulled in from GitHub", stack_rank: 13 });
+    });
+    await expect(page.locator('.ag-row[row-id="item-pulled"]')).toHaveCount(0);
+    await refresh.click();
+    await expect(page.getByRole("status").filter({ hasText: "Data refreshed." })).toBeAttached();
+    await expect(page.locator('.ag-row[row-id="item-pulled"]')).toContainText("Pulled in from GitHub");
+  });
+
   test("moving a column keeps the panel open and the focus on that column's arrow, so the arrow can be pressed again", async ({ page }) => {
     await open(page, "n=30&role=admin&view=Prioritisation&cols=all");
     await columnsBtn(page).click();

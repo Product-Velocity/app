@@ -471,7 +471,14 @@ export class PortfolioController {
       }
       if (touched) changed.push(row);
     }
+    // initiatives created or removed elsewhere (pulled in from the Sync window, removed in another tab or by an undo there). An empty answer
+    // is never taken as "everything was removed".
+    const freshIds = new Set(fresh.map((f) => f.id));
+    const gone = fresh.length > 0 ? this.rows.filter((r) => !freshIds.has(r.id)) : [];
+    const added = fresh.filter((f) => !this.byId.has(f.id)).map((f) => ({ ...f, project_rank: 0 }) as GridItem);
     if (changed.length > 0) this.emit(changed);
+    if (gone.length > 0) this.removeRows(gone);
+    if (added.length > 0) this.addRows(added);
   }
 
   /** Delete or Backspace on a cell. */
