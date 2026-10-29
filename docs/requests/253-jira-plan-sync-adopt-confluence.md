@@ -12,4 +12,4 @@ Ashu asked to discuss the Jira mapping and the exact features per phase. Decided
 4. Confluence: publish a PRD or discovery document from PV to a page, as a deliberate previewed act; exception to rule 2 for the customer's own private site.
 5. Sign in with Atlassian (R-031) stays later.
 
-Implementation issues per phase (J0 to J8) follow once Ashu confirms the order.
+Implementation issues: #255 (Writing x/y), #256 (new items in Sync, Adopt), #257 (J0 spikes), #258 (Confluence publish). Existing issues updated by comment: #69 (field catalog), #70 (per-customer level mapping), #71 (re-scope to the GitHub sync model), #74 (links only). Others (#67, #68, #72, #73, #76) stand as written.
