@@ -42,6 +42,9 @@ Setup: AG Grid 36.2.0, React, production build, 14 columns, headless Chromium in
 - **S5b (paused, documented but untested here):** adding permissions to an installed App needs an owner to accept them on the installation page; the acceptance sends `installation` / `new_permissions_accepted`. The non-owner install request (as `dev-nbm`) is still to do.
 - **App permissions seen:** the sandbox App has more than needed (`actions`, `artifact_metadata`, `deployments`, `statuses`, `pull_requests`); the real App should use least privilege (see `docs/04`).
 
+### Atlassian J1 (issue #257): connection test page
+Built 2026-10-29, results to be recorded here after Ashu runs it. Admin page `/spikes/atlassian` starts OAuth 2.0 (3LO) at `/api/atlassian/start`; `/api/atlassian/callback` exchanges the code, runs read-only calls (accessible sites, myself, projects, issue types, fields, recent issues) and prints the answers. Scopes requested: `read:jira-work`, `read:jira-user`, `write:jira-work`, `offline_access` (`?confluence=1` adds `write:confluence-content`, `read:confluence-space.summary`, `read:confluence-content.summary`). The scope names come from a web search and the Developer Console, not from Atlassian's own docs: confirm them here. Nothing is stored. Variables: `ATLASSIAN_CLIENT_ID`, `ATLASSIAN_CLIENT_SECRET`, `ATLASSIAN_REDIRECT_URI` (Production only). To record: refresh token returned, granted scopes, whether the field list shows custom fields, whether `write:jira-work` can create an epic.
+
 ### S6 Vercel (documented)
 - Function duration with Fluid compute: Hobby 300 s default and maximum; Pro and Enterprise 300 s default, 800 s maximum (one page mentions an extended 1,800 s). Memory 2 GB Hobby, 4 GB Pro.
 - Cron: Hobby 2 jobs per project, once a day; Pro 40 jobs, per-minute; Enterprise 100 (limits table, one footnote not visible).
