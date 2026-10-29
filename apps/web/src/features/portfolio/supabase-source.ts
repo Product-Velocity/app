@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
+import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
 import type { IssueTreeRow, LoadedItem, TrashedItem } from "./types";
 
@@ -121,6 +121,7 @@ export class SupabaseDataSource implements PortfolioDataSource {
       const assigned = (Array.isArray(item.assignees) ? item.assignees : []) as string[];
       item.assignees = [...assigned.map((u) => emails.get(u) ?? "unknown person"), ...(ghLogins.get(id) ?? []).filter((l) => !usernames.has(l.toLowerCase())).map((l) => `@${l}`)].join(", ") || null;
       item.synced_with = syncedWith(sl, boardTitle.get(String(item.home_project)) ?? null) || null;
+      item.tracker_ownership = trackerOwnership(sl) || null;
       item.tags = (tags.get("tag")?.get(id) ?? []).join(", ") || null;
       item.target_scope = (tags.get("target_scope")?.get(id) ?? []).join(", ") || null;
       item.live_scope = (tags.get("live_scope")?.get(id) ?? []).join(", ") || null;

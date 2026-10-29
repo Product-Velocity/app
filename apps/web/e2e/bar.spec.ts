@@ -288,9 +288,9 @@ test.describe("Shortcuts, Help and text size in the top bar", () => {
     await page.getByRole("button", { name: "Help", exact: true }).click();
     const guide = page.getByRole("dialog", { name: "Help" });
     await expect(guide.getByRole("table", { name: /Columns, and how each one relates/ })).toContainText("Read-only (tracker)");
-    await expect(guide.getByRole("status")).toContainText("169 of 169 columns");
+    await expect(guide.getByRole("status")).toContainText("170 of 170 columns");
     await guide.getByPlaceholder(/Filter columns/).fill("sponsor");
-    await expect(guide.getByRole("status")).toContainText("1 of 169 columns");
+    await expect(guide.getByRole("status")).toContainText("1 of 170 columns");
     await guide.getByRole("tab", { name: "How content flows" }).click();
     await expect(guide.getByRole("table")).toHaveCount(3);
     await guide.getByRole("tab", { name: "Using Claude" }).click();

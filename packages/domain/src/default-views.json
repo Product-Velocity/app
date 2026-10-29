@@ -65,6 +65,7 @@
    "status",
    "last_synced",
    "synced_with",
+   "tracker_ownership",
    "health",
    "delivery_progress_pct",
    "schedule_variance_pp",

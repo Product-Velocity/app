@@ -85,8 +85,8 @@ describe("loadItems", () => {
       { data: [{ id: "p", github_board: { title: "Product Velocity roadmap" } }] },
     ]);
     const [a, b] = await new SupabaseDataSource(client, "t1").loadItems();
-    expect(a).toMatchObject({ last_synced: "2026-10-27T12:00:00Z", synced_with: 'GitHub · Acme/App · board "Product Velocity roadmap"' });
-    expect(b).toMatchObject({ last_synced: null, synced_with: null });
+    expect(a).toMatchObject({ last_synced: "2026-10-27T12:00:00Z", synced_with: 'GitHub · Acme/App · board "Product Velocity roadmap"', tracker_ownership: "Product Velocity" });
+    expect(b).toMatchObject({ last_synced: null, synced_with: null, tracker_ownership: null });
     expect(a).not.toHaveProperty("last_synced_at"); // the raw column stays internal
     expect(calls.find((c) => c.table === "items_computed")!.ops.map(([, args]) => String(args[0])).join(",")).not.toContain("synced_with"); // not asked of the view
   });

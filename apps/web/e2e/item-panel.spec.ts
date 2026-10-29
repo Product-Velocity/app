@@ -95,7 +95,7 @@ test.describe("fields", () => {
     await expect(field(page, "value_weighted")).toContainText("calculated from other fields");
     await reveal(page, "Outcomes");
     await expect(field(page, "outcome_verdict")).toContainText("Arrives in phase 7");
-    await expect(panel(page).locator('[data-field]')).toHaveCount(169); // every dictionary field is in the panel, none missing
+    await expect(panel(page).locator('[data-field]')).toHaveCount(170); // every dictionary field is in the panel, none missing
   });
 
   test("a value typed in the panel appears in the grid at once, and Ctrl+Z undoes it", async ({ page }) => {

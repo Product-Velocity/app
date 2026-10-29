@@ -1,4 +1,4 @@
-// What the "Last Synced" and "Synced With" fields show. Both are derived from the GitHub link of an initiative; nothing is stored for them.
+// What the "Last Synced", "Synced With" and "Tracker Ownership" fields show. All are derived from the GitHub link of an initiative; nothing is stored for them.
 
 export type SyncLink = {
   mode: "push" | "follow";
@@ -31,4 +31,10 @@ export function syncedWith(link: SyncLink | undefined, boardTitle: string | null
   else if (link.syncState === "error") parts.push("last send failed");
   else if (link.syncState === "pending" && !link.issueNumber) parts.push("not sent yet");
   return parts.join(" · ");
+}
+
+/** Who owns what a linked initiative is: Product Velocity (it sends its name and texts after a preview and a confirmation) or the tracker (it only follows the issue). Blank when not linked. */
+export function trackerOwnership(link: SyncLink | undefined): string {
+  if (!link) return "";
+  return link.mode === "push" ? "Product Velocity" : "Tracker (read only)";
 }

@@ -119,7 +119,7 @@ export function withGithubTree(controller: PortfolioController, source: MemoryDa
   const t = (number: number, level: 1 | 2, parentNumber: number | null, title: string, state: "open" | "closed", assignees: string[], createdBy: "app" | "claude" | "engineer" = "engineer") =>
     ({ repo: "Acme/App", number, level, parentNumber, title, state, stateReason: null, assignees, createdBy, updatedAt: "2026-10-23T10:00:00Z" });
   source.trees.set(row.id, [t(40, 1, null, "Import flow", "open", []), t(41, 1, null, "Export flow", "open", ["dev1"], "claude"), t(42, 2, 40, "Parse the file", "closed", ["dev1"]), t(43, 2, 40, "Map the columns", "open", ["dev2"]), t(44, 2, 41, "Write the CSV", "open", [])]);
-  Object.assign(row, { issues_total: 3, issues_closed: 1, breakdown_route: "Traditional", breakdown_status: "Awaiting engineering", last_synced: "2026-10-27T10:15:00Z", gh_project_status: "On staging", synced_with: 'GitHub · Acme/App · board "Product Velocity roadmap"' });
+  Object.assign(row, { issues_total: 3, issues_closed: 1, breakdown_route: "Traditional", breakdown_status: "Awaiting engineering", last_synced: "2026-10-27T10:15:00Z", gh_project_status: "On staging", synced_with: 'GitHub · Acme/App · board "Product Velocity roadmap"', tracker_ownership: "Product Velocity" });
   return { ...lookups, github: { connected: true, links: { [row.id]: { mode: "push", number: 34, url: "https://github.com/Acme/App/issues/34", state: "synced", error: null, ghState: "open", lastActivity: "2026-10-23T10:00:00Z" } } } };
 }
 
