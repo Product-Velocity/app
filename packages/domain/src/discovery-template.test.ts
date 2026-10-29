@@ -3,6 +3,7 @@ import { DOC_KINDS } from "./documents";
 import { claudeMaySet } from "./mcp-read";
 import { FIELD_BY_KEY } from "./registry";
 import { DISCOVERY_FIELDS, DISCOVERY_PHASE, DISCOVERY_RULES, DISCOVERY_SECTIONS, discoveryInstructions, discoveryPrompt, unknownDiscoveryFields } from "./discovery-template";
+import { ALIGN_RULE, LIGHT_EVIDENCE_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
 import { PRD_MODULES, PRD_RULES, prdPrompt, serverInstructions } from "./prd-template";
 
 describe("the discovery template", () => {
@@ -57,7 +58,7 @@ describe("the write_discovery prompt and instructions", () => {
 
   it("is part of the always-on server instructions, next to the PRD flow", () => {
     const i = serverInstructions();
-    expect(i).toContain(discoveryInstructions());
+    expect(i).toContain(discoveryInstructions([ALIGN_RULE, PRIOR_KNOWLEDGE_RULE]));
     expect(i).toMatch(/When asked to write a discovery/);
     expect(i).toMatch(/At a glance/);
   });
@@ -81,5 +82,19 @@ describe("the PRD template after the discovery work", () => {
   it("tells Claude to read an existing discovery first and reuse it", () => {
     expect(PRD_RULES.join("\n")).toMatch(/already has a discovery document/);
     expect(prdPrompt({}).text).toMatch(/If the initiative has a discovery document, read it too/);
+  });
+});
+
+describe("flows added in issue #250", () => {
+  it("the discovery flow asks whether to save or align first, uses earlier documents and flags light evidence", () => {
+    const p = discoveryPrompt({ brief: "Improve retention" }).text;
+    for (const r of [ALIGN_RULE, PRIOR_KNOWLEDGE_RULE, LIGHT_EVIDENCE_RULE]) {
+      expect(DISCOVERY_RULES).toContain(r);
+      expect(p).toContain(r);
+      expect(discoveryInstructions()).toContain(r);
+    }
+    expect(LIGHT_EVIDENCE_RULE).toMatch(/Never invent evidence/);
+    expect(serverInstructions()).toContain(LIGHT_EVIDENCE_RULE);
+    expect(p).toMatch(/ONE message[^\n]*align-first question/);
   });
 });
