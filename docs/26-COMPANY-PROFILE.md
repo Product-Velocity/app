@@ -1,6 +1,6 @@
 # Company profile: what Claude knows about the company (issue #269)
 
-Status: 2026-10-29, from Ashu's chat. **Built: slices 1 and 2. Slice 3 is open.** Builds on `docs/22-CLAUDE-PRD-FLOW.md` and `docs/24-CLAUDE-DISCOVERY-FLOW.md`.
+Status: 2026-10-29, from Ashu's chat. **Built: slices 1, 2 and 3 (issue #274).** Builds on `docs/22-CLAUDE-PRD-FLOW.md` and `docs/24-CLAUDE-DISCOVERY-FLOW.md`.
 
 ## 1. What and why
 Claude writes better Discovery and PRD documents when it knows the company: its industry, the words it uses, who it serves, who it competes with. This is memory about the **company**, not about one initiative (earlier initiatives are covered by the prior-knowledge rule in `docs/22` section 8b).
@@ -12,7 +12,7 @@ Claude writes better Discovery and PRD documents when it knows the company: its 
 4. Build slices 1 and 2 first; slice 3 after the first real use.
 
 ## 3. What is stored
-`tenants.company_url` (https address, 300 characters at most) and `company_profiles`: `sections` (jsonb), `status` (draft or confirmed), `version`, `ai_draft`, `researched_at`, who confirmed and when. Every saved version is kept (`company_profile_versions`). The sections, in order: **Industry and space, Position in the ecosystem, Products and services, Customer personas and groups, Key competitors, Glossary, Voice and tone, Sources**. Each is optional Markdown (8,000 characters at most). Every statement rests on a source (URL and date) listed in Sources. Code: `packages/domain/src/company-profile.ts`.
+`tenants.company_url` (https address, 300 characters at most) and `company_profiles`: `sections` (jsonb), `status` (draft or confirmed), `version`, `ai_draft`, `researched_at`, who confirmed and when. Every saved version is kept (`company_profile_versions`). The sections, in order: **Industry and space, Position in the ecosystem, Products and services, Customer personas and groups, Key competitors, Partners and third parties, Glossary, Voice and tone, Sources**. Each is optional Markdown (8,000 characters at most). Every statement rests on a source (URL and date) listed in Sources. Code: `packages/domain/src/company-profile.ts`.
 
 ## 4. Rules in the database (migration `20261029133109_company_profile.sql`)
 - RLS on both tables, keyed by `tenant_id`; two-tenant tests; added to the probe list in `rls.test.ts`.
@@ -30,5 +30,8 @@ Claude writes better Discovery and PRD documents when it knows the company: its 
 ## 6. In the app
 Onboarding has an optional "Company website". Workspace settings has the same field. **Company profile** (account menu, `/settings/company-profile`): the eight sections as text boxes, status, research date, a stale hint, **Confirm this profile** / **Reopen as draft**. Admins edit; everyone else reads.
 
-## 7. Open (slice 3)
-Per-document research of third parties and terms named in a brief, the sense-check against what was found (for example a partner's integration against that partner's published offer), appendix A7, a partner cache inside the profile, and a refresh prompt at 90 days.
+## 7. Per-document research (slice 3, issue #274)
+The partner cache is the profile's **Partners and third parties** section (a block per partner with what it offers, its value proposition as it states it, the source and the date read; refreshed after 90 days). When a Discovery or PRD starts, Claude researches the third parties and terms of the brief that the profile does not already hold, sense-checks the brief's claims against what it found, and records the result in the document (PRD appendix A7, discovery section 8). See `docs/22` section 8b. New partners and terms are offered to the profile; saving them sends a confirmed profile back to draft, so an admin confirms again.
+
+## 8. Help page
+The in-app Help (Using Claude) lists these flows. **Every change to the Claude features updates `apps/web/src/components/help-content.ts` in the same PR** (Ashu, 2026-10-29).

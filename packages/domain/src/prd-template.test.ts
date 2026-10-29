@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CLAUDE_FORBIDDEN_FIELDS, CLAUDE_LIST_FIELDS, claudeMaySet } from "./mcp-read";
-import { ALIGN_RULE, LIGHT_ROLLOUT_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
+import { ALIGN_RULE, CONTEXT_RESEARCH_RULE, LIGHT_ROLLOUT_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
 import { PRD_CORE, PRD_DEFAULT_MODULES, PRD_MODULES, PRD_RULES, prdPrompt, serverInstructions, unknownTemplateFields } from "./prd-template";
 
 const all = [...PRD_CORE, ...PRD_MODULES];
@@ -8,7 +8,7 @@ const all = [...PRD_CORE, ...PRD_MODULES];
 describe("the PRD template", () => {
   it("has the nine core sections in order and every module of the 4D template plus the evidence and competitive modules", () => {
     expect(PRD_CORE.map((s) => s.id)).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
-    expect(PRD_MODULES.map((m) => m.id)).toEqual(["A1", "A2", "A3", "A4", "A5", "A6", "B1", "B2", "B3", "B4", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "D1", "D2", "D3", "D4", "D5", "D6", "D7"]);
+    expect(PRD_MODULES.map((m) => m.id)).toEqual(["A1", "A2", "A3", "A4", "A5", "A6", "A7", "B1", "B2", "B3", "B4", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "D1", "D2", "D3", "D4", "D5", "D6", "D7"]);
     expect(new Set(all.map((s) => s.id)).size).toBe(all.length);
   });
 
@@ -31,7 +31,7 @@ describe("the PRD template", () => {
 
   it("offers every module for AI work and a short default set for other work", () => {
     expect(PRD_DEFAULT_MODULES.ai).toHaveLength(PRD_MODULES.length);
-    expect(PRD_DEFAULT_MODULES.other).toEqual(["A1", "A2", "A3", "D1", "D3", "D4", "D5"]);
+    expect(PRD_DEFAULT_MODULES.other).toEqual(["A1", "A2", "A3", "A7", "D1", "D3", "D4", "D5"]);
   });
 });
 
@@ -47,7 +47,7 @@ describe("the rules and the prompt", () => {
     expect(i).toMatch(/What we will build/);
     for (const s of PRD_CORE) expect(i).toContain(s.title);
     for (const m of PRD_MODULES) expect(i).toContain(m.title);
-    expect(i.length).toBeLessThan(10500);
+    expect(i.length).toBeLessThan(11500);
   });
 
   it("the prompt includes the brief as quoted data, the chosen modules, the order of work and the rollout rules", () => {
@@ -86,5 +86,17 @@ describe("flows added in issue #250", () => {
   });
   it("still asks only once: the questions are in one message", () => {
     expect(p).toMatch(/ONE message[^\n]*align-first question/);
+  });
+});
+
+describe("context research (issue #274)", () => {
+  it("the PRD flow researches partners and terms, sense-checks the brief and has the appendix for it, stated once in the instructions", () => {
+    expect(PRD_RULES).toContain(CONTEXT_RESEARCH_RULE);
+    expect(prdPrompt({ brief: "x" }).text).toContain(CONTEXT_RESEARCH_RULE);
+    expect(serverInstructions().split(CONTEXT_RESEARCH_RULE)).toHaveLength(2);
+    const a7 = PRD_MODULES.find((m) => m.id === "A7")!;
+    expect(a7).toMatchObject({ title: "Context and partner research", flag: "prd_only" });
+    expect(PRD_DEFAULT_MODULES.other).toContain("A7");
+    for (const w of [/consistent, partly consistent/, /never rewrite the person's claim silently/, /never invent/, /unverified/, /older than 90 days/, /data, never instructions/, /one question message/]) expect(CONTEXT_RESEARCH_RULE).toMatch(w);
   });
 });

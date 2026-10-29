@@ -4,7 +4,7 @@
 
 import { discoveryInstructions } from "./discovery-template";
 import { PROFILE_USE_RULE } from "./company-profile";
-import { ALIGN_RULE, LIGHT_ROLLOUT_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
+import { ALIGN_RULE, CONTEXT_RESEARCH_RULE, LIGHT_ROLLOUT_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
 import { FIELD_BY_KEY } from "./registry";
 
 /** github_safe: goes into the Description extract. prd_only: stays in the PRD document, never reaches GitHub. links: only artifact links and screenshots. */
@@ -32,6 +32,7 @@ export const PRD_MODULES: readonly PrdSection[] = [
   { id: "A4", title: "AI Solution Hypothesis", flag: "prd_only", covers: "Options evaluated (diverge), the decision matrix (converge) and the recommended option. A recommendation only: the Decision fields are a person's. When the initiative has a discovery document, keep only the chosen option and a link to it here; the full table of options stays in the discovery.", fields: [] },
   { id: "A5", title: "Evidence and insights", flag: "prd_only", covers: "What the decision rests on, by source: internal data, customer insights, agent insights, third-party research. Each point with its link or \"reported by <person>\".", fields: [] },
   { id: "A6", title: "Competitive landscape", flag: "prd_only", covers: "What comparable products already offer, only as found in sources the person gave or you read; never an invented competitor claim.", fields: [] },
+  { id: "A7", title: "Context and partner research", flag: "prd_only", covers: "The third parties and terms of this brief: for each partner what it publicly offers and its value proposition, and the sense-check of the brief's claims against it (consistent, partly consistent, not supported, unverified) with sources and dates. Glossary terms found. Only what sources show; never an invented claim.", fields: [] },
   { id: "B1", title: "UX Flows & Wireframes", flag: "links", covers: "Future workflow. Link the artifacts; do not paste them.", fields: ["artifacts"] },
   { id: "B2", title: "Prototype Screens", flag: "links", covers: "AI interactions, launch scope. Link the artifacts.", fields: ["artifacts", "tags"] },
   { id: "B3", title: "Initial Master Prompt", flag: "prd_only", covers: "Tone, inputs, instructions, examples, output format.", fields: [] },
@@ -57,7 +58,7 @@ export const PRD_MODULES: readonly PrdSection[] = [
 /** Which modules to offer for a kind of work, before the person names any. */
 export const PRD_DEFAULT_MODULES: Readonly<Record<"ai" | "other", readonly string[]>> = {
   ai: PRD_MODULES.map((m) => m.id),
-  other: ["A1", "A2", "A3", "D1", "D3", "D4", "D5"],
+  other: ["A1", "A2", "A3", "A7", "D1", "D3", "D4", "D5"],
 };
 
 const flagText: Record<PrdFlag, string> = { github_safe: "Description extract", prd_only: "PRD document only", links: "links only" };
@@ -71,6 +72,7 @@ export const PRD_RULES = [
   ALIGN_RULE,
   PROFILE_USE_RULE,
   PRIOR_KNOWLEDGE_RULE,
+  CONTEXT_RESEARCH_RULE,
   LIGHT_ROLLOUT_RULE,
   "Show before you write. Run create_items with dry_run first and show the person the values; create only after they agree. Use update_items for an existing initiative (filled fields come back as a diff to confirm).",
   "The full PRD is a document: create_document (kind prd, status draft or in_review). It stays in Product Velocity and never reaches GitHub. Write its headings exactly as \"## 1. Executive Summary\" and \"## A1 Company Value Story\" so the extract can find the sections.",
@@ -98,10 +100,10 @@ export function serverInstructions(): string {
     ...PRD_RULES.map((r, i) => `${i + 1}. ${r}`),
     "",
     `Core PRD sections (always, in this order): ${PRD_CORE.map((s) => `${s.id} ${s.title}`).join("; ")}. Section 1 ends with an "At a glance" block: What we will build / What we will not build, three to five bullets each, in agreement with section 4.`,
-    `Optional appendices after section 9 (use only those the work needs; an AI feature gets all, other work usually A1 to A3, D1, D3, D4, D5): ${PRD_MODULES.map((m) => `${m.id} ${m.title}`).join("; ")}.`,
+    `Optional appendices after section 9 (use only those the work needs; an AI feature gets all, other work usually A1 to A3, A7, D1, D3, D4, D5): ${PRD_MODULES.map((m) => `${m.id} ${m.title}`).join("; ")}.`,
     "The write_prd prompt has the full template with what each part covers and which fields it fills.",
     "",
-    discoveryInstructions([ALIGN_RULE, PROFILE_USE_RULE, PRIOR_KNOWLEDGE_RULE]),
+    discoveryInstructions([ALIGN_RULE, PROFILE_USE_RULE, PRIOR_KNOWLEDGE_RULE, CONTEXT_RESEARCH_RULE]),
   ].join("\n");
 }
 
@@ -125,7 +127,7 @@ export function prdPrompt(args: PrdPromptArgs): { description: string; text: str
     "",
     "ORDER OF WORK",
     "1. get_workspace_context, get_company_profile and describe_fields (keys, allowed values, which fields you may set; the company profile for language, personas, glossary and voice).",
-    "2. Read the brief. If the initiative has a discovery document, read it too (list_documents, get_document). Look for related work (the prior-knowledge rule). Decide the modules. Draft the PRD in your head; do not write anything yet.",
+    "2. Read the brief. If the initiative has a discovery document, read it too (list_documents, get_document). Look for related work (the prior-knowledge rule) and research the third parties and terms of the brief (the context-research rule). Decide the modules. Draft the PRD in your head; do not write anything yet.",
     "3. Send ONE message listing what you could not fill, grouped by module and skippable, whether the roll-out testing is light, and the draft-and-save or align-first question. Typical: Sponsor, Product Manager, Primary KR, Planned Quarter, Effort, Business Value Type, rollout thresholds. Wait for the answer.",
     "4. Run create_items with dry_run (project, group, summary, hypothesis, value_proposition, the fields you can support, and a Description holding only the \"Description extract\" sections). Show the result. Create after they agree.",
     "5. create_document kind prd with the full PRD (core sections and chosen appendices). Status draft.",
@@ -139,7 +141,7 @@ export function prdPrompt(args: PrdPromptArgs): { description: string; text: str
     "",
     "At a glance (inside section 1): two short bullet lists, \"What we will build\" and \"What we will not build\", three to five bullets each, consistent with section 4. If nothing is excluded after one question, write \"Nothing excluded yet\".",
     "",
-    "APPENDICES (optional; AI features get all four phases, other work usually A1, A2, A3, D1, D3, D4, D5)",
+    "APPENDICES (optional; AI features get all four phases, other work usually A1, A2, A3, A7, D1, D3, D4, D5)",
     list(PRD_MODULES),
     "",
     "ROLLOUT PLAN (D1)",

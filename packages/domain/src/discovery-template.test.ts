@@ -3,16 +3,16 @@ import { DOC_KINDS } from "./documents";
 import { claudeMaySet } from "./mcp-read";
 import { FIELD_BY_KEY } from "./registry";
 import { DISCOVERY_FIELDS, DISCOVERY_PHASE, DISCOVERY_RULES, DISCOVERY_SECTIONS, discoveryInstructions, discoveryPrompt, unknownDiscoveryFields } from "./discovery-template";
-import { ALIGN_RULE, LIGHT_EVIDENCE_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
+import { ALIGN_RULE, CONTEXT_RESEARCH_RULE, LIGHT_EVIDENCE_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
 import { PROFILE_USE_RULE } from "./company-profile";
 import { PRD_MODULES, PRD_RULES, prdPrompt, serverInstructions } from "./prd-template";
 
 describe("the discovery template", () => {
-  it("has the seven sections of Ashu's example in order", () => {
+  it("has the seven sections of Ashu's example in order, then the context research section (issue #274)", () => {
     expect(DISCOVERY_SECTIONS.map((s) => s.title)).toEqual([
-      "Objective and key results", "Problem / opportunity", "Why", "Risks", "Potential solutions", "Next steps", "Testing success",
+      "Objective and key results", "Problem / opportunity", "Why", "Risks", "Potential solutions", "Next steps", "Testing success", "Context and partner research",
     ]);
-    expect(DISCOVERY_SECTIONS.map((s) => s.id)).toEqual(["1", "2", "3", "4", "5", "6", "7"]);
+    expect(DISCOVERY_SECTIONS.map((s) => s.id)).toEqual(["1", "2", "3", "4", "5", "6", "7", "8"]);
   });
 
   it("is a document kind of its own", () => {
@@ -59,7 +59,7 @@ describe("the write_discovery prompt and instructions", () => {
 
   it("is part of the always-on server instructions, next to the PRD flow", () => {
     const i = serverInstructions();
-    expect(i).toContain(discoveryInstructions([ALIGN_RULE, PROFILE_USE_RULE, PRIOR_KNOWLEDGE_RULE]));
+    expect(i).toContain(discoveryInstructions([ALIGN_RULE, PROFILE_USE_RULE, PRIOR_KNOWLEDGE_RULE, CONTEXT_RESEARCH_RULE]));
     expect(i).toMatch(/When asked to write a discovery/);
     expect(i).toMatch(/At a glance/);
   });
@@ -97,5 +97,13 @@ describe("flows added in issue #250", () => {
     expect(LIGHT_EVIDENCE_RULE).toMatch(/Never invent evidence/);
     expect(serverInstructions()).toContain(LIGHT_EVIDENCE_RULE);
     expect(p).toMatch(/ONE message[^\n]*align-first question/);
+  });
+});
+
+describe("context research (issue #274)", () => {
+  it("the discovery flow researches partners and terms and sense-checks the brief", () => {
+    expect(DISCOVERY_RULES).toContain(CONTEXT_RESEARCH_RULE);
+    expect(discoveryPrompt({ brief: "x" }).text).toContain(CONTEXT_RESEARCH_RULE);
+    expect(discoveryPrompt({ brief: "x" }).text).toMatch(/context-research rule/);
   });
 });

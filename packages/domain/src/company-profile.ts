@@ -11,6 +11,7 @@ export const PROFILE_SECTIONS: readonly ProfileSection[] = [
   { key: "products", title: "Products and services", covers: "Each product or service with its value proposition as the company states it." },
   { key: "personas", title: "Customer personas and groups", covers: "The customers, users or segments the company says it serves, and what each wants." },
   { key: "competitors", title: "Key competitors", covers: "Competitors named in sources, and only what those sources publish about them. Never an invented claim." },
+  { key: "partners", title: "Partners and third parties", covers: "Partners, vendors and platforms the company works with: what each offers and its value proposition as it states it, with the source and the date read. One block per partner; refreshed after 90 days." },
   { key: "glossary", title: "Glossary", covers: "Terms, product names, acronyms and lingo the company uses, with a plain meaning each. One per line: \"Term: meaning\"." },
   { key: "voice", title: "Voice and tone", covers: "How the company writes: formal or plain, words it likes, words it avoids." },
   { key: "sources", title: "Sources", covers: "Every page the profile rests on: URL and the date it was read. A statement without a source does not belong in the profile." },

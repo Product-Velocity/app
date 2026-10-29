@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FIELDS, FIELD_BY_KEY } from "@pv/domain";
-import { COLUMN_GROUPS, COLUMN_ROWS, OVERRIDE_KEYS, UPDATE_OVERRIDE_KEYS, accessLabel } from "./help-content";
+import { CLAUDE_OPTIONS, CLAUDE_PROMPTS, CLAUDE_RULES, COLUMN_GROUPS, COLUMN_ROWS, OVERRIDE_KEYS, UPDATE_OVERRIDE_KEYS, accessLabel } from "./help-content";
 
 describe("Help guide columns table", () => {
   it("has exactly one row for every column in the field dictionary, in its order", () => {
@@ -107,5 +107,15 @@ describe("Help guide: exact target fields", () => {
   });
   it("gives a Jira target for every column the app sends", () => {
     for (const r of COLUMN_ROWS.filter((x) => x.github.startsWith("Sent to"))) expect(r.jira, r.key).toMatch(/^Sent to /);
+  });
+});
+
+describe("Help guide: Using Claude covers the Claude features (issue #274)", () => {
+  const all = [CLAUDE_OPTIONS.rows.flat().join(" "), CLAUDE_RULES.join(" "), CLAUDE_PROMPTS.map((p) => p.prompt).join(" ")].join(" ");
+  it("names every prompt and the flows people use", () => {
+    for (const w of ["write_discovery", "write_prd", "research_company", "company profile", "align", "light", "partner", "reconnect"]) expect(all.toLowerCase(), w).toContain(w.toLowerCase());
+  });
+  it("says only an admin confirms the profile", () => {
+    expect(CLAUDE_RULES.join(" ")).toMatch(/Only an admin confirms the company profile, never Claude/);
   });
 });
