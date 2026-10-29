@@ -26,6 +26,7 @@ import { downloadCsv, selectionToCsv } from "./export-selection";
 import { BulkBar } from "./bulk-bar";
 import { DeleteDialog } from "./delete-dialog";
 import { GithubPushDialog } from "./github-push-dialog";
+import type { NewItemsConfig } from "./new-items";
 import { agoLabel, latestTime } from "./last-sync";
 import { ImportDialog } from "./import-dialog";
 import { QuickAddBar } from "./quick-add-bar";
@@ -65,6 +66,8 @@ type GridProps = {
   renderAllColumns?: boolean;
   /** Signed-in person, for "me" in filters. */
   me?: string | null;
+  /** The first step of Sync with GitHub: issues that are new in the tracker. */
+  newItems?: NewItemsConfig;
   /** Page title and other server-rendered pieces of the page head. */
   headLeft?: ReactNode;
   headRight?: ReactNode;
@@ -97,7 +100,7 @@ const SELECTION_COLUMN = { pinned: "left", width: 46, suppressHeaderMenuButton: 
 
 const PRIORITISATION: BaseView = { kind: "builtin", name: "Prioritisation" };
 
-export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATION, renderAllColumns = false, me = null, headLeft, headRight }: GridProps) {
+export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATION, renderAllColumns = false, me = null, newItems, headLeft, headRight }: GridProps) {
   const router = useRouter();
   const params = useSearchParams();
   const { views, defaults, scopes, projects, ready } = useWorkspace();
@@ -589,7 +592,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} total={visibleRows.length} />}
         {controller.canEdit && lookups.projects.length > 0 && <QuickAddBar controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef} />}
       </div>
-      {githubIds && <GithubPushDialog ids={githubIds} onClose={() => setGithubIds(null)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer(); }} />}
+      {githubIds && <GithubPushDialog ids={githubIds} newItems={newItems} onClose={() => setGithubIds(null)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer(); }} />}
       {deleteIds && <DeleteDialog controller={controller} ids={deleteIds} onClose={closeDelete} onDeleted={() => apiRef.current?.deselectAll()} />}
       {importText !== null && (
         <ImportDialog controller={controller} lookups={lookups} defaultProject={contextForQuickAdd} initialText={importText} onClose={() => setImportText(null)} />

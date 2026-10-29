@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { GithubPushDialog } from "@/features/portfolio/github-push-dialog";
+import { MemoryIncomingSource } from "@/features/incoming/memory-source";
+import type { NewItemsConfig } from "@/features/portfolio/new-items";
 import type { SyncApi } from "@/lib/tracker/sync-router";
 import type { PlanItem, ReceiveItem } from "@/lib/github/push-types";
 
@@ -35,15 +37,29 @@ function fakeApi(scenario: string, onCall: (code: string) => void): SyncApi {
   };
 }
 
-export function SyncHarness({ scenario }: { scenario: string }) {
+/** The first step of Sync with in-memory issues: `new=1` has some, `new=0` has none, no value leaves the step out. */
+function fakeNewItems(which: string | undefined): NewItemsConfig | undefined {
+  if (which !== "0" && which !== "1") return undefined;
+  const source = new MemoryIncomingSource(which === "0" ? [] : undefined);
+  return {
+    source,
+    count: async () => (await source.load()).issues.filter((i) => i.pullState === "not_pulled").length,
+    projects: async () => [{ id: "p1", name: "Platform" }, { id: "p2", name: "Marketplace" }],
+    canEdit: true,
+    canAdmin: true,
+  };
+}
+
+export function SyncHarness({ scenario, newIssues }: { scenario: string; newIssues?: string }) {
   const [open, setOpen] = useState(false);
   const [calls, setCalls] = useState<string[]>([]);
   const api = useMemo(() => fakeApi(scenario, (c) => setCalls((prev) => [...prev, c])), [scenario]);
+  const newItems = useMemo(() => fakeNewItems(newIssues), [newIssues]);
   return (
     <div className="shell"><main className="content">
       <button type="button" className="btn" onClick={() => setOpen(true)}>Open sync</button>
       <output data-testid="calls">{calls.join(",")}</output>
-      {open && <GithubPushDialog ids={IDS} api={api} onClose={() => setOpen(false)} />}
+      {open && <GithubPushDialog ids={IDS} api={api} newItems={newItems} onClose={() => setOpen(false)} />}
     </main></div>
   );
 }

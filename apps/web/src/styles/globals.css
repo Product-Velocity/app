@@ -786,3 +786,4 @@ a.scope-link:hover, a.scope-link:focus-visible { background: var(--blue-tint-2);
 .rp-seg-on { outline-offset: 1px; }
 .rp-swatch { border-radius: 50%; }
 .rp-kpi { border-radius: var(--radius-lg); }
+.dialog:focus { outline: none; } /* focus goes into the window when it opens; the controls inside show their own focus */

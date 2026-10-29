@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { checkBoard, confirmSync, startSync } from "@/app/(workspace)/portfolio/sync";
 import type { SyncApi } from "@/lib/tracker/sync-router";
+import { NewItemsStep, type NewItemsConfig } from "./new-items";
 import { applyBoardLines, boardCandidates, chunk, CHECK_CHUNK, dropWritten, failedCard, mergeChecked, replaceResults, writeAll, writingLabel, type WrittenOne } from "./sync-progress";
 import type { PlanItem, PushItemResult, ReceiveItem, ReceiveStatus, SyncChoice, SyncConflict, SyncPreview, TakenOver } from "@/lib/github/push-types";
 
 /** The three server calls the dialog makes, routed to the sync engine of each initiative's tracker; a test page passes fakes. */
 const REAL_API: SyncApi = { start: startSync, board: checkBoard, confirm: confirmSync };
 
-type Props = { ids: string[]; api?: SyncApi; onClose: () => void; onDone?: () => void; /** Texts taken over from GitHub (already saved): the grid shows them and makes them one undo step. */ onTakenOver?: (changes: TakenOver[]) => void };
+type Props = { ids: string[]; api?: SyncApi; /** Given, the sync opens with the issues that are new in the tracker (when there are any): decide on them first. */ newItems?: NewItemsConfig; onClose: () => void; onDone?: () => void; /** Texts taken over from GitHub (already saved): the grid shows them and makes them one undo step. */ onTakenOver?: (changes: TakenOver[]) => void };
 type Phase =
   | { kind: "loading" }
   /** `written`: what was already written before a stop (GitHub changed for one initiative), kept for the final list. */
@@ -65,10 +66,15 @@ const WHY: Record<SyncConflict["kind"], (label: string, where?: "board") => stri
  * Sync with GitHub: checks GitHub first (and applies what GitHub owns), then shows exactly what would be written to GitHub and waits
  * for the person to confirm. Nothing is sent before that. With nothing to send it still shows what the check found, and offers Done.
  */
-export function GithubPushDialog({ ids, api = REAL_API, onClose, onDone, onTakenOver }: Props) {
+export function GithubPushDialog({ ids, api = REAL_API, newItems, onClose, onDone, onTakenOver }: Props) {
   const titleId = useId();
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
+  // step 1 (new issues in the tracker) comes first when asked for; the check of the initiatives already runs underneath it
+  const [step, setStep] = useState<"new" | "sync">(newItems?.canEdit ? "new" : "sync");
+  const continueToSync = useCallback(() => setStep("sync"), []);
+  // keyboard focus goes into the window when it opens (a stable callback, so typing in the filters does not pull it back)
+  const focusDialog = useCallback((el: HTMLDivElement | null) => { el?.focus(); }, []);
   const confirmRef = useRef<HTMLButtonElement>(null);
   const [choices, setChoices] = useState<Record<string, "pv" | "github">>({});
 
@@ -188,6 +194,17 @@ export function GithubPushDialog({ ids, api = REAL_API, onClose, onDone, onTaken
     setPhase({ kind: "done", results: replaceResults(results, id, fresh) });
     if (o.kind === "result") finish(o.taken);
   };
+
+  if (step === "new" && newItems) {
+    return (
+      <div className="dialog-backdrop" onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
+        <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={focusDialog}>
+          <h2 id={titleId}>Sync with GitHub: new issues first</h2>
+          <NewItemsStep config={newItems} onContinue={continueToSync} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dialog-backdrop" onKeyDown={(e) => { if (e.key === "Escape" && phase.kind !== "writing") { e.stopPropagation(); onClose(); } }}>

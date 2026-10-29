@@ -202,7 +202,7 @@ export const FLOW_READ: Table = {
     ["3. Pull in", "A pulled-in issue becomes an initiative. Choose Read only (it follows the issue) or Product Velocity owns it. Its tracker columns stay read-only either way", "Incoming issues: Pull in"],
     ["4. Clean up", "Rename, merge duplicates, regroup, rank, add value and owners. Every change can be undone with Ctrl+Z", "Grid, side panel, bulk bar"],
     ["5. Take ownership", "Choose it when you pull in, or later with Take ownership on the GitHub tab (Make read only undoes it). Product Velocity then sends the name, summary, description and hypothesis after a preview and a confirmation. You own phase, status, rank, value and decisions; the tracker owns build status, progress and PR/CI", "GitHub tab of the side panel; column Tracker Ownership"],
-    ["6. Sync", "Sync with GitHub shows what came in, what will go out and any conflict. Nothing is sent until you confirm", "Grid: Sync with GitHub"],
+    ["6. Sync", "Sync with GitHub first lists issues that are new in GitHub, so you can pull them in or ignore them. Then it shows what came in, what will go out and any conflict. Nothing is sent until you confirm", "Grid: Sync with GitHub"],
   ],
 };
 
