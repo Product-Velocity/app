@@ -271,6 +271,10 @@ function GithubTab({ controller, lookups, itemId }: { controller: PortfolioContr
   const [rows, setRows] = useState<IssueTreeRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [undoMode, setUndoMode] = useState<"push" | "follow" | null>(null);
+  // what the person just chose, for this initiative (the link in the lookups may be a copy)
+  const [chosen, setChosen] = useState<{ itemId: string; mode: "push" | "follow" } | null>(null);
   const row = controller.row(itemId) as Record<string, unknown> | undefined;
   const status = row?.breakdown_status ? String(row.breakdown_status) : null;
   const total = row?.issues_total == null ? null : Number(row.issues_total);
@@ -285,6 +289,17 @@ function GithubTab({ controller, lookups, itemId }: { controller: PortfolioContr
     return () => { cancelled = true; };
   }, [controller, itemId, controller.status.version]);
 
+  /** Takes ownership or hands it back. Writes nothing to GitHub; the next Sync shows what would be sent. `undo` puts the previous mode back. */
+  const changeOwner = async (mode: "push" | "follow", undo = false) => {
+    setBusy(true);
+    const r = await controller.setLinkMode(itemId, mode);
+    setBusy(false);
+    if (!r.ok) { setMessage(r.error); return; }
+    setChosen({ itemId, mode });
+    setUndoMode(undo ? null : r.before);
+    setMessage(undo ? "Put back as it was." : mode === "push" ? "Product Velocity now owns this initiative. Nothing was written to GitHub: press Sync with GitHub to see what would be sent." : "This initiative is read only again. Nothing is sent to GitHub.");
+  };
+
   if (!link?.number) {
     return (
       <div className="ip-empty">
@@ -295,6 +310,7 @@ function GithubTab({ controller, lookups, itemId }: { controller: PortfolioContr
   }
   if (error) return <p role="alert" className="pf-error">Could not load the issues: {error}</p>;
   if (!rows) return <p role="status" className="muted">Loading the issues…</p>;
+  const mode = chosen?.itemId === itemId ? chosen.mode : link.mode;
   const epics = rows.filter((r) => r.level === 1);
   const tasksOf = (e: IssueTreeRow) => rows.filter((r) => r.level === 2 && r.parentNumber === e.number);
   const stateText = (r: IssueTreeRow) => (r.state === "open" ? "Open" : r.stateReason === "not_planned" ? "Closed (not planned)" : "Closed (completed)");
@@ -321,6 +337,13 @@ function GithubTab({ controller, lookups, itemId }: { controller: PortfolioContr
       </p>
       {nearLimit && <p role="status" className="notice">A parent issue is close to GitHub&apos;s limit of 100 sub-issues. Group the work under more epics.</p>}
       {message && <p role="status" className="notice">{message}</p>}
+      <p>
+        <strong>Ownership:</strong> {mode === "push" ? "Product Velocity owns what this initiative is (name, summary, description, hypothesis). Changes go to GitHub when you sync and confirm. Status and progress stay GitHub's." : "Read only. This initiative follows the issue; nothing is sent to GitHub."}{" "}
+        {controller.canEdit && (
+          <button type="button" className="btn" disabled={busy} onClick={() => void changeOwner(mode === "push" ? "follow" : "push")}>{mode === "push" ? "Make read only" : "Take ownership"}</button>
+        )}
+        {undoMode && <> <button type="button" className="btn" disabled={busy} onClick={() => void changeOwner(undoMode, true)}>Undo</button></>}
+      </p>
       {controller.canEdit && !complete && status !== null && (
         <p>
           <button type="button" className="btn" onClick={async () => { const r = await controller.completeBreakdown(itemId); setMessage(r.ok ? "Breakdown marked complete. Planned scope is now fixed; later additions count as scope added." : r.error); }}>Mark breakdown complete</button>{" "}

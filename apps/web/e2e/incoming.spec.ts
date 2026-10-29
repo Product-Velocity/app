@@ -58,6 +58,19 @@ test.describe("Incoming list", () => {
     await expect(page.getByRole("row", { name: /Export the roadmap/ })).toBeVisible();
   });
 
+  test("Read only is the default; choosing Product Velocity owns it says so, and nothing is written to GitHub", async ({ page }) => {
+    await open(page);
+    await expect(page.getByLabel("Who owns the new initiatives")).toHaveValue("follow");
+    await pick(page, 102);
+    await page.getByLabel("Who owns the new initiatives").selectOption({ label: "Product Velocity owns it" });
+    await page.getByRole("button", { name: /^Pull in 1/ }).click();
+    const status = page.getByRole("status").filter({ hasText: "Pulled 1 issue" });
+    await expect(status).toContainText("Product Velocity owns what they are");
+    await expect(status).toContainText("until you sync and confirm");
+    await expect(status).toContainText("nothing was written to GitHub");
+    await expect(status).not.toContainText("read-only");
+  });
+
   test("ignoring a parent offers to ignore its sub-issues, and a sub-issue names its parent", async ({ page }) => {
     await open(page);
     await expect(page.getByRole("row", { name: /map columns/ })).toContainText("sub-issue of #106");
