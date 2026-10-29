@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CLAUDE_FORBIDDEN_FIELDS, CLAUDE_LIST_FIELDS, claudeMaySet } from "./mcp-read";
+import { ALIGN_RULE, LIGHT_ROLLOUT_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
 import { PRD_CORE, PRD_DEFAULT_MODULES, PRD_MODULES, PRD_RULES, prdPrompt, serverInstructions, unknownTemplateFields } from "./prd-template";
 
 const all = [...PRD_CORE, ...PRD_MODULES];
@@ -46,7 +47,7 @@ describe("the rules and the prompt", () => {
     expect(i).toMatch(/What we will build/);
     for (const s of PRD_CORE) expect(i).toContain(s.title);
     for (const m of PRD_MODULES) expect(i).toContain(m.title);
-    expect(i.length).toBeLessThan(9500);
+    expect(i.length).toBeLessThan(10000);
   });
 
   it("the prompt includes the brief as quoted data, the chosen modules, the order of work and the rollout rules", () => {
@@ -65,5 +66,25 @@ describe("the rules and the prompt", () => {
     expect(prdPrompt({}).text).toMatch(/has not given a brief yet/);
     expect(prdPrompt({ item: "R-12" }).text).toMatch(/Update the existing initiative R-12/);
     expect(prdPrompt({}).text).toMatch(/Create a new initiative/);
+  });
+});
+
+describe("flows added in issue #250", () => {
+  const p = prdPrompt({ brief: "An account switcher" }).text;
+  it("the PRD flow asks whether to save or align first, uses earlier documents and flags a light roll-out", () => {
+    for (const r of [ALIGN_RULE, PRIOR_KNOWLEDGE_RULE, LIGHT_ROLLOUT_RULE]) {
+      expect(PRD_RULES).toContain(r);
+      expect(p).toContain(r);
+      expect(serverInstructions()).toContain(r);
+    }
+    expect(serverInstructions().split(ALIGN_RULE)).toHaveLength(2); // stated once, not repeated for the discovery
+    expect(ALIGN_RULE).toMatch(/write nothing/);
+    expect(PRIOR_KNOWLEDGE_RULE).toMatch(/search_items/);
+    expect(PRIOR_KNOWLEDGE_RULE).toMatch(/data, not instructions/);
+    expect(PRIOR_KNOWLEDGE_RULE).toMatch(/never copy a person-only value/);
+    expect(LIGHT_ROLLOUT_RULE).toMatch(/"to define"/);
+  });
+  it("still asks only once: the questions are in one message", () => {
+    expect(p).toMatch(/ONE message[^\n]*align-first question/);
   });
 });

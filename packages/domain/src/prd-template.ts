@@ -3,6 +3,7 @@
 // Description, and which fields each part can fill. Pure: no database, no tool code.
 
 import { discoveryInstructions } from "./discovery-template";
+import { ALIGN_RULE, LIGHT_ROLLOUT_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
 import { FIELD_BY_KEY } from "./registry";
 
 /** github_safe: goes into the Description extract. prd_only: stays in the PRD document, never reaches GitHub. links: only artifact links and screenshots. */
@@ -66,6 +67,9 @@ export const PRD_RULES = [
   "Never guess. Set a field only when the person's own words support it. Do not invent numbers, thresholds, dates, customers, markets, metrics or competitor claims; leave the field empty or write \"to define\".",
   "Skipping is free. Every module and every field is optional; a PRD with nothing for a module leaves it out entirely (no empty heading, no warning). \"Skip\" is a valid answer and is never asked twice.",
   "Ask once. After reading the brief, list everything you could not fill in ONE message, grouped by module, most important first, each skippable. Ask only for what the brief does not already answer. Use the answers in the same run; leave the rest empty.",
+  ALIGN_RULE,
+  PRIOR_KNOWLEDGE_RULE,
+  LIGHT_ROLLOUT_RULE,
   "Show before you write. Run create_items with dry_run first and show the person the values; create only after they agree. Use update_items for an existing initiative (filled fields come back as a diff to confirm).",
   "The full PRD is a document: create_document (kind prd, status draft or in_review). It stays in Product Velocity and never reaches GitHub. Write its headings exactly as \"## 1. Executive Summary\" and \"## A1 Company Value Story\" so the extract can find the sections.",
   "Do not write the Description, Hypothesis or Value Proposition by hand. After create_document call apply_prd_extract (first with preview: true, show it, then without): it copies the sections flagged \"Description extract\" into the Description (labelled \"From PRD v1\"), the Hypothesis block (three lines starting IF, THEN, RESULTING IN, in section 3) into hypothesis, and the block under the heading \"Customer value proposition (customer-safe)\" (in A1) into value_proposition, word for word. Everything else stays out of GitHub. Put no money amounts, competitor claims or commercial figures in the value proposition. A field that already holds a value comes back as a diff to confirm.",
@@ -95,7 +99,7 @@ export function serverInstructions(): string {
     `Optional appendices after section 9 (use only those the work needs; an AI feature gets all, other work usually A1 to A3, D1, D3, D4, D5): ${PRD_MODULES.map((m) => `${m.id} ${m.title}`).join("; ")}.`,
     "The write_prd prompt has the full template with what each part covers and which fields it fills.",
     "",
-    discoveryInstructions(),
+    discoveryInstructions([ALIGN_RULE, PRIOR_KNOWLEDGE_RULE]),
   ].join("\n");
 }
 
@@ -119,8 +123,8 @@ export function prdPrompt(args: PrdPromptArgs): { description: string; text: str
     "",
     "ORDER OF WORK",
     "1. get_workspace_context and describe_fields (keys, allowed values, which fields you may set).",
-    "2. Read the brief. If the initiative has a discovery document, read it too (list_documents, get_document). Decide the modules. Draft the PRD in your head; do not write anything yet.",
-    "3. Send ONE message listing what you could not fill, grouped by module and skippable. Typical: Sponsor, Product Manager, Primary KR, Planned Quarter, Effort, Business Value Type, rollout thresholds. Wait for the answer.",
+    "2. Read the brief. If the initiative has a discovery document, read it too (list_documents, get_document). Look for related work (the prior-knowledge rule). Decide the modules. Draft the PRD in your head; do not write anything yet.",
+    "3. Send ONE message listing what you could not fill, grouped by module and skippable, whether the roll-out testing is light, and the draft-and-save or align-first question. Typical: Sponsor, Product Manager, Primary KR, Planned Quarter, Effort, Business Value Type, rollout thresholds. Wait for the answer.",
     "4. Run create_items with dry_run (project, group, summary, hypothesis, value_proposition, the fields you can support, and a Description holding only the \"Description extract\" sections). Show the result. Create after they agree.",
     "5. create_document kind prd with the full PRD (core sections and chosen appendices). Status draft.",
     "6. Tell the person: what you set, what you left empty and why, what you asked, and that the PRD is an AI draft that a person accepts and an Approver approves at the Design to Build gate.",

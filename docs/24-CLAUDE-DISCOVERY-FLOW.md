@@ -35,6 +35,9 @@ Every section is optional; a discovery with no competitive research simply has n
 - Dry run before creating; everything is an AI draft.
 - The solutions table is the person's analysis: Claude may draft rows from the brief and marks each "proposed by Claude" until the person accepts.
 
+### Added 2026-10-29 (issue #250)
+The discovery follows the shared flow rules in `docs/22` section 8b: the save-or-align-first question, prior knowledge from related initiatives' documents, and **light evidence**: when section 3 has fewer than two kinds of source, points without a link or "reported by", or only opinions, Claude says so with the question message and suggests sources (retention or churn data, support tickets, 5 to 8 customer interviews, sales call notes, usage analytics, third-party research, a review of comparable products). Never invented; skippable, then the section is labelled "light evidence".
+
 ## 6. What fills fields (only for the one initiative)
 | Field | From |
 |---|---|
