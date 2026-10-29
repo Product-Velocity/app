@@ -248,12 +248,12 @@ test.describe("filter panel", () => {
 });
 
 test.describe("Add an initiative: type it in one line", () => {
-  test("the most important words are shown in the bar, the rest are under Help", async ({ page }) => {
+  test("the most important words are shown in the bar, the rest are under Shortcuts", async ({ page }) => {
     await open(page);
     const box = await page.getByPlaceholder(/^Enter adds/).getAttribute("placeholder");
-    for (const w of ["Paste a list to add many", "#platform", "@anna", "+growth", "more under Help"]) expect(box).toContain(w);
+    for (const w of ["Paste a list to add many", "#platform", "@anna", "+growth", "more under Shortcuts"]) expect(box).toContain(w);
     await page.goto("/dev/item/R-01");
-    await page.getByRole("button", { name: "Help" }).click();
+    await page.getByRole("button", { name: "Shortcuts" }).click();
     const dialog = page.getByRole("dialog", { name: /keyboard shortcuts/i });
     await expect(dialog).toContainText("Add an initiative: type it in one line");
     for (const word of ["~now", "!atrisk", "start:mon", "by:31/03", "Paste a list"]) await expect(dialog).toContainText(word);
@@ -276,5 +276,34 @@ test.describe("Add an initiative: type it in one line", () => {
     await open(page);
     await page.getByLabel("Add an initiative").fill("Idea #market !fine");
     await expect(page.locator(".quick-add-hints")).toContainText("Health is !ontrack");
+  });
+});
+
+test.describe("Shortcuts, Help and text size in the top bar", () => {
+  test("Shortcuts opens the keyboard list and Help opens the guide with its three tables", async ({ page }) => {
+    await page.goto("/dev/item/R-01");
+    await page.getByRole("button", { name: "Shortcuts" }).click();
+    await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Help", exact: true }).click();
+    const guide = page.getByRole("dialog", { name: "Help" });
+    await expect(guide.getByRole("table", { name: /Columns, and how each one relates/ })).toContainText("Read-only (tracker)");
+    await guide.getByRole("tab", { name: "How content flows" }).click();
+    await expect(guide.getByRole("table")).toHaveCount(3);
+    await guide.getByRole("tab", { name: "Using Claude" }).click();
+    await expect(guide).toContainText("write_prd");
+    const results = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+  });
+
+  test("A+ and A− scale the workspace and stop at the ends", async ({ page }) => {
+    await page.goto("/dev/item/R-01");
+    const zoom = () => page.locator(".shell").evaluate((el) => (el as HTMLElement).style.zoom || "1");
+    await page.getByRole("button", { name: "Larger text" }).click();
+    expect(await zoom()).toBe("1.1");
+    await page.getByRole("button", { name: "Smaller text" }).click();
+    await page.getByRole("button", { name: "Smaller text" }).click();
+    expect(await zoom()).toBe("0.9");
+    await expect(page.getByRole("button", { name: "Smaller text" })).toBeDisabled();
   });
 });

@@ -192,7 +192,7 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 .bulk-messages { flex-basis: 100%; }
 .bulk-messages p { margin: 0; }
 .dialog-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(20, 24, 40, .45); display: flex; align-items: flex-start; justify-content: center; padding: 4vh 16px; overflow: auto; }
-.dialog { background: var(--bg); border-radius: 10px; padding: 18px 20px; width: min(980px, 100%); box-sizing: border-box; max-height: calc(100vh - 8vh - 8px); overflow: auto; box-shadow: 0 16px 48px rgba(20, 24, 40, .3); }
+.dialog { background: var(--bg); border-radius: 10px; padding: 18px 20px; width: min(980px, 100%); box-sizing: border-box; max-height: calc((100vh - 8vh - 8px) / var(--text-zoom, 1)); overflow: auto; box-shadow: 0 16px 48px rgba(20, 24, 40, .3); }
 .dialog h2 { margin: 0 0 10px; font-size: 16px; }
 .dialog h3 { margin: 14px 0 6px; font-size: 13px; }
 .dialog textarea { width: 100%; box-sizing: border-box; height: auto; min-height: 120px; max-height: 40vh; resize: vertical; padding: 6px 8px; font-family: var(--font-mono, monospace); font-size: 12px; }
@@ -506,6 +506,21 @@ input:not([type="checkbox"]):not([type="hidden"]), select {
 .quick-add-row .quick-add-input { flex: 1 1 auto; min-width: 0; }
 .help-btn { height: 28px; padding: 0 12px; border: 1px solid #c9ceda; border-radius: var(--radius-md); background: var(--bg); font: inherit; cursor: pointer; margin-right: 8px; }
 .help-btn:hover { background: var(--grey-3); }
+.help-btn:disabled { color: #8a90a0; cursor: default; background: var(--bg); }
+.text-size { display: inline-flex; margin-right: 8px; }
+.text-size .help-btn { margin-right: 0; padding: 0 8px; border-radius: 0; }
+.text-size .text-size-btn:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); }
+.text-size .text-size-up { border-left: 0; border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+.help-guide { width: min(1120px, 100%); }
+.help-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--grey-1); margin: 8px 0 12px; }
+.help-tab { font: inherit; border: 0; background: none; padding: 6px 12px; cursor: pointer; border-bottom: 2px solid transparent; color: var(--ink-muted); }
+.help-tab.is-active { color: var(--blue-text); border-bottom-color: var(--blue); font-weight: 600; }
+.help-table { width: 100%; border-collapse: collapse; margin: 0 0 14px; font-size: 12.5px; }
+.help-table caption { text-align: left; font-weight: 600; font-size: 13px; padding: 6px 0; }
+.help-table th, .help-table td { text-align: left; vertical-align: top; padding: 5px 8px; border-bottom: 1px solid var(--grey-2); }
+.help-table thead th { background: var(--header-bg); font-weight: 600; position: sticky; top: 0; }
+.help-table tbody th { font-weight: 600; width: 22%; }
+.help-notes { margin: 0 0 12px; padding-left: 18px; display: grid; gap: 3px; }
 .help-list { display: grid; gap: 4px; margin: 4px 0 12px; }
 .help-list > div { display: grid; grid-template-columns: 200px 1fr; gap: 12px; }
 .help-list dt, .help-list dd { margin: 0; }

@@ -9,7 +9,7 @@ import { canEditItems } from "@pv/domain";
 import { PlatformBanner } from "@/components/platform-banner";
 import { isPlatformAdmin, loginIsStale } from "@/lib/session";
 import { LastLocationTracker, UserPrefsProvider } from "@/components/user-prefs";
-import { lastLocationFromMetadata, panelWidthFromMetadata } from "@/lib/user-prefs";
+import { lastLocationFromMetadata, panelWidthFromMetadata, textSizeFromMetadata } from "@/lib/user-prefs";
 
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const { supabase, user, memberships, active } = await requireWorkspace("/portfolio");
@@ -29,7 +29,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
     <UserPrefsProvider panelWidth={panelWidthFromMetadata(user.user_metadata)}>
     <LastLocationTracker initial={lastLocationFromMetadata(user.user_metadata, active.tenantId)} />
     <DatePrefs format={profileFromMetadata(user.user_metadata).dateFormat} />
-    <div className="shell">
+    <div className="shell" style={{ zoom: textSizeFromMetadata(user.user_metadata) / 100, ["--text-zoom" as string]: textSizeFromMetadata(user.user_metadata) / 100 }}>
       <AppHeader
         tenantName={active.tenantName}
         accounts={memberships.map((m) => ({ tenantId: m.tenantId, tenantName: m.tenantName, lastLoginAt: m.lastLoginAt }))}
@@ -38,6 +38,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
         email={user.email ?? ""}
         roleLabel={active.platform ? "Platform admin" : ROLE_LABEL[active.role]}
         isApprover={active.isApprover}
+        textSize={textSizeFromMetadata(user.user_metadata)}
         showTrash={canEditItems(active.role)}
         showAudit={active.role === "admin" || !!active.platform}
       />

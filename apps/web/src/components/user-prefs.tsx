@@ -2,18 +2,18 @@
 
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { saveLastLocation, savePanelWidth } from "@/app/(workspace)/prefs-actions";
+import { saveLastLocation, savePanelWidth, saveTextSize } from "@/app/(workspace)/prefs-actions";
 import { stripAccountPath } from "@/lib/account-path";
 import { sanitizeLocation } from "@/lib/user-prefs";
 
-type Prefs = { panelWidth: number; savePanelWidth: (width: number) => void };
+type Prefs = { panelWidth: number; savePanelWidth: (width: number) => void; saveTextSize: (size: number) => void };
 const PrefsContext = createContext<Prefs | null>(null);
 
 /** Null outside the workspace (the test page, for one): callers then use the default width and save nothing. */
 export const useUserPrefs = () => useContext(PrefsContext);
 
 export function UserPrefsProvider({ panelWidth, children }: { panelWidth: number; children: ReactNode }) {
-  return <PrefsContext.Provider value={{ panelWidth, savePanelWidth: (w) => { void savePanelWidth(w).catch(() => undefined); } }}>{children}</PrefsContext.Provider>;
+  return <PrefsContext.Provider value={{ panelWidth, savePanelWidth: (w) => { void savePanelWidth(w).catch(() => undefined); }, saveTextSize: (n) => { void saveTextSize(n).catch(() => undefined); } }}>{children}</PrefsContext.Provider>;
 }
 
 /**
