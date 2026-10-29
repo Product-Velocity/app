@@ -73,7 +73,7 @@ export const topItems = <T extends { stack_rank: number }>(rows: readonly T[], n
 
 // ------------------------------------------------------------------ attention
 export type Attention = { id: string; code: string; name: string; health: string; reasons: string[]; tier: 0 | 1 | 2 };
-const FINISHED_STATUS = new Set(["Completed", "Cancelled"]);
+const FINISHED_STATUS = new Set(["Done", "Cancelled"]);
 const FINISHED_PHASE = new Set(["Completed", "Sunset"]);
 const isFinished = (r: LeadRow) => FINISHED_STATUS.has(String(r.status)) || FINISHED_PHASE.has(String(r.initiative_phase));
 

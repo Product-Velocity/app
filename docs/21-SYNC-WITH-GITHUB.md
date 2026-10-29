@@ -94,7 +94,7 @@ If everything is in step the card says **"Everything is in step"** and the butto
 | Initiative not on GitHub yet | Card shows "Not on GitHub: will be created" under To send; nothing to receive |
 | Initiative follows an issue read-only (pulled in) | Received only; nothing to send; no conflicts possible |
 | Issue deleted or transferred in GitHub | Card: "The GitHub issue no longer exists"; nothing is recreated; a person decides |
-| Issue closed in GitHub | Received (Build Status Completed or Cancelled); the send can still update the text |
+| Issue closed in GitHub | Received (Build Status Done or Cancelled); the send can still update the text |
 | GitHub unreachable, rate limited or permission missing | Per-card message in words with the retry hint; other cards continue; nothing is half-applied |
 | Someone edits GitHub while the preview is open | Confirm re-reads the issue; if it changed since the preview, that card returns to the preview with the new difference instead of overwriting |
 | Same text changed to the same new text on both sides | No conflict |

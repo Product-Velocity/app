@@ -2,6 +2,7 @@
 // Data first, so the prompt, the server instructions and the tests agree. A discovery is a document (kind `discovery`) on ONE initiative;
 // it never reaches GitHub, and only the chosen solution is registered in Product Velocity (Ashu, 2026-10-28).
 
+import { ALIGN_RULE, LIGHT_EVIDENCE_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
 import { FIELD_BY_KEY } from "./registry";
 
 export type DiscoverySection = { id: string; title: string; covers: string };
@@ -25,6 +26,9 @@ export const DISCOVERY_RULES = [
   "Never guess. Numbers, percentages, baselines, targets, quotes, links and competitor features come from the person or from a source you have actually read, each with its source. A placeholder in the brief (\"X\", \"xx\", \"from X% to Y%\") stays \"to define\" and goes into your one question message. Never invent a competitor claim.",
   "Skipping is free. Every section is optional; a discovery with nothing for a section leaves it out entirely. \"Skip\" is a valid answer and is never asked twice.",
   "Ask once. After reading the brief and the sources, list everything you could not fill in ONE message, grouped by section, most important first, each skippable: typically the company OKR, the KR baselines and targets (and which is Primary or a guardrail), where the evidence is, which solutions to list or whether to propose some, which one is chosen, and the test metrics.",
+  ALIGN_RULE,
+  PRIOR_KNOWLEDGE_RULE,
+  LIGHT_EVIDENCE_RULE,
   "Show before you write. Run create_items with dry_run first, show it, create after the person agrees.",
   "The discovery is a document: create_document with kind discovery (status draft). It holds commercial figures, stays in Product Velocity and never reaches GitHub. Write headings exactly as \"## 1. Objective and key results\" so they can be found.",
   "Only the chosen solution becomes an initiative. The other solutions stay in the document: do not create one initiative per solution. One initiative holds the document: named \"Discovery: <topic>\" until a solution is chosen, or named after the chosen solution when the person has already chosen. Its Initiative Phase is Discover.",
@@ -35,10 +39,11 @@ export const DISCOVERY_RULES = [
 ] as const;
 
 /** A compact block added to the server instructions (always on). The full template is in the write_discovery prompt. */
-export function discoveryInstructions(): string {
+export function discoveryInstructions(alreadyStated: readonly string[] = []): string {
+  const own = DISCOVERY_RULES.filter((r) => !alreadyStated.includes(r));
   return [
-    "When asked to write a discovery (the step before a PRD):",
-    ...DISCOVERY_RULES.map((r, i) => `${i + 1}. ${r}`),
+    "When asked to write a discovery (the step before a PRD)" + (own.length < DISCOVERY_RULES.length ? ", the same align-first and prior-knowledge rules apply, plus:" : ":"),
+    ...own.map((r, i) => `${i + 1}. ${r}`),
     `Sections of the discovery document: ${DISCOVERY_SECTIONS.map((s) => `${s.id} ${s.title}`).join("; ")}.`,
     "The write_discovery prompt has the full template.",
   ].join("\n");
@@ -59,7 +64,7 @@ export function discoveryPrompt(args: DiscoveryPromptArgs): { description: strin
     "ORDER OF WORK",
     "1. get_workspace_context and describe_fields (keys, allowed values, which fields you may set).",
     "2. Read the brief and every source the person gave. If you cannot open a source, say so; never pretend you read it.",
-    "3. Send ONE message listing what you could not fill, grouped by section and skippable. Wait for the answer.",
+    "3. Look for related work (the prior-knowledge rule), then send ONE message: what you could not fill (grouped by section, skippable), whether evidence is light, and the draft-and-save or align-first question. Wait for the answer.",
     `4. ${item ? "Skip this step (the initiative exists)." : `create_items with dry_run: one initiative, named "Discovery: <topic>" (or after the chosen solution when the person has already chosen), Initiative Phase "${DISCOVERY_PHASE}", project and group. Show it and create after they agree.`}`,
     "5. create_document kind discovery with the full discovery (sections as below), status draft.",
     "6. Tell the person: what you created, what is left \"to define\", which solutions are in the document, which one (if any) is chosen and which values they will copy into the initiative by hand, that it is an AI draft, and that an Approver approves it at the Discover to Define gate.",

@@ -1,4 +1,4 @@
-import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, isShipped, type FieldDef } from "./registry";
+import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, isOpenList, isShipped, type FieldDef } from "./registry";
 import { readOnlyReason } from "./fields";
 
 /**
@@ -7,7 +7,7 @@ import { readOnlyReason } from "./fields";
  */
 export type PanelKind =
   | "text" | "longtext" | "number" | "currency" | "date" | "select" | "person" | "boolean" | "group" | "project" | "rank"
-  | "tags" | "links" | "relations" | "teams" | "people" | "skills" | "files"
+  | "tags" | "links" | "relations" | "teams" | "people" | "skills" | "files" | "openlist"
   | "readonly" | "later";
 
 export type PanelField = { kind: PanelKind; /** Why it cannot be edited, or when it arrives. */ reason?: string; phase?: number };
@@ -22,6 +22,7 @@ export function panelField(f: FieldDef): PanelField {
   if (f.key === "screenshots") return { kind: "files" };
   if (f.key === "home_project") return { kind: "project" };
   if (f.key === "theme") return { kind: "group" };
+  if (isOpenList(f.key)) return { kind: "openlist" }; // Focus Area, Audience: type a value or pick one already in use
   if (f.key === "effort_by_skill") return { kind: "skills" };
   if (f.key === "contributing_teams") return { kind: "teams" };
   if (TAG_FIELDS.has(f.key)) return { kind: "tags" };

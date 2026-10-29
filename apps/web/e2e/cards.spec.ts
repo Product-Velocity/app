@@ -48,8 +48,8 @@ test.describe("the board", () => {
 
   test("lanes collapse and expand; a lane with no cards starts collapsed", async ({ page }) => {
     await open(page, "n=40");
-    await page.getByLabel("Swimlanes").selectOption("focus_area");
-    await expect(page.getByRole("button", { name: "Expand Formats" })).toBeVisible(); // empty, so collapsed
+    await page.getByLabel("Swimlanes").selectOption("horizon");
+    await expect(page.getByRole("button", { name: "Expand Now" })).toBeVisible(); // empty, so collapsed
     await expect(page.getByRole("button", { name: "Collapse No value" })).toBeVisible();
     const before = await page.locator("[data-card]").count();
     await page.getByRole("button", { name: "Collapse No value" }).click();
@@ -120,7 +120,7 @@ test.describe("moving cards", () => {
     await open(page);
     await page.getByLabel("Columns").selectOption("status");
     const col = await page.evaluate(() => (window as unknown as { __pv: { controller: { row: (id: string) => { status: string | null } } } }).__pv.controller.row("item-1").status);
-    const other = col === "In Progress" ? "Completed" : "In Progress";
+    const other = col === "In progress" ? "Done" : "In progress";
     await card(page, "item-1").dragTo(cell(page, "Onboarding", other));
     await expect(page.locator(".strip")).toContainText("comes from GitHub");
     expect(await val(page, "item-1", "status")).toBe(col);

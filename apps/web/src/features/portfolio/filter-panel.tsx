@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  customFilters, FIELDS, FIELD_BY_KEY, fieldOptions, opsFor, optionsFor, QUICK_FILTERS, quickFilterOn, toggleQuickFilter,
+  customFilters, FIELDS, FIELD_BY_KEY, fieldOptions, isOpenList, opsFor, optionsFor, QUICK_FILTERS, quickFilterOn, toggleQuickFilter,
   type Filter, type FilterOp, type ListOption,
 } from "@pv/domain";
 import { SelectField } from "@/components/search-list";
@@ -13,21 +13,22 @@ const FIELD_OPTIONS: ListOption[] = fieldOptions(FIELDS);
 const ICON: Record<string, string> = {
   "created-today": "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4", "created-week": "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4", "created-month": "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4",
   mine: "M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM4 21a8 8 0 0 1 16 0", "high-impact": "M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.4l6-.8z",
-  attention: "M12 3 2 20h20zM12 10v5M12 18v.5", "in-progress": "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2",
+  attention: "M12 3 2 20h20zM12 10v5M12 18v.5", "active": "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2",
 };
 
 /** The choices a field offers for "is any of": its list, people (with "me"), projects or yes and no. */
-function choicesFor(field: string, lookups: Lookups, quarters: Iterable<unknown>): { value: string; label: string }[] {
+function choicesFor(field: string, lookups: Lookups, quarters: Iterable<unknown>, openValues?: (key: string) => string[]): { value: string; label: string }[] {
   const def = FIELD_BY_KEY[field];
   if (!def) return [];
   if (def.key === "home_project") return lookups.projects.map((p) => ({ value: p.id, label: p.name }));
   if (def.type === "Person") return [{ value: "me", label: "me" }, ...lookups.members.map((m) => ({ value: m.user_id, label: m.email }))];
+  if (isOpenList(def.key)) return (openValues?.(def.key) ?? []).map((v) => ({ value: v, label: v }));
   return optionsFor(def.key, quarters);
 }
 
 /** Several values for one rule: tags with a ×, and a list to add another. */
-function MultiValue({ filter, index, lookups, quarters, onChange }: { filter: Filter; index: number; lookups: Lookups; quarters: Iterable<unknown>; onChange: (values: string[]) => void }) {
-  const all = choicesFor(filter.field, lookups, quarters);
+function MultiValue({ filter, index, lookups, quarters, openValues, onChange }: { filter: Filter; index: number; lookups: Lookups; quarters: Iterable<unknown>; openValues?: (key: string) => string[]; onChange: (values: string[]) => void }) {
+  const all = choicesFor(filter.field, lookups, quarters, openValues);
   const values = filter.values ?? [];
   const label = (v: string) => all.find((o) => o.value === v)?.label ?? v;
   const left = all.filter((o) => !values.includes(o.value));
@@ -57,6 +58,8 @@ type Props = {
   lookups: Lookups;
   /** Planned Quarter values in use, offered even when they have left the generated range. */
   quarters?: Iterable<unknown>;
+  /** The values in use of an open-list field (Focus Area, Audience), offered as filter values. */
+  openValues?: (key: string) => string[];
   today: Date;
   /** How many initiatives match right now, and how many there are in all. */
   matching: number;
@@ -67,7 +70,7 @@ type Props = {
  * Filters, as a panel that expands from the bar: one-click quick filters, and rules that must all match (AND). A rule has a field, an
  * operator that fits it and a value; several values in one rule match any of them. Filters apply as you go. Rules without a value are ignored.
  */
-export function FilterPanel({ filters, onChange, lookups, quarters = [], today, matching, total }: Props) {
+export function FilterPanel({ filters, onChange, lookups, quarters = [], openValues, today, matching, total }: Props) {
   const custom = customFilters(filters).map((f) => ({ f, i: filters.indexOf(f) })).filter((x) => x.i >= 0);
   const patch = (i: number, p: Partial<Filter>) => onChange(filters.map((f, j) => (j === i ? { ...f, ...p } : f)));
   const n = filters.length;
@@ -118,8 +121,8 @@ export function FilterPanel({ filters, onChange, lookups, quarters = [], today, 
                       {ops.map((o) => <option key={o.op} value={o.op}>{o.label}</option>)}
                     </select>
                     {f.op === "any_of"
-                      ? <MultiValue filter={f} index={i} lookups={lookups} quarters={quarters} onChange={(values) => patch(i, { values })} />
-                      : valueControl(f, lookups, today, (p) => patch(i, p), quarters)}
+                      ? <MultiValue filter={f} index={i} lookups={lookups} quarters={quarters} openValues={openValues} onChange={(values) => patch(i, { values })} />
+                      : valueControl(f, lookups, today, (p) => patch(i, p), quarters, openValues)}
                     <button type="button" className="icon-btn" aria-label={`Remove filter ${i + 1}`} title="Remove this rule" onClick={() => onChange(filters.filter((_, j) => j !== i))}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
                     </button>

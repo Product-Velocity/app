@@ -19,12 +19,12 @@ describe("axisOptions: what can be a column or a swimlane", () => {
     expect(o.find((x) => x.key === "moscow")).toMatchObject({ editable: true });
     expect(o.find((x) => x.key === "team")).toMatchObject({ editable: false, reason: expect.stringContaining("several teams") });
   });
-  it("lists a field of a later phase as unavailable with its phase, and nothing system-set", () => {
-    expect(o.find((x) => x.key === "planning_status")).toMatchObject({ available: false, label: "Planning Status (arrives in phase 5)" });
+  it("offers Planning Status, and nothing system-set", () => {
+    expect(o.find((x) => x.key === "planning_status")).toMatchObject({ available: true, label: "Planning Status", editable: true });
     expect(o.find((x) => x.key === "created_via")).toBeUndefined();
     expect(o.find((x) => x.key === "current_gate")).toBeUndefined();
   });
-  it("the default column is Initiative Phase until Planning Status ships", () => {
+  it("the default column is Initiative Phase", () => {
     expect(defaultColumnField()).toBe("initiative_phase");
   });
 });
@@ -72,9 +72,15 @@ describe("buildBoard", () => {
   it("with no swimlane there is a single lane; empty select lanes are listed so a card can be dropped there", () => {
     const flat = buildBoard(rows, "moscow", null, ctx);
     expect(flat.lanes).toHaveLength(1);
-    const byFocus = buildBoard(rows, "moscow", "focus_area", ctx);
-    expect(byFocus.lanes.map((l) => l.label)).toEqual(["Formats", "Demand/Optimisation", "Publishers", "No value"]);
-    expect(byFocus.lanes.find((l) => l.label === "Formats")!.count).toBe(0);
+    const byHorizon = buildBoard(rows, "moscow", "horizon", ctx);
+    expect(byHorizon.lanes.map((l) => l.label)).toEqual(["Now", "Next", "Later", "No value"]);
+    expect(byHorizon.lanes.find((l) => l.label === "Now")!.count).toBe(0);
+  });
+  it("an open list (Focus Area) has no fixed lanes: the lanes are the values in use, then No value (issue #246)", () => {
+    const some = [row("a", 1, { moscow: "Must", focus_area: "Pricing" }), row("b", 2, { moscow: "Must", focus_area: "Loyalty" }), row("c", 3, { moscow: "Must" })];
+    const lanes = buildBoard(some, "moscow", "focus_area", ctx).lanes;
+    expect(lanes.map((l) => l.label)).toEqual(["Loyalty", "Pricing", "No value"]);
+    expect(lanes.find((l) => l.label === "Pricing")!.count).toBe(1);
   });
   it("team lanes list a card under each of its teams", () => {
     const t = buildBoard([row("a", 1, { moscow: "Must", contributing_teams: "Core, Mobile" }), row("b", 2, { moscow: "Must" })], "moscow", "team", ctx);

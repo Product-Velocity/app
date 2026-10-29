@@ -65,7 +65,7 @@ describe("needsAttention", () => {
       row("c", 3, { health: "Delayed", g2m_date_est: "2026-09-30" }),
       row("d", 4, { health: "Blocked" }),
       row("e", 5, { health: "On Track", g2m_date_est: "2026-10-01" }),
-      row("f", 6, { health: "On Track", g2m_date_est: "2026-10-01", status: "Completed" }),
+      row("f", 6, { health: "On Track", g2m_date_est: "2026-10-01", status: "Done" }),
       row("g", 7, { health: "At Risk", initiative_phase: "Completed" }),
     ];
     const n = needsAttention(rows, TODAY);
@@ -126,7 +126,7 @@ describe("draftWeeklyUpdate", () => {
     row("a", 1, { health: "On Track", g2m_date_est: "2026-10-30", initiative_phase: "Roll-out" }),
     row("b", 2, { health: "Blocked", g2m_date_est: "2026-12-11" }),
     row("c", 3, { health: "At Risk", g2m_date_est: "2026-10-01" }),
-    row("d", 4, { health: "On Track", status: "Completed", g2m_date_actual: "2026-10-21" }),
+    row("d", 4, { health: "On Track", status: "Done", g2m_date_actual: "2026-10-21" }),
     row("e", 5, { health: "On Track", g2m_date_est: "2027-02-01" }),
   ];
   const changes = changesThisWeek([{ itemId: "e", field: "stack_rank", old: 9, new: 5, at: "2026-10-21T09:00:00Z", actorId: "u1", via: "UI" }], rows);

@@ -440,7 +440,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
 
   // ---- command palette (Ctrl+K / ⌘K)
   const [paletteOpen, setPaletteOpen] = useState(false);
-  // the Help menu in the top bar can open the command palette
+  // the Shortcuts menu in the top bar can open the command palette
   useEffect(() => {
     const open = () => setPaletteOpen(true);
     window.addEventListener("pv:open-palette", open);
@@ -545,7 +545,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     >
       <div className="pvbar" role="region" aria-label="Roadmap tools">
         <div className="pvbar-s1">
-          <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} quarters={controller.rows.map((r) => r.g2m_quarter)} today={today} matching={visibleRows.length} total={controller.rows.length} />
+          <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} quarters={controller.rows.map((r) => r.g2m_quarter)} openValues={(k) => controller.openValues(k)} today={today} matching={visibleRows.length} total={controller.rows.length} />
           <ColumnsPanel def={def} defaultDef={bDef} customerSafe={def.customerSafe === true} onApply={changeColumns} shown={shownCount} />
           <GroupMenu groupBy={def.groupBy} onChange={(g) => changeDef({ groupBy: g })} />
           <SortMenu sort={shownSort} columns={def.columns} onChange={(sort) => changeDef({ sort })} />
@@ -630,7 +630,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       )}
       </div>
       <p ref={footRef} className="grid-foot">
-        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${FIELD_BY_KEY[def.groupBy]?.name}, ${shownSort ? `sorted by ${FIELD_BY_KEY[shownSort.field]?.name} inside each group` : "rank order inside each group"}` : shownSort ? `Sorted by ${FIELD_BY_KEY[shownSort.field]?.name} (${shownSort.dir === "asc" ? "low to high" : "high to low"})` : "Sorted by global Stack Rank"} · Keyboard shortcuts are under Help, top right · A lock means the value comes from GitHub
+        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${FIELD_BY_KEY[def.groupBy]?.name}, ${shownSort ? `sorted by ${FIELD_BY_KEY[shownSort.field]?.name} inside each group` : "rank order inside each group"}` : shownSort ? `Sorted by ${FIELD_BY_KEY[shownSort.field]?.name} (${shownSort.dir === "asc" ? "low to high" : "high to low"})` : "Sorted by global Stack Rank"} · Keyboard shortcuts are under Shortcuts, top right · A lock means the value comes from GitHub
         {status.pending > 0 ? "" : ""}
         {lastGithubSync && <> · <span title="The latest time any initiative was in step with GitHub">Last synced with GitHub {agoLabel(lastGithubSync, nowTick)}</span></>}
       </p>

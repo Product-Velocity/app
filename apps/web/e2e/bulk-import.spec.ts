@@ -50,14 +50,14 @@ test.describe("bulk bar", () => {
     await expect(bar(page)).toContainText("set by the system");
     await chooseOption(page, bar(page), "Field to set", "stack_rank");
     await expect(bar(page)).toContainText("one item at a time");
-    await expect(cell(page, "item-1", "status")).toHaveText("Backlog");
+    await expect(cell(page, "item-1", "status")).toHaveText("Not started");
   });
 
   test("the controller refuses a GitHub field even if the bar were bypassed", async ({ page }) => {
     await open(page);
     const r = await page.evaluate(() => (window as unknown as { __pv: { controller: { bulkEdit: (ids: string[], f: string, v: string) => unknown } } }).__pv.controller.bulkEdit(["item-1"], "status", "Completed"));
     expect(r).toMatchObject({ ok: false });
-    await expect(cell(page, "item-1", "status")).toHaveText("Backlog");
+    await expect(cell(page, "item-1", "status")).toHaveText("Not started");
   });
 
   test("Sync with GitHub (disabled until GitHub is connected) and Export 2 are on the bar above the batch bar", async ({ page }) => {

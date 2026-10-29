@@ -28,17 +28,17 @@ const item = async () => (await db.admin.query("select status, status_changed_at
 const link = async () => (await db.admin.query("select * from public.item_github_links where id = $1", [linkA])).rows[0];
 
 describe("an issue's state comes back into its item", () => {
-  it("the first look at an open issue gives an item without a status Backlog, and marks the follow link synced", async () => {
+  it("the first look at an open issue gives an item without a status Not started, and marks the follow link synced", async () => {
     await db.admin.query("update public.items set status = null where id = $1", [itemA]);
     const r = await apply({ at: T1 });
-    expect(r?.changes).toMatchObject({ status: [null, "Backlog"], gh_state: [null, "open"] });
-    expect(await item()).toMatchObject({ status: "Backlog" });
+    expect(r?.changes).toMatchObject({ status: [null, "Not started"], gh_state: [null, "open"] });
+    expect(await item()).toMatchObject({ status: "Not started" });
     expect(await link()).toMatchObject({ gh_state: "open", sync_state: "synced", issue_id: "9031", issue_node_id: "node31" });
   });
   it("closed as completed gives Completed, closed as not planned gives Cancelled, reopened gives Not Started", async () => {
-    expect((await apply({ state: "closed", reason: "completed", at: T2 }))?.changes.status).toEqual(["Backlog", "Completed"]);
-    expect((await apply({ state: "closed", reason: "not_planned", at: T3 }))?.changes.status).toEqual(["Completed", "Cancelled"]);
-    expect((await apply({ state: "open", at: "2026-10-23T13:00:00Z" }))?.changes.status).toEqual(["Cancelled", "Not Started"]);
+    expect((await apply({ state: "closed", reason: "completed", at: T2 }))?.changes.status).toEqual(["Not started", "Done"]);
+    expect((await apply({ state: "closed", reason: "not_planned", at: T3 }))?.changes.status).toEqual(["Done", "Cancelled"]);
+    expect((await apply({ state: "open", at: "2026-10-23T13:00:00Z" }))?.changes.status).toEqual(["Cancelled", "Not started"]);
   });
   it("replaying or re-sending the same state changes nothing, and older information is ignored", async () => {
     await apply({ state: "closed", reason: "completed", at: "2026-10-23T14:00:00Z" });
@@ -52,9 +52,9 @@ describe("an issue's state comes back into its item", () => {
   });
   it("a human-set status is not touched by an open issue; an issue nobody links is ignored", async () => {
     await apply({ state: "open", at: "2026-10-23T15:00:00Z" });
-    await db.admin.query("update public.items set status = 'In Progress' where id = $1", [itemA]);
+    await db.admin.query("update public.items set status = 'In progress' where id = $1", [itemA]);
     expect((await apply({ state: "open", at: "2026-10-23T16:00:00Z" }))?.changes).toEqual({});
-    expect((await item()).status).toBe("In Progress");
+    expect((await item()).status).toBe("In progress");
     expect(await apply({ number: 999 })).toBeNull();
     expect(await apply({ repo: "other/repo" })).toBeNull();
   });
@@ -62,7 +62,7 @@ describe("an issue's state comes back into its item", () => {
     expect(await apply({ conn: connB })).toBeNull();
   });
   it("changes are audited with the source GitHub webhook and no person", async () => {
-    const { rows } = await db.admin.query("select actor_id, via, new from public.audit_log where entity = 'items' and entity_id = $1 and field = 'status' and new = to_jsonb('Completed'::text) order by id desc limit 1", [itemA]);
+    const { rows } = await db.admin.query("select actor_id, via, new from public.audit_log where entity = 'items' and entity_id = $1 and field = 'status' and new = to_jsonb('Done'::text) order by id desc limit 1", [itemA]);
     expect(rows[0].actor_id).toBeNull();
     expect(rows[0].via).toBe("GitHub webhook");
     const links = await db.admin.query("select distinct via from public.audit_log where entity = 'item_github_links' and entity_id = $1 and field = 'gh_state'", [linkA]);
@@ -95,7 +95,7 @@ describe("how long items stay in a stage", () => {
     expect(phases.map((r) => r.value)).toContain("Discover");
     expect(phases.at(-1)).toMatchObject({ value: "Define", left_at: null });
     expect(Number(phases.at(-1)!.days)).toBeGreaterThanOrEqual(0);
-    expect(rows.some((r) => r.field === "status" && r.value === "Completed")).toBe(true);
+    expect(rows.some((r) => r.field === "status" && r.value === "Done")).toBe(true);
   });
   it("members of another workspace cannot ask", async () => {
     expect(await errorCode(db.asUser(f.bob, (q) => q("select * from public.item_stage_durations($1)", [f.tenantA])))).toBe(DENIED);
@@ -105,16 +105,16 @@ describe("how long items stay in a stage", () => {
 describe("initiative status belongs to people; build status to the tracker", () => {
   it("a person with edit rights sets Initiative Status; nobody signed in can set Build Status", async () => {
     const own = (await db.admin.query("select id from public.items where tenant_id = $1 and deleted_at is null limit 1", [f.tenantA])).rows[0].id as string;
-    await db.asUser(creator, (q) => q("update public.items set initiative_status = 'In Progress' where id = $1", [own]), { commit: true });
-    expect((await db.admin.query("select initiative_status from public.items where id = $1", [own])).rows[0].initiative_status).toBe("In Progress");
-    expect(await errorCode(db.asUser(creator, (q) => q("update public.items set status = 'Completed' where id = $1", [own])))).toBe(DENIED);
+    await db.asUser(creator, (q) => q("update public.items set initiative_status = 'Active' where id = $1", [own]), { commit: true });
+    expect((await db.admin.query("select initiative_status from public.items where id = $1", [own])).rows[0].initiative_status).toBe("Active");
+    expect(await errorCode(db.asUser(creator, (q) => q("update public.items set status = 'Done' where id = $1", [own])))).toBe(DENIED);
     expect(await errorCode(db.asUser(creator, (q) => q("update public.items set initiative_status = 'Done-ish' where id = $1", [own]), { commit: true }))).toBe("23514");
   });
   it("a closed ticket never changes Initiative Status", async () => {
-    await db.admin.query("update public.items set initiative_status = 'In Progress' where id = $1", [itemA]);
+    await db.admin.query("update public.items set initiative_status = 'Active' where id = $1", [itemA]);
     await apply({ state: "closed", reason: "completed", at: "2026-10-24T10:00:00Z" });
     const r = (await db.admin.query("select status, initiative_status from public.items where id = $1", [itemA])).rows[0];
-    expect(r).toMatchObject({ status: "Completed", initiative_status: "In Progress" });
+    expect(r).toMatchObject({ status: "Done", initiative_status: "Active" });
   });
 });
 

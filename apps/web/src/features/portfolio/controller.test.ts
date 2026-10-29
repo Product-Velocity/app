@@ -374,7 +374,7 @@ describe("list fields of an item (item panel)", () => {
     expect(c.restoreValue("item-1", "health", "At Risk", "On Track")).toEqual({ ok: false, error: "The value has changed since. Undo the newer change first." });
     expect(c.restoreValue("item-1", "health", "Delayed", "On Track")).toEqual({ ok: true, changed: true });
     expect(c.row("item-1")!.health).toBe("On Track");
-    expect(c.restoreValue("item-1", "status", "Backlog", "Completed")).toMatchObject({ ok: false });
+    expect(c.restoreValue("item-1", "status", "Not started", "Done")).toMatchObject({ ok: false });
   });
 });
 

@@ -143,7 +143,7 @@ agent_ready,Spec,Editable,,,Y,,,,,,
 breakdown_route,Delivery (GitHub),Editable,,,Y,,,,,,
 breakdown_status,Delivery (GitHub),Editable,,,Y,Y,,,,,
 planned_scope,Delivery (GitHub),Computed (read-only),,,,Y,,,,,
-planning_status,Planning,Editable,,,Y,,,,,,
+planning_status,Planning,Editable,,,Y,Y,,,,,Y
 cycle,Planning,Editable,,,Y,,,,,,
 candidate_tag,Planning,System (read-only),,,Y,,,,,,
 deferred_count,Planning,System (read-only),,,Y,,,,,,
@@ -164,7 +164,7 @@ time_to_first_use_days,Outcomes,Computed (read-only),,,,,Y,Y,,,
 retention_pct,Outcomes,Editable,,,,,,Y,,,
 created_via_values,Trust,System (read-only),,,,,,,,Y,
 locked_by_source,Trust,Computed (read-only),,,,,,,,Y,
-initiative_status,What,Editable,,Y,,Y,,,,,Y
+initiative_status,What,Editable,,Y,Y,Y,,,,,Y
 description,What,Editable,,,,,,,,,
 last_synced,Delivery (GitHub),Computed (read-only),,,,Y,,,,,
 synced_with,Delivery (GitHub),Computed (read-only),,,,Y,,,,,

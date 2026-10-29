@@ -49,7 +49,7 @@ test.describe("the page", () => {
     const moves = page.getByTestId("moves");
     await expect(moves).toContainText("R-06 Initiative number 6 with a reasonably long title moved up 3 places (#9 to #6)");
     await expect(moves).toContainText("health changed from On Track to At Risk");
-    await expect(moves).toContainText("status changed from Backlog to In Progress");
+    await expect(moves).toContainText("status changed from Not started to In progress");
     await expect(moves).toContainText("R-01 Initiative number 1 with a reasonably long title moved up 2 places (#3 to #1)"); // two steps, one net move
     expect(await moves.locator("li", { hasText: "R-01" }).count()).toBe(1);
     await expect(moves).not.toContainText("R-04"); // moved down and back to where it was: no net move

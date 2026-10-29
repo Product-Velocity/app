@@ -1,12 +1,12 @@
 id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_in_phase
 1,What,Initiative ID,item_code,System,"R-01, R-02, …",System,Auto-derive,Shown in issue body as backlink.,System-set column (read-only),1
 2,What,Roadmap Category,roadmap_category,Select,New big bets · Grow customer revenues · Protect customer revenues · Operational efficiency · Close capability gaps,Input,Keep,Optional: push as label (off by default).,Column on items,1
-3,What,Build Status,status,Select,Backlog · Not Started · In Progress · Paused · Completed · Cancelled,Input,Split,"GitHub -> app. Tracking issue closed as completed -> Status Completed; closed as not planned -> Cancelled; first child issue in progress -> In Progress. Applied automatically, audit-logged.",GitHub-synced column (read-only in app),3
+3,What,Build Status,status,Select,Not started · In progress · Done · Cancelled,Input,Split,"GitHub -> app, read-only. Fixed vocabulary shared with Jira: tracking issue closed as completed -> Done; closed as not planned -> Cancelled; reopened -> Not started; first child issue in progress -> In progress. Counts from Gate B (Define to Build) onward. Applied automatically, audit-logged.",GitHub-synced column (read-only in app),3
 4,What,Initiative Phase,initiative_phase,Select,Discover · Define · Build · Beta-test · Experiment · Roll-out · Completed · Sunset,Input,Modify,Suggest only (never auto-set): first child issue in progress -> suggest Build.,Column on items,1
 5,What,Stack Rank,stack_rank,Number,,Input,Modify,"Optional one-way push to a GitHub issue field ""Priority"" / label.",Column on items,1
 6,What,Initiative Group,theme,Select,,Input,Modify,Optional: push as label.,Column on items,1
 7,What,Initiative Name,initiative_name,Text,,Input,Keep,App -> GitHub issue title on creation; app owns the title afterwards.,Column on items,1
-8,What,Focus Area,focus_area,Select,Formats · Demand/Optimisation · Publishers,Input,Fix,Optional: push as label.,Column on items,1
+8,What,Focus Area,focus_area,Select,,Input,Fix,Optional: push as label.,Column on items,1
 9,What,Change Type,change_type,Select,New feature · Improvement to existing feature,Input,Keep,,Column on items,1
 11,What,Initiative Hypothesis (IF / THEN / RESULTING IN),hypothesis,Long text,,Input,Modify,App -> GitHub: included in the managed block of the issue body.,Column on items,1
 12,What,Artifacts (links),artifacts,Links,,Input,Modify,App -> GitHub: listed in managed block of issue body.,Related table,1
@@ -52,7 +52,7 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 56,When,Start Experiment,start_experiment,Date,,System,Auto-derive,,System-set column (read-only),1
 57,When,Start Roll-Out,start_rollout,Date,,System,Auto-derive,,System-set column (read-only),1
 58,When,Last Updated,last_edited_at,System,,System,Replace,,System-set column (read-only),1
-59,Go-to-market,Audience,audience,Select,Publishers · Demand partners · Brands and agencies · Internal · Mixed,Input,Keep,,Column on items,1
+59,Go-to-market,Audience,audience,Select,,Input,Keep,,Column on items,1
 60,Go-to-market,Target Markets,target_scope,Tags,,Input,Modify,,Related table,1
 61,Go-to-market,Live Markets,live_scope,Tags,,Input,Modify,,Related table,1
 62,Go-to-market,Target Customers (#),target_customers,Number,,Input,Keep,,Column on items,1
@@ -143,7 +143,7 @@ V15,Spec,Agent-ready,agent_ready,Boolean,Yes · No,Computed,New (v4),Label optio
 V16,Delivery (GitHub),Breakdown Route,breakdown_route,Select,Traditional · In between · Full Claude,Input,New (v4),Decides who creates issues.,GitHub-synced column (read-only in app),4
 V17,Delivery (GitHub),Breakdown Status,breakdown_status,Select,Not started · Draft proposed · Awaiting engineering · Complete,Input,New (v4),Complete can be set by label or in the app.,GitHub-synced column (read-only in app),4
 V18,Delivery (GitHub),Planned Scope (#),planned_scope,Computed,,Computed,New (v4),From sub-issues.,GitHub-synced column (read-only in app),3
-V19,Planning,Planning Status,planning_status,Select,Candidate · Included · Committed · Deferred · Dropped,Input,New (v4),Not synced.,Column on items,5
+V19,Planning,Planning Status,planning_status,Select,Backlog · Not started · Candidate · Included · Committed · Deferred · Dropped,Input,New (v4),Not synced.,Column on items,1
 V20,Planning,Cycle,cycle,Relation,Planning cycles,Input,New (v4),Not synced.,Related table,5
 V21,Planning,Candidate Tag,candidate_tag,Select,Carry-over · Likely carry-over · Deferred · New · Backlog,System,New (v4),Not synced.,System-set column (read-only),5
 V22,Planning,Deferred Count,deferred_count,Number,,System,New (v4),Not synced.,System-set column (read-only),5
@@ -164,7 +164,7 @@ V36,Outcomes,Time to First Use (days),time_to_first_use_days,Computed,,Computed,
 V37,Outcomes,Retention (%),retention_pct,Number,,Input,New (v4),Not synced.,Column on items,7
 V38,Trust,Created Via Values,created_via_values,Note,UI · Import · Claude (MCP) · GitHub · API · System,System,New (v4),Not synced.,System-set column (read-only),1
 V39,Trust,Locked (GitHub-driven),locked_by_source,Computed,Yes · No,System,New (v4),n/a,"Computed (view or function, not stored)",1
-N43,What,Initiative Status,initiative_status,Select,Backlog · Not Started · In Progress · Paused · Completed · Cancelled,Input,New,Not synced. A closed linked ticket only sets Build Status and Build Completed; people decide where the initiative itself stands.,Column on items,1
+N43,What,Initiative Status,initiative_status,Select,Active · On hold · Completed · Cancelled,Input,New,Not synced. A closed linked ticket only sets Build Status and Build Completed; people decide where the initiative itself stands.,Column on items,1
 N44,What,Description,description,Long text,,Input,New,"App -> GitHub: own section 'Description' of the managed block of the issue body (Markdown). Do not put value, customers or decisions in it.",Column on items,1
 N46,Delivery (GitHub),Last Synced,last_synced,Computed,,Computed,New,Not synced: shown from the GitHub link and read-only.,Derived in the app from the GitHub link (not stored),1
 N47,Delivery (GitHub),Synced With,synced_with,Computed,,Computed,New,Not synced: shown from the GitHub link and read-only.,Derived in the app from the GitHub link (not stored),1

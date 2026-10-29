@@ -2,7 +2,7 @@
 
 import type { ColDef, IHeaderParams } from "ag-grid-community";
 import {
-  EDITABLE_FIELDS, FIELDS, compareQuarters, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
+  EDITABLE_FIELDS, FIELDS, compareQuarters, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
   type EditableField, type FieldDef,
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
@@ -157,6 +157,17 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
         cellEditor: PickerEditor,
         cellEditorPopup: true,
         cellEditorParams: () => ({ options: controller.groupNames().map((g) => ({ value: g, label: g })), allowEmpty: true, emptyLabel: "No group", allowCreate: true }),
+        valueSetter: setter(f.key) as never,
+      };
+    }
+    if (isOpenList(f.key)) {
+      // an open list (Focus Area, Audience): the picker offers the values already in use and lets you type a new one
+      return {
+        ...base,
+        editable: reasonFree(f) ? editable : false,
+        cellEditor: PickerEditor,
+        cellEditorPopup: true,
+        cellEditorParams: () => ({ options: controller.openValues(f.key).map((v) => ({ value: v, label: v })), allowEmpty: true, emptyLabel: "Not set", allowCreate: true }),
         valueSetter: setter(f.key) as never,
       };
     }

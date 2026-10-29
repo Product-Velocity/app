@@ -1,4 +1,22 @@
-/** Per-person preferences kept in the user profile (Supabase user metadata): the width of the item panel and the last screen in each account. */
+/** Per-person preferences kept in the user profile (Supabase user metadata): the width of the item panel, the text size and the last screen in each account. */
+
+/** Text size as a percentage of the default 13px design. The header offers the steps one at a time. */
+export const TEXT_SIZES = [90, 100, 110, 120, 130] as const;
+export const TEXT_SIZE_DEFAULT = 100;
+
+/** The nearest allowed step for any stored or submitted value. */
+export function clampTextSize(size: unknown): number {
+  if (typeof size !== "number" || !Number.isFinite(size)) return TEXT_SIZE_DEFAULT;
+  return TEXT_SIZES.reduce((best, s) => (Math.abs(s - size) < Math.abs(best - size) ? s : best), TEXT_SIZE_DEFAULT as number);
+}
+
+export const textSizeFromMetadata = (meta: Record<string, unknown> | null | undefined): number => clampTextSize(meta?.text_size);
+
+/** The step after `current` in a direction; stays put at either end. */
+export function stepTextSize(current: number, direction: -1 | 1): number {
+  const i = TEXT_SIZES.indexOf(clampTextSize(current) as (typeof TEXT_SIZES)[number]);
+  return TEXT_SIZES[Math.min(TEXT_SIZES.length - 1, Math.max(0, i + direction))]!;
+}
 
 export const PANEL_WIDTH_DEFAULT = 572;
 export const PANEL_WIDTH_MIN = 400;
