@@ -12,6 +12,11 @@ export function CreateTenantForm({ suggestedDomain, countries, currencies, timeZ
         <input id="name" name="name" maxLength={120} required autoFocus placeholder="Your company or team" />
       </div>
       <div className="field">
+        <label htmlFor="company_url">Company website <span className="muted">(optional)</span></label>
+        <input id="company_url" name="company_url" inputMode="url" maxLength={300} placeholder="yourcompany.com" autoComplete="url" aria-describedby="company-url-help" />
+        <p id="company-url-help" className="hint">So Claude can learn about your company (what you do, who you serve, the words you use) and write in your language. You confirm what it finds.</p>
+      </div>
+      <div className="field">
         <label htmlFor="country">Country</label>
         <input id="country" name="country" list="country-list" maxLength={80} autoComplete="country-name" />
         <datalist id="country-list">{countries.map((c) => <option key={c} value={c} />)}</datalist>

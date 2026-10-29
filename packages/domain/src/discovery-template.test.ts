@@ -4,6 +4,7 @@ import { claudeMaySet } from "./mcp-read";
 import { FIELD_BY_KEY } from "./registry";
 import { DISCOVERY_FIELDS, DISCOVERY_PHASE, DISCOVERY_RULES, DISCOVERY_SECTIONS, discoveryInstructions, discoveryPrompt, unknownDiscoveryFields } from "./discovery-template";
 import { ALIGN_RULE, LIGHT_EVIDENCE_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
+import { PROFILE_USE_RULE } from "./company-profile";
 import { PRD_MODULES, PRD_RULES, prdPrompt, serverInstructions } from "./prd-template";
 
 describe("the discovery template", () => {
@@ -58,7 +59,7 @@ describe("the write_discovery prompt and instructions", () => {
 
   it("is part of the always-on server instructions, next to the PRD flow", () => {
     const i = serverInstructions();
-    expect(i).toContain(discoveryInstructions([ALIGN_RULE, PRIOR_KNOWLEDGE_RULE]));
+    expect(i).toContain(discoveryInstructions([ALIGN_RULE, PROFILE_USE_RULE, PRIOR_KNOWLEDGE_RULE]));
     expect(i).toMatch(/When asked to write a discovery/);
     expect(i).toMatch(/At a glance/);
   });

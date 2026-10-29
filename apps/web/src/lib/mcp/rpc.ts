@@ -4,10 +4,11 @@
  * database or knows about tokens. See docs/20-CLAUDE-MCP.md.
  */
 
-import { claudeMayWrite, discoveryPrompt, limitMessage, prdPrompt, serverInstructions, type UsageResult } from "@pv/domain";
+import { claudeMayWrite, discoveryPrompt, limitMessage, prdPrompt, researchPrompt, serverInstructions, type UsageResult } from "@pv/domain";
 import type { McpReader, WorkspaceContext } from "./read-model";
 import { DOCUMENT_READ_TOOLS, DOCUMENT_WRITE_TOOLS } from "./document-tools";
 import { FILE_TOOLS } from "./file-tools";
+import { PROFILE_READ_TOOLS, PROFILE_WRITE_TOOLS } from "./profile-tools";
 import { READ_TOOLS } from "./read-tools";
 import { ToolInputError } from "./tool-error";
 import type { McpWriter } from "./write-model";
@@ -83,13 +84,16 @@ export const TOOLS: ToolDef[] = [
   },
   ...READ_TOOLS,
   ...DOCUMENT_READ_TOOLS,
+  ...PROFILE_READ_TOOLS,
   ...WRITE_TOOLS,
   ...FILE_TOOLS,
   ...DOCUMENT_WRITE_TOOLS,
+  ...PROFILE_WRITE_TOOLS,
 ];
 
 const WRITE_PRD = "write_prd";
 const WRITE_DISCOVERY = "write_discovery";
+const RESEARCH_COMPANY = "research_company";
 /** The prompts a person can start from Claude (docs/22-CLAUDE-PRD-FLOW.md). Text only: the prompt carries no data of its own and runs no tool. */
 const PROMPTS = [
   {
@@ -109,6 +113,15 @@ const PROMPTS = [
     arguments: [
       { name: "brief", description: "What the discovery is about, in your own words (optional; Claude asks if empty).", required: false },
       { name: "item", description: "Optional existing initiative code, e.g. R-12, to attach the discovery to instead of creating a new initiative.", required: false },
+    ],
+  },
+  {
+    name: RESEARCH_COMPANY,
+    title: "Research the company and save its profile",
+    description: "Read the company's public website, draft its profile (industry, position, products, personas, competitors, glossary, voice) with sources, show it to you, and save it as an AI draft that a workspace admin confirms. Later PRDs and discoveries use it. Asks once for what the web cannot tell.",
+    arguments: [
+      { name: "url", description: "The company website (optional; the workspace's company website is used when it is set).", required: false },
+      { name: "focus", description: "Optional: what to look at most closely.", required: false },
     ],
   },
 ];
@@ -141,9 +154,14 @@ export async function handleRpc(msg: Rpc, backend: McpBackend, tools: ToolDef[] 
       return { jsonrpc: "2.0", id, result: { prompts: PROMPTS } };
     case "prompts/get": {
       const which = msg.params?.name;
-      if (which !== WRITE_PRD && which !== WRITE_DISCOVERY) return err(id, -32602, "Unknown prompt");
+      if (which !== WRITE_PRD && which !== WRITE_DISCOVERY && which !== RESEARCH_COMPANY) return err(id, -32602, "Unknown prompt");
       const a = (msg.params?.arguments ?? {}) as Record<string, unknown>;
       const text = (v: unknown) => (typeof v === "string" ? v.slice(0, 20_000) : undefined);
+      if (which === RESEARCH_COMPANY) {
+        const company = await backend.read.companyProfile().catch(() => null);
+        const r = researchPrompt({ url: text(a.url)?.slice(0, 300), company_url: company?.url ?? null, focus: text(a.focus)?.slice(0, 2000) });
+        return { jsonrpc: "2.0", id, result: { description: r.description, messages: [{ role: "user", content: { type: "text", text: r.text } }] } };
+      }
       const p = which === WRITE_DISCOVERY ? discoveryPrompt({ brief: text(a.brief), item: text(a.item) }) : prdPrompt({ brief: text(a.brief), modules: text(a.modules), item: text(a.item) });
       return { jsonrpc: "2.0", id, result: { description: p.description, messages: [{ role: "user", content: { type: "text", text: p.text } }] } };
     }

@@ -1,13 +1,13 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { DEFAULT_VIEWS, OPEN_LIST_FIELDS, VIEW_NAMES, openListValues, type SearchNames, type SearchRow } from "@pv/domain";
+import { DEFAULT_VIEWS, OPEN_LIST_FIELDS, VIEW_NAMES, openListValues, summarizeProfile, type SearchNames, type SearchRow } from "@pv/domain";
 import { SupabaseDataSource } from "@/features/portfolio/supabase-source";
 import { addItemFile, removeItemFile, setFileSharing } from "@/lib/files/actions";
 import { shareUrl } from "@/lib/files/serve";
 import { supabaseFileStore, type FileStore } from "@/lib/files/store";
-import { buildContext, type DocInfo, type FileInfo, type ItemDetail, type McpReader, type Member, type ViewInfo, type WorkspaceContext } from "./read-model";
+import { buildContext, type CompanyProfileData, type DocInfo, type FileInfo, type ItemDetail, type McpReader, type Member, type ViewInfo, type WorkspaceContext } from "./read-model";
 import { ToolInputError } from "./tool-error";
-import type { ApplyResult, McpDocuments, McpFiles, McpWriter, PendingRow, UndoResult } from "./write-model";
+import type { ApplyResult, McpDocuments, McpFiles, McpProfile, McpWriter, PendingRow, UndoResult } from "./write-model";
 
 const FILE_CAP = 200;
 /** The values in use of each open-list field (Focus Area, Audience): what Claude may reuse (issue #246). */
@@ -76,7 +76,21 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     return docInfo(d, code, withBody);
   };
 
+  const PROFILE_COLS = "status, version, ai_draft, researched_at, confirmed_at, updated_at, sections";
+  type ProfileRow = NonNullable<CompanyProfileData["profile"]>;
+  const loadProfile = async (): Promise<CompanyProfileData> => {
+    const [t, p] = await Promise.all([
+      supabase.from("tenants").select("company_url").eq("id", tenant.id).maybeSingle(),
+      supabase.from("company_profiles").select(PROFILE_COLS).eq("tenant_id", tenant.id).maybeSingle(),
+    ]);
+    if (t.error || p.error) throw new Error("company profile");
+    return { url: (t.data as { company_url: string | null } | null)?.company_url ?? null, profile: (p.data as ProfileRow | null) ?? null };
+  };
+
   const reader: McpReader = {
+    async companyProfile() {
+      return loadProfile();
+    },
     async searchData() {
       const [r, n] = await Promise.all([rows(), names()]);
       return { rows: r, names: n, me: userId };
@@ -227,9 +241,30 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       return now ? { ok: false, reason: "conflict", current: now } : { ok: false, reason: "missing" };
     },
   };
+  /** Our own sentences (PV004: the guard says who may confirm or change a confirmed profile) are shown to Claude; anything else is a generic refusal. */
+  const profileRefusal = (e: { code?: string; message?: string }): never => {
+    if (e.code === "PV004" && e.message) throw new ToolInputError(e.message);
+    if (e.code === "23505") throw new ToolInputError("A company profile already exists. Read it with get_company_profile and update it with its version.");
+    return refusal(e);
+  };
+  const profile: McpProfile = {
+    async create(sections, researched) {
+      const { data, error } = await supabase.from("company_profiles").insert({ tenant_id: tenant.id, sections, ...(researched ? { researched_at: new Date().toISOString() } : {}) }).select(PROFILE_COLS).single();
+      if (error) return profileRefusal(error);
+      return data as ProfileRow;
+    },
+    async update(expectedVersion, sections, researched) {
+      const { data, error } = await supabase.from("company_profiles").update({ sections, ...(researched ? { researched_at: new Date().toISOString() } : {}) }).eq("tenant_id", tenant.id).eq("version", expectedVersion).select(PROFILE_COLS);
+      if (error) return profileRefusal(error);
+      const back = (data ?? []) as ProfileRow[];
+      if (back[0]) return { ok: true, profile: back[0] };
+      return { ok: false, reason: "conflict", current: (await loadProfile()).profile };
+    },
+  };
   const writer: McpWriter = {
     files,
     documents,
+    profile,
     async context(r) {
       const [p, m, g, t, all] = await Promise.all([projects(), people(), groupNames(), teams(), rows()]);
       return {
@@ -287,16 +322,18 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
   };
 
   const workspaceContext = async (): Promise<WorkspaceContext> => {
-    const [p, t, m, g, conn, repos] = await Promise.all([
+    const [p, t, m, g, conn, repos, company] = await Promise.all([
       projects(), teams(), people(),
       supabase.from("item_groups").select("name").eq("tenant_id", tenant.id).order("name"),
       supabase.from("github_connections").select("id").eq("tenant_id", tenant.id).eq("state", "connected").maybeSingle(),
       supabase.from("github_repositories").select("full_name, is_private").eq("tenant_id", tenant.id).is("removed_at", null),
+      loadProfile(),
     ]);
     return buildContext({
       tenant, userId, role, projects: p, teams: t, members: m,
       groups: (must(g, "groups") as { name: string }[]).map((x) => x.name),
       openLists: openListsOf(await rows()),
+      company: { url: company.url, profile: summarizeProfile(company.profile) },
       githubConnected: Boolean(conn.data),
       repoPrivate: new Map(((repos.data ?? []) as { full_name: string; is_private: boolean | null }[]).filter((r) => r.is_private !== null).map((r) => [r.full_name.toLowerCase(), r.is_private as boolean])),
     });

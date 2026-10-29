@@ -22,6 +22,8 @@ export async function createTenant(_prev: OnboardingState, form: FormData): Prom
     p_name: name, p_country: profile.country, p_currency: profile.currency, p_time_zone: profile.timeZone, p_domains: profile.domains,
   });
   if (error || typeof data !== "string") return { error: "We could not create the workspace. Please try again." };
+  // the optional company website (issue #269); the workspace is usable without it, so a failure here does not stop onboarding
+  if (profile.companyUrl) await supabase.from("tenants").update({ company_url: profile.companyUrl }).eq("id", data);
   await rememberTenant(data);
   redirect("/portfolio");
 }
