@@ -10,7 +10,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   return (
     <div className="shell">
       <header className="topbar">
-        <span className="brand-lockup"><BrandLogo /><strong className="brand">Product Velocity</strong></span>
+        <span className="brand-lockup"><BrandLogo /></span>
         <nav aria-label="Platform" className="tabs">
           <Link className="tab" href="/platform">All accounts</Link>
           <Link className="tab" href="/platform/audit">Audit log</Link>

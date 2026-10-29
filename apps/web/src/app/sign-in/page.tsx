@@ -27,7 +27,7 @@ export default async function SignInPage({
   return (
     <main className="auth-page">
       <div className="card auth-card">
-        <BrandLogo size={44} />
+        <BrandLogo size={52} />
         <h1>Sign in to Product Velocity</h1>
         {params.error && ERRORS[params.error] && (
           <p role="alert" className="error">
