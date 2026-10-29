@@ -4,9 +4,14 @@ import { countryOptions, currencyOptions, parseWorkspaceProfile, timeZoneOptions
 const form = (o: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(o)) f.set(k, v); return f; };
 
 describe("parseWorkspaceProfile", () => {
+  it("reads the optional company website, adds https, and refuses anything that is not a web address", () => {
+    expect(parseWorkspaceProfile(form({ company_url: "Acme.com" }), { requireDomain: false })).toMatchObject({ companyUrl: "https://acme.com" });
+    expect(parseWorkspaceProfile(form({ company_url: "" }), { requireDomain: false })).toMatchObject({ companyUrl: null });
+    expect(parseWorkspaceProfile(form({ company_url: "javascript:alert(1)" }), { requireDomain: false })).toHaveProperty("error");
+  });
   it("reads the profile and normalises domains", () => {
     expect(parseWorkspaceProfile(form({ country: " Spain ", currency: "eur", time_zone: "Europe/Madrid", domains: "Acme.com, @acme.io" }), { requireDomain: true }))
-      .toEqual({ country: "Spain", currency: "EUR", timeZone: "Europe/Madrid", domains: ["acme.com", "acme.io"] });
+      .toEqual({ country: "Spain", currency: "EUR", timeZone: "Europe/Madrid", domains: ["acme.com", "acme.io"], companyUrl: null });
   });
   it("needs a domain when asked to, and refuses free-mail", () => {
     expect(parseWorkspaceProfile(form({ domains: "" }), { requireDomain: true })).toEqual({ error: "Add at least one authorized email domain, for example your company's." });

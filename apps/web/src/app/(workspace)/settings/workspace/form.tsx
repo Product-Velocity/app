@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { saveWorkspace, type WorkspaceState } from "./actions";
 
-export type WorkspaceValues = { name: string; country: string; currency: string; timeZone: string; domains: string; restrictInvites: boolean };
+export type WorkspaceValues = { name: string; country: string; currency: string; timeZone: string; domains: string; restrictInvites: boolean; companyUrl: string };
 
 export function WorkspaceForm({ values, countries, currencies, timeZones, canEdit }: { values: WorkspaceValues; countries: string[]; currencies: string[]; timeZones: string[]; canEdit: boolean }) {
   const [state, action, pending] = useActionState<WorkspaceState, FormData>(saveWorkspace, null);
@@ -12,6 +12,11 @@ export function WorkspaceForm({ values, countries, currencies, timeZones, canEdi
       <div className="field">
         <label htmlFor="ws-name">Organization name</label>
         <input id="ws-name" name="name" defaultValue={values.name} maxLength={120} required disabled={!canEdit} />
+      </div>
+      <div className="field">
+        <label htmlFor="ws-company-url">Company website</label>
+        <input id="ws-company-url" name="company_url" inputMode="url" defaultValue={values.companyUrl} maxLength={300} placeholder="yourcompany.com" disabled={!canEdit} aria-describedby="ws-company-url-help" />
+        <p id="ws-company-url-help" className="hint">Optional. Claude reads it to learn what your company does; the result is a draft you confirm under Company profile. Separate from the authorized email domains.</p>
       </div>
       <div className="field">
         <label htmlFor="ws-country">Country</label>

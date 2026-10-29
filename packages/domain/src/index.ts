@@ -34,3 +34,4 @@ export * from "./reports";
 export * from "./time-to-market";
 export * from "./impact";
 export * from "./discovery-template";
+export * from "./company-profile";
