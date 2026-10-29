@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useId, useLayoutEffect, useRef } from "react";
 import { deleteSummary, hasHistory, TRASH_DAYS } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 
@@ -15,7 +15,8 @@ export function DeleteDialog({ controller, ids, onClose, onDeleted }: Props) {
   const skipped = rows.length - deletable.length;
   const summary = deleteSummary(deletable.map((r) => `${r.item_code} ${r.initiative_name}`));
   const withHistory = deletable.filter((r) => hasHistory(r)).length;
-  useEffect(() => { confirmRef.current?.focus(); }, []);
+  // before the first paint, so Escape pressed the moment the dialog shows goes to the dialog, not to the grid behind it
+  useLayoutEffect(() => { confirmRef.current?.focus(); }, []);
   const finish = onClose;
 
   const confirm = () => {

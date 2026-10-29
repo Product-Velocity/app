@@ -32,10 +32,9 @@ test.describe("the board", () => {
     await expect(c.locator(".kc-meta .token-chip").first()).toHaveText("XS");
   });
 
-  test("the column and swimlane fields can be changed; the read-only GitHub status is offered, and a later-phase field is disabled", async ({ page }) => {
+  test("the column and swimlane fields can be changed; the read-only GitHub status is offered", async ({ page }) => {
     await open(page);
     const columns = page.getByLabel("Columns");
-    await expect(columns.locator("option", { hasText: "Planning Status (arrives in phase 5)" })).toHaveAttribute("disabled", "");
     await columns.selectOption("health");
     await expect(page.locator(".kb-col-name")).toHaveText(["On Track", "At Risk", "Delayed", "Blocked", "No value"]);
     expect(page.url()).toContain("by=health");

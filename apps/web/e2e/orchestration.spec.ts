@@ -25,7 +25,9 @@ test.describe("the tracker issue next to the Initiative ID", () => {
     // clicking the link opens GitHub in a new tab and leaves the grid and the panel alone
     const popup = context.waitForEvent("page");
     await link.click();
-    expect((await popup).url()).toBe("https://github.com/Acme/App/issues/34");
+    const opened = await popup;
+    await opened.waitForLoadState(); // the address is known once the page has loaded, not when the tab appears
+    expect(opened.url()).toBe("https://github.com/Acme/App/issues/34");
     await expect(page.getByTestId("item-panel")).toHaveCount(0);
     // clicking the code itself still opens the panel
     await cell.click({ position: { x: 8, y: 8 } });
@@ -104,10 +106,11 @@ test.describe("Description (Markdown)", () => {
     await expect(field(page).getByRole("textbox")).toBeDisabled();
   });
 
-  test("the Description is in the Delivery view, after Initiative Status", async ({ page }) => {
+  test("the Description is in the Delivery view, after Planning Status", async ({ page }) => {
     await open(page, "n=12&role=admin&view=Delivery");
     const ids = await page.evaluate(() => [...document.querySelectorAll(".ag-header-cell[col-id]")].map((h) => h.getAttribute("col-id")));
-    expect(ids.indexOf("description")).toBe(ids.indexOf("initiative_status") + 1);
+    expect(ids.indexOf("planning_status")).toBeGreaterThan(-1);
+    expect(ids.indexOf("description")).toBe(ids.indexOf("planning_status") + 1);
   });
 });
 
@@ -118,8 +121,9 @@ test.describe("Last Synced and Synced With", () => {
     await expect(synced.locator('[col-id="synced_with"]')).toContainText('GitHub · Acme/App · board "Product Velocity roadmap"');
     await expect(synced.locator('[col-id="last_synced"]')).not.toHaveText("");
     await expect(synced.locator('[col-id="last_synced"]')).not.toContainText("Not synced");
-    await expect(synced.locator('[col-id="gh_project_status"]')).toContainText("On staging");
-    await expect(row(page, "item-2").locator('[col-id="gh_project_status"]')).toContainText("Not on a board");
+    // who owns it sits next to Synced With; Delivery Status is not in this view while it is switched off (decision 2026-10-28)
+    await expect(synced.locator('[col-id="tracker_ownership"]')).toContainText("Product Velocity");
+    await expect(row(page, "item-2").locator('[col-id="tracker_ownership"]')).toContainText("Not linked");
     await expect(row(page, "item-2").locator('[col-id="last_synced"]')).toContainText("Not synced");
     await expect(row(page, "item-2").locator('[col-id="synced_with"]')).toContainText("Not synced");
     await page.screenshot({ path: "../../docs/screenshots/last-synced-columns.png" });
@@ -129,7 +133,6 @@ test.describe("Last Synced and Synced With", () => {
     await row(page, "item-1").locator('[col-id="item_code"]').click({ position: { x: 8, y: 8 } });
     const panel = page.getByTestId("item-panel");
     await expect(panel.locator(".ip-gh")).toContainText("last synced");
-    await expect(panel.locator(".ip-gh")).toContainText("delivery status On staging");
     for (const key of ["last_synced", "synced_with"]) {
       await expect(panel.locator(`[data-field="${key}"]`).getByRole("textbox")).toHaveCount(0);
     }

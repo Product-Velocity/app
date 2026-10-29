@@ -230,7 +230,7 @@ test.describe("header and page head follow the prototype", () => {
     await open(page);
     const header = page.getByRole("banner");
     await expect(header.locator("img.brand-logo")).toBeVisible();
-    await expect(header).toContainText("Product Velocity");
+    await expect(header.locator("img.brand-logo")).toHaveAttribute("alt", "Product Velocity"); // the logo carries the name
     await expect(header).toContainText("Meridian Media");
     await expect(header.getByText("All projects")).toBeVisible();
     await expect(header.getByRole("link", { name: "Grid" })).toHaveAttribute("aria-current", "page");

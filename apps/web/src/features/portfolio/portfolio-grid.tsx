@@ -385,16 +385,22 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
 
   /** Items in the order the grid shows them now (scope, search, filters and grouping applied; rows in collapsed groups and group headers left out). */
   const orderedIds = useMemo(() => displayRows.filter((r) => !isGroup(r)).map((r) => (r as GridItem).id), [displayRows]);
+  // The item the panel shows as of the last step. Keys pressed faster than a render (holding J, or J J K) must each count from where the
+  // previous one went, not from the item of the last render.
+  const peekNow = useRef<string | null>(peekId);
+  useEffect(() => { peekNow.current = peekId; }, [peekId]);
   const step = useCallback((delta: 1 | -1) => {
-    if (orderedIds.length === 0 || !peekId) return;
-    const i = orderedIds.indexOf(peekId);
+    const current = peekNow.current;
+    if (orderedIds.length === 0 || !current) return;
+    const i = orderedIds.indexOf(current);
     const next = orderedIds[i < 0 ? 0 : Math.min(orderedIds.length - 1, Math.max(0, i + delta))]!;
-    if (next === peekId) return;
+    if (next === current) return;
+    peekNow.current = next;
     openPeek(next);
     const api = apiRef.current;
     const node = api?.getRowNode(next);
     if (api && node && node.rowIndex != null) { api.ensureNodeVisible(node, "middle"); api.setFocusedCell(node.rowIndex, "initiative_name"); }
-  }, [orderedIds, peekId, openPeek]);
+  }, [orderedIds, openPeek]);
   const peekPosition = useMemo(() => {
     const i = peekId ? orderedIds.indexOf(peekId) : -1;
     return i < 0 ? undefined : { index: i, total: orderedIds.length };
