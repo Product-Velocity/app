@@ -137,7 +137,12 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     const code = params.get("item");
     return code ? controller.rows.find((r) => r.item_code === code)?.id ?? null : null;
   });
+  // The item the panel shows, kept in step with the state straight away: keys pressed faster than a render (holding J, J J K, or the first
+  // J right after the panel opens) count from here, not from the item of the last render.
+  const peekNow = useRef<string | null>(peekId);
+  useEffect(() => { peekNow.current = peekId; }, [peekId]);
   const openPeek = useCallback((id: string | null) => {
+    peekNow.current = id;
     setPeekId(id);
     setQueryParam("item", id ? controller.row(id)?.item_code ?? null : null);
   }, [controller]);
@@ -386,15 +391,17 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   /** Items in the order the grid shows them now (scope, search, filters and grouping applied; rows in collapsed groups and group headers left out). */
   const orderedIds = useMemo(() => displayRows.filter((r) => !isGroup(r)).map((r) => (r as GridItem).id), [displayRows]);
   const step = useCallback((delta: 1 | -1) => {
-    if (orderedIds.length === 0 || !peekId) return;
-    const i = orderedIds.indexOf(peekId);
+    const current = peekNow.current;
+    if (orderedIds.length === 0 || !current) return;
+    const i = orderedIds.indexOf(current);
     const next = orderedIds[i < 0 ? 0 : Math.min(orderedIds.length - 1, Math.max(0, i + delta))]!;
-    if (next === peekId) return;
+    if (next === current) return;
+    peekNow.current = next;
     openPeek(next);
     const api = apiRef.current;
     const node = api?.getRowNode(next);
     if (api && node && node.rowIndex != null) { api.ensureNodeVisible(node, "middle"); api.setFocusedCell(node.rowIndex, "initiative_name"); }
-  }, [orderedIds, peekId, openPeek]);
+  }, [orderedIds, openPeek]);
   const peekPosition = useMemo(() => {
     const i = peekId ? orderedIds.indexOf(peekId) : -1;
     return i < 0 ? undefined : { index: i, total: orderedIds.length };
@@ -402,8 +409,8 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
 
   // J and K move to the next and previous initiative, Esc closes the panel; not while typing or in a menu or dialog
   useEffect(() => {
-    if (!peekId) return;
     const h = (e: KeyboardEvent) => {
+      if (!peekNow.current) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target as HTMLElement;
       if (t !== document.body && !t.closest(".grid-card")) return;
@@ -414,7 +421,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     };
     window.addEventListener("keydown", h, true);
     return () => window.removeEventListener("keydown", h, true);
-  }, [peekId, openPeek, step]);
+  }, [openPeek, step]);
 
   const onWrapperKeyDown = (e: React.KeyboardEvent) => {
     const t = e.target as HTMLElement;

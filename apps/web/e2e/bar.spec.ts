@@ -208,6 +208,27 @@ test.describe("filter panel", () => {
     await expect(panel.getByRole("button", { name: `Pin ${fourth}` })).toBeVisible(); // pushed to the fifth place: no longer pinned
   });
 
+  test("moving a column keeps the panel open and the focus on that column's arrow, so the arrow can be pressed again", async ({ page }) => {
+    await open(page, "n=30&role=admin&view=Prioritisation&cols=all");
+    await columnsBtn(page).click();
+    const panel = columnsPanel(page);
+    const list = panel.getByRole("list", { name: "Selected columns in order" });
+    const names = async () => list.getByRole("listitem").locator(".name").allInnerTexts();
+    const before = await names();
+    const moving = before[6]!;
+    await panel.getByRole("button", { name: `Move ${moving} up` }).focus();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter"); // the same arrow again, with no click in between
+    await expect(panel).toBeVisible();
+    expect(await names()).toEqual([...before.slice(0, 4), moving, ...before.slice(4, 6), ...before.slice(7)]);
+    await expect(panel.getByRole("button", { name: `Move ${moving} up` })).toBeFocused();
+    // at the top of the movable part the up arrow is switched off and the focus goes to the down arrow
+    await page.keyboard.press("Enter");
+    await expect(panel.getByRole("button", { name: `Move ${moving} up` })).toBeDisabled();
+    await expect(panel.getByRole("button", { name: `Move ${moving} down` })).toBeFocused();
+    await expect(panel).toBeVisible();
+  });
+
   test("a pinned column stays on the left", async ({ page }) => {
     await open(page, "n=30&role=admin&view=Prioritisation&cols=all");
     await columnsBtn(page).click();

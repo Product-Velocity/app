@@ -270,10 +270,10 @@ test.describe("list fields", () => {
 });
 
 test.describe("tabs", () => {
-  test("Spec, GitHub and Alignment are honest empty states; an unlinked initiative says so on the GitHub tab", async ({ page }) => {
+  test("Spec (documents), GitHub and Alignment are honest empty states; an unlinked initiative says so on the GitHub tab", async ({ page }) => {
     await open(page, "n=40&item=R-01");
     await panel(page).getByRole("tab", { name: "Spec" }).click();
-    await expect(panel(page)).toContainText("arrive in phase 4");
+    await expect(panel(page)).toContainText("The full PRD and other long documents live here");
     await panel(page).getByRole("tab", { name: "GitHub" }).click();
     await expect(panel(page)).toContainText("No GitHub issue is linked to this initiative yet");
     await panel(page).getByRole("tab", { name: "Alignment" }).click();
