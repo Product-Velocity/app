@@ -3,11 +3,21 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { checkGithubBoard, confirmGithubSync, startGithubSync } from "@/app/(workspace)/portfolio/github-push";
-import { applyBoardLines, boardCandidates, chunk, CHECK_CHUNK, failedCard, mergeChecked } from "./sync-progress";
+import { applyBoardLines, boardCandidates, chunk, CHECK_CHUNK, dropWritten, failedCard, mergeChecked, replaceResults, writeAll, writingLabel, type WrittenOne } from "./sync-progress";
 import type { PlanItem, PushItemResult, ReceiveItem, ReceiveStatus, SyncChoice, SyncConflict, SyncPreview, TakenOver } from "@/lib/github/push-types";
 
-type Props = { ids: string[]; onClose: () => void; onDone?: () => void; /** Texts taken over from GitHub (already saved): the grid shows them and makes them one undo step. */ onTakenOver?: (changes: TakenOver[]) => void };
-type Phase = { kind: "loading" } | ({ kind: "preview" } & SyncPreview & { notice?: string }) | { kind: "sending" } | { kind: "done"; results: PushItemResult[] } | { kind: "error"; message: string };
+/** The three server calls the dialog makes; a test page passes fakes. */
+export type SyncApi = { start: typeof startGithubSync; board: typeof checkGithubBoard; confirm: typeof confirmGithubSync };
+const REAL_API: SyncApi = { start: startGithubSync, board: checkGithubBoard, confirm: confirmGithubSync };
+
+type Props = { ids: string[]; api?: SyncApi; onClose: () => void; onDone?: () => void; /** Texts taken over from GitHub (already saved): the grid shows them and makes them one undo step. */ onTakenOver?: (changes: TakenOver[]) => void };
+type Phase =
+  | { kind: "loading" }
+  /** `written`: what was already written before a stop (GitHub changed for one initiative), kept for the final list. */
+  | ({ kind: "preview" } & SyncPreview & { notice?: string; written?: PushItemResult[] })
+  | { kind: "writing"; done: number; total: number; results: PushItemResult[] }
+  | { kind: "done"; results: PushItemResult[] }
+  | { kind: "error"; message: string };
 
 const WILL: Record<PlanItem["action"], (p: PlanItem) => string> = {
   create: (p) => `Will create a new issue in ${p.repo}`,
@@ -24,7 +34,23 @@ const defaults = (received: ReceiveItem[]): Record<string, "pv" | "github"> => {
   for (const r of received) for (const c of r.conflicts ?? []) if (c.defaultChoice) out[keyOf(r.id, c.field)] = c.defaultChoice;
   return out;
 };
+const LOST = "Sending did not finish for this initiative. Check GitHub before trying again: an issue may already have been created, and sending again will find it.";
 const SHORT = 280;
+/** The per-initiative results, shown while writing (the ones finished so far) and when done. A failed or unsent one can be tried again on its own. */
+function ResultList({ results, onRetry, retrying }: { results: PushItemResult[]; onRetry?: (id: string) => void; retrying?: string | null }) {
+  return (
+    <ul className="push-list">
+      {results.map((r, i) => (
+        <li key={`${r.id}-${i}`} className={r.outcome === "error" || r.outcome === "missing" || r.outcome === "blocked" ? "push-blocked" : undefined}>
+          <strong>{r.code}</strong> · {DID[r.outcome]}
+          {r.issueUrl && <> · <a href={r.issueUrl} target="_blank" rel="noreferrer">issue #{r.issueNumber}</a></>}
+          {r.message && <><br /><span className="muted">{r.message}</span></>}
+          {onRetry && r.outcome === "error" && <> <button type="button" className="btn" disabled={retrying != null} onClick={() => onRetry(r.id)}>{retrying === r.id ? "Sending…" : "Try again"}</button></>}
+        </li>
+      ))}
+    </ul>
+  );
+}
 function Text({ text }: { text: string }) {
   if (text.length <= SHORT) return <pre className="push-body">{text || "(empty)"}</pre>;
   return <><pre className="push-body">{text.slice(0, SHORT)}…</pre><details><summary>Show full text</summary><pre className="push-body">{text}</pre></details></>;
@@ -39,7 +65,7 @@ const WHY: Record<SyncConflict["kind"], (label: string, where?: "board") => stri
  * Sync with GitHub: checks GitHub first (and applies what GitHub owns), then shows exactly what would be written to GitHub and waits
  * for the person to confirm. Nothing is sent before that. With nothing to send it still shows what the check found, and offers Done.
  */
-export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
+export function GithubPushDialog({ ids, api = REAL_API, onClose, onDone, onTakenOver }: Props) {
   const titleId = useId();
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
@@ -48,6 +74,7 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
 
   const [progress, setProgress] = useState<{ done: number; total: number } | null>({ done: 0, total: ids.length });
   const [retrying, setRetrying] = useState<string | null>(null);
+  const picksRef = useRef<SyncChoice[]>([]); // the choices of the last confirm, so one failed initiative can be sent again on its own
 
   // the check runs in chunks of a few initiatives, so cards appear as they are ready (up to 25); the board is read once at the end
   useEffect(() => {
@@ -57,7 +84,7 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
       let account = "";
       setProgress({ done: 0, total: ids.length });
       for (const part of chunk(ids, CHECK_CHUNK)) {
-        const r = await startGithubSync(part, { board: false }).catch(() => null);
+        const r = await api.start(part, { board: false }).catch(() => null);
         if (!live) return;
         if (r && !r.ok) { setPhase({ kind: "error", message: r.error }); setProgress(null); return; }
         const fresh = r ? { received: r.received, send: r.send } : { received: part.map(failedCard), send: [] };
@@ -69,19 +96,19 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
       }
       const linked = boardCandidates(state.received);
       if (linked.length > 0) {
-        const b = await checkGithubBoard(linked).catch(() => null);
+        const b = await api.board(linked).catch(() => null);
         if (!live) return;
         if (b && b.ok) { state = { ...state, received: applyBoardLines(state.received, b.lines, b.failed) }; setPhase({ kind: "preview", ...state, account }); }
       }
       setProgress(null);
     })();
     return () => { live = false; };
-  }, [ids]);
+  }, [ids, api]);
 
   /** Checks one initiative again after its card said it could not be checked. */
   const retry = async (id: string) => {
     setRetrying(id);
-    const r = await startGithubSync([id], { board: false }).catch(() => null);
+    const r = await api.start([id], { board: false }).catch(() => null);
     setRetrying(null);
     if (!r || !r.ok) return;
     setPhase((p) => (p.kind === "preview" ? { ...p, ...mergeChecked(ids, p, { received: r.received, send: r.send }) } : p));
@@ -105,36 +132,75 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
 
   // "Keep GitHub for all" skips the values that cannot be taken over from the board: those stay Keep Product Velocity
   const choose = (all: "pv" | "github") => setChoices(Object.fromEntries(conflicts.map(({ r, c }) => [keyOf(r.id, c.field), c.githubPullable === false ? "pv" : c.pvPossible === false ? "github" : all])));
+  /** Writes one initiative. GitHub is read again for it first: an edit made since the preview is returned instead of overwritten. */
+  const writeOne = async (id: string, code: string, picks: SyncChoice[]): Promise<WrittenOne> => {
+    try {
+      const r = await api.confirm([id], picks.filter((x) => x.itemId === id));
+      if (r.ok) return { kind: "result", results: r.results, taken: r.taken };
+      if (r.stale) return { kind: "stale", stale: r.stale, error: r.error };
+      return { kind: "result", results: [{ id, code, outcome: "error", message: r.error }], taken: [] };
+    } catch {
+      return { kind: "lost", results: [{ id, code, outcome: "error", message: LOST }] };
+    }
+  };
+  /** Tells the grid what changed, once, after the writing stopped or finished. */
+  const finish = (taken: TakenOver[]) => {
+    // the grid knows the G2M date by its dictionary key, not by its column
+    if (taken.length > 0) onTakenOver?.(taken.map((t) => (t.field === "end_date" ? { ...t, field: "g2m_date_est" as never } : t)));
+    router.refresh();
+    onDone?.();
+  };
+
+  // one initiative at a time, so the person sees "Writing x/y" and each result as it is ready; one failing never stops the others
   const send = async () => {
     if (!preview) return;
     const picks: SyncChoice[] = conflicts.map(({ r, c }) => ({ itemId: r.id, field: c.field, choice: choices[keyOf(r.id, c.field)]!, ghHash: c.ghHash }));
-    setPhase({ kind: "sending" });
-    try {
-      const r = await confirmGithubSync(actionIds, picks);
-      if (r.ok) {
-        setPhase({ kind: "done", results: r.results });
-        // the grid knows the G2M date by its dictionary key, not by its column
-        if (r.taken.length > 0) onTakenOver?.(r.taken.map((t) => (t.field === "end_date" ? { ...t, field: "g2m_date_est" as never } : t)));
-        router.refresh();
-        onDone?.();
-      } else if (r.stale) {
-        setChoices(defaults(r.stale.received));
-        setPhase({ kind: "preview", ...r.stale, notice: r.error });
-      } else {
-        setPhase({ kind: "error", message: r.error });
-      }
-    } catch {
-      setPhase({ kind: "error", message: "Sending did not finish. Check GitHub before trying again: an issue may already have been created, and pushing again will find it." });
+    picksRef.current = picks;
+    const cards = { received: preview.received, send: preview.send };
+    const codeOf = (id: string) => cards.received.find((r) => r.id === id)?.code ?? "";
+    const todo = actionIds;
+    setPhase({ kind: "writing", done: 0, total: todo.length, results: preview.written ?? [] });
+    const run = await writeAll({
+      todo, codeOf, start: preview.written ?? [], writeOne: (id) => writeOne(id, codeOf(id), picks),
+      onProgress: (done, total, results) => setPhase({ kind: "writing", done, total, results }),
+    });
+    if (run.stopped) {
+      // GitHub changed for this one: it goes back to the preview with the new difference; those after it wait there too
+      const { id, stale, error } = run.stopped;
+      const open = mergeChecked(ids, dropWritten(cards, new Set(todo.slice(0, run.stopped.index))), { received: stale.received, send: stale.send });
+      setChoices((prev) => ({ ...Object.fromEntries(Object.entries(prev).filter(([k]) => !k.startsWith(`${id}:`))), ...defaults(stale.received) }));
+      setPhase({ kind: "preview", account: preview.account, ...open, notice: error, written: run.results });
+    } else {
+      setPhase({ kind: "done", results: run.results });
     }
+    finish(run.taken);
+  };
+
+  /** Sends one failed or unsent initiative again with the choices made before. */
+  const sendAgain = async (id: string) => {
+    if (phase.kind !== "done") return;
+    const results = phase.results;
+    setRetrying(id);
+    const code = results.find((r) => r.id === id)?.code ?? "";
+    const o = await writeOne(id, code, picksRef.current);
+    setRetrying(null);
+    const fresh = o.kind === "stale" ? [{ id, code, outcome: "error" as const, message: `${o.error} Close this window and sync again.` }] : o.results;
+    setPhase({ kind: "done", results: replaceResults(results, id, fresh) });
+    if (o.kind === "result") finish(o.taken);
   };
 
   return (
-    <div className="dialog-backdrop" onKeyDown={(e) => { if (e.key === "Escape" && phase.kind !== "sending") { e.stopPropagation(); onClose(); } }}>
+    <div className="dialog-backdrop" onKeyDown={(e) => { if (e.key === "Escape" && phase.kind !== "writing") { e.stopPropagation(); onClose(); } }}>
       <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <h2 id={titleId}>{phase.kind === "done" ? "Synced with GitHub" : "Sync with GitHub"}</h2>
 
         {phase.kind === "loading" && <p role="status">Checking GitHub… {progress ? `${progress.done} of ${progress.total}` : ""}</p>}
-        {phase.kind === "sending" && <p role="status">Sending to GitHub… keep this window open.</p>}
+        {phase.kind === "writing" && (
+          <>
+            <p role="status" aria-live="polite"><strong>{writingLabel(phase.done, phase.total)}</strong> · keep this window open.</p>
+            <ResultList results={phase.results} />
+          </>
+        )}
         {phase.kind === "error" && (
           <>
             <p role="alert" className="error">{phase.message}</p>
@@ -155,6 +221,7 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
                 <button type="button" className="btn" onClick={() => choose("github")}>Keep GitHub for all conflicts</button>
               </div>
             )}
+            {phase.written && phase.written.length > 0 && <p role="status" className="muted">Already written: {phase.written.map((w) => w.code).filter((c, i, a) => c && a.indexOf(c) === i).join(", ") || `${phase.written.length}`}. The ones below are still open.</p>}
             {progress && <p role="status" aria-live="polite" className="muted">Checked {progress.done} of {progress.total}…</p>}
             <ul className="push-list">
               {phase.received.map((r) => {
@@ -241,15 +308,7 @@ export function GithubPushDialog({ ids, onClose, onDone, onTakenOver }: Props) {
 
         {phase.kind === "done" && (
           <>
-            <ul className="push-list">
-              {phase.results.map((r) => (
-                <li key={r.id} className={r.outcome === "error" || r.outcome === "missing" || r.outcome === "blocked" ? "push-blocked" : undefined}>
-                  <strong>{r.code}</strong> · {DID[r.outcome]}
-                  {r.issueUrl && <> · <a href={r.issueUrl} target="_blank" rel="noreferrer">issue #{r.issueNumber}</a></>}
-                  {r.message && <><br /><span className="muted">{r.message}</span></>}
-                </li>
-              ))}
-            </ul>
+            <ResultList results={phase.results} onRetry={sendAgain} retrying={retrying} />
             <div className="dialog-actions"><button ref={confirmRef} type="button" className="btn btn-primary" onClick={onClose}>Close</button></div>
           </>
         )}
