@@ -1,6 +1,6 @@
 import { compareQuarters, isQuarter } from "./quarters";
 import { formatDate, localToday } from "./dates";
-import { FIELDS, FIELD_BY_KEY, type FieldDef } from "./registry";
+import { FIELDS, FIELD_BY_KEY, isOpenList, type FieldDef } from "./registry";
 
 /** The columns every view shows and keeps on the left, so a row always says which initiative it is. */
 export const CORE_COLUMN_KEYS = ["stack_rank", "item_code", "initiative_name"] as const;
@@ -50,6 +50,7 @@ function isMatch(def: FieldDef, v: unknown, value: string, ctx: FilterCtx): bool
   if (def.type === "Boolean") return value === "Yes" ? v === true : !v;
   if (def.type === "Person") return (value === "me" ? ctx.me ?? null : value) === v && !blank(v);
   if (NUMERIC.has(def.type)) { const n = Number(value); return Number.isNaN(n) ? true : Number(v) === n && !blank(v); }
+  if (isOpenList(def.key)) return !blank(v) && String(v).trim().toLowerCase() === value.trim().toLowerCase(); // open lists: the same value in another case is the same value
   return String(v ?? "") === value;
 }
 

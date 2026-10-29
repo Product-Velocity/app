@@ -545,7 +545,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     >
       <div className="pvbar" role="region" aria-label="Roadmap tools">
         <div className="pvbar-s1">
-          <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} quarters={controller.rows.map((r) => r.g2m_quarter)} today={today} matching={visibleRows.length} total={controller.rows.length} />
+          <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} quarters={controller.rows.map((r) => r.g2m_quarter)} openValues={(k) => controller.openValues(k)} today={today} matching={visibleRows.length} total={controller.rows.length} />
           <ColumnsPanel def={def} defaultDef={bDef} customerSafe={def.customerSafe === true} onApply={changeColumns} shown={shownCount} />
           <GroupMenu groupBy={def.groupBy} onChange={(g) => changeDef({ groupBy: g })} />
           <SortMenu sort={shownSort} columns={def.columns} onChange={(sort) => changeDef({ sort })} />

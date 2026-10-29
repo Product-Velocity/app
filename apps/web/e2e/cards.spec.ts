@@ -48,8 +48,8 @@ test.describe("the board", () => {
 
   test("lanes collapse and expand; a lane with no cards starts collapsed", async ({ page }) => {
     await open(page, "n=40");
-    await page.getByLabel("Swimlanes").selectOption("focus_area");
-    await expect(page.getByRole("button", { name: "Expand Formats" })).toBeVisible(); // empty, so collapsed
+    await page.getByLabel("Swimlanes").selectOption("horizon");
+    await expect(page.getByRole("button", { name: "Expand Now" })).toBeVisible(); // empty, so collapsed
     await expect(page.getByRole("button", { name: "Collapse No value" })).toBeVisible();
     const before = await page.locator("[data-card]").count();
     await page.getByRole("button", { name: "Collapse No value" }).click();

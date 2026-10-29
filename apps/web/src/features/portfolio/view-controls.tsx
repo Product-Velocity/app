@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupableFields, needsSearch, optionsFor, sortableFields, sortDirectionLabels, type Filter, type ListOption, type SortDef,
+  FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupableFields, isOpenList, needsSearch, optionsFor, sortableFields, sortDirectionLabels, type Filter, type ListOption, type SortDef,
 } from "@pv/domain";
 import { menuSearchKeys, NoResults, SearchInput, SelectField } from "@/components/search-list";
 import { DateInput } from "@/components/date-input";
@@ -10,7 +10,7 @@ import { Popover } from "./popover";
 import type { Lookups } from "./types";
 
 // ------------------------------------------------------------------ filters
-export function valueControl(f: Filter, lookups: Lookups, today: Date, patch: (p: Partial<Filter>) => void, quarters: Iterable<unknown> = []) {
+export function valueControl(f: Filter, lookups: Lookups, today: Date, patch: (p: Partial<Filter>) => void, quarters: Iterable<unknown> = [], openValues?: (key: string) => string[]) {
   const onValue = (v: string) => patch({ value: v });
   const def = FIELD_BY_KEY[f.field];
   if (!def || f.op === "empty" || f.op === "not_empty") return null;
@@ -20,6 +20,7 @@ export function valueControl(f: Filter, lookups: Lookups, today: Date, patch: (p
   else if (def.type === "Person") options = [{ value: "me", label: "me" }, ...lookups.members.map((m) => ({ value: m.user_id, label: m.email }))];
   else if (def.type === "Boolean") options = [{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }];
   else if (def.type === "Select" && def.allowed.length > 0) options = optionsFor(def.key, quarters);
+  else if (isOpenList(def.key)) options = (openValues?.(def.key) ?? []).map((v) => ({ value: v, label: v })); // the values in use (Focus Area, Audience)
   if (options) return <SelectField label={label} value={f.value ?? ""} options={options} onChange={onValue} blank="Choose…" />;
   if (def.type === "Date") {
     if (f.op === "in_last" || f.op === "in_next") {

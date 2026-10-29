@@ -2,7 +2,7 @@
 // Pure and shared with the grid's rules: the same registry, the same filter operators, the same filter engine.
 
 import { EDITABLE_FIELDS, canEditItems, fieldMaxLength } from "./fields";
-import { FIELDS, FIELD_BY_KEY, isShipped, type FieldDef } from "./registry";
+import { FIELDS, FIELD_BY_KEY, isOpenList, isShipped, type FieldDef } from "./registry";
 import { parseQuarter } from "./quarters";
 import { matchesFilters, opsFor, sortRows, type Filter, type FilterCtx, type FilterOp, type SortDef } from "./views";
 
@@ -40,6 +40,8 @@ export type FieldInfo = {
   key: string; label: string; type: string; group: string;
   /** Present for selects: the exact values the database accepts. */
   allowed?: string[];
+  /** True for an open list (Focus Area, Audience): any text is accepted; get_workspace_context lists the values already in use. */
+  open_list?: boolean;
   max_length?: number;
   /** Whether this caller can edit the field in the app. */
   editable: boolean;
@@ -64,6 +66,7 @@ export function describeFields(o: { role: string; reachesGithub: (key: string) =
     return {
       key: f.key, label: f.name, type: f.type, group: f.group,
       ...(f.allowed.length > 0 ? { allowed: [...f.allowed] } : {}),
+      ...(isOpenList(f.key) ? { open_list: true } : {}),
       ...(max !== undefined ? { max_length: max } : {}),
       editable: editableBy(f, o.role),
       claude_may_set: claudeMaySet(f.key, o.role),

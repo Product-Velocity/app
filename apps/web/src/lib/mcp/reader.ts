@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { DEFAULT_VIEWS, VIEW_NAMES, type SearchNames, type SearchRow } from "@pv/domain";
+import { DEFAULT_VIEWS, OPEN_LIST_FIELDS, VIEW_NAMES, openListValues, type SearchNames, type SearchRow } from "@pv/domain";
 import { SupabaseDataSource } from "@/features/portfolio/supabase-source";
 import { addItemFile, removeItemFile, setFileSharing } from "@/lib/files/actions";
 import { shareUrl } from "@/lib/files/serve";
@@ -10,6 +10,8 @@ import { ToolInputError } from "./tool-error";
 import type { ApplyResult, McpDocuments, McpFiles, McpWriter, PendingRow, UndoResult } from "./write-model";
 
 const FILE_CAP = 200;
+/** The values in use of each open-list field (Focus Area, Audience): what Claude may reuse (issue #246). */
+const openListsOf = (rows: readonly SearchRow[]): Record<string, string[]> => Object.fromEntries(OPEN_LIST_FIELDS.map((k) => [k, openListValues(rows.map((r) => r[k]))]));
 type Err = { message?: string } | null;
 const must = <T>(r: { data: T | null; error: Err }, what: string): T => {
   if (r.error) throw new Error(what);
@@ -236,6 +238,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
         members: m.map((x) => ({ id: x.id, name: x.name })),
         groups: g, teams: t.map((x) => ({ id: x.id, name: x.name })),
         items: all.map((x) => ({ id: x.id, code: String(x.item_code) })),
+        openLists: openListsOf(all),
         today: new Date(),
       };
     },
@@ -293,6 +296,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     return buildContext({
       tenant, userId, role, projects: p, teams: t, members: m,
       groups: (must(g, "groups") as { name: string }[]).map((x) => x.name),
+      openLists: openListsOf(await rows()),
       githubConnected: Boolean(conn.data),
       repoPrivate: new Map(((repos.data ?? []) as { full_name: string; is_private: boolean | null }[]).filter((r) => r.is_private !== null).map((r) => [r.full_name.toLowerCase(), r.is_private as boolean])),
     });

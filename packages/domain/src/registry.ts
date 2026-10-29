@@ -89,6 +89,13 @@ export function relatedTable(f: FieldDef): string | null {
 }
 export const COLUMN_ON_ITEMS: readonly string[] = FIELDS.map(columnOnItems).filter((c): c is string => c !== null);
 
+/**
+ * Open lists (issue #246): selects with no fixed values, where people type any value and the app suggests the values already in use
+ * (Focus Area, Audience). Initiative Group is one too, with its own table of names; these keep their values on the initiatives only.
+ */
+export const OPEN_LIST_FIELDS: readonly string[] = ["focus_area", "audience"];
+export const isOpenList = (key: string): boolean => OPEN_LIST_FIELDS.includes(key);
+
 /** Fields built ahead of their dictionary phase (Rank in Project is computed from the stack rank, so the grid has it now). */
 const SHIPPED_EARLY: ReadonlySet<string> = new Set(["project_rank"]);
 export const isShipped = (f: FieldDef) => f.phase <= CURRENT_PHASE || SHIPPED_EARLY.has(f.key);

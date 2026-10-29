@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { bulkEditReason, canBeEmpty, EDITABLE_FIELDS, FIELDS, FIELD_BY_KEY, fieldOptions, optionsFor, type FieldDef, type ListOption } from "@pv/domain";
+import { bulkEditReason, canBeEmpty, EDITABLE_FIELDS, FIELDS, FIELD_BY_KEY, fieldOptions, isOpenList, optionsFor, type FieldDef, type ListOption } from "@pv/domain";
 import { SelectField } from "@/components/search-list";
 import type { PortfolioController } from "./controller";
 import type { GridItem, Lookups } from "./types";
@@ -36,11 +36,12 @@ function valueOptions(f: FieldDef, lookups: Lookups): { value: string; label: st
 const HINT: Record<string, string> = { Date: "for example 31 mar, next friday, q2", Currency: "for example 120k or 1.2m", Number: "a number" };
 
 /** "Set MoSCoW ▾": a button that opens the list of values; choosing one applies it to every selected item. */
-function SetMenu({ def, selected, onPick }: { def: FieldDef; selected: GridItem[]; onPick: (value: string) => void }) {
+function SetMenu({ def, selected, onPick, suggestions }: { def: FieldDef; selected: GridItem[]; onPick: (value: string) => void; /** For an open list (Focus Area, Audience): the values in use; the menu also takes a new one. */ suggestions?: string[] }) {
+  const [typed, setTyped] = useState("");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
   const id = useId();
-  const options = optionsFor(def.key);
+  const options = suggestions ? suggestions.map((v) => ({ value: v, label: v })) : optionsFor(def.key);
   const current = [...new Set(selected.map((r) => (r[def.key] === null || r[def.key] === undefined ? "empty" : String(r[def.key]))))];
   const items = [...(canBeEmpty(def.key) ? [{ value: "", label: "(empty)" }] : []), ...options];
   const focusItem = (i: number) => (ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]')[i])?.focus();
@@ -71,6 +72,12 @@ function SetMenu({ def, selected, onPick }: { def: FieldDef; selected: GridItem[
               {o.label}
             </button>
           ))}
+          {suggestions && (
+            <form className="set-menu-new" onSubmit={(e) => { e.preventDefault(); if (typed.trim() !== "") { close(); onPick(typed); setTyped(""); } }}>
+              <input aria-label={`A new ${def.name}`} value={typed} maxLength={120} placeholder={`or type a new ${def.name.toLowerCase()}`} autoComplete="off" onChange={(e) => setTyped(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
+              <button type="submit" className="set-menu-item" disabled={typed.trim() === ""}>Set</button>
+            </form>
+          )}
           <p className="set-menu-foot">Currently: {current.slice(0, 6).join(", ")}{current.length > 6 ? ", …" : ""}</p>
         </div>
       )}
@@ -116,7 +123,7 @@ export function BulkBar({ controller, lookups, selected, onClear, onSelectAll, o
       <strong className="bulk-count">{n} selected</strong>
       {n < total && <button type="button" className="bulk-link" onClick={onSelectAll}>Select all {total}</button>}
       {controller.canEdit && <span className="bulk-sep" aria-hidden="true" />}
-      {controller.canEdit && QUICK_FIELDS.map((k) => <SetMenu key={k} def={FIELD_BY_KEY[k]!} selected={selected} onPick={(v) => apply(k, v)} />)}
+      {controller.canEdit && QUICK_FIELDS.map((k) => <SetMenu key={k} def={FIELD_BY_KEY[k]!} selected={selected} onPick={(v) => apply(k, v)} {...(isOpenList(k) ? { suggestions: controller.openValues(k) } : {})} />)}
       {controller.canEdit && (
         <button type="button" className={more ? "bulk-btn bulk-btn-open" : "bulk-btn"} aria-expanded={more} onClick={() => setMore((m) => !m)}>More fields ▾</button>
       )}
@@ -141,12 +148,14 @@ export function BulkBar({ controller, lookups, selected, onClear, onSelectAll, o
             <input
               aria-label={`New value for ${def.name}`}
               value={value}
-              placeholder={HINT[def.type] ?? "text"}
+              {...(isOpenList(def.key) ? { list: `${id}-open`, autoComplete: "off", maxLength: 120 } : {})}
+              placeholder={isOpenList(def.key) ? "type or pick a value" : HINT[def.type] ?? "text"}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") apply(); }}
             />
           )
         )}
+        {def && !reason && isOpenList(def.key) && <datalist id={`${id}-open`}>{controller.openValues(def.key).map((v) => <option key={v} value={v} />)}</datalist>}
         <button type="button" className="bulk-btn" disabled={!field || !!reason} onClick={() => apply()}>
           Apply to {n} {n === 1 ? "item" : "items"}
         </button>
