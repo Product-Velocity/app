@@ -223,6 +223,7 @@ test("changing the project updates the In project order", async ({ page }) => {
   const before = await cell(page, "item-7", "project_rank").innerText();
   await cell(page, "item-1", "home_project").click();
   await page.keyboard.press("Enter");
+  await expect(page.locator("input:focus")).toHaveAttribute("role", "combobox"); // the picker has the focus before anything is typed into it
   await page.keyboard.type("Mobile");
   await page.keyboard.press("Enter");
   await expect(cell(page, "item-1", "home_project")).toHaveText("Mobile");
