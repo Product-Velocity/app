@@ -208,7 +208,7 @@ export function sampleItems(n: number, projects: string[], people: string[]): Lo
   const effort = ["XS", "S", "M", "L", "XL"];
   const health = ["On Track", "At Risk", "Delayed"];
   const confidence = ["High", "Medium", "Low"];
-  const status = ["Backlog", "In Progress", "Completed"];
+  const status = ["Not started", "In progress", "Done"];
   return Array.from({ length: n }, (_, i) => ({
     id: `item-${i + 1}`,
     item_code: `R-${String(i + 1).padStart(2, "0")}`,

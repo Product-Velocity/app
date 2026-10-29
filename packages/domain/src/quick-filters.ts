@@ -13,7 +13,7 @@ export const QUICK_FILTERS: readonly QuickFilter[] = [
   { id: "mine", label: "My initiatives", hint: "I am the Product Manager", filters: [{ field: "product_manager", op: "is", value: "me" }] },
   { id: "high-impact", label: "High impact", hint: "MoSCoW is Must", filters: [{ field: "moscow", op: "is", value: "Must" }] },
   { id: "attention", label: "Needs attention", hint: "Health is At Risk, Delayed or Blocked", filters: [{ field: "health", op: "any_of", values: ["At Risk", "Delayed", "Blocked"] }] },
-  { id: "in-progress", label: "In progress", hint: "Initiative Status is In Progress", filters: [{ field: "initiative_status", op: "is", value: "In Progress" }] },
+  { id: "active", label: "Active", hint: "Initiative Status is Active", filters: [{ field: "initiative_status", op: "is", value: "Active" }] },
 ];
 
 export const sameFilter = (a: Filter, b: Filter) =>

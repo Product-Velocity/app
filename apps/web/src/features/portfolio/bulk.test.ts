@@ -63,7 +63,7 @@ describe("bulk edit", () => {
     expect(c.status.notice).toMatch(/comes from GitHub/);
     expect(source.calls).toHaveLength(0);
     expect(c.status.canUndo).toBe(false);
-    expect(c.row("item-1")!.status).toBe("Backlog");
+    expect(c.row("item-1")!.status).toBe("Not started");
   });
 
   it("rejects rank and a bad value without touching any row", () => {

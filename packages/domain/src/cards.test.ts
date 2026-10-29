@@ -19,12 +19,12 @@ describe("axisOptions: what can be a column or a swimlane", () => {
     expect(o.find((x) => x.key === "moscow")).toMatchObject({ editable: true });
     expect(o.find((x) => x.key === "team")).toMatchObject({ editable: false, reason: expect.stringContaining("several teams") });
   });
-  it("lists a field of a later phase as unavailable with its phase, and nothing system-set", () => {
-    expect(o.find((x) => x.key === "planning_status")).toMatchObject({ available: false, label: "Planning Status (arrives in phase 5)" });
+  it("offers Planning Status, and nothing system-set", () => {
+    expect(o.find((x) => x.key === "planning_status")).toMatchObject({ available: true, label: "Planning Status", editable: true });
     expect(o.find((x) => x.key === "created_via")).toBeUndefined();
     expect(o.find((x) => x.key === "current_gate")).toBeUndefined();
   });
-  it("the default column is Initiative Phase until Planning Status ships", () => {
+  it("the default column is Initiative Phase", () => {
     expect(defaultColumnField()).toBe("initiative_phase");
   });
 });

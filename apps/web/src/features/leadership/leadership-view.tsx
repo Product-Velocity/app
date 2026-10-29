@@ -55,7 +55,7 @@ export function LeadershipView({ controller, lookups, me, store, pageHref }: Lea
   const onTrack = health.totals.counts["On Track"];
   const todayIso = today.toISOString().slice(0, 10);
   const horizon = new Date(today.getTime() + 14 * 86_400_000).toISOString().slice(0, 10);
-  const dueSoon = rows.filter((r) => typeof r.g2m_date_est === "string" && r.g2m_date_est >= todayIso && r.g2m_date_est <= horizon && !["Completed", "Cancelled"].includes(String(r.status)) && !["Completed", "Sunset"].includes(String(r.initiative_phase))).length;
+  const dueSoon = rows.filter((r) => typeof r.g2m_date_est === "string" && r.g2m_date_est >= todayIso && r.g2m_date_est <= horizon && !["Done", "Cancelled"].includes(String(r.status)) && !["Completed", "Sunset"].includes(String(r.initiative_phase))).length;
   const attentionWords = [
     ["Blocked", attention.filter((a) => a.health === "Blocked").length], ["Delayed", attention.filter((a) => a.health === "Delayed").length],
     ["At Risk", attention.filter((a) => a.health === "At Risk").length], ["late", attention.filter((a) => !a.health || a.health === "On Track").length],

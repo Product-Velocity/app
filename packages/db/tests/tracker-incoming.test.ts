@@ -97,10 +97,10 @@ describe("pull in", () => {
     const t = await get(60);
     expect(t).toMatchObject({ pull_state: "pulled" });
     const item = (await db.admin.query("select initiative_name, source, status, home_project_id from public.items where id = $1", [t.item_id])).rows[0];
-    expect(item).toMatchObject({ initiative_name: "Issue 60", source: "GitHub issue #60", status: "Completed", home_project_id: projectA });
+    expect(item).toMatchObject({ initiative_name: "Issue 60", source: "GitHub issue #60", status: "Done", home_project_id: projectA });
     const link = (await db.admin.query("select mode, issue_number, html_url, sync_state, gh_state from public.item_github_links where item_id = $1", [t.item_id])).rows[0];
     expect(link).toMatchObject({ mode: "follow", issue_number: 60, sync_state: "synced", gh_state: "closed_completed" });
-    expect((await db.admin.query("select status from public.items where id = $1", [(await get(61)).item_id])).rows[0].status).toBe("Backlog");
+    expect((await db.admin.query("select status from public.items where id = $1", [(await get(61)).item_id])).rows[0].status).toBe("Not started");
   });
 
   it("refuses what is already an initiative, a viewer, and another workspace's project", async () => {
