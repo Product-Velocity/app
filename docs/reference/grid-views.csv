@@ -168,3 +168,4 @@ initiative_status,What,Editable,,Y,Y,Y,,,,,Y
 description,What,Editable,,,,,,,,,
 last_synced,Delivery (GitHub),Computed (read-only),,,,Y,,,,,
 synced_with,Delivery (GitHub),Computed (read-only),,,,Y,,,,,
+tracker_ownership,Delivery (GitHub),Computed (read-only),,,,Y,,,,,

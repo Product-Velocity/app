@@ -168,3 +168,4 @@ N43,What,Initiative Status,initiative_status,Select,Active · On hold · Complet
 N44,What,Description,description,Long text,,Input,New,"App -> GitHub: own section 'Description' of the managed block of the issue body (Markdown). Do not put value, customers or decisions in it.",Column on items,1
 N46,Delivery (GitHub),Last Synced,last_synced,Computed,,Computed,New,Not synced: shown from the GitHub link and read-only.,Derived in the app from the GitHub link (not stored),1
 N47,Delivery (GitHub),Synced With,synced_with,Computed,,Computed,New,Not synced: shown from the GitHub link and read-only.,Derived in the app from the GitHub link (not stored),1
+N48,Delivery (GitHub),Tracker Ownership,tracker_ownership,Computed,Product Velocity · Tracker (read only),Computed,New,Not synced: shown from the GitHub link and read-only here. Change it on the item's GitHub tab.,Derived in the app from the GitHub link (not stored),1

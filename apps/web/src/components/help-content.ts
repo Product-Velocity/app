@@ -98,6 +98,7 @@ const UPDATE_OVERRIDES: Record<string, string> = {
   assignees: join(UPDATE_EDIT, UPDATE_MANUAL, "GitHub's side arrives by webhook"),
   github_links: join(UPDATE_MANUAL, "or Pull in from Incoming issues"),
   sync_state: "After every sync", last_synced: "After every sync", synced_with: "After every sync",
+  tracker_ownership: "You: Take ownership or Make read only on the GitHub tab, or the choice when you pull an issue in",
   planned_scope: "You, with Mark breakdown complete", breakdown_route: "Set when the tracking issue is first sent", breakdown_status: join("Set when the tracking issue is first sent", "you mark it complete"),
   scope_added: join(UPDATE_CALCULATED, "after every tracker read"), schedule_variance_pp: join(UPDATE_CALCULATED, "after every tracker read"),
 };
@@ -198,9 +199,9 @@ export const FLOW_READ: Table = {
   rows: [
     ["1. Connect", "Link GitHub (Jira is planned) and choose the repositories", "Account menu: GitHub"],
     ["2. Choose", "Each issue is Not pulled, Pulled in or Ignored. Rules set the default for new issues. Nothing is pulled in by itself", "Account menu: Incoming issues"],
-    ["3. Pull in", "A pulled-in issue becomes an initiative. Its tracker columns stay read-only", "Incoming issues: Pull in"],
+    ["3. Pull in", "A pulled-in issue becomes an initiative. Choose Read only (it follows the issue) or Product Velocity owns it. Its tracker columns stay read-only either way", "Incoming issues: Pull in"],
     ["4. Clean up", "Rename, merge duplicates, regroup, rank, add value and owners. Every change can be undone with Ctrl+Z", "Grid, side panel, bulk bar"],
-    ["5. Take ownership", "From now on you own phase, status, rank, value and decisions. The tracker owns build status, progress and PR/CI", "Grid"],
+    ["5. Take ownership", "Choose it when you pull in, or later with Take ownership on the GitHub tab (Make read only undoes it). Product Velocity then sends the name, summary, description and hypothesis after a preview and a confirmation. You own phase, status, rank, value and decisions; the tracker owns build status, progress and PR/CI", "GitHub tab of the side panel; column Tracker Ownership"],
     ["6. Sync", "Sync with GitHub shows what came in, what will go out and any conflict. Nothing is sent until you confirm", "Grid: Sync with GitHub"],
   ],
 };

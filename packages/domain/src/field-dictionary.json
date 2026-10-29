@@ -3655,5 +3655,28 @@
   "githubSync": "Not synced: shown from the GitHub link, read-only.",
   "filledWhen": "After the first send or check",
   "description": "Where this initiative syncs to, for example GitHub, the repository, and the Project board it is on. Says when the last send failed or when it only follows an issue read-only."
+ },
+ {
+  "n": "N48",
+  "storage": "Derived in the app from the GitHub link (not stored)",
+  "phase": 1,
+  "name": "Tracker Ownership",
+  "key": "tracker_ownership",
+  "group": "Delivery (GitHub)",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Delivery"
+  ],
+  "allowed": [
+   "Product Velocity",
+   "Tracker (read only)"
+  ],
+  "allowedText": "Product Velocity · Tracker (read only)",
+  "origin": "Computed",
+  "githubSync": "Not synced: shown from the GitHub link and read-only here. Change it on the item's GitHub tab.",
+  "filledWhen": "When the initiative is linked to an issue",
+  "description": "Who owns what this linked initiative is. Product Velocity: it sends the name, summary, description and hypothesis to the tracker after a preview and a confirmation. Tracker (read only): it only follows the issue and nothing is sent. Status and progress are the tracker's in both cases."
  }
 ]

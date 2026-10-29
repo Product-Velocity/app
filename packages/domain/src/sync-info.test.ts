@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lastSyncedAt, syncedWith, type SyncLink } from "./sync-info";
+import { lastSyncedAt, syncedWith, trackerOwnership, type SyncLink } from "./sync-info";
 
 const link = (over: Partial<SyncLink> = {}): SyncLink => ({ mode: "push", repo: "Acme/App", issueNumber: 38, syncState: "synced", lastPushedAt: null, ghSyncedAt: null, hasBoardItem: false, ...over });
 
@@ -31,5 +31,21 @@ describe("syncedWith: the platform and place, in words", () => {
   });
   it("is empty for an initiative that is not on a tracker", () => {
     expect(syncedWith(undefined, null)).toBe("");
+  });
+});
+
+describe("trackerOwnership: who owns what a linked initiative is", () => {
+  it("is blank for an initiative that is not linked to an issue", () => {
+    expect(trackerOwnership(undefined)).toBe("");
+  });
+  it("Product Velocity when it sends the name, summary, description and hypothesis", () => {
+    expect(trackerOwnership(link({ mode: "push" }))).toBe("Product Velocity");
+  });
+  it("Tracker (read only) when it only follows the issue", () => {
+    expect(trackerOwnership(link({ mode: "follow" }))).toBe("Tracker (read only)");
+  });
+  it("the words are exactly the allowed values of the dictionary field", async () => {
+    const { FIELD_BY_KEY } = await import("./registry");
+    expect(FIELD_BY_KEY.tracker_ownership!.allowed).toEqual([trackerOwnership(link({ mode: "push" })), trackerOwnership(link({ mode: "follow" }))]);
   });
 });

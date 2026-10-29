@@ -2,7 +2,7 @@ import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, isOpenList, isShipped, type FieldD
 import { readOnlyReason } from "./fields";
 
 /**
- * The item panel: how each of the 169 fields is shown and edited, and the activity log of one item.
+ * The item panel: how each of the 170 fields is shown and edited, and the activity log of one item.
  * Pure logic, so the panel, the detail page and the tests agree.
  */
 export type PanelKind =
