@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import {
   CLAUDE_OPTIONS, CLAUDE_PROMPTS, CLAUDE_PROMPT_TIPS, CLAUDE_RULES, COLUMNS_NOTE, COLUMN_ROWS, FLOW_CREATE, FLOW_LIFECYCLE, FLOW_READ, LIFECYCLE_NOTES,
-  accessLabel, type Table,
+  COLUMN_GROUPS, type Table,
 } from "./help-content";
 
 const TABS = [
@@ -27,6 +27,9 @@ function SimpleTable({ caption, table }: { caption: string; table: Table }) {
 export function HelpGuide() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<TabId>("columns");
+  const [query, setQuery] = useState("");
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const shown = COLUMN_ROWS.filter((r) => { const hay = `${r.column} ${r.what} ${r.github} ${r.jira} ${r.access} ${r.group} ${r.key}`.toLowerCase(); return words.every((w) => hay.includes(w)); });
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -51,22 +54,27 @@ export function HelpGuide() {
 
             {tab === "columns" && (
               <div role="tabpanel" id="help-panel-columns" aria-labelledby="help-tab-columns">
-                <table className="help-table">
-                  <caption>Columns, and how each one relates to GitHub and Jira</caption>
+                <label className="help-filter">
+                  <span className="visually-hidden">Filter columns</span>
+                  <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter columns, e.g. status, GitHub, read-only" />
+                </label>
+                <p className="muted" role="status">{shown.length} of {COLUMN_ROWS.length} columns. {COLUMNS_NOTE} A lock icon in a header means the value comes from the tracker.</p>
+                <table className="help-table help-columns">
+                  <caption className="visually-hidden">Columns, and how each one relates to GitHub and Jira</caption>
                   <thead><tr><th scope="col">Column</th><th scope="col">What it is</th><th scope="col">GitHub</th><th scope="col">Jira (planned)</th><th scope="col">Access</th></tr></thead>
-                  <tbody>
-                    {COLUMN_ROWS.map((r) => (
-                      <tr key={r.keys[0]}>
-                        <th scope="row">{r.columns}</th>
-                        <td>{r.what}</td>
-                        <td>{r.github}</td>
-                        <td>{r.jira}</td>
-                        <td>{accessLabel(r.keys)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
+                  {COLUMN_GROUPS.map((g) => {
+                    const rows = shown.filter((r) => r.group === g);
+                    if (rows.length === 0) return null;
+                    return (
+                      <tbody key={g}>
+                        <tr className="help-group"><th colSpan={5} scope="colgroup">{g}</th></tr>
+                        {rows.map((r) => (
+                          <tr key={r.key}><th scope="row">{r.column}</th><td>{r.what}</td><td>{r.github}</td><td>{r.jira}</td><td>{r.access}</td></tr>
+                        ))}
+                      </tbody>
+                    );
+                  })}
                 </table>
-                <p className="muted">{COLUMNS_NOTE} A lock icon in a header means the value comes from the tracker.</p>
               </div>
             )}
 

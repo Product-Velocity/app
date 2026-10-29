@@ -1,41 +1,69 @@
-import { FIELD_BY_KEY } from "@pv/domain";
+import { FIELDS, FIELD_BY_KEY, type FieldDef } from "@pv/domain";
 
 /**
  * Text of the Help guide. Short on purpose. The columns table is checked against the field dictionary (help-content.test.ts):
  * every key exists, and whether a column is read-only comes from the dictionary, not from this file.
  */
-export type ColumnRow = { keys: string[]; columns: string; what: string; github: string; jira: string };
+/**
+ * GitHub and Jira wording for the columns that have something to say, by field key. Every other column is derived from the dictionary's own
+ * GitHub-sync text, so a column added to the dictionary shows up in the table without anyone remembering to edit this file.
+ */
+type Link = { github: string; jira: string };
 
 const NONE = "Not synced";
 const COMMERCIAL = "Never synced (commercial)";
+const same = (text: string): Link => ({ github: text, jira: text });
+const BODY: Link = { github: "Issue body (managed block)", jira: "Description" };
+const LABELS: Link = { github: "Optional: label", jira: "Optional: label or custom field" };
+const TRACKER_COUNTS: Link = { github: "Sub-issues of the tracking issue", jira: "Child issues of the epic" };
+const BOARD: Link = { github: "Projects v2 board", jira: "Board status, sprint, due date" };
 
-export const COLUMN_ROWS: ColumnRow[] = [
-  { keys: ["item_code"], columns: "Initiative ID", what: "Stable ID (R-01…)", github: "Backlink in the issue body", jira: "Backlink in the issue description" },
-  { keys: ["initiative_name"], columns: "Initiative Name", what: "The initiative's title", github: "Issue title", jira: "Summary" },
-  { keys: ["description"], columns: "Description", what: "What and why, Markdown", github: "Issue body (managed block)", jira: "Description" },
-  { keys: ["hypothesis"], columns: "Initiative Hypothesis", what: "IF / THEN / RESULTING IN", github: "Issue body (managed block)", jira: "Description" },
-  { keys: ["summary"], columns: "Summary", what: "Short text shown to participants", github: "Issue body (managed block)", jira: "Description" },
-  { keys: ["initiative_phase"], columns: "Initiative Phase", what: "Discover to Sunset", github: "Not synced. May suggest Build when work starts", jira: "Not synced" },
-  { keys: ["initiative_status"], columns: "Initiative Status", what: "Active, On hold, Completed, Cancelled", github: "Not synced. A closed issue never sets it", jira: "Not synced. A closed issue never sets it" },
-  { keys: ["health"], columns: "Health", what: "On Track, At Risk, Delayed, Blocked", github: "Not synced. Signals only suggest", jira: "Not synced" },
-  { keys: ["stack_rank"], columns: "Stack Rank", what: "Global priority order", github: "Optional: Priority field or label", jira: "Optional: Priority" },
-  { keys: ["moscow", "effort", "theme", "tags"], columns: "MoSCoW, Effort, Initiative Group, Tags", what: "Planning labels", github: "Optional: labels (Effort: size field)", jira: "Optional: labels or custom field" },
-  { keys: ["planned_start", "g2m_date_est"], columns: "Planned Start, G2M Date (est)", what: "Dates you plan", github: "Optional: date field, milestone due date", jira: "Optional: start and due date" },
-  { keys: ["home_project"], columns: "Home Project", what: "Where delivery is tracked", github: "Chooses the repository", jira: "Chooses the Jira project" },
-  { keys: ["assignees"], columns: "Assignees", what: "Who is on the work", github: "Issue assignees, two-way", jira: "Assignee" },
-  { keys: ["github_links"], columns: "GitHub Links", what: "The linked tracking issue", github: "Tracking issue", jira: "Jira issue link" },
-  { keys: ["status"], columns: "Build Status", what: "Not started, In progress, Done, Cancelled", github: "Issue open or closed", jira: "Status category" },
-  { keys: ["issues_closed", "issues_total", "delivery_progress_pct", "blocked_issues", "stale_issues"], columns: "Issues Closed, Issues Total, Delivery Progress %, Blocked, Stale", what: "Progress of the child work", github: "Sub-issues of the tracking issue", jira: "Child issues of the epic" },
-  { keys: ["open_prs", "merged_prs", "ci_status", "latest_release"], columns: "Open PRs, Merged PRs, CI Status, Latest Release", what: "Delivery evidence", github: "Pull requests, checks, releases", jira: "Bitbucket via issue keys" },
-  { keys: ["gh_project_status", "gh_iteration", "gh_target_date", "gh_last_activity"], columns: "Delivery Status, Iteration, Target Date, Last Activity", what: "Where the work sits on the board", github: "Projects v2 board and issue activity", jira: "Board status, sprint, due date" },
-  { keys: ["value_12m", "confidence", "value_type", "customers_requesting", "kr_metric", "decision", "realized_kr_value", "cost_of_not_doing"], columns: "Business Value, Confidence, Customers, Key results, Decision, Outcomes, Cost of Not Doing", what: "Commercial and decision fields", github: COMMERCIAL, jira: COMMERCIAL },
-  { keys: ["sponsor", "product_manager", "engineering_manager", "audience", "gtm_enablement_notes", "visibility"], columns: "People, Audience, GTM notes, Visibility, other columns", what: "Everything else", github: NONE, jira: NONE },
-  { keys: ["crowd_rank", "value_weighted", "adoption_pct", "days_in_phase", "created_at"], columns: "Crowd Rank, weighted value, adoption, days in phase, created at", what: "Calculated or system-set", github: NONE, jira: NONE },
-];
+const OVERRIDES: Record<string, Link> = {
+  item_code: { github: "Backlink in the issue body", jira: "Backlink in the issue description" },
+  initiative_name: { github: "Issue title", jira: "Summary" },
+  description: BODY, hypothesis: BODY, summary: BODY,
+  initiative_phase: { github: "Not synced. May suggest Build when work starts", jira: NONE },
+  initiative_status: same("Not synced. A closed issue never sets it"),
+  health: { github: "Not synced. Signals only suggest", jira: NONE },
+  stack_rank: { github: "Optional: Priority field or label", jira: "Optional: Priority" },
+  moscow: LABELS, effort: { github: "Optional: size field or label", jira: LABELS.jira }, theme: LABELS, tags: { github: "Optional: labels", jira: "Labels" },
+  roadmap_category: LABELS, focus_area: LABELS,
+  planned_start: { github: "Optional: date field", jira: "Optional: start date" },
+  g2m_date_est: { github: "Optional: date field, milestone due date", jira: "Optional: due date" },
+  home_project: { github: "Chooses the repository", jira: "Chooses the Jira project" },
+  assignees: { github: "Issue assignees, two-way", jira: "Assignee" },
+  github_links: { github: "Tracking issue", jira: "Jira issue link" },
+  status: { github: "Issue open or closed", jira: "Status category" },
+  issues_closed: TRACKER_COUNTS, issues_total: TRACKER_COUNTS, delivery_progress_pct: TRACKER_COUNTS, blocked_issues: TRACKER_COUNTS,
+  planned_scope: TRACKER_COUNTS,
+  open_prs: { github: "Pull requests", jira: "Bitbucket via issue keys" }, merged_prs: { github: "Pull requests", jira: "Bitbucket via issue keys" },
+  ci_status: { github: "Checks on the pull request", jira: "Bitbucket pipelines" }, latest_release: { github: "Latest release", jira: "Fix version" },
+  gh_project_status: BOARD, gh_iteration: { github: "Projects v2 iteration", jira: "Sprint" }, gh_target_date: { github: "Projects v2 target date", jira: "Due date" },
+  gh_last_activity: { github: "Issue activity", jira: "Issue updated" },
+  repositories: { github: "Repositories of the linked issues", jira: "Jira projects of the linked issues" },
+};
 
-export const COLUMNS_NOTE = "All 169 columns are in the grid's Columns picker. Jira is planned: its mapping is chosen per customer, and nothing goes to GitHub or Jira until you confirm.";
+const COMMERCIAL_KEYS = ["value_12m", "value_type", "value_basis", "confidence", "customers_requesting", "kr_metric", "kr_start", "kr_target", "decision", "realized_kr_value", "realized_per_year", "cost_of_not_doing"];
+for (const k of COMMERCIAL_KEYS) OVERRIDES[k] = same(COMMERCIAL);
 
-/** "Read/write" or the reason a column cannot be edited. A row holding several columns shows each kind once. */
+export type ColumnRow = { key: string; group: string; column: string; what: string; github: string; jira: string; access: string };
+
+/** First sentence of the dictionary description, kept short. */
+const short = (text: string | null): string => {
+  const t = (text ?? "").replace(/\s+/g, " ").trim();
+  const first = t.split(/(?<=[.!?])\s/)[0] ?? "";
+  return first.length > 120 ? `${first.slice(0, 117).trimEnd()}…` : first;
+};
+
+function derive(f: FieldDef): Link {
+  const g = f.githubSync?.trim() ?? "";
+  if (g === "" || /^(not synced|n\/a)/i.test(g)) return same(NONE);
+  if (/^never synced/i.test(g)) return same(COMMERCIAL);
+  if (f.mode === "locked" || f.storage.startsWith("GitHub-synced")) return { github: "From GitHub, read-only", jira: "From Jira, read-only (planned)" };
+  return { github: "Optional: see the item panel", jira: "Per mapping (planned)" };
+}
+
+/** "Read/write", "Read-only (tracker)" or "Read-only", from the dictionary. */
 export function accessLabel(keys: string[]): string {
   const kinds = new Set(keys.map((k) => {
     const f = FIELD_BY_KEY[k];
@@ -46,6 +74,17 @@ export function accessLabel(keys: string[]): string {
   }));
   return [...kinds].join(" / ");
 }
+
+/** One row for every column in the dictionary, in dictionary order. */
+export const COLUMN_ROWS: ColumnRow[] = FIELDS.map((f) => {
+  const link = OVERRIDES[f.key] ?? derive(f);
+  return { key: f.key, group: f.group, column: f.name, what: short(f.description), github: link.github, jira: link.jira, access: accessLabel([f.key]) };
+});
+
+export const COLUMN_GROUPS: string[] = [...new Set(COLUMN_ROWS.map((r) => r.group))];
+export const OVERRIDE_KEYS: string[] = Object.keys(OVERRIDES);
+
+export const COLUMNS_NOTE = "Jira is planned: its mapping is chosen per customer. Nothing goes to GitHub or Jira until you confirm.";
 
 export type Table = { head: string[]; rows: string[][] };
 
