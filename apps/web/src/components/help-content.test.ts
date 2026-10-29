@@ -33,3 +33,19 @@ describe("Help guide columns table", () => {
     }
   });
 });
+
+describe("Help guide values", () => {
+  it("lists every state of a fixed-list column in full, in order", () => {
+    for (const f of FIELDS) {
+      if (f.allowed.length === 0 || f.key === "g2m_quarter") continue;
+      const r = COLUMN_ROWS.find((x) => x.key === f.key)!;
+      expect(r.what, f.key).toContain(`Values: ${f.allowed.join(" · ")}.`);
+    }
+  });
+  it("says how an open or generated list works instead of printing examples", () => {
+    const what = (k: string) => COLUMN_ROWS.find((x) => x.key === k)!.what;
+    expect(what("focus_area")).toMatch(/Open list/);
+    expect(what("audience")).not.toMatch(/Publishers/);
+    expect(what("g2m_quarter")).toMatch(/calendar quarter/i);
+  });
+});
