@@ -25,8 +25,8 @@ function chips(r: Extract<QuickAddResult, { ok: true }>, lookups: Lookups, today
   ].filter((x): x is string => !!x);
 }
 
-/** The words shown inside the empty box: what Enter does, then the most used words (the rest are under Help). */
-const PLACEHOLDER = `Enter adds. Paste a list to add many. ${QUICK_ADD_TOKENS.filter((t) => t.important).map((t) => `${t.token} ${t.means.split(" (")[0]!.toLowerCase()}`).join("; ")}; more under Help`;
+/** The words shown inside the empty box: what Enter does, then the most used words (the rest are under Shortcuts). */
+const PLACEHOLDER = `Enter adds. Paste a list to add many. ${QUICK_ADD_TOKENS.filter((t) => t.important).map((t) => `${t.token} ${t.means.split(" (")[0]!.toLowerCase()}`).join("; ")}; more under Shortcuts`;
 
 /** One line adds one item: type the name (and tokens), press Enter. Paste a list to add many. */
 export function QuickAddBar({ controller, lookups, contextProject, inputRef }: Props) {

@@ -1,5 +1,7 @@
 import { AccountMenu } from "./account-menu";
 import { HelpMenu } from "./help-menu";
+import { HelpGuide } from "./help-guide";
+import { TextSizeControl } from "./text-size-control";
 import { BrandLogo } from "./brand-logo";
 import { HeaderTabs } from "./header-tabs";
 import { ScopeSwitcher } from "@/features/workspace/scope-switcher";
@@ -13,6 +15,8 @@ type Props = {
   email: string;
   roleLabel: string;
   isApprover: boolean;
+  /** Saved text size in percent; 100 when left out. */
+  textSize?: number;
   /** Tab to mark as the current one; when left out it follows the address of the page. */
   current?: "grid" | "gantt" | "cards" | "leadership" | "reports";
   /** Creators and admins get a link to the Trash in the account menu. */
@@ -22,7 +26,7 @@ type Props = {
 };
 
 /** Top bar following prototype boards 20 and 1: logo, workspace and scope, tabs, account menu. */
-export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmin, email, roleLabel, isApprover, current, showTrash, showAudit }: Props) {
+export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmin, email, roleLabel, isApprover, textSize, current, showTrash, showAudit }: Props) {
   return (
     <header className="topbar">
       <span className="brand-lockup">
@@ -41,7 +45,9 @@ export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmi
 
       <HeaderTabs current={current} accountId={activeTenantId} />
 
+      <TextSizeControl initial={textSize} />
       <HelpMenu />
+      <HelpGuide />
       <AccountMenu email={email} roleLabel={roleLabel} isApprover={isApprover} showTrash={showTrash} showAudit={showAudit} />
     </header>
   );

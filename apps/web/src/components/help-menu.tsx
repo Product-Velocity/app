@@ -16,7 +16,7 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
   { title: "Good to know", rows: [["Lock icon", "The value comes from GitHub and cannot be edited here"], ["Selecting rows", "A bar above the grid sets a field on all of them at once"]] },
 ];
 
-/** Help in the top bar, next to the account menu: all keyboard shortcuts in one place, and a button that opens the command palette. */
+/** Shortcuts in the top bar, next to Help and the account menu: all keyboard shortcuts in one place, and a button that opens the command palette. */
 export function HelpMenu() {
   const [open, setOpen] = useState(false);
   const titleId = useId();
@@ -30,11 +30,11 @@ export function HelpMenu() {
   }, [open]);
   return (
     <>
-      <button type="button" className="help-btn" aria-haspopup="dialog" onClick={() => setOpen(true)} title="Help and keyboard shortcuts">Help</button>
+      <button type="button" className="help-btn" aria-haspopup="dialog" onClick={() => setOpen(true)} title="Keyboard shortcuts">Shortcuts</button>
       {open && (
         <div className="dialog-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
           <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
-            <h2 id={titleId}>Help: keyboard shortcuts</h2>
+            <h2 id={titleId}>Keyboard shortcuts</h2>
             <p className="muted">Product Velocity is built for the keyboard. On a Mac use ⌘ where it says Ctrl.</p>
             <button type="button" className="btn" onClick={() => { setOpen(false); window.dispatchEvent(new CustomEvent("pv:open-palette")); }}>Open the command palette</button>
             {SECTIONS.map((s) => (

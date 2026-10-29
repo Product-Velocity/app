@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PANEL_WIDTH_DEFAULT, PANEL_WIDTH_MAX, PANEL_WIDTH_MIN, clampPanelWidth, lastLocationFromMetadata, panelWidthFromMetadata, sanitizeLocation, withLastLocation } from "./user-prefs";
+import { TEXT_SIZES, TEXT_SIZE_DEFAULT, clampTextSize, stepTextSize, textSizeFromMetadata, PANEL_WIDTH_DEFAULT, PANEL_WIDTH_MAX, PANEL_WIDTH_MIN, clampPanelWidth, lastLocationFromMetadata, panelWidthFromMetadata, sanitizeLocation, withLastLocation } from "./user-prefs";
 
 describe("panel width", () => {
   it("stays between the limits and whole", () => {
@@ -46,5 +46,25 @@ describe("last location", () => {
     expect(Object.keys(meta.last_location as object)).toHaveLength(12);
     expect(lastLocationFromMetadata(meta, "t19")).toBe("/portfolio");
     expect(lastLocationFromMetadata(meta, "t0")).toBeNull();
+  });
+});
+
+describe("text size", () => {
+  it("snaps any value to an allowed step and defaults to 100", () => {
+    expect(clampTextSize(undefined)).toBe(TEXT_SIZE_DEFAULT);
+    expect(clampTextSize("big")).toBe(TEXT_SIZE_DEFAULT);
+    expect(clampTextSize(5)).toBe(TEXT_SIZES[0]);
+    expect(clampTextSize(500)).toBe(TEXT_SIZES[TEXT_SIZES.length - 1]);
+    expect(clampTextSize(112)).toBe(110);
+  });
+  it("steps one at a time and stops at both ends", () => {
+    expect(stepTextSize(100, 1)).toBe(110);
+    expect(stepTextSize(100, -1)).toBe(90);
+    expect(stepTextSize(90, -1)).toBe(90);
+    expect(stepTextSize(130, 1)).toBe(130);
+  });
+  it("reads the saved value from the profile", () => {
+    expect(textSizeFromMetadata({ text_size: 120 })).toBe(120);
+    expect(textSizeFromMetadata(null)).toBe(100);
   });
 });
