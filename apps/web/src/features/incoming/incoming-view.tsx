@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { RULE_LABEL, type BatchOutcome, type IncomingIssue, type IncomingRule, type IncomingSource, type Ownership, type PullState } from "./types";
 
-type Props = { source: IncomingSource; projects: { id: string; name: string }[]; canEdit: boolean; canAdmin: boolean; now?: number };
+type Props = { source: IncomingSource; projects: { id: string; name: string }[]; canEdit: boolean; canAdmin: boolean; now?: number; /** Inside another window (the first step of Sync): a small heading instead of the page heading and no long introduction. */ embedded?: boolean };
 type Undo = { label: string; run: () => Promise<string> };
 
 const TABS: { id: PullState; label: string; hint: string }[] = [
@@ -24,7 +24,7 @@ const failedText = (r: BatchOutcome[]) => { const bad = r.filter((x) => !x.ok); 
  * (Ignore), and let saved rules decide for new arrivals. Nothing here writes to GitHub; ignored and not-pulled issues are
  * not initiatives, so they are in no grid, rank, cycle or report.
  */
-export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp }: Props) {
+export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp, embedded = false }: Props) {
   const [issues, setIssues] = useState<IncomingIssue[] | null>(null);
   const [rules, setRules] = useState<IncomingRule[]>([]);
   const [connectionId, setConnectionId] = useState("");
@@ -166,8 +166,8 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
 
   return (
     <>
-      <div className="page-head"><h1>Incoming</h1></div>
-      <p className="muted">Issues in GitHub that are not initiatives. Nothing comes into the roadmap just because it exists: pull in what belongs, ignore the rest (bugs, chores, support). Both can be changed any time, and nothing here ever writes to GitHub.</p>
+      {embedded ? <h3>New issues in GitHub</h3> : <div className="page-head"><h1>Incoming</h1></div>}
+      {!embedded && <p className="muted">Issues in GitHub that are not initiatives. Nothing comes into the roadmap just because it exists: pull in what belongs, ignore the rest (bugs, chores, support). Both can be changed any time, and nothing here ever writes to GitHub.</p>}
       {error && <div role="alert" className="error">{error}</div>}
       <p role="status" className="trash-status">
         {message}

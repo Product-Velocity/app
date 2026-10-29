@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { PortfolioController } from "./controller";
+import { supabaseNewItems } from "./new-items";
 import { PortfolioGrid } from "./portfolio-grid";
 import { SupabaseDataSource } from "./supabase-source";
 import type { Lookups } from "./types";
@@ -30,6 +31,7 @@ export function useWorkspaceController(tenantId: string, role: string, lookups: 
 /** Loads every item of the workspace, then shows the grid. */
 export function PortfolioClient({ tenantId, role, lookups, userId, headLeft, headRight }: { tenantId: string; role: string; lookups: Lookups; userId: string; headLeft?: ReactNode; headRight?: ReactNode }) {
   const { state, retry } = useWorkspaceController(tenantId, role, lookups, userId);
+  const newItems = useMemo(() => supabaseNewItems(tenantId, role), [tenantId, role]);
 
   if (state.kind === "loading") return <><div className="page-head">{headLeft}</div><p role="status" className="muted">Loading the roadmap…</p></>;
   if (state.kind === "error") {
@@ -43,5 +45,5 @@ export function PortfolioClient({ tenantId, role, lookups, userId, headLeft, hea
       </>
     );
   }
-  return <PortfolioGrid controller={state.controller} lookups={lookups} me={userId} headLeft={headLeft} headRight={headRight} />;
+  return <PortfolioGrid controller={state.controller} lookups={lookups} me={userId} newItems={newItems} headLeft={headLeft} headRight={headRight} />;
 }
