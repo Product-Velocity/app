@@ -19,7 +19,13 @@ export function useMenuBlur(close: () => void) {
     onPointerDownCapture: () => { pressing.current = true; },
     onBlur: (e: FocusEvent<HTMLElement>) => {
       if (pressing.current) return;
-      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) close();
+      const wrapper = e.currentTarget;
+      const to = e.relatedTarget as Node | null;
+      if (to && wrapper.contains(to)) return;
+      if (to) { close(); return; } // the focus went to something else on the page
+      // The focus went nowhere: a control inside was moved or removed (a list reordering itself drops the focus for a moment), or the
+      // window lost the focus. Decide once the page has settled: a control that takes the focus back keeps the menu open.
+      setTimeout(() => { if (!wrapper.contains(document.activeElement)) close(); }, 0);
     },
   };
 }

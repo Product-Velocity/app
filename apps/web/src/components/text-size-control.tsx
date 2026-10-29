@@ -21,8 +21,8 @@ export function TextSizeControl({ initial }: { initial?: number }) {
   };
   return (
     <div className="text-size" role="group" aria-label="Text size">
-      <button type="button" className="help-btn text-size-btn" onClick={() => change(-1)} disabled={size === TEXT_SIZES[0]} aria-label="Smaller text" title={`Smaller text (now ${size}%)`}>A−</button>
-      <button type="button" className="help-btn text-size-btn text-size-up" onClick={() => change(1)} disabled={size === TEXT_SIZES[TEXT_SIZES.length - 1]} aria-label="Larger text" title={`Larger text (now ${size}%)`}>A+</button>
+      <button type="button" className="help-btn text-size-btn" onClick={() => change(-1)} disabled={size === TEXT_SIZES[0]} aria-label="A− Smaller text" title={`Smaller text (now ${size}%)`}>A−</button>
+      <button type="button" className="help-btn text-size-btn text-size-up" onClick={() => change(1)} disabled={size === TEXT_SIZES[TEXT_SIZES.length - 1]} aria-label="A+ Larger text" title={`Larger text (now ${size}%)`}>A+</button>
     </div>
   );
 }

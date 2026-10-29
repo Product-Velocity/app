@@ -226,18 +226,19 @@ test.describe("paste-import from a spreadsheet", () => {
 });
 
 test.describe("header and page head follow the prototype", () => {
-  test("logo, workspace, scope, tabs (Grid, Gantt and Cards built, unbuilt ones muted), account menu", async ({ page }) => {
+  test("logo, workspace, scope, tabs (Grid, Gantt, Cards, Leadership and Reports built, unbuilt ones muted), account menu", async ({ page }) => {
     await open(page);
     const header = page.getByRole("banner");
     await expect(header.locator("img.brand-logo")).toBeVisible();
-    await expect(header).toContainText("Product Velocity");
+    await expect(header.locator("img.brand-logo")).toHaveAttribute("alt", "Product Velocity"); // the logo carries the name
     await expect(header).toContainText("Meridian Media");
     await expect(header.getByText("All projects")).toBeVisible();
     await expect(header.getByRole("link", { name: "Grid" })).toHaveAttribute("aria-current", "page");
     await expect(header.getByRole("link", { name: "Gantt" })).toHaveAttribute("href", "/gantt");
     await expect(header.getByRole("link", { name: "Cards" })).toHaveAttribute("href", "/cards");
     await expect(header.getByRole("link", { name: "Leadership" })).toHaveAttribute("href", "/leadership");
-    for (const t of ["Planning", "Capacity", "Alignment", "Reports"]) {
+    await expect(header.getByRole("link", { name: "Reports" })).toHaveAttribute("href", "/reports"); // built (0.51.0)
+    for (const t of ["Planning", "Capacity", "Alignment"]) {
       await expect(header.locator(".tab-later", { hasText: t })).toHaveAttribute("aria-disabled", "true");
     }
     await expect(header.locator(".tab-later", { hasText: "Planning" })).toContainText("arrives in phase 5");

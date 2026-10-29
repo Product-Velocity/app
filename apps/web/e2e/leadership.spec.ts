@@ -40,7 +40,7 @@ test.describe("the page", () => {
     const rows = page.getByTestId("top-items").locator("tbody tr");
     await expect(rows).toHaveCount(10);
     await expect(rows.first()).toContainText("#1");
-    await expect(page.getByTestId("top-items").locator("thead th").allTextContents()).resolves.toEqual(expect.arrayContaining(["Stack Rank", "Initiative ID", "Initiative Name", "Home Project", "Initiative Group", "Roadmap Category", "Initiative Phase", "Health", "Value (EUR, 12-month run-rate)"]));
+    await expect(page.getByTestId("top-items").locator("thead th").allTextContents()).resolves.toEqual(expect.arrayContaining(["Stack Rank", "Initiative ID", "Initiative Name", "Home Project", "Initiative Group", "Roadmap Category", "Initiative Phase", "Health", "Business Value (12m run-rate)"]));
     await expect(page.locator(".lead-note")).toContainText("arrive with their phases");
   });
 

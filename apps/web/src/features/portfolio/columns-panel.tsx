@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { arrivesLabel, columnsFor, CORE_COLUMN_KEYS, FIELDS, FIELD_BY_KEY, fieldOptions, filterOptions, isCustomerSafe, MAX_PINNED, needsSearch, type ViewDef } from "@pv/domain";
 import { NoResults, SearchInput } from "@/components/search-list";
 import { Popover } from "./popover";
@@ -42,11 +42,26 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
     const rest = c.filter((x) => isCore(x) || !keys.includes(x));
     return show ? [...rest, ...keys.filter((k) => !blocked(k) && !isCore(k))] : rest;
   });
-  const move = (k: string, delta: number) => setColumns((c) => {
-    const i = c.indexOf(k), j = i + delta;
-    if (i < 0 || j < core.length || j >= c.length) return c;
-    const n = [...c]; [n[i], n[j]] = [n[j]!, n[i]!]; return n;
-  });
+  // Moving a column makes its row change place, which drops the focus; it goes back to the same arrow (or the other one at an end of the list)
+  const listRef = useRef<HTMLOListElement>(null);
+  const refocus = useRef<{ key: string; delta: number } | null>(null);
+  useEffect(() => {
+    const want = refocus.current;
+    if (!want) return;
+    refocus.current = null;
+    const row = [...(listRef.current?.querySelectorAll<HTMLElement>("[data-column]") ?? [])].find((r) => r.dataset.column === want.key);
+    const arrows = [...(row?.querySelectorAll<HTMLButtonElement>("button[data-move]") ?? [])];
+    const same = arrows.find((b) => b.dataset.move === (want.delta < 0 ? "up" : "down") && !b.disabled);
+    (same ?? arrows.find((b) => !b.disabled))?.focus();
+  }, [columns]);
+  const move = (k: string, delta: number) => {
+    refocus.current = { key: k, delta };
+    setColumns((c) => {
+      const i = c.indexOf(k), j = i + delta;
+      if (i < 0 || j < core.length || j >= c.length) return c;
+      const n = [...c]; [n[i], n[j]] = [n[j]!, n[i]!]; return n;
+    });
+  };
   const drop = (target: string) => {
     const k = drag.key;
     setDrag({ key: null, over: null });
@@ -121,7 +136,7 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
         <div className="cp-order">
           <div className="panel-head"><h2>Selected columns ({columns.length})</h2></div>
           <p className="panel-note" style={{ margin: "4px 0 8px" }}>Drag to reorder, or use the arrows. The lock pins a column to the left while you scroll.</p>
-          <ol style={{ listStyle: "none", margin: 0, padding: 0 }} aria-label="Selected columns in order">
+          <ol ref={listRef} style={{ listStyle: "none", margin: 0, padding: 0 }} aria-label="Selected columns in order">
             {columns.map((k, i) => {
               const f = FIELD_BY_KEY[k];
               const coreCol = isCore(k);
@@ -129,6 +144,7 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
               return (
                 <li
                   key={k}
+                  data-column={k}
                   className="cp-card"
                   data-locked={pinnedNow}
                   data-over={drag.over === k && drag.key !== k}
@@ -142,8 +158,8 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
                   <span className="name">{f?.name ?? k}</span>
                   {!coreCol && (
                     <>
-                      <button type="button" className="icon-btn" aria-label={`Move ${f?.name} up`} disabled={i <= core.length} onClick={() => move(k, -1)}>▲</button>
-                      <button type="button" className="icon-btn" aria-label={`Move ${f?.name} down`} disabled={i >= columns.length - 1} onClick={() => move(k, 1)}>▼</button>
+                      <button type="button" className="icon-btn" data-move="up" aria-label={`Move ${f?.name} up`} disabled={i <= core.length} onClick={() => move(k, -1)}>▲</button>
+                      <button type="button" className="icon-btn" data-move="down" aria-label={`Move ${f?.name} down`} disabled={i >= columns.length - 1} onClick={() => move(k, 1)}>▼</button>
                     </>
                   )}
                   <button type="button" className={pinnedNow ? "icon-btn lock-on" : "icon-btn"} aria-pressed={pinnedNow} aria-label={`${pinnedNow ? "Unpin" : "Pin"} ${f?.name}${coreCol ? " (always pinned)" : ""}`} onClick={() => lock(k)}>
