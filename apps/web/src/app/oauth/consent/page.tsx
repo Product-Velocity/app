@@ -32,7 +32,7 @@ export default async function ConsentPage({
     return (
       <main className="auth-page">
         <div className="card auth-card">
-          <BrandLogo size={44} />
+          <BrandLogo size={52} />
           <h1>This request is no longer valid</h1>
           <p role="alert" className="error">Go back to Claude and try connecting again.</p>
         </div>
@@ -51,7 +51,7 @@ export default async function ConsentPage({
   return (
     <main className="auth-page">
       <div className="card auth-card">
-        <BrandLogo size={44} />
+        <BrandLogo size={52} />
         <h1>Connect {data.client.name} to Product Velocity?</h1>
         {flagError && <p role="alert" className="error">This deployment&rsquo;s database is missing migration 0043, so Claude cannot be connected yet.</p>}
         {error && <p role="alert" className="error">{ERRORS[error] ?? ERRORS["1"]}</p>}

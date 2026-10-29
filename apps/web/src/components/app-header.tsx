@@ -27,7 +27,6 @@ export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmi
     <header className="topbar">
       <span className="brand-lockup">
         <BrandLogo />
-        <strong className="brand">Product Velocity</strong>
       </span>
 
       <div className="scope">
