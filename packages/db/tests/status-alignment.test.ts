@@ -53,9 +53,10 @@ describe("status alignment migration", () => {
     expect(await item("f")).toMatchObject({ initiative_status: "Cancelled", initiative_phase: "Build" });
   });
 
-  it("carries Completed by Initiative Phase: set when there was no phase, left alone when there was one", async () => {
-    expect(await item("e")).toMatchObject({ initiative_status: null, initiative_phase: "Completed" });
-    expect(await item("g")).toMatchObject({ initiative_status: null, initiative_phase: "Roll-out" });
+  it("a finished initiative reads Completed: phase set when there was none, and Initiative Status Completed when the phase says it is over", async () => {
+    expect(await item("e")).toMatchObject({ initiative_status: "Completed", initiative_phase: "Completed" });
+    expect(await item("g")).toMatchObject({ initiative_status: null, initiative_phase: "Roll-out" }); // a set phase is left alone
+    expect(await item("h")).toMatchObject({ initiative_status: null });
   });
 
   it("audits the rewrites", async () => {
@@ -64,10 +65,8 @@ describe("status alignment migration", () => {
   });
 
   it("refuses old and unknown values, for people and for the tracker", async () => {
-    for (const v of ["In Progress", "Completed", "Sleeping"]) {
-      expect(await errorCode(db.admin.query("update public.items set initiative_status = $1 where id = $2", [v, ids.c]))).toBe("23514");
-      expect(await errorCode(db.admin.query("update public.items set status = $1 where id = $2", [v, ids.c]))).toBe("23514");
-    }
+    for (const v of ["In Progress", "Paused", "Sleeping"]) expect(await errorCode(db.admin.query("update public.items set initiative_status = $1 where id = $2", [v, ids.c]))).toBe("23514");
+    for (const v of ["In Progress", "Completed", "Sleeping"]) expect(await errorCode(db.admin.query("update public.items set status = $1 where id = $2", [v, ids.c]))).toBe("23514");
     expect(await errorCode(db.admin.query("update public.items set planning_status = 'Maybe' where id = $1", [ids.c]))).toBe("23514");
     await db.admin.query("update public.items set planning_status = 'Committed', initiative_status = 'On hold', status = 'Done' where id = $1", [ids.c]);
     expect(await item("c")).toMatchObject({ planning_status: "Committed", initiative_status: "On hold", status: "Done" });

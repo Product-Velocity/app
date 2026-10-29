@@ -12,7 +12,7 @@ Initiative → **tracking issue** in the project's default repo. Epics and tasks
 |---|---|---|
 | title, summary (technical part), acceptance criteria | issue title/body (templated block between markers) | app → GH; edits in the marker block are overwritten, outside are preserved |
 | status (Build Status) | issue state / project status | GH → app (read-only in app). **A closed ticket means the build is complete, not the initiative** |
-| initiative_status (Initiative Status) | (none) | not synced: set by people only (Active, On hold, Cancelled) |
+| initiative_status (Initiative Status) | (none) | not synced: set by people only (Active, On hold, Completed, Cancelled) |
 | assignees | assignees | both |
 | delivery progress | closed ÷ total sub-issues | GH → app |
 | PRs, CI, releases | linked PRs, checks, release tags | GH → app |
