@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { GithubPushDialog, type SyncApi } from "@/features/portfolio/github-push-dialog";
+import { GithubPushDialog } from "@/features/portfolio/github-push-dialog";
+import type { SyncApi } from "@/lib/tracker/sync-router";
 import type { PlanItem, ReceiveItem } from "@/lib/github/push-types";
 
 const IDS = ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222", "33333333-3333-4333-8333-333333333333"];

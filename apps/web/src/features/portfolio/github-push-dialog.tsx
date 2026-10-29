@@ -2,13 +2,13 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { checkGithubBoard, confirmGithubSync, startGithubSync } from "@/app/(workspace)/portfolio/github-push";
+import { checkBoard, confirmSync, startSync } from "@/app/(workspace)/portfolio/sync";
+import type { SyncApi } from "@/lib/tracker/sync-router";
 import { applyBoardLines, boardCandidates, chunk, CHECK_CHUNK, dropWritten, failedCard, mergeChecked, replaceResults, writeAll, writingLabel, type WrittenOne } from "./sync-progress";
 import type { PlanItem, PushItemResult, ReceiveItem, ReceiveStatus, SyncChoice, SyncConflict, SyncPreview, TakenOver } from "@/lib/github/push-types";
 
-/** The three server calls the dialog makes; a test page passes fakes. */
-export type SyncApi = { start: typeof startGithubSync; board: typeof checkGithubBoard; confirm: typeof confirmGithubSync };
-const REAL_API: SyncApi = { start: startGithubSync, board: checkGithubBoard, confirm: confirmGithubSync };
+/** The three server calls the dialog makes, routed to the sync engine of each initiative's tracker; a test page passes fakes. */
+const REAL_API: SyncApi = { start: startSync, board: checkBoard, confirm: confirmSync };
 
 type Props = { ids: string[]; api?: SyncApi; onClose: () => void; onDone?: () => void; /** Texts taken over from GitHub (already saved): the grid shows them and makes them one undo step. */ onTakenOver?: (changes: TakenOver[]) => void };
 type Phase =
