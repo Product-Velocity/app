@@ -68,3 +68,6 @@ Everything else (other KRs, guardrails, evidence, competitors, the other solutio
 ## 9. Open points
 - If nobody has chosen yet, the opportunity initiative exists only to hold the document. Proposal: that is fine, and it is renamed when the choice is made.
 - The "Product strategic pillar" has no field; it is kept in the document and optionally as a tag.
+
+### Added 2026-10-30 (request #230): the Team block
+The document starts, under its title, with a **Team** table (Product manager, Designer, Engineering manager and any role the person names), taken from the person's words (prompt argument `team` or the chat), never from the signed-in account. The one question message asks "product manager = ?, designer = ?, engineering manager = ?"; unknown roles read "to define". Sponsor and Product Manager fields are set only from what was said, for workspace members. Rule: `TEAM_RULE` in `packages/domain/src/flow-rules.ts`. Documents also record the AI tool and model that wrote each version (`docs/27-AI-ASSISTANTS.md`).

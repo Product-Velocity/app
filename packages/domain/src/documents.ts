@@ -11,20 +11,22 @@ export const CLAUDE_DOC_STATUSES = ["draft", "in_review"] as const;
 export const MAX_DOC_CHARS = 200_000;
 export const MAX_DOC_TITLE = 200;
 export const MAX_DOCS_PER_ITEM = 20;
+/** The AI model an assistant says it is (free text, advisory: it is what the assistant reports about itself). */
+export const MAX_AI_MODEL = 80;
 
 export const DOC_KIND_LABEL: Record<DocKind, string> = {
   prd: "PRD", discovery: "Discovery", business_req: "Business requirements", tech_req: "Technical requirements", acceptance: "Acceptance criteria",
   prototype: "Prototype", research: "Research", other: "Other",
 };
 
-export type DocInput = { kind?: unknown; title?: unknown; body?: unknown; status?: unknown };
+export type DocInput = { kind?: unknown; title?: unknown; body?: unknown; status?: unknown; ai_model?: unknown };
 export type DocCheck =
-  | { ok: true; value: { kind?: DocKind; title?: string; body?: string; status?: "draft" | "in_review" } }
+  | { ok: true; value: { kind?: DocKind; title?: string; body?: string; status?: "draft" | "in_review"; ai_model?: string | null } }
   | { ok: false; error: string };
 
 /** Checks what Claude (or the panel) sends. Messages are written for Claude and shown as they are. */
 export function checkDocumentInput(input: DocInput, opts: { requireTitle: boolean }): DocCheck {
-  const value: { kind?: DocKind; title?: string; body?: string; status?: "draft" | "in_review" } = {};
+  const value: { kind?: DocKind; title?: string; body?: string; status?: "draft" | "in_review"; ai_model?: string | null } = {};
   if (input.kind !== undefined) {
     if (typeof input.kind !== "string" || !(DOC_KINDS as readonly string[]).includes(input.kind)) return { ok: false, error: `kind must be one of: ${DOC_KINDS.join(", ")}.` };
     value.kind = input.kind as DocKind;
@@ -45,5 +47,14 @@ export function checkDocumentInput(input: DocInput, opts: { requireTitle: boolea
     if (!(CLAUDE_DOC_STATUSES as readonly string[]).includes(String(input.status))) return { ok: false, error: `status must be one of: ${CLAUDE_DOC_STATUSES.join(", ")}.` };
     value.status = input.status as "draft" | "in_review";
   }
+  if (input.ai_model !== undefined && input.ai_model !== null) {
+    if (typeof input.ai_model !== "string") return { ok: false, error: "ai_model must be text, such as \"Claude Opus 5.5\"." };
+    const m = input.ai_model.replace(/\s+/g, " ").trim();
+    // control characters and markup have no place in a model name that is later shown in lists and exports
+    if (m.length > MAX_AI_MODEL || /[\u0000-\u001f<>]/.test(m)) return { ok: false, error: `ai_model is the name of the model you are, at most ${MAX_AI_MODEL} characters, plain text.` };
+    value.ai_model = m === "" ? null : m;
+  }
   return { ok: true, value };
 }
+
+export const AI_TOOL_LABEL: Record<string, string> = { claude: "Claude", chatgpt: "ChatGPT", gemini: "Gemini", other: "Other AI tool" };

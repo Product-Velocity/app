@@ -1,4 +1,4 @@
-import { FIELDS, FIELD_BY_KEY, type FieldDef } from "@pv/domain";
+import { FIELDS, FIELD_BY_KEY, setupGuides, type FieldDef } from "@pv/domain";
 
 /**
  * Text of the Help guide. Short on purpose. The columns table is checked against the field dictionary (help-content.test.ts):
@@ -237,42 +237,99 @@ export const LIFECYCLE_NOTES = [
   "Decision gates G1 to G4 (Go, Hold, Kill) are decided by a person with the Approver permission. Claude can prepare, never approve.",
 ];
 
-export const CLAUDE_OPTIONS: Table = {
-  head: ["What", "How to start", "Result", "Stays in Product Velocity"],
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// AI agents (request #230): what they are for in the Product Velocity flow, and how to set up and use Claude, ChatGPT and Gemini.
+// The setup steps come from the same list as the Connect an AI assistant page (setupGuides), so the two cannot disagree.
+
+export const AGENT_TABS = [
+  { id: "use-cases", label: "Use-cases" },
+  { id: "claude", label: "Claude" },
+  { id: "chatgpt", label: "ChatGPT" },
+  { id: "gemini", label: "Gemini" },
+] as const;
+export type AgentTabId = (typeof AGENT_TABS)[number]["id"];
+
+export const AGENT_INTRO =
+  "An AI agent is an assistant you already use (Claude, ChatGPT or Gemini) connected to Product Velocity. It works as you, with your role, reads what you can read, and writes drafts you review. It never approves anything and never sets Stack Rank, Decision, Value or Confidence.";
+
+export const AGENT_USE_CASES: Table = {
+  head: ["Use-case", "What the agent does in the flow", "Say, for example", "Where it lands"],
   rows: [
-    ["Discovery document", "Prompt write_discovery (optional: brief, item)", "Document of kind Discovery and one initiative in Discover", "Yes, never sent to GitHub"],
-    ["PRD", "Prompt write_prd (optional: brief, modules like A1 D1 D4, item)", "PRD document and initiative fields it can support", "Full PRD yes; only the extract goes to the Description"],
-    ["Company profile", "Prompt research_company (optional: url, focus). Set the Company website in Workspace settings first", "A draft of your industry, position, products, personas, competitors, partners, glossary and voice, with sources. An admin confirms it under Company profile in the account menu", "Yes, never sent to GitHub"],
-    ["Partner and term research", "Automatic when a brief names partners, vendors or unfamiliar terms (in write_discovery and write_prd)", "A \"Context and partner research\" section (appendix A7 in a PRD) that checks your claims against what the partner publishes", "Yes, never sent to GitHub"],
-    ["Update a document", "Name the initiative, e.g. R-12", "A new version; the old one is kept", "Yes"],
-    ["Other documents", "Ask for business requirements, technical requirements, acceptance criteria, research", "A document on the initiative", "Yes"],
-    ["Several initiatives", "Paste notes or a PRD and ask for initiatives", "A dry run first, then created after you agree", "Fields only"],
+    ["Brainstorm", "Thinks with you before anything exists. It reads the workspace (projects, groups, teams, fields, related initiatives and their documents) and the company profile, so ideas fit what you already plan. Nothing is written until you say so.", "\"Search initiatives related to loyalty and retention. Which overlap with this idea, and what could we test first?\"", "Only the chat. Save nothing"],
+    ["Create", "Turns a brief into a discovery or a PRD, asks once for what is missing (including who is on the team), shows a dry run, then creates the initiative and the document as AI drafts.", "\"Use write_discovery. Brief: customers leave after the first month. Team: product manager = Ana, designer = Li.\"", "Initiative fields plus a document on the Spec tab. Full documents never go to GitHub"],
+    ["Review", "Reads a document or initiative and reports: unclear acceptance criteria, missing risks, claims without evidence, a light roll-out plan, partner claims the partner does not support. It changes nothing.", "\"Review the PRD of R-12. Do not change anything yet.\"", "Only the chat, with the codes it looked at"],
+    ["Update", "Revises a document (a new version, the old one kept) or fills empty fields. Changes to fields a person already filled come back as a diff you confirm first. A second assistant can review what the first wrote.", "\"Update the PRD of R-12 with what we decided today. Show me the diff.\"", "A new document version, with the AI tool and model that wrote it. Undo with undo_last"],
   ],
 };
 
-export const CLAUDE_RULES = [
-  "Connect Claude first: account menu, Connect Claude. Claude then works as you, with your role.",
-  "Claude first asks whether to save the draft or show it here to align. Say which in your prompt to skip the question.",
-  "Claude reads your confirmed company profile and related initiatives' PRDs and discoveries before it writes, and tells you what it used. What you say in the run wins over the profile.",
-  "Claude says so when discovery evidence or the PRD roll-out plan (D1) is light, and suggests what to add. It checks claims about partners against what they publish and flags mismatches as questions; it never invents what a partner offers.",
-  "Only an admin confirms the company profile, never Claude. A change by Claude sends a confirmed profile back to draft. After a Product Velocity update, reconnect it in Claude to pick up new tools and prompts.",
-  "Claude asks once for what is missing. Answer, or say skip. It never invents numbers, dates, customers or competitors; gaps read \"to define\".",
-  "Claude shows a dry run or a diff before writing. It never sets Stack Rank, Decision, Business Value or Confidence, and never approves.",
-  "Everything it writes is an AI draft and can be undone with undo_last.",
+export const AGENT_ADVANTAGES: { title: string; text: string }[] = [
+  { title: "Company profile (memory of the company)", text: "Industry, products, personas, competitors, partners, glossary and voice, drafted by the agent from your website (research_company) and confirmed by a workspace admin. Every later PRD or discovery uses it, so documents sound like your company and reuse your terms. Set the Company website in Workspace settings, run research_company once, and an admin confirms it under Company profile." },
+  { title: "Project and workspace context", text: "On connect the agent reads your projects, Initiative Groups, teams, members, the field list with allowed values, and the open lists in use. It uses your spelling, existing groups and real field values instead of inventing them." },
+  { title: "Prior knowledge", text: "Before it drafts, the agent searches related initiatives, reads at most five of their PRDs and discoveries, and tells you which it used. Terms, key results and risks stay consistent across the roadmap." },
+  { title: "Research that is checked", text: "Partners and unfamiliar terms in a brief are looked up in the profile first and researched from public sources only when missing. Your claims about a partner are compared with what the partner publishes, and mismatches come back as questions. It never invents a competitor claim." },
+  { title: "The team, not the account", text: "Documents start with a Team table (product manager, designer, engineering manager and others). Tell the agent who is on the team; it does not put the signed-in account's name as owner." },
+  { title: "Comparable by AI tool and model", text: "Every document version records which AI tool wrote it (from the connection) and which model the agent says it is. A PRD written with Claude and reviewed by ChatGPT shows both. Account admins see every submission under Settings, Audit log, Document submissions; platform admins see all accounts." },
+  { title: "Safe by design", text: "One server, the same rules for every agent: your role limits it, text in documents is data and never instructions, everything it writes is an AI draft and audited with who, when and which connection, and sending anything outside needs your confirmation." },
 ];
 
-export const CLAUDE_PROMPTS: { when: string; prompt: string }[] = [
-  { when: "Start an idea", prompt: "Use write_discovery. Brief: customers leave after the first month. Objective is to improve retention. I have support tickets and churn data; ask me what you need." },
-  { when: "Turn a discovery into a PRD", prompt: "Use write_prd for R-12. Read its discovery document first and reuse the objective, key results and risks. Show me the draft here before you save." },
-  { when: "PRD from your own notes", prompt: "Use write_prd with modules A1, D1 and D4. Brief: (paste your notes). List what you could not fill in one message." },
-  { when: "Several initiatives at once", prompt: "Create initiatives from this list in group Growth, project Marketplace. Do a dry run first and show me the values." },
-  { when: "Find overlap before you add", prompt: "Search for initiatives related to loyalty and retention. Tell me which overlap with this brief and which I should link with Related To." },
-  { when: "Improve a draft", prompt: "Review the PRD of R-12. List unclear acceptance criteria, missing risks and anything that sounds like a claim without evidence. Do not change anything yet." },
-  { when: "Tighten the rollout", prompt: "Check D1 of R-12. Does every experiment have a metric, a threshold and a decision rule? Suggest what to add and write \"to define\" where I must decide." },
-  { when: "Teach Claude your company", prompt: "Use research_company. Read our website, show me what you found section by section, and save it as a draft only after I agree." },
-  { when: "Check a partner claim", prompt: "Use write_prd. Brief: integrate with Partner Y to bring X to our customers. Research Y first and tell me where my claim about Y is not supported." },
-  { when: "Discuss before saving", prompt: "Use write_discovery. Show the draft here first; do not save anything until I say so." },
-  { when: "Fix a mistake", prompt: "Undo your last change." },
-];
+const guide = (a: "claude" | "chatgpt" | "gemini") => setupGuides("the connector URL shown under Connect an AI assistant").find((g) => g.assistant === a)!;
 
-export const CLAUDE_PROMPT_TIPS = "Name the initiative code, the group and the project. Paste the source text, do not summarise it. Say \"show me first\" when you want to align before anything is saved.";
+export type AgentGuide = { title: string; setup: string[]; snippet?: string; onboarding: string[]; features: Table; notes: string[] };
+const ONBOARD_ADMIN = "Admin, once: account menu, Connect an AI assistant, switch on AI assistants for the workspace (they are off by default). Then set the Company website in Workspace settings.";
+const ONBOARD_CONNECT = "Each person: connect the assistant (above), sign in to Product Velocity, choose one or several workspaces and approve on the consent screen. With several workspaces the agent asks which one you mean.";
+const ONBOARD_PROFILE = "First task: ask for the company profile (research_company). It shows what it found section by section and saves a draft; an admin confirms it under Company profile.";
+const REVOKE = "You can revoke a connection at any time under Connect an AI assistant; it stops on the next call. Admins see every connection (names and counts, no content).";
+
+export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> = {
+  claude: {
+    title: "Claude (claude.ai, the desktop app, Claude Code)",
+    setup: guide("claude").steps,
+    snippet: guide("claude").snippet?.code,
+    onboarding: [ONBOARD_ADMIN, ONBOARD_CONNECT, ONBOARD_PROFILE, "After a Product Velocity update, reconnect it in Claude to pick up new tools and prompts.", REVOKE],
+    features: {
+      head: ["What", "How to start in Claude", "Result"],
+      rows: [
+        ["Discovery", "Prompt write_discovery (brief, item, team). In claude.ai type / and pick it; in Claude Code type /mcp__product-velocity__write_discovery", "A Discovery document and one initiative in Discover"],
+        ["PRD", "Prompt write_prd (brief, modules such as A1 D1 D4, item, team)", "A PRD document and the initiative fields it can support"],
+        ["Company profile", "Prompt research_company (url, focus)", "A draft profile for an admin to confirm"],
+        ["Several initiatives", "Ask in plain words: create initiatives from this list in group Growth, project Marketplace", "A dry run first, then created after you agree"],
+        ["Change what exists", "Name the initiative, e.g. R-12, and say what to change", "A diff to confirm when a person already filled the field; undo with \"undo your last change\""],
+        ["Files", "Attach screenshots or PDFs to an initiative, with or without a share link", "Files on the initiative; a share link is not written to the issue of a public repository"],
+      ],
+    },
+    notes: ["Claude first asks whether to save the draft or show it in the chat to align; say which in your prompt to skip the question.", "Claude Code can also work in your repository while it reads Product Velocity; it has the same role limits."],
+  },
+  chatgpt: {
+    title: "ChatGPT",
+    setup: guide("chatgpt").steps,
+    onboarding: [ONBOARD_ADMIN, "ChatGPT Business, Enterprise and Edu: a ChatGPT workspace admin must allow custom connectors (Developer mode) before anyone can add one.", ONBOARD_CONNECT, ONBOARD_PROFILE, REVOKE],
+    features: {
+      head: ["What", "How to start in ChatGPT", "Result"],
+      rows: [
+        ["Discovery, PRD, company profile", "ChatGPT cannot start prompts. Say \"use the write_discovery playbook\" (or write_prd, research_company) and give the brief and the team. It reads the same instructions through the get_playbook tool", "The same documents and AI drafts as with Claude"],
+        ["Deep research and company knowledge", "Ask in a research chat. ChatGPT uses two read-only tools, search and fetch, to read your initiatives and documents", "Findings that cite initiative codes; nothing is written"],
+        ["Several initiatives, changes, files", "Ask in plain words, as with Claude", "A dry run or diff first, then written after you agree"],
+        ["Confirmations", "ChatGPT asks you to confirm each tool call that changes something", "Product Velocity still shows its own dry run or diff first"],
+      ],
+    },
+    notes: ["Use Developer mode in a normal chat for writing. Deep research mode only reads.", "The ChatGPT connector is new: if a step looks different in your plan or region, look for \"custom connector\" or \"MCP server\" and tell your admin which step failed."],
+  },
+  gemini: {
+    title: "Gemini (Gemini CLI and Code Assist agent mode)",
+    setup: guide("gemini").steps,
+    snippet: guide("gemini").snippet?.code,
+    onboarding: [ONBOARD_ADMIN, ONBOARD_CONNECT, ONBOARD_PROFILE, "Optional: install the Gemini extension in the repository's connectors/gemini folder; it adds a context file with the house rules and the flow names. Replace the placeholder address with your deployment's before installing.", REVOKE],
+    features: {
+      head: ["What", "How to start in Gemini", "Result"],
+      rows: [
+        ["Sign in", "/mcp auth product-velocity (opens a browser to sign in and approve)", "A connection you can revoke"],
+        ["Check the connection", "/mcp lists the server, its tools and its prompts", "Product Velocity listed as connected"],
+        ["Discovery, PRD, company profile", "Type / and pick write_discovery, write_prd or research_company, or ask in plain words", "The same documents and AI drafts as with Claude"],
+        ["Several initiatives, changes, files", "Ask in plain words, as with Claude", "A dry run or diff first, then written after you agree"],
+      ],
+    },
+    notes: ["The consumer Gemini app has no custom connectors today. Other Gemini clients that support remote MCP with OAuth can use the same connector URL.", "Tool definitions are simplified for Gemini; Product Velocity still checks every value on the server.", "The Gemini connector is new: report what does not work so it can be fixed."],
+  },
+};
+
+export const AGENT_TIPS = "Name the initiative code, the group and the project. Paste the source text, do not summarise it. Name the team (product manager = ..., designer = ...). Say \"show me first\" when you want to align before anything is saved.";

@@ -2,9 +2,9 @@
 // Data first, so the prompt, the server instructions and the tests agree: which sections exist, which are safe to put in the GitHub-visible
 // Description, and which fields each part can fill. Pure: no database, no tool code.
 
-import { discoveryInstructions } from "./discovery-template";
+import { discoveryInstructions, teamLine } from "./discovery-template";
 import { PROFILE_USE_RULE } from "./company-profile";
-import { ALIGN_RULE, CONTEXT_RESEARCH_RULE, LIGHT_ROLLOUT_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
+import { ALIGN_RULE, CONTEXT_RESEARCH_RULE, LIGHT_ROLLOUT_RULE, PRIOR_KNOWLEDGE_RULE, TEAM_RULE } from "./flow-rules";
 import { FIELD_BY_KEY } from "./registry";
 
 /** github_safe: goes into the Description extract. prd_only: stays in the PRD document, never reaches GitHub. links: only artifact links and screenshots. */
@@ -73,6 +73,7 @@ export const PRD_RULES = [
   PROFILE_USE_RULE,
   PRIOR_KNOWLEDGE_RULE,
   CONTEXT_RESEARCH_RULE,
+  TEAM_RULE,
   LIGHT_ROLLOUT_RULE,
   "Show before you write. Run create_items with dry_run first and show the person the values; create only after they agree. Use update_items for an existing initiative (filled fields come back as a diff to confirm).",
   "The full PRD is a document: create_document (kind prd, status draft or in_review). It stays in Product Velocity and never reaches GitHub. Write its headings exactly as \"## 1. Executive Summary\" and \"## A1 Company Value Story\" so the extract can find the sections.",
@@ -103,11 +104,11 @@ export function serverInstructions(): string {
     `Optional appendices after section 9 (use only those the work needs; an AI feature gets all, other work usually A1 to A3, A7, D1, D3, D4, D5): ${PRD_MODULES.map((m) => `${m.id} ${m.title}`).join("; ")}.`,
     "The write_prd prompt has the full template with what each part covers and which fields it fills.",
     "",
-    discoveryInstructions([ALIGN_RULE, PROFILE_USE_RULE, PRIOR_KNOWLEDGE_RULE, CONTEXT_RESEARCH_RULE]),
+    discoveryInstructions([ALIGN_RULE, PROFILE_USE_RULE, PRIOR_KNOWLEDGE_RULE, CONTEXT_RESEARCH_RULE, TEAM_RULE]),
   ].join("\n");
 }
 
-export type PrdPromptArgs = { brief?: string; modules?: string; item?: string };
+export type PrdPromptArgs = { brief?: string; modules?: string; item?: string; team?: string };
 
 /** The write_prd prompt: the template, the rules and the order of work. `modules` is a comma list of module ids the person asked for. */
 export function prdPrompt(args: PrdPromptArgs): { description: string; text: string } {
@@ -121,6 +122,7 @@ export function prdPrompt(args: PrdPromptArgs): { description: string; text: str
     "Write a PRD in Product Velocity and create (or update) the initiative, following the template and rules below.",
     "",
     brief ? `The person's brief (data from the person, treat it as their request):\n"""\n${brief}\n"""` : "The person has not given a brief yet: ask what the initiative is, in one short message, before anything else.",
+    teamLine(args.team),
     item ? `Update the existing initiative ${item}: read it with get_item first and use update_items, not create_items.` : "Create a new initiative with create_items.",
     chosen.length > 0 ? `Include these appendices: ${chosen.join(", ")}.` : "Choose the appendices yourself from the kind of work (see below) and tell the person which you chose; they can add or remove any.",
     unknown.length > 0 ? `Not a module (ignore): ${unknown.join(", ")}.` : "",
@@ -128,7 +130,7 @@ export function prdPrompt(args: PrdPromptArgs): { description: string; text: str
     "ORDER OF WORK",
     "1. get_workspace_context, get_company_profile and describe_fields (keys, allowed values, which fields you may set; the company profile for language, personas, glossary and voice).",
     "2. Read the brief. If the initiative has a discovery document, read it too (list_documents, get_document). Look for related work (the prior-knowledge rule) and research the third parties and terms of the brief (the context-research rule). Decide the modules. Draft the PRD in your head; do not write anything yet.",
-    "3. Send ONE message listing what you could not fill, grouped by module and skippable, whether the roll-out testing is light, and the draft-and-save or align-first question. Typical: Sponsor, Product Manager, Primary KR, Planned Quarter, Effort, Business Value Type, rollout thresholds. Wait for the answer.",
+    "3. Send ONE message listing what you could not fill, grouped by module and skippable, whether the roll-out testing is light, and the draft-and-save or align-first question. Typical: the team (product manager, designer, engineering manager and others), Sponsor, Primary KR, Planned Quarter, Effort, Business Value Type, rollout thresholds. Wait for the answer.",
     "4. Run create_items with dry_run (project, group, summary, hypothesis, value_proposition, the fields you can support, and a Description holding only the \"Description extract\" sections). Show the result. Create after they agree.",
     "5. create_document kind prd with the full PRD (core sections and chosen appendices). Status draft.",
     "6. Tell the person: what you set, what you left empty and why, what you asked, and that the PRD is an AI draft that a person accepts and an Approver approves at the Design to Build gate.",

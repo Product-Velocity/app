@@ -60,11 +60,11 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
   };
   const FILE_COLS = "id, item_id, name, mime_type, size_bytes, share_token";
 
-  const DOC_COLS = "id, item_id, kind, title, status, version, ai_draft, updated_at, approved_at, body";
-  type DocRow = { id: string; item_id: string; kind: string; title: string; status: string; version: number; ai_draft: boolean; updated_at: string; approved_at: string | null; body: string };
+  const DOC_COLS = "id, item_id, kind, title, status, version, ai_draft, updated_at, approved_at, ai_tool, ai_model, body";
+  type DocRow = { id: string; item_id: string; kind: string; title: string; status: string; version: number; ai_draft: boolean; updated_at: string; approved_at: string | null; ai_tool: string | null; ai_model: string | null; body: string };
   const docInfo = (d: DocRow, code: string, withBody = false): DocInfo => ({
     id: d.id, item_code: code, kind: d.kind, title: d.title, status: d.status, version: d.version, ai_draft: d.ai_draft,
-    characters: d.body.length, updated_at: d.updated_at, approved_at: d.approved_at, ...(withBody ? { body: d.body } : {}),
+    characters: d.body.length, updated_at: d.updated_at, approved_at: d.approved_at, ai_tool: d.ai_tool, ai_model: d.ai_model, ...(withBody ? { body: d.body } : {}),
   });
   const loadDoc = async (id: string, withBody: boolean): Promise<DocInfo | null> => {
     if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
@@ -227,12 +227,13 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
   };
   const documents: McpDocuments = {
     async create(item, doc) {
-      const { data, error } = await supabase.from("item_documents").insert({ tenant_id: tenant.id, item_id: item.id, kind: doc.kind, title: doc.title, body: doc.body, ...(doc.status ? { status: doc.status } : {}) }).select(DOC_COLS).single();
+      const { data, error } = await supabase.from("item_documents").insert({ tenant_id: tenant.id, item_id: item.id, kind: doc.kind, title: doc.title, body: doc.body, ai_model: doc.ai_model ?? null, ...(doc.status ? { status: doc.status } : {}) }).select(DOC_COLS).single();
       if (error) return refusal(error);
       return docInfo(data as DocRow, item.code);
     },
     async update(id, expectedVersion, patch) {
-      const { data, error } = await supabase.from("item_documents").update(patch).eq("tenant_id", tenant.id).eq("id", id).eq("version", expectedVersion).select(DOC_COLS);
+      // an assistant that rewrites the text states its own model (or none); a change that leaves the text alone leaves the model alone (the database decides)
+      const { data, error } = await supabase.from("item_documents").update({ ...patch, ...(patch.ai_model === undefined && (patch.body !== undefined || patch.title !== undefined) ? { ai_model: null } : {}) }).eq("tenant_id", tenant.id).eq("id", id).eq("version", expectedVersion).select(DOC_COLS);
       if (error) return refusal(error);
       const rowsBack = (data ?? []) as DocRow[];
       const code = async (itemId: string) => String((await rows()).find((r) => r.id === itemId)?.item_code ?? "");

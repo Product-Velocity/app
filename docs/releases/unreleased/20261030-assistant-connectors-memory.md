@@ -1,0 +1,4 @@
+---
+bump: minor
+---
+**ChatGPT and Gemini connectors, AI tool and model on documents, document log, team block.** Claude, ChatGPT and Gemini now connect to the same Product Velocity server, with setup steps for each under Connect an AI assistant (ChatGPT also gets search and fetch, and flows through get_playbook; Gemini gets simplified tool schemas). Every document version records which AI tool wrote it and which model it says it is, so you can compare models later. Settings, Audit log, Document submissions lists who saved which document in which project and initiative, with a link to open it (platform admins see all accounts). PRDs and discoveries start with a Team table (product manager, designer, engineering manager and others) taken from what you tell the assistant instead of the signed-in account. Help has a new AI agents tab: use-cases, Claude, ChatGPT, Gemini. Apply migration 20261030091015_document_ai_tool_model before deploying.

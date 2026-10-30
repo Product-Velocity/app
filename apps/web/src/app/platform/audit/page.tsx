@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requirePlatformAdmin } from "@/lib/session";
 import { parseAuditFilters } from "@/lib/audit-log";
 import { loadAudit, PAGE_SIZE } from "@/lib/audit-query";
@@ -18,6 +19,7 @@ export default async function PlatformAuditPage({ searchParams }: { searchParams
   return (
     <div className="page-wide">
       <h1>Audit log, all accounts</h1>
+      <p><Link href="/platform/audit/documents">Document submissions</Link>: who saved which document, with which AI tool and model.</p>
       <p className="muted">Entries made by platform admins carry a Platform admin badge. Entering and leaving an account is logged too.</p>
       <AuditView
         rows={rows} lookup={lookup} filters={filters} basePath="/platform/audit" exportPath="/platform/audit/export"

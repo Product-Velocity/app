@@ -2,14 +2,14 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import {
-  CLAUDE_OPTIONS, CLAUDE_PROMPTS, CLAUDE_PROMPT_TIPS, CLAUDE_RULES, COLUMNS_NOTE, COLUMN_ROWS, UPDATE_LEGEND, FLOW_CREATE, FLOW_LIFECYCLE, FLOW_READ, LIFECYCLE_NOTES,
+  AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_INTRO, AGENT_TABS, AGENT_TIPS, AGENT_USE_CASES, type AgentTabId, COLUMNS_NOTE, COLUMN_ROWS, UPDATE_LEGEND, FLOW_CREATE, FLOW_LIFECYCLE, FLOW_READ, LIFECYCLE_NOTES,
   COLUMN_GROUPS, type Table,
 } from "./help-content";
 
 const TABS = [
   { id: "columns", label: "Columns" },
   { id: "flow", label: "How content flows" },
-  { id: "claude", label: "Using Claude" },
+  { id: "agents", label: "AI agents" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -27,6 +27,7 @@ function SimpleTable({ caption, table }: { caption: string; table: Table }) {
 export function HelpGuide() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<TabId>("columns");
+  const [agent, setAgent] = useState<AgentTabId>("use-cases");
   const [query, setQuery] = useState("");
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const shown = COLUMN_ROWS.filter((r) => { const hay = `${r.column} ${r.what} ${r.github} ${r.jira} ${r.access} ${r.updated} ${r.group} ${r.key}`.toLowerCase(); return words.every((w) => hay.includes(w)); });
@@ -41,7 +42,7 @@ export function HelpGuide() {
   }, [open]);
   return (
     <>
-      <button type="button" className="help-btn" aria-haspopup="dialog" onClick={() => setOpen(true)} title="Columns, how content flows, using Claude">Help</button>
+      <button type="button" className="help-btn" aria-haspopup="dialog" onClick={() => setOpen(true)} title="Columns, how content flows, AI agents">Help</button>
       {open && (
         <div className="dialog-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
           <div className="dialog help-guide" role="dialog" aria-modal="true" aria-labelledby={titleId}>
@@ -88,16 +89,33 @@ export function HelpGuide() {
               </div>
             )}
 
-            {tab === "claude" && (
-              <div role="tabpanel" id="help-panel-claude" aria-labelledby="help-tab-claude">
-                <SimpleTable caption="What Claude can write for you" table={CLAUDE_OPTIONS} />
-                <ul className="help-notes">{CLAUDE_RULES.map((n) => <li key={n}>{n}</li>)}</ul>
-                <table className="help-table">
-                  <caption>Prompts that work well</caption>
-                  <thead><tr><th scope="col">When</th><th scope="col">Prompt</th></tr></thead>
-                  <tbody>{CLAUDE_PROMPTS.map((p) => <tr key={p.when}><th scope="row">{p.when}</th><td>{p.prompt}</td></tr>)}</tbody>
-                </table>
-                <p className="muted">{CLAUDE_PROMPT_TIPS}</p>
+            {tab === "agents" && (
+              <div role="tabpanel" id="help-panel-agents" aria-labelledby="help-tab-agents">
+                <p>{AGENT_INTRO}</p>
+                <div className="help-tabs help-subtabs" role="tablist" aria-label="AI agents">
+                  {AGENT_TABS.map((t) => (
+                    <button key={t.id} type="button" role="tab" id={`help-agent-tab-${t.id}`} aria-selected={agent === t.id} aria-controls={`help-agent-panel-${t.id}`} className={`help-tab${agent === t.id ? " is-active" : ""}`} onClick={() => setAgent(t.id)}>{t.label}</button>
+                  ))}
+                </div>
+                {agent === "use-cases" && (
+                  <div role="tabpanel" id="help-agent-panel-use-cases" aria-labelledby="help-agent-tab-use-cases">
+                    <SimpleTable caption="What to use an agent for, and why" table={AGENT_USE_CASES} />
+                    <h3>What makes the agent better over time</h3>
+                    <dl className="help-defs">{AGENT_ADVANTAGES.map((a) => <div key={a.title}><dt>{a.title}</dt><dd>{a.text}</dd></div>)}</dl>
+                    <p className="muted">{AGENT_TIPS}</p>
+                  </div>
+                )}
+                {(["claude", "chatgpt", "gemini"] as const).map((k) => agent === k && (
+                  <div key={k} role="tabpanel" id={`help-agent-panel-${k}`} aria-labelledby={`help-agent-tab-${k}`}>
+                    <h3>{AGENT_GUIDES[k].title}: set up</h3>
+                    <ol className="help-notes">{AGENT_GUIDES[k].setup.map((n) => <li key={n}>{n}</li>)}</ol>
+                    {AGENT_GUIDES[k].snippet && <pre className="code-block">{AGENT_GUIDES[k].snippet}</pre>}
+                    <h3>Onboarding</h3>
+                    <ol className="help-notes">{AGENT_GUIDES[k].onboarding.map((n) => <li key={n}>{n}</li>)}</ol>
+                    <SimpleTable caption={`Features and commands in ${k === "chatgpt" ? "ChatGPT" : k === "claude" ? "Claude" : "Gemini"}`} table={AGENT_GUIDES[k].features} />
+                    <ul className="help-notes">{AGENT_GUIDES[k].notes.map((n) => <li key={n}>{n}</li>)}</ul>
+                  </div>
+                ))}
               </div>
             )}
 

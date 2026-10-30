@@ -811,3 +811,12 @@ a.scope-link:hover, a.scope-link:focus-visible { background: var(--blue-tint-2);
 .spin { animation: pv-spin .8s linear infinite; }
 @keyframes pv-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+
+/* Connect an AI assistant and Memory pages (docs/27) */
+.code-block { margin: 6px 0 10px; padding: 10px 12px; background: var(--surface-muted); border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: var(--font-mono); white-space: pre-wrap; overflow-x: auto; }
+.row-gap { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.row-gap a[aria-current="true"] { font-weight: 600; text-decoration: underline; }
+.help-subtabs { margin-top: 8px; }
+.help-defs { margin: 8px 0; }
+.help-defs dt { font-weight: 600; margin-top: 8px; }
+.help-defs dd { margin: 2px 0 0; color: var(--ink-muted); }

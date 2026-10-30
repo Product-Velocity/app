@@ -6,7 +6,7 @@ import { ToolInputError } from "./tool-error";
 import type { McpDocuments } from "./write-model";
 
 type Out = { result: { isError?: boolean; content: { text: string }[] } };
-const doc = (o: Partial<DocInfo> = {}): DocInfo => ({ id: "d1", item_code: "R-01", kind: "prd", title: "PRD", status: "draft", version: 1, ai_draft: true, characters: 5, updated_at: "2026-10-28T10:00:00Z", approved_at: null, ...o });
+const doc = (o: Partial<DocInfo> = {}): DocInfo => ({ id: "d1", item_code: "R-01", kind: "prd", title: "PRD", status: "draft", version: 1, ai_draft: true, characters: 5, updated_at: "2026-10-28T10:00:00Z", approved_at: null, ai_tool: null, ai_model: null, ...o });
 
 function setup(opts: { role?: string; docs?: DocInfo[]; current?: DocInfo; missing?: boolean; meter?: McpBackend["meter"] } = {}) {
   const stored = opts.docs ?? [doc({ body: "# Hello" })];
@@ -66,7 +66,7 @@ describe("document tools", () => {
     const s = setup();
     const r = await s.call("create_document", { item: "R-01", title: "PRD: Switcher", body: "# PRD" });
     expect(r.data).toMatchObject({ status: "created", document: { id: "new1", item_code: "R-01", kind: "prd", status: "draft" } });
-    expect(s.created).toEqual([{ item: "R-01", kind: "prd", title: "PRD: Switcher", body: "# PRD", status: undefined }]);
+    expect(s.created).toEqual([{ item: "R-01", kind: "prd", title: "PRD: Switcher", body: "# PRD", status: undefined, ai_model: null }]);
   });
 
   it("refuses an unknown initiative, a missing title, an oversize text, a bad kind and approval", async () => {
@@ -146,5 +146,39 @@ describe("apply_prd_extract", () => {
   it("is a write tool: a viewer gets the read-only refusal", async () => {
     const s = setup({ role: "viewer", docs: [doc({ id: "p1", body: PRD })] });
     expect((await s.call("apply_prd_extract", { document: "p1" })).text).toMatch(/read-only/i);
+  });
+});
+
+describe("AI model on documents", () => {
+  it("create_document passes the model the assistant states, and the tools tell it to", async () => {
+    const s = setup();
+    const r = await s.call("create_document", { item: "R-01", title: "PRD: X", body: "# X", ai_model: "  Claude   Opus 5.5 " });
+    expect(r.isError, r.text).toBe(false);
+    expect(s.created[0]).toMatchObject({ ai_model: "Claude Opus 5.5" });
+    await s.call("create_document", { item: "R-01", title: "PRD: Y", body: "# Y" });
+    expect(s.created[1]).toMatchObject({ ai_model: null });
+    for (const n of ["create_document", "update_document"]) {
+      const t = TOOLS.find((x) => x.name === n)!;
+      expect(JSON.stringify(t.inputSchema)).toMatch(/ai_model/);
+      expect(JSON.stringify(t.inputSchema)).not.toMatch(/ai_tool/); // the tool comes from the connection, never from the assistant
+    }
+  });
+  it("update_document passes the model with a rewrite; a model alone is not a change", async () => {
+    const s = setup();
+    await s.call("update_document", { document: "d1", base_version: 1, body: "# v2", ai_model: "GPT-5" });
+    expect(s.updated[0]).toMatchObject({ patch: { body: "# v2", ai_model: "GPT-5" } });
+    expect((await s.call("update_document", { document: "d1", base_version: 1, ai_model: "GPT-5" })).isError).toBe(true);
+  });
+  it("refuses a model name that is too long or has markup in it, before anything is written", async () => {
+    const s = setup();
+    for (const ai_model of ["x".repeat(81), "<script>alert(1)</script>", 5]) {
+      expect((await s.call("create_document", { item: "R-01", title: "T", body: "b", ai_model })).isError).toBe(true);
+    }
+    expect(s.created).toHaveLength(0);
+  });
+  it("get_document and list_documents show the tool and model", async () => {
+    const s = setup({ docs: [doc({ body: "x", ai_tool: "chatgpt", ai_model: "GPT-5" })] });
+    expect((await s.call("get_document", { document: "d1" })).data).toMatchObject({ ai_tool: "chatgpt", ai_model: "GPT-5" });
+    expect((await s.call("list_documents", { item: "R-01" })).data.documents[0]).toMatchObject({ ai_tool: "chatgpt" });
   });
 });

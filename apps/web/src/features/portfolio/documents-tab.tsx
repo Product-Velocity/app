@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { DOC_KIND_LABEL, DOC_KINDS, MAX_DOC_CHARS, MAX_DOCS_PER_ITEM } from "@pv/domain";
+import { AI_TOOL_LABEL, DOC_KIND_LABEL, DOC_KINDS, MAX_DOC_CHARS, MAX_DOCS_PER_ITEM } from "@pv/domain";
 import type { DocView } from "@/lib/documents";
 import { MarkdownPreview } from "./markdown-preview";
 
-type Version = { version: number; saved_at: string; saved_via: string };
+type Version = { version: number; saved_at: string; saved_via: string; ai_tool?: string | null; ai_model?: string | null; saved_by_name?: string | null };
+/** "Claude (Claude Opus 5.5)": the AI tool from the connection and the model the assistant stated. */
+const aiLabel = (tool?: string | null, model?: string | null) => (tool ? `${AI_TOOL_LABEL[tool] ?? tool}${model ? ` (${model})` : ""}` : null);
 const STATUS_LABEL: Record<string, string> = { draft: "Draft", in_review: "In review", approved: "Approved" };
 
 /**
@@ -14,7 +16,11 @@ const STATUS_LABEL: Record<string, string> = { draft: "Draft", in_review: "In re
  */
 export function DocumentsTab({ itemId, canEdit }: { itemId: string; canEdit: boolean }) {
   const [docs, setDocs] = useState<DocView[] | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
+  // a link from the activity log opens the document: ?item=R-12&tab=spec&doc=<id>
+  const [openId, setOpenId] = useState<string | null>(() => {
+    const d = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("doc");
+    return d && /^[0-9a-f-]{36}$/i.test(d) ? d : null;
+  });
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -56,7 +62,7 @@ export function DocumentsTab({ itemId, canEdit }: { itemId: string; canEdit: boo
         {docs.map((d) => (
           <li key={d.id} className="docs-row" data-doc={d.title}>
             <button type="button" className="btn" aria-expanded={openId === d.id} onClick={() => setOpenId(openId === d.id ? null : d.id)}>{d.title}</button>
-            <span className="muted"> {DOC_KIND_LABEL[d.kind as keyof typeof DOC_KIND_LABEL] ?? d.kind} · version {d.version} · {STATUS_LABEL[d.status] ?? d.status}{d.aiDraft ? " · AI draft, needs review" : ""}</span>
+            <span className="muted"> {DOC_KIND_LABEL[d.kind as keyof typeof DOC_KIND_LABEL] ?? d.kind} · version {d.version} · {STATUS_LABEL[d.status] ?? d.status}{d.aiDraft ? " · AI draft, needs review" : ""}{aiLabel(d.aiTool, d.aiModel) ? ` · written with ${aiLabel(d.aiTool, d.aiModel)}` : ""}</span>
             {openId === d.id && <DocEditor id={d.id} canEdit={canEdit} onChanged={load} onRemoved={() => { setOpenId(null); void load(); }} onError={setError} />}
           </li>
         ))}
@@ -140,7 +146,7 @@ function DocEditor({ id, canEdit, onChanged, onRemoved, onError }: { id: string;
       </div>
       <p className="muted">
         {doc.status === "approved" ? "Approved. Changing the text sends it back to review." : "Approval happens when the initiative moves from Design to Build, by a person with the Approver permission."}
-        {doc.aiDraft && <> This document was written by Claude and needs a person to accept it. {canEdit && <button type="button" className="btn" onClick={() => void save({ acceptDraft: true })}>Accept draft</button>}</>}
+        {doc.aiDraft && <> This document was written by {aiLabel(doc.aiTool, doc.aiModel) ?? "an AI assistant"} and needs a person to accept it. {canEdit && <button type="button" className="btn" onClick={() => void save({ acceptDraft: true })}>Accept draft</button>}</>}
       </p>
       <div className="md-tabs" role="group" aria-label="Document view">
         <button type="button" className={preview ? "tool-btn" : "tool-btn tool-btn-on"} aria-pressed={!preview} onClick={() => setPreview(false)}>Write</button>
@@ -158,7 +164,7 @@ function DocEditor({ id, canEdit, onChanged, onRemoved, onError }: { id: string;
           <ul>
             {versions.map((v) => (
               <li key={v.version}>
-                Version {v.version} · {new Date(v.saved_at).toLocaleString()} · {v.saved_via}{" "}
+                Version {v.version} · {new Date(v.saved_at).toLocaleString()} · {aiLabel(v.ai_tool, v.ai_model) ?? v.saved_by_name ?? v.saved_via}{" "}
                 <button type="button" className="btn" onClick={() => void showVersion(v.version)}>{`View version ${v.version}`}</button>
               </li>
             ))}

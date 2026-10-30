@@ -23,12 +23,12 @@ export async function GET(request: Request, { params }: Ctx) {
   const url = new URL(request.url);
   const wantVersion = Number(url.searchParams.get("version"));
   if (Number.isInteger(wantVersion) && wantVersion > 0) {
-    const { data: v } = await supabase.from("item_document_versions").select("version, title, body, saved_at, saved_via").eq("document_id", id).eq("version", wantVersion).maybeSingle();
+    const { data: v } = await supabase.from("item_document_versions").select("version, title, body, saved_at, saved_via, ai_tool, ai_model").eq("document_id", id).eq("version", wantVersion).maybeSingle();
     return v ? NextResponse.json({ version: v }) : NextResponse.json({ error: "Version not found." }, { status: 404 });
   }
   const out: Record<string, unknown> = { document: toDoc(data as DocRow, true) };
   if (url.searchParams.get("versions")) {
-    const { data: vs } = await supabase.from("item_document_versions").select("version, saved_at, saved_via").eq("document_id", id).order("version", { ascending: false });
+    const { data: vs } = await supabase.from("item_document_versions").select("version, saved_at, saved_via, ai_tool, ai_model, saved_by_name").eq("document_id", id).order("version", { ascending: false });
     out.versions = vs ?? [];
   }
   return NextResponse.json(out);

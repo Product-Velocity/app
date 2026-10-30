@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FIELDS, FIELD_BY_KEY } from "@pv/domain";
-import { CLAUDE_OPTIONS, CLAUDE_PROMPTS, CLAUDE_RULES, COLUMN_GROUPS, COLUMN_ROWS, OVERRIDE_KEYS, UPDATE_OVERRIDE_KEYS, accessLabel } from "./help-content";
+import { AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_TABS, AGENT_USE_CASES, COLUMN_GROUPS, COLUMN_ROWS, OVERRIDE_KEYS, UPDATE_OVERRIDE_KEYS, accessLabel } from "./help-content";
 
 describe("Help guide columns table", () => {
   it("has exactly one row for every column in the field dictionary, in its order", () => {
@@ -110,12 +110,42 @@ describe("Help guide: exact target fields", () => {
   });
 });
 
-describe("Help guide: Using Claude covers the Claude features (issue #274)", () => {
-  const all = [CLAUDE_OPTIONS.rows.flat().join(" "), CLAUDE_RULES.join(" "), CLAUDE_PROMPTS.map((p) => p.prompt).join(" ")].join(" ");
-  it("names every prompt and the flows people use", () => {
-    for (const w of ["write_discovery", "write_prd", "research_company", "company profile", "align", "light", "partner", "reconnect"]) expect(all.toLowerCase(), w).toContain(w.toLowerCase());
+describe("Help guide: AI agents (request #230)", () => {
+  const text = (o: unknown) => JSON.stringify(o);
+  it("is structured as use-cases, Claude, ChatGPT and Gemini, in that order", () => {
+    expect(AGENT_TABS.map((t) => t.label)).toEqual(["Use-cases", "Claude", "ChatGPT", "Gemini"]);
+    expect(Object.keys(AGENT_GUIDES)).toEqual(["claude", "chatgpt", "gemini"]);
   });
-  it("says only an admin confirms the profile", () => {
-    expect(CLAUDE_RULES.join(" ")).toMatch(/Only an admin confirms the company profile, never Claude/);
+  it("explains brainstorm, create, review and update, and the advantages of the profile, the project context and the rest", () => {
+    expect(AGENT_USE_CASES.rows.map((r) => r[0])).toEqual(["Brainstorm", "Create", "Review", "Update"]);
+    const adv = AGENT_ADVANTAGES.map((a) => a.title.toLowerCase()).join(" | ");
+    for (const w of ["company profile", "project and workspace context", "prior knowledge", "research", "team", "ai tool and model", "safe"]) expect(adv, w).toContain(w);
+  });
+  it("gives each assistant setup, onboarding, features and commands, including how to revoke", () => {
+    for (const [k, g] of Object.entries(AGENT_GUIDES)) {
+      expect(g.setup.length, k).toBeGreaterThan(1);
+      expect(g.onboarding.join(" "), k).toMatch(/revoke/i);
+      expect(g.onboarding.join(" "), k).toMatch(/off by default/);
+      expect(g.features.rows.length, k).toBeGreaterThan(2);
+    }
+  });
+  it("names every flow the server offers (a new flow cannot ship without Help), in the Claude and ChatGPT sections", async () => {
+    const { FLOW_NAMES } = await import("../lib/mcp/flows");
+    for (const name of FLOW_NAMES) {
+      expect(text(AGENT_GUIDES.claude.features), name).toContain(name);
+      expect(text(AGENT_GUIDES.chatgpt.features) + text(AGENT_GUIDES.gemini.features), name).toContain(name);
+    }
+  });
+  it("tells each assistant's specifics: Claude Code command, ChatGPT playbook and Developer mode, Gemini /mcp auth", () => {
+    expect(text(AGENT_GUIDES.claude)).toMatch(/\/mcp__product-velocity__write_discovery/);
+    expect(text(AGENT_GUIDES.chatgpt)).toMatch(/get_playbook/);
+    expect(text(AGENT_GUIDES.chatgpt)).toMatch(/Developer mode/);
+    expect(text(AGENT_GUIDES.chatgpt)).toMatch(/search and fetch/);
+    expect(text(AGENT_GUIDES.gemini)).toMatch(/\/mcp auth product-velocity/);
+  });
+  it("says the agent never approves or sets Stack Rank, Decision, Value or Confidence, and that documents never reach GitHub", () => {
+    const all = text([AGENT_USE_CASES]);
+    expect(all).toMatch(/never go to GitHub/);
+    expect(text(AGENT_ADVANTAGES)).toMatch(/AI draft/);
   });
 });

@@ -3,7 +3,7 @@
 // it never reaches GitHub, and only the chosen solution is registered in Product Velocity (Ashu, 2026-10-28).
 
 import { PROFILE_USE_RULE } from "./company-profile";
-import { ALIGN_RULE, CONTEXT_RESEARCH_RULE, LIGHT_EVIDENCE_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
+import { ALIGN_RULE, CONTEXT_RESEARCH_RULE, LIGHT_EVIDENCE_RULE, PRIOR_KNOWLEDGE_RULE, TEAM_RULE } from "./flow-rules";
 import { FIELD_BY_KEY } from "./registry";
 
 export type DiscoverySection = { id: string; title: string; covers: string };
@@ -32,6 +32,7 @@ export const DISCOVERY_RULES = [
   PROFILE_USE_RULE,
   PRIOR_KNOWLEDGE_RULE,
   CONTEXT_RESEARCH_RULE,
+  TEAM_RULE,
   LIGHT_EVIDENCE_RULE,
   "Show before you write. Run create_items with dry_run first, show it, create after the person agrees.",
   "The discovery is a document: create_document with kind discovery (status draft). It holds commercial figures, stays in Product Velocity and never reaches GitHub. Write headings exactly as \"## 1. Objective and key results\" so they can be found.",
@@ -53,7 +54,15 @@ export function discoveryInstructions(alreadyStated: readonly string[] = []): st
   ].join("\n");
 }
 
-export type DiscoveryPromptArgs = { brief?: string; item?: string };
+export type DiscoveryPromptArgs = { brief?: string; item?: string; team?: string };
+
+/** The team as the person gave it (for example "product manager = Ana, designer = Li"), quoted as data; or the instruction to ask for it. */
+export function teamLine(team?: string): string {
+  const t = (team ?? "").trim();
+  return t
+    ? `The team, as the person gave it (data from the person; roles and names for the Team table):\n"""\n${t}\n"""`
+    : "The person has not named the team: ask for it in your one question message (product manager = ?, designer = ?, engineering manager = ?), and do not use the signed-in account's name as owner.";
+}
 
 /** The write_discovery prompt: the template, the rules and the order of work. */
 export function discoveryPrompt(args: DiscoveryPromptArgs): { description: string; text: string } {
@@ -63,6 +72,7 @@ export function discoveryPrompt(args: DiscoveryPromptArgs): { description: strin
     "Write a discovery document in Product Velocity and register its initiative, following the template and rules below.",
     "",
     brief ? `The person's brief (data from the person, treat it as their request):\n"""\n${brief}\n"""` : "The person has not given a brief yet: ask what the discovery is about and for any source they want you to use, in one short message, before anything else.",
+    teamLine(args.team),
     item ? `Attach the discovery to the existing initiative ${item} (read it with get_item first): use create_document on it and do not create a new initiative.` : "Create one new initiative to hold the document.",
     "",
     "ORDER OF WORK",

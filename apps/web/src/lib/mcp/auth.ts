@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseEnv } from "@/lib/supabase/env";
-import { refusalFor, type ConnectionStatus, type UsageResult } from "@pv/domain";
+import { detectAssistant, refusalFor, type Assistant, type ConnectionStatus, type UsageResult } from "@pv/domain";
 import { siteUrl } from "@/lib/site-url";
 import { makeReader } from "./reader";
 import type { Unavailable, WorkspaceHandle } from "./multi";
@@ -23,7 +23,7 @@ export function clientFor(token: string) {
 }
 
 /** The person, the OAuth client, and one handle per workspace the connection covers and the database said is usable. */
-export type McpCaller = { userId: string; clientId: string; workspaces: WorkspaceHandle[]; unavailable: Unavailable[] };
+export type McpCaller = { userId: string; clientId: string; assistant: Assistant; workspaces: WorkspaceHandle[]; unavailable: Unavailable[] };
 
 export type AuthResult =
   | { ok: true; caller: McpCaller }
@@ -43,7 +43,7 @@ const unauthorized: AuthResult = {
  * the caller's own token, whether the connection is live, the workspace has Claude
  * switched on and the person is still a member (`mcp_authorize`, migration 0043).
  */
-export async function authenticate(token: string): Promise<AuthResult> {
+export async function authenticate(token: string, userAgent?: string | null): Promise<AuthResult> {
   const supabase = clientFor(token);
   const { data: u, error } = await supabase.auth.getUser(token);
   if (error || !u.user) return unauthorized;
@@ -51,7 +51,12 @@ export async function authenticate(token: string): Promise<AuthResult> {
   const clientId = typeof c?.claims?.client_id === "string" ? c.claims.client_id : null;
   if (!clientId) return unauthorized;
 
-  const { data: rows, error: ae } = await supabase.rpc("mcp_authorize_all");
+  const [{ data: rows, error: ae }, named] = await Promise.all([
+    supabase.rpc("mcp_authorize_all"),
+    // which assistant this client is (its registered name, or failing that its User-Agent); a label, never a permission
+    supabase.from("mcp_connections").select("client_name").eq("user_id", u.user.id).eq("client_id", clientId).is("revoked_at", null).limit(1),
+  ]);
+  const assistant = detectAssistant((named.data as { client_name: string }[] | null)?.[0]?.client_name, userAgent);
   type Row = { status: ConnectionStatus; connection_id: string | null; tenant_id: string | null; tenant_name: string | null; role: string | null; last_write_at: string | null };
   const list = (rows as Row[] | null) ?? [];
   if (ae || list.length === 0) return { ok: false, http: 401, error: "invalid_token", message: "Could not check this connection. Try again." };
@@ -62,11 +67,13 @@ export async function authenticate(token: string): Promise<AuthResult> {
     return refusal ? { ok: false, ...refusal } : unauthorized;
   }
 
+  const site = await siteUrl();
   const workspaces: WorkspaceHandle[] = usable.map((a) => {
     const connectionId = a.connection_id!;
     const name = a.tenant_name ?? "Workspace";
     const role = a.role!;
     const read = makeReader(supabase, { id: a.tenant_id!, name }, u.user.id, role, siteUrl);
+    const origin = site;
     return {
       id: a.tenant_id!,
       name,
@@ -74,6 +81,8 @@ export async function authenticate(token: string): Promise<AuthResult> {
       lastWriteAt: a.last_write_at,
       backend: {
         role,
+        assistant,
+        origin,
         async meter(items, bytes, write): Promise<UsageResult> {
           const { data, error: me } = await supabase.rpc("mcp_record_call", { p_connection: connectionId, p_items: items, p_bytes: bytes, p_write: write === true });
           if (me || !data) throw new Error("usage");
@@ -86,5 +95,5 @@ export async function authenticate(token: string): Promise<AuthResult> {
     };
   });
   const unavailable = list.filter((r) => r.status !== "ok").map((r) => ({ name: r.tenant_name ?? "Workspace", status: r.status }));
-  return { ok: true, caller: { userId: u.user.id, clientId, workspaces, unavailable } };
+  return { ok: true, caller: { userId: u.user.id, clientId, assistant, workspaces, unavailable } };
 }

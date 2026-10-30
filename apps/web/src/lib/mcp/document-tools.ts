@@ -12,6 +12,7 @@ const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true,
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const ITEM = { type: "string", description: "Initiative code such as R-12, or its id." };
 const DOC = { type: "string", description: "The document id from list_documents or create_document." };
+const AI_MODEL_PROP = { type: "string", maxLength: 80, description: "The name of the AI model you are, for example \"Claude Opus 5.5\", \"GPT-5\" or \"Gemini 3 Pro\". Product Velocity records it with the version you save, next to the AI tool (taken from the connection), so people can compare models. Say it only if you know it; never guess or copy another model's name." };
 const NOT_GITHUB = "Documents stay in Product Velocity and are never written to GitHub.";
 
 const listDocuments: ToolDef = {
@@ -52,7 +53,7 @@ const createDocument: ToolDef = {
   title: "Create a document on an initiative",
   description:
     `Creates a Markdown document (up to ${MAX_DOC_CHARS.toLocaleString("en")} characters, ${MAX_DOCS_PER_ITEM} per initiative) on an initiative, as the signed-in person. ` +
-    "Use kind prd for the full PRD and kind discovery for a discovery document. It is saved as an AI draft until a person accepts it, and as version 1. " + NOT_GITHUB + " Put the parts that builders need in the initiative's Description, not here. " +
+    "Pass ai_model (the model you are) so the document records which AI tool and model wrote it. Use kind prd for the full PRD and kind discovery for a discovery document. It is saved as an AI draft until a person accepts it, and as version 1. " + NOT_GITHUB + " Put the parts that builders need in the initiative's Description, not here. " +
     "Status can be draft or in_review; a person with the Approver permission approves, never you. " + DATA,
   inputSchema: {
     type: "object",
@@ -62,6 +63,7 @@ const createDocument: ToolDef = {
       title: { type: "string", maxLength: 200, description: "For example \"PRD: Account switcher\"." },
       body: { type: "string", description: "The document as Markdown." },
       status: { type: "string", enum: ["draft", "in_review"], description: "Default draft." },
+      ai_model: AI_MODEL_PROP,
     },
     required: ["item", "title", "body"],
     additionalProperties: false,
@@ -74,11 +76,11 @@ const createDocument: ToolDef = {
     const d = await b.read.itemDetail(ref);
     if (!d) throw new ToolInputError(`No initiative "${ref}" in this workspace, or you cannot change it.`);
     const code = String(d.row.item_code);
-    const c = checkDocumentInput({ kind: a.kind ?? "prd", title: a.title, body: a.body, status: a.status }, { requireTitle: true });
+    const c = checkDocumentInput({ kind: a.kind ?? "prd", title: a.title, body: a.body, status: a.status, ai_model: a.ai_model }, { requireTitle: true });
     if (!c.ok) throw new ToolInputError(`${code}: ${c.error}`);
     const existing = (await b.read.documents(code)) ?? [];
     if (existing.length >= MAX_DOCS_PER_ITEM) throw new ToolInputError(`${code} already has ${MAX_DOCS_PER_ITEM} documents, the most one initiative can hold.`);
-    const doc = await b.write.documents.create({ id: d.row.id, code }, { kind: c.value.kind ?? "prd", title: c.value.title!, body: c.value.body ?? "", status: c.value.status });
+    const doc = await b.write.documents.create({ id: d.row.id, code }, { kind: c.value.kind ?? "prd", title: c.value.title!, body: c.value.body ?? "", status: c.value.status, ai_model: c.value.ai_model ?? null });
     return { status: "created", document: doc, notes: ["Saved as an AI draft, version 1. " + NOT_GITHUB, "To change it later use update_document with this version."] };
   },
 };
@@ -88,7 +90,7 @@ const updateDocument: ToolDef = {
   title: "Revise a document",
   description:
     "Replaces the title, text, kind or status of a document. base_version must be the version you last read (from get_document or the last result): if somebody saved in between, nothing is written and the current text is returned so you can merge their changes. " +
-    "Every save keeps the previous version. Editing an approved document sends it back to review. You cannot approve. " + NOT_GITHUB + " " + DATA,
+    "Every save keeps the previous version, with the AI tool and model that wrote it. Pass ai_model when you rewrite the text. Editing an approved document sends it back to review. You cannot approve. " + NOT_GITHUB + " " + DATA,
   inputSchema: {
     type: "object",
     properties: {
@@ -98,6 +100,7 @@ const updateDocument: ToolDef = {
       body: { type: "string", description: "The complete new text as Markdown (not a fragment)." },
       kind: { type: "string", enum: [...DOC_KINDS] },
       status: { type: "string", enum: ["draft", "in_review"] },
+      ai_model: AI_MODEL_PROP,
     },
     required: ["document", "base_version"],
     additionalProperties: false,
@@ -108,9 +111,9 @@ const updateDocument: ToolDef = {
   run: async (b, a) => {
     const id = str(a.document);
     if (!Number.isInteger(a.base_version) || (a.base_version as number) < 1) throw new ToolInputError("Give base_version: the version number you read (get_document returns it).");
-    const c = checkDocumentInput({ kind: a.kind, title: a.title, body: a.body, status: a.status }, { requireTitle: false });
+    const c = checkDocumentInput({ kind: a.kind, title: a.title, body: a.body, status: a.status, ai_model: a.ai_model }, { requireTitle: false });
     if (!c.ok) throw new ToolInputError(c.error);
-    if (Object.keys(c.value).length === 0) throw new ToolInputError("Nothing to change: send at least one of title, body, kind or status.");
+    if (Object.keys(c.value).filter((k) => k !== "ai_model").length === 0) throw new ToolInputError("Nothing to change: send at least one of title, body, kind or status.");
     const r = await b.write.documents.update(id, a.base_version as number, c.value);
     if (r.ok) return { status: "updated", document: { ...r.doc, body: undefined }, notes: [NOT_GITHUB] };
     if (r.reason === "missing") throw new ToolInputError(`No document "${id}" in this workspace, or you cannot change it. list_documents shows the ids.`);

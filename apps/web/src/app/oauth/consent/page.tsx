@@ -1,21 +1,21 @@
 import { redirect } from "next/navigation";
-import { CLAUDE_CAN, CLAUDE_CANNOT, claudeMayWrite } from "@pv/domain";
+import { assistantLabel, CLAUDE_CAN, CLAUDE_CANNOT, claudeMayWrite, detectAssistant } from "@pv/domain";
 import { requireWorkspace } from "@/lib/session";
 import { ROLE_LABEL } from "@/lib/roles";
 import { BrandLogo } from "@/components/brand-logo";
 import { decide } from "./actions";
 
-export const metadata = { title: "Connect Claude · Product Velocity" };
+export const metadata = { title: "Connect an AI assistant · Product Velocity" };
 
 const ERRORS: Record<string, string> = {
   choose: "Choose at least one workspace first.",
-  single: "One of the workspaces you chose allows Claude only on its own. Choose that one alone, or leave it out.",
+  single: "One of the workspaces you chose allows AI assistants only on their own. Choose that one alone, or leave it out.",
   "needs-migration": "This deployment's database does not support several workspaces yet (migration 0058). Choose one workspace.",
-  off: "Claude is switched off for that workspace. A workspace admin can switch it on under Connect Claude.",
+  off: "AI assistants are switched off for that workspace. A workspace admin can switch them on under Connect an AI assistant.",
   "1": "That did not work. Please try again.",
 };
 
-/** Consent screen for a Claude connection (docs/20 FR-1): the client, the workspace, the role Claude will have, and what it can and cannot do. */
+/** Consent screen for an AI assistant connection (docs/20 FR-1, docs/27): the client, the workspace, the role the assistant will have, and what it can and cannot do. */
 export default async function ConsentPage({
   searchParams,
 }: {
@@ -34,12 +34,14 @@ export default async function ConsentPage({
         <div className="card auth-card">
           <BrandLogo size={52} />
           <h1>This request is no longer valid</h1>
-          <p role="alert" className="error">Go back to Claude and try connecting again.</p>
+          <p role="alert" className="error">Go back to your assistant and try connecting again.</p>
         </div>
       </main>
     );
   }
 
+  const kind = detectAssistant(data.client.name);
+  const who = kind === "other" ? data.client.name : assistantLabel(kind);
   const ids = memberships.map((m) => m.tenantId);
   let { data: flags, error: flagError } = await supabase.from("tenants").select("id, claude_enabled, claude_single_only").in("id", ids);
   if (flagError) ({ data: flags, error: flagError } = (await supabase.from("tenants").select("id, claude_enabled").in("id", ids)) as never); // before migration 0058
@@ -52,11 +54,11 @@ export default async function ConsentPage({
     <main className="auth-page">
       <div className="card auth-card">
         <BrandLogo size={52} />
-        <h1>Connect {data.client.name} to Product Velocity?</h1>
-        {flagError && <p role="alert" className="error">This deployment&rsquo;s database is missing migration 0043, so Claude cannot be connected yet.</p>}
+        <h1>Connect {who} to Product Velocity?</h1>
+        {flagError && <p role="alert" className="error">This deployment&rsquo;s database is missing migration 0043, so assistants cannot be connected yet.</p>}
         {error && <p role="alert" className="error">{ERRORS[error] ?? ERRORS["1"]}</p>}
         <p>
-          <strong>{data.client.name}</strong> will act as <strong>{data.user.email}</strong>, with your role in each workspace you choose. Choose one, or several: with several, Claude has to name the workspace on every request and asks you when you have not said.
+          <strong>{data.client.name}</strong> will act as <strong>{data.user.email}</strong>, with your role in each workspace you choose. Choose one, or several: with several, {who} has to name the workspace on every request and asks you when you have not said.
         </p>
 
         <form action={decide} className="stack">
@@ -68,13 +70,13 @@ export default async function ConsentPage({
                 <input type="checkbox" name="tenant_id" value={c.tenantId} defaultChecked={firstOn?.tenantId === c.tenantId} disabled={!c.enabled} />
                 <span>
                   {c.tenantName} · your role: {ROLE_LABEL[c.role]}
-                  {claudeMayWrite(c.role) ? "" : " (Claude can read, not change)"}
-                  {c.enabled && c.single && " · its admins allow Claude here only on its own: choose it alone"}
+                  {claudeMayWrite(c.role) ? "" : ` (${who} can read, not change)`}
+                  {c.enabled && c.single && " · its admins allow assistants here only on their own: choose it alone"}
                   {!c.enabled && (
                     <>
-                      {" · Claude is switched off here. "}
+                      {" · AI assistants are switched off here. "}
                       {c.role === "admin" ? (
-                        <a href="/settings/claude">Switch it on under Connect Claude</a>
+                        <a href="/settings/claude">Switch it on under Connect an AI assistant</a>
                       ) : (
                         "A workspace admin can switch it on."
                       )}
@@ -87,15 +89,15 @@ export default async function ConsentPage({
 
           <div className="two-col">
             <div>
-              <strong>Claude can</strong>
+              <strong>{who} can</strong>
               <ul className="consent-list">{CLAUDE_CAN.map((t) => <li key={t}>{t}</li>)}</ul>
             </div>
             <div>
-              <strong>Claude cannot</strong>
+              <strong>{who} cannot</strong>
               <ul className="consent-list">{CLAUDE_CANNOT.map((t) => <li key={t}>{t}</li>)}</ul>
             </div>
           </div>
-          <p className="muted">You can revoke this at any time under Connect Claude in your account menu. It stops working on its next call.</p>
+          <p className="muted">You can revoke this at any time under Connect an AI assistant in your account menu. It stops working on its next call.</p>
 
           <button className="btn btn-primary btn-wide" name="decision" value="approve" type="submit" disabled={!firstOn}>
             Approve

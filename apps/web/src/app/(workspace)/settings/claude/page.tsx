@@ -1,18 +1,18 @@
-import { CLAUDE_CAN, CLAUDE_CANNOT, claudeMayWrite, formatDate } from "@pv/domain";
+import { assistantLabel, CLAUDE_CAN, CLAUDE_CANNOT, claudeMayWrite, detectAssistant, formatDate, setupGuides } from "@pv/domain";
 import { requireWorkspace } from "@/lib/session";
 import { mcpEnabled } from "@/lib/mcp/auth";
 import { siteUrl } from "@/lib/site-url";
 import { CopyUrl } from "./copy-url";
 import { revokeConnection, setClaudeEnabled, setClaudeSingleOnly } from "./actions";
 
-export const metadata = { title: "Connect Claude · Product Velocity" };
+export const metadata = { title: "Connect an AI assistant · Product Velocity" };
 
 const NOTICE: Record<string, string> = {
-  "switched-on": "Claude is switched on for this workspace.",
-  "switched-off": "Claude is switched off for this workspace. Every connection stops working on its next call.",
-  "single-on": "Claude may now be used in this workspace only on its own. A connection that also covers other workspaces stops working here on its next call.",
-  "single-off": "Claude may be used in this workspace together with other workspaces again.",
-  revoked: "Connection revoked. Claude's next call will be refused.",
+  "switched-on": "AI assistants are switched on for this workspace.",
+  "switched-off": "AI assistants are switched off for this workspace. Every connection stops working on its next call.",
+  "single-on": "AI assistants may now be used in this workspace only on their own. A connection that also covers other workspaces stops working here on its next call.",
+  "single-off": "AI assistants may be used in this workspace together with other workspaces again.",
+  revoked: "Connection revoked. The assistant's next call will be refused.",
   "already-revoked": "That connection was already revoked.",
   "not-admin": "Only workspace admins can do that.",
   failed: "That did not work. Please try again.",
@@ -33,7 +33,7 @@ type Conn = {
 
 const day = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10), new Date()) : "Never");
 
-/** Connect Claude (docs/20 FR-1): the connector URL, setup steps, this person's connections with Revoke, and for admins the workspace switch. */
+/** Connect an AI assistant (docs/20 FR-1, docs/27): the connector URL, setup steps for Claude, ChatGPT and Gemini, this person's connections with Revoke, and for admins the workspace switch. */
 export default async function ConnectClaudePage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const { status } = await searchParams;
   const { supabase, user, memberships, active } = await requireWorkspace("/settings/claude");
@@ -73,22 +73,22 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
 
   return (
     <div className="page-narrow">
-      <h1>Connect Claude</h1>
+      <h1>Connect an AI assistant</h1>
       {status && NOTICE[status] && <p role="status" className="notice">{NOTICE[status]}</p>}
       <p className="muted">
-        Claude can read and draft in {active.tenantName} as you, with your role ({active.role}). Every change it makes is recorded as
-        &ldquo;Claude MCP&rdquo; with the connection it came from.
+        Claude, ChatGPT and Gemini connect the same way and can read and draft in {active.tenantName} as you, with your role ({active.role}). Every change an assistant makes is recorded
+        as &ldquo;Claude MCP&rdquo; (the source name for every AI assistant) with the connection it came from.
       </p>
 
       {!mcpEnabled() && (
-        <p role="status" className="notice">Claude connections are not available on this deployment yet. The connector URL below will work once it is switched on.</p>
+        <p role="status" className="notice">AI assistant connections are not available on this deployment yet. The connector URL below will work once it is switched on.</p>
       )}
       {notMigrated && (
-        <p role="alert" className="notice">This deployment&rsquo;s database has not had migration 0043 applied yet, so the Claude switch and connections are not available. Apply the migration (docs/11-ENVIRONMENTS.md).</p>
+        <p role="alert" className="notice">This deployment&rsquo;s database has not had migration 0043 applied yet, so the assistant switch and connections are not available. Apply the migration (docs/11-ENVIRONMENTS.md).</p>
       )}
       {!enabled && !notMigrated && (
         <p role="alert" className="notice" id="claude-off">
-          Claude is switched off for {active.tenantName}, so nobody can connect or use an existing connection.{" "}
+          AI assistants are switched off for {active.tenantName}, so nobody can connect or use an existing connection.{" "}
           {isAdmin ? "Switch it on below." : "A workspace admin can switch it on."}
         </p>
       )}
@@ -99,11 +99,11 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
           <form action={setClaudeEnabled} className="card stack">
             <label className="check-row">
               <input type="checkbox" name="enabled" defaultChecked={enabled} />
-              <span>Allow Claude in {active.tenantName}</span>
+              <span>Allow AI assistants in {active.tenantName}</span>
             </label>
             <p className="muted">
               Off by default. Switching it off stops every connection on its next call; switching it on lets members approve
-              Claude on the consent screen. Today: {usage.items} of {limits.items} items, {Math.round(usage.bytes / (1024 * 1024))} of {limits.mb} MB, {usage.calls} calls
+              an assistant on the consent screen. Today: {usage.items} of {limits.items} items, {Math.round(usage.bytes / (1024 * 1024))} of {limits.mb} MB, {usage.calls} calls
               (daily limits for the workspace, counted in UTC).
             </p>
             <div><button className="btn btn-primary" type="submit" disabled={notMigrated}>Save</button></div>
@@ -111,10 +111,10 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
           <form action={setClaudeSingleOnly} className="card stack">
             <label className="check-row">
               <input type="checkbox" name="single_only" defaultChecked={singleOnly} disabled={!hasSingleOnly} />
-              <span>Claude may be used in {active.tenantName} only on its own</span>
+              <span>AI assistants may be used in {active.tenantName} only on their own</span>
             </label>
             <p className="muted">
-              A person can connect Claude to several of their workspaces at once; Claude then names the workspace on every request and can read and report across them in one chat.
+              A person can connect an assistant to several of their workspaces at once; it then names the workspace on every request and can read and report across them in one chat.
               Tick this if what is in {active.tenantName} must never be in the same chat as another workspace (for example a client&rsquo;s confidential roadmap).
               A connection that covers other workspaces stops working here; one that covers only {active.tenantName} is not affected.
             </p>
@@ -123,12 +123,12 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
         </>
       )}
 
-      <h2>What Claude can and cannot do</h2>
+      <h2>What an AI assistant can and cannot do</h2>
       <div className="card two-col">
         <div>
           <strong>Can</strong>
           <ul>{CLAUDE_CAN.map((t) => <li key={t}>{t}</li>)}</ul>
-          {!claudeMayWrite(active.role) && <p className="muted">With your role ({active.role}) Claude can read, not change.</p>}
+          {!claudeMayWrite(active.role) && <p className="muted">With your role ({active.role}) an assistant can read, not change.</p>}
         </div>
         <div>
           <strong>Cannot</strong>
@@ -139,17 +139,17 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
       <h2>Set it up</h2>
       <div className="card stack">
         <CopyUrl url={url} />
-        <p><strong>In claude.ai or the Claude desktop app</strong></p>
-        <ol>
-          <li>Open Settings, then Connectors, and choose Add custom connector.</li>
-          <li>Paste the connector URL above and name it Product Velocity.</li>
-          <li>Connect, sign in if asked, choose one or several workspaces and approve on the consent screen. With several, Claude asks which one you mean whenever you have not said.</li>
-        </ol>
-        <p><strong>In Claude Code</strong></p>
-        <ol>
-          <li>Run <code>claude mcp add --transport http product-velocity {url}</code></li>
-          <li>Run <code>/mcp</code> in Claude Code, choose product-velocity and authenticate.</li>
-        </ol>
+        {setupGuides(url).map((g) => (
+          <div key={g.assistant}>
+            <p><strong>{g.title}</strong></p>
+            <ol>{g.steps.map((t) => <li key={t}>{t}</li>)}</ol>
+            {g.snippet && <pre className="code-block" aria-label={`${g.snippet.label} command`}>{g.snippet.code}</pre>}
+            {g.note && <p className="muted">{g.note}</p>}
+          </div>
+        ))}
+        <p className="muted">
+          Whichever assistant you use, it asks you to sign in to Product Velocity and approve on the consent screen. Menu names in these products change; if a step looks different, look for &ldquo;custom connector&rdquo; or &ldquo;MCP server&rdquo;.
+        </p>
       </div>
 
       <h2>Your connections</h2>
@@ -158,11 +158,12 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
       ) : (
         <table className="table">
           <thead>
-            <tr><th>Client</th><th>Workspace</th><th>Created</th><th>Last used</th><th>Calls</th><th><span className="visually-hidden">Actions</span></th></tr>
+            <tr><th>Assistant</th><th>Client</th><th>Workspace</th><th>Created</th><th>Last used</th><th>Calls</th><th><span className="visually-hidden">Actions</span></th></tr>
           </thead>
           <tbody>
             {mine.map((c) => (
               <tr key={c.id}>
+                <td>{assistantLabel(detectAssistant(c.client_name))}</td>
                 <td>{c.client_name}</td>
                 <td>{workspaceName(c.tenant_id)}</td>
                 <td>{day(c.created_at)}</td>
@@ -191,12 +192,13 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
           ) : (
             <table className="table">
               <thead>
-                <tr><th>Person</th><th>Client</th><th>Created</th><th>Last used</th><th>Calls</th><th><span className="visually-hidden">Actions</span></th></tr>
+                <tr><th>Person</th><th>Assistant</th><th>Client</th><th>Created</th><th>Last used</th><th>Calls</th><th><span className="visually-hidden">Actions</span></th></tr>
               </thead>
               <tbody>
                 {others.map((c) => (
                   <tr key={c.id}>
                     <td>{people.get(c.user_id) ?? "Former member"}</td>
+                    <td>{assistantLabel(detectAssistant(c.client_name))}</td>
                     <td>{c.client_name}</td>
                     <td>{day(c.created_at)}</td>
                     <td>{day(c.last_used_at)}</td>

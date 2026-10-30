@@ -103,3 +103,6 @@ Code: `packages/domain/src/flow-rules.ts`. They are part of the always-on server
 - Document statuses are separate from Spec Status; how the gate sets both is part of the lifecycle flow.
 - Template editable per workspace: later, not in this spec.
 - Undo: documents are not covered by `undo_last`; every save keeps the previous version and a person can restore it (decided in the build, 0.47.0).
+
+### Added 2026-10-30 (request #230): the Team block
+The document starts, under its title, with a **Team** table (Product manager, Designer, Engineering manager and any role the person names), taken from the person's words (prompt argument `team` or the chat), never from the signed-in account. The one question message asks "product manager = ?, designer = ?, engineering manager = ?"; unknown roles read "to define". Sponsor and Product Manager fields are set only from what was said, for workspace members. Rule: `TEAM_RULE` in `packages/domain/src/flow-rules.ts`. Documents also record the AI tool and model that wrote each version (`docs/27-AI-ASSISTANTS.md`).

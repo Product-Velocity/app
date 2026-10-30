@@ -54,19 +54,20 @@ function sqlWriter(user: string, tenant: string, client = CLIENT): McpWriter {
   };
   const info = (r: Record<string, unknown>, code: string, withBody = false): DocInfo => ({
     id: r.id as string, item_code: code, kind: r.kind as string, title: r.title as string, status: r.status as string, version: r.version as number, ai_draft: r.ai_draft as boolean,
-    characters: (r.body as string).length, updated_at: new Date(r.updated_at as string).toISOString(), approved_at: r.approved_at ? new Date(r.approved_at as string).toISOString() : null, ...(withBody ? { body: r.body as string } : {}),
+    characters: (r.body as string).length, updated_at: new Date(r.updated_at as string).toISOString(), approved_at: r.approved_at ? new Date(r.approved_at as string).toISOString() : null, ai_tool: (r.ai_tool as string | null) ?? null, ai_model: (r.ai_model as string | null) ?? null, ...(withBody ? { body: r.body as string } : {}),
   });
   const documents: McpDocuments = {
     async create(item, doc) {
       try {
-        return await as(async (q) => info((await q("insert into public.item_documents (tenant_id, item_id, kind, title, body, status) values ($1, $2, $3, $4, $5, coalesce($6, 'draft')) returning *", [tenant, item.id, doc.kind, doc.title, doc.body, doc.status ?? null])).rows[0]!, item.code));
+        return await as(async (q) => info((await q("insert into public.item_documents (tenant_id, item_id, kind, title, body, status, ai_model) values ($1, $2, $3, $4, $5, coalesce($6, 'draft'), $7) returning *", [tenant, item.id, doc.kind, doc.title, doc.body, doc.status ?? null, doc.ai_model ?? null])).rows[0]!, item.code));
       } catch { throw new ToolInputError("The database refused this: your role or this connection may not write here."); }
     },
     async update(id, expectedVersion, patch) {
-      const cols = Object.keys(patch) as (keyof typeof patch)[];
+      const full = { ...patch, ...(patch.ai_model === undefined && (patch.body !== undefined || patch.title !== undefined) ? { ai_model: null } : {}) };
+      const cols = Object.keys(full) as (keyof typeof full)[];
       const set = cols.map((c, i) => `${c} = $${i + 4}`).join(", ");
       return as(async (q) => {
-        const r = await q(`update public.item_documents set ${set} where tenant_id = $1 and id = $2 and version = $3 returning *, (select item_code from public.items where id = item_id) as code`, [tenant, id, expectedVersion, ...cols.map((c) => patch[c])]);
+        const r = await q(`update public.item_documents set ${set} where tenant_id = $1 and id = $2 and version = $3 returning *, (select item_code from public.items where id = item_id) as code`, [tenant, id, expectedVersion, ...cols.map((c) => full[c])]);
         if (r.rows[0]) return { ok: true as const, doc: info(r.rows[0], r.rows[0].code as string) };
         const cur = (await q("select d.*, i.item_code as code from public.item_documents d join public.items i on i.id = d.item_id where d.tenant_id = $1 and d.id = $2", [tenant, id])).rows[0];
         return cur ? { ok: false as const, reason: "conflict" as const, current: info(cur, cur.code as string, true) } : { ok: false as const, reason: "missing" as const };
@@ -421,7 +422,7 @@ describe("files and share links through the real file tools (issue #183)", () =>
 // the read and write sides of the document tools over real SQL, as the signed-in person with a Claude token
 const docInfoRow = (r: Record<string, unknown>, withBody = false): DocInfo => ({
   id: r.id as string, item_code: r.code as string, kind: r.kind as string, title: r.title as string, status: r.status as string, version: r.version as number, ai_draft: r.ai_draft as boolean,
-  characters: (r.body as string).length, updated_at: new Date(r.updated_at as string).toISOString(), approved_at: null, ...(withBody ? { body: r.body as string } : {}),
+  characters: (r.body as string).length, updated_at: new Date(r.updated_at as string).toISOString(), approved_at: null, ai_tool: (r.ai_tool as string | null) ?? null, ai_model: (r.ai_model as string | null) ?? null, ...(withBody ? { body: r.body as string } : {}),
 });
 const docBackendAs = (role: string, user: string, tenant: string): McpBackend => ({
   ...backendFor(role, sqlWriter(user, tenant)),
@@ -452,6 +453,24 @@ describe("documents through the real document tools (R-113)", () => {
     bobUser = f.bob;
     const r = (await db.admin.query("select id, item_code from public.items where tenant_id = $1 and deleted_at is null order by item_code limit 1", [f.tenantA])).rows[0]!;
     item = { id: r.id as string, code: r.item_code as string };
+  });
+
+  it("records the AI tool from the connection and the model the assistant states, per version, through the real tools", async () => {
+    const b = docBackendAs("creator", cora, f.tenantA);
+    const made = await call(b, "create_document", { item: item.code, title: "PRD: Models", body: "# v1", ai_model: "Claude Opus 5.5" });
+    expect(made.isError, made.text).toBe(false);
+    const id = made.data.document.id as string;
+    expect(made.data.document).toMatchObject({ ai_tool: "claude", ai_model: "Claude Opus 5.5" });
+    // another assistant's token (a connection named ChatGPT) reviews and rewrites it
+    await db.admin.query("insert into public.mcp_connections (tenant_id, user_id, client_id, client_name) values ($1, $2, 'client-review-gpt', 'ChatGPT')", [f.tenantA, cora]);
+    const gpt = { ...docBackendAs("creator", cora, f.tenantA), write: { ...sqlWriter(cora, f.tenantA, "client-review-gpt") } as never };
+    const rev = await call(gpt, "update_document", { document: id, base_version: 1, body: "# v2 reviewed", ai_model: "GPT-5" });
+    expect(rev.data).toMatchObject({ status: "updated", document: { ai_tool: "chatgpt", ai_model: "GPT-5", version: 2 } });
+    expect((await db.admin.query("select version, ai_tool, ai_model from public.item_document_versions where document_id = $1 order by version", [id])).rows).toEqual([
+      { version: 1, ai_tool: "claude", ai_model: "Claude Opus 5.5" }, { version: 2, ai_tool: "chatgpt", ai_model: "GPT-5" },
+    ]);
+    const rows = await db.asUser(f.alice, async (q) => (await q("select * from public.document_submissions($1) where document_id = $2 order by version", [f.tenantA, id])).rows);
+    expect(rows.map((r) => [r.version, r.ai_tool, r.ai_model, r.person_name ?? r.person_email])).toEqual([[1, "claude", "Claude Opus 5.5", "cora"], [2, "chatgpt", "GPT-5", "cora"]]);
   });
 
   it("creates a PRD as an AI draft through a Claude token, versions every save and keeps the text out of the audit log", async () => {

@@ -36,9 +36,9 @@ export type McpFiles = {
 /** Documents, as the signed-in person: rows are written with the person's token, so the role check, row-level security, the version log and the audit apply. */
 export type McpDocuments = {
   /** Adds a document to an initiative. Throws ToolInputError when the role or the database refuses. */
-  create: (item: { id: string; code: string }, doc: { kind: string; title: string; body: string; status?: string }) => Promise<DocInfo>;
+  create: (item: { id: string; code: string }, doc: { kind: string; title: string; body: string; status?: string; ai_model?: string | null }) => Promise<DocInfo>;
   /** Changes a document that is still at `expectedVersion`. Returns `conflict` (with the current version) when somebody saved in between; nothing is written then. */
-  update: (id: string, expectedVersion: number, patch: { kind?: string; title?: string; body?: string; status?: string }) => Promise<{ ok: true; doc: DocInfo } | { ok: false; reason: "missing" } | { ok: false; reason: "conflict"; current: DocInfo }>;
+  update: (id: string, expectedVersion: number, patch: { kind?: string; title?: string; body?: string; status?: string; ai_model?: string | null }) => Promise<{ ok: true; doc: DocInfo } | { ok: false; reason: "missing" } | { ok: false; reason: "conflict"; current: DocInfo }>;
 };
 
 /** The company profile, as the signed-in person. Confirming it is never offered here: only a workspace admin does, in the app. */

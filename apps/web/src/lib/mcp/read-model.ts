@@ -99,7 +99,9 @@ export type ItemDetail = {
 /** A document on an initiative. `body` is only present when one document is read. */
 export type DocInfo = {
   id: string; item_code: string; kind: string; title: string; status: string; version: number; ai_draft: boolean;
-  characters: number; updated_at: string; approved_at: string | null; body?: string;
+  characters: number; updated_at: string; approved_at: string | null;
+  /** The AI tool (from the connection) and the model (as the assistant stated it) that last wrote the text; null for a person. */
+  ai_tool: string | null; ai_model: string | null; body?: string;
 };
 /** The company profile as stored (issue #269). `profile` is null until one exists. */
 export type CompanyProfileData = {
