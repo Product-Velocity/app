@@ -47,7 +47,7 @@ describe("the rules and the prompt", () => {
     expect(i).toMatch(/What we will build/);
     for (const s of PRD_CORE) expect(i).toContain(s.title);
     for (const m of PRD_MODULES) expect(i).toContain(m.title);
-    expect(i.length).toBeLessThan(11500);
+    expect(i.length).toBeLessThan(13000);
   });
 
   it("the prompt includes the brief as quoted data, the chosen modules, the order of work and the rollout rules", () => {

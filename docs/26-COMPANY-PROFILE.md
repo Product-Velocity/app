@@ -35,3 +35,6 @@ The partner cache is the profile's **Partners and third parties** section (a blo
 
 ## 8. Help page
 The in-app Help (Using Claude) lists these flows. **Every change to the Claude features updates `apps/web/src/components/help-content.ts` in the same PR** (Ashu, 2026-10-29).
+
+## 9. Memory (2026-10-30)
+Partner and term research is now looked up with `check_research` and saved to the assistant memory at once (`docs/27` section 6); the profile's Partners section stays the admin-confirmed copy and is still offered new partners.

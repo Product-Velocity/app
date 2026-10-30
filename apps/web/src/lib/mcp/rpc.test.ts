@@ -11,8 +11,8 @@ const noRead = async () => { throw new Error("not used"); };
 const backend = (over: Partial<McpBackend> = {}): McpBackend => ({
   role: "creator",
   workspaceContext: vi.fn(async () => ctx),
-  read: { searchData: noRead, itemDetail: noRead, groups: noRead, views: noRead, files: noRead, documents: noRead, document: noRead, companyProfile: noRead },
-  write: { context: noRead, current: noRead, apply: noRead, savePending: noRead, loadPending: noRead, undo: noRead, files: {} as never, documents: {} as never, profile: {} as never },
+  read: { searchData: noRead, itemDetail: noRead, groups: noRead, views: noRead, files: noRead, documents: noRead, document: noRead, companyProfile: noRead, memories: noRead, memory: noRead },
+  write: { context: noRead, current: noRead, apply: noRead, savePending: noRead, loadPending: noRead, undo: noRead, files: {} as never, documents: {} as never, profile: {} as never, memory: {} as never },
   meter: vi.fn(async () => ({ ok: true as const })),
   ...over,
 });
@@ -54,7 +54,7 @@ describe("handleRpc", () => {
   });
   it("lists the write_prd prompt and returns the template with the brief quoted as data", async () => {
     const l = (await handleRpc({ jsonrpc: "2.0", id: 5, method: "prompts/list" }, backend())) as { result: { prompts: { name: string; arguments: { name: string; required: boolean }[] }[] } };
-    expect(l.result.prompts.map((p) => p.name)).toEqual(["write_prd", "write_discovery", "research_company"]);
+    expect(l.result.prompts.map((p) => p.name)).toEqual(["write_prd", "write_discovery", "review_group", "research_company", "setup_memory"]);
     expect(l.result.prompts[0]!.arguments.map((a) => a.name)).toEqual(["brief", "modules", "item"]);
     expect(l.result.prompts.every((p) => p.arguments.every((a) => a.required === false))).toBe(true);
     expect(l.result.prompts[1]!.arguments.map((a) => a.name)).toEqual(["brief", "item"]);
@@ -88,8 +88,8 @@ describe("handleRpc", () => {
   });
   it("lists the read tools (read-only) and then the write tools (not read-only)", async () => {
     const r = (await handleRpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }, backend())) as { result: { tools: { name: string; annotations: { readOnlyHint: boolean } }[] } };
-    const reads = ["get_workspace_context", "describe_fields", "search_items", "get_item", "list_groups", "list_views", "list_files", "list_documents", "get_document", "get_company_profile"];
-    const writes = ["create_items", "update_items", "confirm_changes", "set_relations", "add_link", "remove_link", "undo_last", "add_file", "set_file_sharing", "remove_file", "create_document", "update_document", "apply_prd_extract", "update_company_profile"];
+    const reads = ["get_workspace_context", "describe_fields", "search_items", "get_item", "list_groups", "list_views", "list_files", "list_documents", "get_document", "get_company_profile", "recall", "review_group", "check_research", "get_playbook"];
+    const writes = ["create_items", "update_items", "confirm_changes", "set_relations", "add_link", "remove_link", "undo_last", "add_file", "set_file_sharing", "remove_file", "create_document", "update_document", "apply_prd_extract", "update_company_profile", "remember", "forget"];
     expect(r.result.tools.map((t) => t.name)).toEqual([...reads, ...writes]);
     for (const t of r.result.tools) expect(t.annotations.readOnlyHint, t.name).toBe(reads.includes(t.name));
   });

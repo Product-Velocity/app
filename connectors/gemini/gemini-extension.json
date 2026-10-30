@@ -1,0 +1,11 @@
+{
+  "name": "product-velocity",
+  "version": "1.0.0",
+  "description": "Product Velocity roadmap, stack rank, PRDs, discovery and team memory, as the signed-in person.",
+  "contextFileName": "GEMINI.md",
+  "mcpServers": {
+    "product-velocity": {
+      "httpUrl": "https://YOUR-PRODUCT-VELOCITY-DOMAIN/mcp"
+    }
+  }
+}

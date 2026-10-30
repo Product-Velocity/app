@@ -344,6 +344,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "ai_memories",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.ai_memories set body = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.ai_memories where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.ai_memories (tenant_id, kind, title, body, source, basis) values ($1, 'fact', 'x', 'x', 'x', 'person')", params: [v.tenantId] },
+      { sql: "update public.ai_memories set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "company_profile_versions",
     tenantColumn: "tenant_id",
     attacks: (v) => [

@@ -2,7 +2,7 @@
  * Pure shaping for the MCP read tools (docs/20-CLAUDE-MCP.md FR-2, FR-3): what a workspace looks like to Claude.
  * No database here; `reader.ts` fetches and these functions present.
  */
-import { claudeAllowances, FIELD_BY_KEY, type ProfileSections, type ProfileSummary, type SearchNames, type SearchRow } from "@pv/domain";
+import { claudeAllowances, FIELD_BY_KEY, type MemoryRow, type ProfileSections, type ProfileSummary, type SearchNames, type SearchRow } from "@pv/domain";
 import { OUTBOUND_READ_FIELDS } from "@pv/github";
 
 export type Member = { id: string; name: string; role: string };
@@ -18,6 +18,8 @@ export type WorkspaceContext = {
   cycles: { id: string; name: string }[];
   /** The company website and what is known about the company (issue #269): read get_company_profile before writing a PRD or discovery. */
   company?: { url: string | null; profile: ProfileSummary };
+  /** What the assistant memory holds (counts only; use recall for the notes). */
+  memory?: { total: number; by_kind: Record<string, number>; stale: number; unconfirmed: number };
   notes: string[];
 };
 
@@ -63,6 +65,7 @@ export function buildContext(i: {
   groups: string[]; teams: { id: string; name: string }[]; members: Member[];
   openLists?: Record<string, string[]>;
   company?: { url: string | null; profile: ProfileSummary };
+  memory?: WorkspaceContext["memory"];
   githubConnected: boolean; repoPrivate: ReadonlyMap<string, boolean>;
 }): WorkspaceContext {
   const a = claudeAllowances(i.role);
@@ -73,7 +76,7 @@ export function buildContext(i: {
       ...p,
       github: { connected: i.githubConnected && p.tracker !== "jira" && p.tracker !== "gitlab", repo_private: p.default_repo ? i.repoPrivate.get(p.default_repo.toLowerCase()) ?? null : null },
     })),
-    groups: i.groups, ...(i.openLists ? { open_lists: i.openLists } : {}), ...(i.company ? { company: i.company } : {}), teams: i.teams, members: i.members,
+    groups: i.groups, ...(i.openLists ? { open_lists: i.openLists } : {}), ...(i.company ? { company: i.company } : {}), ...(i.memory ? { memory: i.memory } : {}), teams: i.teams, members: i.members,
     cycles: [],
     notes: ["Planning cycles arrive in a later phase, so there are none yet.", "A person's name is the email address they signed up with; filters accept it."],
   };
@@ -122,4 +125,8 @@ export type McpReader = {
   document: (id: string) => Promise<DocInfo | null>;
   /** The company website and profile of this workspace. */
   companyProfile: () => Promise<CompanyProfileData>;
+  /** The saved notes of this workspace (docs/27): live ones, or every one with includeArchived. Empty before the migration is applied. */
+  memories: (opts?: { includeArchived?: boolean }) => Promise<MemoryRow[]>;
+  /** One note by id, or null. */
+  memory: (id: string) => Promise<MemoryRow | null>;
 };

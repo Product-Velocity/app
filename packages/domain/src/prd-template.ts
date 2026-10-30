@@ -4,7 +4,7 @@
 
 import { discoveryInstructions } from "./discovery-template";
 import { PROFILE_USE_RULE } from "./company-profile";
-import { ALIGN_RULE, CONTEXT_RESEARCH_RULE, LIGHT_ROLLOUT_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
+import { ALIGN_RULE, CONTEXT_RESEARCH_RULE, LIGHT_ROLLOUT_RULE, MEMORY_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
 import { FIELD_BY_KEY } from "./registry";
 
 /** github_safe: goes into the Description extract. prd_only: stays in the PRD document, never reaches GitHub. links: only artifact links and screenshots. */
@@ -73,6 +73,7 @@ export const PRD_RULES = [
   PROFILE_USE_RULE,
   PRIOR_KNOWLEDGE_RULE,
   CONTEXT_RESEARCH_RULE,
+  MEMORY_RULE,
   LIGHT_ROLLOUT_RULE,
   "Show before you write. Run create_items with dry_run first and show the person the values; create only after they agree. Use update_items for an existing initiative (filled fields come back as a diff to confirm).",
   "The full PRD is a document: create_document (kind prd, status draft or in_review). It stays in Product Velocity and never reaches GitHub. Write its headings exactly as \"## 1. Executive Summary\" and \"## A1 Company Value Story\" so the extract can find the sections.",
@@ -103,7 +104,7 @@ export function serverInstructions(): string {
     `Optional appendices after section 9 (use only those the work needs; an AI feature gets all, other work usually A1 to A3, A7, D1, D3, D4, D5): ${PRD_MODULES.map((m) => `${m.id} ${m.title}`).join("; ")}.`,
     "The write_prd prompt has the full template with what each part covers and which fields it fills.",
     "",
-    discoveryInstructions([ALIGN_RULE, PROFILE_USE_RULE, PRIOR_KNOWLEDGE_RULE, CONTEXT_RESEARCH_RULE]),
+    discoveryInstructions([ALIGN_RULE, PROFILE_USE_RULE, PRIOR_KNOWLEDGE_RULE, CONTEXT_RESEARCH_RULE, MEMORY_RULE]),
   ].join("\n");
 }
 
@@ -126,12 +127,12 @@ export function prdPrompt(args: PrdPromptArgs): { description: string; text: str
     unknown.length > 0 ? `Not a module (ignore): ${unknown.join(", ")}.` : "",
     "",
     "ORDER OF WORK",
-    "1. get_workspace_context, get_company_profile and describe_fields (keys, allowed values, which fields you may set; the company profile for language, personas, glossary and voice).",
-    "2. Read the brief. If the initiative has a discovery document, read it too (list_documents, get_document). Look for related work (the prior-knowledge rule) and research the third parties and terms of the brief (the context-research rule). Decide the modules. Draft the PRD in your head; do not write anything yet.",
+    "1. get_workspace_context, get_company_profile and describe_fields (keys, allowed values, which fields you may set; the company profile for language, personas, glossary and voice), then recall (saved notes for the brief and its group).",
+    "2. Read the brief. If the initiative has a discovery document, read it too (list_documents, get_document). Review the other initiatives of the group and look for related work (the prior-knowledge rule) and research the third parties and terms of the brief (the context-research rule). Decide the modules. Draft the PRD in your head; do not write anything yet.",
     "3. Send ONE message listing what you could not fill, grouped by module and skippable, whether the roll-out testing is light, and the draft-and-save or align-first question. Typical: Sponsor, Product Manager, Primary KR, Planned Quarter, Effort, Business Value Type, rollout thresholds. Wait for the answer.",
     "4. Run create_items with dry_run (project, group, summary, hypothesis, value_proposition, the fields you can support, and a Description holding only the \"Description extract\" sections). Show the result. Create after they agree.",
     "5. create_document kind prd with the full PRD (core sections and chosen appendices). Status draft.",
-    "6. Tell the person: what you set, what you left empty and why, what you asked, and that the PRD is an AI draft that a person accepts and an Approver approves at the Design to Build gate.",
+    "6. Keep what lasts (the memory rule), then tell the person: what you set, what you left empty and why, what you asked, and that the PRD is an AI draft that a person accepts and an Approver approves at the Design to Build gate.",
     "",
     "RULES",
     ...PRD_RULES.map((r, i) => `${i + 1}. ${r}`),

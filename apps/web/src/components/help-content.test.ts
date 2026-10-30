@@ -119,3 +119,14 @@ describe("Help guide: Using Claude covers the Claude features (issue #274)", () 
     expect(CLAUDE_RULES.join(" ")).toMatch(/Only an admin confirms the company profile, never Claude/);
   });
 });
+
+describe("Help guide: AI assistants and memory (docs/27)", () => {
+  const all = [CLAUDE_OPTIONS.rows.flat().join(" "), CLAUDE_RULES.join(" "), CLAUDE_PROMPTS.map((p) => p.prompt).join(" ")].join(" ");
+  it("names every flow the server offers, so a new flow cannot ship without Help (CLAUDE.md working agreement)", async () => {
+    const { FLOW_NAMES } = await import("../lib/mcp/flows");
+    for (const name of FLOW_NAMES) expect(all, name).toContain(name);
+  });
+  it("tells people how ChatGPT and Gemini differ, where the memory is, and what it never holds", () => {
+    for (const w of ["ChatGPT", "Gemini", "get_playbook", "Memory", "never sent to GitHub", "secrets", "confirm"]) expect(all, w).toContain(w);
+  });
+});

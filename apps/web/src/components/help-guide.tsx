@@ -9,7 +9,7 @@ import {
 const TABS = [
   { id: "columns", label: "Columns" },
   { id: "flow", label: "How content flows" },
-  { id: "claude", label: "Using Claude" },
+  { id: "claude", label: "Using AI assistants" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -90,7 +90,7 @@ export function HelpGuide() {
 
             {tab === "claude" && (
               <div role="tabpanel" id="help-panel-claude" aria-labelledby="help-tab-claude">
-                <SimpleTable caption="What Claude can write for you" table={CLAUDE_OPTIONS} />
+                <SimpleTable caption="What your AI assistant can do for you" table={CLAUDE_OPTIONS} />
                 <ul className="help-notes">{CLAUDE_RULES.map((n) => <li key={n}>{n}</li>)}</ul>
                 <table className="help-table">
                   <caption>Prompts that work well</caption>

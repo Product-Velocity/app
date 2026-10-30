@@ -10,7 +10,7 @@
  * - Results say which workspace they come from.
  */
 import { claudeAllowances, multiWorkspaceInstructions } from "@pv/domain";
-import { DATA_ENVELOPE, DATA_NOTE, handleRpc, TOOLS, type McpBackend, type ToolDef } from "./rpc";
+import { DATA_ENVELOPE, DATA_NOTE, handleRpc, toolsFor, type McpBackend, type ToolDef } from "./rpc";
 
 export type WorkspaceHandle = {
   id: string;
@@ -22,6 +22,8 @@ export type WorkspaceHandle = {
 };
 export type Unavailable = { name: string; status: string };
 export const SWITCH_WINDOW_MS = 2 * 60 * 60 * 1000;
+/** Between a workspace id and a search result id, when one connection covers several workspaces. */
+export const RAW_ID_SEP = "~";
 
 type Rpc = Parameters<typeof handleRpc>[0];
 type RpcOut = NonNullable<Awaited<ReturnType<typeof handleRpc>>>;
@@ -54,7 +56,7 @@ function withWorkspace(tool: Record<string, unknown>, handles: readonly Workspac
   return { ...tool, inputSchema: { ...schema, properties } };
 }
 
-export async function handleMulti(msg: Rpc, handles: readonly WorkspaceHandle[], unavailable: readonly Unavailable[] = [], tools: ToolDef[] = TOOLS): Promise<RpcOut | null> {
+export async function handleMulti(msg: Rpc, handles: readonly WorkspaceHandle[], unavailable: readonly Unavailable[] = [], tools: ToolDef[] = toolsFor(handles[0]?.backend.assistant)): Promise<RpcOut | null> {
   if (handles.length === 0) throw new Error("no workspace");
   if (handles.length === 1) {
     // Claude may still name a workspace it saw earlier (before another one became unavailable): a call meant for a workspace that is no
@@ -93,10 +95,16 @@ export async function handleMulti(msg: Rpc, handles: readonly WorkspaceHandle[],
       const tool = tools.find((t) => t.name === msg.params?.name);
       if (!tool) return handleRpc(msg, first, tools); // the unknown-tool answer
       const args = { ...((msg.params?.arguments ?? {}) as Record<string, unknown>) };
-      const ref = text(args.workspace);
+      let ref = text(args.workspace);
       const confirm = args.confirm_workspace === true;
       delete args.workspace;
       delete args.confirm_workspace;
+      // ChatGPT's fetch passes only the id it got from search, so search puts the workspace in the id (below)
+      if (tool.raw && tool.name === "fetch" && !ref && typeof args.id === "string" && args.id.includes(RAW_ID_SEP)) {
+        const [ws, ...rest] = args.id.split(RAW_ID_SEP);
+        ref = ws!;
+        args.id = rest.join(RAW_ID_SEP);
+      }
 
       if (!ref) {
         if (tool.name === "get_workspace_context") {
@@ -127,7 +135,19 @@ export async function handleMulti(msg: Rpc, handles: readonly WorkspaceHandle[],
       const block = res?.content?.[0];
       if (res && block) {
         if (res.isError) block.text = `[${h.name}] ${block.text}`;
-        else {
+        else if (tool.raw) {
+          // bare results keep their exact shape: only the ids learn which workspace they belong to
+          try {
+            const out = JSON.parse(block.text) as { results?: { id: string; title: string }[]; id?: string; title?: string };
+            if (tool.name === "search" && Array.isArray(out.results)) {
+              block.text = JSON.stringify({ ...out, results: out.results.map((x) => ({ ...x, id: `${h.id}${RAW_ID_SEP}${x.id}`, title: `[${h.name}] ${x.title}` })) });
+            } else if (tool.name === "fetch" && typeof out.id === "string") {
+              block.text = JSON.stringify({ ...out, id: `${h.id}${RAW_ID_SEP}${out.id}`, title: `[${h.name}] ${out.title ?? ""}` });
+            }
+          } catch {
+            /* not our JSON: leave it as it is */
+          }
+        } else {
           try {
             block.text = JSON.stringify({ ...JSON.parse(block.text), workspace: h.name });
           } catch {

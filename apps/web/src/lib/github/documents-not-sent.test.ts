@@ -17,4 +17,7 @@ describe("documents are never part of a GitHub payload", () => {
     expect(files.length).toBeGreaterThan(5);
     for (const f of files) expect(readFileSync(f, "utf8"), f).not.toMatch(/item_documents|item_document_versions/);
   });
+  it("no GitHub source file reads the assistant memory or the company profile (rule 2, docs/27)", () => {
+    for (const f of roots.flatMap(sources)) expect(readFileSync(f, "utf8"), f).not.toMatch(/ai_memories|company_profiles|company_profile_versions/);
+  });
 });

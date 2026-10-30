@@ -168,3 +168,40 @@ describe("batches and other methods", () => {
     expect(p.result.prompts[0]!.name).toBe("write_prd");
   });
 });
+
+describe("several workspaces and ChatGPT's search and fetch", () => {
+  const withSearch = (name: string): WorkspaceHandle => {
+    const h = handle(name);
+    h.backend.assistant = "chatgpt";
+    h.backend.read = {
+      ...h.backend.read,
+      searchData: vi.fn(async () => ({ rows: [{ id: "i1", item_code: "R-1", initiative_name: `${name} timeline` }], names: { projects: [], members: [] }, me: "u" })),
+      documents: vi.fn(async () => []),
+      memories: vi.fn(async () => []),
+      itemDetail: vi.fn(async () => ({ row: { id: "i1", item_code: "R-1", initiative_name: `${name} timeline` }, links: [], relations: { depends_on: [], depended_on_by: [], related_to: [] } })),
+    } as never;
+    return h;
+  };
+  const chatgpt = TOOLS.filter((t) => ["search", "fetch"].includes(t.name));
+  const run = async (hs: WorkspaceHandle[], name: string, args: Record<string, unknown>) => {
+    const r = (await handleMulti({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }, hs, [], chatgpt)) as Out;
+    return { isError: r.result.isError === true, text: r.result.content[0]!.text };
+  };
+  it("search results keep their exact shape, and each id carries its workspace so fetch needs no extra argument", async () => {
+    const hs = [withSearch("Provelo"), withSearch("Test")];
+    const s = await run(hs, "search", { workspace: "Test", query: "timeline" });
+    const out = JSON.parse(s.text);
+    expect(Object.keys(out)).toEqual(["results"]);
+    expect(out.results[0]).toMatchObject({ id: "id-Test~item:R-1", title: "[Test] R-1 Test timeline" });
+    const f = await run(hs, "fetch", { id: out.results[0].id });
+    expect(f.isError).toBe(false);
+    expect(JSON.parse(f.text)).toMatchObject({ id: "id-Test~item:R-1", title: "[Test] R-1 Test timeline" });
+    expect(Object.keys(JSON.parse(f.text)).sort()).toEqual(["id", "metadata", "text", "title", "url"]);
+  });
+  it("a fetch with no workspace and no prefixed id still asks which workspace", async () => {
+    const hs = [withSearch("Provelo"), withSearch("Test")];
+    const f = await run(hs, "fetch", { id: "item:R-1" });
+    expect(f.isError).toBe(true);
+    expect(f.text).toMatch(/covers 2 workspaces/);
+  });
+});
