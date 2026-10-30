@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireWorkspace } from "@/lib/session";
 import { parseAuditFilters } from "@/lib/audit-log";
 import { loadAudit, PAGE_SIZE } from "@/lib/audit-query";
@@ -27,6 +28,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   return (
     <div className="page-wide">
       <h1>Audit log</h1>
+      <p><Link href="/settings/audit/documents">Document submissions</Link>: who saved which document, with which AI tool and model.</p>
       <p className="muted">
         Every change in {active.tenantName}: who made it (name and email as they were at the time), their role, when, where, what changed and how.
         Platform admins who work in this account appear here too, marked as such. Entries cannot be edited or deleted.

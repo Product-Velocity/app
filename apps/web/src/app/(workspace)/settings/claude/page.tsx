@@ -77,7 +77,7 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
       {status && NOTICE[status] && <p role="status" className="notice">{NOTICE[status]}</p>}
       <p className="muted">
         Claude, ChatGPT and Gemini connect the same way and can read and draft in {active.tenantName} as you, with your role ({active.role}). Every change an assistant makes is recorded
-        as &ldquo;Claude MCP&rdquo; (the source name for every AI assistant) with the connection it came from. They share one <a href="/settings/memory">memory</a> of sourced notes.
+        as &ldquo;Claude MCP&rdquo; (the source name for every AI assistant) with the connection it came from.
       </p>
 
       {!mcpEnabled() && (

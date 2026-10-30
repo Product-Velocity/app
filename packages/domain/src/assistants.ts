@@ -85,3 +85,10 @@ export function setupGuides(url: string): SetupGuide[] {
     },
   ];
 }
+
+/** Added to the always-on instructions: how a client reaches the flows. A client that cannot start MCP prompts (ChatGPT) gets the same text through get_playbook. */
+export function playbookInstructions(clientStartsPrompts: boolean): string {
+  return clientStartsPrompts
+    ? "The prompts write_prd, write_discovery and research_company start the PRD, discovery and company-profile flows."
+    : "This client cannot start prompts: when the person asks for one of the flows write_prd, write_discovery or research_company, call get_playbook with its name and follow the text it returns.";
+}

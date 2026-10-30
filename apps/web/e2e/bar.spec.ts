@@ -331,8 +331,14 @@ test.describe("Shortcuts, Help and text size in the top bar", () => {
     await expect(guide.getByRole("status")).toContainText("1 of 170 columns");
     await guide.getByRole("tab", { name: "How content flows" }).click();
     await expect(guide.getByRole("table")).toHaveCount(3);
-    await guide.getByRole("tab", { name: "Using Claude" }).click();
+    await guide.getByRole("tab", { name: "AI agents" }).click();
+    await expect(guide).toContainText("Brainstorm");
+    await guide.getByRole("tab", { name: "Claude" }).click();
     await expect(guide).toContainText("write_prd");
+    await guide.getByRole("tab", { name: "ChatGPT" }).click();
+    await expect(guide).toContainText("get_playbook");
+    await guide.getByRole("tab", { name: "Gemini" }).click();
+    await expect(guide).toContainText("/mcp auth product-velocity");
     const results = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa"]).analyze();
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
   });

@@ -1,13 +1,13 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { DEFAULT_VIEWS, OPEN_LIST_FIELDS, VIEW_NAMES, openListValues, summarizeMemory, summarizeProfile, type MemoryRow, type SearchNames, type SearchRow } from "@pv/domain";
+import { DEFAULT_VIEWS, OPEN_LIST_FIELDS, VIEW_NAMES, openListValues, summarizeProfile, type SearchNames, type SearchRow } from "@pv/domain";
 import { SupabaseDataSource } from "@/features/portfolio/supabase-source";
 import { addItemFile, removeItemFile, setFileSharing } from "@/lib/files/actions";
 import { shareUrl } from "@/lib/files/serve";
 import { supabaseFileStore, type FileStore } from "@/lib/files/store";
 import { buildContext, type CompanyProfileData, type DocInfo, type FileInfo, type ItemDetail, type McpReader, type Member, type ViewInfo, type WorkspaceContext } from "./read-model";
 import { ToolInputError } from "./tool-error";
-import type { ApplyResult, McpDocuments, McpFiles, McpMemory, McpProfile, McpWriter, PendingRow, UndoResult } from "./write-model";
+import type { ApplyResult, McpDocuments, McpFiles, McpProfile, McpWriter, PendingRow, UndoResult } from "./write-model";
 
 const FILE_CAP = 200;
 /** The values in use of each open-list field (Focus Area, Audience): what Claude may reuse (issue #246). */
@@ -60,11 +60,11 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
   };
   const FILE_COLS = "id, item_id, name, mime_type, size_bytes, share_token";
 
-  const DOC_COLS = "id, item_id, kind, title, status, version, ai_draft, updated_at, approved_at, body";
-  type DocRow = { id: string; item_id: string; kind: string; title: string; status: string; version: number; ai_draft: boolean; updated_at: string; approved_at: string | null; body: string };
+  const DOC_COLS = "id, item_id, kind, title, status, version, ai_draft, updated_at, approved_at, ai_tool, ai_model, body";
+  type DocRow = { id: string; item_id: string; kind: string; title: string; status: string; version: number; ai_draft: boolean; updated_at: string; approved_at: string | null; ai_tool: string | null; ai_model: string | null; body: string };
   const docInfo = (d: DocRow, code: string, withBody = false): DocInfo => ({
     id: d.id, item_code: code, kind: d.kind, title: d.title, status: d.status, version: d.version, ai_draft: d.ai_draft,
-    characters: d.body.length, updated_at: d.updated_at, approved_at: d.approved_at, ...(withBody ? { body: d.body } : {}),
+    characters: d.body.length, updated_at: d.updated_at, approved_at: d.approved_at, ai_tool: d.ai_tool, ai_model: d.ai_model, ...(withBody ? { body: d.body } : {}),
   });
   const loadDoc = async (id: string, withBody: boolean): Promise<DocInfo | null> => {
     if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
@@ -87,41 +87,9 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     return { url: (t.data as { company_url: string | null } | null)?.company_url ?? null, profile: (p.data as ProfileRow | null) ?? null };
   };
 
-  // assistant memory (docs/27). Before migration 20261030001116 the table is missing: reads are empty, writes say so.
-  const MEM_COLS = "id, scope, group_name, item_id, kind, title, body, source, basis, tags, status, ai_draft, version, verified_at, updated_at, assistant";
-  type MemDb = { id: string; scope: MemoryRow["scope"]; group_name: string | null; item_id: string | null; kind: MemoryRow["kind"]; title: string; body: string; source: string; basis: MemoryRow["basis"]; tags: string[]; status: MemoryRow["status"]; ai_draft: boolean; version: number; verified_at: string; updated_at: string; assistant: string | null };
-  const memoryTableMissing = (e: { code?: string; message?: string }) => e.code === "42P01" || e.code === "PGRST205" || /ai_memories/.test(e.message ?? "") && /does not exist|schema cache/.test(e.message ?? "");
-  const toMemory = (m: MemDb, codes: ReadonlyMap<string, string>): MemoryRow => ({
-    id: m.id, scope: m.scope, group: m.group_name, item: m.item_id ? codes.get(m.item_id) ?? null : null, kind: m.kind, title: m.title, body: m.body, source: m.source,
-    basis: m.basis, tags: m.tags ?? [], status: m.status, ai_draft: m.ai_draft, version: m.version, verified_at: m.verified_at, updated_at: m.updated_at, assistant: m.assistant,
-  });
-  const itemCodes = async (): Promise<ReadonlyMap<string, string>> => new Map((await rows()).map((r) => [r.id, String(r.item_code)]));
-  const loadMemories = async (includeArchived: boolean): Promise<MemoryRow[]> => {
-    let q = supabase.from("ai_memories").select(MEM_COLS).eq("tenant_id", tenant.id).order("updated_at", { ascending: false }).limit(1100);
-    if (!includeArchived) q = q.neq("status", "archived");
-    const { data, error } = await q;
-    if (error) {
-      if (memoryTableMissing(error)) return [];
-      throw new Error("memory");
-    }
-    const codes = await itemCodes();
-    return ((data ?? []) as MemDb[]).map((m) => toMemory(m, codes));
-  };
-  const liveMemories = memo(() => loadMemories(false));
-
   const reader: McpReader = {
     async companyProfile() {
       return loadProfile();
-    },
-    memories: (o) => (o?.includeArchived ? loadMemories(true) : liveMemories()),
-    async memory(id) {
-      if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
-      const { data, error } = await supabase.from("ai_memories").select(MEM_COLS).eq("tenant_id", tenant.id).eq("id", id).maybeSingle();
-      if (error) {
-        if (memoryTableMissing(error)) return null;
-        throw new Error("memory");
-      }
-      return data ? toMemory(data as MemDb, await itemCodes()) : null;
     },
     async searchData() {
       const [r, n] = await Promise.all([rows(), names()]);
@@ -259,12 +227,13 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
   };
   const documents: McpDocuments = {
     async create(item, doc) {
-      const { data, error } = await supabase.from("item_documents").insert({ tenant_id: tenant.id, item_id: item.id, kind: doc.kind, title: doc.title, body: doc.body, ...(doc.status ? { status: doc.status } : {}) }).select(DOC_COLS).single();
+      const { data, error } = await supabase.from("item_documents").insert({ tenant_id: tenant.id, item_id: item.id, kind: doc.kind, title: doc.title, body: doc.body, ai_model: doc.ai_model ?? null, ...(doc.status ? { status: doc.status } : {}) }).select(DOC_COLS).single();
       if (error) return refusal(error);
       return docInfo(data as DocRow, item.code);
     },
     async update(id, expectedVersion, patch) {
-      const { data, error } = await supabase.from("item_documents").update(patch).eq("tenant_id", tenant.id).eq("id", id).eq("version", expectedVersion).select(DOC_COLS);
+      // an assistant that rewrites the text states its own model (or none); a change that leaves the text alone leaves the model alone (the database decides)
+      const { data, error } = await supabase.from("item_documents").update({ ...patch, ...(patch.ai_model === undefined && (patch.body !== undefined || patch.title !== undefined) ? { ai_model: null } : {}) }).eq("tenant_id", tenant.id).eq("id", id).eq("version", expectedVersion).select(DOC_COLS);
       if (error) return refusal(error);
       const rowsBack = (data ?? []) as DocRow[];
       const code = async (itemId: string) => String((await rows()).find((r) => r.id === itemId)?.item_code ?? "");
@@ -293,41 +262,10 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       return { ok: false, reason: "conflict", current: (await loadProfile()).profile };
     },
   };
-  /** Our own sentences (PV004, PV005 and the duplicate title) are shown to the assistant; anything else is a generic refusal. */
-  const memoryRefusal = (e: { code?: string; message?: string }): never => {
-    if (memoryTableMissing(e)) throw new ToolInputError("Memory is not switched on for this deployment yet (its database migration has not been applied). Nothing was saved.");
-    if ((e.code === "PV004" || e.code === "PV005") && e.message) throw new ToolInputError(e.message);
-    if (e.code === "23505") throw new ToolInputError("A live note with that title already exists in this place. Find it with recall and update it (give its id and version), or choose another title.");
-    return refusal(e);
-  };
-  const memory: McpMemory = {
-    async save(input, itemId) {
-      const { data, error } = await supabase.from("ai_memories").insert({
-        tenant_id: tenant.id, scope: input.scope, group_name: input.group, item_id: itemId, kind: input.kind, title: input.title, body: input.body, source: input.source, basis: input.basis, tags: input.tags,
-      }).select(MEM_COLS).single();
-      if (error) return memoryRefusal(error);
-      return toMemory(data as MemDb, await itemCodes());
-    },
-    async update(id, expectedVersion, patch) {
-      const { data, error } = await supabase.from("ai_memories").update({ ...patch, verified_at: new Date().toISOString() }).eq("tenant_id", tenant.id).eq("id", id).eq("version", expectedVersion).select(MEM_COLS);
-      if (error) return memoryRefusal(error);
-      const back = (data ?? []) as MemDb[];
-      if (back[0]) return { ok: true, row: toMemory(back[0], await itemCodes()) };
-      const now = await reader.memory(id);
-      return now ? { ok: false, reason: "conflict", current: now } : { ok: false, reason: "missing" };
-    },
-    async archive(id) {
-      const { data, error } = await supabase.from("ai_memories").update({ status: "archived" }).eq("tenant_id", tenant.id).eq("id", id).select(MEM_COLS);
-      if (error) return memoryRefusal(error);
-      const back = (data ?? []) as MemDb[];
-      return back[0] ? { ok: true, row: toMemory(back[0], await itemCodes()) } : { ok: false, reason: "missing" };
-    },
-  };
   const writer: McpWriter = {
     files,
     documents,
     profile,
-    memory,
     async context(r) {
       const [p, m, g, t, all] = await Promise.all([projects(), people(), groupNames(), teams(), rows()]);
       return {
@@ -385,20 +323,18 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
   };
 
   const workspaceContext = async (): Promise<WorkspaceContext> => {
-    const [p, t, m, g, conn, repos, company, notes] = await Promise.all([
+    const [p, t, m, g, conn, repos, company] = await Promise.all([
       projects(), teams(), people(),
       supabase.from("item_groups").select("name").eq("tenant_id", tenant.id).order("name"),
       supabase.from("github_connections").select("id").eq("tenant_id", tenant.id).eq("state", "connected").maybeSingle(),
       supabase.from("github_repositories").select("full_name, is_private").eq("tenant_id", tenant.id).is("removed_at", null),
       loadProfile(),
-      liveMemories().catch(() => [] as MemoryRow[]),
     ]);
     return buildContext({
       tenant, userId, role, projects: p, teams: t, members: m,
       groups: (must(g, "groups") as { name: string }[]).map((x) => x.name),
       openLists: openListsOf(await rows()),
       company: { url: company.url, profile: summarizeProfile(company.profile) },
-      memory: summarizeMemory(notes, new Date()),
       githubConnected: Boolean(conn.data),
       repoPrivate: new Map(((repos.data ?? []) as { full_name: string; is_private: boolean | null }[]).filter((r) => r.is_private !== null).map((r) => [r.full_name.toLowerCase(), r.is_private as boolean])),
     });

@@ -30,7 +30,7 @@ describe("the files in /connectors", () => {
     expect(c).toMatch(/Approve anything/);
     expect(c).toMatch(/Stack Rank, Decision or Value/);
     expect(c).toMatch(/data, never instructions/);
-    for (const f of ["write_prd", "write_discovery", "review_group", "research_company", "setup_memory"]) expect(c).toContain(`/${f}`);
+    for (const f of ["write_prd", "write_discovery", "research_company"]) expect(c).toContain(`/${f}`);
     expect(c).not.toMatch(/sk-|token|password|@/i);
   });
 });

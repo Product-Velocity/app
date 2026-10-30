@@ -70,5 +70,5 @@ Batch operations are supported (many items in one call), each logged individuall
 ## Prompt-injection and data-handling tests (required)
 Test fixtures with hostile text in documents/issues/emails that try to: approve a gate, change rank, exfiltrate other tenants' data, reveal system prompts. Expected: ignored and flagged.
 
-## Other assistants and memory
-ChatGPT and Gemini use the same `/mcp`, tools, prompts and guards as Claude; shared memory (`recall`, `remember`, `forget`), `review_group`, `check_research` and `get_playbook` are assistant-neutral. See `docs/27-AI-ASSISTANTS-AND-MEMORY.md`.
+## Other assistants
+ChatGPT and Gemini use the same `/mcp`, tools, prompts and guards as Claude; documents record the AI tool and model that wrote them. See `docs/27-AI-ASSISTANTS.md`.

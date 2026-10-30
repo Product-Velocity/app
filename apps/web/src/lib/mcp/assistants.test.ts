@@ -30,7 +30,7 @@ describe("one server, the same tools for every assistant", () => {
   it("a role check applies whichever assistant asks: a viewer cannot write through ChatGPT or Gemini either", async () => {
     for (const a of ["chatgpt", "gemini", "claude"] as const) {
       const b = { ...backend(a), role: "viewer" };
-      const r = (await handleRpc({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "remember", arguments: {} } }, b)) as { result: { isError?: boolean; content: { text: string }[] } };
+      const r = (await handleRpc({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "create_items", arguments: {} } }, b)) as { result: { isError?: boolean; content: { text: string }[] } };
       expect(r.result.isError, a).toBe(true);
       expect(r.result.content[0]!.text, a).toMatch(/read-only/);
     }
@@ -47,21 +47,20 @@ describe("instructions and prompts per assistant", () => {
   it("a client that cannot start prompts is told to use get_playbook; one that can is told the prompt names", async () => {
     expect(ASSISTANT_INFO.chatgpt.prompts).toBe(false);
     expect(await instructions("chatgpt")).toMatch(/call get_playbook/);
-    expect(await instructions("claude")).toMatch(/prompts write_prd, write_discovery, review_group/);
+    expect(await instructions("claude")).toMatch(/prompts write_prd, write_discovery and research_company/);
     expect(await instructions("gemini")).not.toMatch(/call get_playbook/);
   });
-  it("everyone gets the same flow rules and the memory description", async () => {
+  it("everyone gets the same flow rules", async () => {
     for (const a of ["claude", "chatgpt", "gemini"] as const) {
       const i = await instructions(a);
-      expect(i).toMatch(/Remember what lasts/);
-      expect(i).toMatch(/review_group lists the other initiatives of the same Initiative Group/);
+      expect(i).toMatch(/Use what the workspace already knows/);
       expect(i).toMatch(/Research the context of this brief/);
     }
   });
   it("lists the same prompts to all clients", async () => {
     const names = async (a: Assistant) => ((await handleRpc({ jsonrpc: "2.0", id: 4, method: "prompts/list" }, backend(a))) as { result: { prompts: { name: string }[] } }).result.prompts.map((p) => p.name);
     expect(await names("gemini")).toEqual(await names("claude"));
-    expect(await names("chatgpt")).toEqual(["write_prd", "write_discovery", "review_group", "research_company", "setup_memory"]);
+    expect(await names("chatgpt")).toEqual(["write_prd", "write_discovery", "research_company"]);
   });
 });
 

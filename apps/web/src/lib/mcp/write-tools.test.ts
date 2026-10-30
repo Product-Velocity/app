@@ -44,7 +44,6 @@ function writer(over: Partial<McpWriter> = {}): { w: McpWriter; spy: Spy } {
     files: {} as never,
     documents: {} as never,
     profile: {} as never,
-    memory: {} as never,
     ...over,
   };
   return { w, spy };

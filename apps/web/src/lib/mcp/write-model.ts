@@ -2,7 +2,7 @@
  * Types for the MCP write tools (docs/20-CLAUDE-MCP.md FR-4). No database here; `reader.ts` implements the writer with the
  * caller's own token, and the tests use a stand-in.
  */
-import type { FileRepo, MemoryInput, MemoryRow, ProfileSections, UpdateCurrent, WriteCtx } from "@pv/domain";
+import type { FileRepo, ProfileSections, UpdateCurrent, WriteCtx } from "@pv/domain";
 import type { CompanyProfileData, DocInfo, FileInfo } from "./read-model";
 
 /** One all-or-nothing group of writes handed to `mcp_apply` (migration 0045). */
@@ -36,9 +36,9 @@ export type McpFiles = {
 /** Documents, as the signed-in person: rows are written with the person's token, so the role check, row-level security, the version log and the audit apply. */
 export type McpDocuments = {
   /** Adds a document to an initiative. Throws ToolInputError when the role or the database refuses. */
-  create: (item: { id: string; code: string }, doc: { kind: string; title: string; body: string; status?: string }) => Promise<DocInfo>;
+  create: (item: { id: string; code: string }, doc: { kind: string; title: string; body: string; status?: string; ai_model?: string | null }) => Promise<DocInfo>;
   /** Changes a document that is still at `expectedVersion`. Returns `conflict` (with the current version) when somebody saved in between; nothing is written then. */
-  update: (id: string, expectedVersion: number, patch: { kind?: string; title?: string; body?: string; status?: string }) => Promise<{ ok: true; doc: DocInfo } | { ok: false; reason: "missing" } | { ok: false; reason: "conflict"; current: DocInfo }>;
+  update: (id: string, expectedVersion: number, patch: { kind?: string; title?: string; body?: string; status?: string; ai_model?: string | null }) => Promise<{ ok: true; doc: DocInfo } | { ok: false; reason: "missing" } | { ok: false; reason: "conflict"; current: DocInfo }>;
 };
 
 /** The company profile, as the signed-in person. Confirming it is never offered here: only a workspace admin does, in the app. */
@@ -47,16 +47,6 @@ export type McpProfile = {
   create: (sections: ProfileSections, researched: boolean) => Promise<NonNullable<CompanyProfileData["profile"]>>;
   /** Replaces the sections of the profile still at `expectedVersion`; `conflict` (with the current profile) when somebody saved in between. */
   update: (expectedVersion: number, sections: ProfileSections, researched: boolean) => Promise<{ ok: true; profile: NonNullable<CompanyProfileData["profile"]> } | { ok: false; reason: "conflict"; current: NonNullable<CompanyProfileData["profile"]> | null }>;
-};
-
-/** Assistant memory (docs/27), as the signed-in person. Notes are drafts; confirming one is a person's act in the app and is not offered here. */
-export type McpMemory = {
-  /** Saves a new draft note. `itemId` is the initiative for scope item. Throws ToolInputError when the role, the limit or a duplicate title refuses. */
-  save: (input: MemoryInput, itemId: string | null) => Promise<MemoryRow>;
-  /** Changes a note still at `expectedVersion` (re-checking its source also refreshes verified_at); `conflict` carries the current note. */
-  update: (id: string, expectedVersion: number, patch: Partial<Pick<MemoryInput, "kind" | "title" | "body" | "source" | "basis" | "tags">>) => Promise<{ ok: true; row: MemoryRow } | { ok: false; reason: "missing" } | { ok: false; reason: "conflict"; current: MemoryRow }>;
-  /** Archives a note (it stays in the audit log). Refused for a note a person confirmed. */
-  archive: (id: string) => Promise<{ ok: true; row: MemoryRow } | { ok: false; reason: "missing" }>;
 };
 
 /** Writing the workspace as the signed-in person. Every method runs with the person's own token (no service role). */
@@ -75,5 +65,4 @@ export type McpWriter = {
   files: McpFiles;
   documents: McpDocuments;
   profile: McpProfile;
-  memory: McpMemory;
 };

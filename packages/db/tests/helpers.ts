@@ -223,9 +223,6 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
   if ((await db.admin.query("select to_regclass('public.company_profiles') as t")).rows[0].t) {
     await db.admin.query("insert into public.company_profiles (tenant_id, sections) values ($1, '{\"industry\": \"Seed\"}')", [tenantId]);
   }
-  if ((await db.admin.query("select to_regclass('public.ai_memories') as t")).rows[0].t) {
-    await db.admin.query("insert into public.ai_memories (tenant_id, kind, title, body, source, basis) values ($1, 'fact', 'Seed note', 'Seed body', 'seed', 'person')", [tenantId]);
-  }
   await db.admin.query("insert into public.item_relations (tenant_id, item_id, related_item_id, kind) values ($1, $2, $3, 'depends_on')", [tenantId, items[1], items[0]]);
   const view = await one("insert into public.saved_views (tenant_id, name, columns) values ($1, 'Seed view', array['stack_rank', 'item_code', 'initiative_name']) returning id", [tenantId]);
   await db.admin.query("insert into public.view_layouts (tenant_id, builtin, position) values ($1, 'Prioritisation', 0)", [tenantId]);

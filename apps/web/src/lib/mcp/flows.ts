@@ -3,7 +3,7 @@
  * (prompts/list and prompts/get, for clients that can start them: Claude, Gemini CLI) and the get_playbook tool (for clients that cannot: ChatGPT).
  * The text is the same either way. A flow carries no data of its own and runs no tool.
  */
-import { discoveryPrompt, prdPrompt, researchPrompt, reviewGroupPrompt, setupMemoryPrompt } from "@pv/domain";
+import { discoveryPrompt, prdPrompt, researchPrompt } from "@pv/domain";
 import type { McpBackend } from "./rpc";
 
 export type FlowArg = { name: string; description: string; required: false };
@@ -28,8 +28,9 @@ export const FLOWS: Flow[] = [
       arg("brief", "What the initiative is, in your own words (optional; the assistant asks if empty)."),
       arg("modules", "Optional appendix modules to include, by id, e.g. A1, D1, D4 (default: the assistant chooses and tells you)."),
       arg("item", "Optional existing initiative code, e.g. R-12, to update instead of creating a new one."),
+      arg("team", "Optional: who is on the team, e.g. product manager = Ana, designer = Li, engineering manager = Raj."),
     ],
-    build: async (a) => prdPrompt({ brief: text(a.brief), modules: text(a.modules), item: text(a.item) }),
+    build: async (a) => prdPrompt({ brief: text(a.brief), modules: text(a.modules), item: text(a.item), team: text(a.team, 2000) }),
   },
   {
     name: "write_discovery",
@@ -38,19 +39,9 @@ export const FLOWS: Flow[] = [
     arguments: [
       arg("brief", "What the discovery is about, in your own words (optional; the assistant asks if empty)."),
       arg("item", "Optional existing initiative code, e.g. R-12, to attach the discovery to instead of creating a new initiative."),
+      arg("team", "Optional: who is on the team, e.g. product manager = Ana, designer = Li, engineering manager = Raj."),
     ],
-    build: async (a) => discoveryPrompt({ brief: text(a.brief), item: text(a.item) }),
-  },
-  {
-    name: "review_group",
-    title: "Review the other initiatives in the same group",
-    description: "Compare an initiative, or an idea that is not an initiative yet, with the other initiatives of its Initiative Group: what overlaps, what depends on what, which dates or terms conflict, what is missing. Reads only; changes nothing unless you say so.",
-    arguments: [
-      arg("item", "An initiative code, e.g. R-12 (its Initiative Group is used)."),
-      arg("group", "An Initiative Group name, when you have no initiative yet."),
-      arg("brief", "Optional: the idea to compare with the group, in your own words."),
-    ],
-    build: async (a) => reviewGroupPrompt({ item: text(a.item, 40), group: text(a.group, 200), brief: text(a.brief) }),
+    build: async (a) => discoveryPrompt({ brief: text(a.brief), item: text(a.item), team: text(a.team, 2000) }),
   },
   {
     name: "research_company",
@@ -64,13 +55,6 @@ export const FLOWS: Flow[] = [
       const company = await backend.read.companyProfile().catch(() => null);
       return researchPrompt({ url: text(a.url, 300), company_url: company?.url ?? null, focus: text(a.focus, 2000) });
     },
-  },
-  {
-    name: "setup_memory",
-    title: "Set up the memory from what the workspace already knows",
-    description: "Collect the durable knowledge already written in the company profile and the largest groups' documents (terms, partners, preferences, lessons), let you choose what to keep, and save it as notes every assistant can recall later.",
-    arguments: [arg("focus", "Optional: a group or topic to start with.")],
-    build: async (a) => setupMemoryPrompt({ focus: text(a.focus, 2000) }),
   },
 ];
 

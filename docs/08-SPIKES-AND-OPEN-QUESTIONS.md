@@ -80,7 +80,7 @@ Built 2026-10-29, results to be recorded here after Ashu runs it. Admin page `/s
 **Known gaps for slice 2 (closed in 0.36.0, issue #180):** the consent screen cannot pass a chosen workspace to the token (Supabase OAuth has no such field), so the binding lives in our own table `mcp_connections`; revocation, the workspace switch, rate limits and `ai_usage` are built (`docs/05`). Still NOT verified live: that Supabase puts `client_id` in the token, that `revokeGrant` ends the client's sessions, and everything in the S8b list above.
 
 ### S8c ChatGPT and Gemini connections (built 2026-10-30, request #230; **unverified live**)
-Server side built and tested with stand-ins: client detection, per-client tool lists, ChatGPT `search`/`fetch`, Gemini schema simplification, `get_playbook`, `connectors/`. Still to test with real clients and the Supabase OAuth server: ChatGPT Developer mode connect and OAuth, Gemini CLI `/mcp auth` (loopback redirect, changing port), Gemini Enterprise pre-registered client, the client names, per-client upload limits. List in `docs/27` section 9.
+Server side built and tested with stand-ins: client detection, per-client tool lists, ChatGPT `search`/`fetch`, Gemini schema simplification, `get_playbook`, `connectors/`. Still to test with real clients and the Supabase OAuth server: ChatGPT Developer mode connect and OAuth, Gemini CLI `/mcp auth` (loopback redirect, changing port), Gemini Enterprise pre-registered client, the client names, per-client upload limits, that assistants really send their model name. List in `docs/27` section 8.
 
 ### Hands-on checks still needed (not blocking Phase 1)
 | Check | When | Needs |

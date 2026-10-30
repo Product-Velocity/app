@@ -34,7 +34,4 @@ Onboarding has an optional "Company website". Workspace settings has the same fi
 The partner cache is the profile's **Partners and third parties** section (a block per partner with what it offers, its value proposition as it states it, the source and the date read; refreshed after 90 days). When a Discovery or PRD starts, Claude researches the third parties and terms of the brief that the profile does not already hold, sense-checks the brief's claims against what it found, and records the result in the document (PRD appendix A7, discovery section 8). See `docs/22` section 8b. New partners and terms are offered to the profile; saving them sends a confirmed profile back to draft, so an admin confirms again.
 
 ## 8. Help page
-The in-app Help (Using Claude) lists these flows. **Every change to the Claude features updates `apps/web/src/components/help-content.ts` in the same PR** (Ashu, 2026-10-29).
-
-## 9. Memory (2026-10-30)
-Partner and term research is now looked up with `check_research` and saved to the assistant memory at once (`docs/27` section 6); the profile's Partners section stays the admin-confirmed copy and is still offered new partners.
+The in-app Help (AI agents) lists these flows. **Every change to the Claude features updates `apps/web/src/components/help-content.ts` in the same PR** (Ashu, 2026-10-29).

@@ -85,7 +85,8 @@ export type ItemPanelProps = {
 export function ItemPanel({ controller, lookups, itemId, me, mode, position, onClose, onPrev, onNext, height, pageHref = defaultPageHref, backHref = "/portfolio" }: ItemPanelProps) {
   useStatus(controller);
   const row = controller.row(itemId);
-  const [tab, setTab] = useState<Tab>("overview");
+  // a link from the activity log opens the Spec tab: ?item=R-12&tab=spec
+  const [tab, setTab] = useState<Tab>(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "spec" ? "spec" : "overview"));
   const titleId = useId();
   const ctx = useMemo<FieldCtx>(() => ({ controller, lookups }), [controller, lookups]);
   const bodyRef = useRef<HTMLDivElement>(null);

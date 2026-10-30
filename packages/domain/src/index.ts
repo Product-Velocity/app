@@ -36,7 +36,3 @@ export * from "./impact";
 export * from "./discovery-template";
 export * from "./company-profile";
 export * from "./assistants";
-export * from "./memory";
-export * from "./group-review";
-export * from "./research";
-export * from "./memory-flows";

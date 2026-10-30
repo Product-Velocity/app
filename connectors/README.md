@@ -6,4 +6,4 @@ Product Velocity has one MCP server (`/mcp`); these files only help set up an as
 - `chatgpt/README.md`: ChatGPT Developer-mode setup.
 - Claude: see Connect an AI assistant in the app.
 
-Design and status: `docs/27-AI-ASSISTANTS-AND-MEMORY.md`. Not tested against live clients yet (spike S8c).
+Design and status: `docs/27-AI-ASSISTANTS.md`. Not tested against live clients yet (spike S8c).

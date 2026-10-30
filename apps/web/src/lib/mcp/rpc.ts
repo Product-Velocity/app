@@ -4,15 +4,14 @@
  * database or knows about tokens. See docs/20-CLAUDE-MCP.md.
  */
 
-import { ASSISTANT_INFO, claudeMayWrite, limitMessage, memoryInstructions, serverInstructions, type Assistant, type UsageResult } from "@pv/domain";
+import { ASSISTANT_INFO, claudeMayWrite, limitMessage, playbookInstructions, serverInstructions, type Assistant, type UsageResult } from "@pv/domain";
 import type { McpReader, WorkspaceContext } from "./read-model";
 import { simplifySchema } from "./assistant-schema";
 import { CONNECTOR_TOOLS } from "./connector-tools";
 import { DOCUMENT_READ_TOOLS, DOCUMENT_WRITE_TOOLS } from "./document-tools";
 import { FILE_TOOLS } from "./file-tools";
 import { FLOWS, publicFlow } from "./flows";
-import { INSIGHT_TOOLS } from "./insight-tools";
-import { MEMORY_READ_TOOLS, MEMORY_WRITE_TOOLS } from "./memory-tools";
+import { PLAYBOOK_TOOLS } from "./playbook-tool";
 import { PROFILE_READ_TOOLS, PROFILE_WRITE_TOOLS } from "./profile-tools";
 import { READ_TOOLS } from "./read-tools";
 import { ToolInputError } from "./tool-error";
@@ -98,14 +97,12 @@ export const TOOLS: ToolDef[] = [
   ...READ_TOOLS,
   ...DOCUMENT_READ_TOOLS,
   ...PROFILE_READ_TOOLS,
-  ...MEMORY_READ_TOOLS,
-  ...INSIGHT_TOOLS,
+  ...PLAYBOOK_TOOLS,
   ...CONNECTOR_TOOLS,
   ...WRITE_TOOLS,
   ...FILE_TOOLS,
   ...DOCUMENT_WRITE_TOOLS,
   ...PROFILE_WRITE_TOOLS,
-  ...MEMORY_WRITE_TOOLS,
 ];
 
 /** The tools one assistant is shown. Everyone gets the same tools and the same role checks; ChatGPT's search and fetch are listed only for ChatGPT. */
@@ -131,7 +128,7 @@ export async function handleRpc(msg: Rpc, backend: McpBackend, tools: ToolDef[] 
           protocolVersion: VERSIONS.includes(asked) ? asked : VERSIONS[0],
           capabilities: { tools: {}, prompts: {} },
           serverInfo: { name: "product-velocity", version: "0.1.0" },
-          instructions: `${serverInstructions()}\n\n${memoryInstructions(ASSISTANT_INFO[backend.assistant ?? "other"].prompts)}`,
+          instructions: `${serverInstructions()}\n\n${playbookInstructions(ASSISTANT_INFO[backend.assistant ?? "other"].prompts)}`,
         },
       };
     }

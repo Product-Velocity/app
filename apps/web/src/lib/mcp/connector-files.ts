@@ -3,7 +3,7 @@
  * run `UPDATE_CONNECTORS=1 pnpm --filter web test connector-files` after changing a rule, a flow or a tool).
  * They are conveniences for people who set up an assistant by hand; the server works without them.
  */
-import { CLAUDE_CANNOT, memoryInstructions, setupGuides } from "@pv/domain";
+import { CLAUDE_CANNOT, playbookInstructions, setupGuides } from "@pv/domain";
 import { FLOWS } from "./flows";
 import { TOOLS } from "./rpc";
 
@@ -28,8 +28,8 @@ export function geminiContext(): string {
     "## Flows (type / to start one)",
     ...FLOWS.map((f) => `- \`/${f.name}\`: ${f.title}`),
     "",
-    "## Memory",
-    memoryInstructions(true),
+    "## Flows and prompts",
+    playbookInstructions(true),
     "",
     "## Tools",
     `Read: ${toolNames("read")}.`,
@@ -43,7 +43,7 @@ export function geminiExtension(): string {
   return JSON.stringify({
     name: "product-velocity",
     version: "1.0.0",
-    description: "Product Velocity roadmap, stack rank, PRDs, discovery and team memory, as the signed-in person.",
+    description: "Product Velocity roadmap, stack rank, PRDs and discovery, as the signed-in person.",
     contextFileName: "GEMINI.md",
     mcpServers: { "product-velocity": { httpUrl: "https://YOUR-PRODUCT-VELOCITY-DOMAIN/mcp" } },
   }, null, 2) + "\n";
@@ -63,9 +63,9 @@ export function chatgptGuide(): string {
     g.note ?? "",
     "",
     "## What ChatGPT gets",
-    "- The same tools, rules, roles and memory as every other assistant. The `search` and `fetch` tools are listed only to ChatGPT, for deep research and company knowledge; they are read-only and return what your role can read.",
+    "- The same tools, rules and roles as every other assistant. The `search` and `fetch` tools are listed only to ChatGPT, for deep research and company knowledge; they are read-only and return what your role can read.",
     "- No prompts: ChatGPT calls `get_playbook` with the name of a flow and follows the text it returns. The flows: " + FLOWS.map((f) => `\`${f.name}\``).join(", ") + ".",
-    "- Writes (create_items, update_items, remember, ...) are annotated as not read-only, so ChatGPT asks you to confirm each one.",
+    "- Writes (create_items, update_items, ...) are annotated as not read-only, so ChatGPT asks you to confirm each one.",
     "",
     "## Not verified yet",
     "Spike S8c in docs/08-SPIKES-AND-OPEN-QUESTIONS.md: a live connection from ChatGPT to a deployed server has not been tested.",

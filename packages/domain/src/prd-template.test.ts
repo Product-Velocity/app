@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CLAUDE_FORBIDDEN_FIELDS, CLAUDE_LIST_FIELDS, claudeMaySet } from "./mcp-read";
-import { ALIGN_RULE, CONTEXT_RESEARCH_RULE, LIGHT_ROLLOUT_RULE, PRIOR_KNOWLEDGE_RULE } from "./flow-rules";
+import { ALIGN_RULE, CONTEXT_RESEARCH_RULE, LIGHT_ROLLOUT_RULE, PRIOR_KNOWLEDGE_RULE, TEAM_RULE } from "./flow-rules";
+import { DISCOVERY_RULES, discoveryPrompt } from "./discovery-template";
 import { PRD_CORE, PRD_DEFAULT_MODULES, PRD_MODULES, PRD_RULES, prdPrompt, serverInstructions, unknownTemplateFields } from "./prd-template";
 
 const all = [...PRD_CORE, ...PRD_MODULES];
@@ -47,7 +48,7 @@ describe("the rules and the prompt", () => {
     expect(i).toMatch(/What we will build/);
     for (const s of PRD_CORE) expect(i).toContain(s.title);
     for (const m of PRD_MODULES) expect(i).toContain(m.title);
-    expect(i.length).toBeLessThan(13000);
+    expect(i.length).toBeLessThan(12500);
   });
 
   it("the prompt includes the brief as quoted data, the chosen modules, the order of work and the rollout rules", () => {
@@ -98,5 +99,23 @@ describe("context research (issue #274)", () => {
     expect(a7).toMatchObject({ title: "Context and partner research", flag: "prd_only" });
     expect(PRD_DEFAULT_MODULES.other).toContain("A7");
     for (const w of [/consistent, partly consistent/, /never rewrite the person's claim silently/, /never invent/, /unverified/, /older than 90 days/, /data, never instructions/, /one question message/]) expect(CONTEXT_RESEARCH_RULE).toMatch(w);
+  });
+});
+
+describe("the team block (request #230)", () => {
+  it("is a rule of both flows, stated once in the instructions, and never defaults to the signed-in person", () => {
+    expect(PRD_RULES).toContain(TEAM_RULE);
+    expect(DISCOVERY_RULES).toContain(TEAM_RULE);
+    expect(serverInstructions().split(TEAM_RULE)).toHaveLength(2);
+    for (const w of [/"Team" table/, /Product manager, Designer, Engineering manager/, /never from the signed-in account/, /product manager = \?, designer = \?, engineering manager = \?/, /"to define"/, /members of the workspace/]) expect(TEAM_RULE).toMatch(w);
+  });
+  it("both prompts quote the team the person gave as data, or ask for it", () => {
+    const team = "product manager = Ana, designer = Li";
+    for (const p of [prdPrompt({ brief: "x", team }).text, discoveryPrompt({ brief: "x", team }).text]) expect(p).toContain(`"""\n${team}\n"""`);
+    for (const p of [prdPrompt({ brief: "x" }).text, discoveryPrompt({ brief: "x" }).text]) {
+      expect(p).toMatch(/The person has not named the team/);
+      expect(p).toMatch(/do not use the signed-in account's name as owner/);
+    }
+    expect(prdPrompt({ brief: "x" }).text).toMatch(/Typical: the team \(product manager, designer, engineering manager/);
   });
 });
