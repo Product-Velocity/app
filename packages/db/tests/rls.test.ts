@@ -145,6 +145,27 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "jira_connections",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_connections set state = 'disconnected' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_connections where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_connections (tenant_id) values ($1)", params: [v.tenantId] },
+      { sql: "update public.jira_connections set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "jira_credentials",
+    tenantColumn: "tenant_id",
+    private: true,
+    attacks: (v, a) => [
+      { sql: "update public.jira_credentials set access_token_enc = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_credentials where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_credentials (connection_id, tenant_id, access_token_enc, key_id, access_expires_at) select connection_id, tenant_id, 'x', 'k', now() from public.jira_credentials where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.jira_credentials set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "item_github_links",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

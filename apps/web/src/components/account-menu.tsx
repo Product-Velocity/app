@@ -46,6 +46,7 @@ export function AccountMenu({ email, roleLabel, isApprover, showTrash, showAudit
           <p className="menu-heading" id="menu-integrations">Integrations</p>
           <Link href="/incoming" className="menu-link">Incoming issues</Link>
           <Link href="/settings/integrations/github" className="menu-link">GitHub</Link>
+          <Link href="/settings/integrations/jira" className="menu-link">Jira</Link>
           <Link href="/settings/claude" className="menu-link">Connect an AI assistant</Link>
         </div>
         <div role="group" aria-labelledby="menu-account">

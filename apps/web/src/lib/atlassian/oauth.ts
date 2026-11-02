@@ -51,3 +51,22 @@ export async function refreshAccessToken(cfg: AtlassianConfig, refreshToken: str
   const j = (res.ok ? await res.json() : {}) as { access_token?: string; refresh_token?: string };
   return { status: res.status, rotated: Boolean(j.refresh_token && j.refresh_token !== refreshToken), hasAccessToken: Boolean(j.access_token) };
 }
+
+export type RefreshOutcome =
+  | { ok: true; accessToken: string; refreshToken: string | null; expiresIn: number }
+  | { ok: false; status: number; reconnect: boolean };
+
+/**
+ * Refreshes for the real connection. Atlassian rotates the refresh token (spike J4): the returned one replaces the old one.
+ * A 400 or 403 from the token endpoint means the grant is gone (revoked, expired or already used): `reconnect`.
+ */
+export async function refreshTokens(cfg: AtlassianConfig, refreshToken: string): Promise<RefreshOutcome> {
+  const res = await fetch(TOKEN_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ grant_type: "refresh_token", client_id: cfg.clientId, client_secret: cfg.clientSecret, refresh_token: refreshToken }),
+  });
+  if (!res.ok) return { ok: false, status: res.status, reconnect: res.status === 400 || res.status === 401 || res.status === 403 };
+  const j = (await res.json()) as { access_token: string; refresh_token?: string; expires_in: number };
+  return { ok: true, accessToken: j.access_token, refreshToken: j.refresh_token ?? null, expiresIn: j.expires_in };
+}
