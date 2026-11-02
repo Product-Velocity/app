@@ -3,12 +3,13 @@
 import { useEffect, useId, useRef, useState } from "react";
 import {
   AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_INTRO, AGENT_TABS, AGENT_TIPS, AGENT_USE_CASES, type AgentTabId, COLUMNS_NOTE, COLUMN_ROWS, UPDATE_LEGEND, FLOW_CREATE, FLOW_LIFECYCLE, FLOW_READ, LIFECYCLE_NOTES,
-  COLUMN_GROUPS, type Table,
+  COLUMN_GROUPS, REPORTS_INTRO, REPORTS_LIST, ROADMAP_HEALTH_DEFINITIONS, ROADMAP_HEALTH_NOTES, type Table,
 } from "./help-content";
 
 const TABS = [
   { id: "columns", label: "Columns" },
   { id: "flow", label: "How content flows" },
+  { id: "reports", label: "Reports" },
   { id: "agents", label: "AI agents" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -86,6 +87,15 @@ export function HelpGuide() {
                 <SimpleTable caption="2. Create initiatives directly or with Claude" table={FLOW_CREATE} />
                 <SimpleTable caption="3. How an initiative moves through its lifecycle" table={FLOW_LIFECYCLE} />
                 <ul className="help-notes">{LIFECYCLE_NOTES.map((n) => <li key={n}>{n}</li>)}</ul>
+              </div>
+            )}
+
+            {tab === "reports" && (
+              <div role="tabpanel" id="help-panel-reports" aria-labelledby="help-tab-reports">
+                <p>{REPORTS_INTRO}</p>
+                <SimpleTable caption="The reports" table={REPORTS_LIST} />
+                <SimpleTable caption="Roadmap Health: how the numbers are counted" table={ROADMAP_HEALTH_DEFINITIONS} />
+                <ul className="help-notes">{ROADMAP_HEALTH_NOTES.map((n) => <li key={n}>{n}</li>)}</ul>
               </div>
             )}
 
