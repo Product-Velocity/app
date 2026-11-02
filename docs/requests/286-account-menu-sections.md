@@ -2,6 +2,7 @@
 issue: 286
 status: done
 logged: 2026-11-02
+done: 2026-11-02
 title: Account menu separated into what every member, a workspace admin and the platform owner can use
 ---
 Ashu asked to rework the avatar menu so it clearly separates the features for an account or project user, an account admin and the platform owner. Built as proposed on the issue:
