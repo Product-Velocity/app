@@ -1,6 +1,8 @@
 ---
 issue: 287
-status: in progress
+status: done
+done: 2026-11-02
+link: PR #290
 logged: 2026-11-02
 title: Reports list and a second report, Roadmap Health (R-129)
 ---
