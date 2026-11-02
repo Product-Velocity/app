@@ -163,3 +163,17 @@ describe("rate limits", () => {
     expect(b.meter).not.toHaveBeenCalled();
   });
 });
+
+describe("ai_model on tools that change something", () => {
+  it("is offered on every write tool exactly once and never on a read tool", async () => {
+    const r = (await handleRpc({ jsonrpc: "2.0", id: 3, method: "tools/list" }, backend())) as { result: { tools: { name: string; inputSchema: { properties?: Record<string, unknown> } }[] } };
+    const byName = new Map(r.result.tools.map((t) => [t.name, t]));
+    for (const t of TOOLS) {
+      const shown = byName.get(t.name);
+      if (!shown || t.name.startsWith("search") || t.name === "fetch") continue;
+      const has = shown.inputSchema.properties !== undefined && "ai_model" in shown.inputSchema.properties;
+      if (t.mode === "write") expect(has, t.name).toBe(true);
+      else if (!("ai_model" in ((t.inputSchema as { properties?: object }).properties ?? {}))) expect(has, t.name).toBe(false);
+    }
+  });
+});

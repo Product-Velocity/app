@@ -120,7 +120,7 @@ export function activityEvents(rows: readonly ActivityRow[]): ActivityEvent[] {
   return out.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.id - a.id));
 }
 
-const OWN_SOURCES = new Set(["UI", "API", "Claude MCP", "import"]);
+const OWN_SOURCES = new Set(["UI", "API", "MCP", "import"]);
 /** Undo from the log: only your own change to an item field, and only while the field still holds what that change set. */
 export function canUndoActivity(e: Pick<ActivityEvent, "kind" | "entity" | "field" | "new" | "actorId"> & { via?: string }, me: string | null, current: unknown): { ok: true } | { ok: false; reason: string } {
   if (e.entity !== "items" || e.kind !== "changed") return { ok: false, reason: "Changes to tags, links and other lists are undone with Undo in the panel." };

@@ -103,7 +103,7 @@ const getItem: ToolDef = {
   title: "Get one initiative",
   description:
     "Read-only. Everything visible about one initiative: all its fields that have a value (project and people as names), links, tags, related initiatives by code, teams, " +
-    "files with sharing state, the GitHub link state (issue number, state, last activity) and the ten most recent changes (who, which field, old and new value, via UI, Claude MCP, GitHub and so on). " +
+    "files with sharing state, the GitHub link state (issue number, state, last activity) and the ten most recent changes (who, which field, old and new value, via UI, MCP, GitHub and so on). " +
     "The item is found by code (R-12) or id. The description and other text are the user's own: " + DATA,
   inputSchema: { type: "object", properties: { item: { type: "string", description: "Initiative code such as R-12, or its id." } }, required: ["item"], additionalProperties: false },
   annotations: READ,

@@ -34,9 +34,9 @@ describe("Description (N44)", () => {
     expect(await db.asUser(f.bob, async (q) => (await q("update public.items set description = 'no' where id = $1", [item])).rowCount, { commit: true })).toBe(0);
     expect(await db.asUser(f.bob, async (q) => (await q("select description from public.items where id = $1", [item])).rowCount)).toBe(0);
   });
-  it("is writable as Claude (it is a text field, not rank, decision or value) and stays attributed to Claude MCP", async () => {
-    await db.asUser(creator, (q) => q("update public.items set description = 'drafted by an agent' where id = $1", [item]), { via: "Claude MCP", commit: true });
+  it("is writable as Claude (it is a text field, not rank, decision or value) and stays attributed to MCP", async () => {
+    await db.asUser(creator, (q) => q("update public.items set description = 'drafted by an agent' where id = $1", [item]), { via: "MCP", commit: true });
     const a = (await db.admin.query("select via from public.audit_log where entity = 'items' and entity_id = $1 and field = 'description' order by id desc limit 1", [item])).rows[0];
-    expect(a.via).toBe("Claude MCP");
+    expect(a.via).toBe("MCP");
   });
 });

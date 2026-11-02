@@ -66,7 +66,7 @@ describe("jira_disconnect", () => {
     expect(await errorCode(db.asUser(creator, (q) => q("select public.jira_disconnect($1)", [id]), { commit: true }))).toBe(DENIED);
     expect(await errorCode(db.asUser(service, (q) => q("select public.jira_disconnect($1)", [id]), { commit: true }))).toBe(DENIED);
     expect(await errorCode(db.asUser(f.alice, (q) => q("select public.jira_disconnect($1)", [id]), { commit: true }))).toBe(DENIED); // alice is admin of A, not B
-    expect(await errorCode(db.asUser(f.bob, (q) => q("select public.jira_disconnect($1)", [id]), { commit: true, via: "Claude MCP" }))).toBe(DENIED);
+    expect(await errorCode(db.asUser(f.bob, (q) => q("select public.jira_disconnect($1)", [id]), { commit: true, via: "MCP" }))).toBe(DENIED);
     expect(await state(id)).toBe("connected");
     expect((await creds(id)).length).toBe(1);
   });

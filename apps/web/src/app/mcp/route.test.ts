@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const authenticate = vi.fn();
-vi.mock("@/lib/mcp/auth", () => ({ authenticate: (t: string) => authenticate(t), mcpEnabled: () => true }));
+vi.mock("@/lib/mcp/auth", () => ({ authenticate: (t: string, ua?: string | null, model?: string | null) => authenticate(t, ua, model), mcpEnabled: () => true }));
 vi.mock("@/lib/site-url", () => ({ siteUrl: async () => "https://app.test" }));
 
 import { POST } from "./route";
@@ -45,5 +45,25 @@ describe("POST /mcp refusals", () => {
     const r = await post("t");
     expect(r.status).toBe(200);
     expect((await r.json()).result.tools[0].name).toBe("get_workspace_context");
+  });
+});
+
+describe("the model an assistant states", () => {
+  const ok = { ok: true, caller: { userId: "u", clientId: "c", unavailable: [], workspaces: [{ id: "t", name: "W", role: "viewer", lastWriteAt: null, backend: { role: "viewer", meter: async () => ({ ok: true }), workspaceContext: async () => ({}) } }] } };
+  it("is passed to authentication from the ai_model argument of a tool call, and from nothing else", async () => {
+    authenticate.mockResolvedValue(ok);
+    await post("t", { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "get_workspace_context", arguments: { ai_model: "Gemini 3 Pro" } } });
+    expect(authenticate.mock.calls[0]![2]).toBe("Gemini 3 Pro");
+    authenticate.mockClear();
+    await post("t");
+    expect(authenticate.mock.calls[0]![2]).toBeNull();
+    authenticate.mockClear();
+    await post("t", { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "x", arguments: { ai_model: 42 } } });
+    expect(authenticate.mock.calls[0]![2]).toBeNull();
+  });
+  it("a body that is not JSON is still refused with 401 before it is judged", async () => {
+    authenticate.mockResolvedValue({ ok: false, http: 401, error: "invalid_token", message: "x" });
+    const r = await POST(new NextRequest("https://app.test/mcp", { method: "POST", headers: { authorization: "Bearer t" }, body: "not json" }));
+    expect(r.status).toBe(401);
   });
 });

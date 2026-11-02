@@ -156,20 +156,61 @@ describe("write source and audit", () => {
   const lastAudit = async (name: string) =>
     (await db.admin.query("select via, connection_id from public.audit_log where entity = 'tenants' and field = 'name' and new = to_jsonb($1::text)", [name])).rows[0];
 
-  it("a Claude write is recorded as Claude MCP with the connection id", async () => {
+  it("a Claude write is recorded as MCP with the connection id", async () => {
     await rename({ client_id: "client-a" }, undefined, "Renamed by Claude");
     const conn = (await db.admin.query("select id from public.mcp_connections where client_id = 'client-a' and revoked_at is null")).rows[0].id;
-    expect(await lastAudit("Renamed by Claude")).toEqual({ via: "Claude MCP", connection_id: conn });
+    expect(await lastAudit("Renamed by Claude")).toEqual({ via: "MCP", connection_id: conn });
   });
 
   it("a forged x-pv-via header changes nothing: the write is API with no connection id", async () => {
-    await rename(undefined, { "x-pv-via": "Claude MCP" }, "Forged");
+    await rename(undefined, { "x-pv-via": "MCP" }, "Forged");
     expect(await lastAudit("Forged")).toEqual({ via: "API", connection_id: null });
   });
 
   it("a Claude token cannot relabel itself with the header", async () => {
     await rename({ client_id: "client-a" }, { "x-pv-via": "UI" }, "Relabel attempt");
-    expect((await lastAudit("Relabel attempt")).via).toBe("Claude MCP");
+    expect((await lastAudit("Relabel attempt")).via).toBe("MCP");
+  });
+
+  const aiOf = async (name: string) =>
+    (await db.admin.query("select via, ai_tool, ai_model from public.audit_log where entity = 'tenants' and field = 'name' and new = to_jsonb($1::text)", [name])).rows[0];
+  const chatgptConn = (user: string, tenant: string, client: string) =>
+    db.asUser(user, async (q) => (await q("select public.mcp_connect($1, $2, 'ChatGPT') as id", [tenant, client])).rows[0].id as string, { commit: true });
+
+  it("an assistant write records the AI name from the connection and the AI model it states", async () => {
+    await rename({ client_id: "client-a" }, { "x-pv-ai-model": "Claude Opus 5.5" }, "Named model");
+    expect(await aiOf("Named model")).toEqual({ via: "MCP", ai_tool: "claude", ai_model: "Claude Opus 5.5" });
+  });
+
+  it("the AI name follows the connection, not anything the client sends", async () => {
+    await chatgptConn(f.alice, f.tenantA, "c-gpt");
+    await rename({ client_id: "c-gpt" }, { "x-pv-ai-model": "GPT-5" }, "From ChatGPT");
+    expect(await aiOf("From ChatGPT")).toEqual({ via: "MCP", ai_tool: "chatgpt", ai_model: "GPT-5" });
+  });
+
+  it("no stated model leaves it empty; an over-long or control-character model is cut to 80 plain characters", async () => {
+    await rename({ client_id: "client-a" }, undefined, "No model");
+    expect((await aiOf("No model")).ai_model).toBeNull();
+    await rename({ client_id: "client-a" }, { "x-pv-ai-model": "M\u0007" + "x".repeat(200) }, "Long model");
+    expect((await aiOf("Long model")).ai_model).toBe("M" + "x".repeat(79));
+  });
+
+  it("a write that is not from an assistant carries no AI name or model, even if the model header is sent", async () => {
+    await rename(undefined, { "x-pv-via": "UI", "x-pv-ai-model": "Pretend" }, "Not an assistant");
+    expect(await aiOf("Not an assistant")).toEqual({ via: "UI", ai_tool: null, ai_model: null });
+  });
+
+  it("a token without a live connection is still MCP with AI name other", async () => {
+    await rename({ client_id: "unknown-client" }, undefined, "Unknown client");
+    expect(await aiOf("Unknown client")).toEqual({ via: "MCP", ai_tool: "other", ai_model: null });
+  });
+
+  it("no database rule still names the old source", async () => {
+    const left = await db.admin.query(
+      "select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname in ('public','pv_internal') and p.prokind in ('f','p') and p.prosrc like '%''Claude MCP''%' and p.proname <> 'write_source'");
+    expect(left.rows).toEqual([]);
+    const checks = await db.admin.query("select conname from pg_constraint where pg_get_constraintdef(oid) like '%''Claude MCP''%'");
+    expect(checks.rows).toEqual([]);
   });
 
   it("a revoked connection leaves no connection id on later writes", async () => {

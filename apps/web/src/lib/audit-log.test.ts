@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actionLabel, auditCsv, csvCell, formatWhen, nextDay, parseAuditFilters, roleAtTime, whoLabel, type AuditRow } from "./audit-log";
+import { actionLabel, auditCsv, howLabel, csvCell, formatWhen, nextDay, parseAuditFilters, roleAtTime, whoLabel, type AuditRow } from "./audit-log";
 
 const row = (o: Partial<AuditRow> = {}): AuditRow => ({
   id: 1, tenant_id: "t1", entity: "items", entity_id: "i1", field: "initiative_name", old: "A", new: "B", actor_id: "u1", actor_name: "Pat Owner",
@@ -52,8 +52,23 @@ describe("CSV export (FR-6.6)", () => {
     }).trim().split("\r\n");
     expect(csv).toHaveLength(3);
     expect(csv[0]).toContain("Role at the time");
-    expect(csv[1]).toBe("2026-10-28T12:00:00Z,Pat Owner,pat@platform.test,Platform admin,yes,Meridian,Platform,R-12 Login,gantt,Initiative · initiative name,initiative_name,A,B,UI,,1");
+    expect(csv[1]).toBe("2026-10-28T12:00:00Z,Pat Owner,pat@platform.test,Platform admin,yes,Meridian,Platform,R-12 Login,gantt,Initiative · initiative name,initiative_name,A,B,UI,,,,1");
     expect(csv[2]).toContain("System");
+  });
+});
+
+describe("MCP entries: source, AI name, AI model", () => {
+  it("shows MCP, the assistant and the model it stated; other sources stay plain", () => {
+    expect(howLabel({ via: "MCP", ai_tool: "claude", ai_model: "Claude Opus 5.5" })).toBe("MCP · Claude · Claude Opus 5.5");
+    expect(howLabel({ via: "MCP", ai_tool: "gemini", ai_model: null })).toBe("MCP · Gemini");
+    expect(howLabel({ via: "MCP", ai_tool: null, ai_model: null })).toBe("MCP · Other AI tool");
+    expect(howLabel({ via: "UI", ai_tool: null, ai_model: null })).toBe("UI");
+  });
+  it("exports AI name and AI model as their own columns, empty for people", () => {
+    const csv = auditCsv([row({ via: "MCP", ai_tool: "chatgpt", ai_model: "GPT-5" }), row({ id: 2 })]).trim().split("\r\n");
+    expect(csv[0]).toContain("How,AI name,AI model,Batch");
+    expect(csv[1]).toContain(",MCP,ChatGPT,GPT-5,");
+    expect(csv[2]).toContain(",UI,,,");
   });
 });
 

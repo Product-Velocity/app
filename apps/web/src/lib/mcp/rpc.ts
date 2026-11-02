@@ -110,7 +110,15 @@ export const toolsFor = (assistant: Assistant | undefined): ToolDef[] => TOOLS.f
 
 const toolError = (id: RpcResponse["id"], text: string): RpcResponse => ({ jsonrpc: "2.0", id, result: { isError: true, content: [{ type: "text", text }] } });
 // the registry's handlers and modes stay server-side; clients only see the description of a tool
-const publicTool = (t: ToolDef, simple: boolean) => ({ name: t.name, title: t.title, description: t.description, inputSchema: simple ? simplifySchema(t.inputSchema) : t.inputSchema, annotations: t.annotations });
+/** Every tool that changes something accepts the model the assistant is, so the audit log can show it next to the AI tool (the tool comes from the connection, never from this). */
+export const AI_MODEL_ARG = { type: "string", maxLength: 80, description: "Optional. The name of the AI model you are, for example \"Claude Opus 5.5\", \"GPT-5\" or \"Gemini 3 Pro\". It is recorded in the audit log next to the AI tool. Say it only if you know it; never guess." };
+const withModel = (t: ToolDef): object => {
+  const s = t.inputSchema as { type?: string; properties?: Record<string, unknown> };
+  return t.mode === "write" && s.type === "object" && s.properties && !("ai_model" in s.properties)
+    ? { ...s, properties: { ...s.properties, ai_model: AI_MODEL_ARG } }
+    : t.inputSchema;
+};
+const publicTool = (t: ToolDef, simple: boolean) => ({ name: t.name, title: t.title, description: t.description, inputSchema: simple ? simplifySchema(withModel(t)) : withModel(t), annotations: t.annotations });
 
 const err = (id: Rpc["id"], code: number, message: string): RpcResponse => ({ jsonrpc: "2.0", id: id ?? null, error: { code, message } });
 

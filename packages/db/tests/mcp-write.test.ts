@@ -55,7 +55,7 @@ describe("create: an AI draft, as the person, without the service role", () => {
     expect(r.units.map((u) => u.ok)).toEqual([true, true]);
     const [a, b] = [createdId(r, 0), createdId(r, 1)];
     const ia = await item(a);
-    expect(ia).toMatchObject({ initiative_name: "Roadmap views 1", ai_draft: true, created_via: "Claude MCP", created_by: cora, theme: "Roadmap views", moscow: "Must", description: "## Story\n\nAs a creator…" });
+    expect(ia).toMatchObject({ initiative_name: "Roadmap views 1", ai_draft: true, created_via: "MCP", created_by: cora, theme: "Roadmap views", moscow: "Must", description: "## Story\n\nAs a creator…" });
     expect(ia.stack_rank).toBe(before + 1); // assigned by the system, at the end
     expect((await item(b)).stack_rank).toBe(before + 2);
     expect((await db.admin.query("select kind, value from public.item_tags where item_id = $1", [a])).rows).toEqual([{ kind: "tag", value: "mcp" }]);
@@ -66,12 +66,12 @@ describe("create: an AI draft, as the person, without the service role", () => {
     expect((await db.admin.query("select name from public.item_groups where tenant_id = $1 and name = 'Roadmap views'", [f.tenantA])).rowCount).toBe(1);
   });
 
-  it("audits every write with the person, source Claude MCP, the connection and the change set", async () => {
+  it("audits every write with the person, source MCP, the connection and the change set", async () => {
     const r = await create(cora, [row("Audited")]);
     const id = createdId(r);
     const log = (await db.admin.query("select distinct actor_id, via, connection_id, change_set_id from public.audit_log where entity = 'items' and entity_id = $1", [id])).rows;
     expect(log).toHaveLength(1);
-    expect(log[0]).toMatchObject({ actor_id: cora, via: "Claude MCP", change_set_id: r.change_set });
+    expect(log[0]).toMatchObject({ actor_id: cora, via: "MCP", change_set_id: r.change_set });
     const conn = (await db.admin.query("select id from public.mcp_connections where user_id = $1 and revoked_at is null", [cora])).rows[0].id;
     expect(log[0]!.connection_id).toBe(conn);
     expect((await db.admin.query("select tool, user_id from public.mcp_change_sets where id = $1", [r.change_set])).rows[0]).toEqual({ tool: "create_items", user_id: cora });
@@ -107,7 +107,7 @@ describe("what Claude may never set", () => {
     const r = await create(cora, [row(name, { [col]: value })]);
     expect(r.units[0]).toMatchObject({ ok: false });
     expect((await db.admin.query("select 1 from public.items where initiative_name = $1", [name])).rowCount).toBe(0);
-    expect((await db.admin.query("select 1 from public.audit_log where field = $1 and new is not null and via = 'Claude MCP' and entity = 'items' and new::text <> 'null' and tenant_id = $2 and (new #>> '{}') = $3", [col, f.tenantA, String(value)])).rowCount).toBe(0);
+    expect((await db.admin.query("select 1 from public.audit_log where field = $1 and new is not null and via = 'MCP' and entity = 'items' and new::text <> 'null' and tenant_id = $2 and (new #>> '{}') = $3", [col, f.tenantA, String(value)])).rowCount).toBe(0);
   });
 
   it.each(forbidden)("refuses to change %s on an existing initiative", async (col, value) => {
@@ -117,14 +117,14 @@ describe("what Claude may never set", () => {
     expect((await item(id))[col]).toBeNull();
   });
 
-  it("lets Claude set Planned Quarter (not person-only); the change is an AI draft and audited as Claude MCP", async () => {
+  it("lets Claude set Planned Quarter (not person-only); the change is an AI draft and audited as MCP", async () => {
     const id = createdId(await create(cora, [row("Quarter by Claude", { g2m_quarter: "Q3 2027" })]));
     expect((await item(id)).g2m_quarter).toBe("Q3 2027");
     const r = await apply(cora, "update_items", [{ ops: [{ op: "update_item", id, set: { g2m_quarter: "Q4 2027" } }] }]);
     expect(r.units[0]).toMatchObject({ ok: true });
     expect((await item(id)).g2m_quarter).toBe("Q4 2027");
     const log = (await db.admin.query("select old, new, via from public.audit_log where entity = 'items' and entity_id = $1 and field = 'g2m_quarter' order by at", [id])).rows;
-    expect(log.map((l) => [l.old, l.new, l.via])).toEqual([[null, "Q3 2027", "Claude MCP"], ["Q3 2027", "Q4 2027", "Claude MCP"]]);
+    expect(log.map((l) => [l.old, l.new, l.via])).toEqual([[null, "Q3 2027", "MCP"], ["Q3 2027", "Q4 2027", "MCP"]]);
     expect((await item(id)).ai_draft).toBe(true);
     const bad = await apply(cora, "update_items", [{ ops: [{ op: "update_item", id, set: { g2m_quarter: "Q9 2027" } }] }]);
     expect(bad.units[0]).toMatchObject({ ok: false });
@@ -323,7 +323,7 @@ describe("undo_last", () => {
     expect((await db.admin.query("select 1 from public.item_tags where item_id = $1", [id])).rowCount).toBe(0);
     const log = (await db.admin.query(
       "select l.via, l.actor_id, s.tool from public.audit_log l join public.mcp_change_sets s on s.id = l.change_set_id where l.entity = 'items' and l.entity_id = $1 and l.field = 'summary' order by l.id", [id])).rows;
-    expect(log.map((x) => [x.tool, x.via])).toEqual([["create_items", "Claude MCP"], ["update_items", "Claude MCP"], ["undo_last", "Claude MCP"]]);
+    expect(log.map((x) => [x.tool, x.via])).toEqual([["create_items", "MCP"], ["update_items", "MCP"], ["undo_last", "MCP"]]);
     expect(log.every((x) => x.actor_id === cora)).toBe(true);
     // the next undo goes one change further back (the creation)
     const u2 = await asClaude(cora, async (q) => (await q("select public.mcp_undo_last() as r")).rows[0]!.r as { tool: string });
@@ -397,10 +397,10 @@ describe("Value Type: the one value field Claude may set, only with the person's
     expect((await item(id)).value_type).toBeNull();
   });
 
-  it("sets it with a basis on create and on update, and the audit row carries the person's words and source Claude MCP", async () => {
+  it("sets it with a basis on create and on update, and the audit row carries the person's words and source MCP", async () => {
     const id = createdId(await apply(cora, "create_items", [{ ops: [{ op: "create_item", row: row("With basis", { value_type: TYPE }), value_type_basis: BASIS }] }]));
     expect((await item(id)).value_type).toBe(TYPE);
-    expect(await audit(id)).toEqual([expect.objectContaining({ via: "Claude MCP", basis: BASIS, new: TYPE })]);
+    expect(await audit(id)).toEqual([expect.objectContaining({ via: "MCP", basis: BASIS, new: TYPE })]);
     const u = await apply(cora, "update_items", [{ ops: [{ op: "update_item", id, set: { value_type: "Decrease costs" }, value_type_basis: "Ashu: actually this saves support cost" }] }]);
     expect(u.units[0]).toMatchObject({ ok: true });
     expect((await audit(id)).at(-1)).toMatchObject({ basis: "Ashu: actually this saves support cost", new: "Decrease costs" });

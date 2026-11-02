@@ -8,12 +8,30 @@ export const dynamic = "force-dynamic";
 
 const json = (body: unknown, init?: ResponseInit) => NextResponse.json(body, init);
 
+/** The model an assistant states in a tool call (`ai_model`), if any: advisory text, cleaned and cut again by the database. */
+function statedModel(body: unknown): string | null {
+  for (const m of Array.isArray(body) ? body : [body]) {
+    const a = (m as { method?: string; params?: { arguments?: { ai_model?: unknown } } } | null)?.params?.arguments?.ai_model;
+    if (typeof a === "string" && a.trim()) return a;
+  }
+  return null;
+}
+
 /** Streamable HTTP MCP endpoint (stateless, JSON responses). */
 export async function POST(req: NextRequest) {
   if (!mcpEnabled()) return new NextResponse("Not found", { status: 404 });
 
   const token = parseBearer(req.headers.get("authorization"));
-  const auth = token ? await authenticate(token, req.headers.get("user-agent")) : null;
+  // read the body first so the model the assistant states (argument ai_model of a tool call) can be recorded on the audit rows of that call
+  const raw = await req.text();
+  let body: unknown;
+  let parsed = true;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    parsed = false;
+  }
+  const auth = token ? await authenticate(token, req.headers.get("user-agent"), statedModel(body)) : null;
   if (!auth || !auth.ok) {
     const f = auth ?? { http: 401 as const, error: "invalid_token", message: "Sign in again: this connection is missing, expired or revoked." };
     return json(
@@ -23,10 +41,7 @@ export async function POST(req: NextRequest) {
   }
   const { caller } = auth;
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
+  if (!parsed) {
     return json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }, { status: 400 });
   }
   const tools = toolsFor(caller.assistant);

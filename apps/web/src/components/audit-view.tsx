@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { actionLabel, formatValue, formatWhen, roleAtTime, viaLabel, whoLabel, entityLabel, type AuditFilters, type AuditLookup, type AuditRow } from "@/lib/audit-log";
+import { actionLabel, formatValue, formatWhen, roleAtTime, howLabel, whoLabel, entityLabel, type AuditFilters, type AuditLookup, type AuditRow } from "@/lib/audit-log";
 
 type Props = {
   rows: AuditRow[];
@@ -78,7 +78,7 @@ export function AuditView({ rows, lookup, filters, basePath, exportPath, project
                   <td>{actionLabel(r)}{r.batch_id && <div className="muted" title={r.batch_id}>batch {r.batch_id.slice(0, 8)}</div>}</td>
                   <td>{formatValue(r.old)}</td>
                   <td>{formatValue(r.new)}</td>
-                  <td>{viaLabel(r.via)}</td>
+                  <td>{howLabel(r)}</td>
                 </tr>
               ))}
             </tbody>

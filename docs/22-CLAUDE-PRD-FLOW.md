@@ -12,7 +12,7 @@ Every module is optional. A PRD that has nothing for a module leaves it out: no 
 2. **Skip is free.** "Skip" is a valid answer to any question and is never asked twice in the same run.
 3. **People-only fields stay people-only** (rule 3), with one narrow exception: Business Value Type (section 6).
 4. **The full PRD is data in PV, not on GitHub** (rule 2). Which module goes where is fixed in the template (section 4), not judged by Claude.
-5. Everything Claude writes is an AI draft, audited with source `Claude MCP`, and undoable with `undo_last`.
+5. Everything Claude writes is an AI draft, audited with source `MCP`, the AI name and the AI model, and undoable with `undo_last`.
 
 ## 3. PRD structure
 **Core (always, as in Ashu's current PRDs; not changed):** title and "Depends on" line, 1 Executive Summary, 2 Relationship to other initiatives (only when there is one), 3 Problem Statement, 4 Scope, 5 Prerequisites / Phase 0, 6 Functional Requirements, 7 Acceptance Criteria, 8 Risks and open questions, 9 Phasing.

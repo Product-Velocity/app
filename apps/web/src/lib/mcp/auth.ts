@@ -14,10 +14,12 @@ export const mcpEnabled = () => process.env.MCP_ENABLED === "true";
  * Authorization header, so row-level security applies. The anon key is the
  * public one; the service role is never used on this path.
  */
-export function clientFor(token: string) {
+export function clientFor(token: string, aiModel?: string | null) {
   const { url, anonKey } = supabaseEnv();
+  // x-pv-ai-model is what the assistant says it is; the database records it on the audit rows of this call (advisory, 80 characters, only for MCP writes)
+  const model = aiModel ? aiModel.replace(/[^\P{C}]/gu, "").trim().slice(0, 80) : "";
   return createClient(url, anonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
+    global: { headers: { Authorization: `Bearer ${token}`, ...(model ? { "x-pv-ai-model": model } : {}) } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
@@ -43,8 +45,8 @@ const unauthorized: AuthResult = {
  * the caller's own token, whether the connection is live, the workspace has Claude
  * switched on and the person is still a member (`mcp_authorize`, migration 0043).
  */
-export async function authenticate(token: string, userAgent?: string | null): Promise<AuthResult> {
-  const supabase = clientFor(token);
+export async function authenticate(token: string, userAgent?: string | null, aiModel?: string | null): Promise<AuthResult> {
+  const supabase = clientFor(token, aiModel);
   const { data: u, error } = await supabase.auth.getUser(token);
   if (error || !u.user) return unauthorized;
   const { data: c } = await supabase.auth.getClaims(token);

@@ -64,14 +64,14 @@ describe("files written through a Claude connection (docs/20 FR-5)", () => {
   const addAsClaude = (user: string, name: string, tenant = f.tenantA, itemId = item) =>
     db.asUser(user, async (q) => (await q("insert into public.item_files (tenant_id, item_id, kind, name, storage_path, mime_type, size_bytes) values ($1, $2, 'image', $3, $4, 'image/png', 2048) returning id", [tenant, itemId, name, `${tenant}/${name}`])).rows[0].id as string, claude);
 
-  it("upload, sharing change and removal are audited with source Claude MCP and the person as actor", async () => {
+  it("upload, sharing change and removal are audited with source MCP and the person as actor", async () => {
     const id = await addAsClaude(creator, "claude.png");
     await db.asUser(creator, (q) => q("update public.item_files set share_token = $2, share_updated_at = now() where id = $1", [id, "D".repeat(43)]), claude);
     await db.asUser(creator, (q) => q("update public.item_files set share_token = null, share_updated_at = now() where id = $1", [id]), claude);
     await db.asUser(creator, (q) => q("delete from public.item_files where id = $1", [id]), claude);
     const { rows } = await db.admin.query("select field, old, new, via, actor_id from public.audit_log where entity = 'item_files' and entity_id = $1 order by id", [id]);
     expect(rows.length).toBeGreaterThanOrEqual(4);
-    for (const r of rows) expect(r).toMatchObject({ via: "Claude MCP", actor_id: creator });
+    for (const r of rows) expect(r).toMatchObject({ via: "MCP", actor_id: creator });
     expect(rows.some((r) => r.field === "share_token")).toBe(true);
   });
 

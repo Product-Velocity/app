@@ -106,7 +106,7 @@ describe("Approver permission (CLAUDE.md rule 3)", () => {
       { via: "UI", commit: true },
     );
     const asClaude = (sql: string, params: unknown[]) =>
-      db.asUser(f.alice, (q) => q(sql, params), { via: "Claude MCP" });
+      db.asUser(f.alice, (q) => q(sql, params), { via: "MCP" });
     // promote an existing member
     expect(
       await errorCode(asClaude("update public.tenant_members set is_approver = true where user_id = $1", [frank])),

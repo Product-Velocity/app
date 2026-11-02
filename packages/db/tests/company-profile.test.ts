@@ -42,9 +42,9 @@ describe("company_url", () => {
 
 describe("company profile: drafts, confirmation and versions", () => {
   it("a creator (or Claude as that creator) saves a draft: version 1, AI draft when through Claude", async () => {
-    await save(creator, f.tenantA, sections("Media"), "Claude MCP");
+    await save(creator, f.tenantA, sections("Media"), "MCP");
     const r = await row(f.tenantA);
-    expect(r).toMatchObject({ status: "draft", version: 1, ai_draft: true, created_via: "Claude MCP" });
+    expect(r).toMatchObject({ status: "draft", version: 1, ai_draft: true, created_via: "MCP" });
   });
   it("one profile per workspace", async () => {
     expect(await errorCode(save(creator, f.tenantA, sections("again")))).toBe("23505");
@@ -53,14 +53,14 @@ describe("company profile: drafts, confirmation and versions", () => {
     expect(await edit(viewer, f.tenantA, "sections = $2", [sections("x")])).toBe(0);
   });
   it("a change to the sections bumps the version and keeps the old one", async () => {
-    await edit(creator, f.tenantA, "sections = $2", [sections("Media and entertainment")], "Claude MCP");
+    await edit(creator, f.tenantA, "sections = $2", [sections("Media and entertainment")], "MCP");
     expect((await row(f.tenantA)).version).toBe(2);
     const v = (await db.admin.query("select version, sections->>'industry' as i, saved_via from public.company_profile_versions where tenant_id = $1 order by version", [f.tenantA])).rows;
     expect(v.map((x) => [x.version, x.i])).toEqual([[1, "Media"], [2, "Media and entertainment"]]);
-    expect(v[1].saved_via).toBe("Claude MCP");
+    expect(v[1].saved_via).toBe("MCP");
   });
   it("Claude cannot confirm, not even as an admin; a creator cannot confirm either", async () => {
-    expect(await errorCode(edit(f.alice, f.tenantA, "status = 'confirmed'", [], "Claude MCP"))).toBe(PV004);
+    expect(await errorCode(edit(f.alice, f.tenantA, "status = 'confirmed'", [], "MCP"))).toBe(PV004);
     expect(await errorCode(edit(creator, f.tenantA, "status = 'confirmed'"))).toBe(PV004);
     expect((await row(f.tenantA)).status).toBe("draft");
   });
@@ -80,7 +80,7 @@ describe("company profile: drafts, confirmation and versions", () => {
     expect(await row(f.tenantA)).toMatchObject({ status: "confirmed", version: 3 });
   });
   it("a change by Claude (as the admin) sends it back to draft as an AI draft", async () => {
-    await edit(f.alice, f.tenantA, "sections = $2", [sections("Claude's refresh")], "Claude MCP");
+    await edit(f.alice, f.tenantA, "sections = $2", [sections("Claude's refresh")], "MCP");
     const r = await row(f.tenantA);
     expect(r).toMatchObject({ status: "draft", ai_draft: true, version: 4, confirmed_by: null, confirmed_at: null });
   });
