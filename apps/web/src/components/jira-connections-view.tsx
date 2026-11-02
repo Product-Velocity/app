@@ -18,6 +18,13 @@ export const JIRA_NOTICE: Record<string, string> = {
   read: "Read Jira. The result is under the project.",
   "read-failed": "Jira could not be read. The reason is under the project.",
   "read-reconnect": "Jira no longer accepts the saved sign-in. Sign in again.",
+  pulled: "Pulled in. The initiatives are in the roadmap and follow their Jira issues.",
+  "pulled-some": "Some issues were pulled in; the others were skipped (already pulled in, or from another project).",
+  "pull-failed": "Nothing was pulled in. The issues may already be initiatives.",
+  ignored: "Ignored. They stay out of the roadmap; show ignored issues to bring them back.",
+  restored: "Brought back to the list.",
+  "review-none": "Select at least one issue first.",
+  "review-denied": "Only creators and admins can decide what comes in from Jira.",
   "link-unavailable": "That Jira connection or site is not available. Reload the page and try again.",
   "link-type": "Only software and business Jira projects can be linked for now. Product Discovery ideas come later.",
   "link-types": "Choose three different issue types of that Jira project; the initiative type is required.",
@@ -28,6 +35,8 @@ export const JIRA_NOTICE: Record<string, string> = {
 const STATE: Record<JiraConnectionRow["state"], string> = { connected: "Connected", reconnect_needed: "Sign in again needed", disconnected: "Not connected" };
 const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
+export type JiraIssueView = { id: string; key: string; title: string; type: string | null; status: string | null; category: string | null; url: string | null };
+
 export type JiraProjectOption = { value: string; label: string; group: string };
 export type JiraProjectLinkView = {
   projectId: string;
@@ -36,6 +45,9 @@ export type JiraProjectLinkView = {
   /** The last read of the linked Jira project (slice C1) and how many issues are in each state. */
   read?: { readAt: string; total: number; added: number; changed: number; truncated: boolean; error: string | null } | null;
   counts?: { not_pulled: number; pulled: number; ignored: number };
+  /** Issues waiting for a decision (or the ignored ones when `showIgnored`), at most 100. */
+  issues?: JiraIssueView[];
+  showIgnored?: boolean;
   /** Step 2: the Jira project was chosen; its own issue types and the proposal. */
   mapping: null | { connection: string; site: string; key: string; jiraName: string; types: { id: string; name: string }[]; proposal: { initiative: string | null; epic: string | null; task: string | null } };
   /** The admin pressed Change, or there is no link yet: show step 1. */
@@ -56,10 +68,13 @@ type Props = {
   linkAction?: (formData: FormData) => void | Promise<void>;
   unlinkAction?: (formData: FormData) => void | Promise<void>;
   readAction?: (formData: FormData) => void | Promise<void>;
+  /** Creators and admins decide what comes in. */
+  canEdit?: boolean;
+  reviewAction?: (formData: FormData) => void | Promise<void>;
 };
 
 /** Settings → Integrations → Jira (issue #67, slice A). Presentational: the page supplies the data and the actions. */
-export function JiraConnectionsView({ connections, canAdmin, configured, status, connectAction, disconnectAction, projectLinks = [], jiraOptions = [], basePath = "/settings/integrations/jira", linkAction, unlinkAction, readAction }: Props) {
+export function JiraConnectionsView({ connections, canAdmin, configured, status, connectAction, disconnectAction, projectLinks = [], jiraOptions = [], basePath = "/settings/integrations/jira", linkAction, unlinkAction, readAction, canEdit = false, reviewAction }: Props) {
   const needsSignIn = connections.some((c) => c.state === "reconnect_needed");
   return (
     <div className="page-narrow">
@@ -166,6 +181,49 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
                     </form>
                   )}
                 </div>
+              )}
+              {p.link && !p.mapping && p.issues && p.issues.length > 0 && (
+                <form action={reviewAction} className="stack" aria-label={`${p.showIgnored ? "Ignored" : "New"} Jira issues of ${p.projectName}`}>
+                  <input type="hidden" name="project" value={p.projectId} />
+                  <table className="table">
+                    <caption className="visually-hidden">{p.showIgnored ? "Ignored" : "Not pulled in"} Jira issues of {p.projectName}</caption>
+                    <thead><tr>{canEdit && <th scope="col"><span className="visually-hidden">Select</span></th>}<th scope="col">Issue</th><th scope="col">Title</th><th scope="col">Type</th><th scope="col">Status</th></tr></thead>
+                    <tbody>
+                      {p.issues.map((i) => (
+                        <tr key={i.id}>
+                          {canEdit && <td><input type="checkbox" name="ids" value={i.id} aria-label={`Select ${i.key}`} /></td>}
+                          <td>{i.url ? <a href={i.url} target="_blank" rel="noreferrer">{i.key}</a> : i.key}</td>
+                          <td>{i.title}</td>
+                          <td>{i.type ?? "-"}</td>
+                          <td>{i.status ?? "-"}{i.category ? ` (${i.category === "new" ? "to do" : i.category === "indeterminate" ? "in progress" : "done"})` : ""}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {canEdit && reviewAction && (
+                    <div className="row-form">
+                      {!p.showIgnored && (
+                        <>
+                          <div className="field">
+                            <label htmlFor={`mode-${p.projectId}`}>Who owns what comes in</label>
+                            <select id={`mode-${p.projectId}`} name="mode" defaultValue="follow">
+                              <option value="follow">Read only (follows the Jira issue)</option>
+                              <option value="push">Product Velocity takes ownership</option>
+                            </select>
+                          </div>
+                          <button className="btn btn-primary" type="submit" name="intent" value="pull">Pull in selected</button>
+                          <button className="btn" type="submit" name="intent" value="ignore">Ignore selected</button>
+                        </>
+                      )}
+                      {p.showIgnored && <button className="btn" type="submit" name="intent" value="restore">Bring back selected</button>}
+                    </div>
+                  )}
+                </form>
+              )}
+              {p.link && !p.mapping && p.counts && (
+                <p>
+                  {p.showIgnored ? <a href={basePath}>Back to the new issues</a> : p.counts.ignored > 0 ? <a href={`${basePath}?ignored=${p.projectId}`}>Show {p.counts.ignored} ignored</a> : null}
+                </p>
               )}
               {!p.link && !p.mapping && !canAdmin && <p className="muted">Not linked to Jira.</p>}
               {canAdmin && p.link && !p.choosing && !p.mapping && (
