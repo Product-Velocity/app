@@ -165,6 +165,26 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "jira_issues",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_issues set title = 'pwned', pull_state = 'ignored' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_issues where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_issues (tenant_id, connection_id, project_id, site_id, jira_project_key, issue_key, title) select tenant_id, connection_id, project_id, site_id, jira_project_key, 'SEED-99', 'evil' from public.jira_issues where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.jira_issues set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "jira_reads",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_reads set total = 0 where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_reads where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_reads (link_id, tenant_id) select link_id, tenant_id from public.jira_reads where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.jira_reads set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "jira_credentials",
     tenantColumn: "tenant_id",
     private: true,
