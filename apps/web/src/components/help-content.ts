@@ -314,20 +314,19 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
     notes: ["Use Developer mode in a normal chat for writing. Deep research mode only reads.", "The ChatGPT connector is new: if a step looks different in your plan or region, look for \"custom connector\" or \"MCP server\" and tell your admin which step failed."],
   },
   gemini: {
-    title: "Gemini (Gemini CLI and Code Assist agent mode)",
+    title: "Gemini (Gemini app, Gemini CLI)",
     setup: guide("gemini").steps,
-    snippet: guide("gemini").snippet?.code,
     onboarding: [ONBOARD_ADMIN, ONBOARD_CONNECT, ONBOARD_PROFILE, "Optional: install the Gemini extension in the repository's connectors/gemini folder; it adds a context file with the house rules and the flow names. Replace the placeholder address with your deployment's before installing.", REVOKE],
     features: {
       head: ["What", "How to start in Gemini", "Result"],
       rows: [
-        ["Sign in", "/mcp auth product-velocity (opens a browser to sign in and approve)", "A connection you can revoke"],
+        ["Sign in (Gemini CLI only)", "/mcp auth product-velocity (opens a browser to sign in and approve). In the Gemini app you sign in when you add the connector", "A connection you can revoke"],
         ["Check the connection", "/mcp lists the server, its tools and its prompts", "Product Velocity listed as connected"],
         ["Discovery, PRD, company profile", "Type / and pick write_discovery, write_prd or research_company, or ask in plain words", "The same documents and AI drafts as with Claude"],
         ["Several initiatives, changes, files", "Ask in plain words, as with Claude", "A dry run or diff first, then written after you agree"],
       ],
     },
-    notes: ["The consumer Gemini app has no custom connectors today. Other Gemini clients that support remote MCP with OAuth can use the same connector URL.", "Tool definitions are simplified for Gemini; Product Velocity still checks every value on the server.", "The Gemini connector is new: report what does not work so it can be fixed."],
+    notes: ["In the Gemini app choose Cloud MCP, not Local MCP. Other Gemini clients that support remote MCP with OAuth can use the same connector URL.", "Tool definitions are simplified for Gemini; Product Velocity still checks every value on the server.", "The Gemini connector is new: report what does not work so it can be fixed."],
   },
 };
 

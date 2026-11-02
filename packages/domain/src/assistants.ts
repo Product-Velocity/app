@@ -71,17 +71,17 @@ export function setupGuides(url: string): SetupGuide[] {
     },
     {
       assistant: "gemini",
-      title: "Gemini (Gemini CLI and Code Assist agent mode)",
+      title: "Gemini (Gemini app, Gemini CLI)",
       steps: [
-        "Copy the connector URL. Gemini has no screen for custom connectors yet, so this one is added once from the terminal with the command below.",
-        "Run gemini, then /mcp auth product-velocity. A browser opens: sign in, pick one or several workspaces and approve.",
-        "The Product Velocity prompts (write_prd, write_discovery, review_group, research_company) appear when you type /.",
+        "Copy the connector URL.",
+        "In Gemini open Connected Apps, choose Custom, pick Cloud MCP (a remotely hosted server via URL), paste the URL and choose Next.",
+        "Sign in, pick one or several workspaces and approve.",
       ],
+      note: "Gemini shows a warning that custom apps are not reviewed by Google; that is expected. Terminal users can instead run the optional command below, then /mcp auth product-velocity in Gemini CLI.",
       snippet: {
-        label: "Gemini CLI (one command)",
-        code: `gemini mcp add --transport http product-velocity ${url}\n\n# or in settings.json:\n{\n  "mcpServers": {\n    "product-velocity": { "httpUrl": "${url}" }\n  }\n}`,
+        label: "Gemini CLI (optional)",
+        code: `gemini mcp add --transport http product-velocity ${url}`,
       },
-      note: "The consumer Gemini app has no custom MCP connectors today. Other Gemini clients that speak remote MCP with OAuth (the Gemini API's MCP support, Agent Development Kit) can use the same URL.",
     },
   ];
 }

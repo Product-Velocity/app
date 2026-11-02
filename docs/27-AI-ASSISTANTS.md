@@ -7,7 +7,7 @@ Status: 2026-10-30, request #230 (R-112 "MCP client neutrality"). **Built, not d
 
 | | Claude | ChatGPT | Gemini |
 |---|---|---|---|
-| Connect | paste the URL in Settings, Connectors (`claude mcp add` optional) | Developer mode, custom connector (OAuth) | `gemini mcp add --transport http`, then `/mcp auth` |
+| Connect | paste the URL in Settings, Connectors (`claude mcp add` optional) | Developer mode, custom connector (OAuth) | Connected Apps, Custom, Cloud MCP, paste the URL (`gemini mcp add` for the CLI) |
 | Prompts | MCP prompts | not supported: tool `get_playbook` returns the same text | MCP prompts (slash commands) |
 | Tools | all | all + `search`, `fetch` (deep research, company knowledge; read-only; bare JSON, data note inside the text) | all, schemas simplified (`anyOf`, `const`, `additionalProperties`, `format`, `pattern`, `default` removed or turned into an enum or the first branch; the server still validates strictly) |
 

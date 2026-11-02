@@ -28,10 +28,11 @@ describe("assistant info and setup guides", () => {
     const g = setupGuides("https://pv.example/mcp");
     expect(g.map((x) => x.assistant)).toEqual(["claude", "chatgpt", "gemini"]);
     expect(g.find((x) => x.assistant === "claude")!.snippet!.code).toContain("https://pv.example/mcp");
-    expect(g.find((x) => x.assistant === "gemini")!.snippet!.code).toContain("\"httpUrl\": \"https://pv.example/mcp\"");
-    expect(g.find((x) => x.assistant === "chatgpt")!.steps.join(" ")).toMatch(/Developer mode/);
+    expect(g.find((x) => x.assistant === "gemini")!.snippet!.code).toContain("https://pv.example/mcp");
+    expect(g.find((x) => x.assistant === "gemini")!.steps.join(" ")).toMatch(/Cloud MCP/);    expect(g.find((x) => x.assistant === "chatgpt")!.steps.join(" ")).toMatch(/Developer mode/);
     // the URL is the start: every guide's first step is to copy it, and Claude's steps need no terminal
     for (const x of g) expect(x.steps[0]).toMatch(/connector URL/);
     expect(g.find((x) => x.assistant === "claude")!.steps.join(" ")).not.toMatch(/claude mcp|terminal/i);
+    expect(g.find((x) => x.assistant === "gemini")!.steps.join(" ")).not.toMatch(/gemini mcp|terminal/i);
   });
 });
