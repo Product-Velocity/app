@@ -149,9 +149,10 @@ export function conflictsOf(c: ItemCompare | undefined): SyncConflict[] {
 }
 
 /** Remembers, as hashes, that both sides agree: after an "in step" comparison, a send or a pull. */
-async function recordBase(ctx: SyncCtx, itemId: string, hashes: Partial<Record<SyncTextField | BoardKey, string>>) {
+async function recordBase(ctx: SyncCtx, itemId: string, hashes: Partial<Record<SyncTextField | BoardKey | "assignees", string>>): Promise<boolean> {
   const { error } = await ctx.adminUi.rpc("github_record_base", { p_actor: ctx.actor, p_item: itemId, p_base: hashes });
   if (error) console.error(JSON.stringify({ github: "record-base", error: error.message.slice(0, 200) }));
+  return !error;
 }
 
 /** Steps 1 to 4: check GitHub, apply what it owns, compare the texts, work out the send. Writes nothing to GitHub; an initiative found in step has its base recorded. */
@@ -261,6 +262,7 @@ export async function confirmSync(ctx: SyncCtx, ids: string[], choices: SyncChoi
   // both sides now say the same: remember it, from the texts as they stand in Product Velocity after the pull
   const done = sent.filter((s) => s.outcome === "created" || s.outcome === "updated" || (s.outcome === "unchanged" && !pvWins.has(s.id))).map((s) => s.id);
   const settled = [...new Set([...done, ...[...pulledIds].filter((id) => skipSend.has(id) === false && !sent.some((s) => s.id === id && (s.outcome === "error" || s.outcome === "blocked" || s.outcome === "missing")))])];
+  const unrecorded = new Set<string>();
   if (settled.length > 0) {
     const { data } = await ctx.supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis").eq("tenant_id", ctx.tenantId).in("id", settled);
     for (const r of (data ?? []) as PvRow[]) {
@@ -269,8 +271,10 @@ export async function confirmSync(ctx: SyncCtx, ids: string[], choices: SyncChoi
       const board = Object.fromEntries((pre.compares.get(r.id)?.board ?? []).map((b) => [b.key, choices.find((x) => x.itemId === r.id && x.field === b.key)?.choice === "github" || b.pvText === "" ? b.ghHash : b.pvHash]));
       const asgCmp = pre.compares.get(r.id)?.assignees;
       const assignees = agreedAssignees.get(r.id) ?? (asgCmp && asgCmp.cmp.verdict === "none" ? asgCmp.cmp.pvHash : undefined); // only what both sides now agree on is remembered
-      await recordBase(ctx, r.id, { ...(Object.fromEntries(SYNC_TEXT_FIELDS.map((f) => [f, pvHash(f, t[f])])) as Record<SyncTextField, string>), ...board, ...(assignees ? { assignees } : {}) });
+      if (!(await recordBase(ctx, r.id, { ...(Object.fromEntries(SYNC_TEXT_FIELDS.map((f) => [f, pvHash(f, t[f])])) as Record<SyncTextField, string>), ...board, ...(assignees ? { assignees } : {}) }))) unrecorded.add(r.id);
     }
   }
+  // both sides are in step but the agreement could not be saved: say so, or the same difference silently comes back at the next sync
+  for (const res of results) if (unrecorded.has(res.id) && res.outcome !== "error") res.message = [res.message, "Both sides now match, but this could not be remembered, so it may be offered again at the next sync. Tell Ashu if it keeps happening."].filter(Boolean).join(" ");
   return { ok: true, results, taken };
 }
