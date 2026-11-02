@@ -36,6 +36,31 @@ export function applyBoardLines(received: readonly ReceiveItem[], lines: Record<
   });
 }
 
+export type UpdateFilter = "all" | "updates" | "none";
+
+/** True when the sync found something for this initiative: received from GitHub, a conflict, assignees or an issue to send. */
+export function hasUpdates(r: ReceiveItem, plan: readonly PlanItem[]): boolean {
+  if (r.received.length > 0 || (r.conflicts?.length ?? 0) > 0 || r.assigneeSend) return true;
+  if (r.readOnly) return false;
+  const p = plan.find((x) => x.id === r.id);
+  return p?.action === "create" || p?.action === "update";
+}
+
+/** An initiative that could not be checked: never hidden by the filters, so a problem is not mistaken for "no updates". */
+export const isProblem = (r: ReceiveItem) => r.status === "error" || r.status === "missing";
+
+/** The counts for the two filters (problems are in neither) and the cards the chosen filter shows. */
+export function filterByUpdates(received: readonly ReceiveItem[], plan: readonly PlanItem[], filter: UpdateFilter): { withUpdates: number; withoutUpdates: number; shown: ReceiveItem[] } {
+  let withUpdates = 0, withoutUpdates = 0;
+  const shown = received.filter((r) => {
+    if (isProblem(r)) return true;
+    const u = hasUpdates(r, plan);
+    if (u) withUpdates++; else withoutUpdates++;
+    return filter === "all" || (filter === "updates") === u;
+  });
+  return { withUpdates, withoutUpdates, shown };
+}
+
 /** The counter shown while the confirmed changes are written, one initiative at a time. */
 export const writingLabel = (done: number, total: number) => `Writing ${Math.min(done, total)}/${total}`;
 
