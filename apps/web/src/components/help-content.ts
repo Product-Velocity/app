@@ -279,6 +279,7 @@ const ONBOARD_ADMIN = "Admin, once: account menu, Connect an AI assistant, switc
 const ONBOARD_CONNECT = "Each person: paste the connector URL into the assistant (above), sign in to Product Velocity, choose one or several workspaces and approve on the consent screen. With several workspaces the agent asks which one you mean.";
 const ONBOARD_PROFILE = "First task: ask for the company profile (research_company). It shows what it found section by section and saves a draft; an admin confirms it under Company profile.";
 const ONBOARD_BROWSER = "Sign-in may open in a different browser from the one you started in. A passkey only works in the browser or device where you created it, so if it stalls, choose password instead (or copy the sign-in address into your usual browser).";
+const ONBOARD_LOCALHOST = "Gemini may end on a browser page that says it cannot connect to \"localhost\". That page belongs to Gemini's own return step, which only listens in the browser it started from. If Gemini now lists Product Velocity as connected, you can close it.";
 const REVOKE = "You can revoke a connection at any time under Connect an AI assistant; it stops on the next call. Admins see every connection (names and counts, no content).";
 
 export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> = {
@@ -317,7 +318,7 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
   gemini: {
     title: "Gemini (Gemini app, Gemini CLI)",
     setup: guide("gemini").steps,
-    onboarding: [ONBOARD_ADMIN, ONBOARD_CONNECT, ONBOARD_BROWSER, ONBOARD_PROFILE, "Optional: install the Gemini extension in the repository's connectors/gemini folder; it adds a context file with the house rules and the flow names. Replace the placeholder address with your deployment's before installing.", REVOKE],
+    onboarding: [ONBOARD_ADMIN, ONBOARD_CONNECT, ONBOARD_BROWSER, ONBOARD_LOCALHOST, ONBOARD_PROFILE, "Optional: install the Gemini extension in the repository's connectors/gemini folder; it adds a context file with the house rules and the flow names. Replace the placeholder address with your deployment's before installing.", REVOKE],
     features: {
       head: ["What", "How to start in Gemini", "Result"],
       rows: [
