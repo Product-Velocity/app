@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { checkBoard, confirmSync, startSync } from "@/app/(workspace)/portfolio/sync";
+import { checkBoard, confirmSync, startSync, syncTrackers } from "@/app/(workspace)/portfolio/sync";
 import type { SyncApi } from "@/lib/tracker/sync-router";
 import { NewItemsStep, type NewItemsConfig } from "./new-items";
 import { applyBoardLines, boardCandidates, chunk, CHECK_CHUNK, dropWritten, failedCard, filterByUpdates, mergeChecked, replaceResults, writeAll, writingLabel, type UpdateFilter, type WrittenOne } from "./sync-progress";
@@ -11,7 +11,7 @@ import type { PlanItem, PushItemResult, ReceiveItem, ReceiveStatus, SyncChoice, 
 /** The three server calls the dialog makes, routed to the sync engine of each initiative's tracker; a test page passes fakes. */
 const REAL_API: SyncApi = { start: startSync, board: checkBoard, confirm: confirmSync };
 
-type Props = { ids: string[]; api?: SyncApi; /** Given, the sync opens with the issues that are new in the tracker (when there are any): decide on them first. */ newItems?: NewItemsConfig; onClose: () => void; onDone?: () => void; /** Texts taken over from GitHub (already saved): the grid shows them and makes them one undo step. */ onTakenOver?: (changes: TakenOver[]) => void };
+type Props = { ids: string[]; api?: SyncApi; /** Given, the sync opens with the issues that are new in the tracker (when there are any): decide on them first. */ newItems?: NewItemsConfig | NewItemsConfig[]; /** Which trackers the initiatives belong to; decides which new-items steps show. The real thing asks the server. */ trackersOf?: (ids: string[]) => Promise<string[]>; onClose: () => void; onDone?: () => void; /** Texts taken over from GitHub (already saved): the grid shows them and makes them one undo step. */ onTakenOver?: (changes: TakenOver[]) => void };
 type Phase =
   | { kind: "loading" }
   /** `written`: what was already written before a stop (GitHub changed for one initiative), kept for the final list. */
@@ -66,13 +66,26 @@ const WHY: Record<SyncConflict["kind"], (label: string, where?: "board") => stri
  * Sync with GitHub: checks GitHub first (and applies what GitHub owns), then shows exactly what would be written to GitHub and waits
  * for the person to confirm. Nothing is sent before that. With nothing to send it still shows what the check found, and offers Done.
  */
-export function GithubPushDialog({ ids, api = REAL_API, newItems, onClose, onDone, onTakenOver }: Props) {
+export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = syncTrackers, onClose, onDone, onTakenOver }: Props) {
   const titleId = useId();
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   // step 1 (new issues in the tracker) comes first when asked for; the check of the initiatives already runs underneath it
-  const [step, setStep] = useState<"new" | "sync">(newItems?.canEdit ? "new" : "sync");
-  const continueToSync = useCallback(() => setStep("sync"), []);
+  const configs = useMemo(() => (newItems ? (Array.isArray(newItems) ? newItems : [newItems]) : []), [newItems]);
+  const step = configs.some((c) => c.canEdit) ? "new" : "sync";
+  // the new-items steps to show: one per tracker the selected initiatives belong to (null while that is being found out)
+  const [queue, setQueue] = useState<NewItemsConfig[] | null>(null);
+  const [trackerNames, setTrackerNames] = useState("GitHub");
+  useEffect(() => {
+    if (!configs.some((c) => c.canEdit)) return;
+    let live = true;
+    trackersOf(ids).then(
+      (ts) => { if (!live) return; const mine = configs.filter((c) => ts.includes(c.tracker) && c.canEdit); setQueue(mine); if (ts.length) setTrackerNames(ts.map((t) => (t === "jira" ? "Jira" : t === "gitlab" ? "GitLab" : "GitHub")).join(" and ")); },
+      () => { if (live) setQueue(configs.filter((c) => c.tracker === "github" && c.canEdit)); }, // cannot tell: behave as before (GitHub)
+    );
+    return () => { live = false; };
+  }, [configs, ids, trackersOf]);
+  const continueToSync = useCallback(() => setQueue((q) => (q ?? []).slice(1)), []);
   // keyboard focus goes into the window when it opens (a stable callback, so typing in the filters does not pull it back)
   const focusDialog = useCallback((el: HTMLDivElement | null) => { el?.focus(); }, []);
   const confirmRef = useRef<HTMLButtonElement>(null);
@@ -197,12 +210,14 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, onClose, onDon
     if (o.kind === "result") finish(o.taken);
   };
 
-  if (step === "new" && newItems) {
+  // the steps are over when none is left to show (derived, so there is no state to keep in step)
+  if (step === "new" && configs.length > 0 && (queue === null || queue.length > 0)) {
+    const current = queue?.[0];
     return (
       <div className="dialog-backdrop" onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
         <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={focusDialog}>
-          <h2 id={titleId}>Sync with GitHub: new issues first</h2>
-          <NewItemsStep config={newItems} onContinue={continueToSync} onCancel={onClose} {...(onDone ? { onChanged: onDone } : {})} />
+          <h2 id={titleId}>Sync with {current?.name ?? trackerNames}: new issues first</h2>
+          {current ? <NewItemsStep key={current.tracker} config={current} onContinue={continueToSync} onCancel={onClose} {...(onDone ? { onChanged: onDone } : {})} /> : <p role="status" className="muted">Checking for new issues…</p>}
         </div>
       </div>
     );
@@ -211,9 +226,9 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, onClose, onDon
   return (
     <div className="dialog-backdrop" onKeyDown={(e) => { if (e.key === "Escape" && phase.kind !== "writing") { e.stopPropagation(); onClose(); } }}>
       <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
-        <h2 id={titleId}>{phase.kind === "done" ? "Synced with GitHub" : "Sync with GitHub"}</h2>
+        <h2 id={titleId}>{phase.kind === "done" ? `Synced with ${trackerNames}` : `Sync with ${trackerNames}`}</h2>
 
-        {phase.kind === "loading" && <p role="status">Checking GitHub… {progress ? `${progress.done} of ${progress.total}` : ""}</p>}
+        {phase.kind === "loading" && <p role="status">Checking {trackerNames}… {progress ? `${progress.done} of ${progress.total}` : ""}</p>}
         {phase.kind === "writing" && (
           <>
             <p role="status" aria-live="polite"><strong>{writingLabel(phase.done, phase.total)}</strong> · keep this window open.</p>

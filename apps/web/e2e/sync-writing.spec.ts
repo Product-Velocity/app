@@ -129,4 +129,30 @@ test.describe("Sync with GitHub: new issues first", () => {
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByTestId("calls")).toHaveText("");
   });
+
+  test("for a Jira project the step is Jira's: keys, the Jira project filter, no rules, each issue into its own linked project", async ({ page }) => {
+    await openNew(page, "jira");
+    const dlg = page.getByRole("dialog", { name: "Sync with Jira: new issues first" });
+    await expect(dlg.getByText(/Jira has 3 issues that are not an initiative yet/)).toBeVisible();
+    await expect(dlg.getByText("Nothing is written to Jira in this step.")).toBeVisible();
+    await expect(dlg.getByRole("heading", { name: "New issues in Jira" })).toBeVisible();
+    await expect(dlg.getByRole("link", { name: "PLAT-12" })).toHaveAttribute("href", "https://acme.example/browse/PLAT-12");
+    await expect(dlg.getByText("sub-issue of PLAT-12")).toBeVisible();
+    await expect(dlg.getByLabel("Jira project")).toBeVisible();
+    await expect(dlg.getByText("Each issue goes into the project that is linked to its Jira project.")).toBeVisible();
+    await expect(dlg.getByRole("heading", { name: "Rules for future arrivals" })).toHaveCount(0);
+    await expect(dlg.getByText(/GitHub/)).toHaveCount(0);
+    await dlg.getByRole("checkbox", { name: "Select PLAT-12 Checkout redesign" }).check();
+    await dlg.getByRole("button", { name: /^Pull in 1/ }).click();
+    await expect(dlg.getByRole("status").filter({ hasText: "Pulled 1 issue into the projects linked to their Jira projects" })).toBeVisible();
+    await dlg.getByRole("button", { name: "Continue to sync" }).click();
+    await expect(page.getByRole("dialog", { name: "Sync with Jira" })).toBeVisible();
+  });
+
+  test("accessibility: the Jira step has no WCAG A/AA violations", async ({ page }) => {
+    await openNew(page, "jira");
+    await expect(page.getByRole("dialog", { name: "Sync with Jira: new issues first" }).getByRole("heading", { name: "New issues in Jira" })).toBeVisible();
+    const results = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length} (${v.help})`)).toEqual([]);
+  });
 });

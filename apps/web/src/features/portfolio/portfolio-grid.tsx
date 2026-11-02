@@ -67,7 +67,7 @@ type GridProps = {
   /** Signed-in person, for "me" in filters. */
   me?: string | null;
   /** The first step of Sync with GitHub: issues that are new in the tracker. */
-  newItems?: NewItemsConfig;
+  newItems?: NewItemsConfig | NewItemsConfig[];
   /** Page title and other server-rendered pieces of the page head. */
   headLeft?: ReactNode;
   headRight?: ReactNode;

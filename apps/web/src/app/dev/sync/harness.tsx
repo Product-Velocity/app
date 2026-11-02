@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { GithubPushDialog } from "@/features/portfolio/github-push-dialog";
 import { MemoryIncomingSource } from "@/features/incoming/memory-source";
+import { GITHUB_TERMS, JIRA_TERMS, type IncomingIssue } from "@/features/incoming/types";
 import type { NewItemsConfig } from "@/features/portfolio/new-items";
 import type { SyncApi } from "@/lib/tracker/sync-router";
 import type { PlanItem, ReceiveItem } from "@/lib/github/push-types";
@@ -42,9 +43,11 @@ function fakeApi(scenario: string, onCall: (code: string) => void): SyncApi {
  * `new=hang` has some and the read of GitHub never answers; no value leaves the step out.
  */
 function fakeNewItems(which: string | undefined, onRefresh: () => void): NewItemsConfig | undefined {
-  if (which !== "0" && which !== "1" && which !== "err" && which !== "hang") return undefined;
-  const source = new MemoryIncomingSource(which === "0" ? [] : undefined);
+  if (which !== "0" && which !== "1" && which !== "err" && which !== "hang" && which !== "jira") return undefined;
+  const jira = which === "jira";
+  const source = new MemoryIncomingSource(which === "0" ? [] : jira ? JIRA_SAMPLE : undefined);
   return {
+    tracker: jira ? "jira" : "github", name: jira ? "Jira" : "GitHub", terms: jira ? JIRA_TERMS : GITHUB_TERMS,
     source,
     refresh: async () => { onRefresh(); if (which === "err") throw new Error("GitHub could not be read"); if (which === "hang") await new Promise(() => undefined); },
     count: async () => (await source.load()).issues.filter((i) => i.pullState === "not_pulled").length,
@@ -53,6 +56,13 @@ function fakeNewItems(which: string | undefined, onRefresh: () => void): NewItem
     canAdmin: true,
   };
 }
+
+/** Jira-shaped issues for the test page: the project key is the group, the number is the key's number. */
+const JIRA_SAMPLE: IncomingIssue[] = [
+  { id: "j1", repo: "PLAT", number: 12, title: "Checkout redesign", issueType: "Epic", labels: ["payments"], state: "open", parentNumber: null, url: "https://acme.example/browse/PLAT-12", pullState: "not_pulled", ignoreReason: null, itemId: null, updatedAt: "2026-11-01T10:00:00Z" },
+  { id: "j2", repo: "PLAT", number: 15, title: "Fix typo on the invoice page", issueType: "Task", labels: [], state: "open", parentNumber: 12, url: "https://acme.example/browse/PLAT-15", pullState: "not_pulled", ignoreReason: null, itemId: null, updatedAt: "2026-10-30T10:00:00Z" },
+  { id: "j3", repo: "GROW", number: 4, title: "Referral programme", issueType: "Epic", labels: [], state: "open", parentNumber: null, url: "https://acme.example/browse/GROW-4", pullState: "not_pulled", ignoreReason: null, itemId: null, updatedAt: "2026-10-28T10:00:00Z" },
+];
 
 export function SyncHarness({ scenario, newIssues }: { scenario: string; newIssues?: string }) {
   const [open, setOpen] = useState(false);
@@ -65,7 +75,7 @@ export function SyncHarness({ scenario, newIssues }: { scenario: string; newIssu
       <button type="button" className="btn" onClick={() => setOpen(true)}>Open sync</button>
       <output data-testid="calls">{calls.join(",")}</output>
       <output data-testid="refreshes">{refreshes}</output>
-      {open && <GithubPushDialog ids={IDS} api={api} newItems={newItems} onClose={() => setOpen(false)} />}
+      {open && <GithubPushDialog ids={IDS} api={api} newItems={newItems} trackersOf={async () => [newItems?.tracker ?? "github"]} onClose={() => setOpen(false)} />}
     </main></div>
   );
 }

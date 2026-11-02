@@ -36,3 +36,21 @@ export interface IncomingSource {
 }
 
 export const RULE_LABEL: Record<IncomingRule["kind"], string> = { type: "Issue type is", label: "Label is", repo: "Repository is" };
+
+/** The words and shapes that differ per tracker, so one list serves GitHub and Jira (the data layer maps each tracker's issues into IncomingIssue). */
+export type IncomingTerms = {
+  /** "GitHub" or "Jira". */
+  tracker: string;
+  /** What the group filter is called: "Repository" or "Jira project". */
+  groupLabel: string;
+  /** How an issue is written: "#12" or "PLAT-12". */
+  ref: (i: Pick<IncomingIssue, "repo" | "number">) => string;
+  /** Saved rules for new arrivals exist for this tracker. */
+  rules: boolean;
+  /** Each issue goes into the project linked to its own tracker project; the person does not choose. */
+  projectFixed: boolean;
+  /** Shown when nothing has been read yet. */
+  emptyHint: string;
+};
+export const GITHUB_TERMS: IncomingTerms = { tracker: "GitHub", groupLabel: "Repository", ref: (i) => `#${i.number}`, rules: true, projectFixed: false, emptyHint: "No issues yet. Press “Check GitHub now” above to read them." };
+export const JIRA_TERMS: IncomingTerms = { tracker: "Jira", groupLabel: "Jira project", ref: (i) => `${i.repo}-${i.number}`, rules: false, projectFixed: true, emptyHint: "No issues yet. Press “Read Jira now” under Settings, Integrations, Jira." };
