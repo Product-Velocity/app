@@ -257,3 +257,32 @@ test("the percent view makes every bar 100%, says the share in each segment and 
   await page.waitForSelector(".reports");
   await expect(page.getByRole("button", { name: "Share of each bar (%)" })).toHaveAttribute("aria-pressed", "true");
 });
+
+test("a list of reports sits next to the title; Overview opens first and Roadmap Health keeps the filters and the address", async ({ page }) => {
+  await open(page);
+  const list = page.getByRole("group", { name: "Report" });
+  await expect(list.getByRole("button")).toHaveText(["Overview", "Roadmap Health"]);
+  await expect(list.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('section[aria-label="Initiatives by Product Manager and Phase"]')).toBeVisible();
+  await list.getByRole("button", { name: "Roadmap Health" }).click();
+  await expect(page).toHaveURL(/report=health/);
+  await expect(page.locator('section[aria-label="Initiatives by Product Manager and Phase"]')).toHaveCount(0);
+  // statuses cycle Active, On hold, Cancelled from item 0; archived items stay out by default
+  const active = live.filter((x) => x.i % 3 === 0).length;
+  await expect(page.locator('[data-kpi="active"]')).toHaveText(String(active));
+  await expect(page.locator('section[aria-label="Active initiatives"] tbody tr')).toHaveCount(active);
+  // a filter set here stays when going back to Overview, and Overview has no report in the address
+  await page.getByRole("button", { name: /^Initiative Phase/ }).click();
+  await page.getByRole("checkbox", { name: "Build" }).check();
+  await list.getByRole("button", { name: "Overview" }).click();
+  await expect(page).not.toHaveURL(/report=/);
+  await expect(rowsShown(page)).toHaveCount(live.filter((x) => x.phase === "Build").length);
+});
+
+test("Roadmap Health opens straight from its address and has no accessibility violations", async ({ page }) => {
+  await open(page, "&report=health");
+  await expect(page.getByRole("group", { name: "Report" }).getByRole("button", { name: "Roadmap Health" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('section[aria-label="Aging by phase"]')).toBeVisible();
+  const results = await new AxeBuilder({ page }).include(".reports").analyze();
+  expect(results.violations).toEqual([]);
+});
