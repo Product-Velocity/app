@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlanItem, PushItemResult, ReceiveItem } from "@/lib/github/push-types";
-import { applyBoardLines, boardCandidates, chunk, CHECK_CHUNK, dropWritten, failedCard, mergeChecked, unsentResult, replaceResults, writeAll, writingLabel, type WrittenOne } from "./sync-progress";
+import { applyBoardLines, boardCandidates, chunk, CHECK_CHUNK, dropWritten, failedCard, filterByUpdates, mergeChecked, unsentResult, replaceResults, writeAll, writingLabel, type WrittenOne } from "./sync-progress";
 
 const card = (id: string, status: ReceiveItem["status"] = "in_step"): ReceiveItem => ({ id, code: id.toUpperCase(), name: id, status, received: [], issueNumber: 1, issueUrl: null });
 const plan = (id: string): PlanItem => ({ id, action: "unchanged" }) as PlanItem;
@@ -106,5 +106,28 @@ describe("writing the confirmed changes one by one", () => {
     const take = (id: string): WrittenOne => ({ kind: "result", results: [], taken: [{ itemId: id, code: id, field: "summary", before: "x", after: "y" }] });
     const r = await run(["a", "b"], { a: take("a"), b: take("b") });
     expect(r.taken.map((t) => t.itemId)).toEqual(["a", "b"]);
+  });
+});
+
+describe("filters for items with and without updates", () => {
+  const withLine: ReceiveItem = { ...card("a", "received"), received: [{ label: "Build Status", from: "Not started", to: "Done" }] };
+  const quiet = card("b");
+  const toSend = card("c");
+  const readOnlyToSend = { ...card("d"), readOnly: true };
+  const broken = card("e", "error");
+  const received = [withLine, quiet, toSend, readOnlyToSend, broken];
+  const send = [{ id: "c", action: "update" }, { id: "d", action: "update" }, { id: "b", action: "unchanged" }] as PlanItem[];
+
+  it("counts items with updates and without, leaving problems out of both", () => {
+    const r = filterByUpdates(received, send, "all");
+    expect(r.withUpdates).toBe(2);
+    expect(r.withoutUpdates).toBe(2);
+    expect(r.shown).toHaveLength(5);
+  });
+  it("shows only items with updates, and always the ones that could not be checked", () => {
+    expect(filterByUpdates(received, send, "updates").shown.map((x) => x.id)).toEqual(["a", "c", "e"]);
+  });
+  it("shows only items with no updates, and always the ones that could not be checked", () => {
+    expect(filterByUpdates(received, send, "none").shown.map((x) => x.id)).toEqual(["b", "d", "e"]);
   });
 });

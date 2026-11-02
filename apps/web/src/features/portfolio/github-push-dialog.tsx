@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { checkBoard, confirmSync, startSync } from "@/app/(workspace)/portfolio/sync";
 import type { SyncApi } from "@/lib/tracker/sync-router";
 import { NewItemsStep, type NewItemsConfig } from "./new-items";
-import { applyBoardLines, boardCandidates, chunk, CHECK_CHUNK, dropWritten, failedCard, mergeChecked, replaceResults, writeAll, writingLabel, type WrittenOne } from "./sync-progress";
+import { applyBoardLines, boardCandidates, chunk, CHECK_CHUNK, dropWritten, failedCard, filterByUpdates, mergeChecked, replaceResults, writeAll, writingLabel, type UpdateFilter, type WrittenOne } from "./sync-progress";
 import type { PlanItem, PushItemResult, ReceiveItem, ReceiveStatus, SyncChoice, SyncConflict, SyncPreview, TakenOver } from "@/lib/github/push-types";
 
 /** The three server calls the dialog makes, routed to the sync engine of each initiative's tracker; a test page passes fakes. */
@@ -77,6 +77,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, onClose, onDon
   const focusDialog = useCallback((el: HTMLDivElement | null) => { el?.focus(); }, []);
   const confirmRef = useRef<HTMLButtonElement>(null);
   const [choices, setChoices] = useState<Record<string, "pv" | "github">>({});
+  const [updateFilter, setUpdateFilter] = useState<UpdateFilter>("all");
 
   const [progress, setProgress] = useState<{ done: number; total: number } | null>({ done: 0, total: ids.length });
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -135,6 +136,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, onClose, onDon
   const actionIds = preview ? ids.filter((id) => sendIds.has(id) || conflicts.some((x) => x.r.id === id)) : [];
   const needsConfirm = actionIds.length > 0;
   const checking = progress !== null;
+  const counts = filterByUpdates(preview?.received ?? [], preview?.send ?? [], updateFilter);
 
   // "Keep GitHub for all" skips the values that cannot be taken over from the board: those stay Keep Product Velocity
   const choose = (all: "pv" | "github") => setChoices(Object.fromEntries(conflicts.map(({ r, c }) => [keyOf(r.id, c.field), c.githubPullable === false ? "pv" : c.pvPossible === false ? "github" : all])));
@@ -240,8 +242,14 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, onClose, onDon
             )}
             {phase.written && phase.written.length > 0 && <p role="status" className="muted">Already written: {phase.written.map((w) => w.code).filter((c, i, a) => c && a.indexOf(c) === i).join(", ") || `${phase.written.length}`}. The ones below are still open.</p>}
             {progress && <p role="status" aria-live="polite" className="muted">Checked {progress.done} of {progress.total}…</p>}
+            <div className="push-filters" role="group" aria-label="Filter the results">
+              {([["all", `All (${phase.received.length})`], ["updates", `Items with updates (${counts.withUpdates})`], ["none", `Items with no updates (${counts.withoutUpdates})`]] as const).map(([k, text]) => (
+                <button key={k} type="button" className={`chip${updateFilter === k ? " chip-on" : ""}`} aria-pressed={updateFilter === k} onClick={() => setUpdateFilter(k)}>{text}</button>
+              ))}
+            </div>
+            {counts.shown.length === 0 && !checking && <p role="status" className="muted">Nothing to show for this filter.</p>}
             <ul className="push-list">
-              {phase.received.map((r) => {
+              {counts.shown.map((r) => {
                 const p = r.readOnly ? undefined : phase.send.find((x) => x.id === r.id);
                 const sendsIssue = p?.action === "create" || p?.action === "update";
                 const sends = sendsIssue || !!r.assigneeSend;
