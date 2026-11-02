@@ -155,6 +155,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "jira_project_links",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_project_links set jira_project_key = 'EVIL' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_project_links where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_project_links (tenant_id, project_id, connection_id, site_id, jira_project_id, jira_project_key, jira_project_name, initiative_type_id, initiative_type_name) select tenant_id, project_id, connection_id, 'x', '1', 'EVIL', 'x', '1', 'Epic' from public.jira_project_links where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.jira_project_links set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "jira_credentials",
     tenantColumn: "tenant_id",
     private: true,
