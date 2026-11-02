@@ -136,13 +136,14 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
         </div>
       </div>
 
-      <h2>Set it up</h2>
+      <h2>Set it up: start with this URL</h2>
       <div className="card stack">
         <CopyUrl url={url} />
         {setupGuides(url).map((g) => (
           <div key={g.assistant}>
             <p><strong>{g.title}</strong></p>
             <ol>{g.steps.map((t) => <li key={t}>{t}</li>)}</ol>
+            {g.snippet && <p className="muted">{g.snippet.label}:</p>}
             {g.snippet && <pre className="code-block" aria-label={`${g.snippet.label} command`}>{g.snippet.code}</pre>}
             {g.note && <p className="muted">{g.note}</p>}
           </div>

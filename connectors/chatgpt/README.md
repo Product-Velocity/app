@@ -3,10 +3,9 @@
 ChatGPT connects to Product Velocity as a custom MCP connector (Developer mode). Replace the address with your deployment's.
 
 ## Connect
-1. In ChatGPT open Settings, then Apps and Connectors, then Advanced settings, and turn on Developer mode. On Business, Enterprise and Edu plans a ChatGPT workspace admin has to allow custom connectors first.
-2. Back under Connectors choose Create, name it Product Velocity, paste the connector URL as the MCP server URL and choose OAuth as the authentication.
-3. Connect, sign in to Product Velocity, choose one or several workspaces and approve on the consent screen.
-4. In a new chat, add the Product Velocity connector from the + menu (Developer mode). ChatGPT asks you to confirm each tool call that changes something.
+1. Copy the connector URL.
+2. In ChatGPT open Settings, then Apps and Connectors, turn on Developer mode under Advanced settings, choose Create, name it Product Velocity, paste the URL and choose OAuth. On Business, Enterprise and Edu plans a ChatGPT workspace admin must allow custom connectors first.
+3. Choose Connect, sign in, pick one or several workspaces and approve. In a new chat add Product Velocity from the + menu.
 
 ChatGPT cannot start prompts, so say "use the write_prd playbook" or simply describe what you want; the assistant reads the same instructions through the get_playbook tool. Deep research and company knowledge use the search and fetch tools, which are read-only.
 
