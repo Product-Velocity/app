@@ -9,16 +9,6 @@ export const maxDuration = 60;
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] as string);
 
-async function probe(token: string, label: string, url: string) {
-  try {
-    const res = await fetch(url, { headers: { authorization: `Bearer ${token}`, accept: "application/json" } });
-    const text = await res.text();
-    return { label, status: res.status, body: text.slice(0, 1500) };
-  } catch (e) {
-    return { label, status: 0, body: e instanceof Error ? e.message : String(e) };
-  }
-}
-
 async function getJson<T>(token: string, url: string): Promise<{ status: number; data: T | null }> {
   try {
     const res = await fetch(url, { headers: { authorization: `Bearer ${token}`, accept: "application/json" } });
@@ -26,6 +16,20 @@ async function getJson<T>(token: string, url: string): Promise<{ status: number;
   } catch {
     return { status: 0, data: null };
   }
+}
+
+async function projects(token: string, jira: string) {
+  const r = await getJson<{ total?: number; isLast?: boolean; values: { key: string; projectTypeKey: string; style?: string }[] }>(token, `${jira}/project/search?maxResults=50`);
+  const body = r.data ? `total ${r.data.total}, isLast ${String(r.data.isLast)}\n` + r.data.values.map((v) => `${v.key} | ${v.projectTypeKey} | ${v.style ?? "-"}`).join("\n") : "no answer";
+  return { label: "Projects (key | type | style)", status: r.status, body };
+}
+
+/** Only what the spike needs to know; no email, name, account id or avatar is printed. */
+async function whoAmI(token: string, jira: string) {
+  const me = await getJson<{ accountType?: string; active?: boolean; timeZone?: string; emailAddress?: string }>(token, `${jira}/myself`);
+  const d = me.data;
+  const body = d ? `account type: ${d.accountType}\nactive: ${String(d.active)}\ntime zone: ${d.timeZone}\nemail returned: ${d.emailAddress ? "yes" : "no"}` : "no answer";
+  return { label: "Who am I", status: me.status, body };
 }
 
 /** Spike J2: the field catalog, the hierarchy levels, the status categories and how a sample search pages. */
@@ -84,18 +88,13 @@ export async function GET(request: NextRequest) {
     return page(`<p>${esc(e instanceof Error ? e.message : "Token exchange failed")}</p>`, 502);
   }
   const results = [{ label: "Token", status: 200, body: `scopes granted: ${token.scope}\nrefresh token: ${token.refresh_token ? "yes" : "NO"}\nexpires in: ${token.expires_in}s` }];
-  const sites = await probe(token.access_token, "Accessible sites", `${API_BASE}/oauth/token/accessible-resources`);
-  results.push(sites);
-  let cloudId = "";
-  try {
-    cloudId = (JSON.parse(sites.body) as { id: string }[])[0]?.id ?? "";
-  } catch {
-    /* the body is shown anyway */
-  }
+  const sites = await getJson<{ id: string; scopes: string[] }[]>(token.access_token, `${API_BASE}/oauth/token/accessible-resources`);
+  results.push({ label: "Accessible sites", status: sites.status, body: (sites.data ?? []).map((x, i) => `site ${i + 1}: scopes ${x.scopes.join(", ")}`).join("\n") || "none" });
+  const cloudId = sites.data?.[0]?.id ?? "";
   if (cloudId) {
     const jira = `${API_BASE}/ex/jira/${cloudId}/rest/api/3`;
-    results.push(await probe(token.access_token, "Who am I", `${jira}/myself`));
-    results.push(await probe(token.access_token, "Projects", `${jira}/project/search?maxResults=5`));
+    results.push(await whoAmI(token.access_token, jira));
+    results.push(await projects(token.access_token, jira));
     results.push(await catalogProbe(token.access_token, jira));
   }
   const html = results.map((r) => `<h3>${esc(r.label)} <small>(${r.status})</small></h3><pre style="white-space:pre-wrap;background:#f4f4f6;padding:8px">${esc(r.body)}</pre>`).join("");

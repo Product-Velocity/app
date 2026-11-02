@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFieldCatalog, fieldKind, fieldRole, hierarchyLevels, proposeInitiativeLevel, tallyFill, type JiraField, type JiraIssueType } from "./field-catalog";
+import { buildFieldCatalog, fieldHasValue, fieldKind, fieldRole, hierarchyLevels, proposeInitiativeLevel, tallyFill, type JiraField, type JiraIssueType } from "./field-catalog";
 
 const fields: JiraField[] = [
   { id: "summary", name: "Summary", custom: false, schema: { type: "string", system: "summary" } },
@@ -65,5 +65,26 @@ describe("hierarchy", () => {
     expect(proposeInitiativeLevel(hierarchyLevels(standard))).toEqual({ source: "standard", types: ["Epic"] });
     const premium = [...standard, { id: "5", name: "Initiative", hierarchyLevel: 2 }, { id: "6", name: "Theme", hierarchyLevel: 3 }];
     expect(proposeInitiativeLevel(hierarchyLevels(premium))).toEqual({ source: "above-epic", types: ["Initiative"] });
+  });
+});
+
+describe("containers Jira always returns", () => {
+  it("does not count an unused comment, vote, watcher, progress or restriction object as filled", () => {
+    expect(fieldHasValue("comment", { comments: [], total: 0, maxResults: 1048576, startAt: 0 })).toBe(false);
+    expect(fieldHasValue("comment", { comments: [{}], total: 1 })).toBe(true);
+    expect(fieldHasValue("votes", { votes: 0, hasVoted: false })).toBe(false);
+    expect(fieldHasValue("watches", { watchCount: 1, isWatching: true })).toBe(true);
+    expect(fieldHasValue("progress", { progress: 0, total: 0 })).toBe(false);
+    expect(fieldHasValue("issuerestriction", { issuerestrictions: {}, shouldDisplay: true })).toBe(false);
+    expect(fieldHasValue("timetracking", {})).toBe(false);
+    expect(fieldHasValue("workratio", -1)).toBe(false);
+    expect(fieldHasValue("customfield_10056", 0)).toBe(true);
+  });
+  it("lists an issue type name once when several projects have their own type of that name", () => {
+    const types: JiraIssueType[] = [
+      { id: "1", name: "Epic", hierarchyLevel: 1 },
+      { id: "9", name: "Epic", hierarchyLevel: 1 },
+    ];
+    expect(proposeInitiativeLevel(hierarchyLevels(types))).toEqual({ source: "standard", types: ["Epic"] });
   });
 });

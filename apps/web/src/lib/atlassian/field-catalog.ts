@@ -72,10 +72,29 @@ export function fieldRole(f: JiraField): FieldRole | null {
   return null;
 }
 
-function hasValue(v: unknown): boolean {
+type Obj = Record<string, unknown>;
+const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/**
+ * Jira always returns some fields as containers even when nobody used them (comments with total 0, votes 0,
+ * workratio -1), so "is there an object" says nothing. Seen on a real site in spike J2.
+ */
+const EMPTY_CONTAINER: Record<string, (v: Obj) => boolean> = {
+  comment: (v) => !(Number(v.total) > 0),
+  worklog: (v) => !(Number(v.total) > 0),
+  progress: (v) => !(Number(v.total) > 0),
+  aggregateprogress: (v) => !(Number(v.total) > 0),
+  votes: (v) => !(Number(v.votes) > 0),
+  watches: (v) => !(Number(v.watchCount) > 0),
+  issuerestriction: (v) => !isObj(v.issuerestrictions) || Object.keys(v.issuerestrictions).length === 0,
+};
+
+export function fieldHasValue(id: string, v: unknown): boolean {
   if (v === null || v === undefined) return false;
   if (typeof v === "string") return v.trim() !== "";
   if (Array.isArray(v)) return v.length > 0;
+  if (id === "workratio") return v !== -1;
+  if (isObj(v)) return !(EMPTY_CONTAINER[id]?.(v) ?? false) && Object.keys(v).length > 0;
   return true;
 }
 
@@ -83,7 +102,7 @@ function hasValue(v: unknown): boolean {
 export function tallyFill(issues: JiraIssueSample[]): Map<string, number> {
   const counts = new Map<string, number>();
   for (const issue of issues) {
-    for (const [id, v] of Object.entries(issue.fields ?? {})) if (hasValue(v)) counts.set(id, (counts.get(id) ?? 0) + 1);
+    for (const [id, v] of Object.entries(issue.fields ?? {})) if (fieldHasValue(id, v)) counts.set(id, (counts.get(id) ?? 0) + 1);
   }
   return counts;
 }
@@ -109,7 +128,8 @@ export type HierarchyLevel = { level: number; types: string[] };
 export function hierarchyLevels(types: JiraIssueType[]): HierarchyLevel[] {
   const byLevel = new Map<number, string[]>();
   for (const t of types) byLevel.set(t.hierarchyLevel, [...(byLevel.get(t.hierarchyLevel) ?? []), t.name]);
-  return [...byLevel.entries()].sort((a, b) => b[0] - a[0]).map(([level, names]) => ({ level, types: names.sort() }));
+  // Team-managed projects each have their own "Epic" type, so one name can appear several times on a site.
+  return [...byLevel.entries()].sort((a, b) => b[0] - a[0]).map(([level, names]) => ({ level, types: [...new Set(names)].sort() }));
 }
 
 /** The proposal for "what is an initiative here" (docs/16 mapping table). The user confirms it per connection. */
