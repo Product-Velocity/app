@@ -149,3 +149,18 @@ describe("Help guide: AI agents (request #230)", () => {
     expect(text(AGENT_ADVANTAGES)).toMatch(/AI draft/);
   });
 });
+
+describe("Help guide: Reports", () => {
+  it("lists both reports in the order of the report list, Overview first", async () => {
+    const { REPORTS } = await import("../features/reports/report-env");
+    const { REPORTS_LIST } = await import("./help-content");
+    expect(REPORTS_LIST.rows.map((r) => r[0])).toEqual(REPORTS.map((r) => r.label));
+  });
+  it("defines Roadmap Health with the agreed terms and every health value it counts", async () => {
+    const { ROADMAP_HEALTH_DEFINITIONS } = await import("./help-content");
+    const { NEEDS_ATTENTION } = await import("@pv/domain");
+    const text = ROADMAP_HEALTH_DEFINITIONS.rows.map((r) => r.join(" ")).join(" ");
+    for (const h of NEEDS_ATTENTION) expect(text).toContain(h);
+    for (const t of ["Active", "Days in current phase", "Age", "No date", "Completed delivery duration", "Several teams"]) expect(ROADMAP_HEALTH_DEFINITIONS.rows.map((r) => r[0]).join("|")).toContain(t);
+  });
+});

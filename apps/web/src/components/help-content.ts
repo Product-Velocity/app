@@ -238,6 +238,37 @@ export const LIFECYCLE_NOTES = [
 ];
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
+// Reports (issue #233 Overview, request R-129 / issue #287 Roadmap Health): what each report answers and how its numbers are defined.
+
+export const REPORTS_INTRO = "The Reports tab has a list of reports next to its title; Overview opens first. The filters, the click-to-filter pills and the two toggles (archived, AI drafts) are shared, so they stay when you switch reports, and the address keeps the report and the filters so you can share a link.";
+
+export const REPORTS_LIST: Table = {
+  head: ["Report", "What it answers", "What is on it"],
+  rows: [
+    ["Overview", "What is the shape of the roadmap, and how long does work take to reach the market?", "Donuts by Status, Phase, Focus Area, Team and MoSCoW; stacked bars by Product Manager, Team, Group, Status and Health; Impact and Effort; Time to Market; the timeline; the matching initiatives; CSV export"],
+    ["Roadmap Health", "Where does active work pile up, how long has it been in its phase, and what is Blocked, At Risk or Delayed?", "Counts of active, Blocked, At Risk and Delayed initiatives; active initiatives by Team and Phase and by Team and Health; median days in the current phase for each phase; the 10 initiatives that have waited longest; completed delivery duration; every active initiative with days in phase and age"],
+  ],
+};
+
+export const ROADMAP_HEALTH_DEFINITIONS: Table = {
+  head: ["Term", "How it is counted"],
+  rows: [
+    ["Active", "Initiative Status is Active. On hold, Completed and Cancelled are not counted (completed ones feed only the completed delivery duration)."],
+    ["Blocked, At Risk, Delayed", "The Health column of active initiatives, counted separately. Click one to filter every chart and the list to it; click again to remove it."],
+    ["Days in current phase", "Today minus the start date of the phase the initiative is in (Start Discovery, Start Definition, Start Building, Start Beta-Test, Start Experiment, Start Roll-Out), else the day Phase Changed At."],
+    ["Age", "Today minus Start Date, else Planned Start."],
+    ["No date", "An initiative whose date is empty, invalid or in the future is not left out silently: the summary counts them and the list says No date."],
+    ["Completed delivery duration", "The Time to Market card, for completed initiatives only: G2M Date (actual) minus the earlier of Start Discovery and Start Date, with the median, the distribution, the number counted and the number excluded."],
+    ["Several teams", "An initiative with several teams counts once per team, so team bars can add up to more than the number of initiatives. The chart says so."],
+  ],
+};
+
+export const ROADMAP_HEALTH_NOTES = [
+  "Roadmap Health only reads: nothing is edited from it, and it uses no commercial field (value, confidence, customers, decisions, key results).",
+  "Each chart has Show as table with the same numbers, and health always has a text label, never colour alone.",
+];
+
+// ---------------------------------------------------------------------------------------------------------------------------------------
 // AI agents (request #230): what they are for in the Product Velocity flow, and how to set up and use Claude, ChatGPT and Gemini.
 // The setup steps come from the same list as the Connect an AI assistant page (setupGuides), so the two cannot disagree.
 
