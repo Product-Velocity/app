@@ -61,8 +61,24 @@ Run by Ashu on a free Jira Cloud site (two team-managed projects: one software, 
 
 **Next:** J4 (write: create an epic, set parent, labels, custom field, transition; ADF description), J3 (webhooks) and the refresh exchange. Writing to the sandbox Jira needs Ashu's go-ahead per run.
 
-### Atlassian J4 (issue #257): write test, built 2026-11-02, results to be recorded after Ashu runs it
-`/spikes/atlassian` has a separate "Run the write test" link (own consent, admin only). In the first Jira **software** project (never a Product Discovery project) it creates a test Epic with an ADF description (bold line, bullet list) and a label, creates a child Story through the `parent` field, updates the Epic's labels and description, sets Story points on the child, lists and performs one workflow transition, reads everything back and compares the description structure, then **always deletes both issues** (child first) and lists any issue it could not delete. It also runs the refresh-token exchange (J1 leftover). To record: whether create, parent link, label, custom field, transition and delete are allowed with `write:jira-work`; whether Jira keeps the ADF structure; which transitions the workflow offers; whether the refresh token rotates.
+### Atlassian J4 (issue #257): write test, results of 2026-11-02
+Run by Ashu on the same free Jira Cloud site through `/spikes/atlassian` ("Run the write test"). Everything worked and both test issues were deleted again.
+
+**Writing works with `write:jira-work`:**
+- Create an Epic with an ADF description (bold line, bullet list) and a label: 201.
+- Create a child under the Epic with the `parent` field (no "Epic Link" needed): 201. Read back, the child's parent is the Epic.
+- Update labels and description: 204. **The ADF structure came back identical** (paragraph, bold text, bullet list). Richer content (tables, macros, mentions) was not tried, so the "PV rewrites the description only when the PV text changed" rule in `docs/16` stays.
+- Set Story points through the custom field id found in the field list: 204.
+- Workflow: the transitions list works and a transition is accepted (204). Delete of both issues: 204, child first.
+
+**What it means for the build**
+- **Issue types differ per project.** This project has Epic, Feature, Task and Subtask, **no "Story"**. The test fell back to the first level-0 type (Feature). The Jira project mapping must list the types of that project and let the user choose, as `docs/16` already says; never assume a name.
+- **Status names mean nothing; categories do.** The workflow offers transitions Idea (category "new"), To Do, In Progress and Testing (all category "indeterminate", so a status called "To Do" sits in the In Progress category) and Done. Combined with J2 (11 statuses in 3 categories): map and report **by status category**, and never by name.
+- **Transitions are global here** (every status is reachable from every status). Other workflows restrict this: Jira refuses with an error, which the sync must show per issue, not retry.
+- **The refresh token rotates.** Each refresh returned a new refresh token. The real connection must store the new one in the same step as it uses the new access token, serialise refreshes per connection (two parallel refreshes with the same token would lose the connection), and treat a refused refresh as "reconnect needed". Lifetime and inactivity expiry of refresh tokens: confirm in Atlassian's documentation.
+- **Admin-only guard works** for an admin; the non-admin refusal was not clicked through.
+
+**Still open:** J3 (webhooks), J5 (Bitbucket), J6 (paging over 100 issues, rate limits), J7 (Confluence needs the product on the site), J8 write half (Product Discovery ideas), levels above Epic, Sign in with Atlassian.
 
 ### S6 Vercel (documented)
 - Function duration with Fluid compute: Hobby 300 s default and maximum; Pro and Enterprise 300 s default, 800 s maximum (one page mentions an extended 1,800 s). Memory 2 GB Hobby, 4 GB Pro.
