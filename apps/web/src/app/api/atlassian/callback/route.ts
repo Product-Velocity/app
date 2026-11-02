@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { buildFieldCatalog, hierarchyLevels, proposeInitiativeLevel, type JiraField, type JiraIssueSample, type JiraIssueType } from "@/lib/atlassian/field-catalog";
-import { API_BASE, atlassianConfig, exchangeCode } from "@/lib/atlassian/oauth";
+import { isWorkspaceAdmin } from "@/lib/atlassian/guard";
+import { API_BASE, atlassianConfig, exchangeCode, refreshAccessToken } from "@/lib/atlassian/oauth";
+import { runWriteTest, type JiraCall } from "@/lib/atlassian/write-test";
 import { createClient } from "@/lib/supabase/server";
 
 // THROWAWAY (spike J1, #257). Exchanges the code, runs read-only probes and prints what Atlassian answered.
@@ -64,6 +66,28 @@ async function catalogProbe(token: string, jira: string) {
   return { label: "Field catalog, hierarchy and paging (J2)", status: fields.status, body: lines.join("\n") };
 }
 
+/** Spike J4: the write test in the first software project. Never touches a Jira Product Discovery project. */
+async function writeSpike(token: string, cloudId: string) {
+  const base = `${API_BASE}/ex/jira/${cloudId}/rest/api/3`;
+  const call: JiraCall = async (method, path, body) => {
+    const res = await fetch(`${base}${path}`, { method, headers: { authorization: `Bearer ${token}`, accept: "application/json", ...(body ? { "content-type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    const text = await res.text();
+    let json: unknown = {};
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch {
+      /* not JSON */
+    }
+    return { status: res.status, json };
+  };
+  const list = await call("GET", "/project/search?maxResults=50");
+  const values = (list.json as { values?: { key: string; projectTypeKey: string }[] }).values ?? [];
+  const project = values.find((v) => v.projectTypeKey === "software");
+  if (!project) return [{ label: "Write test (J4)", status: list.status, body: "No software project on this site; nothing was written." }];
+  const steps = await runWriteTest(call, project.key);
+  return [{ label: `Write test (J4) in project ${project.key}`, status: 200, body: steps.map((s) => `[${s.status}] ${s.label}\n    ${s.note.replace(/\n/g, "\n    ")}`).join("\n") }];
+}
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const page = (body: string, status = 200) =>
@@ -74,6 +98,8 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return NextResponse.redirect(new URL("/sign-in?next=/spikes/atlassian", request.url));
+
+  if (!(await isWorkspaceAdmin(supabase, auth.user.id))) return page("<p>Admins only.</p>", 403);
 
   const state = url.searchParams.get("state");
   const cookie = request.cookies.get("atl_state")?.value;
@@ -91,7 +117,18 @@ export async function GET(request: NextRequest) {
   const sites = await getJson<{ id: string; scopes: string[] }[]>(token.access_token, `${API_BASE}/oauth/token/accessible-resources`);
   results.push({ label: "Accessible sites", status: sites.status, body: (sites.data ?? []).map((x, i) => `site ${i + 1}: scopes ${x.scopes.join(", ")}`).join("\n") || "none" });
   const cloudId = sites.data?.[0]?.id ?? "";
-  if (cloudId) {
+  const writeMode = request.cookies.get("atl_mode")?.value === "write";
+  if (cloudId && writeMode) {
+    results.push(...(await writeSpike(token.access_token, cloudId)));
+    if (token.refresh_token) {
+      try {
+        const r = await refreshAccessToken(cfg, token.refresh_token);
+        results.push({ label: "Refresh token exchange", status: r.status, body: `new access token: ${r.hasAccessToken ? "yes" : "no"}\nnew refresh token returned (rotation): ${r.rotated ? "yes" : "no"}` });
+      } catch (e) {
+        results.push({ label: "Refresh token exchange", status: 0, body: e instanceof Error ? e.message : "failed" });
+      }
+    }
+  } else if (cloudId) {
     const jira = `${API_BASE}/ex/jira/${cloudId}/rest/api/3`;
     results.push(await whoAmI(token.access_token, jira));
     results.push(await projects(token.access_token, jira));
@@ -100,5 +137,6 @@ export async function GET(request: NextRequest) {
   const html = results.map((r) => `<h3>${esc(r.label)} <small>(${r.status})</small></h3><pre style="white-space:pre-wrap;background:#f4f4f6;padding:8px">${esc(r.body)}</pre>`).join("");
   const res = page(html);
   res.cookies.delete("atl_state");
+  res.cookies.delete("atl_mode");
   return res;
 }

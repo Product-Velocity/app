@@ -40,3 +40,14 @@ export async function exchangeCode(cfg: AtlassianConfig, code: string): Promise<
   if (!res.ok) throw new Error(`Token exchange failed (${res.status})`);
   return (await res.json()) as TokenResult;
 }
+
+/** Spike J1 leftover: does the refresh token work, and does it rotate (a new one comes back)? */
+export async function refreshAccessToken(cfg: AtlassianConfig, refreshToken: string): Promise<{ status: number; rotated: boolean; hasAccessToken: boolean }> {
+  const res = await fetch(TOKEN_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ grant_type: "refresh_token", client_id: cfg.clientId, client_secret: cfg.clientSecret, refresh_token: refreshToken }),
+  });
+  const j = (res.ok ? await res.json() : {}) as { access_token?: string; refresh_token?: string };
+  return { status: res.status, rotated: Boolean(j.refresh_token && j.refresh_token !== refreshToken), hasAccessToken: Boolean(j.access_token) };
+}

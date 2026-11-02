@@ -61,6 +61,9 @@ Run by Ashu on a free Jira Cloud site (two team-managed projects: one software, 
 
 **Next:** J4 (write: create an epic, set parent, labels, custom field, transition; ADF description), J3 (webhooks) and the refresh exchange. Writing to the sandbox Jira needs Ashu's go-ahead per run.
 
+### Atlassian J4 (issue #257): write test, built 2026-11-02, results to be recorded after Ashu runs it
+`/spikes/atlassian` has a separate "Run the write test" link (own consent, admin only). In the first Jira **software** project (never a Product Discovery project) it creates a test Epic with an ADF description (bold line, bullet list) and a label, creates a child Story through the `parent` field, updates the Epic's labels and description, sets Story points on the child, lists and performs one workflow transition, reads everything back and compares the description structure, then **always deletes both issues** (child first) and lists any issue it could not delete. It also runs the refresh-token exchange (J1 leftover). To record: whether create, parent link, label, custom field, transition and delete are allowed with `write:jira-work`; whether Jira keeps the ADF structure; which transitions the workflow offers; whether the refresh token rotates.
+
 ### S6 Vercel (documented)
 - Function duration with Fluid compute: Hobby 300 s default and maximum; Pro and Enterprise 300 s default, 800 s maximum (one page mentions an extended 1,800 s). Memory 2 GB Hobby, 4 GB Pro.
 - Cron: Hobby 2 jobs per project, once a day; Pro 40 jobs, per-minute; Enterprise 100 (limits table, one footnote not visible).
