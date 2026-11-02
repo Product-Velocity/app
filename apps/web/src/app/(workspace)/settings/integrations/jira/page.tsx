@@ -1,8 +1,9 @@
-import { JiraConnectionsView, type JiraConnectionView, type JiraProjectInfo, type JiraProjectLinkView, type JiraProjectOption } from "@/components/jira-connections-view";
+import { JiraConnectionsView, type JiraConnectionView, type JiraIssueView, type JiraProjectInfo, type JiraProjectLinkView, type JiraProjectOption } from "@/components/jira-connections-view";
 import { jiraConfigured, jiraGet, jiraProjectDetail, type JiraConnectionRow } from "@/lib/atlassian/server";
 import { proposeTypeMapping } from "@/lib/atlassian/type-mapping";
 import { requireWorkspace } from "@/lib/session";
-import { disconnectJira, linkJiraProject, readJiraNow, startJiraConnection, unlinkJiraProject } from "./actions";
+import { canEditItems } from "@pv/domain";
+import { disconnectJira, linkJiraProject, readJiraNow, reviewJiraIssues, startJiraConnection, unlinkJiraProject } from "./actions";
 
 export const metadata = { title: "Jira · Product Velocity" };
 export const maxDuration = 30;
@@ -10,10 +11,11 @@ export const maxDuration = 30;
 type ProjectSearch = { values: { key: string; name: string; projectTypeKey: string; style?: string }[] };
 type LinkRow = { id: string; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_name: string; epic_type_name: string | null; task_type_name: string | null };
 
-export default async function JiraSettingsPage({ searchParams }: { searchParams: Promise<{ status?: string; pv?: string; jp?: string }> }) {
-  const { status, pv, jp } = await searchParams;
+export default async function JiraSettingsPage({ searchParams }: { searchParams: Promise<{ status?: string; pv?: string; jp?: string; ignored?: string }> }) {
+  const { status, pv, jp, ignored } = await searchParams;
   const { supabase, active } = await requireWorkspace("/settings/integrations/jira");
   const canAdmin = active.role === "admin" && !active.platform;
+  const canEdit = canEditItems(active.role) && !active.platform;
   const { data } = await supabase.from("jira_connections").select("id, tenant_id, sites, scopes, state, connected_by, state_changed_at, created_at").eq("tenant_id", active.tenantId).neq("state", "disconnected").order("created_at");
   const rows = (data ?? []) as JiraConnectionRow[];
   const configured = jiraConfigured();
@@ -50,6 +52,18 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
     supabase.from("jira_reads").select("link_id, read_at, total, added, changed, truncated, error").eq("tenant_id", active.tenantId),
     supabase.rpc("jira_issue_counts"),
   ]);
+  // the issues waiting for a decision (or the ignored ones of the project the person opened), at most 100 per project
+  const linkedProjects = ((linkRows ?? []) as LinkRow[]).map((l) => l.project_id);
+  const issueRows = new Map<string, JiraIssueView[]>();
+  await Promise.all(
+    linkedProjects.map(async (project) => {
+      const { data: rowsOfProject } = await supabase
+        .from("jira_issues").select("id, issue_key, title, issue_type, status, status_category, html_url, hierarchy_level")
+        .eq("tenant_id", active.tenantId).eq("project_id", project).eq("pull_state", ignored === project ? "ignored" : "not_pulled")
+        .order("jira_updated_at", { ascending: false, nullsFirst: false }).limit(100);
+      issueRows.set(project, ((rowsOfProject ?? []) as { id: string; issue_key: string; title: string; issue_type: string | null; status: string | null; status_category: string | null; html_url: string | null }[]).map((r) => ({ id: r.id, key: r.issue_key, title: r.title, type: r.issue_type, status: r.status, category: r.status_category, url: r.html_url })));
+    }),
+  );
   const reads = new Map(((readRows ?? []) as { link_id: string; read_at: string; total: number; added: number; changed: number; truncated: boolean; error: string | null }[]).map((r) => [r.link_id, r]));
   const counts = new Map<string, { not_pulled: number; pulled: number; ignored: number }>();
   for (const c of (countRows ?? []) as { project_id: string; pull_state: "not_pulled" | "pulled" | "ignored"; n: number }[]) {
@@ -89,6 +103,8 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
       link: l ? { jiraKey: l.jira_project_key, jiraName: l.jira_project_name, siteName: siteName(l.connection_id, l.site_id), initiative: l.initiative_type_name, epic: l.epic_type_name, task: l.task_type_name } : null,
       read: l && reads.get(l.id) ? { readAt: reads.get(l.id)!.read_at, total: reads.get(l.id)!.total, added: reads.get(l.id)!.added, changed: reads.get(l.id)!.changed, truncated: reads.get(l.id)!.truncated, error: reads.get(l.id)!.error } : null,
       counts: counts.get(p.id) ?? { not_pulled: 0, pulled: 0, ignored: 0 },
+      issues: issueRows.get(p.id) ?? [],
+      showIgnored: ignored === p.id,
       mapping: working?.projectId === p.id ? working.mapping : null,
       choosing: !l || pv === p.id,
     };
@@ -97,7 +113,7 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
   return (
     <JiraConnectionsView
       connections={connections} canAdmin={canAdmin} configured={configured} status={status} connectAction={startJiraConnection} disconnectAction={disconnectJira}
-      projectLinks={projectLinks} jiraOptions={options} linkAction={linkJiraProject} unlinkAction={unlinkJiraProject} readAction={readJiraNow}
+      projectLinks={projectLinks} jiraOptions={options} linkAction={linkJiraProject} unlinkAction={unlinkJiraProject} readAction={readJiraNow} canEdit={canEdit} reviewAction={reviewJiraIssues}
     />
   );
 }

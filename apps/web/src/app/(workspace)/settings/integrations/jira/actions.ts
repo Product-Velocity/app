@@ -105,3 +105,37 @@ export async function readJiraNow(form: FormData): Promise<void> {
   revalidatePath(PATH);
   redirect(`${PATH}?status=${status}`);
 }
+
+/**
+ * People decide what comes in from Jira (issue #67 C2a): Pull in (an initiative that follows the issue read only, or that Product Velocity
+ * owns), Ignore, or Bring back. Creators and admins; the database checks the role and that the issue belongs to the project.
+ */
+export async function reviewJiraIssues(form: FormData): Promise<void> {
+  const ctx = await requireWorkspace(PATH);
+  const project = String(form.get("project") ?? "");
+  const intent = String(form.get("intent") ?? "");
+  const mode = String(form.get("mode") ?? "follow") === "push" ? "push" : "follow";
+  const ids = form.getAll("ids").map(String).filter((x) => /^[0-9a-f-]{36}$/.test(x)).slice(0, 200);
+  if (ids.length === 0) redirect(`${PATH}?status=review-none&pv=${project}`);
+  let status = "error";
+  let counts = "";
+  if (intent === "pull") {
+    const { data, error } = await ctx.supabase.rpc("jira_pull_in", { p_ids: ids, p_project: project, p_mode: mode });
+    if (!error) {
+      const rows = (data ?? []) as { ok: boolean }[];
+      const ok = rows.filter((r) => r.ok).length;
+      status = ok === rows.length ? "pulled" : ok > 0 ? "pulled-some" : "pull-failed";
+      counts = `&n=${ok}&m=${rows.length - ok}`;
+    } else if (error.code === "42501") status = "review-denied";
+    else if (error.code === "PV008") status = "link-tracker";
+  } else if (intent === "ignore" || intent === "restore") {
+    const { data, error } = await ctx.supabase.rpc("jira_set_state", { p_ids: ids, p_state: intent === "ignore" ? "ignored" : "not_pulled", p_reason: intent === "ignore" ? "Ignored by a person" : null });
+    if (!error) {
+      const ok = ((data ?? []) as { ok: boolean }[]).filter((r) => r.ok).length;
+      status = intent === "ignore" ? "ignored" : "restored";
+      counts = `&n=${ok}`;
+    } else if (error.code === "42501") status = "review-denied";
+  }
+  revalidatePath(PATH);
+  redirect(`${PATH}?status=${status}${counts}`);
+}
