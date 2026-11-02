@@ -41,6 +41,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
         textSize={textSizeFromMetadata(user.user_metadata)}
         showTrash={canEditItems(active.role)}
         showAudit={active.role === "admin" || !!active.platform}
+        isAdmin={active.role === "admin" && !active.platform}
       />
       {active.platform && <PlatformBanner platform={active.platform} accountName={active.tenantName} />}
       {requested > 0 && (
