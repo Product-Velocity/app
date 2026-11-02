@@ -197,8 +197,8 @@ export type Table = { head: string[]; rows: string[][] };
 export const FLOW_READ: Table = {
   head: ["Step", "What happens", "Where"],
   rows: [
-    ["1. Connect", "Link GitHub (Jira is planned) and choose the repositories", "Account menu: GitHub"],
-    ["2. Choose", "Each issue is Not pulled, Pulled in or Ignored. Rules set the default for new issues. Nothing is pulled in by itself", "Account menu: Incoming issues"],
+    ["1. Connect", "Link GitHub (Jira is planned) and choose the repositories", "Account menu: Workspace admin, GitHub"],
+    ["2. Choose", "Each issue is Not pulled, Pulled in or Ignored. Rules set the default for new issues. Nothing is pulled in by itself", "Account menu: This workspace, Incoming issues"],
     ["3. Pull in", "A pulled-in issue becomes an initiative. Choose Read only (it follows the issue) or Product Velocity owns it. Its tracker columns stay read-only either way", "Incoming issues: Pull in"],
     ["4. Clean up", "Rename, merge duplicates, regroup, rank, add value and owners. Every change can be undone with Ctrl+Z", "Grid, side panel, bulk bar"],
     ["5. Take ownership", "Choose it when you pull in, or later with Take ownership on the GitHub tab (Make read only undoes it). Product Velocity then sends the name, summary, description and hypothesis after a preview and a confirmation. You own phase, status, rank, value and decisions; the tracker owns build status, progress and PR/CI", "GitHub tab of the side panel; column Tracker Ownership"],
@@ -275,7 +275,7 @@ export const AGENT_ADVANTAGES: { title: string; text: string }[] = [
 const guide = (a: "claude" | "chatgpt" | "gemini") => setupGuides("the connector URL shown under Connect an AI assistant").find((g) => g.assistant === a)!;
 
 export type AgentGuide = { title: string; setup: string[]; snippet?: string; onboarding: string[]; features: Table; notes: string[] };
-const ONBOARD_ADMIN = "Admin, once: account menu, Connect an AI assistant, switch on AI assistants for the workspace (they are off by default). Then set the Company website in Workspace settings.";
+const ONBOARD_ADMIN = "Admin, once: account menu, You, Connect an AI assistant, switch on AI assistants for the workspace (they are off by default). Then set the Company website under Workspace admin, Workspace settings.";
 const ONBOARD_CONNECT = "Each person: connect the assistant (above), sign in to Product Velocity, choose one or several workspaces and approve on the consent screen. With several workspaces the agent asks which one you mean.";
 const ONBOARD_PROFILE = "First task: ask for the company profile (research_company). It shows what it found section by section and saves a draft; an admin confirms it under Company profile.";
 const REVOKE = "You can revoke a connection at any time under Connect an AI assistant; it stops on the next call. Admins see every connection (names and counts, no content).";

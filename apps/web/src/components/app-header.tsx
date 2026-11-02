@@ -23,10 +23,12 @@ type Props = {
   showTrash?: boolean;
   /** Admins (and platform admins inside the account) get the Audit log link. */
   showAudit?: boolean;
+  /** Human admins of this workspace get the "Workspace admin" section of the account menu. */
+  isAdmin?: boolean;
 };
 
 /** Top bar following prototype boards 20 and 1: logo, workspace and scope, tabs, account menu. */
-export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmin, email, roleLabel, isApprover, textSize, current, showTrash, showAudit }: Props) {
+export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmin, email, roleLabel, isApprover, textSize, current, showTrash, showAudit, isAdmin }: Props) {
   return (
     <header className="topbar">
       <span className="brand-lockup">
@@ -48,7 +50,7 @@ export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmi
       <TextSizeControl initial={textSize} />
       <HelpMenu />
       <HelpGuide />
-      <AccountMenu email={email} roleLabel={roleLabel} isApprover={isApprover} showTrash={showTrash} showAudit={showAudit} />
+      <AccountMenu email={email} roleLabel={roleLabel} isApprover={isApprover} showTrash={showTrash} showAudit={showAudit} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} />
     </header>
   );
 }
