@@ -67,8 +67,10 @@ describe("github_apply_pull changes only the four allowlisted texts", () => {
 describe("the base recorded after a confirm", () => {
   it("accepts the texts, the four board values and the assignees in one call, as the confirm sends them (a rejected key loses the whole base)", async () => {
     const all = { title: H("1"), summary: H("2"), description: H("3"), hypothesis: H("4"), priority: H("5"), group: H("6"), due: H("7"), size: H("8"), assignees: H("9") };
+    const before = (await link(itemA)).sync_base;
     await record(creator, itemA, all);
     expect((await link(itemA)).sync_base).toMatchObject(all);
+    await db.admin.query("update public.item_github_links set sync_base = $2::jsonb where item_id = $1", [itemA, before === null ? null : JSON.stringify(before)]); // the later tests build on the base as it was
   });
 });
 
