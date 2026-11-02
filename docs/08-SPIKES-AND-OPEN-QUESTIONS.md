@@ -108,3 +108,6 @@ Server side built and tested with stand-ins: client detection, per-client tool l
 
 ## Known inconsistencies in the prototype
 Board 2 shows flat child issues (should be epics + tasks); capacity planner ignores cross-team engineers and agents; Main (board 1) and Portfolio (20) overlap — treat 20 as canonical.
+
+### Gemini app connector, first real test (2026-11-02, Ashu)
+Connected through Connected Apps, Custom, Cloud MCP with the connector URL; it worked and Gemini listed the full feature set. Rough edges: sign-in opened in a different browser from the one started in, so the passkey stalled and password was used (a passkey is bound to its browser or device; Help now says so); one error appeared along the way without stopping the connection (text not captured; ask for it next time). Still to test: writes, prompts as slash commands, revoke.

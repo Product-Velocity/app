@@ -278,13 +278,14 @@ export type AgentGuide = { title: string; setup: string[]; snippet?: string; onb
 const ONBOARD_ADMIN = "Admin, once: account menu, Connect an AI assistant, switch on AI assistants for the workspace (they are off by default). Then set the Company website in Workspace settings.";
 const ONBOARD_CONNECT = "Each person: paste the connector URL into the assistant (above), sign in to Product Velocity, choose one or several workspaces and approve on the consent screen. With several workspaces the agent asks which one you mean.";
 const ONBOARD_PROFILE = "First task: ask for the company profile (research_company). It shows what it found section by section and saves a draft; an admin confirms it under Company profile.";
+const ONBOARD_BROWSER = "Sign-in may open in a different browser from the one you started in. A passkey only works in the browser or device where you created it, so if it stalls, choose password instead (or copy the sign-in address into your usual browser).";
 const REVOKE = "You can revoke a connection at any time under Connect an AI assistant; it stops on the next call. Admins see every connection (names and counts, no content).";
 
 export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> = {
   claude: {
     title: "Claude (claude.ai, the desktop app, Claude Code)",
     setup: guide("claude").steps,
-    onboarding: [ONBOARD_ADMIN, ONBOARD_CONNECT, ONBOARD_PROFILE, "After a Product Velocity update, reconnect it in Claude to pick up new tools and prompts.", REVOKE],
+    onboarding: [ONBOARD_ADMIN, ONBOARD_CONNECT, ONBOARD_BROWSER, ONBOARD_PROFILE, "After a Product Velocity update, reconnect it in Claude to pick up new tools and prompts.", REVOKE],
     features: {
       head: ["What", "How to start in Claude", "Result"],
       rows: [
@@ -301,7 +302,7 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
   chatgpt: {
     title: "ChatGPT",
     setup: guide("chatgpt").steps,
-    onboarding: [ONBOARD_ADMIN, "ChatGPT Business, Enterprise and Edu: a ChatGPT workspace admin must allow custom connectors (Developer mode) before anyone can add one.", ONBOARD_CONNECT, ONBOARD_PROFILE, REVOKE],
+    onboarding: [ONBOARD_ADMIN, "ChatGPT Business, Enterprise and Edu: a ChatGPT workspace admin must allow custom connectors (Developer mode) before anyone can add one.", ONBOARD_CONNECT, ONBOARD_BROWSER, ONBOARD_PROFILE, REVOKE],
     features: {
       head: ["What", "How to start in ChatGPT", "Result"],
       rows: [
@@ -316,7 +317,7 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
   gemini: {
     title: "Gemini (Gemini app, Gemini CLI)",
     setup: guide("gemini").steps,
-    onboarding: [ONBOARD_ADMIN, ONBOARD_CONNECT, ONBOARD_PROFILE, "Optional: install the Gemini extension in the repository's connectors/gemini folder; it adds a context file with the house rules and the flow names. Replace the placeholder address with your deployment's before installing.", REVOKE],
+    onboarding: [ONBOARD_ADMIN, ONBOARD_CONNECT, ONBOARD_BROWSER, ONBOARD_PROFILE, "Optional: install the Gemini extension in the repository's connectors/gemini folder; it adds a context file with the house rules and the flow names. Replace the placeholder address with your deployment's before installing.", REVOKE],
     features: {
       head: ["What", "How to start in Gemini", "Result"],
       rows: [
