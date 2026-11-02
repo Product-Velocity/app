@@ -15,6 +15,9 @@ export const JIRA_NOTICE: Record<string, string> = {
   error: "Something went wrong. Try again.",
   linked: "Linked. The project now uses Jira as its tracker.",
   unlinked: "Unlinked. The project has no tracker again.",
+  read: "Read Jira. The result is under the project.",
+  "read-failed": "Jira could not be read. The reason is under the project.",
+  "read-reconnect": "Jira no longer accepts the saved sign-in. Sign in again.",
   "link-unavailable": "That Jira connection or site is not available. Reload the page and try again.",
   "link-type": "Only software and business Jira projects can be linked for now. Product Discovery ideas come later.",
   "link-types": "Choose three different issue types of that Jira project; the initiative type is required.",
@@ -30,6 +33,9 @@ export type JiraProjectLinkView = {
   projectId: string;
   projectName: string;
   link: { jiraKey: string; jiraName: string; siteName: string; initiative: string; epic: string | null; task: string | null } | null;
+  /** The last read of the linked Jira project (slice C1) and how many issues are in each state. */
+  read?: { readAt: string; total: number; added: number; changed: number; truncated: boolean; error: string | null } | null;
+  counts?: { not_pulled: number; pulled: number; ignored: number };
   /** Step 2: the Jira project was chosen; its own issue types and the proposal. */
   mapping: null | { connection: string; site: string; key: string; jiraName: string; types: { id: string; name: string }[]; proposal: { initiative: string | null; epic: string | null; task: string | null } };
   /** The admin pressed Change, or there is no link yet: show step 1. */
@@ -49,10 +55,11 @@ type Props = {
   basePath?: string;
   linkAction?: (formData: FormData) => void | Promise<void>;
   unlinkAction?: (formData: FormData) => void | Promise<void>;
+  readAction?: (formData: FormData) => void | Promise<void>;
 };
 
 /** Settings → Integrations → Jira (issue #67, slice A). Presentational: the page supplies the data and the actions. */
-export function JiraConnectionsView({ connections, canAdmin, configured, status, connectAction, disconnectAction, projectLinks = [], jiraOptions = [], basePath = "/settings/integrations/jira", linkAction, unlinkAction }: Props) {
+export function JiraConnectionsView({ connections, canAdmin, configured, status, connectAction, disconnectAction, projectLinks = [], jiraOptions = [], basePath = "/settings/integrations/jira", linkAction, unlinkAction, readAction }: Props) {
   const needsSignIn = connections.some((c) => c.state === "reconnect_needed");
   return (
     <div className="page-narrow">
@@ -122,7 +129,7 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
           <h2>Project links</h2>
           <p className="muted">
             A project uses one tracker. Link a project to a Jira project and say which of that Jira project&rsquo;s own issue types are an initiative, an epic and a task; Jira projects differ, so the choice is made per project.
-            Nothing is read from or written to Jira yet.
+            Reading Jira fills a list of open issues; nothing is created in the roadmap and nothing is written to Jira.
           </p>
           {projectLinks.map((p) => (
             <section key={p.projectId} className="stack" aria-labelledby={`pl-${p.projectId}`}>
@@ -133,6 +140,32 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
                   {p.link.epic ? <>, epic is <strong>{p.link.epic}</strong></> : null}
                   {p.link.task ? <>, task is <strong>{p.link.task}</strong></> : null}.
                 </p>
+              )}
+              {p.link && !p.mapping && (
+                <div className="stack">
+                  {p.read ? (
+                    p.read.error ? (
+                      <p>Last read {new Date(p.read.readAt).toLocaleString("en-GB")} failed: {p.read.error}</p>
+                    ) : (
+                      <p>
+                        Last read {new Date(p.read.readAt).toLocaleString("en-GB")}: {p.read.total} open {p.read.total === 1 ? "issue" : "issues"}
+                        {p.read.added || p.read.changed ? ` (${p.read.added} new, ${p.read.changed} changed)` : ""}.
+                        {p.read.truncated ? " More than the first 1,000 exist; only the newest were read." : ""}
+                      </p>
+                    )
+                  ) : (
+                    <p className="muted">Not read yet.</p>
+                  )}
+                  {p.counts && (p.counts.not_pulled + p.counts.pulled + p.counts.ignored > 0) && (
+                    <p className="muted">{p.counts.not_pulled} not pulled in, {p.counts.pulled} pulled in, {p.counts.ignored} ignored. Nothing is in the roadmap until it is pulled in.</p>
+                  )}
+                  {canAdmin && readAction && (
+                    <form action={readAction}>
+                      <input type="hidden" name="project" value={p.projectId} />
+                      <button className="btn" type="submit" aria-label={`Read Jira now for ${p.projectName}`}>Read Jira now</button>
+                    </form>
+                  )}
+                </div>
               )}
               {!p.link && !p.mapping && !canAdmin && <p className="muted">Not linked to Jira.</p>}
               {canAdmin && p.link && !p.choosing && !p.mapping && (

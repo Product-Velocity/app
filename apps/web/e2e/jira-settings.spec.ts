@@ -79,11 +79,29 @@ test.describe("Jira connection settings (issue #67, slice A)", () => {
     });
 
     test("every step has no accessibility violations", async ({ page }) => {
-      for (const url of ["/dev/jira", "/dev/jira?step=types", "/dev/jira?step=change", "/dev/jira?role=viewer"]) {
+      for (const url of ["/dev/jira", "/dev/jira?step=types", "/dev/jira?step=change", "/dev/jira?role=viewer", "/dev/jira?read=failed", "/dev/jira?read=none"]) {
         await page.goto(url);
         const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
         expect(results.violations.map((v) => `${v.id}: ${v.nodes[0]?.html.slice(0, 100)}`), url).toEqual([]);
       }
+    });
+
+    test("reading Jira (slice C1): last read, counts, a failed read and the Read button", async ({ page }) => {
+      await page.goto("/dev/jira");
+      const linked = page.getByRole("region", { name: "Platform" });
+      await expect(linked).toContainText("Last read");
+      await expect(linked).toContainText("42 open issues (3 new, 1 changed)");
+      await expect(linked).toContainText("40 not pulled in, 1 pulled in, 1 ignored. Nothing is in the roadmap until it is pulled in.");
+      await expect(linked.getByRole("button", { name: "Read Jira now for Platform" })).toBeVisible();
+      await page.goto("/dev/jira?read=truncated");
+      await expect(page.getByRole("region", { name: "Platform" })).toContainText("only the newest were read");
+      await page.goto("/dev/jira?read=failed");
+      await expect(page.getByRole("region", { name: "Platform" })).toContainText("failed: Sign in to Jira again.");
+      await page.goto("/dev/jira?read=none");
+      await expect(page.getByRole("region", { name: "Platform" })).toContainText("Not read yet.");
+      await page.goto("/dev/jira?role=viewer");
+      await expect(page.getByRole("region", { name: "Platform" })).toContainText("42 open issues");
+      await expect(page.getByRole("button", { name: /Read Jira/ })).toHaveCount(0);
     });
   });
 });

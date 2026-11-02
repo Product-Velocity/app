@@ -31,6 +31,10 @@ export default async function JiraHarness({ searchParams }: { searchParams: Prom
       projectId: "p1", projectName: "Platform", choosing: step === "change",
       link: { jiraKey: "PLAT", jiraName: "Platform", siteName: "Acme Corp", initiative: "Epic", epic: "Feature", task: "Subtask" },
       mapping: null,
+      read: q.read === "none" ? null
+        : q.read === "failed" ? { readAt: "2026-11-02T22:50:00Z", total: 0, added: 0, changed: 0, truncated: false, error: "Sign in to Jira again." }
+        : { readAt: "2026-11-02T22:50:00Z", total: 42, added: 3, changed: 1, truncated: q.read === "truncated", error: null },
+      counts: { not_pulled: 40, pulled: 1, ignored: 1 },
     },
     {
       projectId: "p2", projectName: "Growth", link: null, choosing: true,
@@ -39,5 +43,5 @@ export default async function JiraHarness({ searchParams }: { searchParams: Prom
   ];
   const jiraOptions = [{ value: "c1|s1|PLAT", label: "PLAT · Platform", group: "Acme Corp" }, { value: "c1|s1|GROW", label: "GROW · Growth", group: "Acme Corp" }];
   return <JiraConnectionsView connections={connections} canAdmin={q.role !== "viewer"} configured={q.configured !== "0"} status={q.status} connectAction={connectNoop} disconnectAction={disconnectNoop}
-    projectLinks={q.state === "none" ? [] : projectLinks} jiraOptions={jiraOptions} basePath="/dev/jira" linkAction={formNoop} unlinkAction={formNoop} />;
+    projectLinks={q.state === "none" ? [] : projectLinks} jiraOptions={jiraOptions} basePath="/dev/jira" linkAction={formNoop} unlinkAction={formNoop} readAction={formNoop} />;
 }

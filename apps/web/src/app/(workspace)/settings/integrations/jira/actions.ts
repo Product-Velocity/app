@@ -5,7 +5,9 @@ import { redirect } from "next/navigation";
 import { buildAuthorizeUrl, atlassianConfig, JIRA_SCOPES } from "@/lib/atlassian/oauth";
 import { signConnectState } from "@/lib/atlassian/connect-state";
 import { keyRing } from "@/lib/atlassian/token-crypto";
+import { readJiraLink } from "@/lib/atlassian/read-jira";
 import { jiraProjectDetail } from "@/lib/atlassian/server";
+import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 import { validateTypeMapping } from "@/lib/atlassian/type-mapping";
 import { requireWorkspace } from "@/lib/session";
 
@@ -81,4 +83,25 @@ export async function unlinkJiraProject(form: FormData): Promise<void> {
   const { error } = await ctx.supabase.rpc("jira_unlink_project", { p_project: String(form.get("project") ?? "") });
   revalidatePath(PATH);
   redirect(`${PATH}?status=${error ? "error" : "unlinked"}`);
+}
+
+/** Reads the open issues of a linked Jira project into the light records. Reads Jira only; nothing is written to Jira. */
+export async function readJiraNow(form: FormData): Promise<void> {
+  const ctx = await adminOnly();
+  if (!ctx) redirect(`${PATH}?status=not-admin`);
+  const project = String(form.get("project") ?? "");
+  const { data: link } = await ctx.supabase.from("jira_project_links").select("id, tenant_id, connection_id, site_id, jira_project_key").eq("project_id", project).eq("tenant_id", ctx.active.tenantId).maybeSingle();
+  const { data: conn } = link ? await ctx.supabase.from("jira_connections").select("sites, state").eq("id", link.connection_id).maybeSingle() : { data: null };
+  const site = (conn?.sites as { id: string; url: string }[] | undefined)?.find((x) => x.id === link?.site_id);
+  let status = "read";
+  if (!link || !conn || conn.state !== "connected" || !site) status = "link-unavailable";
+  else {
+    try {
+      await readJiraLink(link, site.url);
+    } catch (e) {
+      status = e instanceof ReconnectNeeded ? "read-reconnect" : "read-failed";
+    }
+  }
+  revalidatePath(PATH);
+  redirect(`${PATH}?status=${status}`);
 }
