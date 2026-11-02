@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { buildFieldCatalog, hierarchyLevels, proposeInitiativeLevel, type JiraField, type JiraIssueSample, type JiraIssueType } from "@/lib/atlassian/field-catalog";
+import { completeConnection } from "@/lib/atlassian/connect";
 import { isWorkspaceAdmin } from "@/lib/atlassian/guard";
 import { API_BASE, atlassianConfig, exchangeCode, refreshAccessToken } from "@/lib/atlassian/oauth";
 import { runWriteTest, type JiraCall } from "@/lib/atlassian/write-test";
@@ -92,6 +93,10 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const page = (body: string, status = 200) =>
     new NextResponse(`<!doctype html><meta charset="utf-8"><title>Atlassian spike</title><body style="font:14px system-ui;padding:24px;max-width:960px"><h1>Atlassian spike J1</h1>${body}<p><a href="/spikes/atlassian">Back</a></p>`, { status, headers: { "content-type": "text/html; charset=utf-8" } });
+
+  // the real connection (issue #67) signs its state "pv1.…"; the throwaway spike below uses "<user id>.<random>"
+  const returned = url.searchParams.get("state");
+  if (returned?.startsWith("pv1.")) return NextResponse.redirect(new URL(await completeConnection(request, returned), request.url));
 
   const cfg = atlassianConfig();
   if (!cfg) return page("<p>Not configured.</p>", 500);

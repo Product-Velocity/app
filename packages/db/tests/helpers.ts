@@ -236,6 +236,12 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
   await db.admin.query("insert into public.item_issue_tree (tenant_id, item_id, repo_full_name, issue_number, issue_id, level, title, state) values ($1, $2, 'seed-org/roadmap', 2, 1002, 1, 'Seed epic', 'open')", [tenantId, items[0]]);
   await db.admin.query("insert into public.tracker_issues (tenant_id, connection_id, repo_full_name, issue_number, title) values ($1, $2, 'seed-org/roadmap', 77, 'Seed incoming issue')", [tenantId, conn]);
   await db.admin.query("insert into public.tracker_rules (tenant_id, connection_id, kind, value) values ($1, $2, 'type', 'Bug')", [tenantId, conn]);
+  // a connected Jira sign-in with its (fake, encrypted-looking) credentials (positive controls for the Jira connection migration);
+  // older-schema tests (status-alignment) seed before that migration exists
+  if ((await db.admin.query("select to_regclass('public.jira_connections') as t")).rows[0].t) {
+    const jira = await one("insert into public.jira_connections (tenant_id, sites, scopes, state) values ($1, '[{\"id\":\"site-1\",\"name\":\"Seed site\"}]'::jsonb, 'read:jira-work', 'connected') returning id", [tenantId]);
+    await db.admin.query("insert into public.jira_credentials (connection_id, tenant_id, access_token_enc, refresh_token_enc, key_id, access_expires_at) values ($1, $2, 'v1.k1.seed.seed.seed', 'v1.k1.seed.seed.seed', 'k1', now() + interval '1 hour')", [jira, tenantId]);
+  }
   const sess = await one("insert into public.alignment_sessions (tenant_id, name, method) values ($1, 'Seed session', 'coins') returning id", [tenantId]);
   await db.admin.query("insert into public.alignment_items (tenant_id, session_id, item_id, position) values ($1, $2, $3, 1)", [tenantId, sess, items[0]]);
   await db.admin.query("update public.alignment_sessions set groups = '[{\"id\":\"everyone\",\"name\":\"Everyone\"}]' where id = $1", [sess]);
