@@ -5,7 +5,7 @@ import { markdownToAdf, type AdfDoc } from "./adf";
 // a field of an item is read for a Jira payload. Value, confidence, customers, decisions, rationale, key results, outcomes, markets and the
 // rank number are never listed, and a test (outbound-allowlist.test.ts) fails if any of them reaches a payload. Status, sprint and
 // transitions are never written (rule 6): this builder has no input for them.
-export const OUTBOUND_JIRA_FIELDS = ["item_code", "initiative_name", "description", "moscow", "g2m_date_est", "planned_start"] as const;
+export const OUTBOUND_JIRA_FIELDS = ["initiative_name", "description", "moscow", "g2m_date_est", "planned_start"] as const;
 export type JiraOutboundField = (typeof OUTBOUND_JIRA_FIELDS)[number];
 
 /** How this Jira site spells the fields PV can fill; each is optional and a missing one is skipped with a note in the preview, never guessed. */
@@ -23,6 +23,8 @@ export type JiraPayloadInput = {
   create?: { projectKey: string; issueTypeId: string };
   /** Key of the Jira parent, when the initiative has one that is itself linked. */
   parentKey?: string | null;
+  /** An opaque label (a hash of the item id, never the id) put on a CREATED issue, so a create whose answer was lost is found again instead of repeated. */
+  marker?: string;
   /** Labels the issue has now: people's labels are kept, `pv:` labels that no longer apply are removed. Omit on create. */
   currentLabels?: string[];
 };
@@ -46,13 +48,12 @@ export function mergeLabels(current: string[], desired: string[]): string[] {
 export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {
   const { item, fields: map } = input;
   const notes: string[] = [];
-  const code = str(read(item, "item_code"), 40);
   const name = str(read(item, "initiative_name"), 240) || "(untitled initiative)";
   const description = typeof read(item, "description") === "string" ? (read(item, "description") as string).slice(0, 30000) : "";
   const f: Record<string, unknown> = {
-    summary: code ? `${code}: ${name}` : name,
+    summary: name, // the issue key already identifies it; no code prefix, so an adopted issue keeps its own title
     description: markdownToAdf(description) satisfies AdfDoc,
-    labels: mergeLabels(input.currentLabels ?? [], desiredLabels(item)),
+    labels: mergeLabels(input.currentLabels ?? [], [...desiredLabels(item), ...(input.marker && /^pv:item\/[0-9a-f]{16}$/.test(input.marker) ? [input.marker] : [])]),
   };
   if (input.create) { f.project = { key: input.create.projectKey }; f.issuetype = { id: input.create.issueTypeId }; }
   if (input.parentKey) f.parent = { key: input.parentKey };

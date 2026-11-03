@@ -18,7 +18,6 @@ describe("outbound Jira payloads", () => {
       for (const k of OTHER) expect(w, `${k} leaked`).not.toContain(sentinel(k));
       expect(w).toContain(sentinel("initiative_name"));
       expect(w).toContain(sentinel("description"));
-      expect(w).toContain(sentinel("item_code"));
     }
   });
 
@@ -32,7 +31,7 @@ describe("outbound Jira payloads", () => {
   it("the allowlist holds no commercial field and only dictionary fields", () => {
     const commercial = ["value", "value_12m", "value_basis", "value_type", "confidence", "customers_requesting", "target_customers", "decision", "decided_by", "decision_date", "cost_of_not_doing", "kr_metric", "kr_start", "kr_target", "kr_unit", "kr_direction", "value_proposition", "time_to_first_revenue_months", "target_markets", "live_markets", "outcomes", "stack_rank", "initiative_status", "build_status"];
     for (const k of commercial) expect(allowed.has(k), k).toBe(false);
-    for (const k of OUTBOUND_JIRA_FIELDS) expect(FIELDS.some((f) => f.key === k) || k === "item_code").toBe(true);
+    for (const k of OUTBOUND_JIRA_FIELDS) expect(FIELDS.some((f) => f.key === k)).toBe(true);
   });
 
   it("never writes a status, a transition or a sprint: the payload has only the fields PV may set", () => {
