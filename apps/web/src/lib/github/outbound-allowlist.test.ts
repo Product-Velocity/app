@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildTrackingIssue, MemorySourceControl, OUTBOUND_READ_FIELDS, pushTrackingIssue } from "@pv/github";
+import { addRemovedLabel, closeNotPlanned, readCloseState } from "./github-close";
 import { FIELDS } from "@pv/domain";
 
 // CLAUDE.md rule 2, issue #33: commercial fields never reach GitHub. Every one of the 165 dictionary fields gets a unique
@@ -67,5 +68,22 @@ describe("outbound GitHub payloads", () => {
   it("the list of allowed fields has no commercial field in it", () => {
     const commercial = ["value", "value_12m", "value_basis", "value_type", "confidence", "customers_requesting", "target_customers", "decision", "decided_by", "decision_date", "cost_of_not_doing", "kr_metric", "kr_start", "kr_target", "kr_unit", "kr_direction", "value_proposition", "time_to_first_revenue_months", "target_markets", "live_markets", "outcomes"];
     for (const k of commercial) expect(allowed.has(k), k).toBe(false);
+  });
+});
+
+// Rule 2 for the one new GitHub write (decision 2026-11-03-github-close-removed): labelling and closing the issue of a removed initiative sends two fixed
+// things and nothing from the initiative, even when every field of it is filled with a sentinel and the issue's own text holds one.
+describe("outbound GitHub payloads: label and close a removed initiative's issue", () => {
+  it("carries the label pv:removed and the fixed close reason, and no field of the initiative", async () => {
+    const sc = new MemorySourceControl();
+    sc.issues.set("acme/road#7", { number: 7, id: 70, nodeId: "n7", htmlUrl: "https://github.com/acme/road/issues/7", body: "x", state: "open", title: "T", labels: [] });
+    const t = { sc, installationId: 1, repo: "acme/road", number: 7 };
+    const state = await readCloseState(t);
+    expect((await addRemovedLabel(t)).ok).toBe(true);
+    expect((await closeNotPlanned(t, state)).ok).toBe(true);
+    const wire = JSON.stringify(sc.sent);
+    expect(sc.sent).toEqual([[{ name: "pv:removed", color: "3347D9", description: "Managed by Product Velocity: the initiative was removed" }], ["pv:removed"], { state: "closed", state_reason: "not_planned" }]);
+    for (const f of FIELDS) expect(wire, `${f.key} leaked`).not.toContain(sentinel(f.key));
+    expect(wire).not.toMatch(/\b(title|body|name)\b.*LEAK_/);
   });
 });

@@ -70,21 +70,25 @@ export type SyncConfirmResult =
   /** `stale`: GitHub changed after the preview; nothing was applied or sent and the new difference is returned. */
   | { ok: false; error: string; stale?: SyncPreview };
 
-// Sync with Jira, "Removed in Product Velocity" (decision 2026-11-03-jira-close-removed): initiatives that were deleted (Trash) and whose Jira issue Product
-// Velocity owns. The person confirms each one; nothing is written before. Only Jira has it; GitHub and the test page leave `removed` out of the api.
+// "Removed in Product Velocity" in Sync with Jira and Sync with GitHub (decisions 2026-11-03-jira-close-removed and 2026-11-03-github-close-removed):
+// initiatives that were deleted (Trash) and whose tracker issue Product Velocity owns. The person confirms each one; nothing is written before.
+// Both trackers use these shapes and the same section component; a GitHub card has no `options` (nothing to choose: it is closed as "not planned").
 export type RemovedCard = {
+  /** Which tracker the issue is in; absent means Jira. */
+  tracker?: "github" | "jira";
   id: string;
   code: string;
   name: string;
-  /** The issue was adopted from Jira, not created by Product Velocity: closing it ends real work in Jira. The preview warns in red and leaves it unticked. */
+  /** The issue was adopted from the tracker, not created by Product Velocity: closing it ends real work there. The preview warns in red and leaves it unticked. */
   adopted?: true;
   issueKey: string;
   issueUrl: string | null;
-  /** ready: can be confirmed. error: could not be read (nothing is offered to write). gone: Jira does not return the issue. */
+  /** ready: can be confirmed. error: could not be read (nothing is offered to write). gone: the tracker does not return the issue. */
   state: "ready" | "error" | "gone";
   message?: string;
-  /** The current Jira status (text from Jira) and whether it is already in a Done category. */
+  /** The current Jira status (text from Jira) and whether it is already in a Done category. For a GitHub card `alreadyDone` means the issue is closed already and `trackerStatus` says how. */
   jiraStatus?: string;
+  trackerStatus?: string;
   alreadyDone?: boolean;
   /** The workflow transitions into a Done status. Empty and not already done: only the label can be added. */
   options: { id: string; name: string; toStatusName: string }[];
@@ -96,6 +100,6 @@ export type RemovedOutcome = "closed" | "labeled" | "already_done" | "not_found"
 export type RemovedResult = { id: string; code: string; outcome: RemovedOutcome; issueLabel?: string; issueUrl?: string; message?: string };
 export type RemovedApi = {
   list(): Promise<RemovedList>;
-  /** Labels and closes ONE initiative's issue after the person confirmed. `transitionId` null: the default one. */
+  /** Labels and closes ONE initiative's issue after the person confirmed. `transitionId` null: the default one (GitHub has none: always null). */
   close(id: string, transitionId: string | null): Promise<{ ok: true; result: RemovedResult } | { ok: false; error: string }>;
 };

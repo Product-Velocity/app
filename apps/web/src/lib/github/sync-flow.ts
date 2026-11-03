@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assigneeChange, BLOCK_END, BLOCK_START, compareAssignees, compareBoardValues, type AssigneeCompare, type Member, compareIssue, hashText, isBoardConflict, parseBoard, type BoardFieldCompare, type BoardKey, SYNC_FIELD_COLUMN, SYNC_FIELD_LABEL, SYNC_FIELD_LIMIT, SYNC_TEXT_FIELDS, type IssueCompare, type SourceControl, type SyncTextField } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
+import { restoredAfterCloseNote } from "./removed-note";
 import { executePush, planPush } from "./push";
 import type { PushItemResult, SyncChoice, SyncConfirmResult, SyncConflict, SyncPreview, TakenOver } from "./push-types";
 import { receiveFromGithub, type IssueTexts } from "./receive";
@@ -162,7 +163,12 @@ export async function buildSyncPreview(ctx: SyncCtx, ids: string[], opts: { boar
   const send = await planPush(ctx.supabase, ctx.tenantId, ctx.appUrl, ctx.connection, ids, ctx.sc);
   const { compares, error: compareError } = await compareItems(ctx, ids, texts, new Set(send.filter((p) => p.action === "unchanged").map((p) => p.id)));
   if (compareError) for (const r of received) if (r.status === "in_step" || r.status === "received" || r.status === "follows") { r.status = "error"; r.message = compareError; }
+  // read apart (migration github_close_removed): without the column nothing was ever closed. A removed initiative whose issue was closed and that was restored since: say so, never reopen
+  const closedBefore = await ctx.supabase.from("item_github_links").select("item_id, repo_full_name, issue_number, removed_result").eq("tenant_id", ctx.tenantId).eq("connection_id", ctx.connection.id).not("removed_result", "is", null).in("item_id", ids);
+  const closedNote = new Map(((closedBefore.error ? [] : closedBefore.data ?? []) as { item_id: string; repo_full_name: string; issue_number: number | null; removed_result: string | null }[]).map((l) => [l.item_id, restoredAfterCloseNote(`${l.repo_full_name}#${l.issue_number ?? ""}`, l.removed_result)]));
   for (const r of received) {
+    const note = closedNote.get(r.id);
+    if (note) r.message = r.message ? `${r.message} ${note}` : note;
     const c = compares.get(r.id);
     const conflicts = conflictsOf(c);
     if (conflicts.length > 0) { r.conflicts = conflicts; if (r.status === "in_step" || r.status === "received") r.status = "conflict"; }
