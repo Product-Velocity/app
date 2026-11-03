@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { refreshJiraProject } from "@/lib/atlassian/refresh-jira";
+import { maintainWebhooks } from "@/lib/atlassian/jira-webhooks-server";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 import type { LinkToRead } from "@/lib/atlassian/read-jira";
 
@@ -53,5 +54,8 @@ export async function GET(request: Request) {
       console.error(JSON.stringify({ jira: "cron", link: l.id, error: e instanceof ReconnectNeeded ? "reconnect needed" : e instanceof Error ? e.message.slice(0, 200) : "unknown" }));
     }
   }
-  return Response.json(report);
+  // keep the webhooks alive (registers new ones, extends the ones close to expiry); a no-op until JIRA_WEBHOOKS=1. Never fails the check.
+  let webhooks = { registered: 0, refreshed: 0, needsScope: 0, failed: 0 };
+  try { webhooks = await maintainWebhooks(blocked); } catch (e) { console.error(JSON.stringify({ jira: "cron-webhooks", error: e instanceof Error ? e.message.slice(0, 200) : "unknown" })); }
+  return Response.json({ ...report, webhooks });
 }
