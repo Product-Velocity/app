@@ -47,7 +47,7 @@ describe("starting a connection", () => {
     expect(await errorCode(start(creator, f.tenantA))).toBe(DENIED);
     expect(await errorCode(start(f.carol, f.tenantA))).toBe(DENIED);
     expect(await errorCode(start(service, f.tenantA))).toBe(DENIED);
-    expect(await errorCode(start(f.alice, f.tenantA, "acme-corp", "Claude MCP"))).toBe(DENIED);
+    expect(await errorCode(start(f.alice, f.tenantA, "acme-corp", "MCP"))).toBe(DENIED);
   });
   it("another workspace's admin cannot start one for this workspace", async () => {
     await reset();
@@ -129,7 +129,7 @@ describe("repositories and project defaults", () => {
     for (const u of [creator, f.carol, service, f.bob]) {
       expect(await errorCode(db.asUser(u, (q) => q("select public.github_disconnect($1)", [f.tenantA]), { commit: true })), u).toBe(DENIED);
     }
-    expect(await errorCode(db.asUser(f.alice, (q) => q("select public.github_disconnect($1)", [f.tenantA]), { commit: true, via: "Claude MCP" }))).toBe(DENIED);
+    expect(await errorCode(db.asUser(f.alice, (q) => q("select public.github_disconnect($1)", [f.tenantA]), { commit: true, via: "MCP" }))).toBe(DENIED);
     await db.asUser(f.alice, (q) => q("select public.github_disconnect($1)", [f.tenantA]), { commit: true });
     expect((await conn(id)).state).toBe("disconnected");
     expect((await db.admin.query("select default_repo from public.projects where id = $1", [p])).rows[0].default_repo).toBeNull();
@@ -164,7 +164,7 @@ describe("repository access: some repositories are never written to", () => {
     await db.admin.query("update public.projects set default_repo = 'Acme/Private' where id = $1", [p]);
     const id = await repoId("Acme/Private");
     for (const u of [creator, f.carol, service, f.bob]) expect(await errorCode(setAccess(u, id, "read_only")), u).toBe(DENIED);
-    expect(await errorCode(setAccess(f.alice, id, "read_only", "Claude MCP"))).toBe(DENIED);
+    expect(await errorCode(setAccess(f.alice, id, "read_only", "MCP"))).toBe(DENIED);
     expect(await errorCode(setAccess(f.alice, id, "sideways"))).toBe("22023");
     await setAccess(f.alice, id, "read_only");
     expect((await db.admin.query("select access from public.github_repositories where id = $1", [id])).rows[0].access).toBe("read_only");

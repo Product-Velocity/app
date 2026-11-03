@@ -95,9 +95,9 @@ describe("weekly updates: reviewing", () => {
     expect(await row(id)).toMatchObject({ reviewed_at: null, reviewed_by: null });
   });
   it("Claude cannot mark an update as reviewed, but can write the draft", async () => {
-    const id = await add(creator, { via: "Claude MCP" });
-    expect(await errorCode(db.asUser(creator, (q) => q("update public.weekly_updates set reviewed_at = now() where id = $1", [id]), { via: "Claude MCP" }))).toBe("PV004");
-    await db.asUser(creator, (q) => q("update public.weekly_updates set body = 'Claude draft' where id = $1", [id]), { commit: true, via: "Claude MCP" });
+    const id = await add(creator, { via: "MCP" });
+    expect(await errorCode(db.asUser(creator, (q) => q("update public.weekly_updates set reviewed_at = now() where id = $1", [id]), { via: "MCP" }))).toBe("PV004");
+    await db.asUser(creator, (q) => q("update public.weekly_updates set body = 'Claude draft' where id = $1", [id]), { commit: true, via: "MCP" });
     expect((await row(id)).body).toBe("Claude draft");
   });
 });

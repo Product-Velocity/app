@@ -2,6 +2,8 @@
  * Audit log display and export (R-111 FR-6). Pure functions, so the rules are tested without a database.
  * An entry always shows who (name AND email, as they were at the time), role at the time, when, where, what and how.
  */
+import { AI_TOOL_LABEL } from "@pv/domain";
+
 export type AuditRow = {
   id: number;
   tenant_id: string;
@@ -19,6 +21,9 @@ export type AuditRow = {
   screen: string | null;
   batch_id: string | null;
   via: string;
+  /** Only for writes through an AI assistant (source MCP): the assistant (claude, chatgpt, gemini, other) from the connection, and the model it stated. */
+  ai_tool?: string | null;
+  ai_model?: string | null;
   at: string;
 };
 
@@ -31,13 +36,21 @@ export const roleAtTime = (r: string | null) => (r ? ROLE_AT_TIME[r] ?? r : "—
 
 const ENTITY_LABEL: Record<string, string> = {
   items: "Initiative", projects: "Project", tenants: "Account", tenant_members: "Member", invitations: "Invitation", platform_access: "Platform access",
-  saved_views: "View", saved_scopes: "Scope", teams: "Team", item_groups: "Group", item_links: "Link", item_files: "File", mcp_connections: "Claude connection",
+  saved_views: "View", saved_scopes: "Scope", teams: "Team", item_groups: "Group", item_links: "Link", item_files: "File", mcp_connections: "AI connection",
   github_connections: "GitHub connection", github_repositories: "GitHub repository",
 };
 export const entityLabel = (e: string) => ENTITY_LABEL[e] ?? e.replace(/_/g, " ");
 
-const VIA_LABEL: Record<string, string> = { UI: "UI", API: "API", "Claude MCP": "Claude", "GitHub webhook": "GitHub webhook", import: "Import", system: "System" };
+const VIA_LABEL: Record<string, string> = { UI: "UI", API: "API", MCP: "MCP", "GitHub webhook": "GitHub webhook", import: "Import", system: "System" };
 export const viaLabel = (v: string) => VIA_LABEL[v] ?? v;
+
+/** "Claude", "ChatGPT", "Gemini", "Other AI tool": the AI name of an MCP entry; empty when the write was not from an assistant. */
+export const aiToolLabel = (r: Pick<AuditRow, "via" | "ai_tool">): string => (r.via !== "MCP" ? "" : AI_TOOL_LABEL[r.ai_tool ?? "other"] ?? "Other AI");
+/** "MCP · Claude · Claude Opus 5.5" for an assistant write, the plain source for everything else. The model is what the assistant said, so it is advisory. */
+export function howLabel(r: Pick<AuditRow, "via" | "ai_tool" | "ai_model">): string {
+  if (r.via !== "MCP") return viaLabel(r.via);
+  return ["MCP", aiToolLabel(r), r.ai_model ?? ""].filter(Boolean).join(" · ");
+}
 
 /** Who, for one line: "Name (email)"; system entries say so, and old entries from before snapshots say that too. */
 export function whoLabel(r: Pick<AuditRow, "actor_id" | "actor_name" | "actor_email" | "via">): string {
@@ -91,7 +104,7 @@ export function csvCell(v: unknown): string {
 
 export type AuditLookup = { accounts?: Record<string, string>; projects?: Record<string, string>; objects?: Record<string, string> };
 
-const CSV_HEADER = ["When (UTC)", "Person", "Email", "Role at the time", "Platform admin", "Account", "Project", "Object", "Screen", "Action", "Field", "Old value", "New value", "How", "Batch", "Entry id"];
+const CSV_HEADER = ["When (UTC)", "Person", "Email", "Role at the time", "Platform admin", "Account", "Project", "Object", "Screen", "Action", "Field", "Old value", "New value", "How", "AI name", "AI model", "Batch", "Entry id"];
 
 export function auditCsv(rows: AuditRow[], lookup: AuditLookup = {}): string {
   const lines = [CSV_HEADER.map(csvCell).join(",")];
@@ -101,7 +114,7 @@ export function auditCsv(rows: AuditRow[], lookup: AuditLookup = {}): string {
       lookup.accounts?.[r.tenant_id] ?? r.tenant_id, r.project_id ? lookup.projects?.[r.project_id] ?? r.project_id : "",
       r.entity_id ? lookup.objects?.[r.entity_id] ?? `${entityLabel(r.entity)} ${r.entity_id}` : entityLabel(r.entity), r.screen ?? "",
       actionLabel(r), r.field, formatValue(r.old) === "—" ? "" : formatValue(r.old), formatValue(r.new) === "—" ? "" : formatValue(r.new),
-      viaLabel(r.via), r.batch_id ?? "", r.id,
+      viaLabel(r.via), aiToolLabel(r), r.via === "MCP" ? r.ai_model ?? "" : "", r.batch_id ?? "", r.id,
     ].map(csvCell).join(","));
   }
   return lines.join("\r\n") + "\r\n";

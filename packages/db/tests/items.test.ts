@@ -255,23 +255,23 @@ describe("Claude and service accounts never set rank, Decision or Value", () => 
     expect(n).toBe(1);
   });
 
-  it("source 'Claude MCP' is blocked from value, decision and rank, but may edit other fields", async () => {
+  it("source 'MCP' is blocked from value, decision and rank, but may edit other fields", async () => {
     const id = await fresh("Claude target");
     for (const set of ["value_12m = 1", "decision = 'Kill'"]) {
-      expect(await errorCode(db.asUser(f.alice, (q) => q(`update public.items set ${set} where id = $1`, [id]), { via: "Claude MCP" })), set).toBe(BLOCKED);
+      expect(await errorCode(db.asUser(f.alice, (q) => q(`update public.items set ${set} where id = $1`, [id]), { via: "MCP" })), set).toBe(BLOCKED);
     }
-    expect(await errorCode(move(f.alice, id, 1, "Claude MCP"))).toBe(BLOCKED);
-    expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.items (tenant_id, initiative_name, home_project_id, value_12m) values ($1, 'AI draft', $2, 5)", [f.tenantA, f.seedA.project]), { via: "Claude MCP" }))).toBe(BLOCKED);
-    expect(await db.asUser(f.alice, async (q) => (await q("update public.items set initiative_name = 'Renamed by Claude', summary = 'draft' where id = $1", [id])).rowCount, { via: "Claude MCP", commit: true })).toBe(1);
+    expect(await errorCode(move(f.alice, id, 1, "MCP"))).toBe(BLOCKED);
+    expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.items (tenant_id, initiative_name, home_project_id, value_12m) values ($1, 'AI draft', $2, 5)", [f.tenantA, f.seedA.project]), { via: "MCP" }))).toBe(BLOCKED);
+    expect(await db.asUser(f.alice, async (q) => (await q("update public.items set initiative_name = 'Renamed by Claude', summary = 'draft' where id = $1", [id])).rowCount, { via: "MCP", commit: true })).toBe(1);
     // Claude can add a draft item; it just goes to the end of the list and has no value or decision
-    const draft = await addItem(f.alice, f.tenantA, "AI draft", f.seedA.project, { via: "Claude MCP" });
+    const draft = await addItem(f.alice, f.tenantA, "AI draft", f.seedA.project, { via: "MCP" });
     expect(draft.stack_rank).toBeGreaterThan(0);
   });
 
   it("Claude cannot delete an item (a person confirms), and the rank list stays whole", async () => {
-    const draft = await addItem(f.alice, f.tenantA, "Draft to delete", f.seedA.project, { via: "Claude MCP" });
+    const draft = await addItem(f.alice, f.tenantA, "Draft to delete", f.seedA.project, { via: "MCP" });
     const first = (await db.admin.query("select id from public.items where tenant_id = $1 and deleted_at is null and cycle_id is null and stack_rank = 1", [f.tenantA])).rows[0].id;
-    expect(await errorCode(db.asUser(f.alice, (q) => q("select * from public.delete_items($1)", [[first]]), { via: "Claude MCP", commit: true }))).toBe(BLOCKED);
+    expect(await errorCode(db.asUser(f.alice, (q) => q("select * from public.delete_items($1)", [[first]]), { via: "MCP", commit: true }))).toBe(BLOCKED);
     const after = await ranks(f.tenantA);
     expect(after.map((r) => r[1])).toEqual(after.map((_, i) => i + 1));
     expect(draft.id).toBeTruthy();

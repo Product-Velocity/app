@@ -64,7 +64,7 @@ describe("invitations: who can manage them", () => {
 
   it("Claude cannot create an Approver invitation (rule 3), but can create a normal one", async () => {
     const asClaude = (approver: boolean, email: string) =>
-      db.asUser(f.alice, (q) => inviteRow(q, f.tenantA, email, "creator", `claude-${email}`, approver), { via: "Claude MCP" });
+      db.asUser(f.alice, (q) => inviteRow(q, f.tenantA, email, "creator", `claude-${email}`, approver), { via: "MCP" });
     expect(await errorCode(asClaude(true, "c1@example.test"))).toBe("P0001");
     expect(await errorCode(asClaude(false, "c2@example.test"))).toBeNull();
   });

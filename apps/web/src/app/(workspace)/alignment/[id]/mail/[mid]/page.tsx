@@ -29,7 +29,7 @@ export default async function MailingPage({ params, searchParams }: { params: Pr
       <p><Link href={`/alignment/${id}`}>← {s.name}</Link></p>
       <h1>{kind === "invitation" ? "Invitation" : "Reminder"}</h1>
       <p><strong>{MAILING_STATE_LABEL[m.status] ?? m.status}</strong> · {n} {n === 1 ? "person" : "people"}{m.status !== "draft" ? ` · ${m.sent_count} sent${m.failed_count ? `, ${m.failed_count} not sent` : ""}` : ""}</p>
-      {m.created_via === "Claude MCP" && <p className="notice">Claude drafted this text. Read it before you confirm: nothing is sent until you do.</p>}
+      {m.created_via === "MCP" && <p className="notice">An AI assistant drafted this text. Read it before you confirm: nothing is sent until you do.</p>}
       {notice && <p role="status" className="notice">{notice === "saved" ? "Saved." : notice}</p>}
 
       <h2>Text</h2>

@@ -1,6 +1,6 @@
 # AI assistants (Claude, ChatGPT, Gemini), AI tool and model on documents, document log, team block
 
-Status: 2026-10-30, request #230 (R-112 "MCP client neutrality"). **Built, not deployed.** Builds on `docs/20-CLAUDE-MCP.md`, `docs/22`, `docs/24`, `docs/26`. Memory, group review and research-check tools were built first and then **removed** on Ashu's instruction: production already covers them with the company profile, the prior-knowledge rule and the context-research rule.
+Status: 2026-10-30, request #230 (R-112 "MCP client neutrality"). **Closed 2026-11-02: Claude, ChatGPT and Gemini are connected and work (Ashu).** Builds on `docs/20-CLAUDE-MCP.md`, `docs/22`, `docs/24`, `docs/26`. Memory, group review and research-check tools were built first and then **removed** on Ashu's instruction: production already covers them with the company profile, the prior-knowledge rule and the context-research rule.
 
 ## 1. One server for every assistant
 `/mcp` is the same for Claude, ChatGPT and Gemini: same tools, prompts, rules, role checks and database guards. `detectAssistant()` (`packages/domain/src/assistants.ts`) maps the OAuth client's registered name (or User-Agent) to `claude`, `chatgpt`, `gemini` or `other`. It is a **label, never a permission**. The database mirrors it (`assistant_of()`, `mcp_connections.assistant`, `current_assistant()`; a test keeps both in step).
@@ -31,10 +31,10 @@ Help, **AI agents**: Use-cases (brainstorm, create, review, update, and what mak
 
 ## 6. Decisions
 - Memory tables and the `recall`/`remember`, `review_group`, `check_research` tools are **not** built (Ashu, 2026-10-30): the company profile and the prompt rules already do this for Claude, and they work for any client.
-- Write source stays `Claude MCP` for every assistant. Renaming it to `MCP` plus a client column (request #230 step 2) rewrites audit history and guards; it needs a separate go-ahead. Until then the assistant is told apart by `mcp_connections.assistant` and `item_documents.ai_tool`.
+- Write source: renamed from `Claude MCP` to `MCP` on 2026-11-02 (Ashu's go-ahead, issue #289, `docs/decisions/2026-11-02-mcp-source-and-ai-name.md`). Every audit entry from an assistant also has `ai_tool` (from the connection) and `ai_model` (what the assistant says; every write tool takes an optional `ai_model`). History was migrated with AI name `claude`.
 
-## 7. What is left of request #230
+## 7. What was left of request #230 (closed)
 Step 1 (OAuth client registration: loopback redirects for Gemini CLI, a pre-registered client for Gemini Enterprise, ChatGPT redirect URIs `https://chatgpt.com/connector_platform_oauth_redirect` and `https://platform.openai.com/apps-manage/oauth`) and the per-client test runs need the live Supabase OAuth server.
 
-## 8. [SPIKE] S8c, unverified
-Nothing here has been tested against a real client: (1) ChatGPT Developer mode connects, completes OAuth and lists the tools; `search`/`fetch` shape is accepted. (2) Gemini CLI completes `/mcp auth`, accepts the simplified schemas, shows prompts as slash commands. (3) Gemini Enterprise accepts a pre-registered client. (4) The registered client names match `detectAssistant`. (5) Effective upload limits per client. (6) Assistants actually send a correct `ai_model`. Record results in `docs/08`.
+## 8. [SPIKE] S8c, closed on Ashu's word
+Ashu reports on 2026-11-02 that all three assistants connect and work. The individual checks below were not recorded one by one. Originally: nothing had been tested against a real client: (1) ChatGPT Developer mode connects, completes OAuth and lists the tools; `search`/`fetch` shape is accepted. (2) Gemini CLI completes `/mcp auth`, accepts the simplified schemas, shows prompts as slash commands. (3) Gemini Enterprise accepts a pre-registered client. (4) The registered client names match `detectAssistant`. (5) Effective upload limits per client. (6) Assistants actually send a correct `ai_model`. Record results in `docs/08`.

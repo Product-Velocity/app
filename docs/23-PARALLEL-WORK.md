@@ -45,3 +45,5 @@ Optional: CODEOWNERS for `packages/db/migrations/` so a migration always gets a 
 
 ## Not done on purpose
 No lock file or claim bot: the issue assignee and the open pull requests are the claim register. If it turns out agents still collide, a "claimed areas" file would be the next step.
+
+**Write source name (issue #289).** The write source is `MCP`, not `Claude MCP`. A migration that names `'Claude MCP'` in a check constraint or a guard (`write_source() = ...`) is refused by a test, because the guard would never match. Write `'MCP'`.

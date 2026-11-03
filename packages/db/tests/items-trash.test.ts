@@ -99,10 +99,10 @@ describe("delete_items (soft delete)", () => {
 
   it("refuses Claude and service accounts (a person confirms)", async () => {
     const x = await add(creator, "Claude cannot delete");
-    expect(await errorCode(call(creator, "delete_items", [x.id], "Claude MCP"))).toBe(BLOCKED);
+    expect(await errorCode(call(creator, "delete_items", [x.id], "MCP"))).toBe(BLOCKED);
     expect(await errorCode(call(bot, "delete_items", [x.id], "API"))).toBe(BLOCKED);
-    expect(await errorCode(call(f.alice, "restore_items", [x.id], "Claude MCP"))).toBe(BLOCKED);
-    expect(await errorCode(call(f.alice, "purge_items", [x.id], "Claude MCP"))).toBe(BLOCKED);
+    expect(await errorCode(call(f.alice, "restore_items", [x.id], "MCP"))).toBe(BLOCKED);
+    expect(await errorCode(call(f.alice, "purge_items", [x.id], "MCP"))).toBe(BLOCKED);
     expect((await row(x.id)).deleted_at).toBeNull();
   });
 

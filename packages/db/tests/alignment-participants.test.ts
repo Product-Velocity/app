@@ -99,9 +99,9 @@ describe("mailings and the confirm step", () => {
   it("Claude and service accounts can draft but never confirm; creators cannot confirm either", async () => {
     const s = await newSession();
     await add(f.alice, s, [{ email: "a@example.test", group: "eng" }]);
-    const m = await draft(f.alice, s, "invitation", { via: "Claude MCP" });
-    expect((await db.admin.query("select created_via from public.alignment_mailings where id = $1", [m])).rows[0].created_via).toBe("Claude MCP");
-    expect(await errorCode(confirm(f.alice, m, 1, "Claude MCP"))).toBe("PV004");
+    const m = await draft(f.alice, s, "invitation", { via: "MCP" });
+    expect((await db.admin.query("select created_via from public.alignment_mailings where id = $1", [m])).rows[0].created_via).toBe("MCP");
+    expect(await errorCode(confirm(f.alice, m, 1, "MCP"))).toBe("PV004");
     expect(await errorCode(confirm(creator, m, 1))).toBe(DENIED);
     expect(await errorCode(recipients(m))).toBe("PV010");
     await confirm(f.alice, m, 1);

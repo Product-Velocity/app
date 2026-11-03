@@ -87,9 +87,9 @@ describe("documents on an initiative", () => {
 
 describe("Claude and approval", () => {
   it("a document written with a Claude token is an AI draft, whatever the client sends, and Claude cannot flip it", async () => {
-    const id = await db.asUser(creator, async (q) => (await q("insert into public.item_documents (tenant_id, item_id, title, body, kind) values ($1, $2, 'From Claude', 'x', 'prd') returning id", [f.tenantA, item])).rows[0].id as string, { commit: true, via: "Claude MCP" });
-    expect(await row(id)).toMatchObject({ ai_draft: true, created_via: "Claude MCP" });
-    expect(await errorCode(edit(creator, id, "ai_draft = false", [], "Claude MCP"))).toBe(PV004);
+    const id = await db.asUser(creator, async (q) => (await q("insert into public.item_documents (tenant_id, item_id, title, body, kind) values ($1, $2, 'From Claude', 'x', 'prd') returning id", [f.tenantA, item])).rows[0].id as string, { commit: true, via: "MCP" });
+    expect(await row(id)).toMatchObject({ ai_draft: true, created_via: "MCP" });
+    expect(await errorCode(edit(creator, id, "ai_draft = false", [], "MCP"))).toBe(PV004);
     await edit(creator, id, "ai_draft = false"); // a person accepts it
     expect((await row(id)).ai_draft).toBe(false);
   });
@@ -98,7 +98,7 @@ describe("Claude and approval", () => {
     const id = await add(creator, "To approve");
     await edit(creator, id, "status = 'in_review'");
     expect(await errorCode(edit(creator, id, "status = 'approved'"))).toBe(PV004);
-    expect(await errorCode(edit(approver, id, "status = 'approved'", [], "Claude MCP"))).toBe(PV004);
+    expect(await errorCode(edit(approver, id, "status = 'approved'", [], "MCP"))).toBe(PV004);
     expect(await errorCode(db.asUser(approver, (q) => q("update public.item_documents set approved_by = $2 where id = $1", [id, approver]), { via: "UI" }))).not.toBe(null);
     await edit(approver, id, "status = 'approved'");
     expect(await row(id)).toMatchObject({ status: "approved", approved_by: approver });

@@ -153,7 +153,7 @@ describe("results and names", () => {
     const reveal = (user: string, reason: string, via = "UI") => db.asUser(user, async (q) => (await q("select * from public.alignment_reveal_names($1, $2)", [sid, reason])).rows, { commit: true, via });
     expect(await errorCode(reveal(f.alice, "no"))).toBe("22023");
     expect(await errorCode(reveal(f.bob, "Checking a complaint"))).toBe("42501");
-    expect(await errorCode(reveal(f.alice, "Checking a complaint", "Claude MCP"))).toBe("PV004");
+    expect(await errorCode(reveal(f.alice, "Checking a complaint", "MCP"))).toBe("PV004");
     expect((await db.admin.query("select count(*)::int as n from public.audit_log where entity_id = $1 and field = 'names_revealed'", [sid])).rows[0].n).toBe(0);
     const rows = await reveal(f.alice, "Checking a complaint from sales");
     expect(rows).toHaveLength(1);

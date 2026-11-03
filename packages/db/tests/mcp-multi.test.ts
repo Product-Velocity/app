@@ -90,8 +90,8 @@ describe("writes go to the workspace that was named", () => {
     const a = await create(f.tenantA, f.seedA.project, "Multi in A");
     const b = await create(f.tenantB, f.seedB.project, "Multi in B");
     const idA = a.units[0]!.ops![0]!.id, idB = b.units[0]!.ops![0]!.id;
-    expect(await item(idA)).toMatchObject({ tenant_id: f.tenantA, created_via: "Claude MCP", ai_draft: true });
-    expect(await item(idB)).toMatchObject({ tenant_id: f.tenantB, created_via: "Claude MCP", ai_draft: true });
+    expect(await item(idA)).toMatchObject({ tenant_id: f.tenantA, created_via: "MCP", ai_draft: true });
+    expect(await item(idB)).toMatchObject({ tenant_id: f.tenantB, created_via: "MCP", ai_draft: true });
     const conns = Object.fromEntries((await live()).map((r) => [r.tenant_id as string, r.id as string]));
     const audit = async (id: string) => (await db.admin.query("select distinct connection_id from public.audit_log where entity = 'items' and entity_id = $1", [id])).rows.map((r) => r.connection_id);
     expect(await audit(idA)).toEqual([conns[f.tenantA]]);
@@ -130,7 +130,7 @@ describe("writes go to the workspace that was named", () => {
     const itemB = (await db.admin.query("select id from public.items where tenant_id = $1 and deleted_at is null limit 1", [f.tenantB])).rows[0]!.id as string;
     const doc = await asClaude(cora, async (q) => (await q("insert into public.item_documents (tenant_id, item_id, title, body) values ($1, $2, 'Doc in B', 'x') returning id", [f.tenantB, itemB])).rows[0]!.id as string);
     const connB = (await live()).find((r) => r.tenant_id === f.tenantB)!.id;
-    expect((await db.admin.query("select distinct connection_id, via from public.audit_log where entity = 'item_documents' and entity_id = $1", [doc])).rows).toEqual([{ connection_id: connB, via: "Claude MCP" }]);
+    expect((await db.admin.query("select distinct connection_id, via from public.audit_log where entity = 'item_documents' and entity_id = $1", [doc])).rows).toEqual([{ connection_id: connB, via: "MCP" }]);
   });
 });
 

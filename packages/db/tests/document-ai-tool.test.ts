@@ -23,7 +23,7 @@ beforeAll(async () => {
 });
 afterAll(async () => { await db.close(); });
 
-const asAi = (client: string, sql: string, params: unknown[]) => db.asUser(creator, async (q) => (await q(sql, params)).rows, { commit: true, via: "Claude MCP", claims: claims(client) });
+const asAi = (client: string, sql: string, params: unknown[]) => db.asUser(creator, async (q) => (await q(sql, params)).rows, { commit: true, via: "MCP", claims: claims(client) });
 const doc = async (id: string) => (await db.admin.query("select * from public.item_documents where id = $1", [id])).rows[0];
 const versions = async (id: string) => (await db.admin.query("select version, ai_tool, ai_model, saved_via, saved_by_name, saved_by_email from public.item_document_versions where document_id = $1 order by version", [id])).rows;
 

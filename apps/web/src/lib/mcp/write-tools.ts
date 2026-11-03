@@ -1,7 +1,7 @@
 /**
  * The write tools (docs/20-CLAUDE-MCP.md FR-4): create initiatives, change them behind a shown diff, relate and link them, undo.
  * All are mode "write", so `handleRpc` refuses them before anything runs for a role that may only read. Claude acts as the signed-in
- * person: the database applies row-level security and column grants to every write, and the audit log records source "Claude MCP".
+ * person: the database applies row-level security and column grants to every write, and the audit log records source "MCP" with the AI name and model.
  * Stack Rank, Decision, Value and the fields around them are absent from every schema and refused if sent anyway.
  */
 import {
@@ -162,7 +162,7 @@ const createItems: ToolDef = {
       groups_created: groupsCreated,
       items: out,
       notes: [
-        "These initiatives are flagged AI draft and carry source Claude MCP. Stack Rank was assigned by the system at the end of the list; only a person re-ranks.",
+        "These initiatives are flagged AI draft and carry source MCP. Stack Rank was assigned by the system at the end of the list; only a person re-ranks.",
         ...(applied.change_set ? ["undo_last reverses this call."] : []),
       ],
     };
