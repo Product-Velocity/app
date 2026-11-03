@@ -44,9 +44,20 @@ test.describe("Sync with Jira: received, to send, conflicts, writing", () => {
     await expect(removed.getByRole("checkbox", { name: /R-8/ })).toBeDisabled();
     await expect(removed.getByRole("link", { name: "issue PLAT-20" })).toHaveAttribute("href", "https://acme.example/browse/PLAT-20");
     // an issue that was in Jira before Product Velocity took it over: red warning, never ticked for you
-    await expect(removed.getByText("Warning: this issue was in Jira before Product Velocity took it over. Closing it ends real work there.")).toBeVisible();
+    await expect(removed.getByText("Warning: this issue was in Jira before Product Velocity took it over. Closing it ends real work there.")).toHaveCount(2); // R-9 and R-10
     await expect(removed.getByRole("checkbox", { name: /R-9/ })).not.toBeChecked();
     await expect(removed.getByRole("checkbox", { name: /R-5/ })).toBeChecked();
+    // an issue Jira does not return can still be ticked, to mark it handled; the warning does not overlap the row (it is a block of its own)
+    await expect(removed.getByRole("checkbox", { name: /R-10/ })).toBeEnabled();
+    const row = await removed.getByRole("checkbox", { name: /R-9/ }).boundingBox();
+    const warn = await removed.getByText("Warning: this issue was in Jira").first().boundingBox();
+    expect(warn!.y).toBeGreaterThanOrEqual(row!.y + row!.height - 1);
+    // the Deletions filter shows only this section
+    await expect(dialog.getByRole("button", { name: /^Deletions \(\d+\)$/ })).toBeVisible();
+    await dialog.getByRole("button", { name: /^Deletions/ }).click();
+    await expect(dialog.getByText("R-1", { exact: false }).first()).toBeHidden();
+    await expect(removed).toBeVisible();
+    await dialog.getByRole("button", { name: /^All \(/ }).click();
     // several Done statuses and no choice yet: the button waits, and nothing was written
     const press = removed.getByRole("button", { name: "Label and close 3 in Jira" });
     await expect(press).toBeDisabled();
