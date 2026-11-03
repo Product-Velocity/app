@@ -14,6 +14,9 @@ export type LoadedItem = {
 } & Record<string, unknown>;
 export type GridItem = LoadedItem & { project_rank: number };
 
+/** A Jira link of an initiative: the issue, who owns the initiative, and what Jira says about it. */
+export type JiraLinkInfo = { mode: "push" | "follow"; issueKey: string; url: string | null; status: string | null; category: "new" | "indeterminate" | "done" | null; lastSynced: string | null };
+
 export type Lookups = {
   projects: { id: string; name: string }[];
   members: { user_id: string; email: string; github_username?: string | null }[];
@@ -23,6 +26,8 @@ export type Lookups = {
   teams?: { id: string; name: string }[];
   /** GitHub: whether the workspace is connected, and the tracking issue of each linked item. */
   github?: { connected: boolean; links: Record<string, GithubLinkInfo> };
+  /** The Jira issue each linked initiative follows or owns (a link to Jira, from item_jira_links). */
+  jira?: { links: Record<string, JiraLinkInfo> };
   /** Jira: whether the workspace has a connected Jira sign-in, and the tracker of each project (decides what the Sync button is called). */
   trackers?: { jira: boolean; projectTracker: Record<string, "github" | "jira" | null> };
   /** The organization currency (ISO code, from Workspace settings): the unit of Business Value. Null until an admin sets it. */

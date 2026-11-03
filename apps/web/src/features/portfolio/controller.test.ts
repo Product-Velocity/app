@@ -674,6 +674,20 @@ describe("who owns a linked initiative (issue #256)", () => {
     expect(link.mode).toBe("follow");
   });
 
+  it("for a Jira link the Jira link changes, asks the source for the Jira tracker, and leaves GitHub alone", async () => {
+    const items = sampleItems(2, ["p1"], ["u1"]);
+    const jira = { mode: "follow" as const, issueKey: "SCRUM-2", url: "https://acme.atlassian.net/browse/SCRUM-2", status: "To Do", category: "new" as const, lastSynced: null };
+    const l: Lookups = { ...lookups, jira: { links: { "item-1": jira } } };
+    const source = new MemoryDataSource(items, { latencyMs: 0 });
+    const asked: (string | undefined)[] = [];
+    const orig = source.setLinkMode.bind(source);
+    source.setLinkMode = (id, mode, tracker) => { asked.push(tracker); return orig(id, mode, tracker); };
+    const c = new PortfolioController(source, items, l, "creator", () => TODAY, () => 1_000, undefined, "u1");
+    expect(await c.setLinkMode("item-1", "push", "jira")).toEqual({ ok: true, before: "follow" });
+    expect(jira.mode).toBe("push");
+    expect(asked).toEqual(["jira"]);
+  });
+
   it("a viewer cannot change it, and nothing is saved", async () => {
     const { c, source, link } = withLink("viewer");
     const r = await c.setLinkMode("item-1", "push");

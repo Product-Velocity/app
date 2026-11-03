@@ -35,6 +35,28 @@ test.describe("the tracker issue next to the Initiative ID", () => {
     await expect(page.getByTestId("item-panel").locator("a.issue-link")).toHaveAttribute("href", "https://github.com/Acme/App/issues/34");
   });
 
+  test("a Jira-linked item shows its ticket key next to the code, and its panel says Jira, not GitHub", async ({ page }) => {
+    await open(page, "n=12&role=admin&jira=1");
+    const link = row(page, "item-1").locator('[col-id="item_code"]').getByRole("link", { name: "Open issue SCRUM-2 in a new tab" });
+    await expect(link).toHaveText("SCRUM-2");
+    await expect(link).toHaveAttribute("href", "https://acme.atlassian.net/browse/SCRUM-2");
+    await expect(row(page, "item-3").locator('[col-id="item_code"] a')).toHaveCount(0);
+    await row(page, "item-1").locator('[col-id="item_code"]').click({ position: { x: 8, y: 8 } });
+    const panel = page.getByTestId("item-panel");
+    await expect(panel.getByRole("button", { name: /^Sync with Jira/ })).toBeVisible();
+    await expect(panel.getByText(/Jira: issue SCRUM-2 · status In Progress \(in progress\)/)).toBeVisible();
+    await expect(panel.getByRole("tab", { name: "Jira" })).toBeVisible();
+    await expect(panel.getByRole("tab", { name: "GitHub" })).toHaveCount(0);
+    await panel.getByRole("tab", { name: "Jira" }).click();
+    await expect(panel.getByText("Read only. This initiative follows the issue; nothing is sent to Jira.")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Take ownership" })).toBeVisible();
+    await expect(panel.getByText(/Update GitHub/)).toHaveCount(0);
+    await panel.getByRole("button", { name: "Take ownership" }).click();
+    await expect(panel.getByText(/Product Velocity now owns this initiative. Nothing was written to Jira/)).toBeVisible();
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations.map((x) => x.id)).toEqual([]);
+  });
+
   test("without a connection nothing is shown, and the grid has no accessibility violations with the link", async ({ page }) => {
     await open(page, "n=12&role=admin");
     await expect(page.locator("a.issue-link")).toHaveCount(0);

@@ -120,12 +120,14 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
         // the linked tracker issue sits next to the code and opens the ticket in a new tab
         cellRenderer: (p: { value: unknown; data?: GridItem }) => {
           const link = p.data ? lookups.github?.links[p.data.id] : undefined;
-          const label = link ? trackerIssueLabel(link.url, link.number) : null;
+          const jira = p.data && !link ? lookups.jira?.links[p.data.id] : undefined;
+          const label = link ? trackerIssueLabel(link.url, link.number) : jira?.issueKey ?? null;
+          const url = link ? link.url : jira?.url ?? null;
           return (
             <>
               {String(p.value ?? "")}
-              {label && isOpenableUrl(link?.url) && (
-                <a className="issue-link" href={link.url!} target="_blank" rel="noreferrer noopener" aria-label={`Open issue ${label} in a new tab`} title="Open the ticket in a new tab">{label}</a>
+              {label && isOpenableUrl(url) && (
+                <a className="issue-link" href={url} target="_blank" rel="noreferrer noopener" aria-label={`Open issue ${label} in a new tab`} title="Open the ticket in a new tab">{label}</a>
               )}
             </>
           );

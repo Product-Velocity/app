@@ -109,6 +109,18 @@ export function makeLeadershipHarness(n: number, role: string) {
   return { controller, source, changes, reviewed };
 }
 
+/** ?jira=1: R-01 follows the Jira issue SCRUM-2, R-02 is owned by Product Velocity and linked to SCRUM-3; the project uses Jira. */
+export function withJiraLinks(controller: PortfolioController, lookups: Lookups): Lookups {
+  const links: NonNullable<Lookups["jira"]>["links"] = {};
+  const set = (code: string, key: string, mode: "push" | "follow", status: string, category: "new" | "indeterminate" | "done") => {
+    const row = controller.rows.find((r) => r.item_code === code);
+    if (row) links[row.id] = { mode, issueKey: key, url: `https://acme.atlassian.net/browse/${key}`, status, category, lastSynced: "2026-11-03T09:00:00Z" };
+  };
+  set("R-01", "SCRUM-2", "follow", "In Progress", "indeterminate");
+  set("R-02", "SCRUM-3", "push", "To Do", "new");
+  return { ...lookups, jira: { links }, trackers: { jira: true, projectTracker: Object.fromEntries(lookups.projects.map((p) => [p.id, "jira" as const])) } };
+}
+
 /**
  * ?gh=1: the item has a pushed tracking issue with two epics and three tasks (one closed), and its breakdown awaits engineering.
  * Returns the lookups with the link; the tree is read through the in-memory source.
