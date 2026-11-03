@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   if (!(await isWorkspaceAdmin(supabase, auth.user.id))) return back("admins-only");
   const state = randomBytes(24).toString("base64url");
   const mode = request.nextUrl.searchParams.get("mode") ?? "read";
-  const probe = ["paging", "devinfo", "idea", "webhook"].includes(mode) ? mode : null;
+  const probe = ["paging", "devinfo", "idea", "idea-link", "webhook"].includes(mode) ? mode : null;
   // an argument for the probe (project or issue key); validated again in the callback
   const arg = (request.nextUrl.searchParams.get("arg") ?? "").slice(0, 40);
   const base = request.nextUrl.searchParams.get("confluence") === "1" ? [...JIRA_SCOPES, ...CONFLUENCE_SCOPES] : JIRA_SCOPES;

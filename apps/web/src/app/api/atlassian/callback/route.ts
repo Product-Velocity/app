@@ -3,7 +3,7 @@ import { buildFieldCatalog, hierarchyLevels, proposeInitiativeLevel, type JiraFi
 import { completeConnection } from "@/lib/atlassian/connect";
 import { isWorkspaceAdmin } from "@/lib/atlassian/guard";
 import { API_BASE, atlassianConfig, exchangeCode, refreshAccessToken } from "@/lib/atlassian/oauth";
-import { probeDevInfo, probeIdeaWrite, probePaging, probeWebhook, type ProbeCall } from "@/lib/atlassian/spike-probes";
+import { probeDevInfo, probeIdeaLink, probeIdeaWrite, probePaging, probeWebhook, type ProbeCall } from "@/lib/atlassian/spike-probes";
 import { runWriteTest, type JiraCall } from "@/lib/atlassian/write-test";
 import { createClient } from "@/lib/supabase/server";
 
@@ -107,6 +107,7 @@ async function probeSpike(token: string, cloudId: string, mode: string, arg: str
     mode === "paging" ? await probePaging(call, "created >= -3650d order by created DESC")
     : mode === "devinfo" ? await probeDevInfo(call, arg)
     : mode === "idea" ? await probeIdeaWrite(call, arg)
+    : mode === "idea-link" ? await probeIdeaLink(call, arg)
     : await probeWebhook(call, arg, `${origin}/api/spikes/jira-webhook`);
   return [{ label: `Probe ${mode}`, status: 200, body: steps.map((s) => `[${s.status}] ${s.label}\n    ${s.note.replace(/\n/g, "\n    ")}`).join("\n") }];
 }
@@ -146,7 +147,7 @@ export async function GET(request: NextRequest) {
   const cloudId = sites.data?.[0]?.id ?? "";
   const writeMode = request.cookies.get("atl_mode")?.value === "write";
   const mode = request.cookies.get("atl_mode")?.value ?? "read";
-  const probe = ["paging", "devinfo", "idea", "webhook"].includes(mode);
+  const probe = ["paging", "devinfo", "idea", "idea-link", "webhook"].includes(mode);
   if (cloudId && probe) {
     results.push(...(await probeSpike(token.access_token, cloudId, mode, request.cookies.get("atl_arg")?.value ?? "", url.origin)));
   } else if (cloudId && writeMode) {

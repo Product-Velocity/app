@@ -30,7 +30,8 @@ export default async function AtlassianSpike({ searchParams }: { searchParams: P
       <ul>
         <li><a href="/api/atlassian/start?mode=paging">J6: page through every issue (read only; best on a site with 250+ issues)</a></li>
         <li><a href="/api/atlassian/start?mode=devinfo&arg=PLAT-1">J5: development information of one issue (read only; edit the key in the address: arg=YOUR-KEY)</a></li>
-        <li><a href="/api/atlassian/start?mode=idea&arg=DISC">J8: write one Product Discovery idea (creates and deletes one; edit arg= to your discovery project key)</a></li>
+        <li><a href="/api/atlassian/start?mode=idea&arg=DISC">J8: write one Product Discovery idea (creates and deletes one; edit arg= to your discovery project key; also tries Impact, Effort, Theme, short description, Roadmap, an ADF description and a read-back)</a></li>
+        <li><a href="/api/atlassian/start?mode=idea-link&arg=DISC,PLAT">J8: link a discovery idea to a delivery epic (creates and deletes one idea and one epic in a software project; edit arg= to DISCOVERYKEY,SOFTWAREKEY)</a></li>
         <li><a href="/api/atlassian/start?mode=webhook&arg=PLAT">J3: register, refresh and delete one webhook (adds the scope manage:jira-webhook; edit arg= to a project key)</a></li>
       </ul>
     </main>

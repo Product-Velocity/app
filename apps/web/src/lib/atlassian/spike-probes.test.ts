@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { probeDevInfo, probeIdeaWrite, probePaging, probeWebhook, type ProbeCall } from "./spike-probes";
+import { probeDevInfo, probeIdeaLink, probeIdeaWrite, valueCandidates, probePaging, probeWebhook, type ProbeCall } from "./spike-probes";
 import { getJson } from "./read-client";
 import { readOpenWork } from "./read-issues";
 import type { JiraRequest } from "./jira-write";
@@ -68,36 +68,138 @@ describe("J6: paging over more than 100 issues against a fake Jira", () => {
   });
 });
 
-describe("J8: idea write probe", () => {
-  const make = (type: string, failCreate = false) => {
-    const calls: string[] = [];
-    const call: ProbeCall = async (m, path) => {
-      calls.push(`${m} ${path}`);
-      if (path.startsWith("/project/")) return { status: 200, json: { projectTypeKey: type, issueTypes: [{ id: "9", name: "Idea", hierarchyLevel: 0 }] } };
-      if (m === "POST") return failCreate ? { status: 400, json: { errors: { issuetype: "no" } } } : { status: 201, json: { key: "DISC-7" } };
-      if (m === "PUT") return { status: 204, json: null };
-      if (m === "DELETE") return { status: 204, json: null };
-      return { status: 200, json: { transitions: [{ name: "Discovery" }] } };
-    };
-    return { call, calls };
+/** A fake Jira Product Discovery project: stores what is written, refuses fields in `refuse`, and reads back with optional distortion. */
+function fakeDiscovery(o: { type?: string; refuse?: string[]; failCreate?: boolean; dropDescription?: boolean } = {}) {
+  const calls: string[] = [];
+  const store: Record<string, unknown> = {};
+  const fieldsList = [
+    { id: "customfield_10001", name: "Impact", schema: { type: "option", custom: "com.atlassian.jira.plugin.system.customfieldtypes:select" } },
+    { id: "customfield_10002", name: "Effort", schema: { type: "number", custom: "x:float" } },
+    { id: "customfield_10003", name: "Theme", schema: { type: "array", items: "string", custom: "x:labels" } },
+    { id: "customfield_10004", name: "Idea short description", schema: { type: "string", custom: "x:textarea" } },
+    { id: "customfield_10005", name: "Roadmap", schema: { type: "string", custom: "x:roadmap" } },
+  ];
+  const call: ProbeCall = async (m, path, body) => {
+    calls.push(`${m} ${path}`);
+    if (path.startsWith("/project/")) return { status: 200, json: { projectTypeKey: o.type ?? "product_discovery", issueTypes: [{ id: "9", name: "Idea", hierarchyLevel: 0 }] } };
+    if (path === "/field") return { status: 200, json: fieldsList };
+    if (path.endsWith("/editmeta")) return { status: 200, json: { fields: { customfield_10001: { schema: { type: "option" }, allowedValues: [{ id: "77", value: "High" }] }, customfield_10002: { schema: { type: "number" } }, customfield_10003: { schema: { type: "array", items: "string" } }, customfield_10004: { schema: { type: "string", custom: "x:textarea" } } } } };
+    if (m === "POST") return o.failCreate ? { status: 400, json: { errors: { issuetype: "no" } } } : { status: 201, json: { key: "DISC-7" } };
+    if (m === "PUT") {
+      const fields = obj2(body).fields;
+      for (const k of Object.keys(fields)) {
+        if (o.refuse?.includes(k)) return { status: 400, json: { errors: { [k]: "Field cannot be set. It is not on the appropriate screen, or unknown." } } };
+        if (k === "customfield_10005" && typeof fields[k] === "string") return { status: 400, json: { errors: { [k]: "bad shape" } } };
+        store[k] = fields[k];
+      }
+      return { status: 204, json: null };
+    }
+    if (m === "DELETE") return { status: 204, json: null };
+    if (path.includes("/transitions")) return { status: 200, json: { transitions: [{ name: "Discovery" }] } };
+    if (path.startsWith("/issue/DISC-7?fields=")) return { status: 200, json: { fields: { ...store, labels: ["pv-spike"], ...(o.dropDescription ? { description: { type: "doc", version: 1, content: [{ type: "paragraph", content: [{ type: "text", text: "pv spike j8" }] }] } } : {}) } } };
+    return { status: 200, json: {} };
   };
-  it("creates, edits and deletes one idea", async () => {
-    const f = make("product_discovery");
+  return { call, calls, store };
+}
+const obj2 = (v: unknown): { fields: Record<string, unknown> } => v as { fields: Record<string, unknown> };
+
+describe("J8: idea write probe", () => {
+  it("finds fields by name, sets each in its own request, reads back and always deletes", async () => {
+    const f = fakeDiscovery();
     const steps = await probeIdeaWrite(f.call, "DISC");
-    expect(steps.map((s) => s.status)).toEqual([201, 204, 200, 204]);
+    const text = steps.map((s) => `${s.label}: ${s.note}`).join("\n");
+    expect(text).toContain("Impact: customfield_10001 (option");
+    expect(text).toContain("writable as option{id}");
+    expect(text).toContain("writable as number");
+    expect(text).toContain("Roadmap (customfield_10005)");
+    const road = steps.find((s) => s.label.startsWith("Set Roadmap"))!; // plain string refused, the ADF retry accepted: both attempts are reported
+    expect(road.status).toBe(204);
+    expect(road.note).toContain("plain string: 400, ADF: 204");
+    expect(f.store.customfield_10001).toEqual({ id: "77" });
+    expect(f.store.description).toMatchObject({ type: "doc", version: 1 });
+    expect(steps.find((s) => s.label === "Read back and compare")!.note).toContain("description: round-trips (same node types and text)");
     expect(f.calls.at(-1)).toBe("DELETE /issue/DISC-7");
   });
+  it("one refused field does not stop the others and is reported with Jira's reason", async () => {
+    const f = fakeDiscovery({ refuse: ["customfield_10002"] });
+    const steps = await probeIdeaWrite(f.call, "DISC");
+    expect(steps.find((s) => s.label.startsWith("Set Effort"))!.note).toContain("refused");
+    expect(steps.find((s) => s.label.startsWith("Set Theme"))!.status).toBe(204);
+    expect(f.calls.at(-1)).toBe("DELETE /issue/DISC-7");
+  });
+  it("a description that comes back different is flagged as DIFFERS with node types only", async () => {
+    const f = fakeDiscovery({ dropDescription: true });
+    const note = (await probeIdeaWrite(f.call, "DISC")).find((s) => s.label === "Read back and compare")!.note;
+    expect(note).toContain("description: DIFFERS; node types read back: doc > paragraph > text");
+  });
+  it("prints no issue text, only structure", async () => {
+    const f = fakeDiscovery();
+    const all = (await probeIdeaWrite(f.call, "DISC")).map((s) => s.note).join("\n");
+    expect(all).not.toContain("pv spike j8");
+    expect(all).not.toContain("High");
+  });
   it("refuses to write anywhere but a Product Discovery project", async () => {
-    const f = make("software");
+    const f = fakeDiscovery({ type: "software" });
     const steps = await probeIdeaWrite(f.call, "PLAT");
     expect(steps).toHaveLength(1);
-    expect(f.calls.some((c) => c.startsWith("POST"))).toBe(false);
+    expect(f.calls.some((c) => c.startsWith("POST") || c.startsWith("PUT"))).toBe(false);
   });
   it("a refused create is reported and nothing is deleted", async () => {
-    const f = make("product_discovery", true);
+    const f = fakeDiscovery({ failCreate: true });
     const steps = await probeIdeaWrite(f.call, "DISC");
-    expect(steps[0]!.status).toBe(400);
+    expect(steps.find((s) => s.label.startsWith("Create"))!.status).toBe(400);
     expect(f.calls.some((c) => c.startsWith("DELETE"))).toBe(false);
+  });
+  it("chooses value shapes from the schema", () => {
+    expect(valueCandidates({ schema: { type: "number" } })[0]).toEqual({ value: 1, kind: "number" });
+    expect(valueCandidates({ schema: { type: "array", items: "option" }, allowedValues: [{ id: "5" }] })[0]!.value).toEqual([{ id: "5" }]);
+    expect(valueCandidates({ schema: { type: "string", custom: "x:textarea" } })[0]!.kind).toBe("ADF");
+    expect(valueCandidates({ schema: { type: "user" } })).toEqual([]);
+  });
+});
+
+describe("J8: idea to epic link probe", () => {
+  const make = (o: { refuseType?: string; parentOk?: boolean; softwareType?: string } = {}) => {
+    const calls: string[] = [];
+    const links: { id: string; type: string }[] = [];
+    const call: ProbeCall = async (m, path, body) => {
+      calls.push(`${m} ${path}`);
+      if (path === "/project/DISC") return { status: 200, json: { projectTypeKey: "product_discovery", issueTypes: [{ id: "9", name: "Idea", hierarchyLevel: 0 }] } };
+      if (path === "/project/PLAT") return { status: 200, json: { projectTypeKey: o.softwareType ?? "software", issueTypes: [{ id: "1", name: "Epic", hierarchyLevel: 1 }, { id: "2", name: "Story", hierarchyLevel: 0 }] } };
+      if (path === "/issueLinkType") return { status: 200, json: { issueLinkTypes: [{ name: "Delivers", outward: "delivers", inward: "is delivered by" }, { name: "Relates", outward: "relates to", inward: "relates to" }] } };
+      if (m === "POST" && path === "/issue") return { status: 201, json: { key: (body as { fields: { project: { key: string } } }).fields.project.key === "DISC" ? "DISC-1" : "PLAT-9" } };
+      if (m === "POST" && path === "/issueLink") { const t = (body as { type: { name: string } }).type.name; if (t === o.refuseType) return { status: 404, json: { errorMessages: ["No issue link type with name found."] } }; links.push({ id: String(links.length + 100), type: t }); return { status: 201, json: null }; }
+      if (m === "GET" && path.includes("fields=issuelinks")) return { status: 200, json: { fields: { issuelinks: links.map((l) => ({ id: l.id, type: { name: l.type } })) } } };
+      if (m === "DELETE" && path.startsWith("/issueLink/")) { const i = links.findIndex((l) => l.id === path.split("/").pop()); if (i >= 0) links.splice(i, 1); return { status: 204, json: null }; }
+      if (m === "PUT") return o.parentOk ? { status: 204, json: null } : { status: 400, json: { errors: { parent: "Given parent work item does not belong to appropriate hierarchy." } } };
+      if (m === "DELETE") return { status: 204, json: null };
+      return { status: 200, json: {} };
+    };
+    return { call, calls, links };
+  };
+  it("tries every link type, removes each link, records the parent refusal and deletes both issues", async () => {
+    const f = make();
+    const steps = await probeIdeaLink(f.call, "DISC,PLAT");
+    const per = steps.find((s) => s.label.startsWith("Link idea"))!.note;
+    expect(per).toContain("Delivers: 201 (visible on idea: yes, on epic: yes), removed");
+    expect(per).toContain("Relates: 201");
+    expect(steps.find((s) => s.label.startsWith("Epic parent"))!.status).toBe(400);
+    expect(f.links).toEqual([]);
+    expect(f.calls.filter((c) => c.startsWith("DELETE /issue/"))).toEqual(["DELETE /issue/PLAT-9", "DELETE /issue/DISC-1"]);
+  });
+  it("a refused link type is reported and the others still run", async () => {
+    const f = make({ refuseType: "Delivers" });
+    const per = (await probeIdeaLink(f.call, "DISC,PLAT")).find((s) => s.label.startsWith("Link idea"))!.note;
+    expect(per).toContain("Delivers: 404");
+    expect(per).toContain("Relates: 201");
+  });
+  it("needs two different project keys and the right project types, otherwise writes nothing", async () => {
+    for (const [arg, o] of [["DISC", {}], ["DISC,DISC", {}], ["DISC,PLAT", { softwareType: "business" }]] as const) {
+      const f = make(o);
+      const steps = await probeIdeaLink(f.call, arg);
+      expect(steps).toHaveLength(1);
+      expect(f.calls.some((c) => c.startsWith("POST") || c.startsWith("PUT"))).toBe(false);
+    }
   });
 });
 
