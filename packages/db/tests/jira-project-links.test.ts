@@ -71,7 +71,7 @@ describe("linking a project to a Jira project", () => {
     const c = await connOf(f.tenantA);
     expect(await errorCode(link(creator, p, c))).toBe(DENIED);
     expect(await errorCode(link(service, p, c))).toBe(DENIED);
-    expect(await errorCode(link(f.alice, p, c, { via: "Claude MCP" }))).toBe(DENIED);
+    expect(await errorCode(link(f.alice, p, c, { via: "MCP" }))).toBe(DENIED);
     expect(await errorCode(link(f.bob, p, c))).toBe(DENIED);
     expect(await links(p)).toEqual([]);
     await link(f.alice, p, c);

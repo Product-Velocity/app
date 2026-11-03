@@ -1,4 +1,4 @@
--- 20261102223213_mcp_source_and_ai_name: the write source "Claude MCP" becomes "MCP" for every AI assistant, and every
+-- 20261103004500_mcp_source_and_ai_name (re-timed after the Jira migrations of 2026-11-02 so it also covers them): the write source "Claude MCP" becomes "MCP" for every AI assistant, and every
 -- audit entry from an assistant records the AI name and the AI model (issue #289, step 2 of #230; Ashu's go-ahead 2026-11-02).
 -- Forward-only.
 --

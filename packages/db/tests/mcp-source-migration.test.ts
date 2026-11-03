@@ -7,7 +7,7 @@ import { migrate, MIGRATIONS_DIR } from "../src/migrate.mjs";
 import { createTestDb, type TestDb } from "./helpers";
 
 // Issue #289: the migration that renames the write source "Claude MCP" to "MCP" must also rewrite the history that already exists.
-const LAST = "20261102223213_mcp_source_and_ai_name.sql";
+const LAST = "20261103004500_mcp_source_and_ai_name.sql";
 let db: TestDb;
 let dir: string;
 let before: { audit: number; tenants: number };
