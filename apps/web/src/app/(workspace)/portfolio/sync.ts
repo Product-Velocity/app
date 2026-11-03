@@ -4,9 +4,10 @@ import { requireWorkspace } from "@/lib/session";
 import type { SyncChoice, SyncConfirmResult, SyncPreviewResult } from "@/lib/github/push-types";
 import { routeSync, type BoardResult, type TrackerId, type TrackerOf } from "@/lib/tracker/sync-router";
 import { checkGithubBoard, confirmGithubSync, startGithubSync } from "./github-push";
+import { checkJiraBoard, confirmJiraSync, startJiraSync } from "./jira-sync";
 
 // The one entry point of the Sync dialog. It routes each initiative to the sync engine of its project's tracker (see lib/tracker/sync-router).
-// GitHub's engine is unchanged; Jira's is registered here when it exists.
+// GitHub's engine is unchanged. Jira's is the read half only (Received; sending to Jira is not built yet).
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -23,7 +24,7 @@ const trackerOf: TrackerOf = async (ids) => {
   return out;
 };
 
-const router = () => routeSync({ github: { start: startGithubSync, board: checkGithubBoard, confirm: confirmGithubSync } }, trackerOf);
+const router = () => routeSync({ github: { start: startGithubSync, board: checkGithubBoard, confirm: confirmGithubSync }, jira: { start: (ids) => startJiraSync(ids), board: () => checkJiraBoard(), confirm: confirmJiraSync } }, trackerOf);
 
 export async function startSync(ids: string[], opts?: { board?: boolean }): Promise<SyncPreviewResult> { return router().start(ids, opts); }
 export async function checkBoard(ids: string[]): Promise<BoardResult> { return router().board(ids); }

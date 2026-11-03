@@ -33,7 +33,7 @@ export type GithubLinkInfo = { mode: "push" | "follow"; number: number | null; u
 
 // Sync with GitHub: what the check found (applied already, because GitHub owns those fields) next to what a send would write.
 export type ReceivedLine = { label: string; from: string | null; to: string | null };
-export type ReceiveStatus = "in_step" | "received" | "conflict" | "not_on_github" | "follows" | "missing" | "error";
+export type ReceiveStatus = "in_step" | "received" | "conflict" | "not_on_github" | "not_linked" | "follows" | "missing" | "error";
 /** A text that Product Velocity owns and that differs from GitHub. `github`: changed only in GitHub; `both`: changed on both sides; `block`: the managed block cannot be read field by field. */
 export type SyncConflict = {
   field: "title" | "summary" | "description" | "hypothesis" | "block" | "priority" | "group" | "due" | "size" | "assignees";
@@ -54,7 +54,7 @@ export type SyncConflict = {
   pvPossible?: false;
 };
 export type SyncChoice = { itemId: string; field: SyncConflict["field"]; choice: "pv" | "github"; ghHash: string };
-export type ReceiveItem = { id: string; code: string; name: string; status: ReceiveStatus; /** The initiative only follows an existing issue: received, never sent. */ readOnly?: boolean; received: ReceivedLine[]; conflicts?: SyncConflict[]; /** Assignees a send would add to or remove from the issue (Product Velocity changed them, GitHub did not). */ assigneeSend?: { add: string[]; remove: string[] }; issueNumber: number | null; issueUrl: string | null; message?: string };
+export type ReceiveItem = { id: string; code: string; name: string; status: ReceiveStatus; /** Which tracker answered; absent means GitHub. Jira cards only receive: sending to Jira is not built yet. */ tracker?: "github" | "jira"; /** The initiative only follows an existing issue: received, never sent. */ readOnly?: boolean; received: ReceivedLine[]; conflicts?: SyncConflict[]; /** Assignees a send would add to or remove from the issue (Product Velocity changed them, GitHub did not). */ assigneeSend?: { add: string[]; remove: string[] }; issueNumber: number | null; /** How a tracker without issue numbers names the issue (Jira: PLAT-12); shown instead of "#number". */ issueLabel?: string; issueUrl: string | null; message?: string };
 export type SyncPreview = { account: string; received: ReceiveItem[]; send: PlanItem[] };
 export type SyncPreviewResult = ({ ok: true } & SyncPreview) | { ok: false; error: string };
 /** A text taken over from GitHub: what the grid shows and what one undo step puts back. */

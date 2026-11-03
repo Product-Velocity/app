@@ -23,7 +23,7 @@ export function mergeChecked(ids: readonly string[], current: { received: Receiv
 }
 
 /** The initiatives that were linked and read: only these can have a board Status. */
-export const boardCandidates = (received: readonly ReceiveItem[]) => received.filter((r) => r.status !== "not_on_github" && r.status !== "error" && r.status !== "missing").map((r) => r.id);
+export const boardCandidates = (received: readonly ReceiveItem[]) => received.filter((r) => r.tracker !== "jira" && r.status !== "not_on_github" && r.status !== "not_linked" && r.status !== "error" && r.status !== "missing").map((r) => r.id);
 
 /** Adds the Delivery Status changes found when the board was read (once, after all chunks) to the cards. */
 export function applyBoardLines(received: readonly ReceiveItem[], lines: Record<string, ReceivedLine>, failed: boolean): ReceiveItem[] {

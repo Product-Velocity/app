@@ -16,8 +16,8 @@ export type NewItemsConfig = {
   name: string;
   terms: IncomingTerms;
   source: IncomingSource;
-  /** Reads GitHub for what changed lately and keeps it in the list. May fail or be slow: the step then shows what it has. */
-  refresh?: () => Promise<void>;
+  /** Reads the tracker for what changed lately and keeps it in the list. May fail or be slow: the step then shows what it has. A returned text is shown above the list (for example: sign in to Jira again). */
+  refresh?: () => Promise<string | void>;
   /** Issues in the tracker that are Not pulled. */
   count(): Promise<number>;
   /** Projects an issue can be pulled into (those without a tracker, or linked to this one). */
@@ -54,7 +54,10 @@ export function supabaseJiraNewItems(tenantId: string, role: string): NewItemsCo
   return {
     tracker: "jira", name: "Jira", terms: JIRA_TERMS,
     source: new SupabaseJiraIncomingSource(client, tenantId),
-    async refresh() { await refreshJiraNewItems(); },
+    async refresh() {
+      const r = await refreshJiraNewItems();
+      if (r.ok && r.reconnect > 0) return "Jira needs a new sign-in, so the list below may be out of date. A workspace admin can sign in again under Settings > Integrations > Jira.";
+    },
     async count() {
       const { count, error } = await client.from("jira_issues").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("pull_state", "not_pulled");
       if (error) throw new Error(error.message);
@@ -79,6 +82,7 @@ const REFRESH_WAIT_MS = 8000;
 
 export function NewItemsStep({ config, onContinue, onCancel, onChanged }: { config: NewItemsConfig; onContinue: () => void; onCancel: () => void; /** Initiatives were created or removed here: the grid behind this window reads the roadmap again. */ onChanged?: () => void }) {
   const [shown, setShown] = useState<{ count: number; projects: { id: string; name: string }[] } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -86,8 +90,9 @@ export function NewItemsStep({ config, onContinue, onCancel, onChanged }: { conf
       try {
         // read GitHub first (lightly), so an issue created a minute ago is in the list; a slow or failing read never stands in the way
         if (config.refresh) {
-          await Promise.race([config.refresh().catch(() => undefined), new Promise<void>((resolve) => setTimeout(resolve, REFRESH_WAIT_MS))]);
+          const said = await Promise.race([config.refresh().catch(() => undefined), new Promise<void>((resolve) => setTimeout(resolve, REFRESH_WAIT_MS))]);
           if (!live) return;
+          if (typeof said === "string") setNotice(said);
         }
         const count = await config.count();
         if (!live) return;
@@ -104,6 +109,7 @@ export function NewItemsStep({ config, onContinue, onCancel, onChanged }: { conf
   if (!shown) return <p role="status" className="muted">Checking {config.name} for new issues…</p>;
   return (
     <>
+      {notice && <p role="alert" className="error">{notice}</p>}
       <p>
         {config.name} has <strong>{shown.count}</strong> {shown.count === 1 ? "issue" : "issues"} that {shown.count === 1 ? "is" : "are"} not an initiative yet. Decide what to do with them, or skip this and continue.
         Pulling in creates an initiative (read only, or owned by Product Velocity). Nothing is written to {config.name} in this step.
