@@ -83,6 +83,8 @@ test.describe("Jira connection settings (issue #67, slice A)", () => {
       await page.getByText("Field mapping", { exact: true }).click();
       const form = page.getByRole("form", { name: "Field mapping of Platform" });
       await expect(form.getByLabel("Start date field (filled from Planned Start)")).toHaveValue("customfield_10015");
+      await expect(form.getByLabel("Theme field (filled with the Initiative Group name)")).toHaveValue("customfield_10030");
+      await expect(form.getByLabel("Theme field (filled with the Initiative Group name)").locator("option")).toHaveText(["Not mapped", "Theme", "Release note"]);
       await expect(form.getByLabel("Jira priority for MoSCoW “Must”")).toHaveValue("1");
       await expect(form.getByLabel("Jira priority for MoSCoW “Should”")).toHaveValue(""); // not mapped yet; "(suggested)" marks the proposal
       await expect(form.getByLabel("Jira priority for MoSCoW “Should”").locator("option", { hasText: "High (suggested)" })).toHaveCount(1);
