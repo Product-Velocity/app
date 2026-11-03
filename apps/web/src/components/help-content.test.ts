@@ -70,7 +70,7 @@ describe("Help guide: how each column is updated", () => {
     }
   });
   it("sends the texts only by manual sync, after you confirm", () => {
-    expect(row("description").updated).toBe("You edit it · Manual sync (Sync with GitHub)");
+    expect(row("description").updated).toBe("You edit it · Manual sync (Sync with GitHub or Jira)");
     expect(row("description").updated).not.toMatch(/Webhook|Auto/);
   });
   it("never lets a tracker or sync set the phase, status or health", () => {
@@ -105,8 +105,19 @@ describe("Help guide: exact target fields", () => {
       expect(row(k).updated, k).toBe("You edit it");
     }
   });
-  it("gives a Jira target for every column the app sends", () => {
-    for (const r of COLUMN_ROWS.filter((x) => x.github.startsWith("Sent to"))) expect(r.jira, r.key).toMatch(/^Sent to /);
+  it("says for every column the app sends to GitHub what Jira gets: a target, or plainly that it is not sent", () => {
+    for (const r of COLUMN_ROWS.filter((x) => x.github.startsWith("Sent to"))) expect(r.jira, r.key).toMatch(/^(Sent to |Not sent|Start date field|Not synced)/);
+  });
+  it("names what Sync with Jira really sends today, and no planned target as if it were built", () => {
+    const sent = (k: string) => COLUMN_ROWS.find((r) => r.key === k)!.jira;
+    expect(sent("initiative_name")).toMatch(/^Sent to Summary/);
+    expect(sent("description")).toMatch(/^Sent to Description, converted to Jira's format/);
+    expect(sent("g2m_date_est")).toBe("Sent to Due date");
+    expect(sent("moscow")).toMatch(/Label pv:moscow/);
+    expect(sent("stack_rank")).toMatch(/band, never the number/);
+    expect(sent("planned_start")).toMatch(/Field mapping/);
+    for (const k of ["summary", "hypothesis", "artifacts", "effort", "assignees"]) expect(sent(k), k).toMatch(/^Not (sent|synced)/);
+    for (const k of ["open_prs", "ci_status", "latest_release", "issues_total"]) expect(sent(k), k).toBe("Not read yet");
   });
 });
 
