@@ -104,7 +104,7 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
     }
   }
   // the field mapping form (admins only): the site's start-date candidates and priorities, read once per site; a site that cannot be read shows a notice
-  const choicesBySite = new Map<string, Promise<{ startDates: FieldChoice[]; priorities: FieldChoice[] } | null>>();
+  const choicesBySite = new Map<string, Promise<{ startDates: FieldChoice[]; themes: FieldChoice[]; priorities: FieldChoice[] } | null>>();
   const choicesFor = (connection: string, site: string) => {
     const k = `${connection}|${site}`;
     if (!choicesBySite.has(k)) choicesBySite.set(k, jiraFieldChoices(connection, site).catch(() => null));
@@ -114,7 +114,7 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
   if (canAdmin) {
     await Promise.all(((linkRows ?? []) as LinkRow[]).map(async (l) => {
       const choices = await choicesFor(l.connection_id, l.site_id);
-      fieldMaps.set(l.project_id, { current: parseFieldMap(storedMaps.get(l.project_id)), startDates: choices?.startDates ?? [], priorities: choices?.priorities ?? [], proposal: choices ? proposePriorities(choices.priorities) : {}, unreadable: choices === null });
+      fieldMaps.set(l.project_id, { current: parseFieldMap(storedMaps.get(l.project_id)), startDates: choices?.startDates ?? [], themes: choices?.themes ?? [], priorities: choices?.priorities ?? [], proposal: choices ? proposePriorities(choices.priorities) : {}, unreadable: choices === null });
     }));
   }
   const projectLinks: JiraProjectLinkView[] = ((projectRows ?? []) as { id: string; name: string }[]).map((p) => {

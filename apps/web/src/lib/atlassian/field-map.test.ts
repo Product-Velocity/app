@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fieldMapFromForm, parseFieldMap, priorityChoices, proposePriorities, startDateChoices } from "./field-map";
+import { fieldMapFromForm, parseFieldMap, priorityChoices, proposePriorities, startDateChoices, themeChoices } from "./field-map";
 
 describe("field map", () => {
   it("parses a stored mapping and drops anything malformed", () => {
@@ -21,6 +21,23 @@ describe("field map", () => {
       { id: "customfield_10030", name: "Notes", custom: true, schema: { type: "string", custom: "x:textfield" } },
     ];
     expect(startDateChoices(fields).map((f) => f.id)).toEqual(["customfield_10015", "customfield_10020"]);
+  });
+  it("parses and reads the theme field, dropping a malformed id", () => {
+    expect(parseFieldMap({ theme: "customfield_10030" })).toEqual({ theme: "customfield_10030" });
+    expect(parseFieldMap({ theme: "summary" })).toEqual({});
+    expect(fieldMapFromForm((k) => (k === "theme" ? "customfield_10030" : ""))).toEqual({ theme: "customfield_10030" });
+  });
+  it("offers only custom single-line text fields for the Theme, the one named Theme first; no selects, paragraphs, dates or system fields", () => {
+    const t = (id: string, name: string, custom: string, type = "string", isCustom = true) => ({ id, name, custom: isCustom, schema: { type, custom } });
+    const fields = [
+      t("customfield_10031", "Release note", "com.atlassian.jira.plugin.system.customfieldtypes:textfield"),
+      t("customfield_10030", "Theme", "com.atlassian.jira.plugin.system.customfieldtypes:textfield"),
+      t("customfield_10032", "Theme (list)", "com.atlassian.jira.plugin.system.customfieldtypes:select", "option"),
+      t("customfield_10033", "Details", "com.atlassian.jira.plugin.system.customfieldtypes:textarea"),
+      t("customfield_10034", "Start", "com.atlassian.jira.plugin.system.customfieldtypes:datepicker", "date"),
+      { id: "summary", name: "Summary", custom: false, schema: { type: "string", system: "summary" } },
+    ];
+    expect(themeChoices(fields).map((f) => f.id)).toEqual(["customfield_10030", "customfield_10031"]);
   });
   it("reads the site's priorities and proposes highest to Must and lowest to Won't only when there are at least four", () => {
     const c = priorityChoices([{ id: "1", name: "Highest" }, { id: "2", name: "High" }, { id: "3", name: "Medium" }, { id: "4", name: "Low" }, { id: "5", name: "Lowest" }, { id: "x", name: "Bad" }, 7]);
