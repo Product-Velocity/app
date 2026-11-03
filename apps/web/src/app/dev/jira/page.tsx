@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { connectNoop, disconnectNoop, formNoop } from "./actions";
+import { connectNoop, disconnectNoop, formNoop, retryNoop } from "./actions";
 import { JiraConnectionsView, type JiraConnectionView, type JiraProjectLinkView } from "@/components/jira-connections-view";
 
 /** Test page for the Jira settings with fixed data. Disabled unless the build sets NEXT_PUBLIC_E2E_HARNESS=1. */
@@ -16,6 +16,7 @@ export default async function JiraHarness({ searchParams }: { searchParams: Prom
           state,
           sites: [{ id: "s1", name: "Acme Corp", url: "https://acme.example" }],
           created_at: "2026-11-02T10:00:00Z",
+          scopes: "read:jira-work write:jira-work read:jira-user",
           state_changed_at: "2026-11-05T10:00:00Z",
           projects:
             state === "connected"
@@ -23,14 +24,12 @@ export default async function JiraHarness({ searchParams }: { searchParams: Prom
               : [],
         },
       ];
-  // ?step=choose (one linked, one waiting for a Jira project) | types (the issue types of the chosen Jira project) | change (Change pressed on the linked one)
-  const step = q.step ?? "choose";
   const types = [{ id: "10001", name: "Epic" }, { id: "10002", name: "Feature" }, { id: "10003", name: "Task" }, { id: "10004", name: "Subtask" }];
+  const proposal = { initiative: "10001", epic: "10002", task: "10004" };
   const projectLinks: JiraProjectLinkView[] = [
     {
-      projectId: "p1", projectName: "Platform", choosing: step === "change",
+      projectId: "p1", projectName: "Platform", tracker: "jira", rowLink: { value: "c1|s1|PLAT", initiative: "10001", epic: "10002", task: "10004" },
       link: { jiraKey: "PLAT", jiraName: "Platform", siteName: "Acme Corp", initiative: "Epic", epic: "Feature", task: "Subtask" },
-      mapping: null,
       fieldMap: { current: { startDate: "customfield_10015", theme: "customfield_10030", priorityByMoscow: { Must: "1" } }, startDates: [{ id: "customfield_10015", name: "Start date" }, { id: "customfield_10020", name: "Go-live" }], themes: [{ id: "customfield_10030", name: "Theme" }, { id: "customfield_10031", name: "Release note" }], priorities: [{ id: "1", name: "Highest" }, { id: "2", name: "High" }, { id: "3", name: "Medium" }, { id: "4", name: "Low" }, { id: "5", name: "Lowest" }], proposal: { Must: "1", Should: "2", Could: "3", "Won't": "5" }, unreadable: q.fields === "unreadable" },
       read: q.read === "none" ? null
         : q.read === "failed" ? { readAt: "2026-11-02T22:50:00Z", total: 0, added: 0, changed: 0, truncated: false, error: "Sign in to Jira again." }
@@ -45,11 +44,19 @@ export default async function JiraHarness({ searchParams }: { searchParams: Prom
           ],
     },
     {
-      projectId: "p2", projectName: "Growth", link: null, choosing: true,
-      mapping: step === "types" ? { connection: "c1", site: "s1", key: "GROW", jiraName: "Growth", types, proposal: { initiative: "10001", epic: "10002", task: "10004" } } : null,
+      projectId: "p2", projectName: "Growth", link: null, tracker: null, rowLink: null,
     },
   ];
-  const jiraOptions = [{ value: "c1|s1|PLAT", label: "PLAT · Platform", group: "Acme Corp" }, { value: "c1|s1|GROW", label: "GROW · Growth", group: "Acme Corp" }];
+  const choices = [{ value: "c1|s1|PLAT", label: "PLAT · Platform", group: "Acme Corp", types, proposal }, { value: "c1|s1|GROW", label: "GROW · Growth", group: "Acme Corp", types, proposal }];
+  const sync = none || state !== "connected" ? null : {
+    linked: 7,
+    lastCheck: q.events === "none" ? null : { at: "2026-11-03T05:30:00Z", summary: "Checked 7 linked item(s) in 1 Jira project(s): 1 changed, 0 issue(s) not found." },
+    events: q.events === "none" ? [] : [
+      { id: "e1", at: "2026-11-03T12:58:26Z", source: "webhook" as const, issue: "PLAT-12", summary: "Build Status: Not started → In progress, Jira status: To Do → In Progress", state: "processed" as const, error: null, attempts: 1 },
+      { id: "e2", at: "2026-11-02T22:47:43Z", source: "check" as const, issue: "PLAT-15", summary: "Could not apply PLAT-15", state: "error" as const, error: "Jira answered 500", attempts: 1 },
+    ],
+    live: { enabled: q.live !== "off", registered: q.live === "off" ? 0 : 1, total: q.live === "off" ? 0 : 1, needsScope: q.live === "scope" },
+  };
   return <JiraConnectionsView connections={connections} canAdmin={q.role !== "viewer"} configured={q.configured !== "0"} status={q.status} connectAction={connectNoop} disconnectAction={disconnectNoop}
-    projectLinks={q.state === "none" ? [] : projectLinks} jiraOptions={jiraOptions} basePath="/dev/jira" linkAction={formNoop} unlinkAction={formNoop} readAction={formNoop} canEdit={q.role !== "viewer"} reviewAction={formNoop} fieldMapAction={formNoop} />;
+    projectLinks={q.state === "none" ? [] : projectLinks} choices={choices} sync={sync} basePath="/dev/jira" saveProjectAction={formNoop} readAction={formNoop} checkAction={connectNoop} retryAction={retryNoop} canEdit={q.role !== "viewer"} reviewAction={formNoop} fieldMapAction={formNoop} />;
 }

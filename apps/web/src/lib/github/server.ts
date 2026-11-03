@@ -84,5 +84,9 @@ export async function applyConnectionEvent(admin: Admin, sc: SourceControl, ev: 
   };
   must(await admin.from("github_connections").update(patch).eq("id", row.id), "update connection");
   if (decision.state === "disconnected") await detachRepositories(admin, row.tenant_id, row.id);
-  if (decision.state === "connected") await refreshConnection(admin, sc, { ...row, installation_id: ev.installationId, account_login: ev.accountLogin });
+  if (decision.state === "connected") {
+    // after a Disconnect the links, incoming records and rules of the old connection of this account move to this one (the sync reads them by connection)
+    await admin.rpc("github_adopt_orphans", { p_connection: row.id });
+    await refreshConnection(admin, sc, { ...row, installation_id: ev.installationId, account_login: ev.accountLogin });
+  }
 }

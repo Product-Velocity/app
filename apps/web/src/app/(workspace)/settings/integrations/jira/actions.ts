@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 import { buildAuthorizeUrl, atlassianConfig, JIRA_SCOPES, WEBHOOK_SCOPES } from "@/lib/atlassian/oauth";
 import { signConnectState } from "@/lib/atlassian/connect-state";
 import { keyRing } from "@/lib/atlassian/token-crypto";
+import { checkJiraLinks } from "@/lib/atlassian/jira-check";
+import { applyLinkedStatuses } from "@/lib/atlassian/refresh-jira";
+import { describeLines } from "@/lib/atlassian/jira-events";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { readJiraLink } from "@/lib/atlassian/read-jira";
 import { jiraProjectDetail } from "@/lib/atlassian/server";
 import { fieldMapFromForm } from "@/lib/atlassian/field-map";
@@ -149,4 +153,72 @@ export async function saveJiraFieldMap(form: FormData): Promise<void> {
   const { error } = await ctx.supabase.rpc("jira_set_field_map", { p_project: String(form.get("project") ?? ""), p_map: map });
   revalidatePath(PATH);
   redirect(`${PATH}?status=${error ? "error" : "field-map-saved"}`);
+}
+
+/**
+ * "Check Jira now" (the twin of "Check GitHub now"): the same run as the daily check, for this workspace only. Reads Jira, applies the status of
+ * the linked initiatives, records the result in the recent-events table. Admin only; reading never writes to Jira.
+ */
+export async function checkJiraNow(): Promise<void> {
+  const ctx = await adminOnly();
+  if (!ctx) redirect(`${PATH}?status=not-admin`);
+  const { data: conns } = await ctx.supabase.from("jira_connections").select("id, sites").eq("tenant_id", ctx.active.tenantId).eq("state", "connected");
+  const sitesOf = new Map(((conns ?? []) as { id: string; sites: { id: string; url: string }[] }[]).map((c) => [c.id, c.sites]));
+  const { data: links } = await ctx.supabase.from("jira_project_links").select("id, tenant_id, connection_id, site_id, jira_project_key").eq("tenant_id", ctx.active.tenantId).in("connection_id", [...sitesOf.keys()]);
+  let status = "checked";
+  let qs = "";
+  try {
+    const r = await checkJiraLinks((links ?? []) as import("@/lib/atlassian/read-jira").LinkToRead[], sitesOf, { source: "manual", budgetMs: 50_000 });
+    qs = `&c=${r.checked}&ch=${r.changed}&m=${r.missing}`;
+    if (r.reconnect > 0) status = "read-reconnect";
+    else if (r.failed > 0) status = "read-failed";
+  } catch {
+    status = "read-failed";
+  }
+  revalidatePath(PATH);
+  redirect(`${PATH}?status=${status}${qs}`);
+}
+
+/** "Run again" for a failed row of the recent-events table: reads that issue again and applies it. */
+export async function retryJiraEvent(id: string): Promise<void> {
+  const ctx = await adminOnly();
+  if (!ctx) redirect(`${PATH}?status=not-admin`);
+  const { data: ev } = await ctx.supabase.from("jira_sync_events").select("id, link_id, issue_key, state").eq("id", id).eq("tenant_id", ctx.active.tenantId).maybeSingle();
+  let status = "retry-failed";
+  if (ev?.state === "error" && ev.link_id && ev.issue_key) {
+    const { data: link } = await ctx.supabase.from("jira_project_links").select("id, tenant_id, connection_id, site_id, jira_project_key").eq("id", ev.link_id).maybeSingle();
+    const { data: conn } = link ? await ctx.supabase.from("jira_connections").select("sites, state").eq("id", link.connection_id).maybeSingle() : { data: null };
+    const site = (conn?.sites as { id: string; url: string }[] | undefined)?.find((x) => x.id === link?.site_id);
+    const { data: item } = link ? await ctx.supabase.from("item_jira_links").select("item_id").eq("connection_id", link.connection_id).eq("site_id", link.site_id).eq("issue_key", ev.issue_key) : { data: [] };
+    if (link && site && conn?.state === "connected" && (item ?? []).length > 0) {
+      try {
+        const done = await applyLinkedStatuses(link, site.url, { itemIds: (item as { item_id: string }[]).map((x) => x.item_id) });
+        const admin = createAdminClient({ via: "system" });
+        await admin.from("jira_sync_events").update({ state: "processed", last_error: null, summary: done.changedIssues.length ? describeLines(done.changedIssues[0]!.lines) : `Read ${ev.issue_key} again: nothing changed`, attempts: 2 }).eq("id", id);
+        status = "retried";
+      } catch (e) {
+        status = e instanceof ReconnectNeeded ? "read-reconnect" : "retry-failed";
+      }
+    }
+  }
+  revalidatePath(PATH);
+  redirect(`${PATH}?status=${status}`);
+}
+
+/**
+ * The Projects table, one step (replaces Choose + Link): the row's tracker choice and Jira project with its three issue types. "none" unlinks;
+ * "jira" links (or changes the link). The Jira project and its issue types are read again from Jira here (the form is never trusted).
+ */
+export async function saveJiraProject(form: FormData): Promise<void> {
+  if (String(form.get("tracker") ?? "") === "none") return unlinkJiraProject(form);
+  const choice = String(form.get("jira") ?? "").split("|");
+  const next = new FormData();
+  next.set("project", String(form.get("project") ?? ""));
+  next.set("connection", choice[0] ?? "");
+  next.set("site", choice[1] ?? "");
+  next.set("key", choice[2] ?? "");
+  next.set("initiative", String(form.get("initiative") ?? ""));
+  next.set("epic", String(form.get("epic") ?? ""));
+  next.set("task", String(form.get("task") ?? ""));
+  return linkJiraProject(next);
 }

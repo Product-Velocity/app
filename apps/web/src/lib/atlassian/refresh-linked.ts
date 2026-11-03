@@ -26,6 +26,8 @@ export type RefreshSummary = {
   missing: string[];
   /** What changed, per initiative, in the words of the Sync dialog's "Received". */
   received: Record<string, ReceivedLine[]>;
+  /** The same changes by Jira issue key, for the recent-events table of the settings page. */
+  changedIssues: { key: string; lines: ReceivedLine[] }[];
 };
 
 const CHUNK = 500;
@@ -43,7 +45,7 @@ export function receivedLines(changes: ApplyResult["changes"]): ReceivedLine[] {
  * A failure to read Jira throws (ReconnectNeeded and the like) before anything is applied for the batch.
  */
 export async function refreshLinkedStatuses(deps: RefreshDeps, links: LinkedIssue[], siteUrl: string, known: Map<string, JiraIssueRow> = new Map()): Promise<RefreshSummary> {
-  const summary: RefreshSummary = { checked: 0, changed: 0, stale: 0, missing: [], received: {} };
+  const summary: RefreshSummary = { checked: 0, changed: 0, stale: 0, missing: [], received: {}, changedIssues: [] };
   const keys = [...new Set(links.map((l) => l.issue_key))];
   if (keys.length === 0) return summary;
   const rows = new Map<string, JiraIssueRow>();
@@ -63,7 +65,7 @@ export async function refreshLinkedStatuses(deps: RefreshDeps, links: LinkedIssu
       summary.checked++;
       if (res.stale) { summary.stale++; continue; }
       const lines = receivedLines(res.changes ?? {});
-      if (lines.length > 0) { summary.changed++; summary.received[res.item_id] = lines; }
+      if (lines.length > 0) { summary.changed++; summary.received[res.item_id] = lines; summary.changedIssues.push({ key: res.key, lines }); }
     }
   }
   return summary;
