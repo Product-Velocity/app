@@ -2,12 +2,15 @@
 // types and a sample of issues into one list the user can map from. Pure functions, no network. Nothing here
 // invents a Product Velocity field: the `role` is only a hint about what a Jira field usually means.
 
+import type { JiraKind } from "@pv/domain";
+
 export type JiraSchema = { type: string; items?: string; system?: string; custom?: string; customId?: number };
 export type JiraField = { id: string; name: string; custom: boolean; clauseNames?: string[]; schema?: JiraSchema };
 export type JiraIssueType = { id: string; name: string; hierarchyLevel: number; subtask?: boolean };
 export type JiraIssueSample = { fields?: Record<string, unknown> };
 
-export type FieldKind = "text" | "number" | "date" | "datetime" | "select" | "multi-select" | "user" | "users" | "labels" | "sprint" | "link" | "other";
+/** The kinds are those of the mapping rules in @pv/domain (`JiraKind`); `other` is a value this app has no rule for yet. */
+export type FieldKind = JiraKind;
 export type FieldRole = "story_points" | "start_date" | "due_date" | "sprint" | "team" | "labels" | "priority" | "assignee" | "parent" | "epic_link";
 
 export type CatalogRow = {
@@ -31,6 +34,9 @@ export function fieldKind(schema: JiraSchema | undefined): FieldKind {
   if (custom.endsWith(":userpicker")) return "user";
   if (custom.endsWith(":multiuserpicker")) return "users";
   if (custom.endsWith(":url")) return "link";
+  // objects that used to come back as "other" (spike J2): the Team field and the parent link
+  if (schema.type === "team" || custom.endsWith(":atlassian-team")) return "team";
+  if (schema.system === "parent" || schema.type === "issuelink" && schema.system === "parent") return "parent";
   switch (schema.type) {
     case "string":
       return "text";

@@ -1,8 +1,11 @@
 import { JiraConnectionsView, type JiraConnectionView, type JiraIssueView, type JiraProjectInfo, type JiraProjectLinkView, type JiraProjectOption } from "@/components/jira-connections-view";
+import { buildFieldsView } from "@/lib/atlassian/field-section";
+import { parseCatalogRows, toLoadedMappings } from "@/lib/atlassian/field-mappings";
 import { jiraConfigured, jiraGet, jiraProjectDetail, type JiraConnectionRow } from "@/lib/atlassian/server";
 import { proposeTypeMapping } from "@/lib/atlassian/type-mapping";
 import { requireWorkspace } from "@/lib/session";
 import { canEditItems } from "@pv/domain";
+import { refreshJiraFields, saveJiraFieldMapping } from "./fields-actions";
 import { disconnectJira, linkJiraProject, readJiraNow, reviewJiraIssues, startJiraConnection, unlinkJiraProject } from "./actions";
 
 export const metadata = { title: "Jira · Product Velocity" };
@@ -11,8 +14,8 @@ export const maxDuration = 30;
 type ProjectSearch = { values: { key: string; name: string; projectTypeKey: string; style?: string }[] };
 type LinkRow = { id: string; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_name: string; epic_type_name: string | null; task_type_name: string | null };
 
-export default async function JiraSettingsPage({ searchParams }: { searchParams: Promise<{ status?: string; pv?: string; jp?: string; ignored?: string }> }) {
-  const { status, pv, jp, ignored } = await searchParams;
+export default async function JiraSettingsPage({ searchParams }: { searchParams: Promise<{ status?: string; pv?: string; jp?: string; ignored?: string; fp?: string }> }) {
+  const { status, pv, jp, ignored, fp } = await searchParams;
   const { supabase, active } = await requireWorkspace("/settings/integrations/jira");
   const canAdmin = active.role === "admin" && !active.platform;
   const canEdit = canEditItems(active.role) && !active.platform;
@@ -64,6 +67,21 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
       issueRows.set(project, ((rowsOfProject ?? []) as { id: string; issue_key: string; title: string; issue_type: string | null; status: string | null; status_category: string | null; html_url: string | null }[]).map((r) => ({ id: r.id, key: r.issue_key, title: r.title, type: r.issue_type, status: r.status, category: r.status_category, url: r.html_url })));
     }),
   );
+  // the Fields section (issues #69, #70): admins only; the cached catalog and the stored mappings, per linked project
+  const fieldViews = new Map<string, ReturnType<typeof buildFieldsView>>();
+  if (canAdmin) {
+    const linkIds = ((linkRows ?? []) as LinkRow[]).map((l) => l.id);
+    const [{ data: catRows }, { data: mapRows }] = linkIds.length === 0 ? [{ data: [] }, { data: [] }] : await Promise.all([
+      supabase.from("jira_field_catalogs").select("link_id, fields, sampled, refreshed_at, error").eq("tenant_id", active.tenantId),
+      supabase.from("jira_field_mappings").select("link_id, jira_field_id, jira_field_name, jira_kind, jira_custom, pv_field, direction").eq("tenant_id", active.tenantId),
+    ]);
+    for (const l of (linkRows ?? []) as LinkRow[]) {
+      const c = ((catRows ?? []) as { link_id: string; fields: unknown; sampled: number; refreshed_at: string; error: string | null }[]).find((x) => x.link_id === l.id);
+      const mappings = toLoadedMappings(((mapRows ?? []) as { link_id: string }[]).filter((m) => m.link_id === l.id)).all;
+      const has = c && Array.isArray(c.fields) && c.fields.length > 0;
+      fieldViews.set(l.project_id, buildFieldsView({ rows: parseCatalogRows(c?.fields), mappings, refreshedAt: has ? c!.refreshed_at : null, error: c?.error ?? null, sampled: c?.sampled ?? 0 }));
+    }
+  }
   const reads = new Map(((readRows ?? []) as { link_id: string; read_at: string; total: number; added: number; changed: number; truncated: boolean; error: string | null }[]).map((r) => [r.link_id, r]));
   const counts = new Map<string, { not_pulled: number; pulled: number; ignored: number }>();
   for (const c of (countRows ?? []) as { project_id: string; pull_state: "not_pulled" | "pulled" | "ignored"; n: number }[]) {
@@ -107,13 +125,15 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
       showIgnored: ignored === p.id,
       mapping: working?.projectId === p.id ? working.mapping : null,
       choosing: !l || pv === p.id,
+      fields: canAdmin ? (fieldViews.get(p.id) ?? null) : null,
+      fieldsOpen: fp === p.id,
     };
   });
 
   return (
     <JiraConnectionsView
       connections={connections} canAdmin={canAdmin} configured={configured} status={status} connectAction={startJiraConnection} disconnectAction={disconnectJira}
-      projectLinks={projectLinks} jiraOptions={options} linkAction={linkJiraProject} unlinkAction={unlinkJiraProject} readAction={readJiraNow} canEdit={canEdit} reviewAction={reviewJiraIssues}
+      projectLinks={projectLinks} jiraOptions={options} linkAction={linkJiraProject} unlinkAction={unlinkJiraProject} readAction={readJiraNow} canEdit={canEdit} reviewAction={reviewJiraIssues} refreshFieldsAction={refreshJiraFields} saveFieldAction={saveJiraFieldMapping}
     />
   );
 }

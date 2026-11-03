@@ -1,4 +1,6 @@
+import type { FieldsView } from "@/lib/atlassian/field-section";
 import type { JiraConnectionRow } from "@/lib/atlassian/server";
+import { JiraFieldsSection } from "./jira-fields-section";
 
 export type JiraProjectInfo = { key: string; name: string; type: string; style: string | null };
 export type JiraSiteProjects = { siteId: string; projects: JiraProjectInfo[] | null; error?: string };
@@ -30,6 +32,25 @@ export const JIRA_NOTICE: Record<string, string> = {
   "link-types": "Choose three different issue types of that Jira project; the initiative type is required.",
   "link-tracker": "That project already uses another tracker. Remove its links there first.",
   "link-taken": "That Jira project is already linked to another project of this workspace.",
+  "fields-read": "Read the fields of the Jira site. They are listed under the project.",
+  "fields-failed": "The fields could not be read. The reason is under the project.",
+  "map-saved": "Saved. Nothing is written to Jira by saving a mapping.",
+  "map-removed": "Mapping removed. That Jira field is ignored again.",
+  "map-taken": "That Product Velocity field is already mapped to another Jira field. Remove that mapping first.",
+  "map-unknown-field": "That Jira field is not in the list of fields. Refresh the list and try again.",
+  "map-commercial": "Not mapped: commercial and person-only fields (value, confidence, customers, decisions, key results, outcomes, rank) can never be mapped.",
+  "map-private": "Not mapped: alignment results are anonymous and are never mapped.",
+  "map-tracker_driven": "Not mapped: that field comes from the tracker and is read only.",
+  "map-status_people_only": "Not mapped: Initiative Status is set by people only.",
+  "map-jira_unmappable": "Not mapped: a Jira status, resolution, computed field, title or description is never mapped.",
+  "map-incompatible": "Not mapped: the kinds do not match (for example a number cannot fill a date).",
+  "map-two_way_not_allowed": "Not mapped: Product Velocity does not send that field to Jira, so it can only be read.",
+  "map-jira_read_only": "Not mapped two-way: Jira does not let that field be written, so it can only be read.",
+  "map-not_for_jira": "Not mapped: that Product Velocity field is not available for the Jira mapping.",
+  "map-unknown_pv_field": "Not mapped: that is not a Product Velocity field.",
+  "map-unknown_direction": "Choose read only or two-way.",
+  "map-unknown_kind": "Not mapped: that kind of Jira field is not known.",
+  "map-refused": "Not mapped: that pair is not allowed.",
 };
 
 const STATE: Record<JiraConnectionRow["state"], string> = { connected: "Connected", reconnect_needed: "Sign in again needed", disconnected: "Not connected" };
@@ -52,6 +73,9 @@ export type JiraProjectLinkView = {
   mapping: null | { connection: string; site: string; key: string; jiraName: string; types: { id: string; name: string }[]; proposal: { initiative: string | null; epic: string | null; task: string | null } };
   /** The admin pressed Change, or there is no link yet: show step 1. */
   choosing: boolean;
+  /** The catalog of the Jira site's fields and the mapping (admins only; issues #69, #70). */
+  fields?: FieldsView | null;
+  fieldsOpen?: boolean;
 };
 
 type Props = {
@@ -71,10 +95,13 @@ type Props = {
   /** Creators and admins decide what comes in. */
   canEdit?: boolean;
   reviewAction?: (formData: FormData) => void | Promise<void>;
+  /** The Fields section (admins): read the catalog again, and save or clear the mapping of one Jira field. */
+  refreshFieldsAction?: (formData: FormData) => void | Promise<void>;
+  saveFieldAction?: (formData: FormData) => void | Promise<void>;
 };
 
 /** Settings → Integrations → Jira (issue #67, slice A). Presentational: the page supplies the data and the actions. */
-export function JiraConnectionsView({ connections, canAdmin, configured, status, connectAction, disconnectAction, projectLinks = [], jiraOptions = [], basePath = "/settings/integrations/jira", linkAction, unlinkAction, readAction, canEdit = false, reviewAction }: Props) {
+export function JiraConnectionsView({ connections, canAdmin, configured, status, connectAction, disconnectAction, projectLinks = [], jiraOptions = [], basePath = "/settings/integrations/jira", linkAction, unlinkAction, readAction, canEdit = false, reviewAction, refreshFieldsAction, saveFieldAction }: Props) {
   const needsSignIn = connections.some((c) => c.state === "reconnect_needed");
   return (
     <div className="page-narrow">
@@ -224,6 +251,9 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
                 <p>
                   {p.showIgnored ? <a href={basePath}>Back to the new issues</a> : p.counts.ignored > 0 ? <a href={`${basePath}?ignored=${p.projectId}`}>Show {p.counts.ignored} ignored</a> : null}
                 </p>
+              )}
+              {canAdmin && p.link && !p.mapping && !p.choosing && p.fields && (
+                <JiraFieldsSection projectId={p.projectId} projectName={p.projectName} jiraKey={p.link.jiraKey} fields={p.fields} refreshAction={refreshFieldsAction} saveAction={saveFieldAction} open={Boolean(p.fieldsOpen) || p.fields.mappedCount > 0} />
               )}
               {!p.link && !p.mapping && !canAdmin && <p className="muted">Not linked to Jira.</p>}
               {canAdmin && p.link && !p.choosing && !p.mapping && (

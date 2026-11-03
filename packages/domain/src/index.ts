@@ -37,3 +37,4 @@ export * from "./impact";
 export * from "./discovery-template";
 export * from "./company-profile";
 export * from "./assistants";
+export * from "./jira-field-mapping";

@@ -165,6 +165,26 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "jira_field_catalogs",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_field_catalogs set sampled = 0 where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_field_catalogs where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_field_catalogs (link_id, tenant_id) select link_id, tenant_id from public.jira_field_catalogs where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.jira_field_catalogs set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "jira_field_mappings",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_field_mappings set pv_field = 'moscow' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_field_mappings where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_field_mappings (tenant_id, link_id, jira_field_id, jira_field_name, jira_kind, jira_custom, pv_field, direction) select tenant_id, link_id, 'customfield_1', 'x', 'date', true, 'planned_start', 'read' from public.jira_field_mappings where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.jira_field_mappings set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "item_jira_links",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

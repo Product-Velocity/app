@@ -246,6 +246,10 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
       if ((await db.admin.query("select to_regclass('public.item_jira_links') as t")).rows[0].t) {
         await db.admin.query("insert into public.item_jira_links (tenant_id, item_id, connection_id, site_id, issue_key, issue_id, html_url, jira_status_category) values ($1, $2, $3, 'site-1', 'SEED-7', '10007', 'https://x.atlassian.net/browse/SEED-7', 'new')", [tenantId, items[1], jira]);
       }
+      if ((await db.admin.query("select to_regclass('public.jira_field_mappings') as t")).rows[0].t) {
+        await db.admin.query("insert into public.jira_field_catalogs (link_id, tenant_id, fields, sampled) select id, tenant_id, '[{\"id\":\"duedate\",\"name\":\"Due date\",\"custom\":false,\"kind\":\"date\",\"role\":\"due_date\",\"filled\":1,\"sampled\":1}]'::jsonb, 1 from public.jira_project_links where project_id = $1", [project]);
+        await db.admin.query("insert into public.jira_field_mappings (tenant_id, link_id, jira_field_id, jira_field_name, jira_kind, jira_custom, pv_field, direction) select tenant_id, id, 'duedate', 'Due date', 'date', false, 'g2m_date_est', 'read' from public.jira_project_links where project_id = $1", [project]);
+      }
       if ((await db.admin.query("select to_regclass('public.jira_issues') as t")).rows[0].t) {
         await db.admin.query("insert into public.jira_issues (tenant_id, connection_id, project_id, site_id, jira_project_key, issue_key, title, status_category) values ($1, $2, $3, 'site-1', 'SEED', 'SEED-1', 'Seed Jira issue', 'new')", [tenantId, jira, project]);
         await db.admin.query("insert into public.jira_reads (link_id, tenant_id, total, added) select id, tenant_id, 1, 1 from public.jira_project_links where project_id = $1", [project]);

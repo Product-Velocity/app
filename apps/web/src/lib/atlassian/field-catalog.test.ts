@@ -18,6 +18,11 @@ describe("field kinds and roles", () => {
     expect(fieldKind(fields[4]!.schema)).toBe("select");
     expect(fieldKind(undefined)).toBe("other");
   });
+  it("tells the Team and Parent objects from other unknown objects (spike J2: they came back as other)", () => {
+    expect(fieldKind({ type: "team", custom: "com.atlassian.jira.plugin.system.customfieldtypes:atlassian-team", customId: 10001 })).toBe("team");
+    expect(fieldKind({ type: "issuelink", system: "parent" })).toBe("parent");
+    expect(fieldKind({ type: "any", custom: "com.example:something-new" })).toBe("other");
+  });
   it("hints a role from site-specific names and ids, and none for unknown fields", () => {
     expect(fieldRole(fields[2]!)).toBe("story_points");
     expect(fieldRole(fields[3]!)).toBe("sprint");
