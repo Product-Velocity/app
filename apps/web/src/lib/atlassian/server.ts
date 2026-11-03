@@ -57,3 +57,12 @@ export async function jiraGet<T>(connectionId: string, siteId: string, path: str
   if (!res.ok) throw new Error(`Jira answered ${res.status}`);
   return (await res.json()) as T;
 }
+
+export type JiraProjectDetail = { id: string; key: string; name: string; projectTypeKey: string; issueTypes: { id: string; name: string; hierarchyLevel: number; subtask: boolean }[] };
+
+/** One Jira project with its OWN issue types (they differ per project). */
+export async function jiraProjectDetail(connectionId: string, siteId: string, key: string): Promise<JiraProjectDetail> {
+  if (!/^[A-Z][A-Z0-9_]{1,19}$/.test(key)) throw new Error("Not a Jira project key");
+  const r = await jiraGet<{ id: string; key: string; name: string; projectTypeKey: string; issueTypes?: { id: string; name: string; hierarchyLevel?: number; subtask?: boolean }[] }>(connectionId, siteId, `/project/${key}`);
+  return { id: r.id, key: r.key, name: r.name, projectTypeKey: r.projectTypeKey, issueTypes: (r.issueTypes ?? []).map((t) => ({ id: t.id, name: t.name, hierarchyLevel: t.hierarchyLevel ?? 0, subtask: Boolean(t.subtask) })) };
+}

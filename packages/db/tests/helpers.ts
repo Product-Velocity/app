@@ -241,6 +241,16 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
   if ((await db.admin.query("select to_regclass('public.jira_connections') as t")).rows[0].t) {
     const jira = await one("insert into public.jira_connections (tenant_id, sites, scopes, state) values ($1, '[{\"id\":\"site-1\",\"name\":\"Seed site\"}]'::jsonb, 'read:jira-work', 'connected') returning id", [tenantId]);
     await db.admin.query("insert into public.jira_credentials (connection_id, tenant_id, access_token_enc, refresh_token_enc, key_id, access_expires_at) values ($1, $2, 'v1.k1.seed.seed.seed', 'v1.k1.seed.seed.seed', 'k1', now() + interval '1 hour')", [jira, tenantId]);
+    if ((await db.admin.query("select to_regclass('public.jira_project_links') as t")).rows[0].t) {
+      await db.admin.query("insert into public.jira_project_links (tenant_id, project_id, connection_id, site_id, jira_project_id, jira_project_key, jira_project_name, initiative_type_id, initiative_type_name) values ($1, $2, $3, 'site-1', '10000', 'SEED', 'Seed project', '10001', 'Epic')", [tenantId, project, jira]);
+      if ((await db.admin.query("select to_regclass('public.item_jira_links') as t")).rows[0].t) {
+        await db.admin.query("insert into public.item_jira_links (tenant_id, item_id, connection_id, site_id, issue_key, issue_id, html_url, jira_status_category) values ($1, $2, $3, 'site-1', 'SEED-7', '10007', 'https://x.atlassian.net/browse/SEED-7', 'new')", [tenantId, items[1], jira]);
+      }
+      if ((await db.admin.query("select to_regclass('public.jira_issues') as t")).rows[0].t) {
+        await db.admin.query("insert into public.jira_issues (tenant_id, connection_id, project_id, site_id, jira_project_key, issue_key, title, status_category) values ($1, $2, $3, 'site-1', 'SEED', 'SEED-1', 'Seed Jira issue', 'new')", [tenantId, jira, project]);
+        await db.admin.query("insert into public.jira_reads (link_id, tenant_id, total, added) select id, tenant_id, 1, 1 from public.jira_project_links where project_id = $1", [project]);
+      }
+    }
   }
   const sess = await one("insert into public.alignment_sessions (tenant_id, name, method) values ($1, 'Seed session', 'coins') returning id", [tenantId]);
   await db.admin.query("insert into public.alignment_items (tenant_id, session_id, item_id, position) values ($1, $2, $3, 1)", [tenantId, sess, items[0]]);
