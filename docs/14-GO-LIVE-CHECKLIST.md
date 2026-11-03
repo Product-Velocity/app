@@ -70,7 +70,7 @@ Living list of things that must be done before real customers or real data. Owne
 - [ ] Domain, legal entity name and contact in the footer; legal pages reviewed.
 - [ ] Draft prices in `docs/09` are public while the repo is public: decide before go-live whether to keep them in the repo.
 - [ ] Every site claim checked against the claims rules in the brand guide.
-- [ ] **Prune `sync_events`** (the sync log) after a retention period, for example 90 days, and decide the production Cron schedule (the free plan allows once a day; Pro allows every minute, which suits reconciliation).
+- [ ] **Prune `sync_events`** (the sync log) after a retention period, for example 90 days, and decide the production Cron schedule (the free plan allows once a day; Pro allows every minute, which suits reconciliation). Two daily crons exist (`/api/cron/github`, `/api/cron/jira`): the free plan's limit of two is reached; the Jira daily check needs a real run on a Jira site before go-live.
 
 - [ ] Re-check the Vercel function region (`apps/web/vercel.json`, `dub1`) against where the customers and the paid Supabase project are; a multi-region setup needs a paid Vercel plan.
 - [ ] Scaling (`docs/18-SCALING.md`): partition `audit_log` by month with archiving, prune `sync_events` (90 days), move syncs to a per-customer queue, use the Supabase pooler (transaction mode), re-measure size and speed on real data, and add server-side paging to the Incoming list before Jira ships.

@@ -97,3 +97,54 @@ export async function readOpenWork(getPage: (path: string) => Promise<SearchPage
     token = page.nextPageToken;
   }
 }
+
+// ---- Refresh of linked issues (issue #67, #71): read specific issues by key, to follow their status. Read only, like everything here. ----
+
+export const KEY_BATCH = 100;
+const ISSUE_KEY = /^[A-Z][A-Z0-9_]{1,19}-[0-9]{1,9}$/;
+
+/** `key in (...)` for up to KEY_BATCH keys; every key is validated, so nothing from outside can shape the query. */
+export function keysJql(keys: string[]): string {
+  if (keys.length === 0 || keys.length > KEY_BATCH || !keys.every((k) => ISSUE_KEY.test(k))) throw new Error("Not a list of Jira issue keys");
+  return `key in (${keys.map((k) => `"${k}"`).join(", ")})`;
+}
+
+export function keysPath(keys: string[], pageToken?: string): string {
+  const q = new URLSearchParams({ jql: keysJql(keys), maxResults: String(KEY_BATCH), fields: "summary,issuetype,status,labels,parent,updated" });
+  if (pageToken) q.set("nextPageToken", pageToken);
+  return `/search/jql?${q.toString()}`;
+}
+
+const isBadRequest = (e: unknown) => e instanceof Error && /answered 400\b/.test(e.message);
+
+async function readBatch(getPage: (path: string) => Promise<SearchPage>, keys: string[], siteUrl: string, out: Map<string, JiraIssueRow>, gone: Set<string>): Promise<void> {
+  try {
+    let token: string | undefined;
+    for (let pages = 0; pages < 3; pages++) {
+      const page = await getPage(keysPath(keys, token));
+      for (const raw of page.issues ?? []) {
+        const row = mapIssue(raw, siteUrl);
+        if (row && keys.includes(row.key)) out.set(row.key, row);
+      }
+      if (page.isLast !== false || !page.nextPageToken) return;
+      token = page.nextPageToken;
+    }
+  } catch (e) {
+    // Jira refuses a `key in (...)` that names an issue that does not exist or is not visible (400). Halve the batch until the one
+    // key is found; that key is reported as gone instead of failing the whole read. Any other error (401, 429, 5xx) is thrown.
+    if (!isBadRequest(e)) throw e;
+    if (keys.length === 1) { gone.add(keys[0]!); return; }
+    const mid = Math.ceil(keys.length / 2);
+    await readBatch(getPage, keys.slice(0, mid), siteUrl, out, gone);
+    await readBatch(getPage, keys.slice(mid), siteUrl, out, gone);
+  }
+}
+
+/** Reads the given issues by key, 100 per call. `missing` = asked for but not returned (deleted, moved or not visible): never an error, never a change. */
+export async function readIssuesByKey(getPage: (path: string) => Promise<SearchPage>, keys: string[], siteUrl: string): Promise<{ rows: JiraIssueRow[]; missing: string[] }> {
+  const wanted = [...new Set(keys.filter((k) => ISSUE_KEY.test(k)))];
+  const found = new Map<string, JiraIssueRow>();
+  const gone = new Set<string>();
+  for (let i = 0; i < wanted.length; i += KEY_BATCH) await readBatch(getPage, wanted.slice(i, i + KEY_BATCH), siteUrl, found, gone);
+  return { rows: [...found.values()], missing: wanted.filter((k) => !found.has(k)) };
+}
