@@ -54,6 +54,8 @@ export async function completeConnection(request: NextRequest, state: string): P
     const { data, error } = await admin.from("jira_connections").insert({ tenant_id: parsed.t, created_by: auth.user.id, created_via: "UI", ...fields }).select("id").single();
     if (error || !data) return `${PAGE}?status=error`;
     connectionId = data.id as string;
+    // Disconnect keeps the project links and linked initiatives of a workspace that uses them; a new sign-in takes them over, or the sync would never see them again
+    await admin.rpc("jira_adopt_orphans", { p_connection: connectionId });
   }
   try {
     await storeCredentials(connectionId, parsed.t, { accessToken: tokens.access_token, refreshToken: tokens.refresh_token ?? null, expiresAt: Date.now() + tokens.expires_in * 1000 });
