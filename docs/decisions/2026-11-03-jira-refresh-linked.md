@@ -1,0 +1,14 @@
+---
+date: 2026-11-03
+by: Claude (decided within issue #67 / #71; Ashu to confirm in the PR)
+request: 67
+---
+**Linked initiatives follow their Jira issue (issue #67 and #71, the read side of the Jira sync).** Until now a Jira issue pulled in as an initiative got its Build Status once, at pull-in. Now every read of the issue is applied.
+
+- **What is applied.** `jira_apply_statuses` (service role only, source "system") takes the current status name, status category and `updated` of a linked issue. Build Status follows the CATEGORY (to do = Not started, in progress = In progress, done = Done), with Status Changed and Last Synced; the link keeps `jira_status`, `jira_status_category`, `jira_updated_at`. **Initiative Status is never set from Jira** (rule 6): a done ticket means the build is complete, not the initiative. Both link modes (read only and owned by Product Velocity) receive status: ownership decides what may be SENT later, never who owns delivery status.
+- **Compare before write, older answers ignored.** An answer that says nothing new writes nothing (and so adds no audit rows); an answer with `updated` older than `jira_updated_at` is ignored, like `github_apply_issue`. A status Jira did not classify (no category) changes nothing. A trashed initiative keeps its link current but its status is not changed. An issue Jira does not return (deleted, moved, not visible) changes nothing and is reported as "Issue not found".
+- **Audit.** Both tables are audited by their existing triggers, source "system", no actor, old and new value.
+- **Three triggers, one core.** (1) The Sync dialog: step 1 ("new items") reads the open work and the issues that became Done since the last read (light records, `jira_issues`); the next step reads the selected initiatives' issues by key (100 per call) and applies them, shown as **Received**. (2) A daily check, `/api/cron/jira` at 05:30 UTC (the free Vercel plan allows two cron jobs; this is the second, after `/api/cron/github`), which does the whole read for every connected workspace, oldest read first and within a 45 s budget. (3) Not webhooks (spike J3).
+- **Sync dialog, read half (the decision to confirm).** Jira cards show **Received from Jira** (Build Status and Jira status, old to new) and, under **To send**, "Nothing. Sending to Jira is not built yet". The dialog opens "Done" instead of "Apply and send" for Jira-only selections, and `confirm` for Jira refuses to send anything. A mixed GitHub and Jira selection shows both kinds of card; Jira cards never take part in the board step.
+- **Sign-in needed.** A connection that needs a new sign-in is shown in the Sync dialog (a notice in step 1, an error card in the next step) and skipped by the daily check for the rest of the run. Nothing retries by itself.
+- **Not in this slice:** writing to Jira (To send, conflicts), webhooks, parents and children (levels) and the field mapping.

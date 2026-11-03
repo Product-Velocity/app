@@ -13,7 +13,7 @@ const rpcRows = (rows: JiraIssueRow[]) => rows.map((r) => ({ key: r.key, id: r.i
  * Reads the open work of one linked Jira project into jira_issues (light records, Not pulled by default) and records what happened in
  * jira_reads. Reads Jira only; nothing is written to Jira. Throws after recording the reason when Jira cannot be read.
  */
-export async function readJiraLink(link: LinkToRead, siteUrl: string): Promise<ReadSummary> {
+export async function readJiraLink(link: LinkToRead, siteUrl: string): Promise<ReadSummary & { rows: JiraIssueRow[] }> {
   const admin = createAdminClient({ via: "system" });
   const record = async (s: ReadSummary, error: string | null) => {
     await admin.from("jira_reads").upsert({ link_id: link.id, tenant_id: link.tenant_id, read_at: new Date().toISOString(), total: s.total, added: s.added, changed: s.changed, truncated: s.truncated, error }, { onConflict: "link_id" });
@@ -31,7 +31,7 @@ export async function readJiraLink(link: LinkToRead, siteUrl: string): Promise<R
     }
     const summary = { total: rows.length, added, changed, truncated };
     await record(summary, null);
-    return summary;
+    return { ...summary, rows };
   } catch (e) {
     const reason = e instanceof ReconnectNeeded ? "Sign in to Jira again." : e instanceof Error ? e.message.slice(0, 200) : "unknown";
     await record({ total: 0, added: 0, changed: 0, truncated: false }, reason);

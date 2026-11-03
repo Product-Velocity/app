@@ -21,7 +21,7 @@ function fakeApi(scenario: string, onCall: (code: string) => void): SyncApi {
   const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const attempts = new Map<string, number>();
   return {
-    start: async (ids) => ({ ok: true, account: "acme", received: ids.map((id) => card(id, IDS.indexOf(id))), send: ids.map((id) => plan(id, IDS.indexOf(id))) }),
+    start: async (ids) => scenario === "jira" ? { ok: true, account: "Acme Jira", send: [], received: ids.map((id, n): ReceiveItem => ({ ...card(id, n), tracker: "jira", readOnly: true, issueNumber: null, issueLabel: `PLAT-${12 + n}`, issueUrl: `https://acme.example/browse/PLAT-${12 + n}`, ...(n === 0 ? { status: "received" as const, received: [{ label: "Build Status", from: "Not started", to: "In progress" }, { label: "Jira status", from: "To Do", to: "In Review" }] } : n === 1 ? {} : { status: "missing" as const, message: "Jira did not return this issue (deleted, moved or not visible to the connection). Nothing was changed." }) })) } : { ok: true, account: "acme", received: ids.map((id) => card(id, IDS.indexOf(id))), send: ids.map((id) => plan(id, IDS.indexOf(id))) },
     board: async () => ({ ok: true, lines: {}, failed: false }),
     confirm: async (ids) => {
       const id = ids[0]!;
@@ -43,9 +43,9 @@ function fakeApi(scenario: string, onCall: (code: string) => void): SyncApi {
  * `new=hang` has some and the read of GitHub never answers; no value leaves the step out.
  */
 function fakeNewItems(which: string | undefined, onRefresh: () => void): NewItemsConfig | undefined {
-  if (which !== "0" && which !== "1" && which !== "err" && which !== "hang" && which !== "jira") return undefined;
-  const jira = which === "jira";
-  const source = new MemoryIncomingSource(which === "0" ? [] : jira ? JIRA_SAMPLE : undefined);
+  if (which !== "0" && which !== "1" && which !== "err" && which !== "hang" && which !== "jira" && which !== "jira0") return undefined;
+  const jira = which === "jira" || which === "jira0";
+  const source = new MemoryIncomingSource(which === "0" || which === "jira0" ? [] : jira ? JIRA_SAMPLE : undefined);
   return {
     tracker: jira ? "jira" : "github", name: jira ? "Jira" : "GitHub", terms: jira ? JIRA_TERMS : GITHUB_TERMS,
     source,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanTitle, mapIssue, MAX_PAGES, openWorkJql, readOpenWork, searchPath, type SearchPage } from "./read-issues";
+import { cleanTitle, KEY_BATCH, keysJql, keysPath, mapIssue, MAX_PAGES, openWorkJql, readIssuesByKey, readOpenWork, searchPath, type SearchPage } from "./read-issues";
 
 const raw = (n: number, extra: Record<string, unknown> = {}) => ({
   id: String(10000 + n),
@@ -59,5 +59,55 @@ describe("reading all pages", () => {
   });
   it("an empty project reads as empty", async () => {
     expect(await readOpenWork(async () => ({ issues: [], isLast: true }), "PLAT", SITE)).toEqual({ rows: [], truncated: false, pages: 1 });
+  });
+});
+
+describe("reading issues by key (refresh of linked issues)", () => {
+  const rawDone = (n: number) => raw(n, { status: { name: "Done", statusCategory: { key: "done" } } });
+  const keysIn = (path: string) => [...decodeURIComponent(path).matchAll(/"([A-Z]+-[0-9]+)"/g)].map((m) => m[1]!);
+
+  it("builds the query from validated keys only", () => {
+    expect(keysJql(["PLAT-1", "PLAT-2"])).toBe('key in ("PLAT-1", "PLAT-2")');
+    expect(() => keysJql(['PLAT-1") OR project = ("SECRET'])).toThrow();
+    expect(() => keysJql([])).toThrow();
+    expect(() => keysJql(Array.from({ length: KEY_BATCH + 1 }, (_, i) => `PLAT-${i + 1}`))).toThrow();
+    expect(decodeURIComponent(keysPath(["PLAT-1"], "tok"))).toContain("nextPageToken=tok");
+  });
+  it("reads in batches of at most 100 and returns the status category, including Done", async () => {
+    const seen: string[][] = [];
+    const keys = Array.from({ length: 250 }, (_, i) => `PLAT-${i + 1}`);
+    const r = await readIssuesByKey(async (path) => { const k = keysIn(path); seen.push(k); return { issues: k.map((x) => rawDone(Number(x.slice(5)))), isLast: true }; }, keys, SITE);
+    expect(seen.map((s) => s.length)).toEqual([100, 100, 50]);
+    expect(r.rows).toHaveLength(250);
+    expect(r.rows[0]).toMatchObject({ status: "Done", category: "done" });
+    expect(r.missing).toEqual([]);
+  });
+  it("follows the page token inside a batch and ignores keys it did not ask for", async () => {
+    let calls = 0;
+    const r = await readIssuesByKey(async () => (++calls === 1 ? { issues: [raw(1)], nextPageToken: "t2", isLast: false } : { issues: [raw(2), raw(99)], isLast: true }), ["PLAT-1", "PLAT-2"], SITE);
+    expect(calls).toBe(2);
+    expect(r.rows.map((x) => x.key).sort()).toEqual(["PLAT-1", "PLAT-2"]);
+  });
+  it("reports keys Jira did not return as missing, without failing", async () => {
+    const r = await readIssuesByKey(async () => ({ issues: [raw(1)], isLast: true }), ["PLAT-1", "PLAT-2"], SITE);
+    expect(r.missing).toEqual(["PLAT-2"]);
+  });
+  it("when Jira refuses a batch because one key does not exist (400), finds that key and still reads the rest", async () => {
+    const getPage = async (path: string): Promise<SearchPage> => {
+      const k = keysIn(path);
+      if (k.includes("PLAT-3")) throw new Error("Jira answered 400");
+      return { issues: k.map((x) => raw(Number(x.slice(5)))), isLast: true };
+    };
+    const r = await readIssuesByKey(getPage, ["PLAT-1", "PLAT-2", "PLAT-3", "PLAT-4", "PLAT-5"], SITE);
+    expect(r.rows.map((x) => x.key).sort()).toEqual(["PLAT-1", "PLAT-2", "PLAT-4", "PLAT-5"]);
+    expect(r.missing).toEqual(["PLAT-3"]);
+  });
+  it("any other error (sign-in, rate limit, outage) is thrown, not hidden", async () => {
+    await expect(readIssuesByKey(async () => { throw new Error("Jira answered 429"); }, ["PLAT-1"], SITE)).rejects.toThrow("429");
+  });
+  it("drops invalid and duplicate keys before asking", async () => {
+    const asked: string[][] = [];
+    await readIssuesByKey(async (p) => { asked.push(keysIn(p)); return { issues: [], isLast: true }; }, ["PLAT-1", "PLAT-1", "evil", ""], SITE);
+    expect(asked).toEqual([["PLAT-1"]]);
   });
 });

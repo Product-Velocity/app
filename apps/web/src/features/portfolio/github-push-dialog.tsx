@@ -26,7 +26,7 @@ const WILL: Record<PlanItem["action"], (p: PlanItem) => string> = {
   unchanged: () => "Already up to date: nothing to send",
   blocked: (p) => `Cannot send: ${p.reason}`,
 };
-const STATUS: Record<ReceiveStatus, string> = { in_step: "In step", received: "Received", conflict: "Conflict to settle", not_on_github: "Not on GitHub", follows: "In step", missing: "Issue not found", error: "Could not check" };
+const STATUS: Record<ReceiveStatus, string> = { in_step: "In step", received: "Received", conflict: "Conflict to settle", not_on_github: "Not on GitHub", not_linked: "Not linked to Jira", follows: "In step", missing: "Issue not found", error: "Could not check" };
 const DID: Record<PushItemResult["outcome"], string> = { created: "Created", updated: "Updated", unchanged: "No change", missing: "Not sent", error: "Failed", blocked: "Not sent" };
 
 const keyOf = (itemId: string, field: string) => `${itemId}:${field}`;
@@ -246,8 +246,13 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
           <>
             <p>
               {phase.notice && <strong role="alert" className="error">{phase.notice} </strong>}
+              {phase.received.length > 0 && phase.received.every((r) => r.tracker === "jira") ? (
+                <>Product Velocity read the linked issues from <strong>Jira</strong>. What Jira owns (Build Status, from the status category of the issue) is already applied and listed under Received. Initiative Status is never set from Jira. Nothing is written to Jira, and sending to Jira is not built yet.</>
+              ) : <>
+              {phase.received.some((r) => r.tracker === "jira") && <>Initiatives linked to Jira only receive: Build Status is already applied, nothing is written to Jira, and sending to Jira is not built yet. </>}
               Product Velocity checked <strong>{phase.account}</strong> on GitHub. What GitHub owns (state, progress, epics and tasks, board Status) is already applied and listed under Received. Nothing is written to GitHub until you confirm. If you send, only the name, summary, description, hypothesis, artifact links, links to files you chose to share (private repositories only), a few labels, a milestone, the fields of the linked GitHub Project board and a link back go out; value, confidence,
               customers, decisions and other commercial fields never leave the app. The repository may be public.
+              </>}
             </p>
             {conflicts.length > 1 && (
               <div className="dialog-actions" role="group" aria-label="Settle all conflicts at once">
@@ -272,9 +277,10 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                 return (
                   <li key={r.id} className={r.status === "error" || r.status === "missing" || p?.action === "blocked" ? "push-blocked" : undefined}>
                     <strong>{r.code}</strong> {r.name} · <span className="push-pill">{label}</span>
-                    {r.issueNumber && r.issueUrl && <> · <a href={r.issueUrl} target="_blank" rel="noreferrer">issue #{r.issueNumber}</a></>}
+                    {(r.issueLabel || r.issueNumber) && r.issueUrl && <> · <a href={r.issueUrl} target="_blank" rel="noreferrer">{r.issueLabel ? `issue ${r.issueLabel}` : `issue #${r.issueNumber}`}</a></>}
                     {r.message && <><br /><span className="muted">{r.message}</span></>}
                     {r.status === "error" && !checking && <> <button type="button" className="btn" disabled={retrying === r.id} onClick={() => retry(r.id)}>{retrying === r.id ? "Checking…" : "Try again"}</button></>}
+                    {r.tracker === "jira" && <><br /><strong>To send</strong> <span className="muted">Nothing. Sending to Jira is not built yet, so Product Velocity only reads from Jira for now.</span></>}
                     {r.readOnly && <><br /><span className="muted">Follows this issue read-only: nothing to send.</span></>}
                     {(r.status === "in_step" || r.status === "follows") && !sends && <><br /><span className="muted">Everything is in step.</span></>}
                     {r.assigneeSend && (r.assigneeSend.add.length > 0 || r.assigneeSend.remove.length > 0) && (
@@ -283,7 +289,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                     )}
                     {r.received.length > 0 && (
                       <>
-                        <br /><strong>Received from GitHub</strong> (already applied)
+                        <br /><strong>Received from {r.tracker === "jira" ? "Jira" : "GitHub"}</strong> (already applied)
                         {r.received.map((l) => <span key={l.label} className="muted" style={{ display: "block" }}>{l.label}: {l.from ?? "empty"} → {l.to ?? "empty"}</span>)}
                       </>
                     )}
@@ -334,7 +340,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                 );
               })}
             </ul>
-            <p className="muted">Text you or engineers write in the issue outside the marked block is kept. The marked block is overwritten the next time you send.</p>
+            {phase.received.some((r) => r.tracker !== "jira") && <p className="muted">Text you or engineers write in the issue outside the marked block is kept. The marked block is overwritten the next time you send.</p>}
             {overwrites > 0 && <p role="note" className="muted">Keep Product Velocity replaces the text in GitHub with Product Velocity’s when you press Apply and send. Anything outside the marked block stays.</p>}
             {unchosen.length > 0 && <p role="status" className="muted">Choose for {unchosen.length === 1 ? "the conflict above" : `all ${unchosen.length} open conflicts`} to continue.</p>}
             <div className="dialog-actions">
