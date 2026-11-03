@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AutoRefresh } from "@/app/(workspace)/settings/integrations/github/auto-refresh";
 import { RefreshButton } from "@/app/(workspace)/settings/integrations/github/refresh-button";
 import { JiraProjectRow, type JiraProjectChoice, type JiraRowLink } from "@/components/jira-project-row";
+import { TrackerTabs, type TrackerSection } from "@/components/tracker-tabs";
 import { sourceLabel } from "@/lib/atlassian/jira-events";
 import type { JiraConnectionRow } from "@/lib/atlassian/server";
 
@@ -87,13 +88,15 @@ type Props = {
   canEdit?: boolean;
   reviewAction?: (formData: FormData) => void | Promise<void>;
   fieldMapAction?: (formData: FormData) => void | Promise<void>;
+  /** Which section of the page: "Connect and configure" (default) or "Sync logs" (decision 2026-11-03-tracker-field-config). */
+  section?: TrackerSection;
 };
 
 /**
  * Settings → Integrations → Jira, laid out like the GitHub page (decision 2026-11-03-tracker-parity): Status, Sync (what happens by itself, check
  * now, recent events), the Jira projects, Projects (one table, one Save), then the Jira-only extras. Presentational: the page supplies data and actions.
  */
-export function JiraConnectionsView({ connections, canAdmin, configured, status, checked, connectAction, disconnectAction, projectLinks = [], choices = [], sync = null, basePath = "/settings/integrations/jira", saveProjectAction, readAction, checkAction, retryAction, canEdit = false, reviewAction, fieldMapAction }: Props) {
+export function JiraConnectionsView({ connections, canAdmin, configured, status, checked, connectAction, disconnectAction, projectLinks = [], choices = [], sync = null, basePath = "/settings/integrations/jira", saveProjectAction, readAction, checkAction, retryAction, canEdit = false, reviewAction, fieldMapAction, section = "configure" }: Props) {
   const needsSignIn = connections.some((c) => c.state === "reconnect_needed");
   const connected = connections.filter((c) => c.state === "connected");
   const missingHookScope = Boolean(sync?.live.enabled) && connected.some((c) => c.scopes !== undefined && !c.scopes.split(" ").includes("manage:jira-webhook"));
@@ -104,12 +107,14 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
     <div className="page-narrow">
       <h1>Jira</h1>
       <p className="muted">Connect this workspace to Jira Cloud. Product Velocity never copies commercial fields (value, confidence, customers, decisions) to Jira.</p>
+      <TrackerTabs base={basePath} current={section} tracker="Jira" />
       {status && JIRA_NOTICE[status] && <p role="status" className="notice">{JIRA_NOTICE[status]}</p>}
       {status === "checked" && checked && <p role="status" className="notice">Checked {checked.c} linked item(s) against Jira: {checked.ch} changed, {checked.m} issue(s) not found.</p>}
       {needsSignIn && <p role="alert" className="notice">Atlassian no longer accepts the saved sign-in for at least one site. Sign in again to keep it working.</p>}
       {missingHookScope && <p role="alert" className="notice">Live updates need one more permission. Sign in to Jira again to allow it; until then the daily check and Check Jira now keep initiatives current.</p>}
       {!configured && <p role="alert" className="notice">Jira is not set up for this deployment: the platform owner has to set the Atlassian app variables.</p>}
 
+      {section === "configure" && (
       <div className="card stack">
         <h2>Status</h2>
         {connections.length === 0 && <p><strong>Not connected</strong></p>}
@@ -143,8 +148,10 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
           <p className="muted">An admin can connect Jira.</p>
         )}
       </div>
+      )}
+      {section === "logs" && connected.length === 0 && <p className="muted">Jira is not connected. <Link href={basePath}>Connect and configure</Link> it first; the sync log fills once it is.</p>}
 
-      {connected.length > 0 && sync && (
+      {section === "logs" && connected.length > 0 && sync && (
         <div className="card stack">
           <h2>Sync</h2>
           <p className="muted">
@@ -161,6 +168,7 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
             </div>
           )}
           {sync.lastCheck && <p className="muted" role="status">Last check {new Date(sync.lastCheck.at).toLocaleString("en-GB")}: {sync.lastCheck.summary}</p>}
+          {canAdmin && <p className="muted">Connection test: <Link href={`${basePath}/test`}>open the latest connection test</Link>.</p>}
           {canAdmin && status === "checked" && <AutoRefresh everyMs={3000} maxTries={3} />}
           {canAdmin && (
             <table className="table">
@@ -183,7 +191,7 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
         </div>
       )}
 
-      {connected.length > 0 && projectLinks.length > 0 && (
+      {section === "configure" && connected.length > 0 && projectLinks.length > 0 && (
         <div className="card stack">
           <h2>Projects</h2>
           <p className="muted">
@@ -207,7 +215,7 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
         </div>
       )}
 
-      {connected.length > 0 && linked.length > 0 && (
+      {section === "configure" && connected.length > 0 && linked.length > 0 && (
         <div className="card stack">
           <h2>Jira issues and field mapping</h2>
           <p className="muted">Reading Jira fills a list of open issues; nothing is in the roadmap until it is pulled in. The field mapping tells Sync which Jira fields to fill; saving writes nothing to Jira.</p>

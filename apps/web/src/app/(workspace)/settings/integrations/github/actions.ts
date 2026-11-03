@@ -120,7 +120,7 @@ export async function setRepoAccess(_prev: FormState, form: FormData): Promise<F
 /** Compares GitHub with every linked item now (the same check that runs daily) and applies what differs. */
 export async function checkGithubNow(form?: FormData): Promise<void> {
   // started from the Incoming page or from Settings > GitHub: the answer goes back to where the button was
-  const back = form?.get("from") === "incoming" ? "/incoming" : PATH;
+  const back = form?.get("from") === "incoming" ? "/incoming" : `${PATH}/logs`;
   const ctx = await adminOnly();
   const sc = githubSourceControl();
   if (!ctx || !sc) redirect(`${back}?status=error`);
@@ -138,6 +138,6 @@ export async function retrySyncEvent(eventId: string): Promise<void> {
   const ctx = await adminOnly();
   if (!ctx) redirect(`${PATH}?status=not-admin`);
   const ok = await retryEvent(createAdminClient({ via: "GitHub webhook" }), ctx.active.tenantId, eventId);
-  revalidatePath(PATH);
-  redirect(`${PATH}?status=${ok ? "retried" : "retry-failed"}`);
+  revalidatePath(`${PATH}/logs`);
+  redirect(`${PATH}/logs?status=${ok ? "retried" : "retry-failed"}`);
 }

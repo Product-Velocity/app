@@ -5,7 +5,12 @@ test.describe("Jira settings, laid out like GitHub (decision 2026-11-03-tracker-
   test("Status: connected site with Test connection, Sign in again, Disconnect and a second site", async ({ page }) => {
     await page.goto("/dev/jira");
     await expect(page.getByRole("heading", { name: "Jira", level: 1 })).toBeVisible();
-    for (const h of ["Status", "Sync", "Projects"]) await expect(page.getByRole("heading", { name: h, level: 2, exact: true })).toBeVisible();
+    for (const h of ["Status", "Projects"]) await expect(page.getByRole("heading", { name: h, level: 2, exact: true })).toBeVisible();
+    // two sections with the same bar as GitHub: the events live under Sync logs
+    const bar = page.getByRole("navigation", { name: "Jira settings sections" });
+    await expect(bar.getByRole("link", { name: "Connect and configure" })).toHaveAttribute("aria-current", "page");
+    await expect(bar.getByRole("link", { name: "Sync logs" })).toHaveAttribute("href", "/dev/jira/logs");
+    await expect(page.getByRole("heading", { name: "Sync", level: 2, exact: true })).toHaveCount(0);
     await expect(page.getByText("Connected", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Test connection" })).toHaveAttribute("href", "/dev/jira/test");
     await expect(page.getByRole("button", { name: "Sign in to Jira again" })).toBeEnabled();
@@ -35,9 +40,11 @@ test.describe("Jira settings, laid out like GitHub (decision 2026-11-03-tracker-
     await expect(page.getByRole("button", { name: /Disconnect|Connect|Check Jira now/ })).toHaveCount(0);
   });
 
-  test("Sync: what happens by itself, Check Jira now, the last check and the recent events with Run again on a failure", async ({ page }) => {
-    await page.goto("/dev/jira");
+  test("Sync logs: what happens by itself, Check Jira now, the last check and the recent events with Run again on a failure", async ({ page }) => {
+    await page.goto("/dev/jira/logs");
     const sync = page.locator(".card", { has: page.getByRole("heading", { name: "Sync", level: 2 }) });
+    await expect(page.getByRole("navigation", { name: "Jira settings sections" }).getByRole("link", { name: "Sync logs" })).toHaveAttribute("aria-current", "page");
+    await expect(sync.getByRole("link", { name: "open the latest connection test" })).toHaveAttribute("href", "/dev/jira/test");
     await expect(sync).toContainText("7 initiative(s) are linked to a Jira issue");
     await expect(sync).toContainText("Live updates: 1 of 1 linked project(s) registered");
     await expect(sync.getByRole("button", { name: "Check Jira now" })).toBeVisible();
@@ -48,12 +55,12 @@ test.describe("Jira settings, laid out like GitHub (decision 2026-11-03-tracker-
     await expect(events).toContainText("Failed: Jira answered 500 (1 try)");
     await expect(events.getByRole("button", { name: "Run again" })).toHaveCount(1);
     await page.screenshot({ path: "../../docs/screenshots/jira-sync.png", fullPage: true });
-    await page.goto("/dev/jira?events=none&live=off");
+    await page.goto("/dev/jira/logs?events=none&live=off");
     await expect(page.getByText("Nothing yet.")).toBeVisible();
     await expect(page.getByText("Live updates: not switched on.")).toBeVisible();
-    await page.goto("/dev/jira?live=scope");
+    await page.goto("/dev/jira/logs?live=scope");
     await expect(page.locator("p[role=alert]").first()).toContainText("Live updates need one more permission");
-    await page.goto("/dev/jira?role=viewer");
+    await page.goto("/dev/jira/logs?role=viewer");
     await expect(page.getByRole("button", { name: "Check Jira now" })).toHaveCount(0);
     await expect(page.getByRole("table", { name: "Latest changes from Jira" })).toHaveCount(0);
   });
@@ -98,7 +105,7 @@ test.describe("Jira settings, laid out like GitHub (decision 2026-11-03-tracker-
       await expect(page.getByText("Field mapping", { exact: true })).toHaveCount(0);
     });
     test("every state has no accessibility violations", async ({ page }) => {
-      for (const url of ["/dev/jira", "/dev/jira?state=needs", "/dev/jira?state=none", "/dev/jira?state=none&configured=0", "/dev/jira?role=viewer", "/dev/jira?events=none&live=off", "/dev/jira?live=scope", "/dev/jira?fields=unreadable", "/dev/jira?read=failed", "/dev/jira?read=none", "/dev/jira?view=ignored"]) {
+      for (const url of ["/dev/jira", "/dev/jira?state=needs", "/dev/jira?state=none", "/dev/jira?state=none&configured=0", "/dev/jira?role=viewer", "/dev/jira?events=none&live=off", "/dev/jira?live=scope", "/dev/jira?fields=unreadable", "/dev/jira?read=failed", "/dev/jira?read=none", "/dev/jira?view=ignored", "/dev/jira/logs", "/dev/jira/logs?events=none&live=off", "/dev/jira/logs?live=scope", "/dev/jira/logs?role=viewer", "/dev/jira/logs?state=none"]) {
         await page.goto(url);
         const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
         expect(results.violations.map((v) => `${v.id}: ${v.nodes[0]?.html.slice(0, 100)}`), url).toEqual([]);

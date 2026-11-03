@@ -175,8 +175,8 @@ export async function checkJiraNow(): Promise<void> {
   } catch {
     status = "read-failed";
   }
-  revalidatePath(PATH);
-  redirect(`${PATH}?status=${status}${qs}`);
+  revalidatePath(`${PATH}/logs`);
+  redirect(`${PATH}/logs?status=${status}${qs}`);
 }
 
 /** "Run again" for a failed row of the recent-events table: reads that issue again and applies it. */
@@ -201,8 +201,8 @@ export async function retryJiraEvent(id: string): Promise<void> {
       }
     }
   }
-  revalidatePath(PATH);
-  redirect(`${PATH}?status=${status}`);
+  revalidatePath(`${PATH}/logs`);
+  redirect(`${PATH}/logs?status=${status}`);
 }
 
 /**
