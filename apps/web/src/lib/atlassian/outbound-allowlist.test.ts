@@ -91,3 +91,22 @@ describe("outbound Jira payloads", () => {
     expect(p.notes.join(" ")).toMatch(/Theme not sent/);
   });
 });
+
+describe("a custom field configuration can not make a non-allowlisted field appear (decision 2026-11-03-tracker-field-config)", () => {
+  const CUSTOM_MAPS = [
+    { ...FIELDS_MAP, dueDate: "customfield_10016" },
+    { ...FIELDS_MAP, off: ["jira.dueDate", "jira.label.moscow", "jira.label.rank", "jira.label.type", "jira.label.group", "jira.label.project"] },
+    // hostile values in a map that was stored by hand: ids that name nothing of ours, slot names of commercial fields
+    { startDate: "customfield_10015", dueDate: "customfield_10015", off: ["value_12m", "confidence", "decision"] },
+  ];
+  it.each(CUSTOM_MAPS.map((m, n) => [n, m] as const))("map %i: nothing but allowlisted fields is serialised", (_n, map) => {
+    const w = JSON.stringify(buildJiraPayload({ item: fullItem(), fields: map, create: { projectKey: "PLAT", issueTypeId: "10000" }, projectName: "Platform", currentLabels: ["mine"] }));
+    for (const f of FIELDS) if (!allowed.has(f.key)) expect(w, `${f.key} leaked into a Jira payload`).not.toContain(sentinel(f.key));
+    for (const k of OTHER) expect(w, `${k} leaked`).not.toContain(sentinel(k));
+  });
+  it("a due date field that is not a field id is ignored: it can only be duedate or a custom field", () => {
+    const f = buildJiraPayload({ item: fullItem(), fields: { dueDate: "description" } }).fields;
+    expect(f.duedate).toBe("2027-03-31");
+    expect(JSON.stringify(f.description)).not.toContain("2027-03-31");
+  });
+});

@@ -69,3 +69,18 @@ describe("outbound GitHub payloads", () => {
     for (const k of commercial) expect(allowed.has(k), k).toBe(false);
   });
 });
+
+describe("a custom field configuration can not make a non-allowlisted field appear (decision 2026-11-03-tracker-field-config)", () => {
+  const OFFS: (readonly string[])[] = [
+    [],
+    ["github.label.moscow", "github.label.rank", "github.label.type", "github.label.group", "github.label.project", "github.milestone", "github.issueType", "github.body.artifacts", "github.body.files"],
+    ["value_12m", "confidence", "decision", "github.title"], // slot names of commercial fields, and a fixed slot: no effect
+  ];
+  it.each(OFFS.map((o, n) => [n, o] as const))("off list %i: nothing but allowlisted fields is serialised", async (_n, off) => {
+    const built = buildTrackingIssue({ item: fullItem(), itemId: ID, projectName: "Mobile", appUrl: "https://productvelocity.app", artifacts: [{ label: "PRD", url: "https://example.test/prd" }], off });
+    const sc = new MemorySourceControl();
+    await pushTrackingIssue(sc, 1, "acme/road", ID, built, null);
+    const w = JSON.stringify([built, sc.sent]);
+    for (const f of FIELDS) if (!allowed.has(f.key)) expect(w, `${f.key} leaked into a payload`).not.toContain(sentinel(f.key));
+  });
+});
