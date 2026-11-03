@@ -37,7 +37,7 @@ const OVERRIDES: Record<string, Link> = {
   health: { github: "Not synced. Signals only suggest", jira: NONE },
   stack_rank: sent("Label pv:rank/top-10, top-25, top-50 or later (the band, never the number)", "Label pv:rank/top-10, top-25, top-50 or later (the band, never the number)"),
   moscow: sent("Label pv:moscow/must, should, could or wont; board field Priority (P0, P1, P2)", "Label pv:moscow/…; Priority too, once you choose a Jira priority per value (Field mapping)"),
-  theme: sent("Label pv:group/<name>; board field Initiative", "Label pv:group/<name> (a Theme field is planned)"),
+  theme: sent("Label pv:group/<name>; board field Initiative", "Label pv:group/<name>; the name also goes into a Jira text field you map as Theme (Settings, Integrations, Jira, Field mapping)"),
   change_type: sent("Label pv:type/new-feature or improvement; issue Type Feature, Improvement or Enhancement", "Label pv:type/new-feature or improvement"),
   effort: { github: "Sent to project board field Size (XS to XL)", jira: "Not sent yet" },
   g2m_date_est: sent("Milestone \"YYYY Qn\" (due on the quarter's last day); board field Due date", "Due date"),

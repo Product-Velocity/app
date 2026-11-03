@@ -12,6 +12,8 @@ export type JiraOutboundField = (typeof OUTBOUND_JIRA_FIELDS)[number];
 export type JiraFieldMap = {
   /** Custom field id of "Start date" (site specific, from the field catalog). */
   startDate?: string;
+  /** Custom field id of a single-line TEXT field that receives the Initiative Group name (site specific; "Theme" on many sites). */
+  theme?: string;
   /** Jira priority id per MoSCoW value, chosen by the user; unmapped values leave the priority alone. */
   priorityByMoscow?: Partial<Record<"Must" | "Should" | "Could" | "Won't", string>>;
 };
@@ -33,6 +35,8 @@ export type JiraPayloadInput = {
 export type JiraPayload = { fields: Record<string, unknown>; /** What was left out and why, for the preview. */ notes: string[]; /** The Markdown the description was made from. */ descriptionSource: string };
 
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim().slice(0, max) : "");
+/** The Initiative Group name as one line of plain text for a Jira text field: control characters and line breaks removed, at most 255 characters (the limit of a single-line field). */
+const themeText = (v: unknown) => str(v, 4000).replace(/\s+/g, " ").trim().slice(0, 255);
 const DATE = /^\d{4}-\d{2}-\d{2}/;
 /** Read an item field, only if it is on the allowlist. */
 function read(item: Record<string, unknown>, key: JiraOutboundField): unknown { return (OUTBOUND_JIRA_FIELDS as readonly string[]).includes(key) ? item[key] : undefined; }
@@ -68,6 +72,11 @@ export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {
   if (typeof start === "string" && DATE.test(start)) {
     if (map.startDate && /^customfield_\d{1,9}$/.test(map.startDate)) f[map.startDate] = start.slice(0, 10);
     else notes.push("Start date not sent: this Jira site's Start date field is not mapped.");
+  }
+  const group = themeText(read(item, "theme"));
+  if (group) {
+    if (map.theme && /^customfield_\d{1,9}$/.test(map.theme)) f[map.theme] = group;
+    else notes.push("Theme not sent: this Jira site's Theme field is not mapped (the pv:group label is sent).");
   }
   const moscow = read(item, "moscow");
   if (typeof moscow === "string" && moscow) {

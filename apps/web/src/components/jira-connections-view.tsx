@@ -54,7 +54,7 @@ export type JiraProjectLinkView = {
   /** The admin pressed Change, or there is no link yet: show step 1. */
   choosing: boolean;
   /** The field mapping of this project (admins): what is mapped now and what the Jira site offers. */
-  fieldMap?: null | { current: { startDate?: string; priorityByMoscow?: Partial<Record<"Must" | "Should" | "Could" | "Won't", string>> }; startDates: { id: string; name: string }[]; priorities: { id: string; name: string }[]; proposal: Partial<Record<"Must" | "Should" | "Could" | "Won't", string>>; unreadable: boolean };
+  fieldMap?: null | { current: { startDate?: string; theme?: string; priorityByMoscow?: Partial<Record<"Must" | "Should" | "Could" | "Won't", string>> }; startDates: { id: string; name: string }[]; themes: { id: string; name: string }[]; priorities: { id: string; name: string }[]; proposal: Partial<Record<"Must" | "Should" | "Could" | "Won't", string>>; unreadable: boolean };
 };
 
 type Props = {
@@ -243,6 +243,14 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
                         <option value="">Not mapped</option>
                         {p.fieldMap.startDates.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
                       </select>
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`th-${p.projectId}`}>Theme field (filled with the Initiative Group name)</label>
+                      <select id={`th-${p.projectId}`} name="theme" defaultValue={p.fieldMap.current.theme ?? ""}>
+                        <option value="">Not mapped</option>
+                        {p.fieldMap.themes.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                      </select>
+                      <p className="muted">Single-line text fields only. The group is always sent as the label pv:group/&lt;name; this also writes its name into the field.</p>
                     </div>
                     {(["Must", "Should", "Could", "Won't"] as const).map((m) => (
                       <div className="field" key={m}>

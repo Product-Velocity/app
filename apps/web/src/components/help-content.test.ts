@@ -93,6 +93,8 @@ describe("Help guide: exact target fields", () => {
     expect(row("effort").github).toMatch(/Size/);
     expect(row("g2m_date_est").github).toMatch(/milestone/);
     expect(row("theme").github).toMatch(/pv:group\//);
+    expect(row("theme").jira).toMatch(/pv:group\/.*Theme/);
+    expect(row("theme").jira).not.toMatch(/planned/);
   });
   it("names the exact GitHub source of what the app reads", () => {
     expect(row("status").github).toMatch(/^Read from issue state/);

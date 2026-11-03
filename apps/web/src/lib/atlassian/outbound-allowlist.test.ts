@@ -8,7 +8,7 @@ const allowed = new Set<string>(OUTBOUND_JIRA_FIELDS);
 const sentinel = (key: string) => `LEAK_${key.toUpperCase()}_9f3a`;
 const OTHER = ["id", "tenant_id", "home_project_id", "created_by", "owner_user_id"];
 const fullItem = () => ({ ...Object.fromEntries([...FIELDS.map((f) => f.key), ...OTHER].map((k) => [k, sentinel(k)])), moscow: "Must", g2m_date_est: "2027-03-31", planned_start: "2027-01-04" });
-const FIELDS_MAP = { startDate: "customfield_10015", priorityByMoscow: { Must: "1" } };
+const FIELDS_MAP = { startDate: "customfield_10015", theme: "customfield_10030", priorityByMoscow: { Must: "1" } };
 
 describe("outbound Jira payloads", () => {
   it("serialises nothing but allowlisted fields, even when every field of the item is filled (create and update)", () => {
@@ -36,7 +36,7 @@ describe("outbound Jira payloads", () => {
 
   it("never writes a status, a transition or a sprint: the payload has only the fields PV may set", () => {
     const f = buildJiraPayload({ item: fullItem(), fields: FIELDS_MAP, create: { projectKey: "PLAT", issueTypeId: "10000" } }).fields;
-    expect(Object.keys(f).sort()).toEqual(["customfield_10015", "description", "duedate", "issuetype", "labels", "priority", "project", "summary"]);
+    expect(Object.keys(f).sort()).toEqual(["customfield_10015", "customfield_10030", "description", "duedate", "issuetype", "labels", "priority", "project", "summary"]);
     expect(JSON.stringify(f)).not.toMatch(/status|transition|sprint|resolution|assignee/i);
   });
 
@@ -65,5 +65,29 @@ describe("outbound Jira payloads", () => {
     const p = buildJiraPayload({ item: fullItem(), fields: {} });
     expect(Object.keys(p.fields).some((k) => k.startsWith("customfield"))).toBe(false);
     expect(p.notes.join(" ")).toMatch(/Start date not sent/);
+  });
+
+  it("sends the Initiative Group name as plain one-line text into the mapped Theme field, and nothing else commercial with it", () => {
+    const p = buildJiraPayload({ item: { ...fullItem(), theme: "  Growth\u0000 &\n<b>Retention</b>\t" }, fields: FIELDS_MAP });
+    expect(p.fields.customfield_10030).toBe("Growth & <b>Retention</b>");
+    expect(p.notes.join(" ")).not.toMatch(/Theme not sent/);
+    const long = buildJiraPayload({ item: { ...fullItem(), theme: "x".repeat(900) }, fields: FIELDS_MAP });
+    expect((long.fields.customfield_10030 as string).length).toBe(255);
+  });
+
+  it("an unmapped Theme is skipped with a note (the label is still sent); no group means nothing to send and no note", () => {
+    const p = buildJiraPayload({ item: fullItem(), fields: { startDate: "customfield_10015" } });
+    expect(Object.keys(p.fields).filter((k) => k.startsWith("customfield"))).toEqual(["customfield_10015"]);
+    expect(p.notes.join(" ")).toMatch(/Theme not sent/);
+    expect(p.fields.labels).toContain("pv:group/leak-theme-9f3a");
+    const none = buildJiraPayload({ item: { ...fullItem(), theme: "" }, fields: FIELDS_MAP });
+    expect(none.fields.customfield_10030).toBeUndefined();
+    expect(none.notes.join(" ")).not.toMatch(/Theme not sent/);
+  });
+
+  it("a malformed Theme field id never reaches the payload", () => {
+    const p = buildJiraPayload({ item: fullItem(), fields: { theme: "summary" } });
+    expect(p.fields.summary).not.toContain("LEAK_THEME");
+    expect(p.notes.join(" ")).toMatch(/Theme not sent/);
   });
 });
