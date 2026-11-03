@@ -162,3 +162,6 @@ If everything is in step the card says **"Everything is in step"** and the butto
 1. Should a change made only in GitHub to the title or a text ever apply automatically (for example for engineers' edits to the Description), or always ask? The proposal above always asks.
 2. Do you want the choice remembered per initiative ("always keep GitHub's Description for this one")? Not in the first release.
 3. Is 25 initiatives per sync enough, or should the sync run in the background for larger selections with a result page?
+
+## 19. Jira: initiatives removed in Product Velocity (2026-11-03)
+The Sync with Jira dialog has one section GitHub's does not: **Removed in Product Velocity**. Initiatives in the Trash whose Jira link is `push` (Product Velocity owns the issue) and not handled yet are listed with what will happen; a creator or admin confirms each, and the issue is labelled `pv:removed` and moved to a Done status (category `done`). Links in mode `follow` are never touched. The GitHub sync does not do this yet: a deleted initiative's tracking issue stays open. Details and limits: `docs/decisions/2026-11-03-jira-close-removed.md`.

@@ -1,4 +1,4 @@
-import type { ReceivedLine, SyncChoice, SyncConfirmResult, SyncPreviewResult } from "@/lib/github/push-types";
+import type { ReceivedLine, RemovedApi, SyncChoice, SyncConfirmResult, SyncPreviewResult } from "@/lib/github/push-types";
 
 // A thin router on top of the trackers' own sync engines (issue #67, Ashu's suggestion). Each tracker keeps its own full sync
 // (GitHub's is untouched; Jira gets a dedicated one); this layer only decides, per initiative, which engine handles it, by the
@@ -12,6 +12,8 @@ export type SyncApi = {
   start(ids: string[], opts?: { board?: boolean }): Promise<SyncPreviewResult>;
   board(ids: string[]): Promise<BoardResult>;
   confirm(ids: string[], choices: SyncChoice[]): Promise<SyncConfirmResult>;
+  /** Jira only: initiatives removed in Product Velocity whose Jira issue can be labelled and closed. Absent for GitHub. */
+  removed?: RemovedApi;
 };
 export type SyncEngines = Partial<Record<TrackerId, SyncApi>>;
 /** The tracker of each initiative's project; null when the project has none yet (it then behaves as GitHub, as before). */

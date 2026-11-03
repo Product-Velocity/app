@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FIELDS, FIELD_BY_KEY } from "@pv/domain";
-import { AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_TABS, AGENT_USE_CASES, COLUMN_GROUPS, COLUMN_ROWS, OVERRIDE_KEYS, UPDATE_OVERRIDE_KEYS, accessLabel } from "./help-content";
+import { AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_TABS, AGENT_USE_CASES, COLUMNS_NOTE, COLUMN_GROUPS, COLUMN_ROWS, OVERRIDE_KEYS, UPDATE_OVERRIDE_KEYS, accessLabel } from "./help-content";
 
 describe("Help guide columns table", () => {
   it("has exactly one row for every column in the field dictionary, in its order", () => {
@@ -178,5 +178,16 @@ describe("Help guide: Reports", () => {
     const text = ROADMAP_HEALTH_DEFINITIONS.rows.map((r) => r.join(" ")).join(" ");
     for (const h of NEEDS_ATTENTION) expect(text).toContain(h);
     for (const t of ["Active", "Days in current phase", "Age", "No date", "Completed delivery duration", "Several teams"]) expect(ROADMAP_HEALTH_DEFINITIONS.rows.map((r) => r[0]).join("|")).toContain(t);
+  });
+});
+
+describe("Help: closing the Jira issue of a removed initiative", () => {
+  it("says what it does, that a person confirms, that Jira-origin issues are untouched, and that Claude cannot do it", () => {
+    const status = COLUMN_ROWS.find((r) => r.key === "status")!;
+    expect(JSON.stringify(status)).toContain("Removed in Product Velocity");
+    expect(COLUMNS_NOTE).toMatch(/pv:removed/);
+    expect(COLUMNS_NOTE).toMatch(/you confirm each one/);
+    expect(COLUMNS_NOTE).toMatch(/came from Jira is never touched/);
+    expect(AGENT_ADVANTAGES.find((a) => a.title === "Safe by design")!.text).toMatch(/cannot close a Jira issue/);
   });
 });

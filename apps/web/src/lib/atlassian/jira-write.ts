@@ -2,7 +2,7 @@ import { ReconnectNeeded } from "./token-provider";
 
 // The Jira write client for Sync (issue #67/#71). Pure over an injected `call`, so it is tested with a fake Jira. It creates or updates ONE issue
 // per call, retries a 429 (and 503) with back-off that honours Retry-After, never retries a refusal (4xx), and turns ReconnectNeeded into
-// "sign in again" without a loop. It has no way to transition an issue or to delete one: only create and update (rule 6).
+// "sign in again" without a loop. It has no way to transition an issue or to delete one: only create and update (rule 6). The one transition that exists (closing the issue of a removed initiative) lives in jira-close.ts.
 
 export type JiraRequest = (method: "GET" | "POST" | "PUT", path: string, body?: unknown) => Promise<{ status: number; json: unknown; retryAfterSec?: number }>;
 export type WriteOutcome =

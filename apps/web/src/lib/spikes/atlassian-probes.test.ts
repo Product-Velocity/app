@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { probeDevInfo, probeIdeaLink, probeIdeaWrite, valueCandidates, probePaging, probeWebhook, type ProbeCall } from "./spike-probes";
-import { getJson } from "./read-client";
-import { readOpenWork } from "./read-issues";
-import type { JiraRequest } from "./jira-write";
+import { probeDevInfo, probeIdeaLink, valueCandidates, probeIdeaWrite, probePaging, probeWebhook, type ProbeCall } from "./atlassian-probes";
+import { getJson } from "@/lib/atlassian/read-client";
+import { readOpenWork } from "@/lib/atlassian/read-issues";
+import type { JiraRequest } from "@/lib/atlassian/jira-write";
 
 const noSleep = async () => {};
 
@@ -95,7 +95,7 @@ function fakeDiscovery(o: { type?: string; refuse?: string[]; failCreate?: boole
       return { status: 204, json: null };
     }
     if (m === "DELETE") return { status: 204, json: null };
-    if (path.includes("/transitions")) return { status: 200, json: { transitions: [{ name: "Discovery" }] } };
+    if (path.includes("expand=transitions")) return { status: 200, json: { transitions: [{ name: "Discovery" }] } };
     if (path.startsWith("/issue/DISC-7?fields=")) return { status: 200, json: { fields: { ...store, labels: ["pv-spike"], ...(o.dropDescription ? { description: { type: "doc", version: 1, content: [{ type: "paragraph", content: [{ type: "text", text: "pv spike j8" }] }] } } : {}) } } };
     return { status: 200, json: {} };
   };
