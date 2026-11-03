@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { probeDevInfo, probeIdeaWrite, probePaging, probeWebhook, type ProbeCall } from "./spike-probes";
-import { getJson } from "./read-client";
-import { readOpenWork } from "./read-issues";
-import type { JiraRequest } from "./jira-write";
+import { probeDevInfo, probeIdeaWrite, probePaging, probeWebhook, type ProbeCall } from "./atlassian-probes";
+import { getJson } from "@/lib/atlassian/read-client";
+import { readOpenWork } from "@/lib/atlassian/read-issues";
+import type { JiraRequest } from "@/lib/atlassian/jira-write";
 
 const noSleep = async () => {};
 
@@ -76,6 +76,7 @@ describe("J8: idea write probe", () => {
       if (path.startsWith("/project/")) return { status: 200, json: { projectTypeKey: type, issueTypes: [{ id: "9", name: "Idea", hierarchyLevel: 0 }] } };
       if (m === "POST") return failCreate ? { status: 400, json: { errors: { issuetype: "no" } } } : { status: 201, json: { key: "DISC-7" } };
       if (m === "PUT") return { status: 204, json: null };
+      if (path.includes("expand=transitions")) return { status: 200, json: { transitions: [{ name: "Discovery" }] } };
       if (m === "DELETE") return { status: 204, json: null };
       return { status: 200, json: { transitions: [{ name: "Discovery" }] } };
     };

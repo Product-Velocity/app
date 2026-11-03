@@ -69,3 +69,33 @@ export type SyncConfirmResult =
   | { ok: true; results: PushItemResult[]; taken: TakenOver[] }
   /** `stale`: GitHub changed after the preview; nothing was applied or sent and the new difference is returned. */
   | { ok: false; error: string; stale?: SyncPreview };
+
+// Sync with Jira, "Removed in Product Velocity" (decision 2026-11-03-jira-close-removed): initiatives that were deleted (Trash) and whose Jira issue Product
+// Velocity owns. The person confirms each one; nothing is written before. Only Jira has it; GitHub and the test page leave `removed` out of the api.
+export type RemovedCard = {
+  id: string;
+  code: string;
+  name: string;
+  /** The issue was adopted from Jira, not created by Product Velocity: closing it ends real work in Jira. The preview warns in red and leaves it unticked. */
+  adopted?: true;
+  issueKey: string;
+  issueUrl: string | null;
+  /** ready: can be confirmed. error: could not be read (nothing is offered to write). gone: Jira does not return the issue. */
+  state: "ready" | "error" | "gone";
+  message?: string;
+  /** The current Jira status (text from Jira) and whether it is already in a Done category. */
+  jiraStatus?: string;
+  alreadyDone?: boolean;
+  /** The workflow transitions into a Done status. Empty and not already done: only the label can be added. */
+  options: { id: string; name: string; toStatusName: string }[];
+  /** The transition used when the person does not choose: the only one, or the one into the Done status chosen before for this Jira project. */
+  defaultTransitionId: string | null;
+};
+export type RemovedList = { ok: true; items: RemovedCard[]; /** How many more removed initiatives wait (the list is cut at 25). */ more: number } | { ok: false; error: string };
+export type RemovedOutcome = "closed" | "labeled" | "already_done" | "not_found" | "error";
+export type RemovedResult = { id: string; code: string; outcome: RemovedOutcome; issueLabel?: string; issueUrl?: string; message?: string };
+export type RemovedApi = {
+  list(): Promise<RemovedList>;
+  /** Labels and closes ONE initiative's issue after the person confirmed. `transitionId` null: the default one. */
+  close(id: string, transitionId: string | null): Promise<{ ok: true; result: RemovedResult } | { ok: false; error: string }>;
+};

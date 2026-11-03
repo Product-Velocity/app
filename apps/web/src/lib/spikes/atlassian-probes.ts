@@ -1,7 +1,7 @@
 // Spikes J3, J5, J6, J8 (#257): probes for Ashu to run on the sandbox Jira site. Pure over an injected `call`, tested with a fake Jira.
 // Nothing here prints a site URL, account id, email or issue text: only counts, status codes, header names and structure.
 // Read probes (paging, development info) write nothing. The write probes (idea, webhook) create ONE object each and always remove it again.
-import { withBackoff, whyJira, type Sleep } from "./jira-write";
+import { withBackoff, whyJira, type Sleep } from "@/lib/atlassian/jira-write";
 
 export type ProbeCall = (method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown) => Promise<{ status: number; json: unknown; retryAfterSec?: number; headers?: Record<string, string> }>;
 export type ProbeStep = { label: string; status: number; note: string };
@@ -79,7 +79,7 @@ export async function probeIdeaWrite(call: ProbeCall, projectKey: string): Promi
     if (key) {
       const u = await call("PUT", `/issue/${key}`, { fields: { summary: "PV spike J8 test idea, edited (safe to delete)" } });
       steps.push({ label: "Edit the idea's summary", status: u.status, note: u.status === 204 ? "updated" : (whyJira(u.json) || "refused") });
-      const t = await call("GET", `/issue/${key}/transitions`);
+      const t = await call("GET", `/issue/${key}?expand=transitions&fields=summary`);
       steps.push({ label: "Transitions of an idea (read only)", status: t.status, note: arr(obj(t.json).transitions).map((x) => String(x.name)).join(", ") || "none" });
     }
   } finally {

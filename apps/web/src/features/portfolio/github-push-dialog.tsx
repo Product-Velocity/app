@@ -4,12 +4,14 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation";
 import { checkBoard, confirmSync, startSync, syncTrackers } from "@/app/(workspace)/portfolio/sync";
 import type { SyncApi } from "@/lib/tracker/sync-router";
+import { RemovedSection } from "./removed-section";
+import { closeRemovedInJira, listRemovedInJira } from "@/app/(workspace)/portfolio/jira-removed";
 import { NewItemsStep, type NewItemsConfig } from "./new-items";
 import { applyBoardLines, boardCandidates, chunk, CHECK_CHUNK, dropWritten, failedCard, filterByUpdates, mergeChecked, replaceResults, writeAll, writingLabel, type UpdateFilter, type WrittenOne } from "./sync-progress";
 import type { PlanItem, PushItemResult, ReceiveItem, ReceiveStatus, SyncChoice, SyncConflict, SyncPreview, TakenOver } from "@/lib/github/push-types";
 
 /** The three server calls the dialog makes, routed to the sync engine of each initiative's tracker; a test page passes fakes. */
-const REAL_API: SyncApi = { start: startSync, board: checkBoard, confirm: confirmSync };
+const REAL_API: SyncApi = { start: startSync, board: checkBoard, confirm: confirmSync, removed: { list: listRemovedInJira, close: closeRemovedInJira } };
 
 type Props = { ids: string[]; api?: SyncApi; /** Given, the sync opens with the issues that are new in the tracker (when there are any): decide on them first. */ newItems?: NewItemsConfig | NewItemsConfig[]; /** Which trackers the initiatives belong to; decides which new-items steps show. The real thing asks the server. */ trackersOf?: (ids: string[]) => Promise<string[]>; onClose: () => void; onDone?: () => void; /** Texts taken over from GitHub (already saved): the grid shows them and makes them one undo step. */ onTakenOver?: (changes: TakenOver[]) => void };
 type Phase =
@@ -94,6 +96,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
 
   const [progress, setProgress] = useState<{ done: number; total: number } | null>({ done: 0, total: ids.length });
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [removedBusy, setRemovedBusy] = useState(false); // closing removed initiatives' Jira issues: the main send waits
   const picksRef = useRef<SyncChoice[]>([]); // the choices of the last confirm, so one failed initiative can be sent again on its own
 
   // the check runs in chunks of a few initiatives, so cards appear as they are ready (up to 25); the board is read once at the end
@@ -344,9 +347,10 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
             {phase.received.some((r) => r.tracker !== "jira") && <p className="muted">Text you or engineers write in the issue outside the marked block is kept. The marked block is overwritten the next time you send.</p>}
             {overwrites > 0 && <p role="note" className="muted">Keep Product Velocity replaces the text in {phase.received.some((r) => r.tracker === "jira") && !phase.received.some((r) => r.tracker !== "jira") ? "Jira" : "GitHub"} with Product Velocity’s when you press Apply and send.{phase.received.some((r) => r.tracker !== "jira") ? " Anything outside the marked block stays." : ""}</p>}
             {unchosen.length > 0 && <p role="status" className="muted">Choose for {unchosen.length === 1 ? "the conflict above" : `all ${unchosen.length} open conflicts`} to continue.</p>}
+            {api.removed && !checking && phase.received.some((r) => r.tracker === "jira") && <RemovedSection api={api.removed} onBusy={setRemovedBusy} />}
             <div className="dialog-actions">
               {needsConfirm && <button type="button" className="btn" onClick={onClose}>Cancel</button>}
-              <button ref={confirmRef} type="button" className="btn btn-primary" disabled={unchosen.length > 0 || checking} onClick={needsConfirm ? send : onClose}>
+              <button ref={confirmRef} type="button" className="btn btn-primary" disabled={unchosen.length > 0 || checking || removedBusy} onClick={needsConfirm ? send : onClose}>
                 {checking ? "Checking…" : !needsConfirm ? "Done" : sendIds.size > 0 ? "Apply and send" : "Apply"}
               </button>
             </div>

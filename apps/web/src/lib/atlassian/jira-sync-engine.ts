@@ -26,7 +26,7 @@ type LinkRow = { item_id: string; connection_id: string; site_id: string; issue_
 type ProjectLink = { project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; field_map?: unknown };
 type Conn = { id: string; sites: { id: string; name: string; url: string }[]; state: string };
 
-export type Loaded = { projectName?: string; item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
+export type Loaded = { projectName?: string; /** Set when the initiative was removed (Trash), its Jira issue was closed by Product Velocity, and it was restored since: the issue is not reopened. */ closedWhileRemoved?: string | null; item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
 
 export const COLS = ["id", "item_code", ...Object.values(ITEM_COLUMNS), "home_project_id"].filter((c, i, a) => a.indexOf(c) === i).join(", ");
 /** A row as read with COLS, with the allowlisted values under their field keys. */
@@ -45,13 +45,19 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
     const { data: m } = await ctx.supabase.from("jira_project_links").select("field_map").eq("tenant_id", ctx.tenantId).eq("project_id", plink.project_id).maybeSingle();
     plink.field_map = (m as { field_map?: unknown } | null)?.field_map ?? {};
   }
+  // read apart too (migration jira_close_removed): without the column nothing was ever closed
+  let closedWhileRemoved: string | null = null;
+  if (l) {
+    const { data: r, error: re } = await ctx.supabase.from("item_jira_links").select("removed_result").eq("tenant_id", ctx.tenantId).eq("item_id", id).maybeSingle();
+    if (!re) closedWhileRemoved = (r as { removed_result?: string | null } | null)?.removed_result ?? null;
+  }
   const connId = l?.connection_id ?? plink?.connection_id;
   const { data: conn } = connId ? await ctx.supabase.from("jira_connections").select("id, sites, state").eq("tenant_id", ctx.tenantId).eq("id", connId).maybeSingle() : { data: null };
   const c = (conn ?? null) as Conn | null;
   const siteId = l?.site_id ?? plink?.site_id;
   const { data: proj } = item.home_project_id ? await ctx.supabase.from("projects").select("name").eq("tenant_id", ctx.tenantId).eq("id", item.home_project_id).maybeSingle() : { data: null };
   const projectName = (proj as { name?: string } | null)?.name;
-  return { ...(projectName ? { projectName } : {}), item: asItemRow(item as Record<string, unknown>), link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
+  return { ...(projectName ? { projectName } : {}), ...(closedWhileRemoved ? { closedWhileRemoved } : {}), item: asItemRow(item as Record<string, unknown>), link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
 }
 
 export const pvOf = (i: ItemRow): PvItem => ({ id: i.id, name: i.initiative_name, description: i.description, moscow: i.moscow, g2m_date_est: i.g2m_date_est, planned_start: i.planned_start, stack_rank: i.stack_rank, change_type: i.change_type, theme: i.theme });
