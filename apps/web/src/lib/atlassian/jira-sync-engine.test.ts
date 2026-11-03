@@ -47,7 +47,7 @@ const loadIt = async () => (await import("./jira-sync-engine")).load(ctx, ID);
 describe("the columns it reads", () => {
   // The same list is checked against the real table in packages/db/tests/jira-sync-write.test.ts: a column that does not exist makes the whole read fail.
   it("are real columns of items (G2M Date (est) is end_date), never dictionary keys that have no column", () => {
-    expect(COLS.split(", ").sort()).toEqual(["description", "end_date", "home_project_id", "id", "initiative_name", "item_code", "moscow", "planned_start"]);
+    expect(COLS.split(", ").sort()).toEqual(["change_type", "description", "end_date", "home_project_id", "id", "initiative_name", "item_code", "moscow", "planned_start", "stack_rank", "theme"]);
   });
   it("a row read that way still gives the engine G2M Date (est) under its field key", async () => {
     tables.items = { id: ID, item_code: "R-1", initiative_name: "Checkout", description: null, moscow: "Must", end_date: "2027-03-31", planned_start: null, home_project_id: "p1" };
