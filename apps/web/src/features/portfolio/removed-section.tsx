@@ -19,7 +19,7 @@ export function willText(c: RemovedCard, chosen: string | null): string {
   return "Choose which Done status to move the issue to.";
 }
 
-export function RemovedSection({ api, onBusy }: { api: RemovedApi; onBusy?: (busy: boolean) => void }) {
+export function RemovedSection({ api, onBusy, onCount }: { api: RemovedApi; onBusy?: (busy: boolean) => void; /** How many removed initiatives are listed (for the Deletions filter). */ onCount?: (n: number) => void }) {
   const headId = useId();
   const [items, setItems] = useState<RemovedCard[] | null>(null);
   const [more, setMore] = useState(0);
@@ -37,6 +37,7 @@ export function RemovedSection({ api, onBusy }: { api: RemovedApi; onBusy?: (bus
         if (!live) return;
         if (!r.ok) { setFailed(r.error); setItems([]); return; }
         setItems(r.items);
+        onCount?.(r.items.length + r.more);
         setMore(r.more);
         setOn(Object.fromEntries(r.items.filter((c) => c.state === "ready" && !c.adopted).map((c) => [c.id, true]))); // an adopted issue is never ticked for you
         setPick(Object.fromEntries(r.items.filter((c) => c.defaultTransitionId).map((c) => [c.id, c.defaultTransitionId!])));
@@ -44,6 +45,7 @@ export function RemovedSection({ api, onBusy }: { api: RemovedApi; onBusy?: (bus
       () => { if (live) { setFailed("The removed initiatives could not be checked just now."); setItems([]); } },
     );
     return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api]);
 
   if (items === null) return <p role="status" className="muted">Checking removed initiatives…</p>;
@@ -51,7 +53,7 @@ export function RemovedSection({ api, onBusy }: { api: RemovedApi; onBusy?: (bus
 
   // the transition sent for a card: the one chosen, else the only one; several with no choice cannot be confirmed
   const needsChoice = (c: RemovedCard) => c.state === "ready" && !c.alreadyDone && c.options.length > 1 && !pick[c.id];
-  const selected = items.filter((c) => c.state === "ready" && on[c.id] && !results.some((r) => r.id === c.id && r.outcome !== "error"));
+  const selected = items.filter((c) => (c.state === "ready" || c.state === "gone") && on[c.id] && !results.some((r) => r.id === c.id && r.outcome !== "error"));
   const blocked = selected.filter(needsChoice).length;
   const transitionFor = (c: RemovedCard) => (c.alreadyDone || c.options.length === 0 ? null : (pick[c.id] ?? c.options[0]?.id ?? null));
 
@@ -99,16 +101,16 @@ export function RemovedSection({ api, onBusy }: { api: RemovedApi; onBusy?: (bus
         {items.map((c) => {
           const r = resultOf(c.id);
           return (
-            <li key={c.id} className={c.state !== "ready" || r?.outcome === "error" ? "push-blocked" : undefined}>
+            <li key={c.id} className={c.state === "error" || r?.outcome === "error" ? "push-blocked" : undefined}>
               <label>
-                <input type="checkbox" disabled={c.state !== "ready" || !!run || (!!r && r.outcome !== "error")} checked={c.state === "ready" && !!on[c.id]} onChange={(e) => setOn({ ...on, [c.id]: e.target.checked })} />{" "}
+                <input type="checkbox" disabled={(c.state !== "ready" && c.state !== "gone") || !!run || (!!r && r.outcome !== "error")} checked={(c.state === "ready" || c.state === "gone") && !!on[c.id]} onChange={(e) => setOn({ ...on, [c.id]: e.target.checked })} />{" "}
                 <strong>{c.code}</strong> {c.name}
               </label>
               {" · "}{c.issueUrl ? <a href={c.issueUrl} target="_blank" rel="noreferrer">issue {c.issueKey}</a> : <>issue {c.issueKey}</>}
               {c.jiraStatus && <> · <span className="muted">Jira status: {c.jiraStatus}</span></>}
               <br />
-              {c.adopted && <><strong role="note" className="error">Warning: this issue was in Jira before Product Velocity took it over. Closing it ends real work there.</strong><br /></>}
-              {c.state !== "ready" ? <span className="muted">{c.message}</span> : (
+              {c.adopted && <p role="note" className="error" style={{ margin: "6px 0" }}><strong>Warning: this issue was in Jira before Product Velocity took it over. Closing it ends real work there.</strong></p>}
+              {c.state !== "ready" ? <span className="muted">{c.message}{c.state === "gone" && " Tick it and press the button to mark it as handled: nothing is written to Jira, and it is not offered again."}</span> : (
                 <>
                   <span className="muted">{willText(c, pick[c.id] ?? null)}</span>
                   {!c.alreadyDone && c.options.length > 1 && (

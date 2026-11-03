@@ -32,6 +32,7 @@ const REMOVED: RemovedCard[] = [
   { id: "66666666-6666-4666-8666-666666666666", code: "R-6", name: "Old loyalty", issueKey: "PLAT-21", issueUrl: "https://acme.example/browse/PLAT-21", state: "ready", jiraStatus: "To Do", options: [{ id: "31", name: "Done", toStatusName: "Done" }, { id: "41", name: "Won't do", toStatusName: "Won't do" }], defaultTransitionId: null },
   { id: "77777777-7777-4777-8777-777777777777", code: "R-7", name: "Old referral", issueKey: "PLAT-22", issueUrl: "https://acme.example/browse/PLAT-22", state: "ready", jiraStatus: "To Do", options: [], defaultTransitionId: null },
   { id: "99999999-9999-4999-8999-999999999999", code: "R-9", name: "Old rewards", adopted: true, issueKey: "PLAT-24", issueUrl: "https://acme.example/browse/PLAT-24", state: "ready", jiraStatus: "In Progress", options: [{ id: "31", name: "Done", toStatusName: "Done" }], defaultTransitionId: "31" },
+  { id: "10101010-1010-4010-8010-101010101010", code: "R-10", name: "Old gift cards", adopted: true, issueKey: "PLAT-25", issueUrl: null, state: "gone", message: "Jira did not return this issue (deleted, moved or not visible to the connection). Nothing was changed.", options: [], defaultTransitionId: null },
   { id: "88888888-8888-4888-8888-888888888888", code: "R-8", name: "Old wallet", issueKey: "PLAT-23", issueUrl: null, state: "error", message: "Jira could not be read just now. Try again in a minute.", options: [], defaultTransitionId: null },
 ];
 function fakeRemoved(scenario: string, onClose: (code: string, transition: string | null) => void): RemovedApi {
@@ -45,6 +46,7 @@ function fakeRemoved(scenario: string, onClose: (code: string, transition: strin
       const tries = (attempts.get(id) ?? 0) + 1;
       attempts.set(id, tries);
       if (c.code === "R-6" && tries === 1) return { ok: true, result: { id, code: c.code, outcome: "error", issueLabel: c.issueKey, message: "The label pv:removed was added, but the issue was not closed. Jira refused it: resolution: Resolution is required" } };
+      if (c.code === "R-10") return { ok: true, result: { id, code: c.code, outcome: "not_found", issueLabel: c.issueKey, message: "Jira no longer has this issue: there is nothing to close." } };
       if (c.code === "R-7") return { ok: true, result: { id, code: c.code, outcome: "labeled", issueLabel: c.issueKey, message: "No transition to a Done status exists in this issue's workflow, so only the label pv:removed was added. Close it in Jira." } };
       return { ok: true, result: { id, code: c.code, outcome: "closed", issueLabel: c.issueKey, issueUrl: c.issueUrl ?? undefined, message: `Moved to ${c.options.find((o) => o.id === transition)?.toStatusName ?? "Done"} and labelled pv:removed.` } };
     },
