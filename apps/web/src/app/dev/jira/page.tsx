@@ -31,7 +31,7 @@ export default async function JiraHarness({ searchParams }: { searchParams: Prom
       projectId: "p1", projectName: "Platform", choosing: step === "change",
       link: { jiraKey: "PLAT", jiraName: "Platform", siteName: "Acme Corp", initiative: "Epic", epic: "Feature", task: "Subtask" },
       mapping: null,
-      fieldMap: { current: { startDate: "customfield_10015", priorityByMoscow: { Must: "1" } }, startDates: [{ id: "customfield_10015", name: "Start date" }, { id: "customfield_10020", name: "Go-live" }], priorities: [{ id: "1", name: "Highest" }, { id: "2", name: "High" }, { id: "3", name: "Medium" }, { id: "4", name: "Low" }, { id: "5", name: "Lowest" }], proposal: { Must: "1", Should: "2", Could: "3", "Won't": "5" }, unreadable: q.fields === "unreadable" },
+      fieldMap: { current: { startDate: "customfield_10015", theme: "customfield_10030", priorityByMoscow: { Must: "1" } }, startDates: [{ id: "customfield_10015", name: "Start date" }, { id: "customfield_10020", name: "Go-live" }], themes: [{ id: "customfield_10030", name: "Theme" }, { id: "customfield_10031", name: "Release note" }], priorities: [{ id: "1", name: "Highest" }, { id: "2", name: "High" }, { id: "3", name: "Medium" }, { id: "4", name: "Low" }, { id: "5", name: "Lowest" }], proposal: { Must: "1", Should: "2", Could: "3", "Won't": "5" }, unreadable: q.fields === "unreadable" },
       read: q.read === "none" ? null
         : q.read === "failed" ? { readAt: "2026-11-02T22:50:00Z", total: 0, added: 0, changed: 0, truncated: false, error: "Sign in to Jira again." }
         : { readAt: "2026-11-02T22:50:00Z", total: 42, added: 3, changed: 1, truncated: q.read === "truncated", error: null },
