@@ -1,10 +1,12 @@
 ---
 date: 2026-11-03
-by: Claude (proposal, to confirm with Ashu)
+by: Ashu (answers 2026-11-03), written by Claude
 request: 67
-status: proposed
+status: agreed
 ---
-**Plan for writing to Jira from Sync (issues #67, #71).** Proposal, not yet agreed; the four decisions below go to Ashu with a recommendation each.
+**Plan for writing to Jira from Sync (issues #67, #71).** Ashu's answers: (1) send everything docs/16 lists, not only the smallest set; (2) create the initiative issue only; (3) own small Markdown-to-ADF converter with a hash; (4) conflicts as for GitHub.
+
+**How (1) is built, and what that choice costs.** Name, description, labels, due date (G2M Date est, the system field `duedate`), MoSCoW as a `pv:moscow/*` label, and a priority when the user chose a Jira priority per MoSCoW value. The Start date (Planned Start) goes out only when the site's Start date custom field is mapped; the parent link only when the initiative has a linked parent (PV initiatives have none today). A field that cannot be sent is listed in the preview with the reason, never guessed. Priority ids and the start-date field id come from the field mapping (#70), so until that exists those two are skipped with a note.
 
 1. **What is sent for an initiative in "push" mode.** Recommended first set: **name (summary), description, labels** (`pv:*` labels only, same namespace rule as GitHub: add the ones that apply, remove the `pv:` ones that no longer apply, never touch labels people added). Later, one step each: parent link, dates (needs the field catalog, #69/#70), priority and MoSCoW (label first, custom field after mapping), Initiative Group. Never: any status, transition, or commercial field.
 2. **Creating issues.** Recommended: Sync **creates the initiative's issue** (type chosen in `jira_project_links`) for an initiative of a Jira-linked project without a link, shown under To send as "Not in Jira yet: will be created", like GitHub's tracking issue. Sync does **not** create epics or tasks: GitHub decided on 2026-10-26 that breakdown lives in the tracker, and docs/16 says the same for Jira.
