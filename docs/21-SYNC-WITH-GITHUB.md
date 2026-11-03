@@ -27,7 +27,7 @@ After this change, pressing **Sync with GitHub** on a selection always does two 
 - Two-way editing of **commercial fields** (never leave PV, rule 2) or of fields that only PV owns (see section 6).
 - Automatic merging of text (no three-way merge into a combined paragraph). A conflict is settled by choosing one side as a whole, per field.
 - Syncing a whole workspace at once. The button works on a selection; "Check GitHub now" in Settings stays as the workspace-wide, read-only check.
-- Jira and GitLab (same flow later, behind the same interface). Jira's read half exists (Received only; `docs/decisions/2026-11-03-jira-refresh-linked.md`): its cards show what Jira changed and "To send" says sending to Jira is not built yet.
+- Jira and GitLab (same flow later, behind the same interface). Jira's read half exists and its write half is built (`docs/decisions/2026-11-03-jira-write.md`: the same Received, Conflicts, To send and Writing x/y; the read half is Received; `docs/decisions/2026-11-03-jira-refresh-linked.md`): its cards show what Jira changed and "To send" says sending to Jira is not built yet.
 - Reading board fields other than Status back into PV (Priority, Size and dates stay PV-owned and written; see section 6).
 - Assignees (needs the GitHub username mapping, issue #35). The design leaves room for them.
 

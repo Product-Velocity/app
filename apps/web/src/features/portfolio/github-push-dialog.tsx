@@ -21,8 +21,8 @@ type Phase =
   | { kind: "error"; message: string };
 
 const WILL: Record<PlanItem["action"], (p: PlanItem) => string> = {
-  create: (p) => `Will create a new issue in ${p.repo}`,
-  update: (p) => `Will update issue #${p.issueNumber} in ${p.repo}`,
+  create: (p) => (p.tracker === "jira" ? `Will create a new issue in the Jira project ${p.repo}` : `Will create a new issue in ${p.repo}`),
+  update: (p) => (p.tracker === "jira" ? `Will update issue ${p.issueLabel} in Jira` : `Will update issue #${p.issueNumber} in ${p.repo}`),
   unchanged: () => "Already up to date: nothing to send",
   blocked: (p) => `Cannot send: ${p.reason}`,
 };
@@ -35,7 +35,7 @@ const defaults = (received: ReceiveItem[]): Record<string, "pv" | "github"> => {
   for (const r of received) for (const c of r.conflicts ?? []) if (c.defaultChoice) out[keyOf(r.id, c.field)] = c.defaultChoice;
   return out;
 };
-const LOST = "Sending did not finish for this initiative. Check GitHub before trying again: an issue may already have been created, and sending again will find it.";
+const LOST = "Sending did not finish for this initiative. Check the tracker (GitHub or Jira) before trying again: an issue may already have been created, and sending again will find it.";
 const SHORT = 280;
 /** The per-initiative results, shown while writing (the ones finished so far) and when done. A failed or unsent one can be tried again on its own. */
 function ResultList({ results, onRetry, retrying }: { results: PushItemResult[]; onRetry?: (id: string) => void; retrying?: string | null }) {
@@ -44,7 +44,7 @@ function ResultList({ results, onRetry, retrying }: { results: PushItemResult[];
       {results.map((r, i) => (
         <li key={`${r.id}-${i}`} className={r.outcome === "error" || r.outcome === "missing" || r.outcome === "blocked" ? "push-blocked" : undefined}>
           <strong>{r.code}</strong> · {DID[r.outcome]}
-          {r.issueUrl && <> · <a href={r.issueUrl} target="_blank" rel="noreferrer">issue #{r.issueNumber}</a></>}
+          {r.issueUrl && <> · <a href={r.issueUrl} target="_blank" rel="noreferrer">{r.issueLabel ? `issue ${r.issueLabel}` : `issue #${r.issueNumber}`}</a></>}
           {r.message && <><br /><span className="muted">{r.message}</span></>}
           {onRetry && r.outcome === "error" && <> <button type="button" className="btn" disabled={retrying != null} onClick={() => onRetry(r.id)}>{retrying === r.id ? "Sending…" : "Try again"}</button></>}
         </li>
@@ -56,9 +56,9 @@ function Text({ text }: { text: string }) {
   if (text.length <= SHORT) return <pre className="push-body">{text || "(empty)"}</pre>;
   return <><pre className="push-body">{text.slice(0, SHORT)}…</pre><details><summary>Show full text</summary><pre className="push-body">{text}</pre></details></>;
 }
-const WHY: Record<SyncConflict["kind"], (label: string, where?: "board") => string> = {
-  github: (l, w) => `${l} was changed ${w ? "on the GitHub Project board" : "in GitHub"}. Product Velocity owns it, so nothing is overwritten until you choose.`,
-  both: (l, w) => `${l} was changed in Product Velocity and ${w ? "on the GitHub Project board" : "in GitHub"}. Choose which one to keep.`,
+const WHY: Record<SyncConflict["kind"], (label: string, where?: "board", tracker?: string) => string> = {
+  github: (l, w, t = "GitHub") => `${l} was changed ${w ? "on the GitHub Project board" : `in ${t}`}. Product Velocity owns it, so nothing is overwritten until you choose.`,
+  both: (l, w, t = "GitHub") => `${l} was changed in Product Velocity and ${w ? "on the GitHub Project board" : `in ${t}`}. Choose which one to keep.`,
   block: () => "The managed block was edited in GitHub and cannot be read field by field.",
 };
 
@@ -247,9 +247,9 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
             <p>
               {phase.notice && <strong role="alert" className="error">{phase.notice} </strong>}
               {phase.received.length > 0 && phase.received.every((r) => r.tracker === "jira") ? (
-                <>Product Velocity read the linked issues from <strong>Jira</strong>. What Jira owns (Build Status, from the status category of the issue) is already applied and listed under Received. Initiative Status is never set from Jira. Nothing is written to Jira, and sending to Jira is not built yet.</>
+                <>Product Velocity read the linked issues from <strong>Jira</strong>. What Jira owns (Build Status, from the status category of the issue) is already applied and listed under Received. Initiative Status is never set from Jira. Nothing is written to Jira until you confirm. If you send, only the name, description, labels starting with “pv:”, the due date (G2M Date) and, where the Jira site has them mapped, the start date and priority go out; value, confidence, customers, decisions and other commercial fields never leave the app, and status is never written. Anything else in the issue stays as it is.</>
               ) : <>
-              {phase.received.some((r) => r.tracker === "jira") && <>Initiatives linked to Jira only receive: Build Status is already applied, nothing is written to Jira, and sending to Jira is not built yet. </>}
+              {phase.received.some((r) => r.tracker === "jira") && <>For the initiatives linked to Jira, Build Status is already applied; name, description and labels go to Jira only when you confirm. </>}
               Product Velocity checked <strong>{phase.account}</strong> on GitHub. What GitHub owns (state, progress, epics and tasks, board Status) is already applied and listed under Received. Nothing is written to GitHub until you confirm. If you send, only the name, summary, description, hypothesis, artifact links, links to files you chose to share (private repositories only), a few labels, a milestone, the fields of the linked GitHub Project board and a link back go out; value, confidence,
               customers, decisions and other commercial fields never leave the app. The repository may be public.
               </>}
@@ -257,7 +257,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
             {conflicts.length > 1 && (
               <div className="dialog-actions" role="group" aria-label="Settle all conflicts at once">
                 <button type="button" className="btn" onClick={() => choose("pv")}>Keep Product Velocity for all conflicts</button>
-                <button type="button" className="btn" onClick={() => choose("github")}>Keep GitHub for all conflicts</button>
+                <button type="button" className="btn" onClick={() => choose("github")}>Keep {phase.received.some((r) => r.tracker === "jira") && !phase.received.some((r) => r.tracker !== "jira") ? "Jira" : "GitHub"} for all conflicts</button>
               </div>
             )}
             {phase.written && phase.written.length > 0 && <p role="status" className="muted">Already written: {phase.written.map((w) => w.code).filter((c, i, a) => c && a.indexOf(c) === i).join(", ") || `${phase.written.length}`}. The ones below are still open.</p>}
@@ -280,7 +280,6 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                     {(r.issueLabel || r.issueNumber) && r.issueUrl && <> · <a href={r.issueUrl} target="_blank" rel="noreferrer">{r.issueLabel ? `issue ${r.issueLabel}` : `issue #${r.issueNumber}`}</a></>}
                     {r.message && <><br /><span className="muted">{r.message}</span></>}
                     {r.status === "error" && !checking && <> <button type="button" className="btn" disabled={retrying === r.id} onClick={() => retry(r.id)}>{retrying === r.id ? "Checking…" : "Try again"}</button></>}
-                    {r.tracker === "jira" && <><br /><strong>To send</strong> <span className="muted">Nothing. Sending to Jira is not built yet, so Product Velocity only reads from Jira for now.</span></>}
                     {r.readOnly && <><br /><span className="muted">Follows this issue read-only: nothing to send.</span></>}
                     {(r.status === "in_step" || r.status === "follows") && !sends && <><br /><span className="muted">Everything is in step.</span></>}
                     {r.assigneeSend && (r.assigneeSend.add.length > 0 || r.assigneeSend.remove.length > 0) && (
@@ -299,16 +298,16 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                       return (
                         <fieldset key={c.field} className="push-conflict">
                           <legend><strong>Conflict · {c.label}</strong></legend>
-                          <p className="muted">{WHY[c.kind](c.label, c.where)}{c.note ? ` ${c.note}` : ""}</p>
+                          <p className="muted">{WHY[c.kind](c.label, c.where, r.tracker === "jira" ? "Jira" : "GitHub")}{c.note ? ` ${c.note}` : ""}</p>
                           {c.kind !== "block" && (
                             <div className="push-sides">
                               <div><strong>Product Velocity</strong><Text text={c.pv} /></div>
-                              <div><strong>GitHub</strong><Text text={c.github} /></div>
+                              <div><strong>{r.tracker === "jira" ? "Jira" : "GitHub"}</strong><Text text={c.github} /></div>
                             </div>
                           )}
                           {c.kind === "block" && <p className="muted">{c.github}</p>}
                           <label><input type="radio" name={name} checked={value === "pv"} disabled={c.pvPossible === false} onChange={() => setChoices({ ...choices, [keyOf(r.id, c.field)]: "pv" })} /> Keep Product Velocity{c.pvPossible === false ? " (not possible)" : c.defaultChoice === "pv" ? " (default)" : ""}</label>{" "}
-                          <label><input type="radio" name={name} checked={value === "github"} disabled={c.githubPullable === false} onChange={() => setChoices({ ...choices, [keyOf(r.id, c.field)]: "github" })} /> Keep GitHub{c.githubPullable === false ? " (not possible)" : c.defaultChoice === "github" ? " (default)" : ""}</label>
+                          <label><input type="radio" name={name} checked={value === "github"} disabled={c.githubPullable === false} onChange={() => setChoices({ ...choices, [keyOf(r.id, c.field)]: "github" })} /> Keep {r.tracker === "jira" ? "Jira" : "GitHub"}{c.githubPullable === false ? " (not possible)" : c.defaultChoice === "github" ? " (default)" : ""}</label>
                         </fieldset>
                       );
                     })}
@@ -319,7 +318,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                           <details>
                             <summary>See what will be written</summary>
                             <p><strong>Title:</strong> {p.title}</p>
-                            <p><strong>Labels:</strong> {p.labels.join(", ")}</p>
+                            <p><strong>Labels:</strong> {p.labels.join(", ") || "(none)"}</p>
                             {p.milestone && <p><strong>Milestone:</strong> {p.milestone}</p>}
                             {p.board && (
                               <p>
@@ -330,6 +329,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                               </p>
                             )}
                             {p.filesNote && <p role="note" className="muted">{p.filesNote}</p>}
+                            {(p.notes ?? []).map((n) => <p key={n} role="note" className="muted">{n}</p>)}
                             <p className="muted">Labels starting with “pv:” are managed here: new ones are added and ones that no longer apply are removed. Any other label is never touched.</p>
                             <pre className="push-body">{p.block}</pre>
                           </details>
@@ -340,8 +340,9 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                 );
               })}
             </ul>
+            {phase.received.some((r) => r.tracker === "jira") && <p className="muted">Jira keeps a description in its own format. Product Velocity rewrites a description only when its text changed since the last sync; a table, macro or mention in Jira is never flattened otherwise.</p>}
             {phase.received.some((r) => r.tracker !== "jira") && <p className="muted">Text you or engineers write in the issue outside the marked block is kept. The marked block is overwritten the next time you send.</p>}
-            {overwrites > 0 && <p role="note" className="muted">Keep Product Velocity replaces the text in GitHub with Product Velocity’s when you press Apply and send. Anything outside the marked block stays.</p>}
+            {overwrites > 0 && <p role="note" className="muted">Keep Product Velocity replaces the text in {phase.received.some((r) => r.tracker === "jira") && !phase.received.some((r) => r.tracker !== "jira") ? "Jira" : "GitHub"} with Product Velocity’s when you press Apply and send.{phase.received.some((r) => r.tracker !== "jira") ? " Anything outside the marked block stays." : ""}</p>}
             {unchosen.length > 0 && <p role="status" className="muted">Choose for {unchosen.length === 1 ? "the conflict above" : `all ${unchosen.length} open conflicts`} to continue.</p>}
             <div className="dialog-actions">
               {needsConfirm && <button type="button" className="btn" onClick={onClose}>Cancel</button>}

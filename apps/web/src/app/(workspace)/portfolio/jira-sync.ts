@@ -4,12 +4,15 @@ import { requireWorkspace } from "@/lib/session";
 import { applyLinkedStatuses } from "@/lib/atlassian/refresh-jira";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 import type { RefreshSummary } from "@/lib/atlassian/refresh-linked";
-import type { PushItemResult, ReceiveItem, SyncChoice, SyncConfirmResult, SyncPreviewResult } from "@/lib/github/push-types";
+import type { PlanItem, PushItemResult, ReceiveItem, SyncChoice, SyncConfirmResult, SyncPreviewResult, TakenOver } from "@/lib/github/push-types";
 import type { BoardResult } from "@/lib/tracker/sync-router";
+import { evaluate, load, previewParts, previewOne, writeOne, type Ctx } from "@/lib/atlassian/jira-sync-engine";
 
-// The READ half of "Sync with Jira" (issue #67, #71). For the selected initiatives it reads their Jira issues, applies what Jira owns
-// (Build Status from the status category) and lists it as Received. "To send" stays empty: writing to Jira is not built yet, so confirm
-// refuses to send anything. Nothing here writes to Jira.
+// "Sync with Jira" (issue #67, #71). READ first: for the selected initiatives it reads their Jira issues, applies what Jira owns (Build Status
+// from the status category) and lists it as Received. Then it compares the texts Product Velocity owns (name, description) three ways and
+// lists what would go out (To send) and the conflicts. NOTHING is written to Jira by start: only confirmJiraSync writes, one initiative at a
+// time, after the person confirmed in the dialog. Only creators and admins reach it (gate): Claude (MCP), service accounts and platform
+// staff cannot, because this is a UI server action and gate refuses them.
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LIMIT = 25;
@@ -36,8 +39,8 @@ export async function startJiraSync(ids: string[]): Promise<SyncPreviewResult> {
   const { data: items } = await supabase.from("items").select("id, item_code, initiative_name").eq("tenant_id", tenant).is("deleted_at", null).in("id", ids);
   const seen = new Map(((items ?? []) as { id: string; item_code: string; initiative_name: string }[]).map((i) => [i.id, i]));
   const visible = ids.filter((i) => seen.has(i));
-  const { data: linkRows } = await supabase.from("item_jira_links").select("item_id, connection_id, site_id, issue_key, html_url").eq("tenant_id", tenant).in("item_id", visible);
-  const links = (linkRows ?? []) as { item_id: string; connection_id: string; site_id: string; issue_key: string; html_url: string | null }[];
+  const { data: linkRows } = await supabase.from("item_jira_links").select("item_id, connection_id, site_id, issue_key, html_url, mode").eq("tenant_id", tenant).in("item_id", visible);
+  const links = (linkRows ?? []) as { item_id: string; connection_id: string; site_id: string; issue_key: string; html_url: string | null; mode: "follow" | "push" }[];
   const { data: plinks } = await supabase.from("jira_project_links").select("id, tenant_id, connection_id, site_id, jira_project_key").eq("tenant_id", tenant);
   const { data: conns } = await supabase.from("jira_connections").select("id, sites, state").eq("tenant_id", tenant);
   const connection = (id: string) => ((conns ?? []) as Conn[]).find((c) => c.id === id);
@@ -68,10 +71,10 @@ export async function startJiraSync(ids: string[]): Promise<SyncPreviewResult> {
 
   const received: ReceiveItem[] = visible.map((id): ReceiveItem => {
     const it = seen.get(id)!;
-    const base = { id, code: it.item_code, name: it.initiative_name, tracker: "jira" as const, readOnly: true, received: [], issueNumber: null, issueUrl: null };
+    const base = { id, code: it.item_code, name: it.initiative_name, tracker: "jira" as const, received: [], issueNumber: null, issueUrl: null };
     const link = links.find((l) => l.item_id === id);
-    if (!link) return { ...base, status: "not_linked", message: "Not linked to a Jira issue yet. Sending to Jira is not built yet." };
-    const withIssue = { ...base, issueLabel: link.issue_key, issueUrl: link.html_url };
+    if (!link) return { ...base, status: "not_linked", message: "Not in Jira yet." };
+    const withIssue = { ...base, ...(link.mode === "follow" ? { readOnly: true as const } : {}), issueLabel: link.issue_key, issueUrl: link.html_url };
     const why = failed.get(id);
     if (why) return { ...withIssue, status: "error", message: why };
     const s = summaryOf.get(id)!;
@@ -80,18 +83,50 @@ export async function startJiraSync(ids: string[]): Promise<SyncPreviewResult> {
     return { ...withIssue, status: lines.length > 0 ? "received" : "in_step", received: lines };
   });
   const names = [...new Set(links.map((l) => connection(l.connection_id)?.sites.find((s) => s.id === l.site_id)?.name).filter((n): n is string => !!n))];
-  return { ok: true, account: names.join(", ") || "Jira", received, send: [] };
+  // the send half: compare the texts and say what would go out (reads Jira again for the push-mode ones; writes nothing)
+  const ctx: Ctx = { supabase: supabase as never, tenantId: tenant, userId: g.ctx.user.id };
+  const send: PlanItem[] = [];
+  const out: ReceiveItem[] = [];
+  for (const batch of chunk(received, 5)) {
+    out.push(...(await Promise.all(batch.map(async (card): Promise<ReceiveItem> => {
+      if (card.status === "error" || card.status === "missing") return card;
+      const l = await load(ctx, card.id);
+      if (!l) return card;
+      const e = await evaluate(l, {});
+      if (e.kind === "error") return { ...card, status: "error", message: e.message };
+      if (e.kind === "missing") return { ...card, status: "missing", message: e.message };
+      const parts = previewParts(e);
+      if (parts.plan) send.push(parts.plan);
+      if (parts.create) return { ...card, status: "not_linked", message: "Not in Jira yet: will be created in the linked Jira project." };
+      if (parts.conflicts.length > 0) return { ...card, status: "conflict", conflicts: parts.conflicts };
+      return card;
+    }))));
+  }
+  const rank = new Map(visible.map((id, i) => [id, i]));
+  return { ok: true, account: names.join(", ") || "Jira", received: out, send: send.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)) };
 }
+const chunk = <T,>(xs: T[], n: number): T[][] => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
 
 /** Jira has no board: nothing to read in this step. */
 export async function checkJiraBoard(): Promise<BoardResult> {
   return { ok: true, lines: {}, failed: false };
 }
 
-/** Writing to Jira is not built yet: nothing is sent, and the result says so for every initiative asked about. */
-export async function confirmJiraSync(ids: string[], _choices: SyncChoice[]): Promise<SyncConfirmResult> {
+/**
+ * Writes the confirmed initiatives to Jira, one at a time, each after reading its issue again. Nothing is written for an initiative whose
+ * Jira text changed since the preview: it comes back as `stale` with the new difference, and the ones after it wait (as for GitHub).
+ */
+export async function confirmJiraSync(ids: string[], choices: SyncChoice[]): Promise<SyncConfirmResult> {
   const g = await gate(ids);
   if (!g.ok) return { ok: false, error: g.error };
-  const results: PushItemResult[] = ids.map((id) => ({ id, code: "", outcome: "blocked", message: "Sending to Jira is not built yet. Nothing was written to Jira." }));
-  return { ok: true, results, taken: [] };
+  const ctx: Ctx = { supabase: g.ctx.supabase as never, tenantId: g.ctx.active.tenantId, userId: g.ctx.user.id };
+  const results: PushItemResult[] = [];
+  const taken: TakenOver[] = [];
+  for (const id of ids) {
+    const w = await writeOne(ctx, id, choices);
+    if ("stale" in w) return { ok: false, error: w.error, stale: await previewOne(ctx, id, "Jira") };
+    results.push(w.result);
+    taken.push(...w.taken);
+  }
+  return { ok: true, results, taken };
 }

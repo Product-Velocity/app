@@ -66,3 +66,22 @@ export async function jiraProjectDetail(connectionId: string, siteId: string, ke
   const r = await jiraGet<{ id: string; key: string; name: string; projectTypeKey: string; issueTypes?: { id: string; name: string; hierarchyLevel?: number; subtask?: boolean }[] }>(connectionId, siteId, `/project/${key}`);
   return { id: r.id, key: r.key, name: r.name, projectTypeKey: r.projectTypeKey, issueTypes: (r.issueTypes ?? []).map((t) => ({ id: t.id, name: t.name, hierarchyLevel: t.hierarchyLevel ?? 0, subtask: Boolean(t.subtask) })) };
 }
+
+/**
+ * A request function for ONE site of a connection, for the write side of Sync: it returns the status and body instead of throwing, and the
+ * Retry-After of a 429, so the caller can back off (jira-write.ts). ReconnectNeeded from the token provider propagates.
+ */
+export function jiraRequest(connectionId: string, siteId: string): import("./jira-write").JiraRequest {
+  return async (method, path, body) => {
+    const token = await accessTokenFor(connectionId);
+    const res = await fetch(`${API_BASE}/ex/jira/${siteId}/rest/api/3${path}`, {
+      method,
+      headers: { authorization: `Bearer ${token}`, accept: "application/json", ...(body === undefined ? {} : { "content-type": "application/json" }) },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+    let json: unknown = null;
+    try { json = res.status === 204 ? null : await res.json(); } catch { json = null; }
+    const ra = Number(res.headers.get("retry-after"));
+    return { status: res.status, json, ...(Number.isFinite(ra) && ra > 0 ? { retryAfterSec: ra } : {}) };
+  };
+}
