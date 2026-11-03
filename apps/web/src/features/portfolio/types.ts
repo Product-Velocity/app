@@ -42,6 +42,12 @@ export type IssueTreeRow = {
   state: "open" | "closed"; stateReason: string | null; assignees: string[]; createdBy: "app" | "claude" | "engineer"; updatedAt: string;
 };
 
+/** One child (level 1) or sub-task (level 2) of the Jira issue an initiative is linked to, as Jira last reported it. Read only. */
+export type JiraTreeRow = {
+  key: string; parentKey: string; level: 1 | 2; position: number; title: string; type: string | null; status: string | null;
+  category: "new" | "indeterminate" | "done" | null; assignee: string | null; url: string | null; updatedAt: string | null;
+};
+
 /** One row of the Trash: what was deleted, by whom and when (no commercial fields). */
 export type TrashedItem = {
   id: string; item_code: string; initiative_name: string; home_project: string; theme: string | null;

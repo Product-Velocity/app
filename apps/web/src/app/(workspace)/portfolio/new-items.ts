@@ -5,7 +5,7 @@ import { githubSourceControl, type ConnectionRow } from "@/lib/github/server";
 import { refreshIncoming, sinceFor } from "@/lib/github/incoming-refresh";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { readJiraLink } from "@/lib/atlassian/read-jira";
-import { refreshStaleLightRecords } from "@/lib/atlassian/refresh-jira";
+import { applyLinkedTrees, refreshStaleLightRecords } from "@/lib/atlassian/refresh-jira";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 
 /**
@@ -46,6 +46,8 @@ export async function refreshJiraNewItems(): Promise<{ ok: true; projects: numbe
     try {
       const read = await readJiraLink(l, site.url);
       await refreshStaleLightRecords(l, site.url, new Set(read.rows.map((r) => r.key)));
+      // the children of linked initiatives are part of their tree, not new items: read them so they are left out of the list
+      await applyLinkedTrees(l, site.url);
       projects++;
     } catch (e) {
       failed++;

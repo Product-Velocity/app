@@ -1,6 +1,6 @@
 import { applyMove, columnOnItems, emptyRelated, FIELD_BY_KEY, type ActivityRow, type EditableField, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
-import type { IssueTreeRow, LoadedItem, TrashedItem } from "./types";
+import type { IssueTreeRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
 
 export type Op = { type: "update"; itemId: string; field: string; value: unknown; expected?: unknown } | { type: "move"; itemId: string; to: number };
 
@@ -98,6 +98,8 @@ export class MemoryDataSource implements PortfolioDataSource {
     return { ok: true as const, copied: itemIds.map((id, i) => ({ id: `copy-${id}`, code: `R-${900 + i}` })), failed: [] };
   }
   trees = new Map<string, IssueTreeRow[]>();
+  jiraTrees = new Map<string, JiraTreeRow[]>();
+  async loadJiraTree(itemId: string): Promise<JiraTreeRow[]> { await this.pause(); return (this.jiraTrees.get(itemId) ?? []).map((r) => ({ ...r })); }
   async loadIssueTree(itemId: string): Promise<IssueTreeRow[]> { await this.pause(); return (this.trees.get(itemId) ?? []).map((r) => ({ ...r })); }
   /** Who owns each linked item in the test page (default: read only). */
   linkModes = new Map<string, "push" | "follow">();

@@ -185,6 +185,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "item_jira_tree",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.item_jira_tree set title = 'x' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.item_jira_tree where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.item_jira_tree (tenant_id, item_id, issue_key, parent_key, level, title) select tenant_id, item_id, 'EVIL-1', parent_key, 1, 'x' from public.item_jira_tree where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.item_jira_tree set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "jira_reads",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

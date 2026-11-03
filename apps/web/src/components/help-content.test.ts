@@ -117,7 +117,10 @@ describe("Help guide: exact target fields", () => {
     expect(sent("stack_rank")).toMatch(/band, never the number/);
     expect(sent("planned_start")).toMatch(/Field mapping/);
     for (const k of ["summary", "hypothesis", "artifacts", "effort", "assignees"]) expect(sent(k), k).toMatch(/^Not (sent|synced)/);
-    for (const k of ["open_prs", "ci_status", "latest_release", "issues_total"]) expect(sent(k), k).toBe("Not read yet");
+    for (const k of ["open_prs", "ci_status", "latest_release"]) expect(sent(k), k).toBe("Not read yet");
+    // the children of the linked issue are read now, so the roll-up columns say where they come from (and that a done child is not a done initiative)
+    for (const k of ["issues_total", "issues_closed", "delivery_progress_pct"]) expect(sent(k), k).toMatch(/children/);
+    expect(sent("delivery_progress_pct")).toMatch(/never a done initiative/);
   });
 });
 

@@ -245,6 +245,10 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
       await db.admin.query("insert into public.jira_project_links (tenant_id, project_id, connection_id, site_id, jira_project_id, jira_project_key, jira_project_name, initiative_type_id, initiative_type_name) values ($1, $2, $3, 'site-1', '10000', 'SEED', 'Seed project', '10001', 'Epic')", [tenantId, project, jira]);
       if ((await db.admin.query("select to_regclass('public.item_jira_links') as t")).rows[0].t) {
         await db.admin.query("insert into public.item_jira_links (tenant_id, item_id, connection_id, site_id, issue_key, issue_id, html_url, jira_status_category) values ($1, $2, $3, 'site-1', 'SEED-7', '10007', 'https://x.atlassian.net/browse/SEED-7', 'new')", [tenantId, items[1], jira]);
+        // a child of that issue (positive control for item_jira_tree); older-schema tests seed before that migration exists
+        if ((await db.admin.query("select to_regclass('public.item_jira_tree') as t")).rows[0].t) {
+          await db.admin.query("insert into public.item_jira_tree (tenant_id, item_id, issue_key, parent_key, level, title, issue_type, status, status_category) values ($1, $2, 'SEED-8', 'SEED-7', 1, 'Seed child', 'Task', 'To Do', 'new')", [tenantId, items[1]]);
+        }
       }
       if ((await db.admin.query("select to_regclass('public.jira_issues') as t")).rows[0].t) {
         await db.admin.query("insert into public.jira_issues (tenant_id, connection_id, project_id, site_id, jira_project_key, issue_key, title, status_category) values ($1, $2, $3, 'site-1', 'SEED', 'SEED-1', 'Seed Jira issue', 'new')", [tenantId, jira, project]);
