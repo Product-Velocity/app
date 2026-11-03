@@ -4,6 +4,9 @@ export const PUSH_LIMIT = 25;
 export type PlanAction = "create" | "update" | "unchanged" | "blocked";
 export type PlanItem = {
   id: string;
+  /** Which tracker this send goes to; absent means GitHub. For Jira `repo` holds the Jira project key and `issueLabel` the issue key. */
+  tracker?: "github" | "jira";
+  issueLabel?: string;
   code: string;
   name: string;
   project: string;
@@ -22,11 +25,13 @@ export type PlanItem = {
   reason?: string;
   /** Shared file links that were left out of the issue, and why (public repository). */
   filesNote?: string;
+  /** What was left out or will be replaced, in words (Jira: an unmapped field, a rich description that is replaced). */
+  notes?: string[];
 };
 export type PreviewResult = { ok: true; items: PlanItem[]; account: string } | { ok: false; error: string };
 
 export type PushOutcome = "created" | "updated" | "unchanged" | "missing" | "error" | "blocked";
-export type PushItemResult = { id: string; code: string; outcome: PushOutcome; issueNumber?: number; issueUrl?: string; message?: string };
+export type PushItemResult = { id: string; code: string; outcome: PushOutcome; issueNumber?: number; /** Jira: the issue key, shown instead of "issue #number". */ issueLabel?: string; issueUrl?: string; message?: string };
 export type ConfirmResult = { ok: true; results: PushItemResult[] } | { ok: false; error: string };
 
 export type GithubLinkInfo = { mode: "push" | "follow"; number: number | null; url: string | null; state: "pending" | "synced" | "error"; error: string | null; ghState: "open" | "closed_completed" | "closed_not_planned" | null; lastActivity: string | null; buildStartedAt?: string | null; buildCompletedAt?: string | null; buildDays?: number | null };
@@ -53,6 +58,7 @@ export type SyncConflict = {
   /** False when Product Velocity's value cannot be written to GitHub (assignees on a public repository): only Keep GitHub is offered. */
   pvPossible?: false;
 };
+/** `choice` "github" means "the tracker's text" (Keep Jira for a Jira initiative); `ghHash` is the hash of the tracker's text at the preview. */
 export type SyncChoice = { itemId: string; field: SyncConflict["field"]; choice: "pv" | "github"; ghHash: string };
 export type ReceiveItem = { id: string; code: string; name: string; status: ReceiveStatus; /** Which tracker answered; absent means GitHub. Jira cards only receive: sending to Jira is not built yet. */ tracker?: "github" | "jira"; /** The initiative only follows an existing issue: received, never sent. */ readOnly?: boolean; received: ReceivedLine[]; conflicts?: SyncConflict[]; /** Assignees a send would add to or remove from the issue (Product Velocity changed them, GitHub did not). */ assigneeSend?: { add: string[]; remove: string[] }; issueNumber: number | null; /** How a tracker without issue numbers names the issue (Jira: PLAT-12); shown instead of "#number". */ issueLabel?: string; issueUrl: string | null; message?: string };
 export type SyncPreview = { account: string; received: ReceiveItem[]; send: PlanItem[] };
