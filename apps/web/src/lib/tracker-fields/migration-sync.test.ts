@@ -7,10 +7,8 @@ import { configSlots } from "./mapping";
 // This test fails when one is changed without the other.
 const sql = readFileSync(join(__dirname, "../../../../../packages/db/migrations/20261103233355_tracker_field_config.sql"), "utf8");
 const listIn = (tracker: "jira" | "github") => {
-  const m = new RegExp(`when '${tracker}' then array\\[([^\\]]*)\\]|else array\\[([^\\]]*)\\]`, "g");
-  const all = [...sql.matchAll(m)].map((x) => x[1] ?? x[2] ?? "");
-  const text = tracker === "jira" ? all[0]! : all[1]!;
-  return [...text.matchAll(/'([^']+)'/g)].map((x) => x[1]!).sort();
+  const m = tracker === "jira" ? /when 'jira' then array\[([^\]]*)\]/.exec(sql) : /else array\[([^\]]*)\]/.exec(sql);
+  return [...(m?.[1] ?? "").matchAll(/'([^']+)'/g)].map((x) => x[1]!).sort();
 };
 describe("the slot list of the database matches the app", () => {
   it.each(["jira", "github"] as const)("%s", (t) => {
