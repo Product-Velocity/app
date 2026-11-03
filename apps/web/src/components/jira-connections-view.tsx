@@ -27,6 +27,7 @@ export const JIRA_NOTICE: Record<string, string> = {
   "review-denied": "Only creators and admins can decide what comes in from Jira.",
   "link-unavailable": "That Jira connection or site is not available. Reload the page and try again.",
   "link-type": "Only software and business Jira projects can be linked for now. Product Discovery ideas come later.",
+  "field-map-saved": "Field mapping saved. Nothing was written to Jira; the next Sync uses it.",
   "link-types": "Choose three different issue types of that Jira project; the initiative type is required.",
   "link-tracker": "That project already uses another tracker. Remove its links there first.",
   "link-taken": "That Jira project is already linked to another project of this workspace.",
@@ -52,6 +53,8 @@ export type JiraProjectLinkView = {
   mapping: null | { connection: string; site: string; key: string; jiraName: string; types: { id: string; name: string }[]; proposal: { initiative: string | null; epic: string | null; task: string | null } };
   /** The admin pressed Change, or there is no link yet: show step 1. */
   choosing: boolean;
+  /** The field mapping of this project (admins): what is mapped now and what the Jira site offers. */
+  fieldMap?: null | { current: { startDate?: string; priorityByMoscow?: Partial<Record<"Must" | "Should" | "Could" | "Won't", string>> }; startDates: { id: string; name: string }[]; priorities: { id: string; name: string }[]; proposal: Partial<Record<"Must" | "Should" | "Could" | "Won't", string>>; unreadable: boolean };
 };
 
 type Props = {
@@ -71,10 +74,11 @@ type Props = {
   /** Creators and admins decide what comes in. */
   canEdit?: boolean;
   reviewAction?: (formData: FormData) => void | Promise<void>;
+  fieldMapAction?: (formData: FormData) => void | Promise<void>;
 };
 
 /** Settings → Integrations → Jira (issue #67, slice A). Presentational: the page supplies the data and the actions. */
-export function JiraConnectionsView({ connections, canAdmin, configured, status, connectAction, disconnectAction, projectLinks = [], jiraOptions = [], basePath = "/settings/integrations/jira", linkAction, unlinkAction, readAction, canEdit = false, reviewAction }: Props) {
+export function JiraConnectionsView({ connections, canAdmin, configured, status, connectAction, disconnectAction, projectLinks = [], jiraOptions = [], basePath = "/settings/integrations/jira", linkAction, unlinkAction, readAction, canEdit = false, reviewAction, fieldMapAction }: Props) {
   const needsSignIn = connections.some((c) => c.state === "reconnect_needed");
   return (
     <div className="page-narrow">
@@ -226,6 +230,33 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
                 </p>
               )}
               {!p.link && !p.mapping && !canAdmin && <p className="muted">Not linked to Jira.</p>}
+              {canAdmin && p.link && !p.choosing && !p.mapping && p.fieldMap && fieldMapAction && (
+                <details className="stack">
+                  <summary>Field mapping</summary>
+                  <form action={fieldMapAction} className="stack" aria-label={`Field mapping of ${p.projectName}`}>
+                    <input type="hidden" name="project" value={p.projectId} />
+                    <p className="muted">Sync can fill these Jira fields. Names, ids and priorities differ per Jira site, so you choose; an empty choice means Sync leaves that field out and says so in the preview. Nothing is written to Jira by saving.</p>
+                    {p.fieldMap.unreadable && <p role="alert" className="error">The fields of this Jira site could not be read just now. Try again in a minute.</p>}
+                    <div className="field">
+                      <label htmlFor={`sd-${p.projectId}`}>Start date field (filled from Planned Start)</label>
+                      <select id={`sd-${p.projectId}`} name="startDate" defaultValue={p.fieldMap.current.startDate ?? ""}>
+                        <option value="">Not mapped</option>
+                        {p.fieldMap.startDates.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                      </select>
+                    </div>
+                    {(["Must", "Should", "Could", "Won't"] as const).map((m) => (
+                      <div className="field" key={m}>
+                        <label htmlFor={`pr-${p.projectId}-${m}`}>Jira priority for MoSCoW “{m}”</label>
+                        <select id={`pr-${p.projectId}-${m}`} name={`priority_${m}`} defaultValue={p.fieldMap!.current.priorityByMoscow?.[m] ?? ""}>
+                          <option value="">Not mapped</option>
+                          {p.fieldMap!.priorities.map((f) => <option key={f.id} value={f.id}>{f.name}{p.fieldMap!.proposal[m] === f.id ? " (suggested)" : ""}</option>)}
+                        </select>
+                      </div>
+                    ))}
+                    <div className="row-form"><button className="btn" type="submit" aria-label={`Save the field mapping of ${p.projectName}`}>Save field mapping</button></div>
+                  </form>
+                </details>
+              )}
               {canAdmin && p.link && !p.choosing && !p.mapping && (
                 <div className="row-form">
                   <a className="btn" href={`${basePath}?pv=${p.projectId}`} aria-label={`Change the Jira link of ${p.projectName}`}>Change</a>

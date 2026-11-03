@@ -6,6 +6,7 @@ import { adfToText, markdownToAdf } from "./adf";
 import { findByMarker, readIssue } from "./jira-issue";
 import { compareJira, COLUMN, LABEL, markerFor, planJiraSend, type JiraBase, type PvItem, type SendPlan, type TextField } from "./jira-sync-core";
 import { createIssue, updateIssue, type JiraRequest } from "./jira-write";
+import { parseFieldMap } from "./field-map";
 import { jiraRequest } from "./server";
 import { ReconnectNeeded } from "./token-provider";
 
@@ -18,7 +19,7 @@ type Db = SupabaseClient;
 export type Ctx = { supabase: Db; tenantId: string; userId: string };
 type ItemRow = { id: string; item_code: string; initiative_name: string; description: string | null; moscow: string | null; g2m_date_est: string | null; planned_start: string | null; home_project_id: string | null };
 type LinkRow = { item_id: string; connection_id: string; site_id: string; issue_key: string; issue_id: string | null; html_url: string | null; mode: "follow" | "push"; sync_base: JiraBase | null; sent_hash: string | null };
-type ProjectLink = { project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string };
+type ProjectLink = { project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; field_map?: unknown };
 type Conn = { id: string; sites: { id: string; name: string; url: string }[]; state: string };
 
 export type Loaded = { item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
@@ -29,7 +30,7 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   if (!item) return null;
   const { data: link } = await ctx.supabase.from("item_jira_links").select("item_id, connection_id, site_id, issue_key, issue_id, html_url, mode, sync_base, sent_hash").eq("tenant_id", ctx.tenantId).eq("item_id", id).maybeSingle();
   const l = (link ?? null) as LinkRow | null;
-  const pq = ctx.supabase.from("jira_project_links").select("project_id, connection_id, site_id, jira_project_key, jira_project_name, initiative_type_id").eq("tenant_id", ctx.tenantId);
+  const pq = ctx.supabase.from("jira_project_links").select("project_id, connection_id, site_id, jira_project_key, jira_project_name, initiative_type_id, field_map").eq("tenant_id", ctx.tenantId);
   const { data: plinks } = l ? await pq.eq("connection_id", l.connection_id).eq("site_id", l.site_id) : item.home_project_id ? await pq.eq("project_id", item.home_project_id) : { data: [] };
   const plink = ((plinks ?? []) as ProjectLink[]).find((p) => (l ? l.issue_key.startsWith(`${p.jira_project_key}-`) : true)) ?? null;
   const connId = l?.connection_id ?? plink?.connection_id;
@@ -67,7 +68,7 @@ export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" 
   }
   if (now && !now.ok) return now.kind === "gone" ? { kind: "missing", message: now.message } : { kind: "error", message: now.message, reconnect: now.kind === "reconnect" };
   const issue = now && now.ok ? now.issue : null;
-  const plan = planJiraSend({ pv, jira: issue, base: l.link?.sync_base ?? null, sentHash: l.link?.sent_hash ?? null, picks, map: {}, ...(l.plink && !l.link ? { create: { projectKey: key, issueTypeId: l.plink.initiative_type_id } } : {}) });
+  const plan = planJiraSend({ pv, jira: issue, base: l.link?.sync_base ?? null, sentHash: l.link?.sent_hash ?? null, picks, map: parseFieldMap(l.plink?.field_map), ...(l.plink && !l.link ? { create: { projectKey: key, issueTypeId: l.plink.initiative_type_id } } : {}) });
   const conflicts: SyncConflict[] = [];
   const jiraHashes: Partial<Record<TextField, string>> = {};
   if (issue) {
