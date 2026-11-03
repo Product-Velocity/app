@@ -38,12 +38,15 @@ function ReadOnlyCell({ text, reason, github }: { text: string; reason: string |
   );
 }
 
+/** The read-only fields both trackers fill (Build Status follows the Jira status category too). */
+const BOTH_TRACKERS: ReadonlySet<string> = new Set(["status"]);
+
 /** Column header: the field name, plus a words-only note when the field is read-only or from a later phase. */
-function FieldHeader({ displayName, phase, locked }: IHeaderParams & { phase: number; locked: boolean }) {
+function FieldHeader({ displayName, phase, locked, from }: IHeaderParams & { phase: number; locked: boolean; from: string }) {
   return (
     <span className="field-header">
       <span className="field-header-name">{displayName}</span>
-      {locked && <span className="field-header-note">from GitHub</span>}
+      {locked && <span className="field-header-note">{from}</span>}
       {phase > 1 && <span className="field-header-note">Arrives in phase {phase}</span>}
     </span>
   );
@@ -88,7 +91,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
       field: f.key as never,
       headerName: f.name,
       headerComponent: FieldHeader,
-      headerComponentParams: { phase: f.key === "project_rank" ? 1 : f.phase, locked: f.mode === "locked" || f.storage.startsWith("GitHub-synced") },
+      headerComponentParams: { phase: f.key === "project_rank" || f.mode === "locked" || f.storage.startsWith("GitHub-synced") ? 1 : f.phase, locked: f.mode === "locked" || f.storage.startsWith("GitHub-synced"), from: BOTH_TRACKERS.has(f.key) ? "from GitHub or Jira" : "from GitHub" },
       headerTooltip: f.description ?? f.name,
       width: WIDE[f.key] ?? WIDTH[f.type] ?? 140,
       hide: !visible.has(f.key) && !(CORE_COLUMNS as readonly string[]).includes(f.key),

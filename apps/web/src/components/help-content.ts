@@ -15,55 +15,55 @@ const COMMERCIAL = "Never synced (commercial)";
 const same = (text: string): Link => ({ github: text, jira: text });
 const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
 const sent = (github: string, jira: string): Link => ({ github: `Sent to ${lower(github)}`, jira: `Sent to ${jira}` });
-const read = (github: string, jira: string): Link => ({ github: `Read from ${lower(github)}`, jira: `Read from ${jira}` });
+const read = (github: string, jira: string): Link => ({ github: `Read from ${lower(github)}`, jira: /^Not /.test(jira) ? jira : `Read from ${lower(jira)}` });
 const JIRA_PER_MAPPING = "per mapping";
 const NOT_YET = "Not sent yet (an optional label is planned)";
 
 /**
  * Exact GitHub targets are from the push and read code (docs/04-GITHUB-SYNC.md): the tracking issue's title and managed block, the labels in the `pv:`
  * namespace, the milestone, the organisation's issue type, the linked Project board's fields, and what is read back from issues, pull requests, checks and releases.
- * Jira names are the planned targets (docs/16-ATLASSIAN.md); the customer's mapping decides the final field.
+ * The Jira column says what Sync with Jira does today (docs/16-ATLASSIAN.md, docs/decisions/2026-11-03-jira-write.md): what it sends, and what it reads back. "Not read yet" means planned, not built.
  */
 const OVERRIDES: Record<string, Link> = {
-  item_code: sent("Issue title prefix \"R-12: \" and the link back in the issue body", "Summary prefix and a link back in Description"),
-  initiative_name: sent("Issue title (after the \"R-12: \" prefix)", "Summary"),
-  summary: sent("Issue body, managed block, section \"## Summary\"", "Description"),
-  description: sent("Issue body, managed block, section \"## Description\"", "Description"),
-  hypothesis: sent("Issue body, managed block, section \"## Hypothesis (IF / THEN / RESULTING IN)\"", "Description"),
-  artifacts: sent("Issue body, managed block, section \"## Artifacts\" (links)", "Issue links or Description"),
+  item_code: { github: "Sent to issue title prefix \"R-12: \" and the link back in the issue body", jira: "Not sent. The Jira key shows next to the code in the grid" },
+  initiative_name: sent("Issue title (after the \"R-12: \" prefix)", "Summary (the name, no code prefix)"),
+  summary: { github: "Sent to issue body, managed block, section \"## Summary\"", jira: "Not sent" },
+  description: sent("Issue body, managed block, section \"## Description\"", "Description, converted to Jira's format (tables included); read back to compare, with Keep Product Velocity or Keep Jira"),
+  hypothesis: { github: "Sent to issue body, managed block, section \"## Hypothesis (IF / THEN / RESULTING IN)\"", jira: "Not sent" },
+  artifacts: { github: "Sent to issue body, managed block, section \"## Artifacts\" (links)", jira: "Not sent" },
   screenshots: sent("Issue body, section \"## Files\" (share links, private repositories only)", "Not planned"),
   initiative_phase: { github: "Not synced. May suggest Build when the first child issue starts", jira: NONE },
   initiative_status: same("Not synced. A closed issue never sets it"),
   health: { github: "Not synced. Signals only suggest", jira: NONE },
-  stack_rank: sent("Label pv:rank/top-10, top-25, top-50 or later (the band, never the number)", `Priority (${JIRA_PER_MAPPING})`),
-  moscow: sent("Label pv:moscow/must, should, could or wont; board field Priority (P0, P1, P2)", `Label or custom field (${JIRA_PER_MAPPING})`),
-  theme: sent("Label pv:group/<name>; board field Initiative", `Labels (${JIRA_PER_MAPPING})`),
-  change_type: sent("Label pv:type/new-feature or improvement; issue Type Feature, Improvement or Enhancement", "Issue type"),
-  effort: sent("Project board field Size (XS to XL)", `Custom field (${JIRA_PER_MAPPING})`),
+  stack_rank: sent("Label pv:rank/top-10, top-25, top-50 or later (the band, never the number)", "Label pv:rank/top-10, top-25, top-50 or later (the band, never the number)"),
+  moscow: sent("Label pv:moscow/must, should, could or wont; board field Priority (P0, P1, P2)", "Label pv:moscow/…; Priority too, once you choose a Jira priority per value (Field mapping)"),
+  theme: sent("Label pv:group/<name>; board field Initiative", "Label pv:group/<name> (a Theme field is planned)"),
+  change_type: sent("Label pv:type/new-feature or improvement; issue Type Feature, Improvement or Enhancement", "Label pv:type/new-feature or improvement"),
+  effort: { github: "Sent to project board field Size (XS to XL)", jira: "Not sent yet" },
   g2m_date_est: sent("Milestone \"YYYY Qn\" (due on the quarter's last day); board field Due date", "Due date"),
-  home_project: sent("The repository that holds the tracking issue; label pv:project/<project>", "The Jira project of the issue"),
-  roadmap_category: same(NOT_YET), focus_area: same(NOT_YET), tags: same(NOT_YET), planned_start: same("Not sent yet (the board's Start date is planned)"),
-  assignees: { github: "Both: issue Assignees", jira: "Both: Assignee" },
+  home_project: sent("The repository that holds the tracking issue; label pv:project/<project>", "Label pv:project/<project>; the Jira project it is linked to holds the issue"),
+  roadmap_category: same(NOT_YET), focus_area: same(NOT_YET), tags: same(NOT_YET), planned_start: { github: "Not sent yet (the board's Start date is planned)", jira: "Start date field, once you choose it (Field mapping)" },
+  assignees: { github: "Both: issue Assignees", jira: "Not synced yet" },
   github_links: { github: "The tracking issue (repository and issue number)", jira: "The Jira issue (key)" },
-  status: read("Issue state: open, closed as completed (Done), closed as not planned (Cancelled)", "Status category (To Do, In Progress, Done)"),
-  gh_state: read("Issue state and state reason", "Status"),
-  issues_closed: read("State of the tracking issue's sub-issues", "Status of the epic's child issues"),
-  issues_total: read("Count of the tracking issue's sub-issues (epics and tasks)", "Count of the epic's child issues"),
-  delivery_progress_pct: read("Closed divided by total sub-issues", "Closed divided by total child issues"),
+  status: read("Issue state: open, closed as completed (Done), closed as not planned (Cancelled)", "Jira status category: to do = Not started, in progress = In progress, done = Done (the status name is on the Jira tab)"),
+  gh_state: read("Issue state and state reason", "Not read yet"),
+  issues_closed: read("State of the tracking issue's sub-issues", "Not read yet"),
+  issues_total: read("Count of the tracking issue's sub-issues (epics and tasks)", "Not read yet"),
+  delivery_progress_pct: read("Closed divided by total sub-issues", "Not read yet"),
   blocked_issues: read("Label \"blocked\" on epics and tasks", "Flagged or blocked status (per mapping)"),
-  stale_issues: read("Issue updated date: no activity for 14 days", "Updated date"),
-  gh_last_activity: read("Issue updated date", "Updated date"),
-  open_prs: read("Pull requests linked to the issues (closing references), open", "Development panel (Bitbucket pull requests via the issue key)"),
-  merged_prs: read("Pull requests linked to the issues (closing references), merged", "Development panel (Bitbucket pull requests via the issue key)"),
-  ci_status: read("Checks on the default branch of the primary repository (Passing, Failing, None)", "Development panel (Bitbucket pipelines)"),
-  latest_release: read("Latest published release of the linked repositories", "Fix versions (released)"),
-  repositories: read("Repositories of the linked issues", "Jira projects of the linked issues"),
-  gh_project_status: read("Project board field Status (the field chosen for the board)", "Board column (status)"),
-  gh_iteration: read("Project board field Iteration", "Sprint"),
-  gh_target_date: read("Project board field Due date or Target date", "Due date"),
-  planned_scope: { github: "Counted from the sub-issues when you mark the breakdown complete", jira: "Counted from the child issues" },
-  breakdown_route: { github: "Set by the app when the tracking issue is first sent", jira: "Set by the app" },
-  breakdown_status: { github: "Marked complete in the app; set to Awaiting engineering when the issue is first sent", jira: "Marked complete in the app" },
+  stale_issues: read("Issue updated date: no activity for 14 days", "Not read yet"),
+  gh_last_activity: read("Issue updated date", "Not read yet"),
+  open_prs: read("Pull requests linked to the issues (closing references), open", "Not read yet"),
+  merged_prs: read("Pull requests linked to the issues (closing references), merged", "Not read yet"),
+  ci_status: read("Checks on the default branch of the primary repository (Passing, Failing, None)", "Not read yet"),
+  latest_release: read("Latest published release of the linked repositories", "Not read yet"),
+  repositories: read("Repositories of the linked issues", "Not read yet"),
+  gh_project_status: read("Project board field Status (the field chosen for the board)", "Not read yet"),
+  gh_iteration: read("Project board field Iteration", "Not read yet"),
+  gh_target_date: read("Project board field Due date or Target date", "Not read yet"),
+  planned_scope: { github: "Counted from the sub-issues when you mark the breakdown complete", jira: "Not read yet" },
+  breakdown_route: { github: "Set by the app when the tracking issue is first sent", jira: "Not used for Jira" },
+  breakdown_status: { github: "Marked complete in the app; set to Awaiting engineering when the issue is first sent", jira: "Not used for Jira" },
 };
 
 const COMMERCIAL_KEYS = ["value_12m", "value_type", "value_basis", "confidence", "customers_requesting", "kr_metric", "kr_start", "kr_target", "decision", "realized_kr_value", "realized_per_year", "cost_of_not_doing"];
@@ -76,7 +76,7 @@ export type ColumnRow = { key: string; group: string; column: string; what: stri
  * a person editing, the Sync with GitHub button, the daily check (also "Check GitHub now" in Settings), or a webhook from the tracker.
  */
 export const UPDATE_EDIT = "You edit it";
-export const UPDATE_MANUAL = "Manual sync (Sync with GitHub)";
+export const UPDATE_MANUAL = "Manual sync (Sync with GitHub or Jira)";
 export const UPDATE_AUTO = "Auto sync (daily check)";
 export const UPDATE_WEBHOOK = "Webhook (real time)";
 export const UPDATE_CALCULATED = "Calculated from other columns";
