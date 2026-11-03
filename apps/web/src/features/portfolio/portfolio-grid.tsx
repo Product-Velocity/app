@@ -13,6 +13,7 @@ import {
 import { useWorkspace } from "../workspace/provider";
 import { setQueryParam, useScope } from "../workspace/scope";
 import { buildColumns, isEditableColumn, isReadOnlyColumn } from "./columns";
+import { syncLabel, syncPlatforms, syncTitle } from "./sync-label";
 import { ColumnsPanel } from "./columns-panel";
 import { FilterPanel } from "./filter-panel";
 import { Popover } from "./popover";
@@ -583,16 +584,17 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
             )}
           </Popover>
           {controller.canEdit && lookups.projects.length > 0 && <button type="button" className="tool-btn" onClick={() => setImportText("")}>Paste table</button>}
-          {controller.canEdit && (
-            lookups.github?.connected ? (
-              <button type="button" className="tool-btn" onClick={() => setGithubIds(syncIds)} title="Checks GitHub for changes and sends yours. Nothing is sent until you confirm.">
+          {controller.canEdit && (() => {
+            const platforms = syncPlatforms(lookups, (selected.length > 0 ? selected : visibleRows).map((r) => r.home_project));
+            return platforms.length > 0 ? (
+              <button type="button" className="tool-btn" onClick={() => setGithubIds(syncIds)} title={syncTitle(platforms)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M20 12a8 8 0 0 1-14 5M4 12a8 8 0 0 1 14-5" /><path d="M18 3v4h-4M6 21v-4h4" /></svg>
-                {selected.length > 0 ? `Sync ${selected.length} with GitHub` : "Sync with GitHub"}
+                {syncLabel(platforms, selected.length)}
               </button>
             ) : (
-              <button type="button" className="tool-btn" disabled title="An admin connects GitHub in Settings > GitHub">Sync with GitHub</button>
-            )
-          )}
+              <button type="button" className="tool-btn" disabled title={syncTitle([])}>{syncLabel([])}</button>
+            );
+          })()}
           <StatusInline controller={controller} />
         </div>
         <StatusAlerts controller={controller} />
