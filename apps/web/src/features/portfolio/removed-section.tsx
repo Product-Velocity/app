@@ -38,7 +38,7 @@ export function RemovedSection({ api, onBusy }: { api: RemovedApi; onBusy?: (bus
         if (!r.ok) { setFailed(r.error); setItems([]); return; }
         setItems(r.items);
         setMore(r.more);
-        setOn(Object.fromEntries(r.items.filter((c) => c.state === "ready").map((c) => [c.id, true])));
+        setOn(Object.fromEntries(r.items.filter((c) => c.state === "ready" && !c.adopted).map((c) => [c.id, true]))); // an adopted issue is never ticked for you
         setPick(Object.fromEntries(r.items.filter((c) => c.defaultTransitionId).map((c) => [c.id, c.defaultTransitionId!])));
       },
       () => { if (live) { setFailed("The removed initiatives could not be checked just now."); setItems([]); } },
@@ -107,6 +107,7 @@ export function RemovedSection({ api, onBusy }: { api: RemovedApi; onBusy?: (bus
               {" · "}{c.issueUrl ? <a href={c.issueUrl} target="_blank" rel="noreferrer">issue {c.issueKey}</a> : <>issue {c.issueKey}</>}
               {c.jiraStatus && <> · <span className="muted">Jira status: {c.jiraStatus}</span></>}
               <br />
+              {c.adopted && <><strong role="note" className="error">Warning: this issue was in Jira before Product Velocity took it over. Closing it ends real work there.</strong><br /></>}
               {c.state !== "ready" ? <span className="muted">{c.message}</span> : (
                 <>
                   <span className="muted">{willText(c, pick[c.id] ?? null)}</span>

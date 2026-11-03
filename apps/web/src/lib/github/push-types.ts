@@ -76,6 +76,8 @@ export type RemovedCard = {
   id: string;
   code: string;
   name: string;
+  /** The issue was adopted from Jira, not created by Product Velocity: closing it ends real work in Jira. The preview warns in red and leaves it unticked. */
+  adopted?: true;
   issueKey: string;
   issueUrl: string | null;
   /** ready: can be confirmed. error: could not be read (nothing is offered to write). gone: Jira does not return the issue. */

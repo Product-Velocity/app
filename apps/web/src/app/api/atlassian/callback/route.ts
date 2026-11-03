@@ -3,7 +3,6 @@ import { buildFieldCatalog, hierarchyLevels, proposeInitiativeLevel, type JiraFi
 import { completeConnection } from "@/lib/atlassian/connect";
 import { isWorkspaceAdmin } from "@/lib/atlassian/guard";
 import { API_BASE, atlassianConfig, exchangeCode, refreshAccessToken } from "@/lib/atlassian/oauth";
-import { runWriteTest, type JiraCall } from "@/lib/atlassian/write-test";
 import { createClient } from "@/lib/supabase/server";
 
 // THROWAWAY (spike J1, #257). Exchanges the code, runs read-only probes and prints what Atlassian answered.
@@ -67,28 +66,6 @@ async function catalogProbe(token: string, jira: string) {
   return { label: "Field catalog, hierarchy and paging (J2)", status: fields.status, body: lines.join("\n") };
 }
 
-/** Spike J4: the write test in the first software project. Never touches a Jira Product Discovery project. */
-async function writeSpike(token: string, cloudId: string) {
-  const base = `${API_BASE}/ex/jira/${cloudId}/rest/api/3`;
-  const call: JiraCall = async (method, path, body) => {
-    const res = await fetch(`${base}${path}`, { method, headers: { authorization: `Bearer ${token}`, accept: "application/json", ...(body ? { "content-type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
-    const text = await res.text();
-    let json: unknown = {};
-    try {
-      json = text ? JSON.parse(text) : {};
-    } catch {
-      /* not JSON */
-    }
-    return { status: res.status, json };
-  };
-  const list = await call("GET", "/project/search?maxResults=50");
-  const values = (list.json as { values?: { key: string; projectTypeKey: string }[] }).values ?? [];
-  const project = values.find((v) => v.projectTypeKey === "software");
-  if (!project) return [{ label: "Write test (J4)", status: list.status, body: "No software project on this site; nothing was written." }];
-  const steps = await runWriteTest(call, project.key);
-  return [{ label: `Write test (J4) in project ${project.key}`, status: 200, body: steps.map((s) => `[${s.status}] ${s.label}\n    ${s.note.replace(/\n/g, "\n    ")}`).join("\n") }];
-}
-
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const page = (body: string, status = 200) =>
@@ -124,7 +101,6 @@ export async function GET(request: NextRequest) {
   const cloudId = sites.data?.[0]?.id ?? "";
   const writeMode = request.cookies.get("atl_mode")?.value === "write";
   if (cloudId && writeMode) {
-    results.push(...(await writeSpike(token.access_token, cloudId)));
     if (token.refresh_token) {
       try {
         const r = await refreshAccessToken(cfg, token.refresh_token);

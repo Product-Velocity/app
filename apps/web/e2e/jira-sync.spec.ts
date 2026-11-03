@@ -37,12 +37,16 @@ test.describe("Sync with Jira: received, to send, conflicts, writing", () => {
     await page.getByRole("button", { name: "Open sync" }).click();
     const dialog = page.getByRole("dialog", { name: /Sync(ed)? with Jira/ });
     const removed = dialog.getByRole("region", { name: "Removed in Product Velocity" });
-    await expect(removed.getByText("Will add the label pv:removed and move the issue to “Done”.")).toBeVisible();
+    await expect(removed.getByText("Will add the label pv:removed and move the issue to “Done”.")).toHaveCount(2); // R-5 and the adopted R-9
     await expect(removed.getByText("Choose which Done status to move the issue to.")).toBeVisible();
     await expect(removed.getByText("will only add the label pv:removed. Close it in Jira.")).toBeVisible();
     await expect(removed.getByText("Jira could not be read just now.")).toBeVisible(); // R-8: nothing to confirm for it
     await expect(removed.getByRole("checkbox", { name: /R-8/ })).toBeDisabled();
     await expect(removed.getByRole("link", { name: "issue PLAT-20" })).toHaveAttribute("href", "https://acme.example/browse/PLAT-20");
+    // an issue that was in Jira before Product Velocity took it over: red warning, never ticked for you
+    await expect(removed.getByText("Warning: this issue was in Jira before Product Velocity took it over. Closing it ends real work there.")).toBeVisible();
+    await expect(removed.getByRole("checkbox", { name: /R-9/ })).not.toBeChecked();
+    await expect(removed.getByRole("checkbox", { name: /R-5/ })).toBeChecked();
     // several Done statuses and no choice yet: the button waits, and nothing was written
     const press = removed.getByRole("button", { name: "Label and close 3 in Jira" });
     await expect(press).toBeDisabled();

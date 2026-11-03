@@ -19,7 +19,7 @@ const LIMIT = 25;
 const IN_CHUNK = 100;
 type Link = { item_id: string; connection_id: string; site_id: string; issue_key: string; html_url: string | null };
 type Conn = { id: string; sites: { id: string; name: string; url: string }[]; state: string };
-type Candidate = { id: string; code: string; name: string; link: Link; conn: Conn | null; siteUrl: string | null; rememberedStatusId: string | null };
+type Candidate = { id: string; code: string; name: string; /** The issue was adopted from Jira (the initiative was pulled in with "PV takes ownership"), not created by Sync: closing it ends real work there. */ adopted: boolean; link: Link; conn: Conn | null; siteUrl: string | null; rememberedStatusId: string | null };
 const RECONNECT = "Jira needs a new sign-in. A workspace admin can sign in again under Settings > Integrations > Jira.";
 const chunk = <T,>(xs: T[], n: number): T[][] => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
 
@@ -48,10 +48,13 @@ async function candidates(ctx: Ctx, only?: string): Promise<{ list: Candidate[];
   const { data: conns } = await ctx.supabase.from("jira_connections").select("id, sites, state").eq("tenant_id", ctx.tenantId);
   const rem = await ctx.supabase.from("jira_project_links").select("connection_id, site_id, jira_project_key, removed_close_status_id").eq("tenant_id", ctx.tenantId); // tolerated to fail
   const remembered = (l: Link) => ((rem.data ?? []) as { connection_id: string; site_id: string; jira_project_key: string; removed_close_status_id: string | null }[]).find((p) => p.connection_id === l.connection_id && p.site_id === l.site_id && l.issue_key.startsWith(`${p.jira_project_key}-`))?.removed_close_status_id ?? null;
+  // adopted initiatives are made by the pull-in with source "Jira issue KEY"; a deleted row is invisible to the person's own reads, so this one narrow read uses the server client, tenant-scoped
+  const { data: srcs } = await createAdminClient({ via: "UI" }).from("items").select("id, source").eq("tenant_id", ctx.tenantId).in("id", shown.map((l) => l.item_id));
+  const adoptedIds = new Set(((srcs ?? []) as { id: string; source: string | null }[]).filter((r) => typeof r.source === "string" && r.source.startsWith("Jira issue ")).map((r) => r.id));
   const list = shown.map((l): Candidate => {
     const conn = ((conns ?? []) as Conn[]).find((c) => c.id === l.connection_id) ?? null;
     const t = byId.get(l.item_id)!;
-    return { id: l.item_id, code: t.item_code, name: t.initiative_name, link: l, conn, siteUrl: conn?.sites.find((s) => s.id === l.site_id)?.url ?? null, rememberedStatusId: remembered(l) };
+    return { id: l.item_id, code: t.item_code, name: t.initiative_name, adopted: adoptedIds.has(l.item_id), link: l, conn, siteUrl: conn?.sites.find((s) => s.id === l.site_id)?.url ?? null, rememberedStatusId: remembered(l) };
   });
   return { list, total: open.length };
 }
@@ -60,7 +63,7 @@ const urlOf = (c: Candidate) => c.link.html_url ?? (c.siteUrl ? `${c.siteUrl}/br
 const usable = (c: Candidate): string | null => (!c.conn || !c.siteUrl ? "Jira is not connected for this workspace." : c.conn.state === "reconnect_needed" ? RECONNECT : c.conn.state !== "connected" ? "Jira is not connected for this workspace." : null);
 
 function card(c: Candidate, s: CloseState | null, why: string | null): RemovedCard {
-  const base = { id: c.id, code: c.code, name: c.name, issueKey: c.link.issue_key, issueUrl: urlOf(c), options: [] as RemovedCard["options"], defaultTransitionId: null as string | null };
+  const base = { id: c.id, code: c.code, name: c.name, ...(c.adopted ? { adopted: true as const } : {}), issueKey: c.link.issue_key, issueUrl: urlOf(c), options: [] as RemovedCard["options"], defaultTransitionId: null as string | null };
   if (why) return { ...base, state: "error", message: why };
   if (!s) return { ...base, state: "error", message: "Jira could not be read just now. Try again in a minute." };
   if (!s.ok) return { ...base, state: s.kind === "gone" ? "gone" : "error", message: s.message };

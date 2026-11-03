@@ -31,6 +31,7 @@ const REMOVED: RemovedCard[] = [
   { id: "55555555-5555-4555-8555-555555555555", code: "R-5", name: "Old checkout", issueKey: "PLAT-20", issueUrl: "https://acme.example/browse/PLAT-20", state: "ready", jiraStatus: "In Progress", options: [{ id: "31", name: "Done", toStatusName: "Done" }], defaultTransitionId: "31" },
   { id: "66666666-6666-4666-8666-666666666666", code: "R-6", name: "Old loyalty", issueKey: "PLAT-21", issueUrl: "https://acme.example/browse/PLAT-21", state: "ready", jiraStatus: "To Do", options: [{ id: "31", name: "Done", toStatusName: "Done" }, { id: "41", name: "Won't do", toStatusName: "Won't do" }], defaultTransitionId: null },
   { id: "77777777-7777-4777-8777-777777777777", code: "R-7", name: "Old referral", issueKey: "PLAT-22", issueUrl: "https://acme.example/browse/PLAT-22", state: "ready", jiraStatus: "To Do", options: [], defaultTransitionId: null },
+  { id: "99999999-9999-4999-8999-999999999999", code: "R-9", name: "Old rewards", adopted: true, issueKey: "PLAT-24", issueUrl: "https://acme.example/browse/PLAT-24", state: "ready", jiraStatus: "In Progress", options: [{ id: "31", name: "Done", toStatusName: "Done" }], defaultTransitionId: "31" },
   { id: "88888888-8888-4888-8888-888888888888", code: "R-8", name: "Old wallet", issueKey: "PLAT-23", issueUrl: null, state: "error", message: "Jira could not be read just now. Try again in a minute.", options: [], defaultTransitionId: null },
 ];
 function fakeRemoved(scenario: string, onClose: (code: string, transition: string | null) => void): RemovedApi {

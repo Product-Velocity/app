@@ -4,7 +4,8 @@ import type { JiraRequest } from "./jira-write";
 vi.mock("server-only", () => ({}));
 const rpcCalls: { fn: string; args: Record<string, unknown> }[] = [];
 let recordFails = false;
-vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc: async (fn: string, args: Record<string, unknown>) => { rpcCalls.push({ fn, args }); return { data: null, error: recordFails ? { message: "x" } : null }; } }) }));
+let fromFn: (t: string) => unknown = () => { throw new Error("not set"); };
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: (t: string) => fromFn(t), rpc: async (fn: string, args: Record<string, unknown>) => { rpcCalls.push({ fn, args }); return { data: null, error: recordFails ? { message: "x" } : null }; } }) }));
 vi.mock("./server", () => ({ jiraRequest: () => { throw new Error("the real Jira must not be reached in tests"); } }));
 
 import { closeOne, listRemoved } from "./jira-removed-engine";
@@ -49,9 +50,11 @@ function fakeJira(o: { transitions?: unknown[]; cat?: string; statusName?: strin
 const writes = (h: Hit[]) => h.filter((x) => x.method !== "GET");
 
 beforeEach(() => {
+  fromFn = from;
   rpcCalls.length = 0; recordFails = false; missingColumns = [];
   trash = [{ id: A, item_code: "R-1", initiative_name: "Checkout" }, { id: B, item_code: "R-2", initiative_name: "Came from Jira" }, { id: C, item_code: "R-3", initiative_name: "Handled" }];
   tables = {
+    items: [{ tenant_id: "t1", id: A, source: "Created in the app" }, { tenant_id: "t1", id: B, source: "Jira issue PLAT-2" }, { tenant_id: "t1", id: C, source: null }],
     item_jira_links: [link(A, "PLAT-1"), link(B, "PLAT-2", { mode: "follow" }), link(C, "PLAT-3", { removed_handled_at: "2026-11-01T10:00:00Z" }), link("99999999-9999-4999-8999-999999999999", "PLAT-9")],
     jira_connections: [{ id: "c1", tenant_id: "t1", state: "connected", sites: [{ id: "s1", name: "Acme", url: "https://acme.example.test" }] }],
     jira_project_links: [{ tenant_id: "t1", connection_id: "c1", site_id: "s1", jira_project_key: "PLAT", removed_close_status_id: null }],
@@ -66,6 +69,14 @@ describe("what is offered", () => {
     expect(r.ok && r.items.map((i) => i.id)).toEqual([A]);
     expect(j.hits.map((h) => h.path)).toEqual(["/issue/PLAT-1?fields=status,labels", "/issue/PLAT-1/transitions"]); // only reads
     expect(writes(j.hits)).toEqual([]);
+  });
+  it("marks an issue adopted from Jira (the initiative's source is \"Jira issue KEY\"), so the preview warns; a created one is not marked", async () => {
+    tables.items![0]!.source = "Jira issue PLAT-1";
+    const adopted = await listRemoved(ctx, { call: fakeJira().call });
+    expect(adopted.ok && adopted.items[0]).toMatchObject({ adopted: true });
+    tables.items![0]!.source = "Created in the app";
+    const created = await listRemoved(ctx, { call: fakeJira().call });
+    expect(created.ok && created.items[0]!.adopted).toBeUndefined();
   });
   it("says what will happen: the Done transitions, the current status, a default when there is one", async () => {
     const one = await listRemoved(ctx, { call: fakeJira().call });
