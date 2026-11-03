@@ -17,13 +17,19 @@ import { useUserPrefs } from "@/components/user-prefs";
 import { PANEL_WIDTH_DEFAULT, PANEL_WIDTH_MIN, clampPanelWidth } from "@/lib/user-prefs";
 
 type Tab = "overview" | "spec" | "github" | "alignment" | "activity";
-const TABS: { id: Tab; label: string }[] = [
+const tabsFor = (tracker: "GitHub" | "Jira"): { id: Tab; label: string }[] => [
   { id: "overview", label: "Overview" },
   { id: "spec", label: "Spec" },
-  { id: "github", label: "GitHub" },
+  { id: "github", label: tracker },
   { id: "alignment", label: "Alignment" },
   { id: "activity", label: "Activity" },
 ];
+/** Which tracker an initiative belongs to: the one it is linked to, else its project's (a project without one counts as GitHub). */
+export function trackerNameOf(lookups: Lookups, itemId: string, projectId: string | undefined): "GitHub" | "Jira" {
+  if (lookups.github?.links[itemId]) return "GitHub";
+  if (lookups.jira?.links[itemId]) return "Jira";
+  return projectId && lookups.trackers?.projectTracker[projectId] === "jira" ? "Jira" : "GitHub";
+}
 
 /** The width of the peek panel: dragged by its left edge or with the arrow keys, remembered in the person's profile. */
 function usePanelWidth(enabled: boolean) {
@@ -86,6 +92,8 @@ export type ItemPanelProps = {
 export function ItemPanel({ controller, lookups, itemId, me, mode, position, onClose, onPrev, onNext, height, pageHref = defaultPageHref, backHref = "/portfolio" }: ItemPanelProps) {
   useStatus(controller);
   const row = controller.row(itemId);
+  const trackerName = trackerNameOf(lookups, itemId, row?.home_project);
+  const TABS = tabsFor(trackerName);
   // a link from the activity log opens the Spec tab: ?item=R-12&tab=spec
   const [tab, setTab] = useState<Tab>(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "spec" ? "spec" : "overview"));
   const titleId = useId();
@@ -149,7 +157,15 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
             {" · "}{l.mode === "follow" ? "followed read-only (nothing is written to it)" : l.state === "synced" ? "in sync when last sent" : l.state === "error" ? `last push failed${l.error ? `: ${l.error}` : ""}` : "waiting"}
           </p>
         ); })()}
-        <p className="ip-code mono">{row.item_code}{(() => { const l = lookups.github?.links[itemId]; const label = l ? trackerIssueLabel(l.url, l.number) : null; return label && isOpenableUrl(l?.url) ? <a className="issue-link" href={l.url!} target="_blank" rel="noreferrer noopener" aria-label={`Open issue ${label} in a new tab`}>{label}</a> : null; })()}{project && <span className="proj-pill">{project}</span>}{status && <span className="muted"> · {status}</span>}</p>
+        {lookups.jira?.links[itemId] && (() => { const l = lookups.jira!.links[itemId]!; return (
+          <p className="ip-gh">
+            Jira: {l.url ? <a href={l.url} target="_blank" rel="noreferrer">issue {l.issueKey}</a> : `issue ${l.issueKey}`}
+            {l.status ? ` · status ${l.status}${l.category ? ` (${JIRA_CATEGORY[l.category]})` : ""}` : ""}
+            {row.last_synced ? ` · last synced ${new Date(String(row.last_synced)).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}` : ""}
+            {" · "}{l.mode === "follow" ? "followed read-only (nothing is written to it)" : "Product Velocity owns what the initiative is"}
+          </p>
+        ); })()}
+        <p className="ip-code mono">{row.item_code}{(() => { const l = lookups.github?.links[itemId]; const label = l ? trackerIssueLabel(l.url, l.number) : null; const j = l ? undefined : lookups.jira?.links[itemId]; if (j && isOpenableUrl(j.url)) return <a className="issue-link" href={j.url} target="_blank" rel="noreferrer noopener" aria-label={`Open issue ${j.issueKey} in a new tab`}>{j.issueKey}</a>; return label && isOpenableUrl(l?.url) ? <a className="issue-link" href={l.url!} target="_blank" rel="noreferrer noopener" aria-label={`Open issue ${label} in a new tab`}>{label}</a> : null; })()}{project && <span className="proj-pill">{project}</span>}{status && <span className="muted"> · {status}</span>}</p>
         <h2 id={titleId} className="ip-title">{row.initiative_name}</h2>
         <p className="muted ip-rank">#{row.stack_rank} globally · #{row.project_rank} in {project || "its project"}</p>
       </header>
@@ -178,7 +194,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
         {loadError && <p role="alert" className="pf-error">Could not load the lists of this initiative: {loadError}</p>}
         {tab === "overview" && <Overview ctx={ctx} itemId={itemId} />}
         {tab === "spec" && <DocumentsTab itemId={itemId} canEdit={controller.canEdit} />}
-        {tab === "github" && <GithubTab controller={controller} lookups={lookups} itemId={itemId} />}
+        {tab === "github" && (trackerName === "Jira" ? <JiraTab controller={controller} lookups={lookups} itemId={itemId} /> : <GithubTab controller={controller} lookups={lookups} itemId={itemId} />)}
         {tab === "alignment" && <EmptyTab title="Alignment" text="Votes, sign-offs and the decision log for this initiative arrive with alignment, in phases 5 and 8." />}
         {tab === "activity" && <ActivityTab controller={controller} lookups={lookups} itemId={itemId} me={me} />}
       </div>
@@ -262,6 +278,56 @@ function EmptyTab({ title, text }: { title: string; text: string }) {
     <div className="ip-empty">
       <h3>{title}</h3>
       <p className="muted">{text}</p>
+    </div>
+  );
+}
+
+const JIRA_CATEGORY = { new: "to do", indeterminate: "in progress", done: "done" } as const;
+
+/** The Jira tab: the issue this initiative follows or owns, what Jira says about it, and who owns what. Status stays Jira's (read only). */
+function JiraTab({ controller, lookups, itemId }: { controller: PortfolioController; lookups: Lookups; itemId: string }) {
+  useStatus(controller);
+  const link = lookups.jira?.links[itemId];
+  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [undoMode, setUndoMode] = useState<"push" | "follow" | null>(null);
+  const [chosen, setChosen] = useState<{ itemId: string; mode: "push" | "follow" } | null>(null);
+  const row = controller.row(itemId) as Record<string, unknown> | undefined;
+  const changeOwner = async (mode: "push" | "follow", undo = false) => {
+    setBusy(true);
+    const r = await controller.setLinkMode(itemId, mode, "jira");
+    setBusy(false);
+    if (!r.ok) { setMessage(r.error); return; }
+    setChosen({ itemId, mode });
+    setUndoMode(undo ? null : r.before);
+    setMessage(undo ? "Put back as it was." : mode === "push" ? "Product Velocity now owns this initiative. Nothing was written to Jira: press Sync with Jira to see what would be sent." : "This initiative is read only again. Nothing is sent to Jira.");
+  };
+  if (!link) {
+    return (
+      <div className="ip-empty">
+        <h3>Jira</h3>
+        <p className="muted">No Jira issue is linked to this initiative yet. Press Sync with Jira (in the grid or above) to create one from this initiative after a preview and your confirmation. Epics and tasks are created in Jira, and their status comes back here.</p>
+      </div>
+    );
+  }
+  const mode = chosen?.itemId === itemId ? chosen.mode : link.mode;
+  return (
+    <div className="ip-github">
+      <h3>Jira</h3>
+      <p>
+        {link.url ? <a href={link.url} target="_blank" rel="noreferrer">Issue {link.issueKey}</a> : `Issue ${link.issueKey}`}
+        {link.status ? <> · Jira status: {link.status}{link.category ? ` (${JIRA_CATEGORY[link.category]})` : ""}</> : null}
+        {row?.status ? <> · Build Status: {String(row.status)}</> : null}
+      </p>
+      {message && <p role="status" className="notice">{message}</p>}
+      <p>
+        <strong>Ownership:</strong> {mode === "push" ? "Product Velocity owns what this initiative is (name and description). Changes go to Jira when you sync and confirm. Status stays Jira's." : "Read only. This initiative follows the issue; nothing is sent to Jira."}{" "}
+        {controller.canEdit && (
+          <button type="button" className="btn" disabled={busy} onClick={() => void changeOwner(mode === "push" ? "follow" : "push")}>{mode === "push" ? "Make read only" : "Take ownership"}</button>
+        )}
+        {undoMode && <> <button type="button" className="btn" disabled={busy} onClick={() => void changeOwner(undoMode, true)}>Undo</button></>}
+      </p>
+      <p className="muted">Build Status follows the Jira status category and is read only here. Initiative Status is never set from Jira. Epics and tasks live in Jira.</p>
     </div>
   );
 }

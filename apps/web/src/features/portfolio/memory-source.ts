@@ -101,7 +101,7 @@ export class MemoryDataSource implements PortfolioDataSource {
   async loadIssueTree(itemId: string): Promise<IssueTreeRow[]> { await this.pause(); return (this.trees.get(itemId) ?? []).map((r) => ({ ...r })); }
   /** Who owns each linked item in the test page (default: read only). */
   linkModes = new Map<string, "push" | "follow">();
-  async setLinkMode(itemId: string, mode: "push" | "follow"): Promise<{ ok: true; before: "push" | "follow" } | { ok: false; error: string }> {
+  async setLinkMode(itemId: string, mode: "push" | "follow", _tracker?: "github" | "jira"): Promise<{ ok: true; before: "push" | "follow" } | { ok: false; error: string }> {
     await this.pause();
     const before = this.linkModes.get(itemId) ?? "follow";
     this.linkModes.set(itemId, mode);
