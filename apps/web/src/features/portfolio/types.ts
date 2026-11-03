@@ -23,6 +23,8 @@ export type Lookups = {
   teams?: { id: string; name: string }[];
   /** GitHub: whether the workspace is connected, and the tracking issue of each linked item. */
   github?: { connected: boolean; links: Record<string, GithubLinkInfo> };
+  /** Jira: whether the workspace has a connected Jira sign-in, and the tracker of each project (decides what the Sync button is called). */
+  trackers?: { jira: boolean; projectTracker: Record<string, "github" | "jira" | null> };
   /** The organization currency (ISO code, from Workspace settings): the unit of Business Value. Null until an admin sets it. */
   currency?: string | null;
 };
