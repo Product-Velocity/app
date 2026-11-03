@@ -49,3 +49,18 @@ describe("trackerOwnership: who owns what a linked initiative is", () => {
     expect(FIELD_BY_KEY.tracker_ownership!.allowed).toEqual([trackerOwnership(link({ mode: "push" })), trackerOwnership(link({ mode: "follow" }))]);
   });
 });
+
+describe("a Jira link", () => {
+  const jira = (mode: "push" | "follow", issueKey: string | null) => ({ tracker: "jira" as const, issueKey, mode, repo: "", issueNumber: null, syncState: "synced" as const, lastPushedAt: "2026-11-03T08:00:00Z", ghSyncedAt: null, hasBoardItem: false });
+  it("names the Jira issue and who owns the initiative", () => {
+    expect(syncedWith(jira("push", "PLAT-3"), null)).toBe("Jira · PLAT-3");
+    expect(syncedWith(jira("follow", "PLAT-3"), null)).toBe("Jira · PLAT-3 · follows it, read-only");
+    expect(syncedWith(jira("follow", null), null)).toBe("Jira · an issue · follows it, read-only");
+    expect(trackerOwnership(jira("follow", "PLAT-3"))).toBe("Tracker (read only)");
+    expect(trackerOwnership(jira("push", "PLAT-3"))).toBe("Product Velocity");
+  });
+  it("Last Synced is the later of the last sync and the item's own mark", () => {
+    expect(lastSyncedAt(jira("push", "PLAT-3"), "2026-11-03T09:30:00Z")).toBe("2026-11-03T09:30:00Z");
+    expect(lastSyncedAt(jira("push", "PLAT-3"), null)).toBe("2026-11-03T08:00:00Z");
+  });
+});

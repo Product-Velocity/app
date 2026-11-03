@@ -10,7 +10,7 @@ export const metadata = { title: "Jira · Product Velocity" };
 export const maxDuration = 30;
 
 type ProjectSearch = { values: { key: string; name: string; projectTypeKey: string; style?: string }[] };
-type LinkRow = { id: string; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_name: string; epic_type_name: string | null; task_type_name: string | null; field_map: unknown };
+type LinkRow = { id: string; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_name: string; epic_type_name: string | null; task_type_name: string | null };
 
 export default async function JiraSettingsPage({ searchParams }: { searchParams: Promise<{ status?: string; pv?: string; jp?: string; ignored?: string }> }) {
   const { status, pv, jp, ignored } = await searchParams;
@@ -47,12 +47,15 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
   );
 
   // Project links (issue #67 slice B): the workspace's projects, their links, and for an admin the Jira projects that can be linked
-  const [{ data: projectRows }, { data: linkRows }, { data: readRows }, { data: countRows }] = await Promise.all([
+  const [{ data: projectRows }, { data: linkRows }, { data: readRows }, { data: countRows }, { data: mapRows }] = await Promise.all([
     supabase.from("projects").select("id, name").eq("tenant_id", active.tenantId).order("name"),
-    supabase.from("jira_project_links").select("id, project_id, connection_id, site_id, jira_project_key, jira_project_name, initiative_type_name, epic_type_name, task_type_name, field_map").eq("tenant_id", active.tenantId),
+    supabase.from("jira_project_links").select("id, project_id, connection_id, site_id, jira_project_key, jira_project_name, initiative_type_name, epic_type_name, task_type_name").eq("tenant_id", active.tenantId),
     supabase.from("jira_reads").select("link_id, read_at, total, added, changed, truncated, error").eq("tenant_id", active.tenantId),
     supabase.rpc("jira_issue_counts"),
+    // read apart from the link itself: a database that has not got the field mapping column yet must not hide the links (the mapping then shows as empty)
+    supabase.from("jira_project_links").select("project_id, field_map").eq("tenant_id", active.tenantId),
   ]);
+  const storedMaps = new Map(((mapRows ?? []) as { project_id: string; field_map: unknown }[]).map((r) => [r.project_id, r.field_map]));
   // the issues waiting for a decision (or the ignored ones of the project the person opened), at most 100 per project
   const linkedProjects = ((linkRows ?? []) as LinkRow[]).map((l) => l.project_id);
   const issueRows = new Map<string, JiraIssueView[]>();
@@ -107,7 +110,7 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
   if (canAdmin) {
     await Promise.all(((linkRows ?? []) as LinkRow[]).map(async (l) => {
       const choices = await choicesFor(l.connection_id, l.site_id);
-      fieldMaps.set(l.project_id, { current: parseFieldMap(l.field_map), startDates: choices?.startDates ?? [], priorities: choices?.priorities ?? [], proposal: choices ? proposePriorities(choices.priorities) : {}, unreadable: choices === null });
+      fieldMaps.set(l.project_id, { current: parseFieldMap(storedMaps.get(l.project_id)), startDates: choices?.startDates ?? [], priorities: choices?.priorities ?? [], proposal: choices ? proposePriorities(choices.priorities) : {}, unreadable: choices === null });
     }));
   }
   const projectLinks: JiraProjectLinkView[] = ((projectRows ?? []) as { id: string; name: string }[]).map((p) => {

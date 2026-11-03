@@ -37,9 +37,14 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   if (!item) return null;
   const { data: link } = await ctx.supabase.from("item_jira_links").select("item_id, connection_id, site_id, issue_key, issue_id, html_url, mode, sync_base, sent_hash").eq("tenant_id", ctx.tenantId).eq("item_id", id).maybeSingle();
   const l = (link ?? null) as LinkRow | null;
-  const pq = ctx.supabase.from("jira_project_links").select("project_id, connection_id, site_id, jira_project_key, jira_project_name, initiative_type_id, field_map").eq("tenant_id", ctx.tenantId);
+  const pq = ctx.supabase.from("jira_project_links").select("project_id, connection_id, site_id, jira_project_key, jira_project_name, initiative_type_id").eq("tenant_id", ctx.tenantId);
   const { data: plinks } = l ? await pq.eq("connection_id", l.connection_id).eq("site_id", l.site_id) : item.home_project_id ? await pq.eq("project_id", item.home_project_id) : { data: [] };
   const plink = ((plinks ?? []) as ProjectLink[]).find((p) => (l ? l.issue_key.startsWith(`${p.jira_project_key}-`) : true)) ?? null;
+  // the field mapping is read apart from the link: a database that has not got that column yet must not make the whole link unreadable (nothing is then mapped)
+  if (plink) {
+    const { data: m } = await ctx.supabase.from("jira_project_links").select("field_map").eq("tenant_id", ctx.tenantId).eq("project_id", plink.project_id).maybeSingle();
+    plink.field_map = (m as { field_map?: unknown } | null)?.field_map ?? {};
+  }
   const connId = l?.connection_id ?? plink?.connection_id;
   const { data: conn } = connId ? await ctx.supabase.from("jira_connections").select("id, sites, state").eq("tenant_id", ctx.tenantId).eq("id", connId).maybeSingle() : { data: null };
   const c = (conn ?? null) as Conn | null;
