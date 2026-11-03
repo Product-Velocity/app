@@ -110,6 +110,9 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
             {linkedCount ?? 0} initiative(s) are linked to a GitHub issue. When one of those issues is closed, closed as not planned or reopened, GitHub tells the app and the initiative&rsquo;s Build Status follows
             (Done, Cancelled, Not started). A daily check repairs anything missed.
           </p>
+          <p className="muted" role="status">
+            Live updates: {(() => { const last = events.find((e) => e.source !== "reconcile"); return last ? `on, last event from GitHub ${new Date(last.received_at).toLocaleString("en-GB")}` : "on (the GitHub App sends them); none received yet"; })()}.
+          </p>
           {isAdmin && (
             <div className="row-form">
               <RefreshButton label="Refresh the list" />

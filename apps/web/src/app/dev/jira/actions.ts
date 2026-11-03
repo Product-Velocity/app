@@ -4,3 +4,4 @@
 export async function connectNoop(): Promise<void> {}
 export async function disconnectNoop(): Promise<void> {}
 export async function formNoop(): Promise<void> {}
+export async function retryNoop(...args: [string]): Promise<void> { void args; }

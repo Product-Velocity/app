@@ -1,20 +1,23 @@
 import { leavingChildrenOut } from "@/lib/atlassian/child-filter";
-import { JiraConnectionsView, type JiraConnectionView, type JiraIssueView, type JiraProjectInfo, type JiraProjectLinkView, type JiraProjectOption } from "@/components/jira-connections-view";
+import { JiraConnectionsView, type JiraConnectionView, type JiraEventView, type JiraIssueView, type JiraProjectInfo, type JiraProjectLinkView, type JiraSyncView } from "@/components/jira-connections-view";
+import type { JiraProjectChoice } from "@/components/jira-project-row";
+import { webhooksEnabled } from "@/lib/atlassian/jira-webhooks-server";
 import { jiraConfigured, jiraFieldChoices, jiraGet, jiraProjectDetail, type JiraConnectionRow } from "@/lib/atlassian/server";
 import { parseFieldMap, proposePriorities, type FieldChoice } from "@/lib/atlassian/field-map";
 import { proposeTypeMapping } from "@/lib/atlassian/type-mapping";
 import { requireWorkspace } from "@/lib/session";
 import { canEditItems } from "@pv/domain";
-import { disconnectJira, linkJiraProject, readJiraNow, reviewJiraIssues, saveJiraFieldMap, startJiraConnection, unlinkJiraProject } from "./actions";
+import { checkJiraNow, disconnectJira, readJiraNow, retryJiraEvent, reviewJiraIssues, saveJiraFieldMap, saveJiraProject, startJiraConnection } from "./actions";
 
 export const metadata = { title: "Jira · Product Velocity" };
-export const maxDuration = 30;
+/** "Check Jira now" reads every linked issue and its children: allow the longest run the plan offers. */
+export const maxDuration = 60;
 
 type ProjectSearch = { values: { key: string; name: string; projectTypeKey: string; style?: string }[] };
-type LinkRow = { id: string; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_name: string; epic_type_name: string | null; task_type_name: string | null };
+type LinkRow = { id: string; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; initiative_type_name: string; epic_type_id: string | null; epic_type_name: string | null; task_type_id: string | null; task_type_name: string | null };
 
-export default async function JiraSettingsPage({ searchParams }: { searchParams: Promise<{ status?: string; pv?: string; jp?: string; ignored?: string }> }) {
-  const { status, pv, jp, ignored } = await searchParams;
+export default async function JiraSettingsPage({ searchParams }: { searchParams: Promise<{ status?: string; ignored?: string; c?: string; ch?: string; m?: string }> }) {
+  const { status, ignored, c: checkedN, ch: changedN, m: missingN } = await searchParams;
   const { supabase, active } = await requireWorkspace("/settings/integrations/jira");
   const canAdmin = active.role === "admin" && !active.platform;
   const canEdit = canEditItems(active.role) && !active.platform;
@@ -29,6 +32,7 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
       sites: c.sites,
       created_at: c.created_at,
       state_changed_at: c.state_changed_at,
+      scopes: c.scopes,
       // project names are shown to admins only; a connection that needs a new sign-in is not asked
       projects:
         canAdmin && configured && c.state === "connected"
@@ -49,8 +53,8 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
 
   // Project links (issue #67 slice B): the workspace's projects, their links, and for an admin the Jira projects that can be linked
   const [{ data: projectRows }, { data: linkRows }, { data: readRows }, { data: countRows }, { data: mapRows }] = await Promise.all([
-    supabase.from("projects").select("id, name").eq("tenant_id", active.tenantId).order("name"),
-    supabase.from("jira_project_links").select("id, project_id, connection_id, site_id, jira_project_key, jira_project_name, initiative_type_name, epic_type_name, task_type_name").eq("tenant_id", active.tenantId),
+    supabase.from("projects").select("id, name, tracker").eq("tenant_id", active.tenantId).order("name"),
+    supabase.from("jira_project_links").select("id, project_id, connection_id, site_id, jira_project_key, jira_project_name, initiative_type_id, initiative_type_name, epic_type_id, epic_type_name, task_type_id, task_type_name").eq("tenant_id", active.tenantId),
     supabase.from("jira_reads").select("link_id, read_at, total, added, changed, truncated, error").eq("tenant_id", active.tenantId),
     supabase.rpc("jira_issue_counts"),
     // read apart from the link itself: a database that has not got the field mapping column yet must not hide the links (the mapping then shows as empty)
@@ -81,28 +85,30 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
   }
   const links = new Map(((linkRows ?? []) as LinkRow[]).map((l) => [l.project_id, l]));
   const siteName = (connection: string, site: string) => rows.find((c) => c.id === connection)?.sites.find((s) => s.id === site)?.name ?? "Jira";
-  const options: JiraProjectOption[] = canAdmin
+  // the Jira projects that can be linked, each with ITS OWN issue types and the proposal (they differ per project; read once, in parallel, 30 at most)
+  const eligible = canAdmin
     ? connections.flatMap((c) =>
         c.projects.flatMap((p) =>
           (p.projects ?? [])
             .filter((j) => j.type === "software" || j.type === "business")
-            .map((j) => ({ value: `${c.id}|${p.siteId}|${j.key}`, label: `${j.key} · ${j.name}`, group: c.sites.find((s) => s.id === p.siteId)?.name ?? "Jira" })),
+            .map((j) => ({ connection: c.id, site: p.siteId, key: j.key, label: `${j.key} · ${j.name}`, group: c.sites.find((x) => x.id === p.siteId)?.name ?? "Jira" })),
         ),
-      )
+      ).slice(0, 30)
     : [];
+  const choices: JiraProjectChoice[] = (
+    await Promise.all(
+      eligible.map(async (o) => {
+        try {
+          const d = await jiraProjectDetail(o.connection, o.site, o.key);
+          const proposal = proposeTypeMapping(d.issueTypes);
+          return { value: `${o.connection}|${o.site}|${o.key}`, label: o.label, group: o.group, types: d.issueTypes.map((t) => ({ id: t.id, name: t.name })), proposal: { initiative: proposal.initiative, epic: proposal.epic, task: proposal.task } } satisfies JiraProjectChoice;
+        } catch {
+          return null;
+        }
+      }),
+    )
+  ).filter((x): x is JiraProjectChoice => x !== null);
 
-  // step 2 for the project the admin is working on: that Jira project's own issue types and the proposal
-  let working: { projectId: string; mapping: NonNullable<JiraProjectLinkView["mapping"]> } | null = null;
-  const [jpConn, jpSite, jpKey] = (jp ?? "").split("|");
-  if (canAdmin && pv && jpConn && jpSite && jpKey && options.some((o) => o.value === jp)) {
-    try {
-      const d = await jiraProjectDetail(jpConn, jpSite, jpKey);
-      const proposal = proposeTypeMapping(d.issueTypes);
-      working = { projectId: pv, mapping: { connection: jpConn, site: jpSite, key: d.key, jiraName: d.name, types: d.issueTypes.map((t) => ({ id: t.id, name: t.name })), proposal } };
-    } catch {
-      working = null;
-    }
-  }
   // the field mapping form (admins only): the site's start-date candidates and priorities, read once per site; a site that cannot be read shows a notice
   const choicesBySite = new Map<string, Promise<{ startDates: FieldChoice[]; themes: FieldChoice[]; priorities: FieldChoice[] } | null>>();
   const choicesFor = (connection: string, site: string) => {
@@ -127,16 +133,36 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
       counts: counts.get(p.id) ?? { not_pulled: 0, pulled: 0, ignored: 0 },
       issues: issueRows.get(p.id) ?? [],
       showIgnored: ignored === p.id,
-      mapping: working?.projectId === p.id ? working.mapping : null,
-      choosing: !l || pv === p.id,
+      tracker: (p as { tracker?: string | null }).tracker ?? null,
+      rowLink: l ? { value: `${l.connection_id}|${l.site_id}|${l.jira_project_key}`, initiative: l.initiative_type_id, epic: l.epic_type_id, task: l.task_type_id } : null,
       fieldMap: fieldMaps.get(p.id) ?? null,
     };
   });
 
+  // Sync card: linked initiatives, the last check, the recent events and the state of live updates (admins see the events)
+  const connected = rows.filter((c) => c.state === "connected");
+  let sync: JiraSyncView | null = null;
+  if (connected.length > 0) {
+    const [{ count: linkedCount }, { data: lastRun }, { data: eventRows }, { data: hookRows }] = await Promise.all([
+      supabase.from("item_jira_links").select("item_id", { count: "exact", head: true }).eq("tenant_id", active.tenantId),
+      supabase.from("jira_sync_events").select("received_at, summary").eq("tenant_id", active.tenantId).eq("kind", "run").order("received_at", { ascending: false }).limit(1),
+      canAdmin ? supabase.from("jira_sync_events").select("id, received_at, source, issue_key, summary, state, last_error, attempts").eq("tenant_id", active.tenantId).eq("kind", "change").order("received_at", { ascending: false }).limit(20) : Promise.resolve({ data: [] }),
+      supabase.from("jira_webhooks").select("state").eq("tenant_id", active.tenantId),
+    ]);
+    const hooks = (hookRows ?? []) as { state: string }[];
+    sync = {
+      linked: linkedCount ?? 0,
+      lastCheck: (lastRun ?? [])[0] ? { at: (lastRun as { received_at: string; summary: string }[])[0]!.received_at, summary: (lastRun as { received_at: string; summary: string }[])[0]!.summary } : null,
+      events: ((eventRows ?? []) as { id: string; received_at: string; source: JiraEventView["source"]; issue_key: string | null; summary: string; state: JiraEventView["state"]; last_error: string | null; attempts: number }[]).map((e) => ({ id: e.id, at: e.received_at, source: e.source, issue: e.issue_key, summary: e.summary, state: e.state, error: e.last_error, attempts: e.attempts })),
+      live: { enabled: webhooksEnabled(), registered: hooks.filter((h) => h.state === "active").length, total: hooks.length, needsScope: hooks.some((h) => h.state === "needs_scope") },
+    };
+  }
+
   return (
     <JiraConnectionsView
-      connections={connections} canAdmin={canAdmin} configured={configured} status={status} connectAction={startJiraConnection} disconnectAction={disconnectJira}
-      projectLinks={projectLinks} jiraOptions={options} linkAction={linkJiraProject} unlinkAction={unlinkJiraProject} readAction={readJiraNow} canEdit={canEdit} reviewAction={reviewJiraIssues} fieldMapAction={saveJiraFieldMap}
+      connections={connections} canAdmin={canAdmin} configured={configured} status={status} checked={checkedN ? { c: checkedN, ch: changedN ?? "0", m: missingN ?? "0" } : undefined}
+      connectAction={startJiraConnection} disconnectAction={disconnectJira} projectLinks={projectLinks} choices={choices} sync={sync} saveProjectAction={saveJiraProject} readAction={readJiraNow}
+      checkAction={checkJiraNow} retryAction={retryJiraEvent} canEdit={canEdit} reviewAction={reviewJiraIssues} fieldMapAction={saveJiraFieldMap}
     />
   );
 }

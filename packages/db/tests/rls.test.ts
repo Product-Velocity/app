@@ -175,6 +175,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "jira_sync_events",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_sync_events set summary = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_sync_events where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_sync_events (tenant_id, source, summary) values ($1, 'check', 'evil')", params: [v.tenantId] },
+      { sql: "update public.jira_sync_events set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "item_jira_links",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

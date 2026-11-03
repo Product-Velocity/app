@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { applyLinkedStatuses } from "./refresh-jira";
 import type { LinkToRead } from "./read-jira";
+import { describeLines } from "./jira-events";
 import { callbackUrl, eventIssueKey, hashSecret, newSecret, parseToken, planWebhooks, refreshWebhooks, registerWebhook, secretMatches, type WebhookRow } from "./jira-webhooks";
 import { jiraRequest } from "./server";
 import { ReconnectNeeded } from "./token-provider";
@@ -76,10 +77,16 @@ export async function handleDelivery(token: string, body: unknown): Promise<numb
     const { data: linked } = await admin2.from("item_jira_links").select("item_id").eq("tenant_id", (link as LinkRow).tenant_id).eq("connection_id", (link as LinkRow).connection_id).eq("site_id", (link as LinkRow).site_id).eq("issue_key", key);
     const ids = ((linked ?? []) as { item_id: string }[]).map((x) => x.item_id);
     if (ids.length === 0) return 200;
-    await applyLinkedStatuses(link as LinkRow, site.url, { itemIds: ids });
+    const done = await applyLinkedStatuses(link as LinkRow, site.url, { itemIds: ids });
+    const l = link as LinkRow;
+    // the recent-events table of the settings page: only deliveries that changed something (the rest would drown it)
+    if (done.changedIssues.length > 0) await admin2.from("jira_sync_events").insert(done.changedIssues.map((c) => ({ tenant_id: l.tenant_id, link_id: l.id, source: "webhook", kind: "change", issue_key: c.key, summary: describeLines(c.lines), state: "processed" })));
     return 200;
   } catch (e) {
-    if (e instanceof ReconnectNeeded) return 200; // a new sign-in is needed; retrying cannot help, the settings page says so
+    const l = link as LinkRow;
+    const reconnect = e instanceof ReconnectNeeded;
+    await createAdminClient({ via: "system" }).from("jira_sync_events").insert({ tenant_id: l.tenant_id, link_id: l.id, source: "webhook", kind: "change", issue_key: key, summary: `Could not apply ${key}`, state: "error", last_error: reconnect ? "Sign in to Jira again" : e instanceof Error ? e.message.slice(0, 200) : "unknown" });
+    if (reconnect) return 200; // a new sign-in is needed; retrying cannot help, the settings page says so
     return 500;
   }
 }

@@ -253,6 +253,9 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
       if ((await db.admin.query("select to_regclass('public.jira_webhooks') as t")).rows[0].t) {
         await db.admin.query("insert into public.jira_webhooks (link_id, tenant_id, connection_id, site_id, jira_webhook_id, secret_hash) select id, tenant_id, connection_id, site_id, '1', repeat('a', 64) from public.jira_project_links where project_id = $1", [project]);
       }
+      if ((await db.admin.query("select to_regclass('public.jira_sync_events') as t")).rows[0].t) {
+        await db.admin.query("insert into public.jira_sync_events (tenant_id, link_id, source, summary) select tenant_id, id, 'check', 'Seed check' from public.jira_project_links where project_id = $1", [project]);
+      }
       if ((await db.admin.query("select to_regclass('public.jira_issues') as t")).rows[0].t) {
         await db.admin.query("insert into public.jira_issues (tenant_id, connection_id, project_id, site_id, jira_project_key, issue_key, title, status_category) values ($1, $2, $3, 'site-1', 'SEED', 'SEED-1', 'Seed Jira issue', 'new')", [tenantId, jira, project]);
         await db.admin.query("insert into public.jira_reads (link_id, tenant_id, total, added) select id, tenant_id, 1, 1 from public.jira_project_links where project_id = $1", [project]);

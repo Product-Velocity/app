@@ -1,7 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { refreshJiraProject } from "@/lib/atlassian/refresh-jira";
+import { checkJiraLinks, pruneJiraEvents } from "@/lib/atlassian/jira-check";
 import { maintainWebhooks } from "@/lib/atlassian/jira-webhooks-server";
-import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 import type { LinkToRead } from "@/lib/atlassian/read-jira";
 
 /**
@@ -30,30 +29,9 @@ export async function GET(request: Request) {
   // the projects read longest ago first, so a run that runs out of time continues where it stopped the next day
   const todo = ((links ?? []) as LinkToRead[]).sort((a, b) => (lastRead.get(a.id) ?? "").localeCompare(lastRead.get(b.id) ?? ""));
 
-  const report = { projects: 0, checked: 0, changed: 0, stale: 0, missing: 0, light: 0, trees: 0, treeNodes: 0, treeFailed: 0, failed: 0, reconnect: 0, skipped: 0 };
   const blocked = new Set<string>();
-  for (const l of todo) {
-    const site = sitesOf.get(l.connection_id)?.find((s) => s.id === l.site_id);
-    if (!site || blocked.has(l.connection_id)) { report.skipped++; continue; }
-    if (Date.now() - started > BUDGET_MS) { report.skipped++; continue; }
-    try {
-      const r = await refreshJiraProject(l, site.url);
-      report.projects++;
-      report.checked += r.linked.checked;
-      report.changed += r.linked.changed;
-      report.stale += r.linked.stale;
-      report.missing += r.linked.missing.length;
-      report.light += r.light;
-      report.trees += r.trees.applied;
-      report.treeNodes += r.trees.nodes;
-      report.treeFailed += r.trees.failed;
-      if (r.trees.error) console.error(JSON.stringify({ jira: "cron-tree", link: l.id, error: r.trees.error }));
-    } catch (e) {
-      report.failed++;
-      if (e instanceof ReconnectNeeded) { report.reconnect++; blocked.add(l.connection_id); }
-      console.error(JSON.stringify({ jira: "cron", link: l.id, error: e instanceof ReconnectNeeded ? "reconnect needed" : e instanceof Error ? e.message.slice(0, 200) : "unknown" }));
-    }
-  }
+  const report = await checkJiraLinks(todo, sitesOf, { source: "check", budgetMs: BUDGET_MS - (Date.now() - started), blocked });
+  await pruneJiraEvents();
   // keep the webhooks alive (registers new ones, extends the ones close to expiry); a no-op until JIRA_WEBHOOKS=1. Never fails the check.
   let webhooks = { registered: 0, refreshed: 0, needsScope: 0, failed: 0 };
   try { webhooks = await maintainWebhooks(blocked); } catch (e) { console.error(JSON.stringify({ jira: "cron-webhooks", error: e instanceof Error ? e.message.slice(0, 200) : "unknown" })); }
