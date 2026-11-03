@@ -71,6 +71,22 @@ describe("preview (evaluate)", () => {
   });
 });
 
+describe("the field mapping of the project", () => {
+  it("start date and priority are sent when mapped, and skipped with a note when not", async () => {
+    tables.items = item({ planned_start: "2027-01-04" });
+    const without = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout" }).call);
+    expect(without.kind === "ok" && without.plan.fields.customfield_10015).toBeFalsy();
+    expect(without.kind === "ok" && without.plan.notes.join(" ")).toMatch(/Start date not sent/);
+    tables.jira_project_links = [{ ...plink, field_map: { startDate: "customfield_10015", priorityByMoscow: { Must: "1" } } }];
+    const mapped = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout" }).call);
+    expect(mapped.kind === "ok" && mapped.plan.fields).toMatchObject({ customfield_10015: "2027-01-04", priority: { id: "1" } });
+    // a malformed stored value never reaches Jira
+    tables.jira_project_links = [{ ...plink, field_map: { startDate: "duedate", priorityByMoscow: { Must: "High" } } }];
+    const bad = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout" }).call);
+    expect(bad.kind === "ok" && JSON.stringify(bad.plan.fields)).not.toMatch(/duedate"?:"?2027|High/);
+  });
+});
+
 describe("confirm (writeOne)", () => {
   it("sends only what Product Velocity changed, then records the base; description and status are not in the request", async () => {
     tables.items = item({ initiative_name: "Checkout v2" });
