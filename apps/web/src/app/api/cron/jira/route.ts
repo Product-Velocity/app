@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { refreshJiraProject } from "@/lib/atlassian/refresh-jira";
-import { maintainWebhooks } from "@/lib/atlassian/jira-webhooks-server";
+import { maintainWebhooks, webhooksEnabled } from "@/lib/atlassian/jira-webhooks-server";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 import type { LinkToRead } from "@/lib/atlassian/read-jira";
 
@@ -22,14 +22,16 @@ export async function GET(request: Request) {
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) return new Response("forbidden", { status: 403 });
   const started = Date.now();
   const admin = createAdminClient({ via: "system" });
-  const { data: conns } = await admin.from("jira_connections").select("id, sites").eq("state", "connected");
+  const { data: conns, error: connsError } = await admin.from("jira_connections").select("id, sites").eq("state", "connected");
   const sitesOf = new Map(((conns ?? []) as { id: string; sites: Site[] }[]).map((c) => [c.id, c.sites]));
-  const { data: links } = await admin.from("jira_project_links").select("id, tenant_id, connection_id, site_id, jira_project_key").in("connection_id", [...sitesOf.keys()]);
+  const { data: links, error: linksError } = await admin.from("jira_project_links").select("id, tenant_id, connection_id, site_id, jira_project_key").in("connection_id", [...sitesOf.keys()]);
   const { data: reads } = await admin.from("jira_reads").select("link_id, read_at");
   const lastRead = new Map(((reads ?? []) as { link_id: string; read_at: string }[]).map((r) => [r.link_id, r.read_at]));
   // the projects read longest ago first, so a run that runs out of time continues where it stopped the next day
   const todo = ((links ?? []) as LinkToRead[]).sort((a, b) => (lastRead.get(a.id) ?? "").localeCompare(lastRead.get(b.id) ?? ""));
 
+  // what the check could see, so "0 projects" can be told from "could not look" (codes only: no ids, names or addresses)
+  const seen = { connections: sitesOf.size, links: (links ?? []).length, webhooksEnabled: webhooksEnabled(), connectionsQuery: connsError ? `error ${connsError.code ?? "?"}` : "ok", linksQuery: linksError ? `error ${linksError.code ?? "?"}` : "ok" };
   const report = { projects: 0, checked: 0, changed: 0, stale: 0, missing: 0, light: 0, trees: 0, treeNodes: 0, treeFailed: 0, failed: 0, reconnect: 0, skipped: 0 };
   const blocked = new Set<string>();
   for (const l of todo) {
@@ -57,5 +59,5 @@ export async function GET(request: Request) {
   // keep the webhooks alive (registers new ones, extends the ones close to expiry); a no-op until JIRA_WEBHOOKS=1. Never fails the check.
   let webhooks = { registered: 0, refreshed: 0, needsScope: 0, failed: 0 };
   try { webhooks = await maintainWebhooks(blocked); } catch (e) { console.error(JSON.stringify({ jira: "cron-webhooks", error: e instanceof Error ? e.message.slice(0, 200) : "unknown" })); }
-  return Response.json({ ...report, webhooks });
+  return Response.json({ ...report, webhooks, seen });
 }
