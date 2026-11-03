@@ -165,6 +165,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "jira_webhooks",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_webhooks set state = 'failed' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_webhooks where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_webhooks (link_id, tenant_id, connection_id, site_id, secret_hash) select link_id, tenant_id, connection_id, 'x', repeat('a', 64) from public.jira_webhooks where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.jira_webhooks set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "item_jira_links",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { atlassianConfig, API_BASE, refreshTokens } from "./oauth";
 import { decryptToken, encryptToken, keyRing } from "./token-crypto";
 import { getAccessToken, type TokenDeps } from "./token-provider";
+import { getJson } from "./read-client";
 
 export type JiraSite = { id: string; name: string; url: string };
 export type JiraConnectionRow = { id: string; tenant_id: string; sites: JiraSite[]; scopes: string; state: "connected" | "reconnect_needed" | "disconnected"; connected_by: string | null; state_changed_at: string; created_at: string };
@@ -52,10 +53,8 @@ function depsFor(connectionId: string): TokenDeps {
 export const accessTokenFor = (connectionId: string) => getAccessToken(depsFor(connectionId));
 
 export async function jiraGet<T>(connectionId: string, siteId: string, path: string): Promise<T> {
-  const token = await accessTokenFor(connectionId);
-  const res = await fetch(`${API_BASE}/ex/jira/${siteId}/rest/api/3${path}`, { headers: { authorization: `Bearer ${token}`, accept: "application/json" } });
-  if (!res.ok) throw new Error(`Jira answered ${res.status}`);
-  return (await res.json()) as T;
+  // 429 and 503 are retried with the site's Retry-After (spike J6); any other refusal throws "Jira answered <status>"
+  return getJson<T>(jiraRequest(connectionId, siteId), path);
 }
 
 export type JiraProjectDetail = { id: string; key: string; name: string; projectTypeKey: string; issueTypes: { id: string; name: string; hierarchyLevel: number; subtask: boolean }[] };

@@ -14,9 +14,15 @@ export async function GET(request: NextRequest) {
   if (!auth.user) return NextResponse.redirect(new URL("/sign-in?next=/spikes/atlassian", request.url));
   if (!(await isWorkspaceAdmin(supabase, auth.user.id))) return back("admins-only");
   const state = randomBytes(24).toString("base64url");
-  const scopes = request.nextUrl.searchParams.get("confluence") === "1" ? [...JIRA_SCOPES, ...CONFLUENCE_SCOPES] : JIRA_SCOPES;
+  const mode = request.nextUrl.searchParams.get("mode") ?? "read";
+  const probe = ["paging", "devinfo", "idea", "webhook"].includes(mode) ? mode : null;
+  // an argument for the probe (project or issue key); validated again in the callback
+  const arg = (request.nextUrl.searchParams.get("arg") ?? "").slice(0, 40);
+  const base = request.nextUrl.searchParams.get("confluence") === "1" ? [...JIRA_SCOPES, ...CONFLUENCE_SCOPES] : JIRA_SCOPES;
+  const scopes = probe === "webhook" ? [...base, "manage:jira-webhook"] : base; // webhook registration is its own scope (spike J3)
   const res = NextResponse.redirect(buildAuthorizeUrl(cfg, scopes, `${auth.user.id}.${state}`));
-  res.cookies.set("atl_mode", request.nextUrl.searchParams.get("mode") === "write" ? "write" : "read", { httpOnly: true, secure: true, sameSite: "lax", path: "/api/atlassian", maxAge: 600 });
+  res.cookies.set("atl_mode", probe ?? (mode === "write" ? "write" : "read"), { httpOnly: true, secure: true, sameSite: "lax", path: "/api/atlassian", maxAge: 600 });
+  res.cookies.set("atl_arg", arg, { httpOnly: true, secure: true, sameSite: "lax", path: "/api/atlassian", maxAge: 600 });
   res.cookies.set("atl_state", `${auth.user.id}.${state}`, { httpOnly: true, secure: true, sameSite: "lax", path: "/api/atlassian", maxAge: 600 });
   return res;
 }

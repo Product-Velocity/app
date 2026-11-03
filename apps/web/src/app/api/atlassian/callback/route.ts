@@ -3,6 +3,7 @@ import { buildFieldCatalog, hierarchyLevels, proposeInitiativeLevel, type JiraFi
 import { completeConnection } from "@/lib/atlassian/connect";
 import { isWorkspaceAdmin } from "@/lib/atlassian/guard";
 import { API_BASE, atlassianConfig, exchangeCode, refreshAccessToken } from "@/lib/atlassian/oauth";
+import { probeDevInfo, probeIdeaWrite, probePaging, probeWebhook, type ProbeCall } from "@/lib/atlassian/spike-probes";
 import { runWriteTest, type JiraCall } from "@/lib/atlassian/write-test";
 import { createClient } from "@/lib/supabase/server";
 
@@ -89,6 +90,27 @@ async function writeSpike(token: string, cloudId: string) {
   return [{ label: `Write test (J4) in project ${project.key}`, status: 200, body: steps.map((s) => `[${s.status}] ${s.label}\n    ${s.note.replace(/\n/g, "\n    ")}`).join("\n") }];
 }
 
+/** Spikes J3, J5, J6, J8: one probe per run, chosen on the spike page. The write probes remove what they create. */
+async function probeSpike(token: string, cloudId: string, mode: string, arg: string, origin: string) {
+  const base = `${API_BASE}/ex/jira/${cloudId}/rest/api/3`;
+  const call: ProbeCall = async (method, path, body) => {
+    const res = await fetch(`${base}${path}`, { method, headers: { authorization: `Bearer ${token}`, accept: "application/json", ...(body ? { "content-type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    const text = await res.text();
+    let json: unknown = {};
+    try { json = text ? JSON.parse(text) : {}; } catch { /* not JSON */ }
+    const headers: Record<string, string> = {};
+    res.headers.forEach((v, k) => { headers[k.toLowerCase()] = v; });
+    const ra = Number(headers["retry-after"]);
+    return { status: res.status, json, headers, ...(Number.isFinite(ra) && ra > 0 ? { retryAfterSec: ra } : {}) };
+  };
+  const steps =
+    mode === "paging" ? await probePaging(call, "created >= -3650d order by created DESC")
+    : mode === "devinfo" ? await probeDevInfo(call, arg)
+    : mode === "idea" ? await probeIdeaWrite(call, arg)
+    : await probeWebhook(call, arg, `${origin}/api/spikes/jira-webhook`);
+  return [{ label: `Probe ${mode}`, status: 200, body: steps.map((s) => `[${s.status}] ${s.label}\n    ${s.note.replace(/\n/g, "\n    ")}`).join("\n") }];
+}
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const page = (body: string, status = 200) =>
@@ -123,7 +145,11 @@ export async function GET(request: NextRequest) {
   results.push({ label: "Accessible sites", status: sites.status, body: (sites.data ?? []).map((x, i) => `site ${i + 1}: scopes ${x.scopes.join(", ")}`).join("\n") || "none" });
   const cloudId = sites.data?.[0]?.id ?? "";
   const writeMode = request.cookies.get("atl_mode")?.value === "write";
-  if (cloudId && writeMode) {
+  const mode = request.cookies.get("atl_mode")?.value ?? "read";
+  const probe = ["paging", "devinfo", "idea", "webhook"].includes(mode);
+  if (cloudId && probe) {
+    results.push(...(await probeSpike(token.access_token, cloudId, mode, request.cookies.get("atl_arg")?.value ?? "", url.origin)));
+  } else if (cloudId && writeMode) {
     results.push(...(await writeSpike(token.access_token, cloudId)));
     if (token.refresh_token) {
       try {
@@ -143,5 +169,6 @@ export async function GET(request: NextRequest) {
   const res = page(html);
   res.cookies.delete("atl_state");
   res.cookies.delete("atl_mode");
+  res.cookies.delete("atl_arg");
   return res;
 }

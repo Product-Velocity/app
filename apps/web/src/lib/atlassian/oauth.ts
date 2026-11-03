@@ -8,6 +8,9 @@ export const JIRA_SCOPES = ["read:jira-work", "read:jira-user", "write:jira-work
 /** Added only when the person asks to test Confluence publishing (#258). Names to be confirmed against a real site. */
 export const CONFLUENCE_SCOPES = ["write:confluence-content", "read:confluence-space.summary", "read:confluence-content.summary"];
 
+/** Added to the sign-in only when webhooks are switched on (JIRA_WEBHOOKS=1): lets the daily check register webhooks for automated status updates (spike J3). */
+export const WEBHOOK_SCOPES = ["manage:jira-webhook"];
+
 export type AtlassianConfig = { clientId: string; clientSecret: string; redirectUri: string };
 
 export function atlassianConfig(env: Record<string, string | undefined> = process.env): AtlassianConfig | null {
