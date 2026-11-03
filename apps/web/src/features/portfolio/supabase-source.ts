@@ -109,6 +109,10 @@ export class SupabaseDataSource implements PortfolioDataSource {
       if (l.gh_assignees?.length) ghLogins.set(l.item_id, l.gh_assignees);
       syncLinks.set(l.item_id, { mode: l.mode, repo: l.repo_full_name, issueNumber: l.issue_number, syncState: l.sync_state, lastPushedAt: l.last_pushed_at, ghSyncedAt: l.gh_synced_at, hasBoardItem: Boolean(l.project_item_id) });
     }
+    // An initiative linked to a Jira issue (and not to GitHub: an initiative has one tracker) shows the Jira key, who owns it and when it was last synced
+    for (const l of await this.fetchAll<{ item_id: string; mode: "push" | "follow"; issue_key: string; sync_checked_at: string | null; jira_updated_at: string | null }>("item_jira_links", "item_id,mode,issue_key,sync_checked_at,jira_updated_at")) {
+      if (!syncLinks.has(l.item_id)) syncLinks.set(l.item_id, { tracker: "jira", issueKey: l.issue_key, mode: l.mode, repo: "", issueNumber: null, syncState: "synced", lastPushedAt: l.sync_checked_at, ghSyncedAt: null, hasBoardItem: false });
+    }
     const boardTitle = new Map<string, string>();
     if (syncLinks.size > 0) for (const p of await this.fetchAll<{ id: string; github_board: { title?: unknown } | null }>("projects", "id,github_board")) if (typeof p.github_board?.title === "string") boardTitle.set(p.id, p.github_board.title);
 

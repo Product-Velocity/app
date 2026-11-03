@@ -51,7 +51,7 @@ describe("loadItems", () => {
   it("also reads the calculated view and every related table, each filtered by tenant", async () => {
     const { client, calls } = fake([{ data: [row(1)] }]);
     await new SupabaseDataSource(client, "t1").loadItems();
-    expect(calls.map((c) => c.table ?? `rpc ${c.rpc}`)).toEqual(["items", "items_computed", "item_tags", "item_links", "item_files", "item_relations", "teams", "item_teams", "rpc tenant_directory", "tenant_members", "item_github_links"]);
+    expect(calls.map((c) => c.table ?? `rpc ${c.rpc}`)).toEqual(["items", "items_computed", "item_tags", "item_links", "item_files", "item_relations", "teams", "item_teams", "rpc tenant_directory", "tenant_members", "item_github_links", "item_jira_links"]);
     for (const c of calls.filter((x) => x.table)) expect(has(c, "eq", "tenant_id", "t1"), String(c.table)).toBe(true);
     expect(calls.find((c) => c.rpc === "tenant_directory")!.ops).toEqual([["args", [{ p_tenant: "t1" }]]]); // the people of this workspace only
   });
@@ -82,11 +82,13 @@ describe("loadItems", () => {
     const { client, calls } = fake([
       { data: [linked, row(2)] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] },
       { data: [{ item_id: "i1", mode: "push", repo_full_name: "Acme/App", issue_number: 38, sync_state: "synced", last_pushed_at: "2026-10-27T10:00:00Z", gh_synced_at: "2026-10-27T11:00:00Z", project_item_id: "PVTI_1" }] },
+      { data: [{ item_id: "i1", mode: "push", issue_key: "PLAT-1", sync_checked_at: null, jira_updated_at: null }, { item_id: "i2", mode: "follow", issue_key: "PLAT-12", sync_checked_at: "2026-11-03T09:00:00Z", jira_updated_at: null }] },
       { data: [{ id: "p", github_board: { title: "Product Velocity roadmap" } }] },
     ]);
     const [a, b] = await new SupabaseDataSource(client, "t1").loadItems();
     expect(a).toMatchObject({ last_synced: "2026-10-27T12:00:00Z", synced_with: 'GitHub · Acme/App · board "Product Velocity roadmap"', tracker_ownership: "Product Velocity" });
-    expect(b).toMatchObject({ last_synced: null, synced_with: null, tracker_ownership: null });
+    // an initiative linked to a Jira issue shows the Jira key, who owns it and the last sync; an initiative has one tracker, so GitHub wins for i1
+    expect(b).toMatchObject({ last_synced: "2026-11-03T09:00:00Z", synced_with: "Jira · PLAT-12 · follows it, read-only", tracker_ownership: "Tracker (read only)" });
     expect(a).not.toHaveProperty("last_synced_at"); // the raw column stays internal
     expect(calls.find((c) => c.table === "items_computed")!.ops.map(([, args]) => String(args[0])).join(",")).not.toContain("synced_with"); // not asked of the view
   });

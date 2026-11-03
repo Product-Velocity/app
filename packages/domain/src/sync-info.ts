@@ -1,6 +1,9 @@
 // What the "Last Synced", "Synced With" and "Tracker Ownership" fields show. All are derived from the GitHub link of an initiative; nothing is stored for them.
 
 export type SyncLink = {
+  /** Which tracker the link is to; absent means GitHub. For Jira `repo` is empty and `issueKey` names the issue (PLAT-12). */
+  tracker?: "github" | "jira";
+  issueKey?: string | null;
   mode: "push" | "follow";
   repo: string;
   issueNumber: number | null;
@@ -25,6 +28,7 @@ export function lastSyncedAt(link: SyncLink | undefined, itemMark: string | null
 /** "GitHub · owner/repo · board "Name"", with a plain-words note when it only follows an issue, a send failed or nothing was sent yet. */
 export function syncedWith(link: SyncLink | undefined, boardTitle: string | null): string {
   if (!link) return "";
+  if (link.tracker === "jira") return `Jira · ${link.issueKey ?? "an issue"}${link.mode === "follow" ? " · follows it, read-only" : ""}`;
   const parts = ["GitHub", link.repo];
   if (link.hasBoardItem && boardTitle) parts.push(`board "${boardTitle}"`);
   if (link.mode === "follow") parts.push(`follows ${link.issueNumber ? `#${link.issueNumber}` : "an issue"}, read-only`);
