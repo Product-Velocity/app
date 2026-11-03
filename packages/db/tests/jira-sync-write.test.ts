@@ -38,6 +38,15 @@ const call = (sql: string, params: unknown[]) => db.asService((q) => q(sql, para
 const item = async (id: string) => (await db.admin.query("select initiative_name, description, value_12m, confidence, decision, status, initiative_status from public.items where id = $1", [id])).rows[0];
 const link = async (id: string) => (await db.admin.query("select * from public.item_jira_links where item_id = $1", [id])).rows[0];
 
+describe("the items columns the Jira engine reads", () => {
+  it("all exist (the web test pins the same list): G2M Date (est) is stored in end_date", async () => {
+    const cols = ["id", "item_code", "initiative_name", "description", "moscow", "end_date", "planned_start", "home_project_id"];
+    await expect(db.admin.query(`select ${cols.join(", ")} from public.items limit 1`)).resolves.toBeDefined();
+    const missing = await db.admin.query("select column_name from information_schema.columns where table_schema = 'public' and table_name = 'items' and column_name = 'g2m_date_est'");
+    expect(missing.rows).toEqual([]);
+  });
+});
+
 describe("jira_apply_pull (Keep Jira)", () => {
   it("replaces only the chosen texts, returns the old values, records the base and audits the person", async () => {
     const { item: id } = await setup();

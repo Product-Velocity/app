@@ -8,7 +8,7 @@ let rpcFail: string | null = null;
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc: async (fn: string, args: Record<string, unknown>) => { rpcCalls.push({ fn, args }); return fn === rpcFail ? { data: null, error: { message: "x" } } : { data: fn === "jira_apply_pull" ? { initiative_name: "Old", description: null } : null, error: null }; } }) }));
 vi.mock("./server", () => ({ jiraRequest: () => { throw new Error("the real Jira must not be reached in tests"); } }));
 
-import { evaluate, previewParts, writeOne, type Ctx } from "./jira-sync-engine";
+import { COLS, evaluate, previewParts, writeOne, type Ctx } from "./jira-sync-engine";
 import { hashText } from "@pv/github";
 import { adfToText } from "./adf";
 
@@ -43,6 +43,18 @@ const choice = (field: "title" | "description", c: "pv" | "github", ghHash: stri
 
 beforeEach(() => { rpcCalls.length = 0; rpcFail = null; tables = { items: item(), item_jira_links: link(), jira_project_links: [plink], jira_connections: conn() }; });
 const loadIt = async () => (await import("./jira-sync-engine")).load(ctx, ID);
+
+describe("the columns it reads", () => {
+  // The same list is checked against the real table in packages/db/tests/jira-sync-write.test.ts: a column that does not exist makes the whole read fail.
+  it("are real columns of items (G2M Date (est) is end_date), never dictionary keys that have no column", () => {
+    expect(COLS.split(", ").sort()).toEqual(["description", "end_date", "home_project_id", "id", "initiative_name", "item_code", "moscow", "planned_start"]);
+  });
+  it("a row read that way still gives the engine G2M Date (est) under its field key", async () => {
+    tables.items = { id: ID, item_code: "R-1", initiative_name: "Checkout", description: null, moscow: "Must", end_date: "2027-03-31", planned_start: null, home_project_id: "p1" };
+    const e = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout" }).call);
+    expect(e.kind === "ok" && e.plan.fields.duedate).toBe("2027-03-31");
+  });
+});
 
 describe("preview (evaluate)", () => {
   it("writes nothing, ever: a preview makes only GET requests", async () => {

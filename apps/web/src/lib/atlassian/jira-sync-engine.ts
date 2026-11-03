@@ -1,10 +1,12 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { columnOnItems, FIELD_BY_KEY } from "@pv/domain";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PlanItem, PushItemResult, ReceiveItem, SyncChoice, SyncConflict, SyncPreview, TakenOver } from "@/lib/github/push-types";
 import { adfToText, markdownToAdf } from "./adf";
 import { findByMarker, readIssue } from "./jira-issue";
 import { compareJira, COLUMN, LABEL, markerFor, planJiraSend, type JiraBase, type PvItem, type SendPlan, type TextField } from "./jira-sync-core";
+import { OUTBOUND_JIRA_FIELDS } from "./outbound";
 import { createIssue, updateIssue, type JiraRequest } from "./jira-write";
 import { parseFieldMap } from "./field-map";
 import { jiraRequest } from "./server";
@@ -18,15 +20,20 @@ import { ReconnectNeeded } from "./token-provider";
 type Db = SupabaseClient;
 export type Ctx = { supabase: Db; tenantId: string; userId: string };
 type ItemRow = { id: string; item_code: string; initiative_name: string; description: string | null; moscow: string | null; g2m_date_est: string | null; planned_start: string | null; home_project_id: string | null };
+/** The real column of each allowlisted field (G2M Date (est) lives in `end_date`): a column that does not exist makes the whole read fail, so they come from the field registry, as the GitHub push does. */
+export const ITEM_COLUMNS: Record<string, string> = Object.fromEntries(OUTBOUND_JIRA_FIELDS.map((k) => [k, columnOnItems(FIELD_BY_KEY[k]!)!]));
 type LinkRow = { item_id: string; connection_id: string; site_id: string; issue_key: string; issue_id: string | null; html_url: string | null; mode: "follow" | "push"; sync_base: JiraBase | null; sent_hash: string | null };
 type ProjectLink = { project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; field_map?: unknown };
 type Conn = { id: string; sites: { id: string; name: string; url: string }[]; state: string };
 
 export type Loaded = { item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
 
-const COLS = "id, item_code, initiative_name, description, moscow, g2m_date_est, planned_start, home_project_id";
+export const COLS = ["id", "item_code", ...Object.values(ITEM_COLUMNS), "home_project_id"].filter((c, i, a) => a.indexOf(c) === i).join(", ");
+/** A row as read with COLS, with the allowlisted values under their field keys. */
+const asItemRow = (row: Record<string, unknown>): ItemRow => { const out: Record<string, unknown> = { ...row }; for (const [k, col] of Object.entries(ITEM_COLUMNS)) out[k] = row[col]; return out as ItemRow; };
 export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
-  const { data: item } = await ctx.supabase.from("items").select(COLS).eq("tenant_id", ctx.tenantId).is("deleted_at", null).eq("id", id).maybeSingle();
+  const { data: itemData } = await ctx.supabase.from("items").select(COLS).eq("tenant_id", ctx.tenantId).is("deleted_at", null).eq("id", id).maybeSingle();
+  const item = itemData as unknown as (Record<string, unknown> & { home_project_id: string | null }) | null;
   if (!item) return null;
   const { data: link } = await ctx.supabase.from("item_jira_links").select("item_id, connection_id, site_id, issue_key, issue_id, html_url, mode, sync_base, sent_hash").eq("tenant_id", ctx.tenantId).eq("item_id", id).maybeSingle();
   const l = (link ?? null) as LinkRow | null;
@@ -37,7 +44,7 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   const { data: conn } = connId ? await ctx.supabase.from("jira_connections").select("id, sites, state").eq("tenant_id", ctx.tenantId).eq("id", connId).maybeSingle() : { data: null };
   const c = (conn ?? null) as Conn | null;
   const siteId = l?.site_id ?? plink?.site_id;
-  return { item: item as ItemRow, link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
+  return { item: asItemRow(item as Record<string, unknown>), link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
 }
 
 export const pvOf = (i: ItemRow): PvItem => ({ id: i.id, name: i.initiative_name, description: i.description, moscow: i.moscow, g2m_date_est: i.g2m_date_est, planned_start: i.planned_start });
