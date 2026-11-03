@@ -17,13 +17,10 @@ export default async function AtlassianSpike({ searchParams }: { searchParams: P
       <p>
         <a href="/api/atlassian/start?confluence=1">Connect Jira and Confluence</a>
       </p>
-      <h2>Write test (J4)</h2>
+      <h2>Refresh token test</h2>
+      <p>The write test (J4) was retired when Sync with Jira began to write; this only tests that the refresh token rotates.</p>
       <p>
-        Creates one Epic and one child Story in the first Jira <em>software</em> project, edits them, moves the Story through one workflow transition, reads them back and deletes both again. It never
-        touches a Jira Product Discovery project. If a delete is refused, the page lists the issue to remove by hand. It also tests the refresh token.
-      </p>
-      <p>
-        <a href="/api/atlassian/start?mode=write">Run the write test (writes to your Jira)</a>
+        <a href="/api/atlassian/start?mode=write">Test the refresh token (writes nothing)</a>
       </p>
     </main>
   );
