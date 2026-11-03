@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { TrackerSection } from "@/components/tracker-tabs";
+import { jiraCatalogGroups } from "@/lib/tracker-fields/catalog";
 import { connectNoop, disconnectNoop, formNoop, retryNoop } from "./actions";
 import { JiraConnectionsView, type JiraConnectionView, type JiraProjectLinkView } from "@/components/jira-connections-view";
 
@@ -58,6 +59,20 @@ export async function renderJiraHarness(searchParams: Promise<Record<string, str
     ],
     live: { enabled: q.live !== "off", registered: q.live === "off" ? 0 : 1, total: q.live === "off" ? 0 : 1, needsScope: q.live === "scope" },
   };
-  return <JiraConnectionsView connections={connections} canAdmin={q.role !== "viewer"} configured={q.configured !== "0"} status={q.status} connectAction={connectNoop} disconnectAction={disconnectNoop}
+  const catalogs = none || state !== "connected" || q.role === "viewer" ? [] : [{
+    tracker: "jira" as const, scope: "PLAT", readAt: "2026-11-03T12:00:00Z",
+    groups: jiraCatalogGroups({
+      fields: q.fields === "unreadable" ? null : [
+        { id: "summary", name: "Summary", custom: false, schema: { type: "string", system: "summary" } },
+        { id: "duedate", name: "Due date", custom: false, schema: { type: "date", system: "duedate" } },
+        { id: "customfield_10015", name: "Start date", custom: true, schema: { type: "date", custom: "com.atlassian.jira.plugin.system.customfieldtypes:datepicker" } },
+        { id: "customfield_10030", name: "Theme", custom: true, schema: { type: "string", custom: "com.atlassian.jira.plugin.system.customfieldtypes:textfield" } },
+        { id: "customfield_10040", name: "Team", custom: true, schema: { type: "option", custom: "com.atlassian.jira.plugin.system.customfieldtypes:select" } },
+      ],
+      issues: [{ fields: { summary: "a", customfield_10015: "2026-01-01", customfield_10040: { value: "Blue" } } }, { fields: { summary: "b", customfield_10040: { value: "Red" } } }],
+      priorities: [{ id: "1", name: "Highest" }, { id: "2", name: "High" }], issueTypes: [{ id: "10001", name: "Epic", hierarchyLevel: 1 }, { id: "10003", name: "Task", hierarchyLevel: 0 }],
+    }),
+  }];
+  return <JiraConnectionsView catalogs={catalogs} connections={connections} canAdmin={q.role !== "viewer"} configured={q.configured !== "0"} status={q.status} connectAction={connectNoop} disconnectAction={disconnectNoop}
     projectLinks={q.state === "none" ? [] : projectLinks} choices={choices} sync={sync} basePath="/dev/jira" section={section} saveProjectAction={formNoop} readAction={formNoop} checkAction={connectNoop} retryAction={retryNoop} canEdit={q.role !== "viewer"} reviewAction={formNoop} fieldMapAction={formNoop} />;
 }

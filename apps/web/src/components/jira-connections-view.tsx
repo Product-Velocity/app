@@ -3,6 +3,8 @@ import { AutoRefresh } from "@/app/(workspace)/settings/integrations/github/auto
 import { RefreshButton } from "@/app/(workspace)/settings/integrations/github/refresh-button";
 import { JiraProjectRow, type JiraProjectChoice, type JiraRowLink } from "@/components/jira-project-row";
 import { TrackerTabs, type TrackerSection } from "@/components/tracker-tabs";
+import { FieldCatalogView } from "@/components/tracker-field-config";
+import type { TrackerCatalog } from "@/lib/tracker-fields/catalog";
 import { sourceLabel } from "@/lib/atlassian/jira-events";
 import type { JiraConnectionRow } from "@/lib/atlassian/server";
 
@@ -90,13 +92,15 @@ type Props = {
   fieldMapAction?: (formData: FormData) => void | Promise<void>;
   /** Which section of the page: "Connect and configure" (default) or "Sync logs" (decision 2026-11-03-tracker-field-config). */
   section?: TrackerSection;
+  /** The read-only field catalog of each linked Jira project (admins). */
+  catalogs?: TrackerCatalog[];
 };
 
 /**
  * Settings → Integrations → Jira, laid out like the GitHub page (decision 2026-11-03-tracker-parity): Status, Sync (what happens by itself, check
  * now, recent events), the Jira projects, Projects (one table, one Save), then the Jira-only extras. Presentational: the page supplies data and actions.
  */
-export function JiraConnectionsView({ connections, canAdmin, configured, status, checked, connectAction, disconnectAction, projectLinks = [], choices = [], sync = null, basePath = "/settings/integrations/jira", saveProjectAction, readAction, checkAction, retryAction, canEdit = false, reviewAction, fieldMapAction, section = "configure" }: Props) {
+export function JiraConnectionsView({ connections, canAdmin, configured, status, checked, connectAction, disconnectAction, projectLinks = [], choices = [], sync = null, basePath = "/settings/integrations/jira", saveProjectAction, readAction, checkAction, retryAction, canEdit = false, reviewAction, fieldMapAction, section = "configure", catalogs = [] }: Props) {
   const needsSignIn = connections.some((c) => c.state === "reconnect_needed");
   const connected = connections.filter((c) => c.state === "connected");
   const missingHookScope = Boolean(sync?.live.enabled) && connected.some((c) => c.scopes !== undefined && !c.scopes.split(" ").includes("manage:jira-webhook"));
@@ -327,6 +331,14 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
               )}
             </section>
           ))}
+        </div>
+      )}
+
+      {section === "configure" && canAdmin && connected.length > 0 && linked.length > 0 && (
+        <div className="card stack">
+          <h2>Field configuration</h2>
+          <p className="muted">Every field Jira reports for the linked projects, including custom fields, read by id (names are not unique). Nothing here is written to Jira.</p>
+          <FieldCatalogView catalogs={catalogs} tracker="Jira" id="jira-catalog" />
         </div>
       )}
     </div>

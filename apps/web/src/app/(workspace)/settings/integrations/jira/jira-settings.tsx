@@ -5,6 +5,8 @@ import { webhooksEnabled } from "@/lib/atlassian/jira-webhooks-server";
 import { jiraConfigured, jiraFieldChoices, jiraGet, jiraProjectDetail, type JiraConnectionRow } from "@/lib/atlassian/server";
 import { parseFieldMap, proposePriorities, type FieldChoice } from "@/lib/atlassian/field-map";
 import { proposeTypeMapping } from "@/lib/atlassian/type-mapping";
+import { readJiraCatalog } from "@/lib/atlassian/catalog-server";
+import type { TrackerCatalog } from "@/lib/tracker-fields/catalog";
 import type { TrackerSection } from "@/components/tracker-tabs";
 import { requireWorkspace } from "@/lib/session";
 import { canEditItems } from "@pv/domain";
@@ -122,6 +124,10 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
       fieldMaps.set(l.project_id, { current: parseFieldMap(storedMaps.get(l.project_id)), startDates: choices?.startDates ?? [], themes: choices?.themes ?? [], priorities: choices?.priorities ?? [], proposal: choices ? proposePriorities(choices.priorities) : {}, unreadable: choices === null });
     }));
   }
+  // the read-only field catalog of each linked Jira project (admins; one read per linked project, in parallel; a project that fails shows its own notice)
+  const catalogs: TrackerCatalog[] = canAdmin && configure
+    ? (await Promise.all(((linkRows ?? []) as LinkRow[]).map((l) => readJiraCatalog(l.connection_id, l.site_id, l.jira_project_key).catch((): null => null)))).filter((c): c is TrackerCatalog => c !== null)
+    : [];
   const projectLinks: JiraProjectLinkView[] = ((projectRows ?? []) as { id: string; name: string }[]).map((p) => {
     const l = links.get(p.id);
     return {
@@ -161,7 +167,7 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
     <JiraConnectionsView
       connections={connections} canAdmin={canAdmin} configured={configured} status={status} checked={checkedN ? { c: checkedN, ch: changedN ?? "0", m: missingN ?? "0" } : undefined}
       connectAction={startJiraConnection} disconnectAction={disconnectJira} projectLinks={projectLinks} choices={choices} sync={sync} saveProjectAction={saveJiraProject} readAction={readJiraNow}
-      checkAction={checkJiraNow} section={section} retryAction={retryJiraEvent} canEdit={canEdit} reviewAction={reviewJiraIssues} fieldMapAction={saveJiraFieldMap}
+      checkAction={checkJiraNow} section={section} catalogs={catalogs} retryAction={retryJiraEvent} canEdit={canEdit} reviewAction={reviewJiraIssues} fieldMapAction={saveJiraFieldMap}
     />
   );
 }

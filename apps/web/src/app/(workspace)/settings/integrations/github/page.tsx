@@ -1,5 +1,7 @@
 import { requireWorkspace } from "@/lib/session";
-import { githubAppSlug, type ConnectionRow } from "@/lib/github/server";
+import { githubAppSlug, githubSourceControl, type ConnectionRow } from "@/lib/github/server";
+import { readGithubCatalog } from "@/lib/github/catalog-server";
+import { FieldCatalogView } from "@/components/tracker-field-config";
 import { AutoRefresh } from "./auto-refresh";
 import { parseBoard } from "@pv/github";
 import { BoardsCard } from "./boards";
@@ -26,6 +28,13 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
   const repos = (repoRows ?? []) as Repo[];
   const projects = (projectRows ?? []) as Project[];
   const state = c?.state ?? "disconnected";
+
+  // the read-only field catalog (admins): organisation issue fields, the linked boards' fields, labels, issue types, milestones
+  const sc = isAdmin && c?.state === "connected" && c.installation_id !== null && c.account_login ? githubSourceControl() : null;
+  const boardList = projects.flatMap((p) => { const b = parseBoard(p.github_board); return b ? [{ id: b.id, title: b.title }] : []; });
+  const catalog = sc && c?.installation_id != null && c.account_login
+    ? await readGithubCatalog(sc, c.installation_id, c.account_login, { boards: boardList, repos: [...new Set(projects.flatMap((p) => (p.default_repo ? [p.default_repo] : [])))] }).catch((): null => null)
+    : null;
 
   return (
     <div className="page-narrow">
@@ -107,6 +116,14 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
 
       {c?.state === "connected" && (
         <BoardsCard projects={projects.map((p) => ({ id: p.id, name: p.name, tracker: p.tracker, board: parseBoard(p.github_board) }))} canEdit={isAdmin} />
+      )}
+
+      {isAdmin && c?.state === "connected" && (
+        <div className="card stack">
+          <h2>Field configuration</h2>
+          <p className="muted">Every field GitHub shows this connection: organisation issue fields, the linked boards&rsquo; fields, labels, issue types and milestones. Nothing here is written to GitHub.</p>
+          {catalog ? <FieldCatalogView catalogs={[catalog]} tracker="GitHub" id="github-catalog" /> : <p role="alert" className="error">GitHub could not be read just now. Try again in a minute.</p>}
+        </div>
       )}
     </div>
   );
