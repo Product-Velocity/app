@@ -78,6 +78,9 @@ If everything is in step the card says **"Everything is in step"** and the butto
 - Text outside the managed block is never compared or touched.
 - First sync of an initiative that was linked before this feature existed has no base: the first comparison treats GitHub's current text as the base if it equals what PV last sent (hash of the last pushed block, already stored), and otherwise reports a conflict, never a silent overwrite.
 
+### 8b. Field configuration (2026-11-03)
+What Sync sends where is a default list that an admin can change per project (`docs/decisions/2026-11-03-tracker-field-config.md`). The Sync preview says when something is left out because it was switched off ("The Rank label is not sent: it is switched off in the field configuration") or, on Jira, because a configured field no longer exists on the site. The compared texts (title, Summary, Description, Hypothesis) are fixed, so the three-way compare above is unchanged. Commercial fields can not be mapped.
+
 ## 9. UX details
 - **Where:** the toolbar button becomes **Sync with GitHub** (with the selection count), the item panel button the same, with a one-line help: "Checks GitHub for changes and sends yours. Nothing is sent until you confirm."
 - **Writing progress (0.57, issue #255):** after **Apply and send** the dialog writes one initiative at a time and shows **Writing x/y** (a status line read aloud politely) with each result as soon as it is ready. One failing never stops the others; a failed card has its own **Try again**, which sends only that initiative with the choices made before. If GitHub changed for one initiative since the preview, the writing stops there: the ones already written stay written (listed as "Already written"), and that one and the rest return to the preview with the new difference. If the connection is lost, the ones not reached are listed as not sent. Each initiative is its own confirm call, which re-reads GitHub for it first.
@@ -165,6 +168,3 @@ If everything is in step the card says **"Everything is in step"** and the butto
 
 ## 19. Jira: initiatives removed in Product Velocity (2026-11-03)
 The Sync with Jira dialog has one section GitHub's does not: **Removed in Product Velocity**. Initiatives in the Trash whose Jira link is `push` (Product Velocity owns the issue) and not handled yet are listed with what will happen; a creator or admin confirms each, and the issue is labelled `pv:removed` and moved to a Done status (category `done`). Links in mode `follow` are never touched. The GitHub sync does not do this yet: a deleted initiative's tracking issue stays open. Details and limits: `docs/decisions/2026-11-03-jira-close-removed.md`.
-
-## 20. Field configuration (2026-11-03)
-What Sync sends where is a default list that an admin can change per project (`docs/decisions/2026-11-03-tracker-field-config.md`). The Sync preview says when something is left out because it was switched off ("The Rank label is not sent: it is switched off in the field configuration") or, on Jira, because a configured field no longer exists on the site. The compared texts (title, Summary, Description, Hypothesis) are fixed, so the three-way compare of section 8 is unchanged. Commercial fields can not be mapped.
