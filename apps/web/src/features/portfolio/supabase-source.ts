@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
-import type { IssueTreeRow, LoadedItem, TrashedItem } from "./types";
+import type { IssueTreeRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
 
 /** Supabase returns at most 1,000 rows per request, so a 2,000-item workspace needs several pages. */
 export const PAGE_SIZE = 1000;
@@ -287,6 +287,19 @@ export class SupabaseDataSource implements PortfolioDataSource {
     if (error) throw new Error(friendlyError(error));
     return ((data ?? []) as { repo_full_name: string; issue_number: number; parent_number: number | null; level: number; title: string; state: string; state_reason: string | null; assignees: string[]; created_by: string; updated_at: string }[])
       .map((r) => ({ repo: r.repo_full_name, number: r.issue_number, parentNumber: r.parent_number, level: r.level === 2 ? 2 : 1, title: r.title, state: r.state === "closed" ? "closed" : "open", stateReason: r.state_reason, assignees: r.assignees ?? [], createdBy: r.created_by === "app" || r.created_by === "claude" ? r.created_by : "engineer", updatedAt: r.updated_at }));
+  }
+
+  async loadJiraTree(itemId: string): Promise<JiraTreeRow[]> {
+    const { data, error } = await this.client.from("item_jira_tree").select("issue_key, parent_key, level, position, title, issue_type, status, status_category, assignee, html_url, jira_updated_at")
+      .eq("tenant_id", this.tenantId).eq("item_id", itemId).order("position");
+    // a database that has not got the table yet (the migration is applied by hand) shows an empty list, not an error
+    if (error) { if (/item_jira_tree|42P01|PGRST205/.test(`${error.code ?? ""} ${error.message}`)) return []; throw new Error(friendlyError(error)); }
+    type R = { issue_key: string; parent_key: string; level: number; position: number; title: string; issue_type: string | null; status: string | null; status_category: string | null; assignee: string | null; html_url: string | null; jira_updated_at: string | null };
+    return ((data ?? []) as R[]).map((r) => ({
+      key: r.issue_key, parentKey: r.parent_key, level: r.level === 2 ? 2 : 1, position: r.position, title: r.title, type: r.issue_type, status: r.status,
+      category: r.status_category === "new" || r.status_category === "indeterminate" || r.status_category === "done" ? r.status_category : null,
+      assignee: r.assignee, url: r.html_url, updatedAt: r.jira_updated_at,
+    }));
   }
 
   async setLinkMode(itemId: string, mode: "push" | "follow", tracker: "github" | "jira" = "github"): Promise<{ ok: true; before: "push" | "follow" } | { ok: false; error: string }> {

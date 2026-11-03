@@ -12,7 +12,7 @@ import { GithubPushDialog } from "./github-push-dialog";
 import { FieldRow, type FieldCtx } from "./item-fields";
 import { formatField } from "./format";
 import { useStatus } from "./status-strip";
-import type { IssueTreeRow, Lookups } from "./types";
+import type { IssueTreeRow, JiraTreeRow, Lookups } from "./types";
 import { useUserPrefs } from "@/components/user-prefs";
 import { PANEL_WIDTH_DEFAULT, PANEL_WIDTH_MIN, clampPanelWidth } from "@/lib/user-prefs";
 
@@ -293,6 +293,16 @@ function JiraTab({ controller, lookups, itemId }: { controller: PortfolioControl
   const [undoMode, setUndoMode] = useState<"push" | "follow" | null>(null);
   const [chosen, setChosen] = useState<{ itemId: string; mode: "push" | "follow" } | null>(null);
   const row = controller.row(itemId) as Record<string, unknown> | undefined;
+  // the children of the issue (read only), read apart from the link: a failure here shows a notice and never hides the link
+  const [kids, setKids] = useState<JiraTreeRow[] | null>(null);
+  const [kidsError, setKidsError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    controller.jiraTree(itemId).then((r) => { if (!cancelled) { setKids(r); setKidsError(null); } }, (e: Error) => { if (!cancelled) setKidsError(e.message); });
+    return () => { cancelled = true; };
+  }, [controller, itemId, controller.status.version]);
+  const total = row?.issues_total == null ? null : Number(row.issues_total);
+  const closed = row?.issues_closed == null ? 0 : Number(row.issues_closed);
   const changeOwner = async (mode: "push" | "follow", undo = false) => {
     setBusy(true);
     const r = await controller.setLinkMode(itemId, mode, "jira");
@@ -328,6 +338,28 @@ function JiraTab({ controller, lookups, itemId }: { controller: PortfolioControl
         {undoMode && <> <button type="button" className="btn" disabled={busy} onClick={() => void changeOwner(undoMode, true)}>Undo</button></>}
       </p>
       <p className="muted">Build Status follows the Jira status category and is read only here. Initiative Status is never set from Jira. Epics and tasks live in Jira.</p>
+      <h4>Issues under {link.issueKey}</h4>
+      {total != null && <p>{closed} of {total} {total === 1 ? "issue" : "issues"} done (counted at the lowest level; a done issue means the build is progressing, not that the initiative is complete).</p>}
+      {kidsError && <p role="alert" className="pf-error">Could not load the issues: {kidsError}</p>}
+      {!kidsError && !kids && <p role="status" className="muted">Loading the issues…</p>}
+      {kids && (
+        <table className="table ip-gh" aria-label={`Issues under ${link.issueKey}`}>
+          <thead><tr>{["Issue", "Title", "Type", "Status", "Assignee"].map((h) => <th key={h} scope="col">{h}</th>)}</tr></thead>
+          <tbody>
+            {kids.length === 0 && <tr><td colSpan={5} className="muted">No child issues read yet. Features and tasks are created in Jira as children of this issue; they appear here after the next Sync with Jira and in the daily check.</td></tr>}
+            {kids.map((k) => (
+              <tr key={k.key} className={k.level === 2 ? "ip-gh-task" : "ip-gh-epic"}>
+                <td className="mono">{k.level === 2 ? "↳ " : ""}{k.url ? <a href={k.url} target="_blank" rel="noreferrer">{k.key}</a> : k.key}</td>
+                <td>{k.title}</td>
+                <td>{k.type ?? <span className="muted">—</span>}</td>
+                <td>{k.status ?? <span className="muted">—</span>}{k.category ? <> <span className="muted">({JIRA_CATEGORY[k.category]})</span></> : null}</td>
+                <td>{k.assignee ?? <span className="muted">Unassigned</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p className="muted">Read only: change issues in Jira. This list is read when you press Sync with Jira, and every day.</p>
     </div>
   );
 }

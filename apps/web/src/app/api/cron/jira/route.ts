@@ -6,7 +6,8 @@ import type { LinkToRead } from "@/lib/atlassian/read-jira";
 /**
  * Daily check of Jira (Vercel Cron, free plan: once a day, two cron jobs at most; the other one is /api/cron/github). For every linked Jira
  * project of a connected workspace: reads the open work, the issues that became Done since, and the status of every linked initiative, and
- * applies it (Build Status from the status category; Initiative Status is never set from Jira). Reads Jira only. Vercel sends
+ * applies it (Build Status from the status category; Initiative Status is never set from Jira), then their children and sub-tasks into the
+ * read-only tree and the delivery roll-up (a failure of the tree is logged and never fails the status read). Reads Jira only. Vercel sends
  * `Authorization: Bearer <CRON_SECRET>`; anything else is refused. A connection that needs a new sign-in is skipped for the rest of the run
  * (its state says so on the Jira settings page); nothing retries by itself.
  */
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
   // the projects read longest ago first, so a run that runs out of time continues where it stopped the next day
   const todo = ((links ?? []) as LinkToRead[]).sort((a, b) => (lastRead.get(a.id) ?? "").localeCompare(lastRead.get(b.id) ?? ""));
 
-  const report = { projects: 0, checked: 0, changed: 0, stale: 0, missing: 0, light: 0, failed: 0, reconnect: 0, skipped: 0 };
+  const report = { projects: 0, checked: 0, changed: 0, stale: 0, missing: 0, light: 0, trees: 0, treeNodes: 0, treeFailed: 0, failed: 0, reconnect: 0, skipped: 0 };
   const blocked = new Set<string>();
   for (const l of todo) {
     const site = sitesOf.get(l.connection_id)?.find((s) => s.id === l.site_id);
@@ -42,6 +43,10 @@ export async function GET(request: Request) {
       report.stale += r.linked.stale;
       report.missing += r.linked.missing.length;
       report.light += r.light;
+      report.trees += r.trees.applied;
+      report.treeNodes += r.trees.nodes;
+      report.treeFailed += r.trees.failed;
+      if (r.trees.error) console.error(JSON.stringify({ jira: "cron-tree", link: l.id, error: r.trees.error }));
     } catch (e) {
       report.failed++;
       if (e instanceof ReconnectNeeded) { report.reconnect++; blocked.add(l.connection_id); }

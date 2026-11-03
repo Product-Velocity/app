@@ -4,7 +4,7 @@ import {
   bulkEditReason, isOpenList, openListValues, resolveGroup, canDeleteItem, placeRestored, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
 import type { PortfolioDataSource, SaveResult } from "./data-source";
-import type { GridItem, Lookups, LoadedItem, IssueTreeRow } from "./types";
+import type { GridItem, Lookups, LoadedItem, IssueTreeRow, JiraTreeRow } from "./types";
 
 export const READ_ONLY_MESSAGE = "You have view-only access. Ask an admin for the Creator role to edit.";
 
@@ -562,6 +562,7 @@ export class PortfolioController {
     return this.source.copyToProject(itemIds, projectId);
   }
   issueTree(itemId: string): Promise<IssueTreeRow[]> { return this.source.loadIssueTree(itemId); }
+  jiraTree(itemId: string): Promise<JiraTreeRow[]> { return this.source.loadJiraTree(itemId); }
   /** "Mark breakdown complete": the database freezes Planned Scope; the row shows the new values at once. */
   async completeBreakdown(itemId: string): Promise<SaveResult> {
     if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }

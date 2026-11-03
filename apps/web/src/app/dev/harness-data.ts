@@ -110,7 +110,7 @@ export function makeLeadershipHarness(n: number, role: string) {
 }
 
 /** ?jira=1: R-01 follows the Jira issue SCRUM-2, R-02 is owned by Product Velocity and linked to SCRUM-3; the project uses Jira. */
-export function withJiraLinks(controller: PortfolioController, lookups: Lookups): Lookups {
+export function withJiraLinks(controller: PortfolioController, lookups: Lookups, source?: MemoryDataSource): Lookups {
   const links: NonNullable<Lookups["jira"]>["links"] = {};
   const set = (code: string, key: string, mode: "push" | "follow", status: string, category: "new" | "indeterminate" | "done") => {
     const row = controller.rows.find((r) => r.item_code === code);
@@ -118,6 +118,19 @@ export function withJiraLinks(controller: PortfolioController, lookups: Lookups)
   };
   set("R-01", "SCRUM-2", "follow", "In Progress", "indeterminate");
   set("R-02", "SCRUM-3", "push", "To Do", "new");
+  // R-01's Jira issue has two children (one with a sub-task) and a third one that is done; the roll-up counts the leaves: 3 issues, 2 done
+  const r1 = controller.rows.find((r) => r.item_code === "R-01");
+  if (r1 && source) {
+    const k = (key: string, parentKey: string, level: 1 | 2, position: number, title: string, type: string, status: string, category: "new" | "indeterminate" | "done", assignee: string | null) =>
+      ({ key, parentKey, level, position, title, type, status, category, assignee, url: `https://acme.atlassian.net/browse/${key}`, updatedAt: "2026-11-03T09:00:00Z" });
+    source.jiraTrees.set(r1.id, [
+      k("SCRUM-17", "SCRUM-2", 1, 0, "Import flow", "Feature", "In Progress", "indeterminate", "Dana Reyes"),
+      k("SCRUM-20", "SCRUM-17", 2, 1, "Parse the file", "Sub-task", "Done", "done", "Dana Reyes"),
+      k("SCRUM-21", "SCRUM-17", 2, 2, "Map the columns", "Sub-task", "To Do", "new", null),
+      k("SCRUM-18", "SCRUM-2", 1, 3, "Export flow", "Task", "Done", "done", "Sam Okoye"),
+    ]);
+    Object.assign(r1, { issues_total: 3, issues_closed: 2, delivery_progress_pct: 67 });
+  }
   return { ...lookups, jira: { links }, trackers: { jira: true, projectTracker: Object.fromEntries(lookups.projects.map((p) => [p.id, "jira" as const])) } };
 }
 

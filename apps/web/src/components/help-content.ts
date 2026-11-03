@@ -22,7 +22,7 @@ const NOT_YET = "Not sent yet (an optional label is planned)";
 /**
  * Exact GitHub targets are from the push and read code (docs/04-GITHUB-SYNC.md): the tracking issue's title and managed block, the labels in the `pv:`
  * namespace, the milestone, the organisation's issue type, the linked Project board's fields, and what is read back from issues, pull requests, checks and releases.
- * The Jira column says what Sync with Jira does today (docs/16-ATLASSIAN.md, docs/decisions/2026-11-03-jira-write.md): what it sends, and what it reads back. "Not read yet" means planned, not built.
+ * The Jira column says what Sync with Jira does today (docs/16-ATLASSIAN.md, docs/decisions/2026-11-03-jira-write.md): what it sends, and what it reads back. "Not read yet" means planned, not built. Children of the linked issue are read (read only, never created by Product Velocity): docs/decisions/2026-11-03-jira-sub-items.md.
  */
 const OVERRIDES: Record<string, Link> = {
   item_code: { github: "Sent to issue title prefix \"R-12: \" and the link back in the issue body", jira: "Not sent. The Jira key shows next to the code in the grid" },
@@ -47,9 +47,9 @@ const OVERRIDES: Record<string, Link> = {
   github_links: { github: "The tracking issue (repository and issue number)", jira: "The Jira issue (key)" },
   status: read("Issue state: open, closed as completed (Done), closed as not planned (Cancelled)", "Jira status category: to do = Not started, in progress = In progress, done = Done (the status name is on the Jira tab)"),
   gh_state: read("Issue state and state reason", "Not read yet"),
-  issues_closed: read("State of the tracking issue's sub-issues", "Not read yet"),
-  issues_total: read("Count of the tracking issue's sub-issues (epics and tasks)", "Not read yet"),
-  delivery_progress_pct: read("Closed divided by total sub-issues", "Not read yet"),
+  issues_closed: read("State of the tracking issue's sub-issues", "Children of the linked issue (and their sub-tasks) in the Done status category, counted at the lowest level"),
+  issues_total: read("Count of the tracking issue's sub-issues (epics and tasks)", "The count of the linked issue's children (and their sub-tasks), at the lowest level; the list is on the Jira tab"),
+  delivery_progress_pct: read("Closed divided by total sub-issues", "Done children divided by all children, at the lowest level (a done child is progress, never a done initiative)"),
   blocked_issues: read("Label \"blocked\" on epics and tasks", "Flagged or blocked status (per mapping)"),
   stale_issues: read("Issue updated date: no activity for 14 days", "Not read yet"),
   gh_last_activity: read("Issue updated date", "Not read yet"),
