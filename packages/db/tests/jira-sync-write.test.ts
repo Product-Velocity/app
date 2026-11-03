@@ -40,7 +40,7 @@ const link = async (id: string) => (await db.admin.query("select * from public.i
 
 describe("the items columns the Jira engine reads", () => {
   it("all exist (the web test pins the same list): G2M Date (est) is stored in end_date", async () => {
-    const cols = ["id", "item_code", "initiative_name", "description", "moscow", "end_date", "planned_start", "home_project_id"];
+    const cols = ["id", "item_code", "initiative_name", "description", "moscow", "end_date", "planned_start", "stack_rank", "change_type", "theme", "home_project_id"];
     await expect(db.admin.query(`select ${cols.join(", ")} from public.items limit 1`)).resolves.toBeDefined();
     const missing = await db.admin.query("select column_name from information_schema.columns where table_schema = 'public' and table_name = 'items' and column_name = 'g2m_date_est'");
     expect(missing.rows).toEqual([]);

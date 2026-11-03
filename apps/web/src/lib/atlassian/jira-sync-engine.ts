@@ -19,14 +19,14 @@ import { ReconnectNeeded } from "./token-provider";
 
 type Db = SupabaseClient;
 export type Ctx = { supabase: Db; tenantId: string; userId: string };
-type ItemRow = { id: string; item_code: string; initiative_name: string; description: string | null; moscow: string | null; g2m_date_est: string | null; planned_start: string | null; home_project_id: string | null };
+type ItemRow = { id: string; item_code: string; initiative_name: string; description: string | null; moscow: string | null; g2m_date_est: string | null; planned_start: string | null; stack_rank: number | null; change_type: string | null; theme: string | null; home_project_id: string | null };
 /** The real column of each allowlisted field (G2M Date (est) lives in `end_date`): a column that does not exist makes the whole read fail, so they come from the field registry, as the GitHub push does. */
 export const ITEM_COLUMNS: Record<string, string> = Object.fromEntries(OUTBOUND_JIRA_FIELDS.map((k) => [k, columnOnItems(FIELD_BY_KEY[k]!)!]));
 type LinkRow = { item_id: string; connection_id: string; site_id: string; issue_key: string; issue_id: string | null; html_url: string | null; mode: "follow" | "push"; sync_base: JiraBase | null; sent_hash: string | null };
 type ProjectLink = { project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; field_map?: unknown };
 type Conn = { id: string; sites: { id: string; name: string; url: string }[]; state: string };
 
-export type Loaded = { item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
+export type Loaded = { projectName?: string; item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
 
 export const COLS = ["id", "item_code", ...Object.values(ITEM_COLUMNS), "home_project_id"].filter((c, i, a) => a.indexOf(c) === i).join(", ");
 /** A row as read with COLS, with the allowlisted values under their field keys. */
@@ -49,10 +49,12 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   const { data: conn } = connId ? await ctx.supabase.from("jira_connections").select("id, sites, state").eq("tenant_id", ctx.tenantId).eq("id", connId).maybeSingle() : { data: null };
   const c = (conn ?? null) as Conn | null;
   const siteId = l?.site_id ?? plink?.site_id;
-  return { item: asItemRow(item as Record<string, unknown>), link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
+  const { data: proj } = item.home_project_id ? await ctx.supabase.from("projects").select("name").eq("tenant_id", ctx.tenantId).eq("id", item.home_project_id).maybeSingle() : { data: null };
+  const projectName = (proj as { name?: string } | null)?.name;
+  return { ...(projectName ? { projectName } : {}), item: asItemRow(item as Record<string, unknown>), link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
 }
 
-export const pvOf = (i: ItemRow): PvItem => ({ id: i.id, name: i.initiative_name, description: i.description, moscow: i.moscow, g2m_date_est: i.g2m_date_est, planned_start: i.planned_start });
+export const pvOf = (i: ItemRow): PvItem => ({ id: i.id, name: i.initiative_name, description: i.description, moscow: i.moscow, g2m_date_est: i.g2m_date_est, planned_start: i.planned_start, stack_rank: i.stack_rank, change_type: i.change_type, theme: i.theme });
 const RECONNECT = "Jira needs a new sign-in. A workspace admin can sign in again under Settings > Integrations > Jira.";
 
 export type Evaluated =
@@ -80,7 +82,7 @@ export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" 
   }
   if (now && !now.ok) return now.kind === "gone" ? { kind: "missing", message: now.message } : { kind: "error", message: now.message, reconnect: now.kind === "reconnect" };
   const issue = now && now.ok ? now.issue : null;
-  const plan = planJiraSend({ pv, jira: issue, base: l.link?.sync_base ?? null, sentHash: l.link?.sent_hash ?? null, picks, map: parseFieldMap(l.plink?.field_map), ...(l.plink && !l.link ? { create: { projectKey: key, issueTypeId: l.plink.initiative_type_id } } : {}) });
+  const plan = planJiraSend({ pv, jira: issue, base: l.link?.sync_base ?? null, sentHash: l.link?.sent_hash ?? null, picks, map: parseFieldMap(l.plink?.field_map), ...(l.projectName ? { projectName: l.projectName } : {}), ...(l.plink && !l.link ? { create: { projectKey: key, issueTypeId: l.plink.initiative_type_id } } : {}) });
   const conflicts: SyncConflict[] = [];
   const jiraHashes: Partial<Record<TextField, string>> = {};
   if (issue) {

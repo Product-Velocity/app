@@ -26,8 +26,28 @@ describe("markdownToAdf", () => {
     expect(isSimpleAdf(d)).toBe(true);
     expect(adfToText(d)).toBe("Hello world\n- one\n- two");
   });
-  it("recognises rich Jira content as not simple (table, mention, macro)", () => {
+  it("turns a Markdown table into an ADF table (header row, body rows, inline marks in cells) that counts as simple", () => {
+    const d = markdownToAdf("Intro\n\n| Role | **Needs** |\n|---|---|\n| Product | A clear owner |\n| Engineering | A sized scope |\n\nAfter");
+    expect(d.content.map((n) => n.type)).toEqual(["paragraph", "table", "paragraph"]);
+    const rows = d.content[1]!.content!;
+    expect(rows.map((r) => r.content!.map((c) => c.type))).toEqual([["tableHeader", "tableHeader"], ["tableCell", "tableCell"], ["tableCell", "tableCell"]]);
+    expect(rows[0]!.content![1]!.content![0]!.content![0]!.marks).toEqual([{ type: "strong" }]);
+    expect(isSimpleAdf(d)).toBe(true);
+    expect(adfToText(d)).toBe("Intro\nRole | Needs\nProduct | A clear owner\nEngineering | A sized scope\nAfter");
+  });
+  it("pads a short row, keeps an escaped pipe in its cell, and a pipe line without a separator row stays a paragraph", () => {
+    const d = markdownToAdf("| a | b |\n|---|---|\n| only |\n| x \\| y | z |");
+    const rows = d.content[0]!.content!;
+    expect(rows[1]!.content!.length).toBe(2);
+    expect(adfToText(rows[2]!)).toBe("x | y | z");
+    expect(markdownToAdf("| not | a table |").content[0]!.type).toBe("paragraph");
+  });
+  it("a table with merged cells, or nothing in it, is not simple", () => {
+    const cell = (attrs: object) => ({ type: "tableCell", attrs, content: [{ type: "paragraph", content: [] }] });
+    expect(isSimpleAdf({ type: "doc", version: 1, content: [{ type: "table", content: [{ type: "tableRow", content: [cell({ colspan: 2 })] }] }] })).toBe(false);
     expect(isSimpleAdf({ type: "doc", version: 1, content: [{ type: "table", content: [] }] })).toBe(false);
+  });
+  it("recognises rich Jira content as not simple (table, mention, macro)", () => {
     expect(isSimpleAdf({ type: "doc", version: 1, content: [{ type: "paragraph", content: [{ type: "mention", attrs: { id: "x", text: "@A" } }] }] })).toBe(false);
     expect(isSimpleAdf({ type: "doc", version: 1, content: [{ type: "extension", attrs: {} }] })).toBe(false);
   });

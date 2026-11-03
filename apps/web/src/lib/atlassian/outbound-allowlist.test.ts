@@ -29,7 +29,7 @@ describe("outbound Jira payloads", () => {
   });
 
   it("the allowlist holds no commercial field and only dictionary fields", () => {
-    const commercial = ["value", "value_12m", "value_basis", "value_type", "confidence", "customers_requesting", "target_customers", "decision", "decided_by", "decision_date", "cost_of_not_doing", "kr_metric", "kr_start", "kr_target", "kr_unit", "kr_direction", "value_proposition", "time_to_first_revenue_months", "target_markets", "live_markets", "outcomes", "stack_rank", "initiative_status", "build_status"];
+    const commercial = ["value", "value_12m", "value_basis", "value_type", "confidence", "customers_requesting", "target_customers", "decision", "decided_by", "decision_date", "cost_of_not_doing", "kr_metric", "kr_start", "kr_target", "kr_unit", "kr_direction", "value_proposition", "time_to_first_revenue_months", "target_markets", "live_markets", "outcomes", "initiative_status", "build_status"];
     for (const k of commercial) expect(allowed.has(k), k).toBe(false);
     for (const k of OUTBOUND_JIRA_FIELDS) expect(FIELDS.some((f) => f.key === k)).toBe(true);
   });
@@ -40,9 +40,14 @@ describe("outbound Jira payloads", () => {
     expect(JSON.stringify(f)).not.toMatch(/status|transition|sprint|resolution|assignee/i);
   });
 
+  it("labels match the GitHub sync: project, MoSCoW, rank band, Change Type and Initiative Group; the rank number never leaves", () => {
+    const p = buildJiraPayload({ item: { ...fullItem(), moscow: "Should", stack_rank: 37, change_type: "New feature", theme: "Advertiser experience" }, fields: {}, projectName: "JIRA test" });
+    expect(p.fields.labels).toEqual(["product-velocity", "pv:project/jira-test", "pv:moscow/should", "pv:rank/top-50", "pv:type/new-feature", "pv:group/advertiser-experience"]);
+    expect(JSON.stringify(p)).not.toMatch(/\b37\b/);
+  });
   it("MoSCoW leaves only as a pv: label (and a chosen priority id); the rank number never leaves", () => {
     const p = buildJiraPayload({ item: { ...fullItem(), moscow: "Should", stack_rank: 37 }, fields: {} });
-    expect(p.fields.labels).toEqual(["product-velocity", "pv:moscow/should"]);
+    expect(p.fields.labels).toEqual(["product-velocity", "pv:moscow/should", "pv:rank/top-50", "pv:group/leak-theme-9f3a"]);
     expect(JSON.stringify(p)).not.toMatch(/\b37\b/);
     expect(p.fields.priority).toBeUndefined();
     expect(p.notes.join(" ")).toMatch(/Priority not sent/);
@@ -51,7 +56,7 @@ describe("outbound Jira payloads", () => {
   it("a hostile description stays text inside ADF; people's labels are kept and stale pv: labels are removed", () => {
     const p = buildJiraPayload({ item: { ...fullItem(), description: "<script>alert(1)</script> [x](javascript:alert(1))" }, fields: {}, currentLabels: ["team-a", "pv:moscow/could", "product-velocity"] });
     expect(JSON.stringify(p.fields.description)).not.toContain('"href":"javascript');
-    expect(p.fields.labels).toEqual(["team-a", "product-velocity", "pv:moscow/must"]);
+    expect(p.fields.labels).toEqual(["team-a", "product-velocity", "pv:moscow/must", "pv:group/leak-theme-9f3a"]);
     expect(desiredLabels({})).toEqual(["product-velocity"]);
     expect(mergeLabels(["a", "pv:x"], ["product-velocity"])).toEqual(["a", "product-velocity"]);
   });

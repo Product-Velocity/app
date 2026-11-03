@@ -27,6 +27,9 @@ export function inlineToAdf(src: string): Inline[] {
   return out;
 }
 
+/** The cells of one table row: the outer pipes go, \\| is a pipe inside a cell. */
+const tableCells = (line: string): string[] => line.trim().replace(/^\|/, "").replace(/\|$/, "").split(/(?<!\\)\|/).map((c) => c.replace(/\\\|/g, "|").trim());
+
 const para = (text: string): AdfNode => ({ type: "paragraph", content: inlineToAdf(text) as AdfNode[] });
 const listItem = (text: string): AdfNode => ({ type: "listItem", content: [para(text)] });
 
@@ -49,6 +52,19 @@ export function markdownToAdf(md: string): AdfDoc {
     }
     const h = /^(#{1,6})\s+(.*)$/.exec(line);
     if (h) { blocks.push({ type: "heading", attrs: { level: h[1]!.length }, content: inlineToAdf(h[2]!.trim()) as AdfNode[] }); i++; continue; }
+    // a GFM table: a header row, a separator row (---), then body rows while the lines start with a pipe
+    if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(lines[i + 1]!)) {
+      const head = tableCells(line);
+      const rows: string[][] = [];
+      for (i += 2; i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i]!); i++) rows.push(tableCells(lines[i]!));
+      const cell = (type: "tableHeader" | "tableCell", text: string): AdfNode => ({ type, attrs: {}, content: [para(text)] });
+      const width = head.length;
+      blocks.push({ type: "table", attrs: { isNumberColumnEnabled: false, layout: "default" }, content: [
+        { type: "tableRow", content: head.map((c) => cell("tableHeader", c)) },
+        ...rows.map((r): AdfNode => ({ type: "tableRow", content: Array.from({ length: width }, (_, k) => cell("tableCell", r[k] ?? "")) })),
+      ] });
+      continue;
+    }
     const bullet = /^\s*[-*+]\s+(.*)$/;
     const numbered = /^\s*\d+[.)]\s+(.*)$/;
     const kind = bullet.test(line) ? "bulletList" : numbered.test(line) ? "orderedList" : null;
@@ -60,7 +76,8 @@ export function markdownToAdf(md: string): AdfDoc {
       continue;
     }
     const para_: string[] = [];
-    for (; i < lines.length && lines[i]!.trim() && !/^(#{1,6}\s|```|\s*[-*+]\s|\s*\d+[.)]\s)/.test(lines[i]!); i++) para_.push(lines[i]!.trim());
+    para_.push(line.trim()); // the first line always belongs to the paragraph (a pipe line that is not a table must not stall the loop)
+    for (i++; i < lines.length && lines[i]!.trim() && !/^(#{1,6}\s|```|\s*[-*+]\s|\s*\d+[.)]\s|\s*\|)/.test(lines[i]!); i++) para_.push(lines[i]!.trim());
     blocks.push(para(para_.join(" ")));
   }
   return { type: "doc", version: 1, content: blocks.length ? blocks : [{ type: "paragraph", content: [] }] };
@@ -87,15 +104,24 @@ export function adfToText(node: unknown): string {
   return walk(node, { n: 0 }).replace(/\n{3,}/g, "\n\n").trim();
 }
 
-/** True when the ADF holds only the node types this converter writes (so rewriting it loses nothing); a table, macro or mention makes it false. */
+/**
+ * True when the ADF holds only what this converter writes, so rewriting it loses nothing. A plain table (every cell one paragraph, no merged
+ * cells) counts; a macro, a mention, a panel or a table with merged or complex cells makes it false.
+ */
 export function isSimpleAdf(node: unknown): boolean {
-  const ok = new Set(["doc", "paragraph", "heading", "text", "bulletList", "orderedList", "listItem", "codeBlock", "hardBreak"]);
+  const ok = new Set(["doc", "paragraph", "heading", "text", "bulletList", "orderedList", "listItem", "codeBlock", "hardBreak", "table", "tableRow", "tableHeader", "tableCell"]);
   const marks = new Set(["strong", "em", "code", "link"]);
   const walk = (n: unknown): boolean => {
     if (typeof n !== "object" || n === null) return false;
     const o = n as AdfNode;
     if (!ok.has(o.type)) return false;
     if (Array.isArray(o.marks) && !o.marks.every((m) => marks.has(m.type))) return false;
+    if (o.type === "table" && !(o.content ?? []).length) return false;
+    if (o.type === "tableCell" || o.type === "tableHeader") {
+      const a = (o.attrs ?? {}) as Record<string, unknown>;
+      if ((a.colspan ?? 1) !== 1 || (a.rowspan ?? 1) !== 1) return false;
+      if (!(o.content ?? []).every((c) => c.type === "paragraph")) return false;
+    }
     return (o.content ?? []).every(walk);
   };
   return walk(node);
