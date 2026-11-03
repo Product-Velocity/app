@@ -87,25 +87,46 @@ test.describe("Jira settings, laid out like GitHub (decision 2026-11-03-tracker-
   });
 
   test.describe("issues and field mapping", () => {
-    test("the field mapping (admin only) offers the site's start date fields and priorities, with the saved choices selected", async ({ page }) => {
+    test("the field configuration (admin only): the default list, the saved choices selected, Reset, and the rows that can never change", async ({ page }) => {
       await page.goto("/dev/jira");
-      await page.getByText("Field mapping", { exact: true }).click();
-      const form = page.getByRole("form", { name: "Field mapping of Platform" });
-      await expect(form.getByLabel("Start date field (filled from Planned Start)")).toHaveValue("customfield_10015");
-      await expect(form.getByLabel("Theme field (filled with the Initiative Group name)")).toHaveValue("customfield_10030");
-      await expect(form.getByLabel("Theme field (filled with the Initiative Group name)").locator("option")).toHaveText(["Not mapped", "Theme", "Release note"]);
+      const card = page.locator(".card", { has: page.getByRole("heading", { name: "Field configuration", level: 2 }) });
+      const form = card.getByRole("form", { name: "Field configuration of Platform" });
+      await expect(form.getByLabel("Planned Start: Start date custom field (not sent until chosen)")).toHaveValue("customfield_10015");
+      await expect(form.getByLabel("Initiative Group: Single-line text custom field (not sent until chosen)")).toHaveValue("customfield_10030");
+      await expect(form.getByLabel("Initiative Group: Single-line text custom field (not sent until chosen)").locator("option")).toHaveText(["Not mapped (not sent)", "Theme", "Release note"]);
       await expect(form.getByLabel("Jira priority for MoSCoW “Must”")).toHaveValue("1");
       await expect(form.getByLabel("Jira priority for MoSCoW “Should”")).toHaveValue(""); // not mapped yet; "(suggested)" marks the proposal
       await expect(form.getByLabel("Jira priority for MoSCoW “Should”").locator("option", { hasText: "High (suggested)" })).toHaveCount(1);
-      await expect(form.getByRole("button", { name: "Save the field mapping of Platform" })).toBeVisible();
+      // defaults: the due date goes to Jira's Due date, every label is sent
+      await expect(form.getByLabel("G2M Date (est): Due date (duedate)")).toHaveValue("");
+      await expect(form.getByLabel("Send MoSCoW: Label pv:moscow/<value>")).toBeChecked();
+      await expect(form.getByRole("button", { name: "Save field configuration of Platform" })).toBeVisible();
+      await expect(form.getByRole("button", { name: "Reset all to default for Platform" })).toBeVisible();
+      // the name and the description are fixed: they are in the folded list, with the reason
+      const rest = card.locator("details", { hasText: "Other fields" });
+      await rest.locator("summary").click();
+      await expect(rest.getByRole("row", { name: /Initiative Name.*Both ways.*Summary/ })).toBeVisible();
+      await expect(rest.getByRole("row", { name: /Business Value \(12m run-rate\).*Never synced.*Commercial/ })).toBeVisible();
+      await expect(rest.getByRole("row", { name: /Build Status.*Jira to Product Velocity, read only/ })).toBeVisible();
+      await expect(rest.getByRole("row", { name: /Initiative Status.*Not synced/ })).toBeVisible();
+      // none of those has a control
+      await expect(rest.getByRole("combobox")).toHaveCount(0);
+      await expect(rest.getByRole("checkbox")).toHaveCount(0);
+      await page.screenshot({ path: "../../docs/screenshots/field-config-jira.png", fullPage: true });
+      // changed settings are marked and can be reset one by one
+      await page.goto("/dev/jira?config=changed");
+      const changed = page.getByRole("form", { name: "Field configuration of Platform" });
+      await expect(changed.getByLabel("Send MoSCoW: Label pv:moscow/<value>")).not.toBeChecked();
+      await expect(changed.getByLabel("G2M Date (est): Due date (duedate)")).toHaveValue("customfield_10016");
+      await expect(changed.getByRole("button", { name: "Reset MoSCoW (Label pv:moscow/<value>) to the default" })).toBeVisible();
+      await expect(changed.getByRole("button", { name: "Reset Stack Rank (Label pv:rank/<band> (top 10, 25, 50, later; never the number)) to the default" })).toHaveCount(0);
       await page.goto("/dev/jira?fields=unreadable");
-      await page.getByText("Field mapping", { exact: true }).click();
-      await expect(page.getByText("could not be read just now")).toBeVisible();
+      await expect(page.getByText("could not be read just now").first()).toBeVisible();
       await page.goto("/dev/jira?role=viewer");
-      await expect(page.getByText("Field mapping", { exact: true })).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Field configuration", level: 2 })).toHaveCount(0);
     });
     test("every state has no accessibility violations", async ({ page }) => {
-      for (const url of ["/dev/jira", "/dev/jira?state=needs", "/dev/jira?state=none", "/dev/jira?state=none&configured=0", "/dev/jira?role=viewer", "/dev/jira?events=none&live=off", "/dev/jira?live=scope", "/dev/jira?fields=unreadable", "/dev/jira?read=failed", "/dev/jira?read=none", "/dev/jira?view=ignored", "/dev/jira/logs", "/dev/jira/logs?events=none&live=off", "/dev/jira/logs?live=scope", "/dev/jira/logs?role=viewer", "/dev/jira/logs?state=none"]) {
+      for (const url of ["/dev/jira", "/dev/jira?state=needs", "/dev/jira?state=none", "/dev/jira?state=none&configured=0", "/dev/jira?role=viewer", "/dev/jira?events=none&live=off", "/dev/jira?live=scope", "/dev/jira?fields=unreadable", "/dev/jira?read=failed", "/dev/jira?read=none", "/dev/jira?view=ignored", "/dev/jira/logs", "/dev/jira/logs?events=none&live=off", "/dev/jira/logs?live=scope", "/dev/jira/logs?role=viewer", "/dev/jira/logs?state=none", "/dev/jira?config=changed", "/dev/jira?fields=unreadable"]) {
         await page.goto(url);
         const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
         expect(results.violations.map((v) => `${v.id}: ${v.nodes[0]?.html.slice(0, 100)}`), url).toEqual([]);

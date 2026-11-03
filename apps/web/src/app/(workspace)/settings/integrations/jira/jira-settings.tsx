@@ -2,22 +2,24 @@ import { leavingChildrenOut } from "@/lib/atlassian/child-filter";
 import { JiraConnectionsView, type JiraConnectionView, type JiraEventView, type JiraIssueView, type JiraProjectInfo, type JiraProjectLinkView, type JiraSyncView } from "@/components/jira-connections-view";
 import type { JiraProjectChoice } from "@/components/jira-project-row";
 import { webhooksEnabled } from "@/lib/atlassian/jira-webhooks-server";
-import { jiraConfigured, jiraFieldChoices, jiraGet, jiraProjectDetail, type JiraConnectionRow } from "@/lib/atlassian/server";
-import { parseFieldMap, proposePriorities, type FieldChoice } from "@/lib/atlassian/field-map";
+import { jiraConfigured, jiraGet, jiraProjectDetail, type JiraConnectionRow } from "@/lib/atlassian/server";
+import { parseFieldMap } from "@/lib/atlassian/field-map";
 import { proposeTypeMapping } from "@/lib/atlassian/type-mapping";
-import { readJiraCatalog } from "@/lib/atlassian/catalog-server";
+import { readJiraCatalog, readJiraSiteFields, type JiraSiteFields } from "@/lib/atlassian/catalog-server";
+import { buildMappingView, type MappingView } from "@/lib/tracker-fields/view";
+import { parseConfigRows } from "@/lib/tracker-fields/mapping";
 import type { TrackerCatalog } from "@/lib/tracker-fields/catalog";
 import type { TrackerSection } from "@/components/tracker-tabs";
 import { requireWorkspace } from "@/lib/session";
 import { canEditItems } from "@pv/domain";
-import { checkJiraNow, disconnectJira, readJiraNow, retryJiraEvent, reviewJiraIssues, saveJiraFieldMap, saveJiraProject, startJiraConnection } from "./actions";
+import { checkJiraNow, disconnectJira, readJiraNow, retryJiraEvent, reviewJiraIssues, saveJiraFieldConfig, saveJiraProject, startJiraConnection } from "./actions";
 
 type ProjectSearch = { values: { key: string; name: string; projectTypeKey: string; style?: string }[] };
 type LinkRow = { id: string; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; initiative_type_name: string; epic_type_id: string | null; epic_type_name: string | null; task_type_id: string | null; task_type_name: string | null };
 
 /** Both sections of Settings, Integrations, Jira (decision 2026-11-03-tracker-field-config): the page and its /logs twin call this. */
-export async function JiraSettings({ section, searchParams }: { section: TrackerSection; searchParams: Promise<{ status?: string; ignored?: string; c?: string; ch?: string; m?: string }> }) {
-  const { status, ignored, c: checkedN, ch: changedN, m: missingN } = await searchParams;
+export async function JiraSettings({ section, searchParams }: { section: TrackerSection; searchParams: Promise<{ status?: string; ignored?: string; c?: string; ch?: string; m?: string; why?: string }> }) {
+  const { status, ignored, c: checkedN, ch: changedN, m: missingN, why } = await searchParams;
   const { supabase, active } = await requireWorkspace(section === "logs" ? "/settings/integrations/jira/logs" : "/settings/integrations/jira");
   const configure = section === "configure";
   const canAdmin = active.role === "admin" && !active.platform;
@@ -110,18 +112,20 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
     )
   ).filter((x): x is JiraProjectChoice => x !== null);
 
-  // the field mapping form (admins only): the site's start-date candidates and priorities, read once per site; a site that cannot be read shows a notice
-  const choicesBySite = new Map<string, Promise<{ startDates: FieldChoice[]; themes: FieldChoice[]; priorities: FieldChoice[] } | null>>();
-  const choicesFor = (connection: string, site: string) => {
+  // the field configuration (admins only): what each site offers (read once per site), the saved field map and the saved switches of each linked project
+  const siteFields = new Map<string, Promise<JiraSiteFields | null>>();
+  const fieldsFor = (connection: string, site: string) => {
     const k = `${connection}|${site}`;
-    if (!choicesBySite.has(k)) choicesBySite.set(k, jiraFieldChoices(connection, site).catch(() => null));
-    return choicesBySite.get(k)!;
+    if (!siteFields.has(k)) siteFields.set(k, readJiraSiteFields(connection, site).catch((): null => null));
+    return siteFields.get(k)!;
   };
-  const fieldMaps = new Map<string, NonNullable<JiraProjectLinkView["fieldMap"]>>();
+  const { data: configRows } = canAdmin && configure ? await supabase.from("tracker_field_config").select("project_id, slot, enabled, field_id").eq("tenant_id", active.tenantId).eq("provider", "jira") : { data: [] };
+  const mappings = new Map<string, MappingView>();
   if (canAdmin && configure) {
     await Promise.all(((linkRows ?? []) as LinkRow[]).map(async (l) => {
-      const choices = await choicesFor(l.connection_id, l.site_id);
-      fieldMaps.set(l.project_id, { current: parseFieldMap(storedMaps.get(l.project_id)), startDates: choices?.startDates ?? [], themes: choices?.themes ?? [], priorities: choices?.priorities ?? [], proposal: choices ? proposePriorities(choices.priorities) : {}, unreadable: choices === null });
+      const site = await fieldsFor(l.connection_id, l.site_id);
+      const saved = ((configRows ?? []) as { project_id: string; slot: string; enabled: boolean; field_id: string | null }[]).filter((r) => r.project_id === l.project_id).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id }));
+      mappings.set(l.project_id, buildMappingView({ tracker: "jira", rows: parseConfigRows(saved, "jira"), jiraMap: parseFieldMap(storedMaps.get(l.project_id)), choices: site ? { startDates: site.startDates, themes: site.themes, priorities: site.priorities, dateFields: site.dateFields, proposal: site.proposal } : null }));
     }));
   }
   // the read-only field catalog of each linked Jira project (admins; one read per linked project, in parallel; a project that fails shows its own notice)
@@ -140,7 +144,7 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
       showIgnored: ignored === p.id,
       tracker: (p as { tracker?: string | null }).tracker ?? null,
       rowLink: l ? { value: `${l.connection_id}|${l.site_id}|${l.jira_project_key}`, initiative: l.initiative_type_id, epic: l.epic_type_id, task: l.task_type_id } : null,
-      fieldMap: fieldMaps.get(p.id) ?? null,
+      mapping: mappings.get(p.id) ?? null,
     };
   });
 
@@ -165,9 +169,9 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
 
   return (
     <JiraConnectionsView
-      connections={connections} canAdmin={canAdmin} configured={configured} status={status} checked={checkedN ? { c: checkedN, ch: changedN ?? "0", m: missingN ?? "0" } : undefined}
+      connections={connections} canAdmin={canAdmin} configured={configured} status={status} why={why} checked={checkedN ? { c: checkedN, ch: changedN ?? "0", m: missingN ?? "0" } : undefined}
       connectAction={startJiraConnection} disconnectAction={disconnectJira} projectLinks={projectLinks} choices={choices} sync={sync} saveProjectAction={saveJiraProject} readAction={readJiraNow}
-      checkAction={checkJiraNow} section={section} catalogs={catalogs} retryAction={retryJiraEvent} canEdit={canEdit} reviewAction={reviewJiraIssues} fieldMapAction={saveJiraFieldMap}
+      checkAction={checkJiraNow} section={section} catalogs={catalogs} retryAction={retryJiraEvent} canEdit={canEdit} reviewAction={reviewJiraIssues} fieldConfigAction={saveJiraFieldConfig}
     />
   );
 }

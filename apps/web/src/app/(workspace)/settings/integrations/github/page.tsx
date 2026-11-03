@@ -1,7 +1,10 @@
 import { requireWorkspace } from "@/lib/session";
 import { githubAppSlug, githubSourceControl, type ConnectionRow } from "@/lib/github/server";
 import { readGithubCatalog } from "@/lib/github/catalog-server";
-import { FieldCatalogView } from "@/components/tracker-field-config";
+import { FieldCatalogView, FieldMappingForm } from "@/components/tracker-field-config";
+import { buildMappingView } from "@/lib/tracker-fields/view";
+import { parseConfigRows } from "@/lib/tracker-fields/mapping";
+import { saveGithubFieldConfig } from "./actions";
 import { AutoRefresh } from "./auto-refresh";
 import { parseBoard } from "@pv/github";
 import { BoardsCard } from "./boards";
@@ -12,6 +15,8 @@ import { TrackerTabs } from "@/components/tracker-tabs";
 import Link from "next/link";
 
 export const metadata = { title: "GitHub · Product Velocity" };
+/** The field catalog reads several GitHub endpoints: allow the longest run the plan offers. */
+export const maxDuration = 60;
 
 type Repo = { id: string; full_name: string; is_private: boolean; access: string };
 type Project = { id: string; name: string; default_repo: string | null; who_breaks_down: "product" | "engineering" | "either"; tracker: string | null; github_board?: unknown };
@@ -36,6 +41,9 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
     ? await readGithubCatalog(sc, c.installation_id, c.account_login, { boards: boardList, repos: [...new Set(projects.flatMap((p) => (p.default_repo ? [p.default_repo] : [])))] }).catch((): null => null)
     : null;
 
+  const { data: configRows } = isAdmin && c?.state === "connected" ? await supabase.from("tracker_field_config").select("project_id, slot, enabled, field_id").eq("tenant_id", active.tenantId).eq("provider", "github") : { data: [] };
+  const githubProjects = projects.filter((p) => p.tracker === "github");
+
   return (
     <div className="page-narrow">
       <h1>GitHub</h1>
@@ -46,7 +54,7 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
       <TrackerTabs base="/settings/integrations/github" current="configure" tracker="GitHub" />
       {(state === "waiting_approval" || state === "installing") && <AutoRefresh />}
       {status && NOTICE[status] && <p role="status" className="notice">{NOTICE[status]}</p>}
-      {status === "error" && why && <p role="alert" className="notice">Reason: {why.slice(0, 200)}</p>}
+      {(status === "error" || status === "field-config-invalid") && why && <p role="alert" className="notice">Reason: {why.slice(0, 200)}</p>}
 
       <div className="card stack">
         <h2>Status</h2>
@@ -121,7 +129,14 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
       {isAdmin && c?.state === "connected" && (
         <div className="card stack">
           <h2>Field configuration</h2>
-          <p className="muted">Every field GitHub shows this connection: organisation issue fields, the linked boards&rsquo; fields, labels, issue types and milestones. Nothing here is written to GitHub.</p>
+          <p className="muted">Where each Product Velocity field goes in GitHub, for each project that uses GitHub. The defaults are what Sync does without any change; change what you need and save. Nothing here is written to GitHub: the next Sync uses it and the preview says what is skipped.</p>
+          {githubProjects.length === 0 && <p className="muted">No project uses GitHub as its delivery tracker yet. Choose it under Projects above.</p>}
+          {githubProjects.map((p) => (
+            <FieldMappingForm key={p.id} tracker="GitHub" projectId={p.id} projectName={p.name} action={saveGithubFieldConfig}
+              view={buildMappingView({ tracker: "github", board: parseBoard(p.github_board), rows: parseConfigRows(((configRows ?? []) as { project_id: string; slot: string; enabled: boolean; field_id: string | null }[]).filter((r) => r.project_id === p.id).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id })), "github") })} />
+          ))}
+          <h3>Fields GitHub shows this connection</h3>
+          <p className="muted">Organisation issue fields, the linked boards&rsquo; fields, labels, issue types and milestones.</p>
           {catalog ? <FieldCatalogView catalogs={[catalog]} tracker="GitHub" id="github-catalog" /> : <p role="alert" className="error">GitHub could not be read just now. Try again in a minute.</p>}
         </div>
       )}

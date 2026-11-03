@@ -2,6 +2,8 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { canLinkFilesInto, columnOnItems, FIELD_BY_KEY } from "@pv/domain";
 import { createHash } from "node:crypto";
+import { parseConfigRows, githubOptions, type ConfigRow } from "@/lib/tracker-fields/mapping";
+import { switchedOffNotes } from "@/lib/tracker-fields/notes";
 import { buildTrackingIssue, OUTBOUND_READ_FIELDS, childKey, childrenToAdd, describePushError, parseBoard, planAction, planBoardItem, pushBoardChildren, pushBoardItem, pushTrackingIssue, readIssueTree, type Board, type BoardField, type BoardPlan, type ExistingLink, type PlanLink, type SourceControl, type TrackingIssue } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { ConnectionRow } from "./server";
@@ -54,7 +56,7 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
 async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: string, connection: ConnectionRow, ids: string[], sc?: SourceControl, force?: ReadonlySet<string>): Promise<{ items: PlanItem[]; internal: Map<string, Internal> }> {
   const unique = [...new Set(ids)].slice(0, PUSH_LIMIT);
   const internal = new Map<string, Internal>();
-  const [items, projects, repos, links, artifacts, sharedFiles, tree] = await Promise.all([
+  const [items, projects, repos, links, artifacts, sharedFiles, tree, fieldConfig] = await Promise.all([
     supabase.from("items").select(ITEM_SELECT).eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
     supabase.from("projects").select("id, name, default_repo, tracker, github_board").eq("tenant_id", tenantId),
     supabase.from("github_repositories").select("full_name, access, is_private").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("removed_at", null),
@@ -62,7 +64,11 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     supabase.from("item_links").select("item_id, label, url").eq("tenant_id", tenantId).in("item_id", unique),
     supabase.from("item_files").select("item_id, name, share_token").eq("tenant_id", tenantId).in("item_id", unique).order("created_at"),
     supabase.from("item_issue_tree").select("item_id, repo_full_name, issue_number, board_id").eq("tenant_id", tenantId).in("item_id", unique),
+    // the field configuration (what a person switched off per project); a database without that table has none, so everything stays as it was
+    supabase.from("tracker_field_config").select("project_id, slot, enabled, field_id").eq("tenant_id", tenantId).eq("provider", "github"),
   ]);
+  const configByProject = new Map<string, ConfigRow[]>();
+  for (const r of (fieldConfig.data ?? []) as { project_id: string; slot: string; enabled: boolean; field_id: string | null }[]) configByProject.set(r.project_id, [...(configByProject.get(r.project_id) ?? []), { slot: r.slot, enabled: r.enabled, field: r.field_id }]);
   const treeByItem = new Map<string, { board_id: string | null }[]>();
   for (const t of (tree.data ?? []) as { item_id: string; board_id: string | null }[]) treeByItem.set(t.item_id, [...(treeByItem.get(t.item_id) ?? []), t]);
   if (items.error) return { items: unique.map((id) => blockedItem(id, "The initiatives could not be read just now. Try again, and tell Ashu if it keeps happening.")), internal };
@@ -105,7 +111,9 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     const itemFiles = filesByItem.get(id) ?? [];
     const target = (link?.repo_full_name ?? project?.default_repo ?? "").toLowerCase();
     const filesOk = privateRepos.has(target);
-    const built = buildTrackingIssue({ item: row, itemId: id, projectName: project?.name ?? "", appUrl, artifacts: artifactsByItem.get(id) ?? [], files: filesOk ? itemFiles : [] });
+    const config = parseConfigRows(configByProject.get(project?.id ?? ""), "github");
+    const built = buildTrackingIssue({ item: row, itemId: id, projectName: project?.name ?? "", appUrl, artifacts: artifactsByItem.get(id) ?? [], files: filesOk ? itemFiles : [], ...githubOptions(config) });
+    const switchedOff = switchedOffNotes(config, row, artifactsByItem.get(id)?.length ?? 0, itemFiles.length);
 
     // the linked GitHub Project: what would be written there is part of "changed", so changing a priority is a push
     const board = parseBoard(project?.github_board);
@@ -121,7 +129,7 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     internal.set(id, { projectId: project?.id, built, existing: link ? { issueNumber: link.issue_number, lastPushedHash: force?.has(id) ? null : link.last_pushed_hash } : null, pendingChildren, ...(board && boardPlan ? { board, boardPlan } : {}) });
     const withheld = itemFiles.length > 0 && !filesOk ? { filesNote: `${itemFiles.length === 1 ? "A shared file link was" : `${itemFiles.length} shared file links were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could open the links. Files are only linked in private repositories.` } : {};
     const unshared = unsharedByItem.get(id) ?? 0;
-    const note = withheld.filesNote ?? (unshared ? `${unshared === 1 ? "1 attached file has" : `${unshared} attached files have`} no share link, so ${unshared === 1 ? "it is" : "they are"} not in the issue. Turn a link on in the item's Screenshots field to include it.` : undefined);
+    const note = [withheld.filesNote ?? (unshared ? `${unshared === 1 ? "1 attached file has" : `${unshared} attached files have`} no share link, so ${unshared === 1 ? "it is" : "they are"} not in the issue. Turn a link on in the item's Screenshots field to include it.` : undefined), ...switchedOff].filter(Boolean).join(" ") || undefined;
     const boardInfo = board && boardPlan ? { title: board.title, included: boardPlan.include, writes: boardPlan.writes.map((w) => ({ field: w.field.name, value: w.label })), notes: boardPlan.notes, children: pendingChildren } : board && boardNotes.length ? { title: board.title, included: false, writes: [], notes: boardNotes, children: 0 } : undefined;
     return { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo: d.repo, action: d.action, title: built.title, labels: built.labels, ...(built.milestone ? { milestone: built.milestone.title } : {}), ...(boardInfo ? { board: boardInfo } : {}), block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null, ...(d.reason ? { reason: d.reason } : {}), ...(note ? { filesNote: note } : {}) };
   });

@@ -182,3 +182,42 @@ describe("confirm (writeOne)", () => {
     expect(await writeOne(ctx, ID, [], { call: fakeJira({ summary: "Checkout" }).call })).toMatchObject({ result: { outcome: "error", message: expect.stringMatching(/Sync again/) } });
   });
 });
+
+describe("the saved field configuration (decision 2026-11-03-tracker-field-config)", () => {
+  const withFields = (j: ReturnType<typeof fakeJira>, ids: string[]): JiraRequest => async (m, p, b) => (m === "GET" && p === "/field" ? { status: 200, json: ids.map((id) => ({ id, name: id, custom: true })) } : j.call(m, p, b));
+  const dated = () => { tables.items = { id: ID, item_code: "R-1", initiative_name: "Checkout", description: "Pay **fast**", moscow: "Must", end_date: "2027-03-31", planned_start: "2027-01-04", home_project_id: "p1" }; };
+
+  it("without any saved configuration the plan is the one from before it existed", async () => {
+    dated();
+    const e = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout", labels: [] }).call);
+    expect(e.kind === "ok" && e.plan.fields.duedate).toBe("2027-03-31");
+    expect(e.kind === "ok" && (e.plan.fields.labels as string[])).toContain("pv:moscow/must");
+  });
+  it("a re-pointed due date field and a switched-off label are used by the preview", async () => {
+    dated();
+    tables.tracker_field_config = [{ slot: "jira.dueDate", enabled: true, field_id: "customfield_10016" }, { slot: "jira.label.moscow", enabled: false, field_id: null }];
+    const j = fakeJira({ summary: "Checkout", labels: [] });
+    const e = await evaluate((await loadIt())!, {}, withFields(j, ["customfield_10016"]));
+    expect(e.kind).toBe("ok");
+    if (e.kind !== "ok") return;
+    expect(e.plan.fields.customfield_10016).toBe("2027-03-31");
+    expect("duedate" in e.plan.fields).toBe(false);
+    expect(e.plan.fields.labels as string[]).not.toContain("pv:moscow/must");
+    expect(e.plan.notes.join(" ")).toContain("MoSCoW label not sent: switched off in the field configuration.");
+  });
+  it("a configured field that is gone from the site is left out and the preview says so", async () => {
+    dated();
+    tables.tracker_field_config = [{ slot: "jira.dueDate", enabled: true, field_id: "customfield_10099" }];
+    const e = await evaluate((await loadIt())!, {}, withFields(fakeJira({ summary: "Checkout", labels: [] }), ["customfield_10016"]));
+    expect(e.kind).toBe("ok");
+    if (e.kind !== "ok") return;
+    expect("customfield_10099" in e.plan.fields || "duedate" in e.plan.fields).toBe(false);
+    expect(e.plan.notes.join(" ")).toContain("Due date not sent: the Jira field customfield_10099 no longer exists on this site.");
+  });
+  it("a stored row for a commercial field or a fixed slot is ignored", async () => {
+    dated();
+    tables.tracker_field_config = [{ slot: "value_12m", enabled: false, field_id: null }, { slot: "jira.summary", enabled: false, field_id: null }, { slot: "jira.description", enabled: false, field_id: null }];
+    const e = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout", labels: [] }).call);
+    expect(e.kind === "ok" && e.plan.notes.join(" ")).not.toContain("switched off");
+  });
+});

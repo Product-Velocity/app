@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { TrackerSection } from "@/components/tracker-tabs";
+import { buildMappingView } from "@/lib/tracker-fields/view";
 import { jiraCatalogGroups } from "@/lib/tracker-fields/catalog";
 import { connectNoop, disconnectNoop, formNoop, retryNoop } from "./actions";
 import { JiraConnectionsView, type JiraConnectionView, type JiraProjectLinkView } from "@/components/jira-connections-view";
@@ -32,7 +33,15 @@ export async function renderJiraHarness(searchParams: Promise<Record<string, str
     {
       projectId: "p1", projectName: "Platform", tracker: "jira", rowLink: { value: "c1|s1|PLAT", initiative: "10001", epic: "10002", task: "10004" },
       link: { jiraKey: "PLAT", jiraName: "Platform", siteName: "Acme Corp", initiative: "Epic", epic: "Feature", task: "Subtask" },
-      fieldMap: { current: { startDate: "customfield_10015", theme: "customfield_10030", priorityByMoscow: { Must: "1" } }, startDates: [{ id: "customfield_10015", name: "Start date" }, { id: "customfield_10020", name: "Go-live" }], themes: [{ id: "customfield_10030", name: "Theme" }, { id: "customfield_10031", name: "Release note" }], priorities: [{ id: "1", name: "Highest" }, { id: "2", name: "High" }, { id: "3", name: "Medium" }, { id: "4", name: "Low" }, { id: "5", name: "Lowest" }], proposal: { Must: "1", Should: "2", Could: "3", "Won't": "5" }, unreadable: q.fields === "unreadable" },
+      mapping: q.role === "viewer" || none ? null : buildMappingView({
+        tracker: "jira", jiraMap: { startDate: "customfield_10015", theme: "customfield_10030", priorityByMoscow: { Must: "1" } },
+        rows: q.config === "changed" ? [{ slot: "jira.label.moscow", enabled: false, field: null }, { slot: "jira.dueDate", enabled: true, field: "customfield_10016" }] : [],
+        choices: q.fields === "unreadable" ? null : {
+          startDates: [{ id: "customfield_10015", name: "Start date" }, { id: "customfield_10020", name: "Go-live" }], themes: [{ id: "customfield_10030", name: "Theme" }, { id: "customfield_10031", name: "Release note" }],
+          priorities: [{ id: "1", name: "Highest" }, { id: "2", name: "High" }, { id: "3", name: "Medium" }, { id: "4", name: "Low" }, { id: "5", name: "Lowest" }], proposal: { Must: "1", Should: "2", Could: "3", "Won't": "5" },
+          dateFields: [{ id: "duedate", name: "Due date", custom: false, kind: "date", typeLabel: "Date", options: [], filled: null, sampled: null }, { id: "customfield_10016", name: "Go-live date", custom: true, kind: "date", typeLabel: "Date", options: [], filled: null, sampled: null }],
+        },
+      }),
       read: q.read === "none" ? null
         : q.read === "failed" ? { readAt: "2026-11-02T22:50:00Z", total: 0, added: 0, changed: 0, truncated: false, error: "Sign in to Jira again." }
         : { readAt: "2026-11-02T22:50:00Z", total: 42, added: 3, changed: 1, truncated: q.read === "truncated", error: null },
@@ -74,5 +83,5 @@ export async function renderJiraHarness(searchParams: Promise<Record<string, str
     }),
   }];
   return <JiraConnectionsView catalogs={catalogs} connections={connections} canAdmin={q.role !== "viewer"} configured={q.configured !== "0"} status={q.status} connectAction={connectNoop} disconnectAction={disconnectNoop}
-    projectLinks={q.state === "none" ? [] : projectLinks} choices={choices} sync={sync} basePath="/dev/jira" section={section} saveProjectAction={formNoop} readAction={formNoop} checkAction={connectNoop} retryAction={retryNoop} canEdit={q.role !== "viewer"} reviewAction={formNoop} fieldMapAction={formNoop} />;
+    projectLinks={q.state === "none" ? [] : projectLinks} choices={choices} sync={sync} basePath="/dev/jira" section={section} saveProjectAction={formNoop} readAction={formNoop} checkAction={connectNoop} retryAction={retryNoop} canEdit={q.role !== "viewer"} reviewAction={formNoop} fieldConfigAction={formNoop} />;
 }

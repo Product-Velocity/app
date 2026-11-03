@@ -1,8 +1,8 @@
 import "server-only";
 import { jiraProjectDetail, jiraGet } from "./server";
 import type { JiraField, JiraIssueSample } from "./field-catalog";
-import { priorityChoices } from "./field-map";
-import { jiraCatalogGroups, type TrackerCatalog } from "@/lib/tracker-fields/catalog";
+import { priorityChoices, proposePriorities, startDateChoices, themeChoices, type FieldChoice, type Moscow } from "./field-map";
+import { jiraCatalogGroups, type CatalogEntry, type TrackerCatalog } from "@/lib/tracker-fields/catalog";
 
 const KEY = /^[A-Z][A-Z0-9_]{1,19}$/;
 const msg = (e: unknown) => (e instanceof Error ? e.message : "unknown reason").slice(0, 200);
@@ -32,4 +32,17 @@ export async function readJiraCatalog(connectionId: string, siteId: string, proj
       issueTypes: detail.status === "fulfilled" ? detail.value.issueTypes : null,
     }),
   };
+}
+
+export type JiraSiteFields = { startDates: FieldChoice[]; themes: FieldChoice[]; priorities: FieldChoice[]; proposal: Partial<Record<Moscow, string>>; dateFields: CatalogEntry[]; entries: CatalogEntry[] };
+
+/**
+ * What a Jira site offers for the field configuration, from ONE read of its fields and priorities: the start date, theme and priority choices, the date
+ * fields a due date can go to, and every field as a catalog entry (the list a save is validated against). Throws when the site can not be read.
+ */
+export async function readJiraSiteFields(connectionId: string, siteId: string): Promise<JiraSiteFields> {
+  const [fields, priorities] = await Promise.all([jiraGet<JiraField[]>(connectionId, siteId, "/field"), jiraGet<unknown>(connectionId, siteId, "/priority")]);
+  const prio = priorityChoices(priorities);
+  const entries = jiraCatalogGroups({ fields, issues: [], priorities: prio, issueTypes: [] })[0]!.entries;
+  return { startDates: startDateChoices(fields), themes: themeChoices(fields), priorities: prio, proposal: proposePriorities(prio), dateFields: entries.filter((e) => e.kind === "date" && /^(duedate|customfield_\d{1,9})$/.test(e.id)), entries };
 }

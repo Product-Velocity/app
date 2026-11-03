@@ -21,6 +21,9 @@ Initiative → **tracking issue** in the project's default repo. Epics and tasks
 
 Add an automated test that serialises every outbound payload and fails if a non-allowlisted field name or value appears.
 
+### Field configuration (built 2026-11-03, `docs/decisions/2026-11-03-tracker-field-config.md`)
+Settings, Integrations, GitHub has two tabs: **Connect and configure** and **Sync logs**. "Field configuration" lists everything the connection can see (organisation issue fields, the linked boards' fields, labels, issue types, milestones; read only) and the default list of Product Velocity fields with where each goes. Per project an admin can switch the `pv:` labels, the milestone, the organisation issue type and the Artifacts and Files sections off (table `tracker_field_config`, function `tracker_set_field_config`); the board fields are chosen in the Project boards card. Fixed: title, code and the compared sections of the managed block. Never synced: the commercial fields (rule 2).
+
 ## Install and approval flow
 Built in #31 (`/settings/integrations/github`, code in `packages/github` and `apps/web/src/lib/github`).
 1. An admin (a person, never a service account or Claude) types the GitHub organisation name. The app stores a `github_connections` row in state **requested** and sends the admin to `https://github.com/apps/<slug>/installations/new` with a signed, one-hour `state` (workspace, admin, connection).

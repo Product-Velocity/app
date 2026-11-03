@@ -1,5 +1,5 @@
 import type { PrRef, ReleaseRef } from "./delivery";
-import type { IssueFieldInfo, LabelInfo, MilestoneInfo, BoardItemValue, BoardItemStatus, BoardField, BoardInfo, BoardValue, DeliverySummary, InstallationInfo, IssueInput, IssueRef, IssueSummary, RepoInfo, SourceControl, SubIssue } from "./source-control";
+import type { BoardItemValue, BoardItemStatus, BoardField, BoardInfo, BoardValue, DeliverySummary, InstallationInfo, IssueInput, IssueRef, IssueSummary, RepoInfo, SourceControl, SubIssue } from "./source-control";
 
 /** In-memory SourceControl for tests: records every call so a test can prove what was (not) sent. */
 export class MemorySourceControl implements SourceControl {
@@ -26,12 +26,12 @@ export class MemorySourceControl implements SourceControl {
   types: string[] | null = null;
   async listIssueTypes() { return this.types; }
   /** Organisation issue fields (null = the App may not read them), labels and milestones for the field catalog. */
-  issueFields: IssueFieldInfo[] | null = null;
-  repoLabels = new Map<string, LabelInfo[]>();
-  repoMilestones = new Map<string, MilestoneInfo[]>();
-  async listIssueFields(): Promise<IssueFieldInfo[] | null> { this.tick("listIssueFields"); return this.issueFields; }
-  async listLabels(_i: number, repo: string): Promise<LabelInfo[]> { this.tick("listLabels"); return this.repoLabels.get(repo) ?? []; }
-  async listMilestones(_i: number, repo: string): Promise<MilestoneInfo[]> { this.tick("listMilestones"); return this.repoMilestones.get(repo) ?? []; }
+  issueFields: import("./source-control").IssueFieldInfo[] | null = null;
+  repoLabels = new Map<string, import("./source-control").LabelInfo[]>();
+  repoMilestones = new Map<string, import("./source-control").MilestoneInfo[]>();
+  async listIssueFields(): Promise<import("./source-control").IssueFieldInfo[] | null> { this.tick("listIssueFields"); return this.issueFields; }
+  async listLabels(_i: number, repo: string): Promise<import("./source-control").LabelInfo[]> { this.tick("listLabels"); return this.repoLabels.get(repo) ?? []; }
+  async listMilestones(_i: number, repo: string): Promise<import("./source-control").MilestoneInfo[]> { this.tick("listMilestones"); return this.repoMilestones.get(repo) ?? []; }
   /** Projects of the organisation, their fields and the items added to them. */
   boards: BoardInfo[] = [];
   boardFields = new Map<string, BoardField[]>();

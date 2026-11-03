@@ -165,3 +165,6 @@ If everything is in step the card says **"Everything is in step"** and the butto
 
 ## 19. Jira: initiatives removed in Product Velocity (2026-11-03)
 The Sync with Jira dialog has one section GitHub's does not: **Removed in Product Velocity**. Initiatives in the Trash whose Jira link is `push` (Product Velocity owns the issue) and not handled yet are listed with what will happen; a creator or admin confirms each, and the issue is labelled `pv:removed` and moved to a Done status (category `done`). Links in mode `follow` are never touched. The GitHub sync does not do this yet: a deleted initiative's tracking issue stays open. Details and limits: `docs/decisions/2026-11-03-jira-close-removed.md`.
+
+## 20. Field configuration (2026-11-03)
+What Sync sends where is a default list that an admin can change per project (`docs/decisions/2026-11-03-tracker-field-config.md`). The Sync preview says when something is left out because it was switched off ("The Rank label is not sent: it is switched off in the field configuration") or, on Jira, because a configured field no longer exists on the site. The compared texts (title, Summary, Description, Hypothesis) are fixed, so the three-way compare of section 8 is unchanged. Commercial fields can not be mapped.
