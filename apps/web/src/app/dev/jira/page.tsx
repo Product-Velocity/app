@@ -41,6 +41,7 @@ export default async function JiraHarness({ searchParams }: { searchParams: Prom
       projectId: "p1", projectName: "Platform", choosing: step === "change",
       link: { jiraKey: "PLAT", jiraName: "Platform", siteName: "Acme Corp", initiative: "Epic", epic: "Feature", task: "Subtask" },
       mapping: null,
+      fieldMap: { current: { startDate: "customfield_10015", priorityByMoscow: { Must: "1" } }, startDates: [{ id: "customfield_10015", name: "Start date" }, { id: "customfield_10020", name: "Go-live" }], priorities: [{ id: "1", name: "Highest" }, { id: "2", name: "High" }, { id: "3", name: "Medium" }, { id: "4", name: "Low" }, { id: "5", name: "Lowest" }], proposal: { Must: "1", Should: "2", Could: "3", "Won't": "5" }, unreadable: q.fields === "unreadable" },
       read: q.read === "none" ? null
         : q.read === "failed" ? { readAt: "2026-11-02T22:50:00Z", total: 0, added: 0, changed: 0, truncated: false, error: "Sign in to Jira again." }
         : { readAt: "2026-11-02T22:50:00Z", total: 42, added: 3, changed: 1, truncated: q.read === "truncated", error: null },
@@ -61,5 +62,5 @@ export default async function JiraHarness({ searchParams }: { searchParams: Prom
   ];
   const jiraOptions = [{ value: "c1|s1|PLAT", label: "PLAT · Platform", group: "Acme Corp" }, { value: "c1|s1|GROW", label: "GROW · Growth", group: "Acme Corp" }];
   return <JiraConnectionsView connections={connections} canAdmin={q.role !== "viewer"} configured={q.configured !== "0"} status={q.status} connectAction={connectNoop} disconnectAction={disconnectNoop}
-    projectLinks={q.state === "none" ? [] : projectLinks} jiraOptions={jiraOptions} basePath="/dev/jira" linkAction={formNoop} unlinkAction={formNoop} readAction={formNoop} canEdit={q.role !== "viewer"} reviewAction={formNoop} refreshFieldsAction={formNoop} saveFieldAction={formNoop} />;
+    projectLinks={q.state === "none" ? [] : projectLinks} jiraOptions={jiraOptions} basePath="/dev/jira" linkAction={formNoop} unlinkAction={formNoop} readAction={formNoop} canEdit={q.role !== "viewer"} reviewAction={formNoop} fieldMapAction={formNoop} refreshFieldsAction={formNoop} saveFieldAction={formNoop} />;
 }

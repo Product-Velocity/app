@@ -7,6 +7,7 @@ import { signConnectState } from "@/lib/atlassian/connect-state";
 import { keyRing } from "@/lib/atlassian/token-crypto";
 import { readJiraLink } from "@/lib/atlassian/read-jira";
 import { jiraProjectDetail } from "@/lib/atlassian/server";
+import { fieldMapFromForm } from "@/lib/atlassian/field-map";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 import { validateTypeMapping } from "@/lib/atlassian/type-mapping";
 import { requireWorkspace } from "@/lib/session";
@@ -138,4 +139,14 @@ export async function reviewJiraIssues(form: FormData): Promise<void> {
   }
   revalidatePath(PATH);
   redirect(`${PATH}?status=${status}${counts}`);
+}
+
+/** Saves which Jira field holds the start date and which Jira priority stands for each MoSCoW value, for ONE linked project. Admin only; the database validates it again. */
+export async function saveJiraFieldMap(form: FormData): Promise<void> {
+  const ctx = await adminOnly();
+  if (!ctx) redirect(`${PATH}?status=not-admin`);
+  const map = fieldMapFromForm((k) => String(form.get(k) ?? "").trim());
+  const { error } = await ctx.supabase.rpc("jira_set_field_map", { p_project: String(form.get("project") ?? ""), p_map: map });
+  revalidatePath(PATH);
+  redirect(`${PATH}?status=${error ? "error" : "field-map-saved"}`);
 }

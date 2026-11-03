@@ -1,18 +1,19 @@
 import { JiraConnectionsView, type JiraConnectionView, type JiraIssueView, type JiraProjectInfo, type JiraProjectLinkView, type JiraProjectOption } from "@/components/jira-connections-view";
 import { buildFieldsView } from "@/lib/atlassian/field-section";
 import { parseCatalogRows, toLoadedMappings } from "@/lib/atlassian/field-mappings";
-import { jiraConfigured, jiraGet, jiraProjectDetail, type JiraConnectionRow } from "@/lib/atlassian/server";
+import { jiraConfigured, jiraFieldChoices, jiraGet, jiraProjectDetail, type JiraConnectionRow } from "@/lib/atlassian/server";
+import { parseFieldMap, proposePriorities, type FieldChoice } from "@/lib/atlassian/field-map";
 import { proposeTypeMapping } from "@/lib/atlassian/type-mapping";
 import { requireWorkspace } from "@/lib/session";
 import { canEditItems } from "@pv/domain";
 import { refreshJiraFields, saveJiraFieldMapping } from "./fields-actions";
-import { disconnectJira, linkJiraProject, readJiraNow, reviewJiraIssues, startJiraConnection, unlinkJiraProject } from "./actions";
+import { disconnectJira, linkJiraProject, readJiraNow, reviewJiraIssues, saveJiraFieldMap, startJiraConnection, unlinkJiraProject } from "./actions";
 
 export const metadata = { title: "Jira · Product Velocity" };
 export const maxDuration = 30;
 
 type ProjectSearch = { values: { key: string; name: string; projectTypeKey: string; style?: string }[] };
-type LinkRow = { id: string; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_name: string; epic_type_name: string | null; task_type_name: string | null };
+type LinkRow = { id: string; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_name: string; epic_type_name: string | null; task_type_name: string | null; field_map: unknown };
 
 export default async function JiraSettingsPage({ searchParams }: { searchParams: Promise<{ status?: string; pv?: string; jp?: string; ignored?: string; fp?: string }> }) {
   const { status, pv, jp, ignored, fp } = await searchParams;
@@ -51,7 +52,7 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
   // Project links (issue #67 slice B): the workspace's projects, their links, and for an admin the Jira projects that can be linked
   const [{ data: projectRows }, { data: linkRows }, { data: readRows }, { data: countRows }] = await Promise.all([
     supabase.from("projects").select("id, name").eq("tenant_id", active.tenantId).order("name"),
-    supabase.from("jira_project_links").select("id, project_id, connection_id, site_id, jira_project_key, jira_project_name, initiative_type_name, epic_type_name, task_type_name").eq("tenant_id", active.tenantId),
+    supabase.from("jira_project_links").select("id, project_id, connection_id, site_id, jira_project_key, jira_project_name, initiative_type_name, epic_type_name, task_type_name, field_map").eq("tenant_id", active.tenantId),
     supabase.from("jira_reads").select("link_id, read_at, total, added, changed, truncated, error").eq("tenant_id", active.tenantId),
     supabase.rpc("jira_issue_counts"),
   ]);
@@ -113,6 +114,20 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
       working = null;
     }
   }
+  // the field mapping form (admins only): the site's start-date candidates and priorities, read once per site; a site that cannot be read shows a notice
+  const choicesBySite = new Map<string, Promise<{ startDates: FieldChoice[]; priorities: FieldChoice[] } | null>>();
+  const choicesFor = (connection: string, site: string) => {
+    const k = `${connection}|${site}`;
+    if (!choicesBySite.has(k)) choicesBySite.set(k, jiraFieldChoices(connection, site).catch(() => null));
+    return choicesBySite.get(k)!;
+  };
+  const fieldMaps = new Map<string, NonNullable<JiraProjectLinkView["fieldMap"]>>();
+  if (canAdmin) {
+    await Promise.all(((linkRows ?? []) as LinkRow[]).map(async (l) => {
+      const choices = await choicesFor(l.connection_id, l.site_id);
+      fieldMaps.set(l.project_id, { current: parseFieldMap(l.field_map), startDates: choices?.startDates ?? [], priorities: choices?.priorities ?? [], proposal: choices ? proposePriorities(choices.priorities) : {}, unreadable: choices === null });
+    }));
+  }
   const projectLinks: JiraProjectLinkView[] = ((projectRows ?? []) as { id: string; name: string }[]).map((p) => {
     const l = links.get(p.id);
     return {
@@ -127,13 +142,14 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
       choosing: !l || pv === p.id,
       fields: canAdmin ? (fieldViews.get(p.id) ?? null) : null,
       fieldsOpen: fp === p.id,
+      fieldMap: fieldMaps.get(p.id) ?? null,
     };
   });
 
   return (
     <JiraConnectionsView
       connections={connections} canAdmin={canAdmin} configured={configured} status={status} connectAction={startJiraConnection} disconnectAction={disconnectJira}
-      projectLinks={projectLinks} jiraOptions={options} linkAction={linkJiraProject} unlinkAction={unlinkJiraProject} readAction={readJiraNow} canEdit={canEdit} reviewAction={reviewJiraIssues} refreshFieldsAction={refreshJiraFields} saveFieldAction={saveJiraFieldMapping}
+      projectLinks={projectLinks} jiraOptions={options} linkAction={linkJiraProject} unlinkAction={unlinkJiraProject} readAction={readJiraNow} canEdit={canEdit} reviewAction={reviewJiraIssues} fieldMapAction={saveJiraFieldMap} refreshFieldsAction={refreshJiraFields} saveFieldAction={saveJiraFieldMapping}
     />
   );
 }

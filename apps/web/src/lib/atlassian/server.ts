@@ -85,3 +85,10 @@ export function jiraRequest(connectionId: string, siteId: string): import("./jir
     return { status: res.status, json, ...(Number.isFinite(ra) && ra > 0 ? { retryAfterSec: ra } : {}) };
   };
 }
+
+/** The start-date candidates and the priorities of one Jira site, for the field mapping form. Reads only. */
+export async function jiraFieldChoices(connectionId: string, siteId: string): Promise<{ startDates: import("./field-map").FieldChoice[]; priorities: import("./field-map").FieldChoice[] }> {
+  const { startDateChoices, priorityChoices } = await import("./field-map");
+  const [fields, priorities] = await Promise.all([jiraGet<import("./field-catalog").JiraField[]>(connectionId, siteId, "/field"), jiraGet<unknown>(connectionId, siteId, "/priority")]);
+  return { startDates: startDateChoices(fields), priorities: priorityChoices(priorities) };
+}
