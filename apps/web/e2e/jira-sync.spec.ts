@@ -31,4 +31,37 @@ test.describe("Sync with Jira: received, to send, conflicts, writing", () => {
     await expect(dialog.getByRole("link", { name: "issue PLAT-13" })).toBeVisible();
     await expect(page.getByTestId("calls")).toHaveText("R-2"); // only the initiative with something to send was written
   });
+
+  test("Removed in Product Velocity: nothing is written before the button; one Done status is the default, several must be chosen, a refusal is shown with Try again", async ({ page }) => {
+    await page.goto("/dev/sync?scenario=jira&new=jira0");
+    await page.getByRole("button", { name: "Open sync" }).click();
+    const dialog = page.getByRole("dialog", { name: /Sync(ed)? with Jira/ });
+    const removed = dialog.getByRole("region", { name: "Removed in Product Velocity" });
+    await expect(removed.getByText("Will add the label pv:removed and move the issue to “Done”.")).toBeVisible();
+    await expect(removed.getByText("Choose which Done status to move the issue to.")).toBeVisible();
+    await expect(removed.getByText("will only add the label pv:removed. Close it in Jira.")).toBeVisible();
+    await expect(removed.getByText("Jira could not be read just now.")).toBeVisible(); // R-8: nothing to confirm for it
+    await expect(removed.getByRole("checkbox", { name: /R-8/ })).toBeDisabled();
+    await expect(removed.getByRole("link", { name: "issue PLAT-20" })).toHaveAttribute("href", "https://acme.example/browse/PLAT-20");
+    // several Done statuses and no choice yet: the button waits, and nothing was written
+    const press = removed.getByRole("button", { name: "Label and close 3 in Jira" });
+    await expect(press).toBeDisabled();
+    await expect(page.getByTestId("closed")).toHaveText("");
+    const axe = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
+    expect(axe.violations).toEqual([]);
+    await page.screenshot({ path: "test-results/jira-removed-preview.png" });
+    await removed.getByLabel("Done status for R-6").selectOption("41");
+    await expect(press).toBeEnabled();
+    await press.click();
+    await expect(removed.getByText("Moved to Done and labelled pv:removed.")).toBeVisible();
+    await expect(removed.getByText("Labelled only")).toBeVisible();
+    await expect(removed.getByText(/Jira refused it: resolution: Resolution is required/)).toBeVisible();
+    await expect(page.getByTestId("closed")).toHaveText("R-5:31,R-6:41,R-7:-");
+    // the refusal is not retried by itself; Try again sends that one initiative alone
+    await removed.getByRole("button", { name: "Try again" }).click();
+    await expect(removed.getByText("Moved to Won't do and labelled pv:removed.")).toBeVisible();
+    await expect(page.getByTestId("closed")).toHaveText("R-5:31,R-6:41,R-7:-,R-6:41");
+    const after = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
+    expect(after.violations).toEqual([]);
+  });
 });

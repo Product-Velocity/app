@@ -44,9 +44,11 @@ function read(item: Record<string, unknown>, key: JiraOutboundField): unknown { 
 export function desiredLabels(item: Record<string, unknown>, projectName?: string): string[] {
   return [BASE_LABEL, projectName ? projectLabel(projectName) : null, moscowLabel(read(item, "moscow")), rankBandLabel(read(item, "stack_rank")), changeTypeLabel(read(item, "change_type")), groupLabel(read(item, "theme"))].filter((l): l is string => !!l);
 }
-/** Labels after a write: the person's own labels stay, `pv:` labels are replaced by the desired ones. */
+/** Put on a Jira issue when its initiative was removed in Product Velocity and the person confirmed (jira-close.ts). Not an "owned" label: a later send must not strip it. */
+export const REMOVED_LABEL = "pv:removed";
+/** Labels after a write: the person's own labels stay, `pv:` labels are replaced by the desired ones (`pv:removed` stays: it records a close). */
 export function mergeLabels(current: string[], desired: string[]): string[] {
-  return [...new Set([...current.filter((l) => l !== BASE_LABEL && !l.startsWith(OWNED_LABEL_PREFIX)), ...desired])];
+  return [...new Set([...current.filter((l) => l === REMOVED_LABEL || (l !== BASE_LABEL && !l.startsWith(OWNED_LABEL_PREFIX))), ...desired])];
 }
 
 export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {
