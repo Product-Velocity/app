@@ -5,15 +5,14 @@ test.describe("Jira settings, laid out like GitHub (decision 2026-11-03-tracker-
   test("Status: connected site with Test connection, Sign in again, Disconnect and a second site", async ({ page }) => {
     await page.goto("/dev/jira");
     await expect(page.getByRole("heading", { name: "Jira", level: 1 })).toBeVisible();
-    for (const h of ["Status", "Sync", "Jira projects", "Projects"]) await expect(page.getByRole("heading", { name: h, level: 2, exact: true })).toBeVisible();
+    for (const h of ["Status", "Sync", "Projects"]) await expect(page.getByRole("heading", { name: h, level: 2, exact: true })).toBeVisible();
     await expect(page.getByText("Connected", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Test connection" })).toHaveAttribute("href", "/dev/jira/test");
     await expect(page.getByRole("button", { name: "Sign in to Jira again" })).toBeEnabled();
     await expect(page.getByRole("button", { name: "Disconnect" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Connect another Jira site" })).toBeEnabled();
-    const table = page.getByRole("table", { name: "Jira projects of Acme Corp" });
-    await expect(table).toContainText("Software (team-managed)");
-    await expect(table).toContainText("Product Discovery (team-managed)");
+    await expect(page.getByRole("heading", { name: "Jira projects", level: 2 })).toHaveCount(0);
+    await expect(page.getByText("not linkable yet: DISC · Discovery (Product Discovery, ideas come later)")).toBeVisible();
     await page.screenshot({ path: "../../docs/screenshots/jira-connection.png", fullPage: true });
   });
 

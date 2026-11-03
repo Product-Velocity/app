@@ -98,6 +98,8 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
   const connected = connections.filter((c) => c.state === "connected");
   const missingHookScope = Boolean(sync?.live.enabled) && connected.some((c) => c.scopes !== undefined && !c.scopes.split(" ").includes("manage:jira-webhook"));
   const linked = projectLinks.filter((p) => p.link);
+  const notLinkable = connected.flatMap((c) => c.projects.flatMap((p) => (p.projects ?? []).filter((j) => j.type !== "software" && j.type !== "business")));
+  const unreadable = connected.flatMap((c) => c.projects.filter((p) => p.projects === null));
   return (
     <div className="page-narrow">
       <h1>Jira</h1>
@@ -181,28 +183,6 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
         </div>
       )}
 
-      {canAdmin && connected.some((c) => c.projects.length > 0) && (
-        <div className="card stack">
-          <h2>Jira projects</h2>
-          <p className="muted">The projects this sign-in can see. Only software and business projects can be linked for now; Product Discovery ideas come later.</p>
-          {connected.flatMap((c) => c.projects.map((p) => {
-            const site = c.sites.find((x) => x.id === p.siteId);
-            return p.projects ? (
-              <table className="table" key={`${c.id}-${p.siteId}`}>
-                <caption className="visually-hidden">Jira projects of {site?.name ?? "this site"}</caption>
-                <thead><tr><th scope="col">Key</th><th scope="col">Project</th><th scope="col">Type</th></tr></thead>
-                <tbody>
-                  {p.projects.length === 0 && <tr><td colSpan={3} className="muted">No projects visible to this sign-in.</td></tr>}
-                  {p.projects.map((j) => (
-                    <tr key={j.key}><td>{j.key}</td><td>{j.name}</td><td>{j.type === "product_discovery" ? "Product Discovery" : j.type === "software" ? "Software" : j.type === "business" ? "Business" : j.type}{j.style === "next-gen" ? " (team-managed)" : ""}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : <p className="muted" key={`${c.id}-${p.siteId}`}>Projects could not be read: {p.error ?? "unknown reason"}.</p>;
-          }))}
-        </div>
-      )}
-
       {connected.length > 0 && projectLinks.length > 0 && (
         <div className="card stack">
           <h2>Projects</h2>
@@ -211,6 +191,10 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
             (Jira projects differ, so each choice offers that project&rsquo;s types). Reading Jira fills a list of open issues; nothing is created in the roadmap and nothing is written to Jira by linking.
           </p>
           {choices.length === 0 && <p className="muted">No software or business Jira project is visible to the connection.</p>}
+          {canAdmin && unreadable.length > 0 && <p role="alert" className="error">The Jira projects of {unreadable.length} site(s) could not be read: {unreadable[0]!.error ?? "unknown reason"}.</p>}
+          {canAdmin && notLinkable.length > 0 && (
+            <p className="muted">Visible to this sign-in but not linkable yet: {notLinkable.map((j) => `${j.key} · ${j.name} (${j.type === "product_discovery" ? "Product Discovery, ideas come later" : j.type})`).join("; ")}.</p>
+          )}
           {saveProjectAction && (
             <table className="table">
               <caption className="visually-hidden">Delivery tracker per project</caption>
