@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
-import { RULE_LABEL, type BatchOutcome, type IncomingIssue, type IncomingRule, type IncomingSource, type Ownership, type PullState } from "./types";
+import { GITHUB_TERMS, RULE_LABEL, type IncomingTerms, type BatchOutcome, type IncomingIssue, type IncomingRule, type IncomingSource, type Ownership, type PullState } from "./types";
 
-type Props = { source: IncomingSource; projects: { id: string; name: string }[]; canEdit: boolean; canAdmin: boolean; now?: number; /** Called after initiatives were created or removed here (a pull-in or its undo), so a grid behind this window can reload. */ onChanged?: () => void; /** Inside another window (the first step of Sync): a small heading instead of the page heading and no long introduction. */ embedded?: boolean };
+type Props = { source: IncomingSource; /** Words for the tracker the issues come from; GitHub when left out. */ terms?: IncomingTerms; projects: { id: string; name: string }[]; canEdit: boolean; canAdmin: boolean; now?: number; /** Called after initiatives were created or removed here (a pull-in or its undo), so a grid behind this window can reload. */ onChanged?: () => void; /** Inside another window (the first step of Sync): a small heading instead of the page heading and no long introduction. */ embedded?: boolean };
 type Undo = { label: string; run: () => Promise<string> };
 
-const TABS: { id: PullState; label: string; hint: string }[] = [
-  { id: "not_pulled", label: "Not pulled", hint: "Seen in GitHub, not part of the roadmap." },
+const tabs = (tracker: string): { id: PullState; label: string; hint: string }[] => [
+  { id: "not_pulled", label: "Not pulled", hint: `Seen in ${tracker}, not part of the roadmap.` },
   { id: "ignored", label: "Ignored", hint: "Left out on purpose. Nothing is ever written to these." },
   { id: "pulled", label: "Pulled in", hint: "Already initiatives; they follow their issue read-only." },
 ];
@@ -24,7 +24,8 @@ const failedText = (r: BatchOutcome[]) => { const bad = r.filter((x) => !x.ok); 
  * (Ignore), and let saved rules decide for new arrivals. Nothing here writes to GitHub; ignored and not-pulled issues are
  * not initiatives, so they are in no grid, rank, cycle or report.
  */
-export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp, onChanged, embedded = false }: Props) {
+export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp, onChanged, embedded = false, terms = GITHUB_TERMS }: Props) {
+  const TABS = tabs(terms.tracker);
   const [issues, setIssues] = useState<IncomingIssue[] | null>(null);
   const [rules, setRules] = useState<IncomingRule[]>([]);
   const [connectionId, setConnectionId] = useState("");
@@ -40,7 +41,7 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
   const [repo, setRepo] = useState("");
   const [state, setState] = useState("");
   const [age, setAge] = useState("any");
-  const [project, setProject] = useState(projects[0]?.id ?? "");
+  const [project, setProject] = useState(terms.projectFixed ? "linked" : (projects[0]?.id ?? ""));
   const [ownership, setOwnership] = useState<Ownership>("follow");
   const [reason, setReason] = useState("");
   const [saveRule, setSaveRule] = useState(false);
@@ -152,7 +153,7 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
     apply(r, (i, o) => ({ ...i, pullState: "pulled", itemId: o.itemId ?? null, ignoreReason: null }));
     if (done.length === 0) { setMessage(`Nothing was pulled in.${failedText(r)}`); return; }
     onChanged?.();
-    const where = projects.find((p) => p.id === project)?.name ?? "the project";
+    const where = terms.projectFixed ? "the projects linked to their Jira projects" : (projects.find((p) => p.id === project)?.name ?? "the project");
     setMessage(`Pulled ${done.length} ${done.length === 1 ? "issue" : "issues"} into ${where} as initiatives (${done.slice(0, 3).map((o) => o.itemCode).filter(Boolean).join(", ")}${done.length > 3 ? ", …" : ""}). ${ownership === "push" ? "Product Velocity owns what they are; nothing is written to GitHub until you sync and confirm" : "They follow the issue read-only"}; nothing was written to GitHub.${failedText(r)}`);
     setUndo({
       label: "Undo pull in",
@@ -184,8 +185,8 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
 
   return (
     <>
-      {embedded ? <h3>New issues in GitHub</h3> : <div className="page-head"><h1>Incoming</h1></div>}
-      {!embedded && <p className="muted">Issues in GitHub that are not initiatives. Nothing comes into the roadmap just because it exists: pull in what belongs, ignore the rest (bugs, chores, support). Both can be changed any time, and nothing here ever writes to GitHub.</p>}
+      {embedded ? <h3>New issues in {terms.tracker}</h3> : <div className="page-head"><h1>Incoming</h1></div>}
+      {!embedded && <p className="muted">Issues in {terms.tracker} that are not initiatives. Nothing comes into the roadmap just because it exists: pull in what belongs, ignore the rest (bugs, chores, support). Both can be changed any time, and nothing here ever writes to {terms.tracker}.</p>}
       {error && <div role="alert" className="error">{error}</div>}
       <p role="status" className="trash-status">
         {message}
@@ -205,12 +206,12 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
         <input type="search" aria-label="Search the incoming issues" placeholder="Search title, number or label" value={q} onChange={(e) => { setQ(e.target.value); setShown(SHOWN); }} />
         <select aria-label="Issue type" value={type} onChange={(e) => setType(e.target.value)}><option value="">Any type</option>{options.types.map((t) => <option key={t}>{t}</option>)}</select>
         <select aria-label="Label" value={label} onChange={(e) => setLabel(e.target.value)}><option value="">Any label</option>{options.labels.map((t) => <option key={t}>{t}</option>)}</select>
-        <select aria-label="Repository" value={repo} onChange={(e) => setRepo(e.target.value)}><option value="">Any repository</option>{options.repos.map((t) => <option key={t} value={t}>{shortRepo(t)}</option>)}</select>
+        <select aria-label={terms.groupLabel} value={repo} onChange={(e) => setRepo(e.target.value)}><option value="">Any {terms.groupLabel.toLowerCase()}</option>{options.repos.map((t) => <option key={t} value={t}>{shortRepo(t)}</option>)}</select>
         <select aria-label="Issue state" value={state} onChange={(e) => setState(e.target.value)}><option value="">Open and closed</option><option value="open">Open</option><option value="closed">Closed</option></select>
         <select aria-label="Last activity" value={age} onChange={(e) => setAge(e.target.value)}>{AGES.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}</select>
       </div>
 
-      {rows.length === 0 ? <p>{all.length === 0 ? "No issues yet. Press “Check GitHub now” above to read them." : "Nothing here."}</p> : (
+      {rows.length === 0 ? <p>{all.length === 0 ? terms.emptyHint : "Nothing here."}</p> : (
         <>
           <div className="incoming-pick">
             <span>{canEdit && tab !== "pulled" ? <><strong>{picked.size}</strong> of {rows.length} {rows.length === 1 ? "issue" : "issues"} selected</> : <>{rows.length} {rows.length === 1 ? "issue" : "issues"}</>}{rows.length > visible.length ? `, showing the first ${visible.length}` : ""}</span>
@@ -235,9 +236,9 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
                   const parent = i.parentNumber !== null ? all.find((p) => p.repo === i.repo && p.number === i.parentNumber) : null;
                   return (
                     <tr key={i.id}>
-                      <td>{canEdit && tab !== "pulled" && <input type="checkbox" aria-label={`Select #${i.number} ${i.title}`} checked={picked.has(i.id)} onChange={() => toggle(i.id)} />}</td>
-                      <td className="mono">{i.url ? <a href={i.url} target="_blank" rel="noreferrer">#{i.number}</a> : `#${i.number}`} <span className="muted">{shortRepo(i.repo)}</span></td>
-                      <td>{i.title}{i.parentNumber !== null && <span className="muted"> · sub-issue of #{i.parentNumber}{parent ? ` “${parent.title.slice(0, 40)}” (${parent.pullState === "pulled" ? "pulled in" : parent.pullState === "ignored" ? "ignored" : "not pulled"})` : ""}</span>}</td>
+                      <td>{canEdit && tab !== "pulled" && <input type="checkbox" aria-label={`Select ${terms.ref(i)} ${i.title}`} checked={picked.has(i.id)} onChange={() => toggle(i.id)} />}</td>
+                      <td className="mono">{i.url ? <a href={i.url} target="_blank" rel="noreferrer">{terms.ref(i)}</a> : terms.ref(i)}{terms.tracker === "GitHub" && <> <span className="muted">{shortRepo(i.repo)}</span></>}</td>
+                      <td>{i.title}{i.parentNumber !== null && <span className="muted"> · sub-issue of {terms.ref({ repo: i.repo, number: i.parentNumber })}{parent ? ` “${parent.title.slice(0, 40)}” (${parent.pullState === "pulled" ? "pulled in" : parent.pullState === "ignored" ? "ignored" : "not pulled"})` : ""}</span>}</td>
                       <td>{i.issueType ?? <span className="muted">none</span>}</td>
                       <td>{i.labels.length ? i.labels.join(", ") : <span className="muted">none</span>}</td>
                       <td>{i.state === "open" ? "Open" : "Closed"}</td>
@@ -256,9 +257,13 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
         <section className="incoming-bring" aria-label="Bring in the selected issues">
           <h3>{tab === "not_pulled" ? "What to do with the selected issues" : "Bring the selected issues back"}</h3>
           <div className="incoming-actions">
-            <label className="in-field"><span>Pull in to project</span>
-              <select value={project} onChange={(e) => setProject(e.target.value)}>{projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
-            </label>
+            {terms.projectFixed ? (
+              <p className="in-field muted">Each issue goes into the project that is linked to its Jira project.</p>
+            ) : (
+              <label className="in-field"><span>Pull in to project</span>
+                <select value={project} onChange={(e) => setProject(e.target.value)}>{projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+              </label>
+            )}
             <label className="in-field"><span>Who owns the new initiatives</span>
               <select value={ownership} onChange={(e) => setOwnership(e.target.value as Ownership)}>{OWNERSHIP.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select>
             </label>
@@ -270,10 +275,10 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
                 <input placeholder="For example: support request" maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} />
               </label>
               <button type="button" className="btn" disabled={busy || picked.size === 0} onClick={() => void ignore()}>Ignore {picked.size > 0 ? picked.size : ""}</button>
-              {canAdmin && ruleCandidate && (
+              {terms.rules && canAdmin && ruleCandidate && (
                 <label className="in-check"><input type="checkbox" checked={saveRule} onChange={(e) => setSaveRule(e.target.checked)} /> Also ignore future issues like this ({RULE_LABEL[ruleCandidate.kind].toLowerCase()} <strong>{ruleCandidate.value}</strong>)</label>
               )}
-              {canAdmin && !ruleCandidate && (setFilters.length > 0 || otherFilter) && (
+              {terms.rules && canAdmin && !ruleCandidate && (setFilters.length > 0 || otherFilter) && (
                 <span className="muted in-note">To also ignore future issues like these, filter on exactly one of type, label or repository, with no search, state or age.</span>
               )}
             </div>
@@ -287,13 +292,13 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
       )}
       {children && (
         <div role="alertdialog" aria-label="Ignore the sub-issues too?" className="notice">
-          <p>{children.length} of the selected issues {children.length === 1 ? "has a parent" : "have parents"} that you are ignoring: {children.slice(0, 3).map((c) => `#${c.number}`).join(", ")}{children.length > 3 ? ", …" : ""}. Ignore {children.length === 1 ? "it" : "them"} too?</p>
+          <p>{children.length} of the selected issues {children.length === 1 ? "has a parent" : "have parents"} that you are ignoring: {children.slice(0, 3).map((c) => terms.ref(c)).join(", ")}{children.length > 3 ? ", …" : ""}. Ignore {children.length === 1 ? "it" : "them"} too?</p>
           <button type="button" className="btn btn-primary" onClick={() => void ignoreWithChildren()}>Ignore them too</button>{" "}
           <button type="button" className="btn" onClick={() => { const list = chosen; setChildren(null); void setStateFor(list, "ignored", reason.trim() || null).then(rememberRule); setReason(""); }}>Only the selected</button>
         </div>
       )}
 
-      <section className="incoming-rules" aria-labelledby={`${id}-rules`}>
+      {terms.rules && <section className="incoming-rules" aria-labelledby={`${id}-rules`}>
         <h2 id={`${id}-rules`}>Rules for future arrivals</h2>
         <p className="muted">A rule applies only to issues that arrive from now on: when one appears for the first time and matches, it is ignored instead of waiting in Not pulled. A rule never changes issues that are already here, nor initiatives already pulled in, and it never pulls anything in. Several rules work as “any of these”.</p>
         {rules.length === 0 && <p className="muted">No rules yet.</p>}
@@ -311,7 +316,7 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
           </form>
         )}
         {!canAdmin && <p className="muted">Only admins change the rules.</p>}
-      </section>
+      </section>}
     </>
   );
 }

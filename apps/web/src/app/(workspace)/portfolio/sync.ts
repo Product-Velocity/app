@@ -28,3 +28,9 @@ const router = () => routeSync({ github: { start: startGithubSync, board: checkG
 export async function startSync(ids: string[], opts?: { board?: boolean }): Promise<SyncPreviewResult> { return router().start(ids, opts); }
 export async function checkBoard(ids: string[]): Promise<BoardResult> { return router().board(ids); }
 export async function confirmSync(ids: string[], choices: SyncChoice[]): Promise<SyncConfirmResult> { return router().confirm(ids, choices); }
+
+/** Which trackers the selected initiatives belong to (a project without a tracker counts as GitHub, as the sync does). Decides which "new items" steps the Sync dialog shows. */
+export async function syncTrackers(ids: string[]): Promise<TrackerId[]> {
+  const of = await trackerOf(ids);
+  return [...new Set(ids.map((id) => of.get(id) ?? "github"))];
+}
