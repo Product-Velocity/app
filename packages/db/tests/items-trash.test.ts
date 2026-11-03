@@ -294,24 +294,51 @@ describe("deleted items never show up elsewhere", () => {
 });
 
 describe("speed", () => {
-  it("deleting 100 items on a workspace with 2,000 items takes well under a second, in one call", async () => {
+  // Wall-clock limits flake on slow or busy machines (CI failed once at 1002 ms, a laptop at 1056 and 4,500 ms) and say nothing
+  // about *why* something is slow. What this guards is that deleting many items is ONE set-based pass: one statement that marks
+  // them, one that closes the rank gaps, each row touched at most once. A per-row loop or a re-rank per deleted item would run
+  // about 100 statements and touch ~100 x 1,000 rows. So we count the UPDATE statements and the rows they touch on public.items
+  // with a statement-level trigger (transition table). The numbers are the same on every machine, however fast or loaded.
+  it("deleting 100 items on a workspace with 2,000 items is one set-based pass, not a loop per item", async () => {
     const tenant = (await db.asUser(await createUser(db, "big-owner@example.test"), async (q) => (await q("select public.create_tenant('Big') as id")).rows[0].id as string, { commit: true }));
     const project = (await db.admin.query("insert into public.projects (tenant_id, name) values ($1, 'Big') returning id", [tenant])).rows[0].id;
     await db.admin.query("insert into public.items (tenant_id, initiative_name, home_project_id) select $1, 'Item ' || g, $2 from generate_series(1, 2000) g", [tenant, project]);
     const admin = (await db.admin.query("select user_id from public.tenant_members where tenant_id = $1 and role = 'admin'", [tenant])).rows[0].user_id as string;
     const ids = (await db.admin.query("select id from public.items where tenant_id = $1 and stack_rank % 20 = 5 order by stack_rank limit 100", [tenant])).rows.map((r) => r.id as string);
     expect(ids).toHaveLength(100);
-    const t0 = performance.now();
-    const res = await db.asUser(admin, async (q) => (await q("select * from public.delete_items($1)", [ids])).rows as Outcome[], { commit: true, via: "UI" });
-    const ms = performance.now() - t0;
-    expect(res.every((r) => r.ok)).toBe(true);
-    expect(ms).toBeLessThan(1000);
-    const rows = await live(tenant);
-    expect(rows).toHaveLength(1900);
-    expect(dense(rows)).toEqual(rows.map((_, i) => i + 1));
-    const t1 = performance.now();
-    await db.asUser(admin, (q) => q("select * from public.restore_items($1)", [ids]), { commit: true, via: "UI" });
-    expect(performance.now() - t1).toBeLessThan(1500);
-    expect(await live(tenant)).toHaveLength(2000);
+
+    await db.admin.query(`
+      create schema speed_probe;
+      create table speed_probe.updates (n int not null);
+      create function speed_probe.count_update() returns trigger language plpgsql security definer set search_path = '' as $$
+      begin insert into speed_probe.updates select count(*) from touched where tenant_id = '${tenant}'; return null; end $$;
+      create trigger speed_probe after update on public.items referencing new table as touched for each statement execute function speed_probe.count_update();`);
+    try {
+      // statements that updated items of this workspace, and the rows they touched in all
+      const counted = async () => {
+        const r = (await db.admin.query("select count(*) filter (where n > 0)::int as statements, coalesce(sum(n), 0)::int as rows from speed_probe.updates")).rows[0] as { statements: number; rows: number };
+        await db.admin.query("truncate speed_probe.updates");
+        return r;
+      };
+
+      const res = await db.asUser(admin, async (q) => (await q("select * from public.delete_items($1)", [ids])).rows as Outcome[], { commit: true, via: "UI" });
+      expect(res.every((r) => r.ok)).toBe(true);
+      const del = await counted();
+      // mark + close the gaps (+ a little room for a future helper); a loop would be >= 100 statements
+      expect(del.statements).toBeLessThanOrEqual(4);
+      // the marked rows plus every row below the first gap renumbered once: never more than the workspace has (a per-item re-rank is ~100,000)
+      expect(del.rows).toBeLessThanOrEqual(2000);
+      const rows = await live(tenant);
+      expect(rows).toHaveLength(1900);
+      expect(dense(rows)).toEqual(rows.map((_, i) => i + 1));
+
+      await db.asUser(admin, (q) => q("select * from public.restore_items($1)", [ids]), { commit: true, via: "UI" });
+      const back = await counted();
+      expect(back.statements).toBeLessThanOrEqual(4);
+      expect(back.rows).toBeLessThanOrEqual(2000);
+      expect(await live(tenant)).toHaveLength(2000);
+    } finally {
+      await db.admin.query("drop trigger speed_probe on public.items; drop schema speed_probe cascade");
+    }
   });
 });
