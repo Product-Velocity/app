@@ -57,6 +57,45 @@ test.describe("the tracker issue next to the Initiative ID", () => {
     expect(r.violations.map((x) => x.id)).toEqual([]);
   });
 
+  test("the Jira tab lists the children of the linked issue, read only, with sub-tasks under their parent", async ({ page }) => {
+    await open(page, "n=12&role=admin&jira=1");
+    await row(page, "item-1").locator('[col-id="item_code"]').click({ position: { x: 8, y: 8 } });
+    const panel = page.getByTestId("item-panel");
+    await panel.getByRole("tab", { name: "Jira" }).click();
+    const table = panel.getByRole("table", { name: "Issues under SCRUM-2" });
+    await expect(table).toBeVisible();
+    await expect(table.getByRole("columnheader")).toHaveText(["Issue", "Title", "Type", "Status", "Assignee"]);
+    const rows = table.locator("tbody tr");
+    await expect(rows).toHaveCount(4);
+    await expect(rows.nth(0)).toContainText("SCRUM-17");
+    await expect(rows.nth(0)).toContainText("Feature");
+    await expect(rows.nth(0)).toContainText("In Progress (in progress)");
+    await expect(rows.nth(0)).toContainText("Dana Reyes");
+    // sub-tasks are indented under their parent; an unassigned one says so; the key links to the Jira browse page
+    await expect(rows.nth(1)).toContainText("↳ SCRUM-20");
+    await expect(rows.nth(2)).toContainText("↳ SCRUM-21");
+    await expect(rows.nth(2)).toContainText("Unassigned");
+    await expect(rows.nth(1).getByRole("link", { name: "SCRUM-20" })).toHaveAttribute("href", "https://acme.atlassian.net/browse/SCRUM-20");
+    await expect(rows.nth(3)).toContainText("Done (done)");
+    // the roll-up counts the leaves, and says a done issue is not a done initiative
+    await expect(panel.getByText(/2 of 3 issues done/)).toBeVisible();
+    await expect(panel.getByText(/not that the initiative is complete/)).toBeVisible();
+    // read only: nothing in the table can be edited, and the grid columns follow the roll-up
+    await expect(table.getByRole("textbox")).toHaveCount(0);
+    await expect(table.getByRole("button")).toHaveCount(0);
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations.map((x) => x.id)).toEqual([]);
+  });
+
+  test("an initiative with no children read yet says where they come from", async ({ page }) => {
+    await open(page, "n=12&role=admin&jira=1");
+    await row(page, "item-2").locator('[col-id="item_code"]').click({ position: { x: 8, y: 8 } });
+    const panel = page.getByTestId("item-panel");
+    await panel.getByRole("tab", { name: "Jira" }).click();
+    await expect(panel.getByText(/No child issues read yet/)).toBeVisible();
+    await expect(panel.getByText(/of \d+ issues? done/)).toHaveCount(0);
+  });
+
   test("without a connection nothing is shown, and the grid has no accessibility violations with the link", async ({ page }) => {
     await open(page, "n=12&role=admin");
     await expect(page.locator("a.issue-link")).toHaveCount(0);

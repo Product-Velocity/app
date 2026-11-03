@@ -1,3 +1,4 @@
+import { leavingChildrenOut } from "@/lib/atlassian/child-filter";
 import { JiraConnectionsView, type JiraConnectionView, type JiraIssueView, type JiraProjectInfo, type JiraProjectLinkView, type JiraProjectOption } from "@/components/jira-connections-view";
 import { jiraConfigured, jiraFieldChoices, jiraGet, jiraProjectDetail, type JiraConnectionRow } from "@/lib/atlassian/server";
 import { parseFieldMap, proposePriorities, type FieldChoice } from "@/lib/atlassian/field-map";
@@ -61,10 +62,13 @@ export default async function JiraSettingsPage({ searchParams }: { searchParams:
   const issueRows = new Map<string, JiraIssueView[]>();
   await Promise.all(
     linkedProjects.map(async (project) => {
-      const { data: rowsOfProject } = await supabase
-        .from("jira_issues").select("id, issue_key, title, issue_type, status, status_category, html_url, hierarchy_level")
-        .eq("tenant_id", active.tenantId).eq("project_id", project).eq("pull_state", ignored === project ? "ignored" : "not_pulled")
-        .order("jira_updated_at", { ascending: false, nullsFirst: false }).limit(100);
+      // the children of a linked initiative are part of its tree, not issues waiting for a decision
+      const { data: rowsOfProject } = await leavingChildrenOut((leaveOut) => {
+        const q = supabase
+          .from("jira_issues").select("id, issue_key, title, issue_type, status, status_category, html_url, hierarchy_level")
+          .eq("tenant_id", active.tenantId).eq("project_id", project).eq("pull_state", ignored === project ? "ignored" : "not_pulled");
+        return (leaveOut ? q.is("child_of_item", null) : q).order("jira_updated_at", { ascending: false, nullsFirst: false }).limit(100);
+      });
       issueRows.set(project, ((rowsOfProject ?? []) as { id: string; issue_key: string; title: string; issue_type: string | null; status: string | null; status_category: string | null; html_url: string | null }[]).map((r) => ({ id: r.id, key: r.issue_key, title: r.title, type: r.issue_type, status: r.status, category: r.status_category, url: r.html_url })));
     }),
   );

@@ -1,3 +1,4 @@
+import { leavingChildrenOut } from "@/lib/atlassian/child-filter";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BatchOutcome, IncomingIssue, IncomingRule, IncomingSource, Ownership, PullState, RuleResult } from "./types";
 
@@ -30,9 +31,13 @@ export class SupabaseJiraIncomingSource implements IncomingSource {
     if (ce) throw new Error(msg(ce));
     const issues: IncomingIssue[] = [];
     for (let from = 0; ; from += PAGE) {
-      const { data, error } = await this.client.from("jira_issues")
-        .select("id, project_id, jira_project_key, issue_key, title, issue_type, labels, status_category, parent_key, html_url, pull_state, ignore_reason, item_id, jira_updated_at")
-        .eq("tenant_id", this.tenantId).order("jira_updated_at", { ascending: false, nullsFirst: false }).order("id").range(from, from + PAGE - 1);
+      // the children of a linked initiative belong to its tree, not to this list
+      const { data, error } = await leavingChildrenOut((leaveOut) => {
+        const q = this.client.from("jira_issues")
+          .select("id, project_id, jira_project_key, issue_key, title, issue_type, labels, status_category, parent_key, html_url, pull_state, ignore_reason, item_id, jira_updated_at")
+          .eq("tenant_id", this.tenantId);
+        return (leaveOut ? q.is("child_of_item", null) : q).order("jira_updated_at", { ascending: false, nullsFirst: false }).order("id").range(from, from + PAGE - 1);
+      });
       if (error) throw new Error(msg(error));
       for (const r of (data ?? []) as Row[]) issues.push(mapJiraRow(r));
       if (!data || data.length < PAGE) break;

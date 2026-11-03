@@ -1,7 +1,7 @@
 "use server";
 
 import { requireWorkspace } from "@/lib/session";
-import { applyLinkedStatuses } from "@/lib/atlassian/refresh-jira";
+import { applyLinkedStatuses, applyLinkedTrees } from "@/lib/atlassian/refresh-jira";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 import type { RefreshSummary } from "@/lib/atlassian/refresh-linked";
 import type { PlanItem, PushItemResult, ReceiveItem, SyncChoice, SyncConfirmResult, SyncPreviewResult, TakenOver } from "@/lib/github/push-types";
@@ -61,6 +61,8 @@ export async function startJiraSync(ids: string[]): Promise<SyncPreviewResult> {
     if (!conn || conn.state !== "connected" || !site) { for (const i of itemIds) failed.set(i, conn?.state === "reconnect_needed" ? RECONNECT : "Jira is not connected for this workspace."); continue; }
     try {
       const s = await applyLinkedStatuses(plink, site.url, { itemIds });
+      // then their children and sub-tasks (read only; a failure of the tree does not fail the status read, ReconnectNeeded does propagate)
+      await applyLinkedTrees(plink, site.url, { itemIds });
       for (const i of itemIds) summaryOf.set(i, s);
     } catch (e) {
       // a connection that needs a new sign-in is shown, once; nothing retries by itself

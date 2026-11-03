@@ -1,6 +1,6 @@
 import type { ActivityRow, EditableField, RelatedField, RelatedValues } from "@pv/domain";
 import type { NewItemValues } from "@pv/domain";
-import type { IssueTreeRow, LoadedItem, TrashedItem } from "./types";
+import type { IssueTreeRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
 
 export type SaveResult = { ok: true } | { ok: false; error: string; conflict?: boolean };
 /** What the database assigns to new items. */
@@ -45,6 +45,8 @@ export interface PortfolioDataSource {
   copyToProject(itemIds: string[], projectId: string): Promise<{ ok: true; copied: { id: string; code: string }[]; failed: { id: string; reason: string }[] } | { ok: false; error: string }>;
   /** The epics and tasks under the item's tracking issue (read-only cache of GitHub). */
   loadIssueTree(itemId: string): Promise<IssueTreeRow[]>;
+  /** The children and sub-tasks of the Jira issue the initiative is linked to (empty until the first read, or before the database has the table). */
+  loadJiraTree(itemId: string): Promise<JiraTreeRow[]>;
   /** Marks the breakdown complete (freezes Planned Scope). Returns the item fields it changed. */
   completeBreakdown(itemId: string): Promise<{ ok: true; values: Record<string, unknown> } | { ok: false; error: string }>;
   /** Who owns a linked initiative: "push" = Product Velocity (sends after a preview and a confirmation), "follow" = read only. Writes nothing to the tracker. Returns the mode before. */

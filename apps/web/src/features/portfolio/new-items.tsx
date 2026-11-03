@@ -1,5 +1,6 @@
 "use client";
 
+import { leavingChildrenOut } from "@/lib/atlassian/child-filter";
 import { useEffect, useState } from "react";
 import { refreshJiraNewItems, refreshNewItems } from "@/app/(workspace)/portfolio/new-items";
 import { createClient } from "@/lib/supabase/browser";
@@ -59,7 +60,10 @@ export function supabaseJiraNewItems(tenantId: string, role: string): NewItemsCo
       if (r.ok && r.reconnect > 0) return "Jira needs a new sign-in, so the list below may be out of date. A workspace admin can sign in again under Settings > Integrations > Jira.";
     },
     async count() {
-      const { count, error } = await client.from("jira_issues").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("pull_state", "not_pulled");
+      const { count, error } = await leavingChildrenOut((leaveOut) => {
+        const q = client.from("jira_issues").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("pull_state", "not_pulled");
+        return leaveOut ? q.is("child_of_item", null) : q;
+      });
       if (error) throw new Error(error.message);
       return count ?? 0;
     },

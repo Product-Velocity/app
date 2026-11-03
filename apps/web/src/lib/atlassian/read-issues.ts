@@ -16,7 +16,7 @@ export type JiraIssueRow = {
   updated: string | null;
 };
 
-type RawIssue = {
+export type RawIssue = {
   id?: string;
   key?: string;
   fields?: {
@@ -26,6 +26,7 @@ type RawIssue = {
     labels?: unknown;
     parent?: { key?: unknown };
     updated?: unknown;
+    assignee?: { displayName?: unknown } | null;
   };
 };
 export type SearchPage = { issues?: RawIssue[]; nextPageToken?: string; isLast?: boolean };
