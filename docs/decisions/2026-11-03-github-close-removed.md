@@ -32,7 +32,7 @@ What stays true: Build Status stays read-only and comes back from GitHub (a clos
 - **Links without an issue number** (a failed first push) have nothing to close and are not offered.
 - **Migration not applied.** The new columns are read apart from everything else; without them the section offers nothing and writes nothing, and the rest of Sync is unaffected.
 - **Shared code.** The card model (`RemovedCard`), `RemovedApi`, the section component and `willText` are shared; the permission gate is shared (`lib/tracker/removed-gate.ts`); `SyncApi.removed` is now per tracker. The tracker-specific parts (what to read, what to write, wording of states) are separate files. Jira's behaviour and tests are unchanged.
-- **Jira gap noticed, not changed:** `jira_record_removed` refuses a service account and a non-admin, but unlike `github_record_removed` it does not also refuse a write whose source is MCP. The server action already makes that unreachable for Claude; adding the check to Jira is a small separate migration if Ashu wants the two identical.
+- **Jira gets the same MCP-source check (Ashu, 2026-11-04).** `jira_record_removed` now also refuses a write whose source is MCP (migration `20261104090419_jira_record_removed_refuse_mcp.sql`), so the two functions are identical in who they refuse.
 
 ## Not verified here
 GitHub cannot be reached from the build environment; everything is tested against a fake GitHub (`MemorySourceControl`) and a fake database. Only a run against a real GitHub App shows: that the App's Issues permission allows `PATCH` with `state_reason`, how a real repository with rules (a protected or archived repository) refuses it, and a real secondary rate limit. The production migration is applied by hand by Ashu.
