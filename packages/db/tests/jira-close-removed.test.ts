@@ -33,7 +33,7 @@ async function setup(o: { mode?: "push" | "follow"; trashed?: boolean } = {}) {
   if (o.trashed !== false) await db.admin.query("update public.items set deleted_at = now() where id = $1", [item]);
   return { item, key, project: p };
 }
-const call = (sql: string, params: unknown[]) => db.asService((q) => q(sql, params), { commit: true, via: "UI" });
+const call = (sql: string, params: unknown[], via = "UI") => db.asService((q) => q(sql, params), { commit: true, via });
 const link = async (id: string) => (await db.admin.query("select * from public.item_jira_links where item_id = $1", [id])).rows[0];
 const record = (who: string, id: string, result = "closed", name: string | null = "Done", sid: string | null = "10001") => call("select public.jira_record_removed($1, $2, $3, $4, $5)", [who, id, result, name, sid]);
 
@@ -90,6 +90,11 @@ describe("jira_record_removed", () => {
   it("is refused for a viewer, a service account (Claude's kind) and a person of another workspace; nothing is recorded", async () => {
     const { item } = await setup();
     for (const who of [viewer, service, f.bob]) expect(await errorCode(record(who, item)), who).toBe(DENIED);
+    expect((await link(item)).removed_handled_at).toBeNull();
+  });
+  it("is refused when the write comes from Claude (MCP), even for a creator", async () => {
+    const { item } = await setup();
+    expect(await errorCode(call("select public.jira_record_removed($1, $2, 'closed', 'Done', '10001')", [creator, item], "MCP"))).toBe(DENIED);
     expect((await link(item)).removed_handled_at).toBeNull();
   });
   it("is not callable by a signed-in person or the public: service role only", async () => {

@@ -1,4 +1,4 @@
-import { MARKER, mergeBody, OWNED_LABEL_PREFIX, type TrackingIssue } from "./outbound";
+import { MARKER, mergeBody, OWNED_LABEL_PREFIX, REMOVED_LABEL, type TrackingIssue } from "./outbound";
 import { GitHubError, type IssueRef, type SourceControl } from "./source-control";
 
 export type ExistingLink = { issueNumber: number | null; lastPushedHash: string | null };
@@ -15,7 +15,7 @@ export const LABEL_COLOUR = "3347D9";
  * - Idempotent: an unchanged item sends nothing; a create whose answer was lost is found again by the marker in the body
  *   instead of being created twice.
  * - Outside the managed block nothing is touched. Labels: the ones the item should have are added; labels in the app's own `pv:`
- *   namespace that it should no longer have are removed; labels outside `pv:` (people's, other tools') are never touched.
+ *   namespace that it should no longer have are removed (except `pv:removed`, which records a confirmed close); labels outside `pv:` (people's, other tools') are never touched.
  */
 export async function pushTrackingIssue(sc: SourceControl, installationId: number, repo: string, itemId: string, built: TrackingIssue, existing: ExistingLink | null): Promise<PushResult> {
   let issue: IssueRef | null = null;
@@ -40,7 +40,7 @@ export async function pushTrackingIssue(sc: SourceControl, installationId: numbe
   }
   const updated = await sc.updateIssue(installationId, repo, issue.number, { title: built.title, body: mergeBody(issue.body, built.block), ...extras });
   await sc.addLabels(installationId, repo, issue.number, built.labels);
-  for (const stale of (issue.labels ?? []).filter((l) => l.startsWith(OWNED_LABEL_PREFIX) && !built.labels.includes(l))) await sc.removeLabel(installationId, repo, issue.number, stale);
+  for (const stale of (issue.labels ?? []).filter((l) => l.startsWith(OWNED_LABEL_PREFIX) && l !== REMOVED_LABEL && !built.labels.includes(l))) await sc.removeLabel(installationId, repo, issue.number, stale);
   return { kind: "updated", issue: updated, hash: built.hash };
 }
 

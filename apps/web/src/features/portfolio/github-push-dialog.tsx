@@ -6,12 +6,13 @@ import { checkBoard, confirmSync, startSync, syncTrackers } from "@/app/(workspa
 import type { SyncApi } from "@/lib/tracker/sync-router";
 import { RemovedSection } from "./removed-section";
 import { closeRemovedInJira, listRemovedInJira } from "@/app/(workspace)/portfolio/jira-removed";
+import { closeRemovedInGithub, listRemovedInGithub } from "@/app/(workspace)/portfolio/github-removed";
 import { NewItemsStep, type NewItemsConfig } from "./new-items";
 import { applyBoardLines, boardCandidates, chunk, CHECK_CHUNK, dropWritten, failedCard, filterByUpdates, mergeChecked, replaceResults, writeAll, writingLabel, type UpdateFilter, type WrittenOne } from "./sync-progress";
 import type { PlanItem, PushItemResult, ReceiveItem, ReceiveStatus, SyncChoice, SyncConflict, SyncPreview, TakenOver } from "@/lib/github/push-types";
 
 /** The three server calls the dialog makes, routed to the sync engine of each initiative's tracker; a test page passes fakes. */
-const REAL_API: SyncApi = { start: startSync, board: checkBoard, confirm: confirmSync, removed: { list: listRemovedInJira, close: closeRemovedInJira } };
+const REAL_API: SyncApi = { start: startSync, board: checkBoard, confirm: confirmSync, removed: { jira: { list: listRemovedInJira, close: closeRemovedInJira }, github: { list: listRemovedInGithub, close: closeRemovedInGithub } } };
 
 type Props = { ids: string[]; api?: SyncApi; /** Given, the sync opens with the issues that are new in the tracker (when there are any): decide on them first. */ newItems?: NewItemsConfig | NewItemsConfig[]; /** Which trackers the initiatives belong to; decides which new-items steps show. The real thing asks the server. */ trackersOf?: (ids: string[]) => Promise<string[]>; onClose: () => void; onDone?: () => void; /** Texts taken over from GitHub (already saved): the grid shows them and makes them one undo step. */ onTakenOver?: (changes: TakenOver[]) => void };
 type Phase =
@@ -93,11 +94,13 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
   const confirmRef = useRef<HTMLButtonElement>(null);
   const [choices, setChoices] = useState<Record<string, "pv" | "github">>({});
   const [updateFilter, setUpdateFilter] = useState<UpdateFilter | "deletions">("all");
-  const [removedCount, setRemovedCount] = useState(0); // initiatives in the Trash whose Jira issue can be closed (the Deletions filter)
+  const [removedCounts, setRemovedCounts] = useState<Record<string, number>>({}); // initiatives in the Trash whose issue can be closed, per tracker (the Deletions filter)
+  const removedCount = Object.values(removedCounts).reduce((a, b) => a + b, 0);
 
   const [progress, setProgress] = useState<{ done: number; total: number } | null>({ done: 0, total: ids.length });
   const [retrying, setRetrying] = useState<string | null>(null);
-  const [removedBusy, setRemovedBusy] = useState(false); // closing removed initiatives' Jira issues: the main send waits
+  const [removedBusyBy, setRemovedBusyBy] = useState<Record<string, boolean>>({}); // closing removed initiatives' issues: the main send waits
+  const removedBusy = Object.values(removedBusyBy).some(Boolean);
   const picksRef = useRef<SyncChoice[]>([]); // the choices of the last confirm, so one failed initiative can be sent again on its own
 
   // the check runs in chunks of a few initiatives, so cards appear as they are ready (up to 25); the board is read once at the end
@@ -348,7 +351,15 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
             {phase.received.some((r) => r.tracker !== "jira") && <p className="muted">Text you or engineers write in the issue outside the marked block is kept. The marked block is overwritten the next time you send.</p>}
             {overwrites > 0 && <p role="note" className="muted">Keep Product Velocity replaces the text in {phase.received.some((r) => r.tracker === "jira") && !phase.received.some((r) => r.tracker !== "jira") ? "Jira" : "GitHub"} with Product Velocity’s when you press Apply and send.{phase.received.some((r) => r.tracker !== "jira") ? " Anything outside the marked block stays." : ""}</p>}
             {unchosen.length > 0 && <p role="status" className="muted">Choose for {unchosen.length === 1 ? "the conflict above" : `all ${unchosen.length} open conflicts`} to continue.</p>}
-            {api.removed && !checking && phase.received.some((r) => r.tracker === "jira") && <div style={updateFilter === "updates" || updateFilter === "none" ? { display: "none" } : undefined}><RemovedSection api={api.removed} onBusy={setRemovedBusy} onCount={setRemovedCount} /></div>}
+            {(["github", "jira"] as const).map((t) => {
+              const removedApi = api.removed?.[t];
+              // GitHub is also the tracker of a project that has none yet (a card without a tracker is a GitHub card)
+              return removedApi && !checking && phase.received.some((r) => (r.tracker ?? "github") === t) ? (
+                <div key={t} style={updateFilter === "updates" || updateFilter === "none" ? { display: "none" } : undefined}>
+                  <RemovedSection api={removedApi} tracker={t} onBusy={(b) => setRemovedBusyBy((prev) => ({ ...prev, [t]: b }))} onCount={(n) => setRemovedCounts((prev) => ({ ...prev, [t]: n }))} />
+                </div>
+              ) : null;
+            })}
             <div className="dialog-actions">
               {needsConfirm && <button type="button" className="btn" onClick={onClose}>Cancel</button>}
               <button ref={confirmRef} type="button" className="btn btn-primary" disabled={unchosen.length > 0 || checking || removedBusy} onClick={needsConfirm ? send : onClose}>

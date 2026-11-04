@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupLabel, changeTypeLabel, issueTypeCandidates, milestoneFor, moscowLabel, rankBandLabel, planAction, BLOCK_END, BLOCK_START, buildTrackingIssue, describePushError, GitHubError, MemorySourceControl, mergeBody, OUTBOUND_ITEM_FIELDS, outsideBlock, projectLabel, pushTrackingIssue, sanitize } from "./index";
+import { groupLabel, changeTypeLabel, issueTypeCandidates, milestoneFor, moscowLabel, rankBandLabel, planAction, BLOCK_END, BLOCK_START, buildTrackingIssue, describePushError, GitHubError, MemorySourceControl, mergeBody, OUTBOUND_ITEM_FIELDS, outsideBlock, projectLabel, pushTrackingIssue, REMOVED_LABEL, sanitize } from "./index";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const base = { item: { item_code: "R-12", initiative_name: "Faster checkout", summary: "Cut steps.", description: undefined as string | undefined, hypothesis: "IF we cut steps THEN conversion rises" }, itemId: ID, projectName: "Mobile App", appUrl: "https://productvelocity.app", artifacts: [{ label: "PRD", url: "https://example.test/prd" }] };
@@ -96,6 +96,18 @@ describe("labels PV owns (the pv: namespace)", () => {
     expect(issue.labels).not.toContain("pv:moscow/must");
     expect(issue.labels).not.toContain("pv:rank/top-10");
     expect(sc.removed).toEqual(["pv:moscow/must", "pv:rank/top-10", "pv:something-custom-by-us-later"]);
+  });
+  it("the label pv:removed (a confirmed close of a removed initiative) is the one pv: label a later push keeps", async () => {
+    const sc = new MemorySourceControl();
+    const first = buildTrackingIssue({ ...base, item: { ...base.item, moscow: "Must" } });
+    const created = await pushTrackingIssue(sc, 1, "acme/road", ID, first, null);
+    if (created.kind !== "created") throw new Error("expected create");
+    const issue = sc.issues.get(`acme/road#${created.issue.number}`)!;
+    issue.labels.push(REMOVED_LABEL);
+    const next = buildTrackingIssue({ ...base, item: { ...base.item, moscow: "Should" } });
+    await pushTrackingIssue(sc, 1, "acme/road", ID, next, { issueNumber: created.issue.number, lastPushedHash: first.hash });
+    expect(issue.labels).toContain(REMOVED_LABEL);
+    expect(sc.removed).toEqual(["pv:moscow/must"]);
   });
   it("clearing MoSCoW removes its label; an unchanged item sends nothing, so removes nothing", async () => {
     const sc = new MemorySourceControl();

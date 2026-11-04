@@ -53,11 +53,37 @@ function fakeRemoved(scenario: string, onClose: (code: string, transition: strin
   };
 }
 
+/** "Removed in Product Velocity" (GitHub scenario `githubremoved`): R-5 is open, R-6 is closed already (label only), R-7 was adopted from GitHub (red warning, unticked; GitHub is limiting requests the first time), R-8 sits in a read-only repository, R-9 is gone. */
+const GH_REMOVED: RemovedCard[] = [
+  { tracker: "github", id: "55555555-5555-4555-8555-555555555555", code: "R-5", name: "Old checkout", issueKey: "acme/app#201", issueUrl: "https://github.com/acme/app/issues/201", state: "ready", trackerStatus: "open", options: [], defaultTransitionId: null },
+  { tracker: "github", id: "66666666-6666-4666-8666-666666666666", code: "R-6", name: "Old loyalty", issueKey: "acme/app#202", issueUrl: "https://github.com/acme/app/issues/202", state: "ready", trackerStatus: "closed as completed", alreadyDone: true, options: [], defaultTransitionId: null },
+  { tracker: "github", id: "77777777-7777-4777-8777-777777777777", code: "R-7", name: "Old referral", adopted: true, issueKey: "acme/app#203", issueUrl: "https://github.com/acme/app/issues/203", state: "ready", trackerStatus: "open", options: [], defaultTransitionId: null },
+  { tracker: "github", id: "88888888-8888-4888-8888-888888888888", code: "R-8", name: "Old wallet", issueKey: "acme/ro#9", issueUrl: null, state: "error", message: "acme/ro is marked read-only in Settings > GitHub: the app never writes to it.", options: [], defaultTransitionId: null },
+  { tracker: "github", id: "99999999-9999-4999-8999-999999999999", code: "R-9", name: "Old rewards", adopted: true, issueKey: "acme/app#205", issueUrl: null, state: "gone", message: "GitHub no longer has this issue (deleted, transferred or not visible to the app). Nothing was changed.", options: [], defaultTransitionId: null },
+];
+function fakeGithubRemoved(onClose: (code: string, transition: string | null) => void): RemovedApi {
+  const attempts = new Map<string, number>();
+  return {
+    list: async () => ({ ok: true, items: GH_REMOVED, more: 0 }),
+    close: async (id, transition) => {
+      const c = GH_REMOVED.find((x) => x.id === id)!;
+      onClose(c.code, transition);
+      await new Promise((r) => setTimeout(r, 300));
+      const tries = (attempts.get(id) ?? 0) + 1;
+      attempts.set(id, tries);
+      if (c.code === "R-7" && tries === 1) return { ok: true, result: { id, code: c.code, outcome: "error", issueLabel: c.issueKey, message: "The label pv:removed was added, but the issue was not closed. GitHub is limiting requests right now. Try again in about 60 seconds." } };
+      if (c.code === "R-9") return { ok: true, result: { id, code: c.code, outcome: "not_found", issueLabel: c.issueKey, message: "GitHub no longer has this issue (or it is not visible to the app): there is nothing to close." } };
+      if (c.code === "R-6") return { ok: true, result: { id, code: c.code, outcome: "already_done", issueLabel: c.issueKey, message: "The issue was already closed (closed as completed). The label pv:removed was added." } };
+      return { ok: true, result: { id, code: c.code, outcome: "closed", issueLabel: c.issueKey, issueUrl: c.issueUrl ?? undefined, message: "Closed as not planned and labelled pv:removed." } };
+    },
+  };
+}
+
 /**
- * Fake server calls for the dialog. Scenarios: `ok` (all three are written), `fail` (R-2 fails the first time and works on Try again),
+ * Fake server calls for the dialog. Scenarios: `ok` (all three are written), `githubremoved` (as `ok`, with initiatives removed in Product Velocity), `fail` (R-2 fails the first time and works on Try again),
  * `stale` (GitHub changed for R-2: the dialog returns to the preview), `lost` (the connection drops while R-2 is written).
  */
-function fakeApi(scenario: string, onCall: (code: string) => void, removed?: RemovedApi): SyncApi {
+function fakeApi(scenario: string, onCall: (code: string) => void, removed?: SyncApi["removed"]): SyncApi {
   const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const attempts = new Map<string, number>();
   return {
@@ -109,7 +135,7 @@ export function SyncHarness({ scenario, newIssues }: { scenario: string; newIssu
   const [open, setOpen] = useState(false);
   const [calls, setCalls] = useState<string[]>([]);
   const [closed, setClosed] = useState<string[]>([]);
-  const api = useMemo(() => fakeApi(scenario, (c) => setCalls((prev) => [...prev, c]), scenario === "jira" ? fakeRemoved(scenario, (c, t) => setClosed((prev) => [...prev, `${c}:${t ?? "-"}`])) : undefined), [scenario]);
+  const api = useMemo(() => fakeApi(scenario, (c) => setCalls((prev) => [...prev, c]), scenario === "jira" ? { jira: fakeRemoved(scenario, (c, t) => setClosed((prev) => [...prev, `${c}:${t ?? "-"}`])) } : scenario === "githubremoved" ? { github: fakeGithubRemoved((c, t) => setClosed((prev) => [...prev, `${c}:${t ?? "-"}`])) } : undefined), [scenario]);
   const [refreshes, setRefreshes] = useState(0);
   const newItems = useMemo(() => fakeNewItems(newIssues, () => setRefreshes((n) => n + 1)), [newIssues]);
   // stable between renders: a new function each time would restart the dialog's first step whenever a counter below changes

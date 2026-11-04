@@ -303,6 +303,7 @@ function fake(over: Partial<SourceControl> = {}): SourceControl {
     listSubIssues: async () => [],
     createIssue: async () => { throw new Error("not used"); },
     updateIssue: async () => { throw new Error("not used"); },
+    closeIssueNotPlanned: async () => { throw new Error("not used"); },
     addLabels: async () => undefined,
     removeLabel: async () => undefined,
     ensureMilestone: async () => 1,
@@ -421,5 +422,27 @@ describe("parseIssueEvent", () => {
     expect(parseIssueEvent("issues", payload({ issue: { ...payload().issue, state: "weird" } }))).toBeNull();
     expect(parseIssueEvent("issues", payload({ issue: { ...payload().issue, updated_at: "not a date" } }))).toBeNull();
     expect(parseIssueEvent("issues", { action: "closed" })).toBeNull();
+  });
+});
+
+describe("GitHubAppSourceControl: closing a removed initiative's issue", () => {
+  const issue = (state: string, reason: string | null = null) => new Response(JSON.stringify({ number: 3, id: 3, node_id: "I_3", html_url: "https://github.com/a/b/issues/3", body: "", state, state_reason: reason, labels: [] }), { status: 200 });
+  const rest = (seen: { url: string; init?: RequestInit }[], reply: () => Response) => new GitHubAppSourceControl({ appId: "1", privateKeyPem: privateKey, fetch: (async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/access_tokens")) return new Response(JSON.stringify({ token: "t" }), { status: 201 });
+    seen.push({ url, init });
+    return reply();
+  }) as typeof fetch });
+  it("sends one PATCH with exactly state closed and state_reason not_planned", async () => {
+    const seen: { url: string; init?: RequestInit }[] = [];
+    const out = await rest(seen, () => issue("closed", "not_planned")).closeIssueNotPlanned(1, "Acme/App", 3);
+    expect(out).toMatchObject({ state: "closed", stateReason: "not_planned" });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.init?.method).toBe("PATCH");
+    expect(seen[0]!.url).toMatch(/\/repos\/Acme\/App\/issues\/3$/);
+    expect(JSON.parse(String(seen[0]!.init?.body))).toEqual({ state: "closed", state_reason: "not_planned" });
+  });
+  it("raises a GitHubError with the status (never the body) when GitHub refuses, and with the retry time on a rate limit", async () => {
+    await expect(rest([], () => new Response("secret body", { status: 404 })).closeIssueNotPlanned(1, "Acme/App", 3)).rejects.toMatchObject({ status: 404 });
+    await expect(rest([], () => new Response("x", { status: 429, headers: { "retry-after": "7" } })).closeIssueNotPlanned(1, "Acme/App", 3)).rejects.toMatchObject({ status: 429, retryAfterSeconds: 7 });
   });
 });

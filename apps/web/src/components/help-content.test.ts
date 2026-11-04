@@ -186,6 +186,18 @@ describe("Help guide: Reports", () => {
   });
 });
 
+describe("Help: closing the GitHub issue of a removed initiative (the same as Jira)", () => {
+  it("says the same things for GitHub: what it does, that a person confirms, that followed issues are untouched, and that Claude cannot do it", () => {
+    const status = COLUMN_ROWS.find((r) => r.key === "status")!;
+    expect(JSON.stringify(status)).toMatch(/only status Product Velocity ever writes to GitHub|one status Product Velocity ever writes to GitHub/);
+    expect(JSON.stringify(status)).toContain("Sync with GitHub (Removed in Product Velocity)");
+    expect(COLUMNS_NOTE).toMatch(/Sync with GitHub does the same/);
+    expect(COLUMNS_NOTE).toMatch(/closes the issue as not planned, you confirm each one/);
+    expect(COLUMNS_NOTE).toMatch(/only followed from GitHub is never touched/);
+    expect(AGENT_ADVANTAGES.find((a) => a.title === "Safe by design")!.text).toMatch(/close a GitHub issue/);
+  });
+});
+
 describe("Help: closing the Jira issue of a removed initiative", () => {
   it("says what it does, that a person confirms, that Jira-origin issues are untouched, and that Claude cannot do it", () => {
     const status = COLUMN_ROWS.find((r) => r.key === "status")!;

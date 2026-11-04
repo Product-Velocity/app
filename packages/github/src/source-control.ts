@@ -72,6 +72,12 @@ export interface SourceControl {
   createIssue(installationId: number, repo: string, input: IssueInput): Promise<IssueRef>;
   /** Updates title and body of an issue. Labels are never replaced: people add their own. */
   updateIssue(installationId: number, repo: string, number: number, input: { title?: string; body?: string; type?: string; milestone?: number }): Promise<IssueRef>;
+  /**
+   * Closes an issue as "not planned" (state `closed`, state_reason `not_planned`). The ONLY way the app closes a GitHub issue: the confirmed, per-initiative
+   * close of an issue Product Velocity owns, after the initiative was removed (decision 2026-11-03-github-close-removed). Called from one file only
+   * (apps/web/src/lib/github/github-close.ts); a test fails if another file calls it. There is no delete and no reopen.
+   */
+  closeIssueNotPlanned(installationId: number, repo: string, number: number): Promise<IssueRef>;
   /** Adds labels to an issue (idempotent); existing labels stay. */
   addLabels(installationId: number, repo: string, number: number, labels: string[]): Promise<void>;
   /** Removes one label from an issue (a label that is not there is fine). The app only ever removes labels in its own `pv:` namespace. */
