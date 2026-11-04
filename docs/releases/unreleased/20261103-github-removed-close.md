@@ -1,4 +1,0 @@
----
-bump: minor
----
-**Sync with GitHub now handles initiatives you deleted.** Like Sync with Jira, it has a section "Removed in Product Velocity": for each initiative in the Trash whose GitHub issue Product Velocity owns, you see what will happen and confirm it, and only then does Product Velocity add the label `pv:removed` and close the issue as "not planned" (an issue that is already closed only gets the label). An issue that is only followed from GitHub, a read-only repository and anything you did not confirm are never written; an issue that came from GitHub and was adopted carries a red warning and is not ticked for you; nothing is deleted or reopened, and Claude cannot do it. The Help page says the same for GitHub as for Jira. Needs the database update `20261103225826_github_close_removed.sql`.
