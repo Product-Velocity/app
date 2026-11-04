@@ -14,7 +14,7 @@ import { adfToText } from "./adf";
 
 // A fake database: each table answers with its fixture whatever the filters are (the real filtering is row-level security).
 let tables: Record<string, unknown>;
-const chain = (table: string) => { const c: Record<string, unknown> = {}; for (const m of ["select", "eq", "is", "in"]) c[m] = () => c; c.maybeSingle = async () => ({ data: Array.isArray(tables[table]) ? (tables[table] as unknown[])[0] ?? null : tables[table] ?? null }); c.then = (ok: (v: unknown) => unknown) => ok({ data: tables[table] ?? [] }); return c; };
+const chain = (table: string) => { const c: Record<string, unknown> = {}; for (const m of ["select", "eq", "is", "in", "order"]) c[m] = () => c; c.maybeSingle = async () => ({ data: Array.isArray(tables[table]) ? (tables[table] as unknown[])[0] ?? null : tables[table] ?? null }); c.then = (ok: (v: unknown) => unknown) => ok({ data: tables[table] ?? [] }); return c; };
 const ctx: Ctx = { supabase: { from: (t: string) => chain(t) } as never, tenantId: "t1", userId: "u1" };
 
 const ID = "11111111-1111-4111-8111-111111111111";
@@ -47,7 +47,7 @@ const loadIt = async () => (await import("./jira-sync-engine")).load(ctx, ID);
 describe("the columns it reads", () => {
   // The same list is checked against the real table in packages/db/tests/jira-sync-write.test.ts: a column that does not exist makes the whole read fail.
   it("are real columns of items (G2M Date (est) is end_date), never dictionary keys that have no column", () => {
-    expect(COLS.split(", ").sort()).toEqual(["change_type", "description", "end_date", "home_project_id", "id", "initiative_name", "item_code", "moscow", "planned_start", "stack_rank", "theme"]);
+    expect(COLS.split(", ").sort()).toEqual(["change_type", "description", "end_date", "home_project_id", "hypothesis", "id", "initiative_name", "item_code", "moscow", "planned_start", "stack_rank", "summary", "theme"]);
   });
   it("a row read that way still gives the engine G2M Date (est) under its field key", async () => {
     tables.items = { id: ID, item_code: "R-1", initiative_name: "Checkout", description: null, moscow: "Must", end_date: "2027-03-31", planned_start: null, home_project_id: "p1" };
@@ -219,5 +219,60 @@ describe("the saved field configuration (decision 2026-11-03-tracker-field-confi
     tables.tracker_field_config = [{ slot: "value_12m", enabled: false, field_id: null }, { slot: "jira.summary", enabled: false, field_id: null }, { slot: "jira.description", enabled: false, field_id: null }];
     const e = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout", labels: [] }).call);
     expect(e.kind === "ok" && e.plan.notes.join(" ")).not.toContain("switched off");
+  });
+});
+
+describe("the description sections of an initiative (issue #319)", () => {
+  const withApp: Ctx = { ...ctx, appUrl: "https://app.example" };
+  const TOKEN = "T".repeat(43);
+  const rows = () => {
+    tables.items = { id: ID, item_code: "R-1", initiative_name: "Checkout", summary: "Short", description: "Pay **fast**", hypothesis: "IF a THEN b", moscow: "Must", end_date: null, planned_start: null, home_project_id: "p1" };
+    tables.item_links = [{ label: "PRD", url: "https://example.test/prd" }];
+    tables.item_files = [{ name: "Shot.png", share_token: TOKEN }, { name: "Secret.png", share_token: null }];
+  };
+  it("reads the summary, hypothesis, links and shared files, and sends them as sections; a file without a share link is named in the preview, not sent", async () => {
+    rows();
+    tables.item_jira_links = null;
+    const l = (await (await import("./jira-sync-engine")).load(withApp, ID))!;
+    const e = await evaluate(l, {}, fakeJira(null).call);
+    expect(e.kind).toBe("ok");
+    if (e.kind !== "ok") return;
+    const t = adfToText(e.plan.fields.description).replace(/\n+/g, "|");
+    expect(t).toBe(`Summary|Short|Description|Pay fast|Hypothesis (IF / THEN / RESULTING IN)|IF a THEN b|Artifacts|- PRD|Files|- Shot.png`);
+    expect(JSON.stringify(e.plan.fields.description)).toContain(`https://app.example/f/${TOKEN}/Shot.png`);
+    expect(JSON.stringify(e.plan.fields.description)).not.toContain("Secret.png");
+    expect(e.plan.notes.join(" ")).toContain("1 attached file has no share link");
+  });
+  it("without an app address no file is linked (and nothing is said about it)", async () => {
+    rows();
+    tables.item_jira_links = null;
+    const l = (await (await import("./jira-sync-engine")).load(ctx, ID))!;
+    const e = await evaluate(l, {}, fakeJira(null).call);
+    expect(e.kind === "ok" && JSON.stringify(e.plan.fields.description)).not.toContain("Shot.png");
+  });
+  it("switching the Files section off in the field configuration leaves it out and says so", async () => {
+    rows();
+    tables.item_jira_links = null;
+    tables.tracker_field_config = [{ slot: "jira.body.files", enabled: false, field_id: null }];
+    const l = (await (await import("./jira-sync-engine")).load(withApp, ID))!;
+    const e = await evaluate(l, {}, fakeJira(null).call);
+    expect(e.kind).toBe("ok");
+    if (e.kind !== "ok") return;
+    expect(adfToText(e.plan.fields.description)).not.toContain("Shot.png");
+    expect(e.plan.notes.join(" ")).toContain("File links not sent: switched off");
+  });
+  it("Keep Jira on the hypothesis takes the text into Product Velocity and records its hash", async () => {
+    rows();
+    const edited = markdownToAdf("## Summary\n\nShort\n\n## Description\n\nPay **fast**\n\n## Hypothesis (IF / THEN / RESULTING IN)\n\nIF changed in Jira");
+    const base = { title: hashText("Checkout"), summary: hashText("Short"), description: hashText(adfToText(markdownToAdf("Pay **fast**"))), hypothesis: hashText("IF a THEN b") };
+    tables.item_jira_links = link({ sync_base: base });
+    const j = fakeJira({ summary: "Checkout", description: edited, labels: ["product-velocity", "pv:moscow/must"] });
+    const e = await evaluate((await (await import("./jira-sync-engine")).load(withApp, ID))!, {}, j.call);
+    expect(e.kind === "ok" && e.conflicts).toMatchObject([{ field: "hypothesis", kind: "github", pv: "IF a THEN b", github: "IF changed in Jira" }]);
+    const w = await writeOne(withApp, ID, [choice("hypothesis" as never, "github", hashText("IF changed in Jira"))], { call: j.call });
+    expect("result" in w && w.result.outcome).not.toBe("error");
+    const pull = rpcCalls.find((c) => c.fn === "jira_apply_pull")!;
+    expect(pull.args.p_fields).toEqual({ hypothesis: "IF changed in Jira" });
+    expect((pull.args.p_base as Record<string, string>).hypothesis).toBe(hashText("IF changed in Jira"));
   });
 });

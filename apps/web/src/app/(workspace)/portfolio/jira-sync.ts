@@ -6,6 +6,7 @@ import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 import type { RefreshSummary } from "@/lib/atlassian/refresh-linked";
 import type { PlanItem, PushItemResult, ReceiveItem, SyncChoice, SyncConfirmResult, SyncPreviewResult, TakenOver } from "@/lib/github/push-types";
 import type { BoardResult } from "@/lib/tracker/sync-router";
+import { siteUrl } from "@/lib/site-url";
 import { evaluate, load, previewParts, previewOne, writeOne, type Ctx } from "@/lib/atlassian/jira-sync-engine";
 
 // "Sync with Jira" (issue #67, #71). READ first: for the selected initiatives it reads their Jira issues, applies what Jira owns (Build Status
@@ -86,7 +87,7 @@ export async function startJiraSync(ids: string[]): Promise<SyncPreviewResult> {
   });
   const names = [...new Set(links.map((l) => connection(l.connection_id)?.sites.find((s) => s.id === l.site_id)?.name).filter((n): n is string => !!n))];
   // the send half: compare the texts and say what would go out (reads Jira again for the push-mode ones; writes nothing)
-  const ctx: Ctx = { supabase: supabase as never, tenantId: tenant, userId: g.ctx.user.id };
+  const ctx: Ctx = { supabase: supabase as never, tenantId: tenant, userId: g.ctx.user.id, appUrl: await siteUrl() };
   const send: PlanItem[] = [];
   const out: ReceiveItem[] = [];
   for (const batch of chunk(received, 5)) {
@@ -124,7 +125,7 @@ export async function checkJiraBoard(): Promise<BoardResult> {
 export async function confirmJiraSync(ids: string[], choices: SyncChoice[]): Promise<SyncConfirmResult> {
   const g = await gate(ids);
   if (!g.ok) return { ok: false, error: g.error };
-  const ctx: Ctx = { supabase: g.ctx.supabase as never, tenantId: g.ctx.active.tenantId, userId: g.ctx.user.id };
+  const ctx: Ctx = { supabase: g.ctx.supabase as never, tenantId: g.ctx.active.tenantId, userId: g.ctx.user.id, appUrl: await siteUrl() };
   const results: PushItemResult[] = [];
   const taken: TakenOver[] = [];
   for (const id of ids) {

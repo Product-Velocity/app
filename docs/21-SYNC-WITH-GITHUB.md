@@ -78,6 +78,9 @@ If everything is in step the card says **"Everything is in step"** and the butto
 - Text outside the managed block is never compared or touched.
 - First sync of an initiative that was linked before this feature existed has no base: the first comparison treats GitHub's current text as the base if it equals what PV last sent (hash of the last pushed block, already stored), and otherwise reports a conflict, never a silent overwrite.
 
+### 8c. Jira has the same sections (2026-11-04)
+The Jira description is cut into the same sections (Summary, Description, Hypothesis, Artifacts, Files) and the first three are compared as in section 8; see `docs/decisions/2026-11-04-jira-description-sections.md`.
+
 ### 8b. Field configuration (2026-11-03)
 What Sync sends where is a default list that an admin can change per project (`docs/decisions/2026-11-03-tracker-field-config.md`). The Sync preview says when something is left out because it was switched off ("The Rank label is not sent: it is switched off in the field configuration") or, on Jira, because a configured field no longer exists on the site. The compared texts (title, Summary, Description, Hypothesis) are fixed, so the three-way compare above is unchanged. Commercial fields can not be mapped.
 

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { compareTexts, hashText, type TextVerdict } from "@pv/github";
-import { adfToText, isSimpleAdf, markdownToAdf } from "./adf";
+import { adfToText, markdownToAdf, type AdfNode } from "./adf";
+import { TEXT_SECTIONS, attachmentsHash, attachmentsText, composeDescription, isSimpleNodes, nodesText, splitDescription, type Link, type Split, type TextSection } from "./jira-sections";
 import { buildJiraPayload, type JiraFieldMap } from "./outbound";
 import { cleanTitle } from "./read-issues";
 
@@ -8,13 +9,16 @@ import { cleanTitle } from "./read-issues";
 // (the base is what both sides agreed at the last sync, hashes only), decide what goes out, what is taken over, and what is still a conflict.
 // Pure, so the whole table is tested. Status is not an input anywhere (rule 6); nothing here can transition an issue.
 
-export type PvItem = { id: string; name: string; description: string | null; moscow?: string | null; g2m_date_est?: string | null; planned_start?: string | null; stack_rank?: number | null; change_type?: string | null; theme?: string | null };
+export type PvItem = { id: string; name: string; summary?: string | null; description: string | null; hypothesis?: string | null; moscow?: string | null; g2m_date_est?: string | null; planned_start?: string | null; stack_rank?: number | null; change_type?: string | null; theme?: string | null };
 export type JiraNow = { summary: string; description: unknown; labels: string[] };
-export type JiraBase = { title?: string; description?: string };
+/** Hashes both sides agreed on at the last sync. `attachments` is the hash of the Artifacts and Files sections as last written. */
+export type JiraBase = { title?: string; summary?: string; description?: string; hypothesis?: string; attachments?: string };
 export type Side = "pv" | "jira";
-export type TextField = "title" | "description";
-export const COLUMN: Record<TextField, "initiative_name" | "description"> = { title: "initiative_name", description: "description" };
-export const LABEL: Record<TextField, string> = { title: "Name", description: "Description" };
+/** The compared texts: the name (the Jira summary) and the three sections of the description. */
+export type TextField = "title" | TextSection;
+export const TEXT_FIELDS: readonly TextField[] = ["title", ...TEXT_SECTIONS];
+export const COLUMN: Record<TextField, "initiative_name" | "summary" | "description" | "hypothesis"> = { title: "initiative_name", summary: "summary", description: "description", hypothesis: "hypothesis" };
+export const LABEL: Record<TextField, string> = { title: "Name", summary: "Summary", description: "Description", hypothesis: "Hypothesis" };
 
 export type FieldCompare = { field: TextField; verdict: TextVerdict; pvText: string; jiraText: string; pvHash: string; jiraHash: string };
 
@@ -22,15 +26,22 @@ export type FieldCompare = { field: TextField; verdict: TextVerdict; pvText: str
 export const markerFor = (itemId: string) => `pv:item/${createHash("sha256").update(`pv-jira-marker:${itemId}`).digest("hex").slice(0, 16)}`;
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
-export function compareJira(pv: PvItem, jira: JiraNow, base: JiraBase | null | undefined): { fields: FieldCompare[]; rich: boolean } {
-  const pvTexts: Record<TextField, string> = { title: cleanTitle(pv.name), description: adfToText(markdownToAdf(pv.description ?? "")) };
-  const jiraTexts: Record<TextField, string> = { title: cleanTitle(jira.summary), description: adfToText(jira.description) };
-  const fields = (["title", "description"] as const).map((field): FieldCompare => {
+export type Compared = { fields: FieldCompare[]; /** The sections of the Jira description that have content this converter cannot write back. */ richIn: TextSection[]; rich: boolean; split: Split };
+
+export function compareJira(pv: PvItem, jira: JiraNow, base: JiraBase | null | undefined): Compared {
+  const split = splitDescription(jira.description);
+  const pvTexts: Record<TextField, string> = { title: cleanTitle(pv.name), summary: adfToText(markdownToAdf(pv.summary ?? "")), description: adfToText(markdownToAdf(pv.description ?? "")), hypothesis: adfToText(markdownToAdf(pv.hypothesis ?? "")) };
+  const jiraTexts: Record<TextField, string> = { title: cleanTitle(jira.summary), summary: nodesText(split.nodes.summary), description: nodesText(split.nodes.description), hypothesis: nodesText(split.nodes.hypothesis) };
+  const fields = TEXT_FIELDS.map((field): FieldCompare => {
     const pvHash = hashText(pvTexts[field]);
     const jiraHash = hashText(jiraTexts[field]);
-    return { field, verdict: compareTexts(base?.[field], pvHash, jiraHash), pvText: pvTexts[field], jiraText: jiraTexts[field], pvHash, jiraHash };
+    let verdict = compareTexts(base?.[field], pvHash, jiraHash);
+    // a section Product Velocity has text for and Jira has none, never recorded before (the first sync after sections were introduced): nothing to lose, it is sent
+    if (verdict === "both" && field !== "title" && base?.[field] === undefined && jiraTexts[field] === "") verdict = "send";
+    return { field, verdict, pvText: pvTexts[field], jiraText: jiraTexts[field], pvHash, jiraHash };
   });
-  return { fields, rich: jiraTexts.description !== "" && !isSimpleAdf(jira.description) };
+  const richIn = TEXT_SECTIONS.filter((k) => !isSimpleNodes(split.nodes[k]));
+  return { fields, richIn, rich: richIn.length > 0, split };
 }
 
 export type Picks = Partial<Record<TextField, Side>>;
@@ -39,14 +50,14 @@ export type SendPlan = {
   /** The fields object for Jira (create or update); empty for "unchanged". */
   fields: Record<string, unknown>;
   /** Texts to take over from Jira into Product Velocity, by column. */
-  takeOver: Partial<Record<"initiative_name" | "description", string>>;
-  /** Fields of the two texts that are still conflicts for lack of a choice. */
+  takeOver: Partial<Record<"initiative_name" | "summary" | "description" | "hypothesis", string>>;
+  /** Fields of the texts that are still conflicts for lack of a choice. */
   unresolved: TextField[];
   /** The agreed hashes after this sync (stored only after the write succeeded). */
   newBase: JiraBase;
   sentHash: string;
   notes: string[];
-  /** Title and description that this plan writes. */
+  /** The texts that this plan writes (the three sections are written together, as one description). */
   writes: TextField[];
 };
 
@@ -61,21 +72,29 @@ type PlanInput = {
   /** The name of the project (for its label). */
   projectName?: string;
   create?: { projectKey: string; issueTypeId: string };
+  /** Links of the initiative and share links of its files, for the Artifacts and Files sections. */
+  artifacts?: Link[];
+  files?: Link[];
 };
 
 export function planJiraSend(i: PlanInput): SendPlan {
-  const item = { initiative_name: i.pv.name, description: i.pv.description ?? "", moscow: i.pv.moscow ?? undefined, g2m_date_est: i.pv.g2m_date_est ?? undefined, planned_start: i.pv.planned_start ?? undefined, stack_rank: i.pv.stack_rank ?? undefined, change_type: i.pv.change_type ?? undefined, theme: i.pv.theme ?? undefined };
+  const item = { initiative_name: i.pv.name, summary: i.pv.summary ?? "", description: i.pv.description ?? "", hypothesis: i.pv.hypothesis ?? "", moscow: i.pv.moscow ?? undefined, g2m_date_est: i.pv.g2m_date_est ?? undefined, planned_start: i.pv.planned_start ?? undefined, stack_rank: i.pv.stack_rank ?? undefined, change_type: i.pv.change_type ?? undefined, theme: i.pv.theme ?? undefined };
   const marker = i.jira ? undefined : markerFor(i.pv.id);
+  const shown = { ...(i.map.off?.includes("jira.body.artifacts") ? {} : { artifacts: i.artifacts }), ...(i.map.off?.includes("jira.body.files") ? {} : { files: i.files }) };
+  const attHash = attachmentsHash(shown.artifacts, shown.files);
+  const payloadInput = { item, fields: i.map, ...(i.projectName ? { projectName: i.projectName } : {}), ...(i.artifacts ? { artifacts: i.artifacts } : {}), ...(i.files ? { files: i.files } : {}) };
   if (!i.jira) {
-    const p = buildJiraPayload({ item, fields: i.map, ...(i.projectName ? { projectName: i.projectName } : {}), ...(i.create ? { create: i.create } : {}), ...(marker ? { marker } : {}) });
-    const c = compareJira(i.pv, { summary: i.pv.name, description: markdownToAdf(i.pv.description ?? ""), labels: [] }, null);
-    return { action: "create", fields: p.fields, takeOver: {}, unresolved: [], newBase: { title: c.fields[0]!.pvHash, description: c.fields[1]!.pvHash }, sentHash: extrasHash(p.fields), notes: p.notes, writes: ["title", "description"] };
+    const p = buildJiraPayload({ ...payloadInput, ...(i.create ? { create: i.create } : {}), ...(marker ? { marker } : {}) });
+    const c = compareJira(i.pv, { summary: i.pv.name, description: null, labels: [] }, null);
+    const newBase: JiraBase = { attachments: attHash };
+    for (const f of c.fields) newBase[f.field] = f.pvHash;
+    return { action: "create", fields: p.fields, takeOver: {}, unresolved: [], newBase, sentHash: extrasHash(p.fields), notes: p.notes, writes: [...TEXT_FIELDS] };
   }
   const cmp = compareJira(i.pv, i.jira, i.base);
   const writes: TextField[] = [];
   const takeOver: SendPlan["takeOver"] = {};
   const unresolved: TextField[] = [];
-  const newBase: JiraBase = {};
+  const newBase: JiraBase = { attachments: attHash };
   const notes: string[] = [];
   for (const f of cmp.fields) {
     const choice = i.picks?.[f.field];
@@ -85,11 +104,23 @@ export function planJiraSend(i: PlanInput): SendPlan {
     if (choice === "jira") { takeOver[COLUMN[f.field]] = f.jiraText; newBase[f.field] = f.jiraHash; continue; }
     unresolved.push(f.field);
   }
-  const p = buildJiraPayload({ item, fields: i.map, ...(i.projectName ? { projectName: i.projectName } : {}), currentLabels: i.jira.labels });
+  const p = buildJiraPayload({ ...payloadInput, currentLabels: i.jira.labels });
   const fields: Record<string, unknown> = { ...p.fields };
   if (!writes.includes("title")) delete fields.summary;
-  if (!writes.includes("description")) delete fields.description;
-  else if (cmp.rich) notes.push("The description in Jira has content Product Velocity cannot write back (a table, macro or mention). Sending replaces the whole description with Product Velocity's text.");
+
+  // The description is one Jira field holding three compared sections and two sent-only ones. It is rewritten when a section is written, or when the
+  // links changed since the last sync, and never while a section is still a conflict. Sections that are not written keep Jira's own content.
+  const sectionWrites = TEXT_SECTIONS.filter((k) => writes.includes(k));
+  const attachmentsDirty = i.base?.attachments === undefined ? attachmentsText(shown.artifacts, shown.files) !== "" : i.base.attachments !== attHash;
+  const unresolvedSection = unresolved.some((f) => f !== "title");
+  if ((sectionWrites.length > 0 || attachmentsDirty) && !unresolvedSection) {
+    const keep: Partial<Record<TextSection, AdfNode[]>> = {};
+    for (const k of TEXT_SECTIONS) if (!sectionWrites.includes(k)) keep[k] = cmp.split.nodes[k] ?? [];
+    fields.description = composeDescription({ pv: { summary: i.pv.summary ?? "", description: i.pv.description ?? "", hypothesis: i.pv.hypothesis ?? "" }, keep, head: cmp.split.head, ...shown });
+    const lost = sectionWrites.filter((k) => cmp.richIn.includes(k));
+    if (lost.length > 0) notes.push(`The ${lost.map((k) => LABEL[k]).join(" and ")} in Jira has content Product Velocity cannot write back (a table, macro or mention). Sending replaces ${lost.length > 1 ? "those sections" : "that section"} with Product Velocity's text.`);
+    if (cmp.split.legacy && sectionWrites.length > 0 && cmp.split.nodes.description) notes.push("The Jira description gets headed sections (Summary, Description, Hypothesis, Artifacts, Files), like the GitHub issue.");
+  } else delete fields.description;
   // the parts that are written but not compared go out only when they changed since the last send, or when the labels in Jira are not as they should be
   const extras = { ...fields };
   delete extras.summary; delete extras.description;
@@ -97,7 +128,7 @@ export function planJiraSend(i: PlanInput): SendPlan {
   const labelsOk = sameSet(i.jira.labels, (p.fields.labels as string[] | undefined) ?? []);
   if (sentHash === (i.sentHash ?? null) && labelsOk) for (const k of Object.keys(extras)) delete fields[k];
   notes.push(...p.notes);
-  return { action: Object.keys(fields).length === 0 ? "unchanged" : "update", fields, takeOver, unresolved, newBase, sentHash, notes, writes };
+  return { action: Object.keys(fields).length === 0 ? "unchanged" : "update", fields, takeOver, unresolved, newBase, sentHash, notes, writes: [...writes] };
 }
 
 const sameSet = (a: string[], b: string[]) => a.length === b.length && [...a].sort().every((x, n) => x === [...b].sort()[n]);

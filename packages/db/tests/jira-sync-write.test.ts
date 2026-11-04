@@ -57,9 +57,21 @@ describe("jira_apply_pull (Keep Jira)", () => {
     const a = (await db.admin.query("select actor_id, via, new #>> '{}' as v from public.audit_log where entity = 'items' and entity_id = $1 and field = 'initiative_name' order by id desc limit 1", [id])).rows[0];
     expect(a).toMatchObject({ actor_id: creator, via: "UI", v: "New name" });
   });
+  it("also takes over the Summary and the Hypothesis (migration jira_description_sections), with their limits, and returns the old values for undo", async () => {
+    const { item: id } = await setup();
+    await db.admin.query("update public.items set summary = 'Old summary', hypothesis = 'Old hypothesis' where id = $1", [id]);
+    const r = await call("select public.jira_apply_pull($1, $2, $3::jsonb, $4::jsonb) as r", [creator, id, JSON.stringify({ summary: "S".repeat(5000), hypothesis: "New hypothesis" }), JSON.stringify({ summary: H("s"), hypothesis: H("h") })]);
+    expect(r.rows[0].r).toEqual({ summary: "Old summary", hypothesis: "Old hypothesis" });
+    const it = (await db.admin.query("select summary, hypothesis from public.items where id = $1", [id])).rows[0];
+    expect(it.summary).toHaveLength(4000);
+    expect(it.hypothesis).toBe("New hypothesis");
+    expect((await link(id)).sync_base).toMatchObject({ summary: H("s"), hypothesis: H("h") });
+    await call("select public.jira_apply_pull($1, $2, $3::jsonb, null)", [creator, id, JSON.stringify({ hypothesis: "" })]);
+    expect((await db.admin.query("select hypothesis from public.items where id = $1", [id])).rows[0].hypothesis).toBeNull();
+  });
   it("refuses any field outside the allowlist, commercial ones and status included, and changes nothing", async () => {
     const { item: id } = await setup();
-    for (const bad of ["value_12m", "confidence", "decision", "stack_rank", "status", "initiative_status", "summary"]) {
+    for (const bad of ["value_12m", "confidence", "decision", "stack_rank", "status", "initiative_status"]) {
       expect(await errorCode(call("select public.jira_apply_pull($1, $2, $3::jsonb, null)", [creator, id, JSON.stringify({ [bad]: "x" })])), bad).toBe("22023");
     }
     expect(await item(id)).toMatchObject({ initiative_name: "Old name", value_12m: "777.00" });

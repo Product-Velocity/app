@@ -113,12 +113,17 @@ describe("Help guide: exact target fields", () => {
   it("names what Sync with Jira really sends today, and no planned target as if it were built", () => {
     const sent = (k: string) => COLUMN_ROWS.find((r) => r.key === k)!.jira;
     expect(sent("initiative_name")).toMatch(/^Sent to Summary/);
-    expect(sent("description")).toMatch(/^Sent to Description, converted to Jira's format/);
+    expect(sent("description")).toMatch(/^Sent to Jira description, section "Description", converted to Jira's format/);
     expect(sent("g2m_date_est")).toBe("Sent to Due date");
     expect(sent("moscow")).toMatch(/Label pv:moscow/);
     expect(sent("stack_rank")).toMatch(/band, never the number/);
     expect(sent("planned_start")).toMatch(/Field configuration/);
-    for (const k of ["summary", "hypothesis", "artifacts", "effort", "assignees"]) expect(sent(k), k).toMatch(/^Not (sent|synced)/);
+    // issue #319: Jira gets the same sections as the GitHub block
+    expect(sent("summary")).toMatch(/Jira description, section "Summary"/);
+    expect(sent("hypothesis")).toMatch(/Jira description, section "Hypothesis/);
+    expect(sent("artifacts")).toMatch(/^Sent to Jira description, section "Artifacts"/);
+    expect(sent("screenshots")).toMatch(/section "Files"/);
+    for (const k of ["effort", "assignees"]) expect(sent(k), k).toMatch(/^Not (sent|synced)/);
     for (const k of ["open_prs", "ci_status", "latest_release"]) expect(sent(k), k).toBe("Not read yet");
     // the children of the linked issue are read now, so the roll-up columns say where they come from (and that a done child is not a done initiative)
     for (const k of ["issues_total", "issues_closed", "delivery_progress_pct"]) expect(sent(k), k).toMatch(/children/);

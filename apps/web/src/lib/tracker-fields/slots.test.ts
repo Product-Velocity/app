@@ -45,7 +45,7 @@ describe("hard boundaries (rules 2 and 6)", () => {
   });
   it("only allowlisted fields have a slot that sends (the same lists the payload builders read)", () => {
     const github = new Set<string>([...OUTBOUND_ITEM_FIELDS, ...BOARD_ONLY_FIELDS, "home_project", "screenshots", "artifacts", "assignees"]);
-    const jira = new Set<string>([...OUTBOUND_JIRA_FIELDS, "home_project"]);
+    const jira = new Set<string>([...OUTBOUND_JIRA_FIELDS, "home_project", "artifacts", "screenshots"]);
     for (const s of SLOTS) expect((s.tracker === "github" ? github : jira).has(s.pvKey), s.id).toBe(true);
   });
 });
@@ -58,7 +58,8 @@ describe("the defaults describe what Sync does today", () => {
     expect(row("jira", "moscow").map((r) => r.slot!.id)).toEqual(["jira.label.moscow", "jira.priority"]);
     expect(row("jira", "status")[0]!.direction).toBe("from_tracker");
     expect(row("jira", "open_prs")[0]!.direction).toBe("not_synced");
-    expect(row("jira", "summary")[0]!.direction).toBe("not_synced"); // GitHub's managed block only
+    expect(row("jira", "summary")[0]).toMatchObject({ direction: "two_way", target: "Description, section Summary" }); // issue #319: sections like the GitHub block
+    expect(row("jira", "artifacts")[0]!.slot!.id).toBe("jira.body.artifacts");
   });
   it("GitHub: the issue block both ways, labels and board values to GitHub, delivery from GitHub", () => {
     expect(row("github", "hypothesis")[0]).toMatchObject({ direction: "two_way" });

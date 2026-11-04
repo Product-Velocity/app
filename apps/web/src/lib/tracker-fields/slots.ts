@@ -42,7 +42,7 @@ export const FROM_TRACKER: Record<Tracker, ReadonlyMap<string, string>> = {
 /** Fields compared three ways (Received, Conflicts, To send). */
 export const TWO_WAY: Record<Tracker, ReadonlyMap<string, string>> = {
   github: new Map([["initiative_name", "Issue title (after the item code)"], ["summary", "Managed block, ## Summary"], ["description", "Managed block, ## Description"], ["hypothesis", "Managed block, ## Hypothesis"], ["assignees", "Issue assignees (people matched by GitHub username)"]]),
-  jira: new Map([["initiative_name", "Summary"], ["description", "Description (Atlassian Document Format)"]]),
+  jira: new Map([["initiative_name", "Summary"], ["summary", "Description, section Summary"], ["description", "Description, section Description (Atlassian Document Format)"], ["hypothesis", "Description, section Hypothesis"]]),
 };
 
 export type SlotKind = "fixed" | "toggle" | "field";
@@ -71,7 +71,11 @@ const label = (id: string, pvKey: string, tracker: Tracker, defaultTarget: strin
 export const SLOTS: readonly Slot[] = [
   // ---- Jira ----
   { id: "jira.summary", tracker: "jira", pvKey: "initiative_name", kind: "fixed", direction: "two_way", defaultTarget: "Summary", fixedReason: "Jira requires a summary, and the name is compared both ways.", store: "config" },
-  { id: "jira.description", tracker: "jira", pvKey: "description", kind: "fixed", direction: "two_way", defaultTarget: "Description (Atlassian Document Format)", fixedReason: "The description is compared both ways, so it always goes along.", store: "config" },
+  { id: "jira.body.summary", tracker: "jira", pvKey: "summary", kind: "fixed", direction: "two_way", defaultTarget: "Description, section Summary", fixedReason: "The sections of the description are compared both ways, so they stay as they are.", store: "config" },
+  { id: "jira.description", tracker: "jira", pvKey: "description", kind: "fixed", direction: "two_way", defaultTarget: "Description, section Description (Atlassian Document Format)", fixedReason: "The sections of the description are compared both ways, so they stay as they are.", store: "config" },
+  { id: "jira.body.hypothesis", tracker: "jira", pvKey: "hypothesis", kind: "fixed", direction: "two_way", defaultTarget: "Description, section Hypothesis", fixedReason: "The sections of the description are compared both ways, so they stay as they are.", store: "config" },
+  label("jira.body.artifacts", "artifacts", "jira", "Description, section Artifacts (links)"),
+  label("jira.body.files", "screenshots", "jira", "Description, section Files (share links of attached files)"),
   label("jira.label.moscow", "moscow", "jira", "Label pv:moscow/<value>"),
   label("jira.label.rank", "stack_rank", "jira", "Label pv:rank/<band> (top 10, 25, 50, later; never the number)"),
   label("jira.label.type", "change_type", "jira", "Label pv:type/<value>"),

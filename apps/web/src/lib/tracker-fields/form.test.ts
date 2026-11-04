@@ -3,7 +3,7 @@ import { configRowsFromForm, jiraMapFromForm, OFF_VALUE, ON, FIELD, RESET, valid
 import { validateConfig } from "./mapping";
 
 const form = (vals: Record<string, string>) => ({ get: (n: string) => vals[n] ?? "", has: (n: string) => n in vals });
-const ALL_JIRA_ON = Object.fromEntries(["moscow", "rank", "type", "group", "project"].map((k) => [ON(`jira.label.${k}`), "on"]));
+const ALL_JIRA_ON = Object.fromEntries(["label.moscow", "label.rank", "label.type", "label.group", "label.project", "body.artifacts", "body.files"].map((k) => [ON(`jira.${k}`), "on"]));
 const ALL_GH_ON = Object.fromEntries(["label.moscow", "label.rank", "label.type", "label.group", "label.project", "milestone", "issueType", "body.artifacts", "body.files"].map((k) => [ON(`github.${k}`), "on"]));
 
 describe("the form", () => {
