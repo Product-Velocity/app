@@ -37,6 +37,11 @@ export const MARKER = (itemId: string) => `<!-- pv:begin item=${itemId} -->`;
 export const BASE_LABEL = "product-velocity";
 /** Labels in this namespace belong to Product Velocity: a push adds the ones an item should have and removes the ones it should not. */
 export const OWNED_LABEL_PREFIX = "pv:";
+/**
+ * Put on the issue of an initiative that was removed in Product Velocity, after a person confirmed it (decision 2026-11-03-github-close-removed).
+ * The one `pv:` label that a push never removes again: it records that Product Velocity closed the issue, even if the initiative is restored.
+ */
+export const REMOVED_LABEL = "pv:removed";
 
 const MOSCOW: Record<string, string> = { Must: "must", Should: "should", Could: "could", "Won't": "wont" };
 /** "pv:moscow/must" for a known MoSCoW value, otherwise no label. */

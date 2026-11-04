@@ -12,8 +12,8 @@ export type SyncApi = {
   start(ids: string[], opts?: { board?: boolean }): Promise<SyncPreviewResult>;
   board(ids: string[]): Promise<BoardResult>;
   confirm(ids: string[], choices: SyncChoice[]): Promise<SyncConfirmResult>;
-  /** Jira only: initiatives removed in Product Velocity whose Jira issue can be labelled and closed. Absent for GitHub. */
-  removed?: RemovedApi;
+  /** Initiatives removed in Product Velocity whose tracker issue can be labelled and closed, per tracker (decisions 2026-11-03-jira-close-removed and 2026-11-03-github-close-removed). */
+  removed?: Partial<Record<"github" | "jira", RemovedApi>>;
 };
 export type SyncEngines = Partial<Record<TrackerId, SyncApi>>;
 /** The tracker of each initiative's project; null when the project has none yet (it then behaves as GitHub, as before). */

@@ -1,5 +1,5 @@
 import type { PrRef, ReleaseRef } from "./delivery";
-import type { BoardItemValue, BoardItemStatus, BoardField, BoardInfo, BoardValue, DeliverySummary, InstallationInfo, IssueInput, IssueRef, IssueSummary, RepoInfo, SourceControl, SubIssue } from "./source-control";
+import { GitHubError, type BoardItemValue, type BoardItemStatus, type BoardField, type BoardInfo, type BoardValue, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type IssueSummary, type RepoInfo, type SourceControl, type SubIssue } from "./source-control";
 
 /** In-memory SourceControl for tests: records every call so a test can prove what was (not) sent. */
 export class MemorySourceControl implements SourceControl {
@@ -114,6 +114,13 @@ export class MemorySourceControl implements SourceControl {
     this.tick("updateIssue", input);
     const issue = this.issues.get(`${repo}#${number}`)!;
     Object.assign(issue, input);
+    return issue;
+  }
+  async closeIssueNotPlanned(_i: number, repo: string, number: number): Promise<IssueRef> {
+    this.tick("closeIssueNotPlanned", { state: "closed", state_reason: "not_planned" });
+    const issue = this.issues.get(`${repo}#${number}`);
+    if (!issue) throw new GitHubError(404, "GitHub refused to close the issue (404)");
+    Object.assign(issue, { state: "closed" as const, stateReason: "not_planned", closedAt: "2026-11-03T12:00:00Z" });
     return issue;
   }
   async addLabels(_i: number, repo: string, number: number, labels: string[]) {

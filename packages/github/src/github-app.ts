@@ -181,6 +181,12 @@ export class GitHubAppSourceControl implements SourceControl {
     return GitHubAppSourceControl.ref((await res.json()) as Parameters<typeof GitHubAppSourceControl.ref>[0]);
   }
 
+  async closeIssueNotPlanned(installationId: number, repo: string, number: number): Promise<IssueRef> {
+    const res = await this.call(installationId, "PATCH", `/repos/${repo}/issues/${number}`, { state: "closed", state_reason: "not_planned" });
+    if (!res.ok) throw new GitHubError(res.status, `GitHub refused to close the issue (${res.status})`);
+    return GitHubAppSourceControl.ref((await res.json()) as Parameters<typeof GitHubAppSourceControl.ref>[0]);
+  }
+
   async addLabels(installationId: number, repo: string, number: number, labels: string[]): Promise<void> {
     const res = await this.call(installationId, "POST", `/repos/${repo}/issues/${number}/labels`, { labels });
     if (!res.ok) throw new GitHubError(res.status, `GitHub refused to add labels (${res.status})`);
