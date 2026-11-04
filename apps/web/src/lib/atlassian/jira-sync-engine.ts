@@ -5,10 +5,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { PlanItem, PushItemResult, ReceiveItem, SyncChoice, SyncConflict, SyncPreview, TakenOver } from "@/lib/github/push-types";
 import { adfToText, markdownToAdf } from "./adf";
 import { findByMarker, readIssue } from "./jira-issue";
-import { compareJira, COLUMN, LABEL, markerFor, planJiraSend, type JiraBase, type PvItem, type SendPlan, type TextField } from "./jira-sync-core";
+import { compareJira, COLUMN, LABEL, TEXT_FIELDS, markerFor, planJiraSend, type JiraBase, type PvItem, type SendPlan, type TextField } from "./jira-sync-core";
 import { OUTBOUND_JIRA_FIELDS } from "./outbound";
 import { createIssue, updateIssue, type JiraRequest } from "./jira-write";
 import { parseFieldMap } from "./field-map";
+import { shareUrl } from "@/lib/files/serve";
+import type { Link } from "./jira-sections";
 import { dropMissingFields } from "./mapped-fields";
 import { effectiveJiraMap, parseConfigRows } from "@/lib/tracker-fields/mapping";
 import { jiraRequest } from "./server";
@@ -20,15 +22,15 @@ import { ReconnectNeeded } from "./token-provider";
 // reachable from here (rule 6). Claude and service accounts never reach this code: the server action refuses them before (jira-sync.ts).
 
 type Db = SupabaseClient;
-export type Ctx = { supabase: Db; tenantId: string; userId: string };
-type ItemRow = { id: string; item_code: string; initiative_name: string; description: string | null; moscow: string | null; g2m_date_est: string | null; planned_start: string | null; stack_rank: number | null; change_type: string | null; theme: string | null; home_project_id: string | null };
+export type Ctx = { supabase: Db; tenantId: string; userId: string; /** Public address of this app, for the share links of files (Files section); without it files are not linked. */ appUrl?: string };
+type ItemRow = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; g2m_date_est: string | null; planned_start: string | null; stack_rank: number | null; change_type: string | null; theme: string | null; home_project_id: string | null };
 /** The real column of each allowlisted field (G2M Date (est) lives in `end_date`): a column that does not exist makes the whole read fail, so they come from the field registry, as the GitHub push does. */
 export const ITEM_COLUMNS: Record<string, string> = Object.fromEntries(OUTBOUND_JIRA_FIELDS.map((k) => [k, columnOnItems(FIELD_BY_KEY[k]!)!]));
 type LinkRow = { item_id: string; connection_id: string; site_id: string; issue_key: string; issue_id: string | null; html_url: string | null; mode: "follow" | "push"; sync_base: JiraBase | null; sent_hash: string | null };
 type ProjectLink = { project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; field_map?: unknown; /** Rows of tracker_field_config (the field configuration), as stored. */ config?: unknown };
 type Conn = { id: string; sites: { id: string; name: string; url: string }[]; state: string };
 
-export type Loaded = { projectName?: string; /** Set when the initiative was removed (Trash), its Jira issue was closed by Product Velocity, and it was restored since: the issue is not reopened. */ closedWhileRemoved?: string | null; item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
+export type Loaded = { /** Artifact links and share links of files, for the Artifacts and Files sections. */ artifacts?: Link[]; files?: Link[]; /** Files that have no share link and so are not in the description. */ unsharedFiles?: number; projectName?: string; /** Set when the initiative was removed (Trash), its Jira issue was closed by Product Velocity, and it was restored since: the issue is not reopened. */ closedWhileRemoved?: string | null; item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
 
 export const COLS = ["id", "item_code", ...Object.values(ITEM_COLUMNS), "home_project_id"].filter((c, i, a) => a.indexOf(c) === i).join(", ");
 /** A row as read with COLS, with the allowlisted values under their field keys. */
@@ -62,10 +64,17 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   const siteId = l?.site_id ?? plink?.site_id;
   const { data: proj } = item.home_project_id ? await ctx.supabase.from("projects").select("name").eq("tenant_id", ctx.tenantId).eq("id", item.home_project_id).maybeSingle() : { data: null };
   const projectName = (proj as { name?: string } | null)?.name;
-  return { ...(projectName ? { projectName } : {}), ...(closedWhileRemoved ? { closedWhileRemoved } : {}), item: asItemRow(item as Record<string, unknown>), link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
+  // the links of the initiative and the share links of its files (a file without a share link is not sent); read apart, so a database without them sends none
+  const { data: linkRows } = await ctx.supabase.from("item_links").select("label, url").eq("tenant_id", ctx.tenantId).eq("item_id", id).order("created_at");
+  const artifacts = ((linkRows ?? []) as { label: string; url: string }[]).map((r) => ({ label: r.label, url: r.url }));
+  const { data: fileRows } = await ctx.supabase.from("item_files").select("name, share_token").eq("tenant_id", ctx.tenantId).eq("item_id", id).order("created_at");
+  const allFiles = (fileRows ?? []) as { name: string; share_token: string | null }[];
+  const files = ctx.appUrl ? allFiles.filter((r) => r.share_token).map((r) => ({ label: r.name, url: shareUrl(ctx.appUrl!, r.share_token!, r.name) })) : [];
+  const unsharedFiles = ctx.appUrl ? allFiles.filter((r) => !r.share_token).length : 0;
+  return { ...(artifacts.length ? { artifacts } : {}), ...(files.length ? { files } : {}), ...(unsharedFiles ? { unsharedFiles } : {}), ...(projectName ? { projectName } : {}), ...(closedWhileRemoved ? { closedWhileRemoved } : {}), item: asItemRow(item as Record<string, unknown>), link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
 }
 
-export const pvOf = (i: ItemRow): PvItem => ({ id: i.id, name: i.initiative_name, description: i.description, moscow: i.moscow, g2m_date_est: i.g2m_date_est, planned_start: i.planned_start, stack_rank: i.stack_rank, change_type: i.change_type, theme: i.theme });
+export const pvOf = (i: ItemRow): PvItem => ({ id: i.id, name: i.initiative_name, summary: i.summary, description: i.description, hypothesis: i.hypothesis, moscow: i.moscow, g2m_date_est: i.g2m_date_est, planned_start: i.planned_start, stack_rank: i.stack_rank, change_type: i.change_type, theme: i.theme });
 const RECONNECT = "Jira needs a new sign-in. A workspace admin can sign in again under Settings > Integrations > Jira.";
 
 export type Evaluated =
@@ -95,8 +104,9 @@ export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" 
   const issue = now && now.ok ? now.issue : null;
   // the saved field configuration, with the custom fields it names checked against the site now (a field that is gone is left out and the preview says so)
   const checked = await dropMissingFields(req, effectiveJiraMap(parseFieldMap(l.plink?.field_map), parseConfigRows(l.plink?.config, "jira")), { cacheKey: `${l.conn.id}|${l.link?.site_id ?? l.plink!.site_id}` });
-  const plan = planJiraSend({ pv, jira: issue, base: l.link?.sync_base ?? null, sentHash: l.link?.sent_hash ?? null, picks, map: checked.map, ...(l.projectName ? { projectName: l.projectName } : {}), ...(l.plink && !l.link ? { create: { projectKey: key, issueTypeId: l.plink.initiative_type_id } } : {}) });
+  const plan = planJiraSend({ pv, jira: issue, base: l.link?.sync_base ?? null, sentHash: l.link?.sent_hash ?? null, picks, map: checked.map, ...(l.artifacts ? { artifacts: l.artifacts } : {}), ...(l.files ? { files: l.files } : {}), ...(l.projectName ? { projectName: l.projectName } : {}), ...(l.plink && !l.link ? { create: { projectKey: key, issueTypeId: l.plink.initiative_type_id } } : {}) });
   plan.notes.push(...checked.notes);
+  if (l.unsharedFiles && !checked.map.off?.includes("jira.body.files")) plan.notes.push(`${l.unsharedFiles === 1 ? "1 attached file has" : `${l.unsharedFiles} attached files have`} no share link, so ${l.unsharedFiles === 1 ? "it is" : "they are"} not in the description. Turn a link on in the item's Screenshots field to include it.`);
   const conflicts: SyncConflict[] = [];
   const jiraHashes: Partial<Record<TextField, string>> = {};
   if (issue) {
@@ -131,7 +141,7 @@ export async function writeOne(ctx: Ctx, id: string, choices: SyncChoice[], deps
   const base = { id, code };
   const picks: Partial<Record<TextField, "pv" | "jira">> = {};
   const seen: Partial<Record<TextField, string>> = {};
-  for (const c of choices) if (c.itemId === id && (c.field === "title" || c.field === "description")) { picks[c.field] = c.choice === "pv" ? "pv" : "jira"; seen[c.field] = c.ghHash; }
+  for (const c of choices) if (c.itemId === id && (TEXT_FIELDS as readonly string[]).includes(c.field)) { picks[c.field as TextField] = c.choice === "pv" ? "pv" : "jira"; seen[c.field as TextField] = c.ghHash; }
   const e = await evaluate(l, picks, deps.call);
   if (e.kind === "follows") return { result: { ...base, outcome: "blocked", message: "This initiative follows its Jira issue read-only: nothing is sent." }, taken: [] };
   if (e.kind === "no_project") return { result: { ...base, outcome: "blocked", message: "This initiative's project is not linked to a Jira project." }, taken: [] };
@@ -139,7 +149,7 @@ export async function writeOne(ctx: Ctx, id: string, choices: SyncChoice[], deps
   if (e.kind === "error") return { result: { ...base, outcome: "error", message: e.message }, taken: [] };
   // Jira changed since the preview, or a conflict has no choice: nothing is written
   if (e.plan.unresolved.length > 0) return { stale: true, error: "Jira has a change that was not in the preview. Nothing was written for this initiative." };
-  for (const f of ["title", "description"] as const) if (picks[f] && seen[f] !== e.jiraHashes[f]) return { stale: true, error: `${LABEL[f]} changed in Jira after the preview. Nothing was written for this initiative.` };
+  for (const f of TEXT_FIELDS) if (picks[f] && seen[f] !== e.jiraHashes[f]) return { stale: true, error: `${LABEL[f]} changed in Jira after the preview. Nothing was written for this initiative.` };
 
   const admin = createAdminClient({ via: "UI" });
   const taken: TakenOver[] = [];
@@ -153,7 +163,7 @@ export async function writeOne(ctx: Ctx, id: string, choices: SyncChoice[], deps
   const pulled = Object.keys(plan.takeOver) as (keyof SendPlan["takeOver"])[];
   if (pulled.length > 0) {
     const pullBase: JiraBase = {};
-    for (const f of ["title", "description"] as const) if (plan.takeOver[COLUMN[f]] !== undefined) pullBase[f] = plan.newBase[f]!;
+    for (const f of TEXT_FIELDS) if (plan.takeOver[COLUMN[f]] !== undefined) pullBase[f] = plan.newBase[f]!;
     const { data, error } = await admin.rpc("jira_apply_pull", { p_actor: ctx.userId, p_item: id, p_fields: plan.takeOver, p_base: pullBase });
     if (error) return { result: { ...base, outcome: "error", message: "Could not take over the text from Jira. Nothing was sent." }, taken: [] };
     const before = (data ?? {}) as Record<string, string | null>;

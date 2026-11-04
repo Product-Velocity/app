@@ -1,14 +1,16 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { configSlots } from "./mapping";
 
 // The closed list of changeable slots lives twice: in slots.ts (the app) and in tracker_set_field_config (the database, which checks it again).
 // This test fails when one is changed without the other.
-const sql = readFileSync(join(__dirname, "../../../../../packages/db/migrations/20261103233355_tracker_field_config.sql"), "utf8");
+// the latest definition wins: the migrations are read in order and the last list is the one the database has
+const dir = join(__dirname, "../../../../../packages/db/migrations");
+const sql = readdirSync(dir).filter((f) => /tracker_field_config|jira_description_sections/.test(f)).sort().map((f) => readFileSync(join(dir, f), "utf8")).join("\n");
 const listIn = (tracker: "jira" | "github") => {
-  const m = tracker === "jira" ? /when 'jira' then array\[([^\]]*)\]/.exec(sql) : /else array\[([^\]]*)\]/.exec(sql);
-  return [...(m?.[1] ?? "").matchAll(/'([^']+)'/g)].map((x) => x[1]!).sort();
+  const all = [...sql.matchAll(tracker === "jira" ? /when 'jira' then array\[([^\]]*)\]/g : /else array\[([^\]]*)\]/g)];
+  return [...(all[all.length - 1]?.[1] ?? "").matchAll(/'([^']+)'/g)].map((x) => x[1]!).sort();
 };
 describe("the slot list of the database matches the app", () => {
   it.each(["jira", "github"] as const)("%s", (t) => {

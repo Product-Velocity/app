@@ -64,6 +64,12 @@ describe("tracker_set_field_config", () => {
     for (const rows of bad) expect(await errorCode(set(f.alice, projectA, rows)), JSON.stringify(rows)).toBe("22023");
     expect(await stored(projectA)).toEqual([]);
   });
+  it("the Artifacts and Files sections of the Jira description can be switched off (migration jira_description_sections), the fixed sections can not", async () => {
+    await set(f.alice, projectA, [{ slot: "jira.body.artifacts", enabled: false }, { slot: "jira.body.files", enabled: false }]);
+    expect((await stored(projectA)).map((r) => r.slot)).toEqual(["jira.body.artifacts", "jira.body.files"]);
+    for (const slot of ["jira.body.summary", "jira.body.hypothesis", "jira.description"]) expect(await errorCode(set(f.alice, projectA, [{ slot, enabled: false }])), slot).toBe("22023");
+    await set(f.alice, projectA, []);
+  });
   it("a project without a GitHub or Jira tracker is refused; GitHub slots work on a GitHub project", async () => {
     expect(await errorCode(set(f.alice, noTracker, [{ slot: "jira.label.rank", enabled: false }]))).toBe("P0002");
     await set(f.alice, githubProject, [{ slot: "github.milestone", enabled: false }, { slot: "github.body.files", enabled: false }]);

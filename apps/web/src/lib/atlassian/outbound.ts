@@ -1,11 +1,11 @@
 import { BASE_LABEL, OWNED_LABEL_PREFIX, changeTypeLabel, groupLabel, moscowLabel, projectLabel, rankBandLabel } from "@pv/github";
-import { markdownToAdf, type AdfDoc } from "./adf";
+import { composeDescription, type Link } from "./jira-sections";
 
 // Everything that may leave the app for Jira (CLAUDE.md rule 2, issue #67). Jira sites can be shared widely, so this list is the ONLY place
 // a field of an item is read for a Jira payload. Value, confidence, customers, decisions, rationale, key results, outcomes, markets and the
 // rank number are never listed, and a test (outbound-allowlist.test.ts) fails if any of them reaches a payload. Status, sprint and
 // transitions are never written (rule 6): this builder has no input for them.
-export const OUTBOUND_JIRA_FIELDS = ["initiative_name", "description", "moscow", "g2m_date_est", "planned_start", "stack_rank", "change_type", "theme"] as const;
+export const OUTBOUND_JIRA_FIELDS = ["initiative_name", "summary", "description", "hypothesis", "moscow", "g2m_date_est", "planned_start", "stack_rank", "change_type", "theme"] as const;
 export type JiraOutboundField = (typeof OUTBOUND_JIRA_FIELDS)[number];
 
 /** How this Jira site spells the fields PV can fill; each is optional and a missing one is skipped with a note in the preview, never guessed. */
@@ -33,6 +33,9 @@ export type JiraPayloadInput = {
   projectName?: string;
   /** An opaque label (a hash of the item id, never the id) put on a CREATED issue, so a create whose answer was lost is found again instead of repeated. */
   marker?: string;
+  /** Links of the initiative (Artifacts section) and the share links of its files (Files section). Both are sent only; a slot switched off leaves its section out. */
+  artifacts?: Link[];
+  files?: Link[];
   /** Labels the issue has now: people's labels are kept, `pv:` labels that no longer apply are removed. Omit on create. */
   currentLabels?: string[];
 };
@@ -67,7 +70,11 @@ export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {
   const description = typeof read(item, "description") === "string" ? (read(item, "description") as string).slice(0, 30000) : "";
   const f: Record<string, unknown> = {
     summary: name, // the issue key already identifies it; no code prefix, so an adopted issue keeps its own title
-    description: markdownToAdf(description) satisfies AdfDoc,
+    // headed sections like the managed block of a GitHub issue (issue #319): Summary, Description, Hypothesis, then the links
+    description: composeDescription({
+      pv: { summary: typeof read(item, "summary") === "string" ? (read(item, "summary") as string).slice(0, 4000) : "", description, hypothesis: typeof read(item, "hypothesis") === "string" ? (read(item, "hypothesis") as string).slice(0, 4000) : "" },
+      ...(map.off?.includes("jira.body.artifacts") ? {} : { artifacts: input.artifacts ?? [] }), ...(map.off?.includes("jira.body.files") ? {} : { files: input.files ?? [] }),
+    }),
     labels: mergeLabels(input.currentLabels ?? [], [...desiredLabels(item, input.projectName, map.off), ...(input.marker && /^pv:item\/[0-9a-f]{16}$/.test(input.marker) ? [input.marker] : [])]),
   };
   if (input.create) { f.project = { key: input.create.projectKey }; f.issuetype = { id: input.create.issueTypeId }; }
@@ -91,6 +98,8 @@ export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {
   }
   const switchedOff: [string, string, unknown][] = [["jira.label.moscow", "MoSCoW label", read(item, "moscow")], ["jira.label.rank", "Rank label", read(item, "stack_rank")], ["jira.label.type", "Change Type label", read(item, "change_type")], ["jira.label.group", "Initiative Group label", read(item, "theme")]];
   for (const [slot, what, v] of switchedOff) if (off(slot) && v !== undefined && v !== null && v !== "") notes.push(`${what} not sent: switched off in the field configuration.`);
+  if (off("jira.body.artifacts") && (input.artifacts?.length ?? 0) > 0) notes.push("Artifact links not sent: switched off in the field configuration.");
+  if (off("jira.body.files") && (input.files?.length ?? 0) > 0) notes.push("File links not sent: switched off in the field configuration.");
   const moscow = read(item, "moscow");
   if (typeof moscow === "string" && moscow) {
     const id = map.priorityByMoscow?.[moscow as keyof NonNullable<JiraFieldMap["priorityByMoscow"]>];
