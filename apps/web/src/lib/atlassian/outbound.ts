@@ -16,6 +16,10 @@ export type JiraFieldMap = {
   theme?: string;
   /** Jira priority id per MoSCoW value, chosen by the user; unmapped values leave the priority alone. */
   priorityByMoscow?: Partial<Record<"Must" | "Should" | "Could" | "Won't", string>>;
+  /** Field that receives G2M Date (est): the system `duedate` unless the admin chose another date field (field configuration). */
+  dueDate?: string;
+  /** Slots switched off in the field configuration (`jira.dueDate`, `jira.label.*`): nothing is sent for them. */
+  off?: readonly string[];
 };
 export type JiraPayloadInput = {
   /** Read through the allowlist only. */
@@ -45,8 +49,9 @@ function read(item: Record<string, unknown>, key: JiraOutboundField): unknown { 
  * The `pv:` labels an item should carry, the same as the GitHub sync sends: the base label, the project, MoSCoW, the rank BAND (top 10, top 25,
  * top 50, later; never the number), Change Type and Initiative Group. Nothing commercial is ever a label.
  */
-export function desiredLabels(item: Record<string, unknown>, projectName?: string): string[] {
-  return [BASE_LABEL, projectName ? projectLabel(projectName) : null, moscowLabel(read(item, "moscow")), rankBandLabel(read(item, "stack_rank")), changeTypeLabel(read(item, "change_type")), groupLabel(read(item, "theme"))].filter((l): l is string => !!l);
+export function desiredLabels(item: Record<string, unknown>, projectName?: string, off: readonly string[] = []): string[] {
+  const on = (slot: string) => !off.includes(slot);
+  return [BASE_LABEL, projectName && on("jira.label.project") ? projectLabel(projectName) : null, on("jira.label.moscow") ? moscowLabel(read(item, "moscow")) : null, on("jira.label.rank") ? rankBandLabel(read(item, "stack_rank")) : null, on("jira.label.type") ? changeTypeLabel(read(item, "change_type")) : null, on("jira.label.group") ? groupLabel(read(item, "theme")) : null].filter((l): l is string => !!l);
 }
 /** Put on a Jira issue when its initiative was removed in Product Velocity and the person confirmed (jira-close.ts). Not an "owned" label: a later send must not strip it. */
 export const REMOVED_LABEL = "pv:removed";
@@ -63,13 +68,17 @@ export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {
   const f: Record<string, unknown> = {
     summary: name, // the issue key already identifies it; no code prefix, so an adopted issue keeps its own title
     description: markdownToAdf(description) satisfies AdfDoc,
-    labels: mergeLabels(input.currentLabels ?? [], [...desiredLabels(item, input.projectName), ...(input.marker && /^pv:item\/[0-9a-f]{16}$/.test(input.marker) ? [input.marker] : [])]),
+    labels: mergeLabels(input.currentLabels ?? [], [...desiredLabels(item, input.projectName, map.off), ...(input.marker && /^pv:item\/[0-9a-f]{16}$/.test(input.marker) ? [input.marker] : [])]),
   };
   if (input.create) { f.project = { key: input.create.projectKey }; f.issuetype = { id: input.create.issueTypeId }; }
   if (input.parentKey) f.parent = { key: input.parentKey };
 
+  const off = (slot: string) => map.off?.includes(slot) ?? false;
   const due = read(item, "g2m_date_est");
-  if (typeof due === "string" && DATE.test(due)) f.duedate = due.slice(0, 10);
+  if (typeof due === "string" && DATE.test(due)) {
+    if (off("jira.dueDate")) notes.push("Due date not sent: switched off in the field configuration.");
+    else f[map.dueDate && /^(duedate|customfield_\d{1,9})$/.test(map.dueDate) ? map.dueDate : "duedate"] = due.slice(0, 10);
+  }
   const start = read(item, "planned_start");
   if (typeof start === "string" && DATE.test(start)) {
     if (map.startDate && /^customfield_\d{1,9}$/.test(map.startDate)) f[map.startDate] = start.slice(0, 10);
@@ -80,6 +89,8 @@ export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {
     if (map.theme && /^customfield_\d{1,9}$/.test(map.theme)) f[map.theme] = group;
     else notes.push("Theme not sent: this Jira site's Theme field is not mapped (the pv:group label is sent).");
   }
+  const switchedOff: [string, string, unknown][] = [["jira.label.moscow", "MoSCoW label", read(item, "moscow")], ["jira.label.rank", "Rank label", read(item, "stack_rank")], ["jira.label.type", "Change Type label", read(item, "change_type")], ["jira.label.group", "Initiative Group label", read(item, "theme")]];
+  for (const [slot, what, v] of switchedOff) if (off(slot) && v !== undefined && v !== null && v !== "") notes.push(`${what} not sent: switched off in the field configuration.`);
   const moscow = read(item, "moscow");
   if (typeof moscow === "string" && moscow) {
     const id = map.priorityByMoscow?.[moscow as keyof NonNullable<JiraFieldMap["priorityByMoscow"]>];

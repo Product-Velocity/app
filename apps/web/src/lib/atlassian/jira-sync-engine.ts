@@ -9,6 +9,8 @@ import { compareJira, COLUMN, LABEL, markerFor, planJiraSend, type JiraBase, typ
 import { OUTBOUND_JIRA_FIELDS } from "./outbound";
 import { createIssue, updateIssue, type JiraRequest } from "./jira-write";
 import { parseFieldMap } from "./field-map";
+import { dropMissingFields } from "./mapped-fields";
+import { effectiveJiraMap, parseConfigRows } from "@/lib/tracker-fields/mapping";
 import { jiraRequest } from "./server";
 import { ReconnectNeeded } from "./token-provider";
 
@@ -23,7 +25,7 @@ type ItemRow = { id: string; item_code: string; initiative_name: string; descrip
 /** The real column of each allowlisted field (G2M Date (est) lives in `end_date`): a column that does not exist makes the whole read fail, so they come from the field registry, as the GitHub push does. */
 export const ITEM_COLUMNS: Record<string, string> = Object.fromEntries(OUTBOUND_JIRA_FIELDS.map((k) => [k, columnOnItems(FIELD_BY_KEY[k]!)!]));
 type LinkRow = { item_id: string; connection_id: string; site_id: string; issue_key: string; issue_id: string | null; html_url: string | null; mode: "follow" | "push"; sync_base: JiraBase | null; sent_hash: string | null };
-type ProjectLink = { project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; field_map?: unknown };
+type ProjectLink = { project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; field_map?: unknown; /** Rows of tracker_field_config (the field configuration), as stored. */ config?: unknown };
 type Conn = { id: string; sites: { id: string; name: string; url: string }[]; state: string };
 
 export type Loaded = { projectName?: string; /** Set when the initiative was removed (Trash), its Jira issue was closed by Product Velocity, and it was restored since: the issue is not reopened. */ closedWhileRemoved?: string | null; item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
@@ -44,6 +46,9 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   if (plink) {
     const { data: m } = await ctx.supabase.from("jira_project_links").select("field_map").eq("tenant_id", ctx.tenantId).eq("project_id", plink.project_id).maybeSingle();
     plink.field_map = (m as { field_map?: unknown } | null)?.field_map ?? {};
+    // the field configuration (what was switched off or re-pointed for this project), read apart for the same reason: no table, no configuration
+    const { data: cfg } = await ctx.supabase.from("tracker_field_config").select("slot, enabled, field_id").eq("tenant_id", ctx.tenantId).eq("project_id", plink.project_id).eq("provider", "jira");
+    plink.config = ((cfg ?? []) as { slot: string; enabled: boolean; field_id: string | null }[]).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id }));
   }
   // read apart too (migration jira_close_removed): without the column nothing was ever closed
   let closedWhileRemoved: string | null = null;
@@ -88,7 +93,10 @@ export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" 
   }
   if (now && !now.ok) return now.kind === "gone" ? { kind: "missing", message: now.message } : { kind: "error", message: now.message, reconnect: now.kind === "reconnect" };
   const issue = now && now.ok ? now.issue : null;
-  const plan = planJiraSend({ pv, jira: issue, base: l.link?.sync_base ?? null, sentHash: l.link?.sent_hash ?? null, picks, map: parseFieldMap(l.plink?.field_map), ...(l.projectName ? { projectName: l.projectName } : {}), ...(l.plink && !l.link ? { create: { projectKey: key, issueTypeId: l.plink.initiative_type_id } } : {}) });
+  // the saved field configuration, with the custom fields it names checked against the site now (a field that is gone is left out and the preview says so)
+  const checked = await dropMissingFields(req, effectiveJiraMap(parseFieldMap(l.plink?.field_map), parseConfigRows(l.plink?.config, "jira")), { cacheKey: `${l.conn.id}|${l.link?.site_id ?? l.plink!.site_id}` });
+  const plan = planJiraSend({ pv, jira: issue, base: l.link?.sync_base ?? null, sentHash: l.link?.sent_hash ?? null, picks, map: checked.map, ...(l.projectName ? { projectName: l.projectName } : {}), ...(l.plink && !l.link ? { create: { projectKey: key, issueTypeId: l.plink.initiative_type_id } } : {}) });
+  plan.notes.push(...checked.notes);
   const conflicts: SyncConflict[] = [];
   const jiraHashes: Partial<Record<TextField, string>> = {};
   if (issue) {

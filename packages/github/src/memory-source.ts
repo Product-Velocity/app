@@ -25,6 +25,13 @@ export class MemorySourceControl implements SourceControl {
   /** Issue types of the organisation, or null when the App may not read them. */
   types: string[] | null = null;
   async listIssueTypes() { return this.types; }
+  /** Organisation issue fields (null = the App may not read them), labels and milestones for the field catalog. */
+  issueFields: import("./source-control").IssueFieldInfo[] | null = null;
+  repoLabels = new Map<string, import("./source-control").LabelInfo[]>();
+  repoMilestones = new Map<string, import("./source-control").MilestoneInfo[]>();
+  async listIssueFields(): Promise<import("./source-control").IssueFieldInfo[] | null> { this.tick("listIssueFields"); return this.issueFields; }
+  async listLabels(_i: number, repo: string): Promise<import("./source-control").LabelInfo[]> { this.tick("listLabels"); return this.repoLabels.get(repo) ?? []; }
+  async listMilestones(_i: number, repo: string): Promise<import("./source-control").MilestoneInfo[]> { this.tick("listMilestones"); return this.repoMilestones.get(repo) ?? []; }
   /** Projects of the organisation, their fields and the items added to them. */
   boards: BoardInfo[] = [];
   boardFields = new Map<string, BoardField[]>();

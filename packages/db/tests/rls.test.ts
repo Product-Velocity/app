@@ -165,6 +165,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "tracker_field_config",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.tracker_field_config set enabled = true where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.tracker_field_config where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.tracker_field_config (tenant_id, project_id, provider, slot, enabled) select tenant_id, project_id, provider, 'jira.label.rank', false from public.tracker_field_config where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.tracker_field_config set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "jira_webhooks",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

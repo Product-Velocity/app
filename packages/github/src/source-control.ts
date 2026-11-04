@@ -48,6 +48,11 @@ export type SubIssue = { number: number; id: number; /** GraphQL id, needed to p
 
 import type { PrRef, ReleaseRef } from "./delivery";
 
+/** An organisation issue field (GitHub "issue fields", docs/08 S3b). Read only here: the catalog shows it, nothing writes it yet. */
+export type IssueFieldInfo = { id: string; name: string; dataType: "text" | "number" | "date" | "single_select" | "other"; options: string[] };
+export type LabelInfo = { name: string; description: string | null };
+export type MilestoneInfo = { title: string; dueOn: string | null; state: "open" | "closed" };
+
 export interface SourceControl {
   readonly provider: "github";
   /** The installation, or null when it does not exist (or does not belong to this App). */
@@ -106,6 +111,12 @@ export interface SourceControl {
   addBoardItem(installationId: number, boardId: string, issueNodeId: string): Promise<string>;
   /** Sets one field of a Project item. */
   setBoardValue(installationId: number, boardId: string, itemId: string, fieldId: string, value: BoardValue): Promise<void>;
+  /** The organisation's issue fields, or null when the App may not read them (needs the organisation permission "Issue fields", read). Read-only. */
+  listIssueFields(installationId: number, organisation: string): Promise<IssueFieldInfo[] | null>;
+  /** The labels of a repository (first 100). Read-only. */
+  listLabels(installationId: number, repo: string): Promise<LabelInfo[]>;
+  /** The milestones of a repository, open and closed (first 100). Read-only. */
+  listMilestones(installationId: number, repo: string): Promise<MilestoneInfo[]>;
   /** The newest webhook deliveries the App received, newest first. */
   listRecentDeliveries(): Promise<DeliverySummary[]>;
 }

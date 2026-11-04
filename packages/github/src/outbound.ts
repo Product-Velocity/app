@@ -21,6 +21,8 @@ export type TrackingIssueInput = {
   artifacts: Artifact[];
   /** Files with a login-free share link. The caller passes them ONLY for a private repository: anyone who can read the issue can open them. */
   files?: Artifact[];
+  /** Slots switched off in the field configuration (`github.label.*`, `github.body.artifacts`, `github.body.files`, `github.milestone`, `github.issueType`); absent = everything on, as before. */
+  off?: readonly string[];
 };
 export type Milestone = { title: string; dueOn: string };
 export type TrackingIssue = {
@@ -107,9 +109,10 @@ export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
   const summary = sanitize(text(i.item.summary, 4000));
   const description = sanitize(text(i.item.description, 20000));
   const hypothesis = sanitize(text(i.item.hypothesis, 4000));
-  const links = i.artifacts.filter((a) => /^https?:\/\//i.test(a.url) && !/[\s()<>]/.test(a.url)).slice(0, 20);
+  const on = (slot: string) => !(i.off ?? []).includes(slot);
+  const links = (on("github.body.artifacts") ? i.artifacts : []).filter((a) => /^https?:\/\//i.test(a.url) && !/[\s()<>]/.test(a.url)).slice(0, 20);
 
-  const files = (i.files ?? []).filter((a) => /^https?:\/\//i.test(a.url) && !/[\s()<>]/.test(a.url)).slice(0, 20);
+  const files = (on("github.body.files") ? i.files ?? [] : []).filter((a) => /^https?:\/\//i.test(a.url) && !/[\s()<>]/.test(a.url)).slice(0, 20);
 
   const parts = [MARKER(i.itemId)];
   if (summary) parts.push("", "## Summary", summary);
@@ -120,10 +123,10 @@ export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
   parts.push("", "---", `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept. [Open in Product Velocity](${i.appUrl}/portfolio/${encodeURIComponent(code)})`, BLOCK_END);
 
   const title = (code ? `${code}: ${name}` : name) || "Untitled initiative";
-  const labels = [BASE_LABEL, projectLabel(i.projectName), moscowLabel(i.item.moscow), rankBandLabel(i.item.stack_rank), changeTypeLabel(i.item.change_type), groupLabel(i.item.theme)].filter((l): l is string => !!l);
+  const labels = [BASE_LABEL, on("github.label.project") ? projectLabel(i.projectName) : null, on("github.label.moscow") ? moscowLabel(i.item.moscow) : null, on("github.label.rank") ? rankBandLabel(i.item.stack_rank) : null, on("github.label.type") ? changeTypeLabel(i.item.change_type) : null, on("github.label.group") ? groupLabel(i.item.theme) : null].filter((l): l is string => !!l);
   const block = parts.join("\n");
-  const milestone = milestoneFor(i.item.g2m_date_est);
-  return { title, block, labels, milestone, typeCandidates: issueTypeCandidates(i.item.change_type), hash: createHash("sha256").update(JSON.stringify({ title, labels, block, milestone })).digest("hex") };
+  const milestone = on("github.milestone") ? milestoneFor(i.item.g2m_date_est) : null;
+  return { title, block, labels, milestone, typeCandidates: on("github.issueType") ? issueTypeCandidates(i.item.change_type) : [], hash: createHash("sha256").update(JSON.stringify({ title, labels, block, milestone })).digest("hex") };
 }
 
 /** Puts the managed block into an issue body: replaces the old block, keeps everything outside it, appends if there is none. */

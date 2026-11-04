@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { redirect } from "next/navigation";
+import { configRowsFromForm } from "@/lib/tracker-fields/form";
+import { validateConfig } from "@/lib/tracker-fields/mapping";
 import { runConnectionDiagnostics, signInstallState, type CheckResult } from "@pv/github";
 import { githubAppSlug, githubSecret, githubSourceControl, refreshConnection, type ConnectionRow } from "@/lib/github/server";
 import { retryEvent, runCheck } from "@/lib/github/sync";
@@ -120,7 +122,7 @@ export async function setRepoAccess(_prev: FormState, form: FormData): Promise<F
 /** Compares GitHub with every linked item now (the same check that runs daily) and applies what differs. */
 export async function checkGithubNow(form?: FormData): Promise<void> {
   // started from the Incoming page or from Settings > GitHub: the answer goes back to where the button was
-  const back = form?.get("from") === "incoming" ? "/incoming" : PATH;
+  const back = form?.get("from") === "incoming" ? "/incoming" : `${PATH}/logs`;
   const ctx = await adminOnly();
   const sc = githubSourceControl();
   if (!ctx || !sc) redirect(`${back}?status=error`);
@@ -138,6 +140,22 @@ export async function retrySyncEvent(eventId: string): Promise<void> {
   const ctx = await adminOnly();
   if (!ctx) redirect(`${PATH}?status=not-admin`);
   const ok = await retryEvent(createAdminClient({ via: "GitHub webhook" }), ctx.active.tenantId, eventId);
+  revalidatePath(`${PATH}/logs`);
+  redirect(`${PATH}/logs?status=${ok ? "retried" : "retry-failed"}`);
+}
+
+/**
+ * Saves the field configuration of ONE project (decision 2026-11-03-tracker-field-config): which of the labels, the milestone, the issue type and the
+ * artifact and file sections Sync sends. Admin only; the database checks the closed list of settings again. The board's fields are saved by the
+ * Project boards card. Nothing is written to GitHub.
+ */
+export async function saveGithubFieldConfig(form: FormData): Promise<void> {
+  const ctx = await adminOnly();
+  if (!ctx) redirect(`${PATH}?status=not-admin`);
+  const get = (k: string) => String(form.get(k) ?? "").trim();
+  const checked = validateConfig("github", configRowsFromForm("github", get, (k) => form.has(k)), null);
+  if (!checked.ok) redirect(`${PATH}?status=field-config-invalid&why=${encodeURIComponent(checked.errors.join(" ").slice(0, 400))}`);
+  const { error } = await ctx.supabase.rpc("tracker_set_field_config", { p_project: get("project"), p_rows: checked.rows.map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field })) });
   revalidatePath(PATH);
-  redirect(`${PATH}?status=${ok ? "retried" : "retry-failed"}`);
+  redirect(`${PATH}?status=${error ? "error" : "field-config-saved"}`);
 }

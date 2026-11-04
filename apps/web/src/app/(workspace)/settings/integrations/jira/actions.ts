@@ -11,7 +11,10 @@ import { describeLines } from "@/lib/atlassian/jira-events";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { readJiraLink } from "@/lib/atlassian/read-jira";
 import { jiraProjectDetail } from "@/lib/atlassian/server";
-import { fieldMapFromForm } from "@/lib/atlassian/field-map";
+import { parseFieldMap } from "@/lib/atlassian/field-map";
+import { readJiraSiteFields } from "@/lib/atlassian/catalog-server";
+import { configRowsFromForm, jiraMapFromForm, validateJiraMap } from "@/lib/tracker-fields/form";
+import { validateConfig } from "@/lib/tracker-fields/mapping";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 import { validateTypeMapping } from "@/lib/atlassian/type-mapping";
 import { requireWorkspace } from "@/lib/session";
@@ -145,14 +148,30 @@ export async function reviewJiraIssues(form: FormData): Promise<void> {
   redirect(`${PATH}?status=${status}${counts}`);
 }
 
-/** Saves which Jira field holds the start date and which Jira priority stands for each MoSCoW value, for ONE linked project. Admin only; the database validates it again. */
-export async function saveJiraFieldMap(form: FormData): Promise<void> {
+/**
+ * Saves the field configuration of ONE linked project (decision 2026-11-03-tracker-field-config): the start date, theme and priority fields (the Jira
+ * field map) and the switches and due date field (tracker_field_config). Admin only. Every field id is checked against the fields the site reports now,
+ * for type and for clashes, before anything is stored; the database checks the shapes and the closed list of settings again. "Reset" puts one setting
+ * or all of them back to the default. Nothing is written to Jira.
+ */
+export async function saveJiraFieldConfig(form: FormData): Promise<void> {
   const ctx = await adminOnly();
   if (!ctx) redirect(`${PATH}?status=not-admin`);
-  const map = fieldMapFromForm((k) => String(form.get(k) ?? "").trim());
-  const { error } = await ctx.supabase.rpc("jira_set_field_map", { p_project: String(form.get("project") ?? ""), p_map: map });
+  const project = String(form.get("project") ?? "");
+  const get = (k: string) => String(form.get(k) ?? "").trim();
+  const { data: link } = await ctx.supabase.from("jira_project_links").select("connection_id, site_id, field_map").eq("tenant_id", ctx.active.tenantId).eq("project_id", project).maybeSingle();
+  if (!link) redirect(`${PATH}?status=error`);
+  const map = jiraMapFromForm(get);
+  const rows = configRowsFromForm("jira", get, (k) => form.has(k));
+  const site = await readJiraSiteFields(link.connection_id as string, link.site_id as string).catch((): null => null);
+  const used = [map.startDate ? { id: map.startDate, label: "Planned Start" } : null, map.theme ? { id: map.theme, label: "Initiative Group" } : null].filter((x): x is { id: string; label: string } => x !== null);
+  const checked = validateConfig("jira", rows, site?.entries ?? null, used);
+  const errors = [...validateJiraMap(map, parseFieldMap(link.field_map), site), ...(checked.ok ? [] : checked.errors)];
+  if (errors.length > 0 || !checked.ok) redirect(`${PATH}?status=field-config-invalid&why=${encodeURIComponent(errors.join(" ").slice(0, 400))}`);
+  const first = await ctx.supabase.rpc("jira_set_field_map", { p_project: project, p_map: map });
+  const second = first.error ? null : await ctx.supabase.rpc("tracker_set_field_config", { p_project: project, p_rows: checked.rows.map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field })) });
   revalidatePath(PATH);
-  redirect(`${PATH}?status=${error ? "error" : "field-map-saved"}`);
+  redirect(`${PATH}?status=${first.error || second?.error ? "error" : "field-config-saved"}`);
 }
 
 /**
@@ -175,8 +194,8 @@ export async function checkJiraNow(): Promise<void> {
   } catch {
     status = "read-failed";
   }
-  revalidatePath(PATH);
-  redirect(`${PATH}?status=${status}${qs}`);
+  revalidatePath(`${PATH}/logs`);
+  redirect(`${PATH}/logs?status=${status}${qs}`);
 }
 
 /** "Run again" for a failed row of the recent-events table: reads that issue again and applies it. */
@@ -201,8 +220,8 @@ export async function retryJiraEvent(id: string): Promise<void> {
       }
     }
   }
-  revalidatePath(PATH);
-  redirect(`${PATH}?status=${status}`);
+  revalidatePath(`${PATH}/logs`);
+  redirect(`${PATH}/logs?status=${status}`);
 }
 
 /**

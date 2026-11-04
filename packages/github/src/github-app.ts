@@ -1,6 +1,6 @@
 import { createSign } from "node:crypto";
 import type { PrRef, ReleaseRef } from "./delivery";
-import { GitHubError, type BoardItemStatus, type BoardItemValue, type BoardField, type BoardInfo, type BoardValue, type IssueSummary, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl, type SubIssue } from "./source-control";
+import { GitHubError, type IssueFieldInfo, type LabelInfo, type MilestoneInfo, type BoardItemStatus, type BoardItemValue, type BoardField, type BoardInfo, type BoardValue, type IssueSummary, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl, type SubIssue } from "./source-control";
 
 const API = "https://api.github.com";
 const b64url = (b: Buffer | string) => Buffer.from(b).toString("base64url");
@@ -320,6 +320,29 @@ export class GitHubAppSourceControl implements SourceControl {
     if (!res.ok) throw new GitHubError(res.status, `GitHub could not list releases (${res.status})`);
     const rows = (await res.json()) as { tag_name?: string; name?: string | null; draft?: boolean; published_at?: string | null }[];
     return rows.filter((r) => !r.draft && typeof r.published_at === "string" && r.tag_name).map((r) => ({ repo, tag: r.tag_name!.slice(0, 100), name: r.name ? r.name.slice(0, 100) : null, publishedAt: r.published_at! }));
+  }
+
+  async listIssueFields(installationId: number, organisation: string): Promise<IssueFieldInfo[] | null> {
+    const res = await this.call(installationId, "GET", `/orgs/${encodeURIComponent(organisation)}/issue-fields`);
+    if (res.status === 403 || res.status === 404) return null; // the App lacks the organisation permission "Issue fields" (docs/08 S3b), or the organisation has none
+    if (!res.ok) throw new GitHubError(res.status, `GitHub could not list issue fields (${res.status})`);
+    const rows = (await res.json()) as { id?: number | string; node_id?: string; name?: string; data_type?: string; options?: { name?: string }[] }[];
+    const kind = (t: string | undefined): IssueFieldInfo["dataType"] => (t === "text" || t === "number" || t === "date" || t === "single_select" ? t : "other");
+    return rows.filter((r) => typeof r.name === "string").slice(0, 100).map((r) => ({ id: String(r.node_id ?? r.id ?? r.name).slice(0, 100), name: r.name!.slice(0, 100), dataType: kind(r.data_type), options: (r.options ?? []).flatMap((o) => (typeof o.name === "string" ? [o.name.slice(0, 100)] : [])).slice(0, 50) }));
+  }
+
+  async listLabels(installationId: number, repo: string): Promise<LabelInfo[]> {
+    const res = await this.call(installationId, "GET", `/repos/${repo}/labels?per_page=100`);
+    if (res.status === 404) return [];
+    if (!res.ok) throw new GitHubError(res.status, `GitHub could not list labels (${res.status})`);
+    return ((await res.json()) as { name?: string; description?: string | null }[]).flatMap((l) => (typeof l.name === "string" ? [{ name: l.name.slice(0, 100), description: typeof l.description === "string" ? l.description.slice(0, 200) : null }] : []));
+  }
+
+  async listMilestones(installationId: number, repo: string): Promise<MilestoneInfo[]> {
+    const res = await this.call(installationId, "GET", `/repos/${repo}/milestones?state=all&per_page=100`);
+    if (res.status === 404) return [];
+    if (!res.ok) throw new GitHubError(res.status, `GitHub could not list milestones (${res.status})`);
+    return ((await res.json()) as { title?: string; due_on?: string | null; state?: string }[]).flatMap((m) => (typeof m.title === "string" ? [{ title: m.title.slice(0, 100), dueOn: typeof m.due_on === "string" ? m.due_on : null, state: m.state === "closed" ? "closed" as const : "open" as const }] : []));
   }
 
   async getClosingIssues(installationId: number, repo: string, pullNumber: number): Promise<{ repo: string; number: number }[]> {
