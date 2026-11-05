@@ -73,13 +73,13 @@ describe("tracker_set_field_config", () => {
   it("the optional labels are OFF by default: a row is kept only when one is switched ON (migration optional_field_labels); the other slots work as before", async () => {
     await set(f.alice, projectA, [{ slot: "jira.label.tags", enabled: true }, { slot: "jira.label.focus", enabled: false }, { slot: "jira.label.moscow", enabled: false }, { slot: "jira.label.rank", enabled: true }]);
     expect(await stored(projectA)).toEqual([{ slot: "jira.label.moscow", enabled: false, field_id: null }, { slot: "jira.label.tags", enabled: true, field_id: null }]);
-    await set(f.alice, projectA, [{ slot: "jira.label.tags", enabled: true }, { slot: "jira.label.value", enabled: true }]);
-    expect((await stored(projectA)).map((r) => r.slot)).toEqual(["jira.label.tags", "jira.label.value"]); // the moscow row is gone: it was not in the list
-    await set(f.alice, githubProject, [{ slot: "github.label.focus", enabled: true }, { slot: "github.label.tags", enabled: true }, { slot: "github.label.value", enabled: false }]);
+    await set(f.alice, projectA, [{ slot: "jira.label.tags", enabled: true }, { slot: "jira.label.value", enabled: false }]);
+    expect((await stored(projectA)).map((r) => r.slot)).toEqual(["jira.label.tags", "jira.label.value"]); // Business Value Type is ON by default: only a switched-off row is kept // the moscow row is gone: it was not in the list
+    await set(f.alice, githubProject, [{ slot: "github.label.focus", enabled: true }, { slot: "github.label.tags", enabled: true }, { slot: "github.label.value", enabled: true }]);
     expect((await stored(githubProject)).map((r) => r.slot)).toEqual(["github.label.focus", "github.label.tags"]);
     expect(await errorCode(set(f.alice, githubProject, [{ slot: "jira.label.tags", enabled: true }])), "another tracker's slot").toBe("22023");
     // Planned Quarter label (migration value_quarter_labels_focus_field): ON by default, so only a switched-off row is kept; the retired category slots are refused
-    await set(f.alice, githubProject, [{ slot: "github.label.quarter", enabled: true }, { slot: "github.label.value", enabled: false }]);
+    await set(f.alice, githubProject, [{ slot: "github.label.quarter", enabled: true }, { slot: "github.label.value", enabled: true }]);
     expect(await stored(githubProject)).toEqual([]);
     await set(f.alice, githubProject, [{ slot: "github.label.quarter", enabled: false }]);
     expect(await stored(githubProject)).toEqual([{ slot: "github.label.quarter", enabled: false, field_id: null }]);

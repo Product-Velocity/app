@@ -42,12 +42,12 @@ describe("outbound Jira payloads", () => {
 
   it("labels match the GitHub sync: project, MoSCoW, rank band, Change Type and Initiative Group; the rank number never leaves", () => {
     const p = buildJiraPayload({ item: { ...fullItem(), moscow: "Should", stack_rank: 37, change_type: "New feature", theme: "Advertiser experience" }, fields: {}, projectName: "JIRA test" });
-    expect(p.fields.labels).toEqual(["product-velocity", "pv:project/jira-test", "pv:moscow/should", "pv:rank/top-50", "pv:type/new-feature", "pv:group/advertiser-experience"]);
+    expect(p.fields.labels).toEqual(["product-velocity", "pv:project/jira-test", "pv:moscow/should", "pv:rank/top-50", "pv:type/new-feature", "pv:group/advertiser-experience", "pv:value/leak-value-type-9f3a"]);
     expect(JSON.stringify(p)).not.toMatch(/\b37\b/);
   });
   it("MoSCoW leaves only as a pv: label (and a chosen priority id); the rank number never leaves", () => {
     const p = buildJiraPayload({ item: { ...fullItem(), moscow: "Should", stack_rank: 37 }, fields: {} });
-    expect(p.fields.labels).toEqual(["product-velocity", "pv:moscow/should", "pv:rank/top-50", "pv:group/leak-theme-9f3a"]);
+    expect(p.fields.labels).toEqual(["product-velocity", "pv:moscow/should", "pv:rank/top-50", "pv:group/leak-theme-9f3a", "pv:value/leak-value-type-9f3a"]);
     expect(JSON.stringify(p)).not.toMatch(/\b37\b/);
     expect(p.fields.priority).toBeUndefined();
     expect(p.notes.join(" ")).toMatch(/Priority not sent/);
@@ -56,7 +56,7 @@ describe("outbound Jira payloads", () => {
   it("a hostile description stays text inside ADF; people's labels are kept and stale pv: labels are removed", () => {
     const p = buildJiraPayload({ item: { ...fullItem(), description: "<script>alert(1)</script> [x](javascript:alert(1))" }, fields: {}, currentLabels: ["team-a", "pv:moscow/could", "product-velocity"] });
     expect(JSON.stringify(p.fields.description)).not.toContain('"href":"javascript');
-    expect(p.fields.labels).toEqual(["team-a", "product-velocity", "pv:moscow/must", "pv:group/leak-theme-9f3a"]);
+    expect(p.fields.labels).toEqual(["team-a", "product-velocity", "pv:moscow/must", "pv:group/leak-theme-9f3a", "pv:value/leak-value-type-9f3a"]);
     expect(desiredLabels({})).toEqual(["product-velocity"]);
     expect(mergeLabels(["a", "pv:x"], ["product-velocity"])).toEqual(["a", "product-velocity"]);
   });
@@ -67,20 +67,21 @@ describe("outbound Jira payloads", () => {
     expect(p.notes.join(" ")).toMatch(/Start date not sent/);
   });
 
-  it("sends the Initiative Group name as plain one-line text into the mapped Theme field, and nothing else commercial with it", () => {
-    const p = buildJiraPayload({ item: { ...fullItem(), theme: "  Growth\u0000 &\n<b>Retention</b>\t" }, fields: FIELDS_MAP });
+  it("sends the Focus Area as plain one-line text into the mapped Theme field, and nothing else commercial with it", () => {
+    const p = buildJiraPayload({ item: { ...fullItem(), focus_area: "  Growth\u0000 &\n<b>Retention</b>\t" }, fields: FIELDS_MAP });
     expect(p.fields.customfield_10030).toBe("Growth & <b>Retention</b>");
     expect(p.notes.join(" ")).not.toMatch(/Theme not sent/);
-    const long = buildJiraPayload({ item: { ...fullItem(), theme: "x".repeat(900) }, fields: FIELDS_MAP });
+    const long = buildJiraPayload({ item: { ...fullItem(), focus_area: "x".repeat(900) }, fields: FIELDS_MAP });
     expect((long.fields.customfield_10030 as string).length).toBe(255);
   });
 
-  it("an unmapped Theme is skipped with a note (the label is still sent); no group means nothing to send and no note", () => {
+  it("an unmapped Theme is skipped with a note (the group label is still sent); no focus area means nothing to send and no note; the group never goes into a field", () => {
     const p = buildJiraPayload({ item: fullItem(), fields: { startDate: "customfield_10015" } });
     expect(Object.keys(p.fields).filter((k) => k.startsWith("customfield"))).toEqual(["customfield_10015"]);
     expect(p.notes.join(" ")).toMatch(/Theme not sent/);
     expect(p.fields.labels).toContain("pv:group/leak-theme-9f3a");
-    const none = buildJiraPayload({ item: { ...fullItem(), theme: "" }, fields: FIELDS_MAP });
+    const none = buildJiraPayload({ item: { ...fullItem(), focus_area: "" }, fields: FIELDS_MAP });
+    expect(JSON.stringify(buildJiraPayload({ item: fullItem(), fields: FIELDS_MAP }).fields)).not.toContain("LEAK_THEME");
     expect(none.fields.customfield_10030).toBeUndefined();
     expect(none.notes.join(" ")).not.toMatch(/Theme not sent/);
   });

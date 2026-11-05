@@ -23,7 +23,7 @@ export type TrackingIssueInput = {
   files?: Artifact[];
   /** Slots switched off in the field configuration (`github.label.*`, `github.body.artifacts`, `github.body.files`, `github.milestone`, `github.issueType`); absent = everything on, as before. */
   off?: readonly string[];
-  /** Slots switched ON that are off by default (`github.label.tags`, `github.label.focus`, `github.label.value`). */
+  /** Slots switched ON that are off by default (`github.label.tags`, `github.label.focus`). */
   on?: readonly string[];
 };
 export type Milestone = { title: string; dueOn: string };
@@ -143,7 +143,7 @@ export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
   parts.push("", "---", `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept. [Open in Product Velocity](${i.appUrl}/portfolio/${encodeURIComponent(code)})`, BLOCK_END);
 
   const title = (code ? `${code}: ${name}` : name) || "Untitled initiative";
-  const labels = [BASE_LABEL, on("github.label.project") ? projectLabel(i.projectName) : null, on("github.label.moscow") ? moscowLabel(i.item.moscow) : null, on("github.label.rank") ? rankBandLabel(i.item.stack_rank) : null, on("github.label.type") ? changeTypeLabel(i.item.change_type) : null, on("github.label.group") ? groupLabel(i.item.theme) : null, opt("github.label.focus") ? focusAreaLabel(i.item.focus_area) : null, opt("github.label.value") ? valueTypeLabel(i.item.value_type) : null, on("github.label.quarter") ? plannedQuarterLabel(i.item.g2m_quarter) : null, ...(opt("github.label.tags") ? tagLabels(i.item.tags) : [])].filter((l): l is string => !!l);
+  const labels = [BASE_LABEL, on("github.label.project") ? projectLabel(i.projectName) : null, on("github.label.moscow") ? moscowLabel(i.item.moscow) : null, on("github.label.rank") ? rankBandLabel(i.item.stack_rank) : null, on("github.label.type") ? changeTypeLabel(i.item.change_type) : null, on("github.label.group") ? groupLabel(i.item.theme) : null, opt("github.label.focus") ? focusAreaLabel(i.item.focus_area) : null, on("github.label.value") ? valueTypeLabel(i.item.value_type) : null, on("github.label.quarter") ? plannedQuarterLabel(i.item.g2m_quarter) : null, ...(opt("github.label.tags") ? tagLabels(i.item.tags) : [])].filter((l): l is string => !!l);
   const block = parts.join("\n");
   const milestone = on("github.milestone") ? milestoneFor(i.item.g2m_date_est) : null;
   return { title, block, labels, milestone, typeCandidates: on("github.issueType") ? issueTypeCandidates(i.item.change_type) : [], hash: createHash("sha256").update(JSON.stringify({ title, labels, block, milestone })).digest("hex") };

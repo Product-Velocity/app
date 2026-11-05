@@ -282,10 +282,10 @@ describe("the optional labels in the engine (issue #321)", () => {
     tables.items = { id: ID, item_code: "R-1", initiative_name: "Checkout", description: "Pay **fast**", moscow: "Must", focus_area: "Publishers", value_type: "Defend revenue", end_date: null, g2m_quarter: "Q3 2027", planned_start: null, home_project_id: "p1" };
     tables.item_tags = [{ value: "payments" }, { value: "Q4 push" }];
   };
-  it("nothing is sent for them until the project switches them on", async () => {
+  it("tags and focus area are not sent until the project switches them on (Business Value Type and Planned Quarter are on)", async () => {
     rows();
     const e = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout", labels: [] }).call);
-    expect(e.kind === "ok" && (e.plan.fields.labels as string[]).some((l) => /pv:(tag|focus|value)\//.test(l))).toBe(false);
+    expect(e.kind === "ok" && (e.plan.fields.labels as string[]).some((l) => /pv:(tag|focus)\//.test(l))).toBe(false);
   });
   it("the Planned Quarter label is on by default and goes when its switch is off", async () => {
     rows();

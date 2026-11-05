@@ -194,7 +194,7 @@
   "allowed": [],
   "allowedText": null,
   "origin": "Input",
-  "githubSync": "Optional: push as label (off by default); Jira also writes it to a text field chosen per project.",
+  "githubSync": "Optional: push as label (off by default); Jira writes it into the Theme text field chosen per project.",
   "filledWhen": "Now",
   "description": "Formats, Demand/Optimisation, Publishers, Backlog (as in v1)"
  },
@@ -530,7 +530,7 @@
   ],
   "allowedText": "New revenue · Increase revenue · Defend revenue · Decrease costs · Other",
   "origin": "Input",
-  "githubSync": "Optional: push the type (only) as label pv:value/<type> (off by default). The amount and basis never sync (commercial).",
+  "githubSync": "Push the type (only) as label pv:value/<type> (on by default). The amount and basis never sync (commercial).",
   "filledWhen": "After interviews",
   "description": "Always one of: New revenue, Increase revenue, Defend revenue, Decrease costs, Other"
  },

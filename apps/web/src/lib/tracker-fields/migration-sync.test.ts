@@ -7,7 +7,7 @@ import { configSlots } from "./mapping";
 // This test fails when one is changed without the other.
 // the latest definition wins: the migrations are read in order and the last list is the one the database has
 const dir = join(__dirname, "../../../../../packages/db/migrations");
-const sql = readdirSync(dir).filter((f) => /tracker_field_config|jira_description_sections|optional_field_labels|value_quarter_labels_focus_field/.test(f)).sort().map((f) => readFileSync(join(dir, f), "utf8")).join("\n");
+const sql = readdirSync(dir).filter((f) => /tracker_field_config|jira_description_sections|optional_field_labels|value_quarter_labels_focus_field|value_label_default_on_theme_is_focus/.test(f)).sort().map((f) => readFileSync(join(dir, f), "utf8")).join("\n");
 const listIn = (tracker: "jira" | "github") => {
   const all = [...sql.matchAll(tracker === "jira" ? /when 'jira' then array\[([^\]]*)\]/g : /else array\[([^\]]*)\]/g)];
   return [...(all[all.length - 1]?.[1] ?? "").matchAll(/'([^']+)'/g)].map((x) => x[1]!).sort();

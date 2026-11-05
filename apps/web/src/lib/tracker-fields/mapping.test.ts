@@ -5,7 +5,7 @@ import type { CatalogEntry } from "./catalog";
 import { effectiveJiraMap, githubOptions, parseConfigRows, validateConfig, type ConfigRow } from "./mapping";
 import { SLOTS, slotsFor } from "./slots";
 
-const ITEM = { initiative_name: "Checkout redesign", description: "Plain text", moscow: "Must", stack_rank: 7, change_type: "New feature", theme: "Payments", g2m_date_est: "2027-03-31", planned_start: "2027-01-04", effort: "M", summary: "S", hypothesis: "H", item_code: "R-01" };
+const ITEM = { initiative_name: "Checkout redesign", description: "Plain text", moscow: "Must", stack_rank: 7, change_type: "New feature", theme: "Payments", focus_area: "Payments", g2m_date_est: "2027-03-31", planned_start: "2027-01-04", effort: "M", summary: "S", hypothesis: "H", item_code: "R-01" };
 const BASE: JiraFieldMap = { startDate: "customfield_10015", theme: "customfield_10030", priorityByMoscow: { Must: "1" } };
 const entry = (id: string, kind: CatalogEntry["kind"], name = id): CatalogEntry => ({ id, name, custom: id.startsWith("customfield"), kind, typeLabel: kind, options: [], filled: null, sampled: null });
 const CATALOG = [entry("duedate", "date", "Due date"), entry("customfield_10015", "date", "Start date"), entry("customfield_10016", "date", "Go-live"), entry("customfield_10030", "text", "Theme"), entry("customfield_10031", "text", "Release note"), entry("customfield_10040", "select", "Team"), entry("summary", "text", "Summary")];
@@ -142,12 +142,12 @@ describe("reading what is stored", () => {
 
 describe("the optional labels (issue #321): off by default, on when a project switches them on", () => {
   const ITEM2 = { ...ITEM, focus_area: "Demand/Optimisation", value_type: "Defend revenue", tags: ["Q4 push", "payments", "Q4 push"] };
-  const ON_ALL = (t: "jira" | "github") => ["tags", "focus", "value"].map((k) => ({ slot: `${t}.label.${k}`, enabled: true, field: null }));
+  const ON_ALL = (t: "jira" | "github") => ["tags", "focus"].map((k) => ({ slot: `${t}.label.${k}`, enabled: true, field: null }));
   it("with nothing saved, no label for them is sent on either tracker (today's payloads are unchanged)", () => {
     const j = buildJiraPayload({ item: ITEM2, fields: effectiveJiraMap(BASE, []), projectName: "Platform" });
-    expect(j.fields.labels).toEqual(["product-velocity", "pv:project/platform", "pv:moscow/must", "pv:rank/top-10", "pv:type/new-feature", "pv:group/payments"]);
+    expect(j.fields.labels).toEqual(["product-velocity", "pv:project/platform", "pv:moscow/must", "pv:rank/top-10", "pv:type/new-feature", "pv:group/payments", "pv:value/defend-revenue"]); // Business Value Type is on by default
     const g = buildTrackingIssue({ item: ITEM2, itemId: "22222222-2222-4222-8222-222222222222", projectName: "Mobile", appUrl: "https://productvelocity.app", artifacts: [], ...githubOptions([]) });
-    expect(g.labels.some((l) => /pv:(tag|focus|value)\//.test(l))).toBe(false);
+    expect(g.labels.some((l) => /pv:(tag|focus)\//.test(l))).toBe(false);
   });
   it("switched on, they become pv: labels: one per tag (sorted, no duplicates), the focus area and the business value type", () => {
     const j = buildJiraPayload({ item: ITEM2, fields: effectiveJiraMap(BASE, ON_ALL("jira")), projectName: "Platform" });
@@ -157,9 +157,8 @@ describe("the optional labels (issue #321): off by default, on when a project sw
   });
   it("each switch only adds its own label, and an empty value adds nothing", () => {
     const only = (k: string) => (buildJiraPayload({ item: ITEM2, fields: effectiveJiraMap(BASE, [{ slot: `jira.label.${k}`, enabled: true, field: null }]), projectName: "Platform" }).fields.labels as string[]).slice(6);
-    expect(only("focus")).toEqual(["pv:focus/demand-optimisation"]);
-    expect(only("value")).toEqual(["pv:value/defend-revenue"]);
-    expect(only("tags")).toEqual(["pv:tag/payments", "pv:tag/q4-push"]);
+    expect(only("focus")).toEqual(["pv:focus/demand-optimisation", "pv:value/defend-revenue"]); // the value type is on by default
+    expect(only("tags")).toEqual(["pv:value/defend-revenue", "pv:tag/payments", "pv:tag/q4-push"]);
     const empty = buildJiraPayload({ item: { ...ITEM, focus_area: "", tags: [] }, fields: effectiveJiraMap(BASE, ON_ALL("jira")), projectName: "Platform" });
     expect((empty.fields.labels as string[]).length).toBe(6);
   });
@@ -173,17 +172,15 @@ describe("the optional labels (issue #321): off by default, on when a project sw
     expect(g.labels).toContain("pv:value/defend-revenue");
     expect(JSON.stringify([g, j])).not.toMatch(/999999|Measured/);
   });
-  it("Focus Area goes into the chosen Jira text field next to the label, and is skipped (with a note) when no field or the Theme field is chosen", () => {
+  it("Focus Area goes into the chosen Jira text field (Theme); the Initiative Group is only a label and is never written into a field", () => {
     const item = { ...ITEM2, theme: "Payments" };
-    const sent = buildJiraPayload({ item, fields: { ...effectiveJiraMap(BASE, []), theme: "customfield_10001", focusArea: "customfield_10002" }, projectName: "Platform" });
-    expect(sent.fields.customfield_10002).toBe("Demand/Optimisation");
-    expect(sent.fields.customfield_10001).toBe("Payments");
+    const sent = buildJiraPayload({ item, fields: { ...effectiveJiraMap(BASE, []), theme: "customfield_10001" }, projectName: "Platform" });
+    expect(sent.fields.customfield_10001).toBe("Demand/Optimisation");
+    expect(sent.fields.labels as string[]).toContain("pv:group/payments");
+    expect(JSON.stringify(sent.fields)).not.toMatch(/"Payments"/);
     const none = buildJiraPayload({ item, fields: {}, projectName: "Platform" });
     expect(Object.keys(none.fields).some((k) => k.startsWith("customfield_"))).toBe(false);
-    expect(none.notes.join(" ")).toMatch(/Focus Area field not sent/);
-    const same = buildJiraPayload({ item, fields: { ...effectiveJiraMap(BASE, []), theme: "customfield_10001", focusArea: "customfield_10001" }, projectName: "Platform" });
-    expect(same.fields.customfield_10001).toBe("Payments");
-    expect(same.notes.join(" ")).toMatch(/same Jira field/);
+    expect(none.notes.join(" ")).toMatch(/Theme not sent/);
   });
   it("tags are capped at 10 labels and a tag that is only symbols is dropped", () => {
     const many = Array.from({ length: 15 }, (_, n) => `tag ${String(n).padStart(2, "0")}`);
@@ -192,7 +189,7 @@ describe("the optional labels (issue #321): off by default, on when a project sw
   });
   it("they are on the config list as default-off switches: the form, the parse and the validation keep only what differs from off", () => {
     expect(parseConfigRows([{ slot: "jira.label.tags", enabled: false }, { slot: "jira.label.focus", enabled: true }, { slot: "jira.label.rank", enabled: false }], "jira")).toEqual([{ slot: "jira.label.focus", enabled: true, field: null }, { slot: "jira.label.rank", enabled: false, field: null }]);
-    expect(validateConfig("jira", [{ slot: "jira.label.tags", enabled: false, field: null }, { slot: "jira.label.value", enabled: true, field: null }], null)).toEqual({ ok: true, rows: [{ slot: "jira.label.value", enabled: true, field: null }] });
+    expect(validateConfig("jira", [{ slot: "jira.label.tags", enabled: false, field: null }, { slot: "jira.label.focus", enabled: true, field: null }, { slot: "jira.label.value", enabled: true, field: null }], null)).toEqual({ ok: true, rows: [{ slot: "jira.label.focus", enabled: true, field: null }] });
     expect(effectiveJiraMap(BASE, [{ slot: "jira.label.tags", enabled: true, field: null }, { slot: "jira.label.moscow", enabled: false, field: null }])).toMatchObject({ on: ["jira.label.tags"], off: ["jira.label.moscow"] });
     expect(githubOptions([{ slot: "github.label.focus", enabled: true, field: null }])).toEqual({ on: ["github.label.focus"] });
   });

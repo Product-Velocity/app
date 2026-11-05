@@ -6,7 +6,7 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 5,What,Stack Rank,stack_rank,Number,,Input,Modify,"Optional one-way push to a GitHub issue field ""Priority"" / label.",Column on items,1
 6,What,Initiative Group,theme,Select,,Input,Modify,Optional: push as label.,Column on items,1
 7,What,Initiative Name,initiative_name,Text,,Input,Keep,App -> GitHub issue title on creation; app owns the title afterwards.,Column on items,1
-8,What,Focus Area,focus_area,Select,,Input,Fix,Optional: push as label (off by default); Jira also writes it to a text field chosen per project.,Column on items,1
+8,What,Focus Area,focus_area,Select,,Input,Fix,Optional: push as label (off by default); Jira writes it into the Theme text field chosen per project.,Column on items,1
 9,What,Change Type,change_type,Select,New feature · Improvement to existing feature,Input,Keep,,Column on items,1
 11,What,Initiative Hypothesis (IF / THEN / RESULTING IN),hypothesis,Long text,,Input,Modify,App -> GitHub: included in the managed block of the issue body.,Column on items,1
 12,What,Artifacts (links),artifacts,Links,,Input,Modify,App -> GitHub: listed in managed block of issue body.,Related table,1
@@ -22,7 +22,7 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 22,Why,Primary KR (Metric Name),kr_metric,Text,,Input,Modify,Never synced.,Column on items,1
 23,Why,Primary KR Start Value,kr_start,Number,,Input,Keep,,Column on items,1
 24,Why,Primary KR Target Value,kr_target,Number,,Input,Keep,,Column on items,1
-26,Why,Business Value Type,value_type,Select,New revenue · Increase revenue · Defend revenue · Decrease costs · Other,Input,Keep,Optional: push the type (only) as label pv:value/<type> (off by default). The amount and basis never sync (commercial).,Column on items,1
+26,Why,Business Value Type,value_type,Select,New revenue · Increase revenue · Defend revenue · Decrease costs · Other,Input,Keep,Push the type (only) as label pv:value/<type> (on by default). The amount and basis never sync (commercial).,Column on items,1
 27,Why,Business Value (12m run-rate),value_12m,Currency,,Input,Modify,Never synced (commercial).,Column on items,1
 28,Why,Business Value Basis,value_basis,Select,Measured · Estimate (basis stated) · Partner claim · Not stated,Input,Modify,,Column on items,1
 29,Why,Time to First Revenue (months),time_to_first_revenue_months,Number,,Input,Keep,,Column on items,1

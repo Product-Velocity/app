@@ -94,7 +94,8 @@ describe("Help guide: exact target fields", () => {
     expect(row("effort").github).toMatch(/Size/);
     expect(row("g2m_date_est").github).toMatch(/milestone/);
     expect(row("theme").github).toMatch(/pv:group\//);
-    expect(row("theme").jira).toMatch(/pv:group\/.*Theme/);
+    expect(row("theme").jira).toMatch(/pv:group\/.*only/); // the group is a label only; the Jira Theme field gets the Focus Area
+    expect(row("focus_area").jira).toMatch(/Theme/);
     expect(row("theme").jira).not.toMatch(/planned/);
   });
   it("names the exact GitHub source of what the app reads", () => {
@@ -108,7 +109,7 @@ describe("Help guide: exact target fields", () => {
       expect(row(k).updated, k).toBe("You edit it");
     }
     // issue #321: the optional labels are built, off by default, and the Help says where to switch them on (Business Value Type replaced Roadmap Category)
-    for (const k of ["value_type", "focus_area", "tags"]) {
+    for (const k of ["focus_area", "tags"]) {
       expect(row(k).github, k).toMatch(/^Sent to label pv:|^Sent to one label pv:/i);
       expect(row(k).github, k).toMatch(/off by default/);
       expect(row(k).jira, k).toMatch(/off by default/);

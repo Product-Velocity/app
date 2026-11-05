@@ -36,7 +36,6 @@ export function jiraMapFromForm(get: Get): JiraFieldMap {
   return parseFieldMap({
     startDate: all || reset === "jira.startDate" ? "" : get(FIELD("jira.startDate")),
     theme: all || reset === "jira.theme" ? "" : get(FIELD("jira.theme")),
-    focusArea: all || reset === "jira.focusArea" ? "" : get(FIELD("jira.focusArea")),
     priorityByMoscow: Object.fromEntries(MOSCOW_VALUES.map((m) => [m, all || reset === "jira.priority" ? "" : get(`priority_${m}`)])),
   });
 }
@@ -49,12 +48,11 @@ export function validateJiraMap(next: JiraFieldMap, stored: JiraFieldMap, choice
   const errors: string[] = [];
   const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
   if (!choices) {
-    if (!same(next.startDate, stored.startDate) || !same(next.theme, stored.theme) || !same(next.focusArea, stored.focusArea) || !same(next.priorityByMoscow, stored.priorityByMoscow)) errors.push("The fields of this Jira site could not be read just now, so the start date, theme and priority choices could not be checked. Try again in a minute.");
+    if (!same(next.startDate, stored.startDate) || !same(next.theme, stored.theme) || !same(next.priorityByMoscow, stored.priorityByMoscow)) errors.push("The fields of this Jira site could not be read just now, so the start date, theme and priority choices could not be checked. Try again in a minute.");
     return errors;
   }
   if (next.startDate && !choices.startDates.some((c) => c.id === next.startDate)) errors.push(`The start date field ${next.startDate} is not a date field of this Jira site.`);
   if (next.theme && !choices.themes.some((c) => c.id === next.theme)) errors.push(`The theme field ${next.theme} is not a single-line text field of this Jira site.`);
-  if (next.focusArea && !choices.themes.some((c) => c.id === next.focusArea)) errors.push(`The Focus Area field ${next.focusArea} is not a single-line text field of this Jira site.`);
   for (const [m, id] of Object.entries(next.priorityByMoscow ?? {})) if (!choices.priorities.some((c) => c.id === id)) errors.push(`The Jira priority for ${m} (${id}) does not exist on this site.`);
   return errors;
 }
