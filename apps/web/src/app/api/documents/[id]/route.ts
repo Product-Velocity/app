@@ -43,7 +43,13 @@ export async function PATCH(request: Request, { params }: Ctx) {
   const supabase = await signedIn();
   if (!supabase) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   if (!UUID.test(id)) return NextResponse.json({ error: "Document not found." }, { status: 404 });
-  const input = (await request.json().catch(() => null)) as { baseVersion?: number; kind?: string; title?: string; body?: string; status?: string; acceptDraft?: boolean } | null;
+  const input = (await request.json().catch(() => null)) as { baseVersion?: number; kind?: string; title?: string; body?: string; status?: string; acceptDraft?: boolean; shared?: boolean } | null;
+  // "Do not share" is not an edit of the text: it needs no base version and does not make a new version
+  if (input && typeof input.shared === "boolean" && Object.keys(input).every((k) => k === "shared")) {
+    const { data, error } = await supabase.from("item_documents").update({ shared: input.shared }).eq("id", id).select(DOC_COLS);
+    if (error || !data?.[0]) return NextResponse.json({ error: "You do not have permission to change this document." }, { status: 403 });
+    return NextResponse.json({ document: toDoc(data[0] as DocRow, true) });
+  }
   if (!input || !Number.isInteger(input.baseVersion)) return NextResponse.json({ error: "Missing the version this change is based on." }, { status: 400 });
   const c = checkDocumentInput({ kind: input.kind, title: input.title, body: input.body, status: input.status }, { requireTitle: false });
   if (!c.ok) return NextResponse.json({ error: c.error }, { status: 422 });

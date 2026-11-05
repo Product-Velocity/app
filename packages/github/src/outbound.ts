@@ -21,6 +21,11 @@ export type TrackingIssueInput = {
   artifacts: Artifact[];
   /** Files with a login-free share link. The caller passes them ONLY for a private repository: anyone who can read the issue can open them. */
   files?: Artifact[];
+  /**
+   * The Markdown of the documents the person left shared (rendered by `documentsMarkdown` in @pv/domain: headings moved down, cut to fit). The caller passes it ONLY
+   * for a private repository. This is the one place document text may enter a GitHub payload (CLAUDE.md rule 2, changed 2026-11-05).
+   */
+  documents?: string;
   /** Slots switched off in the field configuration (`github.label.*`, `github.body.artifacts`, `github.body.files`, `github.milestone`, `github.issueType`); absent = everything on, as before. */
   off?: readonly string[];
   /** Slots switched ON that are off by default (`github.label.tags`, `github.label.focus`). */
@@ -148,6 +153,8 @@ export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
   if (hypothesis) parts.push("", "## Hypothesis (IF / THEN / RESULTING IN)", hypothesis);
   if (links.length) parts.push("", "## Artifacts", ...links.map((a) => `- [${linkLabel(a.label)}](${a.url})`));
   if (files.length) parts.push("", "## Files", ...files.map((a) => `- [${linkLabel(a.label)}](${a.url})`));
+  const docs = sanitize((i.documents ?? "").trim());
+  if (docs) parts.push("", "## Documents", docs);
   parts.push("", "---", `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept. [Open in Product Velocity](${i.appUrl}/portfolio/${encodeURIComponent(code)})`, BLOCK_END);
 
   const title = (code ? `${code}: ${name}` : name) || "Untitled initiative";

@@ -221,13 +221,19 @@ test.describe("list fields", () => {
     await panel(page).getByRole("tab", { name: "Spec" }).click();
     const links = panel(page).locator(".pf-links");
     await expect(links.getByRole("link", { name: "PRD" })).toHaveAttribute("href", "https://example.test/prd");
+    await panel(page).getByRole("button", { name: "Add ▾" }).click();
+    await panel(page).getByRole("menuitem", { name: "Add a link" }).click();
     await links.getByLabel("Link address").fill("not a link");
     await links.getByRole("button", { name: "Add link" }).click();
     await expect(panel(page).getByRole("alert")).toContainText("http");
-    await links.getByLabel("Link label (optional)").fill("Design");
+    await links.getByLabel("Link name (optional)").fill("Design");
     await links.getByLabel("Link address").fill("https://example.test/design");
     await links.getByRole("button", { name: "Add link" }).click();
     await expect(links.getByRole("link", { name: "Design" })).toBeVisible();
+    // one switch per link, in words
+    await expect(links.getByRole("button", { name: /Shared with GitHub\. Do not share Design/ })).toBeVisible();
+    await links.getByRole("button", { name: /Do not share Design/ }).click();
+    await expect(links.getByRole("button", { name: /Only in Product Velocity\. Share Design/ })).toBeVisible();
     await panel(page).getByRole("tab", { name: "Overview" }).click();
     await reveal(page, "Why");
     const rel = field(page, "related_to");
@@ -269,7 +275,7 @@ test.describe("list fields", () => {
     await expect(field(page, "artifacts")).toHaveCount(0);
     await panel(page).getByRole("tab", { name: "Spec" }).click();
     await expect(panel(page)).toContainText("No files yet.");
-    await expect(panel(page).getByText("Attach files")).toBeVisible();
+    await expect(panel(page).getByRole("button", { name: "Add ▾" })).toBeVisible();
   });
 });
 
@@ -277,7 +283,7 @@ test.describe("tabs", () => {
   test("Spec (documents), GitHub and Alignment are honest empty states; an unlinked initiative says so on the GitHub tab", async ({ page }) => {
     await open(page, "n=40&item=R-01");
     await panel(page).getByRole("tab", { name: "Spec" }).click();
-    await expect(panel(page)).toContainText("The full PRD and other long documents live here");
+    await expect(panel(page)).toContainText("Everything here is shared with the GitHub issue");
     await panel(page).getByRole("tab", { name: "GitHub" }).click();
     await expect(panel(page)).toContainText("No GitHub issue is linked to this initiative yet");
     await panel(page).getByRole("tab", { name: "Alignment" }).click();

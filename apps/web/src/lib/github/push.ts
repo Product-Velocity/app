@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { canLinkFilesInto, columnOnItems, FIELD_BY_KEY } from "@pv/domain";
+import { canLinkFilesInto, columnOnItems, documentsMarkdown, FIELD_BY_KEY, type SharedDoc } from "@pv/domain";
 import { createHash } from "node:crypto";
 import { parseConfigRows, githubOptions, type ConfigRow } from "@/lib/tracker-fields/mapping";
 import { switchedOffNotes } from "@/lib/tracker-fields/notes";
@@ -17,6 +17,8 @@ type Link = { item_id: string; mode: "push" | "follow"; repo_full_name: string; 
 type Row = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; stack_rank: number; change_type: string | null; g2m_date_est: string | null; theme: string | null; effort: string | null; initiative_phase: string | null; home_project_id: string };
 
 type SharedFile = { item_id: string; name: string; share_token: string | null };
+/** The managed block stays under this many characters (GitHub refuses an issue body over 65,536, and text outside the block counts too). */
+const GITHUB_BLOCK_BUDGET = 60_000;
 const sharedFilesByItem = (rows: SharedFile[], appUrl: string) => {
   const m = new Map<string, { label: string; url: string }[]>();
   for (const r of rows) if (r.share_token) m.set(r.item_id, [...(m.get(r.item_id) ?? []), { label: r.name, url: shareUrl(appUrl, r.share_token, r.name) }]);
@@ -56,14 +58,16 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
 async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: string, connection: ConnectionRow, ids: string[], sc?: SourceControl, force?: ReadonlySet<string>): Promise<{ items: PlanItem[]; internal: Map<string, Internal> }> {
   const unique = [...new Set(ids)].slice(0, PUSH_LIMIT);
   const internal = new Map<string, Internal>();
-  const [items, projects, repos, links, artifacts, sharedFiles, tree, fieldConfig, tagRows] = await Promise.all([
+  const [items, projects, repos, links, artifacts, sharedFiles, docRows, tree, fieldConfig, tagRows] = await Promise.all([
+    // links the person did not switch to "do not share" (written documents are read below, and only the ones left shared)
     supabase.from("items").select(ITEM_SELECT).eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
     supabase.from("projects").select("id, name, default_repo, tracker, github_board").eq("tenant_id", tenantId),
     supabase.from("github_repositories").select("full_name, access, is_private").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("removed_at", null),
     supabase.from("item_github_links").select("item_id, mode, repo_full_name, issue_number, html_url, sync_state, last_pushed_hash, frozen_at").eq("tenant_id", tenantId).in("item_id", unique),
-    // links the person did not switch to "do not share" (written documents are never read here)
     supabase.from("item_attachments").select("item_id, name, url").eq("tenant_id", tenantId).eq("kind", "link").eq("shared", true).in("item_id", unique).order("created_at"),
     supabase.from("item_attachments").select("item_id, name, share_token").eq("tenant_id", tenantId).eq("kind", "file").in("item_id", unique).order("created_at"),
+    // the documents the person left shared (CLAUDE.md rule 2, changed 2026-11-05); a document marked "Do not share" is never read here
+    supabase.from("item_documents").select("item_id, kind, title, body, status, ai_draft").eq("tenant_id", tenantId).eq("shared", true).in("item_id", unique).order("created_at"),
     supabase.from("item_issue_tree").select("item_id, repo_full_name, issue_number, board_id").eq("tenant_id", tenantId).in("item_id", unique),
     // the field configuration (what a person switched off per project); a database without that table has none, so everything stays as it was
     supabase.from("tracker_field_config").select("project_id, slot, enabled, field_id").eq("tenant_id", tenantId).eq("provider", "github"),
@@ -88,6 +92,10 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
   const artifactsByItem = new Map<string, { label: string; url: string }[]>();
   for (const a of (artifacts.data ?? []) as { item_id: string; name: string; url: string }[]) artifactsByItem.set(a.item_id, [...(artifactsByItem.get(a.item_id) ?? []), { label: a.name, url: a.url }]);
 
+  const docsByItem = new Map<string, SharedDoc[]>();
+  for (const d of (docRows.data ?? []) as { item_id: string; kind: string; title: string; body: string; status: string; ai_draft: boolean }[]) {
+    docsByItem.set(d.item_id, [...(docsByItem.get(d.item_id) ?? []), { title: d.title, kind: d.kind, status: d.status, body: d.body, aiDraft: d.ai_draft }]);
+  }
   const fileRows = (sharedFiles.data ?? []) as SharedFile[];
   const filesByItem = sharedFilesByItem(fileRows, appUrl);
   const unsharedByItem = new Map<string, number>();
@@ -117,7 +125,12 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     const target = (link?.repo_full_name ?? project?.default_repo ?? "").toLowerCase();
     const filesOk = privateRepos.has(target);
     const config = parseConfigRows(configByProject.get(project?.id ?? ""), "github");
-    const built = buildTrackingIssue({ item: { ...row, tags: tagsByItem.get(id) ?? [] }, itemId: id, projectName: project?.name ?? "", appUrl, artifacts: artifactsByItem.get(id) ?? [], files: filesOk ? itemFiles : [], ...githubOptions(config) });
+    const issueInput = { item: { ...row, tags: tagsByItem.get(id) ?? [] }, itemId: id, projectName: project?.name ?? "", appUrl, artifacts: artifactsByItem.get(id) ?? [], files: filesOk ? itemFiles : [], ...githubOptions(config) };
+    // documents go in as the last section, only to a private repository, cut to what is left of the issue body's size limit
+    const itemDocs = docsByItem.get(id) ?? [];
+    const withoutDocs = buildTrackingIssue(issueInput);
+    const docsMd = filesOk && itemDocs.length > 0 ? documentsMarkdown(itemDocs, Math.max(0, GITHUB_BLOCK_BUDGET - withoutDocs.block.length - 100)) : "";
+    const built = docsMd ? buildTrackingIssue({ ...issueInput, documents: docsMd }) : withoutDocs;
     const switchedOff = switchedOffNotes(config, row, artifactsByItem.get(id)?.length ?? 0, itemFiles.length);
 
     // the linked GitHub Project: what would be written there is part of "changed", so changing a priority is a push
@@ -134,7 +147,8 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     internal.set(id, { projectId: project?.id, built, existing: link ? { issueNumber: link.issue_number, lastPushedHash: force?.has(id) ? null : link.last_pushed_hash } : null, pendingChildren, ...(board && boardPlan ? { board, boardPlan } : {}) });
     const withheld = itemFiles.length > 0 && !filesOk ? { filesNote: `${itemFiles.length === 1 ? "A shared file link was" : `${itemFiles.length} shared file links were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could open the links. Files are only linked in private repositories.` } : {};
     const unshared = unsharedByItem.get(id) ?? 0;
-    const note = [withheld.filesNote ?? (unshared ? `${unshared === 1 ? "1 attached file has" : `${unshared} attached files have`} no share link, so ${unshared === 1 ? "it is" : "they are"} not in the issue. Share it on the item's Spec tab to include it.` : undefined), ...switchedOff].filter(Boolean).join(" ") || undefined;
+    const docsWithheld = itemDocs.length > 0 && !filesOk ? `${itemDocs.length === 1 ? "A shared document was" : `${itemDocs.length} shared documents were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could read the text. Documents are only sent to private repositories.` : undefined;
+    const note = [docsWithheld, withheld.filesNote ?? (unshared ? `${unshared === 1 ? "1 attached file has" : `${unshared} attached files have`} no share link, so ${unshared === 1 ? "it is" : "they are"} not in the issue. Share it on the item's Spec tab to include it.` : undefined), ...switchedOff].filter(Boolean).join(" ") || undefined;
     const boardInfo = board && boardPlan ? { title: board.title, included: boardPlan.include, writes: boardPlan.writes.map((w) => ({ field: w.field.name, value: w.label })), notes: boardPlan.notes, children: pendingChildren } : board && boardNotes.length ? { title: board.title, included: false, writes: [], notes: boardNotes, children: 0 } : undefined;
     return { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo: d.repo, action: d.action, title: built.title, labels: built.labels, ...(built.milestone ? { milestone: built.milestone.title } : {}), ...(boardInfo ? { board: boardInfo } : {}), block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null, ...(d.reason ? { reason: d.reason } : {}), ...(note ? { filesNote: note } : {}) };
   });

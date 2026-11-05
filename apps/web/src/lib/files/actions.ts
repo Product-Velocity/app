@@ -1,7 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fileKindOf, MAX_FILE_BYTES, validateUpload } from "@pv/domain";
+import { fileKindOf, MAX_FILE_BYTES, safeFileName, validateUpload } from "@pv/domain";
 import type { FileRow } from "./serve";
 import type { FileStore } from "./store";
 
@@ -52,6 +52,15 @@ export async function setFileSharing(supabase: SupabaseClient, id: string, on: b
   const { data, error } = await supabase.from("item_attachments").update(on ? { shared: true, share_token: null } : { shared: false }).eq("kind", "file").eq("id", id).select("name, share_token").maybeSingle();
   if (error || !data) return fail(403, "You do not have permission to change this link.");
   return { ok: true, token: (data.share_token as string | null) ?? null, name: data.name as string };
+}
+
+/** Renames a file (the name is a label: the stored file and its share address stay). Creators and admins only, through the person's own client. */
+export async function renameItemFile(supabase: SupabaseClient, id: string, raw: string): Promise<{ ok: true; name: string } | Failure> {
+  const name = safeFileName(raw).slice(0, 200);
+  if (!raw.trim()) return fail(422, "Give the file a name.");
+  const { data, error } = await supabase.from("item_attachments").update({ name }).eq("kind", "file").eq("id", id).select("name").maybeSingle();
+  if (error || !data) return fail(403, "You do not have permission to rename this file.");
+  return { ok: true, name: data.name as string };
 }
 
 /** The row goes first (the role check applies and the share link stops working at once), then the bytes. */

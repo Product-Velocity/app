@@ -1,25 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import { formatBytes, MAX_FILES_PER_ITEM } from "@pv/domain";
+import { NameEdit, RowIcon, RowMenu, ShareChip } from "./attachment-ui";
 
 type FileInfo = { id: string; name: string; mime: string | null; size: number | null; shareUrl: string | null };
 
 const ACCEPT = "image/png,image/jpeg,image/gif,image/webp,application/pdf";
 const typingIn = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
 
+/** What the Spec tab's "Add" menu and drop zone call on the files list. */
+export type FilesHandle = { pick: () => void; upload: (files: File[]) => Promise<void> };
+
 /**
- * Files of one initiative (the Spec tab): choose, drag and drop, or paste an image. Every new file is shared with the tracker issue by default
- * (its login-free link is turned on at once); "Do not share" turns it off per file. Open and remove work as before.
+ * Files of one initiative (the Spec tab): the same row as documents and links (icon or thumbnail, name, meta, sharing chip, "⋯" menu). Choose, drag and drop
+ * (the whole tab is the drop zone, see DocumentsTab) or paste an image. Every new file is shared with the tracker issue by default (its login-free link is
+ * turned on at once); the chip turns that off per file.
  */
-export function FilesControl({ itemId, disabled, onError, query = "" }: { itemId: string; disabled: boolean; onError: (e: string | null) => void; /** Shows only the files whose name contains this text. */ query?: string }) {
+export const FilesControl = forwardRef<FilesHandle, { itemId: string; disabled: boolean; onError: (e: string | null) => void; /** Shows only the files whose name contains this text. */ query?: string; /** "GitHub" or "Jira": the tracker this initiative is sent to. */ tracker?: string }>(function FilesControl({ itemId, disabled, onError, query = "", tracker = "the issue" }, ref) {
   const id = useId();
   const [files, setFiles] = useState<FileInfo[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
-  const [over, setOver] = useState(false);
   const [open, setOpen] = useState<number | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -67,7 +72,7 @@ export function FilesControl({ itemId, disabled, onError, query = "" }: { itemId
     if (input.current) input.current.value = "";
     await load();
   };
-  const upload = (list: FileList | null) => uploadFiles(Array.from(list ?? []));
+  useImperativeHandle(ref, () => ({ pick: () => input.current?.click(), upload: uploadFiles }));
 
   // a pasted image becomes a file (not while typing in a box, so pasting text into a document is never intercepted)
   useEffect(() => {
@@ -85,14 +90,20 @@ export function FilesControl({ itemId, disabled, onError, query = "" }: { itemId
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [disabled, itemId]);
 
-  const remove = async (f: FileInfo) => { if (await call(`/api/files/${f.id}`, { method: "DELETE" }, "The file could not be removed.")) await load(); };
+  const remove = async (f: FileInfo) => { if (window.confirm(`Remove the file "${f.name}"? Its link stops working.`) && (await call(`/api/files/${f.id}`, { method: "DELETE" }, "The file could not be removed."))) await load(); };
   const share = async (f: FileInfo, on: boolean) => {
     const r = (await call(`/api/files/${f.id}/share`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ on }) }, "The link could not be changed.")) as { shareUrl: string | null } | null;
     if (r) setFiles((cur) => cur?.map((x) => (x.id === f.id ? { ...x, shareUrl: r.shareUrl } : x)) ?? cur);
   };
+  const rename = async (f: FileInfo, name: string) => {
+    setRenaming(null);
+    if (!name.trim() || name === f.name) return;
+    const r = (await call(`/api/files/${f.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }, "The file could not be renamed.")) as { name?: string } | null;
+    if (r?.name) setFiles((cur) => cur?.map((x) => (x.id === f.id ? { ...x, name: r.name! } : x)) ?? cur);
+  };
   const copy = async (f: FileInfo) => {
     if (!f.shareUrl) return;
-    try { await navigator.clipboard.writeText(f.shareUrl); setCopied(f.id); setTimeout(() => setCopied(null), 2000); } catch { onError("Copy the link from the box instead."); }
+    try { await navigator.clipboard.writeText(f.shareUrl); setCopied(f.id); setTimeout(() => setCopied(null), 2000); } catch { onError("Your browser did not allow copying. Open the file and copy its address instead."); }
   };
 
   if (!files) return <span className="muted" role="status">Loading…</span>;
@@ -100,58 +111,39 @@ export function FilesControl({ itemId, disabled, onError, query = "" }: { itemId
   const shown = q ? files.filter((f) => f.name.toLowerCase().includes(q)) : files;
   const images = shown.filter((f) => f.mime?.startsWith("image/"));
   return (
-    <div
-      className={over ? "files files-over" : "files"}
-      onDragOver={(e) => { if (!disabled && e.dataTransfer.types.includes("Files")) { e.preventDefault(); setOver(true); } }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(e) => { setOver(false); if (disabled || e.dataTransfer.files.length === 0) return; e.preventDefault(); void uploadFiles(Array.from(e.dataTransfer.files)); }}
-    >
-      {files.length === 0 && <p className="muted">No files yet.</p>}
+    <div className="files">
+      {files.length === 0 && <p className="muted">No files yet. Choose them, drag them onto this tab or paste an image.</p>}
       {files.length > 0 && shown.length === 0 && <p className="muted">No file matches.</p>}
-      {images.length > 0 && (
-        <ul className="files-thumbs" aria-label="Image previews">
-          {images.map((f, i) => (
-            <li key={f.id}>
-              <button type="button" className="files-thumb" aria-label={`Preview ${f.name}`} onClick={() => setOpen(i)}>
-                {/* eslint-disable-next-line @next/next/no-img-element -- served by our own authenticated route, not optimisable */}
-                <img src={`/api/files/${f.id}/view`} alt="" loading="lazy" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <ul className="files-list">
-        {shown.map((f) => (
-          <li key={f.id} className="files-row" data-file={f.name}>
-            <a href={`/api/files/${f.id}/view`} target="_blank" rel="noreferrer">{f.name}</a>
-            <span className="muted"> {f.size ? formatBytes(f.size) : ""}</span>
-            {f.shareUrl && (
-              <div className="files-share">
-                <input readOnly aria-label={`Share link for ${f.name}`} value={f.shareUrl} onFocus={(e) => e.currentTarget.select()} />
-                <button type="button" className="btn" onClick={() => copy(f)}>{copied === f.id ? "Copied" : "Copy link"}</button>
-              </div>
-            )}
-            {!disabled && (
-              <span className="files-actions">
-                <button type="button" className="btn" disabled={busy} onClick={() => share(f, !f.shareUrl)}>{f.shareUrl ? `Do not share ${f.name}` : `Share ${f.name}`}</button>
-                <button type="button" className="btn" disabled={busy} onClick={() => remove(f)}>{`Remove ${f.name}`}</button>
+      <ul className="entry-list">
+        {shown.map((f) => {
+          const isImage = Boolean(f.mime?.startsWith("image/"));
+          return (
+            <li key={f.id} className="entry-row" data-file={f.name}>
+              <RowIcon kind={isImage ? "image" : "pdf"} src={`/api/files/${f.id}/view`} {...(isImage ? { onClick: () => setOpen(images.findIndex((x) => x.id === f.id)), label: `Preview ${f.name}` } : {})} />
+              <span className="entry-main">
+                {renaming === f.id
+                  ? <NameEdit value={f.name} label={`Name of ${f.name}`} onSave={(v) => void rename(f, v)} onCancel={() => setRenaming(null)} />
+                  : <a className="entry-name" href={`/api/files/${f.id}/view`} target="_blank" rel="noreferrer">{f.name}</a>}
+                <span className="entry-meta">{[f.mime === "application/pdf" ? "PDF" : f.mime?.replace("image/", "").toUpperCase(), f.size ? formatBytes(f.size) : null].filter(Boolean).join(" · ")}{copied === f.id ? " · Link copied" : ""}</span>
               </span>
-            )}
-          </li>
-        ))}
+              <ShareChip shared={Boolean(f.shareUrl)} tracker={tracker} name={f.name} disabled={disabled} busy={busy} onToggle={(on) => void share(f, on)} />
+              <RowMenu label={`Actions for ${f.name}`} items={[
+                { label: "Open", href: `/api/files/${f.id}/view` },
+                { label: "Download", href: `/api/files/${f.id}/view?download`, download: true },
+                { label: "Copy link", onSelect: () => void copy(f), hidden: !f.shareUrl },
+                { label: "Rename", onSelect: () => setRenaming(f.id), hidden: disabled },
+                { label: "Remove", onSelect: () => void remove(f), danger: true, hidden: disabled },
+              ]} />
+            </li>
+          );
+        })}
       </ul>
       {open !== null && images[open] && <Lightbox images={images} index={open} onIndex={setOpen} onClose={() => setOpen(null)} />}
-      {files.length > 0 && <p className="muted">Shared files go into the GitHub issue or Jira description as a link (private repositories only). Anyone with a link can open that file without signing in. Use “Do not share” to keep one in Product Velocity only.</p>}
-      {!disabled && (
-        <>
-          <label className="btn" htmlFor={id}>{busy ? "Uploading…" : "Attach files"}</label>{" "}
-          <span className="muted">or drag files here, or paste an image (⌘V).</span>
-          <input id={id} ref={input} type="file" multiple hidden accept={ACCEPT} disabled={busy || files.length >= MAX_FILES_PER_ITEM} onChange={(e) => void upload(e.target.files)} />
-        </>
-      )}
+      {!disabled && <input id={id} ref={input} type="file" multiple hidden accept={ACCEPT} disabled={busy || files.length >= MAX_FILES_PER_ITEM} onChange={(e) => void uploadFiles(Array.from(e.target.files ?? []))} />}
+      {busy && <p className="muted" role="status">Working…</p>}
     </div>
   );
-}
+});
 
 /** A large view of one image, with Previous and Next. Esc closes it (and not the panel behind it); focus goes to Close and comes back to the thumbnail. */
 function Lightbox({ images, index, onIndex, onClose }: { images: FileInfo[]; index: number; onIndex: (i: number) => void; onClose: () => void }) {

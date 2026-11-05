@@ -12,7 +12,7 @@ export const SYNC_FIELD_COLUMN: Record<SyncTextField, string> = { title: "initia
 export const SYNC_FIELD_LABEL: Record<SyncTextField, string> = { title: "Name", summary: "Summary", description: "Description", hypothesis: "Hypothesis" };
 export const SYNC_FIELD_LIMIT: Record<SyncTextField, number> = { title: 200, summary: 4000, description: 20000, hypothesis: 4000 };
 
-const HEADINGS = [["summary", "## Summary"], ["description", "## Description"], ["hypothesis", "## Hypothesis (IF / THEN / RESULTING IN)"], ["artifacts", "## Artifacts"], ["files", "## Files"]] as const;
+const HEADINGS = [["summary", "## Summary"], ["description", "## Description"], ["hypothesis", "## Hypothesis (IF / THEN / RESULTING IN)"], ["artifacts", "## Artifacts"], ["files", "## Files"], ["documents", "## Documents"]] as const;
 const FOOTER = "\n---\nManaged by Product Velocity";
 
 /** The text as the outbound builder writes it and as it is compared: no carriage returns, trimmed, markers escaped, @mentions defused. */

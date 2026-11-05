@@ -58,3 +58,57 @@ export function checkDocumentInput(input: DocInput, opts: { requireTitle: boolea
 }
 
 export const AI_TOOL_LABEL: Record<string, string> = { claude: "Claude", chatgpt: "ChatGPT", gemini: "Gemini", other: "Other AI tool" };
+
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// Documents in the delivery platforms (issue #325, Ashu 2026-11-05: CLAUDE.md rule 2). A document is shared with the GitHub issue and the Jira
+// description unless the person chose "Do not share". The text goes in as a last section, "Documents". Both trackers are read back by their
+// headings, so nothing a document says may look like one of those headings: its own headings are moved down to level 4 and below.
+// ---------------------------------------------------------------------------------------------------------------------------------------
+
+export type SharedDoc = { title: string; kind: string; status: string; body: string; aiDraft: boolean };
+const STATUS_WORD: Record<string, string> = { draft: "Draft", in_review: "In review", approved: "Approved" };
+const ZWSP = "\u200b";
+
+/** Markdown with every heading at level 4 to 6, so it can never be read as a section of ours (level 2 in Jira, "## " lines in GitHub). Code blocks keep their text. */
+export function demoteHeadings(md: string): string {
+  let fence: string | null = null;
+  return md.replace(/\r\n?/g, "\n").split("\n").map((line) => {
+    const f = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
+    if (f) { if (fence === null) fence = f[1]![0]!; else if (f[1]![0] === fence) fence = null; return line; }
+    if (fence !== null) return /^#{1,6}\s/.test(line) ? ZWSP + line : line; // inside code: not a heading, and not mistaken for one either
+    const h = /^(#{1,6})\s+(.*)$/.exec(line);
+    return h ? `${"#".repeat(Math.min(6, h[1]!.length + 3))} ${h[2]}` : line;
+  }).join("\n");
+}
+
+/**
+ * The Markdown that goes under "Documents": one block per shared document (title, kind, status, text), in the order given, cut so that the whole
+ * stays within `budget` characters. A document that does not fit is cut at a line with a note that the full text is in Product Velocity; those that
+ * come after it are named. Returns "" when there is nothing to send.
+ */
+export function documentsMarkdown(docs: readonly SharedDoc[], budget: number): string {
+  const out: string[] = [];
+  const omitted: string[] = [];
+  let left = Math.max(0, budget);
+  const CUT = "_Cut here to fit. The full document is in Product Velocity._";
+  for (const d of docs) {
+    const title = d.title.replace(/\s+/g, " ").replace(/^#+\s*/, "").trim() || "Untitled";
+    const kind = DOC_KIND_LABEL[d.kind as DocKind] ?? d.kind;
+    const meta = `_${STATUS_WORD[d.status] ?? d.status}${d.aiDraft ? " · AI draft, not yet reviewed" : ""}_`;
+    const head = `### ${title} (${kind})\n${meta}`;
+    const body = demoteHeadings(d.body).trim();
+    const whole = body ? `${head}\n\n${body}` : head;
+    if (omitted.length === 0 && whole.length + 2 <= left) { out.push(whole); left -= whole.length + 2; continue; }
+    if (omitted.length === 0 && body && left > head.length + CUT.length + 400) {
+      const room = left - head.length - CUT.length - 6;
+      const cut = body.slice(0, room);
+      const at = cut.lastIndexOf("\n");
+      out.push(`${head}\n\n${(at > room / 2 ? cut.slice(0, at) : cut).trimEnd()}\n\n${CUT}`);
+      left = 0;
+      continue;
+    }
+    omitted.push(title);
+  }
+  if (omitted.length > 0) out.push(`_Not included, too long for the issue: ${omitted.join(", ")}. They are in Product Velocity._`);
+  return out.join("\n\n");
+}

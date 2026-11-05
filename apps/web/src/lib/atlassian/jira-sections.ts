@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { adfToText, isSimpleAdf, markdownToAdf, type AdfDoc, type AdfNode } from "./adf";
 
 // The Jira description as headed sections (issue #319, decision 2026-11-04-jira-description-sections): the twin of the managed block of a GitHub issue.
-// Summary, Description and Hypothesis are Product Velocity's texts and are compared one by one; Artifacts and Files are sent only. Pure functions.
+// Summary, Description and Hypothesis are Product Velocity's texts and are compared one by one; Artifacts, Files and Documents are sent only (Documents: the written documents the person left shared, issue #325). Pure functions.
 // A Jira description that does not carry our headings (written before this existed, or typed in Jira) is read as the Description, so nothing breaks.
 
 export const SECTIONS = [
@@ -11,6 +11,7 @@ export const SECTIONS = [
   ["hypothesis", "Hypothesis (IF / THEN / RESULTING IN)"],
   ["artifacts", "Artifacts"],
   ["files", "Files"],
+  ["documents", "Documents"],
 ] as const;
 export type SectionKey = (typeof SECTIONS)[number][0];
 export const TEXT_SECTIONS = ["summary", "description", "hypothesis"] as const;
@@ -59,8 +60,8 @@ const label = (s: string) => s.replace(/[[\]\n\r]/g, " ").trim().slice(0, 120) |
 const bullets = (links: Link[]) => markdownToAdf(links.map((a) => `- [${label(a.label)}](${a.url})`).join("\n")).content;
 
 /** The text that tells whether the Artifacts and Files sections changed: their hash is kept with the sync base. */
-export const attachmentsText = (artifacts: Link[] | undefined, files: Link[] | undefined) => [...safeLinks(artifacts).map((a) => `a ${label(a.label)} ${a.url}`), ...safeLinks(files).map((a) => `f ${label(a.label)} ${a.url}`)].join("\n");
-export const attachmentsHash = (artifacts: Link[] | undefined, files: Link[] | undefined) => createHash("sha256").update(attachmentsText(artifacts, files)).digest("hex");
+export const attachmentsText = (artifacts: Link[] | undefined, files: Link[] | undefined, documents?: string) => [...safeLinks(artifacts).map((a) => `a ${label(a.label)} ${a.url}`), ...safeLinks(files).map((a) => `f ${label(a.label)} ${a.url}`), ...(documents?.trim() ? [`d ${documents.trim()}`] : [])].join("\n");
+export const attachmentsHash = (artifacts: Link[] | undefined, files: Link[] | undefined, documents?: string) => createHash("sha256").update(attachmentsText(artifacts, files, documents)).digest("hex");
 
 export type ComposeInput = {
   /** Product Velocity's text of each section, as Markdown. */
@@ -71,12 +72,19 @@ export type ComposeInput = {
   head?: AdfNode[];
   artifacts?: Link[];
   files?: Link[];
+  /** The Markdown of the shared documents (rendered by `documentsMarkdown`: headings moved down so none reads as one of our level-2 sections). */
+  documents?: string;
 };
 
-/** The Jira description: head, then Summary, Description, Hypothesis, Artifacts, Files; a section with nothing in it is left out. */
+/** The Jira description: head, then Summary, Description, Hypothesis, Artifacts, Files, Documents; a section with nothing in it is left out. */
 export function composeDescription(c: ComposeInput): AdfDoc {
   const out: AdfNode[] = [...(c.head ?? [])];
   for (const [key, name] of SECTIONS) {
+    if (key === "documents") {
+      const t = (c.documents ?? "").trim();
+      if (t) out.push(heading(name), ...markdownToAdf(t).content);
+      continue;
+    }
     if (key === "artifacts" || key === "files") {
       const links = safeLinks(key === "artifacts" ? c.artifacts : c.files);
       if (links.length > 0) out.push(heading(name), ...bullets(links));

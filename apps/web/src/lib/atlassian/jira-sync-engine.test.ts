@@ -243,6 +243,20 @@ describe("the description sections of an initiative (issue #319)", () => {
     expect(JSON.stringify(e.plan.fields.description)).not.toContain("example.test/private"); // a link set to "do not share" stays in Product Velocity
     expect(e.plan.notes.join(" ")).toContain("1 attached file has no share link");
   });
+  it("sends the documents left shared as a last section, with their headings moved down so the description still reads back; a document marked Do not share stays out", async () => {
+    rows();
+    tables.item_documents = [{ shared: true, kind: "prd", title: "PRD: Checkout", body: "# Goal\n## Description\nInside the PRD", status: "approved", ai_draft: false }, { shared: false, kind: "prd", title: "Secret plan", body: "never", status: "draft", ai_draft: false }];
+    tables.item_jira_links = null;
+    const l = (await (await import("./jira-sync-engine")).load(withApp, ID))!;
+    const e = await evaluate(l, {}, fakeJira(null).call);
+    if (e.kind !== "ok") throw new Error("expected a plan");
+    const text = adfToText(e.plan.fields.description).replace(/\n+/g, "|");
+    expect(text).toContain("Documents|PRD: Checkout (PRD)|Approved|Goal|Description|Inside the PRD");
+    expect(text).not.toContain("Secret plan");
+    const { splitDescription, nodesText } = await import("./jira-sections");
+    const split = splitDescription(e.plan.fields.description);
+    expect(nodesText(split.nodes.description).trim()).toBe("Pay fast"); // the document's own "Description" heading is not ours
+  });
   it("without an app address no file is linked (and nothing is said about it)", async () => {
     rows();
     tables.item_jira_links = null;
