@@ -193,7 +193,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
       <div ref={bodyRef} className="ip-body" role="tabpanel" id={`${titleId}-panel-${tab}`} aria-labelledby={`${titleId}-tab-${tab}`}>
         {loadError && <p role="alert" className="pf-error">Could not load the lists of this initiative: {loadError}</p>}
         {tab === "overview" && <Overview ctx={ctx} itemId={itemId} />}
-        {tab === "spec" && <DocumentsTab itemId={itemId} canEdit={controller.canEdit} />}
+        {tab === "spec" && <DocumentsTab itemId={itemId} canEdit={controller.canEdit} ctx={ctx} />}
         {tab === "github" && (trackerName === "Jira" ? <JiraTab controller={controller} lookups={lookups} itemId={itemId} /> : <GithubTab controller={controller} lookups={lookups} itemId={itemId} />)}
         {tab === "alignment" && <EmptyTab title="Alignment" text="Votes, sign-offs and the decision log for this initiative arrive with alignment, in phases 5 and 8." />}
         {tab === "activity" && <ActivityTab controller={controller} lookups={lookups} itemId={itemId} me={me} />}
@@ -208,13 +208,16 @@ const fieldMatches = (f: { name: string; key: string; description?: string | nul
   return q.toLowerCase().split(/\s+/).filter(Boolean).every((w) => hay.includes(w));
 };
 
+/** Files and links are added and edited on the Spec tab (issue #325). */
+const MOVED_TO_SPEC = ["screenshots", "artifacts"];
+
 function Overview({ ctx, itemId }: { ctx: FieldCtx; itemId: string }) {
   const row = ctx.controller.row(itemId)!;
   const sections = useMemo(() => panelSections(), []);
   const [query, setQuery] = useState("");
   const q = query.trim();
   const shown = useMemo(
-    () => sections.map((s) => ({ ...s, total: s.fields.length, fields: s.fields.filter((f) => f.key !== "health" && (!q || fieldMatches(f, q))) })).filter((s) => !q || s.fields.length > 0),
+    () => sections.map((s) => ({ ...s, total: s.fields.length, fields: s.fields.filter((f) => f.key !== "health" && !MOVED_TO_SPEC.includes(f.key) && (!q || fieldMatches(f, q))) })).filter((s) => !q || s.fields.length > 0),
     [sections, q],
   );
   const healthShown = !q || fieldMatches(FIELD_BY_KEY.health!, q);

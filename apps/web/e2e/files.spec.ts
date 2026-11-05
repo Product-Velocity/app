@@ -35,24 +35,26 @@ const openPanel = async (page: Page, role = "admin") => {
   await page.waitForSelector(".ag-row");
   await page.locator('.ag-row[row-id="item-3"] [col-id="item_code"]').click({ position: { x: 8, y: 8 } });
   await expect(page.getByTestId("item-panel")).toBeVisible();
-  return page.getByTestId("item-panel").locator('[data-field="screenshots"]');
+  await page.getByTestId("item-panel").getByRole("tab", { name: "Spec" }).click();
+  return page.getByTestId("item-panel").locator(".files");
 };
 
 test.describe("Files on an initiative", () => {
-  test("attach, share with a login-free link, turn the link off, remove", async ({ page }) => {
+  test("attach (shared by default with a login-free link), do not share, share again, remove", async ({ page }) => {
     await fakeFiles(page);
     const field = await openPanel(page);
     await expect(field.getByText("No files yet.")).toBeVisible();
     await field.locator('input[type="file"]').setInputFiles({ name: "mockup.png", mimeType: "image/png", buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0]) });
     const row = field.locator('[data-file="mockup.png"]');
     await expect(row.getByRole("link", { name: "mockup.png" })).toHaveAttribute("target", "_blank");
-    await row.getByRole("button", { name: "Create link for mockup.png" }).click();
     await expect(field.getByLabel("Share link for mockup.png")).toHaveValue(new RegExp(`/f/T{43}/mockup.png$`));
     await page.screenshot({ path: "../../docs/screenshots/files-share-link.png" });
-    const r = await new AxeBuilder({ page }).include('[data-field="screenshots"]').withTags(["wcag2a", "wcag2aa"]).analyze();
+    const r = await new AxeBuilder({ page }).include(".files").withTags(["wcag2a", "wcag2aa"]).analyze();
     expect(r.violations.map((x) => x.id)).toEqual([]);
-    await row.getByRole("button", { name: "Turn off link for mockup.png" }).click();
+    await row.getByRole("button", { name: "Do not share mockup.png" }).click();
     await expect(field.getByLabel("Share link for mockup.png")).toHaveCount(0);
+    await row.getByRole("button", { name: "Share mockup.png" }).click();
+    await expect(field.getByLabel("Share link for mockup.png")).toBeVisible();
     await row.getByRole("button", { name: "Remove mockup.png" }).click();
     await expect(field.getByText("No files yet.")).toBeVisible();
   });
@@ -61,7 +63,7 @@ test.describe("Files on an initiative", () => {
     await fakeFiles(page);
     const field = await openPanel(page);
     await field.locator('input[type="file"]').setInputFiles({ name: "bad.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg/>") });
-    await expect(field.getByRole("alert")).toHaveText("Only PNG, JPEG, GIF, WebP and PDF files can be attached.");
+    await expect(page.getByTestId("item-panel").getByRole("alert")).toHaveText("Only PNG, JPEG, GIF, WebP and PDF files can be attached.");
   });
 
   test("a viewer sees the files and links but cannot attach, share or remove", async ({ page }) => {

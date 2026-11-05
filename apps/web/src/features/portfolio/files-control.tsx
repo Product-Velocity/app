@@ -5,13 +5,20 @@ import { formatBytes, MAX_FILES_PER_ITEM } from "@pv/domain";
 
 type FileInfo = { id: string; name: string; mime: string | null; size: number | null; shareUrl: string | null };
 
-/** Files of one initiative: upload, open, remove, and a login-free link per file that can be turned on and off. */
+const ACCEPT = "image/png,image/jpeg,image/gif,image/webp,application/pdf";
+const typingIn = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
+
+/**
+ * Files of one initiative (the Spec tab): choose, drag and drop, or paste an image. Every new file is shared with the tracker issue by default
+ * (its login-free link is turned on at once); "Do not share" turns it off per file. Open and remove work as before.
+ */
 export function FilesControl({ itemId, disabled, onError }: { itemId: string; disabled: boolean; onError: (e: string | null) => void }) {
   const id = useId();
   const [files, setFiles] = useState<FileInfo[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  const [over, setOver] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -48,16 +55,37 @@ export function FilesControl({ itemId, disabled, onError }: { itemId: string; di
     }
   };
 
-  const upload = async (list: FileList | null) => {
-    for (const file of Array.from(list ?? [])) {
+  const uploadFiles = async (list: File[]) => {
+    for (const file of list) {
       const form = new FormData();
       form.set("item", itemId);
       form.set("file", file);
-      if (!(await call("/api/files", { method: "POST", body: form }, "The file could not be attached."))) break;
+      const made = (await call("/api/files", { method: "POST", body: form }, "The file could not be attached.")) as { file?: FileInfo } | null;
+      if (!made) break;
+      // shared by default; the person can switch it off per file
+      if (made.file) await call(`/api/files/${made.file.id}/share`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ on: true }) }, "The file was attached, but its link could not be turned on.");
     }
     if (input.current) input.current.value = "";
     await load();
   };
+  const upload = (list: FileList | null) => uploadFiles(Array.from(list ?? []));
+
+  // a pasted image becomes a file (not while typing in a box, so pasting text into a document is never intercepted)
+  useEffect(() => {
+    if (disabled) return;
+    const onPaste = (e: ClipboardEvent) => {
+      if (typingIn(e.target)) return;
+      const imgs = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
+      if (imgs.length === 0) return;
+      e.preventDefault();
+      const stamp = new Date().toISOString().slice(0, 16).replace("T", " ").replace(":", ".");
+      void uploadFiles(imgs.map((f, i) => (/^image\.\w+$/i.test(f.name) ? new File([f], `Pasted image ${stamp}${imgs.length > 1 ? ` ${i + 1}` : ""}.${f.type.split("/")[1] === "jpeg" ? "jpg" : f.type.split("/")[1]}`, { type: f.type }) : f)));
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [disabled, itemId]);
+
   const remove = async (f: FileInfo) => { if (await call(`/api/files/${f.id}`, { method: "DELETE" }, "The file could not be removed.")) await load(); };
   const share = async (f: FileInfo, on: boolean) => {
     const r = (await call(`/api/files/${f.id}/share`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ on }) }, "The link could not be changed.")) as { shareUrl: string | null } | null;
@@ -70,7 +98,12 @@ export function FilesControl({ itemId, disabled, onError }: { itemId: string; di
 
   if (!files) return <span className="muted" role="status">Loading…</span>;
   return (
-    <div className="files">
+    <div
+      className={over ? "files files-over" : "files"}
+      onDragOver={(e) => { if (!disabled && e.dataTransfer.types.includes("Files")) { e.preventDefault(); setOver(true); } }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => { setOver(false); if (disabled || e.dataTransfer.files.length === 0) return; e.preventDefault(); void uploadFiles(Array.from(e.dataTransfer.files)); }}
+    >
       {files.length === 0 && <p className="muted">No files yet.</p>}
       <ul className="files-list">
         {files.map((f) => (
@@ -85,18 +118,19 @@ export function FilesControl({ itemId, disabled, onError }: { itemId: string; di
             )}
             {!disabled && (
               <span className="files-actions">
-                <button type="button" className="btn" disabled={busy} onClick={() => share(f, !f.shareUrl)}>{f.shareUrl ? `Turn off link for ${f.name}` : `Create link for ${f.name}`}</button>
+                <button type="button" className="btn" disabled={busy} onClick={() => share(f, !f.shareUrl)}>{f.shareUrl ? `Do not share ${f.name}` : `Share ${f.name}`}</button>
                 <button type="button" className="btn" disabled={busy} onClick={() => remove(f)}>{`Remove ${f.name}`}</button>
               </span>
             )}
           </li>
         ))}
       </ul>
-      {files.length > 0 && <p className="muted">Only files with a share link go into the GitHub issue (private repositories only). Anyone with a link can open that file without signing in.</p>}
+      {files.length > 0 && <p className="muted">Shared files go into the GitHub issue or Jira description as a link (private repositories only). Anyone with a link can open that file without signing in. Use “Do not share” to keep one in Product Velocity only.</p>}
       {!disabled && (
         <>
-          <label className="btn" htmlFor={id}>{busy ? "Uploading…" : "Attach files"}</label>
-          <input id={id} ref={input} type="file" multiple hidden accept="image/png,image/jpeg,image/gif,image/webp,application/pdf" disabled={busy || files.length >= MAX_FILES_PER_ITEM} onChange={(e) => void upload(e.target.files)} />
+          <label className="btn" htmlFor={id}>{busy ? "Uploading…" : "Attach files"}</label>{" "}
+          <span className="muted">or drag files here, or paste an image (⌘V).</span>
+          <input id={id} ref={input} type="file" multiple hidden accept={ACCEPT} disabled={busy || files.length >= MAX_FILES_PER_ITEM} onChange={(e) => void upload(e.target.files)} />
         </>
       )}
     </div>

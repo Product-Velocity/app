@@ -829,3 +829,4 @@ a.scope-link:hover, a.scope-link:focus-visible { background: var(--blue-tint-2);
 .rp-kpi-btn:hover { background: var(--grey-3); }
 .rp-kpi-btn[aria-pressed="true"] { background: var(--blue-tint-1); border-color: var(--blue); color: var(--blue-text); }
 .rp-kpi-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.files-over { outline: 2px dashed var(--accent, #3347D9); outline-offset: 2px; background: #f5f6ff; }

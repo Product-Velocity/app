@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { AI_TOOL_LABEL, DOC_KIND_LABEL, DOC_KINDS, MAX_DOC_CHARS, MAX_DOCS_PER_ITEM } from "@pv/domain";
 import type { DocView } from "@/lib/documents";
 import { MarkdownPreview } from "./markdown-preview";
+import { FilesControl } from "./files-control";
+import { LinksControl, type FieldCtx } from "./item-fields";
 
 type Version = { version: number; saved_at: string; saved_via: string; ai_tool?: string | null; ai_model?: string | null; saved_by_name?: string | null };
 /** "Claude (Claude Opus 5.5)": the AI tool from the connection and the model the assistant stated. */
@@ -14,7 +16,7 @@ const STATUS_LABEL: Record<string, string> = { draft: "Draft", in_review: "In re
  * The Spec tab: the documents of one initiative (the full PRD, requirements, research). Versioned Markdown that stays in Product Velocity:
  * it is never written to GitHub. Saves on leaving a box, keeps every version (restoring one is the undo), and never overwrites a newer save.
  */
-export function DocumentsTab({ itemId, canEdit }: { itemId: string; canEdit: boolean }) {
+export function DocumentsTab({ itemId, canEdit, ctx }: { itemId: string; canEdit: boolean; ctx: FieldCtx }) {
   const [docs, setDocs] = useState<DocView[] | null>(null);
   // a link from the activity log opens the document: ?item=R-12&tab=spec&doc=<id>
   const [openId, setOpenId] = useState<string | null>(() => {
@@ -68,6 +70,12 @@ export function DocumentsTab({ itemId, canEdit }: { itemId: string; canEdit: boo
         ))}
       </ul>
       {canEdit && <button type="button" className="btn" disabled={docs.length >= MAX_DOCS_PER_ITEM} onClick={() => void create()}>Add document</button>}
+      <h3>Files</h3>
+      <p className="muted">Screenshots, images and PDFs. Choose them, drag them onto this tab or paste an image.</p>
+      <FilesControl itemId={itemId} disabled={!canEdit} onError={setError} />
+      <h3>Links</h3>
+      <p className="muted">Figma, Claude artifacts, Drive and other pages. Paste a web address anywhere on this tab to add it.</p>
+      <LinksControl ctx={ctx} itemId={itemId} disabled={!canEdit} onError={setError} />
     </div>
   );
 }

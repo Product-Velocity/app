@@ -2,7 +2,7 @@
 
 import { DateInput } from "@/components/date-input";
 import { SelectField } from "@/components/search-list";
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import {
   canBeEmpty, dateEdge, optionsFor, panelField, quarterMismatch, resolveGroup, type FieldDef, type Link, type PanelField, type RelatedField,
 } from "@pv/domain";
@@ -286,7 +286,7 @@ function TagsEditor({ name, values, disabled, onChange }: { name: string; values
   );
 }
 
-function LinksEditor({ values, disabled, onChange }: { values: Link[]; disabled: boolean; onChange: (l: Link[]) => boolean }) {
+export function LinksEditor({ values, disabled, onChange }: { values: Link[]; disabled: boolean; onChange: (l: Link[]) => boolean }) {
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState("");
   const add = () => { if (url.trim() === "") return; if (onChange([...values, { label, url }])) { setLabel(""); setUrl(""); } };
@@ -410,4 +410,28 @@ function SkillsControl({ f, row, ctx, disabled, onError }: Common) {
       )}
     </div>
   );
+}
+
+/** The links of one initiative (artifacts), edited on the Spec tab. A pasted URL (not typed into a box) is added as a link. */
+export function LinksControl({ ctx, itemId, disabled, onError }: { ctx: FieldCtx; itemId: string; disabled: boolean; onError: (e: string | null) => void }) {
+  const related = ctx.controller.relatedOf(itemId);
+  const list = (related?.artifacts ?? []) as Link[];
+  const set = (next: unknown[]) => { const r = ctx.controller.editRelated(itemId, "artifacts", next); onError(r.ok ? null : r.error); return r.ok; };
+  useEffect(() => {
+    if (disabled || !related) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const t = e.target;
+      if (t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName))) return;
+      if ((e.clipboardData?.files.length ?? 0) > 0) return;
+      const text = e.clipboardData?.getData("text/plain").trim() ?? "";
+      if (!/^https?:\/\/\S+$/i.test(text)) return;
+      e.preventDefault();
+      set([...list, { label: "", url: text }]);
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  });
+  if (!related) return <span className="muted" role="status">Loading…</span>;
+  return <LinksEditor values={list} disabled={disabled} onChange={set} />;
 }
