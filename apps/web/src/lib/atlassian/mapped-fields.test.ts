@@ -9,7 +9,7 @@ const fake = (ids: string[], status = 200): JiraRequest & { calls: string[] } =>
   f.calls = calls;
   return f;
 };
-const ITEM = { initiative_name: "N", description: "D", moscow: "Must", g2m_date_est: "2027-03-31", planned_start: "2027-01-04", theme: "Payments" };
+const ITEM = { initiative_name: "N", description: "D", moscow: "Must", g2m_date_est: "2027-03-31", planned_start: "2027-01-04", focus_area: "Payments" };
 
 describe("fields the configuration names but the site no longer has", () => {
   it("reads nothing when only system fields are mapped", async () => {

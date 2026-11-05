@@ -21,11 +21,21 @@ describe("buildTrackingIssue", () => {
     const read: string[] = [];
     const item = new Proxy({ ...base.item, value_12m: "LEAK", confidence: "LEAK" }, { get: (t, k) => (read.push(String(k)), (t as Record<string, unknown>)[k as string]) });
     buildTrackingIssue({ ...base, item });
-    // the optional labels (Focus Area, Roadmap Category, Tags) are only read when a project switches them on
-    expect(new Set(read)).toEqual(new Set(OUTBOUND_ITEM_FIELDS.filter((k) => !["focus_area", "roadmap_category", "tags"].includes(k))));
+    // the optional labels (Focus Area, Tags) are only read when a project switches them on; Business Value Type and Planned Quarter are on by default
+    expect(new Set(read)).toEqual(new Set(OUTBOUND_ITEM_FIELDS.filter((k) => !["focus_area", "tags"].includes(k))));
     read.length = 0;
-    buildTrackingIssue({ ...base, item, on: ["github.label.focus", "github.label.category", "github.label.tags"] });
+    buildTrackingIssue({ ...base, item, on: ["github.label.focus", "github.label.tags"] });
     expect(new Set(read)).toEqual(new Set(OUTBOUND_ITEM_FIELDS));
+  });
+  it("Business Value Type and Planned Quarter become labels; the amount never does", () => {
+    const item = { ...base.item, value_type: "Defend revenue", value_12m: 1250000, value_basis: "Measured", g2m_quarter: "Q3 2027" };
+    const off = buildTrackingIssue({ ...base, item });
+    expect(off.labels).toContain("pv:quarter/q3-2027");
+    expect(off.labels).toContain("pv:value/defend-revenue"); // on by default
+    expect(JSON.stringify(off)).not.toMatch(/1250000|Measured/);
+    expect(buildTrackingIssue({ ...base, item, off: ["github.label.value"] }).labels.some((l) => l.startsWith("pv:value/"))).toBe(false);
+    expect(buildTrackingIssue({ ...base, item, off: ["github.label.quarter"] }).labels.some((l) => l.startsWith("pv:quarter/"))).toBe(false);
+    expect(buildTrackingIssue({ ...base, item: { ...item, g2m_quarter: "soon" } }).labels.some((l) => l.startsWith("pv:quarter/"))).toBe(false);
   });
   it("the Description is its own Markdown section between Summary and Hypothesis, and only appears when there is one", () => {
     const md = "### Scope\n\n- parse the file\n- map the columns\n\n| a | b |\n|---|---|\n| 1 | 2 |";

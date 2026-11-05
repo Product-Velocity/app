@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  CURRENT_PHASE, FIELD_BY_KEY, LEADERSHIP_COLUMNS, categoryMix, changesThisWeek, draftWeeklyUpdate, formatDate, healthByProject, needsAttention, topItems, weekWindow,
+  CURRENT_PHASE, FIELD_BY_KEY, LEADERSHIP_COLUMNS, valueTypeMix, changesThisWeek, draftWeeklyUpdate, formatDate, healthByProject, needsAttention, topItems, weekWindow,
   type AuditChange, type HealthState,
 } from "@pv/domain";
 import type { PortfolioController } from "../portfolio/controller";
@@ -46,7 +46,7 @@ export function LeadershipView({ controller, lookups, me, store, pageHref }: Lea
 
   const health = useMemo(() => healthByProject(rows, lookups.projects), [rows, lookups.projects]);
   const attention = useMemo(() => needsAttention(rows, today), [rows, today]);
-  const mix = useMemo(() => categoryMix(rows), [rows]);
+  const mix = useMemo(() => valueTypeMix(rows), [rows]);
   const top = useMemo(() => topItems(rows, 10), [rows]);
   const columns = useMemo(() => LEADERSHIP_COLUMNS.map((c) => FIELD_BY_KEY[c.key]!).filter((f) => f.phase <= CURRENT_PHASE), []);
   const later = useMemo(() => LEADERSHIP_COLUMNS.map((c) => FIELD_BY_KEY[c.key]!).filter((f) => f.phase > CURRENT_PHASE), []);
@@ -145,9 +145,9 @@ export function LeadershipView({ controller, lookups, me, store, pageHref }: Lea
           </section>
 
           <section className="lead-section" aria-labelledby="lead-mix">
-            <h2 id="lead-mix">Investment mix by Roadmap Category</h2>
+            <h2 id="lead-mix">Investment mix by Business Value Type</h2>
             <ul className="lead-mix" data-testid="mix">
-              {mix.filter((m) => m.count > 0 || m.label !== "No category").map((m) => (
+              {mix.filter((m) => m.count > 0 || m.label !== "No value type").map((m) => (
                 <li key={m.label}>
                   <span className="lead-mix-label">{m.label}</span>
                   <span className="lead-mix-bar" aria-hidden="true"><span style={{ width: `${m.pct}%` }} /></span>

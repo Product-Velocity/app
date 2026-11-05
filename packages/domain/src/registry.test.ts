@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   ALL_DEFAULT_VIEWS, COLUMN_ON_ITEMS, DEFAULT_VIEWS, WAITING_IN_VIEW, KEY_BY_COLUMN, FIELDS, FIELD_BY_KEY, VIEW_NAMES, arrivesLabel, columnOnItems, isShipped, relatedTable,
+  HIDDEN_FIELDS,
 } from "./registry";
 
 /** Minimal CSV reader for docs/reference/item-fields.csv (quoted fields, no embedded newlines). */
@@ -112,8 +113,10 @@ describe("default views match docs/reference/default-views.csv", () => {
   });
   it("a view shows only fields that have shipped; the others wait in their listed position", () => {
     for (const v of VIEW_NAMES) {
-      expect(DEFAULT_VIEWS[v], v).toEqual(inFile(v).map((r) => r.key!).filter((k) => isShipped(FIELD_BY_KEY[k]!)));
-      expect(DEFAULT_VIEWS[v].length + WAITING_IN_VIEW[v].length, v).toBe(inFile(v).length);
+      const listed = inFile(v).map((r) => r.key!).filter((k) => !HIDDEN_FIELDS.has(k)); // hidden fields stay in the file and the dictionary but are not shown
+      expect(DEFAULT_VIEWS[v], v).toEqual(listed.filter((k) => isShipped(FIELD_BY_KEY[k]!)));
+      expect(DEFAULT_VIEWS[v].length + WAITING_IN_VIEW[v].length, v).toBe(listed.length);
+      expect(DEFAULT_VIEWS[v], v).not.toContain("roadmap_category");
     }
     expect(DEFAULT_VIEWS.Delivery).not.toContain("outcome_verdict");
     expect(WAITING_IN_VIEW.Outcomes.length).toBeGreaterThan(0);
