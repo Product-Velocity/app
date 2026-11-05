@@ -29,6 +29,7 @@ import { DeleteDialog } from "./delete-dialog";
 import { GithubPushDialog } from "./github-push-dialog";
 import type { NewItemsConfig } from "./new-items";
 import type { GateSource } from "../gates/gate-source";
+import { GATE_ACTION_EVENT, type GateActionKind } from "../gates/gate-actions";
 import { agoLabel, latestTime } from "./last-sync";
 import { ImportDialog } from "./import-dialog";
 import { QuickAddBar } from "./quick-add-bar";
@@ -518,13 +519,20 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       out.push({ id: "undo", label: "Undo last change", group: "Actions", hint: mac ? "⌘Z" : "Ctrl+Z", run: () => void controller.undo() });
       out.push({ id: "redo", label: "Redo", group: "Actions", run: () => void controller.redo() });
     }
+    if (gates && selected.length > 0) {
+      const n = `${selected.length} selected ${selected.length === 1 ? "initiative" : "initiatives"}`;
+      const run = (kind: GateActionKind) => () => window.dispatchEvent(new CustomEvent(GATE_ACTION_EVENT, { detail: kind }));
+      if (controller.canEdit) out.push({ id: "gate:request", label: `Request gate for ${n}`, group: "Decision gates", keywords: "approval approve decision gate a b c", run: run("request") });
+      out.push({ id: "gate:decide", label: `Decide the gate requests of ${n}`, group: "Decision gates", keywords: "approve go hold stop approval", run: run("decide") });
+      if (controller.canEdit) out.push({ id: "gate:move", label: `Move ${n} to another phase`, group: "Decision gates", keywords: "phase next test experiment build", run: run("move") });
+    }
     out.push({ id: "go:decisions", label: "Go to Decisions", group: "Go to", keywords: "gate approve approval request waiting decide", run: () => router.push("/decisions") });
     out.push({ id: "go:members", label: "Open Members", group: "Go to", run: () => router.push("/settings/members") });
     out.push({ id: "go:security", label: "Open Security", group: "Go to", run: () => router.push("/settings/security") });
     return out;
     // the commands are rebuilt when what they act on changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [controller, lookups, viewsApi.commands, scopes, projects, def, dirty, search, base, visibleRows, mac, focusQuickAdd, focusSearch, selected]);
+  }, [controller, lookups, viewsApi.commands, scopes, projects, def, dirty, search, base, visibleRows, mac, focusQuickAdd, focusSearch, selected, gates]);
   const findItems = useMemo(
     () => (q: string) => controller.rows.filter((r) => matchesSearch(r, q)).slice(0, 6).map((r) => ({ id: r.id, label: `${r.item_code} ${r.initiative_name}`, run: () => locate(r.id) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps

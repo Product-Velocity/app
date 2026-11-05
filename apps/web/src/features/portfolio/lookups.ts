@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { explainDbError, isSchemaDrift } from "@/lib/db-error";
 import type { Lookups } from "./types";
 
 /** What the grid and the item panel need besides the items: projects, people, Initiative Groups and teams of the workspace. */
@@ -16,6 +17,8 @@ export async function loadLookups(supabase: SupabaseClient, tenantId: string): P
     supabase.from("jira_connections").select("id").eq("tenant_id", tenantId).eq("state", "connected").limit(1),
     supabase.from("item_jira_links").select("item_id, mode, issue_key, html_url, jira_status, jira_status_category, sync_checked_at, jira_updated_at, frozen_at").eq("tenant_id", tenantId),
   ]);
+  // a failed read of the links is not "no links": the grid would lose every tracker link without a word (frozen_at missing in the database)
+  for (const [what, r] of [["the GitHub links", links], ["the Jira links", jiraLinks]] as const) if (r.error) console.error(JSON.stringify({ db: "read-failed", what, code: explainDbError(what, r.error).code, schemaDrift: isSchemaDrift(r.error) }));
   const githubName = new Map(((usernames.data ?? []) as { user_id: string; github_username: string | null }[]).map((m) => [m.user_id, m.github_username]));
   const build = new Map(((cycle.data ?? []) as { item_id: string; build_started_at: string | null; build_completed_at: string | null; build_days: number | string | null }[]).map((r) => [r.item_id, r]));
   // initiatives whose tracker link is frozen (finished more than 14 days ago): the panel says so and offers Resume

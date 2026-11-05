@@ -1,6 +1,7 @@
 "use server";
 
 import { requireWorkspace } from "@/lib/session";
+import { DbReadError, safeReadMessage } from "@/lib/db-error";
 import { applyLinkedStatuses, applyLinkedTrees } from "@/lib/atlassian/refresh-jira";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 import type { RefreshSummary } from "@/lib/atlassian/refresh-linked";
@@ -67,7 +68,9 @@ export async function startJiraSync(ids: string[]): Promise<SyncPreviewResult> {
       for (const i of itemIds) summaryOf.set(i, s);
     } catch (e) {
       // a connection that needs a new sign-in is shown, once; nothing retries by itself
-      const msg = e instanceof ReconnectNeeded ? RECONNECT : "Jira could not be read just now. Try again in a minute.";
+      // a failed database read says so (and why); only an unknown failure gets the generic text
+      const msg = e instanceof ReconnectNeeded ? RECONNECT : safeReadMessage(e, "Jira could not be read just now. Try again in a minute.");
+      if (!(e instanceof ReconnectNeeded) && !(e instanceof DbReadError)) console.error(JSON.stringify({ jira: "receive", error: e instanceof Error ? e.message.slice(0, 200) : "unknown" }));
       for (const i of itemIds) failed.set(i, msg);
     }
   }
