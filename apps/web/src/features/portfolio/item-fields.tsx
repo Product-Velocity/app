@@ -286,15 +286,24 @@ function TagsEditor({ name, values, disabled, onChange }: { name: string; values
   );
 }
 
-export function LinksEditor({ values, disabled, onChange }: { values: Link[]; disabled: boolean; onChange: (l: Link[]) => boolean }) {
+export function LinksEditor({ values, disabled, onChange, query = "", titleFor }: { values: Link[]; disabled: boolean; onChange: (l: Link[]) => boolean; query?: string; /** Names a link the person left unnamed (the page title); may answer null. */ titleFor?: (url: string) => Promise<string | null> }) {
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState("");
-  const add = () => { if (url.trim() === "") return; if (onChange([...values, { label, url }])) { setLabel(""); setUrl(""); } };
+  const [busy, setBusy] = useState(false);
+  const add = async () => {
+    if (url.trim() === "") return;
+    let name = label;
+    if (name.trim() === "" && titleFor && /^https?:\/\//i.test(url.trim())) { setBusy(true); name = (await titleFor(url.trim())) ?? ""; setBusy(false); }
+    if (onChange([...values, { label: name, url }])) { setLabel(""); setUrl(""); }
+  };
+  const q = query.trim().toLowerCase();
+  const shown = q ? values.filter((l) => `${l.label} ${l.url}`.toLowerCase().includes(q)) : values;
   return (
     <div className="pf-links">
       {values.length === 0 && <span className="muted">None</span>}
+      {values.length > 0 && shown.length === 0 && <span className="muted">No link matches.</span>}
       <ul>
-        {values.map((l) => (
+        {shown.map((l) => (
           <li key={`${l.label}|${l.url}`}>
             <a href={l.url} target="_blank" rel="noopener noreferrer">{l.label || l.url}</a>
             {l.label && <span className="muted"> {l.url}</span>}
@@ -307,8 +316,8 @@ export function LinksEditor({ values, disabled, onChange }: { values: Link[]; di
       {!disabled && (
         <div className="pf-add-link">
           <input type="text" aria-label="Link label (optional)" placeholder="Label (optional)" value={label} onChange={(e) => setLabel(e.target.value)} />
-          <input type="url" aria-label="Link address" placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
-          <button type="button" className="btn" onClick={add}>Add link</button>
+          <input type="url" aria-label="Link address" placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void add(); } }} />
+          <button type="button" className="btn" disabled={busy} onClick={() => void add()}>{busy ? "Naming…" : "Add link"}</button>
         </div>
       )}
     </div>
@@ -415,7 +424,7 @@ function SkillsControl({ f, row, ctx, disabled, onError }: Common) {
 }
 
 /** The links of one initiative (artifacts), edited on the Spec tab. A pasted URL (not typed into a box) is added as a link. */
-export function LinksControl({ ctx, itemId, disabled, onError }: { ctx: FieldCtx; itemId: string; disabled: boolean; onError: (e: string | null) => void }) {
+export function LinksControl({ ctx, itemId, disabled, onError, query = "" }: { ctx: FieldCtx; itemId: string; disabled: boolean; onError: (e: string | null) => void; query?: string }) {
   const related = ctx.controller.relatedOf(itemId);
   const list = (related?.artifacts ?? []) as Link[];
   const set = (next: unknown[]) => { const r = ctx.controller.editRelated(itemId, "artifacts", next); onError(r.ok ? null : r.error); return r.ok; };
@@ -428,12 +437,20 @@ export function LinksControl({ ctx, itemId, disabled, onError }: { ctx: FieldCtx
       const text = e.clipboardData?.getData("text/plain").trim() ?? "";
       if (!/^https?:\/\/\S+$/i.test(text)) return;
       e.preventDefault();
-      set([...list, { label: "", url: text }]);
+      void titleFor(text).then((title) => set([...list, { label: title ?? "", url: text }]));
     };
     document.addEventListener("paste", onPaste);
     return () => document.removeEventListener("paste", onPaste);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   });
   if (!related) return <span className="muted" role="status">Loading…</span>;
-  return <LinksEditor values={list} disabled={disabled} onChange={set} />;
+  return <LinksEditor values={list} disabled={disabled} onChange={set} query={query} titleFor={titleFor} />;
+}
+
+/** The page title of a web address, asked of our server (which only reaches the public internet); null when there is none. */
+async function titleFor(url: string): Promise<string | null> {
+  try {
+    const r = await fetch("/api/link-title", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
+    return r.ok ? (((await r.json()) as { title?: string | null }).title ?? null) : null;
+  } catch { return null; }
 }
