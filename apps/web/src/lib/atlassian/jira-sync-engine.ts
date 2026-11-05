@@ -81,7 +81,7 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   const allFiles = (fileRows ?? []) as { name: string; share_token: string | null }[];
   const files = ctx.appUrl ? allFiles.filter((r) => r.share_token).map((r) => ({ label: r.name, url: shareUrl(ctx.appUrl!, r.share_token!, r.name) })) : [];
   // the documents the person left shared (CLAUDE.md rule 2, changed 2026-11-05); read apart, so a database without the column sends none
-  const { data: docRows } = await ctx.supabase.from("item_documents").select("kind, title, body, status, ai_draft").eq("tenant_id", ctx.tenantId).eq("item_id", id).eq("shared", true).order("created_at");
+  const { data: docRows } = await ctx.supabase.from("item_documents").select("kind, title, body, status, ai_draft").eq("tenant_id", ctx.tenantId).eq("item_id", id).eq("shared", true).eq("ai_draft", false).order("created_at");
   const documents = documentsMarkdown(((docRows ?? []) as { kind: string; title: string; body: string; status: string; ai_draft: boolean }[]).map((d) => ({ title: d.title, kind: d.kind, status: d.status, body: d.body, aiDraft: d.ai_draft })), JIRA_DOCUMENTS_BUDGET);
   const unsharedFiles = ctx.appUrl ? allFiles.filter((r) => !r.share_token).length : 0;
   return { ...(artifacts.length ? { artifacts } : {}), ...(files.length ? { files } : {}), ...(documents ? { documents } : {}), ...(unsharedFiles ? { unsharedFiles } : {}), ...(projectName ? { projectName } : {}), ...(closedWhileRemoved ? { closedWhileRemoved } : {}), item: itemRow, link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
