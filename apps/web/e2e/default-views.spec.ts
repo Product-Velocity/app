@@ -33,7 +33,9 @@ test.describe("ordered default views (R-021, default-views.csv)", () => {
       await page.locator(".ag-body-horizontal-scroll-viewport").first().evaluate((el) => { el.scrollLeft = 0; });
       await expect(page.locator(`.ag-header-cell[col-id="${live(v)[3]}"]`)).toBeAttached(); // the grid has switched to this view
       const at = new Map<string, number>();
-      for (let x = 0; x <= 6000; x += 400) {
+      // scroll the whole width of the view, whatever it is (the Discovery view outgrew a fixed 6000 px)
+      const width = await page.locator(".ag-body-horizontal-scroll-viewport").first().evaluate((el) => el.scrollWidth);
+      for (let x = 0; x <= width + 400; x += 400) {
         await page.locator(".ag-body-horizontal-scroll-viewport").first().evaluate((el, left) => { el.scrollLeft = left; }, x);
         const found = await page.evaluate(() => [...document.querySelectorAll(".ag-header-cell[col-id]")].map((h) => [h.getAttribute("col-id")!, Number(h.getAttribute("aria-colindex"))] as const));
         for (const [id, pos] of found) at.set(id, pos);

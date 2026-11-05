@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import {
-  AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_INTRO, AGENT_TABS, AGENT_TIPS, AGENT_USE_CASES, type AgentTabId, COLUMNS_NOTE, COLUMN_ROWS, UPDATE_LEGEND, FLOW_CREATE, FLOW_LIFECYCLE, GATES_INTRO, GATES_TABLE, GATES_STEPS, GATES_OUTCOMES, GATES_NOTES, FLOW_READ, LIFECYCLE_NOTES,
+  AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_INTRO, AGENT_TABS, AGENT_TIPS, AGENT_USE_CASES, type AgentTabId, COLUMNS_NOTE, COLUMN_ROWS, UPDATE_LEGEND, FLOW_CREATE, FLOW_LIFECYCLE, ATTENTION_INTRO, ATTENTION_TABLE, GATES_INTRO, GATES_TABLE, GATES_STEPS, GATES_OUTCOMES, GATES_NOTES, FLOW_READ, LIFECYCLE_NOTES,
   COLUMN_GROUPS, REPORTS_INTRO, REPORTS_LIST, ROADMAP_HEALTH_DEFINITIONS, ROADMAP_HEALTH_NOTES, type Table,
 } from "./help-content";
 
@@ -87,6 +87,9 @@ export function HelpGuide() {
                 <SimpleTable caption="2. Create initiatives directly or with Claude" table={FLOW_CREATE} />
                 <SimpleTable caption="3. How an initiative moves through its lifecycle" table={FLOW_LIFECYCLE} />
                 <ul className="help-notes">{LIFECYCLE_NOTES.map((n) => <li key={n}>{n}</li>)}</ul>
+                <h3 id="help-needs-attention">5. Needs attention</h3>
+                <p>{ATTENTION_INTRO}</p>
+                <SimpleTable caption="What needs attention" table={ATTENTION_TABLE} />
                 <h3 id="help-decision-gates">4. Decision gates</h3>
                 <p>{GATES_INTRO}</p>
                 <SimpleTable caption="The three gates" table={GATES_TABLE} />

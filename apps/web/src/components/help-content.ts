@@ -239,6 +239,22 @@ export const LIFECYCLE_NOTES = [
   "Syncing stops 14 days after an initiative is Completed or Cancelled; an approver or admin can resume it.",
 ];
 
+// Needs attention (issue #337, docs/28-DECISION-GATES.md)
+export const ATTENTION_INTRO = "The Needs attention tab lists the initiatives you can see that need a person to look, with the reason in words and the next step. Everything on it is a suggestion: nothing changes until you press a button. It is about initiatives, never about people.";
+export const ATTENTION_TABLE: Table = {
+  head: ["Reason", "When it shows", "Next step"],
+  rows: [
+    ["Delivery risk", "Health is Blocked, At Risk or Delayed, the G2M date has passed, or issues are blocked", "Open the initiative"],
+    ["Build done", "The tracker says the build is done (closed as completed) while the phase is still Build", "Move to Test"],
+    ["Work before the gate", "Tracker work started while the phase is Discover or Define", "Request the gate"],
+    ["Cancelled but building", "Initiative Status is Cancelled while the build is in progress", "Open the initiative; stop the work in the tracker"],
+    ["Hold due", "The review date of a Hold has come", "Request the gate again"],
+    ["Waiting for a decision", "A gate request has waited more than 7 days", "Open Decisions"],
+    ["Open conditions", "A Go with conditions left tasks that are not done", "Open the initiative"],
+    ["Stalled in a phase", "Active, and in a phase longer than 30 days (Discover, Define, Test), 45 (Experiment), 60 (Roll-out) or 90 (Build)", "Open the initiative"],
+  ],
+};
+
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // Decision gates (issue #323, docs/28-DECISION-GATES.md)
 

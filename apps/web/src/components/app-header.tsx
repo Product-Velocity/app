@@ -18,7 +18,7 @@ type Props = {
   /** Saved text size in percent; 100 when left out. */
   textSize?: number;
   /** Tab to mark as the current one; when left out it follows the address of the page. */
-  current?: "grid" | "gantt" | "cards" | "leadership" | "decisions" | "reports";
+  current?: "grid" | "gantt" | "cards" | "leadership" | "attention" | "decisions" | "reports";
   /** Gate requests waiting for a decision, shown on the Decisions tab. */
   decisionsWaiting?: number;
   /** Creators and admins get a link to the Trash in the account menu. */

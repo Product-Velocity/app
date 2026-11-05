@@ -330,7 +330,7 @@ test.describe("Shortcuts, Help and text size in the top bar", () => {
     await guide.getByPlaceholder(/Filter columns/).fill("sponsor");
     await expect(guide.getByRole("status")).toContainText("1 of 168 columns");
     await guide.getByRole("tab", { name: "How content flows" }).click();
-    await expect(guide.getByRole("table")).toHaveCount(6); // sync, create, lifecycle, and the three gate tables
+    await expect(guide.getByRole("table")).toHaveCount(7); // sync, create, lifecycle, the three gate tables and Needs attention
     await expect(guide.getByRole("heading", { name: "4. Decision gates" })).toBeVisible();
     await expect(guide.getByRole("table", { name: "The three gates" })).toContainText("Define and Build");
     await guide.getByRole("tab", { name: "Reports" }).click();

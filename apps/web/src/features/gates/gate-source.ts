@@ -26,6 +26,8 @@ export interface GateSource {
   decide(reviewIds: string[], d: Decision): Promise<(ItemResult & { phase?: string; fastLane?: boolean })[]>;
   move(itemId: string, to: string): Promise<{ ok: true } | { ok: false; error: string }>;
   loadConditions(itemId: string): Promise<Condition[]>;
+  /** Conditions of any initiative that are not done yet (Needs attention). */
+  loadOpenConditions(): Promise<{ item_id: string; text: string }[]>;
   doneCondition(id: string): Promise<{ ok: true } | { ok: false; error: string }>;
   loadItems(ids: string[]): Promise<GateItem[]>;
   loadDeciders(): Promise<Decider[]>;
@@ -87,6 +89,12 @@ export class SupabaseGateSource implements GateSource {
     const { data, error } = await this.client.from("gate_conditions").select("id,review_id,item_id,text,done_at").eq("tenant_id", this.tenantId).eq("item_id", itemId).order("created_at");
     if (error) throw new Error(text(error));
     return (data ?? []) as Condition[];
+  }
+
+  async loadOpenConditions() {
+    const { data, error } = await this.client.from("gate_conditions").select("item_id,text").eq("tenant_id", this.tenantId).is("done_at", null).limit(1000);
+    if (error) throw new Error(text(error));
+    return (data ?? []) as { item_id: string; text: string }[];
   }
 
   async doneCondition(id: string) {
@@ -165,6 +173,7 @@ export class MemoryGateSource implements GateSource {
     return { ok: true as const };
   }
   async loadConditions(itemId: string) { return this.conditions.filter((c) => c.item_id === itemId); }
+  async loadOpenConditions() { return this.conditions.filter((c) => !c.done_at).map((c) => ({ item_id: c.item_id, text: c.text })); }
   async doneCondition(id: string) { const c = this.conditions.find((x) => x.id === id); if (c) c.done_at = "2026-11-05T12:00:00Z"; return { ok: true as const }; }
   items: GateItem[] = [];
   deciders: Decider[] = [];

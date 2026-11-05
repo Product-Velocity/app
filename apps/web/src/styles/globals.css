@@ -895,3 +895,14 @@ button.share-chip { cursor: pointer; }
 .row-menu-list a:hover, .row-menu-list button:hover, .row-menu-list a:focus-visible, .row-menu-list button:focus-visible { background: var(--grey-3, #f3f4f7); outline: none; }
 .row-menu-danger { color: #a3261f; }
 @media (max-width: 520px) { .entry-row { grid-template-columns: 44px minmax(0, 1fr) auto; } .entry-row .share-chip { grid-column: 2; justify-self: start; } }
+
+/* Needs attention (issue #337) */
+.attention .help-tabs { margin: 8px 0 12px; flex-wrap: wrap; }
+.attention-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.attention-item { border: 1px solid var(--grey-1, #e1e5eb); border-radius: 8px; padding: 10px 12px; }
+.attention-item.is-active { border-color: var(--blue); background: var(--blue-tint-2); }
+.attention-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.attention-name { font-weight: 600; color: var(--blue-text); text-decoration: none; }
+.attention-name:hover { text-decoration: underline; }
+.attention-reasons { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.attention-kind { margin-right: 4px; }
