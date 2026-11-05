@@ -15,7 +15,7 @@ export type Direction = "to_tracker" | "two_way" | "from_tracker" | "not_synced"
  * (slots.test.ts) and the outbound allowlists exclude them (allowlist tests).
  */
 export const NEVER_SYNCED: ReadonlySet<string> = new Set([
-  "value_type", "value_12m", "value_basis", "value_weighted", "value_weighted_per_build_week", "time_to_first_revenue_months", "confidence",
+  "value_12m", "value_basis", "value_weighted", "value_weighted_per_build_week", "time_to_first_revenue_months", "confidence",
   "customers_requesting", "target_customers", "customers_live", "adoption_pct",
   "decision", "decided_by", "decision_date", "cost_of_not_doing",
   "kr_metric", "kr_start", "kr_target", "kr_unit", "kr_direction", "realized_kr_value", "kr_realized_pct", "realized_per_year", "measured_period",
@@ -80,7 +80,8 @@ export const SLOTS: readonly Slot[] = [
   { id: "jira.body.hypothesis", tracker: "jira", pvKey: "hypothesis", kind: "fixed", direction: "two_way", defaultTarget: "Description, section Hypothesis", fixedReason: "The sections of the description are compared both ways, so they stay as they are.", store: "config" },
   optional("jira.label.tags", "tags", "jira", "Label pv:tag/<tag>, one per tag, at most 10 (off by default)"),
   optional("jira.label.focus", "focus_area", "jira", "Label pv:focus/<value> (off by default)"),
-  optional("jira.label.category", "roadmap_category", "jira", "Label pv:category/<value> (off by default)"),
+  optional("jira.label.value", "value_type", "jira", "Label pv:value/<type>, the Business Value Type only, never the amount (off by default)"),
+  label("jira.label.quarter", "g2m_quarter", "jira", "Label pv:quarter/<quarter>, e.g. pv:quarter/q3-2027"),
   label("jira.body.artifacts", "artifacts", "jira", "Description, section Artifacts (links)"),
   label("jira.body.files", "screenshots", "jira", "Description, section Files (share links of attached files)"),
   label("jira.label.moscow", "moscow", "jira", "Label pv:moscow/<value>"),
@@ -91,6 +92,7 @@ export const SLOTS: readonly Slot[] = [
   { id: "jira.priority", tracker: "jira", pvKey: "moscow", kind: "field", direction: "to_tracker", defaultTarget: "Priority (one Jira priority per MoSCoW value; not sent until chosen)", accepts: ["select"], store: "jira_field_map" },
   { id: "jira.startDate", tracker: "jira", pvKey: "planned_start", kind: "field", direction: "to_tracker", defaultTarget: "Start date custom field (not sent until chosen)", accepts: ["date"], idPattern: CUSTOM, store: "jira_field_map" },
   { id: "jira.theme", tracker: "jira", pvKey: "theme", kind: "field", direction: "to_tracker", defaultTarget: "Single-line text custom field (not sent until chosen)", accepts: ["text"], idPattern: CUSTOM, store: "jira_field_map" },
+  { id: "jira.focusArea", tracker: "jira", pvKey: "focus_area", kind: "field", direction: "to_tracker", defaultTarget: "Single-line text custom field, e.g. Theme (not sent until chosen)", accepts: ["text"], idPattern: CUSTOM, store: "jira_field_map" },
   { id: "jira.dueDate", tracker: "jira", pvKey: "g2m_date_est", kind: "field", direction: "to_tracker", defaultTarget: "Due date (duedate)", accepts: ["date"], defaultFieldId: "duedate", idPattern: /^(duedate|customfield_\d{1,9})$/, store: "config" },
   // ---- GitHub ----
   { id: "github.title", tracker: "github", pvKey: "initiative_name", kind: "fixed", direction: "two_way", defaultTarget: "Issue title", fixedReason: "An issue needs a title, and the name is compared both ways.", store: "config" },
@@ -100,7 +102,8 @@ export const SLOTS: readonly Slot[] = [
   { id: "github.body.hypothesis", tracker: "github", pvKey: "hypothesis", kind: "fixed", direction: "two_way", defaultTarget: "Managed block, ## Hypothesis", fixedReason: "The block's texts are compared both ways, so the sections stay as they are.", store: "config" },
   optional("github.label.tags", "tags", "github", "Label pv:tag/<tag>, one per tag, at most 10 (off by default)"),
   optional("github.label.focus", "focus_area", "github", "Label pv:focus/<value> (off by default)"),
-  optional("github.label.category", "roadmap_category", "github", "Label pv:category/<value> (off by default)"),
+  optional("github.label.value", "value_type", "github", "Label pv:value/<type>, the Business Value Type only, never the amount (off by default)"),
+  label("github.label.quarter", "g2m_quarter", "github", "Label pv:quarter/<quarter>, e.g. pv:quarter/q3-2027"),
   label("github.body.artifacts", "artifacts", "github", "Managed block, ## Artifacts (links)"),
   label("github.body.files", "screenshots", "github", "Managed block, ## Files (share links, private repositories only)"),
   label("github.label.moscow", "moscow", "github", "Label pv:moscow/<value>"),

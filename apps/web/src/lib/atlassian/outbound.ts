@@ -1,11 +1,11 @@
-import { BASE_LABEL, OWNED_LABEL_PREFIX, categoryLabel, changeTypeLabel, focusAreaLabel, groupLabel, moscowLabel, projectLabel, rankBandLabel, tagLabels } from "@pv/github";
+import { BASE_LABEL, OWNED_LABEL_PREFIX, changeTypeLabel, focusAreaLabel, groupLabel, moscowLabel, projectLabel, plannedQuarterLabel, rankBandLabel, tagLabels, valueTypeLabel } from "@pv/github";
 import { composeDescription, type Link } from "./jira-sections";
 
 // Everything that may leave the app for Jira (CLAUDE.md rule 2, issue #67). Jira sites can be shared widely, so this list is the ONLY place
 // a field of an item is read for a Jira payload. Value, confidence, customers, decisions, rationale, key results, outcomes, markets and the
 // rank number are never listed, and a test (outbound-allowlist.test.ts) fails if any of them reaches a payload. Status, sprint and
 // transitions are never written (rule 6): this builder has no input for them.
-export const OUTBOUND_JIRA_FIELDS = ["initiative_name", "summary", "description", "hypothesis", "moscow", "g2m_date_est", "planned_start", "stack_rank", "change_type", "theme", "focus_area", "roadmap_category", "tags"] as const;
+export const OUTBOUND_JIRA_FIELDS = ["initiative_name", "summary", "description", "hypothesis", "moscow", "g2m_date_est", "planned_start", "stack_rank", "change_type", "theme", "focus_area", "value_type", "g2m_quarter", "tags"] as const;
 export type JiraOutboundField = (typeof OUTBOUND_JIRA_FIELDS)[number];
 
 /** How this Jira site spells the fields PV can fill; each is optional and a missing one is skipped with a note in the preview, never guessed. */
@@ -14,13 +14,15 @@ export type JiraFieldMap = {
   startDate?: string;
   /** Custom field id of a single-line TEXT field that receives the Initiative Group name (site specific; "Theme" on many sites). */
   theme?: string;
+  /** Custom field id of a single-line TEXT field that receives the Focus Area (site specific; often the same kind of field as Theme). Not sent while it is not chosen. */
+  focusArea?: string;
   /** Jira priority id per MoSCoW value, chosen by the user; unmapped values leave the priority alone. */
   priorityByMoscow?: Partial<Record<"Must" | "Should" | "Could" | "Won't", string>>;
   /** Field that receives G2M Date (est): the system `duedate` unless the admin chose another date field (field configuration). */
   dueDate?: string;
   /** Slots switched off in the field configuration (`jira.dueDate`, `jira.label.*`): nothing is sent for them. */
   off?: readonly string[];
-  /** Slots switched ON that are off by default (`jira.label.tags`, `jira.label.focus`, `jira.label.category`). */
+  /** Slots switched ON that are off by default (`jira.label.tags`, `jira.label.focus`, `jira.label.value`). */
   on?: readonly string[];
 };
 export type JiraPayloadInput = {
@@ -57,7 +59,7 @@ function read(item: Record<string, unknown>, key: JiraOutboundField): unknown { 
 export function desiredLabels(item: Record<string, unknown>, projectName?: string, off: readonly string[] = [], optIn: readonly string[] = []): string[] {
   const on = (slot: string) => !off.includes(slot);
   const opt = (slot: string) => optIn.includes(slot);
-  return [BASE_LABEL, projectName && on("jira.label.project") ? projectLabel(projectName) : null, on("jira.label.moscow") ? moscowLabel(read(item, "moscow")) : null, on("jira.label.rank") ? rankBandLabel(read(item, "stack_rank")) : null, on("jira.label.type") ? changeTypeLabel(read(item, "change_type")) : null, on("jira.label.group") ? groupLabel(read(item, "theme")) : null, opt("jira.label.focus") ? focusAreaLabel(read(item, "focus_area")) : null, opt("jira.label.category") ? categoryLabel(read(item, "roadmap_category")) : null, ...(opt("jira.label.tags") ? tagLabels(read(item, "tags")) : [])].filter((l): l is string => !!l);
+  return [BASE_LABEL, projectName && on("jira.label.project") ? projectLabel(projectName) : null, on("jira.label.moscow") ? moscowLabel(read(item, "moscow")) : null, on("jira.label.rank") ? rankBandLabel(read(item, "stack_rank")) : null, on("jira.label.type") ? changeTypeLabel(read(item, "change_type")) : null, on("jira.label.group") ? groupLabel(read(item, "theme")) : null, opt("jira.label.focus") ? focusAreaLabel(read(item, "focus_area")) : null, opt("jira.label.value") ? valueTypeLabel(read(item, "value_type")) : null, on("jira.label.quarter") ? plannedQuarterLabel(read(item, "g2m_quarter")) : null, ...(opt("jira.label.tags") ? tagLabels(read(item, "tags")) : [])].filter((l): l is string => !!l);
 }
 /** Put on a Jira issue when its initiative was removed in Product Velocity and the person confirmed (jira-close.ts). Not an "owned" label: a later send must not strip it. */
 export const REMOVED_LABEL = "pv:removed";
@@ -99,7 +101,13 @@ export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {
     if (map.theme && /^customfield_\d{1,9}$/.test(map.theme)) f[map.theme] = group;
     else notes.push("Theme not sent: this Jira site's Theme field is not mapped (the pv:group label is sent).");
   }
-  const switchedOff: [string, string, unknown][] = [["jira.label.moscow", "MoSCoW label", read(item, "moscow")], ["jira.label.rank", "Rank label", read(item, "stack_rank")], ["jira.label.type", "Change Type label", read(item, "change_type")], ["jira.label.group", "Initiative Group label", read(item, "theme")]];
+  const focus = themeText(read(item, "focus_area"));
+  if (focus) {
+    if (!map.focusArea || !/^customfield_\d{1,9}$/.test(map.focusArea)) notes.push("Focus Area field not sent: no Jira field is chosen for it (the pv:focus label is sent when switched on).");
+    else if (map.focusArea === map.theme) notes.push("Focus Area field not sent: it is the same Jira field as the Initiative Group (Theme). Choose another field for one of them.");
+    else f[map.focusArea] = focus;
+  }
+  const switchedOff: [string, string, unknown][] = [["jira.label.moscow", "MoSCoW label", read(item, "moscow")], ["jira.label.rank", "Rank label", read(item, "stack_rank")], ["jira.label.type", "Change Type label", read(item, "change_type")], ["jira.label.group", "Initiative Group label", read(item, "theme")], ["jira.label.quarter", "Planned Quarter label", read(item, "g2m_quarter")]];
   for (const [slot, what, v] of switchedOff) if (off(slot) && v !== undefined && v !== null && v !== "") notes.push(`${what} not sent: switched off in the field configuration.`);
   if (off("jira.body.artifacts") && (input.artifacts?.length ?? 0) > 0) notes.push("Artifact links not sent: switched off in the field configuration.");
   if (off("jira.body.files") && (input.files?.length ?? 0) > 0) notes.push("File links not sent: switched off in the field configuration.");

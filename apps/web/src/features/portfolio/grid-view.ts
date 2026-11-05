@@ -1,4 +1,4 @@
-import { DEFAULT_VIEWS, FIELDS, sanitizeView, type ViewDef, type ViewName } from "@pv/domain";
+import { DEFAULT_VIEWS, VISIBLE_FIELDS, sanitizeView, type ViewDef, type ViewName } from "@pv/domain";
 import type { SavedView } from "../workspace/store";
 
 /** Which view the grid started from: one of the dictionary's default views, all columns, or a saved view. */
@@ -12,7 +12,7 @@ export function baseDef(base: BaseView, saved: SavedView[], defaults: Partial<Re
     const custom = defaults[base.name];
     return sanitizeView(custom ?? { columns: DEFAULT_VIEWS[base.name], filters: [], groupBy: null });
   }
-  if (base.kind === "all") return sanitizeView({ columns: FIELDS.map((f) => f.key), filters: [], groupBy: null });
+  if (base.kind === "all") return sanitizeView({ columns: VISIBLE_FIELDS.map((f) => f.key), filters: [], groupBy: null });
   const v = saved.find((s) => s.id === base.id);
   return v ? sanitizeView(v) : null;
 }

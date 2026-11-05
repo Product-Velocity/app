@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  customFilters, FIELDS, FIELD_BY_KEY, fieldOptions, isOpenList, opsFor, optionsFor, QUICK_FILTERS, quickFilterOn, toggleQuickFilter,
+  customFilters, VISIBLE_FIELDS, FIELD_BY_KEY, fieldOptions, isOpenList, opsFor, optionsFor, QUICK_FILTERS, quickFilterOn, toggleQuickFilter,
   type Filter, type FilterOp, type ListOption,
 } from "@pv/domain";
 import { SelectField } from "@/components/search-list";
@@ -9,7 +9,7 @@ import { Popover } from "./popover";
 import { valueControl } from "./view-controls";
 import type { Lookups } from "./types";
 
-const FIELD_OPTIONS: ListOption[] = fieldOptions(FIELDS);
+const FIELD_OPTIONS: ListOption[] = fieldOptions(VISIBLE_FIELDS);
 const ICON: Record<string, string> = {
   "created-today": "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4", "created-week": "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4", "created-month": "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4",
   mine: "M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM4 21a8 8 0 0 1 16 0", "high-impact": "M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.4l6-.8z",

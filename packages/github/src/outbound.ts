@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 // Everything that may leave the app for GitHub (CLAUDE.md rule 2). Repositories can be public, so this list is the
 // ONLY place a field is allowed to be read for a GitHub payload: value, confidence, customers, decisions, rationale,
 // key results, outcomes and markets are never listed, and a test fails if any of them ever reaches a payload.
-export const OUTBOUND_ITEM_FIELDS = ["item_code", "initiative_name", "summary", "description", "hypothesis", "moscow", "stack_rank", "change_type", "g2m_date_est", "theme", "focus_area", "roadmap_category", "tags"] as const;
+export const OUTBOUND_ITEM_FIELDS = ["item_code", "initiative_name", "summary", "description", "hypothesis", "moscow", "stack_rank", "change_type", "g2m_date_est", "theme", "focus_area", "value_type", "g2m_quarter", "tags"] as const;
 /** Read only to fill GitHub Project fields (Size from the T-shirt effort estimate), never written as text into an issue. */
 export const BOARD_ONLY_FIELDS = ["effort"] as const;
 /** Everything a GitHub payload of any kind may read: the issue builder's fields plus the board-only ones. */
@@ -23,7 +23,7 @@ export type TrackingIssueInput = {
   files?: Artifact[];
   /** Slots switched off in the field configuration (`github.label.*`, `github.body.artifacts`, `github.body.files`, `github.milestone`, `github.issueType`); absent = everything on, as before. */
   off?: readonly string[];
-  /** Slots switched ON that are off by default (`github.label.tags`, `github.label.focus`, `github.label.category`). */
+  /** Slots switched ON that are off by default (`github.label.tags`, `github.label.focus`, `github.label.value`). */
   on?: readonly string[];
 };
 export type Milestone = { title: string; dueOn: string };
@@ -105,9 +105,12 @@ function slugLabel(kind: string, v: unknown): string | null {
   const slug = typeof v === "string" ? v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "") : "";
   return slug ? `${OWNED_LABEL_PREFIX}${kind}/${slug}` : null;
 }
-/** Optional labels (issue #321, off unless the project switches them on): Focus Area, Roadmap Category and one label per tag (at most 10). */
+/** Optional labels (issue #321, off unless the project switches them on): Focus Area, Business Value Type and one label per tag (at most 10). */
 export const focusAreaLabel = (v: unknown) => slugLabel("focus", v);
-export const categoryLabel = (v: unknown) => slugLabel("category", v);
+/** "pv:value/defend-revenue": the Business Value TYPE (a category), never the 12m run-rate amount (decision 2026-11-05-value-type-and-quarter-labels). */
+export const valueTypeLabel = (v: unknown) => slugLabel("value", v);
+/** Planned Quarter "Q3 2027" as "pv:quarter/q3-2027" (on by default; the milestone still comes from G2M Date (est)). */
+export const plannedQuarterLabel = (v: unknown) => (typeof v === "string" && /^Q[1-4] \d{4}$/.test(v) ? slugLabel("quarter", v) : null);
 export const TAG_LABEL_LIMIT = 10;
 export function tagLabels(v: unknown): string[] {
   const list = Array.isArray(v) ? v : typeof v === "string" ? [v] : [];
@@ -140,7 +143,7 @@ export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
   parts.push("", "---", `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept. [Open in Product Velocity](${i.appUrl}/portfolio/${encodeURIComponent(code)})`, BLOCK_END);
 
   const title = (code ? `${code}: ${name}` : name) || "Untitled initiative";
-  const labels = [BASE_LABEL, on("github.label.project") ? projectLabel(i.projectName) : null, on("github.label.moscow") ? moscowLabel(i.item.moscow) : null, on("github.label.rank") ? rankBandLabel(i.item.stack_rank) : null, on("github.label.type") ? changeTypeLabel(i.item.change_type) : null, on("github.label.group") ? groupLabel(i.item.theme) : null, opt("github.label.focus") ? focusAreaLabel(i.item.focus_area) : null, opt("github.label.category") ? categoryLabel(i.item.roadmap_category) : null, ...(opt("github.label.tags") ? tagLabels(i.item.tags) : [])].filter((l): l is string => !!l);
+  const labels = [BASE_LABEL, on("github.label.project") ? projectLabel(i.projectName) : null, on("github.label.moscow") ? moscowLabel(i.item.moscow) : null, on("github.label.rank") ? rankBandLabel(i.item.stack_rank) : null, on("github.label.type") ? changeTypeLabel(i.item.change_type) : null, on("github.label.group") ? groupLabel(i.item.theme) : null, opt("github.label.focus") ? focusAreaLabel(i.item.focus_area) : null, opt("github.label.value") ? valueTypeLabel(i.item.value_type) : null, on("github.label.quarter") ? plannedQuarterLabel(i.item.g2m_quarter) : null, ...(opt("github.label.tags") ? tagLabels(i.item.tags) : [])].filter((l): l is string => !!l);
   const block = parts.join("\n");
   const milestone = on("github.milestone") ? milestoneFor(i.item.g2m_date_est) : null;
   return { title, block, labels, milestone, typeCandidates: on("github.issueType") ? issueTypeCandidates(i.item.change_type) : [], hash: createHash("sha256").update(JSON.stringify({ title, labels, block, milestone })).digest("hex") };

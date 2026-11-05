@@ -97,6 +97,15 @@ export const OPEN_LIST_FIELDS: readonly string[] = ["focus_area", "audience"];
 export const isOpenList = (key: string): boolean => OPEN_LIST_FIELDS.includes(key);
 
 /** Fields built ahead of their dictionary phase (Rank in Project is computed from the stack rank, so the grid has it now). */
+/**
+ * Fields kept in the dictionary, the database and the API but not shown in the app (grid columns, filters, panel, bulk edit, saved and default
+ * views). Roadmap Category: hidden since 2026-11-05 because Business Value Type carries almost the same information (decision 2026-11-05-hide-roadmap-category).
+ */
+export const HIDDEN_FIELDS: ReadonlySet<string> = new Set(["roadmap_category"]);
+export const isHiddenField = (key: string): boolean => HIDDEN_FIELDS.has(key);
+/** The fields a person sees in the app: the dictionary without the hidden ones. */
+export const VISIBLE_FIELDS: readonly FieldDef[] = FIELDS.filter((f) => !HIDDEN_FIELDS.has(f.key));
+
 const SHIPPED_EARLY: ReadonlySet<string> = new Set(["project_rank"]);
 export const isShipped = (f: FieldDef) => f.phase <= CURRENT_PHASE || SHIPPED_EARLY.has(f.key);
 export const arrivesLabel = (f: FieldDef) => (isShipped(f) ? null : `Arrives in phase ${f.phase}`);
@@ -110,7 +119,7 @@ export const ALL_DEFAULT_VIEWS = defaultViews as Readonly<Record<ViewName, { col
 
 /** What a default view shows today: its listed columns in order, without fields of phases that have not shipped. */
 export const DEFAULT_VIEWS: Readonly<Record<ViewName, string[]>> = Object.fromEntries(
-  VIEW_NAMES.map((v) => [v, ALL_DEFAULT_VIEWS[v].columns.filter((k) => isShipped(FIELD_BY_KEY[k]!))]),
+  VIEW_NAMES.map((v) => [v, ALL_DEFAULT_VIEWS[v].columns.filter((k) => isShipped(FIELD_BY_KEY[k]!) && !HIDDEN_FIELDS.has(k))]),
 ) as Record<ViewName, string[]>;
 
 /** The fields of a default view that arrive in a later phase: they appear in their listed position once the phase ships. */

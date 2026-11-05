@@ -2,7 +2,7 @@
 
 import type { ColDef, IHeaderParams } from "ag-grid-community";
 import {
-  EDITABLE_FIELDS, FIELDS, compareQuarters, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
+  EDITABLE_FIELDS, VISIBLE_FIELDS, compareQuarters, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
   type EditableField, type FieldDef,
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
@@ -206,7 +206,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
   // the left side reads like the prototype: global rank, rank in project, ID, initiative
   const FIRST = ["stack_rank", "project_rank", "item_code", "initiative_name"];
   const pos = new Map(order.map((k, i) => [k, i]));
-  const registry = new Map(FIELDS.map((f, i) => [f.key, i]));
+  const registry = new Map(VISIBLE_FIELDS.map((f, i) => [f.key, i]));
   const rank = (d: ColDef<GridItem>) => {
     const k = String(d.colId);
     const first = FIRST.indexOf(k);
@@ -221,7 +221,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
         cellRenderer: (p: { valueFormatted?: string | null }) => <span className="cell-text cell-text-fade" title="">{p.valueFormatted ?? ""}</span>,
         tooltipValueGetter: (p) => String(p.value ?? ""), tooltipComponent: MarkdownTooltip }
       : c;
-  return FIELDS.map(def).map(withMarkdown).map(pin).sort((a, b) => rank(a) - rank(b));
+  return VISIBLE_FIELDS.map(def).map(withMarkdown).map(pin).sort((a, b) => rank(a) - rank(b));
 }
 
 /** Column ids whose cells cannot be edited, with the reason (for the notice under the grid). */

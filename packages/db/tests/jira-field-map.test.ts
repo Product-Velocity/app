@@ -22,7 +22,7 @@ afterAll(async () => { await db.close(); });
 
 const set = (user: string, project: string, map: unknown, via = "UI") => db.asUser(user, (q) => q("select public.jira_set_field_map($1, $2::jsonb)", [project, JSON.stringify(map)]), { commit: true, via });
 const stored = async (project: string) => (await db.admin.query("select field_map from public.jira_project_links where project_id = $1", [project])).rows[0].field_map;
-const GOOD = { startDate: "customfield_10015", theme: "customfield_10030", priorityByMoscow: { Must: "1", Should: "2", Could: "3", "Won't": "5" } };
+const GOOD = { startDate: "customfield_10015", theme: "customfield_10030", focusArea: "customfield_10031", priorityByMoscow: { Must: "1", Should: "2", Could: "3", "Won't": "5" } };
 
 describe("jira_set_field_map", () => {
   it("a human admin stores a valid mapping and the change is audited", async () => {
@@ -37,7 +37,7 @@ describe("jira_set_field_map", () => {
     for (const who of [creator, service]) expect(await errorCode(set(who, projectA, GOOD)), who).toBe(DENIED);
     expect(await errorCode(set(f.alice, projectA, GOOD, "MCP")), "claude").toBe(DENIED);
     expect(await errorCode(set(f.alice, projectB, GOOD)), "other workspace").toBe(DENIED); // alice is not an admin of workspace B
-    for (const bad of [{ summary: "x" }, { startDate: "duedate" }, { startDate: "customfield_1; drop" }, { theme: "summary" }, { theme: "customfield_1; drop" }, { theme: 10030 }, { theme: ["customfield_10030"] }, { priorityByMoscow: { Maybe: "1" } }, { priorityByMoscow: { Must: "High" } }, { priorityByMoscow: [] }, []]) {
+    for (const bad of [{ summary: "x" }, { startDate: "duedate" }, { startDate: "customfield_1; drop" }, { theme: "summary" }, { theme: "customfield_1; drop" }, { theme: 10030 }, { focusArea: "summary" }, { focusArea: "customfield_1; drop" }, { focusArea: 10031 }, { theme: ["customfield_10030"] }, { priorityByMoscow: { Maybe: "1" } }, { priorityByMoscow: { Must: "High" } }, { priorityByMoscow: [] }, []]) {
       expect(await errorCode(set(f.alice, projectA, bad)), JSON.stringify(bad)).toBe("22023");
     }
     expect(await stored(projectA)).toEqual({});

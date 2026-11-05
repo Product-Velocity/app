@@ -31,7 +31,7 @@ describe("hard boundaries (rules 2 and 6)", () => {
     for (const t of TRACKERS) for (const r of mappingRows(t).filter((x) => NEVER_SYNCED.has(x.key))) expect(r).toMatchObject({ direction: "never", slot: null });
   });
   it("the commercial fields named by rule 2 are all in the list", () => {
-    for (const k of ["value_type", "value_12m", "confidence", "customers_requesting", "customers_live", "target_customers", "decision", "decided_by", "cost_of_not_doing", "kr_metric", "kr_target", "realized_kr_value", "outcome_verdict", "learning"]) expect(NEVER_SYNCED.has(k), k).toBe(true);
+    for (const k of ["value_12m", "confidence", "customers_requesting", "customers_live", "target_customers", "decision", "decided_by", "cost_of_not_doing", "kr_metric", "kr_target", "realized_kr_value", "outcome_verdict", "learning"]) expect(NEVER_SYNCED.has(k), k).toBe(true);
   });
   it("tracker-driven fields are read-only in the app and have no slot; Initiative Status is never tracker-driven", () => {
     for (const t of TRACKERS) {

@@ -149,7 +149,7 @@ export async function reviewJiraIssues(form: FormData): Promise<void> {
 }
 
 /**
- * Saves the field configuration of ONE linked project (decision 2026-11-03-tracker-field-config): the start date, theme and priority fields (the Jira
+ * Saves the field configuration of ONE linked project (decision 2026-11-03-tracker-field-config): the start date, theme, focus area and priority fields (the Jira
  * field map) and the switches and due date field (tracker_field_config). Admin only. Every field id is checked against the fields the site reports now,
  * for type and for clashes, before anything is stored; the database checks the shapes and the closed list of settings again. "Reset" puts one setting
  * or all of them back to the default. Nothing is written to Jira.
@@ -164,7 +164,7 @@ export async function saveJiraFieldConfig(form: FormData): Promise<void> {
   const map = jiraMapFromForm(get);
   const rows = configRowsFromForm("jira", get, (k) => form.has(k));
   const site = await readJiraSiteFields(link.connection_id as string, link.site_id as string).catch((): null => null);
-  const used = [map.startDate ? { id: map.startDate, label: "Planned Start" } : null, map.theme ? { id: map.theme, label: "Initiative Group" } : null].filter((x): x is { id: string; label: string } => x !== null);
+  const used = [map.startDate ? { id: map.startDate, label: "Planned Start" } : null, map.theme ? { id: map.theme, label: "Initiative Group" } : null, map.focusArea ? { id: map.focusArea, label: "Focus Area" } : null].filter((x): x is { id: string; label: string } => x !== null);
   const checked = validateConfig("jira", rows, site?.entries ?? null, used);
   const errors = [...validateJiraMap(map, parseFieldMap(link.field_map), site), ...(checked.ok ? [] : checked.errors)];
   if (errors.length > 0 || !checked.ok) redirect(`${PATH}?status=field-config-invalid&why=${encodeURIComponent(errors.join(" ").slice(0, 400))}`);

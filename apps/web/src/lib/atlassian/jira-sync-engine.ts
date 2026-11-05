@@ -23,7 +23,7 @@ import { ReconnectNeeded } from "./token-provider";
 
 type Db = SupabaseClient;
 export type Ctx = { supabase: Db; tenantId: string; userId: string; /** Public address of this app, for the share links of files (Files section); without it files are not linked. */ appUrl?: string };
-type ItemRow = { tags?: string[]; focus_area?: string | null; roadmap_category?: string | null; id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; g2m_date_est: string | null; planned_start: string | null; stack_rank: number | null; change_type: string | null; theme: string | null; home_project_id: string | null };
+type ItemRow = { tags?: string[]; focus_area?: string | null; value_type?: string | null; g2m_quarter?: string | null; id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; g2m_date_est: string | null; planned_start: string | null; stack_rank: number | null; change_type: string | null; theme: string | null; home_project_id: string | null };
 /** The real column of each allowlisted field (G2M Date (est) lives in `end_date`): a column that does not exist makes the whole read fail, so they come from the field registry, as the GitHub push does. */
 /** The allowlisted fields that are columns of items; Tags live in item_tags and are read apart. */
 export const ITEM_COLUMNS: Record<string, string> = Object.fromEntries(OUTBOUND_JIRA_FIELDS.flatMap((k) => { const c = columnOnItems(FIELD_BY_KEY[k]!); return c ? [[k, c]] : []; }));
@@ -79,7 +79,7 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   return { ...(artifacts.length ? { artifacts } : {}), ...(files.length ? { files } : {}), ...(unsharedFiles ? { unsharedFiles } : {}), ...(projectName ? { projectName } : {}), ...(closedWhileRemoved ? { closedWhileRemoved } : {}), item: itemRow, link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
 }
 
-export const pvOf = (i: ItemRow): PvItem => ({ id: i.id, name: i.initiative_name, summary: i.summary, focus_area: i.focus_area, roadmap_category: i.roadmap_category, tags: i.tags, description: i.description, hypothesis: i.hypothesis, moscow: i.moscow, g2m_date_est: i.g2m_date_est, planned_start: i.planned_start, stack_rank: i.stack_rank, change_type: i.change_type, theme: i.theme });
+export const pvOf = (i: ItemRow): PvItem => ({ id: i.id, name: i.initiative_name, summary: i.summary, focus_area: i.focus_area, value_type: i.value_type, g2m_quarter: i.g2m_quarter, tags: i.tags, description: i.description, hypothesis: i.hypothesis, moscow: i.moscow, g2m_date_est: i.g2m_date_est, planned_start: i.planned_start, stack_rank: i.stack_rank, change_type: i.change_type, theme: i.theme });
 const RECONNECT = "Jira needs a new sign-in. A workspace admin can sign in again under Settings > Integrations > Jira.";
 
 export type Evaluated =

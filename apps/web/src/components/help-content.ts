@@ -1,4 +1,4 @@
-import { FIELDS, FIELD_BY_KEY, setupGuides, type FieldDef } from "@pv/domain";
+import { FIELDS, VISIBLE_FIELDS, FIELD_BY_KEY, setupGuides, type FieldDef } from "@pv/domain";
 
 /**
  * Text of the Help guide. Short on purpose. The columns table is checked against the field dictionary (help-content.test.ts):
@@ -41,7 +41,10 @@ const OVERRIDES: Record<string, Link> = {
   effort: { github: "Sent to project board field Size (XS to XL)", jira: "Not sent yet" },
   g2m_date_est: sent("Milestone \"YYYY Qn\" (due on the quarter's last day); board field Due date", "Due date"),
   home_project: sent("The repository that holds the tracking issue; label pv:project/<project>", "Label pv:project/<project>; the Jira project it is linked to holds the issue"),
-  roadmap_category: sent("Label pv:category/<value>, only when the project switches it on (Settings, Integrations, GitHub, Field configuration; off by default)", "Label pv:category/<value>, only when the project switches it on (Settings, Integrations, Jira, Field configuration; off by default)"), focus_area: sent("Label pv:focus/<value>, only when the project switches it on (Field configuration; off by default)", "Label pv:focus/<value>, only when the project switches it on (Field configuration; off by default)"), tags: sent("One label pv:tag/<tag> per tag, at most 10, only when the project switches it on (Field configuration; off by default)", "One label pv:tag/<tag> per tag, at most 10, only when the project switches it on (Field configuration; off by default)"), planned_start: { github: "Not sent yet (the board's Start date is planned)", jira: "Start date field, once you choose it (Field configuration)" },
+  focus_area: sent("Label pv:focus/<value>, only when the project switches it on (Settings, Integrations, GitHub, Field configuration; off by default)", "Label pv:focus/<value>, only when the project switches it on (off by default); also written into a Jira text field you choose, such as Theme (Settings, Integrations, Jira, Field configuration; not sent until you choose it)"),
+  value_type: sent("Label pv:value/<type> (for example pv:value/defend-revenue), only when the project switches it on (Settings, Integrations, GitHub, Field configuration; off by default). Only the type is sent, never the amount or the basis: repositories can be public", "Label pv:value/<type>, only when the project switches it on (Settings, Integrations, Jira, Field configuration; off by default). Only the type is sent, never the amount or the basis"),
+  g2m_quarter: sent("Label pv:quarter/<quarter> (for example pv:quarter/q3-2027); switch it off in Settings, Integrations, GitHub, Field configuration. The milestone still comes from G2M Date (est)", "Label pv:quarter/<quarter> (for example pv:quarter/q3-2027); switch it off in Settings, Integrations, Jira, Field configuration"),
+  tags: sent("One label pv:tag/<tag> per tag, at most 10, only when the project switches it on (Field configuration; off by default)", "One label pv:tag/<tag> per tag, at most 10, only when the project switches it on (Field configuration; off by default)"), planned_start: { github: "Not sent yet (the board's Start date is planned)", jira: "Start date field, once you choose it (Field configuration)" },
   assignees: { github: "Both: issue Assignees", jira: "Not synced yet" },
   github_links: { github: "The tracking issue (repository and issue number)", jira: "The Jira issue (key)" },
   status: read("Issue state: open, closed as completed (Done), closed as not planned (Cancelled). The one status Product Velocity ever writes to GitHub is the close of the issue of an initiative you deleted (closed as not planned), after you confirm it in Sync with GitHub (Removed in Product Velocity)", "Jira status category: to do = Not started, in progress = In progress, done = Done (the status name is on the Jira tab). The one status Product Velocity ever writes to Jira is the close of the issue of an initiative you deleted, after you confirm it in Sync with Jira (Removed in Product Velocity)"),
@@ -65,7 +68,7 @@ const OVERRIDES: Record<string, Link> = {
   breakdown_status: { github: "Marked complete in the app; set to Awaiting engineering when the issue is first sent", jira: "Not used for Jira" },
 };
 
-const COMMERCIAL_KEYS = ["value_12m", "value_type", "value_basis", "confidence", "customers_requesting", "kr_metric", "kr_start", "kr_target", "decision", "realized_kr_value", "realized_per_year", "cost_of_not_doing"];
+const COMMERCIAL_KEYS = ["value_12m", "value_basis", "confidence", "customers_requesting", "kr_metric", "kr_start", "kr_target", "decision", "realized_kr_value", "realized_per_year", "cost_of_not_doing"];
 for (const k of COMMERCIAL_KEYS) OVERRIDES[k] = same(COMMERCIAL);
 
 export type ColumnRow = { key: string; group: string; column: string; what: string; github: string; jira: string; access: string; updated: string };
@@ -131,9 +134,8 @@ const OPEN_LISTS: Record<string, string> = {
 const WHAT_OVERRIDES: Record<string, string> = {
   status: "State of the tracking issue's work, set by the tracker.",
   initiative_phase: "Where the initiative is in its lifecycle, set by people.",
-  roadmap_category: "Strategic category of the initiative.",
   change_type: "Kind of change.",
-  value_type: "How the initiative creates business value.",
+  value_type: "How the initiative creates business value. Replaces the hidden Roadmap Category as the strategic category.",
   value_basis: "How the business value was arrived at.",
   confidence: "Confidence in the business value.",
   moscow: "Priority class.",
@@ -177,8 +179,8 @@ export function accessLabel(keys: string[]): string {
   return [...kinds].join(" / ");
 }
 
-/** One row for every column in the dictionary, in dictionary order. */
-export const COLUMN_ROWS: ColumnRow[] = FIELDS.map((f) => {
+/** One row for every column the app shows (the dictionary without the hidden fields, e.g. Roadmap Category), in dictionary order. */
+export const COLUMN_ROWS: ColumnRow[] = VISIBLE_FIELDS.map((f) => {
   const link = OVERRIDES[f.key] ?? derive(f);
   return { key: f.key, group: f.group, column: f.name, what: describe(f), github: link.github, jira: link.jira, access: accessLabel([f.key]), updated: updatedBy(f, link) };
 });

@@ -16,6 +16,7 @@ export function parseFieldMap(raw: unknown): JiraFieldMap {
   const out: JiraFieldMap = {};
   if (typeof o.startDate === "string" && START_FIELD.test(o.startDate)) out.startDate = o.startDate;
   if (typeof o.theme === "string" && THEME_FIELD.test(o.theme)) out.theme = o.theme;
+  if (typeof o.focusArea === "string" && THEME_FIELD.test(o.focusArea)) out.focusArea = o.focusArea;
   const p = typeof o.priorityByMoscow === "object" && o.priorityByMoscow !== null ? (o.priorityByMoscow as Record<string, unknown>) : {};
   const byMoscow: NonNullable<JiraFieldMap["priorityByMoscow"]> = {};
   for (const m of MOSCOW_VALUES) { const v = p[m]; if (typeof v === "string" && PRIORITY_ID.test(v)) byMoscow[m] = v; }
@@ -25,7 +26,7 @@ export function parseFieldMap(raw: unknown): JiraFieldMap {
 
 /** The map from the form: the start date field and one priority per MoSCoW value; an empty choice leaves that value unmapped. */
 export function fieldMapFromForm(get: (key: string) => string): JiraFieldMap {
-  return parseFieldMap({ startDate: get("startDate"), theme: get("theme"), priorityByMoscow: Object.fromEntries(MOSCOW_VALUES.map((m) => [m, get(`priority_${m}`)])) });
+  return parseFieldMap({ startDate: get("startDate"), theme: get("theme"), focusArea: get("focusArea"), priorityByMoscow: Object.fromEntries(MOSCOW_VALUES.map((m) => [m, get(`priority_${m}`)])) });
 }
 
 export type FieldChoice = { id: string; name: string };

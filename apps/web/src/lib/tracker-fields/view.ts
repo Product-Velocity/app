@@ -23,7 +23,7 @@ export type MappingView = { tracker: Tracker; changeable: ChangeRowView[]; fixed
 export type MappingInput = {
   tracker: Tracker;
   rows: readonly ConfigRow[];
-  /** Jira: the stored field map; its start date, theme and priorities are shown as the rows jira.startDate, jira.theme and jira.priority. */
+  /** Jira: the stored field map; its start date, theme and priorities are shown as the rows jira.startDate, jira.theme, jira.focusArea and jira.priority. */
   jiraMap?: JiraFieldMap;
   /** What the tracker offers; null = it could not be read just now (a notice is shown and only the switches can be changed). */
   choices?: { startDates: FieldChoice[]; themes: FieldChoice[]; priorities: FieldChoice[]; dateFields: CatalogEntry[]; proposal: Partial<Record<Moscow, string>> } | null;
@@ -54,8 +54,8 @@ export function buildMappingView(i: MappingInput): MappingView {
       changeable.push({ ...base, control: { type: "priority", values, options: i.choices?.priorities ?? [], proposal: i.choices?.proposal ?? {} }, isDefault: MOSCOW_VALUES.every((m) => !values[m]) });
       continue;
     }
-    if (s.id === "jira.startDate" || s.id === "jira.theme") {
-      const value = (s.id === "jira.startDate" ? i.jiraMap?.startDate : i.jiraMap?.theme) ?? "";
+    if (s.id === "jira.startDate" || s.id === "jira.theme" || s.id === "jira.focusArea") {
+      const value = (s.id === "jira.startDate" ? i.jiraMap?.startDate : s.id === "jira.theme" ? i.jiraMap?.theme : i.jiraMap?.focusArea) ?? "";
       const options = (s.id === "jira.startDate" ? i.choices?.startDates : i.choices?.themes) ?? [];
       changeable.push({ ...base, control: { type: "select", value, blank: "Not mapped (not sent)", options: withCurrent(options, value).map((o) => ({ value: o.id, label: o.name })) }, isDefault: value === "" });
       continue;
