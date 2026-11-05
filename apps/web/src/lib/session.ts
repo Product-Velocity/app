@@ -93,7 +93,9 @@ export async function loadMemberships(
 ): Promise<Membership[]> {
   const { data, error } = await supabase
     .from("tenant_members")
-    .select("tenant_id, role, is_approver, last_login_at, tenants(name)")
+    // The embed names its foreign key: a table whose primary key covers (tenant_id, user_id) and that points at both tenants and tenant_members
+// (tenant_gate_approvers, 0.98) is a second path for PostgREST and makes a bare `tenants(name)` ambiguous (HTTP 300 on every page, issue #335).
+    .select("tenant_id, role, is_approver, last_login_at, tenants!tenant_members_tenant_id_fkey(name)")
     .eq("user_id", userId)
     .eq("status", "active") // requested, paused and revoked people have no workspace (docs/15 section 3b)
     .order("created_at");
