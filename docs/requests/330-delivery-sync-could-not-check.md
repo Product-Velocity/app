@@ -1,9 +1,13 @@
 ---
 issue: 330
-status: in progress
+status: done
 logged: 2026-11-05
+done: 2026-11-05
+link: PR #333 (failed reads say why); the migrations were applied to Provelo by Ashu
 title: Delivery sync shows "Could not check" for every linked initiative since 0.98
 ---
 Ashu: the delivery sync link seems broken in release 0.97 and later. In the Jira sync list every linked initiative shows "Could not check" / "Jira could not be read just now. Try again in a minute."; Try again does not help. Check the GitHub side too.
 
 Found: 0.98 (tracker freeze, migration `20261105164327_tracker_freeze.sql`) is not applied on Provelo, and every tracker read filters on its `frozen_at` column. Reads that fail now say so (database missing an update, with the Postgres code) in the dialog, the sync log and the webhook log, for Jira and GitHub. To do by Ashu: apply the pending migrations to Provelo (see `docs/11-ENVIRONMENTS.md`).
+
+Done: PR #333 (failed reads say why). Ashu applied the three missing 0.98 migrations to Provelo on 2026-11-05 (`phase_values_test_completed`, `decision_gates`, `tracker_freeze`, plus `drop_item_links_files_views`) and confirmed the sync works again.

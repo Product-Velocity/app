@@ -66,8 +66,8 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     supabase.from("item_github_links").select("item_id, mode, repo_full_name, issue_number, html_url, sync_state, last_pushed_hash, frozen_at").eq("tenant_id", tenantId).in("item_id", unique),
     supabase.from("item_attachments").select("item_id, name, url").eq("tenant_id", tenantId).eq("kind", "link").eq("shared", true).in("item_id", unique).order("created_at"),
     supabase.from("item_attachments").select("item_id, name, share_token").eq("tenant_id", tenantId).eq("kind", "file").in("item_id", unique).order("created_at"),
-    // the documents the person left shared (CLAUDE.md rule 2, changed 2026-11-05); a document marked "Do not share" is never read here
-    supabase.from("item_documents").select("item_id, kind, title, body, status, ai_draft").eq("tenant_id", tenantId).eq("shared", true).in("item_id", unique).order("created_at"),
+    // the documents the person left shared (CLAUDE.md rule 2, changed 2026-11-05); a document marked "Do not share", and an AI draft nobody has accepted, is never read here
+    supabase.from("item_documents").select("item_id, kind, title, body, status, ai_draft").eq("tenant_id", tenantId).eq("shared", true).eq("ai_draft", false).in("item_id", unique).order("created_at"),
     supabase.from("item_issue_tree").select("item_id, repo_full_name, issue_number, board_id").eq("tenant_id", tenantId).in("item_id", unique),
     // the field configuration (what a person switched off per project); a database without that table has none, so everything stays as it was
     supabase.from("tracker_field_config").select("project_id, slot, enabled, field_id").eq("tenant_id", tenantId).eq("provider", "github"),

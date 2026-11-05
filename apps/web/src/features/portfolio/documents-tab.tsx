@@ -110,7 +110,9 @@ export function DocumentsTab({ itemId, canEdit, ctx, tracker = "GitHub" }: { ite
                 <button type="button" className="entry-name entry-name-btn" aria-expanded={openId === d.id} onClick={() => setOpenId(openId === d.id ? null : d.id)}>{d.title}</button>
                 <span className="entry-meta">{DOC_KIND_LABEL[d.kind as keyof typeof DOC_KIND_LABEL] ?? d.kind} · version {d.version} · {STATUS_LABEL[d.status] ?? d.status}{d.aiDraft ? " · AI draft, needs review" : ""}{aiLabel(d.aiTool, d.aiModel) ? ` · written with ${aiLabel(d.aiTool, d.aiModel)}` : ""}</span>
               </span>
-              <ShareChip shared={d.shared} tracker={tracker} name={d.title} disabled={!canEdit} onToggle={(on) => void setShared(d, on)} />
+              {d.aiDraft
+                ? <span className="share-chip" title="A person accepts the AI draft first (open it, then Accept draft)">Held back: AI draft</span>
+                : <ShareChip shared={d.shared} tracker={tracker} name={d.title} disabled={!canEdit} onToggle={(on) => void setShared(d, on)} />}
               <RowMenu label={`Actions for ${d.title}`} items={[
                 { label: openId === d.id ? "Close" : "Open", onSelect: () => setOpenId(openId === d.id ? null : d.id) },
                 { label: "Remove", onSelect: () => void removeDoc(d), danger: true, hidden: !canEdit },
