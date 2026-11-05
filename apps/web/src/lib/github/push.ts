@@ -27,11 +27,11 @@ const sharedFilesByItem = (rows: SharedFile[], appUrl: string) => {
  * The `items` columns a push may read, taken from the field registry so a field stored under another column name
  * (G2M Date (est) lives in `end_date`) is asked for by its real column. A column that does not exist makes the whole read fail.
  */
-export const ITEM_SELECT = ["id", ...OUTBOUND_READ_FIELDS.map((k) => (k === "item_code" ? k : columnOnItems(FIELD_BY_KEY[k]!)!)), "home_project_id"].join(", ");
+export const ITEM_SELECT = ["id", ...OUTBOUND_READ_FIELDS.map((k) => (k === "item_code" ? k : columnOnItems(FIELD_BY_KEY[k]!))).filter((c): c is string => c !== null), "home_project_id"].join(", ");
 /** A row as read with ITEM_SELECT, with every allowlisted value under its field key (what the payload builder reads). */
 const asOutboundItem = (row: Record<string, unknown>): Row => {
   const out: Record<string, unknown> = { ...row };
-  for (const k of OUTBOUND_READ_FIELDS) if (k !== "item_code") out[k] = row[columnOnItems(FIELD_BY_KEY[k]!)!];
+  for (const k of OUTBOUND_READ_FIELDS) { const col = k === "item_code" ? null : columnOnItems(FIELD_BY_KEY[k]!); if (col) out[k] = row[col]; } // tags live in item_tags and are added by the caller
   return out as Row;
 };
 
@@ -56,7 +56,7 @@ export async function planPush(supabase: SupabaseClient, tenantId: string, appUr
 async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: string, connection: ConnectionRow, ids: string[], sc?: SourceControl, force?: ReadonlySet<string>): Promise<{ items: PlanItem[]; internal: Map<string, Internal> }> {
   const unique = [...new Set(ids)].slice(0, PUSH_LIMIT);
   const internal = new Map<string, Internal>();
-  const [items, projects, repos, links, artifacts, sharedFiles, tree, fieldConfig] = await Promise.all([
+  const [items, projects, repos, links, artifacts, sharedFiles, tree, fieldConfig, tagRows] = await Promise.all([
     supabase.from("items").select(ITEM_SELECT).eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
     supabase.from("projects").select("id, name, default_repo, tracker, github_board").eq("tenant_id", tenantId),
     supabase.from("github_repositories").select("full_name, access, is_private").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("removed_at", null),
@@ -66,7 +66,11 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     supabase.from("item_issue_tree").select("item_id, repo_full_name, issue_number, board_id").eq("tenant_id", tenantId).in("item_id", unique),
     // the field configuration (what a person switched off per project); a database without that table has none, so everything stays as it was
     supabase.from("tracker_field_config").select("project_id, slot, enabled, field_id").eq("tenant_id", tenantId).eq("provider", "github"),
+    // the tags (only read; they leave as labels when a project switches that on)
+    supabase.from("item_tags").select("item_id, value").eq("tenant_id", tenantId).eq("kind", "tag").in("item_id", unique),
   ]);
+  const tagsByItem = new Map<string, string[]>();
+  for (const t of (tagRows.data ?? []) as { item_id: string; value: string }[]) tagsByItem.set(t.item_id, [...(tagsByItem.get(t.item_id) ?? []), t.value]);
   const configByProject = new Map<string, ConfigRow[]>();
   for (const r of (fieldConfig.data ?? []) as { project_id: string; slot: string; enabled: boolean; field_id: string | null }[]) configByProject.set(r.project_id, [...(configByProject.get(r.project_id) ?? []), { slot: r.slot, enabled: r.enabled, field: r.field_id }]);
   const treeByItem = new Map<string, { board_id: string | null }[]>();
@@ -112,7 +116,7 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     const target = (link?.repo_full_name ?? project?.default_repo ?? "").toLowerCase();
     const filesOk = privateRepos.has(target);
     const config = parseConfigRows(configByProject.get(project?.id ?? ""), "github");
-    const built = buildTrackingIssue({ item: row, itemId: id, projectName: project?.name ?? "", appUrl, artifacts: artifactsByItem.get(id) ?? [], files: filesOk ? itemFiles : [], ...githubOptions(config) });
+    const built = buildTrackingIssue({ item: { ...row, tags: tagsByItem.get(id) ?? [] }, itemId: id, projectName: project?.name ?? "", appUrl, artifacts: artifactsByItem.get(id) ?? [], files: filesOk ? itemFiles : [], ...githubOptions(config) });
     const switchedOff = switchedOffNotes(config, row, artifactsByItem.get(id)?.length ?? 0, itemFiles.length);
 
     // the linked GitHub Project: what would be written there is part of "changed", so changing a priority is a push

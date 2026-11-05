@@ -15,7 +15,7 @@ export type LeadRow = { id: string; item_code: string; initiative_name: string; 
  */
 export const LEADERSHIP_COLUMNS: readonly { key: string; pinned?: boolean }[] = [
   { key: "stack_rank", pinned: true }, { key: "item_code", pinned: true }, { key: "initiative_name", pinned: true },
-  { key: "home_project" }, { key: "theme" }, { key: "roadmap_category" }, { key: "initiative_phase" }, { key: "health" },
+  { key: "home_project" }, { key: "theme" }, { key: "value_type" }, { key: "initiative_phase" }, { key: "health" },
   { key: "delivery_progress_pct" }, { key: "g2m_quarter" }, { key: "g2m_slip_days" }, { key: "value_12m" }, { key: "confidence" },
   { key: "decision" }, { key: "current_gate" }, { key: "fit_by_team" }, { key: "sponsor" }, { key: "next_review_date" }, { key: "summary" },
 ];
@@ -99,17 +99,17 @@ export function needsAttention(rows: readonly LeadRow[], today: Date): Attention
 
 // ------------------------------------------------------------------ investment mix
 export type MixRow = { label: string; count: number; pct: number };
-/** Initiatives per Roadmap Category (the dictionary's five values in order, then "No category") with whole-number shares. */
-export function categoryMix(rows: readonly LeadRow[]): MixRow[] {
-  const values = FIELD_BY_KEY.roadmap_category?.allowed ?? [];
+/** Initiatives per Business Value Type (the dictionary's values in order, then "No value type") with whole-number shares. */
+export function valueTypeMix(rows: readonly LeadRow[]): MixRow[] {
+  const values = FIELD_BY_KEY.value_type?.allowed ?? [];
   const counts = new Map<string, number>(values.map((v) => [v, 0]));
   let none = 0;
   for (const r of rows) {
-    const c = r.roadmap_category;
+    const c = r.value_type;
     if (typeof c === "string" && c !== "") counts.set(c, (counts.get(c) ?? 0) + 1); else none++;
   }
   const pct = (n: number) => (rows.length === 0 ? 0 : Math.round((n / rows.length) * 100));
-  return [...[...counts].map(([label, count]) => ({ label, count, pct: pct(count) })), { label: "No category", count: none, pct: pct(none) }];
+  return [...[...counts].map(([label, count]) => ({ label, count, pct: pct(count) })), { label: "No value type", count: none, pct: pct(none) }];
 }
 
 // ------------------------------------------------------------------ what moved
@@ -185,7 +185,7 @@ export function draftWeeklyUpdate({ rows, scopeLabel, today, changes }: UpdateIn
   for (const r of due) { sources.add(r.id); next.push(`- ${r.item_code} goes live ${formatDate(String(r.g2m_date_est), today)}.`); }
   if (due.length === 0) next.push("- Nothing is due in the next two weeks.");
 
-  const mix = categoryMix(rows).filter((m) => m.count > 0).map((m) => `- ${m.label}: ${m.count} (${m.pct}%)`);
+  const mix = valueTypeMix(rows).filter((m) => m.count > 0).map((m) => `- ${m.label}: ${m.count} (${m.pct}%)`);
   const text = [
     `${scopeLabel}, week ${w.number} (${w.range})`,
     ...section("Highlights", highlights), ...section("Risks and asks", risks), ...section("What moved this week", moved),

@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { FIELDS, FIELD_BY_KEY } from "@pv/domain";
+import { FIELDS, FIELD_BY_KEY, HIDDEN_FIELDS } from "@pv/domain";
 import { AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_TABS, AGENT_USE_CASES, COLUMNS_NOTE, COLUMN_GROUPS, COLUMN_ROWS, OVERRIDE_KEYS, UPDATE_OVERRIDE_KEYS, accessLabel } from "./help-content";
 
 describe("Help guide columns table", () => {
   it("has exactly one row for every column in the field dictionary, in its order", () => {
-    expect(COLUMN_ROWS.map((r) => r.key)).toEqual(FIELDS.map((f) => f.key));
-    expect(COLUMN_ROWS.length).toBe(169);
+    expect(COLUMN_ROWS.map((r) => r.key)).toEqual(FIELDS.filter((f) => !HIDDEN_FIELDS.has(f.key)).map((f) => f.key));
+    expect(COLUMN_ROWS.length).toBe(168); // 169 fields; Roadmap Category is hidden in the app
+    expect(COLUMN_ROWS.some((r) => r.key === "roadmap_category")).toBe(false);
   });
   it("gives every row text in every cell", () => {
     for (const r of COLUMN_ROWS) for (const [k, v] of Object.entries(r)) expect(v, `${r.key}.${k}`).not.toBe("");
@@ -36,7 +37,7 @@ describe("Help guide columns table", () => {
 
 describe("Help guide values", () => {
   it("lists every state of a fixed-list column in full, in order", () => {
-    for (const f of FIELDS) {
+    for (const f of FIELDS.filter((x) => !HIDDEN_FIELDS.has(x.key))) {
       if (f.allowed.length === 0 || f.key === "g2m_quarter") continue;
       const r = COLUMN_ROWS.find((x) => x.key === f.key)!;
       expect(r.what, f.key).toContain(`Values: ${f.allowed.join(" · ")}.`);
@@ -93,7 +94,8 @@ describe("Help guide: exact target fields", () => {
     expect(row("effort").github).toMatch(/Size/);
     expect(row("g2m_date_est").github).toMatch(/milestone/);
     expect(row("theme").github).toMatch(/pv:group\//);
-    expect(row("theme").jira).toMatch(/pv:group\/.*Theme/);
+    expect(row("theme").jira).toMatch(/pv:group\/.*only/); // the group is a label only; the Jira Theme field gets the Focus Area
+    expect(row("focus_area").jira).toMatch(/Theme/);
     expect(row("theme").jira).not.toMatch(/planned/);
   });
   it("names the exact GitHub source of what the app reads", () => {
@@ -102,9 +104,16 @@ describe("Help guide: exact target fields", () => {
     expect(row("gh_project_status").github).toMatch(/field Status/);
   });
   it("does not claim a send that is not built", () => {
-    for (const k of ["roadmap_category", "focus_area", "tags", "planned_start"]) {
+    for (const k of ["planned_start"]) {
       expect(row(k).github, k).toMatch(/Not sent yet/);
       expect(row(k).updated, k).toBe("You edit it");
+    }
+    // issue #321: the optional labels are built, off by default, and the Help says where to switch them on (Business Value Type replaced Roadmap Category)
+    for (const k of ["focus_area", "tags"]) {
+      expect(row(k).github, k).toMatch(/^Sent to label pv:|^Sent to one label pv:/i);
+      expect(row(k).github, k).toMatch(/off by default/);
+      expect(row(k).jira, k).toMatch(/off by default/);
+      expect(row(k).updated, k).toMatch(/^You edit it/);
     }
   });
   it("says for every column the app sends to GitHub what Jira gets: a target, or plainly that it is not sent", () => {

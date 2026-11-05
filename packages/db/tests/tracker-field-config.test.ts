@@ -70,6 +70,26 @@ describe("tracker_set_field_config", () => {
     for (const slot of ["jira.body.summary", "jira.body.hypothesis", "jira.description"]) expect(await errorCode(set(f.alice, projectA, [{ slot, enabled: false }])), slot).toBe("22023");
     await set(f.alice, projectA, []);
   });
+  it("the optional labels are OFF by default: a row is kept only when one is switched ON (migration optional_field_labels); the other slots work as before", async () => {
+    await set(f.alice, projectA, [{ slot: "jira.label.tags", enabled: true }, { slot: "jira.label.focus", enabled: false }, { slot: "jira.label.moscow", enabled: false }, { slot: "jira.label.rank", enabled: true }]);
+    expect(await stored(projectA)).toEqual([{ slot: "jira.label.moscow", enabled: false, field_id: null }, { slot: "jira.label.tags", enabled: true, field_id: null }]);
+    await set(f.alice, projectA, [{ slot: "jira.label.tags", enabled: true }, { slot: "jira.label.value", enabled: false }]);
+    expect((await stored(projectA)).map((r) => r.slot)).toEqual(["jira.label.tags", "jira.label.value"]); // Business Value Type is ON by default: only a switched-off row is kept // the moscow row is gone: it was not in the list
+    await set(f.alice, githubProject, [{ slot: "github.label.focus", enabled: true }, { slot: "github.label.tags", enabled: true }, { slot: "github.label.value", enabled: true }]);
+    expect((await stored(githubProject)).map((r) => r.slot)).toEqual(["github.label.focus", "github.label.tags"]);
+    expect(await errorCode(set(f.alice, githubProject, [{ slot: "jira.label.tags", enabled: true }])), "another tracker's slot").toBe("22023");
+    // Planned Quarter label (migration value_quarter_labels_focus_field): ON by default, so only a switched-off row is kept; the retired category slots are refused
+    await set(f.alice, githubProject, [{ slot: "github.label.quarter", enabled: true }, { slot: "github.label.value", enabled: true }]);
+    expect(await stored(githubProject)).toEqual([]);
+    await set(f.alice, githubProject, [{ slot: "github.label.quarter", enabled: false }]);
+    expect(await stored(githubProject)).toEqual([{ slot: "github.label.quarter", enabled: false, field_id: null }]);
+    for (const slot of ["github.label.category", "jira.label.category"]) expect(await errorCode(set(f.alice, githubProject, [{ slot, enabled: true }])), slot).toBe("22023");
+    await set(f.alice, githubProject, []);
+    expect(await errorCode(set(f.alice, projectA, [{ slot: "jira.label.tags", enabled: true, field: "customfield_1" }])), "a field on a switch").toBe("22023");
+    await set(f.alice, projectA, []);
+    await set(f.alice, githubProject, []);
+    expect(await stored(projectA)).toEqual([]);
+  });
   it("a project without a GitHub or Jira tracker is refused; GitHub slots work on a GitHub project", async () => {
     expect(await errorCode(set(f.alice, noTracker, [{ slot: "jira.label.rank", enabled: false }]))).toBe("P0002");
     await set(f.alice, githubProject, [{ slot: "github.milestone", enabled: false }, { slot: "github.body.files", enabled: false }]);

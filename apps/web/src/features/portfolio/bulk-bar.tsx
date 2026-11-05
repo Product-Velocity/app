@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { bulkEditReason, canBeEmpty, EDITABLE_FIELDS, FIELDS, FIELD_BY_KEY, fieldOptions, isOpenList, optionsFor, type FieldDef, type ListOption } from "@pv/domain";
+import { bulkEditReason, canBeEmpty, EDITABLE_FIELDS, VISIBLE_FIELDS, FIELD_BY_KEY, fieldOptions, isOpenList, optionsFor, type FieldDef, type ListOption } from "@pv/domain";
 import { SelectField } from "@/components/search-list";
 import type { PortfolioController } from "./controller";
 import type { GridItem, Lookups } from "./types";
@@ -101,8 +101,8 @@ export function BulkBar({ controller, lookups, selected, onClear, onSelectAll, o
   const def = field ? FIELD_BY_KEY[field] : undefined;
   const reason = field ? bulkEditReason(field) : null;
   const options = def ? valueOptions(def, lookups) : null;
-  const editable = FIELDS.filter((f) => bulkEditReason(f.key) === null && EDITABLE_FIELDS.includes(f.key));
-  const blocked = FIELDS.filter((f) => bulkEditReason(f.key) !== null);
+  const editable = VISIBLE_FIELDS.filter((f) => bulkEditReason(f.key) === null && EDITABLE_FIELDS.includes(f.key));
+  const blocked = VISIBLE_FIELDS.filter((f) => bulkEditReason(f.key) !== null);
   const fieldChoices: ListOption[] = [
     ...fieldOptions(editable).map((o) => ({ ...o, group: "Can be set here" })),
     ...fieldOptions(blocked).map((o) => ({ ...o, group: "Cannot be set here (GitHub, calculated, system, later phases, rank)" })),

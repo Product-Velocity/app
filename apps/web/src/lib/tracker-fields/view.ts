@@ -3,7 +3,7 @@ import type { JiraFieldMap } from "@/lib/atlassian/outbound";
 import type { Board } from "@pv/github";
 import type { CatalogEntry } from "./catalog";
 import type { ConfigRow } from "./mapping";
-import { mappingRows, type Direction, type Tracker } from "./slots";
+import { defaultOn, mappingRows, type Direction, type Tracker } from "./slots";
 
 // What the field configuration table shows for one project (decision 2026-11-03-tracker-field-config): the default list of Product Velocity fields,
 // where each goes, and the person's own setting. Pure; the page supplies what was read from the tracker and what is saved.
@@ -43,7 +43,7 @@ export function buildMappingView(i: MappingInput): MappingView {
     if (!s || s.kind === "fixed") { fixed.push({ key: r.key, label: r.label, direction: r.direction, target: r.target, reason: r.reason ?? "" }); continue; }
     const saved = i.rows.find((x) => x.slot === s.id);
     const base = { id: s.id, key: r.key, label: r.label, direction: r.direction, target: r.target };
-    if (s.kind === "toggle") { changeable.push({ ...base, control: { type: "toggle", on: saved?.enabled !== false }, isDefault: saved?.enabled !== false }); continue; }
+    if (s.kind === "toggle") { const on = saved ? saved.enabled : defaultOn(s); changeable.push({ ...base, control: { type: "toggle", on }, isDefault: on === defaultOn(s) }); continue; }
     if (s.store === "github_board") {
       const ref = i.board?.mapping[BOARD_KEY[s.id as keyof typeof BOARD_KEY]] ?? null;
       changeable.push({ ...base, control: { type: "board", current: i.board ? (ref?.name ?? null) : null, note: i.board ? (ref ? `Uses the board field “${ref.name}”.` : "No board field is chosen: nothing is written.") : "No board is linked to this project." }, isDefault: true });

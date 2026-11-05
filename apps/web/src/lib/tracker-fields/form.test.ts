@@ -3,8 +3,8 @@ import { configRowsFromForm, jiraMapFromForm, OFF_VALUE, ON, FIELD, RESET, valid
 import { validateConfig } from "./mapping";
 
 const form = (vals: Record<string, string>) => ({ get: (n: string) => vals[n] ?? "", has: (n: string) => n in vals });
-const ALL_JIRA_ON = Object.fromEntries(["label.moscow", "label.rank", "label.type", "label.group", "label.project", "body.artifacts", "body.files"].map((k) => [ON(`jira.${k}`), "on"]));
-const ALL_GH_ON = Object.fromEntries(["label.moscow", "label.rank", "label.type", "label.group", "label.project", "milestone", "issueType", "body.artifacts", "body.files"].map((k) => [ON(`github.${k}`), "on"]));
+const ALL_JIRA_ON = Object.fromEntries(["label.moscow", "label.rank", "label.type", "label.group", "label.project", "label.value", "label.quarter", "body.artifacts", "body.files"].map((k) => [ON(`jira.${k}`), "on"]));
+const ALL_GH_ON = Object.fromEntries(["label.moscow", "label.rank", "label.type", "label.group", "label.project", "label.value", "label.quarter", "milestone", "issueType", "body.artifacts", "body.files"].map((k) => [ON(`github.${k}`), "on"]));
 
 describe("the form", () => {
   it("an untouched form is the default configuration (nothing stored)", () => {
@@ -57,5 +57,18 @@ describe("validateJiraMap", () => {
     expect(validateJiraMap(stored, stored, null)).toEqual([]);
     expect(validateJiraMap({ startDate: "customfield_10099" }, stored, null)).toHaveLength(1);
     expect(validateJiraMap({}, stored, null)).toHaveLength(1);
+  });
+});
+
+describe("default-off switches in the form (issue #321)", () => {
+  it("an unchecked optional label is the default; a checked one is saved as ON", () => {
+    const none = form({ ...ALL_JIRA_ON });
+    expect(configRowsFromForm("jira", none.get, none.has)).toEqual([]);
+    const some = form({ ...ALL_JIRA_ON, [ON("jira.label.tags")]: "on", [ON("jira.label.focus")]: "on" });
+    expect(configRowsFromForm("jira", some.get, some.has)).toEqual([{ slot: "jira.label.tags", enabled: true, field: null }, { slot: "jira.label.focus", enabled: true, field: null }]);
+    const reset = form({ ...ALL_JIRA_ON, [ON("jira.label.tags")]: "on", [RESET]: "jira.label.tags" });
+    expect(configRowsFromForm("jira", reset.get, reset.has)).toEqual([]);
+    const gh = form({ ...ALL_GH_ON, [ON("github.label.focus")]: "on" });
+    expect(configRowsFromForm("github", gh.get, gh.has)).toEqual([{ slot: "github.label.focus", enabled: true, field: null }]);
   });
 });

@@ -9,6 +9,7 @@ const SLOT_TEXT: [string, string, (row: Record<string, unknown>, artifacts: numb
   ["github.label.rank", "rank label", (r) => HAS(r.stack_rank)],
   ["github.label.type", "Change Type label", (r) => HAS(r.change_type)],
   ["github.label.group", "Initiative Group label", (r) => HAS(r.theme)],
+  ["github.label.quarter", "Planned Quarter label", (r) => HAS(r.g2m_quarter)],
   ["github.milestone", "milestone", (r) => HAS(r.g2m_date_est)],
   ["github.issueType", "issue type", (r) => HAS(r.change_type)],
   ["github.body.artifacts", "artifact links", (_r, a) => a > 0],

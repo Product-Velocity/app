@@ -51,4 +51,11 @@ describe("the mapping table of a project", () => {
     const none = buildMappingView({ tracker: "github", rows: [], choices: null, board: null });
     expect(none.changeable.find((r) => r.id === "github.board.size")!.control).toMatchObject({ note: "No board is linked to this project." });
   });
+  it("an optional label shows as off and default until it is switched on", () => {
+    const off = buildMappingView({ tracker: "jira", rows: [], jiraMap: {}, choices });
+    expect(off.changeable.find((r) => r.id === "jira.label.tags")).toMatchObject({ control: { type: "toggle", on: false }, isDefault: true });
+    const on = buildMappingView({ tracker: "github", rows: [{ slot: "github.label.focus", enabled: true, field: null }] });
+    expect(on.changeable.find((r) => r.id === "github.label.focus")).toMatchObject({ control: { type: "toggle", on: true }, isDefault: false });
+    expect(on.changeable.find((r) => r.id === "github.label.moscow")).toMatchObject({ control: { on: true }, isDefault: true });
+  });
 });

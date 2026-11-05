@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FIELDS } from "./registry";
+import { FIELDS, HIDDEN_FIELDS } from "./registry";
 import { activityEvents, canUndoActivity, panelField, panelSections, type ActivityRow } from "./panel";
 
 const f = (key: string) => FIELDS.find((x) => x.key === key)!;
@@ -51,10 +51,11 @@ describe("panelField: how each of the 169 fields is shown in the item panel", ()
 });
 
 describe("panelSections", () => {
-  it("lists all 169 fields once, in the sheet's group order", () => {
+  it("lists every shown field once (all 169 but the hidden Roadmap Category), in the sheet's group order", () => {
     const s = panelSections();
     expect(s.map((x) => x.group).slice(0, 4)).toEqual(["What", "Who", "Why", "Decision"]);
-    expect(s.flatMap((x) => x.fields).map((x) => x.key).sort()).toEqual(FIELDS.map((x) => x.key).sort());
+    expect(s.flatMap((x) => x.fields).map((x) => x.key).sort()).toEqual(FIELDS.filter((x) => !HIDDEN_FIELDS.has(x.key)).map((x) => x.key).sort());
+    expect(s.flatMap((x) => x.fields).map((x) => x.key)).not.toContain("roadmap_category");
   });
   it("marks a group whose fields all arrive later, so it can start collapsed", () => {
     const s = panelSections();

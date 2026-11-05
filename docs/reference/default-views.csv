@@ -102,7 +102,7 @@ Leadership,2,item_code,pinned
 Leadership,3,initiative_name,pinned
 Leadership,4,home_project,
 Leadership,5,theme,
-Leadership,6,roadmap_category,
+Leadership,6,value_type,
 Leadership,7,initiative_phase,
 Leadership,8,health,
 Leadership,9,delivery_progress_pct,

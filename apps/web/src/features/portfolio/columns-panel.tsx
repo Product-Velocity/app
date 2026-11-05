@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { arrivesLabel, columnsFor, CORE_COLUMN_KEYS, FIELDS, FIELD_BY_KEY, fieldOptions, filterOptions, isCustomerSafe, MAX_PINNED, needsSearch, type ViewDef } from "@pv/domain";
+import { arrivesLabel, columnsFor, CORE_COLUMN_KEYS, VISIBLE_FIELDS, FIELD_BY_KEY, fieldOptions, filterOptions, isCustomerSafe, MAX_PINNED, needsSearch, type ViewDef } from "@pv/domain";
 import { NoResults, SearchInput } from "@/components/search-list";
 import { Popover } from "./popover";
 
-const ALL_FIELDS = fieldOptions(FIELDS);
-const GROUPS = [...new Set(FIELDS.map((f) => f.group))];
+const ALL_FIELDS = fieldOptions(VISIBLE_FIELDS);
+const GROUPS = [...new Set(VISIBLE_FIELDS.map((f) => f.group))];
 const ALL = "__all__";
 
 type Props = {
@@ -33,9 +33,9 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
   const effectivePinned = pinned.filter((k) => { const i = columns.indexOf(k); return i >= core.length && i < MAX_PINNED; });
   const matching = new Set(filterOptions(ALL_FIELDS, query).map((o) => o.value));
   const searching = query.trim() !== "";
-  const shownGroups = searching ? GROUPS.filter((g) => FIELDS.some((f) => f.group === g && matching.has(f.key))) : category === ALL ? GROUPS : [category];
-  const countIn = (g: string) => FIELDS.filter((f) => f.group === g && on.has(f.key)).length;
-  const totalIn = (g: string) => FIELDS.filter((f) => f.group === g).length;
+  const shownGroups = searching ? GROUPS.filter((g) => VISIBLE_FIELDS.some((f) => f.group === g && matching.has(f.key))) : category === ALL ? GROUPS : [category];
+  const countIn = (g: string) => VISIBLE_FIELDS.filter((f) => f.group === g && on.has(f.key)).length;
+  const totalIn = (g: string) => VISIBLE_FIELDS.filter((f) => f.group === g).length;
 
   const toggle = (k: string) => { if (!isCore(k) && !blocked(k)) setColumns((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k])); };
   const setMany = (keys: string[], show: boolean) => setColumns((c) => {
@@ -90,7 +90,7 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
       <div className="cp cp-body">
         <nav className="cp-cats" aria-label="Column categories">
           <button type="button" className="cp-cat" aria-current={!searching && category === ALL} onClick={() => { setCategory(ALL); setQuery(""); }}>
-            <span>All columns</span><span className="muted">{columns.length}/{FIELDS.length}</span>
+            <span>All columns</span><span className="muted">{columns.length}/{VISIBLE_FIELDS.length}</span>
           </button>
           {GROUPS.map((g) => (
             <button key={g} type="button" className="cp-cat" aria-current={!searching && category === g} onClick={() => { setCategory(g); setQuery(""); }}>
@@ -100,13 +100,13 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
         </nav>
         <div className="cp-mid">
           <div className="cp-tools">
-            {needsSearch(FIELDS.length) && (
-              <SearchInput value={query} onChange={setQuery} label="Search columns" placeholder={`Search the ${FIELDS.length} fields…`} onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }} />
+            {needsSearch(VISIBLE_FIELDS.length) && (
+              <SearchInput value={query} onChange={setQuery} label="Search columns" placeholder={`Search the ${VISIBLE_FIELDS.length} fields…`} onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }} />
             )}
             {!searching && category !== ALL && (
               <>
-                <button type="button" className="btn btn-link" onClick={() => setMany(FIELDS.filter((f) => f.group === category).map((f) => f.key), true)}>Show all in {category}</button>
-                <button type="button" className="btn btn-link" onClick={() => setMany(FIELDS.filter((f) => f.group === category).map((f) => f.key), false)}>Hide all in {category}</button>
+                <button type="button" className="btn btn-link" onClick={() => setMany(VISIBLE_FIELDS.filter((f) => f.group === category).map((f) => f.key), true)}>Show all in {category}</button>
+                <button type="button" className="btn btn-link" onClick={() => setMany(VISIBLE_FIELDS.filter((f) => f.group === category).map((f) => f.key), false)}>Hide all in {category}</button>
               </>
             )}
           </div>
@@ -115,7 +115,7 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
             <fieldset key={g} style={{ border: 0, padding: 0, margin: 0 }}>
               <legend className="panel-head" style={{ padding: 0 }}><h2>{g}</h2></legend>
               <div className="cp-list">
-                {FIELDS.filter((f) => f.group === g && (!searching || matching.has(f.key))).map((f) => {
+                {VISIBLE_FIELDS.filter((f) => f.group === g && (!searching || matching.has(f.key))).map((f) => {
                   const coreCol = isCore(f.key);
                   const block = blocked(f.key);
                   return (
@@ -191,7 +191,7 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
 /** "14 of 166 columns shown": expands a panel to choose, order and pin the columns of the view. */
 export function ColumnsPanel(props: Props & { shown: number }) {
   return (
-    <Popover wide label={`${props.shown} of ${FIELDS.length} columns shown`}>
+    <Popover wide label={`${props.shown} of ${VISIBLE_FIELDS.length} columns shown`}>
       {(close) => <Body {...props} close={close} />}
     </Popover>
   );

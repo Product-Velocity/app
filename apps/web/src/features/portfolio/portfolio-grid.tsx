@@ -8,7 +8,7 @@ import {
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import {
-  buildGroupedRows, CORE_COLUMN_KEYS, effectiveSort, FIELD_BY_KEY, FIELDS, groupableFields, matchesFilters, matchesSearch, refKey, sanitizeView, sortRows, type EditableField, type Filter, type GroupRow, type ViewDef,
+  buildGroupedRows, CORE_COLUMN_KEYS, effectiveSort, FIELD_BY_KEY, VISIBLE_FIELDS, groupableFields, matchesFilters, matchesSearch, refKey, sanitizeView, sortRows, type EditableField, type Filter, type GroupRow, type ViewDef,
 } from "@pv/domain";
 import { useWorkspace } from "../workspace/provider";
 import { setQueryParam, useScope } from "../workspace/scope";
@@ -495,7 +495,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     : exportAll());
   const exportCount = selected.length > 0 ? selected.length : visibleRows.length;
   const syncIds = selected.length > 0 ? selected.map((r) => r.id) : visibleRows.map((r) => r.id);
-  const shownCount = FIELDS.filter((f) => visible.has(f.key) || (CORE_COLUMN_KEYS as readonly string[]).includes(f.key)).length;
+  const shownCount = VISIBLE_FIELDS.filter((f) => visible.has(f.key) || (CORE_COLUMN_KEYS as readonly string[]).includes(f.key)).length;
   const commands = useMemo<Command[]>(() => {
     const out: Command[] = [];
     if (controller.canEdit && lookups.projects.length > 0) out.push({ id: "add", label: "Add initiative", group: "Actions", keywords: "new create quick add", hint: "Alt+N", run: focusQuickAdd });
