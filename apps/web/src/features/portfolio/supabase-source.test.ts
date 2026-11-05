@@ -51,7 +51,7 @@ describe("loadItems", () => {
   it("also reads the calculated view and every related table, each filtered by tenant", async () => {
     const { client, calls } = fake([{ data: [row(1)] }]);
     await new SupabaseDataSource(client, "t1").loadItems();
-    expect(calls.map((c) => c.table ?? `rpc ${c.rpc}`)).toEqual(["items", "items_computed", "item_tags", "item_links", "item_files", "item_relations", "teams", "item_teams", "rpc tenant_directory", "tenant_members", "item_github_links", "item_jira_links"]);
+    expect(calls.map((c) => c.table ?? `rpc ${c.rpc}`)).toEqual(["items", "items_computed", "item_tags", "item_attachments", "item_relations", "teams", "item_teams", "rpc tenant_directory", "tenant_members", "item_github_links", "item_jira_links"]);
     for (const c of calls.filter((x) => x.table)) expect(has(c, "eq", "tenant_id", "t1"), String(c.table)).toBe(true);
     expect(calls.find((c) => c.rpc === "tenant_directory")!.ops).toEqual([["args", [{ p_tenant: "t1" }]]]); // the people of this workspace only
   });
@@ -61,8 +61,7 @@ describe("loadItems", () => {
       { data: [row(1), row(2)] },
       { data: [{ id: "i1", value_weighted: "1080.45", time_discovery_days: null, locked_by_source: false }] },
       { data: [{ item_id: "i1", kind: "tag", value: "b" }, { item_id: "i1", kind: "tag", value: "a" }, { item_id: "i1", kind: "segment", value: "EU" }] },
-      { data: [{ item_id: "i1", label: "PRD", url: "https://x.test" }] },
-      { data: [] },
+      { data: [{ item_id: "i1", kind: "link", name: "PRD", url: "https://x.test" }] },
       { data: [{ item_id: "i1", related_item_id: "i2", kind: "depends_on" }] },
       { data: [{ id: "tm", name: "Core" }] },
       { data: [{ item_id: "i1", team_id: "tm" }] },
@@ -80,7 +79,7 @@ describe("loadItems", () => {
   it("works out Last Synced and Synced With from the GitHub link, the item's own sync mark and the linked board", async () => {
     const linked = { ...row(1), last_synced_at: "2026-10-27T12:00:00Z" };
     const { client, calls } = fake([
-      { data: [linked, row(2)] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] },
+      { data: [linked, row(2)] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] },
       { data: [{ item_id: "i1", mode: "push", repo_full_name: "Acme/App", issue_number: 38, sync_state: "synced", last_pushed_at: "2026-10-27T10:00:00Z", gh_synced_at: "2026-10-27T11:00:00Z", project_item_id: "PVTI_1" }] },
       { data: [{ item_id: "i1", mode: "push", issue_key: "PLAT-1", sync_checked_at: null, jira_updated_at: null }, { item_id: "i2", mode: "follow", issue_key: "PLAT-12", sync_checked_at: "2026-11-03T09:00:00Z", jira_updated_at: null }] },
       { data: [{ id: "p", github_board: { title: "Product Velocity roadmap" } }] },
@@ -265,7 +264,7 @@ describe("list fields of one item", () => {
   it("loadRelated reads tags, links, relations and teams of this item in this tenant", async () => {
     const { client, calls } = fake([
       { data: [{ kind: "tag", value: "urgent" }, { kind: "segment", value: "SMB" }, { kind: "target_scope", value: "EU" }] },
-      { data: [{ label: "PRD", url: "https://x.test/prd" }] },
+      { data: [{ name: "PRD", url: "https://x.test/prd", shared: true }] },
       { data: [{ related_item_id: "i2", kind: "depends_on" }, { related_item_id: "i3", kind: "related_to" }] },
       { data: [{ team_id: "t9" }] },
       { data: { assignee_ids: ["u1", "u2"] } },
@@ -286,7 +285,7 @@ describe("list fields of one item", () => {
   it("shows the assignees as emails, with the GitHub logins nobody is matched to", async () => {
     const withPeople = { ...row(1), assignee_ids: ["u1", "u2"] };
     const { client } = fake([
-      { data: [withPeople] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] },
+      { data: [withPeople] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] },
       { data: [{ user_id: "u1", email: "ana@acme.test" }, { user_id: "u2", email: "ben@acme.test" }] },
       { data: [{ user_id: "u1", github_username: "Ana-GH" }, { user_id: "u2", github_username: null }] },
       { data: [{ item_id: "i1", mode: "push", repo_full_name: "Acme/App", issue_number: 1, sync_state: "synced", last_pushed_at: null, gh_synced_at: null, project_item_id: null, gh_assignees: ["ana-gh", "stranger"] }] },
@@ -318,10 +317,10 @@ describe("list fields of one item", () => {
   });
 
   it("setRelated for links matches by label and address", async () => {
-    const { client, calls } = fake([{ data: [{ id: "l1", label: "PRD", url: "https://x.test/prd" }] }, { data: null }]);
+    const { client, calls } = fake([{ data: [{ id: "l1", name: "PRD", url: "https://x.test/prd", shared: true }] }, { data: null }, { data: [{ id: "l1", name: "PRD", url: "https://x.test/prd", shared: true }] }]);
     await new SupabaseDataSource(client, "t1").setRelated("i1", "artifacts", [{ label: "PRD", url: "https://x.test/prd" }, { label: "", url: "https://y.test" }]);
     expect(calls.some((c) => c.ops.some(([o]) => o === "delete"))).toBe(false);
-    expect(has(calls[1]!, "insert", [{ tenant_id: "t1", item_id: "i1", label: "", url: "https://y.test" }])).toBe(true);
+    expect(has(calls[1]!, "insert", [{ tenant_id: "t1", item_id: "i1", kind: "link", name: "", url: "https://y.test", shared: true }])).toBe(true);
   });
 
   it("setRelated reports a database error in words", async () => {

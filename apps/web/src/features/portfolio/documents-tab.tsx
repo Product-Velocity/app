@@ -74,7 +74,7 @@ export function DocumentsTab({ itemId, canEdit, ctx }: { itemId: string; canEdit
       <p className="muted">Screenshots, images and PDFs. Choose them, drag them onto this tab or paste an image.</p>
       <FilesControl itemId={itemId} disabled={!canEdit} onError={setError} />
       <h3>Links</h3>
-      <p className="muted">Figma, Claude artifacts, Drive and other pages. Paste a web address anywhere on this tab to add it.</p>
+      <p className="muted">Figma, Claude artifacts, Drive and other pages. Paste a web address anywhere on this tab to add it. Links go into the GitHub issue or Jira description unless you choose “Do not share”.</p>
       <LinksControl ctx={ctx} itemId={itemId} disabled={!canEdit} onError={setError} />
     </div>
   );

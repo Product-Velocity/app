@@ -298,6 +298,8 @@ export function LinksEditor({ values, disabled, onChange }: { values: Link[]; di
           <li key={`${l.label}|${l.url}`}>
             <a href={l.url} target="_blank" rel="noopener noreferrer">{l.label || l.url}</a>
             {l.label && <span className="muted"> {l.url}</span>}
+            {l.shared === false && <span className="muted"> · not shared</span>}
+            {!disabled && <button type="button" className="btn" onClick={() => onChange(values.map((x) => (x === l ? (l.shared === false ? { label: l.label, url: l.url } : { ...l, shared: false }) : x)))}>{l.shared === false ? `Share ${l.label || l.url}` : `Do not share ${l.label || l.url}`}</button>}
             {!disabled && <button type="button" className="chip-x" aria-label={`Remove link ${l.label || l.url}`} onClick={() => onChange(values.filter((x) => x !== l))}>×</button>}
           </li>
         ))}

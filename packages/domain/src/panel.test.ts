@@ -90,6 +90,17 @@ describe("activityEvents", () => {
       row({ entity: "item_links", entityId: "l1", field: "label", old: "PRD", new: null }),
     ]);
     expect(rem[0]).toMatchObject({ kind: "removed", field: "artifacts", detail: "PRD (https://x.test/prd)" });
+    const att = activityEvents([
+      row({ entity: "item_attachments", entityId: "a1", field: "kind", old: "link", new: null }),
+      row({ entity: "item_attachments", entityId: "a1", field: "url", old: "https://x.test/prd", new: null }),
+      row({ entity: "item_attachments", entityId: "a1", field: "name", old: "PRD", new: null }),
+    ]);
+    expect(att[0]).toMatchObject({ kind: "removed", field: "artifacts", detail: "PRD (https://x.test/prd)" });
+    const file = activityEvents([
+      row({ entity: "item_attachments", entityId: "a2", field: "kind", new: "file" }),
+      row({ entity: "item_attachments", entityId: "a2", field: "name", new: "shot.png" }),
+    ]);
+    expect(file[0]).toMatchObject({ kind: "added", field: "screenshots", detail: "shot.png" });
     const rel = activityEvents([
       row({ entity: "item_relations", entityId: "r1", field: "kind", new: "depends_on" }),
       row({ entity: "item_relations", entityId: "r1", field: "related_item_id", new: "i9" }),

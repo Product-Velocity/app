@@ -60,10 +60,8 @@ export function FilesControl({ itemId, disabled, onError }: { itemId: string; di
       const form = new FormData();
       form.set("item", itemId);
       form.set("file", file);
-      const made = (await call("/api/files", { method: "POST", body: form }, "The file could not be attached.")) as { file?: FileInfo } | null;
-      if (!made) break;
-      // shared by default; the person can switch it off per file
-      if (made.file) await call(`/api/files/${made.file.id}/share`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ on: true }) }, "The file was attached, but its link could not be turned on.");
+      // shared by default (the server turns the link on); the person can switch it off per file
+      if (!(await call("/api/files", { method: "POST", body: form }, "The file could not be attached."))) break;
     }
     if (input.current) input.current.value = "";
     await load();

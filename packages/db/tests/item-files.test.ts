@@ -7,7 +7,6 @@ let creator: string, viewer: string;
 let item: string;
 const CHECK = "23514";
 const UNIQUE = "23505";
-const TOKEN = "A".repeat(43);
 
 beforeAll(async () => {
   db = await createTestDb();
@@ -20,13 +19,14 @@ beforeAll(async () => {
 });
 afterAll(async () => { await db.close(); });
 
-const add = (user: string, name: string, extra = "'image/png', 2048") =>
-  db.asUser(user, async (q) => (await q(`insert into public.item_files (tenant_id, item_id, kind, name, storage_path, mime_type, size_bytes) values ($1, $2, 'image', $3, $4, ${extra}) returning id`, [f.tenantA, item, name, `${f.tenantA}/${name}`])).rows[0].id as string, { commit: true, via: "UI" });
+const add = (user: string, name: string, extra = "'image/png', 2048", shared = true) =>
+  db.asUser(user, async (q) => (await q(`insert into public.item_attachments (tenant_id, item_id, kind, file_kind, name, storage_path, mime_type, size_bytes, shared) values ($1, $2, 'file', 'image', $3, $4, ${extra}, ${shared}) returning id`, [f.tenantA, item, name, `${f.tenantA}/${name}`])).rows[0].id as string, { commit: true, via: "UI" });
+const token = async (id: string) => (await db.admin.query("select share_token from public.item_attachments where id = $1", [id])).rows[0].share_token as string | null;
 
-describe("item files with share links", () => {
+describe("file attachments with share links", () => {
   it("a creator adds a file with type and size; the write is audited", async () => {
     const id = await add(creator, "mock.png");
-    const a = (await db.admin.query("select actor_id, via from public.audit_log where entity = 'item_files' and entity_id = $1 limit 1", [id])).rows[0];
+    const a = (await db.admin.query("select actor_id, via from public.audit_log where entity = 'item_attachments' and entity_id = $1 limit 1", [id])).rows[0];
     expect(a).toMatchObject({ actor_id: creator, via: "UI" });
   });
   it("refuses types outside the allow-list and impossible sizes", async () => {
@@ -34,42 +34,62 @@ describe("item files with share links", () => {
     expect(await errorCode(add(creator, "big.png", "'image/png', 10485761"))).toBe(CHECK);
     expect(await errorCode(add(creator, "zero.png", "'image/png', 0"))).toBe(CHECK);
   });
-  it("a creator turns a share link on and off; tokens are unique and must be long enough", async () => {
+  it("a shared file gets a link made by the database; not sharing removes it; sharing again makes a new address", async () => {
     const id = await add(creator, "share.png");
-    const set = (t: string | null) => db.asUser(creator, (q) => q("update public.item_files set share_token = $2, share_updated_at = now() where id = $1", [id, t]), { commit: true, via: "UI" });
-    await set(TOKEN);
-    expect((await db.admin.query("select share_token from public.item_files where id = $1", [id])).rows[0].share_token).toBe(TOKEN);
-    const other = await add(creator, "other.png");
-    expect(await errorCode(db.asUser(creator, (q) => q("update public.item_files set share_token = $2 where id = $1", [other, TOKEN]), { via: "UI" }))).toBe(UNIQUE);
-    expect(await errorCode(set("short"))).toBe(CHECK);
-    await set(null);
-    expect((await db.admin.query("select share_token from public.item_files where id = $1", [id])).rows[0].share_token).toBeNull();
+    const first = await token(id);
+    expect(first).toMatch(/^[A-Za-z0-9_-]{32,64}$/);
+    const set = (sql: string) => db.asUser(creator, (q) => q(`update public.item_attachments set ${sql} where id = $1`, [id]), { commit: true, via: "UI" });
+    await set("shared = false");
+    expect(await token(id)).toBeNull();
+    await set("shared = true");
+    const second = await token(id);
+    expect(second).not.toBeNull();
+    expect(second).not.toBe(first); // an old, leaked address stays dead
+    await set("share_token = null"); // asking for a new address
+    expect(await token(id)).not.toBe(second);
   });
-  it("viewers cannot add files or change share links", async () => {
+  it("a token chosen by the client is replaced, and a file added as not shared has none", async () => {
+    const id = await add(creator, "chosen.png");
+    await db.asUser(creator, (q) => q("update public.item_attachments set share_token = $2 where id = $1", [id, "A".repeat(43)]), { commit: true, via: "UI" });
+    expect(await token(id)).not.toBe("A".repeat(43));
+    expect(await token(await add(creator, "private.png", "'image/png', 2048", false))).toBeNull();
+  });
+  it("an attachment cannot change kind or stored file", async () => {
+    const id = await add(creator, "kind.png");
+    expect(await errorCode(db.asUser(creator, (q) => q("update public.item_attachments set kind = 'link' where id = $1", [id]), { via: "UI" }))).not.toBe(null);
+  });
+  it("links keep to http(s) addresses, never carry a token, and default to shared", async () => {
+    const id = await db.asUser(creator, async (q) => (await q("insert into public.item_attachments (tenant_id, item_id, kind, name, url) values ($1, $2, 'link', 'Figma', 'https://example.test/f') returning id", [f.tenantA, item])).rows[0].id as string, { commit: true, via: "UI" });
+    expect((await db.admin.query("select shared, share_token from public.item_attachments where id = $1", [id])).rows[0]).toEqual({ shared: true, share_token: null });
+    expect(await errorCode(db.asUser(creator, (q) => q("insert into public.item_attachments (tenant_id, item_id, kind, url) values ($1, $2, 'link', 'javascript:alert(1)')", [f.tenantA, item])))).toBe(CHECK);
+    await db.asUser(creator, (q) => q("update public.item_attachments set shared = false where id = $1", [id]), { commit: true, via: "UI" });
+    expect((await db.admin.query("select shared from public.item_attachments where id = $1", [id])).rows[0].shared).toBe(false);
+  });
+  it("viewers cannot add files or change sharing", async () => {
     expect(await errorCode(add(viewer, "nope.png"))).not.toBe(null);
     const id = await add(creator, "viewer-test.png");
-    const n = await db.asUser(viewer, async (q) => (await q("update public.item_files set share_token = $2 where id = $1", [id, "B".repeat(43)])).rowCount, { commit: true });
+    const n = await db.asUser(viewer, async (q) => (await q("update public.item_attachments set shared = false where id = $1", [id])).rowCount, { commit: true });
     expect(n).toBe(0);
   });
   it("another workspace can neither see nor change them", async () => {
     const id = await add(creator, "tenant.png");
-    expect(await db.asUser(f.bob, async (q) => (await q("select 1 from public.item_files where id = $1", [id])).rowCount)).toBe(0);
-    expect(await db.asUser(f.bob, async (q) => (await q("update public.item_files set share_token = $2 where id = $1", [id, "C".repeat(43)])).rowCount, { commit: true })).toBe(0);
-    expect(await db.asUser(f.bob, async (q) => (await q("delete from public.item_files where id = $1", [id])).rowCount, { commit: true })).toBe(0);
+    expect(await db.asUser(f.bob, async (q) => (await q("select 1 from public.item_attachments where id = $1", [id])).rowCount)).toBe(0);
+    expect(await db.asUser(f.bob, async (q) => (await q("update public.item_attachments set shared = false where id = $1", [id])).rowCount, { commit: true })).toBe(0);
+    expect(await db.asUser(f.bob, async (q) => (await q("delete from public.item_attachments where id = $1", [id])).rowCount, { commit: true })).toBe(0);
   });
 });
 
-describe("files written through a Claude connection (docs/20 FR-5)", () => {
+describe("attachments written through a Claude connection (docs/20 FR-5)", () => {
   const claude = { claims: { client_id: "claude-client-1" }, commit: true };
   const addAsClaude = (user: string, name: string, tenant = f.tenantA, itemId = item) =>
-    db.asUser(user, async (q) => (await q("insert into public.item_files (tenant_id, item_id, kind, name, storage_path, mime_type, size_bytes) values ($1, $2, 'image', $3, $4, 'image/png', 2048) returning id", [tenant, itemId, name, `${tenant}/${name}`])).rows[0].id as string, claude);
+    db.asUser(user, async (q) => (await q("insert into public.item_attachments (tenant_id, item_id, kind, file_kind, name, storage_path, mime_type, size_bytes, shared) values ($1, $2, 'file', 'image', $3, $4, 'image/png', 2048, false) returning id", [tenant, itemId, name, `${tenant}/${name}`])).rows[0].id as string, claude);
 
   it("upload, sharing change and removal are audited with source MCP and the person as actor", async () => {
     const id = await addAsClaude(creator, "claude.png");
-    await db.asUser(creator, (q) => q("update public.item_files set share_token = $2, share_updated_at = now() where id = $1", [id, "D".repeat(43)]), claude);
-    await db.asUser(creator, (q) => q("update public.item_files set share_token = null, share_updated_at = now() where id = $1", [id]), claude);
-    await db.asUser(creator, (q) => q("delete from public.item_files where id = $1", [id]), claude);
-    const { rows } = await db.admin.query("select field, old, new, via, actor_id from public.audit_log where entity = 'item_files' and entity_id = $1 order by id", [id]);
+    await db.asUser(creator, (q) => q("update public.item_attachments set shared = true where id = $1", [id]), claude);
+    await db.asUser(creator, (q) => q("update public.item_attachments set shared = false where id = $1", [id]), claude);
+    await db.asUser(creator, (q) => q("delete from public.item_attachments where id = $1", [id]), claude);
+    const { rows } = await db.admin.query("select field, old, new, via, actor_id from public.audit_log where entity = 'item_attachments' and entity_id = $1 order by id", [id]);
     expect(rows.length).toBeGreaterThanOrEqual(4);
     for (const r of rows) expect(r).toMatchObject({ via: "MCP", actor_id: creator });
     expect(rows.some((r) => r.field === "share_token")).toBe(true);
@@ -78,16 +98,22 @@ describe("files written through a Claude connection (docs/20 FR-5)", () => {
   it("a viewer's connection cannot upload, share or remove", async () => {
     const id = await add(creator, "viewer-claude.png");
     expect(await errorCode(addAsClaude(viewer, "nope.png"))).not.toBe(null);
-    expect(await db.asUser(viewer, async (q) => (await q("update public.item_files set share_token = $2 where id = $1", [id, "E".repeat(43)])).rowCount, claude)).toBe(0);
-    expect(await db.asUser(viewer, async (q) => (await q("delete from public.item_files where id = $1", [id])).rowCount, claude)).toBe(0);
+    expect(await db.asUser(viewer, async (q) => (await q("update public.item_attachments set shared = false where id = $1", [id])).rowCount, claude)).toBe(0);
+    expect(await db.asUser(viewer, async (q) => (await q("delete from public.item_attachments where id = $1", [id])).rowCount, claude)).toBe(0);
   });
 
-  it("another workspace's file ids are not reachable, and nothing can be attached to another workspace's initiative", async () => {
+  it("another workspace's ids are not reachable, and nothing can be attached to another workspace's initiative", async () => {
     const id = await add(creator, "tenant-claude.png");
-    expect(await db.asUser(f.bob, async (q) => (await q("select 1 from public.item_files where id = $1", [id])).rowCount, claude)).toBe(0);
-    expect(await db.asUser(f.bob, async (q) => (await q("update public.item_files set share_token = $2 where id = $1", [id, "F".repeat(43)])).rowCount, claude)).toBe(0);
-    expect(await db.asUser(f.bob, async (q) => (await q("delete from public.item_files where id = $1", [id])).rowCount, claude)).toBe(0);
+    expect(await db.asUser(f.bob, async (q) => (await q("select 1 from public.item_attachments where id = $1", [id])).rowCount, claude)).toBe(0);
+    expect(await db.asUser(f.bob, async (q) => (await q("update public.item_attachments set shared = false where id = $1", [id])).rowCount, claude)).toBe(0);
+    expect(await db.asUser(f.bob, async (q) => (await q("delete from public.item_attachments where id = $1", [id])).rowCount, claude)).toBe(0);
     expect(await errorCode(addAsClaude(f.bob, "cross.png", f.tenantA))).not.toBe(null);
-    expect((await db.admin.query("select 1 from public.item_files where id = $1", [id])).rowCount).toBe(1);
+    expect((await db.admin.query("select 1 from public.item_attachments where id = $1", [id])).rowCount).toBe(1);
+  });
+});
+
+describe("the migration from item_files and item_links", () => {
+  it("is covered by a fresh database applying every migration (the rewritten functions are exercised by the MCP and copy tests)", async () => {
+    expect((await db.admin.query("select to_regclass('public.item_links') as l, to_regclass('public.item_files') as f")).rows[0]).toEqual({ l: null, f: null });
   });
 });

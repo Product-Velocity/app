@@ -4,9 +4,9 @@ vi.mock("server-only", () => ({}));
 const { planPush, ITEM_SELECT } = await import("./push");
 import { COLUMN_ON_ITEMS } from "@pv/domain";
 
-/** A tiny stand-in for the signed-in client: each table returns what the test set; filters are ignored. */
+/** A tiny stand-in for the signed-in client: each table returns what the test set; `eq` filters apply to the columns a row has (so kind and shared split the attachments). */
 function fakeSupabase(tables: Record<string, unknown[]>) {
-  const chain = (rows: unknown[]) => { const q: Record<string, unknown> = {}; for (const m of ["eq", "is", "in", "select", "not", "order"]) q[m] = () => q; q.then = (r: (v: unknown) => void) => r({ data: rows, error: null }); return q; };
+  const chain = (rows: unknown[]) => { const eqs: [string, unknown][] = []; const q: Record<string, unknown> = {}; for (const m of ["is", "in", "select", "not", "order"]) q[m] = () => q; q.eq = (k: string, v: unknown) => { eqs.push([k, v]); return q; }; q.then = (r: (v: unknown) => void) => r({ data: rows.filter((x) => eqs.every(([k, v]) => !(k in (x as object)) || (x as Record<string, unknown>)[k] === v)), error: null }); return q; };
   return { from: (t: string) => ({ select: () => chain(tables[t] ?? []) }) } as never;
 }
 const connection = { id: "c1", tenant_id: "t1", expected_account: "Acme", installation_id: 9, account_login: "Acme", state: "connected" as const };
@@ -27,7 +27,7 @@ describe("planPush and the one tracker of a project", () => {
     }
   });
   it("puts share links of files into the issue for a private repository only, and says so when it leaves them out", async () => {
-    const base = { items: [item], projects: [{ id: "p1", name: "Core", default_repo: "Acme/App", tracker: "github" }], item_files: [{ item_id: "i1", name: "Mock.png", share_token: "T".repeat(43) }] };
+    const base = { items: [item], projects: [{ id: "p1", name: "Core", default_repo: "Acme/App", tracker: "github" }], item_attachments: [{ item_id: "i1", kind: "file", name: "Mock.png", share_token: "T".repeat(43) }] };
     const priv = await planPush(fakeSupabase({ ...base, github_repositories: [{ full_name: "Acme/App", access: "read_write", is_private: true }] }), "t1", "https://app.example", connection, ["i1"]);
     expect(priv[0]!.block).toContain(`## Files\n- [Mock.png](https://app.example/f/${"T".repeat(43)}/Mock.png)`);
     expect(priv[0]!.filesNote).toBeUndefined();
@@ -40,7 +40,7 @@ describe("planPush and the one tracker of a project", () => {
   });
   it("says when an attached file has no share link and so is not in the issue", async () => {
     const base = { items: [item], projects: [{ id: "p1", name: "Core", default_repo: "Acme/App", tracker: "github" }], github_repositories: [{ full_name: "Acme/App", access: "read_write", is_private: true }] };
-    const [plan] = await planPush(fakeSupabase({ ...base, item_files: [{ item_id: "i1", name: "a.png", share_token: null }, { item_id: "i1", name: "b.png", share_token: "T".repeat(43) }] }), "t1", "https://app.example", connection, ["i1"]);
+    const [plan] = await planPush(fakeSupabase({ ...base, item_attachments: [{ item_id: "i1", kind: "file", name: "a.png", share_token: null }, { item_id: "i1", kind: "file", name: "b.png", share_token: "T".repeat(43) }] }), "t1", "https://app.example", connection, ["i1"]);
     expect(plan!.filesNote).toContain("1 attached file has no share link");
     expect(plan!.block).toContain("b.png");
     expect(plan!.block).not.toContain("a.png");

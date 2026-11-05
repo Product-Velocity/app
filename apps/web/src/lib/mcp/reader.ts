@@ -106,7 +106,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       const [related, activity, files, link, back, teamList] = await Promise.all([
         ds.loadRelated(id),
         ds.loadActivity(id),
-        supabase.from("item_files").select(FILE_COLS).eq("tenant_id", tenant.id).eq("item_id", id).order("created_at"),
+        supabase.from("item_attachments").select(FILE_COLS).eq("kind", "file").eq("tenant_id", tenant.id).eq("item_id", id).order("created_at"),
         supabase.from("item_github_links").select("issue_number, html_url, mode, sync_state, last_error, gh_state, gh_last_activity").eq("tenant_id", tenant.id).eq("item_id", id).maybeSingle(),
         supabase.from("item_relations").select("item_id, kind").eq("tenant_id", tenant.id).eq("related_item_id", id).in("kind", ["depends_on", "related_to"]),
         teams(),
@@ -115,7 +115,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       const l = link.data as { issue_number: number | null; html_url: string | null; mode: string; sync_state: string; last_error: string | null; gh_state: string | null; gh_last_activity: string | null } | null;
       return {
         row,
-        links: related.artifacts.map((a) => ({ label: a.label, url: a.url })),
+        links: related.artifacts.map((a) => ({ label: a.label, url: a.url, ...(a.shared === false ? { shared: false } : {}) })),
         tags: { tags: related.tags, target_scope: related.target_scope, live_scope: related.live_scope, target_segments: related.target_segments },
         relations: {
           depends_on: rel(related.depends_on),
@@ -153,7 +153,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     },
 
     async files(ref) {
-      let q = supabase.from("item_files").select(FILE_COLS).eq("tenant_id", tenant.id).order("created_at").limit(FILE_CAP + 1);
+      let q = supabase.from("item_attachments").select(FILE_COLS).eq("kind", "file").eq("tenant_id", tenant.id).order("created_at").limit(FILE_CAP + 1);
       if (ref) {
         const row = await findRow(ref);
         if (!row) return null;
@@ -191,7 +191,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
   const files: McpFiles = {
     async get(id) {
       if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
-      const { data, error } = await supabase.from("item_files").select("id, item_id, name, share_token").eq("tenant_id", tenant.id).eq("id", id).maybeSingle();
+      const { data, error } = await supabase.from("item_attachments").select("id, item_id, name, share_token").eq("kind", "file").eq("tenant_id", tenant.id).eq("id", id).maybeSingle();
       if (error) throw new Error("files");
       if (!data) return null;
       const f = data as { id: string; item_id: string; name: string; share_token: string | null };

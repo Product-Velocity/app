@@ -61,8 +61,9 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     supabase.from("projects").select("id, name, default_repo, tracker, github_board").eq("tenant_id", tenantId),
     supabase.from("github_repositories").select("full_name, access, is_private").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("removed_at", null),
     supabase.from("item_github_links").select("item_id, mode, repo_full_name, issue_number, html_url, sync_state, last_pushed_hash").eq("tenant_id", tenantId).in("item_id", unique),
-    supabase.from("item_links").select("item_id, label, url").eq("tenant_id", tenantId).in("item_id", unique),
-    supabase.from("item_files").select("item_id, name, share_token").eq("tenant_id", tenantId).in("item_id", unique).order("created_at"),
+    // links the person did not switch to "do not share" (written documents are never read here)
+    supabase.from("item_attachments").select("item_id, name, url").eq("tenant_id", tenantId).eq("kind", "link").eq("shared", true).in("item_id", unique).order("created_at"),
+    supabase.from("item_attachments").select("item_id, name, share_token").eq("tenant_id", tenantId).eq("kind", "file").in("item_id", unique).order("created_at"),
     supabase.from("item_issue_tree").select("item_id, repo_full_name, issue_number, board_id").eq("tenant_id", tenantId).in("item_id", unique),
     // the field configuration (what a person switched off per project); a database without that table has none, so everything stays as it was
     supabase.from("tracker_field_config").select("project_id, slot, enabled, field_id").eq("tenant_id", tenantId).eq("provider", "github"),
@@ -85,7 +86,7 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
   const readOnlyRepos = new Set(repoRows.filter((r) => r.access === "read_only").map((r) => r.full_name.toLowerCase()));
   const linkByItem = new Map(((links.data ?? []) as Link[]).map((l) => [l.item_id, l]));
   const artifactsByItem = new Map<string, { label: string; url: string }[]>();
-  for (const a of (artifacts.data ?? []) as { item_id: string; label: string; url: string }[]) artifactsByItem.set(a.item_id, [...(artifactsByItem.get(a.item_id) ?? []), { label: a.label, url: a.url }]);
+  for (const a of (artifacts.data ?? []) as { item_id: string; name: string; url: string }[]) artifactsByItem.set(a.item_id, [...(artifactsByItem.get(a.item_id) ?? []), { label: a.name, url: a.url }]);
 
   const fileRows = (sharedFiles.data ?? []) as SharedFile[];
   const filesByItem = sharedFilesByItem(fileRows, appUrl);
@@ -133,7 +134,7 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     internal.set(id, { projectId: project?.id, built, existing: link ? { issueNumber: link.issue_number, lastPushedHash: force?.has(id) ? null : link.last_pushed_hash } : null, pendingChildren, ...(board && boardPlan ? { board, boardPlan } : {}) });
     const withheld = itemFiles.length > 0 && !filesOk ? { filesNote: `${itemFiles.length === 1 ? "A shared file link was" : `${itemFiles.length} shared file links were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could open the links. Files are only linked in private repositories.` } : {};
     const unshared = unsharedByItem.get(id) ?? 0;
-    const note = [withheld.filesNote ?? (unshared ? `${unshared === 1 ? "1 attached file has" : `${unshared} attached files have`} no share link, so ${unshared === 1 ? "it is" : "they are"} not in the issue. Turn a link on in the item's Screenshots field to include it.` : undefined), ...switchedOff].filter(Boolean).join(" ") || undefined;
+    const note = [withheld.filesNote ?? (unshared ? `${unshared === 1 ? "1 attached file has" : `${unshared} attached files have`} no share link, so ${unshared === 1 ? "it is" : "they are"} not in the issue. Share it on the item's Spec tab to include it.` : undefined), ...switchedOff].filter(Boolean).join(" ") || undefined;
     const boardInfo = board && boardPlan ? { title: board.title, included: boardPlan.include, writes: boardPlan.writes.map((w) => ({ field: w.field.name, value: w.label })), notes: boardPlan.notes, children: pendingChildren } : board && boardNotes.length ? { title: board.title, included: false, writes: [], notes: boardNotes, children: 0 } : undefined;
     return { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo: d.repo, action: d.action, title: built.title, labels: built.labels, ...(built.milestone ? { milestone: built.milestone.title } : {}), ...(boardInfo ? { board: boardInfo } : {}), block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null, ...(d.reason ? { reason: d.reason } : {}), ...(note ? { filesNote: note } : {}) };
   });

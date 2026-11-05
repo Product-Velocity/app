@@ -69,9 +69,9 @@ export const KEY_BY_COLUMN: Readonly<Record<string, string>> = Object.fromEntrie
 
 /** Fields stored in a related table, and which one. */
 const RELATED: Record<string, string> = {
-  artifacts: "item_links", depends_on: "item_relations", related_to: "item_relations",
+  artifacts: "item_attachments", depends_on: "item_relations", related_to: "item_relations",
   tags: "item_tags", target_scope: "item_tags", live_scope: "item_tags", target_segments: "item_tags",
-  contributing_teams: "item_teams", screenshots: "item_files",
+  contributing_teams: "item_teams", screenshots: "item_attachments",
 };
 
 const isStoredOnItems = (f: FieldDef) =>

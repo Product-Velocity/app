@@ -16,7 +16,7 @@ async function fakeFiles(page: Page, start: F[] = []) {
     if (!m && req.method() === "POST") {
       const body = req.postDataBuffer()?.toString("latin1") ?? "";
       if (body.includes('filename="bad.svg"')) return json({ error: "Only PNG, JPEG, GIF, WebP and PDF files can be attached." }, 422);
-      files.push({ id: `f${files.length + 1}`, name: "mockup.png", mime: "image/png", size: 2048, shareUrl: null });
+      files.push({ id: `f${files.length + 1}`, name: "mockup.png", mime: "image/png", size: 2048, shareUrl: `http://localhost/f/${"T".repeat(43)}/mockup.png` });
       return json({ file: files.at(-1) }, 201);
     }
     const f = files.find((x) => x.id === m![1]);

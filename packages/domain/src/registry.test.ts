@@ -71,8 +71,8 @@ describe("registry rules", () => {
     expect(columnOnItems(FIELD_BY_KEY.tags!)).toBeNull();
     expect(relatedTable(FIELD_BY_KEY.tags!)).toBe("item_tags");
     expect(relatedTable(FIELD_BY_KEY.depends_on!)).toBe("item_relations");
-    expect(relatedTable(FIELD_BY_KEY.artifacts!)).toBe("item_links");
-    expect(relatedTable(FIELD_BY_KEY.screenshots!)).toBe("item_files");
+    expect(relatedTable(FIELD_BY_KEY.artifacts!)).toBe("item_attachments");
+    expect(relatedTable(FIELD_BY_KEY.screenshots!)).toBe("item_attachments");
     expect(COLUMN_ON_ITEMS.length).toBeGreaterThan(70);
   });
   it("marks later phases as arriving", () => {

@@ -407,22 +407,14 @@ const probes: Probe[] = [
     ],
   },
   {
-    table: "item_links",
+    table: "item_attachments",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [
-      { sql: "update public.item_links set url = 'https://evil.test' where tenant_id = $1", params: [v.tenantId] },
-      { sql: "delete from public.item_links where tenant_id = $1", params: [v.tenantId] },
-      { sql: "insert into public.item_links (tenant_id, item_id, label, url) select $1, item_id, 'x', 'https://evil.test' from public.item_links where tenant_id = $1", params: [v.tenantId] },
-      { sql: "update public.item_links set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
-    ],
-  },
-  {
-    table: "item_files",
-    tenantColumn: "tenant_id",
-    attacks: (v) => [
-      { sql: "update public.item_files set name = 'pwned' where tenant_id = $1", params: [v.tenantId] },
-      { sql: "delete from public.item_files where tenant_id = $1", params: [v.tenantId] },
-      { sql: "insert into public.item_files (tenant_id, item_id, name, storage_path) select $1, item_id, 'x', 'x' from public.item_files where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.item_attachments set name = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.item_attachments where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.item_attachments (tenant_id, item_id, kind, name, url) select $1, item_id, 'link', 'x', 'https://evil.test' from public.item_attachments where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.item_attachments (tenant_id, item_id, kind, name, file_kind, storage_path) select $1, item_id, 'file', 'x', 'image', 'x' from public.item_attachments where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.item_attachments set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
     ],
   },
   {

@@ -37,13 +37,13 @@ describe("item_activity", () => {
   it("includes tags, links and other related rows of this item, also after they are removed, and nothing of other items", async () => {
     const id = await fresh(), other = await fresh();
     const tag = await db.asUser(creator, async (q) => (await q("insert into public.item_tags (tenant_id, item_id, kind, value) values ($1, $2, 'tag', 'urgent') returning id", [f.tenantA, id])).rows[0].id as string, { commit: true, via: "UI" });
-    await db.asUser(creator, (q) => q("insert into public.item_links (tenant_id, item_id, label, url) values ($1, $2, 'PRD', 'https://example.test/prd')", [f.tenantA, other]), { commit: true, via: "UI" });
+    await db.asUser(creator, (q) => q("insert into public.item_attachments (tenant_id, item_id, kind, name, url) values ($1, $2, 'link', 'PRD', 'https://example.test/prd')", [f.tenantA, other]), { commit: true, via: "UI" });
     await db.asUser(creator, (q) => q("delete from public.item_tags where id = $1", [tag]), { commit: true, via: "UI" });
     const rows = await activity(creator, id);
     const tagRows = rows.filter((r) => r.entity === "item_tags" && r.entity_id === tag);
     expect(tagRows.some((r) => r.field === "value" && r.new === "urgent")).toBe(true); // added
     expect(tagRows.some((r) => r.field === "value" && r.old === "urgent" && r.new === null)).toBe(true); // removed
-    expect(rows.some((r) => r.entity === "item_links")).toBe(false); // another item's link
+    expect(rows.some((r) => r.entity === "item_attachments")).toBe(false); // another item's link
   });
   it("refuses an item of another workspace and an unknown item", async () => {
     const id = await fresh();

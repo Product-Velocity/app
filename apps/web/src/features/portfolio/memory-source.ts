@@ -33,7 +33,7 @@ export class MemoryDataSource implements PortfolioDataSource {
     const rowId = `${field}-${++this.auditSeq}`;
     const cols: [string, string, unknown][] =
       tagKind[field] ? [["item_tags", "kind", tagKind[field]], ["item_tags", "value", x]]
-      : field === "artifacts" ? [["item_links", "label", (x as { label: string }).label], ["item_links", "url", (x as { url: string }).url]]
+      : field === "artifacts" ? [["item_attachments", "kind", "link"], ["item_attachments", "name", (x as { label: string }).label], ["item_attachments", "url", (x as { url: string }).url]]
       : field === "contributing_teams" ? [["item_teams", "team_id", x]]
       : [["item_relations", "kind", field], ["item_relations", "related_item_id", x]];
     const entity = cols[0]![0];
