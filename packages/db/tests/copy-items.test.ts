@@ -16,7 +16,7 @@ beforeAll(async () => {
   target = (await db.admin.query("insert into public.projects (tenant_id, name, tracker) values ($1, 'Jira mirror', 'jira') returning id", [f.tenantA])).rows[0].id;
   source = (await db.admin.query("insert into public.items (tenant_id, home_project_id, initiative_name, summary, moscow, decision, status, delivery_progress_pct, source) values ($1, $2, 'Original', 'A summary', 'Must', 'Go', 'Done', 100, 'GitHub issue #5') returning id", [f.tenantA, home])).rows[0].id;
   await db.admin.query("insert into public.item_tags (tenant_id, item_id, kind, value) values ($1, $2, 'tag', 'q1')", [f.tenantA, source]);
-  await db.admin.query("insert into public.item_links (tenant_id, item_id, label, url) values ($1, $2, 'PRD', 'https://example.test/prd')", [f.tenantA, source]);
+  await db.admin.query("insert into public.item_attachments (tenant_id, item_id, kind, name, url) values ($1, $2, 'link', 'PRD', 'https://example.test/prd')", [f.tenantA, source]);
   await db.admin.query("insert into public.item_github_links (tenant_id, item_id, connection_id, repo_full_name, issue_number, issue_id, html_url, sync_state, mode) select $1, $2, c.id, 'Acme/App', 5, 5005, 'https://github.com/Acme/App/issues/5', 'synced', 'follow' from public.github_connections c where c.tenant_id = $1 limit 1", [f.tenantA, source]);
   projectB = (await db.admin.query("select id from public.projects where tenant_id = $1 limit 1", [f.tenantB])).rows[0].id;
   itemB = (await db.admin.query("select id from public.items where tenant_id = $1 limit 1", [f.tenantB])).rows[0].id;
@@ -34,7 +34,7 @@ describe("copy initiatives to another project", () => {
     expect(c.source).toMatch(/^Copy of /);
     expect(c.item_code).not.toBe((await db.admin.query("select item_code from public.items where id = $1", [source])).rows[0].item_code);
     expect((await db.admin.query("select value from public.item_tags where item_id = $1", [c.id])).rows.map((x) => x.value)).toEqual(["q1"]);
-    expect((await db.admin.query("select url from public.item_links where item_id = $1", [c.id])).rows.map((x) => x.url)).toEqual(["https://example.test/prd"]);
+    expect((await db.admin.query("select url from public.item_attachments where kind = 'link' and item_id = $1", [c.id])).rows.map((x) => x.url)).toEqual(["https://example.test/prd"]);
     expect((await db.admin.query("select count(*)::int as n from public.item_github_links where item_id = $1", [c.id])).rows[0].n).toBe(0);
     expect((await db.admin.query("select status, decision from public.items where id = $1", [source])).rows[0]).toMatchObject({ status: "Done", decision: "Go" }); // the original is untouched
   });

@@ -59,7 +59,7 @@ describe("create: an AI draft, as the person, without the service role", () => {
     expect(ia.stack_rank).toBe(before + 1); // assigned by the system, at the end
     expect((await item(b)).stack_rank).toBe(before + 2);
     expect((await db.admin.query("select kind, value from public.item_tags where item_id = $1", [a])).rows).toEqual([{ kind: "tag", value: "mcp" }]);
-    expect((await db.admin.query("select url from public.item_links where item_id = $1", [a])).rows).toEqual([{ url: "https://example.test/prd" }]);
+    expect((await db.admin.query("select url from public.item_attachments where kind = 'link' and item_id = $1", [a])).rows).toEqual([{ url: "https://example.test/prd" }]);
     expect((await db.admin.query("select count(*)::int as n from public.item_teams where item_id = $1", [a])).rows[0].n).toBe(1);
     expect((await db.admin.query("select related_item_id from public.item_relations where item_id = $1 and kind = 'depends_on'", [a])).rows).toEqual([{ related_item_id: f.seedA.items[0] }]);
     // a new group was created by the existing trigger
@@ -338,7 +338,7 @@ describe("undo_last", () => {
     expect((await db.admin.query("select 1 from public.item_relations where item_id = $1", [a])).rowCount).toBe(0);
     await asClaude(cora, (q) => q("select public.mcp_undo_last()"));
     expect((await db.admin.query("select related_item_id, kind from public.item_relations where item_id = $1", [a])).rows).toEqual([{ related_item_id: b, kind: "related_to" }]);
-    expect((await db.admin.query("select label, url from public.item_links where item_id = $1", [a])).rows).toEqual([{ label: "Doc", url: "https://example.test/doc" }]);
+    expect((await db.admin.query("select name as label, url from public.item_attachments where kind = 'link' and item_id = $1", [a])).rows).toEqual([{ label: "Doc", url: "https://example.test/doc" }]);
   });
 
   it("moves created initiatives to the Trash and closes the gap in the ranks", async () => {

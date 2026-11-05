@@ -74,6 +74,8 @@ const RELATED_FIELD: Record<string, (data: Record<string, unknown>) => string> =
   item_tags: (d) => ({ tag: "tags", target_scope: "target_scope", live_scope: "live_scope", segment: "target_segments" }[String(d.kind)] ?? "tags"),
   item_links: () => "artifacts",
   item_files: () => "screenshots",
+  // one table for both (issue #325): a change that did not touch the kind still tells the two apart by the columns it did touch
+  item_attachments: (d) => (d.kind === "file" || d.share_token !== undefined || d.storage_path !== undefined || d.mime_type !== undefined ? "screenshots" : "artifacts"),
   item_relations: (d) => (d.kind === "related_to" ? "related_to" : "depends_on"),
   item_teams: () => "contributing_teams",
 };
@@ -81,6 +83,7 @@ const describeRelated = (entity: string, d: Record<string, unknown>): string => 
   if (entity === "item_tags") return String(d.value ?? "");
   if (entity === "item_links") return d.label ? `${d.label} (${d.url})` : String(d.url ?? "");
   if (entity === "item_files") return String(d.name ?? "");
+  if (entity === "item_attachments") return d.kind === "file" || d.url == null ? String(d.name ?? d.url ?? "") : d.name ? `${d.name} (${d.url})` : String(d.url);
   if (entity === "item_relations") return String(d.related_item_id ?? "");
   if (entity === "item_teams") return String(d.team_id ?? "");
   return "";

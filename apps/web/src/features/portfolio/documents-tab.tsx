@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { AI_TOOL_LABEL, DOC_KIND_LABEL, DOC_KINDS, MAX_DOC_CHARS, MAX_DOCS_PER_ITEM } from "@pv/domain";
 import type { DocView } from "@/lib/documents";
 import { MarkdownPreview } from "./markdown-preview";
+import { FilesControl } from "./files-control";
+import { LinksControl, type FieldCtx } from "./item-fields";
 
 type Version = { version: number; saved_at: string; saved_via: string; ai_tool?: string | null; ai_model?: string | null; saved_by_name?: string | null };
 /** "Claude (Claude Opus 5.5)": the AI tool from the connection and the model the assistant stated. */
@@ -14,7 +16,7 @@ const STATUS_LABEL: Record<string, string> = { draft: "Draft", in_review: "In re
  * The Spec tab: the documents of one initiative (the full PRD, requirements, research). Versioned Markdown that stays in Product Velocity:
  * it is never written to GitHub. Saves on leaving a box, keeps every version (restoring one is the undo), and never overwrites a newer save.
  */
-export function DocumentsTab({ itemId, canEdit }: { itemId: string; canEdit: boolean }) {
+export function DocumentsTab({ itemId, canEdit, ctx }: { itemId: string; canEdit: boolean; ctx: FieldCtx }) {
   const [docs, setDocs] = useState<DocView[] | null>(null);
   // a link from the activity log opens the document: ?item=R-12&tab=spec&doc=<id>
   const [openId, setOpenId] = useState<string | null>(() => {
@@ -22,6 +24,8 @@ export function DocumentsTab({ itemId, canEdit }: { itemId: string; canEdit: boo
     return d && /^[0-9a-f-]{36}$/i.test(d) ? d : null;
   });
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [type, setType] = useState<"all" | "docs" | "files" | "links">("all");
 
   const load = useCallback(async () => {
     try {
@@ -52,14 +56,31 @@ export function DocumentsTab({ itemId, canEdit }: { itemId: string; canEdit: boo
   };
 
   if (!docs) return <p className="muted" role="status">Loading…</p>;
+  const q = query.trim().toLowerCase();
+  const shownDocs = q ? docs.filter((d) => `${d.title} ${DOC_KIND_LABEL[d.kind as keyof typeof DOC_KIND_LABEL] ?? d.kind}`.toLowerCase().includes(q)) : docs;
+  const show = (t: "docs" | "files" | "links") => type === "all" || type === t;
   return (
     <div className="docs">
+      <div className="docs-filter" role="search">
+        <input type="search" value={query} placeholder="Search documents, files and links" aria-label="Search the documents, files and links of this initiative" onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Escape" && query) { setQuery(""); e.stopPropagation(); } }} />
+        <label>Show{" "}
+          <select value={type} onChange={(e) => setType(e.target.value as typeof type)}>
+            <option value="all">Everything</option>
+            <option value="docs">Documents</option>
+            <option value="files">Files</option>
+            <option value="links">Links</option>
+          </select>
+        </label>
+      </div>
+      {show("docs") && <>
       <h3>Documents</h3>
       <p className="muted">The full PRD and other long documents live here. They stay in Product Velocity and are never written to GitHub. What builders need goes in the Description on the Overview tab.</p>
       {error && <p role="alert" className="pf-error">{error}</p>}
       {docs.length === 0 && <p className="muted">No documents yet.</p>}
+      {docs.length > 0 && shownDocs.length === 0 && <p className="muted">No document matches.</p>}
       <ul className="docs-list">
-        {docs.map((d) => (
+        {shownDocs.map((d) => (
           <li key={d.id} className="docs-row" data-doc={d.title}>
             <button type="button" className="btn" aria-expanded={openId === d.id} onClick={() => setOpenId(openId === d.id ? null : d.id)}>{d.title}</button>
             <span className="muted"> {DOC_KIND_LABEL[d.kind as keyof typeof DOC_KIND_LABEL] ?? d.kind} · version {d.version} · {STATUS_LABEL[d.status] ?? d.status}{d.aiDraft ? " · AI draft, needs review" : ""}{aiLabel(d.aiTool, d.aiModel) ? ` · written with ${aiLabel(d.aiTool, d.aiModel)}` : ""}</span>
@@ -68,6 +89,17 @@ export function DocumentsTab({ itemId, canEdit }: { itemId: string; canEdit: boo
         ))}
       </ul>
       {canEdit && <button type="button" className="btn" disabled={docs.length >= MAX_DOCS_PER_ITEM} onClick={() => void create()}>Add document</button>}
+      </>}
+      {show("files") && <>
+      <h3>Files</h3>
+      <p className="muted">Screenshots, images and PDFs. Choose them, drag them onto this tab or paste an image.</p>
+      <FilesControl itemId={itemId} disabled={!canEdit} onError={setError} query={query} />
+      </>}
+      {show("links") && <>
+      <h3>Links</h3>
+      <p className="muted">Figma, Claude artifacts, Drive and other pages. Paste a web address anywhere on this tab to add it. Links go into the GitHub issue or Jira description unless you choose “Do not share”.</p>
+      <LinksControl ctx={ctx} itemId={itemId} disabled={!canEdit} onError={setError} query={query} />
+      </>}
     </div>
   );
 }

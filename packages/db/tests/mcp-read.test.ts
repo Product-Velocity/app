@@ -16,7 +16,7 @@ beforeAll(async () => {
   const ins = async (sql: string, p: unknown[]) => (await db.admin.query(sql, p)).rows[0].id as string;
   for (const [tenant, item, tag] of [[f.tenantA, f.seedA.items[0], "a"], [f.tenantB, f.seedB.items[0], "b"]] as const) {
     await db.admin.query("insert into public.item_groups (tenant_id, name) values ($1, $2)", [tenant, `Group ${tag}`]);
-    const file = await ins("insert into public.item_files (tenant_id, item_id, name, storage_path, kind, mime_type, size_bytes) values ($1, $2, $3, $4, 'image', 'image/png', 10) returning id", [tenant, item, `shot-${tag}.png`, `${tenant}/${item}/shot-${tag}.png`]);
+    const file = await ins("insert into public.item_attachments (tenant_id, item_id, kind, name, storage_path, file_kind, mime_type, size_bytes) values ($1, $2, 'file', $3, $4, 'image', 'image/png', 10) returning id", [tenant, item, `shot-${tag}.png`, `${tenant}/${item}/shot-${tag}.png`]);
     if (tag === "a") fileA = file; else fileB = file;
     await db.admin.query("insert into public.saved_views (tenant_id, name, columns, visibility) values ($1, $2, array['item_code'], 'workspace')", [tenant, `Workspace view ${tag}`]);
   }
@@ -34,8 +34,8 @@ describe("the read tools see their own workspace and nothing else", () => {
   it("a viewer reads items, files, groups, views, projects and teams of their workspace", async () => {
     const items = await db.asUser(f.carol, async (q) => (await q("select id from public.items where tenant_id = $1", [f.tenantA])).rows, { claims: claude });
     expect(items).toHaveLength(3);
-    expect(await names(f.carol, "item_files")).toEqual(expect.arrayContaining(["shot-a.png"]));
-    expect(await names(f.carol, "item_files")).not.toContain("shot-b.png");
+    expect(await names(f.carol, "item_attachments")).toEqual(expect.arrayContaining(["shot-a.png"]));
+    expect(await names(f.carol, "item_attachments")).not.toContain("shot-b.png");
     expect(await names(f.carol, "item_groups")).toEqual(expect.arrayContaining(["Group a"]));
     expect(await names(f.carol, "item_groups")).not.toContain("Group b");
     expect(await names(f.carol, "projects")).toContain("Platform");
@@ -43,20 +43,20 @@ describe("the read tools see their own workspace and nothing else", () => {
   });
 
   it("another tenant's rows are unreachable, with or without a tenant filter", async () => {
-    for (const table of ["items", "item_files", "item_groups", "saved_views", "projects", "teams", "item_github_links", "github_connections", "github_repositories", "item_relations", "item_links", "item_tags"]) {
+    for (const table of ["items", "item_attachments", "item_groups", "saved_views", "projects", "teams", "item_github_links", "github_connections", "github_repositories", "item_relations", "item_tags"]) {
       const forB = await db.asUser(f.carol, async (q) => (await q(`select count(*)::int as n from public.${table} where tenant_id = $1`, [f.tenantB])).rows[0].n as number, { claims: claude });
       expect(forB, `${table} for tenant B`).toBe(0);
       const foreign = await db.asUser(f.carol, async (q) => (await q(`select count(*)::int as n from public.${table} where tenant_id <> $1`, [f.tenantA])).rows[0].n as number, { claims: claude });
       expect(foreign, `${table} outside tenant A`).toBe(0);
     }
-    const bob = await names(f.bob, "item_files");
+    const bob = await names(f.bob, "item_attachments");
     expect(bob).toContain("shot-b.png");
     expect(bob).not.toContain("shot-a.png");
   });
 
   it("a person outside every workspace reads nothing", async () => {
     expect(await names(f.dave, "items", "initiative_name")).toEqual([]);
-    expect(await names(f.dave, "item_files")).toEqual([]);
+    expect(await names(f.dave, "item_attachments")).toEqual([]);
   });
 
   it("another person's private view stays private; workspace views are shared", async () => {

@@ -56,6 +56,12 @@ describe("documents on an initiative", () => {
     expect(rows[1].new).toEqual({ characters: 19 });
   });
 
+  it("accepts the design, customer evidence and meeting notes kinds (issue #325)", async () => {
+    for (const kind of ["design", "customer_evidence", "meeting_notes"]) {
+      const id = await db.asUser(creator, async (q) => (await q("insert into public.item_documents (tenant_id, item_id, kind, title, body) values ($1, $2, $3, 'K', '') returning id", [f.tenantA, item, kind])).rows[0].id as string, { commit: true, via: "UI" });
+      expect((await row(id)).kind).toBe(kind);
+    }
+  });
   it("accepts the discovery kind (issue #244) and still refuses an unknown one", async () => {
     const id = await db.asUser(creator, async (q) => (await q("insert into public.item_documents (tenant_id, item_id, kind, title, body) values ($1, $2, 'discovery', 'Discovery: X', '# D') returning id", [f.tenantA, item])).rows[0].id as string, { commit: true, via: "UI" });
     expect((await row(id)).kind).toBe("discovery");

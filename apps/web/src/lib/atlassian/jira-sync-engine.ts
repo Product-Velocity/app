@@ -71,9 +71,9 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   const itemRow = asItemRow(item as Record<string, unknown>);
   itemRow.tags = ((tagRows ?? []) as { value: string }[]).map((r) => r.value);
   // the links of the initiative and the share links of its files (a file without a share link is not sent); read apart, so a database without them sends none
-  const { data: linkRows } = await ctx.supabase.from("item_links").select("label, url").eq("tenant_id", ctx.tenantId).eq("item_id", id).order("created_at");
-  const artifacts = ((linkRows ?? []) as { label: string; url: string }[]).map((r) => ({ label: r.label, url: r.url }));
-  const { data: fileRows } = await ctx.supabase.from("item_files").select("name, share_token").eq("tenant_id", ctx.tenantId).eq("item_id", id).order("created_at");
+  const { data: linkRows } = await ctx.supabase.from("item_attachments").select("name, url").eq("tenant_id", ctx.tenantId).eq("item_id", id).eq("kind", "link").eq("shared", true).order("created_at");
+  const artifacts = ((linkRows ?? []) as { name: string; url: string }[]).map((r) => ({ label: r.name, url: r.url }));
+  const { data: fileRows } = await ctx.supabase.from("item_attachments").select("name, share_token").eq("tenant_id", ctx.tenantId).eq("item_id", id).eq("kind", "file").order("created_at");
   const allFiles = (fileRows ?? []) as { name: string; share_token: string | null }[];
   const files = ctx.appUrl ? allFiles.filter((r) => r.share_token).map((r) => ({ label: r.name, url: shareUrl(ctx.appUrl!, r.share_token!, r.name) })) : [];
   const unsharedFiles = ctx.appUrl ? allFiles.filter((r) => !r.share_token).length : 0;
@@ -116,7 +116,7 @@ export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" 
   const checked = await dropMissingFields(req, effectiveJiraMap(parseFieldMap(l.plink?.field_map), parseConfigRows(l.plink?.config, "jira")), { cacheKey: `${l.conn.id}|${l.link?.site_id ?? l.plink!.site_id}` });
   const plan = planJiraSend({ pv, jira: issue, base: l.link?.sync_base ?? null, sentHash: l.link?.sent_hash ?? null, picks, map: checked.map, ...(l.artifacts ? { artifacts: l.artifacts } : {}), ...(l.files ? { files: l.files } : {}), ...(l.projectName ? { projectName: l.projectName } : {}), ...(l.plink && !l.link ? { create: { projectKey: key, issueTypeId: l.plink.initiative_type_id } } : {}) });
   plan.notes.push(...checked.notes);
-  if (l.unsharedFiles && !checked.map.off?.includes("jira.body.files")) plan.notes.push(`${l.unsharedFiles === 1 ? "1 attached file has" : `${l.unsharedFiles} attached files have`} no share link, so ${l.unsharedFiles === 1 ? "it is" : "they are"} not in the description. Turn a link on in the item's Screenshots field to include it.`);
+  if (l.unsharedFiles && !checked.map.off?.includes("jira.body.files")) plan.notes.push(`${l.unsharedFiles === 1 ? "1 attached file has" : `${l.unsharedFiles} attached files have`} no share link, so ${l.unsharedFiles === 1 ? "it is" : "they are"} not in the description. Share it on the item's Spec tab to include it.`);
   const conflicts: SyncConflict[] = [];
   const jiraHashes: Partial<Record<TextField, string>> = {};
   if (issue) {

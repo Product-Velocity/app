@@ -231,20 +231,20 @@ describe("related tables", () => {
     const [a, b] = f.seedA.items;
     await db.asUser(creator, async (q) => {
       await q("insert into public.item_tags (tenant_id, item_id, kind, value) values ($1, $2, 'target_scope', 'EU')", [f.tenantA, a]);
-      await q("insert into public.item_links (tenant_id, item_id, label, url) values ($1, $2, 'Spec', 'https://example.test/spec')", [f.tenantA, a]);
-      await q("insert into public.item_files (tenant_id, item_id, name, storage_path) values ($1, $2, 'a.png', 'p/a.png')", [f.tenantA, a]);
+      await q("insert into public.item_attachments (tenant_id, item_id, kind, name, url) values ($1, $2, 'link', 'Spec', 'https://example.test/spec')", [f.tenantA, a]);
+      await q("insert into public.item_attachments (tenant_id, item_id, kind, name, file_kind, storage_path) values ($1, $2, 'file', 'a.png', 'screenshot', 'p/a.png')", [f.tenantA, a]);
       await q("insert into public.item_relations (tenant_id, item_id, related_item_id, kind) values ($1, $2, $3, 'related_to')", [f.tenantA, a, b]);
     }, { commit: true, via: "UI" });
     expect(await errorCode(db.asUser(viewer, (q) => q("insert into public.item_tags (tenant_id, item_id, kind, value) values ($1, $2, 'tag', 'nope')", [f.tenantA, a])))).toBe(DENIED);
     expect(await db.asUser(viewer, async (q) => (await q("select 1 from public.item_tags where tenant_id = $1", [f.tenantA])).rowCount)).toBeGreaterThan(0);
-    const audited = await db.admin.query("select distinct entity from public.audit_log where entity in ('item_tags','item_links','item_files','item_relations') and tenant_id = $1", [f.tenantA]);
-    expect(audited.rows.map((r) => r.entity).sort()).toEqual(["item_files", "item_links", "item_relations", "item_tags"]);
+    const audited = await db.admin.query("select distinct entity from public.audit_log where entity in ('item_tags','item_attachments','item_relations') and tenant_id = $1", [f.tenantA]);
+    expect(audited.rows.map((r) => r.entity).sort()).toEqual(["item_attachments", "item_relations", "item_tags"]);
   });
   it("refuses duplicates, self relations, bad links and cross-tenant references", async () => {
     const [a] = f.seedA.items;
     expect(await errorCode(db.asUser(creator, (q) => q("insert into public.item_tags (tenant_id, item_id, kind, value) values ($1, $2, 'tag', 'priority')", [f.tenantA, a])))).toBe(UNIQUE);
     expect(await errorCode(db.asUser(creator, (q) => q("insert into public.item_relations (tenant_id, item_id, related_item_id, kind) values ($1, $2, $2, 'depends_on')", [f.tenantA, a])))).toBe(CHECK);
-    expect(await errorCode(db.asUser(creator, (q) => q("insert into public.item_links (tenant_id, item_id, url) values ($1, $2, 'javascript:alert(1)')", [f.tenantA, a])))).toBe(CHECK);
+    expect(await errorCode(db.asUser(creator, (q) => q("insert into public.item_attachments (tenant_id, item_id, kind, url) values ($1, $2, 'link', 'javascript:alert(1)')", [f.tenantA, a])))).toBe(CHECK);
     expect(await errorCode(db.asUser(creator, (q) => q("insert into public.item_relations (tenant_id, item_id, related_item_id, kind) values ($1, $2, $3, 'depends_on')", [f.tenantA, a, f.seedB.items[0]])))).toBe(FK);
     expect(await errorCode(db.asUser(creator, (q) => q("insert into public.item_tags (tenant_id, item_id, kind, value) values ($1, $2, 'tag', 'x')", [f.tenantA, f.seedB.items[0]])))).toBe(FK);
   });

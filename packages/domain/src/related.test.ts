@@ -20,6 +20,9 @@ describe("cleanRelated: links", () => {
   it("needs an http(s) address, keeps an optional label, drops duplicates", () => {
     expect(cleanRelated("artifacts", [{ label: " PRD ", url: " https://x.test/prd " }, { label: "", url: "https://x.test/prd" }, { label: " PRD ", url: "https://x.test/prd" }], ctx))
       .toEqual({ ok: true, value: [{ label: "PRD", url: "https://x.test/prd" }, { label: "", url: "https://x.test/prd" }] });
+    // "do not share" is kept only when it is set, so a shared link has the same shape as before
+    expect(cleanRelated("artifacts", [{ label: "A", url: "https://x.test/a", shared: false }, { label: "B", url: "https://x.test/b", shared: true }], ctx))
+      .toEqual({ ok: true, value: [{ label: "A", url: "https://x.test/a", shared: false }, { label: "B", url: "https://x.test/b" }] });
     expect(cleanRelated("artifacts", [{ label: "x", url: "javascript:alert(1)" }], ctx)).toEqual({ ok: false, error: "A link must start with http:// or https://." });
     expect(cleanRelated("artifacts", [{ label: "x".repeat(201), url: "https://x.test" }], ctx)).toEqual({ ok: false, error: "Keep a link label under 200 characters." });
   });

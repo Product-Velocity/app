@@ -86,9 +86,11 @@ export class SupabaseDataSource implements PortfolioDataSource {
       add(tags.get(t.kind)!, t.item_id, t.value);
     }
     const links = new Map<string, string[]>();
-    for (const l of await this.fetchAll<{ item_id: string; label: string; url: string }>("item_links", "item_id,label,url")) add(links, l.item_id, l.label ? `${l.label} (${l.url})` : l.url);
     const files = new Map<string, string[]>();
-    for (const f of await this.fetchAll<{ item_id: string; name: string }>("item_files", "item_id,name")) add(files, f.item_id, f.name);
+    for (const a of await this.fetchAll<{ item_id: string; kind: string; name: string; url: string | null }>("item_attachments", "item_id,kind,name,url")) {
+      if (a.kind === "link") add(links, a.item_id, a.name ? `${a.name} (${a.url})` : String(a.url));
+      else add(files, a.item_id, a.name);
+    }
     const rel = { depends_on: new Map<string, string[]>(), related_to: new Map<string, string[]>() };
     for (const r of await this.fetchAll<{ item_id: string; related_item_id: string; kind: "depends_on" | "related_to" }>("item_relations", "item_id,related_item_id,kind")) add(rel[r.kind], r.item_id, code(r.related_item_id));
     const teamNames = new Map<string, string>();
@@ -212,7 +214,7 @@ export class SupabaseDataSource implements PortfolioDataSource {
     const mine = (table: string, columns: string) => this.client.from(table).select(columns).eq("tenant_id", this.tenantId).eq("item_id", itemId);
     const [tags, links, rels, teams, assigned] = await Promise.all([
       mine("item_tags", "kind,value").order("value"),
-      mine("item_links", "label,url").order("created_at"),
+      mine("item_attachments", "name,url,shared").eq("kind", "link").order("created_at"),
       mine("item_relations", "related_item_id,kind"),
       mine("item_teams", "team_id"),
       this.client.from("items").select("assignee_ids").eq("tenant_id", this.tenantId).eq("id", itemId).maybeSingle(),
@@ -221,7 +223,7 @@ export class SupabaseDataSource implements PortfolioDataSource {
     const out = emptyRelated();
     const TAG_FIELD: Record<string, RelatedField> = { tag: "tags", target_scope: "target_scope", live_scope: "live_scope", segment: "target_segments" };
     for (const t of (tags.data ?? []) as unknown as { kind: string; value: string }[]) { const f = TAG_FIELD[t.kind]; if (f) (out[f] as string[]).push(t.value); }
-    out.artifacts = ((links.data ?? []) as unknown as Link[]).map((l) => ({ label: l.label ?? "", url: l.url }));
+    out.artifacts = ((links.data ?? []) as unknown as { name: string | null; url: string; shared: boolean }[]).map((l) => (l.shared === false ? { label: l.name ?? "", url: l.url, shared: false } : { label: l.name ?? "", url: l.url }));
     for (const r of (rels.data ?? []) as unknown as { related_item_id: string; kind: "depends_on" | "related_to" }[]) out[r.kind].push(r.related_item_id);
     out.contributing_teams = ((teams.data ?? []) as unknown as { team_id: string }[]).map((t) => t.team_id);
     out.assignees = ((assigned.data as { assignee_ids?: string[] } | null)?.assignee_ids ?? []).map(String);
@@ -259,7 +261,19 @@ export class SupabaseDataSource implements PortfolioDataSource {
       return run("item_tags", "id,value", { kind }, (r, v) => String(r.value).toLowerCase() === String(v).toLowerCase(), (v) => ({ value: String(v) }));
     }
     if (field === "artifacts") {
-      return run("item_links", "id,label,url", {}, (r, v) => r.url === (v as Link).url && (r.label ?? "") === (v as Link).label, (v) => ({ label: (v as Link).label, url: (v as Link).url }));
+      const done = await run("item_attachments", "id,name,url,shared", { kind: "link" }, (r, v) => r.url === (v as Link).url && (r.name ?? "") === (v as Link).label, (v) => ({ name: (v as Link).label, url: (v as Link).url, shared: (v as Link).shared !== false }));
+      if (!done.ok) return done;
+      // a link that stayed but was switched to or from "do not share"
+      const cur = await this.client.from("item_attachments").select("id,url,name,shared").eq("tenant_id", this.tenantId).eq("item_id", itemId).eq("kind", "link");
+      if (cur.error) return { ok: false, error: friendlyError(cur.error) };
+      for (const r of (cur.data ?? []) as { id: string; url: string; name: string; shared: boolean }[]) {
+        const v = (value as Link[]).find((x) => x.url === r.url && x.label === (r.name ?? ""));
+        if (v && (v.shared !== false) !== r.shared) {
+          const u = await this.client.from("item_attachments").update({ shared: v.shared !== false }).eq("tenant_id", this.tenantId).eq("id", r.id);
+          if (u.error) return { ok: false, error: friendlyError(u.error) };
+        }
+      }
+      return { ok: true };
     }
     if (field === "depends_on" || field === "related_to") {
       return run("item_relations", "id,related_item_id", { kind: field }, (r, v) => r.related_item_id === v, (v) => ({ related_item_id: String(v) }));

@@ -12,7 +12,7 @@ const notFound = () => new Response("Not found", { status: 404, headers: { "Cach
 export async function GET(_: Request, ctx: { params: Promise<{ token: string; name: string }> }) {
   const { token } = await ctx.params;
   if (!isShareToken(token)) return notFound();
-  const { data: row } = await createAdminClient({ via: "system" }).from("item_files").select("name, mime_type, storage_path").eq("share_token", token).maybeSingle();
+  const { data: row } = await createAdminClient({ via: "system" }).from("item_attachments").select("name, mime_type, storage_path").eq("kind", "file").eq("share_token", token).maybeSingle();
   if (!row?.mime_type) return notFound();
   const bytes = await supabaseFileStore().get(row.storage_path);
   if (!bytes) return notFound();

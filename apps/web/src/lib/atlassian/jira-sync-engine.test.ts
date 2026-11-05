@@ -14,7 +14,7 @@ import { adfToText } from "./adf";
 
 // A fake database: each table answers with its fixture whatever the filters are (the real filtering is row-level security).
 let tables: Record<string, unknown>;
-const chain = (table: string) => { const c: Record<string, unknown> = {}; for (const m of ["select", "eq", "is", "in", "order"]) c[m] = () => c; c.maybeSingle = async () => ({ data: Array.isArray(tables[table]) ? (tables[table] as unknown[])[0] ?? null : tables[table] ?? null }); c.then = (ok: (v: unknown) => unknown) => ok({ data: tables[table] ?? [] }); return c; };
+const chain = (table: string) => { const eqs: [string, unknown][] = []; const c: Record<string, unknown> = {}; for (const m of ["select", "is", "in", "order"]) c[m] = () => c; c.eq = (k: string, v: unknown) => { eqs.push([k, v]); return c; }; c.maybeSingle = async () => ({ data: Array.isArray(tables[table]) ? (tables[table] as unknown[])[0] ?? null : tables[table] ?? null }); c.then = (ok: (v: unknown) => unknown) => ok({ data: Array.isArray(tables[table]) ? (tables[table] as Record<string, unknown>[]).filter((x) => eqs.every(([k, v]) => !(k in x) || x[k] === v)) : tables[table] ?? [] }); return c; };
 const ctx: Ctx = { supabase: { from: (t: string) => chain(t) } as never, tenantId: "t1", userId: "u1" };
 
 const ID = "11111111-1111-4111-8111-111111111111";
@@ -227,8 +227,7 @@ describe("the description sections of an initiative (issue #319)", () => {
   const TOKEN = "T".repeat(43);
   const rows = () => {
     tables.items = { id: ID, item_code: "R-1", initiative_name: "Checkout", summary: "Short", description: "Pay **fast**", hypothesis: "IF a THEN b", moscow: "Must", end_date: null, planned_start: null, home_project_id: "p1" };
-    tables.item_links = [{ label: "PRD", url: "https://example.test/prd" }];
-    tables.item_files = [{ name: "Shot.png", share_token: TOKEN }, { name: "Secret.png", share_token: null }];
+    tables.item_attachments = [{ kind: "link", shared: true, name: "PRD", url: "https://example.test/prd" }, { kind: "link", shared: false, name: "Private", url: "https://example.test/private" }, { kind: "file", name: "Shot.png", share_token: TOKEN }, { kind: "file", name: "Secret.png", share_token: null }];
   };
   it("reads the summary, hypothesis, links and shared files, and sends them as sections; a file without a share link is named in the preview, not sent", async () => {
     rows();
@@ -241,6 +240,7 @@ describe("the description sections of an initiative (issue #319)", () => {
     expect(t).toBe(`Summary|Short|Description|Pay fast|Hypothesis (IF / THEN / RESULTING IN)|IF a THEN b|Artifacts|- PRD|Files|- Shot.png`);
     expect(JSON.stringify(e.plan.fields.description)).toContain(`https://app.example/f/${TOKEN}/Shot.png`);
     expect(JSON.stringify(e.plan.fields.description)).not.toContain("Secret.png");
+    expect(JSON.stringify(e.plan.fields.description)).not.toContain("example.test/private"); // a link set to "do not share" stays in Product Velocity
     expect(e.plan.notes.join(" ")).toContain("1 attached file has no share link");
   });
   it("without an app address no file is linked (and nothing is said about it)", async () => {
