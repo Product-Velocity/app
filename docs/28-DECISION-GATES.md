@@ -112,11 +112,11 @@ Built:
 5. Freeze and resume (`20261105164327_tracker_freeze`): the daily job freezes finished initiatives, every check, webhook and Sync path skips frozen links, the item panel offers Resume syncing; Completed initiatives are hidden in the grid unless "Include completed" is on.
 6. Claude: the read-only `get_gate_pack`; no tool can request, decide or move.
 
-Not built yet (each is a follow-up request, not a hidden gap):
+Not built yet (each is a follow-up request, not a hidden gap; the browser specs that main had left behind were fixed in the first follow-up):
 - **Notifications** to preferred approvers (the choice is stored on the request; the notification design is issue #104).
 - **Stop closes the tracker issue**: Stop sets Initiative Status to Cancelled and the result says Sync handles it; the dedicated confirmed "close the issue" offer from the removed-initiative decisions is not wired to Stop.
 - **Needs attention** as a screen (#105): the suggestions appear in the item panel only.
 - **Reports** for gate history and time at a gate; the ready-to-start wait is derivable (Gate B date to `start_building`) but has no report yet.
 - **A separate "Request engineering review" button**: the review push is the normal confirmed Sync of an initiative in Define (it carries `pv:define`); a dedicated button and a PRD-in-review condition were not added.
 - The grid hides Completed initiatives but still loads them; a server-side limit on what is loaded is a later change.
-- ⌘K commands for the bulk gate actions (only "Go to Decisions" is there).
+- ~~⌘K commands for the bulk gate actions~~ built (2026-11-05, follow-up): with rows selected, ⌘K offers Request gate, Decide and Move to another phase, which open the same dialogs as the bulk bar.

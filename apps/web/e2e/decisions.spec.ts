@@ -153,6 +153,24 @@ test.describe("gate actions in the grid", () => {
     expect(await calls(page)).toContain("move item-3 Test");
   });
 
+  test("the command palette offers the gate actions for the selected rows and opens the same dialogs", async ({ page }) => {
+    await openGrid(page);
+    await page.keyboard.press("Control+K");
+    await page.keyboard.type("request gate");
+    await expect(page.getByRole("option", { name: /Request gate for/ })).toHaveCount(0); // nothing selected: the actions are not offered
+    await page.keyboard.press("Escape");
+    for (const id of ["item-1", "item-2"]) await page.locator(`.ag-row[row-id="${id}"] input[type="checkbox"]`).first().check();
+    await page.keyboard.press("Control+K");
+    await page.keyboard.type("request gate");
+    await page.getByRole("option", { name: /Request gate for 2 selected initiatives/ }).click();
+    await expect(page.getByRole("dialog", { name: "Request a gate for 2 initiatives" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Control+K");
+    await page.keyboard.type("move");
+    await page.getByRole("option", { name: /Move 2 selected initiatives to another phase/ }).click();
+    await expect(page.getByRole("dialog", { name: /Move 2 initiatives/ })).toBeVisible();
+  });
+
   test("the Initiative Phase cell is read-only and says where to go instead", async ({ page }) => {
     await openGrid(page);
     await page.evaluate(() => (window as unknown as { __pv: { controller: { editFields: (id: string, f: Record<string, unknown>) => unknown } } }).__pv.controller.editFields("item-1", { initiative_phase: "Build" }));
