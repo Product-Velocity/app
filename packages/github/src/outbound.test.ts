@@ -22,10 +22,17 @@ describe("buildTrackingIssue", () => {
     const item = new Proxy({ ...base.item, value_12m: "LEAK", confidence: "LEAK" }, { get: (t, k) => (read.push(String(k)), (t as Record<string, unknown>)[k as string]) });
     buildTrackingIssue({ ...base, item });
     // the optional labels (Focus Area, Tags) are only read when a project switches them on; Business Value Type and Planned Quarter are on by default
-    expect(new Set(read)).toEqual(new Set(OUTBOUND_ITEM_FIELDS.filter((k) => !["focus_area", "tags"].includes(k))));
+    // the phase is read for one thing: the review label (decision 2026-11-05); it is never written as text
+    expect(new Set(read)).toEqual(new Set([...OUTBOUND_ITEM_FIELDS.filter((k) => !["focus_area", "tags"].includes(k)), "initiative_phase"]));
     read.length = 0;
     buildTrackingIssue({ ...base, item, on: ["github.label.focus", "github.label.tags"] });
-    expect(new Set(read)).toEqual(new Set(OUTBOUND_ITEM_FIELDS));
+    expect(new Set(read)).toEqual(new Set([...OUTBOUND_ITEM_FIELDS, "initiative_phase"]));
+  });
+  it("labels an initiative in Define for engineering review, and only then", () => {
+    expect(buildTrackingIssue({ ...base, item: { ...base.item, initiative_phase: "Define" } }).labels).toContain("pv:define");
+    for (const phase of ["Build", "Test", "Roll-out", null, "Discover"]) expect(buildTrackingIssue({ ...base, item: { ...base.item, initiative_phase: phase } }).labels, String(phase)).not.toContain("pv:define");
+    // the phase moving on changes the labels, so the next send removes pv:define again
+    expect(buildTrackingIssue({ ...base, item: { ...base.item, initiative_phase: "Define" } }).hash).not.toBe(buildTrackingIssue({ ...base, item: { ...base.item, initiative_phase: "Build" } }).hash);
   });
   it("Business Value Type and Planned Quarter become labels; the amount never does", () => {
     const item = { ...base.item, value_type: "Defend revenue", value_12m: 1250000, value_basis: "Measured", g2m_quarter: "Q3 2027" };
@@ -221,6 +228,11 @@ describe("planAction", () => {
   const active = new Set(["acme/road"]);
   const base = { defaultRepo: "acme/road", activeRepos: active, hash: "h", projectName: "Mobile" };
   const link = (over: Record<string, unknown> = {}) => ({ mode: "push" as const, repo: "acme/road", issueNumber: 7, syncState: "synced", lastPushedHash: "h", ...over });
+  it("never creates an issue for an initiative in Discover; an issue that already exists is still kept in step; Define and later are fine", () => {
+    expect(planAction({ ...base, link: null, phase: "Discover" })).toMatchObject({ action: "blocked", reason: expect.stringContaining("Discovery is not synced") });
+    expect(planAction({ ...base, link: link({ lastPushedHash: "old" }), phase: "Discover" })).toMatchObject({ action: "update" });
+    for (const phase of ["Define", "Build", null, undefined]) expect(planAction({ ...base, link: null, phase })).toMatchObject({ action: "create" });
+  });
   it("creates, updates and skips unchanged items", () => {
     expect(planAction({ ...base, link: null })).toEqual({ repo: "acme/road", action: "create" });
     expect(planAction({ ...base, link: link({ lastPushedHash: "old" }) })).toMatchObject({ action: "update" });

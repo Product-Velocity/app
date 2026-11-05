@@ -1,5 +1,7 @@
 "use client";
 
+import { moveNeedsGate } from "@pv/domain";
+import type { GateSource } from "../gates/gate-source";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -16,10 +18,12 @@ const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, "-");
 const BASE_FIELDS = new Set(["stack_rank", "item_code", "initiative_name", "health", "product_manager", "contributing_teams", "effort"]);
 const DEFAULT_LANE = "theme";
 
-export type CardsProps = { controller: PortfolioController; lookups: Lookups; me: string | null; pageHref?: (code: string) => string };
+export type CardsProps = {
+  /** Decision gates: a card dropped on a phase column is a Move to that phase when no gate is crossed. */
+  gates?: GateSource; controller: PortfolioController; lookups: Lookups; me: string | null; pageHref?: (code: string) => string };
 
 /** Cards: columns by one field, swimlanes by another; drag a card (or use the keys or the Move menu) to change those fields. */
-export function CardsView({ controller, lookups, me, pageHref }: CardsProps) {
+export function CardsView({ controller, lookups, me, pageHref, gates }: CardsProps) {
   const params = useSearchParams();
   const { rows, scope, views, viewParam, filterName, savedColumns, status } = useViewRows(controller, me);
   const options = useMemo(() => axisOptions(), []);
@@ -75,9 +79,25 @@ export function CardsView({ controller, lookups, me, pageHref }: CardsProps) {
     const plan = planMove(row, { colField, laneField: laneField || null, toCol, toLane }, ctx);
     if (!plan.ok) { controller.notify(plan.error); setAnnounce(`${row.item_code} was not moved: ${plan.error}`); return; }
     if (Object.keys(plan.changes).length === 0) return;
+    // a card dropped on a phase column is a Move to that phase (no gate crossed) or a refusal that names the gate; it is not an undo step
+    if ("initiative_phase" in plan.changes) {
+      const { initiative_phase: toPhase, ...rest } = plan.changes;
+      const refuse = (text: string) => { controller.notify(text); setAnnounce(`${row.item_code} was not moved: ${text}`); };
+      if (!gates) { refuse("Initiative Phase moves through a decision gate or Move to next phase."); return; }
+      if (toPhase === null || toPhase === undefined) { refuse("A phase cannot be cleared. Move the card to another phase."); return; }
+      if (toPhase === "Completed") { refuse("Set Initiative Status to Completed; the phase follows."); return; }
+      const need = moveNeedsGate(row.initiative_phase, toPhase as never);
+      if (need) { refuse(`This move passes decision gate ${need}. Request it from the item panel or the bulk bar of the grid.`); return; }
+      if (Object.keys(rest).length > 0) controller.editFields(id, rest);
+      void gates.move(id, String(toPhase)).then((m) => {
+        if (m.ok) { void controller.refreshFromServer(); setAnnounce(`${row.item_code} moved to ${String(toPhase)}.`); }
+        else refuse(m.error);
+      });
+      return;
+    }
     const r = controller.editFields(id, plan.changes);
     setAnnounce(r.ok ? `${controller.status.last?.text ?? `${row.item_code} moved`}. Undo with Ctrl+Z.` : `${row.item_code} was not moved: ${r.error}`);
-  }, [rowOf, colField, laneField, ctx, controller, lockReason]);
+  }, [rowOf, colField, laneField, ctx, controller, lockReason, gates]);
 
   // Ctrl/Cmd+Z undoes the last move; Shift+Z or Y redoes it; not while typing
   useEffect(() => {

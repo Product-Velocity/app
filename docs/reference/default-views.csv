@@ -135,12 +135,11 @@ Discovery,16,kr_metric,
 Discovery,17,kr_target,
 Discovery,18,artifacts,
 Discovery,19,documents,
-Discovery,20,spec_status,
-Discovery,21,product_manager,
-Discovery,22,designer,
-Discovery,23,analyst,
-Discovery,24,business_manager,
-Discovery,25,ai_draft,
+Discovery,20,product_manager,
+Discovery,21,designer,
+Discovery,22,analyst,
+Discovery,23,business_manager,
+Discovery,24,ai_draft,
 Timeline,1,stack_rank,pinned
 Timeline,2,item_code,pinned
 Timeline,3,initiative_name,pinned

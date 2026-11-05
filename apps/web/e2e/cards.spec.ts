@@ -15,7 +15,7 @@ const undoCount = (page: Page) => page.evaluate(() => (window as unknown as { __
 test.describe("the board", () => {
   test("columns are the Initiative Phases and swimlanes the Initiative Groups, with counts", async ({ page }) => {
     await open(page);
-    await expect(page.locator(".kb-col-name")).toHaveText(["Discover", "Define", "Build", "Beta-test", "Experiment", "Roll-out", "Completed", "Sunset", "No value"]);
+    await expect(page.locator(".kb-col-name")).toHaveText(["Discover", "Define", "Build", "Test", "Experiment", "Roll-out", "Completed", "No value"]);
     await expect(page.locator(".kb-lane-head strong")).toHaveText(["Onboarding", "Platform health", "Retention", "No value"]);
     await expect(page.locator(".kb-col-head", { hasText: "Discover" }).locator(".gl-count")).toHaveText("8");
     await expect(page.locator(".kb-lane-head", { hasText: "Onboarding" })).toContainText("items");
@@ -79,44 +79,44 @@ test.describe("moving cards", () => {
   // a tall window so the whole board is on screen: a drag across an inner scroll area is not what is tested here
   test.use({ viewport: { width: 2600, height: 2600 } });
   test("dragging to another column changes the field, saves, and one Ctrl+Z puts it back", async ({ page }) => {
-    await open(page);
-    expect(await val(page, "item-1", "initiative_phase")).toBe("Discover");
-    await card(page, "item-1").dragTo(cell(page, "Onboarding", "Build"));
-    expect(await val(page, "item-1", "initiative_phase")).toBe("Build");
+    await open(page, "n=12&by=moscow");
+    expect(await val(page, "item-1", "moscow")).toBe("Must");
+    await card(page, "item-1").dragTo(cell(page, "Onboarding", "Could"));
+    expect(await val(page, "item-1", "moscow")).toBe("Could");
     expect(await val(page, "item-1", "theme")).toBe("Onboarding");
-    await expect(cell(page, "Onboarding", "Build").locator('[data-card="item-1"]')).toBeVisible();
+    await expect(cell(page, "Onboarding", "Could").locator('[data-card="item-1"]')).toBeVisible();
     await settle(page);
-    await expect(page.locator(".strip")).toContainText("R-01 Initiative Phase: Discover to Build");
+    await expect(page.locator(".strip")).toContainText("R-01 MoSCoW: Must to Could");
     await page.keyboard.press("Control+Z");
-    await expect.poll(() => val(page, "item-1", "initiative_phase")).toBe("Discover");
-    await expect(cell(page, "Onboarding", "Discover").locator('[data-card="item-1"]')).toBeVisible();
+    await expect.poll(() => val(page, "item-1", "moscow")).toBe("Must");
+    await expect(cell(page, "Onboarding", "Must").locator('[data-card="item-1"]')).toBeVisible();
     await settle(page);
   });
 
   test("dragging to another column and lane changes both fields as one undo step", async ({ page }) => {
-    await open(page);
-    await card(page, "item-1").dragTo(cell(page, "Retention", "Define"));
-    expect(await val(page, "item-1", "initiative_phase")).toBe("Define");
+    await open(page, "n=12&by=moscow");
+    await card(page, "item-1").dragTo(cell(page, "Retention", "Should"));
+    expect(await val(page, "item-1", "moscow")).toBe("Should");
     expect(await val(page, "item-1", "theme")).toBe("Retention");
     expect(await undoCount(page)).toBe(1);
     await settle(page);
     await page.keyboard.press("Control+Z");
     await expect.poll(() => val(page, "item-1", "theme")).toBe("Onboarding");
-    expect(await val(page, "item-1", "initiative_phase")).toBe("Discover");
+    expect(await val(page, "item-1", "moscow")).toBe("Must");
   });
 
   test("dropping on a lane header changes the lane and keeps the column; 'No value' clears the field", async ({ page }) => {
-    await open(page);
+    await open(page, "n=12&by=moscow");
     await card(page, "item-1").dragTo(page.locator('[data-lane-head="Retention"]'));
     expect(await val(page, "item-1", "theme")).toBe("Retention");
-    expect(await val(page, "item-1", "initiative_phase")).toBe("Discover");
+    expect(await val(page, "item-1", "moscow")).toBe("Must");
     await card(page, "item-1").dragTo(cell(page, "Retention", "none"));
-    expect(await val(page, "item-1", "initiative_phase")).toBeNull();
+    expect(await val(page, "item-1", "moscow")).toBeNull();
     await settle(page);
   });
 
   test("a read-only axis is refused with the reason, and the other axis still works", async ({ page }) => {
-    await open(page);
+    await open(page, "n=12&by=moscow");
     await page.getByLabel("Columns").selectOption("status");
     const col = await page.evaluate(() => (window as unknown as { __pv: { controller: { row: (id: string) => { status: string | null } } } }).__pv.controller.row("item-1").status);
     const other = col === "In progress" ? "Done" : "In progress";
@@ -129,10 +129,10 @@ test.describe("moving cards", () => {
   });
 
   test("keyboard: Shift+arrows move the focused card to the next column or lane, keep the focus, and stop at the edge", async ({ page }) => {
-    await open(page);
+    await open(page, "n=12&by=moscow");
     await card(page, "item-1").focus();
     await page.keyboard.press("Shift+ArrowRight");
-    expect(await val(page, "item-1", "initiative_phase")).toBe("Define");
+    expect(await val(page, "item-1", "moscow")).toBe("Should");
     await expect(card(page, "item-1")).toBeFocused();
     await page.keyboard.press("Shift+ArrowDown");
     expect(await val(page, "item-1", "theme")).toBe("Platform health");
@@ -147,15 +147,15 @@ test.describe("moving cards", () => {
   });
 
   test("keyboard: M opens the Move menu with a column and a lane list", async ({ page }) => {
-    await open(page);
+    await open(page, "n=12&by=moscow");
     await card(page, "item-1").focus();
     await page.keyboard.press("m");
     const menu = page.getByRole("dialog", { name: "Move R-01" });
     await expect(menu).toBeVisible();
-    await menu.getByLabel("Initiative Phase").selectOption("Beta-test");
+    await menu.getByLabel("MoSCoW").selectOption("Won't");
     await menu.getByLabel("Initiative Group").selectOption("Retention");
     await menu.getByRole("button", { name: "Move" }).click();
-    expect(await val(page, "item-1", "initiative_phase")).toBe("Beta-test");
+    expect(await val(page, "item-1", "moscow")).toBe("Won't");
     expect(await val(page, "item-1", "theme")).toBe("Retention");
     await expect(card(page, "item-1")).toBeFocused();
     await card(page, "item-1").press("m");
@@ -165,21 +165,21 @@ test.describe("moving cards", () => {
   });
 
   test("the Move… button does the same with the mouse", async ({ page }) => {
-    await open(page);
+    await open(page, "n=12&by=moscow");
     await page.getByRole("button", { name: "Move R-03…" }).click();
-    await page.getByRole("dialog", { name: "Move R-03" }).getByLabel("Initiative Phase").selectOption("Discover");
+    await page.getByRole("dialog", { name: "Move R-03" }).getByLabel("MoSCoW").selectOption("Must");
     await page.getByRole("dialog", { name: "Move R-03" }).getByRole("button", { name: "Move" }).click();
-    expect(await val(page, "item-3", "initiative_phase")).toBe("Discover");
+    expect(await val(page, "item-3", "moscow")).toBe("Must");
     await settle(page);
   });
 
   test("a failed save puts the card back and the strip says why", async ({ page }) => {
-    await open(page);
+    await open(page, "n=12&by=moscow");
     await page.evaluate(() => { (window as unknown as { __pv: { source: { failWhen: () => string } } }).__pv.source.failWhen = () => "no permission"; });
-    await card(page, "item-1").dragTo(cell(page, "Onboarding", "Build"));
+    await card(page, "item-1").dragTo(cell(page, "Onboarding", "Could"));
     await expect(page.locator(".strip")).toContainText("no permission");
-    expect(await val(page, "item-1", "initiative_phase")).toBe("Discover");
-    await expect(cell(page, "Onboarding", "Discover").locator('[data-card="item-1"]')).toBeVisible();
+    expect(await val(page, "item-1", "moscow")).toBe("Must");
+    await expect(cell(page, "Onboarding", "Must").locator('[data-card="item-1"]')).toBeVisible();
   });
 
   test("view-only roles can look but not move cards, and are told why", async ({ page }) => {
@@ -190,6 +190,39 @@ test.describe("moving cards", () => {
     await page.keyboard.press("Shift+ArrowRight");
     expect(await val(page, "item-1", "initiative_phase")).toBe("Discover");
     await expect(page.locator(".gantt-foot")).toContainText("view-only access");
+  });
+});
+
+test.describe("moving cards between phases (decision gates)", () => {
+  test.use({ viewport: { width: 2600, height: 2600 } });
+  test("a drop on a phase column is a Move when no gate is crossed: it goes through the gate source, not the undo stack", async ({ page }) => {
+    await open(page);
+    expect(await val(page, "item-3", "initiative_phase")).toBe("Build");
+    await card(page, "item-3").dragTo(cell(page, "Retention", "Test"));
+    await expect.poll(() => val(page, "item-3", "initiative_phase")).toBe("Test");
+    expect(await page.evaluate(() => (window as unknown as { __pv: { gates: { calls: string[] } } }).__pv.gates.calls)).toContain("move item-3 Test");
+    expect(await undoCount(page)).toBe(0);
+  });
+
+  test("a drop that passes a gate is refused and names the gate", async ({ page }) => {
+    await open(page);
+    await card(page, "item-1").dragTo(cell(page, "Onboarding", "Define"));
+    await expect(page.locator(".strip")).toContainText("passes decision gate A");
+    expect(await val(page, "item-1", "initiative_phase")).toBe("Discover");
+    await card(page, "item-3").dragTo(cell(page, "Retention", "Roll-out"));
+    await expect(page.locator(".strip")).toContainText("passes decision gate C");
+    expect(await val(page, "item-3", "initiative_phase")).toBe("Build");
+    expect(await page.evaluate(() => (window as unknown as { __pv: { gates: { calls: string[] } } }).__pv.gates.calls)).toEqual([]);
+  });
+
+  test("a failed move puts the card back and says why; a phase is never cleared or set to Completed by a drop", async ({ page }) => {
+    await open(page);
+    await page.evaluate(() => { (window as unknown as { __pv: { gates: { failMove: string } } }).__pv.gates.failMove = "Only a Creator or an Admin can do this"; });
+    await card(page, "item-3").dragTo(cell(page, "Retention", "Test"));
+    await expect(page.locator(".strip")).toContainText("Only a Creator or an Admin");
+    expect(await val(page, "item-3", "initiative_phase")).toBe("Build");
+    await card(page, "item-3").dragTo(cell(page, "Retention", "Completed"));
+    await expect(page.locator(".strip")).toContainText("Set Initiative Status to Completed");
   });
 });
 
@@ -219,12 +252,12 @@ test.describe("item panel and accessibility", () => {
 test.describe("many cards", () => {
   test("600 initiatives draw in a few seconds and a move still registers quickly", async ({ page }) => {
     const t0 = Date.now();
-    await open(page, "n=600");
+    await open(page, "n=600&by=moscow");
     const first = Date.now() - t0;
     const t1 = Date.now();
     await card(page, "item-1").focus();
     await page.keyboard.press("Shift+ArrowRight");
-    await expect(cell(page, "Onboarding", "Define").locator('[data-card="item-1"]')).toBeVisible();
+    await expect(cell(page, "Onboarding", "Should").locator('[data-card="item-1"]')).toBeVisible();
     const move = Date.now() - t1;
     console.log(`600 cards: first view ${first} ms, a move shows in ${move} ms`);
     expect(first).toBeLessThan(8000);

@@ -43,7 +43,7 @@ async function itemsOfIssues(admin: Admin, connectionId: string, tenantId: strin
   const ids = new Set<string>();
   for (const i of issues.slice(0, 40)) {
     const [{ data: links }, { data: nodes }] = await Promise.all([
-      admin.from("item_github_links").select("item_id").eq("connection_id", connectionId).ilike("repo_full_name", i.repo).eq("issue_number", i.number),
+      admin.from("item_github_links").select("item_id").eq("connection_id", connectionId).is("frozen_at", null).ilike("repo_full_name", i.repo).eq("issue_number", i.number),
       admin.from("item_issue_tree").select("item_id").eq("tenant_id", tenantId).ilike("repo_full_name", i.repo).eq("issue_number", i.number),
     ]);
     for (const r of [...(links ?? []), ...(nodes ?? [])] as { item_id: string }[]) ids.add(r.item_id);
@@ -52,7 +52,7 @@ async function itemsOfIssues(admin: Admin, connectionId: string, tenantId: strin
 }
 
 async function itemsInRepo(admin: Admin, connectionId: string, tenantId: string, repo: string, scope: "primary" | "any"): Promise<string[]> {
-  const { data: links } = await admin.from("item_github_links").select("item_id").eq("connection_id", connectionId).ilike("repo_full_name", repo).not("issue_number", "is", null).limit(MAX_ITEMS + 1);
+  const { data: links } = await admin.from("item_github_links").select("item_id").eq("connection_id", connectionId).is("frozen_at", null).ilike("repo_full_name", repo).not("issue_number", "is", null).limit(MAX_ITEMS + 1);
   const ids = new Set(((links ?? []) as { item_id: string }[]).map((l) => l.item_id));
   if (scope === "any") {
     const { data: nodes } = await admin.from("item_issue_tree").select("item_id").eq("tenant_id", tenantId).ilike("repo_full_name", repo).limit(MAX_ITEMS + 1);

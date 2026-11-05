@@ -10,7 +10,7 @@ const day = (v: unknown) => (typeof v === "string" ? toDay(v) : NaN);
 /** Initiative Phase and the date field that says when it started, in lifecycle order. */
 export const PHASE_STARTS: readonly { phase: string; field: string }[] = [
   { phase: "Discover", field: "start_discovery" }, { phase: "Define", field: "start_definition" }, { phase: "Build", field: "start_building" },
-  { phase: "Beta-test", field: "start_beta" }, { phase: "Experiment", field: "start_experiment" }, { phase: "Roll-out", field: "start_rollout" },
+  { phase: "Test", field: "start_beta" }, { phase: "Experiment", field: "start_experiment" }, { phase: "Roll-out", field: "start_rollout" },
 ];
 
 /** Days from the start of work to G2M Date (actual); null when either date is missing or the end is before the start. */

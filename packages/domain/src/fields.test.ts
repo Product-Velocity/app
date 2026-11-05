@@ -53,7 +53,9 @@ describe("bulk edit rules", () => {
     expect(bulkEditReason("moscow")).toBeNull();
   });
   it("every field in the dictionary is either bulk-editable or has a reason", () => {
-    for (const f of FIELDS) expect(bulkEditReason(f.key) === null, f.key).toBe(EDITABLE_FIELDS.includes(f.key));
+    // Initiative Phase is a select in the dictionary but moves only through a gate or Move to next phase (issue #323)
+    for (const f of FIELDS) expect(bulkEditReason(f.key) === null, f.key).toBe(EDITABLE_FIELDS.includes(f.key) && f.key !== "initiative_phase");
+    expect(bulkEditReason("initiative_phase")).toMatch(/decision gate/);
   });
 });
 

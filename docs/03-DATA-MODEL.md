@@ -3,7 +3,7 @@
 This replaces the earlier Excel field dictionary (`Roadmap_v3_field_dictionary_proposal.xlsx`), which predates teams, planning cycles, gates, outcomes, reports and breakdown routes. Types are logical; derive SQL. Every table has `id`, `tenant_id`, `created_at`, `updated_at`, `created_by`, `created_via` (UI / API / Claude MCP / GitHub / import / system) and RLS.
 
 ## Item fields: the field dictionary is the specification
-**`docs/reference/item-fields.csv` (same content as `Roadmap_v4_field_dictionary.xlsx`) is the authoritative list of item fields: 165 fields.** This document only describes entities and relations. The field lists below are a summary and are superseded by the CSV wherever they differ.
+**`docs/reference/item-fields.csv` (same content as `Roadmap_v4_field_dictionary.xlsx`) is the authoritative list of item fields: 169 fields.** This document only describes entities and relations. The field lists below are a summary and are superseded by the CSV wherever they differ.
 
 Each field has a `key`, `type`, `allowed_values`, `origin`, `storage` and `ships_in_phase`:
 - *Column on items / System-set column*: a real typed column on `items` (selects use a constrained text column or enum; allowed values come from `allowed_values`).
@@ -31,10 +31,10 @@ Identity: `key` (R-03), `title`, `summary` (customer-safe), `value_proposition` 
 Priority: `stack_rank` (global, per cycle), `previous_rank`, `moscow`, `horizon`, `focus_area`, `value`, `confidence`, `size` (XS..XL), `effort_by_skill` jsonb, `decision` (set by humans only).
 Timing: `start`, `end`, `date_precision` (day/month/quarter — customer-safe reports use quarter), `cycle_id`.
 Health: `health` (On Track/At Risk/Delayed…, text-labelled), `status` = **Build Status** (**tracker-driven**, read-only: a closed ticket means the build is complete), `initiative_status` = **Initiative Status** (set by people only: Active, On hold, Completed, Cancelled), `planning_status` = **Planning Status** (people: Backlog, Not started, Candidate, Included, Committed, Deferred, Dropped), Build Status values Not started, In progress, Done, Cancelled, `delivery_progress` (derived), `planned_scope`, `scope_added`.
-Spec: `spec_status`, `agent_ready` (bool), `ready_for_build_by`, `ready_for_build_at`; documents in `item_documents`.
+Spec: `agent_ready` (bool), `ready_for_build_by`, `ready_for_build_at` (set by the Gate B decision); documents in `item_documents`. There is no `spec_status`: the PRD document status (draft, in review, approved) is the approval, and Gate B is where it is approved (`docs/28-DECISION-GATES.md`).
 Breakdown: `breakdown_route` (traditional|in_between|full_claude), `breakdown_status` (not_started|draft_proposed|awaiting_engineering|complete).
 Planning cycle: `planning_status`, `deferred_count`, `deferral_reason`, `added_after_commit`, `candidate_tag` (carry_over|likely_carry_over|deferred|new|backlog).
-Gates [R2]: `current_gate`, `gate_status`, `next_gate_due`.
+Gates: `current_gate` (A, B, C), `gate_status`, `next_gate_due`.
 Outcomes [R2]: `outcome_status`, `adoption_pct`, `review_date`, `realised_value`.
 Automated: `created_at`, `created_by`, `created_via`, `updated_at`, `status_changed_at`, `github_issue_url`, `last_synced_at`.
 Never synced to GitHub: value, confidence, customer fields, decision, rationale, outcomes, key results.
@@ -46,7 +46,7 @@ Never synced to GitHub: value, confidence, customer fields, decision, rationale,
 - `planning_cycles(name, phases jsonb(dates), status)`, `cycle_items(cycle_id, item_id, rank, tag, included, left_out_reason)`.
 - `alignment_sessions(cycle_id, method[top5_duels|coins|ice], groups jsonb, weighting, closes_at, status)`, `alignment_items`, `participants(email_hash, segment, group_id, consent_at)`, `ballots(token_hash, session_id, submitted_at)`, `votes`, `invitations(drafted_by, confirmed_by, sent_at)`. Deletion removes personal data but keeps aggregates.
 - R2 alignment: `alignment_dimensions(item_id, dimension[why|what|how|when], state, due)`, `signoffs(dimension_id, stakeholder, response[approve|approve_with_concerns|block], note)`, `stakeholders`, `decision_log`.
-- `gate_reviews(item_id, gate, criteria jsonb, decision[go|go_with_conditions|hold|stop], rationale (immutable), decided_by, decided_at)`, `gate_conditions`.
+- `gate_reviews(item_id, gate[A|B|C], kind[decision|skipped], criteria jsonb, decision[go|go_with_conditions|hold|stop], rationale (immutable), fast_lane, target_phase, requested_by/at, decided_by/at)`, `gate_conditions`, `tenant_gate_approvers(gate, user_id)`. See `docs/28-DECISION-GATES.md` section 10.
 - `outcome_metrics(item_id, name, start, target, unit, source)`, `metric_values(metric_id, value, at, source)`, `outcome_reviews(item_id, at_days, decision, notes)`, `feedback_links`.
 - `reports(template, scope, audience_profile, format, params)`, `report_snapshots(report_id, storage_path, generated_by, fields_included, fields_withheld)`, `report_schedules`, `audience_profiles(name, visible_fields[])`.
 - `github_links(entity, entity_id, github_node_id, repo, sync_state, last_etag)`, `sync_events` (inbound webhooks, idempotency key), `sync_conflicts`.

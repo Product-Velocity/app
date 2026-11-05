@@ -46,7 +46,8 @@ Issues: engine and S6b (#129), templates (#130), narrative (#131), gallery and s
 **— Release 1 (MVP) ends with Phase 6 (#133). Pilot: one team, one quarter —**
 
 ## Phase 7 [R2] — Gates, velocity, outcomes
-Decision gates (criteria engine, decisions, conditions, auto-pass, fast lane, gate pack), velocity insights and opportunities, outcomes/adoption tab with metric ingestion (manual/CSV/API/webhook), outcome reviews, learning loop into candidate pool. Remaining reports. Scheduled reports.
+**Gates were pulled forward into one sprint on 2026-11-05 (issue #323, Ashu's decision; see `docs/28-DECISION-GATES.md`)**: gates A, B and C, the Decisions screen, request/decide/complete, approver configuration, fast lane recorded by the approver, the sync start and freeze. The criteria checklist informs and there is no auto-pass. What stays in this phase is below.
+Decision gates (criteria engine, decisions, conditions, fast lane, gate pack), velocity insights and opportunities, outcomes/adoption tab with metric ingestion (manual/CSV/API/webhook), outcome reviews, learning loop into candidate pool. Remaining reports. Scheduled reports.
 Issues: gates (#134, #135, #136), velocity insights (#137), opportunities (#138), outcome metrics (#139), outcomes tab and reviews (#140), learning loop (#141).
 
 ## Phase 8 [R2] — Alignment dimensions and customers

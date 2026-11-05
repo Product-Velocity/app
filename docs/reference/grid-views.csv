@@ -135,7 +135,6 @@ screenshots,What,Editable,Y,,,,Y,,,,
 date_precision,When,Editable,Y,,,,Y,,,,
 effort_by_skill,Why,Editable,,,Y,,,,,,
 fit_by_team,Why,Computed (read-only),,Y,Y,,,,,,Y
-spec_status,Spec,Editable,,,Y,,,,,,
 documents,Spec,Editable,,,,,,,Y,,
 ready_for_build,Spec,Computed (read-only),,,Y,,,,,,
 ready_for_build_by,Spec,System (read-only),,,,,,,,Y,
@@ -151,7 +150,7 @@ deferral_reason,Planning,Editable,,,Y,,,,,,
 added_after_commit,Planning,System (read-only),,,Y,,,,,,
 current_gate,Gates,System (read-only),,,Y,,Y,,,,Y
 gate_status,Gates,System (read-only),,,Y,,,,,,Y
-next_gate_due,Gates,Editable,,,Y,,,,,,
+next_gate_due,Gates,System (read-only),,,Y,,,,,,
 alignment_status,Alignment,Computed (read-only),,Y,Y,,,,,,Y
 align_why,Alignment,Editable,,,Y,,,,,,
 align_what,Alignment,Editable,,,Y,,,,,,

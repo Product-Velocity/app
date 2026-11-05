@@ -28,6 +28,7 @@ import { BulkBar } from "./bulk-bar";
 import { DeleteDialog } from "./delete-dialog";
 import { GithubPushDialog } from "./github-push-dialog";
 import type { NewItemsConfig } from "./new-items";
+import type { GateSource } from "../gates/gate-source";
 import { agoLabel, latestTime } from "./last-sync";
 import { ImportDialog } from "./import-dialog";
 import { QuickAddBar } from "./quick-add-bar";
@@ -72,6 +73,8 @@ type GridProps = {
   /** Page title and other server-rendered pieces of the page head. */
   headLeft?: ReactNode;
   headRight?: ReactNode;
+  /** Decision gates: Request gate, Decide and Move to next phase in the bulk bar and the panel. */
+  gates?: GateSource;
 };
 
 const isGroup = (r: unknown): r is GroupRow => !!r && typeof r === "object" && (r as { __group?: boolean }).__group === true;
@@ -101,7 +104,7 @@ const SELECTION_COLUMN = { pinned: "left", width: 46, suppressHeaderMenuButton: 
 
 const PRIORITISATION: BaseView = { kind: "builtin", name: "Prioritisation" };
 
-export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATION, renderAllColumns = false, me = null, newItems, headLeft, headRight }: GridProps) {
+export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATION, renderAllColumns = false, me = null, newItems, headLeft, headRight, gates }: GridProps) {
   const router = useRouter();
   const params = useSearchParams();
   const { views, defaults, scopes, projects, ready } = useWorkspace();
@@ -222,17 +225,26 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     return String(value);
   };
   const projectIds = scope.projectIds;
+  // Completed initiatives are left out of the views by default (docs/28-DECISION-GATES.md section 9): the grid shows what is being worked on.
+  // A filter on Initiative Phase or Initiative Status, or "Include completed", brings them back.
+  const [includeCompleted, setIncludeCompleted] = useState(() => params.get("completed") === "1");
+  const completedCount = useMemo(() => controller.rows.filter((r) => r.initiative_phase === "Completed").length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [controller, tick]);
+  const asksForPhase = def.filters.some((f) => f.field === "initiative_phase" || f.field === "initiative_status");
+  const hideCompleted = !includeCompleted && !asksForPhase;
   const visibleRows = useMemo(
     () =>
       controller.rows.filter(
         (r) =>
           added.has(r.id) ||
-          ((projectIds === null || projectIds.includes(r.home_project)) && matchesSearch(r, search) && matchesFilters(r, def.filters, { me, today })),
+          ((projectIds === null || projectIds.includes(r.home_project)) && (!hideCompleted || r.initiative_phase !== "Completed") && matchesSearch(r, search) && matchesFilters(r, def.filters, { me, today })),
       ),
     // tick: the controller changes its rows in place, so a rebuild is requested by hand
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [controller, tick, projectIds, search, def.filters, added, me],
+    [controller, tick, projectIds, search, def.filters, added, me, hideCompleted],
   );
+
   const displayRows = useMemo(
     () => buildGroupedRows(sortRows(visibleRows as unknown as Record<string, unknown>[], shownSort) as unknown as typeof visibleRows, def.groupBy, collapsed, groupLabel),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -506,6 +518,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       out.push({ id: "undo", label: "Undo last change", group: "Actions", hint: mac ? "⌘Z" : "Ctrl+Z", run: () => void controller.undo() });
       out.push({ id: "redo", label: "Redo", group: "Actions", run: () => void controller.redo() });
     }
+    out.push({ id: "go:decisions", label: "Go to Decisions", group: "Go to", keywords: "gate approve approval request waiting decide", run: () => router.push("/decisions") });
     out.push({ id: "go:members", label: "Open Members", group: "Go to", run: () => router.push("/settings/members") });
     out.push({ id: "go:security", label: "Open Security", group: "Go to", run: () => router.push("/settings/security") });
     return out;
@@ -572,6 +585,12 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
               onKeyDown={(e) => { if (e.key === "Escape") setSearchText(""); }}
             />
           </label>
+          {completedCount > 0 && !asksForPhase && (
+            <button type="button" className={includeCompleted ? "tool-btn tool-btn-on" : "tool-btn"} aria-pressed={includeCompleted} title="Completed initiatives are hidden by default so the grid shows what is being worked on"
+              onClick={() => { const next = !includeCompleted; setIncludeCompleted(next); setQueryParam("completed", next ? "1" : null); }}>
+              {includeCompleted ? "Hide completed" : `Include completed (${completedCount})`}
+            </button>
+          )}
           <span className="pvbar-sep" aria-hidden="true" />
           <Popover label={selected.length > 0 ? `Export ${selected.length}` : "Export"} active={selected.length > 0}>
             {(close) => (
@@ -598,7 +617,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
           <StatusInline controller={controller} />
         </div>
         <StatusAlerts controller={controller} />
-        {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} total={visibleRows.length} />}
+        {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} total={visibleRows.length} {...(gates ? { gates } : {})} />}
         {controller.canEdit && lookups.projects.length > 0 && <QuickAddBar controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef} />}
       </div>
       {githubIds && <GithubPushDialog ids={githubIds} newItems={newItems} onClose={() => setGithubIds(null)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer(); }} />}
@@ -637,7 +656,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       {peekId && (
         <ItemPanel
           controller={controller} lookups={lookups} itemId={peekId} me={me} mode="peek" position={peekPosition}
-          onClose={() => openPeek(null)} onPrev={() => step(-1)} onNext={() => step(1)} height={gridHeight ?? undefined}
+          onClose={() => openPeek(null)} onPrev={() => step(-1)} onNext={() => step(1)} height={gridHeight ?? undefined} {...(gates ? { gates } : {})}
         />
       )}
       </div>

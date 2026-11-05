@@ -62,7 +62,7 @@ export async function refreshTree(admin: Admin, sc: SourceControl, installationI
 export async function ingestSubIssueEvent(admin: Admin, sc: SourceControl, ev: SubIssueEvent): Promise<IngestResult> {
   const { data: conn } = await admin.from("github_connections").select("id").eq("installation_id", ev.installationId).eq("state", "connected").maybeSingle();
   if (!conn) return "ignored";
-  const { data: link } = await admin.from("item_github_links").select("item_id").eq("connection_id", conn.id).ilike("repo_full_name", ev.repo).eq("issue_number", ev.parentNumber).maybeSingle();
+  const { data: link } = await admin.from("item_github_links").select("item_id").eq("connection_id", conn.id).is("frozen_at", null).ilike("repo_full_name", ev.repo).eq("issue_number", ev.parentNumber).maybeSingle();
   if (!link) return "ignored";
   return (await refreshTree(admin, sc, ev.installationId, conn.id, { item_id: link.item_id, repo: ev.repo, number: ev.parentNumber })) ? "processed" : "ignored";
 }
@@ -91,7 +91,7 @@ const factsOf = (s: Record<string, unknown>): IssueFacts => s as unknown as Issu
 export async function ingestIssueEvent(admin: Admin, ev: IssueEvent, deliveryId: string, sc?: SourceControl): Promise<IngestResult> {
   const { data: conn } = await admin.from("github_connections").select("id, tenant_id").eq("installation_id", ev.installationId).eq("state", "connected").maybeSingle();
   if (!conn) return "ignored";
-  const { data: link } = await admin.from("item_github_links").select("id, item_id").eq("connection_id", conn.id).ilike("repo_full_name", ev.repo).eq("issue_number", ev.number).maybeSingle();
+  const { data: link } = await admin.from("item_github_links").select("id, item_id").eq("connection_id", conn.id).is("frozen_at", null).ilike("repo_full_name", ev.repo).eq("issue_number", ev.number).maybeSingle();
   if (!link) {
     // an epic or task under a linked initiative: its progress counts move, so the parent's tree is read again
     const { data: node } = await admin.from("item_issue_tree").select("item_id").eq("tenant_id", conn.tenant_id).ilike("repo_full_name", ev.repo).eq("issue_number", ev.number).limit(1).maybeSingle();
@@ -149,7 +149,7 @@ export type ReconcileResult = { checked: number; changed: number; missing: numbe
  */
 export async function reconcileConnection(admin: Admin, sc: SourceControl, connection: ConnectionRow): Promise<ReconcileResult> {
   if (connection.installation_id === null) return { checked: 0, changed: 0, missing: 0, repos: 0 };
-  const { data: links } = await admin.from("item_github_links").select("id, item_id, repo_full_name, issue_number").eq("connection_id", connection.id).not("issue_number", "is", null);
+  const { data: links } = await admin.from("item_github_links").select("id, item_id, repo_full_name, issue_number").eq("connection_id", connection.id).is("frozen_at", null).not("issue_number", "is", null); // frozen links (finished initiatives) are not checked
   const byRepo = new Map<string, { id: string; item_id: string; number: number }[]>();
   for (const l of (links ?? []) as { id: string; item_id: string; repo_full_name: string; issue_number: number }[]) byRepo.set(l.repo_full_name, [...(byRepo.get(l.repo_full_name) ?? []), { id: l.id, item_id: l.item_id, number: l.issue_number }]);
 

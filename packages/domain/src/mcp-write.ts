@@ -149,6 +149,11 @@ function coerce(key: string, raw: unknown, ctx: WriteCtx): Scalar {
     return m.ok ? { ok: true, column, value: m.id, display: m.name } : fail(`${nameOf}: ${m.error}`);
   }
   const text = typeof raw === "boolean" ? (raw ? "Yes" : "No") : String(raw);
+  // Initiative Phase is not typed into a cell (it moves through gates), but Claude may name the phase of an initiative it creates; an update is refused in buildUpdate
+  if (key === "initiative_phase") {
+    const hit = f.allowed.find((a) => a.toLowerCase() === text.trim().toLowerCase());
+    return hit ? { ok: true, column, value: hit, display: hit } : fail(`${nameOf}: "${text}" is not one of ${f.allowed.join(", ")}.`);
+  }
   const v = validateEdit(key, text, { today: ctx.today });
   if (!v.ok) {
     if (f.type === "Select" && f.allowed.length > 0 && key !== "g2m_quarter") return fail(`${nameOf}: "${text}" is not one of ${f.allowed.join(", ")}.`);
@@ -346,7 +351,7 @@ export function buildUpdate(raw: unknown, now: UpdateCurrent, ctx: WriteCtx): Pr
   for (const [k0, v] of Object.entries(setArgs)) {
     if (k0 === BASIS_KEY) continue;
     const key = ALIASES[k0] ?? k0;
-    const why = whyNot(key);
+    const why = whyNot(key) ?? (key === "initiative_phase" ? "Initiative Phase moves through a decision gate or Move to next phase, which a person does; Claude can set it only when it creates an initiative." : null);
     if (why) return fail(`${code}: ${why}`);
     if (key === "artifacts") return fail(`${code}: links are changed with add_link and remove_link.`);
     if (key === "depends_on" || key === "related_to") return fail(`${code}: relations are changed with set_relations.`);

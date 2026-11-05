@@ -200,15 +200,21 @@ describe("system-set fields", () => {
   });
   it("sets the phase change time and the first start date of a phase", async () => {
     const id = await fresh();
-    await db.asUser(creator, (q) => q("update public.items set initiative_phase = 'Build' where id = $1", [id]), { commit: true });
+    // a person never types a phase (guard PV006); the system and the gate functions do. Here the system moves it.
+    const move = (to: string) => db.admin.query("update public.items set initiative_phase = $2 where id = $1", [id, to]);
+    await move("Build");
     const row = (await db.admin.query("select phase_changed_at, start_building, start_discovery from public.items where id = $1", [id])).rows[0];
     expect(row.phase_changed_at).not.toBeNull();
     expect(row.start_building).not.toBeNull();
     expect(row.start_discovery).toBeNull();
     await db.admin.query("update public.items set start_building = '2020-01-01' where id = $1", [id]);
-    await db.asUser(creator, (q) => q("update public.items set initiative_phase = 'Beta-test' where id = $1", [id]), { commit: true });
-    await db.asUser(creator, (q) => q("update public.items set initiative_phase = 'Build' where id = $1", [id]), { commit: true });
+    await move("Test");
+    await move("Build");
     expect((await db.admin.query("select to_char(start_building, 'YYYY-MM-DD') as d from public.items where id = $1", [id])).rows[0].d).toBe("2020-01-01");
+  });
+  it("refuses a phase typed by a person, in a cell, a paste or a tool", async () => {
+    const id = await fresh();
+    expect(await errorCode(db.asUser(creator, (q) => q("update public.items set initiative_phase = 'Build' where id = $1", [id]), { commit: true }))).toBe("PV006");
   });
   it("does not count a re-rank as an edit of the items that shifted", async () => {
     const b = await fresh();

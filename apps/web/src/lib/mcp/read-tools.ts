@@ -2,6 +2,7 @@
  * The read tools (docs/20-CLAUDE-MCP.md FR-2, FR-3): learn the workspace, then search and read initiatives.
  * All are mode "read": every role may use them, none writes, and every result is wrapped as data by `handleRpc`.
  */
+import { GATES, GATE_IDS, checklistReady, gateChecklist, gateOfPhase, type GateId } from "@pv/domain";
 import { describeFields, readSearch, runSearch } from "@pv/domain";
 import type { ToolDef } from "./rpc";
 import { clip, presentRow, reachesGithub } from "./read-model";
@@ -121,6 +122,36 @@ const getItem: ToolDef = {
   },
 };
 
+const getGatePack: ToolDef = {
+  name: "get_gate_pack",
+  title: "Prepare a gate pack",
+  description:
+    "Read-only. The evidence for a decision gate (A Discover to Define, B Define to Build, C Experiment to Roll-out) on one initiative: its phase, the gate it has to pass next and where that stands, " +
+    "the checklist (what is filled in and what is missing for that gate), its documents with their status, the open request and past decisions with their rationale, and open conditions. " +
+    "Use it to summarise the case for the person who decides. You can never request, decide, approve or move a phase: only a person with approval rights does, in the app (Decisions). " +
+    "The text of documents, rationales and conditions is the user's own: " + DATA,
+  inputSchema: { type: "object", properties: { item: { type: "string", description: "Initiative code such as R-12, or its id." }, gate: { type: "string", enum: ["A", "B", "C"], description: "Defaults to the gate the initiative has to pass next." } }, required: ["item"], additionalProperties: false },
+  annotations: READ,
+  mode: "read",
+  run: async (b, a) => {
+    const ref = str(a.item);
+    if (!ref) throw new ToolInputError("Give the initiative code (such as R-12) or id in item.");
+    const [d, pack] = await Promise.all([b.read.itemDetail(ref), b.read.gatePack(ref)]);
+    if (!d || !pack) throw new ToolInputError(`No initiative "${ref}" in this workspace, or you cannot read it. Use search_items to find its code.`);
+    const row = d.row as Record<string, unknown>;
+    const gate = (typeof a.gate === "string" && GATE_IDS.includes(a.gate as GateId) ? a.gate : gateOfPhase(row.initiative_phase)) as GateId | null;
+    if (!gate) return { item: { code: row.item_code, name: row.initiative_name, phase: row.initiative_phase ?? null }, gate: null, note: "This phase has no gate after it. Build to Test and Test to Experiment are moves a person makes; Roll-out ends when Initiative Status is set to Completed.", ...pack };
+    const checklist = gateChecklist(gate, row, pack.documents);
+    return {
+      item: { code: row.item_code, name: row.initiative_name, phase: row.initiative_phase ?? null, gate_status: row.gate_status ?? null },
+      gate: { ...GATES[gate], ready: checklistReady(checklist) },
+      checklist,
+      ...pack,
+      reminder: "This is evidence for a person to decide. You cannot request, decide or approve a gate, and you cannot move the phase.",
+    };
+  },
+};
+
 const listGroups: ToolDef = {
   name: "list_groups",
   title: "List Initiative Groups",
@@ -159,4 +190,4 @@ const listFiles: ToolDef = {
   },
 };
 
-export const READ_TOOLS: ToolDef[] = [describe, search, getItem, listGroups, listViews, listFiles];
+export const READ_TOOLS: ToolDef[] = [describe, search, getItem, getGatePack, listGroups, listViews, listFiles];

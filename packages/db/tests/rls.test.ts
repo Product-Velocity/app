@@ -428,6 +428,36 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "gate_reviews",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.gate_reviews set rationale = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.gate_reviews where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.gate_reviews (tenant_id, item_id, gate) select tenant_id, item_id, 'C' from public.gate_reviews where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.gate_reviews set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+      { sql: "select public.decide_gate(id, 'go', 'not mine to decide') from public.gate_reviews where tenant_id = $1 and decided_at is null", params: [v.tenantId] },
+    ],
+  },
+  {
+    table: "gate_conditions",
+    tenantColumn: "tenant_id",
+    attacks: (v) => [
+      { sql: "update public.gate_conditions set done_at = now() where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.gate_conditions where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.gate_conditions (tenant_id, review_id, item_id, text) select tenant_id, review_id, item_id, 'x' from public.gate_conditions where tenant_id = $1", params: [v.tenantId] },
+      { sql: "select public.gate_condition_done(id) from public.gate_conditions where tenant_id = $1", params: [v.tenantId] },
+    ],
+  },
+  {
+    table: "tenant_gate_approvers",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "insert into public.tenant_gate_approvers (tenant_id, gate, user_id) values ($1, 'A', $2)", params: [v.tenantId, a.userId] },
+      { sql: "delete from public.tenant_gate_approvers where tenant_id = $1", params: [v.tenantId] },
+      { sql: "select public.set_gate_approvers($1, 'A', array[$2::uuid])", params: [v.tenantId, a.userId] },
+    ],
+  },
+  {
     table: "company_profiles",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [
@@ -546,7 +576,7 @@ describe("RLS covers every table", () => {
   });
 
   it("internal trigger functions are not callable by API roles, and no function has a mutable search_path", async () => {
-    for (const fn of ["audit_row()", "set_write_meta()", "guard_approver()", "audit_log_append_only()", "guard_last_admin()", "items_before_insert()", "items_guard()", "items_compact()", "items_system_fields()", "guard_claude_switch()", "audit_log_set_connection()", "mcp_current_connection()", "is_claude_token()"]) {
+    for (const fn of ["audit_row()", "set_write_meta()", "guard_approver()", "audit_log_append_only()", "guard_last_admin()", "items_before_insert()", "items_guard()", "items_compact()", "items_system_fields()", "items_phase_guard()", "gate_reviews_guard()", "gate_conditions_guard()", "gate_assert_editor(uuid)", "phase_index(text)", "guard_claude_switch()", "audit_log_set_connection()", "mcp_current_connection()", "is_claude_token()"]) {
       for (const role of ["anon", "authenticated"]) {
         const { rows } = await db.admin.query("select has_function_privilege($1, $2, 'execute') as ok", [role, `public.${fn}`]);
         expect(rows[0].ok, `${role} can execute ${fn}`).toBe(false);

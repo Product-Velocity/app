@@ -104,7 +104,7 @@ A customer connects Claude (claude.ai, the desktop app or Claude Code) to their 
 | Tool | Mode | Roles |
 |---|---|---|
 | `get_workspace_context`, `describe_fields` | read | all |
-| `search_items`, `get_item`, `list_groups`, `list_views`, `list_files`, `get_github_status` | read | all |
+| `search_items`, `get_item`, `get_gate_pack`, `list_groups`, `list_views`, `list_files`, `get_github_status` | read | all |
 | `create_items` (+ dry run) | write, flagged AI draft | creator, admin |
 | `set_relations`, `add_link`, `add_file`, `set_file_sharing` | write | creator, admin |
 | `update_items` then `confirm_changes` | write after diff and confirmation | creator, admin |

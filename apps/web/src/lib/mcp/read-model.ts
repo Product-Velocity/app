@@ -124,4 +124,12 @@ export type McpReader = {
   document: (id: string) => Promise<DocInfo | null>;
   /** The company website and profile of this workspace. */
   companyProfile: () => Promise<CompanyProfileData>;
+  /** The evidence for a gate on one initiative (documents, request and past decisions, open conditions); null when the initiative does not exist. Read only. */
+  gatePack: (ref: string) => Promise<GatePackData | null>;
+};
+/** What Claude may read to prepare a gate decision. It never holds a way to request, decide or approve (CLAUDE.md rule 3). */
+export type GatePackData = {
+  documents: { kind: string; title: string; status: string; version: number }[];
+  requests: { gate: string; kind: string; requested_at: string; outcome: string | null; rationale: string | null; fast_lane: boolean; decided_at: string | null; withdrawn: boolean; ready: boolean; criteria: { label: string; ok: boolean }[] }[];
+  conditions: { text: string; done: boolean }[];
 };

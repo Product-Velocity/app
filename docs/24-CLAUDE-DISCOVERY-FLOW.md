@@ -3,7 +3,7 @@
 Status: 2026-10-28, from Ashu's chat and the example document "Discovery: Improving retention and loyalty". Builds on `docs/22-CLAUDE-PRD-FLOW.md`. **Built: slices 1, 2, 4 and 5. Slice 3 (the extract tool) is skipped on purpose: Ashu copies the chosen solution's values by hand for now.**
 
 ## 1. What a discovery is
-The step before the PRD: an objective tied to a company OKR, key results with guardrails, the problem and the evidence, risks, a ranked table of candidate solutions, next steps to decision gate 1 (align on which initiative to pursue) and a test plan. It ends when people choose a solution; the PRD then works out that one.
+The step before the PRD: an objective tied to a company OKR, key results with guardrails, the problem and the evidence, risks, a ranked table of candidate solutions, next steps to Gate A (align on which initiative to pursue) and a test plan. It ends when people choose a solution; the PRD then works out that one.
 
 ## 2. Decisions (Ashu, 2026-10-28)
 1. A new document kind **`discovery`** (migration changes the kind check; `research` stays for other research).
@@ -15,7 +15,7 @@ The step before the PRD: an objective tied to a company OKR, key results with gu
 ## 3. What Product Velocity holds
 - **One initiative**, in the Initiative Phase "Discover". It starts as the opportunity ("Discovery: <topic>") and, when a solution is chosen, is **updated into that solution** (name, hypothesis, MoSCoW, Effort, primary KR) through the normal diff-and-confirm. If the person already names the chosen solution, it is created as that solution at once.
 - **One discovery document** on it (kind `discovery`, AI draft, version history). It carries commercial numbers, so it is **never part of a GitHub payload** (same test as for PRDs). Nothing of it goes to the Description except what the chosen solution's PRD later extracts.
-- It is **approved at the Discover to Define gate** (decision gate 1) by a person with the Approver permission, like the PRD at Define to Build. Until the gate flow exists the status has no approve button.
+- It is **approved at the Discover to Define gate** (Gate A) by a person with approval rights for that gate, like the PRD at Gate B. The document has no approve button of its own: Gate A approves it (`docs/28-DECISION-GATES.md`).
 
 ## 4. The discovery document (sections, `## N. Title` so extraction can find them)
 1. Objective and key results: the company OKR (id and statement), the objective, a **KR table** (metric, unit, direction, start, target, source; one marked Primary; guardrails marked), as in the example.
@@ -23,7 +23,7 @@ The step before the PRD: an objective tied to a company OKR, key results with gu
 3. Why: evidence by source, each with its link or "reported by <person>": internal data, customer insights, agent insights, third-party research, competitive insights.
 4. Risks.
 5. Potential solutions: the ranked table (hypothesis as IF / THEN / RESULTING IN, pillar, MoSCoW, estimated impact, confidence, effort, success metrics, risks, competitors) and the Prioritisation link.
-6. Next steps (decision gate 1 and what follows).
+6. Next steps (Gate A and what follows).
 7. Testing success: the AB(C) test, the metrics, the guardrails and why each matters.
 8. Context and partner research (issue #274): the third parties and terms of the brief, what each partner publicly offers, the sense-check of the brief's claims against it, with sources and dates (see `docs/22` section 8b).
 Every section is optional; a discovery with no competitive research simply has none.

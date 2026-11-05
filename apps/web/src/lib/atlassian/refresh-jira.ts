@@ -31,7 +31,7 @@ function depsFor(link: LinkToRead): RefreshDeps {
 /** The initiatives linked to issues of this Jira project (optionally only some initiatives). */
 async function linkedIssues(link: LinkToRead, itemIds?: string[]) {
   const admin = createAdminClient({ via: "system" });
-  let q = admin.from("item_jira_links").select("item_id, issue_key").eq("tenant_id", link.tenant_id).eq("connection_id", link.connection_id).eq("site_id", link.site_id);
+  let q = admin.from("item_jira_links").select("item_id, issue_key").eq("tenant_id", link.tenant_id).eq("connection_id", link.connection_id).eq("site_id", link.site_id).is("frozen_at", null); // frozen links (finished initiatives) are not read
   if (itemIds) q = q.in("item_id", itemIds);
   const { data, error } = await q;
   if (error) throw new Error("Could not read the linked initiatives");

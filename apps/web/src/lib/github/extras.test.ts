@@ -23,7 +23,7 @@ function fakeAdmin(t: Tables) {
       return [];
     };
     for (const m of ["select", "not", "limit"]) q[m] = () => q;
-    for (const m of ["eq", "ilike", "in"]) q[m] = (k: string, v: unknown) => { filters[k] = v; return q; };
+    for (const m of ["eq", "ilike", "in", "is"]) q[m] = (k: string, v: unknown) => { filters[k] = v; return q; };
     q.maybeSingle = async () => { reads.push({ table, filters }); return { data: (rows() as unknown[])[0] ?? null, error: null }; };
     q.then = (resolve: (v: unknown) => void) => { reads.push({ table, filters }); resolve({ data: rows(), error: null }); };
     return { select: () => q };

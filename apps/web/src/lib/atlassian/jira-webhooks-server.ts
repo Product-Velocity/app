@@ -74,7 +74,7 @@ export async function handleDelivery(token: string, body: unknown): Promise<numb
   try {
     // only an initiative linked to THIS issue is touched; the daily check still reads the tree and everything else
     const admin2 = createAdminClient({ via: "system" });
-    const { data: linked } = await admin2.from("item_jira_links").select("item_id").eq("tenant_id", (link as LinkRow).tenant_id).eq("connection_id", (link as LinkRow).connection_id).eq("site_id", (link as LinkRow).site_id).eq("issue_key", key);
+    const { data: linked } = await admin2.from("item_jira_links").select("item_id").eq("tenant_id", (link as LinkRow).tenant_id).eq("connection_id", (link as LinkRow).connection_id).eq("site_id", (link as LinkRow).site_id).eq("issue_key", key).is("frozen_at", null);
     const ids = ((linked ?? []) as { item_id: string }[]).map((x) => x.item_id);
     if (ids.length === 0) return 200;
     const done = await applyLinkedStatuses(link as LinkRow, site.url, { itemIds: ids });
