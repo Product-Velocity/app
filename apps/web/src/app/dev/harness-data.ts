@@ -74,23 +74,23 @@ export function makeCardsHarness(n: number, role: string) {
 }
 
 /**
- * Data for the leadership test page (today is Wed 14 Apr 2027, ISO week 15): health, categories and G2M dates spread so that
+ * Data for the leadership test page (today is Wed 14 Apr 2027, ISO week 15): health, Business Value Types and G2M dates spread so that
  * every part of the page has something to show, plus this week's audit changes. With `reviewed`, a reviewed weekly update exists.
  */
 export function makeLeadershipHarness(n: number, role: string) {
   const { controller, source } = makeHarness(n, 0, role);
-  const categories = ["New big bets", "Grow customer revenues", "Protect customer revenues", "Operational efficiency", null];
+  const valueTypes = ["New revenue", "Increase revenue", "Defend revenue", "Decrease costs", null];
   const phases = ["Discover", "Build", "Test", "Roll-out", "Completed"];
   const iso = (d: number) => new Date(Date.UTC(2027, 3, 14) + d * 86_400_000).toISOString().slice(0, 10);
   source.items.forEach((item, i) => {
-    item.roadmap_category = categories[i % categories.length] ?? null;
+    item.value_type = valueTypes[i % valueTypes.length] ?? null;
     item.initiative_phase = phases[i % phases.length]!;
     item.g2m_date_est = iso(i % 7 === 0 ? -20 : i % 5 === 0 ? 6 : 30 + i);
     item.g2m_date_actual = i === 4 ? iso(-1) : null;
   });
   for (const r of controller.rows) {
     const s = source.items.find((x) => x.id === r.id)!;
-    for (const k of ["roadmap_category", "initiative_phase", "g2m_date_est", "g2m_date_actual"]) r[k] = s[k];
+    for (const k of ["value_type", "initiative_phase", "g2m_date_est", "g2m_date_actual"]) r[k] = s[k];
   }
   const at = (d: number, h = 9) => `${iso(d)}T${String(h).padStart(2, "0")}:00:00.000Z`;
   const changes = [
