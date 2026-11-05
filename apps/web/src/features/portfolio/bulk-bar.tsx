@@ -9,6 +9,8 @@ import { useMenuBlur } from "./use-menu-blur";
 import { useDismiss } from "./use-dismiss";
 import { CopyDialog } from "./copy-dialog";
 import { AlignmentDialog } from "./alignment-dialog";
+import { GateActions } from "../gates/gate-actions";
+import type { GateSource } from "../gates/gate-source";
 
 type Props = {
   controller: PortfolioController;
@@ -21,6 +23,8 @@ type Props = {
 
   /** Number of items in the grid, for "Select all 22". */
   total: number;
+  /** Request gate, Decide and Move to next phase (decision gates); left out where the gates are not available. */
+  gates?: GateSource;
 };
 
 /** The fields set most often get their own button, as on prototype board 1. */
@@ -86,7 +90,7 @@ function SetMenu({ def, selected, onPick, suggestions }: { def: FieldDef; select
 }
 
 /** Shown when rows are selected: set one field on all of them (one undo step), export them, or (later) update GitHub. */
-export function BulkBar({ controller, lookups, selected, onClear, onSelectAll, onDelete, total }: Props) {
+export function BulkBar({ controller, lookups, selected, onClear, onSelectAll, onDelete, total, gates }: Props) {
   const id = useId();
   const [field, setField] = useState("");
   const [value, setValue] = useState("");
@@ -128,6 +132,7 @@ export function BulkBar({ controller, lookups, selected, onClear, onSelectAll, o
         <button type="button" className={more ? "bulk-btn bulk-btn-open" : "bulk-btn"} aria-expanded={more} onClick={() => setMore((m) => !m)}>More fields ▾</button>
       )}
       <div className="bulk-actions">
+        {gates && <GateActions source={gates} items={selected} canEdit={controller.canEdit} onChanged={() => { void controller.refreshFromServer(); }} />}
         {controller.canPurge && <button type="button" className="bulk-btn" onClick={() => setAlignOpen(true)}>Start alignment session…</button>}
         {controller.canEdit && <button type="button" className="bulk-btn" onClick={() => setCopyOpen(true)}>Copy to project…</button>}
         {controller.canEdit && <button type="button" className="bulk-btn bulk-btn-danger" onClick={onDelete}>Delete…</button>}

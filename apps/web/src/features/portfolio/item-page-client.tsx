@@ -7,18 +7,21 @@ import { useWorkspaceController } from "./portfolio-client";
 import { ItemPanel } from "./item-panel";
 import type { PortfolioController } from "./controller";
 import type { Lookups } from "./types";
+import { createClient } from "@/lib/supabase/browser";
+import { SupabaseGateSource, type GateSource } from "../gates/gate-source";
 
 /** The item as a page of its own at /portfolio/R-12: same panel, same autosave and undo, shareable address. */
 export function ItemPageClient({ tenantId, role, userId, lookups, code }: { tenantId: string; role: string; userId: string; lookups: Lookups; code: string }) {
   const { state, retry } = useWorkspaceController(tenantId, role, lookups);
+  const gates = useMemo(() => new SupabaseGateSource(createClient(), tenantId), [tenantId]);
   if (state.kind === "loading") return <p role="status" className="muted">Loading {code}…</p>;
   if (state.kind === "error") {
     return <div role="alert" className="error">Could not load the initiative: {state.message} <button type="button" className="link-button" onClick={retry}>Try again</button></div>;
   }
-  return <ItemPage controller={state.controller} lookups={lookups} userId={userId} code={code} />;
+  return <ItemPage controller={state.controller} lookups={lookups} userId={userId} code={code} gates={gates} />;
 }
 
-export function ItemPage({ controller, lookups, userId, code, pageHref = (c) => `/portfolio/${encodeURIComponent(c)}`, backHref = "/portfolio" }: { controller: PortfolioController; lookups: Lookups; userId: string; code: string; pageHref?: (code: string) => string; backHref?: string }) {
+export function ItemPage({ controller, lookups, userId, code, pageHref = (c) => `/portfolio/${encodeURIComponent(c)}`, backHref = "/portfolio", gates }: { gates?: GateSource; controller: PortfolioController; lookups: Lookups; userId: string; code: string; pageHref?: (code: string) => string; backHref?: string }) {
   const router = useRouter();
   const row = controller.rows.find((r) => r.item_code.toLowerCase() === code.toLowerCase());
   const index = row ? controller.rows.indexOf(row) : -1;
@@ -42,7 +45,7 @@ export function ItemPage({ controller, lookups, userId, code, pageHref = (c) => 
   if (!row) return <div className="notice-box"><p>There is no initiative {code} in this workspace, or you cannot see it.</p><Link href={backHref}>Back to the roadmap</Link></div>;
   return (
     <ItemPanel
-      key={row.id} controller={controller} lookups={lookups} itemId={row.id} me={userId} mode="page" position={position} pageHref={pageHref} backHref={backHref}
+      key={row.id} controller={controller} lookups={lookups} itemId={row.id} me={userId} mode="page" position={position} pageHref={pageHref} backHref={backHref} {...(gates ? { gates } : {})}
       onPrev={index > 0 ? () => router.push(pageHref(controller.rows[index - 1]!.item_code)) : undefined}
       onNext={index < controller.rows.length - 1 ? () => router.push(pageHref(controller.rows[index + 1]!.item_code)) : undefined}
     />

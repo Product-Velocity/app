@@ -25,6 +25,8 @@ export type Lookups = {
   /** Teams of the workspace, for Contributing Teams in the item panel. */
   teams?: { id: string; name: string }[];
   /** GitHub: whether the workspace is connected, and the tracking issue of each linked item. */
+  /** Ids of initiatives whose tracker link is frozen (docs/28-DECISION-GATES.md section 9). */
+  frozen?: string[];
   github?: { connected: boolean; links: Record<string, GithubLinkInfo> };
   /** The Jira issue each linked initiative follows or owns (a link to Jira, from item_jira_links). */
   jira?: { links: Record<string, JiraLinkInfo> };

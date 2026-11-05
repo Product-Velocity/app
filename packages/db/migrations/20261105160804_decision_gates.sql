@@ -571,7 +571,7 @@ begin
 end $$;
 
 create function public.decide_gates(p_reviews uuid[], p_outcome text, p_rationale text, p_fast_lane boolean default false,
-                                    p_target_phase text default null) returns jsonb
+                                    p_target_phase text default null, p_conditions text[] default '{}', p_review_date date default null) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   x uuid;
@@ -580,7 +580,7 @@ begin
   if cardinality(coalesce(p_reviews, '{}')) > 100 then raise exception 'Decide at most 100 at a time' using errcode = 'PV005'; end if;
   foreach x in array coalesce(p_reviews, '{}') loop
     begin
-      out := out || (public.decide_gate(x, p_outcome, p_rationale, p_fast_lane, p_target_phase) || jsonb_build_object('ok', true));
+      out := out || (public.decide_gate(x, p_outcome, p_rationale, p_fast_lane, p_target_phase, p_conditions, p_review_date) || jsonb_build_object('ok', true));
     exception when others then
       out := out || jsonb_build_object('review_id', x, 'ok', false, 'error', sqlerrm, 'code', sqlstate);
     end;
@@ -665,11 +665,11 @@ revoke all on function
   public.item_documents_guard(),
   public.request_gate(uuid, text, boolean, jsonb, uuid[]), public.decide_gate(uuid, text, text, boolean, text, text[], date),
   public.move_phase(uuid, text), public.gate_condition_done(uuid), public.set_gate_approvers(uuid, text, uuid[]),
-  public.request_gates(text, jsonb), public.decide_gates(uuid[], text, text, boolean, text)
+  public.request_gates(text, jsonb), public.decide_gates(uuid[], text, text, boolean, text, text[], date)
   from public, anon, authenticated;
 grant execute on function
   public.can_decide_gate(uuid, text), public.my_decidable_gates(uuid),
   public.request_gate(uuid, text, boolean, jsonb, uuid[]), public.decide_gate(uuid, text, text, boolean, text, text[], date),
   public.move_phase(uuid, text), public.gate_condition_done(uuid), public.set_gate_approvers(uuid, text, uuid[]),
-  public.request_gates(text, jsonb), public.decide_gates(uuid[], text, text, boolean, text)
+  public.request_gates(text, jsonb), public.decide_gates(uuid[], text, text, boolean, text, text[], date)
   to authenticated;

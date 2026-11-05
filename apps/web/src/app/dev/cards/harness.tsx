@@ -1,5 +1,6 @@
 "use client";
 
+import { MemoryGateSource } from "@/features/gates/gate-source";
 import { useEffect, useMemo } from "react";
 import { AppHeader } from "@/components/app-header";
 import { CardsView } from "@/features/cards/cards-view";
@@ -16,12 +17,18 @@ export function HarnessCards({ n, role }: { n: number; role: string }) {
       { id: "view-detail", name: "With dates", columns: ["stack_rank", "item_code", "initiative_name", "g2m_date_est", "confidence", "horizon", "start_date"], filters: [], groupBy: null },
     ],
   }), { projects: harnessLookups.projects }), []);
-  useEffect(() => { (window as unknown as { __pv: unknown }).__pv = { controller, source, store }; }, [controller, source, store]);
+  // a move without a gate: the in-memory gate source changes the row like the database would, then the board reads it back
+  const gates = useMemo(() => {
+    const g = new MemoryGateSource();
+    g.onMove = (id, to) => { const stored = source.items.find((i) => i.id === id) as Record<string, unknown> | undefined; if (stored) stored.initiative_phase = to; };
+    return g;
+  }, [source]);
+  useEffect(() => { (window as unknown as { __pv: unknown }).__pv = { controller, source, store, gates }; }, [controller, source, store, gates]);
   return (
     <WorkspaceProvider store={store} projects={harnessLookups.projects} canEdit={role === "creator" || role === "admin"} canAdmin={role === "admin"}>
       <div className="shell">
         <AppHeader tenantName="Meridian Media" email="ashu.mathura@example.test" roleLabel="Admin" isApprover current="cards" />
-        <main className="content"><CardsView controller={controller} lookups={harnessLookups} me="u1" pageHref={(c) => `/dev/item/${encodeURIComponent(c)}`} /></main>
+        <main className="content"><CardsView controller={controller} lookups={harnessLookups} me="u1" gates={gates} pageHref={(c) => `/dev/item/${encodeURIComponent(c)}`} /></main>
       </div>
     </WorkspaceProvider>
   );

@@ -1,4 +1,4 @@
-import { MARKER, mergeBody, OWNED_LABEL_PREFIX, REMOVED_LABEL, type TrackingIssue } from "./outbound";
+import { DISCOVER_NOT_SYNCED, FROZEN_NOT_SYNCED, MARKER, mergeBody, OWNED_LABEL_PREFIX, REMOVED_LABEL, type TrackingIssue } from "./outbound";
 import { GitHubError, type IssueRef, type SourceControl } from "./source-control";
 
 export type ExistingLink = { issueNumber: number | null; lastPushedHash: string | null };
@@ -56,15 +56,17 @@ export function describePushError(e: unknown): string {
   return "The push did not finish. Try again.";
 }
 
-export type PlanLink = { mode: "push" | "follow"; repo: string; issueNumber: number | null; syncState: string; lastPushedHash: string | null };
+export type PlanLink = { mode: "push" | "follow"; repo: string; issueNumber: number | null; syncState: string; lastPushedHash: string | null; /** syncing was stopped 14 days after the initiative was Completed or Cancelled */ frozen?: boolean };
 export type PlanDecision = { repo: string | null; action: "create" | "update" | "unchanged" | "blocked"; reason?: string };
 
 /** What a push would do for one item. Pure, so the rules can be tested without GitHub or a database. */
-export function planAction(a: { link: PlanLink | null; defaultRepo: string | null; activeRepos: ReadonlySet<string>; /** lower-case names of repositories marked read-only */ readOnlyRepos?: ReadonlySet<string>; hash: string; projectName: string }): PlanDecision {
+export function planAction(a: { link: PlanLink | null; defaultRepo: string | null; activeRepos: ReadonlySet<string>; /** lower-case names of repositories marked read-only */ readOnlyRepos?: ReadonlySet<string>; hash: string; projectName: string; /** the initiative's phase: Discover is never given a new issue */ phase?: unknown }): PlanDecision {
   const { link } = a;
   const repo = link?.repo ?? a.defaultRepo;
+  if (link?.frozen) return { repo, action: "blocked", reason: FROZEN_NOT_SYNCED };
   if (link?.mode === "follow") return { repo, action: "blocked", reason: `It follows ${link.issueNumber ? `issue #${link.issueNumber}` : "an existing GitHub issue"} read-only: pushing to it is switched off.` };
   if (repo && a.readOnlyRepos?.has(repo.toLowerCase())) return { repo, action: "blocked", reason: `${repo} is marked read-only in Settings > GitHub: the app never writes to it.` };
+  if (!link && a.phase === "Discover") return { repo, action: "blocked", reason: DISCOVER_NOT_SYNCED };
   if (!repo) return { repo, action: "blocked", reason: `Choose a default repository for ${a.projectName || "the project"} in Settings > GitHub first.` };
   if (!link && !a.activeRepos.has(repo.toLowerCase())) return { repo, action: "blocked", reason: `${repo} is no longer available through the GitHub connection.` };
   if (link?.issueNumber && link.syncState === "synced" && link.lastPushedHash === a.hash) return { repo, action: "unchanged" };

@@ -27,7 +27,7 @@ export function accountHref(tenantId: string, pathname: string, search = ""): st
 }
 
 /** Tabs that exist in every account. Anything else (an item, a setting) falls back to the grid when the account changes, as ids are per account. */
-const TAB_ROOTS = ["/portfolio", "/gantt", "/cards", "/leadership", "/alignment", "/settings", "/account", "/trash", "/home", "/incoming"];
+const TAB_ROOTS = ["/portfolio", "/gantt", "/cards", "/leadership", "/alignment", "/settings", "/account", "/trash", "/home", "/incoming", "/decisions"];
 export function tabHref(tenantId: string, pathname: string): string {
   const page = stripAccountPath(pathname);
   const root = TAB_ROOTS.find((r) => page === r || page.startsWith(`${r}/`));
@@ -39,7 +39,7 @@ export function tabHref(tenantId: string, pathname: string): string {
 const SCREEN: [string, string][] = [
   ["/portfolio", "grid"], ["/gantt", "gantt"], ["/cards", "cards"], ["/leadership", "leadership"], ["/alignment", "alignment"],
   ["/settings/members", "members"], ["/settings/workspace", "workspace-settings"], ["/settings/integrations", "integrations"], ["/settings", "settings"],
-  ["/account", "account"], ["/incoming", "incoming"], ["/trash", "trash"], ["/platform", "platform"],
+  ["/account", "account"], ["/decisions", "decisions"], ["/incoming", "incoming"], ["/trash", "trash"], ["/platform", "platform"],
 ];
 
 /** A short label for the audit log: which screen a change came from. Advisory context only; it grants nothing. */

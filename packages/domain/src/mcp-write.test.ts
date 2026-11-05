@@ -190,6 +190,11 @@ describe("buildUpdate", () => {
   const current = { id: "i1", item_code: "R-01", initiative_name: "Old", moscow: "Must", summary: null, health: null, designer: "u1", home_project: "p1", theme: "Onboarding", tags: "a, b" };
   const lists = { tags: ["a", "b"], target_scope: [], live_scope: [], target_segments: [], contributing_teams: [] as string[] };
 
+  it("refuses Initiative Phase: it moves through a decision gate or Move to next phase, which a person does (issue #323)", () => {
+    const r = buildUpdate({ item: "R-01", set: { initiative_phase: "Build" } }, { current, lists }, ctx);
+    expect(r).toMatchObject({ ok: false, error: expect.stringContaining("decision gate") });
+  });
+
   it("makes one line per changed field and marks the ones that need a confirmation", () => {
     const r = buildUpdate({ item: "R-01", set: { initiative_name: "New", summary: "S", moscow: "Must" } }, { current, lists }, ctx);
     if (!r.ok) throw new Error(r.error);

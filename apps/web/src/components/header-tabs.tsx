@@ -13,20 +13,22 @@ const TABS: { label: string; href?: string; phase?: number; id: string }[] = [
   { label: "Planning", phase: 5, id: "planning" },
   { label: "Capacity", phase: 5, id: "capacity" },
   { label: "Alignment", phase: 5, id: "alignment" },
+  { label: "Decisions", href: "/decisions", id: "decisions" },
   { label: "Reports", href: "/reports", id: "reports" },
 ];
 
-export function HeaderTabs({ current, accountId }: { current?: "grid" | "gantt" | "cards" | "leadership" | "reports"; accountId?: string }) {
+export function HeaderTabs({ current, accountId, waiting }: { current?: "grid" | "gantt" | "cards" | "leadership" | "decisions" | "reports"; accountId?: string; /** Gate requests waiting for a decision. */ waiting?: number }) {
   // the address may or may not carry /w/{account} on the server and the client; the tabs always do once the account is known
   const path = stripAccountPath(usePathname());
   const prefix = accountId ? `/w/${accountId}` : "";
-  const active = current ?? (path.startsWith("/portfolio") ? "grid" : path.startsWith("/gantt") ? "gantt" : path.startsWith("/cards") ? "cards" : path.startsWith("/leadership") ? "leadership" : path.startsWith("/reports") ? "reports" : null);
+  const active = current ?? (path.startsWith("/portfolio") ? "grid" : path.startsWith("/gantt") ? "gantt" : path.startsWith("/cards") ? "cards" : path.startsWith("/leadership") ? "leadership" : path.startsWith("/decisions") ? "decisions" : path.startsWith("/reports") ? "reports" : null);
   return (
     <nav aria-label="Main" className="tabs">
       {TABS.map((t) =>
         t.href ? (
           <Link key={t.id} href={`${prefix}${t.href}`} className={active === t.id ? "tab tab-active" : "tab"} aria-current={active === t.id ? "page" : undefined}>
             {t.label}
+            {t.id === "decisions" && waiting ? <span className="tab-badge"><span aria-hidden="true">{waiting}</span><span className="visually-hidden"> waiting for a decision</span></span> : null}
           </Link>
         ) : (
           <span key={t.id} className="tab tab-later" aria-disabled="true" title={`Arrives in phase ${t.phase}`}>

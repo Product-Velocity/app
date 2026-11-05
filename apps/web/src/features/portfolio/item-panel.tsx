@@ -1,5 +1,7 @@
 "use client";
 
+import { GateStrip } from "../gates/gate-strip";
+import type { GateSource } from "../gates/gate-source";
 import { syncLabel, syncPlatforms, syncTitle } from "./sync-label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -86,10 +88,12 @@ export type ItemPanelProps = {
   /** Address of an item's page and of the roadmap (the test page uses its own). */
   pageHref?: (code: string) => string;
   backHref?: string;
+  /** Decision gates: the lifecycle line with Request gate, Decide and Move to next phase. */
+  gates?: GateSource;
 };
 
 /** The item panel: beside the grid ("peek") or as a page of its own. Same fields, same autosave and undo as the grid. */
-export function ItemPanel({ controller, lookups, itemId, me, mode, position, onClose, onPrev, onNext, height, pageHref = defaultPageHref, backHref = "/portfolio" }: ItemPanelProps) {
+export function ItemPanel({ controller, lookups, itemId, me, mode, position, onClose, onPrev, onNext, height, pageHref = defaultPageHref, backHref = "/portfolio", gates }: ItemPanelProps) {
   useStatus(controller);
   const row = controller.row(itemId);
   const trackerName = trackerNameOf(lookups, itemId, row?.home_project);
@@ -169,6 +173,8 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
         <h2 id={titleId} className="ip-title">{row.initiative_name}</h2>
         <p className="muted ip-rank">#{row.stack_rank} globally · #{row.project_rank} in {project || "its project"}</p>
       </header>
+
+      {gates && <GateStrip source={gates} frozen={Boolean(lookups.frozen?.includes(itemId))} row={row as never} canEdit={controller.canEdit} onChanged={() => { void controller.refreshFromServer(); }} />}
 
       {pushGithub && <GithubPushDialog ids={[itemId]} onClose={() => setPushGithub(false)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer(); }} />}
       {confirmDelete && <DeleteDialog controller={controller} ids={[itemId]} onClose={() => setConfirmDelete(false)} onDeleted={() => { if (mode === "peek") onClose?.(); else router.push(backHref); }} />}

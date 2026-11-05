@@ -30,7 +30,8 @@ export function axisOptions(): AxisOption[] {
       if (COMING.includes(f.key)) out.push({ key: f.key, label: `${f.name} (arrives in phase ${f.phase})`, kind: "select", editable: false, available: false });
       continue;
     }
-    const reason = readOnlyReason(f.key) ?? undefined;
+    // Initiative Phase is not typed into a cell, but a card dropped on a phase column is a Move (no gate) or a refusal that names the gate (issue #323)
+    const reason = (f.key === "initiative_phase" ? null : readOnlyReason(f.key)) ?? undefined;
     out.push({ key: f.key, label: f.name, kind: "select", editable: !reason, ...(reason ? { reason } : {}), available: true });
   }
   out.push({ key: "theme", label: "Initiative Group", kind: "group", editable: true, available: true });

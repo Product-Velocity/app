@@ -5,7 +5,7 @@ import { SupabaseDataSource } from "@/features/portfolio/supabase-source";
 import { addItemFile, removeItemFile, setFileSharing } from "@/lib/files/actions";
 import { shareUrl } from "@/lib/files/serve";
 import { supabaseFileStore, type FileStore } from "@/lib/files/store";
-import { buildContext, type CompanyProfileData, type DocInfo, type FileInfo, type ItemDetail, type McpReader, type Member, type ViewInfo, type WorkspaceContext } from "./read-model";
+import { buildContext, type CompanyProfileData, type DocInfo, type GatePackData, type FileInfo, type ItemDetail, type McpReader, type Member, type ViewInfo, type WorkspaceContext } from "./read-model";
 import { ToolInputError } from "./tool-error";
 import type { ApplyResult, McpDocuments, McpFiles, McpProfile, McpWriter, PendingRow, UndoResult } from "./write-model";
 
@@ -161,6 +161,22 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       }
       const list = must(await q, "files") as never[];
       return { files: await fileInfo(list.slice(0, FILE_CAP)), truncated: list.length > FILE_CAP };
+    },
+
+    async gatePack(ref): Promise<GatePackData | null> {
+      const row = await findRow(ref);
+      if (!row) return null;
+      const [docs, reviews, conds] = await Promise.all([
+        supabase.from("item_documents").select("kind, title, status, version").eq("tenant_id", tenant.id).eq("item_id", row.id).order("created_at"),
+        supabase.from("gate_reviews").select("gate, kind, requested_at, outcome, rationale, fast_lane, decided_at, withdrawn_at, ready, criteria").eq("tenant_id", tenant.id).eq("item_id", row.id).order("requested_at", { ascending: false }).limit(20),
+        supabase.from("gate_conditions").select("text, done_at").eq("tenant_id", tenant.id).eq("item_id", row.id).order("created_at"),
+      ]);
+      return {
+        documents: must(docs, "documents") as GatePackData["documents"],
+        requests: (must(reviews, "gate requests") as { gate: string; kind: string; requested_at: string; outcome: string | null; rationale: string | null; fast_lane: boolean; decided_at: string | null; withdrawn_at: string | null; ready: boolean; criteria: { label: string; ok: boolean }[] }[])
+          .map(({ withdrawn_at, ...r }) => ({ ...r, withdrawn: Boolean(withdrawn_at) })),
+        conditions: (must(conds, "gate conditions") as { text: string; done_at: string | null }[]).map((c) => ({ text: c.text, done: Boolean(c.done_at) })),
+      };
     },
 
     async documents(ref) {

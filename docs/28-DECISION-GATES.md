@@ -102,11 +102,21 @@ Commercial fields never sync (rule 2). A gate decision, its rationale and its co
 - Every table: `tenant_id`, RLS with the fast policy pattern, an index starting with `tenant_id`, and a two-tenant test.
 - The audit log records requests, decisions, fast-lane skips, freeze and resume with actor and source.
 
-## 11. Build slices (issue #323)
+## 11. What is built (issue #323) and what is not
 
-1. Names and docs: phases, gates, Help (this page). **Built.**
-2. Gate tables, approver configuration, request, decide and complete functions, RLS and tests (migrations `20261105160035_phase_values_test_completed` and `20261105160804_decision_gates`). **Built.**
-3. Decisions screen, multi-select bar, Move to next phase, read-only Phase cell, Completed follows status, Test suggestion.
-4. Tracker handover at Gate B and the optional Define push (GitHub and Jira).
-5. Freeze and resume; hide Completed in default views.
-6. Claude tools (prepare gate pack; never decide) and the Help "AI agents" tab.
+Built:
+1. Names and docs: phases, gates, Help (this page).
+2. Gate tables, approver configuration, request, decide and complete functions, phase guard, Completed follows status, RLS and tests (`20261105160035_phase_values_test_completed`, `20261105160804_decision_gates`).
+3. The Decisions screen (`/decisions`), the Decisions tab with its count, Request gate / Decide / Move to next phase in the bulk bar and the item panel, the read-only Phase cell, the Build-to-Test and Hold-due suggestions in the item panel, who-can-decide settings, ⌘K "Go to Decisions", cards dropped on a phase column move through the gate source.
+4. Tracker handover: Discover is never given a new issue (GitHub and Jira); an initiative in Define carries the label `pv:define`; the Gate B result tells the person to use Sync, which still asks for confirmation.
+5. Freeze and resume (`20261105164327_tracker_freeze`): the daily job freezes finished initiatives, every check, webhook and Sync path skips frozen links, the item panel offers Resume syncing; Completed initiatives are hidden in the grid unless "Include completed" is on.
+6. Claude: the read-only `get_gate_pack`; no tool can request, decide or move.
+
+Not built yet (each is a follow-up request, not a hidden gap):
+- **Notifications** to preferred approvers (the choice is stored on the request; the notification design is issue #104).
+- **Stop closes the tracker issue**: Stop sets Initiative Status to Cancelled and the result says Sync handles it; the dedicated confirmed "close the issue" offer from the removed-initiative decisions is not wired to Stop.
+- **Needs attention** as a screen (#105): the suggestions appear in the item panel only.
+- **Reports** for gate history and time at a gate; the ready-to-start wait is derivable (Gate B date to `start_building`) but has no report yet.
+- **A separate "Request engineering review" button**: the review push is the normal confirmed Sync of an initiative in Define (it carries `pv:define`); a dedicated button and a PRD-in-review condition were not added.
+- The grid hides Completed initiatives but still loads them; a server-side limit on what is loaded is a later change.
+- ⌘K commands for the bulk gate actions (only "Go to Decisions" is there).

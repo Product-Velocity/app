@@ -33,7 +33,7 @@ export async function receiveFromGithub(admin: Admin, sc: SourceControl, connect
   const extrasCache = newExtrasCache();
   const [{ data: items }, { data: links }] = await Promise.all([
     admin.from("items").select("id, item_code, initiative_name").eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
-    admin.from("item_github_links").select("id, item_id, mode, repo_full_name, issue_number, html_url").eq("tenant_id", tenantId).eq("connection_id", connection.id).in("item_id", unique),
+    admin.from("item_github_links").select("id, item_id, mode, repo_full_name, issue_number, html_url").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("frozen_at", null).in("item_id", unique),
   ]);
   const itemById = new Map(((items ?? []) as ItemRow[]).map((i) => [i.id, i]));
   const linkByItem = new Map(((links ?? []) as LinkRow[]).map((l) => [l.item_id, l]));

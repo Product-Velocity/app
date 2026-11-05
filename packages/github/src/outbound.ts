@@ -4,8 +4,8 @@ import { createHash } from "node:crypto";
 // ONLY place a field is allowed to be read for a GitHub payload: value, confidence, customers, decisions, rationale,
 // key results, outcomes and markets are never listed, and a test fails if any of them ever reaches a payload.
 export const OUTBOUND_ITEM_FIELDS = ["item_code", "initiative_name", "summary", "description", "hypothesis", "moscow", "stack_rank", "change_type", "g2m_date_est", "theme"] as const;
-/** Read only to fill GitHub Project fields (Size from the T-shirt effort estimate), never written as text into an issue. */
-export const BOARD_ONLY_FIELDS = ["effort"] as const;
+/** Read only to fill GitHub Project fields (Size from the T-shirt effort estimate) and to choose the review label (the phase), never written as text into an issue. */
+export const BOARD_ONLY_FIELDS = ["effort", "initiative_phase"] as const;
 /** Everything a GitHub payload of any kind may read: the issue builder's fields plus the board-only ones. */
 export const OUTBOUND_READ_FIELDS = [...OUTBOUND_ITEM_FIELDS, ...BOARD_ONLY_FIELDS] as const;
 export type OutboundField = (typeof OUTBOUND_ITEM_FIELDS)[number];
@@ -46,6 +46,14 @@ export const OWNED_LABEL_PREFIX = "pv:";
 export const REMOVED_LABEL = "pv:removed";
 
 const MOSCOW: Record<string, string> = { Must: "must", Should: "should", Could: "could", "Won't": "wont" };
+/** Initiatives that are not synced before Gate B (decision 2026-11-05): Discover is analysis, so a new tracker issue is never created for it. */
+export const DISCOVER_NOT_SYNCED = "Discovery is not synced to the tracker. Request gate A, or move it to Define, first.";
+/** Syncing stops 14 days after an initiative is Completed or Cancelled (decision 2026-11-05); an Admin or Approver can resume it. */
+export const FROZEN_NOT_SYNCED = "Syncing is stopped: this initiative was completed or cancelled more than 14 days ago. An admin or approver can resume it from the item panel.";
+/** "pv:define" while the initiative is in Define: the issue exists for engineering feedback on the PRD, before Gate B. Removed again when the phase moves on. */
+export const REVIEW_LABEL = "pv:define";
+export const reviewLabel = (phase: unknown): string | null => (phase === "Define" ? REVIEW_LABEL : null);
+
 /** "pv:moscow/must" for a known MoSCoW value, otherwise no label. */
 export function moscowLabel(v: unknown): string | null {
   const slug = typeof v === "string" ? MOSCOW[v] : undefined;
@@ -123,7 +131,7 @@ export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
   parts.push("", "---", `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept. [Open in Product Velocity](${i.appUrl}/portfolio/${encodeURIComponent(code)})`, BLOCK_END);
 
   const title = (code ? `${code}: ${name}` : name) || "Untitled initiative";
-  const labels = [BASE_LABEL, on("github.label.project") ? projectLabel(i.projectName) : null, on("github.label.moscow") ? moscowLabel(i.item.moscow) : null, on("github.label.rank") ? rankBandLabel(i.item.stack_rank) : null, on("github.label.type") ? changeTypeLabel(i.item.change_type) : null, on("github.label.group") ? groupLabel(i.item.theme) : null].filter((l): l is string => !!l);
+  const labels = [BASE_LABEL, on("github.label.project") ? projectLabel(i.projectName) : null, on("github.label.moscow") ? moscowLabel(i.item.moscow) : null, on("github.label.rank") ? rankBandLabel(i.item.stack_rank) : null, on("github.label.type") ? changeTypeLabel(i.item.change_type) : null, on("github.label.group") ? groupLabel(i.item.theme) : null, reviewLabel(i.item.initiative_phase)].filter((l): l is string => !!l);
   const block = parts.join("\n");
   const milestone = on("github.milestone") ? milestoneFor(i.item.g2m_date_est) : null;
   return { title, block, labels, milestone, typeCandidates: on("github.issueType") ? issueTypeCandidates(i.item.change_type) : [], hash: createHash("sha256").update(JSON.stringify({ title, labels, block, milestone })).digest("hex") };

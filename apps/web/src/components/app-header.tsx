@@ -18,7 +18,9 @@ type Props = {
   /** Saved text size in percent; 100 when left out. */
   textSize?: number;
   /** Tab to mark as the current one; when left out it follows the address of the page. */
-  current?: "grid" | "gantt" | "cards" | "leadership" | "reports";
+  current?: "grid" | "gantt" | "cards" | "leadership" | "decisions" | "reports";
+  /** Gate requests waiting for a decision, shown on the Decisions tab. */
+  decisionsWaiting?: number;
   /** Creators and admins get a link to the Trash in the account menu. */
   showTrash?: boolean;
   /** Admins (and platform admins inside the account) get the Audit log link. */
@@ -28,7 +30,7 @@ type Props = {
 };
 
 /** Top bar following prototype boards 20 and 1: logo, workspace and scope, tabs, account menu. */
-export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmin, email, roleLabel, isApprover, textSize, current, showTrash, showAudit, isAdmin }: Props) {
+export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmin, email, roleLabel, isApprover, textSize, current, decisionsWaiting, showTrash, showAudit, isAdmin }: Props) {
   return (
     <header className="topbar">
       <span className="brand-lockup">
@@ -45,7 +47,7 @@ export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmi
         <ScopeSwitcher />
       </div>
 
-      <HeaderTabs current={current} accountId={activeTenantId} />
+      <HeaderTabs current={current} accountId={activeTenantId} waiting={decisionsWaiting} />
 
       <TextSizeControl initial={textSize} />
       <HelpMenu />

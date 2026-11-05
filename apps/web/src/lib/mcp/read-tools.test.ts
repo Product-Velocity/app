@@ -19,13 +19,14 @@ const detail: ItemDetail = {
 };
 const reader = (): McpReader => ({
   searchData: vi.fn(async () => ({ rows, names, me: "u1" })),
-  itemDetail: vi.fn(async (ref) => (ref.toLowerCase() === "r-01" ? detail : null)),
+  itemDetail: vi.fn(async (ref) => (ref.toLowerCase() === "r-01" ? detail : ref.toLowerCase() === "r-02" ? { ...detail, row: rows[1]! } : null)),
   groups: vi.fn(async () => [{ name: "GitHub", items: 1 }]),
   views: vi.fn(async () => []),
   files: vi.fn(async (ref) => (ref === "R-09" ? null : { files: detail.files, truncated: false })),
   documents: vi.fn(async () => []),
   document: vi.fn(async () => null),
   companyProfile: vi.fn(async () => ({ url: null, profile: null })),
+  gatePack: vi.fn(async (ref: string) => (ref.toLowerCase() === "r-01" || ref.toLowerCase() === "r-02" ? { documents: [{ kind: "prd", title: "PRD", status: "in_review", version: 2 }], requests: [{ gate: "B", kind: "decision", requested_at: "2026-11-05T10:00:00Z", outcome: null, rationale: null, fast_lane: false, decided_at: null, withdrawn: false, ready: false, criteria: [] }], conditions: [{ text: "Legal review", done: false }] } : null)),
 });
 const noWrite = async (): Promise<never> => { throw new Error("not used"); };
 const backend = (role = "creator", r = reader()): McpBackend & { read: McpReader } => ({
@@ -41,6 +42,30 @@ const call = async (b: McpBackend, name: string, args: Record<string, unknown> =
   const text = r.result.content[0]!.text;
   return { isError: r.result.isError === true, text, json: r.result.isError ? null : JSON.parse(text) };
 };
+
+describe("get_gate_pack: evidence for a person to decide, never a decision", () => {
+  it("returns the checklist, documents, requests and conditions for the gate the initiative has to pass next", async () => {
+    const r = (await call(backend(), "get_gate_pack", { item: "R-02" })).json.data;
+    expect(r.gate).toMatchObject({ id: "B", from: "Define", to: "Build" });
+    expect(r.checklist.map((c: { label: string }) => c.label)).toContain("PRD document exists");
+    expect(r.documents).toEqual([{ kind: "prd", title: "PRD", status: "in_review", version: 2 }]);
+    expect(r.requests[0]).toMatchObject({ gate: "B", outcome: null });
+    expect(r.conditions).toEqual([{ text: "Legal review", done: false }]);
+    expect(r.reminder).toMatch(/cannot request, decide or approve/);
+  });
+  it("says so when the phase has no gate after it, and names a mistake", async () => {
+    const r = (await call(backend(), "get_gate_pack", { item: "R-01" })).json.data; // Build
+    expect(r.gate).toBeNull();
+    expect(r.note).toMatch(/no gate/);
+    expect((await call(backend(), "get_gate_pack", { item: "R-99" })).isError).toBe(true);
+    expect((await call(backend(), "get_gate_pack", {})).isError).toBe(true);
+  });
+  it("is read-only and the server offers no way to request or decide a gate", async () => {
+    const names = TOOLS.map((t) => t.name);
+    expect(TOOLS.find((t) => t.name === "get_gate_pack")!.mode).toBe("read");
+    for (const n of names) expect(n, n).not.toMatch(/request_gate|decide_gate|approve|move_phase/);
+  });
+});
 
 describe("describe_fields", () => {
   it("lists every field of the registry with the signed-in user's rights", async () => {

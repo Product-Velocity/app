@@ -149,6 +149,11 @@ function coerce(key: string, raw: unknown, ctx: WriteCtx): Scalar {
     return m.ok ? { ok: true, column, value: m.id, display: m.name } : fail(`${nameOf}: ${m.error}`);
   }
   const text = typeof raw === "boolean" ? (raw ? "Yes" : "No") : String(raw);
+  // Initiative Phase is not typed into a cell (it moves through gates), but Claude may name the phase of an initiative it creates; an update is refused in buildUpdate
+  if (key === "initiative_phase") {
+    const hit = f.allowed.find((a) => a.toLowerCase() === text.trim().toLowerCase());
+    return hit ? { ok: true, column, value: hit, display: hit } : fail(`${nameOf}: "${text}" is not one of ${f.allowed.join(", ")}.`);
+  }
   const v = validateEdit(key, text, { today: ctx.today });
   if (!v.ok) {
     if (f.type === "Select" && f.allowed.length > 0 && key !== "g2m_quarter") return fail(`${nameOf}: "${text}" is not one of ${f.allowed.join(", ")}.`);

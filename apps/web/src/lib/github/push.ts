@@ -14,7 +14,7 @@ import { PUSH_LIMIT, type PlanItem, type PushItemResult } from "./push-types";
 
 type Admin = ReturnType<typeof createAdminClient>;
 type Link = { item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; html_url: string | null; sync_state: string; last_pushed_hash: string | null };
-type Row = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; stack_rank: number; change_type: string | null; g2m_date_est: string | null; theme: string | null; effort: string | null; home_project_id: string };
+type Row = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; stack_rank: number; change_type: string | null; g2m_date_est: string | null; theme: string | null; effort: string | null; initiative_phase: string | null; home_project_id: string };
 
 type SharedFile = { item_id: string; name: string; share_token: string | null };
 const sharedFilesByItem = (rows: SharedFile[], appUrl: string) => {
@@ -60,7 +60,7 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     supabase.from("items").select(ITEM_SELECT).eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
     supabase.from("projects").select("id, name, default_repo, tracker, github_board").eq("tenant_id", tenantId),
     supabase.from("github_repositories").select("full_name, access, is_private").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("removed_at", null),
-    supabase.from("item_github_links").select("item_id, mode, repo_full_name, issue_number, html_url, sync_state, last_pushed_hash").eq("tenant_id", tenantId).in("item_id", unique),
+    supabase.from("item_github_links").select("item_id, mode, repo_full_name, issue_number, html_url, sync_state, last_pushed_hash, frozen_at").eq("tenant_id", tenantId).in("item_id", unique),
     supabase.from("item_links").select("item_id, label, url").eq("tenant_id", tenantId).in("item_id", unique),
     supabase.from("item_files").select("item_id, name, share_token").eq("tenant_id", tenantId).in("item_id", unique).order("created_at"),
     supabase.from("item_issue_tree").select("item_id, repo_full_name, issue_number, board_id").eq("tenant_id", tenantId).in("item_id", unique),
@@ -107,7 +107,7 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     const project = projectById.get(row.home_project_id);
     const link = linkByItem.get(id);
     if (project?.tracker && project.tracker !== "github") return blockedItem(id, `${project.name} is linked to ${project.tracker === "jira" ? "Jira" : project.tracker}: a project has one tracker, so its initiatives are not sent to GitHub.`, { code: row.item_code, name: row.initiative_name, project: project.name });
-    const planLink: PlanLink | null = link ? { mode: link.mode, repo: link.repo_full_name, issueNumber: link.issue_number, syncState: link.sync_state, lastPushedHash: force?.has(id) ? null : link.last_pushed_hash } : null;
+    const planLink: PlanLink | null = link ? { mode: link.mode, repo: link.repo_full_name, issueNumber: link.issue_number, syncState: link.sync_state, lastPushedHash: force?.has(id) ? null : link.last_pushed_hash, frozen: Boolean((link as { frozen_at?: string | null }).frozen_at) } : null;
     const itemFiles = filesByItem.get(id) ?? [];
     const target = (link?.repo_full_name ?? project?.default_repo ?? "").toLowerCase();
     const filesOk = privateRepos.has(target);
@@ -122,7 +122,7 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     const boardNotes = board && sc && fields === null ? [`The board "${board.title}" could not be read just now, so it is left as it is.`] : [];
     if (boardPlan) built.hash = createHash("sha256").update(`${built.hash}|${boardPlan.signature}`).digest("hex");
 
-    const d = planAction({ link: planLink, defaultRepo: project?.default_repo ?? null, activeRepos, readOnlyRepos, hash: built.hash, projectName: project?.name ?? "" });
+    const d = planAction({ link: planLink, defaultRepo: project?.default_repo ?? null, activeRepos, readOnlyRepos, hash: built.hash, projectName: project?.name ?? "", phase: row.initiative_phase });
     // children (epics and tasks, all levels) that engineers or an agent added in GitHub are put on the board by a confirmed send, never in the background
     const pendingChildren = board && boardPlan?.include ? (treeByItem.get(id) ?? []).filter((t) => t.board_id !== board.id).length : 0;
     if (d.action === "unchanged" && pendingChildren > 0) d.action = "update";

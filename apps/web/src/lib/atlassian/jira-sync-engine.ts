@@ -1,3 +1,4 @@
+import { DISCOVER_NOT_SYNCED, FROZEN_NOT_SYNCED } from "@pv/github";
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { columnOnItems, FIELD_BY_KEY } from "@pv/domain";
@@ -23,10 +24,10 @@ import { ReconnectNeeded } from "./token-provider";
 
 type Db = SupabaseClient;
 export type Ctx = { supabase: Db; tenantId: string; userId: string; /** Public address of this app, for the share links of files (Files section); without it files are not linked. */ appUrl?: string };
-type ItemRow = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; g2m_date_est: string | null; planned_start: string | null; stack_rank: number | null; change_type: string | null; theme: string | null; home_project_id: string | null };
+type ItemRow = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; g2m_date_est: string | null; planned_start: string | null; stack_rank: number | null; change_type: string | null; theme: string | null; initiative_phase: string | null; home_project_id: string | null };
 /** The real column of each allowlisted field (G2M Date (est) lives in `end_date`): a column that does not exist makes the whole read fail, so they come from the field registry, as the GitHub push does. */
 export const ITEM_COLUMNS: Record<string, string> = Object.fromEntries(OUTBOUND_JIRA_FIELDS.map((k) => [k, columnOnItems(FIELD_BY_KEY[k]!)!]));
-type LinkRow = { item_id: string; connection_id: string; site_id: string; issue_key: string; issue_id: string | null; html_url: string | null; mode: "follow" | "push"; sync_base: JiraBase | null; sent_hash: string | null };
+type LinkRow = { item_id: string; connection_id: string; site_id: string; issue_key: string; issue_id: string | null; html_url: string | null; mode: "follow" | "push"; sync_base: JiraBase | null; sent_hash: string | null; frozen_at?: string | null };
 type ProjectLink = { project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; field_map?: unknown; /** Rows of tracker_field_config (the field configuration), as stored. */ config?: unknown };
 type Conn = { id: string; sites: { id: string; name: string; url: string }[]; state: string };
 
@@ -39,7 +40,7 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   const { data: itemData } = await ctx.supabase.from("items").select(COLS).eq("tenant_id", ctx.tenantId).is("deleted_at", null).eq("id", id).maybeSingle();
   const item = itemData as unknown as (Record<string, unknown> & { home_project_id: string | null }) | null;
   if (!item) return null;
-  const { data: link } = await ctx.supabase.from("item_jira_links").select("item_id, connection_id, site_id, issue_key, issue_id, html_url, mode, sync_base, sent_hash").eq("tenant_id", ctx.tenantId).eq("item_id", id).maybeSingle();
+  const { data: link } = await ctx.supabase.from("item_jira_links").select("item_id, connection_id, site_id, issue_key, issue_id, html_url, mode, sync_base, sent_hash, frozen_at").eq("tenant_id", ctx.tenantId).eq("item_id", id).maybeSingle();
   const l = (link ?? null) as LinkRow | null;
   const pq = ctx.supabase.from("jira_project_links").select("project_id, connection_id, site_id, jira_project_key, jira_project_name, initiative_type_id").eq("tenant_id", ctx.tenantId);
   const { data: plinks } = l ? await pq.eq("connection_id", l.connection_id).eq("site_id", l.site_id) : item.home_project_id ? await pq.eq("project_id", item.home_project_id) : { data: [] };
@@ -82,12 +83,16 @@ export type Evaluated =
   | { kind: "missing"; message: string }
   | { kind: "follows" }
   | { kind: "no_project" }
+  | { kind: "discover" }
+  | { kind: "frozen" }
   | { kind: "ok"; plan: SendPlan; conflicts: SyncConflict[]; jiraHashes: Partial<Record<TextField, string>>; card: Pick<PlanItem, "id" | "tracker" | "code" | "name" | "project" | "repo" | "action" | "title" | "labels" | "block" | "issueNumber" | "issueUrl" | "issueLabel" | "notes"> };
 
 /** Reads the issue (if there is one) and decides, given the choices made so far, what would go out. */
 export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" | "jira">>, call?: JiraRequest): Promise<Evaluated> {
+  if (l.link?.frozen_at) return { kind: "frozen" };
   if (l.link?.mode === "follow") return { kind: "follows" };
   if (!l.link && !l.plink) return { kind: "no_project" };
+  if (!l.link && l.item.initiative_phase === "Discover") return { kind: "discover" };
   if (!l.conn || l.conn.state !== "connected" || !l.siteUrl) return l.conn?.state === "reconnect_needed" ? { kind: "error", message: RECONNECT, reconnect: true } : { kind: "error", message: "Jira is not connected for this workspace." };
   const req = call ?? jiraRequest(l.conn.id, (l.link?.site_id ?? l.plink!.site_id));
   const pv = pvOf(l.item);
@@ -144,6 +149,8 @@ export async function writeOne(ctx: Ctx, id: string, choices: SyncChoice[], deps
   for (const c of choices) if (c.itemId === id && (TEXT_FIELDS as readonly string[]).includes(c.field)) { picks[c.field as TextField] = c.choice === "pv" ? "pv" : "jira"; seen[c.field as TextField] = c.ghHash; }
   const e = await evaluate(l, picks, deps.call);
   if (e.kind === "follows") return { result: { ...base, outcome: "blocked", message: "This initiative follows its Jira issue read-only: nothing is sent." }, taken: [] };
+  if (e.kind === "frozen") return { result: { ...base, outcome: "blocked", message: FROZEN_NOT_SYNCED }, taken: [] };
+  if (e.kind === "discover") return { result: { ...base, outcome: "blocked", message: DISCOVER_NOT_SYNCED }, taken: [] };
   if (e.kind === "no_project") return { result: { ...base, outcome: "blocked", message: "This initiative's project is not linked to a Jira project." }, taken: [] };
   if (e.kind === "missing") return { result: { ...base, outcome: "missing", message: e.message }, taken: [] };
   if (e.kind === "error") return { result: { ...base, outcome: "error", message: e.message }, taken: [] };
