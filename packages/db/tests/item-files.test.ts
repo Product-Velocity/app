@@ -113,8 +113,7 @@ describe("attachments written through a Claude connection (docs/20 FR-5)", () =>
 });
 
 describe("the migration from item_files and item_links", () => {
-  it("leaves no table of the old names; they are read-only views for the older app (see item-links-files-compat.test.ts)", async () => {
-    const { rows } = await db.admin.query("select relname, relkind from pg_class where relnamespace = 'public'::regnamespace and relname in ('item_links', 'item_files') order by relname");
-    expect(rows).toEqual([{ relname: "item_files", relkind: "v" }, { relname: "item_links", relkind: "v" }]);
+  it("leaves nothing of the old names: no table and no compatibility view", async () => {
+    expect((await db.admin.query("select relname from pg_class where relnamespace = 'public'::regnamespace and relname in ('item_links', 'item_files')")).rows).toEqual([]);
   });
 });
