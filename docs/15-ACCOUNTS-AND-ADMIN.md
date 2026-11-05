@@ -103,3 +103,6 @@ Open content access is a processor-access question. Before real customers: say s
 
 ## 8. Issues (order: foundation first)
 Foundation (phase 1 follow-ups): account page; invitation emails; platform staff foundation (tables, levels, capabilities, access log, MFA, tests). Before the pilot: workspace settings; admin console; staff content access and impersonation with the staff access log. Later (before the first no-content staff member): access grants and `grant_required` mode. Numbers are in `docs/REQUESTS.md`.
+
+## Approval rights (2026-11-05, issue #323)
+The Approver flag on a member means "may decide every gate". Admins may decide every gate by default. An admin can also give any account approval rights for a single gate (A, B or C) under Settings, Workspace (`tenant_gate_approvers`). An approver may decide their own request. Claude, service accounts and staff (members of no workspace) can never decide; the database refuses it. See `docs/28-DECISION-GATES.md` section 5.

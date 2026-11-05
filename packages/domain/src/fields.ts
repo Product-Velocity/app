@@ -27,6 +27,7 @@ export function readOnlyReason(key: string): string | null {
   const f = FIELD_BY_KEY[key];
   if (!f) return "That field does not exist.";
   if (key === "stack_rank") return null; // typed rank moves the item
+  if (key === "initiative_phase") return "Initiative Phase moves through a decision gate (Request gate, Decide) or Move to next phase, not by editing it.";
   if (f.mode === "locked" || f.storage.startsWith("GitHub-synced")) return `${f.name} comes from GitHub and cannot be edited here. Change it on the GitHub issue.`;
   if (f.mode === "computed") return `${f.name} is calculated from other fields and cannot be edited.`;
   if (f.mode === "system") return `${f.name} is set by the system and cannot be edited.`;

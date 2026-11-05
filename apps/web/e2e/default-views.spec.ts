@@ -6,7 +6,9 @@ import { goToView, viewTab } from "./helpers";
 const csv = readFileSync(new URL("../../../docs/reference/default-views.csv", import.meta.url), "utf8").trim().split(/\r?\n/).slice(1).map((l) => l.split(","));
 const fields = JSON.parse(readFileSync(new URL("../../../packages/domain/src/field-dictionary.json", import.meta.url), "utf8")) as { key: string; name: string; phase: number }[];
 const nameOf = Object.fromEntries(fields.map((f) => [f.key, f.name]));
-const shipped = (k: string) => (fields.find((f) => f.key === k)!.phase <= 1) || k === "project_rank";
+// project_rank and the decision-gate fields shipped ahead of their phase (SHIPPED_EARLY in packages/domain/src/registry.ts)
+const EARLY = ["project_rank", "current_gate", "gate_status", "next_gate_due", "ready_for_build"];
+const shipped = (k: string) => (fields.find((f) => f.key === k)!.phase <= 1) || EARLY.includes(k);
 const views = [...new Set(csv.map((r) => r[0]!))];
 const live = (v: string) => csv.filter((r) => r[0] === v).map((r) => r[2]!).filter(shipped);
 

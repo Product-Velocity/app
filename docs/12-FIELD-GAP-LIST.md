@@ -1,6 +1,6 @@
 # Items schema versus the field dictionary (issue #19)
 
-Spec: `docs/reference/item-fields.csv` (165 fields). Before: migration 0008 (36 item columns). After: migration 0009. Check any time with `pnpm test` (registry versus CSV) and `pnpm db:test` (schema versus registry).
+Spec: `docs/reference/item-fields.csv` (169 fields). Before: migration 0008 (36 item columns). After: migration 0009. Check any time with `pnpm test` (registry versus CSV) and `pnpm db:test` (schema versus registry).
 
 ## What was wrong in 0008, and what 0009 did
 

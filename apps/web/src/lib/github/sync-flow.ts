@@ -66,7 +66,7 @@ export async function readIssueTexts(sc: SourceControl, connection: ConnectionRo
 async function compareItems(ctx: SyncCtx, ids: string[], issues: Map<string, IssueTexts>, unchanged: ReadonlySet<string>): Promise<{ compares: Map<string, ItemCompare>; error?: string }> {
   const [items, links, projects, groups, memberRows, directory, repoRows] = await Promise.all([
     ctx.supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis, moscow, theme, end_date, effort, home_project_id, assignee_ids").eq("tenant_id", ctx.tenantId).is("deleted_at", null).in("id", ids),
-    ctx.supabase.from("item_github_links").select("item_id, mode, sync_base, project_item_id, repo_full_name, issue_number").eq("tenant_id", ctx.tenantId).eq("connection_id", ctx.connection.id).in("item_id", ids),
+    ctx.supabase.from("item_github_links").select("item_id, mode, sync_base, project_item_id, repo_full_name, issue_number").eq("tenant_id", ctx.tenantId).eq("connection_id", ctx.connection.id).is("frozen_at", null).in("item_id", ids),
     ctx.supabase.from("projects").select("id, github_board").eq("tenant_id", ctx.tenantId).not("github_board", "is", null),
     ctx.supabase.from("item_groups").select("name").eq("tenant_id", ctx.tenantId),
     ctx.supabase.from("tenant_members").select("user_id, github_username").eq("tenant_id", ctx.tenantId),

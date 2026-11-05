@@ -41,7 +41,7 @@ export async function syncBoardStatuses(admin: Admin, sc: SourceControl, connect
     if (onBoard.length === 0) { notes.push(`Board "${board.title}": no issues were read from it.`); continue; }
     boards++;
     const current = new Map((await all<{ id: string; gh_project_status: string | null; gh_iteration: string | null; gh_target_date: string | null }>((a, b) => admin.from("items").select("id, gh_project_status, gh_iteration, gh_target_date").eq("tenant_id", connection.tenant_id).eq("home_project_id", p.id).is("deleted_at", null).order("id").range(a, b))).map((i) => [i.id, i]));
-    const links: StatusLink[] = (await all<{ item_id: string; repo_full_name: string; issue_number: number | null; project_item_id: string | null }>((a, b) => admin.from("item_github_links").select("item_id, repo_full_name, issue_number, project_item_id").eq("connection_id", connection.id).not("issue_number", "is", null).order("item_id").range(a, b)))
+    const links: StatusLink[] = (await all<{ item_id: string; repo_full_name: string; issue_number: number | null; project_item_id: string | null }>((a, b) => admin.from("item_github_links").select("item_id, repo_full_name, issue_number, project_item_id").eq("connection_id", connection.id).is("frozen_at", null).not("issue_number", "is", null).order("item_id").range(a, b)))
       .filter((l) => current.has(l.item_id) && l.issue_number !== null)
       .map((l) => ({ item_id: l.item_id, repo: l.repo_full_name, number: l.issue_number!, projectItemId: l.project_item_id, current: current.get(l.item_id)?.gh_project_status ?? null, currentIteration: current.get(l.item_id)?.gh_iteration ?? null, currentTargetDate: current.get(l.item_id)?.gh_target_date ?? null }));
     const rows = planStatusApply(onBoard, links);

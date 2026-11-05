@@ -22,7 +22,7 @@ Published (view-only reference): https://claude.ai/artifact/WVtip16iTPYZdru67tsg
 | 18 | Planning-cycles | Phases, candidate pool, "so far" | 5 | |
 | 20 | Portfolio | All-projects grid, quick-add, inline edit, scope switcher | 1 | Canonical grid reference; autosave status strip with Undo (staged Save bar removed) |
 | 21 | Reports | Template gallery, schedule, history, generate | 6 | |
-| 22 | Gate-review | Gate 2 review | 7 | New |
+| 22 | Gate-review | Gate review (the prototype shows Gate 2; the product has gates A, B and C, see `docs/28-DECISION-GATES.md`) | 7 | New |
 | 23 | Insights | Velocity + opportunities | 7 | Example data |
 | 24 | Outcomes | Item outcomes & adoption | 7 | Example data |
 | 25 | Item-alignment | Why/What/How/When per item, stakeholder sign-offs, customer concept review summary, decision log | 8 | New; example data |

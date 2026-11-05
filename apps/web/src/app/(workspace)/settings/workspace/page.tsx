@@ -1,6 +1,7 @@
 import { requireWorkspace } from "@/lib/session";
 import { countryOptions, currencyOptions, timeZoneOptions } from "@/lib/workspace-profile";
 import { WorkspaceForm } from "./form";
+import { GateApprovers } from "@/features/gates/gate-approvers";
 
 export const metadata = { title: "Workspace settings · Product Velocity" };
 
@@ -21,6 +22,7 @@ export default async function WorkspaceSettingsPage() {
           values={{ name: t?.name ?? active.tenantName, country: t?.country ?? "", currency: t?.currency ?? "", timeZone: t?.time_zone ?? "", domains: (t?.allowed_email_domains ?? []).join(", "), restrictInvites: t?.restrict_invites_to_domains ?? false, companyUrl: t?.company_url ?? "" }}
         />
       </div>
+      <GateApprovers tenantId={active.tenantId} canEdit={active.role === "admin" && !active.platform} />
     </div>
   );
 }

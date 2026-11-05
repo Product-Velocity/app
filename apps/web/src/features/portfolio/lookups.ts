@@ -9,16 +9,19 @@ export async function loadLookups(supabase: SupabaseClient, tenantId: string): P
     supabase.from("teams").select("id, name").eq("tenant_id", tenantId).order("name"),
     supabase.rpc("tenant_directory", { p_tenant: tenantId }),
     supabase.from("github_connections").select("id").eq("tenant_id", tenantId).eq("state", "connected").maybeSingle(),
-    supabase.from("item_github_links").select("item_id, mode, issue_number, html_url, sync_state, last_error, gh_state, gh_last_activity").eq("tenant_id", tenantId),
+    supabase.from("item_github_links").select("item_id, mode, issue_number, html_url, sync_state, last_error, gh_state, gh_last_activity, frozen_at").eq("tenant_id", tenantId),
     supabase.rpc("item_build_cycle", { p_tenant: tenantId }),
     supabase.from("tenant_members").select("user_id, github_username").eq("tenant_id", tenantId),
     supabase.from("tenants").select("currency").eq("id", tenantId).maybeSingle(),
     supabase.from("jira_connections").select("id").eq("tenant_id", tenantId).eq("state", "connected").limit(1),
-    supabase.from("item_jira_links").select("item_id, mode, issue_key, html_url, jira_status, jira_status_category, sync_checked_at, jira_updated_at").eq("tenant_id", tenantId),
+    supabase.from("item_jira_links").select("item_id, mode, issue_key, html_url, jira_status, jira_status_category, sync_checked_at, jira_updated_at, frozen_at").eq("tenant_id", tenantId),
   ]);
   const githubName = new Map(((usernames.data ?? []) as { user_id: string; github_username: string | null }[]).map((m) => [m.user_id, m.github_username]));
   const build = new Map(((cycle.data ?? []) as { item_id: string; build_started_at: string | null; build_completed_at: string | null; build_days: number | string | null }[]).map((r) => [r.item_id, r]));
+  // initiatives whose tracker link is frozen (finished more than 14 days ago): the panel says so and offers Resume
+  const frozen = [...((links.data ?? []) as { item_id: string; frozen_at?: string | null }[]), ...((jiraLinks.data ?? []) as { item_id: string; frozen_at?: string | null }[])].filter((l) => l.frozen_at).map((l) => l.item_id);
   return {
+    frozen,
     currency: (tenant.data as { currency: string | null } | null)?.currency ?? null,
     projects: ((projects.data ?? []) as { id: string; name: string }[]).map(({ id, name }) => ({ id, name })),
     jira: {

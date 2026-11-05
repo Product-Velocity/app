@@ -11,7 +11,7 @@ describe("panelField: assignees", () => {
   });
 });
 
-describe("panelField: how each of the 170 fields is shown in the item panel", () => {
+describe("panelField: how each of the 169 fields is shown in the item panel", () => {
   it("scalar editable fields get their own editor", () => {
     expect(panelField(f("initiative_name")).kind).toBe("text");
     expect(panelField(f("hypothesis")).kind).toBe("longtext");
@@ -51,7 +51,7 @@ describe("panelField: how each of the 170 fields is shown in the item panel", ()
 });
 
 describe("panelSections", () => {
-  it("lists every shown field once (all 170 but the hidden Roadmap Category), in the sheet's group order", () => {
+  it("lists every shown field once (all 169 but the hidden Roadmap Category), in the sheet's group order", () => {
     const s = panelSections();
     expect(s.map((x) => x.group).slice(0, 4)).toEqual(["What", "Who", "Why", "Decision"]);
     expect(s.flatMap((x) => x.fields).map((x) => x.key).sort()).toEqual(FIELDS.filter((x) => !HIDDEN_FIELDS.has(x.key)).map((x) => x.key).sort());
@@ -59,7 +59,8 @@ describe("panelSections", () => {
   });
   it("marks a group whose fields all arrive later, so it can start collapsed", () => {
     const s = panelSections();
-    expect(s.find((x) => x.group === "Gates")!.allLater).toBe(true);
+    expect(s.find((x) => x.group === "Outcomes")!.allLater).toBe(true);
+    expect(s.find((x) => x.group === "Gates")!.allLater).toBe(false); // the decision gates shipped early (issue #323)
     expect(s.find((x) => x.group === "What")!.allLater).toBe(false);
   });
 });

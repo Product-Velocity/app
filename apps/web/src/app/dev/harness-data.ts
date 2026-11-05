@@ -59,7 +59,7 @@ export function makeGanttHarness(n: number, role: string) {
  */
 export function makeCardsHarness(n: number, role: string) {
   const { controller, source } = makeHarness(n, 0, role);
-  const phases = ["Discover", "Define", "Build", "Beta-test", null];
+  const phases = ["Discover", "Define", "Build", "Test", null];
   const groups = ["Onboarding", "Platform health", "Retention", null];
   source.items.forEach((item, i) => {
     item.initiative_phase = phases[i % phases.length] ?? null;
@@ -80,7 +80,7 @@ export function makeCardsHarness(n: number, role: string) {
 export function makeLeadershipHarness(n: number, role: string) {
   const { controller, source } = makeHarness(n, 0, role);
   const categories = ["New big bets", "Grow customer revenues", "Protect customer revenues", "Operational efficiency", null];
-  const phases = ["Discover", "Build", "Beta-test", "Roll-out", "Completed"];
+  const phases = ["Discover", "Build", "Test", "Roll-out", "Completed"];
   const iso = (d: number) => new Date(Date.UTC(2027, 3, 14) + d * 86_400_000).toISOString().slice(0, 10);
   source.items.forEach((item, i) => {
     item.roadmap_category = categories[i % categories.length] ?? null;
@@ -154,7 +154,7 @@ export function withGithubTree(controller: PortfolioController, source: MemoryDa
  */
 export function makeReportsHarness(n: number, role: string) {
   const { controller, source } = makeHarness(n, 0, role);
-  const phases = ["Discover", "Define", "Build", "Beta-test"];
+  const phases = ["Discover", "Define", "Build", "Test"];
   const statuses = ["Active", "On hold", "Cancelled"];
   const quarters = ["Q3 2027", "Q4 2027", null];
   for (const r of controller.rows) {

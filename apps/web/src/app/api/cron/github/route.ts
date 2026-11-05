@@ -34,5 +34,7 @@ export async function GET(request: Request) {
       console.error(JSON.stringify({ github: "cron", connection: c.id, error: e instanceof Error ? e.message.slice(0, 200) : "unknown" }));
     }
   }
-  return Response.json(report);
+  // finished initiatives stop syncing 14 days after Completed or Cancelled (docs/28-DECISION-GATES.md section 9): after the check, so the last look happened first
+  const { data: frozen } = await admin.rpc("freeze_finished_links", { p_days: 14 });
+  return Response.json({ ...report, frozen: frozen ?? null });
 }

@@ -9,14 +9,14 @@ First audience: **enterprise buyers** (confirmed 2026-10-21). ICP wording: "fast
 Caveat: AI agents are **not** yet counted as capacity; do not market "AI and human teams" capacity planning until [R2] adds agent capacity.
 
 ## 2. Users and roles
-Tenant → Projects. Roles: **Viewer, Commenter, Creator, Admin**, plus separate **Approver** permission (only Approvers record Gate 2 / mark "Ready for build"; Claude can never hold it), plus **Leadership viewer** (portfolio-level read). Alignment **Participants** are external-style guests (magic link, no account). Billable seats = Creator/Admin/Approver (see `09`).
+Tenant → Projects. Roles: **Viewer, Commenter, Creator, Admin**, plus separate **Approver** permission (approval rights are set per gate; Admins have them by default; only a person with approval rights decides a gate; Claude and service accounts can never hold it), plus **Leadership viewer** (portfolio-level read). Alignment **Participants** are external-style guests (magic link, no account). Billable seats = Creator/Admin/Approver (see `09`).
 
 ## 3. Core concepts
 - **Project**: team, repo(s), GitHub setup. **Portfolio** is a *scope*, not a container: default "All projects" plus saved named scopes.
 - **Item (initiative)**: home project + contributing teams. One **global Stack Rank** per planning cycle and portfolio; project views show the filtered order ("#3 globally, #1 in Platform").
 - **Fit line**: per team. An item is above the line only if every team it needs has room (effort by skill vs the team's new-work capacity).
 - **Planning cycle**: phases Candidate selection → Alignment → Commit → Prepare → Execution → Review.
-- **Decision gates** G1 Worth exploring, G2 Commit to build (Approver), G3 Ready to launch, G4 Outcome review (+30/60/90 days).
+- **Decision gates** A (Discover to Define: discovery approved), B (Define to Build: PRD approved, ready for build) and C (Experiment to Roll-out: may it roll out). The +30/60/90 outcome review is not a gate. See `docs/28-DECISION-GATES.md`.
 
 ## 4. Feature areas
 
@@ -45,7 +45,7 @@ R1 methods: top-5 + duels, **100 coins**, ICE sliders. 100 coins: 100 per person
 R2: **Why / What / How / When** per item with states Not started, In review, Aligned, Contested, Overdue; sign-off Approve / Approve with concerns / Block (a block is never averaged away); stakeholder lists including customers; decision log; customer concept review (customer-safe brief, "Does this solve your problem?", "What is missing?"); customers as a segment (anonymised or by account; ARR weighting off by default). *Lenses / agreement rings were rejected — do not build.*
 
 ### 4.8 Decision gates [R2] (board 22)
-Criteria auto-evaluated by the app (e.g. fits capacity) or confirmed by people. Outcomes: Go / Go with conditions / Hold / Stop with immutable rationale; conditions become tracked tasks. Auto-pass when criteria met and no objection; fast lane for small items (G2 only); gate pack (Claude may prepare, only Approver decides). Fields: Current Gate, Gate Status, Next Gate Due.
+Three gates, A, B and C (decided 2026-11-05, `docs/28-DECISION-GATES.md`). Signal (anyone with Creator or above requests a gate), decide (a person with approval rights chooses Go / Go with conditions / Hold / Stop with an immutable rationale; conditions become tracked tasks) and complete (one step moves the phase, approves the document, sets Ready for build at B and audits). The checklist informs and does not block; **no auto-pass**. **Fast lane** is recorded by the approver on the decision (a later target phase and a comment); there are no thresholds or checks. Approval rights are configured per gate, Admins by default, own requests allowed. A Decisions screen and bulk Request/Decide/Move actions. Gate pack: Claude may prepare, never decide. Fields: Current Gate (A, B, C), Gate Status, Next Gate Due. Tracker sync starts at Gate B and stops 14 days after Completed or Cancelled.
 
 ### 4.9 Reports [R1 basic: 3 templates; R2: all] (board 21)
 Engine = template + scope + audience profile + format. Audience profiles control field visibility (customer-safe, participants, go-to-market, leadership, internal). Built-in branded templates: Roadmap for sales, Pre-vote briefing, Go-to-market launch deck, Monthly business review, Alignment results, Roadmap data export. Formats: PPTX, DOCX, XLSX, PDF (HTML print view). Snapshots with history. Claude drafts narrative; human reviews. Scheduled drafts [R2]. Custom template upload and native Google/SharePoint [LATER].

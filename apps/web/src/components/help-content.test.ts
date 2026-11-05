@@ -5,7 +5,7 @@ import { AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_TABS, AGENT_USE_CASES, COLUMNS_NO
 describe("Help guide columns table", () => {
   it("has exactly one row for every column in the field dictionary, in its order", () => {
     expect(COLUMN_ROWS.map((r) => r.key)).toEqual(FIELDS.filter((f) => !HIDDEN_FIELDS.has(f.key)).map((f) => f.key));
-    expect(COLUMN_ROWS.length).toBe(169); // 170 fields; Roadmap Category is hidden in the app
+    expect(COLUMN_ROWS.length).toBe(168); // 169 fields; Roadmap Category is hidden in the app
     expect(COLUMN_ROWS.some((r) => r.key === "roadmap_category")).toBe(false);
   });
   it("gives every row text in every cell", () => {
@@ -147,7 +147,9 @@ describe("Help guide: AI agents (request #230)", () => {
     expect(Object.keys(AGENT_GUIDES)).toEqual(["claude", "chatgpt", "gemini"]);
   });
   it("explains brainstorm, create, review and update, and the advantages of the profile, the project context and the rest", () => {
-    expect(AGENT_USE_CASES.rows.map((r) => r[0])).toEqual(["Brainstorm", "Create", "Review", "Update"]);
+    expect(AGENT_USE_CASES.rows.map((r) => r[0])).toEqual(["Brainstorm", "Create", "Review", "Prepare a gate", "Update"]);
+    // a gate pack is evidence for a person: the use-case says Claude cannot decide (CLAUDE.md rule 3)
+    expect(AGENT_USE_CASES.rows.find((r) => r[0] === "Prepare a gate")![1]).toMatch(/cannot request, decide or approve/);
     const adv = AGENT_ADVANTAGES.map((a) => a.title.toLowerCase()).join(" | ");
     for (const w of ["company profile", "project and workspace context", "prior knowledge", "research", "team", "ai tool and model", "safe"]) expect(adv, w).toContain(w);
   });

@@ -24,6 +24,8 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
   const requested = active.role === "admin" && !active.platform
     ? (await supabase.from("tenant_members").select("id", { count: "exact", head: true }).eq("tenant_id", active.tenantId).eq("status", "requested")).count ?? 0
     : 0;
+  // gate requests waiting for a decision: the number on the Decisions tab (fast count on the open-request index)
+  const decisionsWaiting = (await supabase.from("gate_reviews").select("id", { count: "exact", head: true }).eq("tenant_id", active.tenantId).eq("kind", "decision").is("decided_at", null).is("withdrawn_at", null)).count ?? 0;
   return (
     <SupabaseWorkspaceProvider tenantId={active.tenantId} userId={user.id} projects={(projects ?? []) as { id: string; name: string }[]} canEdit={canEditItems(active.role)} canAdmin={active.role === "admin"}>
     <UserPrefsProvider panelWidth={panelWidthFromMetadata(user.user_metadata)}>
@@ -38,6 +40,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
         email={user.email ?? ""}
         roleLabel={active.platform ? "Platform admin" : ROLE_LABEL[active.role]}
         isApprover={active.isApprover}
+        decisionsWaiting={decisionsWaiting}
         textSize={textSizeFromMetadata(user.user_metadata)}
         showTrash={canEditItems(active.role)}
         showAudit={active.role === "admin" || !!active.platform}

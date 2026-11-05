@@ -1,9 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-/** The harness has 42 items (item i, counting from 0): phase cycles Discover, Define, Build, Beta-test; every seventh from the 7th is archived. */
+/** The harness has 42 items (item i, counting from 0): phase cycles Discover, Define, Build, Test; every seventh from the 7th is archived. */
 const N = 42;
-const items = Array.from({ length: N }, (_, i) => ({ i, phase: ["Discover", "Define", "Build", "Beta-test"][i % 4]!, archived: i % 7 === 6, quarter: ["Q3 2027", "Q4 2027", null][i % 3] ?? null, core: i % 5 === 0 || i % 2 === 0 }));
+const items = Array.from({ length: N }, (_, i) => ({ i, phase: ["Discover", "Define", "Build", "Test"][i % 4]!, archived: i % 7 === 6, quarter: ["Q3 2027", "Q4 2027", null][i % 3] ?? null, core: i % 5 === 0 || i % 2 === 0 }));
 const live = items.filter((x) => !x.archived);
 
 const open = async (page: Page, query = "") => {

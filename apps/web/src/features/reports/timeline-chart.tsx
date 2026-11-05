@@ -7,7 +7,7 @@ import { CHART_FONT, EChart, PALETTE } from "./echart";
 
 const DAY_MS = 86_400_000;
 const PAGE = 30;
-const PHASES = ["Discover", "Define", "Build", "Beta-test", "Experiment", "Roll-out", "Completed", "Sunset", "Not set"];
+const PHASES = ["Discover", "Define", "Build", "Test", "Experiment", "Roll-out", "Completed", "Not set"];
 const HEALTH = ["On Track", "At Risk", "Delayed", "Blocked", "Not set"];
 const HEALTH_COLOURS: Record<string, string> = { "On Track": "#0f8a6a", "At Risk": "#c27a00", Delayed: "#b4472f", Blocked: "#8a1f1f", "Not set": "#9aa3b2" };
 const phaseColour = (p: string) => PALETTE[Math.max(0, PHASES.indexOf(p)) % PALETTE.length]!;

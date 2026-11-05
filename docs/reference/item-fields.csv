@@ -2,7 +2,7 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 1,What,Initiative ID,item_code,System,"R-01, R-02, …",System,Auto-derive,Shown in issue body as backlink.,System-set column (read-only),1
 2,What,Roadmap Category,roadmap_category,Select,New big bets · Grow customer revenues · Protect customer revenues · Operational efficiency · Close capability gaps,Input,Keep,Not synced (hidden in the app since 2026-11-05; the label moved to Business Value Type).,Column on items,1
 3,What,Build Status,status,Select,Not started · In progress · Done · Cancelled,Input,Split,"GitHub -> app, read-only. Fixed vocabulary shared with Jira: tracking issue closed as completed -> Done; closed as not planned -> Cancelled; reopened -> Not started; first child issue in progress -> In progress. Counts from Gate B (Define to Build) onward. Applied automatically, audit-logged.",GitHub-synced column (read-only in app),3
-4,What,Initiative Phase,initiative_phase,Select,Discover · Define · Build · Beta-test · Experiment · Roll-out · Completed · Sunset,Input,Modify,Suggest only (never auto-set): first child issue in progress -> suggest Build.,Column on items,1
+4,What,Initiative Phase,initiative_phase,Select,Discover · Define · Build · Test · Experiment · Roll-out · Completed,Input,Modify,Suggest only (never auto-set): first child issue in progress -> suggest Build.,Column on items,1
 5,What,Stack Rank,stack_rank,Number,,Input,Modify,"Optional one-way push to a GitHub issue field ""Priority"" / label.",Column on items,1
 6,What,Initiative Group,theme,Select,,Input,Modify,Optional: push as label.,Column on items,1
 7,What,Initiative Name,initiative_name,Text,,Input,Keep,App -> GitHub issue title on creation; app owns the title afterwards.,Column on items,1
@@ -48,7 +48,7 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 52,When,Start Discovery,start_discovery,Date,,System,Auto-derive,,System-set column (read-only),1
 53,When,Start Definition,start_definition,Date,,System,Auto-derive,,System-set column (read-only),1
 54,When,Start Building,start_building,Date,,System,Auto-derive,Suggested from first child issue moving to in progress.,System-set column (read-only),1
-55,When,Start Beta-Test,start_beta,Date,,System,Auto-derive,,System-set column (read-only),1
+55,When,Start Test,start_beta,Date,,System,Auto-derive,,System-set column (read-only),1
 56,When,Start Experiment,start_experiment,Date,,System,Auto-derive,,System-set column (read-only),1
 57,When,Start Roll-Out,start_rollout,Date,,System,Auto-derive,,System-set column (read-only),1
 58,When,Last Updated,last_edited_at,System,,System,Replace,,System-set column (read-only),1
@@ -69,7 +69,7 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 73,Efficiency,Discovery Time (days),time_discovery_days,Computed,,Computed,Modify,,"Computed (view or function, not stored)",3
 74,Efficiency,Definition Time (days),time_definition_days,Computed,,Computed,Modify,,"Computed (view or function, not stored)",3
 75,Efficiency,Building Time (days),time_building_days,Computed,,Computed,Modify,,"Computed (view or function, not stored)",3
-76,Efficiency,Beta-Test Time (days),time_beta_days,Computed,,Computed,Modify,,"Computed (view or function, not stored)",3
+76,Efficiency,Test Time (days),time_beta_days,Computed,,Computed,Modify,,"Computed (view or function, not stored)",3
 77,Efficiency,Experiment Time (days),time_experiment_days,Computed,,Computed,Modify,,"Computed (view or function, not stored)",3
 78,Efficiency,Roll-Out Time (days),time_rollout_days,Computed,,Computed,Modify,,"Computed (view or function, not stored)",3
 79,Efficiency,Time to Market (days),time_to_market_days,Computed,,Computed,Keep,,"Computed (view or function, not stored)",3
@@ -135,7 +135,6 @@ V7,What,Screenshots,screenshots,Files,,Input,New (v4),"Share links (not the file
 V8,When,Date Precision,date_precision,Select,Day · Month · Quarter,Input,New (v4),Not synced.,Column on items,1
 V9,Why,Effort by Skill,effort_by_skill,Structured,Skill = person-weeks,Input,New (v4),Estimates may come from sub-issues.,Column on items (jsonb),1
 V10,Why,Fit by Team,fit_by_team,Computed,fits · tight · over,Computed,New (v4),Not synced.,"Computed (view or function, not stored)",5
-V11,Spec,Spec Status,spec_status,Select,No spec · Draft · In review · Approved,Input,New (v4),Not synced.,Column on items,4
 V12,Spec,Documents,documents,Relation,"PRD, business requirements, technical requirements, acceptance criteria, prototype, research",Input,New (v4),Links may be added to the issue body.,Related table,4
 V13,Spec,Ready for Build,ready_for_build,Computed,Not ready · Requested · Ready,Computed,New (v4),Label optional.,"Computed (view or function, not stored)",4
 V14,Spec,Ready for Build By / At,ready_for_build_by,System,"Person, date",System,New (v4),Not synced.,System-set column (read-only),4
@@ -149,7 +148,7 @@ V21,Planning,Candidate Tag,candidate_tag,Select,Carry-over · Likely carry-over 
 V22,Planning,Deferred Count,deferred_count,Number,,System,New (v4),Not synced.,System-set column (read-only),5
 V23,Planning,Deferral Reason,deferral_reason,Text,,Input,New (v4),Not synced.,Column on items,5
 V24,Planning,Added After Commit,added_after_commit,Boolean,Yes · No,System,New (v4),Not synced.,System-set column (read-only),5
-V25,Gates,Current Gate,current_gate,Select,G1 · G2 · G3 · G4,System,New (v4),Not synced.,System-set column (read-only),7
+V25,Gates,Current Gate,current_gate,Select,A · B · C,System,New (v4),Not synced.,System-set column (read-only),7
 V26,Gates,Gate Status,gate_status,Select,Not started · In review · Waiting for Approver · Passed with conditions · Passed · Held · Stopped,System,New (v4),Not synced.,System-set column (read-only),7
 V27,Gates,Next Gate Due,next_gate_due,Date,,Input,New (v4),Not synced.,Column on items,7
 V28,Alignment,Alignment Status,alignment_status,Computed,Not started · In review · Aligned · Contested · Overdue,Computed,New (v4),Not synced.,"Computed (view or function, not stored)",8

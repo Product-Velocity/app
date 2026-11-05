@@ -219,23 +219,66 @@ export const FLOW_CREATE: Table = {
 };
 
 export const FLOW_LIFECYCLE: Table = {
-  head: ["Phase", "What happens", "Evidence in Product Velocity"],
+  head: ["Phase", "What happens", "Evidence in Product Velocity", "Gate at the end"],
   rows: [
-    ["Discover", "Objective, problem, evidence, candidate solutions. People choose one", "Discovery document"],
-    ["Define", "Write the PRD, align on why, what, how and when, estimate, rank", "PRD, alignment, effort, Stack Rank"],
-    ["Build", "Engineers deliver in GitHub or Jira", "Build Status, progress, PRs and CI (read-only)"],
-    ["Beta-test", "Limited release to check it works", "Health, notes"],
-    ["Experiment", "Test with a population against a threshold", "Rollout plan in the PRD"],
-    ["Roll-out", "Widen to the target markets and customers", "Customers live, adoption"],
-    ["Completed", "Measure the outcome against the key result", "Outcome fields, learning"],
-    ["Sunset", "Retire it", "Initiative Status"],
+    ["Discover", "Objective, problem, evidence, candidate solutions. People choose one", "Discovery document", "Gate A: discovery approved"],
+    ["Define", "Write the PRD, align on why, what, how and when, estimate, rank", "PRD, alignment, effort, Stack Rank", "Gate B: PRD approved, ready for build"],
+    ["Build", "Engineers deliver in GitHub or Jira", "Build Status, progress, PRs and CI (read-only)", "None: a Creator moves it to Test"],
+    ["Test", "Limited release to check it works", "Health, notes", "None: a Creator moves it to Experiment"],
+    ["Experiment", "Test with a population against a threshold", "Rollout plan in the PRD", "Gate C: may it roll out?"],
+    ["Roll-out", "Widen to the target markets and customers", "Customers live, adoption", "None: set Initiative Status to Completed"],
+    ["Completed", "Measure the outcome against the key result (reviews at +30, +60 and +90 days)", "Outcome fields, learning", "None"],
   ],
 };
 
 export const LIFECYCLE_NOTES = [
-  "People move the phase. Claude and the tracker never do; the app may suggest Build when the first child issue starts.",
-  "Initiative Status (Active, On hold, Completed, Cancelled) is set by people only. A closed ticket means the build is done, not the initiative.",
-  "Decision gates G1 to G4 (Go, Hold, Kill) are decided by a person with the Approver permission. Claude can prepare, never approve.",
+  "People move the phase. Claude and the tracker never do; the app may suggest Test when the build is done in GitHub or Jira. A suggestion is one click for you to accept.",
+  "Initiative Status (Active, On hold, Completed, Cancelled) is set by people only. Setting it to Completed moves the phase to Completed; a closed ticket means the build is done, not the initiative.",
+  "The phase cell in the grid is read-only. Use Request gate, Decide or Move to next phase (item panel, multi-select bar, command palette).",
+  "Items sync to GitHub or Jira from Gate B. Before that, an optional Request engineering review sends the name, summary, description and hypothesis while the PRD is in review. Discover never syncs.",
+  "Syncing stops 14 days after an initiative is Completed or Cancelled; an approver or admin can resume it.",
+];
+
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// Decision gates (issue #323, docs/28-DECISION-GATES.md)
+
+export const GATES_INTRO = "A decision gate is the one moment where a person with approval rights says whether an initiative may move on. There are three: A, B and C. Claude can prepare the gate pack (evidence and a checklist) but never decides.";
+
+export const GATES_TABLE: Table = {
+  head: ["Gate", "Between", "The question", "What passing does"],
+  rows: [
+    ["A", "Discover and Define", "Is this worth defining? Is the discovery solid?", "Approves the discovery document and moves the phase to Define"],
+    ["B", "Define and Build", "Do we commit to build it?", "Approves the PRD (the only place a PRD is approved), moves the phase to Build and marks it Ready for build until the tracker starts; offers the GitHub or Jira handover"],
+    ["C", "Experiment and Roll-out", "Did the experiment pass, and may it roll out?", "Moves the phase to Roll-out"],
+  ],
+};
+
+export const GATES_STEPS: Table = {
+  head: ["Step", "Who", "What happens"],
+  rows: [
+    ["1. Request", "Creator or above", "Request gate A, B or C on one item or on a selection. Gate Status becomes In review. A checklist shows what is missing; it informs, it does not block."],
+    ["2. Decide", "Anyone with approval rights for that gate", "Go, Go with conditions, Hold or Stop, with a rationale that cannot be edited later. The first decision wins; the others see it closed. You may approve your own request."],
+    ["3. Complete", "The app, in one step", "Records the decision, moves the phase and its start date, approves the document (gate A: discovery, gate B: PRD), sets Ready for build at gate B, and writes the audit log. Sending to GitHub or Jira still needs your confirmation."],
+  ],
+};
+
+export const GATES_OUTCOMES: Table = {
+  head: ["Outcome", "What it means"],
+  rows: [
+    ["Go", "Move on. The phase changes."],
+    ["Go with conditions", "Move on, and each condition becomes a task that is tracked until it is done."],
+    ["Hold", "Stay in the phase and come back (a review date is recorded)."],
+    ["Stop", "Do not continue. Initiative Status becomes Cancelled and you are offered to close the tracker issue."],
+  ],
+};
+
+export const GATES_NOTES = [
+  "Fast lane: the person who decides can pick a later phase and tick Fast lane with a comment. The skipped phases and gates are recorded as Skipped (fast lane). There are no size or confidence checks; it is your call.",
+  "There is no auto-pass. Nothing moves through a gate without a person deciding.",
+  "Who can decide is set per gate in Settings, Workspace. Admins can by default; you can give any account approval rights. Claude, service accounts and staff impersonation never can.",
+  "Decisions screen: every gate request, filtered by Waiting for approval (the default), Decided, Requested by me, and Can decide. Open a row to read the gate pack; J and K move through the list.",
+  "Multi-select bar: Request gate, Decide (one rationale for all selected, with a confirmation listing each item) and Move to next phase.",
+  "The outcome review at +30, +60 and +90 days is not a gate; it is a scheduled review after Roll-out.",
 ];
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
@@ -256,7 +299,7 @@ export const ROADMAP_HEALTH_DEFINITIONS: Table = {
   rows: [
     ["Active", "Initiative Status is Active. On hold, Completed and Cancelled are not counted (completed ones feed only the completed delivery duration)."],
     ["Blocked, At Risk, Delayed", "The Health column of active initiatives, counted separately. Click one to filter every chart and the list to it; click again to remove it."],
-    ["Days in current phase", "Today minus the start date of the phase the initiative is in (Start Discovery, Start Definition, Start Building, Start Beta-Test, Start Experiment, Start Roll-Out), else the day Phase Changed At."],
+    ["Days in current phase", "Today minus the start date of the phase the initiative is in (Start Discovery, Start Definition, Start Building, Start Test, Start Experiment, Start Roll-Out), else the day Phase Changed At."],
     ["Age", "Today minus Start Date, else Planned Start."],
     ["No date", "An initiative whose date is empty, invalid or in the future is not left out silently: the summary counts them and the list says No date."],
     ["Completed delivery duration", "The Time to Market card, for completed initiatives only: G2M Date (actual) minus the earlier of Start Discovery and Start Date, with the median, the distribution, the number counted and the number excluded."],
@@ -290,6 +333,7 @@ export const AGENT_USE_CASES: Table = {
     ["Brainstorm", "Thinks with you before anything exists. It reads the workspace (projects, groups, teams, fields, related initiatives and their documents) and the company profile, so ideas fit what you already plan. Nothing is written until you say so.", "\"Search initiatives related to loyalty and retention. Which overlap with this idea, and what could we test first?\"", "Only the chat. Save nothing"],
     ["Create", "Turns a brief into a discovery or a PRD, asks once for what is missing (including who is on the team), shows a dry run, then creates the initiative and the document as AI drafts.", "\"Use write_discovery. Brief: customers leave after the first month. Team: product manager = Ana, designer = Li.\"", "Initiative fields plus a document on the Spec tab. Full documents never go to GitHub"],
     ["Review", "Reads a document or initiative and reports: unclear acceptance criteria, missing risks, claims without evidence, a light roll-out plan, partner claims the partner does not support. It changes nothing.", "\"Review the PRD of R-12. Do not change anything yet.\"", "Only the chat, with the codes it looked at"],
+    ["Prepare a gate", "Reads one initiative and gathers the case for a decision gate: the checklist (what is filled in, what is missing), its documents and their status, past requests and decisions, open conditions. It writes a short summary for the person who decides. It cannot request, decide or approve a gate, or move a phase.", "\"Use get_gate_pack for R-12 and summarise the case for gate B.\"", "In the chat only; a person decides in Decisions"],
     ["Update", "Revises a document (a new version, the old one kept) or fills empty fields. Changes to fields a person already filled come back as a diff you confirm first. A second assistant can review what the first wrote.", "\"Update the PRD of R-12 with what we decided today. Show me the diff.\"", "A new document version, with the AI tool and model that wrote it. Undo with undo_last"],
   ],
 };
