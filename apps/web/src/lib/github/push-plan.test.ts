@@ -39,12 +39,13 @@ describe("planPush and the one tracker of a project", () => {
     }
   });
   it("puts shared documents into the issue as a last section for a private repository only, with their headings moved down so the block still reads back", async () => {
-    const docs = [{ item_id: "i1", shared: true, kind: "prd", title: "PRD: Mirror", body: "# Goal\n## Summary\nShip it.\n## Description\nmore", status: "draft", ai_draft: true }, { item_id: "i1", shared: false, kind: "prd", title: "Secret plan", body: "never", status: "draft", ai_draft: false }];
+    const docs = [{ item_id: "i1", shared: true, kind: "prd", title: "PRD: Mirror", body: "# Goal\n## Summary\nShip it.\n## Description\nmore", status: "draft", ai_draft: false }, { item_id: "i1", shared: true, kind: "prd", title: "Claude wrote this", body: "unreviewed", status: "draft", ai_draft: true }, { item_id: "i1", shared: false, kind: "prd", title: "Secret plan", body: "never", status: "draft", ai_draft: false }];
     const base = { items: [item], projects: [{ id: "p1", name: "Core", default_repo: "Acme/App", tracker: "github" }], item_documents: docs };
     const [priv] = await planPush(fakeSupabase({ ...base, github_repositories: [{ full_name: "Acme/App", access: "read_write", is_private: true }] }), "t1", "https://app.example", connection, ["i1"]);
-    expect(priv!.block).toContain("## Documents\n### PRD: Mirror (PRD)\n_Draft · AI draft, not yet reviewed_");
+    expect(priv!.block).toContain("## Documents\n### PRD: Mirror (PRD)\n_Draft_");
     expect(priv!.block).toContain("##### Summary\nShip it.");
     expect(priv!.block).not.toContain("Secret plan"); // "Do not share"
+    expect(priv!.block).not.toContain("unreviewed"); // an AI draft nobody has accepted is held back
     // the issue still reads back: the document's own "Summary" and "Description" are not mistaken for ours
     const { splitManagedBlock } = await import("@pv/github");
     const split = splitManagedBlock(priv!.block.replace(/<!-- pv:begin item=\S+ -->/, "<!-- pv:begin item=00000000-0000-0000-0000-000000000001 -->")); // the fixture id is not a UUID

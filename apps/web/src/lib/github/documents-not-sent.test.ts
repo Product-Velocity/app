@@ -25,13 +25,13 @@ describe("documents reach a delivery platform only through the shared-documents 
       expect(readFileSync(f, "utf8"), f).not.toMatch(/item_documents|item_document_versions/);
     }
   });
-  it("the two readers ask only for documents left shared, and never read the versions", () => {
+  it("the two readers ask only for documents left shared and not an unaccepted AI draft, and never read the versions", () => {
     for (const r of READERS) {
       const file = [...sources(githubDir), ...sources(atlassianDir)].find((f) => f.endsWith(`/${r}`))!;
       const text = readFileSync(file, "utf8");
       const reads = text.match(/from\("item_documents"\)[^;]*/g) ?? [];
       expect(reads.length, r).toBeGreaterThan(0);
-      for (const q of reads) expect(q, `${r}: ${q}`).toContain('.eq("shared", true)');
+      for (const q of reads) { expect(q, `${r}: ${q}`).toContain('.eq("shared", true)'); expect(q, `${r}: ${q}`).toContain('.eq("ai_draft", false)'); }
       expect(text, r).not.toMatch(/item_document_versions/);
     }
   });
