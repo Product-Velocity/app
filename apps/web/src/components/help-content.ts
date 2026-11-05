@@ -17,7 +17,6 @@ const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
 const sent = (github: string, jira: string): Link => ({ github: `Sent to ${lower(github)}`, jira: `Sent to ${jira}` });
 const read = (github: string, jira: string): Link => ({ github: `Read from ${lower(github)}`, jira: /^Not /.test(jira) ? jira : `Read from ${lower(jira)}` });
 const JIRA_PER_MAPPING = "per mapping";
-const NOT_YET = "Not sent yet (an optional label is planned)";
 
 /**
  * Exact GitHub targets are from the push and read code (docs/04-GITHUB-SYNC.md): the tracking issue's title and managed block, the labels in the `pv:`
@@ -42,7 +41,7 @@ const OVERRIDES: Record<string, Link> = {
   effort: { github: "Sent to project board field Size (XS to XL)", jira: "Not sent yet" },
   g2m_date_est: sent("Milestone \"YYYY Qn\" (due on the quarter's last day); board field Due date", "Due date"),
   home_project: sent("The repository that holds the tracking issue; label pv:project/<project>", "Label pv:project/<project>; the Jira project it is linked to holds the issue"),
-  roadmap_category: same(NOT_YET), focus_area: same(NOT_YET), tags: same(NOT_YET), planned_start: { github: "Not sent yet (the board's Start date is planned)", jira: "Start date field, once you choose it (Field configuration)" },
+  roadmap_category: sent("Label pv:category/<value>, only when the project switches it on (Settings, Integrations, GitHub, Field configuration; off by default)", "Label pv:category/<value>, only when the project switches it on (Settings, Integrations, Jira, Field configuration; off by default)"), focus_area: sent("Label pv:focus/<value>, only when the project switches it on (Field configuration; off by default)", "Label pv:focus/<value>, only when the project switches it on (Field configuration; off by default)"), tags: sent("One label pv:tag/<tag> per tag, at most 10, only when the project switches it on (Field configuration; off by default)", "One label pv:tag/<tag> per tag, at most 10, only when the project switches it on (Field configuration; off by default)"), planned_start: { github: "Not sent yet (the board's Start date is planned)", jira: "Start date field, once you choose it (Field configuration)" },
   assignees: { github: "Both: issue Assignees", jira: "Not synced yet" },
   github_links: { github: "The tracking issue (repository and issue number)", jira: "The Jira issue (key)" },
   status: read("Issue state: open, closed as completed (Done), closed as not planned (Cancelled). The one status Product Velocity ever writes to GitHub is the close of the issue of an initiative you deleted (closed as not planned), after you confirm it in Sync with GitHub (Removed in Product Velocity)", "Jira status category: to do = Not started, in progress = In progress, done = Done (the status name is on the Jira tab). The one status Product Velocity ever writes to Jira is the close of the issue of an initiative you deleted, after you confirm it in Sync with Jira (Removed in Product Velocity)"),

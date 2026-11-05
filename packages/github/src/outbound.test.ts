@@ -21,6 +21,10 @@ describe("buildTrackingIssue", () => {
     const read: string[] = [];
     const item = new Proxy({ ...base.item, value_12m: "LEAK", confidence: "LEAK" }, { get: (t, k) => (read.push(String(k)), (t as Record<string, unknown>)[k as string]) });
     buildTrackingIssue({ ...base, item });
+    // the optional labels (Focus Area, Roadmap Category, Tags) are only read when a project switches them on
+    expect(new Set(read)).toEqual(new Set(OUTBOUND_ITEM_FIELDS.filter((k) => !["focus_area", "roadmap_category", "tags"].includes(k))));
+    read.length = 0;
+    buildTrackingIssue({ ...base, item, on: ["github.label.focus", "github.label.category", "github.label.tags"] });
     expect(new Set(read)).toEqual(new Set(OUTBOUND_ITEM_FIELDS));
   });
   it("the Description is its own Markdown section between Summary and Hypothesis, and only appears when there is one", () => {

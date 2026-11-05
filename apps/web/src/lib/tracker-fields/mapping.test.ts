@@ -139,3 +139,39 @@ describe("reading what is stored", () => {
     expect(parseConfigRows([{ slot: "jira.label.moscow", enabled: false }], "github")).toEqual([]);
   });
 });
+
+describe("the optional labels (issue #321): off by default, on when a project switches them on", () => {
+  const ITEM2 = { ...ITEM, focus_area: "Demand/Optimisation", roadmap_category: "Grow customer revenues", tags: ["Q4 push", "payments", "Q4 push"] };
+  const ON_ALL = (t: "jira" | "github") => ["tags", "focus", "category"].map((k) => ({ slot: `${t}.label.${k}`, enabled: true, field: null }));
+  it("with nothing saved, no label for them is sent on either tracker (today's payloads are unchanged)", () => {
+    const j = buildJiraPayload({ item: ITEM2, fields: effectiveJiraMap(BASE, []), projectName: "Platform" });
+    expect(j.fields.labels).toEqual(["product-velocity", "pv:project/platform", "pv:moscow/must", "pv:rank/top-10", "pv:type/new-feature", "pv:group/payments"]);
+    const g = buildTrackingIssue({ item: ITEM2, itemId: "22222222-2222-4222-8222-222222222222", projectName: "Mobile", appUrl: "https://productvelocity.app", artifacts: [], ...githubOptions([]) });
+    expect(g.labels.some((l) => /pv:(tag|focus|category)\//.test(l))).toBe(false);
+  });
+  it("switched on, they become pv: labels: one per tag (sorted, no duplicates), the focus area and the category", () => {
+    const j = buildJiraPayload({ item: ITEM2, fields: effectiveJiraMap(BASE, ON_ALL("jira")), projectName: "Platform" });
+    expect((j.fields.labels as string[]).slice(6)).toEqual(["pv:focus/demand-optimisation", "pv:category/grow-customer-revenues", "pv:tag/payments", "pv:tag/q4-push"]);
+    const g = buildTrackingIssue({ item: ITEM2, itemId: "22222222-2222-4222-8222-222222222222", projectName: "Mobile", appUrl: "https://productvelocity.app", artifacts: [], ...githubOptions(ON_ALL("github")) });
+    expect(g.labels.slice(6)).toEqual(["pv:focus/demand-optimisation", "pv:category/grow-customer-revenues", "pv:tag/payments", "pv:tag/q4-push"]);
+  });
+  it("each switch only adds its own label, and an empty value adds nothing", () => {
+    const only = (k: string) => (buildJiraPayload({ item: ITEM2, fields: effectiveJiraMap(BASE, [{ slot: `jira.label.${k}`, enabled: true, field: null }]), projectName: "Platform" }).fields.labels as string[]).slice(6);
+    expect(only("focus")).toEqual(["pv:focus/demand-optimisation"]);
+    expect(only("category")).toEqual(["pv:category/grow-customer-revenues"]);
+    expect(only("tags")).toEqual(["pv:tag/payments", "pv:tag/q4-push"]);
+    const empty = buildJiraPayload({ item: { ...ITEM, focus_area: "", tags: [] }, fields: effectiveJiraMap(BASE, ON_ALL("jira")), projectName: "Platform" });
+    expect((empty.fields.labels as string[]).length).toBe(6);
+  });
+  it("tags are capped at 10 labels and a tag that is only symbols is dropped", () => {
+    const many = Array.from({ length: 15 }, (_, n) => `tag ${String(n).padStart(2, "0")}`);
+    const j = buildJiraPayload({ item: { ...ITEM, tags: [...many, "!!!"] }, fields: effectiveJiraMap(BASE, [{ slot: "jira.label.tags", enabled: true, field: null }]) });
+    expect((j.fields.labels as string[]).filter((l) => l.startsWith("pv:tag/"))).toHaveLength(10);
+  });
+  it("they are on the config list as default-off switches: the form, the parse and the validation keep only what differs from off", () => {
+    expect(parseConfigRows([{ slot: "jira.label.tags", enabled: false }, { slot: "jira.label.focus", enabled: true }, { slot: "jira.label.rank", enabled: false }], "jira")).toEqual([{ slot: "jira.label.focus", enabled: true, field: null }, { slot: "jira.label.rank", enabled: false, field: null }]);
+    expect(validateConfig("jira", [{ slot: "jira.label.tags", enabled: false, field: null }, { slot: "jira.label.category", enabled: true, field: null }], null)).toEqual({ ok: true, rows: [{ slot: "jira.label.category", enabled: true, field: null }] });
+    expect(effectiveJiraMap(BASE, [{ slot: "jira.label.tags", enabled: true, field: null }, { slot: "jira.label.moscow", enabled: false, field: null }])).toMatchObject({ on: ["jira.label.tags"], off: ["jira.label.moscow"] });
+    expect(githubOptions([{ slot: "github.label.focus", enabled: true, field: null }])).toEqual({ on: ["github.label.focus"] });
+  });
+});

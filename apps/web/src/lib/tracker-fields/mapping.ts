@@ -1,4 +1,4 @@
-import { SLOT_BY_ID, slotsFor, type Slot, type Tracker } from "./slots";
+import { SLOT_BY_ID, defaultOn, slotsFor, type Slot, type Tracker } from "./slots";
 import type { CatalogEntry } from "./catalog";
 import type { JiraFieldMap } from "@/lib/atlassian/outbound";
 
@@ -9,7 +9,10 @@ import type { JiraFieldMap } from "@/lib/atlassian/outbound";
 /** One saved choice. A slot with no row is at its default. */
 export type ConfigRow = { slot: string; /** false = switched off: nothing is sent for it. */ enabled: boolean; /** A tracker field id for a "field" slot; null = the default field. */ field: string | null };
 
-export const OFF = (rows: readonly ConfigRow[]): string[] => rows.filter((r) => !r.enabled).map((r) => r.slot);
+/** Slots switched off that are on by default (the labels, sections and dates a person can turn off). */
+export const OFF = (rows: readonly ConfigRow[]): string[] => rows.filter((r) => !r.enabled && defaultOn(SLOT_BY_ID.get(r.slot)!)).map((r) => r.slot);
+/** Slots switched on that are off by default (the optional labels, issue #321). */
+export const ON_OPT = (rows: readonly ConfigRow[]): string[] => rows.filter((r) => r.enabled && !defaultOn(SLOT_BY_ID.get(r.slot)!)).map((r) => r.slot);
 
 /** Stored rows to a clean list: unknown slots, fixed slots and malformed values are dropped (stored data is never trusted to have the right shape). */
 export function parseConfigRows(raw: unknown, tracker: Tracker): ConfigRow[] {
@@ -20,9 +23,9 @@ export function parseConfigRows(raw: unknown, tracker: Tracker): ConfigRow[] {
     const o = typeof r === "object" && r !== null ? (r as Record<string, unknown>) : {};
     const s = typeof o.slot === "string" ? SLOT_BY_ID.get(o.slot) : undefined;
     if (!s || s.tracker !== tracker || s.kind === "fixed" || s.store !== "config" || seen.has(s.id)) continue;
-    const enabled = o.enabled !== false;
+    const enabled = o.enabled !== false && !(o.enabled === undefined && !defaultOn(s));
     const field = typeof o.field === "string" && o.field !== "" && s.kind === "field" && s.idPattern?.test(o.field) ? o.field : null;
-    if (enabled && field === null) continue; // the default: nothing to keep
+    if (enabled === defaultOn(s) && field === null) continue; // the default: nothing to keep
     seen.add(s.id);
     out.push({ slot: s.id, enabled, field: enabled ? field : null });
   }
@@ -51,7 +54,7 @@ export function validateConfig(tracker: Tracker, submitted: readonly ConfigRow[]
     seen.add(s.id);
     if (s.kind === "toggle") {
       if (r.field !== null) { errors.push(`${s.defaultTarget} can only be switched on or off.`); continue; }
-      if (!r.enabled) rows.push({ slot: s.id, enabled: false, field: null });
+      if (r.enabled !== defaultOn(s)) rows.push({ slot: s.id, enabled: r.enabled, field: null });
       continue;
     }
     if (!r.enabled) { rows.push({ slot: s.id, enabled: false, field: null }); continue; }
@@ -76,14 +79,17 @@ export function effectiveJiraMap(base: JiraFieldMap, rows: readonly ConfigRow[])
   if (due?.enabled && due.field) out.dueDate = due.field;
   const off = OFF(rows).filter((s) => s.startsWith("jira."));
   if (off.length > 0) out.off = off;
+  const on = ON_OPT(rows).filter((s) => s.startsWith("jira."));
+  if (on.length > 0) out.on = on;
   return out;
 }
 
 /** What the GitHub builder reads: the slots switched off. */
-export type GithubSendOptions = { off?: readonly string[] };
+export type GithubSendOptions = { off?: readonly string[]; on?: readonly string[] };
 export const githubOptions = (rows: readonly ConfigRow[]): GithubSendOptions => {
   const off = OFF(rows).filter((s) => s.startsWith("github."));
-  return off.length > 0 ? { off } : {};
+  const on = ON_OPT(rows).filter((s) => s.startsWith("github."));
+  return { ...(off.length > 0 ? { off } : {}), ...(on.length > 0 ? { on } : {}) };
 };
 
 /** Slots whose saved value lives in the config table, for one tracker. */

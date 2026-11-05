@@ -102,9 +102,16 @@ describe("Help guide: exact target fields", () => {
     expect(row("gh_project_status").github).toMatch(/field Status/);
   });
   it("does not claim a send that is not built", () => {
-    for (const k of ["roadmap_category", "focus_area", "tags", "planned_start"]) {
+    for (const k of ["planned_start"]) {
       expect(row(k).github, k).toMatch(/Not sent yet/);
       expect(row(k).updated, k).toBe("You edit it");
+    }
+    // issue #321: the three optional labels are built, off by default, and the Help says where to switch them on
+    for (const k of ["roadmap_category", "focus_area", "tags"]) {
+      expect(row(k).github, k).toMatch(/^Sent to label pv:|^Sent to one label pv:/i);
+      expect(row(k).github, k).toMatch(/off by default/);
+      expect(row(k).jira, k).toMatch(/off by default/);
+      expect(row(k).updated, k).toMatch(/^You edit it/);
     }
   });
   it("says for every column the app sends to GitHub what Jira gets: a target, or plainly that it is not sent", () => {

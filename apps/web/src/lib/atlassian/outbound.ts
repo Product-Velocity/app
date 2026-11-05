@@ -1,11 +1,11 @@
-import { BASE_LABEL, OWNED_LABEL_PREFIX, changeTypeLabel, groupLabel, moscowLabel, projectLabel, rankBandLabel } from "@pv/github";
+import { BASE_LABEL, OWNED_LABEL_PREFIX, categoryLabel, changeTypeLabel, focusAreaLabel, groupLabel, moscowLabel, projectLabel, rankBandLabel, tagLabels } from "@pv/github";
 import { composeDescription, type Link } from "./jira-sections";
 
 // Everything that may leave the app for Jira (CLAUDE.md rule 2, issue #67). Jira sites can be shared widely, so this list is the ONLY place
 // a field of an item is read for a Jira payload. Value, confidence, customers, decisions, rationale, key results, outcomes, markets and the
 // rank number are never listed, and a test (outbound-allowlist.test.ts) fails if any of them reaches a payload. Status, sprint and
 // transitions are never written (rule 6): this builder has no input for them.
-export const OUTBOUND_JIRA_FIELDS = ["initiative_name", "summary", "description", "hypothesis", "moscow", "g2m_date_est", "planned_start", "stack_rank", "change_type", "theme"] as const;
+export const OUTBOUND_JIRA_FIELDS = ["initiative_name", "summary", "description", "hypothesis", "moscow", "g2m_date_est", "planned_start", "stack_rank", "change_type", "theme", "focus_area", "roadmap_category", "tags"] as const;
 export type JiraOutboundField = (typeof OUTBOUND_JIRA_FIELDS)[number];
 
 /** How this Jira site spells the fields PV can fill; each is optional and a missing one is skipped with a note in the preview, never guessed. */
@@ -20,6 +20,8 @@ export type JiraFieldMap = {
   dueDate?: string;
   /** Slots switched off in the field configuration (`jira.dueDate`, `jira.label.*`): nothing is sent for them. */
   off?: readonly string[];
+  /** Slots switched ON that are off by default (`jira.label.tags`, `jira.label.focus`, `jira.label.category`). */
+  on?: readonly string[];
 };
 export type JiraPayloadInput = {
   /** Read through the allowlist only. */
@@ -52,9 +54,10 @@ function read(item: Record<string, unknown>, key: JiraOutboundField): unknown { 
  * The `pv:` labels an item should carry, the same as the GitHub sync sends: the base label, the project, MoSCoW, the rank BAND (top 10, top 25,
  * top 50, later; never the number), Change Type and Initiative Group. Nothing commercial is ever a label.
  */
-export function desiredLabels(item: Record<string, unknown>, projectName?: string, off: readonly string[] = []): string[] {
+export function desiredLabels(item: Record<string, unknown>, projectName?: string, off: readonly string[] = [], optIn: readonly string[] = []): string[] {
   const on = (slot: string) => !off.includes(slot);
-  return [BASE_LABEL, projectName && on("jira.label.project") ? projectLabel(projectName) : null, on("jira.label.moscow") ? moscowLabel(read(item, "moscow")) : null, on("jira.label.rank") ? rankBandLabel(read(item, "stack_rank")) : null, on("jira.label.type") ? changeTypeLabel(read(item, "change_type")) : null, on("jira.label.group") ? groupLabel(read(item, "theme")) : null].filter((l): l is string => !!l);
+  const opt = (slot: string) => optIn.includes(slot);
+  return [BASE_LABEL, projectName && on("jira.label.project") ? projectLabel(projectName) : null, on("jira.label.moscow") ? moscowLabel(read(item, "moscow")) : null, on("jira.label.rank") ? rankBandLabel(read(item, "stack_rank")) : null, on("jira.label.type") ? changeTypeLabel(read(item, "change_type")) : null, on("jira.label.group") ? groupLabel(read(item, "theme")) : null, opt("jira.label.focus") ? focusAreaLabel(read(item, "focus_area")) : null, opt("jira.label.category") ? categoryLabel(read(item, "roadmap_category")) : null, ...(opt("jira.label.tags") ? tagLabels(read(item, "tags")) : [])].filter((l): l is string => !!l);
 }
 /** Put on a Jira issue when its initiative was removed in Product Velocity and the person confirmed (jira-close.ts). Not an "owned" label: a later send must not strip it. */
 export const REMOVED_LABEL = "pv:removed";
@@ -75,7 +78,7 @@ export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {
       pv: { summary: typeof read(item, "summary") === "string" ? (read(item, "summary") as string).slice(0, 4000) : "", description, hypothesis: typeof read(item, "hypothesis") === "string" ? (read(item, "hypothesis") as string).slice(0, 4000) : "" },
       ...(map.off?.includes("jira.body.artifacts") ? {} : { artifacts: input.artifacts ?? [] }), ...(map.off?.includes("jira.body.files") ? {} : { files: input.files ?? [] }),
     }),
-    labels: mergeLabels(input.currentLabels ?? [], [...desiredLabels(item, input.projectName, map.off), ...(input.marker && /^pv:item\/[0-9a-f]{16}$/.test(input.marker) ? [input.marker] : [])]),
+    labels: mergeLabels(input.currentLabels ?? [], [...desiredLabels(item, input.projectName, map.off, map.on), ...(input.marker && /^pv:item\/[0-9a-f]{16}$/.test(input.marker) ? [input.marker] : [])]),
   };
   if (input.create) { f.project = { key: input.create.projectKey }; f.issuetype = { id: input.create.issueTypeId }; }
   if (input.parentKey) f.parent = { key: input.parentKey };
