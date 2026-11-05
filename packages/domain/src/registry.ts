@@ -97,7 +97,8 @@ export const OPEN_LIST_FIELDS: readonly string[] = ["focus_area", "audience"];
 export const isOpenList = (key: string): boolean => OPEN_LIST_FIELDS.includes(key);
 
 /** Fields built ahead of their dictionary phase (Rank in Project is computed from the stack rank, so the grid has it now). */
-const SHIPPED_EARLY: ReadonlySet<string> = new Set(["project_rank"]);
+// Decision gates (issue #323) were pulled forward from phase 7: these fields are real columns or view columns now
+const SHIPPED_EARLY: ReadonlySet<string> = new Set(["project_rank", "current_gate", "gate_status", "next_gate_due", "ready_for_build"]);
 export const isShipped = (f: FieldDef) => f.phase <= CURRENT_PHASE || SHIPPED_EARLY.has(f.key);
 export const arrivesLabel = (f: FieldDef) => (isShipped(f) ? null : `Arrives in phase ${f.phase}`);
 

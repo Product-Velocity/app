@@ -94,13 +94,18 @@ describe("Claude and approval", () => {
     expect((await row(id)).ai_draft).toBe(false);
   });
 
-  it("only an Approver approves; Claude never does; a client cannot set approval fields", async () => {
+  it("nobody approves a document by editing it, not even an Approver; only its decision gate does; Claude never does", async () => {
     const id = await add(creator, "To approve");
     await edit(creator, id, "status = 'in_review'");
     expect(await errorCode(edit(creator, id, "status = 'approved'"))).toBe(PV004);
+    expect(await errorCode(edit(approver, id, "status = 'approved'"))).toBe(PV004);
     expect(await errorCode(edit(approver, id, "status = 'approved'", [], "MCP"))).toBe(PV004);
     expect(await errorCode(db.asUser(approver, (q) => q("update public.item_documents set approved_by = $2 where id = $1", [id, approver]), { via: "UI" }))).not.toBe(null);
-    await edit(approver, id, "status = 'approved'");
+    expect(await row(id)).toMatchObject({ status: "in_review", approved_by: null });
+    // Gate B approves the PRD (docs/28-DECISION-GATES.md)
+    await db.admin.query("update public.items set initiative_phase = 'Define' where id = $1", [item]);
+    const review = await db.asUser(creator, async (q) => (await q("select public.request_gate($1, 'B') as id", [item])).rows[0].id as string, { commit: true, via: "UI" });
+    await db.asUser(approver, (q) => q("select public.decide_gate($1, 'go', 'PRD reviewed with engineering')", [review]), { commit: true, via: "UI" });
     expect(await row(id)).toMatchObject({ status: "approved", approved_by: approver });
     expect((await row(id)).approved_at).not.toBeNull();
   });
@@ -108,7 +113,9 @@ describe("Claude and approval", () => {
   it("a new document cannot start approved, and changing an approved document sends it back to review", async () => {
     const id = await db.asUser(approver, async (q) => (await q("insert into public.item_documents (tenant_id, item_id, title, status) values ($1, $2, 'Sneaky', 'approved') returning id", [f.tenantA, item])).rows[0].id as string, { commit: true, via: "UI" });
     expect((await row(id)).status).toBe("draft");
-    await edit(approver, id, "status = 'approved'");
+    // approve it the only way there is: set the gate switch inside the database, as decide_gate does
+    await db.admin.query("select set_config('pv.gate_approval', 'on', false); update public.item_documents set status = 'approved' where id = '" + id + "'; select set_config('pv.gate_approval', '', false)");
+    expect((await row(id)).status).toBe("approved");
     await edit(creator, id, "body = $2", ["edited after approval"]);
     expect(await row(id)).toMatchObject({ status: "in_review", approved_by: null, approved_at: null, version: 2 });
   });

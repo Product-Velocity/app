@@ -150,7 +150,7 @@ deferral_reason,Planning,Editable,,,Y,,,,,,
 added_after_commit,Planning,System (read-only),,,Y,,,,,,
 current_gate,Gates,System (read-only),,,Y,,Y,,,,Y
 gate_status,Gates,System (read-only),,,Y,,,,,,Y
-next_gate_due,Gates,Editable,,,Y,,,,,,
+next_gate_due,Gates,System (read-only),,,Y,,,,,,
 alignment_status,Alignment,Computed (read-only),,Y,Y,,,,,,Y
 align_why,Alignment,Editable,,,Y,,,,,,
 align_what,Alignment,Editable,,,Y,,,,,,

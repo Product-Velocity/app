@@ -266,6 +266,13 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
       }
     }
   }
+  // a gate request, a condition and an approver list entry (positive controls for the decision gates); older-schema tests seed before they exist
+  if ((await db.admin.query("select to_regclass('public.gate_reviews') as t")).rows[0].t) {
+    const review = await one("insert into public.gate_reviews (tenant_id, item_id, gate, kind, outcome, rationale, decided_at) values ($1, $2, 'A', 'decision', 'go_with_conditions', 'Seed decision', now()) returning id", [tenantId, items[2]]);
+    await db.admin.query("insert into public.gate_conditions (tenant_id, review_id, item_id, text) values ($1, $2, $3, 'Seed condition')", [tenantId, review, items[2]]);
+    await db.admin.query("insert into public.gate_reviews (tenant_id, item_id, gate) values ($1, $2, 'B')", [tenantId, items[2]]);
+    await db.admin.query("insert into public.tenant_gate_approvers (tenant_id, gate, user_id) select tenant_id, 'C', user_id from public.tenant_members where tenant_id = $1 limit 1", [tenantId]);
+  }
   const sess = await one("insert into public.alignment_sessions (tenant_id, name, method) values ($1, 'Seed session', 'coins') returning id", [tenantId]);
   await db.admin.query("insert into public.alignment_items (tenant_id, session_id, item_id, position) values ($1, $2, $3, 1)", [tenantId, sess, items[0]]);
   await db.admin.query("update public.alignment_sessions set groups = '[{\"id\":\"everyone\",\"name\":\"Everyone\"}]' where id = $1", [sess]);

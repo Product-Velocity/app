@@ -3241,7 +3241,7 @@
   "key": "next_gate_due",
   "group": "Gates",
   "type": "Date",
-  "editing": "Editable",
+  "editing": "System (read-only)",
   "customerSafe": false,
   "views": [
    "Planning"

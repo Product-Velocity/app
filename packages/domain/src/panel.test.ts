@@ -58,7 +58,8 @@ describe("panelSections", () => {
   });
   it("marks a group whose fields all arrive later, so it can start collapsed", () => {
     const s = panelSections();
-    expect(s.find((x) => x.group === "Gates")!.allLater).toBe(true);
+    expect(s.find((x) => x.group === "Outcomes")!.allLater).toBe(true);
+    expect(s.find((x) => x.group === "Gates")!.allLater).toBe(false); // the decision gates shipped early (issue #323)
     expect(s.find((x) => x.group === "What")!.allLater).toBe(false);
   });
 });

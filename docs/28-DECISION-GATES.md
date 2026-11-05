@@ -49,7 +49,7 @@ Phases: **Discover, Define, Build, Test, Experiment, Roll-out, Completed.** (Tes
 | Hold | Phase stays; Gate Status Held; an optional review date goes to Next Gate Due. |
 | Stop | Phase stays; Initiative Status becomes Cancelled; the confirmed "close the tracker issue" offer appears (same words as the removed-initiative decisions). |
 
-Gate Status values: Not started, In review, Waiting for Approver, Passed with conditions, Passed, Held, Stopped. "Waiting for Approver" is shown when the request is complete and nobody has decided.
+Gate Status describes the gate the item has to pass next (Current Gate): Not started, In review (requested, checklist incomplete), Waiting for Approver (requested, checklist complete), Held, Stopped. After a Go the item has a new Current Gate and its status is Not started; what was decided stays in `gate_reviews` (outcome, rationale, who, when) and open conditions stay on the item. "Passed" and "Passed with conditions" are allowed values that the app does not set today. The checklist the requester sees is stored on the request (`criteria`, `ready`); it never blocks a decision.
 
 **No auto-pass.** Criteria are evaluated and shown, and Approvers are notified that a request is ready, but nothing passes without a person.
 
@@ -104,8 +104,8 @@ Commercial fields never sync (rule 2). A gate decision, its rationale and its co
 
 ## 11. Build slices (issue #323)
 
-1. Names and docs: phases, gates, Help (this page).
-2. Gate tables, approver configuration, request, decide and complete functions, RLS and tests.
+1. Names and docs: phases, gates, Help (this page). **Built.**
+2. Gate tables, approver configuration, request, decide and complete functions, RLS and tests (migrations `20261105160035_phase_values_test_completed` and `20261105160804_decision_gates`). **Built.**
 3. Decisions screen, multi-select bar, Move to next phase, read-only Phase cell, Completed follows status, Test suggestion.
 4. Tracker handover at Gate B and the optional Define push (GitHub and Jira).
 5. Freeze and resume; hide Completed in default views.

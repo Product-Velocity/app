@@ -432,48 +432,53 @@ describe("moving a Gantt bar: Planned Start and G2M Date (est) together", () => 
 
 describe("moving a card: several fields as one undo step", () => {
   const setup = () => {
-    const items = sampleItems(4, ["p1"], ["u1"]).map((i) => ({ ...i, initiative_phase: "Build", theme: "Onboarding" }));
+    const items = sampleItems(4, ["p1"], ["u1"]).map((i) => ({ ...i, moscow: "Must", theme: "Onboarding" }));
     const source = new MemoryDataSource(items);
     return { c: new PortfolioController(source, items, { ...lookups, groups: ["Onboarding", "Retention"] }, "creator", () => TODAY, () => 1_000), source };
   };
   it("changes the column and the lane field together; one undo puts both back", async () => {
     const { c, source } = setup();
-    expect(c.editFields("item-1", { initiative_phase: "Test", theme: "Retention" })).toEqual({ ok: true, changed: true });
-    expect(c.row("item-1")).toMatchObject({ initiative_phase: "Test", theme: "Retention" });
-    expect(c.status.last?.text).toBe("R-01 Initiative Phase: Build to Test, Initiative Group: Onboarding to Retention");
+    expect(c.editFields("item-1", { moscow: "Should", theme: "Retention" })).toEqual({ ok: true, changed: true });
+    expect(c.row("item-1")).toMatchObject({ moscow: "Should", theme: "Retention" });
+    expect(c.status.last?.text).toBe("R-01 MoSCoW: Must to Should, Initiative Group: Onboarding to Retention");
     expect(c.status.undoCount).toBe(1);
     await c.flush();
-    expect(source.items[0]).toMatchObject({ initiative_phase: "Test", theme: "Retention" });
+    expect(source.items[0]).toMatchObject({ moscow: "Should", theme: "Retention" });
     await c.undo();
-    expect(c.row("item-1")).toMatchObject({ initiative_phase: "Build", theme: "Onboarding" });
+    expect(c.row("item-1")).toMatchObject({ moscow: "Must", theme: "Onboarding" });
     await c.flush();
-    expect(source.items[0]).toMatchObject({ initiative_phase: "Build", theme: "Onboarding" });
+    expect(source.items[0]).toMatchObject({ moscow: "Must", theme: "Onboarding" });
     await c.redo();
-    expect(c.row("item-1")!.initiative_phase).toBe("Test");
+    expect(c.row("item-1")!.moscow).toBe("Should");
+  });
+  it("refuses Initiative Phase here: it moves through a decision gate or Move to next phase", () => {
+    const { c } = setup();
+    expect(c.editFields("item-1", { initiative_phase: "Test" })).toMatchObject({ ok: false, error: expect.stringContaining("decision gate") });
+    expect(c.status.undoCount).toBe(0);
   });
   it("null clears a field, a typed group keeps the existing spelling", () => {
     const { c } = setup();
-    c.editFields("item-2", { initiative_phase: null, theme: "retention" });
-    expect(c.row("item-2")).toMatchObject({ initiative_phase: null, theme: "Retention" });
+    c.editFields("item-2", { moscow: null, theme: "retention" });
+    expect(c.row("item-2")).toMatchObject({ moscow: null, theme: "Retention" });
   });
   it("checks everything first: a refused value changes nothing", () => {
     const { c } = setup();
-    expect(c.editFields("item-1", { initiative_phase: "Test", status: "Completed" })).toMatchObject({ ok: false, error: expect.stringContaining("comes from GitHub") });
-    expect(c.editFields("item-1", { initiative_phase: "Nonsense" })).toMatchObject({ ok: false });
-    expect(c.row("item-1")!.initiative_phase).toBe("Build");
+    expect(c.editFields("item-1", { moscow: "Should", status: "Completed" })).toMatchObject({ ok: false, error: expect.stringContaining("comes from GitHub") });
+    expect(c.editFields("item-1", { moscow: "Nonsense" })).toMatchObject({ ok: false });
+    expect(c.row("item-1")!.moscow).toBe("Must");
     expect(c.status.undoCount).toBe(0);
   });
   it("saves only what differs, refuses view-only roles, and puts a failed field back on its own", async () => {
     const { c, source } = setup();
-    c.editFields("item-1", { initiative_phase: "Build", theme: "Retention" });
+    c.editFields("item-1", { moscow: "Must", theme: "Retention" });
     await c.flush();
     expect(source.calls.map((o) => o.type === "update" && o.field)).toEqual(["theme"]);
     const items = sampleItems(1, ["p1"], ["u1"]);
     expect(new PortfolioController(new MemoryDataSource(items), items, lookups, "viewer", () => TODAY, () => 1_000).editFields("item-1", { moscow: "Must" })).toEqual({ ok: false, error: READ_ONLY_MESSAGE });
     source.failWhen = (op) => (op.type === "update" && op.field === "theme" ? "no permission" : null);
-    c.editFields("item-2", { initiative_phase: "Define", theme: "Retention" });
+    c.editFields("item-2", { moscow: "Could", theme: "Retention" });
     await c.flush();
-    expect(c.row("item-2")).toMatchObject({ initiative_phase: "Define", theme: "Onboarding" });
+    expect(c.row("item-2")).toMatchObject({ moscow: "Could", theme: "Onboarding" });
     expect(c.status.error).toContain("no permission");
   });
 });
