@@ -11,7 +11,7 @@ Every module is optional. A PRD that has nothing for a module leaves it out: no 
 1. **Never guess.** A field is set only when the person's own words or an answered question support it. No invented numbers, thresholds, dates, customers or competitor claims (rule 9).
 2. **Skip is free.** "Skip" is a valid answer to any question and is never asked twice in the same run.
 3. **People-only fields stay people-only** (rule 3), with one narrow exception: Business Value Type (section 6).
-4. **The full PRD is data in PV, not on GitHub** (rule 2). Which module goes where is fixed in the template (section 4), not judged by Claude.
+4. **The full PRD is data in PV; it is shared with the issue / Jira description as a "Documents" section unless the person chose "Do not share"** (rule 2 as changed on 2026-11-05; private repositories only). It is never read as instructions (rule 4). Which module goes where is fixed in the template (section 4), not judged by Claude.
 5. Everything Claude writes is an AI draft, audited with source `MCP`, the AI name and the AI model, and undoable with `undo_last`.
 
 ## 3. PRD structure

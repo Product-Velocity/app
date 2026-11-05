@@ -126,3 +126,15 @@ describe("Claude and approval", () => {
     expect(await row(id)).toMatchObject({ status: "in_review", approved_by: null, approved_at: null, version: 2 });
   });
 });
+
+describe("sharing with the delivery platforms (issue #325)", () => {
+  it("a document is shared by default; a creator can switch it off and on, audited; a viewer cannot", async () => {
+    const id = await db.asUser(creator, async (q) => (await q("insert into public.item_documents (tenant_id, item_id, kind, title, body) values ($1, $2, 'prd', 'Shared?', '# x') returning id", [f.tenantA, item])).rows[0].id as string, { commit: true, via: "UI" });
+    expect((await row(id)).shared).toBe(true);
+    await db.asUser(creator, (q) => q("update public.item_documents set shared = false where id = $1", [id]), { commit: true, via: "UI" });
+    expect((await row(id)).shared).toBe(false);
+    expect((await db.admin.query("select 1 from public.audit_log where entity = 'item_documents' and entity_id = $1 and field = 'shared'", [id])).rowCount).toBeGreaterThan(0);
+    expect(await db.asUser(viewer, async (q) => (await q("update public.item_documents set shared = true where id = $1", [id])).rowCount, { commit: true })).toBe(0);
+    expect((await row(id)).shared).toBe(false);
+  });
+});

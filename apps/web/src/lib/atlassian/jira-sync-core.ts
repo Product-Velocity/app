@@ -75,14 +75,16 @@ type PlanInput = {
   /** Links of the initiative and share links of its files, for the Artifacts and Files sections. */
   artifacts?: Link[];
   files?: Link[];
+  /** The Markdown of the documents left shared, for the Documents section. */
+  documents?: string;
 };
 
 export function planJiraSend(i: PlanInput): SendPlan {
   const item = { initiative_name: i.pv.name, summary: i.pv.summary ?? "", description: i.pv.description ?? "", hypothesis: i.pv.hypothesis ?? "", moscow: i.pv.moscow ?? undefined, g2m_date_est: i.pv.g2m_date_est ?? undefined, planned_start: i.pv.planned_start ?? undefined, stack_rank: i.pv.stack_rank ?? undefined, change_type: i.pv.change_type ?? undefined, theme: i.pv.theme ?? undefined, focus_area: i.pv.focus_area ?? undefined, value_type: i.pv.value_type ?? undefined, g2m_quarter: i.pv.g2m_quarter ?? undefined, tags: i.pv.tags ?? [] };
   const marker = i.jira ? undefined : markerFor(i.pv.id);
   const shown = { ...(i.map.off?.includes("jira.body.artifacts") ? {} : { artifacts: i.artifacts }), ...(i.map.off?.includes("jira.body.files") ? {} : { files: i.files }) };
-  const attHash = attachmentsHash(shown.artifacts, shown.files);
-  const payloadInput = { item, fields: i.map, ...(i.projectName ? { projectName: i.projectName } : {}), ...(i.artifacts ? { artifacts: i.artifacts } : {}), ...(i.files ? { files: i.files } : {}) };
+  const attHash = attachmentsHash(shown.artifacts, shown.files, i.documents);
+  const payloadInput = { item, fields: i.map, ...(i.projectName ? { projectName: i.projectName } : {}), ...(i.artifacts ? { artifacts: i.artifacts } : {}), ...(i.files ? { files: i.files } : {}), ...(i.documents ? { documents: i.documents } : {}) };
   if (!i.jira) {
     const p = buildJiraPayload({ ...payloadInput, ...(i.create ? { create: i.create } : {}), ...(marker ? { marker } : {}) });
     const c = compareJira(i.pv, { summary: i.pv.name, description: null, labels: [] }, null);
@@ -111,12 +113,12 @@ export function planJiraSend(i: PlanInput): SendPlan {
   // The description is one Jira field holding three compared sections and two sent-only ones. It is rewritten when a section is written, or when the
   // links changed since the last sync, and never while a section is still a conflict. Sections that are not written keep Jira's own content.
   const sectionWrites = TEXT_SECTIONS.filter((k) => writes.includes(k));
-  const attachmentsDirty = i.base?.attachments === undefined ? attachmentsText(shown.artifacts, shown.files) !== "" : i.base.attachments !== attHash;
+  const attachmentsDirty = i.base?.attachments === undefined ? attachmentsText(shown.artifacts, shown.files, i.documents) !== "" : i.base.attachments !== attHash;
   const unresolvedSection = unresolved.some((f) => f !== "title");
   if ((sectionWrites.length > 0 || attachmentsDirty) && !unresolvedSection) {
     const keep: Partial<Record<TextSection, AdfNode[]>> = {};
     for (const k of TEXT_SECTIONS) if (!sectionWrites.includes(k)) keep[k] = cmp.split.nodes[k] ?? [];
-    fields.description = composeDescription({ pv: { summary: i.pv.summary ?? "", description: i.pv.description ?? "", hypothesis: i.pv.hypothesis ?? "" }, keep, head: cmp.split.head, ...shown });
+    fields.description = composeDescription({ pv: { summary: i.pv.summary ?? "", description: i.pv.description ?? "", hypothesis: i.pv.hypothesis ?? "" }, keep, head: cmp.split.head, ...shown, ...(i.documents ? { documents: i.documents } : {}) });
     const lost = sectionWrites.filter((k) => cmp.richIn.includes(k));
     if (lost.length > 0) notes.push(`The ${lost.map((k) => LABEL[k]).join(" and ")} in Jira has content Product Velocity cannot write back (a table, macro or mention). Sending replaces ${lost.length > 1 ? "those sections" : "that section"} with Product Velocity's text.`);
     if (cmp.split.legacy && sectionWrites.length > 0 && cmp.split.nodes.description) notes.push("The Jira description gets headed sections (Summary, Description, Hypothesis, Artifacts, Files), like the GitHub issue.");

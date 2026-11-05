@@ -14,7 +14,7 @@ const STATUS_LABEL: Record<string, string> = { draft: "Draft", in_review: "In re
 
 /**
  * The Spec tab: the documents of one initiative (the full PRD, requirements, research). Versioned Markdown that stays in Product Velocity:
- * it is never written to GitHub. Saves on leaving a box, keeps every version (restoring one is the undo), and never overwrites a newer save.
+ * it goes into the GitHub issue / Jira description as a "Documents" section unless "Do not share" is chosen. Saves on leaving a box, keeps every version (restoring one is the undo), and never overwrites a newer save.
  */
 export function DocumentsTab({ itemId, canEdit, ctx }: { itemId: string; canEdit: boolean; ctx: FieldCtx }) {
   const [docs, setDocs] = useState<DocView[] | null>(null);
@@ -75,7 +75,7 @@ export function DocumentsTab({ itemId, canEdit, ctx }: { itemId: string; canEdit
       </div>
       {show("docs") && <>
       <h3>Documents</h3>
-      <p className="muted">The full PRD and other long documents live here. They stay in Product Velocity and are never written to GitHub. What builders need goes in the Description on the Overview tab.</p>
+      <p className="muted">The full PRD and other long documents live here. They are shared with the GitHub issue or Jira description (private repositories only) unless you choose “Do not share” on a document. What builders need goes in the Description on the Overview tab.</p>
       {error && <p role="alert" className="pf-error">{error}</p>}
       {docs.length === 0 && <p className="muted">No documents yet.</p>}
       {docs.length > 0 && shownDocs.length === 0 && <p className="muted">No document matches.</p>}
