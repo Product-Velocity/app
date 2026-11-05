@@ -28,26 +28,27 @@ function sqlWriter(user: string, tenant: string, client = CLIENT): McpWriter {
     async get(id) {
       if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
       return as(async (q) => {
-        const r = (await q("select f.id, f.item_id, f.name, f.share_token, i.item_code from public.item_files f join public.items i on i.id = f.item_id where f.tenant_id = $1 and f.id = $2", [tenant, id])).rows[0];
+        const r = (await q("select f.id, f.item_id, f.name, f.share_token, i.item_code from public.item_attachments f join public.items i on i.id = f.item_id where f.kind = 'file' and f.tenant_id = $1 and f.id = $2", [tenant, id])).rows[0];
         return r ? { id: r.id as string, item_id: r.item_id as string, item_code: r.item_code as string, name: r.name as string, share_token: (r.share_token as string | null) ?? null } : null;
       });
     },
     async add(item, name, bytes, mime) {
       try {
         return await as(async (q) => {
-          const r = (await q("insert into public.item_files (tenant_id, item_id, kind, name, storage_path, mime_type, size_bytes) values ($1, $2, 'image', $3, $4, $5, $6) returning id", [tenant, item.id, name, `${tenant}/${item.id}/${name}`, mime, bytes.length])).rows[0]!;
+          const r = (await q("insert into public.item_attachments (tenant_id, item_id, kind, file_kind, name, storage_path, mime_type, size_bytes, shared) values ($1, $2, 'file', 'image', $3, $4, $5, $6, false) returning id", [tenant, item.id, name, `${tenant}/${item.id}/${name}`, mime, bytes.length])).rows[0]!;
           return { id: r.id as string, item_code: item.code, name, mime, size: bytes.length, shared: false, share_url: null };
         });
       } catch { throw new ToolInputError("You do not have permission to attach files here."); }
     },
     async setSharing(file, on) {
-      const token = on ? Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url") : null;
-      const n = await as(async (q) => (await q("update public.item_files set share_token = $2, share_updated_at = now() where id = $1 and tenant_id = $3 returning id", [file.id, token, tenant])).rows.length);
+      const n = await as(async (q) => (await q("update public.item_attachments set shared = $2, share_token = null where id = $1 and tenant_id = $3 and kind = 'file' returning id", [file.id, on, tenant])).rows.length);
       if (!n) throw new ToolInputError("You do not have permission to change this link.");
-      return token ? `https://app.test/f/${token}/${encodeURIComponent(file.name)}` : null;
+      if (!on) return null;
+      const t = (await as(async (q) => (await q("select share_token from public.item_attachments where id = $1 and tenant_id = $2", [file.id, tenant])).rows[0]?.share_token as string)) ;
+      return `https://app.test/f/${t}/${encodeURIComponent(file.name)}`;
     },
     async remove(file) {
-      const n = await as(async (q) => (await q("delete from public.item_files where id = $1 and tenant_id = $2 returning id", [file.id, tenant])).rows.length);
+      const n = await as(async (q) => (await q("delete from public.item_attachments where kind = 'file' and id = $1 and tenant_id = $2 returning id", [file.id, tenant])).rows.length);
       if (!n) throw new ToolInputError("You do not have permission to remove this file.");
     },
     async repoFor() { return { name: "acme/private-app", isPrivate: true }; },
@@ -242,7 +243,7 @@ describe("the 2026-10-27 scenario, as a creator, with no service role", () => {
   });
 
   it("audits every write with the person as actor, source MCP and the connection", async () => {
-    const rows = (await db.admin.query("select distinct actor_id, via, (connection_id is not null) as has_conn, (change_set_id is not null) as has_set from public.audit_log where tenant_id = $1 and entity in ('items','item_tags','item_links','item_relations','item_teams','item_groups') and actor_id = $2", [f.tenantA, cora])).rows;
+    const rows = (await db.admin.query("select distinct actor_id, via, (connection_id is not null) as has_conn, (change_set_id is not null) as has_set from public.audit_log where tenant_id = $1 and entity in ('items','item_tags','item_attachments','item_relations','item_teams','item_groups') and actor_id = $2", [f.tenantA, cora])).rows;
     expect(rows).toEqual([{ actor_id: cora, via: "MCP", has_conn: true, has_set: true }]);
   });
 
@@ -324,7 +325,7 @@ describe("files and share links through the real file tools (issue #183)", () =>
     ...backendFor(role, sqlWriter(user, tenant)),
     read: {
       itemDetail: async (ref: string) => {
-        const r = (await db.asUser(user, async (q) => (await q("select i.id, i.item_code, (select count(*)::int from public.item_files f where f.item_id = i.id) as n from public.items i where i.tenant_id = $1 and (i.id::text = $2 or lower(i.item_code) = lower($2))", [tenant, ref])).rows[0], { claims: { client_id: CLIENT } })) as { id: string; item_code: string; n: number } | undefined;
+        const r = (await db.asUser(user, async (q) => (await q("select i.id, i.item_code, (select count(*)::int from public.item_attachments f where f.kind = 'file' and f.item_id = i.id) as n from public.items i where i.tenant_id = $1 and (i.id::text = $2 or lower(i.item_code) = lower($2))", [tenant, ref])).rows[0], { claims: { client_id: CLIENT } })) as { id: string; item_code: string; n: number } | undefined;
         return r ? { row: { id: r.id, item_code: r.item_code } as SearchRow, links: [], tags: {}, relations: { depends_on: [], depended_on_by: [], related_to: [] }, teams: [], files: Array.from({ length: r.n }, () => ({})) as never, github: null, activity: [] } : null;
       },
     } as never,
@@ -349,7 +350,7 @@ describe("files and share links through the real file tools (issue #183)", () =>
       expect(r.isError, r.text).toBe(false);
       ids.push(r.data.file.id);
     }
-    const rows = (await db.admin.query("select item_id, mime_type, size_bytes, created_via from public.item_files where id = any($1)", [ids])).rows;
+    const rows = (await db.admin.query("select item_id, mime_type, size_bytes, created_via from public.item_attachments where id = any($1)", [ids])).rows;
     expect(rows).toHaveLength(3);
     for (const r of rows) expect(r).toMatchObject({ mime_type: "image/png", size_bytes: PNG.length, created_via: "MCP" });
     expect(new Set(rows.map((r) => r.item_id)).size).toBe(2);
@@ -357,22 +358,22 @@ describe("files and share links through the real file tools (issue #183)", () =>
     const on = await call(b, "set_file_sharing", { file: ids[0], on: true });
     expect(on.data.share_url).toMatch(/\/f\/[A-Za-z0-9_-]{43}\/one\.png$/);
     expect(on.data.message).toMatch(/Anyone who has this link/);
-    const token = (await db.admin.query("select share_token from public.item_files where id = $1", [ids[0]])).rows[0].share_token as string;
+    const token = (await db.admin.query("select share_token from public.item_attachments where id = $1", [ids[0]])).rows[0].share_token as string;
     expect(on.data.share_url).toContain(token);
     const off = await call(b, "set_file_sharing", { file: ids[0], on: false });
     expect(off.data.share_url).toBeNull();
-    expect((await db.admin.query("select share_token from public.item_files where id = $1", [ids[0]])).rows[0].share_token).toBeNull();
-    expect((await db.admin.query("select 1 from public.item_files where share_token = $1", [token])).rowCount).toBe(0);
+    expect((await db.admin.query("select share_token from public.item_attachments where id = $1", [ids[0]])).rows[0].share_token).toBeNull();
+    expect((await db.admin.query("select 1 from public.item_attachments where share_token = $1", [token])).rowCount).toBe(0);
 
     // every upload and sharing change is audited as MCP by the person
-    const audit = (await db.admin.query("select distinct via, actor_id from public.audit_log where entity = 'item_files' and entity_id = any($1)", [ids])).rows;
+    const audit = (await db.admin.query("select distinct via, actor_id from public.audit_log where entity = 'item_attachments' and entity_id = any($1)", [ids])).rows;
     expect(audit).toEqual([{ via: "MCP", actor_id: cora }]);
 
     // remove needs the confirmation step
     expect((await call(b, "remove_file", { file: ids[2] })).data.status).toBe("needs_confirmation");
-    expect((await db.admin.query("select 1 from public.item_files where id = $1", [ids[2]])).rowCount).toBe(1);
+    expect((await db.admin.query("select 1 from public.item_attachments where id = $1", [ids[2]])).rowCount).toBe(1);
     expect((await call(b, "remove_file", { file: ids[2], confirm: true })).data.status).toBe("removed");
-    expect((await db.admin.query("select 1 from public.item_files where id = $1", [ids[2]])).rowCount).toBe(0);
+    expect((await db.admin.query("select 1 from public.item_attachments where id = $1", [ids[2]])).rowCount).toBe(0);
   });
 
   it("refuses a script renamed to .png and the 21st file, storing nothing", async () => {
@@ -380,10 +381,10 @@ describe("files and share links through the real file tools (issue #183)", () =>
     const code = items[1]!.code;
     const bad = await add(b, code, "evil.png", Buffer.from("<script>alert(1)</script>"));
     expect(bad.text).toMatch(/Only PNG, JPEG, GIF, WebP and PDF/);
-    const have = (await db.admin.query("select count(*)::int as n from public.item_files where item_id = $1", [items[1]!.id])).rows[0].n as number;
+    const have = (await db.admin.query("select count(*)::int as n from public.item_attachments where item_id = $1", [items[1]!.id])).rows[0].n as number;
     for (let n = have; n < 20; n++) expect((await add(b, code, `fill-${n}.png`)).isError).toBe(false);
     expect((await add(b, code, "twenty-first.png")).text).toMatch(/at most 20 files/);
-    expect((await db.admin.query("select count(*)::int as n from public.item_files where item_id = $1", [items[1]!.id])).rows[0].n).toBe(20);
+    expect((await db.admin.query("select count(*)::int as n from public.item_attachments where item_id = $1", [items[1]!.id])).rows[0].n).toBe(20);
   });
 
   it("a viewer's connection cannot upload, share or remove", async () => {
@@ -395,7 +396,7 @@ describe("files and share links through the real file tools (issue #183)", () =>
       expect(r.isError, tool).toBe(true);
       expect(r.text, tool).toMatch(/read-only/);
     }
-    expect((await db.admin.query("select share_token from public.item_files where id = $1", [made.data.file.id])).rows[0].share_token).toBeNull();
+    expect((await db.admin.query("select share_token from public.item_attachments where id = $1", [made.data.file.id])).rows[0].share_token).toBeNull();
   });
 
   it("another workspace's file ids are not reachable and nothing changes", async () => {
@@ -411,10 +412,10 @@ describe("files and share links through the real file tools (issue #183)", () =>
     }
     // codes repeat per workspace: R-01 here means workspace B's own R-01, so the file lands there and never in A
     expect((await add(b, items[0]!.code, "cross.png")).isError).toBe(false);
-    expect((await db.admin.query("select tenant_id from public.item_files where name = 'cross.png'")).rows).toEqual([{ tenant_id: f.tenantB }]);
+    expect((await db.admin.query("select tenant_id from public.item_attachments where name = 'cross.png'")).rows).toEqual([{ tenant_id: f.tenantB }]);
     expect((await call(b, "add_file", { item: items[0]!.id, name: "by-id.png", content_base64: PNG.toString("base64") })).text).toMatch(/No initiative/);
-    expect((await db.admin.query("select 1 from public.item_files where name = 'by-id.png'")).rowCount).toBe(0);
-    const row = (await db.admin.query("select share_token from public.item_files where id = $1", [id])).rows[0];
+    expect((await db.admin.query("select 1 from public.item_attachments where name = 'by-id.png'")).rowCount).toBe(0);
+    const row = (await db.admin.query("select share_token from public.item_attachments where id = $1", [id])).rows[0];
     expect(row.share_token).toBeNull();
   });
 });

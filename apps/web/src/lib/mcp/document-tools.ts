@@ -59,7 +59,7 @@ const createDocument: ToolDef = {
     type: "object",
     properties: {
       item: ITEM,
-      kind: { type: "string", enum: [...DOC_KINDS], description: "prd (default), discovery, business_req, tech_req, acceptance, prototype, research or other." },
+      kind: { type: "string", enum: [...DOC_KINDS], description: "prd (default), discovery, business_req, tech_req, acceptance, prototype, research, design, customer_evidence, meeting_notes or other." },
       title: { type: "string", maxLength: 200, description: "For example \"PRD: Account switcher\"." },
       body: { type: "string", description: "The document as Markdown." },
       status: { type: "string", enum: ["draft", "in_review"], description: "Default draft." },

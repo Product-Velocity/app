@@ -9,7 +9,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
-  const { data: row } = await supabase.from("item_files").select("name, mime_type, storage_path").eq("id", id).maybeSingle();
+  const { data: row } = await supabase.from("item_attachments").select("name, mime_type, storage_path").eq("kind", "file").eq("id", id).maybeSingle();
   if (!row?.mime_type) return NextResponse.json({ error: "File not found." }, { status: 404 });
   const bytes = await supabaseFileStore().get(row.storage_path);
   if (!bytes) return NextResponse.json({ error: "File not found." }, { status: 404 });

@@ -36,7 +36,7 @@ export const roleAtTime = (r: string | null) => (r ? ROLE_AT_TIME[r] ?? r : "—
 
 const ENTITY_LABEL: Record<string, string> = {
   items: "Initiative", projects: "Project", tenants: "Account", tenant_members: "Member", invitations: "Invitation", platform_access: "Platform access",
-  saved_views: "View", saved_scopes: "Scope", teams: "Team", item_groups: "Group", item_links: "Link", item_files: "File", mcp_connections: "AI connection",
+  saved_views: "View", saved_scopes: "Scope", teams: "Team", item_groups: "Group", item_links: "Link", item_files: "File", item_attachments: "Attachment", mcp_connections: "AI connection",
   github_connections: "GitHub connection", github_repositories: "GitHub repository",
 };
 export const entityLabel = (e: string) => ENTITY_LABEL[e] ?? e.replace(/_/g, " ");

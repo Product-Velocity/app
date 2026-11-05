@@ -95,7 +95,7 @@ test.describe("fields", () => {
     await expect(field(page, "value_weighted")).toContainText("calculated from other fields");
     await reveal(page, "Outcomes");
     await expect(field(page, "outcome_verdict")).toContainText("Arrives in phase 7");
-    await expect(panel(page).locator('[data-field]')).toHaveCount(170); // every dictionary field is in the panel, none missing
+    await expect(panel(page).locator('[data-field]')).toHaveCount(168); // every dictionary field is in the Overview except Screenshots and Artifacts, which are on the Spec tab (issue #325)
   });
 
   test("a value typed in the panel appears in the grid at once, and Ctrl+Z undoes it", async ({ page }) => {
@@ -218,16 +218,17 @@ test.describe("list fields", () => {
 
   test("links need an http address; related initiatives by code; teams by checkbox; effort by skill", async ({ page }) => {
     await open(page, "n=40&item=R-01");
-    await reveal(page, "What");
-    const links = field(page, "artifacts");
+    await panel(page).getByRole("tab", { name: "Spec" }).click();
+    const links = panel(page).locator(".pf-links");
     await expect(links.getByRole("link", { name: "PRD" })).toHaveAttribute("href", "https://example.test/prd");
     await links.getByLabel("Link address").fill("not a link");
     await links.getByRole("button", { name: "Add link" }).click();
-    await expect(links.getByRole("alert")).toContainText("http");
+    await expect(panel(page).getByRole("alert")).toContainText("http");
     await links.getByLabel("Link label (optional)").fill("Design");
     await links.getByLabel("Link address").fill("https://example.test/design");
     await links.getByRole("button", { name: "Add link" }).click();
     await expect(links.getByRole("link", { name: "Design" })).toBeVisible();
+    await panel(page).getByRole("tab", { name: "Overview" }).click();
     await reveal(page, "Why");
     const rel = field(page, "related_to");
     await rel.getByLabel("Related initiative (code)").fill("R-09");
@@ -260,12 +261,15 @@ test.describe("list fields", () => {
     await expect(tags).not.toContainText("nope");
   });
 
-  test("screenshots are a file list with an attach button (details in files.spec.ts)", async ({ page }) => {
+  test("files and links are not on the Overview tab; they are on the Spec tab (details in files.spec.ts)", async ({ page }) => {
     await page.route("**/api/files?**", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ files: [] }) }));
     await open(page, "n=40&item=R-01");
     await reveal(page, "What");
-    await expect(field(page, "screenshots")).toContainText("No files yet.");
-    await expect(field(page, "screenshots").getByText("Attach files")).toBeVisible();
+    await expect(field(page, "screenshots")).toHaveCount(0);
+    await expect(field(page, "artifacts")).toHaveCount(0);
+    await panel(page).getByRole("tab", { name: "Spec" }).click();
+    await expect(panel(page)).toContainText("No files yet.");
+    await expect(panel(page).getByText("Attach files")).toBeVisible();
   });
 });
 

@@ -216,8 +216,14 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
   await db.admin.query("insert into public.item_teams (tenant_id, item_id, team_id) values ($1, $2, $3)", [tenantId, items[0], team]);
   // multi-value fields (positive controls for the related tables of migration 0009)
   await db.admin.query("insert into public.item_tags (tenant_id, item_id, kind, value) values ($1, $2, 'tag', 'priority')", [tenantId, items[0]]);
-  await db.admin.query("insert into public.item_links (tenant_id, item_id, label, url) values ($1, $2, 'PRD', 'https://example.test/prd')", [tenantId, items[0]]);
-  await db.admin.query("insert into public.item_files (tenant_id, item_id, name, storage_path) values ($1, $2, 'shot.png', $3)", [tenantId, items[0], `${tenantId}/shot.png`]);
+  // some tests build the schema only up to an earlier migration, before files and links were one table
+  if ((await db.admin.query("select to_regclass('public.item_attachments') as t")).rows[0].t) {
+    await db.admin.query("insert into public.item_attachments (tenant_id, item_id, kind, name, url) values ($1, $2, 'link', 'PRD', 'https://example.test/prd')", [tenantId, items[0]]);
+    await db.admin.query("insert into public.item_attachments (tenant_id, item_id, kind, name, file_kind, storage_path, shared) values ($1, $2, 'file', 'shot.png', 'screenshot', $3, false)", [tenantId, items[0], `${tenantId}/shot.png`]);
+  } else {
+    await db.admin.query("insert into public.item_links (tenant_id, item_id, label, url) values ($1, $2, 'PRD', 'https://example.test/prd')", [tenantId, items[0]]);
+    await db.admin.query("insert into public.item_files (tenant_id, item_id, name, storage_path) values ($1, $2, 'shot.png', $3)", [tenantId, items[0], `${tenantId}/shot.png`]);
+  }
   await db.admin.query("insert into public.item_documents (tenant_id, item_id, kind, title, body) values ($1, $2, 'prd', 'PRD', '# PRD')", [tenantId, items[0]]);
   // some tests build the schema only up to an earlier migration, before the company profile existed
   if ((await db.admin.query("select to_regclass('public.company_profiles') as t")).rows[0].t) {
