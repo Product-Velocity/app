@@ -5,6 +5,7 @@ import { readJiraLink, type LinkToRead } from "./read-jira";
 import { refreshLinkedStatuses, type RefreshDeps, type RefreshSummary } from "./refresh-linked";
 import { refreshTreesTolerant, type TreeDeps, type TreeRefresh } from "./jira-tree";
 import { jiraGet } from "./server";
+import { rowsOrThrow } from "@/lib/db-error";
 
 // Server side of the refresh of linked initiatives (issue #67, #71): wires the pure core to Jira (jiraGet) and to the database (service
 // role, source "system"). Reads Jira only; nothing is written to Jira. A connection that needs a new sign-in throws ReconnectNeeded.
@@ -33,8 +34,7 @@ async function linkedIssues(link: LinkToRead, itemIds?: string[]) {
   const admin = createAdminClient({ via: "system" });
   let q = admin.from("item_jira_links").select("item_id, issue_key").eq("tenant_id", link.tenant_id).eq("connection_id", link.connection_id).eq("site_id", link.site_id).is("frozen_at", null); // frozen links (finished initiatives) are not read
   if (itemIds) q = q.in("item_id", itemIds);
-  const { data, error } = await q;
-  if (error) throw new Error("Could not read the linked initiatives");
+  const data = rowsOrThrow("the linked initiatives", await q);
   return ((data ?? []) as { item_id: string; issue_key: string }[]).filter((l) => l.issue_key.startsWith(`${link.jira_project_key}-`));
 }
 

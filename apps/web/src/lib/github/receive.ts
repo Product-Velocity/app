@@ -1,4 +1,5 @@
 import "server-only";
+import { explainDbError } from "@/lib/db-error";
 import type { SourceControl } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { syncBoardStatuses } from "./board-sync";
@@ -31,10 +32,17 @@ export async function receiveFromGithub(admin: Admin, sc: SourceControl, connect
   const installationId = connection.installation_id;
   const unique = [...new Set(ids)];
   const extrasCache = newExtrasCache();
-  const [{ data: items }, { data: links }] = await Promise.all([
+  const [{ data: items }, linksRead] = await Promise.all([
     admin.from("items").select("id, item_code, initiative_name").eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
     admin.from("item_github_links").select("id, item_id, mode, repo_full_name, issue_number, html_url").eq("tenant_id", tenantId).eq("connection_id", connection.id).is("frozen_at", null).in("item_id", unique),
   ]);
+  // a failed read of the links must not look like "not on GitHub": every initiative says why it could not be checked
+  if (linksRead.error) {
+    const why = explainDbError("the GitHub links", linksRead.error);
+    console.error(JSON.stringify({ github: "receive-links", code: why.code, schemaDrift: why.schemaDrift }));
+    return unique.map((id) => ({ id, code: "", name: "", status: "error", received: [], issueNumber: null, issueUrl: null, message: why.message }));
+  }
+  const links = linksRead.data;
   const itemById = new Map(((items ?? []) as ItemRow[]).map((i) => [i.id, i]));
   const linkByItem = new Map(((links ?? []) as LinkRow[]).map((l) => [l.item_id, l]));
 
