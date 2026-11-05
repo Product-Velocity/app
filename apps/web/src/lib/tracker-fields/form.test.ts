@@ -59,3 +59,16 @@ describe("validateJiraMap", () => {
     expect(validateJiraMap({}, stored, null)).toHaveLength(1);
   });
 });
+
+describe("default-off switches in the form (issue #321)", () => {
+  it("an unchecked optional label is the default; a checked one is saved as ON", () => {
+    const none = form({ ...ALL_JIRA_ON });
+    expect(configRowsFromForm("jira", none.get, none.has)).toEqual([]);
+    const some = form({ ...ALL_JIRA_ON, [ON("jira.label.tags")]: "on", [ON("jira.label.focus")]: "on" });
+    expect(configRowsFromForm("jira", some.get, some.has)).toEqual([{ slot: "jira.label.tags", enabled: true, field: null }, { slot: "jira.label.focus", enabled: true, field: null }]);
+    const reset = form({ ...ALL_JIRA_ON, [ON("jira.label.tags")]: "on", [RESET]: "jira.label.tags" });
+    expect(configRowsFromForm("jira", reset.get, reset.has)).toEqual([]);
+    const gh = form({ ...ALL_GH_ON, [ON("github.label.category")]: "on" });
+    expect(configRowsFromForm("github", gh.get, gh.has)).toEqual([{ slot: "github.label.category", enabled: true, field: null }]);
+  });
+});

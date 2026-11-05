@@ -1,7 +1,7 @@
 import { MOSCOW_VALUES, parseFieldMap, type FieldChoice } from "@/lib/atlassian/field-map";
 import type { JiraFieldMap } from "@/lib/atlassian/outbound";
 import { configSlots, type ConfigRow } from "./mapping";
-import { SLOT_BY_ID, type Tracker } from "./slots";
+import { SLOT_BY_ID, defaultOn, type Tracker } from "./slots";
 
 // The field configuration form (one form per project, the same on GitHub and Jira): checkboxes for the things that can be switched off, selects for the
 // fields that can be re-pointed. Pure, so the whole form is tested without a browser. "" always means the default.
@@ -21,7 +21,7 @@ export function configRowsFromForm(tracker: Tracker, get: Get, has: Has): Config
   const rows: ConfigRow[] = [];
   for (const s of configSlots(tracker)) {
     if (reset === "all" || reset === s.id) continue;
-    if (s.kind === "toggle") { if (!has(ON(s.id))) rows.push({ slot: s.id, enabled: false, field: null }); continue; }
+    if (s.kind === "toggle") { if (has(ON(s.id)) !== defaultOn(s)) rows.push({ slot: s.id, enabled: !defaultOn(s), field: null }); continue; }
     const v = get(FIELD(s.id));
     if (v === OFF_VALUE) rows.push({ slot: s.id, enabled: false, field: null });
     else if (v !== "") rows.push({ slot: s.id, enabled: true, field: v });

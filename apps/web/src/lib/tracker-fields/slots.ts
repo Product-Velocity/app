@@ -61,12 +61,16 @@ export type Slot = {
   accepts?: readonly CatalogKind[];
   defaultFieldId?: string;
   idPattern?: RegExp;
+  /** A switch that is OFF unless a person turns it on (the optional labels): with no saved row nothing is sent for it. Absent or true = on by default. */
+  defaultOn?: boolean;
   /** Where a saved choice lives: the new table, the existing Jira field map, or the board mapping of GitHub (saved by the Project boards card). */
   store: "config" | "jira_field_map" | "github_board";
 };
 
 const CUSTOM = /^customfield_\d{1,9}$/;
 const label = (id: string, pvKey: string, tracker: Tracker, defaultTarget: string): Slot => ({ id, tracker, pvKey, kind: "toggle", direction: "to_tracker", defaultTarget, store: "config" });
+/** An optional label: off until a person switches it on (issue #321). */
+const optional = (id: string, pvKey: string, tracker: Tracker, defaultTarget: string): Slot => ({ ...label(id, pvKey, tracker, defaultTarget), defaultOn: false });
 
 export const SLOTS: readonly Slot[] = [
   // ---- Jira ----
@@ -74,6 +78,9 @@ export const SLOTS: readonly Slot[] = [
   { id: "jira.body.summary", tracker: "jira", pvKey: "summary", kind: "fixed", direction: "two_way", defaultTarget: "Description, section Summary", fixedReason: "The sections of the description are compared both ways, so they stay as they are.", store: "config" },
   { id: "jira.description", tracker: "jira", pvKey: "description", kind: "fixed", direction: "two_way", defaultTarget: "Description, section Description (Atlassian Document Format)", fixedReason: "The sections of the description are compared both ways, so they stay as they are.", store: "config" },
   { id: "jira.body.hypothesis", tracker: "jira", pvKey: "hypothesis", kind: "fixed", direction: "two_way", defaultTarget: "Description, section Hypothesis", fixedReason: "The sections of the description are compared both ways, so they stay as they are.", store: "config" },
+  optional("jira.label.tags", "tags", "jira", "Label pv:tag/<tag>, one per tag, at most 10 (off by default)"),
+  optional("jira.label.focus", "focus_area", "jira", "Label pv:focus/<value> (off by default)"),
+  optional("jira.label.category", "roadmap_category", "jira", "Label pv:category/<value> (off by default)"),
   label("jira.body.artifacts", "artifacts", "jira", "Description, section Artifacts (links)"),
   label("jira.body.files", "screenshots", "jira", "Description, section Files (share links of attached files)"),
   label("jira.label.moscow", "moscow", "jira", "Label pv:moscow/<value>"),
@@ -91,6 +98,9 @@ export const SLOTS: readonly Slot[] = [
   { id: "github.body.summary", tracker: "github", pvKey: "summary", kind: "fixed", direction: "two_way", defaultTarget: "Managed block, ## Summary", fixedReason: "The block's texts are compared both ways, so the sections stay as they are.", store: "config" },
   { id: "github.body.description", tracker: "github", pvKey: "description", kind: "fixed", direction: "two_way", defaultTarget: "Managed block, ## Description", fixedReason: "The block's texts are compared both ways, so the sections stay as they are.", store: "config" },
   { id: "github.body.hypothesis", tracker: "github", pvKey: "hypothesis", kind: "fixed", direction: "two_way", defaultTarget: "Managed block, ## Hypothesis", fixedReason: "The block's texts are compared both ways, so the sections stay as they are.", store: "config" },
+  optional("github.label.tags", "tags", "github", "Label pv:tag/<tag>, one per tag, at most 10 (off by default)"),
+  optional("github.label.focus", "focus_area", "github", "Label pv:focus/<value> (off by default)"),
+  optional("github.label.category", "roadmap_category", "github", "Label pv:category/<value> (off by default)"),
   label("github.body.artifacts", "artifacts", "github", "Managed block, ## Artifacts (links)"),
   label("github.body.files", "screenshots", "github", "Managed block, ## Files (share links, private repositories only)"),
   label("github.label.moscow", "moscow", "github", "Label pv:moscow/<value>"),
@@ -105,6 +115,9 @@ export const SLOTS: readonly Slot[] = [
   { id: "github.board.dueDate", tracker: "github", pvKey: "g2m_date_est", kind: "field", direction: "to_tracker", defaultTarget: "Project board: the field named Due date or Target date", accepts: ["date"], store: "github_board" },
   { id: "github.board.size", tracker: "github", pvKey: "effort", kind: "field", direction: "to_tracker", defaultTarget: "Project board: the field named Size or Effort", accepts: ["select"], store: "github_board" },
 ];
+
+/** Whether a slot is on when nothing is saved. */
+export const defaultOn = (s: Slot) => s.defaultOn !== false;
 
 export const SLOT_BY_ID: ReadonlyMap<string, Slot> = new Map(SLOTS.map((s) => [s.id, s]));
 export const slotsFor = (t: Tracker) => SLOTS.filter((s) => s.tracker === t);

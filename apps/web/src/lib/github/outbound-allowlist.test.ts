@@ -9,7 +9,7 @@ import { FIELDS } from "@pv/domain";
 const ID = "22222222-2222-4222-8222-222222222222";
 const allowed = new Set<string>(OUTBOUND_READ_FIELDS);
 // read, but only ever sent as a label (MoSCoW value, rank band, Change Type), an issue type or a milestone (G2M date), never as text: they are checked with real values below
-const DERIVED = new Set(["moscow", "stack_rank", "change_type", "g2m_date_est", "theme", "effort"]);
+const DERIVED = new Set(["moscow", "stack_rank", "change_type", "g2m_date_est", "theme", "effort", "focus_area", "roadmap_category", "tags"]);
 const sentinel = (key: string) => `LEAK_${key.toUpperCase()}_9f3a`;
 
 /**
