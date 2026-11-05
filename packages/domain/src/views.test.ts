@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CUSTOMER_SAFE_KEYS, buildGroupedRows, effectiveSort, sortDirectionLabels, sortSummary, healthBreakdown, filterSummary, groupableFields, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
 import { QUICK_FILTERS, customFilters, quickFilterOn, toggleQuickFilter } from "./quick-filters";
-import { FIELDS, FIELD_BY_KEY } from "./registry";
+import { FIELDS, FIELD_BY_KEY, HIDDEN_FIELDS } from "./registry";
 import { setDateFormat } from "./dates";
 
 const row = (o: Record<string, unknown> = {}) => ({ id: "i1", item_code: "R-01", initiative_name: "Faster search results", stack_rank: 1, home_project: "p1", ...o });
@@ -150,17 +150,29 @@ describe("sanitizeView", () => {
   });
 });
 
+describe("hidden fields", () => {
+  it("Roadmap Category is dropped from saved columns, filters, grouping and sort, and stays in the dictionary", () => {
+    const v = sanitizeView({ columns: ["item_code", "roadmap_category", "theme"], filters: [{ field: "roadmap_category", op: "is", value: "New big bets" }], groupBy: "roadmap_category", sort: { field: "roadmap_category", dir: "asc" } });
+    expect(v.columns).not.toContain("roadmap_category");
+    expect(v.columns).toContain("theme");
+    expect(v.filters).toEqual([]);
+    expect(v.groupBy).toBeNull();
+    expect(v.sort).toBeUndefined();
+    expect(FIELD_BY_KEY.roadmap_category).toBeDefined();
+  });
+});
+
 describe("customer-safe views", () => {
   it("keep only the fields the sheet marks customer-safe, in columns, filters and grouping", () => {
     const v = sanitizeView({
       customerSafe: true,
-      columns: ["stack_rank", "item_code", "initiative_name", "roadmap_category", "value_12m", "confidence", "summary"],
-      filters: [{ field: "value_12m", op: "empty" }, { field: "roadmap_category", op: "is", value: "Revenue" }],
+      columns: ["stack_rank", "item_code", "initiative_name", "theme", "value_12m", "confidence", "summary"],
+      filters: [{ field: "value_12m", op: "empty" }, { field: "theme", op: "is", value: "Revenue" }],
       groupBy: "confidence",
     });
     expect(v.customerSafe).toBe(true);
-    expect(v.columns).toEqual(["item_code", "initiative_name", "roadmap_category", "summary"]);
-    expect(v.filters.map((f) => f.field)).toEqual(["roadmap_category"]);
+    expect(v.columns).toEqual(["item_code", "initiative_name", "theme", "summary"]);
+    expect(v.filters.map((f) => f.field)).toEqual(["theme"]);
     expect(v.groupBy).toBeNull();
   });
   it("never lets a commercial field through", () => {

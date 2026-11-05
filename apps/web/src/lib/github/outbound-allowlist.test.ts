@@ -9,7 +9,7 @@ import { FIELDS } from "@pv/domain";
 const ID = "22222222-2222-4222-8222-222222222222";
 const allowed = new Set<string>(OUTBOUND_READ_FIELDS);
 // read, but only ever sent as a label (MoSCoW value, rank band, Change Type), an issue type or a milestone (G2M date), never as text: they are checked with real values below
-const DERIVED = new Set(["moscow", "stack_rank", "change_type", "g2m_date_est", "theme", "effort", "focus_area", "roadmap_category", "tags"]);
+const DERIVED = new Set(["moscow", "stack_rank", "change_type", "g2m_date_est", "theme", "effort", "focus_area", "value_type", "g2m_quarter", "tags"]);
 const sentinel = (key: string) => `LEAK_${key.toUpperCase()}_9f3a`;
 
 /**
@@ -66,7 +66,7 @@ describe("outbound GitHub payloads", () => {
   });
 
   it("the list of allowed fields has no commercial field in it", () => {
-    const commercial = ["value", "value_12m", "value_basis", "value_type", "confidence", "customers_requesting", "target_customers", "decision", "decided_by", "decision_date", "cost_of_not_doing", "kr_metric", "kr_start", "kr_target", "kr_unit", "kr_direction", "value_proposition", "time_to_first_revenue_months", "target_markets", "live_markets", "outcomes"];
+    const commercial = ["value", "value_12m", "value_basis", "confidence", "customers_requesting", "target_customers", "decision", "decided_by", "decision_date", "cost_of_not_doing", "kr_metric", "kr_start", "kr_target", "kr_unit", "kr_direction", "value_proposition", "time_to_first_revenue_months", "target_markets", "live_markets", "outcomes"];
     for (const k of commercial) expect(allowed.has(k), k).toBe(false);
   });
 });

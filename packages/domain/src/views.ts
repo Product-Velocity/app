@@ -1,6 +1,6 @@
 import { compareQuarters, isQuarter } from "./quarters";
 import { formatDate, localToday } from "./dates";
-import { FIELDS, FIELD_BY_KEY, isOpenList, type FieldDef } from "./registry";
+import { FIELDS, HIDDEN_FIELDS, FIELD_BY_KEY, isOpenList, type FieldDef } from "./registry";
 
 /** The columns every view shows and keeps on the left, so a row always says which initiative it is. */
 export const CORE_COLUMN_KEYS = ["stack_rank", "item_code", "initiative_name"] as const;
@@ -261,7 +261,7 @@ export const columnsFor = (columns: readonly string[], customerSafe: boolean) =>
 export function sanitizeView(input: unknown): ViewDef {
   const o = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
   const customerSafe = o.customerSafe === true;
-  const cols = Array.isArray(o.columns) ? o.columns.filter((c): c is string => typeof c === "string" && c in FIELD_BY_KEY) : [];
+  const cols = Array.isArray(o.columns) ? o.columns.filter((c): c is string => typeof c === "string" && c in FIELD_BY_KEY && !HIDDEN_FIELDS.has(c)) : [];
   // the pinned core columns come first; a customer-safe view keeps only the core columns that are safe (ID and name)
   const core = columnsFor(CORE_COLUMN_KEYS, customerSafe);
   const columns = [...core, ...new Set(columnsFor(cols, customerSafe).filter((c) => !core.includes(c)))];
@@ -270,16 +270,16 @@ export function sanitizeView(input: unknown): ViewDef {
     for (const x of o.filters) {
       if (!x || typeof x !== "object") continue;
       const f = x as Record<string, unknown>;
-      const def = typeof f.field === "string" ? FIELD_BY_KEY[f.field] : undefined;
+      const def = typeof f.field === "string" && !HIDDEN_FIELDS.has(f.field) ? FIELD_BY_KEY[f.field] : undefined;
       if (!def || (customerSafe && !isCustomerSafe(def.key)) || typeof f.op !== "string" || !OPS.includes(f.op as FilterOp) || !opsFor(def).some((p) => p.op === f.op)) continue;
       const values = Array.isArray(f.values) ? [...new Set(f.values.filter((x): x is string => typeof x === "string" && x !== "").map((x) => x.slice(0, 200)))].slice(0, 30) : [];
       filters.push({ field: def.key, op: f.op as FilterOp, ...(typeof f.value === "string" ? { value: f.value } : {}), ...(typeof f.value2 === "string" ? { value2: f.value2 } : {}), ...(f.op === "any_of" ? { values } : {}) });
     }
   }
-  const groupBy = typeof o.groupBy === "string" && groupableFields().some((g) => g.key === o.groupBy) && (!customerSafe || isCustomerSafe(o.groupBy)) ? o.groupBy : null;
+  const groupBy = typeof o.groupBy === "string" && groupableFields().some((g) => g.key === o.groupBy) && !HIDDEN_FIELDS.has(o.groupBy) && (!customerSafe || isCustomerSafe(o.groupBy)) ? o.groupBy : null;
   const asked = Array.isArray(o.pinned) ? o.pinned.filter((c): c is string => typeof c === "string") : [];
   const pinned = columns.slice(core.length, MAX_PINNED).filter((c) => asked.includes(c));
   const rawSort = o.sort && typeof o.sort === "object" ? (o.sort as Record<string, unknown>) : null;
-  const sort: SortDef | null = rawSort && typeof rawSort.field === "string" && isSortable(rawSort.field) && (!customerSafe || isCustomerSafe(rawSort.field)) ? { field: rawSort.field, dir: rawSort.dir === "desc" ? "desc" : "asc" } : null;
+  const sort: SortDef | null = rawSort && typeof rawSort.field === "string" && isSortable(rawSort.field) && !HIDDEN_FIELDS.has(rawSort.field) && (!customerSafe || isCustomerSafe(rawSort.field)) ? { field: rawSort.field, dir: rawSort.dir === "desc" ? "desc" : "asc" } : null;
   return { columns, filters, groupBy, ...(customerSafe ? { customerSafe: true } : {}), ...(pinned.length > 0 ? { pinned } : {}), ...(sort ? { sort } : {}) };
 }

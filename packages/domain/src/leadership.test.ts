@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  LEADERSHIP_COLUMNS, categoryMix, changesThisWeek, draftWeeklyUpdate, healthByProject, needsAttention, topItems, weekWindow, type AuditChange,
+  LEADERSHIP_COLUMNS, valueTypeMix, changesThisWeek, draftWeeklyUpdate, healthByProject, needsAttention, topItems, weekWindow, type AuditChange,
 } from "./leadership";
 
 const projects = [{ id: "p1", name: "Platform" }, { id: "p2", name: "Marketplace" }];
@@ -80,16 +80,16 @@ describe("needsAttention", () => {
   });
 });
 
-describe("categoryMix", () => {
-  it("counts the Roadmap Categories in the dictionary's order with whole-number shares, and 'No category'", () => {
-    const rows = [row("a", 1, { roadmap_category: "Grow customer revenues" }), row("b", 2, { roadmap_category: "Grow customer revenues" }), row("c", 3, { roadmap_category: "New big bets" }), row("d", 4)];
-    const m = categoryMix(rows);
+describe("valueTypeMix", () => {
+  it("counts the Business Value Types in the dictionary's order with whole-number shares, and 'No value type'", () => {
+    const rows = [row("a", 1, { value_type: "Defend revenue" }), row("b", 2, { value_type: "Defend revenue" }), row("c", 3, { value_type: "New revenue" }), row("d", 4)];
+    const m = valueTypeMix(rows);
     expect(m.map((x) => [x.label, x.count, x.pct])).toEqual([
-      ["New big bets", 1, 25], ["Grow customer revenues", 2, 50], ["Protect customer revenues", 0, 0], ["Operational efficiency", 0, 0], ["Close capability gaps", 0, 0], ["No category", 1, 25],
+      ["New revenue", 1, 25], ["Increase revenue", 0, 0], ["Defend revenue", 2, 50], ["Decrease costs", 0, 0], ["Other", 0, 0], ["No value type", 1, 25],
     ]);
   });
   it("is empty of shares when there are no initiatives", () => {
-    expect(categoryMix([]).every((x) => x.pct === 0 && x.count === 0)).toBe(true);
+    expect(valueTypeMix([]).every((x) => x.pct === 0 && x.count === 0)).toBe(true);
   });
 });
 
@@ -142,7 +142,7 @@ describe("draftWeeklyUpdate", () => {
     expect(draft.text).toContain("R-03 Item 3 is at risk. G2M Date (est) 1 Oct has passed.");
     expect(draft.text).toContain("R-05 Item 5 moved up 4 places (#9 to #5)");
     expect(draft.text).toContain("R-01 goes live 30 Oct.");
-    expect(draft.text).toMatch(/1 in New big bets|No category: 5/);
+    expect(draft.text).toMatch(/1 in New revenue|No value type: 5/);
   });
   it("leaves a line for the ask, and says nothing is sent", () => {
     expect(draft.text).toContain("Ask: ");

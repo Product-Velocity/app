@@ -1,4 +1,4 @@
-import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, isOpenList, isShipped, type FieldDef } from "./registry";
+import { FIELDS, VISIBLE_FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, isOpenList, isShipped, type FieldDef } from "./registry";
 import { readOnlyReason } from "./fields";
 
 /**
@@ -46,9 +46,9 @@ export type PanelSection = { group: string; fields: FieldDef[]; /** Every field 
 /** All fields grouped like the dictionary (sheet order of the groups, field order inside). */
 export function panelSections(): PanelSection[] {
   const groups: string[] = [];
-  for (const f of FIELDS) if (!groups.includes(f.group)) groups.push(f.group);
+  for (const f of VISIBLE_FIELDS) if (!groups.includes(f.group)) groups.push(f.group);
   return groups.map((group) => {
-    const fields = FIELDS.filter((f) => f.group === group);
+    const fields = VISIBLE_FIELDS.filter((f) => f.group === group);
     return { group, fields, allLater: fields.every((f) => !isShipped(f)) };
   });
 }

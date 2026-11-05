@@ -35,7 +35,7 @@ export function startDateChoices(fields: JiraField[]): FieldChoice[] {
   return rows.sort((a, b) => Number(b.role === "start_date") - Number(a.role === "start_date") || a.name.localeCompare(b.name)).map((r) => ({ id: r.id, name: r.name }));
 }
 /**
- * Fields a person can pick for the Initiative Group ("Theme"): custom SINGLE-LINE text fields only, the one named Theme first. Select fields
+ * Fields a person can pick for the Focus Area ("Theme"): custom SINGLE-LINE text fields only, the one named Theme first. Select fields
  * are not offered (Jira rejects a value that is not one of its options and PV never creates options); paragraph (multi-line) fields are not
  * offered either, because Jira's v3 API wants rich text (ADF) there, not a plain string.
  */
