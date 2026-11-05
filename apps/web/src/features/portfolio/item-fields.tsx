@@ -9,6 +9,7 @@ import {
 import type { PortfolioController } from "./controller";
 import { formatField } from "./format";
 import { FilesControl } from "./files-control";
+import { LinksList } from "./links-list";
 import { MarkdownPreview } from "./markdown-preview";
 import type { GridItem, Lookups } from "./types";
 
@@ -248,7 +249,7 @@ function ListControl({ f, row, ctx, disabled, onError, kind }: Common & { kind: 
   const set = (list: unknown[]) => { const r = ctx.controller.editRelated(row.id, field, list); onError(r.ok ? null : r.error); return r.ok; };
   const list = related[field] as unknown[];
   if (kind === "tags") return <TagsEditor name={f.name} values={list as string[]} disabled={disabled} onChange={set} />;
-  if (kind === "links") return <LinksEditor values={list as Link[]} disabled={disabled} onChange={set} />;
+  if (kind === "links") return <LinksList ctx={ctx} itemId={row.id} disabled={disabled} onError={onError} />;
   if (kind === "relations") return <RelationsEditor ids={list as string[]} self={row.id} ctx={ctx} disabled={disabled} onChange={set} onError={onError} />;
   if (kind === "people") return <PeopleEditor ids={list as string[]} ctx={ctx} disabled={disabled} onChange={set} />;
   return <TeamsEditor ids={list as string[]} ctx={ctx} disabled={disabled} onChange={set} />;
@@ -281,44 +282,6 @@ function TagsEditor({ name, values, disabled, onChange }: { name: string; values
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(); } else if (e.key === "Escape") { setText(""); e.stopPropagation(); } }}
           onBlur={add}
         />
-      )}
-    </div>
-  );
-}
-
-export function LinksEditor({ values, disabled, onChange, query = "", titleFor }: { values: Link[]; disabled: boolean; onChange: (l: Link[]) => boolean; query?: string; /** Names a link the person left unnamed (the page title); may answer null. */ titleFor?: (url: string) => Promise<string | null> }) {
-  const [label, setLabel] = useState("");
-  const [url, setUrl] = useState("");
-  const [busy, setBusy] = useState(false);
-  const add = async () => {
-    if (url.trim() === "") return;
-    let name = label;
-    if (name.trim() === "" && titleFor && /^https?:\/\//i.test(url.trim())) { setBusy(true); name = (await titleFor(url.trim())) ?? ""; setBusy(false); }
-    if (onChange([...values, { label: name, url }])) { setLabel(""); setUrl(""); }
-  };
-  const q = query.trim().toLowerCase();
-  const shown = q ? values.filter((l) => `${l.label} ${l.url}`.toLowerCase().includes(q)) : values;
-  return (
-    <div className="pf-links">
-      {values.length === 0 && <span className="muted">None</span>}
-      {values.length > 0 && shown.length === 0 && <span className="muted">No link matches.</span>}
-      <ul>
-        {shown.map((l) => (
-          <li key={`${l.label}|${l.url}`}>
-            <a href={l.url} target="_blank" rel="noopener noreferrer">{l.label || l.url}</a>
-            {l.label && <span className="muted"> {l.url}</span>}
-            {l.shared === false && <span className="muted"> · not shared</span>}
-            {!disabled && <button type="button" className="btn" onClick={() => onChange(values.map((x) => (x === l ? (l.shared === false ? { label: l.label, url: l.url } : { ...l, shared: false }) : x)))}>{l.shared === false ? `Share ${l.label || l.url}` : `Do not share ${l.label || l.url}`}</button>}
-            {!disabled && <button type="button" className="chip-x" aria-label={`Remove link ${l.label || l.url}`} onClick={() => onChange(values.filter((x) => x !== l))}>×</button>}
-          </li>
-        ))}
-      </ul>
-      {!disabled && (
-        <div className="pf-add-link">
-          <input type="text" aria-label="Link label (optional)" placeholder="Label (optional)" value={label} onChange={(e) => setLabel(e.target.value)} />
-          <input type="url" aria-label="Link address" placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void add(); } }} />
-          <button type="button" className="btn" disabled={busy} onClick={() => void add()}>{busy ? "Naming…" : "Add link"}</button>
-        </div>
       )}
     </div>
   );
@@ -421,36 +384,4 @@ function SkillsControl({ f, row, ctx, disabled, onError }: Common) {
       )}
     </div>
   );
-}
-
-/** The links of one initiative (artifacts), edited on the Spec tab. A pasted URL (not typed into a box) is added as a link. */
-export function LinksControl({ ctx, itemId, disabled, onError, query = "" }: { ctx: FieldCtx; itemId: string; disabled: boolean; onError: (e: string | null) => void; query?: string }) {
-  const related = ctx.controller.relatedOf(itemId);
-  const list = (related?.artifacts ?? []) as Link[];
-  const set = (next: unknown[]) => { const r = ctx.controller.editRelated(itemId, "artifacts", next); onError(r.ok ? null : r.error); return r.ok; };
-  useEffect(() => {
-    if (disabled || !related) return;
-    const onPaste = (e: ClipboardEvent) => {
-      const t = e.target;
-      if (t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName))) return;
-      if ((e.clipboardData?.files.length ?? 0) > 0) return;
-      const text = e.clipboardData?.getData("text/plain").trim() ?? "";
-      if (!/^https?:\/\/\S+$/i.test(text)) return;
-      e.preventDefault();
-      void titleFor(text).then((title) => set([...list, { label: title ?? "", url: text }]));
-    };
-    document.addEventListener("paste", onPaste);
-    return () => document.removeEventListener("paste", onPaste);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  });
-  if (!related) return <span className="muted" role="status">Loading…</span>;
-  return <LinksEditor values={list} disabled={disabled} onChange={set} query={query} titleFor={titleFor} />;
-}
-
-/** The page title of a web address, asked of our server (which only reaches the public internet); null when there is none. */
-async function titleFor(url: string): Promise<string | null> {
-  try {
-    const r = await fetch("/api/link-title", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
-    return r.ok ? (((await r.json()) as { title?: string | null }).title ?? null) : null;
-  } catch { return null; }
 }

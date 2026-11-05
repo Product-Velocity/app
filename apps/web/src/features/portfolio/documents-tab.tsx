@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AI_TOOL_LABEL, DOC_KIND_LABEL, DOC_KINDS, MAX_DOC_CHARS, MAX_DOCS_PER_ITEM } from "@pv/domain";
 import type { DocView } from "@/lib/documents";
 import { MarkdownPreview } from "./markdown-preview";
-import { FilesControl } from "./files-control";
-import { LinksControl, type FieldCtx } from "./item-fields";
+import { RowIcon, RowMenu, ShareChip } from "./attachment-ui";
+import { FilesControl, type FilesHandle } from "./files-control";
+import type { FieldCtx } from "./item-fields";
+import { LinksList, type LinksHandle } from "./links-list";
 
 type Version = { version: number; saved_at: string; saved_via: string; ai_tool?: string | null; ai_model?: string | null; saved_by_name?: string | null };
 /** "Claude (Claude Opus 5.5)": the AI tool from the connection and the model the assistant stated. */
@@ -16,7 +18,7 @@ const STATUS_LABEL: Record<string, string> = { draft: "Draft", in_review: "In re
  * The Spec tab: the documents of one initiative (the full PRD, requirements, research). Versioned Markdown that stays in Product Velocity:
  * it goes into the GitHub issue / Jira description as a "Documents" section unless "Do not share" is chosen. Saves on leaving a box, keeps every version (restoring one is the undo), and never overwrites a newer save.
  */
-export function DocumentsTab({ itemId, canEdit, ctx }: { itemId: string; canEdit: boolean; ctx: FieldCtx }) {
+export function DocumentsTab({ itemId, canEdit, ctx, tracker = "GitHub" }: { itemId: string; canEdit: boolean; ctx: FieldCtx; /** "GitHub" or "Jira": where this initiative is sent. */ tracker?: string }) {
   const [docs, setDocs] = useState<DocView[] | null>(null);
   // a link from the activity log opens the document: ?item=R-12&tab=spec&doc=<id>
   const [openId, setOpenId] = useState<string | null>(() => {
@@ -26,6 +28,9 @@ export function DocumentsTab({ itemId, canEdit, ctx }: { itemId: string; canEdit
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [type, setType] = useState<"all" | "docs" | "files" | "links">("all");
+  const [over, setOver] = useState(false);
+  const filesRef = useRef<FilesHandle>(null);
+  const linksRef = useRef<LinksHandle>(null);
 
   const load = useCallback(async () => {
     try {
@@ -55,51 +60,74 @@ export function DocumentsTab({ itemId, canEdit, ctx }: { itemId: string; canEdit
     setOpenId(body.document.id);
   };
 
+  const setShared = async (d: DocView, shared: boolean) => {
+    setError(null);
+    const r = await fetch(`/api/documents/${d.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ shared }) });
+    if (!r.ok) { setError(((await r.json().catch(() => ({}))) as { error?: string }).error ?? "The sharing could not be changed."); return; }
+    setDocs((cur) => cur?.map((x) => (x.id === d.id ? { ...x, shared } : x)) ?? cur);
+  };
+  const removeDoc = async (d: DocView) => {
+    if (!window.confirm(`Remove the document "${d.title}" and all its versions? This cannot be undone.`)) return;
+    const r = await fetch(`/api/documents/${d.id}`, { method: "DELETE" });
+    if (r.ok) { if (openId === d.id) setOpenId(null); await load(); } else setError(((await r.json().catch(() => ({}))) as { error?: string }).error ?? "The document could not be removed.");
+  };
+
   if (!docs) return <p className="muted" role="status">Loading…</p>;
   const q = query.trim().toLowerCase();
   const shownDocs = q ? docs.filter((d) => `${d.title} ${DOC_KIND_LABEL[d.kind as keyof typeof DOC_KIND_LABEL] ?? d.kind}`.toLowerCase().includes(q)) : docs;
   const show = (t: "docs" | "files" | "links") => type === "all" || type === t;
+  const TYPES: ["all" | "docs" | "files" | "links", string][] = [["all", "All"], ["docs", "Documents"], ["files", "Files"], ["links", "Links"]];
   return (
-    <div className="docs">
-      <div className="docs-filter" role="search">
+    <div className={over ? "docs docs-over" : "docs"}
+      onDragOver={(e) => { if (canEdit && e.dataTransfer.types.includes("Files")) { e.preventDefault(); setOver(true); } }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false); }}
+      onDrop={(e) => { setOver(false); if (!canEdit || e.dataTransfer.files.length === 0) return; e.preventDefault(); void filesRef.current?.upload(Array.from(e.dataTransfer.files)); }}>
+      <div className="docs-toolbar" role="search">
         <input type="search" value={query} placeholder="Search documents, files and links" aria-label="Search the documents, files and links of this initiative" onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Escape" && query) { setQuery(""); e.stopPropagation(); } }} />
-        <label>Show{" "}
-          <select value={type} onChange={(e) => setType(e.target.value as typeof type)}>
-            <option value="all">Everything</option>
-            <option value="docs">Documents</option>
-            <option value="files">Files</option>
-            <option value="links">Links</option>
-          </select>
-        </label>
+        <span className="docs-types" role="group" aria-label="Show">
+          {TYPES.map(([k, name]) => <button key={k} type="button" className={type === k ? "tool-btn tool-btn-on" : "tool-btn"} aria-pressed={type === k} onClick={() => setType(k)}>{name}</button>)}
+        </span>
+        {canEdit && (
+          <RowMenu label="Add" triggerText="Add ▾" items={[
+            { label: "Write a document", onSelect: () => void create(), hidden: docs.length >= MAX_DOCS_PER_ITEM },
+            { label: "Upload files", onSelect: () => filesRef.current?.pick() },
+            { label: "Add a link", onSelect: () => { setType((t) => (t === "docs" || t === "files" ? "all" : t)); linksRef.current?.startAdd(); } },
+          ]} />
+        )}
       </div>
-      {show("docs") && <>
-      <h3>Documents</h3>
-      <p className="muted">The full PRD and other long documents live here. They are shared with the GitHub issue or Jira description (private repositories only) unless you choose “Do not share” on a document. What builders need goes in the Description on the Overview tab.</p>
+      <p className="muted docs-hint">Everything here is shared with the {tracker} issue unless you choose “Only in Product Velocity”. Drag files onto this tab, paste an image or a web address. What builders need first goes in the Description on the Overview tab.</p>
       {error && <p role="alert" className="pf-error">{error}</p>}
-      {docs.length === 0 && <p className="muted">No documents yet.</p>}
-      {docs.length > 0 && shownDocs.length === 0 && <p className="muted">No document matches.</p>}
-      <ul className="docs-list">
-        {shownDocs.map((d) => (
-          <li key={d.id} className="docs-row" data-doc={d.title}>
-            <button type="button" className="btn" aria-expanded={openId === d.id} onClick={() => setOpenId(openId === d.id ? null : d.id)}>{d.title}</button>
-            <span className="muted"> {DOC_KIND_LABEL[d.kind as keyof typeof DOC_KIND_LABEL] ?? d.kind} · version {d.version} · {STATUS_LABEL[d.status] ?? d.status}{d.aiDraft ? " · AI draft, needs review" : ""}{aiLabel(d.aiTool, d.aiModel) ? ` · written with ${aiLabel(d.aiTool, d.aiModel)}` : ""}</span>
-            {openId === d.id && <DocEditor id={d.id} canEdit={canEdit} onChanged={load} onRemoved={() => { setOpenId(null); void load(); }} onError={setError} />}
-          </li>
-        ))}
-      </ul>
-      {canEdit && <button type="button" className="btn" disabled={docs.length >= MAX_DOCS_PER_ITEM} onClick={() => void create()}>Add document</button>}
+      {show("docs") && <>
+        <h3>Documents</h3>
+        {docs.length === 0 && <p className="muted">No documents yet. Use Add, then Write a document.</p>}
+        {docs.length > 0 && shownDocs.length === 0 && <p className="muted">No document matches.</p>}
+        <ul className="entry-list">
+          {shownDocs.map((d) => (
+            <li key={d.id} className="entry-row entry-doc" data-doc={d.title}>
+              <RowIcon kind="doc" />
+              <span className="entry-main">
+                <button type="button" className="entry-name entry-name-btn" aria-expanded={openId === d.id} onClick={() => setOpenId(openId === d.id ? null : d.id)}>{d.title}</button>
+                <span className="entry-meta">{DOC_KIND_LABEL[d.kind as keyof typeof DOC_KIND_LABEL] ?? d.kind} · version {d.version} · {STATUS_LABEL[d.status] ?? d.status}{d.aiDraft ? " · AI draft, needs review" : ""}{aiLabel(d.aiTool, d.aiModel) ? ` · written with ${aiLabel(d.aiTool, d.aiModel)}` : ""}</span>
+              </span>
+              <ShareChip shared={d.shared} tracker={tracker} name={d.title} disabled={!canEdit} onToggle={(on) => void setShared(d, on)} />
+              <RowMenu label={`Actions for ${d.title}`} items={[
+                { label: openId === d.id ? "Close" : "Open", onSelect: () => setOpenId(openId === d.id ? null : d.id) },
+                { label: "Remove", onSelect: () => void removeDoc(d), danger: true, hidden: !canEdit },
+              ]} />
+              {openId === d.id && <div className="entry-expand"><DocEditor id={d.id} canEdit={canEdit} onChanged={load} onRemoved={() => { setOpenId(null); void load(); }} onError={setError} /></div>}
+            </li>
+          ))}
+        </ul>
       </>}
-      {show("files") && <>
-      <h3>Files</h3>
-      <p className="muted">Screenshots, images and PDFs. Choose them, drag them onto this tab or paste an image.</p>
-      <FilesControl itemId={itemId} disabled={!canEdit} onError={setError} query={query} />
-      </>}
-      {show("links") && <>
-      <h3>Links</h3>
-      <p className="muted">Figma, Claude artifacts, Drive and other pages. Paste a web address anywhere on this tab to add it. Links go into the GitHub issue or Jira description unless you choose “Do not share”.</p>
-      <LinksControl ctx={ctx} itemId={itemId} disabled={!canEdit} onError={setError} query={query} />
-      </>}
+      <div hidden={!show("files")}>
+        <h3>Files</h3>
+        <FilesControl ref={filesRef} itemId={itemId} disabled={!canEdit} onError={setError} query={query} tracker={tracker} />
+      </div>
+      <div hidden={!show("links")}>
+        <h3>Links</h3>
+        <LinksList ref={linksRef} ctx={ctx} itemId={itemId} disabled={!canEdit} onError={setError} query={query} tracker={tracker} />
+      </div>
     </div>
   );
 }
