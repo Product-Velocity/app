@@ -5,7 +5,7 @@ import { AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_TABS, AGENT_USE_CASES, COLUMNS_NO
 describe("Help guide columns table", () => {
   it("has exactly one row for every column in the field dictionary, in its order", () => {
     expect(COLUMN_ROWS.map((r) => r.key)).toEqual(FIELDS.map((f) => f.key));
-    expect(COLUMN_ROWS.length).toBe(170);
+    expect(COLUMN_ROWS.length).toBe(169);
   });
   it("gives every row text in every cell", () => {
     for (const r of COLUMN_ROWS) for (const [k, v] of Object.entries(r)) expect(v, `${r.key}.${k}`).not.toBe("");

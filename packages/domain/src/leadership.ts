@@ -74,7 +74,7 @@ export const topItems = <T extends { stack_rank: number }>(rows: readonly T[], n
 // ------------------------------------------------------------------ attention
 export type Attention = { id: string; code: string; name: string; health: string; reasons: string[]; tier: 0 | 1 | 2 };
 const FINISHED_STATUS = new Set(["Done", "Cancelled"]);
-const FINISHED_PHASE = new Set(["Completed", "Sunset"]);
+const FINISHED_PHASE = new Set(["Completed"]);
 const isFinished = (r: LeadRow) => FINISHED_STATUS.has(String(r.status)) || FINISHED_PHASE.has(String(r.initiative_phase));
 
 /** Blocked, Delayed or At Risk initiatives, ones past their G2M date and ones with blocked GitHub issues, worst first then by rank. */
@@ -145,7 +145,7 @@ export function changesThisWeek(changes: readonly AuditChange[], rows: readonly 
 // ------------------------------------------------------------------ the weekly update
 export type UpdateInput = { rows: readonly LeadRow[]; projects: readonly { id: string; name: string }[]; scopeLabel: string; today: Date; changes: readonly Move[] };
 export type UpdateDraft = { text: string; /** Ids of the initiatives the text talks about, for links. */ sources: string[] };
-const LATE_STAGE = new Set(["Beta-test", "Experiment", "Roll-out"]);
+const LATE_STAGE = new Set(["Test", "Experiment", "Roll-out"]);
 
 /** A template-based draft of the weekly update from the data. A person edits and reviews it; Claude writes it in phase 4. */
 export function draftWeeklyUpdate({ rows, scopeLabel, today, changes }: UpdateInput): UpdateDraft {

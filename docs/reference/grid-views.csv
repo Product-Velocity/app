@@ -135,7 +135,6 @@ screenshots,What,Editable,Y,,,,Y,,,,
 date_precision,When,Editable,Y,,,,Y,,,,
 effort_by_skill,Why,Editable,,,Y,,,,,,
 fit_by_team,Why,Computed (read-only),,Y,Y,,,,,,Y
-spec_status,Spec,Editable,,,Y,,,,,,
 documents,Spec,Editable,,,,,,,Y,,
 ready_for_build,Spec,Computed (read-only),,,Y,,,,,,
 ready_for_build_by,Spec,System (read-only),,,,,,,,Y,

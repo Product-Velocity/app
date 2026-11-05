@@ -3,7 +3,7 @@ import type { BoardField, IssueFieldInfo, LabelInfo, MilestoneInfo } from "@pv/g
 
 // The read-only field catalog of a delivery tracker (decision 2026-11-03-tracker-field-config, slice 2): everything the connection can see, in one
 // shape for GitHub and Jira, so the configuration can offer it. Pure functions, no network. A tracker field that is not mapped stays visible here and
-// is ignored by the sync; the 170-field dictionary does not grow.
+// is ignored by the sync; the 169-field dictionary does not grow.
 
 /** What a tracker field holds, reduced to what the mapping needs to decide whether a Product Velocity field can use it. */
 export type CatalogKind = "text" | "long_text" | "number" | "date" | "select" | "multi_select" | "user" | "labels" | "milestone" | "issue_type" | "iteration" | "other";

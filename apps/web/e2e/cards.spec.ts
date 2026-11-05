@@ -15,7 +15,7 @@ const undoCount = (page: Page) => page.evaluate(() => (window as unknown as { __
 test.describe("the board", () => {
   test("columns are the Initiative Phases and swimlanes the Initiative Groups, with counts", async ({ page }) => {
     await open(page);
-    await expect(page.locator(".kb-col-name")).toHaveText(["Discover", "Define", "Build", "Beta-test", "Experiment", "Roll-out", "Completed", "Sunset", "No value"]);
+    await expect(page.locator(".kb-col-name")).toHaveText(["Discover", "Define", "Build", "Test", "Experiment", "Roll-out", "Completed", "No value"]);
     await expect(page.locator(".kb-lane-head strong")).toHaveText(["Onboarding", "Platform health", "Retention", "No value"]);
     await expect(page.locator(".kb-col-head", { hasText: "Discover" }).locator(".gl-count")).toHaveText("8");
     await expect(page.locator(".kb-lane-head", { hasText: "Onboarding" })).toContainText("items");
@@ -152,10 +152,10 @@ test.describe("moving cards", () => {
     await page.keyboard.press("m");
     const menu = page.getByRole("dialog", { name: "Move R-01" });
     await expect(menu).toBeVisible();
-    await menu.getByLabel("Initiative Phase").selectOption("Beta-test");
+    await menu.getByLabel("Initiative Phase").selectOption("Test");
     await menu.getByLabel("Initiative Group").selectOption("Retention");
     await menu.getByRole("button", { name: "Move" }).click();
-    expect(await val(page, "item-1", "initiative_phase")).toBe("Beta-test");
+    expect(await val(page, "item-1", "initiative_phase")).toBe("Test");
     expect(await val(page, "item-1", "theme")).toBe("Retention");
     await expect(card(page, "item-1")).toBeFocused();
     await card(page, "item-1").press("m");

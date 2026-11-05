@@ -438,18 +438,18 @@ describe("moving a card: several fields as one undo step", () => {
   };
   it("changes the column and the lane field together; one undo puts both back", async () => {
     const { c, source } = setup();
-    expect(c.editFields("item-1", { initiative_phase: "Beta-test", theme: "Retention" })).toEqual({ ok: true, changed: true });
-    expect(c.row("item-1")).toMatchObject({ initiative_phase: "Beta-test", theme: "Retention" });
-    expect(c.status.last?.text).toBe("R-01 Initiative Phase: Build to Beta-test, Initiative Group: Onboarding to Retention");
+    expect(c.editFields("item-1", { initiative_phase: "Test", theme: "Retention" })).toEqual({ ok: true, changed: true });
+    expect(c.row("item-1")).toMatchObject({ initiative_phase: "Test", theme: "Retention" });
+    expect(c.status.last?.text).toBe("R-01 Initiative Phase: Build to Test, Initiative Group: Onboarding to Retention");
     expect(c.status.undoCount).toBe(1);
     await c.flush();
-    expect(source.items[0]).toMatchObject({ initiative_phase: "Beta-test", theme: "Retention" });
+    expect(source.items[0]).toMatchObject({ initiative_phase: "Test", theme: "Retention" });
     await c.undo();
     expect(c.row("item-1")).toMatchObject({ initiative_phase: "Build", theme: "Onboarding" });
     await c.flush();
     expect(source.items[0]).toMatchObject({ initiative_phase: "Build", theme: "Onboarding" });
     await c.redo();
-    expect(c.row("item-1")!.initiative_phase).toBe("Beta-test");
+    expect(c.row("item-1")!.initiative_phase).toBe("Test");
   });
   it("null clears a field, a typed group keeps the existing spelling", () => {
     const { c } = setup();
@@ -458,7 +458,7 @@ describe("moving a card: several fields as one undo step", () => {
   });
   it("checks everything first: a refused value changes nothing", () => {
     const { c } = setup();
-    expect(c.editFields("item-1", { initiative_phase: "Beta-test", status: "Completed" })).toMatchObject({ ok: false, error: expect.stringContaining("comes from GitHub") });
+    expect(c.editFields("item-1", { initiative_phase: "Test", status: "Completed" })).toMatchObject({ ok: false, error: expect.stringContaining("comes from GitHub") });
     expect(c.editFields("item-1", { initiative_phase: "Nonsense" })).toMatchObject({ ok: false });
     expect(c.row("item-1")!.initiative_phase).toBe("Build");
     expect(c.status.undoCount).toBe(0);

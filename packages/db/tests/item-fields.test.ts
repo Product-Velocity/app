@@ -206,7 +206,7 @@ describe("system-set fields", () => {
     expect(row.start_building).not.toBeNull();
     expect(row.start_discovery).toBeNull();
     await db.admin.query("update public.items set start_building = '2020-01-01' where id = $1", [id]);
-    await db.asUser(creator, (q) => q("update public.items set initiative_phase = 'Beta-test' where id = $1", [id]), { commit: true });
+    await db.asUser(creator, (q) => q("update public.items set initiative_phase = 'Test' where id = $1", [id]), { commit: true });
     await db.asUser(creator, (q) => q("update public.items set initiative_phase = 'Build' where id = $1", [id]), { commit: true });
     expect((await db.admin.query("select to_char(start_building, 'YYYY-MM-DD') as d from public.items where id = $1", [id])).rows[0].d).toBe("2020-01-01");
   });

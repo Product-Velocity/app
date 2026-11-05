@@ -75,7 +75,7 @@ describe("needsAttention", () => {
     expect(n.find((x) => x.id === "d")!.health).toBe("Blocked");
   });
   it("a finished initiative is not late; blocked GitHub issues count once they exist", () => {
-    expect(needsAttention([row("f", 1, { g2m_date_est: "2026-01-01", status: "Cancelled" }), row("g", 2, { g2m_date_est: "2026-01-01", initiative_phase: "Sunset" })], TODAY)).toEqual([]);
+    expect(needsAttention([row("f", 1, { g2m_date_est: "2026-01-01", status: "Cancelled" }), row("g", 2, { g2m_date_est: "2026-01-01", initiative_phase: "Completed" })], TODAY)).toEqual([]);
     expect(needsAttention([row("h", 1, { health: "On Track", blocked_issues: 2 })], TODAY)[0]!.reasons).toEqual(["2 blocked issues on GitHub"]);
   });
 });

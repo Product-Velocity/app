@@ -7,9 +7,9 @@ import { FROM_TRACKER, NEVER_SYNCED, SLOTS, TWO_WAY, knownKey, mappingRows, slot
 const TRACKERS: Tracker[] = ["github", "jira"];
 
 describe("the default mapping covers the whole dictionary", () => {
-  it.each(TRACKERS)("%s: every one of the 170 fields has at least one row, in dictionary order", (t) => {
+  it.each(TRACKERS)("%s: every one of the 169 fields has at least one row, in dictionary order", (t) => {
     const rows = mappingRows(t);
-    expect(FIELDS).toHaveLength(170);
+    expect(FIELDS).toHaveLength(169);
     expect([...new Set(rows.map((r) => r.key))]).toEqual(FIELDS.map((f) => f.key));
     for (const r of rows) expect(r.label).toBe(FIELD_BY_KEY[r.key]!.name);
   });

@@ -97,17 +97,16 @@
    "Discover",
    "Define",
    "Build",
-   "Beta-test",
+   "Test",
    "Experiment",
    "Roll-out",
-   "Completed",
-   "Sunset"
+   "Completed"
   ],
-  "allowedText": "Discover · Define · Build · Beta-test · Experiment · Roll-out · Completed · Sunset",
+  "allowedText": "Discover · Define · Build · Test · Experiment · Roll-out · Completed",
   "origin": "Input",
   "githubSync": "Suggest only (never auto-set): first child issue in progress -> suggest Build.",
   "filledWhen": "Now where known",
-  "description": "Discover, Define, Build, Beta-test, Experiment, Roll-out, Completed, Sunset"
+  "description": "Discover, Define, Build, Test, Experiment, Roll-out, Completed"
  },
  {
   "n": "5",
@@ -1072,7 +1071,7 @@
   "n": "55",
   "storage": "System-set column (read-only)",
   "phase": 1,
-  "name": "Start Beta-Test",
+  "name": "Start Test",
   "key": "start_beta",
   "group": "When",
   "type": "Date",
@@ -1504,7 +1503,7 @@
   "n": "76",
   "storage": "Computed (view or function, not stored)",
   "phase": 3,
-  "name": "Beta-Test Time (days)",
+  "name": "Test Time (days)",
   "key": "time_beta_days",
   "group": "Efficiency",
   "type": "Computed",
@@ -2884,31 +2883,6 @@
   "description": "Per-team result of the capacity check at this rank."
  },
  {
-  "n": "V11",
-  "storage": "Column on items",
-  "phase": 4,
-  "name": "Spec Status",
-  "key": "spec_status",
-  "group": "Spec",
-  "type": "Select",
-  "editing": "Editable",
-  "customerSafe": false,
-  "views": [
-   "Planning"
-  ],
-  "allowed": [
-   "No spec",
-   "Draft",
-   "In review",
-   "Approved"
-  ],
-  "allowedText": "No spec · Draft · In review · Approved",
-  "origin": "Input",
-  "githubSync": "Not synced.",
-  "filledWhen": "Now",
-  "description": "State of the item documents."
- },
- {
   "n": "V12",
   "storage": "Related table",
   "phase": 4,
@@ -2950,7 +2924,7 @@
   "origin": "Computed",
   "githubSync": "Label optional.",
   "filledWhen": "Before build",
-  "description": "Definition of Ready complete and approved."
+  "description": "Gate B passed (the PRD is approved) and the build has not started yet."
  },
  {
   "n": "V14",
@@ -3220,12 +3194,11 @@
    "History"
   ],
   "allowed": [
-   "G1",
-   "G2",
-   "G3",
-   "G4"
+   "A",
+   "B",
+   "C"
   ],
-  "allowedText": "G1 · G2 · G3 · G4",
+  "allowedText": "A · B · C",
   "origin": "System",
   "githubSync": "Not synced.",
   "filledWhen": "Now",
