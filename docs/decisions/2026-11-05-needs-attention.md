@@ -1,0 +1,6 @@
+---
+date: 2026-11-05
+by: Ashu
+request: 337
+---
+**Needs attention is one screen over data the grid already holds, with eight reasons and a one-click next step, and every entry is a suggestion.** It reads the whole project like the grid (no new table), plus gate requests and open conditions, applies the rules in `packages/domain/src/attention.ts` and lists initiatives worst first, then by Stack Rank. Reasons: delivery risk (the leadership list), build done, work before the gate, cancelled but building, hold due, waiting for a decision (more than 7 days), open conditions, stalled in a phase (per-phase limits, defaults). Next steps use the gate functions (Move to Test, Request gate) or open the item or Decisions; nothing changes by itself (decision 2026-10-28, item 6). It is about initiatives and teams, never people (rule 8). The Build Status that drives two reasons comes from GitHub and Jira alike, so tracker parity holds. Reading choices made without asking, change them if you disagree: the limits (30, 30, 90, 30, 45, 60 days) are defaults; a Held initiative is never "stalled"; a cancelled initiative appears only for "cancelled but building"; the tab has no count badge because the count needs the loaded project; "My work" (the other half of #105) is left for its own request.

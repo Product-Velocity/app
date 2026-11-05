@@ -38,3 +38,4 @@ export * from "./discovery-template";
 export * from "./company-profile";
 export * from "./assistants";
 export * from "./gates";
+export * from "./attention";

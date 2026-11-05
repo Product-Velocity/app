@@ -74,6 +74,22 @@ Reports keeps the *history*: decisions per gate, time waiting at a gate, Hold co
 - **Move to next phase** for the moves without a gate.
 - The **Initiative Phase cell is read-only** in the grid and in paste/import. The bar, the item panel and ⌘K are the only ways to move a phase.
 
+## 7a. Needs attention (issue #337)
+The **Needs attention** tab (`/attention`) lists the initiatives of the current scope that need a person to look, worst first, then by Stack Rank. The rules are `attentionList` in `packages/domain/src/attention.ts`; every entry says the reason in words and, where there is one, offers the next step in one click. A mismatch is a suggestion, never an automatic change; the buttons use the same functions as the grid (Move to Test through `move_phase`, Request gate through `request_gate`).
+
+| Reason | When | Next step |
+|---|---|---|
+| Delivery risk | Health Blocked, At Risk or Delayed; G2M date passed; blocked issues (the leadership list) | Open the initiative |
+| Build done | Build Status Done (closed as completed) while the phase is Build | Move to Test |
+| Work before the gate | Build Status In progress or Done while the phase is Discover or Define | Request the gate |
+| Cancelled but building | Initiative Status Cancelled while Build Status is In progress | Open; stop the work in the tracker |
+| Hold due | `next_gate_due` of a Held gate is today or earlier | Request the gate again |
+| Waiting for a decision | An open gate request older than 7 days | Open Decisions |
+| Open conditions | `gate_conditions` not done | Open the initiative |
+| Stalled in a phase | Active, days in phase beyond 30 (Discover, Define, Test), 45 (Experiment), 60 (Roll-out), 90 (Build) | Open the initiative |
+
+Limits are defaults in `STALL_DAYS` and `GATE_WAIT_DAYS`; Roadmap Health shows the real distribution. All of it is about an initiative or a team, never a person (rule 8). J and K move through the list and Enter opens the initiative. The tab has no count badge, because counting needs the whole project, which the page loads; the count is on the screen.
+
 ## 8. When items sync to GitHub or Jira
 
 The same for both trackers (`docs/decisions/2026-11-03-tracker-parity.md`).
@@ -115,7 +131,7 @@ Built:
 Not built yet (each is a follow-up request, not a hidden gap; the browser specs that main had left behind were fixed in the first follow-up):
 - **Notifications** to preferred approvers (the choice is stored on the request; the notification design is issue #104).
 - **Stop closes the tracker issue**: Stop sets Initiative Status to Cancelled and the result says Sync handles it; the dedicated confirmed "close the issue" offer from the removed-initiative decisions is not wired to Stop.
-- **Needs attention** as a screen (#105): the suggestions appear in the item panel only.
+- ~~**Needs attention** as a screen~~ built (issue #337, section 7a). The "My work" half of #105 is not built.
 - **Reports** for gate history and time at a gate; the ready-to-start wait is derivable (Gate B date to `start_building`) but has no report yet.
 - **A separate "Request engineering review" button**: the review push is the normal confirmed Sync of an initiative in Define (it carries `pv:define`); a dedicated button and a PRD-in-review condition were not added.
 - The grid hides Completed initiatives but still loads them; a server-side limit on what is loaded is a later change.

@@ -526,6 +526,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       out.push({ id: "gate:decide", label: `Decide the gate requests of ${n}`, group: "Decision gates", keywords: "approve go hold stop approval", run: run("decide") });
       if (controller.canEdit) out.push({ id: "gate:move", label: `Move ${n} to another phase`, group: "Decision gates", keywords: "phase next test experiment build", run: run("move") });
     }
+    out.push({ id: "go:attention", label: "Go to Needs attention", group: "Go to", keywords: "attention suggestions stalled blocked build done hold conditions", run: () => router.push("/attention") });
     out.push({ id: "go:decisions", label: "Go to Decisions", group: "Go to", keywords: "gate approve approval request waiting decide", run: () => router.push("/decisions") });
     out.push({ id: "go:members", label: "Open Members", group: "Go to", run: () => router.push("/settings/members") });
     out.push({ id: "go:security", label: "Open Security", group: "Go to", run: () => router.push("/settings/security") });
