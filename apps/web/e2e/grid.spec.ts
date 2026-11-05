@@ -58,7 +58,7 @@ test("Tab moves to the next editable cell while editing (columns follow the dict
   await cell(page, "item-1", "initiative_name").click();
   await page.keyboard.press("Enter");
   await page.keyboard.press("Tab");
-  await expect(page.locator(".ag-row[row-id='item-1'] [col-id='roadmap_category']")).toHaveClass(/ag-cell-focus|ag-cell-inline-editing/);
+  await expect(page.locator(".ag-row[row-id='item-1'] [col-id='theme']")).toHaveClass(/ag-cell-focus|ag-cell-inline-editing/);
 });
 
 test("typed picker: type to filter, Enter chooses", async ({ page }) => {

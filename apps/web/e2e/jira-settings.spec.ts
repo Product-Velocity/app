@@ -92,8 +92,8 @@ test.describe("Jira settings, laid out like GitHub (decision 2026-11-03-tracker-
       const card = page.locator(".card", { has: page.getByRole("heading", { name: "Field configuration", level: 2 }) });
       const form = card.getByRole("form", { name: "Field configuration of Platform" });
       await expect(form.getByLabel("Planned Start: Start date custom field (not sent until chosen)")).toHaveValue("customfield_10015");
-      await expect(form.getByLabel("Initiative Group: Single-line text custom field (not sent until chosen)")).toHaveValue("customfield_10030");
-      await expect(form.getByLabel("Initiative Group: Single-line text custom field (not sent until chosen)").locator("option")).toHaveText(["Not mapped (not sent)", "Theme", "Release note"]);
+      await expect(form.getByLabel("Focus Area: Single-line text custom field, e.g. Theme (not sent until chosen)")).toHaveValue("customfield_10030");
+      await expect(form.getByLabel("Focus Area: Single-line text custom field, e.g. Theme (not sent until chosen)").locator("option")).toHaveText(["Not mapped (not sent)", "Theme", "Release note"]);
       await expect(form.getByLabel("Jira priority for MoSCoW “Must”")).toHaveValue("1");
       await expect(form.getByLabel("Jira priority for MoSCoW “Should”")).toHaveValue(""); // not mapped yet; "(suggested)" marks the proposal
       await expect(form.getByLabel("Jira priority for MoSCoW “Should”").locator("option", { hasText: "High (suggested)" })).toHaveCount(1);

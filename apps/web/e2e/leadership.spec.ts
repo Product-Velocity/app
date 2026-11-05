@@ -40,7 +40,7 @@ test.describe("the page", () => {
     const rows = page.getByTestId("top-items").locator("tbody tr");
     await expect(rows).toHaveCount(10);
     await expect(rows.first()).toContainText("#1");
-    await expect(page.getByTestId("top-items").locator("thead th").allTextContents()).resolves.toEqual(expect.arrayContaining(["Stack Rank", "Initiative ID", "Initiative Name", "Home Project", "Initiative Group", "Roadmap Category", "Initiative Phase", "Health", "Business Value (12m run-rate)"]));
+    await expect(page.getByTestId("top-items").locator("thead th").allTextContents()).resolves.toEqual(expect.arrayContaining(["Stack Rank", "Initiative ID", "Initiative Name", "Home Project", "Initiative Group", "Business Value Type", "Initiative Phase", "Health", "Planned Quarter", "Business Value (12m run-rate)"]));
     await expect(page.locator(".lead-note")).toContainText("arrive with their phases");
   });
 
@@ -56,10 +56,10 @@ test.describe("the page", () => {
     await expect(moves).not.toContainText("R-09"); // changed before this week
   });
 
-  test("the investment mix shows each Roadmap Category with a count and a share", async ({ page }) => {
+  test("the investment mix shows each Business Value Type with a count and a share", async ({ page }) => {
     await open(page);
     const mix = page.getByTestId("mix");
-    await expect(mix).toContainText("New big bets");
+    await expect(mix).toContainText("Increase revenue");
     await expect(mix.locator("li").first()).toContainText(/\d+ · \d+%/);
   });
 
