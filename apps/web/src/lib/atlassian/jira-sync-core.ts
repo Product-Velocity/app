@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { compareTexts, hashText, type TextVerdict } from "@pv/github";
 import { adfToText, markdownToAdf, type AdfNode } from "./adf";
-import { TEXT_SECTIONS, attachmentsHash, attachmentsText, composeDescription, isSimpleNodes, nodesText, splitDescription, type Link, type Split, type TextSection } from "./jira-sections";
+import { LINK_SECTIONS, TEXT_SECTIONS, attachmentsHash, attachmentsText, composeDescription, linksText, isSimpleNodes, nodesText, splitDescription, type Link, type Split, type TextSection } from "./jira-sections";
 import { buildJiraPayload, type JiraFieldMap } from "./outbound";
 import { cleanTitle } from "./read-issues";
 
@@ -113,16 +113,24 @@ export function planJiraSend(i: PlanInput): SendPlan {
   // The description is one Jira field holding three compared sections and two sent-only ones. It is rewritten when a section is written, or when the
   // links changed since the last sync, and never while a section is still a conflict. Sections that are not written keep Jira's own content.
   const sectionWrites = TEXT_SECTIONS.filter((k) => writes.includes(k));
-  const attachmentsDirty = i.base?.attachments === undefined ? attachmentsText(shown.artifacts, shown.files, i.documents) !== "" : i.base.attachments !== attHash;
+  // Links, Files and Documents are dirty when the record of the last send differs OR when what Jira shows now is not what would be written: a record that
+  // says "sent" must never hide a description that still has the old content (SCRUM-9, 2026-11-06)
+  const want: Record<(typeof LINK_SECTIONS)[number], string> = { artifacts: linksText(shown.artifacts), files: linksText(shown.files), documents: linksText(i.documents) };
+  const shownInJira = LINK_SECTIONS.some((k) => nodesText(cmp.split.sent[k]) !== want[k]);
+  const attachmentsDirty = shownInJira || (i.base?.attachments === undefined ? attachmentsText(shown.artifacts, shown.files, i.documents) !== "" : i.base.attachments !== attHash);
+  let wroteDescription = false;
   const unresolvedSection = unresolved.some((f) => f !== "title");
   if ((sectionWrites.length > 0 || attachmentsDirty) && !unresolvedSection) {
     const keep: Partial<Record<TextSection, AdfNode[]>> = {};
     for (const k of TEXT_SECTIONS) if (!sectionWrites.includes(k)) keep[k] = cmp.split.nodes[k] ?? [];
+    wroteDescription = true;
     fields.description = composeDescription({ pv: { summary: i.pv.summary ?? "", description: i.pv.description ?? "", hypothesis: i.pv.hypothesis ?? "" }, keep, head: cmp.split.head, ...shown, ...(i.documents ? { documents: i.documents } : {}) });
     const lost = sectionWrites.filter((k) => cmp.richIn.includes(k));
     if (lost.length > 0) notes.push(`The ${lost.map((k) => LABEL[k]).join(" and ")} in Jira has content Product Velocity cannot write back (a table, macro or mention). Sending replaces ${lost.length > 1 ? "those sections" : "that section"} with Product Velocity's text.`);
     if (cmp.split.legacy && sectionWrites.length > 0 && cmp.split.nodes.description) notes.push("The Jira description gets headed sections (Summary, Description, Hypothesis, Artifacts, Files), like the GitHub issue.");
   } else delete fields.description;
+  // the record of the sent-only sections moves only when they were written; if a rewrite was needed but did not happen, it stays, so the next sync tries again
+  if (attachmentsDirty && !wroteDescription) { if (i.base?.attachments !== undefined) newBase.attachments = i.base.attachments; else delete newBase.attachments; }
   // the parts that are written but not compared go out only when they changed since the last send, or when the labels in Jira are not as they should be
   const extras = { ...fields };
   delete extras.summary; delete extras.description;
