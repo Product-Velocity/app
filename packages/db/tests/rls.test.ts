@@ -449,6 +449,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "notifications",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.notifications set read_at = now() where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.notifications where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.notifications (tenant_id, user_id, kind) select tenant_id, user_id, 'gate_decided' from public.notifications where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.notifications set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "tenant_gate_approvers",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [
@@ -576,7 +586,7 @@ describe("RLS covers every table", () => {
   });
 
   it("internal trigger functions are not callable by API roles, and no function has a mutable search_path", async () => {
-    for (const fn of ["audit_row()", "set_write_meta()", "guard_approver()", "audit_log_append_only()", "guard_last_admin()", "items_before_insert()", "items_guard()", "items_compact()", "items_system_fields()", "items_phase_guard()", "gate_reviews_guard()", "gate_conditions_guard()", "gate_assert_editor(uuid)", "phase_index(text)", "guard_claude_switch()", "audit_log_set_connection()", "mcp_current_connection()", "is_claude_token()"]) {
+    for (const fn of ["audit_row()", "set_write_meta()", "guard_approver()", "audit_log_append_only()", "guard_last_admin()", "items_before_insert()", "items_guard()", "items_compact()", "items_system_fields()", "items_phase_guard()", "gate_reviews_guard()", "gate_conditions_guard()", "gate_assert_editor(uuid)", "gate_reviews_notify()", "phase_index(text)", "guard_claude_switch()", "audit_log_set_connection()", "mcp_current_connection()", "is_claude_token()"]) {
       for (const role of ["anon", "authenticated"]) {
         const { rows } = await db.admin.query("select has_function_privilege($1, $2, 'execute') as ok", [role, `public.${fn}`]);
         expect(rows[0].ok, `${role} can execute ${fn}`).toBe(false);

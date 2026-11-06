@@ -294,6 +294,7 @@ export const GATES_NOTES = [
   "Who can decide is set per gate in Settings, Workspace. Admins can by default; you can give any account approval rights. Claude, service accounts and staff impersonation never can.",
   "Decisions screen: every gate request, filtered by Waiting for approval (the default), Decided, Requested by me, and Can decide. Open a row to read the gate pack; J and K move through the list.",
   "Multi-select bar: Request gate, Decide (one rationale for all selected, with a confirmation listing each item) and Move to next phase.",
+  "Notifications: when a gate is requested, the people who can decide it (or only the people the requester asked) see it under Notifications in the top bar; the requester sees the decision there. No email is sent. Mark a notice read by opening it, or Mark all as read.",
   "The outcome review at +30, +60 and +90 days is not a gate; it is a scheduled review after Roll-out.",
 ];
 

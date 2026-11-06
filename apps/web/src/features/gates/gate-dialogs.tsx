@@ -5,7 +5,7 @@ import {
   GATES, GATE_IDS, OUTCOMES, checklistReady, gateChecklist, gateOfPhase, gateTitle, movablePhases, moveNeedsGate, outcomeLabel, requestableGates, splitForRequest, targetPhases,
   type ChecklistItem, type GateId, type GateOutcome, type GateRequest,
 } from "@pv/domain";
-import type { GateItem, GateSource, ItemResult } from "./gate-source";
+import type { Approvers, Decider, GateItem, GateSource, ItemResult } from "./gate-source";
 
 const label = (i: Record<string, unknown>) => `${String(i.item_code ?? "")} ${String(i.initiative_name ?? "")}`.trim();
 
@@ -38,7 +38,7 @@ export type DialogItem = { id: string } & Record<string, unknown>;
 // -------------------------------------------------------------------------------------------------------------------------------- request
 
 /** "Request gate": asks for a decision on the selected items. The checklist informs; it never blocks (docs/28 section 3). */
-export function RequestGateDialog({ source, items, onClose, onDone }: { source: GateSource; items: DialogItem[]; onClose: () => void; onDone: () => void }) {
+export function RequestGateDialog({ source, items, me = null, onClose, onDone }: { source: GateSource; items: DialogItem[]; /** The signed-in person: left out of the list of people to ask. */ me?: string | null; onClose: () => void; onDone: () => void }) {
   const first = items.map((i) => gateOfPhase(i.initiative_phase)).find(Boolean) ?? "A";
   const common = GATE_IDS.filter((g) => items.some((i) => requestableGates(i.initiative_phase).includes(g)));
   const [gate, setGate] = useState<GateId>(common.includes(first) ? first : common[0] ?? "A");
@@ -46,8 +46,15 @@ export function RequestGateDialog({ source, items, onClose, onDone }: { source: 
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<ItemResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [people, setPeople] = useState<{ deciders: Decider[]; approvers: Approvers } | null>(null);
+  const [asked, setAsked] = useState<ReadonlySet<string>>(new Set());
   const selectRef = useRef<HTMLSelectElement>(null);
   useEffect(() => { selectRef.current?.focus(); }, []);
+  useEffect(() => {
+    let off = false;
+    void Promise.all([source.loadDeciders(), source.loadApprovers()]).then(([deciders, approvers]) => { if (!off) setPeople({ deciders, approvers }); }, () => undefined);
+    return () => { off = true; };
+  }, [source]);
   useEffect(() => {
     let off = false;
     void Promise.all(items.slice(0, 50).map(async (i) => [i.id, await source.loadDocs(i.id).catch(() => [])] as const)).then((e) => { if (!off) setDocs(Object.fromEntries(e)); });
@@ -58,11 +65,13 @@ export function RequestGateDialog({ source, items, onClose, onDone }: { source: 
   const lists = ready.map((i) => ({ item: i, list: gateChecklist(gate, i, docs[i.id] ?? []) }));
   const complete = lists.filter((l) => checklistReady(l.list)).length;
   const names = new Map(items.map((i) => [i.id, label(i)]));
+  // who can decide this gate: Admins, the Approver permission and the gate's own list (the database applies the same rule; it never tells the requester)
+  const askable = (people?.deciders ?? []).filter((d) => d.user_id !== me && !d.is_service_account && (d.role === "admin" || d.is_approver || (people?.approvers[gate] ?? []).includes(d.user_id)));
 
   const go = async () => {
     setBusy(true); setError(null);
     try {
-      const out = await source.requestGate(gate, lists.map((l) => ({ item: l.item.id, ready: checklistReady(l.list), criteria: l.list as ChecklistItem[] })));
+      const out = await source.requestGate(gate, lists.map((l) => ({ item: l.item.id, ready: checklistReady(l.list), criteria: l.list as ChecklistItem[], ...(askable.length > 0 && asked.size > 0 ? { preferred: [...asked] } : {}) })));
       setResults(out);
       onDone();
     } catch (e) { setError((e as Error).message); }
@@ -89,6 +98,18 @@ export function RequestGateDialog({ source, items, onClose, onDone }: { source: 
             <details><summary>What is missing</summary>
               <ul>{lists.filter((l) => !checklistReady(l.list)).map((l) => <li key={l.item.id}><strong>{label(l.item)}</strong>: {l.list.filter((c) => !c.ok).map((c) => c.label).join(", ")}</li>)}</ul>
             </details>
+          )}
+          {askable.length > 0 && (
+            <fieldset className="gate-ask">
+              <legend className="dialog-label">Ask these people (optional)</legend>
+              <p className="muted">Everyone who can decide gate {gate} gets a notification. Pick people to ask only them.</p>
+              {askable.map((d) => (
+                <label key={d.user_id} className="gate-outcome">
+                  <input type="checkbox" checked={asked.has(d.user_id)} onChange={() => setAsked((s) => { const n = new Set(s); if (!n.delete(d.user_id)) n.add(d.user_id); return n; })} />
+                  <span>{d.email}</span>
+                </label>
+              ))}
+            </fieldset>
           )}
           {error && <p role="alert" className="error">{error}</p>}
           <div className="dialog-actions">

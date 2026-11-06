@@ -626,7 +626,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
           <StatusInline controller={controller} />
         </div>
         <StatusAlerts controller={controller} />
-        {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} total={visibleRows.length} {...(gates ? { gates } : {})} />}
+        {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} total={visibleRows.length} me={me} {...(gates ? { gates } : {})} />}
         {controller.canEdit && lookups.projects.length > 0 && <QuickAddBar controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef} />}
       </div>
       {githubIds && <GithubPushDialog ids={githubIds} newItems={newItems} onClose={() => setGithubIds(null)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer(); }} />}

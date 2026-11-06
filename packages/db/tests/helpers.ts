@@ -279,6 +279,10 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
     await db.admin.query("insert into public.gate_reviews (tenant_id, item_id, gate) values ($1, $2, 'B')", [tenantId, items[2]]);
     await db.admin.query("insert into public.tenant_gate_approvers (tenant_id, gate, user_id) select tenant_id, 'C', user_id from public.tenant_members where tenant_id = $1 limit 1", [tenantId]);
   }
+  // an inbox row for the first member (positive control for the gate notifications); older-schema tests seed before it exists
+  if ((await db.admin.query("select to_regclass('public.notifications') as t")).rows[0].t) {
+    await db.admin.query("insert into public.notifications (tenant_id, user_id, kind, item_id, payload) select tenant_id, user_id, 'gate_requested', $2, '{\"gate\":\"B\"}'::jsonb from public.tenant_members where tenant_id = $1 order by created_at limit 1", [tenantId, items[2]]);
+  }
   const sess = await one("insert into public.alignment_sessions (tenant_id, name, method) values ($1, 'Seed session', 'coins') returning id", [tenantId]);
   await db.admin.query("insert into public.alignment_items (tenant_id, session_id, item_id, position) values ($1, $2, $3, 1)", [tenantId, sess, items[0]]);
   await db.admin.query("update public.alignment_sessions set groups = '[{\"id\":\"everyone\",\"name\":\"Everyone\"}]' where id = $1", [sess]);

@@ -19,6 +19,7 @@ export function HarnessClient({ n, latency, role, view, allColumns, bigLists = f
     const phases = ["Discover", "Define", "Build", "Test"];
     controller.rows.forEach((r, i) => { (r as Record<string, unknown>).initiative_phase = phases[i % 4]; });
     const g = new MemoryGateSource([], role === "admin" ? ["A", "B", "C"] : []);
+    g.deciders = [{ user_id: "u1", email: "ana@example.test", role: "admin", is_approver: false, is_service_account: false }, { user_id: "u2", email: "bo@example.test", role: "creator", is_approver: true, is_service_account: false }, { user_id: "u3", email: "cy@example.test", role: "creator", is_approver: false, is_service_account: false }];
     g.items = controller.rows.map((r) => ({ id: r.id, item_code: r.item_code, initiative_name: r.initiative_name, initiative_phase: (r.initiative_phase as string | null) ?? null, initiative_status: null, current_gate: null, gate_status: null, hypothesis: null, effort: (r.effort as string | null) ?? null, moscow: (r.moscow as string | null) ?? null, health: (r.health as string | null) ?? null, kr_metric: null, home_project: String(r.home_project), start_experiment: null }));
     return g;
   }, [gates, controller, role]);

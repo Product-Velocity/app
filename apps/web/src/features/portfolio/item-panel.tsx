@@ -174,7 +174,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
         <p className="muted ip-rank">#{row.stack_rank} globally · #{row.project_rank} in {project || "its project"}</p>
       </header>
 
-      {gates && <GateStrip source={gates} frozen={Boolean(lookups.frozen?.includes(itemId))} row={row as never} canEdit={controller.canEdit} onChanged={() => { void controller.refreshFromServer(); }} />}
+      {gates && <GateStrip source={gates} me={me} frozen={Boolean(lookups.frozen?.includes(itemId))} row={row as never} canEdit={controller.canEdit} onChanged={() => { void controller.refreshFromServer(); }} />}
 
       {pushGithub && <GithubPushDialog ids={[itemId]} onClose={() => setPushGithub(false)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer(); }} />}
       {confirmDelete && <DeleteDialog controller={controller} ids={[itemId]} onClose={() => setConfirmDelete(false)} onDeleted={() => { if (mode === "peek") onClose?.(); else router.push(backHref); }} />}

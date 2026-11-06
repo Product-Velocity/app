@@ -39,3 +39,4 @@ export * from "./company-profile";
 export * from "./assistants";
 export * from "./gates";
 export * from "./attention";
+export * from "./notifications";

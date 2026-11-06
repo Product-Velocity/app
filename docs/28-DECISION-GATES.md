@@ -39,7 +39,7 @@ Phases: **Discover, Define, Build, Test, Experiment, Roll-out, Completed.** (Tes
 ## 3. Signal, decide, complete
 
 1. **Signal (Request gate).** A Creator or above requests the gate on one item or a selection. Gate Status becomes **In review**. A checklist shows the required fields for the next stage, the document status and (gate B) capacity fit. It informs; it does not block. Claude can prepare the **gate pack** (a summary of the evidence and the checklist) through the MCP server; it cannot request-and-decide.
-2. **Decide.** A person with approval rights for that gate chooses **Go, Go with conditions, Hold or Stop** and writes a rationale. The rationale and the decision are append-only (`gate_reviews`). You may approve your own request. If several people can decide, the first decision wins; the rest see the request closed. A request may name preferred approvers, who are notified; others with rights are not blocked.
+2. **Decide.** A person with approval rights for that gate chooses **Go, Go with conditions, Hold or Stop** and writes a rationale. The rationale and the decision are append-only (`gate_reviews`). You may approve your own request. If several people can decide, the first decision wins; the rest see the request closed. A request may name preferred approvers, who are notified (section 6a); others with rights are not blocked.
 3. **Complete.** One database transaction: the decision row, Initiative Phase and `phase_changed_at`, the phase start date, the document status (A: discovery, B: PRD), `ready_for_build` and who/when (B), Gate Status and Current Gate, and the audit entry. Then the tracker handover is *offered*, never sent without a confirmation.
 
 | Outcome | Effect |
@@ -66,6 +66,17 @@ Per gate (A, B, C), in Settings, Workspace: a list of accounts. **Admins can app
 A screen named **Decisions** in the main navigation next to My work and Needs attention. It is about gates, not about one person. Filters: **Waiting for approval** (default), **Decided**, **Requested by me**, **Can decide** (rows this person has rights to decide). Columns: item, gate, requested by and when, checklist result, who can decide. The peek panel shows the gate pack; J and K move through rows; the keyboard decides (G go, C go with conditions, H hold, S stop, each asking for the rationale). A badge on the nav entry counts the requests this person can decide.
 
 Reports keeps the *history*: decisions per gate, time waiting at a gate, Hold counts and how often fast lane was used (team level only, rule 8).
+
+## 6a. Notifications (issue #341)
+An in-app inbox, a **Notifications** button with an unread count in the top bar. The database writes the rows (triggers on `gate_reviews`), so every route notifies the same way:
+
+| Event | Who is told | Opens |
+|---|---|---|
+| A gate is requested | The people the requester named, if they can decide that gate; otherwise everyone who can (Admins, the Approver permission, the gate's list). Never the requester, never a service account. | Decisions |
+| A decision is made | The requester (not when they decided it themselves). The request is marked read for the other approvers. | The initiative |
+| A request is withdrawn (the phase moved back) | The requester. The approvers' notices are marked read. | The initiative |
+
+A notification holds the initiative code and name and the gate; the rationale, documents and commercial fields are never copied into it (the decision is read in Decisions). The request dialogs have an optional "Ask these people" list. The bell polls every minute and when the tab comes back; a person marks their own notices read (one, or all). Claude and service accounts neither receive nor mark notifications. **Email and Slack are not sent:** sending to people needs an explicit confirmation (CLAUDE.md rule 3), so email is a later, opt-in step with its own design.
 
 ## 7. The multi-select bar
 
@@ -129,7 +140,7 @@ Built:
 6. Claude: the read-only `get_gate_pack`; no tool can request, decide or move.
 
 Not built yet (each is a follow-up request, not a hidden gap; the browser specs that main had left behind were fixed in the first follow-up):
-- **Notifications** to preferred approvers (the choice is stored on the request; the notification design is issue #104).
+- ~~**Notifications** to preferred approvers~~ built in-app (issue #341, section 6a). Email and Slack are not built; they need an opt-in with an explicit confirmation.
 - **Stop closes the tracker issue**: Stop sets Initiative Status to Cancelled and the result says Sync handles it; the dedicated confirmed "close the issue" offer from the removed-initiative decisions is not wired to Stop.
 - ~~**Needs attention** as a screen~~ built (issue #337, section 7a). The "My work" half of #105 is not built.
 - **Reports** for gate history and time at a gate; the ready-to-start wait is derivable (Gate B date to `start_building`) but has no report yet.

@@ -906,3 +906,15 @@ button.share-chip { cursor: pointer; }
 .attention-name:hover { text-decoration: underline; }
 .attention-reasons { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
 .attention-kind { margin-right: 4px; }
+
+/* Notifications bell (issue #341) */
+.notif-panel { min-width: 340px; max-width: 420px; max-height: 70vh; overflow: auto; padding: 8px 0; }
+.notif-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 12px 8px; border-bottom: 1px solid var(--grey-1, #e1e5eb); }
+.notif-list { list-style: none; margin: 0; padding: 0; }
+.notif-item { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--grey-1, #e1e5eb); padding: 8px 12px; font: inherit; cursor: pointer; }
+.notif-item:hover, .notif-item:focus-visible { background: var(--blue-tint-2); }
+.notif-item.is-unread { background: var(--blue-tint-1, #eef0fc); }
+.notif-new { font-weight: 600; color: var(--blue-text); }
+.notif-when { display: block; font-size: 11.5px; margin-top: 2px; }
+.notif-empty { padding: 12px; margin: 0; }
+.gate-dialog .gate-ask { border: 0; padding: 0; margin: 10px 0 0; }
