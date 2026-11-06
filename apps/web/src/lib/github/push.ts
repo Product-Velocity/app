@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { canLinkFilesInto, columnOnItems, documentsPreviewNote, FIELD_BY_KEY, renderDocuments, type SharedDoc } from "@pv/domain";
+import { canLinkFilesInto, columnOnItems, documentLinks, documentsPreviewNote, FIELD_BY_KEY, type DocLinkInput } from "@pv/domain";
 import { createHash } from "node:crypto";
 import { parseConfigRows, githubOptions, type ConfigRow } from "@/lib/tracker-fields/mapping";
 import { switchedOffNotes } from "@/lib/tracker-fields/notes";
@@ -8,7 +8,7 @@ import { buildTrackingIssue, OUTBOUND_READ_FIELDS, childKey, childrenToAdd, desc
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { ConnectionRow } from "./server";
 import { syncBoardStatuses } from "./board-sync";
-import { shareUrl } from "@/lib/files/serve";
+import { documentUrl, shareUrl } from "@/lib/files/serve";
 import { refreshTree } from "./sync";
 import { PUSH_LIMIT, type PlanItem, type PushItemResult } from "./push-types";
 
@@ -17,8 +17,6 @@ type Link = { item_id: string; mode: "push" | "follow"; repo_full_name: string; 
 type Row = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; stack_rank: number; change_type: string | null; g2m_date_est: string | null; theme: string | null; effort: string | null; initiative_phase: string | null; home_project_id: string };
 
 type SharedFile = { item_id: string; name: string; share_token: string | null };
-/** The managed block stays under this many characters (GitHub refuses an issue body over 65,536, and text outside the block counts too). */
-const GITHUB_BLOCK_BUDGET = 60_000;
 const sharedFilesByItem = (rows: SharedFile[], appUrl: string) => {
   const m = new Map<string, { label: string; url: string }[]>();
   for (const r of rows) if (r.share_token) m.set(r.item_id, [...(m.get(r.item_id) ?? []), { label: r.name, url: shareUrl(appUrl, r.share_token, r.name) }]);
@@ -66,8 +64,8 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     supabase.from("item_github_links").select("item_id, mode, repo_full_name, issue_number, html_url, sync_state, last_pushed_hash, frozen_at").eq("tenant_id", tenantId).in("item_id", unique),
     supabase.from("item_attachments").select("item_id, name, url").eq("tenant_id", tenantId).eq("kind", "link").eq("shared", true).in("item_id", unique).order("created_at"),
     supabase.from("item_attachments").select("item_id, name, share_token").eq("tenant_id", tenantId).eq("kind", "file").in("item_id", unique).order("created_at"),
-    // the documents the person left shared (CLAUDE.md rule 2, changed 2026-11-05); a document marked "Do not share", and an AI draft nobody has accepted, is never read here
-    supabase.from("item_documents").select("item_id, kind, title, body, status, ai_draft").eq("tenant_id", tenantId).eq("shared", true).eq("ai_draft", false).in("item_id", unique).order("created_at"),
+    // the documents the person left shared, as name + public link (CLAUDE.md rule 2, changed 2026-11-06). The text is never read here; a document marked "Do not share", and an AI draft nobody has accepted, is not read at all
+    supabase.from("item_documents").select("item_id, kind, title, status, has_text, share_token").eq("tenant_id", tenantId).eq("shared", true).eq("ai_draft", false).in("item_id", unique).order("created_at"),
     supabase.from("item_issue_tree").select("item_id, repo_full_name, issue_number, board_id").eq("tenant_id", tenantId).in("item_id", unique),
     // the field configuration (what a person switched off per project); a database without that table has none, so everything stays as it was
     supabase.from("tracker_field_config").select("project_id, slot, enabled, field_id").eq("tenant_id", tenantId).eq("provider", "github"),
@@ -92,9 +90,10 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
   const artifactsByItem = new Map<string, { label: string; url: string }[]>();
   for (const a of (artifacts.data ?? []) as { item_id: string; name: string; url: string }[]) artifactsByItem.set(a.item_id, [...(artifactsByItem.get(a.item_id) ?? []), { label: a.name, url: a.url }]);
 
-  const docsByItem = new Map<string, SharedDoc[]>();
-  for (const d of (docRows.data ?? []) as { item_id: string; kind: string; title: string; body: string; status: string; ai_draft: boolean }[]) {
-    docsByItem.set(d.item_id, [...(docsByItem.get(d.item_id) ?? []), { title: d.title, kind: d.kind, status: d.status, body: d.body, aiDraft: d.ai_draft }]);
+  const docsByItem = new Map<string, DocLinkInput[]>();
+  for (const d of (docRows.data ?? []) as { item_id: string; kind: string; title: string; status: string; has_text: boolean; share_token: string | null }[]) {
+    if (!d.share_token) continue; // no address (not shared, or a draft nobody accepted): nothing to link
+    docsByItem.set(d.item_id, [...(docsByItem.get(d.item_id) ?? []), { title: d.title, kind: d.kind, status: d.status, hasText: d.has_text, url: documentUrl(appUrl, d.share_token, d.title) }]);
   }
   const fileRows = (sharedFiles.data ?? []) as SharedFile[];
   const filesByItem = sharedFilesByItem(fileRows, appUrl);
@@ -126,12 +125,10 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     const filesOk = privateRepos.has(target);
     const config = parseConfigRows(configByProject.get(project?.id ?? ""), "github");
     const issueInput = { item: { ...row, tags: tagsByItem.get(id) ?? [] }, itemId: id, projectName: project?.name ?? "", appUrl, artifacts: artifactsByItem.get(id) ?? [], files: filesOk ? itemFiles : [], ...githubOptions(config) };
-    // documents go in as the last section, only to a private repository, cut to what is left of the issue body's size limit
+    // documents go in as the last section: name + public link, only to a private repository (the text never goes in)
     const itemDocs = docsByItem.get(id) ?? [];
-    const withoutDocs = buildTrackingIssue(issueInput);
-    const docsRender = filesOk && itemDocs.length > 0 ? renderDocuments(itemDocs, Math.max(0, GITHUB_BLOCK_BUDGET - withoutDocs.block.length - 100)) : null;
-    const docsMd = docsRender?.markdown ?? "";
-    const built = docsMd ? buildTrackingIssue({ ...issueInput, documents: docsMd }) : withoutDocs;
+    const docs = filesOk && itemDocs.length > 0 ? documentLinks(itemDocs) : null;
+    const built = buildTrackingIssue({ ...issueInput, ...(docs && docs.links.length > 0 ? { documents: docs.links } : {}) });
     const switchedOff = switchedOffNotes(config, row, artifactsByItem.get(id)?.length ?? 0, itemFiles.length);
 
     // the linked GitHub Project: what would be written there is part of "changed", so changing a priority is a push
@@ -148,8 +145,8 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     internal.set(id, { projectId: project?.id, built, existing: link ? { issueNumber: link.issue_number, lastPushedHash: force?.has(id) ? null : link.last_pushed_hash } : null, pendingChildren, ...(board && boardPlan ? { board, boardPlan } : {}) });
     const withheld = itemFiles.length > 0 && !filesOk ? { filesNote: `${itemFiles.length === 1 ? "A shared file link was" : `${itemFiles.length} shared file links were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could open the links. Files are only linked in private repositories.` } : {};
     const unshared = unsharedByItem.get(id) ?? 0;
-    const docsWithheld = itemDocs.length > 0 && !filesOk ? `${itemDocs.length === 1 ? "A shared document was" : `${itemDocs.length} shared documents were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could read the text. Documents are only sent to private repositories.` : undefined;
-    const docsNote = docsRender ? documentsPreviewNote(docsRender, "issue") : undefined;
+    const docsWithheld = itemDocs.length > 0 && !filesOk ? `${itemDocs.length === 1 ? "A shared document link was" : `${itemDocs.length} shared document links were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could open the links. Document links are only sent to private repositories.` : undefined;
+    const docsNote = docs ? documentsPreviewNote(docs, "issue") : undefined;
     const note = [docsWithheld ?? docsNote, withheld.filesNote ?? (unshared ? `${unshared === 1 ? "1 attached file has" : `${unshared} attached files have`} no share link, so ${unshared === 1 ? "it is" : "they are"} not in the issue. Share it on the item's Spec tab to include it.` : undefined), ...switchedOff].filter(Boolean).join(" ") || undefined;
     const boardInfo = board && boardPlan ? { title: board.title, included: boardPlan.include, writes: boardPlan.writes.map((w) => ({ field: w.field.name, value: w.label })), notes: boardPlan.notes, children: pendingChildren } : board && boardNotes.length ? { title: board.title, included: false, writes: [], notes: boardNotes, children: 0 } : undefined;
     return { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo: d.repo, action: d.action, title: built.title, labels: built.labels, ...(built.milestone ? { milestone: built.milestone.title } : {}), ...(boardInfo ? { board: boardInfo } : {}), block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null, ...(d.reason ? { reason: d.reason } : {}), ...(note ? { filesNote: note } : {}) };

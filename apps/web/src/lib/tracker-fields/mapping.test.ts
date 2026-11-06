@@ -68,7 +68,7 @@ describe("defaults reproduce today's GitHub behaviour bit for bit", () => {
     expect(a.labels).toEqual(["product-velocity", "pv:project/mobile", "pv:moscow/must", "pv:rank/top-10", "pv:type/new-feature", "pv:group/payments"]);
     expect(a.milestone).toMatchObject({ title: "2027 Q1" });
     expect(a.typeCandidates).toEqual(["Feature"]);
-    expect(a.block).toContain("## Artifacts");
+    expect(a.block).toContain("## Links");
     expect(a.block).toContain("## Files");
   });
   it("switching a slot off removes exactly its output", () => {
@@ -83,10 +83,10 @@ describe("defaults reproduce today's GitHub behaviour bit for bit", () => {
     expect(off("github.milestone").labels).toEqual(a.labels);
     expect(off("github.issueType").typeCandidates).toEqual([]);
     expect(off("github.issueType").labels).toEqual(a.labels);
-    expect(off("github.body.artifacts").block).not.toContain("## Artifacts");
+    expect(off("github.body.artifacts").block).not.toContain("## Links");
     expect(off("github.body.artifacts").block).toContain("## Files");
     expect(off("github.body.files").block).not.toContain("## Files");
-    expect(off("github.body.files").block).toContain("## Artifacts");
+    expect(off("github.body.files").block).toContain("## Links");
     expect(off("github.label.moscow").hash).not.toBe(a.hash); // a change makes the next Sync offer the new text
   });
   it("the sections the two-way compare reads are never switched off", () => {

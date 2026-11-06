@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkDocumentInput } from "@pv/domain";
 import { DOC_COLS, toDoc, type DocRow } from "@/lib/documents";
+import { siteUrl } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -26,7 +27,7 @@ export async function GET(request: Request, { params }: Ctx) {
     const { data: v } = await supabase.from("item_document_versions").select("version, title, body, saved_at, saved_via, ai_tool, ai_model").eq("document_id", id).eq("version", wantVersion).maybeSingle();
     return v ? NextResponse.json({ version: v }) : NextResponse.json({ error: "Version not found." }, { status: 404 });
   }
-  const out: Record<string, unknown> = { document: toDoc(data as DocRow, true) };
+  const out: Record<string, unknown> = { document: toDoc(data as DocRow, true, await siteUrl()) };
   if (url.searchParams.get("versions")) {
     const { data: vs } = await supabase.from("item_document_versions").select("version, saved_at, saved_via, ai_tool, ai_model, saved_by_name").eq("document_id", id).order("version", { ascending: false });
     out.versions = vs ?? [];
@@ -48,7 +49,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
   if (input && typeof input.shared === "boolean" && Object.keys(input).every((k) => k === "shared")) {
     const { data, error } = await supabase.from("item_documents").update({ shared: input.shared }).eq("id", id).select(DOC_COLS);
     if (error || !data?.[0]) return NextResponse.json({ error: "You do not have permission to change this document." }, { status: 403 });
-    return NextResponse.json({ document: toDoc(data[0] as DocRow, true) });
+    return NextResponse.json({ document: toDoc(data[0] as DocRow, true, await siteUrl()) });
   }
   if (!input || !Number.isInteger(input.baseVersion)) return NextResponse.json({ error: "Missing the version this change is based on." }, { status: 400 });
   const c = checkDocumentInput({ kind: input.kind, title: input.title, body: input.body, status: input.status }, { requireTitle: false });
@@ -58,10 +59,10 @@ export async function PATCH(request: Request, { params }: Ctx) {
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nothing to change." }, { status: 400 });
   const { data, error } = await supabase.from("item_documents").update(patch).eq("id", id).eq("version", input.baseVersion!).select(DOC_COLS);
   if (error) return NextResponse.json({ error: "You do not have permission to change this document." }, { status: 403 });
-  if (data?.[0]) return NextResponse.json({ document: toDoc(data[0] as DocRow, true) });
+  if (data?.[0]) return NextResponse.json({ document: toDoc(data[0] as DocRow, true, await siteUrl()) });
   const { data: now } = await supabase.from("item_documents").select(DOC_COLS).eq("id", id).maybeSingle();
   if (!now) return NextResponse.json({ error: "Document not found, or you cannot change it." }, { status: 404 });
-  return NextResponse.json({ error: "Somebody saved a newer version while you were editing. Nothing was overwritten.", current: toDoc(now as DocRow, true) }, { status: 409 });
+  return NextResponse.json({ error: "Somebody saved a newer version while you were editing. Nothing was overwritten.", current: toDoc(now as DocRow, true, await siteUrl()) }, { status: 409 });
 }
 
 export async function DELETE(_request: Request, { params }: Ctx) {

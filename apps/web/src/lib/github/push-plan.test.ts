@@ -38,31 +38,27 @@ describe("planPush and the one tracker of a project", () => {
       expect(pub[0]!.filesNote).toContain("public");
     }
   });
-  it("puts shared documents into the issue as a last section for a private repository only, with their headings moved down so the block still reads back", async () => {
-    const docs = [{ item_id: "i1", shared: true, kind: "prd", title: "PRD: Mirror", body: "# Goal\n## Summary\nShip it.\n## Description\nmore", status: "draft", ai_draft: false }, { item_id: "i1", shared: true, kind: "prd", title: "Claude wrote this", body: "unreviewed", status: "draft", ai_draft: true }, { item_id: "i1", shared: true, kind: "prd", title: "Empty one", body: "", status: "approved", ai_draft: false }, { item_id: "i1", shared: false, kind: "prd", title: "Secret plan", body: "never", status: "draft", ai_draft: false }];
+  it("puts the shared documents into the issue as a last section of name + public link for a private repository only; the text never goes in", async () => {
+    const T = "D".repeat(43);
+    const docs = [{ item_id: "i1", kind: "prd", title: "PRD: Mirror", status: "approved", has_text: true, share_token: T }, { item_id: "i1", kind: "prd", title: "Empty one", status: "approved", has_text: false, share_token: "E".repeat(43) }, { item_id: "i1", kind: "other", title: "No address", status: "draft", has_text: true, share_token: null }];
     const base = { items: [item], projects: [{ id: "p1", name: "Core", default_repo: "Acme/App", tracker: "github" }], item_documents: docs };
     const [priv] = await planPush(fakeSupabase({ ...base, github_repositories: [{ full_name: "Acme/App", access: "read_write", is_private: true }] }), "t1", "https://app.example", connection, ["i1"]);
-    expect(priv!.block).toContain("## Documents\n### PRD: Mirror (PRD)\n_Draft_");
-    expect(priv!.block).toContain("##### Summary\nShip it.");
-    expect(priv!.block).not.toContain("Secret plan"); // "Do not share"
+    expect(priv!.block).toContain(`## Documents\n- [PRD: Mirror (PRD, Approved)](https://app.example/d/${T}/PRD%3A%20Mirror)`);
     expect(priv!.block).not.toContain("Empty one"); // no text: not sent
-    expect(priv!.filesNote).toContain("Documents in the issue: PRD: Mirror. Skipped, no text yet: Empty one.");
-    expect(priv!.block).not.toContain("unreviewed"); // an AI draft nobody has accepted is held back
-    // the issue still reads back: the document's own "Summary" and "Description" are not mistaken for ours
+    expect(priv!.block).not.toContain("No address"); // not shared or an unaccepted draft has no address
+    expect(priv!.filesNote).toContain("Document links in the issue: PRD: Mirror. Skipped, no text yet: Empty one.");
+    // the issue still reads back: the Documents section is not mistaken for one of our texts
     const { splitManagedBlock } = await import("@pv/github");
-    const split = splitManagedBlock(priv!.block.replace(/<!-- pv:begin item=\S+ -->/, "<!-- pv:begin item=00000000-0000-0000-0000-000000000001 -->")); // the fixture id is not a UUID
-    expect(split, JSON.stringify(split)).toMatchObject({ ok: true, summary: "", description: "" });
+    expect(splitManagedBlock(priv!.block.replace(/<!-- pv:begin item=\S+ -->/, "<!-- pv:begin item=00000000-0000-0000-0000-000000000001 -->"))).toMatchObject({ ok: true, summary: "", description: "" }); // the fixture id is not a UUID
     const [pub] = await planPush(fakeSupabase({ ...base, github_repositories: [{ full_name: "Acme/App", access: "read_write", is_private: false }] }), "t1", "https://app.example", connection, ["i1"]);
     expect(pub!.block).not.toContain("## Documents");
-    expect(pub!.block).not.toContain("Ship it");
-    expect(pub!.filesNote).toContain("2 shared documents were left out");
+    expect(pub!.block).not.toContain(T);
+    expect(pub!.filesNote).toContain("2 shared document links were left out");
   });
-  it("keeps the issue body within GitHub's size limit by cutting long documents", async () => {
-    const long = Array.from({ length: 4000 }, (_, i) => `line ${i} of a very long document`).join("\n");
-    const base = { items: [item], projects: [{ id: "p1", name: "Core", default_repo: "Acme/App", tracker: "github" }], item_documents: [{ item_id: "i1", shared: true, kind: "prd", title: "Long", body: long, status: "draft", ai_draft: false }], github_repositories: [{ full_name: "Acme/App", access: "read_write", is_private: true }] };
-    const [plan] = await planPush(fakeSupabase(base), "t1", "https://app.example", connection, ["i1"]);
-    expect(plan!.block.length).toBeLessThan(61_000);
-    expect(plan!.block).toContain("Cut here to fit");
+  it("an issue written before the rename, with ## Artifacts, still reads back", async () => {
+    const { splitManagedBlock } = await import("@pv/github");
+    const body = ["<!-- pv:begin item=00000000-0000-0000-0000-000000000001 -->", "", "## Summary", "Short", "", "## Description", "Long", "", "## Artifacts", "- [PRD](https://example.test/prd)", "", "---", "Managed by Product Velocity: x", "<!-- pv:end -->"].join("\n");
+    expect(splitManagedBlock(body)).toMatchObject({ ok: true, summary: "Short", description: "Long" });
   });
   it("says when an attached file has no share link and so is not in the issue", async () => {
     const base = { items: [item], projects: [{ id: "p1", name: "Core", default_repo: "Acme/App", tracker: "github" }], github_repositories: [{ full_name: "Acme/App", access: "read_write", is_private: true }] };

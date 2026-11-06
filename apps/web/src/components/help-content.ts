@@ -29,7 +29,7 @@ const OVERRIDES: Record<string, Link> = {
   summary: sent("Issue body, managed block, section \"## Summary\"", "Jira description, section \"Summary\"; read back to compare, with Keep Product Velocity or Keep Jira"),
   description: sent("Issue body, managed block, section \"## Description\"", "Jira description, section \"Description\", converted to Jira's format (tables included); read back to compare, with Keep Product Velocity or Keep Jira"),
   hypothesis: sent("Issue body, managed block, section \"## Hypothesis (IF / THEN / RESULTING IN)\"", "Jira description, section \"Hypothesis (IF / THEN / RESULTING IN)\"; read back to compare, with Keep Product Velocity or Keep Jira"),
-  artifacts: sent("Issue body, managed block, section \"## Artifacts\" (links; a link set to \"Do not share\" on the Spec tab stays out)", "Jira description, section \"Artifacts\" (links); can be switched off per project (Field configuration)"),
+  artifacts: sent("Issue body, managed block, section \"## Links\" (links; a link set to \"Do not share\" on the Spec tab stays out)", "Jira description, section \"Artifacts\" (links); can be switched off per project (Field configuration)"),
   screenshots: sent("Issue body, section \"## Files\" (share links, private repositories only)", "Jira description, section \"Files\" (share links of attached files; anyone who can open the issue can open them); can be switched off per project (Field configuration)"),
   initiative_phase: { github: "Not synced. May suggest Build when the first child issue starts", jira: NONE },
   initiative_status: same("Not synced. A closed issue never sets it"),

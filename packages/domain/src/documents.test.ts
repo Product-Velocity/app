@@ -18,37 +18,21 @@ describe("checkDocumentInput", () => {
   });
 });
 
-import { demoteHeadings, documentsMarkdown, documentsPreviewNote, renderDocuments } from "./documents";
-describe("documents in the delivery platforms", () => {
-  it("moves every heading to level 4 or below, outside code, so none can be read as one of our sections", () => {
-    const out = demoteHeadings("# Title\n## Summary\n### Sub\ntext\n```\n## Description\ncode\n```\n~~~\n# x\n~~~\n## Hypothesis (IF / THEN / RESULTING IN)");
-    expect(out.split("\n")).toEqual(["#### Title", "##### Summary", "###### Sub", "text", "```", "​## Description", "code", "```", "~~~", "​# x", "~~~", "##### Hypothesis (IF / THEN / RESULTING IN)"]);
-    expect(out).not.toMatch(/(^|\n)#{1,3}\s/);
-  });
-  it("renders title, kind, status and the AI-draft note, then the text", () => {
-    const md = documentsMarkdown([{ title: "PRD: Brief", kind: "prd", status: "in_review", body: "## Goal\nShip.", aiDraft: true }], 5000);
-    expect(md).toBe("### PRD: Brief (PRD)\n_In review · AI draft, not yet reviewed_\n\n##### Goal\nShip.");
-    expect(documentsMarkdown([], 5000)).toBe("");
+import { documentLinks, documentsPreviewNote } from "./documents";
+describe("documents in the delivery platforms: a name and a public link", () => {
+  const url = (n: string) => `https://app.example/d/${"T".repeat(43)}/${n}`;
+  it("one label and one address per document; the kind and the status are in the label", () => {
+    const r = documentLinks([{ title: "PRD: Brief", kind: "prd", status: "approved", hasText: true, url: url("a") }, { title: " ## Discovery ", kind: "discovery", status: "draft", hasText: true, url: url("b") }]);
+    expect(r.links).toEqual([{ label: "PRD: Brief (PRD, Approved)", url: url("a") }, { label: "Discovery (Discovery, Draft)", url: url("b") }]);
+    expect(documentsPreviewNote(r, "Jira description")).toBe("Document links in the Jira description: PRD: Brief, Discovery.");
   });
   it("skips a document without text and says so for the preview", () => {
-    const r = renderDocuments([{ title: "PRD", kind: "prd", status: "approved", body: "  \n", aiDraft: false }, { title: "Brief", kind: "other", status: "draft", body: "Text", aiDraft: false }], 5000);
-    expect(r.markdown).toBe("### Brief (Other)\n_Draft_\n\nText");
-    expect(r).toMatchObject({ sent: ["Brief"], empty: ["PRD"], cut: [], omitted: [] });
-    expect(documentsPreviewNote(r, "Jira description")).toBe("Documents in the Jira description: Brief. Skipped, no text yet: PRD.");
-    const none = renderDocuments([{ title: "PRD", kind: "prd", status: "draft", body: "", aiDraft: false }], 5000);
-    expect(none.markdown).toBe("");
-    expect(documentsPreviewNote(none, "issue")).toBe("No document text goes into the issue. Skipped, no text yet: PRD.");
-    expect(documentsPreviewNote(renderDocuments([], 5000), "issue")).toBeUndefined();
-  });
-  it("stays within the budget: cuts the document that does not fit at a line, names the ones after it", () => {
-    const long = Array.from({ length: 200 }, (_, i) => `line ${i} `.repeat(5)).join("\n");
-    const docs = [{ title: "Short", kind: "other", status: "draft", body: "ok", aiDraft: false }, { title: "Long", kind: "prd", status: "draft", body: long, aiDraft: false }, { title: "Later", kind: "prd", status: "draft", body: "x", aiDraft: false }];
-    const md = documentsMarkdown(docs, 2000);
-    expect(md.length).toBeLessThanOrEqual(2000 + 200); // the closing notes are small
-    expect(md).toContain("### Short (Other)");
-    expect(md).toContain("Cut here to fit");
-    expect(md).toContain("Not included, too long for the issue: Later");
-    expect(documentsMarkdown(docs, 10)).toContain("Not included, too long for the issue: Short, Long, Later");
-    expect(documentsPreviewNote(renderDocuments(docs, 2000), "issue")).toContain("Long (cut to fit)");
+    const r = documentLinks([{ title: "PRD", kind: "prd", status: "approved", hasText: false, url: url("c") }, { title: "Brief", kind: "other", status: "draft", hasText: true, url: url("d") }]);
+    expect(r).toMatchObject({ sent: ["Brief"], empty: ["PRD"] });
+    expect(documentsPreviewNote(r, "issue")).toBe("Document links in the issue: Brief. Skipped, no text yet: PRD.");
+    const none = documentLinks([{ title: "PRD", kind: "prd", status: "draft", hasText: false, url: url("e") }]);
+    expect(none.links).toEqual([]);
+    expect(documentsPreviewNote(none, "issue")).toBe("No document link goes into the issue. Skipped, no text yet: PRD.");
+    expect(documentsPreviewNote(documentLinks([]), "issue")).toBeUndefined();
   });
 });

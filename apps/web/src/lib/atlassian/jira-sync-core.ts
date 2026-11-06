@@ -75,8 +75,8 @@ type PlanInput = {
   /** Links of the initiative and share links of its files, for the Artifacts and Files sections. */
   artifacts?: Link[];
   files?: Link[];
-  /** The Markdown of the documents left shared, for the Documents section. */
-  documents?: string;
+  /** The documents left shared, each as a name and a public link, for the Documents section. */
+  documents?: Link[];
 };
 
 export function planJiraSend(i: PlanInput): SendPlan {

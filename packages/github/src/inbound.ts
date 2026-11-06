@@ -12,7 +12,7 @@ export const SYNC_FIELD_COLUMN: Record<SyncTextField, string> = { title: "initia
 export const SYNC_FIELD_LABEL: Record<SyncTextField, string> = { title: "Name", summary: "Summary", description: "Description", hypothesis: "Hypothesis" };
 export const SYNC_FIELD_LIMIT: Record<SyncTextField, number> = { title: 200, summary: 4000, description: 20000, hypothesis: 4000 };
 
-const HEADINGS = [["summary", "## Summary"], ["description", "## Description"], ["hypothesis", "## Hypothesis (IF / THEN / RESULTING IN)"], ["artifacts", "## Artifacts"], ["files", "## Files"], ["documents", "## Documents"]] as const;
+const HEADINGS = [["summary", "## Summary"], ["description", "## Description"], ["hypothesis", "## Hypothesis (IF / THEN / RESULTING IN)"], ["artifacts", "## Links", "## Artifacts"], ["files", "## Files"], ["documents", "## Documents"]] as readonly (readonly string[])[]; // "Links" was "Artifacts" until 2026-11-06: both are read
 const FOOTER = "\n---\nManaged by Product Velocity";
 
 /** The text as the outbound builder writes it and as it is compared: no carriage returns, trimmed, markers escaped, @mentions defused. */
@@ -53,12 +53,16 @@ export function splitManagedBlock(body: string | null | undefined): SplitBlock {
 
   const found: { key: string; at: number; len: number }[] = [];
   let from = 0;
-  for (const [key, heading] of HEADINGS) {
-    const m = new RegExp(`(^|\\n)${heading.replace(/[()/]/g, "\\$&")}(?=\\n|$)`).exec(content.slice(from));
-    if (!m) continue;
-    const at = from + m.index + m[1]!.length;
-    found.push({ key, at, len: heading.length });
-    from = at + heading.length;
+  for (const [key, ...names] of HEADINGS) {
+    let hit: { m: RegExpExecArray; heading: string } | null = null;
+    for (const heading of names) {
+      const m = new RegExp(`(^|\\n)${heading.replace(/[()/]/g, "\\$&")}(?=\\n|$)`).exec(content.slice(from));
+      if (m) { hit = { m, heading }; break; }
+    }
+    if (!hit) continue;
+    const at = from + hit.m.index + hit.m[1]!.length;
+    found.push({ key: key!, at, len: hit.heading.length });
+    from = at + hit.heading.length;
   }
   const out: Record<string, string> = { summary: "", description: "", hypothesis: "" };
   found.forEach((f, i) => {

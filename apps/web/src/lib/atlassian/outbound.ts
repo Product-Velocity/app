@@ -38,8 +38,8 @@ export type JiraPayloadInput = {
   /** Links of the initiative (Artifacts section) and the share links of its files (Files section). Both are sent only; a slot switched off leaves its section out. */
   artifacts?: Link[];
   files?: Link[];
-  /** The Markdown of the documents left shared (rendered by `documentsMarkdown`); the only way document text enters a Jira payload (CLAUDE.md rule 2, changed 2026-11-05). */
-  documents?: string;
+  /** The documents left shared, each as a name and a public link (no login). Document text never enters a Jira payload (CLAUDE.md rule 2, changed 2026-11-06). */
+  documents?: Link[];
   /** Labels the issue has now: people's labels are kept, `pv:` labels that no longer apply are removed. Omit on create. */
   currentLabels?: string[];
 };
@@ -78,7 +78,7 @@ export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {
     // headed sections like the managed block of a GitHub issue (issue #319): Summary, Description, Hypothesis, then the links
     description: composeDescription({
       pv: { summary: typeof read(item, "summary") === "string" ? (read(item, "summary") as string).slice(0, 4000) : "", description, hypothesis: typeof read(item, "hypothesis") === "string" ? (read(item, "hypothesis") as string).slice(0, 4000) : "" },
-      ...(map.off?.includes("jira.body.artifacts") ? {} : { artifacts: input.artifacts ?? [] }), ...(map.off?.includes("jira.body.files") ? {} : { files: input.files ?? [] }), ...(input.documents ? { documents: input.documents } : {}),
+      ...(map.off?.includes("jira.body.artifacts") ? {} : { artifacts: input.artifacts ?? [] }), ...(map.off?.includes("jira.body.files") ? {} : { files: input.files ?? [] }), ...(input.documents?.length ? { documents: input.documents } : {}),
     }),
     labels: mergeLabels(input.currentLabels ?? [], [...desiredLabels(item, input.projectName, map.off, map.on), ...(input.marker && /^pv:item\/[0-9a-f]{16}$/.test(input.marker) ? [input.marker] : [])]),
   };

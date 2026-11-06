@@ -138,3 +138,37 @@ describe("sharing with the delivery platforms (issue #325)", () => {
     expect((await row(id)).shared).toBe(false);
   });
 });
+
+describe("public link of a shared document (issue #325)", () => {
+  const make = (extra = "") => db.asUser(creator, async (q) => (await q(`insert into public.item_documents (tenant_id, item_id, kind, title, body) values ($1, $2, 'prd', 'Linked', 'text') ${extra} returning id`, [f.tenantA, item])).rows[0].id as string, { commit: true, via: "UI" });
+  const token = async (id: string) => (await row(id)).share_token as string | null;
+  const set = (id: string, sql: string) => db.asUser(creator, (q) => q(`update public.item_documents set ${sql} where id = $1`, [id]), { commit: true, via: "UI" });
+  it("a shared document has an address made by the database; Do not share removes it; sharing again makes a new one", async () => {
+    const id = await make();
+    const first = await token(id);
+    expect(first).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    await set(id, "shared = false");
+    expect(await token(id)).toBeNull();
+    await set(id, "shared = true");
+    const second = await token(id);
+    expect(second).not.toBeNull();
+    expect(second).not.toBe(first); // an old, leaked address stays dead
+    await set(id, "title = 'Renamed'");
+    expect(await token(id)).toBe(second); // an edit keeps the address
+  });
+  it("an AI draft has no address until a person accepts it", async () => {
+    const id = await db.asUser(creator, async (q) => (await q("insert into public.item_documents (tenant_id, item_id, kind, title, body) values ($1, $2, 'prd', 'Drafted', 'text') returning id", [f.tenantA, item])).rows[0].id as string, { commit: true, via: "MCP" });
+    expect((await row(id)).ai_draft).toBe(true);
+    expect(await token(id)).toBeNull();
+    await set(id, "ai_draft = false"); // a person accepts it
+    expect(await token(id)).not.toBeNull();
+  });
+  it("a token chosen by the client is replaced, tokens are unique, and has_text says whether there is text", async () => {
+    const id = await make();
+    await db.asUser(creator, (q) => q("update public.item_documents set share_token = $2 where id = $1", [id, "A".repeat(43)]), { commit: true, via: "UI" }).catch(() => undefined);
+    expect(await token(id)).not.toBe("A".repeat(43));
+    expect((await row(id)).has_text).toBe(true);
+    const empty = await db.asUser(creator, async (q) => (await q("insert into public.item_documents (tenant_id, item_id, kind, title, body) values ($1, $2, 'prd', 'Empty', '  ') returning id", [f.tenantA, item])).rows[0].id as string, { commit: true, via: "UI" });
+    expect((await row(empty)).has_text).toBe(false);
+  });
+});

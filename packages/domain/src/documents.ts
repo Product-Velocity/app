@@ -60,84 +60,38 @@ export function checkDocumentInput(input: DocInput, opts: { requireTitle: boolea
 export const AI_TOOL_LABEL: Record<string, string> = { claude: "Claude", chatgpt: "ChatGPT", gemini: "Gemini", other: "Other AI tool" };
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
-// Documents in the delivery platforms (issue #325, Ashu 2026-11-05: CLAUDE.md rule 2). A document is shared with the GitHub issue and the Jira
-// description unless the person chose "Do not share". The text goes in as a last section, "Documents". Both trackers are read back by their
-// headings, so nothing a document says may look like one of those headings: its own headings are moved down to level 4 and below.
+// Documents in the delivery platforms (issue #325, Ashu 2026-11-06: CLAUDE.md rule 2). A document is shared with the GitHub issue and the Jira
+// description as its name plus a public link (no login), like a file, unless the person chose "Do not share". The text itself never goes into the
+// tracker: the link opens a read-only page of the current text in Product Velocity.
 // ---------------------------------------------------------------------------------------------------------------------------------------
 
-export type SharedDoc = { title: string; kind: string; status: string; body: string; aiDraft: boolean };
 const STATUS_WORD: Record<string, string> = { draft: "Draft", in_review: "In review", approved: "Approved" };
-const ZWSP = "\u200b";
 
-/** Markdown with every heading at level 4 to 6, so it can never be read as a section of ours (level 2 in Jira, "## " lines in GitHub). Code blocks keep their text. */
-export function demoteHeadings(md: string): string {
-  let fence: string | null = null;
-  return md.replace(/\r\n?/g, "\n").split("\n").map((line) => {
-    const f = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
-    if (f) { if (fence === null) fence = f[1]![0]!; else if (f[1]![0] === fence) fence = null; return line; }
-    if (fence !== null) return /^#{1,6}\s/.test(line) ? ZWSP + line : line; // inside code: not a heading, and not mistaken for one either
-    const h = /^(#{1,6})\s+(.*)$/.exec(line);
-    return h ? `${"#".repeat(Math.min(6, h[1]!.length + 3))} ${h[2]}` : line;
-  }).join("\n");
-}
-
-export type DocumentsRender = {
-  /** The Markdown under "Documents"; "" when nothing is sent. */
-  markdown: string;
-  /** Titles sent (a cut one is also in `cut`). */
+export type DocLinkInput = { title: string; kind: string; status: string; /** Whether there is any text: a document without text is not worth a link. */ hasText: boolean; url: string };
+export type DocumentLinks = {
+  /** For the section "Documents": the label ("PRD: Brief (PRD, Approved)") and the public address. */
+  links: { label: string; url: string }[];
   sent: string[];
-  /** Sent only in part: cut at a line to fit. */
-  cut: string[];
-  /** Not sent: no text yet. A heading with nothing under it only adds clutter. */
+  /** Skipped: no text yet. */
   empty: string[];
-  /** Not sent: no room left. */
-  omitted: string[];
 };
 
-/**
- * The Markdown that goes under "Documents": one block per shared document (title, kind, status, text), in the order given, cut so that the whole
- * stays within `budget` characters. A document without text is skipped. A document that does not fit is cut at a line with a note that the full text
- * is in Product Velocity; those that come after it are named. Also says what was sent, for the Sync preview.
- */
-export function renderDocuments(docs: readonly SharedDoc[], budget: number): DocumentsRender {
-  const out: string[] = [];
-  const r: DocumentsRender = { markdown: "", sent: [], cut: [], empty: [], omitted: [] };
-  let left = Math.max(0, budget);
-  const CUT = "_Cut here to fit. The full document is in Product Velocity._";
+export function documentLinks(docs: readonly DocLinkInput[]): DocumentLinks {
+  const r: DocumentLinks = { links: [], sent: [], empty: [] };
   for (const d of docs) {
-    const title = d.title.replace(/\s+/g, " ").replace(/^#+\s*/, "").trim() || "Untitled";
+    const title = d.title.replace(/\s+/g, " ").trim().replace(/^#+\s*/, "").trim() || "Untitled";
+    if (!d.hasText) { r.empty.push(title); continue; }
     const kind = DOC_KIND_LABEL[d.kind as DocKind] ?? d.kind;
-    const meta = `_${STATUS_WORD[d.status] ?? d.status}${d.aiDraft ? " · AI draft, not yet reviewed" : ""}_`;
-    const head = `### ${title} (${kind})\n${meta}`;
-    const body = demoteHeadings(d.body).trim();
-    if (!body) { r.empty.push(title); continue; }
-    const whole = `${head}\n\n${body}`;
-    if (r.omitted.length === 0 && whole.length + 2 <= left) { out.push(whole); r.sent.push(title); left -= whole.length + 2; continue; }
-    if (r.omitted.length === 0 && left > head.length + CUT.length + 400) {
-      const room = left - head.length - CUT.length - 6;
-      const cut = body.slice(0, room);
-      const at = cut.lastIndexOf("\n");
-      out.push(`${head}\n\n${(at > room / 2 ? cut.slice(0, at) : cut).trimEnd()}\n\n${CUT}`);
-      r.sent.push(title); r.cut.push(title);
-      left = 0;
-      continue;
-    }
-    r.omitted.push(title);
+    r.links.push({ label: `${title} (${kind}, ${STATUS_WORD[d.status] ?? d.status})`, url: d.url });
+    r.sent.push(title);
   }
-  if (r.omitted.length > 0) out.push(`_Not included, too long for the issue: ${r.omitted.join(", ")}. They are in Product Velocity._`);
-  r.markdown = out.join("\n\n");
   return r;
 }
 
-/** Same as `renderDocuments(...).markdown`. */
-export const documentsMarkdown = (docs: readonly SharedDoc[], budget: number): string => renderDocuments(docs, budget).markdown;
-
-/** One sentence for the Sync preview: which documents go, which do not and why. Undefined when the initiative has no shared document at all. */
-export function documentsPreviewNote(r: DocumentsRender, where: string): string | undefined {
-  if (r.sent.length + r.empty.length + r.omitted.length === 0) return undefined;
-  const parts: string[] = [];
-  parts.push(r.sent.length > 0 ? `Documents in the ${where}: ${r.sent.map((t) => (r.cut.includes(t) ? `${t} (cut to fit)` : t)).join(", ")}.` : `No document text goes into the ${where}.`);
+/** One sentence for the Sync preview: which document links go, which do not. Undefined when the initiative has no shared document. */
+export function documentsPreviewNote(r: DocumentLinks, where: string): string | undefined {
+  if (r.sent.length + r.empty.length === 0) return undefined;
+  const parts: string[] = [r.sent.length > 0 ? `Document links in the ${where}: ${r.sent.join(", ")}.` : `No document link goes into the ${where}.`];
   if (r.empty.length > 0) parts.push(`Skipped, no text yet: ${r.empty.join(", ")}.`);
-  if (r.omitted.length > 0) parts.push(`Left out, too long: ${r.omitted.join(", ")}.`);
   return parts.join(" ");
 }
