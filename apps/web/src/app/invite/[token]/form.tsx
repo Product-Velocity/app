@@ -43,7 +43,7 @@ export function InviteSignIn({ token, email, mode }: { token: string; email: str
       <LinkSent
         key={linkState.nonce}
         email={linkState.email}
-        lifetime="15 minutes"
+        lifetime="60 minutes"
         resendAction={linkAction}
         resendFields={<input type="hidden" name="token" value={token} />}
         pending={linkPending}

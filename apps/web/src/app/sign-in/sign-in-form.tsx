@@ -30,7 +30,7 @@ export function PasswordForm({ next, mode }: { next: string; mode: "sign-in" | "
       <LinkSent
         key={sent.nonce}
         email={sent.email}
-        lifetime="15 minutes"
+        lifetime="60 minutes"
         resendAction={linkAction}
         resendFields={
           <>

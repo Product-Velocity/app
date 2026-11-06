@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Your Product Velocity sign-in link</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f4f6;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your one-time link to sign in. It works once.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f4f6;">
+<tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;">
+<tr><td style="padding:32px 32px 0 32px;"><img src="{{ .SiteURL }}/email/logo.png" width="120" height="42" alt="Product Velocity" style="display:block;border:0;height:42px;width:120px;"></td></tr>
+<tr><td style="padding:24px 32px 0 32px;font-family:'IBM Plex Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#111827;">
+<h1 style="margin:0 0 12px 0;font-size:24px;line-height:30px;font-weight:600;color:#111827;">Sign in to Product Velocity</h1>
+<p style="margin:0;font-size:16px;line-height:26px;color:#4b5563;">Use the button to sign in. The link works once and expires in 60 minutes.</p>
+</td></tr>
+<tr><td style="padding:24px 32px 8px 32px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#3347d9" style="border-radius:8px;background:#3347d9;"><a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email" style="display:inline-block;padding:12px 24px;font-family:'IBM Plex Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:20px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">Sign in</a></td></tr></table>
+</td></tr>
+<tr><td style="padding:8px 32px 0 32px;font-family:'IBM Plex Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:20px;color:#4b5563;">Button not working? Paste this link into your browser:<br><a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email" style="color:#2433a8;word-break:break-all;">{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email</a></td></tr>
+<tr><td style="padding:24px 32px 32px 32px;font-family:'IBM Plex Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">
+<div style="border-top:1px solid #e5e7eb;padding-top:20px;font-size:13px;line-height:20px;color:#4b5563;">If you did not ask for this link, you can ignore this email. Nobody can sign in without it.<br><br><strong style="color:#111827;font-weight:600;">Product Velocity</strong><br>One roadmap for humans and AI.</div>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>
