@@ -9,6 +9,7 @@ import type { createAdminClient } from "@/lib/supabase/admin";
 import type { ConnectionRow } from "./server";
 import { syncBoardStatuses } from "./board-sync";
 import { documentUrl, shareUrl } from "@/lib/files/serve";
+import { wroteGithub } from "@/lib/sync-wrote";
 import { refreshTree } from "./sync";
 import { PUSH_LIMIT, type PlanItem, type PushItemResult } from "./push-types";
 
@@ -205,7 +206,7 @@ export async function executePush(opts: { supabase: SupabaseClient; admin: Admin
         const skipNote = skipped.length ? `${skipped.map((s) => `"${s.name}"`).join(" and ")} ${skipped.length === 1 ? "is a GitHub issue field" : "are GitHub issue fields"} and cannot be written through the board yet: left out.` : "";
         const childNote = children ? [children.added.length ? `${children.added.length} child issue${children.added.length === 1 ? "" : "s"} added to the board.` : "", children.later ? `${children.later} more will be added at the next send.` : ""].filter(Boolean).join(" ") : "";
         const message = saved.error ? "Sent to GitHub, but the link could not be saved. Pushing again will find the issue." : [childNote, skipNote].filter(Boolean).join(" ") || undefined;
-        results.push({ id: p.id, code, outcome: r.kind === "unchanged" ? "updated" : r.kind, issueNumber: issue.number, ...(r.kind !== "unchanged" ? { issueUrl: r.issue.htmlUrl } : {}), ...(message ? { message } : {}) });
+        results.push({ id: p.id, code, outcome: r.kind === "unchanged" ? "updated" : r.kind, issueNumber: issue.number, ...(r.kind !== "unchanged" ? { issueUrl: r.issue.htmlUrl, wrote: wroteGithub({ title: p.title, block: p.block, labels: p.labels, milestone: p.milestone ?? null, board: p.board }) } : {}), ...(message ? { message } : {}) });
       }
     } catch (e) {
       const message = describePushError(e);

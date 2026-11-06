@@ -11,6 +11,7 @@ import { OUTBOUND_JIRA_FIELDS } from "./outbound";
 import { createIssue, updateIssue, type JiraRequest } from "./jira-write";
 import { parseFieldMap } from "./field-map";
 import { documentLinks, documentsPreviewNote } from "@pv/domain";
+import { wroteJira } from "@/lib/sync-wrote";
 import { documentUrl, shareUrl } from "@/lib/files/serve";
 import type { Link } from "./jira-sections";
 import { dropMissingFields } from "./mapped-fields";
@@ -210,7 +211,7 @@ export async function writeOne(ctx: Ctx, id: string, choices: SyncChoice[], deps
     const url = `${l.siteUrl}/browse/${resultKey}`;
     const { error } = await admin.rpc("jira_create_link", { p_actor: ctx.userId, p_item: id, p_connection: connId, p_site: siteId, p_key: resultKey, p_issue_id: issueId, p_url: url, p_base: plan.newBase, p_sent_hash: plan.sentHash });
     if (error) return { result: { ...base, outcome: "error", issueLabel: resultKey, issueUrl: url, message: `The issue ${resultKey} exists in Jira, but linking it failed. Sync again: it will be found, not created twice.` }, taken };
-    return { result: { ...base, outcome, issueLabel: resultKey, issueUrl: url }, taken };
+    return { result: { ...base, outcome, issueLabel: resultKey, issueUrl: url, wrote: wroteJira(plan.fields) }, taken };
   }
   if (plan.action === "update") {
     const w = await updateIssue(call, issueKey!, plan.fields);
@@ -221,7 +222,7 @@ export async function writeOne(ctx: Ctx, id: string, choices: SyncChoice[], deps
   const rec = await admin.rpc("jira_record_sync", { p_actor: ctx.userId, p_item: id, p_base: plan.newBase, p_sent_hash: plan.action === "update" ? plan.sentHash : null });
   if (rec.error) return { result: { ...base, outcome: "error", ...(issueKey ? { issueLabel: issueKey } : {}), message: "Jira was updated but the sync state could not be saved. Sync again to finish." }, taken };
   const url = l.link!.html_url ?? `${l.siteUrl}/browse/${issueKey}`;
-  return { result: { ...base, outcome, issueLabel: issueKey!, issueUrl: url }, taken };
+  return { result: { ...base, outcome, issueLabel: issueKey!, issueUrl: url, ...(outcome === "updated" ? { wrote: wroteJira(plan.fields) } : {}) }, taken };
   };
   try {
     return await send();
