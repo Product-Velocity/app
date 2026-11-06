@@ -11,6 +11,7 @@ import type { GridItem, Lookups } from "../portfolio/types";
 export const REPORTS = [
   { id: "overview", label: "Overview" },
   { id: "health", label: "Roadmap Health" },
+  { id: "gates", label: "Gate history" },
 ] as const;
 export type ReportId = (typeof REPORTS)[number]["id"];
 export const DEFAULT_REPORT: ReportId = REPORTS[0].id;

@@ -9,6 +9,8 @@ import { ItemPanel } from "../portfolio/item-panel";
 import { StatusStrip, useStatus } from "../portfolio/status-strip";
 import type { Lookups } from "../portfolio/types";
 import { useScope } from "../workspace/scope";
+import type { GateRequest } from "@pv/domain";
+import { GateHistoryReport } from "./gate-history-report";
 import { HealthReport } from "./health-report";
 import { OverviewReport } from "./overview-report";
 import { DEFAULT_REPORT, REPORTS, parseReportId, useReportEnv, type ReportId } from "./report-env";
@@ -27,7 +29,7 @@ function writeAddress(state: ReportState, report: ReportId) {
  * Reports tab: a list of reports next to the title (the first opens by default), the filter bar they share, and the report chosen.
  * Overview is issue #233; Roadmap Health is request R-129 (issue #287).
  */
-export function ReportsView({ controller, lookups, me }: { controller: PortfolioController; lookups: Lookups; me: string | null }) {
+export function ReportsView({ controller, lookups, me, loadGateRequests }: { controller: PortfolioController; lookups: Lookups; me: string | null; /** Reads the decision-gate requests of the workspace (Gate history). */ loadGateRequests?: () => Promise<GateRequest[]> }) {
   const status = useStatus(controller);
   const params = useSearchParams();
   const scope = useScope();
@@ -62,7 +64,7 @@ export function ReportsView({ controller, lookups, me }: { controller: Portfolio
 
       <ReportFilters env={env} setState={setState} extra={report === "overview" ? overviewTools : undefined} />
 
-      {report === "overview" ? <OverviewReport env={env} setState={setState} onOpen={setPeekId} /> : <HealthReport env={env} onOpen={setPeekId} />}
+      {report === "overview" ? <OverviewReport env={env} setState={setState} onOpen={setPeekId} /> : report === "health" ? <HealthReport env={env} onOpen={setPeekId} /> : <GateHistoryReport env={env} load={loadGateRequests} onOpen={setPeekId} />}
       {peekId && <ItemPanel controller={controller} lookups={lookups} itemId={peekId} me={me} mode="peek" onClose={() => setPeekId(null)} />}
     </div>
   );

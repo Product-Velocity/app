@@ -308,6 +308,7 @@ export const REPORTS_LIST: Table = {
   rows: [
     ["Overview", "What is the shape of the roadmap, and how long does work take to reach the market?", "Donuts by Status, Phase, Focus Area, Team and MoSCoW; stacked bars by Product Manager, Team, Group, Status and Health; Impact and Effort; Time to Market; the timeline; the matching initiatives; CSV export"],
     ["Roadmap Health", "Where does active work pile up, how long has it been in its phase, and what is Blocked, At Risk or Delayed?", "Counts of active, Blocked, At Risk and Delayed initiatives; active initiatives by Team and Phase and by Team and Health; median days in the current phase for each phase; the 10 initiatives that have waited longest; completed delivery duration; every active initiative with days in phase and age"],
+    ["Gate history", "How do decision gates go: how many requests, what was decided, and how long do decisions and the start of building take?", "Per gate A, B and C: requested, waiting now, decided, Go, Go with conditions, Hold, Stop, fast lane, withdrawn, median and average days to decide, longest open request; the wait between a Gate B Go and Start Building. For the whole team: nothing is shown per approver"],
   ],
 };
 

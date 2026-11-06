@@ -101,6 +101,10 @@ The **Needs attention** tab (`/attention`) lists the initiatives of the current 
 
 Limits are defaults in `STALL_DAYS` and `GATE_WAIT_DAYS`; Roadmap Health shows the real distribution. All of it is about an initiative or a team, never a person (rule 8). J and K move through the list and Enter opens the initiative. The tab has no count badge, because counting needs the whole project, which the page loads; the count is on the screen.
 
+## 7b. Gate history report
+
+Reports has a third report, **Gate history**, that follows the Reports filters. One row per gate: requested, waiting now, decided, Go, Go with conditions, Hold, Stop, fast lane, withdrawn, median and average days from request to decision, and the longest open request. Below it, the wait between the latest Gate B Go (or Go with conditions) and the Start Building date, with the initiatives that passed Gate B and have not started. Everything is for the team; nothing is grouped or shown per approver (rule 8). The calculation is `gateReport` in `packages/domain/src/gate-report.ts`.
+
 ## 8. When items sync to GitHub or Jira
 
 The same for both trackers (`docs/decisions/2026-11-03-tracker-parity.md`).
@@ -147,7 +151,7 @@ Not built yet (each is a follow-up request, not a hidden gap; the browser specs 
 - ~~**Notifications** to preferred approvers~~ built in-app (issue #341, section 6a). Email and Slack are not built; they need an opt-in with an explicit confirmation.
 - ~~**Stop closes the tracker issue**~~ built (issue #343, section 9a).
 - ~~**Needs attention** as a screen~~ built (issue #337, section 7a). The "My work" half of #105 is not built.
-- **Reports** for gate history and time at a gate; the ready-to-start wait is derivable (Gate B date to `start_building`) but has no report yet.
+- ~~**Reports** for gate history and time at a gate~~ built (issue #348, section 7b).
 - **A separate "Request engineering review" button**: the review push is the normal confirmed Sync of an initiative in Define (it carries `pv:define`); a dedicated button and a PRD-in-review condition were not added.
 - The grid hides Completed initiatives but still loads them; a server-side limit on what is loaded is a later change.
 - ~~⌘K commands for the bulk gate actions~~ built (2026-11-05, follow-up): with rows selected, ⌘K offers Request gate, Decide and Move to another phase, which open the same dialogs as the bulk bar.
