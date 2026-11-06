@@ -16,13 +16,18 @@ const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "nume
  */
 export function NotificationsBell({ tenantId, source: given, onOpen }: { tenantId?: string; source?: NotificationSource; /** Test pages: what a click does instead of navigating. */ onOpen?: (target: ReturnType<typeof notificationTarget>) => void }) {
   const router = useRouter();
-  const source = useMemo(() => given ?? new SupabaseNotificationSource(createClient(), tenantId ?? ""), [given, tenantId]);
+  // no connection configured (a test page without Supabase): no bell, instead of a crash
+  const source = useMemo(() => {
+    if (given) return given;
+    try { return new SupabaseNotificationSource(createClient(), tenantId ?? ""); } catch { return null; }
+  }, [given, tenantId]);
   const [list, setList] = useState<AppNotification[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [tick, setTick] = useState(0);
   const load = useCallback(() => setTick((n) => n + 1), []);
   useEffect(() => {
+    if (!source) return;
     let off = false;
     (async () => {
       try { const rows = await source.load(); if (!off) { setList(sortNotifications(rows)); setError(null); } } catch (e) { if (!off) setError((e as Error).message); }
@@ -37,11 +42,12 @@ export function NotificationsBell({ tenantId, source: given, onOpen }: { tenantI
     return () => { clearInterval(t); document.removeEventListener("visibilitychange", v); };
   }, [load]);
 
+  if (!source) return null;
   const unread = unreadCount(list);
-  const markAll = async () => { await source.markRead(); load(); };
+  const markAll = async () => { await source!.markRead(); load(); };
   const open = async (n: AppNotification, close: () => void) => {
     close();
-    if (!n.read_at) { await source.markRead([n.id]); load(); }
+    if (!n.read_at) { await source!.markRead([n.id]); load(); }
     const t = notificationTarget(n);
     if (onOpen) { onOpen(t); return; }
     if (t?.kind === "decisions") router.push("/decisions");
