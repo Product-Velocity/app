@@ -12,25 +12,25 @@ import { signInWithPassword, signUp, type AuthState } from "./actions";
 export function PasswordForm({ next, mode }: { next: string; mode: "sign-in" | "sign-up" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [state, action, pending] = useActionState<AuthState, FormData>(
     mode === "sign-in" ? signInWithPassword : signUp,
     null,
   );
 
-  const canSubmit = mode === "sign-in" ? password.length > 0 : canSubmitNewPassword(password, confirm, email);
+  const canSubmit = mode === "sign-in" ? password.length > 0 : canSubmitNewPassword(password, email);
   const otherHref = `/sign-in?${mode === "sign-in" ? "mode=sign-up&" : ""}next=${encodeURIComponent(next)}`;
 
   return (
     <form action={action} className="stack">
       <input type="hidden" name="next" value={next} />
       <div className="field">
-        <label htmlFor="email">Email</label>
+        <label htmlFor="email">{mode === "sign-in" ? "Email" : "Work email"}</label>
         <input
           id="email"
           name="email"
           type="email"
           autoComplete="username"
+          placeholder="you@company.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -47,9 +47,7 @@ export function PasswordForm({ next, mode }: { next: string; mode: "sign-in" | "
       ) : (
         <NewPasswordFields
           password={password}
-          confirm={confirm}
           onPassword={setPassword}
-          onConfirm={setConfirm}
           email={email}
         />
       )}
@@ -66,6 +64,7 @@ export function PasswordForm({ next, mode }: { next: string; mode: "sign-in" | "
       <button className="btn btn-primary" type="submit" disabled={pending || !canSubmit}>
         {pending ? "Please wait…" : mode === "sign-in" ? "Sign in" : "Create account"}
       </button>
+      {mode === "sign-up" && <p className="hint">We email you a link to confirm your address.</p>}
       {/* plain link on purpose: a full page load gives password managers a fresh, correct form */}
       <a className="link-button" href={otherHref}>
         {mode === "sign-in" ? "New here? Create an account" : "Have an account? Sign in"}

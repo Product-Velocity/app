@@ -1,4 +1,4 @@
-export const MIN_PASSWORD_LENGTH = 10;
+export const MIN_PASSWORD_LENGTH = 12;
 
 export type Requirement = { id: "length" | "mix" | "common"; label: string; met: boolean };
 export type StrengthLabel = "Too weak" | "Fair" | "Good" | "Strong";
@@ -58,8 +58,8 @@ function strengthOf(pw: string, ok: boolean): PasswordCheck["strength"] {
   const pool =
     (/[a-z]/.test(pw) ? 26 : 0) + (/[A-Z]/.test(pw) ? 26 : 0) + (/[0-9]/.test(pw) ? 10 : 0) + (/[^a-zA-Z0-9]/.test(pw) ? 33 : 0);
   const bits = effectiveLength * Math.log2(Math.max(pool, 2));
-  if (bits >= 80) return { score: 3, label: "Strong" };
-  if (bits >= 60) return { score: 2, label: "Good" };
+  if (bits >= 90) return { score: 3, label: "Strong" };
+  if (bits >= 70) return { score: 2, label: "Good" };
   return { score: 1, label: "Fair" };
 }
 

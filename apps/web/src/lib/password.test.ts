@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { checkPassword, MIN_PASSWORD_LENGTH } from "./password";
 
 describe("checkPassword: requirements", () => {
-  it("requires at least 10 characters", () => {
-    expect(MIN_PASSWORD_LENGTH).toBe(10);
+  it("requires at least 12 characters", () => {
+    expect(MIN_PASSWORD_LENGTH).toBe(12);
     expect(checkPassword("Ab1!xyz").ok).toBe(false);
     expect(checkPassword("Ab1!xyz").requirements.find((r) => r.id === "length")?.met).toBe(false);
-    expect(checkPassword("Tr1cky-Pass").ok).toBe(true);
+    expect(checkPassword("Tr1cky-Pass42").ok).toBe(true);
   });
 
   it("requires at least two kinds of characters", () => {
@@ -33,9 +33,9 @@ describe("checkPassword: requirements", () => {
 
   it("rejects a password that contains the person's email name", () => {
     expect(checkPassword("ashu-Mathura-9", { email: "ashu.mathura@gmail.com" }).ok).toBe(false);
-    expect(checkPassword("Tr1cky-Pass", { email: "ashu.mathura@gmail.com" }).ok).toBe(true);
+    expect(checkPassword("Tr1cky-Pass42", { email: "ashu.mathura@gmail.com" }).ok).toBe(true);
     // short local parts are ignored, they would match too much
-    expect(checkPassword("Tr1cky-Pass", { email: "al@example.com" }).ok).toBe(true);
+    expect(checkPassword("Tr1cky-Pass42", { email: "al@example.com" }).ok).toBe(true);
   });
 
   it("an empty password meets nothing and is Too weak", () => {
@@ -48,8 +48,8 @@ describe("checkPassword: requirements", () => {
 
 describe("checkPassword: strength", () => {
   it("grows with length and variety", () => {
-    expect(checkPassword("qwfpgjluy1").strength.label).toBe("Fair");
-    expect(checkPassword("qwfpgjluyz1k").strength.label).toBe("Good");
+    expect(checkPassword("qwfpgjluyz1k").strength.label).toBe("Fair");
+    expect(checkPassword("qwfpgjluyz1kab").strength.label).toBe("Good");
     expect(checkPassword("Xk9#mQ2vLp4z").strength.label).toBe("Good");
     expect(checkPassword("Xk9#mQ2vLp4z!Rw8").strength.label).toBe("Strong");
     expect(checkPassword("correct horse battery staple").strength.label).toBe("Strong");

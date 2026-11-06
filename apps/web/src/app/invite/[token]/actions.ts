@@ -64,7 +64,6 @@ export async function signInAndAccept(_prev: AcceptState, form: FormData): Promi
 export async function signUpForInvite(_prev: AcceptState, form: FormData): Promise<AcceptState> {
   const token = tokenFrom(form);
   const password = form.get("password");
-  const confirm = form.get("confirm");
   if (!token) return { error: NOT_VALID };
   const supabase = await createClient();
   const preview = await getInvitePreview(supabase, token);
@@ -72,7 +71,6 @@ export async function signUpForInvite(_prev: AcceptState, form: FormData): Promi
   if (typeof password !== "string" || !checkPassword(password, { email: preview.email }).ok) {
     return { error: "Choose a stronger password: follow the checklist under the password field." };
   }
-  if (password !== confirm) return { error: "The two passwords do not match." };
 
   const next = `/invite/${token}`;
   const { error } = await supabase.auth.signUp({
