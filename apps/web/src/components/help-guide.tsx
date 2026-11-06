@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import {
-  AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_INTRO, AGENT_TABS, AGENT_TIPS, AGENT_USE_CASES, type AgentTabId, COLUMNS_NOTE, COLUMN_ROWS, UPDATE_LEGEND, FLOW_CREATE, FLOW_LIFECYCLE, ATTENTION_INTRO, ATTENTION_TABLE, GATES_INTRO, GATES_TABLE, GATES_STEPS, GATES_OUTCOMES, GATES_NOTES, FLOW_READ, LIFECYCLE_NOTES,
+  AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_INTRO, AGENT_TABS, AGENT_TIPS, AGENT_USE_CASES, type AgentTabId, COLUMNS_NOTE, COLUMN_ROWS, UPDATE_LEGEND, FLOW_CREATE, FLOW_LIFECYCLE, ATTENTION_INTRO, ATTENTION_TABLE, GATES_INTRO, GATES_TABLE, GATES_STEPS, GATES_OUTCOMES, GATES_NOTES, STATUS_FROM_TRACKER, STATUS_INTRO, STATUS_NEXT_IN_PV, STATUS_NOTES, STATUS_TO_TRACKER, FLOW_READ, LIFECYCLE_NOTES,
   COLUMN_GROUPS, REPORTS_INTRO, REPORTS_LIST, ROADMAP_HEALTH_DEFINITIONS, ROADMAP_HEALTH_NOTES, type Table,
 } from "./help-content";
 
@@ -96,6 +96,12 @@ export function HelpGuide() {
                 <SimpleTable caption="Request, decide, complete" table={GATES_STEPS} />
                 <SimpleTable caption="The four outcomes" table={GATES_OUTCOMES} />
                 <ul className="help-notes">{GATES_NOTES.map((n) => <li key={n}>{n}</li>)}</ul>
+                <h3 id="help-status-changes">6. Status changes: what changes, when, where</h3>
+                <p>{STATUS_INTRO}</p>
+                <SimpleTable caption="From Product Velocity to GitHub or Jira (written only after you confirm)" table={STATUS_TO_TRACKER} />
+                <SimpleTable caption="From GitHub or Jira to Product Velocity (read, never written back)" table={STATUS_FROM_TRACKER} />
+                <SimpleTable caption="What triggers a change inside Product Velocity" table={STATUS_NEXT_IN_PV} />
+                <ul className="help-notes">{STATUS_NOTES.map((n) => <li key={n}>{n}</li>)}</ul>
               </div>
             )}
 

@@ -299,6 +299,53 @@ export const GATES_NOTES = [
 ];
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
+// Status changes (issue #358, docs/decisions/2026-11-06-ready-at-gate-b.md): which status changes, what triggers it, when, where, and the exact state names.
+
+export const STATUS_INTRO = "Three different things are called status. Initiative Phase (Discover to Completed) and Initiative Status (Active, On hold, Completed, Cancelled) belong to Product Velocity and are changed by people. Build Status (Not started, In progress, Done, Cancelled) belongs to the tracker and is read-only here. Product Velocity writes to a tracker in only three cases, always after you confirm in Sync, and never for an issue that is only followed.";
+
+export const STATUS_TO_TRACKER: Table = {
+  head: ["What happens in Product Velocity", "Trigger and when", "GitHub: from → to", "Jira: from → to", "Never happens when"],
+  rows: [
+    ["Ready for build (Gate B: Go or Go with conditions)", "A person confirms Sync with GitHub or Sync with Jira after the gate. Once per initiative", "Project board Status: empty or Backlog → Ready (the board must already have a Ready option). The issue itself stays open", "Issue status: a status in the category To Do, such as Backlog → To do (the workflow must allow the move)", "The tracker item is already further along (In progress, In review, Done, Ready, To do). The initiative is on Hold or Stop. The issue is only followed, or the board has no Ready option, or the workflow has no such transition: the preview says so and nothing is written"],
+    ["Initiative deleted (Trash)", "A person confirms, one initiative at a time, in Sync under Removed in Product Velocity", "Issue: open → closed as not planned, and the label pv:removed. Already closed: only the label", "Issue: current status → a Done status you choose (category Done), and the label pv:removed. No Done transition: only the label", "The issue came from the tracker (followed, or adopted by default) or is in a read-only repository"],
+    ["Stopped at a gate (Stop)", "Initiative Status becomes Cancelled; the same confirmed offer as a deleted initiative, marked Stopped at gate", "Same as deleted: open → closed as not planned, label pv:removed", "Same as deleted: → a Done status, label pv:removed", "A later Go or setting the status back to Active withdraws the offer"],
+    ["Title, summary, description, hypothesis, labels, dates, links", "A person confirms Sync (the Define phase adds the label pv:define)", "Issue text and labels; board fields Priority, Initiative, Due date, Size", "Issue summary, description, labels", "Value, confidence, customers, decisions and other commercial fields are never sent. No status is written by this row"],
+  ],
+};
+
+export const STATUS_FROM_TRACKER: Table = {
+  head: ["Tracker state", "Becomes in Product Velocity", "When it updates", "Notes"],
+  rows: [
+    ["GitHub issue open", "Build Status: Not started (only when it had no status)", "Webhook, daily check, Check GitHub now, after a send", "An open issue never overwrites a status; GitHub issues have no in-progress state, so In progress comes from Jira or the board Status below"],
+    ["GitHub issue closed as completed", "Build Status: Done. Build Completed date is set", "Same", "The build is done, not the initiative: Initiative Status never changes"],
+    ["GitHub issue closed as not planned", "Build Status: Cancelled", "Same", "No Build Completed date"],
+    ["GitHub issue reopened (from Done or Cancelled)", "Build Status: Not started", "Same", ""],
+    ["GitHub Project board Status (for example Backlog, Ready, In progress, In review, Done)", "Delivery Status: the board's own words, unchanged", "Real time (Project item events), daily check, after a send", "Read-only. Not mapped to Build Status or Initiative Status. Also read: Iteration and the board's date field"],
+    ["Jira status category To Do (for example Backlog, To do)", "Build Status: Not started", "Webhook (when on), daily check, Sync with Jira", "Jira's status name is shown on the Jira tab. Names mean nothing, the category does"],
+    ["Jira status category In Progress (for example In progress, In review)", "Build Status: In progress", "Same", ""],
+    ["Jira status category Done (for example Done, Won't do)", "Build Status: Done", "Same", "The build is done, not the initiative"],
+    ["Sub-issues (GitHub) or child issues (Jira) closed", "Issues Closed, Issues Total and Delivery Progress %", "Same", "Counted at the leaves; work closed as not planned leaves the total"],
+  ],
+};
+
+export const STATUS_NEXT_IN_PV: Table = {
+  head: ["Trigger", "Product Velocity then", "Who decides"],
+  rows: [
+    ["Build Status Done while the phase is Build", "Needs attention suggests Move to Test (one click)", "A Creator or above"],
+    ["Gate decision Go or Go with conditions (A, B, C)", "Initiative Phase moves; at Gate B also Ready for build, which Sync then shows in the tracker as above", "A person with approval rights for that gate"],
+    ["Gate decision Hold", "Phase stays, Gate Status Held. Nothing is written to a tracker", "A person with approval rights"],
+    ["Gate decision Stop", "Initiative Status becomes Cancelled and the close offer appears in Sync", "A person with approval rights"],
+    ["Initiative Status set to Completed", "Initiative Phase becomes Completed. Sync stops 14 days later (also for Cancelled)", "A person"],
+  ],
+};
+
+export const STATUS_NOTES = [
+  "Claude never decides or moves a gate or a phase, never sets Initiative Status and never writes to a tracker: it can prepare a gate pack. Sending to GitHub or Jira always needs your confirmation.",
+  "Reading never fights writing. Product Velocity sets Ready or To do once, only while the item is still at its start; after that the board or Jira status is read back and never overwritten. If someone moves the item back to Backlog, Product Velocity leaves it.",
+  "The GitHub App needs the Projects permission with Read and write to set Ready (Settings, Integrations, GitHub shows whether it has it). Jira needs a sign-in that may transition issues.",
+];
+
+// ---------------------------------------------------------------------------------------------------------------------------------------
 // Reports (issue #233 Overview, request R-129 / issue #287 Roadmap Health): what each report answers and how its numbers are defined.
 
 export const REPORTS_INTRO = "The Reports tab has a list of reports next to its title; Overview opens first. The filters, the click-to-filter pills and the two toggles (archived, AI drafts) are shared, so they stay when you switch reports, and the address keeps the report and the filters so you can share a link.";

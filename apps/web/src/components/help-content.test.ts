@@ -219,3 +219,15 @@ describe("Help: closing the Jira issue of a removed initiative", () => {
     expect(AGENT_ADVANTAGES.find((a) => a.title === "Safe by design")!.text).toMatch(/cannot close a Jira issue/);
   });
 });
+
+describe("Help: status changes (issue #358)", () => {
+  it("names the real states for both trackers, the direction, and that a person confirms", async () => {
+    const { STATUS_TO_TRACKER, STATUS_FROM_TRACKER, STATUS_INTRO, STATUS_NEXT_IN_PV } = await import("./help-content");
+    const to = JSON.stringify(STATUS_TO_TRACKER);
+    for (const w of ["Backlog → Ready", "Backlog → To do", "closed as not planned", "pv:removed", "Done status"]) expect(to).toContain(w);
+    const from = JSON.stringify(STATUS_FROM_TRACKER);
+    for (const w of ["closed as completed", "Not started", "In progress", "Done", "Cancelled", "category To Do", "Delivery Status"]) expect(from).toContain(w);
+    expect(STATUS_INTRO).toMatch(/after you confirm/);
+    expect(JSON.stringify(STATUS_NEXT_IN_PV)).toContain("Move to Test");
+  });
+});
