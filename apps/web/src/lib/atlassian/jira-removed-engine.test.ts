@@ -191,3 +191,27 @@ describe("closing one", () => {
     expect(j.hits).toEqual([]);
   });
 });
+
+describe("an initiative stopped at a gate (issue #343)", () => {
+  const E = "55555555-5555-4555-8555-555555555555", F = "66666666-6666-4666-8666-666666666666";
+  beforeEach(() => {
+    tables.items!.push({ tenant_id: "t1", id: E, item_code: "R-5", initiative_name: "Stopped", initiative_status: "Cancelled", source: "Created in the app" }, { tenant_id: "t1", id: F, item_code: "R-6", initiative_name: "Cancelled by hand", initiative_status: "Cancelled", source: null });
+    tables.item_jira_links!.push(link(E, "PLAT-5"), link(F, "PLAT-6"));
+    tables.gate_reviews = [{ tenant_id: "t1", item_id: E, kind: "decision", gate: "C", outcome: "stop", decided_at: "2027-04-02T10:00:00Z" }];
+  });
+  it("is offered like a removed one, with the gate it was stopped at; one Cancelled by hand is not", async () => {
+    const r = await listRemoved(ctx, { call: fakeJira().call });
+    expect(r.ok && r.items.map((i) => i.id)).toEqual([A, E]);
+    expect(r.ok && r.items.find((i) => i.id === E)).toMatchObject({ state: "ready", stopped: { gate: "C" }, code: "R-5" });
+  });
+  it("closing it labels the issue and moves it to a Done status; the record names the chosen status; Cancelled by hand is refused with nothing written", async () => {
+    const j = fakeJira();
+    const r = await closeOne(ctx, E, null, { call: j.call });
+    expect(r.result).toMatchObject({ id: E, outcome: "closed" });
+    expect(writes(j.hits).length).toBeGreaterThan(0);
+    expect(rpcCalls[0]).toMatchObject({ fn: "jira_record_removed", args: { p_item: E, p_result: "closed" } });
+    const k = fakeJira();
+    expect((await closeOne(ctx, F, null, { call: k.call })).result).toMatchObject({ outcome: "error", message: expect.stringContaining("not stopped at a gate") });
+    expect(k.hits).toEqual([]);
+  });
+});

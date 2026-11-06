@@ -126,7 +126,7 @@ export function RequestGateDialog({ source, items, me = null, onClose, onDone }:
 
 /** What to do next after a decision; sending to a tracker is never automatic. */
 function resultNote(gates: GateId[], outcome: GateOutcome): string | undefined {
-  if (outcome === "stop") return "Initiative Status is now Cancelled. If an issue exists in GitHub or Jira, Sync offers to handle it; nothing is sent until you confirm.";
+  if (outcome === "stop") return "Initiative Status is now Cancelled. If an issue exists in GitHub or Jira, Sync offers to label and close it (under Removed or stopped in Product Velocity); nothing is sent until you confirm.";
   if ((outcome === "go" || outcome === "go_with_conditions") && gates.includes("B")) return "Gate B passed: the PRD is approved and the initiative is Ready for build. Use Sync with GitHub or Jira (grid bar or item panel) to hand it over; you confirm what is sent.";
   return undefined;
 }

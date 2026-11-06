@@ -119,6 +119,10 @@ Commercial fields never sync (rule 2). A gate decision, its rationale and its co
 
 **14 days after Initiative Status becomes Completed or Cancelled**, one final sync runs and the link becomes **Frozen** (`frozen_at`). A frozen link is skipped by the daily check, "Check now", the Sync dialog selection and the Jira refresh; webhooks for it are acknowledged and not stored. An approver or admin can **Resume sync**; moving the status back to Active (or the phase back) unfreezes it automatically. Freeze and resume are audited. Build Status Done alone never freezes anything. The default views hide Completed initiatives (an "Include completed" filter brings them back) so the grid loads less.
 
+## 9a. Stop offers to close the tracker issue
+
+An initiative whose latest decided gate decision is **Stop** and whose Initiative Status is Cancelled is offered, in Sync with GitHub and Sync with Jira (same screen, same steps), in the section **Removed or stopped in Product Velocity**, marked "Stopped at gate X". It follows the removed-initiative rules: nothing is written until the person confirms, one initiative at a time; only an issue Product Velocity owns (never a followed or adopted-by-default one); the label is `pv:removed` (reused, not a new label) and the issue is closed as not planned (GitHub) or moved to a Done status (Jira). A later Go decision, or setting the status back to Active, withdraws the offer. The database refuses to record it for anything that is neither in the Trash nor stopped (`item_is_stopped`, error 22023). Decision: `docs/decisions/2026-11-06-stop-closes-tracker-issue.md`.
+
 ## 10. Data
 
 - `gate_reviews(item_id, gate A|B|C, kind decision|skipped, outcome go|go_with_conditions|hold|stop, rationale, fast_lane, target_phase, decided_by, decided_at, requested_by, requested_at)`: append-only; rationale immutable.
@@ -141,7 +145,7 @@ Built:
 
 Not built yet (each is a follow-up request, not a hidden gap; the browser specs that main had left behind were fixed in the first follow-up):
 - ~~**Notifications** to preferred approvers~~ built in-app (issue #341, section 6a). Email and Slack are not built; they need an opt-in with an explicit confirmation.
-- **Stop closes the tracker issue**: Stop sets Initiative Status to Cancelled and the result says Sync handles it; the dedicated confirmed "close the issue" offer from the removed-initiative decisions is not wired to Stop.
+- ~~**Stop closes the tracker issue**~~ built (issue #343, section 9a).
 - ~~**Needs attention** as a screen~~ built (issue #337, section 7a). The "My work" half of #105 is not built.
 - **Reports** for gate history and time at a gate; the ready-to-start wait is derivable (Gate B date to `start_building`) but has no report yet.
 - **A separate "Request engineering review" button**: the review push is the normal confirmed Sync of an initiative in Define (it carries `pv:define`); a dedicated button and a PRD-in-review condition were not added.

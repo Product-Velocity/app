@@ -106,3 +106,49 @@ describe("github_record_removed", () => {
     expect(await errorCode(record(creator, bare))).toBe("P0002");
   });
 });
+
+describe("a stopped initiative (issue #343): Cancelled, and the latest gate decision is a Stop", () => {
+  const decide = (item: string, outcome: string, at = "now()") => db.admin.query(
+    `insert into public.gate_reviews (tenant_id, item_id, gate, outcome, rationale, decided_by, decided_at) values ($1, $2, 'B', $3, 'Test decision', $4, ${at})`, [f.tenantA, item, outcome, creator]);
+  const cancel = (item: string) => db.admin.query("update public.items set initiative_status = 'Cancelled' where id = $1", [item]);
+  it("may be recorded like a removed one, for an owned issue; the initiative itself is untouched", async () => {
+    const { item } = await setup({ trashed: false });
+    await decide(item, "stop"); await cancel(item);
+    await record(creator, item);
+    expect((await link(item)).removed_handled_at).not.toBeNull();
+    expect((await db.admin.query("select initiative_status, deleted_at from public.items where id = $1", [item])).rows[0]).toMatchObject({ initiative_status: "Cancelled", deleted_at: null });
+  });
+  it("is refused when it is Cancelled without a Stop decision, or has a Stop but was set back to Active", async () => {
+    const a = await setup({ trashed: false });
+    await cancel(a.item);
+    expect(await errorCode(record(creator, a.item))).toBe("22023");
+    const b = await setup({ trashed: false });
+    await decide(b.item, "stop");
+    expect(await errorCode(record(creator, b.item))).toBe("22023"); // still Active
+    expect((await link(a.item)).removed_handled_at).toBeNull();
+    expect((await link(b.item)).removed_handled_at).toBeNull();
+  });
+  it("only the latest decision counts: an older Stop followed by a Go is not a stop", async () => {
+    const { item } = await setup({ trashed: false });
+    await decide(item, "stop", "now() - interval '2 days'"); await decide(item, "go", "now() - interval '1 day'"); await cancel(item);
+    expect(await errorCode(record(creator, item))).toBe("22023");
+  });
+  it("keeps every other boundary: never an issue that is only followed, never a viewer, a service account, another workspace or Claude", async () => {
+    const followed = await setup({ mode: "follow", trashed: false });
+    await decide(followed.item, "stop"); await cancel(followed.item);
+    expect(await errorCode(record(creator, followed.item))).toBe(DENIED);
+    const { item } = await setup({ trashed: false });
+    await decide(item, "stop"); await cancel(item);
+    for (const who of [viewer, service, f.bob]) expect(await errorCode(record(who, item)), who).toBe(DENIED);
+    expect(await errorCode(record(creator, item, "closed", "not_planned", "MCP"))).toBe(DENIED);
+    expect((await link(item)).removed_handled_at).toBeNull();
+  });
+  it("is handled once: a second record changes nothing", async () => {
+    const { item } = await setup({ trashed: false });
+    await decide(item, "stop"); await cancel(item);
+    await record(creator, item);
+    const first = await link(item);
+    await record(creator, item);
+    expect(await link(item)).toMatchObject({ removed_handled_at: first.removed_handled_at });
+  });
+});
