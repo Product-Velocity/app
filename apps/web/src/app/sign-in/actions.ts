@@ -6,7 +6,7 @@ import { safeNext } from "@/lib/auth/safe-next";
 import { siteUrl } from "@/lib/site-url";
 import { checkPassword } from "@/lib/password";
 import { normalizeEmail } from "@/lib/validation";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveSignInEmail } from "@/lib/auth/resolve-sign-in-email";
 
 export type AuthState = { error?: string; message?: string } | null;
 
@@ -90,13 +90,4 @@ export async function signInWithProvider(form: FormData): Promise<void> {
   });
   if (error || !data.url) redirect(`/sign-in?error=provider&next=${encodeURIComponent(next)}`);
   redirect(data.url);
-}
-
-async function resolveSignInEmail(email: string): Promise<string> {
-  try {
-    const { data } = await createAdminClient({ via: "system" }).rpc("resolve_sign_in_email", { p_email: email });
-    return typeof data === "string" && data ? data : email;
-  } catch {
-    return email; // no service key (local development): a linked address simply does not resolve
-  }
 }

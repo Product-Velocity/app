@@ -62,6 +62,7 @@ export function PasswordForm({ next, mode }: { next: string; mode: "sign-in" | "
         />
       </div>
       {mode === "sign-in" ? (
+        <>
         <PasswordField
           name="password"
           label="Password"
@@ -69,6 +70,10 @@ export function PasswordForm({ next, mode }: { next: string; mode: "sign-in" | "
           onChange={setPassword}
           autoComplete="current-password"
         />
+        <a className="link-button forgot" href={`/forgot-password${email ? `?email=${encodeURIComponent(email)}` : ""}`}>
+          Forgot password?
+        </a>
+        </>
       ) : (
         <NewPasswordFields
           password={password}

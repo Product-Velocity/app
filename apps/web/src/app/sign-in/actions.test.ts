@@ -26,7 +26,7 @@ describe("sendSignInLink (emailed one-time link)", () => {
   it("never creates an account", async () => {
     signInWithOtp.mockResolvedValue({ error: null });
     await sendSignInLink(null, form("Ada@Example.com"));
-    const arg = signInWithOtp.mock.calls[0][0];
+    const arg = signInWithOtp.mock.calls[0]![0];
     expect(arg.options.shouldCreateUser).toBe(false);
     expect(arg.email).toBe("ada@example.com");
   });
@@ -56,13 +56,13 @@ describe("sendSignInLink (emailed one-time link)", () => {
     rpc.mockResolvedValue({ data: "main@example.com" });
     signInWithOtp.mockResolvedValue({ error: null });
     await sendSignInLink(null, form("alias@example.com"));
-    expect(signInWithOtp.mock.calls[0][0].email).toBe("main@example.com");
+    expect(signInWithOtp.mock.calls[0]![0].email).toBe("main@example.com");
   });
 
   it("only returns to a same-site path", async () => {
     signInWithOtp.mockResolvedValue({ error: null });
     await sendSignInLink(null, form("a@example.com", "https://evil.example/steal"));
-    expect(signInWithOtp.mock.calls[0][0].options.emailRedirectTo).toBe(
+    expect(signInWithOtp.mock.calls[0]![0].options.emailRedirectTo).toBe(
       "https://app.example/auth/callback?next=%2F",
     );
   });

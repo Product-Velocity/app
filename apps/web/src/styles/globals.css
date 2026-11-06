@@ -104,6 +104,7 @@ h2 { font-size: 14px; font-weight: 600; margin: 24px 0 8px; }
 .auth-form .pw-toggle:hover { background: var(--surface-muted); }
 .auth-form .link-button { justify-self: center; font-weight: 500; text-decoration: none; }
 .auth-form .link-button:hover { text-decoration: underline; }
+.auth-form .forgot { justify-self: end; margin-top: -12px; font-size: 13px; }
 .auth-providers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .auth-center { text-align: center; }
 .auth-invite { background: var(--blue-tint-1); border-radius: var(--radius-lg); padding: 16px; display: grid; gap: 2px; }

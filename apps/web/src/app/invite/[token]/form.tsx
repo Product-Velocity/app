@@ -71,6 +71,7 @@ export function InviteSignIn({ token, email, mode }: { token: string; email: str
           <p className="hint">The invitation is for this address.</p>
         </div>
         {mode === "sign-in" ? (
+          <>
           <PasswordField
             name="password"
             label="Password"
@@ -79,6 +80,10 @@ export function InviteSignIn({ token, email, mode }: { token: string; email: str
             autoComplete="current-password"
             autoFocus
           />
+          <a className="link-button forgot" href={`/forgot-password?email=${encodeURIComponent(email)}`}>
+            Forgot password?
+          </a>
+          </>
         ) : (
           <NewPasswordFields
             password={password}
