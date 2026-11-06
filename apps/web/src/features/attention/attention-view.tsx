@@ -107,7 +107,7 @@ export function AttentionView({ controller, lookups, me, source, pageHref = (c) 
         </ul>
       )}
       <p className="muted">J and K move through the list, Enter opens the initiative. Time in a phase is for the initiative, never for a person.</p>
-      {gateFor && gateItem && <RequestGateDialog source={source} items={[gateItem as never]} onClose={() => setGateFor(null)} onDone={changed} />}
+      {gateFor && gateItem && <RequestGateDialog source={source} me={me} items={[gateItem as never]} onClose={() => setGateFor(null)} onDone={changed} />}
     </div>
   );
 }

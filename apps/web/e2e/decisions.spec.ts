@@ -137,6 +137,20 @@ test.describe("gate actions in the grid", () => {
     expect(await calls(page)).toContain("request A 1");
   });
 
+  test("the request dialog lets the requester name who to ask: people who can decide, not themselves or people who cannot", async ({ page }) => {
+    await openGrid(page);
+    await page.locator('.ag-row[row-id="item-1"] input[type="checkbox"]').first().check();
+    await page.getByRole("region", { name: /Bulk actions/ }).getByRole("button", { name: "Request gate…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Request a gate for 1 initiative" });
+    const group = dialog.getByRole("group", { name: "Ask these people (optional)" });
+    await expect(group.getByRole("checkbox")).toHaveCount(1); // bo is an Approver; ana is the signed-in person; cy cannot decide
+    await expect(group).toContainText("bo@example.test");
+    await group.getByRole("checkbox", { name: "bo@example.test" }).check();
+    await dialog.getByRole("button", { name: /Request gate A for 1/ }).click();
+    await expect(dialog).toContainText("1 of 1 done");
+    expect(await page.evaluate(() => (window as unknown as { __pv: { gates: { lastPreferred: string[] } } }).__pv.gates.lastPreferred)).toEqual(["u2"]);
+  });
+
   test("Decide in the bulk bar says when nothing is waiting; Move offers only moves without a gate", async ({ page }) => {
     await openGrid(page);
     await page.locator('.ag-row[row-id="item-3"] input[type="checkbox"]').first().check(); // Build

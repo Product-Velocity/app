@@ -6,6 +6,7 @@ import { BrandLogo } from "./brand-logo";
 import { HeaderTabs } from "./header-tabs";
 import { ScopeSwitcher } from "@/features/workspace/scope-switcher";
 import { AccountSwitcher, type SwitcherAccount } from "./account-switcher";
+import { NotificationsBell } from "@/features/notifications/notifications-bell";
 type Props = {
   tenantName: string;
   /** The accounts the person can open; more than one (or a platform role) turns the name into the account switcher. */
@@ -49,6 +50,7 @@ export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmi
 
       <HeaderTabs current={current} accountId={activeTenantId} waiting={decisionsWaiting} />
 
+      {activeTenantId ? <NotificationsBell tenantId={activeTenantId} /> : null}
       <TextSizeControl initial={textSize} />
       <HelpMenu />
       <HelpGuide />

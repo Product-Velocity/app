@@ -22,7 +22,7 @@ export interface GateSource {
   myGates(): Promise<GateId[]>;
   /** The documents of an item, for the checklist. */
   loadDocs(itemId: string): Promise<{ kind: string; status: string }[]>;
-  requestGate(gate: GateId, items: { item: string; ready: boolean; criteria: ChecklistItem[] }[]): Promise<ItemResult[]>;
+  requestGate(gate: GateId, items: { item: string; ready: boolean; criteria: ChecklistItem[]; /** The people to ask; empty asks everyone who can decide. */ preferred?: string[] }[]): Promise<ItemResult[]>;
   decide(reviewIds: string[], d: Decision): Promise<(ItemResult & { phase?: string; fastLane?: boolean })[]>;
   move(itemId: string, to: string): Promise<{ ok: true } | { ok: false; error: string }>;
   loadConditions(itemId: string): Promise<Condition[]>;
@@ -63,7 +63,7 @@ export class SupabaseGateSource implements GateSource {
     return (data ?? []) as { kind: string; status: string }[];
   }
 
-  async requestGate(gate: GateId, items: { item: string; ready: boolean; criteria: ChecklistItem[] }[]): Promise<ItemResult[]> {
+  async requestGate(gate: GateId, items: { item: string; ready: boolean; criteria: ChecklistItem[]; preferred?: string[] }[]): Promise<ItemResult[]> {
     const { data, error } = await this.client.rpc("request_gates", { p_gate: gate, p_requests: items });
     if (error) return items.map((i) => ({ id: i.item, ok: false, message: text(error) }));
     return ((data ?? []) as { item: string; ok: boolean; error?: string; code?: string }[]).map((r) => ({ id: r.item, ok: r.ok, ...(r.ok ? {} : { message: gateErrorText(r.code, r.error) }) }));
@@ -145,8 +145,10 @@ export class MemoryGateSource implements GateSource {
   async loadRequests() { return this.requests.map((r) => ({ ...r })); }
   async myGates() { return [...this.can]; }
   async loadDocs() { return [...this.docs]; }
-  async requestGate(gate: GateId, items: { item: string; ready: boolean; criteria: ChecklistItem[] }[]) {
+  lastPreferred: string[] = [];
+  async requestGate(gate: GateId, items: { item: string; ready: boolean; criteria: ChecklistItem[]; preferred?: string[] }[]) {
     this.calls.push(`request ${gate} ${items.length}`);
+    this.lastPreferred = items[0]?.preferred ?? [];
     return items.map((i) => {
       if (this.requests.some((r) => r.item_id === i.item && !r.decided_at && !r.withdrawn_at && r.kind === "decision")) return { id: i.item, ok: false, message: "A gate request is already open for this initiative" };
       this.requests.push({ id: `rev-${this.requests.length + 1}`, item_id: i.item, gate, kind: "decision", requested_by: "me", requested_at: new Date(1_800_000_000_000 + this.requests.length * 1000).toISOString(), preferred_approvers: [], ready: i.ready, criteria: i.criteria, outcome: null, rationale: null, fast_lane: false, target_phase: null, skipped_phases: [], review_date: null, decided_by: null, decided_at: null, withdrawn_at: null });
