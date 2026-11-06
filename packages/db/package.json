@@ -6,7 +6,9 @@
     "migrate": "node src/migrate-cli.mjs",
     "new": "node src/new-migration.mjs",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "status": "node src/migrate-cli.mjs --status",
+    "backfill-sql": "node src/migrate-cli.mjs --backfill-sql"
   },
   "dependencies": {
     "pg": "^8.23.1"
