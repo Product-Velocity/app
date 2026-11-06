@@ -111,3 +111,20 @@ export async function writeAll(o: { todo: readonly string[]; codeOf: (id: string
   }
   return { results, taken };
 }
+
+/** Stage 1 (incoming): something came from the tracker (applied or to settle), or the check found a problem the person must see. */
+export const hasIncoming = (r: ReceiveItem) => r.received.length > 0 || (r.conflicts?.length ?? 0) > 0 || r.status === "error" || r.status === "missing" || r.status === "not_linked" || r.status === "not_on_github";
+
+/** Stage 2 (outgoing): the initiatives that are checked, split by "to send" and "nothing to send". `sendIds` says which ones a confirm would write. Problems are shown in stage 1, not here. */
+export function filterBySend(received: readonly ReceiveItem[], sendIds: ReadonlySet<string>, filter: UpdateFilter): { toSend: number; nothing: number; problems: number; shown: ReceiveItem[] } {
+  let toSend = 0, nothing = 0, problems = 0;
+  const shown: ReceiveItem[] = [];
+  for (const r of received) {
+    if (isProblem(r)) { problems++; continue; }
+    const sends = sendIds.has(r.id);
+    if (sends) toSend++; else nothing++;
+    if (filter === "all" || (filter === "updates") === sends) shown.push(r);
+  }
+  return { toSend, nothing, problems, shown };
+}
+

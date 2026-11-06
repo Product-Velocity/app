@@ -93,7 +93,7 @@ function fakeApi(scenario: string, onCall: (code: string) => void, removed?: Syn
   const attempts = new Map<string, number>();
   return {
     ...(removed ? { removed } : {}),
-    start: async (ids) => scenario === "jira" ? jiraPreview(ids) : { ok: true, account: "acme", received: ids.map((id) => card(id, IDS.indexOf(id))), send: ids.map((id) => plan(id, IDS.indexOf(id))) },
+    start: async (ids) => scenario === "slow" ? new Promise<never>(() => undefined) : scenario === "jira" ? jiraPreview(ids) : { ok: true, account: "acme", received: ids.map((id) => card(id, IDS.indexOf(id))), send: ids.map((id) => plan(id, IDS.indexOf(id))) },
     board: async () => ({ ok: true, lines: {}, failed: false }),
     confirm: async (ids) => {
       const id = ids[0]!;
@@ -105,7 +105,7 @@ function fakeApi(scenario: string, onCall: (code: string) => void, removed?: Syn
       if (scenario === "lost" && n === 1) throw new Error("network");
       if (scenario === "stale" && n === 1 && tries === 1) return { ok: false, error: "GitHub changed after you looked. Nothing was applied or sent for it.", stale: { account: "acme", received: [{ ...card(id, n), message: "Changed in GitHub just now." }], send: [plan(id, n)] } };
       if (scenario === "fail" && n === 1 && tries === 1) return { ok: true, results: [{ id, code: CODES[n]!, outcome: "error", message: "GitHub refused the update (rate limit)." }], taken: [] };
-      return { ok: true, results: [{ id, code: CODES[n]!, outcome: "updated", ...(scenario === "jira" ? { issueLabel: "PLAT-13", issueUrl: "https://acme.example/browse/PLAT-13" } : { issueNumber: 100 + n }) }], taken: [] };
+      return { ok: true, results: [{ id, code: CODES[n]!, outcome: "updated", ...(scenario === "jira" ? { wrote: ["Name", "Description", "Labels (3)"], issueLabel: "PLAT-13", issueUrl: "https://acme.example/browse/PLAT-13" } : { issueNumber: 100 + n }) }], taken: [] };
     },
   };
 }

@@ -7,28 +7,52 @@ test.describe("Sync with Jira: received, to send, conflicts, writing", () => {
     await page.goto("/dev/sync?scenario=jira&new=jira0");
     await page.getByRole("button", { name: "Open sync" }).click();
     const dialog = page.getByRole("dialog", { name: /Sync(ed)? with Jira/ });
+    // step 1: what came in from Jira, and the conflicts to settle; nothing is written here
+    await expect(dialog.getByRole("heading", { name: "Updates from Jira to Product Velocity" })).toBeVisible();
+    await expect(dialog.getByRole("listitem").filter({ hasText: /^1\. Incoming from Jira/ })).toHaveAttribute("aria-current", "step");
     await expect(dialog.getByText(/Received from Jira/)).toBeVisible();
     await expect(dialog.getByText("Build Status: Not started → In progress")).toBeVisible();
     await expect(dialog.getByText("Jira status: To Do → In Review")).toBeVisible();
     await expect(dialog.getByRole("link", { name: "issue PLAT-12" })).toHaveAttribute("href", "https://acme.example/browse/PLAT-12");
-    await expect(dialog.getByText("Will update issue PLAT-13 in Jira")).toBeVisible();
     await expect(dialog.getByText("Initiative Status is never set from Jira")).toBeVisible();
     await expect(dialog.getByText("Issue not found")).toBeVisible(); // the issue Jira did not return is reported, nothing changed
     await expect(dialog.getByText(/Text you or engineers write in the issue/)).toHaveCount(0); // GitHub-only wording is not shown for Jira
     await expect(page.getByTestId("calls")).toHaveText("");
-    // a conflict has no default when both sides changed: sending waits for the choice
+    // a conflict has no default when both sides changed: the next step waits for the choice
     await expect(dialog.getByText("Conflict · Description")).toBeVisible();
     await expect(dialog.getByRole("radio", { name: "Keep Jira" })).not.toBeChecked();
+    const next = dialog.getByRole("button", { name: /^Next: what goes to Jira/ });
+    await expect(next).toBeDisabled();
+    await expect(dialog.getByRole("button", { name: "Cancel" })).toBeVisible();
+    await page.screenshot({ path: "test-results/jira-sync-incoming.png" });
+    const axe1 = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
+    expect(axe1.violations).toEqual([]);
+    await dialog.getByRole("radio", { name: "Keep Product Velocity" }).check();
+    await expect(next).toBeEnabled();
+    await next.click();
+    // step 2: what goes to Jira, one initiative at a time, with the filters
+    await expect(dialog.getByRole("heading", { name: "Updates from Product Velocity to Jira" })).toBeVisible();
+    await expect(dialog.getByText("Will update issue PLAT-13 in Jira")).toBeVisible();
+    await expect(dialog.getByRole("button", { name: /^To send \(\d+\)$/ })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Back" })).toBeVisible();
     const send = dialog.getByRole("button", { name: "Apply and send" });
-    await expect(send).toBeDisabled();
-    await page.screenshot({ path: "test-results/jira-sync-preview.png" });
+    await expect(send).toBeEnabled();
+    await page.screenshot({ path: "test-results/jira-sync-outgoing.png" });
     const axe = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
     expect(axe.violations).toEqual([]);
-    await dialog.getByRole("radio", { name: "Keep Product Velocity" }).check();
-    await expect(send).toBeEnabled();
+    await dialog.getByRole("button", { name: "Back" }).click(); // the choice is kept when going back
+    await expect(dialog.getByRole("radio", { name: "Keep Product Velocity" })).toBeChecked();
+    await dialog.getByRole("button", { name: /^Next: what goes to Jira/ }).click();
     await send.dispatchEvent("click"); // the test page reloads itself when the writing ends, which makes a real click wait for ever
+    // step 3: confirmed, with both directions per initiative
+    await expect(dialog.getByRole("listitem").filter({ hasText: /^3\. Confirmed/ })).toHaveAttribute("aria-current", "step");
     await expect(dialog.getByText("R-2 · Updated")).toBeVisible();
     await expect(dialog.getByRole("link", { name: "issue PLAT-13" })).toBeVisible();
+    await expect(dialog.getByText("From Jira to Product Velocity:").first()).toBeVisible();
+    await expect(dialog.getByText(/conflicts settled: Description \(kept Product Velocity\)/)).toBeVisible();
+    await expect(dialog.getByText("From Product Velocity to Jira:").first()).toBeVisible();
+    await expect(dialog.getByText("Name, Description, Labels (3)")).toBeVisible(); // what was written, in words
+    await page.screenshot({ path: "test-results/jira-sync-confirmed.png" });
     await expect(page.getByTestId("calls")).toHaveText("R-2"); // only the initiative with something to send was written
   });
 
@@ -36,6 +60,8 @@ test.describe("Sync with Jira: received, to send, conflicts, writing", () => {
     await page.goto("/dev/sync?scenario=jira&new=jira0");
     await page.getByRole("button", { name: "Open sync" }).click();
     const dialog = page.getByRole("dialog", { name: /Sync(ed)? with Jira/ });
+    await dialog.getByRole("radio", { name: "Keep Product Velocity" }).check(); // settle the conflict of step 1
+    await dialog.getByRole("button", { name: /^Next: what goes to Jira/ }).click();
     const removed = dialog.getByRole("region", { name: "Removed in Product Velocity" });
     await expect(removed.getByText("Will add the label pv:removed and move the issue to “Done”.")).toHaveCount(2); // R-5 and the adopted R-9
     await expect(removed.getByText("Choose which Done status to move the issue to.")).toBeVisible();

@@ -20,7 +20,7 @@ test.describe("Sync with GitHub: writing progress", () => {
     await page.getByRole("button", { name: "Apply and send" }).click();
     await expect(dialog(page).getByRole("heading", { name: "Synced with GitHub" })).toBeVisible();
     expect(await page.evaluate(() => [...(window as unknown as { __seen: Set<string> }).__seen])).toEqual(["Writing 0/3", "Writing 1/3", "Writing 2/3"]); // after the last one the list of results takes over
-    await expect(dialog(page).getByRole("listitem")).toHaveCount(3);
+    await expect(dialog(page).getByRole("list", { name: "Results" }).getByRole("listitem")).toHaveCount(3);
     await expect(dialog(page).getByText("Updated")).toHaveCount(3);
     await page.screenshot({ path: "test-results/sync-writing-done.png" });
   });
@@ -41,7 +41,7 @@ test.describe("Sync with GitHub: writing progress", () => {
     await page.getByRole("button", { name: "Apply and send" }).click();
     await expect(dialog(page).getByText("GitHub changed after you looked")).toBeVisible();
     await expect(dialog(page).getByText(/Already written: R-1/)).toBeVisible();
-    await expect(dialog(page).getByRole("listitem")).toHaveCount(2); // R-2 and R-3 are still open; R-1 is written
+    await expect(dialog(page).getByRole("list", { name: "Updates going out" }).getByRole("listitem")).toHaveCount(2); // R-2 and R-3 are still open; R-1 is written
     await expect(page.getByTestId("calls")).toHaveText(/^R-1,R-2$/);
     await page.getByRole("button", { name: "Apply and send" }).click();
     await expect(dialog(page).getByRole("heading", { name: "Synced with GitHub" })).toBeVisible();
@@ -156,3 +156,16 @@ test.describe("Sync with GitHub: new issues first", () => {
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length} (${v.help})`)).toEqual([]);
   });
 });
+
+test.describe("Sync dialog: Cancel on the first screen", () => {
+  test("while the check is still running there is a Cancel button; it closes the window and nothing is written", async ({ page }) => {
+    await page.goto("/dev/sync?scenario=slow");
+    await page.getByRole("button", { name: "Open sync" }).click();
+    await expect(dialog(page).getByText(/Checking GitHub/)).toBeVisible();
+    await expect(dialog(page).getByRole("listitem").filter({ hasText: /^1\. Incoming from GitHub/ })).toHaveAttribute("aria-current", "step");
+    await dialog(page).getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog(page)).toHaveCount(0);
+    await expect(page.getByTestId("calls")).toHaveText("");
+  });
+});
+

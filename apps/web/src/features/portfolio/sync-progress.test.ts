@@ -131,3 +131,22 @@ describe("filters for items with and without updates", () => {
     expect(filterByUpdates(received, send, "none").shown.map((x) => x.id)).toEqual(["b", "d", "e"]);
   });
 });
+
+import { filterBySend, hasIncoming } from "./sync-progress";
+describe("the stages of the sync dialog (issue #352)", () => {
+  const card = (o: Partial<ReceiveItem> & { id: string }): ReceiveItem => ({ code: o.id.toUpperCase(), name: "n", status: "in_step", received: [], issueNumber: null, issueUrl: null, ...o });
+  it("stage 1 holds what came in from the tracker and the problems; an item in step is not in it", () => {
+    expect(hasIncoming(card({ id: "a" }))).toBe(false);
+    expect(hasIncoming(card({ id: "b", status: "received", received: [{ label: "Build Status", from: "x", to: "y" }] }))).toBe(true);
+    expect(hasIncoming(card({ id: "c", status: "conflict", conflicts: [{ field: "description", label: "Description", kind: "both", pv: "p", github: "g", ghHash: "h", defaultChoice: undefined as never }] }))).toBe(true);
+    for (const status of ["error", "missing", "not_linked", "not_on_github"] as const) expect(hasIncoming(card({ id: "d", status }))).toBe(true);
+  });
+  it("stage 2 splits the checked initiatives into to send and nothing to send, and leaves problems to stage 1", () => {
+    const received = [card({ id: "a" }), card({ id: "b" }), card({ id: "c", status: "error" })];
+    const send = new Set(["b"]);
+    expect(filterBySend(received, send, "all")).toMatchObject({ toSend: 1, nothing: 1, problems: 1 });
+    expect(filterBySend(received, send, "all").shown.map((x) => x.id)).toEqual(["a", "b"]);
+    expect(filterBySend(received, send, "updates").shown.map((x) => x.id)).toEqual(["b"]);
+    expect(filterBySend(received, send, "none").shown.map((x) => x.id)).toEqual(["a"]);
+  });
+});
