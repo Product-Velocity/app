@@ -33,7 +33,11 @@ export type Split = {
   head: AdfNode[];
   /** The content under each text heading, or undefined when the heading is absent. */
   nodes: Partial<Record<TextSection, AdfNode[]>>;
+  /** The content under the sent-only headings (Links, Files, Documents), as Jira has it now: compared with what would be written, so a stale record can never hide a difference. */
+  sent: Partial<Record<LinkSection, AdfNode[]>>;
 };
+export type LinkSection = "artifacts" | "files" | "documents";
+export const LINK_SECTIONS: readonly LinkSection[] = ["artifacts", "files", "documents"];
 
 /** Cuts a Jira description (ADF) at our headings, in order. A heading that is out of order stays part of the section it is in. */
 export function splitDescription(adf: unknown): Split {
@@ -48,10 +52,12 @@ export function splitDescription(adf: unknown): Split {
     if (at !== -1) { next = at + 1; current = []; found[SECTIONS[at]![0]] = current; continue; }
     (current ?? head).push(n);
   }
-  if (Object.keys(found).length === 0) return { legacy: true, head: [], nodes: top.length > 0 ? { description: top } : {} };
+  if (Object.keys(found).length === 0) return { legacy: true, head: [], nodes: top.length > 0 ? { description: top } : {}, sent: {} };
   const nodes: Split["nodes"] = {};
   for (const k of TEXT_SECTIONS) if (found[k]) nodes[k] = found[k]!;
-  return { legacy: false, head, nodes };
+  const sent: Split["sent"] = {};
+  for (const k of LINK_SECTIONS) if (found[k]) sent[k] = found[k]!;
+  return { legacy: false, head, nodes, sent };
 }
 
 /** Whether replacing these nodes would lose something this converter cannot write back (a macro, a mention, a merged table). */
@@ -60,6 +66,9 @@ export const isSimpleNodes = (nodes: AdfNode[] | undefined) => !nodes || nodes.l
 const safeLinks = (links: Link[] | undefined) => (links ?? []).filter((a) => /^https?:\/\//i.test(a.url) && !/[\s()<>]/.test(a.url)).slice(0, 20);
 const label = (s: string) => s.replace(/[[\]\n\r]/g, " ").trim().slice(0, 120) || "link";
 const bullets = (links: Link[]) => markdownToAdf(links.map((a) => `- [${label(a.label)}](${a.url})`).join("\n")).content;
+
+/** The text of a Links, Files or Documents section as it would be written (empty when there is nothing to write); what Jira has is read back with `nodesText` and compared. */
+export const linksText = (links: Link[] | undefined) => { const l = safeLinks(links); return l.length > 0 ? nodesText(bullets(l)) : ""; };
 
 /** The text that tells whether the Artifacts and Files sections changed: their hash is kept with the sync base. */
 // "l" (not "a") for links: the section was renamed Artifacts to Links on 2026-11-06, so every description that has links is rewritten once with the new name.

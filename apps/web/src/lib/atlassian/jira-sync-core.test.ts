@@ -195,3 +195,43 @@ describe("the description as headed sections (issue #319, decision 2026-11-04-ji
     expect(p.notes.join(" ")).toMatch(/Artifact links not sent.*\n?.*File links not sent|File links not sent/);
   });
 });
+
+describe("the sent-only sections are checked against what Jira shows (SCRUM-9, 2026-11-06)", () => {
+  const T = "T".repeat(43);
+  const docs = [{ label: "PRD: X (PRD, Draft)", url: `https://app.example/d/${T}/PRD%3A%20X` }];
+  const h2 = (t: string) => ({ type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: t }] });
+  const p = (t: string) => ({ type: "paragraph", content: [{ type: "text", text: t }] });
+  const texts = { summary: "Sum", description: "Desc", hypothesis: "IF a THEN b" };
+  const item = () => pv({ name: "Auto", ...texts });
+  const base = (attachments: string) => ({ title: h("Auto"), summary: h("Sum"), description: h("Desc"), hypothesis: h("IF a THEN b"), attachments });
+  const oldJira = { type: "doc", version: 1, content: [h2("Summary"), p("Sum"), h2("Description"), p("Desc"), h2("Hypothesis (IF / THEN / RESULTING IN)"), p("IF a THEN b"), h2("Documents"), p("The old full text of a document")] };
+  const jiraWith = (description: unknown) => ({ summary: "Auto", description, labels: ["product-velocity"] });
+
+  it("rewrites a description that still has the old content even though the record says the sections were sent", () => {
+    const recordSaysSent = attachmentsHash(undefined, undefined, docs); // the record already holds the hash of the links
+    const plan = planJiraSend({ pv: item(), jira: jiraWith(oldJira), base: base(recordSaysSent), sentHash: "x", map: {}, documents: docs });
+    expect(plan.action).toBe("update");
+    const text = adfToText(plan.fields.description as never).replace(/\n+/g, "|");
+    expect(text).toContain("Documents|- PRD: X (PRD, Draft)");
+    expect(text).not.toContain("old full text");
+  });
+  it("is quiet once Jira shows what was written (no rewrite on every sync)", () => {
+    const first = planJiraSend({ pv: item(), jira: jiraWith(oldJira), base: base("old"), sentHash: "x", map: {}, documents: docs });
+    const written = first.fields.description;
+    const again = planJiraSend({ pv: item(), jira: jiraWith(written), base: first.newBase, sentHash: first.sentHash, map: {}, documents: docs });
+    expect(again.fields.description).toBeUndefined();
+  });
+  it("does not record the sent-only sections as written when a rewrite was needed but held back by a conflict", () => {
+    const changedInJira = { type: "doc", version: 1, content: [h2("Summary"), p("Sum"), h2("Description"), p("Edited in Jira"), h2("Hypothesis (IF / THEN / RESULTING IN)"), p("IF a THEN b")] };
+    const plan = planJiraSend({ pv: item(), jira: jiraWith(changedInJira), base: base("old-record"), sentHash: "x", map: {}, documents: docs });
+    expect(plan.unresolved).toContain("description");
+    expect(plan.fields.description).toBeUndefined();
+    expect(plan.newBase.attachments).toBe("old-record"); // the next sync tries again
+  });
+  it("a description with nothing to send and nothing in Jira stays untouched", () => {
+    const plan = planJiraSend({ pv: item(), jira: jiraWith(oldJira), base: base(attachmentsHash(undefined, undefined, undefined)), sentHash: "x", map: {} });
+    // the old content under Documents is not what would be written (nothing), so the section is removed once
+    expect(adfToText(plan.fields.description as never)).not.toContain("old full text");
+  });
+});
+

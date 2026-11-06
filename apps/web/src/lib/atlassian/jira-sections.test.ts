@@ -36,7 +36,7 @@ describe("splitDescription", () => {
     expect(s.legacy).toBe(true);
     expect(nodesText(s.nodes.description)).toContain("Just some text");
     expect(s.nodes.summary).toBeUndefined();
-    expect(splitDescription(null)).toEqual({ legacy: true, head: [], nodes: {} });
+    expect(splitDescription(null)).toEqual({ legacy: true, head: [], nodes: {}, sent: {} });
   });
   it("text above the first heading is kept apart, not compared", () => {
     const d = markdownToAdf("Typed in Jira\n\n## Summary\n\nS\n\n## Description\n\nD");
