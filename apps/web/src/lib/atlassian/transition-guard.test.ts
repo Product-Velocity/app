@@ -19,9 +19,15 @@ const SOURCES = files(SRC).map((p) => ({ path: relative(SRC, p).replaceAll("\\",
 const withText = (re: RegExp) => SOURCES.filter((s) => re.test(s.text)).map((s) => s.path).sort();
 
 describe("no other code path can transition or delete a Jira issue", () => {
-  it("only jira-close.ts builds a transitions request", () => {
-    expect(withText(/\/transitions/)).toEqual(["lib/atlassian/jira-close.ts"]);
-    expect(withText(/\{\s*transition\s*:\s*\{/)).toEqual(["lib/atlassian/jira-close.ts"]);
+  it("only jira-close.ts (Done, removed initiatives) and jira-ready.ts (To do, Ready for build, issue #358) build a transitions request", () => {
+    expect(withText(/\/transitions/)).toEqual(["lib/atlassian/jira-close.ts", "lib/atlassian/jira-ready.ts"]);
+    expect(withText(/\{\s*transition\s*:\s*\{/)).toEqual(["lib/atlassian/jira-close.ts", "lib/atlassian/jira-ready.ts"]);
+  });
+  it("only the send engine imports jira-ready, and it only ever uses the To Do category (never Done, never a move back)", () => {
+    expect(withText(/from\s+["'](\.\/|@\/lib\/atlassian\/)jira-ready["']/)).toEqual(["lib/atlassian/jira-sync-engine.ts"]);
+    const r = SOURCES.find((x) => x.path === "lib/atlassian/jira-ready.ts")!.text;
+    expect(r).toMatch(/statusCategory\)\.key !== "new"/);
+    expect(r).not.toMatch(/["']done["']|["']indeterminate["']/);
   });
   it("only the removed-initiatives engine imports jira-close", () => {
     expect(withText(/from\s+["'](\.\/|@\/lib\/atlassian\/)jira-close["']/)).toEqual(["lib/atlassian/jira-removed-engine.ts"]);
@@ -40,7 +46,7 @@ describe("no other code path can transition or delete a Jira issue", () => {
     for (const s of SOURCES.filter((x) => (x.path.startsWith("lib/atlassian/") || x.path.startsWith("app/(workspace)/portfolio/jira")))) expect(s.text, s.path).not.toMatch(/["']DELETE["']/);
   });
   it("no Jira payload builder, outside jira-close.ts, writes a status or a resolution", () => {
-    const builders = SOURCES.filter((s) => s.path.startsWith("lib/atlassian/") && s.path !== "lib/atlassian/jira-close.ts");
+    const builders = SOURCES.filter((s) => s.path.startsWith("lib/atlassian/") && s.path !== "lib/atlassian/jira-close.ts" && s.path !== "lib/atlassian/jira-ready.ts");
     for (const s of builders) expect(s.text, s.path).not.toMatch(/fields\s*:\s*\{[^}]*\b(status|resolution)\b/);
   });
 });

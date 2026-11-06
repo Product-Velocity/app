@@ -113,9 +113,12 @@ The same for both trackers (`docs/decisions/2026-11-03-tracker-parity.md`).
 |---|---|
 | Discover | Never. Discovery is analysis; the ranked options are not initiatives. |
 | Define | Optional, per item, confirmed: **Request engineering review** pushes the allowlisted fields only (name, summary, description, hypothesis) and a `pv:define` label while the PRD is In review. Comments stay in the tracker; PV does not read them. |
-| From Gate B | Full handover: create or adopt the issue, children, Build Status and progress back. Build Status counts from here (rule 6 stays: a closed ticket is a finished build, not a finished initiative). |
+| From Gate B | Full handover: create or adopt the issue, children, Build Status and progress back. Build Status counts from here (rule 6 stays: a closed ticket is a finished build, not a finished initiative). **Ready for build is shown in the tracker (section 8a).** |
 | Test, Experiment, Roll-out | Continues. |
 | Completed or Cancelled | Frozen after a 14-day grace period (section 9). |
+
+### 8a. Ready for build in the tracker (issue #358)
+When the initiative is Ready for build (Gate B, Go or Go with conditions) the confirmed Sync also shows engineers what is ready: the preview says **Set Status to Ready** (GitHub Project board) or **Move to To do** (Jira) per initiative. Only for a link Product Velocity owns (mode push), only while the tracker item is still at its start (board Status empty or Backlog; Jira status category To Do and not already To do), never moved back, never cleared, once per link. A board without a Ready option, or a Jira workflow with no allowed transition, gets a note in the preview and nothing is written. Hold or Stop at Gate B write nothing (Stop keeps the close offer, 9a). From there the tracker moves the item on; Build Status Done makes Needs attention suggest Test. Decision: `docs/decisions/2026-11-06-ready-at-gate-b.md`.
 
 Commercial fields never sync (rule 2). A gate decision, its rationale and its conditions are commercial; they are never in any payload (a test checks it).
 

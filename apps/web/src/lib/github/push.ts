@@ -4,7 +4,7 @@ import { canLinkFilesInto, columnOnItems, documentLinks, documentsPreviewNote, F
 import { createHash } from "node:crypto";
 import { parseConfigRows, githubOptions, type ConfigRow } from "@/lib/tracker-fields/mapping";
 import { switchedOffNotes } from "@/lib/tracker-fields/notes";
-import { buildTrackingIssue, OUTBOUND_READ_FIELDS, childKey, childrenToAdd, describePushError, parseBoard, planAction, planBoardItem, pushBoardChildren, pushBoardItem, pushTrackingIssue, readIssueTree, type Board, type BoardField, type BoardPlan, type ExistingLink, type PlanLink, type SourceControl, type TrackingIssue } from "@pv/github";
+import { buildTrackingIssue, planReadyBoard, writeReadyStatus, type ReadyPlan, OUTBOUND_READ_FIELDS, childKey, childrenToAdd, describePushError, parseBoard, planAction, planBoardItem, pushBoardChildren, pushBoardItem, pushTrackingIssue, readIssueTree, type Board, type BoardField, type BoardPlan, type ExistingLink, type PlanLink, type SourceControl, type TrackingIssue } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { ConnectionRow } from "./server";
 import { syncBoardStatuses } from "./board-sync";
@@ -39,7 +39,7 @@ const asOutboundItem = (row: Record<string, unknown>): Row => {
 const blockedItem = (id: string, reason: string, over: Partial<PlanItem> = {}): PlanItem => ({ id, code: "", name: "", project: "", repo: null, action: "blocked", title: "", labels: [], block: "", issueNumber: null, issueUrl: null, reason, ...over });
 
 /** What the confirm step needs for one item, beyond what the person sees in the preview. */
-type Internal = { projectId?: string; built: TrackingIssue; existing: ExistingLink | null; board?: Board; boardPlan?: BoardPlan; /** Children known to the cache that are not on the board yet. */ pendingChildren: number };
+type Internal = { projectId?: string; built: TrackingIssue; existing: ExistingLink | null; board?: Board; boardPlan?: BoardPlan; ready?: ReadyPlan; boardItemId?: string | null; issueNodeId?: string | null; /** Children known to the cache that are not on the board yet. */ pendingChildren: number };
 
 /** At most this many children are put on the board per initiative and send, so one send stays quick; the rest follow at the next send. */
 export const CHILD_LIMIT = 40;
@@ -73,6 +73,16 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     // the tags (only read; they leave as labels when a project switches that on)
     supabase.from("item_tags").select("item_id, value").eq("tenant_id", tenantId).eq("kind", "tag").in("item_id", unique),
   ]);
+  // Ready for build (issue #358): read apart from the allowlisted columns (nothing of it is ever sent) and apart from the link, so a database without the columns offers nothing
+  const [readyRows, readyLinks] = await Promise.all([
+    supabase.from("items").select("id, ready_for_build_at, initiative_phase, gh_project_status").eq("tenant_id", tenantId).is("deleted_at", null).in("id", unique),
+    supabase.from("item_github_links").select("item_id, ready_handled_at, project_item_id, issue_node_id").eq("tenant_id", tenantId).in("item_id", unique),
+  ]);
+  const readyByItem = new Map<string, { ready: boolean; current: string | null }>();
+  if (!readyRows.error) for (const r of (readyRows.data ?? []) as { id: string; ready_for_build_at: string | null; initiative_phase: string | null; gh_project_status: string | null }[]) readyByItem.set(r.id, { ready: r.ready_for_build_at !== null && r.initiative_phase === "Build", current: r.gh_project_status });
+  const readyLinkByItem = new Map<string, { handled: boolean; itemId: string | null; node: string | null }>();
+  if (!readyLinks.error) for (const r of (readyLinks.data ?? []) as { item_id: string; ready_handled_at: string | null; project_item_id: string | null; issue_node_id: string | null }[]) readyLinkByItem.set(r.item_id, { handled: r.ready_handled_at !== null, itemId: r.project_item_id, node: r.issue_node_id });
+  const readyColumnsOk = !readyRows.error && !readyLinks.error;
   const tagsByItem = new Map<string, string[]>();
   for (const t of (tagRows.data ?? []) as { item_id: string; value: string }[]) tagsByItem.set(t.item_id, [...(tagsByItem.get(t.item_id) ?? []), t.value]);
   const configByProject = new Map<string, ConfigRow[]>();
@@ -142,15 +152,21 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     const d = planAction({ link: planLink, defaultRepo: project?.default_repo ?? null, activeRepos, readOnlyRepos, hash: built.hash, projectName: project?.name ?? "", phase: row.initiative_phase });
     // children (epics and tasks, all levels) that engineers or an agent added in GitHub are put on the board by a confirmed send, never in the background
     const pendingChildren = board && boardPlan?.include ? (treeByItem.get(id) ?? []).filter((t) => t.board_id !== board.id).length : 0;
-    if (d.action === "unchanged" && pendingChildren > 0) d.action = "update";
-    internal.set(id, { projectId: project?.id, built, existing: link ? { issueNumber: link.issue_number, lastPushedHash: force?.has(id) ? null : link.last_pushed_hash } : null, pendingChildren, ...(board && boardPlan ? { board, boardPlan } : {}) });
+    // Ready for build: only for an issue Product Velocity owns, on a board that takes the initiative, never before the tracker handover exists (Define, Discover)
+    const rd = readyByItem.get(id);
+    const readyLink = readyLinkByItem.get(id);
+    const ready: ReadyPlan | undefined = readyColumnsOk && board && boardPlan?.include && rd?.ready && d.action !== "blocked"
+      ? planReadyBoard({ ready: true, mode: link?.mode ?? "push", handled: readyLink?.handled ?? false, frozen: Boolean((link as { frozen_at?: string | null } | undefined)?.frozen_at), fields: fields ?? null, mapping: board.mapping, current: rd.current })
+      : undefined;
+    if (d.action === "unchanged" && (pendingChildren > 0 || ready?.state === "set")) d.action = "update";
+    internal.set(id, { projectId: project?.id, built, existing: link ? { issueNumber: link.issue_number, lastPushedHash: force?.has(id) ? null : link.last_pushed_hash } : null, pendingChildren, ...(board && boardPlan ? { board, boardPlan } : {}), ...(ready && ready.state !== "none" ? { ready } : {}), boardItemId: readyLink?.itemId ?? null, issueNodeId: readyLink?.node ?? null });
     const withheld = itemFiles.length > 0 && !filesOk ? { filesNote: `${itemFiles.length === 1 ? "A shared file link was" : `${itemFiles.length} shared file links were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could open the links. Files are only linked in private repositories.` } : {};
     const unshared = unsharedByItem.get(id) ?? 0;
     const docsWithheld = itemDocs.length > 0 && !filesOk ? `${itemDocs.length === 1 ? "A shared document link was" : `${itemDocs.length} shared document links were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could open the links. Document links are only sent to private repositories.` : undefined;
     const docsNote = docs ? documentsPreviewNote(docs, "issue") : undefined;
     const note = [docsWithheld ?? docsNote, withheld.filesNote ?? (unshared ? `${unshared === 1 ? "1 attached file has" : `${unshared} attached files have`} no share link, so ${unshared === 1 ? "it is" : "they are"} not in the issue. Share it on the item's Spec tab to include it.` : undefined), ...switchedOff].filter(Boolean).join(" ") || undefined;
     const boardInfo = board && boardPlan ? { title: board.title, included: boardPlan.include, writes: boardPlan.writes.map((w) => ({ field: w.field.name, value: w.label })), notes: boardPlan.notes, children: pendingChildren } : board && boardNotes.length ? { title: board.title, included: false, writes: [], notes: boardNotes, children: 0 } : undefined;
-    return { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo: d.repo, action: d.action, title: built.title, labels: built.labels, ...(built.milestone ? { milestone: built.milestone.title } : {}), ...(boardInfo ? { board: boardInfo } : {}), block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null, ...(d.reason ? { reason: d.reason } : {}), ...(note ? { filesNote: note } : {}) };
+    return { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo: d.repo, action: d.action, title: built.title, labels: built.labels, ...(built.milestone ? { milestone: built.milestone.title } : {}), ...(boardInfo ? { board: boardInfo } : {}), ...(ready && (ready.state === "set" || ready.state === "blocked") ? { ready: { text: ready.text, will: ready.state === "set" } } : {}), block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null, ...(d.reason ? { reason: d.reason } : {}), ...(note ? { filesNote: note } : {}) };
   });
   return { items: planned, internal };
 }
@@ -165,7 +181,8 @@ export async function executePush(opts: { supabase: SupabaseClient; admin: Admin
     const code = p.code;
     if (p.action === "blocked") { results.push({ id: p.id, code, outcome: "blocked", message: p.reason }); continue; }
     if (p.action === "unchanged") { results.push({ id: p.id, code, outcome: "unchanged", issueNumber: p.issueNumber ?? undefined, issueUrl: p.issueUrl ?? undefined }); continue; }
-    const { built, existing, board, boardPlan, pendingChildren, projectId } = internal.get(p.id)!;
+    const { built, existing, board, boardPlan, pendingChildren, projectId, ready, boardItemId, issueNodeId } = internal.get(p.id)!;
+    const readySet = ready?.state === "set" ? ready : null;
     const onBoard = !!(board && boardPlan?.include);
     const record = (state: "synced" | "error", extra: { number?: number; id?: number; node?: string; url?: string; error?: string }) =>
       opts.admin.rpc("github_record_push", { p_actor: opts.actor, p_item: p.id, p_connection: opts.connection.id, p_repo: p.repo, p_number: extra.number ?? null, p_issue_id: extra.id ?? null, p_node_id: extra.node ?? null, p_url: extra.url ?? null, p_hash: built.hash, p_state: state, p_error: extra.error ?? null });
@@ -174,7 +191,7 @@ export async function executePush(opts: { supabase: SupabaseClient; admin: Admin
       if (r.kind === "missing") {
         await record("error", { error: "The GitHub issue no longer exists. Unlink it or create a new one." });
         results.push({ id: p.id, code, outcome: "missing", message: "The linked GitHub issue no longer exists (deleted or moved). Nothing was recreated." });
-      } else if (r.kind === "unchanged" && !(onBoard && pendingChildren > 0)) {
+      } else if (r.kind === "unchanged" && !(onBoard && (pendingChildren > 0 || readySet))) {
         results.push({ id: p.id, code, outcome: "unchanged" });
       } else {
         // an issue that needed no change can still have children that are not on the board yet
@@ -182,10 +199,28 @@ export async function executePush(opts: { supabase: SupabaseClient; admin: Admin
         let boardItem: string | null = null;
         let skipped: { id: string; name: string }[] = [];
         let children: { added: { repo: string; number: number; boardItemId: string }[]; later: number } | null = null;
+        let readyNote = "";
+        let readyDone = false;
         if (board && boardPlan?.include) {
           try {
             if (r.kind !== "unchanged") { const pushed = await pushBoardItem(opts.sc, installationId, board.id, r.issue.nodeId, boardPlan); boardItem = pushed.itemId; skipped = pushed.skipped; }
             children = await addChildren(opts, p.id, p.repo!, issue.number, board.id);
+            // Ready for build (issue #358): after the confirmed send, and only while the board's Status is still at the start (read again just now)
+            if (readySet) {
+              const node = r.kind !== "unchanged" ? r.issue.nodeId : issueNodeId;
+              const itemOnBoard = boardItem ?? boardItemId ?? (node ? await opts.sc.addBoardItem(installationId, board.id, node) : null);
+              if (!itemOnBoard) readyNote = "Status was not set to Ready: the issue could not be found on the board.";
+              else {
+                if (!boardItem) boardItem = itemOnBoard;
+                const w = await writeReadyStatus(opts.sc, installationId, board.id, itemOnBoard, readySet);
+                if (!w.ok) readyNote = `The issue was written, but Status was not set to Ready. ${w.message}`;
+                else {
+                  const rec = await opts.admin.rpc("github_record_ready", { p_actor: opts.actor, p_item: p.id, p_result: w.result, p_status: w.status });
+                  readyDone = w.result === "set";
+                  readyNote = rec.error ? "Status is Ready on the board, but Product Velocity could not record it." : w.result === "set" ? "Status set to Ready on the board." : `Status is ${w.status ?? "further along"} on the board: it was not changed.`;
+                }
+              }
+            }
           } catch (e) {
             // the issue is written but the board is not: not recorded as synced, so the next push does the board again
             const message = `The issue was written, but the board "${board.title}" could not be updated: ${describePushError(e)}`;
@@ -205,8 +240,10 @@ export async function executePush(opts: { supabase: SupabaseClient; admin: Admin
         }
         const skipNote = skipped.length ? `${skipped.map((s) => `"${s.name}"`).join(" and ")} ${skipped.length === 1 ? "is a GitHub issue field" : "are GitHub issue fields"} and cannot be written through the board yet: left out.` : "";
         const childNote = children ? [children.added.length ? `${children.added.length} child issue${children.added.length === 1 ? "" : "s"} added to the board.` : "", children.later ? `${children.later} more will be added at the next send.` : ""].filter(Boolean).join(" ") : "";
-        const message = saved.error ? "Sent to GitHub, but the link could not be saved. Pushing again will find the issue." : [childNote, skipNote].filter(Boolean).join(" ") || undefined;
-        results.push({ id: p.id, code, outcome: r.kind === "unchanged" ? "updated" : r.kind, issueNumber: issue.number, ...(r.kind !== "unchanged" ? { issueUrl: r.issue.htmlUrl, wrote: wroteGithub({ title: p.title, block: p.block, labels: p.labels, milestone: p.milestone ?? null, board: p.board }) } : {}), ...(message ? { message } : {}) });
+        const message = saved.error ? "Sent to GitHub, but the link could not be saved. Pushing again will find the issue." : [childNote, skipNote, readyNote].filter(Boolean).join(" ") || undefined;
+        const wroteIssue = r.kind !== "unchanged" ? wroteGithub({ title: p.title, block: p.block, labels: p.labels, milestone: p.milestone ?? null, board: p.board }) : [];
+        const wrote = [...wroteIssue, ...(readyDone ? ["Board Status: Ready"] : [])];
+        results.push({ id: p.id, code, outcome: r.kind === "unchanged" ? "updated" : r.kind, issueNumber: issue.number, ...(r.kind !== "unchanged" ? { issueUrl: r.issue.htmlUrl } : {}), ...(wrote.length ? { wrote } : {}), ...(message ? { message } : {}) });
       }
     } catch (e) {
       const message = describePushError(e);

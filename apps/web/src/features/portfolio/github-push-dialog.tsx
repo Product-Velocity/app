@@ -194,7 +194,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
   const conflicts = preview ? preview.received.flatMap((r) => (r.conflicts ?? []).map((c) => ({ r, c }))) : [];
   const unchosen = conflicts.filter(({ r, c }) => !choices[keyOf(r.id, c.field)]);
   // what a confirm will write to GitHub: the plan's sends, plus every initiative where Product Velocity's text was chosen over GitHub's
-  const sendIds = new Set(preview ? preview.send.filter((p) => p.action === "create" || p.action === "update").map((p) => p.id) : []);
+  const sendIds = new Set(preview ? preview.send.filter((p) => p.action === "create" || p.action === "update" || p.ready?.will).map((p) => p.id) : []);
   for (const { r, c } of conflicts) if (choices[keyOf(r.id, c.field)] === "pv") sendIds.add(r.id);
   for (const r of preview?.received ?? []) if (r.assigneeSend) sendIds.add(r.id); // assignees changed in Product Velocity go out with the send
   for (const { r, c } of conflicts) if (c.field === "block" && choices[keyOf(r.id, c.field)] === "github" && !conflicts.some((x) => x.r.id === r.id && x.c.field !== "block" && choices[keyOf(r.id, x.c.field)] === "pv")) sendIds.delete(r.id);
@@ -417,6 +417,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                         {p && (
                           <>
                             <br /><span className="muted">{WILL[p.action](p)}</span>
+                            {p.ready && <><br /><strong>Ready for build:</strong> <span className={p.ready.will ? undefined : "muted"}>{p.ready.text}{p.ready.will && p.tracker !== "jira" ? " (board Status, only while it is still at the start)" : ""}</span></>}
                             {sendsIssue && (
                               <details>
                                 <summary>See what will be written</summary>
