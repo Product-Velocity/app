@@ -10,7 +10,7 @@ import { compareJira, COLUMN, LABEL, TEXT_FIELDS, markerFor, planJiraSend, type 
 import { OUTBOUND_JIRA_FIELDS } from "./outbound";
 import { createIssue, updateIssue, type JiraRequest } from "./jira-write";
 import { parseFieldMap } from "./field-map";
-import { documentsMarkdown } from "@pv/domain";
+import { documentsPreviewNote, renderDocuments } from "@pv/domain";
 import { shareUrl } from "@/lib/files/serve";
 
 /** Characters of document text in the Jira description. Jira refuses a description over 32,767 characters and the three texts can already use most of it; [SPIKE] the exact limit for ADF is not verified, so this stays small. */
@@ -36,7 +36,7 @@ type LinkRow = { item_id: string; connection_id: string; site_id: string; issue_
 type ProjectLink = { project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; field_map?: unknown; /** Rows of tracker_field_config (the field configuration), as stored. */ config?: unknown };
 type Conn = { id: string; sites: { id: string; name: string; url: string }[]; state: string };
 
-export type Loaded = { /** Artifact links and share links of files, for the Artifacts and Files sections. */ artifacts?: Link[]; files?: Link[]; /** The Markdown of the documents left shared (the Documents section), cut to the budget. */ documents?: string; /** Files that have no share link and so are not in the description. */ unsharedFiles?: number; projectName?: string; /** Set when the initiative was removed (Trash), its Jira issue was closed by Product Velocity, and it was restored since: the issue is not reopened. */ closedWhileRemoved?: string | null; item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
+export type Loaded = { /** Artifact links and share links of files, for the Artifacts and Files sections. */ artifacts?: Link[]; files?: Link[]; /** The Markdown of the documents left shared (the Documents section), cut to the budget. */ documents?: string; /** What the preview says about the documents (sent, skipped, too long). */ documentsNote?: string; /** Files that have no share link and so are not in the description. */ unsharedFiles?: number; projectName?: string; /** Set when the initiative was removed (Trash), its Jira issue was closed by Product Velocity, and it was restored since: the issue is not reopened. */ closedWhileRemoved?: string | null; item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
 
 export const COLS = ["id", "item_code", ...Object.values(ITEM_COLUMNS), "home_project_id"].filter((c, i, a) => a.indexOf(c) === i).join(", ");
 /** A row as read with COLS, with the allowlisted values under their field keys. */
@@ -82,9 +82,11 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   const files = ctx.appUrl ? allFiles.filter((r) => r.share_token).map((r) => ({ label: r.name, url: shareUrl(ctx.appUrl!, r.share_token!, r.name) })) : [];
   // the documents the person left shared (CLAUDE.md rule 2, changed 2026-11-05); read apart, so a database without the column sends none
   const { data: docRows } = await ctx.supabase.from("item_documents").select("kind, title, body, status, ai_draft").eq("tenant_id", ctx.tenantId).eq("item_id", id).eq("shared", true).eq("ai_draft", false).order("created_at");
-  const documents = documentsMarkdown(((docRows ?? []) as { kind: string; title: string; body: string; status: string; ai_draft: boolean }[]).map((d) => ({ title: d.title, kind: d.kind, status: d.status, body: d.body, aiDraft: d.ai_draft })), JIRA_DOCUMENTS_BUDGET);
+  const docsRender = renderDocuments(((docRows ?? []) as { kind: string; title: string; body: string; status: string; ai_draft: boolean }[]).map((d) => ({ title: d.title, kind: d.kind, status: d.status, body: d.body, aiDraft: d.ai_draft })), JIRA_DOCUMENTS_BUDGET);
+  const documents = docsRender.markdown;
+  const documentsNote = documentsPreviewNote(docsRender, "Jira description");
   const unsharedFiles = ctx.appUrl ? allFiles.filter((r) => !r.share_token).length : 0;
-  return { ...(artifacts.length ? { artifacts } : {}), ...(files.length ? { files } : {}), ...(documents ? { documents } : {}), ...(unsharedFiles ? { unsharedFiles } : {}), ...(projectName ? { projectName } : {}), ...(closedWhileRemoved ? { closedWhileRemoved } : {}), item: itemRow, link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
+  return { ...(artifacts.length ? { artifacts } : {}), ...(files.length ? { files } : {}), ...(documents ? { documents } : {}), ...(documentsNote ? { documentsNote } : {}), ...(unsharedFiles ? { unsharedFiles } : {}), ...(projectName ? { projectName } : {}), ...(closedWhileRemoved ? { closedWhileRemoved } : {}), item: itemRow, link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
 }
 
 export const pvOf = (i: ItemRow): PvItem => ({ id: i.id, name: i.initiative_name, summary: i.summary, focus_area: i.focus_area, value_type: i.value_type, g2m_quarter: i.g2m_quarter, tags: i.tags, description: i.description, hypothesis: i.hypothesis, moscow: i.moscow, g2m_date_est: i.g2m_date_est, planned_start: i.planned_start, stack_rank: i.stack_rank, change_type: i.change_type, theme: i.theme });
@@ -123,6 +125,7 @@ export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" 
   const checked = await dropMissingFields(req, effectiveJiraMap(parseFieldMap(l.plink?.field_map), parseConfigRows(l.plink?.config, "jira")), { cacheKey: `${l.conn.id}|${l.link?.site_id ?? l.plink!.site_id}` });
   const plan = planJiraSend({ pv, jira: issue, base: l.link?.sync_base ?? null, sentHash: l.link?.sent_hash ?? null, picks, map: checked.map, ...(l.artifacts ? { artifacts: l.artifacts } : {}), ...(l.documents ? { documents: l.documents } : {}), ...(l.files ? { files: l.files } : {}), ...(l.projectName ? { projectName: l.projectName } : {}), ...(l.plink && !l.link ? { create: { projectKey: key, issueTypeId: l.plink.initiative_type_id } } : {}) });
   plan.notes.push(...checked.notes);
+  if (l.documentsNote) plan.notes.push(l.documentsNote);
   if (l.unsharedFiles && !checked.map.off?.includes("jira.body.files")) plan.notes.push(`${l.unsharedFiles === 1 ? "1 attached file has" : `${l.unsharedFiles} attached files have`} no share link, so ${l.unsharedFiles === 1 ? "it is" : "they are"} not in the description. Share it on the item's Spec tab to include it.`);
   const conflicts: SyncConflict[] = [];
   const jiraHashes: Partial<Record<TextField, string>> = {};

@@ -18,7 +18,7 @@ describe("checkDocumentInput", () => {
   });
 });
 
-import { demoteHeadings, documentsMarkdown } from "./documents";
+import { demoteHeadings, documentsMarkdown, documentsPreviewNote, renderDocuments } from "./documents";
 describe("documents in the delivery platforms", () => {
   it("moves every heading to level 4 or below, outside code, so none can be read as one of our sections", () => {
     const out = demoteHeadings("# Title\n## Summary\n### Sub\ntext\n```\n## Description\ncode\n```\n~~~\n# x\n~~~\n## Hypothesis (IF / THEN / RESULTING IN)");
@@ -30,6 +30,16 @@ describe("documents in the delivery platforms", () => {
     expect(md).toBe("### PRD: Brief (PRD)\n_In review · AI draft, not yet reviewed_\n\n##### Goal\nShip.");
     expect(documentsMarkdown([], 5000)).toBe("");
   });
+  it("skips a document without text and says so for the preview", () => {
+    const r = renderDocuments([{ title: "PRD", kind: "prd", status: "approved", body: "  \n", aiDraft: false }, { title: "Brief", kind: "other", status: "draft", body: "Text", aiDraft: false }], 5000);
+    expect(r.markdown).toBe("### Brief (Other)\n_Draft_\n\nText");
+    expect(r).toMatchObject({ sent: ["Brief"], empty: ["PRD"], cut: [], omitted: [] });
+    expect(documentsPreviewNote(r, "Jira description")).toBe("Documents in the Jira description: Brief. Skipped, no text yet: PRD.");
+    const none = renderDocuments([{ title: "PRD", kind: "prd", status: "draft", body: "", aiDraft: false }], 5000);
+    expect(none.markdown).toBe("");
+    expect(documentsPreviewNote(none, "issue")).toBe("No document text goes into the issue. Skipped, no text yet: PRD.");
+    expect(documentsPreviewNote(renderDocuments([], 5000), "issue")).toBeUndefined();
+  });
   it("stays within the budget: cuts the document that does not fit at a line, names the ones after it", () => {
     const long = Array.from({ length: 200 }, (_, i) => `line ${i} `.repeat(5)).join("\n");
     const docs = [{ title: "Short", kind: "other", status: "draft", body: "ok", aiDraft: false }, { title: "Long", kind: "prd", status: "draft", body: long, aiDraft: false }, { title: "Later", kind: "prd", status: "draft", body: "x", aiDraft: false }];
@@ -39,5 +49,6 @@ describe("documents in the delivery platforms", () => {
     expect(md).toContain("Cut here to fit");
     expect(md).toContain("Not included, too long for the issue: Later");
     expect(documentsMarkdown(docs, 10)).toContain("Not included, too long for the issue: Short, Long, Later");
+    expect(documentsPreviewNote(renderDocuments(docs, 2000), "issue")).toContain("Long (cut to fit)");
   });
 });

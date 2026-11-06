@@ -245,7 +245,7 @@ describe("the description sections of an initiative (issue #319)", () => {
   });
   it("sends the documents left shared as a last section, with their headings moved down so the description still reads back; a document marked Do not share stays out", async () => {
     rows();
-    tables.item_documents = [{ shared: true, kind: "prd", title: "PRD: Checkout", body: "# Goal\n## Description\nInside the PRD", status: "approved", ai_draft: false }, { shared: false, kind: "prd", title: "Secret plan", body: "never", status: "draft", ai_draft: false }, { shared: true, kind: "prd", title: "Claude wrote this", body: "unreviewed", status: "draft", ai_draft: true }];
+    tables.item_documents = [{ shared: true, kind: "prd", title: "PRD: Checkout", body: "# Goal\n## Description\nInside the PRD", status: "approved", ai_draft: false }, { shared: false, kind: "prd", title: "Secret plan", body: "never", status: "draft", ai_draft: false }, { shared: true, kind: "prd", title: "PRD", body: "", status: "approved", ai_draft: false }, { shared: true, kind: "prd", title: "Claude wrote this", body: "unreviewed", status: "draft", ai_draft: true }];
     tables.item_jira_links = null;
     const l = (await (await import("./jira-sync-engine")).load(withApp, ID))!;
     const e = await evaluate(l, {}, fakeJira(null).call);
@@ -254,6 +254,8 @@ describe("the description sections of an initiative (issue #319)", () => {
     expect(text).toContain("Documents|PRD: Checkout (PRD)|Approved|Goal|Description|Inside the PRD");
     expect(text).not.toContain("Secret plan");
     expect(text).not.toContain("unreviewed"); // an AI draft nobody has accepted is held back
+    expect(text).not.toContain("PRD (PRD)"); // an empty document is skipped
+    expect(e.plan.notes.join(" ")).toContain("Documents in the Jira description: PRD: Checkout. Skipped, no text yet: PRD.");
     const { splitDescription, nodesText } = await import("./jira-sections");
     const split = splitDescription(e.plan.fields.description);
     expect(nodesText(split.nodes.description).trim()).toBe("Pay fast"); // the document's own "Description" heading is not ours
