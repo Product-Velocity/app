@@ -7,6 +7,9 @@ import { siteUrl } from "@/lib/site-url";
 import { checkPassword } from "@/lib/password";
 import { getInvitePreview } from "./preview";
 
+/** Same shape as the sign-in page's link result. */
+export type { LinkState } from "@/app/sign-in/actions";
+
 export type AcceptState = { error?: string; message?: string } | null;
 
 const NOT_VALID =
@@ -83,4 +86,31 @@ export async function signUpForInvite(_prev: AcceptState, form: FormData): Promi
     message:
       "Check your email and open the confirmation link, then you will come back here to accept. If you already have an account with this email, use Sign in instead.",
   };
+}
+
+/**
+ * Existing account, invited address: email a one-time sign-in link that comes back here to accept.
+ * Never creates an account; the reply is the same whatever happens.
+ */
+export async function sendInviteSignInLink(
+  _prev: import("@/app/sign-in/actions").LinkState,
+  form: FormData,
+): Promise<import("@/app/sign-in/actions").LinkState> {
+  const token = tokenFrom(form);
+  if (!token) return { sent: false, email: "", nonce: Date.now(), error: NOT_VALID };
+  const supabase = await createClient();
+  const preview = await getInvitePreview(supabase, token);
+  if (!preview) return { sent: false, email: "", nonce: Date.now(), error: NOT_VALID };
+  try {
+    await supabase.auth.signInWithOtp({
+      email: preview.email,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${await siteUrl()}/auth/callback?next=${encodeURIComponent(`/invite/${token}`)}`,
+      },
+    });
+  } catch {
+    // same answer on any failure
+  }
+  return { sent: true, email: preview.email, nonce: Date.now() };
 }
