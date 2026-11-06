@@ -18,6 +18,8 @@ export type PlanItem = {
   milestone?: string;
   /** The linked GitHub Project (board): what would be written there, and anything left out and why. */
   board?: { title: string; included: boolean; writes: { field: string; value: string }[]; notes: string[]; /** Children (epics and tasks) that this send would also put on the board. */ children: number };
+  /** Ready for build (issue #358): what the confirmed send does to the tracker's status. `will` is true only when something is written ("Set Status to Ready" / "Move to To do"); otherwise `text` says why nothing is. */
+  ready?: { text: string; will: boolean };
   /** The managed block exactly as it will be written. */
   block: string;
   issueNumber: number | null;

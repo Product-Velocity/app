@@ -54,3 +54,23 @@ describe("no other code path can close, reopen or delete a GitHub issue", () => 
     for (const s of LIB.filter((x) => ["outbound.ts", "push.ts", "board.ts", "assignees.ts"].includes(x.path))) expect(s.text, s.path).not.toMatch(/state_reason|state\s*:\s*["'](closed|open)["']/);
   });
 });
+
+describe("the board Status is written in one place only (Ready for build, issue #358)", () => {
+  it("setBoardValue is called by the board push (planned values, never Status) and by ready.ts (Status Ready), nowhere else", () => {
+    expect(withText(APP, /\.setBoardValue\s*\(/)).toEqual([]);
+    expect(withText(LIB, /\.setBoardValue\s*\(/)).toEqual(["board.ts", "ready.ts"]);
+  });
+  it("ready.ts writes only the option named Ready, only from the start", () => {
+    const r = LIB.find((s) => s.path === "ready.ts")!.text;
+    expect(r).toMatch(/READY_OPTION = "Ready"/);
+    expect(r.match(/\.setBoardValue\s*\(/g)).toHaveLength(1);
+    expect(r).toMatch(/isStart\(current\)/);
+  });
+  it("the board plan never writes the mapped Status field", () => {
+    const b = LIB.find((s) => s.path === "board.ts")!.text;
+    expect(b).not.toMatch(/resolve\(mapping\.status\)/);
+  });
+  it("only the push imports the Ready writer", () => {
+    expect(withText(APP, /writeReadyStatus/)).toEqual(["lib/github/push.ts"]);
+  });
+});

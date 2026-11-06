@@ -99,8 +99,8 @@ export async function runConnectionDiagnostics(i: DiagnosticsInput): Promise<Che
   const boardsOk = permissionGaps(installation.permissions, { organization_projects: "write" }).length === 0;
   add(
     boardsOk
-      ? { id: "boards", title: "GitHub Project boards", verdict: "pass", summary: "The App may read and write organisation Projects, so a project can be linked to a board." }
-      : { id: "boards", title: "GitHub Project boards", verdict: "info", summary: "The App may not use organisation Projects yet, so projects cannot be linked to a board.", fix: "In the GitHub App's settings (Permissions) set Organization permissions > Projects to Read and write, then accept the change on the installation page." },
+      ? { id: "boards", title: "GitHub Project boards", verdict: "pass", summary: "The App may read and write organisation Projects, so a project can be linked to a board and an initiative that is Ready for build can be set to Status Ready." }
+      : { id: "boards", title: "GitHub Project boards", verdict: "info", summary: "The App may not use organisation Projects yet, so projects cannot be linked to a board, and Status cannot be set to Ready.", fix: "In the GitHub App's settings (Permissions) set Organization permissions > Projects to Read and write, then accept the change on the installation page." },
   );
 
   const repos = await safe(() => i.sc.listRepositories(i.installationId));

@@ -14,10 +14,10 @@ const card = (id: string, n: number): ReceiveItem => ({ id, code: CODES[n]!, nam
 const plan = (id: string, n: number): PlanItem => ({ id, code: CODES[n]!, name: `Initiative ${n + 1}`, project: "Platform", repo: "acme/app", action: "update", title: `${CODES[n]}: Initiative ${n + 1}`, labels: [], block: "", issueNumber: 100 + n, issueUrl: null });
 
 /** Jira scenario: R-1 received a status change, R-2 is owned by Product Velocity with a name to send and a description changed in Jira, R-3 was not found. */
-const jiraPreview = (ids: string[]) => ({
+const jiraPreview = (ids: string[], withReady = false) => ({
   ok: true as const,
   account: "Acme Jira",
-  send: ids.filter((id) => id === IDS[1]).map((id): PlanItem => ({ id, tracker: "jira", issueLabel: "PLAT-13", code: "R-2", name: "Initiative 2", project: "Platform", repo: "PLAT", action: "update", title: "Initiative 2", labels: ["product-velocity", "pv:moscow/must"], block: "Pay fast", issueNumber: null, issueUrl: "https://acme.example/browse/PLAT-13", notes: ["Start date not sent: this Jira site's Start date field is not mapped."] })),
+  send: ids.filter((id) => id === IDS[1]).map((id): PlanItem => ({ id, tracker: "jira", issueLabel: "PLAT-13", code: "R-2", name: "Initiative 2", project: "Platform", repo: "PLAT", action: "update", title: "Initiative 2", labels: ["product-velocity", "pv:moscow/must"], block: "Pay fast", issueNumber: null, issueUrl: "https://acme.example/browse/PLAT-13", notes: ["Start date not sent: this Jira site's Start date field is not mapped."], ...(withReady ? { ready: { text: "Move to To do", will: true } } : {}) })),
   received: ids.map((id, n): ReceiveItem => ({
     ...card(id, n), tracker: "jira", issueNumber: null, issueLabel: `PLAT-${12 + n}`, issueUrl: `https://acme.example/browse/PLAT-${12 + n}`,
     ...(n === 0 ? { readOnly: true, status: "received" as const, received: [{ label: "Build Status", from: "Not started", to: "In progress" }, { label: "Jira status", from: "To Do", to: "In Review" }] }
@@ -93,7 +93,7 @@ function fakeApi(scenario: string, onCall: (code: string) => void, removed?: Syn
   const attempts = new Map<string, number>();
   return {
     ...(removed ? { removed } : {}),
-    start: async (ids) => scenario === "slow" ? new Promise<never>(() => undefined) : scenario === "jira" ? jiraPreview(ids) : { ok: true, account: "acme", received: ids.map((id) => card(id, IDS.indexOf(id))), send: ids.map((id) => plan(id, IDS.indexOf(id))) },
+    start: async (ids) => scenario === "slow" ? new Promise<never>(() => undefined) : scenario === "jira" || scenario === "jiraready" ? jiraPreview(ids, scenario === "jiraready") : scenario === "githubready" ? { ok: true, account: "acme", received: ids.map((id) => card(id, IDS.indexOf(id))), send: ids.map((id) => { const n = IDS.indexOf(id); return { ...plan(id, n), ...(n === 0 ? { ready: { text: "Set Status to Ready", will: true } } : n === 1 ? { ready: { text: "The board's \"Status\" has no option \"Ready\": add Ready in GitHub, nothing was written for it.", will: false } } : {}) }; }) } : { ok: true, account: "acme", received: ids.map((id) => card(id, IDS.indexOf(id))), send: ids.map((id) => plan(id, IDS.indexOf(id))) },
     board: async () => ({ ok: true, lines: {}, failed: false }),
     confirm: async (ids) => {
       const id = ids[0]!;
@@ -105,7 +105,9 @@ function fakeApi(scenario: string, onCall: (code: string) => void, removed?: Syn
       if (scenario === "lost" && n === 1) throw new Error("network");
       if (scenario === "stale" && n === 1 && tries === 1) return { ok: false, error: "GitHub changed after you looked. Nothing was applied or sent for it.", stale: { account: "acme", received: [{ ...card(id, n), message: "Changed in GitHub just now." }], send: [plan(id, n)] } };
       if (scenario === "fail" && n === 1 && tries === 1) return { ok: true, results: [{ id, code: CODES[n]!, outcome: "error", message: "GitHub refused the update (rate limit)." }], taken: [] };
-      return { ok: true, results: [{ id, code: CODES[n]!, outcome: "updated", ...(scenario === "jira" ? { wrote: ["Name", "Description", "Labels (3)"], issueLabel: "PLAT-13", issueUrl: "https://acme.example/browse/PLAT-13" } : { issueNumber: 100 + n }) }], taken: [] };
+      if (scenario === "githubready" && n === 0) return { ok: true, results: [{ id, code: CODES[n]!, outcome: "updated", issueNumber: 100, wrote: ["Title", "Board Status: Ready"], message: "Status set to Ready on the board." }], taken: [] };
+      if (scenario === "jiraready" && n === 1) return { ok: true, results: [{ id, code: CODES[n]!, outcome: "updated", issueLabel: "PLAT-13", issueUrl: "https://acme.example/browse/PLAT-13", wrote: ["Name", "Status: To do"], message: "Moved to To do." }], taken: [] };
+      return { ok: true, results: [{ id, code: CODES[n]!, outcome: "updated", ...(scenario === "jira" || scenario === "jiraready" ? { wrote: ["Name", "Description", "Labels (3)"], issueLabel: "PLAT-13", issueUrl: "https://acme.example/browse/PLAT-13" } : { issueNumber: 100 + n }) }], taken: [] };
     },
   };
 }
