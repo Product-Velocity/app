@@ -5,6 +5,7 @@ import type { RemovedCtx } from "@/lib/tracker/removed-gate";
 import { addRemovedLabel, closeNotPlanned, readCloseState, stateWords, type CloseState, type Target } from "./github-close";
 import type { RemovedCard, RemovedList, RemovedResult } from "./push-types";
 import { githubSourceControl } from "./server";
+import { stoppedItems } from "@/lib/tracker/stopped";
 
 // "Removed in Product Velocity" on the server (decision 2026-11-03-github-close-removed; the twin of lib/atlassian/jira-removed-engine.ts). An initiative that
 // was deleted sits in the Trash (items.deleted_at) and never touched GitHub. For each one in the Trash whose GitHub link is in mode `push` (Product Velocity
@@ -20,14 +21,17 @@ const IN_CHUNK = 100;
 type Link = { item_id: string; connection_id: string; repo_full_name: string; issue_number: number; html_url: string | null };
 type Conn = { id: string; installation_id: number | null; state: string };
 type Repo = { full_name: string; access: string; removed_at: string | null };
-type Candidate = { id: string; code: string; name: string; /** The issue was adopted from GitHub ("PV takes ownership"), not created by Product Velocity: closing it ends real work there. */ adopted: boolean; link: Link; conn: Conn | null; repo: Repo | null };
+type Candidate = { /** Stopped at this gate (Cancelled), not deleted. */ stoppedGate?: string; id: string; code: string; name: string; /** The issue was adopted from GitHub ("PV takes ownership"), not created by Product Velocity: closing it ends real work there. */ adopted: boolean; link: Link; conn: Conn | null; repo: Repo | null };
 const chunk = <T,>(xs: T[], n: number): T[][] => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
 
 /** The Trash entries that Product Velocity may close in GitHub, newest first, or null when the database cannot remember handling them yet (migration not applied). */
 async function candidates(ctx: RemovedCtx, only?: string): Promise<{ list: Candidate[]; total: number } | { error: string } | null> {
   const { data: trashed, error } = await ctx.supabase.rpc("trashed_items", { p_tenant: ctx.tenantId }); // creators and admins only; deleted rows are invisible to every other read
   if (error) return { error: "The Trash could not be read." };
-  const rows = ((trashed ?? []) as { id: string; item_code: string; initiative_name: string }[]).filter((t) => !only || t.id === only);
+  const trashRows = ((trashed ?? []) as { id: string; item_code: string; initiative_name: string }[]).filter((t) => !only || t.id === only);
+  // initiatives an approver stopped at a gate are offered like removed ones (issue #343)
+  const stopped = new Map((await stoppedItems(ctx, only)).filter((s) => !trashRows.some((t) => t.id === s.id)).map((s) => [s.id, s]));
+  const rows = [...trashRows, ...[...stopped.values()].map((s) => ({ id: s.id, item_code: s.item_code, initiative_name: s.initiative_name }))];
   if (rows.length === 0) return { list: [], total: 0 };
   const byId = new Map(rows.map((r) => [r.id, r]));
   const links: Link[] = [];
@@ -56,7 +60,7 @@ async function candidates(ctx: RemovedCtx, only?: string): Promise<{ list: Candi
   const list = shown.map((l): Candidate => {
     const t = byId.get(l.item_id)!;
     const repo = ((repos.data ?? []) as (Repo & { connection_id: string })[]).find((r) => r.connection_id === l.connection_id && r.full_name.toLowerCase() === l.repo_full_name.toLowerCase()) ?? null;
-    return { id: l.item_id, code: t.item_code, name: t.initiative_name, adopted: adoptedIds.has(l.item_id), link: l, conn: ((conns.data ?? []) as Conn[]).find((c) => c.id === l.connection_id) ?? null, repo };
+    return { id: l.item_id, code: t.item_code, name: t.initiative_name, adopted: adoptedIds.has(l.item_id), ...(stopped.has(l.item_id) ? { stoppedGate: stopped.get(l.item_id)!.gate } : {}), link: l, conn: ((conns.data ?? []) as Conn[]).find((c) => c.id === l.connection_id) ?? null, repo };
   });
   return { list, total: open.length };
 }
@@ -74,7 +78,7 @@ const usable = (c: Candidate): string | null => {
 const target = (c: Candidate, sc: SourceControl): Target => ({ sc, installationId: c.conn!.installation_id!, repo: c.link.repo_full_name, number: c.link.issue_number });
 
 function card(c: Candidate, s: CloseState | null, why: string | null): RemovedCard {
-  const base = { tracker: "github" as const, id: c.id, code: c.code, name: c.name, ...(c.adopted ? { adopted: true as const } : {}), issueKey: issueKey(c), issueUrl: urlOf(c), options: [] as RemovedCard["options"], defaultTransitionId: null as string | null };
+  const base = { tracker: "github" as const, id: c.id, code: c.code, name: c.name, ...(c.adopted ? { adopted: true as const } : {}), ...(c.stoppedGate ? { stopped: { gate: c.stoppedGate } } : {}), issueKey: issueKey(c), issueUrl: urlOf(c), options: [] as RemovedCard["options"], defaultTransitionId: null as string | null };
   if (why) return { ...base, state: "error", message: why };
   if (!s) return { ...base, state: "error", message: "GitHub could not be read just now. Try again in a minute." };
   if (!s.ok) return { ...base, state: s.kind === "gone" ? "gone" : "error", message: s.message };
@@ -111,7 +115,7 @@ export async function closeOne(ctx: RemovedCtx, id: string, deps: { sc?: SourceC
   if (found === null) return fail("", "Product Velocity cannot remember what it closes yet: the database update (migration github_close_removed) is not applied. Nothing was written.");
   if ("error" in found) return fail("", found.error);
   const c = found.list[0];
-  if (!c) return fail("", "This initiative is not in the Trash, its GitHub issue is only followed, or it was handled already. Nothing was written.");
+  if (!c) return fail("", "This initiative is not in the Trash and was not stopped at a gate, its GitHub issue is only followed, or it was handled already. Nothing was written.");
   const refused = usable(c);
   if (refused) return fail(c.code, refused, c);
   const sc = deps.sc === undefined ? githubSourceControl() : deps.sc;

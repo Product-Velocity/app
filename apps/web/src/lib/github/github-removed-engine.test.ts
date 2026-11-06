@@ -218,3 +218,54 @@ describe("closing one", () => {
     expect(sc.calls).toEqual([]);
   });
 });
+
+describe("an initiative stopped at a gate (issue #343)", () => {
+  const E = "55555555-5555-4555-8555-555555555555", F = "66666666-6666-4666-8666-666666666666", G = "77777777-7777-4777-8777-777777777777";
+  const decided = (item: string, outcome: string, at: string, gate = "B"): Row => ({ tenant_id: "t1", item_id: item, kind: "decision", gate, outcome, decided_at: at });
+  beforeEach(() => {
+    tables.items!.push({ tenant_id: "t1", id: E, item_code: "R-5", initiative_name: "Stopped", initiative_status: "Cancelled", source: "Created in the app" }, { tenant_id: "t1", id: F, item_code: "R-6", initiative_name: "Cancelled by hand", initiative_status: "Cancelled", source: null }, { tenant_id: "t1", id: G, item_code: "R-7", initiative_name: "Stopped then go", initiative_status: "Cancelled", source: null });
+    tables.item_github_links!.push(link(E, 11, { issue_number: 21 }), link(F, 22), link(G, 23));
+    tables.gate_reviews = [decided(E, "stop", "2027-04-02T10:00:00Z"), decided(G, "stop", "2027-04-01T10:00:00Z"), decided(G, "go", "2027-04-03T10:00:00Z"), { tenant_id: "t1", item_id: F, kind: "decision", gate: "A", outcome: null, decided_at: null }];
+  });
+  const sc21 = () => { const sc = fakeGithub(); sc.issues.set("acme/road#21", { ...sc.issues.get("acme/road#11")!, number: 21, htmlUrl: "https://github.com/acme/road/issues/21" }); return sc; };
+
+  it("is offered like a removed one, with the gate it was stopped at; Cancelled by hand, an open request and a Stop that a later Go replaced are not", async () => {
+    const r = await listRemoved(ctx, { sc: sc21() });
+    expect(r.ok && r.items.map((i) => i.id)).toEqual([A, D, E]); // the Trash first, then the stopped one
+    expect(r.ok && r.items.find((i) => i.id === E)).toMatchObject({ state: "ready", stopped: { gate: "B" }, code: "R-5" });
+    expect(r.ok && r.items.find((i) => i.id === A)!.stopped).toBeUndefined();
+  });
+
+  it("never when its issue is only followed or was handled before", async () => {
+    tables.item_github_links!.find((l) => l.item_id === E)!.mode = "follow";
+    expect((await listRemoved(ctx, { sc: sc21() })).ok && (await listRemoved(ctx, { sc: sc21() }) as { items: { id: string }[] }).items.map((i) => i.id)).toEqual([A, D]);
+    tables.item_github_links!.find((l) => l.item_id === E)!.mode = "push";
+    tables.item_github_links!.find((l) => l.item_id === E)!.removed_handled_at = "2026-11-01T10:00:00Z";
+    expect((await listRemoved(ctx, { sc: sc21() }) as { items: { id: string }[] }).items.map((i) => i.id)).toEqual([A, D]);
+  });
+
+  it("closing it writes only the fixed things: the label pv:removed and the close as not planned; nothing of the initiative; recorded once", async () => {
+    const sc = sc21();
+    const r = await closeOne(ctx, E, { sc });
+    expect(r.result).toMatchObject({ id: E, outcome: "closed" });
+    expect(written(sc).sort()).toEqual(["addLabels", "closeIssueNotPlanned", "ensureLabels"]);
+    expect(sc.issues.get("acme/road#21")).toMatchObject({ state: "closed", stateReason: "not_planned" });
+    expect(sc.issues.get("acme/road#21")!.labels).toContain(REMOVED_LABEL);
+    expect(rpcCalls).toEqual([{ fn: "github_record_removed", args: { p_actor: "u1", p_item: E, p_result: "closed", p_reason: "not_planned" } }]);
+  });
+
+  it("is refused when it is Cancelled by hand or the Stop was replaced: nothing is read or written", async () => {
+    for (const id of [F, G]) {
+      const sc = sc21();
+      const r = await closeOne(ctx, id, { sc });
+      expect(r.result).toMatchObject({ outcome: "error", message: expect.stringContaining("not stopped at a gate") });
+      expect(sc.calls).toEqual([]);
+    }
+  });
+
+  it("a gate read that fails offers no stopped initiative and the Trash list still works", async () => {
+    missingColumns = ["outcome"];
+    const r = await listRemoved(ctx, { sc: sc21() });
+    expect(r.ok && r.items.map((i) => i.id)).toEqual([A, D]);
+  });
+});

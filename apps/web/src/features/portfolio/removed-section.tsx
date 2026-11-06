@@ -3,6 +3,7 @@
 import { useEffect, useId, useState } from "react";
 import type { RemovedApi, RemovedCard, RemovedResult } from "@/lib/github/push-types";
 
+// "Removed or stopped in Product Velocity" in the Sync with Jira and Sync with GitHub dialogs (initiatives an approver stopped at a gate are offered here too, issue #343)
 // "Removed in Product Velocity" in the Sync with Jira and Sync with GitHub dialogs (decisions 2026-11-03-jira-close-removed and 2026-11-03-github-close-removed):
 // initiatives in the Trash whose issue Product Velocity owns. Each one says what will happen; nothing is written until the person presses the button, which
 // labels and closes the issues one at a time ("Writing x/y"), with a result and Try again per initiative. One component for both trackers, same words.
@@ -99,7 +100,8 @@ export function RemovedSection({ api, tracker = "jira", onBusy, onCount }: { api
 
   return (
     <section aria-labelledby={headId} className="push-removed">
-      <h3 id={headId}>Removed in Product Velocity</h3>
+      <h3 id={headId}>{items.some((c) => c.stopped) ? "Removed or stopped in Product Velocity" : "Removed in Product Velocity"}</h3>
+      {items.some((c) => c.stopped) && <p className="muted">A stopped initiative is one an approver stopped at a decision gate: its status is Cancelled. It is offered like a removed one, one at a time, and only after you confirm.</p>}
       <p className="muted">
         {tracker === "github"
           ? <>These initiatives are in the Trash and Product Velocity owns their GitHub issue. If you confirm, Product Velocity adds the label “pv:removed” to the issue and closes it as “not planned” in GitHub. It never deletes an issue,
@@ -117,6 +119,7 @@ export function RemovedSection({ api, tracker = "jira", onBusy, onCount }: { api
                 <input type="checkbox" disabled={(c.state !== "ready" && c.state !== "gone") || !!run || (!!r && r.outcome !== "error")} checked={(c.state === "ready" || c.state === "gone") && !!on[c.id]} onChange={(e) => setOn({ ...on, [c.id]: e.target.checked })} />{" "}
                 <strong>{c.code}</strong> {c.name}
               </label>
+              {c.stopped && <> · <span className="muted">Stopped at gate {c.stopped.gate}</span></>}
               {" · "}{c.issueUrl ? <a href={c.issueUrl} target="_blank" rel="noreferrer">issue {c.issueKey}</a> : <>issue {c.issueKey}</>}
               {(c.trackerStatus ?? c.jiraStatus) && <> · <span className="muted">{name} {tracker === "github" ? "state" : "status"}: {c.trackerStatus ?? c.jiraStatus}</span></>}
               <br />

@@ -56,6 +56,22 @@ test.describe("Sync with GitHub: Removed in Product Velocity", () => {
     expect(after.violations).toEqual([]);
   });
 
+  test("an initiative stopped at a gate is offered with the gate and closes the same way (issue #343)", async ({ page }) => {
+    await page.goto("/dev/sync?scenario=githubstopped");
+    await page.getByRole("button", { name: "Open sync" }).click();
+    const dialog = page.getByRole("dialog", { name: /Sync(ed)? with GitHub/ });
+    const removed = dialog.getByRole("region", { name: "Removed or stopped in Product Velocity" });
+    await expect(removed).toBeVisible();
+    await expect(removed.getByText("Stopped at gate B")).toBeVisible();
+    await expect(removed.getByText(/A stopped initiative is one an approver stopped/)).toBeVisible();
+    await expect(page.getByTestId("closed")).toHaveText("");
+    await removed.getByRole("button", { name: "Label and close 2 in GitHub" }).click();
+    await expect(removed.getByText("Closed as not planned and labelled pv:removed.")).toHaveCount(2);
+    await expect(page.getByTestId("closed")).toHaveText("S-1:-,R-5:-");
+    const axe = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
+    expect(axe.violations).toEqual([]);
+  });
+
   test("the ordinary GitHub sync shows no Removed section when nothing was removed", async ({ page }) => {
     await page.goto("/dev/sync?scenario=ok");
     await page.getByRole("button", { name: "Open sync" }).click();

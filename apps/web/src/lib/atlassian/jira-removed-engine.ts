@@ -1,3 +1,4 @@
+import { stoppedItems } from "@/lib/tracker/stopped";
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { RemovedCard, RemovedList, RemovedResult } from "@/lib/github/push-types";
@@ -19,7 +20,7 @@ const LIMIT = 25;
 const IN_CHUNK = 100;
 type Link = { item_id: string; connection_id: string; site_id: string; issue_key: string; html_url: string | null };
 type Conn = { id: string; sites: { id: string; name: string; url: string }[]; state: string };
-type Candidate = { id: string; code: string; name: string; /** The issue was adopted from Jira (the initiative was pulled in with "PV takes ownership"), not created by Sync: closing it ends real work there. */ adopted: boolean; link: Link; conn: Conn | null; siteUrl: string | null; rememberedStatusId: string | null };
+type Candidate = { /** Stopped at this gate (Cancelled), not deleted. */ stoppedGate?: string; id: string; code: string; name: string; /** The issue was adopted from Jira (the initiative was pulled in with "PV takes ownership"), not created by Sync: closing it ends real work there. */ adopted: boolean; link: Link; conn: Conn | null; siteUrl: string | null; rememberedStatusId: string | null };
 const RECONNECT = "Jira needs a new sign-in. A workspace admin can sign in again under Settings > Integrations > Jira.";
 const chunk = <T,>(xs: T[], n: number): T[][] => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
 
@@ -27,7 +28,10 @@ const chunk = <T,>(xs: T[], n: number): T[][] => Array.from({ length: Math.ceil(
 async function candidates(ctx: Ctx, only?: string): Promise<{ list: Candidate[]; total: number } | { error: string } | null> {
   const { data: trashed, error } = await ctx.supabase.rpc("trashed_items", { p_tenant: ctx.tenantId }); // creators and admins only; deleted rows are invisible to every other read
   if (error) return { error: "The Trash could not be read." };
-  const rows = ((trashed ?? []) as { id: string; item_code: string; initiative_name: string }[]).filter((t) => !only || t.id === only);
+  const trashRows = ((trashed ?? []) as { id: string; item_code: string; initiative_name: string }[]).filter((t) => !only || t.id === only);
+  // initiatives an approver stopped at a gate are offered like removed ones (issue #343)
+  const stopped = new Map((await stoppedItems(ctx, only)).filter((s) => !trashRows.some((t) => t.id === s.id)).map((s) => [s.id, s]));
+  const rows = [...trashRows, ...[...stopped.values()].map((s) => ({ id: s.id, item_code: s.item_code, initiative_name: s.initiative_name }))];
   if (rows.length === 0) return { list: [], total: 0 };
   const byId = new Map(rows.map((r) => [r.id, r]));
   const links: Link[] = [];
@@ -54,7 +58,7 @@ async function candidates(ctx: Ctx, only?: string): Promise<{ list: Candidate[];
   const list = shown.map((l): Candidate => {
     const conn = ((conns ?? []) as Conn[]).find((c) => c.id === l.connection_id) ?? null;
     const t = byId.get(l.item_id)!;
-    return { id: l.item_id, code: t.item_code, name: t.initiative_name, adopted: adoptedIds.has(l.item_id), link: l, conn, siteUrl: conn?.sites.find((s) => s.id === l.site_id)?.url ?? null, rememberedStatusId: remembered(l) };
+    return { id: l.item_id, code: t.item_code, name: t.initiative_name, adopted: adoptedIds.has(l.item_id), ...(stopped.has(l.item_id) ? { stoppedGate: stopped.get(l.item_id)!.gate } : {}), link: l, conn, siteUrl: conn?.sites.find((s) => s.id === l.site_id)?.url ?? null, rememberedStatusId: remembered(l) };
   });
   return { list, total: open.length };
 }
@@ -63,7 +67,7 @@ const urlOf = (c: Candidate) => c.link.html_url ?? (c.siteUrl ? `${c.siteUrl}/br
 const usable = (c: Candidate): string | null => (!c.conn || !c.siteUrl ? "Jira is not connected for this workspace." : c.conn.state === "reconnect_needed" ? RECONNECT : c.conn.state !== "connected" ? "Jira is not connected for this workspace." : null);
 
 function card(c: Candidate, s: CloseState | null, why: string | null): RemovedCard {
-  const base = { id: c.id, code: c.code, name: c.name, ...(c.adopted ? { adopted: true as const } : {}), issueKey: c.link.issue_key, issueUrl: urlOf(c), options: [] as RemovedCard["options"], defaultTransitionId: null as string | null };
+  const base = { id: c.id, code: c.code, name: c.name, ...(c.adopted ? { adopted: true as const } : {}), ...(c.stoppedGate ? { stopped: { gate: c.stoppedGate } } : {}), issueKey: c.link.issue_key, issueUrl: urlOf(c), options: [] as RemovedCard["options"], defaultTransitionId: null as string | null };
   if (why) return { ...base, state: "error", message: why };
   if (!s) return { ...base, state: "error", message: "Jira could not be read just now. Try again in a minute." };
   if (!s.ok) return { ...base, state: s.kind === "gone" ? "gone" : "error", message: s.message };
@@ -101,7 +105,7 @@ export async function closeOne(ctx: Ctx, id: string, transitionId: string | null
   if (found === null) return fail("", "Product Velocity cannot remember what it closes yet: the database update (migration jira_close_removed) is not applied. Nothing was written.");
   if ("error" in found) return fail("", found.error);
   const c = found.list[0];
-  if (!c) return fail("", "This initiative is not in the Trash, its Jira issue came from Jira, or it was handled already. Nothing was written.");
+  if (!c) return fail("", "This initiative is not in the Trash and was not stopped at a gate, its Jira issue came from Jira, or it was handled already. Nothing was written.");
   const refused = usable(c);
   if (refused) return fail(c.code, refused, c);
   const call = deps.call ?? jiraRequest(c.conn!.id, c.link.site_id);

@@ -61,12 +61,17 @@ const GH_REMOVED: RemovedCard[] = [
   { tracker: "github", id: "88888888-8888-4888-8888-888888888888", code: "R-8", name: "Old wallet", issueKey: "acme/ro#9", issueUrl: null, state: "error", message: "acme/ro is marked read-only in Settings > GitHub: the app never writes to it.", options: [], defaultTransitionId: null },
   { tracker: "github", id: "99999999-9999-4999-8999-999999999999", code: "R-9", name: "Old rewards", adopted: true, issueKey: "acme/app#205", issueUrl: null, state: "gone", message: "GitHub no longer has this issue (deleted, transferred or not visible to the app). Nothing was changed.", options: [], defaultTransitionId: null },
 ];
-function fakeGithubRemoved(onClose: (code: string, transition: string | null) => void): RemovedApi {
+/** `githubstopped`: one initiative stopped at Gate B (S-1) and one in the Trash (R-5). */
+const GH_STOPPED: RemovedCard[] = [
+  { tracker: "github", id: "11111111-1111-4111-8111-111111111111", code: "S-1", name: "Loyalty rebuild", stopped: { gate: "B" }, issueKey: "acme/app#301", issueUrl: "https://github.com/acme/app/issues/301", state: "ready", trackerStatus: "open", options: [], defaultTransitionId: null },
+  GH_REMOVED[0]!,
+];
+function fakeGithubRemoved(onClose: (code: string, transition: string | null) => void, list: RemovedCard[] = GH_REMOVED): RemovedApi {
   const attempts = new Map<string, number>();
   return {
-    list: async () => ({ ok: true, items: GH_REMOVED, more: 0 }),
+    list: async () => ({ ok: true, items: list, more: 0 }),
     close: async (id, transition) => {
-      const c = GH_REMOVED.find((x) => x.id === id)!;
+      const c = list.find((x) => x.id === id)!;
       onClose(c.code, transition);
       await new Promise((r) => setTimeout(r, 300));
       const tries = (attempts.get(id) ?? 0) + 1;
@@ -135,7 +140,7 @@ export function SyncHarness({ scenario, newIssues }: { scenario: string; newIssu
   const [open, setOpen] = useState(false);
   const [calls, setCalls] = useState<string[]>([]);
   const [closed, setClosed] = useState<string[]>([]);
-  const api = useMemo(() => fakeApi(scenario, (c) => setCalls((prev) => [...prev, c]), scenario === "jira" ? { jira: fakeRemoved(scenario, (c, t) => setClosed((prev) => [...prev, `${c}:${t ?? "-"}`])) } : scenario === "githubremoved" ? { github: fakeGithubRemoved((c, t) => setClosed((prev) => [...prev, `${c}:${t ?? "-"}`])) } : undefined), [scenario]);
+  const api = useMemo(() => fakeApi(scenario, (c) => setCalls((prev) => [...prev, c]), scenario === "jira" ? { jira: fakeRemoved(scenario, (c, t) => setClosed((prev) => [...prev, `${c}:${t ?? "-"}`])) } : scenario === "githubremoved" || scenario === "githubstopped" ? { github: fakeGithubRemoved((c, t) => setClosed((prev) => [...prev, `${c}:${t ?? "-"}`]), scenario === "githubstopped" ? GH_STOPPED : GH_REMOVED) } : undefined), [scenario]);
   const [refreshes, setRefreshes] = useState(0);
   const newItems = useMemo(() => fakeNewItems(newIssues, () => setRefreshes((n) => n + 1)), [newIssues]);
   // stable between renders: a new function each time would restart the dialog's first step whenever a counter below changes

@@ -81,6 +81,8 @@ export type RemovedCard = {
   name: string;
   /** The issue was adopted from the tracker, not created by Product Velocity: closing it ends real work there. The preview warns in red and leaves it unticked. */
   adopted?: true;
+  /** The initiative was stopped at a decision gate (Cancelled), not deleted: the preview says so. */
+  stopped?: { gate: string };
   issueKey: string;
   issueUrl: string | null;
   /** ready: can be confirmed. error: could not be read (nothing is offered to write). gone: the tracker does not return the issue. */
