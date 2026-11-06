@@ -81,14 +81,27 @@ export function demoteHeadings(md: string): string {
   }).join("\n");
 }
 
+export type DocumentsRender = {
+  /** The Markdown under "Documents"; "" when nothing is sent. */
+  markdown: string;
+  /** Titles sent (a cut one is also in `cut`). */
+  sent: string[];
+  /** Sent only in part: cut at a line to fit. */
+  cut: string[];
+  /** Not sent: no text yet. A heading with nothing under it only adds clutter. */
+  empty: string[];
+  /** Not sent: no room left. */
+  omitted: string[];
+};
+
 /**
  * The Markdown that goes under "Documents": one block per shared document (title, kind, status, text), in the order given, cut so that the whole
- * stays within `budget` characters. A document that does not fit is cut at a line with a note that the full text is in Product Velocity; those that
- * come after it are named. Returns "" when there is nothing to send.
+ * stays within `budget` characters. A document without text is skipped. A document that does not fit is cut at a line with a note that the full text
+ * is in Product Velocity; those that come after it are named. Also says what was sent, for the Sync preview.
  */
-export function documentsMarkdown(docs: readonly SharedDoc[], budget: number): string {
+export function renderDocuments(docs: readonly SharedDoc[], budget: number): DocumentsRender {
   const out: string[] = [];
-  const omitted: string[] = [];
+  const r: DocumentsRender = { markdown: "", sent: [], cut: [], empty: [], omitted: [] };
   let left = Math.max(0, budget);
   const CUT = "_Cut here to fit. The full document is in Product Velocity._";
   for (const d of docs) {
@@ -97,18 +110,34 @@ export function documentsMarkdown(docs: readonly SharedDoc[], budget: number): s
     const meta = `_${STATUS_WORD[d.status] ?? d.status}${d.aiDraft ? " · AI draft, not yet reviewed" : ""}_`;
     const head = `### ${title} (${kind})\n${meta}`;
     const body = demoteHeadings(d.body).trim();
-    const whole = body ? `${head}\n\n${body}` : head;
-    if (omitted.length === 0 && whole.length + 2 <= left) { out.push(whole); left -= whole.length + 2; continue; }
-    if (omitted.length === 0 && body && left > head.length + CUT.length + 400) {
+    if (!body) { r.empty.push(title); continue; }
+    const whole = `${head}\n\n${body}`;
+    if (r.omitted.length === 0 && whole.length + 2 <= left) { out.push(whole); r.sent.push(title); left -= whole.length + 2; continue; }
+    if (r.omitted.length === 0 && left > head.length + CUT.length + 400) {
       const room = left - head.length - CUT.length - 6;
       const cut = body.slice(0, room);
       const at = cut.lastIndexOf("\n");
       out.push(`${head}\n\n${(at > room / 2 ? cut.slice(0, at) : cut).trimEnd()}\n\n${CUT}`);
+      r.sent.push(title); r.cut.push(title);
       left = 0;
       continue;
     }
-    omitted.push(title);
+    r.omitted.push(title);
   }
-  if (omitted.length > 0) out.push(`_Not included, too long for the issue: ${omitted.join(", ")}. They are in Product Velocity._`);
-  return out.join("\n\n");
+  if (r.omitted.length > 0) out.push(`_Not included, too long for the issue: ${r.omitted.join(", ")}. They are in Product Velocity._`);
+  r.markdown = out.join("\n\n");
+  return r;
+}
+
+/** Same as `renderDocuments(...).markdown`. */
+export const documentsMarkdown = (docs: readonly SharedDoc[], budget: number): string => renderDocuments(docs, budget).markdown;
+
+/** One sentence for the Sync preview: which documents go, which do not and why. Undefined when the initiative has no shared document at all. */
+export function documentsPreviewNote(r: DocumentsRender, where: string): string | undefined {
+  if (r.sent.length + r.empty.length + r.omitted.length === 0) return undefined;
+  const parts: string[] = [];
+  parts.push(r.sent.length > 0 ? `Documents in the ${where}: ${r.sent.map((t) => (r.cut.includes(t) ? `${t} (cut to fit)` : t)).join(", ")}.` : `No document text goes into the ${where}.`);
+  if (r.empty.length > 0) parts.push(`Skipped, no text yet: ${r.empty.join(", ")}.`);
+  if (r.omitted.length > 0) parts.push(`Left out, too long: ${r.omitted.join(", ")}.`);
+  return parts.join(" ");
 }

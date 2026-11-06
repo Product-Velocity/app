@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { canLinkFilesInto, columnOnItems, documentsMarkdown, FIELD_BY_KEY, type SharedDoc } from "@pv/domain";
+import { canLinkFilesInto, columnOnItems, documentsPreviewNote, FIELD_BY_KEY, renderDocuments, type SharedDoc } from "@pv/domain";
 import { createHash } from "node:crypto";
 import { parseConfigRows, githubOptions, type ConfigRow } from "@/lib/tracker-fields/mapping";
 import { switchedOffNotes } from "@/lib/tracker-fields/notes";
@@ -129,7 +129,8 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     // documents go in as the last section, only to a private repository, cut to what is left of the issue body's size limit
     const itemDocs = docsByItem.get(id) ?? [];
     const withoutDocs = buildTrackingIssue(issueInput);
-    const docsMd = filesOk && itemDocs.length > 0 ? documentsMarkdown(itemDocs, Math.max(0, GITHUB_BLOCK_BUDGET - withoutDocs.block.length - 100)) : "";
+    const docsRender = filesOk && itemDocs.length > 0 ? renderDocuments(itemDocs, Math.max(0, GITHUB_BLOCK_BUDGET - withoutDocs.block.length - 100)) : null;
+    const docsMd = docsRender?.markdown ?? "";
     const built = docsMd ? buildTrackingIssue({ ...issueInput, documents: docsMd }) : withoutDocs;
     const switchedOff = switchedOffNotes(config, row, artifactsByItem.get(id)?.length ?? 0, itemFiles.length);
 
@@ -148,7 +149,8 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
     const withheld = itemFiles.length > 0 && !filesOk ? { filesNote: `${itemFiles.length === 1 ? "A shared file link was" : `${itemFiles.length} shared file links were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could open the links. Files are only linked in private repositories.` } : {};
     const unshared = unsharedByItem.get(id) ?? 0;
     const docsWithheld = itemDocs.length > 0 && !filesOk ? `${itemDocs.length === 1 ? "A shared document was" : `${itemDocs.length} shared documents were`} left out: ${d.repo ?? "this repository"} is public (or its visibility is unknown), and anyone could read the text. Documents are only sent to private repositories.` : undefined;
-    const note = [docsWithheld, withheld.filesNote ?? (unshared ? `${unshared === 1 ? "1 attached file has" : `${unshared} attached files have`} no share link, so ${unshared === 1 ? "it is" : "they are"} not in the issue. Share it on the item's Spec tab to include it.` : undefined), ...switchedOff].filter(Boolean).join(" ") || undefined;
+    const docsNote = docsRender ? documentsPreviewNote(docsRender, "issue") : undefined;
+    const note = [docsWithheld ?? docsNote, withheld.filesNote ?? (unshared ? `${unshared === 1 ? "1 attached file has" : `${unshared} attached files have`} no share link, so ${unshared === 1 ? "it is" : "they are"} not in the issue. Share it on the item's Spec tab to include it.` : undefined), ...switchedOff].filter(Boolean).join(" ") || undefined;
     const boardInfo = board && boardPlan ? { title: board.title, included: boardPlan.include, writes: boardPlan.writes.map((w) => ({ field: w.field.name, value: w.label })), notes: boardPlan.notes, children: pendingChildren } : board && boardNotes.length ? { title: board.title, included: false, writes: [], notes: boardNotes, children: 0 } : undefined;
     return { id, code: row.item_code, name: row.initiative_name, project: project?.name ?? "", repo: d.repo, action: d.action, title: built.title, labels: built.labels, ...(built.milestone ? { milestone: built.milestone.title } : {}), ...(boardInfo ? { board: boardInfo } : {}), block: built.block, issueNumber: link?.issue_number ?? null, issueUrl: link?.html_url ?? null, ...(d.reason ? { reason: d.reason } : {}), ...(note ? { filesNote: note } : {}) };
   });
