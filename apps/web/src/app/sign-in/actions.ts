@@ -6,9 +6,12 @@ import { safeNext } from "@/lib/auth/safe-next";
 import { siteUrl } from "@/lib/site-url";
 import { checkPassword } from "@/lib/password";
 import { normalizeEmail } from "@/lib/validation";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveSignInEmail } from "@/lib/auth/resolve-sign-in-email";
 
 export type AuthState = { error?: string; message?: string } | null;
+
+/** Result of "Email me a sign-in link". `sent` is true for every valid-looking address, so the answer never says whether an account exists. */
+export type LinkState = { sent: boolean; email: string; nonce: number; error?: string } | null;
 
 const callbackUrl = async (next: string) =>
   `${await siteUrl()}/auth/callback?next=${encodeURIComponent(next)}`;
@@ -31,16 +34,40 @@ export async function signInWithPassword(_prev: AuthState, form: FormData): Prom
   redirect(next);
 }
 
+/**
+ * One-time emailed sign-in link for an EXISTING account.
+ * - `shouldCreateUser: false`: this can never create an account.
+ * - The reply is identical for unknown addresses, send errors and rate limits
+ *   (Supabase allows one email per address per minute, plus a project hourly cap),
+ *   so nobody can probe which addresses have an account.
+ * - A verified linked address opens the same person (R-111), as password sign-in does.
+ * - Two-factor still applies after the link: the app sends the person to /mfa.
+ */
+export async function sendSignInLink(_prev: LinkState, form: FormData): Promise<LinkState> {
+  const email = normalizeEmail(form.get("email"));
+  const next = safeNext(form.get("next") as string | null);
+  if (!email) return { sent: false, email: "", nonce: Date.now(), error: "Enter your email address first." };
+  try {
+    const supabase = await createClient();
+    const target = await resolveSignInEmail(email);
+    await supabase.auth.signInWithOtp({
+      email: target,
+      options: { shouldCreateUser: false, emailRedirectTo: await callbackUrl(next) },
+    });
+  } catch {
+    // same answer on any failure
+  }
+  return { sent: true, email, nonce: Date.now() };
+}
+
 export async function signUp(_prev: AuthState, form: FormData): Promise<AuthState> {
   const email = normalizeEmail(form.get("email"));
   const password = form.get("password");
-  const confirm = form.get("confirm");
   const next = safeNext(form.get("next") as string | null);
   if (!email) return { error: "Enter a valid email address." };
   if (typeof password !== "string" || !checkPassword(password, { email }).ok) {
     return { error: "Choose a stronger password: follow the checklist under the password field." };
   }
-  if (password !== confirm) return { error: "The two passwords do not match." };
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
     email,
@@ -63,13 +90,4 @@ export async function signInWithProvider(form: FormData): Promise<void> {
   });
   if (error || !data.url) redirect(`/sign-in?error=provider&next=${encodeURIComponent(next)}`);
   redirect(data.url);
-}
-
-async function resolveSignInEmail(email: string): Promise<string> {
-  try {
-    const { data } = await createAdminClient({ via: "system" }).rpc("resolve_sign_in_email", { p_email: email });
-    return typeof data === "string" && data ? data : email;
-  } catch {
-    return email; // no service key (local development): a linked address simply does not resolve
-  }
 }

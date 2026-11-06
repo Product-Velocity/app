@@ -2,8 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { canSubmitNewPassword, NewPasswordFields, PasswordField } from "@/components/password-field";
-import { signInWithProvider } from "@/app/sign-in/actions";
-import { acceptInvitation, signInAndAccept, signUpForInvite, type AcceptState } from "./actions";
+import { AuthProviders } from "@/components/auth-providers";
+import { LinkSent } from "@/components/link-sent";
+import { acceptInvitation, sendInviteSignInLink, signInAndAccept, signUpForInvite, type AcceptState, type LinkState } from "./actions";
 
 export function AcceptForm({ token, workspace }: { token: string; workspace: string }) {
   const [state, action, pending] = useActionState<AcceptState, FormData>(acceptInvitation, null);
@@ -29,15 +30,31 @@ export function AcceptForm({ token, workspace }: { token: string; workspace: str
  */
 export function InviteSignIn({ token, email, mode }: { token: string; email: string; mode: "sign-in" | "create" }) {
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [state, action, pending] = useActionState<AcceptState, FormData>(
     mode === "sign-in" ? signInAndAccept : signUpForInvite,
     null,
   );
+  const [linkState, linkAction, linkPending] = useActionState<LinkState, FormData>(sendInviteSignInLink, null);
+  const [dismissed, setDismissed] = useState(false);
   const next = `/invite/${token}`;
-  const canSubmit = mode === "sign-in" ? password.length > 0 : canSubmitNewPassword(password, confirm, email);
+  const canSubmit = mode === "sign-in" ? password.length > 0 : canSubmitNewPassword(password, email);
+  if (linkState?.sent && !dismissed) {
+    return (
+      <LinkSent
+        key={linkState.nonce}
+        email={linkState.email}
+        lifetime="60 minutes"
+        resendAction={linkAction}
+        resendFields={<input type="hidden" name="token" value={token} />}
+        pending={linkPending}
+        onBack={() => setDismissed(true)}
+        backLabel="Use a password instead"
+      />
+    );
+  }
   return (
     <div className="stack">
+      <AuthProviders next={next} hint="With Google or GitHub, use the account that has the email address below." />
       <form action={action} className="stack">
         <input type="hidden" name="token" value={token} />
         <div className="field">
@@ -54,6 +71,7 @@ export function InviteSignIn({ token, email, mode }: { token: string; email: str
           <p className="hint">The invitation is for this address.</p>
         </div>
         {mode === "sign-in" ? (
+          <>
           <PasswordField
             name="password"
             label="Password"
@@ -62,12 +80,14 @@ export function InviteSignIn({ token, email, mode }: { token: string; email: str
             autoComplete="current-password"
             autoFocus
           />
+          <a className="link-button forgot" href={`/forgot-password?email=${encodeURIComponent(email)}`}>
+            Forgot password?
+          </a>
+          </>
         ) : (
           <NewPasswordFields
             password={password}
-            confirm={confirm}
             onPassword={setPassword}
-            onConfirm={setConfirm}
             email={email}
             autoFocus
           />
@@ -83,27 +103,33 @@ export function InviteSignIn({ token, email, mode }: { token: string; email: str
           </p>
         )}
         <button className="btn btn-primary" type="submit" disabled={pending || !canSubmit}>
-          {pending ? "Please wait…" : mode === "sign-in" ? "Sign in and accept" : "Create account"}
+          {pending ? "Please wait…" : mode === "sign-in" ? "Sign in and join" : "Create account and join"}
         </button>
+        {mode === "sign-in" && (
+          <button
+            className="btn"
+            type="submit"
+            formNoValidate
+            disabled={linkPending}
+            formAction={(fd) => {
+              setDismissed(false);
+              linkAction(fd);
+            }}
+          >
+            {linkPending ? "Sending link…" : "Email me a sign-in link"}
+          </button>
+        )}
+        {linkState?.error && !linkState.sent && (
+          <p role="alert" className="error">
+            {linkState.error}
+          </p>
+        )}
         {/* plain links on purpose: a full page load gives password managers a fresh, correct form */}
         <a className="link-button" href={mode === "sign-in" ? "?mode=create" : "?mode=sign-in"}>
           {mode === "sign-in" ? "No account yet? Create one" : "Already have an account? Sign in"}
         </a>
       </form>
 
-      <div className="divider" role="separator">
-        <span>or</span>
-      </div>
-      {(["google", "github"] as const).map((provider) => (
-        <form key={provider} action={signInWithProvider}>
-          <input type="hidden" name="provider" value={provider} />
-          <input type="hidden" name="next" value={next} />
-          <button className="btn btn-wide" type="submit">
-            Continue with {provider === "google" ? "Google" : "GitHub"}
-          </button>
-        </form>
-      ))}
-      <p className="hint">With Google or GitHub, use the account that has the email address above.</p>
     </div>
   );
 }

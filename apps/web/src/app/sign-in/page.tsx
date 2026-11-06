@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/auth/safe-next";
-import { signInWithProvider } from "./actions";
 import { PasswordForm } from "./sign-in-form";
-import { BrandLogo } from "@/components/brand-logo";
+import { AuthShell } from "@/components/auth-shell";
+import { AuthProviders } from "@/components/auth-providers";
 
 export const metadata = { title: "Sign in · Product Velocity" };
 
@@ -23,33 +23,21 @@ export default async function SignInPage({
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   if (data.user) redirect(next);
+  const mode = params.mode === "sign-up" ? "sign-up" : "sign-in";
 
   return (
-    <main className="auth-page">
-      <div className="card auth-card">
-        <BrandLogo size={52} />
-        <h1>Sign in to Product Velocity</h1>
-        {params.error && ERRORS[params.error] && (
-          <p role="alert" className="error">
-            {ERRORS[params.error]}
-          </p>
-        )}
-        <div className="stack">
-          {(["google", "github"] as const).map((provider) => (
-            <form key={provider} action={signInWithProvider}>
-              <input type="hidden" name="provider" value={provider} />
-              <input type="hidden" name="next" value={next} />
-              <button className="btn btn-wide" type="submit">
-                Continue with {provider === "google" ? "Google" : "GitHub"}
-              </button>
-            </form>
-          ))}
-        </div>
-        <div className="divider" role="separator">
-          <span>or use email</span>
-        </div>
-        <PasswordForm next={next} mode={params.mode === "sign-up" ? "sign-up" : "sign-in"} />
+    <AuthShell>
+      <div>
+        <h1>{mode === "sign-up" ? "Create your account" : "Sign in"}</h1>
+        <p className="sub">{mode === "sign-up" ? "Start with one roadmap." : "Welcome back."}</p>
       </div>
-    </main>
+      {params.error && ERRORS[params.error] && (
+        <p role="alert" className="error">
+          {ERRORS[params.error]}
+        </p>
+      )}
+      <AuthProviders next={next} />
+      <PasswordForm next={next} mode={mode} />
+    </AuthShell>
   );
 }

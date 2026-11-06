@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/session";
 import { ROLE_HELP, ROLE_LABEL } from "@/lib/roles";
+import { AuthShell } from "@/components/auth-shell";
 import { AcceptForm, InviteSignIn } from "./form";
 import { getInvitePreview } from "./preview";
 
@@ -35,10 +36,13 @@ export default async function InvitePage({
 
   const role = `${ROLE_LABEL[preview.role]}${preview.isApprover ? " and Approver" : ""}`;
   const summary = (
-    <p>
-      You have been invited to join <strong>{preview.tenantName}</strong> as <strong>{role}</strong>{" "}
-      <span className="muted">({ROLE_HELP[preview.role].toLowerCase()})</span>.
-    </p>
+    <div className="auth-invite">
+      <span>You have been invited to join</span>
+      <strong>{preview.tenantName}</strong>
+      <span>
+        as {role} <span className="muted">({ROLE_HELP[preview.role].toLowerCase()})</span>
+      </span>
+    </div>
   );
 
   // new people see "choose a password"; people who already have an account see "sign in"
@@ -47,7 +51,7 @@ export default async function InvitePage({
 
   if (!data.user) {
     return (
-      <Shell title={`Join ${preview.tenantName}`}>
+      <Shell title={mode === "create" ? "Create your account" : "Sign in to join"}>
         {summary}
         {mode === "sign-in" && !preview.accountExists && (
           <p className="hint">There is no account for this email yet, so you probably want to create one.</p>
@@ -89,11 +93,9 @@ export default async function InvitePage({
 
 function Shell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <main className="auth-page">
-      <div className="card auth-card">
-        <h1>{title}</h1>
-        {children}
-      </div>
-    </main>
+    <AuthShell>
+      <h1>{title}</h1>
+      {children}
+    </AuthShell>
   );
 }

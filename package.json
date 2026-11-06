@@ -11,6 +11,7 @@
     "test": "pnpm --filter web --filter @pv/domain --filter @pv/github test",
     "lint": "pnpm --filter web lint",
     "typecheck": "pnpm -r --if-present typecheck",
+    "email:templates": "node tools/email/write-auth-templates.mjs",
     "db:migrate": "pnpm --filter db migrate",
     "db:test": "pnpm --filter db test",
     "db:new": "pnpm --filter db new",
