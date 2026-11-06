@@ -237,28 +237,37 @@ describe("the description sections of an initiative (issue #319)", () => {
     expect(e.kind).toBe("ok");
     if (e.kind !== "ok") return;
     const t = adfToText(e.plan.fields.description).replace(/\n+/g, "|");
-    expect(t).toBe(`Summary|Short|Description|Pay fast|Hypothesis (IF / THEN / RESULTING IN)|IF a THEN b|Artifacts|- PRD|Files|- Shot.png`);
+    expect(t).toBe(`Summary|Short|Description|Pay fast|Hypothesis (IF / THEN / RESULTING IN)|IF a THEN b|Links|- PRD|Files|- Shot.png`);
     expect(JSON.stringify(e.plan.fields.description)).toContain(`https://app.example/f/${TOKEN}/Shot.png`);
     expect(JSON.stringify(e.plan.fields.description)).not.toContain("Secret.png");
     expect(JSON.stringify(e.plan.fields.description)).not.toContain("example.test/private"); // a link set to "do not share" stays in Product Velocity
     expect(e.plan.notes.join(" ")).toContain("1 attached file has no share link");
   });
-  it("sends the documents left shared as a last section, with their headings moved down so the description still reads back; a document marked Do not share stays out", async () => {
+  it("sends the documents left shared as a last section of name + public link; the text never goes in; a document without text or without an address stays out", async () => {
     rows();
-    tables.item_documents = [{ shared: true, kind: "prd", title: "PRD: Checkout", body: "# Goal\n## Description\nInside the PRD", status: "approved", ai_draft: false }, { shared: false, kind: "prd", title: "Secret plan", body: "never", status: "draft", ai_draft: false }, { shared: true, kind: "prd", title: "PRD", body: "", status: "approved", ai_draft: false }, { shared: true, kind: "prd", title: "Claude wrote this", body: "unreviewed", status: "draft", ai_draft: true }];
+    const T = "D".repeat(43);
+    tables.item_documents = [{ kind: "prd", title: "PRD: Checkout", status: "approved", has_text: true, share_token: T, shared: true, ai_draft: false }, { kind: "prd", title: "PRD", status: "approved", has_text: false, share_token: "E".repeat(43), shared: true, ai_draft: false }, { kind: "prd", title: "Secret plan", status: "draft", has_text: true, share_token: null, shared: true, ai_draft: false }];
     tables.item_jira_links = null;
     const l = (await (await import("./jira-sync-engine")).load(withApp, ID))!;
     const e = await evaluate(l, {}, fakeJira(null).call);
     if (e.kind !== "ok") throw new Error("expected a plan");
     const text = adfToText(e.plan.fields.description).replace(/\n+/g, "|");
-    expect(text).toContain("Documents|PRD: Checkout (PRD)|Approved|Goal|Description|Inside the PRD");
+    expect(text).toContain("Documents|- PRD: Checkout (PRD, Approved)");
+    expect(JSON.stringify(e.plan.fields.description)).toContain(`https://app.example/d/${T}/PRD%3A%20Checkout`);
     expect(text).not.toContain("Secret plan");
-    expect(text).not.toContain("unreviewed"); // an AI draft nobody has accepted is held back
-    expect(text).not.toContain("PRD (PRD)"); // an empty document is skipped
-    expect(e.plan.notes.join(" ")).toContain("Documents in the Jira description: PRD: Checkout. Skipped, no text yet: PRD.");
+    expect(text).not.toContain("PRD (PRD");
+    expect(e.plan.notes.join(" ")).toContain("Document links in the Jira description: PRD: Checkout. Skipped, no text yet: PRD.");
     const { splitDescription, nodesText } = await import("./jira-sections");
-    const split = splitDescription(e.plan.fields.description);
-    expect(nodesText(split.nodes.description).trim()).toBe("Pay fast"); // the document's own "Description" heading is not ours
+    expect(nodesText(splitDescription(e.plan.fields.description).nodes.description).trim()).toBe("Pay fast");
+  });
+  it("a description written before the rename, with an Artifacts section, still reads back", async () => {
+    const { splitDescription, nodesText } = await import("./jira-sections");
+    const h = (t: string) => ({ type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: t }] });
+    const p = (t: string) => ({ type: "paragraph", content: [{ type: "text", text: t }] });
+    const split = splitDescription({ type: "doc", version: 1, content: [h("Summary"), p("Short"), h("Description"), p("Long"), h("Hypothesis (IF / THEN / RESULTING IN)"), p("IF"), h("Artifacts"), p("- PRD")] });
+    expect(split.legacy).toBe(false);
+    expect(nodesText(split.nodes.description).trim()).toBe("Long");
+    expect(nodesText(split.nodes.hypothesis).trim()).toBe("IF");
   });
   it("without an app address no file is linked (and nothing is said about it)", async () => {
     rows();

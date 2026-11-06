@@ -16,7 +16,7 @@ const STATUS_LABEL: Record<string, string> = { draft: "Draft", in_review: "In re
 
 /**
  * The Spec tab: the documents of one initiative (the full PRD, requirements, research). Versioned Markdown that stays in Product Velocity:
- * it goes into the GitHub issue / Jira description as a "Documents" section unless "Do not share" is chosen. Saves on leaving a box, keeps every version (restoring one is the undo), and never overwrites a newer save.
+ * it goes into the GitHub issue / Jira description as a link (a public page of its text) unless "Do not share" is chosen. Saves on leaving a box, keeps every version (restoring one is the undo), and never overwrites a newer save.
  */
 export function DocumentsTab({ itemId, canEdit, ctx, tracker = "GitHub" }: { itemId: string; canEdit: boolean; ctx: FieldCtx; /** "GitHub" or "Jira": where this initiative is sent. */ tracker?: string }) {
   const [docs, setDocs] = useState<DocView[] | null>(null);
@@ -96,7 +96,7 @@ export function DocumentsTab({ itemId, canEdit, ctx, tracker = "GitHub" }: { ite
           ]} />
         )}
       </div>
-      <p className="muted docs-hint">Everything here is shared with the {tracker} issue unless you choose “Only in Product Velocity”. Drag files onto this tab, paste an image or a web address. What builders need first goes in the Description on the Overview tab.</p>
+      <p className="muted docs-hint">Everything here goes into the {tracker} issue as a link (documents and files open without a login) unless you choose “Only in Product Velocity”. Drag files onto this tab, paste an image or a web address. What builders need first goes in the Description on the Overview tab.</p>
       {error && <p role="alert" className="pf-error">{error}</p>}
       {show("docs") && <>
         <h3>Documents</h3>
@@ -115,6 +115,8 @@ export function DocumentsTab({ itemId, canEdit, ctx, tracker = "GitHub" }: { ite
                 : <ShareChip shared={d.shared} tracker={tracker} name={d.title} disabled={!canEdit} onToggle={(on) => void setShared(d, on)} />}
               <RowMenu label={`Actions for ${d.title}`} items={[
                 { label: openId === d.id ? "Close" : "Open", onSelect: () => setOpenId(openId === d.id ? null : d.id) },
+                { label: "Copy public link", onSelect: () => void navigator.clipboard?.writeText(d.shareUrl ?? "").catch(() => setError("Your browser did not allow copying.")), hidden: !d.shareUrl },
+                { label: "Open public page", href: d.shareUrl ?? "", hidden: !d.shareUrl },
                 { label: "Remove", onSelect: () => void removeDoc(d), danger: true, hidden: !canEdit },
               ]} />
               {openId === d.id && <div className="entry-expand"><DocEditor id={d.id} canEdit={canEdit} onChanged={load} onRemoved={() => { setOpenId(null); void load(); }} onError={setError} /></div>}

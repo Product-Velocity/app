@@ -119,7 +119,7 @@ describe("the description as headed sections (issue #319, decision 2026-11-04-ji
   it("a new issue gets all the sections, the links and the files, in the order of the GitHub block", () => {
     const p = planJiraSend({ pv: full, jira: null, map: {}, create: { projectKey: "PLAT", issueTypeId: "10000" }, artifacts: ART, files: FILES });
     const t = text(p);
-    expect(t.replace(/\n+/g, "|")).toBe("Summary|Short|Description|Pay fast|Hypothesis (IF / THEN / RESULTING IN)|IF a THEN b|Artifacts|- PRD|Files|- Shot");
+    expect(t.replace(/\n+/g, "|")).toBe("Summary|Short|Description|Pay fast|Hypothesis (IF / THEN / RESULTING IN)|IF a THEN b|Links|- PRD|Files|- Shot");
     expect(p.newBase).toEqual({ title: h("Checkout"), summary: h("Short"), description: h("Pay fast"), hypothesis: h("IF a THEN b"), attachments: attachmentsHash(ART, FILES) });
   });
   it("in step: nothing is written, even with links and files", () => {
@@ -189,9 +189,9 @@ describe("the description as headed sections (issue #319, decision 2026-11-04-ji
     expect(p.unresolved).toEqual([]);
     expect(p.notes.join(" ")).toMatch(/Hypothesis in Jira has content Product Velocity cannot write back/);
   });
-  it("the Artifacts and Files sections can be switched off per project, and the preview says so", () => {
+  it("the Links and Files sections can be switched off per project, and the preview says so", () => {
     const p = planJiraSend({ pv: full, jira: null, map: { off: ["jira.body.artifacts", "jira.body.files"] }, create: { projectKey: "PLAT", issueTypeId: "10000" }, artifacts: ART, files: FILES });
-    expect(text(p)).not.toMatch(/Artifacts|Files|PRD|Shot/);
+    expect(text(p)).not.toMatch(/Links|Files|PRD|Shot/);
     expect(p.notes.join(" ")).toMatch(/Artifact links not sent.*\n?.*File links not sent|File links not sent/);
   });
 });

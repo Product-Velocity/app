@@ -8,7 +8,7 @@ const links = [{ label: "PRD", url: "https://example.test/prd" }];
 describe("composeDescription", () => {
   it("writes the sections in order under level-2 headings and leaves empty ones out", () => {
     const d = composeDescription({ pv, artifacts: links, files: [{ label: "Shot", url: "https://example.test/f" }] });
-    expect(d.content.filter((n) => n.type === "heading").map((n) => adfToText({ type: "doc", version: 1, content: [n] }))).toEqual(["Summary", "Description", "Hypothesis (IF / THEN / RESULTING IN)", "Artifacts", "Files"]);
+    expect(d.content.filter((n) => n.type === "heading").map((n) => adfToText({ type: "doc", version: 1, content: [n] }))).toEqual(["Summary", "Description", "Hypothesis (IF / THEN / RESULTING IN)", "Links", "Files"]);
     const t = adfToText(d);
     expect(t.indexOf("Short")).toBeLessThan(t.indexOf("Long text"));
     expect(t).toContain("- PRD");
@@ -18,7 +18,7 @@ describe("composeDescription", () => {
   it("an empty item gives an empty document, and unsafe links are dropped", () => {
     expect(composeDescription({ pv: { summary: "", description: "", hypothesis: "" } }).content).toHaveLength(1);
     const d = composeDescription({ pv, artifacts: [{ label: "x", url: "javascript:alert(1)" }, { label: "y", url: "https://a.test/a b" }] });
-    expect(adfToText(d)).not.toMatch(/Artifacts|javascript/);
+    expect(adfToText(d)).not.toMatch(/Links|javascript/);
   });
 });
 

@@ -260,7 +260,7 @@ describe("share links of files (R-034)", () => {
     const b = buildTrackingIssue({ ...base, files: shared }).block;
     expect(b).toContain("## Files");
     expect(b).toContain(`- [Mockup v2.png](https://productvelocity.app/f/${"T".repeat(43)}/Mockup%20v2.png)`);
-    expect(b.indexOf("## Files")).toBeGreaterThan(b.indexOf("## Artifacts"));
+    expect(b.indexOf("## Files")).toBeGreaterThan(b.indexOf("## Links"));
   });
   it("has no Files section without links, and a changed link changes the hash", () => {
     expect(buildTrackingIssue(base).block).not.toContain("## Files");

@@ -22,10 +22,10 @@ export type TrackingIssueInput = {
   /** Files with a login-free share link. The caller passes them ONLY for a private repository: anyone who can read the issue can open them. */
   files?: Artifact[];
   /**
-   * The Markdown of the documents the person left shared (rendered by `documentsMarkdown` in @pv/domain: headings moved down, cut to fit). The caller passes it ONLY
-   * for a private repository. This is the one place document text may enter a GitHub payload (CLAUDE.md rule 2, changed 2026-11-05).
+   * The documents the person left shared, each as its name and a public link (no login) to a read-only page of its text. The text itself never enters a
+   * payload (CLAUDE.md rule 2, changed 2026-11-06). The caller passes them ONLY for a private repository, like the file links.
    */
-  documents?: string;
+  documents?: Artifact[];
   /** Slots switched off in the field configuration (`github.label.*`, `github.body.artifacts`, `github.body.files`, `github.milestone`, `github.issueType`); absent = everything on, as before. */
   off?: readonly string[];
   /** Slots switched ON that are off by default (`github.label.tags`, `github.label.focus`). */
@@ -151,10 +151,10 @@ export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
   if (summary) parts.push("", "## Summary", summary);
   if (description) parts.push("", "## Description", description);
   if (hypothesis) parts.push("", "## Hypothesis (IF / THEN / RESULTING IN)", hypothesis);
-  if (links.length) parts.push("", "## Artifacts", ...links.map((a) => `- [${linkLabel(a.label)}](${a.url})`));
+  if (links.length) parts.push("", "## Links", ...links.map((a) => `- [${linkLabel(a.label)}](${a.url})`));
   if (files.length) parts.push("", "## Files", ...files.map((a) => `- [${linkLabel(a.label)}](${a.url})`));
-  const docs = sanitize((i.documents ?? "").trim());
-  if (docs) parts.push("", "## Documents", docs);
+  const docLinks = (i.documents ?? []).filter((a) => /^https?:\/\//i.test(a.url) && !/[\s()<>]/.test(a.url)).slice(0, 20);
+  if (docLinks.length) parts.push("", "## Documents", ...docLinks.map((a) => `- [${linkLabel(a.label)}](${a.url})`));
   parts.push("", "---", `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept. [Open in Product Velocity](${i.appUrl}/portfolio/${encodeURIComponent(code)})`, BLOCK_END);
 
   const title = (code ? `${code}: ${name}` : name) || "Untitled initiative";

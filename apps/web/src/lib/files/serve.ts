@@ -4,6 +4,9 @@ import { randomBytes } from "node:crypto";
 export const newShareToken = () => randomBytes(32).toString("base64url");
 export const isShareToken = (s: string) => /^[A-Za-z0-9_-]{32,64}$/.test(s);
 
+/** Public address of a shared document (issue #325): the page shows its current text, read only, with no login. The name is only for people reading the URL. */
+export const documentUrl = (appUrl: string, token: string, title: string) => `${appUrl}/d/${token}/${encodeURIComponent(title.replace(/[\\/?#%]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "document")}`;
+
 /** Public address of a share link. The name is only for people reading the URL; the token is what opens the file. */
 export const shareUrl = (appUrl: string, token: string, name: string) => `${appUrl}/f/${token}/${encodeURIComponent(name)}`;
 

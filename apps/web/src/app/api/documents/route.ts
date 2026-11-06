@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkDocumentInput, MAX_DOCS_PER_ITEM } from "@pv/domain";
 import { DOC_COLS, toDoc, type DocRow } from "@/lib/documents";
+import { siteUrl } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
 /** Documents of one initiative (no text). Reads go through the signed-in person's own client, so only members of the workspace see them. */
@@ -11,7 +12,8 @@ export async function GET(request: Request) {
   if (!auth.user) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   const { data, error } = await supabase.from("item_documents").select(DOC_COLS).eq("item_id", item).order("created_at");
   if (error) return NextResponse.json({ error: "Documents could not be loaded." }, { status: 500 });
-  return NextResponse.json({ documents: ((data ?? []) as DocRow[]).map((r) => toDoc(r)) });
+  const appUrl = await siteUrl();
+  return NextResponse.json({ documents: ((data ?? []) as DocRow[]).map((r) => toDoc(r, false, appUrl)) });
 }
 
 /** Adds a document. The row is written as the person, so the role check, the version log and the audit log apply. */
@@ -29,5 +31,5 @@ export async function POST(request: Request) {
   if ((count ?? 0) >= MAX_DOCS_PER_ITEM) return NextResponse.json({ error: `An initiative can hold at most ${MAX_DOCS_PER_ITEM} documents.` }, { status: 422 });
   const { data, error } = await supabase.from("item_documents").insert({ tenant_id: item.tenant_id, item_id: item.id, kind: c.value.kind, title: c.value.title, body: c.value.body ?? "" }).select(DOC_COLS).single();
   if (error || !data) return NextResponse.json({ error: "You do not have permission to add documents here." }, { status: 403 });
-  return NextResponse.json({ document: toDoc(data as DocRow, true) }, { status: 201 });
+  return NextResponse.json({ document: toDoc(data as DocRow, true, await siteUrl()) }, { status: 201 });
 }

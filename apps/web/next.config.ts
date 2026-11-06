@@ -17,6 +17,8 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      // shared documents and files are opened by their secret address: not cached, not indexed, address not passed on
+      { source: "/d/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }, { key: "Cache-Control", value: "private, no-store" }, { key: "X-Robots-Tag", value: "noindex, nofollow" }] },
       // invite links carry a secret in the path: never leak it through the Referer header
       {
         source: "/invite/:path*",

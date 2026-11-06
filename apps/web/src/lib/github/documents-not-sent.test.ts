@@ -2,9 +2,9 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// CLAUDE.md rule 2 as changed on 2026-11-05 (Ashu, issue #325): written documents ARE shared with the GitHub issue and the Jira description, unless the
-// person chose "Do not share". What stays true is WHERE: only the two readers below may touch item_documents, each must ask for shared documents
-// only, and the GitHub package (the payload builder) never reads the table: it only receives text that was already rendered and cut.
+// CLAUDE.md rule 2 as changed on 2026-11-06 (Ashu, issue #325): written documents are shared with the GitHub issue and the Jira description as a NAME AND A
+// PUBLIC LINK, unless the person chose "Do not share". The text itself never goes into a payload. So: only the two readers below may touch item_documents,
+// each must ask for shared documents that are not unaccepted AI drafts, and none may select the text (`body`); the GitHub package never reads the table.
 const githubDir = join(__dirname);
 const githubPkg = join(__dirname, "../../../../../packages/github/src");
 const atlassianDir = join(__dirname, "../atlassian");
@@ -25,13 +25,13 @@ describe("documents reach a delivery platform only through the shared-documents 
       expect(readFileSync(f, "utf8"), f).not.toMatch(/item_documents|item_document_versions/);
     }
   });
-  it("the two readers ask only for documents left shared and not an unaccepted AI draft, and never read the versions", () => {
+  it("the two readers ask only for documents left shared and not an unaccepted AI draft, never select the text, and never read the versions", () => {
     for (const r of READERS) {
       const file = [...sources(githubDir), ...sources(atlassianDir)].find((f) => f.endsWith(`/${r}`))!;
       const text = readFileSync(file, "utf8");
       const reads = text.match(/from\("item_documents"\)[^;]*/g) ?? [];
       expect(reads.length, r).toBeGreaterThan(0);
-      for (const q of reads) { expect(q, `${r}: ${q}`).toContain('.eq("shared", true)'); expect(q, `${r}: ${q}`).toContain('.eq("ai_draft", false)'); }
+      for (const q of reads) { expect(q, `${r}: ${q}`).toContain('.eq("shared", true)'); expect(q, `${r}: ${q}`).toContain('.eq("ai_draft", false)'); expect(q, `${r}: ${q}`).not.toMatch(/select\("[^"]*\bbody\b/); }
       expect(text, r).not.toMatch(/item_document_versions/);
     }
   });
