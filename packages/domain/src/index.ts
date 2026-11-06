@@ -38,5 +38,6 @@ export * from "./discovery-template";
 export * from "./company-profile";
 export * from "./assistants";
 export * from "./gates";
+export * from "./gate-report";
 export * from "./attention";
 export * from "./notifications";

@@ -261,7 +261,7 @@ test("the percent view makes every bar 100%, says the share in each segment and 
 test("a list of reports sits next to the title; Overview opens first and Roadmap Health keeps the filters and the address", async ({ page }) => {
   await open(page);
   const list = page.getByRole("group", { name: "Report" });
-  await expect(list.getByRole("button")).toHaveText(["Overview", "Roadmap Health"]);
+  await expect(list.getByRole("button")).toHaveText(["Overview", "Roadmap Health", "Gate history"]);
   await expect(list.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('section[aria-label="Initiatives by Product Manager and Phase"]')).toBeVisible();
   await list.getByRole("button", { name: "Roadmap Health" }).click();
@@ -285,4 +285,20 @@ test("Roadmap Health opens straight from its address and has no accessibility vi
   await expect(page.locator('section[aria-label="Aging by phase"]')).toBeVisible();
   const results = await new AxeBuilder({ page }).include(".reports").analyze();
   expect(results.violations).toEqual([]);
+});
+
+test("Gate history counts requests and outcomes per gate, the wait to decide and the wait to start building, with no per-person figures", async ({ page }) => {
+  await open(page, "&report=gates");
+  const table = page.getByRole("table", { name: "Decisions per gate" });
+  await expect(table).toBeVisible();
+  const gateB = table.getByRole("row", { name: /Gate B: Define to Build/ });
+  // requested 4, waiting 1, decided 3, go 1, go with conditions 1, hold 1, stop 0, fast lane 1, withdrawn 0, median 4 days (2, 4, 4), average 3.3
+  await expect(gateB.getByRole("cell")).toHaveText(["4", "1", "3", "1", "1", "1", "0", "1", "0", "4", "3.3", /^\d+$/]);
+  await expect(table.getByRole("row", { name: /Gate A: Discover to Define/ }).getByRole("cell").nth(6)).toHaveText("1"); // one Stop
+  await expect(page.getByText(/2 initiatives passed Gate B, 2 started building\. Median 9\.5 days/)).toBeVisible();
+  await expect(page.getByText("Nothing is waiting to start.")).toBeVisible();
+  await expect(page.getByText(/nothing is shown per approver/i)).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: /approver|decided by|person/i })).toHaveCount(0);
+  const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
+  expect(axe.violations).toEqual([]);
 });
