@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { ShortcutsPanel } from "./help-menu";
 import {
   AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_INTRO, AGENT_TABS, AGENT_TIPS, AGENT_USE_CASES, type AgentTabId, COLUMNS_NOTE, COLUMN_ROWS, UPDATE_LEGEND, FLOW_CREATE, FLOW_LIFECYCLE, ATTENTION_INTRO, ATTENTION_TABLE, GATES_INTRO, GATES_TABLE, GATES_STEPS, GATES_OUTCOMES, GATES_NOTES, STATUS_FROM_TRACKER, STATUS_INTRO, STATUS_NEXT_IN_PV, STATUS_NOTES, STATUS_TO_TRACKER, FLOW_READ, LIFECYCLE_NOTES,
   COLUMN_GROUPS, REPORTS_INTRO, REPORTS_LIST, ROADMAP_HEALTH_DEFINITIONS, ROADMAP_HEALTH_NOTES, type Table,
@@ -11,6 +12,7 @@ const TABS = [
   { id: "flow", label: "How content flows" },
   { id: "reports", label: "Reports" },
   { id: "agents", label: "AI agents" },
+  { id: "shortcuts", label: "Shortcuts" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -43,7 +45,7 @@ export function HelpGuide() {
   }, [open]);
   return (
     <>
-      <button type="button" className="help-btn" aria-haspopup="dialog" onClick={() => setOpen(true)} title="Columns, how content flows, AI agents">Help</button>
+      <button type="button" className="help-btn" aria-haspopup="dialog" onClick={() => setOpen(true)} title="Columns, how content flows, AI agents, keyboard shortcuts">Help</button>
       {open && (
         <div className="dialog-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
           <div className="dialog help-guide" role="dialog" aria-modal="true" aria-labelledby={titleId}>
@@ -143,6 +145,8 @@ export function HelpGuide() {
                 ))}
               </div>
             )}
+
+            {tab === "shortcuts" && <ShortcutsPanel onClose={() => setOpen(false)} />}
 
             <div className="dialog-actions"><button ref={closeRef} type="button" className="btn btn-primary" onClick={() => setOpen(false)}>Close</button></div>
           </div>
