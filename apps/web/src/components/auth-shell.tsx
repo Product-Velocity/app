@@ -22,7 +22,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
   return (
     <main className="auth-split">
       <aside className="auth-brand" aria-label="About Product Velocity">
-        <BrandLogo size={40} />
+        <BrandLogo size={120} />
         <div className="auth-brand-main">
           <p className="auth-tag">{AUTH_BRAND.tagline}</p>
           <p className="auth-what">{AUTH_BRAND.what}</p>

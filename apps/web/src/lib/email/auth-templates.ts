@@ -41,7 +41,7 @@ function render(spec: Spec): string {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f4f6;">
 <tr><td align="center" style="padding:32px 16px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;">
-<tr><td style="padding:32px 32px 0 32px;"><img src="{{ .SiteURL }}/email/logo.png" width="120" height="42" alt="Product Velocity" style="display:block;border:0;height:42px;width:120px;"></td></tr>
+<tr><td style="padding:32px 32px 0 32px;"><img src="{{ .SiteURL }}/email/logo.png" width="155" height="56" alt="Product Velocity" style="display:block;border:0;height:56px;width:155px;"></td></tr>
 <tr><td style="padding:24px 32px 0 32px;font-family:${FONT};color:#111827;">
 <h1 style="margin:0 0 12px 0;font-size:24px;line-height:30px;font-weight:600;color:#111827;">${spec.heading}</h1>
 <p style="margin:0;font-size:16px;line-height:26px;color:#4b5563;">${spec.body}</p>
