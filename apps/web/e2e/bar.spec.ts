@@ -291,8 +291,9 @@ test.describe("Add an initiative: type it in one line", () => {
     const box = await page.getByPlaceholder(/^Enter adds/).getAttribute("placeholder");
     for (const w of ["Paste a list to add many", "#platform", "@anna", "+growth", "more under Shortcuts"]) expect(box).toContain(w);
     await page.goto("/dev/item/R-01");
-    await page.getByRole("button", { name: "Shortcuts" }).click();
-    const dialog = page.getByRole("dialog", { name: /keyboard shortcuts/i });
+    await page.getByRole("button", { name: "Help", exact: true }).click();
+    await page.getByRole("tab", { name: "Shortcuts" }).click();
+    const dialog = page.getByRole("dialog", { name: "Help" });
     await expect(dialog).toContainText("Add an initiative: type it in one line");
     for (const word of ["~now", "!atrisk", "start:mon", "by:31/03", "Paste a list"]) await expect(dialog).toContainText(word);
   });
@@ -318,10 +319,12 @@ test.describe("Add an initiative: type it in one line", () => {
 });
 
 test.describe("Shortcuts, Help and text size in the top bar", () => {
-  test("Shortcuts opens the keyboard list and Help opens the guide with its three tables", async ({ page }) => {
+  test("Help opens the guide with its tables, and Shortcuts is a tab inside it", async ({ page }) => {
     await page.goto("/dev/item/R-01");
-    await page.getByRole("button", { name: "Shortcuts" }).click();
-    await expect(page.getByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Shortcuts", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Help", exact: true }).click();
+    await page.getByRole("tab", { name: "Shortcuts" }).click();
+    await expect(page.getByRole("dialog", { name: "Help" })).toContainText("Open the command palette");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Help", exact: true }).click();
     const guide = page.getByRole("dialog", { name: "Help" });

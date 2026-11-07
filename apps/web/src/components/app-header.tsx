@@ -1,5 +1,4 @@
 import { AccountMenu } from "./account-menu";
-import { HelpMenu } from "./help-menu";
 import { HelpGuide } from "./help-guide";
 import { TextSizeControl } from "./text-size-control";
 import { BrandLogo } from "./brand-logo";
@@ -52,7 +51,6 @@ export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmi
 
       {activeTenantId ? <NotificationsBell tenantId={activeTenantId} /> : null}
       <TextSizeControl initial={textSize} />
-      <HelpMenu />
       <HelpGuide />
       <AccountMenu email={email} roleLabel={roleLabel} isApprover={isApprover} showTrash={showTrash} showAudit={showAudit} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} />
     </header>
