@@ -61,14 +61,18 @@ export function makeCardsHarness(n: number, role: string) {
   const { controller, source } = makeHarness(n, 0, role);
   const phases = ["Discover", "Define", "Build", "Test", null];
   const groups = ["Onboarding", "Platform health", "Retention", null];
+  const quarters = ["Q1 2027", "Q2 2027", "Q3 2027", null];
+  const audiences = ["Publishers", "Demand partners", "Internal", null];
   source.items.forEach((item, i) => {
     item.initiative_phase = phases[i % phases.length] ?? null;
     item.theme = groups[(i * 3) % groups.length] ?? null;
+    item.g2m_quarter = quarters[i % quarters.length] ?? null;
+    item.audience = audiences[i % audiences.length] ?? null;
     item.contributing_teams = i % 5 === 0 ? "Core, Mobile" : i % 3 === 0 ? "Core" : null;
   });
   for (const r of controller.rows) {
     const s = source.items.find((x) => x.id === r.id)!;
-    r.initiative_phase = s.initiative_phase; r.theme = s.theme; r.contributing_teams = s.contributing_teams;
+    r.initiative_phase = s.initiative_phase; r.theme = s.theme; r.g2m_quarter = s.g2m_quarter; r.audience = s.audience; r.contributing_teams = s.contributing_teams;
   }
   return { controller, source };
 }

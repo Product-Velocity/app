@@ -1,22 +1,42 @@
 "use client";
 
-import { moveNeedsGate } from "@pv/domain";
+import {
+  CARDS_DEFAULT_VIEWS, CARDS_VIEW_NAMES, CORE_COLUMN_KEYS, FIELD_BY_KEY, VISIBLE_FIELDS, axisLabel, axisOptions, boardMoves, buildBoard, cardNeighbor,
+  cardValue, defaultColumnField, matchesFilters, matchesSearch, moveNeedsGate, planMove, refKey, sanitizeView, type AxisCtx, type Board, type Filter, type ViewDef,
+} from "@pv/domain";
 import type { GateSource } from "../gates/gate-source";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  FIELD_BY_KEY, axisLabel, axisOptions, boardMoves, buildBoard, cardNeighbor, cardValue, defaultColumnField, planMove, type AxisCtx, type Board,
-} from "@pv/domain";
+import { ColumnsPanel } from "../portfolio/columns-panel";
 import type { PortfolioController } from "../portfolio/controller";
+import { FilterPanel } from "../portfolio/filter-panel";
+import { baseDef, baseParam, parseBase, sameView, type BaseView } from "../portfolio/grid-view";
 import { ItemPanel } from "../portfolio/item-panel";
-import { StatusStrip } from "../portfolio/status-strip";
-import { useViewRows } from "../portfolio/use-view-rows";
+import { StatusStrip, useStatus } from "../portfolio/status-strip";
 import type { GridItem, Lookups } from "../portfolio/types";
-import { setQueryParam } from "../workspace/scope";
+import { baseToRef, useViews, ViewBar } from "../portfolio/view-bar";
+import { summarize } from "../portfolio/view-controls";
+import { useWorkspace } from "../workspace/provider";
+import { setQueryParam, useScope } from "../workspace/scope";
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, "-");
 const BASE_FIELDS = new Set(["stack_rank", "item_code", "initiative_name", "health", "product_manager", "contributing_teams", "effort"]);
 const DEFAULT_LANE = "theme";
+const PRIORITISATION: BaseView = { kind: "builtin", name: "Prioritisation" };
+const CARDS_VIEW_STORAGE_KEY = "pv:cards-view";
+
+function readStoredCardsView(): string | null {
+  if (typeof window === "undefined") return null;
+  try { return window.sessionStorage.getItem(CARDS_VIEW_STORAGE_KEY); } catch { return null; }
+}
+
+function writeStoredCardsView(param: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (param === null) window.sessionStorage.removeItem(CARDS_VIEW_STORAGE_KEY);
+    else window.sessionStorage.setItem(CARDS_VIEW_STORAGE_KEY, param);
+  } catch { /* ignore storage errors */ }
+}
 
 export type CardsProps = {
   /** Decision gates: a card dropped on a phase column is a Move to that phase when no gate is crossed. */
@@ -25,15 +45,102 @@ export type CardsProps = {
 /** Cards: columns by one field, swimlanes by another; drag a card (or use the keys or the Move menu) to change those fields. */
 export function CardsView({ controller, lookups, me, pageHref, gates }: CardsProps) {
   const params = useSearchParams();
-  const { rows, scope, views, viewParam, filterName, savedColumns, status } = useViewRows(controller, me);
+  const status = useStatus(controller);
+  const { views, defaults, ready } = useWorkspace();
+  const scope = useScope();
+  const today = controller.todayDate();
   const options = useMemo(() => axisOptions(), []);
   const available = options.filter((o) => o.available);
   const keys = available.map((o) => o.key);
 
+  // ---- the view: 4 default Cards views + custom saved views, persisted in URL (?view=) and session storage
+  const [base, setBase] = useState<BaseView>(() => {
+    const fromUrl = params.get("view");
+    if (fromUrl !== null) return parseBase(fromUrl, PRIORITISATION);
+    return parseBase(readStoredCardsView(), PRIORITISATION);
+  });
+  type Shared = { filters?: Filter[]; groupBy?: string | null; sort?: ViewDef["sort"] };
+  const [shared, setShared] = useState<Shared>(() => {
+    const v = params.get("lane");
+    if (v === "none") return { groupBy: null };
+    if (v && keys.includes(v)) return { groupBy: v };
+    return {};
+  });
+  const [colOverrides, setColOverrides] = useState<Record<string, { columns: string[]; pinned: string[] }>>({});
+  const viewKey = refKey(baseToRef(base));
+  const savedDef = useMemo(() => baseDef(base, views, defaults, CARDS_DEFAULT_VIEWS), [base, views, defaults]);
+  const baseMissing = base.kind === "saved" && savedDef === null && ready;
+  const bDef = useMemo(() => savedDef ?? baseDef(PRIORITISATION, [], defaults, CARDS_DEFAULT_VIEWS)!, [savedDef, defaults]);
+  const co = colOverrides[viewKey];
+  const def = useMemo(
+    () => sanitizeView({
+      ...bDef,
+      ...(co ? { columns: co.columns, pinned: co.pinned } : {}),
+      ...(shared.filters !== undefined ? { filters: shared.filters } : {}),
+      ...("groupBy" in shared ? { groupBy: shared.groupBy } : {}),
+      ...("sort" in shared ? { sort: shared.sort } : {}),
+    }),
+    [bDef, co, shared],
+  );
+  const dirty = !sameView(def, bDef);
+
+  useEffect(() => {
+    const p = baseParam(base);
+    writeStoredCardsView(p);
+    if (params.get("view") === null && p !== null) setQueryParam("view", p);
+  }, [base, params]);
+
+  const openBaseRaw = (b: BaseView) => {
+    const target = baseDef(b, views, defaults, CARDS_DEFAULT_VIEWS);
+    if (target) {
+      setShared((p) => {
+        const n = { ...p };
+        if (target.filters.length > 0 || b.kind === "builtin") delete n.filters;
+        delete n.groupBy;
+        if (target.sort) delete n.sort;
+        return n;
+      });
+    }
+    setBase(b);
+    const p = baseParam(b);
+    setQueryParam("view", p);
+    setQueryParam("lane", null);
+    writeStoredCardsView(p);
+  };
+  const changeDef = (patch: Partial<ViewDef>) => {
+    const next = sanitizeView({ ...def, ...patch });
+    setShared((p) => ({ ...p, ...("filters" in patch ? { filters: next.filters } : {}), ...("groupBy" in patch ? { groupBy: next.groupBy } : {}), ...("sort" in patch ? { sort: next.sort ?? null } : {}) }));
+    if ("columns" in patch || "pinned" in patch) setColOverrides((p) => ({ ...p, [viewKey]: { columns: next.columns, pinned: next.pinned ?? [] } }));
+  };
+  const clearColumns = () => setColOverrides((p) => { const n = { ...p }; delete n[viewKey]; return n; });
+  const resetChanges = () => { setShared({}); clearColumns(); setQueryParam("lane", null); };
+  const visible = useMemo(() => new Set(def.columns), [def.columns]);
+  const changeColumns = (columns: string[], pinned: string[]) => changeDef({ columns, pinned });
+  const shownCount = VISIBLE_FIELDS.filter((f) => visible.has(f.key) || (CORE_COLUMN_KEYS as readonly string[]).includes(f.key)).length;
+  const viewsApi = useViews({
+    base, def, bDef, dirty, openBase: openBaseRaw, discard: clearColumns, reset: resetChanges,
+    builtins: CARDS_VIEW_NAMES, defaultBar: CARDS_VIEW_NAMES, builtinDefs: CARDS_DEFAULT_VIEWS,
+  });
+
+  const [search, setSearch] = useState("");
+  const setFilters = (filters: Filter[]) => changeDef({ filters });
+
   const [colField, setColState] = useState(() => { const v = params.get("by"); return v && keys.includes(v) ? v : defaultColumnField(); });
-  const [laneField, setLaneState] = useState(() => { const v = params.get("lane"); return v === "none" ? "" : v && keys.includes(v) ? v : DEFAULT_LANE; });
+  const laneField = def.groupBy && keys.includes(def.groupBy) ? def.groupBy : "";
   const setCol = (v: string) => { setColState(v); setQueryParam("by", v === defaultColumnField() ? null : v); };
-  const setLane = (v: string) => { setLaneState(v); setQueryParam("lane", v === DEFAULT_LANE ? null : v === "" ? "none" : v); };
+  const setLane = (v: string) => {
+    changeDef({ groupBy: v || null });
+    setQueryParam("lane", v === DEFAULT_LANE ? null : v === "" ? "none" : v);
+  };
+
+  const rows = useMemo<GridItem[]>(
+    () => controller.rows.filter((r) => (scope.projectIds === null || scope.projectIds.includes(r.home_project)) && matchesSearch(r, search) && matchesFilters(r, def.filters, { me, today })),
+    // the controller changes its rows in place; the version says when
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [controller, status.version, scope.projectIds, search, def.filters, me],
+  );
+  const filterName = base.kind === "saved" ? (views.find((v) => v.id === base.id)?.name ?? null) : def.filters.length > 0 ? base.name : null;
+
   const [peekId, setPeekState] = useState<string | null>(() => { const c = params.get("item"); return c ? controller.rows.find((r) => r.item_code === c)?.id ?? null : null; });
   const openPeek = useCallback((id: string | null) => { setPeekState(id); setQueryParam("item", id ? controller.row(id)?.item_code ?? null : null); }, [controller]);
 
@@ -123,7 +230,7 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
   }, [peekId, openPeek, menuFor]);
 
   const memberName = (id: unknown) => { const e = lookups.members.find((m) => m.user_id === id)?.email; return e ? e.split("@")[0]! : ""; };
-  const extraFields = useMemo(() => (savedColumns ?? []).filter((k) => !BASE_FIELDS.has(k) && k !== colField && k !== laneField && FIELD_BY_KEY[k]).slice(0, 3), [savedColumns, colField, laneField]);
+  const extraFields = useMemo(() => def.columns.filter((k) => !BASE_FIELDS.has(k) && k !== colField && k !== laneField && FIELD_BY_KEY[k]).slice(0, 3), [def.columns, colField, laneField]);
 
   const onCardKey = (e: React.KeyboardEvent, row: GridItem) => {
     if (e.key === "Enter" || e.key === " ") { if ((e.target as HTMLElement).closest("button")) return; e.preventDefault(); openPeek(row.id); return; }
@@ -187,18 +294,46 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
     <div className="cards-page">
       <div className="gantt-toolbar page-head">
         <h1>Cards</h1>
+        <ViewBar api={viewsApi} />
         <p className="muted gantt-count">
           {board.total} initiatives{scope.selection.kind !== "all" ? ` · scope: ${scope.label}` : ""}{filterName ? ` · filters of “${filterName}”` : ""}
         </p>
-        <div className="gantt-tools">
-          <label>Columns <select value={colField} onChange={(e) => setCol(e.target.value)}>{options.map((o) => <option key={o.key} value={o.key} disabled={!o.available}>{o.label}</option>)}</select></label>
-          <label>Swimlanes <select value={laneField} onChange={(e) => setLane(e.target.value)}>
-            <option value="">No swimlanes</option>
-            {available.filter((o) => o.key !== colField).map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-          </select></label>
-          <label>Filters of <select value={views.some((v) => v.id === viewParam) ? viewParam! : ""} onChange={(e) => setQueryParam("view", e.target.value || null)}>
-            <option value="">No saved view</option>{views.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-          </select></label>
+        {(def.filters.length > 0 || scope.selection.kind !== "all") && (
+          <div className="filter-chips" aria-label="Active scope and filters">
+            {scope.selection.kind !== "all" && <span className="token-chip">Scope: {scope.label}</span>}
+            {def.filters.map((f, i) => (
+              <span key={i} className="token-chip">
+                {summarize(f, lookups)}{" "}
+                <button type="button" className="chip-x" aria-label={`Remove filter ${summarize(f, lookups)}`} onClick={() => setFilters(def.filters.filter((_, j) => j !== i))}>×</button>
+              </span>
+            ))}
+          </div>
+        )}
+        {baseMissing && <div className="view-dirty" role="status">This view is private to its owner or no longer exists. Showing Prioritisation.</div>}
+      </div>
+
+      <div className="pvbar" role="region" aria-label="Card tools">
+        <div className="pvbar-s1">
+          <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} quarters={controller.rows.map((r) => r.g2m_quarter)} openValues={(k) => controller.openValues(k)} today={today} matching={rows.length} total={controller.rows.length} />
+          <ColumnsPanel def={def} defaultDef={bDef} customerSafe={def.customerSafe === true} onApply={changeColumns} shown={shownCount} />
+          <label className="pvbar-search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b6272" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
+            <input
+              type="search"
+              aria-label="Search initiatives"
+              placeholder="Search initiatives"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Escape") setSearch(""); }}
+            />
+          </label>
+          <div className="gantt-tools">
+            <label>Columns <select value={colField} onChange={(e) => setCol(e.target.value)}>{options.map((o) => <option key={o.key} value={o.key} disabled={!o.available}>{o.label}</option>)}</select></label>
+            <label>Swimlanes <select value={laneField} onChange={(e) => setLane(e.target.value)}>
+              <option value="">No swimlanes</option>
+              {available.filter((o) => o.key !== colField).map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select></label>
+          </div>
         </div>
       </div>
 

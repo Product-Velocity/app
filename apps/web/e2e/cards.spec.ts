@@ -60,18 +60,81 @@ test.describe("the board", () => {
   test("respects the scope, the filters of a saved view, and shows the saved view's extra columns on the cards", async ({ page }) => {
     await open(page);
     const all = await page.locator("[data-card]").count();
-    await page.getByLabel("Filters of").selectOption("view-must");
+    await page.locator(".more-views-btn").click();
+    await page.getByRole("dialog", { name: "Views" }).getByRole("group", { name: "Must haves" }).locator(".vm-open").click();
     await expect(page.locator(".gantt-count")).toContainText("filters of “Must haves”");
     expect(await page.locator("[data-card]").count()).toBeLessThan(all);
-    await page.getByLabel("Filters of").selectOption("view-detail");
+    await page.locator(".more-views-btn").click();
+    await page.getByRole("dialog", { name: "Views" }).getByRole("group", { name: "With dates" }).locator(".vm-open").click();
     await expect(card(page, "item-1")).toContainText("G2M Date (est):");
     await expect(card(page, "item-1")).toContainText("Confidence:");
-    await page.getByLabel("Filters of").selectOption("");
+    await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Prioritisation", exact: true }).click();
     await page.locator(".scope-chip").click();
     await page.getByRole("menuitemradio", { name: /Customer-facing work/ }).click();
     await expect(page.locator(".gantt-count")).toContainText("scope: Customer-facing work");
     const projects = await page.evaluate(() => [...document.querySelectorAll("[data-card]")].map((c) => (window as unknown as { __pv: { controller: { row: (id: string) => { home_project: string } } } }).__pv.controller.row(c.getAttribute("data-card")!).home_project));
     expect(new Set(projects)).toEqual(new Set(["p3"]));
+  });
+
+  test("shows the 4 default views (Prioritisation, Planning, Delivery, Go-to-market) and applies their filters, swimlanes and card fields", async ({ page }) => {
+    await open(page);
+    const viewGroup = page.getByRole("group", { name: "View" });
+    await expect(viewGroup.locator(".view-chip")).toHaveText(["Prioritisation", "Planning", "Delivery", "Go-to-market"]);
+
+    // Planning: filters to Discover/Define/Build, groups swimlanes by Planned Quarter, shows G2M Date (est)
+    await viewGroup.getByRole("button", { name: "Planning", exact: true }).click();
+    expect(page.url()).toContain("view=Planning");
+    await expect(page.getByLabel("Swimlanes")).toHaveValue("g2m_quarter");
+    await expect(page.locator(".kb-lane-head strong")).toHaveText(["Q1 2027", "Q2 2027", "Q3 2027", "No value"]);
+    await expect(page.locator(".filter-chips")).toContainText("Initiative Phase");
+    await expect(card(page, "item-1")).toContainText("G2M Date (est):");
+
+    // Delivery: filters to Build/Test/Experiment, groups swimlanes by Project, shows Build Status and Delivery Progress
+    await viewGroup.getByRole("button", { name: "Delivery", exact: true }).click();
+    expect(page.url()).toContain("view=Delivery");
+    await expect(page.getByLabel("Swimlanes")).toHaveValue("home_project");
+    await expect(card(page, "item-3")).toContainText("Build Status:");
+    await expect(card(page, "item-3")).toContainText("Delivery Progress:");
+
+    // Go-to-market: filters to Test/Experiment/Roll-out, groups swimlanes by Audience
+    await viewGroup.getByRole("button", { name: "Go-to-market", exact: true }).click();
+    expect(page.url()).toContain("view=Go-to-market");
+    await expect(page.getByLabel("Swimlanes")).toHaveValue("audience");
+    await expect(page.locator(".kb-lane-head strong")).toHaveText(["Demand partners", "Internal", "Publishers", "No value"]);
+  });
+
+  test("filters cards with the FilterPanel and search box, and saves and persists a custom view across navigation", async ({ page }) => {
+    await open(page);
+    // Search input filters cards immediately and Escape clears it
+    const search = page.getByRole("searchbox", { name: "Search initiatives" });
+    await search.fill("R-01");
+    await expect(page.locator("[data-card]")).toHaveCount(1);
+    await expect(card(page, "item-1")).toBeVisible();
+    await search.press("Escape");
+    await expect(page.locator(".gantt-count")).toContainText("40 initiatives");
+
+    // FilterPanel quick filter narrows cards and adds a removable filter chip
+    await page.getByRole("button", { name: /^Filter/ }).click();
+    await page.getByRole("dialog", { name: "Filters" }).getByRole("button", { name: "Must-haves" }).click();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".filter-chips")).toContainText("MoSCoW: Must");
+    const filteredCount = await page.locator("[data-card]").count();
+    expect(filteredCount).toBeLessThan(40);
+
+    // Save as a custom view and verify persistence across navigation back to /dev/cards
+    await page.locator(".more-views-btn").click();
+    await page.getByRole("dialog", { name: "Views" }).getByRole("button", { name: "Save as new view…" }).click();
+    const saveDialog = page.getByRole("dialog", { name: "Save as new view" });
+    await saveDialog.getByLabel("Name").fill("Card Musts");
+    await saveDialog.getByRole("button", { name: "Save view" }).click();
+    await expect(page.getByRole("group", { name: "View" }).getByRole("button", { name: "Card Musts", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+    // Switch to Planning and navigate back to /dev/cards without ?view= to verify session persistence
+    await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Planning", exact: true }).click();
+    await page.goto("/dev/cards?n=40");
+    await page.waitForSelector("[data-card]");
+    await expect(page.getByRole("group", { name: "View" }).getByRole("button", { name: "Planning", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByLabel("Swimlanes")).toHaveValue("g2m_quarter");
   });
 });
 

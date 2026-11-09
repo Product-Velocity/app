@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CARDS_DEFAULT_VIEWS } from "@pv/domain";
 import { builtinDef, baseDef, baseLabel, baseParam, parseBase, sameView } from "./grid-view";
 
 const saved = [{ id: "v1", name: "My planning", columns: ["stack_rank", "item_code", "initiative_name", "moscow"], filters: [{ field: "moscow", op: "is" as const, value: "Must" }], groupBy: "health" }];
@@ -55,5 +56,11 @@ describe("customised default views", () => {
   });
   it("restoring goes back to the dictionary's columns", () => {
     expect(builtinDef("Planning").columns).toEqual(baseDef({ kind: "builtin", name: "Planning" }, [])!.columns);
+  });
+  it("uses custom built-in fallback definitions when supplied (Cards default views)", () => {
+    const cardsPlanning = baseDef({ kind: "builtin", name: "Planning" }, [], {}, CARDS_DEFAULT_VIEWS)!;
+    expect(cardsPlanning).toEqual(CARDS_DEFAULT_VIEWS.Planning);
+    expect(cardsPlanning.groupBy).toBe("g2m_quarter");
+    expect(cardsPlanning.columns).toHaveLength(5);
   });
 });

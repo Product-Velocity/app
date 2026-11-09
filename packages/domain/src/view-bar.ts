@@ -46,11 +46,11 @@ const byPosition = (a: LayoutRow, b: LayoutRow) => a.position - b.position;
  * either the bar is the first six built-ins. Hidden built-ins are in neither the bar nor the menu. A workspace view with no row in a
  * customised layout is marked New.
  */
-export function computeBar(input: { views: readonly BarView[]; workspaceLayout: readonly LayoutRow[]; myLayout: readonly LayoutRow[]; me: string | null }): BarState {
-  const { views, workspaceLayout, myLayout, me } = input;
+export function computeBar(input: { views: readonly BarView[]; workspaceLayout: readonly LayoutRow[]; myLayout: readonly LayoutRow[]; me: string | null; builtins?: readonly BuiltinBarName[]; defaultBar?: readonly BuiltinBarName[] }): BarState {
+  const { views, workspaceLayout, myLayout, me, builtins = BUILTIN_BAR_NAMES, defaultBar = DEFAULT_BAR } = input;
   const hiddenKeys = new Set(workspaceLayout.filter((r) => r.hidden).map((r) => refKey(r.ref)));
   const known = new Map<string, MenuEntry>();
-  for (const n of BUILTIN_BAR_NAMES) {
+  for (const n of builtins) {
     const ref: ViewRef = { kind: "builtin", name: n };
     known.set(refKey(ref), { ref, name: n, scope: "workspace", inBar: false, isNew: false, builtin: true });
   }
@@ -66,8 +66,8 @@ export function computeBar(input: { views: readonly BarView[]; workspaceLayout: 
   const followsWorkspace = mineRows.length === 0;
   let barRefs: ViewRef[];
   if (!followsWorkspace) barRefs = mineRows.filter((r) => r.inBar && visible(r)).sort(byPosition).map((r) => r.ref);
-  else if (workspaceLayout.some((r) => r.inBar && !r.hidden)) barRefs = workspaceLayout.filter((r) => r.inBar && visible(r)).sort(byPosition).map((r) => r.ref);
-  else barRefs = DEFAULT_BAR.map((name) => ({ kind: "builtin", name }) as ViewRef).filter((r) => !hiddenKeys.has(refKey(r)));
+  else if (workspaceLayout.some((r) => r.inBar && visible(r) && !r.hidden)) barRefs = workspaceLayout.filter((r) => r.inBar && visible(r)).sort(byPosition).map((r) => r.ref);
+  else barRefs = defaultBar.map((name) => ({ kind: "builtin", name }) as ViewRef).filter((r) => known.has(refKey(r)) && !hiddenKeys.has(refKey(r)));
   barRefs = barRefs.slice(0, BAR_MAX);
   const inBar = new Set(barRefs.map(refKey));
   const mentioned = new Set(mineRows.map((r) => refKey(r.ref)));
