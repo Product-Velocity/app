@@ -55,6 +55,11 @@ describe("registry", () => {
       expect(r.text).toContain("One roadmap for humans and AI.");
     }
   });
+  it("previews use the right sample for how long a link or code works", () => {
+    expect(previewTemplate(templateForAction("signup")!).text).toContain("60 minutes");
+    expect(previewTemplate(EMAIL_TEMPLATES.find((t) => t.key === "app.invitation")!).text).toContain("7 days");
+    expect(previewTemplate(EMAIL_TEMPLATES.find((t) => t.key === "app.link-code")!).text).toContain("15 minutes");
+  });
   it("a published override changes the words only; a broken override value still sends no raw text", () => {
     const t = templateForAction("recovery")!;
     const r = renderTemplate(t, { values: { expires: "30 minutes" }, siteUrl: "https://x.test", buttonUrl: "https://x.test/auth/callback?a=1", override: { heading: "New <heading> {{product}}" } });

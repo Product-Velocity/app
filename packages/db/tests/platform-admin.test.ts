@@ -39,6 +39,7 @@ describe("who can use the platform functions (FR-5.3: no leakage)", () => {
       "select * from public.platform_admin_list()",
       "select * from public.platform_audit_search()",
       "select * from public.platform_config_log()",
+      "select * from public.platform_email_stats()",
       `select public.platform_enter_account('${f.tenantA}')`,
       "select public.platform_set_default_level('read_only')",
       `select public.platform_set_account_level('${f.tenantA}', 'read_only')`,
@@ -324,5 +325,22 @@ describe("guard coverage", () => {
           and exists (select 1 from pg_attribute a where a.attrelid = c.oid and a.attname = case when c.relname = 'tenants' then 'id' else 'tenant_id' end and not a.attisdropped)
           and not exists (select 1 from pg_trigger t where t.tgrelid = c.oid and t.tgname = 'a_platform_readonly_guard')`);
     expect(rows.map((r) => r.relname)).toEqual([]);
+  });
+});
+
+describe("platform email stats (issue #370)", () => {
+  it("a platform admin sees counts per template and nothing about people, and the log table stays closed", async () => {
+    await db.admin.query("insert into public.email_send_log (template_key, status, provider_id) values ('app.access-request', 'delivered', 're_stat_1'), ('app.access-request', 'failed', null), ('auth.sign-in-link', 'sent', 're_stat_2')");
+    const rows = await asPat<{ template_key: string }[]>(async (q) => (await q("select * from public.platform_email_stats(30)")).rows);
+    const inv = rows.find((r) => r.template_key === "app.access-request")!;
+    expect(inv).toMatchObject({ sends: "2", failures: "1", delivered: "1" });
+    expect(Object.keys(inv).sort()).toEqual(["bounced", "delivered", "failures", "last_sent", "sends", "template_key"]);
+    expect(await errorCode(db.asUser(pat, (q) => q("select * from public.email_send_log")))).toBe("42501");
+    expect(await errorCode(db.asUser(f.alice, (q) => q("select * from public.email_send_log")))).toBe("42501");
+  });
+  it("old rows fall outside the window", async () => {
+    await db.admin.query("insert into public.email_send_log (template_key, status, created_at) values ('app.link-code', 'sent', now() - interval '40 days')");
+    const rows = await asPat<{ template_key: string }[]>(async (q) => (await q("select * from public.platform_email_stats(30)")).rows);
+    expect(rows.find((r) => r.template_key === "app.link-code")).toBeUndefined();
   });
 });

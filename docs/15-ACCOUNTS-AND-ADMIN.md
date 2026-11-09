@@ -106,3 +106,6 @@ Foundation (phase 1 follow-ups): account page; invitation emails; platform staff
 
 ## Approval rights (2026-11-05, issue #323)
 The Approver flag on a member means "may decide every gate". Admins may decide every gate by default. An admin can also give any account approval rights for a single gate (A, B or C) under Settings, Workspace (`tenant_gate_approvers`). An approver may decide their own request. Claude, service accounts and staff (members of no workspace) can never decide; the database refuses it. See `docs/28-DECISION-GATES.md` section 5.
+
+## Platform Emails area (issue #370)
+Platform admins have an **Emails** tab (`/platform/emails`): which event sends which template, to whom, by which code path, whether a person confirms first, the limits, and the sends and failures of the last 30 days; each template opens a preview with sample data at desktop and phone width, as HTML and plain text. It never sends. The send log behind the counts holds no addresses or text. Editing, versions and test send come with phase 4. Decision: `docs/decisions/2026-11-09-branded-emails-registry.md`.

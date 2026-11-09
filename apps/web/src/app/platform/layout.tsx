@@ -14,6 +14,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
         <nav aria-label="Platform" className="tabs">
           <Link className="tab" href="/platform">All accounts</Link>
           <Link className="tab" href="/platform/audit">Audit log</Link>
+          <Link className="tab" href="/platform/emails">Emails</Link>
           <Link className="tab" href="/platform/settings">Access settings</Link>
         </nav>
         <span className="muted">{user.email}</span>
