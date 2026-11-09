@@ -27,7 +27,7 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
   const isAdmin = active.role === "admin";
 
   const { data: conn } = await supabase.from("github_connections").select("*").eq("tenant_id", active.tenantId).neq("state", "disconnected").maybeSingle();
-  const c = conn as (ConnectionRow & { repository_selection: string | null; epic_type_available: boolean | null; repositories_synced_at: string | null; last_check_at: string | null; last_check_summary: string | null }) | null;
+  const c = conn as (ConnectionRow & { account_type: string | null; repository_selection: string | null; epic_type_available: boolean | null; repositories_synced_at: string | null; last_check_at: string | null; last_check_summary: string | null }) | null;
   const { data: repoRows } = c ? await supabase.from("github_repositories").select("id, full_name, is_private, access").eq("connection_id", c.id).is("removed_at", null).order("full_name") : { data: [] };
   const { data: projectRows } = await supabase.from("projects").select("id, name, default_repo, who_breaks_down, tracker, github_board").eq("tenant_id", active.tenantId).order("name");
   const repos = (repoRows ?? []) as Repo[];
@@ -129,7 +129,7 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
       )}
 
       {c?.state === "connected" && (
-        <BoardsCard projects={projects.map((p) => ({ id: p.id, name: p.name, tracker: p.tracker, board: parseBoard(p.github_board) }))} canEdit={isAdmin} />
+        <BoardsCard projects={projects.map((p) => ({ id: p.id, name: p.name, tracker: p.tracker, board: parseBoard(p.github_board) }))} canEdit={isAdmin} personalAccount={c.account_type === "User"} />
       )}
 
       {isAdmin && c?.state === "connected" && (

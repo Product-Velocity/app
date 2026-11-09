@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { detectMapping, parseBoard, type BoardField, type BoardInfo, type BoardMapping, type FieldRef } from "@pv/github";
 import { githubSourceControl, type ConnectionRow } from "@/lib/github/server";
 import { requireWorkspace } from "@/lib/session";
+import { PERSONAL_ACCOUNT_NOTE } from "./shared";
 
 const PATH = "/settings/integrations/github";
 export type BoardChoice = { id: string; number: number; title: string; url: string };
@@ -27,11 +28,14 @@ async function gate() {
   const installationId = connection?.installation_id;
   const org = connection?.account_login;
   if (!installationId || !org) return { ok: false, error: "This workspace is not connected to GitHub." } as const;
-  return { ok: true, ctx, sc, installationId, org } as const;
+  const kind = (connection as { account_type?: string | null }).account_type === "User" ? ("User" as const) : ("Organization" as const);
+  return { ok: true, ctx, sc, installationId, org, kind } as const;
 }
 
-const friendly = (e: unknown) =>
-  e && typeof e === "object" && "status" in e && (e as { status: number }).status === 403
+const friendly = (e: unknown, kind: "Organization" | "User" = "Organization") =>
+  kind === "User"
+    ? PERSONAL_ACCOUNT_NOTE // GitHub refused or could not find the personal account's Projects: say what that means, never "try again"
+    : e && typeof e === "object" && "status" in e && (e as { status: number }).status === 403
     ? "The GitHub App may not use Projects yet. In the App's settings add the Organization permission “Projects: read and write”, then accept the change on the installation page."
     : "GitHub could not be asked just now. Try again.";
 
@@ -40,11 +44,11 @@ export async function listBoardChoices(): Promise<{ boards: BoardChoice[] } | { 
   const g = await gate();
   if (!g.ok) return { error: g.error };
   try {
-    const boards: BoardInfo[] = await g.sc.listBoards(g.installationId, g.org);
+    const boards: BoardInfo[] = await g.sc.listBoards(g.installationId, g.org, g.kind);
     const open = boards.filter((b) => !b.closed).map(({ id, number, title, url }) => ({ id, number, title, url }));
-    return open.length ? { boards: open } : { error: `No open Projects were found in ${g.org}. Create one in GitHub first (only organisation Projects can be linked, not personal ones).` };
+    return open.length ? { boards: open } : { error: `No open Projects were found in ${g.org}. Create one in GitHub first.${g.kind === "User" ? " GitHub may not show an App the Projects of a personal account." : ""}` };
   } catch (e) {
-    return { error: friendly(e) };
+    return { error: friendly(e, g.kind) };
   }
 }
 
@@ -53,12 +57,12 @@ export async function loadBoardFields(boardId: string): Promise<BoardState> {
   const g = await gate();
   if (!g.ok) return { ok: false, error: g.error };
   try {
-    const known = (await g.sc.listBoards(g.installationId, g.org)).some((b) => b.id === boardId && !b.closed);
+    const known = (await g.sc.listBoards(g.installationId, g.org, g.kind)).some((b) => b.id === boardId && !b.closed);
     const fields = known ? await g.sc.getBoardFields(g.installationId, boardId) : null;
     if (!fields) return { ok: false, error: "That Project was not found in this organisation." };
     return { ok: true, fields: fields.map(({ id, name, dataType }) => ({ id, name, dataType })), mapping: detectMapping(fields) };
   } catch (e) {
-    return { ok: false, error: friendly(e) };
+    return { ok: false, error: friendly(e, g.kind) };
   }
 }
 
@@ -68,7 +72,7 @@ export async function saveBoardLink(projectId: string, boardId: string, chosen: 
   if (!g.ok) return { error: g.error };
   if (typeof projectId !== "string" || typeof boardId !== "string" || !chosen || typeof chosen !== "object") return { error: "Choose a Project." };
   try {
-    const board = (await g.sc.listBoards(g.installationId, g.org)).find((b) => b.id === boardId && !b.closed);
+    const board = (await g.sc.listBoards(g.installationId, g.org, g.kind)).find((b) => b.id === boardId && !b.closed);
     const fields = board ? await g.sc.getBoardFields(g.installationId, boardId) : null;
     if (!board || !fields) return { error: "That Project was not found in this organisation." };
     const mapping = detectMapping([]);
@@ -84,7 +88,7 @@ export async function saveBoardLink(projectId: string, boardId: string, chosen: 
     const { error } = await g.ctx.supabase.from("projects").update({ github_board: stored }).eq("id", projectId).eq("tenant_id", g.ctx.active.tenantId);
     if (error) return { error: "We could not save that." };
   } catch (e) {
-    return { error: friendly(e) };
+    return { error: friendly(e, g.kind) };
   }
   revalidatePath(PATH);
   return { ok: "Linked" };
