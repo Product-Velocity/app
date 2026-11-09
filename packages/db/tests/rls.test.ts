@@ -296,6 +296,17 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "email_send_log",
+    tenantColumn: "tenant_id",
+    private: true,
+    attacks: (v, a) => [
+      { sql: "update public.email_send_log set status = 'delivered' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.email_send_log where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.email_send_log (template_key, tenant_id) values ('app.invitation', $1)", params: [v.tenantId] },
+      { sql: "update public.email_send_log set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "alignment_participants",
     tenantColumn: "tenant_id",
     private: true,

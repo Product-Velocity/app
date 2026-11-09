@@ -65,20 +65,29 @@ describe("registry", () => {
 });
 
 describe("no send site without a registry entry", () => {
-  it("every auth email type the hook can send comes from the registry; app send sites are listed until phase 2 moves them", () => {
-    const root = join(__dirname, "../../..");
-    const files: string[] = [];
-    const walk = (d: string) => { for (const e of readdirSync(d, { withFileTypes: true })) { const p = join(d, e.name); if (e.isDirectory()) walk(p); else if (/\.tsx?$/.test(e.name) && !/\.test\./.test(e.name)) files.push(p); } };
-    walk(root);
-    const callers = files.filter((f) => /\bsendEmail\(/.test(readFileSync(f, "utf8")) && !f.endsWith("lib/email/resend.ts")).map((f) => f.slice(root.length + 1)).sort();
-    // Phase 2 (issue #370) moves these onto the registry and empties this list. Adding a new send site fails here until it has an entry.
-    expect(callers).toEqual([
-      "app/(workspace)/account/actions.ts",
-      "app/(workspace)/settings/members/actions.ts",
-      "app/a/[token]/actions.ts",
-      "app/api/auth/send-email/route.ts",
-      "lib/access-requests.ts",
-    ]);
+  const root = join(__dirname, "../../..");
+  const files: string[] = [];
+  const walk = (d: string) => { for (const e of readdirSync(d, { withFileTypes: true })) { const p = join(d, e.name); if (e.isDirectory()) walk(p); else if (/\.tsx?$/.test(e.name) && !/\.test\./.test(e.name)) files.push(p); } };
+  walk(root);
+  const src = files.map((f) => ({ f: f.slice(root.length + 1), s: readFileSync(f, "utf8") }));
+  const keys = EMAIL_TEMPLATES.map((t) => t.key as string);
+
+  it("only the logged wrapper talks to the email service", () => {
+    expect(src.filter((x) => /\bsendEmail\(/.test(x.s) && x.f !== "lib/email/resend.ts").map((x) => x.f)).toEqual(["lib/email/send.ts"]);
+  });
+  it("every sendLogged call names a key that is in the registry", () => {
+    const used = src.filter((x) => x.f !== "lib/email/send.ts").flatMap((x) => [...x.s.matchAll(/sendLogged\(\s*"([^"]+)"/g)].map((m) => m[1]!));
+    expect(used.length).toBeGreaterThan(4);
+    for (const k of used) expect(keys, k).toContain(k);
+  });
+  it("every builder names a registry key, and every registry entry is sent by something", () => {
+    const built = src.filter((x) => !x.f.startsWith("lib/email/registry/")).flatMap((x) => [...x.s.matchAll(/buildEmail\(\s*"([^"]+)"/g)].map((m) => m[1]!));
+    for (const k of built) expect(keys, k).toContain(k);
+    const alignment = ["alignment.invitation", "alignment.reminder"]; // chosen by the mailing kind in alignment-mail.ts and alignment-send.ts
+    for (const t of EMAIL_TEMPLATES) {
+      const sent = t.authAction !== undefined || built.includes(t.key) || (alignment.includes(t.key) && src.some((x) => x.f === "lib/alignment-send.ts" && x.s.includes(`"${t.key}"`)));
+      expect(sent, `${t.key} has no sender`).toBe(true);
+    }
   });
 });
 
@@ -111,6 +120,10 @@ describe("Send Email hook", () => {
       expect(u.searchParams.get("next")).toBe("/invite/x");
     }
   });
+  it("the plan names the registry key of each email", () => {
+    const p = planAuthEmail(payload("recovery"), "https://app.test");
+    expect(p.ok && p.mails[0]!.key).toBe("auth.reset-password");
+  });
   it("reauthentication sends the code and no link; an off-site redirect is ignored", () => {
     const p = planAuthEmail(payload("reauthentication"), "https://app.test");
     expect(p.ok && p.mails[0]!.mail.text).toContain("123456");
@@ -131,5 +144,29 @@ describe("Send Email hook", () => {
     expect(planAuthEmail(payload("something_else"), "https://app.test")).toEqual({ ok: false, reason: "unsupported-action" });
     expect(planAuthEmail(payload("magiclink", { token_hash: "" }), "https://app.test")).toEqual({ ok: false, reason: "bad-payload" });
     expect(planAuthEmail({}, "https://app.test")).toEqual({ ok: false, reason: "bad-payload" });
+  });
+});
+
+describe("app emails keep their current wording", () => {
+  it("every existing app email still says what it said, now inside the branded frame", async () => {
+    const { buildAccessRequestEmail, buildAccessApprovedEmail, buildLinkCodeEmail } = await import("../access");
+    const { buildNewLinkEmail } = await import("../../alignment-mail");
+    const req = buildAccessRequestEmail({ workspace: "Meridian", requester: "jo@example.test", link: "https://app.test/settings/members" });
+    expect(req.subject).toBe("jo@example.test asked to join Meridian on Product Velocity");
+    expect(req.text).toContain("They have no access until you approve them.");
+    expect(req.text).toContain("If you do not know this person, leave the request or set it to Revoked.");
+    expect(req.text).toContain("https://app.test/settings/members");
+    const ok = buildAccessApprovedEmail({ workspace: "Meridian", link: "https://app.test/" });
+    expect(ok.subject).toBe("You now have access to Meridian on Product Velocity");
+    expect(ok.text).toContain("An admin approved your request.");
+    const code = buildLinkCodeEmail({ code: "123456" });
+    expect(code.subject).toBe("Your Product Velocity code: 123456");
+    expect(code.text).toContain("It works for 15 minutes.");
+    expect(code.html).not.toContain("<a ");
+    const nl = buildNewLinkEmail({ name: null, session: "Q1", closesAt: null, link: "https://app.test/a/N" });
+    expect(nl.subject).toBe("Your new link: Q1");
+    expect(nl.text).toContain("Hello there,");
+    expect(nl.text).toContain("The earlier link no longer works.");
+    for (const m of [req, ok, code, nl]) expect(m.text + m.html).not.toMatch(/\{\{|\}\}/);
   });
 });

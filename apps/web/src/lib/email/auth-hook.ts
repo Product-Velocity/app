@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { renderTemplate, templateForAction, type Rendered } from "./registry/registry";
+import { renderTemplate, templateForAction, type EmailKey, type Rendered } from "./registry/registry";
 
 /**
  * Supabase Send Email hook (issue #370). Supabase signs hook calls with the Standard Webhooks scheme: headers webhook-id,
@@ -26,7 +26,7 @@ export type HookPayload = {
   email_data?: { token?: unknown; token_hash?: unknown; redirect_to?: unknown; site_url?: unknown; email_action_type?: unknown; token_hash_new?: unknown; token_new?: unknown };
 };
 
-export type HookPlan = { ok: true; mails: { to: string; mail: Rendered }[] } | { ok: false; reason: "bad-payload" | "unsupported-action" };
+export type HookPlan = { ok: true; mails: { key: EmailKey; to: string; mail: Rendered }[] } | { ok: false; reason: "bad-payload" | "unsupported-action" };
 
 /**
  * Pure: payload in, emails out (one, or two for an email change that must be confirmed at both addresses). The link goes to our own
@@ -55,7 +55,8 @@ export function planAuthEmail(payload: HookPayload, appUrl: string): HookPlan {
     u.searchParams.set("type", t.linkType);
     return u.toString();
   };
-  const make = (address: string, buttonUrl: string | null, code: string | null): { to: string; mail: Rendered } => ({
+  const make = (address: string, buttonUrl: string | null, code: string | null): { key: EmailKey; to: string; mail: Rendered } => ({
+    key: t.key,
     to: address,
     mail: renderTemplate(t, { values: { link: buttonUrl, code, expires: "60 minutes" }, siteUrl: base, buttonUrl }),
   });

@@ -9,7 +9,8 @@ import { checkPassword } from "@/lib/password";
 import { githubUsernameMessage } from "@/lib/github-username";
 import { loadMemberships, requireUser, requireWorkspace } from "@/lib/session";
 import { siteUrl } from "@/lib/site-url";
-import { emailConfigured, sendEmail } from "@/lib/email/resend";
+import { emailConfigured } from "@/lib/email/resend";
+import { sendLogged } from "@/lib/email/send";
 import { buildLinkCodeEmail } from "@/lib/email/access";
 import { notifyAdminsOfRequests } from "@/lib/access-requests";
 
@@ -139,7 +140,7 @@ export async function startLinkEmail(_prev: FormState, form: FormData): Promise<
   if (error) return { error: LINK_ERROR[error.code ?? ""] ?? "We could not start that. Please try again." };
   const send = (Array.isArray(data) ? data[0] : data) as { send?: boolean } | null;
   if (send?.send) {
-    const res = await sendEmail({ to: email, ...buildLinkCodeEmail({ code }) });
+    const res = await sendLogged("app.link-code", { to: email, ...buildLinkCodeEmail({ code, siteUrl: await siteUrl() }) });
     if (!res.ok) return { error: res.error };
   }
   revalidatePath(PATH);

@@ -290,6 +290,10 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
   const ballot = await one("insert into public.alignment_ballots (tenant_id, session_id, participant_id, group_id) values ($1, $2, $3, 'everyone') returning id", [tenantId, sess, part]);
   await db.admin.query("insert into public.alignment_votes (tenant_id, session_id, ballot_id, alignment_item_id, coins) select $1, $2, $3, id, 10 from public.alignment_items where session_id = $2", [tenantId, sess, ballot]);
   await db.admin.query("insert into public.alignment_mailings (tenant_id, session_id, kind, subject, body, recipient_ids) values ($1, $2, 'invitation', 'Seed', 'Seed body', array[$3::uuid])", [tenantId, sess, part]);
+  // a send-log row (positive control; the log holds no address, name, token or body)
+  if ((await db.admin.query("select to_regclass('public.email_send_log') as t")).rows[0].t) {
+    await db.admin.query("insert into public.email_send_log (template_key, tenant_id, status, provider_id) values ('app.invitation', $1, 'sent', $2)", [tenantId, `re_seed_${tenantId}`]);
+  }
   return { project, team, items, scope, view, connection: conn };
 }
 

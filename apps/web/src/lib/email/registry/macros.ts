@@ -17,7 +17,7 @@ export const MACRO_CATALOG = {
   requester: { kind: "text", fallback: "Someone", sample: "Jo Park", label: "Person asking for access" },
   code: { kind: "text", fallback: "", sample: "123456", label: "One-time code" },
   session: { kind: "text", fallback: "the session", sample: "Q1 priorities", label: "Alignment session name" },
-  closes: { kind: "text", fallback: "soon", sample: "12 Dec 2026", label: "Closing date" },
+  closes: { kind: "text", fallback: "", sample: "12 Dec 2026", label: "Closing date" },
   expires: { kind: "text", fallback: "60 minutes", sample: "60 minutes", label: "How long the link or code works" },
   product: { kind: "text", fallback: "Product Velocity", sample: "Product Velocity", label: "Product name" },
 } as const satisfies Record<string, MacroDef>;

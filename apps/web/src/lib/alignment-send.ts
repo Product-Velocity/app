@@ -1,12 +1,13 @@
 import { generateInviteToken, hashInviteToken } from "@/lib/auth/invite-token";
 import { buildParticipantEmail } from "@/lib/alignment-mail";
+import type { EmailKey } from "@/lib/email/registry/registry";
 
 type Rpc = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { code?: string; message: string } | null }>;
 export type MailingInfo = { id: string; kind: "invitation" | "reminder"; subject: string; body: string; status: string; sessionName: string; closesAt: string | null };
 export type SendDeps = {
   rpc: Rpc;
   mailing: (id: string) => Promise<MailingInfo | null>;
-  send: (m: { to: string; subject: string; text: string; html: string }) => Promise<{ ok: true; id: string } | { ok: false; error: string }>;
+  send: (key: EmailKey, m: { to: string; subject: string; text: string; html: string }) => Promise<{ ok: true; id: string } | { ok: false; error: string }>;
   site: string;
   /** Wall-clock budget in milliseconds; what is left is sent by "Continue sending". */
   budgetMs?: number;
@@ -43,8 +44,8 @@ export async function sendMailing(id: string, deps: SendDeps): Promise<SendRepor
       const token = generateInviteToken();
       const issued = await deps.rpc("alignment_mailing_issue", { p_mailing: id, p_participant: p.id, p_token_hash: hashInviteToken(token) });
       if (issued.error) { log(JSON.stringify({ alignment: "issue", code: issued.error.code ?? "unknown" })); failed++; continue; }
-      const mail = buildParticipantEmail(m, { name: p.name, session: m.sessionName, closesAt: m.closesAt, link: `${deps.site}/a/${token}`, unsubscribe: `${deps.site}/a/${token}/unsubscribe` });
-      const res = await deps.send({ to: p.email, ...mail });
+      const mail = buildParticipantEmail(m, { name: p.name, session: m.sessionName, closesAt: m.closesAt, link: `${deps.site}/a/${token}`, unsubscribe: `${deps.site}/a/${token}/unsubscribe`, siteUrl: deps.site });
+      const res = await deps.send(m.kind === "reminder" ? "alignment.reminder" : "alignment.invitation", { to: p.email, ...mail });
       const rec = await deps.rpc("alignment_mailing_result", { p_mailing: id, p_participant: p.id, p_ok: res.ok, p_provider: res.ok ? res.id : null, p_error: res.ok ? null : res.error });
       if (rec.error) log(JSON.stringify({ alignment: "result", code: rec.error.code ?? "unknown" }));
       if (res.ok) sent++;

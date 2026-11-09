@@ -1,5 +1,5 @@
 import { planAuthEmail, verifyHookSignature } from "@/lib/email/auth-hook";
-import { sendEmail } from "@/lib/email/resend";
+import { sendLogged } from "@/lib/email/send";
 
 /**
  * Supabase "Send Email" hook (issue #370). Verifies the signature before reading the body (401, nothing sent otherwise), renders the
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     return Response.json({ error: { http_code: 422, message: "This email type is not handled." } }, { status: 422 });
   }
   for (const m of plan.mails) {
-    const sent = await sendEmail({ to: m.to, ...m.mail });
+    const sent = await sendLogged(m.key, { to: m.to, ...m.mail });
     if (!sent.ok) {
       console.error(JSON.stringify({ authEmail: "send-failed", error: sent.error }));
       return Response.json({ error: { http_code: 500, message: "The email could not be sent." } }, { status: 500 });

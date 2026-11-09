@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendEmail } from "@/lib/email/resend";
+import { sendLogged } from "@/lib/email/send";
 import { siteUrl } from "@/lib/site-url";
 import type { SendDeps } from "@/lib/alignment-send";
 
@@ -15,7 +15,7 @@ export async function serverSendDeps(): Promise<SendDeps> {
       const { data: s } = await admin.from("alignment_sessions").select("name, closes_at").eq("id", m.session_id).maybeSingle();
       return { id: m.id, kind: m.kind, subject: m.subject, body: m.body, status: m.status, sessionName: s?.name ?? "", closesAt: s?.closes_at ?? null };
     },
-    send: sendEmail,
+    send: (key, m) => sendLogged(key, m),
     site: await siteUrl(),
   };
 }

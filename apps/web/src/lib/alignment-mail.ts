@@ -1,7 +1,6 @@
 /** Pure rules of alignment participants and invitation emails (issue #124): reading a pasted list, the email text, the states admins see. */
 import type { Group } from "./alignment";
 
-const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export type ParticipantRow = { email: string; name: string; group: string };
@@ -55,42 +54,31 @@ export const DEFAULT_TEXT = {
 export type MailContext = { name: string | null; session: string; closesAt: string | null; link: string; unsubscribe: string | null };
 const whenText = (iso: string | null) => (iso ? `Voting closes on ${new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC" })} UTC.` : "");
 
-function fill(template: string, c: MailContext): string {
-  return template
-    .replace(/\{\{\s*name\s*\}\}/gi, c.name?.trim() || "there")
-    .replace(/\{\{\s*session\s*\}\}/gi, c.session)
-    .replace(/\{\{\s*closes\s*\}\}/gi, whenText(c.closesAt))
-    .replace(/\{\{\s*link\s*\}\}/gi, c.link)
-    .replace(/[ \t]+\n/g, "\n");
-}
+import { buildEmail } from "./email/registry/registry";
+import { DEFAULT_SITE_URL } from "./email/registry/layout";
 
 /**
- * The email one participant gets. The personal link is always added at the end (the writer cannot leave it out), reminders carry an
- * unsubscribe link, and there are no images and no tracking. Everything written by a person is escaped in the HTML.
+ * The email one participant gets: the platform's frame (registry keys alignment.invitation and alignment.reminder) around the workspace
+ * admin's own subject and text. The personal link is always the button (the writer cannot leave it out), reminders carry a stop link,
+ * and there are no tracking images. Everything written by a person is escaped, and an unknown {{macro}} is dropped, never sent raw.
  */
-export function buildParticipantEmail(m: { kind: "invitation" | "reminder"; subject: string; body: string }, c: MailContext): { subject: string; text: string; html: string } {
-  const subject = fill(m.subject, c).replace(/\s+/g, " ").trim().slice(0, 150);
-  const body = fill(m.body.replace(/\{\{\s*link\s*\}\}/gi, ""), c).trim();
-  const foot = c.unsubscribe && m.kind === "reminder" ? `Do not want reminders? Stop them here: ${c.unsubscribe}` : "";
-  const text = [body, "", "Open your personal link to take part:", c.link, "", "The link is only for you. Please do not forward it.", ...(foot ? ["", foot] : [])].join("\n");
-  const paragraphs = body.split(/\n{2,}/).map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br>")}</p>`);
-  const html = [
-    ...paragraphs,
-    `<p>Open your personal link to take part:<br><a href="${escapeHtml(c.link)}">${escapeHtml(c.link)}</a></p>`,
-    "<p>The link is only for you. Please do not forward it.</p>",
-    ...(foot ? [`<p>Do not want reminders? <a href="${escapeHtml(c.unsubscribe!)}">Stop them here</a>.</p>`] : []),
-  ].join("\n");
-  return { subject, text, html };
+export function buildParticipantEmail(m: { kind: "invitation" | "reminder"; subject: string; body: string }, c: MailContext & { siteUrl?: string }): { subject: string; text: string; html: string } {
+  const body = m.body.replace(/\{\{\s*link\s*\}\}/gi, "").replace(/[ \t]+\n/g, "\n").trim();
+  const subject = m.subject.replace(/\{\{\s*link\s*\}\}/gi, "");
+  const r = buildEmail(m.kind === "reminder" ? "alignment.reminder" : "alignment.invitation", {
+    values: { name: c.name, session: c.session, closes: whenText(c.closesAt), link: c.link },
+    siteUrl: c.siteUrl ?? DEFAULT_SITE_URL,
+    buttonUrl: c.link,
+    extraLink: c.unsubscribe && m.kind === "reminder" ? { label: "Do not want reminders? Stop them here:", url: c.unsubscribe } : null,
+    workspaceText: { subject, body },
+  });
+  return { ...r, subject: r.subject.slice(0, 150) };
 }
 
-/** The email for a participant who asked for a new link. */
-export function buildNewLinkEmail(c: { name: string | null; session: string; closesAt: string | null; link: string }): { subject: string; text: string; html: string } {
-  const lines = [`Hello ${c.name?.trim() || "there"},`, "", `Here is your new personal link for ${c.session}. ${whenText(c.closesAt)}`.trim(), c.link, "", "The earlier link no longer works. Please do not forward this one."];
-  return {
-    subject: `Your new link: ${c.session}`.slice(0, 150),
-    text: lines.join("\n"),
-    html: `<p>${escapeHtml(lines[0]!)}</p><p>${escapeHtml(lines[2]!)}<br><a href="${escapeHtml(c.link)}">${escapeHtml(c.link)}</a></p><p>${escapeHtml(lines[5]!)}</p>`,
-  };
+/** The email for a participant who asked for a new link. Registry key alignment.new-link. */
+export function buildNewLinkEmail(c: { name: string | null; session: string; closesAt: string | null; link: string; siteUrl?: string }): { subject: string; text: string; html: string } {
+  const r = buildEmail("alignment.new-link", { values: { name: c.name, session: c.session, closes: whenText(c.closesAt), link: c.link }, siteUrl: c.siteUrl ?? DEFAULT_SITE_URL, buttonUrl: c.link });
+  return { ...r, subject: r.subject.slice(0, 150) };
 }
 
 export type ParticipantRowState = { email_status: string; invited_at: string | null; consent_at: string | null; unsubscribed_at: string | null; removed_at: string | null; voted: boolean; email_error?: string | null };

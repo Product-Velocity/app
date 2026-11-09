@@ -16,7 +16,7 @@ function deps(over: Partial<SendDeps> & { confirmed?: boolean } = {}) {
       return { data: null, error: null };
     },
     mailing: async () => mailing,
-    send: async (m) => { sent.push(m); return { ok: true, id: "re_1" }; },
+    send: async (_k, m) => { sent.push(m); return { ok: true, id: "re_1" }; },
     site: "https://pv.example",
     log: (l) => logs.push(l),
     ...over,
