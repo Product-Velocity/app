@@ -10,6 +10,7 @@ export const NOTICE: Record<string, string> = {
   "bad-link": "That link is no longer valid. Start the connection again.",
   "wrong-account": "GitHub was installed on a different account than the one you entered. Cancel and connect again with the right name.",
   "not-found": "GitHub did not recognise that installation. Try again.",
+  "not-confirmed": "GitHub does not show this installation as active yet. If it is suspended, unsuspend it on GitHub; otherwise wait a minute and try again.",
   "already-linked": "That GitHub installation is already connected to another workspace.",
   "not-admin": "Only admins can connect GitHub.",
   retried: "Run again: it worked.",

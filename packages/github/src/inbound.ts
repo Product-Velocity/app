@@ -33,7 +33,7 @@ export function receivedValue(field: SyncTextField, s: string): string {
   return normalise(s).replace(/@​/g, "@").slice(0, SYNC_FIELD_LIMIT[field]).trim();
 }
 
-export type SplitBlock = { ok: true; summary: string; description: string; hypothesis: string } | { ok: false; reason: string };
+export type SplitBlock = { ok: true; summary: string; description: string; hypothesis: string } | { ok: false; reason: string; /** The markers are not there at all (an issue Product Velocity never wrote to), as opposed to edited. */ missing?: true };
 
 /**
  * The inverse of buildTrackingIssue for the three texts: cuts the managed block at its known headings, in order. A heading that
@@ -44,7 +44,7 @@ export function splitManagedBlock(body: string | null | undefined): SplitBlock {
   const b = (body ?? "").replace(/\r\n?/g, "\n");
   const start = b.indexOf(BLOCK_START);
   const end = start === -1 ? -1 : b.indexOf(BLOCK_END, start);
-  if (start === -1 || end === -1) return { ok: false, reason: "The markers of the managed block are missing in GitHub." };
+  if (start === -1 || end === -1) return { ok: false, reason: "The markers of the managed block are missing in GitHub.", missing: true };
   const block = b.slice(start, end);
   const firstLineEnd = block.indexOf("\n");
   if (firstLineEnd === -1 || !/^<!-- pv:begin item=[0-9a-f-]{36} -->$/.test(block.slice(0, firstLineEnd))) return { ok: false, reason: "The first marker of the managed block was edited in GitHub." };
@@ -99,7 +99,7 @@ export function compareTexts(base: string | undefined, pvHash: string, ghHash: s
 }
 
 export type FieldCompare = { field: SyncTextField; verdict: TextVerdict; pvText: string; githubText: string; pvHash: string; ghHash: string };
-export type IssueCompare = { fields: FieldCompare[]; /** Set when the managed block cannot be read field by field: only a whole-block choice is offered. */ blockProblem?: string };
+export type IssueCompare = { fields: FieldCompare[]; /** Set when the managed block cannot be read field by field: only a whole-block choice is offered. */ blockProblem?: string; /** The block problem is that there is no block at all. */ blockMissing?: true };
 
 /**
  * Compares the name and the three texts of one initiative with what its tracking issue says now. `base` holds the hashes both sides
@@ -116,5 +116,41 @@ export function compareIssue(i: { code: string; pv: { initiative_name?: string |
     const ghHash = hashText(ghRaw(f));
     return { field: f, verdict: compareTexts(i.base?.[f], pvHash, ghHash), pvText: pvRaw[f], githubText: receivedValue(f, ghRaw(f)), pvHash, ghHash };
   });
-  return split.ok ? { fields } : { fields, blockProblem: split.reason };
+  return split.ok ? { fields } : { fields, blockProblem: split.reason, ...(split.missing ? { blockMissing: true as const } : {}) };
+}
+
+export type ChangeTypeValue = "New feature" | "Improvement to existing feature" | "Bug";
+export type LabelFields = { changeType?: ChangeTypeValue; focusArea?: string; /** Why a label was not used, for tests and logs only; never shown with an issue's text. */ notes: string[] };
+const CHANGE_TYPE_WORDS: Record<string, ChangeTypeValue> = {
+  feature: "New feature", "new feature": "New feature", "new-feature": "New feature", new_feature: "New feature", newfeature: "New feature",
+  improvement: "Improvement to existing feature", enhancement: "Improvement to existing feature", "improvement to existing feature": "Improvement to existing feature",
+  bug: "Bug", bugfix: "Bug", "bug fix": "Bug", "bug-fix": "Bug", defect: "Bug",
+};
+
+/**
+ * The labels that mean something in Product Velocity when an issue is pulled in (Ashu, 2026-11-09): `type:<x>` is Change Type and
+ * `area:<x>` is Focus Area. Only what is unambiguous is used: exactly one distinct `type:` value that is one of the three Change Types
+ * (feature, new feature, improvement, enhancement, bug, bug fix, defect), exactly one distinct `area:` value (kept as written, whitespace collapsed, 120
+ * characters at most). Anything else (type:bug, two areas, an unknown word) is left out: nothing is guessed.
+ */
+export function labelFields(labels: readonly string[] | null | undefined): LabelFields {
+  const types = new Map<string, string>();
+  const areas = new Map<string, string>();
+  for (const raw of labels ?? []) {
+    const m = /^\s*(type|area)\s*:\s*(.+?)\s*$/i.exec(typeof raw === "string" ? raw : "");
+    if (!m) continue;
+    const value = m[2]!.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+    if (!value) continue;
+    const into = m[1]!.toLowerCase() === "type" ? types : areas;
+    if (!into.has(value.toLowerCase())) into.set(value.toLowerCase(), value); // the same word twice is one value; the first spelling stays
+  }
+  const out: LabelFields = { notes: [] };
+  if (types.size === 1) {
+    const [key] = [...types.keys()];
+    const mapped = CHANGE_TYPE_WORDS[key!];
+    if (mapped) out.changeType = mapped; else out.notes.push(`type:${key} has no Change Type`);
+  } else if (types.size > 1) out.notes.push("more than one type: label");
+  if (areas.size === 1) out.focusArea = [...areas.values()][0]!.slice(0, 120).trim();
+  else if (areas.size > 1) out.notes.push("more than one area: label");
+  return out;
 }

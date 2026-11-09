@@ -76,6 +76,7 @@ export function rankBandLabel(rank: unknown): string | null {
 const CHANGE_TYPES: Record<string, { slug: string; types: string[] }> = {
   "New feature": { slug: "new-feature", types: ["Feature"] },
   "Improvement to existing feature": { slug: "improvement", types: ["Improvement", "Enhancement"] },
+  "Bug": { slug: "bug", types: ["Bug"] },
 };
 /** "pv:type/new-feature" for a known Change Type, otherwise no label. */
 export function changeTypeLabel(v: unknown): string | null {

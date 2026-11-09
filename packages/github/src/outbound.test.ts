@@ -280,6 +280,8 @@ describe("type and milestone (R-034)", () => {
     expect(changeTypeLabel(undefined)).toBeNull();
     expect(issueTypeCandidates("New feature")).toEqual(["Feature"]);
     expect(issueTypeCandidates("Improvement to existing feature")).toEqual(["Improvement", "Enhancement"]);
+    expect(changeTypeLabel("Bug")).toBe("pv:type/bug");
+    expect(issueTypeCandidates("Bug")).toEqual(["Bug"]);
     expect(issueTypeCandidates(null)).toEqual([]);
   });
   it("the G2M date gives a calendar-quarter milestone with the quarter's last day as due date", () => {

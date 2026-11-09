@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { configRowsFromForm } from "@/lib/tracker-fields/form";
 import { validateConfig } from "@/lib/tracker-fields/mapping";
 import { runConnectionDiagnostics, signInstallState, type CheckResult } from "@pv/github";
-import { githubAppSlug, githubSecret, githubSourceControl, refreshConnection, type ConnectionRow } from "@/lib/github/server";
+import { confirmInstalledConnection, githubAppSlug, githubSecret, githubSourceControl, refreshConnection, type ConnectionRow } from "@/lib/github/server";
 import { retryEvent, runCheck } from "@/lib/github/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireWorkspace } from "@/lib/session";
@@ -47,6 +47,29 @@ export async function continueOnGithub(connectionId: string) {
   const { data } = await ctx.supabase.from("github_connections").select("id, state").eq("id", connectionId).maybeSingle();
   if (!data || data.state === "disconnected") redirect(`${PATH}?status=bad-link`);
   redirect(installUrl(stateFor(ctx.active.tenantId, ctx.user.id, connectionId)));
+}
+
+/**
+ * "Confirm with GitHub" (issue #364): for a connection that is installed but still waiting for GitHub's webhook. Any admin can use it,
+ * so the App owner does not have to redeliver the webhook. GitHub is asked directly (App key); the installation must exist, belong to
+ * the account entered and not be suspended. Writes nothing to GitHub.
+ */
+export async function confirmWithGithub(): Promise<void> {
+  const ctx = await adminOnly();
+  const sc = githubSourceControl();
+  if (!ctx) redirect(`${PATH}?status=not-admin`);
+  if (!sc) redirect(`${PATH}?status=error`);
+  const { data } = await ctx.supabase.from("github_connections").select("*").eq("tenant_id", ctx.active.tenantId).neq("state", "disconnected").maybeSingle();
+  const c = data as ConnectionRow | null;
+  if (!c || c.installation_id === null || c.state === "suspended") redirect(`${PATH}?status=not-confirmed`);
+  let result: Awaited<ReturnType<typeof confirmInstalledConnection>>;
+  try {
+    result = await confirmInstalledConnection(createAdminClient({ via: "UI" }), sc, c);
+  } catch {
+    redirect(`${PATH}?status=error`);
+  }
+  revalidatePath(PATH);
+  redirect(`${PATH}?status=${result === "connected" ? "connected" : result === "wrong-account" ? "wrong-account" : "not-confirmed"}`);
 }
 
 /** Ends or cancels the connection. It does not uninstall the App on GitHub (that is the organisation owner's choice). */

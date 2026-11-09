@@ -7,7 +7,7 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 6,What,Initiative Group,theme,Select,,Input,Modify,Optional: push as label.,Column on items,1
 7,What,Initiative Name,initiative_name,Text,,Input,Keep,App -> GitHub issue title on creation; app owns the title afterwards.,Column on items,1
 8,What,Focus Area,focus_area,Select,,Input,Fix,Optional: push as label (off by default); Jira writes it into the Theme text field chosen per project.,Column on items,1
-9,What,Change Type,change_type,Select,New feature · Improvement to existing feature,Input,Keep,,Column on items,1
+9,What,Change Type,change_type,Select,New feature · Improvement to existing feature · Bug,Input,Keep,,Column on items,1
 11,What,Initiative Hypothesis (IF / THEN / RESULTING IN),hypothesis,Long text,,Input,Modify,App -> GitHub: included in the managed block of the issue body.,Column on items,1
 12,What,Artifacts (links),artifacts,Links,,Input,Modify,App -> GitHub: listed in managed block of issue body.,Related table,1
 13,What,Comments,comments,Thread,,Input,Replace,Not synced. GitHub comments are shown read-only in the drill-down panel.,Related table,2

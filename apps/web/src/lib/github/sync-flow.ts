@@ -23,7 +23,7 @@ export type SyncCtx = {
 };
 
 type ItemCompare = {
-  code: string; cmp: IssueCompare; blockHash: string; baseComplete: boolean; pvHashes: Record<SyncTextField, string>;
+  code: string; cmp: IssueCompare; blockHash: string; /** Never sent to and no base recorded: an issue Product Velocity adopted and has not written to yet. */ firstSend?: boolean; baseComplete: boolean; pvHashes: Record<SyncTextField, string>;
   /** Every board value compared (Priority, Initiative Group, Due date, Size), empty when the initiative is not on a board. */
   board: BoardFieldCompare[];
   /** The board values could not be read just now: nothing about them was compared. */
@@ -35,7 +35,7 @@ type ItemCompare = {
 };
 type PvRow = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; theme: string | null; end_date: string | null; effort: string | null; home_project_id: string | null; assignee_ids: string[] | null };
 type SyncBase = Partial<Record<SyncTextField | BoardKey | "assignees", string>>;
-type BaseRow = { item_id: string; mode: string; sync_base: SyncBase | null; project_item_id: string | null; repo_full_name: string; issue_number: number | null };
+type BaseRow = { item_id: string; mode: string; sync_base: SyncBase | null; last_pushed_at: string | null; project_item_id: string | null; repo_full_name: string; issue_number: number | null };
 
 const pvText = (r: PvRow): Record<SyncTextField, string> => ({ title: r.initiative_name ?? "", summary: r.summary ?? "", description: r.description ?? "", hypothesis: r.hypothesis ?? "" });
 const pvHash = (f: SyncTextField, v: string) => hashText(v.trim().slice(0, SYNC_FIELD_LIMIT[f]));
@@ -66,7 +66,7 @@ export async function readIssueTexts(sc: SourceControl, connection: ConnectionRo
 async function compareItems(ctx: SyncCtx, ids: string[], issues: Map<string, IssueTexts>, unchanged: ReadonlySet<string>): Promise<{ compares: Map<string, ItemCompare>; error?: string }> {
   const [items, links, projects, groups, memberRows, directory, repoRows] = await Promise.all([
     ctx.supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis, moscow, theme, end_date, effort, home_project_id, assignee_ids").eq("tenant_id", ctx.tenantId).is("deleted_at", null).in("id", ids),
-    ctx.supabase.from("item_github_links").select("item_id, mode, sync_base, project_item_id, repo_full_name, issue_number").eq("tenant_id", ctx.tenantId).eq("connection_id", ctx.connection.id).is("frozen_at", null).in("item_id", ids),
+    ctx.supabase.from("item_github_links").select("item_id, mode, sync_base, last_pushed_at, project_item_id, repo_full_name, issue_number").eq("tenant_id", ctx.tenantId).eq("connection_id", ctx.connection.id).is("frozen_at", null).in("item_id", ids),
     ctx.supabase.from("projects").select("id, github_board").eq("tenant_id", ctx.tenantId).not("github_board", "is", null),
     ctx.supabase.from("item_groups").select("name").eq("tenant_id", ctx.tenantId),
     ctx.supabase.from("tenant_members").select("user_id, github_username").eq("tenant_id", ctx.tenantId),
@@ -110,7 +110,7 @@ async function compareItems(ctx: SyncCtx, ids: string[], issues: Map<string, Iss
     const board = values && values !== "error" ? compareBoardValues({ board: boardOf.get(r.home_project_id ?? "")!, pv: r, values, base: link.sync_base ?? undefined, pvUnchanged: unchanged.has(r.id), groups: groupNames }) : [];
     const asg = compareAssignees({ members, pvIds: r.assignee_ids ?? [], ghLogins: issue.assignees ?? [], ...(link.sync_base?.assignees ? { base: link.sync_base.assignees } : {}), pvUnchanged: unchanged.has(r.id) });
     out.set(r.id, {
-      code: r.item_code, cmp, blockHash: blockHashOf(issue.body),
+      code: r.item_code, cmp, blockHash: blockHashOf(issue.body), firstSend: link.last_pushed_at === null && !link.sync_base,
       ...(link.issue_number !== null ? { assignees: { cmp: asg, ghLogins: issue.assignees ?? [], repo: link.repo_full_name, number: link.issue_number, writable: privateRepos.has(link.repo_full_name.toLowerCase()), baseComplete: link.sync_base?.assignees === asg.pvHash } } : {}), baseComplete: SYNC_TEXT_FIELDS.every((f) => link.sync_base?.[f] === pvHashes[f]), pvHashes,
       board, boardBaseComplete: board.every((b) => link.sync_base?.[b.key] === b.pvHash), ...(values === "error" ? { boardError: true } : {}),
     });
@@ -145,7 +145,8 @@ export function conflictsOf(c: ItemCompare | undefined): SyncConflict[] {
       ...(notes.length || !a.writable ? { note: [!a.writable ? "This repository is public, so Product Velocity never writes assignees to it." : "", ...notes].filter(Boolean).join(" ") } : {}),
     });
   }
-  if (c.cmp.blockProblem) out.push({ field: "block", label: "Managed block", kind: "block", pv: "Rebuilt from Product Velocity", github: c.cmp.blockProblem, ghHash: c.blockHash, defaultChoice: null, note: BLOCK_NOTE });
+  // an adopted issue that Product Velocity has never written to has no block yet: the first send adds it (docs/04), that is not a conflict
+  if (c.cmp.blockProblem && !(c.cmp.blockMissing && c.firstSend)) out.push({ field: "block", label: "Managed block", kind: "block", pv: "Rebuilt from Product Velocity", github: c.cmp.blockProblem, ghHash: c.blockHash, defaultChoice: null, note: BLOCK_NOTE });
   return out;
 }
 
@@ -172,7 +173,7 @@ export async function buildSyncPreview(ctx: SyncCtx, ids: string[], opts: { boar
     const c = compares.get(r.id);
     const conflicts = conflictsOf(c);
     if (conflicts.length > 0) { r.conflicts = conflicts; if (r.status === "in_step" || r.status === "received") r.status = "conflict"; }
-    else if (c && (!c.baseComplete || !c.boardBaseComplete || (c.assignees && !c.assignees.baseComplete && c.assignees.cmp.verdict === "none")) && c.cmp.fields.every((f) => f.verdict === "none") && c.board.every((b) => b.verdict === "none") && (!c.assignees || c.assignees.cmp.verdict === "none")) await recordBase(ctx, r.id, { ...c.pvHashes, ...Object.fromEntries(c.board.map((b) => [b.key, b.pvHash])), ...(c.assignees ? { assignees: c.assignees.cmp.pvHash } : {}) });
+    else if (c && !c.cmp.blockProblem && (!c.baseComplete || !c.boardBaseComplete || (c.assignees && !c.assignees.baseComplete && c.assignees.cmp.verdict === "none")) && c.cmp.fields.every((f) => f.verdict === "none") && c.board.every((b) => b.verdict === "none") && (!c.assignees || c.assignees.cmp.verdict === "none")) await recordBase(ctx, r.id, { ...c.pvHashes, ...Object.fromEntries(c.board.map((b) => [b.key, b.pvHash])), ...(c.assignees ? { assignees: c.assignees.cmp.pvHash } : {}) });
     // Product Velocity changed the assignees and GitHub did not: the send adds and removes these (private repositories only)
     if (c?.assignees?.cmp.verdict === "send") {
       if (c.assignees.writable) r.assigneeSend = assigneeChange(c.assignees.ghLogins, c.assignees.cmp.writeLogins);
