@@ -217,6 +217,18 @@ describe("GitHubAppSourceControl: Projects (boards) over GraphQL", () => {
     };
   const make = (f: (url: string, init?: RequestInit) => Promise<Response>) => new GitHubAppSourceControl({ appId: "1", privateKeyPem: privateKey, fetch: f as typeof fetch });
 
+  it("looks a personal account up as a user, an organisation as an organisation, and shows GitHub's refusal", async () => {
+    const seen: { query: string; variables: Record<string, unknown> }[] = [];
+    const node = { id: "PVT_2", number: 1, title: "EARO delivery", url: "https://github.com/users/dev-nbm/projects/1", closed: false };
+    const sc = make(graphqlFake((q) => (q.includes("user(login") ? { data: { user: { projectsV2: { nodes: [node] } } } } : { data: { organization: null } }), seen));
+    expect(await sc.listBoards(1, "dev-nbm", "User")).toEqual([node]);
+    expect(seen.at(-1)!.query).toContain("user(login:$o)");
+    expect(seen.at(-1)!.variables).toEqual({ o: "dev-nbm" });
+    expect(await sc.listBoards(1, "Acme")).toEqual([]);
+    expect(seen.at(-1)!.query).toContain("organization(login:$o)");
+    const refused = make(graphqlFake(() => ({ errors: [{ type: "FORBIDDEN", message: "Resource not accessible by integration" }] })));
+    await expect(refused.listBoards(1, "dev-nbm", "User")).rejects.toMatchObject({ status: 403 });
+  });
   it("lists boards, reads fields with their single-select options, adds an issue and writes values", async () => {
     const seen: { query: string; variables: Record<string, unknown> }[] = [];
     const sc = make(graphqlFake((q) => {
@@ -355,11 +367,12 @@ describe("runConnectionDiagnostics", () => {
     const on = (await runConnectionDiagnostics({ sc: fake({ getInstallation: inst({ issues: "write", metadata: "read", organization_projects: "write" }) }), ...input })).find((x) => x.id === "boards")!;
     expect(on.verdict).toBe("pass");
   });
-  it("on a personal account, says that boards cannot be linked at all, instead of asking for a permission that cannot help", async () => {
+  it("on a personal account, says boards may not work (GitHub documents Project access for Apps on organisations only) instead of asking for a permission that cannot help", async () => {
     const user = async () => ({ id: 1, accountLogin: "dev-nbm", accountType: "User" as const, repositorySelection: "selected" as const, permissions: { issues: "write", metadata: "read", organization_projects: "write" }, events: ["issues"], suspended: false });
     const r = (await runConnectionDiagnostics({ sc: fake({ getInstallation: user }), ...input })).find((x) => x.id === "boards")!;
     expect(r.verdict).toBe("info");
     expect(r.summary).toMatch(/personal GitHub account/);
+    expect(r.summary).toMatch(/may not work/);
     expect(r.fix).toBeUndefined();
   });
   it("stops with a fix when GitHub does not know the installation", async () => {

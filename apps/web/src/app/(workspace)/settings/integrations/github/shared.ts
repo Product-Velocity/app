@@ -29,5 +29,8 @@ export const STATE: Record<ConnectionRow["state"], string> = {
   disconnected: "Not connected",
 };
 
-/** Why a board cannot be linked when the App is installed on a personal GitHub account (issue #364 follow-up). */
-export const PERSONAL_ACCOUNT_NOTE = "Project boards can only be linked for a GitHub organisation. GitHub does not let an App read the Projects of a personal account, so this connection cannot link a board. Issues, labels and Sync work as usual; to use a board, move the repository into a GitHub organisation and connect that.";
+/** What to tell the admin when GitHub does not give an App the Projects of a personal account (issue #364 follow-up). */
+export const PERSONAL_ACCOUNT_NOTE = "GitHub did not give the App this personal account\u2019s Projects. GitHub documents Project access for Apps on organisations only, so a board can be linked only if the Project belongs to a GitHub organisation where the App is installed. Issues, labels and Sync work as usual; to use a board, move the repository into a GitHub organisation and connect that.";
+
+/** A hint on the Project boards card while the App is installed on a personal account (the Link button still tries, and shows GitHub\u2019s answer). */
+export const PERSONAL_ACCOUNT_HINT = "Installed on a personal GitHub account: GitHub documents Project access for Apps on organisations only, so linking a board may not work here.";

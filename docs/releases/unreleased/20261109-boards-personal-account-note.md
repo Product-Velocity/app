@@ -1,4 +1,4 @@
 ---
 bump: patch
 ---
-**Linking a project board now says why it cannot work on a personal GitHub account.** GitHub does not let an App read a personal account's Projects, so on a connection installed on a personal account the Project boards card used to answer "GitHub could not be asked just now. Try again." Now it explains that boards need a GitHub organisation, hides the Link button, and the connection test says the same instead of asking for a permission that cannot help. Issues, labels and Sync are unaffected.
+**Linking a project board on a personal GitHub account now tells you what GitHub answered.** On a connection installed on a personal account the Project boards card used to say "GitHub could not be asked just now. Try again." Product Velocity now asks GitHub for the personal account's Projects (as a user, not as an organisation) and, if GitHub does not give them to the App, explains that GitHub documents Project access for Apps on organisations only. The card carries a hint, and the connection test no longer asks for a permission that cannot help. Issues, labels and Sync are unaffected.

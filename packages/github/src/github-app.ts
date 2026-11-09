@@ -244,13 +244,15 @@ export class GitHubAppSourceControl implements SourceControl {
     return body.data;
   }
 
-  async listBoards(installationId: number, organisation: string): Promise<BoardInfo[]> {
-    const d = await this.graphql<{ organization: { projectsV2: { nodes: { id: string; number: number; title: string; url: string; closed: boolean }[] } } | null }>(
+  async listBoards(installationId: number, owner: string, kind: "Organization" | "User" = "Organization"): Promise<BoardInfo[]> {
+    type Nodes = { projectsV2: { nodes: { id: string; number: number; title: string; url: string; closed: boolean }[] } } | null;
+    const field = kind === "User" ? "user" : "organization";
+    const d = await this.graphql<Record<string, Nodes>>(
       installationId,
-      `query($org:String!){organization(login:$org){projectsV2(first:100){nodes{id number title url closed}}}}`,
-      { org: organisation },
+      `query($o:String!){${field}(login:$o){projectsV2(first:100){nodes{id number title url closed}}}}`,
+      { o: owner },
     );
-    return (d.organization?.projectsV2.nodes ?? []).map((p) => ({ id: p.id, number: p.number, title: p.title, url: p.url, closed: p.closed }));
+    return (d[field]?.projectsV2.nodes ?? []).map((p) => ({ id: p.id, number: p.number, title: p.title, url: p.url, closed: p.closed }));
   }
 
   async getBoardFields(installationId: number, boardId: string): Promise<BoardField[] | null> {

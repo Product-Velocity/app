@@ -92,7 +92,8 @@ export interface SourceControl {
   /** The number of the milestone with this title in the repository (open or closed), created with the due date when missing. */
   ensureMilestone(installationId: number, repo: string, milestone: { title: string; dueOn: string }): Promise<number>;
   /** Open and closed organisation-owned Projects of an organisation (needs the Organization "Projects" permission). */
-  listBoards(installationId: number, organisation: string): Promise<BoardInfo[]>;
+  /** The open Projects of the account the App is installed on. `kind` is the account type: Apps are documented to reach organisation Projects only, so a "User" lookup may be refused by GitHub. */
+  listBoards(installationId: number, owner: string, kind?: "Organization" | "User"): Promise<BoardInfo[]>;
   /** The fields of a Project, or null when it cannot be found. */
   getBoardFields(installationId: number, boardId: string): Promise<BoardField[] | null>;
   /** The issues on a Project (up to 1,000) with the value of the named single-select field (the board's Status). */
