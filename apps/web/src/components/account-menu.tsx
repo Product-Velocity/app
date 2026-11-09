@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef } from "react";
 import { useDismiss } from "@/features/portfolio/use-dismiss";
+import { AccountVersionFooter, checkVersionNow } from "./version-status";
 
 const initials = (email: string) => {
   const name = email.split("@")[0] ?? "";
@@ -42,6 +43,7 @@ export function AccountMenu({ email, roleLabel, isApprover, showTrash, isAdmin, 
     <details
       ref={ref}
       className="account"
+      onToggle={() => { if (ref.current?.open) void checkVersionNow(); }}
       onKeyDown={(e) => { if (e.key === "Escape" && ref.current?.open) { e.stopPropagation(); close(); ref.current?.querySelector("summary")?.focus(); } }}
       onClick={(e) => { if ((e.target as HTMLElement).closest("a")) close(); }}
     >
@@ -90,10 +92,7 @@ export function AccountMenu({ email, roleLabel, isApprover, showTrash, isAdmin, 
         <form action="/auth/sign-out" method="post" className="menu-signout">
           <button className="menu-link menu-button" type="submit">Sign out</button>
         </form>
-        <p className="account-version" title="Release log: docs/RELEASES.md">
-          app v{process.env.NEXT_PUBLIC_APP_VERSION}
-          {process.env.NEXT_PUBLIC_APP_BUILD ? ` · build ${process.env.NEXT_PUBLIC_APP_BUILD}` : ""}
-        </p>
+        <AccountVersionFooter onCloseMenu={close} />
       </div>
     </details>
   );
