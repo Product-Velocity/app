@@ -456,20 +456,34 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
     notes: ["Use Developer mode in a normal chat for writing. Deep research mode only reads.", "The ChatGPT connector is new: if a step looks different in your plan or region, look for \"custom connector\" or \"MCP server\" and tell your admin which step failed."],
   },
   gemini: {
-    title: "Gemini (Gemini CLI and Code Assist agent mode)",
+    title: guide("gemini").title,
     setup: guide("gemini").steps,
     snippet: guide("gemini").snippet?.code,
-    onboarding: [ONBOARD_ADMIN, ONBOARD_CONNECT, ONBOARD_PROFILE, "Optional: install the Gemini extension in the repository's connectors/gemini folder; it adds a context file with the house rules and the flow names. Replace the placeholder address with your deployment's before installing.", REVOKE],
+    onboarding: [
+      ONBOARD_ADMIN,
+      "Direct connect: Add the remote connector URL directly under Gemini Settings → Connectors / MCP Servers, then sign in and approve your workspace on the consent screen.",
+      "Native skills: Use /product-velocity-prd and /product-velocity-discovery for interactive single-batch interview workflows.",
+      ONBOARD_PROFILE,
+      "Optional: install the Gemini extension in the repository's connectors/gemini folder; it adds a context file with the house rules and the flow names. Replace the placeholder address with your deployment's before installing.",
+      REVOKE,
+    ],
     features: {
-      head: ["What", "How to start in Gemini", "Result"],
+      head: ["Skill / Capability", "How to ask Gemini", "Result"],
       rows: [
-        ["Sign in", "/mcp auth product-velocity (opens a browser to sign in and approve)", "A connection you can revoke"],
-        ["Check the connection", "/mcp lists the server, its tools and its prompts", "Product Velocity listed as connected"],
-        ["Discovery, PRD, company profile", "Type / and pick write_discovery, write_prd or research_company, or ask in plain words", "The same documents and AI drafts as with Claude"],
-        ["Several initiatives, changes, files", "Ask in plain words, as with Claude", "A dry run or diff first, then written after you agree"],
+        ["Sign in", "Connect via Settings URL, or run /mcp auth product-velocity in CLI (opens browser to sign in and approve)", "A connection you can revoke"],
+        ["Check connection", "/mcp lists the server, its tools and its prompts", "Product Velocity listed as connected"],
+        ["PRD authoring (product-velocity-prd)", "Ask \"Write a PRD for [feature]\" or /write_prd", "Drafts 4D PRD, asks for team/KRs in one grouped batch, diff preview, and saves AI draft to Spec tab with safe tracker extract"],
+        ["Opportunity discovery (product-velocity-discovery)", "Ask \"Run discovery on [topic]\" or /write_discovery", "Evaluates candidate solutions, checks evidence depth, and prepares Gate A decision dossier"],
+        ["Company & partner research (research_company)", "Ask \"Research the company\" or /research_company", "Drafts company profile, competitor context, and glossary for workspace admin confirmation"],
+        ["Roadmap & portfolio queries", "Ask in natural language (e.g. \"Which Q3 initiatives are stalled?\")", "Real-time roadmap intelligence, dependencies, and dry-run proposal diffs"],
       ],
     },
-    notes: ["The consumer Gemini app has no custom connectors today. Other Gemini clients that support remote MCP with OAuth can use the same connector URL.", "Tool definitions are simplified for Gemini; Product Velocity still checks every value on the server.", "The Gemini connector is new: report what does not work so it can be fixed."],
+    notes: [
+      "Direct connection: Use the remote connector URL directly in Antigravity, Gemini Code Assist, or any MCP-compatible Gemini client.",
+      "Human in the loop: Gemini never approves decision gates, never marks items Ready for build, and never sets Stack Rank or Value.",
+      "Commercial privacy: Full PRD documents and commercial metrics stay strictly in Product Velocity and never sync to GitHub or Jira.",
+      "Tool definitions are simplified for Gemini function calling; Product Velocity validates every parameter strictly on the server.",
+    ],
   },
 };
 
