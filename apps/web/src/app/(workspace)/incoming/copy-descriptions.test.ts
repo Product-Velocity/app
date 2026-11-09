@@ -7,6 +7,7 @@ let tables: Tables;
 let role = "creator";
 let platform: unknown = null;
 let bodies: Record<number, string | null | Error>;
+let liveLabels: Record<number, string[]>;
 let rpcCalls: { name: string; args: Record<string, unknown> }[];
 let rpcResult: { data: unknown; error: unknown };
 let labelResult: { data: unknown; error: unknown };
@@ -22,17 +23,17 @@ const query = (table: string) => {
 vi.mock("@/lib/session", () => ({ requireWorkspace: async () => ({ supabase: { from: query }, user: { id: "u1" }, active: { tenantId: "t1", role, platform } }) }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc: async (name: string, args: Record<string, unknown>) => { rpcCalls.push({ name, args }); return name === "github_copy_issue_labels" ? labelResult : rpcResult; } }) }));
 vi.mock("@/lib/github/server", () => ({
-  githubSourceControl: () => ({ getIssue: async (_i: number, _r: string, n: number) => { const b = bodies[n]; if (b instanceof Error) throw b; return b === null || b === undefined ? null : { number: n, body: b }; } }),
+  githubSourceControl: () => ({ getIssue: async (_i: number, _r: string, n: number) => { const b = bodies[n]; if (b instanceof Error) throw b; return b === null || b === undefined ? null : { number: n, body: b, ...(liveLabels[n] ? { labels: liveLabels[n] } : {}) }; } }),
 }));
 
-const { copyIssueDescriptions } = await import("./copy-descriptions");
+const { copyIssueDescriptions, refreshPulledFromGithub } = await import("./copy-descriptions");
 const ID = (n: number) => `00000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
 const item = (n: number, o: { source?: string; description?: string | null } = {}) => ({ id: ID(n), source: o.source ?? `GitHub issue #${n}`, description: o.description ?? null });
 const link = (n: number) => ({ item_id: ID(n), repo_full_name: "dev-nbm/earo_admin", issue_number: n });
 
 beforeEach(() => {
   role = "creator"; platform = null; rpcCalls = []; rpcResult = { data: true, error: null }; labelResult = { data: { change_type: true, focus_area: true }, error: null };
-  bodies = {};
+  bodies = {}; liveLabels = {};
   tables = { github_connections: [{ id: "c1", installation_id: 9 }], items: [], item_github_links: [], tracker_issues: [] };
 });
 
@@ -40,7 +41,7 @@ describe("copyIssueDescriptions (pull-in keeps the issue's text, issue #364)", (
   it("copies the body of a pulled-in issue once, as plain text with our markers neutralised, for the signed-in person", async () => {
     tables.items = [item(1)]; tables.item_github_links = [link(1)];
     bodies[1] = "## Goal\r\nThe IO builder <!-- hidden --> ping @someone";
-    expect(await copyIssueDescriptions([ID(1)])).toEqual({ copied: 1, failed: 0, labelled: 0 });
+    expect(await copyIssueDescriptions([ID(1)])).toEqual({ copied: 1, failed: 0, labelled: 0, checked: 1 });
     expect(rpcCalls).toHaveLength(1);
     expect(rpcCalls[0]).toMatchObject({ name: "github_copy_issue_description", args: { p_actor: "u1", p_item: ID(1) } });
     const text = rpcCalls[0]!.args.p_text as string;
@@ -79,6 +80,28 @@ describe("copyIssueDescriptions (pull-in keeps the issue's text, issue #364)", (
     const calls = rpcCalls.filter((c) => c.name === "github_copy_issue_labels");
     expect(calls).toHaveLength(1); // type:chore means nothing in Product Velocity: nothing is sent for it
     expect(calls[0]!.args).toMatchObject({ p_actor: "u1", p_item: ID(11), p_change_type: "New feature", p_focus_area: "admin" });
+  });
+  it("re-pull: fills Change Type and Focus Area on an initiative that already has a Description, without touching the Description", async () => {
+    tables.items = [item(13, { description: "Written in Product Velocity" })]; tables.item_github_links = [link(13)];
+    tables.tracker_issues = [{ item_id: ID(13), labels: [] }]; liveLabels[13] = ["area:billing", "type:bug"]; bodies[13] = "ignored: a Description is never replaced";
+    const r = await refreshPulledFromGithub([ID(13)]);
+    expect(r).toMatchObject({ checked: 1, copied: 0, labelled: 1, failed: 0 });
+    expect(rpcCalls.map((c) => c.name)).toEqual(["github_copy_issue_labels"]);
+    expect(rpcCalls[0]!.args).toMatchObject({ p_change_type: "Bug", p_focus_area: "billing" });
+  });
+  it("re-pull: fills an empty Description and uses the labels GitHub shows now over the Incoming record", async () => {
+    tables.items = [item(14)]; tables.item_github_links = [link(14)];
+    tables.tracker_issues = [{ item_id: ID(14), labels: ["type:feature"] }]; liveLabels[14] = ["type:improvement"]; bodies[14] = "## Goal\nNew text";
+    const r = await refreshPulledFromGithub([ID(14)]);
+    expect(r).toMatchObject({ checked: 1, copied: 1, labelled: 1 });
+    expect(rpcCalls.find((c) => c.name === "github_copy_issue_labels")!.args).toMatchObject({ p_change_type: "Improvement to existing feature" });
+  });
+  it("re-pull: an unreadable issue counts as failed only when its Description was empty; labels from the record still apply", async () => {
+    tables.items = [item(15), item(16, { description: "Mine" })]; tables.item_github_links = [link(15), link(16)];
+    tables.tracker_issues = [{ item_id: ID(15), labels: ["area:admin"] }, { item_id: ID(16), labels: ["area:admin"] }];
+    bodies[15] = new Error("down"); bodies[16] = new Error("down");
+    const r = await refreshPulledFromGithub([ID(15), ID(16)]);
+    expect(r).toMatchObject({ checked: 2, copied: 0, labelled: 2, failed: 1 });
   });
   it("does nothing for a viewer, platform staff, or a malformed id", async () => {
     tables.items = [item(10)]; tables.item_github_links = [link(10)]; bodies[10] = "x";

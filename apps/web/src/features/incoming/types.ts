@@ -22,6 +22,8 @@ export type IncomingIssue = {
 export type IncomingRule = { id: string; kind: "type" | "label" | "repo"; value: string };
 
 export type BatchOutcome = { id: string; ok: boolean; reason: string | null; itemId?: string | null; itemCode?: string | null; /** A short extra line for the person (for example that an issue's text could not be read). */ note?: string };
+/** What a re-pull did: fields that were still empty were filled again from GitHub; nothing that already had a value was changed. */
+export type RefreshResult = { ok: true; checked: number; descriptions: number; labelled: number; failed: number } | { ok: false; error: string };
 export type RuleResult = { ok: true } | { ok: false; error: string };
 
 /** What the Incoming list needs from the data layer (Supabase in the app, memory in the test page). */
@@ -29,6 +31,8 @@ export interface IncomingSource {
   load(): Promise<{ connectionId: string; issues: IncomingIssue[]; rules: IncomingRule[] }>;
   setState(ids: string[], state: "not_pulled" | "ignored", reason: string | null): Promise<BatchOutcome[]>;
   pullIn(ids: string[], projectId: string, ownership: Ownership): Promise<BatchOutcome[]>;
+  /** Re-pull: fills the Description, Change Type and Focus Area that are still empty on initiatives already pulled in, from their issue. Optional: only GitHub has it so far (#365 for Jira). */
+  refreshPulled?(itemIds: string[]): Promise<RefreshResult>;
   /** Undo of a pull-in: the new initiatives are discarded again. */
   discardItems(itemIds: string[]): Promise<{ ok: boolean; error?: string }>;
   addRule(connectionId: string, kind: IncomingRule["kind"], value: string): Promise<RuleResult>;
