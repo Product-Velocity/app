@@ -331,8 +331,8 @@ describe("guard coverage", () => {
 describe("platform email stats (issue #370)", () => {
   it("a platform admin sees counts per template and nothing about people, and the log table stays closed", async () => {
     await db.admin.query("insert into public.email_send_log (template_key, status, provider_id) values ('app.access-request', 'delivered', 're_stat_1'), ('app.access-request', 'failed', null), ('auth.sign-in-link', 'sent', 're_stat_2')");
-    const rows = await asPat(async (q) => (await q("select * from public.platform_email_stats(30)")).rows);
-    const inv = rows.find((r: { template_key: string }) => r.template_key === "app.access-request");
+    const rows = await asPat<{ template_key: string }[]>(async (q) => (await q("select * from public.platform_email_stats(30)")).rows);
+    const inv = rows.find((r) => r.template_key === "app.access-request")!;
     expect(inv).toMatchObject({ sends: "2", failures: "1", delivered: "1" });
     expect(Object.keys(inv).sort()).toEqual(["bounced", "delivered", "failures", "last_sent", "sends", "template_key"]);
     expect(await errorCode(db.asUser(pat, (q) => q("select * from public.email_send_log")))).toBe("42501");
@@ -340,7 +340,7 @@ describe("platform email stats (issue #370)", () => {
   });
   it("old rows fall outside the window", async () => {
     await db.admin.query("insert into public.email_send_log (template_key, status, created_at) values ('app.link-code', 'sent', now() - interval '40 days')");
-    const rows = await asPat(async (q) => (await q("select * from public.platform_email_stats(30)")).rows);
-    expect(rows.find((r: { template_key: string }) => r.template_key === "app.link-code")).toBeUndefined();
+    const rows = await asPat<{ template_key: string }[]>(async (q) => (await q("select * from public.platform_email_stats(30)")).rows);
+    expect(rows.find((r) => r.template_key === "app.link-code")).toBeUndefined();
   });
 });
