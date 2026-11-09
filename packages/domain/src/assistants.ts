@@ -71,17 +71,18 @@ export function setupGuides(url: string): SetupGuide[] {
     },
     {
       assistant: "gemini",
-      title: "Gemini (Gemini CLI and Code Assist agent mode)",
+      title: "Gemini (Antigravity, Gemini Code Assist, Gemini CLI)",
       steps: [
-        "Add the server with the command below, or paste the settings snippet into ~/.gemini/settings.json (or .gemini/settings.json in a project).",
-        "Run gemini, then /mcp auth product-velocity. A browser window opens: sign in to Product Velocity, choose one or several workspaces and approve.",
-        "The Product Velocity prompts (write_prd, write_discovery, review_group, research_company) appear as slash commands: type / to see them.",
+        "Direct connection (Recommended): In your Gemini interface (Antigravity, Gemini Code Assist, or any remote MCP client), open Settings → Connectors / MCP Servers and add the connector URL below.",
+        "Sign in and approve: In the browser window that opens, sign in to Product Velocity, choose one or several workspaces, and approve the connection.",
+        "Developer / CLI alternative: In Gemini CLI, run the command below, then run /mcp auth product-velocity.",
+        "Skills and prompts: Use skills like /product-velocity-prd or prompts (write_prd, write_discovery, review_group, research_company) by typing / or asking in natural language.",
       ],
       snippet: {
-        label: "Gemini CLI",
-        code: `gemini mcp add --transport http product-velocity ${url}\n\n# or in settings.json:\n{\n  "mcpServers": {\n    "product-velocity": { "httpUrl": "${url}" }\n  }\n}`,
+        label: "Gemini Connector URL (Direct) & CLI setup",
+        code: `${url}\n\n# in settings.json (Antigravity / Gemini Code Assist):\n{\n  "mcpServers": {\n    "product-velocity": { "httpUrl": "${url}" }\n  }\n}\n\n# or in Gemini CLI:\ngemini mcp add --transport http product-velocity ${url}`,
       },
-      note: "The consumer Gemini app has no custom MCP connectors today. Other Gemini clients that speak remote MCP with OAuth (the Gemini API's MCP support, Agent Development Kit) can use the same URL.",
+      note: "Connect directly with the remote URL above in Antigravity or any MCP-enabled Gemini client. Tool definitions are simplified for Gemini; Product Velocity validates every value strictly on the server.",
     },
   ];
 }
