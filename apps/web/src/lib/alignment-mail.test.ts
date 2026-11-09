@@ -38,7 +38,9 @@ describe("buildParticipantEmail", () => {
     expect(e.text).toContain("https://pv.example/a/TOKEN");
     expect(e.html).toContain("Hello Ann &lt;b&gt;,");
     expect(e.html).not.toContain("<b>");
-    expect(e.html).not.toMatch(/<img|pixel|track/i);
+    // the branded frame carries one logo (issue #370); never any other image, pixel or tracking
+    expect([...e.html.matchAll(/<img[^>]*src="([^"]+)"/g)].map((m) => m[1])).toEqual(["https://productvelocity.app/email/logo.png"]);
+    expect(e.html).not.toMatch(/pixel|track/i);
     expect(e.text).not.toContain("Stop them here");
   });
   it("puts the link once even when the writer used {{link}}, and a reminder offers to stop reminders", () => {

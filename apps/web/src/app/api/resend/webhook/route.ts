@@ -23,6 +23,10 @@ export async function POST(request: Request) {
   // the same events for alignment participants (invitations and reminders)
   const pq = admin.from("alignment_participants").update({ email_status: status }).eq("email_provider_id", id);
   const { error: perr } = await (status === "delivered" ? pq.eq("email_status", "sent") : pq);
+  // the send log: every template, matched on Resend's message id (a delivered message never overrides a bounce that arrived first)
+  const lq = admin.from("email_send_log").update({ status, event_at: new Date().toISOString() }).eq("provider_id", id);
+  const { error: lerr } = await (status === "delivered" ? lq.eq("status", "sent") : lq);
+  if (lerr) { console.error(JSON.stringify({ resend: "webhook-log", event: event.type, error: lerr.message.slice(0, 160) })); return new Response("error", { status: 500 }); }
   if (perr) { console.error(JSON.stringify({ resend: "webhook-participants", event: event.type, error: perr.message.slice(0, 160) })); return new Response("error", { status: 500 }); }
   if (error) { console.error(JSON.stringify({ resend: "webhook", event: event.type, error: error.message.slice(0, 160) })); return new Response("error", { status: 500 }); }
   return new Response("ok");

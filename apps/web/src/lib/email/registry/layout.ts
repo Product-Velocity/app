@@ -6,6 +6,8 @@ import { escapeHtml } from "./macros";
  * Email clients are old: 560px table, inline CSS, system fonts, one hosted logo with alt text, no tracking.
  */
 const FONT = "'IBM Plex Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif";
+/** Used only where a caller does not know the deployment address (tests, previews); real sends pass the deployment address. */
+export const DEFAULT_SITE_URL = "https://productvelocity.app";
 export const TAGLINE = "One roadmap for humans and AI.";
 
 export type LayoutInput = {
@@ -18,6 +20,8 @@ export type LayoutInput = {
   /** A short code shown large, for code emails. */
   code?: string | null;
   note: string;
+  /** A second link built by the system (for example "stop reminders"), shown in the footer. */
+  extraLink?: { label: string; url: string } | null;
   siteUrl: string;
 };
 
@@ -49,7 +53,7 @@ ${paragraphs(i.body)}
 </td></tr>
 <tr><td style="padding:8px 32px 0 32px;font-family:${FONT};font-size:13px;line-height:20px;color:#4b5563;">Button not working? Paste this link into your browser:<br><a href="${url}" style="color:#2433a8;word-break:break-all;">${url}</a></td></tr>` : ""}
 <tr><td style="padding:24px 32px 32px 32px;font-family:${FONT};">
-<div style="border-top:1px solid #e5e7eb;padding-top:20px;font-size:13px;line-height:20px;color:#4b5563;">${escapeHtml(i.note)}<br><br><strong style="color:#111827;font-weight:600;">Product Velocity</strong><br>${TAGLINE}</div>
+<div style="border-top:1px solid #e5e7eb;padding-top:20px;font-size:13px;line-height:20px;color:#4b5563;">${escapeHtml(i.note)}${i.extraLink ? `<br><br>${escapeHtml(i.extraLink.label)} <a href="${escapeHtml(i.extraLink.url)}" style="color:#2433a8;word-break:break-all;">${escapeHtml(i.extraLink.url)}</a>` : ""}<br><br><strong style="color:#111827;font-weight:600;">Product Velocity</strong><br>${TAGLINE}</div>
 </td></tr>
 </table>
 </td></tr>
@@ -60,5 +64,5 @@ ${paragraphs(i.body)}
 }
 
 export function renderText(i: LayoutInput): string {
-  return [i.heading, "", i.body, ...(i.code ? ["", i.code] : []), ...(i.button ? ["", `${i.button.label}: ${i.button.url}`] : []), "", i.note, "", "Product Velocity", TAGLINE, ""].join("\n");
+  return [i.heading, "", i.body, ...(i.code ? ["", i.code] : []), ...(i.button ? ["", `${i.button.label}: ${i.button.url}`] : []), "", i.note, ...(i.extraLink ? ["", `${i.extraLink.label} ${i.extraLink.url}`] : []), "", "Product Velocity", TAGLINE, ""].join("\n");
 }

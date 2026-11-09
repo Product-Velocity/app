@@ -10,7 +10,9 @@ describe("invitation email", () => {
     expect(mail.text).toContain("as Creator and Approver");
     expect(mail.text).toContain("https://app.example/invite/abc");
     expect(mail.text).toContain("expires in 7 days");
-    expect(mail.html).not.toMatch(/<img|pixel|track/i);
+    // the branded frame carries one logo (issue #370); never any other image, pixel or tracking
+    expect([...mail.html.matchAll(/<img[^>]*src="([^"]+)"/g)].map((m) => m[1])).toEqual(["https://productvelocity.app/email/logo.png"]);
+    expect(mail.html).not.toMatch(/pixel|track/i);
   });
   it("escapes names in the HTML", () => {
     expect(mail.html).toContain("Meridian &lt;Media&gt;");
