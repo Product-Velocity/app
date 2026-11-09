@@ -22,3 +22,6 @@ create index email_send_log_provider on public.email_send_log (provider_id) wher
 alter table public.email_send_log enable row level security;
 revoke all on public.email_send_log from public, anon, authenticated;
 grant all on public.email_send_log to service_role;
+-- the platform read-only guard every tenant table carries (docs/15, platform staff are read-only on tenant tables)
+create trigger a_platform_readonly_guard before insert or update or delete on public.email_send_log
+  for each row execute function platform.readonly_guard();
