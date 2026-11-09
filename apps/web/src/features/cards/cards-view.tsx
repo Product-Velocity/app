@@ -18,8 +18,8 @@ import { baseToRef, useViews, ViewBar } from "../portfolio/view-bar";
 import { summarize } from "../portfolio/view-controls";
 import { useWorkspace } from "../workspace/provider";
 import { setQueryParam, useScope } from "../workspace/scope";
+import { StatusPill } from "../../components/status-pill";
 
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, "-");
 const BASE_FIELDS = new Set(["stack_rank", "item_code", "initiative_name", "health", "product_manager", "contributing_teams", "effort"]);
 const DEFAULT_LANE = "theme";
 const PRIORITISATION: BaseView = { kind: "builtin", name: "Prioritisation" };
@@ -262,7 +262,7 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
       >
         <div className="kc-top">
           <span className="mono muted">#{row.stack_rank} {row.item_code}</span>
-          {health && <span className={`pill health-${slug(health)}`}>{health}</span>}
+          {health && <StatusPill value={health} />}
         </div>
         <div className="kc-name">{row.initiative_name}</div>
         <div className="kc-meta">
