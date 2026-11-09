@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { FIELD_BY_KEY } from "./registry";
 import { axisOptions, axisValues, boardMoves, buildBoard, cardNeighbor, defaultColumnField, planMove, type AxisCtx } from "./cards";
+import { CARDS_DEFAULT_VIEWS, CARDS_VIEW_NAMES } from "./cards-views";
+import { computeBar } from "./view-bar";
+import { sanitizeView } from "./views";
 
 const ctx: AxisCtx = {
   groups: ["Onboarding", "Retention"],
@@ -128,5 +131,30 @@ describe("cardNeighbor and boardMoves: the keyboard way to move a card", () => {
   });
   it("knows the field metadata it relies on", () => {
     expect(FIELD_BY_KEY.moscow!.allowed).toHaveLength(4);
+  });
+});
+
+describe("CARDS_DEFAULT_VIEWS: the four default views of the Cards screen (issue #371)", () => {
+  it("offers exactly the four default views: Prioritisation, Planning, Delivery and Go-to-market", () => {
+    expect(CARDS_VIEW_NAMES).toEqual(["Prioritisation", "Planning", "Delivery", "Go-to-market"]);
+    const st = computeBar({ views: [], workspaceLayout: [], myLayout: [], me: "u1", builtins: CARDS_VIEW_NAMES, defaultBar: CARDS_VIEW_NAMES });
+    expect(st.bar.map((r) => (r.kind === "builtin" ? r.name : r.id))).toEqual(["Prioritisation", "Planning", "Delivery", "Go-to-market"]);
+    expect(st.moreCount).toBe(0);
+  });
+
+  it("pre-configures each default view with 4–5 columns, a swimlane grouping and valid filters", () => {
+    const validAxes = new Set(axisOptions().filter((o) => o.available).map((o) => o.key));
+    for (const name of CARDS_VIEW_NAMES) {
+      const def = CARDS_DEFAULT_VIEWS[name];
+      expect(def.columns.length).toBeGreaterThanOrEqual(4);
+      expect(def.columns.length).toBeLessThanOrEqual(5);
+      expect(def.groupBy).toBeTruthy();
+      expect(validAxes.has(def.groupBy!)).toBe(true);
+      expect(sanitizeView(def)).toEqual(def);
+    }
+    expect(CARDS_DEFAULT_VIEWS.Prioritisation.groupBy).toBe("theme");
+    expect(CARDS_DEFAULT_VIEWS.Planning.filters.length).toBeGreaterThan(0);
+    expect(CARDS_DEFAULT_VIEWS.Delivery.filters.length).toBeGreaterThan(0);
+    expect(CARDS_DEFAULT_VIEWS["Go-to-market"].filters.length).toBeGreaterThan(0);
   });
 });

@@ -7,10 +7,16 @@ export type BaseView = { kind: "builtin"; name: ViewName } | { kind: "all" } | {
 export const ALL_COLUMNS_NAME = "All columns";
 
 /** The view definition behind a base view (null while a saved view has not been loaded or no longer exists). */
-export function baseDef(base: BaseView, saved: SavedView[], defaults: Partial<Record<ViewName, SavedView>> = {}): ViewDef | null {
+export function baseDef(
+  base: BaseView,
+  saved: SavedView[],
+  defaults: Partial<Record<ViewName, SavedView>> = {},
+  builtinDefs?: Partial<Record<ViewName, ViewDef>>,
+): ViewDef | null {
   if (base.kind === "builtin") {
     const custom = defaults[base.name];
-    return sanitizeView(custom ?? { columns: DEFAULT_VIEWS[base.name], filters: [], groupBy: null });
+    const fallback = builtinDefs?.[base.name] ?? { columns: DEFAULT_VIEWS[base.name], filters: [], groupBy: null };
+    return sanitizeView(custom ?? fallback);
   }
   if (base.kind === "all") return sanitizeView({ columns: VISIBLE_FIELDS.map((f) => f.key), filters: [], groupBy: null });
   const v = saved.find((s) => s.id === base.id);

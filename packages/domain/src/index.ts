@@ -18,6 +18,7 @@ export * from "./panel";
 export * from "./related";
 export * from "./gantt";
 export * from "./cards";
+export * from "./cards-views";
 export * from "./leadership";
 export * from "./alignment-scoring";
 export * from "./quick-filters";

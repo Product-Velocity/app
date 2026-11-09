@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   addToBar, BAR_FULL_MESSAGE, changeSummary, computeBar, diffViews, isCustomerSafe, layoutRowsFor, moveInBar, moveToIndex, nameProblem, refKey, removeFromBar, sameRef,
-  filterOptions, needsSearch, sanitizeView, visibleTabs, BUILTIN_BAR_NAMES, VIEW_NAMES, type BuiltinBarName, type MenuEntry, type ViewDef, type ViewName, type ViewRef,
+  filterOptions, needsSearch, sanitizeView, visibleTabs, BUILTIN_BAR_NAMES, type BuiltinBarName, type MenuEntry, type ViewDef, type ViewName, type ViewRef,
 } from "@pv/domain";
 import { menuSearchKeys, NoResults, SearchInput } from "@/components/search-list";
 import { useWorkspace } from "../workspace/provider";
@@ -29,7 +29,7 @@ type Dialog =
   | { kind: "make-private"; entry: MenuEntry };
 
 /** Everything the view bar, the unsaved-changes bar and the ⌘K palette do with views, in one place so the three stay the same. */
-export function useViews({ base, def, bDef, dirty, openBase, discard, reset }: { base: BaseView; def: ViewDef; bDef: ViewDef; dirty: boolean; openBase: (b: BaseView) => void; /** Drops the column changes of the open view (after they were saved). */ discard: () => void; /** Drops every unsaved change (filters, grouping, sort and columns). */ reset: () => void }) {
+export function useViews({ base, def, bDef, dirty, openBase, discard, reset, builtins = BUILTIN_BAR_NAMES, defaultBar, builtinDefs }: { base: BaseView; def: ViewDef; bDef: ViewDef; dirty: boolean; openBase: (b: BaseView) => void; /** Drops the column changes of the open view (after they were saved). */ discard: () => void; /** Drops every unsaved change (filters, grouping, sort and columns). */ reset: () => void; builtins?: readonly BuiltinBarName[]; defaultBar?: readonly BuiltinBarName[]; builtinDefs?: Partial<Record<ViewName, ViewDef>> }) {
   const openRaw = openBase;
   const { store, reload, views, defaults, layouts, userId, canAdmin } = useWorkspace();
   const [managing, setManaging] = useState(false);
@@ -37,11 +37,11 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset }: {
   const [message, setMessage] = useState<{ text: string; cap: boolean } | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const barViews = useMemo(() => views.map((v) => ({ id: v.id, name: v.name, ownerId: v.ownerId, baseView: v.baseView })), [views]);
-  const personal = useMemo(() => computeBar({ views: barViews, workspaceLayout: layouts.workspace, myLayout: layouts.mine, me: userId }), [barViews, layouts, userId]);
+  const personal = useMemo(() => computeBar({ views: barViews, workspaceLayout: layouts.workspace, myLayout: layouts.mine, me: userId, builtins, ...(defaultBar ? { defaultBar } : {}) }), [barViews, layouts, userId, builtins, defaultBar]);
   // what an admin edits in "Manage": the workspace default, as everyone without a layout of their own sees it
-  const workspaceOnly = useMemo(() => computeBar({ views: barViews.filter((v) => v.ownerId === null), workspaceLayout: layouts.workspace, myLayout: [], me: null }), [barViews, layouts.workspace]);
+  const workspaceOnly = useMemo(() => computeBar({ views: barViews.filter((v) => v.ownerId === null), workspaceLayout: layouts.workspace, myLayout: [], me: null, builtins, ...(defaultBar ? { defaultBar } : {}) }), [barViews, layouts.workspace, builtins, defaultBar]);
   const shown = managing ? workspaceOnly : personal;
-  const allKnown = useMemo<ViewRef[]>(() => [...BUILTIN_BAR_NAMES.map((name) => ({ kind: "builtin", name }) as ViewRef), ...views.filter((v) => !v.baseView).map((v) => ({ kind: "saved", id: v.id }) as ViewRef)], [views]);
+  const allKnown = useMemo<ViewRef[]>(() => [...builtins.map((name) => ({ kind: "builtin", name }) as ViewRef), ...views.filter((v) => !v.baseView).map((v) => ({ kind: "saved", id: v.id }) as ViewRef)], [builtins, views]);
 
   const viewOf = useCallback((e: { ref: ViewRef }) => { const r = e.ref; return r.kind === "saved" ? views.find((v) => v.id === r.id) : undefined; }, [views]);
   const isWorkspaceRef = (r: ViewRef) => r.kind === "builtin" || views.find((v) => v.id === r.id)?.ownerId === null;
@@ -95,7 +95,7 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset }: {
   };
 
   // ---- views: open, rename, duplicate, delete, scope, hide
-  const entryDef = (ref: ViewRef): ViewDef | null => baseDef(refToBase(ref), views.filter((v) => !v.baseView), defaults);
+  const entryDef = (ref: ViewRef): ViewDef | null => baseDef(refToBase(ref), views.filter((v) => !v.baseView), defaults, builtinDefs);
   const ownNames = (workspace: boolean) => [
     ...views.filter((v) => !v.baseView && (workspace ? v.ownerId === null : v.ownerId === userId)).map((v) => v.name),
     ...(workspace ? [...BUILTIN_BAR_NAMES] : []),
@@ -193,8 +193,10 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset }: {
   // ---- palette
   const commands = ((): Command[] => {
     const out: Command[] = [];
-    for (const n of VIEW_NAMES) out.push({ id: `view:${n}`, label: `Go to view: ${n}`, group: "Views", keywords: "columns", run: () => openBase({ kind: "builtin", name: n }) });
-    out.push({ id: "view:all", label: "Go to view: All columns", group: "Views", keywords: "every field", run: () => openBase({ kind: "all" }) });
+    for (const n of builtins) {
+      if (n === "All columns") out.push({ id: "view:all", label: "Go to view: All columns", group: "Views", keywords: "every field", run: () => openBase({ kind: "all" }) });
+      else out.push({ id: `view:${n}`, label: `Go to view: ${n}`, group: "Views", keywords: "columns", run: () => openBase({ kind: "builtin", name: n as ViewName }) });
+    }
     for (const v of views) if (!v.baseView) out.push({ id: `view:${v.id}`, label: `Go to view: ${v.name}`, group: v.ownerId === null ? "Workspace views" : "My views", run: () => openBase({ kind: "saved", id: v.id }) });
     if (dirty) {
       out.push({ id: "view:reset", label: "Reset view changes", group: "Views", keywords: "discard", run: reset });
