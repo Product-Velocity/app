@@ -12,19 +12,19 @@ const LAST_PROJECT = "pv:phone-last-project";
 const readLast = () => { try { return window.localStorage.getItem(LAST_PROJECT); } catch { return null; } };
 const writeLast = (id: string) => { try { window.localStorage.setItem(LAST_PROJECT, id); } catch { /* storage may be blocked */ } };
 
-export function PhoneQuickAddClient({ tenantId, role, userId, lookups }: { tenantId: string; role: string; userId: string; lookups: Lookups }) {
+export function PhoneQuickAddClient({ tenantId, role, userId, lookups, initial }: { tenantId: string; role: string; userId: string; lookups: Lookups; /** Prefilled from a share (Web Share Target). */ initial?: { name: string; line: string } }) {
   const { state, retry } = useWorkspaceController(tenantId, role, lookups, userId);
   if (state.kind === "error") return <div role="alert" className="error">Could not load the roadmap: {state.message} <button type="button" className="link-button" onClick={retry}>Try again</button></div>;
-  return <PhoneQuickAdd controller={state.kind === "ready" ? state.controller : null} lookups={lookups} tenantId={tenantId} />;
+  return <PhoneQuickAdd controller={state.kind === "ready" ? state.controller : null} lookups={lookups} tenantId={tenantId} {...(initial ? { initial } : {})} />;
 }
 
 /**
  * Quick add on a phone: the name is the only required field, an optional line says what and why (stored as the Description). The initiative
  * is exactly what the desktop quick-add makes; whatever its stage still needs shows up under "My placeholders" on For you.
  */
-export function PhoneQuickAdd({ controller, lookups, tenantId }: { controller: PortfolioController | null; lookups: Lookups; tenantId: string }) {
-  const [name, setName] = useState("");
-  const [line, setLine] = useState("");
+export function PhoneQuickAdd({ controller, lookups, tenantId, initial }: { controller: PortfolioController | null; lookups: Lookups; tenantId: string; initial?: { name: string; line: string } }) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [line, setLine] = useState(initial?.line ?? "");
   const [project, setProject] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [added, setAdded] = useState<{ id: string; name: string } | null>(null);
@@ -59,6 +59,7 @@ export function PhoneQuickAdd({ controller, lookups, tenantId }: { controller: P
   return (
     <div className="page-narrow stack phone-add">
       <h1>New initiative</h1>
+      {initial && (initial.name || initial.line) && <p className="muted">Shared from another app. Check it, then create.</p>}
       {added && <AddedNotice controller={controller!} added={added} tenantId={tenantId} onAnother={() => { setAdded(null); nameRef.current?.focus(); }} />}
       <form onSubmit={(e) => { e.preventDefault(); create(); }} className="stack">
         <div className="field">
