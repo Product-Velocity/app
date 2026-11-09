@@ -5,7 +5,8 @@ import { siteUrl } from "@/lib/site-url";
 import { EMAIL_TEMPLATES, type TemplateText } from "@/lib/email/registry/registry";
 import { FIELD_LABELS } from "@/lib/email/registry/validate";
 import { TemplateEditor } from "./editor";
-import { discardDraft, publishDraft, restoreVersion, saveDraft, sendTest, TEST_SENDS_PER_HOUR } from "./actions";
+import { discardDraft, publishDraft, restoreVersion, saveDraft, sendTest } from "./actions";
+import { TEST_SENDS_PER_HOUR } from "@/lib/email/test-send";
 
 export const metadata = { title: "Email template · Platform · Product Velocity" };
 

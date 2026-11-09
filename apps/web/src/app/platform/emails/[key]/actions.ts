@@ -8,12 +8,10 @@ import { siteUrl } from "@/lib/site-url";
 import { sendLogged } from "@/lib/email/send";
 import { forgetEmailOverride } from "@/lib/email/override";
 import { emailConfigured } from "@/lib/email/resend";
+import { TEST_SENDS_PER_HOUR } from "@/lib/email/test-send";
 import { EMAIL_TEMPLATES, renderTemplate, type EmailKey, type TemplateText } from "@/lib/email/registry/registry";
 import { sampleValues } from "@/lib/email/registry/macros";
 import { editableFields, validateTemplateText } from "@/lib/email/registry/validate";
-
-/** Test sends per person per hour. */
-export const TEST_SENDS_PER_HOUR = 5;
 
 const find = (key: string) => EMAIL_TEMPLATES.find((t) => t.key === key);
 const back = (key: string, notice: string, extra?: string) => `/platform/emails/${encodeURIComponent(key)}?notice=${notice}${extra ? `&${extra}` : ""}`;
