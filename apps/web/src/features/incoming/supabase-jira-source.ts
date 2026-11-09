@@ -1,6 +1,7 @@
+import { copyJiraIssueTexts, refreshPulledFromJira } from "@/app/(workspace)/incoming/copy-jira-texts";
 import { leavingChildrenOut } from "@/lib/atlassian/child-filter";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { BatchOutcome, IncomingIssue, IncomingRule, IncomingSource, Ownership, PullState, RuleResult } from "./types";
+import type { BatchOutcome, IncomingIssue, IncomingRule, IncomingSource, Ownership, PullState, RefreshResult, RuleResult } from "./types";
 
 // The Jira side of the "new items" list (issue #67 C2b). It maps Jira's light records into the shape the list already shows
 // (repo = the Jira project key, number = the number of the key), so one list serves both trackers. Jira has no saved rules yet.
@@ -60,7 +61,24 @@ export class SupabaseJiraIncomingSource implements IncomingSource {
     for (const r of (data ?? []) as { id: string; project_id: string }[]) byProject.set(r.project_id, [...(byProject.get(r.project_id) ?? []), r.id]);
     const out: BatchOutcome[] = [];
     for (const [project, group] of byProject) out.push(...(await this.batch("jira_pull_in", { p_ids: group, p_project: project, p_mode: ownership })));
-    return out;
+    // each issue's description and its type:/area: labels are kept once (issue #365); reading them never fails the pull-in
+    const created = out.filter((o) => o.ok && o.itemId).map((o) => o.itemId as string);
+    if (created.length === 0) return out;
+    const r = await copyJiraIssueTexts(created).catch(() => ({ copied: 0, failed: created.length }));
+    if (r.failed === 0) return out;
+    const first = out.find((o) => o.ok);
+    return out.map((o) => (o === first ? { ...o, note: `The text of ${r.failed} ${r.failed === 1 ? "issue" : "issues"} could not be read from Jira, so ${r.failed === 1 ? "its" : "their"} Description is empty.` } : o));
+  }
+
+  /** Re-pull of initiatives already pulled in: fills what is still empty from the issue (never replaces a value). */
+  async refreshPulled(itemIds: string[]): Promise<RefreshResult> {
+    try {
+      const r = await refreshPulledFromJira(itemIds);
+      if (r.reconnect) return { ok: false, error: "Jira refused the sign-in. Sign in again (Settings, Integrations, Jira), then try again." };
+      return { ok: true, checked: r.checked ?? 0, descriptions: r.copied, labelled: r.labelled ?? 0, failed: r.failed, noText: r.noText ?? 0 };
+    } catch {
+      return { ok: false, error: "Jira could not be asked just now. Try again." };
+    }
   }
   async discardItems(itemIds: string[]) {
     const { data, error } = await this.client.rpc("discard_new_items", { p_ids: itemIds });
