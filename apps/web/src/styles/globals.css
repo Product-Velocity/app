@@ -1020,3 +1020,92 @@ button.share-chip { cursor: pointer; }
 .version-release-date { font-size: 12px; margin-left: auto; }
 .version-release-title { margin: 0 0 4px; font-weight: 600; color: #111827; }
 .version-release-summary { margin: 0; font-size: 12.5px; line-height: 1.45; color: #374151; }
+
+/* Phone layout (docs/29-MOBILE.md, issue #386): under 700 px the tabs give way to a bottom bar; tablets and computers are unchanged. */
+.phone-nav, .phone-only { display: none; }
+.more-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.more-row { display: grid; gap: 2px; padding: 12px 14px; border: 1px solid var(--grey-1); border-radius: 8px; color: inherit; text-decoration: none; }
+.more-row-later { opacity: .65; }
+.more-sub { margin: 8px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-muted); }
+.open-on-computer { padding: 16px; border: 1px solid var(--grey-1); border-radius: 8px; background: var(--grey-3); gap: 8px; }
+.open-on-computer h2 { margin: 0 0 6px; font-size: 16px; }
+@media (max-width: 699px) {
+  body { font-size: 15px; }
+  input, select, textarea { font-size: 16px; }
+  .btn, button, .menu-link, .more-row, .phone-tab { min-height: 44px; }
+  .topbar { gap: 8px; padding: 0 12px; }
+  .topbar .tabs { display: none; }
+  .content { padding: 12px 12px 88px; }
+  .phone-only { display: grid; }
+  .desktop-only { display: none; }
+  .phone-nav { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--bg); border-top: 1px solid var(--grey-1); padding-bottom: env(safe-area-inset-bottom); }
+  .phone-tab { display: flex; align-items: center; justify-content: center; gap: 4px; color: #111827; text-decoration: none; font-weight: 500; border-top: 2px solid transparent; }
+  .phone-tab-on { color: var(--blue-text); border-top-color: var(--blue); }
+}
+
+/* Phone initiatives list and item page (issue #386, slice M2) */
+.phone-sticky { position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 8px 0; display: grid; gap: 8px; border-bottom: 1px solid var(--grey-2); }
+.phone-search { width: 100%; box-sizing: border-box; min-height: 44px; padding: 0 12px; border: 1px solid #cfd5e3; border-radius: 8px; }
+.phone-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.phone-chip { flex: 0 0 auto; min-height: 36px; padding: 0 12px; border: 1px solid #cfd5e3; border-radius: 18px; background: var(--bg); font: inherit; cursor: pointer; }
+.phone-chip-on { background: var(--blue-tint-2); border-color: var(--blue); color: var(--blue-text); font-weight: 500; }
+.phone-tools { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.phone-tools label { display: flex; gap: 6px; align-items: center; }
+.phone-tools select { min-height: 36px; }
+.phone-count { margin: 0; }
+.phone-group { margin: 12px 0 6px; font-size: 14px; }
+.phone-group button { width: 100%; text-align: left; background: none; border: 0; font: inherit; font-weight: 600; cursor: pointer; padding: 6px 0; }
+.phone-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.phone-card { display: grid; gap: 4px; padding: 12px; border: 1px solid var(--grey-1); border-radius: 8px; color: inherit; text-decoration: none; background: var(--bg); }
+.phone-card-top { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.phone-card-name { font-weight: 500; line-height: 1.3; overflow-wrap: anywhere; }
+.phone-card-meta { font-size: 13px; }
+.phone-health { padding: 1px 8px; border-radius: 10px; font-weight: 500; background: var(--grey-3); }
+.phone-health-on-track { background: #E3F4EA; color: #17653F; }
+.phone-health-at-risk, .phone-health-delayed { background: #FDF0D5; color: #7A4A00; }
+.phone-health-blocked { background: #FBE4E4; color: #8A1F1F; }
+.phone-back { justify-self: start; margin-bottom: 8px; }
+@media (max-width: 699px) {
+  .ip-actions, .ip-nav .ip-pos { display: none; }
+  .ip-tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .ip-tab { flex: 0 0 auto; min-height: 44px; }
+  .item-panel-page { max-width: none; border: 0; }
+}
+
+/* Phone quick add and For you (issue #386, slice M3) */
+.fy-h { margin: 8px 0; font-size: 15px; }
+.phone-add textarea, .phone-add input, .phone-add select { width: 100%; box-sizing: border-box; min-height: 44px; }
+
+/* Phone decisions and the document reader (issue #386, slice M4) */
+.phone-card-btn { width: 100%; text-align: left; font: inherit; cursor: pointer; }
+.phone-review-title { font-size: 18px; margin: 8px 0; overflow-wrap: anywhere; }
+.phone-decide-bar { position: sticky; bottom: calc(52px + env(safe-area-inset-bottom)); z-index: 30; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px 0; background: var(--bg); border-top: 1px solid var(--grey-1); }
+.phone-sheet-wrap { position: fixed; inset: 0; z-index: 80; background: rgba(17, 24, 39, .45); display: flex; align-items: flex-end; }
+.phone-sheet { width: 100%; max-height: 92vh; overflow-y: auto; box-sizing: border-box; background: var(--bg); border-radius: 14px 14px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); display: grid; gap: 10px; }
+.phone-sheet h2 { margin: 0; font-size: 16px; }
+.phone-sheet textarea, .phone-sheet input[type="date"] { width: 100%; box-sizing: border-box; }
+.phone-sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.doc-reader { display: grid; gap: 8px; }
+.doc-pick { display: grid; gap: 4px; }
+.doc-sec h3 { margin: 0; font-size: 15px; border-top: 1px solid var(--grey-2); }
+.doc-sec h3 button { width: 100%; text-align: left; background: none; border: 0; font: inherit; font-weight: 600; cursor: pointer; padding: 8px 0; }
+@media (max-width: 699px) { .ip-tabs .ip-tab:nth-child(4) { display: none; } }
+
+/* Phone: leadership, reports and alignment (issue #386, slice M5) */
+@media (max-width: 699px) {
+  .lead-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lead-scroll { overflow: visible; }
+  .lead-table, .lead-table thead, .lead-table tbody, .lead-table tr, .lead-table th, .lead-table td { display: block; }
+  .lead-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .lead-table tr { border: 1px solid var(--grey-1); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+  .lead-table th[scope="row"] { font-weight: 600; }
+  .lead-table td { display: flex; gap: 8px; justify-content: space-between; border: 0; padding: 3px 0; height: auto; text-align: right; }
+  .lead-table td::before { content: attr(data-label); color: var(--ink-muted); text-align: left; flex: 0 0 40%; }
+  .rp-grid, .rp-ttm-grid { grid-template-columns: minmax(0, 1fr); }
+  .rp-donuts { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .rp-filters { gap: 6px; }
+  .rp-table-wrap { max-height: none; }
+  .table-wrap, .rp-table-wrap { -webkit-overflow-scrolling: touch; }
+  .page-wide { padding-top: 0; }
+  .phone-status { margin: 0; }
+}

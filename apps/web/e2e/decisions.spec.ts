@@ -24,7 +24,7 @@ test.describe("the Decisions screen", () => {
     await expect(first.first()).toContainText("Gate B: Define to Build");
     // who can decide is a column, not an assumption that one person approves
     await expect(first.first()).toContainText("ana, bo");
-    await expect(page.locator(".tab-badge")).toContainText("4");
+    await expect(page.locator(".tab-badge").first()).toContainText("4");
   });
 
   test("the gate pack shows the checklist and the documents; J and K move; the filters work", async ({ page }) => {

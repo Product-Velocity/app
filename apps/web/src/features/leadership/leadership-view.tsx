@@ -88,8 +88,8 @@ export function LeadershipView({ controller, lookups, me, store, pageHref }: Lea
                   {health.projects.map((p) => (
                     <tr key={p.id} data-project={p.id}>
                       <th scope="row">{p.name}</th>
-                      <td>{p.total}</td>
-                      <td>
+                      <td data-label="Initiatives">{p.total}</td>
+                      <td data-label="Health">
                         <div className="lead-bar" aria-hidden="true">{HEALTH_ORDER.filter((s) => p.counts[s] > 0).map((s) => <span key={s} className={`lead-seg lead-seg-${slug(s)}`} style={{ flexGrow: p.counts[s] }} />)}</div>
                         <span className="lead-words">{HEALTH_ORDER.filter((s) => p.counts[s] > 0).map((s) => `${p.counts[s]} ${s}`).join(" · ")}</span>
                       </td>
