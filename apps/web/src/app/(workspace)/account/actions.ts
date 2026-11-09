@@ -11,6 +11,7 @@ import { loadMemberships, requireUser, requireWorkspace } from "@/lib/session";
 import { siteUrl } from "@/lib/site-url";
 import { emailConfigured } from "@/lib/email/resend";
 import { sendLogged } from "@/lib/email/send";
+import { loadEmailOverride } from "@/lib/email/override";
 import { buildLinkCodeEmail } from "@/lib/email/access";
 import { notifyAdminsOfRequests } from "@/lib/access-requests";
 
@@ -140,7 +141,7 @@ export async function startLinkEmail(_prev: FormState, form: FormData): Promise<
   if (error) return { error: LINK_ERROR[error.code ?? ""] ?? "We could not start that. Please try again." };
   const send = (Array.isArray(data) ? data[0] : data) as { send?: boolean } | null;
   if (send?.send) {
-    const res = await sendLogged("app.link-code", { to: email, ...buildLinkCodeEmail({ code, siteUrl: await siteUrl() }) });
+    const res = await sendLogged("app.link-code", { to: email, ...buildLinkCodeEmail({ code, siteUrl: await siteUrl(), override: await loadEmailOverride("app.link-code") }) });
     if (!res.ok) return { error: res.error };
   }
   revalidatePath(PATH);

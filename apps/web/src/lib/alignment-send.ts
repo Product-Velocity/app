@@ -1,6 +1,6 @@
 import { generateInviteToken, hashInviteToken } from "@/lib/auth/invite-token";
 import { buildParticipantEmail } from "@/lib/alignment-mail";
-import type { EmailKey } from "@/lib/email/registry/registry";
+import type { EmailKey, TemplateText } from "@/lib/email/registry/registry";
 
 type Rpc = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { code?: string; message: string } | null }>;
 export type MailingInfo = { id: string; kind: "invitation" | "reminder"; subject: string; body: string; status: string; sessionName: string; closesAt: string | null };
@@ -9,6 +9,8 @@ export type SendDeps = {
   mailing: (id: string) => Promise<MailingInfo | null>;
   send: (key: EmailKey, m: { to: string; subject: string; text: string; html: string }) => Promise<{ ok: true; id: string } | { ok: false; error: string }>;
   site: string;
+  /** The published wording of an email (issue #370), or null for the code default. Optional: tests and callers without the store send defaults. */
+  override?: (key: EmailKey) => Promise<Partial<TemplateText> | null>;
   /** Wall-clock budget in milliseconds; what is left is sent by "Continue sending". */
   budgetMs?: number;
   now?: () => number;
@@ -32,6 +34,8 @@ export async function sendMailing(id: string, deps: SendDeps): Promise<SendRepor
     log(JSON.stringify({ alignment: "mailing", code: error.code ?? "unknown" }));
     return { sent: 0, failed: 0, left: 0, stopped: error.code === "PV010" ? "This mailing has not been confirmed by a person." : error.code === "22023" ? error.message.slice(0, 120) : "We could not start sending." };
   }
+  const emailKey: EmailKey = m.kind === "reminder" ? "alignment.reminder" : "alignment.invitation";
+  const override = deps.override ? await deps.override(emailKey) : null;
   const people = (data ?? []) as { id: string; email: string; name: string | null }[];
   let sent = 0, failed = 0, i = 0;
   let stopped: string | undefined;
@@ -44,8 +48,8 @@ export async function sendMailing(id: string, deps: SendDeps): Promise<SendRepor
       const token = generateInviteToken();
       const issued = await deps.rpc("alignment_mailing_issue", { p_mailing: id, p_participant: p.id, p_token_hash: hashInviteToken(token) });
       if (issued.error) { log(JSON.stringify({ alignment: "issue", code: issued.error.code ?? "unknown" })); failed++; continue; }
-      const mail = buildParticipantEmail(m, { name: p.name, session: m.sessionName, closesAt: m.closesAt, link: `${deps.site}/a/${token}`, unsubscribe: `${deps.site}/a/${token}/unsubscribe`, siteUrl: deps.site });
-      const res = await deps.send(m.kind === "reminder" ? "alignment.reminder" : "alignment.invitation", { to: p.email, ...mail });
+      const mail = buildParticipantEmail(m, { name: p.name, session: m.sessionName, closesAt: m.closesAt, link: `${deps.site}/a/${token}`, unsubscribe: `${deps.site}/a/${token}/unsubscribe`, siteUrl: deps.site, override });
+      const res = await deps.send(emailKey, { to: p.email, ...mail });
       const rec = await deps.rpc("alignment_mailing_result", { p_mailing: id, p_participant: p.id, p_ok: res.ok, p_provider: res.ok ? res.id : null, p_error: res.ok ? null : res.error });
       if (rec.error) log(JSON.stringify({ alignment: "result", code: rec.error.code ?? "unknown" }));
       if (res.ok) sent++;

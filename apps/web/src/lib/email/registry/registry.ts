@@ -23,6 +23,8 @@ export type EmailTemplate = {
   confirmFirst: boolean;
   /** The limits that apply to this email, in words for the platform console. */
   limits: string;
+  /** Fields the platform may edit. Absent means all six. The alignment emails take their subject and text from the workspace admin's own mailing text (the second layer), so only the frame is editable. */
+  editable?: readonly (keyof TemplateText)[];
   /** Sample values for previews where the catalog's sample would mislead (for example how long a link works). */
   sample?: MacroValues;
   macros: readonly MacroName[];
@@ -220,6 +222,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     path: "Alignment mailing send (lib/alignment-send.ts)",
     confirmFirst: true,
     limits: "500 people per mailing; sent 3 at a time, 40 seconds per run, then Continue sending",
+    editable: ["preheader", "heading", "button", "note"],
     macros: ["name", "session", "closes", "link", "product"],
     subject: "Help us decide what comes first: {{session}}",
     preheader: "Your vote counts. It takes a few minutes.",
@@ -237,6 +240,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     path: "Alignment mailing send (lib/alignment-send.ts)",
     confirmFirst: true,
     limits: "500 people per mailing; sent 3 at a time, 40 seconds per run, then Continue sending",
+    editable: ["preheader", "heading", "button", "note"],
     macros: ["name", "session", "closes", "link", "product"],
     subject: "A reminder to vote: {{session}}",
     preheader: "You have not voted yet.",

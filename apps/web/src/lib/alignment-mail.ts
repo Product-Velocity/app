@@ -54,7 +54,7 @@ export const DEFAULT_TEXT = {
 export type MailContext = { name: string | null; session: string; closesAt: string | null; link: string; unsubscribe: string | null };
 const whenText = (iso: string | null) => (iso ? `Voting closes on ${new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC" })} UTC.` : "");
 
-import { buildEmail } from "./email/registry/registry";
+import { buildEmail, type TemplateText } from "./email/registry/registry";
 import { DEFAULT_SITE_URL } from "./email/registry/layout";
 
 /**
@@ -62,7 +62,7 @@ import { DEFAULT_SITE_URL } from "./email/registry/layout";
  * admin's own subject and text. The personal link is always the button (the writer cannot leave it out), reminders carry a stop link,
  * and there are no tracking images. Everything written by a person is escaped, and an unknown {{macro}} is dropped, never sent raw.
  */
-export function buildParticipantEmail(m: { kind: "invitation" | "reminder"; subject: string; body: string }, c: MailContext & { siteUrl?: string }): { subject: string; text: string; html: string } {
+export function buildParticipantEmail(m: { kind: "invitation" | "reminder"; subject: string; body: string }, c: MailContext & { siteUrl?: string; override?: Partial<TemplateText> | null }): { subject: string; text: string; html: string } {
   const body = m.body.replace(/\{\{\s*link\s*\}\}/gi, "").replace(/[ \t]+\n/g, "\n").trim();
   const subject = m.subject.replace(/\{\{\s*link\s*\}\}/gi, "");
   const r = buildEmail(m.kind === "reminder" ? "alignment.reminder" : "alignment.invitation", {
@@ -71,13 +71,14 @@ export function buildParticipantEmail(m: { kind: "invitation" | "reminder"; subj
     buttonUrl: c.link,
     extraLink: c.unsubscribe && m.kind === "reminder" ? { label: "Do not want reminders? Stop them here:", url: c.unsubscribe } : null,
     workspaceText: { subject, body },
+    override: c.override,
   });
   return { ...r, subject: r.subject.slice(0, 150) };
 }
 
 /** The email for a participant who asked for a new link. Registry key alignment.new-link. */
-export function buildNewLinkEmail(c: { name: string | null; session: string; closesAt: string | null; link: string; siteUrl?: string }): { subject: string; text: string; html: string } {
-  const r = buildEmail("alignment.new-link", { values: { name: c.name, session: c.session, closes: whenText(c.closesAt), link: c.link }, siteUrl: c.siteUrl ?? DEFAULT_SITE_URL, buttonUrl: c.link });
+export function buildNewLinkEmail(c: { name: string | null; session: string; closesAt: string | null; link: string; siteUrl?: string; override?: Partial<TemplateText> | null }): { subject: string; text: string; html: string } {
+  const r = buildEmail("alignment.new-link", { values: { name: c.name, session: c.session, closes: whenText(c.closesAt), link: c.link }, siteUrl: c.siteUrl ?? DEFAULT_SITE_URL, buttonUrl: c.link, override: c.override });
   return { ...r, subject: r.subject.slice(0, 150) };
 }
 

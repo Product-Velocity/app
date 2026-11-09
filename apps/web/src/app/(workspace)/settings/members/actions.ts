@@ -9,6 +9,7 @@ import { githubUsernameMessage } from "@/lib/github-username";
 import { siteUrl } from "@/lib/site-url";
 import { emailConfigured } from "@/lib/email/resend";
 import { sendLogged } from "@/lib/email/send";
+import { loadEmailOverride } from "@/lib/email/override";
 import { buildInvitationEmail, sendLimit } from "@/lib/email/invitation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildAccessApprovedEmail } from "@/lib/email/access";
@@ -30,7 +31,7 @@ async function emailInvitation(opts: { invitationId: string; tenantId: string; t
   const { count } = await admin.from("invitations").select("id", { count: "exact", head: true }).eq("tenant_id", opts.tenantId).gte("email_sent_at", since);
   const limited = sendLimit({ sendCount: row?.email_send_count ?? 0, lastSentAt: row?.email_sent_at ?? null, workspaceLastDay: count ?? 0 });
   if (limited) return { emailed: false, note: limited };
-  const mail = buildInvitationEmail({ workspace: opts.tenantName, inviter: opts.inviter, role: opts.role, isApprover: opts.isApprover, link: opts.link, siteUrl: await siteUrl() });
+  const mail = buildInvitationEmail({ workspace: opts.tenantName, inviter: opts.inviter, role: opts.role, isApprover: opts.isApprover, link: opts.link, siteUrl: await siteUrl(), override: await loadEmailOverride("app.invitation") });
   const sent = await sendLogged("app.invitation", { to: opts.email, ...mail }, { tenantId: opts.tenantId });
   await admin.from("invitations").update(
     sent.ok
@@ -177,6 +178,6 @@ export async function changeMemberStatus(memberIds: string[], invitationIds: str
 
 async function approvalMailer(workspace: string): Promise<(to: string) => Promise<boolean>> {
   const link = `${await siteUrl()}/`;
-  const mail = buildAccessApprovedEmail({ workspace, link, siteUrl: await siteUrl() });
+  const mail = buildAccessApprovedEmail({ workspace, link, siteUrl: await siteUrl(), override: await loadEmailOverride("app.access-approved") });
   return async (to) => (await sendLogged("app.access-approved", { to, ...mail })).ok;
 }

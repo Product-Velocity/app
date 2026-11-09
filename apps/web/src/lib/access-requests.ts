@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emailConfigured } from "@/lib/email/resend";
 import { sendLogged } from "@/lib/email/send";
+import { loadEmailOverride } from "@/lib/email/override";
 import { buildAccessRequestEmail } from "@/lib/email/access";
 import { siteUrl } from "@/lib/site-url";
 
@@ -29,7 +30,7 @@ export async function notifyAdminsOfRequests(fresh: PendingAccess[], requesterEm
   const link = `${site}/settings/members`;
   for (const r of fresh) {
     const { data: emails } = await admin.rpc("tenant_admin_emails", { p_tenant: r.tenantId });
-    const mail = buildAccessRequestEmail({ workspace: r.tenantName, requester: requesterEmail, link, siteUrl: site });
+    const mail = buildAccessRequestEmail({ workspace: r.tenantName, requester: requesterEmail, link, siteUrl: site, override: await loadEmailOverride("app.access-request") });
     for (const to of ((emails ?? []) as string[]).slice(0, 10)) await sendLogged("app.access-request", { to, ...mail }, { tenantId: r.tenantId });
   }
 }
