@@ -139,7 +139,7 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [controller, status.version, scope.projectIds, search, def.filters, me],
   );
-  const filterName = base.kind === "saved" ? (views.find((v) => v.id === base.id)?.name ?? null) : def.filters.length > 0 ? base.name : null;
+  const filterName = base.kind === "saved" ? (views.find((v) => v.id === base.id)?.name ?? null) : base.kind === "builtin" && def.filters.length > 0 ? base.name : null;
 
   const [peekId, setPeekState] = useState<string | null>(() => { const c = params.get("item"); return c ? controller.rows.find((r) => r.item_code === c)?.id ?? null : null; });
   const openPeek = useCallback((id: string | null) => { setPeekState(id); setQueryParam("item", id ? controller.row(id)?.item_code ?? null : null); }, [controller]);

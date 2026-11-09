@@ -17,7 +17,7 @@ function loadReleases(): ReleaseEntry[] {
   }
   for (const rel of ["../../docs/RELEASES.md", "docs/RELEASES.md"]) {
     try {
-      const md = readFileSync(path.resolve(process.cwd(), rel), "utf8");
+      const md = readFileSync(/*turbopackIgnore: true*/ path.resolve(/*turbopackIgnore: true*/ process.cwd(), rel), "utf8");
       const entries = parseReleaseLog(md, 8);
       if (entries.length > 0) return entries;
     } catch {
