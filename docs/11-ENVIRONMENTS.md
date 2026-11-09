@@ -77,3 +77,5 @@ Scaling notes and the dedicated-database option: `docs/18-SCALING.md`.
 
 ## Claude MCP connection (spike S8b, from 0.34.0)
 Off by default. To try it: (1) Supabase dashboard, **Authentication → OAuth Server**: enable it, set the authorization path to `/oauth/consent` and allow dynamic client registration; (2) add `MCP_ENABLED=true` to the environment (Preview first); (3) in Claude add a custom connector with the URL `https://<your domain>/mcp`. Results go into `docs/08` (S8b result).
+
+- Send Email hook (issue #370, **off by default**): `SEND_EMAIL_HOOK_SECRET` (Secret; the hook secret Supabase shows when you add the hook) and `SITE_URL`. Do not enable the hook in Supabase until spike S10 in `docs/08` is done. Route A templates stay in use until then.

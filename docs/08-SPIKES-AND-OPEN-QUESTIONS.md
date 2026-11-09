@@ -153,3 +153,16 @@ Server side built and tested with stand-ins: client detection, per-client tool l
 
 ## Known inconsistencies in the prototype
 Board 2 shows flat child issues (should be epics + tasks); capacity planner ignores cross-team engineers and agents; Main (board 1) and Portfolio (20) overlap — treat 20 as canonical.
+
+
+## S10: Supabase Send Email hook and branded emails (issue #370)
+**Status: not run.** Code for the hook exists but is switched off (`SEND_EMAIL_HOOK_SECRET` unset). Needs Ashu's Supabase project and Resend account. Evidence level for everything below: **Documented from memory, unverified**.
+
+| Question | Assumed in code | To confirm |
+|---|---|---|
+| Signing scheme | Standard Webhooks: headers `webhook-id`, `webhook-timestamp`, `webhook-signature` (`v1,<base64>`), secret `v1,whsec_<base64>` | Against current Supabase docs and a real call |
+| Payload | `user.email`, `email_data.{token, token_hash, redirect_to, site_url, email_action_type}` | Same |
+| Plan availability, allowed response time, behaviour on failure | Unknown | Measure in a test project |
+| One email of each type (signup, magiclink, recovery, reauthentication, invite, email_change) with its link opened in another browser | Unit-tested only | Real send |
+| Resend domain (SPF, DKIM) and rate limits | Already used for invitations | Confirm limits |
+| Where editable copy lives | Platform table, schema not exposed through the API | Decide and write the isolation test (phase 4) |

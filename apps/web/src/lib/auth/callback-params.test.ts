@@ -13,10 +13,12 @@ describe("parseCallbackParams", () => {
     });
   });
 
-  it("accepts signup and recovery types only", () => {
+  it("accepts signup, recovery, invite and email_change types only", () => {
     expect(p("token_hash=a&type=signup")).toMatchObject({ kind: "otp", type: "signup" });
     expect(p("token_hash=a&type=recovery")).toMatchObject({ kind: "otp", type: "recovery" });
-    for (const bad of ["magiclink", "invite", "email_change", "admin", ""]) {
+    expect(p("token_hash=a&type=invite")).toMatchObject({ kind: "otp", type: "invite" });
+    expect(p("token_hash=a&type=email_change")).toMatchObject({ kind: "otp", type: "email_change" });
+    for (const bad of ["magiclink", "sms", "admin", ""]) {
       expect(p(`token_hash=a&type=${bad}`)).toEqual({ kind: "none" });
     }
   });
