@@ -1,7 +1,5 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { NextResponse } from "next/server";
-import { parseReleaseLog, type ReleaseEntry, type VersionInfo } from "@/lib/app-version";
+import type { ReleaseEntry, VersionInfo } from "@/lib/app-version";
 
 export const dynamic = "force-dynamic";
 
@@ -13,16 +11,7 @@ function loadReleases(): ReleaseEntry[] {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch {
-    // fall through to disk read
-  }
-  for (const rel of ["../../docs/RELEASES.md", "docs/RELEASES.md"]) {
-    try {
-      const md = readFileSync(path.resolve(process.cwd(), rel), "utf8");
-      const entries = parseReleaseLog(md, 8);
-      if (entries.length > 0) return entries;
-    } catch {
-      // try next path
-    }
+    // ignore malformed env JSON
   }
   return [];
 }
