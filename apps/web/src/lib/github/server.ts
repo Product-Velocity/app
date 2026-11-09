@@ -90,3 +90,39 @@ export async function applyConnectionEvent(admin: Admin, sc: SourceControl, ev: 
     await refreshConnection(admin, sc, { ...row, installation_id: ev.installationId, account_login: ev.accountLogin });
   }
 }
+
+type InstallationInfo = NonNullable<Awaited<ReturnType<SourceControl["getInstallation"]>>>;
+
+/**
+ * Saves what GitHub says about the installation on the connection (issue #364). It never writes `state` from a value read
+ * earlier: GitHub's `installation` webhook can land while the install-return page is still talking to GitHub, and a stale
+ * "installing" written over its "connected" left the connection stuck. Only a connection still waiting (requested, waiting for
+ * approval) moves to "installing", as one conditional update the database decides.
+ */
+export async function recordInstallation(admin: Admin, connectionId: string, inst: InstallationInfo): Promise<{ code?: string } | null> {
+  const saved = await admin.from("github_connections").update({ installation_id: inst.id, account_login: inst.accountLogin, account_type: inst.accountType, repository_selection: inst.repositorySelection }).eq("id", connectionId);
+  if (saved.error) return { code: saved.error.code };
+  const marked = await admin.from("github_connections").update({ state: "installing" }).eq("id", connectionId).in("state", ["requested", "waiting_approval"]);
+  return marked.error ? { code: marked.error.code } : null;
+}
+
+export type ConfirmResult = "connected" | "not-installed" | "not-found" | "wrong-account" | "suspended" | "pending";
+
+/**
+ * Confirms an installed connection from GitHub itself (issue #364, docs/decisions/2026-11-09-confirm-installed-connection.md).
+ * The installation is read with the App's own key: it must exist, belong to the account the admin entered and not be suspended.
+ * Then the same code as GitHub's `installation` webhook runs, so the webhook and this are two confirmers of one idempotent step
+ * and a lost or early webhook no longer needs the App owner to redeliver it.
+ */
+export async function confirmInstalledConnection(admin: Admin, sc: SourceControl, c: ConnectionRow): Promise<ConfirmResult> {
+  if (c.installation_id === null) return "not-installed";
+  const inst = await sc.getInstallation(c.installation_id).catch(() => null);
+  if (!inst) return "not-found";
+  if (inst.accountLogin.toLowerCase() !== c.expected_account.toLowerCase()) return "wrong-account";
+  if (inst.suspended) return "suspended";
+  if (c.state !== "connected") {
+    await applyConnectionEvent(admin, sc, { kind: "installation", action: "created", installationId: inst.id, accountLogin: inst.accountLogin, accountType: inst.accountType, repositorySelection: inst.repositorySelection });
+  }
+  const now = must(await admin.from("github_connections").select("state").eq("id", c.id).maybeSingle(), "read connection") as { state: ConnectionRow["state"] } | null;
+  return now?.state === "connected" ? "connected" : "pending";
+}

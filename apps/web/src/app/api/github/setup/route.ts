@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyInstallState } from "@pv/github";
-import { githubSecret, githubSourceControl, type ConnectionRow } from "@/lib/github/server";
+import { confirmInstalledConnection, githubSecret, githubSourceControl, recordInstallation, type ConnectionRow } from "@/lib/github/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -9,8 +9,8 @@ const PAGE = "/settings/integrations/github";
 /**
  * GitHub sends the browser here after "Install" (setup_action=install or update) or after a non-owner asked for
  * approval (setup_action=request, no installation id). The signed `state` ties it to one admin, workspace and
- * connection. This only records that the install happened; the connection becomes "connected" when GitHub's
- * installation webhook arrives.
+ * connection. It records the install, then confirms it from GitHub's own answer (issue #364); GitHub's installation webhook
+ * confirms the same way, in either order, and the admin's "Confirm with GitHub" button covers a lost one.
  */
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -46,11 +46,14 @@ export async function GET(request: NextRequest) {
   if (!installation) return back("not-found");
   if (installation.accountLogin.toLowerCase() !== conn.expected_account.toLowerCase()) return back("wrong-account");
 
-  const next = conn.state === "connected" ? "connected" : "installing";
-  const { error } = await admin
-    .from("github_connections")
-    .update({ installation_id: installation.id, account_login: installation.accountLogin, account_type: installation.accountType, repository_selection: installation.repositorySelection, state: next })
-    .eq("id", conn.id);
-  if (error) return back(error.code === "23505" ? "already-linked" : "error");
-  return back(next === "connected" ? "connected" : "installed");
+  // never write the state from the row read above: the installation webhook may have connected it meanwhile (issue #364)
+  const failed = await recordInstallation(admin, conn.id, installation);
+  if (failed) return back(failed.code === "23505" ? "already-linked" : "error");
+  // GitHub itself just showed the installation (App key, expected account, not suspended): confirm now, the webhook confirms the same way
+  try {
+    const confirmed = await confirmInstalledConnection(admin, sc, { ...conn, installation_id: installation.id });
+    return back(confirmed === "connected" ? "connected" : "installed");
+  } catch {
+    return back("installed");
+  }
 }

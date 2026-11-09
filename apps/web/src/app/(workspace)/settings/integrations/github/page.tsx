@@ -9,7 +9,7 @@ import { AutoRefresh } from "./auto-refresh";
 import { parseBoard } from "@pv/github";
 import { BoardsCard } from "./boards";
 import { ConnectForm, ProjectRow, RepoRow } from "./forms";
-import { continueOnGithub, disconnectGithub, refreshRepositories } from "./actions";
+import { confirmWithGithub, continueOnGithub, disconnectGithub, refreshRepositories } from "./actions";
 import { NOTICE, STATE } from "./shared";
 import { TrackerTabs } from "@/components/tracker-tabs";
 import Link from "next/link";
@@ -68,6 +68,9 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
 
         {c && isAdmin && (
           <div className="row-form">
+            {c.state === "installing" && c.installation_id !== null && (
+              <form action={confirmWithGithub}><button className="btn" type="submit">Confirm with GitHub</button></form>
+            )}
             {(c.state === "requested" || c.state === "waiting_approval" || c.state === "installing") && (
               <form action={continueOnGithub.bind(null, c.id)}><button className="btn" type="submit">Open GitHub again</button></form>
             )}
@@ -79,6 +82,9 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
               <button className="btn" type="submit">{c.state === "connected" || c.state === "suspended" ? "Disconnect" : "Cancel"}</button>
             </form>
           </div>
+        )}
+        {c?.state === "installing" && c.installation_id !== null && isAdmin && (
+          <p className="muted">GitHub has the App installed. This page updates when GitHub confirms. If it does not within a minute, press Confirm with GitHub: it asks GitHub directly and does not need the App owner.</p>
         )}
         {c?.state === "connected" && (
           <p className="muted">
