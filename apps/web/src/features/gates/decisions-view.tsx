@@ -179,7 +179,7 @@ export function DecisionsView({ source, me, mayDecide = true, initialFilter = "w
                       <button type="button" className="btn btn-primary" onClick={() => decideRows([current], "go")}>Go <kbd>G</kbd></button>
                       <button type="button" className="btn" onClick={() => decideRows([current], "go_with_conditions")}>Go with conditions <kbd>C</kbd></button>
                       <button type="button" className="btn" onClick={() => decideRows([current], "hold")}>Hold <kbd>H</kbd></button>
-                      <button type="button" className="btn" onClick={() => decideRows([current], "stop")}>Stop <kbd>S</kbd></button>
+                      <button type="button" className="btn btn-danger-quiet" onClick={() => decideRows([current], "stop")}>Stop <kbd>S</kbd></button>
                     </>
                   ) : <p className="muted">{mayDecide ? `You do not have approval rights for gate ${current.gate}. ${whoCanDecide(current.gate)} can decide it.` : "Looking in as staff: decisions are not available."}</p>}
                 </div>

@@ -82,7 +82,7 @@ export function ScopeDialog({ scope, onClose, onDone }: Props) {
                 <button type="button" className="btn btn-danger" onClick={() => void remove()} disabled={busy}>Yes, delete scope</button>
               </>
             ) : (
-              <button type="button" className="btn dialog-spacer-btn" onClick={() => setConfirmDelete(true)}>Delete scope</button>
+              <button type="button" className="btn btn-danger-quiet dialog-spacer-btn" onClick={() => setConfirmDelete(true)}>Delete scope</button>
             )
           )}
           {!confirmDelete && (

@@ -79,7 +79,7 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
             )}
             {c.installation_id !== null && <Link className="btn" href="/settings/integrations/github/test">Test connection</Link>}
             <form action={disconnectGithub}>
-              <button className="btn" type="submit">{c.state === "connected" || c.state === "suspended" ? "Disconnect" : "Cancel"}</button>
+              <button className={c.state === "connected" || c.state === "suspended" ? "btn btn-danger-quiet" : "btn"} type="submit">{c.state === "connected" || c.state === "suspended" ? "Disconnect" : "Cancel"}</button>
             </form>
           </div>
         )}

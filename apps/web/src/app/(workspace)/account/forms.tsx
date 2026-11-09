@@ -97,7 +97,7 @@ export function LinkedEmails({ emails }: { emails: LinkedEmail[] }) {
               <form action={chooseNotificationEmail}><input type="hidden" name="email" value={e.is_sign_in ? "" : e.email} /><button className="btn" type="submit">Use for notifications</button></form>
             )}
             {!e.is_sign_in && (
-              <form action={removeLinkedEmail}><input type="hidden" name="email" value={e.email} /><button className="btn" type="submit" aria-label={`Remove ${e.email}`}>Remove</button></form>
+              <form action={removeLinkedEmail}><input type="hidden" name="email" value={e.email} /><button className="btn btn-danger-quiet" type="submit" aria-label={`Remove ${e.email}`}>Remove</button></form>
             )}
           </li>
         ))}
