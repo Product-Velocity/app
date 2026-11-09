@@ -212,13 +212,14 @@
   ],
   "allowed": [
    "New feature",
-   "Improvement to existing feature"
+   "Improvement to existing feature",
+   "Bug"
   ],
-  "allowedText": "New feature · Improvement to existing feature",
+  "allowedText": "New feature · Improvement to existing feature · Bug",
   "origin": "Input",
   "githubSync": null,
   "filledWhen": "After interviews",
-  "description": "New feature, or Improvement to existing feature"
+  "description": "New feature, Improvement to existing feature, or Bug"
  },
  {
   "n": "11",

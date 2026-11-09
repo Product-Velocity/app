@@ -37,7 +37,7 @@ const OVERRIDES: Record<string, Link> = {
   stack_rank: sent("Label pv:rank/top-10, top-25, top-50 or later (the band, never the number)", "Label pv:rank/top-10, top-25, top-50 or later (the band, never the number)"),
   moscow: sent("Label pv:moscow/must, should, could or wont; board field Priority (P0, P1, P2). Each label can be switched off per project (Settings, Integrations, GitHub, Field configuration)", "Label pv:moscow/…; Priority too, once you choose a Jira priority per value (Settings, Integrations, Jira, Connect and configure, Field configuration)"),
   theme: sent("Label pv:group/<name>; board field Initiative", "Label pv:group/<name> only (the group name is not written into a Jira field)"),
-  change_type: sent("Label pv:type/new-feature or improvement; issue Type Feature, Improvement or Enhancement", "Label pv:type/new-feature or improvement"),
+  change_type: sent("Label pv:type/new-feature, improvement or bug; issue Type Feature, Improvement, Enhancement or Bug", "Label pv:type/new-feature, improvement or bug"),
   effort: { github: "Sent to project board field Size (XS to XL)", jira: "Not sent yet" },
   g2m_date_est: sent("Milestone \"YYYY Qn\" (due on the quarter's last day); board field Due date", "Due date"),
   home_project: sent("The repository that holds the tracking issue; label pv:project/<project>", "Label pv:project/<project>; the Jira project it is linked to holds the issue"),

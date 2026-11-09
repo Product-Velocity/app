@@ -111,7 +111,7 @@ export const SLOTS: readonly Slot[] = [
   label("github.label.group", "theme", "github", "Label pv:group/<name>"),
   label("github.label.project", "home_project", "github", "Label pv:project/<project>"),
   label("github.milestone", "g2m_date_est", "github", "Milestone “YYYY Qn” (the quarter of the G2M date)"),
-  label("github.issueType", "change_type", "github", "Organisation issue type (Feature or Improvement), when the organisation has it"),
+  label("github.issueType", "change_type", "github", "Organisation issue type (Feature, Improvement or Bug), when the organisation has it"),
   { id: "github.board.priority", tracker: "github", pvKey: "moscow", kind: "field", direction: "to_tracker", defaultTarget: "Project board: the field named Priority (P0, P1, P2)", accepts: ["select"], store: "github_board" },
   { id: "github.board.group", tracker: "github", pvKey: "theme", kind: "field", direction: "to_tracker", defaultTarget: "Project board: the field named Initiative, Group or Theme", accepts: ["select", "text"], store: "github_board" },
   { id: "github.board.dueDate", tracker: "github", pvKey: "g2m_date_est", kind: "field", direction: "to_tracker", defaultTarget: "Project board: the field named Due date or Target date", accepts: ["date"], store: "github_board" },

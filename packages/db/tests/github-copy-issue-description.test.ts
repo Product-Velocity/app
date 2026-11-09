@@ -70,3 +70,49 @@ describe("github_copy_issue_description (pull-in keeps the issue's text)", () =>
     await expect(db.asUser(f.alice, (q) => q("select public.github_copy_issue_description($1, $2, 'x')", [f.alice, id]))).rejects.toThrow();
   });
 });
+
+const labels = (actor: string, item: string, changeType: string | null, area: string | null) =>
+  db.asService(async (q) => (await q("select public.github_copy_issue_labels($1, $2, $3, $4) as r", [actor, item, changeType, area])).rows[0].r as Record<string, boolean>, { commit: true, via: "UI" });
+const fields = async (id: string) => (await db.admin.query("select change_type, focus_area from public.items where id = $1", [id])).rows[0] as { change_type: string | null; focus_area: string | null };
+
+describe("github_copy_issue_labels (type: is Change Type, area: is Focus Area)", () => {
+  it("stores both for a pulled-in initiative and audits the person", async () => {
+    const id = await pulledItem(20);
+    expect(await labels(creator, id, "New feature", "admin")).toEqual({ change_type: true, focus_area: true });
+    expect(await fields(id)).toEqual({ change_type: "New feature", focus_area: "admin" });
+    const audit = (await db.admin.query("select field, actor_id from public.audit_log where entity = 'items' and entity_id = $1 and field in ('change_type', 'focus_area')", [id])).rows;
+    expect(audit.map((a) => a.field).sort()).toEqual(["change_type", "focus_area"]);
+    expect(audit.every((a) => a.actor_id === creator)).toBe(true);
+  });
+  it("accepts Bug, the third Change Type", async () => {
+    const id = await pulledItem(21);
+    expect(await labels(creator, id, "Bug", null)).toEqual({ change_type: true });
+    expect((await fields(id)).change_type).toBe("Bug");
+  });
+  it("never replaces a value a person already chose", async () => {
+    const id = await pulledItem(22);
+    await db.admin.query("update public.items set change_type = 'Improvement to existing feature', focus_area = 'Publishers' where id = $1", [id]);
+    expect(await labels(creator, id, "New feature", "admin")).toEqual({});
+    expect(await fields(id)).toEqual({ change_type: "Improvement to existing feature", focus_area: "Publishers" });
+  });
+  it("refuses a Change Type that does not exist, cuts the focus area at 120 characters, and ignores nothing-to-set", async () => {
+    const id = await pulledItem(23);
+    await expect(labels(creator, id, "Chore", null)).rejects.toThrow(/cannot set Change Type/);
+    expect(await labels(creator, id, null, null)).toEqual({});
+    expect(await labels(creator, id, null, "y".repeat(200))).toEqual({ focus_area: true });
+    expect((await fields(id)).focus_area).toHaveLength(120);
+  });
+  it("has the same guards as the description copy", async () => {
+    const own = await pulledItem(24, { source: "Customer interview" });
+    await expect(labels(creator, own, "Bug", null)).rejects.toThrow(/not pulled in/);
+    const id = await pulledItem(25);
+    for (const who of [viewer, robot, f.bob]) await expect(labels(who, id, "Bug", "x").catch((e) => { throw Object.assign(new Error(e.message), { code: e.code }); })).rejects.toMatchObject({ code: DENIED });
+    expect(await fields(id)).toEqual({ change_type: null, focus_area: null });
+    await expect(db.asUser(f.alice, (q) => q("select public.github_copy_issue_labels($1, $2, 'Bug', 'x')", [f.alice, id]))).rejects.toThrow();
+  });
+  it("the column itself accepts Bug and still refuses anything else", async () => {
+    const id = await pulledItem(26);
+    await db.admin.query("update public.items set change_type = 'Bug' where id = $1", [id]);
+    await expect(db.admin.query("update public.items set change_type = 'Chore' where id = $1", [id])).rejects.toThrow(/items_change_type_check/);
+  });
+});

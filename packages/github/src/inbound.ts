@@ -118,3 +118,39 @@ export function compareIssue(i: { code: string; pv: { initiative_name?: string |
   });
   return split.ok ? { fields } : { fields, blockProblem: split.reason, ...(split.missing ? { blockMissing: true as const } : {}) };
 }
+
+export type ChangeTypeValue = "New feature" | "Improvement to existing feature" | "Bug";
+export type LabelFields = { changeType?: ChangeTypeValue; focusArea?: string; /** Why a label was not used, for tests and logs only; never shown with an issue's text. */ notes: string[] };
+const CHANGE_TYPE_WORDS: Record<string, ChangeTypeValue> = {
+  feature: "New feature", "new feature": "New feature", "new-feature": "New feature", new_feature: "New feature", newfeature: "New feature",
+  improvement: "Improvement to existing feature", enhancement: "Improvement to existing feature", "improvement to existing feature": "Improvement to existing feature",
+  bug: "Bug", bugfix: "Bug", "bug fix": "Bug", "bug-fix": "Bug", defect: "Bug",
+};
+
+/**
+ * The labels that mean something in Product Velocity when an issue is pulled in (Ashu, 2026-11-09): `type:<x>` is Change Type and
+ * `area:<x>` is Focus Area. Only what is unambiguous is used: exactly one distinct `type:` value that is one of the three Change Types
+ * (feature, new feature, improvement, enhancement, bug, bug fix, defect), exactly one distinct `area:` value (kept as written, whitespace collapsed, 120
+ * characters at most). Anything else (type:bug, two areas, an unknown word) is left out: nothing is guessed.
+ */
+export function labelFields(labels: readonly string[] | null | undefined): LabelFields {
+  const types = new Map<string, string>();
+  const areas = new Map<string, string>();
+  for (const raw of labels ?? []) {
+    const m = /^\s*(type|area)\s*:\s*(.+?)\s*$/i.exec(typeof raw === "string" ? raw : "");
+    if (!m) continue;
+    const value = m[2]!.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+    if (!value) continue;
+    const into = m[1]!.toLowerCase() === "type" ? types : areas;
+    if (!into.has(value.toLowerCase())) into.set(value.toLowerCase(), value); // the same word twice is one value; the first spelling stays
+  }
+  const out: LabelFields = { notes: [] };
+  if (types.size === 1) {
+    const [key] = [...types.keys()];
+    const mapped = CHANGE_TYPE_WORDS[key!];
+    if (mapped) out.changeType = mapped; else out.notes.push(`type:${key} has no Change Type`);
+  } else if (types.size > 1) out.notes.push("more than one type: label");
+  if (areas.size === 1) out.focusArea = [...areas.values()][0]!.slice(0, 120).trim();
+  else if (areas.size > 1) out.notes.push("more than one area: label");
+  return out;
+}
