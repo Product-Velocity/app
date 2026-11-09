@@ -9,3 +9,6 @@ next-env.d.ts
 !.env.example
 apps/web/test-results/
 apps/web/playwright-report/
+.agents/
+.gemini/
+.DS_Store
