@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { ShortcutsPanel } from "./help-menu";
 import {
   AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_INTRO, AGENT_TABS, AGENT_TIPS, AGENT_USE_CASES, type AgentTabId, COLUMNS_NOTE, COLUMN_ROWS, UPDATE_LEGEND, FLOW_CREATE, FLOW_LIFECYCLE, ATTENTION_INTRO, ATTENTION_TABLE, GATES_INTRO, GATES_TABLE, GATES_STEPS, GATES_OUTCOMES, GATES_NOTES, STATUS_FROM_TRACKER, STATUS_INTRO, STATUS_NEXT_IN_PV, STATUS_NOTES, STATUS_TO_TRACKER, FLOW_READ, LIFECYCLE_NOTES,
@@ -58,22 +58,28 @@ function ConnectorUrlBox({ url }: { url: string }) {
   );
 }
 
+const emptySubscribe = () => () => {};
+
+function getOriginSnapshot() {
+  return typeof window !== "undefined" ? window.location.origin : "https://productvelocity.app";
+}
+
+function getServerOriginSnapshot() {
+  return "https://productvelocity.app";
+}
+
 /** Help in the top bar: what each column is and where it syncs, how content flows through the product, and how to use Claude. */
 export function HelpGuide() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<TabId>("columns");
   const [agent, setAgent] = useState<AgentTabId>("use-cases");
-  const [connectorUrl, setConnectorUrl] = useState("https://productvelocity.app/mcp");
+  const origin = useSyncExternalStore(emptySubscribe, getOriginSnapshot, getServerOriginSnapshot);
+  const connectorUrl = `${origin}/mcp`;
   const [query, setQuery] = useState("");
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const shown = COLUMN_ROWS.filter((r) => { const hay = `${r.column} ${r.what} ${r.github} ${r.jira} ${r.access} ${r.updated} ${r.group} ${r.key}`.toLowerCase(); return words.every((w) => hay.includes(w)); });
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setConnectorUrl(`${window.location.origin}/mcp`);
-    }
-  }, []);
   useEffect(() => {
     if (!open) return;
     closeRef.current?.focus();
