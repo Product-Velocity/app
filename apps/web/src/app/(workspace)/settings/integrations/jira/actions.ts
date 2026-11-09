@@ -17,6 +17,7 @@ import { configRowsFromForm, jiraMapFromForm, validateJiraMap } from "@/lib/trac
 import { validateConfig } from "@/lib/tracker-fields/mapping";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 import { validateTypeMapping } from "@/lib/atlassian/type-mapping";
+import { copyJiraIssueTexts } from "@/app/(workspace)/incoming/copy-jira-texts";
 import { requireWorkspace } from "@/lib/session";
 
 const PATH = "/settings/integrations/jira";
@@ -130,8 +131,11 @@ export async function reviewJiraIssues(form: FormData): Promise<void> {
   if (intent === "pull") {
     const { data, error } = await ctx.supabase.rpc("jira_pull_in", { p_ids: ids, p_project: project, p_mode: mode });
     if (!error) {
-      const rows = (data ?? []) as { ok: boolean }[];
+      const rows = (data ?? []) as { ok: boolean; item_id?: string | null }[];
       const ok = rows.filter((r) => r.ok).length;
+      // keep each issue's description and type:/area: labels once (issue #365); reading them never fails the pull-in
+      const created = rows.filter((r) => r.ok && r.item_id).map((r) => r.item_id as string);
+      if (created.length > 0) await copyJiraIssueTexts(created).catch(() => null);
       status = ok === rows.length ? "pulled" : ok > 0 ? "pulled-some" : "pull-failed";
       counts = `&n=${ok}&m=${rows.length - ok}`;
     } else if (error.code === "42501") status = "review-denied";

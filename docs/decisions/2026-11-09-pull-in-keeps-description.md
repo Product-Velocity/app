@@ -16,6 +16,6 @@ status: built
 - **The text is data** (CLAUDE.md rule 4): stored as text, never interpreted. It may contain commercial or customer wording; it goes into Product Velocity only, never back to GitHub unless the person owns the issue and syncs it, and then only as the existing Description section of the managed block (the allowlist and its test are unchanged).
 - **Known consequence for "Product Velocity owns it":** the first send adds the managed block (with this Description) at the end of the issue and keeps the original text above it, so the text appears twice in that issue. Read only pull-ins are not affected. Whether the first send should replace the original body is a separate decision (it would remove text from GitHub), not made here.
 
-**Parity.** Exception, with reason: Jira's pull-in needs its own reader and the Atlassian document converter. Issue #365.
+**Parity.** Built for Jira too (issue #365): the same rules with the Atlassian document converter `adfToMarkdown`, `jira_copy_issue_description` and `descriptionFromJiraAdf` (a description Product Velocity wrote uses its Description section).
 
 **Same change set:** a "managed block missing" conflict is no longer raised for an issue Product Velocity never wrote to (`docs/21`).
