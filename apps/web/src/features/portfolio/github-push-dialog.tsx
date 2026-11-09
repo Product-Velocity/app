@@ -11,6 +11,7 @@ import { closeRemovedInGithub, listRemovedInGithub } from "@/app/(workspace)/por
 import { NewItemsStep, type NewItemsConfig } from "./new-items";
 import { applyBoardLines, boardCandidates, chunk, CHECK_CHUNK, dropWritten, failedCard, filterBySend, hasIncoming, mergeChecked, replaceResults, writeAll, writingLabel, type UpdateFilter, type WrittenOne } from "./sync-progress";
 import type { PlanItem, PushItemResult, ReceiveItem, ReceiveStatus, ReceivedLine, SyncChoice, SyncConflict, SyncPreview, TakenOver } from "@/lib/github/push-types";
+import { StatusPill } from "../../components/status-pill";
 
 /** The three server calls the dialog makes, routed to the sync engine of each initiative's tracker; a test page passes fakes. */
 const REAL_API: SyncApi = { start: startSync, board: checkBoard, confirm: confirmSync, removed: { jira: { list: listRemovedInJira, close: closeRemovedInJira }, github: { list: listRemovedInGithub, close: closeRemovedInGithub } } };
@@ -405,7 +406,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                     const tracker = r.tracker === "jira" ? "Jira" : "GitHub";
                     return (
                       <li key={r.id} className={p?.action === "blocked" ? "push-blocked" : undefined}>
-                        <strong>{r.code}</strong> {r.name} · <span className="push-pill">{sends ? "To send" : "Nothing to send"}</span>
+                        <strong>{r.code}</strong> {r.name} · <StatusPill value={sends ? "To send" : "Nothing to send"} tone={sends ? "info" : "neutral"} />
                         {(r.issueLabel || r.issueNumber) && r.issueUrl && <> · <a href={r.issueUrl} target="_blank" rel="noreferrer">{r.issueLabel ? `issue ${r.issueLabel}` : `issue #${r.issueNumber}`}</a></>}
                         {r.readOnly && <><br /><span className="muted">Follows this issue read-only: nothing to send.</span></>}
                         {!sends && !r.readOnly && !p?.action && <><br /><span className="muted">Everything is in step.</span></>}
