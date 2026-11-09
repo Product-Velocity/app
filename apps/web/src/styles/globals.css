@@ -307,7 +307,6 @@ a.btn { display: inline-flex; align-items: center; color: inherit; text-decorati
 .dialog-small { width: min(460px, 100%); }
 .scope-projects { border: 1px solid var(--grey-1); border-radius: 8px; margin: 12px 0 0; padding: 6px 10px; max-height: 260px; overflow: auto; }
 .scope-projects legend { font-weight: 600; padding: 0 4px; }
-.btn-danger { background: #8a1f1f; border-color: #8a1f1f; color: #fff; }
 .dialog-spacer { margin-right: auto; align-self: center; }
 .dialog-spacer-btn { margin-right: auto; }
 
@@ -771,7 +770,11 @@ a.scope-link { text-decoration: none; color: inherit; }
 a.scope-link:hover, a.scope-link:focus-visible { background: var(--blue-tint-2); outline: none; }
 .delete-account { margin-top: 6px; }
 .delete-account summary { cursor: pointer; color: #b42318; }
-.btn-danger { background: #b42318; border-color: #b42318; color: #fff; }
+.btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.btn-danger:hover:not(:disabled) { background: var(--danger-hover); border-color: var(--danger-hover); }
+/* Quiet danger: red text and border on white, for a destructive action that sits beside other buttons. The solid red button belongs in the confirm step. */
+.btn-danger-quiet, .bulk-btn-danger { border-color: var(--danger); color: var(--danger); background: var(--bg); }
+.btn-danger-quiet:hover:not(:disabled), .bulk-btn-danger:hover:not(:disabled) { background: var(--danger-tint); }
 /* Documents on an initiative (Spec tab) */
 .docs-list { list-style: none; padding: 0; margin: 8px 0; }
 .docs-row { padding: 6px 0; border-bottom: 1px solid var(--grey-2); }

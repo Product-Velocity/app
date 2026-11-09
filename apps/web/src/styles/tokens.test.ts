@@ -36,4 +36,8 @@ describe("design tokens (docs/07)", () => {
       expect(token(`${s}-bg`)).toMatch(/^#[0-9a-f]{6}$/);
     }
   });
+
+  it("defines the danger and confirm button colours with readable white text", () => {
+    for (const n of ["danger", "danger-hover", "confirm", "confirm-hover"]) expect(token(n)).toMatch(/^#[0-9a-f]{6}$/);
+  });
 });

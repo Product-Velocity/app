@@ -32,6 +32,13 @@
   --radius-pill: 999px;
   --shadow-float: 0 4px 16px rgba(17, 24, 39, 0.14);
 
+  /* Button roles. Danger = delete/remove/revoke; confirm (green) is reserved for the few actions that send or decide. */
+  --danger: #b42318;
+  --danger-hover: #912018;
+  --danger-tint: #fef3f2;
+  --confirm: #166534;
+  --confirm-hover: #14532d;
+
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --font-size: 13px;

@@ -148,7 +148,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
         </div>
         <div className="ip-actions">
           {controller.canEdit && syncPlatforms(lookups, [row.home_project]).length > 0 && <button type="button" className="btn ip-link" onClick={() => setPushGithub(true)} title={syncTitle(syncPlatforms(lookups, [row.home_project]))}>{syncLabel(syncPlatforms(lookups, [row.home_project]))}…</button>}
-          {controller.canDelete(itemId) && <button type="button" className="btn ip-link" onClick={() => setConfirmDelete(true)}>Delete…</button>}
+          {controller.canDelete(itemId) && <button type="button" className="btn btn-danger-quiet ip-link" onClick={() => setConfirmDelete(true)}>Delete…</button>}
           {mode === "peek" && <Link className="btn ip-link" href={pageHref(row.item_code)}>Open full page</Link>}
           {mode === "page" && <Link className="btn ip-link" href={backHref}>Back to the roadmap</Link>}
         </div>
