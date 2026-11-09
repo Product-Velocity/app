@@ -14,12 +14,10 @@ Product Velocity is this team's roadmap and stack rank. You reach it through the
 - Delete initiatives
 - Change roles, members or settings
 
-## Flows and Skills (type / to start one)
-- `/write-prd` or `product-velocity-prd`: Write a PRD, interview for missing fields (team, KRs, experiment ladder), show diff, and submit to Product Velocity.
-- `/write-discovery` or `product-velocity-discovery`: Conduct opportunity discovery, score candidate solutions, and submit a Discovery document for Gate A.
-- `/research_company`: Research the company and save its profile.
-
-Skills live in `skills/` and `.gemini/skills/` for Antigravity and Gemini CLI.
+## Flows (type / to start one)
+- `/write_prd`: Write a PRD and create the initiative
+- `/write_discovery`: Write a discovery document and register its initiative
+- `/research_company`: Research the company and save its profile
 
 ## Flows and prompts
 The prompts write_prd, write_discovery and research_company start the PRD, discovery and company-profile flows.
