@@ -46,7 +46,7 @@ export type CardsProps = {
 export function CardsView({ controller, lookups, me, pageHref, gates }: CardsProps) {
   const params = useSearchParams();
   const status = useStatus(controller);
-  const { views, defaults, ready } = useWorkspace();
+  const { views, defaults, ready } = useWorkspace("cards");
   const scope = useScope();
   const today = controller.todayDate();
   const options = useMemo(() => axisOptions(), []);
@@ -119,7 +119,7 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
   const shownCount = VISIBLE_FIELDS.filter((f) => visible.has(f.key) || (CORE_COLUMN_KEYS as readonly string[]).includes(f.key)).length;
   const viewsApi = useViews({
     base, def, bDef, dirty, openBase: openBaseRaw, discard: clearColumns, reset: resetChanges,
-    builtins: CARDS_VIEW_NAMES, defaultBar: CARDS_VIEW_NAMES, builtinDefs: CARDS_DEFAULT_VIEWS,
+    builtins: CARDS_VIEW_NAMES, defaultBar: CARDS_VIEW_NAMES, builtinDefs: CARDS_DEFAULT_VIEWS, surface: "cards",
   });
 
   const [search, setSearch] = useState("");

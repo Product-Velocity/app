@@ -1,9 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { BAR_FULL_MESSAGE, BAR_MAX, PRIVATE_VIEW_CAP, sanitizeView, type BuiltinBarName, type LayoutRow, type ViewDef, type ViewName } from "@pv/domain";
+import { BAR_FULL_MESSAGE, BAR_MAX, PRIVATE_VIEW_CAP, sanitizeView, type BuiltinBarName, type LayoutRow, type ViewDef, type ViewName, type ViewSurface } from "@pv/domain";
 
 export type Scope = { id: string; name: string; projectIds: string[] };
 /** `baseView` is set on a customised default view (it replaces the built-in view of that name until restored). */
-export type SavedView = { id: string; name: string; baseView?: ViewName | null; /** null or missing = a workspace view (everyone reads it, admins write it); else the person who owns this private view. */ ownerId?: string | null } & ViewDef;
+export type SavedView = { id: string; name: string; /** The screen this view belongs to; missing = the Grid. The Grid and Cards never share views. */ surface?: ViewSurface; baseView?: ViewName | null; /** null or missing = a workspace view (everyone reads it, admins write it); else the person who owns this private view. */ ownerId?: string | null } & ViewDef;
 export type Layouts = { workspace: LayoutRow[]; mine: LayoutRow[] };
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -20,26 +20,26 @@ export interface WorkspaceStore {
   deleteScope(id: string): Promise<Result<null>>;
   /** The workspace views plus the signed-in person's own private views (the database never returns anyone else's). */
   listViews(): Promise<SavedView[]>;
-  /** Private to the signed-in person unless `workspace` is set (admins only). */
-  createView(name: string, def: ViewDef, opts?: { workspace?: boolean }): Promise<Result<SavedView>>;
+  /** Private to the signed-in person unless `workspace` is set (admins only). `surface` is the screen it belongs to (the Grid when left out). */
+  createView(name: string, def: ViewDef, opts?: { workspace?: boolean; surface?: ViewSurface }): Promise<Result<SavedView>>;
   updateView(id: string, patch: { name?: string } & Partial<ViewDef>): Promise<Result<SavedView>>;
   deleteView(id: string): Promise<Result<null>>;
   /** Admins: publish their own private view to the workspace, or take a workspace view back to private. */
   setViewScope(id: string, workspace: boolean): Promise<Result<SavedView>>;
-  /** The bar: the workspace default and the signed-in person's own layout. */
-  listLayouts(): Promise<Layouts>;
-  /** Replaces the whole layout in one step. An empty list removes it (the person follows the workspace again). */
-  replaceLayout(workspace: boolean, rows: LayoutRow[]): Promise<Result<null>>;
-  /** Customise a built-in default view for the whole workspace (creates or replaces the override). */
-  saveDefaultView(name: ViewName, def: ViewDef): Promise<Result<SavedView>>;
-  /** Back to the built-in default (deletes the override). */
-  restoreDefaultView(name: ViewName): Promise<Result<null>>;
+  /** The bar of one screen: the workspace default and the signed-in person's own layout. */
+  listLayouts(surface?: ViewSurface): Promise<Layouts>;
+  /** Replaces the whole layout of one screen in one step. An empty list removes it (the person follows the workspace again). */
+  replaceLayout(workspace: boolean, rows: LayoutRow[], surface?: ViewSurface): Promise<Result<null>>;
+  /** Customise a built-in default view of one screen for the whole workspace (creates or replaces the override). */
+  saveDefaultView(name: ViewName, def: ViewDef, surface?: ViewSurface): Promise<Result<SavedView>>;
+  /** Back to the built-in default of that screen (deletes the override). */
+  restoreDefaultView(name: ViewName, surface?: ViewSurface): Promise<Result<null>>;
 }
 
-const VIEW_COLUMNS = "id,name,columns,filters,group_by,base_view,customer_safe,pinned,owner_id,sort";
-type ViewRow = { id: string; name: string; columns: string[]; filters: unknown; group_by: string | null; base_view: string | null; customer_safe: boolean; pinned?: string[] | null; owner_id?: string | null; sort?: unknown };
+const VIEW_COLUMNS = "id,name,columns,filters,group_by,base_view,customer_safe,pinned,owner_id,sort,surface";
+type ViewRow = { id: string; name: string; columns: string[]; filters: unknown; group_by: string | null; base_view: string | null; customer_safe: boolean; pinned?: string[] | null; owner_id?: string | null; sort?: unknown; surface?: string | null };
 const fromRow = (r: ViewRow): SavedView => ({
-  id: r.id, name: r.name, baseView: (r.base_view as ViewName | null) ?? null, ownerId: r.owner_id ?? null,
+  id: r.id, name: r.name, surface: r.surface === "cards" ? "cards" : "grid", baseView: (r.base_view as ViewName | null) ?? null, ownerId: r.owner_id ?? null,
   ...sanitizeView({ columns: r.columns, filters: r.filters, groupBy: r.group_by, customerSafe: r.customer_safe, pinned: r.pinned ?? [], sort: r.sort }),
 });
 
@@ -153,22 +153,23 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
     return ((data ?? []) as ViewRow[]).map(fromRow);
   }
 
-  async createView(name: string, def: ViewDef, opts: { workspace?: boolean } = {}): Promise<Result<SavedView>> {
+  async createView(name: string, def: ViewDef, opts: { workspace?: boolean; surface?: ViewSurface } = {}): Promise<Result<SavedView>> {
     const n = validName(name, 80);
     if (!n) return { ok: false, error: "Give the view a name (up to 80 characters)." };
     const workspace = opts.workspace === true;
+    const surface = opts.surface ?? "grid";
     if (!workspace && !this.userId) return { ok: false, error: "Sign in again to save a view." };
     const clean = sanitizeView(workspace ? def : { ...def, customerSafe: false });
     const { data, error } = await this.client
       .from("saved_views")
       .insert({
-        tenant_id: this.tenantId, name: n, columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, customer_safe: clean.customerSafe === true, pinned: clean.pinned ?? [], sort: clean.sort ?? null,
+        tenant_id: this.tenantId, surface, name: n, columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, customer_safe: clean.customerSafe === true, pinned: clean.pinned ?? [], sort: clean.sort ?? null,
         ...(workspace ? { visibility: "workspace", owner_id: null } : { visibility: "private", owner_id: this.userId }),
       })
       .select("id")
       .single();
     if (error || !data) return { ok: false, error: friendly(error, "view", n) };
-    return { ok: true, value: { id: data.id, name: n, baseView: null, ownerId: workspace ? null : this.userId, ...clean } };
+    return { ok: true, value: { id: data.id, name: n, surface, baseView: null, ownerId: workspace ? null : this.userId, ...clean } };
   }
 
   async setViewScope(id: string, workspace: boolean): Promise<Result<SavedView>> {
@@ -181,34 +182,34 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
     return r ? { ok: true, value: fromRow(r as ViewRow) } : { ok: false, error: "That view no longer exists or you cannot change it." };
   }
 
-  async listLayouts(): Promise<Layouts> {
-    const { data, error } = await this.client.from("view_layouts").select("user_id,view_id,builtin,in_bar,position,hidden").eq("tenant_id", this.tenantId).order("position");
+  async listLayouts(surface: ViewSurface = "grid"): Promise<Layouts> {
+    const { data, error } = await this.client.from("view_layouts").select("user_id,view_id,builtin,in_bar,position,hidden").eq("tenant_id", this.tenantId).eq("surface", surface).order("position");
     if (error) throw new Error(friendly(error, "layout"));
     const rows = (data ?? []) as LayoutDbRow[];
     return { workspace: rows.filter((r) => r.user_id === null).map(layoutFromRow), mine: rows.filter((r) => r.user_id !== null).map(layoutFromRow) };
   }
 
-  async replaceLayout(workspace: boolean, rows: LayoutRow[]): Promise<Result<null>> {
+  async replaceLayout(workspace: boolean, rows: LayoutRow[], surface: ViewSurface = "grid"): Promise<Result<null>> {
     if (rows.filter((r) => r.inBar).length > BAR_MAX) return { ok: false, error: BAR_FULL_MESSAGE };
-    const { error } = await this.client.rpc("replace_view_layout", { p_tenant: this.tenantId, p_workspace: workspace, p_rows: rows.map(layoutToJson) });
+    const { error } = await this.client.rpc("replace_view_layout", { p_tenant: this.tenantId, p_workspace: workspace, p_rows: rows.map(layoutToJson), p_surface: surface });
     return error ? { ok: false, error: friendly(error, "layout") } : { ok: true, value: null };
   }
 
-  async saveDefaultView(name: ViewName, def: ViewDef): Promise<Result<SavedView>> {
+  async saveDefaultView(name: ViewName, def: ViewDef, surface: ViewSurface = "grid"): Promise<Result<SavedView>> {
     const clean = sanitizeView({ ...def, customerSafe: false });
-    const existing = await this.client.from("saved_views").select("id").eq("tenant_id", this.tenantId).eq("base_view", name).maybeSingle();
+    const existing = await this.client.from("saved_views").select("id").eq("tenant_id", this.tenantId).eq("surface", surface).eq("base_view", name).maybeSingle();
     if (existing.error) return { ok: false, error: friendly(existing.error, "view", name) };
     const fields = { columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, pinned: clean.pinned ?? [], sort: clean.sort ?? null };
     const { data, error } = existing.data
       ? await this.client.from("saved_views").update(fields).eq("tenant_id", this.tenantId).eq("id", existing.data.id).select(VIEW_COLUMNS)
-      : await this.client.from("saved_views").insert({ tenant_id: this.tenantId, name, base_view: name, ...fields }).select(VIEW_COLUMNS);
+      : await this.client.from("saved_views").insert({ tenant_id: this.tenantId, surface, name, base_view: name, ...fields }).select(VIEW_COLUMNS);
     const r = (data as ViewRow[] | null)?.[0];
     if (error || !r) return { ok: false, error: error ? friendly(error, "view", name) : "You cannot change the default views. Ask an admin." };
     return { ok: true, value: fromRow(r) };
   }
 
-  async restoreDefaultView(name: ViewName): Promise<Result<null>> {
-    const { error } = await this.client.from("saved_views").delete().eq("tenant_id", this.tenantId).eq("base_view", name);
+  async restoreDefaultView(name: ViewName, surface: ViewSurface = "grid"): Promise<Result<null>> {
+    const { error } = await this.client.from("saved_views").delete().eq("tenant_id", this.tenantId).eq("surface", surface).eq("base_view", name);
     return error ? { ok: false, error: friendly(error, "view", name) } : { ok: true, value: null };
   }
 
@@ -253,6 +254,8 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
   private n = 0;
   /** Layout rows by person: "" is the workspace default. */
   layouts: Record<string, LayoutRow[]> = {};
+  /** The key of `layouts` for one person on one screen (the Grid keeps the plain key, so older tests read it unchanged). */
+  private lk(workspace: boolean, surface: ViewSurface) { const who = workspace ? "" : this.me; return surface === "grid" ? who : `${surface}:${who}`; }
   /** The signed-in person. Admins write workspace views; everyone writes their own private ones. */
   me = "me";
   constructor(init: { scopes?: Scope[]; views?: SavedView[]; me?: string; admin?: boolean } = {}) {
@@ -285,13 +288,14 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
   }
   async listScopes() { return this.scopes.map((s) => ({ ...s })); }
   async listViews() { return this.visible().map((v) => ({ ...v })); }
-  async listLayouts(): Promise<Layouts> { return { workspace: [...(this.layouts[""] ?? [])], mine: [...(this.layouts[this.me] ?? [])] }; }
-  async replaceLayout(workspace: boolean, rows: LayoutRow[]): Promise<Result<null>> {
+  async listLayouts(surface: ViewSurface = "grid"): Promise<Layouts> { return { workspace: [...(this.layouts[this.lk(true, surface)] ?? [])], mine: [...(this.layouts[this.lk(false, surface)] ?? [])] }; }
+  async replaceLayout(workspace: boolean, rows: LayoutRow[], surface: ViewSurface = "grid"): Promise<Result<null>> {
     const f = this.fail<null>(); if (f) return f;
     if (workspace && !this.admin) return { ok: false, error: "You do not have permission to change layouts." };
     if (rows.filter((r) => r.inBar).length > BAR_MAX) return { ok: false, error: BAR_FULL_MESSAGE };
-    this.layouts[workspace ? "" : this.me] = rows.map((r, i) => ({ ...r, position: i }));
-    if (rows.length === 0) delete this.layouts[workspace ? "" : this.me];
+    const key = this.lk(workspace, surface);
+    this.layouts[key] = rows.map((r, i) => ({ ...r, position: i }));
+    if (rows.length === 0) delete this.layouts[key];
     return { ok: true, value: null };
   }
   async createScope(name: string, projectIds: string[]): Promise<Result<Scope>> {
@@ -318,28 +322,30 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
     this.scopes = this.scopes.filter((x) => x.id !== id);
     return { ok: true, value: null };
   }
-  async createView(name: string, def: ViewDef, opts: { workspace?: boolean } = {}): Promise<Result<SavedView>> {
+  async createView(name: string, def: ViewDef, opts: { workspace?: boolean; surface?: ViewSurface } = {}): Promise<Result<SavedView>> {
     const f = this.fail<SavedView>(); if (f) return f;
     const nm = validName(name, 80); if (!nm) return { ok: false, error: "Give the view a name (up to 80 characters)." };
     const workspace = opts.workspace === true;
+    const surface = opts.surface ?? "grid";
     if (workspace && !this.admin) return { ok: false, error: "You do not have permission to change views." };
     const owner = workspace ? null : this.me;
-    const d = this.dup(this.views.filter((v) => v.ownerId === owner), nm, "view"); if (d) return d;
-    const capped = this.capProblem(owner); if (capped) return { ok: false, error: capped };
-    const v: SavedView = { id: `view-${++this.n}`, name: nm, baseView: null, ownerId: owner, ...sanitizeView(workspace ? def : { ...def, customerSafe: false }) };
+    const d = this.dup(this.views.filter((v) => v.ownerId === owner && (v.surface ?? "grid") === surface), nm, "view"); if (d) return d;
+    const capped = this.capProblem(owner, surface); if (capped) return { ok: false, error: capped };
+    const v: SavedView = { id: `view-${++this.n}`, name: nm, surface, baseView: null, ownerId: owner, ...sanitizeView(workspace ? def : { ...def, customerSafe: false }) };
     this.views.push(v);
     return { ok: true, value: { ...v } };
   }
-  private capProblem(owner: string | null): string | null {
-    if (owner !== null) return this.views.filter((v) => v.ownerId === owner).length >= PRIVATE_VIEW_CAP ? "You can have at most 25 private views. Delete one first." : null;
-    return this.views.filter((v) => v.ownerId === null && !v.baseView).length >= 14 ? "A workspace can have at most 25 views, including the 11 built-in ones. Delete or hide one first." : null;
+  private capProblem(owner: string | null, surface: ViewSurface): string | null {
+    const here = this.views.filter((v) => (v.surface ?? "grid") === surface);
+    if (owner !== null) return here.filter((v) => v.ownerId === owner).length >= PRIVATE_VIEW_CAP ? "You can have at most 25 private views. Delete one first." : null;
+    return here.filter((v) => v.ownerId === null && !v.baseView).length >= 14 ? "A workspace can have at most 25 views, including the 11 built-in ones. Delete or hide one first." : null;
   }
   async setViewScope(id: string, workspace: boolean): Promise<Result<SavedView>> {
     const f = this.fail<SavedView>(); if (f) return f;
     const v = this.visible().find((x) => x.id === id);
     if (!v || !this.mayWrite(v) || !this.admin) return { ok: false, error: "That view no longer exists or you cannot change it." };
     const owner = workspace ? null : this.me;
-    const capped = this.capProblem(owner); if (capped) return { ok: false, error: capped };
+    const capped = this.capProblem(owner, v.surface ?? "grid"); if (capped) return { ok: false, error: capped };
     v.ownerId = owner; v.customerSafe = undefined;
     return { ok: true, value: { ...v } };
   }
@@ -348,7 +354,7 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
     const v = this.visible().find((x) => x.id === id); if (!v || !this.mayWrite(v)) return { ok: false, error: "That view no longer exists or you cannot change it." };
     if (patch.name !== undefined) {
       const nm = validName(patch.name, 80); if (!nm) return { ok: false, error: "Give the view a name (up to 80 characters)." };
-      const d = this.dup(this.views.filter((x) => x.ownerId === v.ownerId), nm, "view", id); if (d) return d;
+      const d = this.dup(this.views.filter((x) => x.ownerId === v.ownerId && (x.surface ?? "grid") === (v.surface ?? "grid")), nm, "view", id); if (d) return d;
       v.name = nm;
     }
     const clean = sanitizeView({ columns: patch.columns ?? v.columns, filters: patch.filters ?? v.filters, groupBy: patch.groupBy === undefined ? v.groupBy : patch.groupBy, customerSafe: patch.customerSafe ?? v.customerSafe, pinned: patch.pinned ?? v.pinned, sort: "sort" in patch ? patch.sort : v.sort });
@@ -364,19 +370,19 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
     for (const k of Object.keys(this.layouts)) this.layouts[k] = this.layouts[k]!.filter((r) => !(r.ref.kind === "saved" && r.ref.id === id));
     return { ok: true, value: null };
   }
-  async saveDefaultView(name: ViewName, def: ViewDef): Promise<Result<SavedView>> {
+  async saveDefaultView(name: ViewName, def: ViewDef, surface: ViewSurface = "grid"): Promise<Result<SavedView>> {
     const f = this.fail<SavedView>(); if (f) return f;
     if (!this.canWrite || !this.admin) return { ok: false, error: "You cannot change the default views. Ask an admin." };
     const clean = sanitizeView({ ...def, customerSafe: false });
-    const existing = this.views.find((v) => v.baseView === name);
+    const existing = this.views.find((v) => v.baseView === name && (v.surface ?? "grid") === surface);
     if (existing) { Object.assign(existing, clean); existing.pinned = clean.pinned; existing.sort = clean.sort; return { ok: true, value: { ...existing } }; }
-    const v: SavedView = { id: `view-${++this.n}`, name, baseView: name, ownerId: null, ...clean };
+    const v: SavedView = { id: `view-${++this.n}`, name, surface, baseView: name, ownerId: null, ...clean };
     this.views.push(v);
     return { ok: true, value: v };
   }
-  async restoreDefaultView(name: ViewName): Promise<Result<null>> {
+  async restoreDefaultView(name: ViewName, surface: ViewSurface = "grid"): Promise<Result<null>> {
     const f = this.fail<null>(); if (f) return f;
-    this.views = this.views.filter((v) => v.baseView !== name);
+    this.views = this.views.filter((v) => !(v.baseView === name && (v.surface ?? "grid") === surface));
     return { ok: true, value: null };
   }
 }

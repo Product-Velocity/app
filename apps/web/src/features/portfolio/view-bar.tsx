@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   addToBar, BAR_FULL_MESSAGE, changeSummary, computeBar, diffViews, isCustomerSafe, layoutRowsFor, moveInBar, moveToIndex, nameProblem, refKey, removeFromBar, sameRef,
-  filterOptions, needsSearch, sanitizeView, visibleTabs, BUILTIN_BAR_NAMES, type BuiltinBarName, type MenuEntry, type ViewDef, type ViewName, type ViewRef,
+  filterOptions, needsSearch, sanitizeView, visibleTabs, BUILTIN_BAR_NAMES, type BuiltinBarName, type MenuEntry, type ViewDef, type ViewName, type ViewRef, type ViewSurface,
 } from "@pv/domain";
 import { menuSearchKeys, NoResults, SearchInput } from "@/components/search-list";
 import { useWorkspace } from "../workspace/provider";
@@ -29,9 +29,9 @@ type Dialog =
   | { kind: "make-private"; entry: MenuEntry };
 
 /** Everything the view bar, the unsaved-changes bar and the ⌘K palette do with views, in one place so the three stay the same. */
-export function useViews({ base, def, bDef, dirty, openBase, discard, reset, builtins = BUILTIN_BAR_NAMES, defaultBar, builtinDefs }: { base: BaseView; def: ViewDef; bDef: ViewDef; dirty: boolean; openBase: (b: BaseView) => void; /** Drops the column changes of the open view (after they were saved). */ discard: () => void; /** Drops every unsaved change (filters, grouping, sort and columns). */ reset: () => void; builtins?: readonly BuiltinBarName[]; defaultBar?: readonly BuiltinBarName[]; builtinDefs?: Partial<Record<ViewName, ViewDef>> }) {
+export function useViews({ base, def, bDef, dirty, openBase, discard, reset, builtins = BUILTIN_BAR_NAMES, defaultBar, builtinDefs, surface = "grid" }: { base: BaseView; def: ViewDef; bDef: ViewDef; dirty: boolean; openBase: (b: BaseView) => void; /** Drops the column changes of the open view (after they were saved). */ discard: () => void; /** Drops every unsaved change (filters, grouping, sort and columns). */ reset: () => void; builtins?: readonly BuiltinBarName[]; defaultBar?: readonly BuiltinBarName[]; builtinDefs?: Partial<Record<ViewName, ViewDef>>; /** The screen whose views and bar these are: the Grid or the Cards screen never share them. */ surface?: ViewSurface }) {
   const openRaw = openBase;
-  const { store, reload, views, defaults, layouts, userId, canAdmin } = useWorkspace();
+  const { store, reload, views, defaults, layouts, userId, canAdmin } = useWorkspace(surface);
   const [managing, setManaging] = useState(false);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [message, setMessage] = useState<{ text: string; cap: boolean } | null>(null);
@@ -73,7 +73,7 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset, bui
   // ---- the bar
   const writeBar = async (bar: ViewRef[], hidden: ViewRef[] = workspaceOnly.hidden.map((e) => e.ref)): Promise<boolean> => {
     const rows = layoutRowsFor(bar, allKnown.filter((r) => (managing ? isWorkspaceRef(r) : !hidden.some((h) => sameRef(h, r)))), managing ? hidden : []);
-    const r = await store.replaceLayout(managing, rows);
+    const r = await store.replaceLayout(managing, rows, surface);
     if (!r.ok) { say(r.error); return false; }
     await reload();
     say(null);
@@ -89,7 +89,7 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset, bui
   const move = (ref: ViewRef, by: -1 | 1) => writeBar(moveInBar(shown.bar, ref, by));
   const moveTo = (ref: ViewRef, to: number) => writeBar(moveToIndex(shown.bar, ref, to));
   const resetLayout = async () => {
-    const r = await store.replaceLayout(false, []);
+    const r = await store.replaceLayout(false, [], surface);
     if (!r.ok) { say(r.error); return; }
     await reload(); say(null);
   };
@@ -102,7 +102,7 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset, bui
   ];
 
   const create = async (name: string, workspace: boolean, d: ViewDef): Promise<string | null> => {
-    const r = await store.createView(name, d, { workspace });
+    const r = await store.createView(name, d, { workspace, surface });
     if (!r.ok) { say(r.error); return r.error; }
     await reload();
     say(null);
@@ -139,7 +139,7 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset, bui
     const workspace = v.ownerId === null;
     showToast({
       text: `Deleted “${v.name}”.`,
-      undo: async () => { const c = await store.createView(v.name, snapshot, { workspace }); if (!c.ok) say(c.error); await reload(); },
+      undo: async () => { const c = await store.createView(v.name, snapshot, { workspace, surface }); if (!c.ok) say(c.error); await reload(); },
     });
   };
   const setScope = async (entry: MenuEntry, workspace: boolean) => {
@@ -153,24 +153,24 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset, bui
     const hidden = [...workspaceOnly.hidden.map((e) => e.ref), entry.ref];
     const prevBar = workspaceOnly.bar, prevHidden = workspaceOnly.hidden.map((e) => e.ref);
     const rows = layoutRowsFor(removeFromBar(workspaceOnly.bar, entry.ref), allKnown.filter(isWorkspaceRef), hidden);
-    const r = await store.replaceLayout(true, rows);
+    const r = await store.replaceLayout(true, rows, surface);
     if (!r.ok) { say(r.error); return; }
     await reload();
     if (base.kind !== "saved" && sameRef(baseToRef(base), entry.ref)) openRaw({ kind: "builtin", name: "Prioritisation" });
     showToast({
       text: `Hid “${entry.name}” for everyone.`,
-      undo: async () => { await store.replaceLayout(true, layoutRowsFor(prevBar, allKnown.filter(isWorkspaceRef), prevHidden)); await reload(); },
+      undo: async () => { await store.replaceLayout(true, layoutRowsFor(prevBar, allKnown.filter(isWorkspaceRef), prevHidden), surface); await reload(); },
     });
   };
   const restore = async (entry: MenuEntry) => {
     const hidden = workspaceOnly.hidden.map((e) => e.ref).filter((r) => !sameRef(r, entry.ref));
     const rows = layoutRowsFor(workspaceOnly.bar, allKnown.filter(isWorkspaceRef), hidden);
-    const r = await store.replaceLayout(true, rows);
+    const r = await store.replaceLayout(true, rows, surface);
     if (!r.ok) { say(r.error); return; }
     await reload(); say(null);
   };
   const restoreOriginal = async (name: ViewName) => {
-    const r = await store.restoreDefaultView(name);
+    const r = await store.restoreDefaultView(name, surface);
     if (!r.ok) { say(r.error); return; }
     await reload(); say(null);
   };
@@ -181,7 +181,7 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset, bui
   const updateLabel = updateKind === "workspace" ? "Update for everyone" : current ? `Update “${current.name}”` : "Update";
   const updateBlocked = updateKind === "workspace" && !canAdmin ? "Workspace views can only be changed by an admin. Save as your own view instead." : null;
   const doUpdate = async () => {
-    const r = current ? await store.updateView(current.id, { ...def, sort: def.sort ?? null }) : builtinName ? await store.saveDefaultView(builtinName, def) : null;
+    const r = current ? await store.updateView(current.id, { ...def, sort: def.sort ?? null }) : builtinName ? await store.saveDefaultView(builtinName, def, surface) : null;
     if (!r) return;
     if (!r.ok) { say(r.error); return; }
     await reload(); say(null);

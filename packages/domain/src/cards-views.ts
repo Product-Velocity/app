@@ -31,3 +31,10 @@ export const CARDS_DEFAULT_VIEWS: Readonly<Record<CardsViewName, ViewDef>> = {
     groupBy: "audience",
   }),
 };
+
+/**
+ * The screens that have their own saved views and view bar. The Grid and the Cards screen never share a view, a customised
+ * default or a bar layout: a change made on one never shows on the other.
+ */
+export type ViewSurface = "grid" | "cards";
+export const VIEW_SURFACES = ["grid", "cards"] as const satisfies readonly ViewSurface[];

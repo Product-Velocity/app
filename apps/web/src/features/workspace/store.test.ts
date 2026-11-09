@@ -81,21 +81,21 @@ describe("SupabaseWorkspaceStore: views", () => {
   it("lists views and cleans what it reads", async () => {
     const { client } = fake([{ data: [{ id: "v1", name: "Planning", columns: ["moscow", "nope"], filters: [{ field: "nope", op: "is" }], group_by: "bogus" }] }]);
     expect(await new SupabaseWorkspaceStore(client, "t1").listViews()).toEqual([
-      { id: "v1", name: "Planning", baseView: null, ownerId: null, columns: ["stack_rank", "item_code", "initiative_name", "moscow"], filters: [], groupBy: null },
+      { id: "v1", name: "Planning", surface: "grid", baseView: null, ownerId: null, columns: ["stack_rank", "item_code", "initiative_name", "moscow"], filters: [], groupBy: null },
     ]);
   });
   it("creates a view with its columns, filters and grouping", async () => {
     const { client, calls } = fake([{ data: { id: "v2" } }]);
     const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView(" My view ", def);
-    expect(r).toEqual({ ok: true, value: { id: "v2", name: "My view", baseView: null, ownerId: "u1", ...def } });
-    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "My view", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: [], sort: null, visibility: "private", owner_id: "u1" })).toBe(true);
+    expect(r).toEqual({ ok: true, value: { id: "v2", name: "My view", surface: "grid", baseView: null, ownerId: "u1", ...def } });
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", surface: "grid", name: "My view", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: [], sort: null, visibility: "private", owner_id: "u1" })).toBe(true);
   });
   it("creates a workspace view only when asked, with no owner and its sort", async () => {
     const { client, calls } = fake([{ data: { id: "v3" } }]);
     const sort = { field: "moscow", dir: "desc" as const };
     const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView("Shared", { ...def, sort }, { workspace: true });
     expect(r).toMatchObject({ ok: true, value: { ownerId: null, sort } });
-    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "Shared", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: [], sort, visibility: "workspace", owner_id: null })).toBe(true);
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", surface: "grid", name: "Shared", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: [], sort, visibility: "workspace", owner_id: null })).toBe(true);
   });
   it("a private view is never customer-safe, and saving needs to know who is signed in", async () => {
     const { client, calls } = fake([{ data: { id: "v4" } }]);
@@ -134,7 +134,7 @@ describe("default views and customer-safe views", () => {
     const first = fake([{ data: null }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", customer_safe: false }] }]);
     const r = await new SupabaseWorkspaceStore(first.client, "t1").saveDefaultView("Planning", { ...def, customerSafe: true });
     expect(r).toMatchObject({ ok: true, value: { id: "d1", baseView: "Planning" } });
-    expect(has(first.calls[1]!, "insert", { tenant_id: "t1", name: "Planning", base_view: "Planning", columns: def.columns, filters: def.filters, group_by: "health", pinned: [], sort: null })).toBe(true); // never customer-safe
+    expect(has(first.calls[1]!, "insert", { tenant_id: "t1", surface: "grid", name: "Planning", base_view: "Planning", columns: def.columns, filters: def.filters, group_by: "health", pinned: [], sort: null })).toBe(true); // never customer-safe
     const again = fake([{ data: { id: "d1" } }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", customer_safe: false }] }]);
     await new SupabaseWorkspaceStore(again.client, "t1").saveDefaultView("Planning", def);
     expect(again.calls[1]!.ops.some(([o]) => o === "update")).toBe(true);
@@ -149,7 +149,7 @@ describe("default views and customer-safe views", () => {
     const { client, calls } = fake([{ data: { id: "v9" } }]);
     const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView("For customers", { columns: ["stack_rank", "item_code", "initiative_name", "value_12m", "summary"], filters: [], groupBy: null, customerSafe: true }, { workspace: true });
     expect(r).toMatchObject({ ok: true, value: { customerSafe: true, columns: ["item_code", "initiative_name", "summary"] } });
-    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "For customers", columns: ["item_code", "initiative_name", "summary"], filters: [], group_by: null, customer_safe: true, pinned: [], sort: null, visibility: "workspace", owner_id: null })).toBe(true);
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", surface: "grid", name: "For customers", columns: ["item_code", "initiative_name", "summary"], filters: [], group_by: null, customer_safe: true, pinned: [], sort: null, visibility: "workspace", owner_id: null })).toBe(true);
   });
   it("memory store: customising, restoring and who may", async () => {
     const s = new MemoryWorkspaceStore();
@@ -213,7 +213,7 @@ describe("layouts", () => {
     const { client, rpcs } = fake([{}]);
     const s = new SupabaseWorkspaceStore(client, "t1", "u1");
     expect(await s.replaceLayout(false, [{ ref: { kind: "builtin", name: "Planning" }, inBar: true, position: 0 }, { ref: { kind: "saved", id: "v1" }, inBar: false, position: 1 }])).toEqual({ ok: true, value: null });
-    expect(rpcs).toEqual([{ name: "replace_view_layout", args: { p_tenant: "t1", p_workspace: false, p_rows: [
+    expect(rpcs).toEqual([{ name: "replace_view_layout", args: { p_tenant: "t1", p_workspace: false, p_surface: "grid", p_rows: [
       { view_id: null, builtin: "Planning", in_bar: true, position: 0, hidden: false },
       { view_id: "v1", builtin: null, in_bar: false, position: 1, hidden: false },
     ] } }]);
@@ -283,7 +283,7 @@ describe("saving a sort with a view (issue #207)", () => {
     const first = fake([{ data: null }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", sort }] }]);
     const r = await new SupabaseWorkspaceStore(first.client, "t1").saveDefaultView("Planning", { ...def, sort });
     expect(r).toMatchObject({ ok: true, value: { sort } });
-    expect(has(first.calls[1]!, "insert", { tenant_id: "t1", name: "Planning", base_view: "Planning", columns: def.columns, filters: def.filters, group_by: "health", pinned: [], sort })).toBe(true);
+    expect(has(first.calls[1]!, "insert", { tenant_id: "t1", surface: "grid", name: "Planning", base_view: "Planning", columns: def.columns, filters: def.filters, group_by: "health", pinned: [], sort })).toBe(true);
     const again = fake([{ data: { id: "d1" } }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", sort: null }] }]);
     await new SupabaseWorkspaceStore(again.client, "t1").saveDefaultView("Planning", { ...def });
     expect(has(again.calls[1]!, "update", { columns: def.columns, filters: def.filters, group_by: "health", pinned: [], sort: null })).toBe(true);
@@ -302,5 +302,48 @@ describe("saving a sort with a view (issue #207)", () => {
     expect((await s.listViews()).find((x) => x.baseView === "Planning")!.sort).toEqual(sort);
     await s.saveDefaultView("Planning", { ...def });
     expect((await s.listViews()).find((x) => x.baseView === "Planning")!.sort).toBeUndefined();
+  });
+});
+
+describe("the Grid and the Cards screen have separate views", () => {
+  it("customising a built-in view on Cards never touches the Grid's customised view of the same name", async () => {
+    const s = new MemoryWorkspaceStore({ admin: true });
+    await s.saveDefaultView("Delivery", { ...def, columns: ["stack_rank", "item_code", "initiative_name", "health"] }); // the Grid (the default screen)
+    await s.saveDefaultView("Delivery", { ...def, columns: ["stack_rank", "item_code", "initiative_name"] }, "cards");
+    const rows = (await s.listViews()).filter((v) => v.baseView === "Delivery");
+    expect(rows).toHaveLength(2);
+    expect(rows.find((v) => v.surface === "grid")!.columns).toContain("health");
+    expect(rows.find((v) => v.surface === "cards")!.columns).not.toContain("health");
+    await s.restoreDefaultView("Delivery", "cards");
+    const left = (await s.listViews()).filter((v) => v.baseView === "Delivery");
+    expect(left.map((v) => v.surface)).toEqual(["grid"]);
+  });
+  it("saved views and view bars are per screen; names and caps count per screen", async () => {
+    const s = new MemoryWorkspaceStore({ me: "u1", admin: true });
+    expect((await s.createView("Mine", def)).ok).toBe(true);
+    expect((await s.createView("Mine", def)).ok).toBe(false); // same name on the same screen
+    const onCards = await s.createView("Mine", def, { surface: "cards" }); // the same name on the other screen is fine
+    expect(onCards).toMatchObject({ ok: true, value: { surface: "cards" } });
+    await s.replaceLayout(false, [{ ref: { kind: "builtin", name: "Delivery" }, inBar: true, position: 0 }], "cards");
+    expect((await s.listLayouts("cards")).mine).toHaveLength(1);
+    expect((await s.listLayouts()).mine).toHaveLength(0);
+    await s.replaceLayout(false, [], "cards");
+    expect((await s.listLayouts("cards")).mine).toHaveLength(0);
+  });
+  it("the database store writes and reads with the screen on every call", async () => {
+    const c = fake([{ data: null }, { data: [{ id: "d1", name: "Delivery", columns: def.columns, filters: [], group_by: null, base_view: "Delivery", surface: "cards" }] }]);
+    const r = await new SupabaseWorkspaceStore(c.client, "t1").saveDefaultView("Delivery", def, "cards");
+    expect(r).toMatchObject({ ok: true, value: { surface: "cards" } });
+    expect(has(c.calls[0]!, "eq", "surface", "cards") && has(c.calls[0]!, "eq", "base_view", "Delivery")).toBe(true); // finds the Cards override only
+    expect(has(c.calls[1]!, "insert", { tenant_id: "t1", surface: "cards", name: "Delivery", base_view: "Delivery", columns: def.columns, filters: def.filters, group_by: "health", pinned: [], sort: null })).toBe(true);
+    const d = fake([{ data: null }]);
+    await new SupabaseWorkspaceStore(d.client, "t1").restoreDefaultView("Delivery", "cards");
+    expect(has(d.calls[0]!, "eq", "surface", "cards") && has(d.calls[0]!, "eq", "base_view", "Delivery")).toBe(true);
+    const l = fake([{ data: [] }]);
+    await new SupabaseWorkspaceStore(l.client, "t1").listLayouts("cards");
+    expect(has(l.calls[0]!, "eq", "surface", "cards")).toBe(true);
+    const rp = fake([{}]);
+    await new SupabaseWorkspaceStore(rp.client, "t1").replaceLayout(true, [], "cards");
+    expect(rp.rpcs[0]).toMatchObject({ name: "replace_view_layout", args: { p_surface: "cards" } });
   });
 });

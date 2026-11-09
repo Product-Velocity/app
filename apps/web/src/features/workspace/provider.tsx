@@ -3,20 +3,23 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { SupabaseWorkspaceStore, type Layouts, type Project, type SavedView, type Scope, type WorkspaceStore } from "./store";
-import type { ViewName } from "@pv/domain";
+import { VIEW_SURFACES, type ViewName, type ViewSurface } from "@pv/domain";
 
 export type WorkspaceProject = Project;
-type Ctx = {
+/** What one screen sees: its own views, customised defaults and view bar (the Grid and the Cards screen do not share them). */
+type SurfaceCtx = {
+  views: SavedView[];
+  /** The view bar of this screen: the workspace default and the signed-in person's own layout. */
+  layouts: Layouts;
+  /** Customised default views by name (the built-in view is used when a name is missing). */
+  defaults: Partial<Record<ViewName, SavedView>>;
+};
+type SharedCtx = {
   store: WorkspaceStore;
   projects: WorkspaceProject[];
   scopes: Scope[];
-  views: SavedView[];
-  /** The Roadmap view bar: the workspace default and the signed-in person's own layout. */
-  layouts: Layouts;
   /** The signed-in person (owner of their private views); null only before sign-in is known. */
   userId: string | null;
-  /** Customised default views by name (the built-in view is used when a name is missing). */
-  defaults: Partial<Record<ViewName, SavedView>>;
   /** True once scopes and views have been read (or failed). */
   ready: boolean;
   error: string | null;
@@ -25,12 +28,23 @@ type Ctx = {
   /** Admins can add projects. */
   canAdmin: boolean;
 };
-const WorkspaceContext = createContext<Ctx | null>(null);
+type Ctx = SharedCtx & SurfaceCtx;
+type RawCtx = SharedCtx & { allViews: SavedView[]; layoutsBy: Record<ViewSurface, Layouts> };
+const WorkspaceContext = createContext<RawCtx | null>(null);
 
-export function useWorkspace(): Ctx {
+/**
+ * The workspace for one screen. The Grid (the default) and the Cards screen each have their own saved views, customised
+ * default views and view bar: pass "cards" on the Cards screen. Scopes, projects and permissions are shared.
+ */
+export function useWorkspace(surface: ViewSurface = "grid"): Ctx {
   const c = useContext(WorkspaceContext);
   if (!c) throw new Error("useWorkspace must be used inside a WorkspaceProvider");
-  return c;
+  return useMemo(() => {
+    const { allViews, layoutsBy, ...rest } = c;
+    const here = allViews.filter((v) => (v.surface ?? "grid") === surface);
+    const defaults = Object.fromEntries(here.filter((v) => v.baseView).map((v) => [v.baseView!, v])) as Partial<Record<ViewName, SavedView>>;
+    return { ...rest, views: here.filter((v) => !v.baseView), defaults, layouts: layoutsBy[surface] };
+  }, [c, surface]);
 }
 
 /** Holds the saved scopes and views of the workspace for the header and the grid. */
@@ -38,16 +52,14 @@ export function WorkspaceProvider({ store, projects: initialProjects, canEdit, c
   const [projects, setProjects] = useState<WorkspaceProject[]>(initialProjects);
   const [scopes, setScopes] = useState<Scope[]>([]);
   const [allViews, setAllViews] = useState<SavedView[]>([]);
-  const views = useMemo(() => allViews.filter((v) => !v.baseView), [allViews]);
-  const defaults = useMemo(() => Object.fromEntries(allViews.filter((v) => v.baseView).map((v) => [v.baseView!, v])) as Partial<Record<ViewName, SavedView>>, [allViews]);
-  const [layouts, setLayouts] = useState<Layouts>({ workspace: [], mine: [] });
+  const [layoutsBy, setLayoutsBy] = useState<Record<ViewSurface, Layouts>>({ grid: { workspace: [], mine: [] }, cards: { workspace: [], mine: [] } });
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [s, v, p, l] = await Promise.all([store.listScopes(), store.listViews(), store.listProjects(), store.listLayouts()]);
-      return { scopes: s, views: v, projects: p, layouts: l, error: null as string | null };
+      const [s, v, p, l] = await Promise.all([store.listScopes(), store.listViews(), store.listProjects(), Promise.all(VIEW_SURFACES.map((x) => store.listLayouts(x)))]);
+      return { scopes: s, views: v, projects: p, layouts: Object.fromEntries(VIEW_SURFACES.map((x, i) => [x, l[i]!])) as Record<ViewSurface, Layouts>, error: null as string | null };
     } catch (e) {
       return { scopes: null, views: null, projects: null, layouts: null, error: e instanceof Error ? e.message : "Could not load scopes and views." };
     }
@@ -55,7 +67,7 @@ export function WorkspaceProvider({ store, projects: initialProjects, canEdit, c
   const apply = useCallback((r: Awaited<ReturnType<typeof load>>) => {
     if (r.scopes) setScopes(r.scopes);
     if (r.views) setAllViews(r.views);
-    if (r.layouts) setLayouts(r.layouts);
+    if (r.layouts) setLayoutsBy(r.layouts);
     if (r.projects && r.projects.length > 0) setProjects(r.projects);
     setError(r.error);
     setReady(true);
@@ -68,7 +80,7 @@ export function WorkspaceProvider({ store, projects: initialProjects, canEdit, c
     return () => { cancelled = true; };
   }, [load, apply]);
 
-  const value = useMemo(() => ({ store, projects, scopes, views, layouts, userId, defaults, ready, error, reload, canEdit, canAdmin }), [store, projects, scopes, views, layouts, userId, defaults, ready, error, reload, canEdit, canAdmin]);
+  const value = useMemo(() => ({ store, projects, scopes, allViews, layoutsBy, userId, ready, error, reload, canEdit, canAdmin }), [store, projects, scopes, allViews, layoutsBy, userId, ready, error, reload, canEdit, canAdmin]);
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
 

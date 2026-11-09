@@ -323,3 +323,50 @@ describe("reset of all saved views (0042)", () => {
     expect((await db.admin.query("select count(*)::int as n from public.saved_views")).rows[0].n).toBe(0);
   });
 });
+
+describe("views per screen (surface)", () => {
+  const onCards = (user: string, name: string, extra = "") =>
+    db.asUser(user, async (q) => (await q(`insert into public.saved_views (tenant_id, name, columns, surface${extra ? ", " + extra.split("|")[0] : ""}) values ($1, $2, array['item_code'], 'cards'${extra ? ", " + extra.split("|")[1] : ""}) returning id`, [f.tenantA, name])).rows[0].id as string, { commit: true, via: "UI" });
+  const layoutOn = (user: string, surface: string, rows: unknown[], workspace = false) =>
+    db.asUser(user, (q) => q("select public.replace_view_layout($1, $2, $3::jsonb, $4)", [f.tenantA, workspace, JSON.stringify(rows), surface]), { commit: true, via: "UI" });
+
+  it("a view is on the Grid unless it says otherwise, and the screen is fixed once written", async () => {
+    const g = await add(f.alice, "Surface default");
+    expect((await db.admin.query("select surface from public.saved_views where id = $1", [g])).rows[0].surface).toBe("grid");
+    const c = await onCards(f.alice, "Surface cards");
+    expect(await errorCode(db.asUser(f.alice, (q) => q("update public.saved_views set surface = 'grid' where id = $1", [c]), { commit: true }))).toBe(DENIED);
+    expect(await errorCode(db.admin.query("insert into public.saved_views (tenant_id, name, columns, surface) values ($1, 'x', array['item_code'], 'board')", [f.tenantA]))).toBe(CHECK);
+  });
+  it("the Grid and the Cards screen each have their own customised built-in view and their own names", async () => {
+    await add(f.alice, "Delivery override", "base_view|'Delivery'");
+    await onCards(f.alice, "Delivery override", "base_view|'Delivery'"); // the same built-in on the other screen: allowed
+    expect(await errorCode(onCards(admin2, "Delivery again", "base_view|'Delivery'"))).toBe(UNIQUE); // not twice on one screen
+    await add(f.alice, "Same name two screens");
+    expect(await onCards(f.alice, "Same name two screens")).toBeTruthy();
+    expect(await errorCode(onCards(admin2, " same NAME two screens "))).toBe(UNIQUE);
+    // deleting the Cards override restores the Cards default only
+    await db.asUser(f.alice, (q) => q("delete from public.saved_views where tenant_id = $1 and surface = 'cards' and base_view = 'Delivery'", [f.tenantA]), { commit: true, via: "UI" });
+    expect((await db.admin.query("select surface from public.saved_views where tenant_id = $1 and base_view = 'Delivery'", [f.tenantA])).rows.map((r) => r.surface)).toEqual(["grid"]);
+  });
+  it("bars are per screen: replacing the Cards bar leaves the Grid bar alone; a bar cannot point at a view of the other screen", async () => {
+    await layoutOn(member, "grid", [{ builtin: "Planning", position: 0 }]);
+    await layoutOn(member, "cards", [{ builtin: "Delivery", position: 0 }, { builtin: "Planning", position: 1 }]);
+    const bar = async (surface: string) => (await db.asUser(member, (q) => q("select builtin from public.view_layouts where tenant_id = $1 and user_id = $2 and surface = $3 order by position", [f.tenantA, member, surface]))).rows.map((r) => r.builtin);
+    expect(await bar("grid")).toEqual(["Planning"]);
+    expect(await bar("cards")).toEqual(["Delivery", "Planning"]);
+    await layoutOn(member, "cards", []);
+    expect(await bar("cards")).toEqual([]);
+    expect(await bar("grid")).toEqual(["Planning"]);
+    const gridView = await add(f.alice, "Grid only view");
+    await expect(layoutOn(member, "cards", [{ view_id: gridView, position: 0 }])).rejects.toThrow(/another screen/);
+    await expect(layoutOn(member, "boards", [])).rejects.toThrow(/Unknown screen/);
+  });
+  it("caps count per screen", async () => {
+    const t = (await db.admin.query("insert into public.tenants (name) values ('Cap per screen') returning id")).rows[0].id as string;
+    const owner = await createUser(db, "capsurface@example.test");
+    await db.admin.query("insert into public.tenant_members (tenant_id, user_id, role) values ($1, $2, 'admin')", [t, owner]);
+    for (let i = 1; i <= 14; i++) await db.admin.query("insert into public.saved_views (tenant_id, name, columns) values ($1, $2, array['item_code'])", [t, `WS ${i}`]);
+    await expect(db.asUser(owner, (q) => q("insert into public.saved_views (tenant_id, name, columns) values ($1, 'WS 15', array['item_code'])", [t]), { commit: true })).rejects.toThrow(/at most 25 views/);
+    expect(await db.asUser(owner, (q) => q("insert into public.saved_views (tenant_id, name, columns, surface) values ($1, 'Cards 1', array['item_code'], 'cards')", [t]), { commit: true })).toBeTruthy();
+  });
+});
