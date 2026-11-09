@@ -21,6 +21,10 @@ export type EmailTemplate = {
   path: string;
   /** True when a person must confirm before it goes out (none of the auth emails). */
   confirmFirst: boolean;
+  /** The limits that apply to this email, in words for the platform console. */
+  limits: string;
+  /** Sample values for previews where the catalog's sample would mislead (for example how long a link works). */
+  sample?: MacroValues;
   macros: readonly MacroName[];
   /** Supabase action type that selects this template in the Send Email hook. */
   authAction?: "signup" | "magiclink" | "recovery" | "reauthentication" | "invite" | "email_change";
@@ -42,6 +46,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     recipient: "The address being registered",
     path: "Supabase Send Email hook, action signup",
     confirmFirst: false,
+    limits: "Supabase's own pause per address and hourly cap on auth emails (Authentication > Rate Limits)",
     macros: ["link", "expires", "product"],
     authAction: "signup",
     linkType: "signup",
@@ -59,6 +64,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     recipient: "The address on the account",
     path: "Supabase Send Email hook, action magiclink",
     confirmFirst: false,
+    limits: "Supabase's own pause per address and hourly cap on auth emails (Authentication > Rate Limits)",
     macros: ["link", "expires", "product"],
     authAction: "magiclink",
     linkType: "email",
@@ -76,6 +82,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     recipient: "The address on the account",
     path: "Supabase Send Email hook, action recovery",
     confirmFirst: false,
+    limits: "Supabase's own pause per address and hourly cap on auth emails (Authentication > Rate Limits)",
     macros: ["link", "expires", "product"],
     authAction: "recovery",
     linkType: "recovery",
@@ -93,6 +100,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     recipient: "The address on the account",
     path: "Supabase Send Email hook, action reauthentication",
     confirmFirst: false,
+    limits: "Supabase's own pause per address and hourly cap on auth emails (Authentication > Rate Limits)",
     macros: ["code", "expires", "product"],
     authAction: "reauthentication",
     subject: "Your {{product}} confirmation code",
@@ -109,6 +117,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     recipient: "The invited address",
     path: "Supabase Send Email hook, action invite",
     confirmFirst: false,
+    limits: "Supabase's own pause per address and hourly cap on auth emails (Authentication > Rate Limits)",
     macros: ["link", "expires", "product"],
     authAction: "invite",
     linkType: "invite",
@@ -126,6 +135,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     recipient: "The new address, and the current address when Supabase asks for both to confirm",
     path: "Supabase Send Email hook, action email_change",
     confirmFirst: false,
+    limits: "Supabase's own pause per address and hourly cap on auth emails (Authentication > Rate Limits)",
     macros: ["link", "expires", "product"],
     authAction: "email_change",
     linkType: "email_change",
@@ -143,6 +153,8 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     recipient: "The invited address",
     path: "Members page, createInvitation and resend (lib/email/invitation.ts)",
     confirmFirst: true,
+    limits: "60 seconds between sends to one person, 5 per invitation, 100 per workspace per day",
+    sample: { expires: "7 days" },
     macros: ["inviter", "workspace", "role", "link", "expires", "product"],
     subject: "{{inviter}} invited you to {{workspace}} on {{product}}",
     preheader: "Accept the invitation to {{workspace}}.",
@@ -158,6 +170,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     recipient: "The workspace's Account Admins (at most 10)",
     path: "Sign-up check and linked-address verification (lib/access-requests.ts)",
     confirmFirst: false,
+    limits: "At most 10 admins emailed per request",
     macros: ["requester", "workspace", "link", "product"],
     subject: "{{requester}} asked to join {{workspace}} on {{product}}",
     preheader: "Review the request to join {{workspace}}.",
@@ -173,6 +186,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     recipient: "The person who asked",
     path: "Members page, approval (settings/members/actions.ts)",
     confirmFirst: false,
+    limits: "One per approval; the Resend account limits apply",
     macros: ["workspace", "link", "product"],
     subject: "You now have access to {{workspace}} on {{product}}",
     preheader: "You now have access to {{workspace}}.",
@@ -188,6 +202,8 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     recipient: "The address being linked",
     path: "Account page, linkEmail (account/actions.ts)",
     confirmFirst: false,
+    limits: "One code per request; the code works for 15 minutes",
+    sample: { expires: "15 minutes" },
     macros: ["code", "expires", "product"],
     subject: "Your {{product}} code: {{code}}",
     preheader: "Your code to add this address.",
@@ -203,6 +219,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     recipient: "Each participant on the confirmed mailing",
     path: "Alignment mailing send (lib/alignment-send.ts)",
     confirmFirst: true,
+    limits: "500 people per mailing; sent 3 at a time, 40 seconds per run, then Continue sending",
     macros: ["name", "session", "closes", "link", "product"],
     subject: "Help us decide what comes first: {{session}}",
     preheader: "Your vote counts. It takes a few minutes.",
@@ -219,6 +236,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     recipient: "Participants who have not voted and did not stop reminders",
     path: "Alignment mailing send (lib/alignment-send.ts)",
     confirmFirst: true,
+    limits: "500 people per mailing; sent 3 at a time, 40 seconds per run, then Continue sending",
     macros: ["name", "session", "closes", "link", "product"],
     subject: "A reminder to vote: {{session}}",
     preheader: "You have not voted yet.",
@@ -234,6 +252,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     recipient: "The participant's address on file (the reply on screen is always the same)",
     path: "Alignment link page, requestNewLink (a/[token]/actions.ts)",
     confirmFirst: false,
+    limits: "One a minute and six in all per participant (database rule)",
     macros: ["name", "session", "closes", "link", "product"],
     subject: "Your new link: {{session}}",
     preheader: "Your new personal link.",
@@ -269,7 +288,7 @@ export function renderTemplate(t: EmailTemplate, input: { values: MacroValues; s
 }
 
 export const previewTemplate = (t: EmailTemplate, siteUrl = "https://app.example") =>
-  renderTemplate(t, { values: sampleValues(t.macros), siteUrl, buttonUrl: t.button ? `${siteUrl}/auth/callback?sample=1` : null });
+  renderTemplate(t, { values: { ...sampleValues(t.macros), ...(t.sample ?? {}) }, siteUrl, buttonUrl: t.button ? `${siteUrl}/auth/callback?sample=1` : null });
 
 export const templateByKey = (key: EmailKey) => EMAIL_TEMPLATES.find((t) => t.key === key)!;
 
