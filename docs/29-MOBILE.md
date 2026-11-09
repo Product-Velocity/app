@@ -1,6 +1,6 @@
 # Mobile access for the rest of the platform (proposal)
 
-Status: **proposal for Ashu's review, 2026-11-09. Nothing here is decided or built.** When Ashu agrees, the next steps are a GitHub issue, a file in `docs/requests/` and a decision file in `docs/decisions/` (CLAUDE.md working agreements).
+Status: **approved by Ashu 2026-11-09** (issue #386, `docs/requests/386-mobile-access.md`, `docs/decisions/2026-11-09-mobile-access.md`). Answers to section 9: all gates on a phone; 15/16 px type and 44 px targets; **no push notifications** (so section 4.7 and the PWA push in M4 are dropped, the inbox and email stay); Hold with a rationale instead of PRD comments; no re-authentication beyond sign-in, passkey and biometric sign-in wanted for the whole product (M6); a placeholder is an initiative failing its stage check; tablets keep desktop from 700 px. **Built: M1.**
 
 Scope: everything except the alignment participant screens, which are already mobile first (boards 9 to 12, 19, 26; 390 px; `docs/19-ALIGNMENT-PRIVACY.md`).
 

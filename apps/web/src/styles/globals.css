@@ -1012,3 +1012,25 @@ button.share-chip { cursor: pointer; }
 .version-release-date { font-size: 12px; margin-left: auto; }
 .version-release-title { margin: 0 0 4px; font-weight: 600; color: #111827; }
 .version-release-summary { margin: 0; font-size: 12.5px; line-height: 1.45; color: #374151; }
+
+/* Phone layout (docs/29-MOBILE.md, issue #386): under 700 px the tabs give way to a bottom bar; tablets and computers are unchanged. */
+.phone-nav, .phone-only { display: none; }
+.more-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.more-row { display: grid; gap: 2px; padding: 12px 14px; border: 1px solid var(--grey-1); border-radius: 8px; color: inherit; text-decoration: none; }
+.more-row-later { opacity: .65; }
+.more-sub { margin: 8px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-muted); }
+.open-on-computer { padding: 16px; border: 1px solid var(--grey-1); border-radius: 8px; background: var(--grey-3); gap: 8px; }
+.open-on-computer h2 { margin: 0 0 6px; font-size: 16px; }
+@media (max-width: 699px) {
+  body { font-size: 15px; }
+  input, select, textarea { font-size: 16px; }
+  .btn, button, .menu-link, .more-row, .phone-tab { min-height: 44px; }
+  .topbar { gap: 8px; padding: 0 12px; }
+  .topbar .tabs { display: none; }
+  .content { padding: 12px 12px 88px; }
+  .phone-only { display: grid; }
+  .desktop-only { display: none; }
+  .phone-nav { display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--bg); border-top: 1px solid var(--grey-1); padding-bottom: env(safe-area-inset-bottom); }
+  .phone-tab { display: flex; align-items: center; justify-content: center; gap: 4px; color: #111827; text-decoration: none; font-weight: 500; border-top: 2px solid transparent; }
+  .phone-tab-on { color: var(--blue-text); border-top-color: var(--blue); }
+}

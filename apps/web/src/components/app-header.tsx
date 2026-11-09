@@ -6,6 +6,7 @@ import { HeaderTabs } from "./header-tabs";
 import { ScopeSwitcher } from "@/features/workspace/scope-switcher";
 import { AccountSwitcher, type SwitcherAccount } from "./account-switcher";
 import { NotificationsBell } from "@/features/notifications/notifications-bell";
+import { PhoneNav } from "./phone-nav";
 import { VersionUpdateBanner } from "./version-status";
 type Props = {
   tenantName: string;
@@ -55,6 +56,7 @@ export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmi
       <HelpGuide />
       <VersionUpdateBanner />
       <AccountMenu email={email} roleLabel={roleLabel} isApprover={isApprover} showTrash={showTrash} showAudit={showAudit} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} />
+      <PhoneNav accountId={activeTenantId} waiting={decisionsWaiting} />
     </header>
   );
 }
