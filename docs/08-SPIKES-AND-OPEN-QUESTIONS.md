@@ -165,9 +165,11 @@ Board 2 shows flat child issues (should be epics + tasks); capacity planner igno
 | Unsigned request | 401 | Tested against production |
 | Sign-in link (magiclink) | Email arrived in the inbox, branded layout, link signed the person in. Token hash had the `pkce_` prefix and worked through `/auth/callback` (`type=email`) | Tested, same browser |
 | Resend sending, SPF/DKIM | Test message delivered to a Gmail inbox from `productvelocity.app` | Tested |
-| Response time, behaviour on failure, rate limits | Not measured | Open |
+| Supabase's own email rate limits with the hook on | **They still apply.** A per-address pause (429 `over_email_send_rate_limit`, "after N seconds") and a project-wide hourly cap (429 "email rate limit exceeded"). Two sign-in links within minutes blocked a Forgot password request; the hook never ran for it, and the app shows the same reply either way (by design), so the person sees nothing. Raise the hourly cap in Authentication > Rate Limits before real customers (`docs/14`) | Tested (Supabase auth logs) |
+| Response time, behaviour on failure | Not measured. Supabase's log shows the hook call itself finishing in about 0.5 ms of its time; a whole sign-in request took 0.6 to 0.8 s including the send | Partly |
 | Link opened in **another browser** | Not tested yet | Open |
-| Confirm sign-up, reset password, confirmation code, invite, email change | Unit-tested only, not sent for real. Which token hash goes to which address on an email change is from memory of GoTrue | Open |
-| Where editable copy lives | Not decided (phase 4) | Open |
+| Reset password (Forgot password) | Works through the hook once Supabase's rate limit had cleared | Tested |
+| Confirm sign-up, confirmation code, invite, email change | Unit-tested only, not sent for real. Which token hash goes to which address on an email change is from memory of GoTrue | Open |
+| Where editable copy lives | **Decided and built (phase 4):** `platform.email_template_versions` in the `platform` schema (not exposed through the API); only the server reads the published version, through a service-role-only function; the fallback is the code default. Isolation tested in `pnpm db:test` (`docs/decisions/2026-11-09-branded-emails-registry.md`) | Tested |
 
 Switch-off: disable the hook in Authentication > Auth Hooks; Supabase then uses the templates pasted from `apps/web/email-templates/` (route A).
