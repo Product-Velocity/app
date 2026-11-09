@@ -1067,3 +1067,18 @@ button.share-chip { cursor: pointer; }
 /* Phone quick add and For you (issue #386, slice M3) */
 .fy-h { margin: 8px 0; font-size: 15px; }
 .phone-add textarea, .phone-add input, .phone-add select { width: 100%; box-sizing: border-box; min-height: 44px; }
+
+/* Phone decisions and the document reader (issue #386, slice M4) */
+.phone-card-btn { width: 100%; text-align: left; font: inherit; cursor: pointer; }
+.phone-review-title { font-size: 18px; margin: 8px 0; overflow-wrap: anywhere; }
+.phone-decide-bar { position: sticky; bottom: calc(52px + env(safe-area-inset-bottom)); z-index: 30; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px 0; background: var(--bg); border-top: 1px solid var(--grey-1); }
+.phone-sheet-wrap { position: fixed; inset: 0; z-index: 80; background: rgba(17, 24, 39, .45); display: flex; align-items: flex-end; }
+.phone-sheet { width: 100%; max-height: 92vh; overflow-y: auto; box-sizing: border-box; background: var(--bg); border-radius: 14px 14px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); display: grid; gap: 10px; }
+.phone-sheet h2 { margin: 0; font-size: 16px; }
+.phone-sheet textarea, .phone-sheet input[type="date"] { width: 100%; box-sizing: border-box; }
+.phone-sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.doc-reader { display: grid; gap: 8px; }
+.doc-pick { display: grid; gap: 4px; }
+.doc-sec h3 { margin: 0; font-size: 15px; border-top: 1px solid var(--grey-2); }
+.doc-sec h3 button { width: 100%; text-align: left; background: none; border: 0; font: inherit; font-weight: 600; cursor: pointer; padding: 8px 0; }
+@media (max-width: 699px) { .ip-tabs .ip-tab:nth-child(4) { display: none; } }

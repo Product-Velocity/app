@@ -59,7 +59,7 @@ export function ForYou({ controller, me, tenantId, lookups, source }: { controll
         {view.waiting.length === 0 ? <p className="muted">Nothing is waiting for you.</p> : (
           <ul className="phone-cards">
             {view.waiting.map(({ req, row }) => (
-              <li key={req.id}><Link className="phone-card" href={`/w/${tenantId}/decisions`}>
+              <li key={req.id}><Link className="phone-card" href={`/w/${tenantId}/decisions?review=${req.id}`}>
                 <span className="phone-card-top"><span className="mono">{row!.item_code}</span><span className="phone-health">Gate {req.gate}</span></span>
                 <span className="phone-card-name">{row!.initiative_name}</span>
                 <span className="muted phone-card-meta">{req.ready ? "Checklist complete" : "Checklist incomplete"}</span>
