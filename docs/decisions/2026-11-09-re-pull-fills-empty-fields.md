@@ -12,4 +12,4 @@ status: built
 
 **Decided by Claude, to confirm.** "Update with the updated fields" was read as "fill what the new fields would have filled", not "overwrite with whatever GitHub says now": that would replace text people wrote in Product Velocity and would collide with Sync with GitHub's three-way comparison and its Keep Product Velocity / Keep GitHub choices. So no value is ever replaced, which is also why there is no undo step. If Ashu wants GitHub's later edits to overwrite, that is a separate decision (and for an initiative Product Velocity owns it belongs in Sync).
 
-**Parity.** Exception, with reason: Jira's pull-in does not keep text or labels yet; Re-pull follows it in issue #365. The button is shown only where the data layer supports it.
+**Parity.** Built for Jira too (issue #365): the Jira Incoming source implements `refreshPulled`, so the same button and message appear on its Pulled in tab. The button is shown only where the data layer supports it.

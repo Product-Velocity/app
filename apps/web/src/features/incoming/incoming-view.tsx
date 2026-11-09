@@ -9,7 +9,7 @@ type Undo = { label: string; run: () => Promise<string> };
 const tabs = (tracker: string): { id: PullState; label: string; hint: string }[] => [
   { id: "not_pulled", label: "Not pulled", hint: `Seen in ${tracker}, not part of the roadmap.` },
   { id: "ignored", label: "Ignored", hint: "Left out on purpose. Nothing is ever written to these." },
-  { id: "pulled", label: "Pulled in", hint: tracker === "GitHub" ? "Already initiatives. Select some and Re-pull to fill fields that are still empty from their issue." : "Already initiatives; they follow their issue read-only." },
+  { id: "pulled", label: "Pulled in", hint: "Already initiatives. Select some and Re-pull to fill fields that are still empty from their issue." },
 ];
 const SHOWN = 200;
 const OWNERSHIP: { id: Ownership; label: string }[] = [{ id: "follow", label: "Read only" }, { id: "push", label: "Product Velocity owns it" }];
@@ -157,7 +157,7 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
     if (done.length === 0) { setMessage(`Nothing was pulled in.${failedText(r)}`); return; }
     onChanged?.();
     const where = terms.projectFixed ? "the projects linked to their Jira projects" : (projects.find((p) => p.id === project)?.name ?? "the project");
-    setMessage(`Pulled ${done.length} ${done.length === 1 ? "issue" : "issues"} into ${where} as initiatives (${done.slice(0, 3).map((o) => o.itemCode).filter(Boolean).join(", ")}${done.length > 3 ? ", …" : ""}). ${ownership === "push" ? "Product Velocity owns what they are; nothing is written to GitHub until you sync and confirm" : "They follow the issue read-only"}; nothing was written to GitHub.${terms.tracker === "GitHub" ? " Each issue's text was copied once into its Description, and its type: and area: labels into Change Type and Focus Area where those were empty." : ""}${done.map((o) => o.note).filter(Boolean).length ? ` ${[...new Set(done.map((o) => o.note).filter(Boolean))].join(" ")}` : ""}${failedText(r)}`);
+    setMessage(`Pulled ${done.length} ${done.length === 1 ? "issue" : "issues"} into ${where} as initiatives (${done.slice(0, 3).map((o) => o.itemCode).filter(Boolean).join(", ")}${done.length > 3 ? ", …" : ""}). ${ownership === "push" ? "Product Velocity owns what they are; nothing is written to ${terms.tracker} until you sync and confirm" : "They follow the issue read-only"}; nothing was written to ${terms.tracker}. Each issue's text was copied once into its Description, and its type: and area: labels into Change Type and Focus Area where those were empty.${done.map((o) => o.note).filter(Boolean).length ? ` ${[...new Set(done.map((o) => o.note).filter(Boolean))].join(" ")}` : ""}${failedText(r)}`);
     setUndo({
       label: "Undo pull in",
       run: async () => {
@@ -182,7 +182,7 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
     setPicked(new Set());
     if (!r.ok) { setMessage(r.error); return; }
     const filled = [r.descriptions > 0 ? `Description for ${r.descriptions}` : "", r.labelled > 0 ? `Change Type or Focus Area for ${r.labelled}` : ""].filter(Boolean);
-    setMessage(`Re-pulled ${r.checked} ${r.checked === 1 ? "initiative" : "initiatives"} from GitHub. ${filled.length ? `Filled: ${filled.join("; ")}.` : "Nothing was empty that GitHub could fill."} Fields that already had a value were not changed.${r.noText > 0 ? ` ${r.noText} had an empty Description and no text in the issue to copy.` : ""}${r.failed > 0 ? ` ${r.failed} could not be read from GitHub: try again in a minute.` : ""}`);
+    setMessage(`Re-pulled ${r.checked} ${r.checked === 1 ? "initiative" : "initiatives"} from ${terms.tracker}. ${filled.length ? `Filled: ${filled.join("; ")}.` : "Nothing was empty that GitHub could fill."} Fields that already had a value were not changed.${r.noText > 0 ? ` ${r.noText} had an empty Description and no text in the issue to copy.` : ""}${r.failed > 0 ? ` ${r.failed} could not be read from ${terms.tracker}: try again in a minute.` : ""}`);
     onChanged?.();
   };
 
@@ -312,7 +312,7 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
           <h3>Re-pull from {terms.tracker}</h3>
           <p className="muted">Reads each selected issue again and fills the Description, Change Type (from a <code>type:</code> label) and Focus Area (from an <code>area:</code> label) that are still empty on its initiative. A field that already has a value is never replaced, nothing is written to {terms.tracker}, and an initiative nobody can read is skipped.</p>
           <div className="incoming-actions">
-            <button type="button" className="btn btn-primary" disabled={busy || picked.size === 0} onClick={() => void refresh()}>{busy ? "Reading GitHub…" : `Re-pull ${picked.size > 0 ? picked.size : ""}`.trim()}</button>
+            <button type="button" className="btn btn-primary" disabled={busy || picked.size === 0} onClick={() => void refresh()}>{busy ? `Reading ${terms.tracker}…` : `Re-pull ${picked.size > 0 ? picked.size : ""}`.trim()}</button>
           </div>
         </section>
       )}

@@ -126,3 +126,59 @@ export function isSimpleAdf(node: unknown): boolean {
   };
   return walk(node);
 }
+
+/**
+ * ADF to Markdown, for keeping a Jira issue's description once when it is pulled in (issue #365). Reading only: it covers the nodes people
+ * actually type (paragraphs, headings, bold, italic, code, links, bullet and numbered lists, code blocks, quotes, rules, plain tables) and
+ * reads the content of anything else (panels, expands, layouts) as ordinary blocks, so no text is lost. Attachments and media are left out.
+ * Links are kept only when they are http(s). The caller cuts the result and neutralises our markers and @mentions; nothing here is interpreted.
+ */
+export function adfToMarkdown(node: unknown): string {
+  const kids = (n: AdfNode) => (Array.isArray(n.content) ? n.content : []);
+  const inline = (n: AdfNode): string => {
+    switch (n.type) {
+      case "text": {
+        let t = typeof n.text === "string" ? n.text : "";
+        if (t === "") return "";
+        for (const m of n.marks ?? []) {
+          if (m.type === "code") t = `\`${t}\``;
+          else if (m.type === "strong") t = `**${t}**`;
+          else if (m.type === "em") t = `*${t}*`;
+          else if ((m.type as string) === "strike") t = `~~${t}~~`;
+          else if (m.type === "link") { const href = (m.attrs as { href?: unknown } | undefined)?.href; if (typeof href === "string" && /^https?:\/\//i.test(href)) t = `[${t}](${href})`; }
+        }
+        return t;
+      }
+      case "hardBreak": return "  \n";
+      case "mention": return typeof n.attrs?.text === "string" ? n.attrs.text : "@someone";
+      case "emoji": return typeof n.attrs?.text === "string" ? n.attrs.text : typeof n.attrs?.shortName === "string" ? n.attrs.shortName : "";
+      case "inlineCard": return typeof n.attrs?.url === "string" && /^https?:\/\//i.test(n.attrs.url) ? n.attrs.url : "";
+      case "status": return typeof n.attrs?.text === "string" ? `[${n.attrs.text}]` : "";
+      default: return kids(n).map(inline).join("");
+    }
+  };
+  const indent = (s: string, pad: string) => s.split("\n").map((l, i) => (i === 0 ? l : l === "" ? l : pad + l)).join("\n");
+  const block = (n: AdfNode): string => {
+    switch (n.type) {
+      case "paragraph": return kids(n).map(inline).join("");
+      case "heading": { const level = Math.min(6, Math.max(1, Number((n.attrs as { level?: unknown } | undefined)?.level) || 1)); return `${"#".repeat(level)} ${kids(n).map(inline).join("")}`; }
+      case "bulletList": return kids(n).map((li) => `- ${indent(kids(li).map(block).filter((x) => x !== "").join("\n"), "  ")}`).join("\n");
+      case "orderedList": return kids(n).map((li, i) => { const mark = `${i + 1}. `; return `${mark}${indent(kids(li).map(block).filter((x) => x !== "").join("\n"), " ".repeat(mark.length))}`; }).join("\n");
+      case "codeBlock": { const lang = typeof n.attrs?.language === "string" && /^[\w+#-]{1,20}$/.test(n.attrs.language) ? n.attrs.language : ""; return `\`\`\`${lang}\n${kids(n).map((k) => (typeof k.text === "string" ? k.text : "")).join("")}\n\`\`\``; }
+      case "blockquote": return kids(n).map(block).filter((x) => x !== "").join("\n\n").split("\n").map((l) => `> ${l}`).join("\n");
+      case "rule": return "---";
+      case "table": {
+        const rows = kids(n).map((r) => kids(r).map((c) => kids(c).map(block).filter((x) => x !== "").join(" ").replace(/\|/g, "\\|").replace(/\n/g, " ")));
+        if (rows.length === 0) return "";
+        const width = Math.max(...rows.map((r) => r.length));
+        const line = (r: string[]) => `| ${Array.from({ length: width }, (_, i) => r[i] ?? "").join(" | ")} |`;
+        return [line(rows[0]!), `| ${Array.from({ length: width }, () => "---").join(" | ")} |`, ...rows.slice(1).map(line)].join("\n");
+      }
+      case "media": case "mediaSingle": case "mediaGroup": case "mediaInline": return "";
+      case "text": case "hardBreak": case "mention": case "emoji": case "inlineCard": case "status": return inline(n);
+      default: return kids(n).map(block).filter((x) => x !== "").join("\n\n");
+    }
+  };
+  if (typeof node !== "object" || node === null) return "";
+  return block(node as AdfNode).replace(/\n{3,}/g, "\n\n").trim();
+}
