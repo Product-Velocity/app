@@ -154,3 +154,19 @@ export function labelFields(labels: readonly string[] | null | undefined): Label
   else if (areas.size > 1) out.notes.push("more than one area: label");
   return out;
 }
+
+/**
+ * The text of an issue body to keep as a Description when the issue is pulled in. A body that holds a Product Velocity block (the issue
+ * was written by Product Velocity before, in this or another workspace) is not skipped: the block is cut out and what is left is the text;
+ * if nothing is left, the block's own Description (else Summary) is used. Nothing is interpreted; the caller cuts and neutralises it.
+ */
+export function descriptionFromIssueBody(body: string | null | undefined): { text: string; hadBlock: boolean } {
+  const b = (body ?? "").replace(/\r\n?/g, "\n");
+  const start = b.indexOf(BLOCK_START);
+  if (start === -1) return { text: b.trim(), hadBlock: false };
+  const end = b.indexOf(BLOCK_END, start);
+  const outside = (end === -1 ? b.slice(0, start) : b.slice(0, start) + b.slice(end + BLOCK_END.length)).trim();
+  if (outside) return { text: outside, hadBlock: true };
+  const inner = splitManagedBlock(b);
+  return { text: inner.ok ? (inner.description || inner.summary).trim() : "", hadBlock: true };
+}

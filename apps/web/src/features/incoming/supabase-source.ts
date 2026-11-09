@@ -38,7 +38,7 @@ export class SupabaseIncomingSource implements IncomingSource {
   async refreshPulled(itemIds: string[]): Promise<RefreshResult> {
     try {
       const r = await refreshPulledFromGithub(itemIds);
-      return { ok: true, checked: r.checked ?? 0, descriptions: r.copied, labelled: r.labelled ?? 0, failed: r.failed };
+      return { ok: true, checked: r.checked ?? 0, descriptions: r.copied, labelled: r.labelled ?? 0, failed: r.failed, noText: r.noText ?? 0 };
     } catch {
       return { ok: false, error: "GitHub could not be asked just now. Try again." };
     }

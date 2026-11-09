@@ -1,19 +1,19 @@
 "use server";
 
-import { BLOCK_START, labelFields, receivedValue } from "@pv/github";
+import { descriptionFromIssueBody, labelFields, receivedValue } from "@pv/github";
 import { githubSourceControl, type ConnectionRow } from "@/lib/github/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireWorkspace } from "@/lib/session";
 
 const CONCURRENCY = 5;
-export type CopyResult = { copied: number; failed: number; /** Initiatives that got a Change Type or Focus Area from the `type:` and `area:` labels. */ labelled?: number; /** Initiatives pulled in from a GitHub issue that were looked at. */ checked?: number };
+export type CopyResult = { copied: number; failed: number; /** Initiatives that got a Change Type or Focus Area from the `type:` and `area:` labels. */ labelled?: number; /** Initiatives pulled in from a GitHub issue that were looked at. */ checked?: number; /** Initiatives whose Description was empty and whose issue had no text to copy. */ noText?: number };
 
 /**
  * Pull-in keeps the issue's text (Ashu, 2026-11-09, issue #364): once, when a person pulls an issue in, the issue body is read from
  * GitHub and stored as the initiative's Description. It is a snapshot, never refreshed and never written back by itself, it only
  * fills an empty Description (the database refuses to replace text a person wrote), and it is stored as text: an issue body is data,
  * never instructions (CLAUDE.md rule 4). The body is cut at 20,000 characters and our markers and @mentions are neutralised, as for
- * every text read from GitHub. A body that already holds a Product Velocity block is skipped (Product Velocity wrote it).
+ * every text read from GitHub. A body that holds a Product Velocity block has the block cut out and the rest kept (the block's own Description if nothing else is there).
  * The labels `type:<x>` (Change Type) and `area:<x>` (Focus Area) are kept the same way, from the Incoming record, only into empty fields
  * (`labelFields`, `github_copy_issue_labels`); a label that means nothing in Product Velocity is left out, never guessed.
  * Nothing is logged but counts. A failure here never undoes the pull-in: the initiative exists, its Description stays empty.
@@ -54,6 +54,7 @@ async function fillFromGithub(itemIds: string[]): Promise<CopyResult> {
   let copied = 0;
   let labelled = 0;
   let failed = 0;
+  let noText = 0;
   let next = 0;
   const worker = async () => {
     for (let i = next++; i < todo.length; i = next++) {
@@ -75,15 +76,14 @@ async function fillFromGithub(itemIds: string[]): Promise<CopyResult> {
       }
       if (!needsBody) continue; // a Description is never replaced
       if (unreadable || !issue) { failed++; continue; }
-      const body = issue.body ?? "";
-      if (body.includes(BLOCK_START)) continue; // written by Product Velocity: nothing to take over
-      const text = receivedValue("description", body);
-      if (!text) continue; // an issue without a body has nothing to copy
+      // a body that holds a Product Velocity block (written before, here or in another workspace) is not skipped: the block is cut out and the rest is kept
+      const text = receivedValue("description", descriptionFromIssueBody(issue.body).text);
+      if (!text) { noText++; continue; } // an issue without a body has nothing to copy
       const { data, error } = await admin.rpc("github_copy_issue_description", { p_actor: user.id, p_item: item.id, p_text: text });
       if (error) failed++;
       else if (data === true) copied++;
     }
   };
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, todo.length) }, worker));
-  return { copied, failed, labelled, checked: todo.length };
+  return { copied, failed, labelled, checked: todo.length, noText };
 }

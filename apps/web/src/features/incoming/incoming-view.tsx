@@ -182,7 +182,7 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
     setPicked(new Set());
     if (!r.ok) { setMessage(r.error); return; }
     const filled = [r.descriptions > 0 ? `Description for ${r.descriptions}` : "", r.labelled > 0 ? `Change Type or Focus Area for ${r.labelled}` : ""].filter(Boolean);
-    setMessage(`Re-pulled ${r.checked} ${r.checked === 1 ? "initiative" : "initiatives"} from GitHub. ${filled.length ? `Filled: ${filled.join("; ")}.` : "Nothing was empty that GitHub could fill."} Fields that already had a value were not changed.${r.failed > 0 ? ` ${r.failed} could not be read from GitHub: try again in a minute.` : ""}`);
+    setMessage(`Re-pulled ${r.checked} ${r.checked === 1 ? "initiative" : "initiatives"} from GitHub. ${filled.length ? `Filled: ${filled.join("; ")}.` : "Nothing was empty that GitHub could fill."} Fields that already had a value were not changed.${r.noText > 0 ? ` ${r.noText} had an empty Description and no text in the issue to copy.` : ""}${r.failed > 0 ? ` ${r.failed} could not be read from GitHub: try again in a minute.` : ""}`);
     onChanged?.();
   };
 

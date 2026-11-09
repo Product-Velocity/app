@@ -32,3 +32,29 @@ describe("labelFields (type: is Change Type, area: is Focus Area)", () => {
     expect(labelFields([`area:${"x".repeat(300)}`]).focusArea).toHaveLength(120);
   });
 });
+
+import { descriptionFromIssueBody } from "./inbound";
+
+describe("descriptionFromIssueBody (pull-in keeps the issue's text)", () => {
+  it("takes a plain body as it is, with line endings unified", () => {
+    expect(descriptionFromIssueBody("## Goal\r\nThe IO builder\r\n")).toEqual({ text: "## Goal\nThe IO builder", hadBlock: false });
+    expect(descriptionFromIssueBody("  \n ")).toEqual({ text: "", hadBlock: false });
+    expect(descriptionFromIssueBody(null)).toEqual({ text: "", hadBlock: false });
+  });
+  it("cuts a Product Velocity block out and keeps the text around it, instead of skipping the issue", () => {
+    const body = "Intro text\n<!-- pv:begin item=11111111-1111-1111-1111-111111111111 -->\n## Summary\nS\n## Description\nD\n<!-- pv:end -->\nPart of #9";
+    const r = descriptionFromIssueBody(body);
+    expect(r.hadBlock).toBe(true);
+    expect(r.text).toContain("Intro text");
+    expect(r.text).toContain("Part of #9");
+    expect(r.text).not.toMatch(/pv:begin|pv:end|## Summary/);
+  });
+  it("falls back to the block's own Description, then Summary, when nothing else is in the body", () => {
+    const block = "<!-- pv:begin item=11111111-1111-1111-1111-111111111111 -->\n## Summary\nOnly a summary\n## Description\nThe description text\n## Hypothesis (IF / THEN / RESULTING IN)\nH\n\n---\nManaged by Product Velocity: edits between the markers are overwritten.\n<!-- pv:end -->";
+    expect(descriptionFromIssueBody(block).text).toBe("The description text");
+    expect(descriptionFromIssueBody(block.replace("The description text", "")).text).toBe("Only a summary");
+  });
+  it("returns no text for a block that cannot be read and nothing around it", () => {
+    expect(descriptionFromIssueBody("<!-- pv:begin item=broken -->\nx\n<!-- pv:end -->")).toEqual({ text: "", hadBlock: true });
+  });
+});
