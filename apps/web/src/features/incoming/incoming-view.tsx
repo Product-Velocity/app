@@ -9,7 +9,7 @@ type Undo = { label: string; run: () => Promise<string> };
 const tabs = (tracker: string): { id: PullState; label: string; hint: string }[] => [
   { id: "not_pulled", label: "Not pulled", hint: `Seen in ${tracker}, not part of the roadmap.` },
   { id: "ignored", label: "Ignored", hint: "Left out on purpose. Nothing is ever written to these." },
-  { id: "pulled", label: "Pulled in", hint: "Already initiatives; they follow their issue read-only." },
+  { id: "pulled", label: "Pulled in", hint: tracker === "GitHub" ? "Already initiatives. Select some and Re-pull to fill fields that are still empty from their issue." : "Already initiatives; they follow their issue read-only." },
 ];
 const SHOWN = 200;
 const OWNERSHIP: { id: Ownership; label: string }[] = [{ id: "follow", label: "Read only" }, { id: "push", label: "Product Velocity owns it" }];
@@ -93,6 +93,9 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
   const otherFilter = q.trim() !== "" || state !== "" || age !== "any";
   const ruleCandidate = setFilters.length === 1 && !otherFilter ? setFilters[0]! : null;
   const visible = rows.slice(0, shown);
+  const canRefresh = canEdit && !!source.refreshPulled;
+  /** Rows can be ticked on every tab; on Pulled in only where the data layer can re-pull (GitHub). */
+  const selectable = canEdit && (tab !== "pulled" || canRefresh);
   const chosen = rows.filter((r) => picked.has(r.id));
   const allPicked = visible.length > 0 && visible.every((r) => picked.has(r.id));
   const toggle = (rid: string) => setPicked((s) => { const n = new Set(s); if (!n.delete(rid)) n.add(rid); return n; });
@@ -169,6 +172,20 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
     });
   };
 
+  /** Re-pull: fills the Description, Change Type and Focus Area that are still empty from the issue again. Never replaces a value. */
+  const refresh = async () => {
+    const itemIds = chosen.map((i) => i.itemId).filter((x): x is string => !!x);
+    if (!source.refreshPulled || itemIds.length === 0) return;
+    setBusy(true); setMessage(null);
+    const r = await source.refreshPulled(itemIds);
+    setBusy(false);
+    setPicked(new Set());
+    if (!r.ok) { setMessage(r.error); return; }
+    const filled = [r.descriptions > 0 ? `Description for ${r.descriptions}` : "", r.labelled > 0 ? `Change Type or Focus Area for ${r.labelled}` : ""].filter(Boolean);
+    setMessage(`Re-pulled ${r.checked} ${r.checked === 1 ? "initiative" : "initiatives"} from GitHub. ${filled.length ? `Filled: ${filled.join("; ")}.` : "Nothing was empty that GitHub could fill."} Fields that already had a value were not changed.${r.failed > 0 ? ` ${r.failed} could not be read from GitHub: try again in a minute.` : ""}`);
+    onChanged?.();
+  };
+
   const addRule = async (form: FormData) => {
     const kind = String(form.get("kind")) as IncomingRule["kind"];
     const value = String(form.get("value") ?? "").trim();
@@ -214,8 +231,8 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
       {rows.length === 0 ? <p>{all.length === 0 ? terms.emptyHint : "Nothing here."}</p> : (
         <>
           <div className="incoming-pick">
-            <span>{canEdit && tab !== "pulled" ? <><strong>{picked.size}</strong> of {rows.length} {rows.length === 1 ? "issue" : "issues"} selected</> : <>{rows.length} {rows.length === 1 ? "issue" : "issues"}</>}{rows.length > visible.length ? `, showing the first ${visible.length}` : ""}</span>
-            {canEdit && tab !== "pulled" && (
+            <span>{selectable ? <><strong>{picked.size}</strong> of {rows.length} {rows.length === 1 ? "issue" : "issues"} selected</> : <>{rows.length} {rows.length === 1 ? "issue" : "issues"}</>}{rows.length > visible.length ? `, showing the first ${visible.length}` : ""}</span>
+            {selectable && (
               <span className="incoming-pick-buttons">
                 <button type="button" className="btn" onClick={() => setPicked(new Set(visible.map((r) => r.id)))}>Select all shown</button>
                 <button type="button" className="btn" onClick={() => setPicked(new Set(visible.filter((r) => !picked.has(r.id)).map((r) => r.id)))}>Invert selection</button>
@@ -227,7 +244,7 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
             <table className="trash-table incoming-table">
               <thead>
                 <tr>
-                  <th scope="col">{canEdit && tab !== "pulled" && <input type="checkbox" aria-label="Select all shown" checked={allPicked} onChange={() => setPicked(allPicked ? new Set() : new Set(visible.map((r) => r.id)))} />}</th>
+                  <th scope="col">{selectable && <input type="checkbox" aria-label="Select all shown" checked={allPicked} onChange={() => setPicked(allPicked ? new Set() : new Set(visible.map((r) => r.id)))} />}</th>
                   <th scope="col">Issue</th><th scope="col">Title</th><th scope="col">Type</th><th scope="col">Labels</th><th scope="col">State</th><th scope="col">{tab === "ignored" ? "Reason" : "Last activity"}</th>
                 </tr>
               </thead>
@@ -236,7 +253,7 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
                   const parent = i.parentNumber !== null ? all.find((p) => p.repo === i.repo && p.number === i.parentNumber) : null;
                   return (
                     <tr key={i.id}>
-                      <td>{canEdit && tab !== "pulled" && <input type="checkbox" aria-label={`Select ${terms.ref(i)} ${i.title}`} checked={picked.has(i.id)} onChange={() => toggle(i.id)} />}</td>
+                      <td>{selectable && <input type="checkbox" aria-label={`Select ${terms.ref(i)} ${i.title}`} checked={picked.has(i.id)} onChange={() => toggle(i.id)} />}</td>
                       <td className="mono">{i.url ? <a href={i.url} target="_blank" rel="noreferrer">{terms.ref(i)}</a> : terms.ref(i)}{terms.tracker === "GitHub" && <> <span className="muted">{shortRepo(i.repo)}</span></>}</td>
                       <td>{i.title}{i.parentNumber !== null && <span className="muted"> · sub-issue of {terms.ref({ repo: i.repo, number: i.parentNumber })}{parent ? ` “${parent.title.slice(0, 40)}” (${parent.pullState === "pulled" ? "pulled in" : parent.pullState === "ignored" ? "ignored" : "not pulled"})` : ""}</span>}</td>
                       <td>{i.issueType ?? <span className="muted">none</span>}</td>
@@ -288,6 +305,15 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
               <button type="button" className="btn" disabled={busy || picked.size === 0} onClick={() => void setStateFor(chosen, "not_pulled", null)}>Bring back to Not pulled</button>
             </div>
           )}
+        </section>
+      )}
+      {canRefresh && tab === "pulled" && (
+        <section className="incoming-bring" aria-label="Re-pull the selected initiatives">
+          <h3>Re-pull from {terms.tracker}</h3>
+          <p className="muted">Reads each selected issue again and fills the Description, Change Type (from a <code>type:</code> label) and Focus Area (from an <code>area:</code> label) that are still empty on its initiative. A field that already has a value is never replaced, nothing is written to {terms.tracker}, and an initiative nobody can read is skipped.</p>
+          <div className="incoming-actions">
+            <button type="button" className="btn btn-primary" disabled={busy || picked.size === 0} onClick={() => void refresh()}>{busy ? "Reading GitHub…" : `Re-pull ${picked.size > 0 ? picked.size : ""}`.trim()}</button>
+          </div>
         </section>
       )}
       {children && (

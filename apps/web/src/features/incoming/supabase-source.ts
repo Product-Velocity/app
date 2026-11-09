@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { copyIssueDescriptions } from "@/app/(workspace)/incoming/copy-descriptions";
-import type { BatchOutcome, IncomingIssue, IncomingRule, IncomingSource, PullState, RuleResult, Ownership } from "./types";
+import { copyIssueDescriptions, refreshPulledFromGithub } from "@/app/(workspace)/incoming/copy-descriptions";
+import type { BatchOutcome, IncomingIssue, IncomingRule, IncomingSource, PullState, RefreshResult, RuleResult, Ownership } from "./types";
 
 const PAGE = 1000;
 const msg = (e: { message?: string } | null) => (e?.message ?? "Something went wrong.").slice(0, 200);
@@ -34,6 +34,16 @@ export class SupabaseIncomingSource implements IncomingSource {
     return ((data ?? []) as { id: string; ok: boolean; reason: string | null; item_id?: string | null; item_code?: string | null }[]).map((r) => ({ id: r.id, ok: r.ok, reason: r.reason, itemId: r.item_id ?? null, itemCode: r.item_code ?? null }));
   }
   setState(ids: string[], state: "not_pulled" | "ignored", reason: string | null) { return this.batch("tracker_set_state", { p_ids: ids, p_state: state, p_reason: reason }); }
+  /** Re-pull of initiatives already pulled in: fills what is still empty from the issue (never replaces a value). */
+  async refreshPulled(itemIds: string[]): Promise<RefreshResult> {
+    try {
+      const r = await refreshPulledFromGithub(itemIds);
+      return { ok: true, checked: r.checked ?? 0, descriptions: r.copied, labelled: r.labelled ?? 0, failed: r.failed };
+    } catch {
+      return { ok: false, error: "GitHub could not be asked just now. Try again." };
+    }
+  }
+
   /** Pulls the issues in, then keeps each issue's text once as the initiative's Description (issue #364). Reading the text never fails the pull-in. */
   async pullIn(ids: string[], projectId: string, ownership: Ownership): Promise<BatchOutcome[]> {
     const out = await this.batch("tracker_pull_in", { p_ids: ids, p_project: projectId, p_mode: ownership });

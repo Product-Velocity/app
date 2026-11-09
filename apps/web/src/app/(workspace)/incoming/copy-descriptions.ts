@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireWorkspace } from "@/lib/session";
 
 const CONCURRENCY = 5;
-export type CopyResult = { copied: number; failed: number; /** Change Type and Focus Area stored from the `type:` and `area:` labels. */ labelled?: number };
+export type CopyResult = { copied: number; failed: number; /** Initiatives that got a Change Type or Focus Area from the `type:` and `area:` labels. */ labelled?: number; /** Initiatives pulled in from a GitHub issue that were looked at. */ checked?: number };
 
 /**
  * Pull-in keeps the issue's text (Ashu, 2026-11-09, issue #364): once, when a person pulls an issue in, the issue body is read from
@@ -19,6 +19,19 @@ export type CopyResult = { copied: number; failed: number; /** Change Type and F
  * Nothing is logged but counts. A failure here never undoes the pull-in: the initiative exists, its Description stays empty.
  */
 export async function copyIssueDescriptions(itemIds: string[]): Promise<CopyResult> {
+  return fillFromGithub(itemIds);
+}
+
+/**
+ * Re-pull (Ashu, 2026-11-09): the same fill, run again later for initiatives that were pulled in before these fields existed or whose
+ * issue was labelled afterwards. It only ever fills what is still empty (Description, Change Type, Focus Area), never replaces a
+ * value, and takes the labels live from GitHub when it reports them, from the Incoming record otherwise.
+ */
+export async function refreshPulledFromGithub(itemIds: string[]): Promise<CopyResult> {
+  return fillFromGithub(itemIds);
+}
+
+async function fillFromGithub(itemIds: string[]): Promise<CopyResult> {
   const ids = [...new Set(itemIds)].filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 200);
   if (ids.length === 0) return { copied: 0, failed: 0 };
   const { supabase, user, active } = await requireWorkspace("/incoming");
@@ -34,7 +47,7 @@ export async function copyIssueDescriptions(itemIds: string[]): Promise<CopyResu
     supabase.from("tracker_issues").select("item_id, labels").eq("tenant_id", active.tenantId).eq("connection_id", c.id).in("item_id", ids),
   ]);
   const labelsOf = new Map(((records ?? []) as { item_id: string; labels: string[] | null }[]).map((r) => [r.item_id, r.labels ?? []]));
-  const todo = ((items ?? []) as { id: string; source: string | null; description: string | null }[]).filter((i) => (i.source ?? "").startsWith("GitHub issue #") && !(i.description ?? "").trim());
+  const todo = ((items ?? []) as { id: string; source: string | null; description: string | null }[]).filter((i) => (i.source ?? "").startsWith("GitHub issue #"));
   const linkOf = new Map(((links ?? []) as { item_id: string; repo_full_name: string; issue_number: number }[]).map((l) => [l.item_id, l]));
   const admin = createAdminClient({ via: "UI" });
   const installation = c.installation_id;
@@ -47,26 +60,30 @@ export async function copyIssueDescriptions(itemIds: string[]): Promise<CopyResu
       const item = todo[i]!;
       const link = linkOf.get(item.id);
       if (!link) { failed++; continue; }
-      const fromLabels = labelFields(labelsOf.get(item.id));
+      const needsBody = !(item.description ?? "").trim();
+      let issue: Awaited<ReturnType<typeof sc.getIssue>> = null;
+      let unreadable = false;
+      try { issue = await sc.getIssue(installation, link.repo_full_name, link.issue_number); } catch (e) {
+        unreadable = true;
+        console.error(JSON.stringify({ github: "copy-description", error: e instanceof Error ? e.message.slice(0, 120) : "unknown" }));
+      }
+      // Change Type and Focus Area: the labels GitHub shows now, else the Incoming record's; only empty fields are ever filled
+      const fromLabels = labelFields(issue?.labels ?? labelsOf.get(item.id));
       if (fromLabels.changeType || fromLabels.focusArea) {
         const { data, error } = await admin.rpc("github_copy_issue_labels", { p_actor: user.id, p_item: item.id, p_change_type: fromLabels.changeType ?? null, p_focus_area: fromLabels.focusArea ?? null });
         if (!error && data && Object.keys(data as object).length > 0) labelled++;
       }
-      try {
-        const body = (await sc.getIssue(installation, link.repo_full_name, link.issue_number))?.body ?? null;
-        if (body === null) { failed++; continue; }
-        if (body.includes(BLOCK_START)) continue; // written by Product Velocity: nothing to take over
-        const text = receivedValue("description", body);
-        if (!text) continue; // an issue without a body has nothing to copy
-        const { data, error } = await admin.rpc("github_copy_issue_description", { p_actor: user.id, p_item: item.id, p_text: text });
-        if (error) failed++;
-        else if (data === true) copied++;
-      } catch (e) {
-        failed++;
-        console.error(JSON.stringify({ github: "copy-description", error: e instanceof Error ? e.message.slice(0, 120) : "unknown" }));
-      }
+      if (!needsBody) continue; // a Description is never replaced
+      if (unreadable || !issue) { failed++; continue; }
+      const body = issue.body ?? "";
+      if (body.includes(BLOCK_START)) continue; // written by Product Velocity: nothing to take over
+      const text = receivedValue("description", body);
+      if (!text) continue; // an issue without a body has nothing to copy
+      const { data, error } = await admin.rpc("github_copy_issue_description", { p_actor: user.id, p_item: item.id, p_text: text });
+      if (error) failed++;
+      else if (data === true) copied++;
     }
   };
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, todo.length) }, worker));
-  return { copied, failed, labelled };
+  return { copied, failed, labelled, checked: todo.length };
 }
