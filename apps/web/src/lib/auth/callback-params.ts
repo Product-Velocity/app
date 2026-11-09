@@ -1,7 +1,7 @@
 import { safeNext } from "./safe-next";
 
-/** Link types the app accepts. `recovery` is for the password reset flow (issue #13). */
-const OTP_TYPES = ["email", "signup", "recovery"] as const;
+/** Link types the app accepts. `recovery` is for the password reset flow (issue #13); `invite` and `email_change` were added for the Send Email hook (issue #370). */
+const OTP_TYPES = ["email", "signup", "recovery", "invite", "email_change"] as const;
 export type OtpType = (typeof OTP_TYPES)[number];
 
 export type CallbackParams =

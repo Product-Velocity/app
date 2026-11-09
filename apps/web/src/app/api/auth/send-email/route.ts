@@ -20,10 +20,12 @@ export async function POST(request: Request) {
     console.error(JSON.stringify({ authEmail: plan.reason }));
     return Response.json({ error: { http_code: 422, message: "This email type is not handled." } }, { status: 422 });
   }
-  const sent = await sendEmail({ to: plan.to, ...plan.mail });
-  if (!sent.ok) {
-    console.error(JSON.stringify({ authEmail: "send-failed", error: sent.error }));
-    return Response.json({ error: { http_code: 500, message: "The email could not be sent." } }, { status: 500 });
+  for (const m of plan.mails) {
+    const sent = await sendEmail({ to: m.to, ...m.mail });
+    if (!sent.ok) {
+      console.error(JSON.stringify({ authEmail: "send-failed", error: sent.error }));
+      return Response.json({ error: { http_code: 500, message: "The email could not be sent." } }, { status: 500 });
+    }
   }
   return Response.json({});
 }

@@ -22,13 +22,18 @@ export function verifyHookSignature(rawBody: string, h: { id: string | null; tim
 }
 
 export type HookPayload = {
-  user?: { email?: unknown };
-  email_data?: { token?: unknown; token_hash?: unknown; redirect_to?: unknown; site_url?: unknown; email_action_type?: unknown };
+  user?: { email?: unknown; new_email?: unknown };
+  email_data?: { token?: unknown; token_hash?: unknown; redirect_to?: unknown; site_url?: unknown; email_action_type?: unknown; token_hash_new?: unknown; token_new?: unknown };
 };
 
-export type HookPlan = { ok: true; to: string; mail: Rendered } | { ok: false; reason: "bad-payload" | "unsupported-action" };
+export type HookPlan = { ok: true; mails: { to: string; mail: Rendered }[] } | { ok: false; reason: "bad-payload" | "unsupported-action" };
 
-/** Pure: payload in, email out. The link goes to our own /auth/callback with the one-time token hash; an off-site redirect is ignored. */
+/**
+ * Pure: payload in, emails out (one, or two for an email change that must be confirmed at both addresses). The link goes to our own
+ * /auth/callback with the one-time token hash; an off-site redirect is ignored.
+ * [SPIKE] which hash goes to which address on an email change (token_hash to the current address, token_hash_new to the new one) is
+ * from memory of GoTrue and unverified (docs/08, S10).
+ */
 export function planAuthEmail(payload: HookPayload, appUrl: string): HookPlan {
   const to = payload.user?.email;
   const d = payload.email_data;
@@ -37,21 +42,37 @@ export function planAuthEmail(payload: HookPayload, appUrl: string): HookPlan {
   const t = templateForAction(action);
   if (!t) return { ok: false, reason: "unsupported-action" };
   const base = appUrl.replace(/\/+$/, "");
-  let buttonUrl: string | null = null;
-  if (t.linkType) {
-    if (typeof d.token_hash !== "string" || !d.token_hash) return { ok: false, reason: "bad-payload" };
+  let next: string | null = null;
+  try {
+    const r = typeof d.redirect_to === "string" ? new URL(d.redirect_to) : null;
+    next = r && r.origin === new URL(base).origin ? r.searchParams.get("next") : null;
+  } catch { /* ignore a malformed redirect */ }
+  const link = (hash: unknown): string | null => {
+    if (typeof hash !== "string" || !hash || !t.linkType) return null;
     const u = new URL(`${base}/auth/callback`);
-    // keep the destination Supabase was told about, but only when it is on our own site
-    try {
-      const r = typeof d.redirect_to === "string" ? new URL(d.redirect_to) : null;
-      const next = r && r.origin === new URL(base).origin ? r.searchParams.get("next") : null;
-      if (next) u.searchParams.set("next", next);
-    } catch { /* ignore a malformed redirect */ }
-    u.searchParams.set("token_hash", d.token_hash);
+    if (next) u.searchParams.set("next", next);
+    u.searchParams.set("token_hash", hash);
     u.searchParams.set("type", t.linkType);
-    buttonUrl = u.toString();
+    return u.toString();
+  };
+  const make = (address: string, buttonUrl: string | null, code: string | null): { to: string; mail: Rendered } => ({
+    to: address,
+    mail: renderTemplate(t, { values: { link: buttonUrl, code, expires: "60 minutes" }, siteUrl: base, buttonUrl }),
+  });
+  if (t.linkType) {
+    const first = link(d.token_hash);
+    if (!first) return { ok: false, reason: "bad-payload" };
+    const mails = [];
+    const newTo = payload.user?.new_email;
+    if (action === "email_change" && typeof newTo === "string" && newTo.includes("@")) {
+      // two addresses: the new one gets its own hash when Supabase sends one, otherwise the single hash goes to the new address only
+      const second = link(d.token_hash_new);
+      mails.push(make(newTo, second ?? first, null));
+      if (second) mails.push(make(to, first, null));
+    } else mails.push(make(to, first, null));
+    return { ok: true, mails };
   }
   const code = typeof d.token === "string" ? d.token : null;
   if (t.macros.includes("code") && !code) return { ok: false, reason: "bad-payload" };
-  return { ok: true, to, mail: renderTemplate(t, { values: { link: buttonUrl, code, expires: "60 minutes" }, siteUrl: base, buttonUrl }) };
+  return { ok: true, mails: [make(to, null, code)] };
 }

@@ -6,7 +6,7 @@ import { renderMacros, sampleValues, type MacroName, type MacroValues } from "./
  * its text may use, and default wording. The frame (layout.ts), links, tokens, recipients and the trigger-to-template mapping are
  * code and can never be edited; only the text fields below can (phase 4, through a published override, falling back to these defaults).
  */
-export type EmailKey = "auth.confirm-signup" | "auth.sign-in-link" | "auth.reset-password" | "auth.reauthentication";
+export type EmailKey = "auth.confirm-signup" | "auth.sign-in-link" | "auth.reset-password" | "auth.reauthentication" | "auth.invite" | "auth.email-change";
 
 export type EmailTemplate = {
   key: EmailKey;
@@ -20,9 +20,9 @@ export type EmailTemplate = {
   confirmFirst: boolean;
   macros: readonly MacroName[];
   /** Supabase action type that selects this template in the Send Email hook. */
-  authAction?: "signup" | "magiclink" | "recovery" | "reauthentication";
+  authAction?: "signup" | "magiclink" | "recovery" | "reauthentication" | "invite" | "email_change";
   /** Link type the /auth/callback route accepts for the button. Absent for code emails. */
-  linkType?: "email" | "signup" | "recovery";
+  linkType?: "email" | "signup" | "recovery" | "invite" | "email_change";
   subject: string;
   preheader: string;
   heading: string;
@@ -98,6 +98,40 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     body: "Enter this code to confirm the change. It works once and expires in {{expires}}.",
     button: null,
     note: "If you did not ask for this, you can ignore this email and consider changing your password.",
+  },
+  {
+    key: "auth.invite",
+    name: "Account invitation (Supabase)",
+    trigger: "A platform admin invites a user through Supabase Auth",
+    recipient: "The invited address",
+    path: "Supabase Send Email hook, action invite",
+    confirmFirst: false,
+    macros: ["link", "expires", "product"],
+    authAction: "invite",
+    linkType: "invite",
+    subject: "You have been invited to {{product}}",
+    preheader: "Accept your invitation and set up your account.",
+    heading: "You are invited",
+    body: "You have been invited to {{product}}. Use the button to accept and set up your account. The link works once and expires in {{expires}}.",
+    button: "Accept invitation",
+    note: "If you did not expect this, you can ignore this email.",
+  },
+  {
+    key: "auth.email-change",
+    name: "Confirm email change",
+    trigger: "A signed-in user changes the email address on their account",
+    recipient: "The new address, and the current address when Supabase asks for both to confirm",
+    path: "Supabase Send Email hook, action email_change",
+    confirmFirst: false,
+    macros: ["link", "expires", "product"],
+    authAction: "email_change",
+    linkType: "email_change",
+    subject: "Confirm your new email for {{product}}",
+    preheader: "Confirm the change of email address.",
+    heading: "Confirm your new email",
+    body: "Use the button to confirm the change of email address on your account. The link works once and expires in {{expires}}.",
+    button: "Confirm change",
+    note: "If you did not ask for this, you can ignore this email and your address stays as it is.",
   },
 ];
 
