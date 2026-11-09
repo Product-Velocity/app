@@ -5,5 +5,5 @@ import { HarnessPhone } from "./harness";
 export default async function PhoneHarness({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   if (process.env.NEXT_PUBLIC_E2E_HARNESS !== "1") notFound();
   const q = await searchParams;
-  return <HarnessPhone n={Number(q.n ?? 40)} />;
+  return <HarnessPhone n={Number(q.n ?? 40)} screen={q.screen ?? "list"} />;
 }

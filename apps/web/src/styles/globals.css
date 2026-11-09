@@ -1030,7 +1030,7 @@ button.share-chip { cursor: pointer; }
   .content { padding: 12px 12px 88px; }
   .phone-only { display: grid; }
   .desktop-only { display: none; }
-  .phone-nav { display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--bg); border-top: 1px solid var(--grey-1); padding-bottom: env(safe-area-inset-bottom); }
+  .phone-nav { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--bg); border-top: 1px solid var(--grey-1); padding-bottom: env(safe-area-inset-bottom); }
   .phone-tab { display: flex; align-items: center; justify-content: center; gap: 4px; color: #111827; text-decoration: none; font-weight: 500; border-top: 2px solid transparent; }
   .phone-tab-on { color: var(--blue-text); border-top-color: var(--blue); }
 }
@@ -1063,3 +1063,7 @@ button.share-chip { cursor: pointer; }
   .ip-tab { flex: 0 0 auto; min-height: 44px; }
   .item-panel-page { max-width: none; border: 0; }
 }
+
+/* Phone quick add and For you (issue #386, slice M3) */
+.fy-h { margin: 8px 0; font-size: 15px; }
+.phone-add textarea, .phone-add input, .phone-add select { width: 100%; box-sizing: border-box; min-height: 44px; }

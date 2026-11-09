@@ -35,3 +35,32 @@ test.describe("initiatives on a phone", () => {
     expect(r.violations).toEqual([]);
   });
 });
+
+test.describe("quick add and For you on a phone", () => {
+  test("adds an initiative with a name only, and offers Undo", async ({ page }) => {
+    await page.goto("/dev/phone?n=10&screen=add");
+    await page.getByLabel("Name").fill("Dark mode for the app");
+    await page.getByRole("button", { name: "Create" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Dark mode for the app" })).toBeVisible();
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(page.getByLabel("Name")).toHaveValue("");
+  });
+
+  test("asks for a name and warns about a similar initiative", async ({ page }) => {
+    await page.goto("/dev/phone?n=10&screen=add");
+    await page.getByRole("button", { name: "Create" }).click();
+    await expect(page.locator(".pf-error")).toContainText("Give it a name");
+    await page.getByLabel("Name").fill("Initiative number 3 with a reasonably long title");
+    await expect(page.getByText("Looks similar to:")).toBeVisible();
+  });
+
+  test("For you lists what needs attention and my placeholders, with words and no horizontal scroll", async ({ page }) => {
+    await page.goto("/dev/phone?n=20&screen=for-you");
+    await expect(page.getByRole("heading", { name: /My placeholders/ })).toBeVisible();
+    await expect(page.getByText("Missing:").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+});
