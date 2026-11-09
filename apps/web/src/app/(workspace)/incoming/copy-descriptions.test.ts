@@ -41,7 +41,7 @@ describe("copyIssueDescriptions (pull-in keeps the issue's text, issue #364)", (
   it("copies the body of a pulled-in issue once, as plain text with our markers neutralised, for the signed-in person", async () => {
     tables.items = [item(1)]; tables.item_github_links = [link(1)];
     bodies[1] = "## Goal\r\nThe IO builder <!-- hidden --> ping @someone";
-    expect(await copyIssueDescriptions([ID(1)])).toEqual({ copied: 1, failed: 0, labelled: 0, checked: 1 });
+    expect(await copyIssueDescriptions([ID(1)])).toEqual({ copied: 1, failed: 0, labelled: 0, checked: 1, noText: 0 });
     expect(rpcCalls).toHaveLength(1);
     expect(rpcCalls[0]).toMatchObject({ name: "github_copy_issue_description", args: { p_actor: "u1", p_item: ID(1) } });
     const text = rpcCalls[0]!.args.p_text as string;
@@ -55,10 +55,18 @@ describe("copyIssueDescriptions (pull-in keeps the issue's text, issue #364)", (
     expect(await copyIssueDescriptions([ID(2), ID(3)])).toMatchObject({ copied: 0, failed: 0 });
     expect(rpcCalls).toHaveLength(0);
   });
-  it("skips an issue that holds a Product Velocity block, and an issue without a body", async () => {
-    tables.items = [item(4), item(5)]; tables.item_github_links = [link(4), link(5)];
-    bodies[4] = "intro\n<!-- pv:begin item=x -->\n## Summary\nx\n<!-- pv:end -->"; bodies[5] = "   ";
-    expect(await copyIssueDescriptions([ID(4), ID(5)])).toMatchObject({ copied: 0, failed: 0 });
+  it("cuts a Product Velocity block out of the body and keeps the text around it, instead of skipping the issue", async () => {
+    tables.items = [item(4)]; tables.item_github_links = [link(4)];
+    bodies[4] = "## Goal\nThe real text\n<!-- pv:begin item=11111111-1111-1111-1111-111111111111 -->\n## Summary\nx\n<!-- pv:end -->\nPart of #9";
+    expect(await copyIssueDescriptions([ID(4)])).toMatchObject({ copied: 1, noText: 0 });
+    const text = rpcCalls[0]!.args.p_text as string;
+    expect(text).toContain("The real text");
+    expect(text).toContain("Part of #9");
+    expect(text).not.toMatch(/pv:begin|## Summary/);
+  });
+  it("says so when an issue has no text to copy", async () => {
+    tables.items = [item(5)]; tables.item_github_links = [link(5)]; bodies[5] = "   ";
+    expect(await copyIssueDescriptions([ID(5)])).toMatchObject({ copied: 0, failed: 0, noText: 1 });
     expect(rpcCalls).toHaveLength(0);
   });
   it("counts an issue it could not read as failed and still copies the others", async () => {

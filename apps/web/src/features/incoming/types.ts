@@ -23,7 +23,7 @@ export type IncomingRule = { id: string; kind: "type" | "label" | "repo"; value:
 
 export type BatchOutcome = { id: string; ok: boolean; reason: string | null; itemId?: string | null; itemCode?: string | null; /** A short extra line for the person (for example that an issue's text could not be read). */ note?: string };
 /** What a re-pull did: fields that were still empty were filled again from GitHub; nothing that already had a value was changed. */
-export type RefreshResult = { ok: true; checked: number; descriptions: number; labelled: number; failed: number } | { ok: false; error: string };
+export type RefreshResult = { ok: true; checked: number; descriptions: number; labelled: number; failed: number; /** Initiatives whose Description was empty and whose issue had no text to copy. */ noText: number } | { ok: false; error: string };
 export type RuleResult = { ok: true } | { ok: false; error: string };
 
 /** What the Incoming list needs from the data layer (Supabase in the app, memory in the test page). */

@@ -8,8 +8,8 @@ const source = () => new SupabaseIncomingSource({} as never, "t1");
 
 describe("SupabaseIncomingSource.refreshPulled (re-pull)", () => {
   it("passes the initiatives on and reports what was filled", async () => {
-    refreshPulledFromGithub.mockResolvedValueOnce({ copied: 2, failed: 1, labelled: 3, checked: 4 });
-    expect(await source().refreshPulled(["a", "b"])).toEqual({ ok: true, checked: 4, descriptions: 2, labelled: 3, failed: 1 });
+    refreshPulledFromGithub.mockResolvedValueOnce({ copied: 2, failed: 1, labelled: 3, checked: 4, noText: 1 });
+    expect(await source().refreshPulled(["a", "b"])).toEqual({ ok: true, checked: 4, descriptions: 2, labelled: 3, failed: 1, noText: 1 });
     expect(refreshPulledFromGithub).toHaveBeenCalledWith(["a", "b"]);
   });
   it("answers with a plain message when the server action throws", async () => {
