@@ -21,7 +21,7 @@ export type IncomingIssue = {
 
 export type IncomingRule = { id: string; kind: "type" | "label" | "repo"; value: string };
 
-export type BatchOutcome = { id: string; ok: boolean; reason: string | null; itemId?: string | null; itemCode?: string | null };
+export type BatchOutcome = { id: string; ok: boolean; reason: string | null; itemId?: string | null; itemCode?: string | null; /** A short extra line for the person (for example that an issue's text could not be read). */ note?: string };
 export type RuleResult = { ok: true } | { ok: false; error: string };
 
 /** What the Incoming list needs from the data layer (Supabase in the app, memory in the test page). */

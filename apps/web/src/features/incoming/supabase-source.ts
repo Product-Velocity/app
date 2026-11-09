@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { copyIssueDescriptions } from "@/app/(workspace)/incoming/copy-descriptions";
 import type { BatchOutcome, IncomingIssue, IncomingRule, IncomingSource, PullState, RuleResult, Ownership } from "./types";
 
 const PAGE = 1000;
@@ -33,7 +34,16 @@ export class SupabaseIncomingSource implements IncomingSource {
     return ((data ?? []) as { id: string; ok: boolean; reason: string | null; item_id?: string | null; item_code?: string | null }[]).map((r) => ({ id: r.id, ok: r.ok, reason: r.reason, itemId: r.item_id ?? null, itemCode: r.item_code ?? null }));
   }
   setState(ids: string[], state: "not_pulled" | "ignored", reason: string | null) { return this.batch("tracker_set_state", { p_ids: ids, p_state: state, p_reason: reason }); }
-  pullIn(ids: string[], projectId: string, ownership: Ownership) { return this.batch("tracker_pull_in", { p_ids: ids, p_project: projectId, p_mode: ownership }); }
+  /** Pulls the issues in, then keeps each issue's text once as the initiative's Description (issue #364). Reading the text never fails the pull-in. */
+  async pullIn(ids: string[], projectId: string, ownership: Ownership): Promise<BatchOutcome[]> {
+    const out = await this.batch("tracker_pull_in", { p_ids: ids, p_project: projectId, p_mode: ownership });
+    const created = out.filter((o) => o.ok && o.itemId).map((o) => o.itemId as string);
+    if (created.length === 0) return out;
+    const r = await copyIssueDescriptions(created).catch(() => ({ copied: 0, failed: created.length }));
+    if (r.failed === 0) return out;
+    const first = out.find((o) => o.ok);
+    return out.map((o) => (o === first ? { ...o, note: `The text of ${r.failed} ${r.failed === 1 ? "issue" : "issues"} could not be read from GitHub, so ${r.failed === 1 ? "its" : "their"} Description is empty.` } : o));
+  }
   async discardItems(itemIds: string[]) {
     const { data, error } = await this.client.rpc("discard_new_items", { p_ids: itemIds });
     if (error) return { ok: false, error: msg(error) };

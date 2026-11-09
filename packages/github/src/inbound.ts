@@ -33,7 +33,7 @@ export function receivedValue(field: SyncTextField, s: string): string {
   return normalise(s).replace(/@​/g, "@").slice(0, SYNC_FIELD_LIMIT[field]).trim();
 }
 
-export type SplitBlock = { ok: true; summary: string; description: string; hypothesis: string } | { ok: false; reason: string };
+export type SplitBlock = { ok: true; summary: string; description: string; hypothesis: string } | { ok: false; reason: string; /** The markers are not there at all (an issue Product Velocity never wrote to), as opposed to edited. */ missing?: true };
 
 /**
  * The inverse of buildTrackingIssue for the three texts: cuts the managed block at its known headings, in order. A heading that
@@ -44,7 +44,7 @@ export function splitManagedBlock(body: string | null | undefined): SplitBlock {
   const b = (body ?? "").replace(/\r\n?/g, "\n");
   const start = b.indexOf(BLOCK_START);
   const end = start === -1 ? -1 : b.indexOf(BLOCK_END, start);
-  if (start === -1 || end === -1) return { ok: false, reason: "The markers of the managed block are missing in GitHub." };
+  if (start === -1 || end === -1) return { ok: false, reason: "The markers of the managed block are missing in GitHub.", missing: true };
   const block = b.slice(start, end);
   const firstLineEnd = block.indexOf("\n");
   if (firstLineEnd === -1 || !/^<!-- pv:begin item=[0-9a-f-]{36} -->$/.test(block.slice(0, firstLineEnd))) return { ok: false, reason: "The first marker of the managed block was edited in GitHub." };
@@ -99,7 +99,7 @@ export function compareTexts(base: string | undefined, pvHash: string, ghHash: s
 }
 
 export type FieldCompare = { field: SyncTextField; verdict: TextVerdict; pvText: string; githubText: string; pvHash: string; ghHash: string };
-export type IssueCompare = { fields: FieldCompare[]; /** Set when the managed block cannot be read field by field: only a whole-block choice is offered. */ blockProblem?: string };
+export type IssueCompare = { fields: FieldCompare[]; /** Set when the managed block cannot be read field by field: only a whole-block choice is offered. */ blockProblem?: string; /** The block problem is that there is no block at all. */ blockMissing?: true };
 
 /**
  * Compares the name and the three texts of one initiative with what its tracking issue says now. `base` holds the hashes both sides
@@ -116,5 +116,5 @@ export function compareIssue(i: { code: string; pv: { initiative_name?: string |
     const ghHash = hashText(ghRaw(f));
     return { field: f, verdict: compareTexts(i.base?.[f], pvHash, ghHash), pvText: pvRaw[f], githubText: receivedValue(f, ghRaw(f)), pvHash, ghHash };
   });
-  return split.ok ? { fields } : { fields, blockProblem: split.reason };
+  return split.ok ? { fields } : { fields, blockProblem: split.reason, ...(split.missing ? { blockMissing: true as const } : {}) };
 }
