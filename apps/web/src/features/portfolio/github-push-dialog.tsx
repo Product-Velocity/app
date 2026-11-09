@@ -460,7 +460,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                 <div className="dialog-actions">
                   {incoming.length > 0 && !checking && <button type="button" className="btn" onClick={() => setStage("incoming")}>Back</button>}
                   {needsConfirm && <button type="button" className="btn" onClick={onClose}>Cancel</button>}
-                  <button ref={confirmRef} type="button" className="btn btn-primary" disabled={unchosen.length > 0 || checking || removedBusy} onClick={needsConfirm ? send : onClose}>
+                  <button ref={confirmRef} type="button" className={!needsConfirm ? "btn" : sendIds.size > 0 ? "btn btn-confirm" : "btn btn-primary"} disabled={unchosen.length > 0 || checking || removedBusy} onClick={needsConfirm ? send : onClose}>
                     {checking ? "Checking…" : !needsConfirm ? "Done" : sendIds.size > 0 ? "Apply and send" : "Apply"}
                   </button>
                 </div>
@@ -472,7 +472,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
         {phase.kind === "done" && (
           <>
             <ConfirmedList results={phase.results} details={phase.details} onRetry={sendAgain} retrying={retrying} />
-            <div className="dialog-actions"><button ref={confirmRef} type="button" className="btn btn-primary" onClick={onClose}>Close</button></div>
+            <div className="dialog-actions"><button ref={confirmRef} type="button" className="btn" onClick={onClose}>Close</button></div>
           </>
         )}
       </div>

@@ -116,7 +116,7 @@ export default async function AlignmentSessionPage({ params, searchParams }: { p
                             {!p.removed_at && (
                               <form action={removeParticipant}>
                                 <input type="hidden" name="id" value={p.id} /><input type="hidden" name="session" value={s.id} />
-                                <button className="btn btn-link" type="submit" aria-label={`Clear the personal data of ${p.name ?? p.email}`}>Remove</button>
+                                <button className="btn btn-danger-quiet" type="submit" aria-label={`Clear the personal data of ${p.name ?? p.email}`}>Remove</button>
                               </form>
                             )}
                           </td>

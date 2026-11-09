@@ -139,7 +139,7 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
                 <form action={connectAction}><button className="btn" type="submit" disabled={!configured}>Sign in to Jira again</button></form>
                 <form action={disconnectAction}>
                   <input type="hidden" name="id" value={c.id} />
-                  <button className="btn" type="submit">Disconnect</button>
+                  <button className="btn btn-danger-quiet" type="submit">Disconnect</button>
                 </form>
               </div>
             )}

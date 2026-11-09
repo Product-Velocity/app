@@ -174,7 +174,7 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
                     <input type="hidden" name="id" value={c.id} />
                     <input type="hidden" name="client_id" value={c.client_id} />
                     <input type="hidden" name="own" value="1" />
-                    <button className="btn" type="submit" aria-label={`Revoke ${c.client_name} in ${workspaceName(c.tenant_id)}`}>Revoke</button>
+                    <button className="btn btn-danger-quiet" type="submit" aria-label={`Revoke ${c.client_name} in ${workspaceName(c.tenant_id)}`}>Revoke</button>
                   </form>
                 </td>
               </tr>
@@ -206,7 +206,7 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
                     <td>
                       <form action={revokeConnection}>
                         <input type="hidden" name="id" value={c.id} />
-                        <button className="btn" type="submit" aria-label={`Revoke ${c.client_name} for ${people.get(c.user_id) ?? "a former member"}`}>Revoke</button>
+                        <button className="btn btn-danger-quiet" type="submit" aria-label={`Revoke ${c.client_name} for ${people.get(c.user_id) ?? "a former member"}`}>Revoke</button>
                       </form>
                     </td>
                   </tr>

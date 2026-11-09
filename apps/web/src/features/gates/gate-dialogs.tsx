@@ -83,7 +83,7 @@ export function RequestGateDialog({ source, items, me = null, onClose, onDone }:
       {results ? (
         <>
           <Results rows={results} names={names} />
-          <div className="dialog-actions"><button type="button" className="btn btn-primary" onClick={onClose}>Close</button></div>
+          <div className="dialog-actions"><button type="button" className="btn" onClick={onClose}>Close</button></div>
         </>
       ) : (
         <>
@@ -114,7 +114,7 @@ export function RequestGateDialog({ source, items, me = null, onClose, onDone }:
           {error && <p role="alert" className="error">{error}</p>}
           <div className="dialog-actions">
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button type="button" className="btn btn-primary" disabled={busy || ready.length === 0} onClick={() => void go()}>{busy ? "Requesting…" : `Request gate ${gate} for ${ready.length}`}</button>
+            <button type="button" className="btn btn-confirm" disabled={busy || ready.length === 0} onClick={() => void go()}>{busy ? "Requesting…" : `Request gate ${gate} for ${ready.length}`}</button>
           </div>
         </>
       )}
@@ -174,7 +174,7 @@ export function DecideDialog({ source, rows, initialOutcome, onClose, onDone }: 
       {results ? (
         <>
           <Results rows={results} names={names} note={resultNote(rows.map((r) => r.request.gate), outcome)} />
-          <div className="dialog-actions"><button type="button" className="btn btn-primary" onClick={onClose}>Close</button></div>
+          <div className="dialog-actions"><button type="button" className="btn" onClick={onClose}>Close</button></div>
         </>
       ) : (
         <>
@@ -219,7 +219,7 @@ export function DecideDialog({ source, rows, initialOutcome, onClose, onDone }: 
           {error && <p role="alert" className="error">{error}</p>}
           <div className="dialog-actions">
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button type="button" className="btn btn-primary" disabled={busy || !ok} onClick={() => void submit()}>{busy ? "Saving…" : `${outcomeLabel(outcome)} for ${rows.length}`}</button>
+            <button type="button" className={outcome === "go" ? "btn btn-confirm" : outcome === "stop" ? "btn btn-danger" : "btn btn-primary"} disabled={busy || !ok} onClick={() => void submit()}>{busy ? "Saving…" : `${outcomeLabel(outcome)} for ${rows.length}`}</button>
           </div>
         </>
       )}
@@ -257,7 +257,7 @@ export function MoveDialog({ source, items, onClose, onDone }: { source: GateSou
       {results ? (
         <>
           <Results rows={results} names={names} />
-          <div className="dialog-actions"><button type="button" className="btn btn-primary" onClick={onClose}>Close</button></div>
+          <div className="dialog-actions"><button type="button" className="btn" onClick={onClose}>Close</button></div>
         </>
       ) : options.length === 0 ? (
         <>
