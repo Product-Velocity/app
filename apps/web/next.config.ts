@@ -1,7 +1,16 @@
 import { readFileSync } from "node:fs";
 import type { NextConfig } from "next";
+import { parseReleaseLog } from "./src/lib/app-version";
 
 const { version } = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as { version: string };
+const releasesMarkdown = (() => {
+  try {
+    return readFileSync(new URL("../../docs/RELEASES.md", import.meta.url), "utf8");
+  } catch {
+    return "";
+  }
+})();
+const recentReleases = JSON.stringify(parseReleaseLog(releasesMarkdown, 8));
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -12,7 +21,11 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   // shown at the bottom of the account menu so a tester knows which release (and which build) they are looking at
-  env: { NEXT_PUBLIC_APP_VERSION: version, NEXT_PUBLIC_APP_BUILD: (process.env.VERCEL_GIT_COMMIT_SHA ?? "").slice(0, 7) },
+  env: {
+    NEXT_PUBLIC_APP_VERSION: version,
+    NEXT_PUBLIC_APP_BUILD: (process.env.VERCEL_GIT_COMMIT_SHA ?? "").slice(0, 7),
+    NEXT_PUBLIC_APP_RELEASES: recentReleases,
+  },
   transpilePackages: ["@pv/domain", "@pv/github"],
   async headers() {
     return [
