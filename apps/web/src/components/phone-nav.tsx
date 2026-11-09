@@ -14,7 +14,7 @@ export function PhoneNav({ accountId, waiting }: { accountId?: string; waiting?:
       {PHONE_TABS.map((t) => (
         <Link key={t.id} href={`${prefix}${t.href}`} className={active === t.id ? "phone-tab phone-tab-on" : "phone-tab"} aria-current={active === t.id ? "page" : undefined}>
           {t.label}
-          {t.id === "decisions" && waiting ? <span className="tab-badge"><span aria-hidden="true">{waiting}</span><span className="visually-hidden"> waiting for a decision</span></span> : null}
+          {t.id === "decisions" && waiting ? <span className="tab-badge phone-badge"><span aria-hidden="true">{waiting}</span><span className="visually-hidden"> waiting for a decision</span></span> : null}
         </Link>
       ))}
     </nav>

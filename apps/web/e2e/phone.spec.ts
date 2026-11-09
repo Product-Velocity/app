@@ -126,3 +126,23 @@ test.describe("gate decisions on a phone", () => {
     expect(r.violations).toEqual([]);
   });
 });
+
+test.describe("leadership and reports on a phone", () => {
+  test("leadership: two tile columns, top items as cards, no sideways scroll, accessible", async ({ page }) => {
+    await page.goto("/dev/leadership?n=40");
+    await page.waitForSelector(".lead-tiles");
+    const tiles = await page.locator(".lead-tile").evaluateAll((els) => new Set(els.map((e) => Math.round(e.getBoundingClientRect().left))).size);
+    expect(tiles).toBe(2);
+    const first = page.locator('[data-testid="top-items"] tbody tr').first();
+    expect(await first.evaluate((e) => getComputedStyle(e).display)).toBe("block");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+
+  test("reports: charts stack in one column without sideways scroll", async ({ page }) => {
+    await page.goto("/dev/reports?n=42");
+    await page.waitForSelector(".rp-card");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+});

@@ -1082,3 +1082,22 @@ button.share-chip { cursor: pointer; }
 .doc-sec h3 { margin: 0; font-size: 15px; border-top: 1px solid var(--grey-2); }
 .doc-sec h3 button { width: 100%; text-align: left; background: none; border: 0; font: inherit; font-weight: 600; cursor: pointer; padding: 8px 0; }
 @media (max-width: 699px) { .ip-tabs .ip-tab:nth-child(4) { display: none; } }
+
+/* Phone: leadership, reports and alignment (issue #386, slice M5) */
+@media (max-width: 699px) {
+  .lead-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lead-scroll { overflow: visible; }
+  .lead-table, .lead-table thead, .lead-table tbody, .lead-table tr, .lead-table th, .lead-table td { display: block; }
+  .lead-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .lead-table tr { border: 1px solid var(--grey-1); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+  .lead-table th[scope="row"] { font-weight: 600; }
+  .lead-table td { display: flex; gap: 8px; justify-content: space-between; border: 0; padding: 3px 0; height: auto; text-align: right; }
+  .lead-table td::before { content: attr(data-label); color: var(--ink-muted); text-align: left; flex: 0 0 40%; }
+  .rp-grid, .rp-ttm-grid { grid-template-columns: minmax(0, 1fr); }
+  .rp-donuts { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .rp-filters { gap: 6px; }
+  .rp-table-wrap { max-height: none; }
+  .table-wrap, .rp-table-wrap { -webkit-overflow-scrolling: touch; }
+  .page-wide { padding-top: 0; }
+  .phone-status { margin: 0; }
+}
