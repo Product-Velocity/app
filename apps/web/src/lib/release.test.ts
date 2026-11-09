@@ -22,14 +22,20 @@ describe("release fragments (issue #238)", () => {
 
   it("refuses a missing header, a bad bump, no text, and text that already carries a version", () => {
     expect(() => parseFragment("a.md", "just text")).toThrow(/header/);
-    expect(() => parseFragment("a.md", frag("major"))).toThrow(/minor or patch/);
+    expect(() => parseFragment("a.md", frag("huge"))).toThrow(/minor or patch/);
     expect(() => parseFragment("a.md", frag("patch", "short"))).toThrow(/what changed/);
     expect(() => parseFragment("a.md", frag("patch", "| 0.9.0 | 2026-10-28 | **x** a sentence long enough | |"))).toThrow(/version and date are added/);
+  });
+
+  it("accepts a major bump", () => {
+    expect(parseFragment("a.md", frag("major")).bump).toBe("major");
   });
 
   it("computes the next version", () => {
     expect(nextVersion("0.51.3", "minor")).toBe("0.52.0");
     expect(nextVersion("0.51.3", "patch")).toBe("0.51.4");
+    expect(nextVersion("0.121.3", "major")).toBe("1.0.0");
+    expect(nextVersion("1.4.2", "major")).toBe("2.0.0");
     expect(() => nextVersion("x", "minor")).toThrow();
   });
 

@@ -12,6 +12,7 @@ import { StatusStrip } from "../portfolio/status-strip";
 import { useViewRows } from "../portfolio/use-view-rows";
 import type { GridItem, Lookups } from "../portfolio/types";
 import { setQueryParam } from "../workspace/scope";
+import { StatusPill } from "../../components/status-pill";
 
 const LABEL_W = 300;
 const LINE_H = 28;
@@ -231,7 +232,7 @@ export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
           <button type="button" className="gl-open" onClick={() => openPeek(row.id)} title={`${row.item_code} ${row.initiative_name}`}>
             <span className="mono muted">{row.item_code}</span> <span className="gl-name">{row.initiative_name}</span>
           </button>
-          {health && <span className={`pill health-${slug(health)} gl-health`}>{health}</span>}
+          {health && <StatusPill value={health} className="gl-health" />}
         </div>
         <div
           className={`gbar health-bar-${slug(health || "none")}${lockReason ? " gbar-locked" : ""}${tip ? " gbar-staged" : ""}`}

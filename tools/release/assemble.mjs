@@ -6,7 +6,7 @@
 //
 // A fragment is Markdown with a small header:
 //   ---
-//   bump: minor        (minor for a feature, patch for a fix)
+//   bump: minor        (minor for a feature, patch for a fix, major only when Ashu decides a release is the next whole number, e.g. 1.0.0)
 //   ---
 //   **Title.** What changed, for the person who uses the product (this text becomes the "Key updates" cell).
 import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
@@ -24,7 +24,7 @@ export function parseFragment(name, text) {
   const head = Object.fromEntries(
     m[1].split(/\r?\n/).map((l) => /^\s*([a-z_]+)\s*:\s*(.*?)\s*$/i.exec(l)).filter(Boolean).map((x) => [x[1].toLowerCase(), x[2]]),
   );
-  if (head.bump !== "minor" && head.bump !== "patch") throw new Error(`${name}: bump must be minor or patch`);
+  if (head.bump !== "major" && head.bump !== "minor" && head.bump !== "patch") throw new Error(`${name}: bump must be major, minor or patch`);
   const plain = m[2].replace(/\s+/g, " ").trim();
   if (plain.length < 20) throw new Error(`${name}: write what changed (a title in bold and a sentence or two)`);
   if (/^\|?\s*\d+\.\d+\.\d+\s*\|/.test(plain)) throw new Error(`${name}: write only the text; the version and date are added for you`);
@@ -35,6 +35,7 @@ export function nextVersion(version, bump) {
   const m = VERSION.exec(version);
   if (!m) throw new Error(`not a version: ${version}`);
   const [maj, min, pat] = m.slice(1).map(Number);
+  if (bump === "major") return `${maj + 1}.0.0`;
   return bump === "minor" ? `${maj}.${min + 1}.0` : `${maj}.${min}.${pat + 1}`;
 }
 

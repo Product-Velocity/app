@@ -11,6 +11,6 @@ bump: minor
 **Title in bold.** What changed, for the person who uses the product, in a few sentences. Mention a migration by name when there is one.
 ```
 
-`bump: minor` for a feature, `bump: patch` for a fix. The text becomes the "Key updates" cell, so write it as one paragraph without a table. The PR description says "version assigned when merged" instead of a number.
+`bump: minor` for a feature, `bump: patch` for a fix. `bump: major` takes the version to the next whole number (0.x to 1.0.0, then 1.x to 2.0.0, with the minor and patch reset to 0); use it only when Ashu has decided a release is a milestone, never on your own. The text becomes the "Key updates" cell, so write it as one paragraph without a table. The PR description says "version assigned when merged" instead of a number.
 
 To try it locally: `node tools/release/assemble.mjs --pr "#123"` (it edits `docs/RELEASES.md` and `apps/web/package.json` and removes the fragments; do not commit that in a feature PR).
