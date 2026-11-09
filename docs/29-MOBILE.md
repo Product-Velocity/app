@@ -1,6 +1,6 @@
 # Mobile access for the rest of the platform (proposal)
 
-Status: **approved by Ashu 2026-11-09** (issue #386, `docs/requests/386-mobile-access.md`, `docs/decisions/2026-11-09-mobile-access.md`). Answers to section 9: all gates on a phone; 15/16 px type and 44 px targets; **no push notifications** (so section 4.7 and the PWA push in M4 are dropped, the inbox and email stay); Hold with a rationale instead of PRD comments; no re-authentication beyond sign-in, passkey and biometric sign-in wanted for the whole product (M6); a placeholder is an initiative failing its stage check; tablets keep desktop from 700 px. **Built: M1.**
+Status: **approved by Ashu 2026-11-09** (issue #386, `docs/requests/386-mobile-access.md`, `docs/decisions/2026-11-09-mobile-access.md`). Answers to section 9: all gates on a phone; 15/16 px type and 44 px targets; **no push notifications** (so section 4.7 and the PWA push in M4 are dropped, the inbox and email stay); Hold with a rationale instead of PRD comments; no re-authentication beyond sign-in, passkey and biometric sign-in wanted for the whole product (M6); a placeholder is an initiative failing its stage check; tablets keep desktop from 700 px. **Built: M1, M2** (M2 without the long-press sheet and the slim data load, see section 7).
 
 Scope: everything except the alignment participant screens, which are already mobile first (boards 9 to 12, 19, 26; 390 px; `docs/19-ALIGNMENT-PRIVACY.md`).
 
@@ -210,6 +210,8 @@ Each slice ends with something Ashu can click on a phone, tested at 390 px.
 | **M6** | Share Target into AI intake, passkey sign-in | Polish |
 
 CLAUDE.md says to follow `docs/06-BUILD-PLAN.md` and not start later phases early. This is a cross-cutting track, so it needs a place in the plan. Suggestion: M1 to M4 right after the phase that finishes the gates (they only use what exists), M5 with alignment results, M6 last.
+
+**M2 as built (2026-11-09).** On a phone `/cards` shows `PhoneInitiatives` (`apps/web/src/features/phone/`): sticky search (code, name, project, owner, tags), chips (Mine, New this week, Needs attention, Waiting for a decision, one per phase; phase chips widen, other chips narrow), Sort (Rank, Newest) and Group (phase, project, quarter, flat) with collapsible groups, and cards that open the initiative at `/portfolio/R-12`. The item page on a phone has a Back button, a horizontally scrolling tab row and no sync or delete actions; the existing gate strip sits above the tabs, so Request gate works from there. Not yet: the ⋯ / long-press sheet (Move to…, Copy link), phone saved views, the Updated-this-week chip, the "Incomplete" chip (needs the stage check of M3) and the slim data load (the phone still loads the same items as desktop; the load itself is unchanged). Tests: `phone-list.test.ts`, `e2e/phone.spec.ts` at 390 px with axe; screenshot `docs/screenshots/mobile-initiatives.png`.
 
 ## 8. Rules and docs this touches
 - Rules 1 to 3, 5, 6 unchanged. The audit source stays UI; optionally add the device kind ("phone") to the audit detail.
