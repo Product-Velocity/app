@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { detectMapping, parseBoard, type BoardField, type BoardInfo, type BoardMapping, type FieldRef } from "@pv/github";
 import { githubSourceControl, type ConnectionRow } from "@/lib/github/server";
 import { requireWorkspace } from "@/lib/session";
+import { PERSONAL_ACCOUNT_NOTE } from "./shared";
 
 const PATH = "/settings/integrations/github";
 export type BoardChoice = { id: string; number: number; title: string; url: string };
@@ -27,6 +28,8 @@ async function gate() {
   const installationId = connection?.installation_id;
   const org = connection?.account_login;
   if (!installationId || !org) return { ok: false, error: "This workspace is not connected to GitHub." } as const;
+  // GitHub does not let an App installed on a personal account read that account's Projects (only an organisation's): say so, never "try again"
+  if ((connection as { account_type?: string | null }).account_type === "User") return { ok: false, error: PERSONAL_ACCOUNT_NOTE } as const;
   return { ok: true, ctx, sc, installationId, org } as const;
 }
 

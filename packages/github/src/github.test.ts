@@ -355,6 +355,13 @@ describe("runConnectionDiagnostics", () => {
     const on = (await runConnectionDiagnostics({ sc: fake({ getInstallation: inst({ issues: "write", metadata: "read", organization_projects: "write" }) }), ...input })).find((x) => x.id === "boards")!;
     expect(on.verdict).toBe("pass");
   });
+  it("on a personal account, says that boards cannot be linked at all, instead of asking for a permission that cannot help", async () => {
+    const user = async () => ({ id: 1, accountLogin: "dev-nbm", accountType: "User" as const, repositorySelection: "selected" as const, permissions: { issues: "write", metadata: "read", organization_projects: "write" }, events: ["issues"], suspended: false });
+    const r = (await runConnectionDiagnostics({ sc: fake({ getInstallation: user }), ...input })).find((x) => x.id === "boards")!;
+    expect(r.verdict).toBe("info");
+    expect(r.summary).toMatch(/personal GitHub account/);
+    expect(r.fix).toBeUndefined();
+  });
   it("stops with a fix when GitHub does not know the installation", async () => {
     const r = await runConnectionDiagnostics({ sc: fake({ getInstallation: async () => null }), ...input });
     expect(r).toHaveLength(1);

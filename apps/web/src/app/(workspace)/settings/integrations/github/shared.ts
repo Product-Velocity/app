@@ -28,3 +28,6 @@ export const STATE: Record<ConnectionRow["state"], string> = {
   suspended: "Suspended on GitHub",
   disconnected: "Not connected",
 };
+
+/** Why a board cannot be linked when the App is installed on a personal GitHub account (issue #364 follow-up). */
+export const PERSONAL_ACCOUNT_NOTE = "Project boards can only be linked for a GitHub organisation. GitHub does not let an App read the Projects of a personal account, so this connection cannot link a board. Issues, labels and Sync work as usual; to use a board, move the repository into a GitHub organisation and connect that.";

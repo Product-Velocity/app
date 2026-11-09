@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { SelectField } from "@/components/search-list";
 import type { Board } from "@pv/github";
+import { PERSONAL_ACCOUNT_NOTE } from "./shared";
 import { listBoardChoices, loadBoardFields, saveBoardLink, unlinkBoard, type BoardChoice, type BoardFieldChoice } from "./board-actions";
 
 type ProjectBoard = { id: string; name: string; tracker: string | null; board: Board | null };
@@ -16,7 +17,7 @@ const SLOTS: { key: "priority" | "group" | "dueDate" | "size" | "status"; pv: st
 ];
 
 /** Links each PV project to an organisation GitHub Project (board) and shows how PV's fields map to the board's. */
-export function BoardsCard({ projects, canEdit }: { projects: ProjectBoard[]; canEdit: boolean }) {
+export function BoardsCard({ projects, canEdit, personalAccount = false }: { projects: ProjectBoard[]; canEdit: boolean; /** The App is installed on a personal GitHub account: its Projects cannot be read by an App. */ personalAccount?: boolean }) {
   return (
     <div className="card stack">
       <h2>GitHub Project boards</h2>
@@ -24,7 +25,8 @@ export function BoardsCard({ projects, canEdit }: { projects: ProjectBoard[]; ca
         Link a project to one GitHub Project (an organisation board). Sending an initiative to GitHub then also adds it to the board and fills Priority (from MoSCoW), Initiative Group, Due date (from the G2M date) and Size (from the effort estimate). Won&rsquo;t initiatives stay in Product Velocity and are not added.
         Delivery Status is read from the board and never written. The epics and tasks under an initiative (all levels) are added to the board by a confirmed send, without field values: engineers and agents set those in GitHub.
       </p>
-      {projects.map((p) => <BoardRow key={p.id} project={p} canEdit={canEdit} />)}
+      {personalAccount && <p role="note" className="notice">{PERSONAL_ACCOUNT_NOTE}</p>}
+      {projects.map((p) => <BoardRow key={p.id} project={p} canEdit={canEdit && !personalAccount} />)}
     </div>
   );
 }
