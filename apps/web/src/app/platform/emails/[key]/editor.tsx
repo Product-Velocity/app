@@ -76,7 +76,7 @@ export function TemplateEditor({ templateKey, initial, siteUrl, isAuth, hasDraft
               Publish draft
             </button>
           </form>
-          <form action={discardAction}><button className="btn" type="submit" disabled={!hasDraft}>Discard draft</button></form>
+          <form action={discardAction}><button className="btn btn-danger-quiet" type="submit" disabled={!hasDraft}>Discard draft</button></form>
         </div>
         <p className="muted">
           {hasDraft ? "A draft does not change what is sent until you publish it." : "No draft yet."} {hasPublished ? "The published wording is being sent." : "Nothing is published: the code default is being sent."}

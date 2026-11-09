@@ -36,4 +36,17 @@ describe("design tokens (docs/07)", () => {
       expect(token(`${s}-bg`)).toMatch(/^#[0-9a-f]{6}$/);
     }
   });
+
+  it("defines the danger and confirm button colours with readable white text", () => {
+    for (const n of ["danger", "danger-hover", "confirm", "confirm-hover"]) expect(token(n)).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
+  it("uses the brand guide's health pill pairs", () => {
+    expect(token("health-good-bg")).toBe("#dcfce7");
+    expect(token("health-good-fg")).toBe("#14532d");
+    expect(token("health-risk-fg")).toBe("#7a4a00");
+    expect(token("health-bad-bg")).toBe("#fde8e8");
+    expect(token("health-bad-fg")).toBe("#8a1c1c");
+    expect(token("health-neutral-fg")).toBe("#374151");
+  });
 });

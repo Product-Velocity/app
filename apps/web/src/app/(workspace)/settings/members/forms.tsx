@@ -53,7 +53,7 @@ export function InviteForm({ workspaceName, emailEnabled }: { workspaceName: str
             </dl>
             <div className="row-form">
               {emailEnabled
-                ? <button className="btn btn-primary" type="submit" name="delivery" value="email" disabled={pending}>{pending ? "Sending…" : "Send invitation email"}</button>
+                ? <button className="btn btn-confirm" type="submit" name="delivery" value="email" disabled={pending}>{pending ? "Sending…" : "Send invitation email"}</button>
                 : <span className="muted">Email is not set up on this deployment yet, so the link has to be sent by you.</span>}
               <button className={emailEnabled ? "btn" : "btn btn-primary"} type="submit" name="delivery" value="link" disabled={pending}>Create link only</button>
               <button className="btn" type="button" onClick={() => setStep("edit")}>Back</button>
