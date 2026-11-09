@@ -578,6 +578,14 @@ a.btn { display: inline-flex; align-items: center; color: inherit; text-decorati
 .help-list > div { display: grid; grid-template-columns: 200px 1fr; gap: 12px; }
 .help-list dt, .help-list dd { margin: 0; }
 kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3); border: 1px solid var(--grey-1); border-radius: 4px; padding: 1px 6px; }
+.help-connector-box { display: flex; align-items: flex-end; gap: 8px; background: var(--grey-3, #f3f4f7); border: 1px solid var(--grey-1, #e1e5eb); border-radius: 6px; padding: 10px 12px; margin: 10px 0 14px; }
+.help-connector-field { flex: 1; display: grid; gap: 4px; min-width: 0; }
+.help-connector-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-muted, #5b6475); }
+.help-connector-input { width: 100%; height: 32px; font: 12.5px/1.4 var(--font-mono, monospace); background: var(--bg, #fff); border: 1px solid #c9ceda; border-radius: 4px; padding: 0 8px; color: var(--ink, #1b1f2a); }
+.help-connector-copy { height: 32px; padding: 0 14px; font-weight: 600; white-space: nowrap; }
+.help-details { margin: 10px 0 14px; border: 1px solid var(--grey-2, #ebeef2); border-radius: 6px; padding: 8px 12px; background: var(--bg, #fff); }
+.help-details summary { cursor: pointer; font-weight: 600; font-size: 12.5px; color: var(--blue, #3347d9); user-select: none; }
+.help-details summary:hover { text-decoration: underline; }
 .view-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 
 /* Date fields (0.23.0): typed in your own format, or picked from the calendar button */

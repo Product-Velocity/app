@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { ShortcutsPanel } from "./help-menu";
 import {
   AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_INTRO, AGENT_TABS, AGENT_TIPS, AGENT_USE_CASES, type AgentTabId, COLUMNS_NOTE, COLUMN_ROWS, UPDATE_LEGEND, FLOW_CREATE, FLOW_LIFECYCLE, ATTENTION_INTRO, ATTENTION_TABLE, GATES_INTRO, GATES_TABLE, GATES_STEPS, GATES_OUTCOMES, GATES_NOTES, STATUS_FROM_TRACKER, STATUS_INTRO, STATUS_NEXT_IN_PV, STATUS_NOTES, STATUS_TO_TRACKER, FLOW_READ, LIFECYCLE_NOTES,
@@ -26,11 +26,55 @@ function SimpleTable({ caption, table }: { caption: string; table: Table }) {
   );
 }
 
+function ConnectorUrlBox({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="help-connector-box">
+      <div className="help-connector-field">
+        <span className="help-connector-label">Connector URL (MCP Endpoint)</span>
+        <input
+          readOnly
+          value={url}
+          className="help-connector-input"
+          onFocus={(e) => e.currentTarget.select()}
+        />
+      </div>
+      <button
+        type="button"
+        className="btn help-connector-copy"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          } catch {
+            setCopied(false);
+          }
+        }}
+      >
+        {copied ? "Copied" : "Copy URL"}
+      </button>
+    </div>
+  );
+}
+
+const emptySubscribe = () => () => {};
+
+function getOriginSnapshot() {
+  return typeof window !== "undefined" ? window.location.origin : "https://productvelocity.app";
+}
+
+function getServerOriginSnapshot() {
+  return "https://productvelocity.app";
+}
+
 /** Help in the top bar: what each column is and where it syncs, how content flows through the product, and how to use Claude. */
 export function HelpGuide() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<TabId>("columns");
   const [agent, setAgent] = useState<AgentTabId>("use-cases");
+  const origin = useSyncExternalStore(emptySubscribe, getOriginSnapshot, getServerOriginSnapshot);
+  const connectorUrl = `${origin}/mcp`;
   const [query, setQuery] = useState("");
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const shown = COLUMN_ROWS.filter((r) => { const hay = `${r.column} ${r.what} ${r.github} ${r.jira} ${r.access} ${r.updated} ${r.group} ${r.key}`.toLowerCase(); return words.every((w) => hay.includes(w)); });
@@ -135,8 +179,22 @@ export function HelpGuide() {
                 {(["claude", "chatgpt", "gemini"] as const).map((k) => agent === k && (
                   <div key={k} role="tabpanel" id={`help-agent-panel-${k}`} aria-labelledby={`help-agent-tab-${k}`}>
                     <h3>{AGENT_GUIDES[k].title}: set up</h3>
-                    <ol className="help-notes">{AGENT_GUIDES[k].setup.map((n) => <li key={n}>{n}</li>)}</ol>
-                    {AGENT_GUIDES[k].snippet && <pre className="code-block">{AGENT_GUIDES[k].snippet}</pre>}
+                    <ConnectorUrlBox url={connectorUrl} />
+                    <ol className="help-notes">
+                      {AGENT_GUIDES[k].setup.map((n) => (
+                        <li key={n}>
+                          {n.replaceAll("the connector URL shown under Connect an AI assistant", connectorUrl)}
+                        </li>
+                      ))}
+                    </ol>
+                    {AGENT_GUIDES[k].snippet && (
+                      <details className="help-details">
+                        <summary>Advanced: CLI and settings.json setup (Click to expand)</summary>
+                        <pre className="code-block" style={{ marginTop: "8px" }}>
+                          {AGENT_GUIDES[k].snippet.replaceAll("the connector URL shown under Connect an AI assistant", connectorUrl)}
+                        </pre>
+                      </details>
+                    )}
                     <h3>Onboarding</h3>
                     <ol className="help-notes">{AGENT_GUIDES[k].onboarding.map((n) => <li key={n}>{n}</li>)}</ol>
                     <SimpleTable caption={`Features and commands in ${k === "chatgpt" ? "ChatGPT" : k === "claude" ? "Claude" : "Gemini"}`} table={AGENT_GUIDES[k].features} />
