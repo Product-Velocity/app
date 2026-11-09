@@ -156,13 +156,18 @@ Board 2 shows flat child issues (should be epics + tasks); capacity planner igno
 
 
 ## S10: Supabase Send Email hook and branded emails (issue #370)
-**Status: not run.** Code for the hook exists but is switched off (`SEND_EMAIL_HOOK_SECRET` unset). Needs Ashu's Supabase project and Resend account. Evidence level for everything below: **Documented from memory, unverified**.
+**Status (2026-11-09): partly run, first real send works.** Hook enabled on the production project (Provelo) by Ashu after PR #380 was deployed; Resend account for Product Velocity, both domains verified (`productvelocity.app`, `product-velocity.com`), sender `Product Velocity <noreply@productvelocity.app>`, open and click tracking off. No addresses or tokens are recorded here (public repo).
 
-| Question | Assumed in code | To confirm |
+| Question | Result | Evidence |
 |---|---|---|
-| Signing scheme | Standard Webhooks: headers `webhook-id`, `webhook-timestamp`, `webhook-signature` (`v1,<base64>`), secret `v1,whsec_<base64>` | Against current Supabase docs and a real call |
-| Payload | `user.email`, `email_data.{token, token_hash, redirect_to, site_url, email_action_type}` | Same |
-| Plan availability, allowed response time, behaviour on failure | Unknown | Measure in a test project |
-| One email of each type (signup, magiclink, recovery, reauthentication, invite, email_change) with its link opened in another browser | Unit-tested only | Real send |
-| Resend domain (SPF, DKIM) and rate limits | Already used for invitations | Confirm limits |
-| Where editable copy lives | Platform table, schema not exposed through the API | Decide and write the isolation test (phase 4) |
+| Hook available on our plan | Yes: Authentication > Auth Hooks > Send Email (shown as Beta), type HTTPS endpoint, secret `v1,whsec_...` | Tested (dashboard) |
+| Signing scheme and payload | Standard Webhooks (`webhook-id`, `webhook-timestamp`, `webhook-signature`); payload `user.email`, `email_data.{token, token_hash, redirect_to, site_url, email_action_type}`; success is `{}` with 200, errors `{error:{http_code,message}}` | Documented (Supabase docs example for the hook with Resend) and **tested** for the sign-in link: the signature verified and the email was sent |
+| Unsigned request | 401 | Tested against production |
+| Sign-in link (magiclink) | Email arrived in the inbox, branded layout, link signed the person in. Token hash had the `pkce_` prefix and worked through `/auth/callback` (`type=email`) | Tested, same browser |
+| Resend sending, SPF/DKIM | Test message delivered to a Gmail inbox from `productvelocity.app` | Tested |
+| Response time, behaviour on failure, rate limits | Not measured | Open |
+| Link opened in **another browser** | Not tested yet | Open |
+| Confirm sign-up, reset password, confirmation code, invite, email change | Unit-tested only, not sent for real. Which token hash goes to which address on an email change is from memory of GoTrue | Open |
+| Where editable copy lives | Not decided (phase 4) | Open |
+
+Switch-off: disable the hook in Authentication > Auth Hooks; Supabase then uses the templates pasted from `apps/web/email-templates/` (route A).
