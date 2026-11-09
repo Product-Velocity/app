@@ -197,9 +197,11 @@ a.btn { display: inline-flex; align-items: center; color: inherit; text-decorati
 .strip-notice { background: var(--amber-bg); color: var(--amber-text); }
 
 .pill { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: var(--radius-pill); font-size: 12px; line-height: 20px; font-weight: 500; white-space: nowrap; vertical-align: middle; }
-.health-on-track { background: var(--green-bg); color: var(--green-text); }
-.health-at-risk { background: var(--amber-bg); color: var(--amber-text); }
-.health-delayed, .health-blocked { background: var(--red-bg); color: var(--red-text); }
+.health-on-track, .tone-good { background: var(--health-good-bg); color: var(--health-good-fg); }
+.health-at-risk, .tone-risk { background: var(--health-risk-bg); color: var(--health-risk-fg); }
+.health-delayed, .health-blocked, .health-off-track, .tone-bad { background: var(--health-bad-bg); color: var(--health-bad-fg); }
+.tone-info { background: var(--health-info-bg); color: var(--health-info-fg); }
+.tone-neutral, .health-not-started { background: var(--health-neutral-bg); color: var(--health-neutral-fg); }
 .field-header { display: flex; flex-direction: column; line-height: 1.2; overflow: hidden; }
 .field-header-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .field-header-note { font-size: 11px; font-weight: 500; color: #5b6272; }

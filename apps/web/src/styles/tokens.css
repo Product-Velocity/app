@@ -32,6 +32,18 @@
   --radius-pill: 999px;
   --shadow-float: 0 4px 16px rgba(17, 24, 39, 0.14);
 
+  /* Health and status pills (brand guide). The pill always carries its words. */
+  --health-good-bg: #dcfce7;
+  --health-good-fg: #14532d;
+  --health-risk-bg: #fdf0d5;
+  --health-risk-fg: #7a4a00;
+  --health-bad-bg: #fde8e8;
+  --health-bad-fg: #8a1c1c;
+  --health-neutral-bg: #f3f4f6;
+  --health-neutral-fg: #374151;
+  --health-info-bg: #e8ebfd;
+  --health-info-fg: #2433a8;
+
   /* Button roles. Danger = delete/remove/revoke; confirm (green) is reserved for the few actions that send or decide. */
   --danger: #b42318;
   --danger-hover: #912018;
