@@ -80,3 +80,4 @@ Off by default. To try it: (1) Supabase dashboard, **Authentication → OAuth Se
 
 - Send Email hook (issue #370, **off by default**): `SEND_EMAIL_HOOK_SECRET` (Secret; the hook secret Supabase shows when you add the hook) and `SITE_URL`. Do not enable the hook in Supabase until spike S10 in `docs/08` is done. Route A templates stay in use until then.
 - Resend webhook (issue #370): the same webhook (`/api/resend/webhook`) now also updates the delivery state in the send log (`email_send_log`) for every template, not only invitations. No new variable.
+- Editable email wording (issue #370, phase 4): optional `EMAIL_TEMPLATE_OVERRIDES=off` makes every email use its code default (kill switch; nothing is read from the store). Apply the two phase 4 migrations before merging the PR (the deploy-time check fails the build otherwise).

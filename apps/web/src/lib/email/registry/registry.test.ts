@@ -80,6 +80,12 @@ describe("no send site without a registry entry", () => {
   it("only the logged wrapper talks to the email service", () => {
     expect(src.filter((x) => /\bsendEmail\(/.test(x.s) && x.f !== "lib/email/resend.ts").map((x) => x.f)).toEqual(["lib/email/send.ts"]);
   });
+  it("every file that sends an email also loads the published wording, so an edit applies everywhere", () => {
+    const senders = src.filter((x) => /sendLogged\(/.test(x.s) && !["lib/email/send.ts", "lib/alignment-send.ts", "app/platform/emails/[key]/actions.ts"].includes(x.f));
+    expect(senders.length).toBeGreaterThan(4);
+    for (const x of senders) expect(x.s, x.f).toContain("loadEmailOverride");
+    expect(src.find((x) => x.f === "lib/alignment-send.ts")!.s).toContain("deps.override");
+  });
   it("every sendLogged call names a key that is in the registry", () => {
     const used = src.filter((x) => x.f !== "lib/email/send.ts").flatMap((x) => [...x.s.matchAll(/sendLogged\(\s*"([^"]+)"/g)].map((m) => m[1]!));
     expect(used.length).toBeGreaterThan(4);
@@ -173,5 +179,25 @@ describe("app emails keep their current wording", () => {
     expect(nl.text).toContain("Hello there,");
     expect(nl.text).toContain("The earlier link no longer works.");
     for (const m of [req, ok, code, nl]) expect(m.text + m.html).not.toMatch(/\{\{|\}\}/);
+  });
+});
+
+describe("fallback to the code default (issue #370)", () => {
+  it("returns the published wording only when it is valid; every failure gives null, never an error", async () => {
+    const { resolveOverride } = await import("../override-core");
+    const row = { subject: "Hi {{product}}", preheader: "", heading: "Hello", body: "Body {{expires}}", button: "Go", note: "Note" };
+    const quiet = () => {};
+    expect(await resolveOverride("auth.sign-in-link", async () => row, quiet)).toMatchObject({ heading: "Hello" });
+    expect(await resolveOverride("auth.sign-in-link", async () => null, quiet)).toBeNull();
+    expect(await resolveOverride("auth.sign-in-link", async () => { throw new Error("store off"); }, quiet)).toBeNull();
+    expect(await resolveOverride("auth.sign-in-link", async () => ({ ...row, body: "<script>x</script>" }), quiet)).toBeNull();
+    expect(await resolveOverride("auth.sign-in-link", async () => ({ ...row, body: "Hi {{nobody}}" }), quiet)).toBeNull();
+  });
+  it("with the store off, every auth email still renders from the code defaults", () => {
+    for (const a of ["signup", "magiclink", "recovery", "reauthentication", "invite", "email_change"]) {
+      const p = planAuthEmail({ user: { email: "a@b.test" }, email_data: { token: "123456", token_hash: "h", email_action_type: a } }, "https://app.test", null);
+      expect(p.ok, a).toBe(true);
+      if (p.ok) expect(p.mails[0]!.mail.subject.length).toBeGreaterThan(5);
+    }
   });
 });

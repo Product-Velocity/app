@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendLogged } from "@/lib/email/send";
+import { loadEmailOverride } from "@/lib/email/override";
 import { siteUrl } from "@/lib/site-url";
 import type { SendDeps } from "@/lib/alignment-send";
 
@@ -16,6 +17,7 @@ export async function serverSendDeps(): Promise<SendDeps> {
       return { id: m.id, kind: m.kind, subject: m.subject, body: m.body, status: m.status, sessionName: s?.name ?? "", closesAt: s?.closes_at ?? null };
     },
     send: (key, m) => sendLogged(key, m),
+    override: loadEmailOverride,
     site: await siteUrl(),
   };
 }

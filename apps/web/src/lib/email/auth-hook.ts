@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { renderTemplate, templateForAction, type EmailKey, type Rendered } from "./registry/registry";
+import { renderTemplate, templateForAction, type EmailKey, type Rendered, type TemplateText } from "./registry/registry";
 
 /**
  * Supabase Send Email hook (issue #370). Supabase signs hook calls with the Standard Webhooks scheme: headers webhook-id,
@@ -34,7 +34,7 @@ export type HookPlan = { ok: true; mails: { key: EmailKey; to: string; mail: Ren
  * [SPIKE] which hash goes to which address on an email change (token_hash to the current address, token_hash_new to the new one) is
  * from memory of GoTrue and unverified (docs/08, S10).
  */
-export function planAuthEmail(payload: HookPayload, appUrl: string): HookPlan {
+export function planAuthEmail(payload: HookPayload, appUrl: string, override?: Partial<TemplateText> | null): HookPlan {
   const to = payload.user?.email;
   const d = payload.email_data;
   const action = d?.email_action_type;
@@ -58,7 +58,7 @@ export function planAuthEmail(payload: HookPayload, appUrl: string): HookPlan {
   const make = (address: string, buttonUrl: string | null, code: string | null): { key: EmailKey; to: string; mail: Rendered } => ({
     key: t.key,
     to: address,
-    mail: renderTemplate(t, { values: { link: buttonUrl, code, expires: "60 minutes" }, siteUrl: base, buttonUrl }),
+    mail: renderTemplate(t, { values: { link: buttonUrl, code, expires: "60 minutes" }, siteUrl: base, buttonUrl, override }),
   });
   if (t.linkType) {
     const first = link(d.token_hash);
