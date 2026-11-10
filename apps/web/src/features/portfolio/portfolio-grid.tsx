@@ -33,6 +33,7 @@ import { GATE_ACTION_EVENT, type GateActionKind } from "../gates/gate-actions";
 import { agoLabel, latestTime } from "./last-sync";
 import { ImportDialog } from "./import-dialog";
 import { QuickAddBar } from "./quick-add-bar";
+import { OverflowBar, type OverflowItem } from "@/components/overflow-bar";
 import type { PortfolioController } from "./controller";
 import { StatusAlerts, StatusInline, useStatus } from "./status-strip";
 import type { GridItem, Lookups } from "./types";
@@ -594,34 +595,62 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
               onKeyDown={(e) => { if (e.key === "Escape") setSearchText(""); }}
             />
           </label>
-          {completedCount > 0 && !asksForPhase && (
-            <button type="button" className={includeCompleted ? "tool-btn tool-btn-on" : "tool-btn"} aria-pressed={includeCompleted} title="Completed initiatives are hidden by default so the grid shows what is being worked on"
-              onClick={() => { const next = !includeCompleted; setIncludeCompleted(next); setQueryParam("completed", next ? "1" : null); }}>
-              {includeCompleted ? "Hide completed" : `Include completed (${completedCount})`}
-            </button>
-          )}
           <span className="pvbar-sep" aria-hidden="true" />
-          <Popover label={selected.length > 0 ? `Export ${selected.length}` : "Export"} active={selected.length > 0}>
-            {(close) => (
-              <div role="menu" aria-label="Export">
-                <button type="button" role="menuitem" className="scope-item" onClick={() => { close(); exportRows(); }}>
-                  <span>CSV file ({exportCount.toLocaleString("en-GB")} {exportCount === 1 ? "row" : "rows"}{selected.length > 0 ? ", the selected ones" : filtered ? ", with the filters" : ""})</span>
-                </button>
-                <p className="scope-empty">The columns you see, in your date format. More formats come later.</p>
-              </div>
-            )}
-          </Popover>
-          {controller.canEdit && lookups.projects.length > 0 && <button type="button" className="tool-btn" onClick={() => setImportText("")}>Paste table</button>}
-          {controller.canEdit && (() => {
-            const platforms = syncPlatforms(lookups, (selected.length > 0 ? selected : visibleRows).map((r) => r.home_project));
-            return platforms.length > 0 ? (
-              <button type="button" className="tool-btn" onClick={() => setGithubIds(syncIds)} title={syncTitle(platforms)}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M20 12a8 8 0 0 1-14 5M4 12a8 8 0 0 1 14-5" /><path d="M18 3v4h-4M6 21v-4h4" /></svg>
-                {syncLabel(platforms, selected.length)}
-              </button>
-            ) : (
-              <button type="button" className="tool-btn" disabled title={syncTitle([])}>{syncLabel([])}</button>
-            );
+          {(() => {
+            // what does not fit moves into "More" (issue #403): Paste table first, then Export, Include completed, Sync
+            const items: OverflowItem[] = [];
+            if (completedCount > 0 && !asksForPhase) {
+              const toggle = () => { const next = !includeCompleted; setIncludeCompleted(next); setQueryParam("completed", next ? "1" : null); };
+              const label = includeCompleted ? "Hide completed" : `Include completed (${completedCount})`;
+              items.push({
+                id: "completed", rank: 2,
+                node: (
+                  <button type="button" className={includeCompleted ? "tool-btn tool-btn-on" : "tool-btn"} aria-pressed={includeCompleted} title="Completed initiatives are hidden by default so the grid shows what is being worked on" onClick={toggle}>{label}</button>
+                ),
+                entry: { label, active: includeCompleted, onSelect: toggle },
+              });
+            }
+            items.push({
+              id: "export", rank: 3,
+              node: (
+                <Popover label={selected.length > 0 ? `Export ${selected.length}` : "Export"} active={selected.length > 0}>
+                  {(close) => (
+                    <div role="menu" aria-label="Export">
+                      <button type="button" role="menuitem" className="scope-item" onClick={() => { close(); exportRows(); }}>
+                        <span>CSV file ({exportCount.toLocaleString("en-GB")} {exportCount === 1 ? "row" : "rows"}{selected.length > 0 ? ", the selected ones" : filtered ? ", with the filters" : ""})</span>
+                      </button>
+                      <p className="scope-empty">The columns you see, in your date format. More formats come later.</p>
+                    </div>
+                  )}
+                </Popover>
+              ),
+              entry: { label: `Export CSV (${exportCount.toLocaleString("en-GB")} ${exportCount === 1 ? "row" : "rows"})`, onSelect: exportRows, title: "The columns you see, in your date format" },
+            });
+            if (controller.canEdit && lookups.projects.length > 0) {
+              items.push({
+                id: "paste", rank: 4,
+                node: <button type="button" className="tool-btn" onClick={() => setImportText("")}>Paste table</button>,
+                entry: { label: "Paste table", onSelect: () => setImportText("") },
+              });
+            }
+            if (controller.canEdit) {
+              const platforms = syncPlatforms(lookups, (selected.length > 0 ? selected : visibleRows).map((r) => r.home_project));
+              const can = platforms.length > 0;
+              const label = syncLabel(platforms, selected.length);
+              items.push({
+                id: "sync", rank: 1,
+                node: can ? (
+                  <button type="button" className="tool-btn" onClick={() => setGithubIds(syncIds)} title={syncTitle(platforms)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M20 12a8 8 0 0 1-14 5M4 12a8 8 0 0 1 14-5" /><path d="M18 3v4h-4M6 21v-4h4" /></svg>
+                    {label}
+                  </button>
+                ) : (
+                  <button type="button" className="tool-btn" disabled title={syncTitle([])}>{syncLabel([])}</button>
+                ),
+                entry: { label: can ? label : syncLabel([]), disabled: !can, title: syncTitle(can ? platforms : []), onSelect: () => setGithubIds(syncIds) },
+              });
+            }
+            return <OverflowBar items={items} label="More tools" moreLabel="More tools" />;
           })()}
           <StatusInline controller={controller} />
         </div>
