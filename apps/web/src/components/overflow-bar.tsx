@@ -38,6 +38,7 @@ const MORE_FALLBACK = 40;
  * Pinned items and items you can only reach by a menu entry stay reachable by keyboard at every width.
  */
 export function OverflowBar({ items, label, moreLabel = "More", className = "" }: { items: OverflowItem[]; label: string; moreLabel?: string; className?: string }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLSpanElement>(null);
   const widths = useRef(new Map<string, number>());
@@ -46,42 +47,46 @@ export function OverflowBar({ items, label, moreLabel = "More", className = "" }
   const itemsKey = items.map((i) => `${i.id}:${i.rank}:${i.pinned ? 1 : 0}`).join("|");
 
   const measure = useCallback(() => {
+    const wrap = wrapRef.current;
     const row = rowRef.current;
-    if (!row) return;
+    if (!wrap || !row) return;
     for (const el of Array.from(row.querySelectorAll<HTMLElement>("[data-ov-id]"))) {
       const w = el.getBoundingClientRect().width;
       if (w > 0) widths.current.set(el.dataset.ovId!, Math.ceil(w));
     }
     const moreW = moreRef.current ? Math.ceil(moreRef.current.getBoundingClientRect().width) : MORE_FALLBACK;
+    // read the room with the greedy rules of the stylesheet, not with last time's sizes
+    wrap.style.flex = "";
+    row.style.flex = "";
     // while the More button is shown the row is narrower by the button and a gap
-    row.style.flex = ""; // read the room with the greedy rule of the stylesheet, not last time's size
     const full = row.clientWidth + (moreRef.current ? moreW + GAP : 0);
-    // then the row asks for what all its items need and no more, so a neighbour that can give way (search, the "Last: ..." text) does
     const all = items.map((i) => widths.current.get(i.id));
-    if (all.every((w) => w !== undefined)) row.style.flex = `0 1 ${all.reduce<number>((a, w) => a + (w ?? 0), 0) + Math.max(0, all.length - 1) * GAP}px`;
     const next = fitItems({
       items: items.map((i) => ({ id: i.id, width: widths.current.get(i.id) ?? 0, rank: i.rank, pinned: i.pinned })),
       available: full,
       moreWidth: moreW || MORE_FALLBACK,
       gap: GAP,
     });
+    // then the block asks for what all its items and the button need and no more, so a neighbour that can give way (search, the "Last: ..." text) does
+    row.style.flex = "0 1 auto";
+    if (all.every((w) => w !== undefined)) wrap.style.flex = `0 1 ${all.reduce<number>((a, w) => a + (w ?? 0), 0) + Math.max(0, all.length - 1) * GAP + moreW + GAP}px`;
     setHidden((prev) => (prev.join("|") === next.join("|") ? prev : next));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemsKey]);
 
   useLayoutEffect(() => { measure(); }); // every render: a label that grows (Export 3) changes the widths
   useLayoutEffect(() => {
-    const row = rowRef.current;
-    if (!row || typeof ResizeObserver === "undefined") return;
+    const wrap = wrapRef.current;
+    if (!wrap || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(() => measure());
-    ro.observe(row);
+    ro.observe(wrap);
     return () => ro.disconnect();
   }, [measure, hiddenKey]);
 
   const out = items.filter((i) => hidden.includes(i.id));
   const dot = out.some((i) => i.entry.active);
   return (
-    <>
+    <div ref={wrapRef} className="ov-wrap">
       <div ref={rowRef} className={`ov-row ${className}`.trim()} role="group" aria-label={label}>
         {items.map((i) => (
           <span key={i.id} data-ov-id={i.id} className="ov-item" hidden={hidden.includes(i.id)}>
@@ -110,7 +115,7 @@ export function OverflowBar({ items, label, moreLabel = "More", className = "" }
           </Popover>
         </span>
       )}
-    </>
+    </div>
   );
 }
 

@@ -595,7 +595,6 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
               onKeyDown={(e) => { if (e.key === "Escape") setSearchText(""); }}
             />
           </label>
-          <span className="pvbar-sep" aria-hidden="true" />
           {(() => {
             // what does not fit moves into "More" (issue #403): Paste table first, then Export, Include completed, Sync
             const items: OverflowItem[] = [];
