@@ -87,7 +87,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
       field: f.key as never,
       headerName: f.name,
       headerComponent: FieldHeader,
-      headerComponentParams: { phase: f.key === "project_rank" || f.mode === "locked" || f.storage.startsWith("GitHub-synced") ? 1 : f.phase, locked: f.mode === "locked" || f.storage.startsWith("GitHub-synced"), from: BOTH_TRACKERS.has(f.key) ? "from GitHub or Jira" : "from GitHub" },
+      headerComponentParams: { phase: isShipped(f) || f.mode === "locked" || f.storage.startsWith("GitHub-synced") ? 1 : f.phase, locked: f.mode === "locked" || f.storage.startsWith("GitHub-synced"), from: BOTH_TRACKERS.has(f.key) ? "from GitHub or Jira" : "from GitHub" },
       headerTooltip: f.description ?? f.name,
       width: WIDE[f.key] ?? WIDTH[f.type] ?? 140,
       hide: !visible.has(f.key) && !(CORE_COLUMNS as readonly string[]).includes(f.key),

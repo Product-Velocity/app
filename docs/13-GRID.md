@@ -81,6 +81,7 @@ Controller and domain unit tests, Supabase source tests with a fake client, 20 b
 _Status: the floating bars (0.20.0) were replaced in 0.22.0, see "Layout of the head (0.22.0)" below; the name, health pill and group summary rows stay._
 - **Name:** Initiative Name is semibold/bold; IDs and other text stay regular.
 - **Health pill:** compact (about 20 px high, 12 px text) so it fits a 30–36 px row; no icon. The word is the signal ("On track", "At risk", "Off track"); colours meet AA contrast on the pill background.
+- **Crowd columns (issue #393).** Crowd Rank, Crowd Score, Consensus and Votes are read-only and computed from the latest closed alignment session that included the initiative (aggregates only; admins always, other members only if the session lets participants see results). Empty when there is none. A tie shows its shared place as a number; the item panel writes it as `=2`. Crowd Rank is in the Prioritisation view.
 - **Group summary row** (only when grouped): only the group name, the item count and the health breakdown in words ("3 On track · 1 At risk"), computed on the filtered rows. No column aggregates. Collapse / expand stays.
 - **Floating bars:** the bulk bar overlays the bottom of the grid area (fixed, centred, shadow) and never changes the grid height or scroll position; it appears with at least one selected row. The quick-add bar floats directly above the grid (and always above the bulk bar when both are shown (decided)) and stays visible while scrolling. The autosave strip stays where it is.
 
