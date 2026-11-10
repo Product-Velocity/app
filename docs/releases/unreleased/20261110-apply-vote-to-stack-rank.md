@@ -1,4 +1,0 @@
----
-bump: minor
----
-**Apply a vote to the Stack Rank (issue #394).** On the results page of a closed alignment session, admins now see the order the vote suggests next to the current Stack Rank, with every move written in words ("up 5", "down 8", "stays"). Tick the initiatives to include, review the list, then apply: the voted initiatives swap among the positions they already hold, so nothing outside the vote moves, and ties keep their current order. It is one change in the audit log, the page shows who applied what and when, and **Undo** puts the previous order back exactly as long as nobody has ranked since. If the Stack Rank changed after you looked, nothing is applied and you are asked again. Claude, the MCP server and service accounts cannot apply or undo. The effect on the fit line is not shown yet (capacity planning is not built). New migration `20261110010901_alignment_rank_apply.sql` (a new table and two functions; nothing dropped).
