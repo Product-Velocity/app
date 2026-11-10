@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { agreementText, placeLabel, type CrowdRow } from "@pv/domain";
+import { agreementText, decisionText, placeLabel, type CrowdRow, type RankDecision } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import { METHODS } from "@/lib/alignment";
 
@@ -15,10 +15,13 @@ const methodName = (m: CrowdRow["method"]) => METHODS.find((x) => x.value === m)
  */
 export function AlignmentTab({ controller, itemId }: { controller: PortfolioController; itemId: string }) {
   const [rows, setRows] = useState<CrowdRow[] | null>(null);
+  const [decided, setDecided] = useState<RankDecision[]>([]);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     controller.crowd(itemId).then((r) => { if (!cancelled) { setRows(r); setError(null); } }, (e: Error) => { if (!cancelled) setError(e.message); });
+    // what admins decided and why (issue #397): the database gives it to admins only; a failure here must not hide the result
+    controller.decisions(itemId).then((d) => { if (!cancelled) setDecided(d); }, () => undefined);
     return () => { cancelled = true; };
   }, [controller, itemId]);
 
@@ -33,6 +36,10 @@ export function AlignmentTab({ controller, itemId }: { controller: PortfolioCont
     );
   }
   const [current, ...earlier] = rows as [CrowdRow, ...CrowdRow[]];
+  const decision = (sessionId: string) => {
+    const d = decided.find((x) => x.sessionId === sessionId);
+    return d ? <p className="ip-decision"><strong>Decision:</strong> {decisionText(d)} <em>Reason:</em> {d.reason}</p> : null;
+  };
   return (
     <div className="ip-alignment">
       <h3>Alignment</h3>
@@ -45,6 +52,7 @@ export function AlignmentTab({ controller, itemId }: { controller: PortfolioCont
           <div><dt>Method</dt><dd>{methodName(current.method)}</dd></div>
         </dl>
         <p className={current.contested ? "ip-contested" : "muted"}>{current.contested ? <strong>{agreementText(current)}</strong> : agreementText(current)}</p>
+        {decision(current.sessionId)}
       </section>
       <section aria-labelledby="ip-al-history">
         <h4 id="ip-al-history">Earlier sessions</h4>
@@ -54,6 +62,7 @@ export function AlignmentTab({ controller, itemId }: { controller: PortfolioCont
               <li key={r.sessionId}>
                 <p><strong>{r.sessionName}</strong> <span className="muted">closed {day(r.closedAt)}</span></p>
                 <p>Place {placeLabel(r)} of {r.ofItems} · score {r.score.toFixed(1)} · {r.voters} voted{r.contested ? " · contested" : ""}</p>
+                {decision(r.sessionId)}
               </li>
             ))}
           </ol>

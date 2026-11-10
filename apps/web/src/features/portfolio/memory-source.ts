@@ -1,4 +1,4 @@
-import { applyMove, type CrowdRow, columnOnItems, emptyRelated, FIELD_BY_KEY, type ActivityRow, type EditableField, type RelatedField, type RelatedValues } from "@pv/domain";
+import { applyMove, type CrowdRow, type RankDecision, columnOnItems, emptyRelated, FIELD_BY_KEY, type ActivityRow, type EditableField, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
 import type { IssueTreeRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
 
@@ -126,6 +126,13 @@ export class MemoryDataSource implements PortfolioDataSource {
   async loadCrowd(itemId?: string): Promise<CrowdRow[]> {
     await this.pause();
     return this.crowd.filter((r) => !itemId || r.itemId === itemId).map((r) => ({ ...r }));
+  }
+
+  /** What admins decided, set by tests. */
+  decisions: Record<string, RankDecision[]> = {};
+  async loadDecisions(itemId: string): Promise<RankDecision[]> {
+    await this.pause();
+    return (this.decisions[itemId] ?? []).map((d) => ({ ...d }));
   }
 
   async createMany(items: NewItem[], opts: { via?: "import" } = {}): Promise<CreateManyResult> {

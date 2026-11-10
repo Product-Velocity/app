@@ -19,6 +19,9 @@ test("the Alignment tab shows the current result, why groups disagree and the ea
   await expect(tab).toContainText("2 of 8");
   await expect(tab).toContainText("88.5");
   await expect(tab).toContainText("Contested: Sales rate it high, Engineering low (gap 55 of 100).");
+  // what an admin decided and why (issue #397; the database returns it to admins only, the test page returns it to whoever asks)
+  await expect(tab).toContainText("The vote suggested #2. Decided #1 (was #5).");
+  await expect(tab).toContainText("Reason: Contract signed with a launch date in Q1");
   await expect(tab.getByRole("heading", { name: "Earlier sessions" })).toBeVisible();
   await expect(tab).toContainText("Q4 planning");
   await expect(tab).toContainText("Place 3 of 8 · score 64.3 · 9 voted");

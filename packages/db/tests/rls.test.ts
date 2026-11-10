@@ -306,6 +306,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "alignment_rank_reasons",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.alignment_rank_reasons set reason = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.alignment_rank_reasons where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.alignment_rank_reasons (tenant_id, application_id, item_id, from_rank, to_rank, crowd_rank, reason) select tenant_id, application_id, item_id, 5, 6, 7, 'x' from public.alignment_rank_reasons where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.alignment_rank_reasons set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "email_send_log",
     tenantColumn: "tenant_id",
     private: true,

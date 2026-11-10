@@ -40,6 +40,15 @@ export default async function ResultsPage({ params, searchParams }: { params: Pr
     ? await supabase.from("alignment_rank_applications").select("id, created_at, created_by, moved, scope, undone_at").eq("tenant_id", active.tenantId).eq("session_id", id).order("created_at", { ascending: false })
     : { data: [] };
   const applications = (applied ?? []) as { id: string; created_at: string; created_by: string | null; moved: number; scope: string; undone_at: string | null }[];
+  // why each application differs from the vote (admins only: the table is not readable by anyone else), with the initiatives' codes
+  const { data: reasonRows } = applications.length > 0
+    ? await supabase.from("alignment_rank_reasons").select("application_id, item_id, from_rank, to_rank, crowd_rank, reason").eq("tenant_id", active.tenantId).in("application_id", applications.map((a) => a.id)).order("to_rank")
+    : { data: [] };
+  const reasons = (reasonRows ?? []) as { application_id: string; item_id: string; from_rank: number; to_rank: number; crowd_rank: number; reason: string }[];
+  const { data: reasonItems } = reasons.length > 0
+    ? await supabase.from("items").select("id, item_code, initiative_name").eq("tenant_id", active.tenantId).in("id", [...new Set(reasons.map((r) => r.item_id))])
+    : { data: [] };
+  const itemName = new Map(((reasonItems ?? []) as { id: string; item_code: string; initiative_name: string }[]).map((i) => [i.id, `${i.item_code} ${i.initiative_name}`]));
   const who = new Map(((await supabase.rpc("tenant_directory", { p_tenant: active.tenantId })).data as { user_id: string; email: string }[] | null ?? []).map((m) => [m.user_id, m.email]));
   const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
@@ -86,7 +95,7 @@ export default async function ResultsPage({ params, searchParams }: { params: Pr
       <p className="muted">Equal scores share a place and are shown as tied. Gap compares the crowd&rsquo;s place with the team&rsquo;s Stack Rank among these initiatives. Groups with fewer than 5 voters are never shown on their own. A person applies any change to the Stack Rank; nothing here changes it.</p>
       {suggestion && (
         <section aria-labelledby="suggested-order">
-          <h2 id="suggested-order">Suggested order for the Stack Rank</h2>
+          <h2 id="suggested-order">Order for the Stack Rank</h2>
           <p className="muted">The vote is advice. A person decides: nothing changes until you apply it, and Claude can never apply it.</p>
           <SuggestedOrder sessionId={id} rows={suggestion.rows} skipped={suggestion.skipped} apply={applyVote} />
           {applications.length > 0 && (
@@ -96,6 +105,13 @@ export default async function ResultsPage({ params, searchParams }: { params: Pr
                 {applications.map((a) => (
                   <li key={a.id}>
                     {when(a.created_at)} by {a.created_by ? who.get(a.created_by) ?? "a member" : "the system"}: {a.moved} {a.moved === 1 ? "initiative" : "initiatives"} moved ({a.scope === "all" ? "all of the vote" : "a selection"}).{" "}
+                    {reasons.some((r) => r.application_id === a.id) && (
+                      <ul>
+                        {reasons.filter((r) => r.application_id === a.id).map((r) => (
+                          <li key={r.item_id}><strong>{itemName.get(r.item_id) ?? "An initiative"}</strong>: the vote suggested #{r.crowd_rank}, decided #{r.to_rank}. Reason: {r.reason}</li>
+                        ))}
+                      </ul>
+                    )}
                     {a.undone_at ? <span className="muted">Undone {when(a.undone_at)}.</span> : (
                       <form action={undoVote} className="inline-form">
                         <input type="hidden" name="session" value={id} /><input type="hidden" name="application" value={a.id} />

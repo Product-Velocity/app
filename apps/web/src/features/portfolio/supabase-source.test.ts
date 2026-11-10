@@ -362,3 +362,16 @@ describe("what the crowd said (issue #393)", () => {
     await expect(new SupabaseDataSource(broken.client, "t1").loadCrowd()).rejects.toThrow("boom");
   });
 });
+
+describe("what admins decided (issue #397)", () => {
+  it("loadDecisions asks for one initiative of this workspace and maps the rows", async () => {
+    const { client, calls } = fake([{ data: [{ session_id: "s1", session_name: "Q1", applied_at: "2027-03-01T10:00:00Z", from_rank: 9, to_rank: "5", crowd_rank: 2, reason: "Contract date" }] }]);
+    const rows = await new SupabaseDataSource(client, "t1").loadDecisions("i1");
+    expect(calls[0]).toMatchObject({ rpc: "item_alignment_decisions", ops: [["args", [{ p_tenant: "t1", p_item: "i1" }]]] });
+    expect(rows).toEqual([{ sessionId: "s1", sessionName: "Q1", appliedAt: "2027-03-01T10:00:00Z", fromRank: 9, toRank: 5, crowdRank: 2, reason: "Contract date" }]);
+  });
+  it("gives none before the database has the function, and shows other errors", async () => {
+    expect(await new SupabaseDataSource(fake([{ error: { code: "42883", message: "no function" } }]).client, "t1").loadDecisions("i1")).toEqual([]);
+    await expect(new SupabaseDataSource(fake([{ error: { code: "XX000", message: "boom" } }]).client, "t1").loadDecisions("i1")).rejects.toThrow("boom");
+  });
+});

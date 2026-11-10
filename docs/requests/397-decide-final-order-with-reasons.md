@@ -1,6 +1,6 @@
 ---
 issue: 397
-status: open
+status: in progress
 logged: 2026-11-10
 title: Decide the final order, not just apply the vote: adjust the order and record why it differs
 ---
