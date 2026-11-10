@@ -34,6 +34,31 @@ test.describe("the action bar moves what does not fit into More (issue #403)", (
     });
   }
 
+  for (const width of [1100, 1200]) {
+    test(`at ${width}px the bar stays on one line and More sits at the end of it`, async ({ page }) => {
+      await open(page, width);
+      const more = bar(page).getByRole("button", { name: "More tools" });
+      await expect(more).toBeVisible();
+      const y0 = (await page.getByRole("button", { name: /^Add filter|filters?$/ }).first().boundingBox())!.y;
+      const undo = (await page.getByRole("button", { name: /^Undo/ }).boundingBox())!;
+      const m = (await more.boundingBox())!;
+      expect(Math.abs(m.y - y0)).toBeLessThan(12);
+      expect(Math.abs(undo.y - y0)).toBeLessThan(12);
+    });
+  }
+
+  test("at 1000px, wrapped to a second line, the tools and their menu sit together on that line", async ({ page }) => {
+    await open(page, 1000);
+    const more = bar(page).getByRole("button", { name: "More tools" });
+    await expect(more).toBeVisible();
+    const sync = (await bar(page).getByRole("button", { name: /^Sync with GitHub/ }).boundingBox())!;
+    const m = (await more.boundingBox())!;
+    const filter = (await page.getByRole("button", { name: /^Add filter|filters?$/ }).first().boundingBox())!;
+    expect(Math.abs(m.y - sync.y)).toBeLessThan(8);
+    expect(m.y).toBeGreaterThan(filter.y + 20); // on the second line
+    expect(m.x).toBeGreaterThan(sync.x); // after the tools, not stranded before them
+  });
+
   test("a tool in the menu works from the keyboard", async ({ page }) => {
     await open(page, 700);
     const more = bar(page).getByRole("button", { name: "More tools" });
