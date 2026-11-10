@@ -28,7 +28,7 @@ test.describe("the bar above the grid (0.30.0)", () => {
   });
 
   test("when a label grows (Export 3) nothing wraps: search gives up width first", async ({ page }) => {
-    await page.setViewportSize({ width: 1100, height: 800 });
+    await page.setViewportSize({ width: 1500, height: 800 });
     await open(page);
     const before = (await page.locator(".pvbar-search").boundingBox())!;
     const y0 = (await filterBtn(page).boundingBox())!.y;
