@@ -131,7 +131,7 @@ describe("closing one", () => {
     expect(r.result).toMatchObject({ id: A, code: "R-1", outcome: "closed", issueLabel: KEY });
     expect(written(sc)).toEqual(["ensureLabels", "addLabels", "closeIssueNotPlanned"]);
     expect(sc.sent.filter((p) => Array.isArray(p) && typeof p[0] === "string")).toEqual([[REMOVED_LABEL]]); // the only labels written
-    expect(sc.sent.find((p) => Array.isArray(p) && typeof p[0] === "object")).toEqual([{ name: REMOVED_LABEL, color: "3347D9", description: "Managed by Product Velocity: the initiative was removed" }]);
+    expect(sc.sent.find((p) => Array.isArray(p) && typeof p[0] === "object")).toEqual([{ name: REMOVED_LABEL, color: "2270ED", description: "Managed by Product Velocity: the initiative was removed" }]);
     expect(sc.sent.find((p) => typeof p === "object" && p !== null && "state" in p)).toEqual({ state: "closed", state_reason: "not_planned" });
     const issue = sc.issues.get("acme/road#11")!;
     expect(issue.labels).toEqual(["bug", "pv:moscow/must", "pv:removed"]);

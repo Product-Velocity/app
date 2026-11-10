@@ -83,7 +83,7 @@ describe("outbound GitHub payloads: label and close a removed initiative's issue
     expect((await addRemovedLabel(t)).ok).toBe(true);
     expect((await closeNotPlanned(t, state)).ok).toBe(true);
     const wire = JSON.stringify(sc.sent);
-    expect(sc.sent).toEqual([[{ name: "pv:removed", color: "3347D9", description: "Managed by Product Velocity: the initiative was removed" }], ["pv:removed"], { state: "closed", state_reason: "not_planned" }]);
+    expect(sc.sent).toEqual([[{ name: "pv:removed", color: "2270ED", description: "Managed by Product Velocity: the initiative was removed" }], ["pv:removed"], { state: "closed", state_reason: "not_planned" }]);
     for (const f of FIELDS) expect(wire, `${f.key} leaked`).not.toContain(sentinel(f.key));
     expect(wire).not.toMatch(/\b(title|body|name)\b.*LEAK_/);
   });

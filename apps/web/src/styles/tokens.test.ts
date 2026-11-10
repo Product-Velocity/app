@@ -13,10 +13,20 @@ function token(name: string): string | undefined {
 
 describe("design tokens (docs/07)", () => {
   it("uses the brand blue and its tints", () => {
-    expect(token("blue")).toBe("#3347d9");
-    expect(token("blue-text")).toBe("#2433a8");
-    expect(token("blue-tint-1")).toBe("#e8ebfd");
-    expect(token("blue-tint-2")).toBe("#f4f7fe");
+    expect(token("blue")).toBe("#2270ed");
+    expect(token("blue-text")).toBe("#1a56c4");
+    expect(token("blue-tint-1")).toBe("#e8f1fe");
+    expect(token("blue-tint-2")).toBe("#f3f8fe");
+  });
+
+  it("carries the brand guide's brand names with the same values", () => {
+    expect(token("brand")).toBe(token("blue"));
+    expect(token("brand-strong")).toBe(token("blue-text"));
+    expect(token("brand-tint")).toBe(token("blue-tint-1"));
+    expect(token("logo-blue")).toBe("#2270ed");
+    expect(token("on-brand")).toBe("#ffffff");
+    expect(token("health-info-bg")).toBe(token("brand-tint"));
+    expect(token("health-info-fg")).toBe(token("brand-strong"));
   });
 
   it("uses a 13px base with 30–36px rows", () => {
