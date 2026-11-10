@@ -701,3 +701,22 @@ describe("who owns a linked initiative (issue #256)", () => {
     expect(source.linkModes.size).toBe(0);
   });
 });
+
+describe("what the crowd said (issue #393)", () => {
+  const crowdRow = (over: Record<string, unknown>) => ({ itemId: "item-1", sessionId: "s1", sessionName: "Q1", method: "coins" as const, closedAt: "2027-01-10T10:00:00Z", place: 1, tied: false, score: 100, ofItems: 5, voters: 12, contested: false, highGroup: null, lowGroup: null, spread: null, consensus: 90, ...over });
+
+  it("gives one initiative's sessions newest first, and none for the others", async () => {
+    const { c, source } = setup();
+    source.crowd = [crowdRow({ sessionId: "old", closedAt: "2026-10-01T10:00:00Z", place: 4 }), crowdRow({ sessionId: "new", closedAt: "2027-03-01T10:00:00Z" }), crowdRow({ itemId: "item-2", sessionId: "other" })];
+    expect((await c.crowd("item-1")).map((r) => r.sessionId)).toEqual(["new", "old"]);
+    expect(await c.crowd("item-3")).toEqual([]);
+  });
+
+  it("the four Crowd fields cannot be edited, by anyone", () => {
+    const { c } = setup({ role: "admin" });
+    for (const key of ["crowd_rank", "crowd_score", "crowd_consensus", "crowd_votes"]) {
+      const r = c.edit("item-1", key as never, "1");
+      expect(r.ok, key).toBe(false);
+    }
+  });
+});

@@ -1,5 +1,5 @@
 import {
-  canPurge, canSeeTrash, cleanRelated, cleanSkills, isRelatedField, summarizeChange, toDay, type ActivityRow, type RelatedField, type RelatedValues,
+  canPurge, canSeeTrash, cleanRelated, cleanSkills, isRelatedField, summarizeChange, toDay, crowdHistory, type ActivityRow, type CrowdRow, type RelatedField, type RelatedValues,
   applyMove, canBeEmpty, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
   bulkEditReason, isOpenList, openListValues, resolveGroup, canDeleteItem, placeRestored, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
@@ -556,6 +556,8 @@ export class PortfolioController {
   teams() { return this.lookups.teams ?? []; }
   members() { return this.lookups.members ?? []; }
   activity(itemId: string): Promise<ActivityRow[]> { return this.source.loadActivity(itemId); }
+  /** What the crowd said about one initiative: its closed alignment sessions, newest first (the first is the current result). */
+  crowd(itemId: string): Promise<CrowdRow[]> { return this.source.loadCrowd(itemId).then((rows) => crowdHistory(rows, itemId)); }
   /** Copy initiatives into another project (new initiatives; the originals stay). The new rows appear when the page reloads. */
   async copyToProject(itemIds: string[], projectId: string) {
     if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false as const, error: READ_ONLY_MESSAGE }; }

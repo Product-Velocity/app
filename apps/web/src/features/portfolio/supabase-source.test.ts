@@ -51,7 +51,7 @@ describe("loadItems", () => {
   it("also reads the calculated view and every related table, each filtered by tenant", async () => {
     const { client, calls } = fake([{ data: [row(1)] }]);
     await new SupabaseDataSource(client, "t1").loadItems();
-    expect(calls.map((c) => c.table ?? `rpc ${c.rpc}`)).toEqual(["items", "items_computed", "item_tags", "item_attachments", "item_relations", "teams", "item_teams", "rpc tenant_directory", "tenant_members", "item_github_links", "item_jira_links"]);
+    expect(calls.map((c) => c.table ?? `rpc ${c.rpc}`)).toEqual(["items", "items_computed", "item_tags", "item_attachments", "item_relations", "teams", "item_teams", "rpc tenant_directory", "tenant_members", "item_github_links", "item_jira_links", "rpc item_alignment_results"]);
     for (const c of calls.filter((x) => x.table)) expect(has(c, "eq", "tenant_id", "t1"), String(c.table)).toBe(true);
     expect(calls.find((c) => c.rpc === "tenant_directory")!.ops).toEqual([["args", [{ p_tenant: "t1" }]]]); // the people of this workspace only
   });
@@ -333,5 +333,32 @@ describe("list fields of one item", () => {
     const rows = await new SupabaseDataSource(client, "t1").loadActivity("i1");
     expect(calls[0]!.rpc).toBe("item_activity");
     expect(rows).toEqual([{ id: 7, at: "2027-04-14T10:00:00Z", entity: "items", entityId: "i1", field: "health", old: "On Track", new: "At Risk", actorId: "u1", via: "UI" }]);
+  });
+});
+
+describe("what the crowd said (issue #393)", () => {
+  const dbRow = (over: Record<string, unknown>) => ({ item_id: "i1", session_id: "s1", session_name: "Q1", method: "coins", closed_at: "2027-01-10T10:00:00Z", place: 2, tied: false, score: "71.40", of_items: 8, voters: 12, contested: false, high_group: null, low_group: null, spread: null, consensus: "88.00", ...over });
+  const none = { data: [] };
+
+  it("fills the four Crowd columns from the latest closed session of each initiative", async () => {
+    const { client, calls } = fake([{ data: [row(1), row(2)] }, none, none, none, none, none, none, none, none, none, none, { data: [dbRow({}), dbRow({ session_id: "s0", closed_at: "2026-10-01T10:00:00Z", place: 5, score: "10" })] }]);
+    const items = await new SupabaseDataSource(client, "t1").loadItems();
+    expect(items[0]).toMatchObject({ crowd_rank: 2, crowd_score: 71.4, crowd_consensus: 88, crowd_votes: 12 });
+    expect(items[1]!.crowd_rank ?? null).toBeNull(); // no result: the view's empty value stays
+    expect(calls.at(-1)).toMatchObject({ rpc: "item_alignment_results", ops: [["args", [{ p_tenant: "t1" }]]] }); // this workspace only, every initiative
+  });
+
+  it("loadCrowd asks for one initiative of this workspace and maps the rows", async () => {
+    const { client, calls } = fake([{ data: [dbRow({ contested: true, high_group: "Eng", low_group: "Sales", spread: "60" })] }]);
+    const rows = await new SupabaseDataSource(client, "t1").loadCrowd("i1");
+    expect(calls[0]).toMatchObject({ rpc: "item_alignment_results", ops: [["args", [{ p_tenant: "t1", p_item: "i1" }]]] });
+    expect(rows[0]).toMatchObject({ itemId: "i1", sessionName: "Q1", place: 2, contested: true, highGroup: "Eng", lowGroup: "Sales", spread: 60 });
+  });
+
+  it("an older database without the function gives no results instead of stopping the grid; other errors are shown", async () => {
+    const missing = fake([{ error: { code: "PGRST202", message: "Could not find the function" } }]);
+    expect(await new SupabaseDataSource(missing.client, "t1").loadCrowd()).toEqual([]);
+    const broken = fake([{ error: { code: "XX000", message: "boom" } }]);
+    await expect(new SupabaseDataSource(broken.client, "t1").loadCrowd()).rejects.toThrow("boom");
   });
 });

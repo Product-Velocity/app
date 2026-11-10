@@ -1,4 +1,4 @@
-import { emptyRelated } from "@pv/domain";
+import { crowdFields, emptyRelated, latestCrowd, type CrowdRow } from "@pv/domain";
 import { PortfolioController } from "@/features/portfolio/controller";
 import { MemoryDataSource, sampleItems } from "@/features/portfolio/memory-source";
 import type { Lookups } from "@/features/portfolio/types";
@@ -23,6 +23,15 @@ export function makeHarness(n: number, latency: number, role: string, lookups: L
   const source = new MemoryDataSource(items, { latencyMs: latency });
   // the lists of the first item, so the panel has something to show
   source.related.set("item-1", { ...emptyRelated(), tags: ["priority", "q1"], artifacts: [{ label: "PRD", url: "https://example.test/prd" }], depends_on: ["item-2"] });
+  // what the crowd said (closed alignment sessions, fictional): item-1 was in two sessions and is contested in the latest, item-2 is tied
+  const crowd = (over: Partial<CrowdRow>): CrowdRow => ({ itemId: "item-1", sessionId: "s-q1", sessionName: "Q1 priorities", method: "coins", closedAt: "2027-03-12T16:00:00Z", place: 1, tied: false, score: 100, ofItems: 8, voters: 14, contested: false, highGroup: null, lowGroup: null, spread: null, consensus: 82, ...over });
+  source.crowd = [
+    crowd({ sessionId: "s-q4", sessionName: "Q4 planning", closedAt: "2026-10-02T16:00:00Z", method: "top5_duels", place: 3, score: 64.3, voters: 9, consensus: null }),
+    crowd({ place: 2, score: 88.5, contested: true, highGroup: "Sales", lowGroup: "Engineering", spread: 55, consensus: 45 }),
+    crowd({ itemId: "item-2", place: 3, tied: true, score: 71.4, consensus: 90 }),
+    crowd({ itemId: "item-3", place: 3, tied: true, score: 71.4, consensus: 72 }),
+  ];
+  for (const [id, r] of latestCrowd(source.crowd)) Object.assign(source.items.find((i) => i.id === id) ?? {}, crowdFields(r));
   // who added each item: the signed-in test user ("u1", Ana) added the odd-numbered ones, "u2" the even ones
   for (const i of source.items) (i as Record<string, unknown>)._created_by = Number(i.id.replace("item-", "")) % 2 === 1 ? "u1" : "u2";
   const controller = new PortfolioController(source, source.items.map((i) => ({ ...i })), lookups, role, () => new Date(Date.UTC(2027, 3, 14)), undefined, undefined, "u1");

@@ -281,13 +281,13 @@ test.describe("list fields", () => {
 
 test.describe("tabs", () => {
   test("Spec (documents), GitHub and Alignment are honest empty states; an unlinked initiative says so on the GitHub tab", async ({ page }) => {
-    await open(page, "n=40&item=R-01");
+    await open(page, "n=40&item=R-04");
     await panel(page).getByRole("tab", { name: "Spec" }).click();
     await expect(panel(page)).toContainText("Everything here goes into the GitHub issue as a link");
     await panel(page).getByRole("tab", { name: "GitHub" }).click();
     await expect(panel(page)).toContainText("No GitHub issue is linked to this initiative yet");
     await panel(page).getByRole("tab", { name: "Alignment" }).click();
-    await expect(panel(page)).toContainText("phases 5 and 8");
+    await expect(panel(page)).toContainText("No alignment result to show yet"); // no closed alignment session includes this initiative (issue #393)
   });
 
   test("the GitHub tab lists epics with their tasks, and marking the breakdown complete freezes the planned scope", async ({ page }) => {

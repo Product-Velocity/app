@@ -415,6 +415,12 @@ a.btn { display: inline-flex; align-items: center; color: inherit; text-decorati
 .ip-gh { margin-top: 8px; font-size: 12px; }
 .ip-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .ip-log p { margin: 0; }
+.ip-alignment { display: grid; gap: 14px; }
+.ip-alignment h4 { margin: 0 0 6px; font-size: 13px; }
+.ip-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin: 0 0 8px; }
+.ip-facts dt { color: #5b6272; font-size: 12px; }
+.ip-facts dd { margin: 0; font-weight: 600; }
+.ip-contested { margin: 0; padding: 6px 8px; border-left: 3px solid #3347D9; background: #f3f4fd; }
 @media (max-width: 900px) { .item-panel { position: fixed; inset: 0 0 0 auto; width: min(572px, 100vw); max-width: 100vw; z-index: 50; box-shadow: -8px 0 24px rgba(20, 24, 40, .18); height: 100vh !important; } }
 .cell-open { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
 
