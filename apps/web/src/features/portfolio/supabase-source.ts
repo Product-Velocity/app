@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { FIELDS, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
+import { FIELDS, crowdFields, latestCrowd, toCrowdRow, type CrowdRow, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
 import type { IssueTreeRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
 
@@ -137,6 +137,11 @@ export class SupabaseDataSource implements PortfolioDataSource {
       item.depends_on = (rel.depends_on.get(id) ?? []).join("; ") || null;
       item.related_to = (rel.related_to.get(id) ?? []).join("; ") || null;
       item.contributing_teams = (teams.get(id) ?? []).join(", ") || null;
+    }
+    // what the crowd said (closed alignment sessions): the latest result of each initiative fills the four Crowd columns
+    for (const [id, r] of latestCrowd(await this.loadCrowd())) {
+      const item = items.get(id);
+      if (item) Object.assign(item, crowdFields(r));
     }
     return [...items.values()] as unknown as LoadedItem[];
   }
@@ -286,6 +291,16 @@ export class SupabaseDataSource implements PortfolioDataSource {
     if (error) throw new Error(friendlyError(error));
     return ((data ?? []) as { id: string | number; at: string; entity: string; entity_id: string; field: string; old: unknown; new: unknown; actor_id: string | null; via: string }[])
       .map((r) => ({ id: Number(r.id), at: r.at, entity: r.entity, entityId: r.entity_id, field: r.field, old: r.old, new: r.new, actorId: r.actor_id, via: r.via }));
+  }
+
+  /** The function is new in migration 20261110004333: an older database gives no results instead of stopping the grid. */
+  async loadCrowd(itemId?: string): Promise<CrowdRow[]> {
+    const { data, error } = await this.client.rpc("item_alignment_results", { p_tenant: this.tenantId, ...(itemId ? { p_item: itemId } : {}) });
+    if (error) {
+      if (error.code === "PGRST202" || error.code === "42883") return [];
+      throw new Error(friendlyError(error));
+    }
+    return ((data ?? []) as Record<string, unknown>[]).map(toCrowdRow);
   }
 
   async copyToProject(itemIds: string[], projectId: string) {

@@ -21,6 +21,7 @@ export * from "./cards";
 export * from "./cards-views";
 export * from "./leadership";
 export * from "./alignment-scoring";
+export * from "./crowd";
 export * from "./quick-filters";
 export * from "./view-bar";
 export * from "./claude";

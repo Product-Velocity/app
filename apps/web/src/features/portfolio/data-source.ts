@@ -1,4 +1,4 @@
-import type { ActivityRow, EditableField, RelatedField, RelatedValues } from "@pv/domain";
+import type { ActivityRow, CrowdRow, EditableField, RelatedField, RelatedValues } from "@pv/domain";
 import type { NewItemValues } from "@pv/domain";
 import type { IssueTreeRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
 
@@ -41,6 +41,8 @@ export interface PortfolioDataSource {
   setRelated(itemId: string, field: RelatedField, value: unknown[]): Promise<SaveResult>;
   /** The audit log of one item (newest first), for the Activity tab. */
   loadActivity(itemId: string): Promise<ActivityRow[]>;
+  /** What the crowd said, from the closed alignment sessions the person may see: one initiative (its history), or all of them (the grid). Aggregates only. */
+  loadCrowd(itemId?: string): Promise<CrowdRow[]>;
   /** Copies initiatives into another project as new initiatives (planning fields, tags and links; no tracker link, status or decision). */
   copyToProject(itemIds: string[], projectId: string): Promise<{ ok: true; copied: { id: string; code: string }[]; failed: { id: string; reason: string }[] } | { ok: false; error: string }>;
   /** The epics and tasks under the item's tracking issue (read-only cache of GitHub). */

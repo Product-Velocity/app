@@ -106,8 +106,9 @@ export const isHiddenField = (key: string): boolean => HIDDEN_FIELDS.has(key);
 /** The fields a person sees in the app: the dictionary without the hidden ones. */
 export const VISIBLE_FIELDS: readonly FieldDef[] = FIELDS.filter((f) => !HIDDEN_FIELDS.has(f.key));
 
-// Decision gates (issue #323) were pulled forward from phase 7: these fields are real columns or view columns now
-const SHIPPED_EARLY: ReadonlySet<string> = new Set(["project_rank", "current_gate", "gate_status", "next_gate_due", "ready_for_build"]);
+// Decision gates (issue #323) were pulled forward from phase 7: these fields are real columns or view columns now. The four Crowd fields (issue #393) are
+// computed from closed alignment sessions, so they are live although their dictionary phase is 5.
+const SHIPPED_EARLY: ReadonlySet<string> = new Set(["project_rank", "crowd_rank", "crowd_score", "crowd_consensus", "crowd_votes", "current_gate", "gate_status", "next_gate_due", "ready_for_build"]);
 export const isShipped = (f: FieldDef) => f.phase <= CURRENT_PHASE || SHIPPED_EARLY.has(f.key);
 export const arrivesLabel = (f: FieldDef) => (isShipped(f) ? null : `Arrives in phase ${f.phase}`);
 

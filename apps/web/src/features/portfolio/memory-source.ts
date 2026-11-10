@@ -1,4 +1,4 @@
-import { applyMove, columnOnItems, emptyRelated, FIELD_BY_KEY, type ActivityRow, type EditableField, type RelatedField, type RelatedValues } from "@pv/domain";
+import { applyMove, type CrowdRow, columnOnItems, emptyRelated, FIELD_BY_KEY, type ActivityRow, type EditableField, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
 import type { IssueTreeRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
 
@@ -119,6 +119,13 @@ export class MemoryDataSource implements PortfolioDataSource {
     // related rows are kept for the item that wrote them (their item_id audit row says which)
     const mine = new Set(this.activity.filter((a) => a.field === "item_id" && a.entity !== "items" && (a.new === itemId || a.old === itemId)).map((a) => a.entityId));
     return this.activity.filter((a) => (a.entity === "items" ? a.entityId === itemId : mine.has(a.entityId))).map((a) => ({ ...a }));
+  }
+
+  /** Closed alignment results, set by tests. */
+  crowd: CrowdRow[] = [];
+  async loadCrowd(itemId?: string): Promise<CrowdRow[]> {
+    await this.pause();
+    return this.crowd.filter((r) => !itemId || r.itemId === itemId).map((r) => ({ ...r }));
   }
 
   async createMany(items: NewItem[], opts: { via?: "import" } = {}): Promise<CreateManyResult> {

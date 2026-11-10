@@ -16,6 +16,7 @@ import { formatField } from "./format";
 import { useStatus } from "./status-strip";
 import type { IssueTreeRow, JiraTreeRow, Lookups } from "./types";
 import { useUserPrefs } from "@/components/user-prefs";
+import { AlignmentTab } from "./alignment-tab";
 import { PANEL_WIDTH_DEFAULT, PANEL_WIDTH_MIN, clampPanelWidth } from "@/lib/user-prefs";
 
 type Tab = "overview" | "spec" | "github" | "alignment" | "activity";
@@ -201,7 +202,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
         {tab === "overview" && <Overview ctx={ctx} itemId={itemId} />}
         {tab === "spec" && <DocumentsTab itemId={itemId} canEdit={controller.canEdit} ctx={ctx} tracker={trackerName} />}
         {tab === "github" && (trackerName === "Jira" ? <JiraTab controller={controller} lookups={lookups} itemId={itemId} /> : <GithubTab controller={controller} lookups={lookups} itemId={itemId} />)}
-        {tab === "alignment" && <EmptyTab title="Alignment" text="Votes, sign-offs and the decision log for this initiative arrive with alignment, in phases 5 and 8." />}
+        {tab === "alignment" && <AlignmentTab key={itemId} controller={controller} itemId={itemId} />}
         {tab === "activity" && <ActivityTab controller={controller} lookups={lookups} itemId={itemId} me={me} />}
       </div>
     </aside>
@@ -278,15 +279,6 @@ export function SuggestionBanner({ suggestion, onApply, onDismiss }: { suggestio
       <strong>Suggested health: {suggestion.health}</strong>
       <p>{suggestion.reasons.join(" ")}</p>
       <button type="button" className="btn" onClick={onApply}>Apply</button> <button type="button" className="btn" onClick={onDismiss}>Dismiss</button>
-    </div>
-  );
-}
-
-function EmptyTab({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="ip-empty">
-      <h3>{title}</h3>
-      <p className="muted">{text}</p>
     </div>
   );
 }
