@@ -8,7 +8,7 @@ export type PushResult =
   | { kind: "missing" }
   | { kind: "created" | "updated"; issue: IssueRef; hash: string };
 
-export const LABEL_COLOUR = "3347D9";
+export const LABEL_COLOUR = "2270ED";
 
 /**
  * Creates or updates the one tracking issue of an initiative.
