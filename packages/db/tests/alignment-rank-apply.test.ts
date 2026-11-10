@@ -174,12 +174,13 @@ describe("applying a vote to the Stack Rank", () => {
     await undo(f.alice, app);
   });
 
-  it("the table can be read by members of the workspace only, and written by nobody directly", async () => {
+  it("the table can be read by admins of the workspace only (issue #392), and written by nobody directly", async () => {
     const ids = [items[0]!, items[1]!];
     const sid = await closedSession(ids);
     const app = await apply(f.alice, sid, await reverseMoves(ids));
     const seen = (who: string) => db.asUser(who, async (q) => (await q("select count(*)::int as n from public.alignment_rank_applications where id = $1", [app])).rows[0].n as number);
-    expect(await seen(creator)).toBe(1);
+    expect(await seen(f.alice)).toBe(1);
+    expect(await seen(creator)).toBe(0);
     expect(await seen(f.bob)).toBe(0);
     expect(await errorCode(db.asUser(f.alice, (q) => q("update public.alignment_rank_applications set moved = 9 where id = $1", [app])))).toBe("42501");
     expect(await errorCode(db.asUser(f.alice, (q) => q("delete from public.alignment_rank_applications where id = $1", [app])))).toBe("42501");
@@ -291,8 +292,9 @@ describe("deciding the final order, with reasons (issue #397)", () => {
     expect(await decisions(creator, y!)).toEqual([]);
     expect(await decisions(f.bob, y!)).toEqual([]);
     expect(await decisions(f.bob, y!, f.tenantB)).toEqual([]);
-    // the application row members can read carries no reason text
-    const row = (await db.asUser(creator, async (q) => (await q("select moves from public.alignment_rank_applications where id = $1", [app])).rows[0])) as { moves: unknown };
+    // a member cannot read the application at all, and the application row itself carries no reason text
+    expect(await db.asUser(creator, async (q) => (await q("select moves from public.alignment_rank_applications where id = $1", [app])).rows)).toEqual([]);
+    const row = (await db.asUser(f.alice, async (q) => (await q("select moves from public.alignment_rank_applications where id = $1", [app])).rows[0])) as { moves: unknown };
     expect(JSON.stringify(row.moves)).not.toMatch(/Secret|reason|customer/);
     // nobody writes the table directly
     expect(await errorCode(db.asUser(f.alice, (q) => q("update public.alignment_rank_reasons set reason = 'x' where application_id = $1", [app])))).toBe("42501");
