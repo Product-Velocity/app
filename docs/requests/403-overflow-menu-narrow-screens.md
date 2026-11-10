@@ -1,6 +1,8 @@
 ---
 issue: 403
-status: in progress
+status: done
+done: 2026-11-10
+link: version assigned when merged
 logged: 2026-11-10
 title: Grid action bar and header tabs overflow into a "More" menu on narrow screens
 ---

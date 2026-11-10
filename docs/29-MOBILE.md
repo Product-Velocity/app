@@ -6,7 +6,7 @@ Scope: everything except the alignment participant screens, which are already mo
 
 ## 1. What the app does on a phone today
 - One responsive stylesheet with almost no phone rules. The item panel becomes a full-screen sheet below 900 px, the Decisions body stacks below 900 px, and the auth screens have a 760 px layout. Nothing else is designed for a phone.
-- The header has ten tabs in one wrapping row (`header-tabs.tsx`). Grid, Gantt and Cards are built for a mouse: AG Grid with 169 possible columns, drag and drop, hover tooltips, J/K and ⌘K shortcuts.
+- The header has ten tabs in one row (`header-tabs.tsx`); since #403 tabs that do not fit move into a "More tabs" menu above 700 px, and the open tab stays visible. Grid, Gantt and Cards are built for a mouse: AG Grid with 169 possible columns, drag and drop, hover tooltips, J/K and ⌘K shortcuts.
 - The prototype map says it plainly: "Not yet designed: mobile views of the grid."
 - Good news: the pieces a phone needs already exist as separate screens and rules. Needs attention (`/attention`, `attentionList`), Decisions with the gate pack, Leadership with the weekly update, Reports, the Cards board's `by`/`lane` logic, saved views, the notification inbox, stage validation ("3 things missing") and the public read-only document page (`/d/[token]`). Mobile is mostly a new layout over these, not new features.
 
