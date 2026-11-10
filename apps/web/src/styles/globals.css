@@ -54,10 +54,18 @@ h2 { font-size: 14px; font-weight: 600; margin: 24px 0 8px; }
 .tab:hover:not(.tab-later) { background: var(--grey-3); }
 .tab-active { font-weight: 500; border-bottom-color: var(--blue); }
 .tab-later { color: #6b7280; cursor: default; }
-.account { margin-left: auto; position: relative; }
+.account { position: relative; }
+.topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.topbar-actions .text-size { margin-right: 6px; }
+.bar-icon-btn { position: relative; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--ink-muted, #4b5563); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font: inherit; }
+.bar-icon-btn:hover, .bar-icon-btn-on { background: var(--surface-muted, #f3f4f6); color: var(--ink, #111827); }
+.bar-icon-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.bar-icon-btn-inner { position: relative; display: inline-flex; }
+.icon-badge { position: absolute; top: -6px; right: -8px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: var(--blue); color: #fff; font-size: 10.5px; font-weight: 600; line-height: 16px; text-align: center; }
+.topbar-actions .popover-anchor { display: inline-flex; }
 .account summary { list-style: none; cursor: pointer; display: flex; border-radius: 50%; }
 .account summary::-webkit-details-marker { display: none; }
-.avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--blue-tint-1); color: var(--blue-text); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 11px; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--blue-tint-1); color: var(--blue-text); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; }
 .account-menu { position: absolute; right: 0; top: 36px; min-width: 220px; background: var(--bg); border: 1px solid #e1e5eb; border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, .12); padding: 6px 0; }
 .account-version { margin: 4px 0 0; padding: 8px 12px 4px; border-top: 1px solid var(--grey-2); font-size: 12px; color: #5b6272; font-family: "IBM Plex Mono", monospace; }
 .account-who { margin: 0; padding: 6px 12px 8px; display: grid; gap: 1px; border-bottom: 1px solid var(--grey-2); margin-bottom: 4px; overflow-wrap: anywhere; }
@@ -1033,6 +1041,7 @@ button.share-chip { cursor: pointer; }
   body { font-size: 15px; }
   input, select, textarea { font-size: 16px; }
   .btn, button, .menu-link, .more-row, .phone-tab { min-height: 44px; }
+  .bar-icon-btn { width: 44px; }
   .topbar { gap: 8px; padding: 0 12px; }
   .topbar .tabs { display: none; }
   .content { padding: 12px 12px 88px; }

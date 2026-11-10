@@ -8,10 +8,19 @@ import { Popover } from "../portfolio/popover";
 import { SupabaseNotificationSource, type NotificationSource } from "./notification-source";
 
 const POLL_MS = 60_000;
+
+function BellIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M6 9a6 6 0 1 1 12 0c0 5 2 6.5 2 6.5H4S6 14 6 9Z" />
+      <path d="M10 19a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}
 const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
 
 /**
- * The bell in the top bar (issue #341): the people who can decide a gate see requests here, and a requester sees the decision. Polls every minute and when
+ * The bell icon in the top bar, next to Help and the account menu (issue #341): the people who can decide a gate see requests here, and a requester sees the decision. Polls every minute and when
  * the tab comes back, which is enough for an inbox (a request waits for a decision for days). Text only; an unread count has words, not just a dot.
  */
 export function NotificationsBell({ tenantId, source: given, onOpen }: { tenantId?: string; source?: NotificationSource; /** Test pages: what a click does instead of navigating. */ onOpen?: (target: ReturnType<typeof notificationTarget>) => void }) {
@@ -55,7 +64,7 @@ export function NotificationsBell({ tenantId, source: given, onOpen }: { tenantI
   };
 
   return (
-    <Popover align="right" label={<span aria-label={`Notifications, ${unread === 0 ? "none unread" : `${unread} unread`}`}>Notifications{unread > 0 && <span className="tab-badge" aria-hidden="true">{unread}</span>}</span>}>
+    <Popover align="right" icon={{ name: `Notifications, ${unread === 0 ? "none unread" : `${unread} unread`}` }} label={<span className="bar-icon-btn-inner"><BellIcon />{unread > 0 && <span className="icon-badge" aria-hidden="true">{unread > 9 ? "9+" : unread}</span>}</span>}>
       {(close) => (
         <div className="notif-panel" role="region" aria-label="Notifications">
           {error && <p role="alert" className="error">Could not read notifications ({error}).</p>}

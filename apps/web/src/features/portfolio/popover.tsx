@@ -17,7 +17,7 @@ export function Chevron({ open = false }: { open?: boolean }) {
  * A toolbar button that expands a panel under it, with a small pointer to the button. Escape closes it and returns to the button; clicking
  * outside or leaving it closes it too. `wide` panels (filters, columns) span the bar they sit in instead of hanging under the button.
  */
-export function Popover({ label, active = false, align = "left", wide = false, children }: { label: ReactNode; active?: boolean; align?: "left" | "right"; wide?: boolean; children: (close: () => void) => ReactNode }) {
+export function Popover({ label, active = false, align = "left", wide = false, icon, children }: { label: ReactNode; active?: boolean; align?: "left" | "right"; wide?: boolean; /** Top-bar icon button: the label is an icon, `name` is its accessible name and tooltip, and there is no chevron. */ icon?: { name: string }; children: (close: () => void) => ReactNode }) {
   const [open, setOpen] = useState(false);
   const [caret, setCaret] = useState<number | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
@@ -45,8 +45,8 @@ export function Popover({ label, active = false, align = "left", wide = false, c
         if (e.key === "Escape" && open) { e.stopPropagation(); setOpen(false); ref.current?.querySelector<HTMLElement>("button")?.focus(); }
       }}
     >
-      <button type="button" className={active || open ? "tool-btn tool-btn-on" : "tool-btn"} aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)}>
-        {label}<Chevron open={open} />
+      <button type="button" className={icon ? (open ? "bar-icon-btn bar-icon-btn-on" : "bar-icon-btn") : active || open ? "tool-btn tool-btn-on" : "tool-btn"} aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)} {...(icon ? { "aria-label": icon.name, title: icon.name } : {})}>
+        {label}{icon ? null : <Chevron open={open} />}
       </button>
       {open && (
         <div id={id} className={cls}>
