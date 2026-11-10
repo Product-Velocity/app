@@ -57,8 +57,8 @@ h2 { font-size: 14px; font-weight: 600; margin: 24px 0 8px; }
 .account { position: relative; }
 .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .topbar-actions .text-size { margin-right: 6px; }
-.bar-icon-btn { position: relative; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--ink-muted, #4b5563); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font: inherit; }
-.bar-icon-btn:hover, .bar-icon-btn-on { background: var(--surface-muted, #f3f4f6); color: var(--ink, #111827); }
+.bar-icon-btn { position: relative; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 50%; background: var(--surface-muted, #f3f4f6); color: var(--ink-muted, #4b5563); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font: inherit; }
+.bar-icon-btn:hover, .bar-icon-btn-on { background: var(--grey-1, #e6e9ef); color: var(--ink, #111827); }
 .bar-icon-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .bar-icon-btn-inner { position: relative; display: inline-flex; }
 .icon-badge { position: absolute; top: -6px; right: -8px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: var(--blue); color: #fff; font-size: 10.5px; font-weight: 600; line-height: 16px; text-align: center; }
