@@ -4,13 +4,18 @@ import { requireWorkspace } from "@/lib/session";
 import { computeResults, finalResults, teamPlaces, type ResultsSnapshot } from "@/lib/alignment-results";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { METHODS } from "@/lib/alignment";
+import { RANK_STATUS } from "@/lib/alignment-rank";
+import { loadSuggestion } from "@/lib/alignment-rank-server";
+import { SuggestedOrder } from "./suggested-order";
+import { applyVote, undoVote } from "./actions";
 
 export const metadata = { title: "Alignment results · Product Velocity" };
 export const dynamic = "force-dynamic";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function ResultsPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ResultsPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ status?: string }> }) {
   const { id } = await params;
+  const { status } = await searchParams;
   if (!UUID.test(id)) notFound();
   const { supabase, active } = await requireWorkspace(`/alignment/${id}/results`);
   if (active.role !== "admin") notFound();
@@ -29,6 +34,14 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
   const name = new Map(snap.items.map((i) => [i.id, i.name]));
   const contested = new Map(r.contested.map((c) => [c.itemId, c]));
   const method = METHODS.find((m) => m.value === s.method)!;
+  // the order the vote suggests for the Stack Rank, and what was applied before (closed sessions only; admins only, as the whole page is)
+  const suggestion = final ? await loadSuggestion(supabase, active.tenantId, id, snap) : null;
+  const { data: applied } = final
+    ? await supabase.from("alignment_rank_applications").select("id, created_at, created_by, moved, scope, undone_at").eq("tenant_id", active.tenantId).eq("session_id", id).order("created_at", { ascending: false })
+    : { data: [] };
+  const applications = (applied ?? []) as { id: string; created_at: string; created_by: string | null; moved: number; scope: string; undone_at: string | null }[];
+  const who = new Map(((await supabase.rpc("tenant_directory", { p_tenant: active.tenantId })).data as { user_id: string; email: string }[] | null ?? []).map((m) => [m.user_id, m.email]));
+  const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
   return (
     <div className="page-wide">
@@ -36,6 +49,7 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
       <h1>Results</h1>
       <p><strong>{final ? "Final results" : "Provisional: the session is still open"}</strong> · {method.label} · {s.weighting === "equal" ? "groups count equally" : "groups count by headcount"}</p>
       <p>{snap.voters} of {snap.invited} invited {snap.invited === 1 ? "person has" : "people have"} voted{final ? "" : ", and a vote can still change"}. {final ? `Stored ${new Date(snap.computedAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}; it does not change.` : ""}</p>
+      {status && RANK_STATUS[status] && <p role="status" className="notice">{RANK_STATUS[status]}</p>}
       {snap.voters === 0 && <p className="notice">Nobody has voted yet.</p>}
       {r.groupsNote && <p className="notice">{r.groupsNote}</p>}
 
@@ -70,6 +84,31 @@ export default async function ResultsPage({ params }: { params: Promise<{ id: st
         </table>
       </div>
       <p className="muted">Equal scores share a place and are shown as tied. Gap compares the crowd&rsquo;s place with the team&rsquo;s Stack Rank among these initiatives. Groups with fewer than 5 voters are never shown on their own. A person applies any change to the Stack Rank; nothing here changes it.</p>
+      {suggestion && (
+        <section aria-labelledby="suggested-order">
+          <h2 id="suggested-order">Suggested order for the Stack Rank</h2>
+          <p className="muted">The vote is advice. A person decides: nothing changes until you apply it, and Claude can never apply it.</p>
+          <SuggestedOrder sessionId={id} rows={suggestion.rows} skipped={suggestion.skipped} apply={applyVote} />
+          {applications.length > 0 && (
+            <>
+              <h3>Applied before</h3>
+              <ul>
+                {applications.map((a) => (
+                  <li key={a.id}>
+                    {when(a.created_at)} by {a.created_by ? who.get(a.created_by) ?? "a member" : "the system"}: {a.moved} {a.moved === 1 ? "initiative" : "initiatives"} moved ({a.scope === "all" ? "all of the vote" : "a selection"}).{" "}
+                    {a.undone_at ? <span className="muted">Undone {when(a.undone_at)}.</span> : (
+                      <form action={undoVote} className="inline-form">
+                        <input type="hidden" name="session" value={id} /><input type="hidden" name="application" value={a.id} />
+                        <button type="submit" className="btn btn-link">Undo this change</button>
+                      </form>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      )}
       <div className="row-form">
         <Link className="btn" href={`/alignment/${id}/results/export`} prefetch={false}>Export results (CSV)</Link>
         <Link className="btn" href={`/alignment/${id}/names`}>Show who voted what…</Link>

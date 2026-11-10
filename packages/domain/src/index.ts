@@ -43,3 +43,4 @@ export * from "./gates";
 export * from "./gate-report";
 export * from "./attention";
 export * from "./notifications";
+export * from "./rank-suggestion";
