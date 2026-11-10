@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { canSubmitNewPassword, NewPasswordFields, PasswordField } from "@/components/password-field";
 import { LinkSent } from "@/components/link-sent";
+import { PasskeyAutofill } from "@/components/passkey-autofill";
 import { PasskeySignIn } from "@/components/passkey-sign-in";
 import { sendSignInLink, signInWithPassword, signUp, type AuthState, type LinkState } from "./actions";
 
@@ -55,7 +56,7 @@ export function PasswordForm({ next, mode }: { next: string; mode: "sign-in" | "
           id="email"
           name="email"
           type="email"
-          autoComplete="username"
+          autoComplete={mode === "sign-in" ? "username webauthn" : "username"}
           placeholder="you@company.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -116,6 +117,7 @@ export function PasswordForm({ next, mode }: { next: string; mode: "sign-in" | "
           )}
         </>
       )}
+      {mode === "sign-in" && <PasskeyAutofill next={next} />}
       {mode === "sign-in" && <PasskeySignIn next={next} />}
       {mode === "sign-up" && <p className="hint">We email you a link to confirm your address.</p>}
       {/* plain link on purpose: a full page load gives password managers a fresh, correct form */}

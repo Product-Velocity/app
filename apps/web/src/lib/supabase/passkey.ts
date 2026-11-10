@@ -82,6 +82,31 @@ export const hasPasskeyHere = (): boolean => { try { return window.localStorage.
 export const rememberPasskeyHere = () => { try { window.localStorage.setItem(HERE_KEY, "1"); } catch { /* storage may be blocked */ } };
 export const forgetPasskeyHere = () => { try { window.localStorage.removeItem(HERE_KEY); } catch { /* storage may be blocked */ } };
 
+/** Whether the browser can offer passkeys in the autofill list of a text field ("conditional mediation"). */
+export async function autofillSupported(): Promise<boolean> {
+  try {
+    const pkc = (typeof window === "undefined" ? undefined : window.PublicKeyCredential) as (typeof PublicKeyCredential & { isConditionalMediationAvailable?: () => Promise<boolean> }) | undefined;
+    return Boolean(await pkc?.isConditionalMediationAvailable?.());
+  } catch { return false; }
+}
+
+type AutofillClient = { auth: { signInWithPasskey: (c: { options: { mediation: "conditional" } }) => Promise<{ error: { code?: string; name?: string } | null }> } };
+
+/**
+ * Passkey autofill: starts a sign-in that waits quietly until the person picks a passkey from the email field's autofill list. Nothing is
+ * shown when there is none, so it also works on a device that has a synced passkey but never used this site. The challenge lives 5 minutes,
+ * so an expired one is asked for again (at most `retries` times); any other failure, such as passkeys not being switched on, ends it silently.
+ * The next passkey call (the button) cancels this one. Returns false when it was not signed in.
+ */
+export async function runPasskeyAutofill(client: AutofillClient, retries = 5): Promise<boolean> {
+  for (let i = 0; i <= retries; i++) {
+    const { error } = await client.auth.signInWithPasskey({ options: { mediation: "conditional" } });
+    if (!error) return true;
+    if (error.code !== "webauthn_challenge_expired") return false;
+  }
+  return false;
+}
+
 /** Whether this browser can run a passkey ceremony at all. */
 export const passkeysSupported = () => typeof window !== "undefined" && typeof window.PublicKeyCredential !== "undefined";
 
