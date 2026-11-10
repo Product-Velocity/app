@@ -1,32 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { NO_FILTERS, NO_DATE, filterRows, needCounts, needsYou, participation, quarterOptions, quarterText, sortRows, summarize, type SessionRow } from "./alignment-list";
+import { NO_FILTERS, NO_QUARTER, filterRows, needCounts, needsYou, participation, plannedQuarters, quarterOptions, quarterText, sortRows, summarize, type SessionRow, type SessionStats } from "./alignment-list";
 
 const NOW = new Date("2027-03-10T12:00:00Z");
 let n = 0;
-const row = (over: Partial<SessionRow> & { stats?: Partial<NonNullable<SessionRow["stats"]>> | null } = {}): SessionRow => {
+const row = (over: Omit<Partial<SessionRow>, "stats"> & { stats?: Partial<SessionStats> | null } = {}): SessionRow => {
   const { stats, ...rest } = over;
   n++;
   return {
     id: `s${n}`, name: `Session ${n}`, method: "coins", status: "closed", createdAt: `2027-01-${String(10 + n).padStart(2, "0")}T09:00:00Z`, openedAt: "2027-01-20T09:00:00Z",
-    closesAt: "2027-02-10T17:00:00Z", closedAt: "2027-02-10T17:00:00Z", createdBy: "u1", initiatives: 8, itemNames: "Self-serve onboarding, Payout reconciliation", contested: 2,
+    closesAt: "2027-02-10T17:00:00Z", closedAt: "2027-02-10T17:00:00Z", createdBy: "u1", initiatives: 8, itemNames: "Self-serve onboarding, Payout reconciliation", quarter: "Q1 2027", quarters: ["Q1 2027"], contested: 2,
     stats: stats === null ? null : { invited: 10, voted: 7, mailingDraft: false, applied: null, undone: false, ...stats },
     ...rest,
   };
 };
 
-describe("the quarter of a session", () => {
-  it("is the quarter of the closing date, on the edges of the year and the quarter", () => {
-    expect(quarterText(row({ closedAt: "2027-03-31T23:59:00Z" }))).toBe("Q1 2027");
-    expect(quarterText(row({ closedAt: "2027-04-01T00:00:00Z" }))).toBe("Q2 2027");
-    expect(quarterText(row({ closedAt: "2026-12-31T10:00:00Z" }))).toBe("Q4 2026");
-    expect(quarterText(row({ closedAt: "2028-01-01T10:00:00Z" }))).toBe("Q1 2028");
+describe("the planned quarter of a session", () => {
+  it("is the Planned Quarter most of its initiatives have, and lists every quarter that occurs, oldest first", () => {
+    expect(plannedQuarters(["Q1 2027", "Q1 2027", "Q2 2027"])).toEqual({ quarter: "Q1 2027", quarters: ["Q1 2027", "Q2 2027"] });
+    expect(plannedQuarters(["Q2 2027", "Q1 2027", "Q2 2027"])).toEqual({ quarter: "Q2 2027", quarters: ["Q1 2027", "Q2 2027"] });
+    expect(plannedQuarters(["Q4 2026", "Q1 2027"])).toEqual({ quarter: "Q4 2026", quarters: ["Q4 2026", "Q1 2027"] }); // a tie: the earlier one
   });
-  it("uses the planned closing time while the session is open or a draft, and says so when there is none", () => {
-    expect(quarterText(row({ status: "open", closedAt: null, closesAt: "2027-06-30T10:00:00Z" }))).toBe("Q2 2027");
-    expect(quarterText(row({ status: "draft", closedAt: null, closesAt: null }))).toBe(NO_DATE);
+  it("sorts quarters by year, not as text, and ignores initiatives without one", () => {
+    expect(plannedQuarters(["Q1 2028", null, "Q4 2026", undefined, "Q4 2026"]).quarters).toEqual(["Q4 2026", "Q1 2028"]);
   });
-  it("a closed session without a closing date falls back to the planned time", () => {
-    expect(quarterText(row({ status: "closed", closedAt: null, closesAt: "2027-08-01T00:00:00Z" }))).toBe("Q3 2027");
+  it("is none when no initiative has one", () => {
+    expect(plannedQuarters([null, undefined])).toEqual({ quarter: null, quarters: [] });
+    expect(plannedQuarters([])).toEqual({ quarter: null, quarters: [] });
+    expect(quarterText({ quarter: null })).toBe(NO_QUARTER);
+  });
+  it("does not depend on when the session closed", () => {
+    expect(quarterText(row({ closedAt: "2030-01-01T00:00:00Z", quarter: "Q1 2027" }))).toBe("Q1 2027");
   });
 });
 
@@ -55,8 +58,8 @@ describe("what needs an admin", () => {
 
 describe("searching and filtering", () => {
   const a = row({ name: "Q1 priorities", itemNames: "Self-serve onboarding, Bidder dashboard", method: "coins" });
-  const b = row({ name: "Roadmap vote", itemNames: "Payout reconciliation", method: "ice", status: "open", closedAt: null, closesAt: "2027-05-01T00:00:00Z", stats: { voted: 1 } });
-  const c = row({ name: "Old vote", status: "archived", closedAt: "2026-06-01T00:00:00Z" });
+  const b = row({ name: "Roadmap vote", itemNames: "Payout reconciliation", method: "ice", status: "open", closedAt: null, closesAt: "2027-05-01T00:00:00Z", quarter: "Q2 2027", quarters: ["Q2 2027", "Q3 2027"], stats: { voted: 1 } });
+  const c = row({ name: "Old vote", status: "archived", closedAt: "2026-06-01T00:00:00Z", quarter: "Q2 2026", quarters: ["Q2 2026"] });
   const all = [a, b, c];
   it("finds a session by its name and by the name of an initiative in it, every word having to match", () => {
     expect(filterRows(all, { ...NO_FILTERS, q: "priorities" }, NOW)).toEqual([a]);
@@ -73,14 +76,16 @@ describe("searching and filtering", () => {
     expect(filterRows(all, { ...NO_FILTERS, status: "open" }, NOW)).toEqual([b]);
     expect(filterRows(all, { ...NO_FILTERS, method: "ice" }, NOW)).toEqual([b]);
     expect(filterRows(all, { ...NO_FILTERS, quarter: "Q1 2027" }, NOW)).toEqual([a]);
+    expect(filterRows(all, { ...NO_FILTERS, quarter: "Q3 2027" }, NOW)).toEqual([b]); // any of its initiatives' planned quarters, not only the main one
     expect(filterRows(all, { ...NO_FILTERS, applied: "not-applied" }, NOW)).toEqual([a]);
     expect(filterRows(all, { ...NO_FILTERS, need: "not-applied", status: "closed" }, NOW)).toEqual([a]);
     expect(filterRows(all, { ...NO_FILTERS, q: "vote", method: "coins", showArchived: true }, NOW)).toEqual([c]);
   });
-  it("lists the quarters present, oldest first, with no date last", () => {
-    const d = row({ status: "draft", closedAt: null, closesAt: null });
-    // a closed in Q1 2027, b is planned for Q2 2027, c closed in Q2 2026, d has no date
-    expect(quarterOptions([...all, d])).toEqual(["Q2 2026", "Q1 2027", "Q2 2027", NO_DATE]);
+  it("lists the planned quarters present, oldest first, with no planned quarter last", () => {
+    const d = row({ status: "draft", closedAt: null, closesAt: null, quarter: null, quarters: [] });
+    // a: Q1 2027, b: Q2 2027 and Q3 2027, c: Q2 2026, d: none
+    expect(quarterOptions([...all, d])).toEqual(["Q2 2026", "Q1 2027", "Q2 2027", "Q3 2027", NO_QUARTER]);
+    expect(filterRows([...all, d], { ...NO_FILTERS, quarter: NO_QUARTER }, NOW)).toEqual([d]);
   });
 });
 
@@ -95,10 +100,11 @@ describe("sorting", () => {
     expect(sortRows([a, b, c], "closed", "desc").at(-1)).toBe(c);
     expect(sortRows([c, a, b], "initiatives", "desc")).toEqual(sortRows([b, c, a], "initiatives", "desc"));
   });
-  it("sorts quarters by year then quarter, not as text", () => {
-    const q = (closedAt: string) => row({ closedAt });
-    const rows = [q("2027-02-01T00:00:00Z"), q("2026-11-01T00:00:00Z"), q("2027-08-01T00:00:00Z")];
-    expect(sortRows(rows, "quarter", "asc").map(quarterText)).toEqual(["Q4 2026", "Q1 2027", "Q3 2027"]);
+  it("sorts planned quarters by year then quarter, not as text, with sessions without one last", () => {
+    const q = (quarter: string | null) => row({ quarter, quarters: quarter ? [quarter] : [] });
+    const rows = [q("Q1 2027"), q(null), q("Q4 2026"), q("Q3 2027")];
+    expect(sortRows(rows, "quarter", "asc").map(quarterText)).toEqual(["Q4 2026", "Q1 2027", "Q3 2027", NO_QUARTER]);
+    expect(sortRows(rows, "quarter", "desc").map(quarterText)).toEqual(["Q3 2027", "Q1 2027", "Q4 2026", NO_QUARTER]);
   });
   it("puts open sessions before drafts before closed ones when sorted by status", () => {
     const rows = [row({ status: "closed" }), row({ status: "draft", closedAt: null }), row({ status: "open", closedAt: null })];

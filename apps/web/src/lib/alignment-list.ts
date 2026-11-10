@@ -1,4 +1,4 @@
-import { compareQuarters, quarterOfDate } from "@pv/domain";
+import { compareQuarters } from "@pv/domain";
 import type { SessionState } from "@/lib/alignment";
 
 /**
@@ -33,21 +33,32 @@ export type SessionRow = {
   initiatives: number;
   /** Their names, for search. */
   itemNames: string;
+  /** The Planned Quarter most of its initiatives have (the earlier one on a tie), or null when none has one. */
+  quarter: string | null;
+  /** Every Planned Quarter its initiatives have, oldest first. */
+  quarters: string[];
   /** Initiatives the groups disagreed on (from the stored results); null until the session has results. */
   contested: number | null;
   /** Admin-only values; null for anyone else. */
   stats: SessionStats | null;
 };
 
-export const NO_DATE = "No date";
+export const NO_QUARTER = "No planned quarter";
 const HOURS_48 = 48 * 3600 * 1000;
 
-/** The quarter of the closing date; an open session uses the time it is planned to close; a session with neither has no quarter. Dates are UTC. */
-export function sessionQuarter(r: Pick<SessionRow, "status" | "closedAt" | "closesAt">): string | null {
-  const when = r.status === "closed" || r.status === "archived" ? r.closedAt ?? r.closesAt : r.closesAt;
-  return quarterOfDate(when);
+/**
+ * The planned quarter of a session (Ashu, 2026-11-10: the Planned Quarter of its initiatives, not the quarter it closed in): the Planned Quarter
+ * most of its initiatives have, the earlier one on a tie, plus every quarter that occurs. Initiatives without one do not count.
+ */
+export function plannedQuarters(list: (string | null | undefined)[]): { quarter: string | null; quarters: string[] } {
+  const count = new Map<string, number>();
+  for (const q of list) if (q) count.set(q, (count.get(q) ?? 0) + 1);
+  const quarters = [...count.keys()].sort(compareQuarters);
+  let best: string | null = null;
+  for (const q of quarters) if (best === null || count.get(q)! > count.get(best)!) best = q;
+  return { quarter: best, quarters };
 }
-export const quarterText = (r: Pick<SessionRow, "status" | "closedAt" | "closesAt">): string => sessionQuarter(r) ?? NO_DATE;
+export const quarterText = (r: Pick<SessionRow, "quarter">): string => r.quarter ?? NO_QUARTER;
 
 export type Need = "no-participants" | "confirm-mailing" | "closing-soon" | "not-applied";
 export const NEED_LABEL: Record<Need, string> = {
@@ -91,7 +102,7 @@ export function filterRows(rows: SessionRow[], f: Filters, now: Date): SessionRo
     if (r.status === "archived" && !f.showArchived && f.status !== "archived") return false;
     if (f.status && r.status !== f.status) return false;
     if (f.method && r.method !== f.method) return false;
-    if (f.quarter && quarterText(r) !== f.quarter) return false;
+    if (f.quarter && !(f.quarter === NO_QUARTER ? r.quarter === null : r.quarters.includes(f.quarter))) return false;
     if (f.applied && appliedState(r) !== f.applied) return false;
     if (f.need && !needsYou(r, now).includes(f.need)) return false;
     if (f.createdBy && r.createdBy !== f.createdBy) return false;
@@ -114,7 +125,7 @@ const value = (r: SessionRow, k: SortKey): string | number | null => {
     case "created": return Date.parse(r.createdAt);
     case "opened": return r.openedAt ? Date.parse(r.openedAt) : null;
     case "closed": { const t = r.closedAt ?? r.closesAt; return t ? Date.parse(t) : null; }
-    case "quarter": return sessionQuarter(r);
+    case "quarter": return r.quarter;
     case "initiatives": return r.initiatives;
     case "invited": return r.stats?.invited ?? null;
     case "voted": return r.stats?.voted ?? null;
@@ -154,11 +165,11 @@ export function summarize(rows: SessionRow[]): Summary {
   return { sessions: rows.length, invited, voted, participation: invited > 0 ? Math.round((voted / invited) * 100) : null, initiativesRanked: ranked, applied };
 }
 
-/** The quarters present in the rows, oldest first, with "No date" last. */
+/** The planned quarters present in the rows (any of a session's initiatives), oldest first, with "No planned quarter" last. */
 export function quarterOptions(rows: SessionRow[]): string[] {
-  const set = new Set(rows.map(quarterText));
-  const real = [...set].filter((q) => q !== NO_DATE).sort(compareQuarters);
-  return set.has(NO_DATE) ? [...real, NO_DATE] : real;
+  const set = new Set(rows.flatMap((r) => r.quarters));
+  const real = [...set].sort(compareQuarters);
+  return rows.some((r) => r.quarter === null) ? [...real, NO_QUARTER] : real;
 }
 
 /** The counts on the "needs you" chips. */

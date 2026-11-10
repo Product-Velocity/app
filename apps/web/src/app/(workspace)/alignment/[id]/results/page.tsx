@@ -18,10 +18,13 @@ export default async function ResultsPage({ params, searchParams }: { params: Pr
   const { status } = await searchParams;
   if (!UUID.test(id)) notFound();
   const { supabase, active } = await requireWorkspace(`/alignment/${id}/results`);
-  if (active.role !== "admin") notFound();
-  await supabase.rpc("alignment_close_due", { p_tenant: active.tenantId });
+  // admins see every session and all of this page; everyone else gets only a closed session that allows results (the database returns no other row)
+  // and a read-only view: no invited count, no names, no export and nothing to apply (issue #392)
+  const isAdmin = active.role === "admin";
+  if (isAdmin) await supabase.rpc("alignment_close_due", { p_tenant: active.tenantId });
   const { data: s } = await supabase.from("alignment_sessions").select("id, name, status, method, weighting, closes_at").eq("tenant_id", active.tenantId).eq("id", id).maybeSingle();
   if (!s) notFound();
+  if (!isAdmin && s.status !== "closed" && s.status !== "archived") notFound();
   if (s.status === "draft") {
     return <div className="page-narrow"><p><Link href={`/alignment/${id}`}>← {s.name}</Link></p><h1>Results</h1><p className="muted">The session has not opened yet.</p></div>;
   }
@@ -35,8 +38,8 @@ export default async function ResultsPage({ params, searchParams }: { params: Pr
   const contested = new Map(r.contested.map((c) => [c.itemId, c]));
   const method = METHODS.find((m) => m.value === s.method)!;
   // the order the vote suggests for the Stack Rank, and what was applied before (closed sessions only; admins only, as the whole page is)
-  const suggestion = final ? await loadSuggestion(supabase, active.tenantId, id, snap) : null;
-  const { data: applied } = final
+  const suggestion = final && isAdmin ? await loadSuggestion(supabase, active.tenantId, id, snap) : null;
+  const { data: applied } = final && isAdmin
     ? await supabase.from("alignment_rank_applications").select("id, created_at, created_by, moved, scope, undone_at").eq("tenant_id", active.tenantId).eq("session_id", id).order("created_at", { ascending: false })
     : { data: [] };
   const applications = (applied ?? []) as { id: string; created_at: string; created_by: string | null; moved: number; scope: string; undone_at: string | null }[];
@@ -49,16 +52,16 @@ export default async function ResultsPage({ params, searchParams }: { params: Pr
     ? await supabase.from("items").select("id, item_code, initiative_name").eq("tenant_id", active.tenantId).in("id", [...new Set(reasons.map((r) => r.item_id))])
     : { data: [] };
   const itemName = new Map(((reasonItems ?? []) as { id: string; item_code: string; initiative_name: string }[]).map((i) => [i.id, `${i.item_code} ${i.initiative_name}`]));
-  const who = new Map(((await supabase.rpc("tenant_directory", { p_tenant: active.tenantId })).data as { user_id: string; email: string }[] | null ?? []).map((m) => [m.user_id, m.email]));
+  const who = new Map(isAdmin ? ((await supabase.rpc("tenant_directory", { p_tenant: active.tenantId })).data as { user_id: string; email: string }[] | null ?? []).map((m) => [m.user_id, m.email]) : []);
   const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
   return (
     <div className="page-wide">
-      <p><Link href={`/alignment/${id}`}>← {s.name}</Link></p>
-      <h1>Results</h1>
+      <p>{isAdmin ? <Link href={`/alignment/${id}`}>← {s.name}</Link> : <Link href="/alignment">← Alignment</Link>}</p>
+      <h1>{isAdmin ? "Results" : s.name}</h1>
       <p><strong>{final ? "Final results" : "Provisional: the session is still open"}</strong> · {method.label} · {s.weighting === "equal" ? "groups count equally" : "groups count by headcount"}</p>
-      <p>{snap.voters} of {snap.invited} invited {snap.invited === 1 ? "person has" : "people have"} voted{final ? "" : ", and a vote can still change"}. {final ? `Stored ${new Date(snap.computedAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}; it does not change.` : ""}</p>
-      {status && RANK_STATUS[status] && <p role="status" className="notice">{RANK_STATUS[status]}</p>}
+      <p>{isAdmin ? <>{snap.voters} of {snap.invited} invited {snap.invited === 1 ? "person has" : "people have"} voted</> : <>{snap.voters} {snap.voters === 1 ? "person" : "people"} voted</>}{final ? "" : ", and a vote can still change"}. {final ? `Stored ${new Date(snap.computedAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}; it does not change.` : ""}</p>
+      {isAdmin && status && RANK_STATUS[status] && <p role="status" className="notice">{RANK_STATUS[status]}</p>}
       {snap.voters === 0 && <p className="notice">Nobody has voted yet.</p>}
       {r.groupsNote && <p className="notice">{r.groupsNote}</p>}
 
@@ -92,7 +95,7 @@ export default async function ResultsPage({ params, searchParams }: { params: Pr
           </tbody>
         </table>
       </div>
-      <p className="muted">Equal scores share a place and are shown as tied. Gap compares the crowd&rsquo;s place with the team&rsquo;s Stack Rank among these initiatives. Groups with fewer than 5 voters are never shown on their own. A person applies any change to the Stack Rank; nothing here changes it.</p>
+      <p className="muted">Equal scores share a place and are shown as tied. Gap compares the crowd&rsquo;s place with the team&rsquo;s Stack Rank among these initiatives. Groups with fewer than 5 voters are never shown on their own. A person decides the Stack Rank; nothing here changes it.</p>
       {suggestion && (
         <section aria-labelledby="suggested-order">
           <h2 id="suggested-order">Order for the Stack Rank</h2>
@@ -125,10 +128,12 @@ export default async function ResultsPage({ params, searchParams }: { params: Pr
           )}
         </section>
       )}
-      <div className="row-form">
-        <Link className="btn" href={`/alignment/${id}/results/export`} prefetch={false}>Export results (CSV)</Link>
-        <Link className="btn" href={`/alignment/${id}/names`}>Show who voted what…</Link>
-      </div>
+      {isAdmin && (
+        <div className="row-form">
+          <Link className="btn" href={`/alignment/${id}/results/export`} prefetch={false}>Export results (CSV)</Link>
+          <Link className="btn" href={`/alignment/${id}/names`}>Show who voted what…</Link>
+        </div>
+      )}
     </div>
   );
 }
