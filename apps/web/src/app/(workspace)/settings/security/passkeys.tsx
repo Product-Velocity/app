@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createPasskeyClient, passkeyErrorText, passkeysSupported, recordPasskeyError, passkeyDiagnostics, withPlatformPasskeys } from "@/lib/supabase/passkey";
+import { createPasskeyClient, passkeyErrorText, forgetPasskeyHere, passkeysSupported, recordPasskeyError, rememberPasskeyHere, passkeyDiagnostics, withPlatformPasskeys } from "@/lib/supabase/passkey";
 
 type Passkey = { id: string; friendly_name?: string | null; created_at: string; last_used_at?: string | null };
 const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -34,6 +34,7 @@ export function Passkeys() {
     if (error) recordPasskeyError(error as { code?: string; name?: string });
     setDetails(passkeyDiagnostics());
     if (error) { setMessage({ kind: "error", text: passkeyErrorText(error as { code?: string; name?: string }) }); return; }
+    rememberPasskeyHere();
     setMessage({ kind: "ok", text: "Passkey added." });
     await load();
   };
@@ -46,13 +47,13 @@ export function Passkeys() {
   const remove = async (p: Passkey) => {
     if (!client || !window.confirm(`Remove the passkey "${p.friendly_name ?? "Passkey"}"? You can still sign in another way.`)) return;
     const { error } = await client.auth.passkey.delete({ passkeyId: p.id });
-    if (error) setMessage({ kind: "error", text: "The passkey could not be removed." }); else { setMessage({ kind: "ok", text: "Passkey removed." }); await load(); }
+    if (error) setMessage({ kind: "error", text: "The passkey could not be removed." }); else { setMessage({ kind: "ok", text: "Passkey removed." }); if ((list?.length ?? 0) <= 1) forgetPasskeyHere(); await load(); }
   };
 
   if (supported === false) return <p className="muted">This browser cannot use passkeys.</p>;
   return (
     <div className="stack">
-      <p className="muted">Sign in with your face, fingerprint, PIN or a security key instead of a password. A passkey stays on your device or in your password manager.</p>
+      <p className="muted">Sign in with your face, fingerprint, PIN or a security key instead of a password. A passkey stays on your device or in your password manager. The sign-in page shows the passkey button on devices where you have added or used one, so add a passkey on each device you sign in from.</p>
       {list && list.length > 0 && (
         <ul className="plain-list" aria-label="Your passkeys">
           {list.map((p) => (
