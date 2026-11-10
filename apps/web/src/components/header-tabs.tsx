@@ -13,17 +13,17 @@ const TABS: { label: string; href?: string; phase?: number; id: string }[] = [
   { label: "Leadership", href: "/leadership", id: "leadership" },
   { label: "Planning", phase: 5, id: "planning" },
   { label: "Capacity", phase: 5, id: "capacity" },
-  { label: "Alignment", phase: 5, id: "alignment" },
+  { label: "Alignment", href: "/alignment", id: "alignment" },
   { label: "Needs attention", href: "/attention", id: "attention" },
   { label: "Decisions", href: "/decisions", id: "decisions" },
   { label: "Reports", href: "/reports", id: "reports" },
 ];
 
-export function HeaderTabs({ current, accountId, waiting }: { current?: "grid" | "gantt" | "cards" | "leadership" | "attention" | "decisions" | "reports"; accountId?: string; /** Gate requests waiting for a decision. */ waiting?: number }) {
+export function HeaderTabs({ current, accountId, waiting }: { current?: "grid" | "gantt" | "cards" | "leadership" | "alignment" | "attention" | "decisions" | "reports"; accountId?: string; /** Gate requests waiting for a decision. */ waiting?: number }) {
   // the address may or may not carry /w/{account} on the server and the client; the tabs always do once the account is known
   const path = stripAccountPath(usePathname());
   const prefix = accountId ? `/w/${accountId}` : "";
-  const active = current ?? (path.startsWith("/portfolio") ? "grid" : path.startsWith("/gantt") ? "gantt" : path.startsWith("/cards") ? "cards" : path.startsWith("/leadership") ? "leadership" : path.startsWith("/attention") ? "attention" : path.startsWith("/decisions") ? "decisions" : path.startsWith("/reports") ? "reports" : null);
+  const active = current ?? (path.startsWith("/portfolio") ? "grid" : path.startsWith("/gantt") ? "gantt" : path.startsWith("/cards") ? "cards" : path.startsWith("/leadership") ? "leadership" : path.startsWith("/attention") ? "attention" : path.startsWith("/decisions") ? "decisions" : path.startsWith("/alignment") ? "alignment" : path.startsWith("/reports") ? "reports" : null);
   // what does not fit moves into "More": the tabs that are not built yet first, then from the right; the open tab always stays
   const items: OverflowItem[] = TABS.map((t, i) => {
     const on = active === t.id;

@@ -149,12 +149,13 @@ describe("mailings and the confirm step", () => {
     expect((await db.admin.query("select recipient_ids from public.alignment_mailings where id = $1", [m])).rows[0].recipient_ids).toEqual([ids[4]]);
     expect((await list(f.alice, s))[0].voted).toBe(true);
   });
-  it("nobody to send to is refused; the mailing list is visible to members without any address", async () => {
+  it("nobody to send to is refused; the mailing list is for admins only (issue #392), and holds no address", async () => {
     const s = await newSession();
     expect(await errorCode(draft(f.alice, s))).toBe("22023");
     await add(f.alice, s, [{ email: "a@example.test", group: "eng" }]);
     const m = await draft(f.alice, s);
-    const seen = await db.asUser(creator, async (q) => (await q("select * from public.alignment_mailings where id = $1", [m])).rows);
+    expect(await db.asUser(creator, async (q) => (await q("select * from public.alignment_mailings where id = $1", [m])).rows)).toHaveLength(0); // a member does not see that a mailing exists
+    const seen = await db.asUser(f.alice, async (q) => (await q("select * from public.alignment_mailings where id = $1", [m])).rows);
     expect(seen).toHaveLength(1);
     expect(JSON.stringify(seen)).not.toContain("a@example.test");
   });

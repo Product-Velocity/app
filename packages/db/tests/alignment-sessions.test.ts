@@ -33,11 +33,12 @@ describe("alignment sessions", () => {
     expect(await errorCode(create(creator))).toBe(DENIED);
     expect(await errorCode(create(f.alice, [itemB, itemB]))).toBe(DENIED);
   });
-  it("nobody writes the tables directly, and members can read sessions", async () => {
+  it("nobody writes the tables directly; an admin reads a draft, a member does not (issue #392)", async () => {
     const id = await create(f.alice);
     expect(await errorCode(db.asUser(f.alice, (q) => q("update public.alignment_sessions set name = 'x' where id = $1", [id])))).toBe(DENIED);
-    const seen = await db.asUser(creator, async (q) => (await q("select count(*)::int as n from public.alignment_sessions where id = $1", [id])).rows[0].n);
-    expect(seen).toBe(1);
+    const count = (who: string) => db.asUser(who, async (q) => (await q("select count(*)::int as n from public.alignment_sessions where id = $1", [id])).rows[0].n as number);
+    expect(await count(f.alice)).toBe(1);
+    expect(await count(creator)).toBe(0);
   });
   it("opening snapshots only the customer-safe fields, locks the settings and needs two initiatives", async () => {
     const id = await create(f.alice);

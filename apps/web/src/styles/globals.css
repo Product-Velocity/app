@@ -1141,3 +1141,34 @@ button.share-chip { cursor: pointer; }
 .pvbar-s1 .ov-row { min-width: 0; }
 .quick-add-input::placeholder { text-overflow: ellipsis; }
 .quick-add-input { text-overflow: ellipsis; }
+
+/* The Alignment tab (issue #392) */
+.alignment-list .page-head { justify-content: space-between; }
+.al-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
+.al-stats > div { border: 1px solid var(--grey-1); border-radius: 8px; padding: 8px 12px; background: var(--bg); }
+.al-stats dt { color: #5b6272; font-size: 12px; }
+.al-stats dd { margin: 2px 0 0; font-size: 20px; font-weight: 600; }
+.al-needs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 12px; }
+.al-chip { font: inherit; border: 1px solid var(--border-strong); background: var(--bg); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.al-chip.is-on { background: var(--blue-tint-2); border-color: var(--blue); color: var(--blue-text); }
+.al-toolbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; margin: 0 0 10px; }
+.al-field { display: grid; gap: 2px; font-size: 12px; color: #5b6272; }
+.al-field input, .al-field select { font: inherit; height: 28px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 0 6px; background: var(--bg); color: #111827; min-width: 130px; }
+.al-check { display: flex; align-items: center; gap: 4px; height: 28px; font-size: 12.5px; }
+.th-sort { font: inherit; font-weight: 600; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; text-align: left; }
+.al-table th, .al-table td { white-space: nowrap; }
+.al-table tbody th { font-weight: 600; }
+.al-dialog-top { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 12px; }
+.al-picker { list-style: none; margin: 0 0 10px; padding: 4px 8px; max-height: 260px; overflow: auto; border: 1px solid var(--grey-1); border-radius: 8px; }
+.al-picker li { padding: 3px 0; }
+@media (max-width: 640px) {
+  .al-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .al-dialog-top { grid-template-columns: 1fr; }
+  .al-table thead { position: absolute; left: -9999px; }
+  .al-table, .al-table tbody, .al-table tr { display: block; }
+  .al-table tr { border: 1px solid var(--grey-1); border-radius: 8px; padding: 6px 10px; margin: 0 0 8px; }
+  .al-table th, .al-table td { display: flex; justify-content: space-between; gap: 12px; height: auto; border: 0; padding: 3px 0; white-space: normal; text-align: right; }
+  .al-table tbody th { text-align: left; font-size: 14px; }
+  .al-table td::before { content: attr(data-label); color: #5b6272; text-align: left; }
+  .al-table tbody th::before { content: none; }
+}
