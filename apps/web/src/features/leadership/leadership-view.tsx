@@ -13,8 +13,10 @@ import type { GridItem, Lookups } from "../portfolio/types";
 import { useViewRows } from "../portfolio/use-view-rows";
 import { scopeParam, setQueryParam } from "../workspace/scope";
 import type { LeadershipStore, WeeklyUpdate } from "./store";
+import { StatusPill } from "../../components/status-pill";
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, "-");
+
 const HEALTH_ORDER: HealthState[] = ["On Track", "At Risk", "Delayed", "Blocked", "No health"];
 
 export type LeadershipProps = { controller: PortfolioController; lookups: Lookups; me: string | null; store: LeadershipStore; pageHref?: (code: string) => string };
@@ -105,7 +107,7 @@ export function LeadershipView({ controller, lookups, me, store, pageHref }: Lea
                 {attention.map((a) => (
                   <li key={a.id}>
                     {open({ id: a.id, item_code: a.code })} <span className="lead-name">{a.name}</span>{" "}
-                    {a.health && <span className={`pill health-${slug(a.health)}`}>{a.health}</span>}
+                    {a.health && <StatusPill value={a.health} />}
                     <span className="muted"> {a.reasons.join(". ")}.</span>
                   </li>
                 ))}
@@ -122,8 +124,8 @@ export function LeadershipView({ controller, lookups, me, store, pageHref }: Lea
                   {top.map((r) => (
                     <tr key={r.id} data-item={r.id}>
                       {columns.map((f) => (
-                        <td key={f.key} data-label={f.name} className={f.key === "stack_rank" ? "num" : undefined}>
-                          {f.key === "item_code" ? open(r) : f.key === "stack_rank" ? `#${r.stack_rank}` : f.key === "health" && r.health ? <span className={`pill health-${slug(String(r.health))}`}>{String(r.health)}</span> : fmt(f, r)}
+                        <td key={f.key} className={f.key === "stack_rank" ? "num" : undefined}>
+                          {f.key === "item_code" ? open(r) : f.key === "stack_rank" ? `#${r.stack_rank}` : f.key === "health" && r.health ? <StatusPill value={String(r.health)} /> : fmt(f, r)}
                         </td>
                       ))}
                     </tr>
