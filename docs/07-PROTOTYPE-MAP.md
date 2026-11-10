@@ -18,7 +18,7 @@ Published (view-only reference): https://claude.ai/artifact/WVtip16iTPYZdru67tsg
 | 14 | Connect-Claude | MCP settings, permissions, roles | 4 | |
 | 15 | Team-capacity | Teams, skills, time split, unassigned | 5 | Cross-team split not shown |
 | 16 | Capacity-planner | Supply vs demand, fit line, plan vs actual | 5 | No AI-agent capacity |
-| 17 | Alignment-setup | Session setup, 100 coins, invitations | 5 | |
+| 17 | Alignment-setup | Session setup, 100 coins, invitations | 5 | The sessions list is the **Alignment** tab in the header (#392): table with stats strip, needs-you chips, search, filters and New session |
 | 18 | Planning-cycles | Phases, candidate pool, "so far" | 5 | |
 | 20 | Portfolio | All-projects grid, quick-add, inline edit, scope switcher | 1 | Canonical grid reference; autosave status strip with Undo (staged Save bar removed) |
 | 21 | Reports | Template gallery, schedule, history, generate | 6 | |
