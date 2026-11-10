@@ -10,6 +10,8 @@ import type { ReportEnv } from "./report-env";
 import { StackedChart } from "./stacked-chart";
 import { TimelineChart } from "./timeline-chart";
 import { TimeToMarket } from "./ttm-charts";
+import { StatusPill } from "../../components/status-pill";
+import { statusTone } from "../../components/status-tone";
 
 const SHOWN = 200;
 const FIELD_OF = (key: string) => FIELD_BY_KEY[key]!;
@@ -59,7 +61,7 @@ export function OverviewReport({ env, setState, onOpen }: { env: ReportEnv; setS
                   <tr key={r.id}>
                     {fields.map((f, i) => (
                       <td key={f.key}>
-                        {i === 1 ? <button type="button" className="link-button" onClick={() => onOpen(r.id)}>{fmt(f, r)}</button> : f.key === "health" && r.health ? <span className={`pill health-${String(r.health).toLowerCase().replace(/[^a-z]+/g, "-")}`}>{fmt(f, r)}</span> : fmt(f, r)}
+                        {i === 1 ? <button type="button" className="link-button" onClick={() => onOpen(r.id)}>{fmt(f, r)}</button> : f.key === "health" && r.health ? <StatusPill value={fmt(f, r)} tone={statusTone(String(r.health))} /> : fmt(f, r)}
                       </td>
                     ))}
                   </tr>

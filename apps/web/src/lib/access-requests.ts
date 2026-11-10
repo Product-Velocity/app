@@ -1,7 +1,9 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { emailConfigured, sendEmail } from "@/lib/email/resend";
+import { emailConfigured } from "@/lib/email/resend";
+import { sendLogged } from "@/lib/email/send";
+import { loadEmailOverride } from "@/lib/email/override";
 import { buildAccessRequestEmail } from "@/lib/email/access";
 import { siteUrl } from "@/lib/site-url";
 
@@ -24,11 +26,12 @@ export async function syncDomainAccess(supabase: SupabaseClient, requesterEmail:
 export async function notifyAdminsOfRequests(fresh: PendingAccess[], requesterEmail: string): Promise<void> {
   if (fresh.length === 0 || !emailConfigured()) return;
   const admin = createAdminClient({ via: "system" });
-  const link = `${await siteUrl()}/settings/members`;
+  const site = await siteUrl();
+  const link = `${site}/settings/members`;
   for (const r of fresh) {
     const { data: emails } = await admin.rpc("tenant_admin_emails", { p_tenant: r.tenantId });
-    const mail = buildAccessRequestEmail({ workspace: r.tenantName, requester: requesterEmail, link });
-    for (const to of ((emails ?? []) as string[]).slice(0, 10)) await sendEmail({ to, ...mail });
+    const mail = buildAccessRequestEmail({ workspace: r.tenantName, requester: requesterEmail, link, siteUrl: site, override: await loadEmailOverride("app.access-request") });
+    for (const to of ((emails ?? []) as string[]).slice(0, 10)) await sendLogged("app.access-request", { to, ...mail }, { tenantId: r.tenantId });
   }
 }
 

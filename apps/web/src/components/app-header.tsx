@@ -6,6 +6,7 @@ import { HeaderTabs } from "./header-tabs";
 import { ScopeSwitcher } from "@/features/workspace/scope-switcher";
 import { AccountSwitcher, type SwitcherAccount } from "./account-switcher";
 import { NotificationsBell } from "@/features/notifications/notifications-bell";
+import { PhoneNav } from "./phone-nav";
 import { VersionUpdateBanner } from "./version-status";
 type Props = {
   tenantName: string;
@@ -30,7 +31,7 @@ type Props = {
   isAdmin?: boolean;
 };
 
-/** Top bar following prototype boards 20 and 1: logo, workspace and scope, tabs, account menu. */
+/** Top bar following prototype boards 20 and 1: logo, workspace and scope, tabs, then the notifications and help icons beside the account menu. */
 export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmin, email, roleLabel, isApprover, textSize, current, decisionsWaiting, showTrash, showAudit, isAdmin }: Props) {
   return (
     <header className="topbar">
@@ -50,11 +51,14 @@ export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmi
 
       <HeaderTabs current={current} accountId={activeTenantId} waiting={decisionsWaiting} />
 
-      {activeTenantId ? <NotificationsBell tenantId={activeTenantId} /> : null}
-      <TextSizeControl initial={textSize} />
-      <HelpGuide />
-      <VersionUpdateBanner />
-      <AccountMenu email={email} roleLabel={roleLabel} isApprover={isApprover} showTrash={showTrash} showAudit={showAudit} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} />
+      <div className="topbar-actions">
+        <TextSizeControl initial={textSize} />
+        <VersionUpdateBanner />
+        {activeTenantId ? <NotificationsBell tenantId={activeTenantId} /> : null}
+        <HelpGuide />
+        <AccountMenu email={email} roleLabel={roleLabel} isApprover={isApprover} showTrash={showTrash} showAudit={showAudit} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} />
+      </div>
+      <PhoneNav accountId={activeTenantId} waiting={decisionsWaiting} />
     </header>
   );
 }

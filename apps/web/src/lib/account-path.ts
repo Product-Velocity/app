@@ -27,7 +27,7 @@ export function accountHref(tenantId: string, pathname: string, search = ""): st
 }
 
 /** Tabs that exist in every account. Anything else (an item, a setting) falls back to the grid when the account changes, as ids are per account. */
-const TAB_ROOTS = ["/portfolio", "/gantt", "/cards", "/leadership", "/alignment", "/settings", "/account", "/trash", "/home", "/incoming", "/decisions", "/attention"];
+const TAB_ROOTS = ["/portfolio", "/gantt", "/cards", "/leadership", "/alignment", "/settings", "/account", "/trash", "/home", "/incoming", "/decisions", "/attention", "/more", "/for-you", "/new", "/share"];
 export function tabHref(tenantId: string, pathname: string): string {
   const page = stripAccountPath(pathname);
   const root = TAB_ROOTS.find((r) => page === r || page.startsWith(`${r}/`));

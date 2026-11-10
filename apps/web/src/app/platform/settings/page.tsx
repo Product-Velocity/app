@@ -67,7 +67,7 @@ export default async function PlatformSettingsPage({ searchParams }: { searchPar
                 </td>
                 <td>
                   {a.user_id !== user.id && (
-                    <form action={setPlatformAdmin}><input type="hidden" name="email" value={a.email} /><input type="hidden" name="active" value="false" /><button className="btn" type="submit">Remove</button></form>
+                    <form action={setPlatformAdmin}><input type="hidden" name="email" value={a.email} /><input type="hidden" name="active" value="false" /><button className="btn btn-danger-quiet" type="submit">Remove</button></form>
                   )}
                 </td>
               </tr>

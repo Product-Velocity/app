@@ -44,10 +44,13 @@ export function ItemPage({ controller, lookups, userId, code, pageHref = (c) => 
 
   if (!row) return <div className="notice-box"><p>There is no initiative {code} in this workspace, or you cannot see it.</p><Link href={backHref}>Back to the roadmap</Link></div>;
   return (
+    <>
+    <button type="button" className="btn phone-only phone-back" onClick={() => router.back()}>← Back</button>
     <ItemPanel
       key={row.id} controller={controller} lookups={lookups} itemId={row.id} me={userId} mode="page" position={position} pageHref={pageHref} backHref={backHref} {...(gates ? { gates } : {})}
       onPrev={index > 0 ? () => router.push(pageHref(controller.rows[index - 1]!.item_code)) : undefined}
       onNext={index < controller.rows.length - 1 ? () => router.push(pageHref(controller.rows[index + 1]!.item_code)) : undefined}
     />
+    </>
   );
 }

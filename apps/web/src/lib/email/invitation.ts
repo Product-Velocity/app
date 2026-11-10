@@ -1,31 +1,19 @@
 import { ROLE_LABEL, type Role } from "@/lib/roles";
-
-const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+import { buildEmail, type TemplateText } from "./registry/registry";
+import { DEFAULT_SITE_URL } from "./registry/layout";
 
 export type InvitationEmail = { subject: string; text: string; html: string };
 
-/** Plain wording, one link, no images and no tracking. Names are escaped; the link is ours. */
-export function buildInvitationEmail(input: { workspace: string; inviter: string; role: Role; isApprover: boolean; link: string; days?: number }): InvitationEmail {
+/** Rendered from the template registry (key app.invitation): branded frame, one button. Names are escaped; the link is ours. */
+export function buildInvitationEmail(input: { workspace: string; inviter: string; role: Role; isApprover: boolean; link: string; days?: number; siteUrl?: string; override?: Partial<TemplateText> | null }): InvitationEmail {
   const days = input.days ?? 7;
   const role = `${ROLE_LABEL[input.role]}${input.isApprover ? " and Approver" : ""}`;
-  const subject = `${input.inviter} invited you to ${input.workspace} on Product Velocity`;
-  const text = [
-    `${input.inviter} invited you to join ${input.workspace} on Product Velocity as ${role}.`,
-    "",
-    "Open this link, sign in or create an account with this email address, and accept:",
-    input.link,
-    "",
-    `The link works once and expires in ${days} days. If you did not expect this email, you can ignore it.`,
-    "",
-    "Product Velocity",
-  ].join("\n");
-  const html = [
-    `<p>${escapeHtml(input.inviter)} invited you to join <strong>${escapeHtml(input.workspace)}</strong> on Product Velocity as ${escapeHtml(role)}.</p>`,
-    `<p>Open this link, sign in or create an account with this email address, and accept:<br><a href="${escapeHtml(input.link)}">${escapeHtml(input.link)}</a></p>`,
-    `<p>The link works once and expires in ${days} days. If you did not expect this email, you can ignore it.</p>`,
-    "<p>Product Velocity</p>",
-  ].join("\n");
-  return { subject, text, html };
+  return buildEmail("app.invitation", {
+    values: { inviter: input.inviter, workspace: input.workspace, role, link: input.link, expires: `${days} days` },
+    siteUrl: input.siteUrl ?? DEFAULT_SITE_URL,
+    buttonUrl: input.link,
+    override: input.override,
+  });
 }
 
 /** Limits: a short pause between sends to one person, a cap per invitation, and a cap per workspace per day. */

@@ -89,7 +89,13 @@ export function HelpGuide() {
   }, [open]);
   return (
     <>
-      <button type="button" className="help-btn" aria-haspopup="dialog" onClick={() => setOpen(true)} title="Columns, how content flows, AI agents, keyboard shortcuts">Help</button>
+      <button type="button" className="bar-icon-btn" aria-haspopup="dialog" aria-label="Help" onClick={() => setOpen(true)} title="Help: columns, how content flows, AI agents, keyboard shortcuts">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1.9-1.1 1.8" />
+          <path d="M12 16.8h.01" />
+        </svg>
+      </button>
       {open && (
         <div className="dialog-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
           <div className="dialog help-guide" role="dialog" aria-modal="true" aria-labelledby={titleId}>

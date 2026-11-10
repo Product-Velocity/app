@@ -5,5 +5,5 @@ import { HarnessDecisions } from "./harness";
 export default async function DecisionsHarness({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   if (process.env.NEXT_PUBLIC_E2E_HARNESS !== "1") notFound();
   const q = await searchParams;
-  return <HarnessDecisions can={q.can ?? "A,B,C"} />;
+  return <HarnessDecisions can={q.can ?? "A,B,C"} phone={q.phone === "1"} />;
 }

@@ -13,10 +13,20 @@ function token(name: string): string | undefined {
 
 describe("design tokens (docs/07)", () => {
   it("uses the brand blue and its tints", () => {
-    expect(token("blue")).toBe("#3347d9");
-    expect(token("blue-text")).toBe("#2433a8");
-    expect(token("blue-tint-1")).toBe("#e8ebfd");
-    expect(token("blue-tint-2")).toBe("#f4f7fe");
+    expect(token("blue")).toBe("#2270ed");
+    expect(token("blue-text")).toBe("#1a56c4");
+    expect(token("blue-tint-1")).toBe("#e8f1fe");
+    expect(token("blue-tint-2")).toBe("#f3f8fe");
+  });
+
+  it("carries the brand guide's brand names with the same values", () => {
+    expect(token("brand")).toBe(token("blue"));
+    expect(token("brand-strong")).toBe(token("blue-text"));
+    expect(token("brand-tint")).toBe(token("blue-tint-1"));
+    expect(token("logo-blue")).toBe("#2270ed");
+    expect(token("on-brand")).toBe("#ffffff");
+    expect(token("health-info-bg")).toBe(token("brand-tint"));
+    expect(token("health-info-fg")).toBe(token("brand-strong"));
   });
 
   it("uses a 13px base with 30–36px rows", () => {
@@ -35,5 +45,18 @@ describe("design tokens (docs/07)", () => {
       expect(token(`${s}-text`)).toMatch(/^#[0-9a-f]{6}$/);
       expect(token(`${s}-bg`)).toMatch(/^#[0-9a-f]{6}$/);
     }
+  });
+
+  it("defines the danger and confirm button colours with readable white text", () => {
+    for (const n of ["danger", "danger-hover", "confirm", "confirm-hover"]) expect(token(n)).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
+  it("uses the brand guide's health pill pairs", () => {
+    expect(token("health-good-bg")).toBe("#dcfce7");
+    expect(token("health-good-fg")).toBe("#14532d");
+    expect(token("health-risk-fg")).toBe("#7a4a00");
+    expect(token("health-bad-bg")).toBe("#fde8e8");
+    expect(token("health-bad-fg")).toBe("#8a1c1c");
+    expect(token("health-neutral-fg")).toBe("#374151");
   });
 });

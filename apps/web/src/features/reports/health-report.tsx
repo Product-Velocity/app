@@ -7,12 +7,12 @@ import { CHART_FONT, EChart, PALETTE, RADIUS } from "./echart";
 import type { ReportEnv } from "./report-env";
 import { StackedChart } from "./stacked-chart";
 import { TimeToMarket } from "./ttm-charts";
+import { StatusPill } from "../../components/status-pill";
 
 const SHOWN = 200;
 const LONGEST = 10;
 const fmtDays = (n: number | null) => (n === null ? "–" : `${Math.round(n * 10) / 10}`);
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;
-const pillClass = (h: unknown) => `pill health-${String(h).toLowerCase().replace(/[^a-z]+/g, "-")}`;
 
 /** A small table under a chart: the same numbers, reachable from the keyboard and read by screen readers. */
 function DataTable({ caption, head, rows }: { caption: string; head: string[]; rows: (string | number)[][] }) {
@@ -54,7 +54,7 @@ export function HealthReport({ env, onOpen }: { env: ReportEnv; onOpen: (id: str
     tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, textStyle: { fontFamily: CHART_FONT }, formatter: (p: unknown) => { const g = aging.phases[(p as { dataIndex: number }[])[0]!.dataIndex]!; return `<b>${g.phase}</b><br/>Median ${fmtDays(g.median)} days<br/>Longest ${fmtDays(g.max)} days<br/>${plural(g.withDate, "initiative", "initiatives")} with a date${g.missing ? `<br/>${g.missing} without a date` : ""}`; } },
     xAxis: { type: "value", name: "days", nameLocation: "end", axisLabel: { color: "#4b5563" }, splitLine: { lineStyle: { color: "#edeff3" } } },
     yAxis: { type: "category", inverse: true, data: aging.phases.map((g) => g.phase), axisLabel: { color: "#111827" }, axisTick: { show: false } },
-    series: [{ type: "bar", barMaxWidth: 22, showBackground: true, backgroundStyle: { color: "#f3f4f7", borderRadius: [0, RADIUS, RADIUS, 0] }, itemStyle: { color: PALETTE[0], borderRadius: [0, RADIUS, RADIUS, 0] }, label: { show: true, position: "right", color: "#111827", formatter: (p: { dataIndex: number }) => { const g = aging.phases[p.dataIndex]!; return g.withDate === 0 ? "no date" : `${fmtDays(g.median)} d (n=${g.withDate})`; } }, emphasis: { itemStyle: { color: "#2433a8" } }, data: aging.phases.map((g) => g.median ?? 0) }],
+    series: [{ type: "bar", barMaxWidth: 22, showBackground: true, backgroundStyle: { color: "#f3f4f7", borderRadius: [0, RADIUS, RADIUS, 0] }, itemStyle: { color: PALETTE[0], borderRadius: [0, RADIUS, RADIUS, 0] }, label: { show: true, position: "right", color: "#111827", formatter: (p: { dataIndex: number }) => { const g = aging.phases[p.dataIndex]!; return g.withDate === 0 ? "no date" : `${fmtDays(g.median)} d (n=${g.withDate})`; } }, emphasis: { itemStyle: { color: "#1a56c4" } }, data: aging.phases.map((g) => g.median ?? 0) }],
   }), [aging]);
 
   const tile = (n: number, text: string, onClick?: () => void, pressed?: boolean, kpi?: string) => onClick ? (
@@ -104,7 +104,7 @@ export function HealthReport({ env, onOpen }: { env: ReportEnv; onOpen: (id: str
                   <tr key={w.id}>
                     <td><button type="button" className="link-button" onClick={() => onOpen(w.id)}>{nameOf(w.id)}</button></td>
                     <td>{String(r.initiative_phase ?? "Not set")}</td>
-                    <td>{r.health ? <span className={pillClass(r.health)}>{String(r.health)}</span> : "Not set"}</td>
+                    <td>{r.health ? <StatusPill value={String(r.health)} /> : "Not set"}</td>
                     <td>{w.days}</td>
                   </tr>
                 ); })}
@@ -129,7 +129,7 @@ export function HealthReport({ env, onOpen }: { env: ReportEnv; onOpen: (id: str
                     <td>{String(r.item_code ?? "")}</td>
                     <td><button type="button" className="link-button" onClick={() => onOpen(r.id)}>{String(r.initiative_name ?? r.id)}</button></td>
                     <td>{String(r.initiative_phase ?? "Not set")}</td>
-                    <td>{r.health ? <span className={pillClass(r.health)}>{String(r.health)}</span> : "Not set"}</td>
+                    <td>{r.health ? <StatusPill value={String(r.health)} /> : "Not set"}</td>
                     <td>{String(r.contributing_teams ?? "")}</td>
                     <td>{daysInPhase(r, todayN) ?? "No date"}</td>
                     <td>{ageDays(r, todayN) ?? "No date"}</td>

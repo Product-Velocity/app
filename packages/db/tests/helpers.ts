@@ -293,6 +293,10 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
   if ((await db.admin.query("select to_regclass('public.alignment_rank_applications') as t")).rows[0].t) { // older-schema tests seed before this table exists
     await db.admin.query("insert into public.alignment_rank_applications (tenant_id, session_id, scope, moves, moved) values ($1, $2, 'all', '[]', 1)", [tenantId, sess]);
   }
+  // a send-log row (positive control; the log holds no address, name, token or body)
+  if ((await db.admin.query("select to_regclass('public.email_send_log') as t")).rows[0].t) {
+    await db.admin.query("insert into public.email_send_log (template_key, tenant_id, status, provider_id) values ('app.invitation', $1, 'sent', $2)", [tenantId, `re_seed_${tenantId}`]);
+  }
   return { project, team, items, scope, view, connection: conn };
 }
 

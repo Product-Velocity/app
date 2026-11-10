@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/session";
 import { EnrollTotp } from "./enroll";
 import { removeFactor } from "./actions";
+import { Passkeys } from "./passkeys";
 
 export const metadata = { title: "Security · Product Velocity" };
 
@@ -12,6 +13,8 @@ export default async function SecurityPage() {
   return (
     <div className="page-narrow">
       <h1>Security</h1>
+      <h2>Passkeys</h2>
+      <div className="card stack"><Passkeys /></div>
       <h2>Two-factor sign-in</h2>
       <div className="card stack">
         {verified.length > 0 ? (

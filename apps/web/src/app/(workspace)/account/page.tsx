@@ -65,7 +65,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
               {i.provider !== "email" && (
                 <form action={unlinkProvider}>
                   <input type="hidden" name="provider" value={i.provider} />
-                  <button className="btn" type="submit" disabled={!canUnlink(identities, i.provider)} title={canUnlink(identities, i.provider) ? undefined : "It is your only sign-in method"}>Remove</button>
+                  <button className="btn btn-danger-quiet" type="submit" disabled={!canUnlink(identities, i.provider)} title={canUnlink(identities, i.provider) ? undefined : "It is your only sign-in method"}>Remove</button>
                 </form>
               )}
             </li>

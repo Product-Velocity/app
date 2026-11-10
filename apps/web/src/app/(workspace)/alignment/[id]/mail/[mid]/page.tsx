@@ -60,7 +60,7 @@ export default async function MailingPage({ params, searchParams }: { params: Pr
               <input type="hidden" name="session" value={id} />
               <input type="hidden" name="id" value={mid} />
               <input type="hidden" name="expected" value={n} />
-              <button className="btn btn-primary" type="submit" disabled={!open}>Confirm and send to {n} {n === 1 ? "person" : "people"}</button>
+              <button className="btn btn-confirm" type="submit" disabled={!open}>Confirm and send to {n} {n === 1 ? "person" : "people"}</button>
             </form>
             <form action={cancelMailing}>
               <input type="hidden" name="session" value={id} />

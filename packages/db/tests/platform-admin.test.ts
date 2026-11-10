@@ -39,6 +39,13 @@ describe("who can use the platform functions (FR-5.3: no leakage)", () => {
       "select * from public.platform_admin_list()",
       "select * from public.platform_audit_search()",
       "select * from public.platform_config_log()",
+      "select * from public.platform_email_stats()",
+      "select * from public.platform_email_versions('app.invitation')",
+      "select public.platform_email_save_draft('app.invitation', 's', '', 'h', 'b', null, '')",
+      "select public.platform_email_publish('app.invitation')",
+      "select public.platform_email_restore('app.invitation', 1)",
+      "select public.platform_email_discard_draft('app.invitation')",
+      "select * from public.email_template_override('app.invitation')",
       `select public.platform_enter_account('${f.tenantA}')`,
       "select public.platform_set_default_level('read_only')",
       `select public.platform_set_account_level('${f.tenantA}', 'read_only')`,
@@ -324,5 +331,76 @@ describe("guard coverage", () => {
           and exists (select 1 from pg_attribute a where a.attrelid = c.oid and a.attname = case when c.relname = 'tenants' then 'id' else 'tenant_id' end and not a.attisdropped)
           and not exists (select 1 from pg_trigger t where t.tgrelid = c.oid and t.tgname = 'a_platform_readonly_guard')`);
     expect(rows.map((r) => r.relname)).toEqual([]);
+  });
+});
+
+describe("platform email stats (issue #370)", () => {
+  it("a platform admin sees counts per template and nothing about people, and the log table stays closed", async () => {
+    await db.admin.query("insert into public.email_send_log (template_key, status, provider_id) values ('app.access-request', 'delivered', 're_stat_1'), ('app.access-request', 'failed', null), ('auth.sign-in-link', 'sent', 're_stat_2')");
+    const rows = await asPat<{ template_key: string }[]>(async (q) => (await q("select * from public.platform_email_stats(30)")).rows);
+    const inv = rows.find((r) => r.template_key === "app.access-request")!;
+    expect(inv).toMatchObject({ sends: "2", failures: "1", delivered: "1" });
+    expect(Object.keys(inv).sort()).toEqual(["bounced", "delivered", "failures", "last_sent", "sends", "template_key"]);
+    expect(await errorCode(db.asUser(pat, (q) => q("select * from public.email_send_log")))).toBe("42501");
+    expect(await errorCode(db.asUser(f.alice, (q) => q("select * from public.email_send_log")))).toBe("42501");
+  });
+  it("old rows fall outside the window", async () => {
+    await db.admin.query("insert into public.email_send_log (template_key, status, created_at) values ('app.link-code', 'sent', now() - interval '40 days')");
+    const rows = await asPat<{ template_key: string }[]>(async (q) => (await q("select * from public.platform_email_stats(30)")).rows);
+    expect(rows.find((r) => r.template_key === "app.link-code")).toBeUndefined();
+  });
+});
+
+describe("editable email wording (issue #370 phase 4)", () => {
+  const K = "app.access-approved";
+  const save = (subject: string, body = "Body text") =>
+    asPat<number>(async (q) => (await q("select public.platform_email_save_draft($1, $2, 'Pre', 'Heading', $3, 'Open', 'Note') v", [K, subject, body])).rows[0].v, { commit: true });
+  const override = async () => (await db.admin.query("select * from public.email_template_override($1)", [K])).rows;
+
+  it("a draft does not affect sending: only a published version is read by the send path", async () => {
+    expect(await save("Draft subject")).toBe(1);
+    expect(await override()).toEqual([]);
+    const v = await asPat<{ version: number; status: string }[]>(async (q) => (await q("select * from public.platform_email_versions($1)", [K])).rows);
+    expect(v).toMatchObject([{ version: 1, status: "draft" }]);
+  });
+  it("saving again updates the same draft instead of piling up versions", async () => {
+    expect(await save("Draft subject 2")).toBe(1);
+    const v = await asPat<unknown[]>(async (q) => (await q("select * from public.platform_email_versions($1)", [K])).rows);
+    expect(v).toHaveLength(1);
+  });
+  it("publish makes it the sent wording, supersedes the one before, and is in the platform audit log", async () => {
+    await asPat((q) => q("select public.platform_email_publish($1)", [K]), { commit: true });
+    expect(await override()).toMatchObject([{ subject: "Draft subject 2", button: "Open" }]);
+    await save("Second subject", "Second body");
+    await asPat((q) => q("select public.platform_email_publish($1)", [K]), { commit: true });
+    expect(await override()).toMatchObject([{ subject: "Second subject" }]);
+    const v = await asPat<{ version: number; status: string; published_by_name: string }[]>(async (q) => (await q("select * from public.platform_email_versions($1)", [K])).rows);
+    expect(v.map((r) => [r.version, r.status])).toEqual([[2, "published"], [1, "superseded"]]);
+    expect(v[0]!.published_by_name).toBe("Pat Owner");
+    const log = await asPat<{ field: string; new: { template: string; version: number } }[]>(async (q) => (await q("select * from public.platform_config_log()")).rows);
+    expect(log.filter((r) => r.field === "email_template_publish").map((r) => r.new)).toEqual(expect.arrayContaining([{ template: K, version: 1 }, { template: K, version: 2 }]));
+  });
+  it("restore creates a new published version with the old wording, keeps the history, and is in the audit log", async () => {
+    const n = await asPat<number>(async (q) => (await q("select public.platform_email_restore($1, 1) v", [K])).rows[0].v, { commit: true });
+    expect(n).toBe(3);
+    expect(await override()).toMatchObject([{ subject: "Draft subject 2" }]);
+    const v = await asPat<{ version: number; status: string; restored_from: number | null }[]>(async (q) => (await q("select * from public.platform_email_versions($1)", [K])).rows);
+    expect(v.map((r) => [r.version, r.status, r.restored_from])).toEqual([[3, "published", 1], [2, "superseded", null], [1, "superseded", null]]);
+    const log = await asPat<{ field: string; new: { restored_from?: number } }[]>(async (q) => (await q("select * from public.platform_config_log()")).rows);
+    expect(log.some((r) => r.field === "email_template_restore" && r.new.restored_from === 1)).toBe(true);
+  });
+  it("refuses to publish without a draft and to restore a version that does not exist", async () => {
+    expect(await errorCode(asPat((q) => q("select public.platform_email_publish($1)", [K])))).toBe("22023");
+    expect(await errorCode(asPat((q) => q("select public.platform_email_restore($1, 99)", [K])))).toBe("22023");
+  });
+  it("nobody signed in can read the published wording or the table, not even a platform admin through the API", async () => {
+    expect(await errorCode(db.asUser(pat, (q) => q("select * from public.email_template_override($1)", [K])))).toBe("42501");
+    expect(await errorCode(db.asUser(pat, (q) => q("select * from platform.email_template_versions")))).toBe("42501");
+    expect(await errorCode(db.asUser(f.alice, (q) => q("select * from platform.email_template_versions")))).toBe("42501");
+  });
+  it("test sends are left out of the 30-day counts", async () => {
+    await db.admin.query("insert into public.email_send_log (template_key, status, is_test, actor_id) values ('app.link-code', 'sent', true, $1)", [pat]);
+    const rows = await asPat<{ template_key: string }[]>(async (q) => (await q("select * from public.platform_email_stats(30)")).rows);
+    expect(rows.find((r) => r.template_key === "app.link-code")).toBeUndefined();
   });
 });

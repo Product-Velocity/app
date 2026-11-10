@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import type { GateRequest } from "@pv/domain";
 import { AppHeader } from "@/components/app-header";
+import { PhoneDecisions } from "@/features/phone/phone-decisions";
 import { DecisionsView } from "@/features/gates/decisions-view";
 import { MemoryGateSource, type GateItem } from "@/features/gates/gate-source";
 import { WorkspaceProvider } from "@/features/workspace/provider";
@@ -19,7 +20,7 @@ const req = (o: Partial<GateRequest> & Pick<GateRequest, "id" | "item_id" | "gat
 });
 
 /** Four requests: two for gate B, one A, one C, and one already decided with a fast lane. */
-export function HarnessDecisions({ can }: { can: string }) {
+export function HarnessDecisions({ can, phone = false }: { can: string; phone?: boolean }) {
   const source = useMemo(() => {
     const s = new MemoryGateSource(
       [
@@ -46,7 +47,7 @@ export function HarnessDecisions({ can }: { can: string }) {
     <WorkspaceProvider store={store} projects={harnessLookups.projects} canEdit canAdmin>
     <div className="shell">
       <AppHeader tenantName="Meridian Media" email="ana@example.test" roleLabel="Admin" isApprover current="decisions" decisionsWaiting={4} />
-      <main className="content"><DecisionsView source={source} me="u1" /></main>
+      <main className="content">{phone ? <PhoneDecisions source={source} me="u1" tenantId="t1" /> : <DecisionsView source={source} me="u1" />}</main>
     </div>
     </WorkspaceProvider>
   );

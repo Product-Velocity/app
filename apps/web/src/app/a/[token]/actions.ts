@@ -6,7 +6,8 @@ import { generateInviteToken, hashInviteToken } from "@/lib/auth/invite-token";
 import { CONSENT_VERSION } from "@/lib/alignment";
 import { buildNewLinkEmail } from "@/lib/alignment-mail";
 import { browserCookie, hashSecret, newBrowserSecret, resolveLink, sameBrowser } from "@/lib/alignment-link";
-import { sendEmail } from "@/lib/email/resend";
+import { sendLogged } from "@/lib/email/send";
+import { loadEmailOverride } from "@/lib/email/override";
 import { siteUrl } from "@/lib/site-url";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -43,8 +44,8 @@ export async function requestNewLink(token: string): Promise<LinkResult> {
   const { data } = await admin.rpc("alignment_link_resend", { p_old_hash: hashInviteToken(token), p_new_hash: hashInviteToken(next) });
   const row = (data as { id: string; email: string; name: string | null; session_name: string; closes_at: string | null }[] | null)?.[0];
   if (!row) return generic;
-  const mail = buildNewLinkEmail({ name: row.name, session: row.session_name, closesAt: row.closes_at, link: `${await siteUrl()}/a/${next}` });
-  const sent = await sendEmail({ to: row.email, ...mail });
+  const mail = buildNewLinkEmail({ name: row.name, session: row.session_name, closesAt: row.closes_at, link: `${await siteUrl()}/a/${next}`, siteUrl: await siteUrl(), override: await loadEmailOverride("alignment.new-link") });
+  const sent = await sendLogged("alignment.new-link", { to: row.email, ...mail });
   if (!sent.ok) console.error(JSON.stringify({ alignment: "new-link", ok: false }));
   return generic;
 }

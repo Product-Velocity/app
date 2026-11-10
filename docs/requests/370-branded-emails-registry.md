@@ -1,7 +1,9 @@
 ---
 issue: 370
-status: in progress
+status: done
 logged: 2026-11-09
+done: 2026-11-09
+link: PR 380, 382, 383, 384 (v0.117.0 to v0.120.0)
 title: Branded emails from one place (Send Email hook, template registry, platform Emails console) (R-150)
 ---
-Ashu: every product email rendered by the app in one branded layout, with a platform Emails console to see triggers, preview and edit wording. Phased: 0 spike (S10, not run), 1 hook/registry/layout/macros/auth templates (first slice built, hook off), 2 move app emails and send log, 3 Emails area read-only, 4 editing, versions, test send. Decision: `docs/decisions/2026-11-09-branded-emails-registry.md`.
+Ashu: every product email rendered by the app in one branded layout, with a platform Emails console to see triggers, preview and edit wording. Phased: 0 spike (S10, partly run, hook live), 1 hook/registry/layout/macros/auth templates (done, PR 380), 2 move app emails and send log (done, PR 382), 3 Emails area read-only (done, PR 383), 4 editing, versions, publish, restore, test send (done, PR 384). Decision: `docs/decisions/2026-11-09-branded-emails-registry.md`.
