@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createPasskeyClient, passkeyErrorText, passkeysSupported, withPlatformPasskeys } from "@/lib/supabase/passkey";
+import { createPasskeyClient, passkeyErrorText, passkeysSupported, recordPasskeyError, passkeyDiagnostics, withPlatformPasskeys } from "@/lib/supabase/passkey";
 
 type Passkey = { id: string; friendly_name?: string | null; created_at: string; last_used_at?: string | null };
 const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -13,6 +13,7 @@ export function Passkeys() {
   const [list, setList] = useState<Passkey[] | null>(null);
   const [message, setMessage] = useState<{ kind: "error" | "ok"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [details, setDetails] = useState("");
 
   const load = useCallback(async () => {
     if (!client) return;
@@ -30,6 +31,8 @@ export function Passkeys() {
     setBusy(true); setMessage(null);
     const { error } = await withPlatformPasskeys(() => client.auth.registerPasskey());
     setBusy(false);
+    if (error) recordPasskeyError(error as { code?: string; name?: string });
+    setDetails(passkeyDiagnostics());
     if (error) { setMessage({ kind: "error", text: passkeyErrorText(error as { code?: string; name?: string }) }); return; }
     setMessage({ kind: "ok", text: "Passkey added." });
     await load();
@@ -62,6 +65,7 @@ export function Passkeys() {
         </ul>
       )}
       <div><button type="button" className="btn btn-primary" disabled={busy || supported === null} onClick={add}>{busy ? "Waiting for your passkey…" : "Add a passkey"}</button></div>
+      {details && <details><summary>Technical details</summary><p className="muted">What the last attempt asked your browser for. Safe to paste into a message: it holds no email, name or secret.</p><pre className="mono" style={{ whiteSpace: "pre-wrap" }}>{details}</pre></details>}
       {message && <p role={message.kind === "error" ? "alert" : "status"} className={message.kind === "error" ? "error" : "success"}>{message.text}</p>}
     </div>
   );

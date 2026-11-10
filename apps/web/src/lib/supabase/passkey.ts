@@ -34,13 +34,41 @@ export function preferPlatformRequest(pk: Json): Json {
   return hints.includes("security-key") || hints.length === 0 ? { ...pk, hints: ["client-device", "hybrid"] } : pk;
 }
 
+/** What the last passkey call asked the browser for (no challenge, no user name or email), for the "Technical details" box. */
+let last: Json | null = null;
+const summary = (kind: "create" | "get", server: Json, used: Json): Json => {
+  const sel = (key: Json) => (key.authenticatorSelection as Json | undefined) ?? {};
+  const rp = (server.rp as Json | undefined)?.id ?? server.rpId ?? null;
+  return {
+    call: kind,
+    relyingParty: rp,
+    pageHost: typeof window === "undefined" ? null : window.location.hostname,
+    serverAsked: { hints: server.hints ?? null, authenticatorAttachment: sel(server).authenticatorAttachment ?? null, residentKey: sel(server).residentKey ?? null, userVerification: sel(server).userVerification ?? server.userVerification ?? null, attestation: server.attestation ?? null, excluded: Array.isArray(server.excludeCredentials) ? server.excludeCredentials.length : 0, allowed: Array.isArray(server.allowCredentials) ? server.allowCredentials.length : 0 },
+    weSent: { hints: used.hints ?? null, authenticatorAttachment: sel(used).authenticatorAttachment ?? null, residentKey: sel(used).residentKey ?? null },
+  };
+};
+export const recordPasskeyError = (e: { code?: string; name?: string; message?: string } | null | undefined) => { if (e) last = { ...(last ?? {}), error: { code: e.code ?? null, name: e.name ?? null } }; };
+/** Text to paste into a support message; empty before any attempt. */
+export const passkeyDiagnostics = (): string => (last ? JSON.stringify({ ...last, browser: typeof navigator === "undefined" ? null : navigator.userAgent }, null, 2) : "");
+
 /** Runs `fn` with the browser's passkey calls adjusted by the two functions above, and always puts them back. */
 export async function withPlatformPasskeys<T>(fn: () => Promise<T>): Promise<T> {
   const creds = navigator.credentials as CredentialsContainer & { create: CredentialsContainer["create"]; get: CredentialsContainer["get"] };
   const create = creds.create.bind(creds);
   const get = creds.get.bind(creds);
-  creds.create = (o?: CredentialCreationOptions) => create(o?.publicKey ? { ...o, publicKey: preferPlatformCreation(o.publicKey as unknown as Json) as unknown as PublicKeyCredentialCreationOptions } : o);
-  creds.get = (o?: CredentialRequestOptions) => get(o?.publicKey ? { ...o, publicKey: preferPlatformRequest(o.publicKey as unknown as Json) as unknown as PublicKeyCredentialRequestOptions } : o);
+  last = null;
+  creds.create = (o?: CredentialCreationOptions) => {
+    if (!o?.publicKey) return create(o);
+    const used = preferPlatformCreation(o.publicKey as unknown as Json);
+    last = summary("create", o.publicKey as unknown as Json, used);
+    return create({ ...o, publicKey: used as unknown as PublicKeyCredentialCreationOptions });
+  };
+  creds.get = (o?: CredentialRequestOptions) => {
+    if (!o?.publicKey) return get(o);
+    const used = preferPlatformRequest(o.publicKey as unknown as Json);
+    last = summary("get", o.publicKey as unknown as Json, used);
+    return get({ ...o, publicKey: used as unknown as PublicKeyCredentialRequestOptions });
+  };
   try { return await fn(); } finally { delete (creds as unknown as Json).create; delete (creds as unknown as Json).get; }
 }
 
