@@ -2,7 +2,7 @@
 
 import { drillOn, type ReportDim, type ReportState, type Stacked } from "@pv/domain";
 
-const PALETTE = ["#3347d9", "#0f8a6a", "#c27a00", "#a23b8f", "#2b7fb8", "#b4472f", "#5b6577", "#6a8f1f", "#8f5bd6", "#1f7a8c"];
+const PALETTE = ["#2270ed", "#0f8a6a", "#c27a00", "#a23b8f", "#2b7fb8", "#b4472f", "#5b6577", "#6a8f1f", "#8f5bd6", "#1f7a8c"];
 
 type Props = {
   title: string;

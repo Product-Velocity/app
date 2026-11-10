@@ -10,7 +10,7 @@ Paste each into Supabase: **Authentication > Emails > Templates**, with the subj
 | Magic link | `magic-link.html` | Your Product Velocity sign-in link |
 | Reset password | `reset-password.html` | Reset your Product Velocity password |
 
-Also set, once: **Authentication > Emails > Email OTP expiration = 3600** (one setting for all three; the emails and the screens say 60 minutes), **Site URL** = the production address (the logo is loaded from `{{ .SiteURL }}/email/logo.png`), and a custom SMTP sender (see `docs/11-ENVIRONMENTS.md`).
+Also set, once: **Authentication > Emails > Email OTP expiration = 3600** (one setting for all three; the emails and the screens say 60 minutes), **Site URL** = the production address (the logo tile is loaded from `{{ .SiteURL }}/email/logo.png`, a 96px PNG shown at 48px, with the name set as live text beside it), and a custom SMTP sender (see `docs/11-ENVIRONMENTS.md`).
 
 Links use `{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=...`, which `/auth/callback` accepts and which works in any browser or mail app.
 

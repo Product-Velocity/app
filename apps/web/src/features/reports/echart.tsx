@@ -10,7 +10,7 @@ import type { EChartsCoreOption, ECharts } from "echarts/core";
 echarts.use([BarChart, PieChart, ScatterChart, CustomChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, MarkLineComponent, AriaComponent, SVGRenderer]);
 
 /** One palette for every chart (the same as the bar charts of the Reports tab); the brand blue first. */
-export const PALETTE = ["#3347d9", "#0f8a6a", "#c27a00", "#a23b8f", "#2b7fb8", "#b4472f", "#5b6577", "#6a8f1f", "#8f5bd6", "#1f7a8c"];
+export const PALETTE = ["#2270ed", "#0f8a6a", "#c27a00", "#a23b8f", "#2b7fb8", "#b4472f", "#5b6577", "#6a8f1f", "#8f5bd6", "#1f7a8c"];
 export const CHART_FONT = '"IBM Plex Sans", system-ui, sans-serif';
 
 /** The same rounded white card for every tooltip. */

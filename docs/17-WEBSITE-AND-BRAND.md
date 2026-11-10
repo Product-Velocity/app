@@ -20,3 +20,6 @@ The story does not end at "shipped". Go-to-market and outcomes are tracked as an
 Other open questions are listed in the briefing.
 
 Do not build the site until these are confirmed; then create the issue(s) from the briefing's plan.
+
+## Brand refresh applied (2026-11-10)
+Ashu's updated brand guide (design-system artifact, updated 2026-11-10) replaces the indigo `#3347D9` and the "P" placeholder: brand blue `#2270ED` (text `#1A56C4`, tint `#E8F1FE`), and the pill logo (fifteen white pills in a 5·4·3·2·1 triangle on a rounded square in the fixed `logo-blue`). Applied in the app: `tokens.css` (old names kept, brand names added), all hard-coded blues in `globals.css`, charts and the grid accent, `BrandLogo`/`BrandMark` (inline SVG, live-text name), favicon (`icon.svg`, `favicon.ico` 16/32/48), `icon.png` 512, `apple-icon.png` 180, `public/brand/` (SVGs, 192px icon), the web manifest, the email frame and the three Supabase auth templates (tile at 48px plus the name as text), and the `pv:removed` GitHub label colour. Decision: `docs/decisions/2026-11-10-brand-refresh.md`. Still to do from the guide, not part of this change: the pill motif (selected-row capsule, capsule bars, gate funnel, Fit line), which the guide marks "proposed".
