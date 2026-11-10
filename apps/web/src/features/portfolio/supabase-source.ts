@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { FIELDS, crowdFields, latestCrowd, toCrowdRow, type CrowdRow, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
+import { FIELDS, crowdFields, latestCrowd, toCrowdRow, toRankDecision, type CrowdRow, type RankDecision, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
 import type { IssueTreeRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
 
@@ -301,6 +301,16 @@ export class SupabaseDataSource implements PortfolioDataSource {
       throw new Error(friendlyError(error));
     }
     return ((data ?? []) as Record<string, unknown>[]).map(toCrowdRow);
+  }
+
+  /** Admins only (the database returns nothing to anyone else). An older database without the function gives none. */
+  async loadDecisions(itemId: string): Promise<RankDecision[]> {
+    const { data, error } = await this.client.rpc("item_alignment_decisions", { p_tenant: this.tenantId, p_item: itemId });
+    if (error) {
+      if (error.code === "PGRST202" || error.code === "42883") return [];
+      throw new Error(friendlyError(error));
+    }
+    return ((data ?? []) as Record<string, unknown>[]).map(toRankDecision);
   }
 
   async copyToProject(itemIds: string[], projectId: string) {

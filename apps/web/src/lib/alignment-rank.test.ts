@@ -47,6 +47,44 @@ describe("what applying would do", () => {
     const sorted = rows.map((r, n) => ({ ...r, from: n + 1, place: n + 1, tied: false }));
     expect(planApply(sorted, sorted.map((r) => r.itemId), Object.fromEntries(sorted.map((r) => [r.itemId, r.from])))).toEqual({ ok: false, reason: "nothing" });
   });
+  it("a chosen order replaces the vote's order, and every difference from the vote needs a reason", () => {
+    // positions held: #1 (i4), #3 (i3), #5 (i2), #9 (i1). The vote gives i1 #1, i3 #3, i2 #5, i4 #9.
+    // The person keeps i1 and i3 as the vote has them and swaps the last two: i4 takes #5, i2 takes #9.
+    const order = ["i1", "i3", "i4", "i2"];
+    const needed = planApply(rows, ["i1", "i2", "i3", "i4"], seen, order);
+    expect(!needed.ok && needed.reason).toBe("reason-needed");
+    expect(!needed.ok ? [...(needed.ids ?? [])].sort() : []).toEqual(["i2", "i4"]); // i1 and i3 match the vote
+    const plan = planApply(rows, ["i1", "i2", "i3", "i4"], seen, order, { i4: "  Unblocks   the Q1 launch ", i2: "Contract date" });
+    expect(plan.ok && Object.fromEntries(plan.moves.map((m) => [m.id, m.to]))).toEqual({ i1: 1, i3: 3, i4: 5, i2: 9 });
+    expect(plan.ok && plan.reasons).toEqual({ i4: "Unblocks the Q1 launch", i2: "Contract date" });
+    expect(plan.ok && plan.differing.map((d) => [d.id, d.crowd, d.final])).toEqual([["i4", 9, 5], ["i2", 5, 9]]);
+  });
+
+  it("an initiative that matches the vote needs no reason; leaving the order out applies the vote with none", () => {
+    const plan = planApply(rows, ["i1", "i2", "i3", "i4"], seen);
+    expect(plan.ok && plan.reasons).toEqual({});
+    expect(plan.ok && plan.differing).toEqual([]);
+  });
+
+  it("a reason that is empty or longer than 300 characters is no reason", () => {
+    const order = ["i1", "i3", "i4", "i2"];
+    expect(planApply(rows, ["i1", "i2", "i3", "i4"], seen, order, { i2: "   ", i4: "ok" }).ok).toBe(false);
+    expect(planApply(rows, ["i1", "i2", "i3", "i4"], seen, order, { i2: "x".repeat(301), i4: "ok" }).ok).toBe(false);
+    expect(planApply(rows, ["i1", "i2", "i3", "i4"], seen, order, { i2: "x".repeat(300), i4: "ok" }).ok).toBe(true);
+  });
+
+  it("an order that is not exactly the chosen initiatives is refused", () => {
+    expect(planApply(rows, ["i1", "i2", "i3", "i4"], seen, ["i1", "i2"])).toEqual({ ok: false, reason: "bad-order" });
+    expect(planApply(rows, ["i1", "i2"], { ...seen }, ["i1", "i2", "i3"])).toEqual({ ok: false, reason: "bad-order" });
+    expect(planApply(rows, ["i1", "i2", "i3", "i4"], seen, ["i1", "i1", "i3", "i4"])).toEqual({ ok: false, reason: "bad-order" });
+  });
+
+  it("keeping every initiative where it is, against a vote that moves them, is a decision with reasons that changes nothing, so it is not applied", () => {
+    // today: i4 #1, i3 #3, i2 #5, i1 #9: the person keeps exactly this order
+    const keep = planApply(rows, ["i1", "i2", "i3", "i4"], seen, ["i4", "i3", "i2", "i1"], { i1: "a", i2: "b", i3: "c", i4: "d" });
+    expect(!keep.ok && keep.reason).toBe("nothing");
+  });
+
   it("ignores an initiative that is not part of the vote", () => {
     expect(planApply(rows, ["i1", "i4", "not-in-vote"], { ...seen, "not-in-vote": 7 }).ok).toBe(true);
   });

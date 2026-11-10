@@ -31,6 +31,8 @@ export function makeHarness(n: number, latency: number, role: string, lookups: L
     crowd({ itemId: "item-2", place: 3, tied: true, score: 71.4, consensus: 90 }),
     crowd({ itemId: "item-3", place: 3, tied: true, score: 71.4, consensus: 72 }),
   ];
+  // what an admin decided for item-1 in its latest session, and why (admins only in the app)
+  source.decisions["item-1"] = [{ sessionId: "s-q1", sessionName: "Q1 priorities", appliedAt: "2027-03-14T09:30:00Z", fromRank: 5, toRank: 1, crowdRank: 2, reason: "Contract signed with a launch date in Q1" }];
   for (const [id, r] of latestCrowd(source.crowd)) Object.assign(source.items.find((i) => i.id === id) ?? {}, crowdFields(r));
   // who added each item: the signed-in test user ("u1", Ana) added the odd-numbered ones, "u2" the even ones
   for (const i of source.items) (i as Record<string, unknown>)._created_by = Number(i.id.replace("item-", "")) % 2 === 1 ? "u1" : "u2";

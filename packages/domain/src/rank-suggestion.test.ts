@@ -55,3 +55,67 @@ describe("wording and the reorder check", () => {
     expect(isReorder([{ from: 2, to: 5 }, { from: 5, to: 5 }])).toBe(false); // two initiatives on one position
   });
 });
+
+import { REASON_MAX, assignRanks, cleanReason, differences, isPermutationOf, moveInOrder } from "./rank-suggestion";
+
+describe("deciding the final order (issue #397)", () => {
+  const held = [{ id: "a", stackRank: 2 }, { id: "b", stackRank: 5 }, { id: "c", stackRank: 9 }];
+  const votes = new Map([["a", { place: 2, tied: false }], ["b", { place: 3, tied: false }], ["c", { place: 1, tied: false }]]);
+  const crowd = suggestOrder([item("a", 2, 2), item("b", 5, 3), item("c", 9, 1)]);
+
+  it("gives the i-th initiative of the chosen order the i-th best held position", () => {
+    const moves = assignRanks(["b", "c", "a"], held, votes);
+    expect(Object.fromEntries(moves.map((m) => [m.id, m.to]))).toEqual({ b: 2, c: 5, a: 9 });
+    expect(isReorder(moves)).toBe(true);
+  });
+
+  it("the vote's own suggestion is the same rule applied to the crowd's order", () => {
+    const viaOrder = assignRanks(crowd.map((m) => m.id), held, votes);
+    expect(viaOrder.map((m) => [m.id, m.to])).toEqual(crowd.map((m) => [m.id, m.to]));
+  });
+
+  it("finds exactly the initiatives that differ from the vote, also one that stays put against a vote that moves it", () => {
+    expect(differences(assignRanks(crowd.map((m) => m.id), held, votes), crowd)).toEqual([]);
+    // the vote says c, a, b (c #2, a #5, b #9); the person keeps a and b where they are and only swaps c in front of nothing: a, b, c
+    const kept = assignRanks(["a", "b", "c"], held, votes);
+    const d = differences(kept, crowd);
+    expect(d.map((x) => x.id).sort()).toEqual(["a", "b", "c"]);
+    expect(d.find((x) => x.id === "a")).toEqual({ id: "a", from: 2, crowd: 5, final: 2 }); // it stays, the vote moves it down: still a difference
+    // moving only the last two leaves c first: a differs, c does not
+    const some = assignRanks(["c", "b", "a"], held, votes);
+    expect(differences(some, crowd).map((x) => x.id).sort()).toEqual(["a", "b"]);
+  });
+
+  it("checks that an order lists the chosen initiatives once each", () => {
+    expect(isPermutationOf(["b", "a", "c"], ["a", "b", "c"])).toBe(true);
+    expect(isPermutationOf(["a", "b"], ["a", "b", "c"])).toBe(false);
+    expect(isPermutationOf(["a", "a", "b"], ["a", "b", "c"])).toBe(false);
+    expect(isPermutationOf(["a", "b", "x"], ["a", "b", "c"])).toBe(false);
+  });
+
+  it("moves one initiative to a place, clamping outside the list and leaving the rest in order", () => {
+    expect(moveInOrder(["a", "b", "c", "d"], "d", 1)).toEqual(["d", "a", "b", "c"]);
+    expect(moveInOrder(["a", "b", "c", "d"], "a", 3)).toEqual(["b", "c", "a", "d"]);
+    expect(moveInOrder(["a", "b", "c"], "b", 99)).toEqual(["a", "c", "b"]);
+    expect(moveInOrder(["a", "b", "c"], "b", -4)).toEqual(["b", "a", "c"]);
+    expect(moveInOrder(["a", "b", "c"], "b", 2)).toEqual(["a", "b", "c"]);
+    expect(moveInOrder(["a", "b"], "zzz", 1)).toEqual(["a", "b"]);
+  });
+
+  it("cleans a reason: trimmed, spaces collapsed, empty or too long is none", () => {
+    expect(cleanReason("  Customer   deadline in Q1  ")).toBe("Customer deadline in Q1");
+    expect(cleanReason("   ")).toBeNull();
+    expect(cleanReason(undefined)).toBeNull();
+    expect(cleanReason("x".repeat(REASON_MAX))).toHaveLength(REASON_MAX);
+    expect(cleanReason("x".repeat(REASON_MAX + 1))).toBeNull();
+  });
+});
+
+import { decisionText, toRankDecision } from "./rank-suggestion";
+describe("what was decided (issue #397)", () => {
+  it("reads a database row and writes the decision in words", () => {
+    const d = toRankDecision({ session_id: "s", session_name: "Q1", applied_at: "2027-03-01T10:00:00Z", from_rank: "9", to_rank: 5, crowd_rank: 2, reason: "Contract date" });
+    expect(d).toEqual({ sessionId: "s", sessionName: "Q1", appliedAt: "2027-03-01T10:00:00Z", fromRank: 9, toRank: 5, crowdRank: 2, reason: "Contract date" });
+    expect(decisionText(d)).toBe("The vote suggested #2. Decided #5 (was #9).");
+  });
+});

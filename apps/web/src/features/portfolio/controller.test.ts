@@ -720,3 +720,12 @@ describe("what the crowd said (issue #393)", () => {
     }
   });
 });
+
+describe("what admins decided (issue #397)", () => {
+  it("gives the decisions of one initiative, and none for the others", async () => {
+    const { c, source } = setup();
+    source.decisions["item-1"] = [{ sessionId: "s1", sessionName: "Q1", appliedAt: "2027-03-01T10:00:00Z", fromRank: 9, toRank: 5, crowdRank: 2, reason: "Contract date" }];
+    expect((await c.decisions("item-1")).map((d) => d.reason)).toEqual(["Contract date"]);
+    expect(await c.decisions("item-2")).toEqual([]);
+  });
+});

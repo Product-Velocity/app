@@ -16,12 +16,13 @@ export function HarnessRank() {
   useEffect(() => { (window as unknown as { __applied: unknown[] }).__applied = []; }, []);
   // stands in for the server action: records what the form would send
   const apply = async (form: FormData) => {
-    (window as unknown as { __applied: unknown[] }).__applied.push({ session: form.get("session"), items: form.getAll("item"), seen: form.get("seen") });
+    const reasons = Object.fromEntries([...form.entries()].filter(([k]) => k.startsWith("reason_")).map(([k, v]) => [k.slice(7), v]));
+    (window as unknown as { __applied: unknown[] }).__applied.push({ session: form.get("session"), items: form.getAll("item"), order: form.getAll("order"), reasons, seen: form.get("seen") });
   };
   return (
     <div className="page-wide">
       <h1>Alignment results (test page)</h1>
-      <h2>Suggested order for the Stack Rank</h2>
+      <h2>Order for the Stack Rank</h2>
       <SuggestedOrder sessionId="11111111-1111-4111-8111-111111111111" rows={rows} skipped={1} apply={apply} />
     </div>
   );
