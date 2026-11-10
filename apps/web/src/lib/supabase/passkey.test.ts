@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { preferPlatformCreation, preferPlatformRequest } from "./passkey";
 
 describe("passkey options", () => {
@@ -28,5 +28,26 @@ describe("passkey diagnostics", () => {
     const text = passkeyDiagnostics();
     expect(text).toContain("NotAllowedError");
     expect(text).not.toContain("secret@example.com");
+  });
+});
+
+describe("passkey remembered on this device", () => {
+  it("is off until one is added, then on, and off again when forgotten", async () => {
+    const { hasPasskeyHere, rememberPasskeyHere, forgetPasskeyHere } = await import("./passkey");
+    const store = new Map<string, string>();
+    vi.stubGlobal("window", { localStorage: { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) } });
+    expect(hasPasskeyHere()).toBe(false);
+    rememberPasskeyHere();
+    expect(hasPasskeyHere()).toBe(true);
+    forgetPasskeyHere();
+    expect(hasPasskeyHere()).toBe(false);
+    vi.unstubAllGlobals();
+  });
+  it("is off when storage is blocked", async () => {
+    const { hasPasskeyHere, rememberPasskeyHere } = await import("./passkey");
+    vi.stubGlobal("window", { get localStorage(): never { throw new Error("blocked"); } });
+    expect(hasPasskeyHere()).toBe(false);
+    expect(() => rememberPasskeyHere()).not.toThrow();
+    vi.unstubAllGlobals();
   });
 });

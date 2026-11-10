@@ -72,6 +72,16 @@ export async function withPlatformPasskeys<T>(fn: () => Promise<T>): Promise<T> 
   try { return await fn(); } finally { delete (creds as unknown as Json).create; delete (creds as unknown as Json).get; }
 }
 
+/**
+ * A browser cannot tell whether a passkey for this site exists without asking the person to use one, and asking when there is none shows
+ * a "scan a QR code" sheet. So this device remembers that a passkey was added or used here, and the sign-in page offers the button only then
+ * (Ashu, 2026-11-10). The flag is a convenience, never a security check: the server still verifies the passkey.
+ */
+const HERE_KEY = "pv:passkey-here";
+export const hasPasskeyHere = (): boolean => { try { return window.localStorage.getItem(HERE_KEY) === "1"; } catch { return false; } };
+export const rememberPasskeyHere = () => { try { window.localStorage.setItem(HERE_KEY, "1"); } catch { /* storage may be blocked */ } };
+export const forgetPasskeyHere = () => { try { window.localStorage.removeItem(HERE_KEY); } catch { /* storage may be blocked */ } };
+
 /** Whether this browser can run a passkey ceremony at all. */
 export const passkeysSupported = () => typeof window !== "undefined" && typeof window.PublicKeyCredential !== "undefined";
 
