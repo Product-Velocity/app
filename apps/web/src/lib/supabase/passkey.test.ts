@@ -19,3 +19,14 @@ describe("passkey options", () => {
     expect(preferPlatformRequest({ hints: ["hybrid"] }).hints).toEqual(["hybrid"]);
   });
 });
+
+describe("passkey diagnostics", () => {
+  it("is empty before any attempt and never holds user details", async () => {
+    const { passkeyDiagnostics, recordPasskeyError } = await import("./passkey");
+    expect(passkeyDiagnostics()).toBe("");
+    recordPasskeyError({ code: "x", name: "NotAllowedError", message: "secret@example.com" });
+    const text = passkeyDiagnostics();
+    expect(text).toContain("NotAllowedError");
+    expect(text).not.toContain("secret@example.com");
+  });
+});
