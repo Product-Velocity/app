@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { preferPlatformCreation, preferPlatformRequest } from "./passkey";
 
 describe("passkey options", () => {
@@ -28,5 +28,61 @@ describe("passkey diagnostics", () => {
     const text = passkeyDiagnostics();
     expect(text).toContain("NotAllowedError");
     expect(text).not.toContain("secret@example.com");
+  });
+});
+
+describe("passkey remembered on this device", () => {
+  it("is off until one is added, then on, and off again when forgotten", async () => {
+    const { hasPasskeyHere, rememberPasskeyHere, forgetPasskeyHere } = await import("./passkey");
+    const store = new Map<string, string>();
+    vi.stubGlobal("window", { localStorage: { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v), removeItem: (k: string) => void store.delete(k) } });
+    expect(hasPasskeyHere()).toBe(false);
+    rememberPasskeyHere();
+    expect(hasPasskeyHere()).toBe(true);
+    forgetPasskeyHere();
+    expect(hasPasskeyHere()).toBe(false);
+    vi.unstubAllGlobals();
+  });
+  it("is off when storage is blocked", async () => {
+    const { hasPasskeyHere, rememberPasskeyHere } = await import("./passkey");
+    vi.stubGlobal("window", { get localStorage(): never { throw new Error("blocked"); } });
+    expect(hasPasskeyHere()).toBe(false);
+    expect(() => rememberPasskeyHere()).not.toThrow();
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("passkey autofill", () => {
+  const client = (results: ({ code?: string } | null)[]) => {
+    let n = 0;
+    return { calls: () => n, c: { auth: { signInWithPasskey: async () => ({ error: results[Math.min(n++, results.length - 1)] ?? null }) } } };
+  };
+  it("signs in when a passkey is chosen", async () => {
+    const { runPasskeyAutofill } = await import("./passkey");
+    const k = client([null]);
+    expect(await runPasskeyAutofill(k.c)).toBe(true);
+  });
+  it("asks again when the challenge expired, a limited number of times", async () => {
+    const { runPasskeyAutofill } = await import("./passkey");
+    const a = client([{ code: "webauthn_challenge_expired" }, null]);
+    expect(await runPasskeyAutofill(a.c)).toBe(true);
+    expect(a.calls()).toBe(2);
+    const b = client([{ code: "webauthn_challenge_expired" }]);
+    expect(await runPasskeyAutofill(b.c, 2)).toBe(false);
+    expect(b.calls()).toBe(3);
+  });
+  it("stops quietly on any other error (not switched on, cancelled, no passkey)", async () => {
+    const { runPasskeyAutofill } = await import("./passkey");
+    const k = client([{ code: "passkey_disabled" }]);
+    expect(await runPasskeyAutofill(k.c)).toBe(false);
+    expect(k.calls()).toBe(1);
+  });
+  it("reports no support when the browser has no conditional mediation", async () => {
+    const { autofillSupported } = await import("./passkey");
+    vi.stubGlobal("window", { PublicKeyCredential: {} });
+    expect(await autofillSupported()).toBe(false);
+    vi.stubGlobal("window", { PublicKeyCredential: { isConditionalMediationAvailable: async () => true } });
+    expect(await autofillSupported()).toBe(true);
+    vi.unstubAllGlobals();
   });
 });
