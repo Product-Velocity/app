@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createPasskeyClient, passkeyErrorText, passkeysSupported } from "@/lib/supabase/passkey";
+import { createPasskeyClient, passkeyErrorText, passkeysSupported, withPlatformPasskeys } from "@/lib/supabase/passkey";
 
 type Passkey = { id: string; friendly_name?: string | null; created_at: string; last_used_at?: string | null };
 const when = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -28,7 +28,7 @@ export function Passkeys() {
   const add = async () => {
     if (!client) return;
     setBusy(true); setMessage(null);
-    const { error } = await client.auth.registerPasskey();
+    const { error } = await withPlatformPasskeys(() => client.auth.registerPasskey());
     setBusy(false);
     if (error) { setMessage({ kind: "error", text: passkeyErrorText(error as { code?: string; name?: string }) }); return; }
     setMessage({ kind: "ok", text: "Passkey added." });
