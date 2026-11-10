@@ -11,6 +11,39 @@ export function createPasskeyClient() {
   return createBrowserClient(url, anonKey, { auth: { experimental: { passkey: true } } });
 }
 
+type Json = Record<string, unknown>;
+
+/**
+ * Registration options steered towards the device's own passkey provider (Apple Passwords / iCloud Keychain on Apple devices, Google Password
+ * Manager or Windows Hello elsewhere). Supabase passes whatever its server returns to the browser; if that asks for a security key or an "other
+ * device", Apple's sheet shows only apps such as Microsoft Authenticator. So: no "cross-platform only" restriction, hints that prefer this
+ * device (then a phone), and a discoverable credential, which sign-in needs because it never asks for an email first. Stricter settings the
+ * server asked for (user verification, attestation) are kept as they are.
+ */
+export function preferPlatformCreation(pk: Json): Json {
+  const sel = { ...((pk.authenticatorSelection as Json | undefined) ?? {}) };
+  if (sel.authenticatorAttachment === "cross-platform") delete sel.authenticatorAttachment;
+  sel.residentKey = "required";
+  sel.requireResidentKey = true;
+  return { ...pk, authenticatorSelection: sel, hints: ["client-device", "hybrid"] };
+}
+
+/** The sign-in request: only the hints change (a "security-key" hint hides the built-in provider). */
+export function preferPlatformRequest(pk: Json): Json {
+  const hints = Array.isArray(pk.hints) ? (pk.hints as string[]) : [];
+  return hints.includes("security-key") || hints.length === 0 ? { ...pk, hints: ["client-device", "hybrid"] } : pk;
+}
+
+/** Runs `fn` with the browser's passkey calls adjusted by the two functions above, and always puts them back. */
+export async function withPlatformPasskeys<T>(fn: () => Promise<T>): Promise<T> {
+  const creds = navigator.credentials as CredentialsContainer & { create: CredentialsContainer["create"]; get: CredentialsContainer["get"] };
+  const create = creds.create.bind(creds);
+  const get = creds.get.bind(creds);
+  creds.create = (o?: CredentialCreationOptions) => create(o?.publicKey ? { ...o, publicKey: preferPlatformCreation(o.publicKey as unknown as Json) as unknown as PublicKeyCredentialCreationOptions } : o);
+  creds.get = (o?: CredentialRequestOptions) => get(o?.publicKey ? { ...o, publicKey: preferPlatformRequest(o.publicKey as unknown as Json) as unknown as PublicKeyCredentialRequestOptions } : o);
+  try { return await fn(); } finally { delete (creds as unknown as Json).create; delete (creds as unknown as Json).get; }
+}
+
 /** Whether this browser can run a passkey ceremony at all. */
 export const passkeysSupported = () => typeof window !== "undefined" && typeof window.PublicKeyCredential !== "undefined";
 

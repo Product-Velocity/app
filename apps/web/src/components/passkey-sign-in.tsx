@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPasskeyClient, passkeyErrorText, passkeysSupported } from "@/lib/supabase/passkey";
+import { createPasskeyClient, passkeyErrorText, passkeysSupported, withPlatformPasskeys } from "@/lib/supabase/passkey";
 
 /** "Sign in with a passkey": face, fingerprint, PIN or a security key. Shown only where the browser supports it. */
 export function PasskeySignIn({ next }: { next: string }) {
@@ -15,7 +15,7 @@ export function PasskeySignIn({ next }: { next: string }) {
 
   const go = async () => {
     setBusy(true); setError(null);
-    const { error: e } = await createPasskeyClient().auth.signInWithPasskey();
+    const { error: e } = await withPlatformPasskeys(() => createPasskeyClient().auth.signInWithPasskey());
     if (e) { setError(passkeyErrorText(e as { code?: string; message?: string; name?: string })); setBusy(false); return; }
     // a full load, so the server reads the new session (and asks for the two-factor code when that is on)
     window.location.assign(next);
