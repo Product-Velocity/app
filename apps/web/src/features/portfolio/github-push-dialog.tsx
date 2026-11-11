@@ -46,7 +46,7 @@ const LOST = "Sending did not finish for this initiative. Check the tracker (Git
 const SHORT = 280;
 /** "Step 1 of 3": where the person is in the sync. The current step is marked for screen readers too. */
 function Steps({ current, tracker }: { current: 1 | 2 | 3; tracker: string }) {
-  const steps = [`Incoming from ${tracker}`, `Outgoing to ${tracker}`, "Confirmed"];
+  const steps = [tracker ? `Incoming from ${tracker}` : "Incoming", tracker ? `Outgoing to ${tracker}` : "Outgoing", "Confirmed"];
   return (
     <ol className="push-steps" aria-label="Steps of the sync">
       {steps.map((t, i) => <li key={t} {...(current === i + 1 ? { "aria-current": "step" as const } : {})} className={current === i + 1 ? "push-step push-step-on" : "push-step"}>{i + 1}. {t}</li>)}
@@ -107,7 +107,7 @@ function Text({ text }: { text: string }) {
 const WHY: Record<SyncConflict["kind"], (label: string, where?: "board", tracker?: string) => string> = {
   github: (l, w, t = "GitHub") => `${l} was changed ${w ? "on the GitHub Project board" : `in ${t}`}. Product Velocity owns it, so nothing is overwritten until you choose.`,
   both: (l, w, t = "GitHub") => `${l} was changed in Product Velocity and ${w ? "on the GitHub Project board" : `in ${t}`}. Choose which one to keep.`,
-  block: () => "The managed block was edited in GitHub and cannot be read field by field.",
+  block: (_l, _w, t = "GitHub") => `The managed block was edited in ${t} and cannot be read field by field.`,
 };
 
 /**
@@ -123,14 +123,14 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
   const step = configs.some((c) => c.canEdit) ? "new" : "sync";
   // the new-items steps to show: one per tracker the selected initiatives belong to (null while that is being found out)
   const [queue, setQueue] = useState<NewItemsConfig[] | null>(null);
-  const [trackerNames, setTrackerNames] = useState("GitHub");
+  const [trackerNames, setTrackerNames] = useState(""); // empty until the trackers are known: the window then says "Sync", not a guess
   // the tracker names are always looked up (the title, steps and "Checking…" text must say Jira for a Jira project, also when there is no new-issues step)
   useEffect(() => {
     const hasNew = configs.some((c) => c.canEdit);
     let live = true;
     trackersOf(ids).then(
-      (ts) => { if (!live) return; if (hasNew) setQueue(configs.filter((c) => ts.includes(c.tracker) && c.canEdit)); if (ts.length) setTrackerNames(ts.map((t) => (t === "jira" ? "Jira" : t === "gitlab" ? "GitLab" : "GitHub")).join(" and ")); },
-      () => { if (live && hasNew) setQueue(configs.filter((c) => c.tracker === "github" && c.canEdit)); }, // cannot tell: behave as before (GitHub)
+      (ts) => { if (!live) return; if (hasNew) setQueue(configs.filter((c) => ts.includes(c.tracker) && c.canEdit)); setTrackerNames(ts.length ? ts.map((t) => (t === "jira" ? "Jira" : t === "gitlab" ? "GitLab" : "GitHub")).join(" and ") : "GitHub"); },
+      () => { if (!live) return; setTrackerNames("GitHub"); if (hasNew) setQueue(configs.filter((c) => c.tracker === "github" && c.canEdit)); }, // cannot tell: behave as before (GitHub)
     );
     return () => { live = false; };
   }, [configs, ids, trackersOf]);
@@ -279,7 +279,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
     return (
       <div className="dialog-backdrop" onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
         <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={focusDialog}>
-          <h2 id={titleId}>Sync with {current?.name ?? trackerNames}: new issues first</h2>
+          <h2 id={titleId}>Sync{current?.name ?? trackerNames ? ` with ${current?.name ?? trackerNames}` : ""}: new issues first</h2>
           <Steps current={1} tracker={current?.name ?? trackerNames} />
           {current ? <NewItemsStep key={current.tracker} config={current} onContinue={continueToSync} onCancel={onClose} {...(onDone ? { onChanged: onDone } : {})} /> : <p role="status" className="muted">Checking for new issues…</p>}
         </div>
@@ -290,12 +290,12 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
   return (
     <div className="dialog-backdrop" onKeyDown={(e) => { if (e.key === "Escape" && phase.kind !== "writing") { e.stopPropagation(); onClose(); } }}>
       <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
-        <h2 id={titleId}>{phase.kind === "done" ? `Synced with ${trackerNames}` : `Sync with ${trackerNames}`}</h2>
+        <h2 id={titleId}>{phase.kind === "done" ? `Synced${trackerNames ? ` with ${trackerNames}` : ""}` : `Sync${trackerNames ? ` with ${trackerNames}` : ""}`}</h2>
         {phase.kind !== "error" && <Steps current={phase.kind === "done" || phase.kind === "writing" ? (phase.kind === "done" ? 3 : 2) : phase.kind === "loading" ? 1 : view === "incoming" ? 1 : 2} tracker={phase.kind === "preview" ? trackerLabel : trackerNames} />}
 
         {phase.kind === "loading" && (
           <>
-            <p role="status">Checking {trackerNames}… {progress ? `${progress.done} of ${progress.total}` : ""}</p>
+            <p role="status">Checking{trackerNames ? ` ${trackerNames}` : ""}… {progress ? `${progress.done} of ${progress.total}` : ""}</p>
             <div className="dialog-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button></div>
           </>
         )}
@@ -333,7 +333,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                 {conflicts.length > 1 && (
                   <div className="dialog-actions" role="group" aria-label="Settle all conflicts at once">
                     <button type="button" className="btn" onClick={() => choose("pv")}>Keep Product Velocity for all conflicts</button>
-                    <button type="button" className="btn" onClick={() => choose("github")}>Keep {phase.received.some((r) => r.tracker === "jira") && !phase.received.some((r) => r.tracker !== "jira") ? "Jira" : "GitHub"} for all conflicts</button>
+                    <button type="button" className="btn" onClick={() => choose("github")}>Keep {trackerLabel} for all conflicts</button>
                   </div>
                 )}
                 {incoming.length === 0 && !checking && <p role="status" className="muted">Nothing came in from {trackerLabel}.</p>}
@@ -449,7 +449,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                 </ul>
                 {phase.received.some((r) => r.tracker === "jira") && <p className="muted">Jira keeps a description in its own format. Product Velocity rewrites a description only when its text changed since the last sync; a table, macro or mention in Jira is never flattened otherwise.</p>}
                 {phase.received.some((r) => r.tracker !== "jira") && <p className="muted">Text you or engineers write in the issue outside the marked block is kept. The marked block is overwritten the next time you send.</p>}
-                {overwrites > 0 && <p role="note" className="muted">Keep Product Velocity replaces the text in {phase.received.some((r) => r.tracker === "jira") && !phase.received.some((r) => r.tracker !== "jira") ? "Jira" : "GitHub"} with Product Velocity’s when you press Apply and send.{phase.received.some((r) => r.tracker !== "jira") ? " Anything outside the marked block stays." : ""}</p>}
+                {overwrites > 0 && <p role="note" className="muted">Keep Product Velocity replaces the text in {trackerLabel} with Product Velocity’s when you press Apply and send.{phase.received.some((r) => r.tracker !== "jira") ? " Anything outside the marked block stays." : ""}</p>}
                 {(["github", "jira"] as const).map((t) => {
                   const removedApi = api.removed?.[t];
                   // GitHub is also the tracker of a project that has none yet (a card without a tracker is a GitHub card)
