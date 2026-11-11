@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { filterOptions } from "@pv/domain";
 import { menuSearchKeys, NoResults, SearchInput } from "@/components/search-list";
 import { useMenuBlur } from "@/features/portfolio/use-menu-blur";
@@ -21,7 +21,6 @@ const RECENT = 3;
 export function AccountSwitcher({ accounts, activeId, activeName, isPlatformAdmin }: {
   accounts: SwitcherAccount[]; activeId: string; activeName: string; isPlatformAdmin: boolean;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -41,7 +40,9 @@ export function AccountSwitcher({ accounts, activeId, activeName, isPlatformAdmi
 
   const items = () => Array.from(ref.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"], [role="menuitem"]') ?? []);
   const close = (refocus = false) => { setOpen(false); if (refocus) ref.current?.querySelector<HTMLElement>(".scope-chip")?.focus(); };
-  const go = (id: string) => { close(true); if (id !== activeId) router.push(tabHref(id, pathname)); };
+  const go = (id: string) => { close(true); // A full page load, not router.push: /w/{account}/x is rewritten to the same route for every account, so a client navigation reuses the
+  // cached layout, workspace provider and grid and nothing reloads. The account is part of the address, so a fresh load is the clean switch.
+  if (id !== activeId) window.location.assign(tabHref(id, pathname)); };
   const row = (a: SwitcherAccount, key: string) => (
     <button key={key} type="button" role="menuitemradio" aria-checked={a.tenantId === activeId} className="scope-item" onClick={() => go(a.tenantId)}>
       <span>{a.tenantName}</span><span className="scope-meta">{a.tenantId === activeId ? "✓" : ""}</span>
