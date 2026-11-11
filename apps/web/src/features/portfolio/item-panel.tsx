@@ -329,6 +329,7 @@ function JiraTab({ controller, lookups, itemId }: { controller: PortfolioControl
         {link.url ? <a href={link.url} target="_blank" rel="noreferrer">Issue {link.issueKey}</a> : `Issue ${link.issueKey}`}
         {link.status ? <> · Jira status: {link.status}{link.category ? ` (${JIRA_CATEGORY[link.category]})` : ""}</> : null}
         {row?.status ? <> · Build Status: {String(row.status)}</> : null}
+        {link.buildCompletedAt ? ` · Build completed ${new Date(link.buildCompletedAt).toLocaleDateString()}${link.buildStartedAt ? ` (started ${new Date(link.buildStartedAt).toLocaleDateString()}${link.buildDays != null ? `, ${link.buildDays} days` : ""})` : ""}` : link.buildStartedAt ? ` · Build started ${new Date(link.buildStartedAt).toLocaleDateString()}` : ""}
       </p>
       {message && <p role="status" className="notice">{message}</p>}
       <p>

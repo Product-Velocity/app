@@ -4,6 +4,7 @@ import { readIssuesByKey, type JiraIssueRow, type SearchPage } from "./read-issu
 import { readJiraLink, type LinkToRead } from "./read-jira";
 import { refreshLinkedStatuses, type RefreshDeps, type RefreshSummary } from "./refresh-linked";
 import { refreshTreesTolerant, type TreeDeps, type TreeRefresh } from "./jira-tree";
+import { refreshBuildDatesTolerant, type DateDeps, type DatesRefresh } from "./jira-build-dates";
 import { jiraGet } from "./server";
 import { rowsOrThrow } from "@/lib/db-error";
 
@@ -64,6 +65,39 @@ export async function applyLinkedTrees(link: LinkToRead, siteUrl: string, opts: 
   return refreshTreesTolerant(treeDepsFor(link), await linkedIssues(link, opts.itemIds), siteUrl);
 }
 
+function dateDepsFor(link: LinkToRead): DateDeps {
+  const admin = createAdminClient({ via: "system" });
+  return {
+    getPage: (path) => jiraGet<SearchPage>(link.connection_id, link.site_id, path),
+    getStatuses: () => jiraGet<never[]>(link.connection_id, link.site_id, "/status"),
+    async apply(rows) {
+      const { data, error } = await admin.rpc("jira_apply_build_dates", { p_connection: link.connection_id, p_site: link.site_id, p_rows: rows });
+      if (error) throw new Error("Could not save the build dates");
+      return (data ?? []) as { key: string; changes: Record<string, unknown> }[];
+    },
+  };
+}
+
+/**
+ * Start Building and Build Completed from Jira's own history (issue #421): for the linked initiatives of one project, the earliest time the
+ * issue or one of its children (the tree just read) first moved into the in-progress or done category, and the resolution date while done.
+ * Reads Jira only. It also backfills: an initiative already in progress gets its date the next time it is read. A failure is returned as
+ * `error` and never fails the status read; ReconnectNeeded propagates.
+ */
+export async function applyLinkedBuildDates(link: LinkToRead, opts: { itemIds?: string[] } = {}): Promise<DatesRefresh> {
+  const admin = createAdminClient({ via: "system" });
+  const links = await linkedIssues(link, opts.itemIds);
+  return refreshBuildDatesTolerant(dateDepsFor(link), await dateTargets(admin, link.tenant_id, links));
+}
+
+async function dateTargets(admin: ReturnType<typeof createAdminClient>, tenantId: string, links: { item_id: string; issue_key: string }[]) {
+  if (links.length === 0) return [];
+  const data = rowsOrThrow("the children of the linked issues", await admin.from("item_jira_tree").select("item_id, issue_key").eq("tenant_id", tenantId).in("item_id", links.map((l) => l.item_id)).limit(5000)) as { item_id: string; issue_key: string }[] | null;
+  const kids = new Map<string, string[]>();
+  for (const r of data ?? []) kids.set(r.item_id, [...(kids.get(r.item_id) ?? []), r.issue_key]);
+  return links.map((l) => ({ item_id: l.item_id, issue_key: l.issue_key, childKeys: kids.get(l.item_id) ?? [] }));
+}
+
 /**
  * Light records that were open at the last read but were not in this one (they may have become Done, moved or been deleted): read by key
  * so the Incoming list and the counts stop showing them as open. Returns how many were read.
@@ -80,7 +114,7 @@ export async function refreshStaleLightRecords(link: LinkToRead, siteUrl: string
   return rows.length;
 }
 
-export type FullRefresh = { total: number; light: number; linked: RefreshSummary; trees: TreeRefresh & { error: string | null } };
+export type FullRefresh = { total: number; light: number; linked: RefreshSummary; trees: TreeRefresh & { error: string | null }; dates: DatesRefresh };
 
 /**
  * The whole read of one linked Jira project, used by the daily check: the open work, then what became Done since, then the status of every
@@ -95,5 +129,7 @@ export async function refreshJiraProject(link: LinkToRead, siteUrl: string): Pro
   const linked = await refreshLinkedStatuses(depsFor(link), links, siteUrl, new Map(read.rows.map((r) => [r.key, r])));
   // after the status: the children of those initiatives (a failure of the tree is reported, it does not fail the status refresh)
   const trees = await refreshTreesTolerant(treeDepsFor(link), links, siteUrl);
-  return { total: read.total, light, linked, trees };
+  // then the real start and completion dates from the history of those issues (same tolerance: a failure is reported, never fatal)
+  const dates = await refreshBuildDatesTolerant(dateDepsFor(link), await dateTargets(createAdminClient({ via: "system" }), link.tenant_id, links));
+  return { total: read.total, light, linked, trees, dates };
 }
