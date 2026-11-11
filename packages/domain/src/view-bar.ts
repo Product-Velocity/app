@@ -1,4 +1,5 @@
 import { VIEW_NAMES, type ViewName } from "./registry";
+import { normalizeSorts } from "./views";
 
 /** Every built-in view the bar can show: the ten defaults and "All columns". */
 export const BUILTIN_BAR_NAMES = [...VIEW_NAMES, "All columns"] as const;
@@ -165,7 +166,7 @@ export function diffViews(saved: ViewShape, now: ViewShape): { filters: number; 
   return {
     filters, columns,
     grouping: (saved.groupBy ?? null) !== (now.groupBy ?? null),
-    sorted: key(saved.sort ?? null) !== key(now.sort ?? null),
+    sorted: key(normalizeSorts(saved.sort)) !== key(normalizeSorts(now.sort)), // an older single sort and a one-item list are the same sort
     pinned: (saved.pinned ?? []).join() !== (now.pinned ?? []).join(),
   };
 }

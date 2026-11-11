@@ -7,7 +7,7 @@ const open = async (page: Page, query = "n=30&role=admin") => {
   await page.waitForSelector(".ag-row");
   await page.waitForFunction(() => (window as unknown as { __pv?: unknown }).__pv !== undefined);
 };
-type Store = { views: { name: string; ownerId: string | null; sort?: { field: string; dir: string }; columns: string[]; pinned?: string[]; groupBy: string | null; filters: unknown[] }[]; layouts: Record<string, { ref: { name?: string; id?: string }; inBar: boolean; position: number; hidden?: boolean }[]> };
+type Store = { views: { name: string; ownerId: string | null; sort?: { field: string; dir: string }[]; columns: string[]; pinned?: string[]; groupBy: string | null; filters: unknown[] }[]; layouts: Record<string, { ref: { name?: string; id?: string }; inBar: boolean; position: number; hidden?: boolean }[]> };
 const store = (page: Page) => page.evaluate(() => JSON.parse(JSON.stringify((window as unknown as { __pv: { store: unknown } }).__pv.store)) as Store);
 const moreBtn = (page: Page) => page.getByRole("button", { name: /more views?$/ });
 const menu = (page: Page) => page.getByRole("dialog", { name: "Views" });
@@ -142,7 +142,7 @@ test.describe("one save flow (R-99)", () => {
     await expect(changed).toHaveCount(0);
     await applySort(page, "MoSCoW", "Z-A");
     await expect(changed).toBeVisible();
-    await expect(foot(page)).toContainText("Sorted by MoSCoW (high to low)");
+    await expect(foot(page)).toContainText("Sorted by MoSCoW, Z-A");
     await resetChanges(page);
     await page.getByRole("button", { name: /columns shown$/ }).click();
     await page.getByLabel("Confidence", { exact: true }).uncheck();
@@ -202,7 +202,7 @@ test.describe("one save flow (R-99)", () => {
     const s = await store(page);
     const v = s.views.find((x) => x.name === "My planning")!;
     expect(v.ownerId).toBe("u1");
-    expect(v.sort).toEqual({ field: "effort", dir: "desc" });
+    expect(v.sort).toEqual([{ field: "effort", dir: "desc" }]);
     expect(v.groupBy).toBe("health");
     expect(v.columns).not.toContain("confidence");
     expect(v.filters.length).toBeGreaterThan(0);
@@ -216,7 +216,7 @@ test.describe("one save flow (R-99)", () => {
     await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toHaveCount(0);
     await expect(page.locator(".filter-chips")).toBeVisible();
     await expect(page.getByRole("button", { name: /^Group by/ })).toContainText("Health");
-    await expect(page.getByRole("button", { name: /^Sort:/ })).toContainText("Effort");
+    await expect(foot(page)).toContainText("sorted by Effort (T-shirt) inside each group"); // the grid is grouped here
     await expect(page.getByRole("button", { name: /^(Add filter|\d+ filters?)/ })).toContainText(/\d+ filters?/);
     // it sits under My views
     await moreBtn(page).click();
@@ -257,7 +257,7 @@ test.describe("one save flow (R-99)", () => {
     await applySort(page, "MoSCoW", "A-Z");
     await viewMenuAction(page, "Update “Mine”");
     await expect(hasChanges(page)).toHaveCount(0);
-    expect((await store(page)).views.find((v) => v.name === "Mine")!.sort).toEqual({ field: "moscow", dir: "asc" });
+    expect((await store(page)).views.find((v) => v.name === "Mine")!.sort).toEqual([{ field: "moscow", dir: "asc" }]);
     // a built-in is a workspace view: the admin confirms
     await viewTab(page, "Planning").click();
     await applySort(page, "Effort (T-shirt)", "Z-A");
@@ -426,56 +426,57 @@ test.describe("manage views (R-100)", () => {
   });
 });
 
-test.describe("sort: two steps, saved with the view (issue #207)", () => {
+test.describe("sort: in the Columns picker, saved with the view (issue #207)", () => {
   const firstRow = (page: Page) => page.locator('.ag-row[row-index="0"] [col-id="initiative_name"]').first().innerText();
+  const picker = (page: Page) => page.getByRole("group", { name: "Choose columns" });
+  const openPicker = (page: Page) => page.getByRole("button", { name: /columns shown$/ }).click();
 
-  test("column first, then direction, then Apply: the grid does not re-sort before Apply", async ({ page }) => {
+  test("there is no Sort button in the bar; the sort is set per column in the picker and the grid does not re-sort before Apply", async ({ page }) => {
     await open(page);
+    await expect(page.getByRole("button", { name: /^Sort:/ })).toHaveCount(0);
     const before = await firstRow(page);
-    await page.getByRole("button", { name: /^Sort:/ }).click();
-    await page.getByRole("menuitemradio", { name: /^Initiative Name/ }).click();
-    await expect(page.getByRole("group", { name: "Sort by Initiative Name" })).toBeVisible();
-    await page.getByRole("radio", { name: "Z-A", exact: true }).click();
+    await openPicker(page);
+    await picker(page).getByRole("combobox", { name: "Sort Initiative Name", exact: true }).selectOption("desc");
     expect(await firstRow(page)).toBe(before);
     await expect(foot(page)).toContainText("Sorted by global Stack Rank");
     await expect(hasChanges(page)).toHaveCount(0);
-    await page.getByRole("button", { name: "Apply", exact: true }).click();
-    await expect(page.getByRole("button", { name: /^Sort:/ })).toContainText("Initiative Name, Z-A");
+    await picker(page).getByRole("button", { name: /^Apply columns/ }).click();
+    await expect(foot(page)).toContainText("Sorted by Initiative Name, Z-A");
     await expect(hasChanges(page)).toBeVisible();
     await moreBtn(page).click();
     await expect(menu(page)).toContainText("sorted");
   });
 
-  test("direction words fit the data: A-Z for text, Low to high for numbers", async ({ page }) => {
+  test("several sorts: columns higher in the list are sorted first, and the picker numbers them", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: /^Sort:/ }).click();
-    await page.getByRole("menuitemradio", { name: /^Stack Rank/ }).click();
-    await expect(page.getByRole("radio", { name: "Low to high", exact: true })).toBeVisible();
-    await expect(page.getByRole("radio", { name: "High to low", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Back" }).click();
-    await page.getByRole("menuitemradio", { name: /^Initiative Name/ }).click();
-    await expect(page.getByRole("radio", { name: "A-Z", exact: true })).toBeVisible();
-    await expect(page.getByRole("radio", { name: "Z-A", exact: true })).toBeVisible();
+    await openPicker(page);
+    await picker(page).getByRole("combobox", { name: "Sort Initiative Name", exact: true }).selectOption("asc");
+    await picker(page).getByRole("combobox", { name: "Sort MoSCoW", exact: true }).selectOption("desc");
+    await expect(picker(page).getByTitle("Sort order 1")).toHaveCount(1);
+    await expect(picker(page).getByTitle("Sort order 2")).toHaveCount(1);
+    await picker(page).getByRole("button", { name: /^Apply columns/ }).click();
+    await expect(foot(page)).toContainText(/Sorted by (Initiative Name, A-Z, then MoSCoW, Z-A|MoSCoW, Z-A, then Initiative Name, A-Z)/);
   });
 
-  test("Update stores the sort; Save as new view stores it; Reset restores the saved sort; switching views loads each view's own", async ({ page }) => {
+  test("Update stores the sorts; Save as new view stores them; Reset restores the saved sort; switching views loads each view's own", async ({ page }) => {
     await open(page);
     await makeChange(page);
     await saveAsNew(page, "Sorted view");
     await applySort(page, "MoSCoW", "A-Z");
     await viewMenuAction(page, "Update “Sorted view”");
     await expect(hasChanges(page)).toHaveCount(0);
-    expect((await store(page)).views.find((v) => v.name === "Sorted view")!.sort).toEqual({ field: "moscow", dir: "asc" });
+    expect((await store(page)).views.find((v) => v.name === "Sorted view")!.sort).toEqual([{ field: "moscow", dir: "asc" }]);
     // change it, then Reset: back to the saved sort
     await applySort(page, "Initiative Name", "Z-A");
     await resetChanges(page);
-    await expect(page.getByRole("button", { name: /^Sort:/ })).toContainText("MoSCoW, A-Z");
+    await expect(foot(page)).toContainText("Sorted by MoSCoW, A-Z");
     // clearing is a saved state too
-    await page.getByRole("button", { name: /^Sort:/ }).click();
-    await page.getByRole("button", { name: "Clear sort" }).click();
-    await expect(page.getByRole("button", { name: /^Sort:/ })).toContainText("Stack Rank");
+    await openPicker(page);
+    await picker(page).getByRole("combobox", { name: "Sort MoSCoW", exact: true }).selectOption("");
+    await picker(page).getByRole("button", { name: /^Apply columns/ }).click();
+    await expect(foot(page)).toContainText("Sorted by global Stack Rank");
     await viewMenuAction(page, "Update “Sorted view”");
-    expect((await store(page)).views.find((v) => v.name === "Sorted view")!.sort ?? null).toBeNull();
+    expect((await store(page)).views.find((v) => v.name === "Sorted view")!.sort ?? []).toEqual([]);
   });
 
   test("Update on a built-in view (admin) stores the sort and a different view keeps its own", async ({ page }) => {
@@ -484,28 +485,27 @@ test.describe("sort: two steps, saved with the view (issue #207)", () => {
     await applySort(page, "Initiative Name", "Z-A");
     await viewMenuAction(page, "Update for everyone");
     await page.getByRole("dialog", { name: "Update for everyone?" }).getByRole("button", { name: "Update for everyone" }).click();
-    expect((await store(page)).views.find((v) => v.name === "Planning")!.sort).toEqual({ field: "initiative_name", dir: "desc" });
+    expect((await store(page)).views.find((v) => v.name === "Planning")!.sort).toEqual([{ field: "initiative_name", dir: "desc" }]);
   });
 
-  test("a saved sort on a column the view does not show falls back to the default order, with no error", async ({ page }) => {
+  test("removing a sorted column from the view drops its sort, with no error", async ({ page }) => {
     await open(page);
     await applySort(page, "MoSCoW", "A-Z");
-    await page.getByRole("button", { name: /columns shown$/ }).click();
+    await openPicker(page);
     await page.getByLabel("MoSCoW", { exact: true }).uncheck();
-    await page.getByRole("button", { name: /^Apply columns/ }).click();
-    await expect(page.getByRole("button", { name: /^Sort:/ })).toContainText("Stack Rank");
+    await picker(page).getByRole("button", { name: /^Apply columns/ }).click();
+    await expect(foot(page)).toContainText("Sorted by global Stack Rank");
     await expect(page.getByRole("alert").filter({ hasText: /./ })).toHaveCount(0);
   });
 
-  test("only columns the view shows can be sorted, so the button always names what you picked", async ({ page }) => {
+  test("only columns the view shows can be sorted: a hidden column has no sort control", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: /^Sort:/ }).click();
-    await expect(page.getByRole("menuitemradio", { name: /^Primary KR Target Value/ })).toHaveCount(0); // not a shown column here
+    await openPicker(page);
+    await expect(picker(page).getByRole("combobox", { name: /^Sort Primary KR Target Value/ })).toHaveCount(0); // not a shown column here
     await page.keyboard.press("Escape");
     await applySort(page, "Initiative Name", "A-Z");
-    await expect(page.getByRole("button", { name: /^Sort:/ })).toContainText("Initiative Name, A-Z");
     await viewTab(page, "Planning").click(); // sort stays while switching views; its column is shown there too
-    await expect(page.getByRole("button", { name: /^Sort:/ })).toContainText("Initiative Name, A-Z");
+    await expect(foot(page)).toContainText("Sorted by Initiative Name, A-Z");
   });
 
   test("the search box in the bar is one box, not a box inside a box", async ({ page }) => {
@@ -514,13 +514,10 @@ test.describe("sort: two steps, saved with the view (issue #207)", () => {
     expect(h).toEqual({ border: "0px", pad: "0px" });
   });
 
-  test("the sort panel has no accessibility violations in both steps", async ({ page }) => {
+  test("the Columns picker with its sort controls has no accessibility violations", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: /^Sort:/ }).click();
-    let r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
-    expect(r.violations.map((x) => x.id)).toEqual([]);
-    await page.getByRole("menuitemradio", { name: /^Initiative Name/ }).click();
-    r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    await openPicker(page);
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
     expect(r.violations.map((x) => x.id)).toEqual([]);
   });
 });

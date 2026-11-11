@@ -110,23 +110,34 @@ describe("names and change summary", () => {
     expect(diffViews(base, { ...base, columns: ["b", "a"] }).columns).toBe(1);
     expect(diffViews(base, { ...base, filters: [{ field: "x" }] }).filters).toBe(1);
     expect(diffViews(base, { ...base, groupBy: "moscow" }).grouping).toBe(true);
-    expect(diffViews(base, { ...base, sort: { field: "moscow", dir: "asc" } }).sorted).toBe(true);
+    expect(diffViews(base, { ...base, sort: [{ field: "moscow", dir: "asc" }] }).sorted).toBe(true);
+    expect(diffViews({ ...base, sort: { field: "moscow", dir: "asc" } }, { ...base, sort: [{ field: "moscow", dir: "asc" }] }).sorted).toBe(false); // an older single sort is the same as a one-item list
+    expect(diffViews({ ...base, sort: [{ field: "moscow", dir: "asc" }, { field: "effort", dir: "asc" }] }, { ...base, sort: [{ field: "effort", dir: "asc" }, { field: "moscow", dir: "asc" }] }).sorted).toBe(true); // the order of the sorts matters
     expect(diffViews(base, { ...base })).toEqual({ filters: 0, columns: 0, grouping: false, sorted: false, pinned: false });
   });
 });
 
 describe("sort", () => {
   const rows = [{ stack_rank: 1, moscow: "Should", n: 3 }, { stack_rank: 2, moscow: null, n: 1 }, { stack_rank: 3, moscow: "Must", n: 2 }, { stack_rank: 4, moscow: "Must", n: null }];
+  it("sorts by several columns: the first decides, the next breaks ties, then stack rank", () => {
+    expect(sortRows(rows, [{ field: "moscow", dir: "asc" }, { field: "n", dir: "desc" }]).map((r) => r.stack_rank)).toEqual([3, 4, 1, 2]); // Must: n 2 before empty; Should; empty moscow last
+    expect(sortRows(rows, [{ field: "moscow", dir: "asc" }, { field: "n", dir: "asc" }]).map((r) => r.stack_rank)).toEqual([3, 4, 1, 2]);
+    expect(sortRows(rows, [{ field: "n", dir: "desc" }, { field: "moscow", dir: "asc" }]).map((r) => r.stack_rank)).toEqual([1, 3, 2, 4]);
+  });
   it("sorts one field, empty last either way, ties by stack rank", () => {
     expect(sortRows(rows, { field: "moscow", dir: "asc" }).map((r) => r.stack_rank)).toEqual([3, 4, 1, 2]);
     expect(sortRows(rows, { field: "moscow", dir: "desc" }).map((r) => r.stack_rank)).toEqual([1, 3, 4, 2]);
     expect(sortRows(rows, { field: "n", dir: "asc" }).map((r) => r.stack_rank)).toEqual([2, 3, 1, 4]);
     expect(sortRows(rows, null).map((r) => r.stack_rank)).toEqual([1, 2, 3, 4]);
+    expect(sortRows(rows, []).map((r) => r.stack_rank)).toEqual([1, 2, 3, 4]);
   });
   it("is kept by sanitizeView only for real fields, and customer-safe views keep only safe ones", () => {
-    expect(sanitizeView({ columns: ["moscow"], sort: { field: "moscow", dir: "desc" } }).sort).toEqual({ field: "moscow", dir: "desc" });
-    expect(sanitizeView({ columns: ["moscow"], sort: { field: "nope", dir: "asc" } }).sort).toBeUndefined();
-    expect(sanitizeView({ columns: ["item_code"], customerSafe: true, sort: { field: "value_12m", dir: "asc" } }).sort).toBeUndefined();
-    expect(sanitizeView({ columns: ["moscow"], sort: { field: "moscow", dir: "sideways" } }).sort?.dir).toBe("asc");
+    expect(sanitizeView({ columns: ["moscow"], sort: [{ field: "moscow", dir: "desc" }] }).sort).toEqual([{ field: "moscow", dir: "desc" }]);
+    expect(sanitizeView({ columns: ["moscow"], sort: { field: "moscow", dir: "desc" } }).sort).toEqual([{ field: "moscow", dir: "desc" }]); // read a view saved before lists
+    expect(sanitizeView({ columns: ["moscow"], sort: [{ field: "nope", dir: "asc" }] }).sort).toBeUndefined();
+    expect(sanitizeView({ columns: ["item_code"], customerSafe: true, sort: [{ field: "value_12m", dir: "asc" }] }).sort).toBeUndefined();
+    expect(sanitizeView({ columns: ["moscow"], sort: [{ field: "moscow", dir: "sideways" }] }).sort?.[0]?.dir).toBe("asc");
+    // order is kept, a repeated column counts once, unknown ones are dropped
+    expect(sanitizeView({ columns: ["moscow", "effort"], sort: [{ field: "effort", dir: "desc" }, { field: "nope", dir: "asc" }, { field: "moscow", dir: "asc" }, { field: "effort", dir: "asc" }] }).sort).toEqual([{ field: "effort", dir: "desc" }, { field: "moscow", dir: "asc" }]);
   });
 });

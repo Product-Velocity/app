@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { BAR_FULL_MESSAGE, BAR_MAX, PRIVATE_VIEW_CAP, sanitizeView, type BuiltinBarName, type LayoutRow, type ViewDef, type ViewName } from "@pv/domain";
+import { BAR_FULL_MESSAGE, BAR_MAX, CORE_COLUMN_KEYS, PRIVATE_VIEW_CAP, sanitizeView, type BuiltinBarName, type LayoutRow, type ViewDef, type ViewName } from "@pv/domain";
 
 export type Scope = { id: string; name: string; projectIds: string[] };
 /** `baseView` is set on a customised default view (it replaces the built-in view of that name until restored). */
@@ -36,11 +36,11 @@ export interface WorkspaceStore {
   restoreDefaultView(name: ViewName): Promise<Result<null>>;
 }
 
-const VIEW_COLUMNS = "id,name,columns,filters,group_by,base_view,customer_safe,pinned,owner_id,sort";
-type ViewRow = { id: string; name: string; columns: string[]; filters: unknown; group_by: string | null; base_view: string | null; customer_safe: boolean; pinned?: string[] | null; owner_id?: string | null; sort?: unknown };
+const VIEW_COLUMNS = "id,name,columns,filters,group_by,base_view,customer_safe,pinned,pins_explicit,owner_id,sort";
+type ViewRow = { id: string; name: string; columns: string[]; filters: unknown; group_by: string | null; base_view: string | null; customer_safe: boolean; pinned?: string[] | null; /** false: an older row whose list holds only the locks besides rank, ID and name */ pins_explicit?: boolean | null; owner_id?: string | null; sort?: unknown };
 const fromRow = (r: ViewRow): SavedView => ({
   id: r.id, name: r.name, baseView: (r.base_view as ViewName | null) ?? null, ownerId: r.owner_id ?? null,
-  ...sanitizeView({ columns: r.columns, filters: r.filters, groupBy: r.group_by, customerSafe: r.customer_safe, pinned: r.pinned ?? [], sort: r.sort }),
+  ...sanitizeView({ columns: r.columns, filters: r.filters, groupBy: r.group_by, customerSafe: r.customer_safe, pinned: r.pins_explicit ? r.pinned ?? [] : [...CORE_COLUMN_KEYS, ...(r.pinned ?? [])], sort: r.sort }),
 });
 
 type LayoutDbRow = { user_id: string | null; view_id: string | null; builtin: string | null; in_bar: boolean; position: number; hidden: boolean };
@@ -162,7 +162,7 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
     const { data, error } = await this.client
       .from("saved_views")
       .insert({
-        tenant_id: this.tenantId, name: n, columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, customer_safe: clean.customerSafe === true, pinned: clean.pinned ?? [], sort: clean.sort ?? null,
+        tenant_id: this.tenantId, name: n, columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, customer_safe: clean.customerSafe === true, pinned: clean.pinned ?? [], pins_explicit: true, sort: clean.sort ?? null,
         ...(workspace ? { visibility: "workspace", owner_id: null } : { visibility: "private", owner_id: this.userId }),
       })
       .select("id")
@@ -198,7 +198,7 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
     const clean = sanitizeView({ ...def, customerSafe: false });
     const existing = await this.client.from("saved_views").select("id").eq("tenant_id", this.tenantId).eq("base_view", name).maybeSingle();
     if (existing.error) return { ok: false, error: friendly(existing.error, "view", name) };
-    const fields = { columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, pinned: clean.pinned ?? [], sort: clean.sort ?? null };
+    const fields = { columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, pinned: clean.pinned ?? [], pins_explicit: true, sort: clean.sort ?? null };
     const { data, error } = existing.data
       ? await this.client.from("saved_views").update(fields).eq("tenant_id", this.tenantId).eq("id", existing.data.id).select(VIEW_COLUMNS)
       : await this.client.from("saved_views").insert({ tenant_id: this.tenantId, name, base_view: name, ...fields }).select(VIEW_COLUMNS);
@@ -223,7 +223,7 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
     if (patch.columns || patch.filters || patch.groupBy !== undefined || patch.pinned !== undefined || "sort" in patch) {
       const clean = sanitizeView({ columns: patch.columns, filters: patch.filters, groupBy: patch.groupBy ?? null, customerSafe: patch.customerSafe, pinned: patch.pinned, sort: patch.sort });
       if ("sort" in patch) row.sort = clean.sort ?? null;
-      if (patch.columns || patch.pinned !== undefined) row.pinned = clean.pinned ?? [];
+      if (patch.columns || patch.pinned !== undefined) { row.pinned = clean.pinned ?? []; row.pins_explicit = true; }
       if (patch.columns) row.columns = clean.columns;
       if (patch.filters) row.filters = clean.filters;
       if (patch.groupBy !== undefined) row.group_by = clean.groupBy;

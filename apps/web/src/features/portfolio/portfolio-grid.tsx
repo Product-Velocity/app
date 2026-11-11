@@ -8,7 +8,7 @@ import {
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import {
-  buildGroupedRows, CORE_COLUMN_KEYS, effectiveSort, FIELD_BY_KEY, VISIBLE_FIELDS, groupableFields, matchesFilters, matchesSearch, refKey, sanitizeView, sortRows, type EditableField, type Filter, type GroupRow, type ViewDef,
+  buildGroupedRows, CORE_COLUMN_KEYS, effectiveSort, FIELD_BY_KEY, VISIBLE_FIELDS, groupableFields, matchesFilters, matchesSearch, refKey, sanitizeView, sortRows, sortSummary, type EditableField, type Filter, type GroupRow, type SortDef, type ViewDef,
 } from "@pv/domain";
 import { useWorkspace } from "../workspace/provider";
 import { setQueryParam, useScope } from "../workspace/scope";
@@ -21,7 +21,7 @@ import { ItemPanel } from "./item-panel";
 import { baseDef, baseParam, parseBase, sameView, type BaseView } from "./grid-view";
 import { CommandPalette } from "./command-palette";
 import type { Command } from "./palette";
-import { GroupMenu, SortMenu, summarize } from "./view-controls";
+import { GroupMenu, summarize } from "./view-controls";
 import { baseToRef, useViews, ViewBar } from "./view-bar";
 import { downloadCsv, selectionToCsv } from "./export-selection";
 import { BulkBar } from "./bulk-bar";
@@ -202,13 +202,13 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   };
   const changeDef = (patch: Partial<ViewDef>) => {
     const next = sanitizeView({ ...def, ...patch });
-    setShared((p) => ({ ...p, ...("filters" in patch ? { filters: next.filters } : {}), ...("groupBy" in patch ? { groupBy: next.groupBy } : {}), ...("sort" in patch ? { sort: next.sort ?? null } : {}) }));
+    setShared((p) => ({ ...p, ...("filters" in patch ? { filters: next.filters } : {}), ...("groupBy" in patch ? { groupBy: next.groupBy } : {}), ...("sort" in patch ? { sort: next.sort ?? [] } : {}) }));
     if ("columns" in patch || "pinned" in patch) setColOverrides((p) => ({ ...p, [viewKey]: { columns: next.columns, pinned: next.pinned ?? [] } }));
   };
   const clearColumns = () => setColOverrides((p) => { const n = { ...p }; delete n[viewKey]; return n; });
   const resetChanges = () => { setShared({}); clearColumns(); };
   const visible = useMemo(() => new Set(def.columns), [def.columns]);
-  const changeColumns = (columns: string[], pinned: string[]) => changeDef({ columns, pinned });
+  const changeColumns = (columns: string[], pinned: string[], sort: SortDef[]) => changeDef({ columns, pinned, sort });
   const pinnedSet = useMemo(() => new Set(def.pinned ?? []), [def.pinned]);
   const viewsApi = useViews({
     base, def, bDef, dirty, openBase: openBaseRaw, discard: clearColumns, reset: resetChanges,
@@ -259,7 +259,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const setSearchText = (t: string) => { resetShown(); setSearch(t); };
 
   const columnDefs = useMemo(
-    () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible, order: def.columns, sorted: def.groupBy === null && !shownSort, pinned: pinnedSet }),
+    () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible, order: def.columns, sorted: def.groupBy === null && shownSort.length === 0, pinned: pinnedSet }),
     [controller, lookups, visible, def.columns, def.groupBy, shownSort, pinnedSet],
   );
   const exportFields = useMemo(() => def.columns.map((k) => FIELD_BY_KEY[k]!).filter(Boolean), [def.columns]);
@@ -506,7 +506,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     out.push({ id: "scope:all", label: "Show all projects", group: "Scope", keywords: "portfolio scope", run: () => scope.select({ kind: "all" }) });
     for (const sc of scopes) out.push({ id: `scope:${sc.id}`, label: `Go to scope: ${sc.name}`, group: "Scope", keywords: "portfolio", run: () => scope.select({ kind: "scope", id: sc.id }) });
     for (const p of projects) out.push({ id: `project:${p.id}`, label: `Show project: ${p.name}`, group: "Scope", run: () => scope.select({ kind: "project", id: p.id }) });
-    out.push({ id: "sort:none", label: "Sort: global Stack Rank", group: "Sort", run: () => changeDef({ sort: null }) });
+    out.push({ id: "sort:none", label: "Sort: global Stack Rank", group: "Sort", run: () => changeDef({ sort: [] }) });
     out.push({ id: "group:none", label: "Group by: no grouping", group: "Grouping", run: () => changeDef({ groupBy: null }) });
     for (const f of groupableFields()) out.push({ id: `group:${f.key}`, label: `Group by ${f.name}`, group: "Grouping", run: () => changeDef({ groupBy: f.key }) });
     if (def.filters.length > 0) out.push({ id: "filters:clear", label: "Clear filters", group: "Filters", run: () => setFilters([]) });
@@ -582,7 +582,6 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
           <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} quarters={controller.rows.map((r) => r.g2m_quarter)} openValues={(k) => controller.openValues(k)} today={today} matching={visibleRows.length} total={controller.rows.length} />
           <ColumnsPanel def={def} defaultDef={bDef} customerSafe={def.customerSafe === true} onApply={changeColumns} shown={shownCount} />
           <GroupMenu groupBy={def.groupBy} onChange={(g) => changeDef({ groupBy: g })} />
-          <SortMenu sort={shownSort} columns={def.columns} onChange={(sort) => changeDef({ sort })} />
           <label className="pvbar-search">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b6272" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
             <input
@@ -698,7 +697,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       )}
       </div>
       <p ref={footRef} className="grid-foot">
-        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${FIELD_BY_KEY[def.groupBy]?.name}, ${shownSort ? `sorted by ${FIELD_BY_KEY[shownSort.field]?.name} inside each group` : "rank order inside each group"}` : shownSort ? `Sorted by ${FIELD_BY_KEY[shownSort.field]?.name} (${shownSort.dir === "asc" ? "low to high" : "high to low"})` : "Sorted by global Stack Rank"} · Keyboard shortcuts are under Shortcuts, top right · A lock means the value comes from GitHub
+        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${FIELD_BY_KEY[def.groupBy]?.name}, ${shownSort.length > 0 ? `sorted by ${shownSort.map((x) => FIELD_BY_KEY[x.field]?.name).join(", then ")} inside each group` : "rank order inside each group"}` : sortSummary(shownSort)} · Keyboard shortcuts are under Shortcuts, top right · A lock means the value comes from GitHub
         {status.pending > 0 ? "" : ""}
         {lastGithubSync && <> · <span title="The latest time any initiative was in step with GitHub">Last synced with GitHub {agoLabel(lastGithubSync, nowTick)}</span></>}
       </p>

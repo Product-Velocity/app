@@ -201,9 +201,9 @@ export function buildGroupedRows<T extends { id: string }>(rows: T[], groupBy: s
 
 // -------------------------------------------------------------------- views
 /** What a saved view stores: the columns in order, the filters and the grouping. */
-export type ViewDef = { columns: string[]; filters: Filter[]; groupBy: string | null; customerSafe?: boolean; /** Columns pinned to the left besides the core ones; only within the first four places. */ pinned?: string[]; /** One sort; null or missing means the global Stack Rank order. */ sort?: SortDef | null };
+export type ViewDef = { columns: string[]; filters: Filter[]; groupBy: string | null; customerSafe?: boolean; /** The locked columns: at most four, any of the shown columns, kept to the left while the grid scrolls right. Missing means the default: rank, ID and name. An empty list means none. */ pinned?: string[]; /** Ordered sorts, the first is the main one; empty or missing means the global Stack Rank order. An older single sort object is still read. */ sort?: SortDef[] };
 
-/** One sort column and direction (a view holds one; multi-column sort is later). */
+/** One sort column and direction. A view holds an ordered list of them: the order of the columns in the picker is the order of the sorts. */
 export type SortDef = { field: string; dir: "asc" | "desc" };
 /** Fields a view can be sorted by: everything except long text. */
 export const sortableFields = () => FIELDS.filter((f) => f.type !== "Long text");
@@ -217,39 +217,66 @@ export function sortDirectionLabels(fieldKey: string): { asc: string; desc: stri
   return { asc: "A-Z", desc: "Z-A" };
 }
 
-/** "Sorted by Stack Rank, Low to high"; no sort reads as the default order. */
-export function sortSummary(sort: SortDef | null | undefined): string {
-  if (!sort || !(sort.field in FIELD_BY_KEY)) return "Sorted by global Stack Rank";
-  return `Sorted by ${FIELD_BY_KEY[sort.field]!.name}, ${sortDirectionLabels(sort.field)[sort.dir]}`;
+/** Reads a stored or pasted sort: a list, or the single object older views saved. Unknown, long-text and repeated columns are dropped. */
+export function normalizeSorts(input: unknown, allow: (key: string) => boolean = () => true): SortDef[] {
+  const list = Array.isArray(input) ? input : input && typeof input === "object" ? [input] : [];
+  const out: SortDef[] = [];
+  for (const x of list) {
+    if (!x || typeof x !== "object") continue;
+    const r = x as Record<string, unknown>;
+    if (typeof r.field !== "string" || !isSortable(r.field) || HIDDEN_FIELDS.has(r.field) || !allow(r.field) || out.some((o) => o.field === r.field)) continue;
+    out.push({ field: r.field, dir: r.dir === "desc" ? "desc" : "asc" });
+  }
+  return out;
 }
 
-/** The sort that applies to the grid: a saved sort on a column the view no longer shows falls back to the default order, without an error. */
-export function effectiveSort(view: { columns: readonly string[]; sort?: SortDef | null }): SortDef | null {
-  return view.sort && view.columns.includes(view.sort.field) ? view.sort : null;
+/** "Sorted by Stack Rank, Low to high"; several read "Sorted by Country, A-Z, then Rank, High to low"; no sort reads as the default order. */
+export function sortSummary(sort: SortDef | readonly SortDef[] | null | undefined): string {
+  const list = normalizeSorts(sort);
+  if (list.length === 0) return "Sorted by global Stack Rank";
+  return `Sorted by ${list.map((s) => `${FIELD_BY_KEY[s.field]!.name}, ${sortDirectionLabels(s.field)[s.dir]}`).join(", then ")}`;
+}
+
+/** The sorts that apply to the grid, in order: a saved sort on a column the view no longer shows is left out, without an error (none left means the default order). */
+export function effectiveSort(view: { columns: readonly string[]; sort?: SortDef | readonly SortDef[] | null }): SortDef[] {
+  return normalizeSorts(view.sort, (k) => view.columns.includes(k));
 }
 
 /**
- * Orders rows by a view's sort; empty values go last in both directions and ties keep the Stack Rank order.
+ * Orders rows by a view's sorts, the first one first; empty values go last in both directions and ties keep the Stack Rank order.
  * Numbers compare as numbers, everything else as text (dates are stored as ISO text, which sorts correctly).
  */
-export function sortRows<T extends Record<string, unknown>>(rows: readonly T[], sort: SortDef | null | undefined): T[] {
-  if (!sort) return [...rows];
-  const dir = sort.dir === "desc" ? -1 : 1;
+export function sortRows<T extends Record<string, unknown>>(rows: readonly T[], sort: SortDef | readonly SortDef[] | null | undefined): T[] {
+  const sorts = Array.isArray(sort) ? (sort as readonly SortDef[]) : sort ? [sort as SortDef] : [];
+  if (sorts.length === 0) return [...rows];
   const empty = (v: unknown) => v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0);
   const rank = (r: T) => (typeof r.stack_rank === "number" ? r.stack_rank : Number.MAX_SAFE_INTEGER);
   return [...rows].sort((a, b) => {
-    const x = a[sort.field], y = b[sort.field];
-    if (empty(x) !== empty(y)) return empty(x) ? 1 : -1;
-    if (!empty(x)) {
-      const c = typeof x === "number" && typeof y === "number" ? x - y : sort.field === "g2m_quarter" && isQuarter(x) && isQuarter(y) ? compareQuarters(x, y) : String(Array.isArray(x) ? x.join(", ") : x).localeCompare(String(Array.isArray(y) ? y.join(", ") : y), "en", { numeric: true, sensitivity: "base" });
-      if (c !== 0) return c * dir;
+    for (const s of sorts) {
+      const x = a[s.field], y = b[s.field];
+      if (empty(x) !== empty(y)) return empty(x) ? 1 : -1;
+      if (empty(x)) continue;
+      const c = typeof x === "number" && typeof y === "number" ? x - y : s.field === "g2m_quarter" && isQuarter(x) && isQuarter(y) ? compareQuarters(x, y) : String(Array.isArray(x) ? x.join(", ") : x).localeCompare(String(Array.isArray(y) ? y.join(", ") : y), "en", { numeric: true, sensitivity: "base" });
+      if (c !== 0) return c * (s.dir === "desc" ? -1 : 1);
     }
     return rank(a) - rank(b);
   });
 }
 
-/** At most four columns stay on the left while the grid scrolls: the core columns, then pinned ones in the places left of the four. */
+/** At most four columns can be locked: they stay on the left while the grid scrolls right. */
 export const MAX_PINNED = 4;
+
+/**
+ * The columns in the order the grid shows them, and which of them are locked. The core columns come first, then the rest in the given order;
+ * locked columns (any, up to four, in that order) move to the left of the unlocked ones. `locked` missing means the default: the core columns.
+ */
+export function arrangeColumns(columns: readonly string[], locked: readonly string[] | null | undefined, customerSafe = false): { columns: string[]; pinned: string[] } {
+  const core = columnsFor(CORE_COLUMN_KEYS, customerSafe);
+  const base = [...core, ...new Set(columns.filter((c) => !core.includes(c)))];
+  const want = locked ?? core;
+  const pinned = base.filter((c) => want.includes(c)).slice(0, MAX_PINNED);
+  return { columns: [...pinned, ...base.filter((c) => !pinned.includes(c))], pinned };
+}
 
 /** Fields a customer-safe view may hold: exactly the sheet's "Customer-safe reports" flag (Target and Live Markets are included, per Ashu). */
 export const CUSTOMER_SAFE_KEYS: readonly string[] = FIELDS.filter((f) => f.customerSafe).map((f) => f.key);
@@ -262,9 +289,7 @@ export function sanitizeView(input: unknown): ViewDef {
   const o = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
   const customerSafe = o.customerSafe === true;
   const cols = Array.isArray(o.columns) ? o.columns.filter((c): c is string => typeof c === "string" && c in FIELD_BY_KEY && !HIDDEN_FIELDS.has(c)) : [];
-  // the pinned core columns come first; a customer-safe view keeps only the core columns that are safe (ID and name)
-  const core = columnsFor(CORE_COLUMN_KEYS, customerSafe);
-  const columns = [...core, ...new Set(columnsFor(cols, customerSafe).filter((c) => !core.includes(c)))];
+  const { columns, pinned } = arrangeColumns(columnsFor(cols, customerSafe), Array.isArray(o.pinned) ? o.pinned.filter((c): c is string => typeof c === "string") : null, customerSafe);
   const filters: Filter[] = [];
   if (Array.isArray(o.filters)) {
     for (const x of o.filters) {
@@ -277,9 +302,6 @@ export function sanitizeView(input: unknown): ViewDef {
     }
   }
   const groupBy = typeof o.groupBy === "string" && groupableFields().some((g) => g.key === o.groupBy) && !HIDDEN_FIELDS.has(o.groupBy) && (!customerSafe || isCustomerSafe(o.groupBy)) ? o.groupBy : null;
-  const asked = Array.isArray(o.pinned) ? o.pinned.filter((c): c is string => typeof c === "string") : [];
-  const pinned = columns.slice(core.length, MAX_PINNED).filter((c) => asked.includes(c));
-  const rawSort = o.sort && typeof o.sort === "object" ? (o.sort as Record<string, unknown>) : null;
-  const sort: SortDef | null = rawSort && typeof rawSort.field === "string" && isSortable(rawSort.field) && !HIDDEN_FIELDS.has(rawSort.field) && (!customerSafe || isCustomerSafe(rawSort.field)) ? { field: rawSort.field, dir: rawSort.dir === "desc" ? "desc" : "asc" } : null;
-  return { columns, filters, groupBy, ...(customerSafe ? { customerSafe: true } : {}), ...(pinned.length > 0 ? { pinned } : {}), ...(sort ? { sort } : {}) };
+  const sort = normalizeSorts(o.sort, (k) => !customerSafe || isCustomerSafe(k));
+  return { columns, filters, groupBy, ...(customerSafe ? { customerSafe: true } : {}), pinned, ...(sort.length > 0 ? { sort } : {}) };
 }

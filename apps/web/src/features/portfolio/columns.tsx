@@ -66,7 +66,7 @@ export type ColumnContext = {
   order: string[];
   /** Sorted by global rank (off while rows are grouped: the grouping decides the order). */
   sorted: boolean;
-  /** Columns besides the core ones that stay on the left while the grid scrolls. */
+  /** The locked columns (any, up to four): they stay on the left while the grid scrolls right. */
   pinned?: ReadonlySet<string>;
 };
 
@@ -103,7 +103,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
     };
     if (f.key === "stack_rank") {
       return {
-        ...base, pinned: "left", sort: sorted ? "asc" : null, cellClass: "num cell-key-col", editable,
+        ...base, sort: sorted ? "asc" : null, cellClass: "num cell-key-col", editable,
         valueFormatter: (p) => `#${p.value}`,
         valueSetter: (p) => {
           controller.editRank(p.data.id, String(p.newValue ?? "").replace(/^#/, ""));
@@ -111,7 +111,6 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
         },
       };
     }
-    if (CORE_COLUMNS.includes(f.key as never)) base.pinned = "left";
     if (f.key === "initiative_name") { base.flex = 1; base.minWidth = 300; base.cellClass = `${String(base.cellClass ?? "")} cell-name`.trim(); }
     if (f.key === "item_code") {
       return {
