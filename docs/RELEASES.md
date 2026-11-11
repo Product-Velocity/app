@@ -4,6 +4,7 @@ The version is shown at the bottom of the account menu ("app v0.30.0 · build ab
 
 | Version | Date | Key updates | PRs |
 |---|---|---|---|
+| 0.138.6 | 2026-11-11 | **The project you pick stays picked.** Switching to another view, tab or settings page no longer resets the header's project filter to All projects. The last choice (a project, a saved scope or All projects) is remembered in your browser and restored on every page. | #424 |
 | 0.138.5 | 2026-11-11 | **Jira children no longer disappear silently.** When the full read of a Jira issue's children fails, the Sync with Jira dialog now says so on that initiative's card (and the reason is logged), and the Jira tab shows the children already known from the project's issue list, with a note that the full read did not complete. No migration. | #417 |
 | 0.138.4 | 2026-11-11 | **Finished work now becomes a pull request on its own.** Claude's standing instructions allow it to open the pull request and turn on auto-merge when a task is done, within clear limits (green checks only, migrations applied first, scope changes still asked). Instructions only; nothing changes in the app. | #420 |
 | 0.138.3 | 2026-11-11 | **Migration gate for pull requests.** A pull request that adds a database migration now fails a check until its description says the migration is applied to production, so a merge can no longer leave production deploys failing at the migration check. Developer tooling only; nothing changes in the app. | #419 |
