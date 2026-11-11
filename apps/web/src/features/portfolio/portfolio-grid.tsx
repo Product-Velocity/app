@@ -554,7 +554,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       {headRight && <span className="head-tools">{headRight}</span>}
       {(def.filters.length > 0 || scope.selection.kind !== "all") && (
         <div className="filter-chips" aria-label="Active scope and filters">
-          {scope.selection.kind !== "all" && <span className="token-chip">Scope: {scope.label}</span>}
+          {scope.selection.kind !== "all" && <span className="token-chip">Project: {scope.label}</span>}
           {def.filters.map((f, i) => (
             <span key={i} className="token-chip">
               {summarize(f, lookups)}{" "}

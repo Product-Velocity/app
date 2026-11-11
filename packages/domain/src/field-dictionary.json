@@ -2675,7 +2675,7 @@
   "n": "V1",
   "storage": "Related table",
   "phase": 1,
-  "name": "Home Project",
+  "name": "Project",
   "key": "home_project",
   "group": "What",
   "type": "Relation",

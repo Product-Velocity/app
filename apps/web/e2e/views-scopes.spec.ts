@@ -34,7 +34,7 @@ test.describe("scope switcher", () => {
     await expect(scopeButton(page)).toContainText("Customer-facing work");
     await expect(foot(page)).toContainText("5 of 30 items shown");
     expect(page.url()).toContain("scope=scope-b");
-    await expect(page.locator(".filter-chips")).toContainText("Scope: Customer-facing work");
+    await expect(page.locator(".filter-chips")).toContainText("Project: Customer-facing work");
     // ranks stay global: the first shown row is the third item, rank #3
     await expect(row(page, "item-3").locator('[col-id="stack_rank"]')).toHaveText("#3");
     await expect(row(page, "item-1")).toHaveCount(0);
@@ -130,7 +130,7 @@ test.describe("scope switcher", () => {
     await page.getByRole("button", { name: "Cancel" }).click();
     await scopeButton(page).click();
     await scopeMenu(page).getByRole("menuitemradio", { name: /Customer-facing work/ }).click();
-    await expect(page.locator(".filter-chips")).toContainText("Scope: Customer-facing work");
+    await expect(page.locator(".filter-chips")).toContainText("Project: Customer-facing work");
     await page.getByRole("button", { name: /more views$/ }).click();
     await expect(page.getByRole("dialog", { name: "Views" })).toBeVisible();
   });
