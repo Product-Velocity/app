@@ -1,4 +1,4 @@
-import { GitHubError, LABEL_COLOUR, REMOVED_LABEL, type IssueRef, type SourceControl } from "@pv/github";
+import { GitHubError, LABEL_COLOUR, resolveNames, type Names, type IssueRef, type SourceControl } from "@pv/github";
 
 // Closing the GitHub issue of an initiative that was removed in Product Velocity (decision 2026-11-03-github-close-removed; the twin of
 // lib/atlassian/jira-close.ts). THIS IS THE ONLY MODULE THAT MAY CLOSE A GITHUB ISSUE, and only github-removed-engine.ts may import it (a test fails
@@ -69,12 +69,13 @@ export async function readCloseState(t: Target, sleep?: Sleep): Promise<CloseSta
 }
 
 /** Adds the label `pv:removed` and nothing else: "add labels" keeps every other label. The label is created in the repository first when it is missing. */
-export async function addRemovedLabel(t: Target, sleep?: Sleep): Promise<{ ok: true } | CloseFail> {
+export async function addRemovedLabel(t: Target, sleep?: Sleep, names?: Names): Promise<{ ok: true } | CloseFail> {
   const refused = bad(t);
   if (refused) return refused;
+  const removed = resolveNames(names).removed;
   const r = await withBackoff(async () => {
-    await t.sc.ensureLabels(t.installationId, t.repo, [{ name: REMOVED_LABEL, color: LABEL_COLOUR, description: "Managed by Product Velocity: the initiative was removed" }]);
-    await t.sc.addLabels(t.installationId, t.repo, t.number, [REMOVED_LABEL]);
+    await t.sc.ensureLabels(t.installationId, t.repo, [{ name: removed, color: LABEL_COLOUR, description: names?.hideBrand ? "" : "Managed by Product Velocity: the initiative was removed" }]);
+    await t.sc.addLabels(t.installationId, t.repo, t.number, [removed]);
   }, sleep);
   return r.ok ? { ok: true } : r;
 }

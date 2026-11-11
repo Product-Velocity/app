@@ -89,7 +89,7 @@ export class MemorySourceControl implements SourceControl {
     this.boardItems.find((x) => x.boardId === boardId && x.id === itemId)!.values[fieldId] = value;
   }
   milestones: { number: number; repo: string; title: string; dueOn: string }[] = [];
-  async ensureMilestone(_i: number, repo: string, m: { title: string; dueOn: string }) {
+  async ensureMilestone(_i: number, repo: string, m: { title: string; dueOn: string; description?: string }) {
     this.tick("ensureMilestone");
     const found = this.milestones.find((x) => x.repo === repo && x.title === m.title);
     if (found) return found.number;

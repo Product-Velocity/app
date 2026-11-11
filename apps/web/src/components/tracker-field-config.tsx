@@ -49,17 +49,36 @@ export function FieldCatalogView({ catalogs, tracker, id }: { catalogs: TrackerC
 }
 
 // ---- the mapping table (slice 3 and 4) ----
-import type { ChangeRowView, MappingView, StaticRowView } from "@/lib/tracker-fields/view";
-import { FIELD, ON, RESET } from "@/lib/tracker-fields/form";
+import type { ChangeRowView, MappingView, NameRowView, StaticRowView } from "@/lib/tracker-fields/view";
+import { APPLY, FIELD, ON, PREFIX_ALL, RESET, TEXT } from "@/lib/tracker-fields/form";
 import type { Direction } from "@/lib/tracker-fields/slots";
 
 const DIRECTION = (tracker: string): Record<Direction, string> => ({ to_tracker: `Product Velocity to ${tracker}`, two_way: "Both ways", from_tracker: `${tracker} to Product Velocity, read only`, not_synced: "Not synced", never: "Never synced" });
 const MOSCOW = ["Must", "Should", "Could", "Won't"] as const;
 
+function NameRow({ n }: { n: NameRowView }) {
+  return (
+    <tr>
+      <th scope="row">{n.label}<br /><span className="muted">{n.help}</span></th>
+      <td>
+        {n.type !== "text" && <label><input type="checkbox" name={ON(n.id)} defaultChecked={n.on} aria-label={n.type === "flag" ? n.label : `Send the ${n.label.toLowerCase()}`} /> {n.type === "flag" ? "Hide it" : "Send"}</label>}
+        {n.type !== "flag" && <input type="text" name={TEXT(n.id)} defaultValue={n.value} placeholder={n.default} maxLength={50} size={20} aria-label={`${n.label}; empty means ${n.default}`} />}
+      </td>
+      <td>{n.type !== "flag" && <span className="muted">Default: <code>{n.default}</code></span>}</td>
+    </tr>
+  );
+}
+
 function Setting({ r, tracker }: { r: ChangeRowView; tracker: string }) {
   const c = r.control;
   const name = `${r.label}: ${r.target}`;
-  if (c.type === "toggle") return <label><input type="checkbox" name={ON(r.id)} defaultChecked={c.on} aria-label={`Send ${name}`} /> Send</label>;
+  if (c.type === "toggle")
+    return (
+      <div className="stack">
+        <label><input type="checkbox" name={ON(r.id)} defaultChecked={c.on} aria-label={`Send ${name}`} /> Send</label>
+        {c.text && <label>Label text <input type="text" name={TEXT(r.id)} defaultValue={c.text.value} placeholder={c.text.default} maxLength={30} size={16} aria-label={`Label text for ${r.label}, ends in a slash; empty means ${c.text.default}`} /><code>&lt;value&gt;</code></label>}
+      </div>
+    );
   if (c.type === "select")
     return (
       <select name={FIELD(r.id)} defaultValue={c.value} aria-label={name}>
@@ -112,6 +131,16 @@ export function FieldMappingForm({ tracker, projectId, projectName, view, action
               </tr>
             ))}
           </tbody>
+        </table>
+        <h4 id={`names-${projectId}`}>Names in {tracker} (stealth mode)</h4>
+        <p className="muted">Everything Product Velocity writes to {tracker} is named here. The defaults start with <code>pv:</code> and mention Product Velocity. Change them so nothing does. Labels already sent under another name are taken off the issue at the next Sync.</p>
+        <div className="row-form">
+          <label>Prefix for all labels <input type="text" name={PREFIX_ALL} placeholder="e.g. acme: (empty = no prefix)" maxLength={20} size={22} aria-label="Prefix for all labels; empty means no prefix" /></label>
+          <button className="btn" type="submit" name={APPLY} value="prefix" aria-label={`Apply the prefix to every label of ${projectName} and save`}>Apply to all labels and save</button>
+        </div>
+        <table className="table" aria-labelledby={`names-${projectId}`}>
+          <thead><tr><th scope="col">Name</th><th scope="col">Your setting</th><th scope="col">Default</th></tr></thead>
+          <tbody>{view.names.map((n) => <NameRow key={n.id} n={n} />)}</tbody>
         </table>
         <div className="row-form">
           <button className="btn btn-primary" type="submit" aria-label={`Save field configuration of ${projectName}`}>Save field configuration</button>

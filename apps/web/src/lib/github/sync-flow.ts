@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { assigneeChange, BLOCK_END, BLOCK_START, compareAssignees, compareBoardValues, type AssigneeCompare, type Member, compareIssue, hashText, isBoardConflict, parseBoard, type BoardFieldCompare, type BoardKey, SYNC_FIELD_COLUMN, SYNC_FIELD_LABEL, SYNC_FIELD_LIMIT, SYNC_TEXT_FIELDS, type IssueCompare, type SourceControl, type SyncTextField } from "@pv/github";
+import { assigneeChange, findBlock, compareAssignees, compareBoardValues, type AssigneeCompare, type Member, compareIssue, hashText, isBoardConflict, parseBoard, type BoardFieldCompare, type BoardKey, SYNC_FIELD_COLUMN, SYNC_FIELD_LABEL, SYNC_FIELD_LIMIT, SYNC_TEXT_FIELDS, type IssueCompare, type SourceControl, type SyncTextField } from "@pv/github";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { restoredAfterCloseNote } from "./removed-note";
 import { executePush, planPush } from "./push";
@@ -41,9 +41,8 @@ const pvText = (r: PvRow): Record<SyncTextField, string> => ({ title: r.initiati
 const pvHash = (f: SyncTextField, v: string) => hashText(v.trim().slice(0, SYNC_FIELD_LIMIT[f]));
 /** The text between our markers, hashed, so an edit made elsewhere in the body does not count as a change of the block. */
 function blockHashOf(body: string): string {
-  const start = body.indexOf(BLOCK_START);
-  const end = start === -1 ? -1 : body.indexOf(BLOCK_END, start);
-  return hashText(start !== -1 && end !== -1 ? body.slice(start, end) : body);
+  const f = findBlock(body);
+  return hashText(f ? body.slice(f.start, f.end) : body);
 }
 
 /** Reads the title and body of the linked issues (fresh), for the confirm. An issue that cannot be read is left out. */

@@ -119,12 +119,12 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
     if (!siteFields.has(k)) siteFields.set(k, readJiraSiteFields(connection, site).catch((): null => null));
     return siteFields.get(k)!;
   };
-  const { data: configRows } = canAdmin && configure ? await supabase.from("tracker_field_config").select("project_id, slot, enabled, field_id").eq("tenant_id", active.tenantId).eq("provider", "jira") : { data: [] };
+  const { data: configRows } = canAdmin && configure ? await supabase.from("tracker_field_config").select("project_id, slot, enabled, field_id, label_text").eq("tenant_id", active.tenantId).eq("provider", "jira") : { data: [] };
   const mappings = new Map<string, MappingView>();
   if (canAdmin && configure) {
     await Promise.all(((linkRows ?? []) as LinkRow[]).map(async (l) => {
       const site = await fieldsFor(l.connection_id, l.site_id);
-      const saved = ((configRows ?? []) as { project_id: string; slot: string; enabled: boolean; field_id: string | null }[]).filter((r) => r.project_id === l.project_id).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id }));
+      const saved = ((configRows ?? []) as { project_id: string; slot: string; enabled: boolean; field_id: string | null; label_text?: string | null }[]).filter((r) => r.project_id === l.project_id).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id, text: r.label_text ?? null }));
       mappings.set(l.project_id, buildMappingView({ tracker: "jira", rows: parseConfigRows(saved, "jira"), jiraMap: parseFieldMap(storedMaps.get(l.project_id)), choices: site ? { startDates: site.startDates, themes: site.themes, priorities: site.priorities, dateFields: site.dateFields, proposal: site.proposal } : null }));
     }));
   }

@@ -23,7 +23,7 @@ export async function readIssue(call: JiraRequest, key: string, sleep?: Sleep): 
 
 /** An issue of the project that already carries the marker label (a create whose answer was lost): its key and id, or null. */
 export async function findByMarker(call: JiraRequest, projectKey: string, marker: string, sleep?: Sleep): Promise<{ key: string; id: string | null } | null> {
-  if (!/^[A-Z][A-Z0-9_]{1,19}$/.test(projectKey) || !/^pv:item\/[0-9a-f]{16}$/.test(marker)) return null;
+  if (!/^[A-Z][A-Z0-9_]{1,19}$/.test(projectKey) || !/^[A-Za-z0-9:_.-]{1,24}\/[0-9a-f]{16}$/.test(marker)) return null;
   const jql = `project = ${projectKey} AND labels = "${marker}"`;
   const r = await withBackoff(() => call("GET", `/search/jql?jql=${encodeURIComponent(jql)}&fields=summary&maxResults=2`), sleep);
   if (r.status !== 200) return null;

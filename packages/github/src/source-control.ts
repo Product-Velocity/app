@@ -90,7 +90,7 @@ export interface SourceControl {
   /** Makes sure the labels exist (an App's labels on a new issue are otherwise dropped silently). */
   ensureLabels(installationId: number, repo: string, labels: { name: string; color: string; description: string }[]): Promise<void>;
   /** The number of the milestone with this title in the repository (open or closed), created with the due date when missing. */
-  ensureMilestone(installationId: number, repo: string, milestone: { title: string; dueOn: string }): Promise<number>;
+  ensureMilestone(installationId: number, repo: string, milestone: { title: string; dueOn: string; description?: string }): Promise<number>;
   /** Open and closed organisation-owned Projects of an organisation (needs the Organization "Projects" permission). */
   /** The open Projects of the account the App is installed on. `kind` is the account type: Apps are documented to reach organisation Projects only, so a "User" lookup may be refused by GitHub. */
   listBoards(installationId: number, owner: string, kind?: "Organization" | "User"): Promise<BoardInfo[]>;

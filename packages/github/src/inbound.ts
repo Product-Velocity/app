@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { BLOCK_END, BLOCK_START } from "./outbound";
+import { BRANDED_FOOTER_START, NEUTRAL_FOOTER, blockStartIndex, findBlock } from "./names";
 
 // What may come back from a tracking issue (docs/21, section 8): the title and three texts of the managed block, nothing else.
 // Everything here is pure so it can be tested without GitHub. Text read from an issue is data: it is cut to the field's limit
@@ -13,7 +13,7 @@ export const SYNC_FIELD_LABEL: Record<SyncTextField, string> = { title: "Name", 
 export const SYNC_FIELD_LIMIT: Record<SyncTextField, number> = { title: 200, summary: 4000, description: 20000, hypothesis: 4000 };
 
 const HEADINGS = [["summary", "## Summary"], ["description", "## Description"], ["hypothesis", "## Hypothesis (IF / THEN / RESULTING IN)"], ["artifacts", "## Links", "## Artifacts"], ["files", "## Files"], ["documents", "## Documents"]] as readonly (readonly string[])[]; // "Links" was "Artifacts" until 2026-11-06: both are read
-const FOOTER = "\n---\nManaged by Product Velocity";
+const FOOTERS = [`\n---\n${BRANDED_FOOTER_START}`, `\n---\n${NEUTRAL_FOOTER}`];
 
 /** The text as the outbound builder writes it and as it is compared: no carriage returns, trimmed, markers escaped, @mentions defused. */
 export function normalise(s: string | null | undefined): string {
@@ -42,13 +42,14 @@ export type SplitBlock = { ok: true; summary: string; description: string; hypot
  */
 export function splitManagedBlock(body: string | null | undefined): SplitBlock {
   const b = (body ?? "").replace(/\r\n?/g, "\n");
-  const start = b.indexOf(BLOCK_START);
-  const end = start === -1 ? -1 : b.indexOf(BLOCK_END, start);
+  const blk = findBlock(b);
+  const start = blk?.start ?? -1;
+  const end = blk?.end ?? -1;
   if (start === -1 || end === -1) return { ok: false, reason: "The markers of the managed block are missing in GitHub.", missing: true };
   const block = b.slice(start, end);
   const firstLineEnd = block.indexOf("\n");
-  if (firstLineEnd === -1 || !/^<!-- pv:begin item=[0-9a-f-]{36} -->$/.test(block.slice(0, firstLineEnd))) return { ok: false, reason: "The first marker of the managed block was edited in GitHub." };
-  const footer = block.lastIndexOf(FOOTER);
+  if (firstLineEnd === -1 || !/^<!-- [a-z0-9_-]{1,20}:begin item=[0-9a-f-]{36} -->$/.test(block.slice(0, firstLineEnd))) return { ok: false, reason: "The first marker of the managed block was edited in GitHub." };
+  const footer = Math.max(...FOOTERS.map((f) => block.lastIndexOf(f)));
   const content = footer === -1 ? block.slice(firstLineEnd) : block.slice(firstLineEnd, footer);
 
   const found: { key: string; at: number; len: number }[] = [];
@@ -162,10 +163,10 @@ export function labelFields(labels: readonly string[] | null | undefined): Label
  */
 export function descriptionFromIssueBody(body: string | null | undefined): { text: string; hadBlock: boolean } {
   const b = (body ?? "").replace(/\r\n?/g, "\n");
-  const start = b.indexOf(BLOCK_START);
+  const start = blockStartIndex(b);
   if (start === -1) return { text: b.trim(), hadBlock: false };
-  const end = b.indexOf(BLOCK_END, start);
-  const outside = (end === -1 ? b.slice(0, start) : b.slice(0, start) + b.slice(end + BLOCK_END.length)).trim();
+  const found = findBlock(b);
+  const outside = (!found ? b.slice(0, start) : b.slice(0, start) + b.slice(found.after)).trim();
   if (outside) return { text: outside, hadBlock: true };
   const inner = splitManagedBlock(b);
   return { text: inner.ok ? (inner.description || inner.summary).trim() : "", hadBlock: true };
