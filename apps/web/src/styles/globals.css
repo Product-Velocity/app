@@ -689,6 +689,9 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .cp-card[data-locked="true"] { border-color: #9fd8bd; background: #f3fbf7; }
 .cp-card[data-over="true"] { border-color: #2270ed; box-shadow: 0 0 0 2px #dfeafb; }
 .cp-card .name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-sort { display: inline-flex; align-items: center; gap: 1px; min-width: 28px; justify-content: center; padding: 4px 5px; font-size: 13px; line-height: 1; font-weight: 600; color: #8a93a6; }
+.cp-sort[data-dir="asc"], .cp-sort[data-dir="desc"] { color: #1a56c4; background: #e8f0fd; }
+.cp-sort-n { font-size: 10px; font-weight: 700; }
 .cp-handle { cursor: grab; color: #8a93a6; padding: 0 2px; user-select: none; }
 .lock-on { color: #0b7a4b; }
 .cp-tip { margin: 6px 0 0; padding: 8px 10px; border-radius: 6px; background: #1f2430; color: #fff; font-size: 12px; }

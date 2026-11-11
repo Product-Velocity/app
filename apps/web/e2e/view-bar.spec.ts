@@ -429,6 +429,7 @@ test.describe("manage views (R-100)", () => {
 test.describe("sort: in the Columns picker, saved with the view (issue #207)", () => {
   const firstRow = (page: Page) => page.locator('.ag-row[row-index="0"] [col-id="initiative_name"]').first().innerText();
   const picker = (page: Page) => page.getByRole("group", { name: "Choose columns" });
+  const sortBtn = (page: Page, column: string) => picker(page).getByRole("button", { name: new RegExp(`^Sort ${column.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:`) });
   const openPicker = (page: Page) => page.getByRole("button", { name: /columns shown$/ }).click();
 
   test("there is no Sort button in the bar; the sort is set per column in the picker and the grid does not re-sort before Apply", async ({ page }) => {
@@ -436,7 +437,8 @@ test.describe("sort: in the Columns picker, saved with the view (issue #207)", (
     await expect(page.getByRole("button", { name: /^Sort:/ })).toHaveCount(0);
     const before = await firstRow(page);
     await openPicker(page);
-    await picker(page).getByRole("combobox", { name: "Sort Initiative Name", exact: true }).selectOption("desc");
+    await sortBtn(page, "Initiative Name").click();
+    await sortBtn(page, "Initiative Name").click(); // ascending, then descending
     expect(await firstRow(page)).toBe(before);
     await expect(foot(page)).toContainText("Sorted by global Stack Rank");
     await expect(hasChanges(page)).toHaveCount(0);
@@ -450,8 +452,9 @@ test.describe("sort: in the Columns picker, saved with the view (issue #207)", (
   test("several sorts: columns higher in the list are sorted first, and the picker numbers them", async ({ page }) => {
     await open(page);
     await openPicker(page);
-    await picker(page).getByRole("combobox", { name: "Sort Initiative Name", exact: true }).selectOption("asc");
-    await picker(page).getByRole("combobox", { name: "Sort MoSCoW", exact: true }).selectOption("desc");
+    await sortBtn(page, "Initiative Name").click();
+    await sortBtn(page, "MoSCoW").click();
+    await sortBtn(page, "MoSCoW").click();
     await expect(picker(page).getByTitle("Sort order 1")).toHaveCount(1);
     await expect(picker(page).getByTitle("Sort order 2")).toHaveCount(1);
     await picker(page).getByRole("button", { name: /^Apply columns/ }).click();
@@ -472,7 +475,8 @@ test.describe("sort: in the Columns picker, saved with the view (issue #207)", (
     await expect(foot(page)).toContainText("Sorted by MoSCoW, A-Z");
     // clearing is a saved state too
     await openPicker(page);
-    await picker(page).getByRole("combobox", { name: "Sort MoSCoW", exact: true }).selectOption("");
+    await sortBtn(page, "MoSCoW").click();
+    await sortBtn(page, "MoSCoW").click(); // saved ascending: descending, then none
     await picker(page).getByRole("button", { name: /^Apply columns/ }).click();
     await expect(foot(page)).toContainText("Sorted by global Stack Rank");
     await viewMenuAction(page, "Update “Sorted view”");
@@ -501,7 +505,7 @@ test.describe("sort: in the Columns picker, saved with the view (issue #207)", (
   test("only columns the view shows can be sorted: a hidden column has no sort control", async ({ page }) => {
     await open(page);
     await openPicker(page);
-    await expect(picker(page).getByRole("combobox", { name: /^Sort Primary KR Target Value/ })).toHaveCount(0); // not a shown column here
+    await expect(picker(page).getByRole("button", { name: /^Sort Primary KR Target Value/ })).toHaveCount(0); // not a shown column here
     await page.keyboard.press("Escape");
     await applySort(page, "Initiative Name", "A-Z");
     await viewTab(page, "Planning").click(); // sort stays while switching views; its column is shown there too

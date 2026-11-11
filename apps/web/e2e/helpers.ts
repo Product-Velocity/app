@@ -35,6 +35,8 @@ export async function resetChanges(page: Page) {
 export async function applySort(page: Page, column: string, direction: string) {
   await page.getByRole("button", { name: /columns shown$/ }).click();
   const panel = page.getByRole("group", { name: "Choose columns" });
-  await panel.getByRole("combobox", { name: `Sort ${column}`, exact: true }).selectOption(/^(A-Z|Low to high|Oldest first)$/.test(direction) ? "asc" : "desc");
+  const sortBtn = panel.getByRole("button", { name: new RegExp(`^Sort ${column.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:`) });
+  await sortBtn.click(); // none -> ascending
+  if (!/^(A-Z|Low to high|Oldest first)$/.test(direction)) await sortBtn.click(); // -> descending
   await panel.getByRole("button", { name: /^Apply columns/ }).click();
 }
