@@ -30,7 +30,7 @@ export async function loadLookups(supabase: SupabaseClient, tenantId: string): P
     jira: {
       links: Object.fromEntries(
         ((jiraLinks.data ?? []) as { item_id: string; mode: "push" | "follow"; issue_key: string; html_url: string | null; jira_status: string | null; jira_status_category: "new" | "indeterminate" | "done" | null; sync_checked_at: string | null }[])
-          .map((l) => [l.item_id, { mode: l.mode, issueKey: l.issue_key, url: l.html_url, status: l.jira_status, category: l.jira_status_category, lastSynced: l.sync_checked_at }]),
+          .map((l) => [l.item_id, { mode: l.mode, issueKey: l.issue_key, url: l.html_url, status: l.jira_status, category: l.jira_status_category, lastSynced: l.sync_checked_at, buildStartedAt: build.get(l.item_id)?.build_started_at ?? null, buildCompletedAt: build.get(l.item_id)?.build_completed_at ?? null, buildDays: build.get(l.item_id)?.build_days == null ? null : Number(build.get(l.item_id)!.build_days) }]),
       ),
     },
     trackers: { jira: ((jira.data ?? []) as unknown[]).length > 0, projectTracker: Object.fromEntries(((projects.data ?? []) as { id: string; tracker?: "github" | "jira" | null }[]).map((p) => [p.id, p.tracker ?? null])) },

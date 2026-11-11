@@ -15,7 +15,9 @@ export type LoadedItem = {
 export type GridItem = LoadedItem & { project_rank: number };
 
 /** A Jira link of an initiative: the issue, who owns the initiative, and what Jira says about it. */
-export type JiraLinkInfo = { mode: "push" | "follow"; issueKey: string; url: string | null; status: string | null; category: "new" | "indeterminate" | "done" | null; lastSynced: string | null };
+export type JiraLinkInfo = { mode: "push" | "follow"; issueKey: string; url: string | null; status: string | null; category: "new" | "indeterminate" | "done" | null; lastSynced: string | null;
+  /** Build start, completion and build days: the tracker's own dates (issue #421), from item_build_cycle. */
+  buildStartedAt?: string | null; buildCompletedAt?: string | null; buildDays?: number | null };
 
 export type Lookups = {
   projects: { id: string; name: string }[];

@@ -2,7 +2,7 @@
 
 import { requireWorkspace } from "@/lib/session";
 import { DbReadError, safeReadMessage } from "@/lib/db-error";
-import { applyLinkedStatuses, applyLinkedTrees } from "@/lib/atlassian/refresh-jira";
+import { applyLinkedBuildDates, applyLinkedStatuses, applyLinkedTrees } from "@/lib/atlassian/refresh-jira";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 import type { RefreshSummary } from "@/lib/atlassian/refresh-linked";
 import type { PlanItem, PushItemResult, ReceiveItem, SyncChoice, SyncConfirmResult, SyncPreviewResult, TakenOver } from "@/lib/github/push-types";
@@ -70,6 +70,12 @@ export async function startJiraSync(ids: string[]): Promise<SyncPreviewResult> {
       if (t.error || t.failed > 0 || t.unreadable.length > 0) console.error(JSON.stringify({ jira: "sync-tree", error: t.error, failed: t.failed, unreadable: t.unreadable.length }));
       for (const i of t.unreadable) treeNote.set(i, "The children of this issue could not be read: Jira did not return it for their query.");
       for (const i of t.failedItems) treeNote.set(i, `The children of this issue could not be read${t.error ? `: ${t.error}` : "."} Issues already known from the project list are shown instead.`);
+      // then the real start and completion dates from the issues' history (Start Building, Build Completed); same tolerance and the same visible note
+      const d = await applyLinkedBuildDates(plink, { itemIds });
+      if (d.error) {
+        console.error(JSON.stringify({ jira: "sync-dates", error: d.error }));
+        for (const i of itemIds) treeNote.set(i, `${treeNote.get(i) ? `${treeNote.get(i)} ` : ""}The build dates could not be read: ${d.error}`);
+      }
       for (const i of itemIds) summaryOf.set(i, s);
     } catch (e) {
       // a connection that needs a new sign-in is shown, once; nothing retries by itself

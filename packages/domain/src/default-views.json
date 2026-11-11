@@ -63,6 +63,7 @@
    "planning_status",
    "description",
    "status",
+   "start_building",
    "last_synced",
    "synced_with",
    "tracker_ownership",
