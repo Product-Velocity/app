@@ -57,4 +57,4 @@ export type IncomingTerms = {
   emptyHint: string;
 };
 export const GITHUB_TERMS: IncomingTerms = { tracker: "GitHub", groupLabel: "Repository", ref: (i) => `#${i.number}`, rules: true, projectFixed: false, emptyHint: "No issues yet. Press “Check GitHub now” above to read them." };
-export const JIRA_TERMS: IncomingTerms = { tracker: "Jira", groupLabel: "Jira project", ref: (i) => `${i.repo}-${i.number}`, rules: false, projectFixed: true, emptyHint: "No issues yet. Press “Read Jira now” under Settings, Integrations, Jira." };
+export const JIRA_TERMS: IncomingTerms = { tracker: "Jira", groupLabel: "Jira project", ref: (i) => `${i.repo}-${i.number}`, rules: false, projectFixed: true, emptyHint: "No issues yet. Press “Read Jira now” above to read them." };
