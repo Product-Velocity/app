@@ -31,10 +31,10 @@ export async function resetChanges(page: Page) {
   if (await page.getByRole("dialog", { name: "Views" }).count()) await page.keyboard.press("Escape");
 }
 
-/** The two-step sort: open Sort, pick the column, pick the direction by its words (A-Z, Z-A, Low to high, ...) and press Apply. */
+/** Sorts a column from the Columns picker: open it, set the direction on the column's row (A-Z, Z-A, Low to high, ...) and press Apply columns. */
 export async function applySort(page: Page, column: string, direction: string) {
-  await page.getByRole("button", { name: /^Sort:/ }).click();
-  await page.getByRole("menuitemradio", { name: new RegExp(`^${column.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) }).click();
-  await page.getByRole("radio", { name: direction, exact: true }).click();
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await page.getByRole("button", { name: /columns shown$/ }).click();
+  const panel = page.getByRole("group", { name: "Choose columns" });
+  await panel.getByRole("combobox", { name: `Sort ${column}`, exact: true }).selectOption(/^(A-Z|Low to high|Oldest first)$/.test(direction) ? "asc" : "desc");
+  await panel.getByRole("button", { name: /^Apply columns/ }).click();
 }

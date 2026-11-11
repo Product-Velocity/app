@@ -1,26 +1,35 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { arrivesLabel, columnsFor, CORE_COLUMN_KEYS, VISIBLE_FIELDS, FIELD_BY_KEY, fieldOptions, filterOptions, isCustomerSafe, MAX_PINNED, needsSearch, type ViewDef } from "@pv/domain";
+import { arrangeColumns, arrivesLabel, columnsFor, CORE_COLUMN_KEYS, effectiveSort, VISIBLE_FIELDS, FIELD_BY_KEY, fieldOptions, filterOptions, isCustomerSafe, MAX_PINNED, needsSearch, sortableFields, type SortDef, type ViewDef } from "@pv/domain";
 import { NoResults, SearchInput } from "@/components/search-list";
 import { Popover } from "./popover";
 
 const ALL_FIELDS = fieldOptions(VISIBLE_FIELDS);
 const GROUPS = [...new Set(VISIBLE_FIELDS.map((f) => f.group))];
 const ALL = "__all__";
+const SORTABLE = new Set(sortableFields().map((f) => f.key));
+type Dir = SortDef["dir"] | "";
 
 type Props = {
   def: ViewDef;
   /** What "Reset to view default" goes back to: the view as it was saved or built in. */
   defaultDef: ViewDef;
   customerSafe: boolean;
-  onApply: (columns: string[], pinned: string[]) => void;
+  /** `sort` is in the order of the columns: a sorted column higher in the list is sorted first. */
+  onApply: (columns: string[], pinned: string[], sort: SortDef[]) => void;
 };
 
 function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close: () => void }) {
   const core = useMemo(() => columnsFor(CORE_COLUMN_KEYS, customerSafe), [customerSafe]);
-  const [columns, setColumns] = useState<string[]>(def.columns);
-  const [pinned, setPinned] = useState<string[]>(def.pinned ?? []);
+  // columns and locks change together: the locked columns (up to four, any) always sit first, in the order the grid shows them
+  const [cp, setCp] = useState(() => arrangeColumns(def.columns, def.pinned, customerSafe));
+  const columns = cp.columns;
+  const effectivePinned = cp.pinned;
+  const commit = (c: readonly string[], p: readonly string[]) => setCp(arrangeColumns(c, p, customerSafe));
+  // a direction per column; the order of the sorts is the order of the columns, so it is worked out on Apply and shown as 1, 2, ...
+  const sortsOf = (d: ViewDef) => Object.fromEntries(effectiveSort(d).map((x) => [x.field, x.dir])) as Record<string, SortDef["dir"]>;
+  const [sorts, setSorts] = useState<Record<string, SortDef["dir"]>>(() => sortsOf(def));
   const [category, setCategory] = useState<string>(ALL);
   const [query, setQuery] = useState("");
   const [tip, setTip] = useState<string | null>(null);
@@ -29,18 +38,23 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
   const isCore = (k: string) => core.includes(k);
   const blocked = (k: string) => customerSafe && !isCustomerSafe(k) && !isCore(k);
   const on = new Set(columns);
-  // a pin only counts while the column still sits in the places left of the fourth
-  const effectivePinned = pinned.filter((k) => { const i = columns.indexOf(k); return i >= core.length && i < MAX_PINNED; });
+  const orderedSorts: SortDef[] = columns.filter((k) => sorts[k] && SORTABLE.has(k)).map((k) => ({ field: k, dir: sorts[k]! }));
+  const priority = (k: string) => orderedSorts.findIndex((x) => x.field === k) + 1;
+  const setDir = (k: string, d: Dir) => setSorts((p) => { const n = { ...p }; if (d) n[k] = d; else delete n[k]; return n; });
   const matching = new Set(filterOptions(ALL_FIELDS, query).map((o) => o.value));
   const searching = query.trim() !== "";
   const shownGroups = searching ? GROUPS.filter((g) => VISIBLE_FIELDS.some((f) => f.group === g && matching.has(f.key))) : category === ALL ? GROUPS : [category];
   const countIn = (g: string) => VISIBLE_FIELDS.filter((f) => f.group === g && on.has(f.key)).length;
   const totalIn = (g: string) => VISIBLE_FIELDS.filter((f) => f.group === g).length;
 
-  const toggle = (k: string) => { if (!isCore(k) && !blocked(k)) setColumns((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k])); };
-  const setMany = (keys: string[], show: boolean) => setColumns((c) => {
-    const rest = c.filter((x) => isCore(x) || !keys.includes(x));
-    return show ? [...rest, ...keys.filter((k) => !blocked(k) && !isCore(k))] : rest;
+  const toggle = (k: string) => {
+    if (isCore(k) || blocked(k)) return;
+    setTip(null);
+    setCp((cur) => (cur.columns.includes(k) ? arrangeColumns(cur.columns.filter((x) => x !== k), cur.pinned.filter((x) => x !== k), customerSafe) : arrangeColumns([...cur.columns, k], cur.pinned, customerSafe)));
+  };
+  const setMany = (keys: string[], show: boolean) => setCp((cur) => {
+    const rest = cur.columns.filter((x) => isCore(x) || !keys.includes(x));
+    return arrangeColumns(show ? [...rest, ...keys.filter((k) => !blocked(k) && !isCore(k) && !rest.includes(k))] : rest, cur.pinned, customerSafe);
   });
   // Moving a column makes its row change place, which drops the focus; it goes back to the same arrow (or the other one at an end of the list)
   const listRef = useRef<HTMLOListElement>(null);
@@ -53,38 +67,39 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
     const arrows = [...(row?.querySelectorAll<HTMLButtonElement>("button[data-move]") ?? [])];
     const same = arrows.find((b) => b.dataset.move === (want.delta < 0 ? "up" : "down") && !b.disabled);
     (same ?? arrows.find((b) => !b.disabled))?.focus();
-  }, [columns]);
+  }, [cp]);
   const move = (k: string, delta: number) => {
     refocus.current = { key: k, delta };
-    setColumns((c) => {
-      const i = c.indexOf(k), j = i + delta;
-      if (i < 0 || j < core.length || j >= c.length) return c;
-      const n = [...c]; [n[i], n[j]] = [n[j]!, n[i]!]; return n;
+    setCp((cur) => {
+      const c = cur.columns, i = c.indexOf(k), j = i + delta;
+      if (i < 0 || j < 0 || j >= c.length) return cur;
+      const n = [...c]; [n[i], n[j]] = [n[j]!, n[i]!];
+      return arrangeColumns(n, cur.pinned, customerSafe);
     });
   };
   const drop = (target: string) => {
     const k = drag.key;
     setDrag({ key: null, over: null });
     if (!k || k === target || isCore(k)) return;
-    setColumns((c) => {
+    setCp((cur) => {
+      const c = cur.columns;
       const without = c.filter((x) => x !== k);
-      const at = Math.max(core.length, without.indexOf(target) + (c.indexOf(k) < c.indexOf(target) ? 1 : 0));
-      return [...without.slice(0, at), k, ...without.slice(at)];
+      const at = without.indexOf(target) + (c.indexOf(k) < c.indexOf(target) ? 1 : 0);
+      return arrangeColumns([...without.slice(0, at), k, ...without.slice(at)], cur.pinned, customerSafe);
     });
   };
   const lock = (k: string) => {
-    const i = columns.indexOf(k);
-    if (isCore(k)) { setTip("The first columns (rank, ID, name) are always pinned."); return; }
-    if (i >= MAX_PINNED) { setTip(`Only the first ${MAX_PINNED} columns can be pinned to the left.`); return; }
+    if (effectivePinned.includes(k)) { setTip(null); commit(columns, effectivePinned.filter((x) => x !== k)); return; }
+    if (effectivePinned.length >= MAX_PINNED) { setTip(`You can lock up to ${MAX_PINNED} columns. Unlock one first.`); return; }
     setTip(null);
-    setPinned((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
+    commit(columns, [...effectivePinned, k]);
   };
-  const reset = () => { setColumns(defaultDef.columns); setPinned(defaultDef.pinned ?? []); setTip(null); };
+  const reset = () => { setCp(arrangeColumns(defaultDef.columns, defaultDef.pinned, customerSafe)); setSorts(sortsOf(defaultDef)); setTip(null); };
 
   return (
     <div role="group" aria-label="Choose columns">
       <div className="panel-section" style={{ paddingBottom: 12 }}>
-        <div className="panel-head"><h2>Columns</h2><span className="panel-note">Nothing changes in the grid until you press Apply. The first columns stay on the left; one more can be pinned in the fourth place.</span></div>
+        <div className="panel-head"><h2>Columns</h2><span className="panel-note">Nothing changes in the grid until you press Apply. Sorted columns higher in the list are sorted first.</span></div>
       </div>
       <hr className="panel-rule" />
       <div className="cp cp-body">
@@ -135,12 +150,14 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
         </div>
         <div className="cp-order">
           <div className="panel-head"><h2>Selected columns ({columns.length})</h2></div>
-          <p className="panel-note" style={{ margin: "4px 0 8px" }}>Drag to reorder, or use the arrows. The lock pins a column to the left while you scroll.</p>
+          <p className="panel-note" style={{ margin: "4px 0 8px" }}>Drag to reorder, or use the arrows. Lock up to 4 columns: locked columns stay on the left when the grid scrolls right. Sorted columns higher in the list are sorted first; with no sort the grid follows the global Stack Rank.</p>
           <ol ref={listRef} style={{ listStyle: "none", margin: 0, padding: 0 }} aria-label="Selected columns in order">
             {columns.map((k, i) => {
               const f = FIELD_BY_KEY[k];
               const coreCol = isCore(k);
-              const pinnedNow = coreCol || effectivePinned.includes(k);
+              const pinnedNow = effectivePinned.includes(k);
+              const prevPinned = i > 0 && effectivePinned.includes(columns[i - 1]!);
+              const nextPinned = i < columns.length - 1 && effectivePinned.includes(columns[i + 1]!);
               return (
                 <li
                   key={k}
@@ -156,13 +173,23 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
                 >
                   <span className="cp-handle" aria-hidden="true">{coreCol ? "" : "⠿"}</span>
                   <span className="name">{f?.name ?? k}</span>
-                  {!coreCol && (
+                  {SORTABLE.has(k) && (
                     <>
-                      <button type="button" className="icon-btn" data-move="up" aria-label={`Move ${f?.name} up`} disabled={i <= core.length} onClick={() => move(k, -1)}>▲</button>
-                      <button type="button" className="icon-btn" data-move="down" aria-label={`Move ${f?.name} down`} disabled={i >= columns.length - 1} onClick={() => move(k, 1)}>▼</button>
+                      {priority(k) > 0 && <span className="cp-sort-n muted" title={`Sort order ${priority(k)}`}>{priority(k)}</span>}
+                      <select className="cp-sort" aria-label={`Sort ${f?.name ?? k}`} value={sorts[k] ?? ""} onChange={(e) => setDir(k, e.target.value as Dir)}>
+                        <option value="">No sort</option>
+                        <option value="asc">↑ Asc</option>
+                        <option value="desc">↓ Desc</option>
+                      </select>
                     </>
                   )}
-                  <button type="button" className={pinnedNow ? "icon-btn lock-on" : "icon-btn"} aria-pressed={pinnedNow} aria-label={`${pinnedNow ? "Unpin" : "Pin"} ${f?.name}${coreCol ? " (always pinned)" : ""}`} onClick={() => lock(k)}>
+                  {!coreCol && (
+                    <>
+                      <button type="button" className="icon-btn" data-move="up" aria-label={`Move ${f?.name} up`} disabled={i <= 0 || isCore(columns[i - 1]!) || (!pinnedNow && prevPinned)} onClick={() => move(k, -1)}>▲</button>
+                      <button type="button" className="icon-btn" data-move="down" aria-label={`Move ${f?.name} down`} disabled={i >= columns.length - 1 || (pinnedNow && !nextPinned)} onClick={() => move(k, 1)}>▼</button>
+                    </>
+                  )}
+                  <button type="button" className={pinnedNow ? "icon-btn lock-on" : "icon-btn"} aria-pressed={pinnedNow} aria-label={`${pinnedNow ? "Unlock" : "Lock"} ${f?.name}`} onClick={() => lock(k)}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d={pinnedNow ? "M8 11V8a4 4 0 0 1 8 0v3" : "M8 11V8a4 4 0 0 1 7.5-2"} /></svg>
                   </button>
                   {!coreCol && (
@@ -180,9 +207,9 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
       <div className="panel-foot">
         <button type="button" className="btn btn-link" onClick={reset}>Reset to view default</button>
         <span className="grow" />
-        <span className="panel-note">{effectivePinned.length + core.length} pinned</span>
+        <span className="panel-note">{effectivePinned.length} of {MAX_PINNED} locked</span>
         <button type="button" className="btn" onClick={close}>Cancel</button>
-        <button type="button" className="btn btn-primary" onClick={() => { onApply(columns, effectivePinned); close(); }}>Apply columns ({columns.length})</button>
+        <button type="button" className="btn btn-primary" onClick={() => { onApply(columns, effectivePinned, orderedSorts); close(); }}>Apply columns ({columns.length})</button>
       </div>
     </div>
   );

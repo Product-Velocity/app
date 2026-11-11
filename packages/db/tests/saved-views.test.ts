@@ -323,3 +323,16 @@ describe("reset of all saved views (0042)", () => {
     expect((await db.admin.query("select count(*)::int as n from public.saved_views")).rows[0].n).toBe(0);
   });
 });
+
+describe("sort list and explicit locks (20261111124842)", () => {
+  it("a view stores a list of sorts and still accepts a single object; anything else is refused", async () => {
+    const list = await db.asUser(f.alice, (q) => q("insert into public.saved_views (tenant_id, name, columns, sort, pins_explicit, pinned) values ($1, 'Sorted list', array['item_code'], '[{\"field\":\"moscow\",\"dir\":\"asc\"}]'::jsonb, true, array[]::text[]) returning sort, pins_explicit, pinned", [f.tenantA]), { commit: true });
+    expect(list.rows[0].sort).toEqual([{ field: "moscow", dir: "asc" }]);
+    expect(list.rows[0].pins_explicit).toBe(true);
+    expect(list.rows[0].pinned).toEqual([]);
+    const one = await db.asUser(f.alice, (q) => q("insert into public.saved_views (tenant_id, name, columns, sort) values ($1, 'Sorted one', array['item_code'], '{\"field\":\"moscow\",\"dir\":\"asc\"}'::jsonb) returning pins_explicit", [f.tenantA]), { commit: true });
+    expect(one.rows[0].pins_explicit).toBe(false); // an older-style row keeps the older meaning of its locked list
+    const bad = await errorCode(db.asUser(f.alice, (q) => q("insert into public.saved_views (tenant_id, name, columns, sort) values ($1, 'Bad sort', array['item_code'], '\"moscow\"'::jsonb)", [f.tenantA]), { commit: true }));
+    expect(bad).toBe("23514");
+  });
+});

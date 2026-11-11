@@ -146,13 +146,13 @@ describe("sanitizeView", () => {
   });
   it("copes with garbage", () => {
     expect(sanitizeView(null).columns).toEqual(["stack_rank", "item_code", "initiative_name"]);
-    expect(sanitizeView({ columns: "x", filters: 5, groupBy: 3 })).toEqual({ columns: ["stack_rank", "item_code", "initiative_name"], filters: [], groupBy: null });
+    expect(sanitizeView({ columns: "x", filters: 5, groupBy: 3 })).toEqual({ columns: ["stack_rank", "item_code", "initiative_name"], filters: [], groupBy: null, pinned: ["stack_rank", "item_code", "initiative_name"] });
   });
 });
 
 describe("hidden fields", () => {
   it("Roadmap Category is dropped from saved columns, filters, grouping and sort, and stays in the dictionary", () => {
-    const v = sanitizeView({ columns: ["item_code", "roadmap_category", "theme"], filters: [{ field: "roadmap_category", op: "is", value: "New big bets" }], groupBy: "roadmap_category", sort: { field: "roadmap_category", dir: "asc" } });
+    const v = sanitizeView({ columns: ["item_code", "roadmap_category", "theme"], filters: [{ field: "roadmap_category", op: "is", value: "New big bets" }], groupBy: "roadmap_category", sort: [{ field: "roadmap_category", dir: "asc" }] });
     expect(v.columns).not.toContain("roadmap_category");
     expect(v.columns).toContain("theme");
     expect(v.filters).toEqual([]);
@@ -260,11 +260,17 @@ describe("filters of the new filter panel", () => {
     const v = sanitizeView({ columns: [], filters: [{ field: "health", op: "any_of", values: ["At Risk", "At Risk", "", 7] }, { field: "moscow", op: "today" }] });
     expect(v.filters).toEqual([{ field: "health", op: "any_of", values: ["At Risk"] }]);
   });
-  it("pinned columns: only inside the first four places, after the core columns", () => {
-    const cols = ["stack_rank", "item_code", "initiative_name", "moscow", "health"];
-    expect(sanitizeView({ columns: cols, pinned: ["moscow", "health"] }).pinned).toEqual(["moscow"]);
-    expect(sanitizeView({ columns: cols, pinned: ["stack_rank", "nope"] }).pinned).toBeUndefined();
-    expect(sanitizeView({ columns: cols }).pinned).toBeUndefined();
+  it("locked columns: any column, at most four, locked ones come first; missing means rank, ID and name", () => {
+    const cols = ["stack_rank", "item_code", "initiative_name", "moscow", "health", "effort"];
+    expect(sanitizeView({ columns: cols }).pinned).toEqual(["stack_rank", "item_code", "initiative_name"]);
+    expect(sanitizeView({ columns: cols, pinned: [] }).pinned).toEqual([]);
+    expect(sanitizeView({ columns: cols, pinned: ["health", "nope"] }).pinned).toEqual(["health"]);
+    // a locked column moves to the left of the unlocked ones
+    expect(sanitizeView({ columns: cols, pinned: ["health", "moscow"] }).columns).toEqual(["moscow", "health", "stack_rank", "item_code", "initiative_name", "effort"]);
+    // five asked for, four kept (in column order)
+    expect(sanitizeView({ columns: cols, pinned: ["stack_rank", "item_code", "initiative_name", "moscow", "health"] }).pinned).toEqual(["stack_rank", "item_code", "initiative_name", "moscow"]);
+    // the core columns stay in the view even when unlocked, and come first among the unlocked
+    expect(sanitizeView({ columns: ["moscow"], pinned: ["moscow"] }).columns).toEqual(["moscow", "stack_rank", "item_code", "initiative_name"]);
   });
   it("says it in words", () => {
     const labels = { person: (id: string) => `person ${id}`, project: (id: string) => id };
@@ -306,11 +312,15 @@ describe("sort labels and fallback (issue #207)", () => {
   });
   it("summarises the sort, or the default order", () => {
     expect(sortSummary({ field: "initiative_name", dir: "desc" })).toBe("Sorted by Initiative Name, Z-A");
+    expect(sortSummary([{ field: "initiative_name", dir: "desc" }, { field: "stack_rank", dir: "asc" }])).toBe("Sorted by Initiative Name, Z-A, then Stack Rank, Low to high");
     expect(sortSummary(null)).toBe("Sorted by global Stack Rank");
+    expect(sortSummary([])).toBe("Sorted by global Stack Rank");
   });
   it("ignores a saved sort whose column the view does not show", () => {
-    expect(effectiveSort({ columns: ["initiative_name"], sort: { field: "moscow", dir: "asc" } })).toBeNull();
-    expect(effectiveSort({ columns: ["initiative_name", "moscow"], sort: { field: "moscow", dir: "asc" } })).toEqual({ field: "moscow", dir: "asc" });
-    expect(effectiveSort({ columns: ["moscow"] })).toBeNull();
+    expect(effectiveSort({ columns: ["initiative_name"], sort: [{ field: "moscow", dir: "asc" }] })).toEqual([]);
+    expect(effectiveSort({ columns: ["initiative_name", "moscow"], sort: [{ field: "moscow", dir: "asc" }] })).toEqual([{ field: "moscow", dir: "asc" }]);
+    expect(effectiveSort({ columns: ["initiative_name", "moscow"], sort: { field: "moscow", dir: "asc" } })).toEqual([{ field: "moscow", dir: "asc" }]); // a view saved before lists
+    expect(effectiveSort({ columns: ["initiative_name", "moscow"], sort: [{ field: "moscow", dir: "asc" }, { field: "initiative_name", dir: "desc" }] }).map((x) => x.field)).toEqual(["moscow", "initiative_name"]);
+    expect(effectiveSort({ columns: ["moscow"] })).toEqual([]);
   });
 });

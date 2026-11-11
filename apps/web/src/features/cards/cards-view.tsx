@@ -2,7 +2,7 @@
 
 import {
   CARDS_DEFAULT_VIEWS, CARDS_VIEW_NAMES, CORE_COLUMN_KEYS, FIELD_BY_KEY, VISIBLE_FIELDS, axisLabel, axisOptions, boardMoves, buildBoard, cardNeighbor,
-  cardValue, defaultColumnField, matchesFilters, matchesSearch, moveNeedsGate, planMove, refKey, sanitizeView, type AxisCtx, type Board, type Filter, type ViewDef,
+  cardValue, defaultColumnField, matchesFilters, matchesSearch, moveNeedsGate, planMove, refKey, sanitizeView, type AxisCtx, type Board, type Filter, type SortDef, type ViewDef,
 } from "@pv/domain";
 import type { GateSource } from "../gates/gate-source";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -109,13 +109,13 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
   };
   const changeDef = (patch: Partial<ViewDef>) => {
     const next = sanitizeView({ ...def, ...patch });
-    setShared((p) => ({ ...p, ...("filters" in patch ? { filters: next.filters } : {}), ...("groupBy" in patch ? { groupBy: next.groupBy } : {}), ...("sort" in patch ? { sort: next.sort ?? null } : {}) }));
+    setShared((p) => ({ ...p, ...("filters" in patch ? { filters: next.filters } : {}), ...("groupBy" in patch ? { groupBy: next.groupBy } : {}), ...("sort" in patch ? { sort: next.sort ?? [] } : {}) }));
     if ("columns" in patch || "pinned" in patch) setColOverrides((p) => ({ ...p, [viewKey]: { columns: next.columns, pinned: next.pinned ?? [] } }));
   };
   const clearColumns = () => setColOverrides((p) => { const n = { ...p }; delete n[viewKey]; return n; });
   const resetChanges = () => { setShared({}); clearColumns(); setQueryParam("lane", null); };
   const visible = useMemo(() => new Set(def.columns), [def.columns]);
-  const changeColumns = (columns: string[], pinned: string[]) => changeDef({ columns, pinned });
+  const changeColumns = (columns: string[], pinned: string[], sort: SortDef[]) => changeDef({ columns, pinned, sort });
   const shownCount = VISIBLE_FIELDS.filter((f) => visible.has(f.key) || (CORE_COLUMN_KEYS as readonly string[]).includes(f.key)).length;
   const viewsApi = useViews({
     base, def, bDef, dirty, openBase: openBaseRaw, discard: clearColumns, reset: resetChanges,

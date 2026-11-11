@@ -191,21 +191,26 @@ test.describe("filter panel", () => {
     await expect(header(/Planned Start/)).toHaveCount(0);
   });
 
-  test("a fifth column cannot be pinned and says why; moving the pinned column out of the first four drops its pin", async ({ page }) => {
+  test("up to four columns can be locked, any of them; a fifth says why; locked columns move to the top of the list", async ({ page }) => {
     await open(page, "n=30&role=admin&view=Prioritisation&cols=all");
     await columnsBtn(page).click();
     const panel = columnsPanel(page);
     const list = panel.getByRole("list", { name: "Selected columns in order" });
     const names = async () => list.getByRole("listitem").locator(".name").allInnerTexts();
+    await expect(panel).toContainText("3 of 4 locked"); // rank, ID and name start locked
     const before = await names();
-    const fourth = before[3]!, fifth = before[4]!;
-    await panel.getByRole("button", { name: `Pin ${fourth}` }).click();
-    await expect(panel.getByRole("button", { name: `Unpin ${fourth}` })).toHaveAttribute("aria-pressed", "true");
-    await panel.getByRole("button", { name: `Pin ${fifth}` }).click();
-    await expect(panel.getByRole("status")).toContainText("Only the first 4 columns can be pinned to the left.");
-    await panel.getByRole("button", { name: `Move ${fifth} up` }).click();
-    expect((await names())[3]).toBe(fifth);
-    await expect(panel.getByRole("button", { name: `Pin ${fourth}` })).toBeVisible(); // pushed to the fifth place: no longer pinned
+    const far = before[10]!, farther = before[11]!;
+    await panel.getByRole("button", { name: `Lock ${far}` }).click(); // a column far down the list
+    await expect(panel.getByRole("button", { name: `Unlock ${far}` })).toHaveAttribute("aria-pressed", "true");
+    expect(await names()).toContain(far);
+    expect((await names())[3]).toBe(far); // locked columns come first
+    await expect(panel).toContainText("4 of 4 locked");
+    await panel.getByRole("button", { name: `Lock ${farther}` }).click();
+    await expect(panel.getByRole("status")).toContainText("You can lock up to 4 columns. Unlock one first.");
+    await panel.getByRole("button", { name: `Unlock ${before[0]!}` }).click(); // rank, ID and name can be unlocked too
+    await expect(panel).toContainText("3 of 4 locked");
+    await panel.getByRole("button", { name: `Lock ${farther}` }).click();
+    await expect(panel.getByRole("button", { name: `Unlock ${farther}` })).toHaveAttribute("aria-pressed", "true");
   });
 
   test("Refresh data sits after Redo, reads the roadmap again, and an initiative created elsewhere appears", async ({ page }) => {
@@ -246,17 +251,17 @@ test.describe("filter panel", () => {
     await expect(panel).toBeVisible();
   });
 
-  test("a pinned column stays on the left", async ({ page }) => {
+  test("a locked column stays on the left when the grid scrolls right", async ({ page }) => {
     await open(page, "n=30&role=admin&view=Prioritisation&cols=all");
     await columnsBtn(page).click();
     const panel = columnsPanel(page);
-    const fourth = (await panel.getByRole("list", { name: "Selected columns in order" }).getByRole("listitem").locator(".name").allInnerTexts())[3]!;
-    await panel.getByRole("button", { name: `Pin ${fourth}` }).click();
+    const fourth = (await panel.getByRole("list", { name: "Selected columns in order" }).getByRole("listitem").locator(".name").allInnerTexts())[8]!;
+    await panel.getByRole("button", { name: `Lock ${fourth}` }).click();
     await panel.getByRole("button", { name: /^Apply columns/ }).click();
     // scroll the grid sideways as far as it goes: the pinned column is still there, and the horizontal scroll really moved
     await page.locator(".ag-body-horizontal-scroll-viewport").evaluate((el) => { el.scrollLeft = el.scrollWidth; });
     expect(await page.locator(".ag-body-horizontal-scroll-viewport").evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
-    await expect(page.getByRole("columnheader", { name: new RegExp(fourth) }).first()).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: new RegExp(fourth.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) }).first()).toBeVisible();
   });
 
   test("the Columns panel has no save controls; the views menu saves what you applied", async ({ page }) => {
