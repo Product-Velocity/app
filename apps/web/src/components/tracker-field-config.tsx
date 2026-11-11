@@ -1,49 +1,38 @@
-import type { CatalogEntry, CatalogGroup, TrackerCatalog } from "@/lib/tracker-fields/catalog";
+import type { CatalogGroup, TrackerCatalog } from "@/lib/tracker-fields/catalog";
+import { tableRows, trackerFieldLinks, type FieldLink, type LinkContext } from "@/lib/tracker-fields/links";
+import { TrackerFieldTable } from "@/components/tracker-field-table";
 
-// Settings, Integrations, <tracker>, Connect and configure: "Field configuration" (decision 2026-11-03-tracker-field-config). The same card on
-// GitHub and Jira. Presentational: the page supplies the data. Slice 2 = the read-only catalog; the mapping table follows in slice 3.
+// Settings, Integrations, <tracker>, Connect and configure: "Field configuration" (decisions 2026-11-03-tracker-field-config and 2026-11-11-tracker-field-table).
+// The same card on GitHub and Jira. Presentational: the page supplies the data. The tracker's own fields come first, each with the Product Velocity field
+// it is linked to and the sync direction; the table of Product Velocity fields (the editor) follows.
 
-const fill = (e: CatalogEntry) => (e.filled === null || e.sampled === null || e.sampled === 0 ? "not sampled" : `${e.filled} of ${e.sampled}`);
-
-function GroupTable({ g, tracker }: { g: CatalogGroup; tracker: string }) {
+function GroupTable({ g, tracker, links }: { g: CatalogGroup; tracker: "GitHub" | "Jira"; links: Map<string, FieldLink[]> }) {
   return (
     <details className="stack" open={g.id === "fields" || g.id === "issue-fields"}>
       <summary>{g.title} <span className="muted">({g.entries.length})</span></summary>
       {g.error && <p role="alert" className="error">{g.error}</p>}
       {g.note && <p className="muted">{g.note}</p>}
       {g.entries.length > 0 && (
-        <table className="table">
-          <caption className="visually-hidden">{tracker} {g.title}</caption>
-          <thead><tr><th scope="col">Name</th><th scope="col">Id</th><th scope="col">Type</th><th scope="col">Kind</th><th scope="col">Options</th><th scope="col">Filled in sample</th></tr></thead>
-          <tbody>
-            {g.entries.map((e) => (
-              <tr key={`${e.source ?? ""}${e.id}`}>
-                <td>{e.name}</td>
-                <td><code>{e.id}</code></td>
-                <td>{e.typeLabel}</td>
-                <td>{e.custom ? "Custom" : "System"}</td>
-                <td>{e.options.length > 0 ? e.options.join(", ") : <span className="muted">-</span>}</td>
-                <td>{fill(e)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <TrackerFieldTable rows={tableRows(g.entries, links)} tracker={tracker} caption={`${tracker} ${g.title}`} showFill={g.entries.some((e) => e.sampled !== null)} options={g.entries.some((e) => e.options.length > 0)} />
       )}
     </details>
   );
 }
 
-export function FieldCatalogView({ catalogs, tracker, id }: { catalogs: TrackerCatalog[]; tracker: "GitHub" | "Jira"; id: string }) {
+export function FieldCatalogView({ catalogs, tracker, id, contexts = {} }: { catalogs: TrackerCatalog[]; tracker: "GitHub" | "Jira"; id: string; /** The projects whose mapping applies to each catalog, by catalog scope (a Jira project key, a GitHub organisation). */ contexts?: Record<string, LinkContext[]> }) {
   if (catalogs.length === 0) return <p className="muted">Nothing to read yet: link a project first.</p>;
   return (
     <div className="stack">
-      {catalogs.map((c) => (
-        <section key={c.scope} className="stack" aria-labelledby={`${id}-${c.scope}`}>
-          <h3 id={`${id}-${c.scope}`}>{tracker === "Jira" ? `Jira project ${c.scope}` : `GitHub organisation ${c.scope}`}</h3>
-          <p className="muted">Read {new Date(c.readAt).toLocaleString("en-GB")}. Fields that are not mapped stay in this list and are ignored by the sync.</p>
-          {c.groups.map((g) => <GroupTable key={g.id} g={g} tracker={tracker} />)}
-        </section>
-      ))}
+      {catalogs.map((c) => {
+        const links = trackerFieldLinks(c.tracker, contexts[c.scope] ?? []);
+        return (
+          <section key={c.scope} className="stack" aria-labelledby={`${id}-${c.scope}`}>
+            <h3 id={`${id}-${c.scope}`}>{tracker === "Jira" ? `Jira project ${c.scope}` : `GitHub organisation ${c.scope}`}</h3>
+            <p className="muted">Read {new Date(c.readAt).toLocaleString("en-GB")}. Fields that are not linked stay in this list and are ignored by the sync.</p>
+            {c.groups.map((g) => <GroupTable key={g.id} g={g} tracker={tracker} links={links} />)}
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -136,7 +125,7 @@ export function FieldMappingForm({ tracker, projectId, projectName, view, action
         <p className="muted">Everything Product Velocity writes to {tracker} is named here. The defaults start with <code>pv:</code> and mention Product Velocity. Change them so nothing does. Labels already sent under another name are taken off the issue at the next Sync.</p>
         <div className="row-form">
           <label>Prefix for all labels <input type="text" name={PREFIX_ALL} placeholder="e.g. acme: (empty = no prefix)" maxLength={20} size={22} aria-label="Prefix for all labels; empty means no prefix" /></label>
-          <button className="btn" type="submit" name={APPLY} value="prefix" aria-label={`Apply the prefix to every label of ${projectName} and save`}>Apply to all labels and save</button>
+          <button className="btn" type="submit" name={APPLY} value="prefix" aria-label={`Apply to all labels and save, ${projectName}`}>Apply to all labels and save</button>
         </div>
         <table className="table" aria-labelledby={`names-${projectId}`}>
           <thead><tr><th scope="col">Name</th><th scope="col">Your setting</th><th scope="col">Default</th></tr></thead>
