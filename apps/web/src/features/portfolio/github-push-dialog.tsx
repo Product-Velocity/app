@@ -124,12 +124,13 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
   // the new-items steps to show: one per tracker the selected initiatives belong to (null while that is being found out)
   const [queue, setQueue] = useState<NewItemsConfig[] | null>(null);
   const [trackerNames, setTrackerNames] = useState("GitHub");
+  // the tracker names are always looked up (the title, steps and "Checking…" text must say Jira for a Jira project, also when there is no new-issues step)
   useEffect(() => {
-    if (!configs.some((c) => c.canEdit)) return;
+    const hasNew = configs.some((c) => c.canEdit);
     let live = true;
     trackersOf(ids).then(
-      (ts) => { if (!live) return; const mine = configs.filter((c) => ts.includes(c.tracker) && c.canEdit); setQueue(mine); if (ts.length) setTrackerNames(ts.map((t) => (t === "jira" ? "Jira" : t === "gitlab" ? "GitLab" : "GitHub")).join(" and ")); },
-      () => { if (live) setQueue(configs.filter((c) => c.tracker === "github" && c.canEdit)); }, // cannot tell: behave as before (GitHub)
+      (ts) => { if (!live) return; if (hasNew) setQueue(configs.filter((c) => ts.includes(c.tracker) && c.canEdit)); if (ts.length) setTrackerNames(ts.map((t) => (t === "jira" ? "Jira" : t === "gitlab" ? "GitLab" : "GitHub")).join(" and ")); },
+      () => { if (live && hasNew) setQueue(configs.filter((c) => c.tracker === "github" && c.canEdit)); }, // cannot tell: behave as before (GitHub)
     );
     return () => { live = false; };
   }, [configs, ids, trackersOf]);
