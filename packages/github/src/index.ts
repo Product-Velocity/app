@@ -4,6 +4,7 @@ export * from "./state";
 export * from "./webhook";
 export * from "./github-app";
 export * from "./diagnostics";
+export * from "./names";
 export * from "./outbound";
 export * from "./push";
 export * from "./memory-source";

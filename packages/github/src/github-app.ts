@@ -394,7 +394,7 @@ export class GitHubAppSourceControl implements SourceControl {
     );
   }
 
-  async ensureMilestone(installationId: number, repo: string, m: { title: string; dueOn: string }): Promise<number> {
+  async ensureMilestone(installationId: number, repo: string, m: { title: string; dueOn: string; description?: string }): Promise<number> {
     for (let page = 1; page <= 5; page++) {
       const res = await this.call(installationId, "GET", `/repos/${repo}/milestones?state=all&per_page=100&page=${page}`);
       if (!res.ok) throw new GitHubError(res.status, `GitHub refused to list milestones (${res.status})`);
@@ -403,7 +403,7 @@ export class GitHubAppSourceControl implements SourceControl {
       if (found) return found.number;
       if (list.length < 100) break;
     }
-    const res = await this.call(installationId, "POST", `/repos/${repo}/milestones`, { title: m.title, due_on: m.dueOn, description: "Managed by Product Velocity" });
+    const res = await this.call(installationId, "POST", `/repos/${repo}/milestones`, { title: m.title, due_on: m.dueOn, description: m.description ?? "Managed by Product Velocity" });
     if (res.status === 422) throw new GitHubError(422, "GitHub refused to create the milestone (422)");
     if (!res.ok) throw new GitHubError(res.status, `GitHub refused to create the milestone (${res.status})`);
     return ((await res.json()) as { number: number }).number;

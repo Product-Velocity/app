@@ -108,3 +108,30 @@ describe("tracker_set_field_config", () => {
     await set(f.alice, projectA, []);
   });
 });
+
+describe("stealth names (issue #411): label_text", () => {
+  const texts = async (project: string) => (await db.admin.query("select slot, enabled, label_text from public.tracker_field_config where project_id = $1 order by slot", [project])).rows;
+  it("stores a custom label prefix, the removed label and a switched-off base label; a row with only a text is kept", async () => {
+    await set(f.alice, projectA, [{ slot: "jira.label.moscow", enabled: true, text: "moscow/" }, { slot: "jira.name.removed", enabled: true, text: "removed" }, { slot: "jira.label.base", enabled: false }, { slot: "jira.label.rank", enabled: true }]);
+    expect(await texts(projectA)).toEqual([{ slot: "jira.label.base", enabled: false, label_text: null }, { slot: "jira.label.moscow", enabled: true, label_text: "moscow/" }, { slot: "jira.name.removed", enabled: true, label_text: "removed" }]);
+    await set(f.alice, projectA, []);
+    expect(await texts(projectA)).toEqual([]);
+  });
+  it("refuses a text that is not valid for its slot, or on a slot that has no text", async () => {
+    const bad: unknown[] = [
+      [{ slot: "jira.label.moscow", text: "moscow" }], // no trailing slash
+      [{ slot: "jira.label.moscow", text: "mo scow/" }], [{ slot: "jira.label.moscow", text: "a".repeat(40) + "/" }], [{ slot: "jira.label.moscow", text: "mo'; drop table x;--/" }],
+      [{ slot: "jira.name.marker", text: "item" }], [{ slot: "jira.name.removed", text: "has space" }], [{ slot: "jira.dueDate", text: "x" }], [{ slot: "jira.body.files", text: "x" }],
+      [{ slot: "jira.label.moscow", text: 5 }],
+    ];
+    for (const rows of bad) expect(await errorCode(set(f.alice, projectA, rows)), JSON.stringify(rows)).toBe("22023");
+    expect(await texts(projectA)).toEqual([]);
+  });
+  it("GitHub: the marker word and hiding the brand; Jira's marker is Jira only", async () => {
+    await set(f.alice, githubProject, [{ slot: "github.name.block", text: "sync" }, { slot: "github.hideBrand", enabled: true }]);
+    expect(await texts(githubProject)).toEqual([{ slot: "github.hideBrand", enabled: true, label_text: null }, { slot: "github.name.block", enabled: true, label_text: "sync" }]);
+    expect(await errorCode(set(f.alice, githubProject, [{ slot: "github.name.block", text: "Has Caps" }]))).toBe("22023");
+    expect(await errorCode(set(f.alice, githubProject, [{ slot: "jira.name.marker", text: "x/" }]))).toBe("22023");
+    await set(f.alice, githubProject, []);
+  });
+});

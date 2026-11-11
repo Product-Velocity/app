@@ -178,7 +178,7 @@ export async function saveGithubFieldConfig(form: FormData): Promise<void> {
   const get = (k: string) => String(form.get(k) ?? "").trim();
   const checked = validateConfig("github", configRowsFromForm("github", get, (k) => form.has(k)), null);
   if (!checked.ok) redirect(`${PATH}?status=field-config-invalid&why=${encodeURIComponent(checked.errors.join(" ").slice(0, 400))}`);
-  const { error } = await ctx.supabase.rpc("tracker_set_field_config", { p_project: get("project"), p_rows: checked.rows.map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field })) });
+  const { error } = await ctx.supabase.rpc("tracker_set_field_config", { p_project: get("project"), p_rows: checked.rows.map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field, text: r.text ?? null })) });
   revalidatePath(PATH);
   redirect(`${PATH}?status=${error ? "error" : "field-config-saved"}`);
 }

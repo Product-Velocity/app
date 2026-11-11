@@ -2,6 +2,7 @@ import { stoppedItems } from "@/lib/tracker/stopped";
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { RemovedCard, RemovedList, RemovedResult } from "@/lib/github/push-types";
+import { namesForItem } from "@/lib/tracker-fields/load-names";
 import { addRemovedLabel, chooseTransition, closeWith, readCloseState, type CloseState } from "./jira-close";
 import type { JiraRequest } from "./jira-write";
 import type { Ctx } from "./jira-sync-engine";
@@ -127,7 +128,8 @@ export async function closeOne(ctx: Ctx, id: string, transitionId: string | null
   if (pick.chosenNotAllowed) return fail(c.code, "That Done status is not available for this issue any more. Check again and choose. Nothing was written.", c);
   if (pick.needsChoice) return fail(c.code, "Choose which Done status to move this issue to. Nothing was written.", c);
 
-  const label = await addRemovedLabel(call, c.link.issue_key);
+  const names = await namesForItem(ctx.supabase, ctx.tenantId, id, "jira");
+  const label = await addRemovedLabel(call, c.link.issue_key, undefined, names);
   if (!label.ok) return fail(c.code, label.message, c);
   if (s.statusCategory === "done") {
     return (await record("already_done")) ? { result: { id, code: c.code, outcome: "already_done", message: `The issue was already in a Done status (${s.statusName}). The label pv:removed was added.`, ...ref } } : fail(c.code, savedLater, c);

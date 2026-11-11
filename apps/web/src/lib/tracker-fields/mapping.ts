@@ -1,3 +1,4 @@
+import { DEFAULT_NAMES, checkBlockWord, checkLabel, checkPrefix, validateNames, type LabelKind, type Names } from "@pv/github";
 import { SLOT_BY_ID, defaultOn, slotsFor, type Slot, type Tracker } from "./slots";
 import type { CatalogEntry } from "./catalog";
 import type { JiraFieldMap } from "@/lib/atlassian/outbound";
@@ -7,7 +8,30 @@ import type { JiraFieldMap } from "@/lib/atlassian/outbound";
 // A saved row names a slot of the closed list in slots.ts; nothing else can be stored, so a commercial field can not be mapped.
 
 /** One saved choice. A slot with no row is at its default. */
-export type ConfigRow = { slot: string; /** false = switched off: nothing is sent for it. */ enabled: boolean; /** A tracker field id for a "field" slot; null = the default field. */ field: string | null };
+export type ConfigRow = {
+  slot: string; /** false = switched off: nothing is sent for it. */ enabled: boolean; /** A tracker field id for a "field" slot; null = the default field. */ field: string | null;
+  /** Stealth mode (issue #411): the text of a label prefix, of the removed / define labels, of a marker, or of the base label. Absent or null = the default name. */
+  text?: string | null;
+};
+
+/** Whether a slot carries a text a person can change. */
+export const hasText = (s: Slot) => s.kind === "name" || s.nameKind !== undefined || s.id.endsWith(".label.base");
+/** The name a slot's text has when nothing is saved (what the sync sends today). */
+export function defaultText(s: Slot): string {
+  if (s.nameKind) return DEFAULT_NAMES.prefix[s.nameKind];
+  if (s.id.endsWith(".label.base")) return DEFAULT_NAMES.base;
+  if (s.id.endsWith(".name.removed")) return DEFAULT_NAMES.removed;
+  if (s.id.endsWith(".name.define")) return DEFAULT_NAMES.define;
+  if (s.id.endsWith(".name.marker")) return DEFAULT_NAMES.jiraMarker;
+  return DEFAULT_NAMES.block;
+}
+/** The check a text must pass for its slot (null = fine). The database checks the same shapes. */
+export function textError(s: Slot, text: string): string | null {
+  if (s.nameKind) return checkPrefix(text);
+  if (s.id.endsWith(".name.block")) return checkBlockWord(text);
+  if (s.id.endsWith(".name.marker")) return /^[A-Za-z0-9:_.-]{1,24}\/$/.test(text) ? null : "must be 2 to 25 characters and end in a slash";
+  return checkLabel(text);
+}
 
 /** Slots switched off that are on by default (the labels, sections and dates a person can turn off). */
 export const OFF = (rows: readonly ConfigRow[]): string[] => rows.filter((r) => !r.enabled && defaultOn(SLOT_BY_ID.get(r.slot)!)).map((r) => r.slot);
@@ -25,9 +49,10 @@ export function parseConfigRows(raw: unknown, tracker: Tracker): ConfigRow[] {
     if (!s || s.tracker !== tracker || s.kind === "fixed" || s.store !== "config" || seen.has(s.id)) continue;
     const enabled = o.enabled !== false && !(o.enabled === undefined && !defaultOn(s));
     const field = typeof o.field === "string" && o.field !== "" && s.kind === "field" && s.idPattern?.test(o.field) ? o.field : null;
-    if (enabled === defaultOn(s) && field === null) continue; // the default: nothing to keep
+    const text = hasText(s) && typeof o.text === "string" && o.text !== "" && textError(s, o.text) === null ? o.text : null;
+    if (enabled === defaultOn(s) && field === null && text === null) continue; // the default: nothing to keep
     seen.add(s.id);
-    out.push({ slot: s.id, enabled, field: enabled ? field : null });
+    out.push({ slot: s.id, enabled, field: enabled ? field : null, ...(text !== null ? { text } : {}) });
   }
   return out;
 }
@@ -52,9 +77,15 @@ export function validateConfig(tracker: Tracker, submitted: readonly ConfigRow[]
     if (s.store !== "config") { errors.push(`${s.id} is saved elsewhere.`); continue; }
     if (seen.has(s.id)) { errors.push(`${s.id} appears twice.`); continue; }
     seen.add(s.id);
+    if (r.text !== undefined && r.text !== null && !hasText(s)) { errors.push(`${s.defaultTarget} has no text to change.`); continue; }
+    if (r.text) { const e = textError(s, r.text); if (e) { errors.push(`The text for ${s.defaultTarget} ${e}.`); continue; } }
+    if (s.kind === "name") {
+      if (r.text) rows.push({ slot: s.id, enabled: true, field: null, text: r.text });
+      continue;
+    }
     if (s.kind === "toggle") {
       if (r.field !== null) { errors.push(`${s.defaultTarget} can only be switched on or off.`); continue; }
-      if (r.enabled !== defaultOn(s)) rows.push({ slot: s.id, enabled: r.enabled, field: null });
+      if (r.enabled !== defaultOn(s) || r.text) rows.push({ slot: s.id, enabled: r.enabled, field: null, ...(r.text ? { text: r.text } : {}) });
       continue;
     }
     if (!r.enabled) { rows.push({ slot: s.id, enabled: false, field: null }); continue; }
@@ -69,8 +100,32 @@ export function validateConfig(tracker: Tracker, submitted: readonly ConfigRow[]
     used.set(r.field, s.id);
     rows.push({ slot: s.id, enabled: true, field: r.field });
   }
+  if (errors.length === 0) errors.push(...validateNames(namesFromRows(rows, tracker)));
   return errors.length > 0 ? { ok: false, errors } : { ok: true, rows };
 }
+
+/**
+ * The names stealth mode saved (label prefixes, base, removed and define labels, the marker, hiding the brand) from the rows of one tracker. Absent = default,
+ * so with no rows the builders send exactly what they always did.
+ */
+export function namesFromRows(rows: readonly ConfigRow[], tracker: Tracker): Names {
+  const prefix: Partial<Record<LabelKind, string>> = {};
+  const n: Names = {};
+  for (const r of rows) {
+    const s = SLOT_BY_ID.get(r.slot);
+    if (!s || s.tracker !== tracker) continue;
+    if (s.nameKind) { if (r.text) prefix[s.nameKind] = r.text; continue; }
+    if (s.id === `${tracker}.label.base`) { if (!r.enabled) n.base = ""; else if (r.text) n.base = r.text; continue; }
+    if (s.id === `${tracker}.name.removed` && r.text) n.removed = r.text;
+    else if (s.id === `${tracker}.name.define` && r.text) n.define = r.text;
+    else if (s.id === "jira.name.marker" && r.text) n.jiraMarker = r.text;
+    else if (s.id === "github.name.block" && r.text) n.block = r.text;
+    else if (s.id === `${tracker}.hideBrand` && r.enabled) n.hideBrand = true;
+  }
+  if (Object.keys(prefix).length > 0) n.prefix = prefix;
+  return n;
+}
+export const hasNames = (n: Names) => Object.keys(n).length > 0;
 
 /** The Jira map the sender reads: the stored field map (start date, theme, priorities) plus the new slots (due date field, switched-off slots). */
 export function effectiveJiraMap(base: JiraFieldMap, rows: readonly ConfigRow[]): JiraFieldMap {
@@ -81,15 +136,18 @@ export function effectiveJiraMap(base: JiraFieldMap, rows: readonly ConfigRow[])
   if (off.length > 0) out.off = off;
   const on = ON_OPT(rows).filter((s) => s.startsWith("jira."));
   if (on.length > 0) out.on = on;
+  const names = namesFromRows(rows, "jira");
+  if (hasNames(names)) out.names = names;
   return out;
 }
 
 /** What the GitHub builder reads: the slots switched off. */
-export type GithubSendOptions = { off?: readonly string[]; on?: readonly string[] };
+export type GithubSendOptions = { off?: readonly string[]; on?: readonly string[]; names?: Names };
 export const githubOptions = (rows: readonly ConfigRow[]): GithubSendOptions => {
   const off = OFF(rows).filter((s) => s.startsWith("github."));
   const on = ON_OPT(rows).filter((s) => s.startsWith("github."));
-  return { ...(off.length > 0 ? { off } : {}), ...(on.length > 0 ? { on } : {}) };
+  const names = namesFromRows(rows, "github");
+  return { ...(off.length > 0 ? { off } : {}), ...(on.length > 0 ? { on } : {}), ...(hasNames(names) ? { names } : {}) };
 };
 
 /** Slots whose saved value lives in the config table, for one tracker. */

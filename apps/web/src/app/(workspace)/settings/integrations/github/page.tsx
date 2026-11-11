@@ -41,7 +41,7 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
     ? await readGithubCatalog(sc, c.installation_id, c.account_login, { boards: boardList, repos: [...new Set(projects.flatMap((p) => (p.default_repo ? [p.default_repo] : [])))] }).catch((): null => null)
     : null;
 
-  const { data: configRows } = isAdmin && c?.state === "connected" ? await supabase.from("tracker_field_config").select("project_id, slot, enabled, field_id").eq("tenant_id", active.tenantId).eq("provider", "github") : { data: [] };
+  const { data: configRows } = isAdmin && c?.state === "connected" ? await supabase.from("tracker_field_config").select("project_id, slot, enabled, field_id, label_text").eq("tenant_id", active.tenantId).eq("provider", "github") : { data: [] };
   const githubProjects = projects.filter((p) => p.tracker === "github");
 
   return (
@@ -139,7 +139,7 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
           {githubProjects.length === 0 && <p className="muted">No project uses GitHub as its delivery tracker yet. Choose it under Projects above.</p>}
           {githubProjects.map((p) => (
             <FieldMappingForm key={p.id} tracker="GitHub" projectId={p.id} projectName={p.name} action={saveGithubFieldConfig}
-              view={buildMappingView({ tracker: "github", board: parseBoard(p.github_board), rows: parseConfigRows(((configRows ?? []) as { project_id: string; slot: string; enabled: boolean; field_id: string | null }[]).filter((r) => r.project_id === p.id).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id })), "github") })} />
+              view={buildMappingView({ tracker: "github", board: parseBoard(p.github_board), rows: parseConfigRows(((configRows ?? []) as { project_id: string; slot: string; enabled: boolean; field_id: string | null; label_text?: string | null }[]).filter((r) => r.project_id === p.id).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id, text: r.label_text ?? null })), "github") })} />
           ))}
           <h3>Fields GitHub shows this connection</h3>
           <p className="muted">Organisation issue fields, the linked boards&rsquo; fields, labels, issue types and milestones.</p>

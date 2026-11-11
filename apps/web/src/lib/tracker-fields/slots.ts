@@ -1,4 +1,5 @@
 import { FIELDS, FIELD_BY_KEY } from "@pv/domain";
+import { LABEL_KINDS, type LabelKind } from "@pv/github";
 import type { CatalogKind } from "./catalog";
 
 // The default mapping of Product Velocity fields to tracker fields, and the slots a person can change (decision 2026-11-03-tracker-field-config).
@@ -45,7 +46,8 @@ export const TWO_WAY: Record<Tracker, ReadonlyMap<string, string>> = {
   jira: new Map([["initiative_name", "Summary"], ["summary", "Description, section Summary"], ["description", "Description, section Description (Atlassian Document Format)"], ["hypothesis", "Description, section Hypothesis"]]),
 };
 
-export type SlotKind = "fixed" | "toggle" | "field";
+/** "name": a text a person can set (stealth mode, issue #411): the removed and define labels and the marker. Not a Product Velocity field (pvKey is empty). */
+export type SlotKind = "fixed" | "toggle" | "field" | "name";
 export type Slot = {
   id: string;
   tracker: Tracker;
@@ -61,6 +63,8 @@ export type Slot = {
   accepts?: readonly CatalogKind[];
   defaultFieldId?: string;
   idPattern?: RegExp;
+  /** For a label toggle: which label family its text names (the prefix before the value, e.g. `pv:moscow/`). Stealth mode lets a person change it. */
+  nameKind?: LabelKind;
   /** A switch that is OFF unless a person turns it on (the optional labels): with no saved row nothing is sent for it. Absent or true = on by default. */
   defaultOn?: boolean;
   /** Where a saved choice lives: the new table, the existing Jira field map, or the board mapping of GitHub (saved by the Project boards card). */
@@ -68,7 +72,8 @@ export type Slot = {
 };
 
 const CUSTOM = /^customfield_\d{1,9}$/;
-const label = (id: string, pvKey: string, tracker: Tracker, defaultTarget: string): Slot => ({ id, tracker, pvKey, kind: "toggle", direction: "to_tracker", defaultTarget, store: "config" });
+const labelKindOf = (id: string): LabelKind | undefined => { const k = id.split(".")[2] === "tags" ? "tag" : id.split(".")[2]; return id.split(".")[1] === "label" ? LABEL_KINDS.find((x) => x === k) : undefined; };
+const label = (id: string, pvKey: string, tracker: Tracker, defaultTarget: string): Slot => { const nameKind = labelKindOf(id); return { id, tracker, pvKey, kind: "toggle", direction: "to_tracker", defaultTarget, store: "config", ...(nameKind ? { nameKind } : {}) }; };
 /** An optional label: off until a person switches it on (issue #321). */
 const optional = (id: string, pvKey: string, tracker: Tracker, defaultTarget: string): Slot => ({ ...label(id, pvKey, tracker, defaultTarget), defaultOn: false });
 
@@ -89,6 +94,11 @@ export const SLOTS: readonly Slot[] = [
   label("jira.label.type", "change_type", "jira", "Label pv:type/<value>"),
   label("jira.label.group", "theme", "jira", "Label pv:group/<name>"),
   label("jira.label.project", "home_project", "jira", "Label pv:project/<project>"),
+  // stealth mode (issue #411): not Product Velocity fields, so they have no row in the mapping table; the "Names" card of the form shows them
+  { id: "jira.label.base", tracker: "jira", pvKey: "", kind: "toggle", direction: "to_tracker", defaultTarget: "Base label product-velocity on every issue", store: "config" },
+  { id: "jira.name.removed", tracker: "jira", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Label pv:removed (after a confirmed close)", store: "config" },
+  { id: "jira.name.define", tracker: "jira", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Label pv:define (while in Define)", store: "config" },
+  { id: "jira.name.marker", tracker: "jira", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Hidden label pv:item/<code> on a new issue", store: "config" },
   { id: "jira.priority", tracker: "jira", pvKey: "moscow", kind: "field", direction: "to_tracker", defaultTarget: "Priority (one Jira priority per MoSCoW value; not sent until chosen)", accepts: ["select"], store: "jira_field_map" },
   { id: "jira.startDate", tracker: "jira", pvKey: "planned_start", kind: "field", direction: "to_tracker", defaultTarget: "Start date custom field (not sent until chosen)", accepts: ["date"], idPattern: CUSTOM, store: "jira_field_map" },
   { id: "jira.theme", tracker: "jira", pvKey: "focus_area", kind: "field", direction: "to_tracker", defaultTarget: "Single-line text custom field, e.g. Theme (not sent until chosen)", accepts: ["text"], idPattern: CUSTOM, store: "jira_field_map" },
@@ -112,6 +122,11 @@ export const SLOTS: readonly Slot[] = [
   label("github.label.project", "home_project", "github", "Label pv:project/<project>"),
   label("github.milestone", "g2m_date_est", "github", "Milestone “YYYY Qn” (the quarter of the G2M date)"),
   label("github.issueType", "change_type", "github", "Organisation issue type (Feature, Improvement or Bug), when the organisation has it"),
+  { id: "github.label.base", tracker: "github", pvKey: "", kind: "toggle", direction: "to_tracker", defaultTarget: "Base label product-velocity on every issue", store: "config" },
+  { id: "github.name.removed", tracker: "github", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Label pv:removed (after a confirmed close)", store: "config" },
+  { id: "github.name.define", tracker: "github", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Label pv:define (while in Define)", store: "config" },
+  { id: "github.name.block", tracker: "github", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Hidden markers <!-- pv:begin --> in the issue body", store: "config" },
+  { id: "github.hideBrand", tracker: "github", pvKey: "", kind: "toggle", direction: "to_tracker", defaultTarget: "Product Velocity name and link in the issue footer and in label descriptions", store: "config", defaultOn: false },
   { id: "github.board.priority", tracker: "github", pvKey: "moscow", kind: "field", direction: "to_tracker", defaultTarget: "Project board: the field named Priority (P0, P1, P2)", accepts: ["select"], store: "github_board" },
   { id: "github.board.group", tracker: "github", pvKey: "theme", kind: "field", direction: "to_tracker", defaultTarget: "Project board: the field named Initiative, Group or Theme", accepts: ["select", "text"], store: "github_board" },
   { id: "github.board.dueDate", tracker: "github", pvKey: "g2m_date_est", kind: "field", direction: "to_tracker", defaultTarget: "Project board: the field named Due date or Target date", accepts: ["date"], store: "github_board" },

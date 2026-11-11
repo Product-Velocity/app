@@ -54,8 +54,8 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
     const { data: m } = await ctx.supabase.from("jira_project_links").select("field_map").eq("tenant_id", ctx.tenantId).eq("project_id", plink.project_id).maybeSingle();
     plink.field_map = (m as { field_map?: unknown } | null)?.field_map ?? {};
     // the field configuration (what was switched off or re-pointed for this project), read apart for the same reason: no table, no configuration
-    const { data: cfg } = await ctx.supabase.from("tracker_field_config").select("slot, enabled, field_id").eq("tenant_id", ctx.tenantId).eq("project_id", plink.project_id).eq("provider", "jira");
-    plink.config = ((cfg ?? []) as { slot: string; enabled: boolean; field_id: string | null }[]).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id }));
+    const { data: cfg } = await ctx.supabase.from("tracker_field_config").select("slot, enabled, field_id, label_text").eq("tenant_id", ctx.tenantId).eq("project_id", plink.project_id).eq("provider", "jira");
+    plink.config = ((cfg ?? []) as { slot: string; enabled: boolean; field_id: string | null; label_text?: string | null }[]).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id, text: r.label_text ?? null }));
   }
   // read apart too (migration jira_close_removed): without the column nothing was ever closed
   let closedWhileRemoved: string | null = null;
@@ -223,7 +223,7 @@ export async function writeOne(ctx: Ctx, id: string, choices: SyncChoice[], deps
   let outcome: PushItemResult["outcome"] = "unchanged";
   let issueId: string | null = l.link?.issue_id ?? null;
   if (plan.action === "create") {
-    const marker = markerFor(id);
+    const marker = plan.marker ?? markerFor(id);
     const projectKey = l.plink!.jira_project_key;
     const existing = await findByMarker(call, projectKey, marker); // a create whose answer was lost is found again, never repeated
     if (existing) { resultKey = existing.key; issueId = existing.id; outcome = "created"; }

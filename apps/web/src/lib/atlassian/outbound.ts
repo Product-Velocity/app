@@ -1,4 +1,4 @@
-import { BASE_LABEL, OWNED_LABEL_PREFIX, changeTypeLabel, focusAreaLabel, groupLabel, moscowLabel, projectLabel, plannedQuarterLabel, rankBandLabel, tagLabels, valueTypeLabel, reviewLabel } from "@pv/github";
+import { DEFAULT_NAMES, isOwnedLabel, resolveNames, type Names, changeTypeLabel, focusAreaLabel, groupLabel, moscowLabel, projectLabel, plannedQuarterLabel, rankBandLabel, tagLabels, valueTypeLabel, reviewLabel } from "@pv/github";
 import { composeDescription, type Link } from "./jira-sections";
 
 // Everything that may leave the app for Jira (CLAUDE.md rule 2, issue #67). Jira sites can be shared widely, so this list is the ONLY place
@@ -22,6 +22,8 @@ export type JiraFieldMap = {
   off?: readonly string[];
   /** Slots switched ON that are off by default (`jira.label.tags`, `jira.label.focus`). */
   on?: readonly string[];
+  /** Stealth mode (issue #411): names of labels and the marker; absent = the `pv:` defaults. */
+  names?: Names;
 };
 export type JiraPayloadInput = {
   /** Read through the allowlist only. */
@@ -56,16 +58,17 @@ function read(item: Record<string, unknown>, key: JiraOutboundField): unknown { 
  * The `pv:` labels an item should carry, the same as the GitHub sync sends: the base label, the project, MoSCoW, the rank BAND (top 10, top 25,
  * top 50, later; never the number), Change Type and Initiative Group. Nothing commercial is ever a label.
  */
-export function desiredLabels(item: Record<string, unknown>, projectName?: string, off: readonly string[] = [], optIn: readonly string[] = []): string[] {
+export function desiredLabels(item: Record<string, unknown>, projectName?: string, off: readonly string[] = [], optIn: readonly string[] = [], names?: Names): string[] {
   const on = (slot: string) => !off.includes(slot);
   const opt = (slot: string) => optIn.includes(slot);
-  return [BASE_LABEL, projectName && on("jira.label.project") ? projectLabel(projectName) : null, on("jira.label.moscow") ? moscowLabel(read(item, "moscow")) : null, on("jira.label.rank") ? rankBandLabel(read(item, "stack_rank")) : null, on("jira.label.type") ? changeTypeLabel(read(item, "change_type")) : null, on("jira.label.group") ? groupLabel(read(item, "theme")) : null, opt("jira.label.focus") ? focusAreaLabel(read(item, "focus_area")) : null, on("jira.label.value") ? valueTypeLabel(read(item, "value_type")) : null, on("jira.label.quarter") ? plannedQuarterLabel(read(item, "g2m_quarter")) : null, ...(opt("jira.label.tags") ? tagLabels(read(item, "tags")) : []), reviewLabel(read(item, "initiative_phase"))].filter((l): l is string => !!l);
+  return [resolveNames(names).base || null, projectName && on("jira.label.project") ? projectLabel(projectName, names) : null, on("jira.label.moscow") ? moscowLabel(read(item, "moscow"), names) : null, on("jira.label.rank") ? rankBandLabel(read(item, "stack_rank"), names) : null, on("jira.label.type") ? changeTypeLabel(read(item, "change_type"), names) : null, on("jira.label.group") ? groupLabel(read(item, "theme"), names) : null, opt("jira.label.focus") ? focusAreaLabel(read(item, "focus_area"), names) : null, on("jira.label.value") ? valueTypeLabel(read(item, "value_type"), names) : null, on("jira.label.quarter") ? plannedQuarterLabel(read(item, "g2m_quarter"), names) : null, ...(opt("jira.label.tags") ? tagLabels(read(item, "tags"), names) : []), reviewLabel(read(item, "initiative_phase"), names)].filter((l): l is string => !!l);
 }
 /** Put on a Jira issue when its initiative was removed in Product Velocity and the person confirmed (jira-close.ts). Not an "owned" label: a later send must not strip it. */
-export const REMOVED_LABEL = "pv:removed";
+export const REMOVED_LABEL = DEFAULT_NAMES.removed;
 /** Labels after a write: the person's own labels stay, `pv:` labels are replaced by the desired ones (`pv:removed` stays: it records a close). */
-export function mergeLabels(current: string[], desired: string[]): string[] {
-  return [...new Set([...current.filter((l) => l === REMOVED_LABEL || (l !== BASE_LABEL && !l.startsWith(OWNED_LABEL_PREFIX))), ...desired])];
+export function mergeLabels(current: string[], desired: string[], names?: Names): string[] {
+  const removed = resolveNames(names).removed;
+  return [...new Set([...current.filter((l) => l === REMOVED_LABEL || l === removed || !isOwnedLabel(l, names)), ...desired])];
 }
 
 export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {
@@ -80,7 +83,7 @@ export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {
       pv: { summary: typeof read(item, "summary") === "string" ? (read(item, "summary") as string).slice(0, 4000) : "", description, hypothesis: typeof read(item, "hypothesis") === "string" ? (read(item, "hypothesis") as string).slice(0, 4000) : "" },
       ...(map.off?.includes("jira.body.artifacts") ? {} : { artifacts: input.artifacts ?? [] }), ...(map.off?.includes("jira.body.files") ? {} : { files: input.files ?? [] }), ...(input.documents?.length ? { documents: input.documents } : {}),
     }),
-    labels: mergeLabels(input.currentLabels ?? [], [...desiredLabels(item, input.projectName, map.off, map.on), ...(input.marker && /^pv:item\/[0-9a-f]{16}$/.test(input.marker) ? [input.marker] : [])]),
+    labels: mergeLabels(input.currentLabels ?? [], [...desiredLabels(item, input.projectName, map.off, map.on, map.names), ...(input.marker && /^[A-Za-z0-9:_.-]{1,24}\/[0-9a-f]{16}$/.test(input.marker) ? [input.marker] : [])], map.names),
   };
   if (input.create) { f.project = { key: input.create.projectKey }; f.issuetype = { id: input.create.issueTypeId }; }
   if (input.parentKey) f.parent = { key: input.parentKey };

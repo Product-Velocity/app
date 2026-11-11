@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { compareTexts, hashText, type TextVerdict } from "@pv/github";
+import { compareTexts, hashText, resolveNames, type TextVerdict } from "@pv/github";
 import { adfToText, markdownToAdf, type AdfNode } from "./adf";
 import { LINK_SECTIONS, TEXT_SECTIONS, attachmentsHash, attachmentsText, composeDescription, linksText, isSimpleNodes, nodesText, splitDescription, type Link, type Split, type TextSection } from "./jira-sections";
 import { buildJiraPayload, type JiraFieldMap } from "./outbound";
@@ -23,7 +23,7 @@ export const LABEL: Record<TextField, string> = { title: "Name", summary: "Summa
 export type FieldCompare = { field: TextField; verdict: TextVerdict; pvText: string; jiraText: string; pvHash: string; jiraHash: string };
 
 /** Opaque label for a created issue so a lost answer is found again (a hash, never the item id). */
-export const markerFor = (itemId: string) => `pv:item/${createHash("sha256").update(`pv-jira-marker:${itemId}`).digest("hex").slice(0, 16)}`;
+export const markerFor = (itemId: string, prefix = "pv:item/") => `${prefix}${createHash("sha256").update(`pv-jira-marker:${itemId}`).digest("hex").slice(0, 16)}`;
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
 export type Compared = { fields: FieldCompare[]; /** The sections of the Jira description that have content this converter cannot write back. */ richIn: TextSection[]; rich: boolean; split: Split };
@@ -56,6 +56,8 @@ export type SendPlan = {
   /** The agreed hashes after this sync (stored only after the write succeeded). */
   newBase: JiraBase;
   sentHash: string;
+  /** On create: the opaque label that finds the issue again after a lost answer (its prefix is a stealth-mode name). */
+  marker?: string;
   notes: string[];
   /** The texts that this plan writes (the three sections are written together, as one description). */
   writes: TextField[];
@@ -81,7 +83,7 @@ type PlanInput = {
 
 export function planJiraSend(i: PlanInput): SendPlan {
   const item = { initiative_name: i.pv.name, summary: i.pv.summary ?? "", description: i.pv.description ?? "", hypothesis: i.pv.hypothesis ?? "", moscow: i.pv.moscow ?? undefined, g2m_date_est: i.pv.g2m_date_est ?? undefined, planned_start: i.pv.planned_start ?? undefined, stack_rank: i.pv.stack_rank ?? undefined, change_type: i.pv.change_type ?? undefined, theme: i.pv.theme ?? undefined, focus_area: i.pv.focus_area ?? undefined, value_type: i.pv.value_type ?? undefined, g2m_quarter: i.pv.g2m_quarter ?? undefined, tags: i.pv.tags ?? [] };
-  const marker = i.jira ? undefined : markerFor(i.pv.id);
+  const marker = i.jira ? undefined : markerFor(i.pv.id, resolveNames(i.map.names).jiraMarker);
   const shown = { ...(i.map.off?.includes("jira.body.artifacts") ? {} : { artifacts: i.artifacts }), ...(i.map.off?.includes("jira.body.files") ? {} : { files: i.files }) };
   const attHash = attachmentsHash(shown.artifacts, shown.files, i.documents);
   const payloadInput = { item, fields: i.map, ...(i.projectName ? { projectName: i.projectName } : {}), ...(i.artifacts ? { artifacts: i.artifacts } : {}), ...(i.files ? { files: i.files } : {}), ...(i.documents ? { documents: i.documents } : {}) };
@@ -90,7 +92,7 @@ export function planJiraSend(i: PlanInput): SendPlan {
     const c = compareJira(i.pv, { summary: i.pv.name, description: null, labels: [] }, null);
     const newBase: JiraBase = { attachments: attHash };
     for (const f of c.fields) newBase[f.field] = f.pvHash;
-    return { action: "create", fields: p.fields, takeOver: {}, unresolved: [], newBase, sentHash: extrasHash(p.fields), notes: p.notes, writes: [...TEXT_FIELDS] };
+    return { action: "create", fields: p.fields, takeOver: {}, unresolved: [], newBase, sentHash: extrasHash(p.fields), ...(marker ? { marker } : {}), notes: p.notes, writes: [...TEXT_FIELDS] };
   }
   const cmp = compareJira(i.pv, i.jira, i.base);
   const writes: TextField[] = [];
