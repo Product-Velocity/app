@@ -47,7 +47,8 @@ export async function refreshJiraNewItems(): Promise<{ ok: true; projects: numbe
       const read = await readJiraLink(l, site.url);
       await refreshStaleLightRecords(l, site.url, new Set(read.rows.map((r) => r.key)));
       // the children of linked initiatives are part of their tree, not new items: read them so they are left out of the list
-      await applyLinkedTrees(l, site.url);
+      const t = await applyLinkedTrees(l, site.url);
+      if (t.error || t.failed > 0) console.error(JSON.stringify({ jira: "pull-tree", error: t.error, failed: t.failed }));
       projects++;
     } catch (e) {
       failed++;

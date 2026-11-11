@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FIELDS, crowdFields, latestCrowd, toCrowdRow, toRankDecision, type CrowdRow, type RankDecision, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
+import { lightTree, type LightIssue } from "@/lib/atlassian/light-tree";
 import type { IssueTreeRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
 
 /** Supabase returns at most 1,000 rows per request, so a 2,000-item workspace needs several pages. */
@@ -334,11 +335,29 @@ export class SupabaseDataSource implements PortfolioDataSource {
     // a database that has not got the table yet (the migration is applied by hand) shows an empty list, not an error
     if (error) { if (/item_jira_tree|42P01|PGRST205/.test(`${error.code ?? ""} ${error.message}`)) return []; throw new Error(friendlyError(error)); }
     type R = { issue_key: string; parent_key: string; level: number; position: number; title: string; issue_type: string | null; status: string | null; status_category: string | null; assignee: string | null; html_url: string | null; jira_updated_at: string | null };
+    if ((data ?? []).length === 0) return this.loadJiraTreeFromList(itemId);
     return ((data ?? []) as R[]).map((r) => ({
       key: r.issue_key, parentKey: r.parent_key, level: r.level === 2 ? 2 : 1, position: r.position, title: r.title, type: r.issue_type, status: r.status,
       category: r.status_category === "new" || r.status_category === "indeterminate" || r.status_category === "done" ? r.status_category : null,
       assignee: r.assignee, url: r.html_url, updatedAt: r.jira_updated_at,
     }));
+  }
+
+  /** No tree was written for this initiative (the full read failed or has not run): show the children already held as light issue records. Never throws: the tab still works. */
+  private async loadJiraTreeFromList(itemId: string): Promise<JiraTreeRow[]> {
+    try {
+      const { data: link } = await this.client.from("item_jira_links").select("issue_key, connection_id, site_id").eq("tenant_id", this.tenantId).eq("item_id", itemId).maybeSingle();
+      const l = link as { issue_key: string; connection_id: string; site_id: string } | null;
+      if (!l) return [];
+      const cols = "issue_key, parent_key, title, issue_type, status, status_category, html_url, jira_updated_at";
+      const { data: kids } = await this.client.from("jira_issues").select(cols).eq("tenant_id", this.tenantId).eq("connection_id", l.connection_id).eq("site_id", l.site_id).eq("parent_key", l.issue_key).limit(500);
+      const first = (kids ?? []) as LightIssue[];
+      if (first.length === 0) return [];
+      const { data: subs } = await this.client.from("jira_issues").select(cols).eq("tenant_id", this.tenantId).eq("connection_id", l.connection_id).eq("site_id", l.site_id).in("parent_key", first.map((k) => k.issue_key)).limit(500);
+      return lightTree(l.issue_key, [...first, ...((subs ?? []) as LightIssue[])]);
+    } catch {
+      return [];
+    }
   }
 
   async setLinkMode(itemId: string, mode: "push" | "follow", tracker: "github" | "jira" = "github"): Promise<{ ok: true; before: "push" | "follow" } | { ok: false; error: string }> {

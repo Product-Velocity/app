@@ -132,7 +132,7 @@ describe("refreshing the trees", () => {
   it("a database refusal for one initiative does not stop the others", async () => {
     const f = deps(jira(six), ["item-2"]);
     const r = await refreshTrees(f.d, [link(2), { item_id: "item-1", issue_key: "PLAT-1" }], SITE);
-    expect(r).toMatchObject({ applied: 1, failed: 1 });
+    expect(r).toMatchObject({ applied: 1, failed: 1, failedItems: ["item-2"] });
   });
   it("two linked initiatives that share nothing keep their own children", async () => {
     const f = deps(jira([{ key: "PLAT-10", parent: "PLAT-1" }, { key: "PLAT-20", parent: "PLAT-2" }]));
