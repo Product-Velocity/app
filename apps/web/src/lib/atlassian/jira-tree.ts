@@ -104,6 +104,8 @@ export type TreeRefresh = {
   unreadable: string[];
   /** Initiatives whose tree could not be applied (too many children, or the database refused): the others are not affected. */
   failed: number;
+  /** The same initiatives as `failed`, by id, so the Sync dialog can say which ones. */
+  failedItems: string[];
 };
 
 /**
@@ -112,7 +114,7 @@ export type TreeRefresh = {
  * tree is never written; a tree that is too large or that the database refuses counts as `failed` for that initiative only.
  */
 export async function refreshTrees(deps: TreeDeps, links: LinkedIssue[], siteUrl: string): Promise<TreeRefresh> {
-  const out: TreeRefresh = { applied: 0, nodes: 0, unreadable: [], failed: 0 };
+  const out: TreeRefresh = { applied: 0, nodes: 0, unreadable: [], failed: 0, failedItems: [] };
   const epics = [...new Set(links.map((l) => l.issue_key))];
   if (epics.length === 0) return out;
   const first = await readChildren(deps.getPage, epics, siteUrl);
@@ -131,13 +133,14 @@ export async function refreshTrees(deps: TreeDeps, links: LinkedIssue[], siteUrl
       push(c, 1, l.issue_key);
       for (const s of second.byParent.get(c.row.key) ?? []) push(s, 2, c.row.key);
     }
-    if (nodes.length > MAX_NODES) { out.failed++; continue; }
+    if (nodes.length > MAX_NODES) { out.failed++; out.failedItems.push(l.item_id); continue; }
     try {
       await deps.apply(l.item_id, nodes, summariseTree(nodes));
       out.applied++;
       out.nodes += nodes.length;
     } catch {
       out.failed++;
+      out.failedItems.push(l.item_id);
     }
   }
   return out;
@@ -152,6 +155,6 @@ export async function refreshTreesTolerant(deps: TreeDeps, links: LinkedIssue[],
     return { ...(await refreshTrees(deps, links, siteUrl)), error: null };
   } catch (e) {
     if (e instanceof ReconnectNeeded) throw e;
-    return { applied: 0, nodes: 0, unreadable: [], failed: links.length, error: e instanceof Error ? e.message.slice(0, 200) : "unknown" };
+    return { applied: 0, nodes: 0, unreadable: [], failed: links.length, failedItems: links.map((l) => l.item_id), error: e instanceof Error ? e.message.slice(0, 200) : "unknown" };
   }
 }

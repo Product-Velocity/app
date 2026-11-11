@@ -48,6 +48,8 @@ export type IssueTreeRow = {
 export type JiraTreeRow = {
   key: string; parentKey: string; level: 1 | 2; position: number; title: string; type: string | null; status: string | null;
   category: "new" | "indeterminate" | "done" | null; assignee: string | null; url: string | null; updatedAt: string | null;
+  /** Set when the row comes from the issue list read earlier, not from the full read of the children (no assignee is known). */
+  fromList?: true;
 };
 
 /** One row of the Trash: what was deleted, by whom and when (no commercial fields). */

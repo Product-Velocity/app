@@ -343,6 +343,7 @@ function JiraTab({ controller, lookups, itemId }: { controller: PortfolioControl
       {total != null && <p>{closed} of {total} {total === 1 ? "issue" : "issues"} done (counted at the lowest level; a done issue means the build is progressing, not that the initiative is complete).</p>}
       {kidsError && <p role="alert" className="pf-error">Could not load the issues: {kidsError}</p>}
       {!kidsError && !kids && <p role="status" className="muted">Loading the issues…</p>}
+      {kids && kids.some((k) => k.fromList) && <p className="muted">These issues come from the last list read of the Jira project. The full read of the children of this issue did not complete; press Sync with Jira to try again. Assignees are not shown until it does.</p>}
       {kids && (
         <table className="table ip-gh" aria-label={`Issues under ${link.issueKey}`}>
           <thead><tr>{["Issue", "Title", "Type", "Status", "Assignee"].map((h) => <th key={h} scope="col">{h}</th>)}</tr></thead>
