@@ -18,17 +18,17 @@ export default async function FieldConfigHarness({ searchParams }: { searchParam
       milestones: [{ repo: "Acme/app", milestones: [{ title: "2026 Q4", dueOn: "2026-12-31T12:00:00Z", state: "open" }] }],
     }),
   };
+  const board = q.board === "none" ? null : { id: "B1", number: 1, title: "Roadmap", url: "https://example.test/board", mapping: { priority: { id: "F9", name: "Priority" }, group: null, dueDate: { id: "F2", name: "Due date" }, size: null, status: { id: "F1", name: "Status" }, priorityMap: {} } };
+  const view = buildMappingView({ tracker: "github", rows: q.config === "changed" ? [{ slot: "github.label.rank", enabled: false, field: null }, { slot: "github.milestone", enabled: false, field: null }] : [], board });
   return (
     <div className="page-narrow">
       <h1>GitHub</h1>
       <div className="card stack">
         <h2>Field configuration</h2>
         <FieldMappingForm tracker="GitHub" projectId="p1" projectName="Platform" action={formNoop}
-          view={buildMappingView({ tracker: "github",
-            rows: q.config === "changed" ? [{ slot: "github.label.rank", enabled: false, field: null }, { slot: "github.milestone", enabled: false, field: null }] : [],
-            board: q.board === "none" ? null : { id: "B1", number: 1, title: "Roadmap", url: "https://example.test/board", mapping: { priority: { id: "F9", name: "Priority" }, group: null, dueDate: { id: "F2", name: "Due date" }, size: null, status: { id: "F1", name: "Status" }, priorityMap: {} } } })} />
+          view={view} />
         <h3>Fields GitHub shows this connection</h3>
-        <FieldCatalogView catalogs={[catalog]} tracker="GitHub" id="github-catalog" />
+        <FieldCatalogView catalogs={[catalog]} tracker="GitHub" id="github-catalog" contexts={{ Acme: [{ name: "Platform", view, board }] }} />
       </div>
     </div>
   );

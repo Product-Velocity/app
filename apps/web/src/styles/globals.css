@@ -1180,3 +1180,7 @@ button.share-chip { cursor: pointer; }
   .al-table td::before { content: attr(data-label); color: #5b6272; text-align: left; }
   .al-table tbody th::before { content: none; }
 }
+
+/* ---- tracker field table (decision 2026-11-11-tracker-field-table) ---- */
+.plain-list { list-style: none; margin: 0; padding: 0; }
+.th-sort:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }

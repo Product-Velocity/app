@@ -6,6 +6,7 @@ import { TrackerTabs, type TrackerSection } from "@/components/tracker-tabs";
 import { FieldCatalogView, FieldMappingForm } from "@/components/tracker-field-config";
 import type { TrackerCatalog } from "@/lib/tracker-fields/catalog";
 import type { MappingView } from "@/lib/tracker-fields/view";
+import type { LinkContext } from "@/lib/tracker-fields/links";
 import { sourceLabel } from "@/lib/atlassian/jira-events";
 import type { JiraConnectionRow } from "@/lib/atlassian/server";
 
@@ -109,6 +110,9 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
   const connected = connections.filter((c) => c.state === "connected");
   const missingHookScope = Boolean(sync?.live.enabled) && connected.some((c) => c.scopes !== undefined && !c.scopes.split(" ").includes("manage:jira-webhook"));
   const linked = projectLinks.filter((p) => p.link);
+  // the projects whose mapping applies to each Jira project's field list (the catalog is read per Jira project key)
+  const linkContexts: Record<string, LinkContext[]> = {};
+  for (const p of linked) if (p.mapping && p.link) (linkContexts[p.link.jiraKey] ??= []).push({ name: p.projectName, view: p.mapping });
   const notLinkable = connected.flatMap((c) => c.projects.flatMap((p) => (p.projects ?? []).filter((j) => j.type !== "software" && j.type !== "business")));
   const unreadable = connected.flatMap((c) => c.projects.filter((p) => p.projects === null));
   return (
@@ -307,13 +311,14 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
       {section === "configure" && canAdmin && connected.length > 0 && linked.length > 0 && (
         <div className="card stack">
           <h2>Field configuration</h2>
-          <p className="muted">Where each Product Velocity field goes in Jira, for each linked project. The defaults are what Sync does without any change; change what you need and save. Nothing here is written to Jira: the next Sync uses it and the preview says what is skipped.</p>
+          <p className="muted">Start with the fields Jira reports for each linked project: which Product Velocity field each one is linked to and in which direction. The defaults are what Sync does without any change; change what you need in the table of Product Velocity fields below and save. Nothing here is written to Jira: the next Sync uses it and the preview says what is skipped.</p>
+          <h3>Fields Jira reports</h3>
+          <p className="muted">Every field of the site, including custom fields, read by id (names are not unique). Search, filter and sort the list; the fill rate counts the 50 most recently updated issues of the project.</p>
+          <FieldCatalogView catalogs={catalogs} tracker="Jira" id="jira-catalog" contexts={linkContexts} />
+          <h3>Product Velocity fields</h3>
           {linked.filter((p) => p.mapping).map((p) => (
             fieldConfigAction && <FieldMappingForm key={p.projectId} tracker="Jira" projectId={p.projectId} projectName={p.projectName} view={p.mapping!} action={fieldConfigAction} />
           ))}
-          <h3>Fields Jira reports</h3>
-          <p className="muted">Every field of the linked projects, including custom fields, read by id (names are not unique).</p>
-          <FieldCatalogView catalogs={catalogs} tracker="Jira" id="jira-catalog" />
         </div>
       )}
     </div>
