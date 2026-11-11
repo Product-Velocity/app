@@ -27,7 +27,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
   // gate requests waiting for a decision: the number on the Decisions tab (fast count on the open-request index)
   const decisionsWaiting = (await supabase.from("gate_reviews").select("id", { count: "exact", head: true }).eq("tenant_id", active.tenantId).eq("kind", "decision").is("decided_at", null).is("withdrawn_at", null)).count ?? 0;
   return (
-    <SupabaseWorkspaceProvider tenantId={active.tenantId} userId={user.id} projects={(projects ?? []) as { id: string; name: string }[]} canEdit={canEditItems(active.role)} canAdmin={active.role === "admin"}>
+    <SupabaseWorkspaceProvider key={active.tenantId} tenantId={active.tenantId} userId={user.id} projects={(projects ?? []) as { id: string; name: string }[]} canEdit={canEditItems(active.role)} canAdmin={active.role === "admin"}>
     <UserPrefsProvider panelWidth={panelWidthFromMetadata(user.user_metadata)}>
     <LastLocationTracker initial={lastLocationFromMetadata(user.user_metadata, active.tenantId)} />
     <DatePrefs format={profileFromMetadata(user.user_metadata).dateFormat} />
