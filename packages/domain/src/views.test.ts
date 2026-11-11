@@ -91,7 +91,7 @@ describe("filterSummary", () => {
     const labels = { person: (id: string) => (id === "me" ? "me" : `person ${id}`), project: (id: string) => `Project ${id}` };
     expect(filterSummary(f("moscow", "is", "Must"), labels)).toBe("MoSCoW is Must");
     expect(filterSummary(f("product_manager", "is", "me"), labels)).toBe("Product Manager is me");
-    expect(filterSummary(f("home_project", "is_not", "p1"), labels)).toBe("Home Project is not Project p1");
+    expect(filterSummary(f("home_project", "is_not", "p1"), labels)).toBe("Project is not Project p1");
     setDateFormat("yyyy-mm-dd");
     expect(filterSummary(f("start_date", "before", "2027-04-01"), labels)).toBe("Start Date is before 2027-04-01");
     setDateFormat("dd/mm/yyyy");

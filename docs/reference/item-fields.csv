@@ -125,7 +125,7 @@ N29,Trust,Created Via,created_via,Select,Manual · Import · AI intake · GitHub
 N30,Trust,AI Draft (needs review),ai_draft,Boolean,,System,New,,System-set column (read-only),1
 N31,Trust,Source Document,source_document,Links,,Input,New,,Related table,4
 N22,Trust,Archived,archived,Boolean,,Input,New,,Column on items,1
-V1,What,Home Project,home_project,Relation,Project,Input,New (v4),Selects the repo for the tracking issue.,Related table,1
+V1,What,Project,home_project,Relation,Project,Input,New (v4),Selects the repo for the tracking issue.,Related table,1
 V2,What,Contributing Teams,contributing_teams,Tags,Teams,Input,New (v4),Not synced.,Related table,1
 V3,What,Rank in Project,project_rank,Computed,,Computed,New (v4),Not synced.,"Computed (view or function, not stored)",2
 V4,What,Previous Rank,previous_rank,Number,,System,New (v4),Not synced.,System-set column (read-only),1
