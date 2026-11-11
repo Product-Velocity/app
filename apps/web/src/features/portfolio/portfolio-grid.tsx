@@ -159,9 +159,12 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     const fit = () => {
       const wrap = wrapRef.current;
       if (!wrap) return;
+      // The workspace is scaled by the person's text size (CSS zoom). Positions and the window are in screen pixels, but a CSS height set
+      // inside the zoomed shell is multiplied by the zoom, so work out the room in screen pixels and divide by the zoom.
+      const zoom = Number(getComputedStyle(wrap).getPropertyValue("--text-zoom")) || 1;
       const top = wrap.getBoundingClientRect().top + window.scrollY;
-      const foot = footRef.current?.offsetHeight ?? 0;
-      setGridHeight(Math.max(360, Math.floor(window.innerHeight - top - foot - 36)));
+      const foot = (footRef.current?.offsetHeight ?? 0) * zoom;
+      setGridHeight(Math.max(360, Math.floor((window.innerHeight - top - foot - 36) / zoom)));
     };
     fit();
     window.addEventListener("resize", fit);
