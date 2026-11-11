@@ -8,5 +8,5 @@ status: built
 - **Where.** `CLAUDE.md`, Working agreements ("Finishing a task"). It overrides the default of not opening a PR unless asked.
 - **How a merge happens.** Push the branch, open the PR from the template, subscribe to its activity, enable auto-merge: GitHub merges it through the merge queue only when the required checks pass.
 - **Limits.** No merging around red, skipped or missing checks; no weakened tests; no force-push or merge of someone else's branch; only PRs Claude opened. Anything that changes scope, cannot be undone, adds a costly dependency or conflicts with the docs still goes to Ashu first.
-- **Migrations.** Apply to production first (an approval prompt for Ashu), then tick "Migration applied to production" (see `2026-11-11-migration-gate.md`).
+- **Migrations (Ashu, same day: "always apply migrations on Supabase and do not ask again for permission").** Claude always applies a PR's migration to the Supabase production project itself, exactly as reviewed and recorded in `pv_meta.schema_migrations`, without asking in chat; then ticks "Migration applied to production" (see `2026-11-11-migration-gate.md`).
 - **Rule 3 is unchanged.** Claude still never approves a decision gate or holds the Approver permission; that rule is about the product, not pull requests.
