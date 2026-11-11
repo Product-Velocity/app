@@ -1,6 +1,6 @@
 import { withBackoff, whyJira, type JiraRequest, type Sleep } from "./jira-write";
 import { ReconnectNeeded } from "./token-provider";
-import { REMOVED_LABEL } from "./outbound";
+import { resolveNames, type Names } from "@pv/github";
 
 // Closing the Jira issue of an initiative that was removed in Product Velocity (decision 2026-11-03-jira-close-removed).
 // THIS IS THE ONLY MODULE THAT MAY TRANSITION A JIRA ISSUE, and only jira-removed-engine.ts may import it (a test fails otherwise): CLAUDE.md
@@ -87,9 +87,9 @@ export function chooseTransition(done: DoneTransition[], chosenId: string | null
 }
 
 /** Adds the label `pv:removed` and nothing else: Jira's "add" operation keeps every other label (PUT answers 204). */
-export async function addRemovedLabel(call: JiraRequest, key: string, sleep?: Sleep): Promise<{ ok: true } | CloseFail> {
+export async function addRemovedLabel(call: JiraRequest, key: string, sleep?: Sleep, names?: Names): Promise<{ ok: true } | CloseFail> {
   if (!KEY.test(key)) return { ok: false, kind: "rejected", message: "Not a Jira issue key." };
-  const g = await guarded(() => withBackoff(() => call("PUT", `/issue/${key}`, { update: { labels: [{ add: REMOVED_LABEL }] } }), sleep));
+  const g = await guarded(() => withBackoff(() => call("PUT", `/issue/${key}`, { update: { labels: [{ add: resolveNames(names).removed }] } }), sleep));
   if ("ok" in g) return g;
   return g.status === 204 || g.status === 200 ? { ok: true } : refusal(g.status, g.json);
 }

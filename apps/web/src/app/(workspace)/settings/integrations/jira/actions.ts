@@ -173,7 +173,7 @@ export async function saveJiraFieldConfig(form: FormData): Promise<void> {
   const errors = [...validateJiraMap(map, parseFieldMap(link.field_map), site), ...(checked.ok ? [] : checked.errors)];
   if (errors.length > 0 || !checked.ok) redirect(`${PATH}?status=field-config-invalid&why=${encodeURIComponent(errors.join(" ").slice(0, 400))}`);
   const first = await ctx.supabase.rpc("jira_set_field_map", { p_project: project, p_map: map });
-  const second = first.error ? null : await ctx.supabase.rpc("tracker_set_field_config", { p_project: project, p_rows: checked.rows.map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field })) });
+  const second = first.error ? null : await ctx.supabase.rpc("tracker_set_field_config", { p_project: project, p_rows: checked.rows.map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field, text: r.text ?? null })) });
   revalidatePath(PATH);
   redirect(`${PATH}?status=${first.error || second?.error ? "error" : "field-config-saved"}`);
 }

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { configRowsFromForm, jiraMapFromForm, OFF_VALUE, ON, FIELD, RESET, validateJiraMap } from "./form";
+import { APPLY, PREFIX_ALL, TEXT, configRowsFromForm, jiraMapFromForm, OFF_VALUE, ON, FIELD, RESET, validateJiraMap } from "./form";
 import { validateConfig } from "./mapping";
 
 const form = (vals: Record<string, string>) => ({ get: (n: string) => vals[n] ?? "", has: (n: string) => n in vals });
-const ALL_JIRA_ON = Object.fromEntries(["label.moscow", "label.rank", "label.type", "label.group", "label.project", "label.value", "label.quarter", "body.artifacts", "body.files"].map((k) => [ON(`jira.${k}`), "on"]));
-const ALL_GH_ON = Object.fromEntries(["label.moscow", "label.rank", "label.type", "label.group", "label.project", "label.value", "label.quarter", "milestone", "issueType", "body.artifacts", "body.files"].map((k) => [ON(`github.${k}`), "on"]));
+const ALL_JIRA_ON = Object.fromEntries(["label.moscow", "label.rank", "label.type", "label.group", "label.project", "label.value", "label.quarter", "label.base", "body.artifacts", "body.files"].map((k) => [ON(`jira.${k}`), "on"]));
+const ALL_GH_ON = Object.fromEntries(["label.moscow", "label.rank", "label.type", "label.group", "label.project", "label.value", "label.quarter", "label.base", "milestone", "issueType", "body.artifacts", "body.files"].map((k) => [ON(`github.${k}`), "on"]));
 
 describe("the form", () => {
   it("an untouched form is the default configuration (nothing stored)", () => {
@@ -70,5 +70,43 @@ describe("default-off switches in the form (issue #321)", () => {
     expect(configRowsFromForm("jira", reset.get, reset.has)).toEqual([]);
     const gh = form({ ...ALL_GH_ON, [ON("github.label.focus")]: "on" });
     expect(configRowsFromForm("github", gh.get, gh.has)).toEqual([{ slot: "github.label.focus", enabled: true, field: null }]);
+  });
+});
+
+describe("stealth names in the form (issue #411)", () => {
+  it("a label text is saved as typed (a missing slash is added); the default text is not stored", () => {
+    const f = form({ ...ALL_JIRA_ON, [TEXT("jira.label.moscow")]: "moscow", [TEXT("jira.label.rank")]: "pv:rank/", [TEXT("jira.name.removed")]: "removed", [TEXT("jira.name.define")]: "" });
+    expect(configRowsFromForm("jira", f.get, f.has)).toEqual([{ slot: "jira.label.moscow", enabled: true, field: null, text: "moscow/" }, { slot: "jira.name.removed", enabled: true, field: null, text: "removed" }]);
+  });
+  it("switching the base label off is a row; the base label text is a row", () => {
+    const vals = { ...ALL_JIRA_ON }; delete (vals as Record<string, string>)[ON("jira.label.base")];
+    const f = form(vals);
+    expect(configRowsFromForm("jira", f.get, f.has)).toEqual([{ slot: "jira.label.base", enabled: false, field: null }]);
+    const g = form({ ...ALL_JIRA_ON, [TEXT("jira.label.base")]: "tracked" });
+    expect(configRowsFromForm("jira", g.get, g.has)).toEqual([{ slot: "jira.label.base", enabled: true, field: null, text: "tracked" }]);
+  });
+  it("apply-to-all fills every label with the prefix, an empty prefix gives moscow/<value>; the base label and marker word stay", () => {
+    const f = form({ ...ALL_GH_ON, [APPLY]: "prefix", [PREFIX_ALL]: "" });
+    const rows = configRowsFromForm("github", f.get, f.has);
+    const text = (slot: string) => rows.find((r) => r.slot === slot)?.text;
+    expect(text("github.label.moscow")).toBe("moscow/");
+    expect(text("github.label.tag" + "s")).toBe("tag/");
+    expect(text("github.name.removed")).toBe("removed");
+    expect(text("github.label.base")).toBeUndefined();
+    expect(text("github.name.block")).toBeUndefined();
+    const acme = form({ ...ALL_GH_ON, [APPLY]: "prefix", [PREFIX_ALL]: "acme:" });
+    expect(configRowsFromForm("github", acme.get, acme.has).find((r) => r.slot === "github.label.rank")?.text).toBe("acme:rank/");
+  });
+  it("reset puts the names back to the default; hide-the-brand is a default-off switch", () => {
+    const f = form({ ...ALL_GH_ON, [TEXT("github.label.moscow")]: "m/", [RESET]: "all" });
+    expect(configRowsFromForm("github", f.get, f.has)).toEqual([]);
+    const h = form({ ...ALL_GH_ON, [ON("github.hideBrand")]: "on" });
+    expect(configRowsFromForm("github", h.get, h.has)).toEqual([{ slot: "github.hideBrand", enabled: true, field: null }]);
+  });
+  it("validation refuses bad names and two labels sharing a prefix", () => {
+    expect(validateConfig("jira", [{ slot: "jira.label.moscow", enabled: true, field: null, text: "mo scow/" }], [])).toMatchObject({ ok: false });
+    expect(validateConfig("jira", [{ slot: "jira.label.moscow", enabled: true, field: null, text: "x/" }, { slot: "jira.label.rank", enabled: true, field: null, text: "x/" }], [])).toMatchObject({ ok: false });
+    expect(validateConfig("jira", [{ slot: "jira.label.moscow", enabled: true, field: null, text: "moscow/" }], [])).toMatchObject({ ok: true });
+    expect(validateConfig("jira", [{ slot: "jira.dueDate", enabled: true, field: null, text: "x" }], [])).toMatchObject({ ok: false });
   });
 });

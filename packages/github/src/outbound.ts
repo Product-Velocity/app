@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { findBlock, NEUTRAL_FOOTER, resolveNames, type LabelKind, type Names } from "./names";
 
 // Everything that may leave the app for GitHub (CLAUDE.md rule 2). Repositories can be public, so this list is the
 // ONLY place a field is allowed to be read for a GitHub payload: value, confidence, customers, decisions, rationale,
@@ -30,6 +31,8 @@ export type TrackingIssueInput = {
   off?: readonly string[];
   /** Slots switched ON that are off by default (`github.label.tags`, `github.label.focus`). */
   on?: readonly string[];
+  /** Stealth mode (issue #411): the names of labels and markers and the footer; absent = the `pv:` defaults. */
+  names?: Names;
 };
 export type Milestone = { title: string; dueOn: string };
 export type TrackingIssue = {
@@ -42,7 +45,7 @@ export type TrackingIssue = {
 
 export const BLOCK_START = "<!-- pv:begin";
 export const BLOCK_END = "<!-- pv:end -->";
-export const MARKER = (itemId: string) => `<!-- pv:begin item=${itemId} -->`;
+export const MARKER = (itemId: string, names?: Names) => `<!-- ${resolveNames(names).block}:begin item=${itemId} -->`;
 export const BASE_LABEL = "product-velocity";
 /** Labels in this namespace belong to Product Velocity: a push adds the ones an item should have and removes the ones it should not. */
 export const OWNED_LABEL_PREFIX = "pv:";
@@ -59,18 +62,18 @@ export const DISCOVER_NOT_SYNCED = "Discovery is not synced to the tracker. Requ
 export const FROZEN_NOT_SYNCED = "Syncing is stopped: this initiative was completed or cancelled more than 14 days ago. An admin or approver can resume it from the item panel.";
 /** "pv:define" while the initiative is in Define: the issue exists for engineering feedback on the PRD, before Gate B. Removed again when the phase moves on. */
 export const REVIEW_LABEL = "pv:define";
-export const reviewLabel = (phase: unknown): string | null => (phase === "Define" ? REVIEW_LABEL : null);
+export const reviewLabel = (phase: unknown, names?: Names): string | null => (phase === "Define" ? resolveNames(names).define : null);
 
 /** "pv:moscow/must" for a known MoSCoW value, otherwise no label. */
-export function moscowLabel(v: unknown): string | null {
+export function moscowLabel(v: unknown, names?: Names): string | null {
   const slug = typeof v === "string" ? MOSCOW[v] : undefined;
-  return slug ? `${OWNED_LABEL_PREFIX}moscow/${slug}` : null;
+  return slug ? `${resolveNames(names).prefix.moscow}${slug}` : null;
 }
 /** Where an item sits in the global rank, as a band, never the number (the exact rank stays in the app): top 10, top 25, top 50, later. */
-export function rankBandLabel(rank: unknown): string | null {
+export function rankBandLabel(rank: unknown, names?: Names): string | null {
   const n = typeof rank === "number" ? rank : NaN;
   if (!Number.isFinite(n) || n < 1) return null;
-  return `${OWNED_LABEL_PREFIX}rank/${n <= 10 ? "top-10" : n <= 25 ? "top-25" : n <= 50 ? "top-50" : "later"}`;
+  return `${resolveNames(names).prefix.rank}${n <= 10 ? "top-10" : n <= 25 ? "top-25" : n <= 50 ? "top-50" : "later"}`;
 }
 
 const CHANGE_TYPES: Record<string, { slug: string; types: string[] }> = {
@@ -79,9 +82,9 @@ const CHANGE_TYPES: Record<string, { slug: string; types: string[] }> = {
   "Bug": { slug: "bug", types: ["Bug"] },
 };
 /** "pv:type/new-feature" for a known Change Type, otherwise no label. */
-export function changeTypeLabel(v: unknown): string | null {
+export function changeTypeLabel(v: unknown, names?: Names): string | null {
   const t = typeof v === "string" ? CHANGE_TYPES[v] : undefined;
-  return t ? `${OWNED_LABEL_PREFIX}type/${t.slug}` : null;
+  return t ? `${resolveNames(names).prefix.type}${t.slug}` : null;
 }
 export function issueTypeCandidates(v: unknown): string[] {
   return (typeof v === "string" ? CHANGE_TYPES[v]?.types : undefined) ?? [];
@@ -109,31 +112,31 @@ export function sanitize(s: string): string {
 const linkLabel = (s: string) => sanitize(s).replace(/[[\]\n\r]/g, " ").trim().slice(0, 120) || "link";
 
 /** Initiative Group as "pv:group/<name>". */
-export function groupLabel(v: unknown): string | null {
+export function groupLabel(v: unknown, names?: Names): string | null {
   const slug = typeof v === "string" ? v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "") : "";
-  return slug ? `${OWNED_LABEL_PREFIX}group/${slug}` : null;
+  return slug ? `${resolveNames(names).prefix.group}${slug}` : null;
 }
 
 /** "pv:<kind>/<slug>" for a value, or null for an empty one. The slug is lower case letters and digits joined by hyphens, at most 40 characters. */
-function slugLabel(kind: string, v: unknown): string | null {
+function slugLabel(kind: LabelKind, v: unknown, names?: Names): string | null {
   const slug = typeof v === "string" ? v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "") : "";
-  return slug ? `${OWNED_LABEL_PREFIX}${kind}/${slug}` : null;
+  return slug ? `${resolveNames(names).prefix[kind]}${slug}` : null;
 }
 /** Optional labels (issue #321, off unless the project switches them on): Focus Area, Business Value Type and one label per tag (at most 10). */
-export const focusAreaLabel = (v: unknown) => slugLabel("focus", v);
+export const focusAreaLabel = (v: unknown, names?: Names) => slugLabel("focus", v, names);
 /** "pv:value/defend-revenue": the Business Value TYPE (a category), never the 12m run-rate amount (decision 2026-11-05-value-type-and-quarter-labels). */
-export const valueTypeLabel = (v: unknown) => slugLabel("value", v);
+export const valueTypeLabel = (v: unknown, names?: Names) => slugLabel("value", v, names);
 /** Planned Quarter "Q3 2027" as "pv:quarter/q3-2027" (on by default; the milestone still comes from G2M Date (est)). */
-export const plannedQuarterLabel = (v: unknown) => (typeof v === "string" && /^Q[1-4] \d{4}$/.test(v) ? slugLabel("quarter", v) : null);
+export const plannedQuarterLabel = (v: unknown, names?: Names) => (typeof v === "string" && /^Q[1-4] \d{4}$/.test(v) ? slugLabel("quarter", v, names) : null);
 export const TAG_LABEL_LIMIT = 10;
-export function tagLabels(v: unknown): string[] {
+export function tagLabels(v: unknown, names?: Names): string[] {
   const list = Array.isArray(v) ? v : typeof v === "string" ? [v] : [];
-  return [...new Set(list.map((t) => slugLabel("tag", t)).filter((l): l is string => l !== null))].sort().slice(0, TAG_LABEL_LIMIT);
+  return [...new Set(list.map((t) => slugLabel("tag", t, names)).filter((l): l is string => l !== null))].sort().slice(0, TAG_LABEL_LIMIT);
 }
 
-export function projectLabel(projectName: string): string {
+export function projectLabel(projectName: string, names?: Names): string {
   const slug = projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
-  return `pv:project/${slug || "project"}`;
+  return `${resolveNames(names).prefix.project}${slug || "project"}`;
 }
 
 export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
@@ -148,7 +151,9 @@ export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
 
   const files = (on("github.body.files") ? i.files ?? [] : []).filter((a) => /^https?:\/\//i.test(a.url) && !/[\s()<>]/.test(a.url)).slice(0, 20);
 
-  const parts = [MARKER(i.itemId)];
+  const nm = i.names;
+  const r = resolveNames(nm);
+  const parts = [MARKER(i.itemId, nm)];
   if (summary) parts.push("", "## Summary", summary);
   if (description) parts.push("", "## Description", description);
   if (hypothesis) parts.push("", "## Hypothesis (IF / THEN / RESULTING IN)", hypothesis);
@@ -156,28 +161,26 @@ export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
   if (files.length) parts.push("", "## Files", ...files.map((a) => `- [${linkLabel(a.label)}](${a.url})`));
   const docLinks = (i.documents ?? []).filter((a) => /^https?:\/\//i.test(a.url) && !/[\s()<>]/.test(a.url)).slice(0, 20);
   if (docLinks.length) parts.push("", "## Documents", ...docLinks.map((a) => `- [${linkLabel(a.label)}](${a.url})`));
-  parts.push("", "---", `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept. [Open in Product Velocity](${i.appUrl}/portfolio/${encodeURIComponent(code)})`, BLOCK_END);
+  parts.push("", "---", r.hideBrand ? NEUTRAL_FOOTER : `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept. [Open in Product Velocity](${i.appUrl}/portfolio/${encodeURIComponent(code)})`, `<!-- ${r.block}:end -->`);
 
   const title = (code ? `${code}: ${name}` : name) || "Untitled initiative";
-  const labels = [BASE_LABEL, on("github.label.project") ? projectLabel(i.projectName) : null, on("github.label.moscow") ? moscowLabel(i.item.moscow) : null, on("github.label.rank") ? rankBandLabel(i.item.stack_rank) : null, on("github.label.type") ? changeTypeLabel(i.item.change_type) : null, on("github.label.group") ? groupLabel(i.item.theme) : null, opt("github.label.focus") ? focusAreaLabel(i.item.focus_area) : null, on("github.label.value") ? valueTypeLabel(i.item.value_type) : null, on("github.label.quarter") ? plannedQuarterLabel(i.item.g2m_quarter) : null, ...(opt("github.label.tags") ? tagLabels(i.item.tags) : []), reviewLabel(i.item.initiative_phase)].filter((l): l is string => !!l);
+  const labels = [r.base || null, on("github.label.project") ? projectLabel(i.projectName, nm) : null, on("github.label.moscow") ? moscowLabel(i.item.moscow, nm) : null, on("github.label.rank") ? rankBandLabel(i.item.stack_rank, nm) : null, on("github.label.type") ? changeTypeLabel(i.item.change_type, nm) : null, on("github.label.group") ? groupLabel(i.item.theme, nm) : null, opt("github.label.focus") ? focusAreaLabel(i.item.focus_area, nm) : null, on("github.label.value") ? valueTypeLabel(i.item.value_type, nm) : null, on("github.label.quarter") ? plannedQuarterLabel(i.item.g2m_quarter, nm) : null, ...(opt("github.label.tags") ? tagLabels(i.item.tags, nm) : []), reviewLabel(i.item.initiative_phase, nm)].filter((l): l is string => !!l);
   const block = parts.join("\n");
   const milestone = on("github.milestone") ? milestoneFor(i.item.g2m_date_est) : null;
   return { title, block, labels, milestone, typeCandidates: on("github.issueType") ? issueTypeCandidates(i.item.change_type) : [], hash: createHash("sha256").update(JSON.stringify({ title, labels, block, milestone })).digest("hex") };
 }
 
-/** Puts the managed block into an issue body: replaces the old block, keeps everything outside it, appends if there is none. */
+/** Puts the managed block into an issue body: replaces the old block (whatever word its markers use), keeps everything outside it, appends if there is none. */
 export function mergeBody(existing: string | null | undefined, block: string): string {
   const body = existing ?? "";
-  const start = body.indexOf(BLOCK_START);
-  const end = body.indexOf(BLOCK_END, start);
-  if (start !== -1 && end !== -1) return body.slice(0, start) + block + body.slice(end + BLOCK_END.length);
+  const f = findBlock(body);
+  if (f) return body.slice(0, f.start) + block + body.slice(f.after);
   return body.trim() ? `${body.replace(/\s+$/, "")}\n\n${block}` : block;
 }
 
 /** The text outside the managed block, which a push never touches. */
 export function outsideBlock(body: string | null | undefined): string {
   const b = body ?? "";
-  const start = b.indexOf(BLOCK_START);
-  const end = b.indexOf(BLOCK_END, start);
-  return start !== -1 && end !== -1 ? (b.slice(0, start) + b.slice(end + BLOCK_END.length)).trim() : b.trim();
+  const f = findBlock(b);
+  return f ? (b.slice(0, f.start) + b.slice(f.after)).trim() : b.trim();
 }

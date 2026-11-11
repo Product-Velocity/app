@@ -2,6 +2,7 @@ import "server-only";
 import type { SourceControl } from "@pv/github";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { RemovedCtx } from "@/lib/tracker/removed-gate";
+import { namesForItem } from "@/lib/tracker-fields/load-names";
 import { addRemovedLabel, closeNotPlanned, readCloseState, stateWords, type CloseState, type Target } from "./github-close";
 import type { RemovedCard, RemovedList, RemovedResult } from "./push-types";
 import { githubSourceControl } from "./server";
@@ -134,7 +135,8 @@ export async function closeOne(ctx: RemovedCtx, id: string, deps: { sc?: SourceC
     if (s.kind === "gone") return (await record("not_found")) ? { result: { id, code: c.code, outcome: "not_found", message: "GitHub no longer has this issue (or it is not visible to the app): there is nothing to close.", ...ref } } : fail(c.code, s.message, c);
     return fail(c.code, s.message, c);
   }
-  const label = await addRemovedLabel(t, deps.sleep);
+  const names = await namesForItem(ctx.supabase, ctx.tenantId, id, "github");
+  const label = await addRemovedLabel(t, deps.sleep, names);
   if (!label.ok) return fail(c.code, label.message, c);
   if (s.state === "closed") {
     return (await record("already_done")) ? { result: { id, code: c.code, outcome: "already_done", message: `The issue was already closed (${stateWords(s.state, s.stateReason)}). The label pv:removed was added.`, ...ref } } : fail(c.code, savedLater, c);

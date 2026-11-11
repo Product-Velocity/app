@@ -16,7 +16,7 @@ describe("the default mapping covers the whole dictionary", () => {
   it("every key named by a classification or a slot is a dictionary field", () => {
     for (const k of NEVER_SYNCED) expect(knownKey(k), k).toBe(true);
     for (const t of TRACKERS) for (const k of [...FROM_TRACKER[t].keys(), ...TWO_WAY[t].keys()]) expect(knownKey(k), `${t} ${k}`).toBe(true);
-    for (const s of SLOTS) expect(knownKey(s.pvKey), s.id).toBe(true);
+    for (const s of SLOTS.filter((x) => x.pvKey !== "")) expect(knownKey(s.pvKey), s.id).toBe(true);
   });
   it("slot ids are unique and start with their tracker", () => {
     expect(new Set(SLOTS.map((s) => s.id)).size).toBe(SLOTS.length);
@@ -46,7 +46,7 @@ describe("hard boundaries (rules 2 and 6)", () => {
   it("only allowlisted fields have a slot that sends (the same lists the payload builders read)", () => {
     const github = new Set<string>([...OUTBOUND_ITEM_FIELDS, ...BOARD_ONLY_FIELDS, "home_project", "screenshots", "artifacts", "assignees"]);
     const jira = new Set<string>([...OUTBOUND_JIRA_FIELDS, "home_project", "artifacts", "screenshots"]);
-    for (const s of SLOTS) expect((s.tracker === "github" ? github : jira).has(s.pvKey), s.id).toBe(true);
+    for (const s of SLOTS.filter((x) => x.pvKey !== "")) expect((s.tracker === "github" ? github : jira).has(s.pvKey), s.id).toBe(true);
   });
 });
 

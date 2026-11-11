@@ -1,6 +1,7 @@
 import { MOSCOW_VALUES, parseFieldMap, type FieldChoice } from "@/lib/atlassian/field-map";
 import type { JiraFieldMap } from "@/lib/atlassian/outbound";
-import { configSlots, type ConfigRow } from "./mapping";
+import { configSlots, defaultText, hasText, type ConfigRow } from "./mapping";
+import { normalisePrefix } from "@pv/github";
 import { SLOT_BY_ID, defaultOn, type Tracker } from "./slots";
 
 // The field configuration form (one form per project, the same on GitHub and Jira): checkboxes for the things that can be switched off, selects for the
@@ -9,6 +10,10 @@ import { SLOT_BY_ID, defaultOn, type Tracker } from "./slots";
 export const OFF_VALUE = "__off";
 export const ON = (slot: string) => `on:${slot}`;
 export const FIELD = (slot: string) => `field:${slot}`;
+export const TEXT = (slot: string) => `text:${slot}`;
+/** The submit button that fills every name with one prefix (issue #411, stealth mode): the box is PREFIX_ALL, and an empty box means no prefix at all. */
+export const APPLY = "apply";
+export const PREFIX_ALL = "prefix_all";
 /** The submit button that resets one setting ("all" resets every setting of the project). */
 export const RESET = "reset";
 
@@ -21,6 +26,16 @@ export function configRowsFromForm(tracker: Tracker, get: Get, has: Has): Config
   const rows: ConfigRow[] = [];
   for (const s of configSlots(tracker)) {
     if (reset === "all" || reset === s.id) continue;
+    if (hasText(s)) {
+      const base = defaultText(s);
+      // "Apply to all": the default name without its `pv:` namespace, behind the prefix that was typed (blank = no prefix); the base label keeps its name
+      const bare = base.replace(/^pv:/, "");
+      let text = get(APPLY) === "prefix" && !s.id.endsWith(".label.base") && !s.id.endsWith(".name.block") ? `${get(PREFIX_ALL)}${bare}` : s.nameKind ? normalisePrefix(get(TEXT(s.id))) : get(TEXT(s.id));
+      if (text === base) text = "";
+      const on = s.kind === "name" ? true : has(ON(s.id));
+      if (on !== defaultOn(s) || text !== "") rows.push({ slot: s.id, enabled: on, field: null, ...(text !== "" ? { text } : {}) });
+      continue;
+    }
     if (s.kind === "toggle") { if (has(ON(s.id)) !== defaultOn(s)) rows.push({ slot: s.id, enabled: !defaultOn(s), field: null }); continue; }
     const v = get(FIELD(s.id));
     if (v === OFF_VALUE) rows.push({ slot: s.id, enabled: false, field: null });

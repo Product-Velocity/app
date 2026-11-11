@@ -41,10 +41,10 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
     ? await readGithubCatalog(sc, c.installation_id, c.account_login, { boards: boardList, repos: [...new Set(projects.flatMap((p) => (p.default_repo ? [p.default_repo] : [])))] }).catch((): null => null)
     : null;
 
-  const { data: configRows } = isAdmin && c?.state === "connected" ? await supabase.from("tracker_field_config").select("project_id, slot, enabled, field_id").eq("tenant_id", active.tenantId).eq("provider", "github") : { data: [] };
+  const { data: configRows } = isAdmin && c?.state === "connected" ? await supabase.from("tracker_field_config").select("project_id, slot, enabled, field_id, label_text").eq("tenant_id", active.tenantId).eq("provider", "github") : { data: [] };
   const githubProjects = projects.filter((p) => p.tracker === "github");
   const mappingOf = (p: (typeof githubProjects)[number]) =>
-    buildMappingView({ tracker: "github", board: parseBoard(p.github_board), rows: parseConfigRows(((configRows ?? []) as { project_id: string; slot: string; enabled: boolean; field_id: string | null }[]).filter((r) => r.project_id === p.id).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id })), "github") });
+    buildMappingView({ tracker: "github", board: parseBoard(p.github_board), rows: parseConfigRows(((configRows ?? []) as { project_id: string; slot: string; enabled: boolean; field_id: string | null; label_text?: string | null }[]).filter((r) => r.project_id === p.id).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id, text: r.label_text ?? null })), "github") });
   const fieldContexts = githubProjects.map((p) => ({ name: p.name, view: mappingOf(p), board: parseBoard(p.github_board) }));
 
   return (
