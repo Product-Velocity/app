@@ -43,6 +43,9 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
 
   const { data: configRows } = isAdmin && c?.state === "connected" ? await supabase.from("tracker_field_config").select("project_id, slot, enabled, field_id").eq("tenant_id", active.tenantId).eq("provider", "github") : { data: [] };
   const githubProjects = projects.filter((p) => p.tracker === "github");
+  const mappingOf = (p: (typeof githubProjects)[number]) =>
+    buildMappingView({ tracker: "github", board: parseBoard(p.github_board), rows: parseConfigRows(((configRows ?? []) as { project_id: string; slot: string; enabled: boolean; field_id: string | null }[]).filter((r) => r.project_id === p.id).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id })), "github") });
+  const fieldContexts = githubProjects.map((p) => ({ name: p.name, view: mappingOf(p), board: parseBoard(p.github_board) }));
 
   return (
     <div className="page-narrow">
@@ -135,15 +138,15 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
       {isAdmin && c?.state === "connected" && (
         <div className="card stack">
           <h2>Field configuration</h2>
-          <p className="muted">Where each Product Velocity field goes in GitHub, for each project that uses GitHub. The defaults are what Sync does without any change; change what you need and save. Nothing here is written to GitHub: the next Sync uses it and the preview says what is skipped.</p>
+          <p className="muted">Start with the fields GitHub shows this connection: which Product Velocity field each one is linked to and in which direction. The defaults are what Sync does without any change; change what you need in the table of Product Velocity fields below and save. Nothing here is written to GitHub: the next Sync uses it and the preview says what is skipped.</p>
+          <h3>Fields GitHub shows this connection</h3>
+          <p className="muted">Organisation issue fields, the built-in issue fields, the linked boards&rsquo; fields, labels, issue types and milestones. Search, filter and sort each list.</p>
+          {catalog ? <FieldCatalogView catalogs={[catalog]} tracker="GitHub" id="github-catalog" contexts={{ [catalog.scope]: fieldContexts }} /> : <p role="alert" className="error">GitHub could not be read just now. Try again in a minute.</p>}
+          <h3>Product Velocity fields</h3>
           {githubProjects.length === 0 && <p className="muted">No project uses GitHub as its delivery tracker yet. Choose it under Projects above.</p>}
           {githubProjects.map((p) => (
-            <FieldMappingForm key={p.id} tracker="GitHub" projectId={p.id} projectName={p.name} action={saveGithubFieldConfig}
-              view={buildMappingView({ tracker: "github", board: parseBoard(p.github_board), rows: parseConfigRows(((configRows ?? []) as { project_id: string; slot: string; enabled: boolean; field_id: string | null }[]).filter((r) => r.project_id === p.id).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id })), "github") })} />
+            <FieldMappingForm key={p.id} tracker="GitHub" projectId={p.id} projectName={p.name} action={saveGithubFieldConfig} view={mappingOf(p)} />
           ))}
-          <h3>Fields GitHub shows this connection</h3>
-          <p className="muted">Organisation issue fields, the linked boards&rsquo; fields, labels, issue types and milestones.</p>
-          {catalog ? <FieldCatalogView catalogs={[catalog]} tracker="GitHub" id="github-catalog" /> : <p role="alert" className="error">GitHub could not be read just now. Try again in a minute.</p>}
         </div>
       )}
     </div>
