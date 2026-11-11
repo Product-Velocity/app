@@ -173,16 +173,17 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
                 >
                   <span className="cp-handle" aria-hidden="true">{coreCol ? "" : "⠿"}</span>
                   <span className="name">{f?.name ?? k}</span>
-                  {SORTABLE.has(k) && (
-                    <>
-                      {priority(k) > 0 && <span className="cp-sort-n muted" title={`Sort order ${priority(k)}`}>{priority(k)}</span>}
-                      <select className="cp-sort" aria-label={`Sort ${f?.name ?? k}`} value={sorts[k] ?? ""} onChange={(e) => setDir(k, e.target.value as Dir)}>
-                        <option value="">No sort</option>
-                        <option value="asc">↑ Asc</option>
-                        <option value="desc">↓ Desc</option>
-                      </select>
-                    </>
-                  )}
+                  {SORTABLE.has(k) && (() => {
+                    const dir = sorts[k] ?? "";
+                    const now = dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none";
+                    const next = dir === "" ? "ascending" : dir === "asc" ? "descending" : "none";
+                    return (
+                      <button type="button" className="icon-btn cp-sort" data-dir={dir || "none"} aria-label={`Sort ${f?.name ?? k}: ${now}, press for ${next}`} onClick={() => setDir(k, dir === "" ? "asc" : dir === "asc" ? "desc" : "")}>
+                        <span aria-hidden="true">{dir === "asc" ? "↑" : dir === "desc" ? "↓" : "⇅"}</span>
+                        {priority(k) > 0 && <span className="cp-sort-n" aria-hidden="true" title={`Sort order ${priority(k)}`}>{priority(k)}</span>}
+                      </button>
+                    );
+                  })()}
                   {!coreCol && (
                     <>
                       <button type="button" className="icon-btn" data-move="up" aria-label={`Move ${f?.name} up`} disabled={i <= 0 || isCore(columns[i - 1]!) || (!pinnedNow && prevPinned)} onClick={() => move(k, -1)}>▲</button>
