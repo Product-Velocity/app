@@ -125,7 +125,7 @@ export function FieldMappingForm({ tracker, projectId, projectName, view, action
         <p className="muted">Everything Product Velocity writes to {tracker} is named here. The defaults start with <code>pv:</code> and mention Product Velocity. Change them so nothing does. Labels already sent under another name are taken off the issue at the next Sync.</p>
         <div className="row-form">
           <label>Prefix for all labels <input type="text" name={PREFIX_ALL} placeholder="e.g. acme: (empty = no prefix)" maxLength={20} size={22} aria-label="Prefix for all labels; empty means no prefix" /></label>
-          <button className="btn" type="submit" name={APPLY} value="prefix" aria-label={`Apply the prefix to every label of ${projectName} and save`}>Apply to all labels and save</button>
+          <button className="btn" type="submit" name={APPLY} value="prefix" aria-label={`Apply to all labels and save, ${projectName}`}>Apply to all labels and save</button>
         </div>
         <table className="table" aria-labelledby={`names-${projectId}`}>
           <thead><tr><th scope="col">Name</th><th scope="col">Your setting</th><th scope="col">Default</th></tr></thead>
