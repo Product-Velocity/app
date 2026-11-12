@@ -398,6 +398,22 @@
       "h": 1200,
       "title": "33 My work, needs attention and time in phase",
       "expand": "fill"
+    },
+    "Lifecycle.dc.html": {
+      "x": 4680,
+      "y": 15000,
+      "w": 1700,
+      "h": 1560,
+      "title": "34 Lifecycle and gates (product)",
+      "expand": "fill"
+    },
+    "Lifecycle-site.dc.html": {
+      "x": 6500,
+      "y": 15000,
+      "w": 1440,
+      "h": 780,
+      "title": "35 Lifecycle (website version)",
+      "expand": "fill"
     }
   },
   "order": [
@@ -449,7 +465,9 @@
     "Admin-console.dc.html",
     "Onboarding.dc.html",
     "Notifications.dc.html",
-    "My-work.dc.html"
+    "My-work.dc.html",
+    "Lifecycle.dc.html",
+    "Lifecycle-site.dc.html"
   ],
   "notes": {},
   "designSystems": []
