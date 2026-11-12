@@ -23,6 +23,8 @@ export type OverflowItem = {
   node: ReactNode;
   /** The item inside the menu. */
   entry: OverflowEntry;
+  /** More entries that follow it in the menu (Export CSV, then Export Excel). */
+  more?: OverflowEntry[];
   /** Items with the higher rank move into the menu first. */
   rank: number;
   /** Never moves into the menu (the open tab). */
@@ -99,7 +101,9 @@ export function OverflowBar({ items, label, moreLabel = "More", className = "" }
           <Popover align="right" label={<><span aria-hidden="true">⋯</span><span className="visually-hidden">{moreLabel}</span>{dot && <span className="ov-dot" aria-hidden="true" />}</>} active={dot}>
             {(close) => (
               <div role="menu" aria-label={moreLabel}>
-                {out.map((i) =>
+                {out.flatMap((i) => [{ key: i.id, entry: i.entry }, ...(i.more ?? []).map((entry, n) => ({ key: `${i.id}:${n + 1}`, entry }))]).map(({ key, entry }) => {
+                  const i = { id: key, entry };
+                  return (
                   i.entry.href && !i.entry.disabled ? (
                     <Link key={i.id} href={i.entry.href} role="menuitem" className="scope-item" aria-current={i.entry.current ? "page" : undefined} title={i.entry.title} onClick={close}>{i.entry.label}</Link>
                   ) : (
@@ -108,8 +112,8 @@ export function OverflowBar({ items, label, moreLabel = "More", className = "" }
                       onClick={() => { close(); i.entry.onSelect?.(); }}>
                       {i.entry.label}
                     </button>
-                  ),
-                )}
+                  ));
+                })}
               </div>
             )}
           </Popover>
