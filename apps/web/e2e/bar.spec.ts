@@ -67,6 +67,18 @@ test.describe("the bar above the grid (0.30.0)", () => {
     expect((await dl).suggestedFilename()).toMatch(/^roadmap-selection-/);
   });
 
+  test("Export menu is not clipped by the bar, and the Excel file downloads", async ({ page }) => {
+    await open(page, "n=12&role=admin");
+    await page.getByRole("button", { name: "Export", exact: true }).click();
+    const item = page.getByRole("menuitem", { name: /Excel file \(12 rows/ });
+    // really on screen: the item is the element at its own centre (a clipped menu is covered by what is under it)
+    const b = (await item.boundingBox())!;
+    expect(await page.evaluate(([x, y]) => document.elementFromPoint(x!, y!)?.closest('[role="menuitem"]')?.textContent ?? "", [b.x + b.width / 2, b.y + b.height / 2])).toMatch(/Excel file/);
+    const dl = page.waitForEvent("download");
+    await item.click();
+    expect((await dl).suggestedFilename()).toMatch(/^roadmap-\d{4}-\d\d-\d\d\.xlsx$/);
+  });
+
   test("Sync with GitHub is on the bar (disabled when GitHub is not connected); the batch bar no longer has it", async ({ page }) => {
     await open(page);
     await select(page, "item-1");
