@@ -4,6 +4,7 @@ The version is shown at the bottom of the account menu ("app v0.30.0 · build ab
 
 | Version | Date | Key updates | PRs |
 |---|---|---|---|
+| 1.141.2 | 2026-11-12 | **GitHub App permissions documented correctly.** The setup notes now list Contents (read) and organisation Projects (read and write), which release tags and the Projects board link need. Without them the daily GitHub check logs permission errors and those values stay empty. | #429 |
 | 1.141.1 | 2026-11-12 | **Fewer wasted builds.** Changes that only touch docs, prototype boards, skills, spikes or GitHub workflow files no longer trigger a Vercel deployment, which keeps the free Function Storage allowance from filling up. Any change to the app, the database, dependencies or `docs/RELEASES.md` still builds. | #428 |
 | 1.141.0 | 2026-11-12 | **Export to Excel, and the Export menu works again.** The Export button on the grid did nothing visible because its menu was cut off; it now opens. You can pick CSV or a new Excel file (.xlsx) that keeps dates as dates, numbers as numbers, and adds a "Tracker issue" column with a clickable link to the GitHub issue or Jira ticket. The header row is frozen and filterable. | #427 |
 | 1.140.0 | 2026-11-11 | **Version number moves to 1.x.** At Ashu's request the app version goes from 0.140.0 to 1.140.0; the minor and patch numbers carry on from there, so the next feature is 1.141.0. Numbering is now `MAJOR.MINOR.PATCH` with a major of 1. Nothing changes in the app. | |
