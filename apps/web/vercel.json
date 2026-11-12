@@ -1,4 +1,5 @@
 {
+  "ignoreCommand": "bash ../../tools/vercel/ignore-build.sh",
   "regions": [
     "dub1"
   ],
