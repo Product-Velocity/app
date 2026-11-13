@@ -1,5 +1,6 @@
 "use client";
 
+import { PillLoader } from "@/components/pill-loader";
 import { useActionState, useState } from "react";
 import { SelectField } from "@/components/search-list";
 import { saveProjectGithub, setRepoAccess, startConnection, type FormState } from "./actions";
@@ -58,7 +59,7 @@ export function ProjectRow({ project, repos, canEdit }: { project: { id: string;
             <input type="hidden" name="default_repo" value={repo} />
             <input type="hidden" name="tracker" value={tracker} />
             <input type="hidden" name="who_breaks_down" value={who} />
-            <button className="btn" type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</button>
+            <button className="btn" type="submit" disabled={pending}>{pending ? <><PillLoader size={14} tone="blue" />Saving…</> : "Save"}</button>
             {state?.ok && <span role="status" className="muted"> {state.ok}</span>}
             {state?.error && <span role="alert" className="error"> {state.error}</span>}
           </form>
@@ -86,7 +87,7 @@ export function RepoRow({ repo, canEdit }: { repo: { id: string; full_name: stri
           <form action={action}>
             <input type="hidden" name="repo_id" value={repo.id} />
             <input type="hidden" name="access" value={access} />
-            <button className="btn" type="submit" disabled={pending || access === repo.access}>{pending ? "Saving…" : "Save"}</button>
+            <button className="btn" type="submit" disabled={pending || access === repo.access}>{pending ? <><PillLoader size={14} tone="blue" />Saving…</> : "Save"}</button>
             {state?.ok && <span role="status" className="muted"> {state.ok}</span>}
             {state?.error && <span role="alert" className="error"> {state.error}</span>}
           </form>

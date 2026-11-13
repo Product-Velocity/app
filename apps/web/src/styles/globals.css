@@ -892,9 +892,14 @@ a.scope-link:hover, a.scope-link:focus-visible { background: var(--blue-tint-2);
 .in-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; }
 .in-check input { width: auto; }
 .in-note { flex-basis: 100%; font-size: 12px; }
-.spin { animation: pv-spin .8s linear infinite; }
-@keyframes pv-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+/* Loading and sync: the Rank pill loader (brand guide 2026-11-13). The one looping animation in the product. */
+.pill-loader rect { opacity: .22; animation: pv-rank 1.5s ease-in-out infinite; animation-delay: calc(var(--i) * 90ms); }
+@keyframes pv-rank { 0%, 30%, 100% { opacity: .22; } 12% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .pill-loader rect { animation: none; opacity: 1; } }
+.pv-loading { display: inline-flex; align-items: center; gap: 8px; margin: 0; opacity: 0; animation: pv-loading-in 1ms linear 300ms forwards; }
+p.pv-loading { display: flex; }
+@keyframes pv-loading-in { to { opacity: 1; } }
+.btn .pill-loader, .btn-primary .pill-loader { margin-right: 2px; }
 
 /* Connect an AI assistant and Memory pages (docs/27) */
 .code-block { margin: 6px 0 10px; padding: 10px 12px; background: var(--surface-muted); border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: var(--font-mono); white-space: pre-wrap; overflow-x: auto; }

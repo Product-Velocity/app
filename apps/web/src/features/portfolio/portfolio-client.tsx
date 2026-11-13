@@ -1,5 +1,6 @@
 "use client";
 
+import { Loading } from "@/components/pill-loader";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { PortfolioController } from "./controller";
@@ -35,7 +36,7 @@ export function PortfolioClient({ tenantId, role, lookups, userId, headLeft, hea
   const gates = useMemo(() => new SupabaseGateSource(createClient(), tenantId), [tenantId]);
   const newItems = useMemo(() => [supabaseNewItems(tenantId, role), supabaseJiraNewItems(tenantId, role)], [tenantId, role]);
 
-  if (state.kind === "loading") return <><div className="page-head">{headLeft}</div><p role="status" className="muted">Loading the roadmap…</p></>;
+  if (state.kind === "loading") return <><div className="page-head">{headLeft}</div><Loading>Loading the roadmap…</Loading></>;
   if (state.kind === "error") {
     return (
       <>

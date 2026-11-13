@@ -1,4 +1,5 @@
 "use client";
+import { Loading } from "@/components/pill-loader";
 import { useEffect, useState } from "react";
 import { agreementText, decisionText, placeLabel, type CrowdRow, type RankDecision } from "@pv/domain";
 import type { PortfolioController } from "./controller";
@@ -26,7 +27,7 @@ export function AlignmentTab({ controller, itemId }: { controller: PortfolioCont
   }, [controller, itemId]);
 
   if (error) return <p role="alert" className="pf-error">Could not load the alignment results: {error}</p>;
-  if (!rows) return <p role="status" className="muted">Loading the alignment results…</p>;
+  if (!rows) return <Loading>Loading the alignment results…</Loading>;
   if (rows.length === 0) {
     return (
       <div className="ip-empty">

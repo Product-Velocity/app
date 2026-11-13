@@ -1,5 +1,6 @@
 "use client";
 
+import { Loading } from "@/components/pill-loader";
 import { useEffect, useMemo, useState } from "react";
 import { GATES, gateReport, gateTitle, type GateRequest } from "@pv/domain";
 import type { ReportEnv } from "./report-env";
@@ -28,7 +29,7 @@ export function GateHistoryReport({ env, load, onOpen }: { env: ReportEnv; load?
   const today = controller.todayDate().toISOString().slice(0, 10);
 
   if (failed) return <div role="alert" className="error">Could not load the gate history: {failed} <button type="button" className="link-button" onClick={() => setReload((n) => n + 1)}>Try again</button></div>;
-  if (!load || requests === null) return <p role="status" className="muted">{load ? "Loading the gate history…" : "The gate history is not available here."}</p>;
+  if (!load || requests === null) return load ? <Loading>Loading the gate history…</Loading> : <p role="status" className="muted">The gate history is not available here.</p>;
 
   return (
     <>
