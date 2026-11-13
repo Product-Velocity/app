@@ -1,6 +1,5 @@
 "use client";
 
-import { PillLoader } from "@/components/pill-loader";
 import { useActionState, useRef, useState } from "react";
 import { ROLES, ROLE_HELP, ROLE_LABEL, type Role } from "@/lib/roles";
 import { createInvitation, resendInvitation, type InviteState } from "./actions";
@@ -54,7 +53,7 @@ export function InviteForm({ workspaceName, emailEnabled }: { workspaceName: str
             </dl>
             <div className="row-form">
               {emailEnabled
-                ? <button className="btn btn-confirm" type="submit" name="delivery" value="email" disabled={pending}>{pending ? <><PillLoader size={14} tone="white" />Sending…</> : "Send invitation email"}</button>
+                ? <button className="btn btn-confirm" type="submit" name="delivery" value="email" disabled={pending}>{pending ? "Sending…" : "Send invitation email"}</button>
                 : <span className="muted">Email is not set up on this deployment yet, so the link has to be sent by you.</span>}
               <button className={emailEnabled ? "btn" : "btn btn-primary"} type="submit" name="delivery" value="link" disabled={pending}>Create link only</button>
               <button className="btn" type="button" onClick={() => setStep("edit")}>Back</button>
@@ -92,7 +91,7 @@ export function ResendControls({ id, emailEnabled }: { id: string; emailEnabled:
     <div className="stack">
       <form action={action} className="row-form">
         <input type="hidden" name="id" value={id} />
-        {emailEnabled && <button className="btn" type="submit" name="delivery" value="email" disabled={pending}>{pending ? <><PillLoader size={14} tone="blue" />Sending…</> : "Resend email"}</button>}
+        {emailEnabled && <button className="btn" type="submit" name="delivery" value="email" disabled={pending}>{pending ? "Sending…" : "Resend email"}</button>}
         <button className="btn" type="submit" name="delivery" value="link" disabled={pending} title="Makes a new link and stops the old one">New link</button>
       </form>
       {state?.error && <p role="alert" className="error">{state.error}</p>}

@@ -1,6 +1,5 @@
 "use client";
 
-import { Loading } from "@/components/pill-loader";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { attentionList, filterQueue, isPlaceholder, stageMissing, type GateId, type GateRequest } from "@pv/domain";
@@ -14,7 +13,7 @@ import type { Lookups } from "../portfolio/types";
 export function ForYouClient({ tenantId, role, userId, lookups }: { tenantId: string; role: string; userId: string; lookups: Lookups }) {
   const { state, retry } = useWorkspaceController(tenantId, role, lookups, userId);
   const gates = useMemo(() => new SupabaseGateSource(createClient(), tenantId), [tenantId]);
-  if (state.kind === "loading") return <><div className="page-head"><h1>For you</h1></div><Loading>Loading…</Loading></>;
+  if (state.kind === "loading") return <><div className="page-head"><h1>For you</h1></div><p role="status" className="muted">Loading…</p></>;
   if (state.kind === "error") return <div role="alert" className="error">Could not load the roadmap: {state.message} <button type="button" className="link-button" onClick={retry}>Try again</button></div>;
   return <ForYou controller={state.controller} me={userId} tenantId={tenantId} lookups={lookups} source={gates} />;
 }

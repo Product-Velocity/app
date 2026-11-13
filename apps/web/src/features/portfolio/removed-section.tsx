@@ -1,6 +1,5 @@
 "use client";
 
-import { Loading } from "@/components/pill-loader";
 import { useEffect, useId, useState } from "react";
 import type { RemovedApi, RemovedCard, RemovedResult } from "@/lib/github/push-types";
 
@@ -58,7 +57,7 @@ export function RemovedSection({ api, tracker = "jira", onBusy, onCount }: { api
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api]);
 
-  if (items === null) return <Loading>Checking removed initiatives…</Loading>;
+  if (items === null) return <p role="status" className="muted">Checking removed initiatives…</p>;
   if (items.length === 0 && !failed) return null;
 
   // the transition sent for a card: the one chosen, else the only one; several with no choice cannot be confirmed

@@ -1,6 +1,5 @@
 "use client";
 
-import { Loading } from "@/components/pill-loader";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -204,7 +203,7 @@ function WeeklyUpdatePanel({ controller, lookups, rows, moves, scopeKey, scopeLa
   };
   const sources = draft.sources.map((id) => controller.row(id)).filter((r): r is GridItem => !!r);
 
-  if (update === undefined && !error) return <section className="lead-section" aria-labelledby="lead-update"><h2 id="lead-update">Weekly update</h2><Loading>Loading…</Loading></section>;
+  if (update === undefined && !error) return <section className="lead-section" aria-labelledby="lead-update"><h2 id="lead-update">Weekly update</h2><p role="status" className="muted">Loading…</p></section>;
 
   return (
     <section className="lead-section lead-update" aria-labelledby="lead-update" data-testid="weekly-update">

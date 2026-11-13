@@ -1,6 +1,5 @@
 "use client";
 
-import { Loading } from "@/components/pill-loader";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { nearDuplicates } from "@pv/domain";
 import type { GroupsStore, GroupUsage, MergeReceipt } from "./store";
@@ -35,7 +34,7 @@ export function GroupsAdmin({ store, canAdmin }: { store: GroupsStore; canAdmin:
   }, [groups]);
 
   if (error && !groups) return <p role="alert" className="error">{error}</p>;
-  if (!groups) return <Loading>Loading the groups…</Loading>;
+  if (!groups) return <p role="status" className="muted">Loading the groups…</p>;
 
   return (
     <div className="stack">

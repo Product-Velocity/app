@@ -1,6 +1,5 @@
 "use client";
 
-import { PillLoader } from "@/components/pill-loader";
 import { useActionState, useState } from "react";
 import { SelectField } from "@/components/search-list";
 import { DATE_FORMATS, LANGUAGES, type Profile } from "@/lib/account";
@@ -29,7 +28,7 @@ export function ProfileForm({ profile, zones }: { profile: Profile; zones: strin
       <input type="hidden" name="language" value={language} />
       <input type="hidden" name="time_zone" value={timeZone} />
       <input type="hidden" name="date_format" value={dateFormat} />
-      <div><button className="btn btn-primary" type="submit" disabled={pending}>{pending ? <><PillLoader size={14} tone="white" />Saving…</> : "Save profile"}</button></div>
+      <div><button className="btn btn-primary" type="submit" disabled={pending}>{pending ? "Saving…" : "Save profile"}</button></div>
       <Message state={state} />
     </form>
   );
@@ -43,7 +42,7 @@ export function EmailForm({ email, hasPassword }: { email: string; hasPassword: 
       <label>New email<input name="email" type="email" required autoComplete="email" /></label>
       {hasPassword && <label>Current password<input name="current_password" type="password" required autoComplete="current-password" /></label>}
       {!hasPassword && <p className="muted">You sign in with Google or GitHub, so there is no password to ask for. This works within 15 minutes of signing in.</p>}
-      <div><button className="btn" type="submit" disabled={pending}>{pending ? <><PillLoader size={14} tone="blue" />Sending…</> : "Change email"}</button></div>
+      <div><button className="btn" type="submit" disabled={pending}>{pending ? "Sending…" : "Change email"}</button></div>
       <Message state={state} />
     </form>
   );
@@ -56,7 +55,7 @@ export function PasswordForm({ hasPassword }: { hasPassword: boolean }) {
       {hasPassword && <label>Current password<input name="current_password" type="password" required autoComplete="current-password" /></label>}
       <label>{hasPassword ? "New password" : "Set a password"}<input name="new_password" type="password" required minLength={10} autoComplete="new-password" /></label>
       <p className="muted">At least 10 characters, mixing letters with digits or symbols, and not a common password.</p>
-      <div><button className="btn" type="submit" disabled={pending}>{pending ? <><PillLoader size={14} tone="blue" />Saving…</> : hasPassword ? "Change password" : "Set password"}</button></div>
+      <div><button className="btn" type="submit" disabled={pending}>{pending ? "Saving…" : hasPassword ? "Change password" : "Set password"}</button></div>
       <Message state={state} />
     </form>
   );
@@ -69,7 +68,7 @@ export function GithubUsernameForm({ current, workspace }: { current: string; wo
       <label>GitHub username in {workspace}<input name="github_username" defaultValue={current} maxLength={40} autoComplete="off" spellCheck={false} placeholder="for example ana-gh" /></label>
       <p className="hint">Used to match you with the people assigned on GitHub issues. Anyone in this workspace can see it. Leave it empty to stop matching.</p>
       <Message state={state} />
-      <button className="btn" type="submit" disabled={pending}>{pending ? <><PillLoader size={14} tone="blue" />Saving…</> : "Save"}</button>
+      <button className="btn" type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</button>
     </form>
   );
 }
@@ -105,7 +104,7 @@ export function LinkedEmails({ emails }: { emails: LinkedEmail[] }) {
       </ul>
       <form action={startAction} className="row-form">
         <label>Add an address<input name="email" type="email" required maxLength={254} autoComplete="off" /></label>
-        <button className="btn" type="submit" disabled={starting}>{starting ? <><PillLoader size={14} tone="blue" />Sending…</> : "Send code"}</button>
+        <button className="btn" type="submit" disabled={starting}>{starting ? "Sending…" : "Send code"}</button>
       </form>
       <Message state={start} />
       {(pending.length > 0 || start?.ok) && (
@@ -116,7 +115,7 @@ export function LinkedEmails({ emails }: { emails: LinkedEmail[] }) {
             </select>
           </label>
           <label>6-digit code<input name="code" inputMode="numeric" pattern="[0-9 ]{6,7}" required maxLength={7} autoComplete="one-time-code" /></label>
-          <button className="btn btn-primary" type="submit" disabled={verifying}>{verifying ? <><PillLoader size={14} tone="white" />Checking…</> : "Verify"}</button>
+          <button className="btn btn-primary" type="submit" disabled={verifying}>{verifying ? "Checking…" : "Verify"}</button>
         </form>
       )}
       <Message state={verify} />

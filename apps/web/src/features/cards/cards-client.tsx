@@ -1,6 +1,5 @@
 "use client";
 
-import { Loading } from "@/components/pill-loader";
 import { useWorkspaceController } from "../portfolio/portfolio-client";
 import type { Lookups } from "../portfolio/types";
 import { CardsView } from "./cards-view";
@@ -15,7 +14,7 @@ export function CardsClient({ tenantId, role, userId, lookups }: { tenantId: str
   const { state, retry } = useWorkspaceController(tenantId, role, lookups);
   const phone = useIsPhone();
   const gates = useMemo(() => new SupabaseGateSource(createClient(), tenantId), [tenantId]);
-  if (state.kind === "loading") return <><div className="page-head"><h1>Cards</h1></div><Loading>Loading the roadmap…</Loading></>;
+  if (state.kind === "loading") return <><div className="page-head"><h1>Cards</h1></div><p role="status" className="muted">Loading the roadmap…</p></>;
   if (state.kind === "error") {
     return <div role="alert" className="error">Could not load the roadmap: {state.message} <button type="button" className="link-button" onClick={retry}>Try again</button></div>;
   }
