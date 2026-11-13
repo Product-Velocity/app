@@ -1,6 +1,5 @@
 "use client";
 
-import { Loading } from "@/components/pill-loader";
 import { useEffect, useId, useMemo, useState } from "react";
 import { GITHUB_TERMS, RULE_LABEL, type IncomingTerms, type BatchOutcome, type IncomingIssue, type IncomingRule, type IncomingSource, type Ownership, type PullState } from "./types";
 
@@ -199,7 +198,7 @@ export function IncomingView({ source, projects, canEdit, canAdmin, now: nowProp
   const removeRule = async (rid: string) => { const r = await source.removeRule(rid); if (!r.ok) setError(r.error); await reload(); };
 
   if (error && !issues) return <><div className="page-head"><h1>Incoming</h1></div><div role="alert" className="error">{error}</div></>;
-  if (!issues) return <><div className="page-head"><h1>Incoming</h1></div><Loading>Loading the incoming issues…</Loading></>;
+  if (!issues) return <><div className="page-head"><h1>Incoming</h1></div><p role="status" className="muted">Loading the incoming issues…</p></>;
 
   return (
     <>

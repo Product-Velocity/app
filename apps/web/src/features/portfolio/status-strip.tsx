@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { PortfolioController } from "./controller";
-import { PillLoader } from "@/components/pill-loader";
 
 function ago(at: number, now: number) {
   const s = Math.max(0, Math.round((now - at) / 1000));
@@ -39,7 +38,7 @@ export function StatusStrip({ controller, tools }: { controller: PortfolioContro
         {!controller.canEdit ? (
           <span className="strip-note">View-only: you can look but not change the roadmap.</span>
         ) : saving ? (
-          <span className="strip-saving" role="status" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><PillLoader size={14} />Saving…</span>
+          <span className="strip-saving" role="status">Saving…</span>
         ) : status.error ? (
           <span className="strip-error">✖ Not all changes could be saved</span>
         ) : (
@@ -90,7 +89,7 @@ export function StatusInline({ controller }: { controller: PortfolioController }
       {!controller.canEdit ? (
         <span className="pvbar-status strip-note">View-only</span>
       ) : status.pending > 0 ? (
-        <span className="pvbar-status strip-saving" role="status" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><PillLoader size={14} />Saving…</span>
+        <span className="pvbar-status strip-saving" role="status">Saving…</span>
       ) : status.error ? (
         <span className="pvbar-status strip-error">✖ Not all saved</span>
       ) : (
@@ -107,7 +106,7 @@ export function StatusInline({ controller }: { controller: PortfolioController }
         </>
       )}
       <button type="button" className="btn pvbar-undo" aria-label="Refresh data" title="Refresh data: read the roadmap again" disabled={refresh === "running" || status.pending > 0} onClick={() => void reload()}>
-        {refresh === "running" ? <PillLoader size={14} /> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></svg>}
+        <svg className={refresh === "running" ? "spin" : undefined} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></svg>
       </button>
       <span className="visually-hidden" role="status">{refresh === "running" ? "Refreshing data…" : refresh === "done" ? "Data refreshed." : ""}</span>
     </>

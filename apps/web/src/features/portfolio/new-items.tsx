@@ -1,6 +1,5 @@
 "use client";
 
-import { Loading } from "@/components/pill-loader";
 import { leavingChildrenOut } from "@/lib/atlassian/child-filter";
 import { useEffect, useState } from "react";
 import { refreshJiraNewItems, refreshNewItems } from "@/app/(workspace)/portfolio/new-items";
@@ -111,7 +110,7 @@ export function NewItemsStep({ config, onContinue, onCancel, onChanged }: { conf
     return () => { live = false; };
   }, [config, onContinue]);
 
-  if (!shown) return <Loading>Checking {config.name} for new issues…</Loading>;
+  if (!shown) return <p role="status" className="muted">Checking {config.name} for new issues…</p>;
   return (
     <>
       {notice && <p role="alert" className="error">{notice}</p>}

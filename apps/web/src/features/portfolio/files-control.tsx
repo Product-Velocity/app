@@ -1,6 +1,5 @@
 "use client";
 
-import { Loading } from "@/components/pill-loader";
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import { formatBytes, MAX_FILES_PER_ITEM } from "@pv/domain";
 import { NameEdit, RowIcon, RowMenu, ShareChip } from "./attachment-ui";
@@ -107,7 +106,7 @@ export const FilesControl = forwardRef<FilesHandle, { itemId: string; disabled: 
     try { await navigator.clipboard.writeText(f.shareUrl); setCopied(f.id); setTimeout(() => setCopied(null), 2000); } catch { onError("Your browser did not allow copying. Open the file and copy its address instead."); }
   };
 
-  if (!files) return <Loading inline>Loading…</Loading>;
+  if (!files) return <span className="muted" role="status">Loading…</span>;
   const q = query.trim().toLowerCase();
   const shown = q ? files.filter((f) => f.name.toLowerCase().includes(q)) : files;
   const images = shown.filter((f) => f.mime?.startsWith("image/"));

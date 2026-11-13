@@ -1,6 +1,5 @@
 "use client";
 
-import { Loading } from "@/components/pill-loader";
 import { useEffect, useMemo, useState } from "react";
 import { MarkdownPreview } from "../portfolio/markdown-preview";
 import type { DocView } from "@/lib/documents";
@@ -45,7 +44,7 @@ export function DocReader({ itemId, preferKind }: { itemId: string; preferKind: 
   const isOpen = (i: number) => override[`${openId}:${i}`] ?? sections[i]!.open;
 
   if (error) return <p role="alert" className="pf-error">{error}</p>;
-  if (!docs) return <Loading>Loading the document…</Loading>;
+  if (!docs) return <p role="status" className="muted">Loading the document…</p>;
   if (docs.length === 0) return <p className="muted">No document yet.</p>;
   const jump = (i: number) => { setOverride((c) => ({ ...c, [`${openId}:${i}`]: true })); requestAnimationFrame(() => document.getElementById(`doc-sec-${i}`)?.scrollIntoView({ block: "start" })); };
 
@@ -59,7 +58,7 @@ export function DocReader({ itemId, preferKind }: { itemId: string; preferKind: 
         </label>
       )}
       {doc && <p className="muted">{doc.title} · version {doc.version} · {STATUS[doc.status] ?? doc.status}{doc.aiDraft ? " · AI draft, not yet accepted by a person" : ""}</p>}
-      {body === null ? <Loading>Loading the document…</Loading> : (
+      {body === null ? <p role="status" className="muted">Loading the document…</p> : (
         <>
           {sections.filter((s) => s.title).length > 2 && (
             <label className="doc-pick">Jump to

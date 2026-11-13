@@ -4,7 +4,7 @@
  * Drawn from the guide's 256-unit grid: tile corner radius 50, pills 23.5 × 33 with full radius. Never stretch, recolour or change the pill count.
  * The name is live text (IBM Plex Sans semibold, ink), never part of the image.
  */
-export const PILLS: ReadonlyArray<readonly [number, number]> = [
+const PILLS: ReadonlyArray<readonly [number, number]> = [
   [45.5, 30.9], [45.5, 71.3], [45.5, 111.7], [45.5, 152.1], [45.5, 192.5],
   [81.2, 51.1], [81.2, 91.5], [81.2, 131.9], [81.2, 172.3],
   [116.8, 71.3], [116.8, 111.7], [116.8, 152.1],

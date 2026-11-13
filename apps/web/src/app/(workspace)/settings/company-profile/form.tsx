@@ -1,6 +1,5 @@
 "use client";
 
-import { PillLoader } from "@/components/pill-loader";
 import { useActionState } from "react";
 import { PROFILE_SECTIONS } from "@pv/domain";
 import { saveProfile, setProfileStatus, type ProfileState } from "./actions";
@@ -21,7 +20,7 @@ export function ProfileForm({ sections, version, canEdit, status }: { sections: 
         ))}
         {state?.error && <p role="alert" className="error">{state.error}</p>}
         {state?.saved && <p role="status" className="notice">{state.saved}</p>}
-        {canEdit && <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? <><PillLoader size={14} tone="white" />Saving…</> : "Save profile"}</button>}
+        {canEdit && <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? "Saving…" : "Save profile"}</button>}
       </form>
       {canEdit && status !== "none" && (
         <form action={confirm} className="stack" style={{ marginTop: 16 }}>

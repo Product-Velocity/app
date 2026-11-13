@@ -1,6 +1,5 @@
 "use client";
 
-import { Loading } from "@/components/pill-loader";
 import { GateStrip } from "../gates/gate-strip";
 import type { GateSource } from "../gates/gate-source";
 import { syncLabel, syncPlatforms, syncTitle } from "./sync-label";
@@ -344,7 +343,7 @@ function JiraTab({ controller, lookups, itemId }: { controller: PortfolioControl
       <h4>Issues under {link.issueKey}</h4>
       {total != null && <p>{closed} of {total} {total === 1 ? "issue" : "issues"} done (counted at the lowest level; a done issue means the build is progressing, not that the initiative is complete).</p>}
       {kidsError && <p role="alert" className="pf-error">Could not load the issues: {kidsError}</p>}
-      {!kidsError && !kids && <Loading>Loading the issues…</Loading>}
+      {!kidsError && !kids && <p role="status" className="muted">Loading the issues…</p>}
       {kids && kids.some((k) => k.fromList) && <p className="muted">These issues come from the last list read of the Jira project. The full read of the children of this issue did not complete; press Sync with Jira to try again. Assignees are not shown until it does.</p>}
       {kids && (
         <table className="table ip-gh" aria-label={`Issues under ${link.issueKey}`}>
@@ -413,7 +412,7 @@ function GithubTab({ controller, lookups, itemId }: { controller: PortfolioContr
     );
   }
   if (error) return <p role="alert" className="pf-error">Could not load the issues: {error}</p>;
-  if (!rows) return <Loading>Loading the issues…</Loading>;
+  if (!rows) return <p role="status" className="muted">Loading the issues…</p>;
   const mode = chosen?.itemId === itemId ? chosen.mode : link.mode;
   const epics = rows.filter((r) => r.level === 1);
   const tasksOf = (e: IssueTreeRow) => rows.filter((r) => r.level === 2 && r.parentNumber === e.number);
@@ -495,7 +494,7 @@ function ActivityTab({ controller, lookups, itemId, me }: { controller: Portfoli
     return f ? formatField(f, v, { today: controller.todayDate(), members: lookups.members, projects: lookups.projects }) || String(v) : String(v);
   };
   if (error) return <p role="alert" className="pf-error">Could not load the activity: {error}</p>;
-  if (!rows) return <Loading>Loading the activity…</Loading>;
+  if (!rows) return <p role="status" className="muted">Loading the activity…</p>;
   return (
     <div className="ip-activity">
       <h3>Activity</h3>
