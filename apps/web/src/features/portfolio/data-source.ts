@@ -51,6 +51,8 @@ export interface PortfolioDataSource {
   loadIssueTree(itemId: string): Promise<IssueTreeRow[]>;
   /** The children and sub-tasks of the Jira issue the initiative is linked to (empty until the first read, or before the database has the table). */
   loadJiraTree(itemId: string): Promise<JiraTreeRow[]>;
+  /** The first-level children (level 1) under each given initiative's tracker issue, for the Excel report. Read only; an initiative with none is absent. */
+  loadChildrenBulk(itemIds: string[]): Promise<{ jira: Record<string, JiraTreeRow[]>; github: Record<string, IssueTreeRow[]> }>;
   /** Marks the breakdown complete (freezes Planned Scope). Returns the item fields it changed. */
   completeBreakdown(itemId: string): Promise<{ ok: true; values: Record<string, unknown> } | { ok: false; error: string }>;
   /** Who owns a linked initiative: "push" = Product Velocity (sends after a preview and a confirmation), "follow" = read only. Writes nothing to the tracker. Returns the mode before. */

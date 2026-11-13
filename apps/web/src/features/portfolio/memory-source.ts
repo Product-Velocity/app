@@ -101,6 +101,17 @@ export class MemoryDataSource implements PortfolioDataSource {
   jiraTrees = new Map<string, JiraTreeRow[]>();
   async loadJiraTree(itemId: string): Promise<JiraTreeRow[]> { await this.pause(); return (this.jiraTrees.get(itemId) ?? []).map((r) => ({ ...r })); }
   async loadIssueTree(itemId: string): Promise<IssueTreeRow[]> { await this.pause(); return (this.trees.get(itemId) ?? []).map((r) => ({ ...r })); }
+  async loadChildrenBulk(itemIds: string[]) {
+    await this.pause();
+    const jira: Record<string, JiraTreeRow[]> = {}, github: Record<string, IssueTreeRow[]> = {};
+    for (const id of itemIds) {
+      const j = (this.jiraTrees.get(id) ?? []).filter((r) => r.level === 1);
+      const g = (this.trees.get(id) ?? []).filter((r) => r.level === 1);
+      if (j.length) jira[id] = j.map((r) => ({ ...r }));
+      if (g.length) github[id] = g.map((r) => ({ ...r }));
+    }
+    return { jira, github };
+  }
   /** Who owns each linked item in the test page (default: read only). */
   linkModes = new Map<string, "push" | "follow">();
   async setLinkMode(itemId: string, mode: "push" | "follow", _tracker?: "github" | "jira"): Promise<{ ok: true; before: "push" | "follow" } | { ok: false; error: string }> {
