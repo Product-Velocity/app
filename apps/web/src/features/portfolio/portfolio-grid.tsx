@@ -25,6 +25,7 @@ import { GroupMenu, summarize } from "./view-controls";
 import { baseToRef, useViews, ViewBar } from "./view-bar";
 import { downloadCsv, selectionToCsv } from "./export-selection";
 import { downloadBlob, selectionToXlsx } from "./export-xlsx";
+import { selectionToXlsxWithChildren } from "./export-xlsx-children";
 import { BulkBar } from "./bulk-bar";
 import { DeleteDialog } from "./delete-dialog";
 import { GithubPushDialog } from "./github-push-dialog";
@@ -501,6 +502,14 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       .then((blob) => downloadBlob(exportName("xlsx"), blob))
       .catch(() => window.alert("The Excel file could not be made. Try the CSV file, or reload and try again."));
   };
+  /** Roadmap with epics: each initiative with its linked tracker issues as collapsible rows beneath it. */
+  const exportXlsxEpics = () => {
+    const rows = rowsToExport();
+    controller.childrenOf(rows.map((r) => r.id))
+      .then((children) => selectionToXlsxWithChildren(rows, exportFields, lookups, children, "Roadmap with epics"))
+      .then((blob) => downloadBlob(exportName("xlsx").replace("roadmap", "roadmap-with-epics"), blob))
+      .catch(() => window.alert("The Excel file with epics could not be made. Try the plain Excel file, or reload and try again."));
+  };
   const exportCount = selected.length > 0 ? selected.length : visibleRows.length;
   const syncIds = selected.length > 0 ? selected.map((r) => r.id) : visibleRows.map((r) => r.id);
   const shownCount = VISIBLE_FIELDS.filter((f) => visible.has(f.key) || (CORE_COLUMN_KEYS as readonly string[]).includes(f.key)).length;
@@ -521,6 +530,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     if (controller.canEdit && lookups.projects.length > 0) out.push({ id: "import", label: "Import from spreadsheet", group: "Actions", keywords: "paste excel csv", run: () => setImportText("") });
     out.push({ id: "export", label: "Export shown rows to file", group: "Actions", keywords: "csv download", run: exportCsv });
     out.push({ id: "export-xlsx", label: "Export shown rows to Excel file", group: "Actions", keywords: "xlsx excel download", run: exportXlsx });
+    out.push({ id: "export-xlsx-epics", label: "Export Roadmap with epics (Excel file)", group: "Actions", keywords: "xlsx excel download epics children tracker jira github report", run: exportXlsxEpics });
     if (controller.canEdit && selected.length > 0) out.push({ id: "delete", label: `Delete ${selected.length} selected ${selected.length === 1 ? "initiative" : "initiatives"}`, group: "Actions", keywords: "remove trash", hint: "Del", run: () => setDeleteIds(selected.map((r) => r.id)) });
     if (controller.canSeeTrash) out.push({ id: "go:trash", label: "Open Trash", group: "Go to", keywords: "deleted restore", run: () => router.push("/trash") });
     if (controller.canEdit) {
@@ -627,13 +637,19 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
                       <button type="button" role="menuitem" className="scope-item" onClick={() => { close(); exportXlsx(); }}>
                         <span>Excel file ({exportCount.toLocaleString("en-GB")} {exportCount === 1 ? "row" : "rows"}{selected.length > 0 ? ", the selected ones" : filtered ? ", with the filters" : ""}): dates, numbers and ticket links kept</span>
                       </button>
+                      <button type="button" role="menuitem" className="scope-item" onClick={() => { close(); exportXlsxEpics(); }}>
+                        <span>Roadmap with epics, Excel file: each initiative with its linked Jira or GitHub issues beneath it</span>
+                      </button>
                       <p className="scope-empty">The columns you see. CSV is plain text; Excel keeps formatting.</p>
                     </div>
                   )}
                 </Popover>
               ),
               entry: { label: `Export CSV (${exportCount.toLocaleString("en-GB")} ${exportCount === 1 ? "row" : "rows"})`, onSelect: exportCsv, title: "The columns you see" },
-              more: [{ label: `Export Excel (${exportCount.toLocaleString("en-GB")} ${exportCount === 1 ? "row" : "rows"})`, onSelect: exportXlsx, title: "The columns you see, with dates, numbers and ticket links kept" }],
+              more: [
+                { label: `Export Excel (${exportCount.toLocaleString("en-GB")} ${exportCount === 1 ? "row" : "rows"})`, onSelect: exportXlsx, title: "The columns you see, with dates, numbers and ticket links kept" },
+                { label: "Export Roadmap with epics (Excel)", onSelect: exportXlsxEpics, title: "Each initiative with its linked Jira or GitHub issues beneath it, collapsible" },
+              ],
             });
             if (controller.canEdit && lookups.projects.length > 0) {
               items.push({

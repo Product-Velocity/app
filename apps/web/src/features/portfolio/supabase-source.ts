@@ -343,6 +343,29 @@ export class SupabaseDataSource implements PortfolioDataSource {
     }));
   }
 
+  /** Level-1 children of many initiatives at once (Jira tree and GitHub tree), in small id chunks so no read reaches the row limit. A missing table reads as empty, like loadJiraTree. */
+  async loadChildrenBulk(itemIds: string[]) {
+    const jira: Record<string, JiraTreeRow[]> = {}, github: Record<string, IssueTreeRow[]> = {};
+    for (let i = 0; i < itemIds.length; i += 40) {
+      const ids = itemIds.slice(i, i + 40);
+      const j = await this.client.from("item_jira_tree").select("item_id, issue_key, parent_key, level, position, title, issue_type, status, status_category, assignee, html_url, jira_updated_at")
+        .eq("tenant_id", this.tenantId).in("item_id", ids).eq("level", 1).order("position").limit(5000);
+      if (j.error) { if (!/item_jira_tree|42P01|PGRST205/.test(`${j.error.code ?? ""} ${j.error.message}`)) throw new Error(friendlyError(j.error)); }
+      for (const r of (j.data ?? []) as { item_id: string; issue_key: string; parent_key: string; position: number; title: string; issue_type: string | null; status: string | null; status_category: string | null; assignee: string | null; html_url: string | null; jira_updated_at: string | null }[]) {
+        (jira[r.item_id] ??= []).push({ key: r.issue_key, parentKey: r.parent_key, level: 1, position: r.position, title: r.title, type: r.issue_type, status: r.status,
+          category: r.status_category === "new" || r.status_category === "indeterminate" || r.status_category === "done" ? r.status_category : null, assignee: r.assignee, url: r.html_url, updatedAt: r.jira_updated_at });
+      }
+      const g = await this.client.from("item_issue_tree").select("item_id, repo_full_name, issue_number, parent_number, level, title, state, state_reason, assignees, created_by, updated_at")
+        .eq("tenant_id", this.tenantId).in("item_id", ids).eq("level", 1).order("issue_number").limit(5000);
+      if (g.error) throw new Error(friendlyError(g.error));
+      for (const r of (g.data ?? []) as { item_id: string; repo_full_name: string; issue_number: number; parent_number: number | null; title: string; state: string; state_reason: string | null; assignees: string[] | null; created_by: string; updated_at: string }[]) {
+        (github[r.item_id] ??= []).push({ repo: r.repo_full_name, number: r.issue_number, parentNumber: r.parent_number, level: 1, title: r.title, state: r.state === "closed" ? "closed" : "open", stateReason: r.state_reason, assignees: r.assignees ?? [],
+          createdBy: r.created_by === "app" || r.created_by === "claude" ? r.created_by : "engineer", updatedAt: r.updated_at });
+      }
+    }
+    return { jira, github };
+  }
+
   /** No tree was written for this initiative (the full read failed or has not run): show the children already held as light issue records. Never throws: the tab still works. */
   private async loadJiraTreeFromList(itemId: string): Promise<JiraTreeRow[]> {
     try {

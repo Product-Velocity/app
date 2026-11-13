@@ -567,6 +567,8 @@ export class PortfolioController {
   }
   issueTree(itemId: string): Promise<IssueTreeRow[]> { return this.source.loadIssueTree(itemId); }
   jiraTree(itemId: string): Promise<JiraTreeRow[]> { return this.source.loadJiraTree(itemId); }
+  /** The first-level tracker children of these initiatives, for the Excel report with linked issues. */
+  childrenOf(itemIds: string[]) { return this.source.loadChildrenBulk(itemIds); }
   /** "Mark breakdown complete": the database freezes Planned Scope; the row shows the new values at once. */
   async completeBreakdown(itemId: string): Promise<SaveResult> {
     if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
