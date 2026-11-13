@@ -1,5 +1,6 @@
 "use client";
 
+import { Loading } from "@/components/pill-loader";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -76,7 +77,7 @@ export function PhoneDecisions({ source, me, mayDecide = true, tenantId }: { sou
         ))}
       </div>
       {error && <p role="alert" className="error">{error}</p>}
-      {requests === null ? <p role="status" className="muted">Loading…</p> : rows.length === 0 ? (
+      {requests === null ? <Loading>Loading…</Loading> : rows.length === 0 ? (
         <p className="muted" role="status">{filter === "can-decide" ? "Nothing needs your decision." : filter === "waiting" ? "No gate requests are waiting." : filter === "decided" ? "No decisions yet." : "You have not requested a gate."}</p>
       ) : (
         <ul className="phone-cards">

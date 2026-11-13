@@ -1,5 +1,6 @@
 "use client";
 
+import { PillLoader } from "@/components/pill-loader";
 import { useState, useTransition } from "react";
 import { SelectField } from "@/components/search-list";
 import type { Board } from "@pv/github";
@@ -134,7 +135,7 @@ function BoardRow({ project, canEdit }: { project: ProjectBoard; canEdit: boolea
             </>
           )}
           <div>
-            <button type="button" className="btn btn-primary" onClick={save} disabled={pending || !boardId || !fields}>{pending ? "Saving…" : "Save board link"}</button>
+            <button type="button" className="btn btn-primary" onClick={save} disabled={pending || !boardId || !fields}>{pending ? <><PillLoader size={14} tone="white" />Saving…</> : "Save board link"}</button>
             <button type="button" className="btn" onClick={() => { setEditing(false); setMessage(null); }}> Cancel</button>
           </div>
         </div>

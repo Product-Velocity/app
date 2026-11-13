@@ -1,5 +1,6 @@
 "use client";
 
+import { PillLoader } from "@/components/pill-loader";
 import { useActionState, useState } from "react";
 import { METHODS, groupsToText, type Group } from "@/lib/alignment";
 import { saveSettings, type FormState } from "../actions";
@@ -60,7 +61,7 @@ export function SettingsForm({ session, locked }: { session: Session; locked: bo
         <label className="check"><input type="checkbox" name="show_results" defaultChecked={session.showResults} /> Participants may see the anonymous results after the session closes</label>
         <label>Keep personal data for (months after closing)<input name="retention" type="number" min={1} max={120} defaultValue={session.retention} /></label>
       </fieldset>
-      {!locked && <div><button className="btn btn-primary" type="submit" disabled={pending}>{pending ? "Saving…" : "Save settings"}</button></div>}
+      {!locked && <div><button className="btn btn-primary" type="submit" disabled={pending}>{pending ? <><PillLoader size={14} tone="white" />Saving…</> : "Save settings"}</button></div>}
       {state?.ok && <p role="status" className="success">{state.ok}</p>}
       {state?.error && <p role="alert" className="error">{state.error}</p>}
     </form>

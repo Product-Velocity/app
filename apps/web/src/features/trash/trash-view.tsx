@@ -1,5 +1,6 @@
 "use client";
 
+import { Loading } from "@/components/pill-loader";
 import { useEffect, useId, useState } from "react";
 import { canPurge, canSeeTrash, daysLeftInTrash, TRASH_DAYS } from "@pv/domain";
 import type { PortfolioDataSource } from "../portfolio/data-source";
@@ -64,7 +65,7 @@ export function TrashView({ source, lookups, role, now: nowProp }: Props) {
       <p className="muted">Deleted initiatives stay here for {TRASH_DAYS} days, then they are deleted for good. Restoring puts an initiative back at its old rank. Item codes are never reused.</p>
       {error && <div role="alert" className="error">{error}</div>}
       <p role="status" className="trash-status">{message}</p>
-      {items === null && !error && <p role="status" className="muted">Loading the Trash…</p>}
+      {items === null && !error && <Loading>Loading the Trash…</Loading>}
       {items !== null && list.length === 0 && <p>The Trash is empty.</p>}
       {list.length > 0 && (
         <>

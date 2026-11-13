@@ -1,5 +1,6 @@
 "use client";
 
+import { Loading } from "@/components/pill-loader";
 import { DateInput } from "@/components/date-input";
 import { SelectField } from "@/components/search-list";
 import { useEffect, useId, useState, type ReactNode } from "react";
@@ -244,7 +245,7 @@ function useRelated(ctx: FieldCtx, itemId: string) {
 
 function ListControl({ f, row, ctx, disabled, onError, kind }: Common & { kind: "tags" | "links" | "relations" | "teams" | "people" }) {
   const related = useRelated(ctx, row.id);
-  if (!related) return <span className="muted" role="status">Loading…</span>;
+  if (!related) return <Loading inline>Loading…</Loading>;
   const field = f.key as RelatedField;
   const set = (list: unknown[]) => { const r = ctx.controller.editRelated(row.id, field, list); onError(r.ok ? null : r.error); return r.ok; };
   const list = related[field] as unknown[];

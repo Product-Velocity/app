@@ -1,5 +1,6 @@
 "use client";
 
+import { PillLoader } from "@/components/pill-loader";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   GATES, GATE_IDS, OUTCOMES, checklistReady, gateChecklist, gateOfPhase, gateTitle, movablePhases, moveNeedsGate, outcomeLabel, requestableGates, splitForRequest, targetPhases,
@@ -219,7 +220,7 @@ export function DecideDialog({ source, rows, initialOutcome, onClose, onDone }: 
           {error && <p role="alert" className="error">{error}</p>}
           <div className="dialog-actions">
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button type="button" className={outcome === "go" ? "btn btn-confirm" : outcome === "stop" ? "btn btn-danger" : "btn btn-primary"} disabled={busy || !ok} onClick={() => void submit()}>{busy ? "Saving…" : `${outcomeLabel(outcome)} for ${rows.length}`}</button>
+            <button type="button" className={outcome === "go" ? "btn btn-confirm" : outcome === "stop" ? "btn btn-danger" : "btn btn-primary"} disabled={busy || !ok} onClick={() => void submit()}>{busy ? <><PillLoader size={14} tone="white" />Saving…</> : `${outcomeLabel(outcome)} for ${rows.length}`}</button>
           </div>
         </>
       )}

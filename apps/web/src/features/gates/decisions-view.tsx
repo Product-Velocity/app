@@ -1,5 +1,6 @@
 "use client";
 
+import { Loading } from "@/components/pill-loader";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   GATES, QUEUE_FILTERS, checklistReady, decidableCount, filterQueue, gateChecklist, gateTitle, isOpen, outcomeLabel,
@@ -126,7 +127,7 @@ export function DecisionsView({ source, me, mayDecide = true, initialFilter = "w
           <button type="button" className="bulk-btn" onClick={() => setPicked(new Set())}>Clear selection</button>
         </div>
       )}
-      {requests === null ? <p role="status">Loading…</p> : rows.length === 0 ? (
+      {requests === null ? <Loading>Loading…</Loading> : rows.length === 0 ? (
         <p className="muted" role="status">{filter === "waiting" ? "No gate requests are waiting." : filter === "decided" ? "No decisions yet." : filter === "mine" ? "You have not requested a gate." : "Nothing here needs your decision."}</p>
       ) : (
         <div className="decisions-body">

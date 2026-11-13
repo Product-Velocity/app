@@ -1,5 +1,6 @@
 "use client";
 
+import { PillLoader } from "@/components/pill-loader";
 import { useActionState } from "react";
 import { saveWorkspace, type WorkspaceState } from "./actions";
 
@@ -54,7 +55,7 @@ export function WorkspaceForm({ values, countries, currencies, timeZones, canEdi
       </div>
       {state?.error && <p role="alert" className="error">{state.error}</p>}
       {state?.saved && <p role="status" className="notice">Saved.</p>}
-      {canEdit && <button className="btn btn-primary" type="submit" disabled={pending}>{pending ? "Saving…" : "Save settings"}</button>}
+      {canEdit && <button className="btn btn-primary" type="submit" disabled={pending}>{pending ? <><PillLoader size={14} tone="white" />Saving…</> : "Save settings"}</button>}
     </form>
   );
 }

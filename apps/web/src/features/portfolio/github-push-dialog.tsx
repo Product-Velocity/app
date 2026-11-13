@@ -1,5 +1,7 @@
 "use client";
 
+import { Loading, PillLoader } from "@/components/pill-loader";
+import { useBusyTitle } from "@/lib/use-busy-title";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { checkBoard, confirmSync, startSync, syncTrackers } from "@/app/(workspace)/portfolio/sync";
@@ -191,6 +193,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
     setChoices((prev) => ({ ...defaults(r.received), ...prev }));
   };
   useEffect(() => { confirmRef.current?.focus(); }, [phase.kind]);
+  useBusyTitle(phase.kind === "loading" || phase.kind === "writing");
 
   const preview = phase.kind === "preview" ? phase : null;
   const conflicts = preview ? preview.received.flatMap((r) => (r.conflicts ?? []).map((c) => ({ r, c }))) : [];
@@ -281,7 +284,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
         <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={focusDialog}>
           <h2 id={titleId}>Sync{current?.name ?? trackerNames ? ` with ${current?.name ?? trackerNames}` : ""}: new issues first</h2>
           <Steps current={1} tracker={current?.name ?? trackerNames} />
-          {current ? <NewItemsStep key={current.tracker} config={current} onContinue={continueToSync} onCancel={onClose} {...(onDone ? { onChanged: onDone } : {})} /> : <p role="status" className="muted">Checking for new issues…</p>}
+          {current ? <NewItemsStep key={current.tracker} config={current} onContinue={continueToSync} onCancel={onClose} {...(onDone ? { onChanged: onDone } : {})} /> : <Loading>Checking for new issues…</Loading>}
         </div>
       </div>
     );
@@ -295,13 +298,13 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
 
         {phase.kind === "loading" && (
           <>
-            <p role="status">Checking{trackerNames ? ` ${trackerNames}` : ""}… {progress ? `${progress.done} of ${progress.total}` : ""}</p>
+            <Loading>Checking{trackerNames ? ` ${trackerNames}` : ""}… {progress ? `${progress.done} of ${progress.total}` : ""}</Loading>
             <div className="dialog-actions"><button type="button" className="btn" onClick={onClose}>Cancel</button></div>
           </>
         )}
         {phase.kind === "writing" && (
           <>
-            <p role="status" aria-live="polite"><strong>{writingLabel(phase.done, phase.total)}</strong> · keep this window open.</p>
+            <p role="status" aria-live="polite" style={{ display: "flex", alignItems: "center", gap: 8 }}><PillLoader size={16} /><span><strong>{writingLabel(phase.done, phase.total)}</strong> · keep this window open.</span></p>
             <ResultList results={phase.results} />
           </>
         )}
@@ -378,7 +381,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                 {unchosen.length > 0 && <p role="status" className="muted">Choose for {unchosen.length === 1 ? "the conflict above" : `all ${unchosen.length} open conflicts`} to continue.</p>}
                 <div className="dialog-actions">
                   <button type="button" className="btn" onClick={onClose}>Cancel</button>
-                  <button ref={confirmRef} type="button" className="btn btn-primary" disabled={unchosen.length > 0 || checking} onClick={() => setStage("outgoing")}>{checking ? "Checking…" : `Next: what goes to ${trackerLabel}`}</button>
+                  <button ref={confirmRef} type="button" className="btn btn-primary" disabled={unchosen.length > 0 || checking} onClick={() => setStage("outgoing")}>{checking ? <><PillLoader size={14} tone="white" />Checking…</> : `Next: what goes to ${trackerLabel}`}</button>
                 </div>
               </>
             )}

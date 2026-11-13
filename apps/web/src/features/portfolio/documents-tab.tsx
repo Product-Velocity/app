@@ -1,5 +1,6 @@
 "use client";
 
+import { Loading } from "@/components/pill-loader";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AI_TOOL_LABEL, DOC_KIND_LABEL, DOC_KINDS, MAX_DOC_CHARS, MAX_DOCS_PER_ITEM } from "@pv/domain";
 import type { DocView } from "@/lib/documents";
@@ -72,7 +73,7 @@ export function DocumentsTab({ itemId, canEdit, ctx, tracker = "GitHub" }: { ite
     if (r.ok) { if (openId === d.id) setOpenId(null); await load(); } else setError(((await r.json().catch(() => ({}))) as { error?: string }).error ?? "The document could not be removed.");
   };
 
-  if (!docs) return <p className="muted" role="status">Loading…</p>;
+  if (!docs) return <Loading>Loading…</Loading>;
   const q = query.trim().toLowerCase();
   const shownDocs = q ? docs.filter((d) => `${d.title} ${DOC_KIND_LABEL[d.kind as keyof typeof DOC_KIND_LABEL] ?? d.kind}`.toLowerCase().includes(q)) : docs;
   const show = (t: "docs" | "files" | "links") => type === "all" || type === t;

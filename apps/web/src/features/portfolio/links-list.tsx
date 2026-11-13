@@ -1,5 +1,6 @@
 "use client";
 
+import { Loading } from "@/components/pill-loader";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { Link } from "@pv/domain";
 import { host, NameEdit, RowIcon, RowMenu, ShareChip } from "./attachment-ui";
@@ -54,7 +55,7 @@ export const LinksList = forwardRef<LinksHandle, { ctx: FieldCtx; itemId: string
     // eslint-disable-next-line react-hooks/exhaustive-deps
   });
 
-  if (!related) return <span className="muted" role="status">Loading…</span>;
+  if (!related) return <Loading inline>Loading…</Loading>;
   const q = query.trim().toLowerCase();
   const shown = q ? list.filter((l) => `${l.label} ${l.url}`.toLowerCase().includes(q)) : list;
   const display = (l: Link) => l.label || host(l.url);

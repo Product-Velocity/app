@@ -1,5 +1,6 @@
 "use client";
 
+import { Loading } from "@/components/pill-loader";
 import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,7 +15,7 @@ import { SupabaseGateSource, type GateSource } from "../gates/gate-source";
 export function ItemPageClient({ tenantId, role, userId, lookups, code }: { tenantId: string; role: string; userId: string; lookups: Lookups; code: string }) {
   const { state, retry } = useWorkspaceController(tenantId, role, lookups);
   const gates = useMemo(() => new SupabaseGateSource(createClient(), tenantId), [tenantId]);
-  if (state.kind === "loading") return <p role="status" className="muted">Loading {code}…</p>;
+  if (state.kind === "loading") return <Loading>Loading {code}…</Loading>;
   if (state.kind === "error") {
     return <div role="alert" className="error">Could not load the initiative: {state.message} <button type="button" className="link-button" onClick={retry}>Try again</button></div>;
   }

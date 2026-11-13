@@ -1,5 +1,6 @@
 "use client";
 
+import { Loading } from "@/components/pill-loader";
 import { useEffect, useId, useMemo, useState } from "react";
 import { GATE_IDS, GATES, gateTitle, type GateId } from "@pv/domain";
 import { createClient } from "@/lib/supabase/browser";
@@ -32,7 +33,7 @@ export function GateApproversView({ source, canEdit }: { source: GateSource; can
   };
 
   if (error && !deciders) return <p role="alert" className="error">{error}</p>;
-  if (!deciders) return <p role="status" className="muted">Loading…</p>;
+  if (!deciders) return <Loading>Loading…</Loading>;
   return (
     <section aria-labelledby={`${id}-h`} className="card gate-approvers">
       <h2 id={`${id}-h`}>Who can decide a gate</h2>
