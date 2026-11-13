@@ -1146,7 +1146,7 @@ button.share-chip { cursor: pointer; }
 @media (max-width: 1099px) { .pvbar-s1 .ov-wrap { flex: 1 1 0 !important; min-width: 300px; } } /* wrapping: the block takes the second line and the room beside the status, however it was last measured */
 .pvbar-s1 .ov-wrap { border-left: 1px solid var(--grey-1); padding-left: 10px; }
 .pvbar-s1 .pvbar-search { flex: 1 1 100px; } /* its smallest size is its basis, so the row beside it is measured against the room it can really get */
-.pvbar-s1 .ov-row { min-width: 0; }
+.pvbar-s1 .ov-row { min-width: 0; overflow: visible; } /* the Export and filter menus open below the row: overflow hidden cut them off (only the pointer showed). What does not fit is hidden by the bar itself. */
 .quick-add-input::placeholder { text-overflow: ellipsis; }
 .quick-add-input { text-overflow: ellipsis; }
 

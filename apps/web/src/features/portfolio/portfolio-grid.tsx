@@ -24,6 +24,7 @@ import type { Command } from "./palette";
 import { GroupMenu, summarize } from "./view-controls";
 import { baseToRef, useViews, ViewBar } from "./view-bar";
 import { downloadCsv, selectionToCsv } from "./export-selection";
+import { downloadBlob, selectionToXlsx } from "./export-xlsx";
 import { BulkBar } from "./bulk-bar";
 import { DeleteDialog } from "./delete-dialog";
 import { GithubPushDialog } from "./github-push-dialog";
@@ -490,11 +491,16 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     api.ensureNodeVisible(node, "middle");
     api.setFocusedCell(node.rowIndex, "initiative_name");
   };
-  const exportAll = () => downloadCsv(`roadmap-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(visibleRows, exportFields, lookups));
+  const exportStamp = () => new Date().toISOString().slice(0, 10);
   /** The Export button: the selected rows when some are selected, else every row the filters show. */
-  const exportRows = () => (selected.length > 0
-    ? downloadCsv(`roadmap-selection-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(selected, exportFields, lookups))
-    : exportAll());
+  const rowsToExport = () => (selected.length > 0 ? selected : visibleRows);
+  const exportName = (ext: string) => `roadmap${selected.length > 0 ? "-selection" : ""}-${exportStamp()}.${ext}`;
+  const exportCsv = () => downloadCsv(exportName("csv"), selectionToCsv(rowsToExport(), exportFields, lookups));
+  const exportXlsx = () => {
+    selectionToXlsx(rowsToExport(), exportFields, lookups, "Roadmap")
+      .then((blob) => downloadBlob(exportName("xlsx"), blob))
+      .catch(() => window.alert("The Excel file could not be made. Try the CSV file, or reload and try again."));
+  };
   const exportCount = selected.length > 0 ? selected.length : visibleRows.length;
   const syncIds = selected.length > 0 ? selected.map((r) => r.id) : visibleRows.map((r) => r.id);
   const shownCount = VISIBLE_FIELDS.filter((f) => visible.has(f.key) || (CORE_COLUMN_KEYS as readonly string[]).includes(f.key)).length;
@@ -513,7 +519,8 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     if (search) out.push({ id: "search:clear", label: "Clear search", group: "Filters", run: () => setSearchText("") });
     if (dirty) out.push({ id: "view:reset", label: "Reset view changes", group: "Views", run: resetChanges });
     if (controller.canEdit && lookups.projects.length > 0) out.push({ id: "import", label: "Import from spreadsheet", group: "Actions", keywords: "paste excel csv", run: () => setImportText("") });
-    out.push({ id: "export", label: "Export shown rows to file", group: "Actions", keywords: "csv download", run: exportAll });
+    out.push({ id: "export", label: "Export shown rows to file", group: "Actions", keywords: "csv download", run: exportCsv });
+    out.push({ id: "export-xlsx", label: "Export shown rows to Excel file", group: "Actions", keywords: "xlsx excel download", run: exportXlsx });
     if (controller.canEdit && selected.length > 0) out.push({ id: "delete", label: `Delete ${selected.length} selected ${selected.length === 1 ? "initiative" : "initiatives"}`, group: "Actions", keywords: "remove trash", hint: "Del", run: () => setDeleteIds(selected.map((r) => r.id)) });
     if (controller.canSeeTrash) out.push({ id: "go:trash", label: "Open Trash", group: "Go to", keywords: "deleted restore", run: () => router.push("/trash") });
     if (controller.canEdit) {
@@ -614,15 +621,19 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
                 <Popover label={selected.length > 0 ? `Export ${selected.length}` : "Export"} active={selected.length > 0}>
                   {(close) => (
                     <div role="menu" aria-label="Export">
-                      <button type="button" role="menuitem" className="scope-item" onClick={() => { close(); exportRows(); }}>
+                      <button type="button" role="menuitem" className="scope-item" onClick={() => { close(); exportCsv(); }}>
                         <span>CSV file ({exportCount.toLocaleString("en-GB")} {exportCount === 1 ? "row" : "rows"}{selected.length > 0 ? ", the selected ones" : filtered ? ", with the filters" : ""})</span>
                       </button>
-                      <p className="scope-empty">The columns you see, in your date format. More formats come later.</p>
+                      <button type="button" role="menuitem" className="scope-item" onClick={() => { close(); exportXlsx(); }}>
+                        <span>Excel file ({exportCount.toLocaleString("en-GB")} {exportCount === 1 ? "row" : "rows"}{selected.length > 0 ? ", the selected ones" : filtered ? ", with the filters" : ""}): dates, numbers and ticket links kept</span>
+                      </button>
+                      <p className="scope-empty">The columns you see. CSV is plain text; Excel keeps formatting.</p>
                     </div>
                   )}
                 </Popover>
               ),
-              entry: { label: `Export CSV (${exportCount.toLocaleString("en-GB")} ${exportCount === 1 ? "row" : "rows"})`, onSelect: exportRows, title: "The columns you see, in your date format" },
+              entry: { label: `Export CSV (${exportCount.toLocaleString("en-GB")} ${exportCount === 1 ? "row" : "rows"})`, onSelect: exportCsv, title: "The columns you see" },
+              more: [{ label: `Export Excel (${exportCount.toLocaleString("en-GB")} ${exportCount === 1 ? "row" : "rows"})`, onSelect: exportXlsx, title: "The columns you see, with dates, numbers and ticket links kept" }],
             });
             if (controller.canEdit && lookups.projects.length > 0) {
               items.push({
