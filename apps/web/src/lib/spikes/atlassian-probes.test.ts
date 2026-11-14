@@ -231,6 +231,18 @@ describe("J2/J4 probe: create an Initiative and an epic in another project, set 
     expect(steps[0]!.note).toContain("no issue type above Epic");
     expect(j.calls.some((c) => c.startsWith("POST") || c.startsWith("PUT") || c.startsWith("DELETE"))).toBe(false);
   });
+  it("says the project was not found (not that it has no Initiative type) when Jira answers 404, and writes nothing", async () => {
+    const j = fakeInitiativeSite();
+    const notFound: ProbeCall = async (m, path, b) => (path.startsWith("/project/NOPE") ? { status: 404, json: { errorMessages: ["No project could be found"] } } : j.call(m, path, b));
+    const steps = await probeInitiativeWrite(notFound, "NOPE", "R8P");
+    expect(steps).toHaveLength(1);
+    expect(steps[0]).toMatchObject({ status: 404 });
+    expect(steps[0]!.note).toContain("did not return the project");
+    expect(steps[0]!.note).not.toContain("no issue type above Epic");
+    expect(j.calls.some((c) => c.startsWith("POST") || c.startsWith("PUT") || c.startsWith("DELETE"))).toBe(false);
+    const epicMissing: ProbeCall = async (m, path, b) => (path.startsWith("/project/NOPE") ? { status: 404, json: {} } : j.call(m, path, b));
+    expect((await probeInitiativeWrite(epicMissing, "ROAD", "NOPE"))[0]!.note).toContain("did not return the project");
+  });
   it("refuses anything that is not two project keys", async () => {
     const j = fakeInitiativeSite();
     expect((await probeInitiativeWrite(j.call, "ROAD", "r8p; drop"))[0]!.note).toContain("nothing was written");

@@ -203,8 +203,10 @@ export async function probeInitiativeWrite(call: ProbeCall, initiativeProject: s
   };
   try {
     const it = await typeAt(initiativeProject, 2);
+    if (it.status !== 200) return [{ label: "Initiative project", status: it.status, note: `Jira did not return the project "${initiativeProject}" (HTTP ${it.status}): the key is wrong or this sign-in cannot see it. Nothing was written.` }];
     if (!it.id) return [{ label: "Initiative type in the Initiative project", status: it.status, note: "That project has no issue type above Epic (a team-managed project cannot have one). Nothing was written." }];
     const et = await typeAt(epicProject, 1);
+    if (et.status !== 200) return [{ label: "Epic project", status: et.status, note: `Jira did not return the project "${epicProject}" (HTTP ${et.status}): the key is wrong or this sign-in cannot see it. Nothing was written.` }];
     if (!et.id) return [{ label: "Epic type in the epic project", status: et.status, note: "That project has no Epic level type. Nothing was written." }];
     const i = await call("POST", "/issue", { fields: { project: { key: initiativeProject }, issuetype: { id: it.id }, summary: "PV spike J2 test initiative (safe to delete)", labels: [IDEA_LABEL] } });
     const initiative = String(obj(i.json).key ?? "");
