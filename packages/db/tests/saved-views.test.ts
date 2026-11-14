@@ -336,3 +336,43 @@ describe("sort list and explicit locks (20261111124842)", () => {
     expect(bad).toBe("23514");
   });
 });
+
+describe("saved views: second grouping level and shown issues (issue #437)", () => {
+  it("default to no second level and no issues; an admin can set and clear them", async () => {
+    const id = await add(admin2, "Two levels");
+    const row = () => db.admin.query("select group_by, then_by, show_issues from public.saved_views where id = $1", [id]).then((r) => r.rows[0]);
+    expect(await row()).toMatchObject({ then_by: null, show_issues: false });
+    await db.asUser(admin2, (q) => q("update public.saved_views set group_by = 'status', then_by = 'sponsor', show_issues = true where id = $1", [id]), { commit: true, via: "UI" });
+    expect(await row()).toMatchObject({ group_by: "status", then_by: "sponsor", show_issues: true });
+    await db.asUser(admin2, (q) => q("update public.saved_views set then_by = null, show_issues = false where id = $1", [id]), { commit: true, via: "UI" });
+    expect(await row()).toMatchObject({ then_by: null, show_issues: false });
+  });
+  it("a new view can be written with both columns", async () => {
+    expect(await add(admin2, "Both at once", "group_by, then_by, show_issues|'status', 'sponsor', true")).toBeTruthy();
+  });
+  it("refuses an empty or over-long second level, and a null show_issues", async () => {
+    expect(await errorCode(db.asUser(admin2, (q) => q("insert into public.saved_views (tenant_id, name, columns, group_by, then_by) values ($1, 'T1', array['a'], 'status', '')", [f.tenantA])))).toBe(CHECK);
+    expect(await errorCode(db.asUser(admin2, (q) => q("insert into public.saved_views (tenant_id, name, columns, group_by, then_by) values ($1, 'T2', array['a'], 'status', $2)", [f.tenantA, "x".repeat(81)])))).toBe(CHECK);
+    expect(await errorCode(db.asUser(admin2, (q) => q("insert into public.saved_views (tenant_id, name, columns, show_issues) values ($1, 'T3', array['a'], null)", [f.tenantA])))).toBe("23502");
+  });
+  it("two tenants: the other tenant cannot read or change them, and cannot write them into this one", async () => {
+    const id = await add(f.alice, "Tenant A two levels", "then_by, group_by, show_issues|'sponsor', 'status', true");
+    expect(await db.asUser(f.bob, async (q) => (await q("select then_by from public.saved_views where id = $1", [id])).rowCount)).toBe(0);
+    expect(await db.asUser(f.bob, async (q) => (await q("update public.saved_views set then_by = 'moscow', show_issues = false where id = $1", [id])).rowCount, { commit: true, via: "UI" })).toBe(0);
+    expect((await db.admin.query("select then_by, show_issues from public.saved_views where id = $1", [id])).rows[0]).toMatchObject({ then_by: "sponsor", show_issues: true });
+    expect(await errorCode(add(f.bob, "Cross two levels", "then_by|'sponsor'", f.tenantA))).toBe(DENIED);
+  });
+  it("viewers and leadership cannot change them", async () => {
+    const id = await add(f.alice, "Read only two levels");
+    for (const u of [viewer, leader]) {
+      expect(await db.asUser(u, async (q) => (await q("update public.saved_views set then_by = 'moscow' where id = $1", [id])).rowCount, { commit: true, via: "UI" })).toBe(0);
+    }
+  });
+  it("records the old and new second level and shown issues in the audit log", async () => {
+    const id = await add(admin2, "Audited two levels");
+    await db.asUser(admin2, (q) => q("update public.saved_views set group_by = 'status', then_by = 'sponsor', show_issues = true where id = $1", [id]), { commit: true, via: "UI" });
+    const { rows } = await db.admin.query("select field, old, new, via, actor_id from public.audit_log where entity = 'saved_views' and entity_id = $1 and field in ('then_by', 'show_issues') order by field", [id]);
+    expect(rows.find((r) => r.field === "then_by")).toMatchObject({ old: null, new: "sponsor", via: "UI", actor_id: admin2 });
+    expect(rows.find((r) => r.field === "show_issues" && r.new === true)).toMatchObject({ old: false, via: "UI", actor_id: admin2 }); // the insert row (null to false) is before it
+  });
+});

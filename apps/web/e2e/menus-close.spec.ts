@@ -10,7 +10,7 @@ const clickElsewhere = (page: Page) => page.getByRole("heading", { name: "Roadma
 test.describe("menus close when you click somewhere else", () => {
   test("Filters, Group by and the more views menu", async ({ page }) => {
     await open(page);
-    for (const name of [/^(Add filter|\d+ filters?)/, /^Group by/, /more views$/]) {
+    for (const name of [/^Filter:/, /^Group by/, /more views$/]) {
       const button = page.getByRole("button", { name });
       await button.click();
       await expect(button).toHaveAttribute("aria-expanded", "true");
@@ -21,7 +21,7 @@ test.describe("menus close when you click somewhere else", () => {
 
   test("the Columns panel", async ({ page }) => {
     await open(page);
-    const button = page.getByRole("button", { name: /columns shown$/ });
+    const button = page.getByRole("button", { name: /^Columns:/ });
     await button.click();
     await expect(page.getByRole("group", { name: "Choose columns" })).toBeVisible();
     await clickElsewhere(page);

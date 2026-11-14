@@ -8,8 +8,8 @@ const open = async (page: Page, query = "n=30&role=admin&view=All columns&cols=a
   await page.waitForFunction(() => (window as unknown as { __pv?: unknown }).__pv !== undefined);
 };
 const box = async (page: Page, sel: string) => (await page.locator(sel).first().boundingBox())!;
-const filterBtn = (page: Page) => page.getByRole("button", { name: /^(Add filter|\d+ filters?)/ });
-const columnsBtn = (page: Page) => page.getByRole("button", { name: /columns shown$/ });
+const filterBtn = (page: Page) => page.getByRole("button", { name: /^Filter:/ });
+const columnsBtn = (page: Page) => page.getByRole("button", { name: /^Columns:/ });
 const filtersPanel = (page: Page) => page.getByRole("group", { name: "Filters", exact: true });
 const columnsPanel = (page: Page) => page.getByRole("group", { name: "Choose columns" });
 const select = async (page: Page, ...ids: string[]) => { for (const id of ids) await page.locator(`.ag-row[row-id="${id}"] input[type="checkbox"]`).first().check(); };
@@ -131,13 +131,13 @@ test.describe("filter panel", () => {
     const high = page.getByRole("button", { name: "High impact" });
     await high.click();
     await expect(high).toHaveAttribute("aria-pressed", "true");
-    await expect(filterBtn(page)).toContainText("1 filter");
+    await expect(filterBtn(page)).toContainText("1 active");
     await page.getByRole("button", { name: "Needs attention" }).click();
-    await expect(filterBtn(page)).toContainText("2 filters");
+    await expect(filterBtn(page)).toContainText("2 active");
     await high.click();
     await expect(high).toHaveAttribute("aria-pressed", "false");
     await page.getByRole("button", { name: "Needs attention" }).click();
-    await expect(filterBtn(page)).toContainText("Add filter");
+    await expect(filterBtn(page)).toContainText("None");
     await expect(foot(page)).toContainText("30 items");
   });
 

@@ -165,9 +165,9 @@ export function diffViews(saved: ViewShape, now: ViewShape): { filters: number; 
   if (columns === 0 && saved.columns.join() !== now.columns.join()) columns = 1; // same columns, new order
   return {
     filters, columns,
-    grouping: (saved.groupBy ?? null) !== (now.groupBy ?? null),
+    grouping: (saved.groupBy ?? null) !== (now.groupBy ?? null) || (saved.thenBy ?? null) !== (now.thenBy ?? null) || (saved.showIssues === true) !== (now.showIssues === true),
     sorted: key(normalizeSorts(saved.sort)) !== key(normalizeSorts(now.sort)), // an older single sort and a one-item list are the same sort
     pinned: (saved.pinned ?? []).join() !== (now.pinned ?? []).join(),
   };
 }
-type ViewShape = { columns: readonly string[]; filters: readonly unknown[]; groupBy?: string | null; sort?: unknown; pinned?: readonly string[] };
+type ViewShape = { columns: readonly string[]; filters: readonly unknown[]; groupBy?: string | null; thenBy?: string | null; showIssues?: boolean; sort?: unknown; pinned?: readonly string[] };

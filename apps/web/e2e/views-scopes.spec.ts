@@ -14,7 +14,7 @@ const scopeMenu = (page: Page) => page.getByRole("menu", { name: "Portfolio scop
 const row = (page: Page, id: string) => page.locator(`.ag-row[row-id="${id}"]`);
 const addFilter = async (page: Page, field: string, value?: string) => {
   const panel = page.getByRole("group", { name: "Filters", exact: true });
-  if (!(await panel.isVisible())) await page.getByRole("button", { name: /^(Add filter|\d+ filters?)/ }).click();
+  if (!(await panel.isVisible())) await page.getByRole("button", { name: /^Filter:/ }).click();
   await panel.getByRole("button", { name: "+ Add rule" }).click();
   const i = (await panel.locator(".filter-row").count());
   await chooseOption(page, panel, `Field of filter ${i}:`, field);
@@ -230,7 +230,7 @@ test.describe("filters and search", () => {
 });
 
 test.describe("grouping", () => {
-  test("off by default; group by MoSCoW shows headers with counts; collapse hides rows; No grouping restores", async ({ page }) => {
+  test("off by default; group by MoSCoW shows headers with counts; collapse hides rows; Clear grouping restores", async ({ page }) => {
     await open(page);
     await expect(page.getByRole("button", { name: /^Collapse group/ })).toHaveCount(0);
     await page.getByRole("button", { name: /^Group by/ }).click();
@@ -242,7 +242,7 @@ test.describe("grouping", () => {
     await expect(row(page, "item-1")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand group Must" })).toHaveAttribute("aria-expanded", "false");
     await page.getByRole("button", { name: /^Group by/ }).click();
-    await page.getByRole("menuitemradio", { name: "No grouping" }).click();
+    await page.getByRole("button", { name: "Clear grouping" }).click();
     await expect(page.locator(".group-row")).toHaveCount(0);
     await expect(row(page, "item-1")).toHaveCount(1);
   });
@@ -277,7 +277,7 @@ test.describe("grouping", () => {
 test.describe("grid view changes", () => {
   test("the Columns picker reaches all 168 fields, grouped, with later phases marked", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: /columns shown$/ }).click();
+    await page.getByRole("button", { name: /^Columns:/ }).click();
     const panel = page.getByRole("group", { name: "Choose columns" });
     await expect(panel.locator('input[type="checkbox"]')).toHaveCount(168);
     expect(await panel.locator("fieldset").count()).toBeGreaterThan(8);
