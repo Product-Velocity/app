@@ -93,6 +93,15 @@ Atlassian's developer documentation could not be fetched (host not allowed in th
 
 **Still open, needs Ashu:** run J3, J6 (250+ issues), J8 (go-ahead), J5 (Bitbucket on the site), add Confluence for J7, a Premium trial for the levels; decide on Sign in with Atlassian.
 
+### Atlassian J2, the Initiative level over several projects (issue #431, 2026-11-14): probes built, run pending
+**Facts from the Refinery89 Jira manager (2026-11-13, not yet verified by a probe):** R8P is a team-managed project (fixed hierarchy Epic, Story/Task/Bug, Sub-task), so no work type can be added above Epic there; Initiative belongs to the company-wide hierarchy and can only be created in a company-managed project; an R8P epic can take an Initiative from a company-managed project as its parent; one Initiative can hold epics from different projects. An example Initiative already exists on the site (the project is not in use yet).
+
+**Two probes added to `/spikes/atlassian`** (admin only; they print keys, counts and type names, never summaries, people or addresses; tested against a fake Jira in `atlassian-probes.test.ts`):
+- **`mode=levels` (read only).** Lists issue types by hierarchy level; finds an Initiative-level issue (or takes `arg=KEY`); reports its type, level, project and project style; reads its children with the same `parent in ("KEY")` query as `jira-tree.ts` and reports the count, the types and **in how many projects the children are (cross-project, question 1)**; then their children (stories, tasks) and the shape of the `parent` field on one child. A child count lower than the Jira screen shows is the **permissions answer (question 3)**: Jira hides projects the signed-in user cannot browse.
+- **`mode=initiative&arg=INITIATIVES,EPICS` (writes, removes what it makes).** Creates one Initiative in the first project and one epic in the second (label `pv-spike`), sets the Initiative as the epic's parent, reads the parent back and runs the children query, then deletes both. Answers whether an Initiative can be created there, whether an epic of **another** project can take it as parent, and whether the children query sees it (J4 write-back for #431). Writes nothing if the first project has no level above Epic. Needs Ashu's go-ahead per run (it is a separate link).
+
+**Still to prove by a run, and the webhook point (question 2) by design:** webhooks are registered per linked project with `project = KEY`, so epics in an unlinked project refresh only on Sync and in the daily check unless a project may name extra Jira projects for the webhook filter (decide after the run). **Result of the run goes here** (what was verified on the real site, and what not) before the tree read is built.
+
 ### S6 Vercel (documented)
 - Function duration with Fluid compute: Hobby 300 s default and maximum; Pro and Enterprise 300 s default, 800 s maximum (one page mentions an extended 1,800 s). Memory 2 GB Hobby, 4 GB Pro.
 - Cron: Hobby 2 jobs per project, once a day; Pro 40 jobs, per-minute; Enterprise 100 (limits table, one footnote not visible).
