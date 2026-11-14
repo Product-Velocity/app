@@ -108,6 +108,8 @@ describe("names and change summary", () => {
     const base = { columns: ["a", "b"], filters: [], groupBy: null, sort: null };
     expect(diffViews(base, { ...base, columns: ["a", "b", "c"] }).columns).toBe(1);
     expect(diffViews(base, { ...base, columns: ["b", "a"] }).columns).toBe(1);
+    expect(diffViews(base, { ...base, thenBy: "health" }).grouping).toBe(true);
+    expect(diffViews(base, { ...base, showIssues: true }).grouping).toBe(true);
     expect(diffViews(base, { ...base, filters: [{ field: "x" }] }).filters).toBe(1);
     expect(diffViews(base, { ...base, groupBy: "moscow" }).grouping).toBe(true);
     expect(diffViews(base, { ...base, sort: [{ field: "moscow", dir: "asc" }] }).sorted).toBe(true);

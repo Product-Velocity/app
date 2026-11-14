@@ -344,6 +344,30 @@ a.btn { display: inline-flex; align-items: center; color: inherit; text-decorati
 .group-row { display: flex; align-items: center; gap: 8px; height: 100%; padding: 0 12px; background: var(--header-bg); font-weight: 600; font-size: 12.5px; color: #374151; }
 .group-toggle { border: 0; background: none; font: inherit; cursor: pointer; padding: 2px 6px; color: inherit; }
 .group-count { font-weight: 400; color: #5b6272; }
+.group-row[data-level="1"] { padding-left: 32px; background: var(--bg); border-bottom: 1px solid var(--grey-2); font-weight: 500; }
+/* tracker issues under an initiative ("Show issues") */
+.issue-row { display: flex; align-items: center; gap: 10px; height: 100%; padding: 0 12px 0 56px; font-size: 12.5px; color: #374151; border-bottom: 1px solid var(--grey-2); }
+.issue-type { flex: none; min-width: 44px; padding: 0 6px; border: 1px solid #e1e5eb; border-radius: 4px; font-size: 11.5px; color: #374151; text-align: center; }
+.issue-key { flex: none; font-family: var(--font-mono, "IBM Plex Mono", monospace); font-size: 12px; color: var(--blue-text); }
+.issue-title { flex: 0 1 auto; max-width: 60ch; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.issue-status { flex: none; color: #374151; }
+.issue-assignee { flex: none; color: #5b6272; }
+/* the Group by panel: two level slots, a categorised list, the issues option */
+.gp { min-width: 340px; box-sizing: border-box; }
+.gp input.search-input { width: calc(100% - 16px); box-sizing: border-box; }
+.gp-slots { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--grey-2); }
+.gp-slot { display: flex; align-items: center; flex: 1 1 130px; border: 1px solid #e1e5eb; border-radius: 6px; }
+.gp-slot[data-active="true"] { border-color: var(--blue); background: var(--blue-tint-2); }
+.gp-slot-main { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 0; padding: 3px 8px; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; color: inherit; }
+.gp-slot-main:disabled { cursor: not-allowed; color: #5b6272; }
+.gp-slot-label { font-size: 11px; color: #5b6272; }
+.gp-slot-val { font-weight: 600; }
+.gp-slot[data-empty="true"] .gp-slot-val { font-weight: 400; color: #5b6272; }
+.gp-list { max-height: 340px; overflow-y: auto; }
+.gp-cat { position: sticky; top: 0; padding: 6px 12px 2px; background: var(--bg); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #5b6272; }
+.gp-mark { font-size: 11.5px; color: var(--blue-text); }
+.gp-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--grey-2); }
+.gp-issues { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
 .palette-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(20, 24, 40, .4); display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; }
 .palette { width: min(620px, 94vw); background: var(--bg); border-radius: 10px; box-shadow: 0 16px 48px rgba(20, 24, 40, .35); overflow: hidden; }
 .palette-input { width: 100%; height: 44px; border: 0; border-bottom: 1px solid var(--grey-1); padding: 0 16px; font: inherit; font-size: 14px; border-radius: 0; }

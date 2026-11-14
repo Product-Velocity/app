@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CUSTOMER_SAFE_KEYS, buildGroupedRows, effectiveSort, sortDirectionLabels, sortSummary, healthBreakdown, filterSummary, groupableFields, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
+import { CUSTOMER_SAFE_KEYS, buildGroupedRows, effectiveSort, sortDirectionLabels, sortSummary, healthBreakdown, filterSummary, groupableFields, isCustomerSafe, groupPickerSections, groupSummary, COMMON_GROUP_KEYS, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
 import { QUICK_FILTERS, customFilters, quickFilterOn, toggleQuickFilter } from "./quick-filters";
 import { FIELDS, FIELD_BY_KEY, HIDDEN_FIELDS } from "./registry";
 import { setDateFormat } from "./dates";
@@ -322,5 +322,68 @@ describe("sort labels and fallback (issue #207)", () => {
     expect(effectiveSort({ columns: ["initiative_name", "moscow"], sort: { field: "moscow", dir: "asc" } })).toEqual([{ field: "moscow", dir: "asc" }]); // a view saved before lists
     expect(effectiveSort({ columns: ["initiative_name", "moscow"], sort: [{ field: "moscow", dir: "asc" }, { field: "initiative_name", dir: "desc" }] }).map((x) => x.field)).toEqual(["moscow", "initiative_name"]);
     expect(effectiveSort({ columns: ["moscow"] })).toEqual([]);
+  });
+});
+
+describe("two-level grouping and the group picker (issue #437)", () => {
+  const label = (_f: string, v: unknown) => (v === null || v === undefined || v === "" ? "No value" : String(v));
+  const rows = [
+    { id: "a", moscow: "Must", health: "On Track" }, { id: "b", moscow: "Should", health: "At Risk" }, { id: "c", moscow: "Must", health: "At Risk" },
+    { id: "d", moscow: "Must", health: "On Track" }, { id: "e", moscow: null, health: null },
+  ];
+  const shape = (out: ReturnType<typeof buildGroupedRows<(typeof rows)[number]>>) => out.map((x) => ("__group" in x ? `${"  ".repeat(x.level)}# ${x.label} (${x.count})` : x.id));
+  it("splits each group again with an indented header, rank order kept inside", () => {
+    expect(shape(buildGroupedRows(rows, "moscow", new Set(), label, "health"))).toEqual([
+      "# Must (3)", "  # On Track (2)", "a", "d", "  # At Risk (1)", "c",
+      "# Should (1)", "  # At Risk (1)", "b",
+      "# No value (1)", "  # No value (1)", "e",
+    ]);
+  });
+  it("keys the second level under the first and numbers the levels", () => {
+    const heads = buildGroupedRows(rows, "moscow", new Set(), label, "health").filter((x) => "__group" in x);
+    expect(heads.map((x) => (x as { key: string }).key).slice(0, 3)).toEqual(["moscow:Must", "moscow:Must>health:On Track", "moscow:Must>health:At Risk"]);
+    expect(heads.map((x) => (x as { level: number }).level).slice(0, 3)).toEqual([0, 1, 1]);
+  });
+  it("collapsing a parent hides its sub-groups; collapsing a sub-group hides only its rows", () => {
+    expect(shape(buildGroupedRows(rows, "moscow", new Set(["moscow:Must"]), label, "health")).slice(0, 3)).toEqual(["# Must (3)", "# Should (1)", "  # At Risk (1)"]);
+    expect(shape(buildGroupedRows(rows, "moscow", new Set(["moscow:Must>health:On Track"]), label, "health")).slice(0, 4)).toEqual(["# Must (3)", "  # On Track (2)", "  # At Risk (1)", "c"]);
+  });
+  it("ignores a second level without a first one, or the same field twice", () => {
+    expect(buildGroupedRows(rows, null, new Set(), label, "health")).toEqual(rows);
+    expect(buildGroupedRows(rows, "moscow", new Set(), label, "moscow")).toEqual(buildGroupedRows(rows, "moscow", new Set(), label));
+  });
+  it("sanitizeView keeps thenBy only with a different, allowed groupBy, and drops it for customers when not safe", () => {
+    const base = { columns: ["item_code"], filters: [] };
+    expect(sanitizeView({ ...base, groupBy: "moscow", thenBy: "health" })).toMatchObject({ groupBy: "moscow", thenBy: "health" });
+    expect("thenBy" in sanitizeView({ ...base, groupBy: null, thenBy: "health" })).toBe(false);
+    expect("thenBy" in sanitizeView({ ...base, groupBy: "moscow", thenBy: "moscow" })).toBe(false);
+    expect("thenBy" in sanitizeView({ ...base, groupBy: "moscow", thenBy: "nope" })).toBe(false);
+    expect(sanitizeView({ ...base, groupBy: "moscow" })).toEqual(sanitizeView({ ...base, groupBy: "moscow", thenBy: null })); // a view saved before two levels reads the same
+  });
+  it("sanitizeView keeps showIssues for staff views only", () => {
+    expect(sanitizeView({ columns: ["item_code"], filters: [], groupBy: null, showIssues: true }).showIssues).toBe(true);
+    expect("showIssues" in sanitizeView({ columns: ["item_code"], filters: [], groupBy: null })).toBe(false);
+    expect("showIssues" in sanitizeView({ columns: ["item_code"], filters: [], groupBy: null, showIssues: true, customerSafe: true })).toBe(false);
+  });
+  it("words the grouping for the button", () => {
+    expect(groupSummary(null)).toBe("None");
+    expect(groupSummary("moscow")).toBe("MoSCoW");
+    expect(groupSummary("status", "sponsor")).toBe("Build Status › Sponsor");
+    expect(groupSummary("moscow", "moscow")).toBe("MoSCoW");
+  });
+  it("lists the groupable fields under the Columns picker's categories, Common first, each field once, nothing hidden, nothing taken", () => {
+    const sec = groupPickerSections();
+    expect(sec[0]!.category).toBe("Common");
+    expect(sec[0]!.fields.map((f) => f.key)).toEqual(COMMON_GROUP_KEYS.filter((k) => groupableFields().some((f) => f.key === k)));
+    const all = sec.slice(1).flatMap((x) => x.fields.map((f) => f.key));
+    expect(all).not.toContain("roadmap_category"); // hidden in the app: picking it would silently do nothing
+    expect(all).not.toContain("status"); // Common holds it; each field is listed once
+    expect(all).toContain("sponsor");
+    expect(new Set([...sec[0]!.fields.map((f) => f.key), ...all]).size).toBe(sec[0]!.fields.length + all.length);
+    expect(sec.slice(1).map((x) => x.category)).toEqual(expect.arrayContaining(["What", "Who", "Why"]));
+    for (const x of sec.slice(1)) for (const f of x.fields) expect(f.group).toBe(x.category);
+    expect(groupPickerSections({ taken: "status" }).flatMap((x) => x.fields.map((f) => f.key))).not.toContain("status");
+    const safe = groupPickerSections({ customerSafe: true }).flatMap((x) => x.fields.map((f) => f.key));
+    expect(safe.every((k) => isCustomerSafe(k))).toBe(true);
   });
 });

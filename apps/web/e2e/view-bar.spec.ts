@@ -12,7 +12,7 @@ const store = (page: Page) => page.evaluate(() => JSON.parse(JSON.stringify((win
 const moreBtn = (page: Page) => page.getByRole("button", { name: /more views?$/ });
 const menu = (page: Page) => page.getByRole("dialog", { name: "Views" });
 const foot = (page: Page) => page.locator(".grid-foot");
-const filterBtn = (page: Page) => page.getByRole("button", { name: /^(Add filter|\d+ filters?)/ });
+const filterBtn = (page: Page) => page.getByRole("button", { name: /^Filter:/ });
 
 /** Change a filter so the unsaved-changes bar appears. */
 async function makeChange(page: Page) {
@@ -144,7 +144,7 @@ test.describe("one save flow (R-99)", () => {
     await expect(changed).toBeVisible();
     await expect(foot(page)).toContainText("Sorted by MoSCoW, Z-A");
     await resetChanges(page);
-    await page.getByRole("button", { name: /columns shown$/ }).click();
+    await page.getByRole("button", { name: /^Columns:/ }).click();
     await page.getByLabel("Confidence", { exact: true }).uncheck();
     await page.getByRole("button", { name: /^Apply columns/ }).click();
     await expect(changed).toBeVisible();
@@ -155,7 +155,7 @@ test.describe("one save flow (R-99)", () => {
     await makeChange(page); // High impact filter
     await page.getByRole("button", { name: /^Group by/ }).click();
     await page.getByRole("menuitemradio", { name: "Health" }).click();
-    await page.getByRole("button", { name: /columns shown$/ }).click();
+    await page.getByRole("button", { name: /^Columns:/ }).click();
     await page.getByLabel("Confidence", { exact: true }).uncheck();
     await page.getByRole("button", { name: /^Apply columns/ }).click();
     const items = (await foot(page).textContent())!;
@@ -180,7 +180,7 @@ test.describe("one save flow (R-99)", () => {
     await filterBtn(page).click();
     await expect(page.getByRole("group", { name: "Filters", exact: true }).getByRole("button", { name: /save/i })).toHaveCount(0);
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: /columns shown$/ }).click();
+    await page.getByRole("button", { name: /^Columns:/ }).click();
     await expect(page.getByRole("group", { name: "Choose columns" }).getByRole("button", { name: /save/i })).toHaveCount(0);
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: /^Group by/ }).click();
@@ -189,7 +189,7 @@ test.describe("one save flow (R-99)", () => {
 
   test("save as new view stores columns, pinned, filters, grouping and sort; opening it again restores them", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: /columns shown$/ }).click();
+    await page.getByRole("button", { name: /^Columns:/ }).click();
     await page.getByLabel("Confidence", { exact: true }).uncheck();
     await page.getByRole("button", { name: /^Apply columns/ }).click();
     await makeChange(page);
@@ -217,7 +217,7 @@ test.describe("one save flow (R-99)", () => {
     await expect(page.locator(".filter-chips")).toBeVisible();
     await expect(page.getByRole("button", { name: /^Group by/ })).toContainText("Health");
     await expect(foot(page)).toContainText("sorted by Effort (T-shirt) inside each group"); // the grid is grouped here
-    await expect(page.getByRole("button", { name: /^(Add filter|\d+ filters?)/ })).toContainText(/\d+ filters?/);
+    await expect(page.getByRole("button", { name: /^Filter:/ })).toContainText(/\d+ active/);
     // it sits under My views
     await moreBtn(page).click();
     await expect(menu(page).getByRole("region", { name: "My views" })).toContainText("My planning");
@@ -430,7 +430,7 @@ test.describe("sort: in the Columns picker, saved with the view (issue #207)", (
   const firstRow = (page: Page) => page.locator('.ag-row[row-index="0"] [col-id="initiative_name"]').first().innerText();
   const picker = (page: Page) => page.getByRole("group", { name: "Choose columns" });
   const sortBtn = (page: Page, column: string) => picker(page).getByRole("button", { name: new RegExp(`^Sort ${column.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:`) });
-  const openPicker = (page: Page) => page.getByRole("button", { name: /columns shown$/ }).click();
+  const openPicker = (page: Page) => page.getByRole("button", { name: /^Columns:/ }).click();
 
   test("there is no Sort button in the bar; the sort is set per column in the picker and the grid does not re-sort before Apply", async ({ page }) => {
     await open(page);

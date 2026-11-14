@@ -75,7 +75,7 @@ export function FilterPanel({ filters, onChange, lookups, quarters = [], openVal
   const patch = (i: number, p: Partial<Filter>) => onChange(filters.map((f, j) => (j === i ? { ...f, ...p } : f)));
   const n = filters.length;
   return (
-    <Popover wide label={n === 0 ? "Add filter" : `${n} ${n === 1 ? "filter" : "filters"}`} active={n > 0}>
+    <Popover wide label={<>Filter: <strong className="count-badge">{n === 0 ? "None" : `${n} active`}</strong></>} active={n > 0}>
       {(close) => (
         <div role="group" aria-label="Filters">
           <div className="panel-section">
