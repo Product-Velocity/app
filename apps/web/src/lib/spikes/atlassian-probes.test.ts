@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { probeDevInfo, probeIdeaWrite, probePaging, probeWebhook, type ProbeCall } from "./atlassian-probes";
+import { probeDevInfo, probeIdeaWrite, probeInitiativeTree, probeInitiativeWrite, probePaging, probeWebhook, type ProbeCall } from "./atlassian-probes";
 import { getJson } from "@/lib/atlassian/read-client";
 import { readOpenWork } from "@/lib/atlassian/read-issues";
 import type { JiraRequest } from "@/lib/atlassian/jira-write";
@@ -136,5 +136,104 @@ describe("J5: development information probe", () => {
   });
   it("rejects a non-key", async () => {
     expect((await probeDevInfo(async () => ({ status: 200, json: {} }), "x"))[0]!.status).toBe(0);
+  });
+});
+
+/** A fake Jira with an Initiative level: INIT-1 (project ROAD, company-managed) over epics in R8P and DATA, with stories under them. */
+function fakeInitiativeSite(opts: { initiativeLevel?: boolean; hide?: string } = {}) {
+  const issues: Record<string, { type: string; level: number; project: string; parent?: string }> = {
+    "INIT-1": { type: "Initiative", level: 2, project: "ROAD" },
+    "R8P-5": { type: "Epic", level: 1, project: "R8P", parent: "INIT-1" },
+    "DATA-9": { type: "Epic", level: 1, project: "DATA", parent: "INIT-1" },
+    "R8P-6": { type: "Story", level: 0, project: "R8P", parent: "R8P-5" },
+    "DATA-10": { type: "Task", level: 0, project: "DATA", parent: "DATA-9" },
+  };
+  const calls: string[] = [];
+  let seq = 100;
+  const shape = (k: string) => ({ id: k, key: k, fields: { issuetype: { name: issues[k]!.type, hierarchyLevel: issues[k]!.level }, project: { key: issues[k]!.project }, parent: issues[k]!.parent ? { key: issues[k]!.parent } : undefined } });
+  const call: ProbeCall = async (method, path, body) => {
+    calls.push(`${method} ${path.split("?")[0]}`);
+    const url = new URL(path, "https://x");
+    if (path === "/issuetype") return { status: 200, json: [{ id: "1", name: "Sub-task", hierarchyLevel: -1 }, { id: "2", name: "Story", hierarchyLevel: 0 }, { id: "3", name: "Epic", hierarchyLevel: 1 }, ...(opts.initiativeLevel === false ? [] : [{ id: "4", name: "Initiative", hierarchyLevel: 2 }])] };
+    if (url.pathname.startsWith("/project/")) {
+      const key = url.pathname.split("/")[2]!;
+      const types = key === "ROAD" ? [{ id: "4", name: "Initiative", hierarchyLevel: 2 }, { id: "3", name: "Epic", hierarchyLevel: 1 }] : [{ id: "3", name: "Epic", hierarchyLevel: 1 }, { id: "2", name: "Story", hierarchyLevel: 0 }];
+      return { status: 200, json: { key, style: key === "R8P" ? "next-gen" : "classic", simplified: key === "R8P", projectTypeKey: "software", issueTypes: types } };
+    }
+    if (method === "POST" && url.pathname === "/issue") {
+      const f = (body as { fields: { project: { key: string }; issuetype: { id: string } } }).fields;
+      const k = `${f.project.key}-${++seq}`;
+      issues[k] = { type: f.issuetype.id === "4" ? "Initiative" : "Epic", level: f.issuetype.id === "4" ? 2 : 1, project: f.project.key };
+      return { status: 201, json: { key: k } };
+    }
+    if (method === "PUT" && url.pathname.startsWith("/issue/")) { issues[url.pathname.split("/")[2]!]!.parent = (body as { fields: { parent: { key: string } } }).fields.parent.key; return { status: 204, json: {} }; }
+    if (method === "DELETE") { delete issues[url.pathname.split("/")[2]!]; return { status: 204, json: {} }; }
+    if (url.pathname.startsWith("/issue/")) return { status: 200, json: shape(url.pathname.split("/")[2]!) };
+    if (url.pathname === "/search/jql") {
+      const jql = url.searchParams.get("jql") ?? "";
+      if (jql.startsWith("issuetype in")) return { status: 200, json: { issues: [shape("INIT-1")], isLast: true } };
+      const parents = [...jql.matchAll(/"([A-Z0-9_]+-\d+)"/g)].map((m) => m[1]!);
+      const found = Object.keys(issues).filter((k) => parents.includes(issues[k]!.parent ?? "") && issues[k]!.project !== opts.hide).map(shape);
+      return { status: 200, json: { issues: found, isLast: true } };
+    }
+    return { status: 404, json: {} };
+  };
+  return { call, calls, issues };
+}
+
+describe("J2 probe: the Initiative tree across projects (read only)", () => {
+  it("finds the Initiative, reads children from two projects as cross-project, then their stories and the parent field shape", async () => {
+    const j = fakeInitiativeSite();
+    const steps = await probeInitiativeTree(j.call);
+    const text = steps.map((s) => `${s.label}: ${s.note}`).join("\n");
+    expect(text).toContain("level 2: Initiative");
+    expect(text).toContain("found INIT-1");
+    expect(text).toContain("project ROAD (style classic");
+    expect(text).toContain("2 children");
+    expect(text).toContain("CROSS-PROJECT");
+    expect(text).toContain("projects: R8P 1, DATA 1");
+    expect(text).toContain("Story 1, Task 1");
+    expect(text).toContain("parent key INIT-1 matches: true");
+    expect(j.calls.every((c) => c.startsWith("GET"))).toBe(true);
+  });
+  it("says so when the site has no level above Epic, and stops", async () => {
+    const steps = await probeInitiativeTree(fakeInitiativeSite({ initiativeLevel: false }).call);
+    expect(steps.at(-1)?.note).toContain("no Initiative level");
+  });
+  it("a project the sign-in cannot browse simply has fewer children, and the probe tells you to compare by hand", async () => {
+    const steps = await probeInitiativeTree(fakeInitiativeSite({ hide: "DATA" }).call, "INIT-1");
+    const text = steps.map((s) => s.note).join("\n");
+    expect(text).toContain("1 children");
+    expect(text).toContain("all in one project");
+    expect(text).toContain("cannot browse some projects");
+  });
+  it("prints no summaries: only keys, counts and type names", async () => {
+    const steps = await probeInitiativeTree(fakeInitiativeSite().call);
+    expect(JSON.stringify(steps)).not.toMatch(/summary|@|atlassian\.net/i);
+  });
+});
+
+describe("J2/J4 probe: create an Initiative and an epic in another project, set the parent, delete both", () => {
+  it("proves the cross-project parent, and removes everything it made", async () => {
+    const j = fakeInitiativeSite();
+    const before = Object.keys(j.issues).sort();
+    const steps = await probeInitiativeWrite(j.call, "ROAD", "R8P");
+    const text = steps.map((s) => `${s.label}: ${s.note}`).join("\n");
+    expect(text).toContain("a different project");
+    expect(text).toContain("parent key matches: true");
+    expect(text).toContain("1 child(ren) found");
+    expect(Object.keys(j.issues).sort()).toEqual(before);
+    expect(steps.filter((s) => s.label.startsWith("Delete")).every((s) => s.note === "deleted")).toBe(true);
+  });
+  it("writes nothing when the Initiative project has no level above Epic", async () => {
+    const j = fakeInitiativeSite();
+    const steps = await probeInitiativeWrite(j.call, "R8P", "R8P");
+    expect(steps[0]!.note).toContain("no issue type above Epic");
+    expect(j.calls.some((c) => c.startsWith("POST") || c.startsWith("PUT") || c.startsWith("DELETE"))).toBe(false);
+  });
+  it("refuses anything that is not two project keys", async () => {
+    const j = fakeInitiativeSite();
+    expect((await probeInitiativeWrite(j.call, "ROAD", "r8p; drop"))[0]!.note).toContain("nothing was written");
+    expect(j.calls).toEqual([]);
   });
 });

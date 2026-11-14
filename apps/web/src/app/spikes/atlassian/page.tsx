@@ -22,12 +22,14 @@ export default async function AtlassianSpike({ searchParams }: { searchParams: P
       <p>
         <a href="/api/atlassian/start?mode=write">Test the refresh token (writes nothing)</a>
       </p>
-      <h2>More probes (J3, J5, J6, J8)</h2>
+      <h2>More probes (J2 levels, J3, J5, J6, J8)</h2>
       <p>Each link runs one probe and shows counts and status codes only (no issue text, no site address). Write probes ask for your go-ahead by being clicked, create at most one object and remove it again.</p>
       <ul>
         <li><a href="/api/atlassian/start?mode=paging">J6: page through every issue (read only; best on a site with 250+ issues)</a></li>
         <li><a href="/api/atlassian/start?mode=devinfo&arg=PLAT-1">J5: development information of one issue (read only; edit the key in the address: arg=YOUR-KEY)</a></li>
         <li><a href="/api/atlassian/start?mode=idea&arg=DISC">J8: write one Product Discovery idea (creates and deletes one; edit arg= to your discovery project key)</a></li>
+        <li><a href="/api/atlassian/start?mode=levels">J2 (issue #431): the Initiative level and its tree, across projects (read only; optionally add &amp;arg=KEY of an Initiative; prints keys, counts and type names)</a></li>
+        <li><a href="/api/atlassian/start?mode=initiative&arg=INITIATIVES,EPICS">J2/J4 (issue #431): create one Initiative and one epic, set the parent, read it back, delete both (edit arg= to the Initiative project key, a comma, then the epic project key)</a></li>
         <li><a href="/api/atlassian/start?mode=webhook&arg=PLAT">J3: register, refresh and delete one webhook (adds the scope manage:jira-webhook; edit arg= to a project key)</a></li>
       </ul>
     </main>
