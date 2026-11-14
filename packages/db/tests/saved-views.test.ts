@@ -337,7 +337,7 @@ describe("sort list and explicit locks (20261111124842)", () => {
   });
 });
 
-describe("saved views: second grouping level and shown issues (issue #437)", () => {
+describe("saved views: second grouping level (issue #437; show_issues is unused since the issues became a grouping level)", () => {
   it("default to no second level and no issues; an admin can set and clear them", async () => {
     const id = await add(admin2, "Two levels");
     const row = () => db.admin.query("select group_by, then_by, show_issues from public.saved_views where id = $1", [id]).then((r) => r.rows[0]);

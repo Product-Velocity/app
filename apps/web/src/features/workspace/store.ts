@@ -36,14 +36,14 @@ export interface WorkspaceStore {
   restoreDefaultView(name: ViewName): Promise<Result<null>>;
 }
 
-const VIEW_COLUMNS = "id,name,columns,filters,group_by,then_by,show_issues,base_view,customer_safe,pinned,pins_explicit,owner_id,sort";
-/** The second grouping level and "show issues" as columns: written only when set on a new view (the database default is none), always on a change so a cleared one is cleared. */
-const groupingInsert = (c: ViewDef) => ({ ...(c.thenBy ? { then_by: c.thenBy } : {}), ...(c.showIssues ? { show_issues: true } : {}) });
-const groupingUpdate = (c: ViewDef) => ({ then_by: c.thenBy ?? null, show_issues: c.showIssues === true });
-type ViewRow = { id: string; name: string; columns: string[]; filters: unknown; group_by: string | null; then_by?: string | null; show_issues?: boolean | null; base_view: string | null; customer_safe: boolean; pinned?: string[] | null; /** false: an older row whose list holds only the locks besides rank, ID and name */ pins_explicit?: boolean | null; owner_id?: string | null; sort?: unknown };
+const VIEW_COLUMNS = "id,name,columns,filters,group_by,then_by,base_view,customer_safe,pinned,pins_explicit,owner_id,sort";
+/** The second grouping level: written only when set on a new view (the database default is none), always on a change so a cleared one is cleared. (`show_issues` is no longer used: the issues are now a grouping level.) */
+const groupingInsert = (c: ViewDef) => (c.thenBy ? { then_by: c.thenBy } : {});
+const groupingUpdate = (c: ViewDef) => ({ then_by: c.thenBy ?? null });
+type ViewRow = { id: string; name: string; columns: string[]; filters: unknown; group_by: string | null; then_by?: string | null; base_view: string | null; customer_safe: boolean; pinned?: string[] | null; /** false: an older row whose list holds only the locks besides rank, ID and name */ pins_explicit?: boolean | null; owner_id?: string | null; sort?: unknown };
 const fromRow = (r: ViewRow): SavedView => ({
   id: r.id, name: r.name, baseView: (r.base_view as ViewName | null) ?? null, ownerId: r.owner_id ?? null,
-  ...sanitizeView({ columns: r.columns, filters: r.filters, groupBy: r.group_by, thenBy: r.then_by, showIssues: r.show_issues === true, customerSafe: r.customer_safe, pinned: r.pins_explicit ? r.pinned ?? [] : [...CORE_COLUMN_KEYS, ...(r.pinned ?? [])], sort: r.sort }),
+  ...sanitizeView({ columns: r.columns, filters: r.filters, groupBy: r.group_by, thenBy: r.then_by, customerSafe: r.customer_safe, pinned: r.pins_explicit ? r.pinned ?? [] : [...CORE_COLUMN_KEYS, ...(r.pinned ?? [])], sort: r.sort }),
 });
 
 type LayoutDbRow = { user_id: string | null; view_id: string | null; builtin: string | null; in_bar: boolean; position: number; hidden: boolean };
@@ -223,14 +223,13 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
       row.name = n;
     }
     // "no sort" is a valid saved state: a definition without a sort key (what sanitizeView returns) clears it
-    if (patch.columns || patch.filters || patch.groupBy !== undefined || patch.showIssues !== undefined || patch.pinned !== undefined || "sort" in patch) {
-      const clean = sanitizeView({ columns: patch.columns, filters: patch.filters, groupBy: patch.groupBy ?? null, thenBy: patch.thenBy, showIssues: patch.showIssues, customerSafe: patch.customerSafe, pinned: patch.pinned, sort: patch.sort });
+    if (patch.columns || patch.filters || patch.groupBy !== undefined || patch.pinned !== undefined || "sort" in patch) {
+      const clean = sanitizeView({ columns: patch.columns, filters: patch.filters, groupBy: patch.groupBy ?? null, thenBy: patch.thenBy, customerSafe: patch.customerSafe, pinned: patch.pinned, sort: patch.sort });
       if ("sort" in patch) row.sort = clean.sort ?? null;
       if (patch.columns || patch.pinned !== undefined) { row.pinned = clean.pinned ?? []; row.pins_explicit = true; }
       if (patch.columns) row.columns = clean.columns;
       if (patch.filters) row.filters = clean.filters;
       if (patch.groupBy !== undefined) { row.group_by = clean.groupBy; row.then_by = clean.thenBy ?? null; }
-      if (patch.groupBy !== undefined || patch.showIssues !== undefined) row.show_issues = clean.showIssues === true;
       if (patch.customerSafe !== undefined) row.customer_safe = clean.customerSafe === true;
     }
     const { data, error } = await this.client
@@ -355,8 +354,8 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
       const d = this.dup(this.views.filter((x) => x.ownerId === v.ownerId), nm, "view", id); if (d) return d;
       v.name = nm;
     }
-    const clean = sanitizeView({ columns: patch.columns ?? v.columns, filters: patch.filters ?? v.filters, groupBy: patch.groupBy === undefined ? v.groupBy : patch.groupBy, thenBy: patch.groupBy === undefined && !("thenBy" in patch) ? v.thenBy : patch.thenBy, showIssues: patch.showIssues ?? (patch.groupBy === undefined ? v.showIssues : false), customerSafe: patch.customerSafe ?? v.customerSafe, pinned: patch.pinned ?? v.pinned, sort: "sort" in patch ? patch.sort : v.sort });
-    v.columns = clean.columns; v.filters = clean.filters; v.groupBy = clean.groupBy; v.thenBy = clean.thenBy; v.showIssues = clean.showIssues; v.pinned = clean.pinned; v.sort = clean.sort;
+    const clean = sanitizeView({ columns: patch.columns ?? v.columns, filters: patch.filters ?? v.filters, groupBy: patch.groupBy === undefined ? v.groupBy : patch.groupBy, thenBy: patch.groupBy === undefined && !("thenBy" in patch) ? v.thenBy : patch.thenBy, customerSafe: patch.customerSafe ?? v.customerSafe, pinned: patch.pinned ?? v.pinned, sort: "sort" in patch ? patch.sort : v.sort });
+    v.columns = clean.columns; v.filters = clean.filters; v.groupBy = clean.groupBy; v.thenBy = clean.thenBy; v.pinned = clean.pinned; v.sort = clean.sort;
     if (patch.customerSafe !== undefined) v.customerSafe = clean.customerSafe;
     return { ok: true, value: { ...v } };
   }
@@ -373,7 +372,7 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
     if (!this.canWrite || !this.admin) return { ok: false, error: "You cannot change the default views. Ask an admin." };
     const clean = sanitizeView({ ...def, customerSafe: false });
     const existing = this.views.find((v) => v.baseView === name);
-    if (existing) { Object.assign(existing, clean); existing.pinned = clean.pinned; existing.sort = clean.sort; existing.thenBy = clean.thenBy; existing.showIssues = clean.showIssues; return { ok: true, value: { ...existing } }; }
+    if (existing) { Object.assign(existing, clean); existing.pinned = clean.pinned; existing.sort = clean.sort; existing.thenBy = clean.thenBy; return { ok: true, value: { ...existing } }; }
     const v: SavedView = { id: `view-${++this.n}`, name, baseView: name, ownerId: null, ...clean };
     this.views.push(v);
     return { ok: true, value: v };

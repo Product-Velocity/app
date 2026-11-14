@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
-  FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupPickerSections, groupSummary, isOpenList, needsSearch, optionsFor, type Filter,
+  FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupPickerSections, groupSummary, INITIATIVE_GROUP, isOpenList, needsSearch, optionsFor, type Filter,
 } from "@pv/domain";
 import { menuSearchKeys, NoResults, SearchInput, SelectField } from "@/components/search-list";
 import { DateInput } from "@/components/date-input";
@@ -48,13 +48,13 @@ export const summarize = (f: Filter, lookups: Lookups) =>
   });
 
 // ----------------------------------------------------------------- grouping
-/** What the Group by panel edits: two grouping levels, and whether tracker issues show under each initiative. */
-export type GroupState = { groupBy: string | null; thenBy: string | null; showIssues: boolean };
+/** What the Group by panel edits: two grouping levels. One of them can be "Initiative, with its issues". */
+export type GroupState = { groupBy: string | null; thenBy: string | null };
 
 /** "Group by: Build Status › Sponsor": the state of the grouping on the button, like Filter and Columns. */
 export function GroupMenu({ state, customerSafe = false, onChange }: { state: GroupState; customerSafe?: boolean; onChange: (s: GroupState) => void }) {
   return (
-    <Popover label={<>Group by: <strong className="count-badge">{groupSummary(state.groupBy, state.thenBy)}</strong>{state.showIssues ? <span className="muted"> · with issues</span> : null}</>} active={!!state.groupBy || state.showIssues}>
+    <Popover label={<>Group by: <strong className="count-badge">{groupSummary(state.groupBy, state.thenBy)}</strong></>} active={!!state.groupBy}>
       {(close) => <GroupPanel state={state} customerSafe={customerSafe} onChange={onChange} close={close} />}
     </Popover>
   );
@@ -66,9 +66,9 @@ function GroupPanel({ state, customerSafe, onChange, close }: { state: GroupStat
   const [query, setQuery] = useState("");
   // which level the next pick fills: the first empty one, else the main one
   const [target, setTarget] = useState<0 | 1>(state.groupBy && !state.thenBy ? 1 : 0);
-  const level = state.groupBy ? target : 0;
+  const level = state.groupBy && state.groupBy !== INITIATIVE_GROUP ? target : 0;
   const names = [state.groupBy, state.thenBy] as const;
-  const nameOf = (k: string | null) => (k ? FIELD_BY_KEY[k]?.name ?? k : null);
+  const nameOf = (k: string | null) => (k ? groupSummary(k) : null);
   const sections = useMemo(() => groupPickerSections({ customerSafe, taken: level === 0 ? state.thenBy : state.groupBy }), [customerSafe, level, state.thenBy, state.groupBy]);
   const all = useMemo(() => fieldOptions(sections.flatMap((x) => x.fields)), [sections]);
   const searching = query.trim() !== "";
@@ -82,7 +82,7 @@ function GroupPanel({ state, customerSafe, onChange, close }: { state: GroupStat
   const pick = (key: string) => {
     if (level === 0) {
       if (state.groupBy === key) { clear(0); return; }
-      set({ groupBy: key, thenBy: state.thenBy === key ? null : state.thenBy });
+      set({ groupBy: key, thenBy: key === INITIATIVE_GROUP || state.thenBy === key ? null : state.thenBy }); // nothing follows the initiative level
     } else if (state.thenBy === key) clear(1);
     else set({ thenBy: key });
   };
@@ -95,10 +95,10 @@ function GroupPanel({ state, customerSafe, onChange, close }: { state: GroupStat
       <div className="gp-slots" role="group" aria-label="Grouping levels">
         {([0, 1] as const).map((l) => {
           const value = names[l];
-          const off = l === 1 && !state.groupBy;
+          const off = l === 1 && (!state.groupBy || state.groupBy === INITIATIVE_GROUP);
           return (
             <div key={l} className="gp-slot" data-active={!off && level === l} data-empty={!value}>
-              <button type="button" className="gp-slot-main" aria-label={`Choose the field for ${LEVEL_NAME[l]}: ${nameOf(value) ?? "none yet"}`} aria-pressed={!off && level === l} disabled={off} onClick={() => setTarget(l)} title={off ? "Choose the main grouping first" : `Pick the field for “${LEVEL_NAME[l]}” below`}>
+              <button type="button" className="gp-slot-main" aria-label={`Choose the field for ${LEVEL_NAME[l]}: ${nameOf(value) ?? "none yet"}`} aria-pressed={!off && level === l} disabled={off} onClick={() => setTarget(l)} title={off ? (state.groupBy ? "Nothing can follow “Initiative, with its issues”" : "Choose the main grouping first") : `Pick the field for “${LEVEL_NAME[l]}” below`}>
                 <span className="gp-slot-label">{LEVEL_NAME[l]}</span>
                 <span className="gp-slot-val">{nameOf(value) ?? (off ? "—" : "Pick a field below")}</span>
               </button>
@@ -126,15 +126,11 @@ function GroupPanel({ state, customerSafe, onChange, close }: { state: GroupStat
         ))}
       </div>
       {none && <NoResults query={query} />}
-      <div className="gp-foot">
-        {!customerSafe && (
-          <label className="gp-issues">
-            <input type="checkbox" checked={state.showIssues} onChange={(e) => onChange({ ...state, showIssues: e.target.checked })} />
-            <span>Show issues under each initiative<span className="muted"> · epics, stories and tasks from GitHub or Jira</span></span>
-          </label>
-        )}
-        {(state.groupBy || state.showIssues) && <button type="button" className="btn btn-link" onClick={() => set({ groupBy: null, thenBy: null, showIssues: false })}>Clear grouping</button>}
-      </div>
+      {state.groupBy && (
+        <div className="gp-foot">
+          <button type="button" className="btn btn-link" onClick={() => set({ groupBy: null, thenBy: null })}>Clear grouping</button>
+        </div>
+      )}
     </div>
   );
 }

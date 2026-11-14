@@ -63,33 +63,49 @@ test.describe("Group by: picker, two levels, issues", () => {
     await expect(groupBtn(page)).toHaveText(/Group by:\s*MoSCoW$/);
   });
 
-  test("Show issues puts the linked Jira issues under their initiative; the rows are not selectable", async ({ page }) => {
+  test("Group by Initiative, with its issues: each initiative is a header with its Jira issues nested beneath it", async ({ page }) => {
     await open(page, "&jira=1");
     await groupBtn(page).click();
-    await page.getByLabel(/Show issues under each initiative/).check();
-    await page.keyboard.press("Escape");
+    await page.getByRole("menuitemradio", { name: "Initiative, with its issues" }).click();
+    await expect(groupBtn(page)).toHaveText(/Group by:\s*Initiative, with its issues/);
+    const header = page.locator(".group-row[data-kind='initiative']", { hasText: "R-01" });
+    await expect(header).toBeVisible();
+    await expect(header).toContainText("2 issues");
+    await expect(header).toContainText("1 In Progress · 1 Done"); // the issues in words
     const row = page.locator(".issue-row", { hasText: "SCRUM-17" });
-    await expect(row).toBeVisible();
     await expect(row).toContainText("Import flow");
     await expect(row.getByRole("link", { name: "SCRUM-17" })).toHaveAttribute("href", /atlassian\.net\/browse\/SCRUM-17/);
-    await expect(groupBtn(page)).toContainText("with issues");
-    expect(await page.locator(".issue-row .ag-checkbox-input").count()).toBe(0);
+    expect(await page.locator(".issue-row .ag-checkbox-input").count()).toBe(0); // issue rows are not selectable
+    // the initiative's header collapses its issues
+    await page.getByRole("button", { name: /^Collapse group R-01/ }).click();
+    await expect(row).toHaveCount(0);
+    await page.getByRole("button", { name: /^Expand group R-01/ }).click();
+    await expect(row).toBeVisible();
+    // nothing can follow it as the main level
     await groupBtn(page).click();
-    await page.getByLabel(/Show issues under each initiative/).uncheck();
-    await page.keyboard.press("Escape");
-    await expect(page.locator(".issue-row")).toHaveCount(0);
+    await expect(page.locator(".gp-slot").nth(1).getByRole("button").first()).toBeDisabled();
   });
 
-  test("Show issues works for GitHub issues too", async ({ page }) => {
+  test("the initiative level can be the second level, inside another group", async ({ page }) => {
+    await open(page, "&jira=1");
+    await groupBtn(page).click();
+    await page.getByRole("menuitemradio", { name: "MoSCoW" }).click();
+    await groupBtn(page).click();
+    await page.getByRole("menuitemradio", { name: "Initiative, with its issues" }).click();
+    await expect(groupBtn(page)).toHaveText(/MoSCoW › Initiative, with its issues/);
+    await expect(page.locator(".group-row[data-level='1'][data-kind='initiative']").first()).toBeVisible();
+    await expect(page.locator(".issue-row", { hasText: "SCRUM-17" })).toBeVisible();
+  });
+
+  test("the initiative level works for GitHub issues too", async ({ page }) => {
     await open(page, "&gh=1");
     await groupBtn(page).click();
-    await page.getByLabel(/Show issues under each initiative/).check();
-    await page.keyboard.press("Escape");
+    await page.getByRole("menuitemradio", { name: "Initiative, with its issues" }).click();
     await expect(page.locator(".issue-row").first()).toBeVisible();
     await expect(page.locator(".issue-row").first().locator(".issue-key")).toContainText("#");
   });
 
-  test("the command palette has Then by and Show issues", async ({ page }) => {
+  test("the command palette has Then by", async ({ page }) => {
     await open(page);
     await page.keyboard.press("Control+K");
     await page.keyboard.type("group by health");
