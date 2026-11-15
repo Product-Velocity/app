@@ -93,6 +93,9 @@ Not everything in the tracker belongs in the roadmap (bug tickets, chores, suppo
 | J7 | Confluence: scopes, Markdown to page-format conversion, parent and space handling, page versions and the 409 conflict on update, rate limits. |
 | J8 | Jira Product Discovery: can ideas be read and written through the API, and how they link to delivery epics. |
 
+## Connection checks (issue #452)
+Settings > Integrations > Jira > Test connection runs, on the stored sign-in and without a new Atlassian login: the connection table (sign-in, permissions, Jira answering, live updates), the **Initiative-level read checks** (a level above Epic, same-named types at different levels, an Initiative found, its children read with the `parent in (...)` query and the projects they come from, epics in projects without webhooks, what Jira may hide) and, behind a confirmation, the **write test** (creates and deletes 2 test issues, label `pv-spike`; Jira's search is asked again every 2 s for up to 10 s). Human admins only. Each run is saved in `jira_check_runs` (tenant-scoped, admins read, audited; keys, counts, type names and reasons only) and the page shows the last run of each kind with "Copy the report". Code: `apps/web/src/lib/atlassian/jira-checks.ts`; decision `docs/decisions/2026-11-15-jira-connection-checks.md`. GitHub's twin is issue #454.
+
 ## Open points
 - **Sign in with Atlassian (R-031, proposed by Ashu 2026-10-23):** an extra way to sign in, not the Jira connection. To settle in spike J1: Supabase Auth support for Atlassian (built in or custom OAuth/OIDC), whether the verified email is returned, and mapping a signed-in person to their Jira account id (feeds the user mapping for assignees, #35). Access to a workspace stays by invitation; sharing a Jira site never grants access.
 - **GitLab order (decided 2026-10-23):** GitHub is priority 1, Atlassian priority 2, GitLab priority 3.

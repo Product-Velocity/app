@@ -3,7 +3,7 @@ import { buildFieldCatalog, hierarchyLevels, proposeInitiativeLevel, type JiraFi
 import { completeConnection } from "@/lib/atlassian/connect";
 import { isWorkspaceAdmin } from "@/lib/atlassian/guard";
 import { API_BASE, atlassianConfig, exchangeCode, refreshAccessToken } from "@/lib/atlassian/oauth";
-import { probeDevInfo, probeIdeaWrite, probeInitiativeTree, probeInitiativeWrite, probePaging, probeWebhook, type ProbeCall } from "@/lib/spikes/atlassian-probes";
+import { probeDevInfo, probeIdeaWrite, probePaging, probeWebhook, type ProbeCall } from "@/lib/spikes/atlassian-probes";
 import { createClient } from "@/lib/supabase/server";
 
 // THROWAWAY (spike J1, #257). Exchanges the code, runs read-only probes and prints what Atlassian answered.
@@ -67,7 +67,7 @@ async function catalogProbe(token: string, jira: string) {
   return { label: "Field catalog, hierarchy and paging (J2)", status: fields.status, body: lines.join("\n") };
 }
 
-/** Spikes J2 (levels), J3, J5, J6, J8: one probe per run, chosen on the spike page. The write probes remove what they create. */
+/** Spikes J3, J5, J6, J8 (the Initiative probes moved to the Test connection page, #452): one probe per run, chosen on the spike page. The write probes remove what they create. */
 async function probeSpike(token: string, cloudId: string, mode: string, arg: string, origin: string) {
   const base = `${API_BASE}/ex/jira/${cloudId}/rest/api/3`;
   const call: ProbeCall = async (method, path, body) => {
@@ -84,8 +84,6 @@ async function probeSpike(token: string, cloudId: string, mode: string, arg: str
     mode === "paging" ? await probePaging(call, "created >= -3650d order by created DESC")
     : mode === "devinfo" ? await probeDevInfo(call, arg)
     : mode === "idea" ? await probeIdeaWrite(call, arg)
-    : mode === "levels" ? await probeInitiativeTree(call, arg)
-    : mode === "initiative" ? await probeInitiativeWrite(call, arg.split(",")[0] ?? "", arg.split(",")[1] ?? "")
     : await probeWebhook(call, arg, `${origin}/api/spikes/jira-webhook`);
   return [{ label: `Probe ${mode}`, status: 200, body: steps.map((s) => `[${s.status}] ${s.label}\n    ${s.note.replace(/\n/g, "\n    ")}`).join("\n") }];
 }
@@ -125,7 +123,7 @@ export async function GET(request: NextRequest) {
   const cloudId = sites.data?.[0]?.id ?? "";
   const writeMode = request.cookies.get("atl_mode")?.value === "write";
   const mode = request.cookies.get("atl_mode")?.value ?? "read";
-  const probe = ["paging", "devinfo", "idea", "webhook", "levels", "initiative"].includes(mode);
+  const probe = ["paging", "devinfo", "idea", "webhook"].includes(mode);
   if (cloudId && probe) {
     results.push(...(await probeSpike(token.access_token, cloudId, mode, request.cookies.get("atl_arg")?.value ?? "", url.origin)));
   } else if (cloudId && writeMode) {

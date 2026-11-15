@@ -123,68 +123,7 @@ export async function probeWebhook(call: ProbeCall, projectKey: string, callback
   return steps;
 }
 
-const ISSUE_KEY = /^[A-Z][A-Z0-9_]{1,19}-[0-9]{1,9}$/;
 const PROJECT_KEY = /^[A-Z][A-Z0-9_]{1,19}$/;
-const count = (names: string[]) => [...names.reduce((m, n) => m.set(n, (m.get(n) ?? 0) + 1), new Map<string, number>())].map(([n, c]) => `${n} ${c}`).join(", ") || "none";
-
-/**
- * J2 (issue #431), READ ONLY: the Initiative level and its tree on a real site. Reports which issue types sit at which hierarchy level, finds one
- * Initiative-level issue (or uses the key given), and reads what Product Velocity would read under it with the same `parent in (...)` query as
- * `jira-tree.ts`: how many children, of which types, **in how many different projects** (the cross-project question), then their children, and the
- * shape of the `parent` field on one child. Prints keys, counts and type names only; no summaries, people or addresses. Writes nothing.
- * Jira hides issues of projects the signed-in user cannot browse, so a count lower than the Jira screen shows is the permissions answer.
- */
-export async function probeInitiativeTree(call: ProbeCall, issueKey = ""): Promise<ProbeStep[]> {
-  const steps: ProbeStep[] = [];
-  const t = await call("GET", "/issuetype");
-  const byLevel = new Map<number, string[]>();
-  const above: string[] = [];
-  for (const x of arr(t.json)) {
-    const level = Number(x.hierarchyLevel);
-    if (!Number.isFinite(level)) continue;
-    byLevel.set(level, [...(byLevel.get(level) ?? []), String(x.name)]);
-    if (level >= 2 && /^\d+$/.test(String(x.id))) above.push(String(x.id));
-  }
-  steps.push({ label: "Issue types by hierarchy level", status: t.status, note: [...byLevel].sort((a, b) => b[0] - a[0]).map(([l, n]) => `level ${l}: ${[...new Set(n)].join(", ")}`).join("\n") || (whyJira(t.json) || "none") });
-  if (above.length === 0) return [...steps, { label: "Initiative level", status: t.status, note: "No issue type above Epic on this site (or the sign-in cannot read issue types): there is no Initiative level to read." }];
-
-  let key = ISSUE_KEY.test(issueKey) ? issueKey : "";
-  if (!key) {
-    const s = await call("GET", `/search/jql?${new URLSearchParams({ jql: `issuetype in (${[...new Set(above)].join(",")}) ORDER BY key ASC`, maxResults: "1", fields: "summary" })}`);
-    key = String(arr(obj(s.json).issues)[0]?.key ?? "");
-    steps.push({ label: "Find an issue at the level above Epic", status: s.status, note: key ? `found ${key}` : "none found (create an Initiative with at least one epic under it, or pass its key)" });
-    if (!key) return steps;
-  }
-  const i = await call("GET", `/issue/${key}?fields=issuetype,project`);
-  const f = obj(obj(i.json).fields);
-  const projectKey = String(obj(f.project).key ?? "");
-  const p = PROJECT_KEY.test(projectKey) ? await call("GET", `/project/${projectKey}`) : null;
-  const style = p ? `style ${String(obj(p.json).style ?? "-")}, simplified ${String(obj(p.json).simplified ?? "-")}, type ${String(obj(p.json).projectTypeKey ?? "-")}` : "unknown";
-  steps.push({ label: `The Initiative-level issue ${key}`, status: i.status, note: `type ${String(obj(f.issuetype).name ?? "?")}, hierarchy level ${String(obj(f.issuetype).hierarchyLevel ?? "?")}, project ${projectKey || "?"} (${style})` });
-
-  const children = await call("GET", `/search/jql?${new URLSearchParams({ jql: `parent in ("${key}") ORDER BY key ASC`, maxResults: "100", fields: "issuetype,project,status" })}`);
-  const kids = arr(obj(children.json).issues);
-  const kidProjects = kids.map((k) => String(obj(obj(obj(k).fields).project).key ?? "?"));
-  const distinct = new Set(kidProjects);
-  steps.push({
-    label: "Children (the same `parent in (...)` query Product Velocity uses)", status: children.status,
-    note: children.status === 200
-      ? `${kids.length} children (isLast ${String(obj(children.json).isLast)})\ntypes: ${count(kids.map((k) => String(obj(obj(obj(k).fields).issuetype).name ?? "?")))}\nprojects: ${count(kidProjects)}\n${distinct.size > 1 ? "CROSS-PROJECT: children come from more than one project" : distinct.size === 1 ? `all in one project${distinct.has(projectKey) ? " (the Initiative's own)" : " (a different one from the Initiative's)"}` : "no children"}`
-      : (whyJira(children.json) || "refused"),
-  });
-  if (kids.length === 0) return steps;
-
-  const keys = kids.map((k) => String(k.key)).filter((k) => ISSUE_KEY.test(k)).slice(0, 50);
-  const grand = await call("GET", `/search/jql?${new URLSearchParams({ jql: `parent in (${keys.map((k) => `"${k}"`).join(", ")}) ORDER BY key ASC`, maxResults: "100", fields: "issuetype,project" })}`);
-  const g = arr(obj(grand.json).issues);
-  steps.push({ label: `Children of those children (first ${keys.length})`, status: grand.status, note: grand.status === 200 ? `${g.length} issues\ntypes: ${count(g.map((x) => String(obj(obj(obj(x).fields).issuetype).name ?? "?")))}\nprojects: ${count(g.map((x) => String(obj(obj(obj(x).fields).project).key ?? "?")))}` : (whyJira(grand.json) || "refused") });
-
-  const c = await call("GET", `/issue/${keys[0]}?fields=parent`);
-  const parent = obj(obj(obj(c.json).fields).parent);
-  steps.push({ label: "Shape of the parent field on one child", status: c.status, note: Object.keys(parent).length ? `keys: ${Object.keys(parent).join(", ")}; parent key ${String(parent.key ?? "?")} matches: ${String(parent.key) === key}` : "no parent field returned" });
-  steps.push({ label: "Permissions check by hand", status: 200, note: "Compare the children count above with the Initiative's child count on the Jira screen. A lower number here means the signed-in user cannot browse some projects (Jira hides them silently)." });
-  return steps;
-}
 
 /**
  * J2/J4 (issue #431), WRITES, removes everything it makes: creates ONE Initiative in `initiativeProject` and ONE epic in `epicProject` (both labelled

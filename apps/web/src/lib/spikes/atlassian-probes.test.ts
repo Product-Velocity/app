@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { probeDevInfo, probeIdeaWrite, probeInitiativeTree, probeInitiativeWrite, probePaging, probeWebhook, type ProbeCall } from "./atlassian-probes";
+import { probeDevInfo, probeIdeaWrite, probeInitiativeWrite, probePaging, probeWebhook, type ProbeCall } from "./atlassian-probes";
 import { getJson } from "@/lib/atlassian/read-client";
 import { readOpenWork } from "@/lib/atlassian/read-issues";
 import type { JiraRequest } from "@/lib/atlassian/jira-write";
@@ -182,38 +182,6 @@ function fakeInitiativeSite(opts: { initiativeLevel?: boolean; hide?: string; la
   };
   return { call, calls, issues };
 }
-
-describe("J2 probe: the Initiative tree across projects (read only)", () => {
-  it("finds the Initiative, reads children from two projects as cross-project, then their stories and the parent field shape", async () => {
-    const j = fakeInitiativeSite();
-    const steps = await probeInitiativeTree(j.call);
-    const text = steps.map((s) => `${s.label}: ${s.note}`).join("\n");
-    expect(text).toContain("level 2: Initiative");
-    expect(text).toContain("found INIT-1");
-    expect(text).toContain("project ROAD (style classic");
-    expect(text).toContain("2 children");
-    expect(text).toContain("CROSS-PROJECT");
-    expect(text).toContain("projects: R8P 1, DATA 1");
-    expect(text).toContain("Story 1, Task 1");
-    expect(text).toContain("parent key INIT-1 matches: true");
-    expect(j.calls.every((c) => c.startsWith("GET"))).toBe(true);
-  });
-  it("says so when the site has no level above Epic, and stops", async () => {
-    const steps = await probeInitiativeTree(fakeInitiativeSite({ initiativeLevel: false }).call);
-    expect(steps.at(-1)?.note).toContain("no Initiative level");
-  });
-  it("a project the sign-in cannot browse simply has fewer children, and the probe tells you to compare by hand", async () => {
-    const steps = await probeInitiativeTree(fakeInitiativeSite({ hide: "DATA" }).call, "INIT-1");
-    const text = steps.map((s) => s.note).join("\n");
-    expect(text).toContain("1 children");
-    expect(text).toContain("all in one project");
-    expect(text).toContain("cannot browse some projects");
-  });
-  it("prints no summaries: only keys, counts and type names", async () => {
-    const steps = await probeInitiativeTree(fakeInitiativeSite().call);
-    expect(JSON.stringify(steps)).not.toMatch(/summary|@|atlassian\.net/i);
-  });
-});
 
 describe("J2/J4 probe: create an Initiative and an epic in another project, set the parent, delete both", () => {
   it("proves the cross-project parent, and removes everything it made", async () => {
