@@ -27,7 +27,7 @@ export async function renderJiraHarness(searchParams: Promise<Record<string, str
               : [],
         },
       ];
-  const types = [{ id: "10001", name: "Epic" }, { id: "10002", name: "Feature" }, { id: "10003", name: "Task" }, { id: "10004", name: "Subtask" }];
+  const types = [{ id: "10009", name: "Initiative", hierarchyLevel: 2, subtask: false }, { id: "10001", name: "Epic", hierarchyLevel: 1, subtask: false }, { id: "10002", name: "Feature", hierarchyLevel: 0, subtask: false }, { id: "10003", name: "Task", hierarchyLevel: 0, subtask: false }, { id: "10004", name: "Subtask", hierarchyLevel: -1, subtask: true }];
   const proposal = { initiative: "10001", epic: "10002", task: "10004" };
   const projectLinks: JiraProjectLinkView[] = [
     {
@@ -58,7 +58,7 @@ export async function renderJiraHarness(searchParams: Promise<Record<string, str
       projectId: "p2", projectName: "Growth", link: null, tracker: null, rowLink: null,
     },
   ];
-  const choices = [{ value: "c1|s1|PLAT", label: "PLAT · Platform", group: "Acme Corp", types, proposal }, { value: "c1|s1|GROW", label: "GROW · Growth", group: "Acme Corp", types, proposal }];
+  const choices = [{ value: "c1|s1|PLAT", label: "PLAT · Platform", group: "Acme Corp", types, proposal }, { value: "c1|s1|GROW", label: "GROW · Growth", group: "Acme Corp", types, proposal: { initiative: "10009", epic: "10001", task: "10003" } }];
   const sync = none || state !== "connected" ? null : {
     linked: 7,
     lastCheck: q.events === "none" ? null : { at: "2026-11-03T05:30:00Z", summary: "Checked 7 linked item(s) in 1 Jira project(s): 1 changed, 0 issue(s) not found." },

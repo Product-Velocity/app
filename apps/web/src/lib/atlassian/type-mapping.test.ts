@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { proposeTypeMapping, validateTypeMapping, type ProjectIssueType } from "./type-mapping";
+import { initiativeLevelHint, levelLabel, proposeTypeMapping, sortTypesByLevel, typeOptionLabel, validateTypeMapping, type ProjectIssueType } from "./type-mapping";
 
 const t = (id: string, name: string, hierarchyLevel: number, subtask = false): ProjectIssueType => ({ id, name, hierarchyLevel, subtask });
 const standard = [t("1", "Epic", 1), t("2", "Story", 0), t("3", "Bug", 0), t("4", "Sub-task", -1, true)];
@@ -30,5 +30,31 @@ describe("type mapping check", () => {
     expect(validateTypeMapping(standard, { initiative: "", epic: null, task: null })).toMatch(/initiative/);
     expect(validateTypeMapping(standard, { initiative: "99", epic: null, task: null })).toMatch(/does not belong/);
     expect(validateTypeMapping(standard, { initiative: "1", epic: "1", task: null })).toMatch(/different/);
+  });
+});
+
+describe("telling issue types apart in the mapping (issue #431)", () => {
+  // the Refinery89 site has two types named "Initiative": one at level 2 (above Epic), one at level 0
+  const site = [t("20", "Initiative", 2), t("1", "Epic", 1), t("2", "Story", 0), t("21", "Initiative", 0), t("4", "Sub-task", -1, true)];
+  it("labels every type with its level, so two types with one name differ", () => {
+    expect(site.map(typeOptionLabel)).toEqual(["Initiative · level 2, above Epic", "Epic · level 1", "Story · level 0", "Initiative · level 0", "Sub-task · sub-task"]);
+    expect(levelLabel(3)).toBe("level 3, above Epic");
+    expect(levelLabel(-1)).toBe("sub-task");
+    expect(levelLabel(0, true)).toBe("sub-task");
+  });
+  it("lists the highest level first, then by name", () => {
+    expect(sortTypesByLevel(site).map((x) => x.id)).toEqual(["20", "1", "21", "2", "4"]);
+    expect(site.map((x) => x.id)).toEqual(["20", "1", "2", "21", "4"]); // the input is not changed
+  });
+  it("proposes the level above Epic as the initiative, not the level-0 type of the same name", () => {
+    expect(proposeTypeMapping(site)).toMatchObject({ source: "above-epic", initiative: "20", epic: "1" });
+  });
+  it("says what the chosen initiative type means", () => {
+    expect(initiativeLevelHint(site, "20")).toContain("above Epic");
+    expect(initiativeLevelHint(site, "20")).toContain("any other Jira project");
+    expect(initiativeLevelHint(site, "1")).toContain("Epic level");
+    expect(initiativeLevelHint(site, "21")).toContain("below Epic level");
+    expect(initiativeLevelHint(site, null)).toBeNull();
+    expect(initiativeLevelHint(site, "nope")).toBeNull();
   });
 });
