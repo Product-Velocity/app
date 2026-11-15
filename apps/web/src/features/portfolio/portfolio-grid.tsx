@@ -15,7 +15,7 @@ import { setQueryParam, useScope } from "../workspace/scope";
 import { buildColumns, isEditableColumn, isReadOnlyColumn } from "./columns";
 import { syncLabel, syncPlatforms, syncTitle } from "./sync-label";
 import { ColumnsPanel } from "./columns-panel";
-import { isIssueRow, issueInfoOf, issueRowsOf, issuesKey, withIssueRows, type IssueRow } from "./issue-rows";
+import { isIssueRow, issueInfoOf, issueRowsOf, issuesKey, issueTypeCounts, withIssueRows, type IssueFilter, type IssueRow } from "./issue-rows";
 import type { ReportChildren } from "./export-xlsx-children";
 import { FilterPanel } from "./filter-panel";
 import { Popover } from "./popover";
@@ -217,7 +217,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const [base, setBase] = useState<BaseView>(() => parseBase(params.get("view"), initialBase));
   // What you change is kept while you move between views: filters, grouping and sort stay until you remove them; column changes stay with the view
   // they were made in. Nothing is saved until you choose to, from the views menu. Opening a view that stores its own filters, grouping or sort uses them.
-  type Shared = { filters?: Filter[]; groupBy?: string | null; thenBy?: string | null; showIssues?: boolean; sort?: ViewDef["sort"] };
+  type Shared = { filters?: Filter[]; groupBy?: string | null; thenBy?: string | null; showIssues?: boolean; issueTypes?: string[]; hideDoneIssues?: boolean; sort?: ViewDef["sort"] };
   const [shared, setShared] = useState<Shared>({});
   const [colOverrides, setColOverrides] = useState<Record<string, { columns: string[]; pinned: string[] }>>({});
   const viewKey = refKey(baseToRef(base));
@@ -230,7 +230,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       ...bDef,
       ...(co ? { columns: co.columns, pinned: co.pinned } : {}),
       ...(shared.filters !== undefined ? { filters: shared.filters } : {}),
-      ...("groupBy" in shared ? { groupBy: shared.groupBy, thenBy: shared.thenBy, showIssues: shared.showIssues } : {}),
+      ...("groupBy" in shared ? { groupBy: shared.groupBy, thenBy: shared.thenBy, showIssues: shared.showIssues, issueTypes: shared.issueTypes, hideDoneIssues: shared.hideDoneIssues } : {}),
       ...("sort" in shared ? { sort: shared.sort } : {}),
     }),
     [bDef, co, shared],
@@ -239,13 +239,13 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const shownSort = effectiveSort(def); // a saved sort on a column the view does not show falls back to the default order, quietly
   const openBaseRaw = (b: BaseView) => {
     const target = baseDef(b, views, defaults);
-    if (target) setShared((p) => { const n = { ...p }; if (target.filters.length > 0) delete n.filters; if (target.groupBy || target.showIssues) { delete n.groupBy; delete n.thenBy; delete n.showIssues; } if (target.sort) delete n.sort; return n; });
+    if (target) setShared((p) => { const n = { ...p }; if (target.filters.length > 0) delete n.filters; if (target.groupBy || target.showIssues) { delete n.groupBy; delete n.thenBy; delete n.showIssues; delete n.issueTypes; delete n.hideDoneIssues; } if (target.sort) delete n.sort; return n; });
     setBase(b);
     setQueryParam("view", baseParam(b));
   };
   const changeDef = (patch: Partial<ViewDef>) => {
     const next = sanitizeView({ ...def, ...patch });
-    setShared((p) => ({ ...p, ...("filters" in patch ? { filters: next.filters } : {}), ...("groupBy" in patch || "thenBy" in patch || "showIssues" in patch ? { groupBy: next.groupBy, thenBy: next.thenBy ?? null, showIssues: next.showIssues === true } : {}), ...("sort" in patch ? { sort: next.sort ?? [] } : {}) }));
+    setShared((p) => ({ ...p, ...("filters" in patch ? { filters: next.filters } : {}), ...("groupBy" in patch || "thenBy" in patch || "showIssues" in patch || "issueTypes" in patch || "hideDoneIssues" in patch ? { groupBy: next.groupBy, thenBy: next.thenBy ?? null, showIssues: next.showIssues === true, issueTypes: next.issueTypes, hideDoneIssues: next.hideDoneIssues === true } : {}), ...("sort" in patch ? { sort: next.sort ?? [] } : {}) }));
     if ("columns" in patch || "pinned" in patch) setColOverrides((p) => ({ ...p, [viewKey]: { columns: next.columns, pinned: next.pinned ?? [] } }));
   };
   const clearColumns = () => setColOverrides((p) => { const n = { ...p }; delete n[viewKey]; return n; });
@@ -294,27 +294,36 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const [issueKids, setIssueKids] = useState<ReportChildren>({ jira: {}, github: {} });
   const [issuesFailed, setIssuesFailed] = useState(false);
   const issuesAsked = useRef(new Set<string>());
+  const [issuesPending, setIssuesPending] = useState(0);
   const showIssues = def.showIssues === true;
+  // the Group by panel counts the issue types, so it asks for the issues of the shown initiatives when it opens
+  const [issuesWanted, setIssuesWanted] = useState(false);
+  const issueFilter = useMemo<IssueFilter>(() => ({ types: def.issueTypes ?? null, hideDone: def.hideDoneIssues === true }), [def.issueTypes, def.hideDoneIssues]);
+  const wantIssues = showIssues || issuesWanted;
   useEffect(() => {
-    if (!showIssues) { issuesAsked.current.clear(); return; }
+    if (!wantIssues) { issuesAsked.current.clear(); return; }
     const ids = visibleRows.map((r) => r.id).filter((id) => !issuesAsked.current.has(id));
     if (ids.length === 0) return;
     for (const id of ids) issuesAsked.current.add(id);
+    setIssuesPending((n) => n + 1);
     controller.childrenOf(ids)
       .then((c) => { setIssuesFailed(false); setIssueKids((p) => ({ jira: { ...p.jira, ...c.jira }, github: { ...p.github, ...c.github } })); })
-      .catch(() => { for (const id of ids) issuesAsked.current.delete(id); setIssuesFailed(true); });
-  }, [showIssues, visibleRows, controller]);
+      .catch(() => { for (const id of ids) issuesAsked.current.delete(id); setIssuesFailed(true); })
+      .finally(() => setIssuesPending((n) => n - 1));
+  }, [wantIssues, visibleRows, controller]);
+  const issueTypes = useMemo(() => issueTypeCounts(visibleRows, issueKids), [visibleRows, issueKids]);
+  const issuesLoading = issuesPending > 0;
   const displayRows = useMemo(() => {
     const grouped = buildGroupedRows(sortRows(visibleRows as unknown as Record<string, unknown>[], shownSort) as unknown as typeof visibleRows, def.groupBy, collapsed, groupLabel, def.thenBy ?? null);
-    return showIssues ? withIssueRows(grouped, issueKids, collapsed) : grouped;
+    return showIssues ? withIssueRows(grouped, issueKids, collapsed, issueFilter) : grouped;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleRows, def.groupBy, def.thenBy, shownSort, collapsed, lookups, showIssues, issueKids]);
+  }, [visibleRows, def.groupBy, def.thenBy, shownSort, collapsed, lookups, showIssues, issueKids, issueFilter]);
   const toggleGroup = useCallback((key: string) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(key)) n.add(key); return n; }), []);
   // what a cell may ask the grid: fold a group, and (Show issues) the chip data of an initiative's name cell
-  const issueInfo = useCallback((id: string) => { const r = controller.row(id); return r ? issueInfoOf(r, issueKids, collapsed) : null; }, [controller, issueKids, collapsed]);
+  const issueInfo = useCallback((id: string) => { const r = controller.row(id); return r ? issueInfoOf(r, issueKids, collapsed, issueFilter) : null; }, [controller, issueKids, collapsed, issueFilter]);
   const gridContext = useMemo(() => ({ toggleGroup, issueInfo }), [toggleGroup, issueInfo]);
   // the chips are drawn by the cells, which do not see a change of context by themselves
-  useEffect(() => { if (showIssues) apiRef.current?.refreshCells({ columns: ["initiative_name"], force: true }); }, [showIssues, issueKids, collapsed]);
+  useEffect(() => { if (showIssues) apiRef.current?.refreshCells({ columns: ["initiative_name"], force: true }); }, [showIssues, issueKids, collapsed, issueFilter]);
   const resetShown = () => setAdded(new Set());
   const setFilters = (filters: Filter[]) => { resetShown(); changeDef({ filters }); };
   const setSearchText = (t: string) => { resetShown(); setSearch(t); };
@@ -585,7 +594,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     const pickable = groupPickerSections({ customerSafe: def.customerSafe === true }).flatMap((x) => x.fields);
     for (const f of pickable) if (f.key !== def.thenBy) out.push({ id: `group:${f.key}`, label: `Group by ${f.name}`, group: "Grouping", run: () => changeDef({ groupBy: f.key }) });
     if (showIssues) {
-      const keys = visibleRows.filter((r) => issueRowsOf(r, issueKids).length > 0).map((r) => issuesKey(r.id));
+      const keys = visibleRows.filter((r) => issueRowsOf(r, issueKids, issueFilter).length > 0).map((r) => issuesKey(r.id));
       out.push({ id: "issues:collapse", label: "Collapse all issues", group: "Grouping", keywords: "fold hide epics stories tasks", run: () => setCollapsed((c) => new Set([...c, ...keys])) });
       out.push({ id: "issues:expand", label: "Expand all issues", group: "Grouping", keywords: "unfold show epics stories tasks", run: () => setCollapsed((c) => new Set([...c].filter((k) => !k.startsWith("issues:")))) });
     }
@@ -621,7 +630,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     return out;
     // the commands are rebuilt when what they act on changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [controller, lookups, viewsApi.commands, scopes, projects, def, dirty, search, base, visibleRows, mac, focusQuickAdd, focusSearch, selected, gates, showIssues, issueKids]);
+  }, [controller, lookups, viewsApi.commands, scopes, projects, def, dirty, search, base, visibleRows, mac, focusQuickAdd, focusSearch, selected, gates, showIssues, issueKids, issueFilter]);
   const findItems = useMemo(
     () => (q: string) => controller.rows.filter((r) => matchesSearch(r, q)).slice(0, 6).map((r) => ({ id: r.id, label: `${r.item_code} ${r.initiative_name}`, run: () => locate(r.id) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -668,7 +677,11 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         <div className="pvbar-s1">
           <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} quarters={controller.rows.map((r) => r.g2m_quarter)} openValues={(k) => controller.openValues(k)} today={today} matching={visibleRows.length} total={controller.rows.length} />
           <ColumnsPanel def={def} defaultDef={bDef} customerSafe={def.customerSafe === true} onApply={changeColumns} shown={shownCount} />
-          <GroupMenu state={{ groupBy: def.groupBy, thenBy: def.thenBy ?? null, showIssues }} customerSafe={def.customerSafe === true} onChange={(g) => changeDef({ groupBy: g.groupBy, thenBy: g.thenBy, showIssues: g.showIssues })} />
+          <GroupMenu
+            state={{ groupBy: def.groupBy, thenBy: def.thenBy ?? null, showIssues, issueTypes: def.issueTypes ?? null, hideDone: def.hideDoneIssues === true }}
+            customerSafe={def.customerSafe === true} issueTypes={issueTypes} issuesLoading={issuesLoading} onOpenIssues={() => setIssuesWanted(true)}
+            onChange={(g) => changeDef({ groupBy: g.groupBy, thenBy: g.thenBy, showIssues: g.showIssues, issueTypes: g.issueTypes ?? undefined, hideDoneIssues: g.hideDone })}
+          />
           <label className="pvbar-search">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b6272" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
             <input

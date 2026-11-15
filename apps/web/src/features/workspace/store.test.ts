@@ -286,10 +286,10 @@ describe("saving a sort with a view (issue #207)", () => {
   it("Update writes the sort, and writes null when the definition has no sort (no sort is a saved state)", async () => {
     const a = fake([{ data: [viewRow] }]);
     await new SupabaseWorkspaceStore(a.client, "t1").updateView("v1", { ...def, sort });
-    expect(has(a.calls[0]!, "update", { sort, pinned: locked, pins_explicit: true, columns: def.columns, filters: def.filters, group_by: "health", then_by: null, show_issues: false })).toBe(true);
+    expect(has(a.calls[0]!, "update", { sort, pinned: locked, pins_explicit: true, columns: def.columns, filters: def.filters, group_by: "health", then_by: null, show_issues: false, issue_types: null, issues_hide_done: false })).toBe(true);
     const b = fake([{ data: [{ ...viewRow, sort: null }] }]);
     await new SupabaseWorkspaceStore(b.client, "t1").updateView("v1", { ...def, sort: [] });
-    expect(has(b.calls[0]!, "update", { sort: null, pinned: locked, pins_explicit: true, columns: def.columns, filters: def.filters, group_by: "health", then_by: null, show_issues: false })).toBe(true);
+    expect(has(b.calls[0]!, "update", { sort: null, pinned: locked, pins_explicit: true, columns: def.columns, filters: def.filters, group_by: "health", then_by: null, show_issues: false, issue_types: null, issues_hide_done: false })).toBe(true);
   });
   it("Update on a built-in view stores the sort too (it used to be dropped)", async () => {
     const first = fake([{ data: null }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", sort }] }]);
@@ -298,7 +298,7 @@ describe("saving a sort with a view (issue #207)", () => {
     expect(has(first.calls[1]!, "insert", { tenant_id: "t1", name: "Planning", base_view: "Planning", columns: def.columns, filters: def.filters, group_by: "health", pinned: locked, pins_explicit: true, sort })).toBe(true);
     const again = fake([{ data: { id: "d1" } }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", sort: null }] }]);
     await new SupabaseWorkspaceStore(again.client, "t1").saveDefaultView("Planning", { ...def });
-    expect(has(again.calls[1]!, "update", { columns: def.columns, filters: def.filters, group_by: "health", pinned: locked, pins_explicit: true, sort: null, then_by: null, show_issues: false })).toBe(true);
+    expect(has(again.calls[1]!, "update", { columns: def.columns, filters: def.filters, group_by: "health", pinned: locked, pins_explicit: true, sort: null, then_by: null, show_issues: false, issue_types: null, issues_hide_done: false })).toBe(true);
   });
   it("a view read back carries its sort", async () => {
     const { client } = fake([{ data: [viewRow] }]);
@@ -339,6 +339,32 @@ describe("two grouping levels and shown issues in a saved view (issue #437)", ()
     expect(sent(a.calls[0] as never)).toMatchObject({ then_by: "moscow", show_issues: true });
     const b = fake([{ data: [{ id: "v1", name: "V", columns: def.columns, filters: [], group_by: "health" }] }]);
     await new SupabaseWorkspaceStore(b.client, "t1").updateView("v1", def);
-    expect(sent(b.calls[0] as never)).toMatchObject({ then_by: null, show_issues: false });
+    expect(sent(b.calls[0] as never)).toMatchObject({ then_by: null, show_issues: false, issue_types: null, issues_hide_done: false });
+  });
+});
+
+describe("issue types and hide-done in a saved view (issue #437)", () => {
+  const withIssues = { ...def, showIssues: true, issueTypes: ["Epic", "Story"], hideDoneIssues: true };
+  it("reads issue_types and issues_hide_done; an older row reads as every type, nothing hidden", async () => {
+    const row = { id: "v1", name: "V", columns: def.columns, filters: [], group_by: "health", show_issues: true, issue_types: ["Epic", "Story"], issues_hide_done: true };
+    const v = (await new SupabaseWorkspaceStore(fake([{ data: [row] }]).client, "t1").listViews())[0]!;
+    expect(v).toMatchObject({ showIssues: true, issueTypes: ["Epic", "Story"], hideDoneIssues: true });
+    const old = (await new SupabaseWorkspaceStore(fake([{ data: [{ ...row, issue_types: null, issues_hide_done: null }] }]).client, "t1").listViews())[0]!;
+    expect("issueTypes" in old).toBe(false);
+    expect("hideDoneIssues" in old).toBe(false);
+  });
+  it("a new view writes the two columns only when set", async () => {
+    const a = fake([{ data: { id: "v2" } }]);
+    await new SupabaseWorkspaceStore(a.client, "t1", "u1").createView("With", withIssues);
+    expect(has(a.calls[0]!, "insert", { tenant_id: "t1", name: "With", columns: def.columns, filters: def.filters, group_by: "health", show_issues: true, issue_types: ["Epic", "Story"], issues_hide_done: true, customer_safe: false, pinned: locked, pins_explicit: true, sort: null, visibility: "private", owner_id: "u1" })).toBe(true);
+  });
+  it("Update writes the chosen types and the switch, and clears them again", async () => {
+    const sent = (c: { ops: [string, unknown[]][] }) => c.ops.find(([o]) => o === "update")![1][0] as { issue_types?: unknown; issues_hide_done?: unknown };
+    const a = fake([{ data: [{ id: "v1", name: "V", columns: def.columns, filters: [], group_by: "health" }] }]);
+    await new SupabaseWorkspaceStore(a.client, "t1").updateView("v1", withIssues);
+    expect(sent(a.calls[0] as never)).toMatchObject({ issue_types: ["Epic", "Story"], issues_hide_done: true });
+    const b = fake([{ data: [{ id: "v1", name: "V", columns: def.columns, filters: [], group_by: "health" }] }]);
+    await new SupabaseWorkspaceStore(b.client, "t1").updateView("v1", def);
+    expect(sent(b.calls[0] as never)).toMatchObject({ issue_types: null, issues_hide_done: false });
   });
 });

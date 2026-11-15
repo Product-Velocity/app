@@ -21,13 +21,13 @@ export function NameWithIssues(p: CustomCellRendererProps<GridItem>) {
         <button
           type="button"
           className="issue-chip"
-          title={`${info.count} ${info.count === 1 ? "issue" : "issues"}${info.summary ? ` · ${info.summary}` : ""}: ${info.collapsed ? "press to show them" : "press to fold them away"}`}
+          title={`${info.count} ${info.count === 1 ? "issue" : "issues"}${info.summary ? ` · ${info.summary}` : ""}${info.hidden > 0 ? ` · ${info.hidden} hidden by the filter` : ""}: ${info.collapsed ? "press to show them" : "press to fold them away"}`}
           aria-expanded={!info.collapsed}
-          aria-label={`${info.collapsed ? "Expand" : "Collapse"} the issues of ${p.data?.item_code ?? "this initiative"}: ${info.count} ${info.count === 1 ? "issue" : "issues"}, ${info.summary}`}
+          aria-label={`${info.collapsed ? "Expand" : "Collapse"} the issues of ${p.data?.item_code ?? "this initiative"}: ${info.count} ${info.count === 1 ? "issue" : "issues"}, ${info.summary}${info.hidden > 0 ? `, ${info.hidden} hidden by the filter` : ""}`}
           onClick={(e) => { e.stopPropagation(); ctx.toggleGroup(info.key); }}
           onDoubleClick={(e) => e.stopPropagation()}
         >
-          <span aria-hidden="true">{info.collapsed ? "▸" : "▾"}</span> {info.count} {info.count === 1 ? "issue" : "issues"}{info.summary ? <span className="issue-sum"> · {info.summary}</span> : null}
+          <span aria-hidden="true">{info.collapsed ? "▸" : "▾"}</span> {info.count} {info.count === 1 ? "issue" : "issues"}{info.summary || info.hidden > 0 ? <span className="issue-sum">{info.summary ? ` · ${info.summary}` : ""}{info.hidden > 0 ? ` · ${info.hidden} hidden` : ""}</span> : null}
         </button>
       )}
     </span>

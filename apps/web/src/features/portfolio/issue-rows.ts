@@ -6,9 +6,13 @@ export type IssueRow = { __issue: true; id: string; parentId: string; child: Rep
 
 export const isIssueRow = (r: unknown): r is IssueRow => !!r && typeof r === "object" && (r as { __issue?: boolean }).__issue === true;
 
+/** Which issues "Show issues" lists: only these types (none given means every type), and not the ones that are Done or Cancelled in the tracker. */
+export type IssueFilter = { types?: readonly string[] | null; hideDone?: boolean };
+const keeps = (c: ReportChild, f?: IssueFilter) => (!f?.types?.length || f.types.includes(c.type)) && !(f?.hideDone && c.group === "Done");
+
 /** An initiative's linked tracker issues as rows (Jira first, else GitHub, the first level, as in the Excel report with epics). None when there are none or they are not loaded yet. */
-export function issueRowsOf(row: GridItem, children: ReportChildren): IssueRow[] {
-  const kids = childrenOf(row, children);
+export function issueRowsOf(row: GridItem, children: ReportChildren, filter?: IssueFilter): IssueRow[] {
+  const kids = childrenOf(row, children).filter((c) => keeps(c, filter));
   return kids.map((child, i) => ({ __issue: true, id: `issue:${row.id}:${child.key}`, parentId: row.id, child, last: i === kids.length - 1 }));
 }
 
@@ -24,25 +28,34 @@ export function issueSummary(rows: readonly IssueRow[]): string {
 export const issuesKey = (initiativeId: string) => `issues:${initiativeId}`;
 
 /** What the chip on an initiative's name cell shows: how many issues, in words, and whether they are folded away. Null when it has none. */
-export type IssueInfo = { key: string; count: number; summary: string; collapsed: boolean };
-export function issueInfoOf(row: GridItem, children: ReportChildren, collapsed: ReadonlySet<string>): IssueInfo | null {
-  const rows = issueRowsOf(row, children);
+export type IssueInfo = { key: string; count: number; summary: string; collapsed: boolean; /** Issues of this initiative the filter leaves out. */ hidden: number };
+export function issueInfoOf(row: GridItem, children: ReportChildren, collapsed: ReadonlySet<string>, filter?: IssueFilter): IssueInfo | null {
+  const rows = issueRowsOf(row, children, filter);
   if (rows.length === 0) return null;
   const key = issuesKey(row.id);
-  return { key, count: rows.length, summary: issueSummary(rows), collapsed: collapsed.has(key) };
+  return { key, count: rows.length, summary: issueSummary(rows), collapsed: collapsed.has(key), hidden: childrenOf(row, children).length - rows.length };
+}
+
+const TYPE_ORDER = ["Epic", "Story", "Task", "Bug", "Sub-task"];
+/** The issue types among the linked issues of these initiatives, with how many of each (before any filter): Epic, Story, Task, Bug, Sub-task first, then the others by count. */
+export function issueTypeCounts(rows: readonly GridItem[], children: ReportChildren): { type: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const r of rows) for (const c of childrenOf(r, children)) counts.set(c.type, (counts.get(c.type) ?? 0) + 1);
+  const rank = (t: string) => { const i = TYPE_ORDER.indexOf(t); return i < 0 ? TYPE_ORDER.length : i; };
+  return [...counts].map(([type, count]) => ({ type, count })).sort((a, b) => rank(a.type) - rank(b.type) || b.count - a.count || a.type.localeCompare(b.type));
 }
 
 /**
  * "Show issues": the initiative keeps its own data row and its issues follow it as rows, unless the initiative's issues are folded away (the chip on its
  * name cell). Group headers pass through.
  */
-export function withIssueRows<T extends GridItem | { __group: true }>(rows: readonly T[], children: ReportChildren, collapsed: ReadonlySet<string>): (T | IssueRow)[] {
+export function withIssueRows<T extends GridItem | { __group: true }>(rows: readonly T[], children: ReportChildren, collapsed: ReadonlySet<string>, filter?: IssueFilter): (T | IssueRow)[] {
   const out: (T | IssueRow)[] = [];
   for (const r of rows) {
     out.push(r);
     if ("__group" in r) continue;
     if (collapsed.has(issuesKey((r as GridItem).id))) continue;
-    out.push(...issueRowsOf(r as GridItem, children));
+    out.push(...issueRowsOf(r as GridItem, children, filter));
   }
   return out;
 }

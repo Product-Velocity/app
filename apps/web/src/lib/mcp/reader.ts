@@ -140,13 +140,13 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     async views() {
       // RLS: workspace views for everyone, private views only for their owner
       const saved = must(
-        await supabase.from("saved_views").select("id, name, columns, filters, group_by, then_by, show_issues, sort, visibility, customer_safe, base_view").eq("tenant_id", tenant.id).order("name"),
+        await supabase.from("saved_views").select("id, name, columns, filters, group_by, then_by, show_issues, issue_types, issues_hide_done, sort, visibility, customer_safe, base_view").eq("tenant_id", tenant.id).order("name"),
         "views",
-      ) as { id: string; name: string; columns: string[]; filters: unknown[]; group_by: string | null; then_by: string | null; show_issues: boolean | null; sort: unknown; visibility: "workspace" | "private"; customer_safe: boolean; base_view: string | null }[];
+      ) as { id: string; name: string; columns: string[]; filters: unknown[]; group_by: string | null; then_by: string | null; show_issues: boolean | null; issue_types: string[] | null; issues_hide_done: boolean | null; sort: unknown; visibility: "workspace" | "private"; customer_safe: boolean; base_view: string | null }[];
       const customised = new Set(saved.map((v) => v.base_view).filter(Boolean));
       const builtIn: ViewInfo[] = VIEW_NAMES.filter((n) => !customised.has(n)).map((n) => ({ id: null, name: n, scope: "built-in", columns: DEFAULT_VIEWS[n], filters: [], group_by: null, sort: null, customer_safe: false }));
       const own: ViewInfo[] = saved.map((v) => ({
-        id: v.id, name: v.name, scope: v.visibility, columns: v.columns, filters: v.filters, group_by: v.group_by, ...(v.group_by && v.then_by ? { then_by: v.then_by } : {}), ...(v.show_issues ? { show_issues: true } : {}), sort: v.sort, customer_safe: v.customer_safe,
+        id: v.id, name: v.name, scope: v.visibility, columns: v.columns, filters: v.filters, group_by: v.group_by, ...(v.group_by && v.then_by ? { then_by: v.then_by } : {}), ...(v.show_issues ? { show_issues: true, ...(v.issue_types?.length ? { issue_types: v.issue_types } : {}), ...(v.issues_hide_done ? { issues_hide_done: true } : {}) } : {}), sort: v.sort, customer_safe: v.customer_safe,
         ...(v.base_view ? { customises: v.base_view } : {}),
       }));
       return [...builtIn, ...own];

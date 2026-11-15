@@ -18,14 +18,35 @@ test.describe("Group by: picker, two levels, issues", () => {
     await expect(groupBtn(page)).toHaveText(/Group by:\s*None/);
   });
 
-  test("the picker lists fields under the Columns picker's categories, Common first, each field once", async ({ page }) => {
+  test("the picker: Common as chips, the other fields under the Columns picker's categories as tabs, each field once", async ({ page }) => {
     await open(page);
     await groupBtn(page).click();
-    const cats = await page.locator(".gp-cat").allInnerTexts();
-    expect(cats[0]).toBe("COMMON");
-    expect(cats).toEqual(expect.arrayContaining(["WHAT", "WHO", "WHY"]));
+    await expect(searchBox(page)).toBeFocused(); // the search box takes the focus when the panel opens
+    const tabs = await page.locator(".gp-tab").allInnerTexts();
+    expect(tabs[tabs.length - 1]).toBe("All"); // All is the last tab; the panel opens on the first category
+    expect(tabs).toEqual(expect.arrayContaining(["What", "Who", "Why"]));
+    await expect(page.getByRole("group", { name: "Common fields" }).getByRole("menuitemradio")).toHaveCount(7);
     await expect(page.getByRole("menuitemradio", { name: "Build Status" })).toHaveCount(1);
     await expect(page.getByRole("menuitemradio", { name: "Roadmap Category" })).toHaveCount(0); // hidden in the app
+    await expect(page.getByRole("menuitemradio", { name: "Focus Area" })).toHaveCount(1); // the first category (What)
+    await expect(page.getByRole("menuitemradio", { name: "Sponsor" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Who", exact: true }).click(); // a tab narrows the grid to its category
+    await expect(page.getByRole("menuitemradio", { name: "Sponsor" })).toHaveCount(1);
+    await expect(page.getByRole("menuitemradio", { name: "Focus Area" })).toHaveCount(0);
+    await page.getByRole("button", { name: "All", exact: true }).click();
+    await expect(page.getByRole("menuitemradio", { name: "Sponsor" })).toHaveCount(1);
+    await expect(page.getByRole("menuitemradio", { name: "Focus Area" })).toHaveCount(1);
+  });
+
+  test("the panel keeps its footer in reach: it is no taller than the visible window, and its body scrolls", async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 600 });
+    await open(page);
+    await groupBtn(page).click();
+    const panel = page.locator(".gp");
+    const box = (await panel.boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(600);
+    await expect(page.getByRole("button", { name: "Apply", exact: true })).toBeInViewport();
+    expect(await page.locator(".gp-body").evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
   });
 
   test("staged: the panel stays open while you choose, nothing changes until Apply, Cancel discards", async ({ page }) => {
@@ -212,6 +233,50 @@ test.describe("Group by: picker, two levels, issues", () => {
     await expect(page.locator(".issue-chip").first()).toBeVisible();
     await expect(page.locator(".issue-row").first()).toBeVisible();
     await expect(page.locator(".issue-row").first().locator(".issue-key")).toContainText("#");
+  });
+
+  test("choose what to show: the issue types with counts, only the ticked ones are listed; the chip says how many are hidden", async ({ page }) => {
+    await open(page, "&jira=1");
+    await groupBtn(page).click();
+    await page.getByLabel(/Show issues under each initiative/).check();
+    const types = page.getByRole("group", { name: "Issue types" });
+    await expect(types.getByRole("button", { name: /^(✓ )?Feature/ })).toContainText("1");
+    await expect(types.getByRole("button", { name: /^(✓ )?Task/ })).toContainText("1");
+    await types.getByRole("button", { name: /Task/ }).click();
+    await expect(types.getByRole("button", { name: /Task/ })).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator(".issue-row")).toHaveCount(0); // staged: nothing changes before Apply
+    await btn(page, "Apply").click();
+    await expect(page.locator(".issue-row", { hasText: "SCRUM-17" })).toBeVisible();
+    await expect(page.locator(".issue-row", { hasText: "SCRUM-18" })).toHaveCount(0);
+    await expect(page.locator('.ag-row[row-id="item-1"] .issue-chip')).toHaveAttribute("aria-label", /1 issue.*1 hidden by the filter/);
+    await expect(groupBtn(page)).toContainText("with issues");
+    // the last type cannot be unticked, and Everything puts them all back
+    await groupBtn(page).click();
+    await expect(types.getByRole("button", { name: /Feature/ })).toHaveAttribute("aria-pressed", "true");
+    await types.getByRole("button", { name: /Feature/ }).click();
+    await expect(types.getByRole("button", { name: /Feature/ })).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "Everything", exact: true }).click();
+    await expect(types.getByRole("button", { name: /Task/ })).toHaveAttribute("aria-pressed", "true");
+    await btn(page, "Apply").click();
+    await expect(page.locator(".issue-row", { hasText: "SCRUM-18" })).toBeVisible();
+  });
+
+  test("Hide Done and Cancelled leaves out the finished issues, and Cancel keeps what was set", async ({ page }) => {
+    await open(page, "&jira=1");
+    await groupBtn(page).click();
+    await page.getByLabel(/Show issues under each initiative/).check();
+    await page.getByLabel("Hide Done and Cancelled").check();
+    await btn(page, "Cancel").click();
+    await expect(groupBtn(page)).toHaveText(/Group by:\s*None/);
+    await groupBtn(page).click();
+    await page.getByLabel(/Show issues under each initiative/).check();
+    await page.getByLabel("Hide Done and Cancelled").check();
+    await expect(page.locator(".gp-head")).toContainText("hiding Done and Cancelled");
+    await btn(page, "Apply").click();
+    await expect(page.locator(".issue-row", { hasText: "SCRUM-17" })).toBeVisible(); // In Progress stays
+    await expect(page.locator(".issue-row", { hasText: "SCRUM-18" })).toHaveCount(0); // Done is hidden
+    await groupBtn(page).click();
+    await expect(page.getByLabel("Hide Done and Cancelled")).toBeChecked(); // reopened with what was applied
   });
 
   test("the palette folds and unfolds every initiative's issues at once", async ({ page }) => {
