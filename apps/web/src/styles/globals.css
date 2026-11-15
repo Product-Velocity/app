@@ -339,19 +339,35 @@ a.btn { display: inline-flex; align-items: center; color: inherit; text-decorati
 .scope-item:disabled { color: #8a909c; cursor: not-allowed; }
 .view-dirty { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 12px; background: var(--amber-bg); color: var(--amber-text); border-radius: 6px; font-size: 12.5px; }
 .search-box { height: 28px; width: 200px; padding: 0 8px; border: 1px solid #e1e5eb; border-radius: 6px; font: inherit; font-size: 12.5px; }
+/* "Show issues": the issues are children of the initiative above. They sit in the grid's own columns (the positions are set by the row), in a quieter type on a light tint, joined to the initiative by a branch line. */
+.issue-row { position: relative; height: 100%; background: #f7f8fb; border-bottom: 1px solid var(--grey-2); font-size: 12px; color: #4b5563; white-space: nowrap; }
+.issue-row[data-last="true"] { border-bottom-color: #cfd5e3; }
+.issue-branch { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1.5px solid #c3cbdb; }
+.issue-branch::after { content: ""; position: absolute; left: 0; top: 50%; width: 10px; border-top: 1.5px solid #c3cbdb; }
+.issue-row[data-last="true"] .issue-branch { bottom: 50%; }
+.issue-cell { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
+.issue-key { font-family: var(--font-mono, "IBM Plex Mono", monospace); font-size: 11.5px; color: var(--blue-text); }
+.issue-type { flex: none; color: #5b6272; }
+.issue-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.issue-status { color: #374151; }
+.issue-assignee { color: #5b6272; }
+/* the initiative above its issues: a firmer line over it, so an initiative with its issues reads as one block */
+.grid-wrap[data-issues="on"] .ag-row:not(.ag-full-width-row) { border-top: 1px solid #cfd5e3; }
+/* the name cell with its issues chip on the right */
+.name-cell { display: flex; align-items: center; gap: 10px; min-width: 0; width: 100%; height: 100%; container-type: inline-size; }
+/* the status words on the chip only when the column is wide enough to keep the name readable (they are always in the tooltip and the screen-reader label) */
+.issue-sum { display: none; }
+@container (min-width: 520px) { .issue-sum { display: inline; } }
+.name-text { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.issue-chip { flex: none; margin-left: auto; height: 22px; padding: 0 8px; border: 1px solid #d8deea; border-radius: 11px; background: var(--bg); font: inherit; font-size: 11.5px; font-weight: 500; line-height: 20px; color: #374151; cursor: pointer; white-space: nowrap; }
+.issue-chip:hover, .issue-chip:focus-visible { border-color: var(--blue); background: var(--blue-tint-2); outline: none; }
+.issue-chip[aria-expanded="false"] { color: var(--blue-text); }
 .group-health { font-weight: 400; color: var(--ink-muted); font-size: 12px; }
 .cell-name { font-weight: 600; color: var(--ink); }
 .group-row { display: flex; align-items: center; gap: 8px; height: 100%; padding: 0 12px; background: var(--header-bg); font-weight: 600; font-size: 12.5px; color: #374151; }
 .group-toggle { border: 0; background: none; font: inherit; cursor: pointer; padding: 2px 6px; color: inherit; }
 .group-count { font-weight: 400; color: #5b6272; }
 .group-row[data-level="1"] { padding-left: 32px; background: var(--bg); border-bottom: 1px solid var(--grey-2); font-weight: 500; }
-/* tracker issues under an initiative ("Show issues") */
-.issue-row { display: flex; align-items: center; gap: 10px; height: 100%; padding: 0 12px 0 84px; font-size: 12.5px; color: #374151; border-bottom: 1px solid var(--grey-2); }
-.issue-type { flex: none; min-width: 44px; padding: 0 6px; border: 1px solid #e1e5eb; border-radius: 4px; font-size: 11.5px; color: #374151; text-align: center; }
-.issue-key { flex: none; font-family: var(--font-mono, "IBM Plex Mono", monospace); font-size: 12px; color: var(--blue-text); }
-.issue-title { flex: 0 1 auto; max-width: 60ch; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.issue-status { flex: none; color: #374151; }
-.issue-assignee { flex: none; color: #5b6272; }
 /* the Group by panel: two level slots, a categorised list, the issues option */
 .gp { min-width: 340px; box-sizing: border-box; }
 .gp input.search-input { width: calc(100% - 16px); box-sizing: border-box; }
@@ -369,8 +385,6 @@ a.btn { display: inline-flex; align-items: center; color: inherit; text-decorati
 .gp-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 12px; border-top: 1px solid var(--grey-2); }
 .gp-foot .panel-note { flex: 1 0 100%; order: -1; }
 .gp-foot .btn-link { margin-right: auto; }
-/* the third level, under an initiative ("Show issues"): its Issues header, then its issues */
-.group-row[data-level="2"] { padding-left: 56px; background: var(--bg); border-bottom: 1px solid var(--grey-2); font-weight: 500; }
 .gp-issues { display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--grey-2); cursor: pointer; }
 .palette-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(20, 24, 40, .4); display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; }
 .palette { width: min(620px, 94vw); background: var(--bg); border-radius: 10px; box-shadow: 0 16px 48px rgba(20, 24, 40, .35); overflow: hidden; }
