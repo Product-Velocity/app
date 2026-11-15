@@ -8,4 +8,6 @@ Ashu, 2026-11-13, after matching 54 Jira epics to the Refinery89 business roadma
 
 **Ashu triggers the clearing of the existing epics in Product Velocity herself, by a separate explicit request. Do not delete, archive or relink them as part of this request.**
 
-First step: spike J2 on the Refinery89 Jira site. Product Velocity initiative: group "Delivery platform sync fields expansion".
+Progress: spike J2 proven on the Refinery89 site (2026-11-15, `docs/08`); the Excel report (slice 1) and the Jira tree read above Epic (slice 2: Build Status, dates and roll-up from the epics) are built; GitHub parity is #453; the Test connection page with saved results is #452 (own session). Still open: linking an existing initiative to an Initiative, the level choice in the mapping and Incoming, orphan epics and linking epics when an initiative is created in Product Velocity.
+
+First step (done): spike J2 on the Refinery89 Jira site. Product Velocity initiative: group "Delivery platform sync fields expansion".

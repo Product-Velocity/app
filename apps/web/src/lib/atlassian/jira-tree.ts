@@ -2,7 +2,8 @@
 // Pure over an injected `getPage` and `apply`, so paging, batches and counting are tested with a fake Jira. READ ONLY: nothing is written to
 // Jira. Text from Jira is data: titles are cleaned and cut, nothing in it is interpreted. A closed child means the build is progressing,
 // never that the initiative is complete (rule 6): only the roll-up counts are derived here, never any status.
-import { cleanTitle, KEY_BATCH, mapIssue, type JiraIssueRow, type RawIssue, type SearchPage } from "./read-issues";
+import type { ReceivedLine } from "@/lib/github/push-types";
+import { cleanTitle, KEY_BATCH, mapIssue, readIssuesByKey, type JiraIssueRow, type RawIssue, type SearchPage } from "./read-issues";
 import { ReconnectNeeded } from "./token-provider";
 
 const ISSUE_KEY = /^[A-Z][A-Z0-9_]{1,19}-[0-9]{1,9}$/;
@@ -32,6 +33,11 @@ export function childrenPath(parents: string[], pageToken?: string): string {
 
 const isBadRequest = (e: unknown) => e instanceof Error && /answered 400\b/.test(e.message);
 const numberOf = (key: string) => Number(key.slice(key.lastIndexOf("-") + 1));
+/** Children of one parent in a stable order: by project, then by number (epics of one Initiative can come from several projects). */
+const byKey = (a: Kid, b: Kid) => {
+  const pa = a.row.key.slice(0, a.row.key.lastIndexOf("-")), pb = b.row.key.slice(0, b.row.key.lastIndexOf("-"));
+  return pa === pb ? numberOf(a.row.key) - numberOf(b.row.key) : pa < pb ? -1 : 1;
+};
 const assigneeOf = (raw: RawIssue): string | null => {
   const n = raw.fields?.assignee?.displayName;
   return typeof n === "string" && n.trim() ? cleanTitle(n).slice(0, 100) : null;
@@ -74,7 +80,7 @@ export async function readChildren(getPage: (path: string) => Promise<SearchPage
   const byParent = new Map<string, Kid[]>();
   const unreadable = new Set<string>();
   for (let i = 0; i < wanted.length; i += KEY_BATCH) await readBatch(getPage, wanted.slice(i, i + KEY_BATCH), siteUrl, byParent, unreadable);
-  for (const list of byParent.values()) list.sort((a, b) => numberOf(a.row.key) - numberOf(b.row.key));
+  for (const list of byParent.values()) list.sort(byKey);
   return { byParent, unreadable };
 }
 
@@ -89,11 +95,15 @@ export function summariseTree(nodes: TreeNode[]): TreeSummary {
   return { total: leaves.length, closed, progressPct: leaves.length === 0 ? null : Math.round((closed / leaves.length) * 100) };
 }
 
-export type LinkedIssue = { item_id: string; issue_key: string };
+/** `level` = the hierarchy level of the linked issue when it is known (item_jira_links.issue_level): 1 Epic, 2 and up above Epic (a Jira Initiative). */
+export type LinkedIssue = { item_id: string; issue_key: string; level?: number | null };
+export type Category = "new" | "indeterminate" | "done";
 export type TreeDeps = {
   getPage(path: string): Promise<SearchPage>;
   /** jira_apply_tree for ONE initiative of this connection and site. */
   apply(itemId: string, nodes: TreeNode[], summary: TreeSummary): Promise<void>;
+  /** jira_apply_link_level: stores the level of the linked issue and, above Epic only, the Build Status derived from the epics. Returns what changed. */
+  applyLink(itemId: string, level: number, category: Category | null): Promise<{ status?: [string | null, string | null] }>;
 };
 export type TreeRefresh = {
   /** Initiatives whose tree was read and applied. */
@@ -106,7 +116,24 @@ export type TreeRefresh = {
   failed: number;
   /** The same initiatives as `failed`, by id, so the Sync dialog can say which ones. */
   failedItems: string[];
+  /** Build Status changes derived from the epics of an initiative linked above Epic, in the words of the Sync dialog's "Received", by initiative id. */
+  received: Record<string, ReceivedLine[]>;
+  /** Initiatives whose tree was saved but whose level or derived Build Status could not be (retried on the next read). */
+  levelFailed: number;
 };
+
+/**
+ * The Build Status category of an initiative linked ABOVE Epic, from the status categories of its epics (the first level of its tree, whatever
+ * their type: Epic, Workstream...): all done = done, all not started = new, anything else = in progress. Issues Jira did not classify are left
+ * out; with nothing left there is no answer (null) and Build Status stays as it is. Status names mean nothing; only the category does.
+ */
+export function epicCategory(nodes: TreeNode[]): Category | null {
+  const cats = nodes.filter((n) => n.level === 1 && n.category !== null).map((n) => n.category as Category);
+  if (cats.length === 0) return null;
+  if (cats.every((c) => c === "done")) return "done";
+  if (cats.every((c) => c === "new")) return "new";
+  return "indeterminate";
+}
 
 /**
  * Reads the children of every linked issue, then the sub-tasks of those children (one more level), and applies one tree per initiative. A
@@ -114,9 +141,13 @@ export type TreeRefresh = {
  * tree is never written; a tree that is too large or that the database refuses counts as `failed` for that initiative only.
  */
 export async function refreshTrees(deps: TreeDeps, links: LinkedIssue[], siteUrl: string): Promise<TreeRefresh> {
-  const out: TreeRefresh = { applied: 0, nodes: 0, unreadable: [], failed: 0, failedItems: [] };
+  const out: TreeRefresh = { applied: 0, nodes: 0, unreadable: [], failed: 0, failedItems: [], received: {}, levelFailed: 0 };
   const epics = [...new Set(links.map((l) => l.issue_key))];
   if (epics.length === 0) return out;
+  // the hierarchy level of a linked issue is read once (then kept on the link): only the ones not known yet are asked for
+  const levels = new Map<string, number>();
+  const unknown = [...new Set(links.filter((l) => l.level == null).map((l) => l.issue_key))];
+  if (unknown.length > 0) for (const r of (await readIssuesByKey(deps.getPage, unknown, siteUrl)).rows) if (r.level !== null) levels.set(r.key, r.level);
   const first = await readChildren(deps.getPage, epics, siteUrl);
   const kids = [...first.byParent.values()].flat().map((k) => k.row.key);
   const second = await readChildren(deps.getPage, kids, siteUrl);
@@ -141,6 +172,17 @@ export async function refreshTrees(deps: TreeDeps, links: LinkedIssue[], siteUrl
     } catch {
       out.failed++;
       out.failedItems.push(l.item_id);
+      continue;
+    }
+    // the tree is saved: now the level of the linked issue and, above Epic, the Build Status the epics give (never fails the tree)
+    const level = l.level ?? levels.get(l.issue_key) ?? null;
+    if (level !== null && (level >= 2 || level !== (l.level ?? null))) {
+      try {
+        const changed = await deps.applyLink(l.item_id, level, level >= 2 ? epicCategory(nodes) : null);
+        if (changed.status) out.received[l.item_id] = [{ label: "Build Status", from: changed.status[0], to: changed.status[1] }];
+      } catch {
+        out.levelFailed++;
+      }
     }
   }
   return out;
@@ -155,6 +197,6 @@ export async function refreshTreesTolerant(deps: TreeDeps, links: LinkedIssue[],
     return { ...(await refreshTrees(deps, links, siteUrl)), error: null };
   } catch (e) {
     if (e instanceof ReconnectNeeded) throw e;
-    return { applied: 0, nodes: 0, unreadable: [], failed: links.length, failedItems: links.map((l) => l.item_id), error: e instanceof Error ? e.message.slice(0, 200) : "unknown" };
+    return { applied: 0, nodes: 0, unreadable: [], failed: links.length, failedItems: links.map((l) => l.item_id), received: {}, levelFailed: 0, error: e instanceof Error ? e.message.slice(0, 200) : "unknown" };
   }
 }

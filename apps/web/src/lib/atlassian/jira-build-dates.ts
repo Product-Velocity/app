@@ -46,7 +46,12 @@ export function firstWorkStart(issue: DatedIssue, categories: Map<string, Catego
 }
 
 export type BuildDateRow = { key: string; started: string | null; resolved: string | null };
-export type DateTarget = { item_id: string; issue_key: string; childKeys: string[] };
+/**
+ * `level` = hierarchy level of the linked issue when known (2 and up = above Epic, a Jira Initiative); `epicKeys` = the first level of its tree.
+ * Above Epic the issue's own history and status say little about the build (issue #431): Start Building is the earliest work start over its
+ * children (epics and below, the issue itself left out) and Build Completed is the latest epic resolution once every epic is done.
+ */
+export type DateTarget = { item_id: string; issue_key: string; childKeys: string[]; level?: number | null; epicKeys?: string[] };
 
 export function datedPath(keys: string[]): string {
   if (keys.length === 0 || keys.length > KEY_BATCH || !keys.every((k) => ISSUE_KEY.test(k))) throw new Error("Not a list of Jira issue keys");
@@ -87,10 +92,19 @@ export async function readBuildDates(getPage: (path: string) => Promise<SearchPa
     const root = read.get(t.issue_key);
     if (!root || seen.has(t.issue_key)) continue; // not read (deleted, moved, not visible): nothing is known, nothing changes
     seen.add(t.issue_key);
+    const above = (t.level ?? 0) >= 2;
     let started: string | null = null;
-    for (const k of [t.issue_key, ...t.childKeys]) {
+    for (const k of above ? t.childKeys : [t.issue_key, ...t.childKeys]) {
       const s = read.get(k) ? firstWorkStart(read.get(k)!, categories) : null;
       if (s && (started === null || s < started)) started = s;
+    }
+    if (above) {
+      // every epic must be read and in the done category; an epic Jira did not return counts as not done
+      const epics = (t.epicKeys ?? []).map((k) => read.get(k));
+      const allDone = epics.length > 0 && epics.every((e) => e?.fields?.status?.statusCategory?.key === "done");
+      const latest = allDone ? epics.map((e) => iso(e?.fields?.resolutiondate)).filter((d): d is string => d !== null).sort().at(-1) ?? null : null;
+      rows.push({ key: t.issue_key, started, resolved: latest });
+      continue;
     }
     const done = root.fields?.status?.statusCategory?.key === "done";
     rows.push({ key: t.issue_key, started, resolved: done ? iso(root.fields?.resolutiondate) : null });

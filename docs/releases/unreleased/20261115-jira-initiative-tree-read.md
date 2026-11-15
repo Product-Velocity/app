@@ -1,0 +1,4 @@
+---
+bump: minor
+---
+**An initiative can follow a Jira Initiative and its epics.** When an initiative is linked to a Jira issue above Epic (a Jira Initiative), Product Velocity now reads its epics, which can be in other Jira projects, and their stories and tasks as one read-only tree. Build Status comes from the epics (all done = Done, none started = Not started, otherwise In progress), Start Building is the earliest work start over the epics and below, Build Completed is the latest epic resolution once every epic is done, and the progress counts come from the work below the epics. The Initiative's own status is not used, and Initiative Status is never set from Jira. Epics are listed in order by project, then number. Adds `item_jira_links.issue_level` and the function `jira_apply_link_level` (migration `jira_link_level`).

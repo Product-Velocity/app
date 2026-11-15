@@ -60,7 +60,9 @@ export async function refreshLinkedStatuses(deps: RefreshDeps, links: LinkedIssu
   for (let i = 0; i < all.length; i += CHUNK) {
     const part = all.slice(i, i + CHUNK);
     await deps.upsert(part);
-    const results = await deps.apply(part.map((r) => ({ key: r.key, status: r.status, category: r.category, updated: r.updated })));
+    // An issue ABOVE Epic (a Jira Initiative, hierarchy level 2 and up) does not drive Build Status: its epics do (jira-tree.ts, issue #431). Its own
+    // category is not sent, so jira_apply_statuses leaves Build Status and the link's status alone and the epics' answer is never fought over.
+    const results = await deps.apply(part.map((r) => ({ key: r.key, status: r.status, category: (r.level ?? 0) >= 2 ? null : r.category, updated: r.updated })));
     for (const res of results) {
       summary.checked++;
       if (res.stale) { summary.stale++; continue; }
