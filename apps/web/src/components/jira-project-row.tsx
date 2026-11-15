@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { SelectField } from "@/components/search-list";
+import { initiativeLevelHint, sortTypesByLevel, typeOptionLabel } from "@/lib/atlassian/type-mapping";
 
-export type JiraTypeOption = { id: string; name: string };
+export type JiraTypeOption = { id: string; name: string; hierarchyLevel: number; subtask: boolean };
 export type JiraProjectChoice = { value: string; label: string; group: string; types: JiraTypeOption[]; proposal: { initiative: string | null; epic: string | null; task: string | null } };
 export type JiraRowLink = { value: string; initiative: string; epic: string | null; task: string | null };
 
@@ -33,7 +34,8 @@ export function JiraProjectRow({ project, tracker, link, choices, canEdit, actio
     setEpic(c?.proposal.epic ?? "");
     setTask(c?.proposal.task ?? "");
   };
-  const types = (chosen?.types ?? []).map((t) => ({ value: t.id, label: t.name }));
+  const types = sortTypesByLevel(chosen?.types ?? []).map((t) => ({ value: t.id, label: typeOptionLabel(t) }));
+  const hint = chosen ? initiativeLevelHint(chosen.types, initiative || null) : null;
   const off = !canEdit || mode !== "jira";
   if (otherTracker) {
     return (
@@ -45,6 +47,7 @@ export function JiraProjectRow({ project, tracker, link, choices, canEdit, actio
   }
   const ready = mode === "none" ? link !== null || tracker === "jira" : Boolean(chosen && initiative && new Set([initiative, epic, task].filter(Boolean)).size === [initiative, epic, task].filter(Boolean).length);
   return (
+    <>
     <tr>
       <th scope="row">{project.name}</th>
       <td><SelectField label={`Delivery tracker of ${project.name}`} value={mode} onChange={(v) => setMode(v === "jira" ? "jira" : "none")} disabled={!canEdit} options={[{ value: "none", label: "Not linked" }, { value: "jira", label: "Jira" }]} /></td>
@@ -68,5 +71,7 @@ export function JiraProjectRow({ project, tracker, link, choices, canEdit, actio
         )}
       </td>
     </tr>
+    {hint && mode === "jira" && <tr><td colSpan={6} className="muted" role="note">{hint}</td></tr>}
+    </>
   );
 }

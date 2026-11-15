@@ -104,7 +104,7 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
         try {
           const d = await jiraProjectDetail(o.connection, o.site, o.key);
           const proposal = proposeTypeMapping(d.issueTypes);
-          return { value: `${o.connection}|${o.site}|${o.key}`, label: o.label, group: o.group, types: d.issueTypes.map((t) => ({ id: t.id, name: t.name })), proposal: { initiative: proposal.initiative, epic: proposal.epic, task: proposal.task } } satisfies JiraProjectChoice;
+          return { value: `${o.connection}|${o.site}|${o.key}`, label: o.label, group: o.group, types: d.issueTypes.map((t) => ({ id: t.id, name: t.name, hierarchyLevel: t.hierarchyLevel, subtask: t.subtask })), proposal: { initiative: proposal.initiative, epic: proposal.epic, task: proposal.task } } satisfies JiraProjectChoice;
         } catch {
           return null;
         }
