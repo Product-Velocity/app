@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CUSTOMER_SAFE_KEYS, buildGroupedRows, effectiveSort, sortDirectionLabels, sortSummary, healthBreakdown, filterSummary, groupableFields, isCustomerSafe, groupPickerSections, groupSummary, COMMON_GROUP_KEYS, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
+import { CUSTOMER_SAFE_KEYS, buildGroupedRows, effectiveSort, sortDirectionLabels, sortSummary, healthBreakdown, filterSummary, groupableFields, isCustomerSafe, groupPickerSections, groupSummary, MOST_USED_GROUP_KEYS, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
 import { QUICK_FILTERS, customFilters, quickFilterOn, toggleQuickFilter } from "./quick-filters";
 import { FIELDS, FIELD_BY_KEY, HIDDEN_FIELDS } from "./registry";
 import { setDateFormat } from "./dates";
@@ -383,13 +383,13 @@ describe("two-level grouping and the group picker (issue #437)", () => {
     expect(groupSummary("status", "sponsor")).toBe("Build Status › Sponsor");
     expect(groupSummary("moscow", "moscow")).toBe("MoSCoW");
   });
-  it("lists the groupable fields under the Columns picker's categories, Common first, each field once, nothing hidden, nothing taken", () => {
+  it("lists the groupable fields under the Columns picker's categories, Most used first, each field once, nothing hidden, nothing taken", () => {
     const sec = groupPickerSections();
-    expect(sec[0]!.category).toBe("Common");
-    expect(sec[0]!.fields.map((f) => f.key)).toEqual(COMMON_GROUP_KEYS.filter((k) => groupableFields().some((f) => f.key === k)));
+    expect(sec[0]!.category).toBe("Most used");
+    expect(sec[0]!.fields.map((f) => f.key)).toEqual(MOST_USED_GROUP_KEYS.filter((k) => groupableFields().some((f) => f.key === k)));
     const all = sec.slice(1).flatMap((x) => x.fields.map((f) => f.key));
     expect(all).not.toContain("roadmap_category"); // hidden in the app: picking it would silently do nothing
-    expect(all).not.toContain("status"); // Common holds it; each field is listed once
+    expect(all).not.toContain("status"); // Most used holds it; each field is listed once
     expect(all).toContain("sponsor");
     expect(new Set([...sec[0]!.fields.map((f) => f.key), ...all]).size).toBe(sec[0]!.fields.length + all.length);
     expect(sec.slice(1).map((x) => x.category)).toEqual(expect.arrayContaining(["What", "Who", "Why"]));

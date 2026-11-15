@@ -18,14 +18,14 @@ test.describe("Group by: picker, two levels, issues", () => {
     await expect(groupBtn(page)).toHaveText(/Group by:\s*None/);
   });
 
-  test("the picker: Common as chips, the other fields under the Columns picker's categories as tabs, each field once", async ({ page }) => {
+  test("the picker: Most used as pills, the other fields under the Columns picker's categories as tabs, each field once", async ({ page }) => {
     await open(page);
     await groupBtn(page).click();
     await expect(searchBox(page)).toBeFocused(); // the search box takes the focus when the panel opens
     const tabs = await page.locator(".gp-tab").allInnerTexts();
     expect(tabs[tabs.length - 1]).toBe("All"); // All is the last tab; the panel opens on the first category
     expect(tabs).toEqual(expect.arrayContaining(["What", "Who", "Why"]));
-    await expect(page.getByRole("group", { name: "Common fields" }).getByRole("menuitemradio")).toHaveCount(7);
+    await expect(page.getByRole("group", { name: "Most used fields" }).getByRole("menuitemradio")).toHaveCount(7);
     await expect(page.getByRole("menuitemradio", { name: "Build Status" })).toHaveCount(1);
     await expect(page.getByRole("menuitemradio", { name: "Roadmap Category" })).toHaveCount(0); // hidden in the app
     await expect(page.getByRole("menuitemradio", { name: "Focus Area" })).toHaveCount(1); // the first category (What)
