@@ -120,6 +120,7 @@ test.describe("panels that expand from the bar", () => {
     await g.click();
     await expect(g).toHaveAttribute("aria-expanded", "true");
     await page.getByRole("menuitemradio", { name: "MoSCoW" }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(g).toContainText("MoSCoW");
   });
 });

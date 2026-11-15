@@ -62,14 +62,16 @@ export function GroupMenu({ state, customerSafe = false, onChange }: { state: Gr
 
 const LEVEL_NAME = ["Group by", "Then by"] as const;
 
+/** Staged like the Columns panel: choices are made on a draft, nothing changes in the grid until Apply, and the panel stays open until Apply or Cancel. */
 function GroupPanel({ state, customerSafe, onChange, close }: { state: GroupState; customerSafe: boolean; onChange: (s: GroupState) => void; close: () => void }) {
+  const [draft, setDraft] = useState<GroupState>({ groupBy: state.groupBy, thenBy: state.groupBy === INITIATIVE_GROUP ? null : state.thenBy });
   const [query, setQuery] = useState("");
   // which level the next pick fills: the first empty one, else the main one
-  const [target, setTarget] = useState<0 | 1>(state.groupBy && !state.thenBy ? 1 : 0);
-  const level = state.groupBy && state.groupBy !== INITIATIVE_GROUP ? target : 0;
-  const names = [state.groupBy, state.thenBy] as const;
+  const [target, setTarget] = useState<0 | 1>(state.groupBy && state.groupBy !== INITIATIVE_GROUP && !state.thenBy ? 1 : 0);
+  const level = draft.groupBy && draft.groupBy !== INITIATIVE_GROUP ? target : 0;
+  const names = [draft.groupBy, draft.thenBy] as const;
   const nameOf = (k: string | null) => (k ? groupSummary(k) : null);
-  const sections = useMemo(() => groupPickerSections({ customerSafe, taken: level === 0 ? state.thenBy : state.groupBy }), [customerSafe, level, state.thenBy, state.groupBy]);
+  const sections = useMemo(() => groupPickerSections({ customerSafe, taken: level === 0 ? draft.thenBy : draft.groupBy }), [customerSafe, level, draft.thenBy, draft.groupBy]);
   const all = useMemo(() => fieldOptions(sections.flatMap((x) => x.fields)), [sections]);
   const searching = query.trim() !== "";
   const matching = new Set(filterOptions(all, query).map((o) => o.value));
@@ -77,28 +79,27 @@ function GroupPanel({ state, customerSafe, onChange, close }: { state: GroupStat
     .map((x) => ({ ...x, fields: x.fields.filter((f) => !searching || matching.has(f.key)) })).filter((x) => x.fields.length > 0);
   const none = searching && shown.length === 0;
 
-  // a choice applies at once and closes the panel (open it again for the other level: it opens on the empty "Then by")
-  const set = (next: Partial<GroupState>) => { onChange({ ...state, ...next }); close(); };
   const pick = (key: string) => {
     if (level === 0) {
-      if (state.groupBy === key) { clear(0); return; }
-      set({ groupBy: key, thenBy: key === INITIATIVE_GROUP || state.thenBy === key ? null : state.thenBy }); // nothing follows the initiative level
-    } else if (state.thenBy === key) clear(1);
-    else set({ thenBy: key });
+      if (draft.groupBy === key) { clear(0); return; }
+      setDraft({ groupBy: key, thenBy: key === INITIATIVE_GROUP || draft.thenBy === key ? null : draft.thenBy }); // nothing follows the initiative level
+      setTarget(key === INITIATIVE_GROUP ? 0 : 1);
+    } else if (draft.thenBy === key) clear(1);
+    else setDraft({ ...draft, thenBy: key });
   };
   /** Removing the main level promotes the second one. */
-  const clear = (l: 0 | 1) => { if (l === 1) set({ thenBy: null }); else set({ groupBy: state.thenBy, thenBy: null }); };
-  const swap = () => set({ groupBy: state.thenBy, thenBy: state.groupBy });
+  const clear = (l: 0 | 1) => { if (l === 1) setDraft({ ...draft, thenBy: null }); else { setDraft({ groupBy: draft.thenBy, thenBy: null }); setTarget(0); } };
+  const swap = () => setDraft({ groupBy: draft.thenBy, thenBy: draft.groupBy });
 
   return (
     <div role="group" aria-label="Group by" className="gp">
       <div className="gp-slots" role="group" aria-label="Grouping levels">
         {([0, 1] as const).map((l) => {
           const value = names[l];
-          const off = l === 1 && (!state.groupBy || state.groupBy === INITIATIVE_GROUP);
+          const off = l === 1 && (!draft.groupBy || draft.groupBy === INITIATIVE_GROUP);
           return (
             <div key={l} className="gp-slot" data-active={!off && level === l} data-empty={!value}>
-              <button type="button" className="gp-slot-main" aria-label={`Choose the field for ${LEVEL_NAME[l]}: ${nameOf(value) ?? "none yet"}`} aria-pressed={!off && level === l} disabled={off} onClick={() => setTarget(l)} title={off ? (state.groupBy ? "Nothing can follow “Initiative, with its issues”" : "Choose the main grouping first") : `Pick the field for “${LEVEL_NAME[l]}” below`}>
+              <button type="button" className="gp-slot-main" aria-label={`Choose the field for ${LEVEL_NAME[l]}: ${nameOf(value) ?? "none yet"}`} aria-pressed={!off && level === l} disabled={off} onClick={() => setTarget(l)} title={off ? (draft.groupBy ? "Nothing can follow “Initiative, with its issues”" : "Choose the main grouping first") : `Pick the field for “${LEVEL_NAME[l]}” below`}>
                 <span className="gp-slot-label">{LEVEL_NAME[l]}</span>
                 <span className="gp-slot-val">{nameOf(value) ?? (off ? "—" : "Pick a field below")}</span>
               </button>
@@ -106,7 +107,7 @@ function GroupPanel({ state, customerSafe, onChange, close }: { state: GroupStat
             </div>
           );
         })}
-        {state.groupBy && state.thenBy && <button type="button" className="btn btn-link" onClick={swap} aria-label={`Swap: group by ${nameOf(state.thenBy)}, then by ${nameOf(state.groupBy)}`}>Swap order</button>}
+        {draft.groupBy && draft.thenBy && <button type="button" className="btn btn-link" onClick={swap} aria-label={`Swap: group by ${nameOf(draft.thenBy)}, then by ${nameOf(draft.groupBy)}`}>Swap order</button>}
       </div>
       {needsSearch(all.length) && <SearchInput value={query} onChange={setQuery} label="Search group by options" placeholder={`Search the ${all.length} fields…`} onKeyDown={menuSearchKeys} />}
       <div className="gp-list" role="menu" aria-label={`Choose the field for ${LEVEL_NAME[level]}`}>
@@ -114,7 +115,7 @@ function GroupPanel({ state, customerSafe, onChange, close }: { state: GroupStat
           <div key={sec.category} role="group" aria-label={sec.category}>
             <div className="gp-cat" aria-hidden="true">{sec.category}</div>
             {sec.fields.map((f) => {
-              const mark = state.groupBy === f.key ? "Group by" : state.thenBy === f.key ? "Then by" : null;
+              const mark = draft.groupBy === f.key ? "Group by" : draft.thenBy === f.key ? "Then by" : null;
               return (
                 <button key={f.key} type="button" role="menuitemradio" aria-checked={mark !== null} className="scope-item" onClick={() => pick(f.key)}>
                   <span>{f.name}</span>
@@ -126,11 +127,12 @@ function GroupPanel({ state, customerSafe, onChange, close }: { state: GroupStat
         ))}
       </div>
       {none && <NoResults query={query} />}
-      {state.groupBy && (
-        <div className="gp-foot">
-          <button type="button" className="btn btn-link" onClick={() => set({ groupBy: null, thenBy: null })}>Clear grouping</button>
-        </div>
-      )}
+      <div className="gp-foot">
+        <button type="button" className="btn btn-link" onClick={() => { setDraft({ groupBy: null, thenBy: null }); setTarget(0); }}>Clear</button>
+        <span className="panel-note grow">Nothing changes in the grid until you press Apply.</span>
+        <button type="button" className="btn" onClick={close}>Cancel</button>
+        <button type="button" className="btn btn-primary" onClick={() => { onChange(draft); close(); }}>Apply</button>
+      </div>
     </div>
   );
 }

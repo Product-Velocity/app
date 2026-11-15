@@ -230,11 +230,12 @@ test.describe("filters and search", () => {
 });
 
 test.describe("grouping", () => {
-  test("off by default; group by MoSCoW shows headers with counts; collapse hides rows; Clear grouping restores", async ({ page }) => {
+  test("off by default; group by MoSCoW shows headers with counts; collapse hides rows; Clear and Apply restore", async ({ page }) => {
     await open(page);
     await expect(page.getByRole("button", { name: /^Collapse group/ })).toHaveCount(0);
     await page.getByRole("button", { name: /^Group by/ }).click();
     await page.getByRole("menuitemradio", { name: "MoSCoW" }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     for (const g of ["Must", "Should"]) await expect(page.getByRole("button", { name: `Collapse group ${g}` })).toBeVisible();
     await expect(page.locator(".group-row", { hasText: "Must" })).toContainText("8 items");
     await expect(row(page, "item-1")).toHaveCount(1);
@@ -242,7 +243,8 @@ test.describe("grouping", () => {
     await expect(row(page, "item-1")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand group Must" })).toHaveAttribute("aria-expanded", "false");
     await page.getByRole("button", { name: /^Group by/ }).click();
-    await page.getByRole("button", { name: "Clear grouping" }).click();
+    await page.getByRole("button", { name: "Clear", exact: true }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(page.locator(".group-row")).toHaveCount(0);
     await expect(row(page, "item-1")).toHaveCount(1);
   });
@@ -251,6 +253,7 @@ test.describe("grouping", () => {
     await open(page, `n=12&view=All columns&cols=all`);
     await page.getByRole("button", { name: /^Group by/ }).click();
     await page.getByRole("menuitemradio", { name: "MoSCoW" }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(page.locator(".group-row", { hasText: "Must" })).toContainText("3 items");
     await page.locator('.ag-row[row-id="item-1"] [col-id="moscow"]').click();
     await page.keyboard.press("Enter");
@@ -266,6 +269,7 @@ test.describe("grouping", () => {
     await addFilter(page, "effort", "XS");
     await page.getByRole("button", { name: /^Group by/ }).click();
     await page.getByRole("menuitemradio", { name: "Health" }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(foot(page)).toContainText("6 of 30 items shown");
     await page.getByRole("button", { name: "Select all", exact: false }).first().isVisible().catch(() => false);
     await page.locator('.ag-row[row-id="item-1"] input[type="checkbox"]').first().check();

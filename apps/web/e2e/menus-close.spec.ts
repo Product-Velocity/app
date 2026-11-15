@@ -58,6 +58,7 @@ test("grouped rows show the health in words, and health pills have no icon", asy
   await page.getByRole("button", { name: /^Group by/ }).click();
   await page.getByRole("searchbox", { name: "Search group by options" }).fill("moscow");
   await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
   const group = page.locator(".group-row").first();
   await expect(group).toBeVisible();
   await expect(group.locator(".group-health")).toHaveText(/^\d+ (On Track|At Risk|Delayed|Blocked)( · \d+ (On Track|At Risk|Delayed|Blocked))*$/);

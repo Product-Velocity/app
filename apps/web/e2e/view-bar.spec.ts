@@ -133,6 +133,7 @@ test.describe("one save flow (R-99)", () => {
     await page.getByRole("searchbox", { name: "Search initiatives" }).fill("");
     await page.getByRole("button", { name: /^Group by/ }).click();
     await page.getByRole("menuitemradio", { name: "Health" }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(changed).toBeVisible();
     await moreViews(page).click();
     await expect(menu(page)).toContainText("grouping");
@@ -155,6 +156,7 @@ test.describe("one save flow (R-99)", () => {
     await makeChange(page); // High impact filter
     await page.getByRole("button", { name: /^Group by/ }).click();
     await page.getByRole("menuitemradio", { name: "Health" }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     await page.getByRole("button", { name: /^Columns:/ }).click();
     await page.getByLabel("Confidence", { exact: true }).uncheck();
     await page.getByRole("button", { name: /^Apply columns/ }).click();
@@ -195,6 +197,7 @@ test.describe("one save flow (R-99)", () => {
     await makeChange(page);
     await page.getByRole("button", { name: /^Group by/ }).click();
     await page.getByRole("menuitemradio", { name: "Health" }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     await applySort(page, "Effort (T-shirt)", "Z-A");
     const matching = (await foot(page).textContent())!;
     await saveAsNew(page, "My planning");
@@ -241,6 +244,7 @@ test.describe("one save flow (R-99)", () => {
     await saveAsNew(page, "Same name");
     await page.getByRole("button", { name: /^Group by/ }).click();
     await page.getByRole("menuitemradio", { name: "Health" }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     await viewMenuAction(page, "Save as new view…");
     const d = page.getByRole("dialog", { name: "Save as new view" });
     await d.getByLabel("Name").fill("same NAME");

@@ -1,11 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// Group by in two levels, the categorised picker and issues under initiatives (issue #437)
+// Group by in two levels, the categorised picker, issues under initiatives, staged like Columns (issue #437)
 const open = async (page: Page, extra = "") => {
   await page.goto(`/dev/grid?n=40&view=Prioritisation${extra}`);
   await page.waitForSelector(".ag-row");
 };
 const groupBtn = (page: Page) => page.getByRole("button", { name: /^Group by:/ });
+const btn = (page: Page, name: string) => page.getByRole("button", { name, exact: true });
+const pick = (page: Page, name: string) => page.getByRole("menuitemradio", { name, exact: true }).click();
+const searchBox = (page: Page) => page.getByRole("searchbox", { name: "Search group by options" });
 
 test.describe("Group by: picker, two levels, issues", () => {
   test("the head buttons say their state: Filter, Columns, Group by", async ({ page }) => {
@@ -25,14 +28,40 @@ test.describe("Group by: picker, two levels, issues", () => {
     await expect(page.getByRole("menuitemradio", { name: "Roadmap Category" })).toHaveCount(0); // hidden in the app
   });
 
-  test("two levels: Group by, then reopen for Then by; sub-headers are indented; collapsing a parent hides them; Clear grouping", async ({ page }) => {
+  test("staged: the panel stays open while you choose, nothing changes until Apply, Cancel discards", async ({ page }) => {
     await open(page);
     await groupBtn(page).click();
-    await page.getByRole("menuitemradio", { name: "Build Status" }).click();
+    await pick(page, "Build Status");
+    await expect(searchBox(page)).toBeVisible(); // still open
+    await expect(groupBtn(page)).toHaveText(/Group by:\s*None/); // not applied
+    await expect(page.locator(".group-row")).toHaveCount(0);
+    await expect(page.locator(".gp-slot").first()).toContainText("Build Status");
+    await btn(page, "Cancel").click();
+    await expect(searchBox(page)).toHaveCount(0);
+    await expect(groupBtn(page)).toHaveText(/Group by:\s*None/);
+    await expect(page.locator(".group-row")).toHaveCount(0);
+    // Escape discards too
     await groupBtn(page).click();
-    await expect(page.locator(".gp-slot").nth(1)).toHaveAttribute("data-active", "true"); // opens on the empty Then by
-    await page.getByRole("searchbox", { name: "Search group by options" }).fill("moscow");
+    await pick(page, "Build Status");
+    await page.keyboard.press("Escape");
+    await expect(groupBtn(page)).toHaveText(/Group by:\s*None/);
+    // Apply puts it in the grid and closes
+    await groupBtn(page).click();
+    await pick(page, "Build Status");
+    await btn(page, "Apply").click();
+    await expect(searchBox(page)).toHaveCount(0);
+    await expect(groupBtn(page)).toHaveText(/Group by:\s*Build Status/);
+    await expect(page.locator(".group-row").first()).toBeVisible();
+  });
+
+  test("two levels in one visit; sub-headers are indented; collapsing a parent hides them; Clear and Apply remove the grouping", async ({ page }) => {
+    await open(page);
+    await groupBtn(page).click();
+    await pick(page, "Build Status");
+    await expect(page.locator(".gp-slot").nth(1)).toHaveAttribute("data-active", "true"); // the next pick fills Then by
+    await searchBox(page).fill("moscow");
     await page.keyboard.press("Enter");
+    await btn(page, "Apply").click();
     await expect(groupBtn(page)).toHaveText(/Build Status › MoSCoW/);
     await expect(page.locator(".group-row[data-level='1']").first()).toBeVisible();
     await expect(page.locator(".grid-foot")).toContainText("Grouped by Build Status, then MoSCoW");
@@ -47,7 +76,9 @@ test.describe("Group by: picker, two levels, issues", () => {
     await groupBtn(page).click();
     await expect(page.getByRole("menuitemradio", { name: "MoSCoW" })).toHaveCount(0); // the field of the other level is not offered twice
     await expect(page.getByRole("menuitemradio", { name: "Build Status" })).toHaveAttribute("aria-checked", "true");
-    await page.getByRole("button", { name: "Clear grouping" }).click();
+    await btn(page, "Clear").click();
+    await expect(groupBtn(page)).toHaveText(/Group by:\s*Build Status › MoSCoW/); // Clear is staged too
+    await btn(page, "Apply").click();
     await expect(groupBtn(page)).toHaveText(/Group by:\s*None/);
     await expect(page.locator(".group-row")).toHaveCount(0);
   });
@@ -55,18 +86,18 @@ test.describe("Group by: picker, two levels, issues", () => {
   test("removing the main level promotes the second one", async ({ page }) => {
     await open(page);
     await groupBtn(page).click();
-    await page.getByRole("menuitemradio", { name: "Build Status" }).click();
-    await groupBtn(page).click();
-    await page.getByRole("menuitemradio", { name: "MoSCoW" }).click();
-    await groupBtn(page).click();
+    await pick(page, "Build Status");
+    await pick(page, "MoSCoW");
     await page.getByRole("button", { name: "Remove Group by Build Status" }).click();
+    await btn(page, "Apply").click();
     await expect(groupBtn(page)).toHaveText(/Group by:\s*MoSCoW$/);
   });
 
   test("Group by Initiative, with its issues: each initiative is a header with its Jira issues nested beneath it", async ({ page }) => {
     await open(page, "&jira=1");
     await groupBtn(page).click();
-    await page.getByRole("menuitemradio", { name: "Initiative, with its issues" }).click();
+    await pick(page, "Initiative, with its issues");
+    await btn(page, "Apply").click();
     await expect(groupBtn(page)).toHaveText(/Group by:\s*Initiative, with its issues/);
     const header = page.locator(".group-row[data-kind='initiative']", { hasText: "R-01" });
     await expect(header).toBeVisible();
@@ -89,9 +120,9 @@ test.describe("Group by: picker, two levels, issues", () => {
   test("the initiative level can be the second level, inside another group", async ({ page }) => {
     await open(page, "&jira=1");
     await groupBtn(page).click();
-    await page.getByRole("menuitemradio", { name: "MoSCoW" }).click();
-    await groupBtn(page).click();
-    await page.getByRole("menuitemradio", { name: "Initiative, with its issues" }).click();
+    await pick(page, "MoSCoW");
+    await pick(page, "Initiative, with its issues");
+    await btn(page, "Apply").click();
     await expect(groupBtn(page)).toHaveText(/MoSCoW › Initiative, with its issues/);
     await expect(page.locator(".group-row[data-level='1'][data-kind='initiative']").first()).toBeVisible();
     await expect(page.locator(".issue-row", { hasText: "SCRUM-17" })).toBeVisible();
@@ -100,7 +131,8 @@ test.describe("Group by: picker, two levels, issues", () => {
   test("the initiative level works for GitHub issues too", async ({ page }) => {
     await open(page, "&gh=1");
     await groupBtn(page).click();
-    await page.getByRole("menuitemradio", { name: "Initiative, with its issues" }).click();
+    await pick(page, "Initiative, with its issues");
+    await btn(page, "Apply").click();
     await expect(page.locator(".issue-row").first()).toBeVisible();
     await expect(page.locator(".issue-row").first().locator(".issue-key")).toContainText("#");
   });
