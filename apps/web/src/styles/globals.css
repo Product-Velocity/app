@@ -1250,3 +1250,12 @@ button.share-chip { cursor: pointer; }
 /* ---- tracker field table (decision 2026-11-11-tracker-field-table) ---- */
 .plain-list { list-style: none; margin: 0; padding: 0; }
 .th-sort:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* Export menu: a header that says what is exported, then one titled entry per file type */
+.export-menu { min-width: 300px; padding: 4px 0; }
+.export-head { margin: 0; padding: 6px 12px 7px; border-bottom: 1px solid #e1e5eb; font-weight: 600; color: #111827; }
+.export-head span { display: block; font-weight: 400; font-size: 12px; color: #4b5563; }
+.export-item { display: block; width: 100%; padding: 6px 12px; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; color: #111827; }
+.export-item strong { display: block; font-weight: 600; }
+.export-item span { display: block; font-size: 12px; color: #4b5563; }
+.export-item:hover, .export-item:focus-visible { background: var(--blue-tint-2); outline: none; }
