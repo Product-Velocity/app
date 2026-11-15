@@ -192,7 +192,9 @@ export async function probeInitiativeTree(call: ProbeCall, issueKey = ""): Promi
  * Answers: can an Initiative be created there (a team-managed project cannot), can an epic of another project take it as parent, and does the
  * children query see it. Needs Ashu's go-ahead per run (the write probes are separate links).
  */
-export async function probeInitiativeWrite(call: ProbeCall, initiativeProject: string, epicProject: string): Promise<ProbeStep[]> {
+export async function probeInitiativeWrite(call: ProbeCall, initiativeProject: string, epicProject: string, opts: { sleep?: Sleep; now?: () => number } = {}): Promise<ProbeStep[]> {
+  const sleep: Sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+  const now = opts.now ?? Date.now;
   if (!PROJECT_KEY.test(initiativeProject) || !PROJECT_KEY.test(epicProject)) return [{ label: "Initiative write (J2/J4)", status: 0, note: "Needs two project keys (arg=INITIATIVES,EPICS); nothing was written." }];
   const steps: ProbeStep[] = [];
   const created: string[] = [];
@@ -222,8 +224,17 @@ export async function probeInitiativeWrite(call: ProbeCall, initiativeProject: s
     steps.push({ label: "Set the Initiative as the epic's parent", status: u.status, note: u.status === 204 ? `done${initiativeProject === epicProject ? " (same project)" : " (a different project)"}` : (whyJira(u.json) || "refused") });
     const r = await call("GET", `/issue/${epic}?fields=parent`);
     steps.push({ label: "Read the parent back", status: r.status, note: `parent key matches: ${String(obj(obj(obj(r.json).fields).parent).key) === initiative}` });
-    const c = await call("GET", `/search/jql?${new URLSearchParams({ jql: `parent in ("${initiative}")`, maxResults: "10", fields: "summary" })}`);
-    steps.push({ label: "The children query sees the epic", status: c.status, note: c.status === 200 ? `${arr(obj(c.json).issues).length} child(ren) found` : (whyJira(c.json) || "refused") });
+    // Jira's search index can lag a moment behind a write, so the first answer may be empty: ask again every 2 s for up to 10 s and report how long it took
+    const started = now();
+    let c = await call("GET", `/search/jql?${new URLSearchParams({ jql: `parent in ("${initiative}")`, maxResults: "10", fields: "summary" })}`);
+    let tries = 1;
+    while (c.status === 200 && arr(obj(c.json).issues).length === 0 && tries < 6) {
+      await sleep(2000);
+      c = await call("GET", `/search/jql?${new URLSearchParams({ jql: `parent in ("${initiative}")`, maxResults: "10", fields: "summary" })}`);
+      tries++;
+    }
+    const found = arr(obj(c.json).issues).length;
+    steps.push({ label: "The children query sees the epic (asked again every 2 s for up to 10 s)", status: c.status, note: c.status === 200 ? `${found} child(ren) found after ${tries} ${tries === 1 ? "try" : "tries"}, about ${Math.round((now() - started) / 1000)} s after the epic was linked${found === 0 ? " (the search never showed it: a real gap, not just lag)" : tries > 1 ? " (the search index lagged behind the write)" : ""}` : (whyJira(c.json) || "refused") });
   } finally {
     for (const key of created.reverse()) {
       const d = await call("DELETE", `/issue/${key}`);

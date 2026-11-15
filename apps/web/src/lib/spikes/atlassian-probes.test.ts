@@ -140,7 +140,8 @@ describe("J5: development information probe", () => {
 });
 
 /** A fake Jira with an Initiative level: INIT-1 (project ROAD, company-managed) over epics in R8P and DATA, with stories under them. */
-function fakeInitiativeSite(opts: { initiativeLevel?: boolean; hide?: string } = {}) {
+function fakeInitiativeSite(opts: { initiativeLevel?: boolean; hide?: string; lagSearches?: number } = {}) {
+  let lag = opts.lagSearches ?? 0;
   const issues: Record<string, { type: string; level: number; project: string; parent?: string }> = {
     "INIT-1": { type: "Initiative", level: 2, project: "ROAD" },
     "R8P-5": { type: "Epic", level: 1, project: "R8P", parent: "INIT-1" },
@@ -172,6 +173,7 @@ function fakeInitiativeSite(opts: { initiativeLevel?: boolean; hide?: string } =
     if (url.pathname === "/search/jql") {
       const jql = url.searchParams.get("jql") ?? "";
       if (jql.startsWith("issuetype in")) return { status: 200, json: { issues: [shape("INIT-1")], isLast: true } };
+      if (jql.startsWith("parent in") && lag > 0) { lag--; return { status: 200, json: { issues: [], isLast: true } }; }
       const parents = [...jql.matchAll(/"([A-Z0-9_]+-\d+)"/g)].map((m) => m[1]!);
       const found = Object.keys(issues).filter((k) => parents.includes(issues[k]!.parent ?? "") && issues[k]!.project !== opts.hide).map(shape);
       return { status: 200, json: { issues: found, isLast: true } };
@@ -224,6 +226,23 @@ describe("J2/J4 probe: create an Initiative and an epic in another project, set 
     expect(text).toContain("1 child(ren) found");
     expect(Object.keys(j.issues).sort()).toEqual(before);
     expect(steps.filter((s) => s.label.startsWith("Delete")).every((s) => s.note === "deleted")).toBe(true);
+  });
+  it("asks the children query again when the search index lags, and says how many tries it took", async () => {
+    const sleeps: number[] = [];
+    let t = 0;
+    const steps = await probeInitiativeWrite(fakeInitiativeSite({ lagSearches: 2 }).call, "ROAD", "R8P", { sleep: async (ms) => { sleeps.push(ms); t += ms; }, now: () => t });
+    const note = steps.find((x) => x.label.startsWith("The children query"))!.note;
+    expect(note).toContain("1 child(ren) found after 3 tries");
+    expect(note).toContain("lagged");
+    expect(sleeps).toEqual([2000, 2000]);
+  });
+  it("says it is a real gap when the search never shows the child within the wait, and still deletes everything", async () => {
+    const j = fakeInitiativeSite({ lagSearches: 99 });
+    const before = Object.keys(j.issues).sort();
+    const steps = await probeInitiativeWrite(j.call, "ROAD", "R8P", { sleep: async () => {} });
+    expect(steps.find((x) => x.label.startsWith("The children query"))!.note).toContain("0 child(ren) found after 6 tries");
+    expect(steps.find((x) => x.label.startsWith("The children query"))!.note).toContain("a real gap");
+    expect(Object.keys(j.issues).sort()).toEqual(before);
   });
   it("writes nothing when the Initiative project has no level above Epic", async () => {
     const j = fakeInitiativeSite();
