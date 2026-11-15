@@ -46,6 +46,9 @@ export type IssueTreeRow = {
   state: "open" | "closed"; stateReason: string | null; assignees: string[]; createdBy: "app" | "claude" | "engineer"; updatedAt: string;
 };
 
+/** An epic asked for under an initiative's Jira issue (issue #431): pending until Sync with Jira sets its parent, linked once it did, failed with Jira's reason. */
+export type JiraEpicRequestRow = { key: string; state: "pending" | "linked" | "failed"; lastError: string | null; previousParent: string | null };
+
 /** One child (level 1) or sub-task (level 2) of the Jira issue an initiative is linked to, as Jira last reported it. Read only. */
 export type JiraTreeRow = {
   key: string; parentKey: string; level: 1 | 2; position: number; title: string; type: string | null; status: string | null;

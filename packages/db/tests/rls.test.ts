@@ -235,6 +235,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "item_jira_epic_requests",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.item_jira_epic_requests set state = 'linked' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.item_jira_epic_requests where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.item_jira_epic_requests (tenant_id, item_id, epic_key) select tenant_id, item_id, 'EVIL-1' from public.item_jira_epic_requests where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.item_jira_epic_requests set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "jira_reads",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

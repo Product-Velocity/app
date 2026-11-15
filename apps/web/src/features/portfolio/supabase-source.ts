@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { FIELDS, crowdFields, latestCrowd, toCrowdRow, toRankDecision, type CrowdRow, type RankDecision, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
 import { lightTree, type LightIssue } from "@/lib/atlassian/light-tree";
-import type { IssueTreeRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
+import type { IssueTreeRow, JiraEpicRequestRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
 
 /** Supabase returns at most 1,000 rows per request, so a 2,000-item workspace needs several pages. */
 export const PAGE_SIZE = 1000;
@@ -341,6 +341,30 @@ export class SupabaseDataSource implements PortfolioDataSource {
       category: r.status_category === "new" || r.status_category === "indeterminate" || r.status_category === "done" ? r.status_category : null,
       assignee: r.assignee, url: r.html_url, updatedAt: r.jira_updated_at,
     }));
+  }
+
+  async loadJiraEpicRequests(itemId: string): Promise<JiraEpicRequestRow[]> {
+    const { data, error } = await this.client.from("item_jira_epic_requests").select("epic_key, state, last_error, previous_parent").eq("tenant_id", this.tenantId).eq("item_id", itemId).order("epic_key");
+    // a database that has not got the table yet shows an empty list, not an error
+    if (error) { if (/item_jira_epic_requests|42P01|PGRST205/.test(`${error.code ?? ""} ${error.message}`)) return []; throw new Error(friendlyError(error)); }
+    return ((data ?? []) as { epic_key: string; state: "pending" | "linked" | "failed"; last_error: string | null; previous_parent: string | null }[]).map((r) => ({ key: r.epic_key, state: r.state, lastError: r.last_error, previousParent: r.previous_parent }));
+  }
+
+  async requestJiraEpics(itemId: string, keys: string[]) {
+    const { data, error } = await this.client.rpc("item_request_jira_epics", { p_item: itemId, p_keys: keys });
+    if (error) return { ok: false as const, error: friendlyError(error) };
+    return { ok: true as const, added: (data ?? []) as string[] };
+  }
+
+  async checkJiraEpics(itemId: string) {
+    const { checkJiraEpics } = await import("@/app/(workspace)/portfolio/jira-epics");
+    return checkJiraEpics(itemId);
+  }
+
+  async removeJiraEpicRequest(itemId: string, key: string) {
+    const { error } = await this.client.rpc("item_remove_jira_epic_request", { p_item: itemId, p_key: key });
+    if (error) return { ok: false as const, error: friendlyError(error) };
+    return { ok: true as const };
   }
 
   /** Level-1 children of many initiatives at once (Jira tree and GitHub tree), in small id chunks so no read reaches the row limit. A missing table reads as empty, like loadJiraTree. */

@@ -4,7 +4,7 @@ import {
   bulkEditReason, isOpenList, openListValues, resolveGroup, canDeleteItem, placeRestored, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
 import type { PortfolioDataSource, SaveResult } from "./data-source";
-import type { GridItem, Lookups, LoadedItem, IssueTreeRow, JiraTreeRow } from "./types";
+import type { GridItem, Lookups, LoadedItem, IssueTreeRow, JiraEpicRequestRow, JiraTreeRow } from "./types";
 
 export const READ_ONLY_MESSAGE = "You have view-only access. Ask an admin for the Creator role to edit.";
 
@@ -567,6 +567,18 @@ export class PortfolioController {
   }
   issueTree(itemId: string): Promise<IssueTreeRow[]> { return this.source.loadIssueTree(itemId); }
   jiraTree(itemId: string): Promise<JiraTreeRow[]> { return this.source.loadJiraTree(itemId); }
+  jiraEpicRequests(itemId: string): Promise<JiraEpicRequestRow[]> { return this.source.loadJiraEpicRequests(itemId); }
+  /** Ask for epics to go under this initiative's Jira issue at the next confirmed Sync. Nothing is written to Jira. */
+  async requestJiraEpics(itemId: string, keys: string[]) {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false as const, error: READ_ONLY_MESSAGE }; }
+    return this.source.requestJiraEpics(itemId, keys);
+  }
+  /** Read only: asks Jira whether each epic asked for would be linked by the next Sync (OK) or why not. */
+  checkJiraEpics(itemId: string) { return this.source.checkJiraEpics(itemId); }
+  async removeJiraEpicRequest(itemId: string, key: string) {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false as const, error: READ_ONLY_MESSAGE }; }
+    return this.source.removeJiraEpicRequest(itemId, key);
+  }
   /** The first-level tracker children of these initiatives, for the Excel report with linked issues. */
   childrenOf(itemIds: string[]) { return this.source.loadChildrenBulk(itemIds); }
   /** "Mark breakdown complete": the database freezes Planned Scope; the row shows the new values at once. */
