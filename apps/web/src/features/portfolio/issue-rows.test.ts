@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GroupRow } from "@pv/domain";
+import { childrenOf } from "./export-xlsx-children";
 import { isIssueRow, issueInfoOf, issueRowsOf, issueSummary, issueTypeCounts, withIssueRows } from "./issue-rows";
 import type { GridItem, IssueTreeRow, JiraTreeRow } from "./types";
 
@@ -70,5 +71,24 @@ describe("issue rows under initiatives (issue #437)", () => {
       expect(issueTypeCounts([item("a")], { jira: { a: [jira("P-1", { type: "Spike" }), jira("P-2", { type: "Spike" }), jira("P-3", { type: "Idea" })] }, github: {} })).toEqual([{ type: "Spike", count: 2 }, { type: "Idea", count: 1 }]);
       expect(issueTypeCounts([item("a")], { jira: {}, github: {} })).toEqual([]);
     });
+  });
+});
+
+describe("two levels under an initiative (issue #431)", () => {
+  const kids = { jira: { a: [
+    jira("P-2", { level: 1, type: "Epic" }), jira("P-3", { level: 1, type: "Epic" }),
+    jira("P-5", { level: 2, parentKey: "P-3", type: "Story" }), jira("P-4", { level: 2, parentKey: "P-2", type: "Story" }), jira("P-9", { level: 2, parentKey: "X-1", type: "Task" }),
+  ] }, github: {} };
+  it("puts each epic's stories right under it, and a child whose parent is not listed last", () => {
+    const rows = issueRowsOf(item("a"), kids);
+    expect(rows.map((r) => `${r.depth}:${r.child.key}`)).toEqual(["0:P-2", "1:P-4", "0:P-3", "1:P-5", "1:P-9"]);
+    expect(rows.at(-1)!.last).toBe(true);
+  });
+  it("lists every type among the chips, and the type filter keeps stories only", () => {
+    expect(issueTypeCounts([item("a")], kids)).toEqual([{ type: "Epic", count: 2 }, { type: "Story", count: 2 }, { type: "Task", count: 1 }]);
+    expect(issueRowsOf(item("a"), kids, { types: ["Story"] }).map((r) => r.child.key)).toEqual(["P-4", "P-5"]);
+  });
+  it("the Excel report's first level still holds the epics only", () => {
+    expect(childrenOf(item("a"), kids).map((c) => c.key)).toEqual(["P-2", "P-3"]);
   });
 });
