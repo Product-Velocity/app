@@ -31,9 +31,12 @@ test.describe("search in long drop-downs (R-018)", () => {
     await expect(page.getByRole("status").filter({ hasText: "No results for “zzzz”" })).toBeVisible();
     await expect(items).toHaveCount(0);
     await search.fill("moscow");
-    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter"); // picks the first match into the draft; the panel stays open
+    await expect(page.getByRole("searchbox", { name: "Search group by options" })).toBeVisible();
+    await expect(page.locator(".group-row")).toHaveCount(0); // nothing changes until Apply
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(page.locator(".group-row", { hasText: "Must" })).toBeVisible();
-    await expect(page.getByRole("searchbox", { name: "Search group by options" })).toHaveCount(0); // the list closed
+    await expect(page.getByRole("searchbox", { name: "Search group by options" })).toHaveCount(0); // the panel closed
   });
 
   test("Group by: Down arrow moves into the list, Escape closes it and gives the focus back", async ({ page }) => {

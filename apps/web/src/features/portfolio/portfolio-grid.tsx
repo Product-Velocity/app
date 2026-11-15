@@ -85,18 +85,19 @@ type GridProps = {
 
 const isGroup = (r: unknown): r is GroupRow => !!r && typeof r === "object" && (r as { __group?: boolean }).__group === true;
 
-/** Full-width header row of a group: a toggle, the group's name and how many items it holds. A "Then by" header sits indented inside its group. */
+/** Full-width header row of a group: a toggle, the group's name and how many items it holds. A "Then by" header sits indented inside its group; the "Issues" header under an initiative (Show issues) counts its tracker issues. */
 function GroupRowRenderer(p: CustomCellRendererProps<GroupRow>) {
   const g = p.data;
   if (!g) return null;
   const toggle = (p.context as { toggleGroup: (key: string) => void }).toggleGroup;
+  const issues = g.unit === "issues";
   return (
     <div className="group-row" data-level={g.level ?? 0}>
-      <button type="button" className="group-toggle" aria-expanded={!g.collapsed} aria-label={`${g.collapsed ? "Expand" : "Collapse"} group ${g.label}`} onClick={() => toggle(g.key)}>
+      <button type="button" className="group-toggle" aria-expanded={!g.collapsed} aria-label={`${g.collapsed ? "Expand" : "Collapse"} ${issues ? "" : "group "}${g.label}`} onClick={() => toggle(g.key)}>
         {g.collapsed ? "▸" : "▾"}
       </button>
       <span>{g.label}</span>
-      <span className="group-count">{g.count} {g.count === 1 ? "item" : "items"}</span>
+      <span className="group-count">{g.count} {issues ? (g.count === 1 ? "issue" : "issues") : g.count === 1 ? "item" : "items"}</span>
       {g.healthSummary && <span className="group-health">{g.healthSummary}</span>}
     </div>
   );
@@ -271,7 +272,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     [controller, tick, projectIds, search, def.filters, added, me, hideCompleted],
   );
 
-  // Tracker issues under each initiative ("Show issues"): loaded for the rows that are shown, once each, when the option is on
+  // Tracker issues under each initiative ("Show issues", the third level): loaded once for the rows that are shown, when the option is on
   const [issueKids, setIssueKids] = useState<ReportChildren>({ jira: {}, github: {} });
   const [issuesFailed, setIssuesFailed] = useState(false);
   const issuesAsked = useRef(new Set<string>());
@@ -287,7 +288,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   }, [showIssues, visibleRows, controller]);
   const displayRows = useMemo(() => {
     const grouped = buildGroupedRows(sortRows(visibleRows as unknown as Record<string, unknown>[], shownSort) as unknown as typeof visibleRows, def.groupBy, collapsed, groupLabel, def.thenBy ?? null);
-    return showIssues ? withIssueRows(grouped, issueKids) : grouped;
+    return showIssues ? withIssueRows(grouped, issueKids, collapsed) : grouped;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleRows, def.groupBy, def.thenBy, shownSort, collapsed, lookups, showIssues, issueKids]);
   const toggleGroup = useCallback((key: string) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(key)) n.add(key); return n; }), []);
@@ -561,11 +562,11 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     out.push({ id: "group:none", label: "Group by: no grouping", group: "Grouping", run: () => changeDef({ groupBy: null, thenBy: null }) });
     const pickable = groupPickerSections({ customerSafe: def.customerSafe === true }).flatMap((x) => x.fields);
     for (const f of pickable) if (f.key !== def.thenBy) out.push({ id: `group:${f.key}`, label: `Group by ${f.name}`, group: "Grouping", run: () => changeDef({ groupBy: f.key }) });
+    if (def.customerSafe !== true) out.push({ id: "issues:toggle", label: showIssues ? "Hide issues under initiatives" : "Show issues under initiatives", group: "Grouping", keywords: "epics stories tasks tracker jira github children third level", run: () => changeDef({ showIssues: !showIssues }) });
     if (def.groupBy) {
       for (const f of pickable) if (f.key !== def.groupBy) out.push({ id: `then:${f.key}`, label: `Then by ${f.name}`, group: "Grouping", keywords: "second level group", run: () => changeDef({ thenBy: f.key }) });
       if (def.thenBy) out.push({ id: "then:none", label: "Then by: remove the second level", group: "Grouping", run: () => changeDef({ thenBy: null }) });
     }
-    if (def.customerSafe !== true) out.push({ id: "issues:toggle", label: showIssues ? "Hide issues under initiatives" : "Show issues under initiatives", group: "Grouping", keywords: "epics stories tasks tracker jira github children", run: () => changeDef({ showIssues: !showIssues }) });
     if (def.filters.length > 0) out.push({ id: "filters:clear", label: "Clear filters", group: "Filters", run: () => setFilters([]) });
     if (search) out.push({ id: "search:clear", label: "Clear search", group: "Filters", run: () => setSearchText("") });
     if (dirty) out.push({ id: "view:reset", label: "Reset view changes", group: "Views", run: resetChanges });
@@ -768,7 +769,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       <p ref={footRef} className="grid-foot">
         {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${groupSummary(def.groupBy, def.thenBy).replace(" › ", ", then ")}, ${shownSort.length > 0 ? `sorted by ${shownSort.map((x) => FIELD_BY_KEY[x.field]?.name).join(", then ")} inside each group` : "rank order inside each group"}` : sortSummary(shownSort)} · Keyboard shortcuts are under Shortcuts, top right · A lock means the value comes from GitHub
         {status.pending > 0 ? "" : ""}
-        {showIssues && <> · {issuesFailed ? "Issues could not be loaded; reopen the option to try again" : "Tracker issues are shown under their initiatives"}</>}
+        {showIssues && issuesFailed && <> · Issues could not be loaded; turn Show issues off and on to retry</>}
         {lastGithubSync && <> · <span title="The latest time any initiative was in step with GitHub">Last synced with GitHub {agoLabel(lastGithubSync, nowTick)}</span></>}
       </p>
     </section>
