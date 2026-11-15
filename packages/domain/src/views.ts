@@ -161,21 +161,21 @@ export function groupableFields(): FieldDef[] {
   return FIELDS.filter((f) => f.type === "Select" || f.type === "Person" || f.type === "Boolean" || f.key === "home_project");
 }
 
-/** The groups the Group by picker opens with, above the categories. */
-export const COMMON_GROUP_KEYS: readonly string[] = ["initiative_phase", "status", "health", "g2m_quarter", "theme", "moscow", "product_manager"];
+/** The fields the Group by picker offers first, as one-click pills above the categories ("Most used"). */
+export const MOST_USED_GROUP_KEYS: readonly string[] = ["initiative_phase", "status", "health", "g2m_quarter", "theme", "moscow", "product_manager"];
 
 /**
  * What the Group by picker lists: the groupable fields under the same category headings as the Columns picker (the dictionary's "group", in its order),
- * (a field in Common is not listed again under its category) minus fields hidden in the app and, for a customer-safe view, minus fields a customer may not see. `taken` leaves out the field already used by the other level.
+ * (a field in Most used is not listed again under its category) minus fields hidden in the app and, for a customer-safe view, minus fields a customer may not see. `taken` leaves out the field already used by the other level.
  */
 export function groupPickerSections(opts: { customerSafe?: boolean; taken?: string | null } = {}): { category: string; fields: FieldDef[] }[] {
   const ok = (f: FieldDef) => !HIDDEN_FIELDS.has(f.key) && f.key !== opts.taken && (!opts.customerSafe || isCustomerSafe(f.key));
   const fields = groupableFields().filter(ok);
   const out: { category: string; fields: FieldDef[] }[] = [];
-  const common = COMMON_GROUP_KEYS.map((k) => fields.find((f) => f.key === k)).filter((f): f is FieldDef => !!f);
-  if (common.length > 0) out.push({ category: "Common", fields: common });
+  const common = MOST_USED_GROUP_KEYS.map((k) => fields.find((f) => f.key === k)).filter((f): f is FieldDef => !!f);
+  if (common.length > 0) out.push({ category: "Most used", fields: common });
   for (const f of fields) {
-    if (common.includes(f)) continue; // each field is listed once: the Common shortcuts are not repeated under their category
+    if (common.includes(f)) continue; // each field is listed once: the Most used shortcuts are not repeated under their category
     let sec = out.find((x) => x.category === f.group);
     if (!sec) { sec = { category: f.group, fields: [] }; out.push(sec); }
     sec.fields.push(f);

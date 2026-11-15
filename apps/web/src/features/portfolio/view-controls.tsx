@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import {
   FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupPickerSections, groupSummary, isOpenList, needsSearch, optionsFor, type Filter,
 } from "@pv/domain";
-import { menuSearchKeys, NoResults, SearchInput, SelectField } from "@/components/search-list";
+import { NoResults, SearchInput, SelectField } from "@/components/search-list";
 import { DateInput } from "@/components/date-input";
 import { Popover } from "./popover";
 import type { Lookups } from "./types";
@@ -94,7 +94,7 @@ function GroupPanel({ state, customerSafe, issueTypes, issuesLoading, onOpenIssu
   const [draft, setDraft] = useState<GroupState>({ ...state });
   const [query, setQuery] = useState("");
   // opens on the first category (a few rows), not on all 46 fields, so the issues card below stays in sight
-  const [tab, setTab] = useState<string>(() => groupPickerSections({ customerSafe }).find((x) => x.category !== "Common")?.category ?? ALL_TAB);
+  const [tab, setTab] = useState<string>(() => groupPickerSections({ customerSafe }).find((x) => x.category !== "Most used")?.category ?? ALL_TAB);
   // which level the next pick fills: the first empty one, else the main one
   const [target, setTarget] = useState<0 | 1>(state.groupBy && !state.thenBy ? 1 : 0);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -104,12 +104,12 @@ function GroupPanel({ state, customerSafe, issueTypes, issuesLoading, onOpenIssu
   const names = [draft.groupBy, draft.thenBy] as const;
   const nameOf = (k: string | null) => (k ? groupSummary(k) : null);
   const sections = useMemo(() => groupPickerSections({ customerSafe, taken: level === 0 ? draft.thenBy : draft.groupBy }), [customerSafe, level, draft.thenBy, draft.groupBy]);
-  const common = sections.find((x) => x.category === "Common")?.fields ?? [];
-  const categories = sections.filter((x) => x.category !== "Common");
+  const mostUsed = sections.find((x) => x.category === "Most used")?.fields ?? [];
+  const categories = sections.filter((x) => x.category !== "Most used");
   const searching = query.trim() !== "";
   const all = useMemo(() => fieldOptions(sections.flatMap((x) => x.fields)), [sections]);
   const matching = new Set(filterOptions(all, query).map((o) => o.value));
-  // searching looks through every field (the Common ones too); otherwise the grid shows the chosen category, the Common ones being the chips above
+  // searching looks through every field (the Most used ones too); otherwise the grid shows the chosen category, the Most used ones being the pills above
   const listed = searching ? sections.flatMap((x) => x.fields).filter((f) => matching.has(f.key)) : (tab === ALL_TAB ? categories : categories.filter((x) => x.category === tab)).flatMap((x) => x.fields);
   const mark = (key: string) => (draft.groupBy === key ? "Group by" : draft.thenBy === key ? "Then by" : null);
 
@@ -143,42 +143,61 @@ function GroupPanel({ state, customerSafe, issueTypes, issuesLoading, onOpenIssu
   const typesText = draft.issueTypes === null ? "all issue types" : draft.issueTypes.join(", ");
   const summary = `${draft.groupBy ? `Grouped by ${groupSummary(draft.groupBy, draft.thenBy)}` : "Not grouped"}${draft.showIssues ? ` · showing ${typesText}${draft.hideDone ? ", hiding Done and Cancelled" : ""}` : ""}`;
 
+  // The keyboard path through the pills and the field grid from the search box: Down goes to the first one, Up to the last, Enter takes the first match.
+  const searchKeys = (e: KeyboardEvent<HTMLInputElement>) => {
+    const items = () => Array.from(panelRef.current?.querySelectorAll<HTMLElement>('.gp-body [role="menuitemradio"]') ?? []);
+    if (e.key === "ArrowDown") { e.preventDefault(); items()[0]?.focus(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); items().at(-1)?.focus(); }
+    else if (e.key === "Enter") { e.preventDefault(); items()[0]?.click(); }
+  };
+  const tick = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg>;
+
   return (
     <div ref={panelRef} role="group" aria-label="Group by" className="gp gp-wide" style={maxHeight ? { maxHeight } : undefined}>
-      <div className="gp-head"><b>Group and show</b><span className="panel-note" aria-live="polite">{summary}</span></div>
       <div className="gp-body">
-        <div className="gp-slots" role="group" aria-label="Grouping levels">
-          {([0, 1] as const).map((l) => {
-            const value = names[l];
-            const off = l === 1 && !draft.groupBy;
-            return (
-              <div key={l} className="gp-slot" data-active={!off && level === l} data-empty={!value}>
-                <button type="button" className="gp-slot-main" aria-label={`Choose the field for ${LEVEL_NAME[l]}: ${nameOf(value) ?? "none yet"}`} aria-pressed={!off && level === l} disabled={off} onClick={() => setTarget(l)} title={off ? "Choose the main grouping first" : `Pick the field for “${LEVEL_NAME[l]}” below`}>
-                  <span className="gp-slot-n" aria-hidden="true">{l + 1}</span>
-                  <span className="gp-slot-text">
-                    <span className="gp-slot-label">{LEVEL_NAME[l]}</span>
-                    <span className="gp-slot-val">{nameOf(value) ?? (off ? "—" : "Pick a field below")}</span>
-                  </span>
-                </button>
-                {value && <button type="button" className="icon-btn" aria-label={`Remove ${LEVEL_NAME[l]} ${nameOf(value)}`} onClick={() => clear(l)}><svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8" /></svg></button>}
-              </div>
-            );
-          })}
-          {draft.groupBy && draft.thenBy && <button type="button" className="btn btn-link" onClick={swap} aria-label={`Swap: group by ${nameOf(draft.thenBy)}, then by ${nameOf(draft.groupBy)}`}>Swap order</button>}
+        <div className="panel-section">
+          <div className="panel-head gp-head"><h2>Group by</h2><span className="panel-note" aria-live="polite">{summary}</span></div>
+          <div className="gp-slots" role="group" aria-label="Grouping levels">
+            {([0, 1] as const).map((l) => {
+              const value = names[l];
+              const off = l === 1 && !draft.groupBy;
+              return (
+                <div key={l} className="gp-slot" data-active={!off && level === l} data-empty={!value}>
+                  <button type="button" className="gp-slot-main" aria-label={`Choose the field for ${LEVEL_NAME[l]}: ${nameOf(value) ?? "none yet"}`} aria-pressed={!off && level === l} disabled={off} onClick={() => setTarget(l)} title={off ? "Choose the main grouping first" : `Pick the field for “${LEVEL_NAME[l]}” below`}>
+                    <span className="gp-slot-n" aria-hidden="true">{l + 1}</span>
+                    <span className="gp-slot-text">
+                      <span className="gp-slot-label">{LEVEL_NAME[l]}</span>
+                      <span className="gp-slot-val">{nameOf(value) ?? (off ? "—" : "Pick a field below")}</span>
+                    </span>
+                  </button>
+                  {value && <button type="button" className="icon-btn" aria-label={`Remove ${LEVEL_NAME[l]} ${nameOf(value)}`} onClick={() => clear(l)}><svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8" /></svg></button>}
+                </div>
+              );
+            })}
+            {draft.groupBy && draft.thenBy && <button type="button" className="btn btn-link" onClick={swap} aria-label={`Swap: group by ${nameOf(draft.thenBy)}, then by ${nameOf(draft.groupBy)}`}>Swap order</button>}
+          </div>
         </div>
+        <hr className="panel-rule" />
 
-        <div className="gp-picker">
-          {!searching && common.length > 0 && (
-            <div role="group" aria-label="Common fields">
-              <p className="gp-label">Common</p>
-              <div className="gp-chips">
-                {common.map((f) => (
-                  <button key={f.key} type="button" role="menuitemradio" aria-checked={mark(f.key) !== null} className="gp-chip" data-on={mark(f.key) !== null} onClick={() => pick(f.key)}>{f.name}</button>
+        {!searching && mostUsed.length > 0 && (
+          <>
+            <div className="panel-section" role="group" aria-label="Most used fields">
+              <div className="panel-head"><h2>Most used</h2><span className="panel-note">One click picks the field for the level you are filling. Click again to remove.</span></div>
+              <div className="qf-row">
+                {mostUsed.map((f) => (
+                  <button key={f.key} type="button" role="menuitemradio" aria-checked={mark(f.key) !== null} className="qf" onClick={() => pick(f.key)}>
+                    {f.name}{mark(f.key) !== null && tick}
+                  </button>
                 ))}
               </div>
             </div>
-          )}
-          {needsSearch(all.length) && <SearchInput value={query} onChange={setQuery} label="Search group by options" placeholder={`Search the ${all.length} fields…`} onKeyDown={menuSearchKeys} />}
+            <hr className="panel-rule" />
+          </>
+        )}
+
+        <div className="panel-section gp-picker">
+          <div className="panel-head"><h2>All fields</h2><span className="panel-note">The same categories as the Columns picker.</span></div>
+          {needsSearch(all.length) && <SearchInput value={query} onChange={setQuery} label="Search group by options" placeholder={`Search the ${all.length} fields…`} onKeyDown={searchKeys} />}
           {!searching && (
             <div className="gp-tabs" role="group" aria-label="Field categories">
               {[...categories.map((x) => x.category), ALL_TAB].map((c) => (
@@ -200,44 +219,50 @@ function GroupPanel({ state, customerSafe, issueTypes, issuesLoading, onOpenIssu
         </div>
 
         {!customerSafe && (
-          <div className="gp-card" data-on={draft.showIssues}>
-            <label className="gp-switch-row">
-              <input type="checkbox" role="switch" className="sw-input" checked={draft.showIssues} onChange={(e) => setDraft({ ...draft, showIssues: e.target.checked })} />
-              <span><b>Show issues under each initiative</b><span className="gp-sub">Epics, stories and tasks from Jira or GitHub</span></span>
-            </label>
-            {draft.showIssues && (
-              <div className="gp-card-body">
-                <div>
-                  <p className="gp-label">Show these types</p>
-                  {issueTypes.length === 0 ? (
-                    <p className="panel-note" role="status">{issuesLoading ? "Reading the linked issues…" : "No linked issues found for the initiatives shown."}</p>
-                  ) : (
-                    <div className="gp-chips" role="group" aria-label="Issue types">
-                      {issueTypes.map((t) => (
-                        <button key={t.type} type="button" className="gp-chip" aria-pressed={selected.includes(t.type)} data-on={selected.includes(t.type)} onClick={() => toggleType(t.type)}>
-                          {selected.includes(t.type) ? <span aria-hidden="true">✓ </span> : null}{t.type} <span className="gp-n">{t.count}</span>
-                        </button>
-                      ))}
+          <>
+            <hr className="panel-rule" />
+            <div className="panel-section">
+              <div className="panel-head"><h2>Issues</h2><span className="panel-note">The tracker issues linked to each initiative, listed under it.</span></div>
+              <div className="gp-card" data-on={draft.showIssues}>
+                <label className="gp-switch-row">
+                  <input type="checkbox" role="switch" className="sw-input" checked={draft.showIssues} onChange={(e) => setDraft({ ...draft, showIssues: e.target.checked })} />
+                  <span><b>Show issues under each initiative</b><span className="gp-sub">Epics, stories and tasks from Jira or GitHub</span></span>
+                </label>
+                {draft.showIssues && (
+                  <div className="gp-card-body">
+                    <div className="gp-block">
+                      <h3 className="gp-h3">Show these types</h3>
+                      {issueTypes.length === 0 ? (
+                        <p className="panel-note" role="status">{issuesLoading ? "Reading the linked issues…" : "No linked issues found for the initiatives shown."}</p>
+                      ) : (
+                        <div className="qf-row" role="group" aria-label="Issue types">
+                          {issueTypes.map((t) => (
+                            <button key={t.type} type="button" className="qf" aria-pressed={selected.includes(t.type)} onClick={() => toggleType(t.type)}>
+                              {t.type} <span className="gp-n">{t.count}</span>{selected.includes(t.type) && tick}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="gp-card-row">
-                  {issueTypes.length > 0 && (
-                    <div className="gp-chips" role="group" aria-label="Presets">
-                      {presets.map((p) => <button key={p.label} type="button" className="gp-chip gp-preset" aria-pressed={isPreset(p.types)} data-on={isPreset(p.types)} onClick={() => setDraft({ ...draft, issueTypes: p.types })}>{p.label}</button>)}
+                    <div className="gp-card-row">
+                      {issueTypes.length > 0 && (
+                        <div className="qf-row" role="group" aria-label="Presets">
+                          {presets.map((p) => <button key={p.label} type="button" className="qf" aria-pressed={isPreset(p.types)} onClick={() => setDraft({ ...draft, issueTypes: p.types })}>{p.label}{isPreset(p.types) && tick}</button>)}
+                        </div>
+                      )}
+                      <label className="gp-switch-row gp-switch-inline">
+                        <span>Hide Done and Cancelled</span>
+                        <input type="checkbox" role="switch" className="sw-input" checked={draft.hideDone} onChange={(e) => setDraft({ ...draft, hideDone: e.target.checked })} />
+                      </label>
                     </div>
-                  )}
-                  <label className="gp-switch-row gp-switch-inline">
-                    <span>Hide Done and Cancelled</span>
-                    <input type="checkbox" role="switch" className="sw-input" checked={draft.hideDone} onChange={(e) => setDraft({ ...draft, hideDone: e.target.checked })} />
-                  </label>
-                </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          </>
         )}
       </div>
-      <div className="gp-foot">
+      <div className="panel-foot gp-foot">
         <button type="button" className="btn btn-link" onClick={() => { setDraft({ groupBy: null, thenBy: null, showIssues: false, issueTypes: null, hideDone: false }); setTarget(0); }}>Clear</button>
         <span className="panel-note grow">Nothing changes in the grid until you press Apply.</span>
         <button type="button" className="btn" onClick={close}>Cancel</button>
