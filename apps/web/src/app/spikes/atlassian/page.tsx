@@ -21,7 +21,7 @@ export default async function AtlassianSpike({ searchParams }: { searchParams: P
             Step 1, read only: <a href="/api/atlassian/start?mode=levels">the Initiative level and its tree</a>. <strong>Done on 2026-11-14</strong>: Initiative level found, epics from two projects. Run it again only to check another Initiative (add <code>&amp;arg=KEY</code> to the address).
           </li>
           <li>
-            Step 2, WRITES, removes what it makes: <a href="/api/atlassian/start?mode=initiative&arg=RR,R8P">test across projects (an Initiative in RR, an epic in R8P)</a>. Creates one test Initiative and one test epic (label pv-spike), makes the Initiative the epic&apos;s parent, reads it back, asks the children query every 2 seconds for up to 10 seconds, then deletes both. <strong>Run on 2026-11-15</strong>: the parent was set across projects and read back correctly, but the children query found 0 right away. <strong>Run it once more</strong>: it now waits and tells us whether that was only the search index lagging.
+            Step 2, WRITES, removes what it makes: <a href="/api/atlassian/start?mode=initiative&arg=RR,R8P">test across projects (an Initiative in RR, an epic in R8P)</a>. <strong>Done on 2026-11-15</strong>: the Initiative was created, the epic of another project was linked and read back, and Jira&apos;s search showed it after about 2 seconds (it lags a moment behind a write). Nothing is left to run for J2 unless we test other projects.
           </li>
         </ol>
         <p>The test inside RR alone cannot run: RR has no Epic issue type, so there is nothing to create there. That is fine; the Initiative project does not need one.</p>
