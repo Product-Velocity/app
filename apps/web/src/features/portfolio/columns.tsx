@@ -1,5 +1,6 @@
 "use client";
 
+import { NameWithIssues } from "./name-cell";
 import type { ColDef, IHeaderParams } from "ag-grid-community";
 import {
   EDITABLE_FIELDS, VISIBLE_FIELDS, compareQuarters, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
@@ -68,9 +69,11 @@ export type ColumnContext = {
   sorted: boolean;
   /** The locked columns (any, up to four): they stay on the left while the grid scrolls right. */
   pinned?: ReadonlySet<string>;
+  /** "Show issues" is on: the Initiative Name cell carries the chip that folds its issues. */
+  showIssues?: boolean;
 };
 
-export function buildColumns({ controller, lookups, today, visible, order, sorted, pinned }: ColumnContext): ColDef<GridItem>[] {
+export function buildColumns({ controller, lookups, today, visible, order, sorted, pinned, showIssues }: ColumnContext): ColDef<GridItem>[] {
   const editable = () => controller.canEdit;
   const projectOptions: PickerOption[] = lookups.projects.map((p) => ({ value: p.id, label: p.name }));
   const personOptions: PickerOption[] = lookups.members.map((m) => ({ value: m.user_id, label: m.email }));
@@ -111,7 +114,10 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
         },
       };
     }
-    if (f.key === "initiative_name") { base.flex = 1; base.minWidth = 300; base.cellClass = `${String(base.cellClass ?? "")} cell-name`.trim(); }
+    if (f.key === "initiative_name") {
+      base.flex = 1; base.minWidth = 300; base.cellClass = `${String(base.cellClass ?? "")} cell-name`.trim();
+      if (showIssues) base.cellRenderer = NameWithIssues;
+    }
     if (f.key === "item_code") {
       return {
         ...base, cellClass: "mono muted cell-open", headerTooltip: "Click a code to open the item panel", tooltipValueGetter: () => "Open the item panel (Space on any cell does the same)",

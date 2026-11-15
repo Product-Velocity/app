@@ -15,7 +15,7 @@ import { setQueryParam, useScope } from "../workspace/scope";
 import { buildColumns, isEditableColumn, isReadOnlyColumn } from "./columns";
 import { syncLabel, syncPlatforms, syncTitle } from "./sync-label";
 import { ColumnsPanel } from "./columns-panel";
-import { isIssueRow, withIssueRows, type IssueRow } from "./issue-rows";
+import { isIssueRow, issueInfoOf, issueRowsOf, issuesKey, withIssueRows, type IssueRow } from "./issue-rows";
 import type { ReportChildren } from "./export-xlsx-children";
 import { FilterPanel } from "./filter-panel";
 import { Popover } from "./popover";
@@ -85,40 +85,58 @@ type GridProps = {
 
 const isGroup = (r: unknown): r is GroupRow => !!r && typeof r === "object" && (r as { __group?: boolean }).__group === true;
 
-/** Full-width header row of a group: a toggle, the group's name and how many items it holds. A "Then by" header sits indented inside its group; the "Issues" header under an initiative (Show issues) counts its tracker issues. */
+/** Full-width header row of a group: a toggle, the group's name and how many items it holds. A "Then by" header sits indented inside its group. */
 function GroupRowRenderer(p: CustomCellRendererProps<GroupRow>) {
   const g = p.data;
   if (!g) return null;
   const toggle = (p.context as { toggleGroup: (key: string) => void }).toggleGroup;
-  const issues = g.unit === "issues";
   return (
     <div className="group-row" data-level={g.level ?? 0}>
-      <button type="button" className="group-toggle" aria-expanded={!g.collapsed} aria-label={`${g.collapsed ? "Expand" : "Collapse"} ${issues ? "" : "group "}${g.label}`} onClick={() => toggle(g.key)}>
+      <button type="button" className="group-toggle" aria-expanded={!g.collapsed} aria-label={`${g.collapsed ? "Expand" : "Collapse"} group ${g.label}`} onClick={() => toggle(g.key)}>
         {g.collapsed ? "▸" : "▾"}
       </button>
       <span>{g.label}</span>
-      <span className="group-count">{g.count} {issues ? (g.count === 1 ? "issue" : "issues") : g.count === 1 ? "item" : "items"}</span>
+      <span className="group-count">{g.count} {g.count === 1 ? "item" : "items"}</span>
       {g.healthSummary && <span className="group-health">{g.healthSummary}</span>}
     </div>
   );
 }
 
-/** Full-width row of a tracker issue under its initiative: the type, the key (a link), the title, the status in words and the assignee. */
-function IssueRowRenderer({ data }: { data: IssueRow }) {
+/**
+ * A tracker issue under its initiative (Show issues), lined up with the grid's own columns so it reads as a child of the initiative above:
+ * the key sits under the Initiative ID column, the type and title under the Initiative Name column behind a branch line, and the status and the assignee
+ * follow in the columns after it. The positions are read from the grid, and drawn again when a column is resized, moved, locked or hidden.
+ */
+function IssueRowRenderer({ data, api }: { data: IssueRow; api: GridApi }) {
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    const again = () => redraw((n) => n + 1);
+    const events = ["columnResized", "columnMoved", "columnPinned", "columnVisible", "displayedColumnsChanged"] as const;
+    for (const e of events) api.addEventListener(e, again);
+    return () => { for (const e of events) api.removeEventListener(e, again); };
+  }, [api]);
   const c = data.child;
+  const idCol = api.getColumn("item_code"), nameCol = api.getColumn("initiative_name");
+  const idLeft = idCol?.getLeft() ?? 120, nameLeft = nameCol?.getLeft() ?? 240, nameWidth = nameCol?.getActualWidth() ?? 320;
+  const after = nameLeft + nameWidth + 8;
   return (
-    <div className="issue-row" role="row" aria-label={`${c.type} ${c.key}: ${c.title}`}>
-      <span className="issue-type">{c.type}</span>
-      {c.url && isOpenableUrl(c.url) ? <a className="issue-key" href={c.url} target="_blank" rel="noopener noreferrer">{c.key}</a> : <span className="issue-key">{c.key}</span>}
-      <span className="issue-title">{c.title}</span>
-      {c.status && <span className="issue-status" data-group={c.group || undefined}>{c.status}</span>}
-      {c.assignee && <span className="issue-assignee">{c.assignee}</span>}
+    <div className="issue-row" data-last={data.last} role="row" aria-label={`${c.type} ${c.key}: ${c.title}`}>
+      <span className="issue-branch" aria-hidden="true" style={{ left: nameLeft + 8 }} />
+      <span className="issue-cell" style={{ left: idLeft + 8, maxWidth: Math.max(60, nameLeft - idLeft - 12) }}>
+        {c.url && isOpenableUrl(c.url) ? <a className="issue-key" href={c.url} target="_blank" rel="noopener noreferrer">{c.key}</a> : <span className="issue-key">{c.key}</span>}
+      </span>
+      <span className="issue-cell issue-main" style={{ left: nameLeft + 26, width: Math.max(80, nameWidth - 34) }} title={`${c.type}: ${c.title}`}>
+        <span className="issue-type">{c.type}</span>
+        <span className="issue-title">{c.title}</span>
+      </span>
+      {c.status && <span className="issue-cell issue-status" data-group={c.group || undefined} style={{ left: after, width: 112 }}>{c.status}</span>}
+      {c.assignee && <span className="issue-cell issue-assignee" style={{ left: after + 120 }}>{c.assignee}</span>}
     </div>
   );
 }
 
 function FullWidthRenderer(p: CustomCellRendererProps<GroupRow | IssueRow>) {
-  return isIssueRow(p.data) ? <IssueRowRenderer data={p.data} /> : <GroupRowRenderer {...(p as CustomCellRendererProps<GroupRow>)} />;
+  return isIssueRow(p.data) ? <IssueRowRenderer data={p.data} api={p.api} /> : <GroupRowRenderer {...(p as CustomCellRendererProps<GroupRow>)} />;
 }
 
 const getRowId = (p: { data: { id: string } }) => p.data.id;
@@ -292,14 +310,18 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleRows, def.groupBy, def.thenBy, shownSort, collapsed, lookups, showIssues, issueKids]);
   const toggleGroup = useCallback((key: string) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(key)) n.add(key); return n; }), []);
-  const gridContext = useMemo(() => ({ toggleGroup }), [toggleGroup]);
+  // what a cell may ask the grid: fold a group, and (Show issues) the chip data of an initiative's name cell
+  const issueInfo = useCallback((id: string) => { const r = controller.row(id); return r ? issueInfoOf(r, issueKids, collapsed) : null; }, [controller, issueKids, collapsed]);
+  const gridContext = useMemo(() => ({ toggleGroup, issueInfo }), [toggleGroup, issueInfo]);
+  // the chips are drawn by the cells, which do not see a change of context by themselves
+  useEffect(() => { if (showIssues) apiRef.current?.refreshCells({ columns: ["initiative_name"], force: true }); }, [showIssues, issueKids, collapsed]);
   const resetShown = () => setAdded(new Set());
   const setFilters = (filters: Filter[]) => { resetShown(); changeDef({ filters }); };
   const setSearchText = (t: string) => { resetShown(); setSearch(t); };
 
   const columnDefs = useMemo(
-    () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible, order: def.columns, sorted: def.groupBy === null && shownSort.length === 0, pinned: pinnedSet }),
-    [controller, lookups, visible, def.columns, def.groupBy, shownSort, pinnedSet],
+    () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible, order: def.columns, sorted: def.groupBy === null && shownSort.length === 0, pinned: pinnedSet, showIssues: def.showIssues === true }),
+    [controller, lookups, visible, def.columns, def.groupBy, shownSort, pinnedSet, def.showIssues],
   );
   const exportFields = useMemo(() => def.columns.map((k) => FIELD_BY_KEY[k]!).filter(Boolean), [def.columns]);
   const showLater = def.columns.some((k) => (FIELD_BY_KEY[k]?.phase ?? 1) > 1 && k !== "project_rank");
@@ -562,6 +584,11 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     out.push({ id: "group:none", label: "Group by: no grouping", group: "Grouping", run: () => changeDef({ groupBy: null, thenBy: null }) });
     const pickable = groupPickerSections({ customerSafe: def.customerSafe === true }).flatMap((x) => x.fields);
     for (const f of pickable) if (f.key !== def.thenBy) out.push({ id: `group:${f.key}`, label: `Group by ${f.name}`, group: "Grouping", run: () => changeDef({ groupBy: f.key }) });
+    if (showIssues) {
+      const keys = visibleRows.filter((r) => issueRowsOf(r, issueKids).length > 0).map((r) => issuesKey(r.id));
+      out.push({ id: "issues:collapse", label: "Collapse all issues", group: "Grouping", keywords: "fold hide epics stories tasks", run: () => setCollapsed((c) => new Set([...c, ...keys])) });
+      out.push({ id: "issues:expand", label: "Expand all issues", group: "Grouping", keywords: "unfold show epics stories tasks", run: () => setCollapsed((c) => new Set([...c].filter((k) => !k.startsWith("issues:")))) });
+    }
     if (def.customerSafe !== true) out.push({ id: "issues:toggle", label: showIssues ? "Hide issues under initiatives" : "Show issues under initiatives", group: "Grouping", keywords: "epics stories tasks tracker jira github children third level", run: () => changeDef({ showIssues: !showIssues }) });
     if (def.groupBy) {
       for (const f of pickable) if (f.key !== def.groupBy) out.push({ id: `then:${f.key}`, label: `Then by ${f.name}`, group: "Grouping", keywords: "second level group", run: () => changeDef({ thenBy: f.key }) });
@@ -594,7 +621,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     return out;
     // the commands are rebuilt when what they act on changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [controller, lookups, viewsApi.commands, scopes, projects, def, dirty, search, base, visibleRows, mac, focusQuickAdd, focusSearch, selected, gates]);
+  }, [controller, lookups, viewsApi.commands, scopes, projects, def, dirty, search, base, visibleRows, mac, focusQuickAdd, focusSearch, selected, gates, showIssues, issueKids]);
   const findItems = useMemo(
     () => (q: string) => controller.rows.filter((r) => matchesSearch(r, q)).slice(0, 6).map((r) => ({ id: r.id, label: `${r.item_code} ${r.initiative_name}`, run: () => locate(r.id) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -733,7 +760,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       )}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} findItems={findItems} />
       <div className={peekId ? "grid-split grid-split-open" : "grid-split"}>
-      <div ref={wrapRef} className="grid-wrap" data-testid="grid" style={gridHeight ? { height: gridHeight } : undefined}>
+      <div ref={wrapRef} className="grid-wrap" data-testid="grid" data-issues={showIssues ? "on" : undefined} style={gridHeight ? { height: gridHeight } : undefined}>
         <AgGridReact<GridItem>
           theme={theme}
           rowData={displayRows as unknown as GridItem[]}
