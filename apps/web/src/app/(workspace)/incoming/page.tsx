@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { requireWorkspace } from "@/lib/session";
 import { IncomingClient } from "@/features/incoming/incoming-client";
+import { EpicsView } from "@/features/incoming/epics-view";
+import { loadEpicCoverage } from "@/features/incoming/load-epics";
+import { needsDecision } from "@/lib/atlassian/epic-coverage";
 import { AutoRefresh } from "../settings/integrations/github/auto-refresh";
 import { checkGithubNow } from "../settings/integrations/github/actions";
 
@@ -10,8 +13,8 @@ export const metadata = { title: "Incoming · Product Velocity" };
 export const maxDuration = 60;
 
 /** Issues in the tracker that are not initiatives: pull in, ignore, and the rules for new arrivals (R-024). */
-export default async function IncomingPage({ searchParams }: { searchParams: Promise<{ status?: string; why?: string; t?: string; tracker?: string }> }) {
-  const { status, why, t, tracker: wanted } = await searchParams;
+export default async function IncomingPage({ searchParams }: { searchParams: Promise<{ status?: string; why?: string; t?: string; tracker?: string; view?: string }> }) {
+  const { status, why, t, tracker: wanted, view } = await searchParams;
   const { supabase, active } = await requireWorkspace("/incoming");
   const { data: conn } = await supabase.from("github_connections").select("id, last_check_at, last_check_summary").eq("tenant_id", active.tenantId).eq("state", "connected").maybeSingle();
   const { data: jiraConn } = await supabase.from("jira_connections").select("id").eq("tenant_id", active.tenantId).eq("state", "connected").limit(1).maybeSingle();
@@ -34,9 +37,29 @@ export default async function IncomingPage({ searchParams }: { searchParams: Pro
   ) : null;
   if (tracker === "jira") {
     const { data: projects } = await supabase.from("projects").select("id, name").eq("tenant_id", active.tenantId).eq("tracker", "jira").order("name");
+    const epics = await loadEpicCoverage(supabase, active.tenantId);
+    const onEpics = view === "epics";
+    const views = (
+      <nav className="ip-tabs" aria-label="Jira lists">
+        <Link href="/incoming?tracker=jira" className={!onEpics ? "ip-tab ip-tab-on" : "ip-tab"} aria-current={!onEpics ? "page" : undefined}>Issues</Link>
+        <Link href="/incoming?tracker=jira&view=epics" className={onEpics ? "ip-tab ip-tab-on" : "ip-tab"} aria-current={onEpics ? "page" : undefined}>
+          Epics{epics.projects.length > 0 ? ` (${needsDecision(epics.rows)})` : ""}
+        </Link>
+      </nav>
+    );
+    if (onEpics) {
+      return (
+        <>
+          {switcher}
+          {views}
+          <EpicsView rows={epics.rows} initiatives={epics.initiatives} projects={epics.projects} lastRead={epics.lastRead} canEdit={canEdit} canAdmin={active.role === "admin"} />
+        </>
+      );
+    }
     return (
       <>
         {switcher}
+        {views}
         <IncomingClient tracker="jira" tenantId={active.tenantId} projects={(projects ?? []) as { id: string; name: string }[]} canEdit={canEdit} canAdmin={active.role === "admin"} />
       </>
     );

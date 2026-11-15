@@ -245,6 +245,26 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "jira_epic_projects",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_epic_projects set project_key = 'EVIL' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_epic_projects where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_epic_projects (tenant_id, connection_id, site_id, project_key) select tenant_id, connection_id, site_id, 'EVIL' from public.jira_epic_projects where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.jira_epic_projects set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "jira_epics_seen",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_epics_seen set title = 'x' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_epics_seen where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_epics_seen (tenant_id, connection_id, site_id, project_key, issue_key, title) select tenant_id, connection_id, site_id, project_key, 'EVIL-1', 'x' from public.jira_epics_seen where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.jira_epics_seen set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "jira_reads",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

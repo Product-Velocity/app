@@ -12,6 +12,7 @@ import type { TrackerCatalog } from "@/lib/tracker-fields/catalog";
 import type { TrackerSection } from "@/components/tracker-tabs";
 import { requireWorkspace } from "@/lib/session";
 import { canEditItems } from "@pv/domain";
+import { EpicProjectsCard, type EpicProjectSite } from "./epic-projects-card";
 import { checkJiraNow, disconnectJira, readJiraNow, retryJiraEvent, reviewJiraIssues, saveJiraFieldConfig, saveJiraProject, startJiraConnection } from "./actions";
 
 type ProjectSearch = { values: { key: string; name: string; projectTypeKey: string; style?: string }[] };
@@ -167,11 +168,34 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
     };
   }
 
+  // "Projects to check for epics" (issue #464): admins only, on the configure page, for each connected site whose projects could be listed
+  let epicSites: EpicProjectSite[] = [];
+  if (canAdmin && configure) {
+    const [{ data: tickedRows }, { data: treeRows }] = await Promise.all([
+      supabase.from("jira_epic_projects").select("connection_id, site_id, project_key").eq("tenant_id", active.tenantId),
+      supabase.from("item_jira_tree").select("issue_key").eq("tenant_id", active.tenantId).eq("level", 1).limit(5000),
+    ]);
+    const withEpics = new Set(((treeRows ?? []) as { issue_key: string }[]).map((t) => t.issue_key.replace(/-[0-9]+$/, "")));
+    const ticked = (tickedRows ?? []) as { connection_id: string; site_id: string; project_key: string }[];
+    epicSites = connections.flatMap((c) => c.projects.map((p) => ({ c, p }))).filter(({ p }) => (p.projects ?? []).length > 0).map(({ c, p }) => {
+      const linked = ((linkRows ?? []) as LinkRow[]).filter((l) => l.connection_id === c.id && l.site_id === p.siteId).map((l) => l.jira_project_key);
+      return {
+        connectionId: c.id, siteId: p.siteId, siteName: c.sites.find((x) => x.id === p.siteId)?.name ?? "Jira",
+        projects: (p.projects ?? []).map((j) => ({ key: j.key, name: j.name })),
+        ticked: ticked.filter((t) => t.connection_id === c.id && t.site_id === p.siteId).map((t) => t.project_key),
+        suggested: [...new Set([...linked, ...(p.projects ?? []).map((j) => j.key).filter((k) => withEpics.has(k))])],
+      };
+    });
+  }
+
   return (
+    <>
     <JiraConnectionsView
       connections={connections} canAdmin={canAdmin} configured={configured} status={status} why={why} checked={checkedN ? { c: checkedN, ch: changedN ?? "0", m: missingN ?? "0" } : undefined}
       connectAction={startJiraConnection} disconnectAction={disconnectJira} projectLinks={projectLinks} choices={choices} sync={sync} saveProjectAction={saveJiraProject} readAction={readJiraNow}
       checkAction={checkJiraNow} section={section} catalogs={catalogs} retryAction={retryJiraEvent} canEdit={canEdit} reviewAction={reviewJiraIssues} fieldConfigAction={saveJiraFieldConfig}
     />
+    <EpicProjectsCard sites={epicSites} status={status} saved={epicSites.some((e) => e.ticked.length > 0)} />
+    </>
   );
 }

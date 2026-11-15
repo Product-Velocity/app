@@ -1259,3 +1259,16 @@ button.share-chip { cursor: pointer; }
 .export-item strong { display: block; font-weight: 600; }
 .export-item span { display: block; font-size: 12px; color: #4b5563; }
 .export-item:hover, .export-item:focus-visible { background: var(--blue-tint-2); outline: none; }
+
+/* Incoming, Jira, Epics: which open epics are linked to initiatives (issue #464) */
+.ep-wrap { display: grid; gap: 10px; }
+.ep-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 13px; }
+.ep-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ep-table th { text-align: left; font-weight: 600; color: #374151; padding: 6px 8px; border-bottom: 1px solid #cfd5e3; }
+.ep-table td { padding: 6px 8px; border-bottom: 1px solid var(--grey-2); vertical-align: top; }
+.ep-state[data-state="not_linked"], .ep-state[data-state="initiative_not_in_pv"] { color: #92400e; font-weight: 600; }
+.ep-link { display: inline-flex; gap: 6px; align-items: center; }
+.ep-link input { min-width: 200px; }
+.ep-link .btn { white-space: nowrap; }
+.ep-filters input[type="search"] { width: 260px; max-width: 100%; }
+.ep-filters label { display: inline-flex; gap: 6px; align-items: center; }
