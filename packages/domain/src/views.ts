@@ -146,14 +146,7 @@ export function filterSummary(fl: Filter, labels: { person: (id: string) => stri
 }
 
 // ----------------------------------------------------------------- grouping
-/**
- * A grouping choice that is not a field: each initiative becomes its own collapsible header with its tracker issues (epics, stories, tasks) beneath it.
- * It can be the "Group by" level or the "Then by" level (then it sits inside the other groups); as the main level nothing can follow it.
- */
-export const INITIATIVE_GROUP = "initiative_issues";
-export const INITIATIVE_GROUP_NAME = "Initiative, with its issues";
-
-export type GroupRow = { __group: true; id: string; key: string; label: string; count: number; collapsed: boolean; /** Set on an initiative header: the count is its issues, not items. */ unit?: "issues"; initiativeId?: string; /** 0 for a "Group by" header, 1 for a "Then by" header inside it. */ level: 0 | 1; /** "3 On Track · 1 At Risk": the health of the rows of the group, in words (empty when none has a health). */ healthSummary: string };
+export type GroupRow = { __group: true; id: string; key: string; label: string; count: number; collapsed: boolean; /** 0 for a "Group by" header, 1 for a "Then by" header inside it, 2 for the "issues" header under an initiative (Show issues). */ level: 0 | 1 | 2; /** Set on an initiative's issues header: the count is its tracker issues, not items. */ unit?: "issues"; initiativeId?: string; /** "3 On Track · 1 At Risk": the health of the rows of the group, in words (empty when none has a health). */ healthSummary: string };
 
 /** The health of some rows in words, in the order of the dictionary's list: "3 On Track · 1 At Risk". Rows without a health are left out. */
 export function healthBreakdown(rows: readonly object[]): string {
@@ -177,11 +170,9 @@ export const COMMON_GROUP_KEYS: readonly string[] = ["initiative_phase", "status
  */
 export function groupPickerSections(opts: { customerSafe?: boolean; taken?: string | null } = {}): { category: string; fields: FieldDef[] }[] {
   const ok = (f: FieldDef) => !HIDDEN_FIELDS.has(f.key) && f.key !== opts.taken && (!opts.customerSafe || isCustomerSafe(f.key));
-  // tracker issues are not customer-safe, so a customer view never offers the initiative level
-  const initiative: FieldDef = { id: "-", key: INITIATIVE_GROUP, name: INITIATIVE_GROUP_NAME, group: "Common", type: "Select", storage: "", phase: 1, mode: "computed", editable: false, customerSafe: false, allowed: [], githubSync: null, description: null };
   const fields = groupableFields().filter(ok);
   const out: { category: string; fields: FieldDef[] }[] = [];
-  const common = [...(opts.customerSafe || opts.taken === INITIATIVE_GROUP ? [] : [initiative]), ...COMMON_GROUP_KEYS.map((k) => fields.find((f) => f.key === k)).filter((f): f is FieldDef => !!f)];
+  const common = COMMON_GROUP_KEYS.map((k) => fields.find((f) => f.key === k)).filter((f): f is FieldDef => !!f);
   if (common.length > 0) out.push({ category: "Common", fields: common });
   for (const f of fields) {
     if (common.includes(f)) continue; // each field is listed once: the Common shortcuts are not repeated under their category
@@ -194,7 +185,7 @@ export function groupPickerSections(opts: { customerSafe?: boolean; taken?: stri
 
 /** "Build Status", or "Build Status › Sponsor" for two levels, "None" for no grouping: the words on the button and in the footer. */
 export function groupSummary(groupBy: string | null | undefined, thenBy?: string | null): string {
-  const name = (k: string) => (k === INITIATIVE_GROUP ? INITIATIVE_GROUP_NAME : FIELD_BY_KEY[k]?.name ?? k);
+  const name = (k: string) => FIELD_BY_KEY[k]?.name ?? k;
   if (!groupBy) return "None";
   return thenBy && thenBy !== groupBy ? `${name(groupBy)} › ${name(thenBy)}` : name(groupBy);
 }
@@ -211,26 +202,11 @@ const groupValue = (def: FieldDef | undefined, v: unknown): string => {
  * `thenBy` (a second field, different from the first) splits each group again with an indented header; the top-level key stays "moscow:Must",
  * the second level is "moscow:Must>health:At Risk", and collapsing a group hides the headers inside it too.
  */
-export function buildGroupedRows<T extends { id: string }, C = never>(
-  rows: T[], groupBy: string | null, collapsed: ReadonlySet<string>, label: (field: string, value: unknown) => string, thenBy: string | null = null,
-  /** For the initiative level: the rows to show under an initiative, and the words that sum them up on its header. */
-  initiative?: { children: (row: T) => C[]; summary: (children: C[]) => string },
-): (T | GroupRow | C)[] {
+export function buildGroupedRows<T extends { id: string }>(rows: T[], groupBy: string | null, collapsed: ReadonlySet<string>, label: (field: string, value: unknown) => string, thenBy: string | null = null): (T | GroupRow)[] {
   if (!groupBy) return rows;
-  const second = groupBy !== INITIATIVE_GROUP && thenBy && thenBy !== groupBy ? thenBy : null; // nothing follows the initiative level when it is the main one
-  const out: (T | GroupRow | C)[] = [];
+  const second = thenBy && thenBy !== groupBy ? thenBy : null;
+  const out: (T | GroupRow)[] = [];
   const walk = (items: T[], field: string, level: 0 | 1, parent: string) => {
-    if (field === INITIATIVE_GROUP) {
-      for (const r of items) {
-        const kids = initiative?.children(r) ?? [];
-        const key = `${parent}initiative:${r.id}`;
-        const isCollapsed = collapsed.has(key);
-        const row = r as unknown as Row;
-        out.push({ __group: true, id: `group:${key}`, key, label: `${row.item_code ?? ""} ${row.initiative_name ?? ""}`.trim(), count: kids.length, collapsed: isCollapsed, level, healthSummary: initiative?.summary(kids) ?? "", unit: "issues", initiativeId: r.id });
-        if (!isCollapsed) out.push(...kids);
-      }
-      return;
-    }
     const def = FIELD_BY_KEY[field];
     const groups = new Map<string, T[]>();
     for (const r of items) {
@@ -261,7 +237,7 @@ export function buildGroupedRows<T extends { id: string }, C = never>(
 
 // -------------------------------------------------------------------- views
 /** What a saved view stores: the columns in order, the filters and the grouping. */
-export type ViewDef = { columns: string[]; filters: Filter[]; groupBy: string | null; /** A second grouping level inside each group; only with a groupBy, and never the same field. */ thenBy?: string | null; customerSafe?: boolean; /** The locked columns: at most four, any of the shown columns, kept to the left while the grid scrolls right. Missing means the default: rank, ID and name. An empty list means none. */ pinned?: string[]; /** Ordered sorts, the first is the main one; empty or missing means the global Stack Rank order. An older single sort object is still read. */ sort?: SortDef[] };
+export type ViewDef = { columns: string[]; filters: Filter[]; groupBy: string | null; /** A second grouping level inside each group; only with a groupBy, and never the same field. */ thenBy?: string | null; /** Show the linked tracker issues (epics, stories, tasks) under each initiative. */ showIssues?: boolean; customerSafe?: boolean; /** The locked columns: at most four, any of the shown columns, kept to the left while the grid scrolls right. Missing means the default: rank, ID and name. An empty list means none. */ pinned?: string[]; /** Ordered sorts, the first is the main one; empty or missing means the global Stack Rank order. An older single sort object is still read. */ sort?: SortDef[] };
 
 /** One sort column and direction. A view holds an ordered list of them: the order of the columns in the picker is the order of the sorts. */
 export type SortDef = { field: string; dir: "asc" | "desc" };
@@ -361,9 +337,9 @@ export function sanitizeView(input: unknown): ViewDef {
       filters.push({ field: def.key, op: f.op as FilterOp, ...(typeof f.value === "string" ? { value: f.value } : {}), ...(typeof f.value2 === "string" ? { value2: f.value2 } : {}), ...(f.op === "any_of" ? { values } : {}) });
     }
   }
-  const allowedGroup = (v: unknown): string | null => (v === INITIATIVE_GROUP ? (customerSafe ? null : INITIATIVE_GROUP) : typeof v === "string" && groupableFields().some((g) => g.key === v) && !HIDDEN_FIELDS.has(v) && (!customerSafe || isCustomerSafe(v)) ? v : null);
+  const allowedGroup = (v: unknown): string | null => (typeof v === "string" && groupableFields().some((g) => g.key === v) && !HIDDEN_FIELDS.has(v) && (!customerSafe || isCustomerSafe(v)) ? v : null);
   const groupBy = allowedGroup(o.groupBy);
-  const thenBy = groupBy && groupBy !== INITIATIVE_GROUP ? allowedGroup(o.thenBy) : null;
+  const thenBy = groupBy ? allowedGroup(o.thenBy) : null;
   const sort = normalizeSorts(o.sort, (k) => !customerSafe || isCustomerSafe(k));
-  return { columns, filters, groupBy, ...(thenBy && thenBy !== groupBy ? { thenBy } : {}), ...(customerSafe ? { customerSafe: true } : {}), pinned, ...(sort.length > 0 ? { sort } : {}) };
+  return { columns, filters, groupBy, ...(thenBy && thenBy !== groupBy ? { thenBy } : {}), ...(o.showIssues === true && !customerSafe ? { showIssues: true } : {}), ...(customerSafe ? { customerSafe: true } : {}), pinned, ...(sort.length > 0 ? { sort } : {}) };
 }

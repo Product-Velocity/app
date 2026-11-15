@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
-  FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupPickerSections, groupSummary, INITIATIVE_GROUP, isOpenList, needsSearch, optionsFor, type Filter,
+  FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupPickerSections, groupSummary, isOpenList, needsSearch, optionsFor, type Filter,
 } from "@pv/domain";
 import { menuSearchKeys, NoResults, SearchInput, SelectField } from "@/components/search-list";
 import { DateInput } from "@/components/date-input";
@@ -48,13 +48,13 @@ export const summarize = (f: Filter, lookups: Lookups) =>
   });
 
 // ----------------------------------------------------------------- grouping
-/** What the Group by panel edits: two grouping levels. One of them can be "Initiative, with its issues". */
-export type GroupState = { groupBy: string | null; thenBy: string | null };
+/** What the Group by panel edits: two grouping levels, and whether tracker issues show under each initiative (the third level). */
+export type GroupState = { groupBy: string | null; thenBy: string | null; showIssues: boolean };
 
 /** "Group by: Build Status › Sponsor": the state of the grouping on the button, like Filter and Columns. */
 export function GroupMenu({ state, customerSafe = false, onChange }: { state: GroupState; customerSafe?: boolean; onChange: (s: GroupState) => void }) {
   return (
-    <Popover label={<>Group by: <strong className="count-badge">{groupSummary(state.groupBy, state.thenBy)}</strong></>} active={!!state.groupBy}>
+    <Popover label={<>Group by: <strong className="count-badge">{groupSummary(state.groupBy, state.thenBy)}</strong>{state.showIssues ? <span className="muted"> · with issues</span> : null}</>} active={!!state.groupBy || state.showIssues}>
       {(close) => <GroupPanel state={state} customerSafe={customerSafe} onChange={onChange} close={close} />}
     </Popover>
   );
@@ -64,11 +64,11 @@ const LEVEL_NAME = ["Group by", "Then by"] as const;
 
 /** Staged like the Columns panel: choices are made on a draft, nothing changes in the grid until Apply, and the panel stays open until Apply or Cancel. */
 function GroupPanel({ state, customerSafe, onChange, close }: { state: GroupState; customerSafe: boolean; onChange: (s: GroupState) => void; close: () => void }) {
-  const [draft, setDraft] = useState<GroupState>({ groupBy: state.groupBy, thenBy: state.groupBy === INITIATIVE_GROUP ? null : state.thenBy });
+  const [draft, setDraft] = useState<GroupState>({ groupBy: state.groupBy, thenBy: state.thenBy, showIssues: state.showIssues });
   const [query, setQuery] = useState("");
   // which level the next pick fills: the first empty one, else the main one
-  const [target, setTarget] = useState<0 | 1>(state.groupBy && state.groupBy !== INITIATIVE_GROUP && !state.thenBy ? 1 : 0);
-  const level = draft.groupBy && draft.groupBy !== INITIATIVE_GROUP ? target : 0;
+  const [target, setTarget] = useState<0 | 1>(state.groupBy && !state.thenBy ? 1 : 0);
+  const level = draft.groupBy ? target : 0;
   const names = [draft.groupBy, draft.thenBy] as const;
   const nameOf = (k: string | null) => (k ? groupSummary(k) : null);
   const sections = useMemo(() => groupPickerSections({ customerSafe, taken: level === 0 ? draft.thenBy : draft.groupBy }), [customerSafe, level, draft.thenBy, draft.groupBy]);
@@ -82,24 +82,24 @@ function GroupPanel({ state, customerSafe, onChange, close }: { state: GroupStat
   const pick = (key: string) => {
     if (level === 0) {
       if (draft.groupBy === key) { clear(0); return; }
-      setDraft({ groupBy: key, thenBy: key === INITIATIVE_GROUP || draft.thenBy === key ? null : draft.thenBy }); // nothing follows the initiative level
-      setTarget(key === INITIATIVE_GROUP ? 0 : 1);
+      setDraft({ ...draft, groupBy: key, thenBy: draft.thenBy === key ? null : draft.thenBy });
+      setTarget(1);
     } else if (draft.thenBy === key) clear(1);
     else setDraft({ ...draft, thenBy: key });
   };
   /** Removing the main level promotes the second one. */
-  const clear = (l: 0 | 1) => { if (l === 1) setDraft({ ...draft, thenBy: null }); else { setDraft({ groupBy: draft.thenBy, thenBy: null }); setTarget(0); } };
-  const swap = () => setDraft({ groupBy: draft.thenBy, thenBy: draft.groupBy });
+  const clear = (l: 0 | 1) => { if (l === 1) setDraft({ ...draft, thenBy: null }); else { setDraft({ ...draft, groupBy: draft.thenBy, thenBy: null }); setTarget(0); } };
+  const swap = () => setDraft({ ...draft, groupBy: draft.thenBy, thenBy: draft.groupBy });
 
   return (
     <div role="group" aria-label="Group by" className="gp">
       <div className="gp-slots" role="group" aria-label="Grouping levels">
         {([0, 1] as const).map((l) => {
           const value = names[l];
-          const off = l === 1 && (!draft.groupBy || draft.groupBy === INITIATIVE_GROUP);
+          const off = l === 1 && !draft.groupBy;
           return (
             <div key={l} className="gp-slot" data-active={!off && level === l} data-empty={!value}>
-              <button type="button" className="gp-slot-main" aria-label={`Choose the field for ${LEVEL_NAME[l]}: ${nameOf(value) ?? "none yet"}`} aria-pressed={!off && level === l} disabled={off} onClick={() => setTarget(l)} title={off ? (draft.groupBy ? "Nothing can follow “Initiative, with its issues”" : "Choose the main grouping first") : `Pick the field for “${LEVEL_NAME[l]}” below`}>
+              <button type="button" className="gp-slot-main" aria-label={`Choose the field for ${LEVEL_NAME[l]}: ${nameOf(value) ?? "none yet"}`} aria-pressed={!off && level === l} disabled={off} onClick={() => setTarget(l)} title={off ? "Choose the main grouping first" : `Pick the field for “${LEVEL_NAME[l]}” below`}>
                 <span className="gp-slot-label">{LEVEL_NAME[l]}</span>
                 <span className="gp-slot-val">{nameOf(value) ?? (off ? "—" : "Pick a field below")}</span>
               </button>
@@ -127,8 +127,14 @@ function GroupPanel({ state, customerSafe, onChange, close }: { state: GroupStat
         ))}
       </div>
       {none && <NoResults query={query} />}
+      {!customerSafe && (
+        <label className="gp-issues">
+          <input type="checkbox" checked={draft.showIssues} onChange={(e) => setDraft({ ...draft, showIssues: e.target.checked })} />
+          <span>Show issues under each initiative<span className="muted"> · a third level: epics, stories and tasks from GitHub or Jira, which collapse and expand per initiative</span></span>
+        </label>
+      )}
       <div className="gp-foot">
-        <button type="button" className="btn btn-link" onClick={() => { setDraft({ groupBy: null, thenBy: null }); setTarget(0); }}>Clear</button>
+        <button type="button" className="btn btn-link" onClick={() => { setDraft({ groupBy: null, thenBy: null, showIssues: false }); setTarget(0); }}>Clear</button>
         <span className="panel-note grow">Nothing changes in the grid until you press Apply.</span>
         <button type="button" className="btn" onClick={close}>Cancel</button>
         <button type="button" className="btn btn-primary" onClick={() => { onChange(draft); close(); }}>Apply</button>

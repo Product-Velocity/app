@@ -93,13 +93,15 @@ test.describe("Group by: picker, two levels, issues", () => {
     await expect(groupBtn(page)).toHaveText(/Group by:\s*MoSCoW$/);
   });
 
-  test("Group by Initiative, with its issues: each initiative is a header with its Jira issues nested beneath it", async ({ page }) => {
+  test("Show issues (a checkbox, staged with Apply): the initiative keeps its row, its issues sit under it as a third level with an Issues header that collapses and expands", async ({ page }) => {
     await open(page, "&jira=1");
     await groupBtn(page).click();
-    await pick(page, "Initiative, with its issues");
+    await page.getByLabel(/Show issues under each initiative/).check();
+    await expect(page.locator(".issue-row")).toHaveCount(0); // not applied yet
     await btn(page, "Apply").click();
-    await expect(groupBtn(page)).toHaveText(/Group by:\s*Initiative, with its issues/);
-    const header = page.locator(".group-row[data-kind='initiative']", { hasText: "R-01" });
+    await expect(groupBtn(page)).toContainText("with issues");
+    await expect(page.locator('.ag-row[row-id="item-1"]')).toBeVisible(); // the initiative stays a data row
+    const header = page.locator(".group-row[data-level='2']", { hasText: "Issues of R-01" });
     await expect(header).toBeVisible();
     await expect(header).toContainText("2 issues");
     await expect(header).toContainText("1 In Progress · 1 Done"); // the issues in words
@@ -107,37 +109,52 @@ test.describe("Group by: picker, two levels, issues", () => {
     await expect(row).toContainText("Import flow");
     await expect(row.getByRole("link", { name: "SCRUM-17" })).toHaveAttribute("href", /atlassian\.net\/browse\/SCRUM-17/);
     expect(await page.locator(".issue-row .ag-checkbox-input").count()).toBe(0); // issue rows are not selectable
-    // the initiative's header collapses its issues
-    await page.getByRole("button", { name: /^Collapse group R-01/ }).click();
+    // collapse and expand this initiative's issues
+    await page.getByRole("button", { name: "Collapse Issues of R-01" }).click();
     await expect(row).toHaveCount(0);
-    await page.getByRole("button", { name: /^Expand group R-01/ }).click();
+    await expect(page.getByRole("button", { name: "Expand Issues of R-01" })).toHaveAttribute("aria-expanded", "false");
+    await expect(header).toBeVisible(); // the header stays
+    await page.getByRole("button", { name: "Expand Issues of R-01" }).click();
     await expect(row).toBeVisible();
-    // nothing can follow it as the main level
+    // turning it off removes the third level
     await groupBtn(page).click();
-    await expect(page.locator(".gp-slot").nth(1).getByRole("button").first()).toBeDisabled();
+    await page.getByLabel(/Show issues under each initiative/).uncheck();
+    await btn(page, "Apply").click();
+    await expect(page.locator(".issue-row")).toHaveCount(0);
+    await expect(page.locator(".group-row[data-level='2']")).toHaveCount(0);
   });
 
-  test("the initiative level can be the second level, inside another group", async ({ page }) => {
+  test("Show issues is the third level under Group by and Then by; Cancel leaves it as it was", async ({ page }) => {
     await open(page, "&jira=1");
     await groupBtn(page).click();
     await pick(page, "MoSCoW");
-    await pick(page, "Initiative, with its issues");
+    await pick(page, "Health");
+    await page.getByLabel(/Show issues under each initiative/).check();
+    await btn(page, "Cancel").click();
+    await expect(groupBtn(page)).toHaveText(/Group by:\s*None/);
+    await groupBtn(page).click();
+    await pick(page, "MoSCoW");
+    await pick(page, "Health");
+    await page.getByLabel(/Show issues under each initiative/).check();
     await btn(page, "Apply").click();
-    await expect(groupBtn(page)).toHaveText(/MoSCoW › Initiative, with its issues/);
-    await expect(page.locator(".group-row[data-level='1'][data-kind='initiative']").first()).toBeVisible();
+    await expect(groupBtn(page)).toHaveText(/MoSCoW › Health\s*· with issues/);
+    await expect(page.locator(".group-row[data-level='0']").first()).toBeVisible();
+    await expect(page.locator(".group-row[data-level='1']").first()).toBeVisible();
+    await expect(page.locator(".group-row[data-level='2']", { hasText: "Issues of R-01" })).toBeVisible();
     await expect(page.locator(".issue-row", { hasText: "SCRUM-17" })).toBeVisible();
   });
 
-  test("the initiative level works for GitHub issues too", async ({ page }) => {
+  test("Show issues works for GitHub issues too", async ({ page }) => {
     await open(page, "&gh=1");
     await groupBtn(page).click();
-    await pick(page, "Initiative, with its issues");
+    await page.getByLabel(/Show issues under each initiative/).check();
     await btn(page, "Apply").click();
+    await expect(page.locator(".group-row[data-level='2']").first()).toBeVisible();
     await expect(page.locator(".issue-row").first()).toBeVisible();
     await expect(page.locator(".issue-row").first().locator(".issue-key")).toContainText("#");
   });
 
-  test("the command palette has Then by", async ({ page }) => {
+  test("the command palette has Then by and Show issues", async ({ page }) => {
     await open(page);
     await page.keyboard.press("Control+K");
     await page.keyboard.type("group by health");
@@ -146,5 +163,9 @@ test.describe("Group by: picker, two levels, issues", () => {
     await page.keyboard.type("then by moscow");
     await page.keyboard.press("Enter");
     await expect(groupBtn(page)).toHaveText(/Health › MoSCoW/);
+    await page.keyboard.press("Control+K");
+    await page.keyboard.type("show issues");
+    await page.keyboard.press("Enter");
+    await expect(groupBtn(page)).toContainText("with issues");
   });
 });

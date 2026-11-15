@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CUSTOMER_SAFE_KEYS, buildGroupedRows, effectiveSort, sortDirectionLabels, sortSummary, healthBreakdown, filterSummary, groupableFields, INITIATIVE_GROUP, isCustomerSafe, groupPickerSections, groupSummary, COMMON_GROUP_KEYS, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
+import { CUSTOMER_SAFE_KEYS, buildGroupedRows, effectiveSort, sortDirectionLabels, sortSummary, healthBreakdown, filterSummary, groupableFields, isCustomerSafe, groupPickerSections, groupSummary, COMMON_GROUP_KEYS, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
 import { QUICK_FILTERS, customFilters, quickFilterOn, toggleQuickFilter } from "./quick-filters";
 import { FIELDS, FIELD_BY_KEY, HIDDEN_FIELDS } from "./registry";
 import { setDateFormat } from "./dates";
@@ -360,43 +360,10 @@ describe("two-level grouping and the group picker (issue #437)", () => {
     expect("thenBy" in sanitizeView({ ...base, groupBy: "moscow", thenBy: "nope" })).toBe(false);
     expect(sanitizeView({ ...base, groupBy: "moscow" })).toEqual(sanitizeView({ ...base, groupBy: "moscow", thenBy: null })); // a view saved before two levels reads the same
   });
-  it("the initiative level: each initiative is a header with its issues beneath, as the main level or inside another group", () => {
-    const items = [
-      { id: "a", item_code: "R-01", initiative_name: "Alpha", moscow: "Must" }, { id: "b", item_code: "R-02", initiative_name: "Beta", moscow: "Must" },
-      { id: "c", item_code: "R-03", initiative_name: "Gamma", moscow: "Should" },
-    ];
-    const kids: Record<string, string[]> = { a: ["a-1", "a-2"], b: [], c: ["c-1"] };
-    const init = { children: (r: { id: string }) => (kids[r.id] ?? []).map((k) => ({ issue: k })), summary: (c: { issue: string }[]) => `${c.length} listed` };
-    const show = (out: ReturnType<typeof buildGroupedRows<(typeof items)[number], { issue: string }>>) => out.map((x) => ("__group" in x ? `${"  ".repeat(x.level)}# ${x.label} (${x.count}${x.unit ? ` ${x.unit}` : ""})` : "issue" in x ? `${"  ".repeat(3)}${x.issue}` : x.id));
-    expect(show(buildGroupedRows(items, INITIATIVE_GROUP, new Set(), label, "moscow", init))).toEqual([
-      "# R-01 Alpha (2 issues)", "      a-1", "      a-2", "# R-02 Beta (0 issues)", "# R-03 Gamma (1 issues)", "      c-1", // nothing can follow the initiative level: Then by is ignored
-    ]);
-    expect(show(buildGroupedRows(items, "moscow", new Set(), label, INITIATIVE_GROUP, init))).toEqual([
-      "# Must (2)", "  # R-01 Alpha (2 issues)", "      a-1", "      a-2", "  # R-02 Beta (0 issues)", "# Should (1)", "  # R-03 Gamma (1 issues)", "      c-1",
-    ]);
-    const heads = buildGroupedRows(items, "moscow", new Set(), label, INITIATIVE_GROUP, init).filter((x) => "__group" in x) as { key: string; initiativeId?: string; healthSummary: string }[];
-    expect(heads[1]).toMatchObject({ key: "moscow:Must>initiative:a", initiativeId: "a", healthSummary: "2 listed" });
-  });
-  it("collapsing an initiative hides its issues; collapsing its parent hides the initiative", () => {
-    const items = [{ id: "a", item_code: "R-01", initiative_name: "Alpha", moscow: "Must" }];
-    const init = { children: () => [{ issue: "a-1" }], summary: () => "" };
-    expect(buildGroupedRows(items, "moscow", new Set(["moscow:Must>initiative:a"]), label, INITIATIVE_GROUP, init)).toHaveLength(2);
-    expect(buildGroupedRows(items, "moscow", new Set(["moscow:Must"]), label, INITIATIVE_GROUP, init)).toHaveLength(1);
-  });
-  it("sanitizeView accepts the initiative level, drops anything after it, and refuses it for customers", () => {
-    const base = { columns: ["item_code"], filters: [] };
-    expect(sanitizeView({ ...base, groupBy: INITIATIVE_GROUP, thenBy: "moscow" })).toMatchObject({ groupBy: INITIATIVE_GROUP });
-    expect("thenBy" in sanitizeView({ ...base, groupBy: INITIATIVE_GROUP, thenBy: "moscow" })).toBe(false);
-    expect(sanitizeView({ ...base, groupBy: "moscow", thenBy: INITIATIVE_GROUP })).toMatchObject({ groupBy: "moscow", thenBy: INITIATIVE_GROUP });
-    expect(sanitizeView({ ...base, groupBy: INITIATIVE_GROUP, customerSafe: true }).groupBy).toBeNull();
-    expect("thenBy" in sanitizeView({ ...base, groupBy: "moscow", thenBy: INITIATIVE_GROUP, customerSafe: true })).toBe(false);
-    expect("showIssues" in sanitizeView({ ...base, groupBy: null, showIssues: true })).toBe(false); // the older separate option is gone
-  });
-  it("the picker offers the initiative level first in Common, not to customers, and not twice", () => {
-    expect(groupPickerSections()[0]!.fields[0]).toMatchObject({ key: INITIATIVE_GROUP, name: "Initiative, with its issues" });
-    expect(groupPickerSections({ customerSafe: true }).flatMap((x) => x.fields.map((f) => f.key))).not.toContain(INITIATIVE_GROUP);
-    expect(groupPickerSections({ taken: INITIATIVE_GROUP }).flatMap((x) => x.fields.map((f) => f.key))).not.toContain(INITIATIVE_GROUP);
-    expect(groupSummary("moscow", INITIATIVE_GROUP)).toBe("MoSCoW › Initiative, with its issues");
+  it("sanitizeView keeps showIssues for staff views only", () => {
+    expect(sanitizeView({ columns: ["item_code"], filters: [], groupBy: null, showIssues: true }).showIssues).toBe(true);
+    expect("showIssues" in sanitizeView({ columns: ["item_code"], filters: [], groupBy: null })).toBe(false);
+    expect("showIssues" in sanitizeView({ columns: ["item_code"], filters: [], groupBy: null, showIssues: true, customerSafe: true })).toBe(false);
   });
   it("words the grouping for the button", () => {
     expect(groupSummary(null)).toBe("None");
@@ -407,7 +374,7 @@ describe("two-level grouping and the group picker (issue #437)", () => {
   it("lists the groupable fields under the Columns picker's categories, Common first, each field once, nothing hidden, nothing taken", () => {
     const sec = groupPickerSections();
     expect(sec[0]!.category).toBe("Common");
-    expect(sec[0]!.fields.slice(1).map((f) => f.key)).toEqual(COMMON_GROUP_KEYS.filter((k) => groupableFields().some((f) => f.key === k)));
+    expect(sec[0]!.fields.map((f) => f.key)).toEqual(COMMON_GROUP_KEYS.filter((k) => groupableFields().some((f) => f.key === k)));
     const all = sec.slice(1).flatMap((x) => x.fields.map((f) => f.key));
     expect(all).not.toContain("roadmap_category"); // hidden in the app: picking it would silently do nothing
     expect(all).not.toContain("status"); // Common holds it; each field is listed once

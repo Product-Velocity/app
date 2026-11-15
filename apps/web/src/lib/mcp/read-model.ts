@@ -83,7 +83,7 @@ export function buildContext(i: {
 export type FileInfo = { id: string; item_code: string; name: string; mime: string | null; size: number | null; shared: boolean; share_url: string | null };
 export type ViewInfo = {
   id: string | null; name: string; scope: "workspace" | "private" | "built-in"; columns: string[];
-  filters: unknown[]; group_by: string | null; /** The second grouping level, when the view has one. */ then_by?: string; sort: unknown; customer_safe: boolean; customises?: string;
+  filters: unknown[]; group_by: string | null; /** The second grouping level, when the view has one. */ then_by?: string; /** The view shows tracker issues under each initiative. */ show_issues?: boolean; sort: unknown; customer_safe: boolean; customises?: string;
 };
 export type ItemDetail = {
   row: SearchRow;
