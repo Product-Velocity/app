@@ -18,20 +18,18 @@ export default async function AtlassianSpike({ searchParams }: { searchParams: P
         </p>
         <ol>
           <li>
-            <a href="/api/atlassian/start?mode=levels">Step 1, read only: the Initiative level and its tree</a> (already run on 2026-11-14: Initiative level found, epics from two projects). Run it again only to check another Initiative: add <code>&amp;arg=KEY</code> to the address.
+            Step 1, read only: <a href="/api/atlassian/start?mode=levels">the Initiative level and its tree</a>. <strong>Done on 2026-11-14</strong>: Initiative level found, epics from two projects. Run it again only to check another Initiative (add <code>&amp;arg=KEY</code> to the address).
           </li>
           <li>
-            <a href="/api/atlassian/start?mode=initiative&arg=RR,RR">Step 2, WRITES, removes what it makes: test inside the project RR</a>. Creates one test Initiative and one test epic in RR (label pv-spike), makes the Initiative the epic&apos;s parent, reads it back, then deletes both. Touches nothing in R8P.
-          </li>
-          <li>
-            <a href="/api/atlassian/start?mode=initiative&arg=RR,R8P">Step 3, WRITES, removes what it makes: test across projects (RR and R8P)</a>. Same as step 2, but the test epic is created in R8P for a moment, then deleted. Only after step 2 worked.
+            Step 2, WRITES, removes what it makes: <a href="/api/atlassian/start?mode=initiative&arg=RR,R8P">test across projects (an Initiative in RR, an epic in R8P)</a>. Creates one test Initiative and one test epic (label pv-spike), makes the Initiative the epic&apos;s parent, reads it back, asks the children query every 2 seconds for up to 10 seconds, then deletes both. <strong>Run on 2026-11-15</strong>: the parent was set across projects and read back correctly, but the children query found 0 right away. <strong>Run it once more</strong>: it now waits and tells us whether that was only the search index lagging.
           </li>
         </ol>
+        <p>The test inside RR alone cannot run: RR has no Epic issue type, so there is nothing to create there. That is fine; the Initiative project does not need one.</p>
         <form action="/api/atlassian/start" method="get">
           <input type="hidden" name="mode" value="initiative" />
           <label>
             Other project keys (Initiative project, a comma, epic project):{" "}
-            <input name="arg" defaultValue="RR,RR" pattern="[A-Z][A-Z0-9_]{1,19},[A-Z][A-Z0-9_]{1,19}" required size={16} />
+            <input name="arg" defaultValue="RR,R8P" pattern="[A-Z][A-Z0-9_]{1,19},[A-Z][A-Z0-9_]{1,19}" required size={16} />
           </label>{" "}
           <button type="submit">Run the write test with these keys</button>
         </form>
