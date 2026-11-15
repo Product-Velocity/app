@@ -365,6 +365,18 @@ describe("two-level grouping and the group picker (issue #437)", () => {
     expect("showIssues" in sanitizeView({ columns: ["item_code"], filters: [], groupBy: null })).toBe(false);
     expect("showIssues" in sanitizeView({ columns: ["item_code"], filters: [], groupBy: null, showIssues: true, customerSafe: true })).toBe(false);
   });
+  it("sanitizeView keeps the issue types and hide-done only with Show issues, cleans the list, and drops them for customers", () => {
+    const base = { columns: ["item_code"], filters: [], groupBy: null };
+    expect(sanitizeView({ ...base, showIssues: true, issueTypes: [" Epic ", "Story", "Epic", "", 7], hideDoneIssues: true })).toMatchObject({ showIssues: true, issueTypes: ["Epic", "Story"], hideDoneIssues: true });
+    const plain = sanitizeView({ ...base, showIssues: true });
+    expect("issueTypes" in plain).toBe(false); // every type
+    expect("hideDoneIssues" in plain).toBe(false);
+    expect("issueTypes" in sanitizeView({ ...base, showIssues: true, issueTypes: [] })).toBe(false);
+    expect("issueTypes" in sanitizeView({ ...base, issueTypes: ["Epic"], hideDoneIssues: true })).toBe(false); // without Show issues they mean nothing
+    expect("hideDoneIssues" in sanitizeView({ ...base, hideDoneIssues: true })).toBe(false);
+    expect("issueTypes" in sanitizeView({ ...base, showIssues: true, issueTypes: ["Epic"], customerSafe: true })).toBe(false);
+    expect(sanitizeView({ ...base, showIssues: true, issueTypes: Array.from({ length: 30 }, (_, i) => `T${i}`) }).issueTypes).toHaveLength(20);
+  });
   it("words the grouping for the button", () => {
     expect(groupSummary(null)).toBe("None");
     expect(groupSummary("moscow")).toBe("MoSCoW");

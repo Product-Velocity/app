@@ -186,7 +186,7 @@ test.describe("one save flow (R-99)", () => {
     await expect(page.getByRole("group", { name: "Choose columns" }).getByRole("button", { name: /save/i })).toHaveCount(0);
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: /^Group by/ }).click();
-    await expect(page.getByRole("menu", { name: "Group by" }).getByText(/save/i)).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "Group by" }).getByText(/save/i)).toHaveCount(0);
   });
 
   test("save as new view stores columns, pinned, filters, grouping and sort; opening it again restores them", async ({ page }) => {
