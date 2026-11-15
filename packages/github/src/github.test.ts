@@ -157,6 +157,42 @@ describe("GitHubAppSourceControl: listing only what changed lately (issue #272)"
   });
 });
 
+describe("GitHubAppSourceControl: open parent issues (the Epics list, issue #465)", () => {
+  const issue = (number: number, o: Record<string, unknown> = {}) => ({ number, state: "open", title: `Issue ${number}`, updated_at: "2026-11-15T10:00:00Z", html_url: `https://github.com/Acme/App/issues/${number}`, ...o });
+  const rest = (urls: string[], reply: (url: string) => Response) => new GitHubAppSourceControl({ appId: "1", privateKeyPem: privateKey, fetch: (async (url: string) => {
+    if (url.endsWith("/access_tokens")) return new Response(JSON.stringify({ token: "t" }), { status: 201 });
+    urls.push(url);
+    return reply(url);
+  }) as typeof fetch });
+
+  it("keeps only issues with sub-issues, leaves pull requests out, and reads the parent (possibly in another repository)", async () => {
+    const urls: string[] = [];
+    const sc = rest(urls, () => new Response(JSON.stringify([
+      issue(1, { sub_issues_summary: { total: 3, completed: 1, percent_completed: 33 }, type: { name: "Epic" } }),
+      issue(2),
+      issue(3, { sub_issues_summary: { total: 0, completed: 0, percent_completed: 0 } }),
+      issue(4, { sub_issues_summary: { total: 2 }, pull_request: {} }),
+      issue(5, { sub_issues_summary: { total: 1 }, parent_issue_url: "https://api.github.com/repos/Acme/Other/issues/9" }),
+    ]), { status: 200 }));
+    const r = await sc.listOpenParentIssues(1, "Acme/App");
+    expect(r.truncated).toBe(false);
+    expect(r.issues.map((i) => i.number)).toEqual([1, 5]);
+    expect(r.issues[0]).toMatchObject({ issueType: "Epic", subIssuesTotal: 3, parent: null });
+    expect(r.issues[1]!.parent).toEqual({ repo: "Acme/Other", number: 9 });
+    expect(urls[0]).toContain("state=open");
+  });
+
+  it("says when the page limit stopped the read, and a GitHub refusal is an error", async () => {
+    let n = 0;
+    const full = () => new Response(JSON.stringify(Array.from({ length: 100 }, (_, i) => issue(n * 100 + i + 1, { sub_issues_summary: { total: 1 } }))), { status: 200 }) as Response & { _n?: number };
+    const sc = rest([], () => { const r = full(); n++; return r; });
+    const r = await sc.listOpenParentIssues(1, "Acme/App", { maxPages: 2 });
+    expect(r.truncated).toBe(true);
+    expect(r.issues).toHaveLength(200);
+    await expect(rest([], () => new Response("{}", { status: 403 })).listOpenParentIssues(1, "Acme/App")).rejects.toMatchObject({ status: 403 });
+  });
+});
+
 describe("GitHubAppSourceControl: pull requests, checks and releases (read-only)", () => {
   const withReplies = (graphql: (q: string, v: Record<string, unknown>) => unknown, rest: (url: string) => Response = () => new Response("{}", { status: 404 }), seen: { query: string; variables: Record<string, unknown> }[] = []) =>
     new GitHubAppSourceControl({ appId: "1", privateKeyPem: privateKey, fetch: (async (url: string, init?: RequestInit) => {
@@ -312,6 +348,7 @@ function fake(over: Partial<SourceControl> = {}): SourceControl {
     listMilestones: async () => [],
     listRecentDeliveries: async () => [{ event: "issues", action: "opened", statusCode: 200, deliveredAt: "2026-10-23T00:00:00Z" }],
     listIssues: async () => [],
+    listOpenParentIssues: async () => ({ issues: [], truncated: false }),
     listSubIssues: async () => [],
     createIssue: async () => { throw new Error("not used"); },
     updateIssue: async () => { throw new Error("not used"); },

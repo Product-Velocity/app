@@ -7,6 +7,8 @@ export const NOTICE: Record<string, string> = {
   connected: "Connected.",
   disconnected: "Disconnected. The App stays installed on GitHub until an organisation owner uninstalls it.",
   refreshed: "Repositories refreshed.",
+  "epics-saved": "Saved. Open Incoming, GitHub, Epics and choose Read epics now.",
+  "epics-error": "The repositories could not be saved. Try again.",
   "bad-link": "That link is no longer valid. Start the connection again.",
   "wrong-account": "GitHub was installed on a different account than the one you entered. Cancel and connect again with the right name.",
   "not-found": "GitHub did not recognise that installation. Try again.",

@@ -182,3 +182,22 @@ export async function saveGithubFieldConfig(form: FormData): Promise<void> {
   revalidatePath(PATH);
   redirect(`${PATH}?status=${error ? "error" : "field-config-saved"}`);
 }
+
+/** Saves the repositories ticked under "Repositories to check for epics" (issue #465). Workspace admins who are people (the database checks it too). */
+export async function saveEpicRepos(form: FormData): Promise<void> {
+  const ctx = await adminOnly();
+  let status = "epics-saved";
+  if (!ctx) status = "not-admin";
+  else {
+    const { data: conn } = await ctx.supabase.from("github_connections").select("id").eq("tenant_id", ctx.active.tenantId).eq("state", "connected").maybeSingle();
+    const repos = [...new Set(form.getAll("repo").map((r) => String(r)))];
+    if (!conn) status = "epics-error";
+    else {
+      const { error } = await ctx.supabase.rpc("github_set_epic_repos", { p_connection: conn.id, p_repos: repos });
+      if (error) status = error.code === "42501" ? "not-admin" : "epics-error";
+    }
+  }
+  revalidatePath(PATH);
+  revalidatePath("/incoming");
+  redirect(`${PATH}?status=${status}`);
+}

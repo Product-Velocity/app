@@ -1,5 +1,5 @@
 import type { PrRef, ReleaseRef } from "./delivery";
-import { GitHubError, type BoardItemValue, type BoardItemStatus, type BoardField, type BoardInfo, type BoardValue, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type IssueSummary, type RepoInfo, type SourceControl, type SubIssue } from "./source-control";
+import { GitHubError, type BoardItemValue, type BoardItemStatus, type BoardField, type BoardInfo, type BoardValue, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type IssueSummary, type ParentIssue, type RepoInfo, type SourceControl, type SubIssue } from "./source-control";
 
 /** In-memory SourceControl for tests: records every call so a test can prove what was (not) sent. */
 export class MemorySourceControl implements SourceControl {
@@ -109,6 +109,14 @@ export class MemorySourceControl implements SourceControl {
     this.lastListOptions = opts;
     const all = this.listed.get(repo) ?? [];
     return opts?.since ? all.filter((i) => Date.parse(i.updatedAt) > Date.parse(opts.since!)) : all;
+  }
+  /** Open parent issues GitHub would report for a repository, set by a test (null = the read fails). */
+  parents = new Map<string, { issues: ParentIssue[]; truncated: boolean } | null>();
+  async listOpenParentIssues(_i: number, repo: string): Promise<{ issues: ParentIssue[]; truncated: boolean }> {
+    this.tick("listOpenParentIssues");
+    const r = this.parents.get(repo);
+    if (r === null) throw new Error("GitHub could not list issues (500)");
+    return r ?? { issues: [], truncated: false };
   }
   async createIssue(_i: number, repo: string, input: IssueInput): Promise<IssueRef> {
     this.tick("createIssue", input);

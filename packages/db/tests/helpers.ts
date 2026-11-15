@@ -261,6 +261,11 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
         await db.admin.query("insert into public.jira_epic_projects (tenant_id, connection_id, site_id, project_key) values ($1, $2, 'site-1', 'SEED')", [tenantId, jira]);
         await db.admin.query("insert into public.jira_epics_seen (tenant_id, connection_id, site_id, project_key, issue_key, title) values ($1, $2, 'site-1', 'SEED', 'SEED-20', 'Seed epic')", [tenantId, jira]);
       }
+      // a ticked repository and an open parent issue read from it (positive controls for github_epic_repos and github_epics_seen)
+      if ((await db.admin.query("select to_regclass('public.github_epics_seen') as t")).rows[0].t) {
+        await db.admin.query("insert into public.github_epic_repos (tenant_id, connection_id, repo_full_name) values ($1, $2, 'seed-org/roadmap')", [tenantId, conn]);
+        await db.admin.query("insert into public.github_epics_seen (tenant_id, connection_id, repo_full_name, issue_number, title, sub_issues_total) values ($1, $2, 'seed-org/roadmap', 20, 'Seed parent issue', 2)", [tenantId, conn]);
+      }
       // an epic asked for under an initiative (positive control for item_jira_epic_requests); older-schema tests seed before that migration exists
       if ((await db.admin.query("select to_regclass('public.item_jira_epic_requests') as t")).rows[0].t) {
         await db.admin.query("insert into public.item_jira_epic_requests (tenant_id, item_id, epic_key) values ($1, $2, 'SEED-9')", [tenantId, items[0]]);

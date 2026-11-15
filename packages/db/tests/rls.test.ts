@@ -265,6 +265,26 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "github_epic_repos",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.github_epic_repos set repo_full_name = 'evil/evil' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.github_epic_repos where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.github_epic_repos (tenant_id, connection_id, repo_full_name) select tenant_id, connection_id, 'evil/evil' from public.github_epic_repos where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.github_epic_repos set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "github_epics_seen",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.github_epics_seen set title = 'x' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.github_epics_seen where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.github_epics_seen (tenant_id, connection_id, repo_full_name, issue_number, title) select tenant_id, connection_id, repo_full_name, 99999, 'x' from public.github_epics_seen where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.github_epics_seen set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "jira_reads",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

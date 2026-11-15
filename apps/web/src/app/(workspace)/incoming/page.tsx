@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireWorkspace } from "@/lib/session";
 import { IncomingClient } from "@/features/incoming/incoming-client";
 import { EpicsView } from "@/features/incoming/epics-view";
-import { loadEpicCoverage } from "@/features/incoming/load-epics";
+import { loadEpicCoverage, loadGithubEpicCoverage } from "@/features/incoming/load-epics";
 import { needsDecision } from "@/lib/atlassian/epic-coverage";
 import { AutoRefresh } from "../settings/integrations/github/auto-refresh";
 import { checkGithubNow } from "../settings/integrations/github/actions";
@@ -64,6 +64,25 @@ export default async function IncomingPage({ searchParams }: { searchParams: Pro
       </>
     );
   }
+  const ghEpics = await loadGithubEpicCoverage(supabase, active.tenantId);
+  const onGhEpics = view === "epics";
+  const ghViews = (
+    <nav className="ip-tabs" aria-label="GitHub lists">
+      <Link href="/incoming" className={!onGhEpics ? "ip-tab ip-tab-on" : "ip-tab"} aria-current={!onGhEpics ? "page" : undefined}>Issues</Link>
+      <Link href="/incoming?view=epics" className={onGhEpics ? "ip-tab ip-tab-on" : "ip-tab"} aria-current={onGhEpics ? "page" : undefined}>
+        Epics{ghEpics.projects.length > 0 ? ` (${needsDecision(ghEpics.rows)})` : ""}
+      </Link>
+    </nav>
+  );
+  if (onGhEpics) {
+    return (
+      <>
+        {switcher}
+        {ghViews}
+        <EpicsView tracker="github" rows={ghEpics.rows} initiatives={ghEpics.initiatives} projects={ghEpics.projects} lastRead={ghEpics.lastRead} canEdit={canEdit} canAdmin={active.role === "admin"} />
+      </>
+    );
+  }
   const { data: projects } = await supabase.from("projects").select("id, name").eq("tenant_id", active.tenantId).or("tracker.is.null,tracker.eq.github").order("name");
   const c = conn as { last_check_at: string | null; last_check_summary: string | null };
   // "started" until a check that finished after the click has left its result
@@ -71,6 +90,7 @@ export default async function IncomingPage({ searchParams }: { searchParams: Pro
   return (
     <>
       {switcher}
+      {ghViews}
       <div className="incoming-check">
         {active.role === "admin" && (
           <form action={checkGithubNow}>

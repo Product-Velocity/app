@@ -54,6 +54,26 @@ export const STATE_LABEL: Record<EpicState, string> = {
   linked: "Linked (is the initiative's issue)",
 };
 
+/** The GitHub twin (issue #465): an epic is an open parent issue, its key is "owner/repo#12" and its "Initiative" is the parent issue of an initiative. */
+export const STATE_LABEL_GITHUB: Record<EpicState, string> = {
+  not_linked: "Not linked",
+  initiative_not_in_pv: "Under a parent issue not in Product Velocity",
+  requested: "Waiting for Sync",
+  under: "Linked (under its parent issue)",
+  linked: "Linked (is the initiative's issue)",
+};
+
+export type EpicTracker = "jira" | "github";
+
+/** Wording and states of the Epics list per tracker, so the one view serves both (tracker parity). Waiting for Sync needs the request flow, which GitHub does not have yet (#458). */
+export const EPIC_COPY: Record<EpicTracker, { name: string; labels: Record<EpicState, string>; states: EpicState[]; canList: boolean; settings: string; settingsName: string; what: string; where: string }> = {
+  jira: { name: "Jira", labels: STATE_LABEL, states: ["not_linked", "initiative_not_in_pv", "requested", "under", "linked"], canList: true, settings: "/settings/integrations/jira", settingsName: "Projects to check for epics", what: "Jira projects", where: "Sync with Jira" },
+  github: { name: "GitHub", labels: STATE_LABEL_GITHUB, states: ["not_linked", "initiative_not_in_pv", "under", "linked"], canList: false, settings: "/settings/integrations/github", settingsName: "Repositories to check for epics", what: "repositories", where: "Sync with GitHub" },
+};
+
+/** The key of an issue on GitHub, as the Epics list and the links use it. Repository names are not case sensitive, so matching lower-cases it. */
+export const githubIssueKey = (repo: string, number: number) => `${repo}#${number}`;
+
 /** How many epics need a decision: the ones with no initiative of ours, whether or not a Jira Initiative holds them. */
 export const needsDecision = (rows: readonly EpicCoverageRow[]) => rows.filter((r) => r.state === "not_linked" || r.state === "initiative_not_in_pv").length;
 

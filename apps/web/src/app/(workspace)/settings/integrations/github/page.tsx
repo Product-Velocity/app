@@ -8,6 +8,7 @@ import { saveGithubFieldConfig } from "./actions";
 import { AutoRefresh } from "./auto-refresh";
 import { parseBoard } from "@pv/github";
 import { BoardsCard } from "./boards";
+import { EpicReposCard } from "./epic-repos-card";
 import { ConnectForm, ProjectRow, RepoRow } from "./forms";
 import { confirmWithGithub, continueOnGithub, disconnectGithub, refreshRepositories } from "./actions";
 import { NOTICE, STATE } from "./shared";
@@ -33,6 +34,15 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
   const repos = (repoRows ?? []) as Repo[];
   const projects = (projectRows ?? []) as Project[];
   const state = c?.state ?? "disconnected";
+  // "Repositories to check for epics" (issue #465): admins only
+  const [{ data: epicTickedRows }, { data: epicTreeRows }] = isAdmin && c?.state === "connected"
+    ? await Promise.all([
+      supabase.from("github_epic_repos").select("repo_full_name").eq("tenant_id", active.tenantId),
+      supabase.from("item_issue_tree").select("repo_full_name").eq("tenant_id", active.tenantId).eq("level", 1).limit(5000),
+    ])
+    : [{ data: [] }, { data: [] }];
+  const epicTicked = ((epicTickedRows ?? []) as { repo_full_name: string }[]).map((t) => t.repo_full_name);
+  const epicTreeRepos = ((epicTreeRows ?? []) as { repo_full_name: string }[]).map((t) => t.repo_full_name);
 
   // the read-only field catalog (admins): organisation issue fields, the linked boards' fields, labels, issue types, milestones
   const sc = isAdmin && c?.state === "connected" && c.installation_id !== null && c.account_login ? githubSourceControl() : null;
@@ -133,6 +143,14 @@ export default async function GithubSettingsPage({ searchParams }: { searchParam
 
       {c?.state === "connected" && (
         <BoardsCard projects={projects.map((p) => ({ id: p.id, name: p.name, tracker: p.tracker, board: parseBoard(p.github_board) }))} canEdit={isAdmin} personalAccount={c.account_type === "User"} />
+      )}
+
+      {isAdmin && c?.state === "connected" && (
+        <EpicReposCard
+          repos={repos.map((r) => r.full_name)}
+          ticked={epicTicked}
+          suggested={[...new Set([...projects.flatMap((x) => (x.default_repo ? [x.default_repo] : [])), ...epicTreeRepos])].filter((n) => repos.some((r) => r.full_name === n))}
+        />
       )}
 
       {isAdmin && c?.state === "connected" && (
