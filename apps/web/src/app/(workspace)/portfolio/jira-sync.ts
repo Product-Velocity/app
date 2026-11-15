@@ -66,6 +66,8 @@ export async function startJiraSync(ids: string[]): Promise<SyncPreviewResult> {
       const s = await applyLinkedStatuses(plink, site.url, { itemIds });
       // then their children and sub-tasks (read only; a failure of the tree does not fail the status read, ReconnectNeeded does propagate)
       const t = await applyLinkedTrees(plink, site.url, { itemIds });
+      // the Build Status an initiative linked above Epic gets from its epics is received like any other change from Jira
+      for (const [i, lines] of Object.entries(t.received)) s.received[i] = [...(s.received[i] ?? []), ...lines];
       // the tree never fails the sync, but it is not hidden either: the cards of the initiatives it could not read say so, and the reason is logged
       if (t.error || t.failed > 0 || t.unreadable.length > 0) console.error(JSON.stringify({ jira: "sync-tree", error: t.error, failed: t.failed, unreadable: t.unreadable.length }));
       for (const i of t.unreadable) treeNote.set(i, "The children of this issue could not be read: Jira did not return it for their query.");
