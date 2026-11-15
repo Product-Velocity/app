@@ -129,8 +129,8 @@ export class MemoryDataSource implements PortfolioDataSource {
     await this.pause();
     const jira: Record<string, JiraTreeRow[]> = {}, github: Record<string, IssueTreeRow[]> = {};
     for (const id of itemIds) {
-      const j = (this.jiraTrees.get(id) ?? []).filter((r) => r.level === 1);
-      const g = (this.trees.get(id) ?? []).filter((r) => r.level === 1);
+      const j = (this.jiraTrees.get(id) ?? []);
+      const g = (this.trees.get(id) ?? []);
       if (j.length) jira[id] = j.map((r) => ({ ...r }));
       if (g.length) github[id] = g.map((r) => ({ ...r }));
     }

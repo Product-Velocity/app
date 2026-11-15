@@ -3,7 +3,7 @@ import { excelDateFormat, trackerOf, xlsxCell } from "./export-xlsx";
 import type { GridItem, IssueTreeRow, JiraTreeRow, Lookups } from "./types";
 
 /** One tracker issue under an initiative's linked issue, in the shape the report prints (Jira and GitHub alike). */
-export type ReportChild = { key: string; type: string; title: string; status: string; group: "To Do" | "In Progress" | "Done" | ""; assignee: string; url: string | null; updatedAt: string | null };
+export type ReportChild = { key: string; type: string; title: string; status: string; group: "To Do" | "In Progress" | "Done" | ""; assignee: string; url: string | null; updatedAt: string | null; /** 0 for the first level, 1 for what sits under it (only in `treeOf`, the grid). */ depth?: 0 | 1 };
 
 export type ReportChildren = { jira: Record<string, JiraTreeRow[]>; github: Record<string, IssueTreeRow[]> };
 
@@ -15,14 +15,36 @@ const GROUP = { new: "To Do", indeterminate: "In Progress", done: "Done" } as co
  * tracker's own issue type ("Epic", "Story"), and GitHub's first level is its epics.
  */
 export function childrenOf(row: GridItem, children: ReportChildren): ReportChild[] {
+  return treeOf(row, children).filter((c) => c.depth === 0).map(({ depth: _d, ...c }) => c);
+}
+
+const jiraChild = (c: JiraTreeRow, depth: 0 | 1): ReportChild => ({ key: c.key, type: c.type ?? "Issue", title: c.title, status: c.status ?? "", group: c.category ? GROUP[c.category] : "", assignee: c.assignee ?? "", url: c.url, updatedAt: c.updatedAt, depth });
+const ghKey = (repo: string, n: number) => `${repo}#${n}`;
+
+/** Puts the second level right under its parent (by parent key, in the order read); a second-level issue whose parent is not listed follows the rest. */
+function nested<T extends { level: number }>(rows: T[], keyOf: (r: T) => string, parentOf: (r: T) => string | null, make: (r: T, depth: 0 | 1) => ReportChild): ReportChild[] {
+  const first = rows.filter((r) => r.level === 1);
+  const second = rows.filter((r) => r.level === 2);
+  const under = new Map<string, T[]>();
+  for (const r of second) { const p = parentOf(r) ?? ""; under.set(p, [...(under.get(p) ?? []), r]); }
+  const out: ReportChild[] = [];
+  for (const f of first) { out.push(make(f, 0)); for (const s of under.get(keyOf(f)) ?? []) out.push(make(s, 1)); under.delete(keyOf(f)); }
+  for (const rest of under.values()) for (const s of rest) out.push(make(s, 1));
+  return out;
+}
+
+/**
+ * The linked issues of an initiative as the grid shows them: the first level (epics under an Initiative, stories under an epic) and, right under
+ * each, what sits below it (stories under an epic, sub-tasks under a story), with `depth` 0 or 1. Jira first, else GitHub. The Excel report keeps
+ * to the first level (`childrenOf`).
+ */
+export function treeOf(row: GridItem, children: ReportChildren): ReportChild[] {
   const j = children.jira[row.id];
-  if (j && j.length > 0) {
-    return j.map((c) => ({ key: c.key, type: c.type ?? "Issue", title: c.title, status: c.status ?? "", group: c.category ? GROUP[c.category] : "", assignee: c.assignee ?? "", url: c.url, updatedAt: c.updatedAt }));
-  }
+  if (j && j.length > 0) return nested(j, (c) => c.key, (c) => c.parentKey, jiraChild);
   const g = children.github[row.id] ?? [];
-  return g.map((c) => ({
-    key: `${c.repo}#${c.number}`, type: "Epic", title: c.title, status: c.state === "closed" ? "Closed" : "Open", group: c.state === "closed" ? "Done" : "",
-    assignee: c.assignees.join(", "), url: `https://github.com/${c.repo}/issues/${c.number}`, updatedAt: c.updatedAt,
+  return nested(g, (c) => ghKey(c.repo, c.number), (c) => (c.parentNumber == null ? null : ghKey(c.repo, c.parentNumber)), (c, depth) => ({
+    key: ghKey(c.repo, c.number), type: depth === 0 ? "Epic" : "Issue", title: c.title, status: c.state === "closed" ? "Closed" : "Open", group: c.state === "closed" ? "Done" : "",
+    assignee: c.assignees.join(", "), url: `https://github.com/${c.repo}/issues/${c.number}`, updatedAt: c.updatedAt, depth,
   }));
 }
 

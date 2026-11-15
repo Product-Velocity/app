@@ -1,8 +1,8 @@
-import { childrenOf, type ReportChild, type ReportChildren } from "./export-xlsx-children";
+import { treeOf, type ReportChild, type ReportChildren } from "./export-xlsx-children";
 import type { GridItem } from "./types";
 
 /** A tracker issue (epic, story, task) shown as a row under its initiative when "Show issues" is on. Read only: it is never selected or edited. */
-export type IssueRow = { __issue: true; id: string; parentId: string; child: ReportChild; /** The last issue of its initiative: its branch line stops at the row. */ last: boolean };
+export type IssueRow = { __issue: true; id: string; parentId: string; child: ReportChild; /** 0 for the first level, 1 for what sits under it. */ depth: 0 | 1; /** The last issue of its initiative: its branch line stops at the row. */ last: boolean };
 
 export const isIssueRow = (r: unknown): r is IssueRow => !!r && typeof r === "object" && (r as { __issue?: boolean }).__issue === true;
 
@@ -10,10 +10,10 @@ export const isIssueRow = (r: unknown): r is IssueRow => !!r && typeof r === "ob
 export type IssueFilter = { types?: readonly string[] | null; hideDone?: boolean };
 const keeps = (c: ReportChild, f?: IssueFilter) => (!f?.types?.length || f.types.includes(c.type)) && !(f?.hideDone && c.group === "Done");
 
-/** An initiative's linked tracker issues as rows (Jira first, else GitHub, the first level, as in the Excel report with epics). None when there are none or they are not loaded yet. */
+/** An initiative's linked tracker issues as rows (Jira first, else GitHub: the first level and, under each, the level below it, e.g. an Initiative's epics with their stories; the Excel report keeps to the first level). None when there are none or they are not loaded yet. */
 export function issueRowsOf(row: GridItem, children: ReportChildren, filter?: IssueFilter): IssueRow[] {
-  const kids = childrenOf(row, children).filter((c) => keeps(c, filter));
-  return kids.map((child, i) => ({ __issue: true, id: `issue:${row.id}:${child.key}`, parentId: row.id, child, last: i === kids.length - 1 }));
+  const kids = treeOf(row, children).filter((c) => keeps(c, filter));
+  return kids.map((child, i) => ({ __issue: true, id: `issue:${row.id}:${child.key}`, parentId: row.id, child, depth: child.depth ?? 0, last: i === kids.length - 1 }));
 }
 
 /** The issues of an initiative in words by tracker status group: "1 To Do · 2 In Progress · 1 Done"; issues without a status group are counted as "Other". */
@@ -33,14 +33,14 @@ export function issueInfoOf(row: GridItem, children: ReportChildren, collapsed: 
   const rows = issueRowsOf(row, children, filter);
   if (rows.length === 0) return null;
   const key = issuesKey(row.id);
-  return { key, count: rows.length, summary: issueSummary(rows), collapsed: collapsed.has(key), hidden: childrenOf(row, children).length - rows.length };
+  return { key, count: rows.length, summary: issueSummary(rows), collapsed: collapsed.has(key), hidden: treeOf(row, children).length - rows.length };
 }
 
 const TYPE_ORDER = ["Epic", "Story", "Task", "Bug", "Sub-task"];
 /** The issue types among the linked issues of these initiatives, with how many of each (before any filter): Epic, Story, Task, Bug, Sub-task first, then the others by count. */
 export function issueTypeCounts(rows: readonly GridItem[], children: ReportChildren): { type: string; count: number }[] {
   const counts = new Map<string, number>();
-  for (const r of rows) for (const c of childrenOf(r, children)) counts.set(c.type, (counts.get(c.type) ?? 0) + 1);
+  for (const r of rows) for (const c of treeOf(r, children)) counts.set(c.type, (counts.get(c.type) ?? 0) + 1);
   const rank = (t: string) => { const i = TYPE_ORDER.indexOf(t); return i < 0 ? TYPE_ORDER.length : i; };
   return [...counts].map(([type, count]) => ({ type, count })).sort((a, b) => rank(a.type) - rank(b.type) || b.count - a.count || a.type.localeCompare(b.type));
 }

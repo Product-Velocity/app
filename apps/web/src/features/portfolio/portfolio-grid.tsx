@@ -118,14 +118,15 @@ function IssueRowRenderer({ data, api }: { data: IssueRow; api: GridApi }) {
   const c = data.child;
   const idCol = api.getColumn("item_code"), nameCol = api.getColumn("initiative_name");
   const idLeft = idCol?.getLeft() ?? 120, nameLeft = nameCol?.getLeft() ?? 240, nameWidth = nameCol?.getActualWidth() ?? 320;
+  const indent = data.depth * 18;
   const after = nameLeft + nameWidth + 8;
   return (
-    <div className="issue-row" data-last={data.last} role="row" aria-label={`${c.type} ${c.key}: ${c.title}`}>
-      <span className="issue-branch" aria-hidden="true" style={{ left: nameLeft + 8 }} />
+    <div className="issue-row" data-last={data.last} data-depth={data.depth} role="row" aria-label={`${c.type} ${c.key}: ${c.title}`}>
+      <span className="issue-branch" aria-hidden="true" style={{ left: nameLeft + 8 + indent }} />
       <span className="issue-cell" style={{ left: idLeft + 8, maxWidth: Math.max(60, nameLeft - idLeft - 12) }}>
         {c.url && isOpenableUrl(c.url) ? <a className="issue-key" href={c.url} target="_blank" rel="noopener noreferrer">{c.key}</a> : <span className="issue-key">{c.key}</span>}
       </span>
-      <span className="issue-cell issue-main" style={{ left: nameLeft + 26, width: Math.max(80, nameWidth - 34) }} title={`${c.type}: ${c.title}`}>
+      <span className="issue-cell issue-main" style={{ left: nameLeft + 26 + indent, width: Math.max(80, nameWidth - 34 - indent) }} title={`${c.type}: ${c.title}`}>
         <span className="issue-type">{c.type}</span>
         <span className="issue-title">{c.title}</span>
       </span>
