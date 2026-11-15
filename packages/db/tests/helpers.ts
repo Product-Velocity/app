@@ -256,6 +256,10 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
           await db.admin.query("insert into public.item_jira_tree (tenant_id, item_id, issue_key, parent_key, level, title, issue_type, status, status_category) values ($1, $2, 'SEED-8', 'SEED-7', 1, 'Seed child', 'Task', 'To Do', 'new')", [tenantId, items[1]]);
         }
       }
+      // an epic asked for under an initiative (positive control for item_jira_epic_requests); older-schema tests seed before that migration exists
+      if ((await db.admin.query("select to_regclass('public.item_jira_epic_requests') as t")).rows[0].t) {
+        await db.admin.query("insert into public.item_jira_epic_requests (tenant_id, item_id, epic_key) values ($1, $2, 'SEED-9')", [tenantId, items[0]]);
+      }
       // a switched-off slot (positive control for the tracker field configuration); older-schema tests seed before that migration exists
       if ((await db.admin.query("select to_regclass('public.tracker_field_config') as t")).rows[0].t) {
         await db.admin.query("insert into public.tracker_field_config (tenant_id, project_id, provider, slot, enabled) values ($1, $2, 'jira', 'jira.label.moscow', false)", [tenantId, project]);
