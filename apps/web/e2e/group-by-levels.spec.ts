@@ -54,6 +54,28 @@ test.describe("Group by: picker, two levels, issues", () => {
     await expect(page.locator(".group-row").first()).toBeVisible();
   });
 
+  test("staged: a click that drops the focus (Safari and Firefox on a Mac, a list that re-renders) does not close the panel or lose the choices", async ({ page }) => {
+    await open(page);
+    // the focus is dropped just after the button is released, for every click inside the panel
+    await page.evaluate(() => { document.addEventListener("click", (e) => { if ((e.target as Element).closest(".gp")) setTimeout(() => { const a = document.activeElement as HTMLElement | null; if (a && a !== document.body) a.blur(); }, 0); }, true); });
+    await groupBtn(page).click();
+    await pick(page, "Build Status");
+    await pick(page, "Health");
+    await page.getByLabel(/Show issues under each initiative/).check();
+    await page.waitForTimeout(300);
+    await expect(searchBox(page)).toBeVisible(); // still open
+    await expect(page.locator(".gp-slot").nth(0)).toContainText("Build Status");
+    await expect(page.locator(".gp-slot").nth(1)).toContainText("Health");
+    await btn(page, "Apply").click();
+    await expect(groupBtn(page)).toHaveText(/Build Status › Health\s*· with issues/);
+    // a click outside still closes it without applying
+    await groupBtn(page).click();
+    await pick(page, "MoSCoW");
+    await page.getByRole("heading", { level: 1 }).first().click({ force: true });
+    await expect(searchBox(page)).toHaveCount(0);
+    await expect(groupBtn(page)).toHaveText(/Build Status › Health/);
+  });
+
   test("two levels in one visit; sub-headers are indented; collapsing a parent hides them; Clear and Apply remove the grouping", async ({ page }) => {
     await open(page);
     await groupBtn(page).click();
