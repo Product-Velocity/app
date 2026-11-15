@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { leavingChildrenOut, missingChildColumn } from "./child-filter";
-import { childrenJql, childrenPath, readChildren, refreshTrees, refreshTreesTolerant, summariseTree, TREE_MAX_PAGES, type TreeDeps, type TreeNode, type TreeSummary } from "./jira-tree";
+import { childrenJql, childrenPath, epicCategory, readChildren, refreshTrees, refreshTreesTolerant, summariseTree, TREE_MAX_PAGES, type Category, type LinkedIssue, type TreeDeps, type TreeNode, type TreeSummary } from "./jira-tree";
 import type { SearchPage } from "./read-issues";
 import { ReconnectNeeded } from "./token-provider";
 
@@ -9,13 +9,17 @@ type Fake = { key: string; parent: string; type?: string; category?: string; sta
 const raw = (f: Fake) => ({ id: String(Number(f.key.split("-")[1]) + 1000), key: f.key, fields: { summary: f.title ?? `Issue ${f.key}`, issuetype: { name: f.type ?? "Task", hierarchyLevel: 0 }, status: { name: f.status ?? "To Do", statusCategory: { key: f.category ?? "new" } }, parent: { key: f.parent }, assignee: f.assignee === null ? null : { displayName: f.assignee ?? "Dana Reyes" }, updated: "2026-11-02T10:00:00.000Z" } });
 
 /** A fake Jira: answers `parent in (...)` from a list of issues, `perPage` at a time with token paging. Records every path it was asked. */
-function jira(issues: Fake[], opts: { perPage?: number; badKeys?: string[]; fail?: Error } = {}) {
+function jira(issues: Fake[], opts: { perPage?: number; badKeys?: string[]; fail?: Error; levels?: Record<string, number> } = {}) {
   const asked: string[] = [];
   const perPage = opts.perPage ?? 100;
   const getPage = async (path: string): Promise<SearchPage> => {
     asked.push(path);
     if (opts.fail) throw opts.fail;
     const q = new URL(`https://x${path}`).searchParams;
+    if ((q.get("jql") ?? "").startsWith("key in")) {
+      const keys = [...(q.get("jql") ?? "").matchAll(/"([A-Z0-9_]+-[0-9]+)"/g)].map((m) => m[1]!);
+      return { issues: keys.filter((k) => opts.levels?.[k] !== undefined).map((k) => ({ id: "1", key: k, fields: { summary: k, issuetype: { name: "Initiative", hierarchyLevel: opts.levels![k] }, status: { name: "To Do", statusCategory: { key: "new" } } } })), isLast: true };
+    }
     const parents = [...(q.get("jql") ?? "").matchAll(/"([A-Z0-9_]+-[0-9]+)"/g)].map((m) => m[1]!);
     if (parents.some((p) => opts.badKeys?.includes(p))) throw new Error("Jira answered 400 for /search/jql");
     expect(q.get("fields")).toContain("assignee");
@@ -28,15 +32,18 @@ function jira(issues: Fake[], opts: { perPage?: number; badKeys?: string[]; fail
   };
   return { getPage, asked };
 }
-function deps(j: ReturnType<typeof jira>, failOn: string[] = []) {
+function deps(j: ReturnType<typeof jira>, failOn: string[] = [], opts: { linkFails?: boolean; statusChange?: [string, string] } = {}) {
   const applied = new Map<string, { nodes: TreeNode[]; summary: TreeSummary }>();
+  const linkCalls: [string, number, Category | null][] = [];
   const d: TreeDeps = {
     getPage: j.getPage,
     async apply(item, nodes, summary) { if (failOn.includes(item)) throw new Error("db"); applied.set(item, { nodes, summary }); },
+    async applyLink(item, level, category) { linkCalls.push([item, level, category]); if (opts.linkFails) throw new Error("db"); return opts.statusChange && level >= 2 ? { status: opts.statusChange } : {}; },
   };
-  return { d, applied };
+  return { d, applied, linkCalls };
 }
-const link = (n: number) => ({ item_id: `item-${n}`, issue_key: `PLAT-${n}` });
+// the level of the linked issue is known (Epic) in the older tests, so no extra read of the linked issues is made
+const link = (n: number): LinkedIssue => ({ item_id: `item-${n}`, issue_key: `PLAT-${n}`, level: 1 });
 
 describe("the query", () => {
   it("is `parent in (...)` with validated keys, at most 100", () => {
@@ -104,7 +111,7 @@ describe("refreshing the trees", () => {
   ];
   it("reads children and one more level (sub-tasks), in order, and rolls them up at the leaves", async () => {
     const f = deps(jira(six));
-    const r = await refreshTrees(f.d, [{ item_id: "item-1", issue_key: "PLAT-1" }], SITE);
+    const r = await refreshTrees(f.d, [{ item_id: "item-1", issue_key: "PLAT-1", level: 1 }], SITE);
     expect(r).toMatchObject({ applied: 1, nodes: 8, unreadable: [], failed: 0 });
     const t = f.applied.get("item-1")!;
     expect(t.nodes.map((x) => `${x.level}:${x.key}`)).toEqual(["1:PLAT-17", "1:PLAT-18", "2:PLAT-30", "2:PLAT-31", "1:PLAT-19", "1:PLAT-20", "1:PLAT-21", "1:PLAT-22"]);
@@ -115,7 +122,7 @@ describe("refreshing the trees", () => {
   });
   it("asks for children in as few calls as possible: one call for all linked issues, one for all their children", async () => {
     const j = jira(six);
-    await refreshTrees(deps(j).d, [{ item_id: "item-1", issue_key: "PLAT-1" }, { item_id: "item-2", issue_key: "PLAT-2" }], SITE);
+    await refreshTrees(deps(j).d, [{ item_id: "item-1", issue_key: "PLAT-1", level: 1 }, { item_id: "item-2", issue_key: "PLAT-2", level: 1 }], SITE);
     expect(j.asked).toHaveLength(2);
   });
   it("an initiative without children gets an empty tree (and so the stale one is cleared)", async () => {
@@ -191,5 +198,85 @@ describe("leaving children out of the lists", () => {
     expect(r.error?.message).toBe("permission denied");
     expect(missingChildColumn({ message: "x", code: "42703" })).toBe(true);
     expect(missingChildColumn(null)).toBe(false);
+  });
+});
+
+
+describe("epicCategory: the Build Status an initiative linked above Epic gets from its epics", () => {
+  const node = (key: string, level: 1 | 2, category: Category | null): TreeNode => ({ key, id: null, title: key, type: "Epic", status: null, category, url: null, updated: null, level, parent: "ROAD-1", position: 0, assignee: null });
+  it("all done = done, all not started = new, anything else = in progress", () => {
+    expect(epicCategory([node("A-1", 1, "done"), node("B-1", 1, "done")])).toBe("done");
+    expect(epicCategory([node("A-1", 1, "new"), node("B-1", 1, "new")])).toBe("new");
+    expect(epicCategory([node("A-1", 1, "new"), node("B-1", 1, "done")])).toBe("indeterminate");
+    expect(epicCategory([node("A-1", 1, "indeterminate")])).toBe("indeterminate");
+  });
+  it("looks at the epics only (the first level), leaves out issues Jira did not classify, and has no answer with nothing left", () => {
+    expect(epicCategory([node("A-1", 1, "done"), node("S-1", 2, "new")])).toBe("done");
+    expect(epicCategory([node("A-1", 1, "done"), node("W-1", 1, null)])).toBe("done");
+    expect(epicCategory([node("A-1", 1, null)])).toBeNull();
+    expect(epicCategory([])).toBeNull();
+  });
+});
+
+const jqlOf = (path: string) => new URL(`https://x${path}`).searchParams.get("jql") ?? "";
+
+describe("an initiative linked above Epic (a Jira Initiative, issue #431)", () => {
+  // ROAD-1 is the Initiative; its epics live in two other projects, and their stories one level further down
+  const tree: Fake[] = [
+    { key: "R8P-5", parent: "ROAD-1", type: "Epic", category: "done", status: "Done" }, { key: "DATA-9", parent: "ROAD-1", type: "Epic", category: "indeterminate" },
+    { key: "R8P-6", parent: "R8P-5", type: "Story", category: "done" }, { key: "DATA-10", parent: "DATA-9", type: "Task" }, { key: "DATA-11", parent: "DATA-9", type: "Task", category: "done" },
+  ];
+  const up = (level: number | null = 2): LinkedIssue => ({ item_id: "item-1", issue_key: "ROAD-1", level });
+  it("reads the epics and their children as one tree, rolls up at the leaves, and gives Build Status from the epics", async () => {
+    const f = deps(jira(tree));
+    const r = await refreshTrees(f.d, [up()], SITE);
+    expect(r).toMatchObject({ applied: 1, nodes: 5, failed: 0, levelFailed: 0 });
+    expect(f.applied.get("item-1")!.nodes.map((x) => `${x.level}:${x.key}`)).toEqual(["1:DATA-9", "2:DATA-10", "2:DATA-11", "1:R8P-5", "2:R8P-6"]);
+    // leaves: DATA-10, DATA-11, R8P-6 = 3; closed: DATA-11, R8P-6 = 2
+    expect(f.applied.get("item-1")!.summary).toEqual({ total: 3, closed: 2, progressPct: 67 });
+    expect(f.linkCalls).toEqual([["item-1", 2, "indeterminate"]]);
+  });
+  it("an epic with no children counts as one unit while it has none, by its own status", async () => {
+    const f = deps(jira([{ key: "R8P-5", parent: "ROAD-1", type: "Epic", category: "done" }, { key: "DATA-9", parent: "ROAD-1", type: "Epic" }]));
+    await refreshTrees(f.d, [up()], SITE);
+    expect(f.applied.get("item-1")!.summary).toEqual({ total: 2, closed: 1, progressPct: 50 });
+  });
+  it("every epic done = Build Status done; no epics = no answer, so Build Status is left alone", async () => {
+    const f = deps(jira([{ key: "R8P-5", parent: "ROAD-1", category: "done" }, { key: "DATA-9", parent: "ROAD-1", category: "done" }]));
+    await refreshTrees(f.d, [up()], SITE);
+    expect(f.linkCalls).toEqual([["item-1", 2, "done"]]);
+    const g = deps(jira([]));
+    await refreshTrees(g.d, [up()], SITE);
+    expect(g.linkCalls).toEqual([["item-1", 2, null]]);
+  });
+  it("tells the Sync dialog what Build Status changed", async () => {
+    const f = deps(jira(tree), [], { statusChange: ["Not started", "In progress"] });
+    const r = await refreshTrees(f.d, [up()], SITE);
+    expect(r.received).toEqual({ "item-1": [{ label: "Build Status", from: "Not started", to: "In progress" }] });
+  });
+  it("a linked issue whose level is not known yet is read once, with one call for all of them, and its level is stored", async () => {
+    const j = jira(tree, { levels: { "ROAD-1": 2, "PLAT-3": 1 } });
+    const f = deps(j);
+    await refreshTrees(f.d, [up(null), { item_id: "item-3", issue_key: "PLAT-3", level: null }], SITE);
+    expect(j.asked.filter((p) => jqlOf(p).startsWith("key in"))).toHaveLength(1);
+    expect(f.linkCalls).toEqual([["item-1", 2, "indeterminate"], ["item-3", 1, null]]);
+  });
+  it("a known epic-level issue makes no extra read and no write of the level (Build Status stays with the issue itself)", async () => {
+    const j = jira(tree);
+    const f = deps(j);
+    await refreshTrees(f.d, [{ item_id: "item-1", issue_key: "R8P-5", level: 1 }], SITE);
+    expect(j.asked.some((p) => jqlOf(p).startsWith("key in"))).toBe(false);
+    expect(f.linkCalls).toEqual([]);
+  });
+  it("a failure to store the level or the derived status never fails the tree", async () => {
+    const f = deps(jira(tree), [], { linkFails: true });
+    const r = await refreshTrees(f.d, [up()], SITE);
+    expect(r).toMatchObject({ applied: 1, failed: 0, levelFailed: 1 });
+  });
+  it("a tree that could not be saved gets no level or Build Status either", async () => {
+    const f = deps(jira(tree), ["item-1"]);
+    const r = await refreshTrees(f.d, [up()], SITE);
+    expect(r).toMatchObject({ applied: 0, failed: 1 });
+    expect(f.linkCalls).toEqual([]);
   });
 });

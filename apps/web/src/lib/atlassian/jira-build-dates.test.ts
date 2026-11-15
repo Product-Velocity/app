@@ -23,6 +23,29 @@ describe("firstWorkStart", () => {
 });
 
 describe("readBuildDates", () => {
+  it("above Epic: Start Building is the earliest work start over the children only, and Build Completed the latest epic resolution once every epic is done", async () => {
+    const j = jira([
+      issue("ROAD-1", [hist("2026-10-01T08:00:00Z", "2")], "indeterminate", "2026-10-02T09:00:00Z"), // the Initiative moved early: not the build
+      issue("RPP-5", [hist("2026-11-03T08:00:00Z", "2")], "done", "2026-11-10T09:00:00Z"),
+      issue("DATA-9", [hist("2026-11-05T08:00:00Z", "2")], "done", "2026-11-12T09:00:00Z"),
+      issue("RPP-6", [hist("2026-11-02T08:00:00Z", "2")], "done"),
+    ]);
+    const rows = await readBuildDates(j.getPage, CATS, [{ item_id: "i1", issue_key: "ROAD-1", childKeys: ["RPP-5", "DATA-9", "RPP-6"], level: 2, epicKeys: ["RPP-5", "DATA-9"] }]);
+    expect(rows).toEqual([{ key: "ROAD-1", started: "2026-11-02T08:00:00.000Z", resolved: "2026-11-12T09:00:00.000Z" }]);
+  });
+  it("above Epic: no Build Completed while one epic is not done, or was not returned, or when there are no epics; the Initiative's own status is ignored", async () => {
+    const j = jira([issue("ROAD-1", [], "done", "2026-11-20T09:00:00Z"), issue("RPP-5", [], "done", "2026-11-10T09:00:00Z"), issue("DATA-9", [], "indeterminate")]);
+    const t = (epicKeys: string[]) => [{ item_id: "i1", issue_key: "ROAD-1", childKeys: epicKeys, level: 2, epicKeys }];
+    expect((await readBuildDates(j.getPage, CATS, t(["RPP-5", "DATA-9"])))[0]!.resolved).toBeNull();
+    expect((await readBuildDates(j.getPage, CATS, t(["RPP-5", "GONE-1"])))[0]!.resolved).toBeNull();
+    expect((await readBuildDates(j.getPage, CATS, t([])))[0]!.resolved).toBeNull();
+  });
+  it("at Epic level or with the level unknown nothing changes: the linked issue itself counts", async () => {
+    const j = jira([issue("RR-1", [hist("2026-11-09T08:00:00Z", "2")], "done", "2026-11-12T09:00:00Z")]);
+    for (const level of [1, 0, null, undefined]) {
+      expect(await readBuildDates(j.getPage, CATS, [{ item_id: "i1", issue_key: "RR-1", childKeys: [], level, epicKeys: [] }])).toEqual([{ key: "RR-1", started: "2026-11-09T08:00:00.000Z", resolved: "2026-11-12T09:00:00.000Z" }]);
+    }
+  });
   it("takes the earliest start over the issue and its children, and the resolution date only while done", async () => {
     const j = jira([
       issue("RR-1", [hist("2026-11-09T08:00:00Z", "2")], "done", "2026-11-12T09:00:00Z"),

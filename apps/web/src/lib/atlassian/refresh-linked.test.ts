@@ -41,6 +41,15 @@ const link = (n: number) => ({ item_id: `item-${n}`, issue_key: `PLAT-${n}` });
 const linkRow = (n: number, category: string, status: string, build: string, updated = "2026-11-01T10:00:00.000Z") => [`PLAT-${n}`, { item: `item-${n}`, category, status, build, updated }] as const;
 
 describe("refreshing linked initiatives from Jira", () => {
+  it("an issue above Epic does not drive Build Status: its own category is not sent, an epic-level issue still is", async () => {
+    const above = { ...raw(1, "done", "Done"), fields: { ...raw(1, "done", "Done").fields, issuetype: { name: "Initiative", hierarchyLevel: 2 } } };
+    const f = fake({ 1: above, 2: raw(2, "done", "Done") }, Object.fromEntries([linkRow(1, "new", "To Do", "Not started"), linkRow(2, "new", "To Do", "Not started")]));
+    const s = await refreshLinkedStatuses(f.deps, [link(1), link(2)], SITE);
+    expect(f.applied.flat().map((r) => [r.key, r.category])).toEqual([["PLAT-1", null], ["PLAT-2", "done"]]);
+    // (this fake database also reports a changed status name; the real function ignores an answer without a category, so only Build Status is asserted)
+    expect(s.received["item-1"]?.some((l) => l.label === "Build Status") ?? false).toBe(false);
+    expect(s.received["item-2"]).toContainEqual({ label: "Build Status", from: "Not started", to: "Done" });
+  });
   it("a status that moved in Jira moves Build Status and is reported as Received", async () => {
     const f = fake({ 1: raw(1, "indeterminate", "In Review"), 2: raw(2, "new", "To Do") }, Object.fromEntries([linkRow(1, "new", "To Do", "Not started"), linkRow(2, "new", "To Do", "Not started")]));
     const s = await refreshLinkedStatuses(f.deps, [link(1), link(2)], SITE);

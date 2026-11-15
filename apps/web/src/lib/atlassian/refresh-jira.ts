@@ -33,10 +33,12 @@ function depsFor(link: LinkToRead): RefreshDeps {
 /** The initiatives linked to issues of this Jira project (optionally only some initiatives). */
 async function linkedIssues(link: LinkToRead, itemIds?: string[]) {
   const admin = createAdminClient({ via: "system" });
-  let q = admin.from("item_jira_links").select("item_id, issue_key").eq("tenant_id", link.tenant_id).eq("connection_id", link.connection_id).eq("site_id", link.site_id).is("frozen_at", null); // frozen links (finished initiatives) are not read
+  let q = admin.from("item_jira_links").select("item_id, issue_key, issue_level").eq("tenant_id", link.tenant_id).eq("connection_id", link.connection_id).eq("site_id", link.site_id).is("frozen_at", null); // frozen links (finished initiatives) are not read
   if (itemIds) q = q.in("item_id", itemIds);
   const data = rowsOrThrow("the linked initiatives", await q);
-  return ((data ?? []) as { item_id: string; issue_key: string }[]).filter((l) => l.issue_key.startsWith(`${link.jira_project_key}-`));
+  return ((data ?? []) as { item_id: string; issue_key: string; issue_level: number | null }[])
+    .filter((l) => l.issue_key.startsWith(`${link.jira_project_key}-`))
+    .map((l) => ({ item_id: l.item_id, issue_key: l.issue_key, level: l.issue_level }));
 }
 
 /** Reads the linked issues of one Jira project and applies their status to the initiatives. `known` = rows just read, so they are not read twice. */
@@ -52,6 +54,11 @@ function treeDepsFor(link: LinkToRead): TreeDeps {
       const rows = nodes.map((n) => ({ key: n.key, id: n.id, parent: n.parent, level: n.level, position: n.position, title: n.title, type: n.type, status: n.status, category: n.category, assignee: n.assignee, url: n.url, updated: n.updated }));
       const { error } = await admin.rpc("jira_apply_tree", { p_connection: link.connection_id, p_site: link.site_id, p_item: itemId, p_nodes: rows, p_total: summary.total, p_closed: summary.closed, p_pct: summary.progressPct });
       if (error) throw new Error("Could not save the children");
+    },
+    async applyLink(itemId, level, category) {
+      const { data, error } = await admin.rpc("jira_apply_link_level", { p_connection: link.connection_id, p_site: link.site_id, p_item: itemId, p_level: level, p_category: category });
+      if (error) throw new Error("Could not save the level of the linked issue");
+      return (data ?? {}) as { status?: [string | null, string | null] };
     },
   };
 }
@@ -90,12 +97,16 @@ export async function applyLinkedBuildDates(link: LinkToRead, opts: { itemIds?: 
   return refreshBuildDatesTolerant(dateDepsFor(link), await dateTargets(admin, link.tenant_id, links));
 }
 
-async function dateTargets(admin: ReturnType<typeof createAdminClient>, tenantId: string, links: { item_id: string; issue_key: string }[]) {
+async function dateTargets(admin: ReturnType<typeof createAdminClient>, tenantId: string, links: { item_id: string; issue_key: string; level?: number | null }[]) {
   if (links.length === 0) return [];
-  const data = rowsOrThrow("the children of the linked issues", await admin.from("item_jira_tree").select("item_id, issue_key").eq("tenant_id", tenantId).in("item_id", links.map((l) => l.item_id)).limit(5000)) as { item_id: string; issue_key: string }[] | null;
+  const data = rowsOrThrow("the children of the linked issues", await admin.from("item_jira_tree").select("item_id, issue_key, level").eq("tenant_id", tenantId).in("item_id", links.map((l) => l.item_id)).limit(5000)) as { item_id: string; issue_key: string; level: number }[] | null;
   const kids = new Map<string, string[]>();
-  for (const r of data ?? []) kids.set(r.item_id, [...(kids.get(r.item_id) ?? []), r.issue_key]);
-  return links.map((l) => ({ item_id: l.item_id, issue_key: l.issue_key, childKeys: kids.get(l.item_id) ?? [] }));
+  const epics = new Map<string, string[]>();
+  for (const r of data ?? []) {
+    kids.set(r.item_id, [...(kids.get(r.item_id) ?? []), r.issue_key]);
+    if (r.level === 1) epics.set(r.item_id, [...(epics.get(r.item_id) ?? []), r.issue_key]);
+  }
+  return links.map((l) => ({ item_id: l.item_id, issue_key: l.issue_key, childKeys: kids.get(l.item_id) ?? [], level: l.level ?? null, epicKeys: epics.get(l.item_id) ?? [] }));
 }
 
 /**
