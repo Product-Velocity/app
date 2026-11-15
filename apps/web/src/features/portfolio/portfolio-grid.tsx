@@ -565,10 +565,19 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   /** The Export button: the selected rows when some are selected, else every row the filters show. */
   const rowsToExport = () => (selected.length > 0 ? selected : visibleRows);
   const exportName = (ext: string) => `roadmap${selected.length > 0 ? "-selection" : ""}-${exportStamp()}.${ext}`;
-  const exportCsv = () => downloadCsv(exportName("csv"), selectionToCsv(rowsToExport(), exportFields, lookups));
+  /** After a file is handed to the browser, say which file and how many rows (a download otherwise gives no sign on the page). */
+  const exportDone = (name: string, rows: number) => controller.notify(`Downloaded ${name} (${rows.toLocaleString("en-GB")} ${rows === 1 ? "row" : "rows"}). Check your Downloads folder.`);
+  const exportCsv = () => {
+    const rows = rowsToExport();
+    const name = exportName("csv");
+    downloadCsv(name, selectionToCsv(rows, exportFields, lookups));
+    exportDone(name, rows.length);
+  };
   const exportXlsx = () => {
-    selectionToXlsx(rowsToExport(), exportFields, lookups, "Roadmap")
-      .then((blob) => downloadBlob(exportName("xlsx"), blob))
+    const rows = rowsToExport();
+    const name = exportName("xlsx");
+    selectionToXlsx(rows, exportFields, lookups, "Roadmap")
+      .then((blob) => { downloadBlob(name, blob); exportDone(name, rows.length); })
       .catch(() => window.alert("The Excel file could not be made. Try the CSV file, or reload and try again."));
   };
   /** Roadmap with epics: each initiative with its linked tracker issues as collapsible rows beneath it. */
@@ -576,7 +585,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     const rows = rowsToExport();
     controller.childrenOf(rows.map((r) => r.id))
       .then((children) => selectionToXlsxWithChildren(rows, exportFields, lookups, children, "Roadmap with epics"))
-      .then((blob) => downloadBlob(exportName("xlsx").replace("roadmap", "roadmap-with-epics"), blob))
+      .then((blob) => { const name = exportName("xlsx").replace("roadmap", "roadmap-with-epics"); downloadBlob(name, blob); exportDone(name, rows.length); })
       .catch(() => window.alert("The Excel file with epics could not be made. Try the plain Excel file, or reload and try again."));
   };
   const exportCount = selected.length > 0 ? selected.length : visibleRows.length;
@@ -696,13 +705,13 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
             />
           </label>
           {(() => {
-            // what does not fit moves into "More" (issue #403): Paste table first, then Export, Include completed, Sync
+            // what does not fit moves into "More" (issue #403): Paste table first, then Include completed, then Export, then Sync
             const items: OverflowItem[] = [];
             if (completedCount > 0 && !asksForPhase) {
               const toggle = () => { const next = !includeCompleted; setIncludeCompleted(next); setQueryParam("completed", next ? "1" : null); };
               const label = includeCompleted ? "Hide completed" : `Include completed (${completedCount})`;
               items.push({
-                id: "completed", rank: 2,
+                id: "completed", rank: 3,
                 node: (
                   <button type="button" className={includeCompleted ? "tool-btn tool-btn-on" : "tool-btn"} aria-pressed={includeCompleted} title="Completed initiatives are hidden by default so the grid shows what is being worked on" onClick={toggle}>{label}</button>
                 ),
@@ -710,21 +719,27 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
               });
             }
             items.push({
-              id: "export", rank: 3,
+              id: "export", rank: 2,
               node: (
-                <Popover label={selected.length > 0 ? `Export ${selected.length}` : "Export"} active={selected.length > 0}>
+                <Popover label={<><DownloadIcon />{selected.length > 0 ? `Export ${selected.length} selected` : "Export"}</>} active={selected.length > 0}>
                   {(close) => (
-                    <div role="menu" aria-label="Export">
-                      <button type="button" role="menuitem" className="scope-item" onClick={() => { close(); exportCsv(); }}>
-                        <span>CSV file ({exportCount.toLocaleString("en-GB")} {exportCount === 1 ? "row" : "rows"}{selected.length > 0 ? ", the selected ones" : filtered ? ", with the filters" : ""})</span>
+                    <div role="menu" aria-label="Export" className="export-menu">
+                      <p className="export-head">
+                        Exporting {exportCount.toLocaleString("en-GB")} {exportCount === 1 ? "row" : "rows"}
+                        <span>{selected.length > 0 ? "the selected ones" : filtered ? "with your filters" : "all shown"} · the columns you see</span>
+                      </p>
+                      <button type="button" role="menuitem" className="export-item" onClick={() => { close(); exportXlsx(); }}>
+                        <strong>Excel file (.xlsx)</strong>
+                        <span>Keeps dates, numbers and ticket links</span>
                       </button>
-                      <button type="button" role="menuitem" className="scope-item" onClick={() => { close(); exportXlsx(); }}>
-                        <span>Excel file ({exportCount.toLocaleString("en-GB")} {exportCount === 1 ? "row" : "rows"}{selected.length > 0 ? ", the selected ones" : filtered ? ", with the filters" : ""}): dates, numbers and ticket links kept</span>
+                      <button type="button" role="menuitem" className="export-item" onClick={() => { close(); exportCsv(); }}>
+                        <strong>CSV file (.csv)</strong>
+                        <span>Plain text, for other tools</span>
                       </button>
-                      <button type="button" role="menuitem" className="scope-item" onClick={() => { close(); exportXlsxEpics(); }}>
-                        <span>Roadmap with epics, Excel file: each initiative with its linked Jira or GitHub issues beneath it</span>
+                      <button type="button" role="menuitem" className="export-item" onClick={() => { close(); exportXlsxEpics(); }}>
+                        <strong>Roadmap with epics (.xlsx)</strong>
+                        <span>Each initiative with its linked Jira or GitHub issues beneath it</span>
                       </button>
-                      <p className="scope-empty">The columns you see. CSV is plain text; Excel keeps formatting.</p>
                     </div>
                   )}
                 </Popover>
@@ -815,5 +830,14 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       </p>
     </section>
     </>
+  );
+}
+
+/** A tray with a down arrow: the sign that a button hands you a file. */
+function DownloadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M7 1.5v7M4 6l3 3 3-3M2 10v1.5A1 1 0 0 0 3 12.5h8a1 1 0 0 0 1-1V10" />
+    </svg>
   );
 }

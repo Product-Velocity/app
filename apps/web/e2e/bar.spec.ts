@@ -27,13 +27,13 @@ test.describe("the bar above the grid (0.30.0)", () => {
     await expect(page.getByText("All changes saved")).toBeVisible();
   });
 
-  test("when a label grows (Export 3) nothing wraps: search gives up width first", async ({ page }) => {
+  test("when a label grows (Export 3 selected) nothing wraps: search gives up width first", async ({ page }) => {
     await page.setViewportSize({ width: 1500, height: 800 });
     await open(page);
     const before = (await page.locator(".pvbar-search").boundingBox())!;
     const y0 = (await filterBtn(page).boundingBox())!.y;
     await select(page, "item-1", "item-2", "item-3");
-    await expect(page.getByRole("button", { name: "Export 3" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Export 3 selected" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Sync with GitHub" })).toBeVisible();
     const after = (await page.locator(".pvbar-search").boundingBox())!;
     expect(after.width).toBeLessThanOrEqual(before.width);
@@ -58,19 +58,21 @@ test.describe("the bar above the grid (0.30.0)", () => {
   test("Export says how many (all shown rows, or the selected ones) and downloads exactly those", async ({ page }) => {
     await open(page, "n=12&role=admin");
     await page.getByRole("button", { name: "Export", exact: true }).click();
-    await expect(page.getByRole("menuitem", { name: /CSV file \(12 rows/ })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /CSV file/ })).toBeVisible();
+    await expect(page.getByRole("menu", { name: "Export" })).toContainText("Exporting 12 rows");
     await page.keyboard.press("Escape");
     await select(page, "item-1", "item-2");
-    await page.getByRole("button", { name: "Export 2" }).click();
+    await page.getByRole("button", { name: "Export 2 selected" }).click();
     const dl = page.waitForEvent("download");
-    await page.getByRole("menuitem", { name: /CSV file \(2 rows/ }).click();
+    await page.getByRole("menuitem", { name: /CSV file/ }).click();
     expect((await dl).suggestedFilename()).toMatch(/^roadmap-selection-/);
+    await expect(page.getByText(/Downloaded roadmap-selection-.*\(2 rows\)/)).toBeVisible();
   });
 
   test("Export menu is not clipped by the bar, and the Excel file downloads", async ({ page }) => {
     await open(page, "n=12&role=admin");
     await page.getByRole("button", { name: "Export", exact: true }).click();
-    const item = page.getByRole("menuitem", { name: /Excel file \(12 rows/ });
+    const item = page.getByRole("menuitem", { name: /Excel file/ });
     // really on screen: the item is the element at its own centre (a clipped menu is covered by what is under it)
     const b = (await item.boundingBox())!;
     expect(await page.evaluate(([x, y]) => document.elementFromPoint(x!, y!)?.closest('[role="menuitem"]')?.textContent ?? "", [b.x + b.width / 2, b.y + b.height / 2])).toMatch(/Excel file/);

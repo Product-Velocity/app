@@ -64,9 +64,9 @@ test.describe("bulk bar", () => {
     await open(page);
     await select(page, "item-1", "item-2");
     await expect(page.getByRole("button", { name: /^Sync 2 with GitHub|^Sync with GitHub/ })).toBeDisabled();
-    await page.getByRole("button", { name: "Export 2" }).click();
+    await page.getByRole("button", { name: "Export 2 selected" }).click();
     const download = page.waitForEvent("download");
-    await page.getByRole("menuitem", { name: /CSV file \(2 rows/ }).click();
+    await page.getByRole("menuitem", { name: /CSV file/ }).click();
     const file = await download;
     expect(file.suggestedFilename()).toMatch(/^roadmap-selection-\d{4}-\d\d-\d\d\.csv$/);
     const csv = readFileSync(await file.path(), "utf8");
@@ -122,7 +122,7 @@ test.describe("bulk bar", () => {
   test("view-only roles can select and export but not edit", async ({ page }) => {
     await open(page, `n=10&role=viewer&${ALL}`);
     await select(page, "item-1");
-    await expect(page.getByRole("button", { name: "Export 1" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Export 1 selected" })).toBeVisible();
     await expect(bar(page).getByRole("button", { name: /^Set / })).toHaveCount(0);
     await expect(bar(page).getByRole("button", { name: /^More fields/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Paste table" })).toHaveCount(0);
