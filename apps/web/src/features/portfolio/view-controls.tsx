@@ -54,7 +54,7 @@ export type GroupState = { groupBy: string | null; thenBy: string | null; showIs
 /** "Group by: Build Status › Sponsor": the state of the grouping on the button, like Filter and Columns. */
 export function GroupMenu({ state, customerSafe = false, onChange }: { state: GroupState; customerSafe?: boolean; onChange: (s: GroupState) => void }) {
   return (
-    <Popover label={<>Group by: <strong className="count-badge">{groupSummary(state.groupBy, state.thenBy)}</strong>{state.showIssues ? <span className="muted"> · with issues</span> : null}</>} active={!!state.groupBy || state.showIssues}>
+    <Popover staged label={<>Group by: <strong className="count-badge">{groupSummary(state.groupBy, state.thenBy)}</strong>{state.showIssues ? <span className="muted"> · with issues</span> : null}</>} active={!!state.groupBy || state.showIssues}>
       {(close) => <GroupPanel state={state} customerSafe={customerSafe} onChange={onChange} close={close} />}
     </Popover>
   );
