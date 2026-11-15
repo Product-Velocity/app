@@ -2,6 +2,7 @@ import Link from "next/link";
 import { jiraGet } from "@/lib/atlassian/server";
 import { webhooksEnabled } from "@/lib/atlassian/jira-webhooks-server";
 import { requireWorkspace } from "@/lib/session";
+import { CheckConsole, type SavedRun } from "./console";
 
 export const metadata = { title: "Test Jira connection · Product Velocity" };
 export const maxDuration = 30;
@@ -13,10 +14,14 @@ export default async function JiraTestPage() {
   const { supabase, active } = await requireWorkspace("/settings/integrations/jira/test");
   const isAdmin = active.role === "admin" && !active.platform;
   const checks: Check[] = [];
+  const consoleConns: { id: string; sites: { id: string; name: string }[] }[] = [];
+  const last: { read: SavedRun | null; write: SavedRun | null } = { read: null, write: null };
+  let projectKeys: string[] = [];
   if (isAdmin) {
     const { data: conns } = await supabase.from("jira_connections").select("id, sites, scopes, state").eq("tenant_id", active.tenantId).neq("state", "disconnected");
     if (!conns || conns.length === 0) checks.push({ label: "Connection", ok: false, detail: "Not connected. Connect Jira on the Jira page." });
     for (const c of (conns ?? []) as { id: string; sites: { id: string; name: string }[]; scopes: string; state: string }[]) {
+      if (c.state === "connected") consoleConns.push({ id: c.id, sites: c.sites.map((x) => ({ id: x.id, name: x.name })) });
       const name = c.sites.map((s) => s.name).join(", ") || "Jira";
       checks.push({ label: `${name}: sign-in`, ok: c.state === "connected", detail: c.state === "connected" ? "Connected." : "Needs a new sign-in (use Sign in to Jira again on the Jira page)." });
       if (c.state !== "connected") continue;
@@ -32,6 +37,10 @@ export default async function JiraTestPage() {
         }
       }
     }
+    const { data: runs } = await supabase.from("jira_check_runs").select("kind, run_at, checks").eq("tenant_id", active.tenantId).order("run_at", { ascending: false }).limit(20);
+    for (const r of (runs ?? []) as { kind: "read" | "write"; run_at: string; checks: SavedRun["checks"] }[]) if (!last[r.kind]) last[r.kind] = { kind: r.kind, runAt: r.run_at, checks: r.checks };
+    const { data: links } = await supabase.from("jira_project_links").select("jira_project_key").eq("tenant_id", active.tenantId);
+    projectKeys = [...new Set((links ?? []).map((l) => String(l.jira_project_key)))];
     const { data: hooks } = await supabase.from("jira_webhooks").select("state, expires_at, last_event_at, events_received, last_error").eq("tenant_id", active.tenantId);
     const rows = (hooks ?? []) as { state: string; expires_at: string | null; last_event_at: string | null; events_received: number; last_error: string | null }[];
     checks.push({
@@ -45,7 +54,7 @@ export default async function JiraTestPage() {
     <div className="page-narrow">
       <p><Link href="/settings/integrations/jira">← Jira</Link></p>
       <h1>Test Jira connection</h1>
-      <p className="muted">Checks this workspace&rsquo;s own connection: sign-in, permissions, Jira answering and live updates. It only reads: nothing is written to Jira and no secret is shown. Include the copied report when you ask for help.</p>
+      <p className="muted">Checks this workspace&rsquo;s own connection: sign-in, permissions, Jira answering and live updates. The table below only reads. The Initiative-level checks further down are saved, so you never need to copy results into chat; only the write test changes Jira, and only after you confirm it. No secret is shown. Include the copied report when you ask for help.</p>
       {!isAdmin ? <p className="muted">Only admins can run the test.</p> : (
         <div className="card stack">
           <table className="table">
@@ -56,6 +65,7 @@ export default async function JiraTestPage() {
           <details><summary>Copy the report</summary><pre>{report}</pre></details>
         </div>
       )}
+      {isAdmin && consoleConns.length > 0 && <CheckConsole connections={consoleConns} projectKeys={projectKeys} last={last} />}
     </div>
   );
 }

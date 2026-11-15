@@ -114,6 +114,8 @@ Atlassian's developer documentation could not be fetched (host not allowed in th
 
 **Still to prove by a run, and the webhook point (question 2) by design:** webhooks are registered per linked project with `project = KEY`, so epics in an unlinked project refresh only on Sync and in the daily check unless a project may name extra Jira projects for the webhook filter (decide after the run). **Result of the run goes here** (what was verified on the real site, and what not) before the tree read is built.
 
+**2026-11-15 (#452): the J2 probes moved to the app.** The Initiative read probe and the cross-project write probe now run from Settings > Integrations > Jira > Test connection on the stored connection, with pass / warn / fail, a reason and what to do, and every run is saved in `jira_check_runs` (so results no longer have to be copied into chat). The `mode=levels` and `mode=initiative` links are gone from `/spikes/atlassian`. Decision: `docs/decisions/2026-11-15-jira-connection-checks.md`. The checks have been tested against a fake Jira only; the first real run on the Refinery89 site is Ashu's to do from the new page, and its saved result is the record.
+
 ### S6 Vercel (documented)
 - Function duration with Fluid compute: Hobby 300 s default and maximum; Pro and Enterprise 300 s default, 800 s maximum (one page mentions an extended 1,800 s). Memory 2 GB Hobby, 4 GB Pro.
 - Cron: Hobby 2 jobs per project, once a day; Pro 40 jobs, per-minute; Enterprise 100 (limits table, one footnote not visible).

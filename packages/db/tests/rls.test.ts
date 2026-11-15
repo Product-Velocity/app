@@ -185,6 +185,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "jira_check_runs",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_check_runs set kind = 'write' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_check_runs where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_check_runs (tenant_id, connection_id, kind, checks) select tenant_id, id, 'read', '[{}]'::jsonb from public.jira_connections where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.jira_check_runs set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "jira_sync_events",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

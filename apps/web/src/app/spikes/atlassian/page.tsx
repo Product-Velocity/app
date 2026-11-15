@@ -11,29 +11,7 @@ export default async function AtlassianSpike({ searchParams }: { searchParams: P
       <p>Connects once with OAuth 2.0 (3LO) and reads your Jira site. Nothing is stored; no token is shown.</p>
       {status === "admins-only" ? <p role="alert">Only workspace admins can run this.</p> : null}
       {status === "not-configured" ? <p role="alert">The ATLASSIAN_* variables are not set on this deployment.</p> : null}
-      <section aria-labelledby="run-now" style={{ border: "2px solid #2270ED", borderRadius: 8, padding: "4px 16px 12px", margin: "16px 0 24px" }}>
-        <h2 id="run-now">RUN THESE: J2, the Initiative level (issue #431)</h2>
-        <p>
-          Asked for in the Claude chat about the Initiative level (<a href="https://claude.ai/code/session_01TMdyHtyCiUPikJ63BEXjmr">open the chat</a>). Click a link, sign in to Atlassian if asked, and copy the result page back into that chat. The results show keys, counts and type names only. Run them in this order; each link is one click.
-        </p>
-        <ol>
-          <li>
-            Step 1, read only: <a href="/api/atlassian/start?mode=levels">the Initiative level and its tree</a>. <strong>Done on 2026-11-14</strong>: Initiative level found, epics from two projects. Run it again only to check another Initiative (add <code>&amp;arg=KEY</code> to the address).
-          </li>
-          <li>
-            Step 2, WRITES, removes what it makes: <a href="/api/atlassian/start?mode=initiative&arg=RR,R8P">test across projects (an Initiative in RR, an epic in R8P)</a>. <strong>Done on 2026-11-15</strong>: the Initiative was created, the epic of another project was linked and read back, and Jira&apos;s search showed it after about 2 seconds (it lags a moment behind a write). Nothing is left to run for J2 unless we test other projects.
-          </li>
-        </ol>
-        <p>The test inside RR alone cannot run: RR has no Epic issue type, so there is nothing to create there. That is fine; the Initiative project does not need one.</p>
-        <form action="/api/atlassian/start" method="get">
-          <input type="hidden" name="mode" value="initiative" />
-          <label>
-            Other project keys (Initiative project, a comma, epic project):{" "}
-            <input name="arg" defaultValue="RR,R8P" pattern="[A-Z][A-Z0-9_]{1,19},[A-Z][A-Z0-9_]{1,19}" required size={16} />
-          </label>{" "}
-          <button type="submit">Run the write test with these keys</button>
-        </form>
-      </section>
+      <p role="note">The Initiative-level checks (J2) moved to <a href="/settings/integrations/jira/test">Settings, Integrations, Jira, Test connection</a>: they run on the stored connection and save their results (#452).</p>
       <p>
         <a href="/api/atlassian/start">Connect Jira (read and write issues)</a>
       </p>
