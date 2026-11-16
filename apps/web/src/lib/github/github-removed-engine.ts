@@ -11,7 +11,7 @@ import { stoppedItems } from "@/lib/tracker/stopped";
 // "Removed in Product Velocity" on the server (decision 2026-11-03-github-close-removed; the twin of lib/atlassian/jira-removed-engine.ts). An initiative that
 // was deleted sits in the Trash (items.deleted_at) and never touched GitHub. For each one in the Trash whose GitHub link is in mode `push` (Product Velocity
 // owns the issue, for example the tracking issue it created) and that was not handled yet, `listRemoved` reads the issue (open or closed) so the preview can
-// say what will happen; `closeOne` writes ONE initiative after the person confirmed: it reads GitHub again, adds the label `pv:removed`, closes the issue as
+// say what will happen; `closeOne` writes ONE initiative after the person confirmed: it reads GitHub again, adds the label `pm:removed`, closes the issue as
 // "not planned" and records that it was handled. NEVER for a link in mode `follow` (the issue is only followed), never for an initiative that is not in the
 // Trash, never a delete, never a reopen. Claude and service accounts never reach this code: the server action refuses them before (github-removed.ts) and the
 // database function refuses them again. The columns of migration github_close_removed are read apart from everything else: a database that does not have them
@@ -139,9 +139,9 @@ export async function closeOne(ctx: RemovedCtx, id: string, deps: { sc?: SourceC
   const label = await addRemovedLabel(t, deps.sleep, names);
   if (!label.ok) return fail(c.code, label.message, c);
   if (s.state === "closed") {
-    return (await record("already_done")) ? { result: { id, code: c.code, outcome: "already_done", message: `The issue was already closed (${stateWords(s.state, s.stateReason)}). The label pv:removed was added.`, ...ref } } : fail(c.code, savedLater, c);
+    return (await record("already_done")) ? { result: { id, code: c.code, outcome: "already_done", message: `The issue was already closed (${stateWords(s.state, s.stateReason)}). The label pm:removed was added.`, ...ref } } : fail(c.code, savedLater, c);
   }
   const closed = await closeNotPlanned(t, s, deps.sleep);
-  if (!closed.ok) return fail(c.code, `The label pv:removed was added, but the issue was not closed. ${closed.message}`, c);
-  return (await record("closed")) ? { result: { id, code: c.code, outcome: "closed", message: "Closed as not planned and labelled pv:removed.", ...ref } } : fail(c.code, savedLater, c);
+  if (!closed.ok) return fail(c.code, `The label pm:removed was added, but the issue was not closed. ${closed.message}`, c);
+  return (await record("closed")) ? { result: { id, code: c.code, outcome: "closed", message: "Closed as not planned and labelled pm:removed.", ...ref } } : fail(c.code, savedLater, c);
 }

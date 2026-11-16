@@ -3,7 +3,7 @@ import { GitHubError, LABEL_COLOUR, resolveNames, type Names, type IssueRef, typ
 // Closing the GitHub issue of an initiative that was removed in Product Velocity (decision 2026-11-03-github-close-removed; the twin of
 // lib/atlassian/jira-close.ts). THIS IS THE ONLY MODULE THAT MAY CLOSE A GITHUB ISSUE, and only github-removed-engine.ts may import it (a test fails
 // otherwise): CLAUDE.md rule 6 says status is tracker-driven, and Ashu's exception is exactly one thing: an explicit, confirmed, per-initiative close of an
-// issue Product Velocity owns, after the initiative was deleted. Two writes exist here: add the label `pv:removed` (every other label stays: GitHub's
+// issue Product Velocity owns, after the initiative was deleted. Two writes exist here: add the label `pm:removed` (every other label stays: GitHub's
 // "add labels" keeps them) and close the issue as "not planned" (`state_reason`). The payload carries no field of the initiative at all (rule 2). There is
 // no delete, no reopen, no comment. Pure over an injected SourceControl and sleep, so it is tested with a fake GitHub.
 
@@ -68,7 +68,7 @@ export async function readCloseState(t: Target, sleep?: Sleep): Promise<CloseSta
   return { ok: true, state: i.state, stateReason: i.stateReason ?? null, labels: i.labels ?? [] };
 }
 
-/** Adds the label `pv:removed` and nothing else: "add labels" keeps every other label. The label is created in the repository first when it is missing. */
+/** Adds the label `pm:removed` and nothing else: "add labels" keeps every other label. The label is created in the repository first when it is missing. */
 export async function addRemovedLabel(t: Target, sleep?: Sleep, names?: Names): Promise<{ ok: true } | CloseFail> {
   const refused = bad(t);
   if (refused) return refused;

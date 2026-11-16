@@ -22,7 +22,7 @@ describe("buildTrackingIssue under other names", () => {
   });
   it("without names the output is today's", () => {
     const b = buildTrackingIssue(base);
-    expect(b.labels).toEqual(["product-velocity", "pv:project/mobile-app", "pv:moscow/must", "pv:rank/top-10", "pv:type/bug", "pv:group/payments", "pv:value/defend-revenue", "pv:quarter/q3-2027", "pv:define"]);
+    expect(b.labels).toEqual(["pm:project/mobile-app", "pm:moscow/must", "pm:rank/top-10", "pm:type/bug", "pm:group/payments", "pm:value/defend-revenue", "pm:quarter/q3-2027", "pm:define"]);
     expect(b.block).toContain("Managed by Product Velocity");
     expect(b.hash).toBe(buildTrackingIssue({ ...base, names: {} }).hash);
   });
@@ -34,9 +34,12 @@ describe("buildTrackingIssue under other names", () => {
 describe("ownership of labels", () => {
   it("the current names and always the old pv: namespace and base label are ours; the removed label and people's labels are not", () => {
     for (const l of ["moscow/must", "in-review", "project/x"]) expect(isOwnedLabel(l, STEALTH), l).toBe(true);
-    for (const l of ["pv:moscow/must", "product-velocity", "pv:whatever"]) expect(isOwnedLabel(l, STEALTH), l).toBe(true);
-    for (const l of ["removed", "pv:removed", "bug", "team-a"]) expect(isOwnedLabel(l, STEALTH), l).toBe(false);
-    expect(isOwnedLabel("moscow/must")).toBe(false); // by default only pv: is ours
+    for (const l of ["pm:moscow/must", "pv:whatever"]) expect(isOwnedLabel(l, STEALTH), l).toBe(true);
+    for (const l of ["removed", "pm:removed", "bug", "team-a"]) expect(isOwnedLabel(l, STEALTH), l).toBe(false);
+    expect(isOwnedLabel("moscow/must")).toBe(false); // by default only pm: (and the old pv:) is ours
+    // the old defaults (issue #468): pv: labels and the product-velocity base label are still cleaned up; pv:removed is a record of a close and stays
+    for (const l of ["pv:moscow/must", "pv:define", "product-velocity", "pm:group/x"]) expect(isOwnedLabel(l), l).toBe(true);
+    for (const l of ["pv:removed", "pm:removed"]) expect(isOwnedLabel(l), l).toBe(false);
   });
 });
 

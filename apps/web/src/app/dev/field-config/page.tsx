@@ -14,7 +14,7 @@ export default async function FieldConfigHarness({ searchParams }: { searchParam
     groups: githubCatalogGroups({
       issueFields: q.fields === "denied" ? null : [{ id: "IF_1", name: "Priority", dataType: "single_select", options: ["Urgent", "High", "Medium", "Low"] }, { id: "IF_2", name: "Target date", dataType: "date", options: [] }],
       boards: [{ title: "Roadmap", fields: q.board === "unreadable" ? null : [{ id: "F1", name: "Status", dataType: "SINGLE_SELECT", options: [{ id: "o1", name: "Todo" }, { id: "o2", name: "Done" }] }, { id: "F2", name: "Due date", dataType: "DATE" }, { id: "F3", name: "Size", dataType: "SINGLE_SELECT", options: [{ id: "s1", name: "M" }] }] }],
-      labels: [{ repo: "Acme/app", labels: [{ name: "pv:moscow/must", description: null }, { name: "bug", description: null }] }],
+      labels: [{ repo: "Acme/app", labels: [{ name: "pm:moscow/must", description: null }, { name: "bug", description: null }] }],
       issueTypes: ["Epic", "Task"],
       milestones: [{ repo: "Acme/app", milestones: [{ title: "2026 Q4", dueOn: "2026-12-31T12:00:00Z", state: "open" }] }],
     }),

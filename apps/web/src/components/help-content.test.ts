@@ -88,13 +88,13 @@ describe("Help guide: exact target fields", () => {
   it("names the exact GitHub target of what the app sends", () => {
     expect(row("initiative_name").github).toMatch(/issue title/);
     expect(row("description").github).toMatch(/## Description/);
-    expect(row("moscow").github).toMatch(/pv:moscow\//);
+    expect(row("moscow").github).toMatch(/pm:moscow\//);
     expect(row("moscow").github).toMatch(/Priority/);
-    expect(row("stack_rank").github).toMatch(/pv:rank\//);
+    expect(row("stack_rank").github).toMatch(/pm:rank\//);
     expect(row("effort").github).toMatch(/Size/);
     expect(row("g2m_date_est").github).toMatch(/milestone/);
-    expect(row("theme").github).toMatch(/pv:group\//);
-    expect(row("theme").jira).toMatch(/pv:group\/.*only/); // the group is a label only; the Jira Theme field gets the Focus Area
+    expect(row("theme").github).toMatch(/pm:group\//);
+    expect(row("theme").jira).toMatch(/pm:group\/.*only/); // the group is a label only; the Jira Theme field gets the Focus Area
     expect(row("focus_area").jira).toMatch(/Theme/);
     expect(row("theme").jira).not.toMatch(/planned/);
   });
@@ -110,7 +110,7 @@ describe("Help guide: exact target fields", () => {
     }
     // issue #321: the optional labels are built, off by default, and the Help says where to switch them on (Business Value Type replaced Roadmap Category)
     for (const k of ["focus_area", "tags"]) {
-      expect(row(k).github, k).toMatch(/^Sent to label pv:|^Sent to one label pv:/i);
+      expect(row(k).github, k).toMatch(/^Sent to label pm:|^Sent to one label pm:/i);
       expect(row(k).github, k).toMatch(/off by default/);
       expect(row(k).jira, k).toMatch(/off by default/);
       expect(row(k).updated, k).toMatch(/^You edit it/);
@@ -124,7 +124,7 @@ describe("Help guide: exact target fields", () => {
     expect(sent("initiative_name")).toMatch(/^Sent to Summary/);
     expect(sent("description")).toMatch(/^Sent to Jira description, section "Description", converted to Jira's format/);
     expect(sent("g2m_date_est")).toBe("Sent to Due date");
-    expect(sent("moscow")).toMatch(/Label pv:moscow/);
+    expect(sent("moscow")).toMatch(/Label pm:moscow/);
     expect(sent("stack_rank")).toMatch(/band, never the number/);
     expect(sent("planned_start")).toMatch(/Field configuration/);
     // issue #319: Jira gets the same sections as the GitHub block
@@ -213,7 +213,7 @@ describe("Help: closing the Jira issue of a removed initiative", () => {
   it("says what it does, that a person confirms, that Jira-origin issues are untouched, and that Claude cannot do it", () => {
     const status = COLUMN_ROWS.find((r) => r.key === "status")!;
     expect(JSON.stringify(status)).toContain("Removed in Product Velocity");
-    expect(COLUMNS_NOTE).toMatch(/pv:removed/);
+    expect(COLUMNS_NOTE).toMatch(/pm:removed/);
     expect(COLUMNS_NOTE).toMatch(/you confirm each one/);
     expect(COLUMNS_NOTE).toMatch(/came from Jira is never touched/);
     expect(AGENT_ADVANTAGES.find((a) => a.title === "Safe by design")!.text).toMatch(/cannot close a Jira issue/);
@@ -224,7 +224,7 @@ describe("Help: status changes (issue #358)", () => {
   it("names the real states for both trackers, the direction, and that a person confirms", async () => {
     const { STATUS_TO_TRACKER, STATUS_FROM_TRACKER, STATUS_INTRO, STATUS_NEXT_IN_PV } = await import("./help-content");
     const to = JSON.stringify(STATUS_TO_TRACKER);
-    for (const w of ["Backlog → Ready", "Backlog → To do", "closed as not planned", "pv:removed", "Done status"]) expect(to).toContain(w);
+    for (const w of ["Backlog → Ready", "Backlog → To do", "closed as not planned", "pm:removed", "Done status"]) expect(to).toContain(w);
     const from = JSON.stringify(STATUS_FROM_TRACKER);
     for (const w of ["closed as completed", "Not started", "In progress", "Done", "Cancelled", "category To Do", "Delivery Status"]) expect(from).toContain(w);
     expect(STATUS_INTRO).toMatch(/after you confirm/);

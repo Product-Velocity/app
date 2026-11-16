@@ -11,7 +11,7 @@ import { jiraRequest } from "./server";
 // "Removed in Product Velocity" on the server (decision 2026-11-03-jira-close-removed). An initiative that was deleted sits in the Trash
 // (items.deleted_at) and never touched Jira. For each one in the Trash whose Jira link is in mode `push` (Product Velocity owns the issue)
 // and that was not handled yet, `listRemoved` reads the issue (status, Done transitions) so the preview can say what will happen; `closeOne`
-// writes ONE initiative after the person confirmed: it reads Jira again, adds the label `pv:removed`, moves the issue to a Done status and
+// writes ONE initiative after the person confirmed: it reads Jira again, adds the label `pm:removed`, moves the issue to a Done status and
 // records that it was handled. NEVER for a link in mode `follow` (the issue came from Jira), never for an initiative that is not in the Trash,
 // never a delete. Claude and service accounts never reach this code: the server action refuses them before (jira-removed.ts) and the database
 // function refuses them again. The columns of migration jira_close_removed are read apart from everything else: a database that does not have
@@ -132,12 +132,12 @@ export async function closeOne(ctx: Ctx, id: string, transitionId: string | null
   const label = await addRemovedLabel(call, c.link.issue_key, undefined, names);
   if (!label.ok) return fail(c.code, label.message, c);
   if (s.statusCategory === "done") {
-    return (await record("already_done")) ? { result: { id, code: c.code, outcome: "already_done", message: `The issue was already in a Done status (${s.statusName}). The label pv:removed was added.`, ...ref } } : fail(c.code, savedLater, c);
+    return (await record("already_done")) ? { result: { id, code: c.code, outcome: "already_done", message: `The issue was already in a Done status (${s.statusName}). The label pm:removed was added.`, ...ref } } : fail(c.code, savedLater, c);
   }
   if (!pick.transition) {
-    return (await record("labeled")) ? { result: { id, code: c.code, outcome: "labeled", message: "No transition to a Done status exists in this issue's workflow, so only the label pv:removed was added. Close it in Jira.", ...ref } } : fail(c.code, savedLater, c);
+    return (await record("labeled")) ? { result: { id, code: c.code, outcome: "labeled", message: "No transition to a Done status exists in this issue's workflow, so only the label pm:removed was added. Close it in Jira.", ...ref } } : fail(c.code, savedLater, c);
   }
   const moved = await closeWith(call, c.link.issue_key, pick.transition.id, s.done);
-  if (!moved.ok) return fail(c.code, `The label pv:removed was added, but the issue was not closed. ${moved.message}`, c);
-  return (await record("closed", { id: pick.transition.toStatusId, name: pick.transition.toStatusName })) ? { result: { id, code: c.code, outcome: "closed", message: `Moved to ${pick.transition.toStatusName} and labelled pv:removed.`, ...ref } } : fail(c.code, savedLater, c);
+  if (!moved.ok) return fail(c.code, `The label pm:removed was added, but the issue was not closed. ${moved.message}`, c);
+  return (await record("closed", { id: pick.transition.toStatusId, name: pick.transition.toStatusName })) ? { result: { id, code: c.code, outcome: "closed", message: `Moved to ${pick.transition.toStatusName} and labelled pm:removed.`, ...ref } } : fail(c.code, savedLater, c);
 }

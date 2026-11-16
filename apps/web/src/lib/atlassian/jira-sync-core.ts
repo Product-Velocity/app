@@ -23,7 +23,7 @@ export const LABEL: Record<TextField, string> = { title: "Name", summary: "Summa
 export type FieldCompare = { field: TextField; verdict: TextVerdict; pvText: string; jiraText: string; pvHash: string; jiraHash: string };
 
 /** Opaque label for a created issue so a lost answer is found again (a hash, never the item id). */
-export const markerFor = (itemId: string, prefix = "pv:item/") => `${prefix}${createHash("sha256").update(`pv-jira-marker:${itemId}`).digest("hex").slice(0, 16)}`;
+export const markerFor = (itemId: string, prefix = "pm:item/") => `${prefix}${createHash("sha256").update(`pv-jira-marker:${itemId}`).digest("hex").slice(0, 16)}`;
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
 export type Compared = { fields: FieldCompare[]; /** The sections of the Jira description that have content this converter cannot write back. */ richIn: TextSection[]; rich: boolean; split: Split };

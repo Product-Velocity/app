@@ -17,13 +17,13 @@ const trackerOf = (c: RemovedCard): RemovedTracker => c.tracker ?? "jira";
 /** The words for what pressing the button does to one card. */
 export function willText(c: RemovedCard, chosen: string | null): string {
   if (trackerOf(c) === "github") {
-    if (c.alreadyDone) return `Already closed${c.trackerStatus ? ` (${c.trackerStatus})` : ""}: will only add the label pv:removed.`;
-    return "Will add the label pv:removed and close the issue as “not planned”.";
+    if (c.alreadyDone) return `Already closed${c.trackerStatus ? ` (${c.trackerStatus})` : ""}: will only add the label pm:removed.`;
+    return "Will add the label pm:removed and close the issue as “not planned”.";
   }
-  if (c.alreadyDone) return `Already in a Done status${c.jiraStatus ? ` (${c.jiraStatus})` : ""}: will only add the label pv:removed.`;
-  if (c.options.length === 0) return "Jira shows no way to move this issue to a Done status: will only add the label pv:removed. Close it in Jira.";
+  if (c.alreadyDone) return `Already in a Done status${c.jiraStatus ? ` (${c.jiraStatus})` : ""}: will only add the label pm:removed.`;
+  if (c.options.length === 0) return "Jira shows no way to move this issue to a Done status: will only add the label pm:removed. Close it in Jira.";
   const to = c.options.find((o) => o.id === chosen)?.toStatusName;
-  if (c.options.length === 1 || to) return `Will add the label pv:removed and move the issue to “${to ?? c.options[0]!.toStatusName}”.`;
+  if (c.options.length === 1 || to) return `Will add the label pm:removed and move the issue to “${to ?? c.options[0]!.toStatusName}”.`;
   return "Choose which Done status to move the issue to.";
 }
 
@@ -104,9 +104,9 @@ export function RemovedSection({ api, tracker = "jira", onBusy, onCount }: { api
       {items.some((c) => c.stopped) && <p className="muted">A stopped initiative is one an approver stopped at a decision gate: its status is Cancelled. It is offered like a removed one, one at a time, and only after you confirm.</p>}
       <p className="muted">
         {tracker === "github"
-          ? <>These initiatives are in the Trash and Product Velocity owns their GitHub issue. If you confirm, Product Velocity adds the label “pv:removed” to the issue and closes it as “not planned” in GitHub. It never deletes an issue,
+          ? <>These initiatives are in the Trash and Product Velocity owns their GitHub issue. If you confirm, Product Velocity adds the label “pm:removed” to the issue and closes it as “not planned” in GitHub. It never deletes an issue,
               never changes the initiative’s own status, and never touches an issue that is only followed from GitHub. Nothing is written until you press the button. Restoring an initiative later does not reopen its issue: reopen it in GitHub if the work comes back.</>
-          : <>These initiatives are in the Trash and Product Velocity owns their Jira issue. If you confirm, Product Velocity adds the label “pv:removed” to the issue and moves it to a Done status in Jira. It never deletes an issue,
+          : <>These initiatives are in the Trash and Product Velocity owns their Jira issue. If you confirm, Product Velocity adds the label “pm:removed” to the issue and moves it to a Done status in Jira. It never deletes an issue,
               never changes the initiative’s own status, and never touches an issue that came from Jira. Nothing is written until you press the button. Restoring an initiative later does not reopen its issue: reopen it in Jira if the work comes back.</>}
       </p>
       {failed && <p role="alert" className="error">{failed}</p>}

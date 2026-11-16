@@ -273,6 +273,7 @@ export async function writeOne(ctx: Ctx, id: string, choices: SyncChoice[], deps
   const send = async (): Promise<WriteResult> => {
   // 2. send
   let resultKey = issueKey ?? "";
+  let droppedNote: string | undefined; // optional fields Jira refused (not on the issue type's screen) and that were left out
   let outcome: PushItemResult["outcome"] = "unchanged";
   let issueId: string | null = l.link?.issue_id ?? null;
   if (plan.action === "create") {
@@ -283,23 +284,24 @@ export async function writeOne(ctx: Ctx, id: string, choices: SyncChoice[], deps
     else {
       const w = await createIssue(call, plan.fields);
       if (!w.ok) return { result: { ...base, outcome: w.kind === "gone" ? "missing" : "error", message: w.message }, taken };
-      resultKey = w.key; issueId = w.id; outcome = "created";
+      resultKey = w.key; issueId = w.id; outcome = "created"; droppedNote = w.dropped?.join(" ");
     }
     const url = `${l.siteUrl}/browse/${resultKey}`;
     const { error } = await admin.rpc("jira_create_link", { p_actor: ctx.userId, p_item: id, p_connection: connId, p_site: siteId, p_key: resultKey, p_issue_id: issueId, p_url: url, p_base: plan.newBase, p_sent_hash: plan.sentHash });
     if (error) return { result: { ...base, outcome: "error", issueLabel: resultKey, issueUrl: url, message: `The issue ${resultKey} exists in Jira, but linking it failed. Sync again: it will be found, not created twice.` }, taken };
-    return { result: { ...base, outcome, issueLabel: resultKey, issueUrl: url, wrote: wroteJira(plan.fields) }, taken };
+    return { result: { ...base, outcome, issueLabel: resultKey, issueUrl: url, wrote: wroteJira(plan.fields), ...(droppedNote ? { message: droppedNote } : {}) }, taken };
   }
   if (plan.action === "update") {
     const w = await updateIssue(call, issueKey!, plan.fields);
     if (!w.ok) return { result: { ...base, outcome: w.kind === "gone" ? "missing" : "error", ...(issueKey ? { issueLabel: issueKey } : {}), message: w.message }, taken };
     outcome = "updated";
+    droppedNote = w.dropped?.join(" ");
   }
   // 3. record what both sides now agree on (also when nothing was sent, so the first compare is stored)
   const rec = await admin.rpc("jira_record_sync", { p_actor: ctx.userId, p_item: id, p_base: plan.newBase, p_sent_hash: plan.action === "update" ? plan.sentHash : null });
   if (rec.error) return { result: { ...base, outcome: "error", ...(issueKey ? { issueLabel: issueKey } : {}), message: "Jira was updated but the sync state could not be saved. Sync again to finish." }, taken };
   const url = l.link!.html_url ?? `${l.siteUrl}/browse/${issueKey}`;
-  return { result: { ...base, outcome, issueLabel: issueKey!, issueUrl: url, ...(outcome === "updated" ? { wrote: wroteJira(plan.fields) } : {}) }, taken };
+  return { result: { ...base, outcome, issueLabel: issueKey!, issueUrl: url, ...(outcome === "updated" ? { wrote: wroteJira(plan.fields) } : {}), ...(droppedNote ? { message: droppedNote } : {}) }, taken };
   };
   // Ready for build (issue #358): after the confirmed send, move the issue to To do while it is still at the start (the status is read again in writeJiraReady)
   const finishReady = async (w: WriteResult): Promise<WriteResult> => {

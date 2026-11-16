@@ -119,7 +119,7 @@ export async function startJiraSync(ids: string[]): Promise<SyncPreviewResult> {
       const parts = previewParts(e);
       if (parts.plan) send.push(parts.plan);
       // restored after its issue was closed because it was removed: said, never reopened by Product Velocity
-      if (l.closedWhileRemoved && l.closedWhileRemoved !== "not_found") card = { ...card, message: `This initiative was removed earlier, so its Jira issue ${l.link?.issue_key ?? ""} was labelled “pv:removed”${l.closedWhileRemoved === "closed" || l.closedWhileRemoved === "already_done" ? " and is in a Done status" : ""}. Product Velocity does not reopen it: reopen it in Jira if the work continues.` };
+      if (l.closedWhileRemoved && l.closedWhileRemoved !== "not_found") card = { ...card, message: `This initiative was removed earlier, so its Jira issue ${l.link?.issue_key ?? ""} was labelled “pm:removed”${l.closedWhileRemoved === "closed" || l.closedWhileRemoved === "already_done" ? " and is in a Done status" : ""}. Product Velocity does not reopen it: reopen it in Jira if the work continues.` };
       if (parts.create) return { ...card, status: "not_linked", message: "Not in Jira yet: will be created in the linked Jira project." };
       if (parts.conflicts.length > 0) return { ...card, status: "conflict", conflicts: parts.conflicts };
       return card;

@@ -88,3 +88,11 @@ describe("containers Jira always returns", () => {
     expect(proposeInitiativeLevel(hierarchyLevels(types))).toEqual({ source: "standard", types: ["Epic"] });
   });
 });
+
+describe("Jira Plans date fields (issue #469)", () => {
+  it("reads Target start as a start date and Target end as a due date", () => {
+    const f = (name: string) => ({ id: "customfield_10020", name, custom: true, schema: { type: "date" } }) as never;
+    expect(fieldRole(f("Target start"))).toBe("start_date");
+    expect(fieldRole(f("Target end"))).toBe("due_date");
+  });
+});
