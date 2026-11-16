@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import type { TrackerSection } from "@/components/tracker-tabs";
+import type { TrackerSection } from "@/lib/tracker-fields/sections";
 import { buildMappingView } from "@/lib/tracker-fields/view";
 import { jiraCatalogGroups } from "@/lib/tracker-fields/catalog";
 import { connectNoop, disconnectNoop, formNoop, retryNoop } from "./actions";
@@ -89,5 +89,6 @@ export async function renderJiraHarness(searchParams: Promise<Record<string, str
     }),
   }];
   return <JiraConnectionsView catalogs={catalogs} connections={connections} canAdmin={q.role !== "viewer"} configured={q.configured !== "0"} status={q.status} connectAction={connectNoop} disconnectAction={disconnectNoop}
-    projectLinks={q.state === "none" ? [] : projectLinks} choices={choices} sync={sync} basePath="/dev/jira" section={section} saveProjectAction={formNoop} readAction={formNoop} checkAction={connectNoop} retryAction={retryNoop} canEdit={q.role !== "viewer"} reviewAction={formNoop} fieldConfigAction={formNoop} />;
+    projectLinks={q.state === "none" ? [] : projectLinks} choices={choices} sync={sync} basePath="/dev/jira" section={section} saveProjectAction={formNoop} readAction={formNoop} checkAction={connectNoop} retryAction={retryNoop} canEdit={q.role !== "viewer"} reviewAction={formNoop} fieldConfigAction={formNoop} copyAction={formNoop}
+    header={{ linked: q.state === "none" ? 0 : 1, waiting: q.issues === "none" ? 0 : 40, customised: q.config === "changed", lastCheck: "2026-11-03T05:30:00Z" }} selectedProject="p1" />;
 }

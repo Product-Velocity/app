@@ -18,7 +18,7 @@ export async function saveEpicProjects(form: FormData): Promise<void> {
     const { error } = await supabase.rpc("jira_set_epic_projects", { p_connection: connection, p_site: site, p_keys: keys });
     if (error) status = error.code === "42501" ? "not-admin" : "epics-error";
   }
-  revalidatePath(PATH);
+  revalidatePath(`${PATH}/projects`);
   revalidatePath("/incoming");
-  redirect(`${PATH}?status=${status}`);
+  redirect(`${PATH}/projects?status=${status}`);
 }

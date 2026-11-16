@@ -21,6 +21,10 @@ import { copyJiraIssueTexts } from "@/app/(workspace)/incoming/copy-jira-texts";
 import { requireWorkspace } from "@/lib/session";
 
 const PATH = "/settings/integrations/jira";
+// each section has its own address (decision 2026-11-16-tracker-settings-sections): an action returns to the section it was used on
+const PROJECTS = `${PATH}/projects`;
+const INBOX = `${PATH}/inbox`;
+const MAPPING = `${PATH}/mapping`;
 
 async function adminOnly() {
   const ctx = await requireWorkspace(PATH);
@@ -71,7 +75,7 @@ async function proposePriorityOnLink(supabase: Awaited<ReturnType<typeof adminOn
 
 export async function linkJiraProject(form: FormData): Promise<void> {
   const ctx = await adminOnly();
-  if (!ctx) redirect(`${PATH}?status=not-admin`);
+  if (!ctx) redirect(`${PROJECTS}?status=not-admin`);
   const text = (k: string) => String(form.get(k) ?? "").trim();
   const [project, connection, site, key] = [text("project"), text("connection"), text("site"), text("key")];
   const initiative = text("initiative");
@@ -80,11 +84,11 @@ export async function linkJiraProject(form: FormData): Promise<void> {
   let status = "linked";
   try {
     const { data: conn } = await ctx.supabase.from("jira_connections").select("id, sites, state").eq("id", connection).eq("tenant_id", ctx.active.tenantId).eq("state", "connected").maybeSingle();
-    if (!conn || !(conn.sites as { id: string }[]).some((s) => s.id === site)) redirect(`${PATH}?status=link-unavailable`);
+    if (!conn || !(conn.sites as { id: string }[]).some((s) => s.id === site)) redirect(`${PROJECTS}?status=link-unavailable`);
     const detail = await jiraProjectDetail(connection, site, key);
-    if (detail.projectTypeKey !== "software" && detail.projectTypeKey !== "business") redirect(`${PATH}?status=link-type`);
+    if (detail.projectTypeKey !== "software" && detail.projectTypeKey !== "business") redirect(`${PROJECTS}?status=link-type`);
     const invalid = validateTypeMapping(detail.issueTypes, { initiative, epic, task });
-    if (invalid) redirect(`${PATH}?status=link-types`);
+    if (invalid) redirect(`${PROJECTS}?status=link-types`);
     const { error } = await ctx.supabase.rpc("jira_link_project", {
       p_project: project, p_connection: connection, p_site: site, p_jira_project_id: detail.id, p_jira_project_key: detail.key, p_jira_project_name: detail.name,
       p_initiative_id: initiative, p_initiative_name: nameOf(detail.issueTypes, initiative),
@@ -97,22 +101,22 @@ export async function linkJiraProject(form: FormData): Promise<void> {
     if (e && typeof e === "object" && "digest" in e && String((e as { digest: unknown }).digest).startsWith("NEXT_REDIRECT")) throw e;
     status = "error";
   }
-  revalidatePath(PATH);
-  redirect(`${PATH}?status=${status}`);
+  revalidatePath(PROJECTS);
+  redirect(`${PROJECTS}?status=${status}`);
 }
 
 export async function unlinkJiraProject(form: FormData): Promise<void> {
   const ctx = await adminOnly();
-  if (!ctx) redirect(`${PATH}?status=not-admin`);
+  if (!ctx) redirect(`${PROJECTS}?status=not-admin`);
   const { error } = await ctx.supabase.rpc("jira_unlink_project", { p_project: String(form.get("project") ?? "") });
-  revalidatePath(PATH);
-  redirect(`${PATH}?status=${error ? "error" : "unlinked"}`);
+  revalidatePath(PROJECTS);
+  redirect(`${PROJECTS}?status=${error ? "error" : "unlinked"}`);
 }
 
 /** Reads the open issues of a linked Jira project into the light records. Reads Jira only; nothing is written to Jira. */
 export async function readJiraNow(form: FormData): Promise<void> {
   const ctx = await adminOnly();
-  if (!ctx) redirect(`${PATH}?status=not-admin`);
+  if (!ctx) redirect(`${INBOX}?status=not-admin`);
   const project = String(form.get("project") ?? "");
   const { data: link } = await ctx.supabase.from("jira_project_links").select("id, tenant_id, connection_id, site_id, jira_project_key").eq("project_id", project).eq("tenant_id", ctx.active.tenantId).maybeSingle();
   const { data: conn } = link ? await ctx.supabase.from("jira_connections").select("sites, state").eq("id", link.connection_id).maybeSingle() : { data: null };
@@ -126,8 +130,8 @@ export async function readJiraNow(form: FormData): Promise<void> {
       status = e instanceof ReconnectNeeded ? "read-reconnect" : "read-failed";
     }
   }
-  revalidatePath(PATH);
-  redirect(`${PATH}?status=${status}`);
+  revalidatePath(INBOX);
+  redirect(`${INBOX}?status=${status}`);
 }
 
 /**
@@ -140,7 +144,7 @@ export async function reviewJiraIssues(form: FormData): Promise<void> {
   const intent = String(form.get("intent") ?? "");
   const mode = String(form.get("mode") ?? "follow") === "push" ? "push" : "follow";
   const ids = form.getAll("ids").map(String).filter((x) => /^[0-9a-f-]{36}$/.test(x)).slice(0, 200);
-  if (ids.length === 0) redirect(`${PATH}?status=review-none&pv=${project}`);
+  if (ids.length === 0) redirect(`${INBOX}?status=review-none&pv=${project}`);
   let status = "error";
   let counts = "";
   if (intent === "pull") {
@@ -163,8 +167,8 @@ export async function reviewJiraIssues(form: FormData): Promise<void> {
       counts = `&n=${ok}`;
     } else if (error.code === "42501") status = "review-denied";
   }
-  revalidatePath(PATH);
-  redirect(`${PATH}?status=${status}${counts}`);
+  revalidatePath(INBOX);
+  redirect(`${INBOX}?status=${status}${counts}`);
 }
 
 /**
@@ -177,20 +181,52 @@ export async function saveJiraFieldConfig(form: FormData): Promise<void> {
   const ctx = await adminOnly();
   if (!ctx) redirect(`${PATH}?status=not-admin`);
   const project = String(form.get("project") ?? "");
+  const back: (qs: string) => never = (qs) => redirect(`${MAPPING}?project=${encodeURIComponent(project)}&${qs}&t=${Date.now()}`);
   const get = (k: string) => String(form.get(k) ?? "").trim();
   const { data: link } = await ctx.supabase.from("jira_project_links").select("connection_id, site_id, field_map").eq("tenant_id", ctx.active.tenantId).eq("project_id", project).maybeSingle();
-  if (!link) redirect(`${PATH}?status=error`);
+  if (!link) back("status=error");
   const map = jiraMapFromForm(get);
   const rows = configRowsFromForm("jira", get, (k) => form.has(k));
   const site = await readJiraSiteFields(link.connection_id as string, link.site_id as string).catch((): null => null);
   const used = [map.startDate ? { id: map.startDate, label: "Planned Start" } : null, map.theme ? { id: map.theme, label: "Focus Area" } : null].filter((x): x is { id: string; label: string } => x !== null);
   const checked = validateConfig("jira", rows, site?.entries ?? null, used);
   const errors = [...validateJiraMap(map, parseFieldMap(link.field_map), site), ...(checked.ok ? [] : checked.errors)];
-  if (errors.length > 0 || !checked.ok) redirect(`${PATH}?status=field-config-invalid&why=${encodeURIComponent(errors.join(" ").slice(0, 400))}`);
+  if (errors.length > 0 || !checked.ok) back(`status=field-config-invalid&why=${encodeURIComponent(errors.join(" ").slice(0, 400))}`);
   const first = await ctx.supabase.rpc("jira_set_field_map", { p_project: project, p_map: map });
   const second = first.error ? null : await ctx.supabase.rpc("tracker_set_field_config", { p_project: project, p_rows: checked.rows.map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field, text: r.text ?? null })) });
-  revalidatePath(PATH);
-  redirect(`${PATH}?status=${first.error || second?.error ? "error" : "field-config-saved"}`);
+  revalidatePath(MAPPING);
+  back(`status=${first.error || second?.error ? "error" : "field-config-saved"}`);
+}
+
+/**
+ * Copies the saved field settings of one project to others linked to Jira on the SAME site (the "Copy to other projects" box of Field mapping): the switches
+ * and due date field (tracker_field_config) and the start date, theme and priority fields (the Jira field map). Field ids differ between sites, so a project
+ * on another site is skipped. Written by the same database functions as a normal save. A project with nothing saved copies the defaults. Admin only.
+ */
+export async function copyJiraFieldConfig(form: FormData): Promise<void> {
+  const ctx = await adminOnly();
+  if (!ctx) redirect(`${PATH}?status=not-admin`);
+  const from = String(form.get("from") ?? "");
+  const to = [...new Set(form.getAll("to").map(String))].filter((x) => x && x !== from);
+  const back: (status: string) => never = (status) => redirect(`${MAPPING}?project=${encodeURIComponent(from)}&status=${status}&t=${Date.now()}`);
+  if (to.length === 0) back("copy-none");
+  const [{ data: srcLink }, { data: srcRows }, { data: targets }] = await Promise.all([
+    ctx.supabase.from("jira_project_links").select("connection_id, site_id, field_map").eq("tenant_id", ctx.active.tenantId).eq("project_id", from).maybeSingle(),
+    ctx.supabase.from("tracker_field_config").select("slot, enabled, field_id, label_text").eq("tenant_id", ctx.active.tenantId).eq("provider", "jira").eq("project_id", from),
+    ctx.supabase.from("jira_project_links").select("project_id, connection_id, site_id").eq("tenant_id", ctx.active.tenantId).in("project_id", to),
+  ]);
+  if (!srcLink) back("error");
+  const rows = ((srcRows ?? []) as { slot: string; enabled: boolean; field_id: string | null; label_text: string | null }[]).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id, text: r.label_text ?? null }));
+  const map = parseFieldMap(srcLink!.field_map);
+  let failed = 0;
+  for (const t of (targets ?? []) as { project_id: string; connection_id: string; site_id: string }[]) {
+    if (t.connection_id !== srcLink!.connection_id || t.site_id !== srcLink!.site_id) continue; // another site has other field ids
+    const first = await ctx.supabase.rpc("jira_set_field_map", { p_project: t.project_id, p_map: map });
+    const second = first.error ? null : await ctx.supabase.rpc("tracker_set_field_config", { p_project: t.project_id, p_rows: rows });
+    if (first.error || second?.error) failed++;
+  }
+  revalidatePath(MAPPING);
+  back(failed > 0 ? "error" : "field-config-copied");
 }
 
 /**

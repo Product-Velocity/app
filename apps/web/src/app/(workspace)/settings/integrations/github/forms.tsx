@@ -40,7 +40,7 @@ export function ProjectRow({ project, repos, canEdit }: { project: { id: string;
   const [tracker, setTracker] = useState(project.tracker ?? "");
   const other = tracker !== "" && tracker !== "github"; // a project has one tracker: GitHub settings do not apply to a Jira project
   return (
-    <tr>
+    <tr data-linked={project.tracker === "github" ? "1" : undefined}>
       <th scope="row">{project.name}</th>
       <td>
         <SelectField label={`Delivery tracker of ${project.name}`} value={tracker} onChange={(v) => { setTracker(v); if (v !== "" && v !== "github") setRepo(""); }} blank="Not set yet" disabled={!canEdit} options={TRACKERS} />

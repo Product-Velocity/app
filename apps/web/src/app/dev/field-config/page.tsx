@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { FieldCatalogView, FieldMappingForm } from "@/components/tracker-field-config";
+import { FieldWorkbench } from "@/components/tracker-field-workbench";
+import { unlinkedFields } from "@/lib/tracker-fields/workbench";
 import { buildMappingView } from "@/lib/tracker-fields/view";
 import { formNoop } from "../jira/actions";
 import { githubCatalogGroups } from "@/lib/tracker-fields/catalog";
@@ -20,15 +21,13 @@ export default async function FieldConfigHarness({ searchParams }: { searchParam
   };
   const board = q.board === "none" ? null : { id: "B1", number: 1, title: "Roadmap", url: "https://example.test/board", mapping: { priority: { id: "F9", name: "Priority" }, group: null, dueDate: { id: "F2", name: "Due date" }, size: null, status: { id: "F1", name: "Status" }, priorityMap: {} } };
   const view = buildMappingView({ tracker: "github", rows: q.config === "changed" ? [{ slot: "github.label.rank", enabled: false, field: null }, { slot: "github.milestone", enabled: false, field: null }] : [], board });
+  const unlinked = unlinkedFields(catalog, [{ name: "Platform", view, board }]);
   return (
-    <div className="page-narrow">
+    <div className="page-full">
       <h1>GitHub</h1>
       <div className="card stack">
-        <h2>Field configuration</h2>
-        <FieldMappingForm tracker="GitHub" projectId="p1" projectName="Platform" action={formNoop}
-          view={view} />
-        <h3>Fields GitHub shows this connection</h3>
-        <FieldCatalogView catalogs={[catalog]} tracker="GitHub" id="github-catalog" contexts={{ Acme: [{ name: "Platform", view, board }] }} />
+        <h2>Field mapping</h2>
+        <FieldWorkbench tracker="GitHub" projectId="p1" projectName="Platform" action={formNoop} view={view} unlinked={unlinked.fields} unlinkedError={unlinked.error} unlinkedNotes={unlinked.notes} />
       </div>
     </div>
   );

@@ -2,11 +2,15 @@ import Link from "next/link";
 import { AutoRefresh } from "@/app/(workspace)/settings/integrations/github/auto-refresh";
 import { RefreshButton } from "@/app/(workspace)/settings/integrations/github/refresh-button";
 import { JiraProjectRow, type JiraProjectChoice, type JiraRowLink } from "@/components/jira-project-row";
-import { TrackerTabs, type TrackerSection } from "@/components/tracker-tabs";
-import { FieldCatalogView, FieldMappingForm } from "@/components/tracker-field-config";
+import { SetupSteps, TrackerStatusHeader, type StatusChip } from "@/components/tracker-status-header";
+import { FieldWorkbench } from "@/components/tracker-field-workbench";
+import { CopyMapping } from "@/components/copy-mapping";
+import { TableTools } from "@/components/table-tools";
+import { TrackerProjectPicker } from "@/components/tracker-project-picker";
+import { setupSteps, type TrackerSection } from "@/lib/tracker-fields/sections";
 import type { TrackerCatalog } from "@/lib/tracker-fields/catalog";
 import type { MappingView } from "@/lib/tracker-fields/view";
-import type { LinkContext } from "@/lib/tracker-fields/links";
+import { unlinkedFields } from "@/lib/tracker-fields/workbench";
 import { sourceLabel } from "@/lib/atlassian/jira-events";
 import type { JiraConnectionRow } from "@/lib/atlassian/server";
 
@@ -43,6 +47,8 @@ export const JIRA_NOTICE: Record<string, string> = {
   "link-unavailable": "That Jira connection or site is not available. Reload the page and try again.",
   "link-type": "Only software and business Jira projects can be linked for now. Product Discovery ideas come later.",
   "field-config-saved": "Field configuration saved. Nothing was written to Jira; the next Sync uses it.",
+  "field-config-copied": "Copied to the other projects. Nothing was written to Jira; the next Sync uses it.",
+  "copy-none": "Choose at least one project to copy to.",
   "field-config-invalid": "The field configuration was not saved.",
   "link-types": "Choose three different issue types of that Jira project; the initiative type is required.",
   "link-tracker": "That project already uses another tracker. Remove its links there first.",
@@ -95,41 +101,66 @@ type Props = {
   fieldConfigAction?: (formData: FormData) => void | Promise<void>;
   /** Why a save was refused (the address carries it). */
   why?: string | undefined;
-  /** Which section of the page: "Connect and configure" (default) or "Sync logs" (decision 2026-11-03-tracker-field-config). */
+  /** Which of the five sections (decision 2026-11-16-tracker-settings-sections): Connection (default), Projects, Field mapping, Inbox, Sync & logs. */
   section?: TrackerSection;
-  /** The read-only field catalog of each linked Jira project (admins). */
+  /** The read-only field catalog of the project the Field mapping section shows (admins). */
   catalogs?: TrackerCatalog[];
+  /** What the status header counts; it is the same on every section. */
+  header?: JiraHeaderView;
+  /** The project the Field mapping section shows, and the box that copies its settings to the others (decision 2026-11-16-tracker-settings-sections). */
+  selectedProject?: string | undefined;
+  copyAction?: (formData: FormData) => void | Promise<void>;
+  /** Changes after every save, so the field table starts clean. */
+  version?: string | undefined;
+  /** Extra cards of the Projects section (the epic projects). */
+  projectsExtra?: React.ReactNode;
 };
+
+/** The counts the status header shows. */
+export type JiraHeaderView = { linked: number; waiting: number; customised: boolean; lastCheck: string | null };
 
 /**
  * Settings → Integrations → Jira, laid out like the GitHub page (decision 2026-11-03-tracker-parity): Status, Sync (what happens by itself, check
  * now, recent events), the Jira projects, Projects (one table, one Save), then the Jira-only extras. Presentational: the page supplies data and actions.
  */
-export function JiraConnectionsView({ connections, canAdmin, configured, status, checked, connectAction, disconnectAction, projectLinks = [], choices = [], sync = null, basePath = "/settings/integrations/jira", saveProjectAction, readAction, checkAction, retryAction, canEdit = false, reviewAction, fieldConfigAction, why, section = "configure", catalogs = [] }: Props) {
+export function JiraConnectionsView({ connections, canAdmin, configured, status, checked, connectAction, disconnectAction, projectLinks = [], choices = [], sync = null, basePath = "/settings/integrations/jira", saveProjectAction, readAction, checkAction, retryAction, canEdit = false, reviewAction, fieldConfigAction, why, section = "connection", catalogs = [], header = { linked: 0, waiting: 0, customised: false, lastCheck: null }, selectedProject, copyAction, version, projectsExtra }: Props) {
   const needsSignIn = connections.some((c) => c.state === "reconnect_needed");
   const connected = connections.filter((c) => c.state === "connected");
   const missingHookScope = Boolean(sync?.live.enabled) && connected.some((c) => c.scopes !== undefined && !c.scopes.split(" ").includes("manage:jira-webhook"));
   const linked = projectLinks.filter((p) => p.link);
-  // the projects whose mapping applies to each Jira project's field list (the catalog is read per Jira project key)
-  const linkContexts: Record<string, LinkContext[]> = {};
-  for (const p of linked) if (p.mapping && p.link) (linkContexts[p.link.jiraKey] ??= []).push({ name: p.projectName, view: p.mapping });
   const notLinkable = connected.flatMap((c) => c.projects.flatMap((p) => (p.projects ?? []).filter((j) => j.type !== "software" && j.type !== "business")));
+  const mappingProject = linked.find((p) => p.projectId === selectedProject) ?? linked[0];
   const unreadable = connected.flatMap((c) => c.projects.filter((p) => p.projects === null));
+  const steps = setupSteps({ tracker: "Jira", connected: connected.length > 0, linkedProjects: header.linked, customised: header.customised });
+  const state = connected.length > 0 ? "Connected" : needsSignIn ? STATE.reconnect_needed : STATE.disconnected;
+  const tone = connected.length > 0 && !needsSignIn ? "ok" : needsSignIn ? "warn" : "off";
+  const chips: StatusChip[] = connected.length > 0
+    ? [
+        header.linked > 0 ? { text: `${header.linked} project${header.linked === 1 ? "" : "s"} use Jira`, section: "projects" } : { text: "No project uses Jira yet", section: "projects", tone: "warn" },
+        { text: header.customised ? "Field mapping customised" : "Default field mapping", section: "mapping" },
+        ...(header.waiting > 0 ? [{ text: `${header.waiting} issue${header.waiting === 1 ? "" : "s"} need a decision`, section: "inbox" as const, tone: "warn" as const }] : [{ text: "Inbox is empty", section: "inbox" as const }]),
+        { text: header.lastCheck ? `Last check ${new Date(header.lastCheck).toLocaleString("en-GB")}` : "Not checked yet", section: "logs" },
+      ]
+    : [];
   return (
-    <div className="page-narrow">
-      <h1>Jira</h1>
-      <p className="muted">Connect this workspace to Jira Cloud. Product Velocity never copies commercial fields (value, confidence, customers, decisions) to Jira.</p>
-      <TrackerTabs base={basePath} current={section} tracker="Jira" />
+    <div className="page-full">
+      <TrackerStatusHeader
+        tracker="Jira" base={basePath} current={section} state={state} tone={tone} chips={chips} steps={steps} badges={header.waiting > 0 ? { inbox: header.waiting } : {}}
+        summary={connected.length > 0 ? connected.flatMap((c) => c.sites.map((x) => x.name)).join(", ") : undefined}
+        blurb="Connect this workspace to Jira Cloud. Product Velocity never copies commercial fields (value, confidence, customers, decisions) to Jira."
+      />
       {status && JIRA_NOTICE[status] && <p role="status" className="notice">{JIRA_NOTICE[status]}</p>}
       {status === "field-config-invalid" && why && <p role="alert" className="error">{why}</p>}
       {status === "checked" && checked && <p role="status" className="notice">Checked {checked.c} linked item(s) against Jira: {checked.ch} changed, {checked.m} issue(s) not found.</p>}
       {needsSignIn && <p role="alert" className="notice">Atlassian no longer accepts the saved sign-in for at least one site. Sign in again to keep it working.</p>}
       {missingHookScope && <p role="alert" className="notice">Live updates need one more permission. Sign in to Jira again to allow it; until then the daily check and Check Jira now keep initiatives current.</p>}
       {!configured && <p role="alert" className="notice">Jira is not set up for this deployment: the platform owner has to set the Atlassian app variables.</p>}
+      {section !== "connection" && connected.length === 0 && <p className="muted">Jira is not connected. <Link href={basePath}>Connect it</Link> first; this section opens once it is.</p>}
 
-      {section === "configure" && (
+      {section === "connection" && <SetupSteps steps={steps} base={basePath} />}
+      {section === "connection" && (
       <div className="card stack">
-        <h2>Status</h2>
+        <h2>Connection</h2>
         {connections.length === 0 && <p><strong>Not connected</strong></p>}
         {connections.map((c) => (
           <section key={c.id} className="stack" aria-labelledby={`jira-${c.id}`}>
@@ -162,7 +193,6 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
         )}
       </div>
       )}
-      {section === "logs" && connected.length === 0 && <p className="muted">Jira is not connected. <Link href={basePath}>Connect and configure</Link> it first; the sync log fills once it is.</p>}
 
       {section === "logs" && connected.length > 0 && sync && (
         <div className="card stack">
@@ -204,7 +234,7 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
         </div>
       )}
 
-      {section === "configure" && connected.length > 0 && projectLinks.length > 0 && (
+      {section === "projects" && connected.length > 0 && projectLinks.length > 0 && (
         <div className="card stack">
           <h2>Projects</h2>
           <p className="muted">
@@ -216,19 +246,24 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
           {canAdmin && notLinkable.length > 0 && (
             <p className="muted">Visible to this sign-in but not linkable yet: {notLinkable.map((j) => `${j.key} · ${j.name} (${j.type === "product_discovery" ? "Product Discovery, ideas come later" : j.type})`).join("; ")}.</p>
           )}
+          {saveProjectAction && <TableTools tableId="jira-projects" noun="projects" linkedLabel="Only projects that use Jira" />}
           {saveProjectAction && (
-            <table className="table">
+            <div className="table-wrap">
+            <table className="table" id="jira-projects">
               <caption className="visually-hidden">Delivery tracker per project</caption>
               <thead><tr><th scope="col">Project</th><th scope="col">Delivery tracker</th><th scope="col">Jira project</th><th scope="col">Initiative is</th><th scope="col">Epic is</th><th scope="col">Task is, and Save</th></tr></thead>
               <tbody>
                 {projectLinks.map((p) => <JiraProjectRow key={p.projectId} project={{ id: p.projectId, name: p.projectName }} tracker={p.tracker} link={p.rowLink} choices={choices} canEdit={canAdmin} action={saveProjectAction} />)}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       )}
+      {section === "projects" && connected.length > 0 && projectsExtra}
 
-      {section === "configure" && connected.length > 0 && linked.length > 0 && (
+      {section === "inbox" && connected.length > 0 && linked.length === 0 && <p className="muted">No project is linked to Jira yet. Link one on the <Link href={`${basePath}/projects`}>Projects</Link> section; its open issues wait here.</p>}
+      {section === "inbox" && connected.length > 0 && linked.length > 0 && (
         <div className="card stack">
           <h2>Jira issues waiting for a decision</h2>
           <p className="muted">Reading Jira fills a list of open issues; nothing is in the roadmap until it is pulled in.</p>
@@ -300,7 +335,7 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
               )}
               {p.link && p.counts && (
                 <p>
-                  {p.showIgnored ? <a href={basePath}>Back to the new issues</a> : p.counts.ignored > 0 ? <a href={`${basePath}?ignored=${p.projectId}`}>Show {p.counts.ignored} ignored</a> : null}
+                  {p.showIgnored ? <a href={`${basePath}/inbox`}>Back to the new issues</a> : p.counts.ignored > 0 ? <a href={`${basePath}/inbox?ignored=${p.projectId}`}>Show {p.counts.ignored} ignored</a> : null}
                 </p>
               )}
             </section>
@@ -308,17 +343,23 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
         </div>
       )}
 
-      {section === "configure" && canAdmin && connected.length > 0 && linked.length > 0 && (
+      {section === "mapping" && connected.length > 0 && (
         <div className="card stack">
-          <h2>Field configuration</h2>
-          <p className="muted">Start with the fields Jira reports for each linked project: which Product Velocity field each one is linked to and in which direction. The defaults are what Sync does without any change; change what you need in the table of Product Velocity fields below and save. Nothing here is written to Jira: the next Sync uses it and the preview says what is skipped.</p>
-          <h3>Fields Jira reports</h3>
-          <p className="muted">Every field of the site, including custom fields, read by id (names are not unique). Search, filter and sort the list; the fill rate counts the 50 most recently updated issues of the project.</p>
-          <FieldCatalogView catalogs={catalogs} tracker="Jira" id="jira-catalog" contexts={linkContexts} />
-          <h3>Product Velocity fields</h3>
-          {linked.filter((p) => p.mapping).map((p) => (
-            fieldConfigAction && <FieldMappingForm key={p.projectId} tracker="Jira" projectId={p.projectId} projectName={p.projectName} view={p.mapping!} action={fieldConfigAction} />
-          ))}
+          <h2>Field mapping</h2>
+          <p className="muted">One table per project: every Product Velocity field and where it goes in Jira, with the setting in the row. It opens on the fields Sync moves. The defaults are what Sync does without any change. Nothing here is written to Jira: the next Sync uses it and the preview says what is skipped.</p>
+          {!canAdmin && <p className="muted">An admin can change the field mapping.</p>}
+          {canAdmin && linked.length === 0 && <p className="muted">No project is linked to Jira yet. Link one on the <Link href={`${basePath}/projects`}>Projects</Link> section.</p>}
+          {canAdmin && fieldConfigAction && mappingProject && mappingProject.mapping && (() => {
+            const u = unlinkedFields(catalogs.find((c) => c.scope === mappingProject.link?.jiraKey) ?? null, [{ name: mappingProject.projectName, view: mappingProject.mapping }]);
+            return (
+              <>
+                <TrackerProjectPicker projects={linked.map((p) => ({ id: p.projectId, name: p.projectName }))} current={mappingProject.projectId} action={`${basePath}/mapping`} />
+                <p className="muted">Linked to <strong>{mappingProject.link!.jiraKey}</strong> · {mappingProject.link!.jiraName} ({mappingProject.link!.siteName}).</p>
+                <FieldWorkbench key={`${mappingProject.projectId}-${version ?? ""}`} tracker="Jira" projectId={mappingProject.projectId} projectName={mappingProject.projectName} view={mappingProject.mapping} action={fieldConfigAction} unlinked={u.fields} unlinkedError={u.error} unlinkedNotes={u.notes} />
+                {copyAction && linked.length > 1 && <CopyMapping tracker="Jira" fromId={mappingProject.projectId} fromName={mappingProject.projectName} others={linked.filter((p) => p.projectId !== mappingProject.projectId).map((p) => ({ id: p.projectId, name: p.projectName }))} action={copyAction} />}
+              </>
+            );
+          })()}
         </div>
       )}
     </div>

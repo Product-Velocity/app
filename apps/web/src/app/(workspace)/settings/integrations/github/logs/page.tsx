@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireWorkspace } from "@/lib/session";
 import type { ConnectionRow } from "@/lib/github/server";
-import { TrackerTabs } from "@/components/tracker-tabs";
+import { GithubHeader } from "../header";
 import { AutoRefresh } from "../auto-refresh";
 import { RefreshButton } from "../refresh-button";
 import { checkGithubNow, retrySyncEvent } from "../actions";
@@ -26,13 +26,12 @@ export default async function GithubLogsPage({ searchParams }: { searchParams: P
   const { count: linkedCount } = c ? await supabase.from("item_github_links").select("id", { count: "exact", head: true }).eq("tenant_id", active.tenantId) : { count: 0 };
 
   return (
-    <div className="page-narrow">
-      <h1>GitHub</h1>
-      <TrackerTabs base="/settings/integrations/github" current="logs" tracker="GitHub" />
+    <div className="page-full">
+      <GithubHeader supabase={supabase} tenantId={active.tenantId} c={c} current="logs" />
       {status && NOTICE[status] && <p role="status" className="notice">{NOTICE[status]}</p>}
       {status === "error" && why && <p role="alert" className="notice">Reason: {why.slice(0, 200)}</p>}
       {status === "checked" && <p role="status" className="notice">Checked {checkedN} linked item(s) against GitHub: {changedN} changed, {missingN} issue(s) not found.</p>}
-      {c?.state !== "connected" && <p className="muted">GitHub is not connected. <Link href="/settings/integrations/github">Connect and configure</Link> it first; the sync log fills once it is.</p>}
+      {c?.state !== "connected" && <p className="muted">GitHub is not connected. <Link href="/settings/integrations/github">Connect it</Link> first; the sync log fills once it is.</p>}
       {c?.state === "connected" && (
         <div className="card stack">
           <h2>Sync</h2>
