@@ -1,6 +1,6 @@
 import { createSign } from "node:crypto";
 import type { PrRef, ReleaseRef } from "./delivery";
-import { GitHubError, type IssueFieldInfo, type LabelInfo, type MilestoneInfo, type BoardItemStatus, type BoardItemValue, type BoardField, type BoardInfo, type BoardValue, type IssueSummary, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl, type SubIssue } from "./source-control";
+import { GitHubError, type IssueFieldInfo, type LabelInfo, type MilestoneInfo, type BoardItemStatus, type BoardItemValue, type BoardField, type BoardInfo, type BoardValue, type IssueSummary, type ParentIssue, type DeliverySummary, type InstallationInfo, type IssueInput, type IssueRef, type RepoInfo, type SourceControl, type SubIssue } from "./source-control";
 
 const API = "https://api.github.com";
 const b64url = (b: Buffer | string) => Buffer.from(b).toString("base64url");
@@ -147,6 +147,26 @@ export class GitHubAppSourceControl implements SourceControl {
       if (rows.length < 100) break;
     }
     return out;
+  }
+
+  async listOpenParentIssues(installationId: number, repo: string, opts: { maxPages?: number } = {}): Promise<{ issues: ParentIssue[]; truncated: boolean }> {
+    const out: ParentIssue[] = [];
+    const max = Math.max(1, Math.min(20, opts.maxPages ?? 10));
+    let truncated = false;
+    for (let page = 1; page <= max; page++) {
+      const res = await this.call(installationId, "GET", `/repos/${repo}/issues?state=open&sort=updated&direction=desc&per_page=100&page=${page}`);
+      if (!res.ok) throw new GitHubError(res.status, `GitHub could not list issues (${res.status})`);
+      const rows = (await res.json()) as { number: number; updated_at?: string; pull_request?: unknown; title?: string; html_url?: string; type?: { name?: string } | null; parent_issue_url?: string | null; sub_issues_summary?: { total?: number } | null }[];
+      for (const r of rows) {
+        const total = Number(r.sub_issues_summary?.total ?? 0);
+        if (r.pull_request || !(total > 0)) continue;
+        const m = /\/repos\/([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)\/issues\/([0-9]+)$/.exec(r.parent_issue_url ?? "");
+        out.push({ number: r.number, title: (r.title ?? "").slice(0, 300), issueType: r.type?.name ?? null, htmlUrl: r.html_url ?? null, updatedAt: r.updated_at ?? null, subIssuesTotal: total, parent: m ? { repo: m[1]!, number: Number(m[2]) } : null });
+      }
+      if (rows.length < 100) return { issues: out, truncated };
+      if (page === max) truncated = true;
+    }
+    return { issues: out, truncated };
   }
 
   async listSubIssues(installationId: number, repo: string, number: number): Promise<SubIssue[] | null> {
