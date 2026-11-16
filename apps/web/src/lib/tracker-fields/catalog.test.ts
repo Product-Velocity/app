@@ -39,7 +39,7 @@ describe("GitHub catalog", () => {
     const g = githubCatalogGroups({
       issueFields: [{ id: "IF_1", name: "Priority", dataType: "single_select", options: ["Urgent", "High"] }],
       boards: [{ title: "Roadmap", fields: [{ id: "F1", name: "Status", dataType: "SINGLE_SELECT", options: [{ id: "o1", name: "Todo" }] }, { id: "F2", name: "Target date", dataType: "DATE" }, { id: "F3", name: "Title", dataType: "TEXT" }] }],
-      labels: [{ repo: "Acme/app", labels: [{ name: "pv:moscow/must", description: null }, { name: "bug", description: null }] }],
+      labels: [{ repo: "Acme/app", labels: [{ name: "pm:moscow/must", description: null }, { name: "bug", description: null }] }],
       issueTypes: ["Epic", "Bug"],
       milestones: [{ repo: "Acme/app", milestones: [{ title: "2026 Q4", dueOn: null, state: "open" }] }],
     });

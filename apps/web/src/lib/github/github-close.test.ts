@@ -67,7 +67,7 @@ describe("words", () => {
     expect(stateWords("closed", null)).toBe("closed as completed");
   });
   it("the note for a restored initiative: said when something was done to the issue, not for an issue that was not found; it says nothing is reopened", () => {
-    expect(restoredAfterCloseNote("acme/road#7", "closed")).toContain("labelled “pv:removed” and is closed");
+    expect(restoredAfterCloseNote("acme/road#7", "closed")).toContain("labelled “pm:removed” and is closed");
     expect(restoredAfterCloseNote("acme/road#7", "closed")).toContain("does not reopen it");
     expect(restoredAfterCloseNote("acme/road#7", "not_found")).toBeNull();
     expect(restoredAfterCloseNote("acme/road#7", null)).toBeNull();

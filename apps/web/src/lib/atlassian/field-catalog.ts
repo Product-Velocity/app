@@ -54,7 +54,7 @@ export function fieldKind(schema: JiraSchema | undefined): FieldKind {
 
 const ROLE_BY_NAME: [RegExp, FieldRole][] = [
   [/^story point(s| estimate)?$/i, "story_points"],
-  [/^start date$/i, "start_date"],
+  [/^(start date|target start)$/i, "start_date"],
   [/^(due date|target end|target date)$/i, "due_date"],
   [/^sprint$/i, "sprint"],
   [/^team$/i, "team"],

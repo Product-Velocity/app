@@ -120,7 +120,7 @@ describe("closing one", () => {
     const r = await closeOne(ctx, A, null, { call: j.call });
     expect(r.result).toMatchObject({ id: A, code: "R-1", outcome: "closed", issueLabel: "PLAT-1" });
     expect(writes(j.hits)).toEqual([
-      { method: "PUT", path: "/issue/PLAT-1", body: { update: { labels: [{ add: "pv:removed" }] } } },
+      { method: "PUT", path: "/issue/PLAT-1", body: { update: { labels: [{ add: "pm:removed" }] } } },
       { method: "POST", path: "/issue/PLAT-1/transitions", body: { transition: { id: "31" } } },
     ]);
     expect(rpcCalls).toEqual([{ fn: "jira_record_removed", args: { p_actor: "u1", p_item: A, p_result: "closed", p_status_name: "Done", p_status_id: "10001" } }]);
@@ -150,7 +150,7 @@ describe("closing one", () => {
     const j = fakeJira({ transitions: [] });
     const r = await closeOne(ctx, A, null, { call: j.call });
     expect(r.result).toMatchObject({ outcome: "labeled", message: expect.stringContaining("only the label") });
-    expect(writes(j.hits)).toEqual([{ method: "PUT", path: "/issue/PLAT-1", body: { update: { labels: [{ add: "pv:removed" }] } } }]);
+    expect(writes(j.hits)).toEqual([{ method: "PUT", path: "/issue/PLAT-1", body: { update: { labels: [{ add: "pm:removed" }] } } }]);
     expect(rpcCalls[0]!.args.p_result).toBe("labeled");
   });
   it("an issue already in a Done status is labelled and not transitioned", async () => {
@@ -163,7 +163,7 @@ describe("closing one", () => {
     const j = fakeJira({ post: 400, postJson: { errors: { resolution: "Resolution is required" } } });
     const r = await closeOne(ctx, A, null, { call: j.call });
     expect(r.result).toMatchObject({ outcome: "error", message: expect.stringContaining("Resolution is required") });
-    expect(r.result.message).toContain("label pv:removed was added");
+    expect(r.result.message).toContain("label pm:removed was added");
     expect(writes(j.hits).filter((h) => h.method === "POST")).toHaveLength(1);
     expect(rpcCalls).toEqual([]);
   });

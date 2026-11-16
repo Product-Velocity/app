@@ -6,7 +6,7 @@ import { compareJira, extrasHash, markerFor, planJiraSend, type PvItem } from ".
 
 const pv = (o: Partial<PvItem> = {}): PvItem => ({ id: "11111111-1111-4111-8111-111111111111", name: "Checkout", description: "Pay **fast**", moscow: "Must", ...o });
 const jiraDesc = (md: string) => markdownToAdf(md);
-const jira = (o: Partial<{ summary: string; description: unknown; labels: string[] }> = {}) => ({ summary: "Checkout", description: jiraDesc("Pay **fast**"), labels: ["product-velocity", "pv:moscow/must"], ...o });
+const jira = (o: Partial<{ summary: string; description: unknown; labels: string[] }> = {}) => ({ summary: "Checkout", description: jiraDesc("Pay **fast**"), labels: ["pm:moscow/must"], ...o });
 const h = (s: string) => hashText(s);
 const inStep = { title: h("Checkout"), description: h(adfToText(jiraDesc("Pay **fast**"))) };
 const plan = (o: object = {}) => planJiraSend({ pv: pv(), jira: jira(), base: inStep, map: {}, ...o });
@@ -80,24 +80,24 @@ describe("create", () => {
   it("the marker is stable per item and differs between items", () => {
     expect(markerFor("a")).toBe(markerFor("a"));
     expect(markerFor("a")).not.toBe(markerFor("b"));
-    expect(markerFor("a")).toMatch(/^pv:item\/[0-9a-f]{16}$/);
+    expect(markerFor("a")).toMatch(/^pm:item\/[0-9a-f]{16}$/);
   });
 });
 
 describe("extras", () => {
   it("a changed due date goes out and an unchanged one does not; people's labels stay", () => {
-    const base = plan({ pv: pv({ g2m_date_est: "2027-03-31" }), jira: jira({ labels: ["mine", "product-velocity", "pv:moscow/must"] }) });
+    const base = plan({ pv: pv({ g2m_date_est: "2027-03-31" }), jira: jira({ labels: ["mine", "pm:moscow/must"] }) });
     expect(base.fields.duedate).toBe("2027-03-31");
-    expect(base.fields.labels).toEqual(["mine", "product-velocity", "pv:moscow/must"]);
-    const same = plan({ pv: pv({ g2m_date_est: "2027-03-31" }), jira: jira({ labels: ["mine", "product-velocity", "pv:moscow/must"] }), sentHash: base.sentHash });
+    expect(base.fields.labels).toEqual(["mine", "pm:moscow/must"]);
+    const same = plan({ pv: pv({ g2m_date_est: "2027-03-31" }), jira: jira({ labels: ["mine", "pm:moscow/must"] }), sentHash: base.sentHash });
     expect(same.action).toBe("unchanged");
-    const moved = plan({ pv: pv({ g2m_date_est: "2027-04-30" }), jira: jira({ labels: ["mine", "product-velocity", "pv:moscow/must"] }), sentHash: base.sentHash });
+    const moved = plan({ pv: pv({ g2m_date_est: "2027-04-30" }), jira: jira({ labels: ["mine", "pm:moscow/must"] }), sentHash: base.sentHash });
     expect(moved.fields.duedate).toBe("2027-04-30");
   });
   it("a stale pv: label in Jira is corrected even when the hash matches", () => {
     const ok = plan();
-    const p = plan({ jira: jira({ labels: ["product-velocity", "pv:moscow/could"] }), sentHash: ok.sentHash });
-    expect(p.fields.labels).toEqual(["product-velocity", "pv:moscow/must"]);
+    const p = plan({ jira: jira({ labels: ["pm:moscow/could"] }), sentHash: ok.sentHash });
+    expect(p.fields.labels).toEqual(["pm:moscow/must"]);
   });
   it("extrasHash ignores order", () => {
     expect(extrasHash({ labels: ["b", "a"], duedate: "x" })).toBe(extrasHash({ duedate: "x", labels: ["a", "b"] }));
@@ -205,7 +205,7 @@ describe("the sent-only sections are checked against what Jira shows (SCRUM-9, 2
   const item = () => pv({ name: "Auto", ...texts });
   const base = (attachments: string) => ({ title: h("Auto"), summary: h("Sum"), description: h("Desc"), hypothesis: h("IF a THEN b"), attachments });
   const oldJira = { type: "doc", version: 1, content: [h2("Summary"), p("Sum"), h2("Description"), p("Desc"), h2("Hypothesis (IF / THEN / RESULTING IN)"), p("IF a THEN b"), h2("Documents"), p("The old full text of a document")] };
-  const jiraWith = (description: unknown) => ({ summary: "Auto", description, labels: ["product-velocity"] });
+  const jiraWith = (description: unknown) => ({ summary: "Auto", description, labels: [] });
 
   it("rewrites a description that still has the old content even though the record says the sections were sent", () => {
     const recordSaysSent = attachmentsHash(undefined, undefined, docs); // the record already holds the hash of the links

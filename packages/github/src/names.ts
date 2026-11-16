@@ -1,21 +1,30 @@
 // Stealth mode (issue #411, decision 2026-11-11-stealth-names): what the labels, markers and footer that Product Velocity writes to a tracker are CALLED.
-// Everything has a default (today's `pv:` names) and a project may change them. Pure, shared by the GitHub and the Jira builders. With no `Names`
+// Everything has a default (the `pm:` names) and a project may change them. Pure, shared by the GitHub and the Jira builders. With no `Names`
 // every builder behaves exactly as before.
 
 /** The label families that carry a value: `<prefix><slug>`. The prefix includes its trailing "/" (default `pv:moscow/`). */
 export const LABEL_KINDS = ["project", "moscow", "rank", "type", "group", "focus", "value", "quarter", "tag"] as const;
 export type LabelKind = (typeof LABEL_KINDS)[number];
 
-/** The namespace of the default names. It is ALWAYS treated as ours when cleaning up, so a project that switches to other names has the old labels removed. */
+/**
+ * The namespace of the names used before 2026-11-16 (issue #468: the defaults became `pm:`, Product Management). It is ALWAYS treated as ours when
+ * cleaning up, so labels sent earlier (`pv:moscow/must`, `product-velocity`) are removed once a push sends the current names, and `pv:removed` is
+ * still recognised as the record of a confirmed close.
+ */
 export const LEGACY_NAMESPACE = "pv:";
+export const LEGACY_BASE = "product-velocity";
+/** The namespace of the default names now. Always ours too, so a project that moves from the defaults to its own names has the `pm:` labels cleaned up. */
+export const DEFAULT_NAMESPACE = "pm:";
+export const LEGACY_REMOVED = "pv:removed";
 
 export const DEFAULT_NAMES = {
-  prefix: { project: "pv:project/", moscow: "pv:moscow/", rank: "pv:rank/", type: "pv:type/", group: "pv:group/", focus: "pv:focus/", value: "pv:value/", quarter: "pv:quarter/", tag: "pv:tag/" } as Record<LabelKind, string>,
-  base: "product-velocity",
-  removed: "pv:removed",
-  define: "pv:define",
+  prefix: { project: "pm:project/", moscow: "pm:moscow/", rank: "pm:rank/", type: "pm:type/", group: "pm:group/", focus: "pm:focus/", value: "pm:value/", quarter: "pm:quarter/", tag: "pm:tag/" } as Record<LabelKind, string>,
+  /** No base label by default (it used to be `product-velocity`). A project can still choose one. */
+  base: "",
+  removed: "pm:removed",
+  define: "pm:define",
   /** Jira: the opaque label that finds an issue again after a create whose answer was lost, `<prefix><16 hex>`. */
-  jiraMarker: "pv:item/",
+  jiraMarker: "pm:item/",
   /** GitHub: the word in the hidden markers of the managed block, `<!-- <word>:begin item=… -->`. */
   block: "pv",
 } as const;
@@ -91,12 +100,12 @@ export function validateNames(n: Names): string[] {
 
 /**
  * Whether a label on an issue is one Product Velocity wrote (so a push may remove it when it no longer applies): the current names, and always the
- * default `pv:` namespace and base label, so changing names cleans up what was sent before. The removed label is never "owned": it records a close.
+ * legacy `pv:` namespace and base label, so changing names cleans up what was sent before. The removed label is never "owned": it records a close.
  */
 export function isOwnedLabel(label: string, n?: Names | null): boolean {
   const r = resolveNames(n);
-  if (label === r.removed || label === DEFAULT_NAMES.removed) return false;
-  if (label === r.base || label === DEFAULT_NAMES.base || label.startsWith(LEGACY_NAMESPACE)) return true;
+  if (label === r.removed || label === DEFAULT_NAMES.removed || label === LEGACY_REMOVED) return false;
+  if ((r.base !== "" && label === r.base) || label === LEGACY_BASE || label.startsWith(LEGACY_NAMESPACE) || label.startsWith(DEFAULT_NAMESPACE)) return true;
   if (label === r.define) return true;
   return LABEL_KINDS.some((k) => label.startsWith(r.prefix[k])) || label.startsWith(r.jiraMarker);
 }

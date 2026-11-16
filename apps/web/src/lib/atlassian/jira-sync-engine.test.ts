@@ -30,7 +30,7 @@ function fakeJira(issue: { summary: string; description?: unknown; labels?: stri
   const hits: Hit[] = [];
   const call: JiraRequest = async (method, path, body) => {
     hits.push({ method, path, body });
-    if (method === "GET" && path.startsWith("/issue/")) return issue ? { status: 200, json: { id: "1", fields: { summary: issue.summary, description: issue.description ?? markdownToAdf("Pay **fast**"), labels: issue.labels ?? ["product-velocity", "pv:moscow/must"] } } } : { status: 404, json: {} };
+    if (method === "GET" && path.startsWith("/issue/")) return issue ? { status: 200, json: { id: "1", fields: { summary: issue.summary, description: issue.description ?? markdownToAdf("Pay **fast**"), labels: issue.labels ?? ["pm:moscow/must"] } } } : { status: 404, json: {} };
     if (method === "GET" && path.startsWith("/project/")) return { status: 200, json: { issueTypes: answers.types ?? [] } };
     if (method === "GET" && path.startsWith("/search/jql")) return { status: 200, json: { issues: (new URL(`https://x${path}`).searchParams.get("jql") ?? "").startsWith("key in") ? answers.epics ?? [] : answers.search ?? [] } };
     if (method === "PUT") return { status: answers.putFor?.[path.split("/").pop()!] ?? answers.put ?? 204, json: answers.putFor?.[path.split("/").pop()!] === 400 ? { errorMessages: ["Epics cannot have this parent."] } : {} };
@@ -166,7 +166,7 @@ describe("confirm (writeOne)", () => {
     tables.items = item({ initiative_name: "Checkout v2" });
     const { ReconnectNeeded } = await import("./token-provider");
     let puts = 0;
-    const call: JiraRequest = async (m) => { if (m === "GET") return { status: 200, json: { id: "1", fields: { summary: "Checkout", description: markdownToAdf("Pay **fast**"), labels: ["product-velocity", "pv:moscow/must"] } } }; puts++; throw new ReconnectNeeded(); };
+    const call: JiraRequest = async (m) => { if (m === "GET") return { status: 200, json: { id: "1", fields: { summary: "Checkout", description: markdownToAdf("Pay **fast**"), labels: ["pm:moscow/must"] } } }; puts++; throw new ReconnectNeeded(); };
     const r = await writeOne(ctx, ID, [], { call });
     expect(r).toMatchObject({ result: { outcome: "error", message: expect.stringMatching(/sign in again/i) } });
     expect(puts).toBe(1);
@@ -192,7 +192,7 @@ describe("the saved field configuration (decision 2026-11-03-tracker-field-confi
     dated();
     const e = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout", labels: [] }).call);
     expect(e.kind === "ok" && e.plan.fields.duedate).toBe("2027-03-31");
-    expect(e.kind === "ok" && (e.plan.fields.labels as string[])).toContain("pv:moscow/must");
+    expect(e.kind === "ok" && (e.plan.fields.labels as string[])).toContain("pm:moscow/must");
   });
   it("a re-pointed due date field and a switched-off label are used by the preview", async () => {
     dated();
@@ -203,7 +203,7 @@ describe("the saved field configuration (decision 2026-11-03-tracker-field-confi
     if (e.kind !== "ok") return;
     expect(e.plan.fields.customfield_10016).toBe("2027-03-31");
     expect("duedate" in e.plan.fields).toBe(false);
-    expect(e.plan.fields.labels as string[]).not.toContain("pv:moscow/must");
+    expect(e.plan.fields.labels as string[]).not.toContain("pm:moscow/must");
     expect(e.plan.notes.join(" ")).toContain("MoSCoW label not sent: switched off in the field configuration.");
   });
   it("a configured field that is gone from the site is left out and the preview says so", async () => {
@@ -293,7 +293,7 @@ describe("the description sections of an initiative (issue #319)", () => {
     const edited = markdownToAdf("## Summary\n\nShort\n\n## Description\n\nPay **fast**\n\n## Hypothesis (IF / THEN / RESULTING IN)\n\nIF changed in Jira");
     const base = { title: hashText("Checkout"), summary: hashText("Short"), description: hashText(adfToText(markdownToAdf("Pay **fast**"))), hypothesis: hashText("IF a THEN b") };
     tables.item_jira_links = link({ sync_base: base });
-    const j = fakeJira({ summary: "Checkout", description: edited, labels: ["product-velocity", "pv:moscow/must"] });
+    const j = fakeJira({ summary: "Checkout", description: edited, labels: ["pm:moscow/must"] });
     const e = await evaluate((await (await import("./jira-sync-engine")).load(withApp, ID))!, {}, j.call);
     expect(e.kind === "ok" && e.conflicts).toMatchObject([{ field: "hypothesis", kind: "github", pv: "IF a THEN b", github: "IF changed in Jira" }]);
     const w = await writeOne(withApp, ID, [choice("hypothesis" as never, "github", hashText("IF changed in Jira"))], { call: j.call });
@@ -317,16 +317,16 @@ describe("the optional labels in the engine (issue #321)", () => {
   it("the Planned Quarter label is on by default and goes when its switch is off", async () => {
     rows();
     const on = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout", labels: [] }).call);
-    expect(on.kind === "ok" && (on.plan.fields.labels as string[])).toContain("pv:quarter/q3-2027");
+    expect(on.kind === "ok" && (on.plan.fields.labels as string[])).toContain("pm:quarter/q3-2027");
     tables.tracker_field_config = [{ slot: "jira.label.quarter", enabled: false, field_id: null }];
     const off = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout", labels: [] }).call);
-    expect(off.kind === "ok" && (off.plan.fields.labels as string[]).some((l) => l.startsWith("pv:quarter/"))).toBe(false);
+    expect(off.kind === "ok" && (off.plan.fields.labels as string[]).some((l) => l.startsWith("pm:quarter/"))).toBe(false);
   });
   it("switched on, the tags, the focus area and the business value type are read and sent as pv: labels", async () => {
     rows();
     tables.tracker_field_config = ["tags", "focus", "value"].map((k) => ({ slot: `jira.label.${k}`, enabled: true, field_id: null }));
     const e = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout", labels: [] }).call);
-    expect(e.kind === "ok" && (e.plan.fields.labels as string[])).toEqual(expect.arrayContaining(["pv:focus/publishers", "pv:value/defend-revenue", "pv:tag/payments", "pv:tag/q4-push"]));
+    expect(e.kind === "ok" && (e.plan.fields.labels as string[])).toEqual(expect.arrayContaining(["pm:focus/publishers", "pm:value/defend-revenue", "pm:tag/payments", "pm:tag/q4-push"]));
   });
 });
 

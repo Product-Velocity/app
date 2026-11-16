@@ -73,8 +73,8 @@ describe("the two writes", () => {
   it("adds the label with Jira's add operation: every other label is kept, nothing else is sent", async () => {
     const j = fake();
     expect(await addRemovedLabel(j.call, "PLAT-12", noSleep)).toEqual({ ok: true });
-    expect(j.hits).toEqual([{ method: "PUT", path: "/issue/PLAT-12", body: { update: { labels: [{ add: "pv:removed" }] } } }]);
-    expect(REMOVED_LABEL).toBe("pv:removed");
+    expect(j.hits).toEqual([{ method: "PUT", path: "/issue/PLAT-12", body: { update: { labels: [{ add: "pm:removed" }] } } }]);
+    expect(REMOVED_LABEL).toBe("pm:removed");
   });
   it("transitions with the id, only a Done one of this issue; the body is just the transition", async () => {
     const j = fake();
@@ -117,7 +117,7 @@ describe("the two writes", () => {
 });
 
 describe("the label survives a later send", () => {
-  it("mergeLabels keeps pv:removed while stale pv: labels are still removed", () => {
-    expect(mergeLabels(["team-a", "pv:removed", "pv:moscow/could", "product-velocity"], ["product-velocity", "pv:moscow/must"])).toEqual(["team-a", "pv:removed", "product-velocity", "pv:moscow/must"]);
+  it("mergeLabels keeps pm:removed while stale pv: labels are still removed", () => {
+    expect(mergeLabels(["team-a", "pm:removed", "pm:moscow/could", "product-velocity"], ["product-velocity", "pm:moscow/must"])).toEqual(["team-a", "pm:removed", "product-velocity", "pm:moscow/must"]);
   });
 });

@@ -37,7 +37,7 @@ const KEY = "acme/road#11";
 /** A fake GitHub holding issue acme/road#11 (open, with a person's own label), plus anything a test adds. */
 function fakeGithub(o: { state?: "open" | "closed"; reason?: string | null } = {}) {
   const sc = new MemorySourceControl();
-  sc.issues.set("acme/road#11", { number: 11, id: 110, nodeId: "n11", htmlUrl: "https://github.com/acme/road/issues/11", body: "", state: o.state ?? "open", title: "Checkout", labels: ["bug", "pv:moscow/must"], stateReason: o.reason ?? null });
+  sc.issues.set("acme/road#11", { number: 11, id: 110, nodeId: "n11", htmlUrl: "https://github.com/acme/road/issues/11", body: "", state: o.state ?? "open", title: "Checkout", labels: ["bug", "pm:moscow/must"], stateReason: o.reason ?? null });
   return sc;
 }
 const WRITES = ["ensureLabels", "addLabels", "closeIssueNotPlanned", "createIssue", "updateIssue", "removeLabel", "setIssueAssignees"];
@@ -134,7 +134,7 @@ describe("closing one", () => {
     expect(sc.sent.find((p) => Array.isArray(p) && typeof p[0] === "object")).toEqual([{ name: REMOVED_LABEL, color: "2270ED", description: "Managed by Product Velocity: the initiative was removed" }]);
     expect(sc.sent.find((p) => typeof p === "object" && p !== null && "state" in p)).toEqual({ state: "closed", state_reason: "not_planned" });
     const issue = sc.issues.get("acme/road#11")!;
-    expect(issue.labels).toEqual(["bug", "pv:moscow/must", "pv:removed"]);
+    expect(issue.labels).toEqual(["bug", "pm:moscow/must", "pm:removed"]);
     expect(issue).toMatchObject({ state: "closed", stateReason: "not_planned", title: "Checkout", body: "" }); // title and body untouched
     expect(sc.removed).toEqual([]);
     expect(rpcCalls).toEqual([{ fn: "github_record_removed", args: { p_actor: "u1", p_item: A, p_result: "closed", p_reason: "not_planned" } }]);
@@ -168,7 +168,7 @@ describe("closing one", () => {
     let tries = 0;
     sc.closeIssueNotPlanned = async (...a) => { tries++; await orig(...a); throw new GitHubError(422, "x"); };
     const r = await closeOne(ctx, A, { sc });
-    expect(r.result).toMatchObject({ outcome: "error", message: expect.stringContaining("label pv:removed was added, but the issue was not closed") });
+    expect(r.result).toMatchObject({ outcome: "error", message: expect.stringContaining("label pm:removed was added, but the issue was not closed") });
     expect(tries).toBe(1);
     expect(rpcCalls).toEqual([]);
   });
@@ -244,7 +244,7 @@ describe("an initiative stopped at a gate (issue #343)", () => {
     expect((await listRemoved(ctx, { sc: sc21() }) as { items: { id: string }[] }).items.map((i) => i.id)).toEqual([A, D]);
   });
 
-  it("closing it writes only the fixed things: the label pv:removed and the close as not planned; nothing of the initiative; recorded once", async () => {
+  it("closing it writes only the fixed things: the label pm:removed and the close as not planned; nothing of the initiative; recorded once", async () => {
     const sc = sc21();
     const r = await closeOne(ctx, E, { sc });
     expect(r.result).toMatchObject({ id: E, outcome: "closed" });
