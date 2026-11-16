@@ -6,7 +6,7 @@ test.describe("GitHub field mapping", () => {
   test("the default list with the board's fields, the switches, the filters and the fields GitHub shows that nothing uses", async ({ page }) => {
     await page.goto("/dev/field-config");
     const form = page.getByRole("form", { name: "Field configuration of Platform" });
-    await expect(form.getByLabel("Send MoSCoW: Label pv:moscow/<value>")).toBeChecked();
+    await expect(form.getByLabel("Send MoSCoW: Label pm:moscow/<value>")).toBeChecked();
     await expect(form.getByLabel("Send G2M Date (est): Milestone “YYYY Qn” (the quarter of the G2M date)")).toBeChecked();
     await expect(form.getByLabel("Send Change Type: Organisation issue type (Feature, Improvement or Bug), when the organisation has it")).toBeChecked();
     // board fields are saved by the Project boards card; this list shows what is chosen there
@@ -25,7 +25,7 @@ test.describe("GitHub field mapping", () => {
   test("changed settings, no board, a denied permission and an unreadable board say so", async ({ page }) => {
     await page.goto("/dev/field-config?config=changed&board=none&fields=denied");
     const form = page.getByRole("form", { name: "Field configuration of Platform" });
-    await expect(form.getByLabel("Send Stack Rank: Label pv:rank/<band> (top 10, 25, 50, later; never the number)")).not.toBeChecked();
+    await expect(form.getByLabel("Send Stack Rank: Label pm:rank/<band> (top 10, 25, 50, later; never the number)")).not.toBeChecked();
     await page.getByRole("button", { name: /^Can change/ }).click();
     await expect(form.getByRole("button", { name: /Reset Stack Rank/ })).toBeVisible();
     await expect(form.getByRole("row", { name: /MoSCoW.*Priority/ })).toContainText("No board is linked to this project.");

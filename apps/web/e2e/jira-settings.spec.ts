@@ -110,7 +110,7 @@ test.describe("Jira settings, laid out like GitHub (decision 2026-11-03-tracker-
       await expect(form.getByLabel("Jira priority for MoSCoW “Should”").locator("option", { hasText: "High (suggested)" })).toHaveCount(1);
       // defaults: the due date goes to Jira's Due date, every label is sent
       await expect(form.getByLabel("G2M Date (est): Due date (duedate)")).toHaveValue("");
-      await expect(form.getByLabel("Send MoSCoW: Label pv:moscow/<value>")).toBeChecked();
+      await expect(form.getByLabel("Send MoSCoW: Label pm:moscow/<value>")).toBeChecked();
       await expect(form.getByRole("button", { name: "Save field configuration of Platform" })).toBeVisible();
       await expect(form.getByRole("button", { name: "Reset all to default for Platform" })).toBeVisible();
       // it opens on "Synced": the name and the description are fixed and in the list; the commercial fields are not shown
@@ -137,16 +137,16 @@ test.describe("Jira settings, laid out like GitHub (decision 2026-11-03-tracker-
       await page.screenshot({ path: "../../docs/screenshots/field-config-jira.png", fullPage: true });
       // unsaved changes are announced
       await expect(card.getByText("No unsaved changes")).toBeVisible();
-      await form.getByLabel("Send MoSCoW: Label pv:moscow/<value>").uncheck();
+      await form.getByLabel("Send MoSCoW: Label pm:moscow/<value>").uncheck();
       await expect(card.getByText("Unsaved changes", { exact: true })).toBeVisible();
       // changed settings are marked and can be reset one by one
       await page.goto("/dev/jira/mapping?config=changed");
       const changed = page.getByRole("form", { name: "Field configuration of Platform" });
-      await expect(changed.getByLabel("Send MoSCoW: Label pv:moscow/<value>")).not.toBeChecked();
+      await expect(changed.getByLabel("Send MoSCoW: Label pm:moscow/<value>")).not.toBeChecked();
       await expect(changed.getByLabel("G2M Date (est): Due date (duedate)")).toHaveValue("customfield_10016");
       await page.getByRole("button", { name: /^Can change/ }).click();
-      await expect(changed.getByRole("button", { name: "Reset MoSCoW (Label pv:moscow/<value>) to the default" })).toBeVisible();
-      await expect(changed.getByRole("button", { name: "Reset Stack Rank (Label pv:rank/<band> (top 10, 25, 50, later; never the number)) to the default" })).toHaveCount(0);
+      await expect(changed.getByRole("button", { name: "Reset MoSCoW (Label pm:moscow/<value>) to the default" })).toBeVisible();
+      await expect(changed.getByRole("button", { name: "Reset Stack Rank (Label pm:rank/<band> (top 10, 25, 50, later; never the number)) to the default" })).toHaveCount(0);
       await page.goto("/dev/jira/mapping?fields=unreadable");
       await expect(page.getByText("could not be read just now").first()).toBeVisible();
       await page.goto("/dev/jira/mapping?role=viewer");
