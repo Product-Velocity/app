@@ -18,6 +18,8 @@ export const NOTICE: Record<string, string> = {
   retried: "Run again: it worked.",
   "retry-failed": "It still failed. The reason is in the sync log below.",
   "field-config-saved": "Field configuration saved. Nothing was written to GitHub; the next Sync uses it.",
+  "field-config-copied": "Copied to the other projects. Nothing was written to GitHub; the next Sync uses it.",
+  "copy-none": "Choose at least one project to copy to.",
   "field-config-invalid": "The field configuration was not saved.",
   error: "Something went wrong. Try again, or run the connection test.",
 };
