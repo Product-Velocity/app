@@ -75,7 +75,7 @@ describe("default-off switches in the form (issue #321)", () => {
 
 describe("stealth names in the form (issue #411)", () => {
   it("a label text is saved as typed (a missing slash is added); the default text is not stored", () => {
-    const f = form({ ...ALL_JIRA_ON, [TEXT("jira.label.moscow")]: "moscow", [TEXT("jira.label.rank")]: "pv:rank/", [TEXT("jira.name.removed")]: "removed", [TEXT("jira.name.define")]: "" });
+    const f = form({ ...ALL_JIRA_ON, [TEXT("jira.label.moscow")]: "moscow", [TEXT("jira.label.rank")]: "pm:rank/", [TEXT("jira.name.removed")]: "removed", [TEXT("jira.name.define")]: "" });
     expect(configRowsFromForm("jira", f.get, f.has)).toEqual([{ slot: "jira.label.moscow", enabled: true, field: null, text: "moscow/" }, { slot: "jira.name.removed", enabled: true, field: null, text: "removed" }]);
   });
   it("switching the base label off is a row; the base label text is a row", () => {

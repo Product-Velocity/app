@@ -36,11 +36,11 @@ describe("Jira under other names", () => {
   const map = effectiveJiraMap({}, ROWS);
   it("labels, no base label, and a changed marker", () => {
     const p = buildJiraPayload({ item, fields: map, projectName: "Platform" });
-    expect(p.fields.labels).toEqual(["pv:project/platform", "moscow/must", "rank/top-10", "pv:define"]);
+    expect(p.fields.labels).toEqual(["pm:project/platform", "moscow/must", "rank/top-10", "pm:define"]);
   });
   it("labels written under the old names are removed on update; people's labels and the removed label stay", () => {
-    const merged = mergeLabels(["team-a", "product-velocity", "pv:moscow/should", "removed", "pv:removed"], ["moscow/must"], map.names);
-    expect(merged).toEqual(["team-a", "removed", "pv:removed", "moscow/must"]);
+    const merged = mergeLabels(["team-a", "product-velocity", "pm:moscow/should", "removed", "pm:removed"], ["moscow/must"], map.names);
+    expect(merged).toEqual(["team-a", "removed", "pm:removed", "moscow/must"]);
   });
   it("a create carries the marker under the chosen prefix, and it is found again by it", async () => {
     const plan = planJiraSend({ pv: { id: "i1", name: "Checkout", description: null, moscow: "Must" }, jira: null, base: null, map, create: { projectKey: "PLAT", issueTypeId: "10001" } } as never);
@@ -51,7 +51,7 @@ describe("Jira under other names", () => {
     const call = async (_m: string, path: string) => { jqls.push(decodeURIComponent(path)); return { status: 200, json: { issues: [{ key: "PLAT-9", id: "5" }] } }; };
     expect(await findByMarker(call as never, "PLAT", plan.marker!)).toEqual({ key: "PLAT-9", id: "5" });
     expect(jqls[0]).toContain(`labels = "${plan.marker}"`);
-    expect(markerFor("i1")).toMatch(/^pv:item\//); // default unchanged
+    expect(markerFor("i1")).toMatch(/^pm:item\//); // default unchanged
   });
   it("the removed label added after a confirmed close uses the chosen name", async () => {
     const sent: unknown[] = [];
@@ -65,7 +65,7 @@ describe("the view", () => {
   it("label rows carry their text and the names card lists the rest", () => {
     const v = buildMappingView({ tracker: "jira", rows: parseConfigRows(ROWS, "jira"), choices: null });
     const moscow = v.changeable.find((r) => r.id === "jira.label.moscow")!;
-    expect(moscow.control).toMatchObject({ type: "toggle", text: { value: "moscow/", default: "pv:moscow/" } });
+    expect(moscow.control).toMatchObject({ type: "toggle", text: { value: "moscow/", default: "pm:moscow/" } });
     expect(moscow.isDefault).toBe(false);
     expect(v.names.map((n) => n.id)).toEqual(["jira.label.base", "jira.name.removed", "jira.name.define", "jira.name.marker"]);
     expect(v.names.find((n) => n.id === "jira.label.base")).toMatchObject({ on: false });

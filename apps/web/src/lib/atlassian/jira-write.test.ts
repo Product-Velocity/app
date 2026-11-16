@@ -55,4 +55,19 @@ describe("Jira write client", () => {
     const call = seq({ status: 200 });
     expect((await withBackoff(() => call("GET", "/x"), noSleep)).status).toBe(200);
   });
+  it("a Priority that is not on the issue type's screen is left out and the rest is sent, with a note (issue #469)", async () => {
+    const bodies: unknown[] = [];
+    const call = (async (_m: string, _p: string, body?: unknown) => { bodies.push(body); return bodies.length === 1 ? { status: 400, json: { errors: { priority: "Field 'priority' cannot be set. It is not on the appropriate screen, or unknown." } } } : { status: 201, json: { key: "PLAT-9", id: "1" } }; }) as unknown as JiraRequest;
+    const r = await createIssue(call, { summary: "x", priority: { id: "2" }, labels: ["pm:moscow/must"] }, noSleep);
+    expect(r).toMatchObject({ ok: true, key: "PLAT-9", created: true });
+    expect((r as { dropped?: string[] }).dropped?.[0]).toMatch(/^Not sent: Priority \(Field 'priority' cannot be set/);
+    expect(bodies[1]).toEqual({ fields: { summary: "x", labels: ["pm:moscow/must"] } });
+  });
+  it("the same for an update, and a refusal of anything else (the summary) still fails", async () => {
+    const put = seq({ status: 400, json: { errors: { customfield_10015: "not on screen" } } }, { status: 204 });
+    expect(await updateIssue(put, "PLAT-1", { summary: "x", customfield_10015: "2026-12-01" }, noSleep)).toMatchObject({ ok: true, dropped: [expect.stringContaining("customfield_10015")] });
+    const bad = seq({ status: 400, json: { errors: { summary: "too long" } } });
+    expect(await updateIssue(bad, "PLAT-1", { summary: "x" }, noSleep)).toMatchObject({ ok: false, kind: "rejected" });
+    expect(bad.calls).toBe(1);
+  });
 });

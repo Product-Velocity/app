@@ -8,7 +8,7 @@ describe("buildTrackingIssue", () => {
   it("builds the title, the managed block, labels and a stable hash", () => {
     const a = buildTrackingIssue(base);
     expect(a.title).toBe("R-12: Faster checkout");
-    expect(a.labels).toEqual(["product-velocity", "pv:project/mobile-app"]);
+    expect(a.labels).toEqual(["pm:project/mobile-app"]);
     expect(a.block.startsWith(`<!-- pv:begin item=${ID} -->`)).toBe(true);
     expect(a.block.endsWith(BLOCK_END)).toBe(true);
     expect(a.block).toContain("- [PRD](https://example.test/prd)");
@@ -29,20 +29,20 @@ describe("buildTrackingIssue", () => {
     expect(new Set(read)).toEqual(new Set([...OUTBOUND_ITEM_FIELDS, "initiative_phase"]));
   });
   it("labels an initiative in Define for engineering review, and only then", () => {
-    expect(buildTrackingIssue({ ...base, item: { ...base.item, initiative_phase: "Define" } }).labels).toContain("pv:define");
-    for (const phase of ["Build", "Test", "Roll-out", null, "Discover"]) expect(buildTrackingIssue({ ...base, item: { ...base.item, initiative_phase: phase } }).labels, String(phase)).not.toContain("pv:define");
-    // the phase moving on changes the labels, so the next send removes pv:define again
+    expect(buildTrackingIssue({ ...base, item: { ...base.item, initiative_phase: "Define" } }).labels).toContain("pm:define");
+    for (const phase of ["Build", "Test", "Roll-out", null, "Discover"]) expect(buildTrackingIssue({ ...base, item: { ...base.item, initiative_phase: phase } }).labels, String(phase)).not.toContain("pm:define");
+    // the phase moving on changes the labels, so the next send removes pm:define again
     expect(buildTrackingIssue({ ...base, item: { ...base.item, initiative_phase: "Define" } }).hash).not.toBe(buildTrackingIssue({ ...base, item: { ...base.item, initiative_phase: "Build" } }).hash);
   });
   it("Business Value Type and Planned Quarter become labels; the amount never does", () => {
     const item = { ...base.item, value_type: "Defend revenue", value_12m: 1250000, value_basis: "Measured", g2m_quarter: "Q3 2027" };
     const off = buildTrackingIssue({ ...base, item });
-    expect(off.labels).toContain("pv:quarter/q3-2027");
-    expect(off.labels).toContain("pv:value/defend-revenue"); // on by default
+    expect(off.labels).toContain("pm:quarter/q3-2027");
+    expect(off.labels).toContain("pm:value/defend-revenue"); // on by default
     expect(JSON.stringify(off)).not.toMatch(/1250000|Measured/);
-    expect(buildTrackingIssue({ ...base, item, off: ["github.label.value"] }).labels.some((l) => l.startsWith("pv:value/"))).toBe(false);
-    expect(buildTrackingIssue({ ...base, item, off: ["github.label.quarter"] }).labels.some((l) => l.startsWith("pv:quarter/"))).toBe(false);
-    expect(buildTrackingIssue({ ...base, item: { ...item, g2m_quarter: "soon" } }).labels.some((l) => l.startsWith("pv:quarter/"))).toBe(false);
+    expect(buildTrackingIssue({ ...base, item, off: ["github.label.value"] }).labels.some((l) => l.startsWith("pm:value/"))).toBe(false);
+    expect(buildTrackingIssue({ ...base, item, off: ["github.label.quarter"] }).labels.some((l) => l.startsWith("pm:quarter/"))).toBe(false);
+    expect(buildTrackingIssue({ ...base, item: { ...item, g2m_quarter: "soon" } }).labels.some((l) => l.startsWith("pm:quarter/"))).toBe(false);
   });
   it("the Description is its own Markdown section between Summary and Hypothesis, and only appears when there is one", () => {
     const md = "### Scope\n\n- parse the file\n- map the columns\n\n| a | b |\n|---|---|\n| 1 | 2 |";
@@ -72,25 +72,25 @@ describe("buildTrackingIssue", () => {
     expect(sanitize("a@b.com and @user")).toBe("a@b.com and @​user");
   });
   it("labels a project safely", () => {
-    expect(projectLabel("Mobile App / EU!")).toBe("pv:project/mobile-app-eu");
-    expect(projectLabel("???")).toBe("pv:project/project");
+    expect(projectLabel("Mobile App / EU!")).toBe("pm:project/mobile-app-eu");
+    expect(projectLabel("???")).toBe("pm:project/project");
   });
 });
 
 describe("labels PV owns (the pv: namespace)", () => {
   const withItem = (extra: Record<string, unknown>) => buildTrackingIssue({ ...base, item: { ...base.item, ...extra } });
   it("MoSCoW and a rank band become pv: labels next to the base and project labels", () => {
-    expect(withItem({ moscow: "Must", stack_rank: 3 }).labels).toEqual(["product-velocity", "pv:project/mobile-app", "pv:moscow/must", "pv:rank/top-10"]);
-    expect(withItem({ moscow: "Won't", stack_rank: 80 }).labels).toEqual(["product-velocity", "pv:project/mobile-app", "pv:moscow/wont", "pv:rank/later"]);
+    expect(withItem({ moscow: "Must", stack_rank: 3 }).labels).toEqual(["pm:project/mobile-app", "pm:moscow/must", "pm:rank/top-10"]);
+    expect(withItem({ moscow: "Won't", stack_rank: 80 }).labels).toEqual(["pm:project/mobile-app", "pm:moscow/wont", "pm:rank/later"]);
   });
   it("rank bands: top 10, top 25, top 50, later; no label without a rank", () => {
-    expect(rankBandLabel(1)).toBe("pv:rank/top-10");
-    expect(rankBandLabel(10)).toBe("pv:rank/top-10");
-    expect(rankBandLabel(11)).toBe("pv:rank/top-25");
-    expect(rankBandLabel(25)).toBe("pv:rank/top-25");
-    expect(rankBandLabel(26)).toBe("pv:rank/top-50");
-    expect(rankBandLabel(50)).toBe("pv:rank/top-50");
-    expect(rankBandLabel(51)).toBe("pv:rank/later");
+    expect(rankBandLabel(1)).toBe("pm:rank/top-10");
+    expect(rankBandLabel(10)).toBe("pm:rank/top-10");
+    expect(rankBandLabel(11)).toBe("pm:rank/top-25");
+    expect(rankBandLabel(25)).toBe("pm:rank/top-25");
+    expect(rankBandLabel(26)).toBe("pm:rank/top-50");
+    expect(rankBandLabel(50)).toBe("pm:rank/top-50");
+    expect(rankBandLabel(51)).toBe("pm:rank/later");
     expect(rankBandLabel(null)).toBeNull();
     expect(rankBandLabel(0)).toBeNull();
     expect(rankBandLabel("LEAK_STACK_RANK")).toBeNull();
@@ -113,12 +113,12 @@ describe("labels PV owns (the pv: namespace)", () => {
     issue.labels.push("bug", "needs-design", "pv:something-custom-by-us-later");
     const next = buildTrackingIssue({ ...base, item: { ...base.item, moscow: "Should", stack_rank: 30 } });
     await pushTrackingIssue(sc, 1, "acme/road", ID, next, { issueNumber: created.issue.number, lastPushedHash: first.hash });
-    expect(issue.labels).toEqual(expect.arrayContaining(["product-velocity", "pv:project/mobile-app", "pv:moscow/should", "pv:rank/top-50", "bug", "needs-design"]));
-    expect(issue.labels).not.toContain("pv:moscow/must");
-    expect(issue.labels).not.toContain("pv:rank/top-10");
-    expect(sc.removed).toEqual(["pv:moscow/must", "pv:rank/top-10", "pv:something-custom-by-us-later"]);
+    expect(issue.labels).toEqual(expect.arrayContaining(["pm:project/mobile-app", "pm:moscow/should", "pm:rank/top-50", "bug", "needs-design"]));
+    expect(issue.labels).not.toContain("pm:moscow/must");
+    expect(issue.labels).not.toContain("pm:rank/top-10");
+    expect(sc.removed).toEqual(["pm:moscow/must", "pm:rank/top-10", "pv:something-custom-by-us-later"]);
   });
-  it("the label pv:removed (a confirmed close of a removed initiative) is the one pv: label a later push keeps", async () => {
+  it("the label pm:removed (a confirmed close of a removed initiative) is the one pv: label a later push keeps", async () => {
     const sc = new MemorySourceControl();
     const first = buildTrackingIssue({ ...base, item: { ...base.item, moscow: "Must" } });
     const created = await pushTrackingIssue(sc, 1, "acme/road", ID, first, null);
@@ -128,7 +128,7 @@ describe("labels PV owns (the pv: namespace)", () => {
     const next = buildTrackingIssue({ ...base, item: { ...base.item, moscow: "Should" } });
     await pushTrackingIssue(sc, 1, "acme/road", ID, next, { issueNumber: created.issue.number, lastPushedHash: first.hash });
     expect(issue.labels).toContain(REMOVED_LABEL);
-    expect(sc.removed).toEqual(["pv:moscow/must"]);
+    expect(sc.removed).toEqual(["pm:moscow/must"]);
   });
   it("clearing MoSCoW removes its label; an unchanged item sends nothing, so removes nothing", async () => {
     const sc = new MemorySourceControl();
@@ -137,12 +137,12 @@ describe("labels PV owns (the pv: namespace)", () => {
     if (c.kind !== "created") throw new Error("expected create");
     const b = buildTrackingIssue(base);
     await pushTrackingIssue(sc, 1, "acme/road", ID, b, { issueNumber: c.issue.number, lastPushedHash: a.hash });
-    expect(sc.issues.get(`acme/road#${c.issue.number}`)!.labels).not.toContain("pv:moscow/could");
+    expect(sc.issues.get(`acme/road#${c.issue.number}`)!.labels).not.toContain("pm:moscow/could");
     const before = sc.calls.length;
     expect((await pushTrackingIssue(sc, 1, "acme/road", ID, b, { issueNumber: c.issue.number, lastPushedHash: b.hash })).kind).toBe("unchanged");
     expect(sc.calls.length).toBe(before);
   });
-  it("a project renamed in PV swaps its pv:project label", async () => {
+  it("a project renamed in PV swaps its pm:project label", async () => {
     const sc = new MemorySourceControl();
     const a = buildTrackingIssue(base);
     const c = await pushTrackingIssue(sc, 1, "acme/road", ID, a, null);
@@ -150,8 +150,8 @@ describe("labels PV owns (the pv: namespace)", () => {
     const b = buildTrackingIssue({ ...base, projectName: "Checkout" });
     await pushTrackingIssue(sc, 1, "acme/road", ID, b, { issueNumber: c.issue.number, lastPushedHash: a.hash });
     const labels = sc.issues.get(`acme/road#${c.issue.number}`)!.labels;
-    expect(labels).toContain("pv:project/checkout");
-    expect(labels).not.toContain("pv:project/mobile-app");
+    expect(labels).toContain("pm:project/checkout");
+    expect(labels).not.toContain("pm:project/mobile-app");
   });
 });
 
@@ -201,7 +201,7 @@ describe("pushTrackingIssue", () => {
     expect(issue.body.startsWith("Engineering notes")).toBe(true);
     expect(issue.body.endsWith("Footer")).toBe(true);
     expect(issue.body).toContain("Cut steps.");
-    expect(issue.labels).toEqual(expect.arrayContaining(["bug", "product-velocity", "pv:project/mobile-app"]));
+    expect(issue.labels).toEqual(expect.arrayContaining(["bug", "pm:project/mobile-app"]));
   });
   it("reports a deleted issue instead of recreating it", async () => {
     const sc = new MemorySourceControl();
@@ -273,14 +273,14 @@ describe("share links of files (R-034)", () => {
 });
 
 describe("type and milestone (R-034)", () => {
-  it("Change Type becomes a pv:type label, and the issue-type names to try", () => {
-    expect(changeTypeLabel("New feature")).toBe("pv:type/new-feature");
-    expect(changeTypeLabel("Improvement to existing feature")).toBe("pv:type/improvement");
+  it("Change Type becomes a pm:type label, and the issue-type names to try", () => {
+    expect(changeTypeLabel("New feature")).toBe("pm:type/new-feature");
+    expect(changeTypeLabel("Improvement to existing feature")).toBe("pm:type/improvement");
     expect(changeTypeLabel("Something else")).toBeNull();
     expect(changeTypeLabel(undefined)).toBeNull();
     expect(issueTypeCandidates("New feature")).toEqual(["Feature"]);
     expect(issueTypeCandidates("Improvement to existing feature")).toEqual(["Improvement", "Enhancement"]);
-    expect(changeTypeLabel("Bug")).toBe("pv:type/bug");
+    expect(changeTypeLabel("Bug")).toBe("pm:type/bug");
     expect(issueTypeCandidates("Bug")).toEqual(["Bug"]);
     expect(issueTypeCandidates(null)).toEqual([]);
   });
@@ -293,7 +293,7 @@ describe("type and milestone (R-034)", () => {
   it("a built issue carries the type label, the milestone and the type candidates, and any change moves the hash", () => {
     const item = { ...base.item, change_type: "New feature", g2m_date_est: "2026-11-14" };
     const a = buildTrackingIssue({ ...base, item });
-    expect(a.labels).toContain("pv:type/new-feature");
+    expect(a.labels).toContain("pm:type/new-feature");
     expect(a.milestone).toEqual({ title: "2026 Q4", dueOn: "2026-12-31T12:00:00Z" });
     expect(a.typeCandidates).toEqual(["Feature"]);
     expect(buildTrackingIssue({ ...base, item: { ...item, g2m_date_est: "2027-02-01" } }).hash).not.toBe(a.hash);
@@ -326,7 +326,7 @@ describe("pushing type and milestone", () => {
       const r = await pushTrackingIssue(sc, 1, "acme/road", ID, built2, null);
       expect(r.kind).toBe("created");
       expect(sc.sent.find((x) => (x as { title?: string }).title)).not.toHaveProperty("type");
-      expect([...sc.issues.values()][0]!.labels).toContain("pv:type/new-feature");
+      expect([...sc.issues.values()][0]!.labels).toContain("pm:type/new-feature");
     }
   });
   it("an update moves the issue to the new milestone, and an item without a date leaves a milestone people chose alone", async () => {
@@ -341,13 +341,13 @@ describe("pushing type and milestone", () => {
 });
 
 describe("Initiative Group label", () => {
-  it("becomes pv:group/<slug>, changes with the group, and is empty without one", () => {
-    expect(groupLabel("Checkout & Payments")).toBe("pv:group/checkout-payments");
+  it("becomes pm:group/<slug>, changes with the group, and is empty without one", () => {
+    expect(groupLabel("Checkout & Payments")).toBe("pm:group/checkout-payments");
     expect(groupLabel("  ")).toBeNull();
     expect(groupLabel(undefined)).toBeNull();
-    expect(groupLabel("x".repeat(60))).toBe(`pv:group/${"x".repeat(40)}`);
+    expect(groupLabel("x".repeat(60))).toBe(`pm:group/${"x".repeat(40)}`);
     const a = buildTrackingIssue({ ...base, item: { ...base.item, theme: "Growth" } });
-    expect(a.labels).toContain("pv:group/growth");
+    expect(a.labels).toContain("pm:group/growth");
     expect(buildTrackingIssue({ ...base, item: { ...base.item, theme: "Retention" } }).hash).not.toBe(a.hash);
     expect(a.block).not.toContain("Growth");
   });

@@ -29,7 +29,7 @@ export function configRowsFromForm(tracker: Tracker, get: Get, has: Has): Config
     if (hasText(s)) {
       const base = defaultText(s);
       // "Apply to all": the default name without its `pv:` namespace, behind the prefix that was typed (blank = no prefix); the base label keeps its name
-      const bare = base.replace(/^pv:/, "");
+      const bare = base.replace(/^p[mv]:/, "");
       let text = get(APPLY) === "prefix" && !s.id.endsWith(".label.base") && !s.id.endsWith(".name.block") ? `${get(PREFIX_ALL)}${bare}` : s.nameKind ? normalisePrefix(get(TEXT(s.id))) : get(TEXT(s.id));
       if (text === base) text = "";
       const on = s.kind === "name" ? true : has(ON(s.id));

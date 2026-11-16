@@ -75,12 +75,15 @@ function Setting({ r, tracker }: { r: ChangeRowView; tracker: string }) {
         {c.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     );
-  if (c.type === "priority")
+  if (c.type === "priority") {
+    // nothing saved yet: the suggestion is pre-selected, so one Save turns Priority on
+    const none = MOSCOW.every((m) => !c.values[m]);
     return (
       <div className="stack">
+        {none && Object.keys(c.proposal).length > 0 && <span className="muted">Suggested priorities are pre-selected. Save to start sending Priority.</span>}
         {MOSCOW.map((m) => (
           <label key={m}>{m}{" "}
-            <select name={`priority_${m}`} defaultValue={c.values[m] ?? ""} aria-label={`${tracker} priority for MoSCoW “${m}”`}>
+            <select name={`priority_${m}`} defaultValue={c.values[m] ?? (none ? c.proposal[m] : undefined) ?? ""} aria-label={`${tracker} priority for MoSCoW “${m}”`}>
               <option value="">Not mapped (not sent)</option>
               {c.options.map((o) => <option key={o.id} value={o.id}>{o.name}{c.proposal[m] === o.id ? " (suggested)" : ""}</option>)}
             </select>
@@ -88,6 +91,7 @@ function Setting({ r, tracker }: { r: ChangeRowView; tracker: string }) {
         ))}
       </div>
     );
+  }
   if (c.type === "board") return <span className="muted">{c.note} Change it under Project boards above.</span>;
   return <span className="muted">{c.reason}</span>;
 }

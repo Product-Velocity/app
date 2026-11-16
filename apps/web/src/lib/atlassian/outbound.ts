@@ -65,10 +65,12 @@ export function desiredLabels(item: Record<string, unknown>, projectName?: strin
 }
 /** Put on a Jira issue when its initiative was removed in Product Velocity and the person confirmed (jira-close.ts). Not an "owned" label: a later send must not strip it. */
 export const REMOVED_LABEL = DEFAULT_NAMES.removed;
+/** `pv:removed` was the removed label until 2026-11-16 (issue #468): an issue closed under it keeps it and it is never taken off. */
+const LEGACY_REMOVED_LABEL = "pv:removed";
 /** Labels after a write: the person's own labels stay, `pv:` labels are replaced by the desired ones (`pv:removed` stays: it records a close). */
 export function mergeLabels(current: string[], desired: string[], names?: Names): string[] {
   const removed = resolveNames(names).removed;
-  return [...new Set([...current.filter((l) => l === REMOVED_LABEL || l === removed || !isOwnedLabel(l, names)), ...desired])];
+  return [...new Set([...current.filter((l) => l === REMOVED_LABEL || l === LEGACY_REMOVED_LABEL || l === removed || !isOwnedLabel(l, names)), ...desired])];
 }
 
 export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {

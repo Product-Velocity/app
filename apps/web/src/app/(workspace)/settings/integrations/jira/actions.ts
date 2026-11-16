@@ -55,6 +55,20 @@ const nameOf = (types: { id: string; name: string }[], id: string | null) => (id
  * Links a PV project to a Jira project. The Jira project and its issue types are read again from Jira here, so the ids and names stored are
  * Jira's, not whatever the form carried. Only software and business projects can be linked (Product Discovery ideas come later).
  */
+/** A newly linked project gets the suggested priorities (highest = Must ... lowest = Won't) when none are saved yet, so Priority is sent from the first Sync. Never fails the link. */
+async function proposePriorityOnLink(supabase: Awaited<ReturnType<typeof adminOnly>> extends infer C ? (C extends { supabase: infer S } ? S : never) : never, project: string, connection: string, site: string): Promise<void> {
+  try {
+    const { data: row } = await supabase.from("jira_project_links").select("field_map").eq("project_id", project).maybeSingle();
+    const map = parseFieldMap(row?.field_map);
+    if (Object.keys(map.priorityByMoscow ?? {}).length > 0) return;
+    const fields = await readJiraSiteFields(connection, site);
+    if (Object.keys(fields.proposal).length === 0) return;
+    await supabase.rpc("jira_set_field_map", { p_project: project, p_map: { ...map, priorityByMoscow: fields.proposal } });
+  } catch (e) {
+    console.error(JSON.stringify({ jira: "priority-proposal", error: e instanceof Error ? e.message.slice(0, 100) : "unknown" }));
+  }
+}
+
 export async function linkJiraProject(form: FormData): Promise<void> {
   const ctx = await adminOnly();
   if (!ctx) redirect(`${PATH}?status=not-admin`);
@@ -76,6 +90,7 @@ export async function linkJiraProject(form: FormData): Promise<void> {
       p_initiative_id: initiative, p_initiative_name: nameOf(detail.issueTypes, initiative),
       p_epic_id: epic, p_epic_name: nameOf(detail.issueTypes, epic), p_task_id: task, p_task_name: nameOf(detail.issueTypes, task),
     });
+    if (!error) await proposePriorityOnLink(ctx.supabase, project, connection, site);
     if (error) status = error.code === "PV008" ? "link-tracker" : error.code === "PV009" ? "link-unavailable" : error.code === "23505" ? "link-taken" : "error";
   } catch (e) {
     // redirect() throws a control-flow error that must pass through

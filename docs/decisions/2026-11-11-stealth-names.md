@@ -14,3 +14,5 @@ status: built, to confirm
 - **Reading.** The managed block is found under any marker word and both footers, so issues written under old names are still read, merged and replaced.
 - **Not hidden (cannot be).** The item code in the GitHub issue title (`PV-12: Name`), the Jira marker hash, a GitHub issue's history, and anything people write. The tracker's audit log shows the GitHub App's name. If the App itself must be neutral, rename it in GitHub.
 - **Not verified here:** a real Sync on a real GitHub repository and Jira site (fake sources only).
+
+**Update 2026-11-16 (issue #468, `2026-11-16-pm-default-labels-and-jira-priority.md`):** the defaults are now `pm:` and no base label; `pv:` and `product-velocity` stay recognised so old labels are cleaned up.

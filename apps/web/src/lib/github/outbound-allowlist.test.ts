@@ -9,7 +9,7 @@ import { FIELDS } from "@pv/domain";
 const ID = "22222222-2222-4222-8222-222222222222";
 const allowed = new Set<string>(OUTBOUND_READ_FIELDS);
 // read, but only ever sent as a label (MoSCoW value, rank band, Change Type), an issue type or a milestone (G2M date), never as text: they are checked with real values below
-// read to derive something that is sent (a label, a board value), never sent as the field itself; initiative_phase only chooses the pv:define review label
+// read to derive something that is sent (a label, a board value), never sent as the field itself; initiative_phase only chooses the pm:define review label
 const DERIVED = new Set(["moscow", "stack_rank", "change_type", "g2m_date_est", "theme", "effort", "focus_area", "value_type", "g2m_quarter", "tags", "initiative_phase"]);
 const sentinel = (key: string) => `LEAK_${key.toUpperCase()}_9f3a`;
 
@@ -45,8 +45,8 @@ describe.each(OUTBOUND_PROVIDERS)("outbound $name payloads", ({ wire }) => {
 
   it("MoSCoW and the rank only leave as pv: labels: a value and a band, never the rank number or any other field", async () => {
     const w = await wire({ ...fullItem(), moscow: "Should", stack_rank: 37 }, []);
-    expect(w).toContain("pv:moscow/should");
-    expect(w).toContain("pv:rank/top-50");
+    expect(w).toContain("pm:moscow/should");
+    expect(w).toContain("pm:rank/top-50");
     expect(w).not.toMatch(/\b37\b/);
     for (const f of FIELDS) if (!allowed.has(f.key)) expect(w, `${f.key} leaked`).not.toContain(sentinel(f.key));
   });
@@ -75,7 +75,7 @@ describe("outbound GitHub payloads", () => {
 // Rule 2 for the one new GitHub write (decision 2026-11-03-github-close-removed): labelling and closing the issue of a removed initiative sends two fixed
 // things and nothing from the initiative, even when every field of it is filled with a sentinel and the issue's own text holds one.
 describe("outbound GitHub payloads: label and close a removed initiative's issue", () => {
-  it("carries the label pv:removed and the fixed close reason, and no field of the initiative", async () => {
+  it("carries the label pm:removed and the fixed close reason, and no field of the initiative", async () => {
     const sc = new MemorySourceControl();
     sc.issues.set("acme/road#7", { number: 7, id: 70, nodeId: "n7", htmlUrl: "https://github.com/acme/road/issues/7", body: "x", state: "open", title: "T", labels: [] });
     const t = { sc, installationId: 1, repo: "acme/road", number: 7 };
@@ -83,7 +83,7 @@ describe("outbound GitHub payloads: label and close a removed initiative's issue
     expect((await addRemovedLabel(t)).ok).toBe(true);
     expect((await closeNotPlanned(t, state)).ok).toBe(true);
     const wire = JSON.stringify(sc.sent);
-    expect(sc.sent).toEqual([[{ name: "pv:removed", color: "2270ED", description: "Managed by Product Velocity: the initiative was removed" }], ["pv:removed"], { state: "closed", state_reason: "not_planned" }]);
+    expect(sc.sent).toEqual([[{ name: "pm:removed", color: "2270ED", description: "Managed by Product Velocity: the initiative was removed" }], ["pm:removed"], { state: "closed", state_reason: "not_planned" }]);
     for (const f of FIELDS) expect(wire, `${f.key} leaked`).not.toContain(sentinel(f.key));
     expect(wire).not.toMatch(/\b(title|body|name)\b.*LEAK_/);
   });
