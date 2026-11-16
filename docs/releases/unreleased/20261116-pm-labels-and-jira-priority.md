@@ -1,4 +1,0 @@
----
-bump: minor
----
-**Default sync labels are now `pm:`, and Jira Priority is on by default.** For GitHub and Jira, the labels Product Velocity writes start with `pm:` (Product Management) instead of `pv:`, and the base label `product-velocity` is no longer sent unless a project chooses one. The next confirmed Sync adds the `pm:` labels and removes the old `pv:` ones; `pv:removed` stays as the record of a close. Newly linked Jira projects get Priority mapped from MoSCoW (Must, Should, Could, Won't) from the start, and for existing projects the suggestion is pre-selected in the field configuration. Jira Plans "Target start" is ranked with the start-date choices. If Jira refuses Priority, the due date or a custom field because it is not on the issue type's screen, Sync sends the rest and tells you which field to add or switch off.
