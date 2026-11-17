@@ -582,7 +582,7 @@ SECRET_THRESHOLD_3PCT: stop if conversion is under 3%.
   beforeAll(() => { b = docBackendAs("creator", cora, f.tenantA); });
 
   it("dry run, then creates the initiative as an AI draft with Business Value Type only on the person's words", async () => {
-    const item = { name: "Account switcher", project: "Platform", group: "Accounts", summary: "Switch accounts in one click.", value_type: "Increase revenue", value_type_basis: BASIS };
+    const item = { name: "Account switcher", project: "Platform", group: "Accounts", summary: "Switch accounts in one click.", value_type: "Grow existing revenue", value_type_basis: BASIS };
     const dry = await call(b, "create_items", { dry_run: true, items: [item, { ...item, name: "No basis", value_type_basis: undefined }] });
     expect(dry.data).toMatchObject({ valid: 1, invalid: 1 });
     expect(dry.data.items[1].error).toMatch(/own words/i);
@@ -592,7 +592,7 @@ SECRET_THRESHOLD_3PCT: stop if conversion is under 3%.
     code = made.data.items[0].code as string;
     const r = await row();
     itemId = r.id as string;
-    expect(r).toMatchObject({ ai_draft: true, created_via: "MCP", value_type: "Increase revenue", decision: null, value_12m: null, confidence: null, description: null, hypothesis: null, value_proposition: null });
+    expect(r).toMatchObject({ ai_draft: true, created_via: "MCP", value_type: "Grow existing revenue", decision: null, value_12m: null, confidence: null, description: null, hypothesis: null, value_proposition: null });
     const audit = (await db.admin.query("select basis, via from public.audit_log where entity = 'items' and entity_id = $1 and field = 'value_type'", [itemId])).rows;
     expect(audit).toEqual([{ basis: BASIS, via: "MCP" }]);
   });
@@ -636,7 +636,7 @@ SECRET_THRESHOLD_3PCT: stop if conversion is under 3%.
     const wire = JSON.stringify([built, sc.sent]);
     expect(wire).toContain("Consultants need a login per company.");
     expect(wire).toContain("RESULTING IN fewer support requests");
-    for (const secret of ["SECRET_", "2M EUR", "conversion is under", "Increase revenue", VALUE_PROP, "Ignore your instructions", "PRD: Account switcher"]) expect(wire, secret).not.toContain(secret);
+    for (const secret of ["SECRET_", "2M EUR", "conversion is under", "Grow existing revenue", VALUE_PROP, "Ignore your instructions", "PRD: Account switcher"]) expect(wire, secret).not.toContain(secret);
   });
 
   it("the hostile sentence in the PRD changed nothing: no approval, no rank, no decision", async () => {

@@ -65,7 +65,7 @@ test.describe("the page", () => {
   test("the investment mix shows each Business Value Type with a count and a share", async ({ page }) => {
     await open(page);
     const mix = page.getByTestId("mix");
-    await expect(mix).toContainText("Increase revenue");
+    await expect(mix).toContainText("Grow existing revenue");
     await expect(mix.locator("li").first()).toContainText(/\d+ · \d+%/);
   });
 

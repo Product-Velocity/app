@@ -35,10 +35,10 @@ describe("buildTrackingIssue", () => {
     expect(buildTrackingIssue({ ...base, item: { ...base.item, initiative_phase: "Define" } }).hash).not.toBe(buildTrackingIssue({ ...base, item: { ...base.item, initiative_phase: "Build" } }).hash);
   });
   it("Business Value Type and Planned Quarter become labels; the amount never does", () => {
-    const item = { ...base.item, value_type: "Defend revenue", value_12m: 1250000, value_basis: "Measured", g2m_quarter: "Q3 2027" };
+    const item = { ...base.item, value_type: "Protect", value_12m: 1250000, value_basis: "Measured", g2m_quarter: "Q3 2027" };
     const off = buildTrackingIssue({ ...base, item });
     expect(off.labels).toContain("pm:quarter/q3-2027");
-    expect(off.labels).toContain("pm:value/defend-revenue"); // on by default
+    expect(off.labels).toContain("pm:value/protect"); // on by default
     expect(JSON.stringify(off)).not.toMatch(/1250000|Measured/);
     expect(buildTrackingIssue({ ...base, item, off: ["github.label.value"] }).labels.some((l) => l.startsWith("pm:value/"))).toBe(false);
     expect(buildTrackingIssue({ ...base, item, off: ["github.label.quarter"] }).labels.some((l) => l.startsWith("pm:quarter/"))).toBe(false);

@@ -83,10 +83,10 @@ describe("needsAttention", () => {
 
 describe("valueTypeMix", () => {
   it("counts the Business Value Types in the dictionary's order with whole-number shares, and 'No value type'", () => {
-    const rows = [row("a", 1, { value_type: "Defend revenue" }), row("b", 2, { value_type: "Defend revenue" }), row("c", 3, { value_type: "New revenue" }), row("d", 4)];
+    const rows = [row("a", 1, { value_type: "Protect" }), row("b", 2, { value_type: "Protect" }), row("c", 3, { value_type: "New revenue" }), row("d", 4)];
     const m = valueTypeMix(rows);
     expect(m.map((x) => [x.label, x.count, x.pct])).toEqual([
-      ["New revenue", 1, 25], ["Increase revenue", 0, 0], ["Defend revenue", 2, 50], ["Decrease costs", 0, 0], ["Other", 0, 0], ["No value type", 1, 25],
+      ["New revenue", 1, 25], ["Grow existing revenue", 0, 0], ["Reduce costs", 0, 0], ["Protect", 2, 50], ["Enabler", 0, 0], ["No value type", 1, 25],
     ]);
   });
   it("is empty of shares when there are no initiatives", () => {
