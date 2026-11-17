@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 // Group by in two levels, the categorised picker, issues under initiatives, staged like Columns (issue #437)
@@ -146,8 +147,8 @@ test.describe("Group by: picker, two levels, issues", () => {
     const parent = page.locator('.ag-row[row-id="item-1"]');
     await expect(parent).toBeVisible(); // the initiative stays a data row
     const chip = parent.locator(".issue-chip");
-    await expect(chip).toContainText("2 issues");
-    await expect(chip).toContainText("1 In Progress · 1 Done"); // the issues in words, no separate header row
+    await expect(chip).toContainText("4 issues");
+    await expect(chip).toContainText("1 To Do · 1 In Progress · 2 Done"); // the issues in words, no separate header row
     await expect(page.locator(".group-row")).toHaveCount(0);
     const row = page.locator(".issue-row", { hasText: "SCRUM-17" });
     await expect(row).toContainText("Import flow");
@@ -158,7 +159,7 @@ test.describe("Group by: picker, two levels, issues", () => {
     await chip.click();
     await expect(row).toHaveCount(0);
     await expect(chip).toHaveAttribute("aria-expanded", "false");
-    await expect(chip).toContainText("2 issues"); // the chip stays
+    await expect(chip).toContainText("4 issues"); // the chip stays
     await expect(page.locator(".ag-cell-inline-editing")).toHaveCount(0); // a click on the chip does not start editing the name
     await chip.click();
     await expect(row).toBeVisible();
@@ -221,7 +222,7 @@ test.describe("Group by: picker, two levels, issues", () => {
     await expect(groupBtn(page)).toHaveText(/MoSCoW › Health\s*· with issues/);
     await expect(page.locator(".group-row[data-level='0']").first()).toBeVisible();
     await expect(page.locator(".group-row[data-level='1']").first()).toBeVisible();
-    await expect(page.locator('.ag-row[row-id="item-1"] .issue-chip')).toContainText("2 issues");
+    await expect(page.locator('.ag-row[row-id="item-1"] .issue-chip')).toContainText("4 issues");
     await expect(page.locator(".issue-row", { hasText: "SCRUM-17" })).toBeVisible();
   });
 
@@ -248,7 +249,7 @@ test.describe("Group by: picker, two levels, issues", () => {
     await btn(page, "Apply").click();
     await expect(page.locator(".issue-row", { hasText: "SCRUM-17" })).toBeVisible();
     await expect(page.locator(".issue-row", { hasText: "SCRUM-18" })).toHaveCount(0);
-    await expect(page.locator('.ag-row[row-id="item-1"] .issue-chip')).toHaveAttribute("aria-label", /1 issue.*1 hidden by the filter/);
+    await expect(page.locator('.ag-row[row-id="item-1"] .issue-chip')).toHaveAttribute("aria-label", /3 issues.*1 hidden by the filter/);
     await expect(groupBtn(page)).toContainText("with issues");
     // the last type cannot be unticked, and Everything puts them all back
     await groupBtn(page).click();
@@ -311,5 +312,17 @@ test.describe("Group by: picker, two levels, issues", () => {
     await expect(groupBtn(page)).toContainText("with issues");
     await expect(page.locator(".issue-row", { hasText: "SCRUM-17" })).toHaveCount(0); // not the jira harness: no issues to show here
     await expect(page.locator(".issue-chip")).toHaveCount(0);
+  });
+
+  test("a grouped grid, and one with issues under the initiatives, has no accessibility violations (group rows and issue rows are cells of a row)", async ({ page }) => {
+    await open(page, "&jira=1");
+    await groupBtn(page).click();
+    await pick(page, "Build Status");
+    await page.getByLabel(/Show issues under each initiative/).check();
+    await btn(page, "Apply").click();
+    await expect(page.locator(".group-row").first()).toBeVisible();
+    await expect(page.locator(".issue-row").first()).toBeVisible();
+    const r = await new AxeBuilder({ page }).include(".grid-wrap").analyze();
+    expect(r.violations.map((v) => v.id + ": " + v.nodes.map((n) => n.target).join(" | "))).toEqual([]);
   });
 });

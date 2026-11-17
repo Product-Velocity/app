@@ -82,3 +82,8 @@ Off by default. To try it: (1) Supabase dashboard, **Authentication → OAuth Se
 - Send Email hook (issue #370, **off by default**): `SEND_EMAIL_HOOK_SECRET` (Secret; the hook secret Supabase shows when you add the hook) and `SITE_URL`. Do not enable the hook in Supabase until spike S10 in `docs/08` is done. Route A templates stay in use until then.
 - Resend webhook (issue #370): the same webhook (`/api/resend/webhook`) now also updates the delivery state in the send log (`email_send_log`) for every template, not only invitations. No new variable.
 - Editable email wording (issue #370, phase 4): optional `EMAIL_TEMPLATE_OVERRIDES=off` makes every email use its code default (kill switch; nothing is read from the store). Apply the two phase 4 migrations before merging the PR (the deploy-time check fails the build otherwise).
+
+
+## Browser tests
+
+`apps/web/e2e` holds the browser (Playwright) tests. They run against a production build made with `NEXT_PUBLIC_E2E_HARNESS=1`, which turns on the in-memory test pages under `/dev`. Locally: `NEXT_PUBLIC_E2E_HARNESS=1 pnpm --filter web exec next build`, then `pnpm --filter web e2e` (set `PW_CHROMIUM` to an installed Chromium if Playwright's own browser is not there). CI runs them in the `e2e` job of `.github/workflows/ci.yml` on every pull request (issue #472: before that they ran nowhere, and six of them were red unnoticed). The job is separate from `check` so the fast check stays fast; add `e2e` to the required checks of the `main` branch (Settings, Rules) to make a red browser test block a merge.

@@ -29,7 +29,7 @@ async function changesOfToday(from: Date): Promise<FeedRow[]> {
   return [
     r(1, 3, "items", "health", "On Track", "At Risk", t(11, 2), "u1", "UI"),
     r(2, 1, "items", "initiative_status", "Active", "Completed", t(9, 30), "u1", "UI"),
-    r(3, 1, "items", "status", "In progress", "Done", t(9, 18, 1), null, "system"),
+    r(3, 1, "items", "status", "In progress", "Done", t(9, 18, 1), "u1", "UI"), // a person pressed Sync: the tracker set the value
     r(4, 1, "item_jira_links", "jira_status", "Project Execution", "Project Closed", t(9, 18), null, "system"),
     r(5, 2, "item_github_links", "gh_state", "open", "closed_completed", t(8, 41), null, "GitHub webhook"),
   ];

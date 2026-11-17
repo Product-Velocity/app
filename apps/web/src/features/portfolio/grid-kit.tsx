@@ -1,6 +1,6 @@
 "use client";
 
-import { CellStyleModule, ClientSideRowModelModule, ModuleRegistry, RowStyleModule, TooltipModule, themeQuartz } from "ag-grid-community";
+import { CellStyleModule, ClientSideRowModelModule, ColumnApiModule, ModuleRegistry, RowStyleModule, TooltipModule, themeQuartz } from "ag-grid-community";
 import type { CustomCellRendererProps } from "ag-grid-react";
 import type { GroupRow } from "@pv/domain";
 
@@ -10,7 +10,7 @@ import type { GroupRow } from "@pv/domain";
  * so a change to the look or to the header of a group is made once. Row grouping itself is Enterprise only (spike S1): groups are header rows we build
  * (`buildGroupedRows` in the domain package) and this renderer draws.
  */
-ModuleRegistry.registerModules([ClientSideRowModelModule, CellStyleModule, RowStyleModule, TooltipModule]);
+ModuleRegistry.registerModules([ClientSideRowModelModule, CellStyleModule, RowStyleModule, TooltipModule, ColumnApiModule]);
 
 export const GRID_THEME = themeQuartz.withParams({
   fontFamily: "IBM Plex Sans, system-ui, sans-serif",
@@ -44,7 +44,7 @@ export function GroupRowRenderer(p: CustomCellRendererProps<GroupRow>) {
   if (!g) return null;
   const toggle = (p.context as { toggleGroup: (key: string) => void }).toggleGroup;
   return (
-    <div className="group-row" data-level={g.level ?? 0}>
+    <div className="group-row" role="gridcell" data-level={g.level ?? 0}>
       <button type="button" className="group-toggle" aria-expanded={!g.collapsed} aria-label={`${g.collapsed ? "Expand" : "Collapse"} group ${g.label}`} onClick={() => toggle(g.key)}>
         {g.collapsed ? "▸" : "▾"}
       </button>

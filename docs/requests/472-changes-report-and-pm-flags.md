@@ -9,3 +9,5 @@ title: Changes report and PM action flags
 Follow-up, 2026-11-17: "I would like the information to sit on an ag grid. With grouping and color coding with regards to update types and flags to follow up." Done in the same request (decision update above).
 
 Follow-up, 2026-11-17 (after testing): the initiative name did not open the details panel; show the Jira or GitHub issue name and ID with a link; add the flags as well. Done, see the decision update.
+
+Follow-up, 2026-11-17 (after the review): fix review items 1 to 3 including the main grid; use the Roadmap grid's action bar (filter, columns, grouping, search) above the report, adapted; rename the column Source to "Source type" and add "Source" (Product Velocity, Jira, GitHub) in front of it. A third request was cut off ("3.") and is open: ask Ashu.

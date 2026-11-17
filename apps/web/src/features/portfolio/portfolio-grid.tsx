@@ -86,7 +86,7 @@ function IssueRowRenderer({ data, api }: { data: IssueRow; api: GridApi }) {
   const indent = data.depth * 18;
   const after = nameLeft + nameWidth + 8;
   return (
-    <div className="issue-row" data-last={data.last} data-depth={data.depth} role="row" aria-label={`${c.type} ${c.key}: ${c.title}`}>
+    <div className="issue-row" data-last={data.last} data-depth={data.depth} role="gridcell" aria-label={`${c.type} ${c.key}: ${c.title}`}>
       <span className="issue-branch" aria-hidden="true" style={{ left: nameLeft + 8 + indent }} />
       <span className="issue-cell" style={{ left: idLeft + 8, maxWidth: Math.max(60, nameLeft - idLeft - 12) }}>
         {c.url && isOpenableUrl(c.url) ? <a className="issue-key" href={c.url} target="_blank" rel="noopener noreferrer">{c.key}</a> : <span className="issue-key">{c.key}</span>}

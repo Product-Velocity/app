@@ -261,7 +261,7 @@ test("the percent view makes every bar 100%, says the share in each segment and 
 test("a list of reports sits next to the title; Overview opens first and Roadmap Health keeps the filters and the address", async ({ page }) => {
   await open(page);
   const list = page.getByRole("group", { name: "Report" });
-  await expect(list.getByRole("button")).toHaveText(["Overview", "Roadmap Health", "Gate history"]);
+  await expect(list.getByRole("button")).toHaveText(["Overview", "Roadmap Health", "Gate history", "Changes"]);
   await expect(list.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('section[aria-label="Initiatives by Product Manager and Phase"]')).toBeVisible();
   await list.getByRole("button", { name: "Roadmap Health" }).click();

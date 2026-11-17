@@ -2,22 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, ColumnMovedEvent } from "ag-grid-community";
 import {
-  CHANGE_GROUP_BYS, CHANGE_PERIODS, CHANGE_TYPES, changeCounts, changeFlags, changeGridRows, changePeriod, changeReport, changeTypeLabel, isChangeHeader,
-  isOpenableUrl, type ChangeFlag, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type ChangeType, type FeedRow, type ItemInfo, type TrackerRef,
+  CHANGE_PERIODS, NO_CHANGE_FILTERS, buildChangeRows, changeFlags, changePeriod, changeTypeLabel, filterChangeRows, groupChangeRows, isChangeHeader, isOpenableUrl,
+  type ChangeFlag, type ChangeFilters, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type FeedRow, type ItemInfo, type TrackerRef,
 } from "@pv/domain";
 import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer } from "../portfolio/grid-kit";
+import { ChangeFilterChips, ChangesBar, type ChangeColumn } from "./changes-bar";
 import type { ReportEnv } from "./report-env";
 
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;
 const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-type Ctx = { toggleGroup: (key: string) => void; open: (itemId: string) => void; who: (id: string | null) => string };
+type Ctx = { toggleGroup: (key: string) => void; open: (itemId: string) => void };
 
-const FlagPills = ({ flags }: { flags: readonly ChangeFlag[] }) => (
-  <>{flags.map((f) => <span key={f.kind} className="pill tone-risk chg-flag" title={f.text}>⚑ {f.label}</span>)}</>
-);
-
+const FlagPills = ({ flags }: { flags: readonly ChangeFlag[] }) => <>{flags.map((f) => <span key={f.kind} className="pill tone-risk chg-flag" title={f.text}>⚑ {f.label}</span>)}</>;
 const TypeCell = (p: CustomCellRendererProps<ChangeRowData>) => <span className={`pill chg-type chg-type-${p.data!.type}`}>{changeTypeLabel(p.data!.type)}{p.data!.tracker ? ` (${p.data!.tracker})` : ""}</span>;
 const ChangeCell = (p: CustomCellRendererProps<ChangeRowData>) => {
   const d = p.data!;
@@ -27,41 +25,71 @@ const InitiativeCell = (p: CustomCellRendererProps<ChangeRowData>) => {
   const d = p.data!;
   return <button type="button" className="link-button" title={d.name} onClick={() => (p.context as Ctx).open(d.itemId)}><strong>{d.code}</strong> {d.name}</button>;
 };
-/** In a row: the first flag and how many more; all of them are in the tooltip and on the initiative's group header. */
 /** The Jira epic or GitHub issue behind a change: its id (a link that opens it in the tracker), its name and where it is. */
 const IssueCell = (p: CustomCellRendererProps<ChangeRowData>) => {
   const i = p.data!.issue;
   if (!i) return null;
-  const name = i.title ?? null;
   return (
-    <span className="chg-issue" title={`${i.tracker} ${i.key}${name ? `: ${name}` : ""}`}>
+    <span className="chg-issue" title={`${i.tracker} ${i.key}${i.title ? `: ${i.title}` : ""}`}>
       {isOpenableUrl(i.url) ? <a href={i.url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${i.key} in ${i.tracker} (new tab)`}><strong>{i.key}</strong> ↗</a> : <strong>{i.key}</strong>}
-      {name && <span className="muted"> {name}</span>}
+      {i.title && <span className="muted"> {i.title}</span>}
       <span className="muted"> · {i.tracker}</span>
     </span>
   );
 };
+/** In a row: the first flag and how many more; all of them are in the tooltip and on the initiative's group header. */
 const FlagCell = (p: CustomCellRendererProps<ChangeRowData>) => {
   const f = p.data!.flags;
   if (f.length === 0) return null;
   return <><FlagPills flags={f.slice(0, 1)} />{f.length > 1 && <span className="pill tone-neutral" title={f.map((x) => `${x.label}: ${x.text}`).join("\n")}>+{f.length - 1} more</span>}</>;
 };
 
+/** Every column of the change log, in the default order. "Source" (Product Velocity, Jira or GitHub) sits in front of "Source type" (UI, API, Claude MCP, GitHub webhook, import, system). */
+const COLUMNS: (ChangeColumn & { def: ColDef<ChangeRowData> })[] = [
+  { id: "at", name: "Registered", def: { headerName: "Registered", width: 160, valueGetter: (p) => p.data?.at, valueFormatter: (p) => (p.value ? when(String(p.value)) : ""), cellClass: "chg-time" } },
+  { id: "initiative", name: "Initiative", def: { headerName: "Initiative", flex: 2, minWidth: 220, cellRenderer: InitiativeCell } },
+  { id: "type", name: "Change type", def: { headerName: "Change type", width: 170, cellRenderer: TypeCell } },
+  { id: "change", name: "Change", def: { headerName: "Change", flex: 2, minWidth: 240, cellRenderer: ChangeCell } },
+  { id: "issue", name: "Tracker issue", def: { headerName: "Tracker issue", flex: 2, minWidth: 220, cellRenderer: IssueCell } },
+  { id: "source", name: "Source", def: { headerName: "Source", width: 150, valueGetter: (p) => p.data?.source } },
+  { id: "sourceType", name: "Source type", def: { headerName: "Source type", width: 140, valueGetter: (p) => p.data?.sourceType } },
+  { id: "by", name: "By", def: { headerName: "By", width: 260, valueGetter: (p) => p.data?.by, tooltipValueGetter: (p) => p.data?.by } },
+  { id: "flags", name: "Follow up", def: { headerName: "Follow up", flex: 2, minWidth: 260, cellRenderer: FlagCell, cellClass: "chg-flags" } },
+];
+const ALL_COLUMNS = COLUMNS.map(({ id, name }) => ({ id, name }));
+const DEFAULT_COLUMNS = COLUMNS.map((c) => c.id);
+
 const isFullWidthRow = (p: { rowNode: { data?: unknown } }) => isChangeHeader(p.rowNode.data);
 const getRowId = (p: { data: ChangeGridRow }) => p.data.id;
 const getRowClass = (p: { data?: ChangeGridRow }) => (p.data && !isChangeHeader(p.data) ? `chg-row chg-row-${p.data.type}` : undefined);
 
+type Saved = { columns: string[]; by: ChangeGroupBy | null; then: ChangeGroupBy | null };
+const STORE = "pv.changes.view.v1";
+/** What a viewer chose for columns and grouping is remembered in the browser (a convenience, not shared); it may be unavailable, so every access is guarded. */
+const readSaved = (): Saved => {
+  const fallback: Saved = { columns: DEFAULT_COLUMNS, by: "initiative", then: null };
+  try {
+    const v = JSON.parse(window.localStorage.getItem(STORE) ?? "null") as Partial<Saved> | null;
+    if (!v) return fallback;
+    const cols = (v.columns ?? []).filter((c) => DEFAULT_COLUMNS.includes(c));
+    const ok = (g: unknown): g is ChangeGroupBy | null => g === null || ["initiative", "type", "source", "sourceType", "day"].includes(String(g));
+    return { columns: cols.length > 0 ? cols : DEFAULT_COLUMNS, by: ok(v.by) ? v.by : "initiative", then: ok(v.then) ? v.then : null };
+  } catch { return fallback; }
+};
+const writeSaved = (s: Saved) => { try { window.localStorage.setItem(STORE, JSON.stringify(s)); } catch { /* private window or blocked storage: the choice just is not remembered */ } };
+
 /**
- * Changes: which initiatives changed in a period and what changed (issue #472), on an AG Grid with grouping (our own header rows), colour by change type
- * and by the value a change ended on, and the flags from Needs attention to follow up. Follows the Reports filters. The time is when Product Velocity
- * registered the change. Actors are named on a row; nothing is counted per person (rule 8). Every colour comes with a word.
+ * Changes: which initiatives changed in a period and what changed (issue #472), on an AG Grid built on the Roadmap grid's parts, with the Roadmap's action bar (Filter,
+ * Columns, Group by, Search), colour by type of change and by the value it ended on, and the flags to follow up. Follows the filters of the Reports tab. The time is when
+ * Product Velocity registered the change; "Source" says where the value came from (Product Velocity, Jira or GitHub) and "Source type" how it arrived. Actors are named on
+ * a row; for a tracker value the person only ran the Sync. Nothing is counted or grouped per person (rule 8). Every colour comes with a word.
  */
 export function ChangesReport({ env, load, loadIssues, onOpen }: { env: ReportEnv; load?: (from: Date, to: Date) => Promise<FeedRow[]>; loadIssues?: (itemIds: string[]) => Promise<Map<string, TrackerRef>>; onOpen: (id: string) => void }) {
   const { rows, lookups, controller } = env;
   const [period, setPeriod] = useState<ChangePeriod>("today");
-  const [types, setTypes] = useState<ChangeType[]>([]);
-  const [by, setBy] = useState<ChangeGroupBy>("initiative");
-  const [flaggedOnly, setFlaggedOnly] = useState(false);
+  const [filters, setFilters] = useState<ChangeFilters>(NO_CHANGE_FILTERS);
+  const [saved, setSaved] = useState<Saved>(readSaved); // the component mounts only in the browser, after the roadmap has loaded
+  const change = (s: Partial<Saved>) => setSaved((cur) => { const n = { ...cur, ...s }; writeSaved(n); return n; });
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [loaded, setLoaded] = useState<{ key: string; rows: FeedRow[] } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
@@ -76,82 +104,68 @@ export function ChangesReport({ env, load, loadIssues, onOpen }: { env: ReportEn
 
   const feed = loaded && loaded.key === `${period}:${reload}` ? loaded.rows : null; // null while a new period is loading
   const items = useMemo(() => new Map<string, ItemInfo>(rows.map((r) => [r.id, { code: String(r.item_code ?? ""), name: String(r.initiative_name ?? ""), rank: r.stack_rank }])), [rows]);
-  const counts = useMemo(() => changeCounts(feed ?? [], items), [feed, items]);
-  const groups = useMemo(() => changeReport(feed ?? [], items, types), [feed, items, types]);
   /** The flags to follow up: the Needs attention reasons that can be worked out from the grid's rows, and the two this report adds for initiatives with no phase. */
   const flags = useMemo(() => changeFlags(rows, controller.todayDate()), [rows, controller]);
-  /** The tracker issue of each initiative that changed, read once per list of initiatives. A failure leaves the column empty; it is not worth stopping the report. */
+  const changedIds = useMemo(() => [...new Set((feed ?? []).map((r) => r.item_id).filter((id) => items.has(id)))].sort().join(","), [feed, items]);
+  /** The tracker issue of each initiative that changed. A failure leaves the column empty; it is not worth stopping the report. */
   const [issues, setIssues] = useState<ReadonlyMap<string, TrackerRef>>(new Map());
-  const changedIds = useMemo(() => groups.map((g) => g.itemId).sort().join(","), [groups]);
   useEffect(() => {
     let live = true;
     if (!loadIssues || changedIds === "") return;
     loadIssues(changedIds.split(",")).then((m) => { if (live) setIssues(m); }, () => { if (live) setIssues(new Map()); });
     return () => { live = false; };
   }, [loadIssues, changedIds]);
-  const flaggedGroups = useMemo(() => groups.filter((g) => (flags.get(g.itemId) ?? []).length > 0).length, [groups, flags]);
-  const gridRows = useMemo(() => changeGridRows(groups, by, collapsed, flags, flaggedOnly, issues), [groups, by, collapsed, flags, flaggedOnly, issues]);
-
-  const toggleType = (t: ChangeType) => setTypes((s) => (s.includes(t) ? s.filter((x) => x !== t) : [...s, t]));
-  const toggle = useCallback((id: string) => setCollapsed((s) => { const n = new Set(s); if (!n.delete(id)) n.add(id); return n; }), []);
   const who = useCallback((id: string | null) => (id ? lookups.members.find((m) => m.user_id === id)?.email ?? "someone" : "the system"), [lookups.members]);
-  const context = useMemo<Ctx>(() => ({ toggleGroup: toggle, open: onOpen, who }), [toggle, onOpen, who]);
 
-  const columnDefs = useMemo<ColDef<ChangeRowData>[]>(() => [
-    { colId: "at", headerName: "Registered", width: 160, valueGetter: (p) => p.data?.at, valueFormatter: (p) => (p.value ? when(String(p.value)) : ""), cellClass: "chg-time" },
-    { colId: "initiative", headerName: "Initiative", flex: 2, minWidth: 220, cellRenderer: InitiativeCell },
-    { colId: "type", headerName: "Change type", width: 170, cellRenderer: TypeCell },
-    { colId: "change", headerName: "Change", flex: 2, minWidth: 240, cellRenderer: ChangeCell },
-    { colId: "issue", headerName: "Tracker issue", flex: 2, minWidth: 220, cellRenderer: IssueCell },
-    { colId: "source", headerName: "Source", width: 140, valueGetter: (p) => p.data?.via },
-    { colId: "by", headerName: "By", width: 190, valueGetter: (p) => (p.data ? who(p.data.actorId) : ""), tooltipValueGetter: (p) => (p.data ? who(p.data.actorId) : "") },
-    { colId: "flags", headerName: "Follow up", flex: 2, minWidth: 260, cellRenderer: FlagCell, cellClass: "chg-flags", hide: by === "initiative" }, // the group header of an initiative already shows its flags
-  ], [who, by]);
+  const allRows = useMemo(() => buildChangeRows(feed ?? [], items, { flags, issues, nameOf: who }), [feed, items, flags, issues, who]);
+  const filtered = useMemo(() => filterChangeRows(allRows, filters), [allRows, filters]);
+  const gridRows = useMemo(() => groupChangeRows(filtered, saved.by, saved.then, collapsed), [filtered, saved.by, saved.then, collapsed]);
+  const initiatives = useMemo(() => new Set(filtered.map((r) => r.itemId)), [filtered]);
+  const flagged = useMemo(() => [...initiatives].filter((id) => (flags.get(id) ?? []).length > 0).length, [initiatives, flags]);
+
+  const toggle = useCallback((key: string) => setCollapsed((s) => { const n = new Set(s); if (!n.delete(key)) n.add(key); return n; }), []);
+  const context = useMemo<Ctx>(() => ({ toggleGroup: toggle, open: onOpen }), [toggle, onOpen]);
+  const columnDefs = useMemo<ColDef<ChangeGridRow>[]>(() => saved.columns.map((id) => ({ colId: id, ...COLUMNS.find((c) => c.id === id)!.def })) as ColDef<ChangeGridRow>[], [saved.columns]);
+  /** A column dragged by its header in the grid is the new order, so the Columns panel and the grid agree. */
+  const onColumnMoved = useCallback((e: ColumnMovedEvent) => {
+    if (!e.finished || e.source === "api") return;
+    const ids = e.api.getColumnState().map((s) => s.colId);
+    if (ids.length === saved.columns.length && ids.some((id, i) => id !== saved.columns[i])) change({ columns: ids });
+  }, [saved.columns]);
 
   const { from, to } = changePeriod(period, new Date());
   const range = `${from.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} to ${new Date(to.getTime() - 1).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
   if (failed) return <div role="alert" className="error">Could not load the changes: {failed} <button type="button" className="link-button" onClick={() => setReload((n) => n + 1)}>Try again</button></div>;
+  const shownCount = filtered.length;
 
   return (
     <section className="rp-card rp-wide" aria-label="Changes">
       <h2 className="rp-title">Changes</h2>
-      <p className="rp-note">What changed on the initiatives that match the filters above, {range}. Times are when Product Velocity registered the change, in your time zone. Colour shows the type of change (left edge and label) and the value it ended on (green good, amber at risk, red bad, blue active, grey neutral); the words always say the same. A flag ⚑ is a reason from Needs attention to follow up; it is a suggestion, nothing changes by itself. A closed linked issue sets Build Status, never the initiative&apos;s own status. Jira statuses are shown in grey because Jira teams name them freely.</p>
+      <p className="rp-note">What changed on the initiatives that match the filters above, {range}. Times are when Product Velocity registered the change, in your time zone. Source is where the new value came from (Product Velocity, Jira or GitHub); Source type is how it reached Product Velocity. Colour shows the type of change (left edge and label) and the value it ended on (green good, amber at risk, red bad, blue active, grey neutral); the words always say the same. A flag ⚑ is a reason to follow up; it is a suggestion, nothing changes by itself. A closed linked issue sets Build Status, never the initiative&apos;s own status; for those values the person on the row only ran the Sync. Jira statuses are grey because Jira teams name them freely.</p>
       <div className="view-chips" role="group" aria-label="Period">
         {CHANGE_PERIODS.map((p) => <button key={p.id} type="button" className={period === p.id ? "view-chip view-chip-on" : "view-chip"} aria-pressed={period === p.id} onClick={() => setPeriod(p.id)}>{p.label}</button>)}
       </div>
-      <div className="view-chips" role="group" aria-label="Change type">
-        {CHANGE_TYPES.map((t) => <button key={t.id} type="button" title={t.hint} className={`view-chip chg-chip chg-chip-${t.id}${types.includes(t.id) ? " view-chip-on" : ""}`} aria-pressed={types.includes(t.id)} onClick={() => toggleType(t.id)}>{t.label} ({counts[t.id]})</button>)}
-        {types.length > 0 && <button type="button" className="link-button" onClick={() => setTypes([])}>Clear</button>}
-        <button type="button" className={flaggedOnly ? "view-chip view-chip-on" : "view-chip"} aria-pressed={flaggedOnly} title="Only initiatives with a reason to follow up" onClick={() => setFlaggedOnly((v) => !v)}>⚑ To follow up ({flaggedGroups})</button>
-      </div>
-      <div className="chg-bar">
-        <label>Group by{" "}
-          <select value={by} onChange={(e) => { setBy(e.target.value as ChangeGroupBy); setCollapsed(new Set()); }}>
-            {CHANGE_GROUP_BYS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
-          </select>
-        </label>
-        {by !== "none" && gridRows.some(isChangeHeader) && (
-          <>
-            <button type="button" className="link-button" onClick={() => setCollapsed(new Set(gridRows.filter(isChangeHeader).map((h) => h.id)))}>Collapse all</button>
-            <button type="button" className="link-button" onClick={() => setCollapsed(new Set())}>Expand all</button>
-          </>
-        )}
-      </div>
+      <ChangesBar
+        filters={filters} onFilters={setFilters} rows={allRows} matching={shownCount}
+        allColumns={ALL_COLUMNS} columns={saved.columns} defaultColumns={DEFAULT_COLUMNS} onColumns={(ids) => change({ columns: ids })}
+        by={saved.by} then={saved.then} onGroup={(by, then) => { setCollapsed(new Set()); change({ by, then }); }}
+      />
+      <ChangeFilterChips filters={filters} rows={allRows} onChange={setFilters} />
 
       {!load ? <p role="status" className="muted">The changes are not available here.</p>
         : feed === null ? <p role="status" className="muted">Loading the changes…</p>
-        : gridRows.length === 0 ? <p className="rp-empty" role="status">{flaggedOnly ? "No changed initiative has a flag to follow up" : "No changes in this period for the current filters"}</p>
+        : gridRows.length === 0 ? <p className="rp-empty" role="status">{allRows.length > 0 ? "No change matches the filters or the search" : "No changes in this period for the current filters"}</p>
         : (
           <>
-            <p className="muted" role="status">{plural(groups.length, "initiative", "initiatives")} changed{flaggedGroups > 0 ? `, ${flaggedGroups.toLocaleString("en-GB")} to follow up` : ""}{feed.length >= 5000 ? " (showing the latest 5,000 changes)" : ""}.</p>
+            <p className="muted" role="status">{plural(initiatives.size, "initiative", "initiatives")} changed{flagged > 0 ? `, ${flagged.toLocaleString("en-GB")} to follow up` : ""}{feed.length >= 5000 ? " (showing the latest 5,000 changes)" : ""}.</p>
             <div className="grid-wrap chg-grid" data-testid="changes-grid">
               <AgGridReact<ChangeGridRow>
-                theme={GRID_THEME} rowData={gridRows} columnDefs={columnDefs as ColDef<ChangeGridRow>[]} getRowId={getRowId} context={context}
+                theme={GRID_THEME} rowData={gridRows} columnDefs={columnDefs} getRowId={getRowId} context={context} onColumnMoved={onColumnMoved}
                 isFullWidthRow={isFullWidthRow} fullWidthCellRenderer={GroupRowRenderer as never} getRowClass={getRowClass}
                 defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true }} tooltipShowDelay={500}
               />
             </div>
-            <p className="grid-foot">{gridRows.filter((r) => !isChangeHeader(r)).length.toLocaleString("en-GB")} changes · {by === "none" ? "Not grouped, newest first" : `Grouped by ${CHANGE_GROUP_BYS.find((g) => g.id === by)!.label.toLowerCase()}, newest first inside each group`} · The time is when Product Velocity registered the change</p>
+            <p className="grid-foot">{shownCount.toLocaleString("en-GB")}{shownCount === allRows.length ? "" : ` of ${allRows.length.toLocaleString("en-GB")}`} changes · {saved.by || saved.then ? "Grouped, newest first inside each group" : "Not grouped, newest first"} · The time is when Product Velocity registered the change</p>
           </>
         )}
     </section>
