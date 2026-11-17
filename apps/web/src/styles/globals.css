@@ -1342,8 +1342,6 @@ a.btn.btn-primary { color: #fff; }
 .chg-issue a:hover { text-decoration: underline; }
 .chg-change { height: 100%; display: flex; flex-direction: column; gap: 2px; justify-content: center; line-height: 1.35; }
 .chg-also { font-size: 12.5px; }
-.chg-actions { display: flex; flex-direction: column; gap: 4px; justify-content: center; height: 100%; }
-.chg-flagline { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
 /* The action on a flag: a compact pill that reads as the thing to press. Blue and filled for a move that is made at once; outlined for a request, which asks for a decision. */
 .chg-act { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 11px; border: 1px solid var(--blue); border-radius: 999px; background: var(--blue); color: #fff; font: inherit; font-size: 12.5px; font-weight: 500; line-height: 1; white-space: nowrap; cursor: pointer; transition: background-color .12s, border-color .12s; }
 .chg-act:hover:not(:disabled) { background: var(--blue-text); border-color: var(--blue-text); }
