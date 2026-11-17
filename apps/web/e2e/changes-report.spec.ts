@@ -60,7 +60,7 @@ test.describe("Changes report", () => {
   test("the action bar: filter, columns, group by and search, like the Roadmap grid", async ({ page }) => {
     await open(page);
     await expect(bar(page, /^Filter:\s*None/)).toBeVisible();
-    await expect(bar(page, /^Columns:\s*10 of 10 shown/)).toBeVisible();
+    await expect(bar(page, /^Columns:\s*11 of 11 shown/)).toBeVisible();
     await expect(bar(page, /^Group by:\s*Initiative/)).toBeVisible();
     // search
     await page.getByRole("searchbox", { name: "Search changes" }).fill("bidder");
@@ -87,12 +87,12 @@ test.describe("Changes report", () => {
     await open(page);
     await bar(page, /^Columns:/).click();
     await page.getByRole("button", { name: "Remove Source type" }).click();
-    await page.getByRole("button", { name: /^Apply columns \(9\)/ }).click();
-    await expect(bar(page, /^Columns:\s*9 of 10 shown/)).toBeVisible();
+    await page.getByRole("button", { name: /^Apply columns \(10\)/ }).click();
+    await expect(bar(page, /^Columns:\s*10 of 11 shown/)).toBeVisible();
     await expect(grid(page).locator(".ag-header-cell-text", { hasText: /^Source type$/ })).toHaveCount(0);
     await bar(page, /^Columns:/).click();
     await page.getByRole("button", { name: "Reset to default" }).click();
-    await page.getByRole("button", { name: /^Apply columns \(10\)/ }).click();
+    await page.getByRole("button", { name: /^Apply columns \(11\)/ }).click();
     await expect(grid(page).locator(".ag-header-cell-text", { hasText: /^Source type$/ })).toHaveCount(1);
   });
 
