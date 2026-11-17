@@ -129,6 +129,8 @@ const OPEN_LISTS: Record<string, string> = {
   theme: "The Initiative Group the item belongs to. Open list: type any name; groups are managed in Settings.",
   focus_area: "The area of the product the item works on. Open list: type any value; the values already in use are offered.",
   audience: "Who the item is for. Open list: type any value; the values already in use are offered.",
+  okr_objective: "The objective (OKR) the item serves, in your own words. Open list: type any value; the values already in use are offered. Independent of Business Line.",
+  business_line: "The business line the item belongs to, for example Programmatic, Direct or Platform. Open list: type any value; the values already in use are offered. Independent of Objective.",
   g2m_quarter: "Calendar quarter the work is planned for, chosen by a person. Any quarter from last year to three years ahead.",
 };
 

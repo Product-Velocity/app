@@ -95,7 +95,7 @@ describe("loadItems", () => {
     expect(calls.find((c) => c.table === "items_computed")!.ops.map(([, args]) => String(args[0])).join(",")).not.toContain("synced_with"); // not asked of the view
   });
 
-  it("keeps text values of GitHub-driven columns as text (Delivery Status \"Done\", GitHub State \"Open\"), and still turns numbers into numbers", async () => {
+  it("keeps text values of GitHub-driven columns as text (Delivery Status \"Done\", Tracker State \"Open\"), and still turns numbers into numbers", async () => {
     const { client } = fake([{ data: [{ ...row(1), gh_project_status: "Done", gh_state: "Open", delivery_progress_pct: "46.00", issues_total: 7 }] }]);
     const [a] = await new SupabaseDataSource(client, "t1").loadItems();
     expect(a).toMatchObject({ gh_project_status: "Done", gh_state: "Open", delivery_progress_pct: 46, issues_total: 7 });

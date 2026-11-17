@@ -19,7 +19,7 @@ export const NEVER_SYNCED: ReadonlySet<string> = new Set([
   "value_12m", "value_basis", "value_weighted", "value_weighted_per_build_week", "time_to_first_revenue_months", "confidence",
   "customers_requesting", "target_customers", "customers_live", "adoption_pct",
   "decision", "decided_by", "decision_date", "cost_of_not_doing",
-  "kr_metric", "kr_start", "kr_target", "kr_unit", "kr_direction", "realized_kr_value", "kr_realized_pct", "realized_per_year", "measured_period",
+  "kr_metric", "kr_start", "kr_target", "kr_unit", "kr_direction", "okr_objective", "business_line", "realized_kr_value", "kr_realized_pct", "realized_per_year", "measured_period",
   "outcome_verdict", "outcome_status", "outcome_review_date", "value_variance_pct", "learning", "support_hours_saved_month", "retention_pct", "time_to_first_use_days",
   "visibility",
 ]);
@@ -151,7 +151,7 @@ export type MappingRow = {
   slot: Slot | null;
 };
 
-/** The whole default list for one tracker: one row per slot, and one row for each of the 172 fields that has none. Same order as the dictionary. */
+/** The whole default list for one tracker: one row per slot, and one row for each of the 174 fields that has none. Same order as the dictionary. */
 export function mappingRows(tracker: Tracker): MappingRow[] {
   const mine = slotsFor(tracker);
   const rows: MappingRow[] = [];

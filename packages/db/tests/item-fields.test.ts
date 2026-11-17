@@ -344,8 +344,8 @@ describe("Planned Quarter (R-114): stored, set by a person, independent of the G
   });
 });
 
-describe("Focus Area and Audience are open lists (issue #246)", () => {
-  it.each(["focus_area", "audience"])("%s takes any text up to 120 characters and refuses longer", async (col) => {
+describe("Focus Area, Audience, Objective and Business Line are open lists (issue #246)", () => {
+  it.each(["focus_area", "audience", "okr_objective", "business_line"])("%s takes any text up to 120 characters and refuses longer", async (col) => {
     const id = await fresh();
     await db.asUser(creator, (q) => q(`update public.items set ${col} = 'Loyalty and retention' where id = $1`, [id]), { commit: true });
     const row = (await db.admin.query(`select ${col} as v from public.items where id = $1`, [id])).rows[0];

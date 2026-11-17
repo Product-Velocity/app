@@ -16,7 +16,7 @@ export type LeadRow = { id: string; item_code: string; initiative_name: string; 
  */
 export const LEADERSHIP_COLUMNS: readonly { key: string; pinned?: boolean }[] = [
   { key: "stack_rank", pinned: true }, { key: "item_code", pinned: true }, { key: "initiative_name", pinned: true },
-  { key: "home_project" }, { key: "theme" }, { key: "value_type" }, { key: "initiative_phase" }, { key: "health" },
+  { key: "home_project" }, { key: "theme" }, { key: "value_type" }, { key: "business_line" }, { key: "okr_objective" }, { key: "initiative_phase" }, { key: "health" },
   { key: "delivery_progress_pct" }, { key: "g2m_quarter" }, { key: "g2m_slip_days" }, { key: "value_12m" }, { key: "confidence" },
   { key: "decision" }, { key: "current_gate" }, { key: "fit_by_team" }, { key: "sponsor" }, { key: "next_review_date" }, { key: "summary" },
 ];

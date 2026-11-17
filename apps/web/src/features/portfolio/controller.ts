@@ -60,7 +60,7 @@ export class PortfolioController {
   /** Initiative Groups: the workspace list plus any group typed or loaded here, A to Z. Open list: typing a new one creates it. */
   private readonly groups = new Set<string>();
   groupNames(): string[] { return [...this.groups].sort((a, b) => a.localeCompare(b, "en")); }
-  /** The values in use of an open-list field (Focus Area, Audience), A to Z: what its editors suggest (issue #246). */
+  /** The values in use of an open-list field (Focus Area, Audience, Objective, Business Line), A to Z: what its editors suggest (issue #246). */
   openValues(key: string): string[] { return openListValues(this.rows.map((r) => r[key])); }
   /** A typed value of an open-list field in the spelling of the existing one (only the case differs). */
   private canonicalOpen(field: string, value: unknown): unknown {
@@ -178,7 +178,7 @@ export class PortfolioController {
     const drafts = rawDrafts.map((d) => {
       let out = d;
       if ("theme" in d && d.theme) out = { ...out, theme: this.canonicalGroup(d.theme) };
-      for (const k of ["focus_area", "audience"] as const) if (k in out && out[k]) out = { ...out, [k]: this.canonicalOpen(k, out[k]) };
+      for (const k of ["focus_area", "audience", "okr_objective", "business_line"] as const) if (k in out && out[k]) out = { ...out, [k]: this.canonicalOpen(k, out[k]) };
       return out;
     });
     if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
