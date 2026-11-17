@@ -5,7 +5,7 @@ import { AppHeader } from "@/components/app-header";
 import { ReportsView } from "@/features/reports/reports-view";
 import { WorkspaceProvider } from "@/features/workspace/provider";
 import { MemoryWorkspaceStore } from "@/features/workspace/store";
-import type { GateRequest } from "@pv/domain";
+import type { FeedRow, GateRequest } from "@pv/domain";
 import { harnessLookups, makeReportsHarness } from "../harness-data";
 
 /** Gate requests for the first items: item-1 and item-2 passed Gate B (building starts 10 and 9 days later), item-3 was put on hold, item-4 waits, item-5 was stopped at Gate A. */
@@ -22,6 +22,19 @@ const GATE_REQUESTS: GateRequest[] = [
   gr("g5", 5, "A", "2027-02-01", { outcome: "stop", decided_at: at("2027-02-04"), rationale: "no" }),
 ];
 
+/** Changes of today for the first items (fictional): item-1 closed in Jira and moved to Completed by a person, item-2 only had ticket activity, item-3 changed health. */
+async function changesOfToday(from: Date): Promise<FeedRow[]> {
+  const t = (h: number, m: number, s = 0) => new Date(from.getFullYear(), from.getMonth(), from.getDate(), h, m, s).toISOString();
+  const r = (id: number, item: number, entity: string, field: string, old: unknown, next: unknown, at: string, actor: string | null, via: string): FeedRow => ({ id, item_id: `item-${item}`, entity, field, old, new: next, at, actor_id: actor, via });
+  return [
+    r(1, 3, "items", "health", "On Track", "At Risk", t(11, 2), "u1", "UI"),
+    r(2, 1, "items", "initiative_status", "Active", "Completed", t(9, 30), "u1", "UI"),
+    r(3, 1, "items", "status", "In progress", "Done", t(9, 18, 1), null, "system"),
+    r(4, 1, "item_jira_links", "jira_status", "Project Execution", "Project Closed", t(9, 18), null, "system"),
+    r(5, 2, "item_github_links", "gh_state", "open", "closed_completed", t(8, 41), null, "GitHub webhook"),
+  ];
+}
+
 export function HarnessReports({ n, role }: { n: number; role: string }) {
   const { controller, source } = useMemo(() => makeReportsHarness(n, role), [n, role]);
   const store = useMemo(() => Object.assign(new MemoryWorkspaceStore({ scopes: [], views: [] }), { projects: harnessLookups.projects }), []);
@@ -30,7 +43,7 @@ export function HarnessReports({ n, role }: { n: number; role: string }) {
     <WorkspaceProvider store={store} projects={harnessLookups.projects} canEdit={role === "creator" || role === "admin"} canAdmin={role === "admin"}>
       <div className="shell">
         <AppHeader tenantName="Meridian Media" email="ashu.mathura@example.test" roleLabel="Admin" isApprover current="reports" />
-        <main className="content"><ReportsView controller={controller} lookups={harnessLookups} me="u1" loadGateRequests={async () => GATE_REQUESTS} /></main>
+        <main className="content"><ReportsView controller={controller} lookups={harnessLookups} me="u1" loadGateRequests={async () => GATE_REQUESTS} loadChanges={(from) => changesOfToday(from)} /></main>
       </div>
     </WorkspaceProvider>
   );
