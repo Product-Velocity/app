@@ -146,7 +146,9 @@ export function filterSummary(fl: Filter, labels: { person: (id: string) => stri
 }
 
 // ----------------------------------------------------------------- grouping
-export type GroupRow = { __group: true; id: string; key: string; label: string; count: number; collapsed: boolean; /** 0 for a "Group by" header, 1 for a "Then by" header inside it. */ level: 0 | 1; /** "3 On Track · 1 At Risk": the health of the rows of the group, in words (empty when none has a health). */ healthSummary: string };
+export type GroupRow = { __group: true; id: string; key: string; label: string; count: number; collapsed: boolean; /** 0 for a "Group by" header, 1 for a "Then by" header inside it. */ level: 0 | 1; /** "3 On Track · 1 At Risk": the health of the rows of the group, in words (empty when none has a health). */ healthSummary: string; /** What the rows are called in the count ("changes"); default "items". Used by other screens built on the grid (the Changes report). */ unit?: string; /** Small coloured labels after the count, each with its words (never colour alone). Default none. */ badges?: GroupBadge[] };
+/** A label on a group header: its words, how it reads in colour (the shared tone-* pills) and an optional longer explanation for the tooltip. */
+export type GroupBadge = { text: string; tone: "good" | "risk" | "bad" | "info" | "neutral"; title?: string };
 
 /** The health of some rows in words, in the order of the dictionary's list: "3 On Track · 1 At Risk". Rows without a health are left out. */
 export function healthBreakdown(rows: readonly object[]): string {

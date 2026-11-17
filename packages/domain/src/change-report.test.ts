@@ -78,7 +78,7 @@ describe("changePeriod", () => {
   });
 });
 
-import { changeGridRows, changeTone, isChangeHeader, type ChangeFlag } from "./change-report";
+import { changeGridRows, changeTone, isChangeHeader, type ChangeFlag, type ChangeRowData } from "./change-report";
 
 describe("changeTone", () => {
   it("colours the value a change ended on, and never guesses a Jira status", () => {
@@ -106,16 +106,17 @@ describe("changeGridRows", () => {
 
   it("puts a header before each initiative with the count, the flags and whether it moved", () => {
     const rows = changeGridRows(groups, "initiative", new Set(), flags);
-    expect(rows.map((r) => r.kind)).toEqual(["group", "change", "change", "group", "change"]);
+    expect(rows.map((r) => (isChangeHeader(r) ? "group" : r.kind))).toEqual(["group", "change", "change", "group", "change"]);
     const h = rows[0]!;
-    expect(isChangeHeader(h) && h).toMatchObject({ itemId: "a", count: 2, moved: ["initiative-status"], trackerChanges: 1, flags: [flag] });
+    expect(isChangeHeader(h) && h).toMatchObject({ __group: true, key: "initiative:a", label: "R-27 Bidder adapter", count: 2, unit: "changes", level: 0 });
+    expect((h as { badges: { text: string; tone: string }[] }).badges).toEqual([expect.objectContaining({ text: "Initiative: Status", tone: "info" }), expect.objectContaining({ text: "1 linked-issue change" }), expect.objectContaining({ text: "⚑ Build done", tone: "risk", title: flag.text })]);
     expect(rows[1]).toMatchObject({ code: "R-27", tone: "good", flags: [flag] });
   });
 
   it("a collapsed group shows only its header", () => {
-    const rows = changeGridRows(groups, "initiative", new Set(["g:i:a"]), flags);
-    expect(rows.map((r) => r.kind)).toEqual(["group", "group", "change"]);
-    expect((rows[0] as { collapsed: boolean }).collapsed).toBe(true);
+    const rows = changeGridRows(groups, "initiative", new Set(["initiative:a"]), flags);
+    expect(rows.map((r) => (isChangeHeader(r) ? "group" : r.kind))).toEqual(["group", "group", "change"]);
+    expect((rows[0] as { collapsed: boolean }).collapsed).toBe(true); // the main grid's collapse key, so one toggle works for both grids
   });
 
   it("groups by change type in the order of the list, by day newest first, or not at all (newest first)", () => {
@@ -123,7 +124,7 @@ describe("changeGridRows", () => {
     expect(byType.filter(isChangeHeader).map((h) => h.label)).toEqual(["Status", "Health", "Linked issue"]);
     const byDay = changeGridRows(groups, "day", new Set());
     expect(byDay.filter(isChangeHeader)).toHaveLength(2);
-    expect(byDay.filter((r) => !isChangeHeader(r)).map((r) => r.at)).toEqual(["2026-11-17T12:30:00Z", "2026-11-17T12:18:00Z", "2026-11-16T12:00:00Z"]);
+    expect(byDay.filter((r): r is ChangeRowData => !isChangeHeader(r)).map((r) => r.at)).toEqual(["2026-11-17T12:30:00Z", "2026-11-17T12:18:00Z", "2026-11-16T12:00:00Z"]);
     expect(changeGridRows(groups, "none", new Set()).some(isChangeHeader)).toBe(false);
   });
 

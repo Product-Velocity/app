@@ -1315,10 +1315,8 @@ a.btn.btn-primary { color: #fff; }
 /* Changes report grid (issue #472): colour by change type; the value a change ended on uses the shared tone-* pills. Every colour comes with a word. */
 .chg-bar { display: flex; align-items: center; gap: 14px; margin: 8px 0; font-size: 12.5px; }
 .chg-grid { height: min(70vh, 640px); min-height: 360px; }
-.chg-head { display: flex; align-items: center; gap: 10px; height: 100%; padding: 0 10px; background: var(--header-bg); border-top: 1px solid #cfd5e3; font-size: 13px; }
-.chg-fold { width: 22px; height: 22px; border: 0; background: transparent; cursor: pointer; font-size: 13px; color: #374151; }
-.chg-title { font-weight: 600; }
-.chg-latest { margin-left: auto; }
+.group-row .pill { font-weight: 500; }
+.group-row .pill[title] { cursor: help; }
 .chg-flags { display: flex; align-items: center; gap: 6px; }
 .chg-flag { cursor: help; }
 .chg-time { font-variant-numeric: tabular-nums; color: #4b5262; }
