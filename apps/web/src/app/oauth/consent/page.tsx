@@ -42,6 +42,8 @@ export default async function ConsentPage({
 
   const kind = detectAssistant(data.client.name);
   const who = kind === "other" ? data.client.name : assistantLabel(kind);
+  // where the person lands after the decision (the MCP authorization spec asks the consent screen to show the redirect host); a client's own name can say anything, its address cannot
+  const returnHost = (() => { try { return new URL(data.redirect_uri).host; } catch { return null; } })();
   const ids = memberships.map((m) => m.tenantId);
   let { data: flags, error: flagError } = await supabase.from("tenants").select("id, claude_enabled, claude_single_only").in("id", ids);
   if (flagError) ({ data: flags, error: flagError } = (await supabase.from("tenants").select("id, claude_enabled").in("id", ids)) as never); // before migration 0058
@@ -97,6 +99,7 @@ export default async function ConsentPage({
               <ul className="consent-list">{CLAUDE_CANNOT.map((t) => <li key={t}>{t}</li>)}</ul>
             </div>
           </div>
+          {returnHost && <p className="muted">After you choose, you are sent back to <strong>{returnHost}</strong>.</p>}
           <p className="muted">You can revoke this at any time under Connect an AI assistant in your account menu. It stops working on its next call.</p>
 
           <button className="btn btn-primary btn-wide" name="decision" value="approve" type="submit" disabled={!firstOn}>

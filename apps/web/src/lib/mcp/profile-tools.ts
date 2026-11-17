@@ -55,7 +55,7 @@ const updateCompanyProfile: ToolDef = {
     required: ["sections"],
     additionalProperties: false,
   },
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false }, // replaces sections; empty text removes one
   mode: "write",
   weighBytes: (a) => (a.sections && typeof a.sections === "object" ? JSON.stringify(a.sections).length : 0),
   run: async (b, a) => {

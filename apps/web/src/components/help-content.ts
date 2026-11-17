@@ -447,7 +447,7 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
         ["Documents, files and links", "Write documents, attach screenshots or PDFs and add links on the Spec tab (drag and drop, paste an image or a web address); each is shared with the issue unless you choose Do not share", "Spec tab of the initiative; documents and file links are not written to the issue of a public repository"],
       ],
     },
-    notes: ["Claude first asks whether to save the draft or show it in the chat to align; say which in your prompt to skip the question.", "Claude Code can also work in your repository while it reads Product Velocity; it has the same role limits."],
+    notes: ["Claude first asks whether to save the draft or show it in the chat to align; say which in your prompt to skip the question.", "Claude Code can also work in your repository while it reads Product Velocity; it has the same role limits.", "Claude asks you to confirm every tool that changes or removes something that already exists (changing an initiative, revising a document, relations, file sharing, the company profile, undo). Adding something new, such as creating initiatives or a document, does not ask again."],
   },
   chatgpt: {
     title: "ChatGPT",

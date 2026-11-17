@@ -8,7 +8,7 @@ Status: 2026-10-30, request #230 (R-112 "MCP client neutrality"). **Closed 2026-
 | | Claude | ChatGPT | Gemini |
 |---|---|---|---|
 | Connect | custom connector / `claude mcp add` | Developer mode, custom connector (OAuth) | `gemini mcp add --transport http`, then `/mcp auth` |
-| Prompts | MCP prompts | not supported: tool `get_playbook` returns the same text | MCP prompts (slash commands) |
+| Prompts | MCP prompts | not supported: tool `get_playbook` returns the same text (listed only to clients that cannot start prompts: ChatGPT and unknown clients; Claude and Gemini do not see it) | MCP prompts (slash commands) |
 | Tools | all | all + `search`, `fetch` (deep research, company knowledge; read-only; bare JSON, data note inside the text) | all, schemas simplified (`anyOf`, `const`, `additionalProperties`, `format`, `pattern`, `default` removed or turned into an enum or the first branch; the server still validates strictly) |
 
 With several workspaces in one connection, `search` ids carry the workspace (`<workspace id>~item:R-12`) so `fetch` needs no extra argument. Setup text is one list (`setupGuides`) used by the Connect page, the Help page and `connectors/` (Gemini CLI extension + `GEMINI.md`, ChatGPT guide; generated and checked by a test).

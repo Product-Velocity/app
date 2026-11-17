@@ -175,7 +175,7 @@ export const updateItems: ToolDef = {
   title: "Change initiatives",
   description:
     "Changes fields of up to 50 existing initiatives. Fields that are empty today are filled right away. Any field that already holds a value is NOT changed: it comes back as a diff (field, old, new) " +
-    `with a diff_id valid for ${DIFF_TTL_MINUTES} minutes. Show the diff to the person and call confirm_changes with that diff_id only after they agree. ` +
+    `with a diff_id valid for ${DIFF_TTL_MINUTES} minutes. The person sees the diff first; confirm_changes applies it with that diff_id once they agree. ` +
     "set takes the same keys as create_items (null clears a field; a list replaces the whole list). Links are changed with add_link and remove_link, relations with set_relations. " +
     "Estimates you set are marked Rough guess. " + NEVER + " " + DATA,
   inputSchema: {
@@ -335,7 +335,7 @@ const setRelations: ToolDef = {
     },
     required: ["relations"], additionalProperties: false,
   },
-  annotations: WRITE,
+  annotations: CHANGE, // it can remove relations too
   mode: "write",
   weigh: (_b, a) => (Array.isArray(a.relations) && a.relations.length <= MAX_WRITE_BATCH ? a.relations.length : 0),
   run: async (b, a) => {

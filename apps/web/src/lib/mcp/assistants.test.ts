@@ -14,12 +14,15 @@ type Listed = { result: { tools: { name: string; inputSchema: unknown; annotatio
 const list = async (a?: Assistant) => ((await handleRpc({ jsonrpc: "2.0", id: 1, method: "tools/list" }, backend(a))) as Listed).result.tools;
 
 describe("one server, the same tools for every assistant", () => {
-  it("Claude, Gemini and an unknown client see the same tools; ChatGPT sees those plus search and fetch", async () => {
+  it("Claude and Gemini see the same tools; ChatGPT and an unknown client, which cannot start prompts, also see get_playbook; ChatGPT also search and fetch", async () => {
     const claude = (await list("claude")).map((t) => t.name);
+    const without = (names: string[], drop: string[]) => names.filter((n) => !drop.includes(n));
     expect((await list("gemini")).map((t) => t.name)).toEqual(claude);
-    expect((await list("other")).map((t) => t.name)).toEqual(claude);
-    expect((await list("chatgpt")).map((t) => t.name).filter((n) => !["search", "fetch"].includes(n))).toEqual(claude);
-    expect((await list("chatgpt")).map((t) => t.name)).toEqual(expect.arrayContaining(["search", "fetch"]));
+    expect(claude).not.toContain("get_playbook");
+    expect((await list("other")).map((t) => t.name)).toContain("get_playbook");
+    expect(without((await list("other")).map((t) => t.name), ["get_playbook"])).toEqual(claude);
+    expect(without((await list("chatgpt")).map((t) => t.name), ["search", "fetch", "get_playbook"])).toEqual(claude);
+    expect((await list("chatgpt")).map((t) => t.name)).toEqual(expect.arrayContaining(["search", "fetch", "get_playbook"]));
   });
   it("every tool says whether it only reads, and the write tools are the same for all", async () => {
     for (const a of ["claude", "chatgpt", "gemini"] as const) {
@@ -98,6 +101,6 @@ describe("tools are not shown to clients that cannot use them, but nothing becom
   it("search is unknown to a Claude connection", async () => {
     const r = (await handleRpc({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "search", arguments: { query: "x" } } }, backend("claude"))) as { error?: { message: string } };
     expect(r.error?.message).toBe("Unknown tool");
-    expect(toolsFor("claude").length).toBe(TOOLS.length - 2);
+    expect(toolsFor("claude").length).toBe(TOOLS.length - 3);
   });
 });
