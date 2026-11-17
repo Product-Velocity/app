@@ -24,7 +24,7 @@ export default function ConnectorPage() {
   return (
     <PublicPage
       title="Connect Claude to Product Velocity"
-      intro="Product Velocity is a product management platform with one roadmap and one stack rank. The connector lets Claude read that roadmap and prepare work in it, as you, with your role."
+      intro="One roadmap for humans and AI. Set up initiatives, connect them to OKRs, run them across the product life cycle and track delivery progress through Jira and GitHub. This connector lets Claude work inside that roadmap as you, with your role: track and report on initiatives, and co-write your discovery and product requirement documents."
     >
       <h2 id="before-you-start">Before you start</h2>
       <ul>

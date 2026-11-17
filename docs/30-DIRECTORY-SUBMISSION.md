@@ -17,8 +17,8 @@ Portal: https://claude.ai/directory/manage, **Submit new**, **MCP connector**. A
 
 **3. Listing.**
 - Name: `Product Velocity`
-- One-liner (138 of 200): `Read and prepare your product roadmap from Claude: initiatives, stack rank, PRDs, discovery documents and the evidence for decision gates.`
-- Description (about 1,600 of 2,000): paste the block below.
+- One-liner (about 135 of 200): `One roadmap for humans and AI. Track, report on and co-write initiatives, discovery and PRDs with Claude, in step with Jira and GitHub.`
+- Description (1,978 of 2,000; the portal counts the same, so do not add to it): paste the block below.
 - Categories: project management and productivity (whichever of the portal's list is closest; at most five).
 - Documentation URL: `https://productvelocity.app/connector`
 - Privacy policy URL: `https://productvelocity.app/privacy`
@@ -27,7 +27,11 @@ Portal: https://claude.ai/directory/manage, **Submit new**, **MCP connector**. A
 - Slug: `product-velocity` (permanent once published).
 
 ```
-Product Velocity is a product management platform with one roadmap and one stack rank for every project. This connector lets Claude work with that roadmap as you, with your role, in the workspaces you choose.
+One roadmap for humans and AI.
+
+Product Velocity takes work from idea to delivery on one roadmap and one stack rank. Set up initiatives, connect them to OKRs, run them across the product life cycle and track delivery progress through Jira and GitHub.
+
+This connector lets Claude work inside that roadmap as you, with your role, in the workspaces you choose: track and report on initiatives, and co-write your discovery and product requirement documents. Initiatives stay in step with Jira and GitHub; commercial fields, customer names and document text stay in Product Velocity.
 
 What Claude can do
 - Read initiatives and their fields, groups, projects, saved views, documents, files and company profile.
