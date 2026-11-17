@@ -1331,3 +1331,12 @@ a.btn.btn-primary { color: #fff; }
 .chg-row { box-shadow: inset 4px 0 0 var(--chg-edge, transparent); }
 .chg-row-phase { --chg-edge: #2270ED; } .chg-row-initiative-status { --chg-edge: #7B5BC8; } .chg-row-health { --chg-edge: #1B9C90; }
 .chg-row-build-status { --chg-edge: #A38B5E; } .chg-row-issue-status { --chg-edge: #6B7BA3; }
+
+/* Reports: the details panel opens beside the report, like in the Gantt (issue #472: it used to be added under the page, out of sight) */
+.reports-split { display: flex; align-items: flex-start; min-width: 0; }
+.reports-split > .reports-main { flex: 1 1 auto; min-width: 0; }
+.reports-split .item-panel { height: auto; max-height: calc(100vh - 160px); position: sticky; top: 8px; align-self: flex-start; border: 1px solid var(--grey-1); border-radius: 8px; margin-left: 8px; }
+@media (max-width: 900px) { .reports-split .item-panel { position: fixed; inset: 0 0 0 auto; margin: 0; z-index: 50; max-height: none; } }
+.chg-issue { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.chg-issue a { color: var(--blue-text, #1A56C4); text-decoration: none; }
+.chg-issue a:hover { text-decoration: underline; }
