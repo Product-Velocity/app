@@ -1,7 +1,32 @@
 "use client";
 
-import { useEffect } from "react";
-import { shouldReloadOnce } from "@/lib/reload-once";
+import { useEffect, useState } from "react";
+import { LOAD_ERROR_KEY, rememberLoadError, shouldReloadOnce } from "@/lib/reload-once";
+
+/** After the automatic reload the page works, so what failed is shown once on it (and kept in the console) for whoever needs to find the cause. */
+export function LoadErrorNotice() {
+  const [text, setText] = useState<string | null>(null);
+  const [read, setRead] = useState(false);
+  // read after the first paint, so the server and the browser first render the same (nothing)
+  useEffect(() => {
+    if (read) return;
+    let found: string | null = null;
+    try {
+      found = window.sessionStorage.getItem(LOAD_ERROR_KEY);
+      if (found) window.sessionStorage.removeItem(LOAD_ERROR_KEY);
+    } catch { /* storage may be unavailable */ }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the stored text exists only in the browser
+    setRead(true); if (found) setText(found);
+  }, [read]);
+  if (!text) return null;
+  return (
+    <div role="status" className="notice-box" data-testid="load-error-notice">
+      <strong>A page failed to load and was loaded again.</strong> If this keeps happening, send this to support:
+      <pre style={{ whiteSpace: "pre-wrap", margin: "6px 0 0", fontSize: 12 }}>{text}</pre>
+      <button type="button" className="link-button" onClick={() => setText(null)}>Dismiss</button>
+    </div>
+  );
+}
 
 /**
  * The screen for a page that could not load. A page that fails right after a release is fixed by loading it again, so it reloads once by itself;
@@ -10,6 +35,7 @@ import { shouldReloadOnce } from "@/lib/reload-once";
 export function LoadError({ error, reset }: { error: Error & { digest?: string }; reset?: () => void }) {
   useEffect(() => {
     console.error("Page failed to load", error.message, error.digest ?? "");
+    rememberLoadError(error);
     let store: Storage | null = null;
     try { store = window.sessionStorage; } catch { store = null; }
     if (shouldReloadOnce(store, `pv.reload.${window.location.pathname}`, Date.now())) window.location.reload();

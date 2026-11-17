@@ -8,6 +8,7 @@ import { SupabaseWorkspaceProvider } from "@/features/workspace/provider";
 import { canEditItems } from "@pv/domain";
 import { PlatformBanner } from "@/components/platform-banner";
 import { isPlatformAdmin, loginIsStale } from "@/lib/session";
+import { LoadErrorNotice } from "@/components/load-error";
 import { LastLocationTracker, UserPrefsProvider } from "@/components/user-prefs";
 import { lastLocationFromMetadata, panelWidthFromMetadata, textSizeFromMetadata } from "@/lib/user-prefs";
 
@@ -46,6 +47,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
         showAudit={active.role === "admin" || !!active.platform}
         isAdmin={active.role === "admin" && !active.platform}
       />
+      <LoadErrorNotice />
       {active.platform && <PlatformBanner platform={active.platform} accountName={active.tenantName} />}
       {requested > 0 && (
         <div className="notice-box" role="status">
