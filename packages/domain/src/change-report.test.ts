@@ -77,3 +77,58 @@ describe("changePeriod", () => {
     expect(changePeriod("month", now).to).toEqual(new Date(2026, 10, 18));
   });
 });
+
+import { changeGridRows, changeTone, isChangeHeader, type ChangeFlag } from "./change-report";
+
+describe("changeTone", () => {
+  it("colours the value a change ended on, and never guesses a Jira status", () => {
+    expect(changeTone("health", "At Risk")).toBe("risk");
+    expect(changeTone("health", "Blocked")).toBe("bad");
+    expect(changeTone("health", "On Track")).toBe("good");
+    expect(changeTone("build-status", "Done")).toBe("good");
+    expect(changeTone("initiative-status", "Cancelled")).toBe("bad");
+    expect(changeTone("phase", "Test")).toBe("info");
+    expect(changeTone("issue-status", "Closed", "GitHub")).toBe("good");
+    expect(changeTone("issue-status", "Project Accepted", "Jira")).toBe("neutral"); // Jira counts it as To Do; the name says nothing
+    expect(changeTone("issue-status", "Project Closed", "Jira")).toBe("neutral");
+  });
+});
+
+describe("changeGridRows", () => {
+  const feed2 = [
+    row("a", "items", "initiative_status", "Active", "Completed", "2026-11-17T12:30:00Z"),
+    row("a", "item_jira_links", "jira_status", "Project Execution", "Project Closed", "2026-11-17T12:18:00Z", { actor_id: null, via: "system" }),
+    row("b", "items", "health", "On Track", "At Risk", "2026-11-16T12:00:00Z"),
+  ];
+  const groups = changeReport(feed2, items);
+  const flag: ChangeFlag = { kind: "build-done", label: "Build done", text: "All 3 linked issues are closed." };
+  const flags = new Map([["a", [flag]]]);
+
+  it("puts a header before each initiative with the count, the flags and whether it moved", () => {
+    const rows = changeGridRows(groups, "initiative", new Set(), flags);
+    expect(rows.map((r) => r.kind)).toEqual(["group", "change", "change", "group", "change"]);
+    const h = rows[0]!;
+    expect(isChangeHeader(h) && h).toMatchObject({ itemId: "a", count: 2, moved: ["initiative-status"], trackerChanges: 1, flags: [flag] });
+    expect(rows[1]).toMatchObject({ code: "R-27", tone: "good", flags: [flag] });
+  });
+
+  it("a collapsed group shows only its header", () => {
+    const rows = changeGridRows(groups, "initiative", new Set(["g:i:a"]), flags);
+    expect(rows.map((r) => r.kind)).toEqual(["group", "group", "change"]);
+    expect((rows[0] as { collapsed: boolean }).collapsed).toBe(true);
+  });
+
+  it("groups by change type in the order of the list, by day newest first, or not at all (newest first)", () => {
+    const byType = changeGridRows(groups, "type", new Set());
+    expect(byType.filter(isChangeHeader).map((h) => h.label)).toEqual(["Status", "Health", "Linked issue"]);
+    const byDay = changeGridRows(groups, "day", new Set());
+    expect(byDay.filter(isChangeHeader)).toHaveLength(2);
+    expect(byDay.filter((r) => !isChangeHeader(r)).map((r) => r.at)).toEqual(["2026-11-17T12:30:00Z", "2026-11-17T12:18:00Z", "2026-11-16T12:00:00Z"]);
+    expect(changeGridRows(groups, "none", new Set()).some(isChangeHeader)).toBe(false);
+  });
+
+  it("keeps only flagged initiatives when asked", () => {
+    const rows = changeGridRows(groups, "initiative", new Set(), flags, true);
+    expect(new Set(rows.filter((r) => !isChangeHeader(r)).map((r) => (r as { itemId: string }).itemId))).toEqual(new Set(["a"]));
+  });
+});

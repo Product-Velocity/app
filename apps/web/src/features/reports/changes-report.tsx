@@ -1,20 +1,82 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { CHANGE_PERIODS, CHANGE_TYPES, changeCounts, changePeriod, changeReport, changeTypeLabel, type ChangePeriod, type ChangeType, type FeedRow, type ItemInfo } from "@pv/domain";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
+import { CellStyleModule, ClientSideRowModelModule, ModuleRegistry, RowStyleModule, TooltipModule, themeQuartz, type ColDef } from "ag-grid-community";
+import {
+  ATTENTION_KINDS, CHANGE_GROUP_BYS, CHANGE_PERIODS, CHANGE_TYPES, attentionList, changeCounts, changeGridRows, changePeriod, changeReport, changeTypeLabel, isChangeHeader,
+  type ChangeFlag, type ChangeGridRow, type ChangeGroupBy, type ChangeHeaderData, type ChangePeriod, type ChangeRowData, type ChangeType, type FeedRow, type ItemInfo,
+} from "@pv/domain";
 import type { ReportEnv } from "./report-env";
 
-const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+ModuleRegistry.registerModules([ClientSideRowModelModule, CellStyleModule, RowStyleModule, TooltipModule]);
+// Same look as the main grid. Row grouping is Enterprise only, so the group rows are our own (full-width rows), like in the Roadmap grid.
+const theme = themeQuartz.withParams({
+  fontFamily: "IBM Plex Sans, system-ui, sans-serif", fontSize: 13, headerFontSize: 12, headerFontWeight: 600, headerTextColor: "#374151", columnBorder: false, headerColumnBorder: false,
+  rowBorder: { style: "solid", width: 1, color: "#F3F4F7" }, rowHeight: 34, headerHeight: 28, accentColor: "#2270ed", borderColor: "#E6E9EF", headerBackgroundColor: "#F8F9FC", wrapperBorderRadius: 8, spacing: 6,
+});
+
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;
+const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+type Ctx = { toggle: (id: string) => void; open: (itemId: string) => void; who: (id: string | null) => string };
+
+const FlagPills = ({ flags }: { flags: readonly ChangeFlag[] }) => (
+  <>{flags.map((f) => <span key={f.kind} className="pill tone-risk chg-flag" title={f.text}>⚑ {f.label}</span>)}</>
+);
+
+/** A group row: a fold button, the label, the count, whether the initiative itself moved, and the flags to follow up. */
+function GroupHeader(p: CustomCellRendererProps<ChangeHeaderData>) {
+  const h = p.data!, ctx = p.context as Ctx;
+  return (
+    <div className="chg-head" role="row" data-by={h.by}>
+      <button type="button" className="chg-fold" aria-expanded={!h.collapsed} aria-label={`${h.collapsed ? "Expand" : "Collapse"} ${h.label}`} onClick={() => ctx.toggle(h.id)}>{h.collapsed ? "▸" : "▾"}</button>
+      {h.type ? <span className={`pill chg-type chg-type-${h.type}`}>{h.label}</span>
+        : h.itemId ? <button type="button" className="link-button chg-title" onClick={() => ctx.open(h.itemId!)}>{h.label}</button> : <strong>{h.label}</strong>}
+      <span className="muted">{plural(h.count, "change", "changes")}</span>
+      {h.itemId && (h.moved.length > 0
+        ? <span className="pill tone-info" title="The initiative itself changed">Initiative: {h.moved.map(changeTypeLabel).join(", ")}</span>
+        : <span className="pill tone-neutral" title="Only the linked issues changed">Initiative unchanged</span>)}
+      {h.trackerChanges > 0 && <span className="pill tone-neutral">{plural(h.trackerChanges, "linked-issue change", "linked-issue changes")}</span>}
+      <FlagPills flags={h.flags} />
+      <span className="muted chg-latest">Latest <time dateTime={h.latest}>{when(h.latest)}</time></span>
+    </div>
+  );
+}
+
+const TypeCell = (p: CustomCellRendererProps<ChangeRowData>) => <span className={`pill chg-type chg-type-${p.data!.type}`}>{changeTypeLabel(p.data!.type)}{p.data!.tracker ? ` (${p.data!.tracker})` : ""}</span>;
+const ChangeCell = (p: CustomCellRendererProps<ChangeRowData>) => {
+  const d = p.data!;
+  return <span>{d.from ?? "empty"} <span aria-label="to">→</span> <span className={`pill tone-${d.tone}`}>{d.to ?? "empty"}</span></span>;
+};
+const InitiativeCell = (p: CustomCellRendererProps<ChangeRowData>) => {
+  const d = p.data!;
+  return <button type="button" className="link-button" title={d.name} onClick={() => (p.context as Ctx).open(d.itemId)}><strong>{d.code}</strong> {d.name}</button>;
+};
+/** In a row: the first flag and how many more; all of them are in the tooltip and on the initiative's group header. */
+const FlagCell = (p: CustomCellRendererProps<ChangeRowData>) => {
+  const f = p.data!.flags;
+  if (f.length === 0) return null;
+  return <><FlagPills flags={f.slice(0, 1)} />{f.length > 1 && <span className="pill tone-neutral" title={f.map((x) => `${x.label}: ${x.text}`).join("\n")}>+{f.length - 1} more</span>}</>;
+};
+
+const FullWidth = (p: CustomCellRendererProps<ChangeHeaderData>) => <GroupHeader {...p} />;
+const isFullWidthRow = (p: { rowNode: { data?: unknown } }) => isChangeHeader(p.rowNode.data);
+const getRowId = (p: { data: ChangeGridRow }) => p.data.id;
+const getRowHeight = (p: { data?: ChangeGridRow }) => (p.data && isChangeHeader(p.data) ? 40 : 34);
+const getRowClass = (p: { data?: ChangeGridRow }) => (p.data && !isChangeHeader(p.data) ? `chg-row chg-row-${p.data.type}` : undefined);
 
 /**
- * Changes: which initiatives changed in a period and what changed, grouped by initiative (issue #472). Follows the filters of the Reports tab.
- * Each change shows the time Product Velocity registered it, the source and who made it. Actors are named on a row; nothing is counted per person (rule 8).
+ * Changes: which initiatives changed in a period and what changed (issue #472), on an AG Grid with grouping (our own header rows), colour by change type
+ * and by the value a change ended on, and the flags from Needs attention to follow up. Follows the Reports filters. The time is when Product Velocity
+ * registered the change. Actors are named on a row; nothing is counted per person (rule 8). Every colour comes with a word.
  */
 export function ChangesReport({ env, load, onOpen }: { env: ReportEnv; load?: (from: Date, to: Date) => Promise<FeedRow[]>; onOpen: (id: string) => void }) {
-  const { rows, lookups } = env;
+  const { rows, lookups, controller } = env;
   const [period, setPeriod] = useState<ChangePeriod>("today");
   const [types, setTypes] = useState<ChangeType[]>([]);
+  const [by, setBy] = useState<ChangeGroupBy>("initiative");
+  const [flaggedOnly, setFlaggedOnly] = useState(false);
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [loaded, setLoaded] = useState<{ key: string; rows: FeedRow[] } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -30,54 +92,78 @@ export function ChangesReport({ env, load, onOpen }: { env: ReportEnv; load?: (f
   const items = useMemo(() => new Map<string, ItemInfo>(rows.map((r) => [r.id, { code: String(r.item_code ?? ""), name: String(r.initiative_name ?? ""), rank: r.stack_rank }])), [rows]);
   const counts = useMemo(() => changeCounts(feed ?? [], items), [feed, items]);
   const groups = useMemo(() => changeReport(feed ?? [], items, types), [feed, items, types]);
-  const who = (id: string | null) => (id ? lookups.members.find((m) => m.user_id === id)?.email ?? "someone" : "the system");
-  const toggle = (t: ChangeType) => setTypes((s) => (s.includes(t) ? s.filter((x) => x !== t) : [...s, t]));
+  /** The flags of Needs attention that can be worked out from the grid's own rows (the gate waits and open conditions are on the Needs attention page). */
+  const flags = useMemo(() => {
+    const m = new Map<string, ChangeFlag[]>();
+    for (const e of attentionList(rows as never, controller.todayDate())) m.set(e.id, e.reasons.map((r) => ({ kind: r.kind, label: ATTENTION_LABEL[r.kind] ?? r.kind, text: r.text })));
+    return m;
+  }, [rows, controller]);
+  const flaggedGroups = useMemo(() => groups.filter((g) => (flags.get(g.itemId) ?? []).length > 0).length, [groups, flags]);
+  const gridRows = useMemo(() => changeGridRows(groups, by, collapsed, flags, flaggedOnly), [groups, by, collapsed, flags, flaggedOnly]);
+
+  const toggleType = (t: ChangeType) => setTypes((s) => (s.includes(t) ? s.filter((x) => x !== t) : [...s, t]));
+  const toggle = useCallback((id: string) => setCollapsed((s) => { const n = new Set(s); if (!n.delete(id)) n.add(id); return n; }), []);
+  const who = useCallback((id: string | null) => (id ? lookups.members.find((m) => m.user_id === id)?.email ?? "someone" : "the system"), [lookups.members]);
+  const context = useMemo<Ctx>(() => ({ toggle, open: onOpen, who }), [toggle, onOpen, who]);
+
+  const columnDefs = useMemo<ColDef<ChangeRowData>[]>(() => [
+    { colId: "at", headerName: "Registered", width: 160, valueGetter: (p) => p.data?.at, valueFormatter: (p) => (p.value ? when(String(p.value)) : ""), cellClass: "chg-time" },
+    { colId: "initiative", headerName: "Initiative", flex: 2, minWidth: 220, cellRenderer: InitiativeCell, hide: by === "initiative" }, // the group header says it
+    { colId: "type", headerName: "Change type", width: 170, cellRenderer: TypeCell },
+    { colId: "change", headerName: "Change", flex: 2, minWidth: 240, cellRenderer: ChangeCell },
+    { colId: "source", headerName: "Source", width: 140, valueGetter: (p) => p.data?.via },
+    { colId: "by", headerName: "By", width: 190, valueGetter: (p) => (p.data ? who(p.data.actorId) : ""), tooltipValueGetter: (p) => (p.data ? who(p.data.actorId) : "") },
+    { colId: "flags", headerName: "Follow up", flex: 2, minWidth: 260, cellRenderer: FlagCell, cellClass: "chg-flags", hide: by === "initiative" }, // the group header says it
+  ], [who, by]);
+
   const { from, to } = changePeriod(period, new Date());
   const range = `${from.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} to ${new Date(to.getTime() - 1).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
-
   if (failed) return <div role="alert" className="error">Could not load the changes: {failed} <button type="button" className="link-button" onClick={() => setReload((n) => n + 1)}>Try again</button></div>;
 
   return (
     <section className="rp-card rp-wide" aria-label="Changes">
       <h2 className="rp-title">Changes</h2>
-      <p className="rp-note">What changed on the initiatives that match the filters above, {range}. Times are when Product Velocity registered the change, in your time zone. Linked issues are the GitHub or Jira issues of an initiative; a closed issue sets Build Status, never the initiative&apos;s own status.</p>
+      <p className="rp-note">What changed on the initiatives that match the filters above, {range}. Times are when Product Velocity registered the change, in your time zone. Colour shows the type of change (left edge and label) and the value it ended on (green good, amber at risk, red bad, blue active, grey neutral); the words always say the same. A flag ⚑ is a reason from Needs attention to follow up; it is a suggestion, nothing changes by itself. A closed linked issue sets Build Status, never the initiative&apos;s own status. Jira statuses are shown in grey because Jira teams name them freely.</p>
       <div className="view-chips" role="group" aria-label="Period">
         {CHANGE_PERIODS.map((p) => <button key={p.id} type="button" className={period === p.id ? "view-chip view-chip-on" : "view-chip"} aria-pressed={period === p.id} onClick={() => setPeriod(p.id)}>{p.label}</button>)}
       </div>
       <div className="view-chips" role="group" aria-label="Change type">
-        {CHANGE_TYPES.map((t) => <button key={t.id} type="button" title={t.hint} className={types.includes(t.id) ? "view-chip view-chip-on" : "view-chip"} aria-pressed={types.includes(t.id)} onClick={() => toggle(t.id)}>{t.label} ({counts[t.id]})</button>)}
+        {CHANGE_TYPES.map((t) => <button key={t.id} type="button" title={t.hint} className={`view-chip chg-chip chg-chip-${t.id}${types.includes(t.id) ? " view-chip-on" : ""}`} aria-pressed={types.includes(t.id)} onClick={() => toggleType(t.id)}>{t.label} ({counts[t.id]})</button>)}
         {types.length > 0 && <button type="button" className="link-button" onClick={() => setTypes([])}>Clear</button>}
+        <button type="button" className={flaggedOnly ? "view-chip view-chip-on" : "view-chip"} aria-pressed={flaggedOnly} title="Only initiatives with a reason to follow up" onClick={() => setFlaggedOnly((v) => !v)}>⚑ To follow up ({flaggedGroups})</button>
+      </div>
+      <div className="chg-bar">
+        <label>Group by{" "}
+          <select value={by} onChange={(e) => { setBy(e.target.value as ChangeGroupBy); setCollapsed(new Set()); }}>
+            {CHANGE_GROUP_BYS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
+          </select>
+        </label>
+        {by !== "none" && gridRows.some(isChangeHeader) && (
+          <>
+            <button type="button" className="link-button" onClick={() => setCollapsed(new Set(gridRows.filter(isChangeHeader).map((h) => h.id)))}>Collapse all</button>
+            <button type="button" className="link-button" onClick={() => setCollapsed(new Set())}>Expand all</button>
+          </>
+        )}
       </div>
 
       {!load ? <p role="status" className="muted">The changes are not available here.</p>
         : feed === null ? <p role="status" className="muted">Loading the changes…</p>
-        : groups.length === 0 ? <p className="rp-empty" role="status">No changes in this period for the current filters</p>
+        : gridRows.length === 0 ? <p className="rp-empty" role="status">{flaggedOnly ? "No changed initiative has a flag to follow up" : "No changes in this period for the current filters"}</p>
         : (
           <>
-            <p className="muted" role="status">{plural(groups.length, "initiative", "initiatives")} changed{feed.length >= 5000 ? " (showing the latest 5,000 changes)" : ""}.</p>
-            <ol className="ip-log" aria-label="Changed initiatives">
-              {groups.map((g) => (
-                <li key={g.itemId}>
-                  <p>
-                    <button type="button" className="link-button" onClick={() => onOpen(g.itemId)}><strong>{g.code}</strong> {g.name}</button>{" "}
-                    {g.moved.length > 0
-                      ? <span className="pill" title="The initiative itself changed">Initiative: {g.moved.map(changeTypeLabel).join(", ")}</span>
-                      : <span className="pill" title="Only the linked issues changed">Initiative unchanged</span>}
-                    {g.trackerChanges > 0 && <> <span className="pill">{plural(g.trackerChanges, "linked-issue change", "linked-issue changes")}</span></>}
-                  </p>
-                  <ul>
-                    {g.entries.map((e) => (
-                      <li key={e.id}>
-                        <strong>{changeTypeLabel(e.type)}{e.tracker ? ` (${e.tracker})` : ""}</strong>: {e.from ?? "empty"} → {e.to ?? "empty"}
-                        <span className="muted"> · <time dateTime={e.at}>{when(e.at)}</time> · {who(e.actorId)} · {e.via}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
-            </ol>
+            <p className="muted" role="status">{plural(groups.length, "initiative", "initiatives")} changed{flaggedGroups > 0 ? `, ${flaggedGroups.toLocaleString("en-GB")} to follow up` : ""}{feed.length >= 5000 ? " (showing the latest 5,000 changes)" : ""}.</p>
+            <div className="chg-grid" data-testid="changes-grid">
+              <AgGridReact<ChangeGridRow>
+                theme={theme} rowData={gridRows} columnDefs={columnDefs as ColDef<ChangeGridRow>[]} getRowId={getRowId} context={context}
+                isFullWidthRow={isFullWidthRow} fullWidthCellRenderer={FullWidth as never} getRowHeight={getRowHeight} getRowClass={getRowClass}
+                defaultColDef={{ sortable: false, resizable: true, suppressHeaderMenuButton: true }} tooltipShowDelay={500} suppressCellFocus={false}
+              />
+            </div>
           </>
         )}
     </section>
   );
 }
+
+/** Labels of the Needs attention kinds. */
+const ATTENTION_LABEL: Record<string, string> = Object.fromEntries(ATTENTION_KINDS.map((k) => [k.id, k.label]));

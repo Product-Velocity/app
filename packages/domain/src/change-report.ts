@@ -91,3 +91,80 @@ export function changePeriod(period: ChangePeriod, now: Date): { from: Date; to:
   if (period === "week") return { from: new Date(day.getFullYear(), day.getMonth(), day.getDate() - ((day.getDay() + 6) % 7)), to };
   return { from: new Date(day.getFullYear(), day.getMonth(), 1), to };
 }
+
+// ------------------------------------------------------------------ the grid (issue #472, follow-up)
+/** A reason to follow up on an initiative, taken from Needs attention (`attentionList`): the kind id, its label and the sentence. */
+export type ChangeFlag = { kind: string; label: string; text: string };
+export type ChangeGroupBy = "initiative" | "type" | "day" | "none";
+export const CHANGE_GROUP_BYS: readonly { id: ChangeGroupBy; label: string }[] = [
+  { id: "initiative", label: "Initiative" }, { id: "type", label: "Change type" }, { id: "day", label: "Day" }, { id: "none", label: "No grouping" },
+];
+/** How a value reads in colour. Words always come with it (a colour is never the only signal). */
+export type ChangeTone = "good" | "risk" | "bad" | "info" | "neutral";
+
+/**
+ * The colour of the value a change ended on. Health, Build Status, Initiative Status and the phase have a known meaning. A GitHub issue is good when closed,
+ * info when open. A Jira status is neutral: Jira workflows name their statuses freely ("Project Accepted" counts as To Do), so a name is never guessed.
+ */
+export function changeTone(type: ChangeType, to: string | null, tracker: "GitHub" | "Jira" | null = null): ChangeTone {
+  const v = (to ?? "").toLowerCase();
+  if (type === "health") return v === "on track" ? "good" : v === "at risk" ? "risk" : v === "delayed" || v === "blocked" ? "bad" : "neutral";
+  if (type === "build-status") return v === "done" ? "good" : v === "in progress" ? "info" : v === "cancelled" ? "bad" : "neutral";
+  if (type === "initiative-status") return v === "completed" ? "good" : v === "active" ? "info" : v === "on hold" ? "risk" : v === "cancelled" ? "bad" : "neutral";
+  if (type === "phase") return v === "completed" ? "good" : v ? "info" : "neutral";
+  return tracker === "GitHub" ? (v.startsWith("closed, not planned") ? "neutral" : v === "closed" ? "good" : v === "open" ? "info" : "neutral") : "neutral";
+}
+
+export type ChangeRowData = {
+  kind: "change"; id: string; entryId: number; itemId: string; code: string; name: string; at: string; type: ChangeType;
+  from: string | null; to: string | null; tone: ChangeTone; via: string; actorId: string | null; tracker: "GitHub" | "Jira" | null; flags: ChangeFlag[];
+};
+export type ChangeHeaderData = {
+  kind: "group"; id: string; label: string; count: number; collapsed: boolean; latest: string; by: ChangeGroupBy;
+  itemId: string | null; type: ChangeType | null; moved: ChangeType[]; trackerChanges: number; flags: ChangeFlag[];
+};
+export type ChangeGridRow = ChangeRowData | ChangeHeaderData;
+export const isChangeHeader = (r: unknown): r is ChangeHeaderData => typeof r === "object" && r !== null && (r as { kind?: string }).kind === "group";
+
+const dayKey = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+const dayLabel = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+
+/**
+ * The rows of the Changes grid: flat change rows with, for a grouping, a header row before each group (our own, like the main grid: row grouping is
+ * Enterprise only). Headers carry the count, the newest time, whether the initiative moved, and the follow-up flags. A collapsed group shows only its header.
+ * `flags` are the reasons from Needs attention by initiative; `onlyFlagged` keeps the initiatives that have one.
+ */
+export function changeGridRows(
+  groups: readonly ChangeGroup[], by: ChangeGroupBy, collapsed: ReadonlySet<string>, flags: ReadonlyMap<string, readonly ChangeFlag[]> = new Map(), onlyFlagged = false,
+): ChangeGridRow[] {
+  const shown = onlyFlagged ? groups.filter((g) => (flags.get(g.itemId) ?? []).length > 0) : groups;
+  const rows: ChangeRowData[] = shown.flatMap((g) => g.entries.map((e): ChangeRowData => ({
+    kind: "change", id: `c${e.id}`, entryId: e.id, itemId: g.itemId, code: g.code, name: g.name, at: e.at, type: e.type, from: e.from, to: e.to,
+    tone: changeTone(e.type, e.to, e.tracker), via: e.via, actorId: e.actorId, tracker: e.tracker, flags: [...(flags.get(g.itemId) ?? [])],
+  })));
+  const newest = (a: ChangeRowData, b: ChangeRowData) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.entryId - a.entryId);
+  if (by === "none") return rows.sort(newest);
+
+  const buckets = new Map<string, { label: string; rows: ChangeRowData[]; group?: ChangeGroup; type?: ChangeType }>();
+  for (const g of shown) buckets.set(`i:${g.itemId}`, { label: `${g.code} ${g.name}`, rows: [], group: g });
+  const out: ChangeGridRow[] = [];
+  if (by === "initiative") {
+    for (const r of rows) buckets.get(`i:${r.itemId}`)!.rows.push(r);
+    for (const b of buckets.values()) { // `shown` is already newest first
+      const g = b.group!, id = `g:i:${g.itemId}`;
+      out.push({ kind: "group", id, label: b.label, count: b.rows.length, collapsed: collapsed.has(id), latest: g.latest, by, itemId: g.itemId, type: null, moved: g.moved, trackerChanges: g.trackerChanges, flags: [...(flags.get(g.itemId) ?? [])] });
+      if (!collapsed.has(id)) out.push(...b.rows.sort(newest));
+    }
+    return out;
+  }
+  const keyOf = (r: ChangeRowData) => (by === "type" ? r.type : dayKey(r.at));
+  const groupsOf = new Map<string, ChangeRowData[]>();
+  for (const r of rows.sort(newest)) groupsOf.set(keyOf(r), [...(groupsOf.get(keyOf(r)) ?? []), r]);
+  const keys = [...groupsOf.keys()].sort(by === "type" ? (a, b) => CHANGE_TYPES.findIndex((x) => x.id === a) - CHANGE_TYPES.findIndex((x) => x.id === b) : (a, b) => (a < b ? 1 : -1));
+  for (const k of keys) {
+    const list = groupsOf.get(k)!, id = `g:${by}:${k}`;
+    out.push({ kind: "group", id, label: by === "type" ? changeTypeLabel(k as ChangeType) : dayLabel(list[0]!.at), count: list.length, collapsed: collapsed.has(id), latest: list[0]!.at, by, itemId: null, type: by === "type" ? (k as ChangeType) : null, moved: [], trackerChanges: 0, flags: [] });
+    if (!collapsed.has(id)) out.push(...list);
+  }
+  return out;
+}
