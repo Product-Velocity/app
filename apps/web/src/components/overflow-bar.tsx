@@ -33,6 +33,7 @@ export type OverflowItem = {
 
 const GAP = 8;
 const MORE_FALLBACK = 40;
+const MAX_CHANGES_PER_FRAME = 4;
 
 /**
  * A row of items that moves what does not fit into a "More" menu (issue #403). The row takes the space left by its neighbours
@@ -46,6 +47,9 @@ export function OverflowBar({ items, label, moreLabel = "More", className = "" }
   const widths = useRef(new Map<string, number>());
   const [hidden, setHidden] = useState<string[]>([]);
   const hiddenKey = hidden.join("|");
+  // updates made in the current frame: a bar in a box with no room (a narrow window) must settle, never loop (React error 185 on every tab switch)
+  const changes = useRef(0);
+  const shown = useRef<string[]>([]); // what the bar shows now, readable inside a measure pass
   const itemsKey = items.map((i) => `${i.id}:${i.rank}:${i.pinned ? 1 : 0}`).join("|");
 
   const measure = useCallback(() => {
@@ -56,7 +60,9 @@ export function OverflowBar({ items, label, moreLabel = "More", className = "" }
       const w = el.getBoundingClientRect().width;
       if (w > 0) widths.current.set(el.dataset.ovId!, Math.ceil(w));
     }
-    const moreW = moreRef.current ? Math.ceil(moreRef.current.getBoundingClientRect().width) : MORE_FALLBACK;
+    // the button's own width, or a fallback while it is not shown or has no room: ONE number for both the room and the fit, or a box with no room
+    // flips between "fits" (button shown) and "does not fit" (button gone) on every pass
+    const moreW = (moreRef.current ? Math.ceil(moreRef.current.getBoundingClientRect().width) : 0) || MORE_FALLBACK;
     // read the room with the greedy rules of the stylesheet, not with last time's sizes
     wrap.style.flex = "";
     row.style.flex = "";
@@ -66,13 +72,18 @@ export function OverflowBar({ items, label, moreLabel = "More", className = "" }
     const next = fitItems({
       items: items.map((i) => ({ id: i.id, width: widths.current.get(i.id) ?? 0, rank: i.rank, pinned: i.pinned })),
       available: full,
-      moreWidth: moreW || MORE_FALLBACK,
+      moreWidth: moreW,
       gap: GAP,
     });
     // then the block asks for what all its items and the button need and no more, so a neighbour that can give way (search, the "Last: ..." text) does
     row.style.flex = "0 1 auto";
     if (all.every((w) => w !== undefined)) wrap.style.flex = `0 1 ${all.reduce<number>((a, w) => a + (w ?? 0), 0) + Math.max(0, all.length - 1) * GAP + moreW + GAP}px`;
-    setHidden((prev) => (prev.join("|") === next.join("|") ? prev : next));
+    if (shown.current.join("|") !== next.join("|") && changes.current < MAX_CHANGES_PER_FRAME) { // still moving after that many passes in one frame: keep what is shown
+      changes.current += 1;
+      shown.current = next;
+      setHidden(next);
+    }
+    if (typeof requestAnimationFrame !== "undefined") requestAnimationFrame(() => { changes.current = 0; });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemsKey]);
 
