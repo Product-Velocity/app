@@ -371,7 +371,7 @@ export function actionsOfFlags(flags: readonly ChangeFlag[], phase: unknown, can
 export function rowFlagTexts(row: object, today: Date, canAct: boolean): { flags: string | null; actions: string | null } {
   const flags = flagsOfRow(row, today);
   const actions = actionsOfFlags(flags, (row as { initiative_phase?: unknown }).initiative_phase, canAct);
-  return { flags: flags.map((f) => f.label).join("; ") || null, actions: actions.map((a) => a.resolved.label).join("; ") || null };
+  return { flags: [...new Set(flags.map((f) => f.label))].join("; ") || null, actions: actions.map((a) => a.resolved.label).join("; ") || null };
 }
 
 /** The newest row of each initiative: it carries the actions, so an initiative with several changes has its buttons once. */

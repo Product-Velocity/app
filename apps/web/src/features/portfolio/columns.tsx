@@ -4,7 +4,7 @@ import { NameWithIssues } from "./name-cell";
 import type { ColDef, IHeaderParams } from "ag-grid-community";
 import type { CustomCellRendererProps } from "ag-grid-react";
 import {
-  EDITABLE_FIELDS, VISIBLE_FIELDS, actionsOfFlags, compareQuarters, flagsOfRow, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
+  EDITABLE_FIELDS, VISIBLE_FIELDS, actionsOfFlags, changeTone, compareQuarters, flagsOfRow, jiraCategoryTone, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
   type EditableField, type FieldDef,
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
@@ -23,7 +23,7 @@ function HealthCell({ value }: { value: string | null }) {
   return <StatusPill value={value} tone={statusTone(value)} />;
 }
 
-function ReadOnlyCell({ text, reason, github, pill }: { text: string; reason: string | null; github: boolean; pill?: boolean }) {
+function ReadOnlyCell({ text, reason, github, pill, children }: { text: string; reason: string | null; github: boolean; pill?: boolean; children?: React.ReactNode }) {
   return (
     <span className="lock-cell" title={reason ?? undefined}>
       {github && (
@@ -31,7 +31,7 @@ function ReadOnlyCell({ text, reason, github, pill }: { text: string; reason: st
           <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" />
         </svg>
       )}
-      {pill && text ? <StatusPill value={text} /> : text}
+      {children ?? (pill && text ? <StatusPill value={text} /> : text)}
     </span>
   );
 }
@@ -44,9 +44,10 @@ function FlagsCell({ data, today }: CustomCellRendererProps<GridItem> & { today:
   if (!data) return null;
   const flags = flagsOfRow(data, today());
   if (flags.length === 0) return null;
+  const labels = [...new Set(flags.map((f) => f.label))]; // several reasons can share a label (Delivery risk): one pill, every reason in the tooltip
   return (
     <span className="grid-flags" title={flags.map((f) => `${f.label}: ${f.text}`).join("\n")}>
-      {flags.map((f) => <span key={f.kind} className="pill tone-risk chg-flag">{"\u2691"} {f.label}</span>)}
+      {labels.map((l) => <span key={l} className="pill tone-risk chg-flag">{"\u2691"} {l}</span>)}
     </span>
   );
 }
@@ -175,6 +176,15 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
       };
     }
     if (f.key === "project_rank") return base;
+    if (f.key === "tracker_status") {
+      // the tracker's own words, coloured by what the mapping makes of them: a Jira status by its category (the one Build Status follows), a GitHub state by open or closed
+      return { ...base, cellRenderer: (p: CustomCellRendererProps<GridItem>) => {
+        const v = typeof p.value === "string" ? p.value : "";
+        const jira = p.data ? lookups.jira?.links[p.data.id] : undefined;
+        const tone = jira ? jiraCategoryTone(jira.category) : changeTone("issue-status", v, "GitHub");
+        return <ReadOnlyCell text="" reason={reason} github={false}>{v ? <StatusPill value={v} tone={tone} /> : <span className="muted">Not linked</span>}</ReadOnlyCell>;
+      } };
+    }
     if (f.key === "flags") return { ...base, width: 360, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <FlagsCell {...p} today={today} />, cellClass: "cell-locked" };
     if (f.key === "actions") return { ...base, width: 340, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <ActionsCell {...p} today={today} canAct={controller.canEdit} />, cellClass: "cell-locked" };
     if (f.key === "health") return { ...base, cellRenderer: HealthCell, ...pickerDef(f, optionsFor(f.key), true) };

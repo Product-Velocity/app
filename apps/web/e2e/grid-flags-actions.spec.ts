@@ -17,9 +17,11 @@ test.describe("the Flags and Actions columns of the grid", () => {
     await open(page);
     const flags = await cell(page, "R-01", "flags");
     await expect(flags).toContainText("Tracker done");
-    await expect(flags.locator(".grid-flags")).toHaveAttribute("title", /Tracker done: The tracker says the work is done/);
+    await expect(flags.locator(".grid-flags")).toHaveAttribute("title", /Tracker done, initiative open: The tracker says the work is done/);
     await expect(await cell(page, "R-03", "flags")).toContainText("Build done");
-    await expect(await cell(page, "R-02", "flags")).toHaveText("");
+    // two reasons with one label are one pill; the tooltip keeps both reasons
+    const risk = await cell(page, "R-02", "flags");
+    await expect(risk.locator(".chg-flag", { hasText: "Delivery risk" })).toHaveCount(1);
   });
 
   test("Actions: a move that passes a gate opens the request, with that gate chosen", async ({ page }) => {
@@ -46,7 +48,7 @@ test.describe("the Flags and Actions columns of the grid", () => {
 
   test("the Actions column has no accessibility violations", async ({ page }) => {
     await open(page);
-    const r = await new AxeBuilder({ page }).include(".ag-body-viewport").disableRules(["scrollable-region-focusable"]).analyze();
+    const r = await new AxeBuilder({ page }).include(".ag-root").disableRules(["scrollable-region-focusable"]).analyze();
     expect(r.violations.filter((v) => v.impact === "critical" || v.impact === "serious").map((v) => v.id)).toEqual([]);
   });
 });
@@ -55,7 +57,7 @@ test.describe("Tracker Status", () => {
   test("is a column in the Delivery view, and can be grouped by", async ({ page }) => {
     await open(page, "n=12&role=admin&view=Delivery&jira=1");
     await expect(page.locator('.ag-header-cell[col-id="tracker_status"]')).toBeVisible();
-    await page.getByRole("button", { name: /Group by/ }).click();
-    await expect(page.getByRole("button", { name: "Tracker Status" }).first()).toBeVisible();
+    await page.getByRole("button", { name: /^Group by:/ }).click();
+    await expect(page.getByRole("group", { name: "Most used fields" }).getByRole("menuitemradio", { name: "Tracker Status" })).toHaveCount(1);
   });
 });

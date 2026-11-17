@@ -61,6 +61,7 @@ const OVERRIDES: Record<string, Link> = {
   latest_release: read("Latest published release of the linked repositories", "Not read yet"),
   repositories: read("Repositories of the linked issues", "Not read yet"),
   gh_project_status: read("Project board field Status (the field chosen for the board)", "Not read yet"),
+  tracker_status: read("Project board Status, else the state of the issue (Open, Closed)", "The issue's status name, as Jira spells it"),
   gh_iteration: read("Project board field Iteration", "Not read yet"),
   gh_target_date: read("Project board field Due date or Target date", "Not read yet"),
   planned_scope: { github: "Counted from the sub-issues when you mark the breakdown complete", jira: "Not read yet" },
@@ -91,7 +92,8 @@ const UPDATE_OVERRIDES: Record<string, string> = {
   status: TRACKER, gh_state: TRACKER, issues_closed: TRACKER, issues_total: TRACKER, delivery_progress_pct: TRACKER, blocked_issues: TRACKER,
   stale_issues: TRACKER, open_prs: TRACKER, merged_prs: TRACKER, ci_status: TRACKER, latest_release: TRACKER, repositories: TRACKER, gh_last_activity: TRACKER,
   // the board's Status field arrives by webhook; iteration and target date are read with it
-  gh_project_status: TRACKER,
+  gh_project_status: TRACKER, tracker_status: TRACKER,
+  flags: "Worked out again on every change and every load", actions: "Worked out again on every change and every load",
   gh_iteration: join(UPDATE_AUTO, UPDATE_MANUAL, "read again whenever Status changes"),
   gh_target_date: join(UPDATE_AUTO, UPDATE_MANUAL, "read again whenever Status changes"),
   // texts: you own them, Sync with GitHub compares and sends after you confirm

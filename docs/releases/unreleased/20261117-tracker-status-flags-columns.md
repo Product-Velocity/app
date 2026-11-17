@@ -1,0 +1,4 @@
+---
+bump: minor
+---
+**Tracker Status, Flags and Actions in the grid; Jira statuses have colours.** The grid has a new Tracker Status column (in the Delivery view): the status as Jira or GitHub words it (Jira's status name; GitHub's board Status, else Open or Closed), next to Build Status, so you can group and filter delivery on the real tracker status. Two more columns, Flags and Actions, bring the follow-up flags of the Changes report into the grid: Flags shows every flag of an initiative, Actions shows its clickable next steps (a move that passes no gate is made at once, one that does opens the gate request); viewers see flags only. Jira statuses are coloured by their status category, the same grey, blue and green as Build Status, in the Changes report and in Tracker Status. The field list grows from 169 to 172 fields. No migration.

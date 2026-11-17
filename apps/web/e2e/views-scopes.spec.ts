@@ -279,11 +279,11 @@ test.describe("grouping", () => {
 });
 
 test.describe("grid view changes", () => {
-  test("the Columns picker reaches all 168 fields, grouped, with later phases marked", async ({ page }) => {
+  test("the Columns picker reaches all 171 fields, grouped, with later phases marked", async ({ page }) => {
     await open(page);
     await page.getByRole("button", { name: /^Columns:/ }).click();
     const panel = page.getByRole("group", { name: "Choose columns" });
-    await expect(panel.locator('input[type="checkbox"]')).toHaveCount(168);
+    await expect(panel.locator('input[type="checkbox"]')).toHaveCount(171);
     expect(await panel.locator("fieldset").count()).toBeGreaterThan(8);
     await expect(panel.locator("fieldset").first().locator("legend")).toHaveText("What");
     await expect(panel).toContainText("arrives in phase 7");
