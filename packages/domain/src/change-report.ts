@@ -1,4 +1,5 @@
 import { ATTENTION_KINDS, attentionList } from "./attention";
+import { GATES, GATE_IDS, moveNeedsGate, phaseIndex, type GateId, type Phase } from "./gates";
 import type { GroupBadge, GroupRow } from "./views";
 
 /**
@@ -52,7 +53,9 @@ export function changePeriod(period: ChangePeriod, now: Date): { from: Date; to:
 
 // ------------------------------------------------------------------ rows of the grid (issue #472)
 /** A flag to follow up on an initiative: the kind id, its label and the sentence. */
-export type ChangeFlag = { kind: string; label: string; text: string };
+/** What a person can do about a flag, in one click. Always a suggestion: nothing happens until the person clicks, and the database applies the same rules as everywhere (a move that passes a decision gate is refused). */
+export type ChangeFlagAction = { type: "move"; to: Phase; label: string };
+export type ChangeFlag = { kind: string; label: string; text: string; action?: ChangeFlagAction };
 /** The Jira or GitHub issue an initiative is linked to: "R8P-7049" or "owner/repo#12", its title where known, and a link that opens it in the tracker. */
 export type TrackerRef = { tracker: "Jira" | "GitHub"; key: string; title: string | null; url: string | null };
 /** How a value reads in colour. Words always come with it (a colour is never the only signal). */
@@ -290,14 +293,44 @@ export const CHANGE_FLAG_LABELS: Readonly<Record<string, string>> = { ...Object.
  */
 export function changeFlags(rows: readonly { id: string }[], today: Date): Map<string, ChangeFlag[]> {
   const out = new Map<string, ChangeFlag[]>();
-  for (const e of attentionList(rows as never, today)) out.set(e.id, e.reasons.map((r) => ({ kind: r.kind, label: CHANGE_FLAG_LABELS[r.kind] ?? r.kind, text: r.text })));
+  for (const e of attentionList(rows as never, today)) out.set(e.id, e.reasons.map((r): ChangeFlag => ({ kind: r.kind, label: CHANGE_FLAG_LABELS[r.kind] ?? r.kind, text: r.text, ...(r.action?.type === "move" ? { action: { type: "move" as const, to: r.action.to, label: r.action.label } } : {}) })));
   for (const r of rows as readonly Record<string, unknown>[]) {
     if (!blank(r.initiative_phase) || r.initiative_status === "Completed" || r.initiative_status === "Cancelled") continue;
     const total = typeof r.issues_total === "number" ? r.issues_total : 0, closed = typeof r.issues_closed === "number" ? r.issues_closed : 0;
     const done = r.status === "Done" || (total > 0 && closed >= total);
     const add = (f: ChangeFlag) => out.set(String(r.id), [...(out.get(String(r.id)) ?? []), f]);
-    if (done) add({ kind: "tracker-done-open", label: REPORT_FLAG_LABELS["tracker-done-open"]!, text: `The tracker says the work is done${total > 0 && closed >= total ? ` (all ${total} linked ${total === 1 ? "issue is" : "issues are"} closed)` : ""}, but the initiative has no phase and its status is ${blank(r.initiative_status) ? "not set" : String(r.initiative_status)}, not Completed.` });
-    else if (r.status === "In progress") add({ kind: "no-phase", label: REPORT_FLAG_LABELS["no-phase"]!, text: "The tracker says the build is in progress, but no Initiative Phase is set." });
+    if (done) add({ kind: "tracker-done-open", label: REPORT_FLAG_LABELS["tracker-done-open"]!, text: `The tracker says the work is done${total > 0 && closed >= total ? ` (all ${total} linked ${total === 1 ? "issue is" : "issues are"} closed)` : ""}, but the initiative has no phase and its status is ${blank(r.initiative_status) ? "not set" : String(r.initiative_status)}, not Completed.`, action: { type: "move", to: "Test", label: "Move to Test" } });
+    else if (r.status === "In progress") add({ kind: "no-phase", label: REPORT_FLAG_LABELS["no-phase"]!, text: "The tracker says the build is in progress, but no Initiative Phase is set.", action: { type: "move", to: "Build", label: "Move to Build" } });
   }
+  return out;
+}
+
+// ------------------------------------------------------------------ doing something about a flag
+/** The gate whose decision opens a phase: the last gate that opens that phase or an earlier one (Test: Gate B, which opens Build; the approver picks Test as a fast-lane target). */
+export function gateForTarget(to: Phase): GateId | null {
+  const found = GATE_IDS.filter((g) => phaseIndex(GATES[g].to) <= phaseIndex(to));
+  return found.at(-1) ?? null;
+}
+
+export type ResolvedFlagAction =
+  | { kind: "move"; to: Phase; label: string; title: string }
+  | { kind: "gate"; gate: GateId; label: string; title: string };
+
+/**
+ * What the button does for this initiative. A move that does not pass a decision gate is made at once (the same `move_phase` as the Roadmap and Needs attention). One that
+ * does (a Jira initiative with no phase counts as Discover, so Test passes Gates A and B) opens the Request gate dialog with the gate that opens that phase, because the database
+ * refuses the move and a button that is known to fail would only teach people to ignore it. The approver then decides, and may choose the phase as a fast-lane target.
+ */
+export function resolveFlagAction(action: ChangeFlagAction, phase: unknown): ResolvedFlagAction {
+  const needs = moveNeedsGate(phase, action.to);
+  if (!needs) return { kind: "move", to: action.to, label: action.label, title: `Moves the initiative to ${action.to} now. You can undo it from the initiative.` };
+  const gate = gateForTarget(action.to) ?? needs;
+  return { kind: "gate", gate, label: `Request gate ${gate} (to ${action.to})`, title: `Moving to ${action.to} passes ${needs === gate ? `Gate ${gate}` : `Gate ${needs} and later`}, so it needs a decision. This opens the request; the approver can choose ${action.to} as the phase.` };
+}
+
+/** The newest row of each initiative: it carries the actions, so an initiative with several changes has its buttons once. */
+export function primaryRowIds(rows: readonly ChangeRowData[]): Set<string> {
+  const seen = new Set<string>(), out = new Set<string>();
+  for (const r of [...rows].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.entryId - a.entryId))) if (!seen.has(r.itemId)) { seen.add(r.itemId); out.add(r.id); }
   return out;
 }

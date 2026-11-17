@@ -58,5 +58,5 @@ export function ReportsClient({ tenantId, role, userId, lookups }: { tenantId: s
   if (state.kind === "error") {
     return <div role="alert" className="error">Could not load the roadmap: {state.message} <button type="button" className="link-button" onClick={retry}>Try again</button></div>;
   }
-  return <ReportsView controller={state.controller} lookups={lookups} me={userId} loadGateRequests={() => gates.loadRequests()} loadChanges={loadChanges} loadTrackerIssues={loadTrackerIssues} loadJiraUsers={loadJiraUsers} />;
+  return <ReportsView controller={state.controller} lookups={lookups} me={userId} loadGateRequests={() => gates.loadRequests()} loadChanges={loadChanges} loadTrackerIssues={loadTrackerIssues} loadJiraUsers={loadJiraUsers} gateSource={gates} />;
 }

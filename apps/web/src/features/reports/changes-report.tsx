@@ -4,16 +4,22 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import type { ColDef, ColumnMovedEvent } from "ag-grid-community";
 import {
-  CHANGE_PERIODS, NO_CHANGE_FILTERS, buildChangeRows, changeFlags, changePeriod, changeTypeLabel, filterChangeRows, groupChangeRows, isChangeHeader, isOpenableUrl,
-  type ChangeFlag, type ChangeFilters, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type FeedRow, type ItemInfo, type JiraStatusRecord, type TrackerRef,
+  CHANGE_PERIODS, NO_CHANGE_FILTERS, buildChangeRows, changeFlags, changePeriod, changeTypeLabel, filterChangeRows, groupChangeRows, isChangeHeader, isOpenableUrl, primaryRowIds, resolveFlagAction,
+  type ChangeFlag, type ChangeFilters, type GateId, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type FeedRow, type ItemInfo, type JiraStatusRecord, type TrackerRef,
 } from "@pv/domain";
 import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer } from "../portfolio/grid-kit";
 import { ChangeFilterChips, ChangesBar, type ChangeColumn } from "./changes-bar";
+import { RequestGateDialog } from "../gates/gate-dialogs";
+import type { GateSource } from "../gates/gate-source";
 import type { ReportEnv } from "./report-env";
 
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;
 const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-type Ctx = { toggleGroup: (key: string) => void; open: (itemId: string) => void };
+type Ctx = {
+  toggleGroup: (key: string) => void; open: (itemId: string) => void;
+  /** The ids of the rows that carry the buttons (the newest row of each initiative), what the person may do, and the button that is working. */
+  primary: ReadonlySet<string>; canAct: boolean; busy: string | null; act: (itemId: string, flag: ChangeFlag) => void; phaseOf: (itemId: string) => unknown;
+};
 
 const FlagPills = ({ flags }: { flags: readonly ChangeFlag[] }) => <>{flags.map((f) => <span key={f.kind} className="pill tone-risk chg-flag" title={f.text}>⚑ {f.label}</span>)}</>;
 const TypeCell = (p: CustomCellRendererProps<ChangeRowData>) => <span className={`pill chg-type chg-type-${p.data!.type}`}>{changeTypeLabel(p.data!.type)}{p.data!.tracker ? ` (${p.data!.tracker})` : ""}</span>;
@@ -42,11 +48,35 @@ const IssueCell = (p: CustomCellRendererProps<ChangeRowData>) => {
     </span>
   );
 };
-/** In a row: the first flag and how many more; all of them are in the tooltip and on the initiative's group header. */
+/** The flags a row shows: those with an action first, at most two, and how many more there are (all of them are in the group header and the tooltip). */
+function flagsShown(d: ChangeRowData): { list: ChangeFlag[]; more: number } {
+  const sorted = [...d.flags].sort((a, b) => (b.action ? 1 : 0) - (a.action ? 1 : 0));
+  return { list: sorted.slice(0, 2), more: Math.max(0, sorted.length - 2) };
+}
+
+/**
+ * Follow up: on the newest row of an initiative, its flags and, where there is one, the button for what to do about it (Move to Test, or Request gate when the move passes a
+ * decision gate). The button changes nothing by itself beyond that one move, made as the signed-in person (rule 3 is about Claude, which is not involved). Other rows stay quiet.
+ */
 const FlagCell = (p: CustomCellRendererProps<ChangeRowData>) => {
-  const f = p.data!.flags;
-  if (f.length === 0) return null;
-  return <><FlagPills flags={f.slice(0, 1)} />{f.length > 1 && <span className="pill tone-neutral" title={f.map((x) => `${x.label}: ${x.text}`).join("\n")}>+{f.length - 1} more</span>}</>;
+  const d = p.data!, ctx = p.context as Ctx;
+  if (d.flags.length === 0 || !ctx.primary.has(d.id)) return null;
+  const { list, more } = flagsShown(d);
+  return (
+    <span className="chg-actions">
+      {list.map((f) => {
+        const a = f.action && ctx.canAct ? resolveFlagAction(f.action, ctx.phaseOf(d.itemId)) : null;
+        const key = `${d.itemId}:${f.kind}`;
+        return (
+          <span key={f.kind} className="chg-flagline">
+            <span className="pill tone-risk chg-flag" title={f.text}>⚑ {f.label}</span>
+            {a && <button type="button" className="btn chg-act" title={a.title} disabled={ctx.busy === key} onClick={() => ctx.act(d.itemId, f)}>{ctx.busy === key ? "Working…" : a.label}</button>}
+          </span>
+        );
+      })}
+      {more > 0 && <span className="pill tone-neutral" title={d.flags.map((x) => `${x.label}: ${x.text}`).join("\n")}>+{more} more</span>}
+    </span>
+  );
 };
 
 /** Every column of the change log, in the default order. "Source" (Product Velocity, Jira or GitHub) sits in front of "Source type" (UI, API, Claude MCP, GitHub webhook, import, system). */
@@ -55,23 +85,34 @@ const COLUMNS: (ChangeColumn & { def: ColDef<ChangeRowData> })[] = [
   { id: "initiative", name: "Initiative", def: { headerName: "Initiative", flex: 2, minWidth: 220, cellRenderer: InitiativeCell } },
   { id: "type", name: "Change type", def: { headerName: "Change type", width: 170, cellRenderer: TypeCell } },
   { id: "change", name: "Change", def: { headerName: "Change", flex: 2, minWidth: 240, cellRenderer: ChangeCell } },
+  { id: "flags", name: "Follow up", def: { headerName: "Follow up", flex: 2, minWidth: 320, cellRenderer: FlagCell, cellClass: "chg-flags" } },
   { id: "issue", name: "Tracker issue", def: { headerName: "Tracker issue", flex: 2, minWidth: 220, cellRenderer: IssueCell } },
+  { id: "jiraUser", name: "Jira user", def: { headerName: "Jira user", width: 180, valueGetter: (p) => p.data?.jiraUser ?? "", tooltipValueGetter: (p) => (p.data?.jiraUser ? `${p.data.jiraUser} moved the Jira issue to this status (from Jira's own history)` : "") } },
   { id: "source", name: "Source", def: { headerName: "Source", width: 150, valueGetter: (p) => p.data?.source } },
   { id: "sourceType", name: "Source type", def: { headerName: "Source type", width: 140, valueGetter: (p) => p.data?.sourceType } },
   { id: "by", name: "By", def: { headerName: "By", width: 230, valueGetter: (p) => p.data?.by, tooltipValueGetter: (p) => p.data?.by } },
-  { id: "jiraUser", name: "Jira user", def: { headerName: "Jira user", width: 180, valueGetter: (p) => p.data?.jiraUser ?? "", tooltipValueGetter: (p) => (p.data?.jiraUser ? `${p.data.jiraUser} moved the Jira issue to this status (from Jira's own history)` : "") } },
-  { id: "flags", name: "Follow up", def: { headerName: "Follow up", flex: 2, minWidth: 260, cellRenderer: FlagCell, cellClass: "chg-flags" } },
 ];
 const ALL_COLUMNS = COLUMNS.map(({ id, name }) => ({ id, name }));
 const DEFAULT_COLUMNS = COLUMNS.map((c) => c.id);
 
 const isFullWidthRow = (p: { rowNode: { data?: unknown } }) => isChangeHeader(p.rowNode.data);
 const getRowId = (p: { data: ChangeGridRow }) => p.data.id;
-const getRowHeight = (p: { data?: ChangeGridRow }) => (p.data && !isChangeHeader(p.data) && p.data.alsoBuild ? 58 : undefined); // two lines: the linked-issue status and the Build Status that went with it
+/** Two lines for a move with its Build Status; a row that carries flags is as tall as its flags and their buttons. */
+const getRowHeight = (p: { data?: ChangeGridRow; context?: unknown }) => {
+  const d = p.data;
+  if (!d || isChangeHeader(d)) return undefined;
+  let flags = 0;
+  if ((p.context as Ctx | undefined)?.primary.has(d.id) && d.flags.length > 0) {
+    const { list, more } = flagsShown(d);
+    flags = 16 + list.reduce((n, f) => n + 28 + (f.action && (p.context as Ctx).canAct ? 30 : 0), 0) + (more > 0 ? 28 : 0);
+  }
+  const h = Math.max(d.alsoBuild ? 58 : 0, flags > 36 ? flags : 0);
+  return h > 0 ? h : undefined;
+};
 const getRowClass = (p: { data?: ChangeGridRow }) => (p.data && !isChangeHeader(p.data) ? `chg-row chg-row-${p.data.type}` : undefined);
 
 type Saved = { columns: string[]; by: ChangeGroupBy | null; then: ChangeGroupBy | null };
-const STORE = "pv.changes.view.v2"; // v2: the Jira user column (a saved list of columns from v1 would not show it)
+const STORE = "pv.changes.view.v3"; // v3: Follow up (the flags and their buttons) moved next to Change; a list saved under v2 would keep it at the far right
 /** What a viewer chose for columns and grouping is remembered in the browser (a convenience, not shared); it may be unavailable, so every access is guarded. */
 const readSaved = (): Saved => {
   const fallback: Saved = { columns: DEFAULT_COLUMNS, by: "initiative", then: null };
@@ -91,25 +132,26 @@ const writeSaved = (s: Saved) => { try { window.localStorage.setItem(STORE, JSON
  * Product Velocity registered the change; "Source" says where the value came from (Product Velocity, Jira or GitHub) and "Source type" how it arrived. Actors are named on
  * a row; for a tracker value the person only ran the Sync. Nothing is counted or grouped per person (rule 8). Every colour comes with a word.
  */
-export function ChangesReport({ env, load, loadIssues, loadJiraUsers, onOpen }: { env: ReportEnv; load?: (from: Date, to: Date) => Promise<FeedRow[]>; loadIssues?: (itemIds: string[]) => Promise<Map<string, TrackerRef>>; /** The Jira users who moved the issues to a status, from Jira's own history. */ loadJiraUsers?: (issueKeys: string[], from: Date, to: Date) => Promise<JiraStatusRecord[]>; onOpen: (id: string) => void }) {
+export function ChangesReport({ env, load, loadIssues, loadJiraUsers, gates, me = null, onOpen }: { env: ReportEnv; load?: (from: Date, to: Date) => Promise<FeedRow[]>; loadIssues?: (itemIds: string[]) => Promise<Map<string, TrackerRef>>; /** The Jira users who moved the issues to a status, from Jira's own history. */ loadJiraUsers?: (issueKeys: string[], from: Date, to: Date) => Promise<JiraStatusRecord[]>; /** Decision gates: Move to Test and Request gate on a flag. Without it the report has no action buttons. */ gates?: GateSource; /** The signed-in person (left out of the people a gate request can ask). */ me?: string | null; onOpen: (id: string) => void }) {
   const { rows, lookups, controller } = env;
   const [period, setPeriod] = useState<ChangePeriod>("today");
   const [filters, setFilters] = useState<ChangeFilters>(NO_CHANGE_FILTERS);
   const [saved, setSaved] = useState<Saved>(readSaved); // the component mounts only in the browser, after the roadmap has loaded
   const change = (s: Partial<Saved>) => setSaved((cur) => { const n = { ...cur, ...s }; writeSaved(n); return n; });
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
-  const [loaded, setLoaded] = useState<{ key: string; rows: FeedRow[] } | null>(null);
+  const [loaded, setLoaded] = useState<{ period: ChangePeriod; reload: number; rows: FeedRow[]; at: Date } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   useEffect(() => {
     let live = true;
     if (!load) return;
     const { from, to } = changePeriod(period, new Date());
-    load(from, to).then((r) => { if (live) { setLoaded({ key: `${period}:${reload}`, rows: r }); setFailed(null); } }, (e: unknown) => { if (live) setFailed(e instanceof Error ? e.message : "Could not read the changes."); });
+    load(from, to).then((r) => { if (live) { setLoaded({ period, reload, rows: r, at: new Date() }); setFailed(null); } }, (e: unknown) => { if (live) setFailed(e instanceof Error ? e.message : "Could not read the changes."); });
     return () => { live = false; };
   }, [load, period, reload]);
 
-  const feed = loaded && loaded.key === `${period}:${reload}` ? loaded.rows : null; // null while a new period is loading
+  const feed = loaded && loaded.period === period ? loaded.rows : null; // null only while another period is loading; a refresh keeps showing what is there until the new read arrives
+  const refreshing = loaded !== null && loaded.period === period && loaded.reload !== reload && failed === null;
   const items = useMemo(() => new Map<string, ItemInfo>(rows.map((r) => [r.id, { code: String(r.item_code ?? ""), name: String(r.initiative_name ?? ""), rank: r.stack_rank }])), [rows]);
   /** The flags to follow up: the Needs attention reasons that can be worked out from the grid's rows, and the two this report adds for initiatives with no phase. */
   const flags = useMemo(() => changeFlags(rows, controller.todayDate()), [rows, controller]);
@@ -121,7 +163,7 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, onOpen }: 
     if (!loadIssues || changedIds === "") return;
     loadIssues(changedIds.split(",")).then((m) => { if (live) setIssues(m); }, () => { if (live) setIssues(new Map()); });
     return () => { live = false; };
-  }, [loadIssues, changedIds]);
+  }, [loadIssues, changedIds, reload]);
   /** The Jira user behind each Jira move: a name on a row, read once per list of Jira issues and period. A failure leaves the column empty. */
   const [jiraUsers, setJiraUsers] = useState<readonly JiraStatusRecord[]>([]);
   const jiraKeys = useMemo(() => [...new Set([...issues.values()].filter((i) => i.tracker === "Jira").map((i) => i.key))].sort().join(","), [issues]);
@@ -131,7 +173,7 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, onOpen }: 
     const { from, to } = changePeriod(period, new Date());
     loadJiraUsers(jiraKeys.split(","), from, to).then((r) => { if (live) setJiraUsers(r); }, () => { if (live) setJiraUsers([]); });
     return () => { live = false; };
-  }, [loadJiraUsers, jiraKeys, period]);
+  }, [loadJiraUsers, jiraKeys, period, reload]);
   const who = useCallback((id: string | null) => (id ? lookups.members.find((m) => m.user_id === id)?.email ?? "someone" : "the system"), [lookups.members]);
 
   const allRows = useMemo(() => buildChangeRows(feed ?? [], items, { flags, issues, nameOf: who, jiraUsers }), [feed, items, flags, issues, who, jiraUsers]);
@@ -141,7 +183,27 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, onOpen }: 
   const flagged = useMemo(() => [...initiatives].filter((id) => (flags.get(id) ?? []).length > 0).length, [initiatives, flags]);
 
   const toggle = useCallback((key: string) => setCollapsed((s) => { const n = new Set(s); if (!n.delete(key)) n.add(key); return n; }), []);
-  const context = useMemo<Ctx>(() => ({ toggleGroup: toggle, open: onOpen }), [toggle, onOpen]);
+  /** The keys of every group row when nothing is folded (both levels): what "Collapse all" folds. */
+  const groupKeys = useMemo(() => groupChangeRows(filtered, saved.by, saved.then, new Set()).filter(isChangeHeader).map((h) => h.key), [filtered, saved.by, saved.then]);
+
+  // ---- doing something about a flag, and reading everything again
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [gateFor, setGateFor] = useState<{ id: string; gate: GateId } | null>(null);
+  const primary = useMemo(() => primaryRowIds(filtered), [filtered]);
+  const refresh = useCallback(() => { setReload((n) => n + 1); void controller.refreshFromServer(); }, [controller]);
+  const act = useCallback(async (itemId: string, flag: ChangeFlag) => {
+    if (!gates || !flag.action) return;
+    const a = resolveFlagAction(flag.action, controller.row(itemId)?.initiative_phase);
+    const code = items.get(itemId)?.code ?? "The initiative";
+    setMessage(null);
+    if (a.kind === "gate") { setGateFor({ id: itemId, gate: a.gate }); return; }
+    setBusy(`${itemId}:${flag.kind}`);
+    const r = await gates.move(itemId, a.to);
+    setBusy(null);
+    if (r.ok) { setMessage({ ok: true, text: `${code} moved to ${a.to}.` }); refresh(); } else setMessage({ ok: false, text: `${code} was not moved: ${r.error}` });
+  }, [gates, controller, items, refresh]);
+  const context = useMemo<Ctx>(() => ({ toggleGroup: toggle, open: onOpen, primary, canAct: !!gates && controller.canEdit, busy, act: (id, f) => { void act(id, f); }, phaseOf: (id) => controller.row(id)?.initiative_phase }), [toggle, onOpen, primary, gates, controller, busy, act]);
   const columnDefs = useMemo<ColDef<ChangeGridRow>[]>(() => saved.columns.map((id) => ({ colId: id, ...COLUMNS.find((c) => c.id === id)!.def })) as ColDef<ChangeGridRow>[], [saved.columns]);
   /** A column dragged by its header in the grid is the new order, so the Columns panel and the grid agree. */
   const onColumnMoved = useCallback((e: ColumnMovedEvent) => {
@@ -166,9 +228,12 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, onOpen }: 
         filters={filters} onFilters={setFilters} rows={allRows} matching={shownCount}
         allColumns={ALL_COLUMNS} columns={saved.columns} defaultColumns={DEFAULT_COLUMNS} onColumns={(ids) => change({ columns: ids })}
         by={saved.by} then={saved.then} onGroup={(by, then) => { setCollapsed(new Set()); change({ by, then }); }}
+        groupKeys={groupKeys} collapsed={collapsed} onCollapse={(keys) => setCollapsed(new Set(keys))}
+        onRefresh={refresh} refreshing={refreshing} updatedAt={loaded?.at ?? null}
       />
       <ChangeFilterChips filters={filters} rows={allRows} onChange={setFilters} />
 
+      {message && <p role={message.ok ? "status" : "alert"} className={message.ok ? "notice" : "error"}>{message.text}</p>}
       {!load ? <p role="status" className="muted">The changes are not available here.</p>
         : feed === null ? <p role="status" className="muted">Loading the changes…</p>
         : gridRows.length === 0 ? <p className="rp-empty" role="status">{allRows.length > 0 ? "No change matches the filters or the search" : "No changes in this period for the current filters"}</p>
@@ -179,12 +244,16 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, onOpen }: 
               <AgGridReact<ChangeGridRow>
                 theme={GRID_THEME} rowData={gridRows} columnDefs={columnDefs} getRowId={getRowId} context={context} onColumnMoved={onColumnMoved}
                 isFullWidthRow={isFullWidthRow} fullWidthCellRenderer={GroupRowRenderer as never} getRowClass={getRowClass} getRowHeight={getRowHeight}
-                defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true }} tooltipShowDelay={500}
+                defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true }} tooltipShowDelay={500} suppressColumnVirtualisation
               />
             </div>
             <p className="grid-foot">{shownCount.toLocaleString("en-GB")}{shownCount === allRows.length ? "" : ` of ${allRows.length.toLocaleString("en-GB")}`} changes · {saved.by || saved.then ? "Grouped, newest first inside each group" : "Not grouped, newest first"} · The time is when Product Velocity registered the change</p>
           </>
         )}
+      {gateFor && gates && controller.row(gateFor.id) && (
+        <RequestGateDialog source={gates} me={me} items={[controller.row(gateFor.id) as never]} initialGate={gateFor.gate} onClose={() => setGateFor(null)}
+          onDone={() => { setGateFor(null); setMessage({ ok: true, text: `Gate ${gateFor.gate} requested for ${items.get(gateFor.id)?.code ?? "the initiative"}. It is on the Decisions page.` }); refresh(); }} />
+      )}
     </section>
   );
 }

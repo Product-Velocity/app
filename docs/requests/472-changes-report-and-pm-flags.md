@@ -13,3 +13,5 @@ Follow-up, 2026-11-17 (after testing): the initiative name did not open the deta
 Follow-up, 2026-11-17 (after the review): fix review items 1 to 3 including the main grid; use the Roadmap grid's action bar (filter, columns, grouping, search) above the report, adapted; rename the column Source to "Source type" and add "Source" (Product Velocity, Jira, GitHub) in front of it. A third request was cut off ("3.") and is open: ask Ashu.
 
 Follow-up, 2026-11-17 (after R-72): "Yes, I want it" (one row for a Jira or GitHub move instead of two) "and record the Jira user name as well and show it as a column". Done; the name is read from Jira's history and is personal data (go-live checklist).
+
+Follow-up, 2026-11-17: "I like the flags, like tracker done. Could we connect an action to it like Move phase to Test? I am missing a refresh button in the action bar. I am missing a toggle to expand/close the line items." Done (decision update): action on flags, Refresh, Collapse all / Expand all.
