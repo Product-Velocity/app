@@ -205,6 +205,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "jira_status_changes",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_status_changes set actor_name = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_status_changes where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_status_changes (tenant_id, issue_key, changed_at, to_status, actor_name) values ($1, 'EVIL-1', now(), 'Done', 'evil')", params: [v.tenantId] },
+      { sql: "update public.jira_status_changes set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "item_jira_links",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

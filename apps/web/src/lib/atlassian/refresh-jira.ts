@@ -5,6 +5,7 @@ import { readJiraLink, type LinkToRead } from "./read-jira";
 import { refreshLinkedStatuses, type RefreshDeps, type RefreshSummary } from "./refresh-linked";
 import { refreshTreesTolerant, type TreeDeps, type TreeRefresh } from "./jira-tree";
 import { refreshBuildDatesTolerant, type DateDeps, type DatesRefresh } from "./jira-build-dates";
+import { recordStatusHistory, type HistoryRecord, type StatusChangeRow } from "./jira-status-history";
 import { jiraGet } from "./server";
 import { rowsOrThrow } from "@/lib/db-error";
 
@@ -125,7 +126,24 @@ export async function refreshStaleLightRecords(link: LinkToRead, siteUrl: string
   return rows.length;
 }
 
-export type FullRefresh = { total: number; light: number; linked: RefreshSummary; trees: TreeRefresh & { error: string | null }; dates: DatesRefresh };
+/**
+ * Who moved these linked Jira issues to a status, and when (issue #472): reads their history from Jira and stores every status change with the display name of the
+ * Jira user (service role; an existing change is left as it is). Reads Jira only. Also fills in changes made before this existed. A failure is returned as `error` and
+ * never fails the status read; ReconnectNeeded propagates.
+ */
+export async function recordLinkedStatusHistory(link: LinkToRead, keys: string[]): Promise<HistoryRecord> {
+  if (keys.length === 0) return { issues: 0, changes: 0, error: null };
+  const admin = createAdminClient({ via: "system" });
+  return recordStatusHistory({
+    getPage: (path) => jiraGet<SearchPage>(link.connection_id, link.site_id, path),
+    async save(rows: StatusChangeRow[]) {
+      const { error } = await admin.from("jira_status_changes").upsert(rows.map((r) => ({ ...r, tenant_id: link.tenant_id })), { onConflict: "tenant_id,issue_key,changed_at,to_status", ignoreDuplicates: true });
+      if (error) throw new Error("Could not save the Jira status changes");
+    },
+  }, keys);
+}
+
+export type FullRefresh = { total: number; light: number; linked: RefreshSummary; trees: TreeRefresh & { error: string | null }; dates: DatesRefresh; history: HistoryRecord };
 
 /**
  * The whole read of one linked Jira project, used by the daily check: the open work, then what became Done since, then the status of every
@@ -142,5 +160,7 @@ export async function refreshJiraProject(link: LinkToRead, siteUrl: string): Pro
   const trees = await refreshTreesTolerant(treeDepsFor(link), links, siteUrl);
   // then the real start and completion dates from the history of those issues (same tolerance: a failure is reported, never fatal)
   const dates = await refreshBuildDatesTolerant(dateDepsFor(link), await dateTargets(createAdminClient({ via: "system" }), link.tenant_id, links));
-  return { total: read.total, light, linked, trees, dates };
+  // who moved each linked issue to its status (a failure is reported, never fatal), read from the same history that also fills in past changes
+  const history = await recordLinkedStatusHistory(link, links.map((l) => l.issue_key));
+  return { total: read.total, light, linked, trees, dates, history };
 }
