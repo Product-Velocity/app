@@ -32,10 +32,11 @@ export const FROM_TRACKER: Record<Tracker, ReadonlyMap<string, string>> = {
     ["open_prs", "Linked pull requests, open"], ["merged_prs", "Linked pull requests, merged"], ["gh_last_activity", "Latest activity on the issues"],
     ["blocked_issues", "Sub-issues labelled blocked"], ["stale_issues", "Open sub-issues without recent activity"], ["latest_release", "Newest release of the repositories"],
     ["ci_status", "Checks on the default branch"], ["repositories", "Repositories of the linked issues"],
-    ["gh_project_status", "Project board: Status field"], ["gh_iteration", "Project board: Iteration field"], ["gh_target_date", "Project board: Due or target date field"],
+    ["tracker_status", "Project board: Status field, else the state of the issue"], ["gh_project_status", "Project board: Status field"], ["gh_iteration", "Project board: Iteration field"], ["gh_target_date", "Project board: Due or target date field"],
   ]),
   jira: new Map([
     ["status", "Issue status category (to do, in progress, done): Build Status"],
+    ["tracker_status", "The issue's status name, as Jira spells it"],
     ["issues_total", "Children and sub-tasks of the issue"], ["issues_closed", "Children and sub-tasks in a done status category"], ["delivery_progress_pct", "Done of total children"],
   ]),
 };
@@ -150,7 +151,7 @@ export type MappingRow = {
   slot: Slot | null;
 };
 
-/** The whole default list for one tracker: one row per slot, and one row for each of the 169 fields that has none. Same order as the dictionary. */
+/** The whole default list for one tracker: one row per slot, and one row for each of the 172 fields that has none. Same order as the dictionary. */
 export function mappingRows(tracker: Tracker): MappingRow[] {
   const mine = slotsFor(tracker);
   const rows: MappingRow[] = [];

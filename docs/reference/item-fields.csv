@@ -168,3 +168,6 @@ N44,What,Description,description,Long text,,Input,New,"App -> GitHub: own sectio
 N46,Delivery (GitHub),Last Synced,last_synced,Computed,,Computed,New,Not synced: shown from the GitHub link and read-only.,Derived in the app from the GitHub link (not stored),1
 N47,Delivery (GitHub),Synced With,synced_with,Computed,,Computed,New,Not synced: shown from the GitHub link and read-only.,Derived in the app from the GitHub link (not stored),1
 N48,Delivery (GitHub),Tracker Ownership,tracker_ownership,Computed,Product Velocity · Tracker (read only),Computed,New,Not synced: shown from the GitHub link and read-only here. Change it on the item's GitHub tab.,Derived in the app from the GitHub link (not stored),1
+N49,Delivery (GitHub),Tracker Status,tracker_status,Select,,Computed,New,"Not synced: shown from the tracker link, read-only.",Derived in the app from the tracker link (not stored),1
+N50,Delivery (GitHub),Flags,flags,Computed,,Computed,New,"Not synced: worked out in the app, read-only.",Derived in the app from the item and its tracker link (not stored),1
+N51,Delivery (GitHub),Actions,actions,Computed,,Computed,New,"Not synced: worked out in the app, clicking acts as the signed-in person.",Derived in the app from the item and its tracker link (not stored),1

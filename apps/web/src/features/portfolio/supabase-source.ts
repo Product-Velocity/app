@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { FIELDS, crowdFields, latestCrowd, toCrowdRow, toRankDecision, type CrowdRow, type RankDecision, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
+import { FIELDS, crowdFields, latestCrowd, toCrowdRow, toRankDecision, type CrowdRow, type RankDecision, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, trackerStatusOf, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
 import { lightTree, type LightIssue } from "@/lib/atlassian/light-tree";
 import type { IssueTreeRow, JiraEpicRequestRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
@@ -108,12 +108,15 @@ export class SupabaseDataSource implements PortfolioDataSource {
 
     // Last Synced and Synced With: derived from the GitHub link of each initiative
     const syncLinks = new Map<string, SyncLink>();
-    for (const l of await this.fetchAll<{ item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; sync_state: "pending" | "synced" | "error"; last_pushed_at: string | null; gh_synced_at: string | null; project_item_id: string | null; gh_assignees: string[] | null }>("item_github_links", "item_id,mode,repo_full_name,issue_number,sync_state,last_pushed_at,gh_synced_at,project_item_id,gh_assignees", ["item_id"])) {
+    const ghState = new Map<string, string | null>(), jiraStatus = new Map<string, string | null>(); // Tracker Status: the tracker's own words
+    for (const l of await this.fetchAll<{ item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; sync_state: "pending" | "synced" | "error"; last_pushed_at: string | null; gh_synced_at: string | null; project_item_id: string | null; gh_assignees: string[] | null; gh_state: string | null }>("item_github_links", "item_id,mode,repo_full_name,issue_number,sync_state,last_pushed_at,gh_synced_at,project_item_id,gh_assignees,gh_state", ["item_id"])) {
       if (l.gh_assignees?.length) ghLogins.set(l.item_id, l.gh_assignees);
+      ghState.set(l.item_id, l.gh_state);
       syncLinks.set(l.item_id, { mode: l.mode, repo: l.repo_full_name, issueNumber: l.issue_number, syncState: l.sync_state, lastPushedAt: l.last_pushed_at, ghSyncedAt: l.gh_synced_at, hasBoardItem: Boolean(l.project_item_id) });
     }
     // An initiative linked to a Jira issue (and not to GitHub: an initiative has one tracker) shows the Jira key, who owns it and when it was last synced
-    for (const l of await this.fetchAll<{ item_id: string; mode: "push" | "follow"; issue_key: string; sync_checked_at: string | null; jira_updated_at: string | null }>("item_jira_links", "item_id,mode,issue_key,sync_checked_at,jira_updated_at")) {
+    for (const l of await this.fetchAll<{ item_id: string; mode: "push" | "follow"; issue_key: string; sync_checked_at: string | null; jira_updated_at: string | null; jira_status: string | null }>("item_jira_links", "item_id,mode,issue_key,sync_checked_at,jira_updated_at,jira_status")) {
+      jiraStatus.set(l.item_id, l.jira_status);
       if (!syncLinks.has(l.item_id)) syncLinks.set(l.item_id, { tracker: "jira", issueKey: l.issue_key, mode: l.mode, repo: "", issueNumber: null, syncState: "synced", lastPushedAt: l.sync_checked_at, ghSyncedAt: null, hasBoardItem: false });
     }
     const boardTitle = new Map<string, string>();
@@ -129,6 +132,7 @@ export class SupabaseDataSource implements PortfolioDataSource {
       item.assignees = [...assigned.map((u) => emails.get(u) ?? "unknown person"), ...(ghLogins.get(id) ?? []).filter((l) => !usernames.has(l.toLowerCase())).map((l) => `@${l}`)].join(", ") || null;
       item.synced_with = syncedWith(sl, boardTitle.get(String(item.home_project)) ?? null) || null;
       item.tracker_ownership = trackerOwnership(sl) || null;
+      item.tracker_status = trackerStatusOf({ jiraStatus: jiraStatus.get(id), boardStatus: item.gh_project_status as string | null, ghState: ghState.get(id) });
       item.tags = (tags.get("tag")?.get(id) ?? []).join(", ") || null;
       item.target_scope = (tags.get("target_scope")?.get(id) ?? []).join(", ") || null;
       item.live_scope = (tags.get("live_scope")?.get(id) ?? []).join(", ") || null;
