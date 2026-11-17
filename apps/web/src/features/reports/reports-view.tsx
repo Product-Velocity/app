@@ -11,6 +11,7 @@ import type { Lookups } from "../portfolio/types";
 import { useScope } from "../workspace/scope";
 import type { FeedRow, GateRequest, JiraStatusRecord, TrackerRef } from "@pv/domain";
 import { ChangesReport } from "./changes-report";
+import type { GateSource } from "../gates/gate-source";
 import { GateHistoryReport } from "./gate-history-report";
 import { HealthReport } from "./health-report";
 import { OverviewReport } from "./overview-report";
@@ -30,7 +31,7 @@ function writeAddress(state: ReportState, report: ReportId) {
  * Reports tab: a list of reports next to the title (the first opens by default), the filter bar they share, and the report chosen.
  * Overview is issue #233; Roadmap Health is request R-129 (issue #287).
  */
-export function ReportsView({ controller, lookups, me, loadGateRequests, loadChanges, loadTrackerIssues, loadJiraUsers }: { controller: PortfolioController; lookups: Lookups; me: string | null; /** Reads the decision-gate requests of the workspace (Gate history). */ loadGateRequests?: () => Promise<GateRequest[]>; /** Reads the changes of a period (Changes). */ loadChanges?: (from: Date, to: Date) => Promise<FeedRow[]>; /** Reads the Jira or GitHub issue each initiative is linked to (Changes: name, id and link). */ loadTrackerIssues?: (itemIds: string[]) => Promise<Map<string, TrackerRef>>; /** Reads who moved Jira issues to a status (Changes: the Jira user column). */ loadJiraUsers?: (issueKeys: string[], from: Date, to: Date) => Promise<JiraStatusRecord[]> }) {
+export function ReportsView({ controller, lookups, me, loadGateRequests, loadChanges, loadTrackerIssues, loadJiraUsers, gateSource }: { controller: PortfolioController; lookups: Lookups; me: string | null; /** Reads the decision-gate requests of the workspace (Gate history). */ loadGateRequests?: () => Promise<GateRequest[]>; /** Reads the changes of a period (Changes). */ loadChanges?: (from: Date, to: Date) => Promise<FeedRow[]>; /** Reads the Jira or GitHub issue each initiative is linked to (Changes: name, id and link). */ loadTrackerIssues?: (itemIds: string[]) => Promise<Map<string, TrackerRef>>; /** The decision-gate functions (Changes: Move to Test and Request gate on a flag). */ gateSource?: GateSource; /** Reads who moved Jira issues to a status (Changes: the Jira user column). */ loadJiraUsers?: (issueKeys: string[], from: Date, to: Date) => Promise<JiraStatusRecord[]> }) {
   const status = useStatus(controller);
   const params = useSearchParams();
   const scope = useScope();
@@ -68,7 +69,7 @@ export function ReportsView({ controller, lookups, me, loadGateRequests, loadCha
         <div className="reports-main">
           <ReportFilters env={env} setState={setState} extra={report === "overview" ? overviewTools : undefined} />
 
-          {report === "overview" ? <OverviewReport env={env} setState={setState} onOpen={setPeekId} /> : report === "health" ? <HealthReport env={env} onOpen={setPeekId} /> : report === "changes" ? <ChangesReport env={env} load={loadChanges} loadIssues={loadTrackerIssues} loadJiraUsers={loadJiraUsers} onOpen={setPeekId} /> : <GateHistoryReport env={env} load={loadGateRequests} onOpen={setPeekId} />}
+          {report === "overview" ? <OverviewReport env={env} setState={setState} onOpen={setPeekId} /> : report === "health" ? <HealthReport env={env} onOpen={setPeekId} /> : report === "changes" ? <ChangesReport env={env} load={loadChanges} loadIssues={loadTrackerIssues} loadJiraUsers={loadJiraUsers} {...(gateSource ? { gates: gateSource } : {})} me={me} onOpen={setPeekId} /> : <GateHistoryReport env={env} load={loadGateRequests} onOpen={setPeekId} />}
         </div>
         {peekId && <ItemPanel controller={controller} lookups={lookups} itemId={peekId} me={me} mode="peek" onClose={() => setPeekId(null)} />}
       </div>

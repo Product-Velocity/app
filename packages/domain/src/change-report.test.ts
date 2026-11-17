@@ -286,3 +286,40 @@ describe("the Jira user of a change", () => {
     expect(matchesChangeSearch(buildChangeRows(f, items, { issues: new Map([["a", issue]]), jiraUsers: [rec("Project Accepted", "2026-11-17T08:18:23.641Z", "Dana Reyes")] })[0]!, "dana")).toBe(true);
   });
 });
+
+import { gateForTarget, primaryRowIds, resolveFlagAction } from "./change-report";
+
+describe("an action on a flag (Ashu 2026-11-17: connect an action like Move phase to Test)", () => {
+  const TODAY = new Date(Date.UTC(2026, 10, 17));
+  const r = (id: string, o: Record<string, unknown> = {}) => ({ id, item_code: id, initiative_name: id, stack_rank: 1, initiative_status: null, initiative_phase: null, health: "On Track", ...o });
+
+  it("Build done carries the one-click Move to Test of Needs attention; the two report flags suggest Test and Build", () => {
+    expect(changeFlags([r("a", { initiative_phase: "Build", initiative_status: "Active", status: "Done" })], TODAY).get("a")![0]!.action).toEqual({ type: "move", to: "Test", label: "Move to Test" });
+    expect(changeFlags([r("b", { status: "Done" })], TODAY).get("b")![0]!.action).toEqual({ type: "move", to: "Test", label: "Move to Test" });
+    expect(changeFlags([r("c", { status: "In progress" })], TODAY).get("c")![0]!.action).toEqual({ type: "move", to: "Build", label: "Move to Build" });
+    expect(changeFlags([r("d", { initiative_phase: "Test", initiative_status: "Active", status: "Not started" })], TODAY).get("d")![0]!.action).toBeUndefined(); // no obvious next step: no button
+  });
+
+  it("from Build to Test is a move (no decision gate between them), made at once", () => {
+    expect(resolveFlagAction({ type: "move", to: "Test", label: "Move to Test" }, "Build")).toMatchObject({ kind: "move", to: "Test", label: "Move to Test" });
+  });
+
+  it("from no phase (counts as Discover) to Test or Build passes a gate, so the button opens the request for the gate that opens that phase", () => {
+    const test = resolveFlagAction({ type: "move", to: "Test", label: "Move to Test" }, null);
+    expect(test).toMatchObject({ kind: "gate", gate: "B", label: "Request gate B (to Test)" });
+    expect(test.title).toMatch(/passes Gate A and later/);
+    expect(resolveFlagAction({ type: "move", to: "Build", label: "Move to Build" }, null)).toMatchObject({ kind: "gate", gate: "B", label: "Request gate B (to Build)" });
+    expect(resolveFlagAction({ type: "move", to: "Build", label: "Move to Build" }, "Discover")).toMatchObject({ kind: "gate" });
+  });
+
+  it("the gate that opens a phase", () => {
+    expect([gateForTarget("Define"), gateForTarget("Build"), gateForTarget("Test"), gateForTarget("Roll-out"), gateForTarget("Discover")]).toEqual(["A", "B", "B", "C", null]);
+  });
+
+  it("the buttons sit on the newest row of each initiative, once", () => {
+    const f: FeedRow[] = [row("a", "items", "health", "On Track", "At Risk", "2026-11-17T10:00:00Z"), row("a", "items", "health", "At Risk", "Blocked", "2026-11-17T11:00:00Z"), row("b", "items", "health", "On Track", "At Risk", "2026-11-17T09:00:00Z")];
+    const rows = buildChangeRows(f, items);
+    const ids = primaryRowIds(rows);
+    expect(rows.filter((x) => ids.has(x.id)).map((x) => [x.itemId, x.to])).toEqual([["a", "Blocked"], ["b", "At Risk"]]);
+  });
+});

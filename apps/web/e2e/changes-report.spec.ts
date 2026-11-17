@@ -96,6 +96,63 @@ test.describe("Changes report", () => {
     await expect(grid(page).locator(".ag-header-cell-text", { hasText: /^Source type$/ })).toHaveCount(1);
   });
 
+  test("a flag has an action: Move to Test where the move is allowed, a gate request where it passes a gate", async ({ page }) => {
+    await open(page);
+    const gates = () => page.evaluate(() => (window as unknown as { __pv: { gates: { calls: string[] } } }).__pv.gates.calls);
+    // R-01 has no phase (counts as Discover): Test passes Gate A and B, so the button opens the request, on the gate that opens that phase
+    const r01 = grid(page).locator(".ag-row:not(.ag-full-width-row)", { hasText: "R-01" }).first();
+    await expect(r01.getByRole("button", { name: "Request gate B (to Test)" })).toBeVisible();
+    // R-02 is in Build with the tracker done: one click moves it
+    const r02 = grid(page).locator(".ag-row:not(.ag-full-width-row)", { hasText: "R-02" });
+    await expect(r02.getByText("⚑ Build done")).toBeVisible();
+    await r02.getByRole("button", { name: "Move to Test" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "R-02 moved to Test." })).toBeVisible();
+    expect(await gates()).toContain("move item-2 Test");
+    await expect(grid(page).locator(".ag-row:not(.ag-full-width-row)", { hasText: "R-02" }).getByRole("button", { name: "Move to Test" })).toHaveCount(0); // the flag is gone: it is in Test now
+    // the request opens the same dialog as the bulk bar, on Gate B
+    await r01.getByRole("button", { name: "Request gate B (to Test)" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Request a gate for 1 initiative" })).toBeVisible();
+    await expect(page.locator("#gate-pick")).toHaveValue("B");
+    expect(await gates()).not.toContain("move item-1 Test"); // nothing was moved: the database would have refused it
+  });
+
+  test("a failed move says why and changes nothing; a viewer gets no buttons", async ({ page }) => {
+    await open(page);
+    await page.evaluate(() => { (window as unknown as { __pv: { gates: { failMove: string } } }).__pv.gates.failMove = "This move passes a decision gate; request it instead"; });
+    await grid(page).locator(".ag-row:not(.ag-full-width-row)", { hasText: "R-02" }).getByRole("button", { name: "Move to Test" }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "R-02 was not moved: This move passes a decision gate" })).toBeVisible();
+    await expect(grid(page).locator(".ag-row:not(.ag-full-width-row)", { hasText: "R-02" }).getByText("⚑ Build done")).toBeVisible(); // still flagged
+    await page.goto("/dev/reports?report=changes&demo=changes&role=viewer");
+    await page.waitForSelector("[data-testid=changes-grid] .ag-row");
+    await expect(grid(page).locator(".ag-row:not(.ag-full-width-row)", { hasText: "R-02" }).getByText("⚑ Build done")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Move to Test|Request gate/ })).toHaveCount(0); // a flag is information for a viewer
+  });
+
+  test("Refresh reads the changes and the roadmap again and says when; Collapse all and Expand all fold every group", async ({ page }) => {
+    await open(page);
+    const loads = () => page.evaluate(() => (window as unknown as { __pv: { feedLoads: number } }).__pv.feedLoads);
+    const before = await loads();
+    await page.getByRole("button", { name: /^\s*Refresh/ }).click();
+    await expect(page.getByRole("status").filter({ hasText: /^Updated \d\d:\d\d:\d\d$/ })).toBeVisible();
+    await expect.poll(loads).toBeGreaterThan(before);
+    await expect(grid(page).locator(".group-row")).toHaveCount(3); // what was shown stays shown
+    // fold and unfold every group
+    const rows = grid(page).locator(".ag-row:not(.ag-full-width-row)");
+    expect(await rows.count()).toBeGreaterThan(0);
+    await page.getByRole("button", { name: "▾ Collapse all" }).click();
+    await expect(rows).toHaveCount(0);
+    await expect(grid(page).locator(".group-toggle[aria-expanded='false']")).toHaveCount(3);
+    await page.getByRole("button", { name: "▸ Expand all" }).click();
+    await expect(rows.first()).toBeVisible();
+    await expect(grid(page).locator(".group-toggle[aria-expanded='true']")).toHaveCount(3);
+    // not grouped: nothing to fold
+    await page.getByRole("button", { name: /^Group by:/ }).click();
+    await page.getByRole("button", { name: "Clear" }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(page.getByRole("button", { name: /Collapse all/ })).toBeDisabled();
+  });
+
   test("clicking an initiative opens its details beside the report, in view", async ({ page }) => {
     await open(page);
     await grid(page).locator(".ag-row button.link-button").first().click();
