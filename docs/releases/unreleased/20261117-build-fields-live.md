@@ -1,0 +1,4 @@
+---
+bump: minor
+---
+**Build fields are live, build time uses the tracker's dates, and there is a Build time report.** The Columns picker no longer says "arrives in phase 3" for fields that already have data (Build Status, issue counts, Delivery Progress, blocked and stale issues, pull requests, CI status, time in phase, Time to Market, Actual Build and more), and the default views now show them, so the Delivery view finally shows its delivery columns. Building Time, Actual Build (weeks) and Build vs Estimate now run from Start Building to the tracker's Build Completed (GitHub ticket closed or Jira issue resolved), so 47 initiatives have a build time instead of 3. Reports, Overview has a new Build time card (weeks, against the estimate, by Team and Effort). The action button on a flag in the Changes report has a cleaner look. Migration 20261117165140_build_time_from_tracker.sql (replaces the view items_computed, same columns).
