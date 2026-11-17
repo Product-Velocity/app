@@ -5,7 +5,7 @@ import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import type { ColDef, ColumnMovedEvent } from "ag-grid-community";
 import {
   CHANGE_PERIODS, NO_CHANGE_FILTERS, buildChangeRows, changeFlags, changePeriod, changeTypeLabel, filterChangeRows, groupChangeRows, isChangeHeader, isOpenableUrl,
-  type ChangeFlag, type ChangeFilters, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type FeedRow, type ItemInfo, type TrackerRef,
+  type ChangeFlag, type ChangeFilters, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type FeedRow, type ItemInfo, type JiraStatusRecord, type TrackerRef,
 } from "@pv/domain";
 import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer } from "../portfolio/grid-kit";
 import { ChangeFilterChips, ChangesBar, type ChangeColumn } from "./changes-bar";
@@ -18,8 +18,13 @@ type Ctx = { toggleGroup: (key: string) => void; open: (itemId: string) => void 
 const FlagPills = ({ flags }: { flags: readonly ChangeFlag[] }) => <>{flags.map((f) => <span key={f.kind} className="pill tone-risk chg-flag" title={f.text}>⚑ {f.label}</span>)}</>;
 const TypeCell = (p: CustomCellRendererProps<ChangeRowData>) => <span className={`pill chg-type chg-type-${p.data!.type}`}>{changeTypeLabel(p.data!.type)}{p.data!.tracker ? ` (${p.data!.tracker})` : ""}</span>;
 const ChangeCell = (p: CustomCellRendererProps<ChangeRowData>) => {
-  const d = p.data!;
-  return <span>{d.from ?? "empty"} <span aria-label="to">→</span> <span className={`pill tone-${d.tone}`}>{d.to ?? "empty"}</span></span>;
+  const d = p.data!, b = d.alsoBuild;
+  return (
+    <span className="chg-change">
+      <span>{d.from ?? "empty"} <span aria-label="to">→</span> <span className={`pill tone-${d.tone}`}>{d.to ?? "empty"}</span></span>
+      {b && <span className="chg-also"><span className="muted">Build Status:</span> {b.from ?? "empty"} <span aria-label="to">→</span> <span className={`pill tone-${b.tone}`}>{b.to ?? "empty"}</span></span>}
+    </span>
+  );
 };
 const InitiativeCell = (p: CustomCellRendererProps<ChangeRowData>) => {
   const d = p.data!;
@@ -53,7 +58,8 @@ const COLUMNS: (ChangeColumn & { def: ColDef<ChangeRowData> })[] = [
   { id: "issue", name: "Tracker issue", def: { headerName: "Tracker issue", flex: 2, minWidth: 220, cellRenderer: IssueCell } },
   { id: "source", name: "Source", def: { headerName: "Source", width: 150, valueGetter: (p) => p.data?.source } },
   { id: "sourceType", name: "Source type", def: { headerName: "Source type", width: 140, valueGetter: (p) => p.data?.sourceType } },
-  { id: "by", name: "By", def: { headerName: "By", width: 260, valueGetter: (p) => p.data?.by, tooltipValueGetter: (p) => p.data?.by } },
+  { id: "by", name: "By", def: { headerName: "By", width: 230, valueGetter: (p) => p.data?.by, tooltipValueGetter: (p) => p.data?.by } },
+  { id: "jiraUser", name: "Jira user", def: { headerName: "Jira user", width: 180, valueGetter: (p) => p.data?.jiraUser ?? "", tooltipValueGetter: (p) => (p.data?.jiraUser ? `${p.data.jiraUser} moved the Jira issue to this status (from Jira's own history)` : "") } },
   { id: "flags", name: "Follow up", def: { headerName: "Follow up", flex: 2, minWidth: 260, cellRenderer: FlagCell, cellClass: "chg-flags" } },
 ];
 const ALL_COLUMNS = COLUMNS.map(({ id, name }) => ({ id, name }));
@@ -61,10 +67,11 @@ const DEFAULT_COLUMNS = COLUMNS.map((c) => c.id);
 
 const isFullWidthRow = (p: { rowNode: { data?: unknown } }) => isChangeHeader(p.rowNode.data);
 const getRowId = (p: { data: ChangeGridRow }) => p.data.id;
+const getRowHeight = (p: { data?: ChangeGridRow }) => (p.data && !isChangeHeader(p.data) && p.data.alsoBuild ? 58 : undefined); // two lines: the linked-issue status and the Build Status that went with it
 const getRowClass = (p: { data?: ChangeGridRow }) => (p.data && !isChangeHeader(p.data) ? `chg-row chg-row-${p.data.type}` : undefined);
 
 type Saved = { columns: string[]; by: ChangeGroupBy | null; then: ChangeGroupBy | null };
-const STORE = "pv.changes.view.v1";
+const STORE = "pv.changes.view.v2"; // v2: the Jira user column (a saved list of columns from v1 would not show it)
 /** What a viewer chose for columns and grouping is remembered in the browser (a convenience, not shared); it may be unavailable, so every access is guarded. */
 const readSaved = (): Saved => {
   const fallback: Saved = { columns: DEFAULT_COLUMNS, by: "initiative", then: null };
@@ -84,7 +91,7 @@ const writeSaved = (s: Saved) => { try { window.localStorage.setItem(STORE, JSON
  * Product Velocity registered the change; "Source" says where the value came from (Product Velocity, Jira or GitHub) and "Source type" how it arrived. Actors are named on
  * a row; for a tracker value the person only ran the Sync. Nothing is counted or grouped per person (rule 8). Every colour comes with a word.
  */
-export function ChangesReport({ env, load, loadIssues, onOpen }: { env: ReportEnv; load?: (from: Date, to: Date) => Promise<FeedRow[]>; loadIssues?: (itemIds: string[]) => Promise<Map<string, TrackerRef>>; onOpen: (id: string) => void }) {
+export function ChangesReport({ env, load, loadIssues, loadJiraUsers, onOpen }: { env: ReportEnv; load?: (from: Date, to: Date) => Promise<FeedRow[]>; loadIssues?: (itemIds: string[]) => Promise<Map<string, TrackerRef>>; /** The Jira users who moved the issues to a status, from Jira's own history. */ loadJiraUsers?: (issueKeys: string[], from: Date, to: Date) => Promise<JiraStatusRecord[]>; onOpen: (id: string) => void }) {
   const { rows, lookups, controller } = env;
   const [period, setPeriod] = useState<ChangePeriod>("today");
   const [filters, setFilters] = useState<ChangeFilters>(NO_CHANGE_FILTERS);
@@ -115,9 +122,19 @@ export function ChangesReport({ env, load, loadIssues, onOpen }: { env: ReportEn
     loadIssues(changedIds.split(",")).then((m) => { if (live) setIssues(m); }, () => { if (live) setIssues(new Map()); });
     return () => { live = false; };
   }, [loadIssues, changedIds]);
+  /** The Jira user behind each Jira move: a name on a row, read once per list of Jira issues and period. A failure leaves the column empty. */
+  const [jiraUsers, setJiraUsers] = useState<readonly JiraStatusRecord[]>([]);
+  const jiraKeys = useMemo(() => [...new Set([...issues.values()].filter((i) => i.tracker === "Jira").map((i) => i.key))].sort().join(","), [issues]);
+  useEffect(() => {
+    let live = true;
+    if (!loadJiraUsers || jiraKeys === "") return;
+    const { from, to } = changePeriod(period, new Date());
+    loadJiraUsers(jiraKeys.split(","), from, to).then((r) => { if (live) setJiraUsers(r); }, () => { if (live) setJiraUsers([]); });
+    return () => { live = false; };
+  }, [loadJiraUsers, jiraKeys, period]);
   const who = useCallback((id: string | null) => (id ? lookups.members.find((m) => m.user_id === id)?.email ?? "someone" : "the system"), [lookups.members]);
 
-  const allRows = useMemo(() => buildChangeRows(feed ?? [], items, { flags, issues, nameOf: who }), [feed, items, flags, issues, who]);
+  const allRows = useMemo(() => buildChangeRows(feed ?? [], items, { flags, issues, nameOf: who, jiraUsers }), [feed, items, flags, issues, who, jiraUsers]);
   const filtered = useMemo(() => filterChangeRows(allRows, filters), [allRows, filters]);
   const gridRows = useMemo(() => groupChangeRows(filtered, saved.by, saved.then, collapsed), [filtered, saved.by, saved.then, collapsed]);
   const initiatives = useMemo(() => new Set(filtered.map((r) => r.itemId)), [filtered]);
@@ -161,7 +178,7 @@ export function ChangesReport({ env, load, loadIssues, onOpen }: { env: ReportEn
             <div className="grid-wrap chg-grid" data-testid="changes-grid">
               <AgGridReact<ChangeGridRow>
                 theme={GRID_THEME} rowData={gridRows} columnDefs={columnDefs} getRowId={getRowId} context={context} onColumnMoved={onColumnMoved}
-                isFullWidthRow={isFullWidthRow} fullWidthCellRenderer={GroupRowRenderer as never} getRowClass={getRowClass}
+                isFullWidthRow={isFullWidthRow} fullWidthCellRenderer={GroupRowRenderer as never} getRowClass={getRowClass} getRowHeight={getRowHeight}
                 defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true }} tooltipShowDelay={500}
               />
             </div>

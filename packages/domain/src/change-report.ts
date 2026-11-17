@@ -94,14 +94,41 @@ export type ChangeRowData = {
   flags: ChangeFlag[];
   /** The tracker issue behind a Build Status or linked-issue change: its key or number, its name where known and its link. */
   issue: TrackerRef | null;
+  /**
+   * A tracker move sets two values in one step: the status of the linked issue and Build Status (which follows its status category). They are shown as ONE row: the
+   * linked-issue status here, and the Build Status that went with it in this field. Null when no Build Status changed with it.
+   */
+  alsoBuild: { from: string | null; to: string | null; tone: ChangeTone } | null;
+  /** The Jira user who moved the issue to this status, from Jira's own history (Jira rows only; null when not known yet). A name on a row, never counted per person (rule 8). */
+  jiraUser: string | null;
 };
+/** A move of a Jira issue to a status with the Jira user who made it (table jira_status_changes). */
+export type JiraStatusRecord = { issue_key: string; to_status: string; changed_at: string; actor_name: string | null };
 export type ChangeContext = {
   flags?: ReadonlyMap<string, readonly ChangeFlag[]>;
   issues?: ReadonlyMap<string, TrackerRef>;
   nameOf?: (actorId: string | null) => string;
+  jiraUsers?: readonly JiraStatusRecord[];
 };
+/** Product Velocity learns of a Jira change within seconds (webhook); the daily check may be hours later. A name is taken from a change Jira made up to this long before. */
+const JIRA_LAG_AFTER_MS = 5_000;
 
-/** The changes of the feed that belong to the initiatives in `items`, newest first, with where each came from and who is on it. */
+/** The Jira user of a change to `toStatus` registered at `at`: the latest change to that status Jira made up to a few seconds before PV registered it. */
+function jiraUserOf(records: readonly JiraStatusRecord[], key: string, toStatus: string | null, at: string): string | null {
+  if (!toStatus) return null;
+  const limit = Date.parse(at) + JIRA_LAG_AFTER_MS;
+  let best: JiraStatusRecord | null = null;
+  for (const r of records) {
+    if (r.issue_key !== key || r.to_status !== toStatus || Date.parse(r.changed_at) > limit) continue;
+    if (!best || r.changed_at > best.changed_at) best = r;
+  }
+  return best?.actor_name ?? null;
+}
+
+/**
+ * The changes of the feed that belong to the initiatives in `items`, newest first, with where each came from and who is on it. A tracker move that set the status of the
+ * linked issue and Build Status in the same step (the same initiative, the same registered time) is ONE row (issue #472, from R-72: eight rows for four Jira moves).
+ */
 export function buildChangeRows(feed: readonly FeedRow[], items: ReadonlyMap<string, ItemInfo>, ctx: ChangeContext = {}): ChangeRowData[] {
   const nameOf = ctx.nameOf ?? ((id: string | null) => (id ? "someone" : "the system"));
   const rows: ChangeRowData[] = [];
@@ -119,10 +146,24 @@ export function buildChangeRows(feed: readonly FeedRow[], items: ReadonlyMap<str
     rows.push({
       kind: "change", id: `c${r.id}`, entryId: Number(r.id), itemId: r.item_id, code: info.code, name: info.name, at: r.at, type, from: shown(r, r.old), to,
       tone: changeTone(type, to, tracker), source, sourceType: r.via, trackerDriven, actorId: r.actor_id, actor,
-      by: trackerDriven && r.actor_id ? `Sync run by ${actor}` : actor, tracker, flags: [...(ctx.flags?.get(r.item_id) ?? [])], issue,
+      by: trackerDriven && r.actor_id ? `Sync run by ${actor}` : actor, tracker, flags: [...(ctx.flags?.get(r.item_id) ?? [])], issue, alsoBuild: null,
+      jiraUser: tracker === "Jira" && issue?.tracker === "Jira" ? jiraUserOf(ctx.jiraUsers ?? [], issue.key, to, r.at) : null,
     });
   }
-  return rows.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.entryId - a.entryId));
+  // one row for the two values a tracker move sets in one step
+  const builds = new Map<string, ChangeRowData>();
+  for (const r of rows) if (r.type === "build-status") builds.set(`${r.itemId}|${r.at}`, r);
+  const merged = new Set<string>();
+  for (const r of rows) {
+    if (r.type !== "issue-status") continue;
+    const b = builds.get(`${r.itemId}|${r.at}`);
+    if (!b || merged.has(b.id)) continue;
+    r.alsoBuild = { from: b.from, to: b.to, tone: b.tone };
+    if (b.actorId && !r.actorId) { r.actorId = b.actorId; r.actor = b.actor; r.by = b.by; } // a person who pressed Sync is on the Build Status row
+    r.sourceType = r.actorId && r.sourceType === "system" ? b.sourceType : r.sourceType;
+    merged.add(b.id);
+  }
+  return rows.filter((r) => !merged.has(r.id)).sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.entryId - a.entryId));
 }
 
 // ------------------------------------------------------------------ filters, search and the columns' values
@@ -142,7 +183,7 @@ export type ChangeFilters = { quick: ChangeQuick[]; rules: ChangeRule[]; search:
 export const NO_CHANGE_FILTERS: ChangeFilters = { quick: [], rules: [], search: "" };
 
 const valuesOf = (r: ChangeRowData, field: ChangeRuleField): string[] =>
-  field === "type" ? [r.type] : field === "source" ? [r.source] : field === "sourceType" ? [r.sourceType] : field === "by" ? [r.actor] : r.flags.map((f) => f.kind);
+  field === "type" ? (r.alsoBuild ? [r.type, "build-status"] : [r.type]) : field === "source" ? [r.source] : field === "sourceType" ? [r.sourceType] : field === "by" ? [r.actor] : r.flags.map((f) => f.kind);
 const isInitiativeType = (t: ChangeType) => CHANGE_TYPES.find((x) => x.id === t)!.initiative;
 
 /** The label of a rule value: change types and flags have ids, the rest read as they are. */
@@ -162,7 +203,7 @@ export const changeFilterCount = (f: ChangeFilters) => f.quick.length + f.rules.
 export function matchesChangeSearch(r: ChangeRowData, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (q === "") return true;
-  const hay = [r.code, r.name, r.from, r.to, changeTypeLabel(r.type), r.source, r.sourceType, r.actor, r.issue?.key, r.issue?.title, ...r.flags.map((f) => f.label)].filter(Boolean).join(" \n ").toLowerCase();
+  const hay = [r.code, r.name, r.from, r.to, r.alsoBuild?.from, r.alsoBuild?.to, changeTypeLabel(r.type), r.alsoBuild ? "build status" : null, r.source, r.sourceType, r.actor, r.jiraUser, r.issue?.key, r.issue?.title, ...r.flags.map((f) => f.label)].filter(Boolean).join(" \n ").toLowerCase();
   return q.split(/\s+/).every((w) => hay.includes(w));
 }
 

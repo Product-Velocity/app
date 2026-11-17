@@ -5,7 +5,7 @@ import { AppHeader } from "@/components/app-header";
 import { ReportsView } from "@/features/reports/reports-view";
 import { WorkspaceProvider } from "@/features/workspace/provider";
 import { MemoryWorkspaceStore } from "@/features/workspace/store";
-import type { FeedRow, GateRequest, TrackerRef } from "@pv/domain";
+import type { FeedRow, GateRequest, JiraStatusRecord, TrackerRef } from "@pv/domain";
 import { harnessLookups, makeReportsHarness } from "../harness-data";
 
 /** Gate requests for the first items: item-1 and item-2 passed Gate B (building starts 10 and 9 days later), item-3 was put on hold, item-4 waits, item-5 was stopped at Gate A. */
@@ -29,7 +29,7 @@ async function changesOfToday(from: Date): Promise<FeedRow[]> {
   return [
     r(1, 3, "items", "health", "On Track", "At Risk", t(11, 2), "u1", "UI"),
     r(2, 1, "items", "initiative_status", "Active", "Completed", t(9, 30), "u1", "UI"),
-    r(3, 1, "items", "status", "In progress", "Done", t(9, 18, 1), "u1", "UI"), // a person pressed Sync: the tracker set the value
+    r(3, 1, "items", "status", "In progress", "Done", t(9, 18, 0), "u1", "UI"), // a person pressed Sync: the tracker set the value (the same step as the Jira row below: one row)
     r(4, 1, "item_jira_links", "jira_status", "Project Execution", "Project Closed", t(9, 18), null, "system"),
     r(5, 2, "item_github_links", "gh_state", "open", "closed_completed", t(8, 41), null, "GitHub webhook"),
   ];
@@ -41,6 +41,11 @@ async function trackerIssues(): Promise<Map<string, TrackerRef>> {
     ["item-1", { tracker: "Jira", key: "DEMO-7049", title: "Bidder adapter, iteration 1", url: "https://example.test/browse/DEMO-7049" }],
     ["item-2", { tracker: "GitHub", key: "meridian/web#412", title: null, url: "https://example.test/meridian/web/issues/412" }],
   ]);
+}
+
+/** The Jira user behind the Jira move of today (fictional name). */
+async function jiraUsersOfToday(from: Date): Promise<JiraStatusRecord[]> {
+  return [{ issue_key: "DEMO-7049", to_status: "Project Closed", changed_at: new Date(from.getFullYear(), from.getMonth(), from.getDate(), 9, 17, 59).toISOString(), actor_name: "Dana Reyes" }];
 }
 
 export function HarnessReports({ n, role, demo = false }: { n: number; role: string; demo?: boolean }) {
@@ -60,7 +65,7 @@ export function HarnessReports({ n, role, demo = false }: { n: number; role: str
     <WorkspaceProvider store={store} projects={harnessLookups.projects} canEdit={role === "creator" || role === "admin"} canAdmin={role === "admin"}>
       <div className="shell">
         <AppHeader tenantName="Meridian Media" email="ashu.mathura@example.test" roleLabel="Admin" isApprover current="reports" />
-        <main className="content"><ReportsView controller={controller} lookups={harnessLookups} me="u1" loadGateRequests={async () => GATE_REQUESTS} loadChanges={(from) => changesOfToday(from)} loadTrackerIssues={() => trackerIssues()} /></main>
+        <main className="content"><ReportsView controller={controller} lookups={harnessLookups} me="u1" loadGateRequests={async () => GATE_REQUESTS} loadChanges={(from) => changesOfToday(from)} loadTrackerIssues={() => trackerIssues()} loadJiraUsers={(_k, from) => jiraUsersOfToday(from)} /></main>
       </div>
     </WorkspaceProvider>
   );

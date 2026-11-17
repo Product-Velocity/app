@@ -83,7 +83,7 @@ const issue: TrackerRef = { tracker: "Jira", key: "R8P-7049", title: "Bidder ada
 const flag: ChangeFlag = { kind: "tracker-done-open", label: "Tracker done, initiative open", text: "The tracker says the work is done." };
 const feed: FeedRow[] = [
   row("a", "items", "initiative_status", "Active", "Completed", "2026-11-17T12:30:00Z", { actor_id: "u2" }),
-  row("a", "items", "status", "In progress", "Done", "2026-11-17T12:18:01Z", { actor_id: "u1", via: "UI" }), // a person pressed Sync
+  row("a", "items", "status", "In progress", "Done", "2026-11-17T12:10:00Z", { actor_id: "u1", via: "UI" }), // a person pressed Sync (not the same step as the Jira row: stays a row of its own)
   row("a", "item_jira_links", "jira_status", "Project Execution", "Project Closed", "2026-11-17T12:18:00Z", { actor_id: null, via: "system" }),
   row("b", "items", "health", "On Track", "At Risk", "2026-11-16T12:00:00Z"),
   row("zzz", "items", "health", "On Track", "Blocked", "2026-11-17T12:00:00Z"), // not an initiative of the filtered rows
@@ -93,7 +93,7 @@ const rows = (extra: Parameters<typeof buildChangeRows>[2] = {}) => buildChangeR
 
 describe("buildChangeRows: where a change came from and who is on it", () => {
   it("keeps only changes of the initiatives shown, newest first, and drops a value that did not change", () => {
-    expect(rows().map((r) => [r.code, r.type])).toEqual([["R-27", "initiative-status"], ["R-27", "build-status"], ["R-27", "issue-status"], ["G-03", "health"]]);
+    expect(rows().map((r) => [r.code, r.type])).toEqual([["R-27", "initiative-status"], ["R-27", "issue-status"], ["R-27", "build-status"], ["G-03", "health"]]);
   });
 
   it("Source is Product Velocity for what people set, and the tracker for what the tracker sets", () => {
@@ -112,7 +112,7 @@ describe("buildChangeRows: where a change came from and who is on it", () => {
   });
 
   it("Source type is how it reached Product Velocity", () => {
-    expect(rows().map((r) => r.sourceType)).toEqual(["UI", "UI", "system", "UI"]);
+    expect(rows().map((r) => r.sourceType)).toEqual(["UI", "system", "UI", "UI"]);
   });
 
   it("a person on a tracker value only ran the Sync: it never reads as their change (review finding)", () => {
@@ -135,7 +135,7 @@ describe("filters and search", () => {
   it("quick filters: flagged, initiative moved, tracker changes", () => {
     expect(filterChangeRows(all, { ...NO_CHANGE_FILTERS, quick: ["flagged"] }).every((r) => r.itemId === "a")).toBe(true);
     expect(filterChangeRows(all, { ...NO_CHANGE_FILTERS, quick: ["initiative"] }).map((r) => r.type)).toEqual(["initiative-status", "health"]);
-    expect(filterChangeRows(all, { ...NO_CHANGE_FILTERS, quick: ["tracker"] }).map((r) => r.type)).toEqual(["build-status", "issue-status"]);
+    expect(filterChangeRows(all, { ...NO_CHANGE_FILTERS, quick: ["tracker"] }).map((r) => r.type)).toEqual(["issue-status", "build-status"]);
     expect(filterChangeRows(all, { ...NO_CHANGE_FILTERS, quick: ["flagged", "initiative"] }).map((r) => r.type)).toEqual(["initiative-status"]); // AND
   });
   it("rules match any of their values, and all rules must match", () => {
@@ -167,7 +167,7 @@ describe("groupChangeRows", () => {
 
   it("by initiative: a header before each, newest group first, saying whether the initiative moved and the flags", () => {
     const g = groupChangeRows(all, "initiative", null, new Set());
-    expect(kinds(g)).toEqual(["H0:R-27 Bidder adapter", "initiative-status", "build-status", "issue-status", "H0:G-03 Manager onboarding", "health"]);
+    expect(kinds(g)).toEqual(["H0:R-27 Bidder adapter", "initiative-status", "issue-status", "build-status", "H0:G-03 Manager onboarding", "health"]);
     const h = g[0]!;
     expect(isChangeHeader(h) && h).toMatchObject({ __group: true, key: "initiative:a", count: 3, unit: "changes", level: 0 });
     expect((h as { badges: { text: string; tone: string }[] }).badges.map((b) => b.text)).toEqual(["Initiative: Status", "2 linked-issue changes", "⚑ Tracker done, initiative open"]);
@@ -213,5 +213,76 @@ describe("groupChangeRows", () => {
     expect(changeGroupSummary("initiative", "type")).toBe("Initiative › Change type");
     expect(changeGroupSummary(null, null)).toBe("None");
     expect(changeGroupSummary("type", "type")).toBe("Change type");
+  });
+});
+
+
+describe("one row for a tracker move (issue #472: R-72 had eight rows for four Jira moves)", () => {
+  const move = (at: string, from: string, to: string, bFrom: string, bTo: string, extra: Partial<FeedRow> = {}) => [
+    row("a", "items", "status", bFrom, bTo, at, { actor_id: null, via: "system", ...extra }),
+    row("a", "item_jira_links", "jira_status", from, to, at, { actor_id: null, via: "system", ...extra }),
+  ];
+  const r72 = [
+    ...move("2026-11-17T16:31:00Z", "Project Execution", "Project Closed", "In progress", "Done"),
+    ...move("2026-11-17T16:30:47Z", "Project Accepted", "Project Execution", "Not started", "In progress"),
+    ...move("2026-11-17T09:18:24Z", "Project Execution", "Project Accepted", "In progress", "Not started"),
+    ...move("2026-11-17T09:18:11Z", "Project Closed", "Project Execution", "Done", "In progress"),
+  ];
+
+  it("eight rows become four: the linked-issue status carries the Build Status that went with it", () => {
+    const rows = buildChangeRows(r72, items, { issues: new Map([["a", issue]]) });
+    expect(rows).toHaveLength(4);
+    expect(rows.every((x) => x.type === "issue-status")).toBe(true);
+    expect(rows[0]).toMatchObject({ from: "Project Execution", to: "Project Closed", alsoBuild: { from: "In progress", to: "Done", tone: "good" } });
+    expect(rows[2]!.alsoBuild).toMatchObject({ from: "In progress", to: "Not started" });
+  });
+
+  it("a Build Status change in another step, or with no linked-issue change, stays a row of its own", () => {
+    const rows = buildChangeRows([row("a", "items", "status", "In progress", "Done", "2026-11-17T10:00:00Z"), row("a", "item_jira_links", "jira_status", "To Do", "Done", "2026-11-17T10:00:09Z")], items);
+    expect(rows.map((x) => [x.type, x.alsoBuild])).toEqual([["issue-status", null], ["build-status", null]]);
+  });
+
+  it("a merged row still answers to the Build status filter and to a search for its Build Status values", () => {
+    const rows = buildChangeRows(r72, items, { issues: new Map([["a", issue]]) });
+    expect(filterChangeRows(rows, { ...NO_CHANGE_FILTERS, rules: [{ field: "type", values: ["build-status"] }] })).toHaveLength(4);
+    expect(rows.filter((x) => matchesChangeSearch(x, "not started"))).toHaveLength(2);
+    expect(changeFieldChoices(rows, "type").map((c) => c.value)).toEqual(["build-status", "issue-status"].sort((a, b) => ["phase", "initiative-status", "health", "build-status", "issue-status"].indexOf(a) - ["phase", "initiative-status", "health", "build-status", "issue-status"].indexOf(b)));
+  });
+
+  it("a person who pressed Sync stays on the merged row, as 'Sync run by'", () => {
+    const f: FeedRow[] = [row("a", "items", "status", "In progress", "Done", "2026-11-17T10:00:00Z", { actor_id: "u1", via: "UI" }), row("a", "item_jira_links", "jira_status", "Project Execution", "Project Closed", "2026-11-17T10:00:00Z", { actor_id: null, via: "system" })];
+    const rows = buildChangeRows(f, items, { nameOf, issues: new Map([["a", issue]]) });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ by: "Sync run by Ana", actorId: "u1" });
+  });
+
+  it("GitHub gets the same: the issue state and Build Status of one webhook are one row", () => {
+    const rows = buildChangeRows([row("a", "items", "status", "In progress", "Done", "2026-11-17T10:00:00Z", { actor_id: null, via: "GitHub webhook" }), row("a", "item_github_links", "gh_state", "open", "closed_completed", "2026-11-17T10:00:00Z", { actor_id: null, via: "GitHub webhook" })], items);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ source: "GitHub", to: "Closed", alsoBuild: { to: "Done" } });
+  });
+});
+
+describe("the Jira user of a change", () => {
+  const rec = (to: string, at: string, who: string | null) => ({ issue_key: "R8P-7049", to_status: to, changed_at: at, actor_name: who });
+  const f = [row("a", "item_jira_links", "jira_status", "Project Execution", "Project Accepted", "2026-11-17T08:18:24.766Z", { actor_id: null, via: "system" })];
+  const users = (list: ReturnType<typeof rec>[]) => buildChangeRows(f, items, { issues: new Map([["a", issue]]), jiraUsers: list })[0]!.jiraUser;
+
+  it("is the user who moved the issue to that status, from Jira's time a moment before PV registered it", () => {
+    expect(users([rec("Project Accepted", "2026-11-17T08:18:23.641Z", "Dana Reyes")])).toBe("Dana Reyes");
+  });
+  it("takes the latest move to that status that Jira made before the registration, not an earlier one and not a later one", () => {
+    expect(users([rec("Project Accepted", "2026-11-13T09:00:00Z", "Sam Okoye"), rec("Project Accepted", "2026-11-17T08:18:23.641Z", "Dana Reyes"), rec("Project Accepted", "2026-11-17T09:00:00Z", "Later Person")])).toBe("Dana Reyes");
+  });
+  it("is empty when Jira named nobody, the status differs, the issue differs, or nothing is known yet", () => {
+    expect(users([rec("Project Accepted", "2026-11-17T08:18:23.641Z", null)])).toBeNull();
+    expect(users([rec("Project Closed", "2026-11-17T08:18:23.641Z", "Dana Reyes")])).toBeNull();
+    expect(users([{ ...rec("Project Accepted", "2026-11-17T08:18:23.641Z", "Dana Reyes"), issue_key: "OTHER-1" }])).toBeNull();
+    expect(users([])).toBeNull();
+  });
+  it("is only for Jira rows, and is found by search", () => {
+    const gh = buildChangeRows([row("a", "items", "health", "On Track", "At Risk", "2026-11-17T08:18:24Z")], items, { issues: new Map([["a", issue]]), jiraUsers: [rec("At Risk", "2026-11-17T08:18:23Z", "Dana Reyes")] });
+    expect(gh[0]!.jiraUser).toBeNull();
+    expect(matchesChangeSearch(buildChangeRows(f, items, { issues: new Map([["a", issue]]), jiraUsers: [rec("Project Accepted", "2026-11-17T08:18:23.641Z", "Dana Reyes")] })[0]!, "dana")).toBe(true);
   });
 });

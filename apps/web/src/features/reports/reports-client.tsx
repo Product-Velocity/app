@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import type { FeedRow, TrackerRef } from "@pv/domain";
+import type { FeedRow, JiraStatusRecord, TrackerRef } from "@pv/domain";
 import { createClient } from "@/lib/supabase/browser";
 import { SupabaseGateSource } from "../gates/gate-source";
 import { useWorkspaceController } from "../portfolio/portfolio-client";
@@ -42,9 +42,21 @@ export function ReportsClient({ tenantId, role, userId, lookups }: { tenantId: s
     }
     return out;
   }, [tenantId]);
+  /** Who moved Jira issues to a status (table jira_status_changes: Jira's own history, read through the member's own access). Starts two days before the period: a daily check can register a change hours after Jira made it. */
+  const loadJiraUsers = useCallback(async (issueKeys: string[], from: Date, to: Date): Promise<JiraStatusRecord[]> => {
+    const client = createClient();
+    const out: JiraStatusRecord[] = [];
+    for (let i = 0; i < issueKeys.length; i += 150) {
+      const { data, error } = await client.from("jira_status_changes").select("issue_key, to_status, changed_at, actor_name").eq("tenant_id", tenantId)
+        .in("issue_key", issueKeys.slice(i, i + 150)).gte("changed_at", new Date(from.getTime() - 2 * 86_400_000).toISOString()).lte("changed_at", to.toISOString()).limit(5000);
+      if (error) throw new Error(error.message);
+      out.push(...((data ?? []) as JiraStatusRecord[]));
+    }
+    return out;
+  }, [tenantId]);
   if (state.kind === "loading") return <><div className="page-head"><h1>Reports</h1></div><p role="status" className="muted">Loading the roadmap…</p></>;
   if (state.kind === "error") {
     return <div role="alert" className="error">Could not load the roadmap: {state.message} <button type="button" className="link-button" onClick={retry}>Try again</button></div>;
   }
-  return <ReportsView controller={state.controller} lookups={lookups} me={userId} loadGateRequests={() => gates.loadRequests()} loadChanges={loadChanges} loadTrackerIssues={loadTrackerIssues} />;
+  return <ReportsView controller={state.controller} lookups={lookups} me={userId} loadGateRequests={() => gates.loadRequests()} loadChanges={loadChanges} loadTrackerIssues={loadTrackerIssues} loadJiraUsers={loadJiraUsers} />;
 }

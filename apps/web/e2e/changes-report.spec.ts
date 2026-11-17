@@ -18,7 +18,8 @@ test.describe("Changes report", () => {
     await expect(heads.nth(0)).toContainText("Initiative: Health");
     await expect(heads.nth(0)).toContainText("⚑ Stale issues");
     await expect(heads.nth(1)).toContainText("R-01");
-    await expect(heads.nth(1)).toContainText("3 changes");
+    await expect(heads.nth(1)).toContainText("2 changes"); // the Jira move and the Build Status that went with it are one row
+    await expect(heads.nth(1)).toContainText("1 linked-issue change");
     await expect(heads.nth(1)).toContainText("⚑ Tracker done, initiative open"); // a Jira-style initiative: tracker done, no phase, no status
     await expect(heads.nth(2)).toContainText("Initiative unchanged"); // only its linked issue changed
     await expect(page.getByText("3 initiatives changed, 3 to follow up.")).toBeVisible();
@@ -35,14 +36,31 @@ test.describe("Changes report", () => {
     await expect(row("Linked issue (GitHub)")).toContainText("GitHub");
     await expect(row("Linked issue (GitHub)")).toContainText("GitHub webhook"); // the source type
     // Build Status is the tracker's value: the person only pressed Sync (they must not read as the one who changed it)
-    await expect(row("Build status")).toContainText("Sync run by");
+    await expect(row("Linked issue (Jira)")).toContainText("Sync run by");
     await expect(row("Health").first()).not.toContainText("Sync run by");
+  });
+
+  test("a tracker move is one row: the linked-issue status and the Build Status that went with it, with the Jira user", async ({ page }) => {
+    await open(page);
+    const jira = grid(page).locator(".ag-row:not(.ag-full-width-row)", { hasText: "Linked issue (Jira)" });
+    await expect(jira).toHaveCount(1); // not one row for the status and another for the Build Status
+    await expect(jira).toContainText("Project Execution");
+    await expect(jira).toContainText("Project Closed");
+    await expect(jira).toContainText("Build Status:");
+    await expect(jira).toContainText("In progress");
+    await expect(jira).toContainText("Done");
+    await expect(grid(page).locator(".ag-row:not(.ag-full-width-row)", { hasText: /^.*Build status/ })).toHaveCount(0);
+    await expect(jira).toContainText("Dana Reyes"); // the Jira user, from Jira's own history
+    // it answers to the Build status filter and to a search for the Jira user
+    await page.getByRole("searchbox", { name: "Search changes" }).fill("dana");
+    await expect(grid(page).locator(".ag-row:not(.ag-full-width-row)")).toHaveCount(1);
+    await page.getByRole("searchbox", { name: "Search changes" }).fill("");
   });
 
   test("the action bar: filter, columns, group by and search, like the Roadmap grid", async ({ page }) => {
     await open(page);
     await expect(bar(page, /^Filter:\s*None/)).toBeVisible();
-    await expect(bar(page, /^Columns:\s*9 of 9 shown/)).toBeVisible();
+    await expect(bar(page, /^Columns:\s*10 of 10 shown/)).toBeVisible();
     await expect(bar(page, /^Group by:\s*Initiative/)).toBeVisible();
     // search
     await page.getByRole("searchbox", { name: "Search changes" }).fill("bidder");
@@ -59,7 +77,7 @@ test.describe("Changes report", () => {
     await page.getByRole("button", { name: "Done" }).click();
     await expect(bar(page, /^Filter:\s*2 active/)).toBeVisible();
     await expect(page.getByRole("group", { name: "Active filters" })).toContainText("Source: Jira");
-    await expect(grid(page).locator(".ag-row:not(.ag-full-width-row)")).toHaveCount(2); // the Jira status and the Build Status behind it
+    await expect(grid(page).locator(".ag-row:not(.ag-full-width-row)")).toHaveCount(1); // the Jira move (with its Build Status)
     await page.getByRole("button", { name: "Remove filter Tracker changes" }).click();
     await page.getByRole("button", { name: "Remove filter Source: Jira" }).click();
     await expect(bar(page, /^Filter:\s*None/)).toBeVisible();
@@ -69,12 +87,12 @@ test.describe("Changes report", () => {
     await open(page);
     await bar(page, /^Columns:/).click();
     await page.getByRole("button", { name: "Remove Source type" }).click();
-    await page.getByRole("button", { name: /^Apply columns \(8\)/ }).click();
-    await expect(bar(page, /^Columns:\s*8 of 9 shown/)).toBeVisible();
+    await page.getByRole("button", { name: /^Apply columns \(9\)/ }).click();
+    await expect(bar(page, /^Columns:\s*9 of 10 shown/)).toBeVisible();
     await expect(grid(page).locator(".ag-header-cell-text", { hasText: /^Source type$/ })).toHaveCount(0);
     await bar(page, /^Columns:/).click();
     await page.getByRole("button", { name: "Reset to default" }).click();
-    await page.getByRole("button", { name: /^Apply columns \(9\)/ }).click();
+    await page.getByRole("button", { name: /^Apply columns \(10\)/ }).click();
     await expect(grid(page).locator(".ag-header-cell-text", { hasText: /^Source type$/ })).toHaveCount(1);
   });
 
@@ -107,7 +125,7 @@ test.describe("Changes report", () => {
     await page.getByRole("group", { name: "Group by options" }).getByRole("button", { name: /^Change type/ }).click();
     await page.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(bar(page, /^Group by:\s*Change type/)).toBeVisible();
-    await expect(grid(page).locator(".group-row")).toHaveCount(4); // Status, Health, Build status, Linked issue
+    await expect(grid(page).locator(".group-row")).toHaveCount(3); // Status, Health, Linked issue (the Build Status went with its Jira move)
     // a second level inside each group
     await bar(page, /^Group by:/).click();
     await page.getByRole("group", { name: "Group by options" }).getByRole("button", { name: /^Source$/ }).click();
@@ -122,7 +140,7 @@ test.describe("Changes report", () => {
     await bar(page, /^Filter:/).click();
     await page.getByRole("button", { name: /To follow up/ }).click();
     await page.getByRole("button", { name: "Done" }).click();
-    await expect(grid(page).locator(".ag-row:not(.ag-full-width-row)")).toHaveCount(5); // all three initiatives have a flag in this data
+    await expect(grid(page).locator(".ag-row:not(.ag-full-width-row)")).toHaveCount(4); // all three initiatives have a flag in this data
   });
 
   test("has no accessibility violations", async ({ page }) => {
