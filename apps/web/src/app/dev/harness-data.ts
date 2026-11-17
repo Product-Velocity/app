@@ -94,7 +94,7 @@ export function makeCardsHarness(n: number, role: string) {
  */
 export function makeLeadershipHarness(n: number, role: string) {
   const { controller, source } = makeHarness(n, 0, role);
-  const valueTypes = ["New revenue", "Grow existing revenue", "Protect", "Reduce costs", null];
+  const valueTypes = ["New revenue", "Grow existing revenue", "Defend revenue", "Reduce costs", null];
   const phases = ["Discover", "Build", "Test", "Roll-out", "Completed"];
   const iso = (d: number) => new Date(Date.UTC(2027, 3, 14) + d * 86_400_000).toISOString().slice(0, 10);
   source.items.forEach((item, i) => {

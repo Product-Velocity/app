@@ -306,7 +306,7 @@ describe("the description sections of an initiative (issue #319)", () => {
 
 describe("the optional labels in the engine (issue #321)", () => {
   const rows = () => {
-    tables.items = { id: ID, item_code: "R-1", initiative_name: "Checkout", description: "Pay **fast**", moscow: "Must", focus_area: "Publishers", value_type: "Protect", end_date: null, g2m_quarter: "Q3 2027", planned_start: null, home_project_id: "p1" };
+    tables.items = { id: ID, item_code: "R-1", initiative_name: "Checkout", description: "Pay **fast**", moscow: "Must", focus_area: "Publishers", value_type: "Defend revenue", end_date: null, g2m_quarter: "Q3 2027", planned_start: null, home_project_id: "p1" };
     tables.item_tags = [{ value: "payments" }, { value: "Q4 push" }];
   };
   it("tags and focus area are not sent until the project switches them on (Business Value Type and Planned Quarter are on)", async () => {
@@ -326,7 +326,7 @@ describe("the optional labels in the engine (issue #321)", () => {
     rows();
     tables.tracker_field_config = ["tags", "focus", "value"].map((k) => ({ slot: `jira.label.${k}`, enabled: true, field_id: null }));
     const e = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout", labels: [] }).call);
-    expect(e.kind === "ok" && (e.plan.fields.labels as string[])).toEqual(expect.arrayContaining(["pm:focus/publishers", "pm:value/protect", "pm:tag/payments", "pm:tag/q4-push"]));
+    expect(e.kind === "ok" && (e.plan.fields.labels as string[])).toEqual(expect.arrayContaining(["pm:focus/publishers", "pm:value/defend-revenue", "pm:tag/payments", "pm:tag/q4-push"]));
   });
 });
 

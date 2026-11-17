@@ -141,24 +141,24 @@ describe("reading what is stored", () => {
 });
 
 describe("the optional labels (issue #321): off by default, on when a project switches them on", () => {
-  const ITEM2 = { ...ITEM, focus_area: "Demand/Optimisation", value_type: "Protect", tags: ["Q4 push", "payments", "Q4 push"] };
+  const ITEM2 = { ...ITEM, focus_area: "Demand/Optimisation", value_type: "Defend revenue", tags: ["Q4 push", "payments", "Q4 push"] };
   const ON_ALL = (t: "jira" | "github") => ["tags", "focus"].map((k) => ({ slot: `${t}.label.${k}`, enabled: true, field: null }));
   it("with nothing saved, no label for them is sent on either tracker (today's payloads are unchanged)", () => {
     const j = buildJiraPayload({ item: ITEM2, fields: effectiveJiraMap(BASE, []), projectName: "Platform" });
-    expect(j.fields.labels).toEqual(["pm:project/platform", "pm:moscow/must", "pm:rank/top-10", "pm:type/new-feature", "pm:group/payments", "pm:value/protect"]); // Business Value Type is on by default
+    expect(j.fields.labels).toEqual(["pm:project/platform", "pm:moscow/must", "pm:rank/top-10", "pm:type/new-feature", "pm:group/payments", "pm:value/defend-revenue"]); // Business Value Type is on by default
     const g = buildTrackingIssue({ item: ITEM2, itemId: "22222222-2222-4222-8222-222222222222", projectName: "Mobile", appUrl: "https://productvelocity.app", artifacts: [], ...githubOptions([]) });
     expect(g.labels.some((l) => /pv:(tag|focus)\//.test(l))).toBe(false);
   });
   it("switched on, they become pv: labels: one per tag (sorted, no duplicates), the focus area and the business value type", () => {
     const j = buildJiraPayload({ item: ITEM2, fields: effectiveJiraMap(BASE, ON_ALL("jira")), projectName: "Platform" });
-    expect((j.fields.labels as string[]).slice(5)).toEqual(["pm:focus/demand-optimisation", "pm:value/protect", "pm:tag/payments", "pm:tag/q4-push"]);
+    expect((j.fields.labels as string[]).slice(5)).toEqual(["pm:focus/demand-optimisation", "pm:value/defend-revenue", "pm:tag/payments", "pm:tag/q4-push"]);
     const g = buildTrackingIssue({ item: ITEM2, itemId: "22222222-2222-4222-8222-222222222222", projectName: "Mobile", appUrl: "https://productvelocity.app", artifacts: [], ...githubOptions(ON_ALL("github")) });
-    expect(g.labels.slice(5)).toEqual(["pm:focus/demand-optimisation", "pm:value/protect", "pm:tag/payments", "pm:tag/q4-push"]);
+    expect(g.labels.slice(5)).toEqual(["pm:focus/demand-optimisation", "pm:value/defend-revenue", "pm:tag/payments", "pm:tag/q4-push"]);
   });
   it("each switch only adds its own label, and an empty value adds nothing", () => {
     const only = (k: string) => (buildJiraPayload({ item: ITEM2, fields: effectiveJiraMap(BASE, [{ slot: `jira.label.${k}`, enabled: true, field: null }]), projectName: "Platform" }).fields.labels as string[]).slice(5);
-    expect(only("focus")).toEqual(["pm:focus/demand-optimisation", "pm:value/protect"]); // the value type is on by default
-    expect(only("tags")).toEqual(["pm:value/protect", "pm:tag/payments", "pm:tag/q4-push"]);
+    expect(only("focus")).toEqual(["pm:focus/demand-optimisation", "pm:value/defend-revenue"]); // the value type is on by default
+    expect(only("tags")).toEqual(["pm:value/defend-revenue", "pm:tag/payments", "pm:tag/q4-push"]);
     const empty = buildJiraPayload({ item: { ...ITEM, focus_area: "", tags: [] }, fields: effectiveJiraMap(BASE, ON_ALL("jira")), projectName: "Platform" });
     expect((empty.fields.labels as string[]).length).toBe(5);
   });
@@ -169,7 +169,7 @@ describe("the optional labels (issue #321): off by default, on when a project sw
     expect(buildJiraPayload({ item, fields: effectiveJiraMap(BASE, [{ slot: "jira.label.quarter", enabled: false, field: null }]), projectName: "Platform" }).fields.labels as string[]).not.toContain("pm:quarter/q3-2027");
     const g = buildTrackingIssue({ item, itemId: "22222222-2222-4222-8222-222222222222", projectName: "Mobile", appUrl: "https://productvelocity.app", artifacts: [], ...githubOptions(ON_ALL("github")) });
     expect(g.labels).toContain("pm:quarter/q3-2027");
-    expect(g.labels).toContain("pm:value/protect");
+    expect(g.labels).toContain("pm:value/defend-revenue");
     expect(JSON.stringify([g, j])).not.toMatch(/999999|Measured/);
   });
   it("Focus Area goes into the chosen Jira text field (Theme); the Initiative Group is only a label and is never written into a field", () => {

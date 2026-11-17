@@ -126,7 +126,7 @@ function slugLabel(kind: LabelKind, v: unknown, names?: Names): string | null {
 }
 /** Optional labels (issue #321, off unless the project switches them on): Focus Area, Business Value Type and one label per tag (at most 10). */
 export const focusAreaLabel = (v: unknown, names?: Names) => slugLabel("focus", v, names);
-/** "pv:value/protect": the Business Value TYPE (a category), never the 12m run-rate amount (decision 2026-11-05-value-type-and-quarter-labels). */
+/** "pv:value/defend-revenue": the Business Value TYPE (a category), never the 12m run-rate amount (decision 2026-11-05-value-type-and-quarter-labels). */
 export const valueTypeLabel = (v: unknown, names?: Names) => slugLabel("value", v, names);
 /** Planned Quarter "Q3 2027" as "pv:quarter/q3-2027" (on by default; the milestone still comes from G2M Date (est)). */
 export const plannedQuarterLabel = (v: unknown, names?: Names) => (typeof v === "string" && /^Q[1-4] \d{4}$/.test(v) ? slugLabel("quarter", v, names) : null);

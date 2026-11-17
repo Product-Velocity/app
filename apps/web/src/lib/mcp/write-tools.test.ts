@@ -324,7 +324,7 @@ describe("Value Type through the tools (R-113 slice 3)", () => {
     const create = JSON.parse(JSON.stringify(TOOLS.find((t) => t.name === "create_items")!.inputSchema)).properties.items.items.properties;
     const upd = JSON.parse(JSON.stringify(TOOLS.find((t) => t.name === "update_items")!.inputSchema)).properties.updates.items.properties.set.properties;
     for (const p of [create, upd]) {
-      expect(p.value_type.enum).toEqual(expect.arrayContaining(["Grow existing revenue", "Protect"]));
+      expect(p.value_type.enum).toEqual(expect.arrayContaining(["Grow existing revenue", "Defend revenue"]));
       expect(p.value_type_basis).toMatchObject({ type: "string" });
     }
   });
@@ -349,12 +349,12 @@ describe("Value Type through the tools (R-113 slice 3)", () => {
 
     store["R-02"]!.current.value_type = "Reduce costs";
     try {
-      const held = await call(b, "update_items", { updates: [{ item: "R-02", set: { value_type: "Protect", value_type_basis: "Ashu: on reflection this is about defending revenue" } }] });
+      const held = await call(b, "update_items", { updates: [{ item: "R-02", set: { value_type: "Defend revenue", value_type_basis: "Ashu: on reflection this is about defending revenue" } }] });
       expect(held.data.items[0]).toMatchObject({ status: "needs_confirmation" });
       expect(spy.applied).toHaveLength(1); // nothing written yet
       const done = await call(b, "confirm_changes", { diff_id: held.data.needs_confirmation.diff_id });
       expect(done.data.applied).toEqual([expect.objectContaining({ field: "value_type" })]);
-      expect(spy.applied[1]!.units[0]!.ops[0]).toMatchObject({ op: "update_item", set: { value_type: "Protect" }, value_type_basis: "Ashu: on reflection this is about defending revenue" });
+      expect(spy.applied[1]!.units[0]!.ops[0]).toMatchObject({ op: "update_item", set: { value_type: "Defend revenue" }, value_type_basis: "Ashu: on reflection this is about defending revenue" });
     } finally {
       delete store["R-02"]!.current.value_type;
     }
