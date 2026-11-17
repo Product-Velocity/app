@@ -27,7 +27,7 @@ Rules: the bullets must agree with section 4 (Scope); Claude writes section 4 fr
 
 | Module | Flag | Content | Fields it can fill |
 |---|---|---|---|
-| **A1 Company Value Story** | PRD only | The company goal served (new revenue / grow existing revenue / save costs / other), **how** the initiative moves it (mechanism), assumptions and the evidence for each, cost of not doing it. Replaces "Business Value Map". | Primary KR (name, unit, direction, start, target), Cost of Not Doing, Focus Area, Roadmap Category, Change Type; Business Value Type only under section 6 |
+| **A1 Company Value Story** | PRD only | The company goal served (new revenue / grow existing revenue / reduce costs / protect / enabler), **how** the initiative moves it (mechanism), assumptions and the evidence for each, cost of not doing it. Replaces "Business Value Map". | Primary KR (name, unit, direction, start, target), Cost of Not Doing, Focus Area, Roadmap Category, Change Type; Business Value Type only under section 6 |
 | A2 Feature Value Map | PRD only | Customers, end users, current products and services | Request Origin, Target Segments, Audience, Related To |
 | A3 User Value Map | PRD only | Persona, current journey, pain points, AI opportunities | feeds the two copy blocks below |
 | A4 AI Solution Hypothesis | PRD only | Options evaluated (diverge), decision matrix (converge), recommended option | none; Decision, Decided By, Decision Date stay with people |

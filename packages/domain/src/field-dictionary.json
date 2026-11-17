@@ -523,16 +523,17 @@
   ],
   "allowed": [
    "New revenue",
-   "Increase revenue",
+   "Grow existing revenue",
+   "Reduce costs",
    "Defend revenue",
-   "Decrease costs",
+   "Enabler",
    "Other"
   ],
-  "allowedText": "New revenue · Increase revenue · Defend revenue · Decrease costs · Other",
+  "allowedText": "New revenue · Grow existing revenue · Reduce costs · Defend revenue · Enabler · Other",
   "origin": "Input",
   "githubSync": "Push the type (only) as label pv:value/<type> (on by default). The amount and basis never sync (commercial).",
   "filledWhen": "After interviews",
-  "description": "Always one of: New revenue, Increase revenue, Defend revenue, Decrease costs, Other"
+  "description": "Always one of: New revenue, Grow existing revenue, Reduce costs, Defend revenue, Enabler, Other"
  },
  {
   "n": "27",
