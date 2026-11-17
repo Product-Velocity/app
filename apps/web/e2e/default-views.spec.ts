@@ -6,8 +6,10 @@ import { goToView, viewTab } from "./helpers";
 const csv = readFileSync(new URL("../../../docs/reference/default-views.csv", import.meta.url), "utf8").trim().split(/\r?\n/).slice(1).map((l) => l.split(","));
 const fields = JSON.parse(readFileSync(new URL("../../../packages/domain/src/field-dictionary.json", import.meta.url), "utf8")) as { key: string; name: string; phase: number }[];
 const nameOf = Object.fromEntries(fields.map((f) => [f.key, f.name]));
-// project_rank, the four Crowd fields (issue #393) and the decision-gate fields shipped ahead of their phase (SHIPPED_EARLY in packages/domain/src/registry.ts)
-const EARLY = ["project_rank", "crowd_rank", "crowd_score", "crowd_consensus", "crowd_votes", "current_gate", "gate_status", "next_gate_due", "ready_for_build"];
+// The fields shipped ahead of their dictionary phase (SHIPPED_EARLY in packages/domain/src/registry.ts), read from that file so this list cannot drift from it: project_rank, the
+// Crowd fields, the decision-gate fields and (issue #480) the build and delivery fields that already have data. Comments inside the list are skipped.
+const registrySource = readFileSync(new URL("../../../packages/domain/src/registry.ts", import.meta.url), "utf8");
+const EARLY = [...registrySource.match(/SHIPPED_EARLY: ReadonlySet<string> = new Set\(\[([\s\S]*?)\]\);/)![1]!.replace(/\/\/.*$/gm, "").matchAll(/"([a-z_0-9]+)"/g)].map((m) => m[1]!);
 // Roadmap Category is hidden in the app since 2026-11-05 (HIDDEN_FIELDS in packages/domain/src/registry.ts): it stays in the file and the database but has no column
 const HIDDEN = ["roadmap_category"];
 const shipped = (k: string) => !HIDDEN.includes(k) && ((fields.find((f) => f.key === k)!.phase <= 1) || EARLY.includes(k));

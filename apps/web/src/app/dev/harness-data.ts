@@ -200,6 +200,12 @@ export function makeReportsHarness(n: number, role: string) {
       kr_metric: i % 4 === 0 ? `Metric ${i}` : null, kr_start: i % 4 === 0 ? i : null, kr_target: i % 4 === 0 ? i + 10 : null, kr_unit: i % 4 === 0 ? "count" : null, kr_direction: i % 4 === 0 ? "Increase" : null,
       g2m_date_actual: i % 3 === 0 ? at(60 + (i % 4) * 10) : null, g2m_date_est: at(120), planned_start: at(0),
     });
+    // build time (issue #480): every third item (from the 2nd) has a build time of 2 to 5 weeks; the even ones also an estimate of 3 weeks
+    if (i % 3 === 1) {
+      const days = 14 + (i % 4) * 7;
+      const weeks = Math.round((days / 7) * 10) / 10;
+      Object.assign(r, { time_building_days: days, actual_build_weeks: weeks, build_vs_estimate_high_pct: i % 2 === 0 ? Math.round((weeks / 3) * 100) : null });
+    }
   }
   return { controller, source };
 }

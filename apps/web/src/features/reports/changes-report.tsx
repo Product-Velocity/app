@@ -70,7 +70,7 @@ const FlagCell = (p: CustomCellRendererProps<ChangeRowData>) => {
         return (
           <span key={f.kind} className="chg-flagline">
             <span className="pill tone-risk chg-flag" title={f.text}>⚑ {f.label}</span>
-            {a && <button type="button" className="btn chg-act" title={a.title} disabled={ctx.busy === key} onClick={() => ctx.act(d.itemId, f)}>{ctx.busy === key ? "Working…" : a.label}</button>}
+            {a && <button type="button" className={a.kind === "gate" ? "chg-act chg-act-gate" : "chg-act"} title={a.title} disabled={ctx.busy === key} onClick={() => ctx.act(d.itemId, f)}>{ctx.busy === key ? "Working…" : <>{a.label}<span className="chg-act-arrow" aria-hidden="true">→</span></>}</button>}
           </span>
         );
       })}
