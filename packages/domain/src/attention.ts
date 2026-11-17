@@ -7,17 +7,22 @@ import { gateOfPhase, isOpen, phaseSuggestions, type GateId, type GateRequest, t
  * Pure rules over the rows the grid already holds plus the gate requests and open conditions. Everything here is about an initiative or a team, never about
  * a person's performance (CLAUDE.md rule 8), and a mismatch is a suggestion, never an automatic change (decision 2026-10-28, item 6).
  */
-export type AttentionKind = "delivery-risk" | "build-done" | "tracker-early" | "cancelled-building" | "hold-due" | "gate-waiting" | "conditions" | "stalled";
+export type AttentionKind = "delivery-risk" | "build-done" | "tracker-early" | "cancelled-building" | "hold-due" | "gate-waiting" | "conditions" | "stalled"
+  | "closed-open-work" | "phase-ahead" | "stale-issues" | "no-health";
 
 export const ATTENTION_KINDS: readonly { id: AttentionKind; label: string; hint: string }[] = [
   { id: "delivery-risk", label: "Delivery risk", hint: "Health is Blocked, At Risk or Delayed, the G2M date has passed, or issues are blocked." },
-  { id: "build-done", label: "Build done", hint: "The tracker says the build is done while the phase is still Build." },
+  { id: "build-done", label: "Build done", hint: "The tracker says the build is done, or every linked issue is closed, while the phase is still Build." },
   { id: "tracker-early", label: "Work before the gate", hint: "Tracker work started before the gate that approves it." },
   { id: "cancelled-building", label: "Cancelled but building", hint: "Initiative Status is Cancelled while the build is in progress." },
   { id: "hold-due", label: "Hold due", hint: "The review date of a Hold has come." },
   { id: "gate-waiting", label: "Waiting for a decision", hint: "A gate request has waited more than a week." },
   { id: "conditions", label: "Open conditions", hint: "A Go with conditions left tasks that are not done." },
   { id: "stalled", label: "Stalled in a phase", hint: "Active, and in the same phase for longer than the usual limit." },
+  { id: "closed-open-work", label: "Completed with open work", hint: "Initiative Status or phase is Completed, but the tracker still shows open work." },
+  { id: "phase-ahead", label: "Phase ahead of the build", hint: "The phase is Test, Experiment or Roll-out, but the tracker says the build has not started." },
+  { id: "stale-issues", label: "Stale issues", hint: "Active, the build is in progress and linked issues have had no activity for a while." },
+  { id: "no-health", label: "No health set", hint: "Active and past Define, with no Health value." },
 ];
 export const attentionLabel = (k: AttentionKind) => ATTENTION_KINDS.find((x) => x.id === k)?.label ?? k;
 
@@ -35,6 +40,7 @@ export type AttentionEntry = { id: string; code: string; name: string; rank: num
 export type OpenCondition = { item_id: string; text: string };
 
 const finished = (r: LeadRow) => r.initiative_status === "Completed" || r.initiative_status === "Cancelled" || r.initiative_phase === "Completed";
+const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const dayOf = (iso: string) => Math.round(Date.parse(`${iso.slice(0, 10)}T00:00:00Z`) / 86_400_000);
 
 export function attentionList(rows: readonly LeadRow[], today: Date, ctx: { requests?: readonly GateRequest[]; conditions?: readonly OpenCondition[] } = {}): AttentionEntry[] {
@@ -53,10 +59,31 @@ export function attentionList(rows: readonly LeadRow[], today: Date, ctx: { requ
       if (build === "In progress") add(r.id, { kind: "cancelled-building", text: "Initiative Status is Cancelled but the build is still in progress in the tracker. Stop the work there, or set the status back." });
       continue;
     }
+    const total = num(r.issues_total), closed = num(r.issues_closed);
+    const allClosed = total !== null && total > 0 && closed !== null && closed >= total;
+    const someOpen = total !== null && total > 0 && closed !== null && closed < total;
+    if (r.initiative_status === "Completed" || phase === "Completed") {
+      if (build === "In progress" || someOpen) add(r.id, { kind: "closed-open-work", text: someOpen ? `Completed, but ${total! - closed!} of ${total} linked issues are still open in the tracker.` : "Completed, but the tracker still shows the build in progress. Close the work there, or set the status back." });
+      continue;
+    }
     if (finished(r)) continue;
     for (const s of phaseSuggestions(r, todayIso)) {
       if (s.kind === "build-done") add(r.id, { kind: "build-done", text: "The build is done in the tracker. Move to Test?", action: { type: "move", to: "Test", label: "Move to Test" } });
       else add(r.id, { kind: "hold-due", text: "The date to look at this Hold again has come.", action: { type: "request-gate", gate: gateOfPhase(phase) ?? "B", label: "Request the gate again" } });
+    }
+    // every linked issue is closed (the epics of R-27) while the phase is still Build, also when Build Status has not caught up
+    if (phase === "Build" && allClosed && !byItem.get(r.id)?.some((x) => x.kind === "build-done")) {
+      add(r.id, { kind: "build-done", text: `All ${total} linked ${total === 1 ? "issue is" : "issues are"} closed, but the phase is still Build. Move to Test?`, action: { type: "move", to: "Test", label: "Move to Test" } });
+    }
+    if ((phase === "Test" || phase === "Experiment" || phase === "Roll-out") && r.initiative_status === "Active" && build === "Not started") {
+      add(r.id, { kind: "phase-ahead", text: `The phase is ${phase}, but the tracker says the build has not started.` });
+    }
+    const stale = num(r.stale_issues);
+    if (r.initiative_status === "Active" && build === "In progress" && stale !== null && stale > 0) {
+      add(r.id, { kind: "stale-issues", text: `${stale} linked ${stale === 1 ? "issue has" : "issues have"} had no activity for a while.` });
+    }
+    if (r.initiative_status === "Active" && phase && phase !== "Discover" && phase !== "Define" && (!r.health || r.health === "No health")) {
+      add(r.id, { kind: "no-health", text: `No Health set while the phase is ${phase}.` });
     }
     if ((phase === "Discover" || phase === "Define") && (build === "In progress" || build === "Done")) {
       const gate = gateOfPhase(phase)!;

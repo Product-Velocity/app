@@ -245,13 +245,17 @@ export const ATTENTION_TABLE: Table = {
   head: ["Reason", "When it shows", "Next step"],
   rows: [
     ["Delivery risk", "Health is Blocked, At Risk or Delayed, the G2M date has passed, or issues are blocked", "Open the initiative"],
-    ["Build done", "The tracker says the build is done (closed as completed) while the phase is still Build", "Move to Test"],
+    ["Build done", "The tracker says the build is done, or every linked issue or epic is closed, while the phase is still Build", "Move to Test"],
     ["Work before the gate", "Tracker work started while the phase is Discover or Define", "Request the gate"],
     ["Cancelled but building", "Initiative Status is Cancelled while the build is in progress", "Open the initiative; stop the work in the tracker"],
     ["Hold due", "The review date of a Hold has come", "Request the gate again"],
     ["Waiting for a decision", "A gate request has waited more than 7 days", "Open Decisions"],
     ["Open conditions", "A Go with conditions left tasks that are not done", "Open the initiative"],
     ["Stalled in a phase", "Active, and in a phase longer than 30 days (Discover, Define, Test), 45 (Experiment), 60 (Roll-out) or 90 (Build)", "Open the initiative"],
+    ["Completed with open work", "Initiative Status or phase is Completed, but the tracker still shows the build in progress or issues that are not closed", "Open the initiative; close the work or set the status back"],
+    ["Phase ahead of the build", "The phase is Test, Experiment or Roll-out and the tracker says the build has not started", "Open the initiative"],
+    ["Stale issues", "Active, the build is in progress and linked issues have had no activity for a while", "Open the initiative"],
+    ["No health set", "Active, the phase is Build or later and Health is empty", "Open the initiative; set Health"],
   ],
 };
 
@@ -356,6 +360,7 @@ export const REPORTS_LIST: Table = {
     ["Overview", "What is the shape of the roadmap, and how long does work take to reach the market?", "Donuts by Status, Phase, Focus Area, Team and MoSCoW; stacked bars by Product Manager, Team, Group, Status and Health; Impact and Effort; Time to Market; the timeline; the matching initiatives; CSV export"],
     ["Roadmap Health", "Where does active work pile up, how long has it been in its phase, and what is Blocked, At Risk or Delayed?", "Counts of active, Blocked, At Risk and Delayed initiatives; active initiatives by Team and Phase and by Team and Health; median days in the current phase for each phase; the 10 initiatives that have waited longest; completed delivery duration; every active initiative with days in phase and age"],
     ["Gate history", "How do decision gates go: how many requests, what was decided, and how long do decisions and the start of building take?", "Per gate A, B and C: requested, waiting now, decided, Go, Go with conditions, Hold, Stop, fast lane, withdrawn, median and average days to decide, longest open request; the wait between a Gate B Go and Start Building. For the whole team: nothing is shown per approver"],
+    ["Changes", "Which initiatives changed today, this week or this month, and what changed?", "Grouped by initiative: Phase, Status, Health, Build status and the status of linked GitHub and Jira issues, each with the time it was registered, where it came from and who made it. Says whether the initiative itself moved or only its linked issues. Filter by change type; follows the Reports filters"],
   ],
 };
 

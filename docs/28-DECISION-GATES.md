@@ -91,7 +91,7 @@ The **Needs attention** tab (`/attention`) lists the initiatives of the current 
 | Reason | When | Next step |
 |---|---|---|
 | Delivery risk | Health Blocked, At Risk or Delayed; G2M date passed; blocked issues (the leadership list) | Open the initiative |
-| Build done | Build Status Done (closed as completed) while the phase is Build | Move to Test |
+| Build done | Build Status Done (closed as completed), or every linked issue or epic closed (even when Build Status has not caught up), while the phase is Build | Move to Test |
 | Work before the gate | Build Status In progress or Done while the phase is Discover or Define | Request the gate |
 | Cancelled but building | Initiative Status Cancelled while Build Status is In progress | Open; stop the work in the tracker |
 | Hold due | `next_gate_due` of a Held gate is today or earlier | Request the gate again |
@@ -101,9 +101,15 @@ The **Needs attention** tab (`/attention`) lists the initiatives of the current 
 
 Limits are defaults in `STALL_DAYS` and `GATE_WAIT_DAYS`; Roadmap Health shows the real distribution. All of it is about an initiative or a team, never a person (rule 8). J and K move through the list and Enter opens the initiative. The tab has no count badge, because counting needs the whole project, which the page loads; the count is on the screen.
 
+Issue #472 adds four reasons, all suggestions with no automatic change: **Completed with open work** (Initiative Status or phase Completed, tracker still In progress or issues not closed), **Phase ahead of the build** (Test, Experiment or Roll-out while Build Status is Not started), **Stale issues** (Active, build in progress, `stale_issues` above 0) and **No health set** (Active, phase Build or later, empty Health). They read the same row fields for GitHub and Jira (tracker parity).
+
 ## 7b. Gate history report
 
 Reports has a third report, **Gate history**, that follows the Reports filters. One row per gate: requested, waiting now, decided, Go, Go with conditions, Hold, Stop, fast lane, withdrawn, median and average days from request to decision, and the longest open request. Below it, the wait between the latest Gate B Go (or Go with conditions) and the Start Building date, with the initiatives that passed Gate B and have not started. Everything is for the team; nothing is grouped or shown per approver (rule 8). The calculation is `gateReport` in `packages/domain/src/gate-report.ts`.
+
+## 7c. Changes report (issue #472)
+
+Reports has a fourth report, **Changes** (`?report=changes`), that follows the Reports filters: which initiatives changed Today, This week or This month (the viewer's time zone), grouped by initiative, newest first, filterable by change type. Types: Phase, Status (Initiative Status), Health, Build status and the status of the linked GitHub or Jira issue. Each row shows the time Product Velocity registered it (`audit_log.at`, not the tracker's own time), old to new value, the source (UI, Claude MCP, GitHub webhook, system) and the **actor's name** (email in the workspace directory; "the system" for webhooks and checks). An initiative header says whether the initiative itself moved (phase, status, health) or only its linked issues did, so a closed ticket is never mistaken for a finished initiative (rule 6). The data is the database function `change_feed(tenant, from, to)` (members only, no new table; commercial fields are never returned); the grouping is `changeReport` in `packages/domain/src/change-report.ts`. Names are shown on a row only: nothing is counted, ranked or charted per person (rule 8). Limits: the tracker's own timestamp of a change is not stored per change, so it is not shown; the latest 5,000 changes of a period are read.
 
 ## 8. When items sync to GitHub or Jira
 
