@@ -1,6 +1,6 @@
 import {
   canPurge, canSeeTrash, cleanRelated, cleanSkills, isRelatedField, summarizeChange, toDay, crowdHistory, type ActivityRow, type CrowdRow, type RankDecision, type RelatedField, type RelatedValues,
-  applyMove, canBeEmpty, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
+  applyMove, canBeEmpty, rowFlagTexts, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
   bulkEditReason, isOpenList, openListValues, resolveGroup, canDeleteItem, placeRestored, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
 import type { PortfolioDataSource, SaveResult } from "./data-source";
@@ -49,6 +49,7 @@ export class PortfolioController {
     private readonly me: string | null = null,
   ) {
     this.rows = items.map((i) => ({ ...i, project_rank: 0 }));
+    this.deriveFlags(this.rows);
     this.rows.sort((a, b) => a.stack_rank - b.stack_rank);
     for (const r of this.rows) this.byId.set(r.id, r);
     this.recomputeProjectRanks();
@@ -108,7 +109,21 @@ export class PortfolioController {
       today: this.today(),
     };
   }
+  /**
+   * The Flags and Actions columns (issue #480) are worked out from the rest of the row, so they are never stale: after every load, add and edit of a row they
+   * are set again here. They are words on the row, so sorting, searching and the export see what the cells show; viewers get the flags and no actions.
+   */
+  deriveFlags(rows: readonly GridItem[] = this.rows) {
+    const today = this.today(), canAct = this.canEdit;
+    for (const r of rows) {
+      const t = rowFlagTexts(r, today, canAct);
+      const rec = r as unknown as Record<string, unknown>;
+      rec.flags = t.flags;
+      rec.actions = t.actions;
+    }
+  }
   private emit(changed: GridItem[] = []) {
+    this.deriveFlags(changed);
     this.state.version++;
     for (const l of this.listeners) l(changed);
   }
@@ -133,6 +148,7 @@ export class PortfolioController {
     return { visibility: "Internal only", archived: false, date_precision: "Day", ...d, id, item_code: code, stack_rank: rank, project_rank: 0 } as GridItem;
   }
   private addRows(added: GridItem[]) {
+    this.deriveFlags(added);
     for (const r of added) { this.rows.push(r); this.byId.set(r.id, r); }
     this.rows.sort((a, b) => a.stack_rank - b.stack_rank);
     const moved = this.recomputeProjectRanks();

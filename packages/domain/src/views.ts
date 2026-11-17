@@ -164,7 +164,7 @@ export function groupableFields(): FieldDef[] {
 }
 
 /** The fields the Group by picker offers first, as one-click pills above the categories ("Most used"). */
-export const MOST_USED_GROUP_KEYS: readonly string[] = ["initiative_phase", "status", "health", "g2m_quarter", "theme", "moscow", "product_manager"];
+export const MOST_USED_GROUP_KEYS: readonly string[] = ["initiative_phase", "status", "tracker_status", "health", "g2m_quarter", "theme", "moscow", "product_manager"];
 
 /**
  * What the Group by picker lists: the groupable fields under the same category headings as the Columns picker (the dictionary's "group", in its order),

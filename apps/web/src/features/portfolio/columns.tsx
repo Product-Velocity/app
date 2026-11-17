@@ -2,8 +2,9 @@
 
 import { NameWithIssues } from "./name-cell";
 import type { ColDef, IHeaderParams } from "ag-grid-community";
+import type { CustomCellRendererProps } from "ag-grid-react";
 import {
-  EDITABLE_FIELDS, VISIBLE_FIELDS, compareQuarters, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
+  EDITABLE_FIELDS, VISIBLE_FIELDS, actionsOfFlags, changeTone, compareQuarters, flagsOfRow, jiraCategoryTone, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
   type EditableField, type FieldDef,
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
@@ -22,7 +23,7 @@ function HealthCell({ value }: { value: string | null }) {
   return <StatusPill value={value} tone={statusTone(value)} />;
 }
 
-function ReadOnlyCell({ text, reason, github, pill }: { text: string; reason: string | null; github: boolean; pill?: boolean }) {
+function ReadOnlyCell({ text, reason, github, pill, children }: { text: string; reason: string | null; github: boolean; pill?: boolean; children?: React.ReactNode }) {
   return (
     <span className="lock-cell" title={reason ?? undefined}>
       {github && (
@@ -30,7 +31,43 @@ function ReadOnlyCell({ text, reason, github, pill }: { text: string; reason: st
           <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" />
         </svg>
       )}
-      {pill && text ? <StatusPill value={text} /> : text}
+      {children ?? (pill && text ? <StatusPill value={text} /> : text)}
+    </span>
+  );
+}
+
+/** What the grid hands every cell (the AG Grid `context`): the Actions column asks it to act, and which button is working. */
+export type GridContext = { runFlagAction?: (itemId: string, flagKind: string) => void; flagBusy?: string | null };
+
+/** The Flags column: every flag of the row as a pill with its words (the full reason is the tooltip). Several flags sit side by side; the column scrolls nothing, so it is wide. */
+function FlagsCell({ data, today }: CustomCellRendererProps<GridItem> & { today: () => Date }) {
+  if (!data) return null;
+  const flags = flagsOfRow(data, today());
+  if (flags.length === 0) return null;
+  const labels = [...new Set(flags.map((f) => f.label))]; // several reasons can share a label (Delivery risk): one pill, every reason in the tooltip
+  return (
+    <span className="grid-flags" title={flags.map((f) => `${f.label}: ${f.text}`).join("\n")}>
+      {labels.map((l) => <span key={l} className="pill tone-risk chg-flag">{"\u2691"} {l}</span>)}
+    </span>
+  );
+}
+
+/** The Actions column: the next step of each flag as a button. A move that passes no gate is made at once; one that passes a gate opens the gate request. Viewers see none. */
+function ActionsCell({ data, today, canAct, context }: CustomCellRendererProps<GridItem> & { today: () => Date; canAct: boolean }) {
+  if (!data) return null;
+  const ctx = (context ?? {}) as GridContext;
+  const actions = actionsOfFlags(flagsOfRow(data, today()), data.initiative_phase, canAct);
+  if (actions.length === 0) return null;
+  return (
+    <span className="grid-flags">
+      {actions.map(({ flag, resolved }) => {
+        const key = `${data.id}:${flag.kind}`;
+        return (
+          <button key={flag.kind} type="button" className={resolved.kind === "gate" ? "chg-act chg-act-gate" : "chg-act"} title={resolved.title} disabled={ctx.flagBusy === key} onClick={(e) => { e.stopPropagation(); ctx.runFlagAction?.(data.id, flag.kind); }}>
+            {ctx.flagBusy === key ? "Working\u2026" : <>{resolved.label}<span className="chg-act-arrow" aria-hidden="true"> {"\u2192"}</span></>}
+          </button>
+        );
+      })}
     </span>
   );
 }
@@ -56,7 +93,7 @@ const WIDTH: Record<string, number> = {
   Select: 150, Text: 190, "Long text": 240, Number: 112, Currency: 120, Date: 116, "Date range": 170, Person: 190, "Person or text": 170,
   People: 190, Boolean: 96, Tags: 170, Links: 200, Relation: 150, Files: 170, Thread: 150, Structured: 170, Note: 150, System: 130, Computed: 124,
 };
-const WIDE: Record<string, number> = { initiative_name: 320, home_project: 160, stack_rank: 104, item_code: 116, project_rank: 124, health: 130, last_synced: 150, synced_with: 300, tracker_ownership: 170, gh_project_status: 170 };
+const WIDE: Record<string, number> = { initiative_name: 320, home_project: 160, stack_rank: 104, item_code: 116, project_rank: 124, health: 130, last_synced: 150, synced_with: 300, tracker_ownership: 170, gh_project_status: 170, tracker_status: 170 };
 
 export type ColumnContext = {
   controller: PortfolioController;
@@ -139,9 +176,20 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
       };
     }
     if (f.key === "project_rank") return base;
+    if (f.key === "tracker_status") {
+      // the tracker's own words, coloured by what the mapping makes of them: a Jira status by its category (the one Build Status follows), a GitHub state by open or closed
+      return { ...base, cellRenderer: (p: CustomCellRendererProps<GridItem>) => {
+        const v = typeof p.value === "string" ? p.value : "";
+        const jira = p.data ? lookups.jira?.links[p.data.id] : undefined;
+        const tone = jira ? jiraCategoryTone(jira.category) : changeTone("issue-status", v, "GitHub");
+        return <ReadOnlyCell text="" reason={reason} github={false}>{v ? <StatusPill value={v} tone={tone} /> : <span className="muted">Not linked</span>}</ReadOnlyCell>;
+      } };
+    }
+    if (f.key === "flags") return { ...base, width: 360, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <FlagsCell {...p} today={today} />, cellClass: "cell-locked" };
+    if (f.key === "actions") return { ...base, width: 340, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <ActionsCell {...p} today={today} canAct={controller.canEdit} />, cellClass: "cell-locked" };
     if (f.key === "health") return { ...base, cellRenderer: HealthCell, ...pickerDef(f, optionsFor(f.key), true) };
     if (reason) {
-      return { ...base, cellRenderer: (p: { value: unknown }) => <ReadOnlyCell text={display(f, p.value) || (f.key === "status" ? "Not on GitHub" : f.key === "gh_project_status" ? "Not on a board" : f.key === "last_synced" || f.key === "synced_with" ? "Not synced" : f.key === "tracker_ownership" ? "Not linked" : "")} reason={reason} pill={PILL_FIELDS.has(f.key)} github={f.mode === "locked" || f.storage.startsWith("GitHub-synced")} /> };
+      return { ...base, cellRenderer: (p: { value: unknown }) => <ReadOnlyCell text={display(f, p.value) || (f.key === "status" ? "Not on GitHub" : f.key === "gh_project_status" ? "Not on a board" : f.key === "tracker_status" ? "Not linked" : f.key === "last_synced" || f.key === "synced_with" ? "Not synced" : f.key === "tracker_ownership" ? "Not linked" : "")} reason={reason} pill={PILL_FIELDS.has(f.key)} github={f.mode === "locked" || f.storage.startsWith("GitHub-synced")} /> };
     }
     if (!canEdit) return base;
     base.valueSetter = setter(f.key) as never;

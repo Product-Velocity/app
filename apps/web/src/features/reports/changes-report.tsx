@@ -5,7 +5,7 @@ import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import type { ColDef, ColumnMovedEvent } from "ag-grid-community";
 import {
   CHANGE_PERIODS, NO_CHANGE_FILTERS, buildChangeRows, changeFlags, changePeriod, changeTypeLabel, filterChangeRows, groupChangeRows, isChangeHeader, isOpenableUrl, primaryRowIds, resolveFlagAction,
-  type ChangeFlag, type ChangeFilters, type GateId, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type FeedRow, type ItemInfo, type JiraStatusRecord, type TrackerRef,
+  type ChangeFlag, type ChangeFilters, type GateId, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type FeedRow, type ItemInfo, type JiraCategory, type JiraStatusRecord, type TrackerRef,
 } from "@pv/domain";
 import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer } from "../portfolio/grid-kit";
 import { ChangeFilterChips, ChangesBar, type ChangeColumn } from "./changes-bar";
@@ -27,7 +27,7 @@ const ChangeCell = (p: CustomCellRendererProps<ChangeRowData>) => {
   const d = p.data!, b = d.alsoBuild;
   return (
     <span className="chg-change">
-      <span>{d.from ?? "empty"} <span aria-label="to">→</span> <span className={`pill tone-${d.tone}`}>{d.to ?? "empty"}</span></span>
+      <span>{d.from ? <span className={`pill tone-${d.fromTone}`}>{d.from}</span> : "empty"} <span aria-label="to">→</span> <span className={`pill tone-${d.tone}`}>{d.to ?? "empty"}</span></span>
       {b && <span className="chg-also"><span className="muted">Build Status:</span> {b.from ?? "empty"} <span aria-label="to">→</span> <span className={`pill tone-${b.tone}`}>{b.to ?? "empty"}</span></span>}
     </span>
   );
@@ -176,7 +176,9 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, gates, me 
   }, [loadJiraUsers, jiraKeys, period, reload]);
   const who = useCallback((id: string | null) => (id ? lookups.members.find((m) => m.user_id === id)?.email ?? "someone" : "the system"), [lookups.members]);
 
-  const allRows = useMemo(() => buildChangeRows(feed ?? [], items, { flags, issues, nameOf: who, jiraUsers }), [feed, items, flags, issues, who, jiraUsers]);
+  /** What Jira says now: each status of a linked issue with its category (the mapping behind Build Status), which colours that status wherever it appears. */
+  const jiraCategories = useMemo(() => new Map(Object.values(lookups.jira?.links ?? {}).filter((l) => l.status && l.category).map((l) => [l.status as string, l.category as JiraCategory])), [lookups.jira]);
+  const allRows = useMemo(() => buildChangeRows(feed ?? [], items, { flags, issues, nameOf: who, jiraUsers, jiraCategories }), [feed, items, flags, issues, who, jiraUsers, jiraCategories]);
   const filtered = useMemo(() => filterChangeRows(allRows, filters), [allRows, filters]);
   const gridRows = useMemo(() => groupChangeRows(filtered, saved.by, saved.then, collapsed), [filtered, saved.by, saved.then, collapsed]);
   const initiatives = useMemo(() => new Set(filtered.map((r) => r.itemId)), [filtered]);

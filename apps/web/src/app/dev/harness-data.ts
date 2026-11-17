@@ -142,6 +142,7 @@ export function withJiraLinks(controller: PortfolioController, lookups: Lookups,
   const links: NonNullable<Lookups["jira"]>["links"] = {};
   const set = (code: string, key: string, mode: "push" | "follow", status: string, category: "new" | "indeterminate" | "done") => {
     const row = controller.rows.find((r) => r.item_code === code);
+    if (row) (row as Record<string, unknown>).tracker_status = status; // Tracker Status: the tracker's own words, as the loader sets it
     if (row) links[row.id] = { mode, issueKey: key, url: `https://acme.atlassian.net/browse/${key}`, status, category, lastSynced: "2026-11-03T09:00:00Z" };
   };
   set("R-01", "SCRUM-2", "follow", "In Progress", "indeterminate");

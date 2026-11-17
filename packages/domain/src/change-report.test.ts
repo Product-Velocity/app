@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildChangeRows, changeFieldChoices, changeFilterCount, changeFlags, changeGroupSummary, changePeriod, changeTone, changeTypeOf, filterChangeRows, groupChangeRows,
+  buildChangeRows, jiraCategoryTone, changeFieldChoices, changeFilterCount, changeFlags, changeGroupSummary, changePeriod, changeTone, changeTypeOf, filterChangeRows, groupChangeRows,
   isChangeHeader, matchesChangeSearch, NO_CHANGE_FILTERS, type ChangeFlag, type ChangeRowData, type FeedRow, type ItemInfo, type TrackerRef,
 } from "./change-report";
 
@@ -237,6 +237,18 @@ describe("one row for a tracker move (issue #472: R-72 had eight rows for four J
     expect(rows[2]!.alsoBuild).toMatchObject({ from: "In progress", to: "Not started" });
   });
 
+  it("a Jira status takes the colour of its category, learned from the Build Status that moved with it, on both sides of the arrow (#480)", () => {
+    const rows = buildChangeRows(r72, items, { issues: new Map([["a", issue]]) });
+    expect(rows[0]).toMatchObject({ to: "Project Closed", tone: "good", from: "Project Execution", fromTone: "info" });
+    expect(rows[1]).toMatchObject({ to: "Project Execution", tone: "info", fromTone: "neutral" }); // Project Accepted: Not started
+    expect(rows[2]).toMatchObject({ to: "Project Accepted", tone: "neutral", fromTone: "info" });
+    // what Jira itself says about the status now wins over what was learned
+    const told = buildChangeRows(r72, items, { issues: new Map([["a", issue]]), jiraCategories: new Map([["Project Accepted", "indeterminate" as const]]) });
+    expect(told[2]).toMatchObject({ to: "Project Accepted", tone: "info" });
+    expect(jiraCategoryTone("done")).toBe("good");
+    expect(jiraCategoryTone(null)).toBe("neutral");
+  });
+
   it("a Build Status change in another step, or with no linked-issue change, stays a row of its own", () => {
     const rows = buildChangeRows([row("a", "items", "status", "In progress", "Done", "2026-11-17T10:00:00Z"), row("a", "item_jira_links", "jira_status", "To Do", "Done", "2026-11-17T10:00:09Z")], items);
     expect(rows.map((x) => [x.type, x.alsoBuild])).toEqual([["issue-status", null], ["build-status", null]]);
@@ -287,7 +299,7 @@ describe("the Jira user of a change", () => {
   });
 });
 
-import { gateForTarget, primaryRowIds, resolveFlagAction } from "./change-report";
+import { actionsOfFlags, flagsOfRow, gateForTarget, primaryRowIds, resolveFlagAction, rowFlagTexts } from "./change-report";
 
 describe("an action on a flag (Ashu 2026-11-17: connect an action like Move phase to Test)", () => {
   const TODAY = new Date(Date.UTC(2026, 10, 17));
@@ -321,5 +333,36 @@ describe("an action on a flag (Ashu 2026-11-17: connect an action like Move phas
     const rows = buildChangeRows(f, items);
     const ids = primaryRowIds(rows);
     expect(rows.filter((x) => ids.has(x.id)).map((x) => [x.itemId, x.to])).toEqual([["a", "Blocked"], ["b", "At Risk"]]);
+  });
+});
+
+describe("the Flags and Actions columns of the main grid (#480)", () => {
+  const today = new Date("2026-11-17T09:00:00Z");
+  const row = { id: "r1", item_code: "R-1", initiative_name: "Tracker done", stack_rank: 1, initiative_phase: null, initiative_status: null, status: "Done", issues_total: 3, issues_closed: 3 };
+
+  it("flagsOfRow gives the flags of the Changes report for one row", () => {
+    expect(flagsOfRow(row, today).map((f) => f.kind)).toContain("tracker-done-open");
+    expect(flagsOfRow({ ...row, id: "r2", status: "Not started", issues_total: 0, issues_closed: 0 }, today)).toEqual([]);
+  });
+
+  it("actions follow the flags, once per button, and a gate request replaces a move that would pass a gate", () => {
+    const flags = flagsOfRow(row, today);
+    const a = actionsOfFlags(flags, null, true);
+    expect(a.map((x) => x.resolved.kind)).toEqual(["gate"]); // no phase counts as Discover: Test passes Gates A and B
+    const dup = actionsOfFlags([...flags, ...flags], null, true);
+    expect(dup).toHaveLength(a.length);
+    const build = actionsOfFlags(flagsOfRow({ ...row, initiative_phase: "Build" }, today), "Build", true);
+    expect(build.every((x) => x.resolved.label.length > 0)).toBe(true);
+  });
+
+  it("a person who cannot edit sees the flags and no actions", () => {
+    expect(actionsOfFlags(flagsOfRow(row, today), null, false)).toEqual([]);
+    expect(rowFlagTexts(row, today, false)).toMatchObject({ actions: null });
+    expect(rowFlagTexts(row, today, false).flags).toContain("Tracker done");
+  });
+
+  it("rowFlagTexts gives the words for sorting and export, or null when nothing applies", () => {
+    expect(rowFlagTexts(row, today, true).actions).toMatch(/Request gate/);
+    expect(rowFlagTexts({ ...row, status: "Not started", issues_total: 0, issues_closed: 0 }, today, true)).toEqual({ flags: null, actions: null });
   });
 });

@@ -1364,3 +1364,7 @@ a.btn.btn-primary { color: #fff; }
 .chg-act-gate:hover:not(:disabled) { background: var(--blue-tint-2); color: var(--blue-text); border-color: var(--blue-text); }
 .chg-act-arrow { font-size: 13px; line-height: 1; }
 .pvbar-updated { font-size: 12px; margin-left: 4px; white-space: nowrap; }
+
+/* Flags and Actions columns of the main grid (issue #480): every flag, or every button, on one line of the compact row; the tooltip carries the full reasons */
+.grid-flags { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; max-width: 100%; }
+.grid-flags .chg-act { flex: none; }

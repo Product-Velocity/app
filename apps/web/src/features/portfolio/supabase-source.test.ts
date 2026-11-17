@@ -80,14 +80,17 @@ describe("loadItems", () => {
     const linked = { ...row(1), last_synced_at: "2026-10-27T12:00:00Z" };
     const { client, calls } = fake([
       { data: [linked, row(2)] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] },
-      { data: [{ item_id: "i1", mode: "push", repo_full_name: "Acme/App", issue_number: 38, sync_state: "synced", last_pushed_at: "2026-10-27T10:00:00Z", gh_synced_at: "2026-10-27T11:00:00Z", project_item_id: "PVTI_1" }] },
-      { data: [{ item_id: "i1", mode: "push", issue_key: "PLAT-1", sync_checked_at: null, jira_updated_at: null }, { item_id: "i2", mode: "follow", issue_key: "PLAT-12", sync_checked_at: "2026-11-03T09:00:00Z", jira_updated_at: null }] },
+      { data: [{ item_id: "i1", mode: "push", repo_full_name: "Acme/App", issue_number: 38, sync_state: "synced", last_pushed_at: "2026-10-27T10:00:00Z", gh_synced_at: "2026-10-27T11:00:00Z", project_item_id: "PVTI_1", gh_state: "open" }] },
+      { data: [{ item_id: "i1", mode: "push", issue_key: "PLAT-1", sync_checked_at: null, jira_updated_at: null, jira_status: "In Review" }, { item_id: "i2", mode: "follow", issue_key: "PLAT-12", sync_checked_at: "2026-11-03T09:00:00Z", jira_updated_at: null, jira_status: "Project Closed" }] },
       { data: [{ id: "p", github_board: { title: "Product Velocity roadmap" } }] },
     ]);
     const [a, b] = await new SupabaseDataSource(client, "t1").loadItems();
     expect(a).toMatchObject({ last_synced: "2026-10-27T12:00:00Z", synced_with: 'GitHub · Acme/App · board "Product Velocity roadmap"', tracker_ownership: "Product Velocity" });
     // an initiative linked to a Jira issue shows the Jira key, who owns it and the last sync; an initiative has one tracker, so GitHub wins for i1
     expect(b).toMatchObject({ last_synced: "2026-11-03T09:00:00Z", synced_with: "Jira · PLAT-12 · follows it, read-only", tracker_ownership: "Tracker (read only)" });
+    // Tracker Status (#480): Jira's status name, GitHub's board status or the state of the issue; an initiative with both shows Jira's
+    expect(a).toMatchObject({ tracker_status: "In Review" });
+    expect(b).toMatchObject({ tracker_status: "Project Closed" });
     expect(a).not.toHaveProperty("last_synced_at"); // the raw column stays internal
     expect(calls.find((c) => c.table === "items_computed")!.ops.map(([, args]) => String(args[0])).join(",")).not.toContain("synced_with"); // not asked of the view
   });

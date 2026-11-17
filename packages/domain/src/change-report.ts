@@ -63,7 +63,7 @@ export type ChangeTone = "good" | "risk" | "bad" | "info" | "neutral";
 
 /**
  * The colour of the value a change ended on. Health, Build Status, Initiative Status and the phase have a known meaning. A GitHub issue is good when closed,
- * info when open. A Jira status is neutral: Jira workflows name their statuses freely ("Project Accepted" counts as To Do), so a name is never guessed.
+ * info when open. A Jira status takes the colour of its category (`jiraCategoryTone`): Jira workflows name their statuses freely ("Project Accepted" counts as To Do), so a name is never guessed.
  */
 export function changeTone(type: ChangeType, to: string | null, tracker: "GitHub" | "Jira" | null = null): ChangeTone {
   const v = (to ?? "").toLowerCase();
@@ -81,6 +81,8 @@ export const CHANGE_SOURCES: readonly ChangeSource[] = ["Product Velocity", "Jir
 export type ChangeRowData = {
   kind: "change"; id: string; entryId: number; itemId: string; code: string; name: string; at: string; type: ChangeType;
   from: string | null; to: string | null; tone: ChangeTone;
+  /** The colour of the value the change started from (the same rules as `tone`). */
+  fromTone: ChangeTone;
   /** Where the value came from. Build Status and the status of a linked issue are set by the tracker, never by hand (rule 6). */
   source: ChangeSource;
   /** How it reached Product Velocity: UI, API, Claude MCP, GitHub webhook, import or system. */
@@ -107,7 +109,15 @@ export type ChangeRowData = {
 };
 /** A move of a Jira issue to a status with the Jira user who made it (table jira_status_changes). */
 export type JiraStatusRecord = { issue_key: string; to_status: string; changed_at: string; actor_name: string | null };
+/** Jira groups every status of a workflow into one of three categories; Product Velocity's Build Status follows it (new: Not started, indeterminate: In progress, done: Done). */
+export type JiraCategory = "new" | "indeterminate" | "done";
+/** The colour of a Jira status is the colour of its category, the same as the Build Status it maps to: grey, blue and green. A status name is never guessed. */
+export const jiraCategoryTone = (c: JiraCategory | null | undefined): ChangeTone => (c === "done" ? "good" : c === "indeterminate" ? "info" : "neutral");
+const CATEGORY_OF_BUILD: Readonly<Record<string, JiraCategory>> = { "not started": "new", "in progress": "indeterminate", done: "done" };
+
 export type ChangeContext = {
+  /** Status name to category, as Jira reports it for the linked issues now. */
+  jiraCategories?: ReadonlyMap<string, JiraCategory>;
   flags?: ReadonlyMap<string, readonly ChangeFlag[]>;
   issues?: ReadonlyMap<string, TrackerRef>;
   nameOf?: (actorId: string | null) => string;
@@ -148,7 +158,7 @@ export function buildChangeRows(feed: readonly FeedRow[], items: ReadonlyMap<str
     const actor = nameOf(r.actor_id);
     rows.push({
       kind: "change", id: `c${r.id}`, entryId: Number(r.id), itemId: r.item_id, code: info.code, name: info.name, at: r.at, type, from: shown(r, r.old), to,
-      tone: changeTone(type, to, tracker), source, sourceType: r.via, trackerDriven, actorId: r.actor_id, actor,
+      tone: changeTone(type, to, tracker), fromTone: changeTone(type, shown(r, r.old), tracker), source, sourceType: r.via, trackerDriven, actorId: r.actor_id, actor,
       by: trackerDriven && r.actor_id ? `Sync run by ${actor}` : actor, tracker, flags: [...(ctx.flags?.get(r.item_id) ?? [])], issue, alsoBuild: null,
       jiraUser: tracker === "Jira" && issue?.tracker === "Jira" ? jiraUserOf(ctx.jiraUsers ?? [], issue.key, to, r.at) : null,
     });
@@ -166,6 +176,12 @@ export function buildChangeRows(feed: readonly FeedRow[], items: ReadonlyMap<str
     r.sourceType = r.actorId && r.sourceType === "system" ? b.sourceType : r.sourceType;
     merged.add(b.id);
   }
+  // Jira statuses take the colour of their category. Where Jira has not said (a status no linked issue is in now), the Build Status that moved with a change tells it:
+  // a status that ended a move to Done is in the done category, and so on, and that holds for the same status in every other row.
+  const category = new Map<string, JiraCategory>();
+  for (const r of rows) if (r.tracker === "Jira" && r.alsoBuild?.to && r.to) { const c = CATEGORY_OF_BUILD[r.alsoBuild.to.toLowerCase()]; if (c) category.set(r.to, c); }
+  for (const [k, v] of ctx.jiraCategories ?? []) category.set(k, v);
+  for (const r of rows) if (r.tracker === "Jira") { r.tone = jiraCategoryTone(r.to ? category.get(r.to) : null); r.fromTone = jiraCategoryTone(r.from ? category.get(r.from) : null); }
   return rows.filter((r) => !merged.has(r.id)).sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.entryId - a.entryId));
 }
 
@@ -326,6 +342,36 @@ export function resolveFlagAction(action: ChangeFlagAction, phase: unknown): Res
   if (!needs) return { kind: "move", to: action.to, label: action.label, title: `Moves the initiative to ${action.to} now. You can undo it from the initiative.` };
   const gate = gateForTarget(action.to) ?? needs;
   return { kind: "gate", gate, label: `Request gate ${gate} (to ${action.to})`, title: `Moving to ${action.to} passes ${needs === gate ? `Gate ${gate}` : `Gate ${needs} and later`}, so it needs a decision. This opens the request; the approver can choose ${action.to} as the phase.` };
+}
+
+// ------------------------------------------------------------------ the Flags and Actions columns of the main grid (issue #480)
+/** The flags of one initiative row of the main grid, from the same rules as the Changes report. Gate requests and open conditions are not on the row, so those two reasons are not here. */
+export function flagsOfRow(row: object, today: Date): ChangeFlag[] {
+  return changeFlags([row as { id: string }], today).get(String((row as { id: unknown }).id)) ?? [];
+}
+
+/** One button of the Actions column: what it says, what it does and why (the tooltip). */
+export type RowAction = { flag: ChangeFlag; resolved: ResolvedFlagAction };
+
+/** The actions of a row, one per different button (two flags that suggest the same move give one button). Nobody who cannot edit gets any. */
+export function actionsOfFlags(flags: readonly ChangeFlag[], phase: unknown, canAct: boolean): RowAction[] {
+  if (!canAct) return [];
+  const seen = new Set<string>(), out: RowAction[] = [];
+  for (const flag of flags) {
+    if (!flag.action) continue;
+    const resolved = resolveFlagAction(flag.action, phase);
+    if (seen.has(resolved.label)) continue;
+    seen.add(resolved.label);
+    out.push({ flag, resolved });
+  }
+  return out;
+}
+
+/** The words the grid stores on the row for the two columns, so sorting, searching and the export see what the cells show. */
+export function rowFlagTexts(row: object, today: Date, canAct: boolean): { flags: string | null; actions: string | null } {
+  const flags = flagsOfRow(row, today);
+  const actions = actionsOfFlags(flags, (row as { initiative_phase?: unknown }).initiative_phase, canAct);
+  return { flags: [...new Set(flags.map((f) => f.label))].join("; ") || null, actions: actions.map((a) => a.resolved.label).join("; ") || null };
 }
 
 /** The newest row of each initiative: it carries the actions, so an initiative with several changes has its buttons once. */

@@ -15,7 +15,7 @@ test.describe("Group by: picker, two levels, issues", () => {
   test("the head buttons say their state: Filter, Columns, Group by", async ({ page }) => {
     await open(page);
     await expect(page.getByRole("button", { name: /^Filter:/ })).toHaveText(/Filter:\s*None/);
-    await expect(page.getByRole("button", { name: /^Columns:/ })).toHaveText(/Columns:\s*\d+ of 168 shown/);
+    await expect(page.getByRole("button", { name: /^Columns:/ })).toHaveText(/Columns:\s*\d+ of 171 shown/);
     await expect(groupBtn(page)).toHaveText(/Group by:\s*None/);
   });
 
@@ -26,7 +26,7 @@ test.describe("Group by: picker, two levels, issues", () => {
     const tabs = await page.locator(".gp-tab").allInnerTexts();
     expect(tabs[tabs.length - 1]).toBe("All"); // All is the last tab; the panel opens on the first category
     expect(tabs).toEqual(expect.arrayContaining(["What", "Who", "Why"]));
-    await expect(page.getByRole("group", { name: "Most used fields" }).getByRole("menuitemradio")).toHaveCount(7);
+    await expect(page.getByRole("group", { name: "Most used fields" }).getByRole("menuitemradio")).toHaveCount(8);
     await expect(page.getByRole("menuitemradio", { name: "Build Status" })).toHaveCount(1);
     await expect(page.getByRole("menuitemradio", { name: "Roadmap Category" })).toHaveCount(0); // hidden in the app
     await expect(page.getByRole("menuitemradio", { name: "Focus Area" })).toHaveCount(1); // the first category (What)

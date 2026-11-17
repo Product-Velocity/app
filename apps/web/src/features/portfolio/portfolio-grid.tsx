@@ -8,11 +8,11 @@ import {
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import {
-  buildGroupedRows, CORE_COLUMN_KEYS, effectiveSort, FIELD_BY_KEY, isOpenableUrl, VISIBLE_FIELDS, groupPickerSections, groupSummary, matchesFilters, matchesSearch, refKey, sanitizeView, sortRows, sortSummary, type EditableField, type Filter, type GroupRow, type SortDef, type ViewDef,
+  buildGroupedRows, CORE_COLUMN_KEYS, effectiveSort, FIELD_BY_KEY, flagsOfRow, resolveFlagAction, type GateId, isOpenableUrl, VISIBLE_FIELDS, groupPickerSections, groupSummary, matchesFilters, matchesSearch, refKey, sanitizeView, sortRows, sortSummary, type EditableField, type Filter, type GroupRow, type SortDef, type ViewDef,
 } from "@pv/domain";
 import { useWorkspace } from "../workspace/provider";
 import { setQueryParam, useScope } from "../workspace/scope";
-import { buildColumns, isEditableColumn, isReadOnlyColumn } from "./columns";
+import { buildColumns, isEditableColumn, isReadOnlyColumn, type GridContext } from "./columns";
 import { syncLabel, syncPlatforms, syncTitle } from "./sync-label";
 import { ColumnsPanel } from "./columns-panel";
 import { isIssueRow, issueInfoOf, issueRowsOf, issuesKey, issueTypeCounts, withIssueRows, type IssueFilter, type IssueRow } from "./issue-rows";
@@ -34,6 +34,7 @@ import { GithubPushDialog } from "./github-push-dialog";
 import type { NewItemsConfig } from "./new-items";
 import type { GateSource } from "../gates/gate-source";
 import { GATE_ACTION_EVENT, type GateActionKind } from "../gates/gate-actions";
+import { RequestGateDialog } from "../gates/gate-dialogs";
 import { agoLabel, latestTime } from "./last-sync";
 import { ImportDialog } from "./import-dialog";
 import { QuickAddBar } from "./quick-add-bar";
@@ -286,7 +287,23 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const toggleGroup = useCallback((key: string) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(key)) n.add(key); return n; }), []);
   // what a cell may ask the grid: fold a group, and (Show issues) the chip data of an initiative's name cell
   const issueInfo = useCallback((id: string) => { const r = controller.row(id); return r ? issueInfoOf(r, issueKids, collapsed, issueFilter) : null; }, [controller, issueKids, collapsed, issueFilter]);
-  const gridContext = useMemo(() => ({ toggleGroup, issueInfo }), [toggleGroup, issueInfo]);
+  // The Actions column (issue #480): one click on a flag's button moves the phase now, or opens the gate request when the move passes a gate
+  const [flagBusy, setFlagBusy] = useState<string | null>(null);
+  const [gateFor, setGateFor] = useState<{ id: string; gate: GateId } | null>(null);
+  const runFlagAction = useCallback(async (itemId: string, flagKind: string) => {
+    const row = controller.row(itemId);
+    if (!gates || !row || !controller.canEdit) return;
+    const flag = flagsOfRow(row, controller.todayDate()).find((f) => f.kind === flagKind);
+    if (!flag?.action) return;
+    const a = resolveFlagAction(flag.action, row.initiative_phase);
+    if (a.kind === "gate") { setGateFor({ id: itemId, gate: a.gate }); return; }
+    setFlagBusy(`${itemId}:${flagKind}`);
+    const r = await gates.move(itemId, a.to);
+    setFlagBusy(null);
+    if (r.ok) { controller.notify(`${row.item_code} moved to ${a.to}.`); void controller.refreshFromServer(); } else controller.notify(`${row.item_code} was not moved: ${r.error}`);
+  }, [controller, gates]);
+  const gridContext = useMemo<GridContext & Record<string, unknown>>(() => ({ toggleGroup, issueInfo, runFlagAction: (id: string, kind: string) => { void runFlagAction(id, kind); }, flagBusy }), [toggleGroup, issueInfo, runFlagAction, flagBusy]);
+  useEffect(() => { apiRef.current?.refreshCells({ columns: ["actions"], force: true }); }, [flagBusy]);
   // the chips are drawn by the cells, which do not see a change of context by themselves
   useEffect(() => { if (showIssues) apiRef.current?.refreshCells({ columns: ["initiative_name"], force: true }); }, [showIssues, issueKids, collapsed, issueFilter]);
   const resetShown = () => setAdded(new Set());
@@ -746,6 +763,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} total={visibleRows.length} me={me} {...(gates ? { gates } : {})} />}
         {controller.canEdit && lookups.projects.length > 0 && <QuickAddBar controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef} />}
       </div>
+      {gates && gateFor && controller.row(gateFor.id) && <RequestGateDialog source={gates} me={me} initialGate={gateFor.gate} items={[controller.row(gateFor.id) as never]} onClose={() => setGateFor(null)} onDone={() => { setGateFor(null); void controller.refreshFromServer(); }} />}
       {githubIds && <GithubPushDialog ids={githubIds} newItems={newItems} onClose={() => setGithubIds(null)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer(); }} />}
       {deleteIds && <DeleteDialog controller={controller} ids={deleteIds} onClose={closeDelete} onDeleted={() => apiRef.current?.deselectAll()} />}
       {importText !== null && (
