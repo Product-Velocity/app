@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { changeCounts, changePeriod, changeReport, changeTypeOf, type FeedRow, type ItemInfo } from "./change-report";
+import {
+  buildChangeRows, changeFieldChoices, changeFilterCount, changeFlags, changeGroupSummary, changePeriod, changeTone, changeTypeOf, filterChangeRows, groupChangeRows,
+  isChangeHeader, matchesChangeSearch, NO_CHANGE_FILTERS, type ChangeFlag, type ChangeRowData, type FeedRow, type ItemInfo, type TrackerRef,
+} from "./change-report";
 
 const items = new Map<string, ItemInfo>([["a", { code: "R-27", name: "Bidder adapter", rank: 2 }], ["b", { code: "G-03", name: "Manager onboarding", rank: 1 }]]);
 let id = 0;
 const row = (item: string, entity: string, field: string, old: unknown, next: unknown, at: string, extra: Partial<FeedRow> = {}): FeedRow => ({ id: ++id, item_id: item, entity, field, old, new: next, at, actor_id: "u1", via: "UI", ...extra });
+const names: Record<string, string> = { u1: "Ana", u2: "Ben" };
+const nameOf = (a: string | null) => (a ? names[a] ?? "someone" : "the system");
 
 describe("changeTypeOf", () => {
   it("maps the audited fields to the five change types and ignores everything else", () => {
@@ -15,51 +20,6 @@ describe("changeTypeOf", () => {
     expect(changeTypeOf({ entity: "item_github_links", field: "gh_state" })).toBe("issue-status");
     expect(changeTypeOf({ entity: "items", field: "value_12m" })).toBeNull(); // commercial fields are never part of it
     expect(changeTypeOf({ entity: "item_jira_links", field: "jira_updated_at" })).toBeNull();
-  });
-});
-
-describe("changeReport", () => {
-  const feed = [
-    row("a", "items", "initiative_status", "Active", "Completed", "2026-11-17T09:30:00Z", { actor_id: "u2" }),
-    row("a", "item_jira_links", "jira_status", "Project Execution", "Project Closed", "2026-11-17T09:18:00Z", { actor_id: null, via: "system" }),
-    row("a", "items", "status", "In progress", "Done", "2026-11-17T09:18:01Z", { actor_id: null, via: "system" }),
-    row("b", "items", "health", "On Track", "At Risk", "2026-11-17T11:00:00Z"),
-    row("zzz", "items", "health", "On Track", "Blocked", "2026-11-17T12:00:00Z"), // not in the filtered rows
-  ];
-
-  it("groups by initiative, newest group first, entries newest first, with time, source and actor", () => {
-    const g = changeReport(feed, items);
-    expect(g.map((x) => x.code)).toEqual(["G-03", "R-27"]);
-    expect(g[1]!.entries.map((e) => e.type)).toEqual(["initiative-status", "build-status", "issue-status"]);
-    expect(g[1]!.entries[0]).toMatchObject({ at: "2026-11-17T09:30:00Z", actorId: "u2", via: "UI", from: "Active", to: "Completed" });
-    expect(g[1]!.entries[2]).toMatchObject({ tracker: "Jira", via: "system", actorId: null });
-  });
-
-  it("says whether the initiative itself moved, apart from the linked issues", () => {
-    const [b, a] = changeReport(feed, items);
-    expect(b!.moved).toEqual(["health"]);
-    expect(b!.trackerChanges).toBe(0);
-    expect(a!.moved).toEqual(["initiative-status"]);
-    expect(a!.trackerChanges).toBe(2);
-    const onlyTracker = changeReport(feed, items, ["issue-status"]);
-    expect(onlyTracker).toHaveLength(1);
-    expect(onlyTracker[0]!.moved).toEqual([]); // an initiative that did not move shows only its ticket activity
-    expect(onlyTracker[0]!.entries).toHaveLength(1);
-  });
-
-  it("keeps only the chosen types and drops initiatives left with nothing", () => {
-    expect(changeReport(feed, items, ["health"]).map((g) => g.code)).toEqual(["G-03"]);
-    expect(changeReport(feed, items, ["phase"])).toEqual([]);
-  });
-
-  it("shows GitHub states in words, and skips a row that did not change", () => {
-    const g = changeReport([row("a", "item_github_links", "gh_state", "open", "closed_completed", "2026-11-17T10:00:00Z"), row("a", "items", "health", "On Track", "On Track", "2026-11-17T10:01:00Z")], items);
-    expect(g[0]!.entries).toHaveLength(1);
-    expect(g[0]!.entries[0]).toMatchObject({ from: "Open", to: "Closed", tracker: "GitHub" });
-  });
-
-  it("counts per type for the chips, only for initiatives that are shown", () => {
-    expect(changeCounts(feed, items)).toEqual({ phase: 0, "initiative-status": 1, health: 1, "build-status": 1, "issue-status": 1 });
   });
 });
 
@@ -78,8 +38,6 @@ describe("changePeriod", () => {
   });
 });
 
-import { changeGridRows, changeTone, isChangeHeader, type ChangeFlag, type ChangeRowData } from "./change-report";
-
 describe("changeTone", () => {
   it("colours the value a change ended on, and never guesses a Jira status", () => {
     expect(changeTone("health", "At Risk")).toBe("risk");
@@ -93,48 +51,6 @@ describe("changeTone", () => {
     expect(changeTone("issue-status", "Project Closed", "Jira")).toBe("neutral");
   });
 });
-
-describe("changeGridRows", () => {
-  const feed2 = [
-    row("a", "items", "initiative_status", "Active", "Completed", "2026-11-17T12:30:00Z"),
-    row("a", "item_jira_links", "jira_status", "Project Execution", "Project Closed", "2026-11-17T12:18:00Z", { actor_id: null, via: "system" }),
-    row("b", "items", "health", "On Track", "At Risk", "2026-11-16T12:00:00Z"),
-  ];
-  const groups = changeReport(feed2, items);
-  const flag: ChangeFlag = { kind: "build-done", label: "Build done", text: "All 3 linked issues are closed." };
-  const flags = new Map([["a", [flag]]]);
-
-  it("puts a header before each initiative with the count, the flags and whether it moved", () => {
-    const rows = changeGridRows(groups, "initiative", new Set(), flags);
-    expect(rows.map((r) => (isChangeHeader(r) ? "group" : r.kind))).toEqual(["group", "change", "change", "group", "change"]);
-    const h = rows[0]!;
-    expect(isChangeHeader(h) && h).toMatchObject({ __group: true, key: "initiative:a", label: "R-27 Bidder adapter", count: 2, unit: "changes", level: 0 });
-    expect((h as { badges: { text: string; tone: string }[] }).badges).toEqual([expect.objectContaining({ text: "Initiative: Status", tone: "info" }), expect.objectContaining({ text: "1 linked-issue change" }), expect.objectContaining({ text: "⚑ Build done", tone: "risk", title: flag.text })]);
-    expect(rows[1]).toMatchObject({ code: "R-27", tone: "good", flags: [flag] });
-  });
-
-  it("a collapsed group shows only its header", () => {
-    const rows = changeGridRows(groups, "initiative", new Set(["initiative:a"]), flags);
-    expect(rows.map((r) => (isChangeHeader(r) ? "group" : r.kind))).toEqual(["group", "group", "change"]);
-    expect((rows[0] as { collapsed: boolean }).collapsed).toBe(true); // the main grid's collapse key, so one toggle works for both grids
-  });
-
-  it("groups by change type in the order of the list, by day newest first, or not at all (newest first)", () => {
-    const byType = changeGridRows(groups, "type", new Set());
-    expect(byType.filter(isChangeHeader).map((h) => h.label)).toEqual(["Status", "Health", "Linked issue"]);
-    const byDay = changeGridRows(groups, "day", new Set());
-    expect(byDay.filter(isChangeHeader)).toHaveLength(2);
-    expect(byDay.filter((r): r is ChangeRowData => !isChangeHeader(r)).map((r) => r.at)).toEqual(["2026-11-17T12:30:00Z", "2026-11-17T12:18:00Z", "2026-11-16T12:00:00Z"]);
-    expect(changeGridRows(groups, "none", new Set()).some(isChangeHeader)).toBe(false);
-  });
-
-  it("keeps only flagged initiatives when asked", () => {
-    const rows = changeGridRows(groups, "initiative", new Set(), flags, true);
-    expect(new Set(rows.filter((r) => !isChangeHeader(r)).map((r) => (r as { itemId: string }).itemId))).toEqual(new Set(["a"]));
-  });
-});
-
-import { changeFlags, type TrackerRef } from "./change-report";
 
 describe("changeFlags (real data: initiatives pulled in from Jira usually have no phase or status)", () => {
   const TODAY = new Date(Date.UTC(2026, 10, 17));
@@ -162,19 +78,140 @@ describe("changeFlags (real data: initiatives pulled in from Jira usually have n
   });
 });
 
-describe("changeGridRows: the tracker issue behind a change", () => {
-  const issue: TrackerRef = { tracker: "Jira", key: "R8P-7049", title: "Bidder adapter, iteration 1", url: "https://example.test/browse/R8P-7049" };
-  const groups2 = changeReport([
-    row("a", "items", "initiative_status", "Active", "Completed", "2026-11-17T12:30:00Z"),
-    row("a", "items", "status", "In progress", "Done", "2026-11-17T12:18:01Z"),
-    row("a", "item_jira_links", "jira_status", "Project Execution", "Project Closed", "2026-11-17T12:18:00Z"),
-  ], items);
-  it("is attached to Build Status and linked-issue changes, not to the initiative's own changes", () => {
-    const rows = changeGridRows(groups2, "none", new Set(), new Map(), false, new Map([["a", issue]])) as ChangeRowData[];
-    expect(rows.map((x) => [x.type, x.issue?.key ?? null])).toEqual([["initiative-status", null], ["build-status", "R8P-7049"], ["issue-status", "R8P-7049"]]);
-    expect(rows[2]!.issue).toEqual(issue);
+
+const issue: TrackerRef = { tracker: "Jira", key: "R8P-7049", title: "Bidder adapter, iteration 1", url: "https://example.test/browse/R8P-7049" };
+const flag: ChangeFlag = { kind: "tracker-done-open", label: "Tracker done, initiative open", text: "The tracker says the work is done." };
+const feed: FeedRow[] = [
+  row("a", "items", "initiative_status", "Active", "Completed", "2026-11-17T12:30:00Z", { actor_id: "u2" }),
+  row("a", "items", "status", "In progress", "Done", "2026-11-17T12:18:01Z", { actor_id: "u1", via: "UI" }), // a person pressed Sync
+  row("a", "item_jira_links", "jira_status", "Project Execution", "Project Closed", "2026-11-17T12:18:00Z", { actor_id: null, via: "system" }),
+  row("b", "items", "health", "On Track", "At Risk", "2026-11-16T12:00:00Z"),
+  row("zzz", "items", "health", "On Track", "Blocked", "2026-11-17T12:00:00Z"), // not an initiative of the filtered rows
+  row("b", "items", "health", "On Track", "On Track", "2026-11-16T12:01:00Z"), // no change
+];
+const rows = (extra: Parameters<typeof buildChangeRows>[2] = {}) => buildChangeRows(feed, items, { nameOf, flags: new Map([["a", [flag]]]), issues: new Map([["a", issue]]), ...extra });
+
+describe("buildChangeRows: where a change came from and who is on it", () => {
+  it("keeps only changes of the initiatives shown, newest first, and drops a value that did not change", () => {
+    expect(rows().map((r) => [r.code, r.type])).toEqual([["R-27", "initiative-status"], ["R-27", "build-status"], ["R-27", "issue-status"], ["G-03", "health"]]);
   });
-  it("is empty when the initiative has no known link", () => {
-    expect((changeGridRows(groups2, "none", new Set()) as ChangeRowData[]).every((x) => x.issue === null)).toBe(true);
+
+  it("Source is Product Velocity for what people set, and the tracker for what the tracker sets", () => {
+    const r = Object.fromEntries(rows().map((x) => [x.type, x]));
+    expect(r["initiative-status"]!.source).toBe("Product Velocity");
+    expect(r["health"]!.source).toBe("Product Velocity");
+    expect(r["issue-status"]!.source).toBe("Jira");
+    expect(r["build-status"]!.source).toBe("Jira"); // from the tracker of the initiative's link
+  });
+
+  it("a GitHub link says GitHub; a Build Status with no known link says GitHub for a webhook and Tracker otherwise", () => {
+    const gh = buildChangeRows([row("a", "item_github_links", "gh_state", "open", "closed_completed", "2026-11-17T10:00:00Z", { via: "GitHub webhook", actor_id: null })], items, { nameOf });
+    expect(gh[0]).toMatchObject({ source: "GitHub", sourceType: "GitHub webhook", to: "Closed" });
+    const unknown = buildChangeRows([row("a", "items", "status", "In progress", "Done", "2026-11-17T10:00:00Z", { via: "GitHub webhook", actor_id: null }), row("a", "items", "status", "Not started", "In progress", "2026-11-17T09:00:00Z")], items, { nameOf });
+    expect(unknown.map((x) => x.source)).toEqual(["GitHub", "Tracker"]);
+  });
+
+  it("Source type is how it reached Product Velocity", () => {
+    expect(rows().map((r) => r.sourceType)).toEqual(["UI", "UI", "system", "UI"]);
+  });
+
+  it("a person on a tracker value only ran the Sync: it never reads as their change (review finding)", () => {
+    const r = Object.fromEntries(rows().map((x) => [x.type, x]));
+    expect(r["build-status"]).toMatchObject({ trackerDriven: true, actor: "Ana", by: "Sync run by Ana" });
+    expect(r["issue-status"]).toMatchObject({ trackerDriven: true, actor: "the system", by: "the system" });
+    expect(r["initiative-status"]).toMatchObject({ trackerDriven: false, by: "Ben" }); // a person's own change keeps their name
+  });
+
+  it("the tracker issue is attached to Build Status and linked-issue changes only, and the flags to every row of the initiative", () => {
+    const r = rows();
+    expect(r.map((x) => x.issue?.key ?? null)).toEqual([null, "R8P-7049", "R8P-7049", null]);
+    expect(r.filter((x) => x.itemId === "a").every((x) => x.flags.length === 1)).toBe(true);
+    expect(rows({ issues: new Map(), flags: new Map() }).every((x) => x.issue === null && x.flags.length === 0)).toBe(true);
+  });
+});
+
+describe("filters and search", () => {
+  const all = rows();
+  it("quick filters: flagged, initiative moved, tracker changes", () => {
+    expect(filterChangeRows(all, { ...NO_CHANGE_FILTERS, quick: ["flagged"] }).every((r) => r.itemId === "a")).toBe(true);
+    expect(filterChangeRows(all, { ...NO_CHANGE_FILTERS, quick: ["initiative"] }).map((r) => r.type)).toEqual(["initiative-status", "health"]);
+    expect(filterChangeRows(all, { ...NO_CHANGE_FILTERS, quick: ["tracker"] }).map((r) => r.type)).toEqual(["build-status", "issue-status"]);
+    expect(filterChangeRows(all, { ...NO_CHANGE_FILTERS, quick: ["flagged", "initiative"] }).map((r) => r.type)).toEqual(["initiative-status"]); // AND
+  });
+  it("rules match any of their values, and all rules must match", () => {
+    expect(filterChangeRows(all, { ...NO_CHANGE_FILTERS, rules: [{ field: "source", values: ["Jira"] }] })).toHaveLength(2);
+    expect(filterChangeRows(all, { ...NO_CHANGE_FILTERS, rules: [{ field: "type", values: ["health", "phase"] }] })).toHaveLength(1);
+    expect(filterChangeRows(all, { ...NO_CHANGE_FILTERS, rules: [{ field: "source", values: ["Jira"] }, { field: "by", values: ["Ana"] }] }).map((r) => r.type)).toEqual(["build-status"]);
+    expect(filterChangeRows(all, { ...NO_CHANGE_FILTERS, rules: [{ field: "flag", values: ["tracker-done-open"] }] })).toHaveLength(3);
+    expect(filterChangeRows(all, { ...NO_CHANGE_FILTERS, rules: [{ field: "type", values: [] }] })).toHaveLength(4); // a rule without a value is ignored
+  });
+  it("search looks at the initiative, the values, the people, the source and the tracker issue, every word must be found", () => {
+    expect(all.filter((r) => matchesChangeSearch(r, "bidder")).length).toBe(3);
+    expect(all.filter((r) => matchesChangeSearch(r, "r8p-7049")).length).toBe(2);
+    expect(all.filter((r) => matchesChangeSearch(r, "closed jira")).length).toBe(1);
+    expect(all.filter((r) => matchesChangeSearch(r, "ben")).length).toBe(1);
+    expect(all.filter((r) => matchesChangeSearch(r, "nothing like this")).length).toBe(0);
+    expect(all.every((r) => matchesChangeSearch(r, "  "))).toBe(true);
+  });
+  it("counts the active filters and lists the values a rule can take in the data", () => {
+    expect(changeFilterCount({ quick: ["flagged"], rules: [{ field: "type", values: ["health"] }, { field: "by", values: [] }], search: "x" })).toBe(2);
+    expect(changeFieldChoices(all, "type").map((c) => c.label)).toEqual(["Status", "Health", "Build status", "Linked issue"]);
+    expect(changeFieldChoices(all, "source").map((c) => c.value)).toEqual(["Product Velocity", "Jira"]);
+    expect(changeFieldChoices(all, "flag")).toEqual([{ value: "tracker-done-open", label: "Tracker done, initiative open" }]);
+  });
+});
+
+describe("groupChangeRows", () => {
+  const all = rows();
+  const kinds = (g: ReturnType<typeof groupChangeRows>) => g.map((r) => (isChangeHeader(r) ? `H${r.level}:${r.label}` : r.type));
+
+  it("by initiative: a header before each, newest group first, saying whether the initiative moved and the flags", () => {
+    const g = groupChangeRows(all, "initiative", null, new Set());
+    expect(kinds(g)).toEqual(["H0:R-27 Bidder adapter", "initiative-status", "build-status", "issue-status", "H0:G-03 Manager onboarding", "health"]);
+    const h = g[0]!;
+    expect(isChangeHeader(h) && h).toMatchObject({ __group: true, key: "initiative:a", count: 3, unit: "changes", level: 0 });
+    expect((h as { badges: { text: string; tone: string }[] }).badges.map((b) => b.text)).toEqual(["Initiative: Status", "2 linked-issue changes", "⚑ Tracker done, initiative open"]);
+    const h2 = g[4] as { badges: { text: string }[] };
+    expect(h2.badges.map((b) => b.text)).toEqual(["Initiative: Health"]);
+  });
+
+  it("an initiative with only linked-issue changes is marked unchanged", () => {
+    const only = all.filter((r) => r.type === "issue-status");
+    const h = groupChangeRows(only, "initiative", null, new Set())[0] as { badges: { text: string }[] };
+    expect(h.badges[0]!.text).toBe("Initiative unchanged");
+  });
+
+  it("collapsing a group shows only its header, with the same key the Roadmap grid uses", () => {
+    const g = groupChangeRows(all, "initiative", null, new Set(["initiative:a"]));
+    expect(kinds(g)).toEqual(["H0:R-27 Bidder adapter", "H0:G-03 Manager onboarding", "health"]);
+    expect((g[0] as { collapsed: boolean }).collapsed).toBe(true);
+  });
+
+  it("by change type in the order of the list, by source in its order, by source type A to Z, by day newest first", () => {
+    expect(kinds(groupChangeRows(all, "type", null, new Set())).filter((x) => x.startsWith("H"))).toEqual(["H0:Status", "H0:Health", "H0:Build status", "H0:Linked issue"]);
+    expect(kinds(groupChangeRows(all, "source", null, new Set())).filter((x) => x.startsWith("H"))).toEqual(["H0:Product Velocity", "H0:Jira"]);
+    expect(kinds(groupChangeRows(all, "sourceType", null, new Set())).filter((x) => x.startsWith("H"))).toEqual(["H0:system", "H0:UI"]);
+    expect(kinds(groupChangeRows(all, "day", null, new Set())).filter((x) => x.startsWith("H")).length).toBe(2);
+  });
+
+  it("two levels: a header inside each group, collapsing the parent hides the sub-headers", () => {
+    const g = groupChangeRows(all, "source", "type", new Set());
+    expect(kinds(g)).toEqual(["H0:Product Velocity", "H1:Status", "initiative-status", "H1:Health", "health", "H0:Jira", "H1:Build status", "build-status", "H1:Linked issue", "issue-status"]);
+    expect((g[1] as { key: string }).key).toBe("source:Product Velocity>type:initiative-status");
+    expect(kinds(groupChangeRows(all, "source", "type", new Set(["source:Jira"])))).toEqual(["H0:Product Velocity", "H1:Status", "initiative-status", "H1:Health", "health", "H0:Jira"]);
+  });
+
+  it("a second level equal to the first is ignored, a missing first level promotes the second, and no grouping is a flat list, newest first", () => {
+    expect(kinds(groupChangeRows(all, "type", "type", new Set())).filter((x) => x.startsWith("H1"))).toEqual([]);
+    expect(kinds(groupChangeRows(all, null, "type", new Set()))[0]).toBe("H0:Status");
+    const flat = groupChangeRows(all, null, null, new Set());
+    expect(flat.some(isChangeHeader)).toBe(false);
+    expect((flat as ChangeRowData[]).map((r) => r.at)).toEqual([...(flat as ChangeRowData[])].map((r) => r.at).sort().reverse());
+  });
+
+  it("never groups by person (rule 8), and says the grouping in words", () => {
+    expect(changeGroupSummary("initiative", "type")).toBe("Initiative › Change type");
+    expect(changeGroupSummary(null, null)).toBe("None");
+    expect(changeGroupSummary("type", "type")).toBe("Change type");
   });
 });

@@ -22,18 +22,6 @@ export const changeTypeLabel = (t: ChangeType) => CHANGE_TYPES.find((x) => x.id 
 export type FeedRow = { id: number | string; item_id: string; entity: string; field: string; old: unknown; new: unknown; at: string; actor_id: string | null; via: string };
 export type ItemInfo = { code: string; name: string; rank: number };
 
-export type ChangeEntry = { id: number; at: string; type: ChangeType; from: string | null; to: string | null; via: string; actorId: string | null; tracker: "GitHub" | "Jira" | null };
-export type ChangeGroup = {
-  itemId: string; code: string; name: string; rank: number;
-  /** The newest change shown. */
-  latest: string;
-  /** The initiative itself moved: which of phase, status and health changed. */
-  moved: ChangeType[];
-  /** Number of changes of linked issues (build status and issue status). */
-  trackerChanges: number;
-  entries: ChangeEntry[];
-};
-
 const text = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : typeof v === "string" ? v : JSON.stringify(v));
 
 export function changeTypeOf(r: Pick<FeedRow, "entity" | "field">): ChangeType | null {
@@ -45,39 +33,6 @@ export function changeTypeOf(r: Pick<FeedRow, "entity" | "field">): ChangeType |
 /** GitHub states are shown the way people say them. */
 const GH: Record<string, string> = { open: "Open", closed_completed: "Closed", closed_not_planned: "Closed, not planned" };
 const shown = (r: FeedRow, v: unknown) => (r.entity === "item_github_links" ? GH[String(v)] ?? text(v) : text(v));
-
-/**
- * Groups the feed by initiative. Only initiatives in `items` are shown (so the filters of the Reports tab apply); only the chosen types are kept
- * (all when `types` is empty). Groups are newest first, and the entries of a group are newest first.
- */
-export function changeReport(rows: readonly FeedRow[], items: ReadonlyMap<string, ItemInfo>, types: readonly ChangeType[] = []): ChangeGroup[] {
-  const want = new Set<ChangeType>(types);
-  const groups = new Map<string, ChangeGroup>();
-  for (const r of rows) {
-    const info = items.get(r.item_id);
-    const type = changeTypeOf(r);
-    if (!info || !type || (want.size > 0 && !want.has(type))) continue;
-    if (text(r.old) === text(r.new)) continue;
-    let g = groups.get(r.item_id);
-    if (!g) groups.set(r.item_id, (g = { itemId: r.item_id, code: info.code, name: info.name, rank: info.rank, latest: r.at, moved: [], trackerChanges: 0, entries: [] }));
-    g.entries.push({ id: Number(r.id), at: r.at, type, from: shown(r, r.old), to: shown(r, r.new), via: r.via, actorId: r.actor_id, tracker: r.entity === "item_jira_links" ? "Jira" : r.entity === "item_github_links" ? "GitHub" : null });
-    if (r.at > g.latest) g.latest = r.at;
-    if (CHANGE_TYPES.find((x) => x.id === type)!.initiative) { if (!g.moved.includes(type)) g.moved.push(type); } else g.trackerChanges++;
-  }
-  const order = (t: ChangeType) => CHANGE_TYPES.findIndex((x) => x.id === t);
-  for (const g of groups.values()) {
-    g.entries.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.id - a.id));
-    g.moved.sort((a, b) => order(a) - order(b));
-  }
-  return [...groups.values()].sort((a, b) => (a.latest < b.latest ? 1 : a.latest > b.latest ? -1 : a.rank - b.rank));
-}
-
-/** How many entries each type has in the feed (for the filter chips), counting only initiatives in `items`. */
-export function changeCounts(rows: readonly FeedRow[], items: ReadonlyMap<string, ItemInfo>): Record<ChangeType, number> {
-  const c = Object.fromEntries(CHANGE_TYPES.map((t) => [t.id, 0])) as Record<ChangeType, number>;
-  for (const r of rows) { const t = changeTypeOf(r); if (t && items.has(r.item_id) && text(r.old) !== text(r.new)) c[t]++; }
-  return c;
-}
 
 // ------------------------------------------------------------------ periods
 export type ChangePeriod = "today" | "week" | "month";
@@ -95,15 +50,11 @@ export function changePeriod(period: ChangePeriod, now: Date): { from: Date; to:
   return { from: new Date(day.getFullYear(), day.getMonth(), 1), to };
 }
 
-// ------------------------------------------------------------------ the grid (issue #472, follow-up)
-/** A reason to follow up on an initiative, taken from Needs attention (`attentionList`): the kind id, its label and the sentence. */
+// ------------------------------------------------------------------ rows of the grid (issue #472)
+/** A flag to follow up on an initiative: the kind id, its label and the sentence. */
 export type ChangeFlag = { kind: string; label: string; text: string };
 /** The Jira or GitHub issue an initiative is linked to: "R8P-7049" or "owner/repo#12", its title where known, and a link that opens it in the tracker. */
 export type TrackerRef = { tracker: "Jira" | "GitHub"; key: string; title: string | null; url: string | null };
-export type ChangeGroupBy = "initiative" | "type" | "day" | "none";
-export const CHANGE_GROUP_BYS: readonly { id: ChangeGroupBy; label: string }[] = [
-  { id: "initiative", label: "Initiative" }, { id: "type", label: "Change type" }, { id: "day", label: "Day" }, { id: "none", label: "No grouping" },
-];
 /** How a value reads in colour. Words always come with it (a colour is never the only signal). */
 export type ChangeTone = "good" | "risk" | "bad" | "info" | "neutral";
 
@@ -120,64 +71,167 @@ export function changeTone(type: ChangeType, to: string | null, tracker: "GitHub
   return tracker === "GitHub" ? (v.startsWith("closed, not planned") ? "neutral" : v === "closed" ? "good" : v === "open" ? "info" : "neutral") : "neutral";
 }
 
+/** Where the new value came from: Product Velocity, or the tracker of the initiative. "Tracker" only while the link of an initiative is not known. */
+export type ChangeSource = "Product Velocity" | "Jira" | "GitHub" | "Tracker";
+export const CHANGE_SOURCES: readonly ChangeSource[] = ["Product Velocity", "Jira", "GitHub", "Tracker"];
+
 export type ChangeRowData = {
   kind: "change"; id: string; entryId: number; itemId: string; code: string; name: string; at: string; type: ChangeType;
-  from: string | null; to: string | null; tone: ChangeTone; via: string; actorId: string | null; tracker: "GitHub" | "Jira" | null; flags: ChangeFlag[];
+  from: string | null; to: string | null; tone: ChangeTone;
+  /** Where the value came from. Build Status and the status of a linked issue are set by the tracker, never by hand (rule 6). */
+  source: ChangeSource;
+  /** How it reached Product Velocity: UI, API, Claude MCP, GitHub webhook, import or system. */
+  sourceType: string;
+  /** Build Status and linked-issue status: the tracker's values. A person on the row only pressed Sync. */
+  trackerDriven: boolean;
+  actorId: string | null;
+  /** Who is on the audit row: a name, or "the system". */
+  actor: string;
+  /** The words for the By column: for a tracker value "Sync run by Ana" (the tracker changed it, Ana refreshed it), else the name. */
+  by: string;
+  /** The tracker of the linked-issue row itself (Jira or GitHub), for its label and colour. */
+  tracker: "GitHub" | "Jira" | null;
+  flags: ChangeFlag[];
   /** The tracker issue behind a Build Status or linked-issue change: its key or number, its name where known and its link. */
   issue: TrackerRef | null;
 };
-/** A group header is the main grid's own `GroupRow` (one renderer, one look), with the unit "changes" and badges. */
+export type ChangeContext = {
+  flags?: ReadonlyMap<string, readonly ChangeFlag[]>;
+  issues?: ReadonlyMap<string, TrackerRef>;
+  nameOf?: (actorId: string | null) => string;
+};
+
+/** The changes of the feed that belong to the initiatives in `items`, newest first, with where each came from and who is on it. */
+export function buildChangeRows(feed: readonly FeedRow[], items: ReadonlyMap<string, ItemInfo>, ctx: ChangeContext = {}): ChangeRowData[] {
+  const nameOf = ctx.nameOf ?? ((id: string | null) => (id ? "someone" : "the system"));
+  const rows: ChangeRowData[] = [];
+  for (const r of feed) {
+    const info = items.get(r.item_id);
+    const type = changeTypeOf(r);
+    if (!info || !type || text(r.old) === text(r.new)) continue;
+    const trackerDriven = type === "build-status" || type === "issue-status";
+    const issue = trackerDriven ? ctx.issues?.get(r.item_id) ?? null : null;
+    const source: ChangeSource = r.entity === "item_jira_links" ? "Jira" : r.entity === "item_github_links" ? "GitHub"
+      : type === "build-status" ? issue?.tracker ?? (r.via === "GitHub webhook" ? "GitHub" : "Tracker") : "Product Velocity";
+    const tracker = r.entity === "item_jira_links" ? "Jira" : r.entity === "item_github_links" ? "GitHub" : null;
+    const to = shown(r, r.new);
+    const actor = nameOf(r.actor_id);
+    rows.push({
+      kind: "change", id: `c${r.id}`, entryId: Number(r.id), itemId: r.item_id, code: info.code, name: info.name, at: r.at, type, from: shown(r, r.old), to,
+      tone: changeTone(type, to, tracker), source, sourceType: r.via, trackerDriven, actorId: r.actor_id, actor,
+      by: trackerDriven && r.actor_id ? `Sync run by ${actor}` : actor, tracker, flags: [...(ctx.flags?.get(r.item_id) ?? [])], issue,
+    });
+  }
+  return rows.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.entryId - a.entryId));
+}
+
+// ------------------------------------------------------------------ filters, search and the columns' values
+export type ChangeRuleField = "type" | "source" | "sourceType" | "by" | "flag";
+export const CHANGE_RULE_FIELDS: readonly { id: ChangeRuleField; label: string }[] = [
+  { id: "type", label: "Change type" }, { id: "source", label: "Source" }, { id: "sourceType", label: "Source type" }, { id: "by", label: "By" }, { id: "flag", label: "Flag" },
+];
+/** A rule matches any of its values; the rules together must all match (AND), like the custom rules of the Roadmap filter. */
+export type ChangeRule = { field: ChangeRuleField; values: string[] };
+export type ChangeQuick = "flagged" | "initiative" | "tracker";
+export const CHANGE_QUICK: readonly { id: ChangeQuick; label: string; hint: string }[] = [
+  { id: "flagged", label: "To follow up", hint: "Initiatives with a flag to follow up." },
+  { id: "initiative", label: "Initiative moved", hint: "Phase, Status or Health of the initiative itself changed." },
+  { id: "tracker", label: "Tracker changes", hint: "Build Status or the status of a linked issue changed." },
+];
+export type ChangeFilters = { quick: ChangeQuick[]; rules: ChangeRule[]; search: string };
+export const NO_CHANGE_FILTERS: ChangeFilters = { quick: [], rules: [], search: "" };
+
+const valuesOf = (r: ChangeRowData, field: ChangeRuleField): string[] =>
+  field === "type" ? [r.type] : field === "source" ? [r.source] : field === "sourceType" ? [r.sourceType] : field === "by" ? [r.actor] : r.flags.map((f) => f.kind);
+const isInitiativeType = (t: ChangeType) => CHANGE_TYPES.find((x) => x.id === t)!.initiative;
+
+/** The label of a rule value: change types and flags have ids, the rest read as they are. */
+export function changeValueLabel(field: ChangeRuleField, value: string, rows: readonly ChangeRowData[] = []): string {
+  if (field === "type") return changeTypeLabel(value as ChangeType);
+  if (field === "flag") return rows.flatMap((r) => r.flags).find((f) => f.kind === value)?.label ?? CHANGE_FLAG_LABELS[value] ?? value;
+  return value;
+}
+/** The values a rule can take in these rows, in a sensible order. */
+export function changeFieldChoices(rows: readonly ChangeRowData[], field: ChangeRuleField): { value: string; label: string }[] {
+  const seen = [...new Set(rows.flatMap((r) => valuesOf(r, field)))];
+  const order = (v: string) => (field === "type" ? CHANGE_TYPES.findIndex((x) => x.id === v) : field === "source" ? CHANGE_SOURCES.indexOf(v as ChangeSource) : 0);
+  return seen.sort((a, b) => order(a) - order(b) || changeValueLabel(field, a, rows).localeCompare(changeValueLabel(field, b, rows))).map((value) => ({ value, label: changeValueLabel(field, value, rows) }));
+}
+export const changeFilterCount = (f: ChangeFilters) => f.quick.length + f.rules.filter((r) => r.values.length > 0).length;
+
+export function matchesChangeSearch(r: ChangeRowData, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (q === "") return true;
+  const hay = [r.code, r.name, r.from, r.to, changeTypeLabel(r.type), r.source, r.sourceType, r.actor, r.issue?.key, r.issue?.title, ...r.flags.map((f) => f.label)].filter(Boolean).join(" \n ").toLowerCase();
+  return q.split(/\s+/).every((w) => hay.includes(w));
+}
+
+export function filterChangeRows(rows: readonly ChangeRowData[], f: ChangeFilters): ChangeRowData[] {
+  return rows.filter((r) =>
+    matchesChangeSearch(r, f.search)
+    && f.quick.every((q) => (q === "flagged" ? r.flags.length > 0 : q === "initiative" ? isInitiativeType(r.type) : !isInitiativeType(r.type)))
+    && f.rules.every((rule) => rule.values.length === 0 || valuesOf(r, rule.field).some((v) => rule.values.includes(v))));
+}
+
+// ------------------------------------------------------------------ grouping (our own header rows: row grouping is Enterprise only; the same GroupRow as the Roadmap grid)
 export type ChangeHeaderData = GroupRow;
 export type ChangeGridRow = ChangeRowData | ChangeHeaderData;
 export const isChangeHeader = (r: unknown): r is ChangeHeaderData => typeof r === "object" && r !== null && (r as { __group?: boolean }).__group === true;
 
+/** Groups are by initiative, change type, source, source type or day. Never by person: nothing is counted or ranked per person (rule 8). */
+export type ChangeGroupBy = "initiative" | "type" | "source" | "sourceType" | "day";
+export const CHANGE_GROUP_BYS: readonly { id: ChangeGroupBy; label: string }[] = [
+  { id: "initiative", label: "Initiative" }, { id: "type", label: "Change type" }, { id: "source", label: "Source" }, { id: "sourceType", label: "Source type" }, { id: "day", label: "Day" },
+];
+/** "Initiative", "Initiative › Change type" or "None". */
+export function changeGroupSummary(by: ChangeGroupBy | null, then: ChangeGroupBy | null): string {
+  const name = (g: ChangeGroupBy) => CHANGE_GROUP_BYS.find((x) => x.id === g)!.label;
+  return !by ? "None" : then && then !== by ? `${name(by)} › ${name(then)}` : name(by);
+}
+
 const dayKey = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const dayLabel = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+const keyOf = (r: ChangeRowData, g: ChangeGroupBy) => (g === "initiative" ? r.itemId : g === "type" ? r.type : g === "source" ? r.source : g === "sourceType" ? r.sourceType : dayKey(r.at));
+const newest = (a: ChangeRowData, b: ChangeRowData) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.entryId - a.entryId);
 
 /**
- * The rows of the Changes grid: flat change rows with, for a grouping, a header row before each group (our own, like the main grid: row grouping is
- * Enterprise only). Headers carry the count, the newest time, whether the initiative moved, and the follow-up flags. A collapsed group shows only its header.
- * `flags` are the reasons from Needs attention by initiative; `onlyFlagged` keeps the initiatives that have one.
+ * The rows of the Changes grid: change rows with, for a grouping, a header row before each group (the Roadmap grid's own `GroupRow`; a collapsed group shows only its
+ * header). Two levels at most. The header of an initiative says whether the initiative itself moved, how many linked-issue changes it has, and its flags.
  */
-export function changeGridRows(
-  groups: readonly ChangeGroup[], by: ChangeGroupBy, collapsed: ReadonlySet<string>, flags: ReadonlyMap<string, readonly ChangeFlag[]> = new Map(), onlyFlagged = false, issues: ReadonlyMap<string, TrackerRef> = new Map(),
-): ChangeGridRow[] {
-  const shown = onlyFlagged ? groups.filter((g) => (flags.get(g.itemId) ?? []).length > 0) : groups;
-  const rows: ChangeRowData[] = shown.flatMap((g) => g.entries.map((e): ChangeRowData => ({
-    kind: "change", id: `c${e.id}`, entryId: e.id, itemId: g.itemId, code: g.code, name: g.name, at: e.at, type: e.type, from: e.from, to: e.to,
-    tone: changeTone(e.type, e.to, e.tracker), via: e.via, actorId: e.actorId, tracker: e.tracker, flags: [...(flags.get(g.itemId) ?? [])],
-    issue: e.type === "build-status" || e.type === "issue-status" ? issues.get(g.itemId) ?? null : null,
-  })));
-  const newest = (a: ChangeRowData, b: ChangeRowData) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.entryId - a.entryId);
-  if (by === "none") return rows.sort(newest);
-
-  const header = (key: string, label: string, count: number, badges: GroupBadge[]): GroupRow =>
-    ({ __group: true, id: `group:${key}`, key, label, count, collapsed: collapsed.has(key), level: 0, healthSummary: "", unit: count === 1 ? "change" : "changes", badges });
+export function groupChangeRows(rows: readonly ChangeRowData[], by: ChangeGroupBy | null, then: ChangeGroupBy | null, collapsed: ReadonlySet<string>): ChangeGridRow[] {
+  const first = by ?? then;
+  const second = by && then && then !== by ? then : null;
+  if (!first) return [...rows].sort(newest);
   const out: ChangeGridRow[] = [];
-  if (by === "initiative") {
-    const byItem = new Map<string, ChangeRowData[]>();
-    for (const r of rows) byItem.set(r.itemId, [...(byItem.get(r.itemId) ?? []), r]);
-    for (const g of shown) { // already newest first
-      const list = (byItem.get(g.itemId) ?? []).sort(newest), key = `initiative:${g.itemId}`;
-      const badges: GroupBadge[] = [
-        g.moved.length > 0 ? { text: `Initiative: ${g.moved.map(changeTypeLabel).join(", ")}`, tone: "info", title: "The initiative itself changed" } : { text: "Initiative unchanged", tone: "neutral", title: "Only the linked issues changed" },
-        ...(g.trackerChanges > 0 ? [{ text: `${g.trackerChanges} linked-issue ${g.trackerChanges === 1 ? "change" : "changes"}`, tone: "neutral" as const }] : []),
-        ...(flags.get(g.itemId) ?? []).map((f): GroupBadge => ({ text: `⚑ ${f.label}`, tone: "risk", title: f.text })),
-      ];
-      out.push(header(key, `${g.code} ${g.name}`, list.length, badges));
-      if (!collapsed.has(key)) out.push(...list);
+  const walk = (list: ChangeRowData[], g: ChangeGroupBy, level: 0 | 1, parent: string) => {
+    const buckets = new Map<string, ChangeRowData[]>();
+    for (const r of list) buckets.set(keyOf(r, g), [...(buckets.get(keyOf(r, g)) ?? []), r]);
+    const latest = (rs: ChangeRowData[]) => rs.reduce((m, r) => (r.at > m ? r.at : m), "");
+    const keys = [...buckets.keys()].sort((a, b) =>
+      g === "type" ? CHANGE_TYPES.findIndex((x) => x.id === a) - CHANGE_TYPES.findIndex((x) => x.id === b)
+      : g === "source" ? CHANGE_SOURCES.indexOf(a as ChangeSource) - CHANGE_SOURCES.indexOf(b as ChangeSource)
+      : g === "sourceType" ? a.localeCompare(b)
+      : g === "day" ? (a < b ? 1 : -1)
+      : (latest(buckets.get(a)!) < latest(buckets.get(b)!) ? 1 : latest(buckets.get(a)!) > latest(buckets.get(b)!) ? -1 : buckets.get(a)![0]!.code.localeCompare(buckets.get(b)![0]!.code)));
+    for (const k of keys) {
+      const rs = buckets.get(k)!.sort(newest), r0 = rs[0]!;
+      const key = `${parent}${g}:${k}`;
+      const label = g === "initiative" ? `${r0.code} ${r0.name}` : g === "type" ? changeTypeLabel(r0.type) : g === "day" ? dayLabel(r0.at) : k;
+      const badges: GroupBadge[] = [];
+      if (g === "initiative") {
+        const moved = CHANGE_TYPES.filter((t) => t.initiative && rs.some((r) => r.type === t.id));
+        const tracker = rs.filter((r) => !isInitiativeType(r.type)).length;
+        badges.push(moved.length > 0 ? { text: `Initiative: ${moved.map((t) => t.label).join(", ")}`, tone: "info", title: "The initiative itself changed" } : { text: "Initiative unchanged", tone: "neutral", title: "Only the linked issues changed" });
+        if (tracker > 0) badges.push({ text: `${tracker} linked-issue ${tracker === 1 ? "change" : "changes"}`, tone: "neutral" });
+        for (const f of r0.flags) badges.push({ text: `⚑ ${f.label}`, tone: "risk", title: f.text });
+      }
+      out.push({ __group: true, id: `group:${key}`, key, label, count: rs.length, collapsed: collapsed.has(key), level, healthSummary: "", unit: rs.length === 1 ? "change" : "changes", badges });
+      if (collapsed.has(key)) continue;
+      if (level === 0 && second) walk(rs, second, 1, `${key}>`);
+      else out.push(...rs);
     }
-    return out;
-  }
-  const keyOf = (r: ChangeRowData) => (by === "type" ? r.type : dayKey(r.at));
-  const groupsOf = new Map<string, ChangeRowData[]>();
-  for (const r of rows.sort(newest)) groupsOf.set(keyOf(r), [...(groupsOf.get(keyOf(r)) ?? []), r]);
-  const keys = [...groupsOf.keys()].sort(by === "type" ? (a, b) => CHANGE_TYPES.findIndex((x) => x.id === a) - CHANGE_TYPES.findIndex((x) => x.id === b) : (a, b) => (a < b ? 1 : -1));
-  for (const k of keys) {
-    const list = groupsOf.get(k)!, key = `${by}:${k}`;
-    out.push(header(key, by === "type" ? changeTypeLabel(k as ChangeType) : dayLabel(list[0]!.at), list.length, []));
-    if (!collapsed.has(key)) out.push(...list);
-  }
+  };
+  walk([...rows], first, 0, "");
   return out;
 }
 

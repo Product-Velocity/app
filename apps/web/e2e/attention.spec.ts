@@ -12,9 +12,9 @@ test.describe("Needs attention", () => {
   test("lists every reason in words, worst first, with the count of each", async ({ page }) => {
     await open(page);
     await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: "All (8)" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tab", { name: "All (10)" })).toHaveAttribute("aria-selected", "true");
     // urgent first: blocked work and a cancelled initiative that is still being built, then the rest by rank
-    await expect(page.locator(".attention-item .attention-name")).toHaveText([/R-03/, /R-05/, /R-07/, /R-01/, /R-02/, /R-04/, /R-06/, /R-08/]);
+    await expect(page.locator(".attention-item .attention-name")).toHaveText([/R-03/, /R-05/, /R-07/, /R-01/, /R-02/, /R-04/, /R-06/, /R-08/, /R-09/, /R-10/]);
     await expect(item(page, "R-01")).toContainText("The build is done in the tracker. Move to Test?");
     await expect(item(page, "R-02")).toContainText("before gate B");
     await expect(item(page, "R-03")).toContainText("Cancelled but the build is still in progress");
@@ -23,6 +23,9 @@ test.describe("Needs attention", () => {
     await expect(item(page, "R-06")).toContainText("72 days in Define (usually at most 30)");
     await expect(item(page, "R-07")).toContainText("Gate B has waited 12 days for a decision");
     await expect(item(page, "R-08")).toContainText("2 open conditions: Legal review; Privacy note");
+    // issue #472: the phase is Test (or later) while the tracker says the build has not started
+    await expect(item(page, "R-09")).toContainText("The phase is Test, but the tracker says the build has not started.");
+    await expect(page.getByRole("tab", { name: "Phase ahead of the build (4)" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Build done (1)" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Open conditions (1)" })).toBeVisible();
   });
@@ -39,7 +42,7 @@ test.describe("Needs attention", () => {
     await item(page, "R-01").getByRole("button", { name: "Move to Test" }).click();
     await expect(page.getByRole("status").filter({ hasText: "R-01 moved to Test." })).toBeVisible();
     expect(await page.evaluate(() => (window as unknown as { __pv: { gates: { calls: string[] } } }).__pv.gates.calls)).toContain("move item-1 Test");
-    await expect(page.getByRole("tab", { name: "All (7)" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "All (9)" })).toBeVisible();
     await expect(item(page, "R-01")).toHaveCount(0);
   });
 
