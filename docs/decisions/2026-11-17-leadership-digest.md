@@ -1,7 +1,7 @@
 ---
 date: 2026-11-17
 by: Ashu, Claude
-request: leadership digest (issue number to be added when the issue exists)
+request: 482
 ---
 **The leadership section "What moved this week" is a digest of net outcomes, and the weekly update can be pasted into an email with working links.** Ashu (2026-11-17): the section listed only Build Status changes and read like a log; leadership needs how things are moving, with phase moves, health, the Jira build status next to Product Velocity's, and new documents, not every status change. Ashu's answers: do not group as "delivered" but name the actual phase move ("x moved from X to Y"), with Completed last and on its own; template text, no AI narrative; everything referenced (a Jira ticket, a new document) must be clickable; the text must be copy-and-paste ready for an email.
 
