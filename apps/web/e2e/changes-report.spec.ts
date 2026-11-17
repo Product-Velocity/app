@@ -103,6 +103,7 @@ test.describe("Changes report", () => {
   test("grouping by change type and keeping only flagged initiatives", async ({ page }) => {
     await open(page);
     await bar(page, /^Group by:/).click();
+    await page.getByRole("button", { name: /Choose the grouping for Group by/ }).click(); // the next pick would fill Then by, like in the Roadmap grid
     await page.getByRole("group", { name: "Group by options" }).getByRole("button", { name: /^Change type/ }).click();
     await page.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(bar(page, /^Group by:\s*Change type/)).toBeVisible();
