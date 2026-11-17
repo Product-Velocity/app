@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildContext } from "./read-model";
-import { handleRpc, parseBearer, resourceMetadata, TOOLS, wwwAuthenticate, type McpBackend, type ToolDef } from "./rpc";
+import { handleRpc, MAX_READ_RESULT_CHARS, parseBearer, resourceMetadata, TOOLS, toolsFor, wwwAuthenticate, type McpBackend, type ToolDef } from "./rpc";
 
 const ctx = buildContext({
   tenant: { id: "t1", name: "Meridian Media" }, userId: "u1", role: "creator",
@@ -88,10 +88,29 @@ describe("handleRpc", () => {
   });
   it("lists the read tools (read-only) and then the write tools (not read-only)", async () => {
     const r = (await handleRpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }, backend())) as { result: { tools: { name: string; annotations: { readOnlyHint: boolean } }[] } };
-    const reads = ["get_workspace_context", "describe_fields", "search_items", "get_item", "get_gate_pack", "list_groups", "list_views", "list_files", "list_documents", "get_document", "get_company_profile", "get_playbook"];
+    // get_playbook is listed only to clients that cannot start prompts (see "directory rules" below)
+    const reads = ["get_workspace_context", "describe_fields", "search_items", "get_item", "get_gate_pack", "list_groups", "list_views", "list_files", "list_documents", "get_document", "get_company_profile"];
     const writes = ["create_items", "update_items", "confirm_changes", "set_relations", "add_link", "remove_link", "undo_last", "add_file", "set_file_sharing", "remove_file", "create_document", "update_document", "apply_prd_extract", "update_company_profile"];
     expect(r.result.tools.map((t) => t.name)).toEqual([...reads, ...writes]);
     for (const t of r.result.tools) expect(t.annotations.readOnlyHint, t.name).toBe(reads.includes(t.name));
+  });
+  it("an oversized read result is refused with advice, a small one passes", async () => {
+    const big = backend({ workspaceContext: vi.fn(async () => ({ blob: "x".repeat(MAX_READ_RESULT_CHARS) }) as never) });
+    const r = await call("get_workspace_context", big);
+    expect(r.result?.isError).toBe(true);
+    expect(r.result?.content[0]!.text).toMatch(/too large/);
+    expect((await call("get_workspace_context", backend())).result?.isError).toBeUndefined();
+  });
+  it("an unexpected failure says what to do and whether anything changed, without leaking details", async () => {
+    const bad = backend({ workspaceContext: async () => { throw new Error('relation "items" does not exist'); } });
+    const read = (await call("get_workspace_context", bad)).result!.content[0]!.text;
+    expect(read).toMatch(/Nothing was changed/);
+    expect(read).toMatch(/Try the same call again/);
+    expect(read).not.toMatch(/relation/);
+    const failing = writeTool(async () => { throw new Error("boom: secret detail"); });
+    const w = (await call("stand_in_write", backend(), [...TOOLS, failing])).result!.content[0]!.text;
+    expect(w).toMatch(/check with search_items or get_item/);
+    expect(w).not.toMatch(/boom|secret/);
   });
   it("get_workspace_context returns the backend data wrapped as data", async () => {
     const b = backend();
@@ -175,5 +194,50 @@ describe("ai_model on tools that change something", () => {
       if (t.mode === "write") expect(has, t.name).toBe(true);
       else if (!("ai_model" in ((t.inputSchema as { properties?: object }).properties ?? {}))) expect(has, t.name).toBe(false);
     }
+  });
+});
+
+// What Anthropic's Connectors Directory checks in a tool list (docs/decisions/2026-11-17-connector-directory.md). These fail the build before a reviewer would.
+describe("directory rules", () => {
+  const all = TOOLS;
+  const DESTRUCTIVE = ["update_items", "confirm_changes", "set_relations", "remove_link", "undo_last", "set_file_sharing", "remove_file", "update_document", "apply_prd_extract", "update_company_profile"];
+  const ADDITIVE_WRITES = ["create_items", "add_link", "add_file", "create_document"];
+
+  it("every tool has a short name, a title and both hints as booleans, and a read tool is never destructive", () => {
+    for (const t of all) {
+      expect(t.name.length, t.name).toBeLessThanOrEqual(64);
+      expect(t.title.trim(), t.name).not.toBe("");
+      const a = t.annotations as { readOnlyHint?: unknown; destructiveHint?: unknown };
+      expect(typeof a.readOnlyHint, t.name).toBe("boolean");
+      expect(typeof a.destructiveHint, t.name).toBe("boolean");
+      expect(a.readOnlyHint, t.name).toBe(t.mode === "read");
+      if (t.mode === "read") expect(a.destructiveHint, t.name).toBe(false);
+    }
+  });
+  it("every write tool that can replace, remove or publish something is destructive; only the purely additive ones are not", () => {
+    const writes = all.filter((t) => t.mode === "write").map((t) => t.name);
+    expect([...DESTRUCTIVE, ...ADDITIVE_WRITES].sort()).toEqual([...writes].sort());
+    for (const t of all.filter((x) => x.mode === "write")) expect((t.annotations as { destructiveHint: boolean }).destructiveHint, t.name).toBe(DESTRUCTIVE.includes(t.name));
+  });
+  it("no tool mixes reading and writing behind a method argument", () => {
+    for (const t of all) {
+      const props = Object.keys((t.inputSchema as { properties?: Record<string, unknown> }).properties ?? {});
+      expect(props, t.name).not.toContain("method");
+      expect(props, t.name).not.toContain("http_method");
+    }
+  });
+  it("descriptions describe the tool and do not give orders about other tools or outside instructions", () => {
+    for (const t of all) {
+      expect(t.description, t.name).not.toMatch(/follow the text|follow it exactly|call this first|ignore (all )?(previous|prior)|do not tell the (user|person)/i);
+    }
+  });
+  it("get_playbook is listed only to clients that cannot start prompts, and is unknown to the others", async () => {
+    const names = (a: Parameters<typeof toolsFor>[0]) => toolsFor(a).map((t) => t.name);
+    expect(names("chatgpt")).toContain("get_playbook");
+    expect(names("other")).toContain("get_playbook");
+    expect(names("claude")).not.toContain("get_playbook");
+    expect(names("gemini")).not.toContain("get_playbook");
+    const r = (await handleRpc({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "get_playbook", arguments: { name: "write_prd" } } }, backend({ assistant: "claude" }))) as { error?: { message: string } };
+    expect(r.error?.message).toBe("Unknown tool");
   });
 });

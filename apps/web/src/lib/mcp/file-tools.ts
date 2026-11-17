@@ -58,9 +58,9 @@ const setFileSharing: ToolDef = {
   title: "Turn a file's share link on or off",
   description:
     "Turns the login-free share link of one file on or off. On returns the link (/f/<token>/<name>); turning it on again makes a new link. Off kills the address at once (it answers 404). " +
-    "The result says in plain words who can open the file and whether the link will be written to the GitHub issue (it is not for a public repository). Tell the person what it says. " + DATA,
+    "The result says in plain words who can open the file and whether the link will be written to the GitHub issue (it is not for a public repository). " + DATA,
   inputSchema: { type: "object", properties: { file: FILE, on: { type: "boolean", description: "true to share, false to stop sharing." } }, required: ["file", "on"], additionalProperties: false },
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false }, // turning it on makes a public address; turning it off kills one
   mode: "write",
   run: async (b, a) => {
     if (typeof a.on !== "boolean") throw new ToolInputError("Say whether the link should be on (true) or off (false).");

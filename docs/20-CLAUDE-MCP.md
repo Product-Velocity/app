@@ -106,13 +106,16 @@ A customer connects Claude (claude.ai, the desktop app or Claude Code) to their 
 | `get_workspace_context`, `describe_fields` | read | all |
 | `search_items`, `get_item`, `get_gate_pack`, `list_groups`, `list_views`, `list_files`, `get_github_status` | read | all |
 | `create_items` (+ dry run) | write, flagged AI draft | creator, admin |
-| `set_relations`, `add_link`, `add_file`, `set_file_sharing` | write | creator, admin |
+| `add_link`, `add_file` | write (additive) | creator, admin |
+| `set_relations`, `set_file_sharing`, `update_document`, `apply_prd_extract`, `update_company_profile`, `remove_link`, `remove_file` | write, annotated `destructiveHint: true` (they replace, remove or publish something), so Claude asks for confirmation | creator, admin |
 | `update_items` then `confirm_changes` | write after diff and confirmation | creator, admin |
 | `undo_last` | write | creator, admin |
 | `preview_github_push` | read | creator, admin |
 | `confirm_github_push` | outbound; explicit confirmation | creator, admin |
 | Approve, Ready for build, Stack Rank, Decision, Value, Approver, roles, members, delete | **not offered** | nobody |
 | Business Value Type (only) | with the person's own words as `value_type_basis` (R-113, `docs/22`) | creator, admin |
+
+The annotations (`readOnlyHint`, `destructiveHint`) are pinned by a test (`rpc.test.ts`, "directory rules") because Claude and the Connectors Directory use them to decide what needs confirmation. A tool that replaces, removes or publishes something is destructive; only purely additive tools are not. A read result larger than 100,000 characters is refused with advice (narrow the search).
 
 ## 8. The scenario this must pass (end-to-end test)
 As a signed-in **creator** (not admin, no database access) in a workspace with one project and a private repository:
