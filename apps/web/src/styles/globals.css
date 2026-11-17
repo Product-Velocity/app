@@ -1311,3 +1311,25 @@ a.btn.btn-primary { color: #fff; }
 .mapping-table td.setting { min-width: 260px; }
 .mapping-table tr[hidden] { display: none; }
 @media (max-width: 720px) { .status-next { margin-left: 0; } }
+
+/* Changes report grid (issue #472): colour by change type; the value a change ended on uses the shared tone-* pills. Every colour comes with a word. */
+.chg-bar { display: flex; align-items: center; gap: 14px; margin: 8px 0; font-size: 12.5px; }
+.chg-grid { height: min(70vh, 640px); min-height: 360px; }
+.chg-head { display: flex; align-items: center; gap: 10px; height: 100%; padding: 0 10px; background: var(--header-bg); border-top: 1px solid #cfd5e3; font-size: 13px; }
+.chg-fold { width: 22px; height: 22px; border: 0; background: transparent; cursor: pointer; font-size: 13px; color: #374151; }
+.chg-title { font-weight: 600; }
+.chg-latest { margin-left: auto; }
+.chg-flags { display: flex; align-items: center; gap: 6px; }
+.chg-flag { cursor: help; }
+.chg-time { font-variant-numeric: tabular-nums; color: #4b5262; }
+.chg-type, .chg-chip { --chg-bg: #E8ECF4; --chg-fg: #2F3E5C; --chg-edge: #6B7BA3; }
+.chg-type { background: var(--chg-bg); color: var(--chg-fg); }
+.chg-type-phase, .chg-chip-phase { --chg-bg: #E7EFFD; --chg-fg: #1A56C4; --chg-edge: #2270ED; }
+.chg-type-initiative-status, .chg-chip-initiative-status { --chg-bg: #EEE8FA; --chg-fg: #54349C; --chg-edge: #7B5BC8; }
+.chg-type-health, .chg-chip-health { --chg-bg: #DDF3F0; --chg-fg: #0F5E57; --chg-edge: #1B9C90; }
+.chg-type-build-status, .chg-chip-build-status { --chg-bg: #EDE9E3; --chg-fg: #5A4A2F; --chg-edge: #A38B5E; }
+.chg-type-issue-status, .chg-chip-issue-status { --chg-bg: #E8ECF4; --chg-fg: #2F3E5C; --chg-edge: #6B7BA3; }
+.chg-chip { border-left: 4px solid var(--chg-edge); }
+.chg-row { box-shadow: inset 4px 0 0 var(--chg-edge, transparent); }
+.chg-row-phase { --chg-edge: #2270ED; } .chg-row-initiative-status { --chg-edge: #7B5BC8; } .chg-row-health { --chg-edge: #1B9C90; }
+.chg-row-build-status { --chg-edge: #A38B5E; } .chg-row-issue-status { --chg-edge: #6B7BA3; }

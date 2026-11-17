@@ -35,8 +35,17 @@ async function changesOfToday(from: Date): Promise<FeedRow[]> {
   ];
 }
 
-export function HarnessReports({ n, role }: { n: number; role: string }) {
-  const { controller, source } = useMemo(() => makeReportsHarness(n, role), [n, role]);
+export function HarnessReports({ n, role, demo = false }: { n: number; role: string; demo?: boolean }) {
+  const { controller, source } = useMemo(() => {
+    const h = makeReportsHarness(n, role);
+    if (demo) { // ?demo=changes: data for the Changes screenshot only (other tests keep the standard rows)
+      const set = (id: string, o: Record<string, unknown>) => Object.assign(h.controller.rows.find((r) => r.id === id) ?? {}, o);
+      set("item-1", { initiative_phase: "Build", initiative_status: "Active", status: "In progress", issues_total: 4, issues_closed: 4, health: "On Track" });
+      set("item-2", { initiative_phase: "Test", initiative_status: "Active", status: "Not started", health: "On Track" });
+      set("item-3", { initiative_phase: "Build", initiative_status: "Active", status: "In progress", health: null, stale_issues: 2 });
+    }
+    return h;
+  }, [n, role, demo]);
   const store = useMemo(() => Object.assign(new MemoryWorkspaceStore({ scopes: [], views: [] }), { projects: harnessLookups.projects }), []);
   useEffect(() => { (window as unknown as { __pv: unknown }).__pv = { controller, source, store }; }, [controller, source, store]);
   return (
