@@ -2,46 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
-import { CellStyleModule, ClientSideRowModelModule, ModuleRegistry, RowStyleModule, TooltipModule, themeQuartz, type ColDef } from "ag-grid-community";
+import type { ColDef } from "ag-grid-community";
 import {
   ATTENTION_KINDS, CHANGE_GROUP_BYS, CHANGE_PERIODS, CHANGE_TYPES, attentionList, changeCounts, changeGridRows, changePeriod, changeReport, changeTypeLabel, isChangeHeader,
-  type ChangeFlag, type ChangeGridRow, type ChangeGroupBy, type ChangeHeaderData, type ChangePeriod, type ChangeRowData, type ChangeType, type FeedRow, type ItemInfo,
+  type ChangeFlag, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type ChangeType, type FeedRow, type ItemInfo,
 } from "@pv/domain";
+import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer } from "../portfolio/grid-kit";
 import type { ReportEnv } from "./report-env";
-
-ModuleRegistry.registerModules([ClientSideRowModelModule, CellStyleModule, RowStyleModule, TooltipModule]);
-// Same look as the main grid. Row grouping is Enterprise only, so the group rows are our own (full-width rows), like in the Roadmap grid.
-const theme = themeQuartz.withParams({
-  fontFamily: "IBM Plex Sans, system-ui, sans-serif", fontSize: 13, headerFontSize: 12, headerFontWeight: 600, headerTextColor: "#374151", columnBorder: false, headerColumnBorder: false,
-  rowBorder: { style: "solid", width: 1, color: "#F3F4F7" }, rowHeight: 34, headerHeight: 28, accentColor: "#2270ed", borderColor: "#E6E9EF", headerBackgroundColor: "#F8F9FC", wrapperBorderRadius: 8, spacing: 6,
-});
 
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;
 const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-type Ctx = { toggle: (id: string) => void; open: (itemId: string) => void; who: (id: string | null) => string };
+type Ctx = { toggleGroup: (key: string) => void; open: (itemId: string) => void; who: (id: string | null) => string };
 
 const FlagPills = ({ flags }: { flags: readonly ChangeFlag[] }) => (
   <>{flags.map((f) => <span key={f.kind} className="pill tone-risk chg-flag" title={f.text}>⚑ {f.label}</span>)}</>
 );
-
-/** A group row: a fold button, the label, the count, whether the initiative itself moved, and the flags to follow up. */
-function GroupHeader(p: CustomCellRendererProps<ChangeHeaderData>) {
-  const h = p.data!, ctx = p.context as Ctx;
-  return (
-    <div className="chg-head" role="row" data-by={h.by}>
-      <button type="button" className="chg-fold" aria-expanded={!h.collapsed} aria-label={`${h.collapsed ? "Expand" : "Collapse"} ${h.label}`} onClick={() => ctx.toggle(h.id)}>{h.collapsed ? "▸" : "▾"}</button>
-      {h.type ? <span className={`pill chg-type chg-type-${h.type}`}>{h.label}</span>
-        : h.itemId ? <button type="button" className="link-button chg-title" onClick={() => ctx.open(h.itemId!)}>{h.label}</button> : <strong>{h.label}</strong>}
-      <span className="muted">{plural(h.count, "change", "changes")}</span>
-      {h.itemId && (h.moved.length > 0
-        ? <span className="pill tone-info" title="The initiative itself changed">Initiative: {h.moved.map(changeTypeLabel).join(", ")}</span>
-        : <span className="pill tone-neutral" title="Only the linked issues changed">Initiative unchanged</span>)}
-      {h.trackerChanges > 0 && <span className="pill tone-neutral">{plural(h.trackerChanges, "linked-issue change", "linked-issue changes")}</span>}
-      <FlagPills flags={h.flags} />
-      <span className="muted chg-latest">Latest <time dateTime={h.latest}>{when(h.latest)}</time></span>
-    </div>
-  );
-}
 
 const TypeCell = (p: CustomCellRendererProps<ChangeRowData>) => <span className={`pill chg-type chg-type-${p.data!.type}`}>{changeTypeLabel(p.data!.type)}{p.data!.tracker ? ` (${p.data!.tracker})` : ""}</span>;
 const ChangeCell = (p: CustomCellRendererProps<ChangeRowData>) => {
@@ -59,10 +34,8 @@ const FlagCell = (p: CustomCellRendererProps<ChangeRowData>) => {
   return <><FlagPills flags={f.slice(0, 1)} />{f.length > 1 && <span className="pill tone-neutral" title={f.map((x) => `${x.label}: ${x.text}`).join("\n")}>+{f.length - 1} more</span>}</>;
 };
 
-const FullWidth = (p: CustomCellRendererProps<ChangeHeaderData>) => <GroupHeader {...p} />;
 const isFullWidthRow = (p: { rowNode: { data?: unknown } }) => isChangeHeader(p.rowNode.data);
 const getRowId = (p: { data: ChangeGridRow }) => p.data.id;
-const getRowHeight = (p: { data?: ChangeGridRow }) => (p.data && isChangeHeader(p.data) ? 40 : 34);
 const getRowClass = (p: { data?: ChangeGridRow }) => (p.data && !isChangeHeader(p.data) ? `chg-row chg-row-${p.data.type}` : undefined);
 
 /**
@@ -104,16 +77,16 @@ export function ChangesReport({ env, load, onOpen }: { env: ReportEnv; load?: (f
   const toggleType = (t: ChangeType) => setTypes((s) => (s.includes(t) ? s.filter((x) => x !== t) : [...s, t]));
   const toggle = useCallback((id: string) => setCollapsed((s) => { const n = new Set(s); if (!n.delete(id)) n.add(id); return n; }), []);
   const who = useCallback((id: string | null) => (id ? lookups.members.find((m) => m.user_id === id)?.email ?? "someone" : "the system"), [lookups.members]);
-  const context = useMemo<Ctx>(() => ({ toggle, open: onOpen, who }), [toggle, onOpen, who]);
+  const context = useMemo<Ctx>(() => ({ toggleGroup: toggle, open: onOpen, who }), [toggle, onOpen, who]);
 
   const columnDefs = useMemo<ColDef<ChangeRowData>[]>(() => [
     { colId: "at", headerName: "Registered", width: 160, valueGetter: (p) => p.data?.at, valueFormatter: (p) => (p.value ? when(String(p.value)) : ""), cellClass: "chg-time" },
-    { colId: "initiative", headerName: "Initiative", flex: 2, minWidth: 220, cellRenderer: InitiativeCell, hide: by === "initiative" }, // the group header says it
+    { colId: "initiative", headerName: "Initiative", flex: 2, minWidth: 220, cellRenderer: InitiativeCell },
     { colId: "type", headerName: "Change type", width: 170, cellRenderer: TypeCell },
     { colId: "change", headerName: "Change", flex: 2, minWidth: 240, cellRenderer: ChangeCell },
     { colId: "source", headerName: "Source", width: 140, valueGetter: (p) => p.data?.via },
     { colId: "by", headerName: "By", width: 190, valueGetter: (p) => (p.data ? who(p.data.actorId) : ""), tooltipValueGetter: (p) => (p.data ? who(p.data.actorId) : "") },
-    { colId: "flags", headerName: "Follow up", flex: 2, minWidth: 260, cellRenderer: FlagCell, cellClass: "chg-flags", hide: by === "initiative" }, // the group header says it
+    { colId: "flags", headerName: "Follow up", flex: 2, minWidth: 260, cellRenderer: FlagCell, cellClass: "chg-flags", hide: by === "initiative" }, // the group header of an initiative already shows its flags
   ], [who, by]);
 
   const { from, to } = changePeriod(period, new Date());
@@ -152,13 +125,14 @@ export function ChangesReport({ env, load, onOpen }: { env: ReportEnv; load?: (f
         : (
           <>
             <p className="muted" role="status">{plural(groups.length, "initiative", "initiatives")} changed{flaggedGroups > 0 ? `, ${flaggedGroups.toLocaleString("en-GB")} to follow up` : ""}{feed.length >= 5000 ? " (showing the latest 5,000 changes)" : ""}.</p>
-            <div className="chg-grid" data-testid="changes-grid">
+            <div className="grid-wrap chg-grid" data-testid="changes-grid">
               <AgGridReact<ChangeGridRow>
-                theme={theme} rowData={gridRows} columnDefs={columnDefs as ColDef<ChangeGridRow>[]} getRowId={getRowId} context={context}
-                isFullWidthRow={isFullWidthRow} fullWidthCellRenderer={FullWidth as never} getRowHeight={getRowHeight} getRowClass={getRowClass}
-                defaultColDef={{ sortable: false, resizable: true, suppressHeaderMenuButton: true }} tooltipShowDelay={500} suppressCellFocus={false}
+                theme={GRID_THEME} rowData={gridRows} columnDefs={columnDefs as ColDef<ChangeGridRow>[]} getRowId={getRowId} context={context}
+                isFullWidthRow={isFullWidthRow} fullWidthCellRenderer={GroupRowRenderer as never} getRowClass={getRowClass}
+                defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true }} tooltipShowDelay={500}
               />
             </div>
+            <p className="grid-foot">{gridRows.filter((r) => !isChangeHeader(r)).length.toLocaleString("en-GB")} changes · {by === "none" ? "Not grouped, newest first" : `Grouped by ${CHANGE_GROUP_BYS.find((g) => g.id === by)!.label.toLowerCase()}, newest first inside each group`} · The time is when Product Velocity registered the change</p>
           </>
         )}
     </section>

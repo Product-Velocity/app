@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ClientSideRowModelApiModule, ClientSideRowModelModule, CellApiModule, CellStyleModule, ColumnApiModule, CustomEditorModule,
-  EventApiModule, ModuleRegistry, RowApiModule, RowSelectionModule, ScrollApiModule, TextEditorModule, themeQuartz, type CellClickedEvent, type CellDoubleClickedEvent, type CellFocusedEvent, type CellKeyDownEvent, type ColumnMovedEvent, type GridApi,
+  EventApiModule, ModuleRegistry, RowApiModule, RowSelectionModule, ScrollApiModule, TextEditorModule, type CellClickedEvent, type CellDoubleClickedEvent, type CellFocusedEvent, type CellKeyDownEvent, type ColumnMovedEvent, type GridApi,
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import {
@@ -39,6 +39,7 @@ import { ImportDialog } from "./import-dialog";
 import { QuickAddBar } from "./quick-add-bar";
 import { OverflowBar, type OverflowItem } from "@/components/overflow-bar";
 import type { PortfolioController } from "./controller";
+import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer, isGroup } from "./grid-kit";
 import { StatusAlerts, StatusInline, useStatus } from "./status-strip";
 import type { GridItem, Lookups } from "./types";
 
@@ -47,24 +48,6 @@ ModuleRegistry.registerModules([
   ColumnApiModule, CellApiModule, RowApiModule, EventApiModule, ScrollApiModule, RowSelectionModule,
 ]);
 
-const theme = themeQuartz.withParams({
-  fontFamily: "IBM Plex Sans, system-ui, sans-serif",
-  fontSize: 13,
-  headerFontSize: 12,
-  headerFontWeight: 600,
-  headerTextColor: "#374151",
-  columnBorder: false,
-  headerColumnBorder: false,
-  rowBorder: { style: "solid", width: 1, color: "#F3F4F7" },
-  selectedRowBackgroundColor: "#f3f8fe",
-  rowHeight: 36,
-  headerHeight: 28,
-  accentColor: "#2270ed",
-  borderColor: "#E6E9EF",
-  headerBackgroundColor: "#F8F9FC",
-  wrapperBorderRadius: 8,
-  spacing: 6,
-});
 
 type GridProps = {
   controller: PortfolioController;
@@ -83,24 +66,6 @@ type GridProps = {
   gates?: GateSource;
 };
 
-const isGroup = (r: unknown): r is GroupRow => !!r && typeof r === "object" && (r as { __group?: boolean }).__group === true;
-
-/** Full-width header row of a group: a toggle, the group's name and how many items it holds. A "Then by" header sits indented inside its group. */
-function GroupRowRenderer(p: CustomCellRendererProps<GroupRow>) {
-  const g = p.data;
-  if (!g) return null;
-  const toggle = (p.context as { toggleGroup: (key: string) => void }).toggleGroup;
-  return (
-    <div className="group-row" data-level={g.level ?? 0}>
-      <button type="button" className="group-toggle" aria-expanded={!g.collapsed} aria-label={`${g.collapsed ? "Expand" : "Collapse"} group ${g.label}`} onClick={() => toggle(g.key)}>
-        {g.collapsed ? "▸" : "▾"}
-      </button>
-      <span>{g.label}</span>
-      <span className="group-count">{g.count} {g.count === 1 ? "item" : "items"}</span>
-      {g.healthSummary && <span className="group-health">{g.healthSummary}</span>}
-    </div>
-  );
-}
 
 /**
  * A tracker issue under its initiative (Show issues), lined up with the grid's own columns so it reads as a child of the initiative above:
@@ -144,7 +109,6 @@ const getRowId = (p: { data: { id: string } }) => p.data.id;
 /** Group headers and tracker issue rows are not initiatives: they span the grid, cannot be selected and are skipped by the keyboard shortcuts. */
 const isExtraRow = (r: unknown) => isGroup(r) || isIssueRow(r);
 const isFullWidthRow = (p: { rowNode: { data?: unknown } }) => isExtraRow(p.rowNode.data);
-const DEFAULT_COL_DEF = { sortable: false, resizable: true, cellDataType: false } as const;
 const ROW_SELECTION = { mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false, isRowSelectable: (n: { data?: unknown }) => !isExtraRow(n.data) } as const;
 const SELECTION_COLUMN = { pinned: "left", width: 46, suppressHeaderMenuButton: true } as const;
 
@@ -791,7 +755,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       <div className={peekId ? "grid-split grid-split-open" : "grid-split"}>
       <div ref={wrapRef} className="grid-wrap" data-testid="grid" data-issues={showIssues ? "on" : undefined} style={gridHeight ? { height: gridHeight } : undefined}>
         <AgGridReact<GridItem>
-          theme={theme}
+          theme={GRID_THEME}
           rowData={displayRows as unknown as GridItem[]}
           columnDefs={columnDefs}
           getRowId={getRowId}

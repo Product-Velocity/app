@@ -1,3 +1,5 @@
+import type { GroupBadge, GroupRow } from "./views";
+
 /**
  * Changes report (issue #472): what changed on which initiative in a period, grouped by initiative, with the time Product Velocity registered it,
  * the source and the actor, and whether the initiative itself moved (phase, status, health) next to the status changes of its linked issues.
@@ -119,12 +121,10 @@ export type ChangeRowData = {
   kind: "change"; id: string; entryId: number; itemId: string; code: string; name: string; at: string; type: ChangeType;
   from: string | null; to: string | null; tone: ChangeTone; via: string; actorId: string | null; tracker: "GitHub" | "Jira" | null; flags: ChangeFlag[];
 };
-export type ChangeHeaderData = {
-  kind: "group"; id: string; label: string; count: number; collapsed: boolean; latest: string; by: ChangeGroupBy;
-  itemId: string | null; type: ChangeType | null; moved: ChangeType[]; trackerChanges: number; flags: ChangeFlag[];
-};
+/** A group header is the main grid's own `GroupRow` (one renderer, one look), with the unit "changes" and badges. */
+export type ChangeHeaderData = GroupRow;
 export type ChangeGridRow = ChangeRowData | ChangeHeaderData;
-export const isChangeHeader = (r: unknown): r is ChangeHeaderData => typeof r === "object" && r !== null && (r as { kind?: string }).kind === "group";
+export const isChangeHeader = (r: unknown): r is ChangeHeaderData => typeof r === "object" && r !== null && (r as { __group?: boolean }).__group === true;
 
 const dayKey = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const dayLabel = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
@@ -145,15 +145,21 @@ export function changeGridRows(
   const newest = (a: ChangeRowData, b: ChangeRowData) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.entryId - a.entryId);
   if (by === "none") return rows.sort(newest);
 
-  const buckets = new Map<string, { label: string; rows: ChangeRowData[]; group?: ChangeGroup; type?: ChangeType }>();
-  for (const g of shown) buckets.set(`i:${g.itemId}`, { label: `${g.code} ${g.name}`, rows: [], group: g });
+  const header = (key: string, label: string, count: number, badges: GroupBadge[]): GroupRow =>
+    ({ __group: true, id: `group:${key}`, key, label, count, collapsed: collapsed.has(key), level: 0, healthSummary: "", unit: count === 1 ? "change" : "changes", badges });
   const out: ChangeGridRow[] = [];
   if (by === "initiative") {
-    for (const r of rows) buckets.get(`i:${r.itemId}`)!.rows.push(r);
-    for (const b of buckets.values()) { // `shown` is already newest first
-      const g = b.group!, id = `g:i:${g.itemId}`;
-      out.push({ kind: "group", id, label: b.label, count: b.rows.length, collapsed: collapsed.has(id), latest: g.latest, by, itemId: g.itemId, type: null, moved: g.moved, trackerChanges: g.trackerChanges, flags: [...(flags.get(g.itemId) ?? [])] });
-      if (!collapsed.has(id)) out.push(...b.rows.sort(newest));
+    const byItem = new Map<string, ChangeRowData[]>();
+    for (const r of rows) byItem.set(r.itemId, [...(byItem.get(r.itemId) ?? []), r]);
+    for (const g of shown) { // already newest first
+      const list = (byItem.get(g.itemId) ?? []).sort(newest), key = `initiative:${g.itemId}`;
+      const badges: GroupBadge[] = [
+        g.moved.length > 0 ? { text: `Initiative: ${g.moved.map(changeTypeLabel).join(", ")}`, tone: "info", title: "The initiative itself changed" } : { text: "Initiative unchanged", tone: "neutral", title: "Only the linked issues changed" },
+        ...(g.trackerChanges > 0 ? [{ text: `${g.trackerChanges} linked-issue ${g.trackerChanges === 1 ? "change" : "changes"}`, tone: "neutral" as const }] : []),
+        ...(flags.get(g.itemId) ?? []).map((f): GroupBadge => ({ text: `⚑ ${f.label}`, tone: "risk", title: f.text })),
+      ];
+      out.push(header(key, `${g.code} ${g.name}`, list.length, badges));
+      if (!collapsed.has(key)) out.push(...list);
     }
     return out;
   }
@@ -162,9 +168,9 @@ export function changeGridRows(
   for (const r of rows.sort(newest)) groupsOf.set(keyOf(r), [...(groupsOf.get(keyOf(r)) ?? []), r]);
   const keys = [...groupsOf.keys()].sort(by === "type" ? (a, b) => CHANGE_TYPES.findIndex((x) => x.id === a) - CHANGE_TYPES.findIndex((x) => x.id === b) : (a, b) => (a < b ? 1 : -1));
   for (const k of keys) {
-    const list = groupsOf.get(k)!, id = `g:${by}:${k}`;
-    out.push({ kind: "group", id, label: by === "type" ? changeTypeLabel(k as ChangeType) : dayLabel(list[0]!.at), count: list.length, collapsed: collapsed.has(id), latest: list[0]!.at, by, itemId: null, type: by === "type" ? (k as ChangeType) : null, moved: [], trackerChanges: 0, flags: [] });
-    if (!collapsed.has(id)) out.push(...list);
+    const list = groupsOf.get(k)!, key = `${by}:${k}`;
+    out.push(header(key, by === "type" ? changeTypeLabel(k as ChangeType) : dayLabel(list[0]!.at), list.length, []));
+    if (!collapsed.has(key)) out.push(...list);
   }
   return out;
 }
