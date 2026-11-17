@@ -9,16 +9,17 @@ import { MemoryWorkspaceStore } from "@/features/workspace/store";
 import { harnessLookups, makeLeadershipHarness } from "../harness-data";
 
 export function HarnessLeadership({ n, role }: { n: number; role: string }) {
-  const { controller, source, changes, reviewed } = useMemo(() => makeLeadershipHarness(n, role), [n, role]);
+  const { controller, source, changes, reviewed, feed, trackers, documents } = useMemo(() => makeLeadershipHarness(n, role), [n, role]);
   const store = useMemo(() => Object.assign(new MemoryWorkspaceStore({
     scopes: [{ id: "scope-a", name: "Marketplace and Platform", projectIds: ["p1", "p2"] }, { id: "scope-b", name: "Customer-facing work", projectIds: ["p3"] }],
   }), { projects: harnessLookups.projects }), []);
   const lead = useMemo(() => {
     const s = new MemoryLeadershipStore(changes);
+    s.feed = feed; s.trackers = trackers; s.documents = documents;
     s.writable = role === "creator" || role === "admin";
     if (reviewed) s.updates.push(reviewed);
     return s;
-  }, [changes, role, reviewed]);
+  }, [changes, role, reviewed, feed, trackers, documents]);
   useEffect(() => { (window as unknown as { __pv: unknown }).__pv = { controller, source, store, lead }; }, [controller, source, store, lead]);
   return (
     <WorkspaceProvider store={store} projects={harnessLookups.projects} canEdit={role === "creator" || role === "admin"} canAdmin={role === "admin"}>

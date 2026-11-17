@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  CURRENT_PHASE, FIELD_BY_KEY, LEADERSHIP_COLUMNS, valueTypeMix, changesThisWeek, draftWeeklyUpdate, formatDate, healthByProject, needsAttention, topItems, weekWindow,
-  type AuditChange, type HealthState,
+  CURRENT_PHASE, FIELD_BY_KEY, LEADERSHIP_COLUMNS, valueTypeMix, buildDigest, changeFlags, changesThisWeek, draftWeeklyUpdate, formatDate, healthByProject, needsAttention, parseUpdate, topItems, updateToHtml, updateToPlain, weekWindow,
+  type AuditChange, type Digest, type DigestPart, type FeedRow, type HealthState, type Inline, type NewDocument, type TrackerRef,
 } from "@pv/domain";
 import type { PortfolioController } from "../portfolio/controller";
 import { formatField } from "../portfolio/format";
@@ -36,15 +36,33 @@ export function LeadershipView({ controller, lookups, me, store, pageHref }: Lea
     return () => window.removeEventListener("keydown", h);
   }, [peekId, openPeek]);
 
-  // ---- what moved this week, from the audit log
+  // ---- what moved this week: rank from the audit log, everything else from the Changes report's feed, plus the tracker tickets and the new documents
   const [audit, setAudit] = useState<AuditChange[] | null>(null);
+  const [feed, setFeed] = useState<FeedRow[] | null>(null);
+  const [trackers, setTrackers] = useState<Map<string, TrackerRef> | null>(null);
+  const [docs, setDocs] = useState<NewDocument[] | null>(null);
   const [auditError, setAuditError] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
-    store.loadChanges(`${week.start}T00:00:00.000Z`).then((c) => { if (!cancelled) setAudit(c); }, (e: Error) => { if (!cancelled) setAuditError(e.message); });
+    const from = `${week.start}T00:00:00.000Z`, to = `${week.end}T00:00:00.000Z`;
+    const fail = (e: Error) => { if (!cancelled) setAuditError(e.message); };
+    store.loadChanges(from).then((c) => { if (!cancelled) setAudit(c); }, fail);
+    store.loadNewDocuments(from, to).then((d) => { if (!cancelled) setDocs(d); }, fail);
+    store.loadFeed(from, to).then(async (f) => {
+      const t = await store.loadTrackers([...new Set(f.map((r) => r.item_id))]);
+      if (!cancelled) { setFeed(f); setTrackers(t); }
+    }, fail);
     return () => { cancelled = true; };
-  }, [store, week.start]);
+  }, [store, week.start, week.end]);
   const moves = useMemo(() => changesThisWeek(audit ?? [], rows), [audit, rows]);
+  const loaded = !!(audit && feed && trackers && docs);
+  // absolute addresses, so the text still works once it is pasted into an email
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const itemHref = useCallback((code: string) => `${origin}/portfolio?item=${encodeURIComponent(code)}`, [origin]);
+  const digest = useMemo(() => buildDigest({
+    feed: feed ?? [], rows, trackers: trackers ?? new Map(), documents: docs ?? [], rankMoves: moves, flags: changeFlags(rows, today), periodLabel: "this week", itemHref,
+    documentHref: (code, d) => `${itemHref(code)}&tab=spec${d.entry === "document" ? `&doc=${encodeURIComponent(d.id)}` : ""}`, changesHref: `${origin}/reports?report=changes`,
+  }), [feed, rows, trackers, docs, moves, today, itemHref, origin]);
 
   const health = useMemo(() => healthByProject(rows, lookups.projects), [rows, lookups.projects]);
   const attention = useMemo(() => needsAttention(rows, today), [rows, today]);
@@ -137,13 +155,21 @@ export function LeadershipView({ controller, lookups, me, store, pageHref }: Lea
           </section>
 
           <section className="lead-section" aria-labelledby="lead-moved">
-            <h2 id="lead-moved">What moved this week <span className="gl-count">{moves.length}</span></h2>
+            <h2 id="lead-moved">What moved this week <span className="gl-count">{digest.itemIds.length}</span></h2>
             {auditError && <p role="alert" className="pf-error">Could not read the changes of this week: {auditError}</p>}
-            {!audit && !auditError && <p role="status" className="muted">Reading the changes…</p>}
-            {audit && moves.length === 0 && <p className="muted">No rank, status or health changes this week.</p>}
-            <ul className="lead-list" data-testid="moves">
-              {moves.map((m, i) => <li key={`${m.itemId}-${m.kind}-${i}`}>{m.text} <span className="muted">· {formatDate(m.at.slice(0, 10), today)}</span></li>)}
-            </ul>
+            {!loaded && !auditError && <p role="status" className="muted">Reading the changes…</p>}
+            {loaded && (
+              <div data-testid="moves">
+                <p className="lead-headline">{digest.headline}</p>
+                {digest.groups.map((g) => (
+                  <div key={g.id} className="lead-digest-group" data-group={g.id}>
+                    <h3>{g.title}</h3>
+                    <ul className="lead-list">{g.lines.map((l, i) => <li key={i}>{l.map((p, j) => <Part key={j} part={p} openPeek={openPeek} />)}</li>)}</ul>
+                  </div>
+                ))}
+                <p className="muted lead-digest-note">Net result per initiative over the week: something that went back and forth and ended where it started is not shown. The full list, with times, is the <a href="/reports?report=changes">Changes report</a>.</p>
+              </div>
+            )}
           </section>
 
           <section className="lead-section" aria-labelledby="lead-mix">
@@ -159,7 +185,7 @@ export function LeadershipView({ controller, lookups, me, store, pageHref }: Lea
             </ul>
           </section>
 
-          <WeeklyUpdatePanel controller={controller} lookups={lookups} rows={rows} moves={moves} scopeKey={scopeParam(scope.selection) ?? "all"} scopeLabel={scope.label} week={week.start} store={store} openPeek={openPeek} />
+          <WeeklyUpdatePanel controller={controller} lookups={lookups} rows={rows} digest={digest} loaded={loaded} itemHref={itemHref} scopeKey={scopeParam(scope.selection) ?? "all"} scopeLabel={scope.label} week={week.start} store={store} openPeek={openPeek} />
         </div>
         {peekId && <ItemPanel controller={controller} lookups={lookups} itemId={peekId} me={me} mode="peek" onClose={() => openPeek(null)} pageHref={pageHref} />}
       </div>
@@ -167,8 +193,42 @@ export function LeadershipView({ controller, lookups, me, store, pageHref }: Lea
   );
 }
 
-function WeeklyUpdatePanel({ controller, lookups, rows, moves, scopeKey, scopeLabel, week, store, openPeek }: {
-  controller: PortfolioController; lookups: Lookups; rows: GridItem[]; moves: ReturnType<typeof changesThisWeek>; scopeKey: string; scopeLabel: string; week: string;
+/** One piece of a digest line: an initiative opens the side panel, a ticket or document is a link in a new tab, the rest is text. */
+function Part({ part, openPeek }: { part: DigestPart; openPeek: (id: string | null) => void }) {
+  if (part.item) return <button type="button" className="gl-open" onClick={() => openPeek(part.item!)}>{part.text}</button>;
+  if (part.href) return <a href={part.href} target="_blank" rel="noreferrer">{part.text}</a>;
+  return <>{part.text}</>;
+}
+
+const InlineText = ({ parts }: { parts: Inline[] }) => <>{parts.map((p, i) => (p.href ? <a key={i} href={p.href} target="_blank" rel="noreferrer">{p.text}</a> : p.bold ? <strong key={i}>{p.text}</strong> : <span key={i}>{p.text}</span>))}</>;
+
+/** The update as it will read in an email: headings, lists and working links. */
+function UpdatePreview({ text, testId }: { text: string; testId?: string }) {
+  const blocks = useMemo(() => parseUpdate(text), [text]);
+  return (
+    <div className="lead-preview" data-testid={testId}>
+      {blocks.map((b, i) => b.type === "title" ? <p key={i} className="lead-prev-title"><InlineText parts={b.inline} /></p>
+        : b.type === "heading" ? <h3 key={i}><InlineText parts={b.inline} /></h3>
+        : b.type === "paragraph" ? <p key={i}><InlineText parts={b.inline} /></p>
+        : <ul key={i}>{b.items.map((it, j) => <li key={j}><InlineText parts={it} /></li>)}</ul>)}
+    </div>
+  );
+}
+
+/** Puts the update on the clipboard as HTML and plain text, so an email keeps the links; falls back to plain text. */
+async function copyForEmail(text: string): Promise<boolean> {
+  try {
+    if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+      await navigator.clipboard.write([new ClipboardItem({ "text/html": new Blob([updateToHtml(text)], { type: "text/html" }), "text/plain": new Blob([updateToPlain(text)], { type: "text/plain" }) })]);
+      return true;
+    }
+    await navigator.clipboard?.writeText(updateToPlain(text));
+    return true;
+  } catch { return false; }
+}
+
+function WeeklyUpdatePanel({ controller, lookups, rows, digest, loaded, itemHref, scopeKey, scopeLabel, week, store, openPeek }: {
+  controller: PortfolioController; lookups: Lookups; rows: GridItem[]; digest: Digest; loaded: boolean; itemHref: (code: string) => string; scopeKey: string; scopeLabel: string; week: string;
   store: LeadershipStore; openPeek: (id: string | null) => void;
 }) {
   const canEdit = controller.canEdit;
@@ -185,7 +245,7 @@ function WeeklyUpdatePanel({ controller, lookups, rows, moves, scopeKey, scopeLa
     return () => { cancelled = true; };
   }, [store, week, scopeKey]);
 
-  const draft = useMemo(() => draftWeeklyUpdate({ rows, projects: lookups.projects, scopeLabel, today, changes: moves }), [rows, lookups.projects, scopeLabel, today, moves]);
+  const draft = useMemo(() => draftWeeklyUpdate({ rows, projects: lookups.projects, scopeLabel, today, digest, itemHref }), [rows, lookups.projects, scopeLabel, today, digest, itemHref]);
   const who = (id: string | null) => (id ? lookups.members.find((m) => m.user_id === id)?.email ?? "someone" : "someone");
   const when = (iso: string) => formatDate(iso.slice(0, 10), today);
 
@@ -208,14 +268,14 @@ function WeeklyUpdatePanel({ controller, lookups, rows, moves, scopeKey, scopeLa
   return (
     <section className="lead-section lead-update" aria-labelledby="lead-update" data-testid="weekly-update">
       <h2 id="lead-update">Weekly update</h2>
-      <p className="muted">{canEdit ? "Drafted from the data, then edited and reviewed by a person. Nothing is sent anywhere automatically." : "Written and reviewed by the team. Nothing is sent anywhere automatically."}</p>
+      <p className="muted">{canEdit ? "Drafted from the data, then edited and reviewed by a person. Links to initiatives, tickets and documents are written as [name](address). Nothing is sent anywhere automatically." : "Written and reviewed by the team. Nothing is sent anywhere automatically."}</p>
       {error && <p role="alert" className="pf-error">{error}</p>}
       {message && <p role="status" className="notice">{message}</p>}
 
       {canEdit ? (
         <>
           {!update ? (
-            <button type="button" className="btn btn-primary" onClick={() => void save(draft.text)}>Draft weekly update</button>
+            <button type="button" className="btn btn-primary" disabled={!loaded} onClick={() => void save(draft.text)}>Draft weekly update</button>
           ) : (
             <>
               <label htmlFor="lead-text" className="pf-label">Weekly update text</label>
@@ -224,12 +284,15 @@ function WeeklyUpdatePanel({ controller, lookups, rows, moves, scopeKey, scopeLa
                 {update.reviewedAt ? `Reviewed by ${who(update.reviewedBy)} on ${when(update.reviewedAt)}.` : text !== update.body ? "Unsaved changes. Leave the box to save." : "Draft, not reviewed yet."}
               </p>
               <div className="lead-actions">
-                <button type="button" className="btn btn-primary" disabled={!!update.reviewedAt && text === update.body} onClick={() => void review()}>Mark reviewed</button>
-                <button type="button" className="btn" onClick={() => { void navigator.clipboard?.writeText(text); setMessage("Copied. Paste it where you want to share it."); }}>Copy text</button>
+                <button type="button" className="btn" disabled={!!update.reviewedAt && text === update.body} onClick={() => void review()}>Mark reviewed</button>
+                <button type="button" className="btn btn-primary" onClick={() => { void copyForEmail(text).then((ok) => setMessage(ok ? "Copied with its links. Paste it into your email." : "Could not copy. Select the text in the preview and copy it by hand.")); }}>Copy for email</button>
+                <button type="button" className="btn" onClick={() => { void navigator.clipboard?.writeText(updateToPlain(text)); setMessage("Copied as plain text; each link reads \"name (address)\"."); }}>Copy plain text</button>
                 {!confirmNew
                   ? <button type="button" className="btn" onClick={() => setConfirmNew(true)}>Draft again from the data</button>
                   : <span className="lead-confirm">Replace the text with a new draft? Your edits are lost. <button type="button" className="btn btn-danger" onClick={() => { setConfirmNew(false); void save(draft.text); }}>Yes, replace it</button> <button type="button" className="btn" onClick={() => setConfirmNew(false)}>Keep my text</button></span>}
               </div>
+              <h3 className="lead-prev-label">Preview: how it looks in an email</h3>
+              <UpdatePreview text={text} testId="update-preview" />
               {sources.length > 0 && (
                 <p className="muted lead-sources">This draft draws on: {sources.map((r, i) => <span key={r.id}>{i > 0 && ", "}<button type="button" className="gl-open" onClick={() => openPeek(r.id)}><span className="mono">{r.item_code}</span></button></span>)}</p>
               )}
@@ -238,7 +301,7 @@ function WeeklyUpdatePanel({ controller, lookups, rows, moves, scopeKey, scopeLa
         </>
       ) : update?.reviewedAt ? (
         <>
-          <pre className="lead-text lead-readonly" data-testid="reviewed-text">{update.body}</pre>
+          <UpdatePreview text={update.body} testId="reviewed-text" />
           <p className="lead-status">Reviewed by {who(update.reviewedBy)} on {when(update.reviewedAt)}.</p>
         </>
       ) : (

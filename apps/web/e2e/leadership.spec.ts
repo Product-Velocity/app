@@ -44,15 +44,21 @@ test.describe("the page", () => {
     await expect(page.locator(".lead-note")).toContainText("arrive with their phases");
   });
 
-  test("what moved this week comes from the audit log: rank as a net move, status and health in words", async ({ page }) => {
+  test("what moved this week is a digest of net outcomes: phase moves, Completed, health, Jira and documents, each a link", async ({ page }) => {
     await open(page);
     const moves = page.getByTestId("moves");
-    await expect(moves).toContainText("R-06 Initiative number 6 with a reasonably long title moved up 3 places (#9 to #6)");
-    await expect(moves).toContainText("health changed from On Track to At Risk");
-    await expect(moves).toContainText("status changed from Not started to In progress");
-    await expect(moves).toContainText("R-01 Initiative number 1 with a reasonably long title moved up 2 places (#3 to #1)"); // two steps, one net move
-    expect(await moves.locator("li", { hasText: "R-01" }).count()).toBe(1);
-    await expect(moves).not.toContainText("R-04"); // moved down and back to where it was: no net move
+    await expect(moves.locator(".lead-headline")).toContainText("initiatives moved this week");
+    await expect(moves.locator('[data-group="completed"]')).toContainText("R-07 Initiative number 7 with a reasonably long title was completed (it moved from Roll-out to Completed).");
+    await expect(moves.locator('[data-group="phase"]')).toContainText("moved from Build to Test");
+    await expect(moves.locator('[data-group="health"]')).toContainText("health is now At Risk (was On Track)");
+    await expect(moves.locator('[data-group="priority"]')).toContainText("moved up 3 places (#9 to #6)");
+    await expect(moves.locator('[data-group="priority"]')).toContainText("moved up 2 places (#3 to #1)"); // two steps, one net move
+    const build = moves.locator('[data-group="build"]');
+    await expect(build).toContainText("Jira SCRUM-3 moved from To Do to Done"); // two steps, one outcome
+    await expect(build.getByRole("link", { name: "SCRUM-3" })).toHaveAttribute("href", "https://acme.atlassian.net/browse/SCRUM-3");
+    await expect(moves.locator('[data-group="documents"]').getByRole("link", { name: "Reporting PRD" })).toHaveAttribute("href", /tab=spec&doc=doc-1$/);
+    await expect(moves).not.toContainText("R-08"); // Jira went there and back: no net change
+    await expect(moves).not.toContainText("R-04"); // rank moved down and back: no net move
     await expect(moves).not.toContainText("R-09"); // changed before this week
   });
 
@@ -93,8 +99,12 @@ test.describe("the weekly update", () => {
     const text = await box.inputValue();
     expect(text.split("\n")[0]).toBe("All projects, week 15 (12 to 18 Apr 2027)");
     for (const h of ["Highlights", "Risks and asks", "What moved this week", "Next two weeks", "Investment mix"]) expect(text).toContain(`\n${h}\n`);
-    expect(text).toContain("R-05 Initiative number 5 with a reasonably long title was completed on 13 Apr.");
+    expect(text).toMatch(/R-05 Initiative number 5 with a reasonably long title[^\n]*was completed on 13 Apr\./);
     expect(text).toContain("Ask: ");
+    expect(text).toMatch(/\[R-05 Initiative number 5[^\]]*\]\(http[^)]+item=R-05\)/); // initiatives are links
+    expect(text).toContain("[SCRUM-3](https://acme.atlassian.net/browse/SCRUM-3)"); // so are tickets
+    await expect(panel.getByTestId("update-preview").getByRole("link", { name: "SCRUM-3" })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Copy for email" })).toBeVisible();
     await expect(panel.locator(".lead-status")).toContainText("Draft, not reviewed yet");
     await expect(panel.locator(".lead-sources")).toContainText("R-05");
     expect((await lead(page))).toHaveLength(1);

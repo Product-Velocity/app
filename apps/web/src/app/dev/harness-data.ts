@@ -118,10 +118,23 @@ export function makeLeadershipHarness(n: number, role: string) {
     { itemId: "item-4", field: "stack_rank", old: 7, new: 6, at: at(-2, 9), actorId: "u1", via: "UI" },
     { itemId: "item-9", field: "stack_rank", old: 12, new: 12, at: at(-8), actorId: "u1", via: "UI" }, // before this week
   ];
+  // the Changes report's feed, tracker tickets and new documents of the same week
+  let feedId = 0;
+  const f = (item_id: string, entity: string, field: string, old: unknown, nw: unknown, when: string) => ({ id: ++feedId, item_id, entity, field, old, new: nw, at: when, actor_id: "u1", via: "UI" });
+  const feed = [
+    f("item-3", "items", "health", "On Track", "At Risk", at(-1)),
+    f("item-2", "item_jira_links", "jira_status", "To Do", "In Progress", at(-1, 8)), f("item-2", "item_jira_links", "jira_status", "In Progress", "Done", at(-1, 11)),
+    f("item-2", "items", "status", "Not started", "In progress", at(-1, 8)), f("item-2", "items", "status", "In progress", "Done", at(-1, 11)),
+    f("item-5", "items", "initiative_phase", "Build", "Test", at(-1, 9)),
+    f("item-7", "items", "initiative_phase", "Roll-out", "Completed", at(-1, 10)),
+    f("item-8", "item_jira_links", "jira_status", "To Do", "Done", at(-2, 8)), f("item-8", "item_jira_links", "jira_status", "Done", "To Do", at(-2, 9)), // back where it started: not shown
+  ];
+  const trackers = new Map([["item-2", { tracker: "Jira" as const, key: "SCRUM-3", title: "Reporting", url: "https://acme.atlassian.net/browse/SCRUM-3" }]]);
+  const documents = [{ id: "doc-1", itemId: "item-1", entry: "document" as const, title: "Reporting PRD", kind: "prd", aiDraft: false, at: at(-1, 12) }];
   const reviewed = role === "leadership" || role === "viewer"
     ? { id: "wu-seed", weekStart: "2027-04-12", scopeKey: "all", scopeLabel: "All projects", body: "All projects, week 15\n\nHighlights\n- R-05 was completed on 13 Apr.", reviewedAt: "2027-04-14T08:00:00.000Z", reviewedBy: "u2" }
     : null;
-  return { controller, source, changes, reviewed };
+  return { controller, source, changes, reviewed, feed, trackers, documents };
 }
 
 /** ?jira=1: R-01 follows the Jira issue SCRUM-2, R-02 is owned by Product Velocity and linked to SCRUM-3; the project uses Jira. */
