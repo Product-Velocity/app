@@ -15,3 +15,16 @@ export function shouldReloadOnce(store: Pick<Storage, "getItem" | "setItem"> | n
     return false;
   }
 }
+
+export const LOAD_ERROR_KEY = "pv.lastLoadError";
+
+/** What failed, in words, for the notice shown after the reload: the message, the reference and the first lines of the stack, from where the page was. No page content or data. */
+export function describeLoadError(error: { message?: string; digest?: string; stack?: string }, path: string, now: Date): string {
+  const lines = [`${now.toISOString()} ${path}`, `${error.message ?? "unknown error"}${error.digest ? ` (reference ${error.digest})` : ""}`];
+  if (error.stack) lines.push(...error.stack.split("\n").slice(1, 6).map((l) => l.trim().slice(0, 160)));
+  return lines.join("\n").slice(0, 900);
+}
+
+export function rememberLoadError(error: { message?: string; digest?: string; stack?: string }): void {
+  try { window.sessionStorage.setItem(LOAD_ERROR_KEY, describeLoadError(error, window.location.pathname, new Date())); } catch { /* storage may be unavailable */ }
+}
