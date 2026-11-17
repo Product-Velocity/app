@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import type { ColDef } from "ag-grid-community";
 import {
-  ATTENTION_KINDS, CHANGE_GROUP_BYS, CHANGE_PERIODS, CHANGE_TYPES, attentionList, changeCounts, changeGridRows, changePeriod, changeReport, changeTypeLabel, isChangeHeader,
-  type ChangeFlag, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type ChangeType, type FeedRow, type ItemInfo,
+  CHANGE_GROUP_BYS, CHANGE_PERIODS, CHANGE_TYPES, changeCounts, changeFlags, changeGridRows, changePeriod, changeReport, changeTypeLabel, isChangeHeader,
+  isOpenableUrl, type ChangeFlag, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type ChangeType, type FeedRow, type ItemInfo, type TrackerRef,
 } from "@pv/domain";
 import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer } from "../portfolio/grid-kit";
 import type { ReportEnv } from "./report-env";
@@ -28,6 +28,19 @@ const InitiativeCell = (p: CustomCellRendererProps<ChangeRowData>) => {
   return <button type="button" className="link-button" title={d.name} onClick={() => (p.context as Ctx).open(d.itemId)}><strong>{d.code}</strong> {d.name}</button>;
 };
 /** In a row: the first flag and how many more; all of them are in the tooltip and on the initiative's group header. */
+/** The Jira epic or GitHub issue behind a change: its id (a link that opens it in the tracker), its name and where it is. */
+const IssueCell = (p: CustomCellRendererProps<ChangeRowData>) => {
+  const i = p.data!.issue;
+  if (!i) return null;
+  const name = i.title ?? null;
+  return (
+    <span className="chg-issue" title={`${i.tracker} ${i.key}${name ? `: ${name}` : ""}`}>
+      {isOpenableUrl(i.url) ? <a href={i.url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${i.key} in ${i.tracker} (new tab)`}><strong>{i.key}</strong> ↗</a> : <strong>{i.key}</strong>}
+      {name && <span className="muted"> {name}</span>}
+      <span className="muted"> · {i.tracker}</span>
+    </span>
+  );
+};
 const FlagCell = (p: CustomCellRendererProps<ChangeRowData>) => {
   const f = p.data!.flags;
   if (f.length === 0) return null;
@@ -43,7 +56,7 @@ const getRowClass = (p: { data?: ChangeGridRow }) => (p.data && !isChangeHeader(
  * and by the value a change ended on, and the flags from Needs attention to follow up. Follows the Reports filters. The time is when Product Velocity
  * registered the change. Actors are named on a row; nothing is counted per person (rule 8). Every colour comes with a word.
  */
-export function ChangesReport({ env, load, onOpen }: { env: ReportEnv; load?: (from: Date, to: Date) => Promise<FeedRow[]>; onOpen: (id: string) => void }) {
+export function ChangesReport({ env, load, loadIssues, onOpen }: { env: ReportEnv; load?: (from: Date, to: Date) => Promise<FeedRow[]>; loadIssues?: (itemIds: string[]) => Promise<Map<string, TrackerRef>>; onOpen: (id: string) => void }) {
   const { rows, lookups, controller } = env;
   const [period, setPeriod] = useState<ChangePeriod>("today");
   const [types, setTypes] = useState<ChangeType[]>([]);
@@ -65,14 +78,19 @@ export function ChangesReport({ env, load, onOpen }: { env: ReportEnv; load?: (f
   const items = useMemo(() => new Map<string, ItemInfo>(rows.map((r) => [r.id, { code: String(r.item_code ?? ""), name: String(r.initiative_name ?? ""), rank: r.stack_rank }])), [rows]);
   const counts = useMemo(() => changeCounts(feed ?? [], items), [feed, items]);
   const groups = useMemo(() => changeReport(feed ?? [], items, types), [feed, items, types]);
-  /** The flags of Needs attention that can be worked out from the grid's own rows (the gate waits and open conditions are on the Needs attention page). */
-  const flags = useMemo(() => {
-    const m = new Map<string, ChangeFlag[]>();
-    for (const e of attentionList(rows as never, controller.todayDate())) m.set(e.id, e.reasons.map((r) => ({ kind: r.kind, label: ATTENTION_LABEL[r.kind] ?? r.kind, text: r.text })));
-    return m;
-  }, [rows, controller]);
+  /** The flags to follow up: the Needs attention reasons that can be worked out from the grid's rows, and the two this report adds for initiatives with no phase. */
+  const flags = useMemo(() => changeFlags(rows, controller.todayDate()), [rows, controller]);
+  /** The tracker issue of each initiative that changed, read once per list of initiatives. A failure leaves the column empty; it is not worth stopping the report. */
+  const [issues, setIssues] = useState<ReadonlyMap<string, TrackerRef>>(new Map());
+  const changedIds = useMemo(() => groups.map((g) => g.itemId).sort().join(","), [groups]);
+  useEffect(() => {
+    let live = true;
+    if (!loadIssues || changedIds === "") return;
+    loadIssues(changedIds.split(",")).then((m) => { if (live) setIssues(m); }, () => { if (live) setIssues(new Map()); });
+    return () => { live = false; };
+  }, [loadIssues, changedIds]);
   const flaggedGroups = useMemo(() => groups.filter((g) => (flags.get(g.itemId) ?? []).length > 0).length, [groups, flags]);
-  const gridRows = useMemo(() => changeGridRows(groups, by, collapsed, flags, flaggedOnly), [groups, by, collapsed, flags, flaggedOnly]);
+  const gridRows = useMemo(() => changeGridRows(groups, by, collapsed, flags, flaggedOnly, issues), [groups, by, collapsed, flags, flaggedOnly, issues]);
 
   const toggleType = (t: ChangeType) => setTypes((s) => (s.includes(t) ? s.filter((x) => x !== t) : [...s, t]));
   const toggle = useCallback((id: string) => setCollapsed((s) => { const n = new Set(s); if (!n.delete(id)) n.add(id); return n; }), []);
@@ -84,6 +102,7 @@ export function ChangesReport({ env, load, onOpen }: { env: ReportEnv; load?: (f
     { colId: "initiative", headerName: "Initiative", flex: 2, minWidth: 220, cellRenderer: InitiativeCell },
     { colId: "type", headerName: "Change type", width: 170, cellRenderer: TypeCell },
     { colId: "change", headerName: "Change", flex: 2, minWidth: 240, cellRenderer: ChangeCell },
+    { colId: "issue", headerName: "Tracker issue", flex: 2, minWidth: 220, cellRenderer: IssueCell },
     { colId: "source", headerName: "Source", width: 140, valueGetter: (p) => p.data?.via },
     { colId: "by", headerName: "By", width: 190, valueGetter: (p) => (p.data ? who(p.data.actorId) : ""), tooltipValueGetter: (p) => (p.data ? who(p.data.actorId) : "") },
     { colId: "flags", headerName: "Follow up", flex: 2, minWidth: 260, cellRenderer: FlagCell, cellClass: "chg-flags", hide: by === "initiative" }, // the group header of an initiative already shows its flags
@@ -138,6 +157,3 @@ export function ChangesReport({ env, load, onOpen }: { env: ReportEnv; load?: (f
     </section>
   );
 }
-
-/** Labels of the Needs attention kinds. */
-const ATTENTION_LABEL: Record<string, string> = Object.fromEntries(ATTENTION_KINDS.map((k) => [k.id, k.label]));

@@ -5,7 +5,7 @@ import { AppHeader } from "@/components/app-header";
 import { ReportsView } from "@/features/reports/reports-view";
 import { WorkspaceProvider } from "@/features/workspace/provider";
 import { MemoryWorkspaceStore } from "@/features/workspace/store";
-import type { FeedRow, GateRequest } from "@pv/domain";
+import type { FeedRow, GateRequest, TrackerRef } from "@pv/domain";
 import { harnessLookups, makeReportsHarness } from "../harness-data";
 
 /** Gate requests for the first items: item-1 and item-2 passed Gate B (building starts 10 and 9 days later), item-3 was put on hold, item-4 waits, item-5 was stopped at Gate A. */
@@ -35,12 +35,20 @@ async function changesOfToday(from: Date): Promise<FeedRow[]> {
   ];
 }
 
+/** Tracker issues for the first items (fictional; example.test links). */
+async function trackerIssues(): Promise<Map<string, TrackerRef>> {
+  return new Map<string, TrackerRef>([
+    ["item-1", { tracker: "Jira", key: "DEMO-7049", title: "Bidder adapter, iteration 1", url: "https://example.test/browse/DEMO-7049" }],
+    ["item-2", { tracker: "GitHub", key: "meridian/web#412", title: null, url: "https://example.test/meridian/web/issues/412" }],
+  ]);
+}
+
 export function HarnessReports({ n, role, demo = false }: { n: number; role: string; demo?: boolean }) {
   const { controller, source } = useMemo(() => {
     const h = makeReportsHarness(n, role);
     if (demo) { // ?demo=changes: data for the Changes screenshot only (other tests keep the standard rows)
       const set = (id: string, o: Record<string, unknown>) => Object.assign(h.controller.rows.find((r) => r.id === id) ?? {}, o);
-      set("item-1", { initiative_phase: "Build", initiative_status: "Active", status: "In progress", issues_total: 4, issues_closed: 4, health: "On Track" });
+      set("item-1", { initiative_phase: null, initiative_status: null, status: "Done", issues_total: 4, issues_closed: 4, health: "On Track" }); // like a Jira pull-in: no phase, no status
       set("item-2", { initiative_phase: "Test", initiative_status: "Active", status: "Not started", health: "On Track" });
       set("item-3", { initiative_phase: "Build", initiative_status: "Active", status: "In progress", health: null, stale_issues: 2 });
     }
@@ -52,7 +60,7 @@ export function HarnessReports({ n, role, demo = false }: { n: number; role: str
     <WorkspaceProvider store={store} projects={harnessLookups.projects} canEdit={role === "creator" || role === "admin"} canAdmin={role === "admin"}>
       <div className="shell">
         <AppHeader tenantName="Meridian Media" email="ashu.mathura@example.test" roleLabel="Admin" isApprover current="reports" />
-        <main className="content"><ReportsView controller={controller} lookups={harnessLookups} me="u1" loadGateRequests={async () => GATE_REQUESTS} loadChanges={(from) => changesOfToday(from)} /></main>
+        <main className="content"><ReportsView controller={controller} lookups={harnessLookups} me="u1" loadGateRequests={async () => GATE_REQUESTS} loadChanges={(from) => changesOfToday(from)} loadTrackerIssues={() => trackerIssues()} /></main>
       </div>
     </WorkspaceProvider>
   );

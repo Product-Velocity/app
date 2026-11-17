@@ -1,3 +1,4 @@
+import { ATTENTION_KINDS, attentionList } from "./attention";
 import type { GroupBadge, GroupRow } from "./views";
 
 /**
@@ -97,6 +98,8 @@ export function changePeriod(period: ChangePeriod, now: Date): { from: Date; to:
 // ------------------------------------------------------------------ the grid (issue #472, follow-up)
 /** A reason to follow up on an initiative, taken from Needs attention (`attentionList`): the kind id, its label and the sentence. */
 export type ChangeFlag = { kind: string; label: string; text: string };
+/** The Jira or GitHub issue an initiative is linked to: "R8P-7049" or "owner/repo#12", its title where known, and a link that opens it in the tracker. */
+export type TrackerRef = { tracker: "Jira" | "GitHub"; key: string; title: string | null; url: string | null };
 export type ChangeGroupBy = "initiative" | "type" | "day" | "none";
 export const CHANGE_GROUP_BYS: readonly { id: ChangeGroupBy; label: string }[] = [
   { id: "initiative", label: "Initiative" }, { id: "type", label: "Change type" }, { id: "day", label: "Day" }, { id: "none", label: "No grouping" },
@@ -120,6 +123,8 @@ export function changeTone(type: ChangeType, to: string | null, tracker: "GitHub
 export type ChangeRowData = {
   kind: "change"; id: string; entryId: number; itemId: string; code: string; name: string; at: string; type: ChangeType;
   from: string | null; to: string | null; tone: ChangeTone; via: string; actorId: string | null; tracker: "GitHub" | "Jira" | null; flags: ChangeFlag[];
+  /** The tracker issue behind a Build Status or linked-issue change: its key or number, its name where known and its link. */
+  issue: TrackerRef | null;
 };
 /** A group header is the main grid's own `GroupRow` (one renderer, one look), with the unit "changes" and badges. */
 export type ChangeHeaderData = GroupRow;
@@ -135,12 +140,13 @@ const dayLabel = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { we
  * `flags` are the reasons from Needs attention by initiative; `onlyFlagged` keeps the initiatives that have one.
  */
 export function changeGridRows(
-  groups: readonly ChangeGroup[], by: ChangeGroupBy, collapsed: ReadonlySet<string>, flags: ReadonlyMap<string, readonly ChangeFlag[]> = new Map(), onlyFlagged = false,
+  groups: readonly ChangeGroup[], by: ChangeGroupBy, collapsed: ReadonlySet<string>, flags: ReadonlyMap<string, readonly ChangeFlag[]> = new Map(), onlyFlagged = false, issues: ReadonlyMap<string, TrackerRef> = new Map(),
 ): ChangeGridRow[] {
   const shown = onlyFlagged ? groups.filter((g) => (flags.get(g.itemId) ?? []).length > 0) : groups;
   const rows: ChangeRowData[] = shown.flatMap((g) => g.entries.map((e): ChangeRowData => ({
     kind: "change", id: `c${e.id}`, entryId: e.id, itemId: g.itemId, code: g.code, name: g.name, at: e.at, type: e.type, from: e.from, to: e.to,
     tone: changeTone(e.type, e.to, e.tracker), via: e.via, actorId: e.actorId, tracker: e.tracker, flags: [...(flags.get(g.itemId) ?? [])],
+    issue: e.type === "build-status" || e.type === "issue-status" ? issues.get(g.itemId) ?? null : null,
   })));
   const newest = (a: ChangeRowData, b: ChangeRowData) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.entryId - a.entryId);
   if (by === "none") return rows.sort(newest);
@@ -171,6 +177,32 @@ export function changeGridRows(
     const list = groupsOf.get(k)!, key = `${by}:${k}`;
     out.push(header(key, by === "type" ? changeTypeLabel(k as ChangeType) : dayLabel(list[0]!.at), list.length, []));
     if (!collapsed.has(key)) out.push(...list);
+  }
+  return out;
+}
+
+// ------------------------------------------------------------------ flags of the report
+const blank = (v: unknown) => v === null || v === undefined || v === "";
+const REPORT_FLAG_LABELS: Record<string, string> = { "tracker-done-open": "Tracker done, initiative open", "no-phase": "No phase set" };
+export const CHANGE_FLAG_LABELS: Readonly<Record<string, string>> = { ...Object.fromEntries(ATTENTION_KINDS.map((k) => [k.id, k.label])), ...REPORT_FLAG_LABELS };
+
+/**
+ * The flags to follow up in the Changes report, by initiative: every reason of Needs attention that can be worked out from the rows (`attentionList`), plus two
+ * that only this report adds (issue #472, from the real data: almost every initiative pulled in from Jira has no Initiative Phase and no Initiative Status, so the
+ * Needs attention rules that start from a phase cannot fire). **Tracker done, initiative open**: the tracker says the work is done (Build Status Done, or every linked
+ * issue closed) but the initiative has no phase and is not Completed or Cancelled. **No phase set**: the tracker says the build is in progress but no phase is set.
+ * Suggestions only; nothing changes by itself. The Needs attention page is unchanged.
+ */
+export function changeFlags(rows: readonly { id: string }[], today: Date): Map<string, ChangeFlag[]> {
+  const out = new Map<string, ChangeFlag[]>();
+  for (const e of attentionList(rows as never, today)) out.set(e.id, e.reasons.map((r) => ({ kind: r.kind, label: CHANGE_FLAG_LABELS[r.kind] ?? r.kind, text: r.text })));
+  for (const r of rows as readonly Record<string, unknown>[]) {
+    if (!blank(r.initiative_phase) || r.initiative_status === "Completed" || r.initiative_status === "Cancelled") continue;
+    const total = typeof r.issues_total === "number" ? r.issues_total : 0, closed = typeof r.issues_closed === "number" ? r.issues_closed : 0;
+    const done = r.status === "Done" || (total > 0 && closed >= total);
+    const add = (f: ChangeFlag) => out.set(String(r.id), [...(out.get(String(r.id)) ?? []), f]);
+    if (done) add({ kind: "tracker-done-open", label: REPORT_FLAG_LABELS["tracker-done-open"]!, text: `The tracker says the work is done${total > 0 && closed >= total ? ` (all ${total} linked ${total === 1 ? "issue is" : "issues are"} closed)` : ""}, but the initiative has no phase and its status is ${blank(r.initiative_status) ? "not set" : String(r.initiative_status)}, not Completed.` });
+    else if (r.status === "In progress") add({ kind: "no-phase", label: REPORT_FLAG_LABELS["no-phase"]!, text: "The tracker says the build is in progress, but no Initiative Phase is set." });
   }
   return out;
 }

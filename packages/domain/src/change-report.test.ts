@@ -133,3 +133,48 @@ describe("changeGridRows", () => {
     expect(new Set(rows.filter((r) => !isChangeHeader(r)).map((r) => (r as { itemId: string }).itemId))).toEqual(new Set(["a"]));
   });
 });
+
+import { changeFlags, type TrackerRef } from "./change-report";
+
+describe("changeFlags (real data: initiatives pulled in from Jira usually have no phase or status)", () => {
+  const TODAY = new Date(Date.UTC(2026, 10, 17));
+  const r = (id: string, o: Record<string, unknown> = {}) => ({ id, item_code: id, initiative_name: id, stack_rank: 1, initiative_status: null, initiative_phase: null, health: "On Track", ...o });
+
+  it("flags a Jira epic that is done while the initiative has no phase and is not Completed (the R-27 case)", () => {
+    const f = changeFlags([r("a", { status: "Done" })], TODAY).get("a")!;
+    expect(f).toEqual([expect.objectContaining({ kind: "tracker-done-open", label: "Tracker done, initiative open" })]);
+    expect(f[0]!.text).toMatch(/no phase and its status is not set/);
+    expect(changeFlags([r("b", { status: "In progress", issues_total: 3, issues_closed: 3 })], TODAY).get("b")![0]!.text).toMatch(/all 3 linked issues are closed/);
+    expect(changeFlags([r("c", { status: "Done", initiative_status: "Active" })], TODAY).get("c")![0]!.text).toMatch(/status is Active, not Completed/);
+  });
+
+  it("flags a build in progress with no phase, and nothing for finished, not started or phased initiatives", () => {
+    expect(changeFlags([r("a", { status: "In progress" })], TODAY).get("a")![0]).toMatchObject({ kind: "no-phase" });
+    expect(changeFlags([r("a", { status: "Not started" })], TODAY).has("a")).toBe(false);
+    expect(changeFlags([r("a", { status: "Done", initiative_status: "Completed" })], TODAY).has("a")).toBe(false);
+    expect(changeFlags([r("a", { status: "Done", initiative_status: "Cancelled" })], TODAY).has("a")).toBe(false);
+    expect(changeFlags([r("a", { status: "In progress", initiative_phase: "Build" })], TODAY).get("a")?.some((x) => x.kind === "no-phase")).not.toBe(true);
+  });
+
+  it("keeps the Needs attention reasons too, with their labels", () => {
+    const f = changeFlags([r("a", { initiative_phase: "Build", initiative_status: "Active", status: "Done" })], TODAY).get("a")!;
+    expect(f).toEqual([expect.objectContaining({ kind: "build-done", label: "Build done" })]);
+  });
+});
+
+describe("changeGridRows: the tracker issue behind a change", () => {
+  const issue: TrackerRef = { tracker: "Jira", key: "R8P-7049", title: "Bidder adapter, iteration 1", url: "https://example.test/browse/R8P-7049" };
+  const groups2 = changeReport([
+    row("a", "items", "initiative_status", "Active", "Completed", "2026-11-17T12:30:00Z"),
+    row("a", "items", "status", "In progress", "Done", "2026-11-17T12:18:01Z"),
+    row("a", "item_jira_links", "jira_status", "Project Execution", "Project Closed", "2026-11-17T12:18:00Z"),
+  ], items);
+  it("is attached to Build Status and linked-issue changes, not to the initiative's own changes", () => {
+    const rows = changeGridRows(groups2, "none", new Set(), new Map(), false, new Map([["a", issue]])) as ChangeRowData[];
+    expect(rows.map((x) => [x.type, x.issue?.key ?? null])).toEqual([["initiative-status", null], ["build-status", "R8P-7049"], ["issue-status", "R8P-7049"]]);
+    expect(rows[2]!.issue).toEqual(issue);
+  });
+  it("is empty when the initiative has no known link", () => {
+    expect((changeGridRows(groups2, "none", new Set()) as ChangeRowData[]).every((x) => x.issue === null)).toBe(true);
+  });
+});
