@@ -20,6 +20,8 @@ export * from "./gantt";
 export * from "./cards";
 export * from "./cards-views";
 export * from "./leadership";
+export * from "./leadership-digest";
+export * from "./update-format";
 export * from "./alignment-scoring";
 export * from "./crowd";
 export * from "./quick-filters";

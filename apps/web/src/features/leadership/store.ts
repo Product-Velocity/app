@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AuditChange } from "@pv/domain";
+import type { AuditChange, FeedRow, NewDocument, TrackerRef } from "@pv/domain";
+import { loadTrackerIssues } from "../reports/tracker-issues";
 
 export type WeeklyUpdate = { id: string; weekStart: string; scopeKey: string; scopeLabel: string; body: string; reviewedAt: string | null; reviewedBy: string | null };
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -8,6 +9,12 @@ export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface LeadershipStore {
   /** Rank, status and health changes since a time (audit log, readable by every member). */
   loadChanges(sinceIso: string): Promise<AuditChange[]>;
+  /** Phase, status, health, Build Status and linked-issue changes in a period (the Changes report's feed, readable by every member). */
+  loadFeed(fromIso: string, toIso: string): Promise<FeedRow[]>;
+  /** The Jira epic or GitHub issue each initiative is linked to, with its link. */
+  loadTrackers(itemIds: string[]): Promise<Map<string, TrackerRef>>;
+  /** Documents, files and links added in a period: titles and names only, never the text. */
+  loadNewDocuments(fromIso: string, toIso: string): Promise<NewDocument[]>;
   getUpdate(weekStart: string, scopeKey: string): Promise<WeeklyUpdate | null>;
   /** Create the update of that week and scope, or replace its text (which clears a review). Creators and admins only. */
   saveDraft(weekStart: string, scopeKey: string, scopeLabel: string, body: string): Promise<Result<WeeklyUpdate>>;
@@ -36,6 +43,31 @@ export class SupabaseLeadershipStore implements LeadershipStore {
     if (error) throw new Error(friendly(error, "load this week's changes"));
     return ((data ?? []) as { item_id: string; field: string; old: unknown; new: unknown; at: string; actor_id: string | null; via: string }[])
       .map((r) => ({ itemId: r.item_id, field: r.field, old: r.old, new: r.new, at: r.at, actorId: r.actor_id, via: r.via }));
+  }
+
+  async loadFeed(fromIso: string, toIso: string): Promise<FeedRow[]> {
+    const { data, error } = await this.client.rpc("change_feed", { p_tenant: this.tenantId, p_from: fromIso, p_to: toIso });
+    if (error) throw new Error(friendly(error, "load the changes of this period"));
+    return (data ?? []) as FeedRow[];
+  }
+
+  loadTrackers(itemIds: string[]): Promise<Map<string, TrackerRef>> { return loadTrackerIssues(this.client, this.tenantId, itemIds); }
+
+  async loadNewDocuments(fromIso: string, toIso: string): Promise<NewDocument[]> {
+    // the columns are chosen one by one: never `body`, the text of a document stays out of this page (rule 2 and 4)
+    const [docs, files] = await Promise.all([
+      this.client.from("item_documents").select("id, item_id, title, kind, ai_draft, created_at").eq("tenant_id", this.tenantId).gte("created_at", fromIso).lt("created_at", toIso).limit(500),
+      this.client.from("item_attachments").select("id, item_id, kind, name, url, created_at").eq("tenant_id", this.tenantId).gte("created_at", fromIso).lt("created_at", toIso).limit(500),
+    ]);
+    if (docs.error) throw new Error(friendly(docs.error, "load the new documents"));
+    if (files.error) throw new Error(friendly(files.error, "load the new documents"));
+    const host = (u: string | null) => { try { return u ? new URL(u).hostname : ""; } catch { return ""; } };
+    return [
+      ...((docs.data ?? []) as { id: string; item_id: string; title: string; kind: string; ai_draft: boolean; created_at: string }[])
+        .map((d): NewDocument => ({ id: d.id, itemId: d.item_id, entry: "document", title: d.title, kind: d.kind, aiDraft: d.ai_draft, at: d.created_at })),
+      ...((files.data ?? []) as { id: string; item_id: string; kind: "file" | "link"; name: string; url: string | null; created_at: string }[])
+        .map((a): NewDocument => ({ id: a.id, itemId: a.item_id, entry: a.kind, title: a.name || host(a.url) || "Untitled", kind: null, aiDraft: false, at: a.created_at })),
+    ];
   }
 
   async getUpdate(weekStart: string, scopeKey: string): Promise<WeeklyUpdate | null> {
@@ -72,6 +104,12 @@ export class MemoryLeadershipStore implements LeadershipStore {
   private n = 0;
   constructor(changes: AuditChange[] = []) { this.changes = changes; }
   async loadChanges(since: string) { return this.changes.filter((c) => c.at >= since).map((c) => ({ ...c })); }
+  feed: FeedRow[] = [];
+  trackers = new Map<string, TrackerRef>();
+  documents: NewDocument[] = [];
+  async loadFeed(from: string, to: string) { return this.feed.filter((r) => r.at >= from && r.at < to).map((r) => ({ ...r })); }
+  async loadTrackers(ids: string[]) { return new Map([...this.trackers].filter(([id]) => ids.includes(id))); }
+  async loadNewDocuments(from: string, to: string) { return this.documents.filter((d) => d.at >= from && d.at < to).map((d) => ({ ...d })); }
   async getUpdate(weekStart: string, scopeKey: string) { const u = this.updates.find((x) => x.weekStart === weekStart && x.scopeKey === scopeKey); return u ? { ...u } : null; }
   async saveDraft(weekStart: string, scopeKey: string, scopeLabel: string, body: string): Promise<Result<WeeklyUpdate>> {
     if (this.failWith) return { ok: false, error: this.failWith };

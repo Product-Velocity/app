@@ -588,6 +588,17 @@ input.sw-input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2
 .lead-mix-bar span { display: block; height: 100%; background: var(--blue); }
 .lead-text { width: 100%; font: inherit; font-family: var(--font-mono); font-size: 12px; line-height: 1.5; padding: 8px; }
 .lead-readonly { white-space: pre-wrap; background: var(--header-bg); border: 1px solid var(--grey-1); border-radius: 6px; margin: 0; }
+.lead-headline { font-weight: 600; margin: 0 0 10px; }
+.lead-digest-group { margin: 0 0 12px; }
+.lead-digest-group h3 { font-size: 13px; margin: 0 0 4px; }
+.lead-digest-group a, .lead-preview a { color: #1A56C4; }
+.lead-preview { background: var(--header-bg); border: 1px solid var(--grey-1); border-radius: 6px; padding: 12px 14px; margin: 0 0 8px; }
+.lead-preview p { margin: 0 0 6px; }
+.lead-preview h3 { font-size: 13px; margin: 14px 0 4px; }
+.lead-preview ul { margin: 0 0 6px; padding-left: 20px; }
+.lead-preview li { margin: 2px 0; }
+.lead-prev-title { font-weight: 600; }
+.lead-prev-label { font-size: 12px; margin: 14px 0 6px; color: var(--grey-6, inherit); }
 .lead-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 4px; }
 .lead-status, .lead-sources { margin: 4px 0; font-size: 12px; }
 .lead-confirm { font-size: 12px; display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }

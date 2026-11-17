@@ -7,6 +7,7 @@ import { SupabaseGateSource } from "../gates/gate-source";
 import { useWorkspaceController } from "../portfolio/portfolio-client";
 import type { Lookups } from "../portfolio/types";
 import { ReportsView } from "./reports-view";
+import { loadTrackerIssues as loadTrackers } from "./tracker-issues";
 
 /** Loads every item of the workspace (as the grid does), then shows the Reports tab. */
 export function ReportsClient({ tenantId, role, userId, lookups }: { tenantId: string; role: string; userId: string; lookups: Lookups }) {
@@ -18,30 +19,8 @@ export function ReportsClient({ tenantId, role, userId, lookups }: { tenantId: s
     if (error) throw new Error(error.message);
     return (data ?? []) as FeedRow[];
   }, [tenantId]);
-  /** The tracker issue each initiative is linked to (Jira epic or GitHub issue), read through the member's own access: key, link and, for Jira, the issue's name. */
-  const loadTrackerIssues = useCallback(async (itemIds: string[]): Promise<Map<string, TrackerRef>> => {
-    const client = createClient();
-    const out = new Map<string, TrackerRef>();
-    const ids = [...new Set(itemIds)];
-    for (let i = 0; i < ids.length; i += 150) {
-      const chunk = ids.slice(i, i + 150);
-      const [jira, gh] = await Promise.all([
-        client.from("item_jira_links").select("item_id, issue_key, html_url").eq("tenant_id", tenantId).in("item_id", chunk),
-        client.from("item_github_links").select("item_id, repo_full_name, issue_number, html_url").eq("tenant_id", tenantId).in("item_id", chunk).not("issue_number", "is", null),
-      ]);
-      if (jira.error) throw new Error(jira.error.message);
-      if (gh.error) throw new Error(gh.error.message);
-      const jl = (jira.data ?? []) as { item_id: string; issue_key: string; html_url: string | null }[];
-      const titles = new Map<string, string>();
-      if (jl.length > 0) {
-        const t = await client.from("jira_issues").select("issue_key, title").eq("tenant_id", tenantId).in("issue_key", jl.map((l) => l.issue_key));
-        if (!t.error) for (const r of (t.data ?? []) as { issue_key: string; title: string }[]) titles.set(r.issue_key, r.title);
-      }
-      for (const l of jl) out.set(l.item_id, { tracker: "Jira", key: l.issue_key, title: titles.get(l.issue_key) ?? null, url: l.html_url });
-      for (const l of (gh.data ?? []) as { item_id: string; repo_full_name: string; issue_number: number; html_url: string | null }[]) if (!out.has(l.item_id)) out.set(l.item_id, { tracker: "GitHub", key: `${l.repo_full_name}#${l.issue_number}`, title: null, url: l.html_url });
-    }
-    return out;
-  }, [tenantId]);
+  /** The tracker issue each initiative is linked to (see tracker-issues.ts). */
+  const loadTrackerIssues = useCallback((itemIds: string[]): Promise<Map<string, TrackerRef>> => loadTrackers(createClient(), tenantId, itemIds), [tenantId]);
   /** Who moved Jira issues to a status (table jira_status_changes: Jira's own history, read through the member's own access). Starts two days before the period: a daily check can register a change hours after Jira made it. */
   const loadJiraUsers = useCallback(async (issueKeys: string[], from: Date, to: Date): Promise<JiraStatusRecord[]> => {
     const client = createClient();
