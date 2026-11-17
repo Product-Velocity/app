@@ -53,7 +53,9 @@ export const OWNED_LABEL_PREFIX = "pv:";
  * Put on the issue of an initiative that was removed in Product Velocity, after a person confirmed it (decision 2026-11-03-github-close-removed).
  * The one `pv:` label that a push never removes again: it records that Product Velocity closed the issue, even if the initiative is restored.
  */
-export const REMOVED_LABEL = "pv:removed";
+export const REMOVED_LABEL = "pm:removed";
+/** `pv:removed` was the removed label until 2026-11-16 (issue #468): an issue closed under it keeps it. */
+export const LEGACY_REMOVED_LABEL = "pv:removed";
 
 const MOSCOW: Record<string, string> = { Must: "must", Should: "should", Could: "could", "Won't": "wont" };
 /** Initiatives that are not synced before Gate B (decision 2026-11-05): Discover is analysis, so a new tracker issue is never created for it. */

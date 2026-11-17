@@ -11,6 +11,7 @@ export default async function AtlassianSpike({ searchParams }: { searchParams: P
       <p>Connects once with OAuth 2.0 (3LO) and reads your Jira site. Nothing is stored; no token is shown.</p>
       {status === "admins-only" ? <p role="alert">Only workspace admins can run this.</p> : null}
       {status === "not-configured" ? <p role="alert">The ATLASSIAN_* variables are not set on this deployment.</p> : null}
+      <p role="note">The Initiative-level checks (J2) moved to <a href="/settings/integrations/jira/test">Settings, Integrations, Jira, Test connection</a>: they run on the stored connection and save their results (#452).</p>
       <p>
         <a href="/api/atlassian/start">Connect Jira (read and write issues)</a>
       </p>

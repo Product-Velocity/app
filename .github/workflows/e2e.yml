@@ -1,0 +1,32 @@
+name: Browser tests
+
+# Issue #472 review: the browser tests (apps/web/e2e) ran nowhere, so tests went red unnoticed. They run here every night and on demand (Actions, Browser tests, Run
+# workflow). They are NOT on every pull request yet: on main, several browser specs are red for reasons that have nothing to do with a given change (listed in the pull
+# request of issue #472), and a job that is red on every pull request would only teach people to merge around it. Fix those, then move this job into ci.yml (on
+# pull_request) and add it to the required checks of main. See docs/11-ENVIRONMENTS.md, "Browser tests".
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Build with the in-memory test pages on
+        run: pnpm --filter web exec next build
+        env:
+          NEXT_PUBLIC_E2E_HARNESS: "1"
+      - run: pnpm --filter web exec playwright test --trace off --reporter=list

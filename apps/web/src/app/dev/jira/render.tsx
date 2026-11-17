@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import type { TrackerSection } from "@/components/tracker-tabs";
+import type { TrackerSection } from "@/lib/tracker-fields/sections";
 import { buildMappingView } from "@/lib/tracker-fields/view";
 import { jiraCatalogGroups } from "@/lib/tracker-fields/catalog";
 import { connectNoop, disconnectNoop, formNoop, retryNoop } from "./actions";
@@ -27,7 +27,7 @@ export async function renderJiraHarness(searchParams: Promise<Record<string, str
               : [],
         },
       ];
-  const types = [{ id: "10001", name: "Epic" }, { id: "10002", name: "Feature" }, { id: "10003", name: "Task" }, { id: "10004", name: "Subtask" }];
+  const types = [{ id: "10009", name: "Initiative", hierarchyLevel: 2, subtask: false }, { id: "10001", name: "Epic", hierarchyLevel: 1, subtask: false }, { id: "10002", name: "Feature", hierarchyLevel: 0, subtask: false }, { id: "10003", name: "Task", hierarchyLevel: 0, subtask: false }, { id: "10004", name: "Subtask", hierarchyLevel: -1, subtask: true }];
   const proposal = { initiative: "10001", epic: "10002", task: "10004" };
   const projectLinks: JiraProjectLinkView[] = [
     {
@@ -58,7 +58,7 @@ export async function renderJiraHarness(searchParams: Promise<Record<string, str
       projectId: "p2", projectName: "Growth", link: null, tracker: null, rowLink: null,
     },
   ];
-  const choices = [{ value: "c1|s1|PLAT", label: "PLAT · Platform", group: "Acme Corp", types, proposal }, { value: "c1|s1|GROW", label: "GROW · Growth", group: "Acme Corp", types, proposal }];
+  const choices = [{ value: "c1|s1|PLAT", label: "PLAT · Platform", group: "Acme Corp", types, proposal }, { value: "c1|s1|GROW", label: "GROW · Growth", group: "Acme Corp", types, proposal: { initiative: "10009", epic: "10001", task: "10003" } }];
   const sync = none || state !== "connected" ? null : {
     linked: 7,
     lastCheck: q.events === "none" ? null : { at: "2026-11-03T05:30:00Z", summary: "Checked 7 linked item(s) in 1 Jira project(s): 1 changed, 0 issue(s) not found." },
@@ -77,11 +77,18 @@ export async function renderJiraHarness(searchParams: Promise<Record<string, str
         { id: "customfield_10015", name: "Start date", custom: true, schema: { type: "date", custom: "com.atlassian.jira.plugin.system.customfieldtypes:datepicker" } },
         { id: "customfield_10030", name: "Theme", custom: true, schema: { type: "string", custom: "com.atlassian.jira.plugin.system.customfieldtypes:textfield" } },
         { id: "customfield_10040", name: "Team", custom: true, schema: { type: "option", custom: "com.atlassian.jira.plugin.system.customfieldtypes:select" } },
+        { id: "status", name: "Status", custom: false, schema: { type: "status", system: "status" } },
+        { id: "labels", name: "Labels", custom: false, schema: { type: "array", items: "string", system: "labels" } },
+        { id: "assignee", name: "Assignee", custom: false, schema: { type: "user", system: "assignee" } },
+        { id: "priority", name: "Priority", custom: false, schema: { type: "priority", system: "priority" } },
+        { id: "customfield_10016", name: "Story point estimate", custom: true, schema: { type: "number", custom: "com.atlassian.jira.plugin.system.customfieldtypes:float" } },
+        { id: "customfield_10028", name: "Story Points", custom: true, schema: { type: "number", custom: "com.atlassian.jira.plugin.system.customfieldtypes:float" } },
       ],
       issues: [{ fields: { summary: "a", customfield_10015: "2026-01-01", customfield_10040: { value: "Blue" } } }, { fields: { summary: "b", customfield_10040: { value: "Red" } } }],
       priorities: [{ id: "1", name: "Highest" }, { id: "2", name: "High" }], issueTypes: [{ id: "10001", name: "Epic", hierarchyLevel: 1 }, { id: "10003", name: "Task", hierarchyLevel: 0 }],
     }),
   }];
   return <JiraConnectionsView catalogs={catalogs} connections={connections} canAdmin={q.role !== "viewer"} configured={q.configured !== "0"} status={q.status} connectAction={connectNoop} disconnectAction={disconnectNoop}
-    projectLinks={q.state === "none" ? [] : projectLinks} choices={choices} sync={sync} basePath="/dev/jira" section={section} saveProjectAction={formNoop} readAction={formNoop} checkAction={connectNoop} retryAction={retryNoop} canEdit={q.role !== "viewer"} reviewAction={formNoop} fieldConfigAction={formNoop} />;
+    projectLinks={q.state === "none" ? [] : projectLinks} choices={choices} sync={sync} basePath="/dev/jira" section={section} saveProjectAction={formNoop} readAction={formNoop} checkAction={connectNoop} retryAction={retryNoop} canEdit={q.role !== "viewer"} reviewAction={formNoop} fieldConfigAction={formNoop} copyAction={formNoop}
+    header={{ linked: q.state === "none" ? 0 : 1, waiting: q.issues === "none" ? 0 : 40, customised: q.config === "changed", lastCheck: "2026-11-03T05:30:00Z" }} selectedProject="p1" />;
 }

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   LEADERSHIP_COLUMNS, valueTypeMix, changesThisWeek, draftWeeklyUpdate, healthByProject, needsAttention, topItems, weekWindow, type AuditChange,
 } from "./leadership";
+import { buildDigest } from "./leadership-digest";
 
 const projects = [{ id: "p1", name: "Platform" }, { id: "p2", name: "Marketplace" }];
 const row = (id: string, rank: number, extra: Record<string, unknown> = {}) => ({ id, item_code: `R-${String(rank).padStart(2, "0")}`, initiative_name: `Item ${rank}`, stack_rank: rank, home_project: "p1", ...extra });
@@ -85,7 +86,7 @@ describe("valueTypeMix", () => {
     const rows = [row("a", 1, { value_type: "Defend revenue" }), row("b", 2, { value_type: "Defend revenue" }), row("c", 3, { value_type: "New revenue" }), row("d", 4)];
     const m = valueTypeMix(rows);
     expect(m.map((x) => [x.label, x.count, x.pct])).toEqual([
-      ["New revenue", 1, 25], ["Increase revenue", 0, 0], ["Defend revenue", 2, 50], ["Decrease costs", 0, 0], ["Other", 0, 0], ["No value type", 1, 25],
+      ["New revenue", 1, 25], ["Grow existing revenue", 0, 0], ["Reduce costs", 0, 0], ["Defend revenue", 2, 50], ["Enabler", 0, 0], ["Other", 0, 0], ["No value type", 1, 25],
     ]);
   });
   it("is empty of shares when there are no initiatives", () => {
@@ -98,7 +99,7 @@ describe("changesThisWeek: what moved, from the audit log", () => {
   const ch = (o: Partial<AuditChange>): AuditChange => ({ itemId: "a", field: "stack_rank", old: 8, new: 5, at: "2026-10-20T09:00:00Z", actorId: "u1", via: "UI", ...o });
   it("a rank change is the net move over the week, up is better", () => {
     const m = changesThisWeek([ch({ old: 8, new: 6, at: "2026-10-20T09:00:00Z" }), ch({ old: 6, new: 5, at: "2026-10-21T09:00:00Z" })], rows);
-    expect(m).toEqual([{ itemId: "a", kind: "rank", text: "R-05 Item 5 moved up 3 places (#8 to #5)", at: "2026-10-21T09:00:00Z" }]);
+    expect(m).toEqual([{ itemId: "a", kind: "rank", text: "R-05 Item 5 moved up 3 places (#8 to #5)", at: "2026-10-21T09:00:00Z", from: 8, to: 5 }]);
   });
   it("a rank that ended where it started is not a change; down is worded as down", () => {
     expect(changesThisWeek([ch({ old: 5, new: 9, at: "2026-10-20T09:00:00Z" }), ch({ old: 9, new: 5, at: "2026-10-21T09:00:00Z" })], rows)).toEqual([]);
@@ -130,7 +131,8 @@ describe("draftWeeklyUpdate", () => {
     row("e", 5, { health: "On Track", g2m_date_est: "2027-02-01" }),
   ];
   const changes = changesThisWeek([{ itemId: "e", field: "stack_rank", old: 9, new: 5, at: "2026-10-21T09:00:00Z", actorId: "u1", via: "UI" }], rows);
-  const draft = draftWeeklyUpdate({ rows, projects, scopeLabel: "All projects", today: TODAY, changes });
+  const digestOf = (rs: typeof rows, rankMoves: typeof changes) => buildDigest({ feed: [], rows: rs, trackers: new Map(), documents: [], rankMoves, flags: new Map(), periodLabel: "this week", itemHref: (c) => `https://pv.test/portfolio?item=${c}`, documentHref: (c, d) => `https://pv.test/portfolio?item=${c}&tab=spec&doc=${d.id}`, changesHref: "https://pv.test/reports?report=changes" });
+  const draft = draftWeeklyUpdate({ rows, projects, scopeLabel: "All projects", today: TODAY, digest: digestOf(rows, changes) });
   it("has a heading, highlights, risks and asks, what moved, the next two weeks and the investment mix", () => {
     expect(draft.text.split("\n")[0]).toBe("All projects, week 43 (19 to 25 Oct 2026)");
     for (const h of ["Highlights", "Risks and asks", "What moved this week", "Next two weeks", "Investment mix"]) expect(draft.text).toContain(`\n${h}\n`);
@@ -140,8 +142,8 @@ describe("draftWeeklyUpdate", () => {
     expect(draft.text).toContain("R-01 Item 1 is in roll-out. G2M is 30 Oct.");
     expect(draft.text).toContain("R-02 Item 2 is blocked.");
     expect(draft.text).toContain("R-03 Item 3 is at risk. G2M Date (est) 1 Oct has passed.");
-    expect(draft.text).toContain("R-05 Item 5 moved up 4 places (#9 to #5)");
-    expect(draft.text).toContain("R-01 goes live 30 Oct.");
+    expect(draft.text).toContain("[R-05 Item 5](https://pv.test/portfolio?item=R-05) moved up 4 places (#9 to #5)");
+    expect(draft.text).toContain("R-01 Item 1 goes live 30 Oct.");
     expect(draft.text).toMatch(/1 in New revenue|No value type: 5/);
   });
   it("leaves a line for the ask, and says nothing is sent", () => {
@@ -152,11 +154,17 @@ describe("draftWeeklyUpdate", () => {
   it("lists the initiatives it is based on, for links", () => {
     expect(draft.sources.sort()).toEqual(["a", "b", "c", "d", "e"].sort());
   });
+  it("makes initiatives links when given an address, so the text can be pasted into an email", () => {
+    const linked = draftWeeklyUpdate({ rows, projects, scopeLabel: "All projects", today: TODAY, digest: digestOf(rows, changes), itemHref: (c) => `https://pv.test/portfolio?item=${c}` });
+    expect(linked.text).toContain("[R-04 Item 4](https://pv.test/portfolio?item=R-04) was completed on 21 Oct.");
+    expect(linked.text).toContain("[R-02 Item 2](https://pv.test/portfolio?item=R-02) is blocked.");
+    expect(linked.text).toContain("[R-01 Item 1](https://pv.test/portfolio?item=R-01) goes live 30 Oct.");
+  });
   it("is calm when nothing happened", () => {
-    const quiet = draftWeeklyUpdate({ rows: [row("x", 1, { health: "On Track" })], projects, scopeLabel: "Platform", today: TODAY, changes: [] });
+    const quiet = draftWeeklyUpdate({ rows: [row("x", 1, { health: "On Track" })], projects, scopeLabel: "Platform", today: TODAY, digest: digestOf([row("x", 1, { health: "On Track" })], []) });
     expect(quiet.text).toContain("Nothing completed this week.");
     expect(quiet.text).toContain("Nothing needs attention.");
-    expect(quiet.text).toContain("No rank, status or health changes this week.");
+    expect(quiet.text).toContain("No phase, health, priority, tracker or document changes this week.");
     expect(quiet.text).toContain("Nothing is due in the next two weeks.");
   });
 });

@@ -14,7 +14,7 @@ const scopeMenu = (page: Page) => page.getByRole("menu", { name: "Portfolio scop
 const row = (page: Page, id: string) => page.locator(`.ag-row[row-id="${id}"]`);
 const addFilter = async (page: Page, field: string, value?: string) => {
   const panel = page.getByRole("group", { name: "Filters", exact: true });
-  if (!(await panel.isVisible())) await page.getByRole("button", { name: /^(Add filter|\d+ filters?)/ }).click();
+  if (!(await panel.isVisible())) await page.getByRole("button", { name: /^Filter:/ }).click();
   await panel.getByRole("button", { name: "+ Add rule" }).click();
   const i = (await panel.locator(".filter-row").count());
   await chooseOption(page, panel, `Field of filter ${i}:`, field);
@@ -34,7 +34,7 @@ test.describe("scope switcher", () => {
     await expect(scopeButton(page)).toContainText("Customer-facing work");
     await expect(foot(page)).toContainText("5 of 30 items shown");
     expect(page.url()).toContain("scope=scope-b");
-    await expect(page.locator(".filter-chips")).toContainText("Scope: Customer-facing work");
+    await expect(page.locator(".filter-chips")).toContainText("Project: Customer-facing work");
     // ranks stay global: the first shown row is the third item, rank #3
     await expect(row(page, "item-3").locator('[col-id="stack_rank"]')).toHaveText("#3");
     await expect(row(page, "item-1")).toHaveCount(0);
@@ -130,7 +130,7 @@ test.describe("scope switcher", () => {
     await page.getByRole("button", { name: "Cancel" }).click();
     await scopeButton(page).click();
     await scopeMenu(page).getByRole("menuitemradio", { name: /Customer-facing work/ }).click();
-    await expect(page.locator(".filter-chips")).toContainText("Scope: Customer-facing work");
+    await expect(page.locator(".filter-chips")).toContainText("Project: Customer-facing work");
     await page.getByRole("button", { name: /more views$/ }).click();
     await expect(page.getByRole("dialog", { name: "Views" })).toBeVisible();
   });
@@ -230,11 +230,12 @@ test.describe("filters and search", () => {
 });
 
 test.describe("grouping", () => {
-  test("off by default; group by MoSCoW shows headers with counts; collapse hides rows; No grouping restores", async ({ page }) => {
+  test("off by default; group by MoSCoW shows headers with counts; collapse hides rows; Clear and Apply restore", async ({ page }) => {
     await open(page);
     await expect(page.getByRole("button", { name: /^Collapse group/ })).toHaveCount(0);
     await page.getByRole("button", { name: /^Group by/ }).click();
     await page.getByRole("menuitemradio", { name: "MoSCoW" }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     for (const g of ["Must", "Should"]) await expect(page.getByRole("button", { name: `Collapse group ${g}` })).toBeVisible();
     await expect(page.locator(".group-row", { hasText: "Must" })).toContainText("8 items");
     await expect(row(page, "item-1")).toHaveCount(1);
@@ -242,7 +243,8 @@ test.describe("grouping", () => {
     await expect(row(page, "item-1")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand group Must" })).toHaveAttribute("aria-expanded", "false");
     await page.getByRole("button", { name: /^Group by/ }).click();
-    await page.getByRole("menuitemradio", { name: "No grouping" }).click();
+    await page.getByRole("button", { name: "Clear", exact: true }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(page.locator(".group-row")).toHaveCount(0);
     await expect(row(page, "item-1")).toHaveCount(1);
   });
@@ -251,6 +253,7 @@ test.describe("grouping", () => {
     await open(page, `n=12&view=All columns&cols=all`);
     await page.getByRole("button", { name: /^Group by/ }).click();
     await page.getByRole("menuitemradio", { name: "MoSCoW" }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(page.locator(".group-row", { hasText: "Must" })).toContainText("3 items");
     await page.locator('.ag-row[row-id="item-1"] [col-id="moscow"]').click();
     await page.keyboard.press("Enter");
@@ -266,6 +269,7 @@ test.describe("grouping", () => {
     await addFilter(page, "effort", "XS");
     await page.getByRole("button", { name: /^Group by/ }).click();
     await page.getByRole("menuitemradio", { name: "Health" }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(foot(page)).toContainText("6 of 30 items shown");
     await page.getByRole("button", { name: "Select all", exact: false }).first().isVisible().catch(() => false);
     await page.locator('.ag-row[row-id="item-1"] input[type="checkbox"]').first().check();
@@ -275,11 +279,11 @@ test.describe("grouping", () => {
 });
 
 test.describe("grid view changes", () => {
-  test("the Columns picker reaches all 168 fields, grouped, with later phases marked", async ({ page }) => {
+  test("the Columns picker reaches all 171 fields, grouped, with later phases marked", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: /columns shown$/ }).click();
+    await page.getByRole("button", { name: /^Columns:/ }).click();
     const panel = page.getByRole("group", { name: "Choose columns" });
-    await expect(panel.locator('input[type="checkbox"]')).toHaveCount(168);
+    await expect(panel.locator('input[type="checkbox"]')).toHaveCount(171);
     expect(await panel.locator("fieldset").count()).toBeGreaterThan(8);
     await expect(panel.locator("fieldset").first().locator("legend")).toHaveText("What");
     await expect(panel).toContainText("arrives in phase 7");

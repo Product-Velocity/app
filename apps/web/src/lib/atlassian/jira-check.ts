@@ -27,6 +27,7 @@ export async function checkJiraLinks(todo: LinkToRead[], sitesOf: Map<string, Si
       const r = await refreshJiraProject(l, site.url);
       for (const x of [report, t]) { x.projects++; x.checked += r.linked.checked; x.changed += r.linked.changed; x.stale += r.linked.stale; x.missing += r.linked.missing.length; x.light += r.light; x.trees += r.trees.applied; x.treeNodes += r.trees.nodes; x.treeFailed += r.trees.failed; }
       if (r.trees.error) console.error(JSON.stringify({ jira: "check-tree", link: l.id, error: r.trees.error }));
+      if (r.dates.error) console.error(JSON.stringify({ jira: "check-dates", link: l.id, error: r.dates.error }));
       for (const c of r.linked.changedIssues) events.push({ tenant_id: l.tenant_id, link_id: l.id, source: opts.source, kind: "change", issue_key: c.key, summary: describeLines(c.lines), state: "processed", last_error: null });
     } catch (e) {
       for (const x of [report, t]) x.failed++;

@@ -66,7 +66,7 @@ describe("receiveFromGithub: Sync with GitHub, the check", () => {
     issue(sc, 31, { state: "closed", stateReason: "completed", closedAt: "2026-10-27T11:00:00Z", updatedAt: "2026-10-27T11:00:00Z" });
     const admin = fakeAdmin({ links: [link("i1", 31)], applied: { 31: { item_id: "i1", stale: false, changes: { gh_state: ["open", "closed_completed"], status: ["In Progress", "Completed"] } } } });
     const [r] = await receiveFromGithub(admin, sc, connection, ["i1"]);
-    expect(r).toMatchObject({ status: "received", received: [{ label: "GitHub State", from: "Open", to: "Closed as completed" }, { label: "Build Status", from: "In Progress", to: "Completed" }] });
+    expect(r).toMatchObject({ status: "received", received: [{ label: "Tracker State", from: "Open", to: "Closed as completed" }, { label: "Build Status", from: "In Progress", to: "Completed" }] });
     const applyCall = asCalls(admin).find((c) => c.table === "github_apply_issue");
     expect(applyCall?.payload).toMatchObject({ p_state: "closed", p_state_reason: "completed", p_number: 31 });
     expect(asCalls(admin).find((c) => c.table === "sync_events" && c.op === "insert")?.payload).toMatchObject({ source: "reconcile", issue_number: 31, item_id: "i1", applied: { status: ["In Progress", "Completed"] } });

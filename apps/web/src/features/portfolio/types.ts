@@ -15,7 +15,9 @@ export type LoadedItem = {
 export type GridItem = LoadedItem & { project_rank: number };
 
 /** A Jira link of an initiative: the issue, who owns the initiative, and what Jira says about it. */
-export type JiraLinkInfo = { mode: "push" | "follow"; issueKey: string; url: string | null; status: string | null; category: "new" | "indeterminate" | "done" | null; lastSynced: string | null };
+export type JiraLinkInfo = { mode: "push" | "follow"; issueKey: string; url: string | null; status: string | null; category: "new" | "indeterminate" | "done" | null; lastSynced: string | null;
+  /** Build start, completion and build days: the tracker's own dates (issue #421), from item_build_cycle. */
+  buildStartedAt?: string | null; buildCompletedAt?: string | null; buildDays?: number | null };
 
 export type Lookups = {
   projects: { id: string; name: string }[];
@@ -44,10 +46,15 @@ export type IssueTreeRow = {
   state: "open" | "closed"; stateReason: string | null; assignees: string[]; createdBy: "app" | "claude" | "engineer"; updatedAt: string;
 };
 
+/** An epic asked for under an initiative's Jira issue (issue #431): pending until Sync with Jira sets its parent, linked once it did, failed with Jira's reason. */
+export type JiraEpicRequestRow = { key: string; state: "pending" | "linked" | "failed"; lastError: string | null; previousParent: string | null };
+
 /** One child (level 1) or sub-task (level 2) of the Jira issue an initiative is linked to, as Jira last reported it. Read only. */
 export type JiraTreeRow = {
   key: string; parentKey: string; level: 1 | 2; position: number; title: string; type: string | null; status: string | null;
   category: "new" | "indeterminate" | "done" | null; assignee: string | null; url: string | null; updatedAt: string | null;
+  /** Set when the row comes from the issue list read earlier, not from the full read of the children (no assignee is known). */
+  fromList?: true;
 };
 
 /** One row of the Trash: what was deleted, by whom and when (no commercial fields). */

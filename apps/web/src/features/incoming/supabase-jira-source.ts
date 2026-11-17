@@ -1,4 +1,5 @@
 import { copyJiraIssueTexts, refreshPulledFromJira } from "@/app/(workspace)/incoming/copy-jira-texts";
+import { readPulledJira } from "@/app/(workspace)/incoming/read-pulled-jira";
 import { leavingChildrenOut } from "@/lib/atlassian/child-filter";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BatchOutcome, IncomingIssue, IncomingRule, IncomingSource, Ownership, PullState, RefreshResult, RuleResult } from "./types";
@@ -65,6 +66,8 @@ export class SupabaseJiraIncomingSource implements IncomingSource {
     const created = out.filter((o) => o.ok && o.itemId).map((o) => o.itemId as string);
     if (created.length === 0) return out;
     const r = await copyJiraIssueTexts(created).catch(() => ({ copied: 0, failed: created.length }));
+    // then the first read of their Jira status, children (epics under an Initiative, stories under an epic) and build dates, as Sync with Jira would do (never fails the pull-in)
+    await readPulledJira(created).catch(() => null);
     if (r.failed === 0) return out;
     const first = out.find((o) => o.ok);
     return out.map((o) => (o === first ? { ...o, note: `The text of ${r.failed} ${r.failed === 1 ? "issue" : "issues"} could not be read from Jira, so ${r.failed === 1 ? "its" : "their"} Description is empty.` } : o));

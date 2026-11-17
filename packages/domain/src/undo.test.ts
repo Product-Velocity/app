@@ -80,7 +80,7 @@ describe("describeEdit", () => {
     expect(describeEdit({ type: "field", itemId: "i", key: "R-07", field: "initiative_name", before: "Old", after: "New name" }, labels)).toBe("R-07 Initiative Name: Old to New name");
     expect(describeEdit({ type: "field", itemId: "i", key: "R-07", field: "value_12m", before: null, after: 120000 }, labels)).toBe("R-07 Business Value (12m run-rate): empty to 120,000");
     expect(describeEdit({ type: "field", itemId: "i", key: "R-07", field: "start_date", before: "2027-03-31", after: null }, labels)).toMatch(/R-07 Start Date: .* to empty/);
-    expect(describeEdit({ type: "field", itemId: "i", key: "R-07", field: "home_project", before: "p1", after: "p2" }, labels)).toBe("R-07 Home Project: Project p1 to Project p2");
+    expect(describeEdit({ type: "field", itemId: "i", key: "R-07", field: "home_project", before: "p1", after: "p2" }, labels)).toBe("R-07 Project: Project p1 to Project p2");
     const draft = { initiative_name: "Faster search", home_project: "p1", product_manager: null, effort: null, moscow: null };
     expect(describeEdit({ type: "create", itemId: "i", key: "R-12", draft }, labels)).toBe('Added R-12 "Faster search"');
     expect(describeEdit({ type: "create", itemId: "i", key: "…", draft }, labels)).toBe('Added "Faster search"');

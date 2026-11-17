@@ -1,0 +1,20 @@
+---
+date: 2026-11-17
+by: Ashu, Claude
+request: 480
+---
+**The build and delivery fields that already have data are shipped, build time comes from the tracker's own dates, and there is a Build time report.** Ashu asked on 2026-11-17 ("some say phase 3 and 4, but I believe we have many or most of them already. We should use them, also in the reports on build time/weeks").
+
+**What was wrong (found by counting production, counts only).** 70 fields said "arrives in phase N". A field counts as shipped only if its dictionary phase is 1 or it is on the hand-kept `SHIPPED_EARLY` list (`packages/domain/src/registry.ts`), so live fields were labelled as not built **and left out of the default views**: the Delivery view lists Build Status, Delivery Progress, Blocked Issues, Open PRs, CI Status and more, and showed none of them.
+
+**Shipped now** (data or a code path exists today): Build Status (all 220 initiatives); Issues Closed and Total (210); Delivery Progress %, Blocked and Stale Issues, Open and Merged PRs, CI Status, GitHub State and Last Activity (the 161 linked to GitHub); Schedule Variance; Ready for Build By; Weighted Value and Weighted Value per Build-Week; Review Overdue, Days in Phase and Item Age; Time in each phase, Time to Market, Actual Build (weeks) and Build vs Estimate High. The value fields have no inputs entered yet in production, but the system computes them.
+
+**Left out on purpose.** (a) *Assignees, Breakdown Route and Breakdown Status*: the dictionary calls them editable, and shipping a field early also opens its editing in the grid (`fields.test.ts` guards it), which is not built. They have data (Breakdown 44, Assignees 8) and need a decision: ship them read only, or build their editing. (b) *No data path*: Iteration, Target Date, Latest Release, Planned Scope, Scope Added (0 values), Blocked Days and G2M Slip (always empty), Fit by Team, Alignment, and every Outcome field.
+
+**Build time uses the tracker's dates.** Building Time (days), Actual Build (weeks) and Build vs Estimate High were worked out from the start of the *next* phase (Start Beta ...), which is rarely filled: **3 initiatives had a value in production; with Start Building and Build Completed (issue #421) 47 have one.** Migration `20261117165140_build_time_from_tracker.sql` replaces the view `items_computed` (same columns, same order and types, only the expression of `time_building_days` changes): the build ends at the tracker's completion (a GitHub ticket closed as completed, else a Jira issue resolved while its status category is done), and at the start of the next phase when there is none, as before; never negative; a reopened issue or a ticket closed as not planned has no tracker end. Start Building is the column as it is (the tracker's real date for Jira; for GitHub the first phase change to Build or the manual date: issue #422 is still open).
+
+**A Build time report** on the Reports Overview, next to Time to Market: median and average weeks, how many were counted and how many started building and have no end yet (never counted as zero), the median share of the high estimate and how many took longer, median weeks by Team and by Effort, and every initiative as a dot (click opens it). It reads the same Actual Build (weeks) field as the grid, so the two always agree. The Build step of "Median days in each phase" now uses the build time too. Team-level only (rule 8).
+
+**Also in this change: the action button on a flag** (Ashu, 2026-11-17: "button is not so nicely designed") is a compact pill: filled blue with an arrow for a move made at once, outlined for a request that asks for a decision; contrast 4.56:1 and 6.62:1.
+
+Choices made without asking: the dictionary phase numbers were not edited (the `SHIPPED_EARLY` mechanism is the established way and keeps the build plan intact); the default views grow by the shipped fields in their listed positions; the browser test of the default views now reads the early list from the registry source so it cannot drift. Part 2 (a Jira/GitHub status field to group and filter on) follows in its own pull request.

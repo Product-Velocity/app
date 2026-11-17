@@ -122,3 +122,63 @@ export async function probeWebhook(call: ProbeCall, projectKey: string, callback
   }
   return steps;
 }
+
+const PROJECT_KEY = /^[A-Z][A-Z0-9_]{1,19}$/;
+
+/**
+ * J2/J4 (issue #431), WRITES, removes everything it makes: creates ONE Initiative in `initiativeProject` and ONE epic in `epicProject` (both labelled
+ * "pv-spike"), makes the epic a child of the Initiative, reads the parent back and the children query, then deletes the epic and the Initiative.
+ * Answers: can an Initiative be created there (a team-managed project cannot), can an epic of another project take it as parent, and does the
+ * children query see it. Needs Ashu's go-ahead per run (the write probes are separate links).
+ */
+export async function probeInitiativeWrite(call: ProbeCall, initiativeProject: string, epicProject: string, opts: { sleep?: Sleep; now?: () => number } = {}): Promise<ProbeStep[]> {
+  const sleep: Sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+  const now = opts.now ?? Date.now;
+  if (!PROJECT_KEY.test(initiativeProject) || !PROJECT_KEY.test(epicProject)) return [{ label: "Initiative write (J2/J4)", status: 0, note: "Needs two project keys (arg=INITIATIVES,EPICS); nothing was written." }];
+  const steps: ProbeStep[] = [];
+  const created: string[] = [];
+  const typeAt = async (project: string, level: number) => {
+    const p = await call("GET", `/project/${project}`);
+    const t = arr(obj(p.json).issueTypes).find((x) => Number(x.hierarchyLevel) === level && !x.subtask);
+    return { status: p.status, id: t ? String(t.id) : "", name: t ? String(t.name) : "" };
+  };
+  try {
+    const it = await typeAt(initiativeProject, 2);
+    if (it.status !== 200) return [{ label: "Initiative project", status: it.status, note: `Jira did not return the project "${initiativeProject}" (HTTP ${it.status}): the key is wrong or this sign-in cannot see it. Nothing was written.` }];
+    if (!it.id) return [{ label: "Initiative type in the Initiative project", status: it.status, note: "That project has no issue type above Epic (a team-managed project cannot have one). Nothing was written." }];
+    const et = await typeAt(epicProject, 1);
+    if (et.status !== 200) return [{ label: "Epic project", status: et.status, note: `Jira did not return the project "${epicProject}" (HTTP ${et.status}): the key is wrong or this sign-in cannot see it. Nothing was written.` }];
+    if (!et.id) return [{ label: "Epic type in the epic project", status: et.status, note: "That project has no Epic level type. Nothing was written." }];
+    const i = await call("POST", "/issue", { fields: { project: { key: initiativeProject }, issuetype: { id: it.id }, summary: "PV spike J2 test initiative (safe to delete)", labels: [IDEA_LABEL] } });
+    const initiative = String(obj(i.json).key ?? "");
+    if (initiative) created.push(initiative);
+    steps.push({ label: `Create an ${it.name}`, status: i.status, note: initiative ? `created ${initiative}` : (whyJira(i.json) || "refused") });
+    if (!initiative) return steps;
+    const e = await call("POST", "/issue", { fields: { project: { key: epicProject }, issuetype: { id: et.id }, summary: "PV spike J2 test epic (safe to delete)", labels: [IDEA_LABEL] } });
+    const epic = String(obj(e.json).key ?? "");
+    if (epic) created.push(epic);
+    steps.push({ label: `Create an ${et.name} in ${epicProject}`, status: e.status, note: epic ? `created ${epic}` : (whyJira(e.json) || "refused") });
+    if (!epic) return steps;
+    const u = await call("PUT", `/issue/${epic}`, { fields: { parent: { key: initiative } } });
+    steps.push({ label: "Set the Initiative as the epic's parent", status: u.status, note: u.status === 204 ? `done${initiativeProject === epicProject ? " (same project)" : " (a different project)"}` : (whyJira(u.json) || "refused") });
+    const r = await call("GET", `/issue/${epic}?fields=parent`);
+    steps.push({ label: "Read the parent back", status: r.status, note: `parent key matches: ${String(obj(obj(obj(r.json).fields).parent).key) === initiative}` });
+    // Jira's search index can lag a moment behind a write, so the first answer may be empty: ask again every 2 s for up to 10 s and report how long it took
+    const started = now();
+    let c = await call("GET", `/search/jql?${new URLSearchParams({ jql: `parent in ("${initiative}")`, maxResults: "10", fields: "summary" })}`);
+    let tries = 1;
+    while (c.status === 200 && arr(obj(c.json).issues).length === 0 && tries < 6) {
+      await sleep(2000);
+      c = await call("GET", `/search/jql?${new URLSearchParams({ jql: `parent in ("${initiative}")`, maxResults: "10", fields: "summary" })}`);
+      tries++;
+    }
+    const found = arr(obj(c.json).issues).length;
+    steps.push({ label: "The children query sees the epic (asked again every 2 s for up to 10 s)", status: c.status, note: c.status === 200 ? `${found} child(ren) found after ${tries} ${tries === 1 ? "try" : "tries"}, about ${Math.round((now() - started) / 1000)} s after the epic was linked${found === 0 ? " (the search never showed it: a real gap, not just lag)" : tries > 1 ? " (the search index lagged behind the write)" : ""}` : (whyJira(c.json) || "refused") });
+  } finally {
+    for (const key of created.reverse()) {
+      const d = await call("DELETE", `/issue/${key}`);
+      steps.push({ label: `Delete ${key}`, status: d.status, note: d.status === 204 ? "deleted" : `NOT deleted, remove it by hand (${whyJira(d.json) || "refused"})` });
+    }
+  }
+  return steps;
+}

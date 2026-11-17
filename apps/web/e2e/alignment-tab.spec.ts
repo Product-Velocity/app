@@ -44,12 +44,12 @@ test("a tie is written with =, and an initiative without a result says so", asyn
 
 test("the Crowd Rank column shows the latest result, is empty without one and cannot be edited; the keyboard reaches the tab", async ({ page }) => {
   await open(page, "n=40&role=admin&view=Prioritisation&cols=all");
-  await page.getByRole("button", { name: /columns shown$/ }).click();
+  await page.getByRole("button", { name: /^Columns:/ }).click();
   const columns = page.getByRole("group", { name: "Choose columns" });
   await columns.getByRole("button", { name: /^Alignment/ }).click();
   await columns.getByRole("checkbox", { name: /Crowd Rank/ }).check();
   await page.getByRole("button", { name: /^Apply columns/ }).click();
-  await page.getByRole("button", { name: /columns shown$/ }).scrollIntoViewIfNeeded();
+  await page.getByRole("button", { name: /^Columns:/ }).scrollIntoViewIfNeeded();
   await page.evaluate(() => (document.querySelector('.ag-body-horizontal-scroll-viewport') as HTMLElement | null)?.scrollTo({ left: 100000 }));
   await expect(cell(page, "item-1", "crowd_rank")).toHaveText("2");
   await expect(cell(page, "item-2", "crowd_rank")).toHaveText("3");

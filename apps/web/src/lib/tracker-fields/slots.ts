@@ -19,7 +19,7 @@ export const NEVER_SYNCED: ReadonlySet<string> = new Set([
   "value_12m", "value_basis", "value_weighted", "value_weighted_per_build_week", "time_to_first_revenue_months", "confidence",
   "customers_requesting", "target_customers", "customers_live", "adoption_pct",
   "decision", "decided_by", "decision_date", "cost_of_not_doing",
-  "kr_metric", "kr_start", "kr_target", "kr_unit", "kr_direction", "realized_kr_value", "kr_realized_pct", "realized_per_year", "measured_period",
+  "kr_metric", "kr_start", "kr_target", "kr_unit", "kr_direction", "okr_objective", "business_line", "realized_kr_value", "kr_realized_pct", "realized_per_year", "measured_period",
   "outcome_verdict", "outcome_status", "outcome_review_date", "value_variance_pct", "learning", "support_hours_saved_month", "retention_pct", "time_to_first_use_days",
   "visibility",
 ]);
@@ -32,10 +32,11 @@ export const FROM_TRACKER: Record<Tracker, ReadonlyMap<string, string>> = {
     ["open_prs", "Linked pull requests, open"], ["merged_prs", "Linked pull requests, merged"], ["gh_last_activity", "Latest activity on the issues"],
     ["blocked_issues", "Sub-issues labelled blocked"], ["stale_issues", "Open sub-issues without recent activity"], ["latest_release", "Newest release of the repositories"],
     ["ci_status", "Checks on the default branch"], ["repositories", "Repositories of the linked issues"],
-    ["gh_project_status", "Project board: Status field"], ["gh_iteration", "Project board: Iteration field"], ["gh_target_date", "Project board: Due or target date field"],
+    ["tracker_status", "Project board: Status field, else the state of the issue"], ["gh_project_status", "Project board: Status field"], ["gh_iteration", "Project board: Iteration field"], ["gh_target_date", "Project board: Due or target date field"],
   ]),
   jira: new Map([
     ["status", "Issue status category (to do, in progress, done): Build Status"],
+    ["tracker_status", "The issue's status name, as Jira spells it"],
     ["issues_total", "Children and sub-tasks of the issue"], ["issues_closed", "Children and sub-tasks in a done status category"], ["delivery_progress_pct", "Done of total children"],
   ]),
 };
@@ -63,7 +64,7 @@ export type Slot = {
   accepts?: readonly CatalogKind[];
   defaultFieldId?: string;
   idPattern?: RegExp;
-  /** For a label toggle: which label family its text names (the prefix before the value, e.g. `pv:moscow/`). Stealth mode lets a person change it. */
+  /** For a label toggle: which label family its text names (the prefix before the value, e.g. `pm:moscow/`). Stealth mode lets a person change it. */
   nameKind?: LabelKind;
   /** A switch that is OFF unless a person turns it on (the optional labels): with no saved row nothing is sent for it. Absent or true = on by default. */
   defaultOn?: boolean;
@@ -83,22 +84,22 @@ export const SLOTS: readonly Slot[] = [
   { id: "jira.body.summary", tracker: "jira", pvKey: "summary", kind: "fixed", direction: "two_way", defaultTarget: "Description, section Summary", fixedReason: "The sections of the description are compared both ways, so they stay as they are.", store: "config" },
   { id: "jira.description", tracker: "jira", pvKey: "description", kind: "fixed", direction: "two_way", defaultTarget: "Description, section Description (Atlassian Document Format)", fixedReason: "The sections of the description are compared both ways, so they stay as they are.", store: "config" },
   { id: "jira.body.hypothesis", tracker: "jira", pvKey: "hypothesis", kind: "fixed", direction: "two_way", defaultTarget: "Description, section Hypothesis", fixedReason: "The sections of the description are compared both ways, so they stay as they are.", store: "config" },
-  optional("jira.label.tags", "tags", "jira", "Label pv:tag/<tag>, one per tag, at most 10 (off by default)"),
-  optional("jira.label.focus", "focus_area", "jira", "Label pv:focus/<value> (off by default)"),
-  label("jira.label.value", "value_type", "jira", "Label pv:value/<type>, the Business Value Type only, never the amount"),
-  label("jira.label.quarter", "g2m_quarter", "jira", "Label pv:quarter/<quarter>, e.g. pv:quarter/q3-2027"),
+  optional("jira.label.tags", "tags", "jira", "Label pm:tag/<tag>, one per tag, at most 10 (off by default)"),
+  optional("jira.label.focus", "focus_area", "jira", "Label pm:focus/<value> (off by default)"),
+  label("jira.label.value", "value_type", "jira", "Label pm:value/<type>, the Business Value Type only, never the amount"),
+  label("jira.label.quarter", "g2m_quarter", "jira", "Label pm:quarter/<quarter>, e.g. pm:quarter/q3-2027"),
   label("jira.body.artifacts", "artifacts", "jira", "Description, section Links"),
   label("jira.body.files", "screenshots", "jira", "Description, section Files (share links of attached files)"),
-  label("jira.label.moscow", "moscow", "jira", "Label pv:moscow/<value>"),
-  label("jira.label.rank", "stack_rank", "jira", "Label pv:rank/<band> (top 10, 25, 50, later; never the number)"),
-  label("jira.label.type", "change_type", "jira", "Label pv:type/<value>"),
-  label("jira.label.group", "theme", "jira", "Label pv:group/<name>"),
-  label("jira.label.project", "home_project", "jira", "Label pv:project/<project>"),
+  label("jira.label.moscow", "moscow", "jira", "Label pm:moscow/<value>"),
+  label("jira.label.rank", "stack_rank", "jira", "Label pm:rank/<band> (top 10, 25, 50, later; never the number)"),
+  label("jira.label.type", "change_type", "jira", "Label pm:type/<value>"),
+  label("jira.label.group", "theme", "jira", "Label pm:group/<name>"),
+  label("jira.label.project", "home_project", "jira", "Label pm:project/<project>"),
   // stealth mode (issue #411): not Product Velocity fields, so they have no row in the mapping table; the "Names" card of the form shows them
   { id: "jira.label.base", tracker: "jira", pvKey: "", kind: "toggle", direction: "to_tracker", defaultTarget: "Base label product-velocity on every issue", store: "config" },
-  { id: "jira.name.removed", tracker: "jira", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Label pv:removed (after a confirmed close)", store: "config" },
-  { id: "jira.name.define", tracker: "jira", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Label pv:define (while in Define)", store: "config" },
-  { id: "jira.name.marker", tracker: "jira", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Hidden label pv:item/<code> on a new issue", store: "config" },
+  { id: "jira.name.removed", tracker: "jira", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Label pm:removed (after a confirmed close)", store: "config" },
+  { id: "jira.name.define", tracker: "jira", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Label pm:define (while in Define)", store: "config" },
+  { id: "jira.name.marker", tracker: "jira", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Hidden label pm:item/<code> on a new issue", store: "config" },
   { id: "jira.priority", tracker: "jira", pvKey: "moscow", kind: "field", direction: "to_tracker", defaultTarget: "Priority (one Jira priority per MoSCoW value; not sent until chosen)", accepts: ["select"], store: "jira_field_map" },
   { id: "jira.startDate", tracker: "jira", pvKey: "planned_start", kind: "field", direction: "to_tracker", defaultTarget: "Start date custom field (not sent until chosen)", accepts: ["date"], idPattern: CUSTOM, store: "jira_field_map" },
   { id: "jira.theme", tracker: "jira", pvKey: "focus_area", kind: "field", direction: "to_tracker", defaultTarget: "Single-line text custom field, e.g. Theme (not sent until chosen)", accepts: ["text"], idPattern: CUSTOM, store: "jira_field_map" },
@@ -109,22 +110,22 @@ export const SLOTS: readonly Slot[] = [
   { id: "github.body.summary", tracker: "github", pvKey: "summary", kind: "fixed", direction: "two_way", defaultTarget: "Managed block, ## Summary", fixedReason: "The block's texts are compared both ways, so the sections stay as they are.", store: "config" },
   { id: "github.body.description", tracker: "github", pvKey: "description", kind: "fixed", direction: "two_way", defaultTarget: "Managed block, ## Description", fixedReason: "The block's texts are compared both ways, so the sections stay as they are.", store: "config" },
   { id: "github.body.hypothesis", tracker: "github", pvKey: "hypothesis", kind: "fixed", direction: "two_way", defaultTarget: "Managed block, ## Hypothesis", fixedReason: "The block's texts are compared both ways, so the sections stay as they are.", store: "config" },
-  optional("github.label.tags", "tags", "github", "Label pv:tag/<tag>, one per tag, at most 10 (off by default)"),
-  optional("github.label.focus", "focus_area", "github", "Label pv:focus/<value> (off by default)"),
-  label("github.label.value", "value_type", "github", "Label pv:value/<type>, the Business Value Type only, never the amount"),
-  label("github.label.quarter", "g2m_quarter", "github", "Label pv:quarter/<quarter>, e.g. pv:quarter/q3-2027"),
+  optional("github.label.tags", "tags", "github", "Label pm:tag/<tag>, one per tag, at most 10 (off by default)"),
+  optional("github.label.focus", "focus_area", "github", "Label pm:focus/<value> (off by default)"),
+  label("github.label.value", "value_type", "github", "Label pm:value/<type>, the Business Value Type only, never the amount"),
+  label("github.label.quarter", "g2m_quarter", "github", "Label pm:quarter/<quarter>, e.g. pm:quarter/q3-2027"),
   label("github.body.artifacts", "artifacts", "github", "Managed block, ## Links"),
   label("github.body.files", "screenshots", "github", "Managed block, ## Files (share links, private repositories only)"),
-  label("github.label.moscow", "moscow", "github", "Label pv:moscow/<value>"),
-  label("github.label.rank", "stack_rank", "github", "Label pv:rank/<band> (top 10, 25, 50, later; never the number)"),
-  label("github.label.type", "change_type", "github", "Label pv:type/<value>"),
-  label("github.label.group", "theme", "github", "Label pv:group/<name>"),
-  label("github.label.project", "home_project", "github", "Label pv:project/<project>"),
+  label("github.label.moscow", "moscow", "github", "Label pm:moscow/<value>"),
+  label("github.label.rank", "stack_rank", "github", "Label pm:rank/<band> (top 10, 25, 50, later; never the number)"),
+  label("github.label.type", "change_type", "github", "Label pm:type/<value>"),
+  label("github.label.group", "theme", "github", "Label pm:group/<name>"),
+  label("github.label.project", "home_project", "github", "Label pm:project/<project>"),
   label("github.milestone", "g2m_date_est", "github", "Milestone “YYYY Qn” (the quarter of the G2M date)"),
   label("github.issueType", "change_type", "github", "Organisation issue type (Feature, Improvement or Bug), when the organisation has it"),
   { id: "github.label.base", tracker: "github", pvKey: "", kind: "toggle", direction: "to_tracker", defaultTarget: "Base label product-velocity on every issue", store: "config" },
-  { id: "github.name.removed", tracker: "github", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Label pv:removed (after a confirmed close)", store: "config" },
-  { id: "github.name.define", tracker: "github", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Label pv:define (while in Define)", store: "config" },
+  { id: "github.name.removed", tracker: "github", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Label pm:removed (after a confirmed close)", store: "config" },
+  { id: "github.name.define", tracker: "github", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Label pm:define (while in Define)", store: "config" },
   { id: "github.name.block", tracker: "github", pvKey: "", kind: "name", direction: "to_tracker", defaultTarget: "Hidden markers <!-- pv:begin --> in the issue body", store: "config" },
   { id: "github.hideBrand", tracker: "github", pvKey: "", kind: "toggle", direction: "to_tracker", defaultTarget: "Product Velocity name and link in the issue footer and in label descriptions", store: "config", defaultOn: false },
   { id: "github.board.priority", tracker: "github", pvKey: "moscow", kind: "field", direction: "to_tracker", defaultTarget: "Project board: the field named Priority (P0, P1, P2)", accepts: ["select"], store: "github_board" },
@@ -150,7 +151,7 @@ export type MappingRow = {
   slot: Slot | null;
 };
 
-/** The whole default list for one tracker: one row per slot, and one row for each of the 169 fields that has none. Same order as the dictionary. */
+/** The whole default list for one tracker: one row per slot, and one row for each of the 174 fields that has none. Same order as the dictionary. */
 export function mappingRows(tracker: Tracker): MappingRow[] {
   const mine = slotsFor(tracker);
   const rows: MappingRow[] = [];

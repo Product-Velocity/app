@@ -6,7 +6,7 @@ import { ReconnectNeeded } from "./token-provider";
 
 export type JiraRequest = (method: "GET" | "POST" | "PUT", path: string, body?: unknown) => Promise<{ status: number; json: unknown; retryAfterSec?: number }>;
 export type WriteOutcome =
-  | { ok: true; key: string; id: string | null; created: boolean }
+  | { ok: true; key: string; id: string | null; created: boolean; /** Optional fields Jira refused (not on the issue type's screen) and that were left out so the rest could be sent. */ dropped?: string[] }
   | { ok: false; kind: "reconnect" | "rejected" | "rate_limited" | "unavailable" | "gone"; message: string };
 
 const MAX_TRIES = 4;
@@ -44,12 +44,31 @@ async function run(req: () => ReturnType<JiraRequest>, sleep: Sleep): Promise<{ 
   }
 }
 
+/** The optional fields a refusal may leave out and retry without: Priority, the due date and custom fields. Never the summary, description, labels, project, type or parent. */
+const OPTIONAL_FIELD = /^(priority|duedate|customfield_\d{1,9})$/;
+const FIELD_NAME: Record<string, string> = { priority: "Priority", duedate: "Due date" };
+/** The optional fields of `fields` that a 400 names in its `errors`, with Jira's own reason. */
+export function refusedOptional(json: unknown, fields: Record<string, unknown>): { key: string; why: string }[] {
+  return Object.entries(obj(obj(json).errors)).filter(([k]) => OPTIONAL_FIELD.test(k) && k in fields).map(([k, v]) => ({ key: k, why: String(v).replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 160) }));
+}
+/** "Priority (Field 'priority' cannot be set. ...): add it to the issue type's screen in Jira or switch it off in Field configuration." */
+export const droppedNote = (d: { key: string; why: string }[]) => `Not sent: ${d.map((x) => `${FIELD_NAME[x.key] ?? x.key} (${x.why})`).join("; ")}. Add the field to the issue type's screen in Jira, or switch it off in the field configuration.`;
+
 /** Create an issue; the body is built by buildJiraPayload. 201 gives the key. */
 export async function createIssue(call: JiraRequest, fields: Record<string, unknown>, sleep: Sleep = realSleep): Promise<WriteOutcome> {
   const x = await run(() => call("POST", "/issue", { fields }), sleep);
   if ("fail" in x) return x.fail;
   const { status, json } = x.r;
   if (status === 201 && typeof obj(json).key === "string") return { ok: true, key: String(obj(json).key), id: typeof obj(json).id === "string" ? String(obj(json).id) : null, created: true };
+  // a field that is not on the issue type's screen must not stop the issue: send it again without those optional fields and say so
+  const refused = status === 400 ? refusedOptional(json, fields) : [];
+  if (refused.length > 0) {
+    const rest = Object.fromEntries(Object.entries(fields).filter(([k]) => !refused.some((r) => r.key === k)));
+    const y = await run(() => call("POST", "/issue", { fields: rest }), sleep);
+    if ("fail" in y) return y.fail;
+    if (y.r.status === 201 && typeof obj(y.r.json).key === "string") return { ok: true, key: String(obj(y.r.json).key), id: typeof obj(y.r.json).id === "string" ? String(obj(y.r.json).id) : null, created: true, dropped: [droppedNote(refused)] };
+    return failure(y.r.status, y.r.json);
+  }
   return failure(status, json);
 }
 /** Update an issue's fields (PUT answers 204). A 404 means the issue is gone or hidden: nothing is recreated. */
@@ -58,6 +77,14 @@ export async function updateIssue(call: JiraRequest, key: string, fields: Record
   const x = await run(() => call("PUT", `/issue/${key}`, { fields }), sleep);
   if ("fail" in x) return x.fail;
   if (x.r.status === 204 || x.r.status === 200) return { ok: true, key, id: null, created: false };
+  const refused = x.r.status === 400 ? refusedOptional(x.r.json, fields) : [];
+  if (refused.length > 0) {
+    const rest = Object.fromEntries(Object.entries(fields).filter(([k]) => !refused.some((r) => r.key === k)));
+    const y = await run(() => call("PUT", `/issue/${key}`, { fields: rest }), sleep);
+    if ("fail" in y) return y.fail;
+    if (y.r.status === 204 || y.r.status === 200) return { ok: true, key, id: null, created: false, dropped: [droppedNote(refused)] };
+    return failure(y.r.status, y.r.json);
+  }
   return failure(x.r.status, x.r.json);
 }
 function failure(status: number, json: unknown): Extract<WriteOutcome, { ok: false }> {

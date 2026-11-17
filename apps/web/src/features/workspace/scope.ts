@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useWorkspace } from "./provider";
 
@@ -21,10 +21,22 @@ export function setQueryParam(name: string, value: string | null) {
   window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
+const STORE_KEY = "pv.scope";
+const readStored = (): string | null => { try { return window.localStorage.getItem(STORE_KEY); } catch { return null; } };
+const writeStored = (v: string) => { try { window.localStorage.setItem(STORE_KEY, v); } catch { /* storage blocked: the address still carries it */ } };
+
 export function useScope() {
   const params = useSearchParams();
   const { scopes, projects, ready } = useWorkspace();
-  const selection = useMemo(() => parseScope(params.get("scope")), [params]);
+  const urlParam = params.get("scope");
+  const selection = useMemo(() => parseScope(urlParam), [urlParam]);
+
+  // Other pages (links, tabs, settings) open without ?scope=: bring back the last choice so the project stays selected.
+  useEffect(() => {
+    if (urlParam !== null) { writeStored(urlParam); return; }
+    const stored = readStored();
+    if (stored && stored !== "all") setQueryParam("scope", stored);
+  }, [urlParam]);
 
   const resolved = useMemo(() => {
     if (selection.kind === "project") {
@@ -40,6 +52,6 @@ export function useScope() {
     return { label: "All projects", projectIds: null };
   }, [selection, scopes, projects, ready]);
 
-  const select = useCallback((s: ScopeSelection) => setQueryParam("scope", scopeParam(s)), []);
+  const select = useCallback((s: ScopeSelection) => { writeStored(scopeParam(s) ?? "all"); setQueryParam("scope", scopeParam(s)); }, []);
   return { selection, label: resolved.label, projectIds: resolved.projectIds, select };
 }

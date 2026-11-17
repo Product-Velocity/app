@@ -176,9 +176,56 @@ export async function saveGithubFieldConfig(form: FormData): Promise<void> {
   const ctx = await adminOnly();
   if (!ctx) redirect(`${PATH}?status=not-admin`);
   const get = (k: string) => String(form.get(k) ?? "").trim();
+  const project = get("project");
+  const back: (qs: string) => never = (qs) => redirect(`${PATH}/mapping?project=${encodeURIComponent(project)}&${qs}&t=${Date.now()}`);
   const checked = validateConfig("github", configRowsFromForm("github", get, (k) => form.has(k)), null);
-  if (!checked.ok) redirect(`${PATH}?status=field-config-invalid&why=${encodeURIComponent(checked.errors.join(" ").slice(0, 400))}`);
-  const { error } = await ctx.supabase.rpc("tracker_set_field_config", { p_project: get("project"), p_rows: checked.rows.map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field, text: r.text ?? null })) });
-  revalidatePath(PATH);
-  redirect(`${PATH}?status=${error ? "error" : "field-config-saved"}`);
+  if (!checked.ok) back(`status=field-config-invalid&why=${encodeURIComponent(checked.errors.join(" ").slice(0, 400))}`);
+  const { error } = await ctx.supabase.rpc("tracker_set_field_config", { p_project: project, p_rows: checked.rows.map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field, text: r.text ?? null })) });
+  revalidatePath(`${PATH}/mapping`);
+  back(`status=${error ? "error" : "field-config-saved"}`);
+}
+
+/**
+ * Copies the saved field settings of one project to others that also use GitHub (the "Copy to other projects" box of Field mapping). The same closed list of
+ * settings, written by the same database function, so the same checks apply. A project with no saved setting copies the defaults, which resets the targets.
+ * The linked board's fields (Project boards) are not copied: they belong to each project's own board. Admin only; nothing is written to GitHub.
+ */
+export async function copyGithubFieldConfig(form: FormData): Promise<void> {
+  const ctx = await adminOnly();
+  if (!ctx) redirect(`${PATH}?status=not-admin`);
+  const from = String(form.get("from") ?? "");
+  const to = [...new Set(form.getAll("to").map(String))].filter((x) => x && x !== from);
+  const back: (status: string) => never = (status) => redirect(`${PATH}/mapping?project=${encodeURIComponent(from)}&status=${status}&t=${Date.now()}`);
+  if (to.length === 0) back("copy-none");
+  const [{ data: src }, { data: targets }] = await Promise.all([
+    ctx.supabase.from("tracker_field_config").select("slot, enabled, field_id, label_text").eq("tenant_id", ctx.active.tenantId).eq("provider", "github").eq("project_id", from),
+    ctx.supabase.from("projects").select("id").eq("tenant_id", ctx.active.tenantId).eq("tracker", "github").in("id", to),
+  ]);
+  const rows = ((src ?? []) as { slot: string; enabled: boolean; field_id: string | null; label_text: string | null }[]).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id, text: r.label_text ?? null }));
+  let failed = 0;
+  for (const t of (targets ?? []) as { id: string }[]) {
+    const { error } = await ctx.supabase.rpc("tracker_set_field_config", { p_project: t.id, p_rows: rows });
+    if (error) failed++;
+  }
+  revalidatePath(`${PATH}/mapping`);
+  back(failed > 0 ? "error" : "field-config-copied");
+}
+
+/** Saves the repositories ticked under "Repositories to check for epics" (issue #465). Workspace admins who are people (the database checks it too). */
+export async function saveEpicRepos(form: FormData): Promise<void> {
+  const ctx = await adminOnly();
+  let status = "epics-saved";
+  if (!ctx) status = "not-admin";
+  else {
+    const { data: conn } = await ctx.supabase.from("github_connections").select("id").eq("tenant_id", ctx.active.tenantId).eq("state", "connected").maybeSingle();
+    const repos = [...new Set(form.getAll("repo").map((r) => String(r)))];
+    if (!conn) status = "epics-error";
+    else {
+      const { error } = await ctx.supabase.rpc("github_set_epic_repos", { p_connection: conn.id, p_repos: repos });
+      if (error) status = error.code === "42501" ? "not-admin" : "epics-error";
+    }
+  }
+  revalidatePath(`${PATH}/projects`);
+  revalidatePath("/incoming");
+  redirect(`${PATH}/projects?status=${status}`);
 }

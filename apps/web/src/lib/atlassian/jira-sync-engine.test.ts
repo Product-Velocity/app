@@ -8,7 +8,7 @@ let rpcFail: string | null = null;
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc: async (fn: string, args: Record<string, unknown>) => { rpcCalls.push({ fn, args }); return fn === rpcFail ? { data: null, error: { message: "x" } } : { data: fn === "jira_apply_pull" ? { initiative_name: "Old", description: null } : null, error: null }; } }) }));
 vi.mock("./server", () => ({ jiraRequest: () => { throw new Error("the real Jira must not be reached in tests"); } }));
 
-import { COLS, evaluate, previewParts, writeOne, type Ctx } from "./jira-sync-engine";
+import { checkEpics, COLS, evaluate, previewParts, writeOne, type Ctx } from "./jira-sync-engine";
 import { hashText } from "@pv/github";
 import { adfToText } from "./adf";
 
@@ -26,13 +26,14 @@ const link = (o = {}) => ({ item_id: ID, connection_id: "c1", site_id: "s1", iss
 
 type Hit = { method: string; path: string; body?: unknown };
 /** A fake Jira: GET /issue/KEY returns `issue`, writes are recorded and answered with the given statuses. */
-function fakeJira(issue: { summary: string; description?: unknown; labels?: string[] } | null, answers: { put?: number; post?: number; search?: unknown[] } = {}) {
+function fakeJira(issue: { summary: string; description?: unknown; labels?: string[] } | null, answers: { put?: number; post?: number; search?: unknown[]; types?: unknown[]; epics?: unknown[]; putFor?: Record<string, number> } = {}) {
   const hits: Hit[] = [];
   const call: JiraRequest = async (method, path, body) => {
     hits.push({ method, path, body });
-    if (method === "GET" && path.startsWith("/issue/")) return issue ? { status: 200, json: { id: "1", fields: { summary: issue.summary, description: issue.description ?? markdownToAdf("Pay **fast**"), labels: issue.labels ?? ["product-velocity", "pv:moscow/must"] } } } : { status: 404, json: {} };
-    if (method === "GET" && path.startsWith("/search/jql")) return { status: 200, json: { issues: answers.search ?? [] } };
-    if (method === "PUT") return { status: answers.put ?? 204, json: {} };
+    if (method === "GET" && path.startsWith("/issue/")) return issue ? { status: 200, json: { id: "1", fields: { summary: issue.summary, description: issue.description ?? markdownToAdf("Pay **fast**"), labels: issue.labels ?? ["pm:moscow/must"] } } } : { status: 404, json: {} };
+    if (method === "GET" && path.startsWith("/project/")) return { status: 200, json: { issueTypes: answers.types ?? [] } };
+    if (method === "GET" && path.startsWith("/search/jql")) return { status: 200, json: { issues: (new URL(`https://x${path}`).searchParams.get("jql") ?? "").startsWith("key in") ? answers.epics ?? [] : answers.search ?? [] } };
+    if (method === "PUT") return { status: answers.putFor?.[path.split("/").pop()!] ?? answers.put ?? 204, json: answers.putFor?.[path.split("/").pop()!] === 400 ? { errorMessages: ["Epics cannot have this parent."] } : {} };
     if (method === "POST") return { status: answers.post ?? 201, json: { key: "PLAT-7", id: "70" } };
     return { status: 500, json: {} };
   };
@@ -165,7 +166,7 @@ describe("confirm (writeOne)", () => {
     tables.items = item({ initiative_name: "Checkout v2" });
     const { ReconnectNeeded } = await import("./token-provider");
     let puts = 0;
-    const call: JiraRequest = async (m) => { if (m === "GET") return { status: 200, json: { id: "1", fields: { summary: "Checkout", description: markdownToAdf("Pay **fast**"), labels: ["product-velocity", "pv:moscow/must"] } } }; puts++; throw new ReconnectNeeded(); };
+    const call: JiraRequest = async (m) => { if (m === "GET") return { status: 200, json: { id: "1", fields: { summary: "Checkout", description: markdownToAdf("Pay **fast**"), labels: ["pm:moscow/must"] } } }; puts++; throw new ReconnectNeeded(); };
     const r = await writeOne(ctx, ID, [], { call });
     expect(r).toMatchObject({ result: { outcome: "error", message: expect.stringMatching(/sign in again/i) } });
     expect(puts).toBe(1);
@@ -191,7 +192,7 @@ describe("the saved field configuration (decision 2026-11-03-tracker-field-confi
     dated();
     const e = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout", labels: [] }).call);
     expect(e.kind === "ok" && e.plan.fields.duedate).toBe("2027-03-31");
-    expect(e.kind === "ok" && (e.plan.fields.labels as string[])).toContain("pv:moscow/must");
+    expect(e.kind === "ok" && (e.plan.fields.labels as string[])).toContain("pm:moscow/must");
   });
   it("a re-pointed due date field and a switched-off label are used by the preview", async () => {
     dated();
@@ -202,7 +203,7 @@ describe("the saved field configuration (decision 2026-11-03-tracker-field-confi
     if (e.kind !== "ok") return;
     expect(e.plan.fields.customfield_10016).toBe("2027-03-31");
     expect("duedate" in e.plan.fields).toBe(false);
-    expect(e.plan.fields.labels as string[]).not.toContain("pv:moscow/must");
+    expect(e.plan.fields.labels as string[]).not.toContain("pm:moscow/must");
     expect(e.plan.notes.join(" ")).toContain("MoSCoW label not sent: switched off in the field configuration.");
   });
   it("a configured field that is gone from the site is left out and the preview says so", async () => {
@@ -292,7 +293,7 @@ describe("the description sections of an initiative (issue #319)", () => {
     const edited = markdownToAdf("## Summary\n\nShort\n\n## Description\n\nPay **fast**\n\n## Hypothesis (IF / THEN / RESULTING IN)\n\nIF changed in Jira");
     const base = { title: hashText("Checkout"), summary: hashText("Short"), description: hashText(adfToText(markdownToAdf("Pay **fast**"))), hypothesis: hashText("IF a THEN b") };
     tables.item_jira_links = link({ sync_base: base });
-    const j = fakeJira({ summary: "Checkout", description: edited, labels: ["product-velocity", "pv:moscow/must"] });
+    const j = fakeJira({ summary: "Checkout", description: edited, labels: ["pm:moscow/must"] });
     const e = await evaluate((await (await import("./jira-sync-engine")).load(withApp, ID))!, {}, j.call);
     expect(e.kind === "ok" && e.conflicts).toMatchObject([{ field: "hypothesis", kind: "github", pv: "IF a THEN b", github: "IF changed in Jira" }]);
     const w = await writeOne(withApp, ID, [choice("hypothesis" as never, "github", hashText("IF changed in Jira"))], { call: j.call });
@@ -316,15 +317,137 @@ describe("the optional labels in the engine (issue #321)", () => {
   it("the Planned Quarter label is on by default and goes when its switch is off", async () => {
     rows();
     const on = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout", labels: [] }).call);
-    expect(on.kind === "ok" && (on.plan.fields.labels as string[])).toContain("pv:quarter/q3-2027");
+    expect(on.kind === "ok" && (on.plan.fields.labels as string[])).toContain("pm:quarter/q3-2027");
     tables.tracker_field_config = [{ slot: "jira.label.quarter", enabled: false, field_id: null }];
     const off = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout", labels: [] }).call);
-    expect(off.kind === "ok" && (off.plan.fields.labels as string[]).some((l) => l.startsWith("pv:quarter/"))).toBe(false);
+    expect(off.kind === "ok" && (off.plan.fields.labels as string[]).some((l) => l.startsWith("pm:quarter/"))).toBe(false);
   });
   it("switched on, the tags, the focus area and the business value type are read and sent as pv: labels", async () => {
     rows();
     tables.tracker_field_config = ["tags", "focus", "value"].map((k) => ({ slot: `jira.label.${k}`, enabled: true, field_id: null }));
     const e = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout", labels: [] }).call);
-    expect(e.kind === "ok" && (e.plan.fields.labels as string[])).toEqual(expect.arrayContaining(["pv:focus/publishers", "pv:value/defend-revenue", "pv:tag/payments", "pv:tag/q4-push"]));
+    expect(e.kind === "ok" && (e.plan.fields.labels as string[])).toEqual(expect.arrayContaining(["pm:focus/publishers", "pm:value/defend-revenue", "pm:tag/payments", "pm:tag/q4-push"]));
+  });
+});
+
+
+describe("epics asked for under an initiative (issue #431)", () => {
+  const epicIssue = (key: string, o: { level?: number; parent?: string | null; type?: string } = {}) => ({ id: "9", key, fields: { summary: `Epic ${key}`, issuetype: { name: o.type ?? "Epic", hierarchyLevel: o.level ?? 1 }, status: { name: "To Do", statusCategory: { key: "new" } }, parent: o.parent ? { key: o.parent } : undefined } });
+  const above = [{ id: "10000", name: "Initiative", hierarchyLevel: 2 }];
+  /** The writes that are not the initiative's own issue: the epics. */
+  const epicWrites = (h: Hit[]) => writes(h).filter((x) => !x.path.endsWith("/PLAT-1") && !x.path.endsWith("/PLAT-7") && x.path !== "/issue");
+  const ask = (...keys: string[]) => { tables.item_jira_epic_requests = keys.map((k) => ({ epic_key: k, state: "pending", last_error: null })); };
+
+  it("the preview lists each epic and what would be written, and only reads", async () => {
+    ask("R8P-5", "DATA-9");
+    const j = fakeJira({ summary: "Checkout" }, { types: above, epics: [epicIssue("R8P-5"), epicIssue("DATA-9", { parent: "QQ-3" })] });
+    const e = await evaluate((await loadIt())!, {}, j.call);
+    expect(e.kind).toBe("ok");
+    if (e.kind !== "ok") return;
+    expect(e.card.epics?.map((x) => [x.key, x.will])).toEqual([["R8P-5", true], ["DATA-9", true]]);
+    expect(e.card.epics![1]!.text).toContain("now under QQ-3");
+    expect(previewParts(e).plan?.epics).toHaveLength(2);
+    expect(writes(j.hits)).toEqual([]);
+    expect(rpcCalls).toEqual([]);
+  });
+  it("an initiative with nothing else to send still shows up in the preview when epics are waiting, and not when none are", async () => {
+    ask("R8P-5");
+    const e = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout" }, { types: above, epics: [epicIssue("R8P-5")] }).call);
+    if (e.kind !== "ok") throw new Error("expected a preview");
+    const quiet = { ...e, plan: { ...e.plan, action: "unchanged" as const }, card: { ...e.card, action: "unchanged" as const, issueLabel: undefined } };
+    expect(previewParts(quiet).plan?.epics).toHaveLength(1);
+    expect(previewParts({ ...quiet, card: { ...quiet.card, epics: undefined } }).plan).toBeUndefined();
+  });
+  it("a project whose initiative type is at Epic level writes no epic and says why", async () => {
+    ask("R8P-5");
+    const e = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout" }, { types: [{ id: "10000", name: "Epic", hierarchyLevel: 1 }], epics: [epicIssue("R8P-5")] }).call);
+    expect(e.kind === "ok" && e.card.epics).toEqual([{ key: "R8P-5", will: false, text: expect.stringContaining("above Epic") }]);
+  });
+  it("a confirmed send sets the parent of each epic after the issue's own send, records each, and says what moved", async () => {
+    ask("R8P-5", "DATA-9");
+    const j = fakeJira({ summary: "Checkout" }, { types: above, epics: [epicIssue("R8P-5"), epicIssue("DATA-9", { parent: "QQ-3" })] });
+    const r = await writeOne(ctx, ID, [], { call: j.call });
+    expect(writes(j.hits).map((h) => h.path)).toEqual(["/issue/PLAT-1", "/issue/R8P-5", "/issue/DATA-9"]); // the issue's own send first, then the epics
+    expect(epicWrites(j.hits).map((h) => [h.method, h.path, h.body])).toEqual([
+      ["PUT", "/issue/R8P-5", { fields: { parent: { key: "PLAT-1" } } }],
+      ["PUT", "/issue/DATA-9", { fields: { parent: { key: "PLAT-1" } } }],
+    ]);
+    expect(rpcCalls.filter((c) => c.fn === "jira_record_epic_link").map((c) => c.args)).toEqual([
+      { p_actor: "u1", p_item: ID, p_key: "R8P-5", p_ok: true, p_previous_parent: null, p_error: null },
+      { p_actor: "u1", p_item: ID, p_key: "DATA-9", p_ok: true, p_previous_parent: "QQ-3", p_error: null },
+    ]);
+    expect(r).toMatchObject({ result: { outcome: "updated", issueLabel: "PLAT-1" } });
+    expect("result" in r && r.result.message).toContain("2 epics are now under PLAT-1 (R8P-5, DATA-9).");
+    expect("result" in r && r.result.wrote).toContain("Parent of R8P-5, DATA-9");
+  });
+  it("creating the initiative's issue comes first: the epics go under the NEW key", async () => {
+    tables.item_jira_links = null;
+    ask("R8P-5");
+    const j = fakeJira(null, { types: above, epics: [epicIssue("R8P-5")] });
+    const r = await writeOne(ctx, ID, [], { call: j.call });
+    expect(writes(j.hits).map((h) => `${h.method} ${h.path}`)).toEqual(["POST /issue", "PUT /issue/R8P-5"]);
+    expect(writes(j.hits)[1]!.body).toEqual({ fields: { parent: { key: "PLAT-7" } } });
+    expect(rpcCalls.map((c) => c.fn)).toEqual(["jira_create_link", "jira_record_epic_link"]);
+    expect(r).toMatchObject({ result: { outcome: "created", issueLabel: "PLAT-7" } });
+  });
+  it("an epic Jira refuses is recorded as failed with Jira's reason, does not stop the others and is named in the result", async () => {
+    ask("R8P-5", "DATA-9");
+    const j = fakeJira({ summary: "Checkout" }, { types: above, epics: [epicIssue("R8P-5"), epicIssue("DATA-9")], putFor: { "R8P-5": 400 } });
+    const r = await writeOne(ctx, ID, [], { call: j.call });
+    const rec = rpcCalls.filter((c) => c.fn === "jira_record_epic_link").map((c) => [c.args.p_key, c.args.p_ok, c.args.p_error]);
+    expect(rec).toEqual([["R8P-5", false, expect.stringContaining("Epics cannot have this parent.")], ["DATA-9", true, null]]);
+    expect("result" in r && r.result.message).toMatch(/R8P-5 was not moved: .*cannot have this parent/);
+  });
+  it("an epic that is not an epic, or is missing, is never written", async () => {
+    ask("R8P-6", "GONE-1");
+    const j = fakeJira({ summary: "Checkout" }, { types: above, epics: [epicIssue("R8P-6", { level: 0, type: "Story" })] });
+    await writeOne(ctx, ID, [], { call: j.call });
+    expect(epicWrites(j.hits)).toEqual([]);
+    expect(rpcCalls.filter((c) => c.fn === "jira_record_epic_link")).toEqual([]);
+  });
+  it("an epic already under the initiative is recorded as done without a write", async () => {
+    ask("R8P-5");
+    const j = fakeJira({ summary: "Checkout" }, { types: above, epics: [epicIssue("R8P-5", { parent: "PLAT-1" })] });
+    await writeOne(ctx, ID, [], { call: j.call });
+    expect(epicWrites(j.hits)).toEqual([]);
+    expect(rpcCalls.filter((c) => c.fn === "jira_record_epic_link").map((c) => [c.args.p_key, c.args.p_ok])).toEqual([["R8P-5", true]]);
+  });
+  it("nothing asked for: no extra reads and no extra writes", async () => {
+    const j = fakeJira({ summary: "Checkout" });
+    await writeOne(ctx, ID, [], { call: j.call });
+    expect(j.hits.some((h) => h.path.startsWith("/project/"))).toBe(false);
+    expect(rpcCalls.some((c) => c.fn === "jira_record_epic_link")).toBe(false);
+  });
+
+  it("the check on the Jira tab says OK or why not for each epic, with the same answer as the preview, and writes nothing", async () => {
+    ask("R8P-5", "R8P-6", "GONE-1");
+    const j = fakeJira({ summary: "Checkout" }, { types: above, epics: [epicIssue("R8P-5"), epicIssue("R8P-6", { level: 0, type: "Story" })] });
+    const c = await checkEpics(ctx, ID, { call: j.call });
+    expect(c).toEqual({ ok: true, lines: [
+      { key: "R8P-5", text: expect.stringContaining("gets it as its parent"), ok: true },
+      { key: "R8P-6", text: expect.stringContaining("not an epic"), ok: false },
+      { key: "GONE-1", text: expect.stringContaining("does not exist or this sign-in cannot see it"), ok: false },
+    ] });
+    expect(writes(j.hits)).toEqual([]);
+    expect(rpcCalls).toEqual([]);
+    const e = await evaluate((await loadIt())!, {}, fakeJira({ summary: "Checkout" }, { types: above, epics: [epicIssue("R8P-5"), epicIssue("R8P-6", { level: 0, type: "Story" })] }).call);
+    expect(e.kind === "ok" && e.card.epics?.map((x) => [x.key, x.will])).toEqual(c.ok ? c.lines.map((x) => [x.key, x.ok]) : null);
+  });
+  it("an epic already under the initiative is OK; nothing asked for is an empty check; a read-only or disconnected initiative says so", async () => {
+    ask("R8P-5");
+    expect(await checkEpics(ctx, ID, { call: fakeJira({ summary: "Checkout" }, { types: above, epics: [epicIssue("R8P-5", { parent: "PLAT-1" })] }).call })).toMatchObject({ ok: true, lines: [{ key: "R8P-5", ok: true }] });
+    tables.item_jira_epic_requests = [];
+    expect(await checkEpics(ctx, ID, { call: fakeJira(null).call })).toEqual({ ok: true, lines: [] });
+    ask("R8P-5");
+    tables.item_jira_links = link({ mode: "follow" });
+    expect(await checkEpics(ctx, ID, { call: fakeJira(null).call })).toMatchObject({ ok: false, error: expect.stringContaining("read-only") });
+    tables.item_jira_links = link();
+    tables.jira_connections = conn("reconnect_needed");
+    expect(await checkEpics(ctx, ID, { call: fakeJira(null).call })).toMatchObject({ ok: false, error: expect.stringContaining("new sign-in") });
+  });
+  it("a Jira that cannot be read is reported, not thrown", async () => {
+    ask("R8P-5");
+    const broken: JiraRequest = async () => { throw new Error("network"); };
+    expect(await checkEpics(ctx, ID, { call: broken })).toMatchObject({ ok: false, error: expect.stringContaining("could not be read") });
   });
 });

@@ -131,9 +131,9 @@ describe("validateEdit", () => {
   });
 });
 
-describe("open lists: Focus Area and Audience (issue #246)", () => {
+describe("open lists: Focus Area, Audience, Objective and Business Line (issue #246)", () => {
   it("are selects with no fixed values, like Initiative Group", () => {
-    for (const k of ["focus_area", "audience"]) {
+    for (const k of ["focus_area", "audience", "okr_objective", "business_line"]) {
       expect(FIELD_BY_KEY[k]!.type).toBe("Select");
       expect(FIELD_BY_KEY[k]!.allowed).toEqual([]);
       expect(isOpenList(k)).toBe(true);
@@ -159,5 +159,15 @@ describe("open lists: Focus Area and Audience (issue #246)", () => {
   it("are written like Initiative Group is: a text with a limit, no list of allowed values", () => {
     expect(fieldMaxLength("focus_area")).toBe(120);
     expect(fieldMaxLength("audience")).toBe(120);
+    expect(fieldMaxLength("okr_objective")).toBe(120);
+    expect(fieldMaxLength("business_line")).toBe(120);
+  });
+
+  it("Objective and Business Line are separate fields in the Why group, named as the person says them, and the owner is called Owner", () => {
+    expect(FIELD_BY_KEY.okr_objective).toMatchObject({ name: "Objective", group: "Why" });
+    expect(FIELD_BY_KEY.business_line).toMatchObject({ name: "Business Line", group: "Why" });
+    expect(validateEdit("okr_objective", "Every pageview on our publishers earns more")).toMatchObject({ ok: true });
+    expect(optionsFor("business_line", ["Direct", "Programmatic", "direct"])).toEqual([{ value: "Direct", label: "Direct" }, { value: "Programmatic", label: "Programmatic" }]);
+    expect(FIELD_BY_KEY.sponsor!.name).toBe("Owner"); // was Sponsor; the key stays
   });
 });

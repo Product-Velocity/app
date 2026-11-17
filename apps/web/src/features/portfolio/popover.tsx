@@ -15,9 +15,9 @@ export function Chevron({ open = false }: { open?: boolean }) {
 
 /**
  * A toolbar button that expands a panel under it, with a small pointer to the button. Escape closes it and returns to the button; clicking
- * outside or leaving it closes it too. `wide` panels (filters, columns) span the bar they sit in instead of hanging under the button.
+ * outside or leaving it closes it too (not for a `staged` panel). `wide` panels (filters, columns) span the bar they sit in instead of hanging under the button.
  */
-export function Popover({ label, active = false, align = "left", wide = false, icon, children }: { label: ReactNode; active?: boolean; align?: "left" | "right"; wide?: boolean; /** Top-bar icon button: the label is an icon, `name` is its accessible name and tooltip, and there is no chevron. */ icon?: { name: string }; children: (close: () => void) => ReactNode }) {
+export function Popover({ label, active = false, align = "left", wide = false, staged = false, icon, children }: { label: ReactNode; active?: boolean; align?: "left" | "right"; wide?: boolean; /** A panel with choices staged until Apply: a change of focus never closes it (only Apply, Cancel, Escape or a click outside do), so a click that moves the focus cannot throw the choices away. */ staged?: boolean; /** Top-bar icon button: the label is an icon, `name` is its accessible name and tooltip, and there is no chevron. */ icon?: { name: string }; children: (close: () => void) => ReactNode }) {
   const [open, setOpen] = useState(false);
   const [caret, setCaret] = useState<number | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
@@ -40,7 +40,7 @@ export function Popover({ label, active = false, align = "left", wide = false, i
     <span
       ref={ref}
       className={wide ? "popover-anchor popover-anchor-bar" : "popover-anchor"}
-      {...menuBlur}
+      {...(staged ? {} : menuBlur)}
       onKeyDown={(e) => {
         if (e.key === "Escape" && open) { e.stopPropagation(); setOpen(false); ref.current?.querySelector<HTMLElement>("button")?.focus(); }
       }}

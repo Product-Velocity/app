@@ -67,7 +67,7 @@ async function catalogProbe(token: string, jira: string) {
   return { label: "Field catalog, hierarchy and paging (J2)", status: fields.status, body: lines.join("\n") };
 }
 
-/** Spikes J3, J5, J6, J8: one probe per run, chosen on the spike page. The write probes remove what they create. */
+/** Spikes J3, J5, J6, J8 (the Initiative probes moved to the Test connection page, #452): one probe per run, chosen on the spike page. The write probes remove what they create. */
 async function probeSpike(token: string, cloudId: string, mode: string, arg: string, origin: string) {
   const base = `${API_BASE}/ex/jira/${cloudId}/rest/api/3`;
   const call: ProbeCall = async (method, path, body) => {

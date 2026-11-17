@@ -75,6 +75,8 @@ export function jiraRequest(connectionId: string, siteId: string): import("./jir
     const token = await accessTokenFor(connectionId);
     const res = await fetch(`${API_BASE}/ex/jira/${siteId}/rest/api/3${path}`, {
       method,
+      // a Jira site that does not answer must not leave the Sync dialog on "Checking…" for ever: give up after 20 s (the card then says it could not be checked)
+      signal: AbortSignal.timeout(20_000),
       headers: { authorization: `Bearer ${token}`, accept: "application/json", ...(body === undefined ? {} : { "content-type": "application/json" }) },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
@@ -90,4 +92,23 @@ export async function jiraFieldChoices(connectionId: string, siteId: string): Pr
   const { startDateChoices, themeChoices, priorityChoices } = await import("./field-map");
   const [fields, priorities] = await Promise.all([jiraGet<import("./field-catalog").JiraField[]>(connectionId, siteId, "/field"), jiraGet<unknown>(connectionId, siteId, "/priority")]);
   return { startDates: startDateChoices(fields), themes: themeChoices(fields), priorities: priorityChoices(priorities) };
+}
+
+/**
+ * A request function for the connection checks (issue #452): like `jiraRequest` but it also allows DELETE and returns the status instead of
+ * throwing, which is what the write check needs to clean up after itself. Uses the stored sign-in; nothing is logged.
+ */
+export function jiraCheckCall(connectionId: string, siteId: string): import("@/lib/spikes/atlassian-probes").ProbeCall {
+  return async (method, path, body) => {
+    const token = await accessTokenFor(connectionId);
+    const res = await fetch(`${API_BASE}/ex/jira/${siteId}/rest/api/3${path}`, {
+      method,
+      signal: AbortSignal.timeout(20_000),
+      headers: { authorization: `Bearer ${token}`, accept: "application/json", ...(body === undefined ? {} : { "content-type": "application/json" }) },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+    let json: unknown = null;
+    try { json = res.status === 204 ? null : await res.json(); } catch { json = null; }
+    return { status: res.status, json };
+  };
 }

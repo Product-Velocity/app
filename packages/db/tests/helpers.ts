@@ -256,6 +256,20 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
           await db.admin.query("insert into public.item_jira_tree (tenant_id, item_id, issue_key, parent_key, level, title, issue_type, status, status_category) values ($1, $2, 'SEED-8', 'SEED-7', 1, 'Seed child', 'Task', 'To Do', 'new')", [tenantId, items[1]]);
         }
       }
+      // a ticked project and an epic read from it (positive controls for jira_epic_projects and jira_epics_seen)
+      if ((await db.admin.query("select to_regclass('public.jira_epics_seen') as t")).rows[0].t) {
+        await db.admin.query("insert into public.jira_epic_projects (tenant_id, connection_id, site_id, project_key) values ($1, $2, 'site-1', 'SEED')", [tenantId, jira]);
+        await db.admin.query("insert into public.jira_epics_seen (tenant_id, connection_id, site_id, project_key, issue_key, title) values ($1, $2, 'site-1', 'SEED', 'SEED-20', 'Seed epic')", [tenantId, jira]);
+      }
+      // a ticked repository and an open parent issue read from it (positive controls for github_epic_repos and github_epics_seen)
+      if ((await db.admin.query("select to_regclass('public.github_epics_seen') as t")).rows[0].t) {
+        await db.admin.query("insert into public.github_epic_repos (tenant_id, connection_id, repo_full_name) values ($1, $2, 'seed-org/roadmap')", [tenantId, conn]);
+        await db.admin.query("insert into public.github_epics_seen (tenant_id, connection_id, repo_full_name, issue_number, title, sub_issues_total) values ($1, $2, 'seed-org/roadmap', 20, 'Seed parent issue', 2)", [tenantId, conn]);
+      }
+      // an epic asked for under an initiative (positive control for item_jira_epic_requests); older-schema tests seed before that migration exists
+      if ((await db.admin.query("select to_regclass('public.item_jira_epic_requests') as t")).rows[0].t) {
+        await db.admin.query("insert into public.item_jira_epic_requests (tenant_id, item_id, epic_key) values ($1, $2, 'SEED-9')", [tenantId, items[0]]);
+      }
       // a switched-off slot (positive control for the tracker field configuration); older-schema tests seed before that migration exists
       if ((await db.admin.query("select to_regclass('public.tracker_field_config') as t")).rows[0].t) {
         await db.admin.query("insert into public.tracker_field_config (tenant_id, project_id, provider, slot, enabled) values ($1, $2, 'jira', 'jira.label.moscow', false)", [tenantId, project]);
@@ -263,8 +277,14 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
       if ((await db.admin.query("select to_regclass('public.jira_webhooks') as t")).rows[0].t) {
         await db.admin.query("insert into public.jira_webhooks (link_id, tenant_id, connection_id, site_id, jira_webhook_id, secret_hash) select id, tenant_id, connection_id, site_id, '1', repeat('a', 64) from public.jira_project_links where project_id = $1", [project]);
       }
+      if ((await db.admin.query("select to_regclass('public.jira_check_runs') as t")).rows[0].t) {
+        await db.admin.query("insert into public.jira_check_runs (tenant_id, connection_id, kind, checks) select tenant_id, connection_id, 'read', '[{\"key\":\"seed\",\"label\":\"Seed\",\"status\":\"pass\",\"reason\":\"Seed\"}]'::jsonb from public.jira_project_links where project_id = $1", [project]);
+      }
       if ((await db.admin.query("select to_regclass('public.jira_sync_events') as t")).rows[0].t) {
         await db.admin.query("insert into public.jira_sync_events (tenant_id, link_id, source, summary) select tenant_id, id, 'check', 'Seed check' from public.jira_project_links where project_id = $1", [project]);
+      }
+      if ((await db.admin.query("select to_regclass('public.jira_status_changes') as t")).rows[0].t) {
+        await db.admin.query("insert into public.jira_status_changes (tenant_id, issue_key, changed_at, from_status, to_status, actor_name) select tenant_id, 'SEED-1', now(), 'To Do', 'Done', 'Seed Person' from public.jira_project_links where project_id = $1", [project]);
       }
       if ((await db.admin.query("select to_regclass('public.jira_issues') as t")).rows[0].t) {
         await db.admin.query("insert into public.jira_issues (tenant_id, connection_id, project_id, site_id, jira_project_key, issue_key, title, status_category) values ($1, $2, $3, 'site-1', 'SEED', 'SEED-1', 'Seed Jira issue', 'new')", [tenantId, jira, project]);

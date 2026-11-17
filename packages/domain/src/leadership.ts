@@ -1,6 +1,7 @@
 import { formatDate } from "./dates";
 import { fromDay, toDay } from "./gantt";
 import { FIELD_BY_KEY } from "./registry";
+import { digestMarkdown, type Digest } from "./leadership-digest";
 
 /**
  * The leadership view: portfolio health by project, what needs attention, the investment mix, what moved this week
@@ -15,7 +16,7 @@ export type LeadRow = { id: string; item_code: string; initiative_name: string; 
  */
 export const LEADERSHIP_COLUMNS: readonly { key: string; pinned?: boolean }[] = [
   { key: "stack_rank", pinned: true }, { key: "item_code", pinned: true }, { key: "initiative_name", pinned: true },
-  { key: "home_project" }, { key: "theme" }, { key: "value_type" }, { key: "initiative_phase" }, { key: "health" },
+  { key: "home_project" }, { key: "theme" }, { key: "value_type" }, { key: "business_line" }, { key: "okr_objective" }, { key: "initiative_phase" }, { key: "health" },
   { key: "delivery_progress_pct" }, { key: "g2m_quarter" }, { key: "g2m_slip_days" }, { key: "value_12m" }, { key: "confidence" },
   { key: "decision" }, { key: "current_gate" }, { key: "fit_by_team" }, { key: "sponsor" }, { key: "next_review_date" }, { key: "summary" },
 ];
@@ -114,7 +115,7 @@ export function valueTypeMix(rows: readonly LeadRow[]): MixRow[] {
 
 // ------------------------------------------------------------------ what moved
 export type AuditChange = { itemId: string; field: string; old: unknown; new: unknown; at: string; actorId: string | null; via: string };
-export type Move = { itemId: string; kind: "rank" | "status" | "health"; text: string; at: string };
+export type Move = { itemId: string; kind: "rank" | "status" | "health"; text: string; at: string; /** Rank moves: the rank the week started on and the one it ended on. */ from?: number; to?: number };
 const KINDS: Record<string, Move["kind"]> = { stack_rank: "rank", status: "status", health: "health" };
 
 /** Rank, status and health changes of the week, from audit rows: a rank change is the net move; newest first. */
@@ -137,21 +138,27 @@ export function changesThisWeek(changes: readonly AuditChange[], rows: readonly 
     if (from === to || Number.isNaN(from) || Number.isNaN(to)) continue;
     const r = byId.get(id)!;
     const n = Math.abs(from - to);
-    out.push({ itemId: id, kind: "rank", text: `${r.item_code} ${r.initiative_name} moved ${to < from ? "up" : "down"} ${n} ${n === 1 ? "place" : "places"} (#${from} to #${to})`, at: list[list.length - 1]!.at });
+    out.push({ itemId: id, kind: "rank", text: `${r.item_code} ${r.initiative_name} moved ${to < from ? "up" : "down"} ${n} ${n === 1 ? "place" : "places"} (#${from} to #${to})`, at: list[list.length - 1]!.at, from, to });
   }
   return out.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
 }
 
 // ------------------------------------------------------------------ the weekly update
-export type UpdateInput = { rows: readonly LeadRow[]; projects: readonly { id: string; name: string }[]; scopeLabel: string; today: Date; changes: readonly Move[] };
+export type UpdateInput = {
+  rows: readonly LeadRow[]; projects: readonly { id: string; name: string }[]; scopeLabel: string; today: Date;
+  /** What moved (see `buildDigest`): net outcomes, with links. */
+  digest: Digest;
+  /** Makes every initiative in the text a link (an absolute address, so the text can be pasted into an email). Without it the names are plain text. */
+  itemHref?: (code: string) => string;
+};
 export type UpdateDraft = { text: string; /** Ids of the initiatives the text talks about, for links. */ sources: string[] };
 const LATE_STAGE = new Set(["Test", "Experiment", "Roll-out"]);
 
 /** A template-based draft of the weekly update from the data. A person edits and reviews it; Claude writes it in phase 4. */
-export function draftWeeklyUpdate({ rows, scopeLabel, today, changes }: UpdateInput): UpdateDraft {
+export function draftWeeklyUpdate({ rows, scopeLabel, today, digest, itemHref }: UpdateInput): UpdateDraft {
   const w = weekWindow(today);
   const sources = new Set<string>();
-  const name = (r: LeadRow) => `${r.item_code} ${r.initiative_name}`;
+  const name = (r: LeadRow) => { const t = `${r.item_code} ${r.initiative_name}`; return itemHref ? `[${t.replace(/[[\]]/g, "")}](${itemHref(r.item_code).replace(/\)/g, "%29")})` : t; };
   const section = (title: string, lines: string[]) => [``, title, ...lines];
 
   const completed = rows.filter((r) => typeof r.g2m_date_actual === "string" && r.g2m_date_actual >= w.start && r.g2m_date_actual < w.end);
@@ -169,20 +176,20 @@ export function draftWeeklyUpdate({ rows, scopeLabel, today, changes }: UpdateIn
   for (const a of attention.slice(0, 8)) {
     sources.add(a.id);
     const [first, ...rest] = a.reasons;
-    const lead = first!.startsWith("Health is ") ? `${a.code} ${a.name} is ${first!.slice("Health is ".length).toLowerCase()}.` : `${a.code} ${a.name}: ${first}.`;
+    const who = name({ item_code: a.code, initiative_name: a.name } as LeadRow);
+    const lead = first!.startsWith("Health is ") ? `${who} is ${first!.slice("Health is ".length).toLowerCase()}.` : `${who}: ${first}.`;
     risks.push(`- ${[lead, ...rest.map((x) => `${x}.`)].join(" ")}`);
   }
   if (attention.length === 0) risks.push("- Nothing needs attention.");
   risks.push("Ask: ");
 
-  const moved: string[] = [];
-  for (const m of changes.slice(0, 8)) { sources.add(m.itemId); moved.push(`- ${m.text}`); }
-  if (changes.length === 0) moved.push("- No rank, status or health changes this week.");
+  for (const id of digest.itemIds) sources.add(id);
+  const moved = digestMarkdown(digest);
 
   const horizon = fromDay(toDay(todayIso) + 14);
   const due = rows.filter((r) => typeof r.g2m_date_est === "string" && r.g2m_date_est >= todayIso && r.g2m_date_est <= horizon && !isFinished(r)).sort((a, b) => String(a.g2m_date_est).localeCompare(String(b.g2m_date_est)));
   const next: string[] = [];
-  for (const r of due) { sources.add(r.id); next.push(`- ${r.item_code} goes live ${formatDate(String(r.g2m_date_est), today)}.`); }
+  for (const r of due) { sources.add(r.id); next.push(`- ${name(r)} goes live ${formatDate(String(r.g2m_date_est), today)}.`); }
   if (due.length === 0) next.push("- Nothing is due in the next two weeks.");
 
   const mix = valueTypeMix(rows).filter((m) => m.count > 0).map((m) => `- ${m.label}: ${m.count} (${m.pct}%)`);

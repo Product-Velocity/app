@@ -18,6 +18,11 @@ export function HarnessClient({ n, latency, role, view, allColumns, bigLists = f
     if (!gates) return undefined;
     const phases = ["Discover", "Define", "Build", "Test"];
     controller.rows.forEach((r, i) => { (r as Record<string, unknown>).initiative_phase = phases[i % 4]; });
+    // Flags and Actions columns: R-01 has every linked issue closed with no phase (Tracker done: a move to Test passes the gates, so it opens the request); R-03 is in Build with its build done (Build done: moves at once)
+    const [a, , c] = controller.rows as unknown as Record<string, unknown>[];
+    if (a) Object.assign(a, { initiative_phase: null, status: "Done", issues_total: 3, issues_closed: 3 });
+    if (c) Object.assign(c, { initiative_phase: "Build", status: "Done", issues_total: 2, issues_closed: 2 });
+    controller.deriveFlags();
     const g = new MemoryGateSource([], role === "admin" ? ["A", "B", "C"] : []);
     g.deciders = [{ user_id: "u1", email: "ana@example.test", role: "admin", is_approver: false, is_service_account: false }, { user_id: "u2", email: "bo@example.test", role: "creator", is_approver: true, is_service_account: false }, { user_id: "u3", email: "cy@example.test", role: "creator", is_approver: false, is_service_account: false }];
     g.items = controller.rows.map((r) => ({ id: r.id, item_code: r.item_code, initiative_name: r.initiative_name, initiative_phase: (r.initiative_phase as string | null) ?? null, initiative_status: null, current_gate: null, gate_status: null, hypothesis: null, effort: (r.effort as string | null) ?? null, moscow: (r.moscow as string | null) ?? null, health: (r.health as string | null) ?? null, kr_metric: null, home_project: String(r.home_project), start_experiment: null }));

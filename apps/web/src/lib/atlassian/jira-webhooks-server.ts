@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { applyLinkedStatuses } from "./refresh-jira";
+import { applyLinkedStatuses, recordLinkedStatusHistory } from "./refresh-jira";
 import type { LinkToRead } from "./read-jira";
 import { describeLines } from "./jira-events";
 import { callbackUrl, eventIssueKey, hashSecret, newSecret, parseToken, planWebhooks, refreshWebhooks, registerWebhook, secretMatches, type WebhookRow } from "./jira-webhooks";
@@ -78,6 +78,8 @@ export async function handleDelivery(token: string, body: unknown): Promise<numb
     const ids = ((linked ?? []) as { item_id: string }[]).map((x) => x.item_id);
     if (ids.length === 0) return 200;
     const done = await applyLinkedStatuses(link as LinkRow, site.url, { itemIds: ids });
+    // who made the change: from Jira's own history of the issues that changed (never from the delivery); a failure here does not fail the delivery
+    if (done.changedIssues.length > 0) await recordLinkedStatusHistory(link as LinkRow, done.changedIssues.map((c) => c.key));
     const l = link as LinkRow;
     // the recent-events table of the settings page: only deliveries that changed something (the rest would drown it)
     if (done.changedIssues.length > 0) await admin2.from("jira_sync_events").insert(done.changedIssues.map((c) => ({ tenant_id: l.tenant_id, link_id: l.id, source: "webhook", kind: "change", issue_key: c.key, summary: describeLines(c.lines), state: "processed" })));

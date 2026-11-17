@@ -33,7 +33,7 @@ export async function resetChanges(page: Page) {
 
 /** Sorts a column from the Columns picker: open it, set the direction on the column's row (A-Z, Z-A, Low to high, ...) and press Apply columns. */
 export async function applySort(page: Page, column: string, direction: string) {
-  await page.getByRole("button", { name: /columns shown$/ }).click();
+  await page.getByRole("button", { name: /^Columns:/ }).click();
   const panel = page.getByRole("group", { name: "Choose columns" });
   const sortBtn = panel.getByRole("button", { name: new RegExp(`^Sort ${column.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:`) });
   await sortBtn.click(); // none -> ascending

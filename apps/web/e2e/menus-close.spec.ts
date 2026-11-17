@@ -10,7 +10,7 @@ const clickElsewhere = (page: Page) => page.getByRole("heading", { name: "Roadma
 test.describe("menus close when you click somewhere else", () => {
   test("Filters, Group by and the more views menu", async ({ page }) => {
     await open(page);
-    for (const name of [/^(Add filter|\d+ filters?)/, /^Group by/, /more views$/]) {
+    for (const name of [/^Filter:/, /^Group by/, /more views$/]) {
       const button = page.getByRole("button", { name });
       await button.click();
       await expect(button).toHaveAttribute("aria-expanded", "true");
@@ -21,7 +21,7 @@ test.describe("menus close when you click somewhere else", () => {
 
   test("the Columns panel", async ({ page }) => {
     await open(page);
-    const button = page.getByRole("button", { name: /columns shown$/ });
+    const button = page.getByRole("button", { name: /^Columns:/ });
     await button.click();
     await expect(page.getByRole("group", { name: "Choose columns" })).toBeVisible();
     await clickElsewhere(page);
@@ -58,6 +58,7 @@ test("grouped rows show the health in words, and health pills have no icon", asy
   await page.getByRole("button", { name: /^Group by/ }).click();
   await page.getByRole("searchbox", { name: "Search group by options" }).fill("moscow");
   await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
   const group = page.locator(".group-row").first();
   await expect(group).toBeVisible();
   await expect(group.locator(".group-health")).toHaveText(/^\d+ (On Track|At Risk|Delayed|Blocked)( · \d+ (On Track|At Risk|Delayed|Blocked))*$/);

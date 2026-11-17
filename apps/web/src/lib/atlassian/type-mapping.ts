@@ -21,6 +21,33 @@ export function proposeTypeMapping(types: ProjectIssueType[]): TypeMapping {
   return { source: "standard", initiative: epic?.id ?? null, epic: story?.id ?? null, task: sub?.id ?? null };
 }
 
+/** Where an issue type sits in Jira's hierarchy, in words: sites can have two types with the same name at different levels (an "Initiative" at level 2 and another at level 0). */
+export function levelLabel(level: number, subtask = false): string {
+  if (subtask || level < 0) return "sub-task";
+  if (level >= 2) return `level ${level}, above Epic`;
+  return `level ${level}`;
+}
+
+/** The label of one issue type in the mapping selects: its name and its level, so equal names can be told apart. */
+export const typeOptionLabel = (t: { name: string; hierarchyLevel: number; subtask?: boolean }): string => `${t.name} · ${levelLabel(t.hierarchyLevel, t.subtask)}`;
+
+/** The types in the order an admin looks for them: highest level first (above Epic, Epic, story, sub-task), then by name. */
+export function sortTypesByLevel<T extends { name: string; hierarchyLevel: number }>(types: T[]): T[] {
+  return [...types].sort((a, b) => b.hierarchyLevel - a.hierarchyLevel || a.name.localeCompare(b.name));
+}
+
+/**
+ * What the chosen initiative type means, for the line under the selects: above Epic, the initiatives are Jira Initiatives and their epics can come
+ * from other Jira projects; at Epic level, epics are the initiatives. Null when nothing is chosen.
+ */
+export function initiativeLevelHint(types: ProjectIssueType[], initiativeId: string | null): string | null {
+  const t = types.find((x) => x.id === initiativeId);
+  if (!t) return null;
+  if (t.hierarchyLevel >= 2) return `${t.name} is above Epic: each issue of this type is an initiative, its epics (from this or any other Jira project) and their work are read as its tree, and the build comes from the epics.`;
+  if (t.hierarchyLevel === 1) return `${t.name} is at Epic level: each issue of this type is an initiative and its stories and tasks are read as its tree.`;
+  return `${t.name} is below Epic level: it can be an initiative, but its tree is only its sub-tasks. An initiative is usually an Epic or a level above Epic.`;
+}
+
 /** The admin's choice must be types of this project, an initiative is required, and one type cannot play two roles. */
 export function validateTypeMapping(types: ProjectIssueType[], chosen: { initiative: string; epic: string | null; task: string | null }): string | null {
   const ids = new Set(types.map((t) => t.id));

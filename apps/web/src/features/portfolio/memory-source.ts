@@ -1,6 +1,6 @@
 import { applyMove, type CrowdRow, type RankDecision, columnOnItems, emptyRelated, FIELD_BY_KEY, type ActivityRow, type EditableField, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
-import type { IssueTreeRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
+import type { IssueTreeRow, JiraEpicRequestRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
 
 export type Op = { type: "update"; itemId: string; field: string; value: unknown; expected?: unknown } | { type: "move"; itemId: string; to: number };
 
@@ -101,6 +101,41 @@ export class MemoryDataSource implements PortfolioDataSource {
   jiraTrees = new Map<string, JiraTreeRow[]>();
   async loadJiraTree(itemId: string): Promise<JiraTreeRow[]> { await this.pause(); return (this.jiraTrees.get(itemId) ?? []).map((r) => ({ ...r })); }
   async loadIssueTree(itemId: string): Promise<IssueTreeRow[]> { await this.pause(); return (this.trees.get(itemId) ?? []).map((r) => ({ ...r })); }
+  /** Epic requests per item in the test page (the database refuses a key another initiative wants; the fake does too). */
+  epicRequests = new Map<string, JiraEpicRequestRow[]>();
+  async loadJiraEpicRequests(itemId: string): Promise<JiraEpicRequestRow[]> { await this.pause(); return (this.epicRequests.get(itemId) ?? []).map((r) => ({ ...r })); }
+  async requestJiraEpics(itemId: string, keys: string[]) {
+    await this.pause();
+    const mine = this.epicRequests.get(itemId) ?? [];
+    const added: string[] = [];
+    for (const k of keys) {
+      if ([...this.epicRequests].some(([id, rows]) => id !== itemId && rows.some((r) => r.key === k && r.state !== "failed"))) return { ok: false as const, error: `${k} is already wanted by another initiative.` };
+      if (!mine.some((r) => r.key === k)) { mine.push({ key: k, state: "pending", lastError: null, previousParent: null }); added.push(k); }
+    }
+    this.epicRequests.set(itemId, mine);
+    return { ok: true as const, added };
+  }
+  /** The check in the test page: every key is OK unless it starts with "BAD", which is refused with a reason. */
+  async checkJiraEpics(itemId: string) {
+    await this.pause();
+    return { ok: true as const, lines: (this.epicRequests.get(itemId) ?? []).filter((r) => r.state !== "linked").map((r) => r.key.startsWith("BAD") ? { key: r.key, ok: false, text: `${r.key} is a Story (level 0), not an epic: only epics go under an Initiative.` } : { key: r.key, ok: true, text: `${r.key} Epic ${r.key}: gets it as its parent (it has none now).` }) };
+  }
+  async removeJiraEpicRequest(itemId: string, key: string) {
+    await this.pause();
+    this.epicRequests.set(itemId, (this.epicRequests.get(itemId) ?? []).filter((r) => r.key !== key || r.state === "linked"));
+    return { ok: true as const };
+  }
+  async loadChildrenBulk(itemIds: string[]) {
+    await this.pause();
+    const jira: Record<string, JiraTreeRow[]> = {}, github: Record<string, IssueTreeRow[]> = {};
+    for (const id of itemIds) {
+      const j = (this.jiraTrees.get(id) ?? []);
+      const g = (this.trees.get(id) ?? []);
+      if (j.length) jira[id] = j.map((r) => ({ ...r }));
+      if (g.length) github[id] = g.map((r) => ({ ...r }));
+    }
+    return { jira, github };
+  }
   /** Who owns each linked item in the test page (default: read only). */
   linkModes = new Map<string, "push" | "follow">();
   async setLinkMode(itemId: string, mode: "push" | "follow", _tracker?: "github" | "jira"): Promise<{ ok: true; before: "push" | "follow" } | { ok: false; error: string }> {

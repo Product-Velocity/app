@@ -38,10 +38,10 @@ export type DialogItem = { id: string } & Record<string, unknown>;
 // -------------------------------------------------------------------------------------------------------------------------------- request
 
 /** "Request gate": asks for a decision on the selected items. The checklist informs; it never blocks (docs/28 section 3). */
-export function RequestGateDialog({ source, items, me = null, onClose, onDone }: { source: GateSource; items: DialogItem[]; /** The signed-in person: left out of the list of people to ask. */ me?: string | null; onClose: () => void; onDone: () => void }) {
+export function RequestGateDialog({ source, items, me = null, initialGate, onClose, onDone }: { source: GateSource; items: DialogItem[]; /** The signed-in person: left out of the list of people to ask. */ me?: string | null; /** The gate to start on (the Changes report asks for the gate that opens the phase an action points at); used only if every item may request it. */ initialGate?: GateId; onClose: () => void; onDone: () => void }) {
   const first = items.map((i) => gateOfPhase(i.initiative_phase)).find(Boolean) ?? "A";
   const common = GATE_IDS.filter((g) => items.some((i) => requestableGates(i.initiative_phase).includes(g)));
-  const [gate, setGate] = useState<GateId>(common.includes(first) ? first : common[0] ?? "A");
+  const [gate, setGate] = useState<GateId>(initialGate && common.includes(initialGate) ? initialGate : common.includes(first) ? first : common[0] ?? "A");
   const [docs, setDocs] = useState<Record<string, { kind: string; status: string }[]>>({});
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<ItemResult[] | null>(null);

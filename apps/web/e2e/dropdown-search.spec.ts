@@ -10,7 +10,7 @@ const open = async (page: Page, query = "n=20&role=admin") => {
 const row = (page: Page, id: string) => page.locator(`.ag-row[row-id="${id}"]`);
 const filtersPanel = (page: Page) => page.getByRole("group", { name: "Filters", exact: true });
 const addFilterRow = async (page: Page) => {
-  await page.getByRole("button", { name: /^(Add filter|\d+ filters?)/ }).click();
+  await page.getByRole("button", { name: /^Filter:/ }).click();
   await filtersPanel(page).getByRole("button", { name: "+ Add rule" }).click();
 };
 
@@ -25,15 +25,18 @@ test.describe("search in long drop-downs (R-018)", () => {
     await search.fill("MOSCOW");
     await expect(items).toHaveCount(1);
     await expect(items.first()).toHaveText("MoSCoW");
-    await search.fill("road"); // anywhere in the name: Roadmap Category
-    await expect(items.filter({ hasText: "Roadmap Category" })).toHaveCount(1);
+    await search.fill("ive gro"); // anywhere in the name: Initiative Group
+    await expect(items.filter({ hasText: "Initiative Group" })).toHaveCount(1);
     await search.fill("zzzz");
     await expect(page.getByRole("status").filter({ hasText: "No results for “zzzz”" })).toBeVisible();
     await expect(items).toHaveCount(0);
     await search.fill("moscow");
-    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter"); // picks the first match into the draft; the panel stays open
+    await expect(page.getByRole("searchbox", { name: "Search group by options" })).toBeVisible();
+    await expect(page.locator(".group-row")).toHaveCount(0); // nothing changes until Apply
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(page.locator(".group-row", { hasText: "Must" })).toBeVisible();
-    await expect(page.getByRole("searchbox", { name: "Search group by options" })).toHaveCount(0); // the list closed
+    await expect(page.getByRole("searchbox", { name: "Search group by options" })).toHaveCount(0); // the panel closed
   });
 
   test("Group by: Down arrow moves into the list, Escape closes it and gives the focus back", async ({ page }) => {
@@ -107,7 +110,7 @@ test.describe("search in long drop-downs (R-018)", () => {
 
   test("Columns: the picker has a search for the 165 fields; Esc still closes it", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: /columns shown$/ }).click();
+    await page.getByRole("button", { name: /^Columns:/ }).click();
     const search = page.getByRole("searchbox", { name: "Search columns" });
     await expect(search).toBeFocused();
     const boxes = page.getByRole("group", { name: "Choose columns" }).getByRole("checkbox");

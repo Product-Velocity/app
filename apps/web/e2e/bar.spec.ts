@@ -8,8 +8,8 @@ const open = async (page: Page, query = "n=30&role=admin&view=All columns&cols=a
   await page.waitForFunction(() => (window as unknown as { __pv?: unknown }).__pv !== undefined);
 };
 const box = async (page: Page, sel: string) => (await page.locator(sel).first().boundingBox())!;
-const filterBtn = (page: Page) => page.getByRole("button", { name: /^(Add filter|\d+ filters?)/ });
-const columnsBtn = (page: Page) => page.getByRole("button", { name: /columns shown$/ });
+const filterBtn = (page: Page) => page.getByRole("button", { name: /^Filter:/ });
+const columnsBtn = (page: Page) => page.getByRole("button", { name: /^Columns:/ });
 const filtersPanel = (page: Page) => page.getByRole("group", { name: "Filters", exact: true });
 const columnsPanel = (page: Page) => page.getByRole("group", { name: "Choose columns" });
 const select = async (page: Page, ...ids: string[]) => { for (const id of ids) await page.locator(`.ag-row[row-id="${id}"] input[type="checkbox"]`).first().check(); };
@@ -27,13 +27,13 @@ test.describe("the bar above the grid (0.30.0)", () => {
     await expect(page.getByText("All changes saved")).toBeVisible();
   });
 
-  test("when a label grows (Export 3) nothing wraps: search gives up width first", async ({ page }) => {
+  test("when a label grows (Export 3 selected) nothing wraps: search gives up width first", async ({ page }) => {
     await page.setViewportSize({ width: 1500, height: 800 });
     await open(page);
     const before = (await page.locator(".pvbar-search").boundingBox())!;
     const y0 = (await filterBtn(page).boundingBox())!.y;
     await select(page, "item-1", "item-2", "item-3");
-    await expect(page.getByRole("button", { name: "Export 3" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Export 3 selected" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Sync with GitHub" })).toBeVisible();
     const after = (await page.locator(".pvbar-search").boundingBox())!;
     expect(after.width).toBeLessThanOrEqual(before.width);
@@ -58,13 +58,27 @@ test.describe("the bar above the grid (0.30.0)", () => {
   test("Export says how many (all shown rows, or the selected ones) and downloads exactly those", async ({ page }) => {
     await open(page, "n=12&role=admin");
     await page.getByRole("button", { name: "Export", exact: true }).click();
-    await expect(page.getByRole("menuitem", { name: /CSV file \(12 rows/ })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /CSV file/ })).toBeVisible();
+    await expect(page.getByRole("menu", { name: "Export" })).toContainText("Exporting 12 rows");
     await page.keyboard.press("Escape");
     await select(page, "item-1", "item-2");
-    await page.getByRole("button", { name: "Export 2" }).click();
+    await page.getByRole("button", { name: "Export 2 selected" }).click();
     const dl = page.waitForEvent("download");
-    await page.getByRole("menuitem", { name: /CSV file \(2 rows/ }).click();
+    await page.getByRole("menuitem", { name: /CSV file/ }).click();
     expect((await dl).suggestedFilename()).toMatch(/^roadmap-selection-/);
+    await expect(page.getByText(/Downloaded roadmap-selection-.*\(2 rows\)/)).toBeVisible();
+  });
+
+  test("Export menu is not clipped by the bar, and the Excel file downloads", async ({ page }) => {
+    await open(page, "n=12&role=admin");
+    await page.getByRole("button", { name: "Export", exact: true }).click();
+    const item = page.getByRole("menuitem", { name: /Excel file/ });
+    // really on screen: the item is the element at its own centre (a clipped menu is covered by what is under it)
+    const b = (await item.boundingBox())!;
+    expect(await page.evaluate(([x, y]) => document.elementFromPoint(x!, y!)?.closest('[role="menuitem"]')?.textContent ?? "", [b.x + b.width / 2, b.y + b.height / 2])).toMatch(/Excel file/);
+    const dl = page.waitForEvent("download");
+    await item.click();
+    expect((await dl).suggestedFilename()).toMatch(/^roadmap-\d{4}-\d\d-\d\d\.xlsx$/);
   });
 
   test("Sync with GitHub is on the bar (disabled when GitHub is not connected); the batch bar no longer has it", async ({ page }) => {
@@ -108,6 +122,7 @@ test.describe("panels that expand from the bar", () => {
     await g.click();
     await expect(g).toHaveAttribute("aria-expanded", "true");
     await page.getByRole("menuitemradio", { name: "MoSCoW" }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(g).toContainText("MoSCoW");
   });
 });
@@ -119,13 +134,13 @@ test.describe("filter panel", () => {
     const high = page.getByRole("button", { name: "High impact" });
     await high.click();
     await expect(high).toHaveAttribute("aria-pressed", "true");
-    await expect(filterBtn(page)).toContainText("1 filter");
+    await expect(filterBtn(page)).toContainText("1 active");
     await page.getByRole("button", { name: "Needs attention" }).click();
-    await expect(filterBtn(page)).toContainText("2 filters");
+    await expect(filterBtn(page)).toContainText("2 active");
     await high.click();
     await expect(high).toHaveAttribute("aria-pressed", "false");
     await page.getByRole("button", { name: "Needs attention" }).click();
-    await expect(filterBtn(page)).toContainText("Add filter");
+    await expect(filterBtn(page)).toContainText("None");
     await expect(foot(page)).toContainText("30 items");
   });
 
@@ -334,9 +349,9 @@ test.describe("Shortcuts, Help and text size in the top bar", () => {
     await page.getByRole("button", { name: "Help", exact: true }).click();
     const guide = page.getByRole("dialog", { name: "Help" });
     await expect(guide.getByRole("table", { name: /Columns, and how each one relates/ })).toContainText("Read-only (tracker)");
-    await expect(guide.getByRole("status")).toContainText("168 of 168 columns");
+    await expect(guide.getByRole("status")).toContainText("171 of 171 columns");
     await guide.getByPlaceholder(/Filter columns/).fill("sponsor");
-    await expect(guide.getByRole("status")).toContainText("1 of 168 columns");
+    await expect(guide.getByRole("status")).toContainText("1 of 171 columns");
     await guide.getByRole("tab", { name: "How content flows" }).click();
     await expect(guide.getByRole("table")).toHaveCount(7); // sync, create, lifecycle, the three gate tables and Needs attention
     await expect(guide.getByRole("heading", { name: "4. Decision gates" })).toBeVisible();

@@ -4,17 +4,19 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ClientSideRowModelApiModule, ClientSideRowModelModule, CellApiModule, CellStyleModule, ColumnApiModule, CustomEditorModule,
-  EventApiModule, ModuleRegistry, RowApiModule, RowSelectionModule, ScrollApiModule, TextEditorModule, themeQuartz, type CellClickedEvent, type CellDoubleClickedEvent, type CellFocusedEvent, type CellKeyDownEvent, type ColumnMovedEvent, type GridApi,
+  EventApiModule, ModuleRegistry, RowApiModule, RowSelectionModule, ScrollApiModule, TextEditorModule, type CellClickedEvent, type CellDoubleClickedEvent, type CellFocusedEvent, type CellKeyDownEvent, type ColumnMovedEvent, type GridApi,
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import {
-  buildGroupedRows, CORE_COLUMN_KEYS, effectiveSort, FIELD_BY_KEY, VISIBLE_FIELDS, groupableFields, matchesFilters, matchesSearch, refKey, sanitizeView, sortRows, sortSummary, type EditableField, type Filter, type GroupRow, type SortDef, type ViewDef,
+  buildGroupedRows, CORE_COLUMN_KEYS, effectiveSort, FIELD_BY_KEY, flagsOfRow, resolveFlagAction, type GateId, isOpenableUrl, VISIBLE_FIELDS, groupPickerSections, groupSummary, matchesFilters, matchesSearch, refKey, sanitizeView, sortRows, sortSummary, type EditableField, type Filter, type GroupRow, type SortDef, type ViewDef,
 } from "@pv/domain";
 import { useWorkspace } from "../workspace/provider";
 import { setQueryParam, useScope } from "../workspace/scope";
-import { buildColumns, isEditableColumn, isReadOnlyColumn } from "./columns";
+import { buildColumns, isEditableColumn, isReadOnlyColumn, type GridContext } from "./columns";
 import { syncLabel, syncPlatforms, syncTitle } from "./sync-label";
 import { ColumnsPanel } from "./columns-panel";
+import { isIssueRow, issueInfoOf, issueRowsOf, issuesKey, issueTypeCounts, withIssueRows, type IssueFilter, type IssueRow } from "./issue-rows";
+import type { ReportChildren } from "./export-xlsx-children";
 import { FilterPanel } from "./filter-panel";
 import { Popover } from "./popover";
 import { ItemPanel } from "./item-panel";
@@ -24,17 +26,21 @@ import type { Command } from "./palette";
 import { GroupMenu, summarize } from "./view-controls";
 import { baseToRef, useViews, ViewBar } from "./view-bar";
 import { downloadCsv, selectionToCsv } from "./export-selection";
+import { downloadBlob, selectionToXlsx } from "./export-xlsx";
+import { selectionToXlsxWithChildren } from "./export-xlsx-children";
 import { BulkBar } from "./bulk-bar";
 import { DeleteDialog } from "./delete-dialog";
 import { GithubPushDialog } from "./github-push-dialog";
 import type { NewItemsConfig } from "./new-items";
 import type { GateSource } from "../gates/gate-source";
 import { GATE_ACTION_EVENT, type GateActionKind } from "../gates/gate-actions";
+import { RequestGateDialog } from "../gates/gate-dialogs";
 import { agoLabel, latestTime } from "./last-sync";
 import { ImportDialog } from "./import-dialog";
 import { QuickAddBar } from "./quick-add-bar";
 import { OverflowBar, type OverflowItem } from "@/components/overflow-bar";
 import type { PortfolioController } from "./controller";
+import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer, isGroup } from "./grid-kit";
 import { StatusAlerts, StatusInline, useStatus } from "./status-strip";
 import type { GridItem, Lookups } from "./types";
 
@@ -43,24 +49,6 @@ ModuleRegistry.registerModules([
   ColumnApiModule, CellApiModule, RowApiModule, EventApiModule, ScrollApiModule, RowSelectionModule,
 ]);
 
-const theme = themeQuartz.withParams({
-  fontFamily: "IBM Plex Sans, system-ui, sans-serif",
-  fontSize: 13,
-  headerFontSize: 12,
-  headerFontWeight: 600,
-  headerTextColor: "#374151",
-  columnBorder: false,
-  headerColumnBorder: false,
-  rowBorder: { style: "solid", width: 1, color: "#F3F4F7" },
-  selectedRowBackgroundColor: "#f3f8fe",
-  rowHeight: 36,
-  headerHeight: 28,
-  accentColor: "#2270ed",
-  borderColor: "#E6E9EF",
-  headerBackgroundColor: "#F8F9FC",
-  wrapperBorderRadius: 8,
-  spacing: 6,
-});
 
 type GridProps = {
   controller: PortfolioController;
@@ -79,29 +67,50 @@ type GridProps = {
   gates?: GateSource;
 };
 
-const isGroup = (r: unknown): r is GroupRow => !!r && typeof r === "object" && (r as { __group?: boolean }).__group === true;
 
-/** Full-width header row of a group: a toggle, the group's name and how many items it holds. */
-function GroupRowRenderer(p: CustomCellRendererProps<GroupRow>) {
-  const g = p.data;
-  if (!g) return null;
-  const toggle = (p.context as { toggleGroup: (key: string) => void }).toggleGroup;
+/**
+ * A tracker issue under its initiative (Show issues), lined up with the grid's own columns so it reads as a child of the initiative above:
+ * the key sits under the Initiative ID column, the type and title under the Initiative Name column behind a branch line, and the status and the assignee
+ * follow in the columns after it. The positions are read from the grid, and drawn again when a column is resized, moved, locked or hidden.
+ */
+function IssueRowRenderer({ data, api }: { data: IssueRow; api: GridApi }) {
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    const again = () => redraw((n) => n + 1);
+    const events = ["columnResized", "columnMoved", "columnPinned", "columnVisible", "displayedColumnsChanged"] as const;
+    for (const e of events) api.addEventListener(e, again);
+    return () => { for (const e of events) api.removeEventListener(e, again); };
+  }, [api]);
+  const c = data.child;
+  const idCol = api.getColumn("item_code"), nameCol = api.getColumn("initiative_name");
+  const idLeft = idCol?.getLeft() ?? 120, nameLeft = nameCol?.getLeft() ?? 240, nameWidth = nameCol?.getActualWidth() ?? 320;
+  const indent = data.depth * 18;
+  const after = nameLeft + nameWidth + 8;
   return (
-    <div className="group-row">
-      <button type="button" className="group-toggle" aria-expanded={!g.collapsed} aria-label={`${g.collapsed ? "Expand" : "Collapse"} group ${g.label}`} onClick={() => toggle(g.key)}>
-        {g.collapsed ? "▸" : "▾"}
-      </button>
-      <span>{g.label}</span>
-      <span className="group-count">{g.count} {g.count === 1 ? "item" : "items"}</span>
-      {g.healthSummary && <span className="group-health">{g.healthSummary}</span>}
+    <div className="issue-row" data-last={data.last} data-depth={data.depth} role="gridcell">
+      <span className="issue-branch" aria-hidden="true" style={{ left: nameLeft + 8 + indent }} />
+      <span className="issue-cell" style={{ left: idLeft + 8, maxWidth: Math.max(60, nameLeft - idLeft - 12) }}>
+        {c.url && isOpenableUrl(c.url) ? <a className="issue-key" href={c.url} target="_blank" rel="noopener noreferrer">{c.key}</a> : <span className="issue-key">{c.key}</span>}
+      </span>
+      <span className="issue-cell issue-main" style={{ left: nameLeft + 26 + indent, width: Math.max(80, nameWidth - 34 - indent) }} title={`${c.type}: ${c.title}`}>
+        <span className="issue-type">{c.type}</span>
+        <span className="issue-title">{c.title}</span>
+      </span>
+      {c.status && <span className="issue-cell issue-status" data-group={c.group || undefined} style={{ left: after, width: 112 }}>{c.status}</span>}
+      {c.assignee && <span className="issue-cell issue-assignee" style={{ left: after + 120 }}>{c.assignee}</span>}
     </div>
   );
 }
 
+function FullWidthRenderer(p: CustomCellRendererProps<GroupRow | IssueRow>) {
+  return isIssueRow(p.data) ? <IssueRowRenderer data={p.data} api={p.api} /> : <GroupRowRenderer {...(p as CustomCellRendererProps<GroupRow>)} />;
+}
+
 const getRowId = (p: { data: { id: string } }) => p.data.id;
-const isFullWidthRow = (p: { rowNode: { data?: unknown } }) => isGroup(p.rowNode.data);
-const DEFAULT_COL_DEF = { sortable: false, resizable: true, cellDataType: false } as const;
-const ROW_SELECTION = { mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false, isRowSelectable: (n: { data?: unknown }) => !isGroup(n.data) } as const;
+/** Group headers and tracker issue rows are not initiatives: they span the grid, cannot be selected and are skipped by the keyboard shortcuts. */
+const isExtraRow = (r: unknown) => isGroup(r) || isIssueRow(r);
+const isFullWidthRow = (p: { rowNode: { data?: unknown } }) => isExtraRow(p.rowNode.data);
+const ROW_SELECTION = { mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false, isRowSelectable: (n: { data?: unknown }) => !isExtraRow(n.data) } as const;
 const SELECTION_COLUMN = { pinned: "left", width: 46, suppressHeaderMenuButton: true } as const;
 
 const PRIORITISATION: BaseView = { kind: "builtin", name: "Prioritisation" };
@@ -174,7 +183,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const [base, setBase] = useState<BaseView>(() => parseBase(params.get("view"), initialBase));
   // What you change is kept while you move between views: filters, grouping and sort stay until you remove them; column changes stay with the view
   // they were made in. Nothing is saved until you choose to, from the views menu. Opening a view that stores its own filters, grouping or sort uses them.
-  type Shared = { filters?: Filter[]; groupBy?: string | null; sort?: ViewDef["sort"] };
+  type Shared = { filters?: Filter[]; groupBy?: string | null; thenBy?: string | null; showIssues?: boolean; issueTypes?: string[]; hideDoneIssues?: boolean; sort?: ViewDef["sort"] };
   const [shared, setShared] = useState<Shared>({});
   const [colOverrides, setColOverrides] = useState<Record<string, { columns: string[]; pinned: string[] }>>({});
   const viewKey = refKey(baseToRef(base));
@@ -187,7 +196,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       ...bDef,
       ...(co ? { columns: co.columns, pinned: co.pinned } : {}),
       ...(shared.filters !== undefined ? { filters: shared.filters } : {}),
-      ...("groupBy" in shared ? { groupBy: shared.groupBy } : {}),
+      ...("groupBy" in shared ? { groupBy: shared.groupBy, thenBy: shared.thenBy, showIssues: shared.showIssues, issueTypes: shared.issueTypes, hideDoneIssues: shared.hideDoneIssues } : {}),
       ...("sort" in shared ? { sort: shared.sort } : {}),
     }),
     [bDef, co, shared],
@@ -196,13 +205,13 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const shownSort = effectiveSort(def); // a saved sort on a column the view does not show falls back to the default order, quietly
   const openBaseRaw = (b: BaseView) => {
     const target = baseDef(b, views, defaults);
-    if (target) setShared((p) => { const n = { ...p }; if (target.filters.length > 0) delete n.filters; if (target.groupBy) delete n.groupBy; if (target.sort) delete n.sort; return n; });
+    if (target) setShared((p) => { const n = { ...p }; if (target.filters.length > 0) delete n.filters; if (target.groupBy || target.showIssues) { delete n.groupBy; delete n.thenBy; delete n.showIssues; delete n.issueTypes; delete n.hideDoneIssues; } if (target.sort) delete n.sort; return n; });
     setBase(b);
     setQueryParam("view", baseParam(b));
   };
   const changeDef = (patch: Partial<ViewDef>) => {
     const next = sanitizeView({ ...def, ...patch });
-    setShared((p) => ({ ...p, ...("filters" in patch ? { filters: next.filters } : {}), ...("groupBy" in patch ? { groupBy: next.groupBy } : {}), ...("sort" in patch ? { sort: next.sort ?? [] } : {}) }));
+    setShared((p) => ({ ...p, ...("filters" in patch ? { filters: next.filters } : {}), ...("groupBy" in patch || "thenBy" in patch || "showIssues" in patch || "issueTypes" in patch || "hideDoneIssues" in patch ? { groupBy: next.groupBy, thenBy: next.thenBy ?? null, showIssues: next.showIssues === true, issueTypes: next.issueTypes, hideDoneIssues: next.hideDoneIssues === true } : {}), ...("sort" in patch ? { sort: next.sort ?? [] } : {}) }));
     if ("columns" in patch || "pinned" in patch) setColOverrides((p) => ({ ...p, [viewKey]: { columns: next.columns, pinned: next.pinned ?? [] } }));
   };
   const clearColumns = () => setColOverrides((p) => { const n = { ...p }; delete n[viewKey]; return n; });
@@ -247,20 +256,63 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     [controller, tick, projectIds, search, def.filters, added, me, hideCompleted],
   );
 
-  const displayRows = useMemo(
-    () => buildGroupedRows(sortRows(visibleRows as unknown as Record<string, unknown>[], shownSort) as unknown as typeof visibleRows, def.groupBy, collapsed, groupLabel),
+  // Tracker issues under each initiative ("Show issues", the third level): loaded once for the rows that are shown, when the option is on
+  const [issueKids, setIssueKids] = useState<ReportChildren>({ jira: {}, github: {} });
+  const [issuesFailed, setIssuesFailed] = useState(false);
+  const issuesAsked = useRef(new Set<string>());
+  const [issuesPending, setIssuesPending] = useState(0);
+  const showIssues = def.showIssues === true;
+  // the Group by panel counts the issue types, so it asks for the issues of the shown initiatives when it opens
+  const [issuesWanted, setIssuesWanted] = useState(false);
+  const issueFilter = useMemo<IssueFilter>(() => ({ types: def.issueTypes ?? null, hideDone: def.hideDoneIssues === true }), [def.issueTypes, def.hideDoneIssues]);
+  const wantIssues = showIssues || issuesWanted;
+  useEffect(() => {
+    if (!wantIssues) { issuesAsked.current.clear(); return; }
+    const ids = visibleRows.map((r) => r.id).filter((id) => !issuesAsked.current.has(id));
+    if (ids.length === 0) return;
+    for (const id of ids) issuesAsked.current.add(id);
+    setIssuesPending((n) => n + 1);
+    controller.childrenOf(ids)
+      .then((c) => { setIssuesFailed(false); setIssueKids((p) => ({ jira: { ...p.jira, ...c.jira }, github: { ...p.github, ...c.github } })); })
+      .catch(() => { for (const id of ids) issuesAsked.current.delete(id); setIssuesFailed(true); })
+      .finally(() => setIssuesPending((n) => n - 1));
+  }, [wantIssues, visibleRows, controller]);
+  const issueTypes = useMemo(() => issueTypeCounts(visibleRows, issueKids), [visibleRows, issueKids]);
+  const issuesLoading = issuesPending > 0;
+  const displayRows = useMemo(() => {
+    const grouped = buildGroupedRows(sortRows(visibleRows as unknown as Record<string, unknown>[], shownSort) as unknown as typeof visibleRows, def.groupBy, collapsed, groupLabel, def.thenBy ?? null);
+    return showIssues ? withIssueRows(grouped, issueKids, collapsed, issueFilter) : grouped;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [visibleRows, def.groupBy, shownSort, collapsed, lookups],
-  );
+  }, [visibleRows, def.groupBy, def.thenBy, shownSort, collapsed, lookups, showIssues, issueKids, issueFilter]);
   const toggleGroup = useCallback((key: string) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(key)) n.add(key); return n; }), []);
-  const gridContext = useMemo(() => ({ toggleGroup }), [toggleGroup]);
+  // what a cell may ask the grid: fold a group, and (Show issues) the chip data of an initiative's name cell
+  const issueInfo = useCallback((id: string) => { const r = controller.row(id); return r ? issueInfoOf(r, issueKids, collapsed, issueFilter) : null; }, [controller, issueKids, collapsed, issueFilter]);
+  // The Actions column (issue #480): one click on a flag's button moves the phase now, or opens the gate request when the move passes a gate
+  const [flagBusy, setFlagBusy] = useState<string | null>(null);
+  const [gateFor, setGateFor] = useState<{ id: string; gate: GateId } | null>(null);
+  const runFlagAction = useCallback(async (itemId: string, flagKind: string) => {
+    const row = controller.row(itemId);
+    if (!gates || !row || !controller.canEdit) return;
+    const flag = flagsOfRow(row, controller.todayDate()).find((f) => f.kind === flagKind);
+    if (!flag?.action) return;
+    const a = resolveFlagAction(flag.action, row.initiative_phase);
+    if (a.kind === "gate") { setGateFor({ id: itemId, gate: a.gate }); return; }
+    setFlagBusy(`${itemId}:${flagKind}`);
+    const r = await gates.move(itemId, a.to);
+    setFlagBusy(null);
+    if (r.ok) { controller.notify(`${row.item_code} moved to ${a.to}.`); void controller.refreshFromServer(); } else controller.notify(`${row.item_code} was not moved: ${r.error}`);
+  }, [controller, gates]);
+  const gridContext = useMemo<GridContext & Record<string, unknown>>(() => ({ toggleGroup, issueInfo, runFlagAction: (id: string, kind: string) => { void runFlagAction(id, kind); }, flagBusy }), [toggleGroup, issueInfo, runFlagAction, flagBusy]);
+  useEffect(() => { apiRef.current?.refreshCells({ columns: ["actions"], force: true }); }, [flagBusy]);
+  // the chips are drawn by the cells, which do not see a change of context by themselves
+  useEffect(() => { if (showIssues) apiRef.current?.refreshCells({ columns: ["initiative_name"], force: true }); }, [showIssues, issueKids, collapsed, issueFilter]);
   const resetShown = () => setAdded(new Set());
   const setFilters = (filters: Filter[]) => { resetShown(); changeDef({ filters }); };
   const setSearchText = (t: string) => { resetShown(); setSearch(t); };
 
   const columnDefs = useMemo(
-    () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible, order: def.columns, sorted: def.groupBy === null && shownSort.length === 0, pinned: pinnedSet }),
-    [controller, lookups, visible, def.columns, def.groupBy, shownSort, pinnedSet],
+    () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible, order: def.columns, sorted: def.groupBy === null && shownSort.length === 0, pinned: pinnedSet, showIssues: def.showIssues === true }),
+    [controller, lookups, visible, def.columns, def.groupBy, shownSort, pinnedSet, def.showIssues],
   );
   const exportFields = useMemo(() => def.columns.map((k) => FIELD_BY_KEY[k]!).filter(Boolean), [def.columns]);
   const showLater = def.columns.some((k) => (FIELD_BY_KEY[k]?.phase ?? 1) > 1 && k !== "project_rank");
@@ -346,7 +398,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     const colId = e.column.getColId();
     if (!ke || !e.data) return;
     if (e.api.getEditingCells().length > 0) return;
-    if (ke.key === " " && !ke.ctrlKey && !ke.metaKey && !ke.altKey && !isGroup(e.data) && colId !== "ag-Grid-SelectionColumn") {
+    if (ke.key === " " && !ke.ctrlKey && !ke.metaKey && !ke.altKey && !isExtraRow(e.data) && colId !== "ag-Grid-SelectionColumn") {
       ke.preventDefault(); // Space opens the item panel (the page would scroll otherwise)
       openPeek(e.data.id);
       return;
@@ -388,7 +440,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const onGridReady = useCallback((e: { api: GridApi<GridItem> }) => { apiRef.current = e.api; }, []);
   const onCellFocused = useCallback((e: CellFocusedEvent<GridItem>) => {
     const row = e.rowIndex == null ? null : e.api.getDisplayedRowAtIndex(e.rowIndex)?.data;
-    if (row && !isGroup(row)) setContextProject(row.home_project);
+    if (row && !isExtraRow(row)) setContextProject(row.home_project);
   }, []);
   const onCellDoubleClicked = useCallback((e: CellDoubleClickedEvent<GridItem>) => {
     const colId = e.column.getColId();
@@ -400,11 +452,11 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const onCellClicked = useCallback((e: CellClickedEvent<GridItem>) => {
     const colId = e.column.getColId();
     if ((e.event?.target as HTMLElement | null)?.closest?.("a.issue-link")) return; // the ticket link opens GitHub, not the panel
-    if (colId === "item_code" && e.data && !isGroup(e.data) && e.api.getEditingCells().length === 0) openPeek(e.data.id);
+    if (colId === "item_code" && e.data && !isExtraRow(e.data) && e.api.getEditingCells().length === 0) openPeek(e.data.id);
   }, [openPeek]);
 
   /** Items in the order the grid shows them now (scope, search, filters and grouping applied; rows in collapsed groups and group headers left out). */
-  const orderedIds = useMemo(() => displayRows.filter((r) => !isGroup(r)).map((r) => (r as GridItem).id), [displayRows]);
+  const orderedIds = useMemo(() => displayRows.filter((r) => !isExtraRow(r)).map((r) => (r as GridItem).id), [displayRows]);
   const step = useCallback((delta: 1 | -1) => {
     const current = peekNow.current;
     if (orderedIds.length === 0 || !current) return;
@@ -490,11 +542,33 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     api.ensureNodeVisible(node, "middle");
     api.setFocusedCell(node.rowIndex, "initiative_name");
   };
-  const exportAll = () => downloadCsv(`roadmap-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(visibleRows, exportFields, lookups));
+  const exportStamp = () => new Date().toISOString().slice(0, 10);
   /** The Export button: the selected rows when some are selected, else every row the filters show. */
-  const exportRows = () => (selected.length > 0
-    ? downloadCsv(`roadmap-selection-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(selected, exportFields, lookups))
-    : exportAll());
+  const rowsToExport = () => (selected.length > 0 ? selected : visibleRows);
+  const exportName = (ext: string) => `roadmap${selected.length > 0 ? "-selection" : ""}-${exportStamp()}.${ext}`;
+  /** After a file is handed to the browser, say which file and how many rows (a download otherwise gives no sign on the page). */
+  const exportDone = (name: string, rows: number) => controller.notify(`Downloaded ${name} (${rows.toLocaleString("en-GB")} ${rows === 1 ? "row" : "rows"}). Check your Downloads folder.`);
+  const exportCsv = () => {
+    const rows = rowsToExport();
+    const name = exportName("csv");
+    downloadCsv(name, selectionToCsv(rows, exportFields, lookups));
+    exportDone(name, rows.length);
+  };
+  const exportXlsx = () => {
+    const rows = rowsToExport();
+    const name = exportName("xlsx");
+    selectionToXlsx(rows, exportFields, lookups, "Roadmap")
+      .then((blob) => { downloadBlob(name, blob); exportDone(name, rows.length); })
+      .catch(() => window.alert("The Excel file could not be made. Try the CSV file, or reload and try again."));
+  };
+  /** Roadmap with epics: each initiative with its linked tracker issues as collapsible rows beneath it. */
+  const exportXlsxEpics = () => {
+    const rows = rowsToExport();
+    controller.childrenOf(rows.map((r) => r.id))
+      .then((children) => selectionToXlsxWithChildren(rows, exportFields, lookups, children, "Roadmap with epics"))
+      .then((blob) => { const name = exportName("xlsx").replace("roadmap", "roadmap-with-epics"); downloadBlob(name, blob); exportDone(name, rows.length); })
+      .catch(() => window.alert("The Excel file with epics could not be made. Try the plain Excel file, or reload and try again."));
+  };
   const exportCount = selected.length > 0 ? selected.length : visibleRows.length;
   const syncIds = selected.length > 0 ? selected.map((r) => r.id) : visibleRows.map((r) => r.id);
   const shownCount = VISIBLE_FIELDS.filter((f) => visible.has(f.key) || (CORE_COLUMN_KEYS as readonly string[]).includes(f.key)).length;
@@ -507,13 +581,26 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     for (const sc of scopes) out.push({ id: `scope:${sc.id}`, label: `Go to scope: ${sc.name}`, group: "Scope", keywords: "portfolio", run: () => scope.select({ kind: "scope", id: sc.id }) });
     for (const p of projects) out.push({ id: `project:${p.id}`, label: `Show project: ${p.name}`, group: "Scope", run: () => scope.select({ kind: "project", id: p.id }) });
     out.push({ id: "sort:none", label: "Sort: global Stack Rank", group: "Sort", run: () => changeDef({ sort: [] }) });
-    out.push({ id: "group:none", label: "Group by: no grouping", group: "Grouping", run: () => changeDef({ groupBy: null }) });
-    for (const f of groupableFields()) out.push({ id: `group:${f.key}`, label: `Group by ${f.name}`, group: "Grouping", run: () => changeDef({ groupBy: f.key }) });
+    out.push({ id: "group:none", label: "Group by: no grouping", group: "Grouping", run: () => changeDef({ groupBy: null, thenBy: null }) });
+    const pickable = groupPickerSections({ customerSafe: def.customerSafe === true }).flatMap((x) => x.fields);
+    for (const f of pickable) if (f.key !== def.thenBy) out.push({ id: `group:${f.key}`, label: `Group by ${f.name}`, group: "Grouping", run: () => changeDef({ groupBy: f.key }) });
+    if (showIssues) {
+      const keys = visibleRows.filter((r) => issueRowsOf(r, issueKids, issueFilter).length > 0).map((r) => issuesKey(r.id));
+      out.push({ id: "issues:collapse", label: "Collapse all issues", group: "Grouping", keywords: "fold hide epics stories tasks", run: () => setCollapsed((c) => new Set([...c, ...keys])) });
+      out.push({ id: "issues:expand", label: "Expand all issues", group: "Grouping", keywords: "unfold show epics stories tasks", run: () => setCollapsed((c) => new Set([...c].filter((k) => !k.startsWith("issues:")))) });
+    }
+    if (def.customerSafe !== true) out.push({ id: "issues:toggle", label: showIssues ? "Hide issues under initiatives" : "Show issues under initiatives", group: "Grouping", keywords: "epics stories tasks tracker jira github children third level", run: () => changeDef({ showIssues: !showIssues }) });
+    if (def.groupBy) {
+      for (const f of pickable) if (f.key !== def.groupBy) out.push({ id: `then:${f.key}`, label: `Then by ${f.name}`, group: "Grouping", keywords: "second level group", run: () => changeDef({ thenBy: f.key }) });
+      if (def.thenBy) out.push({ id: "then:none", label: "Then by: remove the second level", group: "Grouping", run: () => changeDef({ thenBy: null }) });
+    }
     if (def.filters.length > 0) out.push({ id: "filters:clear", label: "Clear filters", group: "Filters", run: () => setFilters([]) });
     if (search) out.push({ id: "search:clear", label: "Clear search", group: "Filters", run: () => setSearchText("") });
     if (dirty) out.push({ id: "view:reset", label: "Reset view changes", group: "Views", run: resetChanges });
     if (controller.canEdit && lookups.projects.length > 0) out.push({ id: "import", label: "Import from spreadsheet", group: "Actions", keywords: "paste excel csv", run: () => setImportText("") });
-    out.push({ id: "export", label: "Export shown rows to file", group: "Actions", keywords: "csv download", run: exportAll });
+    out.push({ id: "export", label: "Export shown rows to file", group: "Actions", keywords: "csv download", run: exportCsv });
+    out.push({ id: "export-xlsx", label: "Export shown rows to Excel file", group: "Actions", keywords: "xlsx excel download", run: exportXlsx });
+    out.push({ id: "export-xlsx-epics", label: "Export Roadmap with epics (Excel file)", group: "Actions", keywords: "xlsx excel download epics children tracker jira github report", run: exportXlsxEpics });
     if (controller.canEdit && selected.length > 0) out.push({ id: "delete", label: `Delete ${selected.length} selected ${selected.length === 1 ? "initiative" : "initiatives"}`, group: "Actions", keywords: "remove trash", hint: "Del", run: () => setDeleteIds(selected.map((r) => r.id)) });
     if (controller.canSeeTrash) out.push({ id: "go:trash", label: "Open Trash", group: "Go to", keywords: "deleted restore", run: () => router.push("/trash") });
     if (controller.canEdit) {
@@ -534,7 +621,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     return out;
     // the commands are rebuilt when what they act on changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [controller, lookups, viewsApi.commands, scopes, projects, def, dirty, search, base, visibleRows, mac, focusQuickAdd, focusSearch, selected, gates]);
+  }, [controller, lookups, viewsApi.commands, scopes, projects, def, dirty, search, base, visibleRows, mac, focusQuickAdd, focusSearch, selected, gates, showIssues, issueKids, issueFilter]);
   const findItems = useMemo(
     () => (q: string) => controller.rows.filter((r) => matchesSearch(r, q)).slice(0, 6).map((r) => ({ id: r.id, label: `${r.item_code} ${r.initiative_name}`, run: () => locate(r.id) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -554,7 +641,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       {headRight && <span className="head-tools">{headRight}</span>}
       {(def.filters.length > 0 || scope.selection.kind !== "all") && (
         <div className="filter-chips" aria-label="Active scope and filters">
-          {scope.selection.kind !== "all" && <span className="token-chip">Scope: {scope.label}</span>}
+          {scope.selection.kind !== "all" && <span className="token-chip">Project: {scope.label}</span>}
           {def.filters.map((f, i) => (
             <span key={i} className="token-chip">
               {summarize(f, lookups)}{" "}
@@ -581,7 +668,11 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         <div className="pvbar-s1">
           <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} quarters={controller.rows.map((r) => r.g2m_quarter)} openValues={(k) => controller.openValues(k)} today={today} matching={visibleRows.length} total={controller.rows.length} />
           <ColumnsPanel def={def} defaultDef={bDef} customerSafe={def.customerSafe === true} onApply={changeColumns} shown={shownCount} />
-          <GroupMenu groupBy={def.groupBy} onChange={(g) => changeDef({ groupBy: g })} />
+          <GroupMenu
+            state={{ groupBy: def.groupBy, thenBy: def.thenBy ?? null, showIssues, issueTypes: def.issueTypes ?? null, hideDone: def.hideDoneIssues === true }}
+            customerSafe={def.customerSafe === true} issueTypes={issueTypes} issuesLoading={issuesLoading} onOpenIssues={() => setIssuesWanted(true)}
+            onChange={(g) => changeDef({ groupBy: g.groupBy, thenBy: g.thenBy, showIssues: g.showIssues, issueTypes: g.issueTypes ?? undefined, hideDoneIssues: g.hideDone })}
+          />
           <label className="pvbar-search">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b6272" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
             <input
@@ -595,13 +686,13 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
             />
           </label>
           {(() => {
-            // what does not fit moves into "More" (issue #403): Paste table first, then Export, Include completed, Sync
+            // what does not fit moves into "More" (issue #403): Paste table first, then Include completed, then Export, then Sync
             const items: OverflowItem[] = [];
             if (completedCount > 0 && !asksForPhase) {
               const toggle = () => { const next = !includeCompleted; setIncludeCompleted(next); setQueryParam("completed", next ? "1" : null); };
               const label = includeCompleted ? "Hide completed" : `Include completed (${completedCount})`;
               items.push({
-                id: "completed", rank: 2,
+                id: "completed", rank: 3,
                 node: (
                   <button type="button" className={includeCompleted ? "tool-btn tool-btn-on" : "tool-btn"} aria-pressed={includeCompleted} title="Completed initiatives are hidden by default so the grid shows what is being worked on" onClick={toggle}>{label}</button>
                 ),
@@ -609,20 +700,36 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
               });
             }
             items.push({
-              id: "export", rank: 3,
+              id: "export", rank: 2,
               node: (
-                <Popover label={selected.length > 0 ? `Export ${selected.length}` : "Export"} active={selected.length > 0}>
+                <Popover label={<><DownloadIcon />{selected.length > 0 ? `Export ${selected.length} selected` : "Export"}</>} active={selected.length > 0}>
                   {(close) => (
-                    <div role="menu" aria-label="Export">
-                      <button type="button" role="menuitem" className="scope-item" onClick={() => { close(); exportRows(); }}>
-                        <span>CSV file ({exportCount.toLocaleString("en-GB")} {exportCount === 1 ? "row" : "rows"}{selected.length > 0 ? ", the selected ones" : filtered ? ", with the filters" : ""})</span>
+                    <div role="menu" aria-label="Export" className="export-menu">
+                      <p className="export-head">
+                        Exporting {exportCount.toLocaleString("en-GB")} {exportCount === 1 ? "row" : "rows"}
+                        <span>{selected.length > 0 ? "the selected ones" : filtered ? "with your filters" : "all shown"} · the columns you see</span>
+                      </p>
+                      <button type="button" role="menuitem" className="export-item" onClick={() => { close(); exportXlsx(); }}>
+                        <strong>Excel file (.xlsx)</strong>
+                        <span>Keeps dates, numbers and ticket links</span>
                       </button>
-                      <p className="scope-empty">The columns you see, in your date format. More formats come later.</p>
+                      <button type="button" role="menuitem" className="export-item" onClick={() => { close(); exportCsv(); }}>
+                        <strong>CSV file (.csv)</strong>
+                        <span>Plain text, for other tools</span>
+                      </button>
+                      <button type="button" role="menuitem" className="export-item" onClick={() => { close(); exportXlsxEpics(); }}>
+                        <strong>Roadmap with epics (.xlsx)</strong>
+                        <span>Each initiative with its linked Jira or GitHub issues beneath it</span>
+                      </button>
                     </div>
                   )}
                 </Popover>
               ),
-              entry: { label: `Export CSV (${exportCount.toLocaleString("en-GB")} ${exportCount === 1 ? "row" : "rows"})`, onSelect: exportRows, title: "The columns you see, in your date format" },
+              entry: { label: `Export CSV (${exportCount.toLocaleString("en-GB")} ${exportCount === 1 ? "row" : "rows"})`, onSelect: exportCsv, title: "The columns you see" },
+              more: [
+                { label: `Export Excel (${exportCount.toLocaleString("en-GB")} ${exportCount === 1 ? "row" : "rows"})`, onSelect: exportXlsx, title: "The columns you see, with dates, numbers and ticket links kept" },
+                { label: "Export Roadmap with epics (Excel)", onSelect: exportXlsxEpics, title: "Each initiative with its linked Jira or GitHub issues beneath it, collapsible" },
+              ],
             });
             if (controller.canEdit && lookups.projects.length > 0) {
               items.push({
@@ -656,6 +763,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         {selected.length > 0 && <BulkBar controller={controller} lookups={lookups} selected={selected} onClear={() => apiRef.current?.deselectAll()} onSelectAll={() => apiRef.current?.selectAll()} onDelete={() => setDeleteIds(selected.map((r) => r.id))} total={visibleRows.length} me={me} {...(gates ? { gates } : {})} />}
         {controller.canEdit && lookups.projects.length > 0 && <QuickAddBar controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef} />}
       </div>
+      {gates && gateFor && controller.row(gateFor.id) && <RequestGateDialog source={gates} me={me} initialGate={gateFor.gate} items={[controller.row(gateFor.id) as never]} onClose={() => setGateFor(null)} onDone={() => { setGateFor(null); void controller.refreshFromServer(); }} />}
       {githubIds && <GithubPushDialog ids={githubIds} newItems={newItems} onClose={() => setGithubIds(null)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer(); }} />}
       {deleteIds && <DeleteDialog controller={controller} ids={deleteIds} onClose={closeDelete} onDeleted={() => apiRef.current?.deselectAll()} />}
       {importText !== null && (
@@ -663,15 +771,15 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       )}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} findItems={findItems} />
       <div className={peekId ? "grid-split grid-split-open" : "grid-split"}>
-      <div ref={wrapRef} className="grid-wrap" data-testid="grid" style={gridHeight ? { height: gridHeight } : undefined}>
+      <div ref={wrapRef} className="grid-wrap" data-testid="grid" data-issues={showIssues ? "on" : undefined} style={gridHeight ? { height: gridHeight } : undefined}>
         <AgGridReact<GridItem>
-          theme={theme}
+          theme={GRID_THEME}
           rowData={displayRows as unknown as GridItem[]}
           columnDefs={columnDefs}
           getRowId={getRowId}
           context={gridContext}
           isFullWidthRow={isFullWidthRow}
-          fullWidthCellRenderer={GroupRowRenderer as never}
+          fullWidthCellRenderer={FullWidthRenderer as never}
           defaultColDef={DEFAULT_COL_DEF}
           rowSelection={ROW_SELECTION}
           selectionColumnDef={SELECTION_COLUMN}
@@ -697,11 +805,21 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       )}
       </div>
       <p ref={footRef} className="grid-foot">
-        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${FIELD_BY_KEY[def.groupBy]?.name}, ${shownSort.length > 0 ? `sorted by ${shownSort.map((x) => FIELD_BY_KEY[x.field]?.name).join(", then ")} inside each group` : "rank order inside each group"}` : sortSummary(shownSort)} · Keyboard shortcuts are under Shortcuts, top right · A lock means the value comes from GitHub
+        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${groupSummary(def.groupBy, def.thenBy).replace(" › ", ", then ")}, ${shownSort.length > 0 ? `sorted by ${shownSort.map((x) => FIELD_BY_KEY[x.field]?.name).join(", then ")} inside each group` : "rank order inside each group"}` : sortSummary(shownSort)} · Keyboard shortcuts are under Shortcuts, top right · A lock means the value comes from GitHub
         {status.pending > 0 ? "" : ""}
+        {showIssues && issuesFailed && <> · Issues could not be loaded; turn Show issues off and on to retry</>}
         {lastGithubSync && <> · <span title="The latest time any initiative was in step with GitHub">Last synced with GitHub {agoLabel(lastGithubSync, nowTick)}</span></>}
       </p>
     </section>
     </>
+  );
+}
+
+/** A tray with a down arrow: the sign that a button hands you a file. */
+function DownloadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M7 1.5v7M4 6l3 3 3-3M2 10v1.5A1 1 0 0 0 3 12.5h8a1 1 0 0 0 1-1V10" />
+    </svg>
   );
 }

@@ -34,17 +34,17 @@ const OVERRIDES: Record<string, Link> = {
   initiative_phase: { github: "Not synced. May suggest Build when the first child issue starts", jira: NONE },
   initiative_status: same("Not synced. A closed issue never sets it"),
   health: { github: "Not synced. Signals only suggest", jira: NONE },
-  stack_rank: sent("Label pv:rank/top-10, top-25, top-50 or later (the band, never the number)", "Label pv:rank/top-10, top-25, top-50 or later (the band, never the number)"),
-  moscow: sent("Label pv:moscow/must, should, could or wont; board field Priority (P0, P1, P2). Each label can be switched off per project (Settings, Integrations, GitHub, Field configuration)", "Label pv:moscow/…; Priority too, once you choose a Jira priority per value (Settings, Integrations, Jira, Connect and configure, Field configuration)"),
-  theme: sent("Label pv:group/<name>; board field Initiative", "Label pv:group/<name> only (the group name is not written into a Jira field)"),
-  change_type: sent("Label pv:type/new-feature, improvement or bug; issue Type Feature, Improvement, Enhancement or Bug", "Label pv:type/new-feature, improvement or bug"),
+  stack_rank: sent("Label pm:rank/top-10, top-25, top-50 or later (the band, never the number)", "Label pm:rank/top-10, top-25, top-50 or later (the band, never the number)"),
+  moscow: sent("Label pm:moscow/must, should, could or wont; board field Priority (P0, P1, P2). Each label can be switched off per project (Settings, Integrations, GitHub, Field configuration)", "Label pm:moscow/…; Priority too, once you choose a Jira priority per value (Settings, Integrations, Jira, Connect and configure, Field configuration)"),
+  theme: sent("Label pm:group/<name>; board field Initiative", "Label pm:group/<name> only (the group name is not written into a Jira field)"),
+  change_type: sent("Label pm:type/new-feature, improvement or bug; issue Type Feature, Improvement, Enhancement or Bug", "Label pm:type/new-feature, improvement or bug"),
   effort: { github: "Sent to project board field Size (XS to XL)", jira: "Not sent yet" },
   g2m_date_est: sent("Milestone \"YYYY Qn\" (due on the quarter's last day); board field Due date", "Due date"),
-  home_project: sent("The repository that holds the tracking issue; label pv:project/<project>", "Label pv:project/<project>; the Jira project it is linked to holds the issue"),
-  focus_area: sent("Label pv:focus/<value>, only when the project switches it on (Settings, Integrations, GitHub, Field configuration; off by default)", "Written into the Jira text field you choose as Theme (Settings, Integrations, Jira, Field configuration; not sent until you choose it); also label pv:focus/<value>, only when the project switches it on (off by default)"),
-  value_type: sent("Label pv:value/<type> (for example pv:value/defend-revenue); switch it off in Settings, Integrations, GitHub, Field configuration. Only the type is sent, never the amount or the basis: repositories can be public, so switch it off for those", "Label pv:value/<type>; switch it off in Settings, Integrations, Jira, Field configuration. Only the type is sent, never the amount or the basis"),
-  g2m_quarter: sent("Label pv:quarter/<quarter> (for example pv:quarter/q3-2027); switch it off in Settings, Integrations, GitHub, Field configuration. The milestone still comes from G2M Date (est)", "Label pv:quarter/<quarter> (for example pv:quarter/q3-2027); switch it off in Settings, Integrations, Jira, Field configuration"),
-  tags: sent("One label pv:tag/<tag> per tag, at most 10, only when the project switches it on (Field configuration; off by default)", "One label pv:tag/<tag> per tag, at most 10, only when the project switches it on (Field configuration; off by default)"), planned_start: { github: "Not sent yet (the board's Start date is planned)", jira: "Start date field, once you choose it (Field configuration)" },
+  home_project: sent("The repository that holds the tracking issue; label pm:project/<project>", "Label pm:project/<project>; the Jira project it is linked to holds the issue"),
+  focus_area: sent("Label pm:focus/<value>, only when the project switches it on (Settings, Integrations, GitHub, Field configuration; off by default)", "Written into the Jira text field you choose as Theme (Settings, Integrations, Jira, Field configuration; not sent until you choose it); also label pm:focus/<value>, only when the project switches it on (off by default)"),
+  value_type: sent("Label pm:value/<type> (for example pm:value/defend-revenue); switch it off in Settings, Integrations, GitHub, Field configuration. Only the type is sent, never the amount or the basis: repositories can be public, so switch it off for those", "Label pm:value/<type>; switch it off in Settings, Integrations, Jira, Field configuration. Only the type is sent, never the amount or the basis"),
+  g2m_quarter: sent("Label pm:quarter/<quarter> (for example pm:quarter/q3-2027); switch it off in Settings, Integrations, GitHub, Field configuration. The milestone still comes from G2M Date (est)", "Label pm:quarter/<quarter> (for example pm:quarter/q3-2027); switch it off in Settings, Integrations, Jira, Field configuration"),
+  tags: sent("One label pm:tag/<tag> per tag, at most 10, only when the project switches it on (Field configuration; off by default)", "One label pm:tag/<tag> per tag, at most 10, only when the project switches it on (Field configuration; off by default)"), planned_start: { github: "Not sent yet (the board's Start date is planned)", jira: "Start date field, once you choose it (Field configuration)" },
   assignees: { github: "Both: issue Assignees", jira: "Not synced yet" },
   github_links: { github: "The tracking issue (repository and issue number)", jira: "The Jira issue (key)" },
   status: read("Issue state: open, closed as completed (Done), closed as not planned (Cancelled). The one status Product Velocity ever writes to GitHub is the close of the issue of an initiative you deleted (closed as not planned), after you confirm it in Sync with GitHub (Removed in Product Velocity). The one other thing is the board Status “Ready” for an initiative that is Ready for build, after you confirm the Sync (only while the board item is still in Backlog or has no status, only if the board already has a Ready option, once)", "Jira status category: to do = Not started, in progress = In progress, done = Done (the status name is on the Jira tab). The one status Product Velocity ever writes to Jira is the close of the issue of an initiative you deleted, after you confirm it in Sync with Jira (Removed in Product Velocity). The one other thing is the move to “To do” for an initiative that is Ready for build, after you confirm the Sync (only while the issue is still in a To Do status category such as Backlog, only when the workflow allows it, once)"),
@@ -61,6 +61,7 @@ const OVERRIDES: Record<string, Link> = {
   latest_release: read("Latest published release of the linked repositories", "Not read yet"),
   repositories: read("Repositories of the linked issues", "Not read yet"),
   gh_project_status: read("Project board field Status (the field chosen for the board)", "Not read yet"),
+  tracker_status: read("Project board Status, else the state of the issue (Open, Closed)", "The issue's status name, as Jira spells it"),
   gh_iteration: read("Project board field Iteration", "Not read yet"),
   gh_target_date: read("Project board field Due date or Target date", "Not read yet"),
   planned_scope: { github: "Counted from the sub-issues when you mark the breakdown complete", jira: "Not read yet" },
@@ -91,7 +92,8 @@ const UPDATE_OVERRIDES: Record<string, string> = {
   status: TRACKER, gh_state: TRACKER, issues_closed: TRACKER, issues_total: TRACKER, delivery_progress_pct: TRACKER, blocked_issues: TRACKER,
   stale_issues: TRACKER, open_prs: TRACKER, merged_prs: TRACKER, ci_status: TRACKER, latest_release: TRACKER, repositories: TRACKER, gh_last_activity: TRACKER,
   // the board's Status field arrives by webhook; iteration and target date are read with it
-  gh_project_status: TRACKER,
+  gh_project_status: TRACKER, tracker_status: TRACKER,
+  flags: "Worked out again on every change and every load", actions: "Worked out again on every change and every load",
   gh_iteration: join(UPDATE_AUTO, UPDATE_MANUAL, "read again whenever Status changes"),
   gh_target_date: join(UPDATE_AUTO, UPDATE_MANUAL, "read again whenever Status changes"),
   // texts: you own them, Sync with GitHub compares and sends after you confirm
@@ -127,6 +129,8 @@ const OPEN_LISTS: Record<string, string> = {
   theme: "The Initiative Group the item belongs to. Open list: type any name; groups are managed in Settings.",
   focus_area: "The area of the product the item works on. Open list: type any value; the values already in use are offered.",
   audience: "Who the item is for. Open list: type any value; the values already in use are offered.",
+  okr_objective: "The objective (OKR) the item serves, in your own words. Open list: type any value; the values already in use are offered. Independent of Business Line.",
+  business_line: "The business line the item belongs to, for example Programmatic, Direct or Platform. Open list: type any value; the values already in use are offered. Independent of Objective.",
   g2m_quarter: "Calendar quarter the work is planned for, chosen by a person. Any quarter from last year to three years ahead.",
 };
 
@@ -189,7 +193,7 @@ export const COLUMN_GROUPS: string[] = [...new Set(COLUMN_ROWS.map((r) => r.grou
 export const OVERRIDE_KEYS: string[] = Object.keys(OVERRIDES);
 export const UPDATE_OVERRIDE_KEYS: string[] = Object.keys(UPDATE_OVERRIDES);
 
-export const COLUMNS_NOTE = "Jira is planned: its mapping is chosen per customer. Nothing goes to GitHub or Jira until you confirm. When you delete an initiative whose Jira issue Product Velocity owns, Sync with Jira offers, under Removed in Product Velocity, to label the issue pv:removed and close it; you confirm each one, and an issue that came from Jira is never touched. An initiative an approver stopped at a decision gate is offered the same way (marked “Stopped at gate”). Sync with GitHub does the same for an issue Product Velocity owns: it adds the label pv:removed and closes the issue as not planned, you confirm each one, and an issue that is only followed from GitHub is never touched.";
+export const COLUMNS_NOTE = "Jira is planned: its mapping is chosen per customer. Nothing goes to GitHub or Jira until you confirm. When you delete an initiative whose Jira issue Product Velocity owns, Sync with Jira offers, under Removed in Product Velocity, to label the issue pm:removed and close it; you confirm each one, and an issue that came from Jira is never touched. An initiative an approver stopped at a decision gate is offered the same way (marked “Stopped at gate”). Sync with GitHub does the same for an issue Product Velocity owns: it adds the label pm:removed and closes the issue as not planned, you confirm each one, and an issue that is only followed from GitHub is never touched.";
 
 export const UPDATE_LEGEND = "Webhook: GitHub tells the app the moment something changes. Auto sync: the app compares with GitHub once a day and repairs any difference. Manual sync: you press Sync with GitHub (or Check GitHub now in Settings), which also reads GitHub first.";
 
@@ -245,13 +249,17 @@ export const ATTENTION_TABLE: Table = {
   head: ["Reason", "When it shows", "Next step"],
   rows: [
     ["Delivery risk", "Health is Blocked, At Risk or Delayed, the G2M date has passed, or issues are blocked", "Open the initiative"],
-    ["Build done", "The tracker says the build is done (closed as completed) while the phase is still Build", "Move to Test"],
+    ["Build done", "The tracker says the build is done, or every linked issue or epic is closed, while the phase is still Build", "Move to Test"],
     ["Work before the gate", "Tracker work started while the phase is Discover or Define", "Request the gate"],
     ["Cancelled but building", "Initiative Status is Cancelled while the build is in progress", "Open the initiative; stop the work in the tracker"],
     ["Hold due", "The review date of a Hold has come", "Request the gate again"],
     ["Waiting for a decision", "A gate request has waited more than 7 days", "Open Decisions"],
     ["Open conditions", "A Go with conditions left tasks that are not done", "Open the initiative"],
     ["Stalled in a phase", "Active, and in a phase longer than 30 days (Discover, Define, Test), 45 (Experiment), 60 (Roll-out) or 90 (Build)", "Open the initiative"],
+    ["Completed with open work", "Initiative Status or phase is Completed, but the tracker still shows the build in progress or issues that are not closed", "Open the initiative; close the work or set the status back"],
+    ["Phase ahead of the build", "The phase is Test, Experiment or Roll-out and the tracker says the build has not started", "Open the initiative"],
+    ["Stale issues", "Active, the build is in progress and linked issues have had no activity for a while", "Open the initiative"],
+    ["No health set", "Active, the phase is Build or later and Health is empty", "Open the initiative; set Health"],
   ],
 };
 
@@ -307,9 +315,9 @@ export const STATUS_TO_TRACKER: Table = {
   head: ["What happens in Product Velocity", "Trigger and when", "GitHub: from → to", "Jira: from → to", "Never happens when"],
   rows: [
     ["Ready for build (Gate B: Go or Go with conditions)", "A person confirms Sync with GitHub or Sync with Jira after the gate. Once per initiative", "Project board Status: empty or Backlog → Ready (the board must already have a Ready option). The issue itself stays open", "Issue status: a status in the category To Do, such as Backlog → To do (the workflow must allow the move)", "The tracker item is already further along (In progress, In review, Done, Ready, To do). The initiative is on Hold or Stop. The issue is only followed, or the board has no Ready option, or the workflow has no such transition: the preview says so and nothing is written"],
-    ["Initiative deleted (Trash)", "A person confirms, one initiative at a time, in Sync under Removed in Product Velocity", "Issue: open → closed as not planned, and the label pv:removed. Already closed: only the label", "Issue: current status → a Done status you choose (category Done), and the label pv:removed. No Done transition: only the label", "The issue came from the tracker (followed, or adopted by default) or is in a read-only repository"],
-    ["Stopped at a gate (Stop)", "Initiative Status becomes Cancelled; the same confirmed offer as a deleted initiative, marked Stopped at gate", "Same as deleted: open → closed as not planned, label pv:removed", "Same as deleted: → a Done status, label pv:removed", "A later Go or setting the status back to Active withdraws the offer"],
-    ["Title, summary, description, hypothesis, labels, dates, links", "A person confirms Sync (the Define phase adds the label pv:define)", "Issue text and labels; board fields Priority, Initiative, Due date, Size", "Issue summary, description, labels", "Value, confidence, customers, decisions and other commercial fields are never sent. No status is written by this row"],
+    ["Initiative deleted (Trash)", "A person confirms, one initiative at a time, in Sync under Removed in Product Velocity", "Issue: open → closed as not planned, and the label pm:removed. Already closed: only the label", "Issue: current status → a Done status you choose (category Done), and the label pm:removed. No Done transition: only the label", "The issue came from the tracker (followed, or adopted by default) or is in a read-only repository"],
+    ["Stopped at a gate (Stop)", "Initiative Status becomes Cancelled; the same confirmed offer as a deleted initiative, marked Stopped at gate", "Same as deleted: open → closed as not planned, label pm:removed", "Same as deleted: → a Done status, label pm:removed", "A later Go or setting the status back to Active withdraws the offer"],
+    ["Title, summary, description, hypothesis, labels, dates, links", "A person confirms Sync (the Define phase adds the label pm:define)", "Issue text and labels; board fields Priority, Initiative, Due date, Size", "Issue summary, description, labels", "Value, confidence, customers, decisions and other commercial fields are never sent. No status is written by this row"],
   ],
 };
 
@@ -353,9 +361,10 @@ export const REPORTS_INTRO = "The Reports tab has a list of reports next to its 
 export const REPORTS_LIST: Table = {
   head: ["Report", "What it answers", "What is on it"],
   rows: [
-    ["Overview", "What is the shape of the roadmap, and how long does work take to reach the market?", "Donuts by Status, Phase, Focus Area, Team and MoSCoW; stacked bars by Product Manager, Team, Group, Status and Health; Impact and Effort; Time to Market; the timeline; the matching initiatives; CSV export"],
+    ["Overview", "What is the shape of the roadmap, and how long does work take to reach the market?", "Donuts by Status, Phase, Focus Area, Team and MoSCoW; stacked bars by Product Manager, Team, Group, Status and Health; Impact and Effort; Time to Market; Build time in weeks (from Start Building to the tracker's Build Completed, against the estimate, by Team and Effort); the timeline; the matching initiatives; CSV export"],
     ["Roadmap Health", "Where does active work pile up, how long has it been in its phase, and what is Blocked, At Risk or Delayed?", "Counts of active, Blocked, At Risk and Delayed initiatives; active initiatives by Team and Phase and by Team and Health; median days in the current phase for each phase; the 10 initiatives that have waited longest; completed delivery duration; every active initiative with days in phase and age"],
     ["Gate history", "How do decision gates go: how many requests, what was decided, and how long do decisions and the start of building take?", "Per gate A, B and C: requested, waiting now, decided, Go, Go with conditions, Hold, Stop, fast lane, withdrawn, median and average days to decide, longest open request; the wait between a Gate B Go and Start Building. For the whole team: nothing is shown per approver"],
+    ["Changes", "Which initiatives changed today, this week or this month, and what changed?", "Grouped by initiative: Phase, Status, Health, Build status and the status of linked GitHub and Jira issues, each with the time it was registered, where it came from and who made it. Shown on a grid with the same action bar as the Roadmap (Filter, Columns, Group by, Search): group by initiative, change type, source, source type or day, with colour for the type of change and for the value it ended on. Source says where the value came from (Product Velocity, Jira or GitHub), Source type how it arrived (UI, API, Claude MCP, GitHub webhook, import, system); for a tracker value the person on the row only ran the Sync. A Jira or GitHub move is one row: the status of the linked issue with the Build Status that went with it, and for Jira a Jira user column says who moved the issue. Says whether the initiative itself moved or only its linked issues, shows the Jira or GitHub issue behind a change as a link, and marks initiatives with a flag to follow up (the Needs attention reasons, plus two for initiatives with no phase) with a button for the next step: Move to Test where that is allowed, Request gate where the move passes a decision gate. The bar also has Refresh and Collapse all. Filter by change type or flagged only; follows the Reports filters"],
   ],
 };
 

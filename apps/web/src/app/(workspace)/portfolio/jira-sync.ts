@@ -2,7 +2,7 @@
 
 import { requireWorkspace } from "@/lib/session";
 import { DbReadError, safeReadMessage } from "@/lib/db-error";
-import { applyLinkedStatuses, applyLinkedTrees } from "@/lib/atlassian/refresh-jira";
+import { applyLinkedBuildDates, applyLinkedStatuses, applyLinkedTrees } from "@/lib/atlassian/refresh-jira";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 import type { RefreshSummary } from "@/lib/atlassian/refresh-linked";
 import type { PlanItem, PushItemResult, ReceiveItem, SyncChoice, SyncConfirmResult, SyncPreviewResult, TakenOver } from "@/lib/github/push-types";
@@ -49,6 +49,7 @@ export async function startJiraSync(ids: string[]): Promise<SyncPreviewResult> {
 
   const summaryOf = new Map<string, RefreshSummary>(); // item id -> summary of its project read
   const failed = new Map<string, string>(); // item id -> reason
+  const treeNote = new Map<string, string>(); // item id -> why its children could not be read (a note on the card, not an error)
   const groups = new Map<string, { plink: PLink; itemIds: string[] }>();
   for (const l of links) {
     const plink = ((plinks ?? []) as PLink[]).find((p) => p.connection_id === l.connection_id && p.site_id === l.site_id && l.issue_key.startsWith(`${p.jira_project_key}-`));
@@ -64,7 +65,19 @@ export async function startJiraSync(ids: string[]): Promise<SyncPreviewResult> {
     try {
       const s = await applyLinkedStatuses(plink, site.url, { itemIds });
       // then their children and sub-tasks (read only; a failure of the tree does not fail the status read, ReconnectNeeded does propagate)
-      await applyLinkedTrees(plink, site.url, { itemIds });
+      const t = await applyLinkedTrees(plink, site.url, { itemIds });
+      // the Build Status an initiative linked above Epic gets from its epics is received like any other change from Jira
+      for (const [i, lines] of Object.entries(t.received)) s.received[i] = [...(s.received[i] ?? []), ...lines];
+      // the tree never fails the sync, but it is not hidden either: the cards of the initiatives it could not read say so, and the reason is logged
+      if (t.error || t.failed > 0 || t.unreadable.length > 0) console.error(JSON.stringify({ jira: "sync-tree", error: t.error, failed: t.failed, unreadable: t.unreadable.length }));
+      for (const i of t.unreadable) treeNote.set(i, "The children of this issue could not be read: Jira did not return it for their query.");
+      for (const i of t.failedItems) treeNote.set(i, `The children of this issue could not be read${t.error ? `: ${t.error}` : "."} Issues already known from the project list are shown instead.`);
+      // then the real start and completion dates from the issues' history (Start Building, Build Completed); same tolerance and the same visible note
+      const d = await applyLinkedBuildDates(plink, { itemIds });
+      if (d.error) {
+        console.error(JSON.stringify({ jira: "sync-dates", error: d.error }));
+        for (const i of itemIds) treeNote.set(i, `${treeNote.get(i) ? `${treeNote.get(i)} ` : ""}The build dates could not be read: ${d.error}`);
+      }
       for (const i of itemIds) summaryOf.set(i, s);
     } catch (e) {
       // a connection that needs a new sign-in is shown, once; nothing retries by itself
@@ -86,7 +99,8 @@ export async function startJiraSync(ids: string[]): Promise<SyncPreviewResult> {
     const s = summaryOf.get(id)!;
     if (s.missing.includes(link.issue_key)) return { ...withIssue, status: "missing", message: "Jira did not return this issue (deleted, moved or not visible to the connection). Nothing was changed." };
     const lines = s.received[id] ?? [];
-    return { ...withIssue, status: lines.length > 0 ? "received" : "in_step", received: lines };
+    const note = treeNote.get(id);
+    return { ...withIssue, status: lines.length > 0 ? "received" : "in_step", received: lines, ...(note ? { message: note } : {}) };
   });
   const names = [...new Set(links.map((l) => connection(l.connection_id)?.sites.find((s) => s.id === l.site_id)?.name).filter((n): n is string => !!n))];
   // the send half: compare the texts and say what would go out (reads Jira again for the push-mode ones; writes nothing)
@@ -105,7 +119,7 @@ export async function startJiraSync(ids: string[]): Promise<SyncPreviewResult> {
       const parts = previewParts(e);
       if (parts.plan) send.push(parts.plan);
       // restored after its issue was closed because it was removed: said, never reopened by Product Velocity
-      if (l.closedWhileRemoved && l.closedWhileRemoved !== "not_found") card = { ...card, message: `This initiative was removed earlier, so its Jira issue ${l.link?.issue_key ?? ""} was labelled “pv:removed”${l.closedWhileRemoved === "closed" || l.closedWhileRemoved === "already_done" ? " and is in a Done status" : ""}. Product Velocity does not reopen it: reopen it in Jira if the work continues.` };
+      if (l.closedWhileRemoved && l.closedWhileRemoved !== "not_found") card = { ...card, message: `This initiative was removed earlier, so its Jira issue ${l.link?.issue_key ?? ""} was labelled “pm:removed”${l.closedWhileRemoved === "closed" || l.closedWhileRemoved === "already_done" ? " and is in a Done status" : ""}. Product Velocity does not reopen it: reopen it in Jira if the work continues.` };
       if (parts.create) return { ...card, status: "not_linked", message: "Not in Jira yet: will be created in the linked Jira project." };
       if (parts.conflicts.length > 0) return { ...card, status: "conflict", conflicts: parts.conflicts };
       return card;

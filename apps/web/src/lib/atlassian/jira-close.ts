@@ -5,7 +5,7 @@ import { resolveNames, type Names } from "@pv/github";
 // Closing the Jira issue of an initiative that was removed in Product Velocity (decision 2026-11-03-jira-close-removed).
 // THIS IS THE ONLY MODULE THAT MAY TRANSITION A JIRA ISSUE, and only jira-removed-engine.ts may import it (a test fails otherwise): CLAUDE.md
 // rule 6 says status is tracker-driven, and Ashu's exception is exactly one thing: an explicit, confirmed, per-initiative close of an issue
-// Product Velocity owns, after the initiative was deleted. Two writes exist here: add the label `pv:removed` (every other label stays: Jira's
+// Product Velocity owns, after the initiative was deleted. Two writes exist here: add the label `pm:removed` (every other label stays: Jira's
 // own "add" operation) and POST a transition whose target status is in the status CATEGORY `done` (status names mean nothing, only the
 // category does). The transition id is always checked against a fresh GET /transitions; one that is not a Done transition is refused before
 // any write. There is no delete and no reopen. Pure over an injected request, so it is tested with a fake Jira.
@@ -86,7 +86,7 @@ export function chooseTransition(done: DoneTransition[], chosenId: string | null
   return remembered.length === 1 ? { transition: remembered[0]!, needsChoice: false, chosenNotAllowed: false } : { transition: null, needsChoice: true, chosenNotAllowed: false };
 }
 
-/** Adds the label `pv:removed` and nothing else: Jira's "add" operation keeps every other label (PUT answers 204). */
+/** Adds the label `pm:removed` and nothing else: Jira's "add" operation keeps every other label (PUT answers 204). */
 export async function addRemovedLabel(call: JiraRequest, key: string, sleep?: Sleep, names?: Names): Promise<{ ok: true } | CloseFail> {
   if (!KEY.test(key)) return { ok: false, kind: "rejected", message: "Not a Jira issue key." };
   const g = await guarded(() => withBackoff(() => call("PUT", `/issue/${key}`, { update: { labels: [{ add: resolveNames(names).removed }] } }), sleep));

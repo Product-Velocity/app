@@ -1,10 +1,10 @@
 import {
   canPurge, canSeeTrash, cleanRelated, cleanSkills, isRelatedField, summarizeChange, toDay, crowdHistory, type ActivityRow, type CrowdRow, type RankDecision, type RelatedField, type RelatedValues,
-  applyMove, canBeEmpty, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
+  applyMove, canBeEmpty, rowFlagTexts, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
   bulkEditReason, isOpenList, openListValues, resolveGroup, canDeleteItem, placeRestored, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
 import type { PortfolioDataSource, SaveResult } from "./data-source";
-import type { GridItem, Lookups, LoadedItem, IssueTreeRow, JiraTreeRow } from "./types";
+import type { GridItem, Lookups, LoadedItem, IssueTreeRow, JiraEpicRequestRow, JiraTreeRow } from "./types";
 
 export const READ_ONLY_MESSAGE = "You have view-only access. Ask an admin for the Creator role to edit.";
 
@@ -49,6 +49,7 @@ export class PortfolioController {
     private readonly me: string | null = null,
   ) {
     this.rows = items.map((i) => ({ ...i, project_rank: 0 }));
+    this.deriveFlags(this.rows);
     this.rows.sort((a, b) => a.stack_rank - b.stack_rank);
     for (const r of this.rows) this.byId.set(r.id, r);
     this.recomputeProjectRanks();
@@ -59,7 +60,7 @@ export class PortfolioController {
   /** Initiative Groups: the workspace list plus any group typed or loaded here, A to Z. Open list: typing a new one creates it. */
   private readonly groups = new Set<string>();
   groupNames(): string[] { return [...this.groups].sort((a, b) => a.localeCompare(b, "en")); }
-  /** The values in use of an open-list field (Focus Area, Audience), A to Z: what its editors suggest (issue #246). */
+  /** The values in use of an open-list field (Focus Area, Audience, Objective, Business Line), A to Z: what its editors suggest (issue #246). */
   openValues(key: string): string[] { return openListValues(this.rows.map((r) => r[key])); }
   /** A typed value of an open-list field in the spelling of the existing one (only the case differs). */
   private canonicalOpen(field: string, value: unknown): unknown {
@@ -108,7 +109,21 @@ export class PortfolioController {
       today: this.today(),
     };
   }
+  /**
+   * The Flags and Actions columns (issue #480) are worked out from the rest of the row, so they are never stale: after every load, add and edit of a row they
+   * are set again here. They are words on the row, so sorting, searching and the export see what the cells show; viewers get the flags and no actions.
+   */
+  deriveFlags(rows: readonly GridItem[] = this.rows) {
+    const today = this.today(), canAct = this.canEdit;
+    for (const r of rows) {
+      const t = rowFlagTexts(r, today, canAct);
+      const rec = r as unknown as Record<string, unknown>;
+      rec.flags = t.flags;
+      rec.actions = t.actions;
+    }
+  }
   private emit(changed: GridItem[] = []) {
+    this.deriveFlags(changed);
     this.state.version++;
     for (const l of this.listeners) l(changed);
   }
@@ -133,6 +148,7 @@ export class PortfolioController {
     return { visibility: "Internal only", archived: false, date_precision: "Day", ...d, id, item_code: code, stack_rank: rank, project_rank: 0 } as GridItem;
   }
   private addRows(added: GridItem[]) {
+    this.deriveFlags(added);
     for (const r of added) { this.rows.push(r); this.byId.set(r.id, r); }
     this.rows.sort((a, b) => a.stack_rank - b.stack_rank);
     const moved = this.recomputeProjectRanks();
@@ -162,7 +178,7 @@ export class PortfolioController {
     const drafts = rawDrafts.map((d) => {
       let out = d;
       if ("theme" in d && d.theme) out = { ...out, theme: this.canonicalGroup(d.theme) };
-      for (const k of ["focus_area", "audience"] as const) if (k in out && out[k]) out = { ...out, [k]: this.canonicalOpen(k, out[k]) };
+      for (const k of ["focus_area", "audience", "okr_objective", "business_line"] as const) if (k in out && out[k]) out = { ...out, [k]: this.canonicalOpen(k, out[k]) };
       return out;
     });
     if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
@@ -567,6 +583,20 @@ export class PortfolioController {
   }
   issueTree(itemId: string): Promise<IssueTreeRow[]> { return this.source.loadIssueTree(itemId); }
   jiraTree(itemId: string): Promise<JiraTreeRow[]> { return this.source.loadJiraTree(itemId); }
+  jiraEpicRequests(itemId: string): Promise<JiraEpicRequestRow[]> { return this.source.loadJiraEpicRequests(itemId); }
+  /** Ask for epics to go under this initiative's Jira issue at the next confirmed Sync. Nothing is written to Jira. */
+  async requestJiraEpics(itemId: string, keys: string[]) {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false as const, error: READ_ONLY_MESSAGE }; }
+    return this.source.requestJiraEpics(itemId, keys);
+  }
+  /** Read only: asks Jira whether each epic asked for would be linked by the next Sync (OK) or why not. */
+  checkJiraEpics(itemId: string) { return this.source.checkJiraEpics(itemId); }
+  async removeJiraEpicRequest(itemId: string, key: string) {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false as const, error: READ_ONLY_MESSAGE }; }
+    return this.source.removeJiraEpicRequest(itemId, key);
+  }
+  /** The first-level tracker children of these initiatives, for the Excel report with linked issues. */
+  childrenOf(itemIds: string[]) { return this.source.loadChildrenBulk(itemIds); }
   /** "Mark breakdown complete": the database freezes Planned Scope; the row shows the new values at once. */
   async completeBreakdown(itemId: string): Promise<SaveResult> {
     if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }

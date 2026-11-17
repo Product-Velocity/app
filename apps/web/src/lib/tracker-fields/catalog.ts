@@ -3,7 +3,7 @@ import type { BoardField, IssueFieldInfo, LabelInfo, MilestoneInfo } from "@pv/g
 
 // The read-only field catalog of a delivery tracker (decision 2026-11-03-tracker-field-config, slice 2): everything the connection can see, in one
 // shape for GitHub and Jira, so the configuration can offer it. Pure functions, no network. A tracker field that is not mapped stays visible here and
-// is ignored by the sync; the 169-field dictionary does not grow.
+// is ignored by the sync; the field dictionary does not grow.
 
 /** What a tracker field holds, reduced to what the mapping needs to decide whether a Product Velocity field can use it. */
 export type CatalogKind = "text" | "long_text" | "number" | "date" | "select" | "multi_select" | "user" | "labels" | "milestone" | "issue_type" | "iteration" | "other";
@@ -104,6 +104,9 @@ export type GithubCatalogInput = {
 };
 
 /** GitHub: issue fields of the organisation, the built-in issue fields, the fields of each linked Projects v2 board, labels, issue types and milestones. */
+/** Labels Product Velocity wrote: the `pm:` names, the older `pv:` names and the old base label. */
+const isPvLabel = (n: string) => n.startsWith("pm:") || n.startsWith("pv:") || n === "product-velocity";
+
 export function githubCatalogGroups(i: GithubCatalogInput): CatalogGroup[] {
   const groups: CatalogGroup[] = [];
   groups.push({
@@ -119,7 +122,7 @@ export function githubCatalogGroups(i: GithubCatalogInput): CatalogGroup[] {
     });
   }
   groups.push({ id: "issue-types", title: "Organisation issue types", error: null, note: i.issueTypes === null ? "The App cannot read the organisation's issue types yet." : undefined, entries: (i.issueTypes ?? []).map((t) => ({ id: `type:${t}`, name: cut(t), custom: false, kind: "issue_type" as const, typeLabel: "Issue type", options: [], filled: null, sampled: null })) });
-  for (const l of i.labels) groups.push({ id: `labels-${l.repo}`, title: `Labels: ${l.repo}`, error: l.error ?? null, note: "Labels beginning with pv: belong to Product Velocity.", entries: l.labels.map((x) => ({ id: `label:${x.name}`, name: cut(x.name), custom: !x.name.startsWith("pv:") && x.name !== "product-velocity", kind: "labels" as const, typeLabel: x.name.startsWith("pv:") || x.name === "product-velocity" ? "Label (Product Velocity)" : "Label", options: [], filled: null, sampled: null, source: l.repo })) });
+  for (const l of i.labels) groups.push({ id: `labels-${l.repo}`, title: `Labels: ${l.repo}`, error: l.error ?? null, note: "Labels beginning with pm: (or the older pv:) belong to Product Velocity.", entries: l.labels.map((x) => ({ id: `label:${x.name}`, name: cut(x.name), custom: !isPvLabel(x.name), kind: "labels" as const, typeLabel: isPvLabel(x.name) ? "Label (Product Velocity)" : "Label", options: [], filled: null, sampled: null, source: l.repo })) });
   for (const m of i.milestones) groups.push({ id: `milestones-${m.repo}`, title: `Milestones: ${m.repo}`, error: m.error ?? null, entries: m.milestones.map((x) => ({ id: `milestone:${x.title}`, name: cut(x.title), custom: false, kind: "milestone" as const, typeLabel: x.state === "closed" ? "Milestone (closed)" : "Milestone", options: [], filled: null, sampled: null, source: m.repo })) });
   return groups;
 }

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import {
-  FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupableFields, isOpenList, needsSearch, optionsFor, type Filter, type ListOption,
+  FIELD_BY_KEY, fieldOptions, filterOptions, filterSummary, groupPickerSections, groupSummary, isOpenList, needsSearch, optionsFor, type Filter,
 } from "@pv/domain";
-import { menuSearchKeys, NoResults, SearchInput, SelectField } from "@/components/search-list";
+import { NoResults, SearchInput, SelectField } from "@/components/search-list";
 import { DateInput } from "@/components/date-input";
 import { Popover } from "./popover";
 import type { Lookups } from "./types";
@@ -48,29 +48,226 @@ export const summarize = (f: Filter, lookups: Lookups) =>
   });
 
 // ----------------------------------------------------------------- grouping
-export function GroupMenu({ groupBy, onChange }: { groupBy: string | null; onChange: (g: string | null) => void }) {
+/** What the Group by panel edits: two grouping levels, and the tracker issues shown under each initiative (which types, and whether finished ones are hidden). */
+export type GroupState = { groupBy: string | null; thenBy: string | null; showIssues: boolean; /** null: every type */ issueTypes: string[] | null; hideDone: boolean };
+export type IssueTypeCount = { type: string; count: number };
+
+/** "Group by: Build Status › Owner": the state of the grouping on the button, like Filter and Columns. */
+export function GroupMenu({ state, customerSafe = false, issueTypes = [], issuesLoading = false, onOpenIssues, onChange }: {
+  state: GroupState; customerSafe?: boolean;
+  /** The issue types among the linked issues of the initiatives shown, with counts. */ issueTypes?: IssueTypeCount[]; issuesLoading?: boolean;
+  /** The panel opened: the grid reads the issues so the types can be counted. */ onOpenIssues?: () => void;
+  onChange: (s: GroupState) => void;
+}) {
   return (
-    <Popover label={<>Group by: <strong className="count-badge">{groupBy ? FIELD_BY_KEY[groupBy]?.name : "None"}</strong></>} active={!!groupBy}>
-      {(close) => <GroupPanel groupBy={groupBy} onPick={(g) => { onChange(g); close(); }} />}
+    <Popover wide staged label={<>Group by: <strong className="count-badge">{groupSummary(state.groupBy, state.thenBy)}</strong>{state.showIssues ? <span className="muted"> · with issues</span> : null}</>} active={!!state.groupBy || state.showIssues}>
+      {(close) => <GroupPanel state={state} customerSafe={customerSafe} issueTypes={issueTypes} issuesLoading={issuesLoading} {...(onOpenIssues ? { onOpenIssues } : {})} onChange={onChange} close={close} />}
     </Popover>
   );
 }
 
-const GROUP_OPTIONS: ListOption[] = [{ value: "", label: "No grouping" }, ...fieldOptions(groupableFields())];
-function GroupPanel({ groupBy, onPick }: { groupBy: string | null; onPick: (g: string | null) => void }) {
+const LEVEL_NAME = ["Group by", "Then by"] as const;
+const ALL_TAB = "All";
+
+/** Keeps a panel inside what is visible: when the on-screen keyboard opens (iPad), the panel gets shorter and scrolls, so its footer stays in reach. */
+function useFitToViewport(ref: RefObject<HTMLElement | null>) {
+  const [max, setMax] = useState<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    const el = ref.current, vv = typeof window !== "undefined" ? window.visualViewport : null;
+    if (!el) return;
+    const fit = () => {
+      const height = vv?.height ?? window.innerHeight, offset = vv?.offsetTop ?? 0;
+      setMax(Math.max(320, Math.floor(height - (el.getBoundingClientRect().top - offset) - 12)));
+    };
+    fit();
+    vv?.addEventListener("resize", fit); vv?.addEventListener("scroll", fit);
+    window.addEventListener("resize", fit); window.addEventListener("scroll", fit, true);
+    return () => { vv?.removeEventListener("resize", fit); vv?.removeEventListener("scroll", fit); window.removeEventListener("resize", fit); window.removeEventListener("scroll", fit, true); };
+  }, [ref]);
+  return max;
+}
+
+/** Staged like the Columns panel: choices are made on a draft, nothing changes in the grid until Apply, and the panel stays open until Apply or Cancel. */
+function GroupPanel({ state, customerSafe, issueTypes, issuesLoading, onOpenIssues, onChange, close }: {
+  state: GroupState; customerSafe: boolean; issueTypes: IssueTypeCount[]; issuesLoading: boolean; onOpenIssues?: () => void; onChange: (s: GroupState) => void; close: () => void;
+}) {
+  const [draft, setDraft] = useState<GroupState>({ ...state });
   const [query, setQuery] = useState("");
-  const shown = filterOptions(GROUP_OPTIONS, query);
+  // opens on the first category (a few rows), not on all 46 fields, so the issues card below stays in sight
+  const [tab, setTab] = useState<string>(() => groupPickerSections({ customerSafe }).find((x) => x.category !== "Most used")?.category ?? ALL_TAB);
+  // which level the next pick fills: the first empty one, else the main one
+  const [target, setTarget] = useState<0 | 1>(state.groupBy && !state.thenBy ? 1 : 0);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const maxHeight = useFitToViewport(panelRef);
+  useEffect(() => { onOpenIssues?.(); }, [onOpenIssues]);
+  const level = draft.groupBy ? target : 0;
+  const names = [draft.groupBy, draft.thenBy] as const;
+  const nameOf = (k: string | null) => (k ? groupSummary(k) : null);
+  const sections = useMemo(() => groupPickerSections({ customerSafe, taken: level === 0 ? draft.thenBy : draft.groupBy }), [customerSafe, level, draft.thenBy, draft.groupBy]);
+  const mostUsed = sections.find((x) => x.category === "Most used")?.fields ?? [];
+  const categories = sections.filter((x) => x.category !== "Most used");
+  const searching = query.trim() !== "";
+  const all = useMemo(() => fieldOptions(sections.flatMap((x) => x.fields)), [sections]);
+  const matching = new Set(filterOptions(all, query).map((o) => o.value));
+  // searching looks through every field (the Most used ones too); otherwise the grid shows the chosen category, the Most used ones being the pills above
+  const listed = searching ? sections.flatMap((x) => x.fields).filter((f) => matching.has(f.key)) : (tab === ALL_TAB ? categories : categories.filter((x) => x.category === tab)).flatMap((x) => x.fields);
+  const mark = (key: string) => (draft.groupBy === key ? "Group by" : draft.thenBy === key ? "Then by" : null);
+
+  const pick = (key: string) => {
+    if (level === 0) {
+      if (draft.groupBy === key) { clear(0); return; }
+      setDraft({ ...draft, groupBy: key, thenBy: draft.thenBy === key ? null : draft.thenBy });
+      setTarget(1);
+    } else if (draft.thenBy === key) clear(1);
+    else setDraft({ ...draft, thenBy: key });
+  };
+  /** Removing the main level promotes the second one. */
+  const clear = (l: 0 | 1) => { if (l === 1) setDraft({ ...draft, thenBy: null }); else { setDraft({ ...draft, groupBy: draft.thenBy, thenBy: null }); setTarget(0); } };
+  const swap = () => setDraft({ ...draft, groupBy: draft.thenBy, thenBy: draft.groupBy });
+
+  // ---- the issues
+  const present = issueTypes.map((t) => t.type);
+  const selected = draft.issueTypes ?? present;
+  const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x));
+  const setTypes = (types: string[]) => setDraft({ ...draft, issueTypes: types.length === 0 || sameSet(types, present) ? null : types });
+  const toggleType = (t: string) => {
+    const next = selected.includes(t) ? selected.filter((x) => x !== t) : [...selected, t];
+    if (next.length > 0) setTypes(next); // at least one type stays
+  };
+  const presets: { label: string; types: string[] | null }[] = [
+    { label: "Everything", types: null },
+    ...(present.includes("Epic") ? [{ label: "Epics only", types: ["Epic"] }] : []),
+    ...(present.includes("Bug") && present.length > 1 ? [{ label: "Without bugs", types: present.filter((t) => t !== "Bug") }] : []),
+  ];
+  const isPreset = (types: string[] | null) => sameSet(types ?? present, selected);
+  const typesText = draft.issueTypes === null ? "all issue types" : draft.issueTypes.join(", ");
+  const summary = `${draft.groupBy ? `Grouped by ${groupSummary(draft.groupBy, draft.thenBy)}` : "Not grouped"}${draft.showIssues ? ` · showing ${typesText}${draft.hideDone ? ", hiding Done and Cancelled" : ""}` : ""}`;
+
+  // The keyboard path through the pills and the field grid from the search box: Down goes to the first one, Up to the last, Enter takes the first match.
+  const searchKeys = (e: KeyboardEvent<HTMLInputElement>) => {
+    const items = () => Array.from(panelRef.current?.querySelectorAll<HTMLElement>('.gp-body [role="menuitemradio"]') ?? []);
+    if (e.key === "ArrowDown") { e.preventDefault(); items()[0]?.focus(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); items().at(-1)?.focus(); }
+    else if (e.key === "Enter") { e.preventDefault(); items()[0]?.click(); }
+  };
+  const tick = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg>;
+
   return (
-    <>
-      {needsSearch(GROUP_OPTIONS.length) && <SearchInput value={query} onChange={setQuery} label="Search group by options" onKeyDown={menuSearchKeys} />}
-      <div className="group-panel" role="menu" aria-label="Group by">
-        {shown.map((o) => (
-          <button key={o.value || "none"} type="button" role="menuitemradio" aria-checked={(groupBy ?? "") === o.value} className="scope-item" onClick={() => onPick(o.value || null)}>
-            {o.label}
-          </button>
-        ))}
+    <div ref={panelRef} role="group" aria-label="Group by" className="gp gp-wide" style={maxHeight ? { maxHeight } : undefined}>
+      <div className="gp-body">
+        <div className="panel-section">
+          <div className="panel-head gp-head"><h2>Group by</h2><span className="panel-note" aria-live="polite">{summary}</span></div>
+          <div className="gp-slots" role="group" aria-label="Grouping levels">
+            {([0, 1] as const).map((l) => {
+              const value = names[l];
+              const off = l === 1 && !draft.groupBy;
+              return (
+                <div key={l} className="gp-slot" data-active={!off && level === l} data-empty={!value}>
+                  <button type="button" className="gp-slot-main" aria-label={`Choose the field for ${LEVEL_NAME[l]}: ${nameOf(value) ?? "none yet"}`} aria-pressed={!off && level === l} disabled={off} onClick={() => setTarget(l)} title={off ? "Choose the main grouping first" : `Pick the field for “${LEVEL_NAME[l]}” below`}>
+                    <span className="gp-slot-n" aria-hidden="true">{l + 1}</span>
+                    <span className="gp-slot-text">
+                      <span className="gp-slot-label">{LEVEL_NAME[l]}</span>
+                      <span className="gp-slot-val">{nameOf(value) ?? (off ? "—" : "Pick a field below")}</span>
+                    </span>
+                  </button>
+                  {value && <button type="button" className="icon-btn" aria-label={`Remove ${LEVEL_NAME[l]} ${nameOf(value)}`} onClick={() => clear(l)}><svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8" /></svg></button>}
+                </div>
+              );
+            })}
+            {draft.groupBy && draft.thenBy && <button type="button" className="btn btn-link" onClick={swap} aria-label={`Swap: group by ${nameOf(draft.thenBy)}, then by ${nameOf(draft.groupBy)}`}>Swap order</button>}
+          </div>
+        </div>
+        <hr className="panel-rule" />
+
+        {!searching && mostUsed.length > 0 && (
+          <>
+            <div className="panel-section" role="group" aria-label="Most used fields">
+              <div className="panel-head"><h2>Most used</h2><span className="panel-note">One click picks the field for the level you are filling. Click again to remove.</span></div>
+              <div className="qf-row">
+                {mostUsed.map((f) => (
+                  <button key={f.key} type="button" role="menuitemradio" aria-checked={mark(f.key) !== null} className="qf" onClick={() => pick(f.key)}>
+                    {f.name}{mark(f.key) !== null && tick}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <hr className="panel-rule" />
+          </>
+        )}
+
+        <div className="panel-section gp-picker">
+          <div className="panel-head"><h2>All fields</h2><span className="panel-note">The same categories as the Columns picker.</span></div>
+          {needsSearch(all.length) && <SearchInput value={query} onChange={setQuery} label="Search group by options" placeholder={`Search the ${all.length} fields…`} onKeyDown={searchKeys} />}
+          {!searching && (
+            <div className="gp-tabs" role="group" aria-label="Field categories">
+              {[...categories.map((x) => x.category), ALL_TAB].map((c) => (
+                <button key={c} type="button" className="gp-tab" aria-pressed={tab === c} onClick={() => setTab(c)}>{c}</button>
+              ))}
+            </div>
+          )}
+          <div className="gp-fields" role="group" aria-label={searching ? "Matching fields" : tab === ALL_TAB ? "All fields" : tab}>
+            {listed.map((f) => {
+              const m = mark(f.key);
+              return (
+                <button key={f.key} type="button" role="menuitemradio" aria-checked={m !== null} className="gp-field" onClick={() => pick(f.key)}>
+                  <span>{f.name}</span>{m && <span className="gp-mark">{m}</span>}
+                </button>
+              );
+            })}
+          </div>
+          {searching && listed.length === 0 && <NoResults query={query} />}
+        </div>
+
+        {!customerSafe && (
+          <>
+            <hr className="panel-rule" />
+            <div className="panel-section">
+              <div className="panel-head"><h2>Issues</h2><span className="panel-note">The tracker issues linked to each initiative, listed under it.</span></div>
+              <div className="gp-card" data-on={draft.showIssues}>
+                <label className="gp-switch-row">
+                  <input type="checkbox" role="switch" className="sw-input" checked={draft.showIssues} onChange={(e) => setDraft({ ...draft, showIssues: e.target.checked })} />
+                  <span><b>Show issues under each initiative</b><span className="gp-sub">Epics, stories and tasks from Jira or GitHub</span></span>
+                </label>
+                {draft.showIssues && (
+                  <div className="gp-card-body">
+                    <div className="gp-block">
+                      <h3 className="gp-h3">Show these types</h3>
+                      {issueTypes.length === 0 ? (
+                        <p className="panel-note" role="status">{issuesLoading ? "Reading the linked issues…" : "No linked issues found for the initiatives shown."}</p>
+                      ) : (
+                        <div className="qf-row" role="group" aria-label="Issue types">
+                          {issueTypes.map((t) => (
+                            <button key={t.type} type="button" className="qf" aria-pressed={selected.includes(t.type)} onClick={() => toggleType(t.type)}>
+                              {t.type} <span className="gp-n">{t.count}</span>{selected.includes(t.type) && tick}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="gp-card-row">
+                      {issueTypes.length > 0 && (
+                        <div className="qf-row" role="group" aria-label="Presets">
+                          {presets.map((p) => <button key={p.label} type="button" className="qf" aria-pressed={isPreset(p.types)} onClick={() => setDraft({ ...draft, issueTypes: p.types })}>{p.label}{isPreset(p.types) && tick}</button>)}
+                        </div>
+                      )}
+                      <label className="gp-switch-row gp-switch-inline">
+                        <span>Hide Done and Cancelled</span>
+                        <input type="checkbox" role="switch" className="sw-input" checked={draft.hideDone} onChange={(e) => setDraft({ ...draft, hideDone: e.target.checked })} />
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
-      {shown.length === 0 && <NoResults query={query} />}
-    </>
+      <div className="panel-foot gp-foot">
+        <button type="button" className="btn btn-link" onClick={() => { setDraft({ groupBy: null, thenBy: null, showIssues: false, issueTypes: null, hideDone: false }); setTarget(0); }}>Clear</button>
+        <span className="panel-note grow">Nothing changes in the grid until you press Apply.</span>
+        <button type="button" className="btn" onClick={close}>Cancel</button>
+        <button type="button" className="btn btn-primary" onClick={() => { onChange(draft); close(); }}>Apply</button>
+      </div>
+    </div>
   );
 }

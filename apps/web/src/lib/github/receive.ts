@@ -12,7 +12,7 @@ type Admin = ReturnType<typeof createAdminClient>;
 
 const CONCURRENCY = 5;
 const GH_STATE: Record<string, string> = { open: "Open", closed_completed: "Closed as completed", closed_not_planned: "Closed as not planned" };
-const LABEL: Record<string, string> = { gh_state: "GitHub State", status: "Build Status" };
+const LABEL: Record<string, string> = { gh_state: "Tracker State", status: "Build Status" };
 const word = (key: string, v: unknown) => (v === null || v === undefined || v === "" ? null : key === "gh_state" ? (GH_STATE[String(v)] ?? String(v)) : String(v));
 const short = (e: unknown) => (e instanceof Error ? e.message : "unknown error").slice(0, 200);
 

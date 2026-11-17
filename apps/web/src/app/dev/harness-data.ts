@@ -94,7 +94,7 @@ export function makeCardsHarness(n: number, role: string) {
  */
 export function makeLeadershipHarness(n: number, role: string) {
   const { controller, source } = makeHarness(n, 0, role);
-  const valueTypes = ["New revenue", "Increase revenue", "Defend revenue", "Decrease costs", null];
+  const valueTypes = ["New revenue", "Grow existing revenue", "Defend revenue", "Reduce costs", null];
   const phases = ["Discover", "Build", "Test", "Roll-out", "Completed"];
   const iso = (d: number) => new Date(Date.UTC(2027, 3, 14) + d * 86_400_000).toISOString().slice(0, 10);
   source.items.forEach((item, i) => {
@@ -118,10 +118,23 @@ export function makeLeadershipHarness(n: number, role: string) {
     { itemId: "item-4", field: "stack_rank", old: 7, new: 6, at: at(-2, 9), actorId: "u1", via: "UI" },
     { itemId: "item-9", field: "stack_rank", old: 12, new: 12, at: at(-8), actorId: "u1", via: "UI" }, // before this week
   ];
+  // the Changes report's feed, tracker tickets and new documents of the same week
+  let feedId = 0;
+  const f = (item_id: string, entity: string, field: string, old: unknown, nw: unknown, when: string) => ({ id: ++feedId, item_id, entity, field, old, new: nw, at: when, actor_id: "u1", via: "UI" });
+  const feed = [
+    f("item-3", "items", "health", "On Track", "At Risk", at(-1)),
+    f("item-2", "item_jira_links", "jira_status", "To Do", "In Progress", at(-1, 8)), f("item-2", "item_jira_links", "jira_status", "In Progress", "Done", at(-1, 11)),
+    f("item-2", "items", "status", "Not started", "In progress", at(-1, 8)), f("item-2", "items", "status", "In progress", "Done", at(-1, 11)),
+    f("item-5", "items", "initiative_phase", "Build", "Test", at(-1, 9)),
+    f("item-7", "items", "initiative_phase", "Roll-out", "Completed", at(-1, 10)),
+    f("item-8", "item_jira_links", "jira_status", "To Do", "Done", at(-2, 8)), f("item-8", "item_jira_links", "jira_status", "Done", "To Do", at(-2, 9)), // back where it started: not shown
+  ];
+  const trackers = new Map([["item-2", { tracker: "Jira" as const, key: "SCRUM-3", title: "Reporting", url: "https://acme.atlassian.net/browse/SCRUM-3" }]]);
+  const documents = [{ id: "doc-1", itemId: "item-1", entry: "document" as const, title: "Reporting PRD", kind: "prd", aiDraft: false, at: at(-1, 12) }];
   const reviewed = role === "leadership" || role === "viewer"
     ? { id: "wu-seed", weekStart: "2027-04-12", scopeKey: "all", scopeLabel: "All projects", body: "All projects, week 15\n\nHighlights\n- R-05 was completed on 13 Apr.", reviewedAt: "2027-04-14T08:00:00.000Z", reviewedBy: "u2" }
     : null;
-  return { controller, source, changes, reviewed };
+  return { controller, source, changes, reviewed, feed, trackers, documents };
 }
 
 /** ?jira=1: R-01 follows the Jira issue SCRUM-2, R-02 is owned by Product Velocity and linked to SCRUM-3; the project uses Jira. */
@@ -129,6 +142,7 @@ export function withJiraLinks(controller: PortfolioController, lookups: Lookups,
   const links: NonNullable<Lookups["jira"]>["links"] = {};
   const set = (code: string, key: string, mode: "push" | "follow", status: string, category: "new" | "indeterminate" | "done") => {
     const row = controller.rows.find((r) => r.item_code === code);
+    if (row) (row as Record<string, unknown>).tracker_status = status; // Tracker Status: the tracker's own words, as the loader sets it
     if (row) links[row.id] = { mode, issueKey: key, url: `https://acme.atlassian.net/browse/${key}`, status, category, lastSynced: "2026-11-03T09:00:00Z" };
   };
   set("R-01", "SCRUM-2", "follow", "In Progress", "indeterminate");
@@ -187,6 +201,12 @@ export function makeReportsHarness(n: number, role: string) {
       kr_metric: i % 4 === 0 ? `Metric ${i}` : null, kr_start: i % 4 === 0 ? i : null, kr_target: i % 4 === 0 ? i + 10 : null, kr_unit: i % 4 === 0 ? "count" : null, kr_direction: i % 4 === 0 ? "Increase" : null,
       g2m_date_actual: i % 3 === 0 ? at(60 + (i % 4) * 10) : null, g2m_date_est: at(120), planned_start: at(0),
     });
+    // build time (issue #480): every third item (from the 2nd) has a build time of 2 to 5 weeks; the even ones also an estimate of 3 weeks
+    if (i % 3 === 1) {
+      const days = 14 + (i % 4) * 7;
+      const weeks = Math.round((days / 7) * 10) / 10;
+      Object.assign(r, { time_building_days: days, actual_build_weeks: weeks, build_vs_estimate_high_pct: i % 2 === 0 ? Math.round((weeks / 3) * 100) : null });
+    }
   }
   return { controller, source };
 }

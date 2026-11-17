@@ -77,11 +77,14 @@ const RELATED: Record<string, string> = {
 const isStoredOnItems = (f: FieldDef) =>
   f.storage.startsWith("Column on items") || f.storage.startsWith("System-set column") || f.storage.startsWith("GitHub-synced column");
 
+/** Fields the dictionary files under "GitHub-synced column" that the grid loader works out from other fields on every load: there is no column behind them (issue #480). */
+const COMPUTED_IN_LOADER: ReadonlySet<string> = new Set(["schedule_variance_pp"]);
+
 /** Name of the `items` column that holds this field, or null for related-table and computed fields. */
 export function columnOnItems(f: FieldDef): string | null {
   if (f.key in COLUMN_NAME) return COLUMN_NAME[f.key]!;
   if (f.key in RELATED || f.type === "Note") return null; // a note documents another field; it has no column
-  if (f.mode === "computed" && !f.storage.startsWith("GitHub-synced")) return null;
+  if (f.mode === "computed" && (!f.storage.startsWith("GitHub-synced") || COMPUTED_IN_LOADER.has(f.key))) return null;
   return isStoredOnItems(f) ? f.key : null;
 }
 export function relatedTable(f: FieldDef): string | null {
@@ -91,9 +94,9 @@ export const COLUMN_ON_ITEMS: readonly string[] = FIELDS.map(columnOnItems).filt
 
 /**
  * Open lists (issue #246): selects with no fixed values, where people type any value and the app suggests the values already in use
- * (Focus Area, Audience). Initiative Group is one too, with its own table of names; these keep their values on the initiatives only.
+ * (Focus Area, Audience, Objective, Business Line). Initiative Group is one too, with its own table of names; these keep their values on the initiatives only.
  */
-export const OPEN_LIST_FIELDS: readonly string[] = ["focus_area", "audience"];
+export const OPEN_LIST_FIELDS: readonly string[] = ["focus_area", "audience", "okr_objective", "business_line", "tracker_status"];
 export const isOpenList = (key: string): boolean => OPEN_LIST_FIELDS.includes(key);
 
 /** Fields built ahead of their dictionary phase (Rank in Project is computed from the stack rank, so the grid has it now). */
@@ -108,7 +111,19 @@ export const VISIBLE_FIELDS: readonly FieldDef[] = FIELDS.filter((f) => !HIDDEN_
 
 // Decision gates (issue #323) were pulled forward from phase 7: these fields are real columns or view columns now. The four Crowd fields (issue #393) are
 // computed from closed alignment sessions, so they are live although their dictionary phase is 5.
-const SHIPPED_EARLY: ReadonlySet<string> = new Set(["project_rank", "crowd_rank", "crowd_score", "crowd_consensus", "crowd_votes", "current_gate", "gate_status", "next_gate_due", "ready_for_build"]);
+const SHIPPED_EARLY: ReadonlySet<string> = new Set([
+  "project_rank", "crowd_rank", "crowd_score", "crowd_consensus", "crowd_votes", "current_gate", "gate_status", "next_gate_due", "ready_for_build",
+  // Issue #480 (Ashu, 2026-11-17: "I believe we have many or most of them already"). Found by counting what production holds: these have data or are computed by the
+  // system today, so the Columns picker no longer says "arrives in phase N" and the default views show them. Build Status and the GitHub and Jira delivery numbers are
+  // filled by the tracker syncs (Build Status on all 220 initiatives, issue counts on 210, blocked and stale issues, pull requests and CI status on the 161 linked to GitHub);
+  // the time, value and age fields are computed by the view items_computed or the loader and fill in when their inputs exist; Ready for Build By is set by Gate B.
+  "status", "issues_closed", "issues_total", "delivery_progress_pct", "blocked_issues", "stale_issues", "open_prs", "merged_prs", "ci_status", "gh_last_activity", "gh_state",
+  "schedule_variance_pp", "ready_for_build_by",
+  "value_weighted", "value_weighted_per_build_week", "review_overdue", "days_in_phase", "item_age_days",
+  "time_discovery_days", "time_definition_days", "time_building_days", "time_beta_days", "time_experiment_days", "time_rollout_days", "time_to_market_days", "actual_build_weeks", "build_vs_estimate_high_pct",
+  // Still later, because nothing fills them yet (no column, no data path, or always empty): iteration, target date, latest release, planned scope, scope added, blocked days,
+  // G2M slip, fit by team, alignment and every outcome field; and Assignees, Breakdown Route and Breakdown Status: the dictionary calls them editable, and shipping a field early also opens its editing in the grid, which is not built.
+]);
 export const isShipped = (f: FieldDef) => f.phase <= CURRENT_PHASE || SHIPPED_EARLY.has(f.key);
 export const arrivesLabel = (f: FieldDef) => (isShipped(f) ? null : `Arrives in phase ${f.phase}`);
 

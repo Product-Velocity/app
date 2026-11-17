@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { FIELDS, crowdFields, latestCrowd, toCrowdRow, toRankDecision, type CrowdRow, type RankDecision, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
+import { FIELDS, crowdFields, latestCrowd, toCrowdRow, toRankDecision, type CrowdRow, type RankDecision, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, trackerStatusOf, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
-import type { IssueTreeRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
+import { lightTree, type LightIssue } from "@/lib/atlassian/light-tree";
+import type { IssueTreeRow, JiraEpicRequestRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
 
 /** Supabase returns at most 1,000 rows per request, so a 2,000-item workspace needs several pages. */
 export const PAGE_SIZE = 1000;
@@ -107,12 +108,15 @@ export class SupabaseDataSource implements PortfolioDataSource {
 
     // Last Synced and Synced With: derived from the GitHub link of each initiative
     const syncLinks = new Map<string, SyncLink>();
-    for (const l of await this.fetchAll<{ item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; sync_state: "pending" | "synced" | "error"; last_pushed_at: string | null; gh_synced_at: string | null; project_item_id: string | null; gh_assignees: string[] | null }>("item_github_links", "item_id,mode,repo_full_name,issue_number,sync_state,last_pushed_at,gh_synced_at,project_item_id,gh_assignees", ["item_id"])) {
+    const ghState = new Map<string, string | null>(), jiraStatus = new Map<string, string | null>(); // Tracker Status: the tracker's own words
+    for (const l of await this.fetchAll<{ item_id: string; mode: "push" | "follow"; repo_full_name: string; issue_number: number | null; sync_state: "pending" | "synced" | "error"; last_pushed_at: string | null; gh_synced_at: string | null; project_item_id: string | null; gh_assignees: string[] | null; gh_state: string | null }>("item_github_links", "item_id,mode,repo_full_name,issue_number,sync_state,last_pushed_at,gh_synced_at,project_item_id,gh_assignees,gh_state", ["item_id"])) {
       if (l.gh_assignees?.length) ghLogins.set(l.item_id, l.gh_assignees);
+      ghState.set(l.item_id, l.gh_state);
       syncLinks.set(l.item_id, { mode: l.mode, repo: l.repo_full_name, issueNumber: l.issue_number, syncState: l.sync_state, lastPushedAt: l.last_pushed_at, ghSyncedAt: l.gh_synced_at, hasBoardItem: Boolean(l.project_item_id) });
     }
     // An initiative linked to a Jira issue (and not to GitHub: an initiative has one tracker) shows the Jira key, who owns it and when it was last synced
-    for (const l of await this.fetchAll<{ item_id: string; mode: "push" | "follow"; issue_key: string; sync_checked_at: string | null; jira_updated_at: string | null }>("item_jira_links", "item_id,mode,issue_key,sync_checked_at,jira_updated_at")) {
+    for (const l of await this.fetchAll<{ item_id: string; mode: "push" | "follow"; issue_key: string; sync_checked_at: string | null; jira_updated_at: string | null; jira_status: string | null }>("item_jira_links", "item_id,mode,issue_key,sync_checked_at,jira_updated_at,jira_status")) {
+      jiraStatus.set(l.item_id, l.jira_status);
       if (!syncLinks.has(l.item_id)) syncLinks.set(l.item_id, { tracker: "jira", issueKey: l.issue_key, mode: l.mode, repo: "", issueNumber: null, syncState: "synced", lastPushedAt: l.sync_checked_at, ghSyncedAt: null, hasBoardItem: false });
     }
     const boardTitle = new Map<string, string>();
@@ -128,6 +132,7 @@ export class SupabaseDataSource implements PortfolioDataSource {
       item.assignees = [...assigned.map((u) => emails.get(u) ?? "unknown person"), ...(ghLogins.get(id) ?? []).filter((l) => !usernames.has(l.toLowerCase())).map((l) => `@${l}`)].join(", ") || null;
       item.synced_with = syncedWith(sl, boardTitle.get(String(item.home_project)) ?? null) || null;
       item.tracker_ownership = trackerOwnership(sl) || null;
+      item.tracker_status = trackerStatusOf({ jiraStatus: jiraStatus.get(id), boardStatus: item.gh_project_status as string | null, ghState: ghState.get(id) });
       item.tags = (tags.get("tag")?.get(id) ?? []).join(", ") || null;
       item.target_scope = (tags.get("target_scope")?.get(id) ?? []).join(", ") || null;
       item.live_scope = (tags.get("live_scope")?.get(id) ?? []).join(", ") || null;
@@ -334,11 +339,76 @@ export class SupabaseDataSource implements PortfolioDataSource {
     // a database that has not got the table yet (the migration is applied by hand) shows an empty list, not an error
     if (error) { if (/item_jira_tree|42P01|PGRST205/.test(`${error.code ?? ""} ${error.message}`)) return []; throw new Error(friendlyError(error)); }
     type R = { issue_key: string; parent_key: string; level: number; position: number; title: string; issue_type: string | null; status: string | null; status_category: string | null; assignee: string | null; html_url: string | null; jira_updated_at: string | null };
+    if ((data ?? []).length === 0) return this.loadJiraTreeFromList(itemId);
     return ((data ?? []) as R[]).map((r) => ({
       key: r.issue_key, parentKey: r.parent_key, level: r.level === 2 ? 2 : 1, position: r.position, title: r.title, type: r.issue_type, status: r.status,
       category: r.status_category === "new" || r.status_category === "indeterminate" || r.status_category === "done" ? r.status_category : null,
       assignee: r.assignee, url: r.html_url, updatedAt: r.jira_updated_at,
     }));
+  }
+
+  async loadJiraEpicRequests(itemId: string): Promise<JiraEpicRequestRow[]> {
+    const { data, error } = await this.client.from("item_jira_epic_requests").select("epic_key, state, last_error, previous_parent").eq("tenant_id", this.tenantId).eq("item_id", itemId).order("epic_key");
+    // a database that has not got the table yet shows an empty list, not an error
+    if (error) { if (/item_jira_epic_requests|42P01|PGRST205/.test(`${error.code ?? ""} ${error.message}`)) return []; throw new Error(friendlyError(error)); }
+    return ((data ?? []) as { epic_key: string; state: "pending" | "linked" | "failed"; last_error: string | null; previous_parent: string | null }[]).map((r) => ({ key: r.epic_key, state: r.state, lastError: r.last_error, previousParent: r.previous_parent }));
+  }
+
+  async requestJiraEpics(itemId: string, keys: string[]) {
+    const { data, error } = await this.client.rpc("item_request_jira_epics", { p_item: itemId, p_keys: keys });
+    if (error) return { ok: false as const, error: friendlyError(error) };
+    return { ok: true as const, added: (data ?? []) as string[] };
+  }
+
+  async checkJiraEpics(itemId: string) {
+    const { checkJiraEpics } = await import("@/app/(workspace)/portfolio/jira-epics");
+    return checkJiraEpics(itemId);
+  }
+
+  async removeJiraEpicRequest(itemId: string, key: string) {
+    const { error } = await this.client.rpc("item_remove_jira_epic_request", { p_item: itemId, p_key: key });
+    if (error) return { ok: false as const, error: friendlyError(error) };
+    return { ok: true as const };
+  }
+
+  /** Level-1 children of many initiatives at once (Jira tree and GitHub tree), in small id chunks so no read reaches the row limit. A missing table reads as empty, like loadJiraTree. */
+  async loadChildrenBulk(itemIds: string[]) {
+    const jira: Record<string, JiraTreeRow[]> = {}, github: Record<string, IssueTreeRow[]> = {};
+    for (let i = 0; i < itemIds.length; i += 40) {
+      const ids = itemIds.slice(i, i + 40);
+      const j = await this.client.from("item_jira_tree").select("item_id, issue_key, parent_key, level, position, title, issue_type, status, status_category, assignee, html_url, jira_updated_at")
+        .eq("tenant_id", this.tenantId).in("item_id", ids).in("level", [1, 2]).order("position").limit(5000);
+      if (j.error) { if (!/item_jira_tree|42P01|PGRST205/.test(`${j.error.code ?? ""} ${j.error.message}`)) throw new Error(friendlyError(j.error)); }
+      for (const r of (j.data ?? []) as { item_id: string; issue_key: string; parent_key: string; level: number; position: number; title: string; issue_type: string | null; status: string | null; status_category: string | null; assignee: string | null; html_url: string | null; jira_updated_at: string | null }[]) {
+        (jira[r.item_id] ??= []).push({ key: r.issue_key, parentKey: r.parent_key, level: r.level === 2 ? 2 : 1, position: r.position, title: r.title, type: r.issue_type, status: r.status,
+          category: r.status_category === "new" || r.status_category === "indeterminate" || r.status_category === "done" ? r.status_category : null, assignee: r.assignee, url: r.html_url, updatedAt: r.jira_updated_at });
+      }
+      const g = await this.client.from("item_issue_tree").select("item_id, repo_full_name, issue_number, parent_number, level, title, state, state_reason, assignees, created_by, updated_at")
+        .eq("tenant_id", this.tenantId).in("item_id", ids).in("level", [1, 2]).order("issue_number").limit(5000);
+      if (g.error) throw new Error(friendlyError(g.error));
+      for (const r of (g.data ?? []) as { item_id: string; repo_full_name: string; issue_number: number; parent_number: number | null; level: number; title: string; state: string; state_reason: string | null; assignees: string[] | null; created_by: string; updated_at: string }[]) {
+        (github[r.item_id] ??= []).push({ repo: r.repo_full_name, number: r.issue_number, parentNumber: r.parent_number, level: r.level === 2 ? 2 : 1, title: r.title, state: r.state === "closed" ? "closed" : "open", stateReason: r.state_reason, assignees: r.assignees ?? [],
+          createdBy: r.created_by === "app" || r.created_by === "claude" ? r.created_by : "engineer", updatedAt: r.updated_at });
+      }
+    }
+    return { jira, github };
+  }
+
+  /** No tree was written for this initiative (the full read failed or has not run): show the children already held as light issue records. Never throws: the tab still works. */
+  private async loadJiraTreeFromList(itemId: string): Promise<JiraTreeRow[]> {
+    try {
+      const { data: link } = await this.client.from("item_jira_links").select("issue_key, connection_id, site_id").eq("tenant_id", this.tenantId).eq("item_id", itemId).maybeSingle();
+      const l = link as { issue_key: string; connection_id: string; site_id: string } | null;
+      if (!l) return [];
+      const cols = "issue_key, parent_key, title, issue_type, status, status_category, html_url, jira_updated_at";
+      const { data: kids } = await this.client.from("jira_issues").select(cols).eq("tenant_id", this.tenantId).eq("connection_id", l.connection_id).eq("site_id", l.site_id).eq("parent_key", l.issue_key).limit(500);
+      const first = (kids ?? []) as LightIssue[];
+      if (first.length === 0) return [];
+      const { data: subs } = await this.client.from("jira_issues").select(cols).eq("tenant_id", this.tenantId).eq("connection_id", l.connection_id).eq("site_id", l.site_id).in("parent_key", first.map((k) => k.issue_key)).limit(500);
+      return lightTree(l.issue_key, [...first, ...((subs ?? []) as LightIssue[])]);
+    } catch {
+      return [];
+    }
   }
 
   async setLinkMode(itemId: string, mode: "push" | "follow", tracker: "github" | "jira" = "github"): Promise<{ ok: true; before: "push" | "follow" } | { ok: false; error: string }> {

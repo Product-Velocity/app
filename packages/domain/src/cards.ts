@@ -138,7 +138,7 @@ export function planMove(row: Record<string, unknown>, o: { colField: string; la
     const unchanged = to === NONE ? current.length === 0 : current.includes(to) && (field === "team" || current[0] === to);
     if (unchanged) continue;
     if (!opt || !opt.editable) return { ok: false, error: opt?.reason ?? `${axisLabel(field)} cannot be changed here.` };
-    if (to === NONE && !canBeEmpty(field)) return { ok: false, error: `${FIELD_BY_KEY[field]?.name === "Home Project" ? "Project" : FIELD_BY_KEY[field]?.name ?? field} cannot be empty.` };
+    if (to === NONE && !canBeEmpty(field)) return { ok: false, error: `${FIELD_BY_KEY[field]?.name ?? field} cannot be empty.` };
     changes[field] = to === NONE ? null : to;
   }
   return { ok: true, changes };

@@ -39,7 +39,7 @@ test.describe("the action bar moves what does not fit into More (issue #403)", (
       await open(page, width);
       const more = bar(page).getByRole("button", { name: "More tools" });
       await expect(more).toBeVisible();
-      const y0 = (await page.getByRole("button", { name: /^Add filter|filters?$/ }).first().boundingBox())!.y;
+      const y0 = (await page.getByRole("button", { name: /^Filter:/ }).first().boundingBox())!.y;
       const undo = (await page.getByRole("button", { name: /^Undo/ }).boundingBox())!;
       const m = (await more.boundingBox())!;
       expect(Math.abs(m.y - y0)).toBeLessThan(12);
@@ -53,7 +53,7 @@ test.describe("the action bar moves what does not fit into More (issue #403)", (
     await expect(more).toBeVisible();
     const sync = (await bar(page).getByRole("button", { name: /^Sync with GitHub/ }).boundingBox())!;
     const m = (await more.boundingBox())!;
-    const filter = (await page.getByRole("button", { name: /^Add filter|filters?$/ }).first().boundingBox())!;
+    const filter = (await page.getByRole("button", { name: /^Filter:/ }).first().boundingBox())!;
     expect(Math.abs(m.y - sync.y)).toBeLessThan(8);
     expect(m.y).toBeGreaterThan(filter.y + 20); // on the second line
     expect(m.x).toBeGreaterThan(sync.x); // after the tools, not stranded before them

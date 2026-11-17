@@ -185,6 +185,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "jira_check_runs",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_check_runs set kind = 'write' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_check_runs where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_check_runs (tenant_id, connection_id, kind, checks) select tenant_id, id, 'read', '[{}]'::jsonb from public.jira_connections where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.jira_check_runs set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "jira_sync_events",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [
@@ -192,6 +202,16 @@ const probes: Probe[] = [
       { sql: "delete from public.jira_sync_events where tenant_id = $1", params: [v.tenantId] },
       { sql: "insert into public.jira_sync_events (tenant_id, source, summary) values ($1, 'check', 'evil')", params: [v.tenantId] },
       { sql: "update public.jira_sync_events set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "jira_status_changes",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_status_changes set actor_name = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_status_changes where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_status_changes (tenant_id, issue_key, changed_at, to_status, actor_name) values ($1, 'EVIL-1', now(), 'Done', 'evil')", params: [v.tenantId] },
+      { sql: "update public.jira_status_changes set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
     ],
   },
   {
@@ -222,6 +242,56 @@ const probes: Probe[] = [
       { sql: "delete from public.item_jira_tree where tenant_id = $1", params: [v.tenantId] },
       { sql: "insert into public.item_jira_tree (tenant_id, item_id, issue_key, parent_key, level, title) select tenant_id, item_id, 'EVIL-1', parent_key, 1, 'x' from public.item_jira_tree where tenant_id = $1", params: [v.tenantId] },
       { sql: "update public.item_jira_tree set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "item_jira_epic_requests",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.item_jira_epic_requests set state = 'linked' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.item_jira_epic_requests where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.item_jira_epic_requests (tenant_id, item_id, epic_key) select tenant_id, item_id, 'EVIL-1' from public.item_jira_epic_requests where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.item_jira_epic_requests set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "jira_epic_projects",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_epic_projects set project_key = 'EVIL' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_epic_projects where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_epic_projects (tenant_id, connection_id, site_id, project_key) select tenant_id, connection_id, site_id, 'EVIL' from public.jira_epic_projects where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.jira_epic_projects set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "jira_epics_seen",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_epics_seen set title = 'x' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_epics_seen where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_epics_seen (tenant_id, connection_id, site_id, project_key, issue_key, title) select tenant_id, connection_id, site_id, project_key, 'EVIL-1', 'x' from public.jira_epics_seen where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.jira_epics_seen set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "github_epic_repos",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.github_epic_repos set repo_full_name = 'evil/evil' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.github_epic_repos where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.github_epic_repos (tenant_id, connection_id, repo_full_name) select tenant_id, connection_id, 'evil/evil' from public.github_epic_repos where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.github_epic_repos set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "github_epics_seen",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.github_epics_seen set title = 'x' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.github_epics_seen where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.github_epics_seen (tenant_id, connection_id, repo_full_name, issue_number, title) select tenant_id, connection_id, repo_full_name, 99999, 'x' from public.github_epics_seen where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.github_epics_seen set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
     ],
   },
   {

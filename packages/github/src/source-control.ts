@@ -43,6 +43,9 @@ export type IssueSummary = {
   title?: string; issueType?: string | null; labels?: string[]; htmlUrl?: string | null; parentNumber?: number | null; assignees?: string[];
 };
 
+/** An open issue that has sub-issues (an "epic" for the Epics list on Incoming, issue #465). `parent` is the issue above it, when it has one (it can be in another repository). */
+export type ParentIssue = { number: number; title: string; issueType: string | null; htmlUrl: string | null; updatedAt: string | null; subIssuesTotal: number; parent: { repo: string; number: number } | null };
+
 /** A sub-issue as GitHub reports it. `repo` can differ from the parent's repository. */
 export type SubIssue = { number: number; id: number; /** GraphQL id, needed to put the issue on a Project board. */ nodeId: string; repo: string; title: string; state: "open" | "closed"; stateReason: string | null; closedAt: string | null; assignees: string[]; createdBy: "app" | "claude" | "engineer"; /** When the issue last changed, and its labels: for the stale and blocked counts. */ updatedAt?: string; labels?: string[] };
 
@@ -66,6 +69,8 @@ export interface SourceControl {
   /** Issues of a repository in any state (pull requests excluded), newest activity first. Used to reconcile linked items. */
   /** `since`: only issues changed after this time (ISO). `maxPages`: stop after this many pages of 100 (default 10, the most the daily check reads). */
   listIssues(installationId: number, repo: string, opts?: { since?: string; maxPages?: number }): Promise<IssueSummary[]>;
+  /** The open issues of a repository that have sub-issues (pull requests excluded), newest activity first, at most `maxPages` pages of 100 read. `truncated` says the page limit stopped the read. Read only. */
+  listOpenParentIssues(installationId: number, repo: string, opts?: { maxPages?: number }): Promise<{ issues: ParentIssue[]; truncated: boolean }>;
   /** Direct sub-issues of an issue (one level, all pages), or null when sub-issues are not available for it. */
   listSubIssues(installationId: number, repo: string, number: number): Promise<SubIssue[] | null>;
   /** Creates an issue in `repo` ("owner/name"). */

@@ -11,7 +11,7 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 11,What,Initiative Hypothesis (IF / THEN / RESULTING IN),hypothesis,Long text,,Input,Modify,App -> GitHub: included in the managed block of the issue body.,Column on items,1
 12,What,Artifacts (links),artifacts,Links,,Input,Modify,App -> GitHub: listed in managed block of issue body.,Related table,1
 13,What,Comments,comments,Thread,,Input,Replace,Not synced. GitHub comments are shown read-only in the drill-down panel.,Related table,2
-14,Who,Sponsor,sponsor,Person,,Input,Modify,Not synced.,Column on items,1
+14,Who,Owner,sponsor,Person,,Input,Modify,Not synced.,Column on items,1
 15,Who,Request Origin,request_origin,Select,Customer · Sales · Leadership · Product analysis · Partner / vendor · Competitor move,Input,Keep,,Column on items,1
 16,Who,Customers Requesting (#),customers_requesting,Number,,Input,Keep,Never synced (commercial).,Column on items,1
 17,Who,Product Manager,product_manager,Person,,Input,Modify,Not synced.,Column on items,1
@@ -22,7 +22,7 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 22,Why,Primary KR (Metric Name),kr_metric,Text,,Input,Modify,Never synced.,Column on items,1
 23,Why,Primary KR Start Value,kr_start,Number,,Input,Keep,,Column on items,1
 24,Why,Primary KR Target Value,kr_target,Number,,Input,Keep,,Column on items,1
-26,Why,Business Value Type,value_type,Select,New revenue · Increase revenue · Defend revenue · Decrease costs · Other,Input,Keep,Push the type (only) as label pv:value/<type> (on by default). The amount and basis never sync (commercial).,Column on items,1
+26,Why,Business Value Type,value_type,Select,New revenue · Grow existing revenue · Reduce costs · Defend revenue · Enabler · Other,Input,Keep,Push the type (only) as label pv:value/<type> (on by default). The amount and basis never sync (commercial).,Column on items,1
 27,Why,Business Value (12m run-rate),value_12m,Currency,,Input,Modify,Never synced (commercial).,Column on items,1
 28,Why,Business Value Basis,value_basis,Select,Measured · Estimate (basis stated) · Partner claim · Not stated,Input,Modify,,Column on items,1
 29,Why,Time to First Revenue (months),time_to_first_revenue_months,Number,,Input,Keep,,Column on items,1
@@ -86,27 +86,29 @@ N4,When,Planned Start,planned_start,Date,,Input,New,Optional: push to GitHub iss
 N5,When,G2M Slip (days),g2m_slip_days,Computed,,Computed,New,,"Computed (view or function, not stored)",2
 N6,Why,Primary KR Unit,kr_unit,Select,% · EUR · count · days · other,Input,New,,Column on items,1
 N7,Why,Primary KR Direction,kr_direction,Select,Increase · Decrease,Input,New,,Column on items,1
+N52,Why,Objective,okr_objective,Select,,Input,New,Never synced.,Column on items,1
+N53,Why,Business Line,business_line,Select,,Input,New,Never synced.,Column on items,1
 N8,Why,Estimate Basis,estimate_basis,Select,Engineering-sized · PM estimate · Rough guess · Not stated,Input,New,,Column on items,1
-N9,Delivery (GitHub),Assignees,assignees,People,,Input,New,"Two-way with the tracking issue assignees; last write wins, audit-logged.",GitHub-synced column (read-only in app),3
-N10,Delivery (GitHub),GitHub Links,github_links,Links,,Input,New,Created from the app or linked to an existing issue.,"Related table, GitHub-synced",3
-N11,Delivery (GitHub),GitHub Sync State,sync_state,Computed,Not linked · Synced · Pending · Conflict · Error,Computed,New,Derived from sync log.,GitHub-synced column (read-only in app),3
-N12,Delivery (GitHub),GitHub State,gh_state,Computed,Open · Closed (completed) · Closed (not planned),GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
-N13,Delivery (GitHub),Issues Closed (#),issues_closed,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
-N14,Delivery (GitHub),Issues Total (#),issues_total,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
-N15,Delivery (GitHub),Delivery Progress %,delivery_progress_pct,Computed,,Computed,New,,GitHub-synced column (read-only in app),3
-N16,Delivery (GitHub),Open PRs (#),open_prs,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
-N17,Delivery (GitHub),Last GitHub Activity,gh_last_activity,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
-N32,Delivery (GitHub),Merged PRs (#),merged_prs,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
-N33,Delivery (GitHub),Delivery Status,gh_project_status,Computed,,GitHub,New,"Projects v2 -> app, read-only (the board's Status field).",GitHub-synced column (read-only in app),1
-N34,Delivery (GitHub),Iteration / Sprint (GitHub),gh_iteration,Computed,,GitHub,New,"Projects v2 -> app, read-only.",GitHub-synced column (read-only in app),3
-N35,Delivery (GitHub),GitHub Target Date,gh_target_date,Computed,,GitHub,New,"Projects v2 -> app, read-only.",GitHub-synced column (read-only in app),3
-N36,Delivery (GitHub),Blocked Issues (#),blocked_issues,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
-N37,Delivery (GitHub),Stale Issues (#),stale_issues,Computed,,Computed,New,,GitHub-synced column (read-only in app),3
-N38,Delivery (GitHub),Scope Added (#),scope_added,Computed,,Computed,New,,GitHub-synced column (read-only in app),3
-N39,Delivery (GitHub),Schedule Variance (pp),schedule_variance_pp,Computed,,Computed,New,,GitHub-synced column (read-only in app),3
-N40,Delivery (GitHub),Latest Release,latest_release,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
-N41,Delivery (GitHub),CI Status,ci_status,Computed,Passing · Failing · None,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
-N42,Delivery (GitHub),Repositories,repositories,Tags,,GitHub,New,"GitHub -> app, read-only.","Related table, GitHub-synced",3
+N9,Delivery,Assignees,assignees,People,,Input,New,"Two-way with the tracking issue assignees; last write wins, audit-logged.",GitHub-synced column (read-only in app),3
+N10,Delivery,Tracker Links,github_links,Links,,Input,New,Created from the app or linked to an existing issue.,"Related table, GitHub-synced",3
+N11,Delivery,Tracker Sync State,sync_state,Computed,Not linked · Synced · Pending · Conflict · Error,Computed,New,Derived from sync log.,GitHub-synced column (read-only in app),3
+N12,Delivery,Tracker State,gh_state,Computed,Open · Closed (completed) · Closed (not planned),GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N13,Delivery,Issues Closed (#),issues_closed,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N14,Delivery,Issues Total (#),issues_total,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N15,Delivery,Delivery Progress %,delivery_progress_pct,Computed,,Computed,New,,GitHub-synced column (read-only in app),3
+N16,Delivery,Open PRs (#),open_prs,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N17,Delivery,Last Tracker Activity,gh_last_activity,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N32,Delivery,Merged PRs (#),merged_prs,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N33,Delivery,Delivery Status,gh_project_status,Computed,,GitHub,New,"Projects v2 -> app, read-only (the board's Status field).",GitHub-synced column (read-only in app),1
+N34,Delivery,Iteration / Sprint,gh_iteration,Computed,,GitHub,New,"Projects v2 -> app, read-only.",GitHub-synced column (read-only in app),3
+N35,Delivery,Tracker Target Date,gh_target_date,Computed,,GitHub,New,"Projects v2 -> app, read-only.",GitHub-synced column (read-only in app),3
+N36,Delivery,Blocked Issues (#),blocked_issues,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N37,Delivery,Stale Issues (#),stale_issues,Computed,,Computed,New,,GitHub-synced column (read-only in app),3
+N38,Delivery,Scope Added (#),scope_added,Computed,,Computed,New,,GitHub-synced column (read-only in app),3
+N39,Delivery,Schedule Variance (pp),schedule_variance_pp,Computed,,Computed,New,,GitHub-synced column (read-only in app),3
+N40,Delivery,Latest Release,latest_release,Computed,,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N41,Delivery,CI Status,ci_status,Computed,Passing · Failing · None,GitHub,New,"GitHub -> app, read-only.",GitHub-synced column (read-only in app),3
+N42,Delivery,Repositories,repositories,Tags,,GitHub,New,"GitHub -> app, read-only.","Related table, GitHub-synced",3
 A1,Alignment,Crowd Rank,crowd_rank,Computed,,Computed,New,,"Computed (view or function, not stored)",5
 A2,Alignment,Crowd Score,crowd_score,Computed,,Computed,New,,"Computed (view or function, not stored)",5
 A3,Alignment,Consensus,crowd_consensus,Computed,,Computed,New,,"Computed (view or function, not stored)",5
@@ -125,7 +127,7 @@ N29,Trust,Created Via,created_via,Select,Manual · Import · AI intake · GitHub
 N30,Trust,AI Draft (needs review),ai_draft,Boolean,,System,New,,System-set column (read-only),1
 N31,Trust,Source Document,source_document,Links,,Input,New,,Related table,4
 N22,Trust,Archived,archived,Boolean,,Input,New,,Column on items,1
-V1,What,Home Project,home_project,Relation,Project,Input,New (v4),Selects the repo for the tracking issue.,Related table,1
+V1,What,Project,home_project,Relation,Project,Input,New (v4),Selects the repo for the tracking issue.,Related table,1
 V2,What,Contributing Teams,contributing_teams,Tags,Teams,Input,New (v4),Not synced.,Related table,1
 V3,What,Rank in Project,project_rank,Computed,,Computed,New (v4),Not synced.,"Computed (view or function, not stored)",2
 V4,What,Previous Rank,previous_rank,Number,,System,New (v4),Not synced.,System-set column (read-only),1
@@ -139,9 +141,9 @@ V12,Spec,Documents,documents,Relation,"PRD, business requirements, technical req
 V13,Spec,Ready for Build,ready_for_build,Computed,Not ready · Requested · Ready,Computed,New (v4),Label optional.,"Computed (view or function, not stored)",4
 V14,Spec,Ready for Build By / At,ready_for_build_by,System,"Person, date",System,New (v4),Not synced.,System-set column (read-only),4
 V15,Spec,Agent-ready,agent_ready,Boolean,Yes · No,Computed,New (v4),Label optional.,Column on items,4
-V16,Delivery (GitHub),Breakdown Route,breakdown_route,Select,Traditional · In between · Full Claude,Input,New (v4),Decides who creates issues.,GitHub-synced column (read-only in app),4
-V17,Delivery (GitHub),Breakdown Status,breakdown_status,Select,Not started · Draft proposed · Awaiting engineering · Complete,Input,New (v4),Complete can be set by label or in the app.,GitHub-synced column (read-only in app),4
-V18,Delivery (GitHub),Planned Scope (#),planned_scope,Computed,,Computed,New (v4),From sub-issues.,GitHub-synced column (read-only in app),3
+V16,Delivery,Breakdown Route,breakdown_route,Select,Traditional · In between · Full Claude,Input,New (v4),Decides who creates issues.,GitHub-synced column (read-only in app),4
+V17,Delivery,Breakdown Status,breakdown_status,Select,Not started · Draft proposed · Awaiting engineering · Complete,Input,New (v4),Complete can be set by label or in the app.,GitHub-synced column (read-only in app),4
+V18,Delivery,Planned Scope (#),planned_scope,Computed,,Computed,New (v4),From sub-issues.,GitHub-synced column (read-only in app),3
 V19,Planning,Planning Status,planning_status,Select,Backlog · Not started · Candidate · Included · Committed · Deferred · Dropped,Input,New (v4),Not synced.,Column on items,1
 V20,Planning,Cycle,cycle,Relation,Planning cycles,Input,New (v4),Not synced.,Related table,5
 V21,Planning,Candidate Tag,candidate_tag,Select,Carry-over · Likely carry-over · Deferred · New · Backlog,System,New (v4),Not synced.,System-set column (read-only),5
@@ -162,9 +164,12 @@ V35,Outcomes,Value vs Prediction (%),value_variance_pct,Computed,,Computed,New (
 V36,Outcomes,Time to First Use (days),time_to_first_use_days,Computed,,Computed,New (v4),Not synced.,"Computed (view or function, not stored)",7
 V37,Outcomes,Retention (%),retention_pct,Number,,Input,New (v4),Not synced.,Column on items,7
 V38,Trust,Created Via Values,created_via_values,Note,UI · Import · Claude (MCP) · GitHub · API · System,System,New (v4),Not synced.,System-set column (read-only),1
-V39,Trust,Locked (GitHub-driven),locked_by_source,Computed,Yes · No,System,New (v4),n/a,"Computed (view or function, not stored)",1
+V39,Trust,Locked (tracker-driven),locked_by_source,Computed,Yes · No,System,New (v4),n/a,"Computed (view or function, not stored)",1
 N43,What,Initiative Status,initiative_status,Select,Active · On hold · Completed · Cancelled,Input,New,Not synced. A closed linked ticket only sets Build Status and Build Completed; people decide where the initiative itself stands.,Column on items,1
 N44,What,Description,description,Long text,,Input,New,"App -> GitHub: own section 'Description' of the managed block of the issue body (Markdown). Do not put value, customers or decisions in it.",Column on items,1
-N46,Delivery (GitHub),Last Synced,last_synced,Computed,,Computed,New,Not synced: shown from the GitHub link and read-only.,Derived in the app from the GitHub link (not stored),1
-N47,Delivery (GitHub),Synced With,synced_with,Computed,,Computed,New,Not synced: shown from the GitHub link and read-only.,Derived in the app from the GitHub link (not stored),1
-N48,Delivery (GitHub),Tracker Ownership,tracker_ownership,Computed,Product Velocity · Tracker (read only),Computed,New,Not synced: shown from the GitHub link and read-only here. Change it on the item's GitHub tab.,Derived in the app from the GitHub link (not stored),1
+N46,Delivery,Last Synced,last_synced,Computed,,Computed,New,Not synced: shown from the GitHub link and read-only.,Derived in the app from the GitHub link (not stored),1
+N47,Delivery,Synced With,synced_with,Computed,,Computed,New,Not synced: shown from the GitHub link and read-only.,Derived in the app from the GitHub link (not stored),1
+N48,Delivery,Tracker Ownership,tracker_ownership,Computed,Product Velocity · Tracker (read only),Computed,New,Not synced: shown from the GitHub link and read-only here. Change it on the item's GitHub tab.,Derived in the app from the GitHub link (not stored),1
+N49,Delivery,Tracker Status,tracker_status,Select,,Computed,New,"Not synced: shown from the tracker link, read-only.",Derived in the app from the tracker link (not stored),1
+N50,Flags & actions,Flags,flags,Computed,,Computed,New,"Not synced: worked out in the app, read-only.",Derived in the app from the item and its tracker link (not stored),1
+N51,Flags & actions,Actions,actions,Computed,,Computed,New,"Not synced: worked out in the app, clicking acts as the signed-in person.",Derived in the app from the item and its tracker link (not stored),1

@@ -1,6 +1,6 @@
 import type { ActivityRow, CrowdRow, RankDecision, EditableField, RelatedField, RelatedValues } from "@pv/domain";
 import type { NewItemValues } from "@pv/domain";
-import type { IssueTreeRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
+import type { IssueTreeRow, JiraEpicRequestRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
 
 export type SaveResult = { ok: true } | { ok: false; error: string; conflict?: boolean };
 /** What the database assigns to new items. */
@@ -51,6 +51,16 @@ export interface PortfolioDataSource {
   loadIssueTree(itemId: string): Promise<IssueTreeRow[]>;
   /** The children and sub-tasks of the Jira issue the initiative is linked to (empty until the first read, or before the database has the table). */
   loadJiraTree(itemId: string): Promise<JiraTreeRow[]>;
+  /** The epics asked for under this initiative's Jira issue (all states; empty before the database has the table). */
+  loadJiraEpicRequests(itemId: string): Promise<JiraEpicRequestRow[]>;
+  /** Asks for epics (Jira keys, any project) to go under this initiative's Jira issue at the next confirmed Sync. Writes nothing to Jira. Returns the keys newly asked for. */
+  requestJiraEpics(itemId: string, keys: string[]): Promise<{ ok: true; added: string[] } | { ok: false; error: string }>;
+  /** Reads Jira (no write): for each epic asked for, OK (a send would link it) or why not. */
+  checkJiraEpics(itemId: string): Promise<{ ok: true; lines: { key: string; text: string; ok: boolean }[] } | { ok: false; error: string }>;
+  /** Takes back a pending or failed request. */
+  removeJiraEpicRequest(itemId: string, key: string): Promise<{ ok: true } | { ok: false; error: string }>;
+  /** The first-level children (level 1) under each given initiative's tracker issue, for the Excel report. Read only; an initiative with none is absent. */
+  loadChildrenBulk(itemIds: string[]): Promise<{ jira: Record<string, JiraTreeRow[]>; github: Record<string, IssueTreeRow[]> }>;
   /** Marks the breakdown complete (freezes Planned Scope). Returns the item fields it changed. */
   completeBreakdown(itemId: string): Promise<{ ok: true; values: Record<string, unknown> } | { ok: false; error: string }>;
   /** Who owns a linked initiative: "push" = Product Velocity (sends after a preview and a confirmation), "follow" = read only. Writes nothing to the tracker. Returns the mode before. */

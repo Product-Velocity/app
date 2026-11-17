@@ -80,3 +80,37 @@ describe("what needs attention", () => {
     expect(attentionList([row(2)], TODAY, { requests: [req({ item_id: "i1" })], conditions: [{ item_id: "i1", text: "x" }] })).toEqual([]);
   });
 });
+
+describe("action flags for the PM (issue #472)", () => {
+  const one = (o: Record<string, unknown>) => attentionList([row(1, o)], TODAY)[0]?.reasons ?? [];
+
+  it("flags an initiative still in Build when every linked issue or epic is closed, even if Build Status has not caught up", () => {
+    const r = one({ initiative_phase: "Build", status: "In progress", issues_total: 3, issues_closed: 3 });
+    expect(r).toEqual([expect.objectContaining({ kind: "build-done", action: { type: "move", to: "Test", label: "Move to Test" } })]);
+    expect(r[0]!.text).toMatch(/All 3 linked issues are closed/);
+    expect(one({ initiative_phase: "Build", status: "In progress", issues_total: 3, issues_closed: 2 })).toEqual([]);
+  });
+
+  it("does not repeat the build-done flag when Build Status is Done too", () => {
+    expect(one({ initiative_phase: "Build", status: "Done", issues_total: 3, issues_closed: 3 }).filter((x) => x.kind === "build-done")).toHaveLength(1);
+  });
+
+  it("flags a Completed initiative whose tracker still shows open work, and says how much", () => {
+    expect(one({ initiative_status: "Completed", initiative_phase: "Completed", status: "In progress" })).toEqual([expect.objectContaining({ kind: "closed-open-work" })]);
+    expect(one({ initiative_status: "Completed", status: "Done", issues_total: 5, issues_closed: 3 })[0]!.text).toMatch(/2 of 5 linked issues are still open/);
+    expect(one({ initiative_status: "Completed", status: "Done", issues_total: 5, issues_closed: 5 })).toEqual([]);
+  });
+
+  it("flags a phase ahead of the build, stale issues, and a missing Health after Define", () => {
+    expect(one({ initiative_phase: "Test", status: "Not started" }).map((x) => x.kind)).toEqual(["phase-ahead"]);
+    expect(one({ initiative_phase: "Build", status: "In progress", stale_issues: 2 }).map((x) => x.kind)).toEqual(["stale-issues"]);
+    expect(one({ initiative_phase: "Build", status: "In progress", health: null }).map((x) => x.kind)).toEqual(["no-health"]);
+    expect(one({ initiative_phase: "Define", health: null })).toEqual([]); // Health is not expected before Build
+    expect(one({ initiative_phase: "Build", status: "In progress", initiative_status: "On hold", health: null })).toEqual([]);
+  });
+
+  it("every flag is a suggestion: nothing carries an action that changes data except the one-click move and gate request", () => {
+    for (const k of ["closed-open-work", "phase-ahead", "stale-issues", "no-health"]) expect(ATTENTION_KINDS.some((x) => x.id === k)).toBe(true);
+    expect(one({ initiative_phase: "Test", status: "Not started" })[0]!.action).toBeUndefined();
+  });
+});

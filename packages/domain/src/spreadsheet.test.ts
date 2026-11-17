@@ -29,8 +29,9 @@ describe("parseTable (what Excel puts on the clipboard)", () => {
 
 describe("guessMapping", () => {
   it("matches headers to dictionary fields by name, key and common aliases", () => {
+    // "Owner" is the name of the sponsor field now (2026-11-17), so that header lands there
     expect(guessMapping(["Initiative Name", "Project", "Owner", "Size", "MoSCoW", "Health", "Value", "Start", "G2M Date (est)", "Whatever"])).toEqual([
-      "initiative_name", "home_project", "product_manager", "effort", "moscow", "health", "value_12m", "start_date", "g2m_date_est", null,
+      "initiative_name", "home_project", "sponsor", "effort", "moscow", "health", "value_12m", "start_date", "g2m_date_est", null,
     ]);
     expect(guessMapping(["title", "key results target"])[0]).toBe("initiative_name");
   });

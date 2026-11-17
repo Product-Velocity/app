@@ -22,10 +22,10 @@ describe("readIssue", () => {
 describe("findByMarker", () => {
   it("finds an issue that carries the marker, and only with a well-formed project key and marker", async () => {
     const f = fake(200, { issues: [{ key: "PLAT-9", id: "5" }] });
-    expect(await findByMarker(f, "PLAT", "pv:item/0123456789abcdef", none)).toEqual({ key: "PLAT-9", id: "5" });
-    expect(decodeURIComponent(f.paths[0]!)).toContain('labels = "pv:item/0123456789abcdef"');
-    expect(await findByMarker(f, "PLAT\" OR 1=1", "pv:item/0123456789abcdef", none)).toBeNull();
+    expect(await findByMarker(f, "PLAT", "pm:item/0123456789abcdef", none)).toEqual({ key: "PLAT-9", id: "5" });
+    expect(decodeURIComponent(f.paths[0]!)).toContain('labels = "pm:item/0123456789abcdef"');
+    expect(await findByMarker(f, "PLAT\" OR 1=1", "pm:item/0123456789abcdef", none)).toBeNull();
     expect(await findByMarker(f, "PLAT", 'x" OR "1"="1', none)).toBeNull();
-    expect(await findByMarker(fake(200, { issues: [] }), "PLAT", "pv:item/0123456789abcdef", none)).toBeNull();
+    expect(await findByMarker(fake(200, { issues: [] }), "PLAT", "pm:item/0123456789abcdef", none)).toBeNull();
   });
 });

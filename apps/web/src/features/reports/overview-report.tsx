@@ -9,6 +9,7 @@ import { ImpactEffort } from "./impact-chart";
 import type { ReportEnv } from "./report-env";
 import { StackedChart } from "./stacked-chart";
 import { TimelineChart } from "./timeline-chart";
+import { BuildTime } from "./build-time-chart";
 import { TimeToMarket } from "./ttm-charts";
 import { StatusPill } from "../../components/status-pill";
 import { statusTone } from "../../components/status-tone";
@@ -48,6 +49,7 @@ export function OverviewReport({ env, setState, onOpen }: { env: ReportEnv; setS
 
       <ImpactEffort rows={rows} onPick={pick} onOpen={onOpen} nameOf={nameOf} />
       <TimeToMarket rows={rows} ctx={ctx} label={label} onPick={pick} onOpen={onOpen} nameOf={nameOf} />
+      <BuildTime rows={rows} ctx={ctx} label={label} onPick={pick} onOpen={onOpen} nameOf={nameOf} />
       <TimelineChart rows={rows} today={controller.todayDate()} onOpen={onOpen} />
 
       <section className="rp-card" aria-label="Initiatives">
