@@ -1180,3 +1180,25 @@ button.share-chip { cursor: pointer; }
   .al-table td::before { content: attr(data-label); color: #5b6272; text-align: left; }
   .al-table tbody th::before { content: none; }
 }
+
+/* ---- public pages: /connector and /privacy (no sign-in; the website's roomier 16px body, brand guide) ---- */
+.doc-page { min-height: 100vh; background: var(--bg); color: var(--ink); font-size: 16px; line-height: 1.55; }
+.doc-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; max-width: 1120px; margin: 0 auto; padding: 16px; border-bottom: 1px solid var(--border); }
+.doc-head nav { display: flex; gap: 20px; }
+.doc-head a, .doc-main a, .doc-foot a { color: var(--brand-strong); }
+.doc-main { max-width: 760px; margin: 0 auto; padding: 32px 16px 48px; }
+.doc-main h1 { font-size: 32px; line-height: 40px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 12px; }
+.doc-main h2 { font-size: 22px; line-height: 30px; font-weight: 600; margin: 40px 0 8px; }
+.doc-main h3 { font-size: 17px; line-height: 24px; font-weight: 600; margin: 24px 0 4px; }
+.doc-main p, .doc-main li { max-width: 68ch; }
+.doc-main ul, .doc-main ol { padding-left: 22px; }
+.doc-main li { margin: 4px 0; }
+.doc-intro { font-size: 18px; color: var(--ink-muted); }
+.doc-main code, .doc-url { font-family: var(--font-mono); font-size: 14px; background: var(--surface-muted); border-radius: var(--radius-sm); padding: 1px 5px; }
+.doc-url { display: block; width: fit-content; max-width: 100%; padding: 8px 12px; overflow-wrap: anywhere; }
+.doc-note { border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-md); padding: 12px 16px; margin: 16px 0; }
+.doc-table-wrap { overflow-x: auto; margin: 12px 0; }
+.doc-table { border-collapse: collapse; width: 100%; font-size: 15px; }
+.doc-table th, .doc-table td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.doc-table th { font-weight: 600; background: var(--surface); }
+.doc-foot { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; border-top: 1px solid var(--border); color: var(--ink-muted); font-size: 15px; }
