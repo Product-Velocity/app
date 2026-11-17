@@ -78,7 +78,7 @@ test("a multi-team initiative counts once per team and the chart says so", async
 
 test("no matches shows the empty message in every module and keeps the layout", async ({ page }) => {
   await open(page, "&f.initiative_phase=Build&d=initiative_phase:Discover");
-  await expect(page.getByText("No data matching current filters")).toHaveCount(10);
+  await expect(page.getByText("No data matching current filters")).toHaveCount(11); // one more since the Build time card (issue #480)
   await expect(page.getByRole("button", { name: "Reset filters" })).toBeEnabled();
 });
 
@@ -128,6 +128,41 @@ test("Time to Market card shows median, average, how many were counted and how m
   await expect(kpi(page, "average")).toHaveText(String(Math.round((done.reduce((a, b) => a + b, 0) / done.length) * 10) / 10));
 });
 
+// ---- build time (issue #480): every third item from the 2nd has a build time of 14 + (i % 4) * 7 days; the even ones also an estimate of 3 weeks
+const built = live.filter((x) => x.i % 3 === 1).map((x) => ({ ...x, days: 14 + (x.i % 4) * 7 }));
+const weeksOf = (days: number) => Math.round((days / 7) * 10) / 10;
+const buildKpi = (page: Page, name: string) => page.locator(`[data-kpi="build-${name}"]`);
+
+test("Build time card shows median and average weeks, how many were counted, how many are still building, and the share of the estimate", async ({ page }) => {
+  await open(page);
+  const weeks = built.map((x) => weeksOf(x.days));
+  await expect(buildKpi(page, "count")).toHaveText(String(built.length));
+  await expect(buildKpi(page, "still")).toHaveText(String(live.length - built.length)); // started building (every item has a Start Building) and no end yet: never counted as zero
+  await expect(buildKpi(page, "median")).toHaveText(String(Math.round(med(weeks) * 10) / 10));
+  await expect(buildKpi(page, "average")).toHaveText(String(Math.round((weeks.reduce((a, b) => a + b, 0) / weeks.length) * 10) / 10));
+  const pct = built.filter((x) => x.i % 2 === 0).map((x) => Math.round((weeksOf(x.days) / 3) * 100));
+  await expect(buildKpi(page, "estimate")).toHaveText(`${Math.round(med(pct))}%`);
+  await expect(page.getByText(`${pct.filter((v) => v > 100).length} of ${pct.length} took longer`)).toBeVisible();
+});
+
+test("the build time table lists exactly the counted initiatives, in weeks", async ({ page }) => {
+  await open(page);
+  const card = page.locator('section[aria-label="Build time"]');
+  await card.getByText("Show as table").last().click();
+  await expect(card.locator('table[aria-label="Build weeks of each initiative"] tbody tr')).toHaveCount(built.length);
+  await expect(card.locator('table[aria-label="Build weeks of each initiative"] tbody tr').first()).toContainText(/\d+(\.\d)?/);
+});
+
+test("the Build time card follows the filters and has no accessibility violations", async ({ page }) => {
+  await open(page);
+  await page.getByRole("button", { name: /^Initiative Phase/ }).click();
+  await page.getByRole("checkbox", { name: "Build" }).check();
+  const some = built.filter((x) => x.phase === "Build");
+  await expect(buildKpi(page, "count")).toHaveText(String(some.length));
+  const r = await new AxeBuilder({ page }).include('section[aria-label="Build time"]').analyze();
+  expect(r.violations.map((v) => v.id + ": " + v.nodes.map((n) => n.target).join(" | "))).toEqual([]);
+});
+
 test("the dots table lists exactly the counted initiatives", async ({ page }) => {
   await open(page);
   const scatter = page.locator('[data-chart="ttm-scatter"]').locator("xpath=following-sibling::details");
@@ -140,7 +175,7 @@ test("Time to Market follows the filters and shows the empty message when nothin
   const builds = live.filter((x) => x.phase === "Build" && x.i % 3 === 0).map((x) => 60 + (x.i % 4) * 10);
   await expect(kpi(page, "count")).toHaveText(String(builds.length));
   await open(page, "&f.initiative_phase=Build&d=initiative_phase:Discover");
-  await expect(page.getByText("No data matching current filters")).toHaveCount(10);
+  await expect(page.getByText("No data matching current filters")).toHaveCount(11); // one more since the Build time card (issue #480)
 });
 
 test("clicking a team bar filters everything like the other charts", async ({ page }) => {

@@ -54,9 +54,12 @@ export function phaseDurations(rows: readonly ReportRow[]): { phase: string; cou
     const end = day(r.g2m_date_actual);
     if (Number.isNaN(end)) continue;
     const starts = PHASE_STARTS.map((p) => ({ phase: p.phase, d: day(r[p.field]) })).filter((p) => !Number.isNaN(p.d)).sort((a, b) => a.d - b.d);
+    // The Build phase is the build time (issue #480): Start Building to the tracker's Build Completed when there is one, else to the start of the next phase
+    const built = typeof r.time_building_days === "number" && Number.isFinite(r.time_building_days) && r.time_building_days >= 0 ? r.time_building_days : null;
     starts.forEach((p, i) => {
       const until = i + 1 < starts.length ? starts[i + 1]!.d : end;
-      if (until >= p.d) by.set(p.phase, [...(by.get(p.phase) ?? []), until - p.d]);
+      const days = p.phase === "Build" && built !== null ? built : until - p.d;
+      if (days >= 0 && (until >= p.d || (p.phase === "Build" && built !== null))) by.set(p.phase, [...(by.get(p.phase) ?? []), days]);
     });
   }
   return PHASE_STARTS.filter((p) => by.has(p.phase)).map((p) => { const ds = by.get(p.phase)!; return { phase: p.phase, count: ds.length, average: average(ds)!, median: median(ds)! }; });

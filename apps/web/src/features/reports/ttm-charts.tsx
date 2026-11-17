@@ -8,10 +8,10 @@ import { CHART_FONT, EChart, PALETTE, RADIUS } from "./echart";
 const days = (n: number | null) => (n === null ? "–" : `${Math.round(n * 10) / 10}`);
 const DAY_MS = 86_400_000;
 
-type Group = { key: string; label: string; median: number; average: number; count: number };
+export type Group = { key: string; label: string; median: number; average: number; count: number };
 
 /** A small table under a chart: the same numbers, reachable from the keyboard and read by screen readers. */
-function DataTable({ caption, head, rows }: { caption: string; head: string[]; rows: (string | number)[][] }) {
+export function DataTable({ caption, head, rows }: { caption: string; head: string[]; rows: (string | number)[][] }) {
   return (
     <details className="rp-details">
       <summary>Show as table</summary>
@@ -25,11 +25,11 @@ function DataTable({ caption, head, rows }: { caption: string; head: string[]; r
 
 const baseGrid = { left: 8, right: 96, top: 24, bottom: 8, containLabel: true };
 
-function barOption(groups: Group[], colour: string): EChartsCoreOption {
+export function barOption(groups: Group[], colour: string, unit = "days"): EChartsCoreOption {
   return {
     grid: baseGrid,
-    tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, textStyle: { fontFamily: CHART_FONT }, formatter: (p: unknown) => { const g = groups[(p as { dataIndex: number }[])[0]!.dataIndex]!; return `<b>${g.label}</b><br/>Median ${days(g.median)} days<br/>Average ${days(g.average)} days<br/>${g.count} ${g.count === 1 ? "initiative" : "initiatives"}`; } },
-    xAxis: { type: "value", name: "days", nameLocation: "end", axisLabel: { color: "#4b5563" }, splitLine: { lineStyle: { color: "#edeff3" } } },
+    tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, textStyle: { fontFamily: CHART_FONT }, formatter: (p: unknown) => { const g = groups[(p as { dataIndex: number }[])[0]!.dataIndex]!; return `<b>${g.label}</b><br/>Median ${days(g.median)} ${unit}<br/>Average ${days(g.average)} ${unit}<br/>${g.count} ${g.count === 1 ? "initiative" : "initiatives"}`; } },
+    xAxis: { type: "value", name: unit, nameLocation: "end", axisLabel: { color: "#4b5563" }, splitLine: { lineStyle: { color: "#edeff3" } } },
     yAxis: { type: "category", inverse: true, data: groups.map((g) => g.label), axisLabel: { color: "#111827" }, axisTick: { show: false } },
     series: [{ type: "bar", barMaxWidth: 22, showBackground: true, backgroundStyle: { color: "#f3f4f7", borderRadius: [0, RADIUS, RADIUS, 0] }, itemStyle: { color: colour, borderRadius: [0, RADIUS, RADIUS, 0] }, label: { show: true, position: "right", color: "#111827", formatter: (p: { dataIndex: number }) => `${days(groups[p.dataIndex]!.median)} d (n=${groups[p.dataIndex]!.count})` }, emphasis: { itemStyle: { color: "#1a56c4" } }, data: groups.map((g) => g.median) }],
   };
