@@ -13,7 +13,7 @@ describe("baseDef", () => {
     expect(d.groupBy).toBeNull();
   });
   it("all columns has every field", () => {
-    expect(baseDef({ kind: "all" }, [])!.columns).toHaveLength(171); // 172 fields without the hidden Roadmap Category
+    expect(baseDef({ kind: "all" }, [])!.columns).toHaveLength(173); // 174 fields without the hidden Roadmap Category
   });
   it("a saved view is read from the list, and is null when it is missing", () => {
     expect(baseDef({ kind: "saved", id: "v1" }, saved)).toMatchObject({ groupBy: "health", filters: [{ field: "moscow", op: "is", value: "Must" }] });

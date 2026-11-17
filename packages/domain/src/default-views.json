@@ -152,6 +152,8 @@
    "home_project",
    "theme",
    "value_type",
+   "business_line",
+   "okr_objective",
    "initiative_phase",
    "health",
    "delivery_progress_pct",

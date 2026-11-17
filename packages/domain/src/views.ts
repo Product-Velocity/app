@@ -185,7 +185,7 @@ export function groupPickerSections(opts: { customerSafe?: boolean; taken?: stri
   return out;
 }
 
-/** "Build Status", or "Build Status › Sponsor" for two levels, "None" for no grouping: the words on the button and in the footer. */
+/** "Build Status", or "Build Status › Owner" for two levels, "None" for no grouping: the words on the button and in the footer. */
 export function groupSummary(groupBy: string | null | undefined, thenBy?: string | null): string {
   const name = (k: string) => FIELD_BY_KEY[k]?.name ?? k;
   if (!groupBy) return "None";

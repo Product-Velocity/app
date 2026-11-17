@@ -52,7 +52,7 @@ export const summarize = (f: Filter, lookups: Lookups) =>
 export type GroupState = { groupBy: string | null; thenBy: string | null; showIssues: boolean; /** null: every type */ issueTypes: string[] | null; hideDone: boolean };
 export type IssueTypeCount = { type: string; count: number };
 
-/** "Group by: Build Status › Sponsor": the state of the grouping on the button, like Filter and Columns. */
+/** "Group by: Build Status › Owner": the state of the grouping on the button, like Filter and Columns. */
 export function GroupMenu({ state, customerSafe = false, issueTypes = [], issuesLoading = false, onOpenIssues, onChange }: {
   state: GroupState; customerSafe?: boolean;
   /** The issue types among the linked issues of the initiatives shown, with counts. */ issueTypes?: IssueTypeCount[]; issuesLoading?: boolean;

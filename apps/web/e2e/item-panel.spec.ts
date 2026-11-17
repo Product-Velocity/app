@@ -87,7 +87,7 @@ test.describe("fields", () => {
     await open(page, "n=40&item=R-04");
     const groups = await panel(page).locator("details.ip-section > summary h3").allTextContents();
     expect(groups.slice(0, 5)).toEqual(["What", "Who", "Why", "Decision", "When"]);
-    await reveal(page, "Delivery (GitHub)");
+    await reveal(page, "Delivery");
     await expect(field(page, "status")).toContainText("From GitHub");
     await expect(field(page, "status")).toContainText("Change it on the GitHub issue");
     await reveal(page, "Why");

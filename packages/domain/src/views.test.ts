@@ -380,7 +380,7 @@ describe("two-level grouping and the group picker (issue #437)", () => {
   it("words the grouping for the button", () => {
     expect(groupSummary(null)).toBe("None");
     expect(groupSummary("moscow")).toBe("MoSCoW");
-    expect(groupSummary("status", "sponsor")).toBe("Build Status › Sponsor");
+    expect(groupSummary("status", "sponsor")).toBe("Build Status › Owner");
     expect(groupSummary("moscow", "moscow")).toBe("MoSCoW");
   });
   it("lists the groupable fields under the Columns picker's categories, Most used first, each field once, nothing hidden, nothing taken", () => {

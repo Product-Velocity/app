@@ -26,7 +26,7 @@ export const PRD_CORE: readonly PrdSection[] = [
 
 /** The 4D modules: optional appendices after section 9. A PRD with nothing for a module leaves it out entirely. */
 export const PRD_MODULES: readonly PrdSection[] = [
-  { id: "A1", title: "Company Value Story", flag: "prd_only", covers: "The company goal served (new revenue, increase revenue, defend revenue, decrease costs, other), HOW the initiative moves it (mechanism), assumptions with the evidence for each, cost of not doing it. Contains an \"Objective and key results\" block: the company OKR (id and statement), the objective, and a KR table (metric, unit, direction, start, target, source) with exactly one KR marked Primary (it fills the Primary KR fields) and any guardrails marked Guardrail. Ends with the Customer value proposition block (customer-safe).", fields: ["kr_metric", "kr_unit", "kr_direction", "kr_start", "kr_target", "cost_of_not_doing", "focus_area", "roadmap_category", "change_type", "value_proposition", "value_type"] },
+  { id: "A1", title: "Company Value Story", flag: "prd_only", covers: "The company goal served (new revenue, grow existing revenue, reduce costs, defend revenue, enabler, other), HOW the initiative moves it (mechanism), assumptions with the evidence for each, cost of not doing it. Contains an \"Objective and key results\" block: the company OKR (id and statement), the objective, and a KR table (metric, unit, direction, start, target, source) with exactly one KR marked Primary (it fills the Primary KR fields) and any guardrails marked Guardrail. Ends with the Customer value proposition block (customer-safe).", fields: ["kr_metric", "kr_unit", "kr_direction", "kr_start", "kr_target", "cost_of_not_doing", "focus_area", "roadmap_category", "change_type", "value_proposition", "value_type"] },
   { id: "A2", title: "Feature Value Map", flag: "prd_only", covers: "Customers, end users, current products and services.", fields: ["request_origin", "target_segments", "audience", "related_to"] },
   { id: "A3", title: "User Value Map", flag: "prd_only", covers: "Persona, current journey, pain points, AI opportunities.", fields: ["target_segments"] },
   { id: "A4", title: "AI Solution Hypothesis", flag: "prd_only", covers: "Options evaluated (diverge), the decision matrix (converge) and the recommended option. A recommendation only: the Decision fields are a person's. When the initiative has a discovery document, keep only the chosen option and a link to it here; the full table of options stays in the discovery.", fields: [] },
@@ -150,7 +150,7 @@ export function prdPrompt(args: PrdPromptArgs): { description: string; text: str
     ...ROLLOUT_RULES.map((r) => `- ${r}`),
     "",
     "COMPANY VALUE STORY (A1)",
-    "- Not only fields: write the story of why and how this initiative contributes to company goals (new revenue, increase revenue, defend revenue, decrease costs, other), with assumptions and the evidence for each. Business Value Type follows only when the person said it.",
+    "- Not only fields: write the story of why and how this initiative contributes to company goals (new revenue, grow existing revenue, reduce costs, defend revenue, enabler, other), with assumptions and the evidence for each. Business Value Type follows only when the person said it.",
     "",
     `Field keys you may fill from this template (check allowed values in describe_fields): ${[...new Set([...PRD_CORE, ...PRD_MODULES].flatMap((s) => s.fields))].join(", ")}.`,
   ].filter((l) => l !== "").join("\n");
