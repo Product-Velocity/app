@@ -291,7 +291,7 @@ describe("link notes", () => {
 
 describe("Value Type: the one value field Claude may set, only with the person's own words", () => {
   const BASIS = "Ashu: this is about growing the revenue we already have";
-  const TYPE = "Increase revenue";
+  const TYPE = "Grow existing revenue";
   const now = { current: { id: "i1", item_code: "R-01", value_type: null }, lists: {} as Record<string, string[]> };
 
   it("is settable and described as needing a basis, while the rest of Value stays forbidden", () => {
@@ -315,7 +315,7 @@ describe("Value Type: the one value field Claude may set, only with the person's
   });
 
   it("create: a value outside the allowed list is refused with the allowed ones", () => {
-    expect(err({ name: "A", project: "Platform", value_type: "Revenue", value_type_basis: BASIS })).toMatch(/Increase revenue/);
+    expect(err({ name: "A", project: "Platform", value_type: "Revenue", value_type_basis: BASIS })).toMatch(/Grow existing revenue/);
   });
 
   it("create: the basis does not unlock the other commercial fields", () => {
