@@ -13,3 +13,5 @@ request: 480
 - Not synced to either tracker: all three are derived in the app; the tracker mapping table lists Tracker Status as read from the tracker.
 
 **Not done**: a Jira-user column in the grid; gate requests and conditions in the Flags column.
+
+**Same day, later (Ashu):** the Changes report's Follow up column is replaced by the same Flags and Actions columns. **Navigation error:** moving between main pages showed "This page couldn't load" and a reload fixed it. No server error was logged (checked in Vercel runtime errors), so it is a failure in the browser or in the page request right after a release (four deployments in an hour), which a reload fixes. Not reproduced locally (the app needs a sign-in). The error screens (`global-error.tsx`, `(workspace)/error.tsx`) now reload the page once per address and minute, then show Reload, Try again and Back; they log the error to the console. If it still happens, the browser console message is what is needed.

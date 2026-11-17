@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import type { ColDef, ColumnMovedEvent } from "ag-grid-community";
 import {
-  CHANGE_PERIODS, NO_CHANGE_FILTERS, buildChangeRows, changeFlags, changePeriod, changeTypeLabel, filterChangeRows, groupChangeRows, isChangeHeader, isOpenableUrl, primaryRowIds, resolveFlagAction,
+  CHANGE_PERIODS, actionsOfFlags, NO_CHANGE_FILTERS, buildChangeRows, changeFlags, changePeriod, changeTypeLabel, filterChangeRows, groupChangeRows, isChangeHeader, isOpenableUrl, primaryRowIds, resolveFlagAction,
   type ChangeFlag, type ChangeFilters, type GateId, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type FeedRow, type ItemInfo, type JiraCategory, type JiraStatusRecord, type TrackerRef,
 } from "@pv/domain";
 import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer } from "../portfolio/grid-kit";
@@ -48,33 +48,32 @@ const IssueCell = (p: CustomCellRendererProps<ChangeRowData>) => {
     </span>
   );
 };
-/** The flags a row shows: those with an action first, at most two, and how many more there are (all of them are in the group header and the tooltip). */
-function flagsShown(d: ChangeRowData): { list: ChangeFlag[]; more: number } {
-  const sorted = [...d.flags].sort((a, b) => (b.action ? 1 : 0) - (a.action ? 1 : 0));
-  return { list: sorted.slice(0, 2), more: Math.max(0, sorted.length - 2) };
-}
-
 /**
- * Follow up: on the newest row of an initiative, its flags and, where there is one, the button for what to do about it (Move to Test, or Request gate when the move passes a
- * decision gate). The button changes nothing by itself beyond that one move, made as the signed-in person (rule 3 is about Claude, which is not involved). Other rows stay quiet.
+ * Flags and Actions: the same two columns as the main grid. On the newest row of an initiative, its flags as pills (the tooltip has every reason) and, in the next
+ * column, the button for what to do about each (Move to Test, or Request gate when the move passes a decision gate). A button changes nothing beyond that one move, made
+ * as the signed-in person (rule 3 is about Claude, which is not involved). Other rows of the initiative stay quiet.
  */
-const FlagCell = (p: CustomCellRendererProps<ChangeRowData>) => {
+const FlagsCell = (p: CustomCellRendererProps<ChangeRowData>) => {
   const d = p.data!, ctx = p.context as Ctx;
   if (d.flags.length === 0 || !ctx.primary.has(d.id)) return null;
-  const { list, more } = flagsShown(d);
+  const labels = [...new Set(d.flags.map((f) => f.label))];
   return (
-    <span className="chg-actions">
-      {list.map((f) => {
-        const a = f.action && ctx.canAct ? resolveFlagAction(f.action, ctx.phaseOf(d.itemId)) : null;
-        const key = `${d.itemId}:${f.kind}`;
-        return (
-          <span key={f.kind} className="chg-flagline">
-            <span className="pill tone-risk chg-flag" title={f.text}>⚑ {f.label}</span>
-            {a && <button type="button" className={a.kind === "gate" ? "chg-act chg-act-gate" : "chg-act"} title={a.title} disabled={ctx.busy === key} onClick={() => ctx.act(d.itemId, f)}>{ctx.busy === key ? "Working…" : <>{a.label}<span className="chg-act-arrow" aria-hidden="true">→</span></>}</button>}
-          </span>
-        );
+    <span className="grid-flags" title={d.flags.map((f) => `${f.label}: ${f.text}`).join("\n")}>
+      {labels.map((l) => <span key={l} className="pill tone-risk chg-flag">⚑ {l}</span>)}
+    </span>
+  );
+};
+const ActionsCell = (p: CustomCellRendererProps<ChangeRowData>) => {
+  const d = p.data!, ctx = p.context as Ctx;
+  if (d.flags.length === 0 || !ctx.primary.has(d.id)) return null;
+  const actions = actionsOfFlags(d.flags, ctx.phaseOf(d.itemId), ctx.canAct);
+  if (actions.length === 0) return null;
+  return (
+    <span className="grid-flags">
+      {actions.map(({ flag, resolved: a }) => {
+        const key = `${d.itemId}:${flag.kind}`;
+        return <button key={flag.kind} type="button" className={a.kind === "gate" ? "chg-act chg-act-gate" : "chg-act"} title={a.title} disabled={ctx.busy === key} onClick={() => ctx.act(d.itemId, flag)}>{ctx.busy === key ? "Working…" : <>{a.label}<span className="chg-act-arrow" aria-hidden="true">→</span></>}</button>;
       })}
-      {more > 0 && <span className="pill tone-neutral" title={d.flags.map((x) => `${x.label}: ${x.text}`).join("\n")}>+{more} more</span>}
     </span>
   );
 };
@@ -85,7 +84,8 @@ const COLUMNS: (ChangeColumn & { def: ColDef<ChangeRowData> })[] = [
   { id: "initiative", name: "Initiative", def: { headerName: "Initiative", flex: 2, minWidth: 220, cellRenderer: InitiativeCell } },
   { id: "type", name: "Change type", def: { headerName: "Change type", width: 170, cellRenderer: TypeCell } },
   { id: "change", name: "Change", def: { headerName: "Change", flex: 2, minWidth: 240, cellRenderer: ChangeCell } },
-  { id: "flags", name: "Follow up", def: { headerName: "Follow up", flex: 2, minWidth: 320, cellRenderer: FlagCell, cellClass: "chg-flags" } },
+  { id: "flags", name: "Flags", def: { headerName: "Flags", flex: 2, minWidth: 260, cellRenderer: FlagsCell, cellClass: "chg-flags" } },
+  { id: "actions", name: "Actions", def: { headerName: "Actions", flex: 2, minWidth: 220, cellRenderer: ActionsCell, cellClass: "chg-flags" } },
   { id: "issue", name: "Tracker issue", def: { headerName: "Tracker issue", flex: 2, minWidth: 220, cellRenderer: IssueCell } },
   { id: "jiraUser", name: "Jira user", def: { headerName: "Jira user", width: 180, valueGetter: (p) => p.data?.jiraUser ?? "", tooltipValueGetter: (p) => (p.data?.jiraUser ? `${p.data.jiraUser} moved the Jira issue to this status (from Jira's own history)` : "") } },
   { id: "source", name: "Source", def: { headerName: "Source", width: 150, valueGetter: (p) => p.data?.source } },
@@ -97,22 +97,15 @@ const DEFAULT_COLUMNS = COLUMNS.map((c) => c.id);
 
 const isFullWidthRow = (p: { rowNode: { data?: unknown } }) => isChangeHeader(p.rowNode.data);
 const getRowId = (p: { data: ChangeGridRow }) => p.data.id;
-/** Two lines for a move with its Build Status; a row that carries flags is as tall as its flags and their buttons. */
-const getRowHeight = (p: { data?: ChangeGridRow; context?: unknown }) => {
+/** Two lines for a move with its Build Status; every other row is one line, like the main grid. */
+const getRowHeight = (p: { data?: ChangeGridRow }) => {
   const d = p.data;
-  if (!d || isChangeHeader(d)) return undefined;
-  let flags = 0;
-  if ((p.context as Ctx | undefined)?.primary.has(d.id) && d.flags.length > 0) {
-    const { list, more } = flagsShown(d);
-    flags = 16 + list.reduce((n, f) => n + 28 + (f.action && (p.context as Ctx).canAct ? 30 : 0), 0) + (more > 0 ? 28 : 0);
-  }
-  const h = Math.max(d.alsoBuild ? 58 : 0, flags > 36 ? flags : 0);
-  return h > 0 ? h : undefined;
+  return d && !isChangeHeader(d) && d.alsoBuild ? 58 : undefined;
 };
 const getRowClass = (p: { data?: ChangeGridRow }) => (p.data && !isChangeHeader(p.data) ? `chg-row chg-row-${p.data.type}` : undefined);
 
 type Saved = { columns: string[]; by: ChangeGroupBy | null; then: ChangeGroupBy | null };
-const STORE = "pv.changes.view.v3"; // v3: Follow up (the flags and their buttons) moved next to Change; a list saved under v2 would keep it at the far right
+const STORE = "pv.changes.view.v4"; // v4: Follow up became two columns, Flags and Actions (as in the main grid); a list saved under v3 would not know the new column
 /** What a viewer chose for columns and grouping is remembered in the browser (a convenience, not shared); it may be unavailable, so every access is guarded. */
 const readSaved = (): Saved => {
   const fallback: Saved = { columns: DEFAULT_COLUMNS, by: "initiative", then: null };
