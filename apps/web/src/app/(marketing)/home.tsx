@@ -81,7 +81,7 @@ export function Home() {
           <Link className="brandmark" href="/" aria-label="Product Velocity"><span className="logo-lg"><BrandLogo size={64} /></span><span className="logo-sm"><BrandLogo size={36} /></span></Link>
           <nav className="main" aria-label="Main">
             <a href="#solution">Product</a>
-            <a href="#lifecycle">How it works</a>
+            <a href="#loop">How it works</a>
             <a href="#ai">Your AI</a>
             <Link className="signin" href="/sign-in">Sign in</Link>
             <a className="btn btn-p" href="#early-access">Get early access</a>
@@ -118,12 +118,38 @@ export function Home() {
         </div>
       </section>
 
-      <section className="story">
+      <section className="story" id="why-now">
         <div className="wrap">
           <Eyebrow>Why now</Eyebrow>
-          <h2>AI is changing the product manager&rsquo;s job</h2>
-          <p className="body" style={{ fontSize: 20, lineHeight: "30px", color: "var(--ink-muted)", maxWidth: "34em", marginTop: 20 }}>Less time goes to documents, updates and analysis. More goes to the work that matters: clearer and bigger outcomes, faster delivery, and every stakeholder informed and aligned. Product Velocity is where that work happens, on one roadmap that people and their AI co-workers both work from.</p>
+          <h2>Agentic product management: the PM&rsquo;s job is changing</h2>
+          <p className="body" style={{ fontSize: 20, lineHeight: "30px", color: "var(--ink-muted)", maxWidth: "34em", marginTop: 20 }}>AI now does much of the preparation: the documents, the updates and the analysis. What is left for the product manager is the part only a person can do: deciding what to ship and for whom, aligning stakeholders and owning the outcome. Product Velocity is where that work happens, on one roadmap that people and their AI co-workers both work from.</p>
           <Art svg={ART_ONE} />
+          <div className="shifts" role="table" aria-label="How the product manager's work shifts and how Product Velocity supports it">
+            <div className="row head" role="row"><span role="columnheader">What used to take your time</span><span role="columnheader">What changes</span><span role="columnheader">How Product Velocity supports it</span></div>
+            <div className="row" role="row"><b role="cell">Writing documents, updates and reports</b><span role="cell">Your AI drafts, you review</span><span role="cell">AI drafts are marked as drafts, and reports are built for each audience.</span></div>
+            <div className="row" role="row"><b role="cell">Gathering signals and analysing results</b><span role="cell">Your AI does the analysis and brings the results back</span><span role="cell">Results sit on the initiative, next to its key result.</span></div>
+            <div className="row" role="row"><b role="cell">Getting stakeholders aligned</b><span role="cell">Stakeholders rank and vote, results are anonymous</span><span role="cell">One stack rank, with a capacity fit line for each team.</span></div>
+            <div className="row" role="row"><b role="cell">Making the call</b><span role="cell">People decide, with the evidence prepared</span><span role="cell">Gate packs show what is ready to pass, and the reason is kept on record.</span></div>
+          </div>
+          <div className="owners">
+            <div><b>People decide</b><span>What to build, for whom and why, at every gate.</span></div>
+            <div><b>Your AI prepares</b><span>Options, drafts and analysis, and it brings results back. It never approves.</span></div>
+            <div><b>Product Velocity connects</b><span>The system of record for the roadmap, the decisions and the outcomes.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="sec loop" id="loop">
+        <div className="wrap">
+          <Eyebrow>How it works</Eyebrow>
+          <h2>One loop, from signal to outcome</h2>
+          <p className="body">Agents are already good at building. The gap is deciding what to build and knowing whether it worked. Product Velocity connects both, for people and their AI.</p>
+          <ol className="steps">
+            <li><span className="n">1</span><b>Decide</b><span>Your AI helps turn signals into an opportunity, requirements and a business case. It prepares the options and marks them as drafts. People decide at the gates.</span></li>
+            <li><span className="n">2</span><b>Deliver</b><span>Epics and stories go to Jira and GitHub, where teams and coding agents build. Delivery progress flows back into the roadmap.</span></li>
+            <li><span className="n">3</span><b>Learn</b><span>Your AI analyses what happened and brings the results back into Product Velocity, next to the initiative, its effort and the key result it served. People review them, and they feed the next decision.</span></li>
+          </ol>
+          <p className="loopback">Product Velocity is the system of record that connects the dots for people and AI.</p>
         </div>
       </section>
 
@@ -165,7 +191,7 @@ export function Home() {
       <Split id="outcomes" band eyebrow="Bigger outcomes get delivered" title="From company objectives to tracked results"
         challenge="Shipped gets treated as done, and the link back to the company objective gets lost."
         body="Every initiative sits under a company objective and a business line, and carries the key result it should move. After launch, adoption is tracked at 30, 60 and 90 days before an initiative counts as completed."
-        points={["Set the key result, track it, review the outcome", "Completed means the outcome is in", "Results feed the next plan"]}
+        points={["Set the key result, track it, review the outcome", "Your AI can analyse the results and bring them back for people to review", "Completed means the outcome is in", "Results feed the next plan"]}
         art={ART_OUTCOME} />
 
       <Split id="align" flip eyebrow="Prioritise and plan with confidence" title="Align stakeholders on what comes first, then plan within capacity"
@@ -177,13 +203,13 @@ export function Home() {
       <Wide id="lifecycle" band eyebrow="Aligned on decisions" title="From idea to tracked outcome, with decisions on the record"
         challenge="Priorities get argued in meetings and decisions get lost."
         body="Seven phases and three gates give every initiative a path. Rank and vote with the method that fits. A person decides at each gate, and the reason is kept. The process fits the initiative, so small, low-risk work takes a lighter path."
-        points={["Gate packs show what is ready to pass", "Go, go with conditions, hold or stop, with the reason on record", "Stuck work and waiting decisions are flagged"]}
+        points={["Your AI prepares gate packs that show what is ready to pass", "Go, go with conditions, hold or stop, with the reason on record", "Stuck work and waiting decisions are flagged"]}
         art={ART_LIFE} />
 
       <Split id="ai" flip eyebrow="Your own AI" title="Bring the AI you already use"
         challenge="AI helps one person at a time, in tools that do not know your roadmap."
-        body="Create initiatives, write documents, run analysis and prepare reports with your own AI assistant, such as Claude, working on the same roadmap as your team. We do not sell tokens. AI co-workers prepare the work. People decide."
-        points={["Drafts from AI are marked as drafts", "No AI approves a gate", "Every change is audited and can be undone"]}
+        body="Create initiatives, write documents, run analysis and prepare reports with your own AI assistant, such as Claude, working on the same roadmap as your team. Your AI helps shape the opportunity and the business case, and after launch it analyses the results and brings them back, so the next decision starts from evidence. We do not sell tokens. AI co-workers prepare the work. People decide."
+        points={["Drafts from AI are marked as drafts", "Results your AI brings back sit on the initiative, next to its key result", "No AI approves a gate", "Every change is audited and can be undone"]}
         art={ART_AI} />
 
       <section className="close blue" id="early-access">

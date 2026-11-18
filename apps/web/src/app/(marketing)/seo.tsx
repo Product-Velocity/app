@@ -3,7 +3,7 @@ import { SITE_URL } from "@/lib/public-contact";
 
 /** What the homepage says about itself to search engines and AI assistants. Keep in step with the page text and llms.txt. */
 export const HOME_TITLE = "Product Velocity: one roadmap for humans and AI";
-export const HOME_DESCRIPTION = "Product Velocity is the roadmap layer that sits on top of Jira and GitHub. Company objectives, OKRs, go-to-market and outcomes in one place for product teams, with your own AI working on the same roadmap.";
+export const HOME_DESCRIPTION = "Product Velocity is the roadmap layer that sits on top of Jira and GitHub. Objectives, OKRs, go-to-market and outcomes in one place for agentic product management, with your own AI helping decide what to build and bringing results back.";
 
 export const homeMetadata = {
   title: { absolute: HOME_TITLE },
