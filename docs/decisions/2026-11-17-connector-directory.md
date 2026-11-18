@@ -1,9 +1,9 @@
 ---
 date: 2026-11-17
 by: Ashu (asked how to list the connector in Claude's Connectors Directory), built by Claude
-status: built, to confirm; submission not made
+status: approved and live in the Connectors Directory (Ashu, 2026-11-18)
 ---
-**Product Velocity's MCP server is made ready for a submission to Anthropic's Connectors Directory (developer portal, claude.ai/directory/manage, "MCP connector").** The submission itself is a go-live step for Ashu (see `docs/14-GO-LIVE-CHECKLIST.md`). No request issue exists yet; create one before the submission work starts.
+**Product Velocity's MCP server is made ready for a submission to Anthropic's Connectors Directory (developer portal, claude.ai/directory/manage, "MCP connector").** Ashu made the submission with the pack in `docs/30-DIRECTORY-SUBMISSION.md`, and **Anthropic approved it: the connector is live in the directory (Ashu, 2026-11-18).** No request issue exists for this work yet.
 
 **Sources read (2026-11-17):** claude.com/docs/connectors/building/submission, review-criteria and authentication. Anthropic scans a submission automatically and lists it as a **Community** connector by default; a person reviews only if it is escalated to **Verified**.
 
@@ -22,6 +22,6 @@ status: built, to confirm; submission not made
 - Reviewer account and data, in the production Supabase project Provelo: user `anthropic-review@productvelocity.app` (password only in the private credentials file Claude gave Ashu; rotate or delete the user after the review) and the workspace **Meridian Media** (fictional, example data): one project, 12 initiatives R-01 to R-12 in groups Growth, Platform and Content tools, a PRD (in review), a discovery and a research note, 4 relations, links, tags and a company profile draft. The reviewer is **Admin** of that workspace only (not a member of EARO, PV_Production or Refinery89; checked as the reviewer under row-level security: only Meridian Media is visible). Rows carry source `import`. Claude is switched on for the workspace.
 - The submission pack with every portal answer, the reviewer instructions and the run-every-tool checklist: `docs/30-DIRECTORY-SUBMISSION.md`.
 
-**Not done, and why.** The submission is not made: the portal needs Ashu's own signed-in Claude account and his acknowledgment of the seven directory policies. The legal entity name and address are open (`docs/17`); the privacy policy needs legal review before real customers (`docs/14`). A real sign-in as the reviewer and a real tool call were not run (the build sandbox cannot reach Supabase auth or the deployed app); the password hash, the confirmed email and the sign-in identity were checked in the database.
+**Outcome and what remains.** The portal needed Ashu's own signed-in Claude account and his acknowledgment of the seven directory policies, so Claude could not submit; Ashu did, and it was approved. Still open: the legal entity name and address are open (`docs/17`); the privacy policy needs legal review before real customers (`docs/14`). Before the submission Claude could not run a real sign-in as the reviewer or a real tool call (the build sandbox cannot reach Supabase auth or the deployed app); it checked the password hash, the confirmed email and the sign-in identity in the database. The reviewer password still has to be rotated or the user deleted.
 
 **Gaps the policy states honestly, to close before real customers** (`docs/14`): files stored for a deleted workspace are not removed automatically; the audit log, connection records and sync logs have no retention period yet; the consent screen promises "Preview what would go to GitHub" but no tool does that (the tool list is the truth); the tool descriptions say documents are "never written to GitHub" while a shared document can appear in an issue as a link (rule 2 in `CLAUDE.md`).
