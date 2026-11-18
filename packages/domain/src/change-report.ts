@@ -12,7 +12,7 @@ export type ChangeType = "phase" | "initiative-status" | "health" | "build-statu
 
 export const CHANGE_TYPES: readonly { id: ChangeType; label: string; hint: string; initiative: boolean }[] = [
   { id: "phase", label: "Phase", hint: "Initiative Phase changed.", initiative: true },
-  { id: "initiative-status", label: "Status", hint: "Initiative Status (Active, On hold, Completed, Cancelled) changed.", initiative: true },
+  { id: "initiative-status", label: "Status", hint: "Initiative Status (Backlog, Active, On hold, Completed, Cancelled) changed.", initiative: true },
   { id: "health", label: "Health", hint: "Health changed.", initiative: true },
   { id: "build-status", label: "Build status", hint: "Build Status changed (set by the tracker, never by hand).", initiative: false },
   { id: "issue-status", label: "Linked issue", hint: "The status of the linked GitHub or Jira issue changed.", initiative: false },
