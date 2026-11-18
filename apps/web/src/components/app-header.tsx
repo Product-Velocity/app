@@ -1,5 +1,5 @@
 import { AccountMenu } from "./account-menu";
-import { HelpGuide } from "./help-guide";
+import { HelpLink } from "./help-link";
 import { TextSizeControl } from "./text-size-control";
 import { BrandLogo } from "./brand-logo";
 import { HeaderTabs } from "./header-tabs";
@@ -55,7 +55,7 @@ export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmi
         <TextSizeControl initial={textSize} />
         <VersionUpdateBanner />
         {activeTenantId ? <NotificationsBell tenantId={activeTenantId} /> : null}
-        <HelpGuide />
+        <HelpLink />
         <AccountMenu email={email} roleLabel={roleLabel} isApprover={isApprover} showTrash={showTrash} showAudit={showAudit} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} />
       </div>
       <PhoneNav accountId={activeTenantId} waiting={decisionsWaiting} />

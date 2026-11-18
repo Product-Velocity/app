@@ -310,12 +310,10 @@ test.describe("Add an initiative: type it in one line", () => {
     await open(page);
     const box = await page.getByPlaceholder(/^Enter adds/).getAttribute("placeholder");
     for (const w of ["Paste a list to add many", "#platform", "@anna", "+growth", "more under Shortcuts"]) expect(box).toContain(w);
-    await page.goto("/dev/item/R-01");
-    await page.getByRole("button", { name: "Help", exact: true }).click();
-    await page.getByRole("tab", { name: "Shortcuts" }).click();
-    const dialog = page.getByRole("dialog", { name: "Help" });
-    await expect(dialog).toContainText("Add an initiative: type it in one line");
-    for (const word of ["~now", "!atrisk", "start:mon", "by:31/03", "Paste a list"]) await expect(dialog).toContainText(word);
+    await page.goto("/help/shortcuts");
+    await expect(page.getByRole("heading", { level: 1, name: "Keyboard shortcuts" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Add an initiative: type it in one line" })).toBeVisible();
+    for (const word of ["~now", "!atrisk", "start:mon", "by:31/03", "Paste a list"]) await expect(page.getByRole("main")).toContainText(word);
   });
 
   test("~horizon, !health and start:/by: dates fill their fields in one go", async ({ page }) => {
@@ -339,36 +337,27 @@ test.describe("Add an initiative: type it in one line", () => {
 });
 
 test.describe("Shortcuts, Help and text size in the top bar", () => {
-  test("Help opens the guide with its tables, and Shortcuts is a tab inside it", async ({ page }) => {
+  test("Help opens its own pages in a new tab, with a page for each topic", async ({ page }) => {
     await page.goto("/dev/item/R-01");
     await expect(page.getByRole("button", { name: "Shortcuts", exact: true })).toHaveCount(0);
-    await page.getByRole("button", { name: "Help", exact: true }).click();
-    await page.getByRole("tab", { name: "Shortcuts" }).click();
-    await expect(page.getByRole("dialog", { name: "Help" })).toContainText("Open the command palette");
-    await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Help", exact: true }).click();
-    const guide = page.getByRole("dialog", { name: "Help" });
-    await expect(guide.getByRole("table", { name: /Columns, and how each one relates/ })).toContainText("Read-only (tracker)");
-    await expect(guide.getByRole("status")).toContainText("171 of 171 columns");
-    await guide.getByPlaceholder(/Filter columns/).fill("sponsor");
-    await expect(guide.getByRole("status")).toContainText("1 of 171 columns");
-    await guide.getByRole("tab", { name: "How content flows" }).click();
-    await expect(guide.getByRole("table")).toHaveCount(7); // sync, create, lifecycle, the three gate tables and Needs attention
-    await expect(guide.getByRole("heading", { name: "4. Decision gates" })).toBeVisible();
-    await expect(guide.getByRole("table", { name: "The three gates" })).toContainText("Define and Build");
-    await guide.getByRole("tab", { name: "Reports" }).click();
-    await expect(guide.getByRole("table")).toHaveCount(2);
-    await expect(guide).toContainText("Roadmap Health");
-    await expect(guide).toContainText("Days in current phase");
-    await guide.getByRole("tab", { name: "AI agents" }).click();
-    await expect(guide).toContainText("Brainstorm");
-    await guide.getByRole("tab", { name: "Claude" }).click();
-    await expect(guide).toContainText("write_prd");
-    await guide.getByRole("tab", { name: "ChatGPT" }).click();
-    await expect(guide).toContainText("get_playbook");
-    await guide.getByRole("tab", { name: "Gemini" }).click();
-    await expect(guide).toContainText("/mcp auth product-velocity");
-    const results = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(["wcag2a", "wcag2aa"]).analyze();
+    const link = page.getByRole("link", { name: "Help (opens in a new tab)" });
+    await expect(link).toHaveAttribute("target", "_blank");
+    const [help] = await Promise.all([page.waitForEvent("popup"), link.click()]);
+    await expect(help).toHaveURL(/\/help$/);
+    await expect(help.getByRole("heading", { level: 1, name: "Help" })).toBeVisible();
+    for (const t of ["Goals and impact", "Lifecycle and decision gates", "Alignment", "Reporting", "Delivery platforms", "AI co-workers"]) await expect(help.getByRole("main").getByRole("link", { name: t })).toBeVisible();
+    await help.getByRole("main").getByRole("link", { name: "Lifecycle and decision gates" }).click();
+    await expect(help.getByRole("table", { name: "The three gates" })).toContainText("Define and Build");
+    await help.goto("/help/columns");
+    await expect(help.getByRole("table", { name: /Columns, and how each one relates/ })).toContainText("Read-only (tracker)");
+    await expect(help.getByRole("status")).toContainText("171 of 171 columns");
+    await help.getByPlaceholder(/Filter columns/).fill("sponsor");
+    await expect(help.getByRole("status")).toContainText("1 of 171 columns");
+    await help.goto("/help/ai-setup");
+    await expect(help.getByRole("main")).toContainText("write_prd");
+    await expect(help.getByRole("main")).toContainText("get_playbook");
+    await expect(help.getByRole("main")).toContainText("/mcp auth product-velocity");
+    const results = await new AxeBuilder({ page: help }).withTags(["wcag2a", "wcag2aa"]).analyze();
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
   });
 
