@@ -232,6 +232,7 @@ export const FLOW_LIFECYCLE: Table = {
     ["Experiment", "Test with a population against a threshold", "Rollout plan in the PRD", "Gate C: may it roll out?"],
     ["Roll-out", "Widen to the target markets and customers", "Customers live, adoption", "None: set Initiative Status to Completed"],
     ["Completed", "Measure the outcome against the key result (reviews at +30, +60 and +90 days)", "Outcome fields, learning", "None"],
+    ["Sunset", "After Completed: a shipped feature is being retired", "Notes", "None: a Creator chooses it from Roll-out or Completed"],
   ],
 };
 

@@ -100,13 +100,14 @@
    "Test",
    "Experiment",
    "Roll-out",
-   "Completed"
+   "Completed",
+   "Sunset"
   ],
-  "allowedText": "Discover · Define · Build · Test · Experiment · Roll-out · Completed",
+  "allowedText": "Discover · Define · Build · Test · Experiment · Roll-out · Completed · Sunset",
   "origin": "Input",
   "githubSync": "Suggest only (never auto-set): first child issue in progress -> suggest Build.",
   "filledWhen": "Now where known",
-  "description": "Discover, Define, Build, Test, Experiment, Roll-out, Completed"
+  "description": "Discover, Define, Build, Test, Experiment, Roll-out, Completed, Sunset"
  },
  {
   "n": "5",
@@ -213,13 +214,14 @@
   "allowed": [
    "New feature",
    "Improvement to existing feature",
-   "Bug"
+   "Bug",
+   "Tech debt"
   ],
-  "allowedText": "New feature · Improvement to existing feature · Bug",
+  "allowedText": "New feature · Improvement to existing feature · Bug · Tech debt",
   "origin": "Input",
   "githubSync": null,
   "filledWhen": "After interviews",
-  "description": "New feature, Improvement to existing feature, or Bug"
+  "description": "New feature, Improvement to existing feature, Bug, or Tech debt"
  },
  {
   "n": "11",

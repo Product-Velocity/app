@@ -4,8 +4,8 @@ import { phaseSuggestions, GATES, PHASES, checklistReady, decidableCount, filter
 const req = (o: Partial<GateRequest>): GateRequest => ({ id: "r", item_id: "i", gate: "A", kind: "decision", requested_by: "u1", requested_at: "2026-11-05T10:00:00Z", preferred_approvers: [], ready: false, criteria: [], outcome: null, rationale: null, fast_lane: false, target_phase: null, skipped_phases: [], review_date: null, decided_by: null, decided_at: null, withdrawn_at: null, ...o });
 
 describe("the lifecycle", () => {
-  it("has the seven phases and three gates of the decision", () => {
-    expect([...PHASES]).toEqual(["Discover", "Define", "Build", "Test", "Experiment", "Roll-out", "Completed"]);
+  it("has the seven phases, Sunset after them, and three gates of the decision", () => {
+    expect([...PHASES]).toEqual(["Discover", "Define", "Build", "Test", "Experiment", "Roll-out", "Completed", "Sunset"]);
     expect(Object.values(GATES).map((g) => `${g.id}:${g.from}>${g.to}`)).toEqual(["A:Discover>Define", "B:Define>Build", "C:Experiment>Roll-out"]);
   });
   it("names the gate an item has to pass next; an item without a phase starts at Discover", () => {
@@ -28,7 +28,10 @@ describe("moves without a gate", () => {
     expect(movablePhases("Build")).toEqual(["Discover", "Define", "Test", "Experiment"]);
     expect(movablePhases("Experiment")).toEqual(["Discover", "Define", "Build", "Test"]);
     expect(movablePhases("Define")).toEqual(["Discover"]);
-    expect(movablePhases("Completed")).toEqual([]);
+    expect(movablePhases("Completed")).toEqual(["Sunset"]);
+    expect(movablePhases("Roll-out")).toEqual(["Discover", "Define", "Build", "Test", "Experiment", "Sunset"]);
+    expect(movablePhases("Sunset")).toEqual(["Discover", "Define", "Build", "Test", "Experiment", "Roll-out"]);
+    expect(movablePhases("Build")).not.toContain("Sunset");
   });
   it("names the gate a forward move would cross", () => {
     expect(moveNeedsGate("Define", "Build")).toBe("B");

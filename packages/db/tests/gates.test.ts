@@ -267,6 +267,36 @@ describe("moving without a gate", () => {
   });
 });
 
+describe("Sunset (issue #500)", () => {
+  const move = (user: string, id: string, to: string) => db.asUser(user, (q) => q("select public.move_phase($1, $2)", [id, to]), commit);
+  it("is chosen from Roll-out or Completed, passes no gate and is refused from an earlier phase", async () => {
+    const a = await newItem("Roll-out");
+    await move(creator, a, "Sunset");
+    expect(await item(a)).toMatchObject({ initiative_phase: "Sunset", current_gate: null, gate_status: null });
+    const b = await newItem("Build");
+    expect(await errorCode(move(creator, b, "Sunset"))).toBe(PV006);
+    const c = await newItem("Roll-out");
+    await db.asUser(creator, (q) => q("update public.items set initiative_status = 'Completed' where id = $1", [c]), commit);
+    expect((await item(c)).initiative_phase).toBe("Completed");
+    await move(creator, c, "Sunset");
+    expect(await item(c)).toMatchObject({ initiative_phase: "Sunset", initiative_status: "Completed" });
+    expect(await errorCode(move(viewer, a, "Roll-out"))).toBe(DENIED);
+  });
+  it("a Sunset item keeps its phase when Initiative Status becomes Completed, and a direct insert keeps Sunset", async () => {
+    const id = await newItem("Sunset");
+    await db.asUser(creator, (q) => q("update public.items set initiative_status = 'Completed' where id = $1", [id]), commit);
+    expect((await item(id)).initiative_phase).toBe("Sunset");
+    const ins = (await db.admin.query("insert into public.items (tenant_id, initiative_name, home_project_id, initiative_status, initiative_phase) values ($1, 'Imported', $2, 'Completed', 'Sunset') returning id", [f.tenantA, f.seedA.project])).rows[0].id as string;
+    expect((await item(ins)).initiative_phase).toBe("Sunset");
+  });
+  it("Change Type accepts Tech debt and still refuses an unknown value", async () => {
+    const id = await newItem("Discover");
+    await db.admin.query("update public.items set change_type = 'Tech debt' where id = $1", [id]);
+    expect((await item(id)).change_type).toBe("Tech debt");
+    await expect(db.admin.query("update public.items set change_type = 'Chore' where id = $1", [id])).rejects.toThrow();
+  });
+});
+
 describe("Completed follows Initiative Status", () => {
   it("Completed puts the phase on Completed; Active gives back the phase it had; Cancelled and On hold leave it", async () => {
     const id = await newItem("Roll-out");
