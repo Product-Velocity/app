@@ -1498,3 +1498,16 @@ a.btn.btn-primary { color: #fff; }
 }
 @media (max-width: 600px) { .hp-cols-2, .hp-cols-3, .hp-cols-4 { grid-template-columns: 1fr; } }
 .hp-where a { font-weight: 600; }
+
+/* Public contact form (issue #530) */
+.contact-form { display: grid; gap: 14px; max-width: 520px; margin-top: 24px; position: relative; }
+.contact-form .fld { display: grid; gap: 4px; }
+.contact-form label { font-size: 14px; font-weight: 500; }
+.contact-form input, .contact-form select, .contact-form textarea { height: auto; font: inherit; font-size: 15px; line-height: 1.4; padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; background: #fff; color: var(--ink); width: 100%; box-sizing: border-box; }
+.contact-form input:focus-visible, .contact-form select:focus-visible, .contact-form textarea:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.contact-form [aria-invalid="true"] { border-color: #B42318; }
+.contact-form .err { color: #B42318; font-size: 13px; min-height: 0; }
+.contact-form .fine { color: var(--ink-muted); font-size: 13px; margin: 0; }
+.contact-form .btn { justify-self: start; }
+.contact-thanks { margin-top: 24px; max-width: 520px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; }
+.contact-thanks p { margin: 4px 0 0; color: var(--ink-muted); }

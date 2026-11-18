@@ -20,6 +20,8 @@ export const MACRO_CATALOG = {
   closes: { kind: "text", fallback: "", sample: "12 Dec 2026", label: "Closing date" },
   expires: { kind: "text", fallback: "60 minutes", sample: "60 minutes", label: "How long the link or code works" },
   teams: { kind: "text", fallback: "not stated", sample: "2 to 5", label: "Number of product teams" },
+  subject: { kind: "text", fallback: "your message", sample: "A question about Product Velocity", label: "What the message is about" },
+  message: { kind: "text", fallback: "", sample: "How does the Claude connector handle approvals?", label: "The visitor's message" },
   product: { kind: "text", fallback: "Product Velocity", sample: "Product Velocity", label: "Product name" },
 } as const satisfies Record<string, MacroDef>;
 

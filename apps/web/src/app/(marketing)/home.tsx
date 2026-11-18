@@ -202,7 +202,7 @@ export function Home() {
         <footer>
           <Link className="brandmark" href="/" aria-label="Product Velocity"><BrandLogo size={28} /></Link>
           <span>One roadmap for humans and AI.</span>
-          <span><Link href="/sign-in">Sign in</Link> · <Link href="/connector">Connect Claude</Link> · <Link href="/privacy">Privacy</Link></span>
+          <span><Link href="/sign-in">Sign in</Link> · <Link href="/connector">Connect Claude</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/contact">Contact</Link></span>
           <span>Screens shown are wireframes with example data.</span>
         </footer>
       </div>

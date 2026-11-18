@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
-import { SUPPORT_CONTACT } from "@/lib/public-contact";
 import { HELP_REFERENCE, HELP_TOPICS, helpPath } from "./help-topics";
 import type { Table } from "../help-content";
 
@@ -38,7 +37,7 @@ export function HelpPage({ current, title, intro, toc, children }: { current?: s
             </nav>
           )}
           {children}
-          <footer className="hp-foot">Questions or something missing? Write to {SUPPORT_CONTACT.name}, <a href={`mailto:${SUPPORT_CONTACT.email}`}>{SUPPORT_CONTACT.email}</a>.</footer>
+          <footer className="hp-foot">Questions or something missing? <a href="/contact">Contact us</a>.</footer>
         </main>
       </div>
     </div>

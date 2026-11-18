@@ -8,7 +8,7 @@ import { renderMacros, sampleValues, type MacroName, type MacroValues } from "./
  */
 export type EmailKey =
   | "auth.confirm-signup" | "auth.sign-in-link" | "auth.reset-password" | "auth.reauthentication" | "auth.invite" | "auth.email-change"
-  | "app.invitation" | "app.access-request" | "app.access-approved" | "app.link-code" | "site.early-access"
+  | "app.invitation" | "app.access-request" | "app.access-approved" | "app.link-code" | "site.early-access" | "site.contact"
   | "alignment.invitation" | "alignment.reminder" | "alignment.new-link";
 
 export type EmailTemplate = {
@@ -196,6 +196,22 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     body: "Email: {{requester}}\nCompany: {{workspace}}\nRole: {{role}}\nProduct teams: {{teams}}\n\nThey filled in the early-access form on the homepage. Reply to this address to get in touch.",
     button: null,
     note: "This request is not stored anywhere else. Delete this email when you are done with it.",
+  },
+  {
+    key: "site.contact",
+    name: "Contact form message",
+    trigger: "Someone sends a message through the contact form (/contact)",
+    recipient: "The Product Velocity contact address (lib/public-contact.ts); replies go to the sender",
+    path: "Public contact page (app/contact/actions.ts)",
+    confirmFirst: false,
+    limits: "Five messages per address and per visitor an hour; a hidden field turns bots away",
+    macros: ["name", "requester", "subject", "message", "product"],
+    subject: "{{subject}}: message from {{name}}",
+    preheader: "{{name}} wrote to you through the contact form.",
+    heading: "{{name}} sent a message",
+    body: "Email: {{requester}}\nAbout: {{subject}}\n\n{{message}}\n\nReply to this email to answer them.",
+    button: null,
+    note: "This message is not stored anywhere else. Delete this email when you are done with it.",
   },
   {
     key: "app.access-approved",

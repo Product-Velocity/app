@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { PublicPage } from "@/components/public-page";
-import { CONNECTOR_URL, PRIVACY_UPDATED, SUPPORT_CONTACT } from "@/lib/public-contact";
+import { CONNECTOR_URL, PRIVACY_UPDATED } from "@/lib/public-contact";
 
 export const metadata = {
   title: "Privacy policy · Product Velocity",
@@ -19,7 +20,7 @@ export default function PrivacyPage() {
     >
       <h2 id="who">Who we are</h2>
       <p>Product Velocity is a product management platform. We decide why and how personal data in the platform is processed, except for the content your organisation puts into its own workspace: for that, your organisation decides and we process it for you.</p>
-      <p>For every privacy question, request or complaint write to {SUPPORT_CONTACT.name}, <a href={`mailto:${SUPPORT_CONTACT.email}`}>{SUPPORT_CONTACT.email}</a>.</p>
+      <p>For every privacy question, request or complaint use the <Link href="/contact?subject=privacy">contact form</Link>.</p>
 
       <h2 id="data">What we store</h2>
       <h3>Your account</h3>
@@ -79,7 +80,7 @@ export default function PrivacyPage() {
       </ul>
 
       <h2 id="rights">Your rights</h2>
-      <p>You can ask us to give you a copy of your personal data, correct it, delete it, restrict or stop its use, or move it to another service. You can withdraw consent you gave, for example to take part in an alignment session. You can complain to the data protection authority of your country. To use any right, write to <a href={`mailto:${SUPPORT_CONTACT.email}`}>{SUPPORT_CONTACT.email}</a>. We answer within one month. For content in a workspace we may pass your request to the organisation that runs it.</p>
+      <p>You can ask us to give you a copy of your personal data, correct it, delete it, restrict or stop its use, or move it to another service. You can withdraw consent you gave, for example to take part in an alignment session. You can complain to the data protection authority of your country. To use any right, use the <Link href="/contact?subject=privacy">contact form</Link>. We answer within one month. For content in a workspace we may pass your request to the organisation that runs it.</p>
 
       <h2 id="security">Security</h2>
       <p>Every workspace is isolated from every other: the database enforces it row by row, not only the application. Data is encrypted in transit. Jira access tokens are encrypted. Two-factor authentication is available for every account. Every change is recorded and can be undone. If we learn of a breach that affects you we tell the organisation that runs your workspace without undue delay.</p>

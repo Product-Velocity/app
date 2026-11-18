@@ -17,7 +17,8 @@ describe("connector documentation (/connector)", () => {
     expect(t).toContain(CONNECTOR_URL);
     expect(t).toContain("claude mcp add --transport http product-velocity " + CONNECTOR_URL);
     expect(t).toMatch(/Approve/);
-    expect(t).toContain(SUPPORT_CONTACT.email);
+    expect(t).not.toContain(SUPPORT_CONTACT.email); // the owner's address is never printed; people use the contact form
+    expect(connector).toContain('href="/contact?subject=connector"');
     expect(connector).toContain('href="/privacy"');
   });
   it("lists every tool Claude is shown, with its effect, and nothing else", () => {
@@ -39,10 +40,11 @@ describe("connector documentation (/connector)", () => {
 });
 
 describe("privacy policy (/privacy)", () => {
-  it("names who to write to and covers the parts a directory reviewer looks for", () => {
+  it("points to the contact form, not a person, and covers the parts a directory reviewer looks for", () => {
     const t = text(privacy);
-    expect(t).toContain(SUPPORT_CONTACT.name);
-    expect(t).toContain(SUPPORT_CONTACT.email);
+    expect(t).not.toContain(SUPPORT_CONTACT.name);
+    expect(t).not.toContain(SUPPORT_CONTACT.email);
+    expect(privacy).toContain('href="/contact?subject=privacy"');
     for (const part of ["What we store", "Why we use it", "AI assistants and the connector", "Who processes data for us", "How long we keep it", "Your rights", "Security"]) expect(t, part).toContain(part);
     for (const provider of ["Supabase", "Vercel", "Resend"]) expect(t, provider).toContain(provider);
   });
