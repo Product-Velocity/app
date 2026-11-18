@@ -33,6 +33,12 @@ export type McpFiles = {
   repoFor: (itemId: string) => Promise<FileRepo>;
 };
 
+/** Jira epic keys asked for under an initiative, as the signed-in person (the database function of the Jira tab: role, ownership and audit apply). Records only; nothing is sent to Jira. */
+export type McpEpics = {
+  /** Records the keys; `added` are the ones that were new (or asked for again after a failure). Throws ToolInputError with the database's reason (read-only initiative, no Jira project, key taken by another initiative). */
+  request: (itemId: string, keys: string[]) => Promise<{ added: string[]; current: { key: string; state: string; last_error: string | null }[] }>;
+};
+
 /** Documents, as the signed-in person: rows are written with the person's token, so the role check, row-level security, the version log and the audit apply. */
 export type McpDocuments = {
   /** Adds a document to an initiative. Throws ToolInputError when the role or the database refuses. */
@@ -65,4 +71,5 @@ export type McpWriter = {
   files: McpFiles;
   documents: McpDocuments;
   profile: McpProfile;
+  epics: McpEpics;
 };

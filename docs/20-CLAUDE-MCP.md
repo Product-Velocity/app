@@ -76,6 +76,7 @@ A customer connects Claude (claude.ai, the desktop app or Claude Code) to their 
 
 ### FR-5 Files and images
 - `add_file`: PNG, JPEG, GIF, WebP or PDF, 10 MB, 20 per initiative, type taken from the first bytes (existing `sniffFileType`); bytes sent as base64 or through a short-lived upload URL, whichever Claude clients support (decided in the S8b spike).
+- `request_jira_epics` (issue #528): records Jira epic keys (R8P-1234, any project, links accepted) under an initiative with the database function of the Jira tab (`item_request_jira_epics`: role, ownership and audit apply; refused for an initiative that follows its Jira issue read-only or whose project has no Jira project). Writes nothing to Jira: the next Sync with Jira links epics that have no parent without asking again; a move is confirmed by the person. GitHub twin: #458.
 - `set_file_sharing`: on or off per file. Turning on returns the share link `/f/<token>/<name>`. The result **states plainly** that for a **public** repository the link will not be written to the GitHub issue, and that anyone with the link can open the file.
 - `list_files`. Removing a file is a confirmed action.
 - Claude may take screenshots of its own artifacts or pages and upload them; it never fetches arbitrary URLs on the server's behalf.
@@ -106,7 +107,7 @@ A customer connects Claude (claude.ai, the desktop app or Claude Code) to their 
 | `get_workspace_context`, `describe_fields` | read | all |
 | `search_items`, `get_item`, `get_gate_pack`, `list_groups`, `list_views`, `list_files`, `get_github_status` | read | all |
 | `create_items` (+ dry run) | write, flagged AI draft | creator, admin |
-| `add_link`, `add_file` | write (additive) | creator, admin |
+| `add_link`, `add_file`, `request_jira_epics` | write (additive) | creator, admin |
 | `set_relations`, `set_file_sharing`, `update_document`, `apply_prd_extract`, `update_company_profile`, `remove_link`, `remove_file` | write, annotated `destructiveHint: true` (they replace, remove or publish something), so Claude asks for confirmation | creator, admin |
 | `update_items` then `confirm_changes` | write after diff and confirmation | creator, admin |
 | `undo_last` | write | creator, admin |
