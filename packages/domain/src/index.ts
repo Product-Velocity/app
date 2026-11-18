@@ -45,6 +45,7 @@ export * from "./assistants";
 export * from "./gates";
 export * from "./gate-report";
 export * from "./change-report";
+export * from "./change-watch";
 export * from "./attention";
 export * from "./notifications";
 export * from "./rank-suggestion";

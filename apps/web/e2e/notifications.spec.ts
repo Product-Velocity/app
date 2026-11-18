@@ -61,4 +61,47 @@ test.describe("the notifications bell", () => {
     const r = await new AxeBuilder({ page }).analyze();
     expect(r.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
   });
+
+  test.describe("change counters", () => {
+    const watchCalls = (page: Page) => page.evaluate(() => (window as unknown as { __pv: { changeSource: { calls: string[] } } }).__pv.changeSource.calls);
+    test("the bell shows the sum of changes and unread notices; the panel lists projects of every account with a count per type", async ({ page }) => {
+      await open(page, "?changes=1");
+      await expect(bell(page)).toHaveAccessibleName("Notifications, 9 new: 7 changes, 2 unread");
+      await expect(bell(page).locator(".icon-badge")).toHaveText("9");
+      await bell(page).click();
+      const panel = page.getByRole("region", { name: "Changes" });
+      await expect(panel.getByText("7 changes since you last cleared")).toBeVisible();
+      const items = panel.locator("button.notif-item");
+      await expect(items).toHaveCount(3);
+      await expect(items.nth(0)).toContainText("Billing");
+      await expect(items.nth(0)).toContainText("Northwind · 1 Build status");
+      await expect(items.nth(1)).toContainText("Checkout");
+      await expect(items.nth(1)).toContainText("Meridian Media · 1 Phase, 3 Health");
+    });
+
+    test("Clear counts resets every counter to zero and leaves the decisions alone", async ({ page }) => {
+      await open(page, "?changes=1");
+      await bell(page).click();
+      await page.getByRole("button", { name: "Clear counts" }).click();
+      expect(await watchCalls(page)).toContain("clear all");
+      await expect(bell(page)).toHaveAccessibleName("Notifications, 2 unread");
+      await expect(page.getByRole("region", { name: "Changes" })).toHaveCount(0);
+    });
+
+    test("a click on a project opens its change log and clears only that project", async ({ page }) => {
+      await open(page, "?changes=1");
+      await bell(page).click();
+      await page.getByRole("button", { name: /^Checkout/ }).click();
+      await expect(page.getByTestId("opened")).toHaveText("Opened: changes /w/t-1/reports?report=changes&scope=p:p-1");
+      expect(await watchCalls(page)).toEqual(["clear t-1/p-1"]);
+      await expect(bell(page)).toHaveAccessibleName("Notifications, 5 new: 3 changes, 2 unread");
+    });
+
+    test("has no accessibility violations, open", async ({ page }) => {
+      await open(page, "?changes=1");
+      await bell(page).click();
+      const r = await new AxeBuilder({ page }).analyze();
+      expect(r.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
+    });
+  });
 });
