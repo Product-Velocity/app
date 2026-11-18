@@ -1,6 +1,8 @@
 ---
 issue: 532
-status: in progress
+status: done
+done: 2026-11-19
+link: PR #533 (homepage loop and role-change section) and the follow-up tweaks PR
 logged: 2026-11-18
 title: Homepage: Decide, Deliver, Learn loop section and messaging
 ---
