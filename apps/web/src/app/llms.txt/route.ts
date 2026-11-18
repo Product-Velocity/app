@@ -17,6 +17,7 @@ Product Velocity is a roadmap and stack-rank platform for product teams. It does
 - A lifecycle of seven phases (Discover, Define, Build, Test, Experiment, Roll-out, Completed) with three decision gates. A person decides at every gate and the reason is kept.
 - Two-way sync with Jira and GitHub for delivery progress. Commercial data (value, customers, decisions, key results, outcomes) never goes to the delivery tools.
 - Outcomes and adoption are tracked after launch, at 30, 60 and 90 days.
+- The loop: decide (AI helps shape the opportunity and business case, people decide at the gates), deliver (epics and stories go to Jira and GitHub; progress flows back), learn (your AI analyses the results and brings them back, next to the initiative, its effort and key result; people review them).
 - Bring your own AI: it works with AI assistants such as Claude through a connector. AI prepares work and marks it as a draft; people decide. We do not sell tokens.
 
 ## Pages
