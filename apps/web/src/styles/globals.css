@@ -213,6 +213,9 @@ a.btn { display: inline-flex; align-items: center; color: inherit; text-decorati
 .health-at-risk, .tone-risk { background: var(--health-risk-bg); color: var(--health-risk-fg); }
 .health-delayed, .health-blocked, .health-off-track, .tone-bad { background: var(--health-bad-bg); color: var(--health-bad-fg); }
 .tone-info { background: var(--health-info-bg); color: var(--health-info-fg); }
+.tone-severe { background: var(--health-severe-bg); color: var(--health-severe-fg); }
+.tone-stage { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1px var(--border-strong); }
+.tone-stage-muted { background: transparent; color: var(--ink-muted); box-shadow: inset 0 0 0 1px var(--border); }
 .tone-neutral, .health-not-started { background: var(--health-neutral-bg); color: var(--health-neutral-fg); }
 .field-header { display: flex; flex-direction: column; line-height: 1.2; overflow: hidden; }
 .field-header-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -443,6 +446,8 @@ input.sw-input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2
 .ip-pos { font-size: 12px; }
 .ip-icon { min-width: 28px; padding: 0 8px; }
 .ip-link { font-size: 12px; text-decoration: none; }
+.ip-pills { list-style: none; margin: 4px 0 2px; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
+.ip-pills li { display: inline-flex; align-items: center; gap: 4px; }
 .ip-code { margin: 2px 0; display: flex; gap: 8px; align-items: center; font-size: 12px; }
 .ip-title { margin: 0; font-size: 16px; line-height: 1.3; }
 .ip-rank { margin: 2px 0 0; font-size: 12px; }
