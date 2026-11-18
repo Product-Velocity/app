@@ -175,6 +175,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "jira_select_map",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.jira_select_map set field_id = 'customfield_1' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.jira_select_map where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.jira_select_map (tenant_id, project_id, slot, field_id, direction, options) select tenant_id, project_id, 'jira.select.health', 'customfield_1', 'to_jira', '{}' from public.jira_select_map where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.jira_select_map set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "jira_webhooks",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [
