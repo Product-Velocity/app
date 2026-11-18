@@ -84,7 +84,7 @@ describe("matchesSearch", () => {
     expect(matchesSearch(row(), "faster billing")).toBe(false);
     expect(matchesSearch(row(), "   ")).toBe(true);
   });
-  it("also finds who created the item, by the email of the Created By member", () => {
+  it("also finds who created the item, by the email of the Creator", () => {
     const by = (id: string) => (id === "u1" ? "ashu@example.com" : "");
     expect(matchesSearch({ ...row(), created_by: "u1" }, "ashu", by)).toBe(true);
     expect(matchesSearch({ ...row(), created_by: "u1" }, "ashu search", by)).toBe(true);
@@ -93,7 +93,7 @@ describe("matchesSearch", () => {
   });
 });
 
-describe("Created By", () => {
+describe("Creator (created_by)", () => {
   it("is a member field: filterable (with me), groupable and shown in the Columns picker", () => {
     const def = FIELD_BY_KEY.created_by!;
     expect(def.type).toBe("Person");
@@ -399,7 +399,7 @@ describe("two-level grouping and the group picker (issue #437)", () => {
   it("words the grouping for the button", () => {
     expect(groupSummary(null)).toBe("None");
     expect(groupSummary("moscow")).toBe("MoSCoW");
-    expect(groupSummary("status", "sponsor")).toBe("Build Status › Owner");
+    expect(groupSummary("status", "sponsor")).toBe("Build Status › Business Owner");
     expect(groupSummary("moscow", "moscow")).toBe("MoSCoW");
   });
   it("lists the groupable fields under the Columns picker's categories, Most used first, each field once, nothing hidden, nothing taken", () => {

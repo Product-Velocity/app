@@ -281,7 +281,7 @@
   "n": "14",
   "storage": "Column on items",
   "phase": 1,
-  "name": "Owner",
+  "name": "Business Owner",
   "key": "sponsor",
   "group": "Who",
   "type": "Select",
@@ -295,7 +295,7 @@
   "origin": "Input",
   "githubSync": "Not synced.",
   "filledWhen": "Now",
-  "description": "Who owns the initiative: asked for it or owns the case for it. Open list: type a name or an email address; the values already in use are offered."
+  "description": "The business owner of the initiative: who asked for it or owns the case for it. Context for the roadmap only, not a workspace member and not the person who created it. Open list: type a name or an email address; the values already in use are offered."
  },
  {
   "n": "15",
@@ -2507,7 +2507,7 @@
   "n": "N23",
   "storage": "System-set column (read-only)",
   "phase": 1,
-  "name": "Created By",
+  "name": "Creator",
   "key": "created_by",
   "group": "Trust",
   "type": "Person",
@@ -2521,7 +2521,7 @@
   "origin": "System",
   "githubSync": null,
   "filledWhen": "Automatic",
-  "description": "User who created the item (or the AI intake on their behalf)."
+  "description": "The workspace member who created the initiative. When Claude created it, this is the member Claude was working for and Created Via says so. Set by the system; not the business owner."
  },
  {
   "n": "N24",

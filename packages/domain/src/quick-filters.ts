@@ -11,6 +11,7 @@ export const QUICK_FILTERS: readonly QuickFilter[] = [
   { id: "created-week", label: "Created this week", hint: "Created At is this week (Monday to Sunday)", filters: [{ field: "created_at", op: "this_week" }] },
   { id: "created-month", label: "Created this month", hint: "Created At is this month", filters: [{ field: "created_at", op: "this_month" }] },
   { id: "mine", label: "My initiatives", hint: "I am the Product Manager", filters: [{ field: "product_manager", op: "is", value: "me" }] },
+  { id: "created-by-me", label: "Created by me", hint: "I am the Creator", filters: [{ field: "created_by", op: "is", value: "me" }] },
   { id: "high-impact", label: "High impact", hint: "MoSCoW is Must", filters: [{ field: "moscow", op: "is", value: "Must" }] },
   { id: "attention", label: "Needs attention", hint: "Health is At Risk, Delayed or Blocked", filters: [{ field: "health", op: "any_of", values: ["At Risk", "Delayed", "Blocked"] }] },
   { id: "active", label: "Active", hint: "Initiative Status is Active", filters: [{ field: "initiative_status", op: "is", value: "Active" }] },

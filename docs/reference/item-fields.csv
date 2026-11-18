@@ -11,7 +11,7 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 11,What,Initiative Hypothesis (IF / THEN / RESULTING IN),hypothesis,Long text,,Input,Modify,App -> GitHub: included in the managed block of the issue body.,Column on items,1
 12,What,Artifacts (links),artifacts,Links,,Input,Modify,App -> GitHub: listed in managed block of issue body.,Related table,1
 13,What,Comments,comments,Thread,,Input,Replace,Not synced. GitHub comments are shown read-only in the drill-down panel.,Related table,2
-14,Who,Owner,sponsor,Select,,Input,Modify,Not synced.,Column on items,1
+14,Who,Business Owner,sponsor,Select,,Input,Modify,Not synced.,Column on items,1
 15,Who,Request Origin,request_origin,Select,Customer · Sales · Leadership · Product analysis · Partner / vendor · Competitor move,Input,Keep,,Column on items,1
 16,Who,Customers Requesting (#),customers_requesting,Number,,Input,Keep,Never synced (commercial).,Column on items,1
 17,Who,Product Manager,product_manager,Person,,Input,Modify,Not synced.,Column on items,1
@@ -117,7 +117,7 @@ N18,Trust,Visibility,visibility,Select,Internal only · Shareable,Input,New,Neve
 N19,Trust,Last Reviewed,last_reviewed_at,Date,,Input,New,,Column on items,1
 N20,Trust,Review Overdue,review_overdue,Computed,Yes · No,Computed,New,,"Computed (view or function, not stored)",2
 N21,Trust,Created At,created_at,System,,System,New,,System-set column (read-only),1
-N23,Trust,Created By,created_by,Person,,System,New,,System-set column (read-only),1
+N23,Trust,Creator,created_by,Person,,System,New,,System-set column (read-only),1
 N24,Trust,Last Edited By,last_edited_by,System,,System,New,,System-set column (read-only),1
 N25,Trust,Phase Changed At,phase_changed_at,System,,System,New,,System-set column (read-only),1
 N26,Trust,Days in Current Phase,days_in_phase,Computed,,Computed,New,,"Computed (view or function, not stored)",2

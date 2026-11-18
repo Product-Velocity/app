@@ -28,14 +28,14 @@ test.describe("Group by: picker, two levels, issues", () => {
     expect(tabs).toEqual(expect.arrayContaining(["What", "Who", "Why"]));
     await expect(page.getByRole("group", { name: "Most used fields" }).getByRole("menuitemradio")).toHaveCount(8);
     await expect(page.getByRole("menuitemradio", { name: "Build Status" })).toHaveCount(1);
-    await expect(page.getByRole("menuitemradio", { name: "Roadmap Category" })).toHaveCount(0); // hidden in the app
+    await expect(page.getByRole("menuitemradio", { name: "Roadmap Category" })).toHaveCount(1); // shown again since 2026-11-18 (What)
     await expect(page.getByRole("menuitemradio", { name: "Focus Area" })).toHaveCount(1); // the first category (What)
-    await expect(page.getByRole("menuitemradio", { name: "Owner" })).toHaveCount(0);
+    await expect(page.getByRole("menuitemradio", { name: "Business Owner" })).toHaveCount(0);
     await page.getByRole("button", { name: "Who", exact: true }).click(); // a tab narrows the grid to its category
-    await expect(page.getByRole("menuitemradio", { name: "Owner" })).toHaveCount(1);
+    await expect(page.getByRole("menuitemradio", { name: "Business Owner" })).toHaveCount(1);
     await expect(page.getByRole("menuitemradio", { name: "Focus Area" })).toHaveCount(0);
     await page.getByRole("button", { name: "All", exact: true }).click();
-    await expect(page.getByRole("menuitemradio", { name: "Owner" })).toHaveCount(1);
+    await expect(page.getByRole("menuitemradio", { name: "Business Owner" })).toHaveCount(1);
     await expect(page.getByRole("menuitemradio", { name: "Focus Area" })).toHaveCount(1);
   });
 

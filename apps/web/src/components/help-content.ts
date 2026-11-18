@@ -131,7 +131,7 @@ const OPEN_LISTS: Record<string, string> = {
   audience: "Who the item is for. Open list: type any value; the values already in use are offered.",
   okr_objective: "The objective (OKR) the item serves, in your own words. Open list: type any value; the values already in use are offered. Independent of Business Line.",
   roadmap_category: "The roadmap category the item belongs to, for example New big bets or Operational efficiency. Open list: type any value; the values already in use are offered.",
-  sponsor: "Who owns the item: a name or an email address, as you like. Open list: type any value; the values already in use are offered. It is text, not a link to a workspace member.",
+  sponsor: "The business owner of the item: a name or an email address, as you like. Open list: type any value; the values already in use are offered. It is context for the roadmap, text, not a link to a workspace member. The workspace member who created the item is the Creator column.",
   business_line: "The business line the item belongs to, for example Programmatic, Direct or Platform. Open list: type any value; the values already in use are offered. Independent of Objective.",
   g2m_quarter: "Calendar quarter the work is planned for, chosen by a person. Any quarter from last year to three years ahead.",
 };

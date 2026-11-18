@@ -238,7 +238,7 @@ describe("Trash", () => {
     const { client } = fake([{ error: { code: "PV004", message: "Claude and service accounts cannot delete, restore or remove items; ask a person" } }]);
     expect(await new SupabaseDataSource(client, "t1").trashItems(["a"])).toMatchObject({ ok: false });
   });
-  it("loadItems remembers who added each item (for who may delete it) and fills the Created By column", async () => {
+  it("loadItems remembers who added each item (for who may delete it) and fills the Creator column", async () => {
     const r = { ...row(1), created_by: "u9", deleted_at: null, deleted_by: null };
     const { client } = fake([{ data: [r] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }]);
     const items = await new SupabaseDataSource(client, "t1").loadItems();

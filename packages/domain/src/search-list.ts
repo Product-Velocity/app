@@ -9,9 +9,9 @@ export type ListOption = { value: string; label: string; /** Extra words that al
 /** Lowercase, no accents, punctuation as spaces: "Estimate (weeks)" and "estimate weeks" are the same words. */
 const words = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
-/** Header words an import accepts for a field ("owner" finds Product Manager); also what the search matches. */
+/** Header words an import accepts for a field ("owner" finds Business Owner); also what the search matches. */
 const ALIASES: Record<string, string> = {
-  initiative_name: "title name initiative", home_project: "project", product_manager: "owner pm manager", effort: "size tshirt t-shirt",
+  initiative_name: "title name initiative", home_project: "project", product_manager: "pm manager", sponsor: "owner", effort: "size tshirt t-shirt",
   value_12m: "value valueeur", start_date: "start", g2m_date_est: "end end date g2m", theme: "group", roadmap_category: "category",
   initiative_phase: "phase", summary: "description",
 };

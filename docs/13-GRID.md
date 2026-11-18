@@ -118,4 +118,4 @@ Nothing in the bar above the grid or in the header runs off the right edge. One 
 - Parity: no tracker difference; the Sync entry follows the same GitHub or Jira label and disabled state as the button.
 
 ## Head buttons say their state (issue #437, 2026-11-14)
-The three tool buttons use one pattern, "Name: state": **Filter: None** / **Filter: 1 active**, **Columns: 14 of 168 shown** and **Group by: None** / **Group by: Build Status › Owner**. The state is bold. (Before: "Add filter" / "N filters", "N of 166 columns shown".)
+The three tool buttons use one pattern, "Name: state": **Filter: None** / **Filter: 1 active**, **Columns: 14 of 168 shown** and **Group by: None** / **Group by: Build Status › Business Owner**. The state is bold. (Before: "Add filter" / "N filters", "N of 166 columns shown".)
