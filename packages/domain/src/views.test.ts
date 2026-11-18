@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CUSTOMER_SAFE_KEYS, buildGroupedRows, effectiveSort, sortDirectionLabels, sortSummary, healthBreakdown, filterSummary, groupableFields, isCustomerSafe, groupPickerSections, groupSummary, MOST_USED_GROUP_KEYS, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
 import { QUICK_FILTERS, customFilters, quickFilterOn, toggleQuickFilter } from "./quick-filters";
-import { FIELDS, FIELD_BY_KEY, HIDDEN_FIELDS } from "./registry";
+import { FIELDS, FIELD_BY_KEY, HIDDEN_FIELDS, VISIBLE_FIELDS } from "./registry";
 import { setDateFormat } from "./dates";
 
 const row = (o: Record<string, unknown> = {}) => ({ id: "i1", item_code: "R-01", initiative_name: "Faster search results", stack_rank: 1, home_project: "p1", ...o });
@@ -83,6 +83,25 @@ describe("matchesSearch", () => {
     expect(matchesSearch(row(), "r-01")).toBe(true);
     expect(matchesSearch(row(), "faster billing")).toBe(false);
     expect(matchesSearch(row(), "   ")).toBe(true);
+  });
+  it("also finds who created the item, by the email of the Created By member", () => {
+    const by = (id: string) => (id === "u1" ? "ashu@example.com" : "");
+    expect(matchesSearch({ ...row(), created_by: "u1" }, "ashu", by)).toBe(true);
+    expect(matchesSearch({ ...row(), created_by: "u1" }, "ashu search", by)).toBe(true);
+    expect(matchesSearch({ ...row(), created_by: "u2" }, "ashu", by)).toBe(false);
+    expect(matchesSearch({ ...row(), created_by: "u1" }, "ashu")).toBe(false); // no lookup given: the name and code only
+  });
+});
+
+describe("Created By", () => {
+  it("is a member field: filterable (with me), groupable and shown in the Columns picker", () => {
+    const def = FIELD_BY_KEY.created_by!;
+    expect(def.type).toBe("Person");
+    expect(def.editable).toBe(false); // read-only: set by the system
+    expect(matchesFilters({ ...row(), created_by: "u1" } as never, [{ field: "created_by", op: "is", value: "me" }], { me: "u1" })).toBe(true);
+    expect(matchesFilters({ ...row(), created_by: "u2" } as never, [{ field: "created_by", op: "is", value: "me" }], { me: "u1" })).toBe(false);
+    expect(groupableFields().map((f) => f.key)).toContain("created_by");
+    expect(VISIBLE_FIELDS.map((f) => f.key)).toContain("created_by");
   });
 });
 

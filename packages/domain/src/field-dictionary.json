@@ -2510,7 +2510,7 @@
   "name": "Created By",
   "key": "created_by",
   "group": "Trust",
-  "type": "System",
+  "type": "Person",
   "editing": "System (read-only)",
   "customerSafe": false,
   "views": [

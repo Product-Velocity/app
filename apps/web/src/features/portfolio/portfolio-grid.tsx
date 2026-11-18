@@ -250,7 +250,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       controller.rows.filter(
         (r) =>
           added.has(r.id) ||
-          ((projectIds === null || projectIds.includes(r.home_project)) && (!hideCompleted || r.initiative_phase !== "Completed") && matchesSearch(r, search) && matchesFilters(r, def.filters, { me, today })),
+          ((projectIds === null || projectIds.includes(r.home_project)) && (!hideCompleted || r.initiative_phase !== "Completed") && matchesSearch(r, search, (id) => lookups.members.find((m) => m.user_id === id)?.email ?? "") && matchesFilters(r, def.filters, { me, today })),
       ),
     // tick: the controller changes its rows in place, so a rebuild is requested by hand
     // eslint-disable-next-line react-hooks/exhaustive-deps

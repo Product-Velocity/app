@@ -63,7 +63,8 @@ export class SupabaseDataSource implements PortfolioDataSource {
         if (INTERNAL_COLUMNS.has(k)) continue;
         item[KEY_BY_COLUMN[k] ?? k] = NUMERIC.has(k) && v !== null && v !== undefined ? asNumber(v) : v;
       }
-      item._created_by = r.created_by ?? null; // who added it: decides who may delete it (not a grid column)
+      item._created_by = r.created_by ?? null; // who added it: decides who may delete it
+      item.created_by = r.created_by ?? null; // the Created By column (a member id; the grid shows the email)
       items.set(String(r.id), item);
     }
 

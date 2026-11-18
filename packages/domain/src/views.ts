@@ -115,11 +115,12 @@ export function matchesFilters(row: Row, filters: Filter[], ctx: FilterCtx = {})
   });
 }
 
-/** Free-text search over the code and the name: every word must appear. */
-export function matchesSearch(row: Row, query: string): boolean {
+/** Free-text search over the code, the name and who created it: every word must appear. `creator` turns the Created By member id into the text to search (the email). */
+export function matchesSearch(row: Row, query: string, creator?: (id: string) => string): boolean {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (words.length === 0) return true;
-  const hay = `${row.item_code ?? ""} ${row.initiative_name ?? ""}`.toLowerCase();
+  const by = creator && typeof row.created_by === "string" ? creator(row.created_by) : "";
+  const hay = `${row.item_code ?? ""} ${row.initiative_name ?? ""} ${by}`.toLowerCase();
   return words.every((w) => hay.includes(w));
 }
 
