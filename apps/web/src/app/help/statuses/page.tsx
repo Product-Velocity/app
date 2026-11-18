@@ -53,10 +53,23 @@ const CASES: Table = {
   ],
 };
 
+const COLOURS: Table = {
+  head: ["Colour", "Means", "Values"],
+  rows: [
+    ["Green", "Fine or finished", "On Track · Completed · Done"],
+    ["Blue", "In motion", "Active · In progress · Included · Committed"],
+    ["Amber", "Needs a decision or a look", "At Risk · On hold · Deferred"],
+    ["Red", "A problem", "Delayed"],
+    ["Dark red", "The hardest problem", "Blocked"],
+    ["Grey", "Not active", "Backlog · Not started · Candidate · Dropped · Cancelled"],
+    ["Outlined, no fill", "Where it is in the lifecycle", "Every Initiative Phase value (Completed and Sunset in muted grey)"],
+  ],
+};
+
 export default function StatusesHelp() {
   return (
     <HelpPage current="statuses" title="Phases and statuses: the lists" intro="Every value of the fields that say where an initiative is and how it is going, what each means, and how to set them in common cases. The values can be copied straight into a spreadsheet for an import."
-      toc={[{ id: "lists", label: "The lists" }, { id: "meanings", label: "What each value means" }, { id: "cases", label: "How to set them" }, { id: "rules", label: "Rules of thumb" }]}>
+      toc={[{ id: "lists", label: "The lists" }, { id: "meanings", label: "What each value means" }, { id: "cases", label: "How to set them" }, { id: "colours", label: "Colours" }, { id: "rules", label: "Rules of thumb" }]}>
       <HelpSection id="lists" title="The lists">
         <HelpTable caption="Fields, who sets them, and their values" table={LISTS} />
       </HelpSection>
@@ -65,6 +78,9 @@ export default function StatusesHelp() {
       </HelpSection>
       <HelpSection id="cases" title="How to set them">
         <HelpTable caption="Common cases and the values to choose" table={CASES} />
+      </HelpSection>
+      <HelpSection id="colours" title="Colours">
+        <HelpTable caption="What each pill colour means. The word is always shown, so colour is never the only signal." table={COLOURS} />
       </HelpSection>
       <HelpSection id="rules" title="Rules of thumb">
         <HelpList items={[
