@@ -861,6 +861,8 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 /* the Initiative fields editor (issue #512, #513): the values of one row side by side */
 .inline-pairs { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 .inline-pair { display: inline-flex; align-items: center; gap: 6px; }
+.radio-line { display: flex; align-items: center; gap: 8px; }
+.radio-line input[type="radio"] { width: auto; height: auto; min-width: 0; padding: 0; flex: none; }
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th, .data-table td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e1e5eb; vertical-align: top; }
 .data-table th { font-size: 12px; color: #4b5563; font-weight: 600; white-space: nowrap; }

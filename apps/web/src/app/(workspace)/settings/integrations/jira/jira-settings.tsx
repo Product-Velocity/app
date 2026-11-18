@@ -6,6 +6,7 @@ import { jiraConfigured, jiraGet, jiraProjectDetail, type JiraConnectionRow } fr
 import { parseFieldMap } from "@/lib/atlassian/field-map";
 import { proposeTypeMapping } from "@/lib/atlassian/type-mapping";
 import { readJiraCatalog, readJiraSelectFields, readJiraSiteFields, type JiraSiteFields } from "@/lib/atlassian/catalog-server";
+import { countLinkedInitiatives } from "@/lib/atlassian/linked-counts";
 import { countWithValues, readStamp } from "@/lib/select-editor/counts";
 import { InitiativeSelectCard } from "@/components/initiative-select-card";
 import { parseSelectMap, selectRowsToMap } from "@/lib/atlassian/select-map";
@@ -159,6 +160,7 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
   const catalogs: TrackerCatalog[] = canAdmin && onMapping && selected
     ? [await readJiraCatalog(selected.connection_id, selected.site_id, selected.jira_project_key).catch((): null => null)].filter((c): c is TrackerCatalog => c !== null)
     : [];
+  const linkedCounts = onProjects ? await countLinkedInitiatives(supabase, active.tenantId, ((projectRows ?? []) as { id: string }[]).map((p) => p.id)) : new Map<string, number>();
   const projectLinks: JiraProjectLinkView[] = ((projectRows ?? []) as { id: string; name: string }[]).map((p) => {
     const l = links.get(p.id);
     return {
@@ -170,6 +172,7 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
       issues: issueRows.get(p.id) ?? [],
       showIgnored: ignored === p.id,
       tracker: (p as { tracker?: string | null }).tracker ?? null,
+      linkedInitiatives: linkedCounts.get(p.id) ?? 0,
       rowLink: l ? { value: `${l.connection_id}|${l.site_id}|${l.jira_project_key}`, initiative: l.initiative_type_id, epic: l.epic_type_id, task: l.task_type_id } : null,
       mapping: mappings.get(p.id) ?? null,
     };
