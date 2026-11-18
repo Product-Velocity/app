@@ -8,7 +8,7 @@ import { renderMacros, sampleValues, type MacroName, type MacroValues } from "./
  */
 export type EmailKey =
   | "auth.confirm-signup" | "auth.sign-in-link" | "auth.reset-password" | "auth.reauthentication" | "auth.invite" | "auth.email-change"
-  | "app.invitation" | "app.access-request" | "app.access-approved" | "app.link-code"
+  | "app.invitation" | "app.access-request" | "app.access-approved" | "app.link-code" | "site.early-access"
   | "alignment.invitation" | "alignment.reminder" | "alignment.new-link";
 
 export type EmailTemplate = {
@@ -180,6 +180,22 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     body: "{{requester}} signed up with an email address at your authorized domain and asked to join {{workspace}}.\n\nThey have no access until you approve them. Review the request in the members grid (status Requested Access).",
     button: "Review the request",
     note: "If you do not know this person, leave the request or set it to Revoked.",
+  },
+  {
+    key: "site.early-access",
+    name: "Early access request",
+    trigger: "Someone fills in the early-access form on the public homepage",
+    recipient: "The Product Velocity contact address (lib/public-contact.ts)",
+    path: "Public homepage form (app/(marketing)/actions.ts)",
+    confirmFirst: false,
+    limits: "Five requests per address and per visitor an hour; a hidden field turns bots away",
+    macros: ["name", "requester", "workspace", "role", "teams", "product"],
+    subject: "Early access request from {{name}} at {{workspace}}",
+    preheader: "{{name}} asked for early access.",
+    heading: "{{name}} asked for early access",
+    body: "Email: {{requester}}\nCompany: {{workspace}}\nRole: {{role}}\nProduct teams: {{teams}}\n\nThey filled in the early-access form on the homepage. Reply to this address to get in touch.",
+    button: null,
+    note: "This request is not stored anywhere else. Delete this email when you are done with it.",
   },
   {
     key: "app.access-approved",

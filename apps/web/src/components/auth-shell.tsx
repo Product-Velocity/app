@@ -2,18 +2,19 @@ import { BrandLogo } from "@/components/brand-logo";
 
 /**
  * Words on the brand side of the sign-in, create-account, invitation and
- * password-reset screens. Taken from the brand guide (README, "Who we are");
- * change them there first. No claims beyond the guide, no "Claude approves".
+ * password-reset screens. The same wording as the homepage hero (issue #498):
+ * change them together. No claims beyond the brand guide, no "Claude approves".
  */
 export const AUTH_BRAND = {
-  tagline: "One roadmap for humans and AI.",
-  what: "The AI-first product management platform that follows every initiative from idea through launch and measured outcomes.",
-  why: "So people and AI have the context to deliver fast.",
+  eyebrow: "One roadmap for humans and AI",
+  tagline: "Stop rebuilding the roadmap in slides and sheets",
+  what: "Every initiative in one place, from the company objective to the delivery ticket. Product Velocity sits on top of Jira and GitHub and hosts the objectives, OKRs, go-to-market and outcomes that teams keep in disconnected docs, slides and sheets.",
+  why: "Product teams move faster, every stakeholder stays informed, and bigger outcomes get delivered.",
   pillars: [
-    { name: "Clarity", line: "One roadmap and one stack rank." },
-    { name: "Alignment", line: "Agreed on why, what, how and when." },
-    { name: "Velocity", line: "Work moves across the whole lifecycle." },
-    { name: "Impact", line: "Outcomes measured after launch." },
+    { name: "Clarity", line: "One roadmap for every team and business line, from idea to completed roll-out." },
+    { name: "Transparency", line: "What, why, who and when, from leadership and stakeholder reports to Jira tickets." },
+    { name: "Alignment", line: "Stakeholders rank and vote, and plans fit capacity." },
+    { name: "Impact", line: "Objectives and key results tracked on every initiative." },
   ],
 } as const;
 
@@ -24,6 +25,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       <aside className="auth-brand" aria-label="About Product Velocity">
         <BrandLogo size={56} />
         <div className="auth-brand-main">
+          <p className="auth-eyebrow">{AUTH_BRAND.eyebrow}</p>
           <p className="auth-tag">{AUTH_BRAND.tagline}</p>
           <p className="auth-what">{AUTH_BRAND.what}</p>
           <p className="auth-why">{AUTH_BRAND.why}</p>
