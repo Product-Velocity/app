@@ -14,6 +14,7 @@ import { copyGithubFieldConfig, saveGithubFieldConfig, saveGithubBoardSelects } 
 import { AutoRefresh } from "./auto-refresh";
 import { parseBoard } from "@pv/github";
 import { BoardsCard } from "./boards";
+import { countWithValues, readStamp } from "@/lib/select-editor/counts";
 import { BoardSelectCard } from "@/components/board-select-card";
 import { EpicReposCard } from "./epic-repos-card";
 import { ConnectForm, ProjectRow, RepoRow } from "./forms";
@@ -76,7 +77,8 @@ export async function GithubSettings({ section, searchParams }: { section: Exclu
     const b = parseBoard(selected.github_board);
     if (b) {
       const bf = await sc.getBoardFields(c.installation_id, b.id).catch((): null => null);
-      boardSelect = <BoardSelectCard projectId={selected.id} projectName={selected.name} boardTitle={b.title} saved={b.mapping.selects} fields={bf} action={saveGithubBoardSelects} />;
+      const bCounts = await countWithValues(supabase, active.tenantId, selected.id, "item_github_links");
+      boardSelect = <BoardSelectCard projectId={selected.id} projectName={selected.name} boardTitle={b.title} saved={b.mapping.selects} fields={bf} action={saveGithubBoardSelects} counts={bCounts} readAt={readStamp()} readHref={`${GITHUB_BASE}/mapping?project=${encodeURIComponent(selected.id)}`} />;
     }
   }
 
