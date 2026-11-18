@@ -2,7 +2,7 @@ import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { EarlyAccessForm } from "./early-access-form";
 import {
-  ART_AI, ART_ALIGN, ART_CHAIN, ART_HERO, ART_HIER, ART_LAYER, ART_LIFE, ART_ONE, ART_OUTCOME, ART_PILLS, ART_VIEWS,
+  ART_AI, ART_ALIGN, ART_CHAIN, ART_HERO, ART_HIER, ART_LAYER, ART_LIFE, ART_LOOP, ART_ONE, ART_OUTCOME, ART_PILLS, ART_VIEWS,
 } from "./art";
 import { GoogleTagManager, GoogleTagManagerNoscript, HOME_JSON_LD } from "./seo";
 import "./marketing.css";
@@ -126,33 +126,19 @@ export function Home() {
           <Art svg={ART_ONE} />
           <div className="shifts" role="table" aria-label="How the product manager's work shifts and how Product Velocity supports it">
             <div className="row head" role="row"><span role="columnheader">What used to take your time</span><span role="columnheader">What changes</span><span role="columnheader">How Product Velocity supports it</span></div>
-            <div className="row" role="row"><b role="cell">Writing documents and drafts</b><span role="cell">Your AI drafts, you review</span><span role="cell">AI drafts are marked as drafts, so nothing is mistaken for a decision.</span></div>
-            <div className="row" role="row"><b role="cell">Writing status updates and reports</b><span role="cell">Your AI writes the recap, you deliver bad news and renegotiate scope</span><span role="cell">Reports for each audience, and alerts when work is stuck or waiting for a decision.</span></div>
+            <div className="row" role="row"><b role="cell">Writing documents, updates and reports</b><span role="cell">Your AI drafts and writes the recap, you review and deliver the hard messages</span><span role="cell">AI drafts are marked as drafts, and reports are built for each audience.</span></div>
             <div className="row" role="row"><b role="cell">Gathering signals and analysing results</b><span role="cell">Your AI does the analysis and brings the results back</span><span role="cell">Results sit on the initiative, next to its key result.</span></div>
             <div className="row" role="row"><b role="cell">Getting stakeholders aligned</b><span role="cell">Stakeholders rank and vote, results are anonymous</span><span role="cell">One stack rank, with a capacity fit line for each team.</span></div>
-            <div className="row" role="row"><b role="cell">Making the call</b><span role="cell">People decide, with the evidence prepared</span><span role="cell">Gate packs show what is ready to pass, and the reason is kept on record.</span></div>
-          </div>
-          <div className="owners">
-            <div><b>People decide and own the outcome</b><span>What to build, for whom and why, at every gate. They talk to customers and stakeholders, and answer for the result.</span></div>
-            <div><b>Your AI prepares</b><span>Options, drafts and analysis, and it brings results back. It never approves.</span></div>
-            <div><b>Product Velocity connects</b><span>The system of record for the roadmap, the decisions and the outcomes.</span></div>
+            <div className="row" role="row"><b role="cell">Making the call</b><span role="cell">People decide, with the evidence prepared. Your AI never approves</span><span role="cell">Gate packs show what is ready to pass, and the reason is kept on record.</span></div>
           </div>
         </div>
       </section>
 
-      <section className="sec loop" id="loop">
-        <div className="wrap">
-          <Eyebrow>How it works</Eyebrow>
-          <h2>One loop, from signal to outcome</h2>
-          <p className="body">Agents are already good at building. The gap is deciding what to build and knowing whether it worked. Product Velocity connects both, for people and their AI.</p>
-          <ol className="steps">
-            <li><span className="n">1</span><b>Decide</b><span>Your AI helps turn signals into an opportunity, requirements and a business case. It prepares the options and marks them as drafts. People decide at the gates.</span></li>
-            <li><span className="n">2</span><b>Deliver</b><span>Epics and stories go to Jira and GitHub, where teams and coding agents build. Delivery progress flows back into the roadmap.</span></li>
-            <li><span className="n">3</span><b>Learn</b><span>Your AI analyses what happened and brings the results back into Product Velocity, next to the initiative, its effort and the key result it served. People review them, and they feed the next decision.</span></li>
-          </ol>
-          <p className="loopback">Product Velocity is the system of record that connects the dots for people and AI.</p>
-        </div>
-      </section>
+      <Split id="loop" eyebrow="How it works" title="One loop, from signal to outcome"
+        challenge="Agents are already good at building. The gap is deciding what to build and knowing whether it worked."
+        body="Product Velocity connects both, for people and their AI. Your AI helps shape the opportunity and the business case, and after launch it analyses the results and brings them back, so the next decision starts from evidence. Product Velocity is the system of record that connects the dots."
+        points={["Decide: your AI prepares the options as drafts, and people decide at the gates", "Deliver: epics and stories go to Jira and GitHub, and progress flows back", "Learn: your AI analyses the results and brings them back next to the initiative, its effort and key result"]}
+        art={ART_LOOP} />
 
       <Wide id="solution" eyebrow="The solution" title="Every initiative in one place, from the company objective to the delivery ticket" band klass="hier"
         body="Company objectives and business lines sit at the top. Below them are outcomes, focus areas and groups, then the initiatives that carry key results and link to the delivery tickets. Each level is data in the same roadmap, so what leadership sees and what engineers build are the same thing. It sits on top of your delivery tools."
