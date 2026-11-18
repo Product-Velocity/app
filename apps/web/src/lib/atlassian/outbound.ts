@@ -1,11 +1,12 @@
 import { DEFAULT_NAMES, isOwnedLabel, resolveNames, type Names, changeTypeLabel, focusAreaLabel, groupLabel, moscowLabel, projectLabel, plannedQuarterLabel, rankBandLabel, tagLabels, valueTypeLabel, reviewLabel } from "@pv/github";
 import { composeDescription, type Link } from "./jira-sections";
+import { selectsPayload, type SelectMap } from "./select-map";
 
 // Everything that may leave the app for Jira (CLAUDE.md rule 2, issue #67). Jira sites can be shared widely, so this list is the ONLY place
 // a field of an item is read for a Jira payload. Value, confidence, customers, decisions, rationale, key results, outcomes, markets and the
 // rank number are never listed, and a test (outbound-allowlist.test.ts) fails if any of them reaches a payload. Status, sprint and
 // transitions are never written (rule 6): this builder has no input for them.
-export const OUTBOUND_JIRA_FIELDS = ["initiative_name", "summary", "description", "hypothesis", "moscow", "g2m_date_est", "planned_start", "stack_rank", "change_type", "theme", "focus_area", "value_type", "g2m_quarter", "tags", "initiative_phase"] as const;
+export const OUTBOUND_JIRA_FIELDS = ["initiative_name", "summary", "description", "hypothesis", "moscow", "g2m_date_est", "planned_start", "stack_rank", "change_type", "theme", "focus_area", "value_type", "g2m_quarter", "tags", "initiative_phase", "health", "initiative_status"] as const;
 export type JiraOutboundField = (typeof OUTBOUND_JIRA_FIELDS)[number];
 
 /** How this Jira site spells the fields PV can fill; each is optional and a missing one is skipped with a note in the preview, never guessed. */
@@ -22,6 +23,8 @@ export type JiraFieldMap = {
   off?: readonly string[];
   /** Slots switched ON that are off by default (`jira.label.tags`, `jira.label.focus`). */
   on?: readonly string[];
+  /** Health, Initiative Status and Initiative Phase on custom select fields (issue #512): Jira field, option per value, direction. Only sent for a slot that is mapped. */
+  selects?: SelectMap;
   /** Stealth mode (issue #411): names of labels and the marker; absent = the `pv:` defaults. */
   names?: Names;
 };
@@ -115,6 +118,11 @@ export function buildJiraPayload(input: JiraPayloadInput): JiraPayload {
     const id = map.priorityByMoscow?.[moscow as keyof NonNullable<JiraFieldMap["priorityByMoscow"]>];
     if (id && /^[0-9]{1,9}$/.test(id)) f.priority = { id };
     else notes.push("Priority not sent: no Jira priority is chosen for this MoSCoW value (the pv:moscow label is sent).");
+  }
+  if (map.selects) {
+    const sel = selectsPayload({ health: str(read(item, "health"), 40), initiative_status: str(read(item, "initiative_status"), 40), initiative_phase: str(read(item, "initiative_phase"), 40) }, map.selects);
+    Object.assign(f, sel.fields);
+    notes.push(...sel.notes);
   }
   return { fields: f, notes, descriptionSource: description };
 }
