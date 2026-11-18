@@ -99,6 +99,8 @@ type Props = {
   canEdit?: boolean;
   reviewAction?: (formData: FormData) => void | Promise<void>;
   fieldConfigAction?: (formData: FormData) => void | Promise<void>;
+  /** The "Initiative fields" card (issue #512), shown under the field mapping of the selected project. */
+  mappingExtra?: React.ReactNode;
   /** Why a save was refused (the address carries it). */
   why?: string | undefined;
   /** Which of the five sections (decision 2026-11-16-tracker-settings-sections): Connection (default), Projects, Field mapping, Inbox, Sync & logs. */
@@ -123,7 +125,7 @@ export type JiraHeaderView = { linked: number; waiting: number; customised: bool
  * Settings → Integrations → Jira, laid out like the GitHub page (decision 2026-11-03-tracker-parity): Status, Sync (what happens by itself, check
  * now, recent events), the Jira projects, Projects (one table, one Save), then the Jira-only extras. Presentational: the page supplies data and actions.
  */
-export function JiraConnectionsView({ connections, canAdmin, configured, status, checked, connectAction, disconnectAction, projectLinks = [], choices = [], sync = null, basePath = "/settings/integrations/jira", saveProjectAction, readAction, checkAction, retryAction, canEdit = false, reviewAction, fieldConfigAction, why, section = "connection", catalogs = [], header = { linked: 0, waiting: 0, customised: false, lastCheck: null }, selectedProject, copyAction, version, projectsExtra }: Props) {
+export function JiraConnectionsView({ connections, canAdmin, configured, status, checked, connectAction, disconnectAction, projectLinks = [], choices = [], sync = null, basePath = "/settings/integrations/jira", saveProjectAction, readAction, checkAction, retryAction, canEdit = false, reviewAction, fieldConfigAction, why, section = "connection", catalogs = [], header = { linked: 0, waiting: 0, customised: false, lastCheck: null }, selectedProject, copyAction, version, projectsExtra, mappingExtra }: Props) {
   const needsSignIn = connections.some((c) => c.state === "reconnect_needed");
   const connected = connections.filter((c) => c.state === "connected");
   const missingHookScope = Boolean(sync?.live.enabled) && connected.some((c) => c.scopes !== undefined && !c.scopes.split(" ").includes("manage:jira-webhook"));
@@ -356,6 +358,7 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
                 <TrackerProjectPicker projects={linked.map((p) => ({ id: p.projectId, name: p.projectName }))} current={mappingProject.projectId} action={`${basePath}/mapping`} />
                 <p className="muted">Linked to <strong>{mappingProject.link!.jiraKey}</strong> · {mappingProject.link!.jiraName} ({mappingProject.link!.siteName}).</p>
                 <FieldWorkbench key={`${mappingProject.projectId}-${version ?? ""}`} tracker="Jira" projectId={mappingProject.projectId} projectName={mappingProject.projectName} view={mappingProject.mapping} action={fieldConfigAction} unlinked={u.fields} unlinkedError={u.error} unlinkedNotes={u.notes} />
+                {mappingExtra}
                 {copyAction && linked.length > 1 && <CopyMapping tracker="Jira" fromId={mappingProject.projectId} fromName={mappingProject.projectName} others={linked.filter((p) => p.projectId !== mappingProject.projectId).map((p) => ({ id: p.projectId, name: p.projectName }))} action={copyAction} />}
               </>
             );

@@ -127,3 +127,29 @@ export function selectRowsToMap(rows: unknown): Record<string, unknown> {
   }
   return out;
 }
+
+export type SelectFieldInfo = { id: string; name: string; options: { id: string; value: string }[] };
+/**
+ * The single-select custom fields of an issue type's create screen with their options, from Jira's createmeta answer
+ * (`/issue/createmeta/{project}/issuetypes/{type}`: `fields` is a list, each with `allowedValues`). A field that is not on that screen is not offered:
+ * Jira would refuse the write, so the person is told before saving, not after the first Sync.
+ */
+export function parseCreateMeta(raw: unknown): SelectFieldInfo[] {
+  const o = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+  const list = Array.isArray(o.fields) ? o.fields : Array.isArray(o.values) ? o.values : [];
+  const out: SelectFieldInfo[] = [];
+  for (const f of list) {
+    const r = typeof f === "object" && f !== null ? (f as Record<string, unknown>) : {};
+    const id = typeof r.fieldId === "string" ? r.fieldId : typeof r.key === "string" ? r.key : "";
+    const schema = typeof r.schema === "object" && r.schema !== null ? (r.schema as Record<string, unknown>) : {};
+    const custom = typeof schema.custom === "string" ? schema.custom : "";
+    if (!SELECT_FIELD_ID.test(id) || schema.type !== "option" || !custom.endsWith(":select")) continue;
+    const allowed = Array.isArray(r.allowedValues) ? r.allowedValues : [];
+    const options = allowed.flatMap((a): { id: string; value: string }[] => {
+      const x = typeof a === "object" && a !== null ? (a as Record<string, unknown>) : {};
+      return typeof x.id === "string" && OPTION_ID.test(x.id) && typeof x.value === "string" && x.disabled !== true ? [{ id: x.id, value: x.value.slice(0, 80) }] : [];
+    });
+    out.push({ id, name: (typeof r.name === "string" ? r.name : id).slice(0, 100), options });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}

@@ -5,7 +5,9 @@ import { webhooksEnabled } from "@/lib/atlassian/jira-webhooks-server";
 import { jiraConfigured, jiraGet, jiraProjectDetail, type JiraConnectionRow } from "@/lib/atlassian/server";
 import { parseFieldMap } from "@/lib/atlassian/field-map";
 import { proposeTypeMapping } from "@/lib/atlassian/type-mapping";
-import { readJiraCatalog, readJiraSiteFields, type JiraSiteFields } from "@/lib/atlassian/catalog-server";
+import { readJiraCatalog, readJiraSelectFields, readJiraSiteFields, type JiraSiteFields } from "@/lib/atlassian/catalog-server";
+import { InitiativeSelectCard } from "@/components/initiative-select-card";
+import { parseSelectMap, selectRowsToMap } from "@/lib/atlassian/select-map";
 import { buildMappingView, type MappingView } from "@/lib/tracker-fields/view";
 import { parseConfigRows } from "@/lib/tracker-fields/mapping";
 import type { TrackerCatalog } from "@/lib/tracker-fields/catalog";
@@ -13,7 +15,7 @@ import type { TrackerSection } from "@/lib/tracker-fields/sections";
 import { requireWorkspace } from "@/lib/session";
 import { canEditItems } from "@pv/domain";
 import { EpicProjectsCard, type EpicProjectSite } from "./epic-projects-card";
-import { checkJiraNow, copyJiraFieldConfig, disconnectJira, readJiraNow, retryJiraEvent, reviewJiraIssues, saveJiraFieldConfig, saveJiraProject, startJiraConnection } from "./actions";
+import { checkJiraNow, copyJiraFieldConfig, disconnectJira, readJiraNow, retryJiraEvent, reviewJiraIssues, saveJiraFieldConfig, saveJiraSelectMap, saveJiraProject, startJiraConnection } from "./actions";
 
 type ProjectSearch = { values: { key: string; name: string; projectTypeKey: string; style?: string }[] };
 type LinkRow = { id: string; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; initiative_type_name: string; epic_type_id: string | null; epic_type_name: string | null; task_type_id: string | null; task_type_name: string | null };
@@ -138,6 +140,13 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
     const saved = ((configRows ?? []) as { project_id: string; slot: string; enabled: boolean; field_id: string | null; label_text?: string | null }[]).filter((r) => r.project_id === l.project_id).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id, text: r.label_text ?? null }));
     mappings.set(l.project_id, buildMappingView({ tracker: "jira", rows: parseConfigRows(saved, "jira"), jiraMap: parseFieldMap(storedMaps.get(l.project_id)), choices: site ? { startDates: site.startDates, themes: site.themes, priorities: site.priorities, dateFields: site.dateFields, proposal: site.proposal } : null }));
   }
+  // "Initiative fields" (issue #512): Health, Initiative Status and Initiative Phase on custom select fields of the initiative issue
+  let selectCard: React.ReactNode = null;
+  if (canAdmin && onMapping && selected) {
+    const { data: selRows } = await supabase.from("jira_select_map").select("slot, field_id, direction, options").eq("tenant_id", active.tenantId).eq("project_id", selected.project_id);
+    const selFields = await readJiraSelectFields(selected.connection_id, selected.site_id, selected.jira_project_key, selected.initiative_type_id).catch((): null => null);
+    selectCard = <InitiativeSelectCard projectId={selected.project_id} projectName={((projectRows ?? []) as { id: string; name: string }[]).find((p) => p.id === selected.project_id)?.name ?? "this project"} saved={parseSelectMap(selectRowsToMap(selRows))} fields={selFields} action={saveJiraSelectMap} />;
+  }
   const catalogs: TrackerCatalog[] = canAdmin && onMapping && selected
     ? [await readJiraCatalog(selected.connection_id, selected.site_id, selected.jira_project_key).catch((): null => null)].filter((c): c is TrackerCatalog => c !== null)
     : [];
@@ -208,7 +217,7 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
       connections={connections} canAdmin={canAdmin} configured={configured} status={status} why={why} checked={checkedN ? { c: checkedN, ch: changedN ?? "0", m: missingN ?? "0" } : undefined}
       connectAction={startJiraConnection} disconnectAction={disconnectJira} projectLinks={projectLinks} choices={choices} sync={sync} saveProjectAction={saveJiraProject} readAction={readJiraNow}
       checkAction={checkJiraNow} section={section} catalogs={catalogs} retryAction={retryJiraEvent} canEdit={canEdit} reviewAction={reviewJiraIssues} fieldConfigAction={saveJiraFieldConfig}
-      header={header} selectedProject={selected?.project_id} copyAction={copyJiraFieldConfig} version={t}
+      header={header} selectedProject={selected?.project_id} copyAction={copyJiraFieldConfig} version={t} mappingExtra={selectCard}
       projectsExtra={<EpicProjectsCard sites={epicSites} status={status} saved={epicSites.some((e) => e.ticked.length > 0)} />}
     />
   );

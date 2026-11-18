@@ -2,6 +2,7 @@ import "server-only";
 import { jiraProjectDetail, jiraGet } from "./server";
 import type { JiraField, JiraIssueSample } from "./field-catalog";
 import { priorityChoices, proposePriorities, startDateChoices, themeChoices, type FieldChoice, type Moscow } from "./field-map";
+import { parseCreateMeta, type SelectFieldInfo } from "./select-map";
 import { jiraCatalogGroups, type CatalogEntry, type TrackerCatalog } from "@/lib/tracker-fields/catalog";
 
 const KEY = /^[A-Z][A-Z0-9_]{1,19}$/;
@@ -45,4 +46,10 @@ export async function readJiraSiteFields(connectionId: string, siteId: string): 
   const prio = priorityChoices(priorities);
   const entries = jiraCatalogGroups({ fields, issues: [], priorities: prio, issueTypes: [] })[0]!.entries;
   return { startDates: startDateChoices(fields), themes: themeChoices(fields), priorities: prio, proposal: proposePriorities(prio), dateFields: entries.filter((e) => e.kind === "date" && /^(duedate|customfield_\d{1,9})$/.test(e.id)), entries };
+}
+
+/** The single-select custom fields (with options) of the create screen of the project's initiative issue type: what Health, Initiative Status and Phase can be mapped to (issue #512). Throws when Jira can not be read. */
+export async function readJiraSelectFields(connectionId: string, siteId: string, projectKey: string, issueTypeId: string): Promise<SelectFieldInfo[]> {
+  if (!KEY.test(projectKey) || !/^\d{1,12}$/.test(issueTypeId)) throw new Error("Not a Jira project or issue type");
+  return parseCreateMeta(await jiraGet<unknown>(connectionId, siteId, `/issue/createmeta/${projectKey}/issuetypes/${issueTypeId}?maxResults=200`));
 }
