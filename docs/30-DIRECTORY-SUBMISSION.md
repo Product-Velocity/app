@@ -1,6 +1,6 @@
 # Connectors Directory submission pack
 
-Status: ready to paste, **not submitted** (the portal needs Ashu's own signed-in Claude account). Written 2026-11-17 from Anthropic's pages "Submit a connector to the directory", "Connector pre-submission checklist" and "Authentication for connectors". Context and decisions: `docs/decisions/2026-11-17-connector-directory.md`.
+Status: **approved; the connector is live in the Connectors Directory** (Ashu, 2026-11-18). Kept as the record of the submission pack, and for resubmitting or editing the listing. Written 2026-11-17 from Anthropic's pages "Submit a connector to the directory", "Connector pre-submission checklist" and "Authentication for connectors". Context and decisions: `docs/decisions/2026-11-17-connector-directory.md`.
 
 Portal: https://claude.ai/directory/manage, **Submit new**, **MCP connector**. Any paid Claude plan. **No password or secret belongs in this file** (the repo is public until go-live): the reviewer password is in the private credentials file Claude created for Ashu, and goes only into the portal's "Test & launch" step.
 
@@ -50,7 +50,23 @@ You sign in to Product Velocity, choose one or several workspaces and approve on
 You need a Product Velocity account in a workspace where an admin has switched AI assistants on. Setup, tools, permissions and troubleshooting: https://productvelocity.app/connector. Privacy policy: https://productvelocity.app/privacy.
 ```
 
-**4. Use cases.** Primary use cases: (a) turn a brief into a PRD or discovery document and register the initiative; (b) create and update several initiatives from a list; (c) prepare the evidence for a decision gate. Before connecting users need: a Product Velocity account in a workspace where an admin switched AI assistants on (Connect an AI assistant); a Creator or Admin role to make changes (other roles read). The connector **reads and writes**.
+**4. Use cases.** The portal step has three use case / example prompt pairs, a Prerequisites box and a Read/write choice. It is shown to reviewers, not on the public listing. The prompts work in the Meridian Media reviewer workspace (R-01 and R-07 are in Build, R-07 is At Risk, R-04 is in Define).
+
+| Use case | Example prompt |
+|---|---|
+| Report on the roadmap | `Which initiatives are in the Build phase, and which of them are At Risk?` |
+| Write a PRD and create the initiative | `Write a short PRD for "Offline listening for podcasts" and create the initiative in group Content tools, project Meridian Streaming. Save it as a draft.` |
+| Prepare the evidence for a decision gate | `What is missing before R-04 can pass its gate?` |
+
+If the use case fields are single-line and cut the text, shorten the second prompt to `Write a short PRD for Offline listening for podcasts and create the initiative as a draft.` (the workspace has one project).
+
+Prerequisites (no password here; the password goes only into step 8):
+
+```
+A Product Velocity account in a workspace where an admin has switched AI assistants on (Connect an AI assistant in the account menu). The Creator or Admin role is needed to make changes; other roles can connect and read. For review, the test account anthropic-review@productvelocity.app is an Admin of the fictional workspace Meridian Media; its password is in the Test & launch step.
+```
+
+Read/write capabilities: **Read and write**.
 
 **5. Company.** Company name and website: Ashu to enter the legal entity name (still open, `docs/17`); website `https://productvelocity.app`. Primary contact for review updates: Ashu Mathura, ashu.mathura@gmail.com.
 
