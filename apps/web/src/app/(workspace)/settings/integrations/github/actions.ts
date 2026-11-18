@@ -5,7 +5,8 @@ import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { configRowsFromForm } from "@/lib/tracker-fields/form";
 import { validateConfig } from "@/lib/tracker-fields/mapping";
-import { runConnectionDiagnostics, signInstallState, type CheckResult } from "@pv/github";
+import { parseBoard, runConnectionDiagnostics, signInstallState, type CheckResult } from "@pv/github";
+import { boardSelectsFromForm, validateBoardSelects } from "@/lib/github/board-selects-form";
 import { confirmInstalledConnection, githubAppSlug, githubSecret, githubSourceControl, refreshConnection, type ConnectionRow } from "@/lib/github/server";
 import { retryEvent, runCheck } from "@/lib/github/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -181,6 +182,41 @@ export async function saveGithubFieldConfig(form: FormData): Promise<void> {
   const checked = validateConfig("github", configRowsFromForm("github", get, (k) => form.has(k)), null);
   if (!checked.ok) back(`status=field-config-invalid&why=${encodeURIComponent(checked.errors.join(" ").slice(0, 400))}`);
   const { error } = await ctx.supabase.rpc("tracker_set_field_config", { p_project: project, p_rows: checked.rows.map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field, text: r.text ?? null })) });
+  revalidatePath(`${PATH}/mapping`);
+  back(`status=${error ? "error" : "field-config-saved"}`);
+}
+
+/**
+ * Saves the "Initiative fields" card of a project's linked board (issue #513): Health, Initiative Status and Initiative Phase on single-select fields.
+ * The fields and options are read from the board at save time and the mapping is checked against them; it is stored with the board in
+ * `projects.github_board`, next to the other board fields. Admin only (a person, never Claude); nothing is written to GitHub.
+ */
+export async function saveGithubBoardSelects(form: FormData): Promise<void> {
+  const ctx = await adminOnly();
+  if (!ctx) redirect(`${PATH}?status=not-admin`);
+  const get = (k: string) => String(form.get(k) ?? "").trim();
+  const project = get("project");
+  const back: (qs: string) => never = (qs) => redirect(`${PATH}/mapping?project=${encodeURIComponent(project)}&${qs}&t=${Date.now()}`);
+  const invalid = (why: string): never => back(`status=field-config-invalid&why=${encodeURIComponent(why.slice(0, 400))}`);
+  const { data: proj } = await ctx.supabase.from("projects").select("github_board").eq("id", project).eq("tenant_id", ctx.active.tenantId).maybeSingle();
+  const board = parseBoard(proj?.github_board);
+  if (!board) return invalid("This project has no linked GitHub Project. Link one under Connect and configure first.");
+  const sc = githubSourceControl();
+  const { data: conn } = await ctx.supabase.from("github_connections").select("installation_id").eq("tenant_id", ctx.active.tenantId).eq("state", "connected").maybeSingle();
+  const installationId = (conn as { installation_id?: number | null } | null)?.installation_id;
+  if (!sc || !installationId) return invalid("GitHub is not connected for this workspace.");
+  const fields = await sc.getBoardFields(installationId, board.id).catch((): null => null);
+  if (!fields) return invalid("The fields of this board could not be read just now, so the initiative fields cannot be saved. Try again in a minute.");
+  const selects = boardSelectsFromForm(get, fields);
+  const m = board.mapping;
+  const taken = [m.priority, m.group, m.dueDate, m.size, m.status, m.iteration].flatMap((r) => (r ? [r.id] : []));
+  const errors = validateBoardSelects(selects, fields, taken);
+  if (errors.length > 0) return invalid(errors.join(" "));
+  const { selects: _old, ...rest } = m;
+  void _old;
+  const stored = parseBoard({ id: board.id, number: board.number, title: board.title, url: board.url, mapping: { ...rest, ...(selects ? { selects } : {}) } });
+  if (!stored) return invalid("That mapping could not be saved.");
+  const { error } = await ctx.supabase.from("projects").update({ github_board: stored }).eq("id", project).eq("tenant_id", ctx.active.tenantId);
   revalidatePath(`${PATH}/mapping`);
   back(`status=${error ? "error" : "field-config-saved"}`);
 }

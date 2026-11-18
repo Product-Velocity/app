@@ -42,7 +42,7 @@ describe("hard boundaries (rules 2 and 6)", () => {
       expect(FROM_TRACKER[t].has("initiative_status")).toBe(false);
       // CLAUDE.md rule 6 was amended on 2026-11-18 (issue #512): a Jira custom select field may carry Initiative Status, and a change that comes back from
       // Jira is a suggestion a person accepts. It is still never FROM_TRACKER (read-only, set by the tracker): Product Velocity owns it.
-      expect(mappingRows(t).filter((r) => r.key === "initiative_status").every((r) => r.direction === (t === "jira" ? "two_way" : "not_synced"))).toBe(true);
+      expect(mappingRows(t).filter((r) => r.key === "initiative_status").every((r) => r.direction === "two_way")).toBe(true);
     }
   });
   it("only allowlisted fields have a slot that sends (the same lists the payload builders read)", () => {
