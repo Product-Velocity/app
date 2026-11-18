@@ -14,6 +14,7 @@ export const HELP_REFERENCE: { slug: string; title: string; summary: string }[] 
   { slug: "columns", title: "Fields and how they sync", summary: "Every column: what it is, how it syncs with GitHub and Jira, who can edit it and how it is updated." },
   { slug: "goal-fields", title: "Goal and outcome fields", summary: "The columns that record the expected impact, the key result and the outcome review." },
   { slug: "phases", title: "Phase by phase", summary: "For each phase: the question, the work, the evidence you keep, and how Product Velocity and AI co-workers help." },
+  { slug: "statuses", title: "Phases and statuses: the lists", summary: "Every value of phase, status, health and planning status, what each means, and how to set them in common cases." },
   { slug: "sync-rules", title: "Sync steps and status rules", summary: "Connecting a tracker step by step, what flows each way, and which status changes where." },
   { slug: "attention", title: "Needs attention: the reasons", summary: "Every reason an initiative appears on Needs attention, when it shows and the next step." },
   { slug: "report-definitions", title: "Reports and how numbers are counted", summary: "What each report answers and what is on it, with the definitions behind Roadmap Health." },

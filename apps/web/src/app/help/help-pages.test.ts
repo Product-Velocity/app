@@ -14,6 +14,7 @@ import ColumnsHelp from "./columns/page";
 import ShortcutsHelp from "./shortcuts/page";
 import GoalFieldsHelp from "./goal-fields/page";
 import PhasesHelp from "./phases/page";
+import StatusesHelp from "./statuses/page";
 import SyncRulesHelp from "./sync-rules/page";
 import AttentionHelp from "./attention/page";
 import ReportDefinitionsHelp from "./report-definitions/page";
@@ -21,7 +22,7 @@ import AiUseCasesHelp from "./ai-use-cases/page";
 
 const PAGES: Record<string, () => React.JSX.Element> = {
   "": HelpHome, okrs: OkrsPage, lifecycle: LifecyclePage, alignment: AlignmentPage, reports: ReportsHelp, delivery: DeliveryHelp, ai: AiHelp,
-  "ai-setup": AiSetupHelp, columns: ColumnsHelp, shortcuts: ShortcutsHelp, "goal-fields": GoalFieldsHelp, phases: PhasesHelp, "sync-rules": SyncRulesHelp, attention: AttentionHelp,
+  "ai-setup": AiSetupHelp, columns: ColumnsHelp, shortcuts: ShortcutsHelp, "goal-fields": GoalFieldsHelp, phases: PhasesHelp, statuses: StatusesHelp, "sync-rules": SyncRulesHelp, attention: AttentionHelp,
   "report-definitions": ReportDefinitionsHelp, "ai-use-cases": AiUseCasesHelp,
 };
 const html: Record<string, string> = Object.fromEntries(Object.entries(PAGES).map(([k, P]) => [k, renderToStaticMarkup(createElement(P))]));
@@ -72,6 +73,15 @@ describe("Help pages", () => {
     expect(text(html.delivery!)).toMatch(/Jira/);
     expect(text(html.ai!)).toMatch(/Discovery/);
     expect(text(html.ai!)).toMatch(/PRD/);
+  });
+  it("lists every phase and status value, with Backlog separate from On hold", () => {
+    const t = text(html.statuses!);
+    expect(t).toContain("Discover · Define · Build · Test · Experiment · Roll-out · Completed · Sunset");
+    expect(t).toContain("Backlog · Active · On hold · Completed · Cancelled");
+    expect(t).toContain("On Track · At Risk · Delayed · Blocked");
+    expect(t).toContain("Backlog · Not started · Candidate · Included · Committed · Deferred · Dropped");
+    expect(t).toContain("Not started · In progress · Done · Cancelled");
+    expect(t).toMatch(/never sent to GitHub or Jira/);
   });
   it("never says an AI co-worker approves, and keeps commercial fields out of the trackers", () => {
     for (const [k, h] of Object.entries(html)) expect(text(h), k).not.toMatch(/(Claude|an AI co-worker|AI) (can )?approve[sd]? /i);
