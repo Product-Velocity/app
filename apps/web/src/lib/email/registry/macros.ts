@@ -19,6 +19,7 @@ export const MACRO_CATALOG = {
   session: { kind: "text", fallback: "the session", sample: "Q1 priorities", label: "Alignment session name" },
   closes: { kind: "text", fallback: "", sample: "12 Dec 2026", label: "Closing date" },
   expires: { kind: "text", fallback: "60 minutes", sample: "60 minutes", label: "How long the link or code works" },
+  teams: { kind: "text", fallback: "not stated", sample: "2 to 5", label: "Number of product teams" },
   product: { kind: "text", fallback: "Product Velocity", sample: "Product Velocity", label: "Product name" },
 } as const satisfies Record<string, MacroDef>;
 

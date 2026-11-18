@@ -1,0 +1,13 @@
+---
+date: 2026-11-18
+by: Ashu
+request: 498
+---
+**The website starts as one homepage inside the app, at productvelocity.app, for signed-out visitors.** Ashu (2026-11-18): "build the website for now on productvelocity.app. Keep the sign-in page separate as is today with the same look and feel. However, update the copy to match the hero section." This replaces, for now, the plan in `docs/17-WEBSITE-AND-BRAND.md` of a separate static `apps/site` on the root domain with the product on `app.`: nothing is split yet, and the separate site can still come later (the homepage lives in `apps/web/src/app/(marketing)` so it can be moved).
+
+- `/` shows the homepage to a signed-out visitor; a signed-in person is sent into the app as before. Sign-in, create-account, invitation and reset screens keep their layout; their brand side (`AUTH_BRAND`) now uses the hero wording.
+- The design is the approved claude.ai artifact CaU6PnxWdHJAoqjGDi6L8D (v22). Its pictures are wireframes (`art.ts`), not screenshots. From now on the code is the source: edit the TSX and `marketing.css`.
+- **Early-access form:** sends one email to the contact address in `lib/public-contact.ts` (registry key `site.early-access`) and stores nothing, so there is no new table. Five requests an hour per address and per visitor; a hidden field turns bots away. Before real traffic, decide where requests should live (a table or the CRM).
+- **Claims:** only Claude is named as a connected AI, because it is live in the Claude connector directory; Gemini and ChatGPT are not named until verified. "Tracked", not "measured". The Claude link goes to https://claude.ai/directory/connectors/product-velocity.
+- **Search and AI:** title, description, canonical, Open Graph and Twitter tags, schema.org data (Organization, WebSite, SoftwareApplication; no ratings or prices), `sitemap.xml`, `robots.txt` (public pages only) and `llms.txt` (plain-text summary for AI assistants).
+- **Analytics:** Google Tag Manager loads on the homepage only, and only when `NEXT_PUBLIC_GTM_ID` is set to a `GTM-XXXX` id. Consent Mode starts with everything denied; the consent banner configured in the container grants it. The app screens never load it.

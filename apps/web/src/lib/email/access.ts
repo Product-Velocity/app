@@ -17,3 +17,8 @@ export function buildAccessApprovedEmail(input: { workspace: string; link: strin
 export function buildLinkCodeEmail(input: { code: string; siteUrl?: string; override?: Partial<TemplateText> | null }): PlainEmail {
   return buildEmail("app.link-code", { values: { code: input.code, expires: "15 minutes" }, siteUrl: input.siteUrl ?? DEFAULT_SITE_URL, override: input.override });
 }
+
+/** To the Product Velocity contact address when someone asks for early access on the public homepage (issue #498). Registry key site.early-access. */
+export function buildEarlyAccessEmail(input: { name: string; email: string; company: string; role: string; teams: string; siteUrl?: string; override?: Partial<TemplateText> | null }): PlainEmail {
+  return buildEmail("site.early-access", { values: { name: input.name, requester: input.email, workspace: input.company, role: input.role, teams: input.teams || "not stated" }, siteUrl: input.siteUrl ?? DEFAULT_SITE_URL, override: input.override });
+}
