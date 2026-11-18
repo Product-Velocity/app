@@ -4,7 +4,6 @@ import { SELECT_SLOTS, compareSelect, parseSelectMap, readSelectValue, selectCho
 
 // Issue #512: Health, Initiative Status and Initiative Phase mapped to custom select fields of the Jira issue that is the initiative.
 
-const HEALTH = FIELD_BY_KEY.health!.allowed;
 const map = (over: Partial<SelectMap> = {}): SelectMap => ({
   "jira.select.health": { field: "customfield_10100", direction: "two_way", options: { "On Track": "201", "At Risk": "202", Delayed: "203", Blocked: "204" } },
   ...over,
