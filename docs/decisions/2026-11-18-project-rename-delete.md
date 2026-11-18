@@ -1,0 +1,13 @@
+---
+date: 2026-11-18
+by: Ashu ("Create the feature to rename and delete a PV project. Confirm to delete the initiatives and all data and then delete (follow deletion process)"), written by Claude
+request: 526
+---
+**An admin can rename a project and delete it with everything in it, from Settings, Workspace, Projects (issue #526).** Until now projects could only be created (Portfolio).
+
+- **Rename.** `project_rename(project, name)`: a human workspace admin only (never Claude, service accounts, creators, viewers or another workspace); the name is trimmed, 1 to 120 characters and unique in the workspace (case and spaces ignored); audited (old and new name, source UI). Names already written to Jira or GitHub (the `pm:project/<name>` label) change at the next confirmed Sync.
+- **Delete follows the deletion process of initiatives** (`0017_items_soft_delete.sql`): the live initiatives go to the **Trash** with `delete_items()`, then every initiative of the project (those just trashed and any already in the Trash) is **deleted for good** with `purge_items()` (admin only, only from the Trash, minimal audit), then the project row is deleted and its saved-scope membership, Jira link and read issue list, field configuration, select mappings and the rest keyed by the project go with it by cascade. `items.home_project_id` is the only key that does not cascade, which is why the initiatives go first. **One transaction**: any refusal rolls everything back, nothing is half deleted.
+- **Confirmation.** The admin types the project's name (case and spaces ignored; the database checks it too). The dialog names the exact counts (live and already in the Trash) and says that documents, attachments and files, votes, comments, alignment results and their history go, that the tracker link goes, **that Jira and GitHub are not changed**, and that it cannot be undone. The button stays disabled until the name matches.
+- **Files.** The database cannot reach storage: `project_delete` returns the storage paths of the attached files and the app removes the bytes afterwards (best effort, the message says how many could not be removed). The Trash purge of single initiatives does not do this today (it leaves the bytes); this is a known gap of that older path and is not changed here.
+- **Not built.** Restoring a deleted project (a deleted project is gone for good: this is the difference from deleting initiatives, which can be restored for 30 days, because an initiative in the Trash still needs its project); deleting the issues in Jira or GitHub.
+- **Parity.** Both trackers: the Jira link and the GitHub links and board mapping go through the same cascades; neither tracker is written to.
