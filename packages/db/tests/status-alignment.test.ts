@@ -72,6 +72,11 @@ describe("status alignment migration", () => {
     expect(await item("c")).toMatchObject({ planning_status: "Committed", initiative_status: "On hold", status: "Done" });
   });
 
+  it("Initiative Status accepts Backlog (issue #504) and Planning Status keeps its own Backlog", async () => {
+    await db.admin.query("update public.items set initiative_status = 'Backlog', planning_status = 'Backlog' where id = $1", [ids.c]);
+    expect(await item("c")).toMatchObject({ initiative_status: "Backlog", planning_status: "Backlog" });
+  });
+
   it("people set Planning Status and Initiative Status, nobody signed in sets Build Status", async () => {
     await db.asUser(f.alice, (q) => q("update public.items set planning_status = 'Included', initiative_status = 'Active' where id = $1", [ids.c]), { commit: true });
     expect(await item("c")).toMatchObject({ planning_status: "Included", initiative_status: "Active" });

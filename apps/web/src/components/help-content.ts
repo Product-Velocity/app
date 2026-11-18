@@ -238,7 +238,7 @@ export const FLOW_LIFECYCLE: Table = {
 
 export const LIFECYCLE_NOTES = [
   "People move the phase. Claude and the tracker never do; the app may suggest Test when the build is done in GitHub or Jira. A suggestion is one click for you to accept.",
-  "Initiative Status (Active, On hold, Completed, Cancelled) is set by people only. Setting it to Completed moves the phase to Completed; a closed ticket means the build is done, not the initiative.",
+  "Initiative Status (Backlog, Active, On hold, Completed, Cancelled) is set by people only. Backlog is an initiative that has not started and is parked; On hold is one that was running and was paused. Setting it to Completed moves the phase to Completed; a closed ticket means the build is done, not the initiative.",
   "The phase cell in the grid is read-only. Use Request gate, Decide or Move to next phase (item panel, multi-select bar, command palette).",
   "Items sync to GitHub or Jira from Gate B. Before that, an optional Request engineering review sends the name, summary, description and hypothesis while the PRD is in review. Discover never syncs.",
   "Syncing stops 14 days after an initiative is Completed or Cancelled; an approver or admin can resume it.",
@@ -311,7 +311,7 @@ export const GATES_NOTES = [
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // Status changes (issue #358, docs/decisions/2026-11-06-ready-at-gate-b.md): which status changes, what triggers it, when, where, and the exact state names.
 
-export const STATUS_INTRO = "Three different things are called status. Initiative Phase (Discover to Completed) and Initiative Status (Active, On hold, Completed, Cancelled) belong to Product Velocity and are changed by people. Build Status (Not started, In progress, Done, Cancelled) belongs to the tracker and is read-only here. Product Velocity writes to a tracker in only three cases, always after you confirm in Sync, and never for an issue that is only followed.";
+export const STATUS_INTRO = "Three different things are called status. Initiative Phase (Discover to Completed) and Initiative Status (Backlog, Active, On hold, Completed, Cancelled) belong to Product Velocity and are changed by people. Build Status (Not started, In progress, Done, Cancelled) belongs to the tracker and is read-only here. Product Velocity writes to a tracker in only three cases, always after you confirm in Sync, and never for an issue that is only followed.";
 
 export const STATUS_TO_TRACKER: Table = {
   head: ["What happens in Product Velocity", "Trigger and when", "GitHub: from → to", "Jira: from → to", "Never happens when"],
@@ -373,7 +373,7 @@ export const REPORTS_LIST: Table = {
 export const ROADMAP_HEALTH_DEFINITIONS: Table = {
   head: ["Term", "How it is counted"],
   rows: [
-    ["Active", "Initiative Status is Active. On hold, Completed and Cancelled are not counted (completed ones feed only the completed delivery duration)."],
+    ["Active", "Initiative Status is Active. Backlog, On hold, Completed and Cancelled are not counted (completed ones feed only the completed delivery duration)."],
     ["Blocked, At Risk, Delayed", "The Health column of active initiatives, counted separately. Click one to filter every chart and the list to it; click again to remove it."],
     ["Days in current phase", "Today minus the start date of the phase the initiative is in (Start Discovery, Start Definition, Start Building, Start Test, Start Experiment, Start Roll-Out), else the day Phase Changed At."],
     ["Age", "Today minus Start Date, else Planned Start."],
