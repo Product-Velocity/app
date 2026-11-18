@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SelectField } from "@/components/search-list";
+import { unlinkConfirmation, type ReleaseChoice } from "@/lib/atlassian/link-status";
 import { initiativeLevelHint, sortTypesByLevel, typeOptionLabel } from "@/lib/atlassian/type-mapping";
 
 export type JiraTypeOption = { id: string; name: string; hierarchyLevel: number; subtask: boolean };
@@ -12,13 +13,15 @@ export type JiraRowLink = { value: string; initiative: string; epic: string | nu
  * One row of the Projects table on the Jira page, the twin of GitHub's ProjectRow: delivery tracker, then (for Jira) the Jira project and which of
  * ITS issue types are an initiative, an epic and a task. One Save, no second step. The server reads the project and its types from Jira again.
  */
-export function JiraProjectRow({ project, tracker, link, choices, canEdit, action }: {
+export function JiraProjectRow({ project, tracker, link, choices, canEdit, action, linkedInitiatives = 0 }: {
   project: { id: string; name: string };
   tracker: string | null;
   link: JiraRowLink | null;
   choices: JiraProjectChoice[];
   canEdit: boolean;
   action: (formData: FormData) => void | Promise<void>;
+  /** Initiatives of this project that are linked to Jira issues: unlinking asks what to do with them. */
+  linkedInitiatives?: number;
 }) {
   const otherTracker = tracker !== null && tracker !== "jira";
   const [mode, setMode] = useState<"jira" | "none">(link || tracker === "jira" ? "jira" : "none");
@@ -27,6 +30,8 @@ export function JiraProjectRow({ project, tracker, link, choices, canEdit, actio
   const [initiative, setInitiative] = useState(link?.initiative ?? "");
   const [epic, setEpic] = useState(link?.epic ?? "");
   const [task, setTask] = useState(link?.task ?? "");
+  const [confirming, setConfirming] = useState(false);
+  const [release, setRelease] = useState<ReleaseChoice>("keep");
   const pick = (v: string) => {
     setJira(v);
     const c = choices.find((x) => x.value === v);
@@ -45,6 +50,7 @@ export function JiraProjectRow({ project, tracker, link, choices, canEdit, actio
       </tr>
     );
   }
+  const needsConfirm = mode === "none" && link !== null && linkedInitiatives > 0;
   const ready = mode === "none" ? link !== null || tracker === "jira" : Boolean(chosen && initiative && new Set([initiative, epic, task].filter(Boolean)).size === [initiative, epic, task].filter(Boolean).length);
   return (
     <>
@@ -66,11 +72,33 @@ export function JiraProjectRow({ project, tracker, link, choices, canEdit, actio
             <input type="hidden" name="initiative" value={initiative} />
             <input type="hidden" name="epic" value={epic} />
             <input type="hidden" name="task" value={task} />
-            <button className="btn" type="submit" disabled={!ready} aria-label={`Save ${project.name}`}>Save</button>
+            {needsConfirm
+              ? <button className="btn" type="button" disabled={!ready} aria-label={`Unlink ${project.name}`} aria-expanded={confirming} onClick={() => setConfirming(true)}>Unlink…</button>
+              : <button className="btn" type="submit" disabled={!ready} aria-label={`Save ${project.name}`}>Save</button>}
           </form>
         )}
       </td>
     </tr>
+    {needsConfirm && confirming && (
+      <tr>
+        <td colSpan={6}>
+          <form action={action} className="stack" aria-label={`Unlink ${project.name} from Jira`} role="group">
+            <input type="hidden" name="project" value={project.id} />
+            <input type="hidden" name="tracker" value="none" />
+            <fieldset className="stack">
+              <legend>{project.name} has {linkedInitiatives} initiative{linkedInitiatives === 1 ? "" : "s"} linked to Jira issues. What should happen to {linkedInitiatives === 1 ? "it" : "them"}?</legend>
+              <label className="radio-line"><input type="radio" name="release" value="keep" checked={release === "keep"} onChange={() => setRelease("keep")} /> Keep {linkedInitiatives === 1 ? "it" : "them"} in Product Velocity (recommended)</label>
+              <label className="radio-line"><input type="radio" name="release" value="delete" checked={release === "delete"} onChange={() => setRelease("delete")} /> Delete {linkedInitiatives === 1 ? "it" : "them"} (moves to the Trash)</label>
+            </fieldset>
+            <ul role="status">{unlinkConfirmation(linkedInitiatives, release).consequences.map((c) => <li key={c}>{c}</li>)}</ul>
+            <div>
+              <button className={`btn ${unlinkConfirmation(linkedInitiatives, release).danger ? "btn-danger" : "primary"}`} type="submit">{unlinkConfirmation(linkedInitiatives, release).button}</button>{" "}
+              <button className="btn" type="button" onClick={() => setConfirming(false)}>Cancel</button>
+            </div>
+          </form>
+        </td>
+      </tr>
+    )}
     {hint && mode === "jira" && <tr><td colSpan={6} className="muted" role="note">{hint}</td></tr>}
     </>
   );
