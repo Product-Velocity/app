@@ -10,6 +10,7 @@ import { TrackerProjectPicker } from "@/components/tracker-project-picker";
 import { setupSteps, type TrackerSection } from "@/lib/tracker-fields/sections";
 import type { TrackerCatalog } from "@/lib/tracker-fields/catalog";
 import type { MappingView } from "@/lib/tracker-fields/view";
+import { PROBLEM_STATUSES, STATUS_ANCHOR } from "@/lib/atlassian/link-status";
 import { unlinkedFields } from "@/lib/tracker-fields/workbench";
 import { sourceLabel } from "@/lib/atlassian/jira-events";
 import type { JiraConnectionRow } from "@/lib/atlassian/server";
@@ -31,6 +32,7 @@ export const JIRA_NOTICE: Record<string, string> = {
   error: "Something went wrong. Try again.",
   linked: "Linked. The project now uses Jira as its tracker.",
   unlinked: "Unlinked. The project has no tracker again.",
+  "unlink-linked": "Not unlinked: initiatives of this project are linked to Jira issues (for example pulled in from Jira). Remove those initiatives from the roadmap first, then unlink the project. Nothing was changed.",
   read: "Read Jira. The result is under the project.",
   "read-failed": "Jira could not be read. The reason is under the project.",
   "read-reconnect": "Jira no longer accepts the saved sign-in. Sign in again.",
@@ -151,7 +153,7 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
         summary={connected.length > 0 ? connected.flatMap((c) => c.sites.map((x) => x.name)).join(", ") : undefined}
         blurb="Connect this workspace to Jira Cloud. Product Velocity never copies commercial fields (value, confidence, customers, decisions) to Jira."
       />
-      {status && JIRA_NOTICE[status] && <p role="status" className="notice">{JIRA_NOTICE[status]}</p>}
+      {status && JIRA_NOTICE[status] && (PROBLEM_STATUSES.has(status) ? <p id={STATUS_ANCHOR} role="alert" className="error">{JIRA_NOTICE[status]}</p> : <p id={STATUS_ANCHOR} role="status" className="notice">{JIRA_NOTICE[status]}</p>)}
       {status === "field-config-invalid" && why && <p role="alert" className="error">{why}</p>}
       {status === "checked" && checked && <p role="status" className="notice">Checked {checked.c} linked item(s) against Jira: {checked.ch} changed, {checked.m} issue(s) not found.</p>}
       {needsSignIn && <p role="alert" className="notice">Atlassian no longer accepts the saved sign-in for at least one site. Sign in again to keep it working.</p>}
