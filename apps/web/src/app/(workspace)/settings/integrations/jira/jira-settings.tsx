@@ -6,6 +6,7 @@ import { jiraConfigured, jiraGet, jiraProjectDetail, type JiraConnectionRow } fr
 import { parseFieldMap } from "@/lib/atlassian/field-map";
 import { proposeTypeMapping } from "@/lib/atlassian/type-mapping";
 import { readJiraCatalog, readJiraSelectFields, readJiraSiteFields, type JiraSiteFields } from "@/lib/atlassian/catalog-server";
+import { countWithValues, readStamp } from "@/lib/select-editor/counts";
 import { InitiativeSelectCard } from "@/components/initiative-select-card";
 import { parseSelectMap, selectRowsToMap } from "@/lib/atlassian/select-map";
 import { buildMappingView, type MappingView } from "@/lib/tracker-fields/view";
@@ -16,6 +17,8 @@ import { requireWorkspace } from "@/lib/session";
 import { canEditItems } from "@pv/domain";
 import { EpicProjectsCard, type EpicProjectSite } from "./epic-projects-card";
 import { checkJiraNow, copyJiraFieldConfig, disconnectJira, readJiraNow, retryJiraEvent, reviewJiraIssues, saveJiraFieldConfig, saveJiraSelectMap, saveJiraProject, startJiraConnection } from "./actions";
+
+const MAPPING_PATH = "/settings/integrations/jira/mapping";
 
 type ProjectSearch = { values: { key: string; name: string; projectTypeKey: string; style?: string }[] };
 type LinkRow = { id: string; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; initiative_type_name: string; epic_type_id: string | null; epic_type_name: string | null; task_type_id: string | null; task_type_name: string | null };
@@ -144,8 +147,14 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
   let selectCard: React.ReactNode = null;
   if (canAdmin && onMapping && selected) {
     const { data: selRows } = await supabase.from("jira_select_map").select("slot, field_id, direction, options").eq("tenant_id", active.tenantId).eq("project_id", selected.project_id);
-    const selFields = await readJiraSelectFields(selected.connection_id, selected.site_id, selected.jira_project_key, selected.initiative_type_id).catch((): null => null);
-    selectCard = <InitiativeSelectCard projectId={selected.project_id} projectName={((projectRows ?? []) as { id: string; name: string }[]).find((p) => p.id === selected.project_id)?.name ?? "this project"} saved={parseSelectMap(selectRowsToMap(selRows))} fields={selFields} action={saveJiraSelectMap} />;
+    const selRead = await readJiraSelectFields(selected.connection_id, selected.site_id, selected.jira_project_key, selected.initiative_type_id).then(
+      (fields) => ({ fields, error: null as string | null }),
+      (e: unknown) => ({ fields: null, error: e instanceof Error && /reconnect|sign/i.test(e.message) ? "Jira needs a new sign-in. A workspace admin can sign in again on Connect and configure." : "Jira could not be read just now (it refused the request or could not be reached). Read again in a minute." }),
+    );
+    const selFields = selRead.fields;
+    const selError = selRead.error;
+    const selCounts = await countWithValues(supabase, active.tenantId, selected.project_id, "item_jira_links");
+    selectCard = <InitiativeSelectCard projectId={selected.project_id} projectName={((projectRows ?? []) as { id: string; name: string }[]).find((p) => p.id === selected.project_id)?.name ?? "this project"} saved={parseSelectMap(selectRowsToMap(selRows))} fields={selFields} action={saveJiraSelectMap} fieldsError={selError} counts={selCounts} readAt={readStamp()} readHref={`${MAPPING_PATH}?project=${encodeURIComponent(selected.project_id)}`} />;
   }
   const catalogs: TrackerCatalog[] = canAdmin && onMapping && selected
     ? [await readJiraCatalog(selected.connection_id, selected.site_id, selected.jira_project_key).catch((): null => null)].filter((c): c is TrackerCatalog => c !== null)

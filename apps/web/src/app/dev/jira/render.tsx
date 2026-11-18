@@ -1,3 +1,4 @@
+import { InitiativeSelectCard } from "@/components/initiative-select-card";
 import { notFound } from "next/navigation";
 import type { TrackerSection } from "@/lib/tracker-fields/sections";
 import { buildMappingView } from "@/lib/tracker-fields/view";
@@ -90,5 +91,6 @@ export async function renderJiraHarness(searchParams: Promise<Record<string, str
   }];
   return <JiraConnectionsView catalogs={catalogs} connections={connections} canAdmin={q.role !== "viewer"} configured={q.configured !== "0"} status={q.status} connectAction={connectNoop} disconnectAction={disconnectNoop}
     projectLinks={q.state === "none" ? [] : projectLinks} choices={choices} sync={sync} basePath="/dev/jira" section={section} saveProjectAction={formNoop} readAction={formNoop} checkAction={connectNoop} retryAction={retryNoop} canEdit={q.role !== "viewer"} reviewAction={formNoop} fieldConfigAction={formNoop} copyAction={formNoop}
+    mappingExtra={<InitiativeSelectCard projectId="p1" projectName="Platform" saved={{ "jira.select.health": { field: "customfield_10100", direction: "two_way", options: { "On Track": "201", "At Risk": "202" } } }} fields={[{ id: "customfield_10100", name: "Health", options: [{ id: "201", value: "On track" }, { id: "202", value: "At Risk" }, { id: "203", value: "Delayed" }, { id: "204", value: "Blocked" }] }, { id: "customfield_10079", name: "Priority", options: [{ id: "301", value: "Highest" }, { id: "302", value: "High" }, { id: "303", value: "Medium" }] }]} action={formNoop} counts={{ health: 4, initiative_status: 0, initiative_phase: 4 }} readAt="at 16:42 UTC" readHref="/dev/jira/mapping" />}
     header={{ linked: q.state === "none" ? 0 : 1, waiting: q.issues === "none" ? 0 : 40, customised: q.config === "changed", lastCheck: "2026-11-03T05:30:00Z" }} selectedProject="p1" />;
 }
