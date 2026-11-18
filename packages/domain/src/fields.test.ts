@@ -168,6 +168,6 @@ describe("open lists: Focus Area, Audience, Objective and Business Line (issue #
     expect(FIELD_BY_KEY.business_line).toMatchObject({ name: "Business Line", group: "Why" });
     expect(validateEdit("okr_objective", "Every pageview on our publishers earns more")).toMatchObject({ ok: true });
     expect(optionsFor("business_line", ["Direct", "Programmatic", "direct"])).toEqual([{ value: "Direct", label: "Direct" }, { value: "Programmatic", label: "Programmatic" }]);
-    expect(FIELD_BY_KEY.sponsor!.name).toBe("Owner"); // was Sponsor; the key stays
+    expect(FIELD_BY_KEY.sponsor!.name).toBe("Business Owner"); // was Sponsor, then Owner; the key stays. Creator (created_by) is the member who added the item
   });
 });

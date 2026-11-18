@@ -51,7 +51,7 @@ export default function OkrsPage() {
             "Objective and Business Line are independent. Choosing one does not filter or fill the other, and an objective does not carry an owner or value of its own.",
             "Nothing is pre-filled. Your first values become the suggestions, and Product Velocity keeps one spelling for each value.",
             "An initiative has one primary key result. Add more detail in its documents, and keep the number you track in the key result columns.",
-            "Owner is the person who sponsors the initiative. Name the people on the team in the PRD.",
+            "Business Owner is who owns the business case of the initiative, written as a name or an email address; the owners already in use are offered as you type. Name the people on the team in the PRD.",
             "Objectives and key results are strategy, so they are never sent to GitHub or Jira.",
           ]}
         />

@@ -134,7 +134,7 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
   };
 
   const rows = useMemo<GridItem[]>(
-    () => controller.rows.filter((r) => (scope.projectIds === null || scope.projectIds.includes(r.home_project)) && matchesSearch(r, search) && matchesFilters(r, def.filters, { me, today })),
+    () => controller.rows.filter((r) => (scope.projectIds === null || scope.projectIds.includes(r.home_project)) && matchesSearch(r, search, (id) => lookups.members.find((m) => m.user_id === id)?.email ?? "") && matchesFilters(r, def.filters, { me, today })),
     // the controller changes its rows in place; the version says when
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [controller, status.version, scope.projectIds, search, def.filters, me],

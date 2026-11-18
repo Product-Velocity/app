@@ -1,7 +1,7 @@
 import {
   canPurge, canSeeTrash, cleanRelated, cleanSkills, isRelatedField, summarizeChange, toDay, crowdHistory, type ActivityRow, type CrowdRow, type RankDecision, type RelatedField, type RelatedValues,
   applyMove, canBeEmpty, rowFlagTexts, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
-  bulkEditReason, isOpenList, openListValues, resolveGroup, canDeleteItem, placeRestored, type Edit, type EditableField, type Entry, type NewItemValues,
+  bulkEditReason, isOpenList, OPEN_LIST_FIELDS, openListValues, resolveGroup, canDeleteItem, placeRestored, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
 import type { PortfolioDataSource, SaveResult } from "./data-source";
 import type { GridItem, Lookups, LoadedItem, IssueTreeRow, JiraEpicRequestRow, JiraTreeRow } from "./types";
@@ -178,7 +178,7 @@ export class PortfolioController {
     const drafts = rawDrafts.map((d) => {
       let out = d;
       if ("theme" in d && d.theme) out = { ...out, theme: this.canonicalGroup(d.theme) };
-      for (const k of ["focus_area", "audience", "okr_objective", "business_line"] as const) if (k in out && out[k]) out = { ...out, [k]: this.canonicalOpen(k, out[k]) };
+      for (const k of OPEN_LIST_FIELDS) if (k in out && out[k]) out = { ...out, [k]: this.canonicalOpen(k, out[k]) };
       return out;
     });
     if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }

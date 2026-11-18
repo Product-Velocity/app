@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CUSTOMER_SAFE_KEYS, buildGroupedRows, effectiveSort, sortDirectionLabels, sortSummary, healthBreakdown, filterSummary, groupableFields, isCustomerSafe, groupPickerSections, groupSummary, MOST_USED_GROUP_KEYS, matchesFilters, matchesSearch, opsFor, sanitizeView, type Filter } from "./views";
 import { QUICK_FILTERS, customFilters, quickFilterOn, toggleQuickFilter } from "./quick-filters";
-import { FIELDS, FIELD_BY_KEY, HIDDEN_FIELDS } from "./registry";
+import { FIELDS, FIELD_BY_KEY, HIDDEN_FIELDS, VISIBLE_FIELDS } from "./registry";
 import { setDateFormat } from "./dates";
 
 const row = (o: Record<string, unknown> = {}) => ({ id: "i1", item_code: "R-01", initiative_name: "Faster search results", stack_rank: 1, home_project: "p1", ...o });
@@ -84,6 +84,25 @@ describe("matchesSearch", () => {
     expect(matchesSearch(row(), "faster billing")).toBe(false);
     expect(matchesSearch(row(), "   ")).toBe(true);
   });
+  it("also finds who created the item, by the email of the Creator", () => {
+    const by = (id: string) => (id === "u1" ? "ashu@example.com" : "");
+    expect(matchesSearch({ ...row(), created_by: "u1" }, "ashu", by)).toBe(true);
+    expect(matchesSearch({ ...row(), created_by: "u1" }, "ashu search", by)).toBe(true);
+    expect(matchesSearch({ ...row(), created_by: "u2" }, "ashu", by)).toBe(false);
+    expect(matchesSearch({ ...row(), created_by: "u1" }, "ashu")).toBe(false); // no lookup given: the name and code only
+  });
+});
+
+describe("Creator (created_by)", () => {
+  it("is a member field: filterable (with me), groupable and shown in the Columns picker", () => {
+    const def = FIELD_BY_KEY.created_by!;
+    expect(def.type).toBe("Person");
+    expect(def.editable).toBe(false); // read-only: set by the system
+    expect(matchesFilters({ ...row(), created_by: "u1" } as never, [{ field: "created_by", op: "is", value: "me" }], { me: "u1" })).toBe(true);
+    expect(matchesFilters({ ...row(), created_by: "u2" } as never, [{ field: "created_by", op: "is", value: "me" }], { me: "u1" })).toBe(false);
+    expect(groupableFields().map((f) => f.key)).toContain("created_by");
+    expect(VISIBLE_FIELDS.map((f) => f.key)).toContain("created_by");
+  });
 });
 
 describe("filterSummary", () => {
@@ -151,13 +170,13 @@ describe("sanitizeView", () => {
 });
 
 describe("hidden fields", () => {
-  it("Roadmap Category is dropped from saved columns, filters, grouping and sort, and stays in the dictionary", () => {
+  it("Roadmap Category is shown again (2026-11-18): it stays in saved columns, filters, grouping and sort", () => {
     const v = sanitizeView({ columns: ["item_code", "roadmap_category", "theme"], filters: [{ field: "roadmap_category", op: "is", value: "New big bets" }], groupBy: "roadmap_category", sort: [{ field: "roadmap_category", dir: "asc" }] });
-    expect(v.columns).not.toContain("roadmap_category");
+    expect(v.columns).toContain("roadmap_category");
     expect(v.columns).toContain("theme");
-    expect(v.filters).toEqual([]);
-    expect(v.groupBy).toBeNull();
-    expect(v.sort).toBeUndefined();
+    expect(v.filters).toHaveLength(1);
+    expect(v.groupBy).toBe("roadmap_category");
+    expect(v.sort).toBeDefined();
     expect(FIELD_BY_KEY.roadmap_category).toBeDefined();
   });
 });
@@ -380,7 +399,7 @@ describe("two-level grouping and the group picker (issue #437)", () => {
   it("words the grouping for the button", () => {
     expect(groupSummary(null)).toBe("None");
     expect(groupSummary("moscow")).toBe("MoSCoW");
-    expect(groupSummary("status", "sponsor")).toBe("Build Status › Owner");
+    expect(groupSummary("status", "sponsor")).toBe("Build Status › Business Owner");
     expect(groupSummary("moscow", "moscow")).toBe("MoSCoW");
   });
   it("lists the groupable fields under the Columns picker's categories, Most used first, each field once, nothing hidden, nothing taken", () => {
@@ -388,7 +407,7 @@ describe("two-level grouping and the group picker (issue #437)", () => {
     expect(sec[0]!.category).toBe("Most used");
     expect(sec[0]!.fields.map((f) => f.key)).toEqual(MOST_USED_GROUP_KEYS.filter((k) => groupableFields().some((f) => f.key === k)));
     const all = sec.slice(1).flatMap((x) => x.fields.map((f) => f.key));
-    expect(all).not.toContain("roadmap_category"); // hidden in the app: picking it would silently do nothing
+    expect(all).toContain("roadmap_category"); // shown again since 2026-11-18
     expect(all).not.toContain("status"); // Most used holds it; each field is listed once
     expect(all).toContain("sponsor");
     expect(new Set([...sec[0]!.fields.map((f) => f.key), ...all]).size).toBe(sec[0]!.fields.length + all.length);

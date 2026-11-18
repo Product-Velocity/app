@@ -15,6 +15,8 @@ Page: `/portfolio` ("Roadmap" in the navigation). Reference: prototype board 20,
 - **Keyboard:** Alt+N adds an initiative, arrows move, Enter or F2 edits, Enter saves and moves down, Tab saves and moves right, Esc cancels, Delete clears an optional cell (or, with the checkbox column or a read-only cell focused and rows ticked, asks to delete the ticked rows).
 
 ## Focus Area and Audience: open lists with suggestions (issue #246)
+_Roadmap Category and Owner work the same way since 2026-11-18 (`docs/decisions/2026-11-18-open-owner-category-change-type.md`): open text up to 120 characters, the values in use are suggested, new values are accepted._
+
 Focus Area and Audience are free text, like Initiative Group, but without a settings page: type anything (up to 120 characters), or pick from the values already in use in the workspace (A to Z, spelling differences in capital letters count as the same value). In the grid, panel and bulk bar the picker lists the values in use and offers the typed text as a new value; a value that only differs in capitals or spacing from one in use takes the existing spelling, and Claude's writes do the same (a look-alike new value comes back as a note). Filters, cards and report groupings use the values in use; matching ignores capitals. There is no rename or merge screen yet: change the value on the items (bulk edit). The old fixed lists are gone from the dictionary; values already stored stay as they are. A database check limits both to 120 characters.
 
 ## Initiative Group: an open list (issue #38)
@@ -116,4 +118,4 @@ Nothing in the bar above the grid or in the header runs off the right edge. One 
 - Parity: no tracker difference; the Sync entry follows the same GitHub or Jira label and disabled state as the button.
 
 ## Head buttons say their state (issue #437, 2026-11-14)
-The three tool buttons use one pattern, "Name: state": **Filter: None** / **Filter: 1 active**, **Columns: 14 of 168 shown** and **Group by: None** / **Group by: Build Status › Owner**. The state is bold. (Before: "Add filter" / "N filters", "N of 166 columns shown".)
+The three tool buttons use one pattern, "Name: state": **Filter: None** / **Filter: 1 active**, **Columns: 14 of 168 shown** and **Group by: None** / **Group by: Build Status › Business Owner**. The state is bold. (Before: "Add filter" / "N filters", "N of 166 columns shown".)

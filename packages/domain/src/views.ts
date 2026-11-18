@@ -115,11 +115,12 @@ export function matchesFilters(row: Row, filters: Filter[], ctx: FilterCtx = {})
   });
 }
 
-/** Free-text search over the code and the name: every word must appear. */
-export function matchesSearch(row: Row, query: string): boolean {
+/** Free-text search over the code, the name and who created it: every word must appear. `creator` turns the Creator member id into the text to search (the email). */
+export function matchesSearch(row: Row, query: string, creator?: (id: string) => string): boolean {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (words.length === 0) return true;
-  const hay = `${row.item_code ?? ""} ${row.initiative_name ?? ""}`.toLowerCase();
+  const by = creator && typeof row.created_by === "string" ? creator(row.created_by) : "";
+  const hay = `${row.item_code ?? ""} ${row.initiative_name ?? ""} ${by}`.toLowerCase();
   return words.every((w) => hay.includes(w));
 }
 
@@ -185,7 +186,7 @@ export function groupPickerSections(opts: { customerSafe?: boolean; taken?: stri
   return out;
 }
 
-/** "Build Status", or "Build Status › Owner" for two levels, "None" for no grouping: the words on the button and in the footer. */
+/** "Build Status", or "Build Status › Business Owner" for two levels, "None" for no grouping: the words on the button and in the footer. */
 export function groupSummary(groupBy: string | null | undefined, thenBy?: string | null): string {
   const name = (k: string) => FIELD_BY_KEY[k]?.name ?? k;
   if (!groupBy) return "None";

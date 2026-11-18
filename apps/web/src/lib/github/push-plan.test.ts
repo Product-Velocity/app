@@ -68,7 +68,7 @@ describe("planPush and the one tracker of a project", () => {
     expect(plan!.block).not.toContain("a.png");
   });
   it("puts the quarter of the G2M date in the preview as the milestone, and Change Type and Initiative Group as labels", async () => {
-    const tables = { items: [{ ...item, change_type: "New feature", end_date: "2026-11-14", theme: "Checkout" }], projects: [{ id: "p1", name: "Core", default_repo: "Acme/App", tracker: "github" }], github_repositories: [{ full_name: "Acme/App", access: "read_write", is_private: true }] };
+    const tables = { items: [{ ...item, change_type: "Feature", end_date: "2026-11-14", theme: "Checkout" }], projects: [{ id: "p1", name: "Core", default_repo: "Acme/App", tracker: "github" }], github_repositories: [{ full_name: "Acme/App", access: "read_write", is_private: true }] };
     const [plan] = await planPush(fakeSupabase(tables), "t1", "https://app.example", connection, ["i1"]);
     expect(plan).toMatchObject({ milestone: "2026 Q4" });
     expect(plan!.labels).toEqual(expect.arrayContaining(["pm:type/new-feature", "pm:group/checkout"]));

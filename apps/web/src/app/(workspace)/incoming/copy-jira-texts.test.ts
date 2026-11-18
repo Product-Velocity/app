@@ -58,7 +58,7 @@ describe("copyJiraIssueTexts (pull-in keeps the Jira issue's text and labels, is
     const r = await copyJiraIssueTexts([ID(2), ID(3)]);
     expect(r).toMatchObject({ labelled: 2, copied: 1, failed: 1 });
     const calls = rpcCalls.filter((c) => c.name === "jira_copy_issue_labels").map((c) => c.args);
-    expect(calls).toContainEqual(expect.objectContaining({ p_item: ID(2), p_change_type: "Improvement to existing feature", p_focus_area: "billing" }));
+    expect(calls).toContainEqual(expect.objectContaining({ p_item: ID(2), p_change_type: "Improvement", p_focus_area: "billing" }));
     expect(calls).toContainEqual(expect.objectContaining({ p_item: ID(3), p_change_type: "Bug", p_focus_area: "admin" }));
     expect(JSON.stringify(rpcCalls)).not.toMatch(/issue_type|issuetype/i);
   });

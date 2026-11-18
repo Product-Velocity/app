@@ -3,12 +3,12 @@ import { labelFields } from "./inbound";
 
 describe("labelFields (type: is Change Type, area: is Focus Area)", () => {
   it("maps the labels of the EARO issue", () => {
-    expect(labelFields(["area:admin", "type:feature"])).toEqual({ changeType: "New feature", focusArea: "admin", notes: [] });
+    expect(labelFields(["area:admin", "type:feature"])).toEqual({ changeType: "Feature", focusArea: "admin", notes: [] });
   });
   it("reads the words for the two Change Types, ignoring case and spacing around the colon", () => {
-    expect(labelFields(["Type: Enhancement"]).changeType).toBe("Improvement to existing feature");
-    expect(labelFields(["type:improvement"]).changeType).toBe("Improvement to existing feature");
-    expect(labelFields(["TYPE:New Feature"]).changeType).toBe("New feature");
+    expect(labelFields(["Type: Enhancement"]).changeType).toBe("Improvement");
+    expect(labelFields(["type:improvement"]).changeType).toBe("Improvement");
+    expect(labelFields(["TYPE:New Feature"]).changeType).toBe("Feature");
   });
   it("maps bug to the Bug Change Type, also written bug fix or defect", () => {
     expect(labelFields(["type:bug"]).changeType).toBe("Bug");

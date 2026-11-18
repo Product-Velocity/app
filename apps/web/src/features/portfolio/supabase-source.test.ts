@@ -238,12 +238,12 @@ describe("Trash", () => {
     const { client } = fake([{ error: { code: "PV004", message: "Claude and service accounts cannot delete, restore or remove items; ask a person" } }]);
     expect(await new SupabaseDataSource(client, "t1").trashItems(["a"])).toMatchObject({ ok: false });
   });
-  it("loadItems remembers who added each item (for who may delete it) but not as a grid column", async () => {
+  it("loadItems remembers who added each item (for who may delete it) and fills the Creator column", async () => {
     const r = { ...row(1), created_by: "u9", deleted_at: null, deleted_by: null };
     const { client } = fake([{ data: [r] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }]);
     const items = await new SupabaseDataSource(client, "t1").loadItems();
     expect((items[0] as Record<string, unknown>)._created_by).toBe("u9");
-    expect(items[0]).not.toHaveProperty("created_by");
+    expect((items[0] as Record<string, unknown>).created_by).toBe("u9");
     expect(items[0]).not.toHaveProperty("deleted_at");
   });
 });

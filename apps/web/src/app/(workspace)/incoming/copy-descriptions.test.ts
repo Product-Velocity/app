@@ -87,7 +87,7 @@ describe("copyIssueDescriptions (pull-in keeps the issue's text, issue #364)", (
     expect(r).toMatchObject({ labelled: 1, failed: 1, copied: 1 });
     const calls = rpcCalls.filter((c) => c.name === "github_copy_issue_labels");
     expect(calls).toHaveLength(1); // type:chore means nothing in Product Velocity: nothing is sent for it
-    expect(calls[0]!.args).toMatchObject({ p_actor: "u1", p_item: ID(11), p_change_type: "New feature", p_focus_area: "admin" });
+    expect(calls[0]!.args).toMatchObject({ p_actor: "u1", p_item: ID(11), p_change_type: "Feature", p_focus_area: "admin" });
   });
   it("re-pull: fills Change Type and Focus Area on an initiative that already has a Description, without touching the Description", async () => {
     tables.items = [item(13, { description: "Written in Product Velocity" })]; tables.item_github_links = [link(13)];
@@ -102,7 +102,7 @@ describe("copyIssueDescriptions (pull-in keeps the issue's text, issue #364)", (
     tables.tracker_issues = [{ item_id: ID(14), labels: ["type:feature"] }]; liveLabels[14] = ["type:improvement"]; bodies[14] = "## Goal\nNew text";
     const r = await refreshPulledFromGithub([ID(14)]);
     expect(r).toMatchObject({ checked: 1, copied: 1, labelled: 1 });
-    expect(rpcCalls.find((c) => c.name === "github_copy_issue_labels")!.args).toMatchObject({ p_change_type: "Improvement to existing feature" });
+    expect(rpcCalls.find((c) => c.name === "github_copy_issue_labels")!.args).toMatchObject({ p_change_type: "Improvement" });
   });
   it("re-pull: an unreadable issue counts as failed only when its Description was empty; labels from the record still apply", async () => {
     tables.items = [item(15), item(16, { description: "Mine" })]; tables.item_github_links = [link(15), link(16)];

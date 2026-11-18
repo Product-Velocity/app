@@ -94,17 +94,17 @@ export const COLUMN_ON_ITEMS: readonly string[] = FIELDS.map(columnOnItems).filt
 
 /**
  * Open lists (issue #246): selects with no fixed values, where people type any value and the app suggests the values already in use
- * (Focus Area, Audience, Objective, Business Line). Initiative Group is one too, with its own table of names; these keep their values on the initiatives only.
+ * (Focus Area, Audience, Objective, Business Line, Roadmap Category, Owner). Initiative Group is one too, with its own table of names; these keep their values on the initiatives only.
  */
-export const OPEN_LIST_FIELDS: readonly string[] = ["focus_area", "audience", "okr_objective", "business_line", "tracker_status"];
+export const OPEN_LIST_FIELDS: readonly string[] = ["focus_area", "audience", "okr_objective", "business_line", "tracker_status", "roadmap_category", "sponsor"];
 export const isOpenList = (key: string): boolean => OPEN_LIST_FIELDS.includes(key);
 
 /** Fields built ahead of their dictionary phase (Rank in Project is computed from the stack rank, so the grid has it now). */
 /**
  * Fields kept in the dictionary, the database and the API but not shown in the app (grid columns, filters, panel, bulk edit, saved and default
- * views). Roadmap Category: hidden since 2026-11-05 because Business Value Type carries almost the same information (decision 2026-11-05-hide-roadmap-category).
+ * views). None today: Roadmap Category was hidden from 2026-11-05 and shown again on 2026-11-18 as an open list (docs/decisions/2026-11-18-open-owner-category-change-type.md).
  */
-export const HIDDEN_FIELDS: ReadonlySet<string> = new Set(["roadmap_category"]);
+export const HIDDEN_FIELDS: ReadonlySet<string> = new Set<string>();
 export const isHiddenField = (key: string): boolean => HIDDEN_FIELDS.has(key);
 /** The fields a person sees in the app: the dictionary without the hidden ones. */
 export const VISIBLE_FIELDS: readonly FieldDef[] = FIELDS.filter((f) => !HIDDEN_FIELDS.has(f.key));

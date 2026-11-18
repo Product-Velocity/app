@@ -40,7 +40,7 @@ export function parseTable(text: string): string[][] {
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const ALIASES: Record<string, string> = {
-  title: "initiative_name", name: "initiative_name", initiative: "initiative_name", project: "home_project", owner: "product_manager",
+  title: "initiative_name", name: "initiative_name", initiative: "initiative_name", project: "home_project", owner: "sponsor",
   pm: "product_manager", manager: "product_manager", size: "effort", tshirt: "effort", value: "value_12m", valueeur: "value_12m",
   start: "start_date", end: "g2m_date_est", enddate: "g2m_date_est", g2m: "g2m_date_est", g2mdate: "g2m_date_est", group: "theme",
   g2mquarter: "g2m_quarter", quarter: "g2m_quarter", category: "roadmap_category", phase: "initiative_phase", sponsor: "sponsor", description: "summary",
