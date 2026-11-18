@@ -8,7 +8,13 @@ const none = async () => {};
 describe("readIssue", () => {
   it("reads summary, description and labels", async () => {
     const r = await readIssue(fake(200, { id: "10001", fields: { summary: "S", description: { type: "doc" }, labels: ["a", 3, "b"] } }), "PLAT-1", none);
-    expect(r).toEqual({ ok: true, issue: { key: "PLAT-1", id: "10001", summary: "S", description: { type: "doc" }, labels: ["a", "b"] } });
+    expect(r).toEqual({ ok: true, issue: { key: "PLAT-1", id: "10001", custom: {}, summary: "S", description: { type: "doc" }, labels: ["a", "b"] } });
+  });
+  it("asks for the extra custom fields (select fields, issue #512) and returns their raw values; an id that is not a custom field is never requested", async () => {
+    const f = fake(200, { id: "10001", fields: { summary: "S", labels: [], customfield_10100: { id: "201", value: "On Track" } } });
+    const r = await readIssue(f, "PLAT-1", none, ["customfield_10100", "customfield_10101", "summary", "x,y"]);
+    expect(r).toMatchObject({ ok: true, issue: { custom: { customfield_10100: { id: "201", value: "On Track" }, customfield_10101: null } } });
+    expect(f.paths[0]).toBe("/issue/PLAT-1?fields=summary,description,labels,customfield_10100,customfield_10101");
   });
   it("a missing issue, a refused sign-in and an outage are told apart; a bad key never reaches Jira", async () => {
     expect(await readIssue(fake(404, {}), "PLAT-1", none)).toMatchObject({ ok: false, kind: "gone" });

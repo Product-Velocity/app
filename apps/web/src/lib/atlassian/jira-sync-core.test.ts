@@ -235,3 +235,97 @@ describe("the sent-only sections are checked against what Jira shows (SCRUM-9, 2
   });
 });
 
+
+describe("select fields: Health, Initiative Status and Initiative Phase (issue #512)", () => {
+  const selects = {
+    "jira.select.health": { field: "customfield_10100", direction: "two_way" as const, options: { "On Track": "201", "At Risk": "202", Blocked: "204" } },
+    "jira.select.initiative_status": { field: "customfield_10101", direction: "two_way" as const, options: { Active: "211", "On hold": "212" } },
+    "jira.select.initiative_phase": { field: "customfield_10102", direction: "to_jira" as const, options: { Build: "221", Test: "222" } },
+  };
+  const opt = (id: string, value: string) => ({ id, value });
+  const nowSel = (o: Record<string, unknown> = {}) => ({ "jira.select.health": opt("201", "On Track"), "jira.select.initiative_status": opt("211", "Active"), "jira.select.initiative_phase": opt("221", "Build"), ...o });
+  const agreed = { ...inStep, sel_health: "On Track", sel_initiative_status: "Active", sel_initiative_phase: "Build" };
+  const sel = (o: object = {}) => planJiraSend({ pv: pv({ health: "On Track", initiative_status: "Active", initiative_phase: "Build" }), jira: jira(), base: agreed, map: { selects }, selectsNow: nowSel(), ...o });
+
+  it("in step: nothing is sent and nothing is asked", () => {
+    const p = sel();
+    expect(p.selectConflicts).toEqual([]);
+    expect(p.unresolvedSelects).toEqual([]);
+    const again = sel({ sentHash: sel().sentHash });
+    expect(again.action).toBe("unchanged");
+  });
+  it("only Product Velocity changed Health: the option goes out and the base moves", () => {
+    const p = sel({ pv: pv({ health: "At Risk", initiative_status: "Active", initiative_phase: "Build" }) });
+    expect(p.fields.customfield_10100).toEqual({ id: "202" });
+    expect(p.newBase.sel_health).toBe("At Risk");
+    expect(p.selectConflicts).toEqual([]);
+  });
+  it("only Jira changed Health: a proposal for a person, Jira's value is NOT overwritten, and nothing is taken over without a choice", () => {
+    const p = sel({ selectsNow: nowSel({ "jira.select.health": opt("204", "Blocked") }) });
+    expect(p.selectConflicts).toEqual([expect.objectContaining({ pvKey: "health", label: "Health", verdict: "jira", pv: "On Track", jira: "Blocked" })]);
+    expect(p.unresolvedSelects).toEqual(["health"]);
+    expect(p.fields.customfield_10100).toBeUndefined();
+    expect(p.selectTakeOver).toEqual({});
+  });
+  it("Keep Jira takes the value over (the base moves to it); Keep Product Velocity writes it back", () => {
+    const j = nowSel({ "jira.select.health": opt("204", "Blocked") });
+    const take = sel({ selectsNow: j, selectPicks: { health: "jira" } });
+    expect(take.selectTakeOver).toEqual({ health: "Blocked" });
+    expect(take.newBase.sel_health).toBe("Blocked");
+    expect(take.fields.customfield_10100).toBeUndefined();
+    expect(take.unresolvedSelects).toEqual([]);
+    const keep = sel({ selectsNow: j, selectPicks: { health: "pv" } });
+    expect(keep.selectTakeOver).toEqual({});
+    expect(keep.fields.customfield_10100).toEqual({ id: "201" });
+    expect(keep.newBase.sel_health).toBe("On Track");
+  });
+  it("both changed: no default, the person chooses", () => {
+    const p = sel({ pv: pv({ health: "At Risk", initiative_status: "Active", initiative_phase: "Build" }), selectsNow: nowSel({ "jira.select.health": opt("204", "Blocked") }) });
+    expect(p.selectConflicts[0]).toMatchObject({ verdict: "both", pv: "At Risk", jira: "Blocked" });
+    expect(p.unresolvedSelects).toEqual(["health"]);
+  });
+  it("Initiative Status behaves the same way", () => {
+    const p = sel({ selectsNow: nowSel({ "jira.select.initiative_status": opt("212", "On hold") }), selectPicks: { initiative_status: "jira" } });
+    expect(p.selectTakeOver).toEqual({ initiative_status: "On hold" });
+  });
+  it("Initiative Phase is never taken over from Jira, whatever Jira holds or a pick says: it only goes to Jira", () => {
+    const p = sel({ selectsNow: nowSel({ "jira.select.initiative_phase": opt("222", "Test") }), selectPicks: { initiative_phase: "jira" } as never });
+    expect(p.selectTakeOver).toEqual({});
+    expect(p.selectConflicts).toEqual([]);
+    expect(p.fields.customfield_10102).toEqual({ id: "221" }); // Product Velocity's phase is written back, as the person decided at the gates
+    const same = sel({ pv: pv({ health: "On Track", initiative_status: "Active", initiative_phase: "Test" }) });
+    expect(same.fields.customfield_10102).toEqual({ id: "222" });
+  });
+  it("a Jira option that no Product Velocity value stands for is left alone with a note", () => {
+    const p = sel({ selectsNow: nowSel({ "jira.select.health": opt("999", "Paused") }), pv: pv({ health: "At Risk", initiative_status: "Active", initiative_phase: "Build" }) });
+    expect(p.fields.customfield_10100).toBeUndefined();
+    expect(p.notes.join(" ")).toMatch(/Health.*Paused/);
+    expect(p.selectConflicts).toEqual([]);
+  });
+  it("an empty Jira field is filled from Product Velocity (nothing to lose)", () => {
+    const p = sel({ selectsNow: nowSel({ "jira.select.health": null }), base: inStep });
+    expect(p.fields.customfield_10100).toEqual({ id: "201" });
+  });
+  it("on create the mapped values go out and the base is recorded", () => {
+    const p = planJiraSend({ pv: pv({ health: "At Risk", initiative_status: "Active", initiative_phase: "Build" }), jira: null, map: { selects }, create: { projectKey: "RR", issueTypeId: "10000" } });
+    expect(p.fields.customfield_10100).toEqual({ id: "202" });
+    expect(p.newBase).toMatchObject({ sel_health: "At Risk", sel_initiative_status: "Active", sel_initiative_phase: "Build" });
+  });
+  it("without a mapping nothing select-related is sent, asked or recorded", () => {
+    const p = planJiraSend({ pv: pv({ health: "At Risk" }), jira: jira(), base: inStep, map: {} });
+    expect(Object.keys(p.fields).filter((k) => k.startsWith("customfield_"))).toEqual([]);
+    expect(p.selectConflicts).toEqual([]);
+    expect(Object.keys(p.newBase).filter((k) => k.startsWith("sel_"))).toEqual([]);
+  });
+  it("Keep Product Velocity is written back even when nothing changed in Product Velocity since the last send", () => {
+    const first = sel();
+    const p = sel({ sentHash: first.sentHash, selectsNow: nowSel({ "jira.select.health": opt("204", "Blocked") }), selectPicks: { health: "pv" } });
+    expect(p.action).toBe("update");
+    expect(p.fields.customfield_10100).toEqual({ id: "201" });
+  });
+  it("a Phase edited in Jira is put back to Product Velocity's phase (Jira only shows it)", () => {
+    const first = sel();
+    const p = sel({ sentHash: first.sentHash, selectsNow: nowSel({ "jira.select.initiative_phase": opt("222", "Test") }) });
+    expect(p.fields.customfield_10102).toEqual({ id: "221" });
+  });
+});

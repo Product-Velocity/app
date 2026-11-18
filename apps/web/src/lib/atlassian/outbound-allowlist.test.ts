@@ -29,7 +29,7 @@ describe("outbound Jira payloads", () => {
   });
 
   it("the allowlist holds no commercial field and only dictionary fields", () => {
-    const commercial = ["value", "value_12m", "value_basis", "confidence", "customers_requesting", "target_customers", "decision", "decided_by", "decision_date", "cost_of_not_doing", "kr_metric", "kr_start", "kr_target", "kr_unit", "kr_direction", "value_proposition", "time_to_first_revenue_months", "target_markets", "live_markets", "outcomes", "initiative_status", "build_status"];
+    const commercial = ["value", "value_12m", "value_basis", "confidence", "customers_requesting", "target_customers", "decision", "decided_by", "decision_date", "cost_of_not_doing", "kr_metric", "kr_start", "kr_target", "kr_unit", "kr_direction", "value_proposition", "time_to_first_revenue_months", "target_markets", "live_markets", "outcomes", "build_status"];
     for (const k of commercial) expect(allowed.has(k), k).toBe(false);
     for (const k of OUTBOUND_JIRA_FIELDS) expect(FIELDS.some((f) => f.key === k)).toBe(true);
   });
@@ -109,5 +109,26 @@ describe("a custom field configuration can not make a non-allowlisted field appe
     const f = buildJiraPayload({ item: fullItem(), fields: { dueDate: "description" } }).fields;
     expect(f.duedate).toBe("2027-03-31");
     expect(JSON.stringify(f.description)).not.toContain("2027-03-31");
+  });
+});
+
+describe("select fields (issue #512)", () => {
+  const selects = { "jira.select.health": { field: "customfield_10100", direction: "two_way" as const, options: { "At Risk": "202" } }, "jira.select.initiative_status": { field: "customfield_10101", direction: "two_way" as const, options: { Active: "211" } }, "jira.select.initiative_phase": { field: "customfield_10102", direction: "to_jira" as const, options: { Build: "221" } } };
+  it("writes Health, Initiative Status and Initiative Phase only as option ids on the mapped custom fields", () => {
+    const f = buildJiraPayload({ item: { ...fullItem(), health: "At Risk", initiative_status: "Active", initiative_phase: "Build" }, fields: { selects } }).fields;
+    expect(f.customfield_10100).toEqual({ id: "202" });
+    expect(f.customfield_10101).toEqual({ id: "211" });
+    expect(f.customfield_10102).toEqual({ id: "221" });
+    expect(Object.keys(f)).not.toContain("status");
+  });
+  it("sends nothing for them while no select slot is mapped", () => {
+    const f = buildJiraPayload({ item: { ...fullItem(), health: "At Risk", initiative_status: "Active", initiative_phase: "Build" }, fields: {} }).fields;
+    expect(Object.keys(f).filter((k) => k.startsWith("customfield_"))).toEqual([]);
+  });
+  it("a hostile selects map cannot make a commercial field appear: the slots are closed", () => {
+    const hostile = { ...selects, "jira.select.value_12m": { field: "customfield_10199", direction: "to_jira", options: {} } } as never;
+    const w = JSON.stringify(buildJiraPayload({ item: { ...fullItem(), health: "At Risk" }, fields: { selects: hostile } }));
+    for (const f of FIELDS) if (!allowed.has(f.key)) expect(w, `${f.key} leaked`).not.toContain(sentinel(f.key));
+    expect(w).not.toContain("customfield_10199");
   });
 });

@@ -5,7 +5,7 @@ import type { JiraRequest } from "./jira-write";
 vi.mock("server-only", () => ({}));
 const rpcCalls: { fn: string; args: Record<string, unknown> }[] = [];
 let rpcFail: string | null = null;
-vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc: async (fn: string, args: Record<string, unknown>) => { rpcCalls.push({ fn, args }); return fn === rpcFail ? { data: null, error: { message: "x" } } : { data: fn === "jira_apply_pull" ? { initiative_name: "Old", description: null } : null, error: null }; } }) }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc: async (fn: string, args: Record<string, unknown>) => { rpcCalls.push({ fn, args }); return fn === rpcFail ? { data: null, error: { message: "x" } } : { data: fn === "jira_apply_pull" ? { initiative_name: "Old", description: null } : fn === "jira_apply_select_pull" ? { health: "On Track" } : null, error: null }; } }) }));
 vi.mock("./server", () => ({ jiraRequest: () => { throw new Error("the real Jira must not be reached in tests"); } }));
 
 import { checkEpics, COLS, evaluate, previewParts, writeOne, type Ctx } from "./jira-sync-engine";
@@ -48,7 +48,7 @@ const loadIt = async () => (await import("./jira-sync-engine")).load(ctx, ID);
 describe("the columns it reads", () => {
   // The same list is checked against the real table in packages/db/tests/jira-sync-write.test.ts: a column that does not exist makes the whole read fail.
   it("are real columns of items (G2M Date (est) is end_date), never dictionary keys that have no column", () => {
-    expect(COLS.split(", ").sort()).toEqual(["change_type", "description", "end_date", "focus_area", "g2m_quarter", "home_project_id", "hypothesis", "id", "initiative_name", "initiative_phase", "item_code", "moscow", "planned_start", "stack_rank", "summary", "theme", "value_type"]);
+    expect(COLS.split(", ").sort()).toEqual(["change_type", "description", "end_date", "focus_area", "g2m_quarter", "health", "home_project_id", "hypothesis", "id", "initiative_name", "initiative_phase", "initiative_status", "item_code", "moscow", "planned_start", "stack_rank", "summary", "theme", "value_type"]);
   });
   it("a row read that way still gives the engine G2M Date (est) under its field key", async () => {
     tables.items = { id: ID, item_code: "R-1", initiative_name: "Checkout", description: null, moscow: "Must", end_date: "2027-03-31", planned_start: null, home_project_id: "p1" };
@@ -449,5 +449,66 @@ describe("epics asked for under an initiative (issue #431)", () => {
     ask("R8P-5");
     const broken: JiraRequest = async () => { throw new Error("network"); };
     expect(await checkEpics(ctx, ID, { call: broken })).toMatchObject({ ok: false, error: expect.stringContaining("could not be read") });
+  });
+});
+
+describe("select fields: Health, Initiative Status and Initiative Phase (issue #512)", () => {
+  const rows = [{ slot: "jira.select.health", field_id: "customfield_10100", direction: "two_way", options: { "On Track": "201", "At Risk": "202", Blocked: "204" } }, { slot: "jira.select.initiative_phase", field_id: "customfield_10102", direction: "to_jira", options: { Build: "221" } }];
+  const agreed = { ...synced, sel_health: "On Track", sel_initiative_phase: "Build" };
+  /** The fake Jira with the two custom fields on the issue. */
+  function withSelects(health: { id: string; value: string }, phase = { id: "221", value: "Build" }) {
+    const j = fakeJira({ summary: "Checkout" });
+    const call: JiraRequest = async (m, path, body) => {
+      const r = await j.call(m, path, body);
+      if (m === "GET" && path.startsWith("/issue/") && r.status === 200) { const o = r.json as { fields: Record<string, unknown> }; o.fields.customfield_10100 = health; o.fields.customfield_10102 = phase; }
+      return r;
+    };
+    return { call, hits: j.hits };
+  }
+  beforeEach(() => { tables = { ...tables, items: item({ health: "On Track", initiative_phase: "Build" }), item_jira_links: link({ sync_base: agreed }), jira_select_map: rows }; });
+
+  it("asks Jira for the mapped custom fields and shows a Health that changed only in Jira as a conflict, default Keep Product Velocity; nothing is written by the preview", async () => {
+    const j = withSelects({ id: "204", value: "Blocked" });
+    const e = await evaluate((await loadIt())!, {}, j.call);
+    expect(j.hits.find((h) => h.path.startsWith("/issue/"))!.path).toContain("customfield_10100");
+    expect(e.kind === "ok" && e.conflicts).toEqual([expect.objectContaining({ field: "health", label: "Health", kind: "github", pv: "On Track", github: "Blocked", defaultChoice: "pv" })]);
+    expect(writes(j.hits)).toEqual([]);
+  });
+  it("Keep Jira takes Health over as the person (undo step with the old value) and does not write Jira's field", async () => {
+    const j = withSelects({ id: "204", value: "Blocked" });
+    const r = await writeOne(ctx, ID, [{ itemId: ID, field: "health", choice: "github", ghHash: (await import("node:crypto")).createHash("sha256").update("Blocked").digest("hex") }], { call: j.call });
+    expect(r).toMatchObject({ result: { outcome: expect.stringMatching(/updated|unchanged/) }, taken: [{ field: "health", before: "On Track", after: "Blocked" }] });
+    const pull = rpcCalls.find((c) => c.fn === "jira_apply_select_pull")!;
+    expect(pull.args).toMatchObject({ p_fields: { health: "Blocked" }, p_base: { sel_health: "Blocked" } });
+    expect(JSON.stringify(writes(j.hits))).not.toContain("customfield_10100");
+  });
+  it("a Health conflict without a choice stops the write with nothing written, and a choice made on an older Jira value is stale", async () => {
+    const j = withSelects({ id: "204", value: "Blocked" });
+    expect(await writeOne(ctx, ID, [], { call: j.call })).toMatchObject({ stale: true });
+    expect(writes(j.hits)).toEqual([]);
+    expect(await writeOne(ctx, ID, [{ itemId: ID, field: "health", choice: "github", ghHash: "0".repeat(64) }], { call: j.call })).toMatchObject({ stale: true, error: expect.stringMatching(/Health changed in Jira/) });
+    expect(rpcCalls.filter((c) => c.fn === "jira_apply_select_pull")).toEqual([]);
+  });
+  it("Product Velocity's Health and the phase go out as option ids when they changed in Product Velocity", async () => {
+    tables.items = item({ health: "At Risk", initiative_phase: "Build" });
+    const j = withSelects({ id: "201", value: "On Track" });
+    const r = await writeOne(ctx, ID, [], { call: j.call });
+    expect(r).toMatchObject({ result: { outcome: "updated" } });
+    expect((writes(j.hits)[0]!.body as { fields: Record<string, unknown> }).fields).toMatchObject({ customfield_10100: { id: "202" } });
+  });
+  it("the phase is never taken from Jira: a phase edited in Jira is overwritten with Product Velocity's, no pull is made", async () => {
+    const j = withSelects({ id: "201", value: "On Track" }, { id: "222", value: "Test" });
+    const e = await evaluate((await loadIt())!, {}, j.call);
+    expect(e.kind === "ok" && e.conflicts).toEqual([]);
+    const r = await writeOne(ctx, ID, [], { call: j.call });
+    expect(r).toMatchObject({ result: { outcome: "updated" } });
+    expect((writes(j.hits)[0]!.body as { fields: Record<string, unknown> }).fields.customfield_10102).toEqual({ id: "221" });
+    expect(rpcCalls.map((c) => c.fn)).not.toContain("jira_apply_select_pull");
+  });
+  it("without a saved mapping the issue is read as before and nothing select-related is asked or sent", async () => {
+    tables.jira_select_map = [];
+    const j = withSelects({ id: "204", value: "Blocked" });
+    await evaluate((await loadIt())!, {}, j.call);
+    expect(j.hits.find((h) => h.path.startsWith("/issue/"))!.path).toBe("/issue/PLAT-1?fields=summary,description,labels");
   });
 });

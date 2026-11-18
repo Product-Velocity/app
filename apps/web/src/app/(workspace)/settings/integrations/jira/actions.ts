@@ -12,7 +12,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { readJiraLink } from "@/lib/atlassian/read-jira";
 import { jiraProjectDetail } from "@/lib/atlassian/server";
 import { parseFieldMap } from "@/lib/atlassian/field-map";
-import { readJiraSiteFields } from "@/lib/atlassian/catalog-server";
+import { readJiraSiteFields, readJiraSelectFields } from "@/lib/atlassian/catalog-server";
+import { selectMapFromForm, selectRows } from "@/lib/atlassian/select-map-form";
+import { validateSelectMap } from "@/lib/atlassian/select-map";
 import { configRowsFromForm, jiraMapFromForm, validateJiraMap } from "@/lib/tracker-fields/form";
 import { validateConfig } from "@/lib/tracker-fields/mapping";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
@@ -196,6 +198,30 @@ export async function saveJiraFieldConfig(form: FormData): Promise<void> {
   const second = first.error ? null : await ctx.supabase.rpc("tracker_set_field_config", { p_project: project, p_rows: checked.rows.map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field, text: r.text ?? null })) });
   revalidatePath(MAPPING);
   back(`status=${first.error || second?.error ? "error" : "field-config-saved"}`);
+}
+
+/**
+ * Saves the "Initiative fields" card (issue #512): Health, Initiative Status and Initiative Phase on custom select fields of the Jira issue that is the
+ * initiative. The fields and options are read from Jira's create screen of the project's initiative type at save time and the mapping is checked against
+ * them. Admin only; a person, never Claude. Nothing is written to Jira.
+ */
+export async function saveJiraSelectMap(form: FormData): Promise<void> {
+  const ctx = await adminOnly();
+  if (!ctx) redirect(`${PATH}?status=not-admin`);
+  const project = String(form.get("project") ?? "");
+  const back: (qs: string) => never = (qs) => redirect(`${MAPPING}?project=${encodeURIComponent(project)}&${qs}&t=${Date.now()}`);
+  const { data: link } = await ctx.supabase.from("jira_project_links").select("connection_id, site_id, jira_project_key, initiative_type_id").eq("tenant_id", ctx.active.tenantId).eq("project_id", project).maybeSingle();
+  if (!link) back("status=error");
+  const map = selectMapFromForm((k) => String(form.get(k) ?? "").trim());
+  if (Object.keys(map).length > 0) {
+    const fields = await readJiraSelectFields(link.connection_id as string, link.site_id as string, link.jira_project_key as string, link.initiative_type_id as string).catch((): null => null);
+    if (!fields) back(`status=field-config-invalid&why=${encodeURIComponent("The fields of this Jira site could not be read just now, so the initiative fields cannot be saved. Try again in a minute.")}`);
+    const errors = validateSelectMap(map, new Map(fields.map((f) => [f.id, f.options.map((o) => o.id)])));
+    if (errors.length > 0) back(`status=field-config-invalid&why=${encodeURIComponent(errors.join(" ").slice(0, 400))}`);
+  }
+  const r = await ctx.supabase.rpc("jira_set_select_map", { p_project: project, p_rows: selectRows(map) });
+  revalidatePath(MAPPING);
+  back(`status=${r.error ? "error" : "field-config-saved"}`);
 }
 
 /**
