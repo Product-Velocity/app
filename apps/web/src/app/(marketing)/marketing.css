@@ -236,3 +236,14 @@
 .mk .loop .steps li>span:last-child{color:var(--ink-muted);font-size:16px;line-height:24px}
 .mk .loop .loopback{margin:32px 0 0;max-width:none;font-size:18px;line-height:28px;font-weight:500;color:var(--ink);padding-left:16px;border-left:3px solid var(--brand)}
 @media (max-width:860px){.mk .loop{padding-block:48px}.mk .loop .steps{grid-template-columns:minmax(0,1fr)}.mk .loop .steps li+li::before{display:none}}
+/* Role change: shifts table and owner cards (issue #532) */
+.mk .story .shifts{margin-top:40px;border:1px solid var(--border);border-radius:12px;background:var(--bg);position:relative;z-index:2;overflow:hidden}
+.mk .shifts .row{display:grid;grid-template-columns:1.1fr 1fr 1.2fr;gap:24px;padding:16px 24px;border-top:1px solid var(--border);font-size:16px;line-height:24px;color:var(--ink-muted)}
+.mk .shifts .row:first-child{border-top:0}
+.mk .shifts .row.head{background:var(--surface);font:500 12px/16px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--brand-strong)}
+.mk .shifts .row b{color:var(--ink);font-weight:600}
+.mk .story .owners{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin-top:24px;position:relative;z-index:2}
+.mk .owners div{border-top:3px solid var(--brand);padding-top:14px}
+.mk .owners b{display:block;font-size:18px;line-height:26px;font-weight:600}
+.mk .owners span{display:block;color:var(--ink-muted);font-size:16px;line-height:24px;margin-top:4px}
+@media (max-width:860px){.mk .shifts .row{grid-template-columns:minmax(0,1fr);gap:4px;padding:16px}.mk .shifts .row.head{display:none}.mk .story .owners{grid-template-columns:minmax(0,1fr)}}

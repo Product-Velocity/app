@@ -118,6 +118,27 @@ export function Home() {
         </div>
       </section>
 
+      <section className="story" id="why-now">
+        <div className="wrap">
+          <Eyebrow>Why now</Eyebrow>
+          <h2>Agentic product management: the PM&rsquo;s job is changing</h2>
+          <p className="body" style={{ fontSize: 20, lineHeight: "30px", color: "var(--ink-muted)", maxWidth: "34em", marginTop: 20 }}>AI now does much of the preparation: the documents, the updates and the analysis. What is left for the product manager is the part only a person can do: deciding what to ship and for whom, aligning stakeholders and owning the outcome. Product Velocity is where that work happens, on one roadmap that people and their AI co-workers both work from.</p>
+          <Art svg={ART_ONE} />
+          <div className="shifts" role="table" aria-label="How the product manager's work shifts and how Product Velocity supports it">
+            <div className="row head" role="row"><span role="columnheader">What used to take your time</span><span role="columnheader">What changes</span><span role="columnheader">How Product Velocity supports it</span></div>
+            <div className="row" role="row"><b role="cell">Writing documents, updates and reports</b><span role="cell">Your AI drafts, you review</span><span role="cell">AI drafts are marked as drafts, and reports are built for each audience.</span></div>
+            <div className="row" role="row"><b role="cell">Gathering signals and analysing results</b><span role="cell">Your AI does the analysis and brings the results back</span><span role="cell">Results sit on the initiative, next to its key result.</span></div>
+            <div className="row" role="row"><b role="cell">Getting stakeholders aligned</b><span role="cell">Stakeholders rank and vote, results are anonymous</span><span role="cell">One stack rank, with a capacity fit line for each team.</span></div>
+            <div className="row" role="row"><b role="cell">Making the call</b><span role="cell">People decide, with the evidence prepared</span><span role="cell">Gate packs show what is ready to pass, and the reason is kept on record.</span></div>
+          </div>
+          <div className="owners">
+            <div><b>People decide</b><span>What to build, for whom and why, at every gate.</span></div>
+            <div><b>Your AI prepares</b><span>Options, drafts and analysis, and it brings results back. It never approves.</span></div>
+            <div><b>Product Velocity connects</b><span>The system of record for the roadmap, the decisions and the outcomes.</span></div>
+          </div>
+        </div>
+      </section>
+
       <section className="sec loop" id="loop">
         <div className="wrap">
           <Eyebrow>How it works</Eyebrow>
@@ -129,15 +150,6 @@ export function Home() {
             <li><span className="n">3</span><b>Learn</b><span>Your AI analyses what happened and brings the results back into Product Velocity, next to the initiative, its effort and the key result it served. People review them, and they feed the next decision.</span></li>
           </ol>
           <p className="loopback">Product Velocity is the system of record that connects the dots for people and AI.</p>
-        </div>
-      </section>
-
-      <section className="story">
-        <div className="wrap">
-          <Eyebrow>Why now</Eyebrow>
-          <h2>AI is changing the product manager&rsquo;s job</h2>
-          <p className="body" style={{ fontSize: 20, lineHeight: "30px", color: "var(--ink-muted)", maxWidth: "34em", marginTop: 20 }}>Less time goes to documents, updates and analysis. More goes to the work that matters: clearer and bigger outcomes, faster delivery, and every stakeholder informed and aligned. Product Velocity is where that work happens, on one roadmap that people and their AI co-workers both work from.</p>
-          <Art svg={ART_ONE} />
         </div>
       </section>
 

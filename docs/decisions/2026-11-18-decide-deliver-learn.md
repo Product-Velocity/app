@@ -10,5 +10,6 @@ request: 532
 - **Learn:** the user's AI analyses the results and brings them back into PV, next to the initiative, its effort and key result; people review them.
 - **Product Velocity does not analyse data.** The analysis is done by the user's own AI outside PV; PV is the system of record. Copy must keep saying "your AI analyses", never "Product Velocity analyses".
 - **Not claimed yet:** time spent per initiative (only computed build weeks exist today) and automatic product-analytics ingestion. Add them to the story only when built.
-- **Wording:** we do not use another company's term "agentic product management" or copy its graphic; the loop is our own wording.
+- **Wording (Ashu, 2026-11-19):** "agentic product management" is a widely used category term and we use it, descriptively and not as a brand: the "Why now" heading, the page description and `llms.txt`. We do not copy another company's graphic or wording. It is not in the page title until a quick trademark check is done.
+- **How the PM role changes** is its own section (the former "Why now"): a table of what shifts (documents, analysis, alignment, the call) and how PV supports each, then who owns what (people decide, your AI prepares, PV connects). It comes before the loop.
 - The messaging is repeated in the Your AI section, the outcomes section, the lifecycle (gate packs), `llms.txt` and the page description. The nav item "How it works" now opens the loop.
