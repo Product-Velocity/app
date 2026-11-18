@@ -560,6 +560,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "change_watch_clears",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.change_watch_clears set cleared_at = now() where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.change_watch_clears where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.change_watch_clears (user_id, tenant_id, project_id) select user_id, tenant_id, project_id from public.change_watch_clears where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.change_watch_clears set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "tenant_gate_approvers",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { notificationTarget, notificationText, sortNotifications, unreadCount, type AppNotification } from "@pv/domain";
+import { changeBadge, changeBreakdownText, changeLogHref, notificationTarget, notificationText, sortNotifications, totalChanges, unreadCount, watchedProjects, type AppNotification, type WatchedProject } from "@pv/domain";
 import { createClient } from "@/lib/supabase/browser";
 import { Popover } from "../portfolio/popover";
-import { SupabaseNotificationSource, type NotificationSource } from "./notification-source";
+import { SupabaseChangeWatchSource, SupabaseNotificationSource, type ChangeWatchSource, type NotificationSource } from "./notification-source";
 
 const POLL_MS = 60_000;
 
@@ -20,18 +20,28 @@ function BellIcon() {
 const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
 
 /**
- * The bell icon in the top bar, next to Help and the account menu (issue #341): the people who can decide a gate see requests here, and a requester sees the decision. Polls every minute and when
- * the tab comes back, which is enough for an inbox (a request waits for a decision for days). Text only; an unread count has words, not just a dot.
+ * The bell icon in the top bar, next to Help and the account menu. Two parts in one panel:
+ * - Changes: every project of every account the person can open, with the changes since they last cleared it (Phase, Status, Health, Build status, linked issue), the total on the bell as a number,
+ *   a count per type under each project, a "Clear counts" button, and a click on a project that opens its change log (the Changes report) and clears that project.
+ * - Decisions (issue #341): the people who can decide a gate see requests here, and a requester sees the decision.
+ * Polls every minute and when the tab comes back. Text only; the count on the bell has words in its name, not just a dot.
  */
-export function NotificationsBell({ tenantId, source: given, onOpen }: { tenantId?: string; source?: NotificationSource; /** Test pages: what a click does instead of navigating. */ onOpen?: (target: ReturnType<typeof notificationTarget>) => void }) {
+export function NotificationsBell({ tenantId, source: given, changeSource: givenChanges, onOpen, onOpenChanges }: { tenantId?: string; source?: NotificationSource; /** The change counters; left out on a test page that gives only `source`. */ changeSource?: ChangeWatchSource; /** Test pages: what a click does instead of navigating. */ onOpen?: (target: ReturnType<typeof notificationTarget>) => void; /** Test pages: where a click on a project would lead. */ onOpenChanges?: (href: string) => void }) {
   const router = useRouter();
   // no connection configured (a test page without Supabase): no bell, instead of a crash
   const source = useMemo(() => {
     if (given) return given;
     try { return new SupabaseNotificationSource(createClient(), tenantId ?? ""); } catch { return null; }
   }, [given, tenantId]);
+  const changeSource = useMemo(() => {
+    if (givenChanges) return givenChanges;
+    if (given) return null;
+    try { return new SupabaseChangeWatchSource(createClient()); } catch { return null; }
+  }, [givenChanges, given]);
   const [list, setList] = useState<AppNotification[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [projects, setProjects] = useState<WatchedProject[]>([]);
+  const [changeError, setChangeError] = useState<string | null>(null);
 
   const [tick, setTick] = useState(0);
   const load = useCallback(() => setTick((n) => n + 1), []);
@@ -43,6 +53,14 @@ export function NotificationsBell({ tenantId, source: given, onOpen }: { tenantI
     })();
     return () => { off = true; };
   }, [source, tick]);
+  useEffect(() => {
+    if (!changeSource) return;
+    let off = false;
+    (async () => {
+      try { const rows = await changeSource.load(); if (!off) { setProjects(watchedProjects(rows)); setChangeError(null); } } catch (e) { if (!off) setChangeError((e as Error).message); }
+    })();
+    return () => { off = true; };
+  }, [changeSource, tick]);
   // poll while the tab is visible and when it comes back
   useEffect(() => {
     const t = setInterval(() => { if (document.visibilityState === "visible") load(); }, POLL_MS);
@@ -53,6 +71,18 @@ export function NotificationsBell({ tenantId, source: given, onOpen }: { tenantI
 
   if (!source) return null;
   const unread = unreadCount(list);
+  const changes = totalChanges(projects);
+  const badge = changes + unread;
+  const clearAll = async () => { setProjects([]); try { await changeSource!.clear(); } catch (e) { setChangeError((e as Error).message); } load(); };
+  const openProject = async (p: WatchedProject, close: () => void) => {
+    close();
+    setProjects((cur) => cur.filter((x) => !(x.tenantId === p.tenantId && x.projectId === p.projectId)));
+    try { await changeSource!.clear(p.tenantId, p.projectId); } catch { /* the log still opens; the count comes back on the next read */ }
+    const href = changeLogHref(p.tenantId, p.projectId);
+    if (onOpenChanges) { onOpenChanges(href); return; }
+    // another account is a full page load (the layout and workspace data belong to the account); the same account is a client navigation
+    if (p.tenantId !== tenantId) window.location.assign(href); else router.push(href);
+  };
   const markAll = async () => { await source!.markRead(); load(); };
   const open = async (n: AppNotification, close: () => void) => {
     close();
@@ -64,11 +94,30 @@ export function NotificationsBell({ tenantId, source: given, onOpen }: { tenantI
   };
 
   return (
-    <Popover align="right" icon={{ name: `Notifications, ${unread === 0 ? "none unread" : `${unread} unread`}` }} label={<span className="bar-icon-btn-inner"><BellIcon />{unread > 0 && <span className="icon-badge" aria-hidden="true">{unread > 9 ? "9+" : unread}</span>}</span>}>
+    <Popover align="right" icon={{ name: changes > 0 ? `Notifications, ${changeBadge(badge)} new: ${changes} ${changes === 1 ? "change" : "changes"}, ${unread === 0 ? "none unread" : `${unread} unread`}` : `Notifications, ${unread === 0 ? "none unread" : `${unread} unread`}` }} label={<span className="bar-icon-btn-inner"><BellIcon />{badge > 0 && <span className="icon-badge" aria-hidden="true">{changeBadge(badge)}</span>}</span>}>
       {(close) => (
         <div className="notif-panel" role="region" aria-label="Notifications">
           {error && <p role="alert" className="error">Could not read notifications ({error}).</p>}
-          {list.length === 0 ? <p className="muted notif-empty" role="status">No notifications.</p> : (
+          {changeError && <p role="alert" className="error">Could not read changes ({changeError}).</p>}
+          {projects.length > 0 && (
+            <section aria-label="Changes">
+              <div className="notif-head">
+                <strong>{changes === 1 ? "1 change" : `${changes} changes`} since you last cleared</strong>
+                <button type="button" className="bulk-link" onClick={() => void clearAll()}>Clear counts</button>
+              </div>
+              <ul className="notif-list">
+                {projects.map((p) => (
+                  <li key={`${p.tenantId}:${p.projectId}`}>
+                    <button type="button" className="notif-item chg-watch-item" title="Open its change log" onClick={() => void openProject(p, close)}>
+                      <span className="chg-watch-row"><strong className="chg-watch-name">{p.projectName}</strong><span className="pill chg-watch-count">{p.total}<span className="sr-only"> {p.total === 1 ? "change" : "changes"}</span></span></span>
+                      <span className="muted notif-when">{p.tenantName} · {changeBreakdownText(p)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {list.length === 0 ? (projects.length === 0 ? <p className="muted notif-empty" role="status">No notifications.</p> : null) : (
             <>
               <div className="notif-head">
                 <strong>{unread === 0 ? "All read" : `${unread} unread`}</strong>

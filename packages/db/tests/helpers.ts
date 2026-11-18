@@ -299,6 +299,10 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
     await db.admin.query("insert into public.gate_reviews (tenant_id, item_id, gate) values ($1, $2, 'B')", [tenantId, items[2]]);
     await db.admin.query("insert into public.tenant_gate_approvers (tenant_id, gate, user_id) select tenant_id, 'C', user_id from public.tenant_members where tenant_id = $1 limit 1", [tenantId]);
   }
+  // a change-bell mark for the first member (positive control for change_watch_clears)
+  if ((await db.admin.query("select to_regclass('public.change_watch_clears') as t")).rows[0].t) {
+    await db.admin.query("insert into public.change_watch_clears (user_id, tenant_id, project_id) select user_id, tenant_id, $2 from public.tenant_members where tenant_id = $1 order by created_at limit 1", [tenantId, project]);
+  }
   // an inbox row for the first member (positive control for the gate notifications); older-schema tests seed before it exists
   if ((await db.admin.query("select to_regclass('public.notifications') as t")).rows[0].t) {
     await db.admin.query("insert into public.notifications (tenant_id, user_id, kind, item_id, payload) select tenant_id, user_id, 'gate_requested', $2, '{\"gate\":\"B\"}'::jsonb from public.tenant_members where tenant_id = $1 order by created_at limit 1", [tenantId, items[2]]);
