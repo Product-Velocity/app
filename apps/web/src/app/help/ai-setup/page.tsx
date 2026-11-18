@@ -9,6 +9,11 @@ export const metadata = {
 };
 
 const PLACEHOLDER = "the connector URL shown under Connect an AI assistant";
+/** Turns a web address in a step into a link, so the directory page is one click away. */
+function withLinks(text: string) {
+  return text.split(/(https:\/\/[^\s,)]+[^\s,.)])/).map((part, i) => (i % 2 === 1 ? <a key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</a> : part));
+}
+
 const ORDER = ["claude", "chatgpt", "gemini"] as const;
 const NAME = { claude: "Claude", chatgpt: "ChatGPT", gemini: "Gemini" } as const;
 
@@ -27,7 +32,7 @@ export default function AiSetupHelp() {
         return (
           <HelpSection key={k} id={k} title={g.title}>
             <h3>Set up</h3>
-            <ol className="hp-steps">{g.setup.map((s) => <li key={s}>{s.replaceAll(PLACEHOLDER, CONNECTOR_URL)}</li>)}</ol>
+            <ol className="hp-steps">{g.setup.map((s) => <li key={s}>{withLinks(s.replaceAll(PLACEHOLDER, CONNECTOR_URL))}</li>)}</ol>
             {g.snippet && (
               <details className="help-details">
                 <summary>Advanced: command line and settings file</summary>

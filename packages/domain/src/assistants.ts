@@ -43,6 +43,9 @@ export function detectAssistant(...names: (string | null | undefined)[]): Assist
 
 export const assistantLabel = (a: Assistant): string => ASSISTANT_INFO[a].label;
 
+/** Where Product Velocity is listed in Claude's connector directory (Ashu, 2026-11-18). */
+export const CLAUDE_DIRECTORY_URL = "https://claude.ai/directory/connectors/product-velocity";
+
 export type SetupGuide = { assistant: Assistant; title: string; steps: string[]; snippet?: { label: string; code: string }; note?: string };
 
 /** How a person connects each assistant. `url` is this deployment's connector address. Menu names move between releases, so each guide says what to look for. */
@@ -52,7 +55,7 @@ export function setupGuides(url: string): SetupGuide[] {
       assistant: "claude",
       title: "Claude (claude.ai, desktop app, Claude Code)",
       steps: [
-        "claude.ai or the desktop app: open Settings, then Connectors, and choose Add custom connector. Paste the connector URL and name it Product Velocity.",
+        `claude.ai or the desktop app: browse for Product Velocity in the Claude connector directory, or open ${CLAUDE_DIRECTORY_URL}, and choose Connect. If you do not see it, open Settings, then Connectors, choose Add custom connector, paste the connector URL and name it Product Velocity.`,
         "Connect, sign in if asked, choose one or several workspaces and approve on the consent screen.",
         "Claude Code: run the command below, then run /mcp in Claude Code, choose product-velocity and authenticate.",
       ],

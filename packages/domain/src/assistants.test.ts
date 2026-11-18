@@ -28,6 +28,7 @@ describe("assistant info and setup guides", () => {
     const g = setupGuides("https://pv.example/mcp");
     expect(g.map((x) => x.assistant)).toEqual(["claude", "chatgpt", "gemini"]);
     expect(g.find((x) => x.assistant === "claude")!.snippet!.code).toContain("https://pv.example/mcp");
+    expect(g.find((x) => x.assistant === "claude")!.steps[0]).toContain("https://claude.ai/directory/connectors/product-velocity");
     expect(g.find((x) => x.assistant === "gemini")!.snippet!.code).toContain("\"httpUrl\": \"https://pv.example/mcp\"");
     expect(g.find((x) => x.assistant === "chatgpt")!.steps.join(" ")).toMatch(/Developer mode/);
   });
