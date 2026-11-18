@@ -46,6 +46,16 @@ export function planEpics(opts: { requests: EpicRequest[]; read: JiraIssueRow[];
   return lines;
 }
 
+/**
+ * Which planned epics are linked at once when Sync with Jira runs and which wait for a person's confirmation (issue #528, Ashu 2026-11-18: listing the
+ * epic ID on the initiative is the approval). Linked at once: an epic that has no parent (nothing of anybody else's is moved) and one that is already
+ * under the initiative (only recorded). Asks first: an epic that is under another parent (a move). Lines that cannot be written are neither.
+ */
+export function splitEpicPlan(lines: EpicPlanLine[]): { auto: EpicPlanLine[]; ask: EpicPlanLine[] } {
+  const auto = lines.filter((l) => l.already === true || (l.will && l.previousParent === null));
+  return { auto, ask: lines.filter((l) => l.will && l.previousParent !== null) };
+}
+
 export type EpicLinkResult = { key: string; ok: boolean; previousParent: string | null; error: string | null };
 
 /**

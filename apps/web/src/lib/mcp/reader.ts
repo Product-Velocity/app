@@ -7,7 +7,7 @@ import { shareUrl } from "@/lib/files/serve";
 import { supabaseFileStore, type FileStore } from "@/lib/files/store";
 import { buildContext, type CompanyProfileData, type DocInfo, type GatePackData, type FileInfo, type ItemDetail, type McpReader, type Member, type ViewInfo, type WorkspaceContext } from "./read-model";
 import { ToolInputError } from "./tool-error";
-import type { ApplyResult, McpDocuments, McpFiles, McpProfile, McpWriter, PendingRow, UndoResult } from "./write-model";
+import type { ApplyResult, McpDocuments, McpEpics, McpFiles, McpProfile, McpWriter, PendingRow, UndoResult } from "./write-model";
 
 const FILE_CAP = 200;
 /** The values in use of each open-list field (Focus Area, Audience): what Claude may reuse (issue #246). */
@@ -278,8 +278,18 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       return { ok: false, reason: "conflict", current: (await loadProfile()).profile };
     },
   };
+  const epics: McpEpics = {
+    async request(itemId, keys) {
+      const { data, error } = await supabase.rpc("item_request_jira_epics", { p_item: itemId, p_keys: keys });
+      if (error) throw new ToolInputError(error.message && !/^(PGRST|JWT)/.test(error.message) ? error.message : "The epics could not be recorded.");
+      const cur = await supabase.from("item_jira_epic_requests").select("epic_key, state, last_error").eq("tenant_id", tenant.id).eq("item_id", itemId).order("epic_key");
+      const current = ((cur.data ?? []) as { epic_key: string; state: string; last_error: string | null }[]).map((r) => ({ key: r.epic_key, state: r.state, last_error: r.last_error }));
+      return { added: (data ?? []) as string[], current };
+    },
+  };
   const writer: McpWriter = {
     files,
+    epics,
     documents,
     profile,
     async context(r) {

@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { PlanItem, PushItemResult, ReceiveItem, SyncChoice, SyncConflict, SyncPreview, TakenOver } from "@/lib/github/push-types";
 import { adfToText, markdownToAdf } from "./adf";
 import { findByMarker, readIssue } from "./jira-issue";
-import { epicResultText, linkEpics, planEpics, type EpicPlanLine, type EpicRequest } from "./epic-link";
+import { epicResultText, linkEpics, planEpics, splitEpicPlan, type EpicPlanLine, type EpicRequest } from "./epic-link";
 import { getJson } from "./read-client";
 import { readIssuesByKey, type SearchPage } from "./read-issues";
 import { compareJira, COLUMN, LABEL, TEXT_FIELDS, markerFor, planJiraSend, type JiraBase, type PvItem, type SendPlan, type TextField } from "./jira-sync-core";
@@ -131,6 +131,32 @@ export async function planEpicsFor(l: Loaded, req: JiraRequest): Promise<EpicPla
   if (pj.status === 200 && t && typeof t.hierarchyLevel === "number") aboveEpic = t.hierarchyLevel >= 2;
   const read = await readIssuesByKey((p) => getJson<SearchPage>(req, p), requests.map((r) => r.key), l.siteUrl ?? "");
   return planEpics({ requests, read: read.rows, missing: read.missing, initiativeKey: l.link?.issue_key ?? null, aboveEpic });
+}
+
+/**
+ * Sync with Jira, first step for an initiative that already has its Jira issue and is owned by Product Velocity: the epics listed on it that have no
+ * parent (or are already under it) are linked at once, with no further confirmation, because a person or Claude listing the ID is the approval
+ * (issue #528). An epic under another parent is left for the preview, which asks. Returns the initiative as it is now (re-read when something was
+ * recorded) and a sentence for the card. A failure never stops the sync: the epics stay pending and are offered again.
+ */
+export async function autoLinkEpics(ctx: Ctx, l: Loaded, deps: { call?: JiraRequest } = {}): Promise<{ l: Loaded; message: string | null }> {
+  const issueKey = l.link?.issue_key;
+  if (!l.epicRequests?.length || !issueKey || l.link?.mode === "follow" || !l.conn || l.conn.state !== "connected" || !l.siteUrl) return { l, message: null };
+  try {
+    const call = deps.call ?? jiraRequest(l.conn.id, l.link?.site_id ?? l.plink!.site_id);
+    const { auto } = splitEpicPlan(await planEpicsFor(l, call));
+    if (auto.length === 0) return { l, message: null };
+    const results = await linkEpics(call, auto, issueKey);
+    const admin = createAdminClient({ via: "UI" });
+    for (const r of results) {
+      const rec = await admin.rpc("jira_record_epic_link", { p_actor: ctx.userId, p_item: l.item.id, p_key: r.key, p_ok: r.ok, p_previous_parent: r.previousParent, p_error: r.error });
+      if (rec.error) r.error = r.error ?? "Product Velocity could not record it, so it will be offered again (nothing is moved twice).";
+    }
+    return { l: (await load(ctx, l.item.id)) ?? l, message: epicResultText(results, issueKey) };
+  } catch (e) {
+    // a lost sign-in is shown by the rest of the sync; anything else leaves the epics pending for the next time
+    return { l, message: e instanceof ReconnectNeeded ? null : "The epics listed on this initiative could not be linked just now; they stay listed and are tried again at the next Sync." };
+  }
 }
 
 export type EpicCheck = { ok: true; lines: { key: string; text: string; ok: boolean }[] } | { ok: false; error: string };

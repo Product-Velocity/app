@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { epicResultText, EPICS_NEED_ABOVE_EPIC, linkEpics, planEpics, type EpicRequest } from "./epic-link";
+import { epicResultText, EPICS_NEED_ABOVE_EPIC, linkEpics, planEpics, splitEpicPlan, type EpicRequest } from "./epic-link";
 import type { JiraIssueRow } from "./read-issues";
 import type { JiraRequest } from "./jira-write";
 import { ReconnectNeeded } from "./token-provider";
@@ -85,5 +85,22 @@ describe("linkEpics: the only write is the parent of the epic", () => {
   it("says nothing when there is nothing to say", () => {
     expect(epicResultText([], "ROAD-1")).toBeNull();
     expect(epicResultText([{ key: "A-1", ok: true, previousParent: null, error: null }, { key: "A-2", ok: true, previousParent: null, error: null }], "ROAD-1")).toBe("2 epics are now under ROAD-1 (A-1, A-2).");
+  });
+});
+
+describe("splitEpicPlan: what Sync links at once and what it asks about (issue #528)", () => {
+  it("links an epic with no parent and one already under the Initiative at once; a move asks; what cannot be written is neither", () => {
+    const lines = planEpics({
+      requests: asked("R8P-5", "DATA-9", "R8P-6", "R8P-7", "GONE-1"),
+      read: [row("R8P-5"), row("DATA-9", { parent: "QQ-3" }), row("R8P-6", { parent: "ROAD-1" }), row("R8P-7", { type: "Story", level: 0 })],
+      missing: ["GONE-1"], initiativeKey: "ROAD-1", aboveEpic: true,
+    });
+    const { auto, ask } = splitEpicPlan(lines);
+    expect(auto.map((l) => l.key)).toEqual(["R8P-5", "R8P-6"]); // no parent, and already there (only recorded)
+    expect(ask.map((l) => l.key)).toEqual(["DATA-9"]); // under QQ-3: a move, a person confirms
+  });
+  it("asks about nothing and links nothing when the project's initiative type is at Epic level or below", () => {
+    const lines = planEpics({ requests: asked("R8P-5"), read: [row("R8P-5")], missing: [], initiativeKey: "ROAD-1", aboveEpic: false });
+    expect(splitEpicPlan(lines)).toEqual({ auto: [], ask: [] });
   });
 });

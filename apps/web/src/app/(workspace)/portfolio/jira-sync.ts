@@ -8,7 +8,7 @@ import type { RefreshSummary } from "@/lib/atlassian/refresh-linked";
 import type { PlanItem, PushItemResult, ReceiveItem, SyncChoice, SyncConfirmResult, SyncPreviewResult, TakenOver } from "@/lib/github/push-types";
 import type { BoardResult } from "@/lib/tracker/sync-router";
 import { siteUrl } from "@/lib/site-url";
-import { evaluate, load, previewParts, previewOne, writeOne, type Ctx } from "@/lib/atlassian/jira-sync-engine";
+import { autoLinkEpics, evaluate, load, previewParts, previewOne, writeOne, type Ctx } from "@/lib/atlassian/jira-sync-engine";
 
 // "Sync with Jira" (issue #67, #71). READ first: for the selected initiatives it reads their Jira issues, applies what Jira owns (Build Status
 // from the status category) and lists it as Received. Then it compares the texts Product Velocity owns (name, description) three ways and
@@ -111,8 +111,12 @@ export async function startJiraSync(ids: string[]): Promise<SyncPreviewResult> {
     out.push(...(await Promise.all(batch.map(async (card0): Promise<ReceiveItem> => {
       let card = card0;
       if (card.status === "error" || card.status === "missing") return card;
-      const l = await load(ctx, card.id);
-      if (!l) return card;
+      const l0 = await load(ctx, card.id);
+      if (!l0) return card;
+      // epic IDs listed on the initiative are linked now when they have no parent (listing them is the approval); a move still asks in the preview
+      const auto = await autoLinkEpics(ctx, l0);
+      const l = auto.l;
+      if (auto.message) card = { ...card, message: [card.message, auto.message].filter(Boolean).join(" ") };
       const e = await evaluate(l, {});
       if (e.kind === "error") return { ...card, status: "error", message: e.message };
       if (e.kind === "missing") return { ...card, status: "missing", message: e.message };

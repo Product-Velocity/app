@@ -5,7 +5,7 @@ import { handleMulti, type WorkspaceHandle } from "../../../apps/web/src/lib/mcp
 import { buildContext, type DocInfo } from "../../../apps/web/src/lib/mcp/read-model";
 import { handleRpc, TOOLS, type McpBackend } from "../../../apps/web/src/lib/mcp/rpc";
 import { ToolInputError } from "../../../apps/web/src/lib/mcp/tool-error";
-import type { ApplyResult, CurrentItem, McpDocuments, McpFiles, McpProfile, McpWriter, PendingChange, PendingRow, UndoResult } from "../../../apps/web/src/lib/mcp/write-model";
+import type { ApplyResult, CurrentItem, McpDocuments, McpEpics, McpFiles, McpProfile, McpWriter, PendingChange, PendingRow, UndoResult } from "../../../apps/web/src/lib/mcp/write-model";
 import { addMember, createTestDb, createUser, twoTenantFixture, type TestDb } from "./helpers";
 
 // The 2026-10-27 scenario of docs/20 section 2 and issue #182, replayed through the real tool code (handleRpc and the write tools)
@@ -98,8 +98,20 @@ function sqlWriter(user: string, tenant: string, client = CLIENT): McpWriter {
       } catch (e) { return refuseProfile(e); }
     },
   };
+  const epics: McpEpics = {
+    async request(itemId, keys) {
+      try {
+        return await as(async (q) => {
+          const added = (await q("select public.item_request_jira_epics($1, $2::text[]) as a", [itemId, keys])).rows[0].a as string[];
+          const cur = (await q("select epic_key, state, last_error from public.item_jira_epic_requests where item_id = $1 order by epic_key", [itemId])).rows;
+          return { added, current: cur.map((r) => ({ key: r.epic_key as string, state: r.state as string, last_error: (r.last_error as string | null) ?? null })) };
+        });
+      } catch (e) { throw new ToolInputError(e instanceof Error ? e.message : "The epics could not be recorded."); }
+    },
+  };
   return {
     files,
+    epics,
     documents,
     profile,
     async context(role): Promise<WriteCtx> {
