@@ -126,13 +126,14 @@ export function Home() {
           <Art svg={ART_ONE} />
           <div className="shifts" role="table" aria-label="How the product manager's work shifts and how Product Velocity supports it">
             <div className="row head" role="row"><span role="columnheader">What used to take your time</span><span role="columnheader">What changes</span><span role="columnheader">How Product Velocity supports it</span></div>
-            <div className="row" role="row"><b role="cell">Writing documents, updates and reports</b><span role="cell">Your AI drafts, you review</span><span role="cell">AI drafts are marked as drafts, and reports are built for each audience.</span></div>
+            <div className="row" role="row"><b role="cell">Writing documents and drafts</b><span role="cell">Your AI drafts, you review</span><span role="cell">AI drafts are marked as drafts, so nothing is mistaken for a decision.</span></div>
+            <div className="row" role="row"><b role="cell">Writing status updates and reports</b><span role="cell">Your AI writes the recap, you deliver bad news and renegotiate scope</span><span role="cell">Reports for each audience, and alerts when work is stuck or waiting for a decision.</span></div>
             <div className="row" role="row"><b role="cell">Gathering signals and analysing results</b><span role="cell">Your AI does the analysis and brings the results back</span><span role="cell">Results sit on the initiative, next to its key result.</span></div>
             <div className="row" role="row"><b role="cell">Getting stakeholders aligned</b><span role="cell">Stakeholders rank and vote, results are anonymous</span><span role="cell">One stack rank, with a capacity fit line for each team.</span></div>
             <div className="row" role="row"><b role="cell">Making the call</b><span role="cell">People decide, with the evidence prepared</span><span role="cell">Gate packs show what is ready to pass, and the reason is kept on record.</span></div>
           </div>
           <div className="owners">
-            <div><b>People decide</b><span>What to build, for whom and why, at every gate.</span></div>
+            <div><b>People decide and own the outcome</b><span>What to build, for whom and why, at every gate. They talk to customers and stakeholders, and answer for the result.</span></div>
             <div><b>Your AI prepares</b><span>Options, drafts and analysis, and it brings results back. It never approves.</span></div>
             <div><b>Product Velocity connects</b><span>The system of record for the roadmap, the decisions and the outcomes.</span></div>
           </div>
