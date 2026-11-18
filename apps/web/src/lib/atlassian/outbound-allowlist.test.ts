@@ -41,7 +41,7 @@ describe("outbound Jira payloads", () => {
   });
 
   it("labels match the GitHub sync: project, MoSCoW, rank band, Change Type and Initiative Group; the rank number never leaves", () => {
-    const p = buildJiraPayload({ item: { ...fullItem(), moscow: "Should", stack_rank: 37, change_type: "New feature", theme: "Advertiser experience" }, fields: {}, projectName: "JIRA test" });
+    const p = buildJiraPayload({ item: { ...fullItem(), moscow: "Should", stack_rank: 37, change_type: "Feature", theme: "Advertiser experience" }, fields: {}, projectName: "JIRA test" });
     expect(p.fields.labels).toEqual(["pm:project/jira-test", "pm:moscow/should", "pm:rank/top-50", "pm:type/new-feature", "pm:group/advertiser-experience", "pm:value/leak-value-type-9f3a"]);
     expect(JSON.stringify(p)).not.toMatch(/\b37\b/);
   });

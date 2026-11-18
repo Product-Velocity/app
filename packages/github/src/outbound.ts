@@ -79,7 +79,9 @@ export function rankBandLabel(rank: unknown, names?: Names): string | null {
 }
 
 const CHANGE_TYPES: Record<string, { slug: string; types: string[] }> = {
-  "New feature": { slug: "new-feature", types: ["Feature"] },
+  "Feature": { slug: "new-feature", types: ["Feature"] }, // the label keeps its slug: renaming the value must not change every label already on the trackers
+  "New feature": { slug: "new-feature", types: ["Feature"] }, // the earlier name, still understood
+  "Improvement": { slug: "improvement", types: ["Improvement", "Enhancement"] },
   "Improvement to existing feature": { slug: "improvement", types: ["Improvement", "Enhancement"] },
   "Bug": { slug: "bug", types: ["Bug"] },
   "Tech debt": { slug: "tech-debt", types: [] },

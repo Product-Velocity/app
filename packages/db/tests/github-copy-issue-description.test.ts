@@ -78,8 +78,8 @@ const fields = async (id: string) => (await db.admin.query("select change_type, 
 describe("github_copy_issue_labels (type: is Change Type, area: is Focus Area)", () => {
   it("stores both for a pulled-in initiative and audits the person", async () => {
     const id = await pulledItem(20);
-    expect(await labels(creator, id, "New feature", "admin")).toEqual({ change_type: true, focus_area: true });
-    expect(await fields(id)).toEqual({ change_type: "New feature", focus_area: "admin" });
+    expect(await labels(creator, id, "Feature", "admin")).toEqual({ change_type: true, focus_area: true });
+    expect(await fields(id)).toEqual({ change_type: "Feature", focus_area: "admin" });
     const audit = (await db.admin.query("select field, actor_id from public.audit_log where entity = 'items' and entity_id = $1 and field in ('change_type', 'focus_area')", [id])).rows;
     expect(audit.map((a) => a.field).sort()).toEqual(["change_type", "focus_area"]);
     expect(audit.every((a) => a.actor_id === creator)).toBe(true);
@@ -91,9 +91,9 @@ describe("github_copy_issue_labels (type: is Change Type, area: is Focus Area)",
   });
   it("never replaces a value a person already chose", async () => {
     const id = await pulledItem(22);
-    await db.admin.query("update public.items set change_type = 'Improvement to existing feature', focus_area = 'Publishers' where id = $1", [id]);
-    expect(await labels(creator, id, "New feature", "admin")).toEqual({});
-    expect(await fields(id)).toEqual({ change_type: "Improvement to existing feature", focus_area: "Publishers" });
+    await db.admin.query("update public.items set change_type = 'Improvement', focus_area = 'Publishers' where id = $1", [id]);
+    expect(await labels(creator, id, "Feature", "admin")).toEqual({});
+    expect(await fields(id)).toEqual({ change_type: "Improvement", focus_area: "Publishers" });
   });
   it("refuses a Change Type that does not exist, cuts the focus area at 120 characters, and ignores nothing-to-set", async () => {
     const id = await pulledItem(23);

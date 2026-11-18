@@ -120,11 +120,11 @@ export function compareIssue(i: { code: string; pv: { initiative_name?: string |
   return split.ok ? { fields } : { fields, blockProblem: split.reason, ...(split.missing ? { blockMissing: true as const } : {}) };
 }
 
-export type ChangeTypeValue = "New feature" | "Improvement to existing feature" | "Bug";
+export type ChangeTypeValue = "Feature" | "Improvement" | "Bug";
 export type LabelFields = { changeType?: ChangeTypeValue; focusArea?: string; /** Why a label was not used, for tests and logs only; never shown with an issue's text. */ notes: string[] };
 const CHANGE_TYPE_WORDS: Record<string, ChangeTypeValue> = {
-  feature: "New feature", "new feature": "New feature", "new-feature": "New feature", new_feature: "New feature", newfeature: "New feature",
-  improvement: "Improvement to existing feature", enhancement: "Improvement to existing feature", "improvement to existing feature": "Improvement to existing feature",
+  feature: "Feature", "new feature": "Feature", "new-feature": "Feature", new_feature: "Feature", newfeature: "Feature",
+  improvement: "Improvement", enhancement: "Improvement", "improvement to existing feature": "Improvement",
   bug: "Bug", bugfix: "Bug", "bug fix": "Bug", "bug-fix": "Bug", defect: "Bug",
 };
 

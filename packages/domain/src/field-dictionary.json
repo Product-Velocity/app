@@ -39,18 +39,12 @@
   "views": [
    "Prioritisation"
   ],
-  "allowed": [
-   "New big bets",
-   "Grow customer revenues",
-   "Protect customer revenues",
-   "Operational efficiency",
-   "Close capability gaps"
-  ],
-  "allowedText": "New big bets · Grow customer revenues · Protect customer revenues · Operational efficiency · Close capability gaps",
+  "allowed": [],
+  "allowedText": null,
   "origin": "Input",
-  "githubSync": "Not synced (hidden in the app since 2026-11-05; the label moved to Business Value Type).",
+  "githubSync": "Not synced.",
   "filledWhen": "After interviews",
-  "description": "New big bets, Grow customer revenues, Protect customer revenues, Operational efficiency, Close capability gaps"
+  "description": "The roadmap category the initiative belongs to, for example New big bets or Operational efficiency. Open list: type any value; the values already in use are offered."
  },
  {
   "n": "3",
@@ -212,16 +206,16 @@
    "Leadership"
   ],
   "allowed": [
-   "New feature",
-   "Improvement to existing feature",
+   "Feature",
+   "Improvement",
    "Bug",
    "Tech debt"
   ],
-  "allowedText": "New feature · Improvement to existing feature · Bug · Tech debt",
+  "allowedText": "Feature \u00b7 Improvement \u00b7 Bug \u00b7 Tech debt",
   "origin": "Input",
   "githubSync": null,
   "filledWhen": "After interviews",
-  "description": "New feature, Improvement to existing feature, Bug, or Tech debt"
+  "description": "Feature, Improvement, Bug, or Tech debt"
  },
  {
   "n": "11",
@@ -290,7 +284,7 @@
   "name": "Owner",
   "key": "sponsor",
   "group": "Who",
-  "type": "Person",
+  "type": "Select",
   "editing": "Editable",
   "customerSafe": false,
   "views": [
@@ -301,7 +295,7 @@
   "origin": "Input",
   "githubSync": "Not synced.",
   "filledWhen": "Now",
-  "description": "Person who sponsors the initiative: asked for it or owns the case for it"
+  "description": "Who owns the initiative: asked for it or owns the case for it. Open list: type a name or an email address; the values already in use are offered."
  },
  {
   "n": "15",

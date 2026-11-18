@@ -10,8 +10,8 @@ const nameOf = Object.fromEntries(fields.map((f) => [f.key, f.name]));
 // Crowd fields, the decision-gate fields and (issue #480) the build and delivery fields that already have data. Comments inside the list are skipped.
 const registrySource = readFileSync(new URL("../../../packages/domain/src/registry.ts", import.meta.url), "utf8");
 const EARLY = [...registrySource.match(/SHIPPED_EARLY: ReadonlySet<string> = new Set\(\[([\s\S]*?)\]\);/)![1]!.replace(/\/\/.*$/gm, "").matchAll(/"([a-z_0-9]+)"/g)].map((m) => m[1]!);
-// Roadmap Category is hidden in the app since 2026-11-05 (HIDDEN_FIELDS in packages/domain/src/registry.ts): it stays in the file and the database but has no column
-const HIDDEN = ["roadmap_category"];
+// No field is hidden in the app now (HIDDEN_FIELDS in packages/domain/src/registry.ts is empty since 2026-11-18, when Roadmap Category came back)
+const HIDDEN: string[] = [];
 const shipped = (k: string) => !HIDDEN.includes(k) && ((fields.find((f) => f.key === k)!.phase <= 1) || EARLY.includes(k));
 const views = [...new Set(csv.map((r) => r[0]!))];
 const live = (v: string) => csv.filter((r) => r[0] === v).map((r) => r[2]!).filter(shipped);

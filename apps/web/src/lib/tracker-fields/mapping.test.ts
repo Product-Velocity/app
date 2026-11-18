@@ -5,7 +5,7 @@ import type { CatalogEntry } from "./catalog";
 import { effectiveJiraMap, githubOptions, parseConfigRows, validateConfig, type ConfigRow } from "./mapping";
 import { SLOTS, slotsFor } from "./slots";
 
-const ITEM = { initiative_name: "Checkout redesign", description: "Plain text", moscow: "Must", stack_rank: 7, change_type: "New feature", theme: "Payments", focus_area: "Payments", g2m_date_est: "2027-03-31", planned_start: "2027-01-04", effort: "M", summary: "S", hypothesis: "H", item_code: "R-01" };
+const ITEM = { initiative_name: "Checkout redesign", description: "Plain text", moscow: "Must", stack_rank: 7, change_type: "Feature", theme: "Payments", focus_area: "Payments", g2m_date_est: "2027-03-31", planned_start: "2027-01-04", effort: "M", summary: "S", hypothesis: "H", item_code: "R-01" };
 const BASE: JiraFieldMap = { startDate: "customfield_10015", theme: "customfield_10030", priorityByMoscow: { Must: "1" } };
 const entry = (id: string, kind: CatalogEntry["kind"], name = id): CatalogEntry => ({ id, name, custom: id.startsWith("customfield"), kind, typeLabel: kind, options: [], filled: null, sampled: null });
 const CATALOG = [entry("duedate", "date", "Due date"), entry("customfield_10015", "date", "Start date"), entry("customfield_10016", "date", "Go-live"), entry("customfield_10030", "text", "Theme"), entry("customfield_10031", "text", "Release note"), entry("customfield_10040", "select", "Team"), entry("summary", "text", "Summary")];

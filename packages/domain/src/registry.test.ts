@@ -116,7 +116,6 @@ describe("default views match docs/reference/default-views.csv", () => {
       const listed = inFile(v).map((r) => r.key!).filter((k) => !HIDDEN_FIELDS.has(k)); // hidden fields stay in the file and the dictionary but are not shown
       expect(DEFAULT_VIEWS[v], v).toEqual(listed.filter((k) => isShipped(FIELD_BY_KEY[k]!)));
       expect(DEFAULT_VIEWS[v].length + WAITING_IN_VIEW[v].length, v).toBe(listed.length);
-      expect(DEFAULT_VIEWS[v], v).not.toContain("roadmap_category");
     }
     expect(DEFAULT_VIEWS.Delivery).not.toContain("outcome_verdict");
     expect(WAITING_IN_VIEW.Outcomes.length).toBeGreaterThan(0);

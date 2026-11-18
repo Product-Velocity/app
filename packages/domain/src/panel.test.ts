@@ -51,11 +51,11 @@ describe("panelField: how each of the 174 fields is shown in the item panel", ()
 });
 
 describe("panelSections", () => {
-  it("lists every shown field once (all 174 but the hidden Roadmap Category), in the sheet's group order", () => {
+  it("lists every shown field once (all 174, Roadmap Category included), in the sheet's group order", () => {
     const s = panelSections();
     expect(s.map((x) => x.group).slice(0, 4)).toEqual(["What", "Who", "Why", "Decision"]);
     expect(s.flatMap((x) => x.fields).map((x) => x.key).sort()).toEqual(FIELDS.filter((x) => !HIDDEN_FIELDS.has(x.key)).map((x) => x.key).sort());
-    expect(s.flatMap((x) => x.fields).map((x) => x.key)).not.toContain("roadmap_category");
+    expect(s.flatMap((x) => x.fields).map((x) => x.key)).toContain("roadmap_category"); // shown again since 2026-11-18 (open list)
   });
   it("marks a group whose fields all arrive later, so it can start collapsed", () => {
     const s = panelSections();

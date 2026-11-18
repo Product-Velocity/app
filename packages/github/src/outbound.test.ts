@@ -274,12 +274,12 @@ describe("share links of files (R-034)", () => {
 
 describe("type and milestone (R-034)", () => {
   it("Change Type becomes a pm:type label, and the issue-type names to try", () => {
-    expect(changeTypeLabel("New feature")).toBe("pm:type/new-feature");
-    expect(changeTypeLabel("Improvement to existing feature")).toBe("pm:type/improvement");
+    expect(changeTypeLabel("Feature")).toBe("pm:type/new-feature");
+    expect(changeTypeLabel("Improvement")).toBe("pm:type/improvement");
     expect(changeTypeLabel("Something else")).toBeNull();
     expect(changeTypeLabel(undefined)).toBeNull();
-    expect(issueTypeCandidates("New feature")).toEqual(["Feature"]);
-    expect(issueTypeCandidates("Improvement to existing feature")).toEqual(["Improvement", "Enhancement"]);
+    expect(issueTypeCandidates("Feature")).toEqual(["Feature"]);
+    expect(issueTypeCandidates("Improvement")).toEqual(["Improvement", "Enhancement"]);
     expect(changeTypeLabel("Bug")).toBe("pm:type/bug");
     expect(issueTypeCandidates("Bug")).toEqual(["Bug"]);
     expect(issueTypeCandidates(null)).toEqual([]);
@@ -291,24 +291,24 @@ describe("type and milestone (R-034)", () => {
     for (const bad of [null, undefined, "", "Q4", "2026-13-01", "2026-02-30", 5]) expect(milestoneFor(bad)).toBeNull();
   });
   it("a built issue carries the type label, the milestone and the type candidates, and any change moves the hash", () => {
-    const item = { ...base.item, change_type: "New feature", g2m_date_est: "2026-11-14" };
+    const item = { ...base.item, change_type: "Feature", g2m_date_est: "2026-11-14" };
     const a = buildTrackingIssue({ ...base, item });
     expect(a.labels).toContain("pm:type/new-feature");
     expect(a.milestone).toEqual({ title: "2026 Q4", dueOn: "2026-12-31T12:00:00Z" });
     expect(a.typeCandidates).toEqual(["Feature"]);
     expect(buildTrackingIssue({ ...base, item: { ...item, g2m_date_est: "2027-02-01" } }).hash).not.toBe(a.hash);
-    expect(buildTrackingIssue({ ...base, item: { ...item, change_type: "Improvement to existing feature" } }).hash).not.toBe(a.hash);
+    expect(buildTrackingIssue({ ...base, item: { ...item, change_type: "Improvement" } }).hash).not.toBe(a.hash);
     expect(buildTrackingIssue(base).milestone).toBeNull();
   });
   it("the date and the type never appear as text in the issue", () => {
-    const b = buildTrackingIssue({ ...base, item: { ...base.item, change_type: "New feature", g2m_date_est: "2026-11-14" } }).block;
+    const b = buildTrackingIssue({ ...base, item: { ...base.item, change_type: "Feature", g2m_date_est: "2026-11-14" } }).block;
     expect(b).not.toContain("2026-11-14");
-    expect(b).not.toContain("New feature");
+    expect(b).not.toContain("Feature");
   });
 });
 
 describe("pushing type and milestone", () => {
-  const item = { ...base.item, change_type: "New feature", g2m_date_est: "2026-11-14" };
+  const item = { ...base.item, change_type: "Feature", g2m_date_est: "2026-11-14" };
   const built2 = buildTrackingIssue({ ...base, item });
   it("sets the org's issue type and a milestone on create, creating the milestone once", async () => {
     const sc = new MemorySourceControl();

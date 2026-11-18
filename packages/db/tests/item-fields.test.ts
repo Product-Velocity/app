@@ -168,14 +168,28 @@ describe("bulk edit and import writes", () => {
 });
 
 describe("people fields cannot point outside the tenant", () => {
-  it("rejects a sponsor from another tenant", async () => {
+  it("rejects a designer from another tenant", async () => {
     const id = await fresh();
-    expect(await errorCode(db.asUser(creator, (q) => q("update public.items set sponsor = $1 where id = $2", [f.bob, id])))).toBe(FK);
+    expect(await errorCode(db.asUser(creator, (q) => q("update public.items set designer = $1 where id = $2", [f.bob, id])))).toBe(FK);
   });
   it("accepts a member of the tenant", async () => {
     const id = await fresh();
-    const n = await db.asUser(creator, async (q) => (await q("update public.items set sponsor = $1, designer = $1 where id = $2", [viewer, id])).rowCount, { commit: true });
+    const n = await db.asUser(creator, async (q) => (await q("update public.items set designer = $1 where id = $2", [viewer, id])).rowCount, { commit: true });
     expect(n).toBe(1);
+  });
+  it("Owner, Roadmap Category and Focus Area are open text up to 120 characters (no member link)", async () => {
+    const id = await fresh();
+    const n = await db.asUser(creator, async (q) => (await q("update public.items set sponsor = 'Maria (Finance)', roadmap_category = 'Platform bets', focus_area = 'Pricing' where id = $1", [id])).rowCount, { commit: true });
+    expect(n).toBe(1);
+    expect(await errorCode(db.asUser(creator, (q) => q("update public.items set sponsor = $1 where id = $2", ["x".repeat(121), id])))).toBe(CHECK);
+    expect(await errorCode(db.asUser(creator, (q) => q("update public.items set roadmap_category = $1 where id = $2", ["x".repeat(121), id])))).toBe(CHECK);
+  });
+  it("Change Type takes the new names and refuses the old ones", async () => {
+    const id = await fresh();
+    for (const v of ["Feature", "Improvement", "Bug", "Tech debt"]) {
+      expect(await db.asUser(creator, async (q) => (await q("update public.items set change_type = $1 where id = $2", [v, id])).rowCount, { commit: true })).toBe(1);
+    }
+    expect(await errorCode(db.asUser(creator, (q) => q("update public.items set change_type = 'New feature' where id = $1", [id])))).toBe(CHECK);
   });
 });
 

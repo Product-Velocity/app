@@ -1,0 +1,12 @@
+---
+date: 2026-11-18
+by: Ashu (2026-11-18, chat), built by Claude
+status: built, to confirm
+---
+**Change Type is renamed, Roadmap Category is shown again as an open list, and Owner is an open list.**
+
+- **Change Type:** "New feature" is now **Feature** and "Improvement to existing feature" is now **Improvement**. Bug and Tech debt are unchanged. Existing initiatives and saved views move to the new names in migration `20261118213038_open_owner_category_change_type.sql`. GitHub and Jira pull-in labels (`type:feature`, `type:improvement`, `type:enhancement`) map to the new names. **The tracker label keeps its name `pm:type/new-feature`** (and `pm:type/improvement`): renaming the label would show every initiative as changed at the next Sync. Say if the label should follow the new name too.
+- **Roadmap Category** (`roadmap_category`) was hidden in the app from 2026-11-05 (the Business Value Type took over its meaning) but still showed up through the Claude connector, which listed its five fixed values. It is **shown again everywhere** (grid, panel, filters, bulk bar, views, Help; `HIDDEN_FIELDS` is empty) and is now an **open list** like Focus Area: any text up to 120 characters, the values in use are suggested, new values are accepted. The five old values stay as text; nothing is seeded. It is back in the Prioritisation default view where `default-views.csv` has it. Still never synced to a tracker.
+- **Owner** (`sponsor`, key unchanged) was a link to a workspace member, which is why Claude asked for an email address. It is now an **open list** too (type `Select`, open): text up to 120 characters, a name or an email address, with the values in use suggested and new values accepted. **Each existing owner was kept as the member's email address**, which is what the grid showed. The link to the member list (foreign key) is gone for this field only; Product Manager, Engineering Manager, Designer, Analyst and Business Manager stay member links. Consequences: the "me" filter and the member picker no longer apply to Owner, and an Owner is not checked against the member list.
+- **Claude's wording:** Claude's PRD and discovery rules now say Owner (not Sponsor) and say Owner is open text; Product Manager and the other person fields still need a workspace member.
+- Not changed: Owner is still never synced to a tracker.
