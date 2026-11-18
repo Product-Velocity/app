@@ -20,7 +20,7 @@ const MATRIX: Table = {
 
 export default function PhasesHelp() {
   return (
-    <HelpPage current="phases" title="Phase by phase" intro="The seven phases side by side, and what ends each one. The picture and the rules of the gates are on the lifecycle page.">
+    <HelpPage current="phases" title="Phase by phase" intro="The seven phases side by side, and what ends each one. Sunset comes after Completed, for a shipped feature being retired, and needs no gate. The picture and the rules of the gates are on the lifecycle page; every status value is on Phases and statuses: the lists.">
       <HelpTable caption="Each phase: the question, the work, the evidence and what helps" table={MATRIX} />
       <HelpTable caption="Phases and what ends them" table={FLOW_LIFECYCLE} />
     </HelpPage>
