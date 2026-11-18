@@ -1,6 +1,7 @@
 import { FIELDS, FIELD_BY_KEY } from "@pv/domain";
 import { LABEL_KINDS, type LabelKind } from "@pv/github";
 import type { CatalogKind } from "./catalog";
+import { SELECT_SLOTS } from "@/lib/atlassian/select-map";
 
 // The default mapping of Product Velocity fields to tracker fields, and the slots a person can change (decision 2026-11-03-tracker-field-config).
 // EVERYTHING here is derived from what the sync code does today (the defaults are pinned against the payload builders by slots.test.ts), and
@@ -164,6 +165,9 @@ export function mappingRows(tracker: Tracker): MappingRow[] {
     }
     const two = TWO_WAY[tracker].get(f.key);
     if (two) { rows.push({ key: f.key, label: f.name, direction: "two_way", target: two, reason: "Compared both ways; not re-pointable.", slot: null }); continue; }
+    // Health, Initiative Status and Initiative Phase on custom select fields of the Jira issue (issue #512): set in the "Initiative fields" card, not in this table
+    const sel = tracker === "jira" ? SELECT_SLOTS.find((x) => x.pvKey === f.key) : undefined;
+    if (sel) { rows.push({ key: f.key, label: f.name, direction: sel.directions.includes("two_way") ? "two_way" : "to_tracker", target: sel.directions.includes("two_way") ? "A custom single-select field of the issue (not sent until chosen in Initiative fields). A change in Jira comes back as a suggestion, never silently." : "A custom single-select field of the issue (not sent until chosen in Initiative fields). Only goes to Jira: it moves at the decision gates.", reason: "Set in the Initiative fields card below.", slot: null }); continue; }
     const from = FROM_TRACKER[tracker].get(f.key);
     if (from) { rows.push({ key: f.key, label: f.name, direction: "from_tracker", target: from, reason: "Filled by the tracker and read-only in the app. It is not re-pointable.", slot: null }); continue; }
     rows.push({ key: f.key, label: f.name, direction: "not_synced", target: "Not synced", reason: "No sync path for this field.", slot: null });
