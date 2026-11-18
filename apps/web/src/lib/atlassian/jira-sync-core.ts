@@ -4,15 +4,16 @@ import { adfToText, markdownToAdf, type AdfNode } from "./adf";
 import { LINK_SECTIONS, TEXT_SECTIONS, attachmentsHash, attachmentsText, composeDescription, linksText, isSimpleNodes, nodesText, splitDescription, type Link, type Split, type TextSection } from "./jira-sections";
 import { buildJiraPayload, type JiraFieldMap } from "./outbound";
 import { cleanTitle } from "./read-issues";
+import { SELECT_SLOTS, compareSelect, readSelectValue } from "./select-map";
 
 // The decisions of "Sync with Jira" without any network or database (issue #67, #71): compare Product Velocity with the Jira issue three ways
 // (the base is what both sides agreed at the last sync, hashes only), decide what goes out, what is taken over, and what is still a conflict.
 // Pure, so the whole table is tested. Status is not an input anywhere (rule 6); nothing here can transition an issue.
 
-export type PvItem = { focus_area?: string | null; value_type?: string | null; g2m_quarter?: string | null; tags?: string[]; id: string; name: string; summary?: string | null; description: string | null; hypothesis?: string | null; moscow?: string | null; g2m_date_est?: string | null; planned_start?: string | null; stack_rank?: number | null; change_type?: string | null; theme?: string | null };
+export type PvItem = { focus_area?: string | null; value_type?: string | null; g2m_quarter?: string | null; tags?: string[]; id: string; name: string; summary?: string | null; description: string | null; hypothesis?: string | null; moscow?: string | null; g2m_date_est?: string | null; planned_start?: string | null; stack_rank?: number | null; change_type?: string | null; theme?: string | null; health?: string | null; initiative_status?: string | null; initiative_phase?: string | null };
 export type JiraNow = { summary: string; description: unknown; labels: string[] };
 /** Hashes both sides agreed on at the last sync. `attachments` is the hash of the Artifacts and Files sections as last written. */
-export type JiraBase = { title?: string; summary?: string; description?: string; hypothesis?: string; attachments?: string };
+export type JiraBase = { title?: string; summary?: string; description?: string; hypothesis?: string; attachments?: string; /** The Product Velocity value of each select field both sides agreed on at the last sync (issue #512). */ sel_health?: string; sel_initiative_status?: string; sel_initiative_phase?: string };
 export type Side = "pv" | "jira";
 /** The compared texts: the name (the Jira summary) and the three sections of the description. */
 export type TextField = "title" | TextSection;
@@ -61,7 +62,13 @@ export type SendPlan = {
   notes: string[];
   /** The texts that this plan writes (the three sections are written together, as one description). */
   writes: TextField[];
+  /** Select fields (issue #512): Jira values the person chose to take over, the differences to show, and the ones still waiting for a choice. */
+  selectTakeOver: Partial<Record<SelectKey, string>>;
+  selectConflicts: SelectConflict[];
+  unresolvedSelects: SelectKey[];
 };
+export type SelectKey = "health" | "initiative_status";
+export type SelectConflict = { pvKey: SelectKey; label: string; verdict: "jira" | "both"; pv: string; jira: string; jiraHash: string };
 
 type PlanInput = {
   pv: PvItem;
@@ -79,10 +86,14 @@ type PlanInput = {
   files?: Link[];
   /** The documents left shared, each as a name and a public link, for the Documents section. */
   documents?: Link[];
+  /** The raw value of each mapped select field on the Jira issue now, by slot id (issue #512). */
+  selectsNow?: Record<string, unknown>;
+  /** What the person chose for a select field that differs: "jira" takes Jira's value over, "pv" writes Product Velocity's. */
+  selectPicks?: Partial<Record<SelectKey, Side>>;
 };
 
 export function planJiraSend(i: PlanInput): SendPlan {
-  const item = { initiative_name: i.pv.name, summary: i.pv.summary ?? "", description: i.pv.description ?? "", hypothesis: i.pv.hypothesis ?? "", moscow: i.pv.moscow ?? undefined, g2m_date_est: i.pv.g2m_date_est ?? undefined, planned_start: i.pv.planned_start ?? undefined, stack_rank: i.pv.stack_rank ?? undefined, change_type: i.pv.change_type ?? undefined, theme: i.pv.theme ?? undefined, focus_area: i.pv.focus_area ?? undefined, value_type: i.pv.value_type ?? undefined, g2m_quarter: i.pv.g2m_quarter ?? undefined, tags: i.pv.tags ?? [] };
+  const item = { initiative_name: i.pv.name, summary: i.pv.summary ?? "", description: i.pv.description ?? "", hypothesis: i.pv.hypothesis ?? "", moscow: i.pv.moscow ?? undefined, g2m_date_est: i.pv.g2m_date_est ?? undefined, planned_start: i.pv.planned_start ?? undefined, stack_rank: i.pv.stack_rank ?? undefined, change_type: i.pv.change_type ?? undefined, theme: i.pv.theme ?? undefined, focus_area: i.pv.focus_area ?? undefined, value_type: i.pv.value_type ?? undefined, g2m_quarter: i.pv.g2m_quarter ?? undefined, tags: i.pv.tags ?? [], health: i.pv.health ?? undefined, initiative_status: i.pv.initiative_status ?? undefined, initiative_phase: i.pv.initiative_phase ?? undefined };
   const marker = i.jira ? undefined : markerFor(i.pv.id, resolveNames(i.map.names).jiraMarker);
   const shown = { ...(i.map.off?.includes("jira.body.artifacts") ? {} : { artifacts: i.artifacts }), ...(i.map.off?.includes("jira.body.files") ? {} : { files: i.files }) };
   const attHash = attachmentsHash(shown.artifacts, shown.files, i.documents);
@@ -92,7 +103,8 @@ export function planJiraSend(i: PlanInput): SendPlan {
     const c = compareJira(i.pv, { summary: i.pv.name, description: null, labels: [] }, null);
     const newBase: JiraBase = { attachments: attHash };
     for (const f of c.fields) newBase[f.field] = f.pvHash;
-    return { action: "create", fields: p.fields, takeOver: {}, unresolved: [], newBase, sentHash: extrasHash(p.fields), ...(marker ? { marker } : {}), notes: p.notes, writes: [...TEXT_FIELDS] };
+    for (const s of SELECT_SLOTS) { const cfg = i.map.selects?.[s.slot]; const v = i.pv[s.pvKey]; if (cfg && v && cfg.options[v]) newBase[`sel_${s.pvKey}`] = v; }
+    return { action: "create", selectTakeOver: {}, selectConflicts: [], unresolvedSelects: [], fields: p.fields, takeOver: {}, unresolved: [], newBase, sentHash: extrasHash(p.fields), ...(marker ? { marker } : {}), notes: p.notes, writes: [...TEXT_FIELDS] };
   }
   const cmp = compareJira(i.pv, i.jira, i.base);
   const writes: TextField[] = [];
@@ -133,14 +145,49 @@ export function planJiraSend(i: PlanInput): SendPlan {
   } else delete fields.description;
   // the record of the sent-only sections moves only when they were written; if a rewrite was needed but did not happen, it stays, so the next sync tries again
   if (attachmentsDirty && !wroteDescription) { if (i.base?.attachments !== undefined) newBase.attachments = i.base.attachments; else delete newBase.attachments; }
+  const forced: Record<string, unknown> = {}; // select fields that must be written even though the hash says "already sent"
+  // select fields (issue #512): Jira's own change is a proposal, never overwritten and never applied without a person's choice
+  const sels = planSelects(i, fields, newBase, notes, forced);
   // the parts that are written but not compared go out only when they changed since the last send, or when the labels in Jira are not as they should be
   const extras = { ...fields };
   delete extras.summary; delete extras.description;
   const sentHash = extrasHash(extras);
   const labelsOk = sameSet(i.jira.labels, (p.fields.labels as string[] | undefined) ?? []);
   if (sentHash === (i.sentHash ?? null) && labelsOk) for (const k of Object.keys(extras)) delete fields[k];
+  Object.assign(fields, forced);
   notes.push(...p.notes);
-  return { action: Object.keys(fields).length === 0 ? "unchanged" : "update", fields, takeOver, unresolved, newBase, sentHash, notes, writes: [...writes] };
+  return { action: Object.keys(fields).length === 0 ? "unchanged" : "update", fields, takeOver, unresolved, newBase, sentHash, notes, writes: [...writes], ...sels };
+}
+
+/** The select fields of an existing issue: decides, per mapped slot, what is sent, what is taken over and what waits for a person. Edits `fields` and `newBase` in place. */
+function planSelects(i: PlanInput, fields: Record<string, unknown>, newBase: JiraBase, notes: string[], forced: Record<string, unknown>): Pick<SendPlan, "selectTakeOver" | "selectConflicts" | "unresolvedSelects"> {
+  const selectTakeOver: SendPlan["selectTakeOver"] = {};
+  const selectConflicts: SelectConflict[] = [];
+  const unresolvedSelects: SelectKey[] = [];
+  for (const s of SELECT_SLOTS) {
+    const cfg = i.map.selects?.[s.slot];
+    if (!cfg) continue;
+    const baseKey = `sel_${s.pvKey}` as const;
+    const pvVal = i.pv[s.pvKey] ?? null;
+    const mapped = pvVal !== null && pvVal !== "" && cfg.options[pvVal] !== undefined;
+    // Initiative Phase only goes to Jira (it is moved at the decision gates), and so does every slot set to "to_jira"
+    if (cfg.direction === "to_jira" || s.pvKey === "initiative_phase") {
+      if (mapped) { newBase[baseKey] = pvVal!; const now = readSelectValue(cfg, i.selectsNow?.[s.slot]); if (now.kind !== "value" || now.value !== pvVal) forced[cfg.field] = fields[cfg.field]; }
+      continue;
+    }
+    const key = s.pvKey as SelectKey;
+    const read = readSelectValue(cfg, i.selectsNow?.[s.slot]);
+    if (read.kind === "unmapped") { delete fields[cfg.field]; notes.push(`${s.label} not sent: Jira holds “${read.name}”, which no Product Velocity value stands for, so it is left as it is.`); continue; }
+    const jiraVal = read.kind === "value" ? read.value : null;
+    const verdict = compareSelect({ base: i.base?.[baseKey], pv: pvVal, jira: jiraVal });
+    if (verdict === "none" || verdict === "send") { if (mapped) newBase[baseKey] = pvVal!; else if (jiraVal !== null && verdict === "none") newBase[baseKey] = jiraVal; continue; }
+    const choice = i.selectPicks?.[key];
+    selectConflicts.push({ pvKey: key, label: s.label, verdict, pv: pvVal ?? "", jira: jiraVal!, jiraHash: createHash("sha256").update(jiraVal!).digest("hex") });
+    if (choice === "jira") { selectTakeOver[key] = jiraVal!; newBase[baseKey] = jiraVal!; delete fields[cfg.field]; }
+    else if (choice === "pv" && mapped) { newBase[baseKey] = pvVal!; forced[cfg.field] = fields[cfg.field]; }
+    else { delete fields[cfg.field]; if (choice !== "pv") unresolvedSelects.push(key); }
+  }
+  return { selectTakeOver, selectConflicts, unresolvedSelects };
 }
 
 const sameSet = (a: string[], b: string[]) => a.length === b.length && [...a].sort().every((x, n) => x === [...b].sort()[n]);

@@ -108,7 +108,7 @@ export function compareSelect(i: { base: string | null | undefined; pv: string |
   const pv = i.pv ?? null;
   const jira = i.jira ?? null;
   if (jira === null || pv === jira) return "none";
-  if (i.base === undefined) return "both";
+  if (i.base === undefined) return pv === null ? "jira" : "both"; // Product Velocity has nothing to lose when it is empty
   const base = i.base ?? null;
   const pvChanged = pv !== base;
   const jiraChanged = jira !== base;
