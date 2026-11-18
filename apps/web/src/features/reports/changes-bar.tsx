@@ -6,6 +6,7 @@ import {
   type ChangeFilters, type ChangeGroupBy, type ChangeQuick, type ChangeRowData, type ChangeRule, type ChangeRuleField,
 } from "@pv/domain";
 import { Popover } from "../portfolio/popover";
+import { FoldAllButton } from "../portfolio/fold-all-button";
 
 /**
  * The action bar of the Changes report (issue #472, Ashu 2026-11-17: "use the action bar from the main grid ... adapt for the change log grid"): Filter, Columns,
@@ -191,11 +192,10 @@ export function ChangesBar(p: {
   allColumns: readonly ChangeColumn[]; columns: readonly string[]; defaultColumns: readonly string[]; onColumns: (ids: string[]) => void;
   by: ChangeGroupBy | null; then: ChangeGroupBy | null; onGroup: (by: ChangeGroupBy | null, then: ChangeGroupBy | null) => void;
   /** Expand or collapse every group: the keys of all the group rows, and which are collapsed now. */
-  groupKeys: readonly string[]; collapsed: ReadonlySet<string>; onCollapse: (keys: string[]) => void;
+  groupKeys: readonly string[]; collapsed: ReadonlySet<string>; onCollapse: (next: Set<string>) => void;
   /** Reload the changes and the roadmap; `updatedAt` is when they were last read. */
   onRefresh: () => void; refreshing: boolean; updatedAt: Date | null;
 }) {
-  const allCollapsed = p.groupKeys.length > 0 && p.groupKeys.every((k) => p.collapsed.has(k));
   const n = changeFilterCount(p.filters);
   return (
     <div className="pvbar" role="region" aria-label="Changes tools">
@@ -209,19 +209,17 @@ export function ChangesBar(p: {
         <Popover wide staged label={<>Group by: <strong className="count-badge">{changeGroupSummary(p.by, p.then)}</strong></>} active={!!p.by}>
           {(close) => <GroupPanel by={p.by} then={p.then} onApply={p.onGroup} close={close} />}
         </Popover>
-        <button type="button" className="tool-btn" disabled={p.groupKeys.length === 0} aria-pressed={allCollapsed}
-          title={p.groupKeys.length === 0 ? "Group the changes to fold their lines" : allCollapsed ? "Show the lines of every group" : "Fold the lines of every group away"}
-          onClick={() => p.onCollapse(allCollapsed ? [] : [...p.groupKeys])}>{allCollapsed ? "▸ Expand all" : "▾ Collapse all"}</button>
+        <FoldAllButton keys={p.groupKeys} collapsed={p.collapsed} onChange={p.onCollapse} />
         <label className="pvbar-search">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b6272" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
           <input type="search" aria-label="Search changes" placeholder="Search changes" value={p.filters.search} onChange={(e) => p.onFilters({ ...p.filters, search: e.target.value })} onKeyDown={(e) => { if (e.key === "Escape") p.onFilters({ ...p.filters, search: "" }); }} />
         </label>
-        <button type="button" className="tool-btn" disabled={p.refreshing} onClick={p.onRefresh}
-          title={p.updatedAt ? `Read the changes and the roadmap again. Last read ${p.updatedAt.toLocaleTimeString("en-GB")}.` : "Read the changes and the roadmap again"}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" /></svg>
-          {p.refreshing ? " Refreshing…" : " Refresh"}
+        {/* like the Roadmap bar: the text on the left, the icon button on the right */}
+        <span className="pvbar-last" role="status">{p.refreshing ? "Refreshing…" : p.updatedAt ? `Updated ${p.updatedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}</span>
+        <button type="button" className="btn pvbar-undo" aria-label="Refresh" disabled={p.refreshing} onClick={p.onRefresh}
+          title={p.updatedAt ? `Refresh: read the changes and the roadmap again. Last read ${p.updatedAt.toLocaleTimeString("en-GB")}.` : "Refresh: read the changes and the roadmap again"}>
+          <svg className={p.refreshing ? "spin" : undefined} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></svg>
         </button>
-        {p.updatedAt && <span className="muted pvbar-updated" role="status">Updated {p.updatedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>}
       </div>
     </div>
   );

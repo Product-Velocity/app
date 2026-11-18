@@ -15,6 +15,7 @@ import { setQueryParam, useScope } from "../workspace/scope";
 import { buildColumns, isEditableColumn, isReadOnlyColumn, type GridContext } from "./columns";
 import { syncLabel, syncPlatforms, syncTitle } from "./sync-label";
 import { ColumnsPanel } from "./columns-panel";
+import { FoldAllButton } from "./fold-all-button";
 import { isIssueRow, issueInfoOf, issueRowsOf, issuesKey, issueTypeCounts, withIssueRows, type IssueFilter, type IssueRow } from "./issue-rows";
 import type { ReportChildren } from "./export-xlsx-children";
 import { FilterPanel } from "./filter-panel";
@@ -284,6 +285,15 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     return showIssues ? withIssueRows(grouped, issueKids, collapsed, issueFilter) : grouped;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleRows, def.groupBy, def.thenBy, shownSort, collapsed, lookups, showIssues, issueKids, issueFilter]);
+  // everything that can be folded: every group header (both levels) and, with Show issues, the issues under each initiative that has some
+  const foldKeys = useMemo(() => {
+    const keys = def.groupBy
+      ? buildGroupedRows(visibleRows, def.groupBy, new Set(), groupLabel, def.thenBy ?? null).filter((r): r is typeof r & GroupRow => "__group" in r).map((g) => g.key)
+      : [];
+    if (showIssues) for (const r of visibleRows) if (issueRowsOf(r, issueKids, issueFilter).length > 0) keys.push(issuesKey(r.id));
+    return keys;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleRows, def.groupBy, def.thenBy, lookups, showIssues, issueKids, issueFilter]);
   const toggleGroup = useCallback((key: string) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(key)) n.add(key); return n; }), []);
   // what a cell may ask the grid: fold a group, and (Show issues) the chip data of an initiative's name cell
   const issueInfo = useCallback((id: string) => { const r = controller.row(id); return r ? issueInfoOf(r, issueKids, collapsed, issueFilter) : null; }, [controller, issueKids, collapsed, issueFilter]);
@@ -673,6 +683,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
             customerSafe={def.customerSafe === true} issueTypes={issueTypes} issuesLoading={issuesLoading} onOpenIssues={() => setIssuesWanted(true)}
             onChange={(g) => changeDef({ groupBy: g.groupBy, thenBy: g.thenBy, showIssues: g.showIssues, issueTypes: g.issueTypes ?? undefined, hideDoneIssues: g.hideDone })}
           />
+          <FoldAllButton keys={foldKeys} collapsed={collapsed} onChange={setCollapsed} what="groups and issues" />
           <label className="pvbar-search">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b6272" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
             <input
