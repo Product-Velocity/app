@@ -10,10 +10,11 @@ import { buildMappingView } from "@/lib/tracker-fields/view";
 import { parseConfigRows } from "@/lib/tracker-fields/mapping";
 import { setupSteps, type TrackerSection } from "@/lib/tracker-fields/sections";
 import { unlinkedFields } from "@/lib/tracker-fields/workbench";
-import { copyGithubFieldConfig, saveGithubFieldConfig } from "./actions";
+import { copyGithubFieldConfig, saveGithubFieldConfig, saveGithubBoardSelects } from "./actions";
 import { AutoRefresh } from "./auto-refresh";
 import { parseBoard } from "@pv/github";
 import { BoardsCard } from "./boards";
+import { BoardSelectCard } from "@/components/board-select-card";
 import { EpicReposCard } from "./epic-repos-card";
 import { ConnectForm, ProjectRow, RepoRow } from "./forms";
 import { confirmWithGithub, continueOnGithub, disconnectGithub, refreshRepositories } from "./actions";
@@ -68,6 +69,16 @@ export async function GithubSettings({ section, searchParams }: { section: Exclu
     : null;
   const view = selected && section === "mapping" && isAdmin && connected ? mappingOf(selected) : null;
   const unlinked = view && selected ? unlinkedFields(catalog, [{ name: selected.name, view, board: parseBoard(selected.github_board) }]) : null;
+
+  // "Initiative fields" (issue #513): Health, Initiative Status and Initiative Phase on single-select fields of the project's board
+  let boardSelect: React.ReactNode = null;
+  if (sc && selected && c?.installation_id != null && section === "mapping" && isAdmin) {
+    const b = parseBoard(selected.github_board);
+    if (b) {
+      const bf = await sc.getBoardFields(c.installation_id, b.id).catch((): null => null);
+      boardSelect = <BoardSelectCard projectId={selected.id} projectName={selected.name} boardTitle={b.title} saved={b.mapping.selects} fields={bf} action={saveGithubBoardSelects} />;
+    }
+  }
 
   return (
     <div className="page-full">
@@ -184,6 +195,7 @@ export async function GithubSettings({ section, searchParams }: { section: Exclu
             <>
               <TrackerProjectPicker projects={githubProjects.map((p) => ({ id: p.id, name: p.name }))} current={selected.id} action={`${GITHUB_BASE}/mapping`} />
               <FieldWorkbench key={`${selected.id}-${t ?? ""}`} tracker="GitHub" projectId={selected.id} projectName={selected.name} action={saveGithubFieldConfig} view={view} unlinked={unlinked.fields} unlinkedError={unlinked.error} unlinkedNotes={unlinked.notes} />
+              {boardSelect}
               {githubProjects.length > 1 && <CopyMapping tracker="GitHub" fromId={selected.id} fromName={selected.name} others={githubProjects.filter((p) => p.id !== selected.id).map((p) => ({ id: p.id, name: p.name }))} action={copyGithubFieldConfig} />}
             </>
           )}

@@ -33,7 +33,7 @@ type ItemCompare = {
   /** The tracking issue's assignees against the people assigned in Product Velocity, when the initiative has a pushed issue. */
   assignees?: { cmp: AssigneeCompare; ghLogins: string[]; repo: string; number: number; /** Assignees are only written to private repositories. */ writable: boolean; baseComplete: boolean };
 };
-type PvRow = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; theme: string | null; end_date: string | null; effort: string | null; home_project_id: string | null; assignee_ids: string[] | null };
+type PvRow = { id: string; item_code: string; initiative_name: string; summary: string | null; description: string | null; hypothesis: string | null; moscow: string | null; theme: string | null; end_date: string | null; effort: string | null; health: string | null; initiative_status: string | null; home_project_id: string | null; assignee_ids: string[] | null };
 type SyncBase = Partial<Record<SyncTextField | BoardKey | "assignees", string>>;
 type BaseRow = { item_id: string; mode: string; sync_base: SyncBase | null; last_pushed_at: string | null; project_item_id: string | null; repo_full_name: string; issue_number: number | null };
 
@@ -64,7 +64,7 @@ export async function readIssueTexts(sc: SourceControl, connection: ConnectionRo
  */
 async function compareItems(ctx: SyncCtx, ids: string[], issues: Map<string, IssueTexts>, unchanged: ReadonlySet<string>): Promise<{ compares: Map<string, ItemCompare>; error?: string }> {
   const [items, links, projects, groups, memberRows, directory, repoRows] = await Promise.all([
-    ctx.supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis, moscow, theme, end_date, effort, home_project_id, assignee_ids").eq("tenant_id", ctx.tenantId).is("deleted_at", null).in("id", ids),
+    ctx.supabase.from("items").select("id, item_code, initiative_name, summary, description, hypothesis, moscow, theme, end_date, effort, health, initiative_status, home_project_id, assignee_ids").eq("tenant_id", ctx.tenantId).is("deleted_at", null).in("id", ids),
     ctx.supabase.from("item_github_links").select("item_id, mode, sync_base, last_pushed_at, project_item_id, repo_full_name, issue_number").eq("tenant_id", ctx.tenantId).eq("connection_id", ctx.connection.id).is("frozen_at", null).in("item_id", ids),
     ctx.supabase.from("projects").select("id, github_board").eq("tenant_id", ctx.tenantId).not("github_board", "is", null),
     ctx.supabase.from("item_groups").select("name").eq("tenant_id", ctx.tenantId),
@@ -237,10 +237,23 @@ export async function confirmSync(ctx: SyncCtx, ids: string[], choices: SyncChoi
       fields[SYNC_FIELD_COLUMN[c.field as SyncTextField]] = c.github;
     }
     if (Object.keys(fields).length === 0) continue;
+    // Health and Initiative Status (issue #513) have their own function: it takes those two columns and nothing else, and never the phase
+    const selectFields: Record<string, string> = {};
+    for (const k of ["health", "initiative_status"] as const) if (fields[k] !== undefined) { selectFields[k] = fields[k]!; delete fields[k]; }
+    const replaced: Record<string, string | null> = {};
+    if (Object.keys(selectFields).length > 0) {
+      const sel = await ctx.adminUi.rpc("github_apply_select_pull", { p_actor: ctx.actor, p_item: r.id, p_fields: selectFields, p_base: null });
+      if (sel.error) { failed.set(r.id, "The value from GitHub could not be applied. Nothing was changed for this initiative."); console.error(JSON.stringify({ github: "pull-select", error: sel.error.message.slice(0, 200) })); continue; }
+      Object.assign(replaced, (sel.data ?? {}) as Record<string, string | null>);
+      pulledIds.add(r.id);
+    }
+    if (Object.keys(fields).length > 0) {
     const { data, error } = await ctx.adminUi.rpc("github_apply_pull", { p_actor: ctx.actor, p_item: r.id, p_fields: fields, p_base: null });
     if (error) { failed.set(r.id, "The text from GitHub could not be applied. Nothing was changed for this initiative."); console.error(JSON.stringify({ github: "pull", error: error.message.slice(0, 200) })); continue; }
+    Object.assign(replaced, (data ?? {}) as Record<string, string | null>);
+    }
     pulledIds.add(r.id);
-    const replaced = (data ?? {}) as Record<string, string | null>;
+    for (const [k, v] of Object.entries(selectFields)) fields[k] = v;
     for (const column of Object.keys(fields)) taken.push({ itemId: r.id, code: r.code, field: column as TakenOver["field"], before: replaced[column] ?? null, after: fields[column] ?? null });
   }
   for (const [id, message] of failed) results.push({ id, code: pre.received.find((r) => r.id === id)?.code ?? "", outcome: "error", message });

@@ -76,6 +76,10 @@ export async function saveBoardLink(projectId: string, boardId: string, chosen: 
     const fields = board ? await g.sc.getBoardFields(g.installationId, boardId) : null;
     if (!board || !fields) return { error: "That Project was not found in this organisation." };
     const mapping = detectMapping([]);
+    // the Initiative fields card (issue #513) is saved apart: re-linking the same board must not lose it
+    const { data: prior } = await g.ctx.supabase.from("projects").select("github_board").eq("id", projectId).eq("tenant_id", g.ctx.active.tenantId).maybeSingle();
+    const before = parseBoard(prior?.github_board);
+    if (before && before.id === board.id && before.mapping.selects) mapping.selects = before.mapping.selects;
     for (const [slot, types] of Object.entries(SLOTS)) {
       const id = chosen[slot];
       if (!id) { (mapping as unknown as Record<string, FieldRef | null>)[slot] = null; continue; }

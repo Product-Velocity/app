@@ -38,7 +38,7 @@ describe("compareBoardValues", () => {
   it("dates, sizes and groups are compared and mapped back to their columns", () => {
     const r = run({ values: { fd: { date: "2027-01-15" }, fs: { option: "xl" }, fg: { option: "platform" } } });
     expect(r.map((c) => [c.key, c.pull])).toEqual([["group", { column: "theme", value: "Platform" }], ["due", { column: "end_date", value: "2027-01-15" }], ["size", { column: "effort", value: "XL" }]]);
-    expect(Object.values(BOARD_COLUMN).sort()).toEqual(["effort", "end_date", "moscow", "theme"]);
+    expect(Object.values(BOARD_COLUMN).sort()).toEqual(["effort", "end_date", "health", "initiative_status", "moscow", "theme"]);
   });
   it("a board value Product Velocity cannot take over is shown, with the reason, and offers no pull", () => {
     const r = run({ values: { fp: { option: "P3" }, fg: { option: "Brand new" }, fd: { text: "next week" }, fs: { option: "XXL" } } });

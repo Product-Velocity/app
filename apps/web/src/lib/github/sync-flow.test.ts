@@ -27,11 +27,14 @@ const bodyFor = (over: Record<string, unknown>) => buildTrackingIssue({ item: { 
 let issueTexts: Record<string, { title: string; body: string; assignees?: string[] }>;
 const inStep = { title: hashText("Faster export"), summary: hashText("S"), description: hashText("D"), hypothesis: hashText("H") };
 
+let withSelects = false; // Health and Initiative Status on board fields (issue #513)
+const SELECTS = { health: { field: { id: "fh", name: "Health" }, direction: "two_way", options: { "On Track": "Green", "At Risk": "Amber", Blocked: "Red" } }, initiative_phase: { field: { id: "fph", name: "Phase" }, direction: "to_github", options: { Build: "Building", Test: "Testing" } } };
 const BOARD = { id: "B", number: 1, title: "Roadmap", url: "https://github.com/orgs/x/projects/1", mapping: { priority: { id: "fp", name: "Priority" }, group: null, dueDate: { id: "fd", name: "Due date" }, size: { id: "fs", name: "Size" }, status: null, priorityMap: { Must: "P0", Should: "P1", Could: "P2" } } };
+const boardNow = () => (withSelects ? { ...BOARD, mapping: { ...BOARD.mapping, selects: SELECTS } } : BOARD);
 /** A board whose item shows these values by field id (single-select option names and dates). */
 function boardSc(values: Record<string, object> | null | undefined) {
   const sc = new MemorySourceControl();
-  sc.boardFields.set("B", [{ id: "fp", name: "Priority", dataType: "SINGLE_SELECT", options: [{ id: "o0", name: "P0" }, { id: "o1", name: "P1" }, { id: "o2", name: "P2" }] }, { id: "fd", name: "Due date", dataType: "DATE" }, { id: "fs", name: "Size", dataType: "SINGLE_SELECT", options: [{ id: "s1", name: "M" }, { id: "s2", name: "XL" }] }]);
+  sc.boardFields.set("B", [{ id: "fp", name: "Priority", dataType: "SINGLE_SELECT", options: [{ id: "o0", name: "P0" }, { id: "o1", name: "P1" }, { id: "o2", name: "P2" }] }, { id: "fd", name: "Due date", dataType: "DATE" }, { id: "fs", name: "Size", dataType: "SINGLE_SELECT", options: [{ id: "s1", name: "M" }, { id: "s2", name: "XL" }] }, { id: "fh", name: "Health", dataType: "SINGLE_SELECT", options: [{ id: "h1", name: "Green" }, { id: "h2", name: "Amber" }, { id: "h3", name: "Red" }] }, { id: "fph", name: "Phase", dataType: "SINGLE_SELECT", options: [{ id: "ph1", name: "Building" }, { id: "ph2", name: "Testing" }] }]);
   if (values) sc.boardItems.push({ id: "PVTI_1", boardId: "B", issueNodeId: "I_1", values: values as never });
   return sc;
 }
@@ -45,14 +48,14 @@ function ctx(opts: { rows?: unknown[]; base?: unknown; pullError?: boolean; read
   const q = (table: string) => {
     const r: Record<string, unknown> = {};
     for (const m of ["eq", "is", "in", "select", "not"]) r[m] = () => r;
-    r.then = (resolve: (v: unknown) => void) => resolve(table === "tenant_members" ? { data: MEMBERS, error: null } : table === "github_repositories" ? { data: [{ full_name: "Acme/App", is_private: opts.publicRepo !== true }], error: null } : table === "projects" ? { data: opts.board ? [{ id: "p1", github_board: BOARD }] : [], error: null } : table === "item_groups" ? { data: [{ name: "Mobile" }, { name: "Platform" }], error: null } : opts.readError && table === "item_github_links" ? { data: null, error: { message: 'column "sync_base" does not exist' } } : { data: table === "items" ? rows : [{ item_id: ITEM, mode: "push", sync_base: opts.base ?? inStep, project_item_id: opts.board ? "PVTI_1" : null, repo_full_name: "Acme/App", issue_number: 31 }], error: null });
+    r.then = (resolve: (v: unknown) => void) => resolve(table === "tenant_members" ? { data: MEMBERS, error: null } : table === "github_repositories" ? { data: [{ full_name: "Acme/App", is_private: opts.publicRepo !== true }], error: null } : table === "projects" ? { data: opts.board ? [{ id: "p1", github_board: boardNow() }] : [], error: null } : table === "item_groups" ? { data: [{ name: "Mobile" }, { name: "Platform" }], error: null } : opts.readError && table === "item_github_links" ? { data: null, error: { message: 'column "sync_base" does not exist' } } : { data: table === "items" ? rows : [{ item_id: ITEM, mode: "push", sync_base: opts.base ?? inStep, project_item_id: opts.board ? "PVTI_1" : null, repo_full_name: "Acme/App", issue_number: 31 }], error: null });
     return r;
   };
   const adminUi = { rpc: async (name: string, args: Record<string, unknown>) => { rpcs.push({ name, args }); order.push(name); return name === "github_apply_pull" ? (opts.pullError ? { data: null, error: { message: "boom" } } : { data: { initiative_name: "Faster export", description: "D" }, error: null }) : { data: null, error: null }; } };
   return { rpcs, ctx: { supabase: { from: q, rpc: async () => ({ data: DIRECTORY, error: null }) }, adminGithub: adminUi, adminUi, sc: boardSc(opts.board), connection: { id: "c1", tenant_id: "t1", expected_account: "Acme", installation_id: 9, account_login: "Acme", state: "connected" }, tenantId: "t1", actor: "u1", appUrl: "https://pv.test" } as never };
 }
 
-beforeEach(() => { order.length = 0; pushCalls.length = 0; plan = [{ id: ITEM, action: "unchanged" }]; pushResults = {}; issueTexts = { [ITEM]: { title: "R-1: Faster export", body: bodyFor({}) } }; });
+beforeEach(() => { withSelects = false; order.length = 0; pushCalls.length = 0; plan = [{ id: ITEM, action: "unchanged" }]; pushResults = {}; issueTexts = { [ITEM]: { title: "R-1: Faster export", body: bodyFor({}) } }; });
 
 describe("buildSyncPreview: the comparison", () => {
   it("an issue edited only in GitHub is a conflict whose default is Keep Product Velocity", async () => {
@@ -325,5 +328,45 @@ describe("assignees: the tracking issue's assignees against the people assigned 
     const r = await confirmSync(c, [ITEM], [{ itemId: ITEM, field: "assignees", choice: "github", ghHash: p.received[0]!.conflicts![0]!.ghHash }]);
     expect(r).toMatchObject({ ok: true, results: [{ id: ITEM, outcome: "error" }] });
     expect(pushCalls).toEqual([]);
+  });
+});
+
+describe("Health, Initiative Status and Initiative Phase on board fields (issue #513)", () => {
+  const withBase = () => ({ ...inStep, ...boardBase, health: hashBoard("Green") });
+  const row = (o: object = {}) => ({ ...pv, health: "On Track", initiative_status: null, ...o });
+  const values = (o: Record<string, object> = {}) => ({ ...onBoard, fh: { optionId: "h1" }, ...o });
+  it("a Health changed only on the board is a conflict on the board, defaulting to Keep Product Velocity", async () => {
+    withSelects = true;
+    const { ctx: c } = ctx({ board: values({ fh: { optionId: "h3" } }), base: withBase(), rows: [row()] });
+    const p = await buildSyncPreview(c, [ITEM]);
+    expect(p.received[0]).toMatchObject({ status: "conflict", conflicts: [{ field: "health", label: "Health", kind: "github", where: "board", pv: "Green", github: "Red", defaultChoice: "pv" }] });
+  });
+  it("in step: quiet", async () => {
+    withSelects = true;
+    const { ctx: c } = ctx({ board: values(), base: withBase(), rows: [row()] });
+    expect((await buildSyncPreview(c, [ITEM])).received[0]!.conflicts ?? []).toEqual([]);
+  });
+  it("without a select mapping nothing about Health is compared, even if the board has the field", async () => {
+    const { ctx: c } = ctx({ board: values({ fh: { optionId: "h3" } }), base: { ...inStep, ...boardBase }, rows: [row()] });
+    expect((await buildSyncPreview(c, [ITEM])).received[0]!.conflicts ?? []).toEqual([]);
+  });
+  it("Keep GitHub takes Health through its own function (never github_apply_pull), audited as the person, then sends", async () => {
+    withSelects = true;
+    const { ctx: c, rpcs } = ctx({ board: values({ fh: { optionId: "h3" } }), base: withBase(), rows: [row()] });
+    const p = await buildSyncPreview(c, [ITEM]);
+    const picks = p.received[0]!.conflicts!.map((x) => ({ itemId: ITEM, field: x.field, choice: "github" as const, ghHash: x.ghHash }));
+    expect(picks.map((x) => x.field)).toEqual(["health"]);
+    order.length = 0;
+    const r = await confirmSync(c, [ITEM], picks);
+    expect(r).toMatchObject({ ok: true, taken: [expect.objectContaining({ itemId: ITEM, field: "health", after: "Blocked" })] });
+    expect(rpcs.find((x) => x.name === "github_apply_select_pull")?.args).toMatchObject({ p_actor: "u1", p_item: ITEM, p_fields: { health: "Blocked" } });
+    expect(rpcs.some((x) => x.name === "github_apply_pull")).toBe(false);
+  });
+  it("Initiative Phase edited on the board is never a conflict and never pulled", async () => {
+    withSelects = true;
+    const { ctx: c, rpcs } = ctx({ board: values({ fph: { optionId: "ph2" } }), base: withBase(), rows: [row({ initiative_phase: "Build" })] });
+    const p = await buildSyncPreview(c, [ITEM]);
+    expect(p.received[0]!.conflicts ?? []).toEqual([]);
+    expect(rpcs.filter((x) => x.name.includes("pull"))).toEqual([]);
   });
 });

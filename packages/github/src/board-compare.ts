@@ -8,18 +8,18 @@ import type { BoardItemValue } from "./source-control";
 // a difference is shown in the sync, and if both sides changed a person chooses which one to keep. Pure: the caller reads the item,
 // the board values and the stored base.
 
-export const BOARD_KEYS = ["priority", "group", "due", "size"] as const;
+export const BOARD_KEYS = ["priority", "group", "due", "size", "health", "initiative_status"] as const;
 export type BoardKey = (typeof BOARD_KEYS)[number];
-export const BOARD_LABEL: Record<BoardKey, string> = { priority: "Priority", group: "Initiative Group", due: "Due date", size: "Size" };
+export const BOARD_LABEL: Record<BoardKey, string> = { priority: "Priority", group: "Initiative Group", due: "Due date", size: "Size", health: "Health", initiative_status: "Initiative Status" };
 /** The item column a value taken over from the board lives in. This, with the texts of `inbound.ts`, is the allowlist of what GitHub can change. */
-export const BOARD_COLUMN: Record<BoardKey, "moscow" | "theme" | "end_date" | "effort"> = { priority: "moscow", group: "theme", due: "end_date", size: "effort" };
+export const BOARD_COLUMN: Record<BoardKey, "moscow" | "theme" | "end_date" | "effort" | "health" | "initiative_status"> = { priority: "moscow", group: "theme", due: "end_date", size: "effort", health: "health", initiative_status: "initiative_status" };
 
 const SIZES = ["XS", "S", "M", "L", "XL"];
 const norm = (s: string) => s.trim().toLowerCase();
 export const hashBoardValue = (s: string) => createHash("sha256").update(norm(s)).digest("hex");
 const validDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
 
-export type BoardPv = { moscow?: string | null; theme?: string | null; end_date?: string | null; effort?: string | null };
+export type BoardPv = { moscow?: string | null; theme?: string | null; end_date?: string | null; effort?: string | null; health?: string | null; initiative_status?: string | null };
 export type BoardFieldCompare = {
   key: BoardKey;
   label: string;
@@ -51,7 +51,9 @@ export function compareBoardValues(i: { board: Board; pv: BoardPv; values: Recor
   const m = i.board.mapping;
   const moscow = typeof i.pv.moscow === "string" ? i.pv.moscow : "";
   if (moscow && !(moscow in m.priorityMap)) return [];
-  const refs: Record<BoardKey, { id: string; name: string } | null> = { priority: m.priority, group: m.group, due: m.dueDate, size: m.size };
+  // Health and Initiative Status (issue #513): compared only when the mapping says both ways; Initiative Phase never comes back from the board
+  const sel = (k: "health" | "initiative_status") => (m.selects?.[k]?.direction === "two_way" ? m.selects[k]! : null);
+  const refs: Record<BoardKey, { id: string; name: string } | null> = { priority: m.priority, group: m.group, due: m.dueDate, size: m.size, health: sel("health")?.field ?? null, initiative_status: sel("initiative_status")?.field ?? null };
   const out: BoardFieldCompare[] = [];
   for (const key of BOARD_KEYS) {
     const ref = refs[key];
@@ -59,18 +61,18 @@ export function compareBoardValues(i: { board: Board; pv: BoardPv; values: Recor
     const v = i.values[ref.id];
     const gh = (v?.option ?? v?.date ?? v?.text ?? "").trim();
     if (!gh) continue;
-    const pv = key === "priority" ? (moscow ? m.priorityMap[moscow]! : "") : key === "group" ? (i.pv.theme ?? "").trim() : key === "due" ? (validDate(i.pv.end_date ?? "") ? i.pv.end_date! : "") : SIZES.includes(i.pv.effort ?? "") ? i.pv.effort! : "";
+    const pv = key === "priority" ? (moscow ? m.priorityMap[moscow]! : "") : key === "group" ? (i.pv.theme ?? "").trim() : key === "due" ? (validDate(i.pv.end_date ?? "") ? i.pv.end_date! : "") : key === "health" || key === "initiative_status" ? (sel(key)!.options[i.pv[key] ?? ""] ?? "") : SIZES.includes(i.pv.effort ?? "") ? i.pv.effort! : "";
     const pvHash = hashBoardValue(pv);
     const ghHash = hashBoardValue(gh);
     // an empty Product Velocity value is not a change it made: only the board has a value
     const base = i.base?.[key] ?? (i.pvUnchanged ? pvHash : undefined);
     const verdict: TextVerdict = pv === "" && pvHash !== ghHash ? "github" : compareTexts(base, pvHash, ghHash);
-    out.push({ key, label: BOARD_LABEL[key], verdict, pvText: pv, githubText: gh, pvHash, ghHash, ...pullOf(key, gh, m.priorityMap, i.groups) });
+    out.push({ key, label: BOARD_LABEL[key], verdict, pvText: pv, githubText: gh, pvHash, ghHash, ...pullOf(key, gh, m.priorityMap, i.groups, m.selects) });
   }
   return out;
 }
 
-function pullOf(key: BoardKey, gh: string, priorityMap: Record<string, string>, groups: readonly string[]): { pull: BoardFieldCompare["pull"]; pullNote?: string } {
+function pullOf(key: BoardKey, gh: string, priorityMap: Record<string, string>, groups: readonly string[], selects?: Board["mapping"]["selects"]): { pull: BoardFieldCompare["pull"]; pullNote?: string } {
   if (key === "priority") {
     const moscow = Object.keys(priorityMap).find((k) => norm(priorityMap[k]!) === norm(gh));
     return moscow ? { pull: { column: "moscow", value: moscow } } : { pull: null, pullNote: `"${gh}" is not a priority Product Velocity knows (${Object.entries(priorityMap).map(([k, p]) => `${p} is ${k}`).join(", ")}).` };
@@ -78,6 +80,11 @@ function pullOf(key: BoardKey, gh: string, priorityMap: Record<string, string>, 
   if (key === "group") {
     const group = groups.find((g) => norm(g) === norm(gh));
     return group ? { pull: { column: "theme", value: group } } : { pull: null, pullNote: `"${gh}" is not an Initiative Group in this workspace. An admin adds it first; nothing is created from GitHub.` };
+  }
+  if (key === "health" || key === "initiative_status") {
+    const opts = selects?.[key]?.options ?? {};
+    const value = Object.keys(opts).find((k) => norm(opts[k]!) === norm(gh));
+    return value ? { pull: { column: key, value } } : { pull: null, pullNote: `"${gh}" is not an option that stands for a Product Velocity value (${BOARD_LABEL[key]}). Choose the options in the field configuration.` };
   }
   if (key === "due") return validDate(gh) ? { pull: { column: "end_date", value: gh } } : { pull: null, pullNote: `"${gh}" is not a date Product Velocity can read.` };
   const size = SIZES.find((s) => s === gh.trim().toUpperCase());

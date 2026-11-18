@@ -9,8 +9,8 @@ import { FIELDS } from "@pv/domain";
 const ID = "22222222-2222-4222-8222-222222222222";
 const allowed = new Set<string>(OUTBOUND_READ_FIELDS);
 // read, but only ever sent as a label (MoSCoW value, rank band, Change Type), an issue type or a milestone (G2M date), never as text: they are checked with real values below
-// read to derive something that is sent (a label, a board value), never sent as the field itself; initiative_phase only chooses the pm:define review label
-const DERIVED = new Set(["moscow", "stack_rank", "change_type", "g2m_date_est", "theme", "effort", "focus_area", "value_type", "g2m_quarter", "tags", "initiative_phase"]);
+// read to derive something that is sent (a label, a board value), never sent as the field itself; initiative_phase only chooses the pm:define review label; health and initiative_status (issue #513) only ever become a board option
+const DERIVED = new Set(["moscow", "stack_rank", "change_type", "g2m_date_est", "theme", "effort", "focus_area", "value_type", "g2m_quarter", "tags", "initiative_phase", "health", "initiative_status"]);
 const sentinel = (key: string) => `LEAK_${key.toUpperCase()}_9f3a`;
 
 /**
@@ -41,6 +41,8 @@ describe.each(OUTBOUND_PROVIDERS)("outbound $name payloads", ({ wire }) => {
     }
     for (const k of ["id", "tenant_id", "home_project_id", "created_by", "owner_user_id"]) expect(w, `${k} leaked`).not.toContain(sentinel(k));
     for (const k of allowed) if (!DERIVED.has(k)) expect(w).toContain(sentinel(k)); // and the allowed ones really are sent
+    // Health, Initiative Status and the phase are read for the board only: their values never appear in the issue itself (labels, body, title)
+    for (const k of ["health", "initiative_status"]) expect(w, `${k} must not be sent to the issue`).not.toContain(sentinel(k));
   });
 
   it("MoSCoW and the rank only leave as pv: labels: a value and a band, never the rank number or any other field", async () => {
