@@ -117,3 +117,13 @@ export function compareSelect(i: { base: string | null | undefined; pv: string |
   if (jiraChanged) return "jira";
   return "none";
 }
+
+/** The rows of jira_select_map to the shape parseSelectMap reads. */
+export function selectRowsToMap(rows: unknown): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const r of Array.isArray(rows) ? rows : []) {
+    const o = typeof r === "object" && r !== null ? (r as Record<string, unknown>) : {};
+    if (typeof o.slot === "string") out[o.slot] = { field: o.field_id, direction: o.direction, options: o.options };
+  }
+  return out;
+}

@@ -8,17 +8,18 @@ const KEY = /^[A-Z][A-Z0-9_]{1,19}-[0-9]{1,9}$/;
 type Obj = Record<string, unknown>;
 const obj = (v: unknown): Obj => (typeof v === "object" && v !== null ? (v as Obj) : {});
 
-export type IssueRead = { ok: true; issue: JiraNow & { key: string; id: string | null } } | { ok: false; kind: "gone" | "reconnect" | "unavailable"; message: string };
+export type IssueRead = { ok: true; issue: JiraNow & { key: string; id: string | null; /** Raw values of the extra custom fields asked for (the select fields of issue #512), by field id. */ custom: Record<string, unknown> } } | { ok: false; kind: "gone" | "reconnect" | "unavailable"; message: string };
 
-export async function readIssue(call: JiraRequest, key: string, sleep?: Sleep): Promise<IssueRead> {
+export async function readIssue(call: JiraRequest, key: string, sleep?: Sleep, extraFields: readonly string[] = []): Promise<IssueRead> {
+  const extra = extraFields.filter((f) => /^customfield_\d{1,9}$/.test(f));
   if (!KEY.test(key)) return { ok: false, kind: "gone", message: "Not a Jira issue key." };
-  const r = await withBackoff(() => call("GET", `/issue/${key}?fields=summary,description,labels`), sleep);
+  const r = await withBackoff(() => call("GET", `/issue/${key}?fields=${["summary", "description", "labels", ...extra].join(",")}`), sleep);
   if (r.status === 404) return { ok: false, kind: "gone", message: "Jira did not return this issue (deleted, moved or not visible to the connection). Nothing was changed." };
   if (r.status === 401) return { ok: false, kind: "reconnect", message: "Jira refused the sign-in. Sign in again (Settings, Integrations, Jira)." };
   if (r.status !== 200) return { ok: false, kind: "unavailable", message: "Jira could not be read just now. Try again in a minute." };
   const o = obj(r.json);
   const f = obj(o.fields);
-  return { ok: true, issue: { key, id: typeof o.id === "string" ? o.id : null, summary: typeof f.summary === "string" ? f.summary : "", description: f.description ?? null, labels: Array.isArray(f.labels) ? f.labels.filter((l): l is string => typeof l === "string") : [] } };
+  return { ok: true, issue: { key, id: typeof o.id === "string" ? o.id : null, custom: Object.fromEntries(extra.map((c) => [c, f[c] ?? null])), summary: typeof f.summary === "string" ? f.summary : "", description: f.description ?? null, labels: Array.isArray(f.labels) ? f.labels.filter((l): l is string => typeof l === "string") : [] } };
 }
 
 /** An issue of the project that already carries the marker label (a create whose answer was lost): its key and id, or null. */

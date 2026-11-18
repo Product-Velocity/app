@@ -1,3 +1,4 @@
+import { parseSelectMap, selectRowsToMap, type SelectMap } from "./select-map";
 import { DISCOVER_NOT_SYNCED, FROZEN_NOT_SYNCED } from "@pv/github";
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -10,6 +11,7 @@ import { epicResultText, linkEpics, planEpics, type EpicPlanLine, type EpicReque
 import { getJson } from "./read-client";
 import { readIssuesByKey, type SearchPage } from "./read-issues";
 import { compareJira, COLUMN, LABEL, TEXT_FIELDS, markerFor, planJiraSend, type JiraBase, type PvItem, type SendPlan, type TextField } from "./jira-sync-core";
+import type { SelectKey } from "./jira-sync-core";
 import { OUTBOUND_JIRA_FIELDS } from "./outbound";
 import { createIssue, updateIssue, type JiraRequest } from "./jira-write";
 import { parseFieldMap } from "./field-map";
@@ -35,7 +37,7 @@ type ItemRow = { initiative_phase?: string | null; tags?: string[]; focus_area?:
 /** The allowlisted fields that are columns of items; Tags live in item_tags and are read apart. */
 export const ITEM_COLUMNS: Record<string, string> = Object.fromEntries(OUTBOUND_JIRA_FIELDS.flatMap((k) => { const c = columnOnItems(FIELD_BY_KEY[k]!); return c ? [[k, c]] : []; }));
 type LinkRow = { item_id: string; connection_id: string; site_id: string; issue_key: string; issue_id: string | null; html_url: string | null; mode: "follow" | "push"; sync_base: JiraBase | null; sent_hash: string | null; frozen_at?: string | null };
-type ProjectLink = { project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; field_map?: unknown; /** Rows of tracker_field_config (the field configuration), as stored. */ config?: unknown };
+type ProjectLink = { selectRows?: unknown; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; field_map?: unknown; /** Rows of tracker_field_config (the field configuration), as stored. */ config?: unknown };
 type Conn = { id: string; sites: { id: string; name: string; url: string }[]; state: string };
 
 export type Loaded = { /** Ready for build (issue #358): Gate B passed (ready_for_build_at set, phase Build) and the Jira move to To do was not handled yet. */ readyPending?: boolean; /** Artifact links and share links of files, for the Artifacts and Files sections. */ artifacts?: Link[]; files?: Link[]; /** The documents left shared, each as a name and a public link (the Documents section). */ documents?: Link[]; /** Epics asked for under this initiative (issue #431) that are not under it yet: pending ones and the ones Jira refused last time. */ epicRequests?: EpicRequest[]; /** What the preview says about the documents (sent, skipped, too long). */ documentsNote?: string; /** Files that have no share link and so are not in the description. */ unsharedFiles?: number; projectName?: string; /** Set when the initiative was removed (Trash), its Jira issue was closed by Product Velocity, and it was restored since: the issue is not reopened. */ closedWhileRemoved?: string | null; item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
@@ -58,6 +60,9 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
     plink.field_map = (m as { field_map?: unknown } | null)?.field_map ?? {};
     // the field configuration (what was switched off or re-pointed for this project), read apart for the same reason: no table, no configuration
     const { data: cfg } = await ctx.supabase.from("tracker_field_config").select("slot, enabled, field_id, label_text").eq("tenant_id", ctx.tenantId).eq("project_id", plink.project_id).eq("provider", "jira");
+    // Health, Initiative Status and Initiative Phase on custom select fields (issue #512), read apart: no table, nothing mapped
+    const { data: sel } = await ctx.supabase.from("jira_select_map").select("slot, field_id, direction, options").eq("tenant_id", ctx.tenantId).eq("project_id", plink.project_id);
+    plink.selectRows = sel ?? [];
     plink.config = ((cfg ?? []) as { slot: string; enabled: boolean; field_id: string | null; label_text?: string | null }[]).map((r) => ({ slot: r.slot, enabled: r.enabled, field: r.field_id, text: r.label_text ?? null }));
   }
   // read apart too (migration jira_close_removed): without the column nothing was ever closed
@@ -107,7 +112,7 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   return { ...(epicRequests.length ? { epicRequests } : {}), ...(artifacts.length ? { artifacts } : {}), ...(files.length ? { files } : {}), ...(documents.length ? { documents } : {}), ...(documentsNote ? { documentsNote } : {}), ...(unsharedFiles ? { unsharedFiles } : {}), ...(projectName ? { projectName } : {}), ...(closedWhileRemoved ? { closedWhileRemoved } : {}), ...(readyPending ? { readyPending } : {}), item: itemRow, link: l, plink, conn: c, siteUrl: c?.sites.find((s) => s.id === siteId)?.url ?? null };
 }
 
-export const pvOf = (i: ItemRow): PvItem => ({ id: i.id, name: i.initiative_name, summary: i.summary, focus_area: i.focus_area, value_type: i.value_type, g2m_quarter: i.g2m_quarter, tags: i.tags, description: i.description, hypothesis: i.hypothesis, moscow: i.moscow, g2m_date_est: i.g2m_date_est, planned_start: i.planned_start, stack_rank: i.stack_rank, change_type: i.change_type, theme: i.theme });
+export const pvOf = (i: ItemRow): PvItem => ({ id: i.id, health: (i as { health?: string | null }).health ?? null, initiative_status: (i as { initiative_status?: string | null }).initiative_status ?? null, initiative_phase: i.initiative_phase ?? null, name: i.initiative_name, summary: i.summary, focus_area: i.focus_area, value_type: i.value_type, g2m_quarter: i.g2m_quarter, tags: i.tags, description: i.description, hypothesis: i.hypothesis, moscow: i.moscow, g2m_date_est: i.g2m_date_est, planned_start: i.planned_start, stack_rank: i.stack_rank, change_type: i.change_type, theme: i.theme });
 const RECONNECT = "Jira needs a new sign-in. A workspace admin can sign in again under Settings > Integrations > Jira.";
 
 /**
@@ -153,10 +158,10 @@ export type Evaluated =
   | { kind: "no_project" }
   | { kind: "discover" }
   | { kind: "frozen" }
-  | { kind: "ok"; ready?: JiraReadyPlan; readyNote?: string; epics?: EpicPlanLine[]; plan: SendPlan; conflicts: SyncConflict[]; jiraHashes: Partial<Record<TextField, string>>; card: Pick<PlanItem, "ready" | "id" | "tracker" | "code" | "name" | "project" | "repo" | "action" | "title" | "labels" | "block" | "issueNumber" | "issueUrl" | "issueLabel" | "notes" | "epics"> };
+  | { kind: "ok"; ready?: JiraReadyPlan; readyNote?: string; epics?: EpicPlanLine[]; plan: SendPlan; conflicts: SyncConflict[]; jiraHashes: Partial<Record<TextField, string>>; selectHashes: Partial<Record<SelectKey, string>>; card: Pick<PlanItem, "ready" | "id" | "tracker" | "code" | "name" | "project" | "repo" | "action" | "title" | "labels" | "block" | "issueNumber" | "issueUrl" | "issueLabel" | "notes" | "epics"> };
 
 /** Reads the issue (if there is one) and decides, given the choices made so far, what would go out. */
-export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" | "jira">>, call?: JiraRequest): Promise<Evaluated> {
+export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" | "jira">>, call?: JiraRequest, selectPicks: Partial<Record<SelectKey, "pv" | "jira">> = {}): Promise<Evaluated> {
   if (l.link?.frozen_at) return { kind: "frozen" };
   if (l.link?.mode === "follow") return { kind: "follows" };
   if (!l.link && !l.plink) return { kind: "no_project" };
@@ -167,9 +172,10 @@ export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" 
   const code = l.item.item_code;
   const project = l.plink?.jira_project_name ?? "Jira";
   const key = l.plink?.jira_project_key ?? l.link!.issue_key.split("-")[0]!;
+  const selects = parseSelectMap(selectRowsToMap(l.plink?.selectRows));
   let now: Awaited<ReturnType<typeof readIssue>> | null = null;
   try {
-    if (l.link) now = await readIssue(req, l.link.issue_key);
+    if (l.link) now = await readIssue(req, l.link.issue_key, undefined, Object.values(selects).map((c) => c!.field));
   } catch (e) {
     return e instanceof ReconnectNeeded ? { kind: "error", message: RECONNECT, reconnect: true } : { kind: "error", message: "Jira could not be read just now. Try again in a minute." };
   }
@@ -177,17 +183,23 @@ export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" 
   const issue = now && now.ok ? now.issue : null;
   // the saved field configuration, with the custom fields it names checked against the site now (a field that is gone is left out and the preview says so)
   const checked = await dropMissingFields(req, effectiveJiraMap(parseFieldMap(l.plink?.field_map), parseConfigRows(l.plink?.config, "jira")), { cacheKey: `${l.conn.id}|${l.link?.site_id ?? l.plink!.site_id}` });
-  const plan = planJiraSend({ pv, jira: issue, base: l.link?.sync_base ?? null, sentHash: l.link?.sent_hash ?? null, picks, map: checked.map, ...(l.artifacts ? { artifacts: l.artifacts } : {}), ...(l.documents ? { documents: l.documents } : {}), ...(l.files ? { files: l.files } : {}), ...(l.projectName ? { projectName: l.projectName } : {}), ...(l.plink && !l.link ? { create: { projectKey: key, issueTypeId: l.plink.initiative_type_id } } : {}) });
+  const plan = planJiraSend({ pv, jira: issue, base: l.link?.sync_base ?? null, sentHash: l.link?.sent_hash ?? null, picks, selectPicks, selectsNow: Object.fromEntries(Object.entries(selects).map(([slot, c]) => [slot, issue?.custom[c!.field] ?? null])), map: { ...checked.map, ...(Object.keys(selects).length > 0 ? { selects } : {}) }, ...(l.artifacts ? { artifacts: l.artifacts } : {}), ...(l.documents ? { documents: l.documents } : {}), ...(l.files ? { files: l.files } : {}), ...(l.projectName ? { projectName: l.projectName } : {}), ...(l.plink && !l.link ? { create: { projectKey: key, issueTypeId: l.plink.initiative_type_id } } : {}) });
   plan.notes.push(...checked.notes);
   if (l.documentsNote) plan.notes.push(l.documentsNote);
   if (l.unsharedFiles && !checked.map.off?.includes("jira.body.files")) plan.notes.push(`${l.unsharedFiles === 1 ? "1 attached file has" : `${l.unsharedFiles} attached files have`} no share link, so ${l.unsharedFiles === 1 ? "it is" : "they are"} not in the description. Share it on the item's Spec tab to include it.`);
   const conflicts: SyncConflict[] = [];
   const jiraHashes: Partial<Record<TextField, string>> = {};
+  const selectHashes: Partial<Record<SelectKey, string>> = {};
   if (issue) {
     for (const f of compareJira(pv, issue, l.link?.sync_base).fields) {
       jiraHashes[f.field] = f.jiraHash;
       if (f.verdict !== "github" && f.verdict !== "both") continue;
       conflicts.push({ field: f.field, label: LABEL[f.field], kind: f.verdict === "github" ? "github" : "both", pv: f.pvText, github: f.jiraText, ghHash: f.jiraHash, defaultChoice: f.verdict === "github" ? "pv" : null });
+    }
+    // Health and Initiative Status changed in Jira (issue #512): shown like a text conflict, never applied without a choice
+    for (const c of plan.selectConflicts) {
+      selectHashes[c.pvKey] = c.jiraHash;
+      conflicts.push({ field: c.pvKey, label: c.label, kind: c.verdict === "jira" ? "github" : "both", pv: c.pv || "(empty)", github: c.jira, ghHash: c.jiraHash, defaultChoice: c.verdict === "jira" ? "pv" : null });
     }
   }
   // Ready for build: reads the status and the allowed transitions (no write) so the preview can say what would happen
@@ -216,7 +228,7 @@ export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" 
   const url = l.link ? (l.link.html_url ?? (l.siteUrl ? `${l.siteUrl}/browse/${l.link.issue_key}` : null)) : null;
   const readyView = ready && (ready.state === "set" || ready.state === "blocked") ? { ready: { text: ready.text, will: ready.state === "set" } } : readyNote ? { ready: { text: readyNote, will: false } } : {};
   const card = { id: l.item.id, tracker: "jira" as const, code, name: l.item.initiative_name, project, repo: key, action: plan.action, title: String(plan.fields.summary ?? l.item.initiative_name), labels: (plan.fields.labels as string[] | undefined) ?? [], block: adfToText(plan.fields.description ?? markdownToAdf("")), issueNumber: null, issueUrl: url, ...(l.link ? { issueLabel: l.link.issue_key } : {}), ...(plan.notes.length ? { notes: plan.notes } : {}), ...readyView, ...epicsView };
-  return { kind: "ok", plan, conflicts, jiraHashes, card, ...(ready ? { ready } : {}), ...(epics ? { epics } : {}) };
+  return { kind: "ok", plan, conflicts, jiraHashes, selectHashes, card, ...(ready ? { ready } : {}), ...(epics ? { epics } : {}) };
 }
 /** What the preview shows for the send half of one initiative. */
 export function previewParts(e: Evaluated): { conflicts: SyncConflict[]; plan?: PlanItem; create: boolean } {
@@ -239,8 +251,14 @@ export async function writeOne(ctx: Ctx, id: string, choices: SyncChoice[], deps
   const base = { id, code };
   const picks: Partial<Record<TextField, "pv" | "jira">> = {};
   const seen: Partial<Record<TextField, string>> = {};
-  for (const c of choices) if (c.itemId === id && (TEXT_FIELDS as readonly string[]).includes(c.field)) { picks[c.field as TextField] = c.choice === "pv" ? "pv" : "jira"; seen[c.field as TextField] = c.ghHash; }
-  const e = await evaluate(l, picks, deps.call);
+  const selectPicks: Partial<Record<SelectKey, "pv" | "jira">> = {};
+  const selectSeen: Partial<Record<SelectKey, string>> = {};
+  for (const c of choices) {
+    if (c.itemId !== id) continue;
+    if ((TEXT_FIELDS as readonly string[]).includes(c.field)) { picks[c.field as TextField] = c.choice === "pv" ? "pv" : "jira"; seen[c.field as TextField] = c.ghHash; }
+    else if (c.field === "health" || c.field === "initiative_status") { selectPicks[c.field] = c.choice === "pv" ? "pv" : "jira"; selectSeen[c.field] = c.ghHash; }
+  }
+  const e = await evaluate(l, picks, deps.call, selectPicks);
   if (e.kind === "follows") return { result: { ...base, outcome: "blocked", message: "This initiative follows its Jira issue read-only: nothing is sent." }, taken: [] };
   if (e.kind === "frozen") return { result: { ...base, outcome: "blocked", message: FROZEN_NOT_SYNCED }, taken: [] };
   if (e.kind === "discover") return { result: { ...base, outcome: "blocked", message: DISCOVER_NOT_SYNCED }, taken: [] };
@@ -248,9 +266,10 @@ export async function writeOne(ctx: Ctx, id: string, choices: SyncChoice[], deps
   if (e.kind === "missing") return { result: { ...base, outcome: "missing", message: e.message }, taken: [] };
   if (e.kind === "error") return { result: { ...base, outcome: "error", message: e.message }, taken: [] };
   // Jira changed since the preview, or a conflict has no choice: nothing is written
-  if (e.plan.unresolved.length > 0) return { stale: true, error: "Jira has a change that was not in the preview. Nothing was written for this initiative." };
+  if (e.plan.unresolved.length > 0 || e.plan.unresolvedSelects.length > 0) return { stale: true, error: "Jira has a change that was not in the preview. Nothing was written for this initiative." };
   for (const f of TEXT_FIELDS) if (picks[f] && seen[f] !== e.jiraHashes[f]) return { stale: true, error: `${LABEL[f]} changed in Jira after the preview. Nothing was written for this initiative.` };
 
+  for (const k of ["health", "initiative_status"] as const) if (selectPicks[k] && selectSeen[k] !== e.selectHashes[k]) return { stale: true, error: `${k === "health" ? "Health" : "Initiative Status"} changed in Jira after the preview. Nothing was written for this initiative.` };
   const admin = createAdminClient({ via: "UI" });
   const taken: TakenOver[] = [];
   const plan = e.plan;
@@ -268,6 +287,17 @@ export async function writeOne(ctx: Ctx, id: string, choices: SyncChoice[], deps
     if (error) return { result: { ...base, outcome: "error", message: "Could not take over the text from Jira. Nothing was sent." }, taken: [] };
     const before = (data ?? {}) as Record<string, string | null>;
     for (const col of pulled) taken.push({ itemId: id, code, field: col, before: before[col] ?? null, after: plan.takeOver[col] ?? null });
+  }
+
+  // 1b. take over the Jira values (Health, Initiative Status) the person chose: audited as the person, undoable
+  const selPulled = Object.keys(plan.selectTakeOver) as SelectKey[];
+  if (selPulled.length > 0) {
+    const selBase: JiraBase = {};
+    for (const k of selPulled) selBase[`sel_${k}`] = plan.newBase[`sel_${k}`]!;
+    const { data, error } = await admin.rpc("jira_apply_select_pull", { p_actor: ctx.userId, p_item: id, p_fields: plan.selectTakeOver, p_base: selBase });
+    if (error) return { result: { ...base, outcome: "error", message: "Could not take over the value from Jira. Nothing was sent." }, taken };
+    const before = (data ?? {}) as Record<string, string | null>;
+    for (const k of selPulled) taken.push({ itemId: id, code, field: k, before: before[k] ?? null, after: plan.selectTakeOver[k] ?? null });
   }
 
   const send = async (): Promise<WriteResult> => {

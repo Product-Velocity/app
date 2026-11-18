@@ -45,7 +45,7 @@ export type ReceivedLine = { label: string; from: string | null; to: string | nu
 export type ReceiveStatus = "in_step" | "received" | "conflict" | "not_on_github" | "not_linked" | "follows" | "missing" | "error";
 /** A text that Product Velocity owns and that differs from GitHub. `github`: changed only in GitHub; `both`: changed on both sides; `block`: the managed block cannot be read field by field. */
 export type SyncConflict = {
-  field: "title" | "summary" | "description" | "hypothesis" | "block" | "priority" | "group" | "due" | "size" | "assignees";
+  field: "title" | "summary" | "description" | "hypothesis" | "block" | "priority" | "group" | "due" | "size" | "assignees" | "health" | "initiative_status";
   label: string;
   kind: "github" | "both" | "block";
   pv: string;
@@ -68,7 +68,7 @@ export type ReceiveItem = { id: string; code: string; name: string; status: Rece
 export type SyncPreview = { account: string; received: ReceiveItem[]; send: PlanItem[] };
 export type SyncPreviewResult = ({ ok: true } & SyncPreview) | { ok: false; error: string };
 /** A text taken over from GitHub: what the grid shows and what one undo step puts back. */
-export type TakenOver = { itemId: string; code: string; field: "initiative_name" | "summary" | "description" | "hypothesis" | "moscow" | "theme" | "end_date" | "effort"; before: string | null; after: string | null };
+export type TakenOver = { itemId: string; code: string; field: "initiative_name" | "summary" | "description" | "hypothesis" | "moscow" | "theme" | "end_date" | "effort" | "health" | "initiative_status"; before: string | null; after: string | null };
 export type SyncConfirmResult =
   | { ok: true; results: PushItemResult[]; taken: TakenOver[] }
   /** `stale`: GitHub changed after the preview; nothing was applied or sent and the new difference is returned. */
