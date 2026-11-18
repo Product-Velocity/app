@@ -18,6 +18,8 @@ import type { IssueTreeRow, JiraEpicRequestRow, JiraTreeRow, Lookups } from "./t
 import { MAX_EPIC_KEYS, parseEpicKeys } from "@/lib/atlassian/epic-keys";
 import { useUserPrefs } from "@/components/user-prefs";
 import { AlignmentTab } from "./alignment-tab";
+import { StatusPill } from "@/components/status-pill";
+import { toneFor } from "@/components/status-tone";
 import { PANEL_WIDTH_DEFAULT, PANEL_WIDTH_MIN, clampPanelWidth } from "@/lib/user-prefs";
 
 type Tab = "overview" | "spec" | "github" | "alignment" | "activity";
@@ -129,7 +131,6 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
     );
   }
   const project = lookups.projects.find((p) => p.id === row.home_project)?.name ?? "";
-  const status = row.status ? String(row.status) : "";
 
   return (
     <aside className={`item-panel item-panel-${mode}`} aria-labelledby={titleId} style={{ ...(height ? { height } : {}), ...(mode === "peek" ? { width: resize.width, flexBasis: resize.width } : {}) }} data-testid="item-panel">
@@ -171,7 +172,10 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
             {" · "}{l.mode === "follow" ? "followed read-only (nothing is written to it)" : "Product Velocity owns what the initiative is"}
           </p>
         ); })()}
-        <p className="ip-code mono">{row.item_code}{(() => { const l = lookups.github?.links[itemId]; const label = l ? trackerIssueLabel(l.url, l.number) : null; const j = l ? undefined : lookups.jira?.links[itemId]; if (j && isOpenableUrl(j.url)) return <a className="issue-link" href={j.url} target="_blank" rel="noreferrer noopener" aria-label={`Open issue ${j.issueKey} in a new tab`}>{j.issueKey}</a>; return label && isOpenableUrl(l?.url) ? <a className="issue-link" href={l.url!} target="_blank" rel="noreferrer noopener" aria-label={`Open issue ${label} in a new tab`}>{label}</a> : null; })()}{project && <span className="proj-pill">{project}</span>}{status && <span className="muted"> · {status}</span>}</p>
+        <p className="ip-code mono">{row.item_code}{(() => { const l = lookups.github?.links[itemId]; const label = l ? trackerIssueLabel(l.url, l.number) : null; const j = l ? undefined : lookups.jira?.links[itemId]; if (j && isOpenableUrl(j.url)) return <a className="issue-link" href={j.url} target="_blank" rel="noreferrer noopener" aria-label={`Open issue ${j.issueKey} in a new tab`}>{j.issueKey}</a>; return label && isOpenableUrl(l?.url) ? <a className="issue-link" href={l.url!} target="_blank" rel="noreferrer noopener" aria-label={`Open issue ${label} in a new tab`}>{label}</a> : null; })()}{project && <span className="proj-pill">{project}</span>}</p>
+        <ul className="ip-pills" aria-label="Phase and statuses">
+          {([["Phase", "initiative_phase"], ["Status", "initiative_status"], ["Health", "health"], ["Planning", "planning_status"], ["Build", "status"]] as const).map(([label, key]) => row[key] ? <li key={key}><span className="muted">{label}</span> <StatusPill value={String(row[key])} tone={toneFor(key, String(row[key]))} /></li> : null)}
+        </ul>
         <h2 id={titleId} className="ip-title">{row.initiative_name}</h2>
         <p className="muted ip-rank">#{row.stack_rank} globally · #{row.project_rank} in {project || "its project"}</p>
       </header>

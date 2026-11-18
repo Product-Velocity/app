@@ -82,6 +82,8 @@ describe("Help pages", () => {
     expect(t).toContain("Backlog · Not started · Candidate · Included · Committed · Deferred · Dropped");
     expect(t).toContain("Not started · In progress · Done · Cancelled");
     expect(t).toMatch(/never sent to GitHub or Jira/);
+    expect(t).toMatch(/Outlined, no fill/);
+    expect(t).toMatch(/Dark red/);
   });
   it("never says an AI co-worker approves, and keeps commercial fields out of the trackers", () => {
     for (const [k, h] of Object.entries(html)) expect(text(h), k).not.toMatch(/(Claude|an AI co-worker|AI) (can )?approve[sd]? /i);

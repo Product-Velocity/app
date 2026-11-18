@@ -46,6 +46,8 @@
   --health-risk-fg: #7a4a00;
   --health-bad-bg: #fde8e8;
   --health-bad-fg: #8a1c1c;
+  --health-severe-bg: #8a1c1c;
+  --health-severe-fg: #ffffff;
   --health-neutral-bg: #f3f4f6;
   --health-neutral-fg: #374151;
   --health-info-bg: #e8f1fe;

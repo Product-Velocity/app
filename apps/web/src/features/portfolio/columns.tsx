@@ -15,7 +15,7 @@ import { DateEditor } from "./date-editor";
 import { PickerEditor, type PickerOption } from "./picker-editor";
 import type { GridItem, Lookups } from "./types";
 import { StatusPill } from "../../components/status-pill";
-import { PILL_FIELDS, statusTone } from "../../components/status-tone";
+import { PILL_FIELDS, statusTone, toneFor } from "../../components/status-tone";
 
 /** A compact pill with the word and no icon: the label is the signal, colour is only an extra (never colour alone). */
 function HealthCell({ value }: { value: string | null }) {
@@ -23,7 +23,7 @@ function HealthCell({ value }: { value: string | null }) {
   return <StatusPill value={value} tone={statusTone(value)} />;
 }
 
-function ReadOnlyCell({ text, reason, github, pill, children }: { text: string; reason: string | null; github: boolean; pill?: boolean; children?: React.ReactNode }) {
+function ReadOnlyCell({ text, reason, github, pill, field, children }: { text: string; reason: string | null; github: boolean; pill?: boolean; field?: string; children?: React.ReactNode }) {
   return (
     <span className="lock-cell" title={reason ?? undefined}>
       {github && (
@@ -31,7 +31,7 @@ function ReadOnlyCell({ text, reason, github, pill, children }: { text: string; 
           <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" />
         </svg>
       )}
-      {children ?? (pill && text ? <StatusPill value={text} /> : text)}
+      {children ?? (pill && text ? <StatusPill value={text} tone={toneFor(field ?? "", text)} /> : text)}
     </span>
   );
 }
@@ -189,7 +189,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
     if (f.key === "actions") return { ...base, width: 340, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <ActionsCell {...p} today={today} canAct={controller.canEdit} />, cellClass: "cell-locked" };
     if (f.key === "health") return { ...base, cellRenderer: HealthCell, ...pickerDef(f, optionsFor(f.key), true) };
     if (reason) {
-      return { ...base, cellRenderer: (p: { value: unknown }) => <ReadOnlyCell text={display(f, p.value) || (f.key === "status" ? "Not on GitHub" : f.key === "gh_project_status" ? "Not on a board" : f.key === "tracker_status" ? "Not linked" : f.key === "last_synced" || f.key === "synced_with" ? "Not synced" : f.key === "tracker_ownership" ? "Not linked" : "")} reason={reason} pill={PILL_FIELDS.has(f.key)} github={f.mode === "locked" || f.storage.startsWith("GitHub-synced")} /> };
+      return { ...base, cellRenderer: (p: { value: unknown }) => <ReadOnlyCell text={display(f, p.value) || (f.key === "status" ? "Not on GitHub" : f.key === "gh_project_status" ? "Not on a board" : f.key === "tracker_status" ? "Not linked" : f.key === "last_synced" || f.key === "synced_with" ? "Not synced" : f.key === "tracker_ownership" ? "Not linked" : "")} reason={reason} pill={PILL_FIELDS.has(f.key)} field={f.key} github={f.mode === "locked" || f.storage.startsWith("GitHub-synced")} /> };
     }
     if (!canEdit) return base;
     base.valueSetter = setter(f.key) as never;
@@ -273,7 +273,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
   // single-status fields read as pills (words always shown); read-only ones are drawn by ReadOnlyCell
   const withPill = (c: ColDef<GridItem>): ColDef<GridItem> =>
     PILL_FIELDS.has(String(c.colId)) && !readOnlyReason(String(c.colId))
-      ? { ...c, cellRenderer: (p: { valueFormatted?: string | null }) => <StatusPill value={p.valueFormatted ?? ""} /> }
+      ? { ...c, cellRenderer: (p: { valueFormatted?: string | null }) => <StatusPill value={p.valueFormatted ?? ""} tone={toneFor(String(c.colId), p.valueFormatted ?? "")} /> }
       : c;
   return VISIBLE_FIELDS.map(def).map(withPill).map(withMarkdown).map(pin).sort((a, b) => rank(a) - rank(b));
 }
