@@ -82,6 +82,7 @@ const CHANGE_TYPES: Record<string, { slug: string; types: string[] }> = {
   "New feature": { slug: "new-feature", types: ["Feature"] },
   "Improvement to existing feature": { slug: "improvement", types: ["Improvement", "Enhancement"] },
   "Bug": { slug: "bug", types: ["Bug"] },
+  "Tech debt": { slug: "tech-debt", types: [] },
 };
 /** "pv:type/new-feature" for a known Change Type, otherwise no label. */
 export function changeTypeLabel(v: unknown, names?: Names): string | null {

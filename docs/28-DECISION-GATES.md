@@ -10,7 +10,7 @@ Discover ──A──▶ Define ──B──▶ Build ──▶ Test ──▶
    └─ never synced ─┘└ optional review push ┘└────────── synced both ways ────────┘└ frozen 14 days later
 ```
 
-Phases: **Discover, Define, Build, Test, Experiment, Roll-out, Completed.** (Test was called Beta-test; Sunset is gone for now. The field keys `start_beta` and `time_beta_days` keep their names.)
+Phases: **Discover, Define, Build, Test, Experiment, Roll-out, Completed.** **Sunset** (retiring a shipped feature) comes after Completed, passes no gate and can be chosen from Roll-out or Completed (decision 2026-11-18, issue #500). (Test was called Beta-test. The field keys `start_beta` and `time_beta_days` keep their names.)
 
 | Phase | What happens | Evidence | Ends with |
 |---|---|---|---|

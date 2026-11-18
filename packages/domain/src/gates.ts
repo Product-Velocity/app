@@ -4,7 +4,7 @@
  * (functions request_gate, decide_gate, move_phase); this file is what the screens use to offer only what can work and to explain why not.
  */
 
-export const PHASES = ["Discover", "Define", "Build", "Test", "Experiment", "Roll-out", "Completed"] as const;
+export const PHASES = ["Discover", "Define", "Build", "Test", "Experiment", "Roll-out", "Completed", "Sunset"] as const;
 export type Phase = (typeof PHASES)[number];
 export type GateId = "A" | "B" | "C";
 export const GATE_IDS: readonly GateId[] = ["A", "B", "C"];
@@ -31,7 +31,7 @@ export const phaseIndex = (p: unknown): number => {
   return i < 0 ? 0 : i; // an item without a phase is treated as Discover
 };
 
-/** The gate an item in this phase has to pass next, or null (Build, Test, Roll-out, Completed). */
+/** The gate an item in this phase has to pass next, or null (Build, Test, Roll-out, Completed, Sunset). */
 export function gateOfPhase(phase: unknown): GateId | null {
   const p = typeof phase === "string" ? phase : "Discover";
   return GATE_IDS.find((g) => GATES[g].from === p) ?? null;
@@ -43,10 +43,10 @@ export function requestableGates(phase: unknown): GateId[] {
   return GATE_IDS.filter((g) => at <= phaseIndex(GATES[g].from));
 }
 
-/** The phases a move without a gate can go to: any earlier phase, and later ones up to (not across) the next gate. Completed is set through Initiative Status. */
+/** The phases a move without a gate can go to: any earlier phase, and later ones up to (not across) the next gate. Completed is set through Initiative Status; Sunset (after Completed, no gate) can be chosen from Roll-out or Completed. */
 export function movablePhases(phase: unknown): Phase[] {
   const at = phaseIndex(phase);
-  if (phase === "Completed") return [];
+  if (phase === "Completed") return ["Sunset"];
   const next = GATE_IDS.map((g) => phaseIndex(GATES[g].from)).filter((i) => i >= at).sort((a, b) => a - b)[0];
   return PHASES.filter((p, i) => p !== "Completed" && i !== at && (i < at || next === undefined || i <= next));
 }

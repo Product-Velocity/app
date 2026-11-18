@@ -24,4 +24,4 @@ export function stageMissing(row: Record<string, unknown>): string[] {
 
 /** A placeholder: still active and missing something for its stage. Finished and stopped initiatives are never placeholders. */
 export const isPlaceholder = (row: Record<string, unknown>): boolean =>
-  !["Completed", "Cancelled"].includes(String(row.initiative_status ?? "")) && row.initiative_phase !== "Completed" && stageMissing(row).length > 0;
+  !["Completed", "Cancelled"].includes(String(row.initiative_status ?? "")) && row.initiative_phase !== "Completed" && row.initiative_phase !== "Sunset" && stageMissing(row).length > 0;

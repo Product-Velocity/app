@@ -39,7 +39,7 @@ export type AttentionReason = { kind: AttentionKind; text: string; days?: number
 export type AttentionEntry = { id: string; code: string; name: string; rank: number; tier: 0 | 1 | 2; reasons: AttentionReason[] };
 export type OpenCondition = { item_id: string; text: string };
 
-const finished = (r: LeadRow) => r.initiative_status === "Completed" || r.initiative_status === "Cancelled" || r.initiative_phase === "Completed";
+const finished = (r: LeadRow) => r.initiative_status === "Completed" || r.initiative_status === "Cancelled" || r.initiative_phase === "Completed" || r.initiative_phase === "Sunset";
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const dayOf = (iso: string) => Math.round(Date.parse(`${iso.slice(0, 10)}T00:00:00Z`) / 86_400_000);
 
@@ -62,7 +62,7 @@ export function attentionList(rows: readonly LeadRow[], today: Date, ctx: { requ
     const total = num(r.issues_total), closed = num(r.issues_closed);
     const allClosed = total !== null && total > 0 && closed !== null && closed >= total;
     const someOpen = total !== null && total > 0 && closed !== null && closed < total;
-    if (r.initiative_status === "Completed" || phase === "Completed") {
+    if (r.initiative_status === "Completed" || phase === "Completed" || phase === "Sunset") {
       if (build === "In progress" || someOpen) add(r.id, { kind: "closed-open-work", text: someOpen ? `Completed, but ${total! - closed!} of ${total} linked issues are still open in the tracker.` : "Completed, but the tracker still shows the build in progress. Close the work there, or set the status back." });
       continue;
     }

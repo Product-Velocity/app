@@ -11,7 +11,7 @@ export const FIXED_CHIPS: Chip[] = [
   { id: "waiting", label: "Waiting for a decision", filters: [{ field: "gate_status", op: "any_of", values: ["In review", "Waiting for Approver"] }] },
 ];
 /** One chip per phase except Completed (finished work is reached through search). */
-export const PHASE_CHIPS: Chip[] = PHASES.filter((p) => p !== "Completed").map((p) => ({ id: `phase-${p}`, label: p, filters: [{ field: "initiative_phase", op: "is", value: p }] }));
+export const PHASE_CHIPS: Chip[] = PHASES.filter((p) => p !== "Completed" && p !== "Sunset").map((p) => ({ id: `phase-${p}`, label: p, filters: [{ field: "initiative_phase", op: "is", value: p }] }));
 export const ALL_CHIPS: Chip[] = [...FIXED_CHIPS, ...PHASE_CHIPS];
 
 export type Sort = "rank" | "newest";
