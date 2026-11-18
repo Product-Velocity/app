@@ -1,6 +1,8 @@
 ---
 issue: 512
 status: done
+done: 2026-11-18
+link: PR #514
 logged: 2026-11-18
 title: Jira Initiative fields: Health, Initiative Status and Phase mapped to Jira custom fields
 ---

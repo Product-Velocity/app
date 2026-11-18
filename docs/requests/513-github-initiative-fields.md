@@ -1,6 +1,6 @@
 ---
 issue: 513
-status: done
+status: in progress
 logged: 2026-11-18
 title: GitHub parity for Initiative fields: Health, Initiative Status and Phase on Projects v2 single-select fields
 ---
