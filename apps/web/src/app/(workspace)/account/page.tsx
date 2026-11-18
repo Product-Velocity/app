@@ -82,7 +82,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
       <h2>Sessions</h2>
       <div className="card stack">
-        <p className="muted">Signed in on this device now. The list of devices is not available from our sign-in provider, but you can end every other session, or all of them.</p>
+        <p className="muted">Signed in on this device now. The list of devices is not available from our sign-in provider, but you can end every other session, or all of them. Both also disconnect Claude, which you then reconnect in the connector settings in Claude. Signing out on this device does not.</p>
         <div className="row-form">
           <form action={signOutSessions}><input type="hidden" name="scope" value="others" /><button className="btn" type="submit">Sign out other devices</button></form>
           <form action={signOutSessions}><input type="hidden" name="scope" value="global" /><button className="btn" type="submit">Sign out everywhere</button></form>
