@@ -32,7 +32,7 @@ export async function renderJiraHarness(searchParams: Promise<Record<string, str
   const proposal = { initiative: "10001", epic: "10002", task: "10004" };
   const projectLinks: JiraProjectLinkView[] = [
     {
-      projectId: "p1", projectName: "Platform", tracker: "jira", rowLink: { value: "c1|s1|PLAT", initiative: "10001", epic: "10002", task: "10004" },
+      projectId: "p1", projectName: "Platform", tracker: "jira", linkedInitiatives: 4, rowLink: { value: "c1|s1|PLAT", initiative: "10001", epic: "10002", task: "10004" },
       link: { jiraKey: "PLAT", jiraName: "Platform", siteName: "Acme Corp", initiative: "Epic", epic: "Feature", task: "Subtask" },
       mapping: q.role === "viewer" || none ? null : buildMappingView({
         tracker: "jira", jiraMap: { startDate: "customfield_10015", theme: "customfield_10030", priorityByMoscow: { Must: "1" } },

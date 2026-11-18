@@ -12,7 +12,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { readJiraLink } from "@/lib/atlassian/read-jira";
 import { jiraProjectDetail } from "@/lib/atlassian/server";
 import { parseFieldMap } from "@/lib/atlassian/field-map";
-import { STATUS_ANCHOR, unlinkStatus } from "@/lib/atlassian/link-status";
+import { STATUS_ANCHOR, releaseChoice, unlinkStatus } from "@/lib/atlassian/link-status";
 import { readJiraSiteFields, readJiraSelectFields } from "@/lib/atlassian/catalog-server";
 import { selectMapFromForm, selectRows } from "@/lib/atlassian/select-map-form";
 import { validateSelectMap } from "@/lib/atlassian/select-map";
@@ -111,9 +111,12 @@ export async function linkJiraProject(form: FormData): Promise<void> {
 export async function unlinkJiraProject(form: FormData): Promise<void> {
   const ctx = await adminOnly();
   if (!ctx) redirect(`${PROJECTS}?status=not-admin`);
-  const { error } = await ctx.supabase.rpc("jira_unlink_project", { p_project: String(form.get("project") ?? "") });
+  const choice = releaseChoice(form.get("release"));
+  const { data, error } = await ctx.supabase.rpc("jira_unlink_project_release", { p_project: String(form.get("project") ?? ""), p_delete: choice === "delete" });
+  const released = Number((data as { released?: number } | null)?.released ?? 0);
   revalidatePath(PROJECTS);
-  redirect(`${PROJECTS}?status=${error ? unlinkStatus(error.code) : "unlinked"}#${STATUS_ANCHOR}`);
+  const status = error ? unlinkStatus(error.code) : released === 0 ? "unlinked" : choice === "delete" ? "unlinked-delete" : "unlinked-keep";
+  redirect(`${PROJECTS}?status=${status}#${STATUS_ANCHOR}`);
 }
 
 /** Reads the open issues of a linked Jira project into the light records. Reads Jira only; nothing is written to Jira. */

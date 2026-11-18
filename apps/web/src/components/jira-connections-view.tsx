@@ -32,6 +32,9 @@ export const JIRA_NOTICE: Record<string, string> = {
   error: "Something went wrong. Try again.",
   linked: "Linked. The project now uses Jira as its tracker.",
   unlinked: "Unlinked. The project has no tracker again.",
+  "unlinked-keep": "Unlinked. The initiatives stay in Product Velocity without a Jira link; their Build Status was cleared. Jira was not changed.",
+  "unlinked-delete": "Unlinked. The initiatives were moved to the Trash: you can restore them there for 30 days. Jira was not changed.",
+  "unlink-delete-failed": "Nothing was changed: an initiative could not be moved to the Trash. Try again, or unlink and keep the initiatives.",
   "unlink-linked": "Not unlinked: initiatives of this project are linked to Jira issues (for example pulled in from Jira). Remove those initiatives from the roadmap first, then unlink the project. Nothing was changed.",
   read: "Read Jira. The result is under the project.",
   "read-failed": "Jira could not be read. The reason is under the project.",
@@ -76,6 +79,8 @@ export type JiraProjectLinkView = {
   /** The tracker of the project (a project has one) and its current Jira link in the form of the Projects table row. */
   tracker: string | null;
   rowLink: JiraRowLink | null;
+  /** Initiatives of the project that are linked to Jira issues (unlinking asks what to do with them). */
+  linkedInitiatives?: number;
   /** The field configuration of this project (admins): the default list, the saved settings and what the Jira site offers. */
   mapping?: MappingView | null;
 };
@@ -257,7 +262,7 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
               <caption className="visually-hidden">Delivery tracker per project</caption>
               <thead><tr><th scope="col">Project</th><th scope="col">Delivery tracker</th><th scope="col">Jira project</th><th scope="col">Initiative is</th><th scope="col">Epic is</th><th scope="col">Task is, and Save</th></tr></thead>
               <tbody>
-                {projectLinks.map((p) => <JiraProjectRow key={p.projectId} project={{ id: p.projectId, name: p.projectName }} tracker={p.tracker} link={p.rowLink} choices={choices} canEdit={canAdmin} action={saveProjectAction} />)}
+                {projectLinks.map((p) => <JiraProjectRow key={p.projectId} project={{ id: p.projectId, name: p.projectName }} tracker={p.tracker} link={p.rowLink} choices={choices} canEdit={canAdmin} action={saveProjectAction} linkedInitiatives={p.linkedInitiatives ?? 0} />)}
               </tbody>
             </table>
             </div>
