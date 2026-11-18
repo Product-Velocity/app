@@ -19,7 +19,17 @@ export type BoardMapping = {
   unwritable?: string[];
   /** MoSCoW value to the option name of the board's Priority field. A value that is not listed (Won't) stays out of the board. */
   priorityMap: Record<string, string>;
+  /** Health, Initiative Status and Initiative Phase on single-select board fields (issue #513, the twin of the Jira "Initiative fields"). */
+  selects?: Partial<Record<BoardSelectKey, BoardSelect>>;
 };
+export type BoardSelectKey = "health" | "initiative_status" | "initiative_phase";
+export type BoardSelect = { field: FieldRef; direction: "to_github" | "two_way"; /** Product Velocity value to the option NAME of the board field. A value that is not listed is not written. */ options: Record<string, string> };
+/** The three slots: which values each can carry and which directions it may have. Initiative Phase only goes to GitHub: it moves at the decision gates (PV006). */
+export const BOARD_SELECTS: { key: BoardSelectKey; label: string; directions: readonly BoardSelect["direction"][] }[] = [
+  { key: "health", label: "Health", directions: ["to_github", "two_way"] },
+  { key: "initiative_status", label: "Initiative Status", directions: ["to_github", "two_way"] },
+  { key: "initiative_phase", label: "Initiative Phase", directions: ["to_github"] },
+];
 
 export const DEFAULT_PRIORITY_MAP: Record<string, string> = { Must: "P0", Should: "P1", Could: "P2" };
 const SIZES = new Set(["XS", "S", "M", "L", "XL"]);
@@ -54,7 +64,7 @@ export function detectMapping(fields: BoardField[]): BoardMapping {
   };
 }
 
-export type ItemForBoard = { moscow?: string | null; theme?: string | null; end_date?: string | null; effort?: string | null };
+export type ItemForBoard = { moscow?: string | null; theme?: string | null; end_date?: string | null; effort?: string | null; health?: string | null; initiative_status?: string | null; initiative_phase?: string | null };
 export type BoardWrite = { field: FieldRef; /** What a person reads in the preview. */ label: string; value: BoardValue };
 export type BoardPlan = { include: boolean; writes: BoardWrite[]; notes: string[]; signature: string };
 
@@ -90,6 +100,16 @@ export function planBoardItem(item: ItemForBoard, fields: BoardField[], mapping:
   if (due) { const f = resolve(mapping.dueDate); if (f) { if (f.dataType === "DATE") add(f, { date: due }, due); else notes.push(`The board's "${f.name}" is not a date field.`); } }
   const size = typeof item.effort === "string" && SIZES.has(item.effort) ? item.effort : "";
   if (size) { const f = resolve(mapping.size); if (f) add(f, option(f, size), size); }
+  for (const sel of BOARD_SELECTS) {
+    const cfg = mapping.selects?.[sel.key];
+    const v = item[sel.key];
+    if (!cfg || typeof v !== "string" || v === "") continue;
+    const f = resolve(cfg.field);
+    if (!f) continue;
+    const want = cfg.options[v];
+    if (!want) { notes.push(`${sel.label} not sent: no board option is chosen for “${v.slice(0, 40)}”.`); continue; }
+    add(f, option(f, want), want);
+  }
   return { include: true, writes, notes, signature: sign(true, writes) };
 }
 
@@ -131,6 +151,32 @@ const ref = (v: unknown): FieldRef | null | undefined => {
   return typeof id === "string" && id.length > 0 && id.length <= 100 && typeof name === "string" && name.length > 0 && name.length <= 100 ? { id, name } : undefined;
 };
 
+/** The select mapping from stored JSON: anything malformed is dropped (stored data is never trusted to have the right shape), and Initiative Phase is always to_github. */
+export function parseSelects(v: unknown): BoardMapping["selects"] | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const out: NonNullable<BoardMapping["selects"]> = {};
+  for (const sel of BOARD_SELECTS) {
+    const c = (v as Record<string, unknown>)[sel.key];
+    if (!c || typeof c !== "object") continue;
+    const r = c as Record<string, unknown>;
+    const field = ref(r.field);
+    if (!field || (r.direction !== "to_github" && r.direction !== "two_way")) continue;
+    const direction = r.direction === "two_way" && sel.directions.includes("two_way") ? "two_way" : "to_github";
+    const options: Record<string, string> = {};
+    const used = new Set<string>();
+    if (r.options && typeof r.options === "object") {
+      for (const [k, x] of Object.entries(r.options as Record<string, unknown>)) {
+        if (typeof x !== "string" || x.length === 0 || x.length > 50 || k.length > 50) continue;
+        if (direction === "two_way" && used.has(norm(x))) continue; // the way back would be ambiguous
+        used.add(norm(x));
+        options[k] = x;
+      }
+    }
+    out[sel.key] = { field, direction, options };
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 /** Reads the stored JSON back into a Board, or null when it is not one (stored data is never trusted to have the right shape). */
 export function parseBoard(v: unknown): Board | null {
   if (!v || typeof v !== "object") return null;
@@ -151,9 +197,10 @@ export function parseBoard(v: unknown): Board | null {
   }
   const it = ref(m.iteration);
   if (it === undefined) return null;
+  const selects = parseSelects(m.selects);
   const uw = m.unwritable;
   if (uw !== undefined && (!Array.isArray(uw) || uw.some((x) => typeof x !== "string" || x.length > 100))) return null;
-  return { id: b.id, number: b.number as number, title: b.title, url: b.url, mapping: { priority: out.priority!, group: out.group!, dueDate: out.dueDate!, size: out.size!, status: out.status!, ...(m.iteration !== undefined ? { iteration: it } : {}), priorityMap, ...(uw && (uw as string[]).length ? { unwritable: uw as string[] } : {}) } };
+  return { id: b.id, number: b.number as number, title: b.title, url: b.url, mapping: { priority: out.priority!, group: out.group!, dueDate: out.dueDate!, size: out.size!, status: out.status!, ...(m.iteration !== undefined ? { iteration: it } : {}), priorityMap, ...(selects ? { selects } : {}), ...(uw && (uw as string[]).length ? { unwritable: uw as string[] } : {}) } };
 }
 
 export const childKey = (repo: string, number: number) => `${repo.toLowerCase()}#${number}`;

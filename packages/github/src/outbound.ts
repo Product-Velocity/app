@@ -6,7 +6,7 @@ import { findBlock, NEUTRAL_FOOTER, resolveNames, type LabelKind, type Names } f
 // key results, outcomes and markets are never listed, and a test fails if any of them ever reaches a payload.
 export const OUTBOUND_ITEM_FIELDS = ["item_code", "initiative_name", "summary", "description", "hypothesis", "moscow", "stack_rank", "change_type", "g2m_date_est", "theme", "focus_area", "value_type", "g2m_quarter", "tags"] as const;
 /** Read only to fill GitHub Project fields (Size from the T-shirt effort estimate) and to choose the review label (the phase), never written as text into an issue. */
-export const BOARD_ONLY_FIELDS = ["effort", "initiative_phase"] as const;
+export const BOARD_ONLY_FIELDS = ["effort", "initiative_phase", "health", "initiative_status"] as const;
 /** Everything a GitHub payload of any kind may read: the issue builder's fields plus the board-only ones. */
 export const OUTBOUND_READ_FIELDS = [...OUTBOUND_ITEM_FIELDS, ...BOARD_ONLY_FIELDS] as const;
 export type OutboundField = (typeof OUTBOUND_ITEM_FIELDS)[number];
