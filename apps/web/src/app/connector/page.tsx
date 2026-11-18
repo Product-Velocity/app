@@ -38,7 +38,7 @@ export default function ConnectorPage() {
       <code className="doc-url">{CONNECTOR_URL}</code>
       <h3>In claude.ai and the Claude desktop app</h3>
       <ol>
-        <li>Open <strong>Settings</strong>, then <strong>Connectors</strong>. Find Product Velocity in the directory and choose <strong>Connect</strong>. If it is not listed yet, choose <strong>Add custom connector</strong>, name it Product Velocity and paste the address above.</li>
+        <li>Browse for Product Velocity in the Claude connector directory, or open <a href="https://claude.ai/directory/connectors/product-velocity">claude.ai/directory/connectors/product-velocity</a>, and choose <strong>Connect</strong>. If you do not see it, open <strong>Settings</strong>, then <strong>Connectors</strong>, and choose <strong>Add custom connector</strong>, name it Product Velocity and paste the address above.</li>
         <li>Sign in to Product Velocity when asked. Use the same email and password as in the app, or the Google or GitHub sign-in you normally use.</li>
         <li>On the consent screen, choose one or several workspaces and select <strong>Approve</strong>. The screen shows your role in each workspace, what Claude can and cannot do, and where you return to afterwards.</li>
         <li>Start a conversation and ask Claude about your roadmap. Claude says which workspace it uses when you have connected several.</li>
