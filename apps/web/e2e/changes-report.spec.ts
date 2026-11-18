@@ -133,24 +133,24 @@ test.describe("Changes report", () => {
     await open(page);
     const loads = () => page.evaluate(() => (window as unknown as { __pv: { feedLoads: number } }).__pv.feedLoads);
     const before = await loads();
-    await page.getByRole("button", { name: /^\s*Refresh/ }).click();
+    await page.getByRole("button", { name: "Refresh", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: /^Updated \d\d:\d\d:\d\d$/ })).toBeVisible();
     await expect.poll(loads).toBeGreaterThan(before);
     await expect(grid(page).locator(".group-row")).toHaveCount(3); // what was shown stays shown
     // fold and unfold every group
     const rows = grid(page).locator(".ag-row:not(.ag-full-width-row)");
     expect(await rows.count()).toBeGreaterThan(0);
-    await page.getByRole("button", { name: "▾ Collapse all" }).click();
+    await page.getByRole("button", { name: "Collapse all groups" }).click();
     await expect(rows).toHaveCount(0);
     await expect(grid(page).locator(".group-toggle[aria-expanded='false']")).toHaveCount(3);
-    await page.getByRole("button", { name: "▸ Expand all" }).click();
+    await page.getByRole("button", { name: "Expand all groups" }).click();
     await expect(rows.first()).toBeVisible();
     await expect(grid(page).locator(".group-toggle[aria-expanded='true']")).toHaveCount(3);
     // not grouped: nothing to fold
     await page.getByRole("button", { name: /^Group by:/ }).click();
     await page.getByRole("button", { name: "Clear" }).click();
     await page.getByRole("button", { name: "Apply", exact: true }).click();
-    await expect(page.getByRole("button", { name: /Collapse all/ })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /(Collapse|Expand) all groups/ })).toBeDisabled();
   });
 
   test("clicking an initiative opens its details beside the report, in view", async ({ page }) => {

@@ -223,7 +223,7 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, gates, me 
         filters={filters} onFilters={setFilters} rows={allRows} matching={shownCount}
         allColumns={ALL_COLUMNS} columns={saved.columns} defaultColumns={DEFAULT_COLUMNS} onColumns={(ids) => change({ columns: ids })}
         by={saved.by} then={saved.then} onGroup={(by, then) => { setCollapsed(new Set()); change({ by, then }); }}
-        groupKeys={groupKeys} collapsed={collapsed} onCollapse={(keys) => setCollapsed(new Set(keys))}
+        groupKeys={groupKeys} collapsed={collapsed} onCollapse={setCollapsed}
         onRefresh={refresh} refreshing={refreshing} updatedAt={loaded?.at ?? null}
       />
       <ChangeFilterChips filters={filters} rows={allRows} onChange={setFilters} />
