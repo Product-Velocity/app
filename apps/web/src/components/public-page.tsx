@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
-import { SUPPORT_CONTACT } from "@/lib/public-contact";
 
 /** The frame of the pages anyone can open without signing in (/connector, /privacy): name, two links, content, and who to write to. */
 export function PublicPage({ title, intro, children }: { title: string; intro?: string; children: React.ReactNode }) {
@@ -11,6 +10,7 @@ export function PublicPage({ title, intro, children }: { title: string; intro?: 
         <nav aria-label="Public pages">
           <Link href="/connector">Connect Claude</Link>
           <Link href="/privacy">Privacy policy</Link>
+          <Link href="/contact">Contact</Link>
         </nav>
       </header>
       <main className="doc-main">
@@ -19,7 +19,7 @@ export function PublicPage({ title, intro, children }: { title: string; intro?: 
         {children}
       </main>
       <footer className="doc-foot">
-        <p>Questions about Product Velocity or your data: {SUPPORT_CONTACT.name}, <a href={`mailto:${SUPPORT_CONTACT.email}`}>{SUPPORT_CONTACT.email}</a>.</p>
+        <p>Questions about Product Velocity or your data? <Link href="/contact">Contact us</Link>.</p>
       </footer>
     </div>
   );

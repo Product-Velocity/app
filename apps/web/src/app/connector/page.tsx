@@ -1,8 +1,9 @@
 import { CLAUDE_CANNOT } from "@pv/domain";
+import Link from "next/link";
 import { PublicPage } from "@/components/public-page";
 import { FLOWS } from "@/lib/mcp/flows";
 import { toolsFor } from "@/lib/mcp/rpc";
-import { CONNECTOR_URL, SUPPORT_CONTACT } from "@/lib/public-contact";
+import { CONNECTOR_URL } from "@/lib/public-contact";
 
 export const metadata = {
   title: "Connect Claude to Product Velocity",
@@ -123,7 +124,7 @@ export default function ConnectorPage() {
       </div>
 
       <h2 id="support">Support</h2>
-      <p>Write to {SUPPORT_CONTACT.name} at <a href={`mailto:${SUPPORT_CONTACT.email}`}>{SUPPORT_CONTACT.email}</a>. Say which assistant you use, your workspace name and what you asked for. Do not send passwords or document text.</p>
+      <p>Use the <Link href="/contact?subject=connector">contact form</Link>. Say which assistant you use, your workspace name and what you asked for. Do not send passwords or document text.</p>
     </PublicPage>
   );
 }

@@ -1,4 +1,4 @@
-import { CONNECTOR_URL, SITE_URL, SUPPORT_CONTACT } from "@/lib/public-contact";
+import { CONNECTOR_URL, SITE_URL } from "@/lib/public-contact";
 import { HOME_DESCRIPTION } from "../(marketing)/seo";
 
 /** A plain-text summary for AI assistants and crawlers (the llms.txt convention). Same facts as the homepage; nothing the product does not do today. */
@@ -23,13 +23,14 @@ Product Velocity is a roadmap and stack-rank platform for product teams. It does
 - [Home](${SITE_URL}/): what Product Velocity is and how to ask for early access
 - [Connect Claude](${SITE_URL}/connector): how the Claude connector works, what Claude can and cannot do, permissions and data handling
 - [Privacy policy](${SITE_URL}/privacy): how data is handled
+- [Contact](${SITE_URL}/contact): a form for questions, privacy requests and early access
 
 ## Connect
 - Claude connector directory: https://claude.ai/directory/connectors/product-velocity
 - Connector address (MCP): ${CONNECTOR_URL}
 
 ## Contact
-${SUPPORT_CONTACT.name}, ${SUPPORT_CONTACT.email}
+Use the form at ${SITE_URL}/contact.
 
 ## Status
 Product Velocity is in early access. Sign-up is by request on the homepage.

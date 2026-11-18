@@ -39,14 +39,14 @@ describe("homepage copy follows the claims rules (docs/17, brand guide)", () => 
 describe("search and AI crawler files", () => {
   it("the sitemap lists the public pages on the production address and nothing from the app", () => {
     const urls = sitemap().map((e) => e.url);
-    expect(urls).toEqual([`${SITE_URL}/`, `${SITE_URL}/connector`, `${SITE_URL}/privacy`]);
+    expect(urls).toEqual([`${SITE_URL}/`, `${SITE_URL}/connector`, `${SITE_URL}/contact`, `${SITE_URL}/privacy`]);
   });
   it("robots allow the public pages only and point to the sitemap", () => {
     const r = robots();
     expect(r.sitemap).toBe(`${SITE_URL}/sitemap.xml`);
     const rule = Array.isArray(r.rules) ? r.rules[0]! : r.rules;
     expect(rule.disallow).toContain("/");
-    expect(rule.allow).toEqual(expect.arrayContaining(["/$", "/connector", "/privacy"]));
+    expect(rule.allow).toEqual(expect.arrayContaining(["/$", "/connector", "/privacy", "/contact"]));
   });
   it("llms.txt is plain text with the key facts and no secrets", async () => {
     const res = llms();
