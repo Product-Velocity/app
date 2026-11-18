@@ -430,7 +430,7 @@ export type AgentGuide = { title: string; setup: string[]; snippet?: string; onb
 const ONBOARD_ADMIN = "Admin, once: account menu, You, Connect an AI assistant, switch on AI assistants for the workspace (they are off by default). Then set the Company website under Workspace admin, Workspace settings.";
 const ONBOARD_CONNECT = "Each person: connect the assistant (above), sign in to Product Velocity, choose one or several workspaces and approve on the consent screen. With several workspaces the agent asks which one you mean.";
 const ONBOARD_PROFILE = "First task: ask for the company profile (research_company). It shows what it found section by section and saves a draft; an admin confirms it under Company profile.";
-const REVOKE = "You can revoke a connection at any time under Connect an AI assistant; it stops on the next call. Admins see every connection (names and counts, no content).";
+const REVOKE = "You can revoke a connection at any time under Connect an AI assistant; it stops on the next call. Signing out of Product Velocity on one device keeps Claude connected; \"Sign out other devices\" and \"Sign out everywhere\" on the Account page disconnect it, and you reconnect it in Claude. Admins see every connection (names and counts, no content).";
 
 export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> = {
   claude: {

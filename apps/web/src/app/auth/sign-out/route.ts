@@ -4,7 +4,8 @@ import { safeNext } from "@/lib/auth/safe-next";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  // "local" ends only this browser. The default is global, which also revokes the Claude connector's OAuth session (issue #510).
+  await supabase.auth.signOut({ scope: "local" });
   const form = await request.formData().catch(() => null);
   const next = safeNext(form?.get("next") as string | null, "/sign-in");
   return NextResponse.redirect(new URL(next, request.url), 303);
