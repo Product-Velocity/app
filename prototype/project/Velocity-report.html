@@ -177,7 +177,7 @@ td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabu
 .il{color:var(--accent-text);text-decoration:underline;background:none;border:0;padding:0;cursor:pointer;text-align:left}
 .heat td.h{text-align:center;font-family:var(--mono);font-variant-numeric:tabular-nums}
 .heat td.h small{display:block;font-family:var(--font);font-size:10.5px;color:var(--ink-2)}
-.mini{display:flex;height:10px;gap:1px;border-radius:2px;overflow:hidden;min-width:120px}
+.mini{display:flex;height:12px;gap:1px;border-radius:2px;overflow:hidden;min-width:24px}
 .mini i{display:block;height:100%}
 .mini i.gate{background:repeating-linear-gradient(45deg,var(--gate-bg) 0 2px,var(--gate-line) 2px 3px)}
 .mini i.queue{background:var(--queue)}
@@ -321,18 +321,20 @@ details.tbl summary{cursor:pointer;color:var(--accent-text);font-size:12px}
   </div>
 
   <div class="sec-h"><h2>Where to look</h2><p>The initiatives behind the averages.</p></div>
-  <div class="grid2">
-    <section class="card" aria-label="Slowest finished">
-      <h2 id="slow-title">Slowest finished</h2>
-      <p class="note">The longest for the chosen measure, with where their time went (same colours as above).</p>
-      <div class="tw" id="slowest"></div>
-    </section>
-    <section class="card" aria-label="In flight and already slow">
-      <h2>In flight and already slower than usual</h2>
-      <p class="note" id="inflight-note"></p>
-      <div class="tw" id="inflight"></div>
-    </section>
-  </div>
+  <section class="card wide" aria-label="In flight and already slow">
+    <h2>In flight and already slower than usual</h2>
+    <p class="note" id="inflight-note"></p>
+    <div class="tw" id="inflight"></div>
+  </section>
+
+  <section class="card wide" aria-label="All initiatives in this view">
+    <div style="display:flex;flex-wrap:wrap;gap:6px 18px;align-items:flex-end;justify-content:space-between">
+      <div style="min-width:0"><h2 id="all-title">All initiatives</h2>
+      <p class="note" id="all-note" style="margin-bottom:0"></p></div>
+      <div class="ctl"><span>Sort by</span><div class="seg" id="seg-sort" role="group" aria-label="Sort by"></div></div>
+    </div>
+    <div class="tw" id="slowest" style="margin-top:8px"></div>
+  </section>
 
   <section class="card notes" id="notes" aria-label="Definitions and questions">
     <h2>For Ashu: how this is calculated, and what I need you to decide</h2>
@@ -428,7 +430,7 @@ const MEASURES={
  build:{label:'Build',start:'tBuild',end:'tTest',prev:null,desc:'Start Building to Start Test (development time).'}};
 const DIMS={team:{label:'Team',get:i=>i.team},kr:{label:'Key Result',get:i=>i.kr},obj:{label:'Objective',get:i=>i.obj},bl:{label:'Business line',get:i=>i.bl}};
 const FILTERS=[['team','Team',i=>i.team],['effort','Effort',i=>i.size],['obj','Objective',i=>i.obj],['kr','Key Result',i=>i.kr],['bl','Business Line',i=>i.bl],['q','Finished in',null]];
-const state={measure:'total',stretch:false,unit:'weeks',dim:'team',f:{team:new Set(),effort:new Set(),obj:new Set(),kr:new Set(),bl:new Set(),q:new Set()}};
+const state={sort:'slowest',measure:'total',stretch:false,unit:'weeks',dim:'team',f:{team:new Set(),effort:new Set(),obj:new Set(),kr:new Set(),bl:new Set(),q:new Set()}};
 
 /* ---------- helpers ---------- */
 const $=s=>document.querySelector(s);
@@ -679,11 +681,18 @@ function renderSub(v){
 
 /* ---------- outlier tables ---------- */
 function renderTables(v){
-  const m=MEASURES[state.measure];$('#slow-title').textContent=`Slowest finished: ${m.label}`;
+  const m=MEASURES[state.measure];
+  const SORTS={slowest:'Slowest first',fastest:'Fastest first',team:'Team',size:'Size'};
+  $('#seg-sort').innerHTML=Object.entries(SORTS).map(([k,l])=>`<button type="button" data-sort="${k}" aria-pressed="${state.sort===k}">${l}</button>`).join('');
+  $('#all-title').textContent=`All initiatives: ${m.label}`;
+  $('#all-note').textContent=`Every initiative that reached the end of the measure with the filters above (${v.rows.length}), with where its time went (same colours as the stage chart). Team and Size sort slowest first within each group.`;
   if(!v.rows.length){$('#slowest').innerHTML='<p class="empty" role="status">No data matching current filters</p>'}
-  else{const top=[...v.rows].sort((a,b)=>b.v-a.v).slice(0,7);const maxv=top[0].v;
-    $('#slowest').innerHTML=`<table><thead><tr><th>Initiative</th><th>Size</th><th>Team</th><th class="num">${fu()==='wk'?'Weeks':'Days'}</th><th>Where the time went</th><th>Longest stage</th></tr></thead><tbody>${top.map(r=>{const w=windowOf(r.it);const parts=STAGES.map(s=>({s,d:clipStage(r.it,w,s)}));const lg=[...parts].sort((a,b)=>b.d-a.d)[0];
-      return `<tr><td><button class="il" type="button">${esc(r.it.name)}</button> <span class="muted">${r.it.id}</span></td><td>${r.it.size}</td><td>${esc(r.it.team)}</td><td class="num">${fv(r.v)}</td><td><div class="mini" style="width:${Math.max(40,r.v/maxv*100)}%;min-width:70px">${parts.filter(p=>p.d>0).map(p=>`<i class="${p.s.kind==='work'?'':p.s.kind}" style="flex:${p.d};${p.s.kind==='work'?`background:var(${p.s.col})`:''}" ${tip(`<b>${p.s.label}</b>: ${fvu(p.d)}`)}></i>`).join('')}</div></td><td>${esc(lg.s.label)} <span class="muted">${fvu(lg.d)}</span></td></tr>`}).join('')}</tbody></table>`}
+  else{
+    const slow=(a,b)=>b.v-a.v;
+    const cmp={slowest:slow,fastest:(a,b)=>a.v-b.v,team:(a,b)=>a.it.team.localeCompare(b.it.team)||slow(a,b),size:(a,b)=>SIZES.indexOf(a.it.size)-SIZES.indexOf(b.it.size)||slow(a,b)}[state.sort];
+    const list=[...v.rows].sort(cmp);const maxv=Math.max(...list.map(r=>r.v));
+    $('#slowest').innerHTML=`<table><thead><tr><th>Initiative</th><th>Size</th><th>Team</th><th>Key Result</th><th>Business line</th><th class="num">${fu()==='wk'?'Weeks':'Days'}</th><th style="min-width:240px;width:34%">Where the time went</th><th>Longest stage</th></tr></thead><tbody>${list.map(r=>{const w=windowOf(r.it);const parts=STAGES.map(s=>({s,d:clipStage(r.it,w,s)}));const lg=[...parts].sort((a,b)=>b.d-a.d)[0];
+      return `<tr><td><button class="il" type="button">${esc(r.it.name)}</button> <span class="muted">${r.it.id}</span></td><td>${r.it.size}</td><td>${esc(r.it.team)}</td><td>${esc(r.it.kr)}</td><td>${esc(r.it.bl)}</td><td class="num">${fv(r.v)}</td><td><div class="mini" style="width:${Math.max(3,r.v/maxv*100)}%">${parts.filter(p=>p.d>0).map(p=>`<i class="${p.s.kind==='work'?'':p.s.kind}" style="flex:${p.d};${p.s.kind==='work'?`background:var(${p.s.col})`:''}" ${tip(`<b>${p.s.label}</b>: ${fvu(p.d)}`)}></i>`).join('')}</div></td><td>${esc(lg.s.label)} <span class="muted">${fvu(lg.d)}</span></td></tr>`}).join('')}</tbody></table>`}
   // in flight vs finished of the same size (Total)
   const fin=ITEMS.filter(i=>passes(i,true)).filter(i=>i.t.tRoll<=TODAY);
   const refAll=stats(fin.map(i=>i.t.tRoll-i.t.t0));
@@ -707,6 +716,7 @@ document.addEventListener('click',e=>{
   else if(t.dataset.s!==undefined){state.stretch=t.dataset.s==='1';render()}
   else if(t.dataset.u){state.unit=t.dataset.u;render()}
   else if(t.dataset.d){state.dim=t.dataset.d;render()}
+  else if(t.dataset.sort){state.sort=t.dataset.sort;render()}
   else if(t.dataset.f){toggleF(t.dataset.f,t.value)}
   else if(t.dataset.clear){state.f[t.dataset.clear].clear();render()}
   else if(t.dataset.pill){toggleF(t.dataset.pill,t.dataset.v)}
