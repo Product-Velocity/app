@@ -3,7 +3,7 @@
 import { useMemo, type ReactNode } from "react";
 import {
   DIM_LABEL, MIN_FOR_BOX, STAGES, SUB_PHASES, ZONES, decisionStats, groupStats, recentChange, sizeStats, stageAverages, stagesBy, subPhaseBySize, subPhaseStats, trendByQuarter, workWait,
-  type GateRequest, type GroupStat, type ReportDim, type Stats, type VelocityRow, type VelocitySummary,
+  type GateRequest, type GroupStat, type ReportDim, type Stats, type VelocityRow, type VelocitySummary, type WindowCoverage,
 } from "@pv/domain";
 import type { ReportEnv } from "./report-env";
 import { Bell, Donut, RangeChart, Stages, Trend, type RangeRow, type Slice } from "./velocity-charts";
@@ -44,8 +44,8 @@ function Legend() {
 }
 
 // ---- how long it takes
-type BellProps = { summary: VelocitySummary; vrows: readonly VelocityRow[]; unit: Unit; title: string };
-export function BellCard({ summary, vrows, unit, title }: BellProps) {
+type BellProps = { summary: VelocitySummary; vrows: readonly VelocityRow[]; unit: Unit; title: string; coverage: WindowCoverage; measure: { label: string; needs: string } };
+export function BellCard({ summary, vrows, unit, title, coverage, measure }: BellProps) {
   const st = summary.stats;
   const recent = useMemo(() => recentChange(vrows), [vrows]);
   const days = useMemo(() => vrows.filter((v) => v.value !== null).map((v) => v.value!), [vrows]);
@@ -67,7 +67,12 @@ export function BellCard({ summary, vrows, unit, title }: BellProps) {
         {kpi("n-counted", String(summary.counted), "Initiatives")}
         {kpi("n-notyet", String(summary.notThere), "Initiatives not there yet", <span className="vel-sub">still on the way, never counted as zero</span>)}
       </div>
-      {!st || summary.counted < 3 ? <None /> : (
+      {!st || summary.counted < 3 ? (
+        <div className="rp-empty vel-why" role="status">
+          <p><b>{summary.counted === 0 ? `Nothing can be measured for ${measure.label} yet.` : `Only ${summary.counted} initiative${summary.counted === 1 ? "" : "s"} can be measured for ${measure.label}, too few for a distribution.`}</b> {measure.needs}</p>
+          <p>Of the {coverage.initiatives} initiatives with these filters, {coverage.withStart} {coverage.withStart === 1 ? "has" : "have"} the start date, {coverage.withEnd} {coverage.withEnd === 1 ? "has" : "have"} the end date and {coverage.withBoth} {coverage.withBoth === 1 ? "has" : "have"} both.{coverage.withStart === 0 || coverage.withEnd === 0 ? " Fill the missing dates in the Grid, or pick another measure above (Build only needs Start Building)." : ""}</p>
+        </div>
+      ) : (
         <>
           <Bell days={days} unit={unit} median={st.median} average={st.average} />
           <ul className="vel-legend" aria-label="Zones of the bell">
@@ -79,7 +84,7 @@ export function BellCard({ summary, vrows, unit, title }: BellProps) {
           <DataTable caption="Summary" head={["Measure", `Value (${unit})`]} rows={[["Median", f(st.median)], ["Average", f(st.average)], ["Fastest tenth under", f(st.p10)], ["Middle half from", f(st.p25)], ["Middle half to", f(st.p75)], ["80% finish within", f(st.p80)], ["Slowest tenth over", f(st.p90)], ["Initiatives", summary.counted]]} />
         </>
       )}
-      {summary.noStart > 0 && <p className="rp-note vel-small">{summary.noStart} initiative{summary.noStart === 1 ? " has" : "s have"} no start date for this measure and {summary.noStart === 1 ? "is" : "are"} left out.</p>}
+      {summary.noStart > 0 && summary.counted > 0 && <p className="rp-note vel-small">{summary.noStart} initiative{summary.noStart === 1 ? " has" : "s have"} no start date for this measure and {summary.noStart === 1 ? "is" : "are"} left out.</p>}
     </section>
   );
 }

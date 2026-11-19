@@ -5,5 +5,5 @@ import { HarnessReports } from "./harness";
 export default async function ReportsHarness({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   if (process.env.NEXT_PUBLIC_E2E_HARNESS !== "1") notFound();
   const q = await searchParams;
-  return <HarnessReports n={Number(q.n ?? (q.demo === "velocity" ? 150 : 42))} role={q.role ?? "creator"} demo={q.demo === "changes"} velocity={q.demo === "velocity"} />;
+  return <HarnessReports n={Number(q.n ?? (q.demo?.startsWith("velocity") ? 150 : 42))} role={q.role ?? "creator"} demo={q.demo === "changes"} velocity={q.demo === "velocity" || q.demo === "velocity-build"} buildOnly={q.demo === "velocity-build"} />;
 }
