@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  DIM_LABEL, VELOCITY_DIMS, VELOCITY_MEASURES, dayOfDate, hasStretch, parseMeasure, parseVelocityDim, velocityRows, velocitySummary, type GateRequest, type ReportDim, type VelocityMeasureId,
+  DIM_LABEL, VELOCITY_DIMS, VELOCITY_MEASURES, dayOfDate, hasStretch, parseMeasure, parseVelocityDim, velocityRows, velocitySummary, windowCoverage, type GateRequest, type ReportDim, type VelocityMeasureId,
 } from "@pv/domain";
 import type { ReportEnv } from "./report-env";
 import { AllInitiativesCard, InFlightCard } from "./velocity-lists";
@@ -23,6 +23,15 @@ function writeSettings(s: Settings) {
   if (s.dim !== "team") url.searchParams.set("by", s.dim);
   window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
 }
+
+/** What each measure needs, in words, for the explanation when too few initiatives have the dates. */
+const NEEDS: Record<VelocityMeasureId, string> = {
+  total: "It needs a Start Discovery (or Start Date) and a Start Roll-Out date.",
+  gate_a: "It needs a Start Discovery (or Start Date) and the Gate A decision, or Start Definition.",
+  gate_b: "It needs a Start Discovery (or Start Date) and the Gate B decision, or Start Building.",
+  gate_c: "It needs a Start Discovery (or Start Date) and the Gate C decision, or Start Roll-Out.",
+  build: "It needs Start Building and the end of the build (a tracker completion or the next phase start).",
+};
 
 /**
  * Velocity (issue #545): how long initiatives take from Start Discovery to Start Roll-Out, to each gate and in Build, how it is spread (percentiles, the bell), where the
@@ -50,6 +59,8 @@ export function VelocityReport({ env, load, onOpen }: { env: ReportEnv; load?: (
   const today = dayOfDate(env.controller.todayDate());
   const vrows = useMemo(() => velocityRows(env.rows, gateRequests, { measure: s.measure, stretch }, today), [env.rows, gateRequests, s.measure, stretch, today]);
   const summary = useMemo(() => velocitySummary(vrows), [vrows]);
+  const coverage = useMemo(() => windowCoverage(vrows), [vrows]);
+  const settings = useMemo(() => ({ measure: s.measure, stretch }), [s.measure, stretch]);
   const title = `${measure.label}${stretch ? " (previous gate to this gate)" : ""}`;
 
   if (failed) return <div role="alert" className="error">Could not load the gate dates: {failed} <button type="button" className="link-button" onClick={() => setReload((n) => n + 1)}>Try again</button></div>;
@@ -73,7 +84,7 @@ export function VelocityReport({ env, load, onOpen }: { env: ReportEnv; load?: (
         </div>
       </section>
 
-      <BellCard summary={summary} vrows={vrows} unit={s.unit} title={`How long it takes: ${title}`} />
+      <BellCard summary={summary} vrows={vrows} unit={s.unit} title={`How long it takes: ${title}`} coverage={coverage} measure={{ label: measure.label, needs: NEEDS[s.measure] }} />
 
       <div className="vel-grid-2">
         <SizeCard vrows={vrows} unit={s.unit} summary={summary} env={env} />
@@ -94,7 +105,7 @@ export function VelocityReport({ env, load, onOpen }: { env: ReportEnv; load?: (
       <SubPhasesCard vrows={vrows} unit={s.unit} today={today} />
 
       <div className="vel-sec"><h2>Where to look</h2><p>The initiatives behind the averages.</p></div>
-      <InFlightCard env={env} requests={gateRequests} today={today} unit={s.unit} onOpen={onOpen} />
+      <InFlightCard env={env} requests={gateRequests} today={today} unit={s.unit} settings={settings} measureLabel={title} onOpen={onOpen} />
       <AllInitiativesCard env={env} vrows={vrows} unit={s.unit} title={title} onOpen={onOpen} />
     </>
   );

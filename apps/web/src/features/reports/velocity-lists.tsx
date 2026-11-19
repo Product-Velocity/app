@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { SIZES, STAGES, inFlightSlow, stageDays, valuesOf, type GateRequest, type StageId, type VelocityRow } from "@pv/domain";
+import { SIZES, STAGES, inFlightSlow, stageDays, valuesOf, type GateRequest, type StageId, type VelocityRow, type VelocitySettings } from "@pv/domain";
 import type { ReportEnv } from "./report-env";
 import { STAGE_COLOURS, fmtDays, fmtNum, inUnit, type Unit } from "./velocity-format";
 
@@ -19,13 +19,13 @@ function MiniBar({ days, scale }: { days: Record<StageId, number>; scale: number
 }
 
 // ---- in flight and already slower than usual
-export function InFlightCard({ env, requests, today, unit, onOpen }: { env: ReportEnv; requests: readonly GateRequest[]; today: number; unit: Unit; onOpen: (id: string) => void }) {
-  const list = useMemo(() => inFlightSlow(env.rows, requests, today), [env.rows, requests, today]);
+export function InFlightCard({ env, requests, today, unit, settings, measureLabel, onOpen }: { env: ReportEnv; requests: readonly GateRequest[]; today: number; unit: Unit; settings: VelocitySettings; measureLabel: string; onOpen: (id: string) => void }) {
+  const list = useMemo(() => inFlightSlow(env.rows, requests, settings, today), [env.rows, requests, settings, today]);
   return (
     <section className="rp-card rp-wide" aria-label="In flight and already slower than usual">
       <h2 className="rp-title">In flight and already slower than usual ({list.length})</h2>
-      <p className="rp-note">Started, not yet rolling out, and already past the time 80% of the finished initiatives of the same size needed (from Start Discovery), the whole roadmap of the filters above. Cancelled and completed initiatives are not listed. Not affected by the measure.</p>
-      {list.length === 0 ? <p className="rp-empty">Nothing in flight is past its usual time with these filters.</p> : (
+      <p className="rp-note">For the measure chosen above ({measureLabel}): started it, not at its end yet, and already past the time 80% of the finished initiatives of the same size needed. Needs at least 5 finished initiatives to compare with. Cancelled and completed initiatives are not listed.</p>
+      {list.length === 0 ? <p className="rp-empty">Nothing in flight is past its usual time for this measure with these filters.</p> : (
         <div className="rp-table-wrap">
           <table className="rp-table" aria-label="In flight and already slower than usual">
             <thead><tr><th scope="col">Initiative</th><th scope="col">Size</th><th scope="col">Now in</th><th scope="col">Days there</th><th scope="col">Elapsed</th><th scope="col">Against the usual</th></tr></thead>
@@ -59,7 +59,7 @@ export function AllInitiativesCard({ env, vrows, unit, title, onOpen }: { env: R
   const rows = useMemo(() => vrows.filter((v) => v.value !== null).map((v) => {
     const days = stageDays(v);
     const longest = STAGES.reduce((best, s) => (days[s.id] > days[best.id] ? s : best), STAGES[0]);
-    return { v, days, longest: longest.id, teams: valuesOf(v.row, "team", env.ctx) };
+    return { v, days, longest: days[longest.id] > 0 ? longest.id : null, teams: valuesOf(v.row, "team", env.ctx) };
   }), [vrows, env.ctx]);
   const options = (pick: (r: (typeof rows)[number]) => string[]) => [...new Set(rows.flatMap(pick).filter(Boolean))].sort((a, b) => a.localeCompare(b, "en"));
   const opt = useMemo(() => ({
@@ -73,7 +73,7 @@ export function AllInitiativesCard({ env, vrows, unit, title, onOpen }: { env: R
       const row = r.v.row;
       return (!q || text(row.initiative_name).toLowerCase().includes(q) || text(row.item_code).toLowerCase().includes(q))
         && (!f.size || text(row.effort) === f.size) && (!f.team || r.teams.includes(f.team)) && (!f.kr || text(row.kr_metric) === f.kr) && (!f.bl || text(row.business_line) === f.bl)
-        && (!f.group || text(row.theme) === f.group) && (!f.focus || text(row.focus_area) === f.focus) && (!f.stage || stageLabel(r.longest) === f.stage);
+        && (!f.group || text(row.theme) === f.group) && (!f.focus || text(row.focus_area) === f.focus) && (!f.stage || (r.longest !== null && stageLabel(r.longest) === f.stage));
     });
     const slow = (a: (typeof rows)[number], b: (typeof rows)[number]) => b.v.value! - a.v.value!;
     const order = { slowest: slow, fastest: (a: (typeof rows)[number], b: (typeof rows)[number]) => a.v.value! - b.v.value!, team: (a: (typeof rows)[number], b: (typeof rows)[number]) => (a.teams[0] ?? "~").localeCompare(b.teams[0] ?? "~", "en") || slow(a, b), size: (a: (typeof rows)[number], b: (typeof rows)[number]) => (SIZES.indexOf(text(a.v.row.effort) as never) + 99) % 99 - (SIZES.indexOf(text(b.v.row.effort) as never) + 99) % 99 || slow(a, b) }[sort];
@@ -114,7 +114,7 @@ export function AllInitiativesCard({ env, vrows, unit, title, onOpen }: { env: R
                       <td>{text(row.theme) || "–"}</td><td>{text(row.focus_area) || "–"}</td><td>{text(row.effort) || "–"}</td><td>{r.teams.map((t) => env.label("team", t)).join(", ")}</td><td>{text(row.kr_metric) || "–"}</td><td>{text(row.business_line) || "–"}</td>
                       <td>{fmtNum(inUnit(r.v.value!, unit), unit)}</td>
                       <td className="vel-wide-col"><MiniBar days={r.days} scale={(r.v.value! / max) * 100} /></td>
-                      <td>{stageLabel(r.longest)} <span className="muted">{fmtDays(r.days[r.longest], unit)}</span></td>
+                      <td>{r.longest === null ? <span className="muted">–</span> : <>{stageLabel(r.longest)} <span className="muted">{fmtDays(r.days[r.longest], unit)}</span></>}</td>
                     </tr>
                   );
                 })}</tbody>

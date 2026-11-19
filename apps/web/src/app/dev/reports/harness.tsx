@@ -50,13 +50,13 @@ async function jiraUsersOfToday(from: Date): Promise<JiraStatusRecord[]> {
   return [{ issue_key: "DEMO-7049", to_status: "Project Closed", changed_at: new Date(from.getFullYear(), from.getMonth(), from.getDate(), 9, 17, 59).toISOString(), actor_name: "Dana Reyes" }];
 }
 
-export function HarnessReports({ n, role, demo = false, velocity = false }: { n: number; role: string; demo?: boolean; velocity?: boolean }) {
+export function HarnessReports({ n, role, demo = false, velocity = false, buildOnly = false }: { n: number; role: string; demo?: boolean; velocity?: boolean; buildOnly?: boolean }) {
   const lookups = velocity ? velocityLookups : harnessLookups;
   const { controller, source, gates, requests } = useMemo(() => {
     const h = makeReportsHarness(n, role);
     // ?demo=velocity: about 150 initiatives with journeys through the gates and phases, and the gate requests behind them (Velocity report, issue #545)
     let requests = GATE_REQUESTS;
-    if (velocity) { requests = applyVelocityDemo(h.controller.rows as never, new Date(Date.UTC(2027, 3, 14))); }
+    if (velocity) { requests = applyVelocityDemo(h.controller.rows as never, new Date(Date.UTC(2027, 3, 14)), buildOnly); }
     if (demo) { // ?demo=changes: data for the Changes screenshot only (other tests keep the standard rows)
       // the demo state goes into the page's data source too, so a Refresh (which reads it again) keeps it
       const set = (id: string, o: Record<string, unknown>) => { for (const list of [h.controller.rows, h.source.items] as Record<string, unknown>[][]) Object.assign(list.find((r) => r.id === id) ?? {}, o); };
@@ -67,7 +67,7 @@ export function HarnessReports({ n, role, demo = false, velocity = false }: { n:
     const g = new MemoryGateSource([], ["A", "B", "C"], [], [], { A: [], B: [], C: [] });
     g.onMove = (id, to) => { const row = h.source.items.find((i) => i.id === id) as Record<string, unknown> | undefined; if (row) row.initiative_phase = to; }; // what a move does to the screen
     return { ...h, gates: g, requests };
-  }, [n, role, demo, velocity]);
+  }, [n, role, demo, velocity, buildOnly]);
   const store = useMemo(() => Object.assign(new MemoryWorkspaceStore({ scopes: [], views: [] }), { projects: harnessLookups.projects }), []);
   useEffect(() => { (window as unknown as { __pv: unknown }).__pv = { controller, source, store, gates, feedLoads: 0 }; }, [controller, source, store, gates]);
   return (

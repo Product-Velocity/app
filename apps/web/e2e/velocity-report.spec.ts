@@ -128,6 +128,37 @@ test.describe("Velocity report", () => {
     await expect(page.getByRole("heading", { name: /Waiting now for a decision \(\d+\)/ })).toBeVisible();
   });
 
+  test("a workspace with only Start Building dates: Total says what is missing, Build shows the stages and the time spent of every initiative", async ({ page }) => {
+    await page.goto("/dev/reports?report=velocity&demo=velocity-build");
+    await page.getByRole("button", { name: "Velocity" }).waitFor();
+    // Total needs Start Discovery and Start Roll-Out, which none of them has: the report says so, with how many have what
+    const why = page.locator(".vel-why");
+    await expect(why).toContainText("Nothing can be measured for Total yet");
+    await expect(why).toContainText("Start Discovery");
+    await expect(why).toContainText("0 have the start date");
+    await expect(why).toContainText("Build only needs Start Building");
+    // Build works from Start Building alone
+    await setting(page, "Time measured", "Build").click();
+    await expect(page.getByRole("heading", { name: "How long it takes: Build" })).toBeVisible();
+    expect(await num(page, "n-counted")).toBeGreaterThan(10);
+    expect(await num(page, "median")).toBeGreaterThan(0);
+    // the stages are not empty: the Build stage holds the build time, so the stage averages add up to the average build
+    await page.locator("details:has(table[aria-label=\"Average per stage\"]) summary").first().click();
+    const head = await page.locator("table[aria-label=\"Average per stage\"] thead th").allInnerTexts();
+    const first = await page.locator("table[aria-label=\"Average per stage\"] tbody tr").first().locator("td").allInnerTexts();
+    const build = Number(first[head.indexOf("Build")]);
+    expect(build).toBeGreaterThan(0);
+    expect(build).toBeCloseTo(await num(page, "average"), 0);
+    // every initiative of the list shows where its time went, and the longest stage is Build
+    const list = page.getByRole("region", { name: "All initiatives", exact: true });
+    await list.scrollIntoViewIfNeeded();
+    const rows = list.locator("tbody tr");
+    expect(await rows.count()).toBeGreaterThan(10);
+    await expect(rows.first().locator(".vel-mini")).toBeVisible();
+    await expect(rows.first().locator("td").last()).toContainText("Build");
+    await expect(list.locator(".vel-mini")).toHaveCount(await rows.count());
+  });
+
   test("the (i) on a range chart explains how to read it, for the mouse and the keyboard", async ({ page }) => {
     await open(page);
     const info = page.locator("[aria-label=\"By T-shirt size\"] .vel-info");

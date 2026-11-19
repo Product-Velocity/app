@@ -150,6 +150,12 @@ export function statsOf(values: readonly number[]): Stats | null {
   return { n: s.length, min: s[0]!, max: s[s.length - 1]!, p10: at(0.1), p25: at(0.25), median: at(0.5), p75: at(0.75), p80: at(0.8), p90: at(0.9), average: s.reduce((a, b) => a + b, 0) / s.length };
 }
 
+/** What the dates allow for the measure chosen: how many initiatives have a start, an end, and both (the ones that can be measured once the end is past). */
+export type WindowCoverage = { initiatives: number; withStart: number; withEnd: number; withBoth: number };
+export function windowCoverage(vrows: readonly VelocityRow[]): WindowCoverage {
+  return { initiatives: vrows.length, withStart: vrows.filter((v) => v.start !== null).length, withEnd: vrows.filter((v) => v.end !== null).length, withBoth: vrows.filter((v) => v.start !== null && v.end !== null).length };
+}
+
 export type VelocitySummary = {
   /** Initiatives that reached the end of the measure. */
   counted: number;
@@ -270,12 +276,15 @@ export function recentChange(vrows: readonly VelocityRow[]): { recent: number; b
 }
 
 // ---- where the time goes
-/** Days of each stage inside the window of the measure (a stage only counts the part that falls in it). */
+/**
+ * Days of each stage inside the window of the measure (a stage only counts the part that falls in it). A stage that has begun and has no later date
+ * (the last date the initiative has) runs to the end of the window: an initiative with only Start Building spends its Build time in Build.
+ */
 export function stageDays(v: VelocityRow): Record<StageId, number> {
   const out = {} as Record<StageId, number>;
   for (const s of STAGES) {
     const a = v.journey.filled[s.from], b = v.journey.filled[s.to];
-    out[s.id] = v.start === null || v.end === null || a === null || b === null ? 0 : Math.max(0, Math.min(b, v.end) - Math.max(a, v.start));
+    out[s.id] = v.start === null || v.end === null || a === null ? 0 : Math.max(0, Math.min(b ?? v.end, v.end) - Math.max(a, v.start));
   }
   return out;
 }
@@ -355,14 +364,14 @@ export function subPhaseBySize(vrows: readonly VelocityRow[], today: number): { 
   });
 }
 
-// ---- in flight and already slower than usual (always the Total measure)
+// ---- in flight and already slower than usual (for the measure chosen)
 export type SlowInFlight = { id: string; elapsed: number; usual: number; over: number; stage: StageId; daysInStage: number };
 /**
- * Started, not yet rolling out, not cancelled or completed, and already past the time 80% of the finished initiatives of the same size needed (all sizes
- * together when that size has fewer than 5). `rows` are all initiatives of the filters; the reference is taken from the same rows.
+ * Started the measure, not at its end yet, not cancelled or completed, and already past the time 80% of the finished initiatives of the same size needed
+ * for the same measure (all sizes together when that size has fewer than 5, and only when at least 5 have finished). `rows` are all initiatives of the filters.
  */
-export function inFlightSlow(rows: readonly ReportRow[], requests: readonly GateRequest[], today: number): SlowInFlight[] {
-  const vr = velocityRows(rows, requests, { measure: "total", stretch: false }, today);
+export function inFlightSlow(rows: readonly ReportRow[], requests: readonly GateRequest[], settings: VelocitySettings, today: number): SlowInFlight[] {
+  const vr = velocityRows(rows, requests, settings, today);
   const finished = vr.filter((v) => v.value !== null);
   const all = statsOf(finished.map((v) => v.value!));
   const bySize = new Map<string, number>();
@@ -370,8 +379,8 @@ export function inFlightSlow(rows: readonly ReportRow[], requests: readonly Gate
   const out: SlowInFlight[] = [];
   for (const v of vr) {
     const status = typeof v.row.initiative_status === "string" ? v.row.initiative_status : "";
-    if (v.value !== null || v.start === null || v.start > today || status === "Cancelled" || status === "Completed") continue;
-    const usual = bySize.get(sizeOf(v)) ?? all?.p80;
+    if (v.value !== null || v.start === null || v.start > today || (v.end !== null && v.end <= today) || status === "Cancelled" || status === "Completed") continue;
+    const usual = bySize.get(sizeOf(v)) ?? (all && all.n >= 5 ? all.p80 : undefined);
     const elapsed = today - v.start;
     if (usual === undefined || elapsed <= usual) continue;
     const stage = STAGES.find((s) => { const a = v.journey.filled[s.from], b = v.journey.filled[s.to]; return a !== null && a <= today && (b === null || b > today); }) ?? STAGES[0];

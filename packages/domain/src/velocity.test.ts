@@ -3,7 +3,7 @@ import { fromDay, toDay } from "./gantt";
 import type { GateOutcome, GateRequest } from "./gates";
 import {
   STAGES, bellCurve, decisionStats, groupStats, histogram, inFlightSlow, journeyOf, percentile, recentChange, sizeStats, stageAverages, stageDays, stagesBy, statsOf, subPhaseBySize, subPhaseDays,
-  subPhaseStats, trendByQuarter, velocityRows, velocitySummary, workWait, type VelocityRow, type VelocitySettings,
+  subPhaseStats, trendByQuarter, velocityRows, velocitySummary, windowCoverage, workWait, type VelocityRow, type VelocitySettings,
 } from "./velocity";
 import type { ReportRow } from "./reports";
 
@@ -113,6 +113,15 @@ describe("numbers", () => {
     expect(velocitySummary(vr)).toMatchObject({ counted: 2, notThere: 1, noStart: 1 });
     expect(velocitySummary(vr).stats!.median).toBe(120); // both journeys take 120 days
     expect(velocitySummary([])).toMatchObject({ counted: 0, stats: null });
+  });
+});
+
+describe("windowCoverage: what the dates allow", () => {
+  it("counts the initiatives with a start, an end and both for the measure, so an empty chart can say why", () => {
+    const rows = [row("a", { start: 0, roll: 50 }), row("b", { start: 0 }), row("c", { roll: 50 }), row("d", { build: 5 })];
+    expect(windowCoverage(velocityRows(rows, [], total, TODAY))).toEqual({ initiatives: 4, withStart: 2, withEnd: 2, withBoth: 1 });
+    const none = windowCoverage(velocityRows([row("x", { build: 5 }), row("y", { build: 9 })], [], total, TODAY));
+    expect(none).toEqual({ initiatives: 2, withStart: 0, withEnd: 0, withBoth: 0 });
   });
 });
 
@@ -240,6 +249,16 @@ describe("where the time goes", () => {
     const g = stagesBy(velocityRows(rows.map((r) => r.row), rows.flatMap((r) => r.requests), total, TODAY), "team", { teamNames: ["Core", "Mobile"] });
     expect(g.map((x) => [x.key, x.n, x.total])).toEqual([["Core", 3, 120]]);
   });
+  it("an initiative with only Start Building spends its build time in Build (a stage with no later date runs to the end of the measure)", () => {
+    const only = { ...row("c", { build: 10 }), time_building_days: 49, actual_build_weeks: 7 };
+    const r = velocityRows([only], [], { measure: "build", stretch: false }, TODAY)[0]!;
+    expect(r.value).toBe(49);
+    const d = stageDays(r);
+    expect(d.build).toBe(49);
+    expect(Object.values(d).reduce((x, y) => x + y, 0)).toBe(49);
+    expect(workWait([r]).waitShare).toBe(0);
+    expect(stageAverages([r]).find((x) => x.id === "build")!.average).toBe(49);
+  });
   it("has no averages for no initiatives", () => {
     expect(stageAverages([]).every((a) => a.average === 0)).toBe(true);
     expect(workWait([]).waitShare).toBe(0);
@@ -297,17 +316,28 @@ describe("in flight and already slower than usual", () => {
     const cancelled = row("x", { start: 0 }, { effort: "M", initiative_status: "Cancelled" });
     const completed = row("y", { start: 0 }, { effort: "M", initiative_status: "Completed" });
     const none = row("z", {}, { effort: "M" });
-    const out = inFlightSlow([...finished, slow, fine, cancelled, completed, none], [], TODAY);
+    const out = inFlightSlow([...finished, slow, fine, cancelled, completed, none], [], total, TODAY);
     expect(out.map((o) => o.id)).toEqual(["slow"]);
     expect(out[0]).toMatchObject({ elapsed: 400, stage: "build", daysInStage: 400 - 150 });
     expect(out[0]!.over).toBeGreaterThan(0);
   });
   it("uses all sizes together for a size with fewer than 5 finished", () => {
     const l = row("big", { start: 0 }, { effort: "L" });
-    expect(inFlightSlow([...finished, l], [], TODAY).map((o) => o.id)).toEqual(["big"]);
+    expect(inFlightSlow([...finished, l], [], total, TODAY).map((o) => o.id)).toEqual(["big"]);
+  });
+  it("follows the measure: for Build it compares the build so far with finished builds", () => {
+    const built = [10, 12, 14, 16, 18, 20].map((w) => ({ ...row(`b${w}`, { build: 0 }, { effort: "M" }), time_building_days: w * 7, actual_build_weeks: w }));
+    const running = row("running", { build: 300 }, { effort: "M" }); // 100 days into its build, finished ones took 70 to 140
+    const slowBuild = row("slowbuild", { build: 150 }, { effort: "M" }); // 250 days into its build
+    const out = inFlightSlow([...built, running, slowBuild], [], { measure: "build", stretch: false }, TODAY);
+    expect(out.map((o) => o.id)).toEqual(["slowbuild"]);
+    expect(out[0]).toMatchObject({ elapsed: 250, stage: "build", daysInStage: 250 });
+  });
+  it("is empty when fewer than 5 have finished to compare with, for any size", () => {
+    expect(inFlightSlow([row("a", { start: 0, roll: 50 }), row("b", { start: 0, roll: 60 }), row("c", { start: 0 })], [], total, TODAY)).toEqual([]);
   });
   it("is empty when nothing has finished to compare with", () => {
-    expect(inFlightSlow([row("a", { start: 0 })], [], TODAY)).toEqual([]);
+    expect(inFlightSlow([row("a", { start: 0 })], [], total, TODAY)).toEqual([]);
   });
 });
 
