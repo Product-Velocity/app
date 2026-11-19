@@ -5,7 +5,7 @@ import { NameWithIssues } from "./name-cell";
 import type { ColDef, IHeaderParams } from "ag-grid-community";
 import type { CustomCellRendererProps } from "ag-grid-react";
 import {
-  EDITABLE_FIELDS, VISIBLE_FIELDS, actionsOfFlags, openGateOf, resolveFlagAction, changeTone, compareQuarters, flagsOfRow, jiraCategoryTone, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
+  EDITABLE_FIELDS, VISIBLE_FIELDS, actionsOfFlags, openGateOf, resolveFlagAction, type OutcomeReview, changeTone, compareQuarters, flagsOfRow, jiraCategoryTone, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
   type EditableField, type FieldDef,
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
@@ -38,7 +38,7 @@ function ReadOnlyCell({ text, reason, github, pill, field, children }: { text: s
 }
 
 /** What the grid hands every cell (the AG Grid `context`): the Actions column asks it to act, and which button is working. */
-export type GridContext = { runFlagAction?: (itemId: string, flagKind: string) => void; flagBusy?: string | null };
+export type GridContext = { runFlagAction?: (itemId: string, flagKind: string) => void; flagBusy?: string | null; /** The 30, 60 and 90 day outcome reviews, when loaded: the flag for them needs to know which are asked for or recorded. */ outcomeReviews?: readonly OutcomeReview[] };
 
 /**
  * The Flags column: every flag of the row as a pill with its words (the full reason is the tooltip). Several flags sit side by side; the column scrolls nothing, so it is wide.
@@ -47,7 +47,7 @@ export type GridContext = { runFlagAction?: (itemId: string, flagKind: string) =
 function FlagsCell({ data, today, canAct, context }: CustomCellRendererProps<GridItem> & { today: () => Date; canAct: boolean }) {
   if (!data) return null;
   const ctx = (context ?? {}) as GridContext;
-  const flags = flagsOfRow(data, today());
+  const flags = flagsOfRow(data, today(), { ...(ctx.outcomeReviews ? { outcomeReviews: ctx.outcomeReviews } : {}) });
   if (flags.length === 0) return null;
   const labels = [...new Set(flags.map((f) => f.label))]; // several reasons can share a label (Delivery risk): one pill, every reason in the tooltip
   const openGate = openGateOf(data);
@@ -68,7 +68,7 @@ function FlagsCell({ data, today, canAct, context }: CustomCellRendererProps<Gri
 function ActionsCell({ data, today, canAct, context }: CustomCellRendererProps<GridItem> & { today: () => Date; canAct: boolean }) {
   if (!data) return null;
   const ctx = (context ?? {}) as GridContext;
-  const actions = actionsOfFlags(flagsOfRow(data, today()), data.initiative_phase, canAct, openGateOf(data));
+  const actions = actionsOfFlags(flagsOfRow(data, today(), { ...(ctx.outcomeReviews ? { outcomeReviews: ctx.outcomeReviews } : {}) }), data.initiative_phase, canAct, openGateOf(data));
   if (actions.length === 0) return null;
   return (
     <span className="grid-flags">

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { gateErrorText, type ChecklistItem, type GateId, type GateOutcome, type GateRequest } from "@pv/domain";
+import { gateErrorText, type ChecklistItem, type GateId, type GateOutcome, type GateRequest, type OutcomeReview } from "@pv/domain";
 
 /** One gate decision as the approver gives it. */
 export type Decision = {
@@ -35,6 +35,11 @@ export interface GateSource {
   /** Admin or Approver: syncing of a finished initiative starts again (a fresh grace period). */
   resumeSync(itemId: string): Promise<{ ok: true } | { ok: false; error: string }>;
   setApprovers(gate: GateId, userIds: string[]): Promise<{ ok: true } | { ok: false; error: string }>;
+  /** The 30, 60 and 90 day outcome reviews of every initiative (asked for or recorded). */
+  loadOutcomeReviews(): Promise<OutcomeReview[]>;
+  /** Asks the Product Manager (else the creator) for the metrics of a checkpoint; they get a notification. */
+  requestOutcomeReview(itemId: string, days: number): Promise<{ ok: true } | { ok: false; error: string }>;
+  recordOutcomeReview(itemId: string, days: number, v: { value: number | null; adoption: number | null; note: string }): Promise<{ ok: true } | { ok: false; error: string }>;
 }
 
 type DbError = { code?: string; message?: string } | null;
@@ -136,6 +141,22 @@ export class SupabaseGateSource implements GateSource {
     const { error } = await this.client.rpc("set_gate_approvers", { p_tenant: this.tenantId, p_gate: gate, p_users: userIds });
     return error ? { ok: false as const, error: text(error) } : { ok: true as const };
   }
+
+  async loadOutcomeReviews(): Promise<OutcomeReview[]> {
+    const { data, error } = await this.client.from("outcome_reviews").select("id,item_id,at_days,due_on,requested_at,requested_to,realised_kr_value,adoption_pct,notes,recorded_at").eq("tenant_id", this.tenantId).limit(5000);
+    if (error) throw new Error(text(error));
+    return (data ?? []) as OutcomeReview[];
+  }
+
+  async requestOutcomeReview(itemId: string, days: number) {
+    const { error } = await this.client.rpc("request_outcome_review", { p_item: itemId, p_at_days: days });
+    return error ? { ok: false as const, error: text(error) } : { ok: true as const };
+  }
+
+  async recordOutcomeReview(itemId: string, days: number, v: { value: number | null; adoption: number | null; note: string }) {
+    const { error } = await this.client.rpc("record_outcome_review", { p_item: itemId, p_at_days: days, p_value: v.value, p_adoption: v.adoption, p_note: v.note });
+    return error ? { ok: false as const, error: text(error) } : { ok: true as const };
+  }
 }
 
 /** In-memory source for component tests and the dev harness. Applies the same first-decision-wins rule as the database. */
@@ -184,4 +205,19 @@ export class MemoryGateSource implements GateSource {
   async loadApprovers() { return { A: [...this.approvers.A], B: [...this.approvers.B], C: [...this.approvers.C] }; }
   async resumeSync(itemId: string) { this.calls.push(`resume ${itemId}`); return { ok: true as const }; }
   async setApprovers(gate: GateId, userIds: string[]) { this.approvers[gate] = [...userIds]; return { ok: true as const }; }
+  outcomeReviews: OutcomeReview[] = [];
+  async loadOutcomeReviews() { return this.outcomeReviews.map((r) => ({ ...r })); }
+  async requestOutcomeReview(itemId: string, days: number) {
+    this.calls.push(`outcome-request ${itemId} ${days}`);
+    if (this.outcomeReviews.some((r) => r.item_id === itemId && r.at_days === days)) return { ok: false as const, error: "The review has already been requested or recorded" };
+    this.outcomeReviews.push({ item_id: itemId, at_days: days, due_on: "2027-01-01", requested_at: "2027-01-01T00:00:00Z", realised_kr_value: null, adoption_pct: null, notes: null, recorded_at: null });
+    return { ok: true as const };
+  }
+  async recordOutcomeReview(itemId: string, days: number, v: { value: number | null; adoption: number | null; note: string }) {
+    this.calls.push(`outcome-record ${itemId} ${days}`);
+    const i = this.outcomeReviews.findIndex((r) => r.item_id === itemId && r.at_days === days);
+    const row: OutcomeReview = { item_id: itemId, at_days: days, due_on: "2027-01-01", requested_at: this.outcomeReviews[i]?.requested_at ?? null, realised_kr_value: v.value, adoption_pct: v.adoption, notes: v.note || null, recorded_at: "2027-01-02T00:00:00Z" };
+    if (i === -1) this.outcomeReviews.push(row); else this.outcomeReviews[i] = row;
+    return { ok: true as const };
+  }
 }
