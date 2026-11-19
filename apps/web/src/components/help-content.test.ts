@@ -5,7 +5,7 @@ import { AGENT_ADVANTAGES, AGENT_GUIDES, AGENT_TABS, AGENT_USE_CASES, COLUMNS_NO
 describe("Help guide columns table", () => {
   it("has exactly one row for every column in the field dictionary, in its order", () => {
     expect(COLUMN_ROWS.map((r) => r.key)).toEqual(FIELDS.filter((f) => !HIDDEN_FIELDS.has(f.key)).map((f) => f.key));
-    expect(COLUMN_ROWS.length).toBe(174); // every field of the dictionary is shown (Roadmap Category came back on 2026-11-18)
+    expect(COLUMN_ROWS.length).toBe(179); // every field of the dictionary is shown (Roadmap Category came back on 2026-11-18)
     expect(COLUMN_ROWS.some((r) => r.key === "roadmap_category")).toBe(true);
   });
   it("gives every row text in every cell", () => {

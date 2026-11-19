@@ -77,3 +77,41 @@ describe("the fields a flag is about (item panel, flagged section)", () => {
     expect(panelField(FIELD_BY_KEY.kr_unit!).kind).toBe("select");
   });
 });
+
+import { outcomeColumns, OUTCOME_COLUMN_KEYS } from "./index";
+describe("the Outcome reviews columns", () => {
+  const rr = (days: number, o: Partial<OutcomeReview> = {}) => rev(days, { recorded_at: "2026-11-20T00:00:00Z", ...o });
+  const base = row({ start_rollout: "2026-08-01", kr_start: 10, kr_target: 110 });
+
+  it("are empty for an initiative that has not reached Roll-out, has no Start Roll-Out, or is Cancelled", () => {
+    for (const o of [{ initiative_phase: "Build" }, { start_rollout: null }, { initiative_status: "Cancelled" }]) {
+      expect(outcomeColumns(row(o), [])).toEqual({ outcome_next_review: null, outcome_reviews_recorded: null, outcome_latest_value: null, outcome_latest_adoption: null, outcome_kr_progress: null });
+    }
+  });
+
+  it("with nothing recorded: the first checkpoint is next and 0 of 3 are recorded", () => {
+    expect(outcomeColumns(base, [])).toMatchObject({ outcome_next_review: "2026-08-31", outcome_reviews_recorded: "0 of 3", outcome_latest_value: null, outcome_kr_progress: null });
+  });
+
+  it("the next review is the earliest checkpoint nobody recorded; a requested one is still next", () => {
+    expect(outcomeColumns(base, [rr(30), rev(60, { requested_at: "2026-10-01T00:00:00Z" })])).toMatchObject({ outcome_next_review: "2026-09-30", outcome_reviews_recorded: "1 of 3" });
+    expect(outcomeColumns(base, [rr(30), rr(60), rr(90)])).toMatchObject({ outcome_next_review: null, outcome_reviews_recorded: "3 of 3" });
+  });
+
+  it("the latest value and adoption come from the latest recorded checkpoint that has them (numbers may arrive as text)", () => {
+    const c = outcomeColumns(base, [rr(30, { realised_kr_value: "40", adoption_pct: "12.5" }), rr(60, { realised_kr_value: "70", adoption_pct: null })]);
+    expect(c).toMatchObject({ outcome_latest_value: 70, outcome_latest_adoption: 12.5 });
+  });
+
+  it("KR progress is (value - start) / (target - start) in percent, and empty when it cannot be worked out", () => {
+    expect(outcomeColumns(base, [rr(30, { realised_kr_value: 60 })]).outcome_kr_progress).toBe(50);
+    expect(outcomeColumns(row({ start_rollout: "2026-08-01", kr_start: 100, kr_target: 0 }), [rr(30, { realised_kr_value: 75 })]).outcome_kr_progress).toBe(25); // a metric that should go down
+    expect(outcomeColumns(row({ start_rollout: "2026-08-01", kr_start: 5, kr_target: 5 }), [rr(30, { realised_kr_value: 7 })]).outcome_kr_progress).toBeNull();
+    expect(outcomeColumns(row({ start_rollout: "2026-08-01" }), [rr(30, { realised_kr_value: 7 })]).outcome_kr_progress).toBeNull();
+  });
+
+  it("the five keys exist in the dictionary as read-only computed fields in the Outcomes view", async () => {
+    const { FIELD_BY_KEY } = await import("./index");
+    for (const k of OUTCOME_COLUMN_KEYS) expect(FIELD_BY_KEY[k], k).toMatchObject({ mode: "computed", group: "Outcome reviews", phase: 1 });
+  });
+});

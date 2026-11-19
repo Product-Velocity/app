@@ -173,3 +173,8 @@ N48,Delivery,Tracker Ownership,tracker_ownership,Computed,Product Velocity · Tr
 N49,Delivery,Tracker Status,tracker_status,Select,,Computed,New,"Not synced: shown from the tracker link, read-only.",Derived in the app from the tracker link (not stored),1
 N50,Flags & actions,Flags,flags,Computed,,Computed,New,"Not synced: worked out in the app, read-only.",Derived in the app from the item and its tracker link (not stored),1
 N51,Flags & actions,Actions,actions,Computed,,Computed,New,"Not synced: worked out in the app, clicking acts as the signed-in person.",Derived in the app from the item and its tracker link (not stored),1
+N52,Outcome reviews,Next Outcome Review,outcome_next_review,Computed,,Computed,New,"Not synced: worked out in the app from the outcome reviews, read-only.",Derived in the app from the outcome reviews (not stored),1
+N53,Outcome reviews,Outcome Reviews Recorded,outcome_reviews_recorded,Computed,,Computed,New,"Not synced: worked out in the app from the outcome reviews, read-only.",Derived in the app from the outcome reviews (not stored),1
+N54,Outcome reviews,Latest Realised KR Value,outcome_latest_value,Computed,,Computed,New,"Not synced: worked out in the app from the outcome reviews, read-only.",Derived in the app from the outcome reviews (not stored),1
+N55,Outcome reviews,Latest Adoption %,outcome_latest_adoption,Computed,,Computed,New,"Not synced: worked out in the app from the outcome reviews, read-only.",Derived in the app from the outcome reviews (not stored),1
+N56,Outcome reviews,KR Progress (latest review),outcome_kr_progress,Computed,,Computed,New,"Not synced: worked out in the app from the outcome reviews, read-only.",Derived in the app from the outcome reviews (not stored),1

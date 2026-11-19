@@ -304,6 +304,9 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const [outcomeReviews, setOutcomeReviews] = useState<readonly OutcomeReview[] | undefined>(undefined);
   const loadOutcomeReviews = useCallback(() => { if (gates) gates.loadOutcomeReviews().then(setOutcomeReviews, () => setOutcomeReviews(undefined)); }, [gates]);
   useEffect(() => { loadOutcomeReviews(); }, [loadOutcomeReviews]);
+  useEffect(() => { if (outcomeReviews) controller.setOutcomeReviews(outcomeReviews); }, [controller, outcomeReviews]);
+  // numbers recorded in the panel change the Outcome reviews columns: read the reviews again when the panel moves to another initiative or closes
+  useEffect(() => { loadOutcomeReviews(); }, [peekId, loadOutcomeReviews]);
   const runFlagAction = useCallback(async (itemId: string, flagKind: string) => {
     const row = controller.row(itemId);
     if (!gates || !row || !controller.canEdit) return;

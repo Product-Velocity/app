@@ -1,6 +1,6 @@
 import {
   canPurge, canSeeTrash, cleanRelated, cleanSkills, isRelatedField, summarizeChange, toDay, crowdHistory, type ActivityRow, type CrowdRow, type RankDecision, type RelatedField, type RelatedValues,
-  applyMove, canBeEmpty, rowFlagTexts, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
+  applyMove, canBeEmpty, outcomeColumns, rowFlagTexts, type OutcomeReview, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
   bulkEditReason, isOpenList, OPEN_LIST_FIELDS, openListValues, resolveGroup, canDeleteItem, placeRestored, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
 import type { PortfolioDataSource, SaveResult } from "./data-source";
@@ -120,7 +120,16 @@ export class PortfolioController {
       const rec = r as unknown as Record<string, unknown>;
       rec.flags = t.flags;
       rec.actions = t.actions;
+      Object.assign(rec, outcomeColumns(r, this.outcomeReviews.get(r.id) ?? [])); // the Outcome reviews columns, from the reviews the grid read (empty until it has)
     }
+  }
+  private outcomeReviews = new Map<string, OutcomeReview[]>();
+  /** The 30, 60 and 90 day outcome reviews, read by the grid: sets the five Outcome reviews columns of every row. */
+  setOutcomeReviews(reviews: readonly OutcomeReview[]) {
+    const m = new Map<string, OutcomeReview[]>();
+    for (const v of reviews) m.set(v.item_id, [...(m.get(v.item_id) ?? []), v]);
+    this.outcomeReviews = m;
+    this.emit([...this.rows]);
   }
   private emit(changed: GridItem[] = []) {
     this.deriveFlags(changed);
