@@ -46,7 +46,7 @@ describe("search and AI crawler files", () => {
     expect(r.sitemap).toBe(`${SITE_URL}/sitemap.xml`);
     const rule = Array.isArray(r.rules) ? r.rules[0]! : r.rules;
     expect(rule.disallow).toContain("/");
-    expect(rule.allow).toEqual(expect.arrayContaining(["/$", "/connector", "/privacy", "/contact"]));
+    expect(rule.allow).toEqual(expect.arrayContaining(["/$", "/connector", "/privacy", "/contact", "/sitemap.xml"]));
   });
   it("llms.txt is plain text with the key facts and no secrets", async () => {
     const res = llms();
