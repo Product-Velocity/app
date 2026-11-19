@@ -344,6 +344,7 @@ details.tbl summary{cursor:pointer;color:var(--accent-text);font-size:12px}
       <label class="tb-f"><span>Team</span><select id="tf-team"></select></label>
       <label class="tb-f"><span>Key Result</span><select id="tf-kr"></select></label>
       <label class="tb-f"><span>Business line</span><select id="tf-bl"></select></label>
+      <label class="tb-f"><span>Initiative Group</span><select id="tf-grp"></select></label>
       <label class="tb-f"><span>Longest stage</span><select id="tf-stage"></select></label>
       <button class="tool-btn" type="button" id="tf-clear">Clear</button>
       <span class="muted" id="tf-count" role="status" style="margin-left:auto"></span>
@@ -396,6 +397,7 @@ const TEAMS={Core:1.0,Mobile:.85,Platform:1.3,'Data & AI':1.1,Growth:.8};
 const OBJ={'O1 Grow subscription revenue':[['Paid subscribers +15%',1],['Trial-to-paid conversion 22%',.95]],
            'O2 Cut cost to serve':[['Support tickets −30%',1.4],['Cloud cost per stream −20%',1.15]],
            'O3 Raise reliability':[['Playback uptime 99.95%',1.05],['App crash rate under 0.3%',.9]]};
+const GROUPS=['Monetisation','Engagement','Platform health','Content operations'];
 const BL={News:1,Streaming:1.05,Advertising:1.2,Studios:.9};
 const NAMES=['Personalised home feed','Paywall experiments','Ad load optimisation','Podcast hub','Live sports clips','Offline downloads','Newsletter preferences','Subscription pause','Creator payouts','Search relevance v2','Smart TV app refresh','Checkout redesign','Gift subscriptions','Family plans','Video start-up speed','Ad-free tier','Push notification rules','Editorial planning tool','Churn save offers','Payment retries','Archive search','Support chat deflection','CDN cost review','Playback error recovery','Onboarding quiz','Regional pricing','Content rights sync','Recommendation cold start','Dark mode','Accessibility captions','Sponsorship dashboard','Studio asset library','Single sign-on','Invoice exports','Audience segments','Live blog','Cast and crew pages','Bundle with partners','Trial extension','Data warehouse migration'];
 const pickW=(w)=>{let r=R(),i=0;while(i<w.length-1&&r>w[i]){r-=w[i];i++}return i};
@@ -422,7 +424,7 @@ for(let i=0;i<170;i++){
   const t={t0};t.tAreq=t0+Math.round(disc);t.tA=t.tAreq+Math.round(waitA);t.tBreq=t.tA+Math.round(def);t.tB=t.tBreq+Math.round(waitB);
   t.tBuild=t.tB+Math.round(queue);t.tTest=t.tBuild+Math.round(build);t.tExp=t.tTest+Math.round(test);t.tCreq=t.tExp+Math.round(exp);
   t.tC=t.tCreq+Math.round(waitC);t.tRoll=t.tC+launch;
-  ITEMS.push({id:'R-'+String(i+101),name:NAMES[i%NAMES.length]+(i>=NAMES.length?` (${['phase 2','EU','mobile','v2','pilot'][Math.floor(i/NAMES.length)%5]})`:''),team,size:SIZES[si],obj,kr:kr[0],bl,t,skip,out:{A:outcome(),B:outcome(),C:outcome()}});
+  ITEMS.push({grp:GROUPS[(i*7+Object.keys(OBJ).indexOf(obj))%4],id:'R-'+String(i+101),name:NAMES[i%NAMES.length]+(i>=NAMES.length?` (${['phase 2','EU','mobile','v2','pilot'][Math.floor(i/NAMES.length)%5]})`:''),team,size:SIZES[si],obj,kr:kr[0],bl,t,skip,out:{A:outcome(),B:outcome(),C:outcome()}});
 }
 const STAGES=[
  {k:'disc',label:'Discover',kind:'work',col:'--c-disc',a:'t0',b:'tAreq'},
@@ -443,9 +445,9 @@ const MEASURES={
  gateB:{label:'To Gate B',start:'t0',end:'tB',prev:'tA',desc:'Start Discovery to the Gate B decision.',stretch:'Gate A decided to Gate B decided.'},
  gateC:{label:'To Gate C',start:'t0',end:'tC',prev:'tB',desc:'Start Discovery to the Gate C decision.',stretch:'Gate B decided to Gate C decided.'},
  build:{label:'Build',start:'tBuild',end:'tTest',prev:null,desc:'Start Building to Start Test (development time).'}};
-const DIMS={team:{label:'Team',get:i=>i.team},kr:{label:'Key Result',get:i=>i.kr},obj:{label:'Objective',get:i=>i.obj},bl:{label:'Business line',get:i=>i.bl}};
-const FILTERS=[['team','Team',i=>i.team],['effort','Effort',i=>i.size],['obj','Objective',i=>i.obj],['kr','Key Result',i=>i.kr],['bl','Business Line',i=>i.bl],['q','Finished in',null]];
-const state={sort:'slowest',measure:'total',stretch:false,unit:'weeks',dim:'team',f:{team:new Set(),effort:new Set(),obj:new Set(),kr:new Set(),bl:new Set(),q:new Set()}};
+const DIMS={team:{label:'Team',get:i=>i.team},kr:{label:'Key Result',get:i=>i.kr},obj:{label:'Objective',get:i=>i.obj},bl:{label:'Business line',get:i=>i.bl},grp:{label:'Initiative Group',get:i=>i.grp}};
+const FILTERS=[['team','Team',i=>i.team],['effort','Effort',i=>i.size],['obj','Objective',i=>i.obj],['kr','Key Result',i=>i.kr],['bl','Business Line',i=>i.bl],['grp','Initiative Group',i=>i.grp],['q','Finished in',null]];
+const state={sort:'slowest',measure:'total',stretch:false,unit:'weeks',dim:'team',f:{team:new Set(),effort:new Set(),obj:new Set(),kr:new Set(),bl:new Set(),grp:new Set(),q:new Set()}};
 
 /* ---------- helpers ---------- */
 const $=s=>document.querySelector(s);
@@ -695,20 +697,20 @@ function renderSub(v){
 }
 
 /* ---------- outlier tables ---------- */
-let LIST=null;const TF={q:'',size:'',team:'',kr:'',bl:'',stage:''};
+let LIST=null;const TF={q:'',size:'',team:'',kr:'',bl:'',grp:'',stage:''};
 function renderList(){
   if(!LIST)return;const{v,longest}=LIST;
   if(!v.rows.length){$('#slowest').innerHTML='<p class="empty" role="status">No data matching current filters</p>';$('#tf-count').textContent='';return}
   const SORTS={slowest:(a,b)=>b.v-a.v,fastest:(a,b)=>a.v-b.v};const slow=SORTS.slowest;
   const cmp={slowest:slow,fastest:SORTS.fastest,team:(a,b)=>a.it.team.localeCompare(b.it.team)||slow(a,b),size:(a,b)=>SIZES.indexOf(a.it.size)-SIZES.indexOf(b.it.size)||slow(a,b)}[state.sort];
   const q=TF.q.trim().toLowerCase();
-  const rows=v.rows.map(r=>({...r,lg:longest(r)})).filter(r=>(!q||r.it.name.toLowerCase().includes(q)||r.it.id.toLowerCase().includes(q))&&(!TF.size||r.it.size===TF.size)&&(!TF.team||r.it.team===TF.team)&&(!TF.kr||r.it.kr===TF.kr)&&(!TF.bl||r.it.bl===TF.bl)&&(!TF.stage||r.lg.s.label===TF.stage)).sort(cmp);
+  const rows=v.rows.map(r=>({...r,lg:longest(r)})).filter(r=>(!q||r.it.name.toLowerCase().includes(q)||r.it.id.toLowerCase().includes(q))&&(!TF.size||r.it.size===TF.size)&&(!TF.team||r.it.team===TF.team)&&(!TF.kr||r.it.kr===TF.kr)&&(!TF.bl||r.it.bl===TF.bl)&&(!TF.grp||r.it.grp===TF.grp)&&(!TF.stage||r.lg.s.label===TF.stage)).sort(cmp);
   const active=Object.values(TF).some(Boolean);$('#tf-clear').disabled=!active;
   $('#tf-count').textContent=`Showing ${rows.length} of ${v.rows.length}`;
   if(!rows.length){$('#slowest').innerHTML='<p class="empty" role="status">No initiatives match this search. Clear it to see all '+v.rows.length+'.</p>';return}
   const maxv=Math.max(...rows.map(r=>r.v));
-  $('#slowest').innerHTML=`<table><thead><tr><th>Initiative</th><th>Size</th><th>Team</th><th>Key Result</th><th>Business line</th><th class="num">${fu()==='wk'?'Weeks':'Days'}</th><th style="min-width:240px;width:34%">Where the time went</th><th>Longest stage</th></tr></thead><tbody>${rows.map(r=>{const w=windowOf(r.it);const parts=STAGES.map(s=>({s,d:clipStage(r.it,w,s)}));const lg=r.lg;
-    return `<tr><td><button class="il" type="button">${esc(r.it.name)}</button> <span class="muted">${r.it.id}</span></td><td>${r.it.size}</td><td>${esc(r.it.team)}</td><td>${esc(r.it.kr)}</td><td>${esc(r.it.bl)}</td><td class="num">${fv(r.v)}</td><td><div class="mini" style="width:${Math.max(3,r.v/maxv*100)}%">${parts.filter(p=>p.d>0).map(p=>`<i class="${p.s.kind==='work'?'':p.s.kind}" style="flex:${p.d};${p.s.kind==='work'?`background:var(${p.s.col})`:''}" ${tip(`<b>${p.s.label}</b>: ${fvu(p.d)}`)}></i>`).join('')}</div></td><td>${esc(lg.s.label)} <span class="muted">${fvu(lg.d)}</span></td></tr>`}).join('')}</tbody></table>`;
+  $('#slowest').innerHTML=`<table><thead><tr><th>Initiative</th><th>Size</th><th>Team</th><th>Key Result</th><th>Business line</th><th>Initiative Group</th><th class="num">${fu()==='wk'?'Weeks':'Days'}</th><th style="min-width:240px;width:34%">Where the time went</th><th>Longest stage</th></tr></thead><tbody>${rows.map(r=>{const w=windowOf(r.it);const parts=STAGES.map(s=>({s,d:clipStage(r.it,w,s)}));const lg=r.lg;
+    return `<tr><td><button class="il" type="button">${esc(r.it.name)}</button> <span class="muted">${r.it.id}</span></td><td>${r.it.size}</td><td>${esc(r.it.team)}</td><td>${esc(r.it.kr)}</td><td>${esc(r.it.bl)}</td><td>${esc(r.it.grp)}</td><td class="num">${fv(r.v)}</td><td><div class="mini" style="width:${Math.max(3,r.v/maxv*100)}%">${parts.filter(p=>p.d>0).map(p=>`<i class="${p.s.kind==='work'?'':p.s.kind}" style="flex:${p.d};${p.s.kind==='work'?`background:var(${p.s.col})`:''}" ${tip(`<b>${p.s.label}</b>: ${fvu(p.d)}`)}></i>`).join('')}</div></td><td>${esc(lg.s.label)} <span class="muted">${fvu(lg.d)}</span></td></tr>`}).join('')}</tbody></table>`;
 }
 function renderTables(v){
   const m=MEASURES[state.measure];
@@ -720,7 +722,7 @@ function renderTables(v){
   LIST={v,longest};
   const opt=(id,vals,all)=>{const el=$('#'+id);const cur=TF[id.slice(3)];el.innerHTML=`<option value="">${all}</option>`+vals.map(x=>`<option value="${esc(x)}"${x===cur?' selected':''}>${esc(x)}</option>`).join('')};
   const uniq=f=>[...new Set(v.rows.map(r=>f(r.it)))].sort((a,b)=>a.localeCompare(b));
-  opt('tf-size',SIZES.filter(z=>v.rows.some(r=>r.it.size===z)),'All sizes');opt('tf-team',uniq(i=>i.team),'All teams');opt('tf-kr',uniq(i=>i.kr),'All Key Results');opt('tf-bl',uniq(i=>i.bl),'All business lines');
+  opt('tf-size',SIZES.filter(z=>v.rows.some(r=>r.it.size===z)),'All sizes');opt('tf-team',uniq(i=>i.team),'All teams');opt('tf-kr',uniq(i=>i.kr),'All Key Results');opt('tf-bl',uniq(i=>i.bl),'All business lines');opt('tf-grp',uniq(i=>i.grp),'All groups');
   opt('tf-stage',STAGES.filter(st=>v.rows.some(r=>longest(r).s===st)).map(st=>st.label),'All stages');
   renderList();
   // in flight vs finished of the same size (Total)
