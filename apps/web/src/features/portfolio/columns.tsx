@@ -197,8 +197,8 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
         return <ReadOnlyCell text="" reason={reason} github={false}>{v ? <StatusPill value={v} tone={tone} /> : <span className="muted">Not linked</span>}</ReadOnlyCell>;
       } };
     }
-    if (f.key === "flags") return { ...base, width: 360, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <FlagsCell {...p} today={today} canAct={controller.canEdit} />, cellClass: "cell-locked" };
-    if (f.key === "actions") return { ...base, width: 340, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <ActionsCell {...p} today={today} canAct={controller.canEdit} />, cellClass: "cell-locked" };
+    if (f.key === "flags") return { ...base, suppressNavigable: true, width: 360, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <FlagsCell {...p} today={today} canAct={controller.canEdit} />, cellClass: "cell-locked" };
+    if (f.key === "actions") return { ...base, suppressNavigable: true, width: 340, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <ActionsCell {...p} today={today} canAct={controller.canEdit} />, cellClass: "cell-locked" };
     if (f.key === "health") return { ...base, cellRenderer: HealthCell, ...pickerDef(f, optionsFor(f.key), true) };
     if (reason) {
       return { ...base, cellRenderer: (p: { value: unknown }) => <ReadOnlyCell text={display(f, p.value) || (f.key === "status" ? "Not on GitHub" : f.key === "gh_project_status" ? "Not on a board" : f.key === "tracker_status" ? "Not linked" : f.key === "last_synced" || f.key === "synced_with" ? "Not synced" : f.key === "tracker_ownership" ? "Not linked" : "")} reason={reason} pill={PILL_FIELDS.has(f.key)} field={f.key} github={f.mode === "locked" || f.storage.startsWith("GitHub-synced")} /> };
