@@ -87,6 +87,7 @@ main{padding-block:16px 40px}
 /* velocity controls (sticky) */
 .fpanel{background:var(--bg);border:1px solid var(--border);border-radius:10px 10px 0 0;padding:8px 12px 10px}
 .fpanel .rp-filters{margin-bottom:0}
+.rp-extra{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
 .fpanel .pills{margin:8px 0 0}
 .fpanel .pills:empty{display:none}
 .vbar{position:sticky;top:0;z-index:20;background:var(--bg);border:1px solid var(--border);border-top-color:var(--border-soft);border-radius:0 0 10px 10px;padding:8px 12px 10px;margin-bottom:12px;box-shadow:0 2px 4px rgba(17,24,39,.05)}
@@ -514,7 +515,7 @@ function renderFilters(v){
     const opts=k==='q'?v.qs:[...new Set(ITEMS.map(fn))].sort((a,b)=>k==='effort'?SIZES.indexOf(a)-SIZES.indexOf(b):a.localeCompare(b));
     const n=state.f[k].size;
     return `<details class="pop${n?' act':''}" data-k="${k}"${open.includes(k)?' open':''}><summary>${label}${n?`<span class="badge" aria-label="${n} selected">${n}</span>`:''}</summary><div class="pop-body" role="group" aria-label="${label}">${opts.map(o=>`<label><input type="checkbox" data-f="${k}" value="${esc(o)}"${state.f[k].has(o)?' checked':''}>${esc(o)}</label>`).join('')}${n?`<button class="link" data-clear="${k}" type="button">Clear ${label}</button>`:''}</div></details>`}).join('')+
-  `<label class="tgl"><input type="checkbox" disabled>Include archived</label><button class="tool-btn" type="button" id="reset"${FILTERS.some(([k])=>state.f[k].size)?'':' disabled'}>Reset filters</button><button class="tool-btn" type="button" disabled title="Prototype">Export CSV (${v.rows.length})</button><button class="tool-btn" type="button" disabled title="Prototype">PDF summary (later)</button>`;
+  `<label class="tgl"><input type="checkbox" disabled>Include archived</label><button class="tool-btn" type="button" id="reset"${FILTERS.some(([k])=>state.f[k].size)?'':' disabled'}>Reset filters</button><span class="rp-extra"><button class="tool-btn" type="button" disabled title="Prototype">Export CSV (${v.rows.length})</button><button class="tool-btn" type="button" disabled title="Prototype">PDF summary (later)</button></span>`;
   $('#pills').innerHTML=FILTERS.flatMap(([k,label])=>[...state.f[k]].map(x=>`<li><button class="pill" type="button" data-pill="${k}" data-v="${esc(x)}" aria-label="Remove filter ${label}: ${esc(x)}">${label}: ${esc(x)} ×</button></li>`)).join('');
 }
 function toggleF(k,val){const s=state.f[k];s.has(val)?s.delete(val):s.add(val);render()}
