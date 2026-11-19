@@ -1025,6 +1025,10 @@ a.scope-link:hover, a.scope-link:focus-visible { background: var(--blue-tint-2);
 .gate-dialog .gate-count { font-weight: 600; }
 @media (max-width: 900px) { .decisions-body { grid-template-columns: 1fr; } .decisions-pack { position: static; } }
 .ip-lifecycle { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 6px 12px; border-bottom: 1px solid var(--grey-1, #e1e5eb); font-size: 12.5px; }
+.ip-flagged { border-bottom: 1px solid var(--grey-1, #e1e5eb); background: #fffaf0; font-size: 12.5px; }
+.ip-flagged > summary { padding: 6px 12px; cursor: pointer; }
+.ip-flagged-body { max-height: 40vh; overflow-y: auto; padding: 0 12px 8px; display: grid; gap: 10px; }
+.ip-flag-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0 0 4px; }
 .ip-outcomes { padding: 8px 12px; border-bottom: 1px solid var(--grey-1, #e1e5eb); font-size: 12.5px; }
 .ip-outcomes-title { margin: 0 0 4px; font-size: 12.5px; font-weight: 600; }
 .ip-outcomes-title .muted { font-weight: 400; margin-left: 6px; }
