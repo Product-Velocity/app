@@ -152,7 +152,7 @@ export type MappingRow = {
   slot: Slot | null;
 };
 
-/** The whole default list for one tracker: one row per slot, and one row for each of the 179 fields that has none. Same order as the dictionary. */
+/** The whole default list for one tracker: one row per slot, and one row for each of the 177 fields that has none. Same order as the dictionary. */
 export function mappingRows(tracker: Tracker): MappingRow[] {
   const mine = slotsFor(tracker);
   const rows: MappingRow[] = [];

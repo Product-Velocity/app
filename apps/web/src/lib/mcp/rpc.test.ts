@@ -94,7 +94,7 @@ describe("handleRpc", () => {
   it("lists the read tools (read-only) and then the write tools (not read-only)", async () => {
     const r = (await handleRpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }, backend())) as { result: { tools: { name: string; annotations: { readOnlyHint: boolean } }[] } };
     // get_playbook is listed only to clients that cannot start prompts (see "directory rules" below)
-    const reads = ["get_workspace_context", "describe_fields", "search_items", "get_item", "get_gate_pack", "list_groups", "list_views", "list_files", "list_documents", "get_document", "get_company_profile", "get_outcome_reviews"];
+    const reads = ["get_workspace_context", "describe_fields", "search_items", "get_item", "get_gate_pack", "list_groups", "list_views", "list_files", "list_documents", "get_document", "get_company_profile", "get_outcome_reviews", "draft_outcome_request"];
     const writes = ["create_items", "update_items", "confirm_changes", "set_relations", "add_link", "remove_link", "undo_last", "add_file", "set_file_sharing", "remove_file", "request_jira_epics", "record_outcome_review", "create_document", "update_document", "apply_prd_extract", "update_company_profile"];
     expect(r.result.tools.map((t) => t.name)).toEqual([...reads, ...writes]);
     for (const t of r.result.tools) expect(t.annotations.readOnlyHint, t.name).toBe(reads.includes(t.name));

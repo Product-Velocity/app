@@ -3,7 +3,7 @@ date: 2026-11-19
 by: Ashu (2026-11-19, chat), built by Claude
 status: built, to confirm
 ---
-**Five read-only Outcome reviews columns in the Roadmap grid.** Ashu chose the option with no new item columns: everything is worked out from the 30, 60 and 90 day reviews (`outcome_reviews`, `docs/decisions/2026-11-19-outcome-reviews.md`). No migration.
+**Five read-only Outcome reviews columns in the Roadmap grid.** *(Amended the same day: two of the five were the dictionary's own fields under another name and are retired, see `2026-11-19-outcome-fields-and-draft.md`.)* Ashu chose the option with no new item columns: everything is worked out from the 30, 60 and 90 day reviews (`outcome_reviews`, `docs/decisions/2026-11-19-outcome-reviews.md`). No migration.
 
 | Column (key) | What it shows |
 |---|---|

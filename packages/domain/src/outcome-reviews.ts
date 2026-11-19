@@ -41,19 +41,24 @@ export function nextOutcomeStep(row: object, reviews: readonly OutcomeReview[], 
   return null;
 }
 
-/** The five read-only Outcome reviews columns of one initiative (issue: Ashu 2026-11-19, docs/decisions/2026-11-19-outcome-columns.md), worked out from its reviews. */
+/**
+ * The read-only Outcome columns of one initiative, worked out from its reviews (Ashu 2026-11-19, docs/decisions/2026-11-19-outcome-columns.md and 2026-11-19-outcome-fields-and-draft.md).
+ * Three are the dictionary's own fields made live (Outcome Review Date, Realized KR Value, % Realized KR Value); three are the Outcome reviews group.
+ */
 export type OutcomeColumns = {
-  outcome_next_review: string | null; outcome_reviews_recorded: string | null;
-  outcome_latest_value: number | null; outcome_latest_adoption: number | null; outcome_kr_progress: number | null;
+  outcome_review_date: string | null; outcome_reviews_recorded: string | null;
+  realized_kr_value: number | null; kr_realized_pct: number | null;
+  outcome_latest_adoption: number | null; outcome_kr_progress: number | null;
 };
-export const OUTCOME_COLUMN_KEYS = ["outcome_next_review", "outcome_reviews_recorded", "outcome_latest_value", "outcome_latest_adoption", "outcome_kr_progress"] as const;
-const EMPTY_OUTCOME: OutcomeColumns = { outcome_next_review: null, outcome_reviews_recorded: null, outcome_latest_value: null, outcome_latest_adoption: null, outcome_kr_progress: null };
+export const OUTCOME_COLUMN_KEYS = ["outcome_review_date", "outcome_reviews_recorded", "realized_kr_value", "kr_realized_pct", "outcome_latest_adoption", "outcome_kr_progress"] as const;
+const EMPTY_OUTCOME: OutcomeColumns = { outcome_review_date: null, outcome_reviews_recorded: null, realized_kr_value: null, kr_realized_pct: null, outcome_latest_adoption: null, outcome_kr_progress: null };
 const asNumber = (v: unknown): number | null => (v === null || v === undefined || v === "" ? null : Number.isFinite(Number(v)) ? Number(v) : null);
+const pct = (x: number) => Math.round(x * 1000) / 10;
 
 /**
- * Only an initiative in Roll-out or Completed that has a Start Roll-Out has reviews; every other row stays empty. Next review: the due date of the earliest checkpoint nobody
- * has recorded. Recorded: "2 of 3". Latest value and adoption: from the latest recorded checkpoint that has that number. KR progress: (value minus KR start) over (KR target minus
- * KR start), in percent to one decimal, only when all three numbers are there and start and target differ.
+ * Only an initiative in Roll-out or Completed that has a Start Roll-Out has reviews; every other row stays empty. Outcome Review Date: the due date of the earliest checkpoint nobody
+ * has recorded. Recorded: "2 of 3". Realized KR Value and Latest Adoption: from the latest recorded checkpoint that has that number. % Realized KR Value: value over KR target, in percent
+ * (empty with no target, or a target of 0). KR Progress: (value minus KR start) over (KR target minus KR start), in percent, only when all three numbers are there and start and target differ.
  */
 export function outcomeColumns(row: object, reviews: readonly OutcomeReview[]): OutcomeColumns {
   const r = row as { initiative_phase?: unknown; initiative_status?: unknown; start_rollout?: unknown; kr_start?: unknown; kr_target?: unknown };
@@ -63,10 +68,12 @@ export function outcomeColumns(row: object, reviews: readonly OutcomeReview[]): 
   const value = recorded.map((x) => asNumber(x.realised_kr_value)).find((v) => v !== null) ?? null;
   const adoption = recorded.map((x) => asNumber(x.adoption_pct)).find((v) => v !== null) ?? null;
   const start = asNumber(r.kr_start), target = asNumber(r.kr_target);
-  const progress = value !== null && start !== null && target !== null && target !== start ? Math.round(((value - start) / (target - start)) * 1000) / 10 : null;
   return {
-    outcome_next_review: next ? outcomeDueOn(r.start_rollout, next) : null,
+    outcome_review_date: next ? outcomeDueOn(r.start_rollout, next) : null,
     outcome_reviews_recorded: `${recorded.length} of ${OUTCOME_CHECKPOINTS.length}`,
-    outcome_latest_value: value, outcome_latest_adoption: adoption, outcome_kr_progress: progress,
+    realized_kr_value: value,
+    kr_realized_pct: value !== null && target !== null && target !== 0 ? pct(value / target) : null,
+    outcome_latest_adoption: adoption,
+    outcome_kr_progress: value !== null && start !== null && target !== null && target !== start ? pct((value - start) / (target - start)) : null,
   };
 }

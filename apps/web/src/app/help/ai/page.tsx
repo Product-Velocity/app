@@ -57,7 +57,7 @@ export default function AiHelp() {
             "Define: the PRD holds the hypothesis, key result, requirements and roll-out plan. Gate B approves it, and fields are filled from it.",
             "Build: a shared document reaches the tracker as a link, never as text.",
             "Any phase: revise a document and the old version is kept; add links and files on the Spec tab.",
-            "Roll-out and Completed: compare the result with the key result written in the PRD at the outcome review. Claude can read the 30, 60 and 90 day reviews, and record the numbers you give it (with your words kept); it never asks anyone for metrics and never invents a number.",
+            "Roll-out and Completed: compare the result with the key result written in the PRD at the outcome review. Claude can read the 30, 60 and 90 day reviews, and record the numbers you give it (with your words kept); it never asks anyone for metrics and never invents a number. It can draft the request for the metrics (text only, nothing is sent).",
           ]}
         />
         <HelpReference slug="ai-use-cases">Where each document is used along the lifecycle</HelpReference>
