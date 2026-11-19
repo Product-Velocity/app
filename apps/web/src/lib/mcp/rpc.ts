@@ -11,6 +11,7 @@ import { CONNECTOR_TOOLS } from "./connector-tools";
 import { DOCUMENT_READ_TOOLS, DOCUMENT_WRITE_TOOLS } from "./document-tools";
 import { FILE_TOOLS } from "./file-tools";
 import { EPIC_TOOLS } from "./epic-tools";
+import { OUTCOME_READ_TOOLS, OUTCOME_WRITE_TOOLS } from "./outcome-tools";
 import { FLOWS, publicFlow } from "./flows";
 import { PLAYBOOK_TOOLS } from "./playbook-tool";
 import { PROFILE_READ_TOOLS, PROFILE_WRITE_TOOLS } from "./profile-tools";
@@ -121,11 +122,13 @@ export const TOOLS: ToolDef[] = [
   ...READ_TOOLS,
   ...DOCUMENT_READ_TOOLS,
   ...PROFILE_READ_TOOLS,
+  ...OUTCOME_READ_TOOLS,
   ...PLAYBOOK_TOOLS,
   ...CONNECTOR_TOOLS,
   ...WRITE_TOOLS,
   ...FILE_TOOLS,
   ...EPIC_TOOLS,
+  ...OUTCOME_WRITE_TOOLS,
   ...DOCUMENT_WRITE_TOOLS,
   ...PROFILE_WRITE_TOOLS,
 ];

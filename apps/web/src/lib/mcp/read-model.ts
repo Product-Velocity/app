@@ -85,6 +85,15 @@ export type ViewInfo = {
   id: string | null; name: string; scope: "workspace" | "private" | "built-in"; columns: string[];
   filters: unknown[]; group_by: string | null; /** The second grouping level, when the view has one. */ then_by?: string; /** The view shows tracker issues under each initiative. */ show_issues?: boolean; /** With show_issues: only these issue types, and whether Done and Cancelled issues are hidden. */ issue_types?: string[]; issues_hide_done?: boolean; sort: unknown; customer_safe: boolean; customises?: string;
 };
+/** One checkpoint of the 30, 60 and 90 day outcome reviews. `state` is words: not requested, requested (asked for, not recorded) or recorded. */
+export type OutcomeReviewInfo = {
+  at_days: 30 | 60 | 90; due_on: string | null; state: "not_requested" | "requested" | "recorded";
+  requested_at: string | null; recorded_at: string | null;
+  realised_kr_value: number | null; adoption_pct: number | null; note: string | null;
+  /** The words a person used when Claude recorded the numbers; null for a review a person typed in the app. */
+  stated_words: string | null;
+};
+export type OutcomeReviewsInfo = { item: string; name: string; start_rollout: string | null; kr_metric: string | null; kr_unit: string | null; reviews: OutcomeReviewInfo[] };
 export type ItemDetail = {
   row: SearchRow;
   links: { label: string; url: string }[];
@@ -122,6 +131,8 @@ export type McpReader = {
   documents: (ref: string) => Promise<DocInfo[] | null>;
   /** One document with its text, or null when it does not exist or cannot be read. */
   document: (id: string) => Promise<DocInfo | null>;
+  /** The 30, 60 and 90 day outcome reviews of one initiative (all three checkpoints, recorded or not), or null when it does not exist or cannot be read. */
+  outcomeReviews: (ref: string) => Promise<OutcomeReviewsInfo | null>;
   /** The company website and profile of this workspace. */
   companyProfile: () => Promise<CompanyProfileData>;
   /** The evidence for a gate on one initiative (documents, request and past decisions, open conditions); null when the initiative does not exist. Read only. */
