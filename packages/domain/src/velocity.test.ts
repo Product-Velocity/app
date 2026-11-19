@@ -259,6 +259,15 @@ describe("where the time goes", () => {
     expect(workWait([r]).waitShare).toBe(0);
     expect(stageAverages([r]).find((x) => x.id === "build")!.average).toBe(49);
   });
+  it.each([["every later phase has the same date as Start Building", { build: 10, test: 10, exp: 10, roll: 10 }], ["the later phases are dated before the build time ends", { build: 10, test: 12, exp: 15, roll: 20 }]])("the stages add up to the build time when %s", (_n, days) => {
+    const odd = { ...row("d", days), time_building_days: 49, actual_build_weeks: 7 };
+    const r = velocityRows([odd], [], { measure: "build", stretch: false }, TODAY)[0]!;
+    expect(r.value).toBe(49);
+    const d = stageDays(r);
+    expect(Object.values(d).reduce((x, y) => x + y, 0)).toBe(49);
+    expect(d.build).toBeGreaterThan(0);
+    expect(stageAverages([r]).find((x) => x.id === "build")!.average).toBeGreaterThan(0);
+  });
   it("has no averages for no initiatives", () => {
     expect(stageAverages([]).every((a) => a.average === 0)).toBe(true);
     expect(workWait([]).waitShare).toBe(0);

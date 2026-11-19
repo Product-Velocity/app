@@ -286,6 +286,16 @@ export function stageDays(v: VelocityRow): Record<StageId, number> {
     const a = v.journey.filled[s.from], b = v.journey.filled[s.to];
     out[s.id] = v.start === null || v.end === null || a === null ? 0 : Math.max(0, Math.min(b ?? v.end, v.end) - Math.max(a, v.start));
   }
+  // Dates that do not fit the stages (a later phase dated the same day as, or before, the one the window starts in) leave part of the window with no stage, so the
+  // stages would not add up to the measure. That time belongs to the stage the window starts in: the earliest stage with the latest start date on or before it.
+  if (v.start !== null && v.end !== null) {
+    const rest = v.end - v.start - STAGES.reduce((x, s) => x + out[s.id], 0);
+    if (rest > 0) {
+      let at: (typeof STAGES)[number] | null = null, atDay = -Infinity;
+      for (const s of STAGES.filter((x) => x.kind === "work")) { const a = v.journey.raw[s.from]; if (a !== undefined && a <= v.start && a > atDay) { at = s; atDay = a; } } // real dates only: the filled ones repeat the next real date
+      if (at) out[at.id] += rest;
+    }
+  }
   return out;
 }
 export type StageAverage = { id: StageId; label: string; kind: StageKind; average: number };
