@@ -148,7 +148,7 @@ export function parseReport(p: URLSearchParams): ReportState {
 
 /**
  * Columns of the Reports grid and its CSV. A fixed list with no commercial field (value, confidence, customers, decision, key results):
- * the Reports grid and CSV never show them to any role (issue #233 FR-5.1). The Velocity report (issue #545) uses Key Result only as a filter and a break-down inside the app, see docs/decisions/2026-11-19-velocity-report.md.
+ * the Reports grid and CSV do not list them (issue #233 FR-5.1). This is a choice for that list, not a ban: inside the platform all fields may be used, and the Velocity report (issue #545) filters and breaks down by Key Result (docs/decisions/2026-11-19-velocity-report.md). What must never leave the platform is sent to trackers or customer-safe reports (rule 2).
  */
 export const REPORT_GRID_COLUMNS: readonly string[] = [
   "item_code", "initiative_name", "home_project", "product_manager", "engineering_manager", "initiative_phase", "initiative_status", "health", "contributing_teams",
