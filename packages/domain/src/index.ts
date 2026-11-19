@@ -44,6 +44,7 @@ export * from "./company-profile";
 export * from "./assistants";
 export * from "./gates";
 export * from "./gate-report";
+export * from "./velocity";
 export * from "./change-report";
 export * from "./outcome-reviews";
 export * from "./change-watch";
