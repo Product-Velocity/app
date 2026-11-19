@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { FlagControl, actionClass } from "@/components/flag-controls";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import type { ColDef, ColumnMovedEvent } from "ag-grid-community";
 import {
@@ -66,8 +66,7 @@ const FlagsCell = (p: CustomCellRendererProps<ChangeRowData>) => {
         const flag = ctx.canAct ? d.flags.find((f) => f.label === l && f.action) : undefined;
         const a = flag?.action ? resolveFlagAction(flag.action, phase, openGate) : null;
         if (!flag || !a) return <span key={l} className="pill tone-risk chg-flag">⚑ {l}</span>;
-        if (a.kind === "requested") return <Link key={l} href={a.href} className="pill tone-risk chg-flag chg-flag-act" title={a.title}>⚑ {l}</Link>;
-        return <button key={l} type="button" className="pill tone-risk chg-flag chg-flag-act" title={a.title} disabled={ctx.busy === `${d.itemId}:${flag.kind}`} onClick={() => ctx.act(d.itemId, flag)}>⚑ {l}</button>;
+        return <FlagControl key={l} a={a} className="pill tone-risk chg-flag chg-flag-act" busy={ctx.busy === `${d.itemId}:${flag.kind}`} onRun={() => ctx.act(d.itemId, flag)}>⚑ {l}</FlagControl>;
       })}
     </span>
   );
@@ -81,8 +80,7 @@ const ActionsCell = (p: CustomCellRendererProps<ChangeRowData>) => {
     <span className="grid-flags">
       {actions.map(({ flag, resolved: a }) => {
         const key = `${d.itemId}:${flag.kind}`;
-        if (a.kind === "requested") return <Link key={flag.kind} href={a.href} className="chg-act chg-act-requested" title={a.title}>{a.label}<span className="chg-act-arrow" aria-hidden="true">→</span></Link>;
-        return <button key={flag.kind} type="button" className={a.kind === "gate" ? "chg-act chg-act-gate" : "chg-act"} title={a.title} disabled={ctx.busy === key} onClick={() => ctx.act(d.itemId, flag)}>{ctx.busy === key ? "Working…" : <>{a.label}<span className="chg-act-arrow" aria-hidden="true">→</span></>}</button>;
+        return <FlagControl key={flag.kind} a={a} className={actionClass(a)} busy={ctx.busy === key} onRun={() => ctx.act(d.itemId, flag)}>{ctx.busy === key ? "Working…" : <>{a.label}<span className="chg-act-arrow" aria-hidden="true">→</span></>}</FlagControl>;
       })}
     </span>
   );
@@ -200,7 +198,8 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, gates, me 
   const act = useCallback(async (itemId: string, flag: ChangeFlag) => {
     if (!gates || !flag.action) return;
     const a = resolveFlagAction(flag.action, controller.row(itemId)?.initiative_phase, openGateOf(controller.row(itemId)));
-    if (a.kind === "requested") return;
+    if (a.kind === "requested" || a.kind === "decisions") return;
+    if (a.kind === "open") { onOpen(itemId); return; }
     const code = items.get(itemId)?.code ?? "The initiative";
     setMessage(null);
     if (a.kind === "gate") { setGateFor({ id: itemId, gate: a.gate }); return; }
@@ -208,7 +207,7 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, gates, me 
     const r = await gates.move(itemId, a.to);
     setBusy(null);
     if (r.ok) { setMessage({ ok: true, text: `${code} moved to ${a.to}.` }); refresh(); } else setMessage({ ok: false, text: `${code} was not moved: ${r.error}` });
-  }, [gates, controller, items, refresh]);
+  }, [gates, controller, items, refresh, onOpen]);
   const context = useMemo<Ctx>(() => ({ toggleGroup: toggle, open: onOpen, primary, canAct: !!gates && controller.canEdit, busy, act: (id, f) => { void act(id, f); }, phaseOf: (id) => controller.row(id)?.initiative_phase, openGateOf: (id) => openGateOf(controller.row(id)) }), [toggle, onOpen, primary, gates, controller, busy, act]);
   const columnDefs = useMemo<ColDef<ChangeGridRow>[]>(() => saved.columns.map((id) => ({ colId: id, ...COLUMNS.find((c) => c.id === id)!.def })) as ColDef<ChangeGridRow>[], [saved.columns]);
   /** A column dragged by its header in the grid is the new order, so the Columns panel and the grid agree. */

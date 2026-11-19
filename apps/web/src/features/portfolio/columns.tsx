@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { FlagControl, actionClass } from "@/components/flag-controls";
 import { NameWithIssues } from "./name-cell";
 import type { ColDef, IHeaderParams } from "ag-grid-community";
 import type { CustomCellRendererProps } from "ag-grid-react";
@@ -58,8 +58,7 @@ function FlagsCell({ data, today, canAct, context }: CustomCellRendererProps<Gri
         const resolved = flag?.action ? resolveFlagAction(flag.action, data.initiative_phase, openGate) : null;
         const text = <>{"\u2691"} {l}</>;
         if (!flag || !resolved) return <span key={l} className="pill tone-risk chg-flag">{text}</span>;
-        if (resolved.kind === "requested") return <Link key={l} href={resolved.href} className="pill tone-risk chg-flag chg-flag-act" title={resolved.title} onClick={(e) => e.stopPropagation()}>{text}</Link>;
-        return <button key={l} type="button" className="pill tone-risk chg-flag chg-flag-act" title={resolved.title} disabled={ctx.flagBusy === `${data.id}:${flag.kind}`} onClick={(e) => { e.stopPropagation(); ctx.runFlagAction?.(data.id, flag.kind); }}>{text}</button>;
+        return <FlagControl key={l} a={resolved} className="pill tone-risk chg-flag chg-flag-act" busy={ctx.flagBusy === `${data.id}:${flag.kind}`} onRun={() => ctx.runFlagAction?.(data.id, flag.kind)}>{text}</FlagControl>;
       })}
     </span>
   );
@@ -75,11 +74,10 @@ function ActionsCell({ data, today, canAct, context }: CustomCellRendererProps<G
     <span className="grid-flags">
       {actions.map(({ flag, resolved }) => {
         const key = `${data.id}:${flag.kind}`;
-        if (resolved.kind === "requested") return <Link key={flag.kind} href={resolved.href} className="chg-act chg-act-requested" title={resolved.title} onClick={(e) => e.stopPropagation()}>{resolved.label}<span className="chg-act-arrow" aria-hidden="true"> {"\u2192"}</span></Link>;
         return (
-          <button key={flag.kind} type="button" className={resolved.kind === "gate" ? "chg-act chg-act-gate" : "chg-act"} title={resolved.title} disabled={ctx.flagBusy === key} onClick={(e) => { e.stopPropagation(); ctx.runFlagAction?.(data.id, flag.kind); }}>
+          <FlagControl key={flag.kind} a={resolved} className={actionClass(resolved)} busy={ctx.flagBusy === key} onRun={() => ctx.runFlagAction?.(data.id, flag.kind)}>
             {ctx.flagBusy === key ? "Working\u2026" : <>{resolved.label}<span className="chg-act-arrow" aria-hidden="true"> {"\u2192"}</span></>}
-          </button>
+          </FlagControl>
         );
       })}
     </span>

@@ -73,7 +73,7 @@ describe("changeFlags (real data: initiatives pulled in from Jira usually have n
   });
 
   it("keeps the Needs attention reasons too, with their labels", () => {
-    const f = changeFlags([r("a", { initiative_phase: "Build", initiative_status: "Active", status: "Done" })], TODAY).get("a")!;
+    const f = changeFlags([r("a", { initiative_phase: "Build", initiative_status: "Active", status: "Done", sponsor: "Dana" })], TODAY).get("a")!; // an owner, so only the Needs attention reason shows
     expect(f).toEqual([expect.objectContaining({ kind: "build-done", label: "Build done" })]);
   });
 });
@@ -371,8 +371,8 @@ describe("the Flags and Actions columns of the main grid (#480)", () => {
 
   it("a requested gate shows as a link in the Actions column and in its exported words", () => {
     const asked = { ...row, current_gate: "B", gate_status: "In review" };
-    expect(actionsOfFlags(flagsOfRow(asked, today), null, true, openGateOf(asked)).map((x) => x.resolved.kind)).toEqual(["requested"]);
-    expect(rowFlagTexts(asked, today, true).actions).toBe("Gate B requested");
+    expect(actionsOfFlags(flagsOfRow(asked, today), null, true, openGateOf(asked)).map((x) => x.resolved.kind)).toEqual(["requested", "decisions"]); // the gate link, and the checklist (In review) link to Decisions
+    expect(rowFlagTexts(asked, today, true).actions).toBe("Gate B requested; Open Decisions");
   });
 
   it("a person who cannot edit sees the flags and no actions", () => {
@@ -384,5 +384,55 @@ describe("the Flags and Actions columns of the main grid (#480)", () => {
   it("rowFlagTexts gives the words for sorting and export, or null when nothing applies", () => {
     expect(rowFlagTexts(row, today, true).actions).toMatch(/Request gate/);
     expect(rowFlagTexts({ ...row, status: "Not started", issues_total: 0, issues_closed: 0 }, today, true)).toEqual({ flags: null, actions: null });
+  });
+});
+
+describe("five more flags with a next step (2026-11-19)", () => {
+  const TODAY = new Date(Date.UTC(2026, 10, 19));
+  const base = { item_code: "R-1", initiative_name: "x", stack_rank: 1, initiative_status: "Active", health: "On Track", sponsor: "Dana", kr_metric: "Activation" };
+  const kinds = (o: Record<string, unknown>) => (changeFlags([{ id: "a", ...base, ...o }], TODAY).get("a") ?? []).map((f) => f.kind);
+
+  it("Ready for Gate C: in Experiment long enough with no request, and the button requests Gate C", () => {
+    const row = { initiative_phase: "Experiment", phase_changed_at: "2026-11-01T00:00:00Z" };
+    expect(kinds(row)).toContain("ready-gate-c");
+    expect(changeFlags([{ id: "a", ...base, ...row }], TODAY).get("a")!.find((f) => f.kind === "ready-gate-c")!.action).toEqual({ type: "gate", gate: "C", label: "Request gate C" });
+    expect(kinds({ ...row, phase_changed_at: "2026-11-15T00:00:00Z" })).not.toContain("ready-gate-c"); // only 4 days
+    expect(kinds({ ...row, current_gate: "C", gate_status: "Waiting for Approver" })).not.toContain("ready-gate-c"); // already asked
+  });
+
+  it("a requested Gate C turns the action into the link to Decisions", () => {
+    expect(resolveFlagAction({ type: "gate", gate: "C", label: "Request gate C" }, "Experiment", null)).toMatchObject({ kind: "gate", gate: "C" });
+    expect(resolveFlagAction({ type: "gate", gate: "C", label: "Request gate C" }, "Experiment", "C")).toMatchObject({ kind: "requested", href: "/decisions" });
+  });
+
+  it("Gate checklist incomplete follows Gate Status In review and opens Decisions", () => {
+    expect(kinds({ initiative_phase: "Define", current_gate: "B", gate_status: "In review" })).toContain("gate-checklist");
+    expect(kinds({ initiative_phase: "Define", current_gate: "B", gate_status: "Waiting for Approver" })).not.toContain("gate-checklist");
+    expect(resolveFlagAction({ type: "decisions", label: "Open Decisions" }, "Define")).toMatchObject({ kind: "decisions", href: "/decisions" });
+  });
+
+  it("Hold review soon: within a week, not on or after the day (Needs attention takes over then)", () => {
+    const held = { initiative_phase: "Build", gate_status: "Held" };
+    expect(kinds({ ...held, next_gate_due: "2026-11-23" })).toContain("hold-soon");
+    expect(kinds({ ...held, next_gate_due: "2026-11-19" })).not.toContain("hold-soon");
+    expect(kinds({ ...held, next_gate_due: "2026-12-30" })).not.toContain("hold-soon");
+  });
+
+  it("No Business Owner: Active and past Define only; and the action opens the initiative", () => {
+    expect(kinds({ initiative_phase: "Build", sponsor: null })).toContain("no-owner");
+    expect(kinds({ initiative_phase: "Define", sponsor: null })).not.toContain("no-owner");
+    expect(kinds({ initiative_phase: "Build", sponsor: "Dana" })).not.toContain("no-owner");
+    expect(kinds({ initiative_phase: "Completed", sponsor: null })).not.toContain("no-owner");
+    expect(resolveFlagAction({ type: "open", label: "Assign owner" }, "Build")).toMatchObject({ kind: "open", label: "Assign owner" });
+  });
+
+  it("No key result: in Define with no Primary KR", () => {
+    expect(kinds({ initiative_phase: "Define", kr_metric: null })).toContain("no-kr");
+    expect(kinds({ initiative_phase: "Define", kr_metric: "Activation" })).not.toContain("no-kr");
+    expect(kinds({ initiative_phase: "Build", kr_metric: null })).not.toContain("no-kr");
+  });
+
+  it("nothing is flagged for a finished or cancelled initiative", () => {
+    expect(kinds({ initiative_phase: "Build", sponsor: null, initiative_status: "Cancelled" })).toEqual([]);
   });
 });

@@ -9,7 +9,7 @@ export const metadata = {
 const MEASURE: Table = {
   head: ["Question", "Columns", "Where they are set"],
   rows: [
-    ["Which goal does it serve?", "Business Line, Objective, Primary KR (metric name, unit, direction, start value, target value), Owner", "You, while you define the initiative"],
+    ["Which goal does it serve?", "Business Line, Objective, Primary KR (metric name, unit, direction, start value, target value), Business Owner", "You, while you define the initiative"],
     ["What did we expect?", "Business Value Type, Value (12 months), Confidence", "You, while you define the initiative. Value and Confidence are commercial and are never sent to GitHub or Jira"],
     ["What happened to the key result?", "Realized KR Value, % Realized KR Value (calculated), Measured Period", "You, at each review"],
     ["Did it deliver the value we predicted?", "Realized EUR per year, Value vs Prediction (%)", "You; the comparison is calculated"],
