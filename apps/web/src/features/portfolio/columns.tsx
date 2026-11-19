@@ -5,7 +5,7 @@ import { NameWithIssues } from "./name-cell";
 import type { ColDef, IHeaderParams } from "ag-grid-community";
 import type { CustomCellRendererProps } from "ag-grid-react";
 import {
-  EDITABLE_FIELDS, VISIBLE_FIELDS, actionsOfFlags, openGateOf, changeTone, compareQuarters, flagsOfRow, jiraCategoryTone, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
+  EDITABLE_FIELDS, VISIBLE_FIELDS, actionsOfFlags, openGateOf, resolveFlagAction, changeTone, compareQuarters, flagsOfRow, jiraCategoryTone, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
   type EditableField, type FieldDef,
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
@@ -40,15 +40,27 @@ function ReadOnlyCell({ text, reason, github, pill, field, children }: { text: s
 /** What the grid hands every cell (the AG Grid `context`): the Actions column asks it to act, and which button is working. */
 export type GridContext = { runFlagAction?: (itemId: string, flagKind: string) => void; flagBusy?: string | null };
 
-/** The Flags column: every flag of the row as a pill with its words (the full reason is the tooltip). Several flags sit side by side; the column scrolls nothing, so it is wide. */
-function FlagsCell({ data, today }: CustomCellRendererProps<GridItem> & { today: () => Date }) {
+/**
+ * The Flags column: every flag of the row as a pill with its words (the full reason is the tooltip). Several flags sit side by side; the column scrolls nothing, so it is wide.
+ * A pill whose flag has an action does what that action's button does when clicked (move now, open the gate request, or go to Decisions once the gate is requested).
+ */
+function FlagsCell({ data, today, canAct, context }: CustomCellRendererProps<GridItem> & { today: () => Date; canAct: boolean }) {
   if (!data) return null;
+  const ctx = (context ?? {}) as GridContext;
   const flags = flagsOfRow(data, today());
   if (flags.length === 0) return null;
   const labels = [...new Set(flags.map((f) => f.label))]; // several reasons can share a label (Delivery risk): one pill, every reason in the tooltip
+  const openGate = openGateOf(data);
   return (
     <span className="grid-flags" title={flags.map((f) => `${f.label}: ${f.text}`).join("\n")}>
-      {labels.map((l) => <span key={l} className="pill tone-risk chg-flag">{"\u2691"} {l}</span>)}
+      {labels.map((l) => {
+        const flag = canAct ? flags.find((f) => f.label === l && f.action) : undefined;
+        const resolved = flag?.action ? resolveFlagAction(flag.action, data.initiative_phase, openGate) : null;
+        const text = <>{"\u2691"} {l}</>;
+        if (!flag || !resolved) return <span key={l} className="pill tone-risk chg-flag">{text}</span>;
+        if (resolved.kind === "requested") return <Link key={l} href={resolved.href} className="pill tone-risk chg-flag chg-flag-act" title={resolved.title} onClick={(e) => e.stopPropagation()}>{text}</Link>;
+        return <button key={l} type="button" className="pill tone-risk chg-flag chg-flag-act" title={resolved.title} disabled={ctx.flagBusy === `${data.id}:${flag.kind}`} onClick={(e) => { e.stopPropagation(); ctx.runFlagAction?.(data.id, flag.kind); }}>{text}</button>;
+      })}
     </span>
   );
 }
@@ -187,7 +199,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
         return <ReadOnlyCell text="" reason={reason} github={false}>{v ? <StatusPill value={v} tone={tone} /> : <span className="muted">Not linked</span>}</ReadOnlyCell>;
       } };
     }
-    if (f.key === "flags") return { ...base, width: 360, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <FlagsCell {...p} today={today} />, cellClass: "cell-locked" };
+    if (f.key === "flags") return { ...base, width: 360, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <FlagsCell {...p} today={today} canAct={controller.canEdit} />, cellClass: "cell-locked" };
     if (f.key === "actions") return { ...base, width: 340, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <ActionsCell {...p} today={today} canAct={controller.canEdit} />, cellClass: "cell-locked" };
     if (f.key === "health") return { ...base, cellRenderer: HealthCell, ...pickerDef(f, optionsFor(f.key), true) };
     if (reason) {

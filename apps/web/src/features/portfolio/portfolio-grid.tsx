@@ -314,7 +314,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     if (r.ok) { controller.notify(`${row.item_code} moved to ${a.to}.`); void controller.refreshFromServer(); } else controller.notify(`${row.item_code} was not moved: ${r.error}`);
   }, [controller, gates]);
   const gridContext = useMemo<GridContext & Record<string, unknown>>(() => ({ toggleGroup, issueInfo, runFlagAction: (id: string, kind: string) => { void runFlagAction(id, kind); }, flagBusy }), [toggleGroup, issueInfo, runFlagAction, flagBusy]);
-  useEffect(() => { apiRef.current?.refreshCells({ columns: ["actions"], force: true }); }, [flagBusy]);
+  useEffect(() => { apiRef.current?.refreshCells({ columns: ["actions", "flags"], force: true }); }, [flagBusy]);
   // the chips are drawn by the cells, which do not see a change of context by themselves
   useEffect(() => { if (showIssues) apiRef.current?.refreshCells({ columns: ["initiative_name"], force: true }); }, [showIssues, issueKids, collapsed, issueFilter]);
   const resetShown = () => setAdded(new Set());
