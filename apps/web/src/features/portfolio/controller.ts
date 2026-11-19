@@ -120,7 +120,7 @@ export class PortfolioController {
       const rec = r as unknown as Record<string, unknown>;
       rec.flags = t.flags;
       rec.actions = t.actions;
-      Object.assign(rec, outcomeColumns(r, this.outcomeReviews.get(r.id) ?? [])); // the Outcome reviews columns, from the reviews the grid read (empty until it has)
+      Object.assign(rec, outcomeColumns(r, this.outcomeReviews.get(r.id) ?? [], this.todayDate())); // the Outcome reviews columns, from the reviews the grid read (empty until it has)
     }
   }
   private outcomeReviews = new Map<string, OutcomeReview[]>();

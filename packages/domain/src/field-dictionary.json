@@ -3425,13 +3425,13 @@
  },
  {
   "n": "V33",
-  "storage": "Column on items",
-  "phase": 7,
+  "storage": "Derived in the app from the outcome reviews (not stored)",
+  "phase": 1,
   "name": "Outcome Status",
   "key": "outcome_status",
   "group": "Outcomes",
   "type": "Select",
-  "editing": "Editable",
+  "editing": "Computed (read-only)",
   "customerSafe": false,
   "views": [
    "Outcomes",
@@ -3445,10 +3445,10 @@
    "Exceeded"
   ],
   "allowedText": "Not yet due · On target · Behind · Missed · Exceeded",
-  "origin": "Input",
+  "origin": "Computed",
   "githubSync": "Not synced.",
-  "filledWhen": "After launch",
-  "description": "Result of the latest outcome review."
+  "filledWhen": "In Roll-out or Completed with a Start Roll-Out",
+  "description": "Result of the latest outcome review, from how far the realised value has come from the KR start to its target. Not yet due before the first review. Then Exceeded above 100%, On target from 80%, Behind below that, and Missed below 50% once the 90 day review is recorded. Empty when it cannot be worked out. The cut-offs are defaults to be confirmed."
  },
  {
   "n": "V34",

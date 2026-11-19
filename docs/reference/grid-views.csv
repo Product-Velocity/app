@@ -158,7 +158,7 @@ align_why,Alignment,Editable,,,Y,,,,,,
 align_what,Alignment,Editable,,,Y,,,,,,
 align_how,Alignment,Editable,,,Y,,,,,,
 align_when,Alignment,Editable,,,Y,,,,,,
-outcome_status,Outcomes,Editable,,,,,,Y,,,Y
+outcome_status,Outcomes,Computed (read-only),,,,,,Y,,,Y
 outcome_review_date,Outcomes,Computed (read-only),,,,,,Y,,,
 value_variance_pct,Outcomes,Computed (read-only),,,,,,Y,,,
 time_to_first_use_days,Outcomes,Computed (read-only),,,,,Y,Y,,,
