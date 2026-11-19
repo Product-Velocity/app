@@ -58,9 +58,17 @@ const FlagsCell = (p: CustomCellRendererProps<ChangeRowData>) => {
   const d = p.data!, ctx = p.context as Ctx;
   if (d.flags.length === 0 || !ctx.primary.has(d.id)) return null;
   const labels = [...new Set(d.flags.map((f) => f.label))];
+  const phase = ctx.phaseOf(d.itemId), openGate = ctx.openGateOf(d.itemId);
   return (
     <span className="grid-flags" title={d.flags.map((f) => `${f.label}: ${f.text}`).join("\n")}>
-      {labels.map((l) => <span key={l} className="pill tone-risk chg-flag">⚑ {l}</span>)}
+      {labels.map((l) => {
+        // a pill whose flag has an action does what that action's button does
+        const flag = ctx.canAct ? d.flags.find((f) => f.label === l && f.action) : undefined;
+        const a = flag?.action ? resolveFlagAction(flag.action, phase, openGate) : null;
+        if (!flag || !a) return <span key={l} className="pill tone-risk chg-flag">⚑ {l}</span>;
+        if (a.kind === "requested") return <Link key={l} href={a.href} className="pill tone-risk chg-flag chg-flag-act" title={a.title}>⚑ {l}</Link>;
+        return <button key={l} type="button" className="pill tone-risk chg-flag chg-flag-act" title={a.title} disabled={ctx.busy === `${d.itemId}:${flag.kind}`} onClick={() => ctx.act(d.itemId, flag)}>⚑ {l}</button>;
+      })}
     </span>
   );
 };

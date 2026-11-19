@@ -1366,6 +1366,10 @@ a.btn.btn-primary { color: #fff; }
 .group-row .pill[title] { cursor: help; }
 .chg-flags { display: flex; align-items: center; gap: 6px; }
 .chg-flag { cursor: help; }
+.chg-flag-act { border: 0; font: inherit; text-decoration: none; cursor: pointer; }
+.chg-flag-act:hover:not(:disabled) { box-shadow: 0 0 0 1px currentColor; }
+.chg-flag-act:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.chg-flag-act:disabled { opacity: .6; cursor: default; }
 .chg-time { font-variant-numeric: tabular-nums; color: #4b5262; }
 .chg-type, .chg-chip { --chg-bg: #E8ECF4; --chg-fg: #2F3E5C; --chg-edge: #6B7BA3; }
 .chg-type { background: var(--chg-bg); color: var(--chg-fg); }
