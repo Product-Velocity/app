@@ -1,7 +1,9 @@
 ---
 issue: 545
-status: in progress
+status: done
 logged: 2026-11-19
+done: 2026-11-19
+link: PR #544 (the release version is assigned when merged)
 title: Velocity report: time to roll-out, gates and sub-phases
 ---
 Ashu, 2026-11-19: "The core of product velocity is to make things move faster, this is the reason why we are tracking all the dates. I want to build a report that focusses on velocity and provides insights that are actionable." Median and average of the build phase were not enough; wanted a bell chart with the average and the buckets of faster and slower times, by T-shirt size, Team, Key Result, Objective and Business Line, for total time, to Gate A, B and C and to roll-out, plus time to decide per gate and time in each sub-phase of development. A clickable prototype came first (`prototype/project/Velocity-report.html`, draft PR #544), was reviewed in comments and approved ("happy with the prototype, lets build this").
