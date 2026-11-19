@@ -1592,3 +1592,4 @@ a.btn.btn-primary { color: #fff; }
 .vel-mini { display: flex; height: 12px; gap: 1px; border-radius: 2px; overflow: hidden; min-width: 24px; }
 .vel-mini i { display: block; height: 100%; }
 @media (max-width: 620px) { .vel-f-q, .vel-f-q input, .vel-f select { width: 100%; max-width: none; } }
+.vel-why p { margin: 0 0 6px; max-width: 90ch; }

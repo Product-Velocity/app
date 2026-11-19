@@ -26,7 +26,11 @@ const GROUPS = ["Onboarding", "Platform health", "Retention"], FOCUS = ["Subscri
 
 type Row = Record<string, unknown> & { id: string };
 
-export function applyVelocityDemo(rows: Row[], today: Date): GateRequest[] {
+/**
+ * `buildOnly` looks like a workspace filled by a Jira pull-in: no Start Discovery, no size, team, group or Key Result, only Start Building (and the build time once the
+ * build is done), and Gate B decisions that were requested and decided on the same day.
+ */
+export function applyVelocityDemo(rows: Row[], today: Date, buildOnly = false): GateRequest[] {
   const R = rng(20271404);
   const gauss = () => { let u = 0; while (!u) u = R(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * R()); };
   const logn = (m: number, s: number) => m * Math.exp(s * gauss());
@@ -73,5 +77,9 @@ export function applyVelocityDemo(rows: Row[], today: Date): GateRequest[] {
       if (decided) requests[requests.length - 1]!.outcome = i % 4 === 0 ? "go_with_conditions" : "go";
     }
   });
-  return requests;
+  if (!buildOnly) return requests;
+  for (const r of rows) {
+    Object.assign(r, { start_discovery: null, start_date: null, start_definition: null, start_beta: null, start_experiment: null, start_rollout: null, effort: null, contributing_teams: null, theme: null, focus_area: null, kr_metric: null, okr_objective: null, business_line: null });
+  }
+  return requests.filter((q) => q.gate === "B" && q.decided_at).map((q) => ({ ...q, requested_at: q.decided_at!, outcome: "go" as const }));
 }
