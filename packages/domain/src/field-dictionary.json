@@ -3746,5 +3746,105 @@
   "githubSync": "Not synced: worked out in the app, clicking acts as the signed-in person.",
   "filledWhen": "When a flag has an action",
   "description": "The one-click next step for each flag, as buttons: move the phase when no gate is passed, otherwise open the gate request. Shown to people who can edit; viewers see the flags only. Claude never approves a gate."
+ },
+ {
+  "n": "N52",
+  "storage": "Derived in the app from the outcome reviews (not stored)",
+  "phase": 1,
+  "name": "Next Outcome Review",
+  "key": "outcome_next_review",
+  "group": "Outcome reviews",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": "Not synced: worked out in the app from the outcome reviews, read-only.",
+  "filledWhen": "When the initiative is in Roll-out or Completed and has a Start Roll-Out",
+  "description": "The date of the next 30, 60 or 90 day review nobody has recorded yet (30, 60 or 90 days after Start Roll-Out). Empty when all three are recorded or the initiative has not reached Roll-out."
+ },
+ {
+  "n": "N53",
+  "storage": "Derived in the app from the outcome reviews (not stored)",
+  "phase": 1,
+  "name": "Outcome Reviews Recorded",
+  "key": "outcome_reviews_recorded",
+  "group": "Outcome reviews",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": "Not synced: worked out in the app from the outcome reviews, read-only.",
+  "filledWhen": "When the initiative is in Roll-out or Completed and has a Start Roll-Out",
+  "description": "How many of the three outcome reviews (30, 60 and 90 days) are recorded, for example 2 of 3."
+ },
+ {
+  "n": "N54",
+  "storage": "Derived in the app from the outcome reviews (not stored)",
+  "phase": 1,
+  "name": "Latest Realised KR Value",
+  "key": "outcome_latest_value",
+  "group": "Outcome reviews",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": "Not synced: worked out in the app from the outcome reviews, read-only.",
+  "filledWhen": "When an outcome review with a value is recorded",
+  "description": "The realised value of the Primary KR from the latest recorded outcome review that has one, in the key result's own unit."
+ },
+ {
+  "n": "N55",
+  "storage": "Derived in the app from the outcome reviews (not stored)",
+  "phase": 1,
+  "name": "Latest Adoption %",
+  "key": "outcome_latest_adoption",
+  "group": "Outcome reviews",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": "Not synced: worked out in the app from the outcome reviews, read-only.",
+  "filledWhen": "When an outcome review with an adoption is recorded",
+  "description": "Adoption, as a percentage, from the latest recorded outcome review that has one."
+ },
+ {
+  "n": "N56",
+  "storage": "Derived in the app from the outcome reviews (not stored)",
+  "phase": 1,
+  "name": "KR Progress (latest review)",
+  "key": "outcome_kr_progress",
+  "group": "Outcome reviews",
+  "type": "Computed",
+  "editing": "Computed (read-only)",
+  "customerSafe": false,
+  "views": [
+   "Outcomes"
+  ],
+  "allowed": [],
+  "allowedText": null,
+  "origin": "Computed",
+  "githubSync": "Not synced: worked out in the app from the outcome reviews, read-only.",
+  "filledWhen": "When the start, the target and a realised value are set",
+  "description": "How far the latest realised value is from the KR start to the KR target, in percent: (latest value minus start) divided by (target minus start). Empty when the start, the target or the value is missing, or start and target are equal."
  }
 ]

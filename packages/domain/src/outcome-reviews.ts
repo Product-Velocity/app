@@ -40,3 +40,33 @@ export function nextOutcomeStep(row: object, reviews: readonly OutcomeReview[], 
   }
   return null;
 }
+
+/** The five read-only Outcome reviews columns of one initiative (issue: Ashu 2026-11-19, docs/decisions/2026-11-19-outcome-columns.md), worked out from its reviews. */
+export type OutcomeColumns = {
+  outcome_next_review: string | null; outcome_reviews_recorded: string | null;
+  outcome_latest_value: number | null; outcome_latest_adoption: number | null; outcome_kr_progress: number | null;
+};
+export const OUTCOME_COLUMN_KEYS = ["outcome_next_review", "outcome_reviews_recorded", "outcome_latest_value", "outcome_latest_adoption", "outcome_kr_progress"] as const;
+const EMPTY_OUTCOME: OutcomeColumns = { outcome_next_review: null, outcome_reviews_recorded: null, outcome_latest_value: null, outcome_latest_adoption: null, outcome_kr_progress: null };
+const asNumber = (v: unknown): number | null => (v === null || v === undefined || v === "" ? null : Number.isFinite(Number(v)) ? Number(v) : null);
+
+/**
+ * Only an initiative in Roll-out or Completed that has a Start Roll-Out has reviews; every other row stays empty. Next review: the due date of the earliest checkpoint nobody
+ * has recorded. Recorded: "2 of 3". Latest value and adoption: from the latest recorded checkpoint that has that number. KR progress: (value minus KR start) over (KR target minus
+ * KR start), in percent to one decimal, only when all three numbers are there and start and target differ.
+ */
+export function outcomeColumns(row: object, reviews: readonly OutcomeReview[]): OutcomeColumns {
+  const r = row as { initiative_phase?: unknown; initiative_status?: unknown; start_rollout?: unknown; kr_start?: unknown; kr_target?: unknown };
+  if (r.initiative_status === "Cancelled" || (r.initiative_phase !== "Roll-out" && r.initiative_phase !== "Completed") || !outcomeDueOn(r.start_rollout, 30)) return EMPTY_OUTCOME;
+  const recorded = reviews.filter((x) => x.recorded_at).sort((a, b) => b.at_days - a.at_days);
+  const next = OUTCOME_CHECKPOINTS.find((d) => !recorded.some((x) => x.at_days === d));
+  const value = recorded.map((x) => asNumber(x.realised_kr_value)).find((v) => v !== null) ?? null;
+  const adoption = recorded.map((x) => asNumber(x.adoption_pct)).find((v) => v !== null) ?? null;
+  const start = asNumber(r.kr_start), target = asNumber(r.kr_target);
+  const progress = value !== null && start !== null && target !== null && target !== start ? Math.round(((value - start) / (target - start)) * 1000) / 10 : null;
+  return {
+    outcome_next_review: next ? outcomeDueOn(r.start_rollout, next) : null,
+    outcome_reviews_recorded: `${recorded.length} of ${OUTCOME_CHECKPOINTS.length}`,
+    outcome_latest_value: value, outcome_latest_adoption: adoption, outcome_kr_progress: progress,
+  };
+}
