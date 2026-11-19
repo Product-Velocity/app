@@ -1376,8 +1376,9 @@ a.btn.btn-primary { color: #fff; }
 .group-row .pill[title] { cursor: help; }
 .chg-flags { display: flex; align-items: center; gap: 6px; }
 .chg-flag { cursor: help; }
-.chg-flag-act { border: 0; font: inherit; text-decoration: none; cursor: pointer; }
-.chg-flag-act:hover:not(:disabled) { box-shadow: 0 0 0 1px currentColor; }
+/* a clickable flag is the same pill as a plain one (size, weight and line height come from .pill); only the browser's button and link defaults are cleared */
+.chg-flag-act { border: 0; margin: 0; font-family: inherit; text-decoration: none; cursor: pointer; transition: filter .12s; }
+.chg-flag-act:hover:not(:disabled) { filter: brightness(.93); }
 .chg-flag-act:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .chg-flag-act:disabled { opacity: .6; cursor: default; }
 .chg-time { font-variant-numeric: tabular-nums; color: #4b5262; }
