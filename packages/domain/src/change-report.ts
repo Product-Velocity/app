@@ -1,5 +1,6 @@
 import { ATTENTION_KINDS, attentionList } from "./attention";
 import { dayNumber, daysInPhase } from "./roadmap-health";
+import { nextOutcomeStep, type OutcomeReview } from "./outcome-reviews";
 import { GATES, GATE_IDS, moveNeedsGate, phaseIndex, type GateId, type Phase } from "./gates";
 import type { GroupBadge, GroupRow } from "./views";
 
@@ -60,7 +61,9 @@ export type ChangeFlagAction =
   | { type: "move"; to: Phase; label: string }
   | { type: "gate"; gate: GateId; label: string }
   | { type: "decisions"; label: string }
-  | { type: "open"; label: string };
+  | { type: "open"; label: string }
+  /** Ask the Product Manager for the 30, 60 or 90 day outcome metrics (a notification; a person clicks, never Claude). */
+  | { type: "outcome-request"; days: 30 | 60 | 90; label: string };
 export type ChangeFlag = { kind: string; label: string; text: string; action?: ChangeFlagAction };
 /** The Jira or GitHub issue an initiative is linked to: "R8P-7049" or "owner/repo#12", its title where known, and a link that opens it in the tracker. */
 export type TrackerRef = { tracker: "Jira" | "GitHub"; key: string; title: string | null; url: string | null };
@@ -305,7 +308,7 @@ export function groupChangeRows(rows: readonly ChangeRowData[], by: ChangeGroupB
 const blank = (v: unknown) => v === null || v === undefined || v === "";
 const REPORT_FLAG_LABELS: Record<string, string> = {
   "tracker-done-open": "Tracker done, initiative open", "no-phase": "No phase set",
-  "ready-gate-c": "Ready for Gate C", "gate-checklist": "Gate checklist incomplete", "hold-soon": "Hold review soon", "no-owner": "No Business Owner", "no-kr": "No key result",
+  "ready-gate-c": "Ready for Gate C", "outcome-due": "Outcome review due", "outcome-requested": "Outcome metrics requested", "gate-checklist": "Gate checklist incomplete", "hold-soon": "Hold review soon", "no-owner": "No Business Owner", "no-kr": "No key result",
 };
 /** Days in Experiment before the report suggests asking for Gate C. A default, like STALL_DAYS (docs/decisions/2026-11-19-more-flags-and-actions.md); the real length of an experiment is not on the item. */
 export const EXPERIMENT_REVIEW_DAYS = 14;
@@ -320,7 +323,7 @@ export const CHANGE_FLAG_LABELS: Readonly<Record<string, string>> = { ...Object.
  * issue closed) but the initiative has no phase and is not Completed or Cancelled. **No phase set**: the tracker says the build is in progress but no phase is set.
  * Suggestions only; nothing changes by itself. The Needs attention page is unchanged.
  */
-export function changeFlags(rows: readonly { id: string }[], today: Date): Map<string, ChangeFlag[]> {
+export function changeFlags(rows: readonly { id: string }[], today: Date, ctx: { outcomeReviews?: readonly OutcomeReview[] } = {}): Map<string, ChangeFlag[]> {
   const out = new Map<string, ChangeFlag[]>();
   for (const e of attentionList(rows as never, today)) out.set(e.id, e.reasons.map((r): ChangeFlag => ({ kind: r.kind, label: CHANGE_FLAG_LABELS[r.kind] ?? r.kind, text: r.text, ...(r.action?.type === "move" ? { action: { type: "move" as const, to: r.action.to, label: r.action.label } } : {}) })));
   for (const r of rows as readonly Record<string, unknown>[]) {
@@ -332,6 +335,19 @@ export function changeFlags(rows: readonly { id: string }[], today: Date): Map<s
     else if (r.status === "In progress") add({ kind: "no-phase", label: REPORT_FLAG_LABELS["no-phase"]!, text: "The tracker says the build is in progress, but no Initiative Phase is set.", action: { type: "move", to: "Build", label: "Move to Build" } });
   }
   for (const [id, f] of moreFlags(rows as readonly Record<string, unknown>[], today)) out.set(id, [...(out.get(id) ?? []), ...f]);
+  // the 30, 60 and 90 day outcome reviews: only when the reviews are known (a screen that did not load them shows no such flag rather than a wrong one)
+  if (ctx.outcomeReviews) {
+    const byItem = new Map<string, OutcomeReview[]>();
+    for (const v of ctx.outcomeReviews) byItem.set(v.item_id, [...(byItem.get(v.item_id) ?? []), v]);
+    for (const r of rows as readonly Record<string, unknown>[]) {
+      const step = nextOutcomeStep(r, byItem.get(String(r.id)) ?? [], dayNumber(today));
+      if (!step) continue;
+      const f: ChangeFlag = step.kind === "request"
+        ? { kind: "outcome-due", label: REPORT_FLAG_LABELS["outcome-due"]!, text: `The ${step.days} day outcome review ${step.overdueDays > 0 ? `was due on ${step.dueOn}` : `is due on ${step.dueOn}`}, counted from Start Roll-Out. Ask for the metrics.`, action: { type: "outcome-request", days: step.days, label: `Request ${step.days}-day metrics` } }
+        : { kind: "outcome-requested", label: REPORT_FLAG_LABELS["outcome-requested"]!, text: `The ${step.days} day metrics were requested and are not recorded yet (due ${step.dueOn}).`, action: { type: "open", label: "Record metrics" } };
+      out.set(String(r.id), [...(out.get(String(r.id)) ?? []), f]);
+    }
+  }
   return out;
 }
 
@@ -383,7 +399,9 @@ export type ResolvedFlagAction =
   /** Go to the Decisions page (a checklist to finish, a Hold to review). */
   | { kind: "decisions"; label: string; title: string; href: string }
   /** Open the initiative so the person can fill a field in. */
-  | { kind: "open"; label: string; title: string };
+  | { kind: "open"; label: string; title: string }
+  /** Ask for the outcome metrics of a checkpoint; the screen calls the request and says what happened. */
+  | { kind: "outcome-request"; days: 30 | 60 | 90; label: string; title: string };
 
 /** The Decisions page, where a requested gate is followed up. */
 export const DECISIONS_HREF = "/decisions";
@@ -402,6 +420,7 @@ export function openGateOf(item: object | null | undefined): GateId | null {
  */
 export function resolveFlagAction(action: ChangeFlagAction, phase: unknown, openGate: GateId | null = null): ResolvedFlagAction {
   if (action.type === "decisions") return { kind: "decisions", label: action.label, title: "Opens the Decisions page.", href: DECISIONS_HREF };
+  if (action.type === "outcome-request") return { kind: "outcome-request", days: action.days, label: action.label, title: `Asks the Product Manager for the ${action.days} day metrics (they get a notification).` };
   if (action.type === "open") return { kind: "open", label: action.label, title: "Opens the initiative so you can fill this in." };
   if (action.type === "gate") {
     if (openGate) return { kind: "requested", gate: openGate, label: `Gate ${openGate} requested`, title: `Gate ${openGate} has been requested and waits for a decision. Opens the Decisions page.`, href: DECISIONS_HREF };
@@ -416,8 +435,8 @@ export function resolveFlagAction(action: ChangeFlagAction, phase: unknown, open
 
 // ------------------------------------------------------------------ the Flags and Actions columns of the main grid (issue #480)
 /** The flags of one initiative row of the main grid, from the same rules as the Changes report. Gate requests and open conditions are not on the row, so those two reasons are not here. */
-export function flagsOfRow(row: object, today: Date): ChangeFlag[] {
-  return changeFlags([row as { id: string }], today).get(String((row as { id: unknown }).id)) ?? [];
+export function flagsOfRow(row: object, today: Date, ctx: { outcomeReviews?: readonly OutcomeReview[] } = {}): ChangeFlag[] {
+  return changeFlags([row as { id: string }], today, ctx).get(String((row as { id: unknown }).id)) ?? [];
 }
 
 /** One button of the Actions column: what it says, what it does and why (the tooltip). */

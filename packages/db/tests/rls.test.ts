@@ -570,6 +570,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "outcome_reviews",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.outcome_reviews set notes = 'x' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.outcome_reviews where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.outcome_reviews (tenant_id, item_id, at_days, due_on) select tenant_id, item_id, 90, due_on from public.outcome_reviews where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.outcome_reviews set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "change_watch_clears",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

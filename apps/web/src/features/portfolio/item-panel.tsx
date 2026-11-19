@@ -1,6 +1,7 @@
 "use client";
 
 import { GateStrip } from "../gates/gate-strip";
+import { OutcomeReviewsSection } from "../gates/outcome-reviews";
 import type { GateSource } from "../gates/gate-source";
 import { syncLabel, syncPlatforms, syncTitle } from "./sync-label";
 import Link from "next/link";
@@ -181,6 +182,8 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
       </header>
 
       {gates && <GateStrip source={gates} me={me} frozen={Boolean(lookups.frozen?.includes(itemId))} row={row as never} canEdit={controller.canEdit} onChanged={() => { void controller.refreshFromServer(); }} />}
+
+      {gates && <OutcomeReviewsSection source={gates} row={row as never} canEdit={controller.canEdit} onChanged={() => { void controller.refreshFromServer(); }} />}
 
       {pushGithub && <GithubPushDialog ids={[itemId]} onClose={() => setPushGithub(false)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer(); }} />}
       {confirmDelete && <DeleteDialog controller={controller} ids={[itemId]} onClose={() => setConfirmDelete(false)} onDeleted={() => { if (mode === "peek") onClose?.(); else router.push(backHref); }} />}

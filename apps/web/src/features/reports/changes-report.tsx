@@ -6,7 +6,7 @@ import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import type { ColDef, ColumnMovedEvent } from "ag-grid-community";
 import {
   CHANGE_PERIODS, actionsOfFlags, NO_CHANGE_FILTERS, buildChangeRows, changeFlags, changePeriod, changeTypeLabel, filterChangeRows, groupChangeRows, isChangeHeader, isOpenableUrl, primaryRowIds, resolveFlagAction, openGateOf,
-  type ChangeFlag, type ChangeFilters, type GateId, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type FeedRow, type ItemInfo, type JiraCategory, type JiraStatusRecord, type TrackerRef,
+  type ChangeFlag, type OutcomeReview, type ChangeFilters, type GateId, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type FeedRow, type ItemInfo, type JiraCategory, type JiraStatusRecord, type TrackerRef,
 } from "@pv/domain";
 import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer } from "../portfolio/grid-kit";
 import { ChangeFilterChips, ChangesBar, type ChangeColumn } from "./changes-bar";
@@ -155,7 +155,11 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, gates, me 
   const refreshing = loaded !== null && loaded.period === period && loaded.reload !== reload && failed === null;
   const items = useMemo(() => new Map<string, ItemInfo>(rows.map((r) => [r.id, { code: String(r.item_code ?? ""), name: String(r.initiative_name ?? ""), rank: r.stack_rank }])), [rows]);
   /** The flags to follow up: the Needs attention reasons that can be worked out from the grid's rows, and the two this report adds for initiatives with no phase. */
-  const flags = useMemo(() => changeFlags(rows, controller.todayDate()), [rows, controller]);
+  /** The 30, 60 and 90 day outcome reviews, for the flag that asks for them; without them (no gate source, or a failed read) the report shows no such flag. */
+  const [outcomeReviews, setOutcomeReviews] = useState<readonly OutcomeReview[] | undefined>(undefined);
+  const loadOutcomeReviews = useCallback(() => { if (gates) gates.loadOutcomeReviews().then(setOutcomeReviews, () => setOutcomeReviews(undefined)); }, [gates]);
+  useEffect(() => { loadOutcomeReviews(); }, [loadOutcomeReviews, reload]);
+  const flags = useMemo(() => changeFlags(rows, controller.todayDate(), outcomeReviews ? { outcomeReviews } : {}), [rows, controller, outcomeReviews]);
   const changedIds = useMemo(() => [...new Set((feed ?? []).map((r) => r.item_id).filter((id) => items.has(id)))].sort().join(","), [feed, items]);
   /** The tracker issue of each initiative that changed. A failure leaves the column empty; it is not worth stopping the report. */
   const [issues, setIssues] = useState<ReadonlyMap<string, TrackerRef>>(new Map());
@@ -204,10 +208,17 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, gates, me 
     setMessage(null);
     if (a.kind === "gate") { setGateFor({ id: itemId, gate: a.gate }); return; }
     setBusy(`${itemId}:${flag.kind}`);
+    if (a.kind === "outcome-request") {
+      const q = await gates.requestOutcomeReview(itemId, a.days);
+      setBusy(null);
+      setMessage(q.ok ? { ok: true, text: `${a.days} day metrics requested for ${code}. The Product Manager has been notified.` } : { ok: false, text: `${code}: ${q.error}` });
+      loadOutcomeReviews();
+      return;
+    }
     const r = await gates.move(itemId, a.to);
     setBusy(null);
     if (r.ok) { setMessage({ ok: true, text: `${code} moved to ${a.to}.` }); refresh(); } else setMessage({ ok: false, text: `${code} was not moved: ${r.error}` });
-  }, [gates, controller, items, refresh, onOpen]);
+  }, [gates, controller, items, refresh, onOpen, loadOutcomeReviews]);
   const context = useMemo<Ctx>(() => ({ toggleGroup: toggle, open: onOpen, primary, canAct: !!gates && controller.canEdit, busy, act: (id, f) => { void act(id, f); }, phaseOf: (id) => controller.row(id)?.initiative_phase, openGateOf: (id) => openGateOf(controller.row(id)) }), [toggle, onOpen, primary, gates, controller, busy, act]);
   const columnDefs = useMemo<ColDef<ChangeGridRow>[]>(() => saved.columns.map((id) => ({ colId: id, ...COLUMNS.find((c) => c.id === id)!.def })) as ColDef<ChangeGridRow>[], [saved.columns]);
   /** A column dragged by its header in the grid is the new order, so the Columns panel and the grid agree. */

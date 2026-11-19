@@ -4,10 +4,10 @@ import { GATES, outcomeLabel, type GateId } from "./gates";
  * Gate notifications (issue #341, docs/decisions/2026-11-05-gate-notifications.md): the in-app inbox. The database writes the rows (triggers on
  * `gate_reviews`); this file says what a row reads like and where it leads. A row holds the initiative code and name and the gate, never a rationale.
  */
-export type NotificationKind = "gate_requested" | "gate_decided" | "gate_withdrawn";
+export type NotificationKind = "gate_requested" | "gate_decided" | "gate_withdrawn" | "outcome_requested";
 export type AppNotification = {
   id: string; kind: NotificationKind; item_id: string | null; review_id: string | null; created_at: string; read_at: string | null;
-  payload: { gate?: GateId; item_code?: string; item_name?: string; outcome?: string; fast_lane?: boolean; ready?: boolean };
+  payload: { at_days?: number; gate?: GateId; item_code?: string; item_name?: string; outcome?: string; fast_lane?: boolean; ready?: boolean };
 };
 
 const what = (n: AppNotification) => `${n.payload.item_code ?? "An initiative"}${n.payload.item_name ? ` ${n.payload.item_name}` : ""}`;
@@ -15,6 +15,7 @@ const gateText = (n: AppNotification) => (n.payload.gate && GATES[n.payload.gate
 
 /** One line, text only (a notification never relies on colour). */
 export function notificationText(n: AppNotification): string {
+  if (n.kind === "outcome_requested") return `${what(n)}: the ${n.payload.at_days ?? ""} day outcome metrics were requested. Please record them.`.replace("the  day", "the");
   if (n.kind === "gate_requested") return `${what(n)} asks for a decision on ${gateText(n)}.`;
   if (n.kind === "gate_withdrawn") return `The request for ${gateText(n)} on ${what(n)} was withdrawn because the initiative moved.`;
   const o = outcomeLabel(n.payload.outcome);
