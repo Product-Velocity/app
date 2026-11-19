@@ -39,6 +39,12 @@ export type McpEpics = {
   request: (itemId: string, keys: string[]) => Promise<{ added: string[]; current: { key: string; state: string; last_error: string | null }[] }>;
 };
 
+/** Outcome metrics a person stated, recorded as the signed-in person (the database function of the Claude route: role, "never overwrite a recorded checkpoint" and the audit apply). Never requests metrics. */
+export type McpOutcomes = {
+  /** Records one checkpoint with the person's words. Throws ToolInputError with the database's reason (already recorded, no Start Roll-Out, role). */
+  record: (itemId: string, days: 30 | 60 | 90, v: { value: number | null; adoption: number | null; note: string | null; words: string }) => Promise<void>;
+};
+
 /** Documents, as the signed-in person: rows are written with the person's token, so the role check, row-level security, the version log and the audit apply. */
 export type McpDocuments = {
   /** Adds a document to an initiative. Throws ToolInputError when the role or the database refuses. */
@@ -72,4 +78,5 @@ export type McpWriter = {
   documents: McpDocuments;
   profile: McpProfile;
   epics: McpEpics;
+  outcomes: McpOutcomes;
 };

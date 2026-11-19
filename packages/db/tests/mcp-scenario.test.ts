@@ -5,7 +5,7 @@ import { handleMulti, type WorkspaceHandle } from "../../../apps/web/src/lib/mcp
 import { buildContext, type DocInfo } from "../../../apps/web/src/lib/mcp/read-model";
 import { handleRpc, TOOLS, type McpBackend } from "../../../apps/web/src/lib/mcp/rpc";
 import { ToolInputError } from "../../../apps/web/src/lib/mcp/tool-error";
-import type { ApplyResult, CurrentItem, McpDocuments, McpEpics, McpFiles, McpProfile, McpWriter, PendingChange, PendingRow, UndoResult } from "../../../apps/web/src/lib/mcp/write-model";
+import type { ApplyResult, CurrentItem, McpDocuments, McpEpics, McpFiles, McpOutcomes, McpProfile, McpWriter, PendingChange, PendingRow, UndoResult } from "../../../apps/web/src/lib/mcp/write-model";
 import { addMember, createTestDb, createUser, twoTenantFixture, type TestDb } from "./helpers";
 
 // The 2026-10-27 scenario of docs/20 section 2 and issue #182, replayed through the real tool code (handleRpc and the write tools)
@@ -109,9 +109,17 @@ function sqlWriter(user: string, tenant: string, client = CLIENT): McpWriter {
       } catch (e) { throw new ToolInputError(e instanceof Error ? e.message : "The epics could not be recorded."); }
     },
   };
+  const outcomes: McpOutcomes = {
+    async record(itemId, days, v) {
+      try {
+        await as(async (q) => { await q("select public.record_outcome_review_as_claude($1, $2, $3, $4, $5, $6)", [itemId, days, v.value, v.adoption, v.note, v.words]); });
+      } catch (e) { throw new ToolInputError(e instanceof Error ? e.message : "The metrics could not be recorded."); }
+    },
+  };
   return {
     files,
     epics,
+    outcomes,
     documents,
     profile,
     async context(role): Promise<WriteCtx> {

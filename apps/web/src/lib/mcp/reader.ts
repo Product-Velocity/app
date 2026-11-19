@@ -5,9 +5,9 @@ import { SupabaseDataSource } from "@/features/portfolio/supabase-source";
 import { addItemFile, removeItemFile, setFileSharing } from "@/lib/files/actions";
 import { shareUrl } from "@/lib/files/serve";
 import { supabaseFileStore, type FileStore } from "@/lib/files/store";
-import { buildContext, type CompanyProfileData, type DocInfo, type GatePackData, type FileInfo, type ItemDetail, type McpReader, type Member, type ViewInfo, type WorkspaceContext } from "./read-model";
+import { buildContext, type CompanyProfileData, type DocInfo, type GatePackData, type FileInfo, type ItemDetail, type McpReader, type Member, type OutcomeReviewInfo, type OutcomeReviewsInfo, type ViewInfo, type WorkspaceContext } from "./read-model";
 import { ToolInputError } from "./tool-error";
-import type { ApplyResult, McpDocuments, McpEpics, McpFiles, McpProfile, McpWriter, PendingRow, UndoResult } from "./write-model";
+import type { ApplyResult, McpDocuments, McpEpics, McpFiles, McpOutcomes, McpProfile, McpWriter, PendingRow, UndoResult } from "./write-model";
 
 const FILE_CAP = 200;
 /** The values in use of each open-list field (Focus Area, Audience): what Claude may reuse (issue #246). */
@@ -179,6 +179,29 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       };
     },
 
+    async outcomeReviews(ref): Promise<OutcomeReviewsInfo | null> {
+      const row = await findRow(ref);
+      if (!row) return null;
+      const [it, rv] = await Promise.all([
+        supabase.from("items").select("item_code, initiative_name, start_rollout, kr_metric, kr_unit").eq("tenant_id", tenant.id).eq("id", row.id).maybeSingle(),
+        supabase.from("outcome_reviews").select("at_days, due_on, requested_at, recorded_at, realised_kr_value, adoption_pct, notes, stated_words").eq("tenant_id", tenant.id).eq("item_id", row.id),
+      ]);
+      if (it.error || !it.data) return null;
+      if (rv.error) throw new ToolInputError("The outcome reviews could not be read.");
+      const i = it.data as { item_code: string; initiative_name: string; start_rollout: string | null; kr_metric: string | null; kr_unit: string | null };
+      const have = new Map(((rv.data ?? []) as { at_days: number; due_on: string; requested_at: string | null; recorded_at: string | null; realised_kr_value: string | number | null; adoption_pct: string | number | null; notes: string | null; stated_words: string | null }[]).map((r) => [r.at_days, r]));
+      const num = (v: string | number | null | undefined) => (v === null || v === undefined ? null : Number(v));
+      const reviews = ([30, 60, 90] as const).map((days): OutcomeReviewInfo => {
+        const r = have.get(days);
+        const due = r?.due_on ?? (i.start_rollout ? new Date(Date.parse(`${i.start_rollout.slice(0, 10)}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10) : null);
+        return {
+          at_days: days, due_on: due, state: r?.recorded_at ? "recorded" : r?.requested_at ? "requested" : "not_requested",
+          requested_at: r?.requested_at ?? null, recorded_at: r?.recorded_at ?? null, realised_kr_value: num(r?.realised_kr_value), adoption_pct: num(r?.adoption_pct), note: r?.notes ?? null, stated_words: r?.stated_words ?? null,
+        };
+      });
+      return { item: i.item_code, name: i.initiative_name, start_rollout: i.start_rollout, kr_metric: i.kr_metric, kr_unit: i.kr_unit, reviews };
+    },
+
     async documents(ref) {
       const row = await findRow(ref);
       if (!row) return null;
@@ -287,9 +310,16 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       return { added: (data ?? []) as string[], current };
     },
   };
+  const outcomes: McpOutcomes = {
+    async record(itemId, days, v) {
+      const { error } = await supabase.rpc("record_outcome_review_as_claude", { p_item: itemId, p_at_days: days, p_value: v.value, p_adoption: v.adoption, p_note: v.note, p_words: v.words });
+      if (error) throw new ToolInputError(error.message && !/^(PGRST|JWT)/.test(error.message) ? error.message : "The metrics could not be recorded.");
+    },
+  };
   const writer: McpWriter = {
     files,
     epics,
+    outcomes,
     documents,
     profile,
     async context(r) {

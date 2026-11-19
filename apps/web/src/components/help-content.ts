@@ -428,7 +428,7 @@ export const AGENT_TABS = [
 export type AgentTabId = (typeof AGENT_TABS)[number]["id"];
 
 export const AGENT_INTRO =
-  "An AI agent is an assistant you already use (Claude, ChatGPT or Gemini) connected to Product Velocity. It works as you, with your role, reads what you can read, and writes drafts you review. It never approves anything and never sets Stack Rank, Decision, Value or Confidence.";
+  "An AI agent is an assistant you already use (Claude, ChatGPT or Gemini) connected to Product Velocity. It works as you, with your role, reads what you can read, and writes drafts you review. It never approves anything and never sets Stack Rank, Decision, Value or Confidence. It can read the 30, 60 and 90 day outcome reviews and record numbers you give it, with your words kept.";
 
 export const AGENT_USE_CASES: Table = {
   head: ["Use-case", "What the agent does in the flow", "Say, for example", "Where it lands"],
@@ -438,6 +438,7 @@ export const AGENT_USE_CASES: Table = {
     ["Review", "Reads a document or initiative and reports: unclear acceptance criteria, missing risks, claims without evidence, a light roll-out plan, partner claims the partner does not support. It changes nothing.", "\"Review the PRD of R-12. Do not change anything yet.\"", "Only the chat, with the codes it looked at"],
     ["Prepare a gate", "Reads one initiative and gathers the case for a decision gate: the checklist (what is filled in, what is missing), its documents and their status, past requests and decisions, open conditions. It writes a short summary for the person who decides. It cannot request, decide or approve a gate, or move a phase.", "\"Use get_gate_pack for R-12 and summarise the case for gate B.\"", "In the chat only; a person decides in Decisions"],
     ["Link Jira epics", "Records the Jira epic keys that belong under an initiative (any Jira project). It writes nothing to Jira: the next Sync with Jira links the epics that have no parent without asking again, and shows any epic that would move from another parent for you to confirm.", "\"Put the epics R8P-1234 and DATA-56 under R-12.\"", "The initiative's Jira tab, then Sync with Jira"],
+    ["Record outcome metrics", "Reads the 30, 60 and 90 day outcome reviews of an initiative, and records a checkpoint only with numbers you stated: the realised value of the key result, the adoption % and a note, with your own words kept next to them. It never asks anyone for metrics (you do that in the app, and the Product Manager is notified), never estimates or invents a number, and cannot change a checkpoint that is already recorded.", "\"Record the 30 day metrics for R-12: 42 activations and 18% adoption.\"", "The Outcome reviews section of the initiative panel, with the audit entry"],
     ["Update", "Revises a document (a new version, the old one kept) or fills empty fields. Changes to fields a person already filled come back as a diff you confirm first. A second assistant can review what the first wrote.", "\"Update the PRD of R-12 with what we decided today. Show me the diff.\"", "A new document version, with the AI tool and model that wrote it. Undo with undo_last"],
   ],
 };

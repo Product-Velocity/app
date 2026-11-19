@@ -112,3 +112,58 @@ describe("isolation between workspaces", () => {
     expect(await errorCode(db.asUser(creator, (q) => q("update public.outcome_reviews set notes = 'direct' where item_id = $1", [id]), ui))).not.toBeNull();
   });
 });
+
+describe("record_outcome_review_as_claude (Ashu 2026-11-19: Claude records numbers a person stated)", () => {
+  const asClaude = (user: string, id: string, days: number, v: unknown, a: unknown, n: unknown, words: unknown, via = "MCP") =>
+    db.asUser(user, async (q) => (await q("select public.record_outcome_review_as_claude($1, $2, $3, $4, $5, $6) as id", [id, days, v, a, n, words])).rows[0].id as string, { commit: true, via });
+
+  it("records with the person's words kept on the row, as the signed-in person, audited as Claude (source MCP)", async () => {
+    const id = await newItem();
+    const rid = await asClaude(creator, id, 30, 42, 18, "From the dashboard", "Dana said: 42 activations, 18% adoption");
+    expect(await row(id, 30)).toMatchObject({ realised_kr_value: "42", adoption_pct: "18", notes: "From the dashboard", stated_words: "Dana said: 42 activations, 18% adoption", recorded_by: creator });
+    const a = (await db.admin.query("select actor_id, via from public.audit_log where entity = 'outcome_reviews' and entity_id = $1 order by id", [rid])).rows;
+    expect(a.length).toBeGreaterThan(0);
+    expect(a.every((x) => x.actor_id === creator && x.via === "MCP")).toBe(true);
+  });
+
+  it("is only the Claude route: the app refuses Claude, and this refuses the app", async () => {
+    const id = await newItem();
+    expect(await errorCode(record(creator, id, 30, 1, 1, "x"))).toBeNull(); // a person, in the app
+    expect(await errorCode(asClaude(creator, id, 60, 1, 1, null, "said so", "UI"))).toBe(PV004);
+    expect(await errorCode(db.asUser(creator, (q) => q("select public.record_outcome_review($1, 90, 1, 1, 'x')", [id]), { commit: true, via: "MCP" }))).toBe(PV004);
+  });
+
+  it("needs the person's words, something to record, and a valid percentage", async () => {
+    const id = await newItem();
+    expect(await errorCode(asClaude(creator, id, 30, 1, 1, null, "  "))).toBe(PV005);
+    expect(await errorCode(asClaude(creator, id, 30, null, null, " ", "said so"))).toBe(PV005);
+    expect(await errorCode(asClaude(creator, id, 30, 1, 120, null, "said so"))).toBe(PV005);
+    expect(await errorCode(asClaude(creator, id, 45, 1, 1, null, "said so"))).toBe(PV005);
+  });
+
+  it("never overwrites a checkpoint that is already recorded, by a person or by Claude", async () => {
+    const id = await newItem();
+    await record(creator, id, 30, 5, 5, "typed by a person");
+    expect(await errorCode(asClaude(creator, id, 30, 99, 99, null, "said so"))).toBe(PV006);
+    expect((await row(id, 30)).realised_kr_value).toBe("5");
+    await asClaude(creator, id, 60, 7, null, null, "said so");
+    expect(await errorCode(asClaude(creator, id, 60, 8, null, null, "said so again"))).toBe(PV006);
+  });
+
+  it("a Creator or Admin only: not a viewer, a service account or another workspace; it can fill a checkpoint that was only requested", async () => {
+    const id = await newItem();
+    expect(await errorCode(asClaude(viewer, id, 30, 1, 1, null, "said so"))).toBe(DENIED);
+    expect(await errorCode(asClaude(bot, id, 30, 1, 1, null, "said so"))).toBe(DENIED);
+    expect(await errorCode(asClaude(f.bob, id, 30, 1, 1, null, "said so"))).toBe(DENIED);
+    await ask(creator, id, 90);
+    await asClaude(creator, id, 90, 3, null, null, "said so");
+    expect(await row(id, 90)).toMatchObject({ requested_by: creator, stated_words: "said so" });
+  });
+
+  it("a person saving in the app clears the words Claude was given", async () => {
+    const id = await newItem();
+    await asClaude(creator, id, 30, 1, 1, null, "said so");
+    await record(creator, id, 30, 2, 2, "corrected by a person");
+    expect(await row(id, 30)).toMatchObject({ realised_kr_value: "2", stated_words: null });
+  });
+});
