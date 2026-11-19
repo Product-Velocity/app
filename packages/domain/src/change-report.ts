@@ -384,6 +384,18 @@ function moreFlags(rows: readonly Record<string, unknown>[], today: Date): Map<s
   return out;
 }
 
+/**
+ * The fields a flag is about: what the item panel offers to fill in at the top when the initiative carries that flag. Only fields a person can edit are shown there
+ * (Initiative Phase is not one: it moves through the gate buttons). A flag with no entry has nothing to type, only an action.
+ */
+export const FLAG_FIELDS: Readonly<Record<string, readonly string[]>> = {
+  "tracker-done-open": ["initiative_status"],
+  "no-health": ["health"],
+  "delivery-risk": ["health", "g2m_date_est"],
+  "no-owner": ["sponsor"],
+  "no-kr": ["kr_metric", "kr_unit", "kr_direction", "kr_start", "kr_target"],
+};
+
 // ------------------------------------------------------------------ doing something about a flag
 /** The gate whose decision opens a phase: the last gate that opens that phase or an earlier one (Test: Gate B, which opens Build; the approver picks Test as a fast-lane target). */
 export function gateForTarget(to: Phase): GateId | null {
