@@ -306,13 +306,14 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     const flag = flagsOfRow(row, controller.todayDate()).find((f) => f.kind === flagKind);
     if (!flag?.action) return;
     const a = resolveFlagAction(flag.action, row.initiative_phase, openGateOf(row));
-    if (a.kind === "requested") return; // a link to the Decisions page, not a button
+    if (a.kind === "requested" || a.kind === "decisions") return; // links to the Decisions page, not buttons
+    if (a.kind === "open") { openPeek(itemId); return; }
     if (a.kind === "gate") { setGateFor({ id: itemId, gate: a.gate }); return; }
     setFlagBusy(`${itemId}:${flagKind}`);
     const r = await gates.move(itemId, a.to);
     setFlagBusy(null);
     if (r.ok) { controller.notify(`${row.item_code} moved to ${a.to}.`); void controller.refreshFromServer(); } else controller.notify(`${row.item_code} was not moved: ${r.error}`);
-  }, [controller, gates]);
+  }, [controller, gates, openPeek]);
   const gridContext = useMemo<GridContext & Record<string, unknown>>(() => ({ toggleGroup, issueInfo, runFlagAction: (id: string, kind: string) => { void runFlagAction(id, kind); }, flagBusy }), [toggleGroup, issueInfo, runFlagAction, flagBusy]);
   useEffect(() => { apiRef.current?.refreshCells({ columns: ["actions", "flags"], force: true }); }, [flagBusy]);
   // the chips are drawn by the cells, which do not see a change of context by themselves
