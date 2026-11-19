@@ -1397,7 +1397,7 @@ a.btn.btn-primary { color: #fff; }
 .chg-act-gate { background: #fff; color: var(--blue-text); border-color: #9db8ee; }
 .chg-act-gate:hover:not(:disabled) { background: var(--blue-tint-2); color: var(--blue-text); border-color: var(--blue-text); }
 .chg-act-requested { background: var(--blue-tint-2); color: var(--blue-text); border-color: transparent; text-decoration: none; }
-.chg-act-requested:hover { border-color: var(--blue-text); }
+.chg-act-requested:hover:not(:disabled) { background: var(--blue-tint-2); color: var(--blue-text); border-color: var(--blue-text); } /* beats .chg-act:hover, which would paint the same blue behind the text */
 .chg-act-arrow { font-size: 13px; line-height: 1; }
 .pvbar-updated { font-size: 12px; margin-left: 4px; white-space: nowrap; }
 
