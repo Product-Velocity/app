@@ -443,7 +443,7 @@ for(let i=0;i<170;i++){
   const t={t0};t.tAreq=t0+Math.round(disc);t.tA=t.tAreq+Math.round(waitA);t.tBreq=t.tA+Math.round(def);t.tB=t.tBreq+Math.round(waitB);
   t.tBuild=t.tB+Math.round(queue);t.tTest=t.tBuild+Math.round(build);t.tExp=t.tTest+Math.round(test);t.tCreq=t.tExp+Math.round(exp);
   t.tC=t.tCreq+Math.round(waitC);t.tRoll=t.tC+launch;
-  ITEMS.push({st:(t.tRoll<=TODAY)?((t.tRoll+60<=TODAY&&i%5!==0)?'Completed':'Active'):(i%11===3?'On hold':i%17===5?'Cancelled':'Active'),fa:FOCUS[(i*3+Object.keys(BL).indexOf(bl))%5],grp:GROUPS[(i*7+Object.keys(OBJ).indexOf(obj))%4],id:'R-'+String(i+101),name:NAMES[i%NAMES.length]+(i>=NAMES.length?` (${['phase 2','EU','mobile','v2','pilot'][Math.floor(i/NAMES.length)%5]})`:''),team,size:SIZES[si],obj,kr:kr[0],bl,t,skip,out:{A:outcome(),B:outcome(),C:outcome()}});
+  ITEMS.push({pq:quarterOf(t.tRoll+((i*7)%61-25)),st:(t.tRoll<=TODAY)?((t.tRoll+60<=TODAY&&i%5!==0)?'Completed':'Active'):(i%11===3?'On hold':i%17===5?'Cancelled':'Active'),fa:FOCUS[(i*3+Object.keys(BL).indexOf(bl))%5],grp:GROUPS[(i*7+Object.keys(OBJ).indexOf(obj))%4],id:'R-'+String(i+101),name:NAMES[i%NAMES.length]+(i>=NAMES.length?` (${['phase 2','EU','mobile','v2','pilot'][Math.floor(i/NAMES.length)%5]})`:''),team,size:SIZES[si],obj,kr:kr[0],bl,t,skip,out:{A:outcome(),B:outcome(),C:outcome()}});
 }
 const STAGES=[
  {k:'disc',label:'Discover',kind:'work',col:'--c-disc',a:'t0',b:'tAreq'},
@@ -465,7 +465,7 @@ const MEASURES={
  gateC:{label:'To Gate C',start:'t0',end:'tC',prev:'tB',desc:'Start Discovery to the Gate C decision.',stretch:'Gate B decided to Gate C decided.'},
  build:{label:'Build',start:'tBuild',end:'tTest',prev:null,desc:'Start Building to Start Test (development time).'}};
 const DIMS={team:{label:'Team',get:i=>i.team},kr:{label:'Key Result',get:i=>i.kr},obj:{label:'Objective',get:i=>i.obj},bl:{label:'Business line',get:i=>i.bl},grp:{label:'Initiative Group',get:i=>i.grp},fa:{label:'Focus Area',get:i=>i.fa}};
-const FILTERS=[['team','Team',i=>i.team],['effort','Effort',i=>i.size],['obj','Objective',i=>i.obj],['kr','Key Result',i=>i.kr],['bl','Business Line',i=>i.bl],['grp','Initiative Group',i=>i.grp],['fa','Focus Area',i=>i.fa],['st','Initiative Status',i=>i.st],['q','Finished in',null]];
+const FILTERS=[['team','Team',i=>i.team],['effort','Effort',i=>i.size],['obj','Objective',i=>i.obj],['kr','Key Result',i=>i.kr],['bl','Business Line',i=>i.bl],['grp','Initiative Group',i=>i.grp],['fa','Focus Area',i=>i.fa],['st','Initiative Status',i=>i.st],['q','Planned Quarter',i=>i.pq]];
 const state={sort:'slowest',measure:'total',stretch:false,unit:'weeks',dim:'team',f:{team:new Set(),effort:new Set(),obj:new Set(),kr:new Set(),bl:new Set(),grp:new Set(),fa:new Set(),st:new Set(),q:new Set()}};
 
 /* ---------- helpers ---------- */
@@ -490,7 +490,7 @@ const tbl=(cap,head,rows)=>`<details class="tbl"><summary>Show as table</summary
 /* ---------- the view: filters then measure ---------- */
 function valueOf(it){const m=MEASURES[state.measure];const end=it.t[m.end];if(end>TODAY)return null;let start=it.t[m.start];if(state.stretch&&m.prev)start=it.t[m.prev];return end-start}
 function windowOf(it){const m=MEASURES[state.measure];return[state.stretch&&m.prev?it.t[m.prev]:it.t[m.start],it.t[m.end]]}
-const passes=(it,skipQ)=>FILTERS.every(([k,,fn])=>{const s=state.f[k];if(!s.size)return true;if(k==='q'){if(skipQ)return true;const e=it.t[MEASURES[state.measure].end];return e<=TODAY&&s.has(quarterOf(e))}return s.has(fn(it))});
+const passes=(it)=>FILTERS.every(([k,,fn])=>{const s=state.f[k];return !s.size||s.has(fn(it))});
 function getView(){
   const all=ITEMS.filter(i=>passes(i,true));
   const inScope=ITEMS.filter(i=>passes(i,false));
@@ -506,7 +506,7 @@ const clipStage=(it,[a,b],s)=>Math.max(0,Math.min(it.t[s.b],b)-Math.max(it.t[s.a
 function renderFilters(v){
   const host=$('#filters');const open=[...host.querySelectorAll('details[open]')].map(d=>d.dataset.k);
   host.innerHTML=FILTERS.map(([k,label,fn])=>{
-    const opts=k==='q'?v.qs:[...new Set(ITEMS.map(fn))].sort((a,b)=>k==='effort'?SIZES.indexOf(a)-SIZES.indexOf(b):k==='st'?STATUS_ORDER.indexOf(a)-STATUS_ORDER.indexOf(b):a.localeCompare(b));
+    const opts=[...new Set(ITEMS.map(fn))].sort((a,b)=>k==='q'?qKey(a)-qKey(b):k==='effort'?SIZES.indexOf(a)-SIZES.indexOf(b):k==='st'?STATUS_ORDER.indexOf(a)-STATUS_ORDER.indexOf(b):a.localeCompare(b));
     const n=state.f[k].size;
     return `<details class="pop${n?' act':''}" data-k="${k}"${open.includes(k)?' open':''}><summary>${label}${n?`<span class="badge" aria-label="${n} selected">${n}</span>`:''}</summary><div class="pop-body" role="group" aria-label="${label}">${opts.map(o=>`<label><input type="checkbox" data-f="${k}" value="${esc(o)}"${state.f[k].has(o)?' checked':''}>${esc(o)}</label>`).join('')}${n?`<button class="link" data-clear="${k}" type="button">Clear ${label}</button>`:''}</div></details>`}).join('')+
   `<label class="tgl"><input type="checkbox" disabled>Include archived</label><button class="tool-btn" type="button" id="reset"${FILTERS.some(([k])=>state.f[k].size)?'':' disabled'}>Reset filters</button><span class="rp-extra"><button class="tool-btn" type="button" disabled title="Prototype">Export CSV (${v.rows.length})</button><button class="tool-btn" type="button" disabled title="Prototype">PDF summary (later)</button></span>`;
@@ -729,7 +729,7 @@ function render(){
 document.addEventListener('click',e=>{
   const t=e.target.closest('button,input');
   if(!t){document.querySelectorAll('.pop[open]').forEach(d=>{if(!d.contains(e.target))d.open=false});return}
-  if(t.dataset.m){state.measure=t.dataset.m;if(!MEASURES[state.measure].prev)state.stretch=false;state.f.q.clear();render()}
+  if(t.dataset.m){state.measure=t.dataset.m;if(!MEASURES[state.measure].prev)state.stretch=false;render()}
   else if(t.dataset.s!==undefined){state.stretch=t.dataset.s==='1';render()}
   else if(t.dataset.u){state.unit=t.dataset.u;render()}
   else if(t.dataset.d){state.dim=t.dataset.d;render()}
