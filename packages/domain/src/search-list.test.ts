@@ -47,9 +47,9 @@ describe("needsSearch", () => {
 });
 
 describe("field lists", () => {
-  it("the 179 fields can be searched by name, key and import alias", () => {
+  it("the 177 fields can be searched by name, key and import alias", () => {
     const o = fieldOptions(FIELDS);
-    expect(o).toHaveLength(179);
+    expect(o).toHaveLength(177);
     expect(filterOptions(o, "owner").some((x) => x.value === "sponsor")).toBe(true); // "owner" finds Business Owner
     expect(filterOptions(o, "tshirt").some((x) => x.value === "effort")).toBe(true);
     expect(filterOptions(o, "g2m_date_est").some((x) => x.value === "g2m_date_est")).toBe(true);

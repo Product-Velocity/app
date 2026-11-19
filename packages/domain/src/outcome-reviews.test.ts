@@ -85,22 +85,22 @@ describe("the Outcome reviews columns", () => {
 
   it("are empty for an initiative that has not reached Roll-out, has no Start Roll-Out, or is Cancelled", () => {
     for (const o of [{ initiative_phase: "Build" }, { start_rollout: null }, { initiative_status: "Cancelled" }]) {
-      expect(outcomeColumns(row(o), [])).toEqual({ outcome_next_review: null, outcome_reviews_recorded: null, outcome_latest_value: null, outcome_latest_adoption: null, outcome_kr_progress: null });
+      expect(outcomeColumns(row(o), [])).toEqual({ outcome_review_date: null, outcome_reviews_recorded: null, realized_kr_value: null, kr_realized_pct: null, outcome_latest_adoption: null, outcome_kr_progress: null });
     }
   });
 
   it("with nothing recorded: the first checkpoint is next and 0 of 3 are recorded", () => {
-    expect(outcomeColumns(base, [])).toMatchObject({ outcome_next_review: "2026-08-31", outcome_reviews_recorded: "0 of 3", outcome_latest_value: null, outcome_kr_progress: null });
+    expect(outcomeColumns(base, [])).toMatchObject({ outcome_review_date: "2026-08-31", outcome_reviews_recorded: "0 of 3", realized_kr_value: null, outcome_kr_progress: null });
   });
 
   it("the next review is the earliest checkpoint nobody recorded; a requested one is still next", () => {
-    expect(outcomeColumns(base, [rr(30), rev(60, { requested_at: "2026-10-01T00:00:00Z" })])).toMatchObject({ outcome_next_review: "2026-09-30", outcome_reviews_recorded: "1 of 3" });
-    expect(outcomeColumns(base, [rr(30), rr(60), rr(90)])).toMatchObject({ outcome_next_review: null, outcome_reviews_recorded: "3 of 3" });
+    expect(outcomeColumns(base, [rr(30), rev(60, { requested_at: "2026-10-01T00:00:00Z" })])).toMatchObject({ outcome_review_date: "2026-09-30", outcome_reviews_recorded: "1 of 3" });
+    expect(outcomeColumns(base, [rr(30), rr(60), rr(90)])).toMatchObject({ outcome_review_date: null, outcome_reviews_recorded: "3 of 3" });
   });
 
   it("the latest value and adoption come from the latest recorded checkpoint that has them (numbers may arrive as text)", () => {
     const c = outcomeColumns(base, [rr(30, { realised_kr_value: "40", adoption_pct: "12.5" }), rr(60, { realised_kr_value: "70", adoption_pct: null })]);
-    expect(c).toMatchObject({ outcome_latest_value: 70, outcome_latest_adoption: 12.5 });
+    expect(c).toMatchObject({ realized_kr_value: 70, outcome_latest_adoption: 12.5 });
   });
 
   it("KR progress is (value - start) / (target - start) in percent, and empty when it cannot be worked out", () => {
@@ -110,8 +110,18 @@ describe("the Outcome reviews columns", () => {
     expect(outcomeColumns(row({ start_rollout: "2026-08-01" }), [rr(30, { realised_kr_value: 7 })]).outcome_kr_progress).toBeNull();
   });
 
-  it("the five keys exist in the dictionary as read-only computed fields in the Outcomes view", async () => {
+  it("% Realized KR Value is the value over the target (the dictionary's own definition), and empty without a target or with a target of 0", () => {
+    expect(outcomeColumns(base, [rr(30, { realised_kr_value: 55 })]).kr_realized_pct).toBe(50); // 55 of 110
+    expect(outcomeColumns(row({ start_rollout: "2026-08-01", kr_start: 10, kr_target: 0 }), [rr(30, { realised_kr_value: 5 })]).kr_realized_pct).toBeNull();
+    expect(outcomeColumns(row({ start_rollout: "2026-08-01" }), [rr(30, { realised_kr_value: 5 })]).kr_realized_pct).toBeNull();
+  });
+
+  it("the six keys are read-only computed fields in the dictionary: three of the dictionary's own outcome fields, now live, and two in the Outcome reviews group", async () => {
     const { FIELD_BY_KEY } = await import("./index");
-    for (const k of OUTCOME_COLUMN_KEYS) expect(FIELD_BY_KEY[k], k).toMatchObject({ mode: "computed", group: "Outcome reviews", phase: 1 });
+    for (const k of OUTCOME_COLUMN_KEYS) expect(FIELD_BY_KEY[k], k).toMatchObject({ mode: "computed", phase: 1 });
+    for (const k of ["outcome_reviews_recorded", "outcome_latest_adoption", "outcome_kr_progress"]) expect(FIELD_BY_KEY[k]!.group, k).toBe("Outcome reviews");
+    for (const k of ["outcome_review_date", "realized_kr_value", "kr_realized_pct"]) expect(FIELD_BY_KEY[k]!.group, k).toBe("Outcomes");
+    expect(FIELD_BY_KEY.outcome_next_review).toBeUndefined(); // retired: it was Outcome Review Date
+    expect(FIELD_BY_KEY.outcome_latest_value).toBeUndefined(); // retired: it was Realized KR Value
   });
 });

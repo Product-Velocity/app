@@ -211,7 +211,7 @@
    "Bug",
    "Tech debt"
   ],
-  "allowedText": "Feature \u00b7 Improvement \u00b7 Bug \u00b7 Tech debt",
+  "allowedText": "Feature · Improvement · Bug · Tech debt",
   "origin": "Input",
   "githubSync": null,
   "filledWhen": "After interviews",
@@ -1314,28 +1314,28 @@
  },
  {
   "n": "67",
-  "storage": "Column on items",
-  "phase": 7,
+  "storage": "Derived in the app from the outcome reviews (not stored)",
+  "phase": 1,
   "name": "Realized KR Value",
   "key": "realized_kr_value",
   "group": "Outcomes",
   "type": "Number",
-  "editing": "Editable",
+  "editing": "Computed (read-only)",
   "customerSafe": false,
   "views": [
    "Outcomes"
   ],
   "allowed": [],
   "allowedText": null,
-  "origin": "Input",
+  "origin": "Computed",
   "githubSync": null,
-  "filledWhen": "After launch",
-  "description": "Measured value of the primary KR"
+  "filledWhen": "When an outcome review with a value is recorded",
+  "description": "Measured value of the Primary KR: the value from the latest recorded 30, 60 or 90 day outcome review that has one, in the key result's own unit."
  },
  {
   "n": "68",
   "storage": "Computed (view or function, not stored)",
-  "phase": 7,
+  "phase": 1,
   "name": "% Realized KR Value",
   "key": "kr_realized_pct",
   "group": "Outcomes",
@@ -1349,8 +1349,8 @@
   "allowedText": null,
   "origin": "Computed",
   "githubSync": null,
-  "filledWhen": "Automatic",
-  "description": "Realized value as a share of target (formula)"
+  "filledWhen": "When the target and a realised value are set",
+  "description": "The realised value as a share of the KR target, in percent (realised divided by target). Empty when there is no target, the target is 0, or no review has a value."
  },
  {
   "n": "69",
@@ -3452,13 +3452,13 @@
  },
  {
   "n": "V34",
-  "storage": "Column on items",
-  "phase": 7,
+  "storage": "Derived in the app from the outcome reviews (not stored)",
+  "phase": 1,
   "name": "Outcome Review Date",
   "key": "outcome_review_date",
   "group": "Outcomes",
   "type": "Date",
-  "editing": "Editable",
+  "editing": "Computed (read-only)",
   "customerSafe": false,
   "views": [
    "Outcomes"
@@ -3467,8 +3467,8 @@
   "allowedText": null,
   "origin": "Computed",
   "githubSync": "Not synced.",
-  "filledWhen": "After launch",
-  "description": "Date of the next outcome review."
+  "filledWhen": "In Roll-out or Completed with a Start Roll-Out",
+  "description": "Date of the next outcome review: the earliest of the 30, 60 and 90 day reviews (counted from Start Roll-Out) that nobody has recorded. Empty when all three are recorded."
  },
  {
   "n": "V35",
@@ -3748,27 +3748,7 @@
   "description": "The one-click next step for each flag, as buttons: move the phase when no gate is passed, otherwise open the gate request. Shown to people who can edit; viewers see the flags only. Claude never approves a gate."
  },
  {
-  "n": "N52",
-  "storage": "Derived in the app from the outcome reviews (not stored)",
-  "phase": 1,
-  "name": "Next Outcome Review",
-  "key": "outcome_next_review",
-  "group": "Outcome reviews",
-  "type": "Computed",
-  "editing": "Computed (read-only)",
-  "customerSafe": false,
-  "views": [
-   "Outcomes"
-  ],
-  "allowed": [],
-  "allowedText": null,
-  "origin": "Computed",
-  "githubSync": "Not synced: worked out in the app from the outcome reviews, read-only.",
-  "filledWhen": "When the initiative is in Roll-out or Completed and has a Start Roll-Out",
-  "description": "The date of the next 30, 60 or 90 day review nobody has recorded yet (30, 60 or 90 days after Start Roll-Out). Empty when all three are recorded or the initiative has not reached Roll-out."
- },
- {
-  "n": "N53",
+  "n": "N54",
   "storage": "Derived in the app from the outcome reviews (not stored)",
   "phase": 1,
   "name": "Outcome Reviews Recorded",
@@ -3786,26 +3766,6 @@
   "githubSync": "Not synced: worked out in the app from the outcome reviews, read-only.",
   "filledWhen": "When the initiative is in Roll-out or Completed and has a Start Roll-Out",
   "description": "How many of the three outcome reviews (30, 60 and 90 days) are recorded, for example 2 of 3."
- },
- {
-  "n": "N54",
-  "storage": "Derived in the app from the outcome reviews (not stored)",
-  "phase": 1,
-  "name": "Latest Realised KR Value",
-  "key": "outcome_latest_value",
-  "group": "Outcome reviews",
-  "type": "Computed",
-  "editing": "Computed (read-only)",
-  "customerSafe": false,
-  "views": [
-   "Outcomes"
-  ],
-  "allowed": [],
-  "allowedText": null,
-  "origin": "Computed",
-  "githubSync": "Not synced: worked out in the app from the outcome reviews, read-only.",
-  "filledWhen": "When an outcome review with a value is recorded",
-  "description": "The realised value of the Primary KR from the latest recorded outcome review that has one, in the key result's own unit."
  },
  {
   "n": "N55",

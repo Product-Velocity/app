@@ -97,3 +97,29 @@ describe("record_outcome_review (numbers a person stated)", () => {
     expect((t.inputSchema as { required: string[] }).required).toContain("stated_by");
   });
 });
+
+describe("draft_outcome_request (text only)", () => {
+  it("drafts the request for the earliest checkpoint nobody recorded, from the initiative's own data, and says nothing was sent", async () => {
+    const r = await setup().call("draft_outcome_request", { item: "r-01" });
+    expect(r.data).toMatchObject({ status: "draft", item: "R-01", at_days: 60, due_on: "2026-12-19", state: "not_requested" });
+    expect(r.data.draft.subject).toBe("R-01 Faster onboarding: 60 day outcome metrics");
+    expect(r.data.draft.body).toMatch(/realised value of Activation \(%\)/);
+    expect(JSON.stringify(r.data.notes)).toMatch(/Nothing was sent and nobody was notified/);
+  });
+  it("takes a chosen checkpoint, and refuses a recorded one, a bad one, no Start Roll-Out and an unknown initiative", async () => {
+    const s = setup();
+    expect((await s.call("draft_outcome_request", { item: "R-01", at_days: 90 })).data.at_days).toBe(90);
+    expect((await s.call("draft_outcome_request", { item: "R-01", at_days: 30 })).text).toMatch(/already recorded/);
+    expect((await s.call("draft_outcome_request", { item: "R-01", at_days: 45 })).isError).toBe(true);
+    expect((await s.call("draft_outcome_request", { item: "R-99" })).text).toMatch(/No initiative/);
+    expect((await setup({ noRollout: true }).call("draft_outcome_request", { item: "R-01" })).text).toMatch(/no Start Roll-Out/);
+  });
+  it("is a read tool that writes nothing", async () => {
+    const t = TOOLS.find((x) => x.name === "draft_outcome_request")!;
+    expect(t.mode).toBe("read");
+    expect((t.annotations as { readOnlyHint: boolean }).readOnlyHint).toBe(true);
+    const s = setup();
+    await s.call("draft_outcome_request", { item: "R-01" });
+    expect(s.outcomes.record).not.toHaveBeenCalled();
+  });
+});

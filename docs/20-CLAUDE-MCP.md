@@ -82,6 +82,7 @@ A customer connects Claude (claude.ai, the desktop app or Claude Code) to their 
 - Claude may take screenshots of its own artifacts or pages and upload them; it never fetches arbitrary URLs on the server's behalf.
 
 - `get_outcome_reviews` (read) and `record_outcome_review` (write, additive; Ashu, chat 2026-11-19, `docs/decisions/2026-11-19-outcome-reviews-claude-and-columns.md`): the 30, 60 and 90 day outcome reviews after Roll-out. Claude reads the three checkpoints, and records one only with numbers **the person stated** (the realised value of the Primary KR, the adoption %, a note), with the person's own words in `stated_by`, kept on the record (`outcome_reviews.stated_words`). It never asks anyone for metrics (that sends a notification, a person does it in the app), never estimates or invents a number, and never overwrites a recorded checkpoint (`PV006`). Database function `record_outcome_review_as_claude`: only through the Claude route (`PV004` otherwise; the app's own function refuses Claude), as an active Creator or Admin, audited with the AI name and model. A person editing the checkpoint in the app clears the words.
+- `draft_outcome_request` (read; Ashu, chat 2026-11-19, `docs/decisions/2026-11-19-outcome-fields-and-draft.md`): returns a draft message asking for the 30, 60 or 90 day metrics (which review, when it is due, the key result and unit, what to include), built only from the initiative's own data. Text only: it sends nothing, notifies nobody and records nothing; a person presses Request metrics in the app. It refuses a recorded checkpoint and an initiative with no Start Roll-Out.
 
 ### FR-6 GitHub
 - `preview_github_push` (read-only): exactly what the "Update GitHub" preview shows: title, body sections, labels, issue type match (and **why there is none**), milestone (and why none, for example "G2M Date (est) is empty"), Files section (and why it is skipped for a public repo), fields skipped by the allowlist.
@@ -107,7 +108,7 @@ A customer connects Claude (claude.ai, the desktop app or Claude Code) to their 
 | Tool | Mode | Roles |
 |---|---|---|
 | `get_workspace_context`, `describe_fields` | read | all |
-| `search_items`, `get_item`, `get_gate_pack`, `list_groups`, `list_views`, `list_files`, `get_github_status`, `get_outcome_reviews` | read | all |
+| `search_items`, `get_item`, `get_gate_pack`, `list_groups`, `list_views`, `list_files`, `get_github_status`, `get_outcome_reviews`, `draft_outcome_request` | read | all |
 | `create_items` (+ dry run) | write, flagged AI draft | creator, admin |
 | `add_link`, `add_file`, `request_jira_epics`, `record_outcome_review` (only numbers a person stated, with their words) | write (additive) | creator, admin |
 | `set_relations`, `set_file_sharing`, `update_document`, `apply_prd_extract`, `update_company_profile`, `remove_link`, `remove_file` | write, annotated `destructiveHint: true` (they replace, remove or publish something), so Claude asks for confirmation | creator, admin |

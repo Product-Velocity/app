@@ -13,12 +13,13 @@ test.describe("the Outcome reviews columns", () => {
   test("the Outcomes view shows them with full names, filled from the reviews", async ({ page }) => {
     await open(page);
     const heads = await page.locator(".ag-header-cell").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()));
-    for (const name of ["Next Outcome Review", "Outcome Reviews Recorded", "Latest Realised KR Value", "Latest Adoption %", "KR Progress (latest review)"]) expect(heads).toContain(name);
+    for (const name of ["Outcome Review Date", "Outcome Reviews Recorded", "Realized KR Value", "% Realized KR Value", "Latest Adoption %", "KR Progress (latest review)"]) expect(heads).toContain(name);
     const id = await lastId(page);
-    await expect(await cell(page, id, "outcome_next_review")).toHaveText("2026-09-30");
+    await expect(await cell(page, id, "outcome_review_date")).toHaveText(/30 Sep 2026|2026-09-30/); // the date follows the grid's date format
     await expect(await cell(page, id, "outcome_reviews_recorded")).toHaveText("1 of 3");
-    await expect(await cell(page, id, "outcome_latest_value")).toHaveText("60");
+    await expect(await cell(page, id, "realized_kr_value")).toHaveText("60");
     await expect(await cell(page, id, "outcome_latest_adoption")).toHaveText("18");
+    await expect(await cell(page, id, "kr_realized_pct")).toHaveText("54.5%"); // 60 of the target 110
     await expect(await cell(page, id, "outcome_kr_progress")).toHaveText("50");
   });
 
@@ -27,7 +28,7 @@ test.describe("the Outcome reviews columns", () => {
     const first = await page.evaluate(() => (window as unknown as { __pv: { controller: { rows: { id: string }[] } } }).__pv.controller.rows[0]!.id);
     await expect(await cell(page, first, "outcome_reviews_recorded")).toHaveText("");
     const id = await lastId(page);
-    await (await cell(page, id, "outcome_latest_value")).dblclick();
+    await (await cell(page, id, "realized_kr_value")).dblclick();
     await expect(page.locator(".ag-cell-inline-editing")).toHaveCount(0);
   });
 });

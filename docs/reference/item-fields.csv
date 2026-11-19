@@ -60,8 +60,8 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 64,Go-to-market,Roll-out %,rollout_pct,Select,0% · 25% · 50% · 75% · 100%,Input,Keep,,Column on items,7
 65,Go-to-market,% Adoption (live / target customers),adoption_pct,Computed,,Computed,Modify,,"Computed (view or function, not stored)",7
 66,Go-to-market,GTM / Enablement Notes,gtm_enablement_notes,Text,,Input,Keep,,Column on items,1
-67,Outcomes,Realized KR Value,realized_kr_value,Number,,Input,Keep,,Column on items,7
-68,Outcomes,% Realized KR Value,kr_realized_pct,Computed,,Computed,Fix,,"Computed (view or function, not stored)",7
+67,Outcomes,Realized KR Value,realized_kr_value,Number,,Computed,Modify,,"Derived in the app from the outcome reviews (not stored)",1
+68,Outcomes,% Realized KR Value,kr_realized_pct,Computed,,Computed,Fix,,"Computed (view or function, not stored)",1
 69,Outcomes,Realized EUR per year,realized_per_year,Currency,,Input,Modify,,Column on items,7
 70,Outcomes,Measured Period,measured_period,Date range,,Input,Modify,,Column on items,7
 71,Outcomes,Outcome Verdict,outcome_verdict,Select,Hit · Partial · Miss · Too early,Input,Modify,,Column on items,7
@@ -159,7 +159,7 @@ V30,Alignment,What State,align_what,Select,Not started · In review · Aligned �
 V31,Alignment,How State,align_how,Select,Not started · In review · Aligned · Contested · Overdue,Input,New (v4),Not synced.,Column on items,8
 V32,Alignment,When State,align_when,Select,Not started · In review · Aligned · Contested · Overdue,Input,New (v4),Not synced.,Column on items,8
 V33,Outcomes,Outcome Status,outcome_status,Select,Not yet due · On target · Behind · Missed · Exceeded,Input,New (v4),Not synced.,Column on items,7
-V34,Outcomes,Outcome Review Date,outcome_review_date,Date,,Computed,New (v4),Not synced.,Column on items,7
+V34,Outcomes,Outcome Review Date,outcome_review_date,Date,,Computed,New (v4),Not synced.,"Derived in the app from the outcome reviews (not stored)",1
 V35,Outcomes,Value vs Prediction (%),value_variance_pct,Computed,,Computed,New (v4),Not synced.,"Computed (view or function, not stored)",7
 V36,Outcomes,Time to First Use (days),time_to_first_use_days,Computed,,Computed,New (v4),Not synced.,"Computed (view or function, not stored)",7
 V37,Outcomes,Retention (%),retention_pct,Number,,Input,New (v4),Not synced.,Column on items,7
@@ -173,8 +173,6 @@ N48,Delivery,Tracker Ownership,tracker_ownership,Computed,Product Velocity · Tr
 N49,Delivery,Tracker Status,tracker_status,Select,,Computed,New,"Not synced: shown from the tracker link, read-only.",Derived in the app from the tracker link (not stored),1
 N50,Flags & actions,Flags,flags,Computed,,Computed,New,"Not synced: worked out in the app, read-only.",Derived in the app from the item and its tracker link (not stored),1
 N51,Flags & actions,Actions,actions,Computed,,Computed,New,"Not synced: worked out in the app, clicking acts as the signed-in person.",Derived in the app from the item and its tracker link (not stored),1
-N52,Outcome reviews,Next Outcome Review,outcome_next_review,Computed,,Computed,New,"Not synced: worked out in the app from the outcome reviews, read-only.",Derived in the app from the outcome reviews (not stored),1
-N53,Outcome reviews,Outcome Reviews Recorded,outcome_reviews_recorded,Computed,,Computed,New,"Not synced: worked out in the app from the outcome reviews, read-only.",Derived in the app from the outcome reviews (not stored),1
-N54,Outcome reviews,Latest Realised KR Value,outcome_latest_value,Computed,,Computed,New,"Not synced: worked out in the app from the outcome reviews, read-only.",Derived in the app from the outcome reviews (not stored),1
+N54,Outcome reviews,Outcome Reviews Recorded,outcome_reviews_recorded,Computed,,Computed,New,"Not synced: worked out in the app from the outcome reviews, read-only.",Derived in the app from the outcome reviews (not stored),1
 N55,Outcome reviews,Latest Adoption %,outcome_latest_adoption,Computed,,Computed,New,"Not synced: worked out in the app from the outcome reviews, read-only.",Derived in the app from the outcome reviews (not stored),1
 N56,Outcome reviews,KR Progress (latest review),outcome_kr_progress,Computed,,Computed,New,"Not synced: worked out in the app from the outcome reviews, read-only.",Derived in the app from the outcome reviews (not stored),1
