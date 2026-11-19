@@ -1,0 +1,723 @@
+<title>Velocity report</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* Layout: the app frame (top bar, Reports page head with report chips, shared filter bar) with a new "Velocity" report inside it: sticky controls, insights first, then distribution, groups, stages, decisions, sub-phases, outliers. */
+:root{
+  --bg:#ffffff; --surface:#f8f9fc; --hover:#f3f4f7; --border:#e1e5eb; --border-soft:#edeff3;
+  --ink:#111827; --ink-2:#4b5563; --ink-3:#6b7280;
+  --accent:#2270ed; --accent-text:#1a56c4; --tint:#e8f0fd;
+  --z0:#0f8a6a; --z1:#7cc9b2; --z2:#2270ed; --z3:#eab75a; --z4:#c27a00;
+  --c-disc:#2270ed; --c-def:#0f8a6a; --c-build:#c27a00; --c-test:#a23b8f; --c-exp:#2b7fb8;
+  --queue:#c5ccd8; --gate-bg:#e3e7ee; --gate-line:#8f9bb0;
+  --slow:#8a5300; --fast:#0b6b52; --warn-bg:#fff6e0; --warn-line:#e8c97a;
+  --font:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f141c; --surface:#161c27; --hover:#1b2330; --border:#2a3342; --border-soft:#212a38;
+  --ink:#e8ecf3; --ink-2:#a9b3c4; --ink-3:#8c97aa;
+  --accent:#5b9bff; --accent-text:#8db8ff; --tint:#1c2a44;
+  --z0:#3fc9a4; --z1:#2a6f5e; --z2:#5b9bff; --z3:#8a6a2a; --z4:#e0a030;
+  --c-disc:#5b9bff; --c-def:#3fc9a4; --c-build:#e0a030; --c-test:#d37cc4; --c-exp:#5eb2e6;
+  --queue:#3a4558; --gate-bg:#2a3342; --gate-line:#6b7790;
+  --slow:#f0b050; --fast:#5fd8b4; --warn-bg:#2b2412; --warn-line:#6b5420; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f141c; --surface:#161c27; --hover:#1b2330; --border:#2a3342; --border-soft:#212a38;
+  --ink:#e8ecf3; --ink-2:#a9b3c4; --ink-3:#8c97aa;
+  --accent:#5b9bff; --accent-text:#8db8ff; --tint:#1c2a44;
+  --z0:#3fc9a4; --z1:#2a6f5e; --z2:#5b9bff; --z3:#8a6a2a; --z4:#e0a030;
+  --c-disc:#5b9bff; --c-def:#3fc9a4; --c-build:#e0a030; --c-test:#d37cc4; --c-exp:#5eb2e6;
+  --queue:#3a4558; --gate-bg:#2a3342; --gate-line:#6b7790;
+  --slow:#f0b050; --fast:#5fd8b4; --warn-bg:#2b2412; --warn-line:#6b5420; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:13px;line-height:1.5;
+  padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.muted{color:var(--ink-2)}
+h1{font-size:18px;font-weight:600;margin:0 10px 0 0}
+h2{font-size:13px;font-weight:600;margin:0 0 4px}
+h3{font-size:12.5px;font-weight:600;margin:0 0 4px}
+
+/* app frame */
+.topbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;min-height:46px;border-bottom:1px solid var(--border-soft);padding-block:0}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.brand svg{width:26px;height:26px}
+.ws{display:flex;align-items:center;gap:8px;color:var(--ink-2)}
+.ws .proj{padding:3px 10px;border:1px solid var(--accent);border-radius:8px;color:var(--ink);font-weight:500}
+.nav{display:flex;gap:2px;flex-wrap:wrap;margin-left:8px}
+.nav span{padding:13px 10px;border-bottom:2px solid transparent;color:var(--ink-2)}
+.nav .dim{color:var(--ink-3)}
+.nav .on{color:var(--ink);font-weight:500;border-bottom-color:var(--accent)}
+.top-r{margin-left:auto;display:flex;gap:8px;align-items:center}
+.tool-btn{padding:3px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:12.5px;cursor:pointer;color:var(--ink)}
+.tool-btn:hover{background:var(--hover)}
+.tool-btn[disabled]{color:var(--ink-3);cursor:not-allowed}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--tint);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:11px}
+
+main{padding-block:16px 40px}
+.page-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.chips{display:flex;gap:2px;flex-wrap:wrap}
+.chip{padding:3px 10px;border:0;border-radius:6px;background:none;color:var(--ink-2);cursor:pointer}
+.chip:hover{background:var(--hover)}
+.chip.on{background:var(--tint);color:var(--accent-text);font-weight:500}
+.chip .new{margin-left:6px;font-size:10.5px;padding:0 6px;border-radius:999px;background:var(--accent);color:#fff}
+.saved{display:flex;align-items:center;gap:8px;border:1px solid var(--border-soft);background:var(--surface);border-radius:8px;padding:6px 12px;margin-bottom:10px;color:var(--ink-2);font-size:12.5px}
+.saved b{color:var(--ink);font-weight:500}
+
+/* filter bar (the same one every report shares) */
+.rp-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.pop{position:relative}
+.pop>summary{list-style:none;padding:3px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer;font-size:12.5px;display:flex;gap:6px;align-items:center;white-space:nowrap}
+.pop>summary::-webkit-details-marker{display:none}
+.pop>summary::after{content:"";width:5px;height:5px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg) translateY(-2px)}
+.pop[open]>summary,.pop>summary:hover{background:var(--hover)}
+.pop.act>summary{border-color:var(--accent);color:var(--accent-text);background:var(--tint)}
+.badge{font-size:11px;padding:0 6px;border-radius:999px;background:var(--accent);color:#fff}
+.pop-body{position:absolute;z-index:30;top:calc(100% + 4px);left:0;min-width:210px;max-height:300px;overflow:auto;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.14)}
+.pop-body label{display:flex;gap:8px;align-items:center;padding:4px 6px;border-radius:4px;cursor:pointer;white-space:nowrap}
+.pop-body label:hover{background:var(--hover)}
+.link{background:none;border:0;color:var(--accent-text);cursor:pointer;padding:4px 6px;text-align:left}
+.tgl{display:flex;gap:6px;align-items:center;color:var(--ink)}
+.pills{list-style:none;display:flex;flex-wrap:wrap;gap:6px;padding:0;margin:0 0 8px}
+.pill{padding:2px 10px;border-radius:999px;border:1px solid var(--accent);background:var(--tint);color:var(--accent-text);cursor:pointer;font-size:12px}
+
+/* velocity controls (sticky) */
+.controls{position:sticky;top:0;z-index:20;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px 22px;align-items:flex-end;box-shadow:0 1px 2px rgba(17,24,39,.04)}
+.ctl{display:flex;flex-direction:column;gap:3px}
+.ctl>span{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;background:var(--bg)}
+.seg button{border:0;border-right:1px solid var(--border);background:none;padding:4px 11px;cursor:pointer;font-size:12.5px;color:var(--ink-2);white-space:nowrap}
+.seg button:last-child{border-right:0}
+.seg button:hover{background:var(--hover)}
+.seg button[aria-pressed="true"]{background:var(--tint);color:var(--accent-text);font-weight:500}
+.seg button[disabled]{opacity:.45;cursor:not-allowed}
+.defn{flex:1 1 260px;font-size:12px;color:var(--ink-2);min-width:0}
+
+/* cards */
+.card{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--bg);min-width:0;box-shadow:0 1px 2px rgba(17,24,39,.04)}
+.note{margin:0 0 8px;font-size:12px;color:var(--ink-2);max-width:80ch}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:12px;margin-bottom:12px}
+.grid21{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:12px;margin-bottom:12px}
+@media(min-width:1100px){.grid21{grid-template-columns:2fr 1fr}}
+.wide{margin-bottom:12px}
+.sec-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:18px 0 8px}
+.sec-h h2{font-size:14px;margin:0}
+.sec-h p{margin:0;font-size:12px;color:var(--ink-2)}
+.tag{font-size:11px;padding:0 8px;border-radius:999px;border:1px solid var(--border);color:var(--ink-2);white-space:nowrap}
+
+/* insights */
+.ins-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:10px}
+.ins{border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--surface);display:flex;flex-direction:column;gap:5px;min-width:0}
+.ins .k{display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--ink-2)}
+.ins .t{font-weight:600;font-size:13px}
+.ins .e{color:var(--ink-2);font-size:12.5px}
+.ins .q{font-size:12.5px;border-top:1px solid var(--border-soft);padding-top:5px;margin-top:2px}
+.ins .q b{font-weight:600;color:var(--accent-text)}
+
+/* kpis */
+.kpis{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 12px}
+.kpi{display:flex;flex-direction:column;min-width:128px;padding:8px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+.kpi .n{font-family:var(--mono);font-size:22px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.25}
+.kpi .n small{font-size:12px;color:var(--ink-2);font-family:var(--font);margin-left:3px}
+.kpi .l{font-size:12px;color:var(--ink-2);max-width:190px}
+.kpi .d{font-size:11.5px}
+
+/* shared chart bits */
+svg text{font-family:var(--font);fill:var(--ink-2);font-size:11px}
+svg .axis{stroke:var(--border);stroke-width:1}
+svg .grid{stroke:var(--border-soft);stroke-width:1}
+.zlegend,.legend{display:flex;flex-wrap:wrap;gap:4px 16px;margin:6px 0 0;font-size:12px;color:var(--ink-2)}
+.zlegend span,.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:10px;height:10px;border-radius:2px;display:inline-block;flex:none}
+.sw.gate{background:repeating-linear-gradient(45deg,var(--gate-bg) 0 2px,var(--gate-line) 2px 3px)}
+.sw.queue{background:var(--queue)}
+.slow{color:var(--slow)} .fast{color:var(--fast)}
+.glyphs{display:flex;flex-wrap:wrap;gap:4px 16px;margin:0 0 6px;font-size:11.5px;color:var(--ink-2);align-items:center}
+.glyphs svg{vertical-align:middle}
+
+/* range rows */
+.rc{--lab:150px;--num:132px;font-size:12.5px}
+.rc-axis,.rc-row{display:grid;grid-template-columns:var(--lab) minmax(0,1fr) var(--num);gap:8px;align-items:center}
+.rc-row{min-height:40px;border-top:1px solid var(--border-soft)}
+.rc-lab{background:none;border:0;text-align:left;cursor:pointer;padding:2px 4px;border-radius:4px;display:flex;flex-direction:column;min-width:0}
+.rc-lab:hover{background:var(--hover)}
+.rc-lab b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc-lab small{color:var(--ink-3);font-size:11px}
+.rc-num{display:flex;flex-direction:column;line-height:1.3;min-width:0}
+.rc-num b{font-family:var(--mono);font-weight:500;font-variant-numeric:tabular-nums}
+.rc-num small{font-size:11px;color:var(--ink-2)}
+.rc-plot{min-width:0}
+.rc-plot svg,.rc-axis svg{display:block;overflow:visible}
+@media(max-width:620px){.rc{--lab:96px;--num:84px}.rc-num small{display:none}}
+
+/* stage rows */
+.st-row{display:grid;grid-template-columns:var(--lab,150px) minmax(0,1fr) 70px;gap:8px;align-items:center;min-height:36px;border-top:1px solid var(--border-soft);font-size:12.5px}
+.st-row .st-n{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.st-bar{display:flex;height:20px;border-radius:3px;overflow:hidden;gap:2px;min-width:0}
+.st-seg{display:flex;align-items:center;justify-content:center;font-size:10.5px;color:#fff;overflow:hidden;white-space:nowrap}
+.st-seg.gate{background:repeating-linear-gradient(45deg,var(--gate-bg) 0 3px,var(--gate-line) 3px 4px);color:var(--ink)}
+.st-seg.queue{background:var(--queue);color:var(--ink)}
+@media(max-width:620px){.st-row{--lab:96px}}
+
+/* donut */
+.donut{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.donut ul{list-style:none;margin:0;padding:0;font-size:12.5px;display:grid;gap:3px;min-width:0}
+.donut li{display:flex;gap:8px;align-items:center}
+.donut li b{font-family:var(--mono);font-weight:500;margin-left:auto;padding-left:10px;font-variant-numeric:tabular-nums}
+
+/* tables */
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{font-weight:600;text-align:left;color:var(--ink);padding:5px 8px;border-bottom:1px solid var(--border-soft);white-space:nowrap}
+td{padding:6px 8px;border-bottom:1px solid var(--border-soft);vertical-align:middle}
+td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.il{color:var(--accent-text);text-decoration:underline;background:none;border:0;padding:0;cursor:pointer;text-align:left}
+.heat td.h{text-align:center;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.heat td.h small{display:block;font-family:var(--font);font-size:10.5px;color:var(--ink-2)}
+.mini{display:flex;height:10px;gap:1px;border-radius:2px;overflow:hidden;min-width:120px}
+.mini i{display:block;height:100%}
+.mini i.gate{background:repeating-linear-gradient(45deg,var(--gate-bg) 0 2px,var(--gate-line) 2px 3px)}
+.mini i.queue{background:var(--queue)}
+.pillx{padding:1px 8px;border-radius:999px;font-size:11.5px;background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--slow);white-space:nowrap}
+details.tbl{margin-top:8px}
+details.tbl summary{cursor:pointer;color:var(--accent-text);font-size:12px}
+.empty{padding:18px 4px;color:var(--ink-2)}
+
+/* notes */
+.notes{border-style:dashed}
+.notes ul{margin:4px 0 8px;padding-left:18px;max-width:100ch}
+.notes li{margin:3px 0}
+.notes h3{margin-top:10px}
+
+#tip{position:fixed;z-index:99;pointer-events:none;background:var(--bg);color:var(--ink);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 22px rgba(0,0,0,.18);padding:6px 10px;font-size:12px;max-width:280px;display:none}
+#tip b{font-weight:600}
+@media(prefers-reduced-motion:no-preference){.seg button,.chip,.pop>summary{transition:background .12s}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <pattern id="hatch" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="4" height="4" style="fill:var(--gate-bg)"/><rect width="1.2" height="4" style="fill:var(--gate-line)"/>
+    </pattern>
+  </defs>
+</svg>
+
+<div class="topbar gut">
+  <div class="brand"><svg viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="7" fill="#2270ed"/><path d="M6 18V13M10.5 18V9M15 18v-6M19.5 18V7" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>Product Velocity</div>
+  <div class="ws"><span>Meridian Media</span><span aria-hidden="true">/</span><span class="proj">All projects ▾</span></div>
+  <nav class="nav" aria-label="Main"><span>Grid</span><span>Gantt</span><span>Cards</span><span>Leadership</span><span class="dim">Planning</span><span class="dim">Capacity</span><span class="dim">Alignment</span><span class="on" aria-current="page">Reports</span></nav>
+  <div class="top-r"><button class="tool-btn" type="button" disabled>A−</button><button class="tool-btn" type="button" disabled>A+</button><button class="tool-btn" type="button" disabled>Help</button><span class="avatar" aria-label="Signed in as Ashu">AM</span></div>
+</div>
+
+<main class="gut">
+  <div class="page-head">
+    <h1>Reports</h1>
+    <div class="chips" role="group" aria-label="Report">
+      <button class="chip" type="button" disabled style="cursor:default">Overview</button>
+      <button class="chip" type="button" disabled style="cursor:default">Roadmap Health</button>
+      <button class="chip" type="button" disabled style="cursor:default">Gate history</button>
+      <button class="chip" type="button" disabled style="cursor:default">Changes</button>
+      <button class="chip on" type="button" aria-pressed="true">Velocity<span class="new">new</span></button>
+    </div>
+    <span class="muted" role="status" id="count"></span>
+  </div>
+  <div class="saved"><span><b>Prototype.</b> Example data for the fictional tenant Meridian Media, generated in this page. Filters, measure, unit and break-down all recalculate the charts. Nothing is saved; the other report chips are not wired.</span><a class="link" href="#notes" style="margin-left:auto;white-space:nowrap">Definitions and questions ↓</a></div>
+
+  <div class="rp-filters" id="filters" role="region" aria-label="Report filters"></div>
+  <ul class="pills" id="pills" aria-label="Active filters"></ul>
+
+  <section class="controls" aria-label="Velocity settings">
+    <div class="ctl"><span>Time measured</span>
+      <div class="seg" id="seg-measure" role="group" aria-label="Time measured"></div></div>
+    <div class="ctl"><span>Counted from</span>
+      <div class="seg" id="seg-stretch" role="group" aria-label="Counted from"></div></div>
+    <div class="ctl"><span>Unit</span>
+      <div class="seg" id="seg-unit" role="group" aria-label="Unit"></div></div>
+    <div class="ctl"><span>Break down by</span>
+      <div class="seg" id="seg-dim" role="group" aria-label="Break down by"></div></div>
+    <div class="defn" id="defn"></div>
+  </section>
+
+  <section class="card wide" aria-label="What stands out">
+    <h2>What stands out</h2>
+    <p class="note">Written from the numbers on this page and recalculated when the filters change. Each one ends with a question for the team. Claude drafts, people decide what to act on. Team-level only: nothing here is about a person.</p>
+    <div class="ins-grid" id="insights"></div>
+  </section>
+
+  <section class="card wide" aria-label="How long it takes">
+    <h2 id="dist-title">How long it takes</h2>
+    <p class="note" id="dist-note"></p>
+    <div class="kpis" id="kpis"></div>
+    <div id="dist"></div>
+    <div class="zlegend" id="zlegend"></div>
+    <div id="dist-tbl"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="card" aria-label="By T-shirt size">
+      <h2>By T-shirt size</h2>
+      <p class="note">Do the sizes mean what we think they mean? Bars should step up from XS to XL with little overlap. Click a row to filter.</p>
+      <div id="by-size"></div>
+    </section>
+    <section class="card" aria-label="By group">
+      <h2 id="by-dim-title">By team</h2>
+      <p class="note" id="by-dim-note"></p>
+      <div id="by-dim"></div>
+    </section>
+  </div>
+
+  <div class="grid21">
+    <section class="card" aria-label="Trend">
+      <h2 id="trend-title">Are we getting faster?</h2>
+      <p class="note">Median per quarter in which the initiative reached the end of the measure, with the middle half shaded. Quarters with fewer than 3 initiatives are left out.</p>
+      <div id="trend"></div>
+      <div id="trend-tbl"></div>
+    </section>
+    <section class="card" aria-label="Working and waiting">
+      <h2>Working or waiting?</h2>
+      <p class="note">Share of elapsed time. Hatched means the initiative waited for a gate decision, grey means it waited in a queue.</p>
+      <div id="workwait" class="donut"></div>
+    </section>
+  </div>
+
+  <section class="card wide" aria-label="Where the time goes">
+    <h2 id="stage-title">Where the time goes</h2>
+    <p class="note">Average days in each stage of the journey, for the initiatives counted above, so the bars add up to the average of the measure. Split by the group chosen at the top.</p>
+    <div class="legend" id="stage-legend"></div>
+    <div id="stages"></div>
+  </section>
+
+  <div class="sec-h"><h2>Decisions</h2><p>Time from requesting a gate to the decision. Always in days. Follows the filters, not the measure.</p></div>
+  <div class="grid21">
+    <section class="card" aria-label="Time to decide">
+      <h2>Time to decide, by gate</h2>
+      <div class="glyphs" id="glyphs-days"></div>
+      <div id="decide"></div>
+      <h3 style="margin-top:14px">Waiting now for a decision</h3>
+      <div class="tw" id="open-req"></div>
+    </section>
+    <section class="card" aria-label="Outcomes">
+      <h2>What the gates decided</h2>
+      <p class="note">All decisions in the filtered set, gates A, B and C together.</p>
+      <div id="outcomes" class="donut"></div>
+    </section>
+  </div>
+
+  <div class="sec-h"><h2>Development sub-phases</h2><p>Build, Test and Experiment on their own. Follows the filters and the unit, not the measure.</p></div>
+  <div class="grid21">
+    <section class="card" aria-label="Sub-phase spread">
+      <h2>Time in each sub-phase</h2>
+      <div class="glyphs" id="glyphs-sub"></div>
+      <div id="subphase"></div>
+    </section>
+    <section class="card" aria-label="Sub-phase by size">
+      <h2>Median by size and sub-phase</h2>
+      <p class="note">Darker means longer within the column. Numbers always shown.</p>
+      <div class="tw" id="heat"></div>
+    </section>
+  </div>
+
+  <div class="sec-h"><h2>Where to look</h2><p>The initiatives behind the averages.</p></div>
+  <div class="grid2">
+    <section class="card" aria-label="Slowest finished">
+      <h2 id="slow-title">Slowest finished</h2>
+      <p class="note">The longest for the chosen measure, with where their time went (same colours as above).</p>
+      <div class="tw" id="slowest"></div>
+    </section>
+    <section class="card" aria-label="In flight and already slow">
+      <h2>In flight and already slower than usual</h2>
+      <p class="note" id="inflight-note"></p>
+      <div class="tw" id="inflight"></div>
+    </section>
+  </div>
+
+  <section class="card notes" id="notes" aria-label="Definitions and questions">
+    <h2>For Ashu: how this is calculated, and what I need you to decide</h2>
+    <h3>Definitions used in this prototype</h3>
+    <ul>
+      <li><b>Start</b> is Start Discovery (the earlier of Start Discovery and Start Date, as Time to Market does). <b>To Gate A / B / C</b> ends on the date the gate was decided (<code>gate_reviews</code>), <b>Total</b> ends on Start Roll-Out. <b>Build</b> is Start Building to Start Test, the same as Actual Build (weeks).</li>
+      <li><b>Counted from: This stretch only</b> restarts the clock at the previous gate (Gate B = Gate A decided to Gate B decided).</li>
+      <li><b>Time to decide</b> is request to decision. A Hold keeps the request open, so the clock keeps running.</li>
+      <li>Only initiatives that reached the end of the measure are counted. Initiatives still running are never counted as zero; they are listed separately, and the in-flight table compares them with finished ones of the same size.</li>
+      <li><b>Size-adjusted</b> compares a group with what its own mix of sizes would predict, so a team that mostly builds XL work is not called slow for it.</li>
+      <li>Percentiles: 10% of initiatives finish faster than P10, 80% within P80. Groups with fewer than 5 initiatives show the dots instead of a box.</li>
+    </ul>
+    <h3>Questions</h3>
+    <ul>
+      <li>You listed <i>total time</i> and <i>to roll-out</i>. Gate C approval starts the roll-out, so both end on the same day and I merged them into <b>Total</b>. Do you want Total to run on to Completed (the 30, 60, 90 day tail)? It is one more option.</li>
+      <li><b>Objective, Key Result and Business Line</b> are fields but not yet report filters or break-downs; the build adds them to the shared filter bar so every report gains them.</li>
+      <li>An initiative with several teams counts once per team (as the other reports do), so groups can add up to more than the total. An initiative has one Objective and one Business Line today; I assumed one Key Result as well. Is that right?</li>
+      <li>Decisions are shown for the team as a whole, never per approver (rule 8).</li>
+      <li>Not drawn here, to keep the page readable: scope added after commit, estimate against actual (already in Build time on Overview), blocked days. Say if you want any of them on this report.</li>
+    </ul>
+    <h3>What the build needs</h3>
+    <ul>
+      <li>All dates already exist (Start Discovery … Start Roll-Out, gate requests and decisions), so no new fields. A domain function <code>velocityReport</code> beside <code>gateReport</code>, charts in <code>features/reports</code>, tests with two tenants for anything read from the database.</li>
+    </ul>
+  </section>
+</main>
+<div id="tip" role="tooltip"></div>
+
+<script>
+/* ---------- example data (fictional, seeded so it is the same every time) ---------- */
+const rng=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+const R=rng(20261119);
+const gauss=()=>{let u=0;while(!u)u=R();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*R())};
+const logn=(m,s)=>m*Math.exp(s*gauss());
+const DAY=Date.UTC;const dayOf=(y,m,d)=>Math.round(Date.UTC(y,m-1,d)/864e5);
+const TODAY=dayOf(2026,11,19);
+const dateStr=d=>new Date(d*864e5).toISOString().slice(0,10);
+const quarterOf=d=>{const t=new Date(d*864e5);return `Q${Math.floor(t.getUTCMonth()/3)+1} ${t.getUTCFullYear()}`};
+const qKey=q=>{const[a,b]=q.split(' ');return +b*10+ +a[1]};
+const SIZES=['XS','S','M','L','XL'];
+const SIZE_F=[.6,.8,1,1.3,1.7], SIZE_W=[.1,.28,.32,.22,.08];
+const BASE_BUILD=[1.5,3,6,11,18]; // weeks
+const TEAMS={Core:1.0,Mobile:.85,Platform:1.3,'Data & AI':1.1,Growth:.8};
+const OBJ={'O1 Grow subscription revenue':[['Paid subscribers +15%',1],['Trial-to-paid conversion 22%',.95]],
+           'O2 Cut cost to serve':[['Support tickets −30%',1.4],['Cloud cost per stream −20%',1.15]],
+           'O3 Raise reliability':[['Playback uptime 99.95%',1.05],['App crash rate under 0.3%',.9]]};
+const BL={News:1,Streaming:1.05,Advertising:1.2,Studios:.9};
+const NAMES=['Personalised home feed','Paywall experiments','Ad load optimisation','Podcast hub','Live sports clips','Offline downloads','Newsletter preferences','Subscription pause','Creator payouts','Search relevance v2','Smart TV app refresh','Checkout redesign','Gift subscriptions','Family plans','Video start-up speed','Ad-free tier','Push notification rules','Editorial planning tool','Churn save offers','Payment retries','Archive search','Support chat deflection','CDN cost review','Playback error recovery','Onboarding quiz','Regional pricing','Content rights sync','Recommendation cold start','Dark mode','Accessibility captions','Sponsorship dashboard','Studio asset library','Single sign-on','Invoice exports','Audience segments','Live blog','Cast and crew pages','Bundle with partners','Trial extension','Data warehouse migration'];
+const pickW=(w)=>{let r=R(),i=0;while(i<w.length-1&&r>w[i]){r-=w[i];i++}return i};
+const pick=a=>a[Math.floor(R()*a.length)];
+const OUT=['Go','Go with conditions','Hold','Stop'];
+const outcome=()=>OUT[pickW([.7,.17,.09,.04])];
+const START0=dayOf(2025,3,1);
+const ITEMS=[];
+for(let i=0;i<170;i++){
+  const si=pickW(SIZE_W), team=pick(Object.keys(TEAMS)), obj=pick(Object.keys(OBJ)), kr=pick(OBJ[obj]), bl=pick(Object.keys(BL));
+  const stall=i%29===7; // a few initiatives that stalled in a queue, so the in-flight list has real rows
+  const t0=stall?START0+Math.floor(R()*150):START0+Math.floor(R()*(TODAY-START0-25));
+  const trend=1.18-.34*(t0-START0)/(TODAY-START0);
+  const disc=Math.max(4,logn(22*Math.pow(SIZE_F[si],.3),.45));
+  const waitA=Math.max(1,logn(5,.7)*(R()<.08?3:1));
+  const def=Math.max(5,logn(18*Math.pow(SIZE_F[si],.4),.4));
+  const waitB=Math.max(1,logn(8,.6)*(R()<.1?3.6:1)*(bl==='Advertising'?1.35:1));
+  const queue=Math.max(1,logn(10,.7)*(team==='Platform'?1.9:1))*(stall?14:1);
+  const build=Math.max(5,BASE_BUILD[si]*7*TEAMS[team]*kr[1]*BL[bl]*trend*Math.exp(.33*gauss()));
+  const test=Math.max(2,logn(7+si*3,.4));
+  const skip=R()<.3, exp=skip?0:Math.max(7,logn(18,.4));
+  const waitC=Math.max(1,logn(6,.6)*(R()<.08?3:1));
+  const launch=Math.floor(R()*9);
+  const t={t0};t.tAreq=t0+Math.round(disc);t.tA=t.tAreq+Math.round(waitA);t.tBreq=t.tA+Math.round(def);t.tB=t.tBreq+Math.round(waitB);
+  t.tBuild=t.tB+Math.round(queue);t.tTest=t.tBuild+Math.round(build);t.tExp=t.tTest+Math.round(test);t.tCreq=t.tExp+Math.round(exp);
+  t.tC=t.tCreq+Math.round(waitC);t.tRoll=t.tC+launch;
+  ITEMS.push({id:'R-'+String(i+101),name:NAMES[i%NAMES.length]+(i>=NAMES.length?` (${['phase 2','EU','mobile','v2','pilot'][Math.floor(i/NAMES.length)%5]})`:''),team,size:SIZES[si],obj,kr:kr[0],bl,t,skip,out:{A:outcome(),B:outcome(),C:outcome()}});
+}
+const STAGES=[
+ {k:'disc',label:'Discover',kind:'work',col:'--c-disc',a:'t0',b:'tAreq'},
+ {k:'waitA',label:'Waiting for Gate A',kind:'gate',a:'tAreq',b:'tA'},
+ {k:'def',label:'Define',kind:'work',col:'--c-def',a:'tA',b:'tBreq'},
+ {k:'waitB',label:'Waiting for Gate B',kind:'gate',a:'tBreq',b:'tB'},
+ {k:'queue',label:'Waiting to start build',kind:'queue',a:'tB',b:'tBuild'},
+ {k:'build',label:'Build',kind:'work',col:'--c-build',a:'tBuild',b:'tTest'},
+ {k:'test',label:'Test',kind:'work',col:'--c-test',a:'tTest',b:'tExp'},
+ {k:'exp',label:'Experiment',kind:'work',col:'--c-exp',a:'tExp',b:'tCreq'},
+ {k:'waitC',label:'Waiting for Gate C',kind:'gate',a:'tCreq',b:'tC'},
+ {k:'launch',label:'Waiting to start roll-out',kind:'queue',a:'tC',b:'tRoll'}];
+
+/* ---------- state ---------- */
+const MEASURES={
+ total:{label:'Total',start:'t0',end:'tRoll',prev:null,desc:'Start Discovery to Start Roll-Out.'},
+ gateA:{label:'To Gate A',start:'t0',end:'tA',prev:null,desc:'Start Discovery to the Gate A decision.'},
+ gateB:{label:'To Gate B',start:'t0',end:'tB',prev:'tA',desc:'Start Discovery to the Gate B decision.',stretch:'Gate A decided to Gate B decided.'},
+ gateC:{label:'To Gate C',start:'t0',end:'tC',prev:'tB',desc:'Start Discovery to the Gate C decision.',stretch:'Gate B decided to Gate C decided.'},
+ build:{label:'Build',start:'tBuild',end:'tTest',prev:null,desc:'Start Building to Start Test (development time).'}};
+const DIMS={team:{label:'Team',get:i=>i.team},kr:{label:'Key Result',get:i=>i.kr},obj:{label:'Objective',get:i=>i.obj},bl:{label:'Business line',get:i=>i.bl}};
+const FILTERS=[['team','Team',i=>i.team],['effort','Effort',i=>i.size],['obj','Objective',i=>i.obj],['kr','Key Result',i=>i.kr],['bl','Business Line',i=>i.bl],['q','Finished in',null]];
+const state={measure:'total',stretch:false,unit:'weeks',dim:'team',f:{team:new Set(),effort:new Set(),obj:new Set(),kr:new Set(),bl:new Set(),q:new Set()}};
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const tip=h=>`data-tip="${esc(h)}"`;
+const sortN=a=>[...a].sort((x,y)=>x-y);
+const qtl=(s,p)=>{if(!s.length)return null;const i=(s.length-1)*p,lo=Math.floor(i),hi=Math.ceil(i);return s[lo]+(s[hi]-s[lo])*(i-lo)};
+const stats=v=>{const s=sortN(v);return{n:s.length,s,p10:qtl(s,.1),p25:qtl(s,.25),med:qtl(s,.5),p75:qtl(s,.75),p80:qtl(s,.8),p90:qtl(s,.9),avg:s.length?s.reduce((a,b)=>a+b,0)/s.length:null,min:s[0],max:s[s.length-1]}};
+const fv=d=>state.unit==='weeks'?(d/7).toFixed(1):String(Math.round(d));
+const fu=()=>state.unit==='weeks'?'wk':'d';
+const fvu=d=>`${fv(d)} ${fu()}`;
+const fd=d=>String(Math.round(d));
+const conv=d=>state.unit==='weeks'?d/7:d;
+const delta=(a,b)=>{const p=Math.round((a/b-1)*100);return Math.abs(p)<5?{t:'about the same',c:''}:p>0?{t:`▲ ${p}% slower`,c:'slow'}:{t:`▼ ${-p}% faster`,c:'fast'}};
+const niceStep=raw=>{const m=Math.pow(10,Math.floor(Math.log10(raw)));for(const c of [1,2,2.5,5,10]){if(c*m>=raw)return c*m}return 10*m};
+const ticks=(max,n=5)=>{const st=niceStep(max/n);const out=[];for(let v=0;v<=max+1e-9;v+=st)out.push(+v.toFixed(6));return{st,out}};
+const svgW=el=>Math.max(260,Math.floor(el.getBoundingClientRect().width));
+const groupBy=(rows,fn)=>{const m=new Map();for(const r of rows){const k=fn(r.it);(m.get(k)||m.set(k,[]).get(k)).push(r)}return m};
+const tbl=(cap,head,rows)=>`<details class="tbl"><summary>Show as table</summary><div class="tw"><table><caption class="muted" style="text-align:left;padding:4px 0">${esc(cap)}</caption><thead><tr>${head.map((h,i)=>`<th class="${i?'num':''}">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((c,i)=>`<td class="${i?'num':''}">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details>`;
+
+/* ---------- the view: filters then measure ---------- */
+function valueOf(it){const m=MEASURES[state.measure];const end=it.t[m.end];if(end>TODAY)return null;let start=it.t[m.start];if(state.stretch&&m.prev)start=it.t[m.prev];return end-start}
+function windowOf(it){const m=MEASURES[state.measure];return[state.stretch&&m.prev?it.t[m.prev]:it.t[m.start],it.t[m.end]]}
+const passes=(it,skipQ)=>FILTERS.every(([k,,fn])=>{const s=state.f[k];if(!s.size)return true;if(k==='q'){if(skipQ)return true;const e=it.t[MEASURES[state.measure].end];return e<=TODAY&&s.has(quarterOf(e))}return s.has(fn(it))});
+function getView(){
+  const all=ITEMS.filter(i=>passes(i,true));
+  const inScope=ITEMS.filter(i=>passes(i,false));
+  const rows=inScope.map(it=>({it,v:valueOf(it)})).filter(r=>r.v!==null);
+  const notYet=inScope.filter(it=>valueOf(it)===null);
+  const qs=[...new Set(all.map(i=>i.t[MEASURES[state.measure].end]).filter(e=>e<=TODAY).map(quarterOf))].sort((a,b)=>qKey(a)-qKey(b));
+  return{all,inScope,rows,notYet,qs,st:stats(rows.map(r=>conv(r.v)*(state.unit==='weeks'?7:1))),days:stats(rows.map(r=>r.v))};
+}
+/* durations stay in days inside the calculations; conv() only at the edge */
+const clipStage=(it,[a,b],s)=>Math.max(0,Math.min(it.t[s.b],b)-Math.max(it.t[s.a],a));
+
+/* ---------- filter bar ---------- */
+function renderFilters(v){
+  const host=$('#filters');const open=[...host.querySelectorAll('details[open]')].map(d=>d.dataset.k);
+  host.innerHTML=FILTERS.map(([k,label,fn])=>{
+    const opts=k==='q'?v.qs:[...new Set(ITEMS.map(fn))].sort((a,b)=>k==='effort'?SIZES.indexOf(a)-SIZES.indexOf(b):a.localeCompare(b));
+    const n=state.f[k].size;
+    return `<details class="pop${n?' act':''}" data-k="${k}"${open.includes(k)?' open':''}><summary>${label}${n?`<span class="badge" aria-label="${n} selected">${n}</span>`:''}</summary><div class="pop-body" role="group" aria-label="${label}">${opts.map(o=>`<label><input type="checkbox" data-f="${k}" value="${esc(o)}"${state.f[k].has(o)?' checked':''}>${esc(o)}</label>`).join('')}${n?`<button class="link" data-clear="${k}" type="button">Clear ${label}</button>`:''}</div></details>`}).join('')+
+  `<label class="tgl"><input type="checkbox" disabled>Include archived</label><button class="tool-btn" type="button" id="reset"${FILTERS.some(([k])=>state.f[k].size)?'':' disabled'}>Reset filters</button><button class="tool-btn" type="button" disabled title="Prototype">Export CSV (${v.rows.length})</button><button class="tool-btn" type="button" disabled title="Prototype">PDF summary (later)</button>`;
+  $('#pills').innerHTML=FILTERS.flatMap(([k,label])=>[...state.f[k]].map(x=>`<li><button class="pill" type="button" data-pill="${k}" data-v="${esc(x)}" aria-label="Remove filter ${label}: ${esc(x)}">${label}: ${esc(x)} ×</button></li>`)).join('');
+}
+function toggleF(k,val){const s=state.f[k];s.has(val)?s.delete(val):s.add(val);render()}
+
+/* ---------- controls ---------- */
+function renderControls(){
+  $('#seg-measure').innerHTML=Object.entries(MEASURES).map(([k,m])=>`<button type="button" data-m="${k}" aria-pressed="${state.measure===k}">${m.label}</button>`).join('');
+  const m=MEASURES[state.measure];const can=!!m.prev;
+  $('#seg-stretch').innerHTML=`<button type="button" data-s="0" aria-pressed="${!state.stretch||!can}">Start of Discovery</button><button type="button" data-s="1" aria-pressed="${state.stretch&&can}"${can?'':' disabled title="Only for Gate B and Gate C"'}>Previous gate</button>`;
+  $('#seg-unit').innerHTML=['weeks','days'].map(u=>`<button type="button" data-u="${u}" aria-pressed="${state.unit===u}">${u[0].toUpperCase()+u.slice(1)}</button>`).join('');
+  $('#seg-dim').innerHTML=Object.entries(DIMS).map(([k,d])=>`<button type="button" data-d="${k}" aria-pressed="${state.dim===k}">${d.label}</button>`).join('');
+  $('#defn').innerHTML=`<b style="color:var(--ink)">${m.label}:</b> ${state.stretch&&can?m.stretch:m.desc}`;
+}
+
+/* ---------- insights ---------- */
+function insights(v){
+  const out=[];const st=v.st;const u=fu();
+  if(st.n<6)return[{k:'Data',t:'Too few initiatives to say much',e:`Only ${st.n} counted with these filters.`,q:'Widen the filters, or pick an earlier measure such as To Gate A.'}];
+  const ratio=st.p90/st.med, gap=Math.round((st.avg/st.med-1)*100);
+  out.push({s:ratio,k:'Spread',t:`The slowest tenth take ${ratio.toFixed(1)}× the median`,e:`Median ${fvu(st.med)}, average ${fvu(st.avg)} (${gap>=0?'+':''}${gap}%). ${gap>8?'A long tail pulls the average up, so plan on the median and watch the tail.':'The average and median are close, so the tail is not distorting the picture.'}`,q:'What do the slowest finished initiatives have in common? They are listed at the bottom.'});
+  // size calibration
+  const bySize=SIZES.map(s=>({s,st:stats(v.rows.filter(r=>r.it.size===s).map(r=>r.v))})).filter(x=>x.st.n>=3);
+  if(bySize.length>=3){
+    let inv=null;for(let i=1;i<bySize.length;i++)if(bySize[i].st.med<bySize[i-1].st.med*0.97){inv=[bySize[i-1],bySize[i]];break}
+    const f=bySize[bySize.length-1].st.med/bySize[0].st.med;
+    out.push(inv?{s:3,k:'Sizes',t:`${inv[1].s} finishes faster than ${inv[0].s}`,e:`Median ${fvu(inv[1].st.med)} against ${fvu(inv[0].st.med)}. Sizes are not predicting time at this step.`,q:'Are these sized the same way by every team, or is the larger work being split up?'}
+      :{s:1.2,k:'Sizes',t:`T-shirt sizes hold up: ${bySize[bySize.length-1].s} takes ${f.toFixed(1)}× ${bySize[0].s}`,e:`Medians step up from ${fvu(bySize[0].st.med)} (${bySize[0].s}) to ${fvu(bySize[bySize.length-1].st.med)} (${bySize[bySize.length-1].s}) without a reversal.`,q:'Is the overlap between neighbouring sizes small enough to use sizes in capacity planning?'});
+  }
+  // group
+  const dim=DIMS[state.dim];const g=[...groupBy(v.rows,dim.get)].filter(([,r])=>r.length>=4).map(([k,r])=>{const a=adjusted(r,v);return{k,n:r.length,med:qtl(sortN(r.map(x=>x.v)),.5),adj:a}});
+  if(g.length>=2){g.sort((a,b)=>b.adj-a.adj);const w=g[0];
+    if(w.adj>1.15)out.push({s:w.adj*2,k:dim.label,t:`${w.k} takes ${Math.round((w.adj-1)*100)}% longer than its mix of sizes predicts`,e:`Median ${fvu(w.med)} over ${w.n} initiatives. The size mix is already allowed for.`,q:'Is it the work or the waiting? The stage chart below shows which stages are longer.'});
+    const f=g[g.length-1];if(f.adj<.88)out.push({s:f.adj?1.3:0,k:dim.label,t:`${f.k} is ${Math.round((1-f.adj)*100)}% faster than its size mix predicts`,e:`Median ${fvu(f.med)} over ${f.n} initiatives.`,q:'What do they do differently that others could copy?'});
+  }
+  // waiting
+  const tot={work:0,gate:0,queue:0,per:{}};for(const r of v.rows){const w=windowOf(r.it);for(const s of STAGES){const d=clipStage(r.it,w,s);tot[s.kind]+=d;tot.per[s.k]=(tot.per[s.k]||0)+d}}
+  const all=tot.work+tot.gate+tot.queue;
+  if(all>0){const wp=Math.round((tot.gate+tot.queue)/all*100);const big=STAGES.filter(s=>s.kind!=='work').sort((a,b)=>tot.per[b.k]-tot.per[a.k])[0];
+    out.push({s:wp/25,k:'Waiting',t:`${wp}% of the elapsed time is waiting, not working`,e:`The largest wait is "${big.label.toLowerCase()}", ${fd(tot.per[big.k]/v.rows.length)} days on average per initiative.`,q:big.kind==='queue'?'Is build capacity the limit, or are things approved before the team can take them?':'Can this gate decide faster, for example with a standing weekly slot?'});}
+  // trend
+  const tq=trendData(v);if(tq.length>=3){const last=tq.slice(-2),prev=tq.slice(0,-2);const lm=qtl(sortN(last.flatMap(x=>x.vals)),.5),pm=qtl(sortN(prev.flatMap(x=>x.vals)),.5);
+    if(last.reduce((a,x)=>a+x.vals.length,0)>=5&&prev.reduce((a,x)=>a+x.vals.length,0)>=5){const d=delta(lm,pm);out.push({s:Math.abs(lm/pm-1)*6,k:'Trend',t:d.c==='fast'?`Recent quarters are ${Math.round((1-lm/pm)*100)}% faster`:d.c==='slow'?`Recent quarters are ${Math.round((lm/pm-1)*100)}% slower`:'Speed is steady across quarters',e:`Median ${fvu(lm)} in ${last.map(x=>x.q).join(' and ')} against ${fvu(pm)} in the quarters before.`,q:d.c==='fast'?'What changed, and was it deliberate? Make sure it is not only smaller work.':d.c==='slow'?'What changed: larger work, fewer people, more waiting?':'Is steady the goal, or should we set a target?'})}}
+  // gate decide
+  const gd=['A','B','C'].map(x=>({x,s:stats(v.all.filter(i=>i.t['t'+x]<=TODAY).map(i=>i.t['t'+x]-i.t[x==='A'?'tAreq':x==='B'?'tBreq':'tCreq']))})).filter(x=>x.s.n>=5);
+  if(gd.length){gd.sort((a,b)=>b.s.med-a.s.med);const w=gd[0];out.push({s:w.s.p90/w.s.med/1.5,k:'Decisions',t:`Gate ${w.x} is the slowest to decide: median ${fd(w.s.med)} days`,e:`One in ten waits more than ${fd(w.s.p90)} days.`,q:'Why do the slow ones wait: missing evidence, or nobody available to decide?'})}
+  return out.sort((a,b)=>(b.s||0)-(a.s||0)).slice(0,5);
+}
+function adjusted(rows,v){const med={};for(const s of SIZES){const x=v.rows.filter(r=>r.it.size===s).map(r=>r.v);med[s]=x.length>=3?qtl(sortN(x),.5):v.days.med}
+  const exp=qtl(sortN(rows.map(r=>med[r.it.size])),.5);return qtl(sortN(rows.map(r=>r.v)),.5)/exp}
+function renderInsights(v){$('#insights').innerHTML=insights(v).map(i=>`<div class="ins"><div class="k"><span class="tag">${i.k}</span>Drafted by Claude</div><div class="t">${esc(i.t)}</div><div class="e">${esc(i.e)}</div><div class="q"><b>Ask:</b> ${esc(i.q)}</div></div>`).join('')}
+
+/* ---------- KPIs and the bell ---------- */
+function trendData(v){const m=groupBy(v.rows,i=>quarterOf(i.t[MEASURES[state.measure].end]));return[...m].map(([q,r])=>({q,vals:r.map(x=>conv(x.v)*(state.unit==='weeks'?7:1))})).filter(x=>x.vals.length>=3).sort((a,b)=>qKey(a.q)-qKey(b.q))}
+function renderDist(v){
+  const m=MEASURES[state.measure];const st=v.st,u=fu();const k=state.unit==='weeks'?1/7:1;
+  $('#dist-title').textContent=`How long it takes: ${m.label}${state.stretch&&m.prev?' (previous gate to this gate)':''}`;
+  $('#dist-note').textContent=`Each bar counts initiatives that took about that long. The curve smooths the bars into a bell. The markers show the median (half were faster) and the average. Colours mark the fastest tenth, the middle half and the slowest tenth.`;
+  if(st.n<3){$('#kpis').innerHTML='';$('#dist').innerHTML='<p class="empty" role="status">No data matching current filters</p>';$('#zlegend').innerHTML='';$('#dist-tbl').innerHTML='';return}
+  const tq=trendData(v);let dl='';
+  if(tq.length>=3){const last=tq.slice(-2).flatMap(x=>x.vals),prev=tq.slice(0,-2).flatMap(x=>x.vals);if(last.length>=5&&prev.length>=5){const d=delta(qtl(sortN(last),.5),qtl(sortN(prev),.5));dl=`<span class="d ${d.c}">${d.t} than before</span>`}}
+  const kp=(n,l,x='')=>`<div class="kpi"><span class="n">${n}</span><span class="l">${l}</span>${x}</div>`;
+  const un=`<small>${u}</small>`;
+  $('#kpis').innerHTML=kp(fv(st.med)+un,'Median',dl)+kp(fv(st.avg)+un,'Average')+kp(fv(st.p80)+un,'80% finish within')+kp(fv(st.p10)+un,'Fastest tenth under')+kp(fv(st.p90)+un,'Slowest tenth over')+kp(String(st.n),'Counted')+kp(String(v.notYet.length),'Not there yet','<span class="d muted">still on the way, never counted as zero</span>');
+  // bins in display unit
+  const vals=st.s.map(x=>x*k);const mn=Math.min(...vals),mx=Math.max(...vals);const bw=niceStep(Math.max((mx-mn)/12,.01));const b0=Math.floor(mn/bw)*bw;const nb=Math.max(1,Math.ceil((mx-b0)/bw+1e-9));
+  const bins=Array.from({length:nb},(_,i)=>({a:b0+i*bw,b:b0+(i+1)*bw,c:0}));for(const x of vals){bins[Math.min(nb-1,Math.floor((x-b0)/bw))].c++}
+  const P=['p10','p25','p75','p90'].map(p=>st[p]*k);const zone=c=>c<P[0]?0:c<P[1]?1:c<=P[2]?2:c<=P[3]?3:4;
+  const el=$('#dist');const W=svgW(el),H=300,ml=40,mr=14,mt=30,mb=34;const pw=W-ml-mr,ph=H-mt-mb;const xmax=b0+nb*bw;const x=val=>ml+(val-b0)/(xmax-b0)*pw;
+  const ymax=Math.max(...bins.map(b=>b.c));const yt=ticks(ymax*1.15,4);const ytop=yt.out[yt.out.length-1];const y=c=>mt+ph-c/ytop*ph;
+  // kde
+  const mean=vals.reduce((a,b)=>a+b,0)/vals.length;const sd=Math.sqrt(vals.reduce((a,b)=>a+(b-mean)**2,0)/vals.length)||1;const h=1.06*sd*Math.pow(vals.length,-.2);
+  const pts=[];for(let i=0;i<=80;i++){const xv=b0+(xmax-b0)*i/80;let d=0;for(const q of vals)d+=Math.exp(-.5*((xv-q)/h)**2);d=d/(vals.length*h*Math.sqrt(2*Math.PI))*vals.length*bw;pts.push([x(xv),y(Math.min(d,ytop))])}
+  const xt=ticks(xmax-b0,Math.max(4,Math.floor(pw/90)));
+  let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Distribution of ${m.label} in ${state.unit}: median ${fv(st.med)}, average ${fv(st.avg)}">`;
+  yt.out.forEach(t=>{s+=`<line class="grid" x1="${ml}" x2="${W-mr}" y1="${y(t)}" y2="${y(t)}"/><text x="${ml-6}" y="${y(t)+4}" text-anchor="end">${t}</text>`});
+  s+=`<text x="${ml-6}" y="${mt-14}" text-anchor="end" style="font-size:10.5px">initiatives</text>`;
+  const zn=['Fastest 10%','Faster than typical','Typical (middle half)','Slower than typical','Slowest 10%'];
+  bins.forEach((b,i)=>{const c=(b.a+b.b)/2,z=zone(c);const bwid=Math.max(1,x(b.b)-x(b.a)-2);
+    s+=`<rect x="${x(b.a)+1}" y="${y(b.c)}" width="${bwid}" height="${ph-(y(b.c)-mt)}" rx="2" style="fill:var(--z${z})" ${tip(`<b>${(+b.a.toFixed(2))}–${(+b.b.toFixed(2))} ${state.unit}</b><br>${b.c} initiative${b.c===1?'':'s'}<br>${zn[z]}`)}/>`});
+  s+=`<path d="M${pts.map(p=>p.map(n=>n.toFixed(1)).join(',')).join('L')}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" opacity=".85"/>`;
+  xt.out.forEach(t=>{const xv=b0+t;if(xv<=xmax+1e-9)s+=`<line class="axis" x1="${x(xv)}" x2="${x(xv)}" y1="${mt+ph}" y2="${mt+ph+4}"/><text x="${x(xv)}" y="${mt+ph+17}" text-anchor="middle">${+xv.toFixed(2)}</text>`});
+  s+=`<line class="axis" x1="${ml}" x2="${W-mr}" y1="${mt+ph}" y2="${mt+ph}"/><text x="${W-mr}" y="${H-3}" text-anchor="end">${state.unit}</text>`;
+  const mx_=x(st.med*k),ax=x(st.avg*k);const avgRight=ax>=mx_;
+  s+=`<line x1="${mx_}" x2="${mx_}" y1="${mt-6}" y2="${mt+ph}" stroke="var(--ink)" stroke-width="2"/><text x="${mx_+(avgRight?-5:5)}" y="${mt-12}" text-anchor="${avgRight?'end':'start'}" style="fill:var(--ink);font-weight:600">Median ${fv(st.med)}</text>`;
+  s+=`<line x1="${ax}" x2="${ax}" y1="${mt-6}" y2="${mt+ph}" stroke="var(--ink)" stroke-width="2" stroke-dasharray="5 4"/><text x="${ax+(avgRight?5:-5)}" y="${mt-12}" text-anchor="${avgRight?'start':'end'}" style="fill:var(--ink);font-weight:600">Average ${fv(st.avg)}</text>`;
+  s+='</svg>';el.innerHTML=s;
+  const zr=[[0,`under ${fv(st.p10)}`],[1,`${fv(st.p10)} to ${fv(st.p25)}`],[2,`${fv(st.p25)} to ${fv(st.p75)}`],[3,`${fv(st.p75)} to ${fv(st.p90)}`],[4,`over ${fv(st.p90)}`]];
+  $('#zlegend').innerHTML=zr.map(([z,r])=>`<span><i class="sw" style="background:var(--z${z})"></i>${zn[z]}: ${r} ${u}</span>`).join('');
+  $('#dist-tbl').innerHTML=tbl('Initiatives per bucket',['From','To','Initiatives'],bins.map(b=>[+b.a.toFixed(2),+b.b.toFixed(2),b.c]));
+}
+
+/* ---------- range rows (box and whisker, one per group) ---------- */
+const GLYPHS=`<span><svg width="30" height="12" aria-hidden="true"><line x1="1" x2="29" y1="6" y2="6" stroke="var(--ink-3)" stroke-width="1.5"/><rect x="8" y="1" width="14" height="10" rx="2" style="fill:var(--accent)" opacity=".85"/></svg> box: middle half (P25 to P75), line: P10 to P90</span><span><svg width="12" height="12" aria-hidden="true"><line x1="6" x2="6" y1="0" y2="12" stroke="var(--ink)" stroke-width="2.5"/></svg> median</span><span><svg width="12" height="12" aria-hidden="true"><path d="M6 1L11 6L6 11L1 6Z" style="fill:var(--bg);stroke:var(--ink)" stroke-width="1.5"/></svg> average</span>`;
+function rangeRows(host,groups,o){
+  o=o||{};const u=o.days?'d':fu();const f=o.days?fd:(x=>state.unit==='weeks'?x.toFixed(1):String(Math.round(x)));const cv=o.days?(x=>x):(x=>conv(x));
+  const gs=groups.filter(g=>g.s.n>0);
+  if(!gs.length){host.innerHTML='<p class="empty" role="status">No data matching current filters</p>';return}
+  const maxV=Math.max(...gs.map(g=>g.s.n>=5?g.s.p90:g.s.max),o.ref||0)*1.06;const mxc=cv(maxV);const tk=ticks(mxc,5);const top=tk.out[tk.out.length-1]>=mxc?tk.out[tk.out.length-1]:tk.out[tk.out.length-1]+tk.st;
+  host.innerHTML=`<div class="rc"><div class="rc-axis"><span></span><div class="rc-plot ax"></div><span></span></div>${gs.map((g,i)=>{
+    const dd=o.ref?delta(g.s.med,o.ref):null;
+    return `<div class="rc-row"><button class="rc-lab" type="button" ${o.dim?`data-fd="${o.dim}" data-fv="${esc(g.key)}"`:'disabled'} title="${o.dim?'Click to filter':''}"><b>${esc(g.label)}</b><small>n ${g.s.n}</small></button><div class="rc-plot" data-i="${i}"></div><div class="rc-num"><b>${f(cv(g.s.med))} ${u}</b>${dd?`<small class="${dd.c}">${dd.t}${g.adj!==undefined&&g.s.n>=5?` · size-adj. ${g.adj>=1.05?'+':g.adj<=.95?'−':'±'}${Math.round(Math.abs(g.adj-1)*100)}%`:''}</small>`:`<small>avg ${f(cv(g.s.avg))}${g.s.n<5?' · few data':''}</small>`}</div></div>`}).join('')}</div>`;
+  const pl=host.querySelectorAll('.rc-plot');const W=Math.max(120,Math.floor(pl[0].getBoundingClientRect().width));const x=v=>cv(v)/top*W;
+  const ax=host.querySelector('.ax');ax.innerHTML=`<svg width="${W}" height="18">${tk.out.map(t=>`<text x="${t/top*W}" y="13" text-anchor="${t===0?'start':'middle'}">${t}</text>`).join('')}<text x="${W}" y="13" text-anchor="end" style="font-size:10.5px">${u}</text></svg>`;
+  const gl=tk.out.map(t=>`<line class="grid" x1="${t/top*W}" x2="${t/top*W}" y1="0" y2="40"/>`).join('');
+  host.querySelectorAll('.rc-plot[data-i]').forEach(p=>{const g=gs[+p.dataset.i];const s=g.s;let m=`<svg width="${W}" height="40">${gl}`;
+    if(o.ref)m+=`<line x1="${x(o.ref)}" x2="${x(o.ref)}" y1="0" y2="40" stroke="var(--c-build)" stroke-width="1.3" stroke-dasharray="4 3"/>`;
+    if(s.n>=5){m+=`<line x1="${x(s.p10)}" x2="${x(s.p90)}" y1="20" y2="20" stroke="var(--ink-3)" stroke-width="1.5"/><line x1="${x(s.p10)}" x2="${x(s.p10)}" y1="14" y2="26" stroke="var(--ink-3)" stroke-width="1.5"/><line x1="${x(s.p90)}" x2="${x(s.p90)}" y1="14" y2="26" stroke="var(--ink-3)" stroke-width="1.5"/>
+      <rect x="${x(s.p25)}" y="12" width="${Math.max(2,x(s.p75)-x(s.p25))}" height="16" rx="3" style="fill:var(--accent)" opacity=".85"/><line x1="${x(s.med)}" x2="${x(s.med)}" y1="9" y2="31" stroke="var(--ink)" stroke-width="2.5"/><path d="M${x(s.avg)} 14L${x(s.avg)+5} 20L${x(s.avg)} 26L${x(s.avg)-5} 20Z" style="fill:var(--bg);stroke:var(--ink)" stroke-width="1.5"/>`}
+    else s.s.forEach(val=>{m+=`<circle cx="${x(val)}" cy="20" r="4.5" style="fill:var(--ink-3);stroke:var(--bg)" stroke-width="1.5"/>`});
+    m+=`<rect x="0" y="0" width="${W}" height="40" fill="transparent" ${tip(`<b>${esc(g.label)}</b> (n ${s.n})<br>Median ${f(cv(s.med))} ${u}, average ${f(cv(s.avg))} ${u}<br>${s.n>=5?`Middle half ${f(cv(s.p25))} to ${f(cv(s.p75))} ${u}<br>P10 ${f(cv(s.p10))}, P90 ${f(cv(s.p90))} ${u}`:'Fewer than 5: shown as dots'}${g.adj!==undefined?`<br>Against its size mix: ${g.adj>=1?'+':'−'}${Math.round(Math.abs(g.adj-1)*100)}%`:''}`)}/></svg>`;p.innerHTML=m});
+}
+function renderSize(v){
+  const gs=SIZES.map(sz=>({key:sz,label:sz,s:stats(v.rows.filter(r=>r.it.size===sz).map(r=>r.v))}));
+  $('#by-size').innerHTML=`<div class="glyphs">${GLYPHS}</div><div id="by-size-c"></div><div id="by-size-t"></div>`;
+  rangeRows($('#by-size-c'),gs,{dim:'effort',ref:v.days.med});
+  $('#by-size-t').innerHTML=tbl('By T-shirt size',['Size','Initiatives','Median','Average'],gs.filter(g=>g.s.n).map(g=>[g.label,g.s.n,fv(g.s.med),fv(g.s.avg)]));
+}
+function renderDim(v){
+  const dim=DIMS[state.dim];$('#by-dim-title').textContent=`By ${dim.label.toLowerCase()}`;
+  $('#by-dim-note').textContent=`Slowest first. The dashed line is the overall median. "Size-adj." compares a group with what its own mix of sizes would predict, so a group that does mostly large work is not called slow for it. Click a row to filter.`;
+  const gs=[...groupBy(v.rows,dim.get)].map(([k,r])=>({key:k,label:k,s:stats(r.map(x=>x.v)),adj:adjusted(r,v)})).sort((a,b)=>b.s.med-a.s.med);
+  $('#by-dim').innerHTML=`<div class="glyphs">${GLYPHS}</div><div id="by-dim-c"></div><div id="by-dim-t"></div>`;
+  rangeRows($('#by-dim-c'),gs,{dim:state.dim==='obj'?'obj':state.dim,ref:v.days.med});
+  $('#by-dim-t').innerHTML=tbl(`By ${dim.label}`,[dim.label,'Initiatives','Median','Average','Size-adjusted'],gs.map(g=>[g.label,g.s.n,fv(g.s.med),fv(g.s.avg),`${Math.round((g.adj-1)*100)}%`]));
+}
+
+/* ---------- trend ---------- */
+function renderTrend(v){
+  const el=$('#trend');const tq=trendData(v);$('#trend-tbl').innerHTML='';
+  if(tq.length<2){el.innerHTML='<p class="empty" role="status">Not enough quarters with 3 or more initiatives</p>';return}
+  const k=state.unit==='weeks'?1/7:1;const fx=x=>state.unit==='weeks'?x.toFixed(1):String(Math.round(x));
+  const D=tq.map(t=>{const q=stats(t.vals);return{q:t.q,n:q.n,p25:q.p25*k,med:q.med*k,p75:q.p75*k}});
+  const W=svgW(el),H=230,ml=40,mr=14,mt=12,mb=44,pw=W-ml-mr,ph=H-mt-mb;const ymax=Math.max(...D.map(d=>d.p75))*1.12;const yt=ticks(ymax,4);const top=yt.out[yt.out.length-1];
+  const x=i=>ml+(D.length===1?pw/2:i*pw/(D.length-1));const y=v_=>mt+ph-v_/top*ph;
+  let s=`<svg width="${W}" height="${H}" role="img" aria-label="Median ${state.unit} per quarter">`;
+  yt.out.forEach(t=>s+=`<line class="grid" x1="${ml}" x2="${W-mr}" y1="${y(t)}" y2="${y(t)}"/><text x="${ml-6}" y="${y(t)+4}" text-anchor="end">${t}</text>`);
+  s+=`<path d="M${D.map((d,i)=>`${x(i)},${y(d.p75)}`).join('L')}L${[...D].reverse().map((d,i)=>`${x(D.length-1-i)},${y(d.p25)}`).join('L')}Z" style="fill:var(--accent)" opacity=".16"/>`;
+  s+=`<path d="M${D.map((d,i)=>`${x(i)},${y(d.med)}`).join('L')}" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linejoin="round"/>`;
+  D.forEach((d,i)=>{s+=`<circle cx="${x(i)}" cy="${y(d.med)}" r="5" style="fill:var(--accent);stroke:var(--bg)" stroke-width="2" ${tip(`<b>${d.q}</b> (n ${d.n})<br>Median ${fx(d.med)} ${fu()}<br>Middle half ${fx(d.p25)} to ${fx(d.p75)}`)}/><text x="${x(i)}" y="${H-24}" text-anchor="middle">${d.q.replace(' 20',' ’')}</text><text x="${x(i)}" y="${H-10}" text-anchor="middle" style="font-size:10px;fill:var(--ink-3)">n ${d.n}</text>`;if(i===0||i===D.length-1)s+=`<text x="${x(i)}" y="${y(d.med)-10}" text-anchor="${i?'end':'start'}" style="fill:var(--ink);font-weight:600">${fx(d.med)}</text>`});
+  s+=`<line class="axis" x1="${ml}" x2="${W-mr}" y1="${mt+ph}" y2="${mt+ph}"/><text x="${ml-6}" y="${mt-1}" text-anchor="end" style="font-size:10.5px">${fu()}</text></svg>`;
+  el.innerHTML=s;$('#trend-tbl').innerHTML=tbl('Median per quarter',['Quarter','Initiatives','Median','P25','P75'],D.map(d=>[d.q,d.n,fx(d.med),fx(d.p25),fx(d.p75)]));
+}
+
+/* ---------- donut ---------- */
+function donut(host,parts,centerTop,centerSub){
+  const tot=parts.reduce((a,p)=>a+p.v,0);if(!tot){host.innerHTML='<p class="empty" role="status">No data matching current filters</p>';return}
+  const S=170,r=70,ri=46,c=S/2;let a0=-Math.PI/2;let svg=`<svg width="${S}" height="${S}" viewBox="0 0 ${S} ${S}" role="img" aria-label="${esc(centerSub)}" style="flex:none">`;
+  parts.filter(p=>p.v>0).forEach(p=>{const a1=a0+p.v/tot*Math.PI*2-(parts.filter(q=>q.v>0).length>1?.012:0);const big=a1-a0>Math.PI?1:0;
+    const pt=(rr,a)=>`${(c+rr*Math.cos(a)).toFixed(2)},${(c+rr*Math.sin(a)).toFixed(2)}`;
+    svg+=`<path d="M${pt(r,a0)}A${r},${r} 0 ${big} 1 ${pt(r,a1)}L${pt(ri,a1)}A${ri},${ri} 0 ${big} 0 ${pt(ri,a0)}Z" style="fill:${p.fill}" ${tip(`<b>${esc(p.label)}</b><br>${p.tip||Math.round(p.v/tot*100)+'%'}`)}/>`;a0+=p.v/tot*Math.PI*2});
+  svg+=`<text x="${c}" y="${c+2}" text-anchor="middle" style="font-size:22px;font-weight:500;fill:var(--ink);font-family:var(--mono)">${centerTop}</text><text x="${c}" y="${c+18}" text-anchor="middle" style="font-size:10.5px">${esc(centerSub)}</text></svg>`;
+  host.innerHTML=svg+`<ul>${parts.map(p=>`<li><span class="sw ${p.cls||''}" style="${p.fill&&!p.cls?`background:${p.fill}`:''}"></span>${esc(p.label)}<b>${Math.round(p.v/tot*100)}%</b></li>`).join('')}</ul>`;
+}
+function stageTotals(rows){const t={};for(const r of rows){const w=windowOf(r.it);for(const s of STAGES)t[s.k]=(t[s.k]||0)+clipStage(r.it,w,s)}return t}
+function renderWorkWait(v){
+  if(v.rows.length<3){donut($('#workwait'),[],'','');return}
+  const t=stageTotals(v.rows);const W=['disc','def','build','test','exp'].map(k=>STAGES.find(s=>s.k===k));
+  const gate=STAGES.filter(s=>s.kind==='gate').reduce((a,s)=>a+t[s.k],0),queue=STAGES.filter(s=>s.kind==='queue').reduce((a,s)=>a+t[s.k],0);
+  const parts=[...W.map(s=>({label:s.label,v:t[s.k]||0,fill:`var(${s.col})`})),{label:'Waiting for a gate decision',v:gate,fill:'url(#hatch)',cls:'gate'},{label:'Waiting in a queue',v:queue,fill:'var(--queue)',cls:'queue'}];
+  const all=parts.reduce((a,p)=>a+p.v,0);const wait=Math.round((gate+queue)/all*100);
+  donut($('#workwait'),parts,`${wait}%`,'waiting');
+}
+
+/* ---------- stages by group ---------- */
+function stageLegend(){return `<span><i class="sw" style="background:var(--c-disc)"></i>Discover</span><span><i class="sw" style="background:var(--c-def)"></i>Define</span><span><i class="sw" style="background:var(--c-build)"></i>Build</span><span><i class="sw" style="background:var(--c-test)"></i>Test</span><span><i class="sw" style="background:var(--c-exp)"></i>Experiment</span><span><i class="sw gate"></i>Waiting for a gate decision</span><span><i class="sw queue"></i>Waiting in a queue</span>`}
+function stackBar(parts,max,labelMin){ // parts: [{s,d}]
+  return `<div class="st-bar" style="width:${Math.max(2,Math.min(100,sum(parts)/max*100))}%">${parts.filter(p=>p.d>0.4).map(p=>{const w=p.d/sum(parts)*100;const val=conv(p.d);return `<div class="st-seg ${p.s.kind==='work'?'':p.s.kind}" style="width:${w}%;${p.s.kind==='work'?`background:var(${p.s.col})`:''}" ${tip(`<b>${p.s.label}</b><br>${fvu(p.d)}`)}>${w>8?(state.unit==='weeks'?val.toFixed(1):Math.round(val)):''}</div>`}).join('')}</div>`}
+const sum=a=>a.reduce((x,p)=>x+p.d,0);
+function renderStages(v){
+  const dim=DIMS[state.dim];$('#stage-title').textContent=`Where the time goes, by ${dim.label.toLowerCase()}`;$('#stage-legend').innerHTML=stageLegend();
+  if(v.rows.length<3){$('#stages').innerHTML='<p class="empty" role="status">No data matching current filters</p>';return}
+  const mk=(rows)=>{const n=rows.length;const t=stageTotals(rows);return STAGES.map(s=>({s,d:(t[s.k]||0)/n}))};
+  const groups=[{key:'All',label:'All counted',rows:v.rows},...[...groupBy(v.rows,dim.get)].filter(([,r])=>r.length>=3).map(([k,r])=>({key:k,label:k,rows:r}))];
+  const data=groups.map(g=>({...g,parts:mk(g.rows)}));data.sort((a,b)=>a.key==='All'?-1:b.key==='All'?1:sum(b.parts)-sum(a.parts));
+  const max=Math.max(...data.map(d=>sum(d.parts)));
+  $('#stages').innerHTML=data.map(d=>`<div class="st-row"><div><b style="font-weight:500">${esc(d.label)}</b><br><small class="muted">n ${d.rows.length}</small></div>${stackBar(d.parts,max)}<div class="st-n">${fvu(sum(d.parts))}</div></div>`).join('')+tbl('Average per stage',['Group','Initiatives',...STAGES.map(s=>s.label)],data.map(d=>[d.label,d.rows.length,...d.parts.map(p=>fv(p.d))]));
+}
+
+/* ---------- decisions ---------- */
+function renderDecisions(v){
+  $('#glyphs-days').innerHTML=GLYPHS;
+  const G=[['A','tAreq','tA'],['B','tBreq','tB'],['C','tCreq','tC']];
+  const gs=G.map(([x,a,b])=>({key:x,label:`Gate ${x}`,s:stats(v.all.filter(i=>i.t[b]<=TODAY).map(i=>i.t[b]-i.t[a]))}));
+  rangeRows($('#decide'),gs,{days:true});
+  const med=Object.fromEntries(gs.map(g=>[g.key,g.s.med]));
+  const open=[];for(const it of v.all){for(const [x,a,b] of G){if(it.t[a]<=TODAY&&it.t[b]>TODAY)open.push({it,x,d:TODAY-it.t[a]})}}
+  open.sort((a,b)=>b.d-a.d);
+  $('#open-req').innerHTML=open.length?`<table><thead><tr><th>Gate</th><th>Initiative</th><th class="num">Waiting (days)</th><th>Against usual</th></tr></thead><tbody>${open.slice(0,5).map(o=>{const m=med[o.x];const r=m?o.d/m:null;return `<tr><td>${o.x}</td><td><button class="il" type="button">${esc(o.it.name)}</button> <span class="muted">${o.it.id}</span></td><td class="num">${o.d}</td><td>${r&&r>1.5?`<span class="pillx">${r.toFixed(1)}× the median</span>`:r?'within the usual range':'–'}</td></tr>`}).join('')}</tbody></table>${open.length>5?`<p class="note" style="margin-top:6px">${open.length-5} more waiting.</p>`:''}`:'<p class="empty">Nothing is waiting for a decision with these filters.</p>';
+  const cnt={Go:0,'Go with conditions':0,Hold:0,Stop:0};let nDec=0;for(const it of v.all)for(const [x,,b] of G)if(it.t[b]<=TODAY){cnt[it.out[x]]++;nDec++}
+  const fills={Go:'var(--z0)','Go with conditions':'var(--z3)',Hold:'var(--c-test)',Stop:'var(--ink-3)'};
+  donut($('#outcomes'),Object.entries(cnt).map(([k,n])=>({label:k,v:n,fill:fills[k],tip:`${n} decisions (${Math.round(n/Math.max(1,nDec)*100)}%)`})),String(nDec),'decisions');
+}
+
+/* ---------- sub-phases ---------- */
+const SUB=[['build','Build','tBuild','tTest'],['test','Test','tTest','tExp'],['exp','Experiment','tExp','tCreq']];
+function renderSub(v){
+  $('#glyphs-sub').innerHTML=GLYPHS;
+  const done=(it,b)=>it.t[b]<=TODAY;
+  const gs=SUB.map(([k,l,a,b])=>({key:k,label:l,s:stats(v.all.filter(i=>done(i,b)&&(k!=='exp'||!i.skip)).map(i=>i.t[b]-i.t[a]))}));
+  rangeRows($('#subphase'),gs,{});
+  const hm=SIZES.map(sz=>SUB.map(([k,,a,b])=>{const x=v.all.filter(i=>i.size===sz&&done(i,b)&&(k!=='exp'||!i.skip)).map(i=>i.t[b]-i.t[a]);return{n:x.length,m:x.length>=3?qtl(sortN(x),.5):null}}));
+  const mx=SUB.map((_,c)=>Math.max(...hm.map(r=>r[c].m||0)));
+  $('#heat').innerHTML=`<table class="heat"><thead><tr><th>Size</th>${SUB.map(s=>`<th style="text-align:center">${s[1]}</th>`).join('')}</tr></thead><tbody>${SIZES.map((sz,i)=>`<tr><td><b style="font-weight:500">${sz}</b></td>${hm[i].map((c,j)=>c.m===null?`<td class="h muted">–<small>n ${c.n}</small></td>`:`<td class="h" style="background:color-mix(in srgb,var(--accent) ${Math.round(8+c.m/mx[j]*42)}%,transparent)">${fv(c.m)} ${fu()}<small>n ${c.n}</small></td>`).join('')}</tr>`).join('')}</tbody></table><p class="note" style="margin-top:8px">Experiment is skipped on about a third of initiatives; those are left out of its numbers.</p>`;
+}
+
+/* ---------- outlier tables ---------- */
+function renderTables(v){
+  const m=MEASURES[state.measure];$('#slow-title').textContent=`Slowest finished: ${m.label}`;
+  if(!v.rows.length){$('#slowest').innerHTML='<p class="empty" role="status">No data matching current filters</p>'}
+  else{const top=[...v.rows].sort((a,b)=>b.v-a.v).slice(0,7);const maxv=top[0].v;
+    $('#slowest').innerHTML=`<table><thead><tr><th>Initiative</th><th>Size</th><th>Team</th><th class="num">${fu()==='wk'?'Weeks':'Days'}</th><th>Where the time went</th><th>Longest stage</th></tr></thead><tbody>${top.map(r=>{const w=windowOf(r.it);const parts=STAGES.map(s=>({s,d:clipStage(r.it,w,s)}));const lg=[...parts].sort((a,b)=>b.d-a.d)[0];
+      return `<tr><td><button class="il" type="button">${esc(r.it.name)}</button> <span class="muted">${r.it.id}</span></td><td>${r.it.size}</td><td>${esc(r.it.team)}</td><td class="num">${fv(r.v)}</td><td><div class="mini" style="width:${Math.max(40,r.v/maxv*100)}%;min-width:70px">${parts.filter(p=>p.d>0).map(p=>`<i class="${p.s.kind==='work'?'':p.s.kind}" style="flex:${p.d};${p.s.kind==='work'?`background:var(${p.s.col})`:''}" ${tip(`<b>${p.s.label}</b>: ${fvu(p.d)}`)}></i>`).join('')}</div></td><td>${esc(lg.s.label)} <span class="muted">${fvu(lg.d)}</span></td></tr>`}).join('')}</tbody></table>`}
+  // in flight vs finished of the same size (Total)
+  const fin=ITEMS.filter(i=>passes(i,true)).filter(i=>i.t.tRoll<=TODAY);
+  const refAll=stats(fin.map(i=>i.t.tRoll-i.t.t0));
+  const infl=v.all.filter(i=>i.t.tRoll>TODAY).map(it=>{const same=stats(fin.filter(i=>i.size===it.size).map(i=>i.t.tRoll-i.t.t0));const ref=same.n>=5?same:refAll;const el=TODAY-it.t.t0;const st=STAGES.find(s=>it.t[s.a]<=TODAY&&it.t[s.b]>TODAY);return{it,el,ref:ref.p80,over:ref.p80&&el>ref.p80,st,since:TODAY-it.t[st.a]}}).filter(x=>x.over).sort((a,b)=>b.el/b.ref-a.el/a.ref);
+  $('#inflight-note').textContent=`Started, not yet rolling out, and already past the time that 80% of finished initiatives of the same size needed (from Start Discovery). Not affected by the measure.`;
+  $('#inflight').innerHTML=infl.length?`<table><thead><tr><th>Initiative</th><th>Size</th><th>Now in</th><th class="num">Days there</th><th class="num">Elapsed</th><th>Against P80</th></tr></thead><tbody>${infl.slice(0,7).map(x=>`<tr><td><button class="il" type="button">${esc(x.it.name)}</button> <span class="muted">${x.it.id}</span></td><td>${x.it.size}</td><td>${esc(x.st.label)}</td><td class="num">${x.since}</td><td class="num">${fvu(x.el)}</td><td><span class="pillx">${fvu(x.el-x.ref)} over</span></td></tr>`).join('')}</tbody></table>${infl.length>7?`<p class="note" style="margin-top:6px">${infl.length-7} more.</p>`:''}`:'<p class="empty">Nothing in flight is past its usual time with these filters.</p>';
+}
+
+/* ---------- render all ---------- */
+function render(){
+  const v=getView();
+  $('#count').textContent=`${v.rows.length} of ${v.inScope.length} initiatives counted`;
+  renderFilters(v);renderControls();renderInsights(v);renderDist(v);renderSize(v);renderDim(v);renderTrend(v);renderWorkWait(v);renderStages(v);renderDecisions(v);renderSub(v);renderTables(v);
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{
+  const t=e.target.closest('button,input');
+  if(!t){document.querySelectorAll('.pop[open]').forEach(d=>{if(!d.contains(e.target))d.open=false});return}
+  if(t.dataset.m){state.measure=t.dataset.m;if(!MEASURES[state.measure].prev)state.stretch=false;state.f.q.clear();render()}
+  else if(t.dataset.s!==undefined){state.stretch=t.dataset.s==='1';render()}
+  else if(t.dataset.u){state.unit=t.dataset.u;render()}
+  else if(t.dataset.d){state.dim=t.dataset.d;render()}
+  else if(t.dataset.f){toggleF(t.dataset.f,t.value)}
+  else if(t.dataset.clear){state.f[t.dataset.clear].clear();render()}
+  else if(t.dataset.pill){toggleF(t.dataset.pill,t.dataset.v)}
+  else if(t.dataset.fd){toggleF(t.dataset.fd,t.dataset.fv)}
+  else if(t.id==='reset'){FILTERS.forEach(([k])=>state.f[k].clear());render()}
+  document.querySelectorAll('.pop[open]').forEach(d=>{if(!d.contains(e.target))d.open=false});
+});
+const tipEl=$('#tip');
+const place=e=>{const w=tipEl.offsetWidth,h=tipEl.offsetHeight;let x=e.clientX+14,y=e.clientY+14;if(x+w>innerWidth-8)x=e.clientX-w-14;if(y+h>innerHeight-8)y=e.clientY-h-14;tipEl.style.left=Math.max(8,x)+'px';tipEl.style.top=Math.max(8,y)+'px'};
+document.addEventListener('pointermove',e=>{const t=e.target.closest('[data-tip]');if(!t){tipEl.style.display='none';return}tipEl.innerHTML=t.dataset.tip;tipEl.style.display='block';place(e)});
+document.addEventListener('pointerleave',()=>tipEl.style.display='none');
+let rt;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(render,120)});
+render();
+</script>
