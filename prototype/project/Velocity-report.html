@@ -94,6 +94,11 @@ main{padding-block:16px 40px}
 .seg button:hover{background:var(--hover)}
 .seg button[aria-pressed="true"]{background:var(--tint);color:var(--accent-text);font-weight:500}
 .seg button[disabled]{opacity:.45;cursor:not-allowed}
+.tb{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin-top:10px;padding:8px 10px;border:1px solid var(--border-soft);border-radius:8px;background:var(--surface)}
+.tb-f{display:flex;flex-direction:column;gap:2px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
+.tb-f input,.tb-f select{font:inherit;font-size:12.5px;letter-spacing:0;text-transform:none;color:var(--ink);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:3px 8px;height:28px;max-width:200px}
+.tb-q input{width:210px}
+@media(max-width:620px){.tb-q,.tb-q input,.tb-f select{width:100%;max-width:none}}
 .defn{flex:1 1 260px;font-size:12px;color:var(--ink-2);min-width:0}
 
 /* cards */
@@ -332,6 +337,16 @@ details.tbl summary{cursor:pointer;color:var(--accent-text);font-size:12px}
       <div style="min-width:0"><h2 id="all-title">All initiatives</h2>
       <p class="note" id="all-note" style="margin-bottom:0"></p></div>
       <div class="ctl"><span>Sort by</span><div class="seg" id="seg-sort" role="group" aria-label="Sort by"></div></div>
+    </div>
+    <div class="tb" role="search" aria-label="Search and filter this list">
+      <label class="tb-f tb-q"><span>Search</span><input id="tf-q" type="search" placeholder="Initiative name or ID" autocomplete="off"></label>
+      <label class="tb-f"><span>Size</span><select id="tf-size"></select></label>
+      <label class="tb-f"><span>Team</span><select id="tf-team"></select></label>
+      <label class="tb-f"><span>Key Result</span><select id="tf-kr"></select></label>
+      <label class="tb-f"><span>Business line</span><select id="tf-bl"></select></label>
+      <label class="tb-f"><span>Longest stage</span><select id="tf-stage"></select></label>
+      <button class="tool-btn" type="button" id="tf-clear">Clear</button>
+      <span class="muted" id="tf-count" role="status" style="margin-left:auto"></span>
     </div>
     <div class="tw" id="slowest" style="margin-top:8px"></div>
   </section>
@@ -680,19 +695,34 @@ function renderSub(v){
 }
 
 /* ---------- outlier tables ---------- */
+let LIST=null;const TF={q:'',size:'',team:'',kr:'',bl:'',stage:''};
+function renderList(){
+  if(!LIST)return;const{v,longest}=LIST;
+  if(!v.rows.length){$('#slowest').innerHTML='<p class="empty" role="status">No data matching current filters</p>';$('#tf-count').textContent='';return}
+  const SORTS={slowest:(a,b)=>b.v-a.v,fastest:(a,b)=>a.v-b.v};const slow=SORTS.slowest;
+  const cmp={slowest:slow,fastest:SORTS.fastest,team:(a,b)=>a.it.team.localeCompare(b.it.team)||slow(a,b),size:(a,b)=>SIZES.indexOf(a.it.size)-SIZES.indexOf(b.it.size)||slow(a,b)}[state.sort];
+  const q=TF.q.trim().toLowerCase();
+  const rows=v.rows.map(r=>({...r,lg:longest(r)})).filter(r=>(!q||r.it.name.toLowerCase().includes(q)||r.it.id.toLowerCase().includes(q))&&(!TF.size||r.it.size===TF.size)&&(!TF.team||r.it.team===TF.team)&&(!TF.kr||r.it.kr===TF.kr)&&(!TF.bl||r.it.bl===TF.bl)&&(!TF.stage||r.lg.s.label===TF.stage)).sort(cmp);
+  const active=Object.values(TF).some(Boolean);$('#tf-clear').disabled=!active;
+  $('#tf-count').textContent=`Showing ${rows.length} of ${v.rows.length}`;
+  if(!rows.length){$('#slowest').innerHTML='<p class="empty" role="status">No initiatives match this search. Clear it to see all '+v.rows.length+'.</p>';return}
+  const maxv=Math.max(...rows.map(r=>r.v));
+  $('#slowest').innerHTML=`<table><thead><tr><th>Initiative</th><th>Size</th><th>Team</th><th>Key Result</th><th>Business line</th><th class="num">${fu()==='wk'?'Weeks':'Days'}</th><th style="min-width:240px;width:34%">Where the time went</th><th>Longest stage</th></tr></thead><tbody>${rows.map(r=>{const w=windowOf(r.it);const parts=STAGES.map(s=>({s,d:clipStage(r.it,w,s)}));const lg=r.lg;
+    return `<tr><td><button class="il" type="button">${esc(r.it.name)}</button> <span class="muted">${r.it.id}</span></td><td>${r.it.size}</td><td>${esc(r.it.team)}</td><td>${esc(r.it.kr)}</td><td>${esc(r.it.bl)}</td><td class="num">${fv(r.v)}</td><td><div class="mini" style="width:${Math.max(3,r.v/maxv*100)}%">${parts.filter(p=>p.d>0).map(p=>`<i class="${p.s.kind==='work'?'':p.s.kind}" style="flex:${p.d};${p.s.kind==='work'?`background:var(${p.s.col})`:''}" ${tip(`<b>${p.s.label}</b>: ${fvu(p.d)}`)}></i>`).join('')}</div></td><td>${esc(lg.s.label)} <span class="muted">${fvu(lg.d)}</span></td></tr>`}).join('')}</tbody></table>`;
+}
 function renderTables(v){
   const m=MEASURES[state.measure];
   const SORTS={slowest:'Slowest first',fastest:'Fastest first',team:'Team',size:'Size'};
   $('#seg-sort').innerHTML=Object.entries(SORTS).map(([k,l])=>`<button type="button" data-sort="${k}" aria-pressed="${state.sort===k}">${l}</button>`).join('');
   $('#all-title').textContent=`All initiatives: ${m.label}`;
   $('#all-note').textContent=`Every initiative that reached the end of the measure with the filters above (${v.rows.length}), with where its time went (same colours as the stage chart). Team and Size sort slowest first within each group.`;
-  if(!v.rows.length){$('#slowest').innerHTML='<p class="empty" role="status">No data matching current filters</p>'}
-  else{
-    const slow=(a,b)=>b.v-a.v;
-    const cmp={slowest:slow,fastest:(a,b)=>a.v-b.v,team:(a,b)=>a.it.team.localeCompare(b.it.team)||slow(a,b),size:(a,b)=>SIZES.indexOf(a.it.size)-SIZES.indexOf(b.it.size)||slow(a,b)}[state.sort];
-    const list=[...v.rows].sort(cmp);const maxv=Math.max(...list.map(r=>r.v));
-    $('#slowest').innerHTML=`<table><thead><tr><th>Initiative</th><th>Size</th><th>Team</th><th>Key Result</th><th>Business line</th><th class="num">${fu()==='wk'?'Weeks':'Days'}</th><th style="min-width:240px;width:34%">Where the time went</th><th>Longest stage</th></tr></thead><tbody>${list.map(r=>{const w=windowOf(r.it);const parts=STAGES.map(s=>({s,d:clipStage(r.it,w,s)}));const lg=[...parts].sort((a,b)=>b.d-a.d)[0];
-      return `<tr><td><button class="il" type="button">${esc(r.it.name)}</button> <span class="muted">${r.it.id}</span></td><td>${r.it.size}</td><td>${esc(r.it.team)}</td><td>${esc(r.it.kr)}</td><td>${esc(r.it.bl)}</td><td class="num">${fv(r.v)}</td><td><div class="mini" style="width:${Math.max(3,r.v/maxv*100)}%">${parts.filter(p=>p.d>0).map(p=>`<i class="${p.s.kind==='work'?'':p.s.kind}" style="flex:${p.d};${p.s.kind==='work'?`background:var(${p.s.col})`:''}" ${tip(`<b>${p.s.label}</b>: ${fvu(p.d)}`)}></i>`).join('')}</div></td><td>${esc(lg.s.label)} <span class="muted">${fvu(lg.d)}</span></td></tr>`}).join('')}</tbody></table>`}
+  const longest=r=>{const w=windowOf(r.it);return[...STAGES.map(st=>({s:st,d:clipStage(r.it,w,st)}))].sort((x,y)=>y.d-x.d)[0]};
+  LIST={v,longest};
+  const opt=(id,vals,all)=>{const el=$('#'+id);const cur=TF[id.slice(3)];el.innerHTML=`<option value="">${all}</option>`+vals.map(x=>`<option value="${esc(x)}"${x===cur?' selected':''}>${esc(x)}</option>`).join('')};
+  const uniq=f=>[...new Set(v.rows.map(r=>f(r.it)))].sort((a,b)=>a.localeCompare(b));
+  opt('tf-size',SIZES.filter(z=>v.rows.some(r=>r.it.size===z)),'All sizes');opt('tf-team',uniq(i=>i.team),'All teams');opt('tf-kr',uniq(i=>i.kr),'All Key Results');opt('tf-bl',uniq(i=>i.bl),'All business lines');
+  opt('tf-stage',STAGES.filter(st=>v.rows.some(r=>longest(r).s===st)).map(st=>st.label),'All stages');
+  renderList();
   // in flight vs finished of the same size (Total)
   const fin=ITEMS.filter(i=>passes(i,true)).filter(i=>i.t.tRoll<=TODAY);
   const refAll=stats(fin.map(i=>i.t.tRoll-i.t.t0));
@@ -717,6 +747,7 @@ document.addEventListener('click',e=>{
   else if(t.dataset.u){state.unit=t.dataset.u;render()}
   else if(t.dataset.d){state.dim=t.dataset.d;render()}
   else if(t.dataset.sort){state.sort=t.dataset.sort;render()}
+  else if(t.id==='tf-clear'){Object.keys(TF).forEach(k=>TF[k]='');$('#tf-q').value='';renderTables(getView())}
   else if(t.dataset.f){toggleF(t.dataset.f,t.value)}
   else if(t.dataset.clear){state.f[t.dataset.clear].clear();render()}
   else if(t.dataset.pill){toggleF(t.dataset.pill,t.dataset.v)}
@@ -724,6 +755,8 @@ document.addEventListener('click',e=>{
   else if(t.id==='reset'){FILTERS.forEach(([k])=>state.f[k].clear());render()}
   document.querySelectorAll('.pop[open]').forEach(d=>{if(!d.contains(e.target))d.open=false});
 });
+document.addEventListener('input',e=>{if(e.target.id==='tf-q'){TF.q=e.target.value;renderList()}});
+document.addEventListener('change',e=>{const id=e.target.id||'';if(id.startsWith('tf-')&&id!=='tf-q'){TF[id.slice(3)]=e.target.value;renderList()}});
 const tipEl=$('#tip');
 const place=e=>{const w=tipEl.offsetWidth,h=tipEl.offsetHeight;let x=e.clientX+14,y=e.clientY+14;if(x+w>innerWidth-8)x=e.clientX-w-14;if(y+h>innerHeight-8)y=e.clientY-h-14;tipEl.style.left=Math.max(8,x)+'px';tipEl.style.top=Math.max(8,y)+'px'};
 document.addEventListener('pointermove',e=>{const t=e.target.closest('[data-tip]');if(!t){tipEl.style.display='none';return}tipEl.innerHTML=t.dataset.tip;tipEl.style.display='block';place(e)});
