@@ -537,7 +537,7 @@ function renderDist(v){
   if(tq.length>=3){const last=tq.slice(-2).flatMap(x=>x.vals),prev=tq.slice(0,-2).flatMap(x=>x.vals);if(last.length>=5&&prev.length>=5){const d=delta(qtl(sortN(last),.5),qtl(sortN(prev),.5));dl=`<span class="d ${d.c}">${d.t} than before</span>`}}
   const kp=(n,l,x='')=>`<div class="kpi"><span class="n">${n}</span><span class="l">${l}</span>${x}</div>`;
   const un=`<small>${u}</small>`;
-  $('#kpis').innerHTML=kp(fv(st.med)+un,'Median',dl)+kp(fv(st.avg)+un,'Average')+kp(fv(st.p80)+un,'80% finish within')+kp(fv(st.p10)+un,'Fastest tenth under')+kp(fv(st.p90)+un,'Slowest tenth over')+kp(String(st.n),'Initiatives')+kp(String(v.notYet.length),'Not there yet','<span class="d muted">still on the way, never counted as zero</span>');
+  $('#kpis').innerHTML=kp(fv(st.med)+un,'Median',dl)+kp(fv(st.avg)+un,'Average')+kp(fv(st.p80)+un,'80% finish within')+kp(fv(st.p10)+un,'Fastest tenth under')+kp(fv(st.p90)+un,'Slowest tenth over')+kp(String(st.n),'Initiatives')+kp(String(v.notYet.length),'Initiatives not there yet','<span class="d muted">still on the way, never counted as zero</span>');
   // bins in display unit
   const vals=st.s.map(x=>x*k);const mn=Math.min(...vals),mx=Math.max(...vals);const bw=niceStep(Math.max((mx-mn)/12,.01));const b0=Math.floor(mn/bw)*bw;const nb=Math.max(1,Math.ceil((mx-b0)/bw+1e-9));
   const bins=Array.from({length:nb},(_,i)=>({a:b0+i*bw,b:b0+(i+1)*bw,c:0}));for(const x of vals){bins[Math.min(nb-1,Math.floor((x-b0)/bw))].c++}
