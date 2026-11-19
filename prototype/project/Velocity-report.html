@@ -39,6 +39,11 @@ button{font:inherit;color:inherit}
 .muted{color:var(--ink-2)}
 h1{font-size:18px;font-weight:600;margin:0 10px 0 0}
 h2{font-size:13px;font-weight:600;margin:0 0 4px}
+h2{margin:0 0 4px}
+.h-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.h-row h2{margin:0}
+.info{width:17px;height:17px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--ink-2);font:italic 600 11px/1 var(--font);cursor:help;padding:0;display:inline-flex;align-items:center;justify-content:center}
+.info:hover,.info:focus-visible{background:var(--tint);color:var(--accent-text);border-color:var(--accent)}
 h3{font-size:12.5px;font-weight:600;margin:0 0 4px}
 
 /* app frame */
@@ -263,12 +268,12 @@ details.tbl summary{cursor:pointer;color:var(--accent-text);font-size:12px}
 
   <div class="grid2">
     <section class="card" aria-label="By T-shirt size">
-      <h2>By T-shirt size</h2>
+      <div class="h-row"><h2>By T-shirt size</h2><button class="info" type="button" aria-label="How to read this chart" data-tip="&lt;b&gt;How to read it&lt;/b&gt;&lt;br&gt;One row per T-shirt size, for the time measured chosen above. The blue box holds the middle half of the initiatives (25th to 75th percentile). The thin line runs from the fastest tenth to the slowest tenth (10th to 90th percentile). The black tick is the median: half were faster, half slower. The diamond is the average. The dashed orange line is the overall median. Rows with fewer than 5 initiatives show single dots. Only initiatives that reached the end of the measure are counted, and a still-running one is never counted as zero.&lt;br&gt;&lt;br&gt;&lt;b&gt;Numbers on the right&lt;/b&gt;: the median, and how it compares with the overall median.">i</button></div>
       <p class="note">Do the sizes mean what we think they mean? Bars should step up from XS to XL with little overlap. Click a row to filter.</p>
       <div id="by-size"></div>
     </section>
     <section class="card" aria-label="By group">
-      <h2 id="by-dim-title">By team</h2>
+      <div class="h-row"><h2 id="by-dim-title">By team</h2><button class="info" type="button" aria-label="How to read this chart" data-tip="&lt;b&gt;How to read it&lt;/b&gt;&lt;br&gt;One row per group, for the time measured chosen above. The blue box holds the middle half of the initiatives (25th to 75th percentile). The thin line runs from the fastest tenth to the slowest tenth (10th to 90th percentile). The black tick is the median: half were faster, half slower. The diamond is the average. The dashed orange line is the overall median. Rows with fewer than 5 initiatives show single dots. Only initiatives that reached the end of the measure are counted, and a still-running one is never counted as zero.&lt;br&gt;&lt;br&gt;&lt;b&gt;Numbers on the right&lt;/b&gt;: the median, and how it compares with the overall median.&lt;br&gt;&lt;br&gt;&lt;b&gt;Size-adj.&lt;/b&gt; compares the group with what its own mix of sizes predicts: for each initiative, take the overall median of its T-shirt size, then the median of those. +20% means the group takes 20% longer than expected for the work it does.">i</button></div>
       <p class="note" id="by-dim-note"></p>
       <div id="by-dim"></div>
     </section>
@@ -748,6 +753,8 @@ const tipEl=$('#tip');
 const place=e=>{const w=tipEl.offsetWidth,h=tipEl.offsetHeight;let x=e.clientX+14,y=e.clientY+14;if(x+w>innerWidth-8)x=e.clientX-w-14;if(y+h>innerHeight-8)y=e.clientY-h-14;tipEl.style.left=Math.max(8,x)+'px';tipEl.style.top=Math.max(8,y)+'px'};
 document.addEventListener('pointermove',e=>{const t=e.target.closest('[data-tip]');if(!t){tipEl.style.display='none';return}tipEl.innerHTML=t.dataset.tip;tipEl.style.display='block';place(e)});
 document.addEventListener('pointerleave',()=>tipEl.style.display='none');
+document.addEventListener('focusin',e=>{const t=e.target.closest&&e.target.closest('.info[data-tip]');if(!t)return;tipEl.innerHTML=t.dataset.tip;tipEl.style.display='block';const r=t.getBoundingClientRect();place({clientX:r.left,clientY:r.bottom})});
+document.addEventListener('focusout',e=>{if(e.target.closest&&e.target.closest('.info'))tipEl.style.display='none'});
 let rt;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(render,120)});
 render();
 </script>
