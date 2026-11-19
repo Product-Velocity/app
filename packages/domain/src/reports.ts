@@ -4,10 +4,10 @@ import { FIELD_BY_KEY } from "./registry";
  * Reports tab (issue #233): filters, click-to-filter drill-down and the counts behind the charts. Pure functions over the rows the
  * grid already holds, so a count here is the count the Grid tab gives for the same filters.
  */
-export const REPORT_DIMS = ["product_manager", "engineering_manager", "initiative_phase", "focus_area", "team", "quarter", "effort", "group", "initiative_status", "health", "moscow"] as const;
+export const REPORT_DIMS = ["product_manager", "engineering_manager", "initiative_phase", "focus_area", "team", "quarter", "effort", "group", "objective", "key_result", "business_line", "initiative_status", "health", "moscow"] as const;
 export type ReportDim = (typeof REPORT_DIMS)[number];
-/** The dimensions of the filter bar (status and health are reached by clicking the charts). */
-export const BAR_DIMS: readonly ReportDim[] = ["product_manager", "engineering_manager", "initiative_phase", "focus_area", "team", "quarter", "effort", "group"];
+/** The dimensions of the filter bar (health is reached by clicking the charts). Objective, Key Result, Business Line and Initiative Status were added with the Velocity report (issue #545). */
+export const BAR_DIMS: readonly ReportDim[] = ["product_manager", "engineering_manager", "initiative_phase", "focus_area", "team", "quarter", "effort", "group", "objective", "key_result", "business_line", "initiative_status"];
 
 /** The value of "nothing set" in a filter, a drill-down pill and a chart (labelled in words: Unscheduled, Not set, ...). */
 export const UNSET = "__none";
@@ -15,11 +15,11 @@ export const UNSET = "__none";
 /** The row field behind each dimension (team has its own splitting). */
 export const DIM_FIELD: Record<ReportDim, string> = {
   product_manager: "product_manager", engineering_manager: "engineering_manager", initiative_phase: "initiative_phase", focus_area: "focus_area", team: "contributing_teams", quarter: "g2m_quarter",
-  effort: "effort", group: "theme", initiative_status: "initiative_status", health: "health", moscow: "moscow",
+  effort: "effort", group: "theme", objective: "okr_objective", key_result: "kr_metric", business_line: "business_line", initiative_status: "initiative_status", health: "health", moscow: "moscow",
 };
 export const DIM_LABEL: Record<ReportDim, string> = {
   product_manager: "Product Manager", engineering_manager: "Engineering Manager", initiative_phase: "Initiative Phase", focus_area: "Focus Area", team: "Team", quarter: "Planned Quarter", effort: "Effort",
-  group: "Initiative Group", initiative_status: "Initiative Status", health: "Health", moscow: "MoSCoW",
+  group: "Initiative Group", objective: "Objective", key_result: "Key Result", business_line: "Business Line", initiative_status: "Initiative Status", health: "Health", moscow: "MoSCoW",
 };
 export const unsetLabel = (dim: ReportDim) => (dim === "quarter" ? "Unscheduled" : dim === "product_manager" ? "No Product Manager" : dim === "engineering_manager" ? "No Engineering Manager" : dim === "team" ? "No team" : "Not set");
 
@@ -148,7 +148,7 @@ export function parseReport(p: URLSearchParams): ReportState {
 
 /**
  * Columns of the Reports grid and its CSV. A fixed list with no commercial field (value, confidence, customers, decision, key results):
- * the Reports tab never shows them to any role (issue #233 FR-5.1).
+ * the Reports grid and CSV do not list them (issue #233 FR-5.1). This is a choice for that list, not a ban: inside the platform all fields may be used, and the Velocity report (issue #545) filters and breaks down by Key Result (docs/decisions/2026-11-19-velocity-report.md). What must never leave the platform is sent to trackers or customer-safe reports (rule 2).
  */
 export const REPORT_GRID_COLUMNS: readonly string[] = [
   "item_code", "initiative_name", "home_project", "product_manager", "engineering_manager", "initiative_phase", "initiative_status", "health", "contributing_teams",

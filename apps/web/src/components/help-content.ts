@@ -360,7 +360,7 @@ export const STATUS_NOTES = [
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // Reports (issue #233 Overview, request R-129 / issue #287 Roadmap Health): what each report answers and how its numbers are defined.
 
-export const REPORTS_INTRO = "The Reports tab has a list of reports next to its title; Overview opens first. The filters, the click-to-filter pills and the two toggles (archived, AI drafts) are shared, so they stay when you switch reports, and the address keeps the report and the filters so you can share a link.";
+export const REPORTS_INTRO = "The Reports tab has a list of reports next to its title; Overview opens first. The filters (including Objective, Key Result, Business Line and Initiative Status), the click-to-filter pills and the two toggles (archived, AI drafts) are shared, so they stay when you switch reports, and the address keeps the report and the filters so you can share a link.";
 
 export const REPORTS_LIST: Table = {
   head: ["Report", "What it answers", "What is on it"],
@@ -369,6 +369,7 @@ export const REPORTS_LIST: Table = {
     ["Roadmap Health", "Where does active work pile up, how long has it been in its phase, and what is Blocked, At Risk or Delayed?", "Counts of active, Blocked, At Risk and Delayed initiatives; active initiatives by Team and Phase and by Team and Health; median days in the current phase for each phase; the 10 initiatives that have waited longest; completed delivery duration; every active initiative with days in phase and age"],
     ["Gate history", "How do decision gates go: how many requests, what was decided, and how long do decisions and the start of building take?", "Per gate A, B and C: requested, waiting now, decided, Go, Go with conditions, Hold, Stop, fast lane, withdrawn, median and average days to decide, longest open request; the wait between a Gate B Go and Start Building. For the whole team: nothing is shown per approver"],
     ["Changes", "Which initiatives changed today, this week or this month, and what changed?", "Grouped by initiative: Phase, Status, Health, Build status and the status of linked GitHub and Jira issues, each with the time it was registered, where it came from and who made it. Shown on a grid with the same action bar as the Roadmap (Filter, Columns, Group by, Search): group by initiative, change type, source, source type or day, with colour for the type of change and for the value it ended on. Source says where the value came from (Product Velocity, Jira or GitHub), Source type how it arrived (UI, API, Claude MCP, GitHub webhook, import, system); for a tracker value the person on the row only ran the Sync. A Jira or GitHub move is one row: the status of the linked issue with the Build Status that went with it, and for Jira a Jira user column says who moved the issue. Says whether the initiative itself moved or only its linked issues, shows the Jira or GitHub issue behind a change as a link, and marks initiatives with a flag to follow up (the Needs attention reasons, plus two for initiatives with no phase) with a button for the next step: Move to Test where that is allowed, Request gate where the move passes a decision gate. The bar also has Refresh and Collapse all. Filter by change type or flagged only; follows the Reports filters"],
+    ["Velocity", "How long does work take from Start Discovery to roll-out, to each gate and in Build, how widely does it vary, where does the time go, and how long do gates take to decide?", "Time measured (Total, To Gate A, To Gate B, To Gate C, Build), counted from the start of Discovery or the previous gate, in weeks or days; the median, average and percentiles with a bell-shaped distribution; by T-shirt size and by Team, Key Result, Objective, Business line, Initiative Group or Focus Area; the trend per quarter; working or waiting; the stages of the journey; time to decide per gate and what the gates decided; Build, Test and Experiment on their own; in-flight initiatives already slower than usual; every initiative with search, filters and sort. Team level only"],
   ],
 };
 
@@ -384,6 +385,30 @@ export const ROADMAP_HEALTH_DEFINITIONS: Table = {
     ["Several teams", "An initiative with several teams counts once per team, so team bars can add up to more than the number of initiatives. The chart says so."],
   ],
 };
+
+export const VELOCITY_DEFINITIONS: Table = {
+  head: ["Term", "How it is counted"],
+  rows: [
+    ["Time measured", "Total: Start Discovery (the earlier of Start Discovery and Start Date) to Start Roll-Out. The 30, 60 and 90 days after roll-out up to Completed are not counted. To Gate A, B and C: Start Discovery to the date of the gate decision that passed it (Go or Go with conditions); where there is none, the date the phase started. Build: Start Building to the end of the build, the same number as Actual Build (weeks)."],
+    ["Counted from", "Start of Discovery, or the previous gate for Gate B (Gate A decided to Gate B decided) and Gate C (Gate B decided to Gate C decided)."],
+    ["Counted and not there yet", "Only initiatives that reached the end of the measure are counted. One that started and has not reached it is counted apart as not there yet, never as zero; one with no start date is left out and the report says how many."],
+    ["Median, average and percentiles", "The median is the middle initiative: half were faster. The average is the mean. The fastest tenth took less than the 10th percentile, the slowest tenth more than the 90th, and the middle half lies between the 25th and 75th. 80% finished within the 80th."],
+    ["Bell", "Bars count the initiatives that took about that long; the curve smooths them. Colours mark the fastest tenth, the middle half and the slowest tenth, and are always named in words under the chart."],
+    ["Box and line", "On the range charts the box is the middle half, the thin line runs from the 10th to the 90th percentile, the tick is the median and the diamond the average. A row with fewer than 5 initiatives shows its single dots instead."],
+    ["Size-adjusted", "A group's median against what its own mix of T-shirt sizes predicts: for each initiative the median of its size (or all sizes when that size has fewer than 3), then the median of those. +20% means 20% longer than expected for the work it does."],
+    ["Stages", "The journey in ten steps: Discover, waiting for Gate A, Define, waiting for Gate B, waiting to start build, Build, Test, Experiment, waiting for Gate C and waiting to start roll-out. A wait is from the gate request to the decision, or between a decision and the start of the next phase. Where a gate has no request or a phase was skipped, the step before it runs on and the skipped one is zero days."],
+    ["Working or waiting", "The share of elapsed time spent in a phase, waiting for a gate decision or waiting in a queue."],
+    ["Time to decide", "Days from a gate request to its decision, for decided requests, for the whole team. A request that is still open is listed with the days it has waited. Nothing is shown per approver."],
+    ["In flight and already slower than usual", "Started, not yet rolling out, neither Cancelled nor Completed, and elapsed time since Start Discovery above the 80th percentile of finished initiatives of the same size (all sizes together when that size has fewer than 5). It does not depend on the measure."],
+    ["Several teams", "An initiative with several teams counts once per team, so team groups can add up to more than the number of initiatives. An initiative has one Key Result (the Primary KR), one Objective and one Business Line."],
+  ],
+};
+
+export const VELOCITY_NOTES = [
+  "Velocity only reads: nothing is edited from it. It is for the team: no figure is about a person or an approver.",
+  "Each chart has Show as table with the same numbers, and every comparison carries words and an arrow, never colour alone.",
+  "Product Velocity writes no commentary on the numbers. To get one, ask your own Claude through the connected assistant to read the report.",
+];
 
 export const ROADMAP_HEALTH_NOTES = [
   "Roadmap Health only reads: nothing is edited from it, and it uses no commercial field (value, confidence, customers, decisions, key results).",

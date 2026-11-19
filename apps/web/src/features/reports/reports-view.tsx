@@ -15,13 +15,14 @@ import type { GateSource } from "../gates/gate-source";
 import { GateHistoryReport } from "./gate-history-report";
 import { HealthReport } from "./health-report";
 import { OverviewReport } from "./overview-report";
+import { VelocityReport, VELOCITY_PARAMS } from "./velocity-report";
 import { DEFAULT_REPORT, REPORTS, parseReportId, useReportEnv, type ReportId } from "./report-env";
 import { ReportFilters } from "./report-filters";
 
 /** Writes the report and the filters into the address (other parameters such as ?scope= stay), without reloading. The default report has no parameter. */
 function writeAddress(state: ReportState, report: ReportId) {
   const url = new URL(window.location.href);
-  for (const k of [...url.searchParams.keys()]) if (k.startsWith("f.") || k === "d" || k === "arch" || k === "draft" || k === "pct" || k === "report") url.searchParams.delete(k);
+  for (const k of [...url.searchParams.keys()]) if (k.startsWith("f.") || k === "d" || k === "arch" || k === "draft" || k === "pct" || k === "report" || (report !== "velocity" && (VELOCITY_PARAMS as readonly string[]).includes(k))) url.searchParams.delete(k);
   if (report !== DEFAULT_REPORT) url.searchParams.set("report", report);
   for (const [k, v] of serializeReport(state)) url.searchParams.append(k, v);
   window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
@@ -69,7 +70,7 @@ export function ReportsView({ controller, lookups, me, loadGateRequests, loadCha
         <div className="reports-main">
           <ReportFilters env={env} setState={setState} extra={report === "overview" ? overviewTools : undefined} />
 
-          {report === "overview" ? <OverviewReport env={env} setState={setState} onOpen={setPeekId} /> : report === "health" ? <HealthReport env={env} onOpen={setPeekId} /> : report === "changes" ? <ChangesReport env={env} load={loadChanges} loadIssues={loadTrackerIssues} loadJiraUsers={loadJiraUsers} {...(gateSource ? { gates: gateSource } : {})} me={me} onOpen={setPeekId} /> : <GateHistoryReport env={env} load={loadGateRequests} onOpen={setPeekId} />}
+          {report === "overview" ? <OverviewReport env={env} setState={setState} onOpen={setPeekId} /> : report === "health" ? <HealthReport env={env} onOpen={setPeekId} /> : report === "changes" ? <ChangesReport env={env} load={loadChanges} loadIssues={loadTrackerIssues} loadJiraUsers={loadJiraUsers} {...(gateSource ? { gates: gateSource } : {})} me={me} onOpen={setPeekId} /> : report === "velocity" ? <VelocityReport env={env} load={loadGateRequests} onOpen={setPeekId} /> : <GateHistoryReport env={env} load={loadGateRequests} onOpen={setPeekId} />}
         </div>
         {peekId && <ItemPanel controller={controller} lookups={lookups} itemId={peekId} me={me} mode="peek" onClose={() => setPeekId(null)} />}
       </div>

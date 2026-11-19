@@ -74,7 +74,7 @@ test.describe("Changes report", () => {
     await page.getByRole("button", { name: "+ Add rule" }).click();
     await page.getByLabel("Field of rule 1").selectOption("source");
     await page.getByRole("group", { name: "Values of rule 1" }).getByRole("button", { name: "Jira" }).click();
-    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("button", { name: "Done", exact: true }).click();
     await expect(bar(page, /^Filter:\s*2 active/)).toBeVisible();
     await expect(page.getByRole("group", { name: "Active filters" })).toContainText("Source: Jira");
     await expect(grid(page).locator(".ag-row:not(.ag-full-width-row)")).toHaveCount(1); // the Jira move (with its Build Status)
@@ -196,7 +196,7 @@ test.describe("Changes report", () => {
     await expect(grid(page).locator(".group-row")).toHaveCount(0);
     await bar(page, /^Filter:/).click();
     await page.getByRole("button", { name: /To follow up/ }).click();
-    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("button", { name: "Done", exact: true }).click();
     await expect(grid(page).locator(".ag-row:not(.ag-full-width-row)")).toHaveCount(4); // all three initiatives have a flag in this data
   });
 

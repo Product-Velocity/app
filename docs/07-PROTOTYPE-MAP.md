@@ -23,7 +23,7 @@ Published (view-only reference): https://claude.ai/artifact/WVtip16iTPYZdru67tsg
 | 20 | Portfolio | All-projects grid, quick-add, inline edit, scope switcher | 1 | Canonical grid reference; autosave status strip with Undo (staged Save bar removed) |
 | 21 | Reports | Template gallery, schedule, history, generate | 6 | |
 | 22 | Gate-review | Gate review (the prototype shows Gate 2; the product has gates A, B and C, see `docs/28-DECISION-GATES.md`) | 7 | New |
-| 23 | Insights | Velocity + opportunities | 7 | Example data |
+| 23 | Insights | Velocity + opportunities | 7 | Example data. The velocity part is built as the **Velocity** report in Reports (issue #545, `packages/domain/src/velocity.ts`, `apps/web/src/features/reports/velocity-*.tsx`); its design reference is `prototype/project/Velocity-report.html`, reviewed and approved 2026-11-19. Generated "opportunities" text is not built: see `docs/decisions/2026-11-19-velocity-report.md`. Test page: `/dev/reports?report=velocity&demo=velocity`. |
 | 24 | Outcomes | Item outcomes & adoption | 7 | Example data |
 | 25 | Item-alignment | Why/What/How/When per item, stakeholder sign-offs, customer concept review summary, decision log | 8 | New; example data |
 | 26 | Concept-review | Customer concept review (mobile, customer-safe) | 8 | New |

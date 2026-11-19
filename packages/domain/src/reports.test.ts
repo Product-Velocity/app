@@ -106,3 +106,31 @@ describe("address", () => {
     expect(serializeReport(emptyReport()).toString()).toBe("");
   });
 });
+
+describe("Objective, Key Result, Business Line and Initiative Status (issue #545)", () => {
+  const rs = [
+    row({ id: "1", okr_objective: "Grow subscriptions", kr_metric: "Paid subscribers +15%", business_line: "Streaming", initiative_status: "Active" }),
+    row({ id: "2", okr_objective: "Grow subscriptions", kr_metric: "Trial-to-paid 22%", business_line: "News", initiative_status: "Completed" }),
+    row({ id: "3", okr_objective: "", kr_metric: null, business_line: undefined, initiative_status: "Completed" }),
+  ];
+  const pick = (filters: Parameters<typeof matchesReport>[1]["filters"]) => rs.filter((r) => matchesReport(r, { ...emptyReport(), filters }, ctx)).map((r) => r.id);
+  it("reads each value from its own field; nothing set is its own value", () => {
+    expect(valuesOf(rs[0]!, "objective")).toEqual(["Grow subscriptions"]);
+    expect(valuesOf(rs[0]!, "key_result")).toEqual(["Paid subscribers +15%"]);
+    expect(valuesOf(rs[0]!, "business_line")).toEqual(["Streaming"]);
+    expect(valuesOf(rs[2]!, "objective")).toEqual([UNSET]);
+    expect(valuesOf(rs[2]!, "key_result")).toEqual([UNSET]);
+    expect(valuesOf(rs[2]!, "business_line")).toEqual([UNSET]);
+  });
+  it("filters on them, ANDed with the other filters, and Completed alone counts only completed initiatives", () => {
+    expect(pick({ objective: ["Grow subscriptions"] })).toEqual(["1", "2"]);
+    expect(pick({ key_result: ["Trial-to-paid 22%"] })).toEqual(["2"]);
+    expect(pick({ business_line: ["Streaming", "News"], initiative_status: ["Completed"] })).toEqual(["2"]);
+    expect(pick({ initiative_status: ["Completed"] })).toEqual(["2", "3"]);
+    expect(pick({ objective: [UNSET] })).toEqual(["3"]);
+  });
+  it("keeps them in the address", () => {
+    const state = { ...emptyReport(), filters: { objective: ["Grow subscriptions"], initiative_status: ["Completed"] } };
+    expect(parseReport(serializeReport(state)).filters).toEqual(state.filters);
+  });
+});

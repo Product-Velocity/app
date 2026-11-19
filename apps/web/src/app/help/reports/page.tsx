@@ -60,6 +60,7 @@ export default function ReportsHelp() {
             "Roadmap Health: where active work piles up, how long it has been in its phase, and what is Blocked, At Risk or Delayed.",
             "Gate history: how many gate requests, what was decided, and how long decisions take. For the whole team, never per approver.",
             "Changes: which initiatives changed today, this week or this month, and where each change came from.",
+            "Velocity: how long work takes from Start Discovery to roll-out, to each gate and in Build, how much it varies, where the time goes and how long gates take to decide. For the team, never per person.",
           ]}
         />
         <HelpWhere>Reports tab. Each chart has Show as table with the same numbers.</HelpWhere>
