@@ -8,7 +8,7 @@ import {
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import {
-  buildGroupedRows, CORE_COLUMN_KEYS, effectiveSort, FIELD_BY_KEY, flagsOfRow, resolveFlagAction, type GateId, isOpenableUrl, VISIBLE_FIELDS, groupPickerSections, groupSummary, matchesFilters, matchesSearch, refKey, sanitizeView, sortRows, sortSummary, type EditableField, type Filter, type GroupRow, type SortDef, type ViewDef,
+  buildGroupedRows, CORE_COLUMN_KEYS, effectiveSort, FIELD_BY_KEY, flagsOfRow, openGateOf, resolveFlagAction, type GateId, isOpenableUrl, VISIBLE_FIELDS, groupPickerSections, groupSummary, matchesFilters, matchesSearch, refKey, sanitizeView, sortRows, sortSummary, type EditableField, type Filter, type GroupRow, type SortDef, type ViewDef,
 } from "@pv/domain";
 import { useWorkspace } from "../workspace/provider";
 import { setQueryParam, useScope } from "../workspace/scope";
@@ -305,7 +305,8 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     if (!gates || !row || !controller.canEdit) return;
     const flag = flagsOfRow(row, controller.todayDate()).find((f) => f.kind === flagKind);
     if (!flag?.action) return;
-    const a = resolveFlagAction(flag.action, row.initiative_phase);
+    const a = resolveFlagAction(flag.action, row.initiative_phase, openGateOf(row));
+    if (a.kind === "requested") return; // a link to the Decisions page, not a button
     if (a.kind === "gate") { setGateFor({ id: itemId, gate: a.gate }); return; }
     setFlagBusy(`${itemId}:${flagKind}`);
     const r = await gates.move(itemId, a.to);

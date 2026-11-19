@@ -330,17 +330,30 @@ export function gateForTarget(to: Phase): GateId | null {
 
 export type ResolvedFlagAction =
   | { kind: "move"; to: Phase; label: string; title: string }
-  | { kind: "gate"; gate: GateId; label: string; title: string };
+  | { kind: "gate"; gate: GateId; label: string; title: string }
+  /** The gate was already requested and waits for a decision: the button becomes a link to the Decisions page, where the follow-up is. */
+  | { kind: "requested"; gate: GateId; label: string; title: string; href: string };
+
+/** The Decisions page, where a requested gate is followed up. */
+export const DECISIONS_HREF = "/decisions";
+
+/** The gate whose request is open on this row (asked and not yet decided), read from the row's own gate fields; null when none. */
+export function openGateOf(item: object | null | undefined): GateId | null {
+  const row = item as { current_gate?: unknown; gate_status?: unknown } | null | undefined;
+  if (!row || (row.gate_status !== "In review" && row.gate_status !== "Waiting for Approver")) return null;
+  return GATE_IDS.find((g) => g === row.current_gate) ?? null;
+}
 
 /**
  * What the button does for this initiative. A move that does not pass a decision gate is made at once (the same `move_phase` as the Roadmap and Needs attention). One that
  * does (a Jira initiative with no phase counts as Discover, so Test passes Gates A and B) opens the Request gate dialog with the gate that opens that phase, because the database
  * refuses the move and a button that is known to fail would only teach people to ignore it. The approver then decides, and may choose the phase as a fast-lane target.
  */
-export function resolveFlagAction(action: ChangeFlagAction, phase: unknown): ResolvedFlagAction {
+export function resolveFlagAction(action: ChangeFlagAction, phase: unknown, openGate: GateId | null = null): ResolvedFlagAction {
   const needs = moveNeedsGate(phase, action.to);
   if (!needs) return { kind: "move", to: action.to, label: action.label, title: `Moves the initiative to ${action.to} now. You can undo it from the initiative.` };
   const gate = gateForTarget(action.to) ?? needs;
+  if (openGate) return { kind: "requested", gate: openGate, label: `Gate ${openGate} requested`, title: `Gate ${openGate} has been requested and waits for a decision. Opens the Decisions page.`, href: DECISIONS_HREF };
   return { kind: "gate", gate, label: `Request gate ${gate} (to ${action.to})`, title: `Moving to ${action.to} passes ${needs === gate ? `Gate ${gate}` : `Gate ${needs} and later`}, so it needs a decision. This opens the request; the approver can choose ${action.to} as the phase.` };
 }
 
@@ -354,12 +367,12 @@ export function flagsOfRow(row: object, today: Date): ChangeFlag[] {
 export type RowAction = { flag: ChangeFlag; resolved: ResolvedFlagAction };
 
 /** The actions of a row, one per different button (two flags that suggest the same move give one button). Nobody who cannot edit gets any. */
-export function actionsOfFlags(flags: readonly ChangeFlag[], phase: unknown, canAct: boolean): RowAction[] {
+export function actionsOfFlags(flags: readonly ChangeFlag[], phase: unknown, canAct: boolean, openGate: GateId | null = null): RowAction[] {
   if (!canAct) return [];
   const seen = new Set<string>(), out: RowAction[] = [];
   for (const flag of flags) {
     if (!flag.action) continue;
-    const resolved = resolveFlagAction(flag.action, phase);
+    const resolved = resolveFlagAction(flag.action, phase, openGate);
     if (seen.has(resolved.label)) continue;
     seen.add(resolved.label);
     out.push({ flag, resolved });
@@ -370,7 +383,7 @@ export function actionsOfFlags(flags: readonly ChangeFlag[], phase: unknown, can
 /** The words the grid stores on the row for the two columns, so sorting, searching and the export see what the cells show. */
 export function rowFlagTexts(row: object, today: Date, canAct: boolean): { flags: string | null; actions: string | null } {
   const flags = flagsOfRow(row, today);
-  const actions = actionsOfFlags(flags, (row as { initiative_phase?: unknown }).initiative_phase, canAct);
+  const actions = actionsOfFlags(flags, (row as { initiative_phase?: unknown }).initiative_phase, canAct, openGateOf(row));
   return { flags: [...new Set(flags.map((f) => f.label))].join("; ") || null, actions: actions.map((a) => a.resolved.label).join("; ") || null };
 }
 
