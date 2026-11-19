@@ -108,12 +108,6 @@ main{padding-block:16px 40px}
 .tb-f input,.tb-f select{font:inherit;font-size:12.5px;letter-spacing:0;text-transform:none;color:var(--ink);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:3px 8px;height:28px;max-width:200px}
 .tb-q input{width:210px}
 @media(max-width:620px){.tb-q,.tb-q input,.tb-f select{width:100%;max-width:none}}
-.split-h{margin:18px 0 2px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
-.mc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:10px;margin-top:8px}
-.mc{border:1px solid var(--border-soft);border-radius:8px;padding:8px 10px;background:var(--surface);min-width:0}
-.mc-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:12.5px}
-.mc-h small{font-size:11.5px;color:var(--ink-2)}
-.mc-p svg{display:block;overflow:visible}
 .defn{flex:1 1 260px;font-size:12px;color:var(--ink-2);min-width:0}
 
 /* cards */
@@ -264,7 +258,6 @@ details.tbl summary{cursor:pointer;color:var(--accent-text);font-size:12px}
     <div class="kpis" id="kpis"></div>
     <div id="dist"></div>
     <div class="zlegend" id="zlegend"></div>
-    <div id="dist-split"></div>
     <div id="dist-tbl"></div>
   </section>
 
@@ -538,8 +531,8 @@ function trendData(v){const m=groupBy(v.rows,i=>quarterOf(i.t[MEASURES[state.mea
 function renderDist(v){
   const m=MEASURES[state.measure];const st=v.st,u=fu();const k=state.unit==='weeks'?1/7:1;
   $('#dist-title').textContent=`How long it takes: ${m.label}${state.stretch&&m.prev?' (previous gate to this gate)':''}`;
-  $('#dist-note').textContent=`Each bar counts initiatives that took about that long. The curve smooths the bars into a bell. The markers show the median (half were faster) and the average. Colours mark the fastest tenth, the middle half and the slowest tenth. Below it, the same bell is drawn for each group of the break-down chosen at the top.`;
-  if(st.n<3){$('#kpis').innerHTML='';$('#dist-split').innerHTML='';$('#dist').innerHTML='<p class="empty" role="status">No data matching current filters</p>';$('#zlegend').innerHTML='';$('#dist-tbl').innerHTML='';return}
+  $('#dist-note').textContent=`Each bar counts initiatives that took about that long. The curve smooths the bars into a bell. The markers show the median (half were faster) and the average. Colours mark the fastest tenth, the middle half and the slowest tenth.`;
+  if(st.n<3){$('#kpis').innerHTML='';$('#dist').innerHTML='<p class="empty" role="status">No data matching current filters</p>';$('#zlegend').innerHTML='';$('#dist-tbl').innerHTML='';return}
   const tq=trendData(v);let dl='';
   if(tq.length>=3){const last=tq.slice(-2).flatMap(x=>x.vals),prev=tq.slice(0,-2).flatMap(x=>x.vals);if(last.length>=5&&prev.length>=5){const d=delta(qtl(sortN(last),.5),qtl(sortN(prev),.5));dl=`<span class="d ${d.c}">${d.t} than before</span>`}}
   const kp=(n,l,x='')=>`<div class="kpi"><span class="n">${n}</span><span class="l">${l}</span>${x}</div>`;
@@ -570,26 +563,7 @@ function renderDist(v){
   s+='</svg>';el.innerHTML=s;
   const zr=[[0,`under ${fv(st.p10)}`],[1,`${fv(st.p10)} to ${fv(st.p25)}`],[2,`${fv(st.p25)} to ${fv(st.p75)}`],[3,`${fv(st.p75)} to ${fv(st.p90)}`],[4,`over ${fv(st.p90)}`]];
   $('#zlegend').innerHTML=zr.map(([z,r])=>`<span><i class="sw" style="background:var(--z${z})"></i>${zn[z]}: ${r} ${u}</span>`).join('');
-  splitBells(v,b0,xmax,k);
   $('#dist-tbl').innerHTML=tbl('Initiatives per bucket',['From','To','Initiatives'],bins.map(b=>[+b.a.toFixed(2),+b.b.toFixed(2),b.c]));
-}
-
-/* the same bell for each group of the chosen break-down, on the shared axis of the bell above */
-function splitBells(v,b0,xmax,k){
-  const host=$('#dist-split');const dim=DIMS[state.dim];
-  const gs=[...groupBy(v.rows,dim.get)].filter(([,r])=>r.length>=5).map(([key,r])=>({key,s:stats(r.map(x=>x.v))})).sort((a,b)=>b.s.med-a.s.med);
-  if(gs.length<2){host.innerHTML=`<div class="split-h"><h3 style="margin:0">Split by ${dim.label.toLowerCase()}</h3><span class="muted" style="font-size:12px">Needs at least two groups with 5 or more initiatives.</span></div>`;return}
-  host.innerHTML=`<div class="split-h"><h3 style="margin:0">The same bell for each ${dim.label.toLowerCase()}</h3><span class="muted" style="font-size:12px">Same time axis as above, slowest median first. Each curve is scaled to its own height so the shapes compare. The dashed line is the overall median; groups with fewer than 5 initiatives are left out.</span></div><div class="mc-grid">${gs.map((g,i)=>{const d=delta(g.s.med,v.days.med);return `<div class="mc"><div class="mc-h"><b style="font-weight:500">${esc(g.key)}</b><small>n ${g.s.n} · median ${fvu(g.s.med)} · <span class="${d.c}">${d.t}</span></small></div><div class="mc-p" data-i="${i}"></div></div>`}).join('')}</div>`;
-  const cells=host.querySelectorAll('.mc-p');const W=Math.max(120,Math.floor(cells[0].getBoundingClientRect().width));const H=92,mt=8,mb=20,ph=H-mt-mb;
-  const x=val=>(val-b0)/(xmax-b0)*W;const tk=ticks(xmax-b0,Math.max(2,Math.floor(W/80)));const om=v.days.med*k;
-  cells.forEach(c=>{const g=gs[+c.dataset.i];const vals=g.s.s.map(q=>q*k);const n=vals.length;const mean=vals.reduce((a,b)=>a+b,0)/n;const sd=Math.sqrt(vals.reduce((a,b)=>a+(b-mean)**2,0)/n)||1;const h=Math.max(1.06*sd*Math.pow(n,-.2),(xmax-b0)/40);
-    const pts=[];let mx=0;for(let i=0;i<=60;i++){const xv=b0+(xmax-b0)*i/60;let d=0;for(const q of vals)d+=Math.exp(-.5*((xv-q)/h)**2);pts.push([xv,d]);mx=Math.max(mx,d)}
-    const P=pts.map(([xv,d])=>[x(xv),mt+ph-d/mx*ph]);const line='M'+P.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join('L');
-    let m=`<svg width="${W}" height="${H}" role="img" aria-label="Distribution for ${esc(g.key)}: median ${fv(g.s.med)} ${state.unit}">`;
-    m+=`<path d="${line}L${W},${mt+ph}L0,${mt+ph}Z" style="fill:var(--accent)" opacity=".22"/><path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>`;
-    m+=`<line x1="${x(om)}" x2="${x(om)}" y1="${mt-2}" y2="${mt+ph}" stroke="var(--c-build)" stroke-width="1.3" stroke-dasharray="4 3"/><line x1="${x(g.s.med*k)}" x2="${x(g.s.med*k)}" y1="${mt-4}" y2="${mt+ph}" stroke="var(--ink)" stroke-width="2.5"/>`;
-    m+=`<line class="axis" x1="0" x2="${W}" y1="${mt+ph}" y2="${mt+ph}"/>`+tk.out.filter(t=>b0+t<=xmax+1e-9).map(t=>`<text x="${x(b0+t)}" y="${H-5}" text-anchor="${t===0?'start':'middle'}">${+(b0+t).toFixed(2)}</text>`).join('');
-    m+=`<rect x="0" y="0" width="${W}" height="${H}" fill="transparent" ${tip(`<b>${esc(g.key)}</b> (n ${g.s.n})<br>Median ${fvu(g.s.med)}, average ${fvu(g.s.avg)}<br>Middle half ${fvu(g.s.p25)} to ${fvu(g.s.p75)}<br>P10 ${fvu(g.s.p10)}, P90 ${fvu(g.s.p90)}`)}/></svg>`;c.innerHTML=m});
 }
 
 /* ---------- range rows (box and whisker, one per group) ---------- */
