@@ -299,7 +299,7 @@ describe("the Jira user of a change", () => {
   });
 });
 
-import { actionsOfFlags, flagsOfRow, gateForTarget, primaryRowIds, resolveFlagAction, rowFlagTexts } from "./change-report";
+import { actionsOfFlags, flagsOfRow, gateForTarget, openGateOf, primaryRowIds, resolveFlagAction, rowFlagTexts } from "./change-report";
 
 describe("an action on a flag (Ashu 2026-11-17: connect an action like Move phase to Test)", () => {
   const TODAY = new Date(Date.UTC(2026, 10, 17));
@@ -322,6 +322,20 @@ describe("an action on a flag (Ashu 2026-11-17: connect an action like Move phas
     expect(test.title).toMatch(/passes Gate A and later/);
     expect(resolveFlagAction({ type: "move", to: "Build", label: "Move to Build" }, null)).toMatchObject({ kind: "gate", gate: "B", label: "Request gate B (to Build)" });
     expect(resolveFlagAction({ type: "move", to: "Build", label: "Move to Build" }, "Discover")).toMatchObject({ kind: "gate" });
+  });
+
+  it("once the gate is requested the button becomes a link to the Decisions page, and a move that needs no gate is unchanged", () => {
+    const a = resolveFlagAction({ type: "move", to: "Build", label: "Move to Build" }, null, "B");
+    expect(a).toEqual(expect.objectContaining({ kind: "requested", gate: "B", label: "Gate B requested", href: "/decisions" }));
+    expect(resolveFlagAction({ type: "move", to: "Test", label: "Move to Test" }, "Build", "B")).toMatchObject({ kind: "move" });
+  });
+
+  it("a request is open only while the row is In review or Waiting for Approver", () => {
+    expect(openGateOf({ current_gate: "B", gate_status: "In review" })).toBe("B");
+    expect(openGateOf({ current_gate: "A", gate_status: "Waiting for Approver" })).toBe("A");
+    for (const s of ["Not started", "Held", "Stopped", null, undefined]) expect(openGateOf({ current_gate: "B", gate_status: s })).toBeNull();
+    expect(openGateOf({ current_gate: null, gate_status: "In review" })).toBeNull();
+    expect(openGateOf(null)).toBeNull();
   });
 
   it("the gate that opens a phase", () => {
@@ -353,6 +367,12 @@ describe("the Flags and Actions columns of the main grid (#480)", () => {
     expect(dup).toHaveLength(a.length);
     const build = actionsOfFlags(flagsOfRow({ ...row, initiative_phase: "Build" }, today), "Build", true);
     expect(build.every((x) => x.resolved.label.length > 0)).toBe(true);
+  });
+
+  it("a requested gate shows as a link in the Actions column and in its exported words", () => {
+    const asked = { ...row, current_gate: "B", gate_status: "In review" };
+    expect(actionsOfFlags(flagsOfRow(asked, today), null, true, openGateOf(asked)).map((x) => x.resolved.kind)).toEqual(["requested"]);
+    expect(rowFlagTexts(asked, today, true).actions).toBe("Gate B requested");
   });
 
   it("a person who cannot edit sees the flags and no actions", () => {

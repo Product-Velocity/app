@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { NameWithIssues } from "./name-cell";
 import type { ColDef, IHeaderParams } from "ag-grid-community";
 import type { CustomCellRendererProps } from "ag-grid-react";
 import {
-  EDITABLE_FIELDS, VISIBLE_FIELDS, actionsOfFlags, changeTone, compareQuarters, flagsOfRow, jiraCategoryTone, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
+  EDITABLE_FIELDS, VISIBLE_FIELDS, actionsOfFlags, openGateOf, changeTone, compareQuarters, flagsOfRow, jiraCategoryTone, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
   type EditableField, type FieldDef,
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
@@ -56,12 +57,13 @@ function FlagsCell({ data, today }: CustomCellRendererProps<GridItem> & { today:
 function ActionsCell({ data, today, canAct, context }: CustomCellRendererProps<GridItem> & { today: () => Date; canAct: boolean }) {
   if (!data) return null;
   const ctx = (context ?? {}) as GridContext;
-  const actions = actionsOfFlags(flagsOfRow(data, today()), data.initiative_phase, canAct);
+  const actions = actionsOfFlags(flagsOfRow(data, today()), data.initiative_phase, canAct, openGateOf(data));
   if (actions.length === 0) return null;
   return (
     <span className="grid-flags">
       {actions.map(({ flag, resolved }) => {
         const key = `${data.id}:${flag.kind}`;
+        if (resolved.kind === "requested") return <Link key={flag.kind} href={resolved.href} className="chg-act chg-act-requested" title={resolved.title} onClick={(e) => e.stopPropagation()}>{resolved.label}<span className="chg-act-arrow" aria-hidden="true"> {"\u2192"}</span></Link>;
         return (
           <button key={flag.kind} type="button" className={resolved.kind === "gate" ? "chg-act chg-act-gate" : "chg-act"} title={resolved.title} disabled={ctx.flagBusy === key} onClick={(e) => { e.stopPropagation(); ctx.runFlagAction?.(data.id, flag.kind); }}>
             {ctx.flagBusy === key ? "Working\u2026" : <>{resolved.label}<span className="chg-act-arrow" aria-hidden="true"> {"\u2192"}</span></>}

@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import type { ColDef, ColumnMovedEvent } from "ag-grid-community";
 import {
-  CHANGE_PERIODS, actionsOfFlags, NO_CHANGE_FILTERS, buildChangeRows, changeFlags, changePeriod, changeTypeLabel, filterChangeRows, groupChangeRows, isChangeHeader, isOpenableUrl, primaryRowIds, resolveFlagAction,
+  CHANGE_PERIODS, actionsOfFlags, NO_CHANGE_FILTERS, buildChangeRows, changeFlags, changePeriod, changeTypeLabel, filterChangeRows, groupChangeRows, isChangeHeader, isOpenableUrl, primaryRowIds, resolveFlagAction, openGateOf,
   type ChangeFlag, type ChangeFilters, type GateId, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type FeedRow, type ItemInfo, type JiraCategory, type JiraStatusRecord, type TrackerRef,
 } from "@pv/domain";
 import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer } from "../portfolio/grid-kit";
@@ -18,7 +19,7 @@ const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "nume
 type Ctx = {
   toggleGroup: (key: string) => void; open: (itemId: string) => void;
   /** The ids of the rows that carry the buttons (the newest row of each initiative), what the person may do, and the button that is working. */
-  primary: ReadonlySet<string>; canAct: boolean; busy: string | null; act: (itemId: string, flag: ChangeFlag) => void; phaseOf: (itemId: string) => unknown;
+  primary: ReadonlySet<string>; canAct: boolean; busy: string | null; act: (itemId: string, flag: ChangeFlag) => void; phaseOf: (itemId: string) => unknown; openGateOf: (itemId: string) => GateId | null;
 };
 
 const FlagPills = ({ flags }: { flags: readonly ChangeFlag[] }) => <>{flags.map((f) => <span key={f.kind} className="pill tone-risk chg-flag" title={f.text}>⚑ {f.label}</span>)}</>;
@@ -66,12 +67,13 @@ const FlagsCell = (p: CustomCellRendererProps<ChangeRowData>) => {
 const ActionsCell = (p: CustomCellRendererProps<ChangeRowData>) => {
   const d = p.data!, ctx = p.context as Ctx;
   if (d.flags.length === 0 || !ctx.primary.has(d.id)) return null;
-  const actions = actionsOfFlags(d.flags, ctx.phaseOf(d.itemId), ctx.canAct);
+  const actions = actionsOfFlags(d.flags, ctx.phaseOf(d.itemId), ctx.canAct, ctx.openGateOf(d.itemId));
   if (actions.length === 0) return null;
   return (
     <span className="grid-flags">
       {actions.map(({ flag, resolved: a }) => {
         const key = `${d.itemId}:${flag.kind}`;
+        if (a.kind === "requested") return <Link key={flag.kind} href={a.href} className="chg-act chg-act-requested" title={a.title}>{a.label}<span className="chg-act-arrow" aria-hidden="true">→</span></Link>;
         return <button key={flag.kind} type="button" className={a.kind === "gate" ? "chg-act chg-act-gate" : "chg-act"} title={a.title} disabled={ctx.busy === key} onClick={() => ctx.act(d.itemId, flag)}>{ctx.busy === key ? "Working…" : <>{a.label}<span className="chg-act-arrow" aria-hidden="true">→</span></>}</button>;
       })}
     </span>
@@ -189,7 +191,8 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, gates, me 
   const refresh = useCallback(() => { setReload((n) => n + 1); void controller.refreshFromServer(); }, [controller]);
   const act = useCallback(async (itemId: string, flag: ChangeFlag) => {
     if (!gates || !flag.action) return;
-    const a = resolveFlagAction(flag.action, controller.row(itemId)?.initiative_phase);
+    const a = resolveFlagAction(flag.action, controller.row(itemId)?.initiative_phase, openGateOf(controller.row(itemId)));
+    if (a.kind === "requested") return;
     const code = items.get(itemId)?.code ?? "The initiative";
     setMessage(null);
     if (a.kind === "gate") { setGateFor({ id: itemId, gate: a.gate }); return; }
@@ -198,7 +201,7 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, gates, me 
     setBusy(null);
     if (r.ok) { setMessage({ ok: true, text: `${code} moved to ${a.to}.` }); refresh(); } else setMessage({ ok: false, text: `${code} was not moved: ${r.error}` });
   }, [gates, controller, items, refresh]);
-  const context = useMemo<Ctx>(() => ({ toggleGroup: toggle, open: onOpen, primary, canAct: !!gates && controller.canEdit, busy, act: (id, f) => { void act(id, f); }, phaseOf: (id) => controller.row(id)?.initiative_phase }), [toggle, onOpen, primary, gates, controller, busy, act]);
+  const context = useMemo<Ctx>(() => ({ toggleGroup: toggle, open: onOpen, primary, canAct: !!gates && controller.canEdit, busy, act: (id, f) => { void act(id, f); }, phaseOf: (id) => controller.row(id)?.initiative_phase, openGateOf: (id) => openGateOf(controller.row(id)) }), [toggle, onOpen, primary, gates, controller, busy, act]);
   const columnDefs = useMemo<ColDef<ChangeGridRow>[]>(() => saved.columns.map((id) => ({ colId: id, ...COLUMNS.find((c) => c.id === id)!.def })) as ColDef<ChangeGridRow>[], [saved.columns]);
   /** A column dragged by its header in the grid is the new order, so the Columns panel and the grid agree. */
   const onColumnMoved = useCallback((e: ColumnMovedEvent) => {
