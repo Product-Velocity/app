@@ -62,3 +62,18 @@ describe("the notification for a request", () => {
     expect(notificationText(n)).toBe("R-1 Faster onboarding: the 30 day outcome metrics were requested. Please record them.");
   });
 });
+
+import { FLAG_FIELDS, FIELD_BY_KEY, panelField } from "./index";
+describe("the fields a flag is about (item panel, flagged section)", () => {
+  it("every field named exists, and the ones shown can be edited in the panel", () => {
+    for (const [flag, keys] of Object.entries(FLAG_FIELDS)) for (const k of keys) expect(FIELD_BY_KEY[k], `${flag}: ${k}`).toBeDefined();
+    const editable = (k: string) => !["later", "readonly"].includes(panelField(FIELD_BY_KEY[k]!).kind);
+    expect(FLAG_FIELDS["no-owner"]!.every(editable)).toBe(true);
+    expect(FLAG_FIELDS["no-kr"]!.every(editable)).toBe(true);
+    expect(Object.values(FLAG_FIELDS).flat()).not.toContain("initiative_phase"); // the phase moves through the gate buttons (a gate-passing edit is refused), so no flag offers it as a field
+  });
+  it("a Business Owner is an open list and the KR unit a dropdown, so the panel gives each its own editor", () => {
+    expect(panelField(FIELD_BY_KEY.sponsor!).kind).toBe("openlist");
+    expect(panelField(FIELD_BY_KEY.kr_unit!).kind).toBe("select");
+  });
+});

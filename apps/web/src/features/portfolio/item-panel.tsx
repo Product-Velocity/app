@@ -13,6 +13,7 @@ import { DeleteDialog } from "./delete-dialog";
 import { DocumentsTab } from "./documents-tab";
 import { GithubPushDialog } from "./github-push-dialog";
 import { FieldRow, type FieldCtx } from "./item-fields";
+import { FlaggedFields } from "./flagged-fields";
 import { formatField } from "./format";
 import { useStatus } from "./status-strip";
 import type { IssueTreeRow, JiraEpicRequestRow, JiraTreeRow, Lookups } from "./types";
@@ -182,6 +183,8 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
       </header>
 
       {gates && <GateStrip source={gates} me={me} frozen={Boolean(lookups.frozen?.includes(itemId))} row={row as never} canEdit={controller.canEdit} onChanged={() => { void controller.refreshFromServer(); }} />}
+
+      <FlaggedFields ctx={ctx} itemId={itemId} />
 
       {gates && <OutcomeReviewsSection source={gates} row={row as never} canEdit={controller.canEdit} onChanged={() => { void controller.refreshFromServer(); }} />}
 
