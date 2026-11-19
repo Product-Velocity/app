@@ -22,5 +22,5 @@ The duplicates this change retires, and what stays:
 
 - The three are no longer editable (Input became Computed); they were never filled by anyone, because phase 7 had not shipped. Their stored columns on `items` stay in the database, unused.
 - **Dictionary:** 177 fields (179 minus the two retired). Outcome Reviews Recorded is now ID N54: my first version used N52 and N53, which Objective and Business Line already held (the IDs are labels only, nothing reads them; they are unique now). The Outcomes view now reads: phase, Outcome Review Date, Outcome Reviews Recorded, Realized KR Value, % Realized KR Value, Latest Adoption %, KR Progress, Outcome Status, then the key result and the rest.
-- **Still later (phase 7), not changed:** Outcome Status, Realized EUR per year, Measured Period, Outcome Verdict, Learning, Value vs Prediction (%), Time to First Use, Retention (%).
-- **To confirm:** whether Outcome Status should also be worked out from the progress (for example On target, Behind, Missed, Exceeded), which needs a rule for "on target" that is not written down. Not built.
+- **Still later (phase 7), not changed:** Realized EUR per year, Measured Period, Outcome Verdict, Learning, Value vs Prediction (%), Time to First Use, Retention (%).
+- **Outcome Status** was built afterwards, with a default rule to confirm: `2026-11-19-outcome-status.md`.

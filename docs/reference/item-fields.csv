@@ -158,7 +158,7 @@ V29,Alignment,Why State,align_why,Select,Not started · In review · Aligned · 
 V30,Alignment,What State,align_what,Select,Not started · In review · Aligned · Contested · Overdue,Input,New (v4),Not synced.,Column on items,8
 V31,Alignment,How State,align_how,Select,Not started · In review · Aligned · Contested · Overdue,Input,New (v4),Not synced.,Column on items,8
 V32,Alignment,When State,align_when,Select,Not started · In review · Aligned · Contested · Overdue,Input,New (v4),Not synced.,Column on items,8
-V33,Outcomes,Outcome Status,outcome_status,Select,Not yet due · On target · Behind · Missed · Exceeded,Input,New (v4),Not synced.,Column on items,7
+V33,Outcomes,Outcome Status,outcome_status,Select,Not yet due · On target · Behind · Missed · Exceeded,Computed,New (v4),Not synced.,"Derived in the app from the outcome reviews (not stored)",1
 V34,Outcomes,Outcome Review Date,outcome_review_date,Date,,Computed,New (v4),Not synced.,"Derived in the app from the outcome reviews (not stored)",1
 V35,Outcomes,Value vs Prediction (%),value_variance_pct,Computed,,Computed,New (v4),Not synced.,"Computed (view or function, not stored)",7
 V36,Outcomes,Time to First Use (days),time_to_first_use_days,Computed,,Computed,New (v4),Not synced.,"Computed (view or function, not stored)",7

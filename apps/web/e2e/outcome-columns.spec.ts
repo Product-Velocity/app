@@ -13,8 +13,9 @@ test.describe("the Outcome reviews columns", () => {
   test("the Outcomes view shows them with full names, filled from the reviews", async ({ page }) => {
     await open(page);
     const heads = await page.locator(".ag-header-cell").evaluateAll((els) => els.map((e) => (e.textContent ?? "").trim()));
-    for (const name of ["Outcome Review Date", "Outcome Reviews Recorded", "Realized KR Value", "% Realized KR Value", "Latest Adoption %", "KR Progress (latest review)"]) expect(heads).toContain(name);
+    for (const name of ["Outcome Status", "Outcome Review Date", "Outcome Reviews Recorded", "Realized KR Value", "% Realized KR Value", "Latest Adoption %", "KR Progress (latest review)"]) expect(heads).toContain(name);
     const id = await lastId(page);
+    await expect(await cell(page, id, "outcome_status")).toHaveText("Behind"); // 50% of the way from 10 to 110 after the 30 day review: not on target, and not Missed before the 90 day review
     await expect(await cell(page, id, "outcome_review_date")).toHaveText(/30 Sep 2026|2026-09-30/); // the date follows the grid's date format
     await expect(await cell(page, id, "outcome_reviews_recorded")).toHaveText("1 of 3");
     await expect(await cell(page, id, "realized_kr_value")).toHaveText("60");

@@ -85,7 +85,7 @@ describe("the Outcome reviews columns", () => {
 
   it("are empty for an initiative that has not reached Roll-out, has no Start Roll-Out, or is Cancelled", () => {
     for (const o of [{ initiative_phase: "Build" }, { start_rollout: null }, { initiative_status: "Cancelled" }]) {
-      expect(outcomeColumns(row(o), [])).toEqual({ outcome_review_date: null, outcome_reviews_recorded: null, realized_kr_value: null, kr_realized_pct: null, outcome_latest_adoption: null, outcome_kr_progress: null });
+      expect(outcomeColumns(row(o), [])).toEqual({ outcome_status: null, outcome_review_date: null, outcome_reviews_recorded: null, realized_kr_value: null, kr_realized_pct: null, outcome_latest_adoption: null, outcome_kr_progress: null });
     }
   });
 
@@ -116,11 +116,36 @@ describe("the Outcome reviews columns", () => {
     expect(outcomeColumns(row({ start_rollout: "2026-08-01" }), [rr(30, { realised_kr_value: 5 })]).kr_realized_pct).toBeNull();
   });
 
+  describe("Outcome Status (default rule: on target from 80% of the way to the target, behind below, missed under 50% after the 90 day review, exceeded above 100%)", () => {
+    const today = new Date("2026-11-19T09:00:00Z");
+    const st = (o: Record<string, unknown>, reviews: OutcomeReview[]) => outcomeColumns(row({ start_rollout: "2026-08-01", kr_start: 0, kr_target: 100, ...o }), reviews, today).outcome_status;
+    it("is Not yet due before the first review is due, and empty once it is due with nothing recorded", () => {
+      expect(st({ start_rollout: "2026-11-10" }, [])).toBe("Not yet due");
+      expect(st({}, [])).toBeNull(); // due 31 Aug and nothing recorded: there is no result to name
+    });
+    it("is Exceeded above 100%, On target from 80%, Behind below that", () => {
+      expect(st({}, [rr(30, { realised_kr_value: 120 })])).toBe("Exceeded");
+      expect(st({}, [rr(30, { realised_kr_value: 100 })])).toBe("On target");
+      expect(st({}, [rr(30, { realised_kr_value: 80 })])).toBe("On target");
+      expect(st({}, [rr(30, { realised_kr_value: 79 })])).toBe("Behind");
+      expect(st({}, [rr(30, { realised_kr_value: 20 })])).toBe("Behind"); // Missed only after the 90 day review
+    });
+    it("is Missed under 50% once the 90 day review is recorded, and still Behind from 50%", () => {
+      expect(st({}, [rr(30, { realised_kr_value: 10 }), rr(60, { realised_kr_value: 30 }), rr(90, { realised_kr_value: 40 })])).toBe("Missed");
+      expect(st({}, [rr(30, { realised_kr_value: 10 }), rr(60, { realised_kr_value: 30 }), rr(90, { realised_kr_value: 55 })])).toBe("Behind");
+    });
+    it("works for a metric that should go down, and is empty without a start, a target or a value", () => {
+      expect(st({ kr_start: 100, kr_target: 0 }, [rr(30, { realised_kr_value: 10 })])).toBe("On target"); // 90% of the way down
+      expect(st({ kr_start: null }, [rr(30, { realised_kr_value: 50 })])).toBeNull();
+      expect(st({}, [rr(30, { adoption_pct: 20, realised_kr_value: null })])).toBeNull();
+    });
+  });
+
   it("the six keys are read-only computed fields in the dictionary: three of the dictionary's own outcome fields, now live, and two in the Outcome reviews group", async () => {
     const { FIELD_BY_KEY } = await import("./index");
-    for (const k of OUTCOME_COLUMN_KEYS) expect(FIELD_BY_KEY[k], k).toMatchObject({ mode: "computed", phase: 1 });
+    for (const k of OUTCOME_COLUMN_KEYS) expect(FIELD_BY_KEY[k], k).toMatchObject({ mode: "computed", phase: 1 }); // Outcome Status too: computed from the reviews, not typed
     for (const k of ["outcome_reviews_recorded", "outcome_latest_adoption", "outcome_kr_progress"]) expect(FIELD_BY_KEY[k]!.group, k).toBe("Outcome reviews");
-    for (const k of ["outcome_review_date", "realized_kr_value", "kr_realized_pct"]) expect(FIELD_BY_KEY[k]!.group, k).toBe("Outcomes");
+    for (const k of ["outcome_status", "outcome_review_date", "realized_kr_value", "kr_realized_pct"]) expect(FIELD_BY_KEY[k]!.group, k).toBe("Outcomes");
     expect(FIELD_BY_KEY.outcome_next_review).toBeUndefined(); // retired: it was Outcome Review Date
     expect(FIELD_BY_KEY.outcome_latest_value).toBeUndefined(); // retired: it was Realized KR Value
   });
