@@ -119,14 +119,6 @@ main{padding-block:16px 40px}
 .sec-h p{margin:0;font-size:12px;color:var(--ink-2)}
 .tag{font-size:11px;padding:0 8px;border-radius:999px;border:1px solid var(--border);color:var(--ink-2);white-space:nowrap}
 
-/* insights */
-.ins-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:10px}
-.ins{border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:var(--surface);display:flex;flex-direction:column;gap:5px;min-width:0}
-.ins .k{display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--ink-2)}
-.ins .t{font-weight:600;font-size:13px}
-.ins .e{color:var(--ink-2);font-size:12.5px}
-.ins .q{font-size:12.5px;border-top:1px solid var(--border-soft);padding-top:5px;margin-top:2px}
-.ins .q b{font-weight:600;color:var(--accent-text)}
 
 /* kpis */
 .kpis{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 12px}
@@ -252,12 +244,6 @@ details.tbl summary{cursor:pointer;color:var(--accent-text);font-size:12px}
     <div class="defn" id="defn"></div>
   </section>
 
-  <section class="card wide" aria-label="What stands out">
-    <h2>What stands out</h2>
-    <p class="note">Written from the numbers on this page and recalculated when the filters change. Each one ends with a question for the team. Claude drafts, people decide what to act on. Team-level only: nothing here is about a person.</p>
-    <div class="ins-grid" id="insights"></div>
-  </section>
-
   <section class="card wide" aria-label="How long it takes">
     <h2 id="dist-title">How long it takes</h2>
     <p class="note" id="dist-note"></p>
@@ -378,6 +364,22 @@ details.tbl summary{cursor:pointer;color:var(--accent-text);font-size:12px}
       <li>An initiative with several teams counts once per team (as the other reports do), so groups can add up to more than the total. An initiative has one Objective and one Business Line today; I assumed one Key Result as well. Is that right?</li>
       <li>Decisions are shown for the team as a whole, never per approver (rule 8).</li>
       <li>Not drawn here, to keep the page readable: scope added after commit, estimate against actual (already in Build time on Overview), blocked days. Say if you want any of them on this report.</li>
+    </ul>
+    <h3>Insights: not in this version</h3>
+    <ul>
+      <li>Product Velocity is not connected to an AI, so it cannot write the "what stands out" findings itself. They are removed from the page. A person can ask their own Claude, through the MCP server, to read the report numbers and tell them what to look at.</li>
+      <li>To make that useful, the build adds notes and context for the connected Claude: which analysis to run on the velocity data and what to call out. First draft of that list, taken from what the earlier version computed:
+        <ul>
+          <li><b>Spread:</b> slowest tenth against the median, and average against median (a long tail).</li>
+          <li><b>Sizes:</b> do medians step up from XS to XL, or does a larger size finish faster than a smaller one?</li>
+          <li><b>Groups:</b> a team, Key Result, Objective, Business line, Initiative Group or Focus Area that is clearly slower or faster than its own mix of sizes predicts (groups of 5 or more only).</li>
+          <li><b>Waiting:</b> share of elapsed time spent waiting for gates or in queues, and the largest wait.</li>
+          <li><b>Trend:</b> the latest two quarters against the ones before.</li>
+          <li><b>Decisions:</b> the slowest gate to decide, and requests waiting well beyond the median.</li>
+          <li><b>In flight:</b> initiatives already past what 80% of finished ones of the same size needed.</li>
+        </ul>
+        Each call-out gives the numbers behind it and ends with a question for the team. Team level only, never a person. Claude reads and explains; it sets no values.</li>
+      <li>Question: should an admin be able to edit these instructions per workspace? The Help pages "AI co-workers" and "AI use-cases and documents" would be updated in the same PR, as the project rules require.</li>
     </ul>
     <h3>What the build needs</h3>
     <ul>
@@ -514,42 +516,8 @@ function renderControls(){
   $('#defn').innerHTML=`<b style="color:var(--ink)">${m.label}:</b> ${state.stretch&&can?m.stretch:m.desc}`;
 }
 
-/* ---------- insights ---------- */
-function insights(v){
-  const out=[];const st=v.st;const u=fu();
-  if(st.n<6)return[{k:'Data',t:'Too few initiatives to say much',e:`Only ${st.n} counted with these filters.`,q:'Widen the filters, or pick an earlier measure such as To Gate A.'}];
-  const ratio=st.p90/st.med, gap=Math.round((st.avg/st.med-1)*100);
-  out.push({s:ratio,k:'Spread',t:`The slowest tenth take ${ratio.toFixed(1)}× the median`,e:`Median ${fvu(st.med)}, average ${fvu(st.avg)} (${gap>=0?'+':''}${gap}%). ${gap>8?'A long tail pulls the average up, so plan on the median and watch the tail.':'The average and median are close, so the tail is not distorting the picture.'}`,q:'What do the slowest finished initiatives have in common? They are listed at the bottom.'});
-  // size calibration
-  const bySize=SIZES.map(s=>({s,st:stats(v.rows.filter(r=>r.it.size===s).map(r=>r.v))})).filter(x=>x.st.n>=3);
-  if(bySize.length>=3){
-    let inv=null;for(let i=1;i<bySize.length;i++)if(bySize[i].st.med<bySize[i-1].st.med*0.97){inv=[bySize[i-1],bySize[i]];break}
-    const f=bySize[bySize.length-1].st.med/bySize[0].st.med;
-    out.push(inv?{s:3,k:'Sizes',t:`${inv[1].s} finishes faster than ${inv[0].s}`,e:`Median ${fvu(inv[1].st.med)} against ${fvu(inv[0].st.med)}. Sizes are not predicting time at this step.`,q:'Are these sized the same way by every team, or is the larger work being split up?'}
-      :{s:1.2,k:'Sizes',t:`T-shirt sizes hold up: ${bySize[bySize.length-1].s} takes ${f.toFixed(1)}× ${bySize[0].s}`,e:`Medians step up from ${fvu(bySize[0].st.med)} (${bySize[0].s}) to ${fvu(bySize[bySize.length-1].st.med)} (${bySize[bySize.length-1].s}) without a reversal.`,q:'Is the overlap between neighbouring sizes small enough to use sizes in capacity planning?'});
-  }
-  // group
-  const dim=DIMS[state.dim];const g=[...groupBy(v.rows,dim.get)].filter(([,r])=>r.length>=4).map(([k,r])=>{const a=adjusted(r,v);return{k,n:r.length,med:qtl(sortN(r.map(x=>x.v)),.5),adj:a}});
-  if(g.length>=2){g.sort((a,b)=>b.adj-a.adj);const w=g[0];
-    if(w.adj>1.15)out.push({s:w.adj*2,k:dim.label,t:`${w.k} takes ${Math.round((w.adj-1)*100)}% longer than its mix of sizes predicts`,e:`Median ${fvu(w.med)} over ${w.n} initiatives. The size mix is already allowed for.`,q:'Is it the work or the waiting? The stage chart below shows which stages are longer.'});
-    const f=g[g.length-1];if(f.adj<.88)out.push({s:f.adj?1.3:0,k:dim.label,t:`${f.k} is ${Math.round((1-f.adj)*100)}% faster than its size mix predicts`,e:`Median ${fvu(f.med)} over ${f.n} initiatives.`,q:'What do they do differently that others could copy?'});
-  }
-  // waiting
-  const tot={work:0,gate:0,queue:0,per:{}};for(const r of v.rows){const w=windowOf(r.it);for(const s of STAGES){const d=clipStage(r.it,w,s);tot[s.kind]+=d;tot.per[s.k]=(tot.per[s.k]||0)+d}}
-  const all=tot.work+tot.gate+tot.queue;
-  if(all>0){const wp=Math.round((tot.gate+tot.queue)/all*100);const big=STAGES.filter(s=>s.kind!=='work').sort((a,b)=>tot.per[b.k]-tot.per[a.k])[0];
-    out.push({s:wp/25,k:'Waiting',t:`${wp}% of the elapsed time is waiting, not working`,e:`The largest wait is "${big.label.toLowerCase()}", ${fd(tot.per[big.k]/v.rows.length)} days on average per initiative.`,q:big.kind==='queue'?'Is build capacity the limit, or are things approved before the team can take them?':'Can this gate decide faster, for example with a standing weekly slot?'});}
-  // trend
-  const tq=trendData(v);if(tq.length>=3){const last=tq.slice(-2),prev=tq.slice(0,-2);const lm=qtl(sortN(last.flatMap(x=>x.vals)),.5),pm=qtl(sortN(prev.flatMap(x=>x.vals)),.5);
-    if(last.reduce((a,x)=>a+x.vals.length,0)>=5&&prev.reduce((a,x)=>a+x.vals.length,0)>=5){const d=delta(lm,pm);out.push({s:Math.abs(lm/pm-1)*6,k:'Trend',t:d.c==='fast'?`Recent quarters are ${Math.round((1-lm/pm)*100)}% faster`:d.c==='slow'?`Recent quarters are ${Math.round((lm/pm-1)*100)}% slower`:'Speed is steady across quarters',e:`Median ${fvu(lm)} in ${last.map(x=>x.q).join(' and ')} against ${fvu(pm)} in the quarters before.`,q:d.c==='fast'?'What changed, and was it deliberate? Make sure it is not only smaller work.':d.c==='slow'?'What changed: larger work, fewer people, more waiting?':'Is steady the goal, or should we set a target?'})}}
-  // gate decide
-  const gd=['A','B','C'].map(x=>({x,s:stats(v.all.filter(i=>i.t['t'+x]<=TODAY).map(i=>i.t['t'+x]-i.t[x==='A'?'tAreq':x==='B'?'tBreq':'tCreq']))})).filter(x=>x.s.n>=5);
-  if(gd.length){gd.sort((a,b)=>b.s.med-a.s.med);const w=gd[0];out.push({s:w.s.p90/w.s.med/1.5,k:'Decisions',t:`Gate ${w.x} is the slowest to decide: median ${fd(w.s.med)} days`,e:`One in ten waits more than ${fd(w.s.p90)} days.`,q:'Why do the slow ones wait: missing evidence, or nobody available to decide?'})}
-  return out.sort((a,b)=>(b.s||0)-(a.s||0)).slice(0,5);
-}
 function adjusted(rows,v){const med={};for(const s of SIZES){const x=v.rows.filter(r=>r.it.size===s).map(r=>r.v);med[s]=x.length>=3?qtl(sortN(x),.5):v.days.med}
   const exp=qtl(sortN(rows.map(r=>med[r.it.size])),.5);return qtl(sortN(rows.map(r=>r.v)),.5)/exp}
-function renderInsights(v){$('#insights').innerHTML=insights(v).map(i=>`<div class="ins"><div class="k"><span class="tag">${i.k}</span>Drafted by Claude</div><div class="t">${esc(i.t)}</div><div class="e">${esc(i.e)}</div><div class="q"><b>Ask:</b> ${esc(i.q)}</div></div>`).join('')}
 
 /* ---------- KPIs and the bell ---------- */
 function trendData(v){const m=groupBy(v.rows,i=>quarterOf(i.t[MEASURES[state.measure].end]));return[...m].map(([q,r])=>({q,vals:r.map(x=>conv(x.v)*(state.unit==='weeks'?7:1))})).filter(x=>x.vals.length>=3).sort((a,b)=>qKey(a.q)-qKey(b.q))}
@@ -765,7 +733,7 @@ function renderTables(v){
 function render(){
   const v=getView();
   $('#count').textContent=`${v.rows.length} of ${v.inScope.length} initiatives counted`;
-  renderFilters(v);renderControls();renderInsights(v);renderDist(v);renderSize(v);renderDim(v);renderTrend(v);renderWorkWait(v);renderStages(v);renderDecisions(v);renderSub(v);renderTables(v);
+  renderFilters(v);renderControls();renderDist(v);renderSize(v);renderDim(v);renderTrend(v);renderWorkWait(v);renderStages(v);renderDecisions(v);renderSub(v);renderTables(v);
 }
 
 /* ---------- events ---------- */
