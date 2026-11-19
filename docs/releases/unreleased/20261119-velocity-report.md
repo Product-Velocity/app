@@ -1,0 +1,4 @@
+---
+bump: minor
+---
+**Velocity report.** Reports has a new Velocity report that shows how long initiatives take from Start Discovery to roll-out, to each gate (A, B, C) and in Build, in weeks or days. It shows the median, the average and the percentiles with a bell-shaped distribution, split by T-shirt size and by Team, Key Result, Objective, Business line, Initiative Group or Focus Area, with a size-adjusted comparison so a team doing large work is not called slow for it. It also shows the trend per quarter, how much of the time is working or waiting, the stages of the journey, how long each gate takes to decide and what it decided, Build, Test and Experiment on their own, the initiatives in flight that are already slower than usual, and every initiative with search, filters and sort. The filter bar of every report gains Objective, Key Result, Business Line and Initiative Status. For the team: nothing is shown per person or per approver.

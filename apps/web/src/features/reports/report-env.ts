@@ -13,6 +13,7 @@ export const REPORTS = [
   { id: "health", label: "Roadmap Health" },
   { id: "gates", label: "Gate history" },
   { id: "changes", label: "Changes" },
+  { id: "velocity", label: "Velocity" },
 ] as const;
 export type ReportId = (typeof REPORTS)[number]["id"];
 export const DEFAULT_REPORT: ReportId = REPORTS[0].id;

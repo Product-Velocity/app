@@ -197,6 +197,19 @@ describe("Help guide: Reports", () => {
   });
 });
 
+describe("Help guide: Velocity report", () => {
+  it("defines the terms of the report: the measures, the percentiles, the stages and the team-level rule", async () => {
+    const { VELOCITY_DEFINITIONS, VELOCITY_NOTES } = await import("./help-content");
+    const terms = VELOCITY_DEFINITIONS.rows.map((r) => r[0]).join("|");
+    for (const t of ["Time measured", "Counted from", "Counted and not there yet", "Median, average and percentiles", "Size-adjusted", "Stages", "Time to decide", "In flight and already slower than usual", "Several teams"]) expect(terms).toContain(t);
+    const all = VELOCITY_DEFINITIONS.rows.map((r) => r.join(" ")).join(" ");
+    expect(all).toMatch(/30, 60 and 90 days after roll-out/);
+    expect(all).toMatch(/never as zero/);
+    expect(all).toMatch(/Nothing is shown per approver/);
+    expect(VELOCITY_NOTES.join(" ")).toMatch(/no figure is about a person/);
+  });
+});
+
 describe("Help: closing the GitHub issue of a removed initiative (the same as Jira)", () => {
   it("says the same things for GitHub: what it does, that a person confirms, that followed issues are untouched, and that Claude cannot do it", () => {
     const status = COLUMN_ROWS.find((r) => r.key === "status")!;

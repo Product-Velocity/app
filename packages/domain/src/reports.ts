@@ -148,7 +148,7 @@ export function parseReport(p: URLSearchParams): ReportState {
 
 /**
  * Columns of the Reports grid and its CSV. A fixed list with no commercial field (value, confidence, customers, decision, key results):
- * the Reports tab never shows them to any role (issue #233 FR-5.1).
+ * the Reports grid and CSV never show them to any role (issue #233 FR-5.1). The Velocity report (issue #545) uses Key Result only as a filter and a break-down inside the app, see docs/decisions/2026-11-19-velocity-report.md.
  */
 export const REPORT_GRID_COLUMNS: readonly string[] = [
   "item_code", "initiative_name", "home_project", "product_manager", "engineering_manager", "initiative_phase", "initiative_status", "health", "contributing_teams",
