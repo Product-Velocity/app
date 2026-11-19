@@ -14,7 +14,7 @@ status: built, to confirm
 | No key result | Phase Define and no Primary KR | Add key result (opens the initiative) |
 
 - **Report flags, like No phase set.** They show in the Changes report and the Flags column. **The Needs attention page is unchanged.**
-- **Two numbers are defaults, not facts:** 14 days in Experiment (`EXPERIMENT_REVIEW_DAYS`) and 7 days for a Hold (`HOLD_SOON_DAYS`). The length of an experiment is not on the item (there is no experiment end date). Say if they should change; they sit in `packages/domain/src/change-report.ts`.
+- **14 days in Experiment** (`EXPERIMENT_REVIEW_DAYS`) is **confirmed by Ashu (2026-11-19, chat)**. **7 days for a Hold** (`HOLD_SOON_DAYS`) is still a default, not a fact. The length of an experiment is not on the item (there is no experiment end date), which is why it is a number of days. Say if either should change; both sit in `packages/domain/src/change-report.ts`.
 - **New kinds of action.** Besides a move: request a gate, go to Decisions (a link), open the initiative. A requested gate turns "Request gate C" into "Gate C requested", a link to Decisions.
 - Nothing here sets Stack Rank, Decision or Value, and nothing decides a gate (rule 3). Flags describe an initiative, never a person (rule 8).
 - **Owner is already Business Owner** in the grid, the Columns picker and the filter (decision 2026-11-18). The one place that still said "Owner" (the Goal fields Help page) now says Business Owner.
