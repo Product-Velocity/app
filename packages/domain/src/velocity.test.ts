@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { fromDay, toDay } from "./gantt";
 import type { GateOutcome, GateRequest } from "./gates";
 import {
-  STAGES, bellCurve, decisionStats, groupStats, histogram, inFlightSlow, journeyOf, percentile, recentChange, sizeStats, stageAverages, stageDays, stagesBy, statsOf, subPhaseBySize, subPhaseDays,
+  STAGES, bellCurve, decisionStats, groupStats, histogram, inFlightSlow, journeyOf, percentile, phaseStats, recentChange, sizeStats, stageAverages, stageDays, stagesBy, statsOf, subPhaseBySize, subPhaseDays,
   subPhaseStats, trendByQuarter, velocityRows, velocitySummary, windowCoverage, workWait, type VelocityRow, type VelocitySettings,
 } from "./velocity";
 import type { ReportRow } from "./reports";
@@ -88,7 +88,7 @@ describe("velocityRows: the value of each measure", () => {
   it("is null, never zero, while the end has not been reached", () => {
     const early = row("b", { start: 100, def: 110 });
     const [a, b, c] = velocityRows([early, row("c", {}), row("d", { start: 0, roll: 500 })], [], total, TODAY);
-    expect([a!.value, b!.value, c!.value]).toEqual([null, null, null]); // still on the way, no start, end in the future
+    expect([a!.value, b!.value, c!.value]).toEqual([10, null, null]); // Discover has both dates (10 days); no dates at all; an end in the future
   });
   it("is not counted when the end is before the start", () => {
     expect(velocityRows([row("a", { start: 10, def: 5 })], [], { measure: "gate_a", stretch: false }, TODAY)[0]!.value).toBeNull();
@@ -117,11 +117,11 @@ describe("numbers", () => {
 });
 
 describe("windowCoverage: what the dates allow", () => {
-  it("counts the initiatives with a start, an end and both for the measure, so an empty chart can say why", () => {
+  it("counts the initiatives with a phase that has started and with a phase that has both dates, so an empty chart can say why", () => {
     const rows = [row("a", { start: 0, roll: 50 }), row("b", { start: 0 }), row("c", { roll: 50 }), row("d", { build: 5 })];
-    expect(windowCoverage(velocityRows(rows, [], total, TODAY))).toEqual({ initiatives: 4, withStart: 2, withEnd: 2, withBoth: 1 });
+    expect(windowCoverage(velocityRows(rows, [], total, TODAY))).toEqual({ initiatives: 4, withStart: 4, withBoth: 1 });
     const none = windowCoverage(velocityRows([row("x", { build: 5 }), row("y", { build: 9 })], [], total, TODAY));
-    expect(none).toEqual({ initiatives: 2, withStart: 0, withEnd: 0, withBoth: 0 });
+    expect(none).toEqual({ initiatives: 2, withStart: 2, withBoth: 0 });
   });
 });
 
@@ -355,5 +355,42 @@ describe("rows are not changed", () => {
     const r = full("a").row;
     const v: VelocityRow = velocityRows([r], [], total, TODAY)[0]!;
     expect(v.row).toBe(r);
+  });
+});
+
+describe("the time is the sum of the phases that have dates (nothing is left out because another date is missing)", () => {
+  const withBuild = (id: string, extra: Record<string, unknown> = {}, days: Parameters<typeof row>[1] = { build: 10 }) => ({ ...row(id, days, extra), time_building_days: 49, actual_build_weeks: 7 });
+  it("Total of an initiative with only build dates is its build time, and the split is all Build", () => {
+    const v = velocityRows([withBuild("a")], [], total, TODAY)[0]!;
+    expect(v.value).toBe(49);
+    expect(v.known).toEqual(["build"]);
+    expect(stageDays(v).build).toBe(49);
+  });
+  it("Discover and Build dated: Total adds both, Define is not in it", () => {
+    const v = velocityRows([withBuild("a", {}, { start: 0, def: 20, build: 40 })], [], total, TODAY)[0]!;
+    expect(v.known).toEqual(["discover", "define", "build"]);
+    expect(v.value).toBe(20 + 20 + 49);
+    const only = velocityRows([withBuild("b", {}, { start: 0, build: 40 })], [], total, TODAY)[0]!;
+    expect(only.known).toEqual(["discover", "build"]);
+    expect(only.value).toBe(40 + 49); // Discover runs to the next date it has (here Start Building)
+    expect(Object.values(stageDays(only)).reduce((x, y) => x + y, 0)).toBe(only.value);
+  });
+  it("a wait or queue needs both of its own dates; a zero-day one is not measured", () => {
+    const v = velocityRows([row("a", { start: 0, roll: 60 })], [], total, TODAY)[0]!;
+    expect(v.known).toEqual(["discover"]);
+  });
+  it("each measure adds up its own phases", () => {
+    const r = withBuild("a", {}, { start: 0, def: 20, build: 40, roll: 140 });
+    const get = (measure: "gate_a" | "build" | "define") => velocityRows([r], [], { measure, stretch: false }, TODAY)[0]!.value;
+    expect(get("build")).toBe(49);
+    expect(get("define")).toBe(20);
+    expect(get("gate_a")).toBe(20);
+  });
+  it("the phase chart uses only the initiatives that have dates for each phase", () => {
+    const rows = [withBuild("a", {}, { start: 0, def: 10, build: 30 }), withBuild("b"), withBuild("c", {}, { start: 0, def: 30, build: 60 })];
+    const vr = velocityRows(rows, [], total, TODAY);
+    const ps = phaseStats(vr, total);
+    expect(ps.filter((p) => p.n > 0).map((p) => [p.id, p.n, p.of])).toEqual([["discover", 2, 3], ["define", 2, 3], ["build", 3, 3]]);
+    expect(ps[0]!.stats!.median).toBe(20);
   });
 });

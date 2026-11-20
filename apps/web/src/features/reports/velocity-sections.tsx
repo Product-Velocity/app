@@ -2,8 +2,8 @@
 
 import { useMemo, type ReactNode } from "react";
 import {
-  DIM_LABEL, MIN_FOR_BOX, STAGES, SUB_PHASES, ZONES, decisionStats, groupStats, recentChange, sizeStats, stageAverages, stagesBy, subPhaseBySize, subPhaseStats, trendByQuarter, workWait,
-  type GateRequest, type GroupStat, type ReportDim, type Stats, type VelocityRow, type VelocitySummary, type WindowCoverage,
+  DIM_LABEL, MIN_FOR_BOX, STAGES, SUB_PHASES, ZONES, decisionStats, groupStats, phaseStats, recentChange, sizeStats, stageAverages, stagesBy, subPhaseBySize, subPhaseStats, trendByQuarter, workWait,
+  type GateRequest, type GroupStat, type ReportDim, type Stats, type VelocitySettings, type VelocityRow, type VelocitySummary, type WindowCoverage,
 } from "@pv/domain";
 import type { ReportEnv } from "./report-env";
 import { Bell, Donut, RangeChart, Stages, Trend, type RangeRow, type Slice } from "./velocity-charts";
@@ -70,7 +70,7 @@ export function BellCard({ summary, vrows, unit, title, coverage, measure }: Bel
       {!st || summary.counted < 3 ? (
         <div className="rp-empty vel-why" role="status">
           <p><b>{summary.counted === 0 ? `Nothing can be measured for ${measure.label} yet.` : `Only ${summary.counted} initiative${summary.counted === 1 ? "" : "s"} can be measured for ${measure.label}, too few for a distribution.`}</b> {measure.needs}</p>
-          <p>Of the {coverage.initiatives} initiatives with these filters, {coverage.withStart} {coverage.withStart === 1 ? "has" : "have"} the start date, {coverage.withEnd} {coverage.withEnd === 1 ? "has" : "have"} the end date and {coverage.withBoth} {coverage.withBoth === 1 ? "has" : "have"} both.{coverage.withStart === 0 || coverage.withEnd === 0 ? " Fill the missing dates in the Grid, or pick another measure above (Build only needs Start Building)." : ""}</p>
+          <p>Of the {coverage.initiatives} initiatives with these filters, {coverage.withStart} {coverage.withStart === 1 ? "has" : "have"} a phase of this measure that has started and {coverage.withBoth} {coverage.withBoth === 1 ? "has" : "have"} at least one phase with a start and an end date.{coverage.withBoth === 0 ? " Fill the missing dates in the Grid, or pick another measure above." : ""}</p>
         </div>
       ) : (
         <>
@@ -329,5 +329,28 @@ export function SubPhasesCard({ vrows, unit, today }: { vrows: readonly Velocity
         </div>
       </section>
     </div>
+  );
+}
+
+/** Each phase of the measure on its own: average, median and the tenth and ninetieth percentile, over the initiatives that have dates for that phase. */
+export function PhasesCard({ vrows, settings, unit }: { vrows: readonly VelocityRow[]; settings: VelocitySettings; unit: Unit }) {
+  const stats = useMemo(() => phaseStats(vrows, settings).filter((p) => p.stats), [vrows, settings]);
+  const rows = useMemo<RangeRow[]>(() => stats.map((p) => {
+    const x = p.stats!, u = (d: number) => inUnit(d, unit);
+    return { key: p.id, label: p.label, n: x.n, p10: u(x.p10), p25: u(x.p25), median: u(x.median), p75: u(x.p75), p90: u(x.p90), average: u(x.average), values: [], note: `avg ${fmtNum(u(x.average), unit)} ${unitShort(unit)}`, tone: "none" as const,
+      tip: `<b>${esc(p.label)}</b> (${x.n} of ${p.of} initiatives have dates for it)<br/>Median ${fmtDays(x.median, unit)}, average ${fmtDays(x.average, unit)}<br/>Middle half ${fmtDays(x.p25, unit)} to ${fmtDays(x.p75, unit)}<br/>10th percentile ${fmtDays(x.p10, unit)}, 90th ${fmtDays(x.p90, unit)}` };
+  }), [stats, unit]);
+  return (
+    <section className="rp-card rp-wide" aria-label="Time in each phase">
+      <div className="vel-h"><h2 className="rp-title">Time in each phase</h2><InfoTip title="How to read it">{READ_RANGE("phase")}</InfoTip></div>
+      <p className="rp-note">Every phase of the measure on its own, for the initiatives that have its dates (n is shown for each). The total above is these phases added up per initiative, so an initiative with dates for only some phases still counts. Waiting phases need both of their dates.</p>
+      {rows.length === 0 ? <None /> : (
+        <>
+          <Legend />
+          <RangeChart name="velocity-phases" label={`Time in each phase, in ${unit}`} rows={rows} unit={unit} height={rows.length * 44 + 44} />
+          <DataTable caption="Time in each phase" head={["Phase", "Initiatives with dates", `10th percentile (${unit})`, `Median (${unit})`, `Average (${unit})`, `90th percentile (${unit})`]} rows={stats.map((p) => [p.label, `${p.stats!.n} of ${p.of}`, fmtNum(inUnit(p.stats!.p10, unit), unit), fmtNum(inUnit(p.stats!.median, unit), unit), fmtNum(inUnit(p.stats!.average, unit), unit), fmtNum(inUnit(p.stats!.p90, unit), unit)])} />
+        </>
+      )}
+    </section>
   );
 }

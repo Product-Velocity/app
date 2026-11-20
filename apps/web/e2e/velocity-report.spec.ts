@@ -128,15 +128,19 @@ test.describe("Velocity report", () => {
     await expect(page.getByRole("heading", { name: /Waiting now for a decision \(\d+\)/ })).toBeVisible();
   });
 
-  test("a workspace with only Start Building dates: Total says what is missing, Build shows the stages and the time spent of every initiative", async ({ page }) => {
+  test("a workspace with only Start Building dates: Total already counts the build time, and the phase chart shows what has dates", async ({ page }) => {
     await page.goto("/dev/reports?report=velocity&demo=velocity-build");
     await page.getByRole("button", { name: "Velocity" }).waitFor();
-    // Total needs Start Discovery and Start Roll-Out, which none of them has: the report says so, with how many have what
-    const why = page.locator(".vel-why");
-    await expect(why).toContainText("Nothing can be measured for Total yet");
-    await expect(why).toContainText("Start Discovery");
-    await expect(why).toContainText("0 have the start date");
-    await expect(why).toContainText("Build only needs Start Building");
+    // Total adds up the phases that have dates: here only Build has, so every finished build counts
+    expect(await num(page, "n-counted")).toBeGreaterThan(10);
+    await expect(page.locator(".vel-why")).toHaveCount(0);
+    const phases = page.getByRole("region", { name: "Time in each phase", exact: true });
+    await phases.scrollIntoViewIfNeeded();
+    await phases.locator("summary").click();
+    // only the phases that have dates are listed: Build (and the wait before it, from the Gate B decisions), nothing else
+    const names = await phases.getByRole("table", { name: "Time in each phase" }).locator("tbody tr td:first-child").allInnerTexts();
+    expect(names).toContain("Build");
+    expect(names.every((n) => ["Build", "Waiting to start build"].includes(n))).toBe(true);
     // Build works from Start Building alone
     await setting(page, "Time measured", "Build").click();
     await expect(page.getByRole("heading", { name: "How long it takes: Build" })).toBeVisible();
