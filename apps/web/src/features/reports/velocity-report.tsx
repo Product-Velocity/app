@@ -7,7 +7,7 @@ import {
 } from "@pv/domain";
 import type { ReportEnv } from "./report-env";
 import { AllInitiativesCard, InFlightCard } from "./velocity-lists";
-import { BellCard, DecisionsCard, GroupCard, SizeCard, StagesCard, SubPhasesCard, TrendCard, WorkWaitCard } from "./velocity-sections";
+import { BellCard, DecisionsCard, GroupCard, PhasesCard, SizeCard, StagesCard, SubPhasesCard, TrendCard, WorkWaitCard } from "./velocity-sections";
 import { UNITS, parseUnit, type Unit } from "./velocity-format";
 
 /** The settings of the report live in the address next to the filters, so a view can be shared: m (measure), s=1 (from the previous gate), u=d (days), by (break-down). */
@@ -24,13 +24,18 @@ function writeSettings(s: Settings) {
   window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
-/** What each measure needs, in words, for the explanation when too few initiatives have the dates. */
+/** What each measure needs, in words, for the explanation when too few initiatives have dates. */
+const PHASE_NEEDS = "It adds up the phases that have a start and an end date, so one dated phase is enough.";
 const NEEDS: Record<VelocityMeasureId, string> = {
-  total: "It needs a Start Discovery (or Start Date) and a Start Roll-Out date.",
-  gate_a: "It needs a Start Discovery (or Start Date) and the Gate A decision, or Start Definition.",
-  gate_b: "It needs a Start Discovery (or Start Date) and the Gate B decision, or Start Building.",
-  gate_c: "It needs a Start Discovery (or Start Date) and the Gate C decision, or Start Roll-Out.",
+  total: PHASE_NEEDS + " For example Start Building with the build time, or Start Discovery with Start Definition.",
+  gate_a: PHASE_NEEDS + " Here: Discover and waiting for Gate A.",
+  gate_b: PHASE_NEEDS + " Here: the phases up to the Gate B decision.",
+  gate_c: PHASE_NEEDS + " Here: the phases up to the Gate C decision.",
+  discover: "It needs Start Discovery and a later date (the Gate A request or Start Definition).",
+  define: "It needs Start Definition (or the Gate A decision) and a later date (the Gate B request or Start Building).",
   build: "It needs Start Building and the end of the build (a tracker completion or the next phase start).",
+  test: "It needs Start Test and a later date (Start Experiment or the next date there is).",
+  experiment: "It needs Start Experiment and a later date (the Gate C request or the next date there is).",
 };
 
 /**
@@ -85,6 +90,8 @@ export function VelocityReport({ env, load, onOpen }: { env: ReportEnv; load?: (
       </section>
 
       <BellCard summary={summary} vrows={vrows} unit={s.unit} title={`How long it takes: ${title}`} coverage={coverage} measure={{ label: measure.label, needs: NEEDS[s.measure] }} />
+
+      <PhasesCard vrows={vrows} settings={settings} unit={s.unit} />
 
       <div className="vel-grid-2">
         <SizeCard vrows={vrows} unit={s.unit} summary={summary} env={env} />

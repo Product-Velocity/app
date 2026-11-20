@@ -12,12 +12,20 @@ import { UNSET, valuesOf, type ReportCtx, type ReportDim, type ReportRow } from 
  */
 
 // ---- the measures
+/**
+ * A measure is a set of phases (stages) of the journey. The time of an initiative is the sum of the phases of the set that have dates (a start and an end that has passed),
+ * so an initiative with only Build dates still counts, and one with Discover and Build counts both. Nothing is left out because another date is missing.
+ */
 export const VELOCITY_MEASURES = [
-  { id: "total", label: "Total", description: "Start Discovery to Start Roll-Out." },
-  { id: "gate_a", label: "To Gate A", description: "Start Discovery to the Gate A decision." },
-  { id: "gate_b", label: "To Gate B", description: "Start Discovery to the Gate B decision.", stretch: "Gate A decided to Gate B decided." },
-  { id: "gate_c", label: "To Gate C", description: "Start Discovery to the Gate C decision.", stretch: "Gate B decided to Gate C decided." },
-  { id: "build", label: "Build", description: "Start Building to the end of the build (the same as Actual Build)." },
+  { id: "total", label: "Total", description: "Every phase with dates, from Discovery to Start Roll-Out, added up." },
+  { id: "gate_a", label: "To Gate A", description: "The phases up to the Gate A decision that have dates, added up.", },
+  { id: "gate_b", label: "To Gate B", description: "The phases up to the Gate B decision that have dates, added up.", stretch: "Define and waiting for Gate B." },
+  { id: "gate_c", label: "To Gate C", description: "The phases up to the Gate C decision that have dates, added up.", stretch: "From the Gate B decision to the Gate C decision." },
+  { id: "discover", label: "Discover", description: "Discover: Start Discovery to the Gate A request (or Start Definition)." },
+  { id: "define", label: "Define", description: "Define: Start Definition to the Gate B request (or Start Building)." },
+  { id: "build", label: "Build", description: "Build: Start Building to the end of the build (the same as Actual Build)." },
+  { id: "test", label: "Test", description: "Test: Start Test to Start Experiment (or the next date there is)." },
+  { id: "experiment", label: "Experiment", description: "Experiment: Start Experiment to the Gate C request (or the next date there is)." },
 ] as const;
 export type VelocityMeasureId = (typeof VELOCITY_MEASURES)[number]["id"];
 export const DEFAULT_MEASURE: VelocityMeasureId = "total";
@@ -96,41 +104,80 @@ export const STAGES = [
 ] as const satisfies readonly { id: string; label: string; kind: StageKind; from: Milestone; to: Milestone }[];
 export type StageId = (typeof STAGES)[number]["id"];
 
+// ---- the phases of the journey that have dates
+/** The span of each phase that has a start and an end that has passed. A phase whose dates are missing is left out, never counted as zero. */
+export type Spans = Partial<Record<StageId, { start: number; end: number }>>;
+
+/**
+ * The finished phases of one initiative, from the dates that exist. A work phase (Discover, Define, Build, Test, Experiment) runs from its own start to the next date
+ * the initiative has (a request, a decision or the next phase start); Build is the tracker's Actual Build when there is one. A waiting phase (a gate wait, a queue)
+ * needs both of its dates.
+ */
+export function stageSpans(row: ReportRow, j: Journey, today: number): Spans {
+  const out: Spans = {};
+  const tracker = buildTimeOf(row);
+  for (const s of STAGES) {
+    const start = j.raw[s.from];
+    if (start === undefined) continue;
+    let end: number | undefined;
+    if (s.id === "build" && tracker) end = day(tracker.start) + tracker.days;
+    else if (s.kind === "work") end = MILESTONES.slice(MILESTONES.indexOf(s.from) + 1).map((m) => j.raw[m]).find((d) => d !== undefined);
+    else end = j.raw[s.to];
+    // a wait or queue of zero days is two dates that are one and the same (no request, so the decision date is also the next start): nothing was measured
+    if (end !== undefined && !Number.isNaN(end) && end >= start && end <= today && (s.kind === "work" || end > start)) out[s.id] = { start, end };
+  }
+  return out;
+}
+
+/** The phases each measure adds up, and the ones the stretch ("from the previous gate") adds up. */
+const MEASURE_STAGES: Record<VelocityMeasureId, readonly StageId[]> = {
+  total: STAGES.map((s) => s.id),
+  gate_a: ["discover", "wait_a"],
+  gate_b: ["discover", "wait_a", "define", "wait_b"],
+  gate_c: ["discover", "wait_a", "define", "wait_b", "queue_build", "build", "test", "experiment", "wait_c"],
+  discover: ["discover"], define: ["define"], build: ["build"], test: ["test"], experiment: ["experiment"],
+};
+const STRETCH_STAGES: Partial<Record<VelocityMeasureId, readonly StageId[]>> = {
+  gate_b: ["define", "wait_b"],
+  gate_c: ["queue_build", "build", "test", "experiment", "wait_c"],
+};
+/** The phases a measure adds up. */
+export const measureStages = (s: VelocitySettings): readonly StageId[] => (s.stretch ? STRETCH_STAGES[s.measure] : undefined) ?? MEASURE_STAGES[s.measure];
+/** The first date after which the measure counts as reached: any date at or after it means the initiative is past the measure. */
+const MEASURE_END: Record<VelocityMeasureId, Milestone> = { total: "roll", gate_a: "a", gate_b: "b", gate_c: "c", discover: "aReq", define: "bReq", build: "test", test: "exp", experiment: "cReq" };
+
 // ---- one row per initiative: the value of the measure
 export type VelocityRow = {
   id: string;
   row: ReportRow;
   journey: Journey;
-  /** The window of the measure (day numbers) when it can be worked out, else null. */
+  /** The finished phases of this initiative with dates (all phases, not only those of the measure). */
+  spans: Spans;
+  /** The phases of the measure that have dates, in order. */
+  known: StageId[];
+  /** Where the measure starts (the first phase start of the measure that exists), else null. */
   start: number | null;
+  /** The end of the last finished phase of the measure, else null. */
   end: number | null;
-  /** Days, or null while the end has not been reached (still on the way, or no start). Never zero for "not yet". */
+  /** The initiative is past the end of the measure (a date at or after it exists), so what is known is the whole of it. */
+  complete: boolean;
+  /** Days: the sum of the phases of the measure that have dates, or null when none has. Never zero for "not yet". */
   value: number | null;
 };
-
-/** The window of a measure for one initiative. Null ends mean the date does not exist. */
-export function windowOf(row: ReportRow, j: Journey, s: VelocitySettings): { start: number | null; end: number | null } {
-  const r = j.raw;
-  switch (s.measure) {
-    case "total": return { start: r.start ?? null, end: r.roll ?? null };
-    case "gate_a": return { start: r.start ?? null, end: r.a ?? null };
-    case "gate_b": return { start: (s.stretch ? r.a : r.start) ?? null, end: r.b ?? null };
-    case "gate_c": return { start: (s.stretch ? r.b : r.start) ?? null, end: r.c ?? null };
-    case "build": {
-      const b = buildTimeOf(row);
-      return b ? { start: day(b.start), end: day(b.start) + b.days } : { start: r.build ?? null, end: null };
-    }
-  }
-}
 
 export function velocityRows(rows: readonly ReportRow[], requests: readonly GateRequest[], settings: VelocitySettings, today: number): VelocityRow[] {
   const byItem = new Map<string, GateRequest[]>();
   for (const q of requests) (byItem.get(q.item_id) ?? byItem.set(q.item_id, []).get(q.item_id)!).push(q);
+  const set = measureStages(settings);
+  const endAt = MILESTONES.indexOf(MEASURE_END[settings.measure]);
   return rows.map((row) => {
     const journey = journeyOf(row, byItem.get(row.id) ?? []);
-    const { start, end } = windowOf(row, journey, settings);
-    const counted = start !== null && end !== null && end >= start && end <= today;
-    return { id: row.id, row, journey, start, end, value: counted ? end! - start! : null };
+    const spans = stageSpans(row, journey, today);
+    const known = set.filter((id) => spans[id] !== undefined);
+    const starts = set.map((id) => journey.raw[STAGES.find((s) => s.id === id)!.from]).filter((d): d is number => d !== undefined && d <= today);
+    const value = known.length === 0 ? null : known.reduce((x, id) => x + (spans[id]!.end - spans[id]!.start), 0);
+    const complete = known.includes(set[set.length - 1]!) || MILESTONES.slice(endAt).some((m) => { const d = journey.raw[m]; return d !== undefined && d <= today; });
+    return { id: row.id, row, journey, spans, known, start: starts.length ? Math.min(...starts) : null, end: known.length ? Math.max(...known.map((id) => spans[id]!.end)) : null, complete, value };
   });
 }
 
@@ -150,10 +197,10 @@ export function statsOf(values: readonly number[]): Stats | null {
   return { n: s.length, min: s[0]!, max: s[s.length - 1]!, p10: at(0.1), p25: at(0.25), median: at(0.5), p75: at(0.75), p80: at(0.8), p90: at(0.9), average: s.reduce((a, b) => a + b, 0) / s.length };
 }
 
-/** What the dates allow for the measure chosen: how many initiatives have a start, an end, and both (the ones that can be measured once the end is past). */
-export type WindowCoverage = { initiatives: number; withStart: number; withEnd: number; withBoth: number };
+/** What the dates allow for the measure chosen: how many initiatives have a phase of it that has started, and how many have at least one phase with a start and an end. */
+export type WindowCoverage = { initiatives: number; withStart: number; withBoth: number };
 export function windowCoverage(vrows: readonly VelocityRow[]): WindowCoverage {
-  return { initiatives: vrows.length, withStart: vrows.filter((v) => v.start !== null).length, withEnd: vrows.filter((v) => v.end !== null).length, withBoth: vrows.filter((v) => v.start !== null && v.end !== null).length };
+  return { initiatives: vrows.length, withStart: vrows.filter((v) => v.start !== null).length, withBoth: vrows.filter((v) => v.value !== null).length };
 }
 
 export type VelocitySummary = {
@@ -277,25 +324,12 @@ export function recentChange(vrows: readonly VelocityRow[]): { recent: number; b
 
 // ---- where the time goes
 /**
- * Days of each stage inside the window of the measure (a stage only counts the part that falls in it). A stage that has begun and has no later date
- * (the last date the initiative has) runs to the end of the window: an initiative with only Start Building spends its Build time in Build.
+ * Days of each phase of the measure that has dates; a phase without dates is zero here (it is not part of this initiative's time), so the phases add up to the
+ * value of the measure exactly.
  */
 export function stageDays(v: VelocityRow): Record<StageId, number> {
   const out = {} as Record<StageId, number>;
-  for (const s of STAGES) {
-    const a = v.journey.filled[s.from], b = v.journey.filled[s.to];
-    out[s.id] = v.start === null || v.end === null || a === null ? 0 : Math.max(0, Math.min(b ?? v.end, v.end) - Math.max(a, v.start));
-  }
-  // Dates that do not fit the stages (a later phase dated the same day as, or before, the one the window starts in) leave part of the window with no stage, so the
-  // stages would not add up to the measure. That time belongs to the stage the window starts in: the earliest stage with the latest start date on or before it.
-  if (v.start !== null && v.end !== null) {
-    const rest = v.end - v.start - STAGES.reduce((x, s) => x + out[s.id], 0);
-    if (rest > 0) {
-      let at: (typeof STAGES)[number] | null = null, atDay = -Infinity;
-      for (const s of STAGES.filter((x) => x.kind === "work")) { const a = v.journey.raw[s.from]; if (a !== undefined && a <= v.start && a > atDay) { at = s; atDay = a; } } // real dates only: the filled ones repeat the next real date
-      if (at) out[at.id] += rest;
-    }
-  }
+  for (const s of STAGES) out[s.id] = v.known.includes(s.id) ? v.spans[s.id]!.end - v.spans[s.id]!.start : 0;
   return out;
 }
 export type StageAverage = { id: StageId; label: string; kind: StageKind; average: number };
@@ -382,14 +416,14 @@ export type SlowInFlight = { id: string; elapsed: number; usual: number; over: n
  */
 export function inFlightSlow(rows: readonly ReportRow[], requests: readonly GateRequest[], settings: VelocitySettings, today: number): SlowInFlight[] {
   const vr = velocityRows(rows, requests, settings, today);
-  const finished = vr.filter((v) => v.value !== null);
+  const finished = vr.filter((v) => v.complete && v.value !== null);
   const all = statsOf(finished.map((v) => v.value!));
   const bySize = new Map<string, number>();
   for (const sz of SIZES) { const s = statsOf(finished.filter((v) => sizeOf(v) === sz).map((v) => v.value!)); if (s && s.n >= 5) bySize.set(sz, s.p80); }
   const out: SlowInFlight[] = [];
   for (const v of vr) {
     const status = typeof v.row.initiative_status === "string" ? v.row.initiative_status : "";
-    if (v.value !== null || v.start === null || v.start > today || (v.end !== null && v.end <= today) || status === "Cancelled" || status === "Completed") continue;
+    if (v.complete || v.start === null || v.start > today || status === "Cancelled" || status === "Completed") continue;
     const usual = bySize.get(sizeOf(v)) ?? (all && all.n >= 5 ? all.p80 : undefined);
     const elapsed = today - v.start;
     if (usual === undefined || elapsed <= usual) continue;
@@ -397,4 +431,16 @@ export function inFlightSlow(rows: readonly ReportRow[], requests: readonly Gate
     out.push({ id: v.id, elapsed, usual, over: elapsed - usual, stage: stage.id, daysInStage: today - (v.journey.filled[stage.from] ?? v.start) });
   }
   return out.sort((a, b) => b.elapsed / b.usual - a.elapsed / a.usual);
+}
+
+// ---- each phase of the measure on its own
+export type PhaseStat = { id: StageId; label: string; kind: StageKind; /** Initiatives with dates for this phase. */ n: number; /** Initiatives that count for the measure. */ of: number; stats: Stats | null };
+/** Average, median and percentiles of each phase of the measure, over the initiatives that have dates for that phase (so a missing date never pulls a phase towards zero). */
+export function phaseStats(vrows: readonly VelocityRow[], settings: VelocitySettings): PhaseStat[] {
+  const counted = vrows.filter((v) => v.value !== null);
+  return measureStages(settings).map((id) => {
+    const st = STAGES.find((s) => s.id === id)!;
+    const xs = counted.filter((v) => v.known.includes(id)).map((v) => v.spans[id]!.end - v.spans[id]!.start);
+    return { id, label: st.label, kind: st.kind, n: xs.length, of: counted.length, stats: statsOf(xs) };
+  });
 }
