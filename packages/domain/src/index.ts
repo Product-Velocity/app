@@ -40,6 +40,8 @@ export * from "./build-time";
 export * from "./roadmap-health";
 export * from "./impact";
 export * from "./discovery-template";
+export * from "./skills";
+export * from "./skills-catalog";
 export * from "./company-profile";
 export * from "./assistants";
 export * from "./gates";

@@ -63,7 +63,7 @@ describe("instructions and prompts per assistant", () => {
   it("lists the same prompts to all clients", async () => {
     const names = async (a: Assistant) => ((await handleRpc({ jsonrpc: "2.0", id: 4, method: "prompts/list" }, backend(a))) as { result: { prompts: { name: string }[] } }).result.prompts.map((p) => p.name);
     expect(await names("gemini")).toEqual(await names("claude"));
-    expect(await names("chatgpt")).toEqual(["write_prd", "write_discovery", "research_company"]);
+    expect(await names("chatgpt")).toEqual(["write_prd", "write_discovery", "research_company", "pv-premortem", "pv-one-pager", "pv-help"]);
   });
 });
 

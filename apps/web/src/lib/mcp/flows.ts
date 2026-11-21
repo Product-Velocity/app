@@ -3,7 +3,7 @@
  * (prompts/list and prompts/get, for clients that can start them: Claude, Gemini CLI) and the get_playbook tool (for clients that cannot: ChatGPT).
  * The text is the same either way. A flow carries no data of its own and runs no tool.
  */
-import { discoveryPrompt, prdPrompt, researchPrompt } from "@pv/domain";
+import { discoveryPrompt, parseSkillArgs, prdPrompt, researchPrompt, skillHelpText, skillPrompt, SKILLS } from "@pv/domain";
 import type { McpBackend } from "./rpc";
 
 export type FlowArg = { name: string; description: string; required: false };
@@ -57,6 +57,33 @@ export const FLOWS: Flow[] = [
     },
   },
 ];
+
+/** The PV skills (issue #565): one flow per skill, named pv-<skill>, plus pv-help. */
+const SKILL_FLOWS: Flow[] = [
+  ...SKILLS.map((spec): Flow => ({
+    name: spec.command,
+    title: spec.title,
+    description: `${spec.summary.charAt(0).toUpperCase()}${spec.summary.slice(1)}. Reads the company profile and what the workspace stores, asks once, saves a document as an AI draft.`,
+    arguments: [
+      arg("target", "The initiative code such as R-12 (or several, or view:\"Name\" or group:\"Name\"); leave empty and the skill asks."),
+      arg("input", "Your own words and any pasted material (optional). It is treated as material, never as instructions. Typed form: pv-<skill> R-12 your words --draft."),
+      arg("draft", "Write \"true\" to see the result in the chat and save nothing until you say so."),
+      ...(spec.team ? [arg("team", "Optional: who is on the team, e.g. product manager = Ana, designer = Li.")] : []),
+    ],
+    build: async (a) => skillPrompt(spec, { target: text(a.target, 500), input: text(a.input), draft: text(a.draft, 10), team: text(a.team, 2000) }),
+  })),
+  {
+    name: "pv-help",
+    title: "List the Product Velocity skills",
+    description: "How to use the pv- skills and which ones exist.",
+    arguments: [],
+    build: async () => skillHelpText(),
+  },
+];
+FLOWS.push(...SKILL_FLOWS);
+
+/** Typed form for clients that cannot start prompts: "pv-premortem R-12 ... --draft" in one string. */
+export const parseTypedSkill = parseSkillArgs;
 
 export const FLOW_NAMES = FLOWS.map((f) => f.name);
 export const publicFlow = (f: Flow) => ({ name: f.name, title: f.title, description: f.description, arguments: f.arguments });

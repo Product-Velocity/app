@@ -29,3 +29,22 @@ describe("get_playbook", () => {
     expect((await call({ name: "nope" })).isError).toBe(true);
   });
 });
+
+describe("pv- skills through the two doors", () => {
+  it("a skill is a prompt and the same text through get_playbook, and the typed form is split into target, words and --draft", async () => {
+    const via = (await handleRpc({ jsonrpc: "2.0", id: 1, method: "prompts/get", params: { name: "pv-premortem", arguments: { target: "R-12", input: "focus on payments" } } }, { ...backend, assistant: "claude" })) as { result: { messages: { content: { text: string } }[] } };
+    const prompt = via.result.messages[0]!.content.text;
+    expect(prompt).toMatch(/skill pv-premortem/);
+    expect(prompt).toMatch(/R-12/);
+    const typed = await call({ name: "pv-premortem", input: "R-12 focus on payments --draft" });
+    const text = typed.data.instructions as string;
+    expect(text).toMatch(/Target \(data from the person\)/);
+    expect(text).toMatch(/R-12/);
+    expect(text).toMatch(/focus on payments/);
+    expect(text).toMatch(/write NOTHING/);
+  });
+  it("pv-help lists the skills and calls no tool", async () => {
+    const r = await call({ name: "pv-help" });
+    expect(r.data.instructions).toMatch(/pv-one-pager/);
+  });
+});

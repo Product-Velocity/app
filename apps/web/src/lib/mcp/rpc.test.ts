@@ -59,7 +59,7 @@ describe("handleRpc", () => {
   });
   it("lists the write_prd prompt and returns the template with the brief quoted as data", async () => {
     const l = (await handleRpc({ jsonrpc: "2.0", id: 5, method: "prompts/list" }, backend())) as { result: { prompts: { name: string; arguments: { name: string; required: boolean }[] }[] } };
-    expect(l.result.prompts.map((p) => p.name)).toEqual(["write_prd", "write_discovery", "research_company"]);
+    expect(l.result.prompts.map((p) => p.name)).toEqual(["write_prd", "write_discovery", "research_company", "pv-premortem", "pv-one-pager", "pv-help"]);
     expect(l.result.prompts[0]!.arguments.map((a) => a.name)).toEqual(["brief", "modules", "item", "team"]);
     expect(l.result.prompts.every((p) => p.arguments.every((a) => a.required === false))).toBe(true);
     expect(l.result.prompts[1]!.arguments.map((a) => a.name)).toEqual(["brief", "item", "team"]);

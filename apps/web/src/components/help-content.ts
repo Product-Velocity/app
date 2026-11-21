@@ -1,4 +1,7 @@
-import { FIELDS, VISIBLE_FIELDS, FIELD_BY_KEY, setupGuides, type FieldDef } from "@pv/domain";
+import { FIELDS, VISIBLE_FIELDS, FIELD_BY_KEY, SKILL_COMMANDS, setupGuides, type FieldDef } from "@pv/domain";
+
+/** Every PV skill by command, generated from the catalogue so a new skill cannot ship without Help. */
+const SKILL_LIST = SKILL_COMMANDS.join(", ");
 
 /**
  * Text of the Help guide. Short on purpose. The columns table is checked against the field dictionary (help-content.test.ts):
@@ -440,6 +443,7 @@ export const AGENT_USE_CASES: Table = {
     ["Prepare a gate", "Reads one initiative and gathers the case for a decision gate: the checklist (what is filled in, what is missing), its documents and their status, past requests and decisions, open conditions. It writes a short summary for the person who decides. It cannot request, decide or approve a gate, or move a phase.", "\"Use get_gate_pack for R-12 and summarise the case for gate B.\"", "In the chat only; a person decides in Decisions"],
     ["Link Jira epics", "Records the Jira epic keys that belong under an initiative (any Jira project). It writes nothing to Jira: the next Sync with Jira links the epics that have no parent without asking again, and shows any epic that would move from another parent for you to confirm.", "\"Put the epics R8P-1234 and DATA-56 under R-12.\"", "The initiative's Jira tab, then Sync with Jira"],
     ["Record outcome metrics", "Reads the 30, 60 and 90 day outcome reviews of an initiative, and records a checkpoint only with numbers you stated: the realised value of the key result, the adoption % and a note, with your own words kept next to them. It never asks anyone for metrics (you do that in the app, and the Product Manager is notified), never estimates or invents a number, and cannot change a checkpoint that is already recorded. It can also draft the message that asks for the metrics (text only: nothing is sent, and you press Request metrics in the app).", "\"Record the 30 day metrics for R-12: 42 activations and 18% adoption.\" or \"Draft the request for the 30 day metrics of R-12.\"", "The Outcome reviews section of the initiative panel, with the audit entry"],
+    ["Skills (pv-)", "Runs a guided skill on an initiative: a pre-mortem that turns imagined failure into ranked risks, or a one-pager that asks for one decision. It reads the company profile and what the workspace stores, asks once (every question can be skipped) and saves a document as an AI draft. pv-help lists them", "pv-premortem R-12, or pv-one-pager R-12 for Friday's leadership meeting. Add --draft to see it first", "Spec tab of the initiative (document); nothing reaches the issue"],
     ["Update", "Revises a document (a new version, the old one kept) or fills empty fields. Changes to fields a person already filled come back as a diff you confirm first. A second assistant can review what the first wrote.", "\"Update the PRD of R-12 with what we decided today. Show me the diff.\"", "A new document version, with the AI tool and model that wrote it. Undo with undo_last"],
   ],
 };
@@ -474,6 +478,7 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
         ["Discovery", "Prompt write_discovery (brief, item, team). In claude.ai type / and pick it; in Claude Code type /mcp__product-velocity__write_discovery", "A Discovery document and one initiative in Discover"],
         ["PRD", "Prompt write_prd (brief, modules such as A1 D1 D4, item, team)", "A PRD document and the initiative fields it can support"],
         ["Company profile", "Prompt research_company (url, focus)", "A draft profile for an admin to confirm"],
+        ["Skills (pv-)", `Pick a pv- prompt in the menu (${SKILL_LIST}; pv-help lists them) with an initiative code, your own words and optionally draft = true`, "A document on the initiative, saved as an AI draft; nothing is saved when you ask for a draft only"],
         ["Several initiatives", "Ask in plain words: create initiatives from this list in group Growth, project Marketplace", "A dry run first, then created after you agree"],
         ["Change what exists", "Name the initiative, e.g. R-12, and say what to change", "A diff to confirm when a person already filled the field; undo with \"undo your last change\""],
         ["Documents, files and links", "Write documents, attach screenshots or PDFs and add links on the Spec tab (drag and drop, paste an image or a web address); each is shared with the issue unless you choose Do not share", "Spec tab of the initiative; documents and file links are not written to the issue of a public repository"],
@@ -489,6 +494,7 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
       head: ["What", "How to start in ChatGPT", "Result"],
       rows: [
         ["Discovery, PRD, company profile", "ChatGPT cannot start prompts. Say \"use the write_discovery playbook\" (or write_prd, research_company) and give the brief and the team. It reads the same instructions through the get_playbook tool", "The same documents and AI drafts as with Claude"],
+        ["Skills (pv-)", `Type the command, e.g. pv-premortem R-12 focus on payments --draft (skills: ${SKILL_LIST}, pv-help). The assistant reads it through the get_playbook tool`, "A document on the initiative, saved as an AI draft"],
         ["Deep research and company knowledge", "Ask in a research chat. ChatGPT uses two read-only tools, search and fetch, to read your initiatives and documents", "Findings that cite initiative codes; nothing is written"],
         ["Several initiatives, changes, files", "Ask in plain words, as with Claude", "A dry run or diff first, then written after you agree"],
         ["Confirmations", "ChatGPT asks you to confirm each tool call that changes something", "Product Velocity still shows its own dry run or diff first"],

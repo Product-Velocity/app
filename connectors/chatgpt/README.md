@@ -12,7 +12,7 @@ ChatGPT cannot start prompts, so say "use the write_prd playbook" or simply desc
 
 ## What ChatGPT gets
 - The same tools, rules and roles as every other assistant. The `search` and `fetch` tools are listed only to ChatGPT, for deep research and company knowledge; they are read-only and return what your role can read.
-- No prompts: ChatGPT calls `get_playbook` with the name of a flow and follows the text it returns. The flows: `write_prd`, `write_discovery`, `research_company`.
+- No prompts: ChatGPT calls `get_playbook` with the name of a flow and follows the text it returns. The flows: `write_prd`, `write_discovery`, `research_company`, `pv-premortem`, `pv-one-pager`, `pv-help`.
 - Writes (create_items, update_items, ...) are annotated as not read-only, so ChatGPT asks you to confirm each one.
 
 ## Not verified yet
