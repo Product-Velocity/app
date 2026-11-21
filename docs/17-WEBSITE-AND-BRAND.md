@@ -26,3 +26,6 @@ Ashu's updated brand guide (design-system artifact, updated 2026-11-10) replaces
 
 ## Homepage built inside the app (2026-11-18, issue #498)
 The first page of the website is live from `apps/web` at `/` for signed-out visitors (decision `docs/decisions/2026-11-18-public-homepage.md`); the separate `apps/site` plan above is on hold. The earlier decisions on pages and call to action are replaced for now by Ashu's: one homepage, call to action "Get early access", sign-in kept as is.
+
+## New visual homepage (2026-11-21, issue #574)
+`/` is now the redesigned, more visual homepage (decision `docs/decisions/2026-11-21-new-homepage.md`, screenshot `docs/new-homepage.png`); the previous design is kept at `/classic` (noindex, canonical to `/`, not in the sitemap). Code: `home.tsx`, `art-v2.ts` (static pictures), `marketing-v2.css` (scoped under `.pv2`). SEO and AI discovery live in `seo.tsx`, `sitemap.ts`, `robots.ts`, `llms.txt/` and `llms-full.txt/`; keep the page text, `HOME_DESCRIPTION` and the llms files in step.

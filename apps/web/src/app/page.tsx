@@ -1,19 +1,13 @@
-import { redirect } from "next/navigation";
-import { requireWorkspace } from "@/lib/session";
-import { createClient } from "@/lib/supabase/server";
-import { lastLocationFromMetadata } from "@/lib/user-prefs";
 import { Home } from "./(marketing)/home";
 import { homeMetadata } from "./(marketing)/seo";
+import { getViewer } from "./(marketing)/viewer";
 
 export const metadata = homeMetadata;
 
-/** Signed-out visitors see the public homepage (issue #498); people who are signed in go straight into the app. */
+/**
+ * The public website, for everyone (issues #570, #574). Being signed in no longer skips it: the header offers "Open app" (or "Back to the demo"
+ * in the shared demo account) and the app itself starts at /app. The previous design stays at /classic.
+ */
 export default async function Root() {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) return <Home />;
-  const { active, user } = await requireWorkspace("/");
-  // back to the screen and saved view the person was on in this account; leadership viewers otherwise start on their portfolio-level view
-  const last = lastLocationFromMetadata(user.user_metadata, active.tenantId);
-  redirect(last ?? (active.role === "leadership" ? "/leadership" : "/portfolio"));
+  return <Home viewer={await getViewer()} />;
 }

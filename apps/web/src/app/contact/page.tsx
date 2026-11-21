@@ -5,7 +5,7 @@ import { subjectFromSlug } from "./contact";
 
 export const metadata: Metadata = {
   title: "Contact Product Velocity",
-  description: "Send a question, a privacy request or a note about early access to the Product Velocity team.",
+  description: "Send a question, a privacy request or a note about joining us to the Product Velocity team.",
   alternates: { canonical: "/contact" },
 };
 

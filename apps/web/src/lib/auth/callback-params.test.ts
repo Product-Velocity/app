@@ -28,8 +28,8 @@ describe("parseCallbackParams", () => {
   });
 
   it("sanitises next in every case", () => {
-    expect(p("code=xyz&next=https%3A%2F%2Fevil.example")).toMatchObject({ next: "/" });
-    expect(p("token_hash=a&type=email&next=%2F%2Fevil.example")).toMatchObject({ next: "/" });
+    expect(p("code=xyz&next=https%3A%2F%2Fevil.example")).toMatchObject({ next: "/app" });
+    expect(p("token_hash=a&type=email&next=%2F%2Fevil.example")).toMatchObject({ next: "/app" });
   });
 
   it("returns none when there is nothing to exchange", () => {

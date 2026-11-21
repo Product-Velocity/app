@@ -7,7 +7,7 @@ export function GET() {
 
 > ${HOME_DESCRIPTION}
 
-Product Velocity is a roadmap and stack-rank platform for product teams, built for agentic product management: AI prepares the work, people decide. It does not replace Jira or GitHub: it hosts the layer around delivery (company objectives and OKRs, go-to-market, outcomes and time to market) and connects to the delivery tools.
+Product Velocity is an agentic product management platform and the single source of truth where product managers, stakeholders and their AI plan, decide and deliver together, from OKRs to tracked outcomes, on one roadmap for humans and AI. It is a roadmap and stack-rank platform: AI prepares the work, people decide. It was built by a group of product leaders, from product people for product people. It does not replace Jira or GitHub: it hosts the layer around delivery (company objectives and OKRs, go-to-market, outcomes and time to market) and connects to the delivery tools.
 
 ## What it does
 - One roadmap for every team and business line, with one stack rank and a capacity fit line per team.
@@ -21,10 +21,11 @@ Product Velocity is a roadmap and stack-rank platform for product teams, built f
 - Bring your own AI: it works with AI assistants such as Claude through a connector. AI prepares work and marks it as a draft; people decide. We do not sell tokens.
 
 ## Pages
-- [Home](${SITE_URL}/): what Product Velocity is and how to ask for early access
+- [Home](${SITE_URL}/): what Product Velocity is and how to join us
+- [Home as plain text](${SITE_URL}/llms-full.txt): the homepage sections as plain text, for AI assistants
 - [Connect Claude](${SITE_URL}/connector): how the Claude connector works, what Claude can and cannot do, permissions and data handling
 - [Privacy policy](${SITE_URL}/privacy): how data is handled
-- [Contact](${SITE_URL}/contact): a form for questions, privacy requests and early access
+- [Contact](${SITE_URL}/contact): a form for questions, privacy requests and joining us
 
 ## Connect
 - Claude connector directory: https://claude.ai/directory/connectors/product-velocity
@@ -34,7 +35,7 @@ Product Velocity is a roadmap and stack-rank platform for product teams, built f
 Use the form at ${SITE_URL}/contact.
 
 ## Status
-Product Velocity is in early access. Sign-up is by request on the homepage.
+Product Velocity is built by a group of product leaders for their own daily work, not as a business model. Joining is by request on the homepage.
 `;
   return new Response(text, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
 }
