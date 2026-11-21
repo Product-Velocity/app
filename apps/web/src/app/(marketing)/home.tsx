@@ -84,7 +84,6 @@ export function Home() {
             <a href="#loop">How it works</a>
             <a href="#ai">Your AI</a>
             <Link className="signin" href="/sign-in">Sign in</Link>
-            <Link className="btn btn-s" href="/demo">See the demo</Link>
             <a className="btn btn-p" href="#early-access">Get early access</a>
           </nav>
         </header>
