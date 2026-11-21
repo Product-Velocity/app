@@ -21,7 +21,7 @@ Product Velocity is the single source of truth for product managers and their AI
 - Bring your own AI: it works with AI assistants such as Claude through a connector. AI prepares work and marks it as a draft; people decide. We do not sell tokens.
 
 ## Pages
-- [Home](${SITE_URL}/): what Product Velocity is and how to ask for early access
+- [Home](${SITE_URL}/): what Product Velocity is and how to join us
 - [Connect Claude](${SITE_URL}/connector): how the Claude connector works, what Claude can and cannot do, permissions and data handling
 - [Privacy policy](${SITE_URL}/privacy): how data is handled
 - [Contact](${SITE_URL}/contact): a form for questions, privacy requests and early access
@@ -34,7 +34,7 @@ Product Velocity is the single source of truth for product managers and their AI
 Use the form at ${SITE_URL}/contact.
 
 ## Status
-Product Velocity is in early access. Sign-up is by request on the homepage.
+Product Velocity is built by a group of product leaders for their own daily work, not as a business model. Joining is by request on the homepage.
 `;
   return new Response(text, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
 }

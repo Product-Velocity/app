@@ -120,7 +120,7 @@ export function Home() {
             <a href="#loop">Your AI</a>
             <a href="#not">Product</a>
             <Link className="signin" href="/sign-in">Sign in</Link>
-            <a className="btn btn-p" href="#early-access">Get early access</a>
+            <a className="btn btn-p" href="#early-access">Join us</a>
           </nav>
         </header>
 
@@ -130,7 +130,7 @@ export function Home() {
             <h1>{"AI changed the PM's job. Give it one place to work from."}</h1>
             <p className="lead">Product Velocity is the single source of truth where product managers, stakeholders and their AI plan, decide and deliver together. Every initiative in one place, from the company objective to the delivery ticket, on top of Jira and GitHub. Product teams move faster, every stakeholder stays informed, and bigger outcomes get delivered.</p>
             <div className="cta">
-              <a className="btn btn-p" href="#early-access">Get early access</a>
+              <a className="btn btn-p" href="#early-access">Join us</a>
               <Link className="btn btn-s" href="/demo">See the demo</Link>
               <a className="btn btn-s" href="#why-now">See how it works</a>
             </div>
@@ -219,8 +219,8 @@ export function Home() {
             <Eyebrow>From product people, for product people</Eyebrow>
             <h2>Built by product leaders, for product leaders</h2>
             <p className="body" style={{ fontSize: 18, lineHeight: "28px", maxWidth: "28em", marginTop: 20 }}>We are a group of product leaders working for different companies, managing large and small product teams. We adopted AI in our work and found that something was missing on top: the missing layer. So we started building and exchanging our own tools and best practices. Product Velocity is the outcome.</p>
-            <p className="body" style={{ fontSize: 18, lineHeight: "28px", maxWidth: "28em", marginTop: 16 }}>Our goal is not the product itself. It is a tool that helps us in our daily work: driving outcomes, managing roadmaps and teams, and delivering the best outcomes, fully aligned and fast.</p>
-            <p className="body" style={{ fontSize: 18, lineHeight: "28px", maxWidth: "28em", marginTop: 16 }}><b>Want to use it?</b> Leave your details for early access and we will be in touch.</p>
+            <p className="body" style={{ fontSize: 18, lineHeight: "28px", maxWidth: "28em", marginTop: 16 }}>Product Velocity is not a business model. Our goal is not the product itself: it is a tool that helps us in our daily work, driving outcomes, managing roadmaps and teams, and delivering the best outcomes, fully aligned and fast.</p>
+            <p className="body" style={{ fontSize: 18, lineHeight: "28px", maxWidth: "28em", marginTop: 16 }}><b>Want to join us?</b> If you are a product person who wants to use it, shape it or share your own tools and practices, leave your details and we will be in touch.</p>
           </div>
           <EarlyAccessForm />
         </div>
