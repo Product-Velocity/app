@@ -1593,3 +1593,22 @@ a.btn.btn-primary { color: #fff; }
 .vel-mini i { display: block; height: 100%; }
 @media (max-width: 620px) { .vel-f-q, .vel-f-q input, .vel-f select { width: 100%; max-width: none; } }
 .vel-why p { margin: 0 0 6px; max-width: 90ch; }
+/* Gate history: pace pills, the waiting list and the chart grid. Colour never stands alone: every pill carries its words. */
+.gh-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 12px; margin-bottom: 12px; }
+.gh-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.gh-row { display: grid; grid-template-columns: minmax(120px, 1.4fr) 56px minmax(80px, 2fr) 72px auto; align-items: center; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--grey-2); font-size: 12.5px; }
+.gh-name { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gh-gate { color: var(--ink-muted); }
+.gh-track { height: 8px; border-radius: 4px; background: var(--grey-2); overflow: hidden; }
+.gh-fill { display: block; height: 100%; border-radius: 4px; }
+.gh-days { font-family: var(--font-mono); text-align: right; }
+.gh-pill { display: inline-block; border-radius: var(--radius-pill); padding: 1px 9px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.gh-attention { background: #fdecea; color: #9b2c1d; }
+.gh-longer { background: #fff4dc; color: #7a4f00; }
+.gh-faster { background: #e3f5ee; color: #0b6b52; }
+.gh-usual { background: var(--blue-tint-1); color: var(--blue-text); }
+.gh-unknown { background: var(--grey-2); color: #4b5563; }
+.gh-kpi-attention { border-color: #b4472f; background: #fdf3f1; }
+.gh-kpi-sub { font-size: 11.5px; }
+.gh-lately { list-style: none; margin: 6px 0 4px; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+@media (max-width: 640px) { .gh-row { grid-template-columns: 1fr auto; } .gh-gate, .gh-track { display: none; } }

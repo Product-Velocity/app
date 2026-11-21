@@ -324,6 +324,7 @@ test("Roadmap Health opens straight from its address and has no accessibility vi
 
 test("Gate history counts requests and outcomes per gate, the wait to decide and the wait to start building, with no per-person figures", async ({ page }) => {
   await open(page, "&report=gates");
+  await page.getByText("Show all figures per gate as a table").click();
   const table = page.getByRole("table", { name: "Decisions per gate" });
   await expect(table).toBeVisible();
   const gateB = table.getByRole("row", { name: /Gate B: Define to Build/ });
@@ -336,4 +337,14 @@ test("Gate history counts requests and outcomes per gate, the wait to decide and
   await expect(page.getByRole("columnheader", { name: /approver|decided by|person/i })).toHaveCount(0);
   const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
   expect(axe.violations).toEqual([]);
+});
+
+test("Gate history shows who is waiting, with a pace label that never rests on colour, and charts with their tables", async ({ page }) => {
+  await open(page, "&report=gates");
+  await expect(page.locator('[data-kpi="waiting"] .rp-kpi-n')).toHaveText("1");
+  const panel = page.locator('section[aria-label="Waiting for a decision"]');
+  await expect(panel.locator(".gh-row")).toHaveCount(1);
+  await expect(panel.locator(".gh-pill")).toHaveText(/Not enough history|Within usual time|Longer than usual|Needs attention/);
+  for (const name of ["gate-outcomes", "gate-funnel", "gate-spread"]) await expect(page.locator(`[data-chart="${name}"]`)).toBeVisible();
+  await expect(page.getByText(/nothing is shown per approver/i)).toBeVisible();
 });
