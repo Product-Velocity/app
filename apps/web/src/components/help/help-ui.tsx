@@ -13,7 +13,7 @@ export function HelpPage({ current, title, intro, toc, children }: { current?: s
       <header className="hp-head">
         <Link href="/help" aria-label="Product Velocity Help"><BrandLogo size={28} /></Link>
         <span className="hp-head-title">Help</span>
-        <Link className="hp-back" href="/">Open the app</Link>
+        <Link className="hp-back" href="/app">Open the app</Link>
       </header>
       <div className="hp-body">
         <nav className="hp-nav" aria-label="Help topics">

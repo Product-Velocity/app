@@ -24,5 +24,5 @@ export async function setNewPassword(_prev: ResetState, form: FormData): Promise
   }
   // anyone who held an older session (for example someone who guessed the old password) is signed out
   await supabase.auth.signOut({ scope: "others" });
-  redirect("/");
+  redirect("/app");
 }

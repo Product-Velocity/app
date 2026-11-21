@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { rememberTenant } from "@/lib/session";
+import { isDemoEmail } from "@/lib/demo-account";
 
 /**
  * The public "See the demo" button (issue #559): signs the visitor's browser into the fixed, shared
@@ -18,6 +19,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/?demo=unavailable&reason=env", request.url), 303);
   }
   const supabase = await createClient();
+  // a person already signed in to their own account keeps it: the demo never replaces a real session (issue #570)
+  const { data: current } = await supabase.auth.getUser();
+  if (current.user && !isDemoEmail(current.user.email)) return NextResponse.redirect(new URL("/app", request.url), 303);
   await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {

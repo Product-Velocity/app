@@ -22,7 +22,7 @@ export default async function ConsentPage({
   searchParams: Promise<{ authorization_id?: string; error?: string }>;
 }) {
   const { authorization_id: id, error } = await searchParams;
-  if (!id) redirect("/");
+  if (!id) redirect("/app");
   const next = `/oauth/consent?authorization_id=${encodeURIComponent(id)}`;
   const { supabase, memberships, active } = await requireWorkspace(next);
 
