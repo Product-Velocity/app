@@ -6,9 +6,9 @@ import { BrandLogo } from "@/components/brand-logo";
  * change them together. No claims beyond the brand guide, no "Claude approves".
  */
 export const AUTH_BRAND = {
-  eyebrow: "One roadmap for humans and AI",
-  tagline: "Stop rebuilding the roadmap in slides and sheets",
-  what: "Every initiative in one place, from the company objective to the delivery ticket. Product Velocity sits on top of Jira and GitHub and hosts the objectives, OKRs, go-to-market and outcomes that teams keep in disconnected docs, slides and sheets.",
+  eyebrow: "One source of truth for product managers and their AI",
+  tagline: "AI changed the PM's job. Give it one place to work from.",
+  what: "Product Velocity is the single source of truth where product managers, stakeholders and their AI plan, decide and deliver together. Every initiative in one place, from the company objective to the delivery ticket, on top of Jira and GitHub.",
   why: "Product teams move faster, every stakeholder stays informed, and bigger outcomes get delivered.",
   pillars: [
     { name: "Clarity", line: "One roadmap for every team and business line, from idea to completed roll-out." },

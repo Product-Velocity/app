@@ -7,7 +7,7 @@ export function GET() {
 
 > ${HOME_DESCRIPTION}
 
-Product Velocity is a roadmap and stack-rank platform for product teams, built for agentic product management: AI prepares the work, people decide. It does not replace Jira or GitHub: it hosts the layer around delivery (company objectives and OKRs, go-to-market, outcomes and time to market) and connects to the delivery tools.
+Product Velocity is the single source of truth for product managers and their AI, a roadmap and stack-rank platform built for agentic product management: AI prepares the work, people decide. It was built by a group of product leaders, from product people for product people. It does not replace Jira or GitHub: it hosts the layer around delivery (company objectives and OKRs, go-to-market, outcomes and time to market) and connects to the delivery tools.
 
 ## What it does
 - One roadmap for every team and business line, with one stack rank and a capacity fit line per team.
