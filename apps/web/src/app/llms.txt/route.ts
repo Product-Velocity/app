@@ -24,7 +24,7 @@ Product Velocity is the single source of truth for product managers and their AI
 - [Home](${SITE_URL}/): what Product Velocity is and how to join us
 - [Connect Claude](${SITE_URL}/connector): how the Claude connector works, what Claude can and cannot do, permissions and data handling
 - [Privacy policy](${SITE_URL}/privacy): how data is handled
-- [Contact](${SITE_URL}/contact): a form for questions, privacy requests and early access
+- [Contact](${SITE_URL}/contact): a form for questions, privacy requests and joining us
 
 ## Connect
 - Claude connector directory: https://claude.ai/directory/connectors/product-velocity
