@@ -200,7 +200,7 @@ export function ChangesBar(p: {
   return (
     <div className="pvbar" role="region" aria-label="Changes tools">
       <div className="pvbar-s1">
-        <Popover wide label={<>Filter: <strong className="count-badge">{n === 0 ? "None" : `${n} active`}</strong></>} active={n > 0}>
+        <Popover wide staged label={<>Filter: <strong className="count-badge">{n === 0 ? "None" : `${n} active`}</strong></>} active={n > 0}>
           {(close) => <FilterPanel filters={p.filters} onChange={p.onFilters} rows={p.rows} matching={p.matching} total={p.rows.length} close={close} />}
         </Popover>
         <Popover wide staged label={<>Columns: <strong className="count-badge">{p.columns.length} of {p.allColumns.length} shown</strong></>}>

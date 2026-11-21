@@ -219,7 +219,7 @@ function Body({ def, defaultDef, customerSafe, onApply, close }: Props & { close
 /** "Columns: 14 of 166 shown": expands a panel to choose, order and pin the columns of the view. */
 export function ColumnsPanel(props: Props & { shown: number }) {
   return (
-    <Popover wide label={<>Columns: <strong className="count-badge">{props.shown} of {VISIBLE_FIELDS.length} shown</strong></>}>
+    <Popover wide staged label={<>Columns: <strong className="count-badge">{props.shown} of {VISIBLE_FIELDS.length} shown</strong></>}>
       {(close) => <Body {...props} close={close} />}
     </Popover>
   );
