@@ -244,3 +244,40 @@ describe("Help: status changes (issue #358)", () => {
     expect(JSON.stringify(STATUS_NEXT_IN_PV)).toContain("Move to Test");
   });
 });
+
+describe("Help: the pv- skills table", () => {
+  it("has one row per skill, generated from the catalogue, with what it works on and what you get", async () => {
+    const { AGENT_SKILLS } = await import("./help-content");
+    const { SKILLS } = await import("@pv/domain");
+    const names = AGENT_SKILLS.rows.map((r) => r[0]!.split(" ")[0]);
+    for (const s of SKILLS) expect(names).toContain(s.command);
+    expect(names).toContain("pv-help");
+    const row = (c: string) => AGENT_SKILLS.rows.find((r) => r[0]!.startsWith(c))!;
+    expect(row("pv-weekly")[3]).toMatch(/report in the format you choose/);
+    expect(row("pv-weekly")[3]).toMatch(/Nothing is saved or sent/);
+    expect(row("pv-vision")[2]).toMatch(/whole workspace/);
+    expect(row("pv-vision")[3]).toMatch(/in Documents/);
+    expect(row("pv-metrics")[2]).toMatch(/One initiative/);
+    expect(row("pv-metrics")[3]).toMatch(/Spec tab/);
+    expect(row("pv-metrics")[3]).toMatch(/Key result metric|metric/i);
+    for (const r of AGENT_SKILLS.rows) expect(r.every((c) => c.length > 0)).toBe(true);
+  });
+});
+
+describe("Help: which skill when, and the tips", () => {
+  it("lists every skill once under its stage, in lifecycle order, and the tips match what the product does", async () => {
+    const { AGENT_SKILL_STEPS, AGENT_SKILL_TIPS } = await import("./help-content");
+    const { SKILLS, SKILL_STAGE_LABEL } = await import("@pv/domain");
+    const listed = AGENT_SKILL_STEPS.rows.flatMap((r) => r[1]!.split(", "));
+    expect([...listed].sort()).toEqual(SKILLS.map((s) => s.command).sort());
+    const order = AGENT_SKILL_STEPS.rows.map((r) => r[0]);
+    expect(order).toEqual((Object.values(SKILL_STAGE_LABEL) as string[]).filter((l) => order.includes(l)));
+    for (const r of AGENT_SKILL_STEPS.rows) expect(r[2]!.length).toBeGreaterThan(20);
+    const tips = AGENT_SKILL_TIPS.join(" ");
+    expect(tips).toMatch(/research_company/);
+    expect(tips).toMatch(/--draft/);
+    expect(tips).toMatch(/--format=email/);
+    expect(tips).toMatch(/never goes to GitHub or Jira/);
+    expect(tips).toMatch(/Stack Rank, Value, Confidence, Decision and approvals are always yours/);
+  });
+});

@@ -1,7 +1,54 @@
-import { FIELDS, VISIBLE_FIELDS, FIELD_BY_KEY, SKILL_COMMANDS, setupGuides, type FieldDef } from "@pv/domain";
+import { FIELDS, VISIBLE_FIELDS, FIELD_BY_KEY, SKILL_COMMANDS, SKILL_STAGE_LABEL, SKILLS, docKindLabel, setupGuides, type FieldDef } from "@pv/domain";
 
 /** Every PV skill by command, generated from the catalogue so a new skill cannot ship without Help. */
 const SKILL_LIST = SKILL_COMMANDS.join(", ");
+
+/** What a skill gives you, in words: a report in a format, a document on the initiative or in Documents, and the fields it can fill. */
+function skillResult(s: (typeof SKILLS)[number]): string {
+  if (s.output === "report") return "A report in the format you choose (email, slides, document, Slack message or just in the chat). Nothing is saved or sent unless you ask for a copy in Documents";
+  const fields = s.fields.map((k) => FIELD_BY_KEY[k]?.name ?? k);
+  const where = s.target === "none" ? `A ${docKindLabel(s.doc.kind)} document in Documents (an AI draft)` : `A ${docKindLabel(s.doc.kind)} document on the initiative's Spec tab (an AI draft)`;
+  return [where, s.profileSave ? `after you agree, the relevant part can be added to the company profile (${s.profileSave.section}; an admin confirms it)` : "", fields.length ? `empty fields it can fill from the document after you agree: ${fields.join(", ")}` : ""].filter(Boolean).join("; ");
+}
+
+const STAGE_HINT: Record<string, string> = {
+  direction: "Before roadmap decisions: where the product is going, how big the market is and what counts as success. These write company-level documents and can add the confirmed result to the company profile",
+  discover: "When you are learning what customers need: personas, and the tree that leads from an outcome to opportunities and ideas",
+  decide: "When a choice has to be made and defended: the case for it",
+  define: "When an idea becomes a plan: the one-pager, the PR/FAQ, a prototype test card and the pre-mortem before a gate",
+  deliver: "When the team starts to build: stories with acceptance scenarios",
+  launch: "When it is about to reach customers: the go-to-market plan, release notes and what is known about competitors",
+  prove: "When you need to know whether it worked: success metrics and experiments",
+  run: "Every week or quarter: the weekly update and the quarter plan",
+};
+
+/** Which skill to reach for at which point, generated from the catalogue (stages in lifecycle order). */
+export const AGENT_SKILL_STEPS: Table = {
+  head: ["When", "Skills", "Use them when"],
+  rows: (Object.keys(SKILL_STAGE_LABEL) as (keyof typeof SKILL_STAGE_LABEL)[])
+    .filter((st) => SKILLS.some((s) => s.stage === st))
+    .map((st) => [SKILL_STAGE_LABEL[st], SKILLS.filter((s) => s.stage === st).map((s) => s.command).join(", "), STAGE_HINT[st] ?? ""]),
+};
+
+/** How to get the most out of the skills, in the order a person meets it. */
+export const AGENT_SKILL_TIPS: string[] = [
+  "Start with the company profile: ask the assistant to run research_company, and an admin confirms it. Every skill reads it, so what it writes sounds like your company. The direction skills (pv-vision, pv-strategy, pv-northstar, pv-compete, pv-personas, pv-canvas) can then add what you confirm to the profile, which later skills use instead of asking again.",
+  "Answer the one message of questions, and skip what you do not know. Nothing is invented: a gap stays \"to define\" and is listed so you can fill it later.",
+  "Add --draft to see the result in the chat before anything is saved. The report skills (pv-weekly, pv-release-notes) take --format=email, slides, document, slack or chat and save nothing unless you ask for a copy.",
+  "Results land where they belong: a skill that works on an initiative saves on its Spec tab, a company-level skill saves under Documents in the account menu, and a report is delivered in the format you chose. Document text never goes to GitHub or Jira.",
+  "A skill fills initiative fields only from a short block at the end of its document, only after you have seen a preview and agreed, and a field that already has a value comes back as a before-and-after to confirm. Stack Rank, Value, Confidence, Decision and approvals are always yours.",
+  "To change a saved document, ask the assistant to revise it: the old version is kept. Ask it to run the skill again only when the facts have changed.",
+  "Skills prepare; people decide. Every document says who decides, and gates stay in the app.",
+];
+
+/** One row per skill, generated from the catalogue (packages/domain/src/skills-catalog.ts): a new skill shows up here, with its result, without anyone editing this file. */
+export const AGENT_SKILLS: Table = {
+  head: ["Skill", "What it does", "Works on", "You get"],
+  rows: [
+    ...SKILLS.map((s) => [`${s.command} (${SKILL_STAGE_LABEL[s.stage]})`, s.summary.charAt(0).toUpperCase() + s.summary.slice(1), s.target === "none" ? "The whole workspace; no initiative needed" : "One initiative (a code such as R-12)", skillResult(s)]),
+    ["pv-help", "Lists the skills and how to use them", "Nothing", "A list in the chat"],
+  ],
+};
 
 /**
  * Text of the Help guide. Short on purpose. The columns table is checked against the field dictionary (help-content.test.ts):
@@ -478,7 +525,7 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
         ["Discovery", "Prompt write_discovery (brief, item, team). In claude.ai type / and pick it; in Claude Code type /mcp__product-velocity__write_discovery", "A Discovery document and one initiative in Discover"],
         ["PRD", "Prompt write_prd (brief, modules such as A1 D1 D4, item, team)", "A PRD document and the initiative fields it can support"],
         ["Company profile", "Prompt research_company (url, focus)", "A draft profile for an admin to confirm"],
-        ["Skills (pv-)", `Pick a pv- prompt in the menu (${SKILL_LIST}; pv-help lists them) with an initiative code, your own words and optionally draft = true`, "A document on the initiative, saved as an AI draft; nothing is saved when you ask for a draft only"],
+        ["Skills (pv-)", `Pick a pv- prompt in the menu (${SKILL_LIST}; pv-help lists them) with an initiative code where the skill needs one, your own words and optionally draft = true (the report skills take format = email, slides, document, slack or chat)`, "A document (on the initiative, or in Documents for company-level skills) saved as an AI draft, or for pv-weekly and pv-release-notes a report in the format you choose; nothing is saved when you ask for a draft only"],
         ["Several initiatives", "Ask in plain words: create initiatives from this list in group Growth, project Marketplace", "A dry run first, then created after you agree"],
         ["Change what exists", "Name the initiative, e.g. R-12, and say what to change", "A diff to confirm when a person already filled the field; undo with \"undo your last change\""],
         ["Documents, files and links", "Write documents, attach screenshots or PDFs and add links on the Spec tab (drag and drop, paste an image or a web address); each is shared with the issue unless you choose Do not share", "Spec tab of the initiative; documents and file links are not written to the issue of a public repository"],
@@ -494,7 +541,7 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
       head: ["What", "How to start in ChatGPT", "Result"],
       rows: [
         ["Discovery, PRD, company profile", "ChatGPT cannot start prompts. Say \"use the write_discovery playbook\" (or write_prd, research_company) and give the brief and the team. It reads the same instructions through the get_playbook tool", "The same documents and AI drafts as with Claude"],
-        ["Skills (pv-)", `Type the command, e.g. pv-premortem R-12 focus on payments --draft (skills: ${SKILL_LIST}, pv-help). The assistant reads it through the get_playbook tool`, "A document on the initiative, saved as an AI draft"],
+        ["Skills (pv-)", `Type the command, e.g. pv-premortem R-12 focus on payments --draft (skills: ${SKILL_LIST}, pv-help; the report skills take --format=email, slides, document, slack or chat). The assistant reads it through the get_playbook tool`, "A document (on the initiative, or in Documents for company-level skills) saved as an AI draft, or for pv-weekly and pv-release-notes a report in the format you choose"],
         ["Deep research and company knowledge", "Ask in a research chat. ChatGPT uses two read-only tools, search and fetch, to read your initiatives and documents", "Findings that cite initiative codes; nothing is written"],
         ["Several initiatives, changes, files", "Ask in plain words, as with Claude", "A dry run or diff first, then written after you agree"],
         ["Confirmations", "ChatGPT asks you to confirm each tool call that changes something", "Product Velocity still shows its own dry run or diff first"],

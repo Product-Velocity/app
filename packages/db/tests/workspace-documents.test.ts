@@ -49,7 +49,7 @@ describe("workspace documents", () => {
     expect(await errorCode(db.asUser(creator, (q) => q("insert into public.workspace_documents (tenant_id, kind, title) values ($1, 'memo', 'x')", [f.tenantA]), { via: "UI" }))).toBe(CHECK);
     expect(await errorCode(add(creator, "  "))).toBe(CHECK);
     expect(await errorCode(add(creator, "Big", "x".repeat(200001)))).toBe(CHECK);
-    for (const kind of ["vision", "strategy", "north_star", "competitive", "personas", "weekly_update", "release_notes", "quarter_plan", "other"]) {
+    for (const kind of ["vision", "strategy", "north_star", "competitive", "personas", "weekly_update", "release_notes", "quarter_plan", "impact_map", "market_sizing", "canvas", "other"]) {
       expect((await row(await add(creator, "K", "", kind))).kind).toBe(kind);
     }
   });

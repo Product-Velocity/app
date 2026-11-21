@@ -1,4 +1,4 @@
-import { AGENT_ADVANTAGES, AGENT_TIPS } from "@/components/help-content";
+import { AGENT_ADVANTAGES, AGENT_SKILL_STEPS, AGENT_TIPS } from "@/components/help-content";
 import { HelpCallout, HelpCards, HelpList, HelpPage, HelpReference, HelpSection, HelpTable, HelpWhere } from "@/components/help/help-ui";
 
 export const metadata = {
@@ -15,6 +15,7 @@ export default function AiHelp() {
       toc={[
         { id: "journey", label: "From idea to documents" },
         { id: "uses", label: "What to use it for" },
+        { id: "skills", label: "Skills for the product job" },
         { id: "documents", label: "Documents that travel with the initiative" },
         { id: "better", label: "What makes it better over time" },
         { id: "safe", label: "What it can and cannot do" },
@@ -47,6 +48,12 @@ export default function AiHelp() {
           ]}
         />
         <HelpReference slug="ai-use-cases">Each use-case in full: what the agent does, what to say and where it lands</HelpReference>
+      </HelpSection>
+
+      <HelpSection id="skills" title="Skills for the product job">
+        <p>Beyond the discovery and PRD flows there are guided skills you start with <code>pv-</code> and a name, for example <code>pv-premortem R-12</code> or <code>pv-weekly --format=email</code>. Each one reads your company profile and what Product Velocity already holds, asks once (every question can be skipped), and either saves a document or, for the weekly update and release notes, hands you a report in the format you choose. Type <code>pv-help</code> to list them.</p>
+        <HelpTable caption="Which skill when" table={AGENT_SKILL_STEPS} />
+        <HelpReference slug="ai-use-cases">Every skill, what it works on, what you get, and how to get the most out of them</HelpReference>
       </HelpSection>
 
       <HelpSection id="documents" title="Documents that travel with the initiative">

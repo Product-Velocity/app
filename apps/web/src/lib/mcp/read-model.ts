@@ -139,6 +139,8 @@ export type McpReader = {
   companyProfile: () => Promise<CompanyProfileData>;
   /** The evidence for a gate on one initiative (documents, request and past decisions, open conditions); null when the initiative does not exist. Read only. */
   gatePack: (ref: string) => Promise<GatePackData | null>;
+  /** The same report definitions the app shows (issue #565): the week's leadership digest and the roadmap health. Read only, team level. */
+  report: (kind: "weekly_digest" | "health", weekOf?: string) => Promise<Record<string, unknown>>;
 };
 /** What Claude may read to prepare a gate decision. It never holds a way to request, decide or approve (CLAUDE.md rule 3). */
 export type GatePackData = {
