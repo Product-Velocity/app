@@ -9,13 +9,18 @@ import robots from "../robots";
 import sitemap from "../sitemap";
 import { GET as llms } from "../llms.txt/route";
 import { checkEarlyAccess, makeLimiter, readEarlyAccess } from "./early-access";
+import { ClassicHome } from "./home-classic";
 import { Home } from "./home";
 import { HOME_DESCRIPTION, HOME_JSON_LD, HOME_TITLE } from "./seo";
+import { GET as llmsFull } from "../llms-full.txt/route";
+import { sectionText } from "./plain-text";
 
 const dir = __dirname;
 const home = readFileSync(join(dir, "home.tsx"), "utf8");
+const classic = readFileSync(join(dir, "home-classic.tsx"), "utf8");
 const art = readFileSync(join(dir, "art.ts"), "utf8");
-const visible = (home + art + JSON.stringify(AUTH_BRAND) + HOME_DESCRIPTION).toLowerCase();
+const artV2 = readFileSync(join(dir, "art-v2.ts"), "utf8");
+const visible = (home + classic + art + artV2 + JSON.stringify(AUTH_BRAND) + HOME_DESCRIPTION).toLowerCase();
 
 describe("homepage copy follows the claims rules (docs/17, brand guide)", () => {
   it("makes no competitor, first-or-only or approval claims", () => {
@@ -28,13 +33,19 @@ describe("homepage copy follows the claims rules (docs/17, brand guide)", () => 
   it("says tracked, not measured, and go-to-market ready is never shortened wrongly", () => {
     expect(visible).not.toContain("measured");
   });
-  it("the sign-in side uses the hero wording", () => {
-    expect(home).toContain(AUTH_BRAND.tagline);
-    expect(home).toContain(AUTH_BRAND.what);
-    expect(home).toContain(AUTH_BRAND.why);
+  it("the classic page still carries the wording the sign-in side uses", () => {
+    expect(classic).toContain(AUTH_BRAND.tagline);
+    expect(classic).toContain(AUTH_BRAND.what);
+    expect(classic).toContain(AUTH_BRAND.why);
   });
   it("links Claude to the directory listing", () => {
     expect(home).toContain("https://claude.ai/directory/connectors/product-velocity");
+  });
+  it("the homepage leads with the agentic product management headline", () => {
+    const h = renderToStaticMarkup(createElement(Home, { viewer: null }));
+    expect(h).toContain("<h1>Deliver bigger, better outcomes. Faster.</h1>");
+    expect(h).toContain("Agentic product management platform");
+    expect(h.match(/<h1[ >]/g)).toHaveLength(1);
   });
 });
 
@@ -48,7 +59,26 @@ describe("search and AI crawler files", () => {
     expect(r.sitemap).toBe(`${SITE_URL}/sitemap.xml`);
     const rule = Array.isArray(r.rules) ? r.rules[0]! : r.rules;
     expect(rule.disallow).toContain("/");
-    expect(rule.allow).toEqual(expect.arrayContaining(["/$", "/connector", "/privacy", "/contact", "/sitemap.xml"]));
+    expect(rule.allow).toEqual(expect.arrayContaining(["/$", "/connector", "/privacy", "/contact", "/sitemap.xml", "/llms.txt", "/llms-full.txt"]));
+    expect(rule.allow).not.toContain("/classic");
+  });
+  it("names the AI crawlers with the same public paths and never opens /classic", () => {
+    const rules = (robots().rules as { userAgent: string | string[]; allow: string[]; disallow: string[] }[]);
+    const ai = rules.find((r) => Array.isArray(r.userAgent) && r.userAgent.includes("GPTBot"))!;
+    expect(ai.userAgent).toEqual(expect.arrayContaining(["ClaudeBot", "PerplexityBot", "Google-Extended"]));
+    expect(ai.disallow).toContain("/");
+    expect(ai.allow).not.toContain("/classic");
+  });
+  it("the sitemap never lists /classic", () => {
+    expect(sitemap().map((e) => e.url).join(" ")).not.toContain("classic");
+  });
+  it("llms-full.txt carries the homepage sections as plain text", async () => {
+    const t = await llmsFull().text();
+    expect(t).toContain("# Product Velocity: agentic product management platform");
+    expect(t).toContain("## Not another Jira");
+    expect(t).not.toContain("<");
+    expect(t).not.toMatch(/password|secret|api[_ -]?key/i);
+    expect(sectionText("<h2>A &amp; B</h2><p class=\"lead2\">Text</p><ul><li>One</li></ul>")).toBe("## A & B\n\nText\n\n- One");
   });
   it("llms.txt is plain text with the key facts and no secrets", async () => {
     const res = llms();
@@ -61,6 +91,7 @@ describe("search and AI crawler files", () => {
   });
   it("structured data and titles are set", () => {
     expect(HOME_TITLE.length).toBeLessThanOrEqual(65);
+    expect(HOME_TITLE).toContain("agentic product management");
     expect(HOME_DESCRIPTION.length).toBeLessThanOrEqual(240);
     expect(JSON.stringify(HOME_JSON_LD)).toContain("SoftwareApplication");
     expect(JSON.stringify(HOME_JSON_LD)).not.toMatch(/aggregateRating|offers|price/);
@@ -69,6 +100,8 @@ describe("search and AI crawler files", () => {
     const seo = readFileSync(join(dir, "seo.tsx"), "utf8");
     expect(seo).toContain("analytics_storage:'denied'");
     expect(seo).toContain("GTM-[A-Z0-9]");
+    expect(home).toContain("<GoogleTagManager />");
+    expect(classic).toContain("<GoogleTagManager />");
     const root = join(dir, "../layout.tsx");
     expect(readFileSync(root, "utf8")).not.toContain("googletagmanager");
   });
@@ -117,5 +150,19 @@ describe("the website is separate from the app (issue #570)", () => {
     const h = html("demo");
     expect(h).toContain("Back to the demo");
     expect(h).not.toContain('href="/sign-in"');
+  });
+});
+
+describe("the classic page (issue #574)", () => {
+  it("renders the previous homepage and keeps the viewer rules", () => {
+    const h = renderToStaticMarkup(createElement(ClassicHome, { viewer: null }));
+    expect(h).toContain("AI changed the PM");
+    expect(h).toContain('href="/sign-in"');
+    expect(h).not.toContain("application/ld+json");
+  });
+  it("is noindex with the homepage as its canonical address", () => {
+    const page = readFileSync(join(dir, "../classic/page.tsx"), "utf8");
+    expect(page).toContain("index: false");
+    expect(page).toContain('canonical: "/"');
   });
 });

@@ -7,7 +7,7 @@ export function GET() {
 
 > ${HOME_DESCRIPTION}
 
-Product Velocity is the single source of truth for product managers and their AI, a roadmap and stack-rank platform built for agentic product management: AI prepares the work, people decide. It was built by a group of product leaders, from product people for product people. It does not replace Jira or GitHub: it hosts the layer around delivery (company objectives and OKRs, go-to-market, outcomes and time to market) and connects to the delivery tools.
+Product Velocity is an agentic product management platform and the single source of truth where product managers, stakeholders and their AI plan, decide and deliver together, from OKRs to tracked outcomes, on one roadmap for humans and AI. It is a roadmap and stack-rank platform: AI prepares the work, people decide. It was built by a group of product leaders, from product people for product people. It does not replace Jira or GitHub: it hosts the layer around delivery (company objectives and OKRs, go-to-market, outcomes and time to market) and connects to the delivery tools.
 
 ## What it does
 - One roadmap for every team and business line, with one stack rank and a capacity fit line per team.
@@ -22,6 +22,7 @@ Product Velocity is the single source of truth for product managers and their AI
 
 ## Pages
 - [Home](${SITE_URL}/): what Product Velocity is and how to join us
+- [Home as plain text](${SITE_URL}/llms-full.txt): the homepage sections as plain text, for AI assistants
 - [Connect Claude](${SITE_URL}/connector): how the Claude connector works, what Claude can and cannot do, permissions and data handling
 - [Privacy policy](${SITE_URL}/privacy): how data is handled
 - [Contact](${SITE_URL}/contact): a form for questions, privacy requests and joining us
