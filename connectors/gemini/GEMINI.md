@@ -29,6 +29,9 @@ Product Velocity is this team's roadmap and stack rank. You reach it through the
 - `/pv-northstar`: North star metric
 - `/pv-compete`: Competitive analysis
 - `/pv-personas`: Personas
+- `/pv-weekly`: Weekly update
+- `/pv-release-notes`: Release notes
+- `/pv-quarter`: Quarter plan
 - `/pv-help`: List the Product Velocity skills
 
 ## Flows and prompts

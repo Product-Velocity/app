@@ -1,0 +1,4 @@
+---
+bump: minor
+---
+**Three skills for the rhythm of the product: `pv-weekly`, `pv-release-notes` and `pv-quarter`.** `pv-weekly` reads what changed in the roadmap this week and drafts one screen: the bottom line and what you need from people first, then what shipped, what is at risk and what is coming, with cuts for leaders, sales and support, and the team. `pv-release-notes` writes customer notes from what shipped, using only customer-safe fields, plus an internal version for support. `pv-quarter` drafts objectives and key results marked committed or aspirational, a capacity split from the numbers you give, the bets and exclusions, and how each result will be graded. They save workspace documents (see Documents in the account menu); nothing is sent or published, results belong to teams and never to people, and the plan never changes Stack Rank, Value or Confidence.
