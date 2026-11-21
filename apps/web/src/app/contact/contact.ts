@@ -1,7 +1,7 @@
 /** Rules of the public contact form (issue #530). Pure, so the server action, the page and the tests share them. */
 export const CONTACT_SUBJECTS = [
   { slug: "general", label: "A question about Product Velocity" },
-  { slug: "early-access", label: "Early access" },
+  { slug: "early-access", label: "Join us" },
   { slug: "connector", label: "Connecting Claude or another AI assistant" },
   { slug: "privacy", label: "Privacy or my data" },
   { slug: "security", label: "A security concern" },

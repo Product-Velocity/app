@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Product Velocity: one roadmap for humans and AI";
+export const alt = "Product Velocity: one source of truth for product managers and their AI";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -19,7 +19,7 @@ export default function Image() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div style={{ fontSize: 28, letterSpacing: 2, textTransform: "uppercase", opacity: 0.85 }}>Product Velocity</div>
-          <div style={{ fontSize: 76, fontWeight: 700, lineHeight: 1.05, maxWidth: 980 }}>One roadmap for humans and AI</div>
+          <div style={{ fontSize: 62, fontWeight: 700, lineHeight: 1.08, maxWidth: 1000 }}>{"AI changed the PM's job. Give it one place to work from."}</div>
         </div>
       </div>
     ),

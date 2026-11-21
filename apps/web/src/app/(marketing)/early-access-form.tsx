@@ -11,7 +11,7 @@ export function EarlyAccessForm() {
     return (
       <div className="thanks" role="status" tabIndex={-1}>
         <b>Thanks, you are on the list.</b>
-        <p>We will be in touch about early access.</p>
+        <p>We will be in touch about joining us.</p>
       </div>
     );
   }
@@ -32,8 +32,8 @@ export function EarlyAccessForm() {
       {/* hidden from people, filled by bots */}
       <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", height: 0, overflow: "hidden" }}><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
       {state.status === "failed" && <p className="err" role="alert">{state.message}</p>}
-      <button className="btn btn-p" type="submit" disabled={pending}>{pending ? "Sending…" : "Get early access"}</button>
-      <p className="fine">We use your details only to contact you about early access.</p>
+      <button className="btn btn-p" type="submit" disabled={pending}>{pending ? "Sending…" : "Join us"}</button>
+      <p className="fine">We use your details only to contact you about joining us.</p>
     </form>
   );
 }

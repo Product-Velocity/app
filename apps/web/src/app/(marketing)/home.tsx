@@ -2,7 +2,7 @@ import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { EarlyAccessForm } from "./early-access-form";
 import {
-  ART_AI, ART_ALIGN, ART_CHAIN, ART_HERO, ART_HIER, ART_LAYER, ART_LIFE, ART_LOOP, ART_ONE, ART_OUTCOME, ART_PILLS, ART_VIEWS,
+  ART_AI, ART_ALIGN, ART_CHAIN, ART_HERO, ART_HIER, ART_LAYER, ART_LIFE, ART_LOOP, ART_PILLS, ART_SHEET, ART_VIEWS,
 } from "./art";
 import { GoogleTagManager, GoogleTagManagerNoscript, HOME_JSON_LD } from "./seo";
 import "./marketing.css";
@@ -49,14 +49,50 @@ function Wide({ id, eyebrow, title, challenge, body, points, art, klass, band }:
     <section id={id} className={`sec wide${band ? " band" : ""}`}>
       <div className="wrap">
         <div className="head">
-          <Eyebrow>{eyebrow}</Eyebrow>
-          <h2 style={{ maxWidth: "18em" }}>{title}</h2>
-          {challenge && <p className="challenge"><b>The challenge</b>{challenge}</p>}
-          {challenge && <div className="how">How Product Velocity helps</div>}
-          <p className="body">{body}</p>
-          {points && points.length > 0 && <ul className="points">{points.map((p) => <li key={p}>{p}</li>)}</ul>}
+          <div className="hl">
+            <Eyebrow>{eyebrow}</Eyebrow>
+            <h2 style={{ maxWidth: "18em" }}>{title}</h2>
+            {challenge && <p className="challenge"><b>The challenge</b>{challenge}</p>}
+          </div>
+          <div className="hr">
+            {challenge && <div className="how">How Product Velocity helps</div>}
+            <p className="body">{body}</p>
+            {points && points.length > 0 && <ul className="points">{points.map((p) => <li key={p}>{p}</li>)}</ul>}
+          </div>
         </div>
         <div className={`art${klass ? ` ${klass}` : ""}`} aria-hidden="true"><div className="scroll" dangerouslySetInnerHTML={{ __html: art }} /></div>
+      </div>
+    </section>
+  );
+}
+
+/** Three examples of working with an AI assistant on the roadmap (example data, wording only; nothing here is a live screen). */
+const PRACTICE: { label: string; ask: string; title: string; chips: [string, "info" | "good" | "risk"][]; note: string }[] = [
+  { label: "Write", ask: "Draft the PRD for the self-serve onboarding initiative, using what we decided in discovery.", title: "PRD saved on the initiative", chips: [["AI draft", "info"], ["For your review", "risk"]], note: "Drafts are marked as AI drafts until a person accepts them." },
+  { label: "Analyse", ask: "The launch is 60 days in. Here is the adoption data from our analytics. How are we doing against the key result?", title: "Outcome review added next to the key result", chips: [["For review", "info"]], note: "Your AI analyses in your own tools. Product Velocity keeps the result with the initiative, its effort and its key result." },
+  { label: "Drive", ask: "Prepare the update for leadership and tell me what needs action.", title: "Leadership report ready, 3 flags: 2 decisions waiting, 1 item stuck", chips: [["Ready", "good"], ["Needs action", "risk"]], note: "Reports are built for each audience. Sending needs your confirmation." },
+];
+
+function Practice() {
+  return (
+    <section id="practice" className="sec band">
+      <div className="wrap">
+        <Eyebrow>In practice</Eyebrow>
+        <h2 style={{ maxWidth: "20em" }}>Ask your AI. See it land on the roadmap.</h2>
+        <p className="body">Connect Claude, ChatGPT or Gemini and work on the roadmap in plain language. Every change is audited and can be undone, and your AI never approves.</p>
+        <div className="prac">
+          {PRACTICE.map((c) => (
+            <div className="card" key={c.label}>
+              <div className="lbl">{c.label}</div>
+              <p className="ask">{c.ask}</p>
+              <div className="res">
+                <b>{c.title}</b>
+                <div className="chips">{c.chips.map(([t, k]) => <span key={t} className={`chip ${k}`}>{t}</span>)}</div>
+              </div>
+              <p className="note">{c.note}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -80,23 +116,23 @@ export function Home() {
         <header className="top">
           <Link className="brandmark" href="/" aria-label="Product Velocity"><span className="logo-lg"><BrandLogo size={64} /></span><span className="logo-sm"><BrandLogo size={36} /></span></Link>
           <nav className="main" aria-label="Main">
-            <a href="#solution">Product</a>
-            <a href="#loop">How it works</a>
-            <a href="#ai">Your AI</a>
+            <a href="#why-now">Why</a>
+            <a href="#loop">Your AI</a>
+            <a href="#not">Product</a>
             <Link className="signin" href="/sign-in">Sign in</Link>
-            <a className="btn btn-p" href="#early-access">Get early access</a>
+            <a className="btn btn-p" href="#early-access">Join us</a>
           </nav>
         </header>
 
         <div className="hero" id="top">
           <div className="copy">
-            <div className="eyebrow">One roadmap for humans and AI</div>
-            <h1>Stop rebuilding the roadmap in slides and sheets</h1>
-            <p className="lead">Every initiative in one place, from the company objective to the delivery ticket. Product Velocity sits on top of Jira and GitHub and hosts the objectives, OKRs, go-to-market and outcomes that teams keep in disconnected docs, slides and sheets. Product teams move faster, every stakeholder stays informed, and bigger outcomes get delivered.</p>
+            <div className="eyebrow">One source of truth for product managers and their AI</div>
+            <h1>{"AI changed the PM's job. Give it one place to work from."}</h1>
+            <p className="lead">Product Velocity is the single source of truth where product managers, stakeholders and their AI plan, decide and deliver together. Every initiative in one place, from the company objective to the delivery ticket, on top of Jira and GitHub. Product teams move faster, every stakeholder stays informed, and bigger outcomes get delivered.</p>
             <div className="cta">
-              <a className="btn btn-p" href="#early-access">Get early access</a>
+              <a className="btn btn-p" href="#early-access">Join us</a>
               <Link className="btn btn-s" href="/demo">See the demo</Link>
-              <a className="btn btn-s" href="#solution">See how it works</a>
+              <a className="btn btn-s" href="#why-now">See how it works</a>
             </div>
             <p className="trust muted">The demo opens a real, read-only example workspace (Meridian Media) &ndash; nothing you click there is saved.</p>
             <p className="trust">{SHIELD}<span>Works alongside Jira and GitHub.</span></p>
@@ -120,94 +156,71 @@ export function Home() {
         </div>
       </section>
 
-      <section className="story" id="why-now">
-        <div className="wrap">
-          <Eyebrow>Why now</Eyebrow>
-          <h2>Agentic product management: the PM&rsquo;s job is changing</h2>
-          <p className="body" style={{ fontSize: 20, lineHeight: "30px", color: "var(--ink-muted)", maxWidth: "34em", marginTop: 20 }}>AI now does much of the preparation: the documents, the updates and the analysis. What is left for the product manager is the part only a person can do: deciding what to ship and for whom, aligning stakeholders and owning the outcome. Product Velocity is where that work happens, on one roadmap that people and their AI co-workers both work from.</p>
-          <Art svg={ART_ONE} />
-          <div className="shifts" role="table" aria-label="How the product manager's work shifts and how Product Velocity supports it">
-            <div className="row head" role="row"><span role="columnheader">What used to take your time</span><span role="columnheader">What changes</span><span role="columnheader">How Product Velocity supports it</span></div>
-            <div className="row" role="row"><b role="cell">Writing documents, updates and reports</b><span role="cell">Your AI drafts and writes the recap, you review and deliver the hard messages</span><span role="cell">AI drafts are marked as drafts, and reports are built for each audience.</span></div>
-            <div className="row" role="row"><b role="cell">Gathering signals and analysing results</b><span role="cell">Your AI does the analysis and brings the results back</span><span role="cell">Results sit on the initiative, next to its key result.</span></div>
-            <div className="row" role="row"><b role="cell">Getting stakeholders aligned</b><span role="cell">Stakeholders rank and vote, results are anonymous</span><span role="cell">One stack rank, with a capacity fit line for each team.</span></div>
-            <div className="row" role="row"><b role="cell">Making the call</b><span role="cell">People decide, with the evidence prepared. Your AI never approves</span><span role="cell">Gate packs show what is ready to pass, and the reason is kept on record.</span></div>
-          </div>
-        </div>
-      </section>
+      <Split id="why-now" eyebrow="Why now" title="AI does more of the work. The PM raises the bar."
+        challenge="AI drafts, analyses and prepares, but it cannot make the critical calls on its own. It does not know your customers, your stakeholders or your trade-offs."
+        body="Product managers are the bar raisers. They connect the dots, fill the gaps and turn what AI produces into bigger outcomes, faster. That means driving decisions across stakeholder groups and taking deeper insight back to leadership. Product Velocity is where that work happens, with people and their AI on the same roadmap."
+        points={["AI drafts, analyses and prepares", "You decide, align and drive", "Leadership gets deeper insight, sooner"]}
+        art={ART_AI} />
 
-      <Split id="loop" eyebrow="How it works" title="One loop, from signal to outcome"
-        challenge="Agents are already good at building. The gap is deciding what to build and knowing whether it worked."
-        body="Product Velocity connects both, for people and their AI. Your AI helps shape the opportunity and the business case, and after launch it analyses the results and brings them back, so the next decision starts from evidence. Product Velocity is the system of record that connects the dots."
-        points={["Decide: your AI prepares the options as drafts, and people decide at the gates", "Deliver: epics and stories go to Jira and GitHub, and progress flows back", "Learn: your AI analyses the results and brings them back next to the initiative, its effort and key result"]}
+      <Split id="source" band flip eyebrow="One source of truth" title="Documents, statuses and priorities do not live in a vacuum"
+        challenge="Most of us start in a spreadsheet. It works, until it is too wide to share across a group of PMs, unreadable for stakeholders, too big for AI to make sense of after a few quarters, and cut off from your delivery trackers."
+        body="Every PRD, priority, decision and result needs the objective above it, the delivery work below it and the stakeholders around it. Product Velocity keeps that context in one structured place, and every AI assistant you connect works from the same, always current picture."
+        points={["Shared by every PM on the team", "Readable for stakeholders and leadership, in a view for each audience", "Structured so AI can read it, however many quarters you add", "Synced with Jira and GitHub, so nothing is copied by hand"]}
+        art={ART_SHEET} />
+
+      <Split id="loop" eyebrow="Work with your AI" title="Your AI writes, analyses and drives. Product Velocity remembers."
+        challenge="Every AI assistant starts cold, and what it produces stays in a chat."
+        body="Connect Claude, ChatGPT or Gemini to your roadmap and every session starts from the same, current context. Your AI helps shape the opportunity and the business case, and after launch it analyses the results and brings them back, so the next decision starts from evidence. We do not sell tokens. Bring the AI you already use."
+        points={["Decide: your AI writes the PRD, discovery and gate pack as drafts, and people decide at the gates", "Deliver: your AI creates and updates initiatives, and epics and stories go to Jira and GitHub after you confirm", "Learn: your AI analyses the results in your own tools and brings them back, next to the initiative, its effort and key result", "Product Velocity reports and flags what needs action, such as stuck work and waiting decisions"]}
         art={ART_LOOP} />
 
-      <Wide id="solution" eyebrow="The solution" title="Every initiative in one place, from the company objective to the delivery ticket" band klass="hier"
-        body="Company objectives and business lines sit at the top. Below them are outcomes, focus areas and groups, then the initiatives that carry key results and link to the delivery tickets. Each level is data in the same roadmap, so what leadership sees and what engineers build are the same thing. It sits on top of your delivery tools."
-        art={ART_HIER} />
+      <Practice />
 
-      <Split id="not" flip eyebrow="What it is, and what it is not" title="Not another delivery tracker. The layer on top."
+      <Split id="not" band flip eyebrow="What it is, and what it is not" title="Not another Jira. The layer on top."
         challenge="Objectives, OKRs, go-to-market plans, outcomes and time to market live in disconnected docs, slides and sheets, and nobody has the full picture."
-        body="Product Velocity sits on top of the tools your engineers already use. It hosts the data layer for everything around delivery: company objectives and OKRs, go-to-market, outcomes and velocity from idea to launch. Jira and GitHub keep tracking tickets and code. Product Velocity brings the rest together."
+        body="Product Velocity sits on top of the tools your engineers already use. It hosts the data layer for everything around delivery: company objectives and OKRs, go-to-market, outcomes and velocity from idea to launch. Jira and GitHub keep tracking tickets and code. Product Velocity brings your delivery tools, your alignment process and your AI together, and keeps the context that connects them."
         points={["Works alongside Jira and GitHub and does not replace them", "Commercial data stays in Product Velocity and never goes to the delivery tools", "Velocity means time to market, followed across the whole lifecycle"]}
         art={ART_LAYER} />
 
-      <section className="blue usps-band">
-        <div className="wrap">
-          <Eyebrow>How it comes together</Eyebrow>
-          <div className="usps" aria-label="Key benefits" style={{ marginTop: 24 }}>
-            <div><b>Clarity</b><span>One roadmap for every team and business line, from idea to completed roll-out.</span></div>
-            <div><b>Transparency</b><span>What, why, who and when, from leadership and stakeholder reports to Jira tickets.</span></div>
-            <div><b>Alignment</b><span>Stakeholders rank and vote, and plans fit capacity.</span></div>
-            <div><b>Impact</b><span>Objectives and key results tracked on every initiative.</span></div>
-            <div><b>Your own AI</b><span>Bring your own AI, we do not sell tokens.</span></div>
-          </div>
-        </div>
-      </section>
-
-      <Split id="views" band eyebrow="Teams move faster" title="One line-item roadmap for every team"
+      <Split id="views" eyebrow="Teams move faster" title="One line item for every initiative"
         challenge="Roadmaps live in spreadsheets, slides and different trackers. Every update means rebuilding the picture by hand."
         body="Every initiative is a line item in one fast grid, across every team and business line. Build a view on top for each stakeholder, and everyone sees what they need to know from the same data."
         points={["Built for speed: add, edit and rank from the keyboard", "Views for leadership, teams and delivery on one dataset", "Paste in from Excel to get started"]}
         art={ART_VIEWS} />
 
-      <Split id="transparency" flip eyebrow="Everyone stays informed" title="Full transparency, from leadership report to Jira ticket"
+      <Split id="transparency" band flip eyebrow="Everyone stays informed" title="Full transparency, from leadership report to Jira ticket"
         challenge="Leaders ask for updates, teams write them, and the answer is out of date by the time it arrives."
         body="What is being built, why, by whom and when, in the same data and in real time. Leaders read the summary. Teams open the detail. Your engineers keep working in Jira and GitHub, and the progress comes up to the roadmap. Nobody waits for an update."
-        points={["Live progress from Jira and GitHub", "Reports for each audience", "Alerts when work is stuck or waiting for a decision"]}
+        points={["Live progress from Jira and GitHub", "Reports for each audience", "Reports and flags for what needs action, such as stuck work or a decision that is waiting"]}
         art={ART_CHAIN} />
 
-      <Split id="outcomes" band eyebrow="Bigger outcomes get delivered" title="From company objectives to tracked results"
+      <Wide id="solution" eyebrow="Bigger outcomes get delivered" title="From strategy to OKR to tracked outcomes, on one roadmap" klass="hier"
         challenge="Shipped gets treated as done, and the link back to the company objective gets lost."
-        body="Every initiative sits under a company objective and a business line, and carries the key result it should move. After launch, adoption is tracked at 30, 60 and 90 days before an initiative counts as completed."
+        body="Company objectives and business lines sit at the top. Below them are outcomes, focus areas and groups, then the initiatives that carry key results and link to the delivery tickets. Each level is data in the same roadmap, so what leadership sees and what engineers build are the same thing. After launch, adoption is tracked at 30, 60 and 90 days before an initiative counts as completed."
         points={["Set the key result, track it, review the outcome", "Your AI can analyse the results and bring them back for people to review", "Completed means the outcome is in", "Results feed the next plan"]}
-        art={ART_OUTCOME} />
+        art={ART_HIER} />
 
-      <Split id="align" flip eyebrow="Prioritise and plan with confidence" title="Align stakeholders on what comes first, then plan within capacity"
+      <Split id="align" band flip eyebrow="Prioritise and plan with confidence" title="Align stakeholders on what comes first, then plan within capacity"
         challenge="Priorities are argued in meetings, the loudest voice wins, and plans ignore what teams can actually take on."
         body="Invite groups of stakeholders to rank and vote with the method that fits. Results are anonymous, groups are combined fairly, and the outcome feeds one global stack rank. A fit line shows what each team has room for, so plans match capacity."
         points={["Top-5 with duels, 100 coins or ICE scoring", "Stakeholders join by link, with no account needed", "Anonymous results, with small groups kept private", "One stack rank with a capacity fit line per team"]}
         art={ART_ALIGN} />
 
-      <Wide id="lifecycle" band eyebrow="Aligned on decisions" title="From idea to tracked outcome, with decisions on the record"
+      <Wide id="lifecycle" eyebrow="Aligned on decisions" title="From idea to tracked outcome, with decisions on the record"
         challenge="Priorities get argued in meetings and decisions get lost."
         body="Seven phases and three gates give every initiative a path. Rank and vote with the method that fits. A person decides at each gate, and the reason is kept. The process fits the initiative, so small, low-risk work takes a lighter path."
         points={["Your AI prepares gate packs that show what is ready to pass", "Go, go with conditions, hold or stop, with the reason on record", "Stuck work and waiting decisions are flagged"]}
         art={ART_LIFE} />
 
-      <Split id="ai" flip eyebrow="Your own AI" title="Bring the AI you already use"
-        challenge="AI helps one person at a time, in tools that do not know your roadmap."
-        body="Create initiatives, write documents, run analysis and prepare reports with your own AI assistant, such as Claude, working on the same roadmap as your team. Your AI helps shape the opportunity and the business case, and after launch it analyses the results and brings them back, so the next decision starts from evidence. We do not sell tokens. AI co-workers prepare the work. People decide."
-        points={["Drafts from AI are marked as drafts", "Results your AI brings back sit on the initiative, next to its key result", "No AI approves a gate", "Every change is audited and can be undone"]}
-        art={ART_AI} />
-
       <section className="close blue" id="early-access">
         <div className="pt pt-close" aria-hidden="true" dangerouslySetInnerHTML={{ __html: ART_PILLS }} />
         <div className="wrap signup">
           <div>
-            <Eyebrow>Early access</Eyebrow>
-            <h2>Give your product organisation one roadmap</h2>
-            <p className="body" style={{ fontSize: 18, lineHeight: "28px", maxWidth: "28em", marginTop: 20 }}>We are opening early access to product teams that want to move faster, with more transparency and bigger outcomes. Leave your details and we will be in touch.</p>
+            <Eyebrow>From product people, for product people</Eyebrow>
+            <h2>Built by product leaders, for product leaders</h2>
+            <p className="body" style={{ fontSize: 18, lineHeight: "28px", maxWidth: "28em", marginTop: 20 }}>We are a group of product leaders working for different companies, managing large and small product teams. We adopted AI in our work and found that something was missing on top: the missing layer. So we started building and exchanging our own tools and best practices. Product Velocity is the outcome.</p>
+            <p className="body" style={{ fontSize: 18, lineHeight: "28px", maxWidth: "28em", marginTop: 16 }}>Product Velocity is not a business model. Our goal is not the product itself: it is a tool that helps us in our daily work, driving outcomes, managing roadmaps and teams, and delivering the best outcomes, fully aligned and fast.</p>
+            <p className="body" style={{ fontSize: 18, lineHeight: "28px", maxWidth: "28em", marginTop: 16 }}><b>Want to join us?</b> If you are a product person who wants to use it, shape it or share your own tools and practices, leave your details and we will be in touch.</p>
           </div>
           <EarlyAccessForm />
         </div>
@@ -216,7 +229,7 @@ export function Home() {
       <div className="wrap">
         <footer>
           <Link className="brandmark" href="/" aria-label="Product Velocity"><BrandLogo size={28} /></Link>
-          <span>One roadmap for humans and AI.</span>
+          <span>From product people, for product people.</span>
           <span><Link href="/sign-in">Sign in</Link> · <Link href="/connector">Connect Claude</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/contact">Contact</Link></span>
           <span>Screens shown are wireframes with example data.</span>
         </footer>
