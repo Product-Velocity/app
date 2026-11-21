@@ -58,7 +58,7 @@ export default function ReportsHelp() {
           items={[
             "Overview: the shape of the roadmap, and how long work takes to reach the market.",
             "Roadmap Health: where active work piles up, how long it has been in its phase, and what is Blocked, At Risk or Delayed.",
-            "Gate history: how many gate requests, what was decided, and how long decisions take. For the whole team, never per approver.",
+            "Gate history: what is waiting for a decision and what needs attention, what was decided, and how long decisions take compared with what is usual for your team. For the whole team, never per approver.",
             "Changes: which initiatives changed today, this week or this month, and where each change came from.",
             "Velocity: how long work takes from Start Discovery to roll-out, to each gate and in Build, how much it varies, where the time goes and how long gates take to decide. For the team, never per person.",
           ]}
