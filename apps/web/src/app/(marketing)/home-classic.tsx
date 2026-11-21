@@ -120,7 +120,8 @@ export function ClassicHome({ viewer = null }: { viewer?: "member" | "demo" | nu
             <a href="#why-now">Why</a>
             <a href="#loop">Your AI</a>
             <a href="#not">Product</a>
-            {viewer ? <Link className="signin" href="/app">{viewer === "demo" ? "Back to the demo" : "Open app"}</Link> : <Link className="signin" href="/sign-in">Sign in</Link>}
+            {viewer ? <Link className="signin" href="/app">{viewer === "demo" ? "Back to the demo" : "Open app"}</Link> : null}
+            {viewer !== "member" && <Link className="signin" href="/sign-in">Sign in</Link>}
             <a className="btn btn-p" href="#early-access">Join us</a>
           </nav>
         </header>
@@ -231,7 +232,7 @@ export function ClassicHome({ viewer = null }: { viewer?: "member" | "demo" | nu
         <footer>
           <Link className="brandmark" href="/" aria-label="Product Velocity"><BrandLogo size={28} /></Link>
           <span>From product people, for product people.</span>
-          <span>{viewer ? <Link href="/app">{viewer === "demo" ? "Back to the demo" : "Open app"}</Link> : <Link href="/sign-in">Sign in</Link>} · <Link href="/connector">Connect Claude</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/contact">Contact</Link></span>
+          <span>{viewer ? <Link href="/app">{viewer === "demo" ? "Back to the demo" : "Open app"}</Link> : null}{viewer ? " · " : null}{viewer !== "member" && <Link href="/sign-in">Sign in</Link>} · <Link href="/connector">Connect Claude</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/contact">Contact</Link></span>
           <span>Screens shown are wireframes with example data.</span>
         </footer>
       </div>
