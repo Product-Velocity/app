@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { AUTH_BRAND } from "@/components/auth-shell";
 import { SITE_URL } from "@/lib/public-contact";
@@ -7,6 +9,7 @@ import robots from "../robots";
 import sitemap from "../sitemap";
 import { GET as llms } from "../llms.txt/route";
 import { checkEarlyAccess, makeLimiter, readEarlyAccess } from "./early-access";
+import { Home } from "./home";
 import { HOME_DESCRIPTION, HOME_JSON_LD, HOME_TITLE } from "./seo";
 
 const dir = __dirname;
@@ -92,5 +95,27 @@ describe("early-access form", () => {
     expect(allow("b")).toBe(true);
     t += 3_600_001;
     expect(allow("a")).toBe(true);
+  });
+});
+
+describe("the website is separate from the app (issue #570)", () => {
+  const html = (viewer: "member" | "demo" | null) => renderToStaticMarkup(createElement(Home, { viewer }));
+  it("signed-out visitors see Sign in and the demo", () => {
+    const h = html(null);
+    expect(h).toContain('href="/sign-in"');
+    expect(h).toContain('href="/demo"');
+    expect(h).not.toContain('href="/app"');
+  });
+  it("a member sees Open app instead of Sign in and the demo", () => {
+    const h = html("member");
+    expect(h).toContain('href="/app"');
+    expect(h).toContain("Open app");
+    expect(h).not.toContain('href="/sign-in"');
+    expect(h).not.toContain('href="/demo"');
+  });
+  it("someone in the demo account sees Back to the demo", () => {
+    const h = html("demo");
+    expect(h).toContain("Back to the demo");
+    expect(h).not.toContain('href="/sign-in"');
   });
 });

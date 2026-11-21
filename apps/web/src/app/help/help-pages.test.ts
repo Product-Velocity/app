@@ -42,7 +42,7 @@ describe("Help pages", () => {
     for (const [k, h] of Object.entries(html)) {
       expect(h.match(/<h1[ >]/g), k).toHaveLength(1);
       expect(h, k).toContain('aria-label="Help topics"');
-      expect(h, k).toContain('href="/"');
+      expect(h, k).toContain('href="/app"');
     }
   });
   it("marks the current page in the menu", () => {

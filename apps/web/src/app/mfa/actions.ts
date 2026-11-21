@@ -9,7 +9,7 @@ export type MfaState = { error?: string } | null;
 /** Second step of sign-in for people who enabled an authenticator app. */
 export async function verifyMfa(_prev: MfaState, form: FormData): Promise<MfaState> {
   const code = String(form.get("code") ?? "").replace(/\s+/g, "");
-  const next = safeNext(form.get("next") as string | null, "/");
+  const next = safeNext(form.get("next") as string | null, "/app");
   if (!/^\d{6}$/.test(code)) return { error: "Enter the 6-digit code from your authenticator app." };
 
   const supabase = await createClient();

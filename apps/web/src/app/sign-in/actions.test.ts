@@ -63,7 +63,7 @@ describe("sendSignInLink (emailed one-time link)", () => {
     signInWithOtp.mockResolvedValue({ error: null });
     await sendSignInLink(null, form("a@example.com", "https://evil.example/steal"));
     expect(signInWithOtp.mock.calls[0]![0].options.emailRedirectTo).toBe(
-      "https://app.example/auth/callback?next=%2F",
+      "https://app.example/auth/callback?next=%2Fapp",
     );
   });
 });

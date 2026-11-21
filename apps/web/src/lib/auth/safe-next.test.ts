@@ -26,6 +26,6 @@ describe("safeNext", () => {
 
   it("uses the fallback for null and undefined", () => {
     expect(safeNext(null, "/x")).toBe("/x");
-    expect(safeNext(undefined)).toBe("/");
+    expect(safeNext(undefined)).toBe("/app");
   });
 });

@@ -106,7 +106,8 @@ const BURST_RAYS = Array.from({ length: 12 }, (_, i) => {
   return `M12 12L${(12 + 10.5 * Math.cos(a)).toFixed(2)} ${(12 + 10.5 * Math.sin(a)).toFixed(2)}`;
 });
 
-export function Home() {
+/** `viewer` is how the visitor is signed in: not at all, as a member of a workspace, or in the shared demo account. */
+export function Home({ viewer = null }: { viewer?: "member" | "demo" | null }) {
   return (
     <div className="mk">
       <GoogleTagManager />
@@ -119,7 +120,7 @@ export function Home() {
             <a href="#why-now">Why</a>
             <a href="#loop">Your AI</a>
             <a href="#not">Product</a>
-            <Link className="signin" href="/sign-in">Sign in</Link>
+            {viewer ? <Link className="signin" href="/app">{viewer === "demo" ? "Back to the demo" : "Open app"}</Link> : <Link className="signin" href="/sign-in">Sign in</Link>}
             <a className="btn btn-p" href="#early-access">Join us</a>
           </nav>
         </header>
@@ -131,7 +132,7 @@ export function Home() {
             <p className="lead">Product Velocity is the single source of truth where product managers, stakeholders and their AI plan, decide and deliver together. Every initiative in one place, from the company objective to the delivery ticket, on top of Jira and GitHub. Product teams move faster, every stakeholder stays informed, and bigger outcomes get delivered.</p>
             <div className="cta">
               <a className="btn btn-p" href="#early-access">Join us</a>
-              <Link className="btn btn-s" href="/demo">See the demo</Link>
+              {viewer === "member" ? <Link className="btn btn-s" href="/app">Open app</Link> : <Link className="btn btn-s" href={viewer === "demo" ? "/app" : "/demo"}>{viewer === "demo" ? "Back to the demo" : "See the demo"}</Link>}
               <a className="btn btn-s" href="#why-now">See how it works</a>
             </div>
             <p className="trust muted">The demo opens a real, read-only example workspace (Meridian Media) &ndash; nothing you click there is saved.</p>
@@ -230,7 +231,7 @@ export function Home() {
         <footer>
           <Link className="brandmark" href="/" aria-label="Product Velocity"><BrandLogo size={28} /></Link>
           <span>From product people, for product people.</span>
-          <span><Link href="/sign-in">Sign in</Link> · <Link href="/connector">Connect Claude</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/contact">Contact</Link></span>
+          <span>{viewer ? <Link href="/app">{viewer === "demo" ? "Back to the demo" : "Open app"}</Link> : <Link href="/sign-in">Sign in</Link>} · <Link href="/connector">Connect Claude</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/contact">Contact</Link></span>
           <span>Screens shown are wireframes with example data.</span>
         </footer>
       </div>

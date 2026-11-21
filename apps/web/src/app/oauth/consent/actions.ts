@@ -13,7 +13,7 @@ const again = (id: string, error: string): never => redirect(`/oauth/consent?aut
 export async function decide(formData: FormData) {
   const id = String(formData.get("authorization_id") ?? "");
   const approve = formData.get("decision") === "approve";
-  if (!id) redirect("/");
+  if (!id) redirect("/app");
   const supabase = await createClient();
 
   if (approve) {
