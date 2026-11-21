@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SKILLS, skillByCommand, skillHelpText } from "./skills-catalog";
 import type { SkillSpec } from "./skills";
+import { PROFILE_SECTION_KEYS } from "./company-profile";
 import { MAX_SKILL_QUESTIONS, SKILL_RULES, parseSkillArgs, skillPrompt, skillSpecProblems } from "./skills";
 
 describe("skill specs", () => {
@@ -65,5 +66,28 @@ describe("pv-help", () => {
     for (const s of SKILLS) expect(text).toContain(s.command);
     expect(text).toMatch(/--draft/);
     expect(text).toMatch(/Do not call any tool/);
+  });
+});
+
+describe("company-level skills (slice 3)", () => {
+  const vision = skillByCommand("pv-vision")!;
+  it("save a workspace document with no item, offer the profile save after the person agrees, and need no initiative", () => {
+    const t = skillPrompt(vision, {}).text;
+    expect(t).toMatch(/works at company level/);
+    expect(t).toMatch(/create_document without item \(a document of the workspace itself\) with kind vision/);
+    expect(t).toMatch(/Offer once to save .* into the company profile section "vision"/);
+    expect(t).toMatch(/update_company_profile with that section only/);
+    expect(t).toMatch(/AI draft; a workspace admin confirms it/);
+    expect(skillPrompt(vision, { draft: "true" }).text).not.toMatch(/Offer once to save/);
+  });
+  it("a company-level skill uses a workspace kind and a real profile section; an initiative skill an initiative kind", () => {
+    for (const s of SKILLS.filter((x) => x.target === "none")) expect(skillSpecProblems(s)).toEqual([]);
+    expect(skillSpecProblems({ ...vision, doc: { kind: "prd", titlePrefix: "x" } } as SkillSpec).join()).toMatch(/not a workspace document kind/);
+    expect(skillSpecProblems({ ...vision, profileSave: { section: "nope", what: "x" } } as SkillSpec).join()).toMatch(/unknown profile section/);
+    expect(skillSpecProblems({ ...skillByCommand("pv-premortem")!, doc: { kind: "vision", titlePrefix: "x" } } as SkillSpec).join()).toMatch(/not a initiative document kind|not an initiative|not a .* document kind/);
+  });
+  it("the strategy skills read profile sections that exist", () => {
+    for (const k of ["vision", "strategy", "metrics", "conventions"]) expect(PROFILE_SECTION_KEYS).toContain(k);
+    for (const c of ["pv-vision", "pv-strategy", "pv-northstar", "pv-compete", "pv-personas"]) expect(skillByCommand(c)).toBeTruthy();
   });
 });

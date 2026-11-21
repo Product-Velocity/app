@@ -66,14 +66,20 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     id: d.id, item_code: code, kind: d.kind, title: d.title, status: d.status, version: d.version, ai_draft: d.ai_draft,
     characters: d.body.length, updated_at: d.updated_at, approved_at: d.approved_at, ai_tool: d.ai_tool, ai_model: d.ai_model, ...(withBody ? { body: d.body } : {}),
   });
+  const WS_DOC_COLS = "id, kind, title, status, version, ai_draft, updated_at, approved_at, ai_tool, ai_model, body";
+  const wsInfo = (d: Omit<DocRow, "item_id">, withBody = false): DocInfo => ({ ...docInfo({ ...d, item_id: "" }, "", withBody), scope: "workspace" });
   const loadDoc = async (id: string, withBody: boolean): Promise<DocInfo | null> => {
     if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
     const { data, error } = await supabase.from("item_documents").select(DOC_COLS).eq("tenant_id", tenant.id).eq("id", id).maybeSingle();
     if (error) throw new Error("documents");
-    if (!data) return null;
-    const d = data as DocRow;
-    const code = String((await rows()).find((r) => r.id === d.item_id)?.item_code ?? "");
-    return docInfo(d, code, withBody);
+    if (data) {
+      const d = data as DocRow;
+      const code = String((await rows()).find((r) => r.id === d.item_id)?.item_code ?? "");
+      return docInfo(d, code, withBody);
+    }
+    const ws = await supabase.from("workspace_documents").select(WS_DOC_COLS).eq("tenant_id", tenant.id).eq("id", id).maybeSingle();
+    if (ws.error) throw new Error("documents");
+    return ws.data ? wsInfo(ws.data as Omit<DocRow, "item_id">, withBody) : null;
   };
 
   const PROFILE_COLS = "status, version, ai_draft, researched_at, confirmed_at, updated_at, sections";
@@ -203,6 +209,10 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     },
 
     async documents(ref) {
+      if (ref === null) {
+        const list = must(await supabase.from("workspace_documents").select(WS_DOC_COLS).eq("tenant_id", tenant.id).order("updated_at", { ascending: false }).limit(200), "documents") as Omit<DocRow, "item_id">[];
+        return list.map((d) => wsInfo(d));
+      }
       const row = await findRow(ref);
       if (!row) return null;
       const list = must(await supabase.from("item_documents").select(DOC_COLS).eq("tenant_id", tenant.id).eq("item_id", row.id).order("created_at"), "documents") as DocRow[];
@@ -266,11 +276,25 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
   };
   const documents: McpDocuments = {
     async create(item, doc) {
+      if (item === null) {
+        const { data, error } = await supabase.from("workspace_documents").insert({ tenant_id: tenant.id, kind: doc.kind, title: doc.title, body: doc.body, ai_model: doc.ai_model ?? null, ...(doc.status ? { status: doc.status } : {}) }).select(WS_DOC_COLS).single();
+        if (error) return refusal(error);
+        return wsInfo(data as Omit<DocRow, "item_id">);
+      }
       const { data, error } = await supabase.from("item_documents").insert({ tenant_id: tenant.id, item_id: item.id, kind: doc.kind, title: doc.title, body: doc.body, ai_model: doc.ai_model ?? null, ...(doc.status ? { status: doc.status } : {}) }).select(DOC_COLS).single();
       if (error) return refusal(error);
       return docInfo(data as DocRow, item.code);
     },
     async update(id, expectedVersion, patch) {
+      const isWorkspace = /^[0-9a-f-]{36}$/i.test(id) && (await loadDoc(id, false))?.scope === "workspace";
+      if (isWorkspace) {
+        const { data, error } = await supabase.from("workspace_documents").update({ ...patch, ...(patch.ai_model === undefined && (patch.body !== undefined || patch.title !== undefined) ? { ai_model: null } : {}) }).eq("tenant_id", tenant.id).eq("id", id).eq("version", expectedVersion).select(WS_DOC_COLS);
+        if (error) return refusal(error);
+        const back = (data ?? []) as Omit<DocRow, "item_id">[];
+        if (back[0]) return { ok: true, doc: wsInfo(back[0]) };
+        const now = await loadDoc(id, true);
+        return now ? { ok: false, reason: "conflict", current: now } : { ok: false, reason: "missing" };
+      }
       // an assistant that rewrites the text states its own model (or none); a change that leaves the text alone leaves the model alone (the database decides)
       const { data, error } = await supabase.from("item_documents").update({ ...patch, ...(patch.ai_model === undefined && (patch.body !== undefined || patch.title !== undefined) ? { ai_model: null } : {}) }).eq("tenant_id", tenant.id).eq("id", id).eq("version", expectedVersion).select(DOC_COLS);
       if (error) return refusal(error);

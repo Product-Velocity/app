@@ -64,6 +64,7 @@ export function AccountMenu({ email, roleLabel, isApprover, showTrash, isAdmin, 
           {showTrash && <Link href="/trash" className="menu-link">Trash</Link>}
           <Link href="/settings/members" className="menu-link">Members</Link>
           <Link href="/settings/groups" className="menu-link">Initiative Groups</Link>
+          <Link href="/documents" className="menu-link">Documents</Link>
           <Link href="/settings/company-profile" className="menu-link">Company profile</Link>
         </div>
         {!isDemo && (

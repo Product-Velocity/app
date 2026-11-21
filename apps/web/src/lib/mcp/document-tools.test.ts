@@ -13,7 +13,7 @@ function setup(opts: { role?: string; docs?: DocInfo[]; current?: DocInfo; missi
   const created: unknown[] = [];
   const updated: { id: string; v: number; patch: unknown }[] = [];
   const documents: McpDocuments = {
-    create: vi.fn(async (item, d) => { created.push({ item: item.code, ...d }); return doc({ id: "new1", item_code: item.code, title: d.title, kind: d.kind, status: d.status ?? "draft", characters: d.body.length }); }),
+    create: vi.fn(async (item, d) => { created.push({ item: item?.code ?? null, ...d }); return doc({ id: "new1", item_code: item?.code ?? "", title: d.title, kind: d.kind, status: d.status ?? "draft", characters: d.body.length }); }),
     update: vi.fn(async (id, v, patch) => {
       updated.push({ id, v, patch });
       if (opts.missing) return { ok: false, reason: "missing" } as const;
@@ -30,7 +30,8 @@ function setup(opts: { role?: string; docs?: DocInfo[]; current?: DocInfo; missi
     workspaceContext: vi.fn(async () => buildContext({ tenant: { id: "t", name: "M" }, userId: "u1", role, projects: [], groups: [], teams: [], members: [], githubConnected: false, repoPrivate: new Map() })),
     read: {
       itemDetail: vi.fn(async (r: string) => detail(r)),
-      documents: vi.fn(async (r: string) => (r.toUpperCase() === "R-01" ? stored.map((d) => ({ ...d, body: undefined }) as DocInfo) : null)),
+      documents: vi.fn(async (r: string | null) => (r === null ? [doc({ id: "w1", item_code: "", kind: "strategy", title: "Strategy 2027", scope: "workspace" })] : r.toUpperCase() === "R-01" ? stored.map((d) => ({ ...d, body: undefined }) as DocInfo) : null)),
+      companyProfile: vi.fn(async () => ({ url: null, profile: { status: "draft", version: 2, ai_draft: true, researched_at: null, confirmed_at: null, updated_at: "2026-11-01T00:00:00Z", sections: {} } })),
       document: vi.fn(async (id: string) => stored.find((d) => d.id === id) ?? null),
     } as never,
     write: { documents } as never,
@@ -146,6 +147,31 @@ describe("apply_prd_extract", () => {
   it("is a write tool: a viewer gets the read-only refusal", async () => {
     const s = setup({ role: "viewer", docs: [doc({ id: "p1", body: PRD })] });
     expect((await s.call("apply_prd_extract", { document: "p1" })).text).toMatch(/read-only/i);
+  });
+});
+
+describe("workspace documents", () => {
+  it("list_documents without an item lists the workspace's own documents and the state of the company profile", async () => {
+    const s = setup();
+    const l = await s.call("list_documents", {});
+    expect(l.data).toMatchObject({ scope: "workspace", count: 1, company_profile: { state: "draft", version: 2, ai_draft: true } });
+    expect(l.data.documents[0]).toMatchObject({ kind: "strategy", scope: "workspace" });
+  });
+  it("create_document without an item creates a workspace document (default kind other) and refuses an initiative kind", async () => {
+    const s = setup();
+    const r = await s.call("create_document", { title: "Vision", body: "# V", kind: "vision" });
+    expect(r.isError, r.text).toBe(false);
+    expect(s.documents.create).toHaveBeenCalledWith(null, expect.objectContaining({ kind: "vision", title: "Vision" }));
+    await s.call("create_document", { title: "Notes", body: "x" });
+    expect((s.documents.create as ReturnType<typeof vi.fn>).mock.calls[1]![1]).toMatchObject({ kind: "other" });
+    const bad = await s.call("create_document", { title: "PRD", body: "x", kind: "prd" });
+    expect(bad.isError).toBe(true);
+    expect(bad.text).toMatch(/kind must be one of: vision, strategy/);
+    expect((await s.call("create_document", { title: "x", body: "y", status: "approved" })).isError).toBe(true);
+  });
+  it("is write-only for creators: a viewer gets the read-only refusal", async () => {
+    const s = setup({ role: "viewer" });
+    expect((await s.call("create_document", { title: "Vision", body: "# V" })).text).toMatch(/read-only/i);
   });
 });
 

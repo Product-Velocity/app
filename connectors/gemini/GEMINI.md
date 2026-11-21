@@ -24,6 +24,11 @@ Product Velocity is this team's roadmap and stack rank. You reach it through the
 - `/pv-gtm`: Go-to-market plan
 - `/pv-experiment`: Experiment design
 - `/pv-stories`: Story map and user stories
+- `/pv-vision`: Product vision
+- `/pv-strategy`: Product strategy
+- `/pv-northstar`: North star metric
+- `/pv-compete`: Competitive analysis
+- `/pv-personas`: Personas
 - `/pv-help`: List the Product Velocity skills
 
 ## Flows and prompts

@@ -35,4 +35,8 @@ describe("documents reach a delivery platform only through the shared-documents 
       expect(text, r).not.toMatch(/item_document_versions/);
     }
   });
+  it("no GitHub or Jira source file reads a workspace document at all (they belong to no initiative and are never shared)", () => {
+    const files = [...sources(githubDir), ...sources(githubPkg), ...sources(atlassianDir)];
+    for (const f of files) expect(readFileSync(f, "utf8"), f).not.toMatch(/workspace_documents|workspace_document_versions/);
+  });
 });

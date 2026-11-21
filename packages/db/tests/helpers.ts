@@ -225,6 +225,9 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
     await db.admin.query("insert into public.item_files (tenant_id, item_id, name, storage_path) values ($1, $2, 'shot.png', $3)", [tenantId, items[0], `${tenantId}/shot.png`]);
   }
   await db.admin.query("insert into public.item_documents (tenant_id, item_id, kind, title, body) values ($1, $2, 'prd', 'PRD', '# PRD')", [tenantId, items[0]]);
+  if ((await db.admin.query("select to_regclass('public.workspace_documents') as t")).rows[0].t) {
+    await db.admin.query("insert into public.workspace_documents (tenant_id, kind, title, body) values ($1, 'strategy', 'Strategy', '# Strategy')", [tenantId]);
+  }
   // some tests build the schema only up to an earlier migration, before the company profile existed
   if ((await db.admin.query("select to_regclass('public.company_profiles') as t")).rows[0].t) {
     await db.admin.query("insert into public.company_profiles (tenant_id, sections) values ($1, '{\"industry\": \"Seed\"}')", [tenantId]);

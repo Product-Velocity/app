@@ -2,7 +2,7 @@
  * The document tools (docs/22-CLAUDE-PRD-FLOW.md): keep the full PRD, requirements and research as a versioned Markdown document on an
  * initiative. Documents never reach GitHub. Claude can write and revise them but never approves one (CLAUDE.md rule 3).
  */
-import { buildExtract, checkDocumentInput, DOC_KINDS, MAX_DOCS_PER_ITEM, MAX_DOC_CHARS, SKILLS, skillExtract } from "@pv/domain";
+import { buildExtract, checkDocumentInput, DOC_KINDS, MAX_DOCS_PER_ITEM, MAX_DOC_CHARS, SKILLS, skillExtract, WORKSPACE_DOC_KINDS } from "@pv/domain";
 import type { ToolDef } from "./rpc";
 import { ToolInputError } from "./tool-error";
 import { updateItems } from "./write-tools";
@@ -21,12 +21,20 @@ const listDocuments: ToolDef = {
   name: "list_documents",
   title: "List documents",
   description:
-    "Read-only. The documents of one initiative (PRD, requirements, research): id, kind, title, status, version, whether it is still an AI draft, size. No text; use get_document for that. " + NOT_GITHUB + " " + DATA,
-  inputSchema: { type: "object", properties: { item: ITEM }, required: ["item"], additionalProperties: false },
+    "Read-only. The documents of one initiative (PRD, requirements, research): id, kind, title, status, version, whether it is still an AI draft, size. No text; use get_document for that. " +
+    "Leave item out to list the documents of the workspace itself (vision, strategy, north star, competitive analysis, personas, weekly updates, release notes, quarter plans), together with the state of the company profile. " + NOT_GITHUB + " " + DATA,
+  inputSchema: { type: "object", properties: { item: { ...ITEM, description: "Initiative code such as R-12, or its id. Leave out for the workspace's own documents." } }, additionalProperties: false },
   annotations: READ,
   mode: "read",
   run: async (b, a) => {
     const ref = str(a.item);
+    if (!ref) {
+      const [list, p] = await Promise.all([b.read.documents(null), b.read.companyProfile()]);
+      return {
+        scope: "workspace", count: (list ?? []).length, documents: list ?? [],
+        company_profile: p.profile ? { state: p.profile.status, version: p.profile.version, ai_draft: p.profile.ai_draft, read_with: "get_company_profile" } : { state: "none", read_with: "get_company_profile" },
+      };
+    }
     const list = await b.read.documents(ref);
     if (!list) throw new ToolInputError(`No initiative "${ref}" in this workspace, or you cannot read it.`);
     return { count: list.length, documents: list };
@@ -54,20 +62,20 @@ const createDocument: ToolDef = {
   name: "create_document",
   title: "Create a document on an initiative",
   description:
-    `Creates a Markdown document (up to ${MAX_DOC_CHARS.toLocaleString("en")} characters, ${MAX_DOCS_PER_ITEM} per initiative) on an initiative, as the signed-in person. ` +
+    `Creates a Markdown document (up to ${MAX_DOC_CHARS.toLocaleString("en")} characters, ${MAX_DOCS_PER_ITEM} per initiative) on an initiative, as the signed-in person. Leave item out to create a document that belongs to the workspace itself (kinds ${WORKSPACE_DOC_KINDS.join(", ")}; default other): vision, strategy, a weekly update. ` +
     "Pass ai_model (the model you are) so the document records which AI tool and model wrote it. Use kind prd for the full PRD and kind discovery for a discovery document. It is saved as an AI draft until a person accepts it, and as version 1. " + NOT_GITHUB + " Put the parts that builders need in the initiative's Description, not here. " +
     "Status can be draft or in_review; a person with the Approver permission approves, never you. " + DATA,
   inputSchema: {
     type: "object",
     properties: {
-      item: ITEM,
-      kind: { type: "string", enum: [...DOC_KINDS], description: "prd (default), discovery, business_req, tech_req, acceptance, prototype, research, design, customer_evidence, meeting_notes, premortem, one_pager, success_metrics, go_to_market, experiment, user_stories (the kinds the pv- skills save) or other." },
+      item: { ...ITEM, description: "Initiative code such as R-12, or its id. Leave out for a document of the workspace itself." },
+      kind: { type: "string", enum: [...new Set([...DOC_KINDS, ...WORKSPACE_DOC_KINDS])], description: "prd (default), discovery, business_req, tech_req, acceptance, prototype, research, design, customer_evidence, meeting_notes, premortem, one_pager, success_metrics, go_to_market, experiment, user_stories (the kinds the pv- skills save) or other." },
       title: { type: "string", maxLength: 200, description: "For example \"PRD: Account switcher\"." },
       body: { type: "string", description: "The document as Markdown." },
       status: { type: "string", enum: ["draft", "in_review"], description: "Default draft." },
       ai_model: AI_MODEL_PROP,
     },
-    required: ["item", "title", "body"],
+    required: ["title", "body"],
     additionalProperties: false,
   },
   annotations: WRITE,
@@ -75,6 +83,12 @@ const createDocument: ToolDef = {
   weighBytes: (a) => (typeof a.body === "string" ? a.body.length : 0),
   run: async (b, a) => {
     const ref = str(a.item);
+    if (!ref) {
+      const w = checkDocumentInput({ kind: a.kind ?? "other", title: a.title, body: a.body, status: a.status, ai_model: a.ai_model }, { requireTitle: true, workspace: true });
+      if (!w.ok) throw new ToolInputError(w.error);
+      const doc = await b.write.documents.create(null, { kind: w.value.kind ?? "other", title: w.value.title!, body: w.value.body ?? "", status: w.value.status, ai_model: w.value.ai_model ?? null });
+      return { status: "created", document: doc, notes: ["Saved as an AI draft in the workspace's documents, version 1. " + NOT_GITHUB, "To change it later use update_document with this version."] };
+    }
     const d = await b.read.itemDetail(ref);
     if (!d) throw new ToolInputError(`No initiative "${ref}" in this workspace, or you cannot change it.`);
     const code = String(d.row.item_code);
@@ -100,7 +114,7 @@ const updateDocument: ToolDef = {
       base_version: { type: "integer", minimum: 1, description: "The version you based your changes on." },
       title: { type: "string", maxLength: 200 },
       body: { type: "string", description: "The complete new text as Markdown (not a fragment)." },
-      kind: { type: "string", enum: [...DOC_KINDS] },
+      kind: { type: "string", enum: [...new Set([...DOC_KINDS, ...WORKSPACE_DOC_KINDS])] },
       status: { type: "string", enum: ["draft", "in_review"] },
       ai_model: AI_MODEL_PROP,
     },
@@ -113,7 +127,8 @@ const updateDocument: ToolDef = {
   run: async (b, a) => {
     const id = str(a.document);
     if (!Number.isInteger(a.base_version) || (a.base_version as number) < 1) throw new ToolInputError("Give base_version: the version number you read (get_document returns it).");
-    const c = checkDocumentInput({ kind: a.kind, title: a.title, body: a.body, status: a.status, ai_model: a.ai_model }, { requireTitle: false });
+    const cur = a.kind !== undefined ? await b.read.document(id) : null;
+    const c = checkDocumentInput({ kind: a.kind, title: a.title, body: a.body, status: a.status, ai_model: a.ai_model }, { requireTitle: false, workspace: cur?.scope === "workspace" });
     if (!c.ok) throw new ToolInputError(c.error);
     if (Object.keys(c.value).filter((k) => k !== "ai_model").length === 0) throw new ToolInputError("Nothing to change: send at least one of title, body, kind or status.");
     const r = await b.write.documents.update(id, a.base_version as number, c.value);
