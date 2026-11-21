@@ -1,6 +1,8 @@
 ---
 issue: 559
-status: done (PR #560)
+status: done
+done: 2026-11-21
+link: PR #560
 logged: 2026-11-21
 title: Public read-only demo: "See the demo" button into Meridian Media
 ---
