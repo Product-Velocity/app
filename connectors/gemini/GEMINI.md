@@ -20,6 +20,10 @@ Product Velocity is this team's roadmap and stack rank. You reach it through the
 - `/research_company`: Research the company and save its profile
 - `/pv-premortem`: Pre-mortem
 - `/pv-one-pager`: One-pager
+- `/pv-metrics`: Success metrics
+- `/pv-gtm`: Go-to-market plan
+- `/pv-experiment`: Experiment design
+- `/pv-stories`: Story map and user stories
 - `/pv-help`: List the Product Velocity skills
 
 ## Flows and prompts
@@ -27,4 +31,4 @@ The prompts write_prd, write_discovery and research_company start the PRD, disco
 
 ## Tools
 Read: get_workspace_context, describe_fields, search_items, get_item, get_gate_pack, list_groups, list_views, list_files, list_documents, get_document, get_company_profile, get_outcome_reviews, draft_outcome_request.
-Write (creator and admin roles): create_items, update_items, confirm_changes, set_relations, add_link, remove_link, undo_last, add_file, set_file_sharing, remove_file, request_jira_epics, record_outcome_review, create_document, update_document, apply_prd_extract, update_company_profile.
+Write (creator and admin roles): create_items, update_items, confirm_changes, set_relations, add_link, remove_link, undo_last, add_file, set_file_sharing, remove_file, request_jira_epics, record_outcome_review, create_document, update_document, apply_prd_extract, apply_skill_extract, update_company_profile.

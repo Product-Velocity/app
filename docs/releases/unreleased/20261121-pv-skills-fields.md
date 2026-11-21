@@ -1,0 +1,4 @@
+---
+bump: minor
+---
+**Four more skills, and skills can fill initiative fields.** `pv-metrics` defines how you will know it worked (one key result, the signals around it, guardrails, gaps and read-out dates), `pv-gtm` plans the launch (audiences, readiness by team, enablement, a go or hold checkpoint), `pv-experiment` writes a hypothesis, variants, one primary metric and a decision rule before the test starts, and `pv-stories` turns an initiative into a story map and stories with acceptance scenarios. Each saves its own kind of document. A skill that sets values ends its document with a "Values for Product Velocity" block; your assistant previews what it would fill from that block, and fills empty fields once you agree (filled ones come back as a before-and-after to confirm). `pv-premortem` can now also fill Dependencies and blockers. New document kinds (migration `20261121125441_document_skill_kinds.sql`).

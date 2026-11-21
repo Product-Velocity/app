@@ -1,3 +1,4 @@
+import { SKILL_COMMANDS } from "@pv/domain";
 import { describe, expect, it, vi } from "vitest";
 import { buildContext } from "./read-model";
 import { handleRpc, MAX_READ_RESULT_CHARS, parseBearer, resourceMetadata, TOOLS, toolsFor, wwwAuthenticate, type McpBackend, type ToolDef } from "./rpc";
@@ -59,7 +60,7 @@ describe("handleRpc", () => {
   });
   it("lists the write_prd prompt and returns the template with the brief quoted as data", async () => {
     const l = (await handleRpc({ jsonrpc: "2.0", id: 5, method: "prompts/list" }, backend())) as { result: { prompts: { name: string; arguments: { name: string; required: boolean }[] }[] } };
-    expect(l.result.prompts.map((p) => p.name)).toEqual(["write_prd", "write_discovery", "research_company", "pv-premortem", "pv-one-pager", "pv-help"]);
+    expect(l.result.prompts.map((p) => p.name)).toEqual(["write_prd", "write_discovery", "research_company", ...SKILL_COMMANDS, "pv-help"]);
     expect(l.result.prompts[0]!.arguments.map((a) => a.name)).toEqual(["brief", "modules", "item", "team"]);
     expect(l.result.prompts.every((p) => p.arguments.every((a) => a.required === false))).toBe(true);
     expect(l.result.prompts[1]!.arguments.map((a) => a.name)).toEqual(["brief", "item", "team"]);
@@ -95,7 +96,7 @@ describe("handleRpc", () => {
     const r = (await handleRpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }, backend())) as { result: { tools: { name: string; annotations: { readOnlyHint: boolean } }[] } };
     // get_playbook is listed only to clients that cannot start prompts (see "directory rules" below)
     const reads = ["get_workspace_context", "describe_fields", "search_items", "get_item", "get_gate_pack", "list_groups", "list_views", "list_files", "list_documents", "get_document", "get_company_profile", "get_outcome_reviews", "draft_outcome_request"];
-    const writes = ["create_items", "update_items", "confirm_changes", "set_relations", "add_link", "remove_link", "undo_last", "add_file", "set_file_sharing", "remove_file", "request_jira_epics", "record_outcome_review", "create_document", "update_document", "apply_prd_extract", "update_company_profile"];
+    const writes = ["create_items", "update_items", "confirm_changes", "set_relations", "add_link", "remove_link", "undo_last", "add_file", "set_file_sharing", "remove_file", "request_jira_epics", "record_outcome_review", "create_document", "update_document", "apply_prd_extract", "apply_skill_extract", "update_company_profile"];
     expect(r.result.tools.map((t) => t.name)).toEqual([...reads, ...writes]);
     for (const t of r.result.tools) expect(t.annotations.readOnlyHint, t.name).toBe(reads.includes(t.name));
   });
@@ -205,7 +206,7 @@ describe("ai_model on tools that change something", () => {
 // What Anthropic's Connectors Directory checks in a tool list (docs/decisions/2026-11-17-connector-directory.md). These fail the build before a reviewer would.
 describe("directory rules", () => {
   const all = TOOLS;
-  const DESTRUCTIVE = ["update_items", "confirm_changes", "set_relations", "remove_link", "undo_last", "set_file_sharing", "remove_file", "update_document", "apply_prd_extract", "update_company_profile"];
+  const DESTRUCTIVE = ["update_items", "confirm_changes", "set_relations", "remove_link", "undo_last", "set_file_sharing", "remove_file", "update_document", "apply_prd_extract", "apply_skill_extract", "update_company_profile"];
   const ADDITIVE_WRITES = ["create_items", "add_link", "add_file", "request_jira_epics", "record_outcome_review", "create_document"];
 
   it("every tool has a short name, a title and both hints as booleans, and a read tool is never destructive", () => {

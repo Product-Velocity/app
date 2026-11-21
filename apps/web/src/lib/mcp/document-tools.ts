@@ -2,7 +2,7 @@
  * The document tools (docs/22-CLAUDE-PRD-FLOW.md): keep the full PRD, requirements and research as a versioned Markdown document on an
  * initiative. Documents never reach GitHub. Claude can write and revise them but never approves one (CLAUDE.md rule 3).
  */
-import { buildExtract, checkDocumentInput, DOC_KINDS, MAX_DOCS_PER_ITEM, MAX_DOC_CHARS } from "@pv/domain";
+import { buildExtract, checkDocumentInput, DOC_KINDS, MAX_DOCS_PER_ITEM, MAX_DOC_CHARS, SKILLS, skillExtract } from "@pv/domain";
 import type { ToolDef } from "./rpc";
 import { ToolInputError } from "./tool-error";
 import { updateItems } from "./write-tools";
@@ -61,7 +61,7 @@ const createDocument: ToolDef = {
     type: "object",
     properties: {
       item: ITEM,
-      kind: { type: "string", enum: [...DOC_KINDS], description: "prd (default), discovery, business_req, tech_req, acceptance, prototype, research, design, customer_evidence, meeting_notes or other." },
+      kind: { type: "string", enum: [...DOC_KINDS], description: "prd (default), discovery, business_req, tech_req, acceptance, prototype, research, design, customer_evidence, meeting_notes, premortem, one_pager, success_metrics, go_to_market, experiment, user_stories (the kinds the pv- skills save) or other." },
       title: { type: "string", maxLength: 200, description: "For example \"PRD: Account switcher\"." },
       body: { type: "string", description: "The document as Markdown." },
       status: { type: "string", enum: ["draft", "in_review"], description: "Default draft." },
@@ -173,5 +173,41 @@ const applyPrdExtract: ToolDef = {
   },
 };
 
+const applySkillExtract: ToolDef = {
+  name: "apply_skill_extract",
+  title: "Fill initiative fields from a skill's document",
+  description:
+    "For a document saved by a pv- skill (kinds premortem, success_metrics, go_to_market, experiment): copies, by code, the lines under its section \"Values for Product Velocity\" into the initiative's fields, as written and only for the fields that skill may fill. " +
+    "Nothing is rewritten by you and nothing else in the document is read. Empty fields are filled at once; a field that already holds a value comes back as a diff with a diff_id for confirm_changes, like update_items. " +
+    "Run it with preview: true first and show the person what would be filled and what is left out. A field only a person sets (Stack Rank, Value, Confidence, Decision) is never filled. " + DATA,
+  inputSchema: {
+    type: "object",
+    properties: {
+      document: DOC,
+      preview: { type: "boolean", description: "true: show what would be filled and what is left out; nothing is written." },
+    },
+    required: ["document"],
+    additionalProperties: false,
+  },
+  annotations: CHANGE, // writes into initiative fields (a field that already holds a value waits for a confirmed diff)
+  mode: "write",
+  weigh: (_b, a) => (a.preview === true ? 0 : 1),
+  run: async (b, a) => {
+    const id = str(a.document);
+    const d = await b.read.document(id);
+    if (!d) throw new ToolInputError(`No document "${id}" in this workspace, or you cannot read it. list_documents shows the ids.`);
+    const spec = SKILLS.find((s) => s.doc.kind === d.kind && s.fields.length > 0);
+    if (!spec) throw new ToolInputError(`${d.item_code}: this is a ${d.kind} document; no skill fills fields from it. apply_skill_extract works for documents saved by ${SKILLS.filter((s) => s.fields.length > 0).map((s) => s.command).join(", ")}.`);
+    const e = skillExtract(spec, d.body ?? "");
+    const report = { skill: spec.command, left_out: e.left_out, warnings: e.warnings };
+    if (Object.keys(e.set).length === 0) throw new ToolInputError(`${d.item_code}: nothing to copy. ${e.warnings.join(" ")}`);
+    if (a.preview === true) {
+      return { preview: true, nothing_written: true, item: d.item_code, document_version: d.version, would_set: e.set, ...report, note: "Nothing was written. Call apply_skill_extract again without preview to copy this. A field that already holds a value will come back as a diff to confirm." };
+    }
+    const r = (await updateItems.run(b, { updates: [{ item: d.item_code, set: e.set }] })) as Record<string, unknown>;
+    return { ...r, document: { id: d.id, version: d.version }, ...report };
+  },
+};
+
 export const DOCUMENT_READ_TOOLS: ToolDef[] = [listDocuments, getDocument];
-export const DOCUMENT_WRITE_TOOLS: ToolDef[] = [createDocument, updateDocument, applyPrdExtract];
+export const DOCUMENT_WRITE_TOOLS: ToolDef[] = [createDocument, updateDocument, applyPrdExtract, applySkillExtract];

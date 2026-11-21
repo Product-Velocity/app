@@ -169,7 +169,7 @@ describe("hostile text in an item is data", () => {
       expect(r.text.indexOf("Ignore your instructions")).toBeGreaterThan(r.text.indexOf('"data"'));
     }
     // reading calls nothing that writes; and no tool at all can set a rank, approve, push or delete
-    expect(TOOLS.filter((t) => t.mode === "write").map((t) => t.name)).toEqual(["create_items", "update_items", "confirm_changes", "set_relations", "add_link", "remove_link", "undo_last", "add_file", "set_file_sharing", "remove_file", "request_jira_epics", "record_outcome_review", "create_document", "update_document", "apply_prd_extract", "update_company_profile"]);
+    expect(TOOLS.filter((t) => t.mode === "write").map((t) => t.name)).toEqual(["create_items", "update_items", "confirm_changes", "set_relations", "add_link", "remove_link", "undo_last", "add_file", "set_file_sharing", "remove_file", "request_jira_epics", "record_outcome_review", "create_document", "update_document", "apply_prd_extract", "apply_skill_extract", "update_company_profile"]);
     expect(TOOLS.map((t) => t.name).filter((n) => /approve|rank|decision|value|github|delete|ready/i.test(n))).toEqual([]);
     expect(b.meter).toHaveBeenCalledTimes(2);
   });

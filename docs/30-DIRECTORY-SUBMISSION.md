@@ -13,7 +13,7 @@ Portal: https://claude.ai/directory/manage, **Submit new**, **MCP connector**. A
 
 **1. Connection.** URL `https://productvelocity.app/mcp`. Everyone connects to the same URL (choose the universal URL; do not choose "Users connect to different URLs", which would need the Verified label first).
 
-**2. Tools.** Synced from the server: 26 tools, each with a title and `readOnlyHint`/`destructiveHint` (pinned by the test "directory rules" in `rpc.test.ts`). Nothing should be flagged. `search`, `fetch` and `get_playbook` are not listed to Claude.
+**2. Tools.** Synced from the server: 27 tools, each with a title and `readOnlyHint`/`destructiveHint` (pinned by the test "directory rules" in `rpc.test.ts`). Nothing should be flagged. `search`, `fetch` and `get_playbook` are not listed to Claude.
 
 **3. Listing.**
 - Name: `Product Velocity`

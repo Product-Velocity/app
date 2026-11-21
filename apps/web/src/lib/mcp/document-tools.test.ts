@@ -149,6 +149,30 @@ describe("apply_prd_extract", () => {
   });
 });
 
+describe("apply_skill_extract", () => {
+  const METRICS = "## 1. Different\nA.\n\n## 7. Values for Product Velocity\n- kr_metric: Sign-up completion\n- kr_unit: %\n- stack_rank: 1\n\n## 8. Other\nkr_target: 999\n";
+  it("refuses a document no skill fills fields from, a missing document and a block with nothing to copy", async () => {
+    const s = setup({ docs: [doc({ id: "r1", kind: "research", body: METRICS }), doc({ id: "e1", kind: "success_metrics", body: "no block" })] });
+    expect((await s.call("apply_skill_extract", { document: "r1" })).text).toMatch(/no skill fills fields from it/);
+    expect((await s.call("apply_skill_extract", { document: "nope" })).text).toMatch(/No document/);
+    const none = await s.call("apply_skill_extract", { document: "e1" });
+    expect(none.isError).toBe(true);
+    expect(none.text).toMatch(/nothing to copy/i);
+  });
+  it("preview shows only the block's allowed lines and what is left out, and writes nothing", async () => {
+    const s = setup({ docs: [doc({ id: "m1", kind: "success_metrics", version: 3, body: METRICS })] });
+    const r = await s.call("apply_skill_extract", { document: "m1", preview: true });
+    expect(r.data).toMatchObject({ preview: true, nothing_written: true, item: "R-01", document_version: 3, skill: "pv-metrics" });
+    expect(r.data.would_set).toEqual({ kr_metric: "Sign-up completion", kr_unit: "%" });
+    expect(JSON.stringify(r.data.left_out)).toMatch(/stack_rank/);
+    expect(s.meter).toHaveBeenCalledTimes(1);
+  });
+  it("is a write tool: a viewer gets the read-only refusal", async () => {
+    const s = setup({ role: "viewer", docs: [doc({ id: "m1", kind: "success_metrics", body: METRICS })] });
+    expect((await s.call("apply_skill_extract", { document: "m1" })).text).toMatch(/read-only/i);
+  });
+});
+
 describe("AI model on documents", () => {
   it("create_document passes the model the assistant states, and the tools tell it to", async () => {
     const s = setup();

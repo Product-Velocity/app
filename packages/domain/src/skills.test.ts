@@ -43,7 +43,7 @@ describe("skillPrompt", () => {
     const { text } = skillPrompt(spec, { target: "R-12", draft: "true" });
     expect(text).toMatch(/write NOTHING/);
     expect(text).not.toMatch(/create_document on the initiative/);
-    expect(skillPrompt(spec, { target: "R-12" }).text).toMatch(/create_document on the initiative with kind other/);
+    expect(skillPrompt(spec, { target: "R-12" }).text).toMatch(/create_document on the initiative with kind premortem/);
   });
   it("the one-pager adds the team rule", () => {
     expect(skillPrompt(skillByCommand("pv-one-pager")!, { target: "R-1" }).text).toMatch(/Team, not owner/);
