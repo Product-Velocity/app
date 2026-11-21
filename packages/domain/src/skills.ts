@@ -9,9 +9,9 @@ import { FIELD_BY_KEY } from "./registry";
 import { DOC_KINDS, WORKSPACE_DOC_KINDS, type DocKind, type WorkspaceDocKind } from "./documents";
 import { VALUES_HEADING } from "./skill-extract";
 
-export type SkillStage = "direction" | "discover" | "define" | "deliver" | "launch" | "prove" | "run";
+export type SkillStage = "direction" | "discover" | "decide" | "define" | "deliver" | "launch" | "prove" | "run";
 export const SKILL_STAGE_LABEL: Record<SkillStage, string> = {
-  direction: "Set direction", discover: "Discover", define: "Define", deliver: "Deliver", launch: "Launch", prove: "Prove", run: "Run the product",
+  direction: "Set direction", discover: "Discover", decide: "Decide", define: "Define", deliver: "Deliver", launch: "Launch", prove: "Prove", run: "Run the product",
 };
 
 export type SkillQuestion = { id: string; ask: string };

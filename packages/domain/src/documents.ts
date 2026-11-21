@@ -1,7 +1,7 @@
 // Documents on an initiative (R-113, docs/22-CLAUDE-PRD-FLOW.md). What may be stored and how input is checked.
 // A document is Markdown kept in Product Velocity. It is never read for a GitHub payload.
 
-export const DOC_KINDS = ["prd", "discovery", "business_req", "tech_req", "acceptance", "prototype", "research", "design", "customer_evidence", "meeting_notes", "premortem", "one_pager", "success_metrics", "go_to_market", "experiment", "user_stories", "other"] as const;
+export const DOC_KINDS = ["prd", "discovery", "business_req", "tech_req", "acceptance", "prototype", "research", "design", "customer_evidence", "meeting_notes", "premortem", "one_pager", "success_metrics", "go_to_market", "experiment", "user_stories", "business_case", "pr_faq", "opportunity_tree", "other"] as const;
 export type DocKind = (typeof DOC_KINDS)[number];
 /** Statuses Claude may set. "approved" is a person with the Approver permission, never Claude (CLAUDE.md rule 3). */
 export const DOC_STATUSES = ["draft", "in_review", "approved"] as const;
@@ -15,11 +15,11 @@ export const MAX_DOCS_PER_ITEM = 20;
 export const MAX_AI_MODEL = 80;
 
 /** Documents that belong to the workspace, not to one initiative (issue #565, slice 3): the kinds of the workspace_documents table. */
-export const WORKSPACE_DOC_KINDS = ["vision", "strategy", "north_star", "competitive", "personas", "weekly_update", "release_notes", "quarter_plan", "other"] as const;
+export const WORKSPACE_DOC_KINDS = ["vision", "strategy", "north_star", "competitive", "personas", "weekly_update", "release_notes", "quarter_plan", "impact_map", "market_sizing", "canvas", "other"] as const;
 export type WorkspaceDocKind = (typeof WORKSPACE_DOC_KINDS)[number];
 export const WORKSPACE_DOC_KIND_LABEL: Record<WorkspaceDocKind, string> = {
   vision: "Product vision", strategy: "Product strategy", north_star: "North star metric", competitive: "Competitive analysis", personas: "Personas",
-  weekly_update: "Weekly update", release_notes: "Release notes", quarter_plan: "Quarter plan", other: "Other",
+  weekly_update: "Weekly update", release_notes: "Release notes", quarter_plan: "Quarter plan", impact_map: "Impact map", market_sizing: "Market sizing", canvas: "Canvas", other: "Other",
 };
 /** The label of any kind, of an initiative document or a workspace document. */
 export const docKindLabel = (kind: string): string =>
@@ -27,7 +27,7 @@ export const docKindLabel = (kind: string): string =>
 
 export const DOC_KIND_LABEL: Record<DocKind, string> = {
   prd: "PRD", discovery: "Discovery", business_req: "Business requirements", tech_req: "Technical requirements", acceptance: "Acceptance criteria",
-  prototype: "Prototype", research: "Research", design: "Design", premortem: "Pre-mortem", one_pager: "One-pager", success_metrics: "Success metrics", go_to_market: "Go-to-market", experiment: "Experiment", user_stories: "User stories", customer_evidence: "Customer evidence", meeting_notes: "Meeting notes", other: "Other",
+  prototype: "Prototype", research: "Research", design: "Design", premortem: "Pre-mortem", one_pager: "One-pager", success_metrics: "Success metrics", go_to_market: "Go-to-market", experiment: "Experiment", user_stories: "User stories", business_case: "Business case", pr_faq: "PR/FAQ", opportunity_tree: "Opportunity tree", customer_evidence: "Customer evidence", meeting_notes: "Meeting notes", other: "Other",
 };
 
 export type DocInput = { kind?: unknown; title?: unknown; body?: unknown; status?: unknown; ai_model?: unknown };

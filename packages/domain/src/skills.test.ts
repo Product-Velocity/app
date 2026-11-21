@@ -139,3 +139,34 @@ describe("cadence skills (slice 5) and report mode", () => {
     expect(text("pv-release-notes")).toMatch(/customer-safe/);
   });
 });
+
+describe("the remaining skills (business case, PR/FAQ, prototype, impact map, market, canvas, opportunity tree)", () => {
+  const cmds = ["pv-business-case", "pv-pr-faq", "pv-prototype", "pv-impact-map", "pv-market", "pv-canvas", "pv-opportunity-tree"];
+  const t = (c: string) => skillPrompt(skillByCommand(c)!, {}).text;
+  it("exist, are valid and use a document kind of their own that matches their scope", () => {
+    for (const c of cmds) {
+      const s = skillByCommand(c)!;
+      expect(s, c).toBeTruthy();
+      expect(skillSpecProblems(s), c).toEqual([]);
+    }
+    expect(["pv-business-case", "pv-pr-faq", "pv-prototype", "pv-opportunity-tree"].map((c) => skillByCommand(c)!.target)).toEqual(["item", "item", "item", "item"]);
+    expect(["pv-impact-map", "pv-market", "pv-canvas"].map((c) => skillByCommand(c)!.target)).toEqual(["none", "none", "none"]);
+    expect(skillByCommand("pv-impact-map")!.doc.kind).toBe("impact_map");
+    expect(skillByCommand("pv-prototype")!.doc.kind).toBe("prototype");
+  });
+  it("never invent figures, quotes or pass lines, and keep people-only fields with people", () => {
+    expect(t("pv-business-case")).toMatch(/Never state a return, payback, saving or revenue figure unless every input/);
+    expect(t("pv-business-case")).toMatch(/Do not set Business Value, Confidence/);
+    expect(skillByCommand("pv-business-case")!.fields).toEqual(["cost_of_not_doing"]);
+    expect(t("pv-pr-faq")).toMatch(/No invented quote, number, date, price/);
+    expect(t("pv-prototype")).toMatch(/pass line is set before testing and comes from the person/);
+    expect(t("pv-market")).toMatch(/Give ranges, not single precise figures/);
+    expect(t("pv-opportunity-tree")).toMatch(/needs a source or is marked assumed/);
+  });
+  it("actors are roles, the commercial sizing stays out of the profile, and only confirmed positioning is offered to the profile", () => {
+    expect(t("pv-impact-map")).toMatch(/never named individuals/);
+    expect(t("pv-market")).toMatch(/never go to the company profile, GitHub or Jira/);
+    expect(skillByCommand("pv-market")!.profileSave).toBeUndefined();
+    expect(t("pv-canvas")).toMatch(/Offer once to save the confirmed positioning line/);
+  });
+});

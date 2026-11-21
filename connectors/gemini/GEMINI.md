@@ -32,6 +32,13 @@ Product Velocity is this team's roadmap and stack rank. You reach it through the
 - `/pv-weekly`: Weekly update
 - `/pv-release-notes`: Release notes
 - `/pv-quarter`: Quarter plan
+- `/pv-business-case`: Business case
+- `/pv-pr-faq`: PR/FAQ
+- `/pv-prototype`: Prototype brief
+- `/pv-impact-map`: Impact map
+- `/pv-market`: Market sizing
+- `/pv-canvas`: Canvas
+- `/pv-opportunity-tree`: Opportunity solution tree
 - `/pv-help`: List the Product Velocity skills
 
 ## Flows and prompts
