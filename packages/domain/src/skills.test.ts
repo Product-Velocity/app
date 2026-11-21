@@ -92,26 +92,50 @@ describe("company-level skills (slice 3)", () => {
   });
 });
 
-describe("cadence skills (slice 5)", () => {
-  const text = (c: string) => skillPrompt(skillByCommand(c)!, {}).text;
-  it("exist, work at company level and save workspace documents of their own kind", () => {
-    for (const [c, kind] of [["pv-weekly", "weekly_update"], ["pv-release-notes", "release_notes"], ["pv-quarter", "quarter_plan"]] as const) {
+describe("cadence skills (slice 5) and report mode", () => {
+  const text = (c: string, a: Parameters<typeof skillPrompt>[1] = {}) => skillPrompt(skillByCommand(c)!, a).text;
+  it("the quarter plan is a saved workspace document; the weekly update and the release notes are reports", () => {
+    expect(skillByCommand("pv-quarter")!.output).toBeUndefined();
+    expect(text("pv-quarter")).toMatch(/Save it: create_document without item/);
+    expect(text("pv-quarter")).toMatch(/To be decided by/);
+    for (const c of ["pv-weekly", "pv-release-notes"]) {
       const s = skillByCommand(c)!;
-      expect(s.target).toBe("none");
-      expect(s.doc.kind).toBe(kind);
+      expect(s.output).toBe("report");
       expect(skillSpecProblems(s)).toEqual([]);
-      expect(skillPrompt(s, {}).text).toMatch(/create_document without item/);
+      const t = text(c);
+      expect(t).not.toMatch(/Save it: create_document/);
+      expect(t).not.toMatch(/draft-or-save question/);
+      expect(t).not.toMatch(/Align first or save/);
+      expect(t).not.toMatch(/Last line: "To be decided by/);
+      expect(t).toMatch(/SECTIONS OF THE REPORT/);
+      expect(t).toMatch(/Nothing is saved in Product Velocity unless the person asks for a copy/);
+      expect(t).toMatch(/never send, post or publish anything/);
+      expect(t).toMatch(/offer once to save a copy .*create_document without item/);
+      expect(t).toMatch(/which format they want it in \(email, slides, document, Slack message or just here\)/);
     }
+  });
+  it("a chosen format is applied and not asked again", () => {
+    const t = text("pv-weekly", { format: "slides" });
+    expect(t).toMatch(/The person chose slides: a short deck of five slides or fewer/);
+    expect(t).not.toMatch(/which format they want it in/);
+    expect(text("pv-weekly", { format: "Deck" })).toMatch(/The person chose slides/);
+    expect(text("pv-weekly", { format: "nonsense" })).toMatch(/- email: an email/);
+  });
+  it("pv-weekly reads the app's own report definitions", () => {
+    const t = text("pv-weekly");
+    expect(t).toMatch(/get_report with report weekly_digest/);
+    expect(t).toMatch(/get_report with report health/);
+  });
+  it("the typed form takes --format=<one>", () => {
+    expect(parseSkillArgs("--format=email for leaders")).toEqual({ target: undefined, input: "for leaders", draft: undefined, format: "email" });
+    expect(parseSkillArgs("R-1 --format slack --draft").format).toBe("slack");
   });
   it("keep people out of the metrics (team level only) and never set people-only fields", () => {
     expect(text("pv-weekly")).toMatch(/never write about the performance of a named person/);
     expect(text("pv-quarter")).toMatch(/never to individuals|belong to teams/);
     expect(text("pv-quarter")).toMatch(/Do not set Stack Rank, Value or Confidence/);
   });
-  it("release notes use customer-safe fields for customers and send nothing", () => {
-    const t = text("pv-release-notes");
-    expect(t).toMatch(/customer-safe/);
-    expect(t).toMatch(/Nothing is published or sent/);
-    expect(text("pv-weekly")).toMatch(/nothing is sent/);
+  it("release notes use customer-safe fields for customers", () => {
+    expect(text("pv-release-notes")).toMatch(/customer-safe/);
   });
 });

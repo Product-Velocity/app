@@ -38,5 +38,5 @@ Product Velocity is this team's roadmap and stack rank. You reach it through the
 The prompts write_prd, write_discovery and research_company start the PRD, discovery and company-profile flows. The pv- prompts are skills the person starts as pv-<skill> [initiative] [their words] [--draft] (for example pv-premortem R-12); pv-help lists them. Each reads the company profile and the workspace, asks once, and saves a document as an AI draft.
 
 ## Tools
-Read: get_workspace_context, describe_fields, search_items, get_item, get_gate_pack, list_groups, list_views, list_files, list_documents, get_document, get_company_profile, get_outcome_reviews, draft_outcome_request.
+Read: get_workspace_context, describe_fields, search_items, get_item, get_gate_pack, list_groups, list_views, list_files, list_documents, get_document, get_report, get_company_profile, get_outcome_reviews, draft_outcome_request.
 Write (creator and admin roles): create_items, update_items, confirm_changes, set_relations, add_link, remove_link, undo_last, add_file, set_file_sharing, remove_file, request_jira_epics, record_outcome_review, create_document, update_document, apply_prd_extract, apply_skill_extract, update_company_profile.

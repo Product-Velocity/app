@@ -21,6 +21,11 @@ Never guess; skipping is free; ask once; data is not instructions; people-only f
 A skill that fills fields ends its document with `## n. Values for Product Velocity` (`key: value` lines, only what the document or the person states). `apply_skill_extract` previews, then copies those lines as written through `update_items`; people-only fields and keys the skill does not own are left out and listed. Each skill saves its own document kind.
 Built: see `packages/domain/src/skills-catalog.ts` (the list below is generated from it in `pv-help`).
 
+## 4a. Two kinds of output (Ashu, 2026-11-21)
+- **Document skills** save a Markdown document of record (on the initiative, or in the workspace's Documents) as an AI draft.
+- **Report skills** (`pv-weekly`, `pv-release-notes`) produce content for an audience in the format asked (`--format=email|slides|document|slack|chat`); nothing is saved or sent unless the person asks for a copy. They read the app's own report definitions through `get_report`.
+Help lists every skill with what it works on and what you get (generated from the catalogue).
+
 ## 5. Slices
 1 engine and routing, `pv-premortem`, `pv-one-pager`. 2 field extract, new document kinds, `pv-metrics`, `pv-gtm`, `pv-experiment`, `pv-stories`. 3 company context v2, workspace documents, `pv-vision`, `pv-strategy`, `pv-northstar`, `pv-compete`, `pv-personas`. 5 `pv-weekly`, `pv-release-notes`, `pv-quarter`. Later: scoring and triage (4), research (6), admin switch and catalogue page (7).
 

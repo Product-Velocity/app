@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { DEFAULT_VIEWS, OPEN_LIST_FIELDS, VIEW_NAMES, openListValues, summarizeProfile, type SearchNames, type SearchRow } from "@pv/domain";
+import { buildDigest, changeFlags, changesThisWeek, DEFAULT_VIEWS, digestMarkdown, healthByProject, needsAttention, OPEN_LIST_FIELDS, VIEW_NAMES, openListValues, summarizeProfile, weekWindow, type SearchNames, type SearchRow } from "@pv/domain";
+import { SupabaseLeadershipStore } from "@/features/leadership/store";
 import { SupabaseDataSource } from "@/features/portfolio/supabase-source";
 import { addItemFile, removeItemFile, setFileSharing } from "@/lib/files/actions";
 import { shareUrl } from "@/lib/files/serve";
@@ -167,6 +168,35 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       }
       const list = must(await q, "files") as never[];
       return { files: await fileInfo(list.slice(0, FILE_CAP)), truncated: list.length > FILE_CAP };
+    },
+
+    async report(kind, weekOf) {
+      const all = (await rows()) as never[];
+      const day = weekOf && /^\d{4}-\d{2}-\d{2}$/.test(weekOf) ? new Date(`${weekOf}T12:00:00Z`) : new Date();
+      const week = weekWindow(day);
+      if (kind === "health") {
+        const h = healthByProject(all, await projects());
+        return {
+          report: "health", as_of: day.toISOString().slice(0, 10), initiatives: all.length,
+          counts: h.totals.counts, summary: h.totals.summary,
+          by_project: h.projects.map((p) => ({ project: p.name, initiatives: p.total, summary: p.summary })),
+          needs_attention: needsAttention(all, day).slice(0, 25).map((a) => ({ item: a.code, name: a.name, health: a.health, reasons: a.reasons })),
+        };
+      }
+      const store = new SupabaseLeadershipStore(supabase, tenant.id);
+      const from = `${week.start}T00:00:00.000Z`, to = `${week.end}T00:00:00.000Z`;
+      const [audit, feed, docs, origin] = await Promise.all([store.loadChanges(from), store.loadFeed(from, to), store.loadNewDocuments(from, to), appUrl()]);
+      const trackers = await store.loadTrackers([...new Set(feed.map((r) => r.item_id))]);
+      const itemHref = (code: string) => `${origin}/portfolio?item=${encodeURIComponent(code)}`;
+      const digest = buildDigest({
+        feed, rows: all, trackers, documents: docs, rankMoves: changesThisWeek(audit, all), flags: changeFlags(all, day), periodLabel: "this week", itemHref,
+        documentHref: (code, d) => `${itemHref(code)}&tab=spec${d.entry === "document" ? `&doc=${encodeURIComponent(d.id)}` : ""}`, changesHref: `${origin}/reports?report=changes`, limit: 15,
+      });
+      return {
+        report: "weekly_digest", week: week.label, from: week.start, to_exclusive: week.end, headline: digest.headline,
+        groups: digest.groups.map((g) => ({ id: g.id, title: g.title, lines: g.lines.length })),
+        markdown: digestMarkdown(digest).join("\n"),
+      };
     },
 
     async gatePack(ref): Promise<GatePackData | null> {

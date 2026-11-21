@@ -27,6 +27,7 @@ const reader = (): McpReader => ({
   documents: vi.fn(async () => []),
   document: vi.fn(async () => null),
   companyProfile: vi.fn(async () => ({ url: null, profile: null })),
+  report: vi.fn(async (kind: string) => ({ report: kind, week: "Week 47 · 16 to 22 Nov 2026", headline: "This week", markdown: "This week" })),
   gatePack: vi.fn(async (ref: string) => (ref.toLowerCase() === "r-01" || ref.toLowerCase() === "r-02" ? { documents: [{ kind: "prd", title: "PRD", status: "in_review", version: 2 }], requests: [{ gate: "B", kind: "decision", requested_at: "2026-11-05T10:00:00Z", outcome: null, rationale: null, fast_lane: false, decided_at: null, withdrawn: false, ready: false, criteria: [] }], conditions: [{ text: "Legal review", done: false }] } : null)),
 });
 const noWrite = async (): Promise<never> => { throw new Error("not used"); };

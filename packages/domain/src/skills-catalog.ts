@@ -375,11 +375,13 @@ export const SKILLS: readonly SkillSpec[] = [
     summary: "one screen: the bottom line and what you need from people first, then what shipped, what is at risk and what is next, cut for leaders, go-to-market teams and the team",
     stage: "run",
     target: "none",
+    output: "report",
     profile: ["products", "personas", "glossary", "voice", "conventions"],
     reads: [
-      "search_items for what changed in the last seven days: initiatives whose status or Initiative Phase changed (fields status, initiative_phase, status_changed_at, phase_changed_at, health), and for what is At Risk or Blocked now. If a filter is refused the message names the allowed ones. At most fifty rows.",
-      "get_item for the three to five initiatives that matter most this week (highest in the stack rank that moved, or at risk) to read their latest changes, dependencies and dates; get_gate_pack for any that is waiting at a decision gate.",
-      "get_outcome_reviews for initiatives with a 30, 60 or 90 day review due this week, and list_documents with no item for last week's update (get_document) so this one continues it and does not repeat it.",
+      "get_report with report weekly_digest (week_of for another week): the leadership digest the app shows for the week, with links. It is the backbone of the update: what completed, changed phase or health, moved in the stack rank, got new Build Status or new documents, and what needs follow-up. Use its wording and links.",
+      "get_report with report health: the counts by health, by project, and the initiatives that need attention with the reasons. Use it for the At risk section and quote its numbers.",
+      "search_items and get_item for the three to five initiatives that matter most this week (highest in the stack rank that moved, or at risk) to read their latest changes, dependencies and dates; get_gate_pack for any that is waiting at a decision gate; get_outcome_reviews for a 30, 60 or 90 day review due this week.",
+      "list_documents with no item for last week's update if one was saved (get_document), so this one continues it and does not repeat it.",
     ],
     questions: [
       { id: "readers", ask: "Who reads this (leaders, sales and support, the team) and which cuts do you want? (Default: all three.)" },
@@ -396,10 +398,9 @@ export const SKILLS: readonly SkillSpec[] = [
     doc: { kind: "weekly_update", titlePrefix: "Weekly update: " },
     fields: [],
     rules: [
-      "Every statement of fact comes from the workspace data or the person, by initiative code. Do not call something shipped, at risk or on track unless the data or the person says so, and say what you read it from.",
+      "Every statement of fact comes from get_report, the workspace data or the person, by initiative code. Do not call something shipped, at risk or on track unless one of them says so, and say what you read it from.",
       "Team level only: never write about the performance of a named person, and never rank people or teams against each other.",
       "Commercial figures, customer names and decision rationale stay out of the sales and support cut and out of anything meant for a wider audience; keep to customer-safe fields there.",
-      "A subject line for sending is a suggestion in the document; nothing is sent. Sending an email or a Slack message is the person's choice.",
     ],
     decidedBy: "the product manager, who sends it",
   },
@@ -409,6 +410,7 @@ export const SKILLS: readonly SkillSpec[] = [
     summary: "customer-facing notes from what shipped, grouped as new, improved, fixed, retired and security, plus an internal version for support",
     stage: "launch",
     target: "none",
+    output: "report",
     profile: ["products", "personas", "glossary", "voice"],
     reads: [
       "search_items for the initiatives that reached roll-out or completed in the period (fields status, initiative_phase, latest_release, value_proposition, summary, change_type, target_segments); at most fifty rows. describe_fields tells you which fields are customer-safe; customer-facing lines use only those.",
@@ -429,7 +431,6 @@ export const SKILLS: readonly SkillSpec[] = [
     rules: [
       "A line in the customer notes is written only from customer-safe fields of the initiative or from words the person gave you. If an item has no customer-safe description, list it under \"Not in these notes\" and ask for the wording; never invent a benefit.",
       "Do not state a date, a roll-out percentage or a segment as fact unless the initiative's own fields or the person say so.",
-      "Nothing is published or sent by this skill.",
     ],
     decidedBy: "the person named as approver, before customers read it",
   },

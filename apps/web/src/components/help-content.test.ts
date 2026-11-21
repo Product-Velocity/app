@@ -244,3 +244,22 @@ describe("Help: status changes (issue #358)", () => {
     expect(JSON.stringify(STATUS_NEXT_IN_PV)).toContain("Move to Test");
   });
 });
+
+describe("Help: the pv- skills table", () => {
+  it("has one row per skill, generated from the catalogue, with what it works on and what you get", async () => {
+    const { AGENT_SKILLS } = await import("./help-content");
+    const { SKILLS } = await import("@pv/domain");
+    const names = AGENT_SKILLS.rows.map((r) => r[0]!.split(" ")[0]);
+    for (const s of SKILLS) expect(names).toContain(s.command);
+    expect(names).toContain("pv-help");
+    const row = (c: string) => AGENT_SKILLS.rows.find((r) => r[0]!.startsWith(c))!;
+    expect(row("pv-weekly")[3]).toMatch(/report in the format you choose/);
+    expect(row("pv-weekly")[3]).toMatch(/Nothing is saved or sent/);
+    expect(row("pv-vision")[2]).toMatch(/whole workspace/);
+    expect(row("pv-vision")[3]).toMatch(/in Documents/);
+    expect(row("pv-metrics")[2]).toMatch(/One initiative/);
+    expect(row("pv-metrics")[3]).toMatch(/Spec tab/);
+    expect(row("pv-metrics")[3]).toMatch(/Key result metric|metric/i);
+    for (const r of AGENT_SKILLS.rows) expect(r.every((c) => c.length > 0)).toBe(true);
+  });
+});

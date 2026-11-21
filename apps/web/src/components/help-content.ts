@@ -1,7 +1,24 @@
-import { FIELDS, VISIBLE_FIELDS, FIELD_BY_KEY, SKILL_COMMANDS, setupGuides, type FieldDef } from "@pv/domain";
+import { FIELDS, VISIBLE_FIELDS, FIELD_BY_KEY, SKILL_COMMANDS, SKILL_STAGE_LABEL, SKILLS, docKindLabel, setupGuides, type FieldDef } from "@pv/domain";
 
 /** Every PV skill by command, generated from the catalogue so a new skill cannot ship without Help. */
 const SKILL_LIST = SKILL_COMMANDS.join(", ");
+
+/** What a skill gives you, in words: a report in a format, a document on the initiative or in Documents, and the fields it can fill. */
+function skillResult(s: (typeof SKILLS)[number]): string {
+  if (s.output === "report") return "A report in the format you choose (email, slides, document, Slack message or just in the chat). Nothing is saved or sent unless you ask for a copy in Documents";
+  const fields = s.fields.map((k) => FIELD_BY_KEY[k]?.name ?? k);
+  const where = s.target === "none" ? `A ${docKindLabel(s.doc.kind)} document in Documents (an AI draft)` : `A ${docKindLabel(s.doc.kind)} document on the initiative's Spec tab (an AI draft)`;
+  return [where, s.profileSave ? `after you agree, the relevant part can be added to the company profile (${s.profileSave.section}; an admin confirms it)` : "", fields.length ? `empty fields it can fill from the document after you agree: ${fields.join(", ")}` : ""].filter(Boolean).join("; ");
+}
+
+/** One row per skill, generated from the catalogue (packages/domain/src/skills-catalog.ts): a new skill shows up here, with its result, without anyone editing this file. */
+export const AGENT_SKILLS: Table = {
+  head: ["Skill", "What it does", "Works on", "You get"],
+  rows: [
+    ...SKILLS.map((s) => [`${s.command} (${SKILL_STAGE_LABEL[s.stage]})`, s.summary.charAt(0).toUpperCase() + s.summary.slice(1), s.target === "none" ? "The whole workspace; no initiative needed" : "One initiative (a code such as R-12)", skillResult(s)]),
+    ["pv-help", "Lists the skills and how to use them", "Nothing", "A list in the chat"],
+  ],
+};
 
 /**
  * Text of the Help guide. Short on purpose. The columns table is checked against the field dictionary (help-content.test.ts):
@@ -478,7 +495,7 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
         ["Discovery", "Prompt write_discovery (brief, item, team). In claude.ai type / and pick it; in Claude Code type /mcp__product-velocity__write_discovery", "A Discovery document and one initiative in Discover"],
         ["PRD", "Prompt write_prd (brief, modules such as A1 D1 D4, item, team)", "A PRD document and the initiative fields it can support"],
         ["Company profile", "Prompt research_company (url, focus)", "A draft profile for an admin to confirm"],
-        ["Skills (pv-)", `Pick a pv- prompt in the menu (${SKILL_LIST}; pv-help lists them) with an initiative code, your own words and optionally draft = true`, "A document on the initiative, saved as an AI draft; nothing is saved when you ask for a draft only"],
+        ["Skills (pv-)", `Pick a pv- prompt in the menu (${SKILL_LIST}; pv-help lists them) with an initiative code where the skill needs one, your own words and optionally draft = true (the report skills take format = email, slides, document, slack or chat)`, "A document (on the initiative, or in Documents for company-level skills) saved as an AI draft, or for pv-weekly and pv-release-notes a report in the format you choose; nothing is saved when you ask for a draft only"],
         ["Several initiatives", "Ask in plain words: create initiatives from this list in group Growth, project Marketplace", "A dry run first, then created after you agree"],
         ["Change what exists", "Name the initiative, e.g. R-12, and say what to change", "A diff to confirm when a person already filled the field; undo with \"undo your last change\""],
         ["Documents, files and links", "Write documents, attach screenshots or PDFs and add links on the Spec tab (drag and drop, paste an image or a web address); each is shared with the issue unless you choose Do not share", "Spec tab of the initiative; documents and file links are not written to the issue of a public repository"],
@@ -494,7 +511,7 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
       head: ["What", "How to start in ChatGPT", "Result"],
       rows: [
         ["Discovery, PRD, company profile", "ChatGPT cannot start prompts. Say \"use the write_discovery playbook\" (or write_prd, research_company) and give the brief and the team. It reads the same instructions through the get_playbook tool", "The same documents and AI drafts as with Claude"],
-        ["Skills (pv-)", `Type the command, e.g. pv-premortem R-12 focus on payments --draft (skills: ${SKILL_LIST}, pv-help). The assistant reads it through the get_playbook tool`, "A document on the initiative, saved as an AI draft"],
+        ["Skills (pv-)", `Type the command, e.g. pv-premortem R-12 focus on payments --draft (skills: ${SKILL_LIST}, pv-help; the report skills take --format=email, slides, document, slack or chat). The assistant reads it through the get_playbook tool`, "A document (on the initiative, or in Documents for company-level skills) saved as an AI draft, or for pv-weekly and pv-release-notes a report in the format you choose"],
         ["Deep research and company knowledge", "Ask in a research chat. ChatGPT uses two read-only tools, search and fetch, to read your initiatives and documents", "Findings that cite initiative codes; nothing is written"],
         ["Several initiatives, changes, files", "Ask in plain words, as with Claude", "A dry run or diff first, then written after you agree"],
         ["Confirmations", "ChatGPT asks you to confirm each tool call that changes something", "Product Velocity still shows its own dry run or diff first"],

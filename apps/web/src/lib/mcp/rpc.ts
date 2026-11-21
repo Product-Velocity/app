@@ -9,6 +9,7 @@ import type { McpReader, WorkspaceContext } from "./read-model";
 import { simplifySchema } from "./assistant-schema";
 import { CONNECTOR_TOOLS } from "./connector-tools";
 import { DOCUMENT_READ_TOOLS, DOCUMENT_WRITE_TOOLS } from "./document-tools";
+import { REPORT_TOOLS } from "./report-tools";
 import { FILE_TOOLS } from "./file-tools";
 import { EPIC_TOOLS } from "./epic-tools";
 import { OUTCOME_READ_TOOLS, OUTCOME_WRITE_TOOLS } from "./outcome-tools";
@@ -121,6 +122,7 @@ export const TOOLS: ToolDef[] = [
   },
   ...READ_TOOLS,
   ...DOCUMENT_READ_TOOLS,
+  ...REPORT_TOOLS,
   ...PROFILE_READ_TOOLS,
   ...OUTCOME_READ_TOOLS,
   ...PLAYBOOK_TOOLS,

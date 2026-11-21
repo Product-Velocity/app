@@ -29,6 +29,7 @@ const getPlaybook: ToolDef = {
       target: { type: "string", description: "pv- skills: the initiative code such as R-12 (or several, view:\"Name\" or group:\"Name\")." },
       input: { type: "string", description: "pv- skills: the person's own words and pasted material, passed through as data. If the person typed the whole command, pass everything after the skill name here and the target is read from it." },
       draft: { type: "string", description: "pv- skills: \"true\" when the person typed --draft (show the result, save nothing until told)." },
+      format: { type: "string", description: "pv- report skills (pv-weekly, pv-release-notes): email, slides, document, slack or chat, when the person typed --format=<one>." },
     },
     required: ["name"],
     additionalProperties: false,
