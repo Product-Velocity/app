@@ -23,6 +23,8 @@ type MenuProps = {
   isPlatformAdmin?: boolean;
   /** A platform admin working inside a customer account with granted access: only the audit log of that account. */
   showAudit?: boolean;
+  /** The fixed, shared read-only demo account (issue #559): no Account, Incoming issues or AI connectors. */
+  isDemo?: boolean;
 };
 
 /**
@@ -33,7 +35,7 @@ type MenuProps = {
  *  4. Platform owner: the cross-account console (platform admins only).
  * It closes on a click anywhere else, on Escape, and as soon as a link in it is used.
  */
-export function AccountMenu({ email, roleLabel, isApprover, showTrash, isAdmin, isPlatformAdmin, showAudit }: MenuProps) {
+export function AccountMenu({ email, roleLabel, isApprover, showTrash, isAdmin, isPlatformAdmin, showAudit, isDemo }: MenuProps) {
   const ref = useRef<HTMLDetailsElement>(null);
   const close = () => { if (ref.current) ref.current.open = false; };
   // always listening: the "toggle" event that sets `open` arrives a moment after the click, and a fast second click must still close it
@@ -58,18 +60,20 @@ export function AccountMenu({ email, roleLabel, isApprover, showTrash, isAdmin, 
         </p>
         <div role="group" aria-labelledby="menu-workspace">
           <p className="menu-heading" id="menu-workspace">This workspace</p>
-          <Link href="/incoming" className="menu-link">Incoming issues</Link>
+          {!isDemo && <Link href="/incoming" className="menu-link">Incoming issues</Link>}
           {showTrash && <Link href="/trash" className="menu-link">Trash</Link>}
           <Link href="/settings/members" className="menu-link">Members</Link>
           <Link href="/settings/groups" className="menu-link">Initiative Groups</Link>
           <Link href="/settings/company-profile" className="menu-link">Company profile</Link>
         </div>
+        {!isDemo && (
         <div role="group" aria-labelledby="menu-you">
           <p className="menu-heading" id="menu-you">You</p>
           <Link href="/account" className="menu-link">Account</Link>
           <Link href="/settings/security" className="menu-link">Security</Link>
           <Link href="/settings/claude" className="menu-link">Connect an AI assistant</Link>
         </div>
+        )}
         {isAdmin && (
           <div role="group" aria-labelledby="menu-admin">
             <p className="menu-heading" id="menu-admin">Workspace admin</p>
@@ -89,7 +93,8 @@ export function AccountMenu({ email, roleLabel, isApprover, showTrash, isAdmin, 
           </div>
         )}
         <form action="/auth/sign-out" method="post" className="menu-signout">
-          <button className="menu-link menu-button" type="submit">Sign out</button>
+          {isDemo && <input type="hidden" name="next" value="/" />}
+          <button className="menu-link menu-button" type="submit">{isDemo ? "Exit demo" : "Sign out"}</button>
         </form>
         <AccountVersionFooter onCloseMenu={close} />
       </div>

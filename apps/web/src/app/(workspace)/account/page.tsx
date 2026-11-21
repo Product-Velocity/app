@@ -28,6 +28,14 @@ const ROLE: Record<string, string> = { admin: "Admin", creator: "Creator", comme
 export default async function AccountPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const { status } = await searchParams;
   const { supabase, user, memberships, active } = await requireWorkspace("/account");
+  if (active.isDemoAccount) {
+    return (
+      <div className="page-narrow">
+        <h1>Account</h1>
+        <p className="notice">This is the shared read-only demo account, so its profile, email, password and sign-in methods are not available to change here. <Link href="/">Sign up</Link> for your own workspace.</p>
+      </div>
+    );
+  }
   const { data: ids } = await supabase.auth.getUserIdentities();
   const identities = ids?.identities ?? [];
   const hasPassword = identities.some((i) => i.provider === "email");

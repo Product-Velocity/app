@@ -335,7 +335,20 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
 }
 
 /** Add a member to a tenant as its admin. */
-export async function addMember(db: TestDb, admin: string, tenantId: string, userId: string, role: string, extra: { serviceAccount?: boolean } = {}) {
+export async function addMember(db: TestDb, admin: string, tenantId: string, userId: string, role: string, extra: { serviceAccount?: boolean; demoAccount?: boolean } = {}) {
+  // is_demo_account is not in the authenticated insert grant (packages/db/migrations/0001, extended by
+  // 20261121084429): only the service role can set it, the same way the real fixed demo account was provisioned.
+  if (extra.demoAccount) {
+    await db.asService(
+      (q) =>
+        q(
+          "insert into public.tenant_members (tenant_id, user_id, role, is_service_account, is_demo_account) values ($1, $2, $3, true, true)",
+          [tenantId, userId, role],
+        ),
+      { commit: true },
+    );
+    return;
+  }
   await db.asUser(
     admin,
     (q) =>

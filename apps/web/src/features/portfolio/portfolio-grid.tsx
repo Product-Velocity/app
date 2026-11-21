@@ -119,7 +119,7 @@ const PRIORITISATION: BaseView = { kind: "builtin", name: "Prioritisation" };
 export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATION, renderAllColumns = false, me = null, newItems, headLeft, headRight, gates }: GridProps) {
   const router = useRouter();
   const params = useSearchParams();
-  const { views, defaults, scopes, projects, ready } = useWorkspace();
+  const { views, defaults, scopes, projects, ready, isDemo } = useWorkspace();
   const scope = useScope();
   const apiRef = useRef<GridApi<GridItem> | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -575,12 +575,14 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   /** After a file is handed to the browser, say which file and how many rows (a download otherwise gives no sign on the page). */
   const exportDone = (name: string, rows: number) => controller.notify(`Downloaded ${name} (${rows.toLocaleString("en-GB")} ${rows === 1 ? "row" : "rows"}). Check your Downloads folder.`);
   const exportCsv = () => {
+    if (isDemo) return;
     const rows = rowsToExport();
     const name = exportName("csv");
     downloadCsv(name, selectionToCsv(rows, exportFields, lookups));
     exportDone(name, rows.length);
   };
   const exportXlsx = () => {
+    if (isDemo) return;
     const rows = rowsToExport();
     const name = exportName("xlsx");
     selectionToXlsx(rows, exportFields, lookups, "Roadmap")
@@ -589,6 +591,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   };
   /** Roadmap with epics: each initiative with its linked tracker issues as collapsible rows beneath it. */
   const exportXlsxEpics = () => {
+    if (isDemo) return;
     const rows = rowsToExport();
     controller.childrenOf(rows.map((r) => r.id))
       .then((children) => selectionToXlsxWithChildren(rows, exportFields, lookups, children, "Roadmap with epics"))
@@ -624,9 +627,11 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     if (search) out.push({ id: "search:clear", label: "Clear search", group: "Filters", run: () => setSearchText("") });
     if (dirty) out.push({ id: "view:reset", label: "Reset view changes", group: "Views", run: resetChanges });
     if (controller.canEdit && lookups.projects.length > 0) out.push({ id: "import", label: "Import from spreadsheet", group: "Actions", keywords: "paste excel csv", run: () => setImportText("") });
-    out.push({ id: "export", label: "Export shown rows to file", group: "Actions", keywords: "csv download", run: exportCsv });
-    out.push({ id: "export-xlsx", label: "Export shown rows to Excel file", group: "Actions", keywords: "xlsx excel download", run: exportXlsx });
-    out.push({ id: "export-xlsx-epics", label: "Export Roadmap with epics (Excel file)", group: "Actions", keywords: "xlsx excel download epics children tracker jira github report", run: exportXlsxEpics });
+    if (!isDemo) {
+      out.push({ id: "export", label: "Export shown rows to file", group: "Actions", keywords: "csv download", run: exportCsv });
+      out.push({ id: "export-xlsx", label: "Export shown rows to Excel file", group: "Actions", keywords: "xlsx excel download", run: exportXlsx });
+      out.push({ id: "export-xlsx-epics", label: "Export Roadmap with epics (Excel file)", group: "Actions", keywords: "xlsx excel download epics children tracker jira github report", run: exportXlsxEpics });
+    }
     if (controller.canEdit && selected.length > 0) out.push({ id: "delete", label: `Delete ${selected.length} selected ${selected.length === 1 ? "initiative" : "initiatives"}`, group: "Actions", keywords: "remove trash", hint: "Del", run: () => setDeleteIds(selected.map((r) => r.id)) });
     if (controller.canSeeTrash) out.push({ id: "go:trash", label: "Open Trash", group: "Go to", keywords: "deleted restore", run: () => router.push("/trash") });
     if (controller.canEdit) {
@@ -726,7 +731,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
                 entry: { label, active: includeCompleted, onSelect: toggle },
               });
             }
-            items.push({
+            if (!isDemo) items.push({
               id: "export", rank: 2,
               node: (
                 <Popover label={<><DownloadIcon />{selected.length > 0 ? `Export ${selected.length} selected` : "Export"}</>} active={selected.length > 0}>

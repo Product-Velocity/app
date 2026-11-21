@@ -84,6 +84,7 @@ export function Home() {
             <a href="#loop">How it works</a>
             <a href="#ai">Your AI</a>
             <Link className="signin" href="/sign-in">Sign in</Link>
+            <Link className="btn btn-s" href="/demo">See the demo</Link>
             <a className="btn btn-p" href="#early-access">Get early access</a>
           </nav>
         </header>
@@ -95,8 +96,10 @@ export function Home() {
             <p className="lead">Every initiative in one place, from the company objective to the delivery ticket. Product Velocity sits on top of Jira and GitHub and hosts the objectives, OKRs, go-to-market and outcomes that teams keep in disconnected docs, slides and sheets. Product teams move faster, every stakeholder stays informed, and bigger outcomes get delivered.</p>
             <div className="cta">
               <a className="btn btn-p" href="#early-access">Get early access</a>
+              <Link className="btn btn-s" href="/demo">See the demo</Link>
               <a className="btn btn-s" href="#solution">See how it works</a>
             </div>
+            <p className="trust muted">The demo opens a real, read-only example workspace (Meridian Media) &ndash; nothing you click there is saved.</p>
             <p className="trust">{SHIELD}<span>Works alongside Jira and GitHub.</span></p>
             <a className="trust conn" href={CLAUDE_DIRECTORY_URL} target="_blank" rel="noopener noreferrer">
               <svg className="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">{BURST_RAYS.map((d) => <path key={d} d={d} />)}</svg>

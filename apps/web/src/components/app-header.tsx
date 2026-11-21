@@ -29,10 +29,12 @@ type Props = {
   showAudit?: boolean;
   /** Human admins of this workspace get the "Workspace admin" section of the account menu. */
   isAdmin?: boolean;
+  /** The fixed, shared read-only demo account (issue #559): hides Account, Incoming issues and Connect an AI assistant from the menu. */
+  isDemo?: boolean;
 };
 
 /** Top bar following prototype boards 20 and 1: logo, workspace and scope, tabs, then the notifications and help icons beside the account menu. */
-export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmin, email, roleLabel, isApprover, textSize, current, decisionsWaiting, showTrash, showAudit, isAdmin }: Props) {
+export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmin, email, roleLabel, isApprover, textSize, current, decisionsWaiting, showTrash, showAudit, isAdmin, isDemo }: Props) {
   return (
     <header className="topbar">
       <span className="brand-lockup">
@@ -56,7 +58,7 @@ export function AppHeader({ tenantName, accounts, activeTenantId, isPlatformAdmi
         <VersionUpdateBanner />
         {activeTenantId ? <NotificationsBell tenantId={activeTenantId} /> : null}
         <HelpLink />
-        <AccountMenu email={email} roleLabel={roleLabel} isApprover={isApprover} showTrash={showTrash} showAudit={showAudit} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} />
+        <AccountMenu email={email} roleLabel={roleLabel} isApprover={isApprover} showTrash={showTrash} showAudit={showAudit} isAdmin={isAdmin} isPlatformAdmin={isPlatformAdmin} isDemo={isDemo} />
       </div>
       <PhoneNav accountId={activeTenantId} waiting={decisionsWaiting} />
     </header>
