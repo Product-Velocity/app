@@ -9,6 +9,7 @@ import { ItemPanel } from "../portfolio/item-panel";
 import { StatusStrip, useStatus } from "../portfolio/status-strip";
 import type { Lookups } from "../portfolio/types";
 import { useScope } from "../workspace/scope";
+import { useWorkspace } from "../workspace/provider";
 import type { FeedRow, GateRequest, JiraStatusRecord, TrackerRef } from "@pv/domain";
 import { ChangesReport } from "./changes-report";
 import type { GateSource } from "../gates/gate-source";
@@ -36,6 +37,7 @@ export function ReportsView({ controller, lookups, me, loadGateRequests, loadCha
   const status = useStatus(controller);
   const params = useSearchParams();
   const scope = useScope();
+  const { isDemo } = useWorkspace();
   const [state, setState] = useState<ReportState>(() => parseReport(params));
   const [report, setReport] = useState<ReportId>(() => parseReportId(params.get("report")));
   const [peekId, setPeekId] = useState<string | null>(null);
@@ -47,7 +49,7 @@ export function ReportsView({ controller, lookups, me, loadGateRequests, loadCha
 
   const overviewTools = (
     <>
-      <button type="button" className="tool-btn" disabled={env.rows.length === 0} onClick={exportCsv}>Export CSV ({env.rows.length.toLocaleString("en-GB")})</button>
+      {!isDemo && <button type="button" className="tool-btn" disabled={env.rows.length === 0} onClick={exportCsv}>Export CSV ({env.rows.length.toLocaleString("en-GB")})</button>}
       <button type="button" className="tool-btn" disabled title="A PDF summary of this page (filters, Time to Market card and charts) comes later (issue #233, P1)">PDF summary (later)</button>
     </>
   );

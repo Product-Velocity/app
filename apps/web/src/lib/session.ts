@@ -13,6 +13,8 @@ export type Membership = {
   role: Role;
   isApprover: boolean;
   lastLoginAt: string | null;
+  /** The fixed, shared read-only account the public "See the demo" button signs visitors into (issue #559). Always role "viewer". */
+  isDemoAccount: boolean;
 };
 
 /** A platform admin working inside a customer account (docs/15 section 5b). Not a membership: the person is hidden from the members grid. */
@@ -70,7 +72,7 @@ export async function requireWorkspace(nextPath: string) {
     if (entry && (!wanted.id || entry.tenantId === wanted.id)) {
       // read-only entries are treated as a viewer everywhere in the UI; the database refuses the writes in any case
       active = {
-        tenantId: entry.tenantId, tenantName: entry.tenantName, role: entry.level === "read_write" ? "admin" : "viewer", isApprover: false, lastLoginAt: null,
+        tenantId: entry.tenantId, tenantName: entry.tenantName, role: entry.level === "read_write" ? "admin" : "viewer", isApprover: false, lastLoginAt: null, isDemoAccount: false,
         platform: { level: entry.level, adminName: entry.adminName, adminEmail: entry.adminEmail, expiresAt: entry.expiresAt },
       };
     }
@@ -95,7 +97,7 @@ export async function loadMemberships(
     .from("tenant_members")
     // The embed names its foreign key: a table whose primary key covers (tenant_id, user_id) and that points at both tenants and tenant_members
 // (tenant_gate_approvers, 0.98) is a second path for PostgREST and makes a bare `tenants(name)` ambiguous (HTTP 300 on every page, issue #335).
-    .select("tenant_id, role, is_approver, last_login_at, tenants!tenant_members_tenant_id_fkey(name)")
+    .select("tenant_id, role, is_approver, last_login_at, is_demo_account, tenants!tenant_members_tenant_id_fkey(name)")
     .eq("user_id", userId)
     .eq("status", "active") // requested, paused and revoked people have no workspace (docs/15 section 3b)
     .order("created_at");
@@ -108,6 +110,7 @@ export async function loadMemberships(
       role: row.role as Role,
       isApprover: row.is_approver as boolean,
       lastLoginAt: (row.last_login_at as string | null) ?? null,
+      isDemoAccount: (row.is_demo_account as boolean | null) ?? false,
     };
   });
 }
@@ -148,6 +151,11 @@ export function loginIsStale(lastLoginAt: string | null): boolean {
 
 export function platformRefusal(active: { platform: PlatformAccess | null }): string | null {
   return active.platform ? "Platform admins cannot do this inside a customer account." : null;
+}
+
+/** The shared demo account (issue #559) cannot change its own account, export data, or do anything a normal viewer could not already. */
+export function demoRefusal(active: { isDemoAccount: boolean }): string | null {
+  return active.isDemoAccount ? "This is the shared read-only demo account. Sign up for your own workspace to do this." : null;
 }
 
 export async function rememberTenant(tenantId: string) {

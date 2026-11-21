@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/app-header";
 import { SupabaseWorkspaceProvider } from "@/features/workspace/provider";
 import { canEditItems } from "@pv/domain";
 import { PlatformBanner } from "@/components/platform-banner";
+import { DemoBanner } from "@/components/demo-banner";
 import { isPlatformAdmin, loginIsStale } from "@/lib/session";
 import { LoadErrorNotice } from "@/components/load-error";
 import { LastLocationTracker, UserPrefsProvider } from "@/components/user-prefs";
@@ -28,7 +29,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
   // gate requests waiting for a decision: the number on the Decisions tab (fast count on the open-request index)
   const decisionsWaiting = (await supabase.from("gate_reviews").select("id", { count: "exact", head: true }).eq("tenant_id", active.tenantId).eq("kind", "decision").is("decided_at", null).is("withdrawn_at", null)).count ?? 0;
   return (
-    <SupabaseWorkspaceProvider key={active.tenantId} tenantId={active.tenantId} userId={user.id} projects={(projects ?? []) as { id: string; name: string }[]} canEdit={canEditItems(active.role)} canAdmin={active.role === "admin"}>
+    <SupabaseWorkspaceProvider key={active.tenantId} tenantId={active.tenantId} userId={user.id} projects={(projects ?? []) as { id: string; name: string }[]} canEdit={canEditItems(active.role)} canAdmin={active.role === "admin"} isDemo={active.isDemoAccount}>
     <UserPrefsProvider panelWidth={panelWidthFromMetadata(user.user_metadata)}>
     <LastLocationTracker initial={lastLocationFromMetadata(user.user_metadata, active.tenantId)} />
     <DatePrefs format={profileFromMetadata(user.user_metadata).dateFormat} />
@@ -46,9 +47,11 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
         showTrash={canEditItems(active.role)}
         showAudit={active.role === "admin" || !!active.platform}
         isAdmin={active.role === "admin" && !active.platform}
+        isDemo={active.isDemoAccount}
       />
       <LoadErrorNotice />
       {active.platform && <PlatformBanner platform={active.platform} accountName={active.tenantName} />}
+      {active.isDemoAccount && <DemoBanner />}
       {requested > 0 && (
         <div className="notice-box" role="status">
           <Link href="/settings/members?status=requested">

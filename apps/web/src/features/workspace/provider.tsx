@@ -24,6 +24,8 @@ type Ctx = {
   canEdit: boolean;
   /** Admins can add projects. */
   canAdmin: boolean;
+  /** The fixed, shared read-only demo account (issue #559): export and a few other UI-only actions are hidden on top of the normal viewer-role lockdown. */
+  isDemo: boolean;
 };
 const WorkspaceContext = createContext<Ctx | null>(null);
 
@@ -34,7 +36,7 @@ export function useWorkspace(): Ctx {
 }
 
 /** Holds the saved scopes and views of the workspace for the header and the grid. */
-export function WorkspaceProvider({ store, projects: initialProjects, canEdit, canAdmin, userId = null, children }: { store: WorkspaceStore; projects: WorkspaceProject[]; canEdit: boolean; canAdmin: boolean; userId?: string | null; children: ReactNode }) {
+export function WorkspaceProvider({ store, projects: initialProjects, canEdit, canAdmin, isDemo = false, userId = null, children }: { store: WorkspaceStore; projects: WorkspaceProject[]; canEdit: boolean; canAdmin: boolean; isDemo?: boolean; userId?: string | null; children: ReactNode }) {
   const [projects, setProjects] = useState<WorkspaceProject[]>(initialProjects);
   const [scopes, setScopes] = useState<Scope[]>([]);
   const [allViews, setAllViews] = useState<SavedView[]>([]);
@@ -68,12 +70,12 @@ export function WorkspaceProvider({ store, projects: initialProjects, canEdit, c
     return () => { cancelled = true; };
   }, [load, apply]);
 
-  const value = useMemo(() => ({ store, projects, scopes, views, layouts, userId, defaults, ready, error, reload, canEdit, canAdmin }), [store, projects, scopes, views, layouts, userId, defaults, ready, error, reload, canEdit, canAdmin]);
+  const value = useMemo(() => ({ store, projects, scopes, views, layouts, userId, defaults, ready, error, reload, canEdit, canAdmin, isDemo }), [store, projects, scopes, views, layouts, userId, defaults, ready, error, reload, canEdit, canAdmin, isDemo]);
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
 
 /** The provider the app uses: talks to Supabase as the signed-in person. */
-export function SupabaseWorkspaceProvider({ tenantId, userId, projects, canEdit, canAdmin, children }: { tenantId: string; userId: string; projects: WorkspaceProject[]; canEdit: boolean; canAdmin: boolean; children: ReactNode }) {
+export function SupabaseWorkspaceProvider({ tenantId, userId, projects, canEdit, canAdmin, isDemo = false, children }: { tenantId: string; userId: string; projects: WorkspaceProject[]; canEdit: boolean; canAdmin: boolean; isDemo?: boolean; children: ReactNode }) {
   const store = useMemo(() => new SupabaseWorkspaceStore(createClient(), tenantId, userId), [tenantId, userId]);
-  return <WorkspaceProvider store={store} projects={projects} canEdit={canEdit} canAdmin={canAdmin} userId={userId}>{children}</WorkspaceProvider>;
+  return <WorkspaceProvider store={store} projects={projects} canEdit={canEdit} canAdmin={canAdmin} isDemo={isDemo} userId={userId}>{children}</WorkspaceProvider>;
 }

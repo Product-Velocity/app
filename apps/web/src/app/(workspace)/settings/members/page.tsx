@@ -11,6 +11,15 @@ export const metadata = { title: "Members · Product Velocity" };
 export default async function MembersPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const { status } = await searchParams;
   const { supabase, user, active } = await requireWorkspace("/settings/members");
+  if (active.isDemoAccount) {
+    // the real tenant's members (including their email addresses) are not shown to an anonymous public visitor (issue #559)
+    return (
+      <div className="page-wide">
+        <h1>Members</h1>
+        <p className="notice">Member details are not shown in the read-only demo.</p>
+      </div>
+    );
+  }
   const isAdmin = active.role === "admin" && !active.platform; // a platform admin reads the roster; who has access is the customer's decision
   const initialFilter = (MEMBER_STATUSES as readonly string[]).includes(status ?? "") ? (status as MemberStatus) : "all";
 
