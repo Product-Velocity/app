@@ -1,4 +1,0 @@
----
-bump: minor
----
-**Company-level skills, workspace documents and a Documents page.** `pv-vision`, `pv-strategy`, `pv-northstar`, `pv-compete` and `pv-personas` work at company level (no initiative needed): they read the company profile and earlier documents, ask once, save the result as a workspace document and, once you agree, offer to merge the relevant part into the company profile so every later skill can use it. The profile has four new sections: vision and mission, strategy and principles, north star and key metrics, and planning conventions. Workspace documents (vision, strategy, north star, competitive analysis, personas and later weekly updates, release notes and quarter plans) are versioned like initiative documents, marked AI draft until a person accepts them, and never sent to GitHub or Jira. **Documents** in the account menu lists the company profile and these documents together. Migration `20261121131708_workspace_documents.sql`.
