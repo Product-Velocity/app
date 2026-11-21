@@ -7,6 +7,7 @@ import { claudeMaySet } from "./mcp-read";
 import { ALIGN_RULE, TEAM_RULE } from "./flow-rules";
 import { FIELD_BY_KEY } from "./registry";
 import type { DocKind } from "./documents";
+import { VALUES_HEADING } from "./skill-extract";
 
 export type SkillStage = "direction" | "discover" | "define" | "deliver" | "launch" | "prove" | "run";
 export const SKILL_STAGE_LABEL: Record<SkillStage, string> = {
@@ -89,6 +90,10 @@ export function skillPrompt(spec: SkillSpec, args: SkillArgs): { description: st
   const draft = isDraft(args.draft);
   const needsItem = spec.target !== "none";
   const questions = spec.questions.slice(0, MAX_SKILL_QUESTIONS);
+  const fills = spec.fields.length > 0;
+  const sections = fills
+    ? [...spec.sections, { id: String(spec.sections.length + 1), title: VALUES_HEADING, covers: `One line per field, \`key: value\`, only for values the document itself states or the person gave you, copied as they gave them (use describe_fields for the allowed values). Leave a line out when the value is unknown. Keys you may write: ${spec.fields.join(", ")}.` }]
+    : spec.sections;
   const text = [
     `Run the Product Velocity skill ${spec.command} (${spec.title}): ${spec.summary}`,
     "",
@@ -107,17 +112,18 @@ export function skillPrompt(spec: SkillSpec, args: SkillArgs): { description: st
     `${spec.reads.length + 2}. Send ONE message: ${questions.length ? "the questions below (skip any the profile or workspace already answers), " : ""}what you could not fill (grouped, skippable) and the draft-or-save question. Wait for the answer.`,
     `${spec.reads.length + 3}. Write the document with the sections below.`,
     `${spec.reads.length + 4}. ${draft ? "Show it and stop; save only when told to." : `Save it: create_document ${needsItem ? "on the initiative " : ""}with kind ${spec.doc.kind}, title "${spec.doc.titlePrefix}<name>", status draft.`}`,
-    `${spec.reads.length + 5}. Tell the person what you used, what you wrote, what is left "to define", that it is an AI draft, and who decides.`,
+    ...(fills && !draft ? [`${spec.reads.length + 5}. Run apply_skill_extract with document set to the one you saved and preview true, and show the person what would be filled and what is left out. Only after they agree, run it again without preview. Fields that already hold a value come back as a diff for the person to confirm.`] : []),
+    `${spec.reads.length + (fills && !draft ? 6 : 5)}. Tell the person what you used, what you wrote, what is left "to define", that it is an AI draft, and who decides.`,
     "",
     ...(questions.length ? ["QUESTIONS (one message, skippable)", ...questions.map((q, i) => `${i + 1}. ${q.ask}`), ""] : []),
     "RULES",
     ...[...SKILL_RULES, ...spec.rules].map((r, i) => `${i + 1}. ${r}`),
     "",
     "SECTIONS OF THE DOCUMENT (all optional unless the skill says otherwise)",
-    ...spec.sections.map((s) => `- ${s.id} ${s.title}: ${s.covers}`),
+    ...sections.map((s) => `- ${s.id} ${s.title}: ${s.covers}`),
     `- Last line: "To be decided by ${spec.decidedBy}."`,
     "",
-    spec.fields.length ? `Fields this skill may fill from the document, only when empty and only from what the document says: ${spec.fields.join(", ")}.` : "This skill fills no initiative fields; its result lives in the document.",
+    fills ? `Fields this skill may fill from the document (through apply_skill_extract, copied as written): ${spec.fields.join(", ")}.` : "This skill fills no initiative fields; its result lives in the document.",
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n");
   return { description: `${spec.title}: ${spec.summary}`, text };
 }
