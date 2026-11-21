@@ -91,3 +91,27 @@ describe("company-level skills (slice 3)", () => {
     for (const c of ["pv-vision", "pv-strategy", "pv-northstar", "pv-compete", "pv-personas"]) expect(skillByCommand(c)).toBeTruthy();
   });
 });
+
+describe("cadence skills (slice 5)", () => {
+  const text = (c: string) => skillPrompt(skillByCommand(c)!, {}).text;
+  it("exist, work at company level and save workspace documents of their own kind", () => {
+    for (const [c, kind] of [["pv-weekly", "weekly_update"], ["pv-release-notes", "release_notes"], ["pv-quarter", "quarter_plan"]] as const) {
+      const s = skillByCommand(c)!;
+      expect(s.target).toBe("none");
+      expect(s.doc.kind).toBe(kind);
+      expect(skillSpecProblems(s)).toEqual([]);
+      expect(skillPrompt(s, {}).text).toMatch(/create_document without item/);
+    }
+  });
+  it("keep people out of the metrics (team level only) and never set people-only fields", () => {
+    expect(text("pv-weekly")).toMatch(/never write about the performance of a named person/);
+    expect(text("pv-quarter")).toMatch(/never to individuals|belong to teams/);
+    expect(text("pv-quarter")).toMatch(/Do not set Stack Rank, Value or Confidence/);
+  });
+  it("release notes use customer-safe fields for customers and send nothing", () => {
+    const t = text("pv-release-notes");
+    expect(t).toMatch(/customer-safe/);
+    expect(t).toMatch(/Nothing is published or sent/);
+    expect(text("pv-weekly")).toMatch(/nothing is sent/);
+  });
+});
