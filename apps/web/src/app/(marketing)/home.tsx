@@ -46,7 +46,8 @@ export function Home({ viewer = null }: { viewer?: "member" | "demo" | null }) {
             <a href="#why-now">Why now</a>
             <a href="#loop">Your AI</a>
             <a href="#not">Product</a>
-            {viewer ? <Link href="/app">{appLabel}</Link> : <Link href="/sign-in">Sign in</Link>}
+            {viewer ? <Link href="/app">{appLabel}</Link> : null}
+            {viewer !== "member" && <Link href="/sign-in">Sign in</Link>}
           </nav>
           <div className="btns">
             {!viewer && <Link className="btn" href="/demo">See the demo</Link>}
@@ -103,7 +104,7 @@ export function Home({ viewer = null }: { viewer?: "member" | "demo" | null }) {
           <Link className="logo" href="/" aria-label="Product Velocity"><BrandLogo size={28} /></Link>
           <span>From product people, for product people.</span>
           <span>
-            {viewer ? <Link href="/app">{appLabel}</Link> : <Link href="/sign-in">Sign in</Link>} · <Link href="/connector">Connect Claude</Link> · <a href={CLAUDE_DIRECTORY_URL} target="_blank" rel="noopener noreferrer">Claude directory</a> · <Link href="/privacy">Privacy</Link> · <Link href="/contact">Contact</Link>
+            {viewer ? <Link href="/app">{appLabel}</Link> : null}{viewer ? " · " : null}{viewer !== "member" && <Link href="/sign-in">Sign in</Link>} · <Link href="/connector">Connect Claude</Link> · <a href={CLAUDE_DIRECTORY_URL} target="_blank" rel="noopener noreferrer">Claude directory</a> · <Link href="/privacy">Privacy</Link> · <Link href="/contact">Contact</Link>
           </span>
           <span>Product pictures are mock-ups with example data (tenant Meridian Media).</span>
         </footer>

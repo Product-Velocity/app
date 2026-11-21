@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/auth/safe-next";
+import { isDemoEmail } from "@/lib/demo-account";
 import { PasswordForm } from "./sign-in-form";
 import { AuthShell } from "@/components/auth-shell";
 import { AuthProviders } from "@/components/auth-providers";
@@ -22,7 +23,9 @@ export default async function SignInPage({
   const next = safeNext(params.next);
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
-  if (data.user) redirect(next);
+  // A real session goes straight on. The shared demo session never does: it is not an account, and "Sign in" must always let a person sign in
+  // (it used to bounce them back into the demo). Signing in replaces the demo session.
+  if (data.user && !isDemoEmail(data.user.email)) redirect(next);
   const mode = params.mode === "sign-up" ? "sign-up" : "sign-in";
 
   return (

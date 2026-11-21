@@ -146,10 +146,11 @@ describe("the website is separate from the app (issue #570)", () => {
     expect(h).not.toContain('href="/sign-in"');
     expect(h).not.toContain('href="/demo"');
   });
-  it("someone in the demo account sees Back to the demo", () => {
-    const h = html("demo");
-    expect(h).toContain("Back to the demo");
-    expect(h).not.toContain('href="/sign-in"');
+  it("someone in the demo account sees Back to the demo and still sees Sign in", () => {
+    for (const h of [html("demo"), renderToStaticMarkup(createElement(ClassicHome, { viewer: "demo" }))]) {
+      expect(h).toContain("Back to the demo");
+      expect(h).toContain('href="/sign-in"');
+    }
   });
 });
 
