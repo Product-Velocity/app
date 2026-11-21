@@ -92,7 +92,8 @@ export function setupGuides(url: string): SetupGuide[] {
 
 /** Added to the always-on instructions: how a client reaches the flows. A client that cannot start MCP prompts (ChatGPT) gets the same text through get_playbook. */
 export function playbookInstructions(clientStartsPrompts: boolean): string {
+  const skills = " The pv- prompts are skills the person starts as pv-<skill> [initiative] [their words] [--draft] (for example pv-premortem R-12); pv-help lists them. Each reads the company profile and the workspace, asks once, and saves a document as an AI draft.";
   return clientStartsPrompts
-    ? "The prompts write_prd, write_discovery and research_company start the PRD, discovery and company-profile flows."
-    : "This client cannot start prompts: when the person asks for one of the flows write_prd, write_discovery or research_company, call get_playbook with its name and follow the text it returns.";
+    ? "The prompts write_prd, write_discovery and research_company start the PRD, discovery and company-profile flows." + skills
+    : "This client cannot start prompts: when the person asks for one of the flows write_prd, write_discovery or research_company, or types a command that starts with pv- (for example pv-premortem R-12 --draft), call get_playbook with its name (the pv- skill name without anything after it) and the rest of what they typed as input, and follow the text it returns." + skills;
 }

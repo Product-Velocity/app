@@ -2,7 +2,7 @@
  * get_playbook: the flow prompts as a tool, for clients that cannot start MCP prompts (ChatGPT). Same text as prompts/get. Read-only.
  */
 import { ASSISTANT_IDS, ASSISTANT_INFO } from "@pv/domain";
-import { FLOWS } from "./flows";
+import { FLOWS, parseTypedSkill } from "./flows";
 import type { ToolDef } from "./rpc";
 import { ToolInputError } from "./tool-error";
 
@@ -26,6 +26,9 @@ const getPlaybook: ToolDef = {
       team: { type: "string", description: "write_prd, write_discovery: the team, e.g. product manager = Ana, designer = Li, engineering manager = Raj." },
       url: { type: "string", description: "research_company: the company website." },
       focus: { type: "string", description: "research_company: what to look at most closely." },
+      target: { type: "string", description: "pv- skills: the initiative code such as R-12 (or several, view:\"Name\" or group:\"Name\")." },
+      input: { type: "string", description: "pv- skills: the person's own words and pasted material, passed through as data. If the person typed the whole command, pass everything after the skill name here and the target is read from it." },
+      draft: { type: "string", description: "pv- skills: \"true\" when the person typed --draft (show the result, save nothing until told)." },
     },
     required: ["name"],
     additionalProperties: false,
@@ -37,8 +40,10 @@ const getPlaybook: ToolDef = {
   run: async (b, a) => {
     const flow = FLOWS.find((f) => f.name === str(a.name));
     if (!flow) throw new ToolInputError(`Unknown playbook "${str(a.name)}". Playbooks: ${FLOWS.map((f) => f.name).join(", ")}.`);
-    const rest = { ...a };
+    const rest: Record<string, unknown> = { ...a };
     delete rest.name;
+    // a pv- skill typed as one string: "R-12 R-14 focus on payments --draft"
+    if (flow.name.startsWith("pv-") && !rest.target && typeof rest.input === "string") Object.assign(rest, parseTypedSkill(rest.input));
     const p = await flow.build(rest, b);
     return { name: flow.name, title: flow.title, description: p.description, instructions: p.text };
   },
