@@ -6,7 +6,7 @@ import { PROFILE_SECTION_KEYS, PROFILE_USE_RULE } from "./company-profile";
 import { claudeMaySet } from "./mcp-read";
 import { ALIGN_RULE, TEAM_RULE } from "./flow-rules";
 import { FIELD_BY_KEY } from "./registry";
-import type { DocKind } from "./documents";
+import { DOC_KINDS, WORKSPACE_DOC_KINDS, type DocKind, type WorkspaceDocKind } from "./documents";
 import { VALUES_HEADING } from "./skill-extract";
 
 export type SkillStage = "direction" | "discover" | "define" | "deliver" | "launch" | "prove" | "run";
@@ -33,8 +33,10 @@ export type SkillSpec = {
   /** At most three; the draft-or-save question is added by the builder. */
   questions: readonly SkillQuestion[];
   sections: readonly SkillSection[];
-  /** The document this skill writes. */
-  doc: { kind: DocKind; titlePrefix: string };
+  /** The document this skill writes: on the initiative (target item) or, with no target, a workspace document. */
+  doc: { kind: DocKind | WorkspaceDocKind; titlePrefix: string };
+  /** A company-level skill may offer to save part of its result into a company profile section (an AI draft an admin confirms). */
+  profileSave?: { section: string; what: string };
   /** Initiative fields the skill may fill from its document (empty ones only). Slice 2 turns this into the extract. */
   fields: readonly string[];
   /** Skill-specific rules, after the shared ones. */
@@ -111,9 +113,10 @@ export function skillPrompt(spec: SkillSpec, args: SkillArgs): { description: st
     ...spec.reads.map((r, i) => `${i + 2}. ${r}`),
     `${spec.reads.length + 2}. Send ONE message: ${questions.length ? "the questions below (skip any the profile or workspace already answers), " : ""}what you could not fill (grouped, skippable) and the draft-or-save question. Wait for the answer.`,
     `${spec.reads.length + 3}. Write the document with the sections below.`,
-    `${spec.reads.length + 4}. ${draft ? "Show it and stop; save only when told to." : `Save it: create_document ${needsItem ? "on the initiative " : ""}with kind ${spec.doc.kind}, title "${spec.doc.titlePrefix}<name>", status draft.`}`,
-    ...(fills && !draft ? [`${spec.reads.length + 5}. Run apply_skill_extract with document set to the one you saved and preview true, and show the person what would be filled and what is left out. Only after they agree, run it again without preview. Fields that already hold a value come back as a diff for the person to confirm.`] : []),
-    `${spec.reads.length + (fills && !draft ? 6 : 5)}. Tell the person what you used, what you wrote, what is left "to define", that it is an AI draft, and who decides.`,
+    `${spec.reads.length + 4}. ${draft ? "Show it and stop; save only when told to." : `Save it: create_document ${needsItem ? "on the initiative " : "without item (a document of the workspace itself) "}with kind ${spec.doc.kind}, title "${spec.doc.titlePrefix}<name>", status draft.${needsItem ? "" : " Earlier documents of the same kind are not overwritten: a new one is a new document, unless the person says to revise one (update_document with its version)."}`}`,
+    ...(spec.profileSave && !draft ? [`${spec.reads.length + 5}. Offer once to save ${spec.profileSave.what} into the company profile section "${spec.profileSave.section}", so every later skill can use it. Only after they agree: get_company_profile for the current version, merge into what that section already holds (never remove what is there), and update_company_profile with that section only. It is saved as an AI draft; a workspace admin confirms it.`] : []),
+    ...(fills && !draft ? [`${spec.reads.length + 5 + (spec.profileSave && !draft ? 1 : 0)}. Run apply_skill_extract with document set to the one you saved and preview true, and show the person what would be filled and what is left out. Only after they agree, run it again without preview. Fields that already hold a value come back as a diff for the person to confirm.`] : []),
+    `${spec.reads.length + 5 + (fills && !draft ? 1 : 0) + (spec.profileSave && !draft ? 1 : 0)}. Tell the person what you used, what you wrote, what is left "to define", that it is an AI draft, and who decides.`,
     "",
     ...(questions.length ? ["QUESTIONS (one message, skippable)", ...questions.map((q, i) => `${i + 1}. ${q.ask}`), ""] : []),
     "RULES",
@@ -161,6 +164,9 @@ export function skillSpecProblems(spec: SkillSpec): string[] {
   for (const k of spec.profile) if (!PROFILE_SECTION_KEYS.includes(k)) p.push(`${spec.command}: unknown profile section ${k}`);
   for (const k of spec.fields) if (!FIELD_BY_KEY[k]) p.push(`${spec.command}: unknown field ${k}`);
   for (const k of spec.fields) if (FIELD_BY_KEY[k] && !claudeMaySet(k, "creator")) p.push(`${spec.command}: ${k} cannot be set by Claude`);
+  const kinds: readonly string[] = spec.target === "none" ? WORKSPACE_DOC_KINDS : DOC_KINDS;
+  if (!kinds.includes(spec.doc.kind)) p.push(`${spec.command}: kind ${spec.doc.kind} is not a ${spec.target === "none" ? "workspace" : "initiative"} document kind`);
+  if (spec.profileSave && !PROFILE_SECTION_KEYS.includes(spec.profileSave.section)) p.push(`${spec.command}: unknown profile section ${spec.profileSave.section}`);
   const ids = spec.sections.map((s) => s.id);
   if (new Set(ids).size !== ids.length) p.push(`${spec.command}: duplicate section ids`);
   return p;

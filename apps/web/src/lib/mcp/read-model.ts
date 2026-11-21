@@ -111,6 +111,8 @@ export type DocInfo = {
   characters: number; updated_at: string; approved_at: string | null;
   /** The AI tool (from the connection) and the model (as the assistant stated it) that last wrote the text; null for a person. */
   ai_tool: string | null; ai_model: string | null; body?: string;
+  /** "workspace" for a document that belongs to the workspace (item_code is then empty); absent for a document on an initiative. */
+  scope?: "workspace";
 };
 /** The company profile as stored (issue #269). `profile` is null until one exists. */
 export type CompanyProfileData = {
@@ -127,8 +129,8 @@ export type McpReader = {
   views: () => Promise<ViewInfo[]>;
   /** Files of one initiative, or null when that initiative does not exist; with no reference, files of the whole workspace (capped). */
   files: (ref?: string) => Promise<{ files: FileInfo[]; truncated: boolean } | null>;
-  /** Documents of one initiative (no text), or null when that initiative does not exist. */
-  documents: (ref: string) => Promise<DocInfo[] | null>;
+  /** Documents of one initiative (no text), or null when that initiative does not exist; with null, the documents of the workspace itself. */
+  documents: (ref: string | null) => Promise<DocInfo[] | null>;
   /** One document with its text, or null when it does not exist or cannot be read. */
   document: (id: string) => Promise<DocInfo | null>;
   /** The 30, 60 and 90 day outcome reviews of one initiative (all three checkpoints, recorded or not), or null when it does not exist or cannot be read. */

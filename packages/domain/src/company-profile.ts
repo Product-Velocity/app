@@ -13,6 +13,10 @@ export const PROFILE_SECTIONS: readonly ProfileSection[] = [
   { key: "competitors", title: "Key competitors", covers: "Competitors named in sources, and only what those sources publish about them. Never an invented claim." },
   { key: "partners", title: "Partners and third parties", covers: "Partners, vendors and platforms the company works with: what each offers and its value proposition as it states it, with the source and the date read. One block per partner; refreshed after 90 days." },
   { key: "glossary", title: "Glossary", covers: "Terms, product names, acronyms and lingo the company uses, with a plain meaning each. One per line: \"Term: meaning\"." },
+  { key: "vision", title: "Vision and mission", covers: "Where the company or product is going and why it exists, in the company's own words: the vision statement, the mission and who it is for. Only what the company states or a person said." },
+  { key: "strategy", title: "Strategy and principles", covers: "The few choices the company has made: what it focuses on, the principles that decide trade-offs, and what it will not do. Only what a person stated or a source says; never inferred." },
+  { key: "metrics", title: "North star and key metrics", covers: "The one metric that tells the company it is delivering value, the inputs that move it, the counter-metrics that keep it honest, and the units and names the company uses for them." },
+  { key: "conventions", title: "Planning conventions", covers: "How the company reads its own scales: what High, Medium and Low confidence mean, what each health colour means, the period reach is counted over, the capacity assumptions. Written by a person; Claude uses them and never invents them." },
   { key: "voice", title: "Voice and tone", covers: "How the company writes: formal or plain, words it likes, words it avoids." },
   { key: "sources", title: "Sources", covers: "Every page the profile rests on: URL and the date it was read. A statement without a source does not belong in the profile." },
 ];

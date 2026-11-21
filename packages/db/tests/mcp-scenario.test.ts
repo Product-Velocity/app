@@ -59,6 +59,7 @@ function sqlWriter(user: string, tenant: string, client = CLIENT): McpWriter {
   });
   const documents: McpDocuments = {
     async create(item, doc) {
+      if (!item) throw new ToolInputError("This scenario has no workspace documents.");
       try {
         return await as(async (q) => info((await q("insert into public.item_documents (tenant_id, item_id, kind, title, body, status, ai_model) values ($1, $2, $3, $4, $5, coalesce($6, 'draft'), $7) returning *", [tenant, item.id, doc.kind, doc.title, doc.body, doc.status ?? null, doc.ai_model ?? null])).rows[0]!, item.code));
       } catch { throw new ToolInputError("The database refused this: your role or this connection may not write here."); }

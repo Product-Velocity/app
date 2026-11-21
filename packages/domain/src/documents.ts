@@ -14,6 +14,17 @@ export const MAX_DOCS_PER_ITEM = 20;
 /** The AI model an assistant says it is (free text, advisory: it is what the assistant reports about itself). */
 export const MAX_AI_MODEL = 80;
 
+/** Documents that belong to the workspace, not to one initiative (issue #565, slice 3): the kinds of the workspace_documents table. */
+export const WORKSPACE_DOC_KINDS = ["vision", "strategy", "north_star", "competitive", "personas", "weekly_update", "release_notes", "quarter_plan", "other"] as const;
+export type WorkspaceDocKind = (typeof WORKSPACE_DOC_KINDS)[number];
+export const WORKSPACE_DOC_KIND_LABEL: Record<WorkspaceDocKind, string> = {
+  vision: "Product vision", strategy: "Product strategy", north_star: "North star metric", competitive: "Competitive analysis", personas: "Personas",
+  weekly_update: "Weekly update", release_notes: "Release notes", quarter_plan: "Quarter plan", other: "Other",
+};
+/** The label of any kind, of an initiative document or a workspace document. */
+export const docKindLabel = (kind: string): string =>
+  (DOC_KIND_LABEL as Record<string, string>)[kind] ?? (WORKSPACE_DOC_KIND_LABEL as Record<string, string>)[kind] ?? kind;
+
 export const DOC_KIND_LABEL: Record<DocKind, string> = {
   prd: "PRD", discovery: "Discovery", business_req: "Business requirements", tech_req: "Technical requirements", acceptance: "Acceptance criteria",
   prototype: "Prototype", research: "Research", design: "Design", premortem: "Pre-mortem", one_pager: "One-pager", success_metrics: "Success metrics", go_to_market: "Go-to-market", experiment: "Experiment", user_stories: "User stories", customer_evidence: "Customer evidence", meeting_notes: "Meeting notes", other: "Other",
@@ -25,10 +36,11 @@ export type DocCheck =
   | { ok: false; error: string };
 
 /** Checks what Claude (or the panel) sends. Messages are written for Claude and shown as they are. */
-export function checkDocumentInput(input: DocInput, opts: { requireTitle: boolean }): DocCheck {
+export function checkDocumentInput(input: DocInput, opts: { requireTitle: boolean; workspace?: boolean }): DocCheck {
+  const kinds: readonly string[] = opts.workspace ? WORKSPACE_DOC_KINDS : DOC_KINDS;
   const value: { kind?: DocKind; title?: string; body?: string; status?: "draft" | "in_review"; ai_model?: string | null } = {};
   if (input.kind !== undefined) {
-    if (typeof input.kind !== "string" || !(DOC_KINDS as readonly string[]).includes(input.kind)) return { ok: false, error: `kind must be one of: ${DOC_KINDS.join(", ")}.` };
+    if (typeof input.kind !== "string" || !kinds.includes(input.kind)) return { ok: false, error: `kind must be one of: ${kinds.join(", ")}${opts.workspace ? " (a workspace document; give item for a document on an initiative)" : ""}.` };
     value.kind = input.kind as DocKind;
   }
   if (input.title !== undefined || opts.requireTitle) {

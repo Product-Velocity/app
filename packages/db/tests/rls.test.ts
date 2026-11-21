@@ -539,6 +539,25 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "workspace_documents",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.workspace_documents set body = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.workspace_documents where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.workspace_documents (tenant_id, title) select $1, 'x' from public.workspace_documents where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.workspace_documents set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "workspace_document_versions",
+    tenantColumn: "tenant_id",
+    attacks: (v) => [
+      { sql: "update public.workspace_document_versions set body = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.workspace_document_versions where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.workspace_document_versions (tenant_id, document_id, version, title, body) select $1, document_id, 99, 'x', 'x' from public.workspace_document_versions where tenant_id = $1", params: [v.tenantId] },
+    ],
+  },
+  {
     table: "gate_reviews",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [
