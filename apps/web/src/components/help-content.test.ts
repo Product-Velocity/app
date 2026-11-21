@@ -263,3 +263,21 @@ describe("Help: the pv- skills table", () => {
     for (const r of AGENT_SKILLS.rows) expect(r.every((c) => c.length > 0)).toBe(true);
   });
 });
+
+describe("Help: which skill when, and the tips", () => {
+  it("lists every skill once under its stage, in lifecycle order, and the tips match what the product does", async () => {
+    const { AGENT_SKILL_STEPS, AGENT_SKILL_TIPS } = await import("./help-content");
+    const { SKILLS, SKILL_STAGE_LABEL } = await import("@pv/domain");
+    const listed = AGENT_SKILL_STEPS.rows.flatMap((r) => r[1]!.split(", "));
+    expect([...listed].sort()).toEqual(SKILLS.map((s) => s.command).sort());
+    const order = AGENT_SKILL_STEPS.rows.map((r) => r[0]);
+    expect(order).toEqual((Object.values(SKILL_STAGE_LABEL) as string[]).filter((l) => order.includes(l)));
+    for (const r of AGENT_SKILL_STEPS.rows) expect(r[2]!.length).toBeGreaterThan(20);
+    const tips = AGENT_SKILL_TIPS.join(" ");
+    expect(tips).toMatch(/research_company/);
+    expect(tips).toMatch(/--draft/);
+    expect(tips).toMatch(/--format=email/);
+    expect(tips).toMatch(/never goes to GitHub or Jira/);
+    expect(tips).toMatch(/Stack Rank, Value, Confidence, Decision and approvals are always yours/);
+  });
+});

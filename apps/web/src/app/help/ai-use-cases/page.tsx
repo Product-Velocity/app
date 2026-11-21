@@ -1,5 +1,5 @@
-import { AGENT_SKILLS, AGENT_USE_CASES } from "@/components/help-content";
-import { HelpPage, HelpSection, HelpTable } from "@/components/help/help-ui";
+import { AGENT_SKILL_STEPS, AGENT_SKILL_TIPS, AGENT_SKILLS, AGENT_USE_CASES } from "@/components/help-content";
+import { HelpList, HelpPage, HelpSection, HelpTable } from "@/components/help/help-ui";
 
 export const metadata = {
   title: "AI use-cases and documents · Help · Product Velocity",
@@ -14,7 +14,10 @@ export default function AiUseCasesHelp() {
       </HelpSection>
       <HelpSection id="skills" title="The pv- skills">
         <p>Start a skill with <code>pv-</code> and its name, then what it is about, for example <code>pv-premortem R-12</code>, <code>pv-strategy</code> or <code>pv-weekly --format=email</code>. In Claude and Gemini pick it from the prompt menu; in ChatGPT type it. Every skill reads the company profile and what Product Velocity already stores, and asks once. Every question can be skipped, and nothing is invented: what it cannot find stays &ldquo;to define&rdquo;. Add <code>--draft</code> to see the result before anything is saved. Skills never set Stack Rank, Value, Confidence or Decision and never approve; a person decides.</p>
-        <HelpTable caption="The skills, what they work on and what you get" table={AGENT_SKILLS} />
+        <HelpTable caption="Which skill when, along the product life cycle" table={AGENT_SKILL_STEPS} />
+        <HelpTable caption="Every skill, what it works on and what you get" table={AGENT_SKILLS} />
+        <h3>Getting the most out of them</h3>
+        <HelpList items={AGENT_SKILL_TIPS} />
       </HelpSection>
       <HelpSection id="documents" title="Where documents are used along the lifecycle">
         <HelpTable

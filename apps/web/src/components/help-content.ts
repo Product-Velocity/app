@@ -11,6 +11,36 @@ function skillResult(s: (typeof SKILLS)[number]): string {
   return [where, s.profileSave ? `after you agree, the relevant part can be added to the company profile (${s.profileSave.section}; an admin confirms it)` : "", fields.length ? `empty fields it can fill from the document after you agree: ${fields.join(", ")}` : ""].filter(Boolean).join("; ");
 }
 
+const STAGE_HINT: Record<string, string> = {
+  direction: "Before roadmap decisions: where the product is going, how big the market is and what counts as success. These write company-level documents and can add the confirmed result to the company profile",
+  discover: "When you are learning what customers need: personas, and the tree that leads from an outcome to opportunities and ideas",
+  decide: "When a choice has to be made and defended: the case for it",
+  define: "When an idea becomes a plan: the one-pager, the PR/FAQ, a prototype test card and the pre-mortem before a gate",
+  deliver: "When the team starts to build: stories with acceptance scenarios",
+  launch: "When it is about to reach customers: the go-to-market plan, release notes and what is known about competitors",
+  prove: "When you need to know whether it worked: success metrics and experiments",
+  run: "Every week or quarter: the weekly update and the quarter plan",
+};
+
+/** Which skill to reach for at which point, generated from the catalogue (stages in lifecycle order). */
+export const AGENT_SKILL_STEPS: Table = {
+  head: ["When", "Skills", "Use them when"],
+  rows: (Object.keys(SKILL_STAGE_LABEL) as (keyof typeof SKILL_STAGE_LABEL)[])
+    .filter((st) => SKILLS.some((s) => s.stage === st))
+    .map((st) => [SKILL_STAGE_LABEL[st], SKILLS.filter((s) => s.stage === st).map((s) => s.command).join(", "), STAGE_HINT[st] ?? ""]),
+};
+
+/** How to get the most out of the skills, in the order a person meets it. */
+export const AGENT_SKILL_TIPS: string[] = [
+  "Start with the company profile: ask the assistant to run research_company, and an admin confirms it. Every skill reads it, so what it writes sounds like your company. The direction skills (pv-vision, pv-strategy, pv-northstar, pv-compete, pv-personas, pv-canvas) can then add what you confirm to the profile, which later skills use instead of asking again.",
+  "Answer the one message of questions, and skip what you do not know. Nothing is invented: a gap stays \"to define\" and is listed so you can fill it later.",
+  "Add --draft to see the result in the chat before anything is saved. The report skills (pv-weekly, pv-release-notes) take --format=email, slides, document, slack or chat and save nothing unless you ask for a copy.",
+  "Results land where they belong: a skill that works on an initiative saves on its Spec tab, a company-level skill saves under Documents in the account menu, and a report is delivered in the format you chose. Document text never goes to GitHub or Jira.",
+  "A skill fills initiative fields only from a short block at the end of its document, only after you have seen a preview and agreed, and a field that already has a value comes back as a before-and-after to confirm. Stack Rank, Value, Confidence, Decision and approvals are always yours.",
+  "To change a saved document, ask the assistant to revise it: the old version is kept. Ask it to run the skill again only when the facts have changed.",
+  "Skills prepare; people decide. Every document says who decides, and gates stay in the app.",
+];
+
 /** One row per skill, generated from the catalogue (packages/domain/src/skills-catalog.ts): a new skill shows up here, with its result, without anyone editing this file. */
 export const AGENT_SKILLS: Table = {
   head: ["Skill", "What it does", "Works on", "You get"],
