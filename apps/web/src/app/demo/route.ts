@@ -14,12 +14,16 @@ export async function GET(request: NextRequest) {
   const password = process.env.DEMO_VIEWER_PASSWORD;
   const tenantId = process.env.DEMO_TENANT_ID;
   if (!email || !password || !tenantId) {
-    return NextResponse.redirect(new URL("/?demo=unavailable", request.url), 303);
+    console.error("[/demo] missing env", { hasEmail: !!email, hasPassword: !!password, hasTenantId: !!tenantId });
+    return NextResponse.redirect(new URL("/?demo=unavailable&reason=env", request.url), 303);
   }
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return NextResponse.redirect(new URL("/?demo=unavailable", request.url), 303);
+  if (error) {
+    console.error("[/demo] sign-in failed", { status: error.status, code: error.code, message: error.message });
+    return NextResponse.redirect(new URL(`/?demo=unavailable&reason=${encodeURIComponent(error.code ?? String(error.status ?? "sign-in"))}`, request.url), 303);
+  }
   await rememberTenant(tenantId);
   return NextResponse.redirect(new URL("/portfolio", request.url), 303);
 }
