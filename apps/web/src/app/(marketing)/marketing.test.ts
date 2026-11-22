@@ -47,6 +47,18 @@ describe("homepage copy follows the claims rules (docs/17, brand guide)", () => 
     expect(h).toContain("Agentic product management platform");
     expect(h.match(/<h1[ >]/g)).toHaveLength(1);
   });
+  it("tells the story in eight chapters with a four-link header and a menu for small screens (issue #578)", () => {
+    const h = renderToStaticMarkup(createElement(Home, { viewer: null }));
+    for (const id of ["problem", "what", "how", "usecases", "velocity", "changes", "trust", "early-access"]) expect(h).toContain(`id="${id}"`);
+    const nav = /<nav aria-label="Main">([\s\S]*?)<\/nav>/.exec(h)![1]!;
+    expect(nav.match(/<a /g)).toHaveLength(4);
+    expect(h).toContain('class="burger"');
+    expect(h).toContain("One roadmap for humans and their AI.");
+    for (const tab of ["Align", "Decide", "Deliver", "Report", "Learn"]) expect(h).toContain(`>${tab}</button>`);
+  });
+  it("velocity is team level only", () => {
+    expect(artV2.toLowerCase()).toContain("team-level only, never individuals");
+  });
 });
 
 describe("search and AI crawler files", () => {
@@ -75,7 +87,9 @@ describe("search and AI crawler files", () => {
   it("llms-full.txt carries the homepage sections as plain text", async () => {
     const t = await llmsFull().text();
     expect(t).toContain("# Product Velocity: agentic product management platform");
-    expect(t).toContain("## Not another Jira");
+    expect(t).toContain("## The PM connects the dots. Now there are more of them, and they move faster.");
+    expect(t).toContain("## See where the time goes, before leadership asks.");
+    expect(t).toContain("### Align");
     expect(t).not.toContain("<");
     expect(t).not.toMatch(/password|secret|api[_ -]?key/i);
     expect(sectionText("<h2>A &amp; B</h2><p class=\"lead2\">Text</p><ul><li>One</li></ul>")).toBe("## A & B\n\nText\n\n- One");
