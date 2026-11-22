@@ -23,7 +23,7 @@ Portal: https://claude.ai/directory/manage, **Submit new**, **MCP connector**. A
 - Documentation URL: `https://productvelocity.app/connector`
 - Privacy policy URL: `https://productvelocity.app/privacy`
 - Support contact: Ashu Mathura, ashu.mathura@gmail.com
-- Icon: `apps/web/public/brand/icon-192.png` (the tile mark; the larger `apps/web/src/app/icon.png` is 512 px). Vector: `apps/web/public/brand/pv-mark.svg`.
+- Icon: `apps/web/public/brand/icon-192.png` (the tile mark; the larger `apps/web/src/app/icon.png` is 512 px). Vector: `apps/web/public/brand/pv-mark.svg`. The server itself also lists the animated Rank loader (`apps/web/public/brand/pv-rank-loader.svg`) first in `serverInfo.icons`, as a trial (`docs/decisions/2026-11-22-connector-animated-icon.md`); the portal icon above is separate.
 - Slug: `product-velocity` (permanent once published).
 
 ```

@@ -56,7 +56,7 @@ describe("handleRpc", () => {
   it("initialize names the server and points to the brand icons on this deployment's address", async () => {
     const r = (await handleRpc({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18" } }, { ...backend(), origin: "https://pv.example" })) as { result: { serverInfo: { title: string; websiteUrl: string; icons: { src: string; mimeType: string }[] } } };
     expect(r.result.serverInfo).toMatchObject({ title: "Product Velocity", websiteUrl: "https://pv.example" });
-    expect(r.result.serverInfo.icons.map((i) => i.src)).toEqual(["https://pv.example/icon.svg", "https://pv.example/icon.png", "https://pv.example/brand/icon-192.png"]);
+    expect(r.result.serverInfo.icons.map((i) => i.src)).toEqual(["https://pv.example/brand/pv-rank-loader.svg", "https://pv.example/icon.svg", "https://pv.example/icon.png", "https://pv.example/brand/icon-192.png"]);
   });
   it("lists the write_prd prompt and returns the template with the brief quoted as data", async () => {
     const l = (await handleRpc({ jsonrpc: "2.0", id: 5, method: "prompts/list" }, backend())) as { result: { prompts: { name: string; arguments: { name: string; required: boolean }[] }[] } };
