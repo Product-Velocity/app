@@ -325,7 +325,7 @@
 @media (prefers-reduced-motion:reduce){.pv2 .rank rect{animation:none}}
 .pv2 form.ea .btn{min-height:44px;padding:0 22px;font-size:15px;font-weight:600}
 
-/* Chapter 3 funnel strip (issue #582) */
+/* Chapter 3 funnel strip (issue #583) */
 .pv2 .funnel{margin-top:44px;display:grid;gap:14px}.pv2 .funnel .fh{display:flex;gap:14px;align-items:baseline;flex-wrap:wrap}
 .pv2 .fsteps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:22px}.pv2 .fsteps .mc{position:relative}.pv2 .fsteps .mc+.mc::before{content:"";position:absolute;left:-22px;top:50%;width:22px;border-top:2px solid var(--accent)}
 .pv2 .floop{border:2px dashed var(--accent);border-top:0;border-radius:0 0 12px 12px;height:30px;margin:0 6%;position:relative}.pv2 .floop span{position:absolute;left:50%;bottom:-11px;transform:translateX(-50%);background:var(--bg2,var(--bg));padding:0 12px;font:500 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--accent-text);white-space:nowrap}
