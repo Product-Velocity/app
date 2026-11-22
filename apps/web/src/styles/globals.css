@@ -1612,3 +1612,49 @@ a.btn.btn-primary { color: #fff; }
 .gh-kpi-sub { font-size: 11.5px; }
 .gh-lately { list-style: none; margin: 6px 0 4px; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
 @media (max-width: 640px) { .gh-row { grid-template-columns: 1fr auto; } .gh-gate, .gh-track { display: none; } }
+
+/* Needs attention and Decisions as lists on the shared grid (Ashu, 2026-11-22): toolbar, filter pop-ups, the grid and its peek */
+.lst-summary { margin: 4px 0 10px; font-size: 13px; color: var(--ink-muted, #4b5260); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lst-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; }
+.lst-spacer { flex: 1 1 auto; }
+.lst-search input { height: 30px; width: 280px; max-width: 100%; padding: 0 10px; border: 1px solid var(--border-strong, #cfd5e3); border-radius: 6px; font: inherit; background: var(--bg); }
+.lst-search input:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.lst-btn { height: 30px; padding: 0 10px; border: 1px solid var(--border-strong, #cfd5e3); border-radius: 6px; background: var(--bg); font: inherit; cursor: pointer; color: var(--ink); }
+.lst-btn:hover:not(:disabled) { background: var(--grey-3); }
+.lst-btn:disabled { opacity: .55; cursor: default; }
+.lst-btn.is-on { border-color: var(--blue); background: var(--blue-tint-1); color: var(--blue-text); font-weight: 500; }
+.lst-count { font-weight: 600; }
+.lst-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; cursor: pointer; }
+.lst-pop { position: relative; }
+.lst-panel { position: absolute; top: calc(100% + 4px); left: 0; z-index: 40; min-width: 230px; max-width: 360px; max-height: 340px; overflow: auto; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border-strong, #cfd5e3); border-radius: 8px; box-shadow: 0 6px 18px rgba(17, 24, 39, .14); }
+.lst-panel-right { left: auto; right: 0; }
+.lst-options { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 2px; font-size: 13px; }
+.lst-options label { display: flex; align-items: center; gap: 8px; padding: 3px 2px; cursor: pointer; }
+.lst-options label > span:first-of-type { flex: 1 1 auto; }
+.lst-n { font-variant-numeric: tabular-nums; }
+.lst-empty { margin: 4px 0; font-size: 12px; }
+.lst-views li { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.lst-x { border: 0; background: none; cursor: pointer; color: var(--ink-muted, #5b6272); font-size: 16px; line-height: 1; padding: 0 4px; }
+.lst-save { display: flex; gap: 6px; margin: 6px 0; }
+.lst-save input { flex: 1 1 auto; min-width: 0; height: 28px; padding: 0 8px; border: 1px solid var(--border-strong, #cfd5e3); border-radius: 6px; font: inherit; }
+.lst-chips { margin: 4px 0 8px; align-items: center; }
+.lst-zero { margin-left: 8px; font-size: 12px; }
+.lst-body { display: flex; gap: 0; align-items: stretch; min-height: 0; }
+.lst-grid { flex: 1 1 auto; min-width: 0; height: calc(100vh - 330px); min-height: 360px; }
+.lst-body > .item-panel, .lst-body > .decisions-pack { flex: 0 0 auto; }
+.lst-body > .decisions-pack { width: 360px; max-width: 40vw; margin-left: 12px; align-self: flex-start; max-height: calc(100vh - 330px); overflow: auto; }
+.lst .ag-row.lst-active { background: var(--blue-tint-2); }
+.lst .ag-row.lst-snoozed { opacity: .7; }
+.lst-name { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--blue-text); text-decoration: none; vertical-align: middle; }
+.lst-name:hover { text-decoration: underline; }
+.lst-pills { display: inline-flex; gap: 4px; align-items: center; }
+.lst-act { display: inline-flex; gap: 6px; align-items: center; }
+.lst-small { height: 26px; padding: 0 9px; font-size: 12.5px; }
+.lst-go { border-color: var(--blue); color: var(--blue-text); font-weight: 500; }
+.lst-warn { color: var(--amber-text, #7a4a00); font-size: 12.5px; flex-basis: 100%; }
+.lst-foot { margin: 8px 0 0; font-size: 12px; }
+.lst-radios { border: 0; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.lst-radios label, .lst-note { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.lst-note { flex-direction: column; align-items: stretch; gap: 4px; }
+.lst-note input { height: 30px; padding: 0 8px; border: 1px solid var(--border-strong, #cfd5e3); border-radius: 6px; font: inherit; }
+@media (max-width: 900px) { .lst-search input { width: 100%; } .lst-body { flex-direction: column; } .lst-body > .decisions-pack { width: auto; max-width: none; margin: 12px 0 0; } }

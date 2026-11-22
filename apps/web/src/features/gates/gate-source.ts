@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { gateErrorText, type ChecklistItem, type GateId, type GateOutcome, type GateRequest, type OutcomeReview } from "@pv/domain";
+import { gateErrorText, type AttentionKind, type ChecklistItem, type GateId, type GateOutcome, type GateRequest, type OutcomeReview, type Snooze } from "@pv/domain";
 
 /** One gate decision as the approver gives it. */
 export type Decision = {
@@ -22,6 +22,8 @@ export interface GateSource {
   myGates(): Promise<GateId[]>;
   /** The documents of an item, for the checklist. */
   loadDocs(itemId: string): Promise<{ kind: string; status: string }[]>;
+  /** The documents (kind and status only, never the text) of many items at once, for the Checklist column of the Decisions grid. */
+  loadDocsFor(itemIds: string[]): Promise<Record<string, { kind: string; status: string }[]>>;
   requestGate(gate: GateId, items: { item: string; ready: boolean; criteria: ChecklistItem[]; /** The people to ask; empty asks everyone who can decide. */ preferred?: string[] }[]): Promise<ItemResult[]>;
   decide(reviewIds: string[], d: Decision): Promise<(ItemResult & { phase?: string; fastLane?: boolean })[]>;
   move(itemId: string, to: string): Promise<{ ok: true } | { ok: false; error: string }>;
@@ -40,6 +42,12 @@ export interface GateSource {
   /** Asks the Product Manager (else the creator) for the metrics of a checkpoint; they get a notification. */
   requestOutcomeReview(itemId: string, days: number): Promise<{ ok: true } | { ok: false; error: string }>;
   recordOutcomeReview(itemId: string, days: number, v: { value: number | null; adoption: number | null; note: string }): Promise<{ ok: true } | { ok: false; error: string }>;
+  /** Needs attention: the reasons someone snoozed or dismissed. Only a view filter; nothing about an initiative changes. */
+  loadSnoozes(): Promise<Snooze[]>;
+  /** Snoozes (until a date) or dismisses (`until` null) one reason on each initiative; asking again changes the date. */
+  snooze(itemIds: string[], kind: AttentionKind, until: string | null, note?: string): Promise<{ ok: true } | { ok: false; error: string }>;
+  /** Brings a snoozed or dismissed reason back. */
+  unsnooze(itemIds: string[], kind: AttentionKind): Promise<{ ok: true } | { ok: false; error: string }>;
 }
 
 type DbError = { code?: string; message?: string } | null;
@@ -66,6 +74,16 @@ export class SupabaseGateSource implements GateSource {
     const { data, error } = await this.client.from("item_documents").select("kind,status").eq("tenant_id", this.tenantId).eq("item_id", itemId);
     if (error) throw new Error(text(error));
     return (data ?? []) as { kind: string; status: string }[];
+  }
+
+  async loadDocsFor(itemIds: string[]) {
+    const out: Record<string, { kind: string; status: string }[]> = {};
+    for (let i = 0; i < itemIds.length; i += 100) {
+      const { data, error } = await this.client.from("item_documents").select("item_id,kind,status").eq("tenant_id", this.tenantId).in("item_id", itemIds.slice(i, i + 100));
+      if (error) throw new Error(text(error));
+      for (const d of (data ?? []) as { item_id: string; kind: string; status: string }[]) (out[d.item_id] ??= []).push({ kind: d.kind, status: d.status });
+    }
+    return out;
   }
 
   async requestGate(gate: GateId, items: { item: string; ready: boolean; criteria: ChecklistItem[]; preferred?: string[] }[]): Promise<ItemResult[]> {
@@ -142,6 +160,23 @@ export class SupabaseGateSource implements GateSource {
     return error ? { ok: false as const, error: text(error) } : { ok: true as const };
   }
 
+  async loadSnoozes(): Promise<Snooze[]> {
+    const { data, error } = await this.client.from("attention_snoozes").select("item_id,kind,snoozed_until,note").eq("tenant_id", this.tenantId).limit(5000);
+    if (error) throw new Error(text(error));
+    return (data ?? []) as Snooze[];
+  }
+
+  async snooze(itemIds: string[], kind: AttentionKind, until: string | null, note?: string) {
+    // one function call: an existing snooze of the same reason changes its date (the unique key is workspace, initiative, reason); RLS decides who may
+    const { error } = await this.client.rpc("snooze_attention", { p_tenant: this.tenantId, p_items: itemIds, p_kind: kind, p_until: until, p_note: note?.trim() || null });
+    return error ? { ok: false as const, error: text(error) } : { ok: true as const };
+  }
+
+  async unsnooze(itemIds: string[], kind: AttentionKind) {
+    const { error } = await this.client.from("attention_snoozes").delete().eq("tenant_id", this.tenantId).eq("kind", kind).in("item_id", itemIds);
+    return error ? { ok: false as const, error: text(error) } : { ok: true as const };
+  }
+
   async loadOutcomeReviews(): Promise<OutcomeReview[]> {
     const { data, error } = await this.client.from("outcome_reviews").select("id,item_id,at_days,due_on,requested_at,requested_to,realised_kr_value,adoption_pct,notes,recorded_at").eq("tenant_id", this.tenantId).limit(5000);
     if (error) throw new Error(text(error));
@@ -166,6 +201,19 @@ export class MemoryGateSource implements GateSource {
   async loadRequests() { return this.requests.map((r) => ({ ...r })); }
   async myGates() { return [...this.can]; }
   async loadDocs() { return [...this.docs]; }
+  async loadDocsFor(ids: string[]) { return Object.fromEntries(ids.map((id) => [id, [...this.docs]])); }
+  snoozes: Snooze[] = [];
+  async loadSnoozes() { return this.snoozes.map((z) => ({ ...z })); }
+  async snooze(itemIds: string[], kind: AttentionKind, until: string | null, note?: string) {
+    this.calls.push(`snooze ${itemIds.join(",")} ${kind} ${until ?? "dismissed"}`);
+    for (const item_id of itemIds) { this.snoozes = this.snoozes.filter((z) => !(z.item_id === item_id && z.kind === kind)); this.snoozes.push({ item_id, kind, snoozed_until: until, note: note ?? null }); }
+    return { ok: true as const };
+  }
+  async unsnooze(itemIds: string[], kind: AttentionKind) {
+    this.calls.push(`unsnooze ${itemIds.join(",")} ${kind}`);
+    this.snoozes = this.snoozes.filter((z) => !(itemIds.includes(z.item_id) && z.kind === kind));
+    return { ok: true as const };
+  }
   lastPreferred: string[] = [];
   async requestGate(gate: GateId, items: { item: string; ready: boolean; criteria: ChecklistItem[]; preferred?: string[] }[]) {
     this.calls.push(`request ${gate} ${items.length}`);

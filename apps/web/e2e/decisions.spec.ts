@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 const openDecisions = async (page: Page, can = "A,B,C") => {
   await page.goto(`/dev/decisions?can=${can}`);
-  await page.waitForSelector(".decisions-table");
+  await page.waitForSelector(".ag-row");
 };
 const openGrid = async (page: Page) => {
   await page.goto("/dev/grid?n=12&role=admin&gates=1");
@@ -13,25 +13,35 @@ const openGrid = async (page: Page) => {
 // the grid page keeps the gate source in __pv.gates, the Decisions page in __pv.source
 const calls = (page: Page) => page.evaluate(() => { const pv = (window as unknown as { __pv: { source?: { calls: string[] }; gates?: { calls: string[] } } }).__pv; return (pv.gates ?? pv.source)!.calls; });
 
+/** A request's name is pinned left, its buttons pinned right, the rest in the middle; they share one row id. */
+const names = (page: Page) => page.locator(".ag-pinned-left-cols-container .lst-name");
+const centre = (page: Page, id: string) => page.locator(`.ag-center-cols-container [row-id="${id}"]`);
+const decide = (page: Page, id: string) => page.locator(`.ag-pinned-right-cols-container [row-id="${id}"]`);
+const pick = (page: Page, code: string) => names(page).filter({ hasText: code }).click();
+
 test.describe("the Decisions screen", () => {
   test("lists what waits, newest first, about gates and not about one person", async ({ page }) => {
     await openDecisions(page);
     await expect(page.getByRole("heading", { name: "Decisions" })).toBeVisible();
     await expect(page.getByRole("tab", { name: /Waiting for approval \(4\)/ })).toHaveAttribute("aria-selected", "true");
-    const first = page.locator(".decisions-table tbody tr");
-    await expect(first).toHaveCount(4);
-    await expect(first.first()).toContainText("R-03");
-    await expect(first.first()).toContainText("Gate B: Define to Build");
-    // who can decide is a column, not an assumption that one person approves
-    await expect(first.first()).toContainText("ana, bo");
+    await expect(names(page)).toHaveText([/R-03/, /R-02/, /R-04/, /R-01/]);
+    await expect(centre(page, "r3")).toContainText("Gate B: Define to Build");
+    // how long it has waited is about the request; a long wait is a word as well as a colour
+    await expect(centre(page, "r1")).toContainText("4 days");
+    await expect(centre(page, "r3")).toContainText("1 day");
+    await expect(centre(page, "r2")).toContainText("2 of 3 · incomplete");
+    await expect(centre(page, "r1")).toContainText("2 of 2 · complete");
     await expect(page.locator(".tab-badge").first()).toContainText("4");
+    // no column or sort ranks the people who decide
+    await expect(page.getByRole("columnheader", { name: /decided by|approver/i })).toHaveCount(0);
   });
 
-  test("the gate pack shows the checklist and the documents; J and K move; the filters work", async ({ page }) => {
+  test("the gate pack shows the checklist and the documents; J and K move; the tabs work", async ({ page }) => {
     await openDecisions(page);
-    await page.locator(".decisions-table tbody tr").nth(0).click();
+    await pick(page, "R-03");
     const pack = page.getByRole("complementary", { name: "Gate pack" });
     await expect(pack).toContainText("R-03 Search relevance");
+    await expect(pack).toContainText("Who can decide: ana, bo");
     await page.keyboard.press("j");
     await expect(pack).toContainText("R-02 New checkout flow");
     await expect(pack).toContainText("MoSCoW set");
@@ -39,20 +49,38 @@ test.describe("the Decisions screen", () => {
     await expect(pack).toContainText("prd (in review)");
     await expect(pack).toContainText("Customers who see the new checkout convert more.");
     await page.getByRole("tab", { name: "Decided" }).click();
-    await expect(page.locator(".decisions-table tbody tr")).toHaveCount(1);
-    await page.locator(".decisions-table tbody tr").click();
+    await expect(names(page)).toHaveCount(1);
+    await expect(centre(page, "r5")).toContainText("Go · Fast lane".replace(" · Fast lane", ""));
+    await pick(page, "R-05");
     await expect(pack).toContainText("Tiny change, ship it");
     await expect(pack).toContainText("Skipped phases: Build, Test, Experiment");
     await page.getByRole("tab", { name: "Requested by me" }).click();
-    await expect(page.locator(".decisions-table tbody tr")).toHaveCount(1); // r3 was requested by u1
+    await expect(names(page)).toHaveCount(1); // r3 was requested by u1
     await page.getByRole("tab", { name: /Can decide/ }).click();
-    await expect(page.locator(".decisions-table tbody tr")).toHaveCount(4);
+    await expect(names(page)).toHaveCount(4);
+  });
+
+  test("search, gate filter and the quick filters narrow the list", async ({ page }) => {
+    await openDecisions(page);
+    await page.getByRole("searchbox", { name: "Search Decisions" }).fill("referral");
+    await expect(names(page)).toHaveText([/R-04/]);
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    await page.getByRole("button", { name: /^Gate/ }).click();
+    await page.getByRole("checkbox", { name: /Gate A/ }).check();
+    await expect(names(page)).toHaveText([/R-01/]);
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    await page.getByRole("checkbox", { name: /Incomplete checklist/ }).check();
+    await expect(names(page)).toHaveText([/R-03/, /R-02/, /R-04/]);
+    await page.getByRole("checkbox", { name: /Incomplete checklist/ }).uncheck();
+    await page.getByRole("columnheader", { name: "Initiative" }).click();
+    await expect(names(page).first()).toContainText("R-01");
   });
 
   test("Go needs a rationale; the first decision is recorded and the request leaves the waiting list", async ({ page }) => {
     await openDecisions(page);
-    await page.locator(".decisions-table tbody tr").filter({ hasText: "R-02" }).click();
-    await page.getByRole("button", { name: /^Go\b/ }).first().click();
+    await pick(page, "R-02");
+    await page.getByRole("complementary", { name: "Gate pack" }).getByRole("button", { name: /^Go\b/ }).first().click();
     const dialog = page.getByRole("dialog", { name: "Decide 1 request" });
     const go = dialog.getByRole("button", { name: "Go for 1" });
     await expect(go).toBeDisabled();
@@ -65,9 +93,19 @@ test.describe("the Decisions screen", () => {
     expect(await calls(page)).toContain("decide go 1");
   });
 
+  test("a row has its own quick buttons: Go opens the dialog already on Go", async ({ page }) => {
+    await openDecisions(page);
+    await decide(page, "r4").getByRole("button", { name: "Hold" }).click();
+    const dialog = page.getByRole("dialog", { name: "Decide 1 request" });
+    await expect(dialog.getByRole("radio", { name: /Hold/ })).toBeChecked();
+    await page.keyboard.press("Escape");
+    await decide(page, "r4").getByRole("button", { name: "Go", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Decide 1 request" }).getByRole("radio", { name: /^Go\b/ })).toBeChecked();
+  });
+
   test("the keyboard decides: S opens the Stop dialog; conditions are required for Go with conditions", async ({ page }) => {
     await openDecisions(page);
-    await page.locator(".decisions-table tbody tr").filter({ hasText: "R-04" }).click();
+    await pick(page, "R-04");
     await page.keyboard.press("s");
     const dialog = page.getByRole("dialog", { name: "Decide 1 request" });
     await expect(dialog.getByRole("radio", { name: /Stop/ })).toBeChecked();
@@ -82,8 +120,8 @@ test.describe("the Decisions screen", () => {
 
   test("fast lane is a recorded choice with no check: pick a later phase and say so", async ({ page }) => {
     await openDecisions(page);
-    await page.locator(".decisions-table tbody tr").filter({ hasText: "R-03" }).click();
-    await page.getByRole("button", { name: /^Go\b/ }).first().click();
+    await pick(page, "R-03");
+    await page.getByRole("complementary", { name: "Gate pack" }).getByRole("button", { name: /^Go\b/ }).first().click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel(/Rationale/).fill("Tiny, ship it");
     await dialog.getByLabel(/Fast lane/).check();
@@ -95,27 +133,53 @@ test.describe("the Decisions screen", () => {
 
   test("someone without rights for a gate sees who can decide and no decision buttons", async ({ page }) => {
     await openDecisions(page, "A");
-    await page.locator(".decisions-table tbody tr").filter({ hasText: "R-02" }).click();
+    await pick(page, "R-02");
     const pack = page.getByRole("complementary", { name: "Gate pack" });
     await expect(pack).toContainText("You do not have approval rights for gate B");
     await expect(pack.getByRole("button", { name: /^Go\b/ })).toHaveCount(0);
+    await expect(decide(page, "r2")).toContainText("Not yours to decide");
+    await expect(page.locator('.ag-pinned-left-cols-container [row-id="r2"] input[type="checkbox"]')).toBeDisabled();
     await page.getByRole("tab", { name: /Can decide/ }).click();
-    await expect(page.locator(".decisions-table tbody tr")).toHaveCount(1);
+    await expect(names(page)).toHaveCount(1);
   });
 
-  test("selecting several requests decides them together with one rationale", async ({ page }) => {
+  test("selecting several requests decides them together with one rationale, and warns about an incomplete checklist", async ({ page }) => {
     await openDecisions(page);
-    for (const code of ["R-02", "R-03"]) await page.locator(".decisions-table tbody tr").filter({ hasText: code }).getByRole("checkbox").check();
-    await page.getByRole("region", { name: "Decide the selected requests" }).getByRole("button", { name: "Decide 2…" }).click();
+    for (const id of ["r2", "r3"]) await page.locator(`.ag-pinned-left-cols-container [row-id="${id}"] input[type="checkbox"]`).check();
+    const bar = page.getByRole("region", { name: "Decide the selected requests" });
+    await expect(bar).toContainText("2 selected");
+    await expect(bar).toContainText("2 of the selected have an incomplete checklist");
+    await bar.getByRole("button", { name: "Decide 2…" }).click();
     const dialog = page.getByRole("dialog", { name: "Decide 2 requests" });
     await dialog.getByLabel(/Rationale/).fill("Batch approved at planning");
     await dialog.getByRole("button", { name: "Go for 2" }).click();
     await expect(dialog).toContainText("2 of 2 done");
   });
 
+  test("a bulk Hold opens the dialog on Hold, and a CSV of the rows can be downloaded", async ({ page }) => {
+    await openDecisions(page);
+    for (const id of ["r1", "r4"]) await page.locator(`.ag-pinned-left-cols-container [row-id="${id}"] input[type="checkbox"]`).check();
+    await page.getByRole("region", { name: "Decide the selected requests" }).getByRole("button", { name: "Hold…" }).click();
+    await expect(page.getByRole("dialog", { name: "Decide 2 requests" }).getByRole("radio", { name: /Hold/ })).toBeChecked();
+    await page.keyboard.press("Escape");
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download CSV" }).click()]);
+    expect(download.suggestedFilename()).toMatch(/^decisions-.*\.csv$/);
+    const text = (await (await download.createReadStream())!.toArray()).join("");
+    expect(text.split("\n")).toHaveLength(3); // the header and the two selected rows
+    expect(text).toContain("R-01");
+  });
+
+  test("a request with no recorded requester says so instead of 'unknown'", async ({ page }) => {
+    await openDecisions(page);
+    await page.getByRole("button", { name: /^Columns/ }).click();
+    await page.getByRole("checkbox", { name: "Requested by" }).check();
+    await page.keyboard.press("Escape");
+    await expect(page.locator("body")).not.toContainText("unknown");
+  });
+
   test("has no accessibility violations", async ({ page }) => {
     await openDecisions(page);
-    await page.locator(".decisions-table tbody tr").first().click();
+    await pick(page, "R-03");
     const r = await new AxeBuilder({ page }).analyze();
     expect(r.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
   });
