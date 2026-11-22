@@ -19,6 +19,7 @@ export * from "./related";
 export * from "./gantt";
 export * from "./cards";
 export * from "./cards-views";
+export * from "./card-fields";
 export * from "./leadership";
 export * from "./leadership-digest";
 export * from "./update-format";

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   compareVersions,
+  formatReleaseDate,
+  groupReleases,
   hasVersionUpdate,
+  inferReleaseType,
   parseReleaseLog,
   releasesSince,
   splitReleaseCell,
@@ -31,9 +34,39 @@ describe("app-version helpers", () => {
       date: "2026-11-09",
       title: "Manual update prompt and What's new dialog",
       summary: "Manual update prompt and What's new dialog. The app checks for newly deployed versions and offers a Refresh button and release summary.",
+      body: "The app checks for newly deployed versions and offers a Refresh button and release summary.",
+      type: "improved",
       pr: "#370",
     });
     expect(entries[1]?.version).toBe("0.113.0");
+  });
+
+  it("reads the type mark and keeps the description apart from the title", () => {
+    const out = splitReleaseCell("<!--type:new--> **Dark mode.** Switch it on in Settings.");
+    expect(out).toEqual({ title: "Dark mode", summary: "Dark mode. Switch it on in Settings.", body: "Switch it on in Settings.", type: "new" });
+  });
+
+  it("classifies entries without a mark from their wording", () => {
+    expect(inferReleaseType("Fix: the button was invisible")).toBe("fixed");
+    expect(inferReleaseType("Fixed sign in")).toBe("fixed");
+    expect(inferReleaseType("New homepage story")).toBe("new");
+    expect(inferReleaseType("Gantt opens on today")).toBe("improved");
+    expect(inferReleaseType("Prefix of a word")).toBe("improved");
+  });
+
+  it("writes dates in full and leaves anything else alone", () => {
+    expect(formatReleaseDate("2026-11-22")).toBe("22 November 2026");
+    expect(formatReleaseDate("2026-01-05")).toBe("5 January 2026");
+    expect(formatReleaseDate("soon")).toBe("soon");
+  });
+
+  it("groups by date, then by type in a fixed order, leaving out empty groups", () => {
+    const e = (version: string, date: string, type: "new" | "improved" | "fixed" | "retired" | "security") => ({ version, date, title: version, summary: version, body: "", type, pr: "" });
+    const days = groupReleases([e("3", "2026-11-22", "fixed"), e("2", "2026-11-22", "new"), e("1.5", "2026-11-22", "fixed"), e("1", "2026-11-21", "improved")]);
+    expect(days.map((d) => d.label)).toEqual(["22 November 2026", "21 November 2026"]);
+    expect(days[0]?.groups.map((g) => g.label)).toEqual(["New", "Fixed"]);
+    expect(days[0]?.groups[1]?.entries.map((x) => x.version)).toEqual(["3", "1.5"]);
+    expect(days[1]?.groups.map((g) => g.label)).toEqual(["Improved"]);
   });
 
   it("compares semantic versions accurately", () => {

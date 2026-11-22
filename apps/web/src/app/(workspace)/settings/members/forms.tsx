@@ -68,7 +68,7 @@ export function InviteForm({ workspaceName, emailEnabled }: { workspaceName: str
   );
 }
 
-function LinkNotice({ state }: { state: NonNullable<InviteState> }) {
+export function LinkNotice({ state }: { state: NonNullable<InviteState> }) {
   const [copied, setCopied] = useState(false);
   return (
     <div role="status" className="notice">

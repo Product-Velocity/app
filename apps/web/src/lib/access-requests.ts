@@ -35,7 +35,7 @@ export async function notifyAdminsOfRequests(fresh: PendingAccess[], requesterEm
   }
 }
 
-export type AccessState = { tenantId: string; tenantName: string; status: "requested" | "paused" | "revoked"; since: string };
+export type AccessState = { tenantId: string; tenantName: string; status: "requested" | "paused" | "revoked" | "account_paused"; since: string };
 
 export async function myAccessStates(supabase: SupabaseClient): Promise<AccessState[]> {
   const { data } = await supabase.rpc("my_access_requests");

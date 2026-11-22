@@ -27,6 +27,12 @@ describe("release fragments (issue #238)", () => {
     expect(() => parseFragment("a.md", frag("patch", "| 0.9.0 | 2026-10-28 | **x** a sentence long enough | |"))).toThrow(/version and date are added/);
   });
 
+  it("writes an optional type as a hidden mark in the cell and refuses an unknown one", () => {
+    const f = parseFragment("a.md", "---\nbump: minor\ntype: Fixed\n---\n**Title.** Something people can see.\n");
+    expect(f.body).toBe("<!--type:fixed--> **Title.** Something people can see.");
+    expect(() => parseFragment("a.md", "---\nbump: minor\ntype: huge\n---\n**Title.** Something people can see.\n")).toThrow(/type must be/);
+  });
+
   it("accepts a major bump", () => {
     expect(parseFragment("a.md", frag("major")).bump).toBe("major");
   });
