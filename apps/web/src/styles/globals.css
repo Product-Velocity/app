@@ -856,12 +856,12 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .tool-btn.more-views-btn:hover { background: var(--blue-tint-2); }
 
 /* ---- second header row (view row): white, between two lines, as tall as the top bar. The open view is a filled chip. ---- */
-.page-head:has(.view-row) { margin: -14px -24px 12px; padding: 0 24px; min-height: 48px; gap: 4px; background: var(--bg); border-bottom: 1px solid var(--grey-2); }
-@media (max-width: 760px) { .page-head:has(.view-row) { margin: -12px -12px 12px; padding: 0 12px; } }
-.page-head:has(.view-row) h1 { margin: 0 10px 0 0; font-size: 13px; font-weight: 600; color: #111827; display: inline-flex; align-items: center; gap: 6px; }
-.page-head:has(.view-row) h1::after { content: "›"; font-weight: 400; font-size: 15px; color: #6b7280; }
-.page-head:has(.view-row) .view-row { flex: 1 1 auto; gap: 4px; }
-.page-head:has(.view-row) .filter-chips { flex-basis: 100%; padding-bottom: 8px; }
+/* only the title, the tabs and the menu are in the band; active filters stay below it, above the action bar */
+.head-row { flex: 0 0 calc(100% + 48px); box-sizing: border-box; display: flex; align-items: center; gap: 4px; margin: -14px -24px 0; padding: 0 24px; min-height: 52px; background: var(--bg); border-bottom: 1px solid var(--grey-2); }
+@media (max-width: 760px) { .head-row { flex-basis: calc(100% + 24px); margin: -12px -12px 0; padding: 0 12px; } }
+.head-row h1 { margin: 0 10px 0 0; font-size: 13px; font-weight: 600; color: #111827; display: inline-flex; align-items: center; gap: 6px; }
+.head-row h1::after { content: "›"; font-weight: 400; font-size: 15px; color: #6b7280; }
+.head-row .view-row { flex: 1 1 auto; gap: 4px; }
 .vm-tab .view-chip { height: 30px; padding: 0 12px; border-radius: 7px; font-size: 13px; color: #4b5563; display: inline-flex; align-items: center; }
 .vm-tab .view-chip-on, .vm-tab .view-chip-on:hover { color: var(--blue-text); font-weight: 600; box-shadow: inset 0 0 0 1px rgba(34, 112, 237, .3); }
 .tool-btn.more-views-btn { border-color: transparent; background: none; color: var(--blue-text); height: 30px; }

@@ -322,8 +322,10 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
   return (
     <div className="cards-page">
       <div className="gantt-toolbar page-head">
-        <h1>Cards</h1>
-        <ViewBar api={viewsApi} />
+        <div className="head-row">
+          <h1>Cards</h1>
+          <ViewBar api={viewsApi} />
+        </div>
         <p className="muted gantt-count">
           {board.total} initiatives{scope.selection.kind !== "all" ? ` · scope: ${scope.label}` : ""}{filterName ? ` · filters of “${filterName}”` : ""}
         </p>
