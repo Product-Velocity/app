@@ -20,6 +20,8 @@ export const GRID_THEME = themeQuartz.withParams({
   headerTextColor: "#374151",
   columnBorder: false,
   headerColumnBorder: false,
+  headerColumnResizeHandleColor: "#E6E9EF",
+  headerColumnResizeHandleHeight: "40%",
   rowBorder: { style: "solid", width: 1, color: "#F3F4F7" },
   selectedRowBackgroundColor: "#f3f8fe",
   rowHeight: 36,

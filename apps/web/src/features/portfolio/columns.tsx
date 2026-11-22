@@ -5,7 +5,7 @@ import { NameWithIssues } from "./name-cell";
 import type { ColDef, IHeaderParams } from "ag-grid-community";
 import type { CustomCellRendererProps } from "ag-grid-react";
 import {
-  EDITABLE_FIELDS, VISIBLE_FIELDS, actionsOfFlags, openGateOf, resolveFlagAction, type OutcomeReview, changeTone, compareQuarters, flagsOfRow, jiraCategoryTone, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
+  EDITABLE_FIELDS, FIELD_BY_KEY, VISIBLE_FIELDS, cardFieldOffer, actionsOfFlags, openGateOf, resolveFlagAction, type OutcomeReview, changeTone, compareQuarters, flagsOfRow, jiraCategoryTone, isOpenList, isOpenableUrl, isQuarter, quarterMismatch, isShipped, optionsFor, readOnlyReason, trackerIssueLabel,
   type EditableField, type FieldDef,
 } from "@pv/domain";
 import type { PortfolioController } from "./controller";
@@ -15,6 +15,7 @@ import { MarkdownTooltip } from "./markdown-tooltip";
 import { DateEditor } from "./date-editor";
 import { PickerEditor, type PickerOption } from "./picker-editor";
 import type { GridItem, Lookups } from "./types";
+import { MoscowPill, PersonChip, ProgressMeter, SizeDot } from "../../components/field-visuals";
 import { StatusPill } from "../../components/status-pill";
 import { PILL_FIELDS, statusTone, toneFor } from "../../components/status-tone";
 
@@ -105,7 +106,7 @@ const WIDTH: Record<string, number> = {
   Select: 150, Text: 190, "Long text": 240, Number: 112, Currency: 120, Date: 116, "Date range": 170, Person: 190, "Person or text": 170,
   People: 190, Boolean: 96, Tags: 170, Links: 200, Relation: 150, Files: 170, Thread: 150, Structured: 170, Note: 150, System: 130, Computed: 124,
 };
-const WIDE: Record<string, number> = { outcome_review_date: 160, outcome_reviews_recorded: 190, realized_kr_value: 160, kr_realized_pct: 170, outcome_latest_adoption: 170, outcome_kr_progress: 210, initiative_name: 320, home_project: 160, stack_rank: 104, item_code: 116, project_rank: 124, health: 130, last_synced: 150, synced_with: 300, tracker_ownership: 170, gh_project_status: 170, tracker_status: 170 };
+const WIDE: Record<string, number> = { outcome_review_date: 160, outcome_reviews_recorded: 190, realized_kr_value: 160, kr_realized_pct: 170, outcome_latest_adoption: 170, outcome_kr_progress: 210, initiative_name: 320, home_project: 160, stack_rank: 104, item_code: 116, project_rank: 124, health: 130, roadmap_category: 190, last_synced: 150, synced_with: 300, tracker_ownership: 170, gh_project_status: 170, tracker_status: 170 };
 
 export type ColumnContext = {
   controller: PortfolioController;
@@ -120,9 +121,11 @@ export type ColumnContext = {
   pinned?: ReadonlySet<string>;
   /** "Show issues" is on: the Initiative Name cell carries the chip that folds its issues. */
   showIssues?: boolean;
+  /** The scope is one project: the Project column says the same on every row, so it is plain text, not a chip. */
+  singleProject?: boolean;
 };
 
-export function buildColumns({ controller, lookups, today, visible, order, sorted, pinned, showIssues }: ColumnContext): ColDef<GridItem>[] {
+export function buildColumns({ controller, lookups, today, visible, order, sorted, pinned, showIssues, singleProject }: ColumnContext): ColDef<GridItem>[] {
   const editable = () => controller.canEdit;
   const projectOptions: PickerOption[] = lookups.projects.map((p) => ({ value: p.id, label: p.name }));
   const personOptions: PickerOption[] = lookups.members.map((m) => ({ value: m.user_id, label: m.email }));
@@ -157,6 +160,8 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
       return {
         ...base, sort: sorted ? "asc" : null, cellClass: "num cell-key-col", editable,
         valueFormatter: (p) => `#${p.value}`,
+        // the same small grey badge as the card header, without the "#" (the editor and the export still use the number)
+        cellRenderer: (p: { value: unknown }) => <span className="rank-badge" title={`Stack rank ${String(p.value ?? "")}`}><span className="visually-hidden">Stack rank </span>{String(p.value ?? "")}</span>,
         valueSetter: (p) => {
           controller.editRank(p.data.id, String(p.newValue ?? "").replace(/^#/, ""));
           return false; // the controller updated the rows; the grid refreshes from its change events
@@ -187,7 +192,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
         },
       };
     }
-    if (f.key === "project_rank") return base;
+    if (f.key === "project_rank") return { ...base, cellClass: "num rank-muted" };
     if (f.key === "tracker_status") {
       // the tracker's own words, coloured by what the mapping makes of them: a Jira status by its category (the one Build Status follows), a GitHub state by open or closed
       return { ...base, cellRenderer: (p: CustomCellRendererProps<GridItem>) => {
@@ -205,7 +210,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
     }
     if (!canEdit) return base;
     base.valueSetter = setter(f.key) as never;
-    if (f.key === "home_project") return { ...base, cellRenderer: (p: { value: unknown }) => (p.value ? <span className="proj-pill">{display(f, p.value)}</span> : null), ...pickerDef(f, projectOptions, false) };
+    if (f.key === "home_project") return { ...base, cellRenderer: (p: { value: unknown }) => (p.value ? <span className={singleProject ? "proj-plain" : "proj-pill"}>{display(f, p.value)}</span> : null), ...pickerDef(f, projectOptions, false) };
     if (f.type === "Person") return { ...base, ...pickerDef(f, personOptions, true, "Unassigned") };
     if (f.type === "Boolean") {
       return {
@@ -287,7 +292,31 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
     PILL_FIELDS.has(String(c.colId)) && !readOnlyReason(String(c.colId))
       ? { ...c, cellRenderer: (p: { valueFormatted?: string | null }) => <StatusPill value={p.valueFormatted ?? ""} tone={toneFor(String(c.colId), p.valueFormatted ?? "")} /> }
       : c;
-  return VISIBLE_FIELDS.map(def).map(withPill).map(withMarkdown).map(pin).sort((a, b) => rank(a) - rank(b));
+  // the same drawings as the card, by type (decision 2026-11-22-grid-matches-cards.md). Dates stay in the account's date format.
+  const withVisual = (c: ColDef<GridItem>): ColDef<GridItem> => {
+    const key = String(c.colId);
+    const f = FIELD_BY_KEY[key];
+    if (!f) return c;
+    const reason = key === "stack_rank" ? null : readOnlyReason(key);
+    const lock = (node: React.ReactNode, text: string) => <ReadOnlyCell text={text} reason={reason} github={f.mode === "locked" || f.storage.startsWith("GitHub-synced")}>{node}</ReadOnlyCell>;
+    const wrap = (node: React.ReactNode, text: string) => (reason ? lock(node, text) : node);
+    if (key === "moscow") return { ...c, cellRenderer: (p: { value: unknown }) => { const t = String(p.value ?? ""); return t ? wrap(<MoscowPill value={t} name={f.name} />, t) : null; } };
+    if (key === "effort") return { ...c, cellRenderer: (p: { value: unknown }) => { const t = String(p.value ?? ""); return t ? wrap(<SizeDot value={t} name={f.name} />, t) : null; } };
+    if (cardFieldOffer(key).ok && (cardFieldOffer(key) as { render: string }).render === "progress") {
+      return { ...c, cellRenderer: (p: { value: unknown; valueFormatted?: string | null }) => {
+        const shown = p.valueFormatted ?? String(p.value ?? "");
+        const bar = <ProgressMeter value={p.value} name={f.name} />;
+        return shown ? wrap(bar ?? shown, shown) : null;
+      } };
+    }
+    if (f.type === "Person" && key !== "created_by") {
+      return { ...c, cellRenderer: (p: { value: unknown; valueFormatted?: string | null }) => { const t = p.valueFormatted ?? ""; return t ? wrap(<PersonChip text={t} name={f.name} />, t) : null; } };
+    }
+    return c;
+  };
+  // a cut-off text says its full value on hover (pills and chips carry their own title)
+  const withTip = (c: ColDef<GridItem>): ColDef<GridItem> => (c.tooltipValueGetter || c.cellRenderer || !["Select", "Text"].includes(FIELD_BY_KEY[String(c.colId)]?.type ?? "") ? c : { ...c, tooltipValueGetter: (p) => (typeof p.valueFormatted === "string" && p.valueFormatted.length > 14 ? p.valueFormatted : undefined) });
+  return VISIBLE_FIELDS.map(def).map(withPill).map(withVisual).map(withTip).map(withMarkdown).map(pin).sort((a, b) => rank(a) - rank(b));
 }
 
 /** Column ids whose cells cannot be edited, with the reason (for the notice under the grid). */
