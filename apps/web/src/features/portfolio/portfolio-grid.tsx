@@ -41,6 +41,7 @@ import { ImportDialog } from "./import-dialog";
 import { QuickAddBar } from "./quick-add-bar";
 import { OverflowBar, type OverflowItem } from "@/components/overflow-bar";
 import type { PortfolioController } from "./controller";
+import { statusTone } from "../../components/status-tone";
 import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer, isGroup } from "./grid-kit";
 import { StatusAlerts, StatusInline, useStatus } from "./status-strip";
 import type { GridItem, Lookups } from "./types";
@@ -110,6 +111,11 @@ function FullWidthRenderer(p: CustomCellRendererProps<GroupRow | IssueRow>) {
 const getRowId = (p: { data: { id: string } }) => p.data.id;
 /** Group headers and tracker issue rows are not initiatives: they span the grid, cannot be selected and are skipped by the keyboard shortcuts. */
 const isExtraRow = (r: unknown) => isGroup(r) || isIssueRow(r);
+/** The health colour on the left edge of a row, as on a card and a Gantt bar; the health word stays in its column. */
+const rowEdge = (p: { data?: unknown }) => {
+  const h = p.data && !isExtraRow(p.data) && typeof (p.data as { health?: unknown }).health === "string" ? String((p.data as { health: string }).health) : "";
+  return h ? `row-edge row-edge-${statusTone(h)}` : undefined;
+};
 const isFullWidthRow = (p: { rowNode: { data?: unknown } }) => isExtraRow(p.rowNode.data);
 const ROW_SELECTION = { mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false, isRowSelectable: (n: { data?: unknown }) => !isExtraRow(n.data) } as const;
 const SELECTION_COLUMN = { pinned: "left", width: 46, suppressHeaderMenuButton: true } as const;
@@ -337,8 +343,8 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const setSearchText = (t: string) => { resetShown(); setSearch(t); };
 
   const columnDefs = useMemo(
-    () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible, order: def.columns, sorted: def.groupBy === null && shownSort.length === 0, pinned: pinnedSet, showIssues: def.showIssues === true }),
-    [controller, lookups, visible, def.columns, def.groupBy, shownSort, pinnedSet, def.showIssues],
+    () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible, order: def.columns, sorted: def.groupBy === null && shownSort.length === 0, pinned: pinnedSet, showIssues: def.showIssues === true, singleProject: projectIds?.length === 1 }),
+    [controller, lookups, visible, def.columns, def.groupBy, shownSort, pinnedSet, def.showIssues, projectIds],
   );
   const exportFields = useMemo(() => def.columns.map((k) => FIELD_BY_KEY[k]!).filter(Boolean), [def.columns]);
   const showLater = def.columns.some((k) => (FIELD_BY_KEY[k]?.phase ?? 1) > 1 && k !== "project_rank");
@@ -811,6 +817,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
           rowData={displayRows as unknown as GridItem[]}
           columnDefs={columnDefs}
           getRowId={getRowId}
+          getRowClass={rowEdge}
           context={gridContext}
           isFullWidthRow={isFullWidthRow}
           fullWidthCellRenderer={FullWidthRenderer as never}

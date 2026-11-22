@@ -1,7 +1,8 @@
 "use client";
 
-import { FIELD_BY_KEY, cardDate, cardFieldOffer, initialsOf, moscowTone, stageAge, type CardRender } from "@pv/domain";
+import { FIELD_BY_KEY, cardDate, cardFieldOffer, initialsOf, stageAge, type CardRender } from "@pv/domain";
 import type { ReactNode } from "react";
+import { MoscowPill, ProgressMeter, SizeDot } from "../../components/field-visuals";
 import { StatusPill } from "../../components/status-pill";
 import { PILL_FIELDS, statusTone, toneFor } from "../../components/status-tone";
 import type { GridItem } from "../portfolio/types";
@@ -15,6 +16,7 @@ export const safeHref = (url: string | null | undefined): string | null => {
   try { const u = new URL(url); return u.protocol === "https:" || u.protocol === "http:" ? u.href : null; } catch { return null; }
 };
 
+const MOSCOW_WORDS = new Set(["must", "should", "could", "won't", "wont"]);
 const TRACKER_NAME = { github: "GitHub", jira: "Jira" } as const;
 
 /** The tone class of the left edge: health, as a colour on top of the health word (never instead of it). */
@@ -76,19 +78,9 @@ function FieldChip({ k, value, today }: { k: string; value: unknown; today: Date
   const render: CardRender = offer.render;
   const name = def.name;
   const text = String(value);
-  if (render === "size") return <span className="kc-size" title={`${name}: ${text}`}><span className="visually-hidden">{name} </span>{text}</span>;
+  if (render === "size") return <SizeDot value={text} name={name} />;
   if (render === "date") { const d = cardDate(value, today); return d ? <span className="pill kc-pill kc-date" title={`${name}: ${text.slice(0, 10)}`}><span className="visually-hidden">{name} </span>{d}</span> : null; }
-  if (render === "progress") {
-    const n = typeof value === "number" ? value : Number(value);
-    if (!Number.isFinite(n)) return null;
-    const pct = Math.max(0, Math.min(100, Math.round(n <= 1 && n > 0 && !Number.isInteger(n) ? n * 100 : n)));
-    return (
-      <span className="kc-progress" title={`${name}: ${pct}%`}>
-        <span className="kc-bar" role="progressbar" aria-label={name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><span style={{ width: `${pct}%` }} /></span>
-        <span className="kc-pct">{pct}%</span>
-      </span>
-    );
-  }
+  if (render === "progress") return <ProgressMeter value={value} name={name} />;
   if (render === "stat") return <span className="kc-stat" title={`${name}: ${text}`}><span className="muted">{name}</span> {text}</span>;
   if (render === "person") return <span className="pill kc-pill" title={`${name}: ${text}`}><span className="kc-avatar kc-avatar-sm" aria-hidden="true">{initialsOf(text.split("@")[0]!)}</span><span className="visually-hidden">{name} </span>{text.split("@")[0]}</span>;
   if (render === "flag") return value === true || text === "Yes" ? <span className="pill kc-pill" title={name}>{name}</span> : null;
@@ -97,8 +89,7 @@ function FieldChip({ k, value, today }: { k: string; value: unknown; today: Date
   return (
     <>
       {tags.map((t) => {
-        const m = k === "moscow" ? moscowTone(t) : null;
-        if (m) return <span key={t} className={`pill kc-pill kc-moscow kc-moscow-${m}`} title={`${name}: ${t}`}><span className="visually-hidden">{name} </span>{t}</span>;
+        if (k === "moscow" && MOSCOW_WORDS.has(t.trim().toLowerCase())) return <MoscowPill key={t} value={t} name={name} />;
         if (PILL_FIELDS.has(k)) return <span key={t} className="kc-pillwrap" title={`${name}: ${t}`}><span className="visually-hidden">{name} </span><StatusPill value={t} tone={toneFor(k, t)} className="kc-pill" /></span>;
         return <span key={t} className="pill kc-pill" title={`${name}: ${t}`}><span className="visually-hidden">{name} </span>{t}</span>;
       })}

@@ -14,6 +14,9 @@ Page: `/portfolio` ("Roadmap" in the navigation). Reference: prototype board 20,
 - **Locked cells:** GitHub-driven, calculated, system-set and later-phase fields reject editing and say why under the grid. View-only roles (viewer, commenter, leadership) can look but not edit.
 - **Keyboard:** Alt+N adds an initiative, arrows move, Enter or F2 edits, Enter saves and moves down, Tab saves and moves right, Esc cancels, Delete clears an optional cell (or, with the checkbox column or a read-only cell focused and rows ticked, asks to delete the ticked rows).
 
+## Values look like the card (2026-11-22)
+MoSCoW, Effort, percent and person fields, the rank badge, the grey Project chip and the health edge on each row follow `docs/decisions/2026-11-22-grid-matches-cards.md`; dates keep the account's date format.
+
 ## Focus Area and Audience: open lists with suggestions (issue #246)
 _Roadmap Category and Owner work the same way since 2026-11-18 (`docs/decisions/2026-11-18-open-owner-category-change-type.md`): open text up to 120 characters, the values in use are suggested, new values are accepted._
 
