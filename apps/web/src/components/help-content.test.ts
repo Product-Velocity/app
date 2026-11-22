@@ -256,6 +256,8 @@ describe("Help: the pv- skills table", () => {
     expect(row("pv-weekly")[3]).toMatch(/report in the format you choose/);
     expect(row("pv-weekly")[3]).toMatch(/Nothing is saved or sent/);
     expect(row("pv-vision")[2]).toMatch(/whole workspace/);
+    expect(row("pv-weekly")[2]).toMatch(/All initiatives, or only the ones you name/);
+    expect(row("pv-release-notes")[2]).toMatch(/All initiatives, or only the ones you name/);
     expect(row("pv-vision")[3]).toMatch(/in Documents/);
     expect(row("pv-metrics")[2]).toMatch(/One initiative/);
     expect(row("pv-metrics")[3]).toMatch(/Spec tab/);

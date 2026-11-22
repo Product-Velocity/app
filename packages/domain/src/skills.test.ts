@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SKILLS, skillByCommand, skillHelpText } from "./skills-catalog";
 import type { SkillSpec } from "./skills";
 import { PROFILE_SECTION_KEYS } from "./company-profile";
-import { MAX_SKILL_QUESTIONS, SKILL_RULES, parseSkillArgs, skillPrompt, skillSpecProblems } from "./skills";
+import { MAX_SKILL_QUESTIONS, SKILL_RULES, expandRanges, parseFormat, parseSkillArgs, skillPrompt, skillSpecProblems } from "./skills";
 
 describe("skill specs", () => {
   it("every skill is valid: command, profile sections, fillable fields, at most three questions", () => {
@@ -168,5 +168,47 @@ describe("the remaining skills (business case, PR/FAQ, prototype, impact map, ma
     expect(t("pv-market")).toMatch(/never go to the company profile, GitHub or Jira/);
     expect(skillByCommand("pv-market")!.profileSave).toBeUndefined();
     expect(t("pv-canvas")).toMatch(/Offer once to save the confirmed positioning line/);
+  });
+});
+
+describe("scope and format for the report skills", () => {
+  const weekly = skillByCommand("pv-weekly")!;
+  it("covers every initiative unless some are named, and says so", () => {
+    const all = skillPrompt(weekly, {}).text;
+    expect(all).toMatch(/Scope: all initiatives in the workspace/);
+    expect(all).toMatch(/do not ask which/);
+    expect(all).not.toMatch(/works at company level/);
+    const some = skillPrompt(weekly, { target: "R-1, R-2" }).text;
+    expect(some).toMatch(/Scope: only these initiatives/);
+    expect(some).toMatch(/Pass the codes to get_report as items/);
+    expect(some).toMatch(/leave every other initiative out/);
+  });
+  it("is framed for leadership, with so what, cause and last week's comparison", () => {
+    const t = skillPrompt(weekly, {}).text;
+    expect(t).toMatch(/default reader is the leadership team/);
+    expect(t).toMatch(/Lead with the so what/);
+    expect(t).toMatch(/Compared with last week/);
+    expect(t).toMatch(/week_of set to seven days earlier/);
+    expect(t).toMatch(/Quiet weeks are said to be quiet/);
+  });
+  it("expands ranges such as R-1 to R-5 in the typed form", () => {
+    expect(expandRanges("R-1 to R-4 and more")).toBe("R-1 R-2 R-3 R-4 and more");
+    expect(expandRanges("R-1..R-3")).toBe("R-1 R-2 R-3");
+    expect(expandRanges("R-01..R-03")).toBe("R-01 R-02 R-03");
+    expect(expandRanges("R-3 to R-1")).toBe("R-3 to R-1");
+    expect(expandRanges("R-1 to R-500")).toBe("R-1 to R-500");
+    expect(parseSkillArgs("R-1 to R-3 --format=powerpoint")).toEqual({ target: "R-1, R-2, R-3", input: undefined, draft: undefined, format: "slides" });
+  });
+  it("understands PowerPoint, Word and Outlook as formats", () => {
+    expect(parseFormat("powerpoint")).toBe("slides");
+    expect(parseFormat("PPT")).toBe("slides");
+    expect(parseFormat("word")).toBe("document");
+    expect(parseFormat("outlook")).toBe("email");
+    expect(parseFormat("telepathy")).toBeNull();
+    expect(skillPrompt(weekly, { format: "powerpoint" }).text).toMatch(/The person chose slides/);
+  });
+  it("release notes can be scoped too; initiative and company-level skills without focus are not", () => {
+    expect(skillPrompt(skillByCommand("pv-release-notes")!, { target: "R-4" }).text).toMatch(/Scope: only these initiatives/);
+    expect(skillPrompt(skillByCommand("pv-quarter")!, {}).text).toMatch(/works at company level/);
   });
 });

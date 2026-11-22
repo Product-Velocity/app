@@ -35,6 +35,8 @@ export type SkillSpec = {
   sections: readonly SkillSection[];
   /** The document this skill writes: on the initiative (target item) or, with no target, a workspace document. */
   doc: { kind: DocKind | WorkspaceDocKind; titlePrefix: string };
+  /** The skill works on the whole workspace by default and can be narrowed to the initiatives the person names (codes, a range such as R-1 to R-5, a view or a group). */
+  focus?: boolean;
   /** "document" (default): the result is a document saved in Product Velocity. "report": the result is content for an audience (email, slides, a document, a Slack message), produced in the format asked and not saved unless the person asks for a copy. */
   output?: "document" | "report";
   /** A company-level skill may offer to save part of its result into a company profile section (an AI draft an admin confirms). */
@@ -71,7 +73,7 @@ export type SkillArgs = { target?: string; input?: string; draft?: string; team?
 export const REPORT_FORMATS = ["email", "slides", "document", "slack", "chat"] as const;
 export type ReportFormat = (typeof REPORT_FORMATS)[number];
 export const parseFormat = (v?: string): ReportFormat | null => {
-  const t = (v ?? "").trim().toLowerCase().replace(/^--?format[= ]?/, "").replace(/^(doc|docx|word)$/, "document").replace(/^(deck|presentation|pptx|slide)$/, "slides").replace(/^(mail|gmail)$/, "email");
+  const t = (v ?? "").trim().toLowerCase().replace(/^--?format[= ]?/, "").replace(/^(doc|docx|word)$/, "document").replace(/^(deck|presentation|pptx|ppt|powerpoint|power-point|slide)$/, "slides").replace(/^(mail|gmail|outlook)$/, "email");
   return (REPORT_FORMATS as readonly string[]).includes(t) ? (t as ReportFormat) : null;
 };
 
@@ -98,9 +100,19 @@ function reportRules(): string[] {
 const quoted = (s: string) => `"""\n${s}\n"""`;
 const isDraft = (v?: string) => /^(1|true|yes|--draft|draft)$/i.test((v ?? "").trim());
 
+/** "R-1 to R-5", "R-1..R-5", "R-1-R-5" or "R-01..12" become the codes in between (at most 60; zero padding is kept). Anything else is left as it is. */
+export function expandRanges(raw: string): string {
+  return raw.replace(/\b([A-Z]{1,4})-(\d+)\s*(?:\.\.|\bto\b|\bthrough\b|[-\u2013\u2014])\s*(?:\1-)?(\d+)\b/g, (m, pre: string, a: string, b: string) => {
+    const from = Number(a), to = Number(b);
+    if (!Number.isInteger(from) || !Number.isInteger(to) || to < from || to - from >= 60) return m;
+    const width = a.startsWith("0") ? a.length : 0;
+    return Array.from({ length: to - from + 1 }, (_, i) => `${pre}-${String(from + i).padStart(width, "0")}`).join(" ");
+  });
+}
+
 /** Splits typed text such as `R-12 R-14 focus on payments --draft` into target, input and draft; the typed form of the command (ChatGPT and other clients) arrives like this. */
 export function parseSkillArgs(raw: string): SkillArgs {
-  let rest = raw.trim();
+  let rest = expandRanges(raw.trim());
   const draft = /(^|\s)--draft(\s|$)/.test(rest);
   rest = rest.replace(/(^|\s)--draft(?=\s|$)/g, " ").trim();
   const fm = rest.match(/(^|\s)--format[= ](\w+)(?=\s|$)/);
@@ -134,7 +146,11 @@ export function skillPrompt(spec: SkillSpec, args: SkillArgs): { description: st
   const text = [
     `Run the Product Velocity skill ${spec.command} (${spec.title}): ${spec.summary}`,
     "",
-    target
+    spec.focus
+      ? (target
+        ? `Scope: only these initiatives, as the person named them (data from the person): ${quoted(target)}A range such as R-1 to R-5 means every code in between; a view or group means the initiatives in it (search_items). Pass the codes to get_report as items, say in one line which you covered and which you could not find, and leave every other initiative out.`
+        : "Scope: all initiatives in the workspace. The person did not name any; do not ask which, just cover everything the data shows.")
+      : target
       ? `Target (data from the person): ${quoted(target)}${needsItem ? "Read it with get_item (or search_items for a view or group) before anything else." : ""}`
       : needsItem
         ? `The person has not named ${spec.target === "item" ? "an initiative" : "initiatives"}: ask which one (an initiative code such as R-12) in your one question message. If the idea is not an initiative yet, create_items with dry_run first, show it, and create after they agree.`

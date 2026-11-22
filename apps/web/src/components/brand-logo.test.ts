@@ -35,4 +35,23 @@ describe("brand logo (brand guide, 2026-11-10)", () => {
     expect(readFileSync(file("../app/icon.svg"), "utf8").match(/<rect/g)).toHaveLength(16);
     expect(readFileSync(file("../../public/brand/pv-mark.svg"), "utf8")).toContain("#2270ED");
   });
+
+  it("the Rank loader follows the brand guide: fifteen pills in logo blue, no tile, about 1.5 s, 90 ms apart in reading order, still under reduced motion, no script", () => {
+    const svg = readFileSync(file("../../public/brand/pv-rank-loader.svg"), "utf8");
+    expect(svg.match(/<rect /g)).toHaveLength(15); // the glyph only: no tile
+    expect(svg).toContain("#2270ED");
+    expect(svg).not.toMatch(/<script|onload|<image|href=/i);
+    expect(svg).toMatch(/animation:rank 1\.5s ease-in-out infinite/);
+    expect(svg).toMatch(/@media \(prefers-reduced-motion:reduce\)\{\.p\{animation:none;opacity:1\}\}/);
+    expect(svg).toMatch(/opacity:\.22/); // 22% to 100% and back
+    const delays = [...svg.matchAll(/<rect [^>]*animation-delay:([\d.]+)s[^>]*x="([\d.]+)" y="([\d.]+)"/g)].map((m) => ({ d: Number(m[1]), x: Number(m[2]), y: Number(m[3]) }));
+    expect(delays).toHaveLength(15);
+    // column by column, top to bottom within a column, 90 ms apart
+    const byDelay = [...delays].sort((a, b) => a.d - b.d);
+    expect(byDelay.map((p) => Math.round(p.d * 100))).toEqual(Array.from({ length: 15 }, (_, i) => i * 9));
+    for (let i = 1; i < byDelay.length; i++) {
+      const a = byDelay[i - 1]!, b = byDelay[i]!;
+      expect(b.x > a.x || (b.x === a.x && b.y > a.y)).toBe(true);
+    }
+  });
 });

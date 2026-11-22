@@ -34,7 +34,7 @@ export const AGENT_SKILL_STEPS: Table = {
 export const AGENT_SKILL_TIPS: string[] = [
   "Start with the company profile: ask the assistant to run research_company, and an admin confirms it. Every skill reads it, so what it writes sounds like your company. The direction skills (pv-vision, pv-strategy, pv-northstar, pv-compete, pv-personas, pv-canvas) can then add what you confirm to the profile, which later skills use instead of asking again.",
   "Answer the one message of questions, and skip what you do not know. Nothing is invented: a gap stays \"to define\" and is listed so you can fill it later.",
-  "Add --draft to see the result in the chat before anything is saved. The report skills (pv-weekly, pv-release-notes) take --format=email, slides, document, slack or chat and save nothing unless you ask for a copy.",
+  "Add --draft to see the result in the chat before anything is saved. The report skills (pv-weekly, pv-release-notes) take --format=email, slides (PowerPoint), document, slack or chat and save nothing unless you ask for a copy. They cover every initiative unless you name some: pv-weekly R-1 to R-5 --format=slides.",
   "Results land where they belong: a skill that works on an initiative saves on its Spec tab, a company-level skill saves under Documents in the account menu, and a report is delivered in the format you chose. Document text never goes to GitHub or Jira.",
   "A skill fills initiative fields only from a short block at the end of its document, only after you have seen a preview and agreed, and a field that already has a value comes back as a before-and-after to confirm. Stack Rank, Value, Confidence, Decision and approvals are always yours.",
   "To change a saved document, ask the assistant to revise it: the old version is kept. Ask it to run the skill again only when the facts have changed.",
@@ -45,7 +45,7 @@ export const AGENT_SKILL_TIPS: string[] = [
 export const AGENT_SKILLS: Table = {
   head: ["Skill", "What it does", "Works on", "You get"],
   rows: [
-    ...SKILLS.map((s) => [`${s.command} (${SKILL_STAGE_LABEL[s.stage]})`, s.summary.charAt(0).toUpperCase() + s.summary.slice(1), s.target === "none" ? "The whole workspace; no initiative needed" : "One initiative (a code such as R-12)", skillResult(s)]),
+    ...SKILLS.map((s) => [`${s.command} (${SKILL_STAGE_LABEL[s.stage]})`, s.summary.charAt(0).toUpperCase() + s.summary.slice(1), s.focus ? "All initiatives, or only the ones you name (codes, a range such as R-1 to R-5, a view or a group)" : s.target === "none" ? "The whole workspace; no initiative needed" : "One initiative (a code such as R-12)", skillResult(s)]),
     ["pv-help", "Lists the skills and how to use them", "Nothing", "A list in the chat"],
   ],
 };

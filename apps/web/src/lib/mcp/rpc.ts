@@ -73,6 +73,9 @@ export const MAX_READ_RESULT_CHARS = 100_000;
  * Who we say we are. `title` and `icons` (MCP 2025-11-25 Implementation; older clients ignore them) let an assistant show the Product Velocity
  * pill logo (brand guide, 2026-11-10) in its connector list and installed apps. Icon addresses must be absolute and public: the files are the
  * brand app icons (src/app/icon.svg, icon.png, public/brand/icon-192.png), the same ones the manifest uses.
+ * The first entry is the Rank loader (public/brand/pv-rank-loader.svg, brand guide "Loading and sync"): the logo's pills, animated, so an assistant that
+ * shows the server's icon next to a running action may show it moving. It is an experiment (Ashu, 2026-11-22, docs/decisions/2026-11-22-connector-animated-icon.md):
+ * the assistant decides which icon it uses and when it moves, and the three static icons stay as fallbacks. To go back, delete the first entry.
  */
 export function serverInfo(origin?: string) {
   const base = { name: "product-velocity", version: "0.1.0" };
@@ -82,6 +85,7 @@ export function serverInfo(origin?: string) {
     title: "Product Velocity",
     websiteUrl: origin,
     icons: [
+      { src: `${origin}/brand/pv-rank-loader.svg`, mimeType: "image/svg+xml", sizes: ["any"] },
       { src: `${origin}/icon.svg`, mimeType: "image/svg+xml", sizes: ["any"] },
       { src: `${origin}/icon.png`, mimeType: "image/png", sizes: ["512x512"] },
       { src: `${origin}/brand/icon-192.png`, mimeType: "image/png", sizes: ["192x192"] },

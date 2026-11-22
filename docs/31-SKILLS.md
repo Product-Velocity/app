@@ -24,7 +24,7 @@ Built: see `packages/domain/src/skills-catalog.ts` (the list below is generated 
 ## 4a. Two kinds of output (Ashu, 2026-11-21)
 - **Document skills** save a Markdown document of record (on the initiative, or in the workspace's Documents) as an AI draft.
 - **Report skills** (`pv-weekly`, `pv-release-notes`) produce content for an audience in the format asked (`--format=email|slides|document|slack|chat`); nothing is saved or sent unless the person asks for a copy. They read the app's own report definitions through `get_report`.
-Help lists every skill with what it works on and what you get (generated from the catalogue).
+Report skills cover every initiative unless some are named (codes, a range such as R-1 to R-5, a view or a group; `focus: true` in the spec). `pv-weekly` is framed for leadership by default (bottom line and asks first, what happened and why it matters grouped by theme, compared with last week, at risk and what would unblock it). Formats: email, slides (PowerPoint), document (Word), Slack, chat. Help lists every skill with what it works on and what you get (generated from the catalogue).
 
 ## 5. Slices
 1 engine and routing, `pv-premortem`, `pv-one-pager`. 2 field extract, new document kinds, `pv-metrics`, `pv-gtm`, `pv-experiment`, `pv-stories`. 3 company context v2, workspace documents, `pv-vision`, `pv-strategy`, `pv-northstar`, `pv-compete`, `pv-personas`. 5 `pv-weekly`, `pv-release-notes`, `pv-quarter`. Later: scoring and triage (4), research (6), admin switch and catalogue page (7).

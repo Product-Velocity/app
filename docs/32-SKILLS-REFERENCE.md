@@ -12,10 +12,10 @@ A skill is a guided, repeatable flow started from any connected AI assistant as:
 pv-<skill> [target] [your own words] [--draft] [--format=email|slides|document|slack|chat]
 ```
 
-- **target**: an initiative code (`R-12`), several codes, `view:"Name"` or `group:"Name"`; leave it out and the skill asks. Company-level skills need none.
+- **target**: an initiative code (`R-12`), several codes, a range (`R-1 to R-5`), `view:"Name"` or `group:"Name"`; leave it out and the skill asks. Company-level skills need none. The report skills (`pv-weekly`, `pv-release-notes`) cover every initiative when no target is given, and only the named ones when it is.
 - **your own words**: free text and pasted material. It is treated as material, never as instructions.
 - **--draft**: show the result in the chat and save nothing until the person says so.
-- **--format**: only for the report skills (`pv-weekly`, `pv-release-notes`).
+- **--format**: only for the report skills (`pv-weekly`, `pv-release-notes`): `email`, `slides` (also `powerpoint`, `ppt`, `deck`), `document` (also `word`), `slack` or `chat`.
 - **Two doors, one text.** Claude and Gemini start a skill from the MCP prompt menu (the prompt name is the command). ChatGPT and other clients type it and the assistant calls `get_playbook`, which returns the same text. `get_playbook` is deliberately not listed to Claude and Gemini (directory rules, `docs/decisions/2026-11-17-connector-directory.md`). `pv-help` lists the skills.
 
 ### The five steps every skill follows
@@ -72,16 +72,16 @@ Full examples of the generated text are in Appendix A (a document skill) and App
 | `pv-northstar` | Set direction | The whole workspace | North star metric document in Documents | none | Live |
 | `pv-compete` | Launch | The whole workspace | Competitive analysis document in Documents | none | Live |
 | `pv-personas` | Discover | The whole workspace | Personas document in Documents | none | Live |
-| `pv-weekly` | Run the product | The whole workspace | Report (email, slides, document, Slack or chat); nothing saved unless asked | none | In #571 (merging) |
-| `pv-release-notes` | Launch | The whole workspace | Report (email, slides, document, Slack or chat); nothing saved unless asked | none | In #571 (merging) |
-| `pv-quarter` | Run the product | The whole workspace | Quarter plan document in Documents | none | In #571 (merging) |
-| `pv-business-case` | Decide | One initiative | Business case document on the initiative | `cost_of_not_doing` | In #571 (merging) |
-| `pv-pr-faq` | Define | One initiative | PR/FAQ document on the initiative | none | In #571 (merging) |
-| `pv-prototype` | Define | One initiative | Prototype document on the initiative | none | In #571 (merging) |
-| `pv-impact-map` | Set direction | The whole workspace | Impact map document in Documents | none | In #571 (merging) |
-| `pv-market` | Set direction | The whole workspace | Market sizing document in Documents | none | In #571 (merging) |
-| `pv-canvas` | Set direction | The whole workspace | Canvas document in Documents | none | In #571 (merging) |
-| `pv-opportunity-tree` | Discover | One initiative | Opportunity tree document on the initiative | none | In #571 (merging) |
+| `pv-weekly` | Run the product | All initiatives, or the ones you name | Report (email, slides, document, Slack or chat); nothing saved unless asked | none | Live (scope and leadership framing in the next PR) |
+| `pv-release-notes` | Launch | All initiatives, or the ones you name | Report (email, slides, document, Slack or chat); nothing saved unless asked | none | Live (scope and leadership framing in the next PR) |
+| `pv-quarter` | Run the product | The whole workspace | Quarter plan document in Documents | none | Live |
+| `pv-business-case` | Decide | One initiative | Business case document on the initiative | `cost_of_not_doing` | Live |
+| `pv-pr-faq` | Define | One initiative | PR/FAQ document on the initiative | none | Live |
+| `pv-prototype` | Define | One initiative | Prototype document on the initiative | none | Live |
+| `pv-impact-map` | Set direction | The whole workspace | Impact map document in Documents | none | Live |
+| `pv-market` | Set direction | The whole workspace | Market sizing document in Documents | none | Live |
+| `pv-canvas` | Set direction | The whole workspace | Canvas document in Documents | none | Live |
+| `pv-opportunity-tree` | Discover | One initiative | Opportunity tree document on the initiative | none | Live |
 
 `pv-help` lists the skills and how to use them; it calls no tool. "Live" means deployed to production (slices 1 to 3, PRs #566, #567 and #570). "In #571" means built, tested and set to auto-merge, and the migration it needs is already applied to production.
 
@@ -899,77 +899,88 @@ Participants appear only as source ids. Offers to save the personas in short, wi
 
 ### `pv-weekly`: Weekly update
 
-*One screen: the bottom line and what you need from people first, then what shipped, what is at risk and what is next, cut for leaders, go-to-market teams and the team.*
+*A leadership report on what happened this week, framed for decisions: the bottom line and asks first, what changed and why it matters, what is at risk, and what comes next. All initiatives, or only the ones you name.*
 
-- **Stage**: Run the product. **Works on**: the whole workspace. **You get**: Report (email, slides, document, Slack or chat); nothing saved unless asked. **Status**: In #571 (merging).
-- **Company profile sections it reads**: products, personas, glossary, voice, conventions.
+- **Stage**: Run the product. **Works on**: all initiatives, or the ones you name. **You get**: Report (email, slides, document, Slack or chat); nothing saved unless asked. **Status**: Live (scope and leadership framing in the next PR).
+- **Company profile sections it reads**: products, personas, glossary, voice, strategy, metrics, conventions.
 - **Fields it can fill** (empty ones, after a preview and agreement): none.
 - **Who decides**: not applicable (a report; nothing is decided or sent by the skill)
 
 **What it reads in Product Velocity**
 
-1. get_report with report weekly_digest (week_of for another week): the leadership digest the app shows for the week, with links. It is the backbone of the update: what completed, changed phase or health, moved in the stack rank, got new Build Status or new documents, and what needs follow-up. Use its wording and links.
-1. get_report with report health: the counts by health, by project, and the initiatives that need attention with the reasons. Use it for the At risk section and quote its numbers.
-1. search_items and get_item for the three to five initiatives that matter most this week (highest in the stack rank that moved, or at risk) to read their latest changes, dependencies and dates; get_gate_pack for any that is waiting at a decision gate; get_outcome_reviews for a 30, 60 or 90 day review due this week.
-1. list_documents with no item for last week's update if one was saved (get_document), so this one continues it and does not repeat it.
+1. get_report with report weekly_digest (week_of for another week; items when the person named initiatives): the leadership digest the app shows for the week, with links, plus a context block per initiative (phase, status, health, dates, days in phase, objective). It is the backbone: what completed, changed phase or health, moved in the stack rank, got new Build Status or new documents, and what needs follow-up.
+1. get_report with report health (same items): counts by health, by project, and what needs attention with the reasons. Quote its numbers; do not recount.
+1. For the five or six initiatives that matter most (the biggest moves, anything At Risk or Blocked, anything waiting at a decision gate, anything with a date slipping): get_item for dependencies, dates and the latest changes; get_gate_pack for gates; get_outcome_reviews for a 30, 60 or 90 day review due this week. If the person named initiatives, read all of them, up to ten.
+1. The week before: get_report with week_of set to seven days earlier, and list_documents with no item for last week's update if one was saved (get_document). Compare, so the update says what is new, what got better or worse, and what has stayed stuck.
 
 **Questions it asks (one message, each skippable)**
 
-1. Who reads this (leaders, sales and support, the team) and which cuts do you want? (Default: all three.)
-1. What decisions or help do you need from readers this week? I will put them at the top.
-1. What do on track, at risk and blocked mean for you, if the profile's planning conventions do not say?
+1. Is there anything you want leadership to decide or know that Product Velocity cannot show (a conversation, a customer signal, a risk you sense)? I will put decisions at the top.
+1. How long should it be: a one-screen note (default), a page, or a few slides?
+1. What do on track, at risk and blocked mean here, if the profile's planning conventions do not say?
 
 **Template** (sections of the report)
 
-1. **Bottom line and asks**: Two or three sentences: how the week went and what you need, each ask with who and by when. First on the page, readable alone.
-2. **Shipped**: What reached customers or a new phase this week, by initiative code and name, one line each, in customer language where the item has a customer-safe value proposition.
-3. **At risk**: Initiatives that are At Risk or Blocked: what is wrong, since when (days in the state, from the data), what would unblock it, who decides. Use the agreed meaning of the colours; mark a colour you proposed as proposed.
-4. **Coming up**: What is expected in the next two weeks: gates waiting, reviews due, dates, and what each depends on.
-5. **Cuts by reader**: Leaders: the three things that need attention. Sales and support: what changed for customers and what to say. Team: what changed in priorities and dependencies. Only the cuts requested; each is a few lines drawn from the sections above, nothing new.
+1. **Bottom line and asks**: Two or three sentences a busy reader can stop after: how the week went in terms of the strategy and objectives (not a list of tickets), and the decisions or help needed, each with who and by when. If nothing needs a decision, say so.
+2. **What happened and why it matters**: The three to five moves that matter, grouped by theme or objective rather than by initiative. For each: what changed (with the initiative code and link), why it happened when the data shows it (a dependency, a gate, a date), and the so what for the objective or the customer. Quiet weeks are said to be quiet; do not pad.
+3. **Compared with last week**: What got better, what got worse and what stayed stuck, from the two weeks of data: health moving, dates slipping (days), items waiting longer at a gate. Numbers from get_report only.
+4. **At risk and what would unblock it**: Each At Risk or Blocked initiative: what is wrong, for how long, what it puts at risk, what would unblock it and who can. Use the agreed meaning of the colours; mark a colour you proposed as proposed.
+5. **Coming up**: The next two weeks: gates to be decided, outcome reviews due, dates, and what each depends on.
+6. **Where to look**: Links to the digest items and the initiatives, so a reader can go deeper. Only links the data returned.
 
 **Rules specific to this skill** (on top of the shared ones)
 
-- Every statement of fact comes from get_report, the workspace data or the person, by initiative code. Do not call something shipped, at risk or on track unless one of them says so, and say what you read it from.
+- The default reader is the leadership team and the default scope is every initiative. If the person's words name other readers (sales, the team), reframe for them; if they name initiatives, cover only those and say which you covered and which you could not find.
+- Lead with the so what. Group by theme or objective, explain cause and consequence, and compare with last week; a list of every change is the Changes report and not this. Keep the strongest points and drop the noise.
+- Every statement of fact comes from get_report, the workspace data or the person, by initiative code. Do not call something shipped, at risk or on track unless one of them says so, and say what you read it from. A cause you only suspect is written as "possible" and marked as your reading.
 - Team level only: never write about the performance of a named person, and never rank people or teams against each other.
-- Commercial figures, customer names and decision rationale stay out of the sales and support cut and out of anything meant for a wider audience; keep to customer-safe fields there.
+- Commercial figures, customer names and decision rationale stay out of anything meant for a wider audience than the people who may see them; for sales and support cuts keep to customer-safe fields.
 
 **Example input**
 
 ```
-pv-weekly --format=email
+pv-weekly
 ```
-Claude reads `get_report weekly_digest` and `get_report health`, then the few initiatives that matter. Answers: *Leaders and the team. I need a decision on R-07's scope by Thursday. At risk means the date will slip without action.*
+covers every initiative, framed for leadership. To focus on some initiatives and pick a format, name them:
+```
+pv-weekly R-4 to R-9 --format=powerpoint
+```
+Claude reads `get_report weekly_digest` and `get_report health` (scoped to R-4 to R-9 in the second case), the week before, and the few initiatives that matter, then asks one message. The person answers:
+> Nothing outside Product Velocity. One screen is fine. At risk means the date will slip without action.
 
 **Example output** *(illustrative, trimmed)*
 
 ```text
-Subject: Product update, week 47: R-07 needs a scope decision by Thursday
+Subject: Product update, week 47: R-04 enters Build; R-07 needs a scope decision by Thursday
 
-Hi all,
+Bottom line
+Offline listening (R-04) cleared Gate B and entered Build, which moves our "reliable listening" objective forward. One decision is needed from leadership: R-07's scope, by Thursday, or its date slips.
 
-Bottom line: R-04 moved into Build; R-07 is At Risk. I need a decision from leadership on R-07's scope by Thursday.
+What happened and why it matters
+- Reliable listening: R-04 Offline listening moved from Define to Build after Gate B (approved Tuesday). It waited 9 days at the gate, against 5 last week. Next: the partner agreements are the main dependency.
+- Account experience: R-07 Account switcher turned At Risk (was On Track) because its SSO dependency R-12 is Blocked. Without a decision the 15 March date slips about two weeks (slip of 14 days, from the data).
+- Discovery: R-09 Playlist import got a new discovery document (AI draft, v2); its 30-day outcome review is due Friday.
 
-Asks
-- Leadership: decide R-07 scope (cut the avatar upload or move the date) by Thursday.
+Compared with last week
+- Better: R-03 completed. Worse: two initiatives At Risk (was one). Stuck: R-12 Blocked for a second week.
 
-Shipped
-- R-03 Search filters reached roll-out (Completed phase).
-
-At risk
-- R-07 Account switcher: At Risk for 6 days; the SSO dependency (R-12) is Blocked. Unblock: a decision on scope. Decides: leadership.
+At risk and what would unblock it
+- R-07: At Risk for 6 days. Cut the avatar upload or move the date. Decides: leadership.
+- R-12: Blocked for 14 days waiting on the identity provider. A call between the product manager and the security lead could unblock it (possible; my reading, not in the data).
 
 Coming up
-- R-04: Gate B request expected this week. R-09: 30-day outcome review due Friday.
+- R-04 partner agreements (two networks) before the go or hold checkpoint; R-09 30-day outcome review on Friday.
 
-For the team: priorities unchanged; R-12 blockers are listed above.
+Where to look
+- https://app.example/portfolio?item=R-07 , R-04 , R-12
 ```
-Numbers and links come from the app's own digest, so they match the Leadership page. Nothing is sent; with a Gmail tool connected, Claude can create a draft if asked. Claude then offers once to save a copy in Documents.
+The numbers and links come from the app's own digest and health report, so they match the Leadership page. Where the data does not say why, the cause is written as possible. Nothing is sent: with a Gmail tool connected Claude can create a draft if asked, and with a presentation tool it builds the deck when you ask for PowerPoint. Claude then offers once to save a copy in Documents.
 
 ### `pv-release-notes`: Release notes
 
-*Customer-facing notes from what shipped, grouped as new, improved, fixed, retired and security, plus an internal version for support.*
+*Customer-facing notes from what shipped, grouped as new, improved, fixed, retired and security, plus an internal version for support. Everything that shipped, or only the initiatives you name.*
 
-- **Stage**: Launch. **Works on**: the whole workspace. **You get**: Report (email, slides, document, Slack or chat); nothing saved unless asked. **Status**: In #571 (merging).
+- **Stage**: Launch. **Works on**: all initiatives, or the ones you name. **You get**: Report (email, slides, document, Slack or chat); nothing saved unless asked. **Status**: Live (scope and leadership framing in the next PR).
 - **Company profile sections it reads**: products, personas, glossary, voice.
 - **Fields it can fill** (empty ones, after a preview and agreement): none.
 - **Who decides**: not applicable (a report; nothing is decided or sent by the skill)
@@ -1030,7 +1041,7 @@ Customer lines come only from customer-safe fields, never commercial figures or 
 
 *Objectives and key results for the quarter, marked committed or aspirational, with the capacity split, the bets and the exclusions, and how they will be graded.*
 
-- **Stage**: Run the product. **Works on**: the whole workspace. **You get**: Quarter plan document in Documents. **Status**: In #571 (merging).
+- **Stage**: Run the product. **Works on**: the whole workspace. **You get**: Quarter plan document in Documents. **Status**: Live.
 - **Company profile sections it reads**: products, personas, glossary, strategy, metrics, conventions.
 - **Fields it can fill** (empty ones, after a preview and agreement): none.
 - **Who decides**: the leadership team, which signs off the quarter.
@@ -1102,7 +1113,7 @@ Key results belong to teams, never to people. Saved as a workspace document (Doc
 
 *One page that compares the options, doing nothing included: why change, what each costs, what we assume, and what would change the answer.*
 
-- **Stage**: Decide. **Works on**: one initiative. **You get**: Business case document on the initiative. **Status**: In #571 (merging).
+- **Stage**: Decide. **Works on**: one initiative. **You get**: Business case document on the initiative. **Status**: Live.
 - **Company profile sections it reads**: industry, position, products, personas, strategy, metrics, conventions, glossary.
 - **Fields it can fill** (empty ones, after a preview and agreement): `cost_of_not_doing`.
 - **Who decides**: the approver named in the ask, at the gate this case is for.
@@ -1187,7 +1198,7 @@ No return or payback figure appears because the inputs were not given.
 
 *The press release written as if it had shipped, the customer's questions, the internal hard questions, and the weakest claims.*
 
-- **Stage**: Define. **Works on**: one initiative. **You get**: PR/FAQ document on the initiative. **Status**: In #571 (merging).
+- **Stage**: Define. **Works on**: one initiative. **You get**: PR/FAQ document on the initiative. **Status**: Live.
 - **Company profile sections it reads**: products, personas, competitors, glossary, voice.
 - **Fields it can fill** (empty ones, after a preview and agreement): none.
 - **Who decides**: the person named as decider, who moves the idea forward or stops it.
@@ -1251,7 +1262,7 @@ Customer-facing sections use customer-safe wording only: no invented quotes, dat
 
 *A test card for a prototype: what we believe, how we will check it, and the result that would prove us right, written before anyone tests it.*
 
-- **Stage**: Define. **Works on**: one initiative. **You get**: Prototype document on the initiative. **Status**: In #571 (merging).
+- **Stage**: Define. **Works on**: one initiative. **You get**: Prototype document on the initiative. **Status**: Live.
 - **Company profile sections it reads**: products, personas, glossary.
 - **Fields it can fill** (empty ones, after a preview and agreement): none.
 - **Who decides**: the person who calls the prototype ready and the result a pass.
@@ -1320,7 +1331,7 @@ Participants are described by role only.
 
 *From one measurable goal to the people who can move it, the behaviour changes we need, and which roadmap initiatives serve each; flags work that serves none.*
 
-- **Stage**: Set direction. **Works on**: the whole workspace. **You get**: Impact map document in Documents. **Status**: In #571 (merging).
+- **Stage**: Set direction. **Works on**: the whole workspace. **You get**: Impact map document in Documents. **Status**: Live.
 - **Company profile sections it reads**: industry, position, personas, vision, strategy, metrics.
 - **Fields it can fill** (empty ones, after a preview and agreement): none.
 - **Who decides**: the person who picks the first impact.
@@ -1387,7 +1398,7 @@ Actors are roles; deliverables are matched to initiatives by the fields on the r
 
 *How big the market is, as ranges you can defend: a top-down and a bottom-up estimate with sources, and where they disagree.*
 
-- **Stage**: Set direction. **Works on**: the whole workspace. **You get**: Market sizing document in Documents. **Status**: In #571 (merging).
+- **Stage**: Set direction. **Works on**: the whole workspace. **You get**: Market sizing document in Documents. **Status**: Live.
 - **Company profile sections it reads**: industry, position, products, personas, competitors, strategy.
 - **Fields it can fill** (empty ones, after a preview and agreement): none.
 - **Who decides**: the product owner, who accepts the sizing for use in decisions.
@@ -1453,7 +1464,7 @@ With sources missing, Claude lists what to find instead of inventing figures. Th
 
 *A Lean Canvas for the business model and/or a value proposition canvas for one customer segment, each box marked tested or untested, with the riskiest assumptions to check first.*
 
-- **Stage**: Set direction. **Works on**: the whole workspace. **You get**: Canvas document in Documents. **Status**: In #571 (merging).
+- **Stage**: Set direction. **Works on**: the whole workspace. **You get**: Canvas document in Documents. **Status**: Live.
 - **Company profile sections it reads**: industry, position, products, personas, competitors, vision, strategy, metrics.
 - **Can add to the profile** (after the person agrees, as an AI draft an admin confirms): section *products*, i.e. the confirmed positioning line and value proposition for the segment.
 - **Fields it can fill** (empty ones, after a preview and agreement): none.
@@ -1526,7 +1537,7 @@ After the person confirms the positioning line, offers to save it into the profi
 
 *From one outcome to the customer opportunities behind it, the one to pursue now, three solution ideas for it, and the riskiest assumption and cheapest test for each.*
 
-- **Stage**: Discover. **Works on**: one initiative. **You get**: Opportunity tree document on the initiative. **Status**: In #571 (merging).
+- **Stage**: Discover. **Works on**: one initiative. **You get**: Opportunity tree document on the initiative. **Status**: Live.
 - **Company profile sections it reads**: personas, products, glossary, metrics.
 - **Fields it can fill** (empty ones, after a preview and agreement): none.
 - **Who decides**: the owner of the outcome, who chooses the target opportunity.
@@ -1612,7 +1623,7 @@ Where results land: initiative documents on the **Spec tab** of the initiative; 
 
 - No skill has been run in a real Claude, ChatGPT or Gemini session; the prompts are tested as text, and the tools as code. Expect the wording of the questions and the layout of the outputs to need tuning after real use.
 - `get_report` is tested with a stub reader; its real reader (the database functions `weekly_item_changes` and `change_feed`, called with the caller's token) has not been run against a live workspace.
-- `pv-weekly` does not yet read or match the weekly update draft that the Leadership page already keeps (`weekly_updates`).
+- `pv-weekly` does not yet read or match the weekly update draft that the Leadership page already keeps (`weekly_updates`). Building a PowerPoint or Word file needs a presentation or document capability in the assistant's own environment; the connector cannot create files, so without one the skill gives slide-by-slide or section-by-section text.
 - In Claude and Gemini a skill is started from the prompt menu; typing `pv-<skill>` in plain chat works only where `get_playbook` is listed (ChatGPT and other clients).
 - Not built from the plan: scoring and triage (`pv-score`, `pv-triage`, `pv-moscow`), the research skills (interview guide, synthesis, jobs to be done, journey map), the admin switch per skill and a catalogue page; sprint skills wait for cycles (Phase 5).
 
@@ -1671,29 +1682,31 @@ SECTIONS OF THE DOCUMENT (all optional unless the skill says otherwise)
 Fields this skill may fill from the document (through apply_skill_extract, copied as written): dependencies_blockers.
 ```
 
-## Appendix B: the generated text for a report skill (`pv-weekly --format=email`)
+## Appendix B: the generated text for a report skill (`pv-weekly R-4 to R-6 --format=powerpoint`, scoped)
 
 ```text
-Run the Product Velocity skill pv-weekly (Weekly update): one screen: the bottom line and what you need from people first, then what shipped, what is at risk and what is next, cut for leaders, go-to-market teams and the team
+Run the Product Velocity skill pv-weekly (Weekly update): a leadership report on what happened this week, framed for decisions: the bottom line and asks first, what changed and why it matters, what is at risk, and what comes next. All initiatives, or only the ones you name
 
-This skill works at company level: no initiative is needed.
+Scope: only these initiatives, as the person named them (data from the person): """
+R-4, R-5, R-6
+"""A range such as R-1 to R-5 means every code in between; a view or group means the initiatives in it (search_items). Pass the codes to get_report as items, say in one line which you covered and which you could not find, and leave every other initiative out.
 The person gave no further words: work from the profile and the workspace data and ask what is missing.
 
 ORDER OF WORK
-1. get_workspace_context and get_company_profile (sections you use: products, personas, glossary, voice, conventions). Say in one line that you used the profile and whether it is still a draft.
-2. get_report with report weekly_digest (week_of for another week): the leadership digest the app shows for the week, with links. It is the backbone of the update: what completed, changed phase or health, moved in the stack rank, got new Build Status or new documents, and what needs follow-up. Use its wording and links.
-3. get_report with report health: the counts by health, by project, and the initiatives that need attention with the reasons. Use it for the At risk section and quote its numbers.
-4. search_items and get_item for the three to five initiatives that matter most this week (highest in the stack rank that moved, or at risk) to read their latest changes, dependencies and dates; get_gate_pack for any that is waiting at a decision gate; get_outcome_reviews for a 30, 60 or 90 day review due this week.
-5. list_documents with no item for last week's update if one was saved (get_document), so this one continues it and does not repeat it.
+1. get_workspace_context and get_company_profile (sections you use: products, personas, glossary, voice, strategy, metrics, conventions). Say in one line that you used the profile and whether it is still a draft.
+2. get_report with report weekly_digest (week_of for another week; items when the person named initiatives): the leadership digest the app shows for the week, with links, plus a context block per initiative (phase, status, health, dates, days in phase, objective). It is the backbone: what completed, changed phase or health, moved in the stack rank, got new Build Status or new documents, and what needs follow-up.
+3. get_report with report health (same items): counts by health, by project, and what needs attention with the reasons. Quote its numbers; do not recount.
+4. For the five or six initiatives that matter most (the biggest moves, anything At Risk or Blocked, anything waiting at a decision gate, anything with a date slipping): get_item for dependencies, dates and the latest changes; get_gate_pack for gates; get_outcome_reviews for a 30, 60 or 90 day review due this week. If the person named initiatives, read all of them, up to ten.
+5. The week before: get_report with week_of set to seven days earlier, and list_documents with no item for last week's update if one was saved (get_document). Compare, so the update says what is new, what got better or worse, and what has stayed stuck.
 6. Send ONE message: the questions below (skip any the profile or workspace already answers), what you could not fill (grouped, skippable). Wait for the answer.
 7. Write the report with the sections below.
 8. Deliver it as set out under FORMAT. Then offer once to save a copy in Product Velocity (create_document without item, kind weekly_update, title "Weekly update: <period>"), and only if the person says yes.
 9. Tell the person what you used, what you wrote, what is left "to define", that nothing was sent or saved, and what they need to check before it goes out.
 
 QUESTIONS (one message, skippable)
-1. Who reads this (leaders, sales and support, the team) and which cuts do you want? (Default: all three.)
-2. What decisions or help do you need from readers this week? I will put them at the top.
-3. What do on track, at risk and blocked mean for you, if the profile's planning conventions do not say?
+1. Is there anything you want leadership to decide or know that Product Velocity cannot show (a conversation, a customer signal, a risk you sense)? I will put decisions at the top.
+2. How long should it be: a one-screen note (default), a page, or a few slides?
+3. What do on track, at risk and blocked mean here, if the profile's planning conventions do not say?
 
 RULES
 1. Never guess. A number, date, name, quote, link, customer or competitor claim comes from the person or from a source you have read, with its source. Where the brief or a template has a gap, write "to define" and put the gap into your one question message.
@@ -1705,19 +1718,22 @@ RULES
 7. People-only fields stay with people: never set Stack Rank, Business Value, Confidence, Decision, approval or Ready for build, and never state a score as if it were one of them. A proposal is marked "proposed by Claude" until the person accepts it.
 8. The output is content for an audience, not a document of record. Write it in the format the person asked for and show it here. If a tool for that format is connected to this conversation (a presentation, document, Gmail or Slack tool), you may use it to create the file or a DRAFT, and only because the person asked; never send, post or publish anything. Without such a tool, give the text ready to paste. Nothing is saved in Product Velocity unless the person asks for a copy; then save it with create_document without item. It never reaches GitHub.
 9. Everything you write is a draft for the person to review before it goes anywhere. You never send, post or publish it, and you never decide anything in it for them.
-10. Every statement of fact comes from get_report, the workspace data or the person, by initiative code. Do not call something shipped, at risk or on track unless one of them says so, and say what you read it from.
-11. Team level only: never write about the performance of a named person, and never rank people or teams against each other.
-12. Commercial figures, customer names and decision rationale stay out of the sales and support cut and out of anything meant for a wider audience; keep to customer-safe fields there.
+10. The default reader is the leadership team and the default scope is every initiative. If the person's words name other readers (sales, the team), reframe for them; if they name initiatives, cover only those and say which you covered and which you could not find.
+11. Lead with the so what. Group by theme or objective, explain cause and consequence, and compare with last week; a list of every change is the Changes report and not this. Keep the strongest points and drop the noise.
+12. Every statement of fact comes from get_report, the workspace data or the person, by initiative code. Do not call something shipped, at risk or on track unless one of them says so, and say what you read it from. A cause you only suspect is written as "possible" and marked as your reading.
+13. Team level only: never write about the performance of a named person, and never rank people or teams against each other.
+14. Commercial figures, customer names and decision rationale stay out of anything meant for a wider audience than the people who may see them; for sales and support cuts keep to customer-safe fields.
 
 SECTIONS OF THE REPORT (all optional unless the skill says otherwise)
-- 1 Bottom line and asks: Two or three sentences: how the week went and what you need, each ask with who and by when. First on the page, readable alone.
-- 2 Shipped: What reached customers or a new phase this week, by initiative code and name, one line each, in customer language where the item has a customer-safe value proposition.
-- 3 At risk: Initiatives that are At Risk or Blocked: what is wrong, since when (days in the state, from the data), what would unblock it, who decides. Use the agreed meaning of the colours; mark a colour you proposed as proposed.
-- 4 Coming up: What is expected in the next two weeks: gates waiting, reviews due, dates, and what each depends on.
-- 5 Cuts by reader: Leaders: the three things that need attention. Sales and support: what changed for customers and what to say. Team: what changed in priorities and dependencies. Only the cuts requested; each is a few lines drawn from the sections above, nothing new.
+- 1 Bottom line and asks: Two or three sentences a busy reader can stop after: how the week went in terms of the strategy and objectives (not a list of tickets), and the decisions or help needed, each with who and by when. If nothing needs a decision, say so.
+- 2 What happened and why it matters: The three to five moves that matter, grouped by theme or objective rather than by initiative. For each: what changed (with the initiative code and link), why it happened when the data shows it (a dependency, a gate, a date), and the so what for the objective or the customer. Quiet weeks are said to be quiet; do not pad.
+- 3 Compared with last week: What got better, what got worse and what stayed stuck, from the two weeks of data: health moving, dates slipping (days), items waiting longer at a gate. Numbers from get_report only.
+- 4 At risk and what would unblock it: Each At Risk or Blocked initiative: what is wrong, for how long, what it puts at risk, what would unblock it and who can. Use the agreed meaning of the colours; mark a colour you proposed as proposed.
+- 5 Coming up: The next two weeks: gates to be decided, outcome reviews due, dates, and what each depends on.
+- 6 Where to look: Links to the digest items and the initiatives, so a reader can go deeper. Only links the data returned.
 
 FORMAT
-The person chose email: an email: a subject line (a suggestion), a two-line opening that holds the bottom line and the asks, then short sections with bullets. Plain text that survives a paste.
+The person chose slides: a short deck of five slides or fewer, one message per slide, a title that states the message, three bullets at most per slide, numbers from the data only. Build it with a connected presentation tool if there is one; otherwise write slide by slide.
 
 This skill fills no initiative fields; its result lives in the document.
 ```

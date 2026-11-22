@@ -26,7 +26,7 @@ const getPlaybook: ToolDef = {
       team: { type: "string", description: "write_prd, write_discovery: the team, e.g. product manager = Ana, designer = Li, engineering manager = Raj." },
       url: { type: "string", description: "research_company: the company website." },
       focus: { type: "string", description: "research_company: what to look at most closely." },
-      target: { type: "string", description: "pv- skills: the initiative code such as R-12 (or several, view:\"Name\" or group:\"Name\")." },
+      target: { type: "string", description: "pv- skills: the initiative code such as R-12 (or several, a range such as R-1 to R-5, view:\"Name\" or group:\"Name\"). For pv-weekly and pv-release-notes it is optional: leave it out for all initiatives." },
       input: { type: "string", description: "pv- skills: the person's own words and pasted material, passed through as data. If the person typed the whole command, pass everything after the skill name here and the target is read from it." },
       draft: { type: "string", description: "pv- skills: \"true\" when the person typed --draft (show the result, save nothing until told)." },
       format: { type: "string", description: "pv- report skills (pv-weekly, pv-release-notes): email, slides, document, slack or chat, when the person typed --format=<one>." },
