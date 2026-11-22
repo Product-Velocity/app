@@ -1,14 +1,13 @@
 "use client";
 
 import {
-  CARDS_DEFAULT_VIEWS, CARDS_VIEW_NAMES, CORE_COLUMN_KEYS, FIELD_BY_KEY, VISIBLE_FIELDS, axisLabel, axisOptions, boardMoves, buildBoard, cardNeighbor,
-  cardValue, defaultColumnField, matchesFilters, matchesSearch, moveNeedsGate, planMove, refKey, sanitizeView, type AxisCtx, type Board, type Filter, type SortDef, type ViewDef,
+  CARDS_DEFAULT_VIEWS, CARDS_VIEW_NAMES, axisLabel, axisOptions, boardMoves, buildBoard, cardColumns, cardFieldKeys, cardNeighbor,
+  cardValue, defaultColumnField, healthSegments, matchesFilters, matchesSearch, moveNeedsGate, planMove, refKey, sanitizeView, sizeSummary, type AxisCtx, type Board, type Filter, type ViewDef,
 } from "@pv/domain";
 import type { GateSource } from "../gates/gate-source";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChoiceMenu } from "../portfolio/choice-menu";
-import { ColumnsPanel } from "../portfolio/columns-panel";
 import type { PortfolioController } from "../portfolio/controller";
 import { FilterPanel } from "../portfolio/filter-panel";
 import { baseDef, baseParam, parseBase, sameView, type BaseView } from "../portfolio/grid-view";
@@ -19,9 +18,10 @@ import { baseToRef, useViews, ViewBar } from "../portfolio/view-bar";
 import { summarize } from "../portfolio/view-controls";
 import { useWorkspace } from "../workspace/provider";
 import { setQueryParam, useScope } from "../workspace/scope";
-import { StatusPill } from "../../components/status-pill";
+import { statusTone } from "../../components/status-tone";
+import { CardFace, healthStripe, type TrackerRef } from "./card-face";
+import { CardFieldsPanel } from "./card-fields-panel";
 
-const BASE_FIELDS = new Set(["stack_rank", "item_code", "initiative_name", "health", "product_manager", "contributing_teams", "effort"]);
 const DEFAULT_LANE = "theme";
 const PRIORITISATION: BaseView = { kind: "builtin", name: "Prioritisation" };
 const CARDS_VIEW_STORAGE_KEY = "pv:cards-view";
@@ -115,9 +115,6 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
   };
   const clearColumns = () => setColOverrides((p) => { const n = { ...p }; delete n[viewKey]; return n; });
   const resetChanges = () => { setShared({}); clearColumns(); setQueryParam("lane", null); };
-  const visible = useMemo(() => new Set(def.columns), [def.columns]);
-  const changeColumns = (columns: string[], pinned: string[], sort: SortDef[]) => changeDef({ columns, pinned, sort });
-  const shownCount = VISIBLE_FIELDS.filter((f) => visible.has(f.key) || (CORE_COLUMN_KEYS as readonly string[]).includes(f.key)).length;
   const viewsApi = useViews({
     base, def, bDef, dirty, openBase: openBaseRaw, discard: clearColumns, reset: resetChanges,
     builtins: CARDS_VIEW_NAMES, defaultBar: CARDS_VIEW_NAMES, builtinDefs: CARDS_DEFAULT_VIEWS,
@@ -165,13 +162,18 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [actionsFor, setActionsFor] = useState<string | null>(null);
   // a click anywhere outside the open Move menu (or its button) closes it
   useEffect(() => {
-    if (!menuFor) return;
-    const down = (e: PointerEvent) => { if (!(e.target as HTMLElement).closest(".kc-menu, .kc-move")) setMenuFor(null); };
+    if (!menuFor && !actionsFor) return;
+    const down = (e: PointerEvent) => {
+      const t = e.target as HTMLElement;
+      if (!t.closest(".kc-menu")) setMenuFor(null);
+      if (!t.closest(".kc-actions, .kc-more")) setActionsFor(null);
+    };
     document.addEventListener("pointerdown", down, true);
     return () => document.removeEventListener("pointerdown", down, true);
-  }, [menuFor]);
+  }, [menuFor, actionsFor]);
   // a moved card is a new element in another cell: give it the focus again once the board has been drawn
   const refocus = useCallback((id: string) => {
     requestAnimationFrame(() => requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-card="${id}"]`)?.focus()));
@@ -231,7 +233,24 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
   }, [peekId, openPeek, menuFor]);
 
   const memberName = (id: unknown) => { const e = lookups.members.find((m) => m.user_id === id)?.email; return e ? e.split("@")[0]! : ""; };
-  const extraFields = useMemo(() => def.columns.filter((k) => !BASE_FIELDS.has(k) && k !== colField && k !== laneField && FIELD_BY_KEY[k]).slice(0, 3), [def.columns, colField, laneField]);
+  // the fields on a card: the view's columns that a card can draw, at most five, none repeating the board's own columns or swimlanes
+  const axes = useMemo(() => [colField, laneField].filter(Boolean), [colField, laneField]);
+  const cardFields = useMemo(() => cardFieldKeys(def.columns, axes), [def.columns, axes]);
+  const defaultCardFields = useMemo(() => cardFieldKeys(bDef.columns, axes), [bDef.columns, axes]);
+  const applyCardFields = (chosen: string[]) => changeDef({ columns: cardColumns(chosen), pinned: [] });
+  const trackersOf = (id: string): TrackerRef[] => {
+    const out: TrackerRef[] = [];
+    const gh = lookups.github?.links[id];
+    if (gh && gh.number != null) out.push({ tracker: "github", label: `#${gh.number}`, url: gh.url });
+    const jira = lookups.jira?.links[id];
+    if (jira?.issueKey) out.push({ tracker: "jira", label: jira.issueKey, url: jira.url });
+    return out;
+  };
+  const copyLink = (code: string) => {
+    const u = new URL(window.location.href);
+    u.searchParams.set("item", code);
+    void navigator.clipboard?.writeText(u.href).then(() => controller.notify(`Link to ${code} copied.`), () => controller.notify("Could not copy the link."));
+  };
 
   const onCardKey = (e: React.KeyboardEvent, row: GridItem) => {
     if (e.key === "Enter" || e.key === " ") { if ((e.target as HTMLElement).closest("button")) return; e.preventDefault(); openPeek(row.id); return; }
@@ -251,36 +270,45 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
     const row = rowOf.get(id);
     if (!row) return null;
     const health = row.health ? String(row.health) : "";
-    const teams = ctx.teamsOf(row);
     const owner = memberName(row.product_manager);
+    const menuOpen = actionsFor === id;
     return (
       <div
-        key={id} className={`kcard${dragging === id ? " kcard-dragging" : ""}`} data-card={id} tabIndex={0} role="group"
+        key={id} className={`kcard${dragging === id ? " kcard-dragging" : ""}`} data-card={id} data-stripe={healthStripe(health)} tabIndex={0} role="group"
         aria-label={`${row.item_code} ${row.initiative_name}, rank ${row.stack_rank}${health ? `, health ${health}` : ""}. Shift and arrow keys move it, M opens the move menu, Enter opens it.`}
-        draggable={canEdit} onDragStart={(e) => { e.dataTransfer.setData("text/plain", id); e.dataTransfer.effectAllowed = "move"; setDragging(id); }}
+        draggable={canEdit} onDragStart={(e) => { e.dataTransfer.setData("text/plain", id); e.dataTransfer.effectAllowed = "move"; setDragging(id); setActionsFor(null); }}
         onDragEnd={() => { setDragging(null); setOver(null); }}
-        onClick={(e) => { if (!(e.target as HTMLElement).closest("button, select")) openPeek(id); }} onKeyDown={(e) => onCardKey(e, row)}
+        onClick={(e) => { if (!(e.target as HTMLElement).closest("button, select, a")) openPeek(id); }} onKeyDown={(e) => onCardKey(e, row)}
       >
-        <div className="kc-top">
-          <span className="mono muted">#{row.stack_rank} {row.item_code}</span>
-          {health && <StatusPill value={health} />}
-        </div>
-        <div className="kc-name">{row.initiative_name}</div>
-        <div className="kc-meta">
-          {owner && <span className="kc-owner" title={String(lookups.members.find((m) => m.user_id === row.product_manager)?.email ?? "")}>{owner}</span>}
-          {row.effort ? <span className="token-chip" title="Effort (T-shirt)">{String(row.effort)}</span> : null}
-          {teams.map((t) => <span key={t} className="token-chip kc-team">{t}</span>)}
-        </div>
-        {extraFields.map((k) => row[k] != null && row[k] !== "" && (
-          <div key={k} className="kc-extra"><span className="muted">{FIELD_BY_KEY[k]!.name}:</span> {String(row[k])}</div>
-        ))}
-        {canEdit && (
-          <button type="button" className="kc-move" aria-label={`Move ${row.item_code}…`} aria-expanded={menuFor === id} onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === id ? null : id); }}>Move…</button>
+        <CardFace
+          row={row} fields={cardFields} owner={owner} ownerTitle={String(lookups.members.find((m) => m.user_id === row.product_manager)?.email ?? "")}
+          trackers={trackersOf(id)} today={today} onOpen={() => openPeek(id)}
+          actions={(
+            <button type="button" className="kc-more" aria-label={`Actions for ${row.item_code}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={(e) => { e.stopPropagation(); setActionsFor(menuOpen ? null : id); }}>
+              <span aria-hidden="true">⋯</span>
+            </button>
+          )}
+        />
+        {menuOpen && (
+          <div className="kc-actions" role="menu" aria-label={`Actions for ${row.item_code}`} onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Escape") { setActionsFor(null); refocus(id); } }}>
+            <button type="button" role="menuitem" autoFocus onClick={() => { setActionsFor(null); openPeek(id); }}>Open</button>
+            {canEdit && <button type="button" role="menuitem" aria-label={`Move ${row.item_code}…`} onClick={() => { setActionsFor(null); setMenuFor(id); }}>Move…</button>}
+            <button type="button" role="menuitem" onClick={() => { setActionsFor(null); copyLink(row.item_code); }}>Copy link</button>
+          </div>
         )}
         {menuFor === id && <MoveMenu row={row} moves={moves} colField={colField} laneField={laneField} ctx={ctx} onMove={(c, l) => { setMenuFor(null); moveTo(id, c, l); refocus(id); }} onClose={() => { setMenuFor(null); refocus(id); }} />}
       </div>
     );
   };
+
+  // per column: the sizes of its cards ("3L 1M"); per lane: the health of its cards
+  const columnSizes = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of board.columns) m.set(c.value, sizeSummary(board.lanes.flatMap((l) => (l.cells.get(c.value) ?? []).map((id) => rowOf.get(id)?.effort))));
+    return m;
+  }, [board, rowOf]);
+  const laneHealth = (ids: string[]) => healthSegments(ids.map((id) => rowOf.get(id)?.health));
 
   const drop = (e: React.DragEvent, toCol: string | null, toLane: string) => {
     e.preventDefault();
@@ -316,7 +344,7 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
       <div className="pvbar" role="region" aria-label="Card tools">
         <div className="pvbar-s1">
           <FilterPanel filters={def.filters} onChange={setFilters} lookups={lookups} quarters={controller.rows.map((r) => r.g2m_quarter)} openValues={(k) => controller.openValues(k)} today={today} matching={rows.length} total={controller.rows.length} />
-          <ColumnsPanel def={def} defaultDef={bDef} customerSafe={def.customerSafe === true} onApply={changeColumns} shown={shownCount} />
+          <CardFieldsPanel chosen={cardFields} defaultChosen={defaultCardFields} axes={axes} customerSafe={def.customerSafe === true} sample={rows[0]} sampleOwner={rows[0] ? memberName(rows[0].product_manager) : ""} today={today} onApply={applyCardFields} />
           <label className="pvbar-search">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b6272" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
             <input
@@ -344,11 +372,12 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
             </p>
           )}
           <div className="kb-scroll" data-testid="cards-scroll">
-            <div className="kb" style={{ minWidth: board.columns.length * 232 }}>
+            <div className={dragging ? "kb kb-dragging" : "kb"} style={{ minWidth: board.columns.length * 232 }}>
               <div className="kb-head" style={{ gridTemplateColumns: `repeat(${board.columns.length}, minmax(220px, 1fr))` }}>
                 {board.columns.map((c) => (
                   <div key={c.value || "none"} className="kb-col-head">
                     <span className="kb-col-name">{c.label}</span> <span className="gl-count">{board.columnCounts.get(c.value) ?? 0}</span>
+                    {columnSizes.get(c.value) && <span className="kb-col-sub" title="Sizes of the cards in this column">{columnSizes.get(c.value)}</span>}
                   </div>
                 ))}
               </div>
@@ -364,6 +393,7 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
                         <button type="button" className="gl-toggle" aria-expanded={!collapsed} aria-label={`${collapsed ? "Expand" : "Collapse"} ${lane.label}`}
                           onClick={() => setToggled((t) => { const n = new Set(t); if (!n.delete(lane.value)) n.add(lane.value); return n; })}>{collapsed ? "▸" : "▾"}</button>
                         <strong>{lane.label}</strong> <span className="gl-count">{lane.count} {lane.count === 1 ? "item" : "items"}</span>
+                        <LaneHealth segments={laneHealth([...lane.cells.values()].flat())} />
                       </div>
                     )}
                     {!collapsed && (
@@ -394,6 +424,21 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
         {peekId && <ItemPanel controller={controller} lookups={lookups} itemId={peekId} me={me} mode="peek" onClose={() => openPeek(null)} pageHref={pageHref} />}
       </div>
     </div>
+  );
+}
+
+/** A small bar of the health of a lane's cards, with the words next to it (the colours are only an extra). */
+function LaneHealth({ segments }: { segments: { health: string; count: number }[] }) {
+  const total = segments.reduce((n, x) => n + x.count, 0);
+  if (total === 0) return null;
+  const text = segments.map((x) => `${x.count} ${x.health}`).join(" · ");
+  return (
+    <span className="kb-health" title={`Health: ${text}`}>
+      <span className="kb-hbar" role="img" aria-label={`Health: ${text}`}>
+        {segments.map((x) => <span key={x.health} className={`tone-${x.health === "No health" ? "neutral" : statusTone(x.health)}`} style={{ flexGrow: x.count }} />)}
+      </span>
+      <span className="muted" aria-hidden="true">{text}</span>
+    </span>
   );
 }
 

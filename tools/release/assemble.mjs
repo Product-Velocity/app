@@ -7,6 +7,7 @@
 // A fragment is Markdown with a small header:
 //   ---
 //   bump: minor        (minor for a feature, patch for a fix, major only when Ashu decides a release is the next whole number, e.g. 1.0.0)
+//   type: improved     (optional: new, improved, fixed, retired or security; shown as the group in "What's new". Left out, it is worked out from the title)
 //   ---
 //   **Title.** What changed, for the person who uses the product (this text becomes the "Key updates" cell).
 import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
@@ -15,6 +16,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 export const FRAGMENT_DIR = path.join(root, "docs/releases/unreleased");
+const TYPES = ["new", "improved", "fixed", "retired", "security"];
 const VERSION = /^(\d+)\.(\d+)\.(\d+)$/;
 
 /** Reads one fragment: its bump and the text of its row. Throws with a sentence naming the file when it is not valid. */
@@ -25,10 +27,12 @@ export function parseFragment(name, text) {
     m[1].split(/\r?\n/).map((l) => /^\s*([a-z_]+)\s*:\s*(.*?)\s*$/i.exec(l)).filter(Boolean).map((x) => [x[1].toLowerCase(), x[2]]),
   );
   if (head.bump !== "major" && head.bump !== "minor" && head.bump !== "patch") throw new Error(`${name}: bump must be major, minor or patch`);
+  if (head.type !== undefined && !TYPES.includes(head.type.toLowerCase())) throw new Error(`${name}: type must be new, improved, fixed, retired or security`);
   const plain = m[2].replace(/\s+/g, " ").trim();
   if (plain.length < 20) throw new Error(`${name}: write what changed (a title in bold and a sentence or two)`);
   if (/^\|?\s*\d+\.\d+\.\d+\s*\|/.test(plain)) throw new Error(`${name}: write only the text; the version and date are added for you`);
-  return { name, bump: head.bump, body: plain.replace(/\|/g, "\\|") };
+  const mark = head.type ? `<!--type:${head.type.toLowerCase()}--> ` : "";
+  return { name, bump: head.bump, body: mark + plain.replace(/\|/g, "\\|") };
 }
 
 export function nextVersion(version, bump) {

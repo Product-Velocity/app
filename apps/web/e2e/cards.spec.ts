@@ -22,14 +22,59 @@ test.describe("the board", () => {
     await expect(page.locator(".gantt-count")).toContainText("40 initiatives");
   });
 
-  test("a card shows rank, code, name, health as a word, owner, size and team chips", async ({ page }) => {
+  test("a card has four zones: rank, ID and health; name; the chosen fields; owner", async ({ page }) => {
     await open(page);
     const c = card(page, "item-1");
-    await expect(c).toContainText("#1 R-01");
-    await expect(c).toContainText("Initiative number 1");
-    await expect(c.locator(".pill")).toHaveText("On Track");
-    await expect(card(page, "item-6").locator(".kc-team")).toHaveText(["Core", "Mobile"]);
-    await expect(c.locator(".kc-meta .token-chip").first()).toHaveText("XS");
+    await expect(c.locator(".kc-rank")).toHaveText("Stack rank 1");
+    await expect(c.locator(".kc-id")).toHaveText("R-01");
+    await expect(c.locator(".kc-top .pill")).toHaveText("On Track");
+    await expect(c.locator(".kc-name")).toContainText("Initiative number 1");
+    await expect(c.locator(".kc-size")).toContainText("XS");
+    await expect(c.locator(".kc-moscow")).toContainText("Must");
+    await expect(c.locator(".kc-moscow")).toHaveClass(/kc-moscow-must/);
+    await expect(c.locator(".kc-owner")).toContainText("ana");
+    await expect(c.locator(".kc-avatar").first()).toHaveText("AN");
+    await expect(c.getByRole("button", { name: "Actions for R-01" })).toBeVisible();
+    await expect(c).toHaveAttribute("data-stripe", "good");
+  });
+
+  test("the tracker IDs sit next to the ID and open the issue in a new tab; an unsafe link is not clickable", async ({ page }) => {
+    await open(page);
+    const gh = card(page, "item-1").locator(".kc-ext", { hasText: "#42" });
+    await expect(gh).toHaveAttribute("href", "https://github.com/acme/app/issues/42");
+    await expect(gh).toHaveAttribute("target", "_blank");
+    await expect(gh).toHaveAttribute("rel", /noopener/);
+    await expect(card(page, "item-1").locator("a.kc-ext", { hasText: "PLAT-1" })).toHaveCount(0); // javascript: is refused
+    await expect(card(page, "item-1").locator(".kc-ext-plain", { hasText: "PLAT-1" })).toBeVisible();
+    const jira = card(page, "item-2").locator("a.kc-ext");
+    await expect(jira).toHaveText("PLAT-7");
+    await expect(jira).toHaveAttribute("href", "https://acme.atlassian.net/browse/PLAT-7");
+    await expect(card(page, "item-3").locator(".kc-ext")).toHaveCount(0);
+  });
+
+  test("the initiative ID opens the card panel, and the ⋯ menu offers Open, Move… and Copy link", async ({ page }) => {
+    await open(page, "n=12&by=moscow");
+    await card(page, "item-2").locator(".kc-id").click();
+    await expect(page.getByTestId("item-panel")).toContainText("Initiative number 2");
+    await page.keyboard.press("Escape");
+    await card(page, "item-3").getByRole("button", { name: "Actions for R-03" }).click();
+    const menu = page.getByRole("menu", { name: "Actions for R-03" });
+    await expect(menu.getByRole("menuitem")).toHaveText(["Open", "Move…", "Copy link"]);
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+  });
+
+  test("columns show their sizes and lanes their health, with words", async ({ page }) => {
+    await open(page);
+    await expect(page.locator(".kb-col-head", { hasText: "Discover" }).locator(".kb-col-sub")).toHaveText(/^(\d+(XL|L|M|S|XS) ?)+$/);
+    const head = page.locator(".kb-lane-head", { hasText: "Onboarding" }).locator(".kb-health");
+    await expect(head.getByRole("img")).toHaveAttribute("aria-label", /^Health: \d+ /);
+  });
+
+  test("an empty cell shows a drop zone while a card is dragged", async ({ page }) => {
+    await open(page, "n=12&by=moscow");
+    await page.evaluate(() => { (document.querySelector("[data-card]") as HTMLElement).dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer: new DataTransfer() })); });
+    await expect(page.locator(".kb-dragging")).toHaveCount(1);
   });
 
   test("the column and swimlane fields can be changed; the read-only GitHub status is offered", async ({ page }) => {
@@ -66,8 +111,8 @@ test.describe("the board", () => {
     expect(await page.locator("[data-card]").count()).toBeLessThan(all);
     await page.locator(".more-views-btn").click();
     await page.getByRole("dialog", { name: "Views" }).getByRole("group", { name: "With dates" }).locator(".vm-open").click();
-    await expect(card(page, "item-1")).toContainText("G2M Date (est):");
-    await expect(card(page, "item-1")).toContainText("Confidence:");
+    await expect(card(page, "item-1")).toContainText("G2M Date (est)");
+    await expect(card(page, "item-1")).toContainText("Confidence");
     await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Prioritisation", exact: true }).click();
     await page.locator(".scope-chip").click();
     await page.getByRole("menuitemradio", { name: /Customer-facing work/ }).click();
@@ -87,14 +132,14 @@ test.describe("the board", () => {
     await expect(page.getByLabel("Swimlanes")).toHaveValue("g2m_quarter");
     await expect(page.locator(".kb-lane-head strong")).toHaveText(["Q1 2027", "Q2 2027", "Q3 2027", "No value"]);
     await expect(page.locator(".filter-chips")).toContainText("Initiative Phase");
-    await expect(card(page, "item-1")).toContainText("G2M Date (est):");
+    await expect(card(page, "item-1")).toContainText("G2M Date (est)");
 
     // Delivery: filters to Build/Test/Experiment, groups swimlanes by Project, shows Build Status and Delivery Progress
     await viewGroup.getByRole("button", { name: "Delivery", exact: true }).click();
     expect(page.url()).toContain("view=Delivery");
     await expect(page.getByLabel("Swimlanes")).toHaveValue("home_project");
-    await expect(card(page, "item-3")).toContainText("Build Status:");
-    await expect(card(page, "item-3")).toContainText("Delivery Progress:");
+    await expect(card(page, "item-3")).toContainText("Build Status");
+    await expect(card(page, "item-3")).toContainText("Delivery Progress");
 
     // Go-to-market: filters to Test/Experiment/Roll-out, groups swimlanes by Audience
     await viewGroup.getByRole("button", { name: "Go-to-market", exact: true }).click();
@@ -229,7 +274,8 @@ test.describe("moving cards", () => {
 
   test("the Move… button does the same with the mouse", async ({ page }) => {
     await open(page, "n=12&by=moscow");
-    await page.getByRole("button", { name: "Move R-03…" }).click();
+    await page.getByRole("button", { name: "Actions for R-03" }).click();
+    await page.getByRole("menuitem", { name: "Move R-03…" }).click();
     await page.getByRole("dialog", { name: "Move R-03" }).getByLabel("MoSCoW").selectOption("Must");
     await page.getByRole("dialog", { name: "Move R-03" }).getByRole("button", { name: "Move" }).click();
     expect(await val(page, "item-3", "moscow")).toBe("Must");
@@ -248,7 +294,9 @@ test.describe("moving cards", () => {
   test("view-only roles can look but not move cards, and are told why", async ({ page }) => {
     await open(page, "n=40&role=viewer");
     await expect(card(page, "item-1")).toHaveAttribute("draggable", "false");
-    await expect(page.getByRole("button", { name: /^Move R-/ })).toHaveCount(0);
+    await card(page, "item-1").getByRole("button", { name: "Actions for R-01" }).click();
+    await expect(page.getByRole("menuitem")).toHaveText(["Open", "Copy link"]);
+    await page.keyboard.press("Escape");
     await card(page, "item-1").focus();
     await page.keyboard.press("Shift+ArrowRight");
     expect(await val(page, "item-1", "initiative_phase")).toBe("Discover");
@@ -306,9 +354,55 @@ test.describe("item panel and accessibility", () => {
     await open(page);
     let r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
     expect(r.violations.map((v) => `${v.id}: ${v.nodes[0]?.html.slice(0, 140)}`)).toEqual([]);
-    await page.getByRole("button", { name: "Move R-01…" }).click();
+    await page.getByRole("button", { name: "Actions for R-01" }).click();
     r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
     expect(r.violations.map((v) => `${v.id}: ${v.nodes[0]?.html.slice(0, 140)}`)).toEqual([]);
+    await page.getByRole("menuitem", { name: "Move R-01…" }).click();
+    r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations.map((v) => `${v.id}: ${v.nodes[0]?.html.slice(0, 140)}`)).toEqual([]);
+  });
+});
+
+test.describe("card fields", () => {
+  test("the picker says how many of five are used, fills up, greys the rest and shows a live preview", async ({ page }) => {
+    await open(page);
+    const button = page.getByRole("button", { name: /Card fields:/ });
+    await expect(button).toContainText("2 of 5");
+    await button.click();
+    const panel = page.getByRole("group", { name: "Choose card fields" });
+    await expect(panel.locator(".kf-count")).toHaveText("2 of 5");
+    for (const f of ["Audience", "Horizon", "Focus Area"]) await panel.getByRole("checkbox", { name: new RegExp(`^${f}`) }).check();
+    await expect(panel).toContainText("5 of 5");
+    await expect(panel).toContainText("The card is full");
+    await expect(panel.getByRole("checkbox", { name: /^Planned Quarter/ })).toBeDisabled();
+    await expect(panel.getByRole("list", { name: "Card fields in order" }).getByRole("listitem")).toHaveCount(5);
+    await expect(panel.locator(".kf-preview .kc-pill").first()).toBeVisible();
+    await panel.getByRole("checkbox", { name: /^Focus Area/ }).uncheck();
+    await expect(panel).toContainText("4 of 5");
+    await panel.getByRole("button", { name: "Apply card fields (4 of 5)" }).click();
+    await expect(page.getByRole("button", { name: /Card fields:/ })).toContainText("4 of 5");
+  });
+
+  test("fields too long for a card are not offered, but a search says why", async ({ page }) => {
+    await open(page);
+    await page.getByRole("button", { name: /Card fields:/ }).click();
+    const panel = page.getByRole("group", { name: "Choose card fields" });
+    await expect(panel.getByRole("checkbox", { name: /^Description/ })).toHaveCount(0);
+    await panel.getByRole("searchbox", { name: "Search card fields" }).fill("description");
+    await expect(panel.getByRole("checkbox", { name: /^Description/ }).first()).toBeDisabled();
+    await expect(panel).toContainText("too long for a card");
+  });
+
+  test("a chosen field shows on the cards in the chosen order, drawn by its type", async ({ page }) => {
+    await open(page);
+    await page.getByRole("button", { name: /Card fields:/ }).click();
+    const panel = page.getByRole("group", { name: "Choose card fields" });
+    await panel.getByRole("checkbox", { name: /^Contributing Teams/ }).check();
+    await panel.getByRole("button", { name: "Move Contributing Teams up" }).click();
+    await panel.getByRole("button", { name: "Move Contributing Teams up" }).click();
+    await panel.getByRole("button", { name: /Apply card fields/ }).click();
+    await expect(card(page, "item-6").locator(".kc-chips .pill").first()).toContainText("Core");
+    await expect(card(page, "item-6").locator(".kc-chips .pill").nth(1)).toContainText("Mobile");
   });
 });
 

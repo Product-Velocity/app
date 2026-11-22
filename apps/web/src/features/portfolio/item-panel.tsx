@@ -208,7 +208,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
         ))}
       </div>
 
-      <div ref={bodyRef} className="ip-body" role="tabpanel" id={`${titleId}-panel-${tab}`} aria-labelledby={`${titleId}-tab-${tab}`}>
+      <div ref={bodyRef} className="ip-body" role="tabpanel" tabIndex={0} id={`${titleId}-panel-${tab}`} aria-labelledby={`${titleId}-tab-${tab}`}>
         {loadError && <p role="alert" className="pf-error">Could not load the lists of this initiative: {loadError}</p>}
         {tab === "overview" && <Overview ctx={ctx} itemId={itemId} />}
         {tab === "spec" && <DocumentsTab itemId={itemId} canEdit={controller.canEdit} ctx={ctx} tracker={trackerName} />}
