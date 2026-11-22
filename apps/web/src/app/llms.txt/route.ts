@@ -7,7 +7,7 @@ export function GET() {
 
 > ${HOME_DESCRIPTION}
 
-Product Velocity is an agentic product management platform and the single source of truth where product managers, stakeholders and their AI plan, decide and deliver together, from OKRs to tracked outcomes, on one roadmap for humans and AI. It is a roadmap and stack-rank platform: AI prepares the work, people decide. It was built by a group of product leaders, from product people for product people. It does not replace Jira or GitHub: it hosts the layer around delivery (company objectives and OKRs, go-to-market, outcomes and time to market) and connects to the delivery tools.
+Product Velocity is an agentic product management platform for product managers who own both the quality of the outcome and the speed of getting there. It is one roadmap for humans and their AI co-workers, from company OKRs to tracked outcomes, across business lines, PM scopes and teams. The roadmap is the shared memory every AI agent (Claude, ChatGPT, Gemini) starts from, so agents work from the same current context. AI prepares the work, people decide. It was built by a group of product leaders, from product people for product people. It does not replace Jira or GitHub: it hosts the layer around delivery (company objectives and OKRs, go-to-market, outcomes and time to market) and connects to the delivery tools.
 
 ## What it does
 - One roadmap for every team and business line, with one stack rank and a capacity fit line per team.
@@ -16,6 +16,7 @@ Product Velocity is an agentic product management platform and the single source
 - Alignment: stakeholders rank and vote (top 5 with duels, 100 coins or ICE scoring). Results are anonymous and small groups are kept private.
 - A lifecycle of seven phases (Discover, Define, Build, Test, Experiment, Roll-out, Completed) with three decision gates. A person decides at every gate and the reason is kept.
 - Two-way sync with Jira and GitHub for delivery progress. Commercial data (value, customers, decisions, key results, outcomes) never goes to the delivery tools.
+- Velocity and reporting: time in each phase and initiatives by team and phase (team level only, never individuals), needs-action flags, and reports for leadership, teams and delivery built from the same roadmap data.
 - Outcomes and adoption are tracked after launch, at 30, 60 and 90 days.
 - The loop: decide (AI helps shape the opportunity and business case, people decide at the gates), deliver (epics and stories go to Jira and GitHub; progress flows back), learn (your AI analyses the results and brings them back, next to the initiative, its effort and key result; people review them).
 - Bring your own AI: it works with AI assistants such as Claude through a connector. AI prepares work and marks it as a draft; people decide. We do not sell tokens.

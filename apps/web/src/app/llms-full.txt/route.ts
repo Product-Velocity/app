@@ -1,10 +1,10 @@
 import { SITE_URL } from "@/lib/public-contact";
-import { sectionText } from "../(marketing)/plain-text";
+import { sectionText, useCaseText } from "../(marketing)/plain-text";
 import { HOME_DESCRIPTION } from "../(marketing)/seo";
-import { PV2_ALIGN, PV2_LIFECYCLE, PV2_LOOP, PV2_NOT, PV2_SOLUTION, PV2_SOURCE, PV2_TRANSPARENCY, PV2_VIEWS_TEXT, PV2_WHY_NOW } from "../(marketing)/art-v2";
+import { PV2_CHANGES, PV2_HOW, PV2_PROBLEM, PV2_TRUST, PV2_UC_HEAD, PV2_UC_PANELS, PV2_VELOCITY, PV2_WHAT } from "../(marketing)/art-v2";
 
 export function GET() {
-  const body = [PV2_WHY_NOW, PV2_SOURCE, PV2_LOOP, PV2_NOT, PV2_VIEWS_TEXT, PV2_TRANSPARENCY, PV2_SOLUTION, PV2_ALIGN, PV2_LIFECYCLE].map(sectionText).join("\n\n");
+  const body = [sectionText(PV2_PROBLEM), sectionText(PV2_WHAT), sectionText(PV2_HOW), useCaseText(PV2_UC_HEAD, PV2_UC_PANELS), sectionText(PV2_VELOCITY), sectionText(PV2_CHANGES), sectionText(PV2_TRUST)].join("\n\n");
   const text = `# Product Velocity: agentic product management platform
 
 > ${HOME_DESCRIPTION}

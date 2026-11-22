@@ -3,7 +3,7 @@ import { SITE_URL } from "@/lib/public-contact";
 
 /** What the homepage says about itself to search engines and AI assistants. Keep in step with the page text and llms.txt. */
 export const HOME_TITLE = "Product Velocity: agentic product management platform";
-export const HOME_DESCRIPTION = "Product Velocity is the agentic product management platform: the single source of truth where product managers, stakeholders and their AI plan, decide and deliver together, from OKRs to tracked outcomes, on top of Jira and GitHub.";
+export const HOME_DESCRIPTION = "Product Velocity is the agentic product management platform: one roadmap for product managers, stakeholders and their AI co-workers, from OKRs to tracked outcomes, with velocity reporting and two-way sync with Jira and GitHub.";
 
 export const homeMetadata = {
   title: { absolute: HOME_TITLE },
@@ -22,7 +22,9 @@ export const HOME_JSON_LD = {
     {
       "@type": "SoftwareApplication", "@id": `${SITE_URL}/#app`, name: "Product Velocity", url: SITE_URL, applicationCategory: "BusinessApplication", operatingSystem: "Web",
       description: "A multi-tenant product management platform: one roadmap and stack rank, alignment on priorities, decision gates, capacity-aware planning, two-way sync with Jira and GitHub, reports per audience and outcomes after launch. Works with your own AI assistant, including Claude.",
-      featureList: ["One roadmap and stack rank for every team", "Alignment: stakeholders rank and vote", "Seven phases with three decision gates", "Capacity-aware planning with a fit line", "Two-way sync with Jira and GitHub", "Reports per audience", "Outcomes tracked at 30, 60 and 90 days", "Connects to Claude, ChatGPT and Gemini"],
+      featureList: ["One roadmap and stack rank for every team", "Alignment: stakeholders rank and vote", "Seven phases with three decision gates", "Capacity-aware planning with a fit line", "Two-way sync with Jira and GitHub", "Reports per audience",
+        "Velocity insights: time in each phase, per team",
+        "One shared roadmap as memory for your AI agents", "Outcomes tracked at 30, 60 and 90 days", "Connects to Claude, ChatGPT and Gemini"],
       publisher: { "@id": `${SITE_URL}/#org` },
     },
   ],
