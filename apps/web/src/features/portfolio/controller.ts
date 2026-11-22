@@ -408,6 +408,31 @@ export class PortfolioController {
     return { ok: true, changed: true };
   }
 
+  /** Move the dates of several items at once (a multi-select drag in the Gantt): checked first, all or nothing, ONE undo step. */
+  setManyDates(changes: { id: string; planned_start: string; g2m_date_est: string }[]): EditOutcome {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
+    const edits: Edit[] = [];
+    let items = 0;
+    for (const c of changes) {
+      const row = this.byId.get(c.id);
+      if (!row) return { ok: false, error: "That item no longer exists." };
+      for (const field of ["planned_start", "g2m_date_est"] as const) {
+        const reason = readOnlyReason(field);
+        if (reason) { this.notify(reason); return { ok: false, error: reason }; }
+        if (Number.isNaN(toDay(String(c[field])))) { const error = `${row.item_code} ${fieldLabel(field)} is not a date.`; this.notify(error); return { ok: false, error }; }
+      }
+      if (toDay(c.g2m_date_est) < toDay(c.planned_start)) { const error = `${row.item_code}: G2M Date (est) cannot be before Planned Start.`; this.notify(error); return { ok: false, error }; }
+      const before = edits.length;
+      for (const field of ["planned_start", "g2m_date_est"] as const) {
+        if (row[field] !== c[field]) edits.push({ type: "field", itemId: c.id, key: row.item_code, field, before: row[field] ?? null, after: c[field] });
+      }
+      if (edits.length > before) items++;
+    }
+    if (edits.length === 0) return { ok: true, changed: false };
+    this.commitMany(null, edits, `Moved ${items} ${items === 1 ? "item" : "items"} on the Gantt`);
+    return { ok: true, changed: true };
+  }
+
   /**
    * Several fields of one item as one undo step: what dropping a card on another column and lane changes.
    * `null` clears a field. Everything is checked first; if one value is refused, nothing changes.
@@ -432,14 +457,16 @@ export class PortfolioController {
   }
 
   /** One undo step for several field edits of one item, each saved (and audited) on its own; a failed one is put back alone. */
-  private commitMany(row: GridItem, edits: Edit[], text: string) {
-    const itemId = row.id;
+  private commitMany(first: GridItem | null, edits: Edit[], text: string) {
     const entry: Entry = { id: `e${++this.entrySeq}`, edits, label: text };
     this.stack.push(entry);
     this.state.notice = null;
     this.state.last = { text, at: this.now() };
     for (const edit of edits) {
       if (edit.type !== "field") continue;
+      const itemId = edit.itemId;
+      const row = first && first.id === itemId ? first : this.byId.get(itemId);
+      if (!row) continue;
       this.applyField(row, edit.field, edit.after);
       this.save(null, `${row.item_code} ${fieldLabel(edit.field)}`, () => this.source.updateField(itemId, edit.field, edit.after), () => {
         const cur = this.byId.get(itemId);

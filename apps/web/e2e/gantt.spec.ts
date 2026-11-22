@@ -13,7 +13,22 @@ const settle = (page: Page) => page.waitForFunction(() => (window as unknown as 
 const dates = (page: Page, id: string) => page.evaluate((i) => { const r = (window as unknown as { __pv: { controller: { row: (id: string) => { planned_start: string | null; g2m_date_est: string | null } } } }).__pv.controller.row(i); return [r.planned_start, r.g2m_date_est]; }, id);
 const sourceDates = (page: Page, id: string) => page.evaluate((i) => { const r = (window as unknown as { __pv: { source: { items: { id: string; planned_start: string | null; g2m_date_est: string | null }[] } } }).__pv.source.items.find((x) => x.id === i)!; return [r.planned_start, r.g2m_date_est]; }, id);
 /** Scroll so the bar is on screen, then return its box. */
-const box = async (page: Page, id: string) => { await bar(page, id).scrollIntoViewIfNeeded(); return (await bar(page, id).boundingBox())!; };
+const box = async (page: Page, id: string) => {
+  await bar(page, id).scrollIntoViewIfNeeded();
+  // keep the bar clear of the name column, which covers the left edge of the scrolled timeline
+  await page.getByTestId("gantt-scroll").evaluate((el, i) => {
+    const b = el.querySelector(`[data-bar="${i}"]`)!.getBoundingClientRect();
+    const labelW = parseFloat(getComputedStyle(el).getPropertyValue("--label-w")) || 320;
+    const over = el.getBoundingClientRect().left + labelW + 24 - b.left;
+    if (over > 0) el.scrollLeft -= over;
+  }, id);
+  return (await bar(page, id).boundingBox())!;
+};
+/** The toolbar menus are buttons that open a short list ("Group by: Initiative Group"). */
+const choose = async (page: Page, menu: string, option: string) => {
+  await page.getByRole("button", { name: new RegExp(`^${menu}:`) }).click();
+  await page.getByRole("menuitemradio", { name: option, exact: true }).first().click();
+};
 const PX = 6; // pixels per day at month zoom
 const drag = async (page: Page, from: { x: number; y: number }, dx: number) => {
   await page.mouse.move(from.x, from.y);
@@ -37,13 +52,38 @@ test.describe("the chart", () => {
     await expect(page.locator(".gantt-today")).toBeVisible();
   });
 
-  test("a bar too short for its name shows the name beside it, so no bar is a blank box", async ({ page }) => {
+  test("a bar shows its name only when it fits: the code when it is narrow, nothing when it is tiny; the card always has the full name", async ({ page }) => {
     await openFlat(page);
-    const widths = await page.$$eval("[data-bar]", (els) => els.map((e) => ({ id: e.getAttribute("data-bar")!, w: e.getBoundingClientRect().width, inside: (e.querySelector(".gbar-text")?.textContent ?? "").trim(), beside: (e.querySelector(".gbar-out")?.textContent ?? "").trim() })));
-    const short = widths.filter((b) => b.w <= 90);
-    expect(short.length).toBeGreaterThan(0); // the test data has short bars
-    for (const b of short) { expect(b.inside).toBe(""); expect(b.beside).toMatch(/^R-\d+ \S/); }
-    for (const b of widths.filter((x) => x.w > 90)) { expect(b.inside).toMatch(/^R-\d+ \S/); expect(b.beside).toBe(""); }
+    const bars = await page.$$eval("[data-bar]", (els) => els.map((e) => ({ id: e.getAttribute("data-bar")!, w: e.getBoundingClientRect().width, inside: (e.querySelector(".gbar-text")?.textContent ?? "").trim() })));
+    expect(bars.some((b) => b.w < 120)).toBe(true); // the test data has narrow bars
+    for (const b of bars) {
+      if (b.w >= 120) expect(b.inside).toMatch(/^R-\d+ \S/);
+      else if (b.w >= 44) expect(b.inside).toMatch(/^R-\d+$/);
+      else expect(b.inside).toBe("");
+    }
+    await expect(page.locator(".gbar-out")).toHaveCount(0);
+    const b = await box(page, "item-1");
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await expect(page.getByTestId("gantt-card")).toContainText("Initiative number 1");
+    await expect(page.getByTestId("gantt-card")).toContainText("Plan");
+    await page.mouse.move(5, 5);
+    await expect(page.getByTestId("gantt-card")).toHaveCount(0);
+  });
+
+  test("keyboard focus shows the same card, and the bar's label says phase, plan against actual, gate and dependencies", async ({ page }) => {
+    await openFlat(page);
+    await bar(page, "item-3").focus();
+    await expect(page.getByTestId("gantt-card")).toContainText("Depends on");
+    await expect(bar(page, "item-3")).toHaveAttribute("aria-label", /phase Build.*1 dependency/);
+  });
+
+  test("the Today marker sits in the header, not over the bars", async ({ page }) => {
+    await open(page, "n=14");
+    const head = (await page.locator(".gantt-head").boundingBox())!;
+    const marker = (await page.locator(".gh-today").boundingBox())!;
+    expect(marker.y).toBeGreaterThanOrEqual(head.y);
+    expect(marker.y + marker.height).toBeLessThanOrEqual(head.y + head.height + 1);
+    await expect(page.locator(".gh-today")).toHaveText("Today");
   });
 
   test("the left column carries the health as a word, not only a colour", async ({ page }) => {
@@ -63,13 +103,13 @@ test.describe("the chart", () => {
 
   test("grouping can be changed: by project then none, by team; and zoom changes the scale", async ({ page }) => {
     await open(page, "n=14");
-    await page.getByLabel("Group by").selectOption("home_project");
+    await choose(page, "Group by", "Project");
     await expect(page.locator(".gl-g1 .gl-name").first()).toHaveText("Data");
-    await page.getByLabel("then").selectOption("");
+    await choose(page, "Then by", "None");
     await expect(page.locator(".gl-g2")).toHaveCount(0);
-    await page.getByLabel("Group by").selectOption("team");
+    await choose(page, "Group by", "Team");
     await expect(page.locator(".gl-g1 .gl-name")).toContainText(["Core", "Mobile", "No value"]);
-    await page.getByLabel("Group by").selectOption("");
+    await choose(page, "Group by", "No grouping");
     await expect(page.locator(".gl-group")).toHaveCount(0);
     const w1 = (await box(page, "item-1")).width;
     await page.getByRole("button", { name: "Quarter" }).click();
@@ -81,10 +121,10 @@ test.describe("the chart", () => {
   test("respects the active scope and the filters of a saved view", async ({ page }) => {
     await open(page, "n=14");
     const all = await page.locator("[data-bar]").count();
-    await page.getByLabel("Filters of").selectOption("view-must");
+    await choose(page, "Filters of", "Must haves");
     await expect(page.locator(".gantt-count")).toContainText("filters of “Must haves”");
     expect(await page.locator("[data-bar]").count()).toBeLessThan(all);
-    await page.getByLabel("Filters of").selectOption("");
+    await choose(page, "Filters of", "No saved view");
     await page.locator(".scope-chip").click();
     await page.getByRole("menuitemradio", { name: /Customer-facing work/ }).click();
     await expect(page.locator(".gantt-count")).toContainText("scope: Customer-facing work");
@@ -286,5 +326,159 @@ test.describe("many bars", () => {
     console.log(`2,000 initiatives: first view ${first} ms, scroll steps max ${Math.max(...times)} ms, ${rendered} rows in the page`);
     expect(first).toBeLessThan(6000);
     expect(Math.max(...times)).toBeLessThan(1000);
+  });
+});
+
+test.describe("planned against actual, gates and group roll-ups", () => {
+  test("a bar past its G2M Date (est) with no finish says Overdue in words; an actual line shows where work really ran", async ({ page }) => {
+    await openFlat(page);
+    await expect(page.locator(".gnote", { hasText: /^Overdue \d+ d$/ }).first()).toBeVisible();
+    await expect(page.locator(".gactual").first()).toBeAttached();
+    const b = await box(page, "item-4"); // item 4 has an actual start (i % 3 === 0) and finished late or on plan
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await expect(page.getByTestId("gantt-card")).toContainText(/Started \d+ days? (late|early)|Started on plan/);
+  });
+
+  test("the next gate is a diamond with its letter, read only", async ({ page }) => {
+    await openFlat(page);
+    const g = page.locator('[data-item="item-2"] .ggate');
+    await expect(g.locator(".ggate-l")).toHaveText("B");
+    await expect(bar(page, "item-2")).toHaveAttribute("aria-label", /Gate B, Not started, due 2027-/); // the diamond never takes the click: the bar under it does
+    const b = await box(page, "item-2");
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await expect(page.getByTestId("gantt-card")).toContainText("Next gate");
+  });
+
+  test("group rows roll up what needs a look and the delivery progress, team level", async ({ page }) => {
+    await open(page, "n=40");
+    const flags = await page.locator(".gl-g1 .gl-roll").allTextContents();
+    expect(flags.join(" ")).toMatch(/\d+ (at risk|late|blocked)/);
+    await expect(page.locator(".gl-g1 .gl-roll").first()).toHaveAttribute("title", /(No flags|at risk|late|blocked)/);
+  });
+});
+
+test.describe("dependencies from depends_on", () => {
+  test("draws an arrow per drawn dependency and marks the ones that start before what they wait for ends", async ({ page }) => {
+    await openFlat(page);
+    expect(await page.locator(".gdep").count()).toBeGreaterThan(0);
+    await expect(page.locator('[data-item="item-3"] .gl-dep')).toContainText("1 dep");
+  });
+
+  test("hovering a bar lights its chain and fades the rest", async ({ page }) => {
+    await openFlat(page);
+    const b = await box(page, "item-3");
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await expect(page.locator(".gdep-active").first()).toBeAttached();
+    expect(await page.locator(".gbar-dim").count()).toBeGreaterThan(0);
+    await expect(bar(page, "item-3")).not.toHaveClass(/gbar-dim/);
+    await expect(bar(page, "item-2")).not.toHaveClass(/gbar-dim/); // what it waits for stays lit
+    await page.mouse.move(5, 5);
+    await expect(page.locator(".gbar-dim")).toHaveCount(0);
+  });
+
+  test("a dependency that is moved so it starts before its predecessor ends turns red and says so", async ({ page }) => {
+    await openFlat(page);
+    const set = await page.evaluate(() => {
+      const c = (window as unknown as { __pv: { controller: { row: (id: string) => { planned_start: string; g2m_date_est: string }; setDates: (id: string, d: { planned_start: string; g2m_date_est: string }) => unknown } } }).__pv.controller;
+      const pred = c.row("item-2");
+      return c.setDates("item-3", { planned_start: pred.planned_start, g2m_date_est: pred.g2m_date_est });
+    });
+    expect(set).toMatchObject({ ok: true });
+    await expect(page.locator('[data-item="item-3"] .gl-dep-clash')).toContainText("1 early");
+    await expect(page.locator(".gdep-clash").first()).toBeAttached();
+  });
+});
+
+test.describe("zoom, density, export and selection", () => {
+  test("week and year zoom, Fit, and Ctrl+wheel", async ({ page }) => {
+    await open(page, "n=14");
+    await page.getByRole("button", { name: "Week", exact: true }).click();
+    expect(page.url()).toContain("zoom=week");
+    await expect(page.locator(".gh-tick").nth(1)).toHaveText(/^\d+ \w{3}$/);
+    await page.getByRole("button", { name: "Year", exact: true }).click();
+    await expect(page.locator(".gh-tick").first()).toHaveText(/^Q\d$/);
+    await page.getByRole("button", { name: "Fit" }).click();
+    expect(await page.locator('.gantt-view-chip, [aria-label="Zoom"] [aria-pressed="true"]').count()).toBeGreaterThan(0);
+    await page.getByRole("button", { name: "Month", exact: true }).click();
+    const scroll = page.getByTestId("gantt-scroll");
+    const bx = (await scroll.boundingBox())!;
+    await page.mouse.move(bx.x + bx.width / 2, bx.y + bx.height / 2);
+    await page.keyboard.down("Control");
+    await page.mouse.wheel(0, 200); // zoom out one step
+    await page.keyboard.up("Control");
+    await expect(page.getByRole("button", { name: "Quarter", exact: true })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("Comfortable rows are taller, show the phase, and are remembered", async ({ page }) => {
+    await openFlat(page);
+    const h0 = (await page.locator('[data-item="item-1"]').boundingBox())!.height;
+    await page.getByRole("button", { name: "Comfortable" }).click();
+    const h1 = (await page.locator('[data-item="item-1"]').boundingBox())!.height;
+    expect(h1).toBeGreaterThan(h0);
+    await expect(page.locator('[data-item="item-1"] .gl-meta')).toContainText("Discover");
+    await page.reload();
+    await page.waitForSelector("[data-bar]");
+    await expect(page.getByRole("button", { name: "Comfortable" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("the name column can be resized with the keyboard", async ({ page }) => {
+    await open(page, "n=14");
+    const sep = page.getByRole("separator", { name: "Resize the name column" });
+    const w0 = Number(await sep.getAttribute("aria-valuenow"));
+    await sep.focus();
+    await page.keyboard.press("ArrowRight");
+    expect(Number(await sep.getAttribute("aria-valuenow"))).toBe(w0 + 16);
+  });
+
+  test("Collapse all closes every group, Expand all opens them again", async ({ page }) => {
+    await open(page, "n=14");
+    const before = await page.locator("[data-bar]").count();
+    await page.getByRole("button", { name: "Collapse all" }).click();
+    await expect(page.locator("[data-bar]")).toHaveCount(0);
+    await page.getByRole("button", { name: "Expand all" }).click();
+    expect(await page.locator("[data-bar]").count()).toBe(before);
+  });
+
+  test("Export PNG downloads a picture of the whole chart", async ({ page }) => {
+    await openFlat(page);
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Export PNG" }).click()]);
+    expect(download.suggestedFilename()).toBe("gantt-2027-04-14.png");
+    const path = await download.path();
+    const { statSync } = await import("node:fs");
+    expect(statSync(path!).size).toBeGreaterThan(5000);
+  });
+
+  test("Shift-click selects bars; dragging one moves them all as one undo step; Ctrl+Z puts them all back", async ({ page }) => {
+    await openFlat(page);
+    const before = [await dates(page, "item-5"), await dates(page, "item-6")];
+    const b5 = await box(page, "item-5");
+    await page.keyboard.down("Shift");
+    await page.mouse.click(b5.x + b5.width / 2, b5.y + b5.height / 2);
+    const b6 = await box(page, "item-6");
+    await page.mouse.click(b6.x + b6.width / 2, b6.y + b6.height / 2);
+    await page.keyboard.up("Shift");
+    await expect(page.getByRole("region", { name: "Selected bars" })).toContainText("2 selected");
+    const u0 = await page.evaluate(() => (window as unknown as { __pv: { controller: { status: { undoCount: number } } } }).__pv.controller.status.undoCount);
+    const b = await box(page, "item-5");
+    await drag(page, { x: b.x + b.width / 2, y: b.y + b.height / 2 }, 7 * PX);
+    const day = (iso: string) => Math.round(Date.parse(iso) / 86_400_000);
+    const after = [await dates(page, "item-5"), await dates(page, "item-6")];
+    for (let i = 0; i < 2; i++) { expect(day(after[i]![0]!) - day(before[i]![0]!)).toBe(7); expect(day(after[i]![1]!) - day(before[i]![1]!)).toBe(7); }
+    await settle(page);
+    expect(await page.evaluate(() => (window as unknown as { __pv: { controller: { status: { undoCount: number } } } }).__pv.controller.status.undoCount)).toBe(u0 + 1);
+    await page.keyboard.press("Control+Z");
+    await expect.poll(async () => [await dates(page, "item-5"), await dates(page, "item-6")]).toEqual(before);
+  });
+
+  test("the selection can be moved a week with buttons (keyboard path) and cleared with Esc", async ({ page }) => {
+    await openFlat(page);
+    await bar(page, "item-5").focus(); await page.keyboard.press("s");
+    await bar(page, "item-6").focus(); await page.keyboard.press("s");
+    const before = await dates(page, "item-5");
+    await page.getByRole("button", { name: "Move 1 week later" }).click();
+    const after = await dates(page, "item-5");
+    expect(Math.round(Date.parse(after[0]!) / 86_400_000) - Math.round(Date.parse(before[0]!) / 86_400_000)).toBe(7);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("region", { name: "Selected bars" })).toHaveCount(0);
   });
 });
