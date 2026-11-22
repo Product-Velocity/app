@@ -162,4 +162,36 @@ describe("results and names", () => {
     const log = (await db.admin.query("select actor_id, new, via from public.audit_log where entity_id = $1 and field = 'names_revealed'", [sid])).rows;
     expect(log).toEqual([{ actor_id: f.alice, new: "Checking a complaint from sales", via: "UI" }]);
   });
+  it("a Creator (the PM role) sees who voted what in a closed session, with a reason and a log entry; a viewer and other tenants cannot", async () => {
+    const pm = f.dave;
+    await db.admin.query("insert into public.tenant_members (tenant_id, user_id, role) values ($1, $2, 'creator')", [f.tenantA, pm]);
+    const { sid, pid, ai } = await setup("coins", 4);
+    await get(pid);
+    await submit(pid, { coins: { [ai[0]!]: 30, [ai[1]!]: 30, [ai[2]!]: 30, [ai[3]!]: 10 } });
+    const reveal = (user: string, reason: string, via = "UI") => db.asUser(user, async (q) => (await q("select * from public.alignment_reveal_names($1, $2)", [sid, reason])).rows, { commit: true, via });
+    // the participant joined under the earlier wording: only an admin may open names
+    await db.admin.query("update public.alignment_participants set consent_version = '2026-10-v1' where id = $1", [pid]);
+    await db.asUser(f.alice, (q) => q("select public.alignment_session_set_state($1, 'closed')", [sid]), { commit: true });
+    expect(await errorCode(reveal(pm, "Checking a complaint"))).toBe("42501");
+    // agreed to the wording that names product managers
+    await db.admin.query("update public.alignment_participants set consent_version = '2026-11-v2' where id = $1", [pid]);
+    expect(await errorCode(reveal(pm, "no"))).toBe("22023");
+    expect(await errorCode(reveal(f.carol, "Checking a complaint"))).toBe("42501");
+    expect(await errorCode(reveal(f.bob, "Checking a complaint"))).toBe("42501");
+    expect(await errorCode(reveal(pm, "Checking a complaint", "MCP"))).toBe("PV004");
+    const rows = await reveal(pm, "Planning the next quarter with sales");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ email: "v@example.test", voted: true });
+    expect((rows[0].answers as { coins: number }[]).map((a) => a.coins)).toEqual([30, 30, 30, 10]);
+    const log = (await db.admin.query("select actor_id, new from public.audit_log where entity_id = $1 and field = 'names_revealed'", [sid])).rows;
+    expect(log).toEqual([{ actor_id: pm, new: "Planning the next quarter with sales" }]);
+  });
+  it("a Creator cannot open names while the session is open; an admin still can", async () => {
+    const pm = f.dave;
+    const { sid, pid } = await setup("coins", 4);
+    await db.admin.query("update public.alignment_participants set consent_version = '2026-11-v2' where id = $1", [pid]);
+    const reveal = (user: string) => db.asUser(user, async (q) => (await q("select * from public.alignment_reveal_names($1, 'Checking a complaint')", [sid])).rows, { commit: true, via: "UI" });
+    expect(await errorCode(reveal(pm))).toBe("42501");
+    expect(await reveal(f.alice)).toHaveLength(1);
+  });
 });

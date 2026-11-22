@@ -5,7 +5,7 @@ Status: **agreed by Ashu 2026-10-24** (issue #123, step 1; rule 7 in `CLAUDE.md`
 ## 1. What must hold (the rules we are not free to bend)
 1. **Voters are anonymous to each other and to people reading results.** Participants see only anonymous aggregates; no one sees another person's ballot.
 2. **Groups with fewer than 5 voters are hidden** wherever a group is shown.
-3. **Admins see names** (rule 7). This is the one deliberate exception to anonymity, so it is narrow, deliberate and logged (section 4).
+3. **Admins and Creators (the PM role) see names** (rule 7, widened to Creators 2026-11-22, section 10 Q7). This is the one deliberate exception to anonymity, so it is narrow, deliberate and logged (section 4).
 4. **Consent, retention and deletion are supported** (section 7).
 5. **Claude never approves, ranks or sets Value** (rule 3): results are a score and a suggested order; a person decides. **Invitations are drafted by Claude and sent only after a person confirms** (#124).
 6. **No voter emails in logs or error reports; no tracking pixels.** (CLAUDE.md "Secrets only in environment variables. Never log tokens, emails of voters".)
@@ -16,6 +16,7 @@ Status: **agreed by Ashu 2026-10-24** (issue #123, step 1; rule 7 in `CLAUDE.md`
 |---|---|---|
 | Participant (magic link, no account) | the items the session allows, their own ballot, and after close, if the admin allows it, anonymous results | other people's ballots, names, emails, per-group results of a group under 5, commercial fields unless the audience profile allows them |
 | Workspace member (viewer to creator) | that a session exists, its state, and (if allowed) the anonymous results | participants, emails, ballots |
+| Creator (the PM role) | closed or archived sessions (also when results are off), and **who voted what through the "Show names" action, once the session has closed**, if every participant agreed to the wording that names product managers (section 4) | the participant list before that, open sessions, drafts, invitations |
 | Admin | everything above, **participant list (names, emails, segment, voted or not)**, send and bounce state; **who voted what only through the "Show names" action** (section 4), at any time | nothing hidden by the system, but every look at names is logged |
 | Claude (through the signed-in user's role) | session setup, draft invitation text, anonymous aggregates of a closed session | participants, emails, ballots, names. The MCP server does not expose those tables |
 | Platform staff (docs/15) | session counts and states for support | participant emails and ballots, **even in `open` content-access mode** (proposal, question Q4) |
@@ -32,6 +33,7 @@ Tables (all with `tenant_id`, RLS on the fast pattern, two-tenant tests, on the 
 - The participant list shows who was invited, delivery state (sent, bounced), and **voted yes or no**.
 - **Who voted what** is behind a "Show names" action that asks for a reason, is allowed **at any time, also while the session is open** (decision Q2), and writes an audit entry (actor, source, reason, time) visible in the workspace audit log. Because of that, the consent text says plainly that workspace admins can see who gave which answers. Admins see names per ballot, never a ranked list of people.
 - Names are shown per ballot, never as a ranked list of people (rule 8).
+- **Creators (the PM role)** can use the same "Show names" action (reason, audit entry, no Claude, no service accounts), with two limits the database enforces: **only after the session has closed**, and **only if every participant who joined agreed to wording that names product managers** (consent version `2026-11-v2` or later). A session where anyone agreed to the earlier wording ("workspace admins can see") stays admin-only for names; admins can still open it. Platform staff who entered the workspace cannot open names (admins are now checked as signed-in human admins).
 
 ## 5. Small groups (fewer than 5 voters)
 Rule: a group with fewer than 5 voters is **not shown** to participants and not in per-group displays. Two traps to avoid:
@@ -83,4 +85,5 @@ The table (admins see everything; others a subset): session, method, status, cre
 - **Q3. Small groups:** merge groups under 5 voters into "Other", shown only at 5 or more voters; per-group results appear only when no group would leak by subtraction; otherwise only the joint score.
 - **Q4. Platform staff:** never see participant emails or ballots, even in `open` content-access mode.
 - **Q5. Participants see results after close:** off by default; the admin can allow it per session.
+- **Q7. PM role sees who voted what (Ashu, 2026-11-22).** Yes, for the Creator role, after close, with a reason and a log entry; consent wording and its version change (`2026-11-v2`), so earlier participants are not exposed to Creators. Decision: `docs/decisions/2026-11-22-pm-sees-who-voted.md`.
 - **Q6. Retention:** personal data deleted 12 months after close; shortenable per workspace.

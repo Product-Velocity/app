@@ -40,12 +40,13 @@ beforeAll(async () => {
 afterAll(async () => { await db.close(); });
 
 describe("who reads which session", () => {
-  it("an admin reads every session; a creator, a commenter and a viewer read only closed or archived sessions that allow results", async () => {
+  it("an admin reads every session; a creator (the PM role) reads every closed or archived one; a commenter and a viewer only those that allow results", async () => {
     const draft = await session("draft", true), open = await session("open", true);
     const closedOff = await session("closed", false), closedOn = await session("closed", true), archivedOn = await session("archived", true), archivedOff = await session("archived", false);
     const all = [draft, open, closedOff, closedOn, archivedOn, archivedOff];
     expect((await sessionsSeenBy(f.alice, all)).sort()).toEqual([...all].sort());
-    for (const who of [creator, commenter, viewer]) expect((await sessionsSeenBy(who, all)).sort(), who).toEqual([closedOn, archivedOn].sort());
+    for (const who of [commenter, viewer]) expect((await sessionsSeenBy(who, all)).sort(), who).toEqual([closedOn, archivedOn].sort());
+    expect((await sessionsSeenBy(creator, all)).sort()).toEqual([closedOff, closedOn, archivedOn, archivedOff].sort());
   });
 
   it("another workspace reads none of them, admin or not", async () => {
@@ -58,7 +59,7 @@ describe("who reads which session", () => {
     for (const who of [creator, commenter, viewer]) {
       expect(await itemsSeenBy(who, draft)).toBe(0);
       expect(await itemsSeenBy(who, open)).toBe(0);
-      expect(await itemsSeenBy(who, off)).toBe(0);
+      expect(await itemsSeenBy(who, off)).toBe(who === creator ? 3 : 0);
       expect(await itemsSeenBy(who, on)).toBe(3);
     }
     expect(await itemsSeenBy(f.alice, draft)).toBe(3);

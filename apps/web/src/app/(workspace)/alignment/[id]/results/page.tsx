@@ -128,9 +128,9 @@ export default async function ResultsPage({ params, searchParams }: { params: Pr
           )}
         </section>
       )}
-      {isAdmin && (
+      {(isAdmin || (active.role === "creator" && final)) && (
         <div className="row-form">
-          <Link className="btn" href={`/alignment/${id}/results/export`} prefetch={false}>Export results (CSV)</Link>
+          {isAdmin && <Link className="btn" href={`/alignment/${id}/results/export`} prefetch={false}>Export results (CSV)</Link>}
           <Link className="btn" href={`/alignment/${id}/names`}>Show who voted what…</Link>
         </div>
       )}
