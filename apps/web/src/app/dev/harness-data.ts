@@ -80,10 +80,11 @@ export function makeCardsHarness(n: number, role: string) {
     item.g2m_quarter = quarters[i % quarters.length] ?? null;
     item.audience = audiences[i % audiences.length] ?? null;
     item.contributing_teams = i % 5 === 0 ? "Core, Mobile" : i % 3 === 0 ? "Core" : null;
+    item.product_manager = i % 4 === 3 ? null : `u${(i % 5) + 1}`; // an owner on most cards, none on some
   });
   for (const r of controller.rows) {
     const s = source.items.find((x) => x.id === r.id)!;
-    r.initiative_phase = s.initiative_phase; r.theme = s.theme; r.g2m_quarter = s.g2m_quarter; r.audience = s.audience; r.contributing_teams = s.contributing_teams;
+    r.initiative_phase = s.initiative_phase; r.theme = s.theme; r.g2m_quarter = s.g2m_quarter; r.audience = s.audience; r.contributing_teams = s.contributing_teams; r.product_manager = s.product_manager;
   }
   return { controller, source };
 }

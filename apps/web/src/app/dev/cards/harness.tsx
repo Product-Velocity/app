@@ -6,7 +6,20 @@ import { AppHeader } from "@/components/app-header";
 import { CardsView } from "@/features/cards/cards-view";
 import { WorkspaceProvider } from "@/features/workspace/provider";
 import { MemoryWorkspaceStore } from "@/features/workspace/store";
-import { harnessLookups, makeCardsHarness } from "../harness-data";
+import { harnessLookups as baseLookups, makeCardsHarness } from "../harness-data";
+import type { Lookups } from "@/features/portfolio/types";
+
+// tracker links on two cards, for the clickable tracker IDs in the card header
+const harnessLookups: Lookups = {
+  ...baseLookups,
+  github: { connected: true, links: {
+    "item-1": { mode: "push", number: 42, url: "https://github.com/acme/app/issues/42", state: "synced", error: null, ghState: "open", lastActivity: null },
+  } },
+  jira: { links: {
+    "item-2": { mode: "follow", issueKey: "PLAT-7", url: "https://acme.atlassian.net/browse/PLAT-7", status: "In Progress", category: "indeterminate", lastSynced: null },
+    "item-1": { mode: "follow", issueKey: "PLAT-1", url: "javascript:alert(1)", status: null, category: null, lastSynced: null },
+  } },
+};
 
 export function HarnessCards({ n, role }: { n: number; role: string }) {
   const { controller, source } = useMemo(() => makeCardsHarness(n, role), [n, role]);
