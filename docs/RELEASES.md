@@ -4,6 +4,7 @@ The version is shown at the bottom of the account menu ("app v0.30.0 · build ab
 
 | Version | Date | Key updates | PRs |
 |---|---|---|---|
+| 1.207.0 | 2026-11-22 | **Product managers can see who voted what.** People with the Creator role can open "Show who voted what" on a closed alignment session, with a reason and a log entry, as admins can. It works when every participant agreed to the new consent wording, which now names product managers; sessions joined under the earlier wording stay admin-only for names. Creators can also open every closed session, even when results are hidden from other members. Platform staff entering a workspace can no longer open names. Migration `20261122154919_pm_sees_who_voted.sql`. | #595 |
 | 1.206.3 | 2026-11-22 | **Sign-in screen tells the new story.** The Alignment line on the sign-in screen now says research, prioritisation and delivery run on one roadmap and one stack rank, with plans that fit capacity, matching the homepage. | #590 |
 | 1.206.2 | 2026-11-22 | **Gantt and Cards toolbars match the grid.** The Gantt now has the standard tool bar (Filter, Search, then Group by, Then by, saved-view filters, zoom and Today), and Gantt and Cards show the chosen grouping on the button, such as "Group by: Initiative Group" or "Columns: Initiative Phase", highlighted in blue like on the grid. | #590 |
 | 1.206.1 | 2026-11-22 | **Gantt opens on today.** The Gantt chart now opens scrolled to today's date instead of the left edge of its date range. It stays put once you start scrolling, and the Today button still works. | #585 |
