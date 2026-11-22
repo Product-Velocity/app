@@ -210,12 +210,12 @@ export function DecisionsView({ source, me, mayDecide = true, initialFilter = "w
   const cols = useMemo<ColDef<DecisionGridRow>[]>(() => {
     const d = (id: ColId, def: ColDef<DecisionGridRow>): ColDef<DecisionGridRow> => ({ colId: id, sortable: true, ...def });
     return [
-      { colId: "initiative", headerName: "Initiative", field: "name", width: 320, cellRenderer: NameCell, sortable: true, pinned: "left", comparator: (_a, _b, x, y) => x.data!.code.localeCompare(y.data!.code, undefined, { numeric: true }) },
+      { colId: "initiative", headerName: "Initiative", field: "name", width: 320, cellRenderer: NameCell, sortable: true, pinned: "left" },
       d("gate", { headerName: "Gate", field: "gateLabel", width: 210 }),
       d("when", { headerName: "Requested or decided", width: 170, valueGetter: (p) => (p.data!.decidedAt ?? p.data!.requestedAt), valueFormatter: (p) => dateText(p.value as string), tooltipValueGetter: (p) => (p.data!.decidedAt ? `Decided ${dateText(p.data!.decidedAt)}` : `Requested ${dateText(p.data!.requestedAt)}`) }),
       d("by", { headerName: "Requested by", field: "requestedBy", width: 170, valueFormatter: (p) => (String(p.value).includes("@") ? short(String(p.value)) : String(p.value)) }),
-      d("waiting", { headerName: "Days waiting", field: "daysWaiting", width: 140, type: "rightAligned", cellRenderer: WaitCell, comparator: (a, b) => (a ?? -1) - (b ?? -1) }),
-      d("checklist", { headerName: "Checklist", field: "checklistDone", width: 210, cellRenderer: ChecklistCell, comparator: (_a, _b, x, y) => x.data!.checklistDone / Math.max(1, x.data!.checklistTotal) - y.data!.checklistDone / Math.max(1, y.data!.checklistTotal) }),
+      d("waiting", { headerName: "Days waiting", field: "daysWaiting", width: 140, type: "rightAligned", cellRenderer: WaitCell }),
+      d("checklist", { headerName: "Checklist", field: "checklistDone", width: 210, cellRenderer: ChecklistCell }),
       d("outcome", { headerName: "Outcome", field: "outcomeLabel", width: 170, valueFormatter: (p) => p.value || "Open" }),
       d("decidedBy", { headerName: "Decided by", field: "decidedBy", width: 150, valueFormatter: (p) => (String(p.value).includes("@") ? short(String(p.value)) : String(p.value)) }),
       d("phase", { headerName: "Phase", field: "phase", width: 110 }),
@@ -285,7 +285,7 @@ export function DecisionsView({ source, me, mayDecide = true, initialFilter = "w
         <div className="lst-body">
           <div className="lst-grid" data-testid="decisions-grid" role="region" aria-label="Gate requests">
             <AgGridReact<DecisionGridRow>
-              theme={GRID_THEME} rowData={rows} columnDefs={cols} getRowId={(p) => p.data.id} context={ctx} defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true }}
+              theme={GRID_THEME} rowData={rows} columnDefs={cols} getRowId={(p) => p.data.id} context={ctx} defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true, comparator: () => 0 }}
               selectionColumnDef={{ pinned: "left", width: 44, resizable: false }} rowSelection={{ mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false, isRowSelectable: (n) => Boolean(n.data?.canDecide) }}
               onSelectionChanged={onSelection} onGridReady={onReady} onSortChanged={(e) => setSortModel(e.api.getColumnState().filter((c) => c.sort).sort((a, b) => (a.sortIndex ?? 0) - (b.sortIndex ?? 0)).map((c) => ({ colId: c.colId, sort: c.sort! })))} tooltipShowDelay={500} suppressColumnVirtualisation suppressCellFocus rowHeight={42}
               getRowClass={(p) => (p.data && p.data.id === activeRef.current ? "lst-active" : undefined)} onRowClicked={(e) => { if (e.data && !(e.event?.target as HTMLElement | null)?.closest("button, a, input")) setActive(e.data.id); }}

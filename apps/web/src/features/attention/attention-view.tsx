@@ -259,15 +259,15 @@ export function AttentionView({ controller, lookups, me, source, pageHref = (c) 
   const cols = useMemo<ColDef<AttentionGridRow>[]>(() => {
     const d = (id: ColumnId, def: ColDef<AttentionGridRow>): ColDef<AttentionGridRow> => ({ colId: id, sortable: true, ...def });
     return [
-      { colId: "initiative", headerName: "Initiative", field: "name", width: 330, cellRenderer: NameCell, sortable: true, pinned: "left", comparator: (_a, _b, x, y) => x.data!.code.localeCompare(y.data!.code, undefined, { numeric: true }) },
+      { colId: "initiative", headerName: "Initiative", field: "name", width: 330, cellRenderer: NameCell, sortable: true, pinned: "left" },
       d("urgency", { headerName: "Urgency", field: "tier", width: 110, cellRenderer: UrgencyCell, sort: "asc", sortIndex: 0 }),
       d("reasons", { headerName: "Reasons", field: "reasonLabels", width: 270, cellRenderer: ReasonsCell }),
       d("why", { headerName: "What is wrong", field: "reasonText", flex: 1, minWidth: 260, tooltipField: "reasonText" }),
       d("phase", { headerName: "Phase", field: "phase", width: 110, valueFormatter: (p) => p.value || "No phase" }),
       d("health", { headerName: "Health", field: "health", width: 120, cellRenderer: HealthCell }),
       d("build", { headerName: "Build status", field: "buildStatus", width: 130 }),
-      d("inPhase", { headerName: "Days in phase", field: "daysInPhase", width: 120, type: "rightAligned", comparator: cmpNum, valueFormatter: (p) => (p.value == null ? "" : String(p.value)) }),
-      d("waiting", { headerName: "Days waiting", field: "daysWaiting", width: 120, type: "rightAligned", comparator: cmpNum, headerTooltip: "Days a gate request has waited for a decision", valueFormatter: (p) => (p.value == null ? "" : String(p.value)) }),
+      d("inPhase", { headerName: "Days in phase", field: "daysInPhase", width: 120, type: "rightAligned", valueFormatter: (p) => (p.value == null ? "" : String(p.value)) }),
+      d("waiting", { headerName: "Days waiting", field: "daysWaiting", width: 120, type: "rightAligned", headerTooltip: "Days a gate request has waited for a decision", valueFormatter: (p) => (p.value == null ? "" : String(p.value)) }),
       d("group", { headerName: "Initiative group", field: "group", width: 150 }),
       d("project", { headerName: "Project", field: "project", width: 140 }),
       d("owner", { headerName: "Product manager", field: "owner", width: 150 }),
@@ -344,7 +344,7 @@ export function AttentionView({ controller, lookups, me, source, pageHref = (c) 
         ) : (
           <div className="lst-grid" data-testid="attention-grid" role="region" aria-label="Initiatives that need attention">
             <AgGridReact<AttentionGridRow>
-              theme={GRID_THEME} rowData={shown} columnDefs={cols} getRowId={(p) => p.data.id} context={ctx} defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true }}
+              theme={GRID_THEME} rowData={shown} columnDefs={cols} getRowId={(p) => p.data.id} context={ctx} defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true, comparator: () => 0 }}
               selectionColumnDef={{ pinned: "left", width: 44, resizable: false }} rowSelection={{ mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false }} onSelectionChanged={onSelection} onGridReady={onReady} onSortChanged={(e) => setSortModel(e.api.getColumnState().filter((c) => c.sort).sort((a, b) => (a.sortIndex ?? 0) - (b.sortIndex ?? 0)).map((c) => ({ colId: c.colId, sort: c.sort! })))}
               onColumnMoved={(e) => { if (e.finished && e.source !== "api") saveLayout(); }} onColumnResized={(e) => { if (e.finished && e.source === "uiColumnResized") saveLayout(); }}
               getRowClass={(p) => (p.data && p.data.id === activeRef.current ? "lst-active" : p.data?.snoozed ? "lst-snoozed" : undefined)} onRowClicked={(e) => { if (e.data && !(e.event?.target as HTMLElement | null)?.closest("button, a, input")) setActive(e.data.id); }}
