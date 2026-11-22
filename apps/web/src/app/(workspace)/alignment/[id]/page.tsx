@@ -101,7 +101,7 @@ export default async function AlignmentSessionPage({ params, searchParams }: { p
       {isAdmin && state !== "draft" && <p><Link className="btn" href={`/alignment/${s.id}/results`}>{state === "open" ? "See the provisional results" : "See the results"}</Link></p>}
       {isAdmin && state !== "archived" && (
         <div className="desktop-only">
-          <h2>Participants</h2>
+          <h2 id="participants">Participants</h2>
           <div className="card stack">
             <p>
               <strong>{active_.length}</strong> {active_.length === 1 ? "person" : "people"} · {count((p) => !!p.invited_at)} invited · {count((p) => !!p.consent_at)} joined · {count((p) => p.voted)} voted

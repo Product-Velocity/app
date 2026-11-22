@@ -14,7 +14,7 @@ import { FoldAllButton } from "../portfolio/fold-all-button";
  * filters, columns and groupings of a change log. Never a grouping or a count by person (rule 8).
  */
 export type ChangeColumn = { id: string; name: string };
-const tick = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg>;
+export const tick = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg>;
 
 // ---------------------------------------------------------------------------------------------------- Filter
 function FilterPanel({ filters, onChange, rows, matching, total, close }: { filters: ChangeFilters; onChange: (f: ChangeFilters) => void; rows: readonly ChangeRowData[]; matching: number; total: number; close: () => void }) {
@@ -81,7 +81,7 @@ function FilterPanel({ filters, onChange, rows, matching, total, close }: { filt
 }
 
 // ---------------------------------------------------------------------------------------------------- Columns
-function ColumnsPanel({ all, shown, defaults, onApply, close }: { all: readonly ChangeColumn[]; shown: readonly string[]; defaults: readonly string[]; onApply: (ids: string[]) => void; close: () => void }) {
+export function ColumnsPanel({ all, shown, defaults, onApply, close, heading = "Change log columns" }: { all: readonly ChangeColumn[]; shown: readonly string[]; defaults: readonly string[]; onApply: (ids: string[]) => void; close: () => void; heading?: string }) {
   const [cols, setCols] = useState<string[]>([...shown]);
   const name = (id: string) => all.find((c) => c.id === id)?.name ?? id;
   const toggle = (id: string) => setCols((c) => (c.includes(id) ? (c.length > 1 ? c.filter((x) => x !== id) : c) : [...c, id])); // at least one column stays
@@ -95,7 +95,7 @@ function ColumnsPanel({ all, shown, defaults, onApply, close }: { all: readonly 
       <div className="cp cp-body">
         <div className="cp-mid">
           <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-            <legend className="panel-head" style={{ padding: 0 }}><h2>Change log columns</h2></legend>
+            <legend className="panel-head" style={{ padding: 0 }}><h2>{heading}</h2></legend>
             <div className="cp-list">
               {all.map((c) => (
                 <label key={c.id} className="cp-field">
@@ -135,23 +135,27 @@ function ColumnsPanel({ all, shown, defaults, onApply, close }: { all: readonly 
 
 // ---------------------------------------------------------------------------------------------------- Group by
 const LEVEL = ["Group by", "Then by"] as const;
-function GroupPanel({ by, then, onApply, close }: { by: ChangeGroupBy | null; then: ChangeGroupBy | null; onApply: (by: ChangeGroupBy | null, then: ChangeGroupBy | null) => void; close: () => void }) {
-  const [draft, setDraft] = useState<{ by: ChangeGroupBy | null; then: ChangeGroupBy | null }>({ by, then });
+export function GroupPanel<G extends string = ChangeGroupBy>({ by, then, onApply, close, options = CHANGE_GROUP_BYS as unknown as readonly { id: G; label: string }[], summary = changeGroupSummary as unknown as (by: G | null, then: G | null) => string, note = "Changes are grouped by what changed, where it came from or when. Never by person." }: {
+  by: G | null; then: G | null; onApply: (by: G | null, then: G | null) => void; close: () => void;
+  /** The groupings on offer, how a choice reads in words, and the note under them. Default: the change log's. */
+  options?: readonly { id: G; label: string }[]; summary?: (by: G | null, then: G | null) => string; note?: string;
+}) {
+  const [draft, setDraft] = useState<{ by: G | null; then: G | null }>({ by, then });
   const [level, setLevel] = useState<0 | 1>(by && !then ? 1 : 0);
   const active = draft.by ? level : 0;
-  const pick = (g: ChangeGroupBy) => {
+  const pick = (g: G) => {
     if (active === 0) {
       if (draft.by === g) setDraft({ by: draft.then, then: null });
       else { setDraft({ by: g, then: draft.then === g ? null : draft.then }); setLevel(1); }
     } else setDraft(draft.then === g ? { ...draft, then: null } : { ...draft, then: g });
   };
-  const label = (g: ChangeGroupBy | null) => (g ? CHANGE_GROUP_BYS.find((x) => x.id === g)!.label : null);
-  const mark = (g: ChangeGroupBy) => (draft.by === g ? "Group by" : draft.then === g ? "Then by" : null);
+  const label = (g: G | null) => (g ? options.find((x) => x.id === g)!.label : null);
+  const mark = (g: G) => (draft.by === g ? "Group by" : draft.then === g ? "Then by" : null);
   return (
     <div role="group" aria-label="Group by" className="gp gp-wide">
       <div className="gp-body">
         <div className="panel-section">
-          <div className="panel-head gp-head"><h2>Group by</h2><span className="panel-note" aria-live="polite">{draft.by ? `Grouped by ${changeGroupSummary(draft.by, draft.then).replace(" › ", ", then ")}` : "Not grouped"}</span></div>
+          <div className="panel-head gp-head"><h2>Group by</h2><span className="panel-note" aria-live="polite">{draft.by ? `Grouped by ${summary(draft.by, draft.then).replace(" › ", ", then ")}` : "Not grouped"}</span></div>
           <div className="gp-slots" role="group" aria-label="Grouping levels">
             {([0, 1] as const).map((l) => {
               const value = l === 0 ? draft.by : draft.then;
@@ -167,13 +171,13 @@ function GroupPanel({ by, then, onApply, close }: { by: ChangeGroupBy | null; th
             })}
           </div>
           <div className="qf-row" role="group" aria-label="Group by options" style={{ marginTop: 10 }}>
-            {CHANGE_GROUP_BYS.filter((g) => (active === 0 ? g.id !== draft.then : g.id !== draft.by)).map((g) => (
+            {options.filter((g) => (active === 0 ? g.id !== draft.then : g.id !== draft.by)).map((g) => (
               <button key={g.id} type="button" className="qf" aria-pressed={mark(g.id) !== null} onClick={() => pick(g.id)}>
                 {g.label}{mark(g.id) && <span className="muted"> · {mark(g.id)}</span>}{mark(g.id) && tick}
               </button>
             ))}
           </div>
-          <p className="panel-note">Changes are grouped by what changed, where it came from or when. Never by person.</p>
+          <p className="panel-note">{note}</p>
         </div>
       </div>
       <div className="panel-foot">
