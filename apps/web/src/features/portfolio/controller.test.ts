@@ -399,6 +399,35 @@ describe("moving a Gantt bar: Planned Start and G2M Date (est) together", () => 
     await c.redo();
     expect(c.row("item-1")!.planned_start).toBe("2027-03-08");
   });
+  it("moves several items in ONE undo step, saves each date, and one undo puts all back", async () => {
+    const { c, source } = dated();
+    const r = c.setManyDates([
+      { id: "item-1", planned_start: "2027-03-08", g2m_date_est: "2027-04-07" },
+      { id: "item-2", planned_start: "2027-03-08", g2m_date_est: "2027-04-07" },
+      { id: "item-3", planned_start: "2027-03-01", g2m_date_est: "2027-03-31" }, // unchanged: no edit
+    ]);
+    expect(r).toEqual({ ok: true, changed: true });
+    expect(c.status.undoCount).toBe(1);
+    expect(c.status.last?.text).toBe("Moved 2 items on the Gantt");
+    await c.flush();
+    expect(source.items[1]).toMatchObject({ planned_start: "2027-03-08", g2m_date_est: "2027-04-07" });
+    expect(source.items[2]).toMatchObject({ planned_start: "2027-03-01" });
+    await c.undo();
+    expect(c.row("item-1")!.planned_start).toBe("2027-03-01");
+    expect(c.row("item-2")!.g2m_date_est).toBe("2027-03-31");
+    await c.redo();
+    expect(c.row("item-2")!.planned_start).toBe("2027-03-08");
+  });
+  it("a multi-move is all or nothing, and refused for view-only roles", () => {
+    const { c } = dated();
+    expect(c.setManyDates([
+      { id: "item-1", planned_start: "2027-03-08", g2m_date_est: "2027-04-07" },
+      { id: "item-2", planned_start: "2027-05-01", g2m_date_est: "2027-04-01" },
+    ])).toMatchObject({ ok: false });
+    expect(c.row("item-1")!.planned_start).toBe("2027-03-01");
+    expect(c.status.undoCount).toBe(0);
+    expect(dated("viewer").c.setManyDates([{ id: "item-1", planned_start: "2027-03-08", g2m_date_est: "2027-04-07" }])).toEqual({ ok: false, error: READ_ONLY_MESSAGE });
+  });
   it("saves only the date that changed (resizing one edge)", async () => {
     const { c, source } = dated();
     c.setDates("item-1", { planned_start: "2027-03-01", g2m_date_est: "2027-04-15" });

@@ -58,7 +58,10 @@ test("Tab moves to the next editable cell while editing (columns follow the dict
   await cell(page, "item-1", "initiative_name").click();
   await page.keyboard.press("Enter");
   await page.keyboard.press("Tab");
-  await expect(page.locator(".ag-row[row-id='item-1'] [col-id='theme']")).toHaveClass(/ag-cell-focus|ag-cell-inline-editing/);
+  // after Initiative Name the dictionary order has Project Rank (calculated, read-only: skipped) and then Roadmap Category, the next editable cell
+  // (it came back on 2026-11-18); it opens its picker, which is a popup editor
+  await expect(page.locator(".ag-row[row-id='item-1'] [col-id='roadmap_category']")).toHaveClass(/ag-cell-focus|ag-cell-inline-editing|ag-cell-popup-editing/);
+  await expect(page.locator(".ag-row[row-id='item-1'] [col-id='project_rank']")).not.toHaveClass(/ag-cell-focus|ag-cell-popup-editing/);
 });
 
 test("typed picker: type to filter, Enter chooses", async ({ page }) => {

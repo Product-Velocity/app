@@ -24,6 +24,7 @@ export function fromDay(day: number): string {
 const dayOf = (v: unknown) => (typeof v === "string" ? toDay(v) : NaN);
 const todayDay = (d: Date) => Math.round(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / DAY_MS);
 const monthStart = (day: number) => { const d = new Date(day * DAY_MS); return Math.round(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / DAY_MS); };
+const weekStart = (day: number) => day - ((((day + 3) % 7) + 7) % 7); // Monday (1 Jan 1970 was a Thursday)
 const nextMonthStart = (day: number) => { const d = new Date(day * DAY_MS); return Math.round(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) / DAY_MS); };
 
 // ------------------------------------------------------------------ bars
@@ -47,8 +48,17 @@ export function classifyRows(rows: readonly GanttRow[]): { bars: Bar[]; unschedu
 }
 
 // ------------------------------------------------------------------ scale
-export type Zoom = "month" | "quarter";
-export const PX_PER_DAY: Record<Zoom, number> = { month: 6, quarter: 2 };
+export type Zoom = "week" | "month" | "quarter" | "year";
+export const ZOOMS: readonly Zoom[] = ["week", "month", "quarter", "year"];
+export const ZOOM_LABEL: Record<Zoom, string> = { week: "Week", month: "Month", quarter: "Quarter", year: "Year" };
+export const PX_PER_DAY: Record<Zoom, number> = { week: 18, month: 6, quarter: 2, year: 0.75 };
+export const isZoom = (v: unknown): v is Zoom => typeof v === "string" && (ZOOMS as readonly string[]).includes(v);
+
+/** The finest zoom whose whole window fits in `availablePx`; Year when none does. */
+export function fitZoom(win: Window, availablePx: number): Zoom {
+  const days = Math.max(1, win.endDay - win.startDay);
+  return ZOOMS.find((z) => days * PX_PER_DAY[z] <= availablePx) ?? "year";
+}
 export type Window = Range;
 
 export const dayToX = (day: number, win: Window, zoom: Zoom) => (day - win.startDay) * PX_PER_DAY[zoom];
@@ -78,9 +88,10 @@ export function timelineTicks(win: Window, zoom: Zoom): Tick[] {
   while (d < win.endDay) {
     const date = new Date(d * DAY_MS);
     const y = date.getUTCFullYear(), m = date.getUTCMonth();
-    const next = zoom === "month" ? nextMonthStart(d) : Math.round(Date.UTC(y, (Math.floor(m / 3) + 1) * 3, 1) / DAY_MS);
+    const next = zoom === "week" ? weekStart(d) + 7 : zoom === "month" ? nextMonthStart(d) : Math.round(Date.UTC(y, (Math.floor(m / 3) + 1) * 3, 1) / DAY_MS);
     const end = Math.min(next, win.endDay);
-    out.push({ label: zoom === "month" ? MONTHS[m]! : `Q${Math.floor(m / 3) + 1} ${y}`, x: dayToX(d, win, zoom), width: (end - d) * PX_PER_DAY[zoom], startDay: d });
+    const label = zoom === "week" ? `${date.getUTCDate()} ${MONTHS[m]!}` : zoom === "month" ? MONTHS[m]! : zoom === "quarter" ? `Q${Math.floor(m / 3) + 1} ${y}` : `Q${Math.floor(m / 3) + 1}`;
+    out.push({ label, x: dayToX(d, win, zoom), width: (end - d) * PX_PER_DAY[zoom], startDay: d });
     d = next;
   }
   return out;
@@ -144,7 +155,7 @@ export function scheduleAt(day: number, existing: { endDay?: number } | null, wi
 // ------------------------------------------------------------------ grouping
 export type GroupSpan = Range | null;
 export type Line =
-  | { kind: "group"; level: 1 | 2; id: string; field: string; key: string; label: string; count: number; collapsed: boolean; span: GroupSpan }
+  | { kind: "group"; level: 1 | 2; id: string; field: string; key: string; label: string; count: number; collapsed: boolean; span: GroupSpan; members: string[] }
   | { kind: "item"; id: string; itemId: string; level: 0 | 1 | 2 | 3 };
 
 export type LayoutOpts = {
@@ -177,7 +188,7 @@ export function layoutLines(rows: readonly GanttRow[], bars: readonly Bar[], o: 
       const members = groups.get(k)!;
       const id = `${parentId ? parentId + "/" : ""}${field}:${k}`;
       const collapsed = o.collapsed.has(id);
-      out.push({ kind: "group", level: (level + 1) as 1 | 2, id, field, key: k, label, count: members.length, collapsed, span: span(members) });
+      out.push({ kind: "group", level: (level + 1) as 1 | 2, id, field, key: k, label, count: members.length, collapsed, span: span(members), members: members.map((m) => m.id) });
       if (!collapsed) emit(members, levels.slice(1), id, (level + 1) as 1 | 2 | 3);
     }
   };
@@ -190,4 +201,17 @@ export type GroupOption = { key: string; label: string };
 export function ganttGroupOptions(): GroupOption[] {
   const selects = FIELDS.filter((f) => f.type === "Select" && f.editable && isShipped(f) && f.key !== "theme").map((f) => ({ key: f.key, label: f.name }));
   return [{ key: "", label: "No grouping" }, { key: "theme", label: "Initiative Group" }, { key: "home_project", label: "Project" }, { key: "team", label: "Team" }, ...selects];
+}
+
+/** Every group line id (for "Collapse all"): lays the lines out with nothing collapsed and keeps the groups. */
+export function allGroupIds(rows: readonly GanttRow[], bars: readonly Bar[], o: Omit<LayoutOpts, "collapsed">): string[] {
+  return layoutLines(rows, bars, { ...o, collapsed: new Set() }).filter((l) => l.kind === "group").map((l) => l.id);
+}
+
+/** Move several bars by the same number of days; the whole set stops when the first one reaches the window edge. */
+export function moveMany(ranges: readonly Range[], delta: number, win: Window): number {
+  if (ranges.length === 0) return 0;
+  const lo = win.startDay - Math.min(...ranges.map((r) => r.startDay));
+  const hi = win.endDay - Math.max(...ranges.map((r) => r.endDay));
+  return lo > hi ? 0 : clamp(delta, lo, hi);
 }
