@@ -5,7 +5,7 @@ import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import type { ColDef, GridApi, GridReadyEvent, SelectionChangedEvent } from "ag-grid-community";
 import {
   GATES, QUEUE_FILTERS, bulkDecisionSummary, decidableCount, decisionGridRows, decisionsCsv, filterDecisionRows, filterQueue, gateChecklist, gateTitle, isOpen, outcomeLabel,
-  type DecisionFilters, type DecisionGridRow, type GateId, type GateOutcome, type GateRequest, type QueueFilter,
+  sortListRows, type SortEntry, type DecisionFilters, type DecisionGridRow, type GateId, type GateOutcome, type GateRequest, type QueueFilter,
 } from "@pv/domain";
 import { DEFAULT_COL_DEF, GRID_THEME } from "../portfolio/grid-kit";
 import { ColumnPicker, ListSearch, MultiFilter, SavedViews, downloadText, usePersisted, type SavedView } from "../lists/list-kit";
@@ -46,6 +46,11 @@ const COLUMN_NAMES: readonly { id: ColId; name: string }[] = [
 const DEFAULT_HIDDEN: Record<QueueFilter, string[]> = {
   waiting: ["outcome", "decidedBy", "rationale", "phase", "health", "hypothesis"], decided: ["waiting", "checklist", "can", "phase", "health", "hypothesis", "by"],
   mine: ["decidedBy", "rationale", "phase", "health", "hypothesis", "can"], "can-decide": ["outcome", "decidedBy", "rationale", "phase", "health", "hypothesis", "can"],
+};
+const SORT_BY: Record<string, (r: DecisionGridRow) => string | number | null> = {
+  initiative: (r) => r.code, gate: (r) => r.gateLabel, when: (r) => r.decidedAt ?? r.requestedAt, by: (r) => r.requestedBy, waiting: (r) => r.daysWaiting,
+  checklist: (r) => (r.checklistTotal === 0 ? null : r.checklistDone / r.checklistTotal), outcome: (r) => r.outcomeLabel, decidedBy: (r) => r.decidedBy, phase: (r) => r.phase, health: (r) => r.health,
+  hypothesis: (r) => r.hypothesis, rationale: (r) => r.rationale, can: (r) => (r.canDecide ? 1 : 0),
 };
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 const OUTCOME_OPTIONS: { value: GateOutcome; label: string }[] = [{ value: "go", label: "Go" }, { value: "go_with_conditions", label: "Go with conditions" }, { value: "hold", label: "Hold" }, { value: "stop", label: "Stop" }];
@@ -136,7 +141,8 @@ export function DecisionsView({ source, me, mayDecide = true, initialFilter = "w
   const byId = useMemo(() => new Map(everyRow.map((r) => [r.id, r])), [everyRow]);
   const tabRows = useMemo(() => filterQueue(requests ?? [], filter, me, can).map((q) => byId.get(q.id)!).filter(Boolean), [requests, filter, me, can, byId]);
   const filters: DecisionFilters = useMemo(() => ({ gates: choice.gates, outcomes: choice.outcomes, overdue: choice.overdue, incomplete: choice.incomplete, search: choice.search }), [choice]);
-  const rows = useMemo(() => filterDecisionRows(tabRows, filters), [tabRows, filters]);
+  const [sortModel, setSortModel] = useState<SortEntry[]>([]);
+  const rows = useMemo(() => sortListRows(filterDecisionRows(tabRows, filters), sortModel, SORT_BY), [tabRows, filters, sortModel]);
   const open = requests ? decidableCount(requests, can) : 0;
   const waitingCount = requests ? requests.filter(isOpen).length : 0;
   const current = rows.find((r) => r.id === active) ?? null;
@@ -281,7 +287,7 @@ export function DecisionsView({ source, me, mayDecide = true, initialFilter = "w
             <AgGridReact<DecisionGridRow>
               theme={GRID_THEME} rowData={rows} columnDefs={cols} getRowId={(p) => p.data.id} context={ctx} defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true }}
               selectionColumnDef={{ pinned: "left", width: 44, resizable: false }} rowSelection={{ mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false, isRowSelectable: (n) => Boolean(n.data?.canDecide) }}
-              onSelectionChanged={onSelection} onGridReady={onReady} tooltipShowDelay={500} suppressColumnVirtualisation suppressCellFocus rowHeight={42}
+              onSelectionChanged={onSelection} onGridReady={onReady} onSortChanged={(e) => setSortModel(e.api.getColumnState().filter((c) => c.sort).sort((a, b) => (a.sortIndex ?? 0) - (b.sortIndex ?? 0)).map((c) => ({ colId: c.colId, sort: c.sort! })))} tooltipShowDelay={500} suppressColumnVirtualisation suppressCellFocus rowHeight={42}
               getRowClass={(p) => (p.data && p.data.id === activeRef.current ? "lst-active" : undefined)} onRowClicked={(e) => { if (e.data && !(e.event?.target as HTMLElement | null)?.closest("button, a, input")) setActive(e.data.id); }}
             />
           </div>

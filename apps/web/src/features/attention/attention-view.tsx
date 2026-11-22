@@ -6,7 +6,7 @@ import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import type { ColDef, GridApi, GridReadyEvent, SelectionChangedEvent } from "ag-grid-community";
 import {
   ATTENTION_KINDS, SNOOZE_CHOICES, URGENCIES, attentionCounts, attentionCsv, attentionGridRows, attentionLabel, attentionList, bulkMoveSplit, facetCounts, filterAttentionRows, kindCounts, snoozeDate,
-  type AttentionAction, type AttentionFilters, type AttentionGridRow, type AttentionKind, type GateId, type GateRequest, type Snooze, type Urgency,
+  sortListRows, type SortEntry, type AttentionAction, type AttentionFilters, type AttentionGridRow, type AttentionKind, type GateId, type GateRequest, type Snooze, type Urgency,
 } from "@pv/domain";
 import type { PortfolioController } from "../portfolio/controller";
 import type { Lookups } from "../portfolio/types";
@@ -82,7 +82,12 @@ const ActionCell = (p: CustomCellRendererProps<AttentionGridRow>) => {
   );
 };
 
-const byTier = (a: AttentionGridRow, b: AttentionGridRow) => a.tier - b.tier || a.rank - b.rank;
+const SORT_BY: Record<string, (r: AttentionGridRow) => string | number | null> = {
+  initiative: (r) => r.code, urgency: (r) => r.tier, reasons: (r) => r.reasonLabels, why: (r) => r.reasonText, phase: (r) => r.phase, health: (r) => r.health, build: (r) => r.buildStatus,
+  inPhase: (r) => r.daysInPhase, waiting: (r) => r.daysWaiting, group: (r) => r.group, project: (r) => r.project, owner: (r) => r.owner, rank: (r) => r.rank,
+};
+/** The list starts sorted by urgency, then stack rank. */
+const DEFAULT_SORT: SortEntry[] = [{ colId: "urgency", sort: "asc" }, { colId: "rank", sort: "asc" }];
 const cmpNum = (a: number | null | undefined, b: number | null | undefined) => (a ?? -1) - (b ?? -1);
 
 /**
@@ -132,7 +137,8 @@ export function AttentionView({ controller, lookups, me, source, pageHref = (c) 
     project: (id) => lookups.projects.find((p) => p.id === id)?.name ?? "",
   }), [entries, rows, today, lookups]);
   const filters: AttentionFilters = useMemo(() => ({ kinds: choice.kinds, urgencies: choice.urgencies, phases: choice.phases, healths: choice.healths, groups: choice.groups, search: choice.search, showSnoozed: choice.showSnoozed, actionable: choice.actionable }), [choice]);
-  const shown = useMemo(() => filterAttentionRows(all, filters).sort(byTier), [all, filters]);
+  const [sortModel, setSortModel] = useState<SortEntry[]>(DEFAULT_SORT);
+  const shown = useMemo(() => sortListRows(filterAttentionRows(all, filters), sortModel, SORT_BY), [all, filters, sortModel]);
   const live = useMemo(() => all.filter((r) => !r.snoozed), [all]);
   const snoozedCount = all.length - live.length;
   const chips = useMemo(() => kindCounts(filterAttentionRows(all, { ...filters, kinds: [] })), [all, filters]);
@@ -339,7 +345,7 @@ export function AttentionView({ controller, lookups, me, source, pageHref = (c) 
           <div className="lst-grid" data-testid="attention-grid" role="region" aria-label="Initiatives that need attention">
             <AgGridReact<AttentionGridRow>
               theme={GRID_THEME} rowData={shown} columnDefs={cols} getRowId={(p) => p.data.id} context={ctx} defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true }}
-              selectionColumnDef={{ pinned: "left", width: 44, resizable: false }} rowSelection={{ mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false }} onSelectionChanged={onSelection} onGridReady={onReady}
+              selectionColumnDef={{ pinned: "left", width: 44, resizable: false }} rowSelection={{ mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false }} onSelectionChanged={onSelection} onGridReady={onReady} onSortChanged={(e) => setSortModel(e.api.getColumnState().filter((c) => c.sort).sort((a, b) => (a.sortIndex ?? 0) - (b.sortIndex ?? 0)).map((c) => ({ colId: c.colId, sort: c.sort! })))}
               onColumnMoved={(e) => { if (e.finished && e.source !== "api") saveLayout(); }} onColumnResized={(e) => { if (e.finished && e.source === "uiColumnResized") saveLayout(); }}
               getRowClass={(p) => (p.data && p.data.id === activeRef.current ? "lst-active" : p.data?.snoozed ? "lst-snoozed" : undefined)} onRowClicked={(e) => { if (e.data && !(e.event?.target as HTMLElement | null)?.closest("button, a, input")) setActive(e.data.id); }}
               onRowDoubleClicked={(e) => e.data && setPeek(e.data.id)} tooltipShowDelay={500} suppressColumnVirtualisation suppressCellFocus rowHeight={38}
