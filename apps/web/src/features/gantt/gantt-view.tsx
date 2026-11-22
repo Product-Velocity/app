@@ -198,6 +198,22 @@ export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
   const ticks = useMemo(() => timelineTicks(win, zoom), [win, zoom]);
   const years = useMemo(() => yearSpans(win, zoom), [win, zoom]);
   const todayX = dayToX(Math.round(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) / 86_400_000), win, zoom);
+  // Open on today (not at the window's left edge): once on mount, and again if the window's start moves before the person has scrolled.
+  const touched = useRef(false);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onUser = () => { touched.current = true; };
+    el.addEventListener("wheel", onUser, { passive: true });
+    el.addEventListener("pointerdown", onUser, { passive: true });
+    el.addEventListener("keydown", onUser);
+    return () => { el.removeEventListener("wheel", onUser); el.removeEventListener("pointerdown", onUser); el.removeEventListener("keydown", onUser); };
+  }, []);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || touched.current) return;
+    el.scrollLeft = Math.max(0, LABEL_W + todayX - 400);
+  }, [todayX]);
   const rangeOf = (bar: Bar): Range => (drag?.id === bar.id ? drag.current : staged?.id === bar.id ? staged.range : bar);
   const changeText = (bar: Bar) => (drag?.id === bar.id && drag.moved) || staged?.id === bar.id ? summarizeChange(bar, rangeOf(bar), today) : null;
 
