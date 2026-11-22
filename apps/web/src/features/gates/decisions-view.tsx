@@ -247,7 +247,7 @@ export function DecisionsView({ source, me, mayDecide = true, initialFilter = "w
       </div>
 
       <div className="lst-bar">
-        <ListSearch value={choice.search} onChange={(v) => setChoice((c) => ({ ...c, search: v }))} placeholder="Search initiatives, people, hypotheses…  ( / )" label="Search Decisions" />
+        <ListSearch value={choice.search} onChange={(v) => setChoice((c) => ({ ...c, search: v }))} placeholder="Search…  ( / )" label="Search Decisions" />
         <MultiFilter label="Gate" options={(["A", "B", "C"] as GateId[]).map((g) => ({ value: g, label: gateTitle(g), count: tabRows.filter((r) => r.gate === g).length }))} selected={choice.gates} onChange={(v) => set({ gates: v })} />
         {filter === "decided" && <MultiFilter label="Outcome" options={OUTCOME_OPTIONS.map((o) => ({ ...o, count: tabRows.filter((r) => r.outcome === o.value).length }))} selected={choice.outcomes} onChange={(v) => set({ outcomes: v })} />}
         {filter !== "decided" && <label className="lst-check"><input type="checkbox" checked={choice.overdue} onChange={(e) => set({ overdue: e.target.checked })} /> Waiting more than a week ({tabRows.filter((r) => r.overdue).length})</label>}

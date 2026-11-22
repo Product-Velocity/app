@@ -260,8 +260,8 @@ export function AttentionView({ controller, lookups, me, source, pageHref = (c) 
     const d = (id: ColumnId, def: ColDef<AttentionGridRow>): ColDef<AttentionGridRow> => ({ colId: id, sortable: true, ...def });
     return [
       { colId: "initiative", headerName: "Initiative", field: "name", width: 330, cellRenderer: NameCell, sortable: true, pinned: "left" },
-      d("urgency", { headerName: "Urgency", field: "tier", width: 110, cellRenderer: UrgencyCell, sort: "asc", sortIndex: 0 }),
-      d("reasons", { headerName: "Reasons", field: "reasonLabels", width: 270, cellRenderer: ReasonsCell }),
+      d("urgency", { headerName: "Urgency", field: "tier", width: 135, cellRenderer: UrgencyCell, sort: "asc", sortIndex: 0 }),
+      d("reasons", { headerName: "Reasons", field: "reasonLabels", width: 250, cellRenderer: ReasonsCell }),
       d("why", { headerName: "What is wrong", field: "reasonText", flex: 1, minWidth: 260, tooltipField: "reasonText" }),
       d("phase", { headerName: "Phase", field: "phase", width: 110, valueFormatter: (p) => p.value || "No phase" }),
       d("health", { headerName: "Health", field: "health", width: 120, cellRenderer: HealthCell }),
@@ -301,7 +301,7 @@ export function AttentionView({ controller, lookups, me, source, pageHref = (c) 
       </div>
 
       <div className="lst-bar">
-        <ListSearch value={choice.search} onChange={(v) => setChoice((c) => ({ ...c, search: v }))} placeholder="Search initiatives, reasons, people…  ( / )" label="Search Needs attention" />
+        <ListSearch value={choice.search} onChange={(v) => setChoice((c) => ({ ...c, search: v }))} placeholder="Search…  ( / )" label="Search Needs attention" />
         <MultiFilter label="Urgency" options={URGENCIES.map((u) => ({ value: u, count: live.filter((r) => r.urgency === u).length }))} selected={choice.urgencies} onChange={(v) => set({ urgencies: v })} />
         <MultiFilter label="Phase" options={phases} selected={choice.phases} onChange={(v) => set({ phases: v })} />
         <MultiFilter label="Health" options={healths} selected={choice.healths} onChange={(v) => set({ healths: v })} />
