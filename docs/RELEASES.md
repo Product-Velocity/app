@@ -4,6 +4,7 @@ The version is shown at the bottom of the account menu ("app v0.30.0 · build ab
 
 | Version | Date | Key updates | PRs |
 |---|---|---|---|
+| 1.215.0 | 2026-11-22 | <!--type:improved--> **The grid now looks like the cards.** MoSCoW shows as weighted pills, Effort as the size circle, percentages as a small bar, people as an avatar with the name, and Stack Rank as a small grey badge. Project is a quiet grey chip, every row has a health-colour edge on the left (the health word stays), and long values say their full text on hover. Dates keep your date format. | #608 |
 | 1.214.5 | 2026-11-22 | <!--type:fixed--> **GitHub permission errors name the right permission.** When the GitHub App was refused while reading pull requests or the checks of a branch, the log said to grant the Organization Projects permission, which sent admins to the wrong setting. It now says Pull requests (read), or Checks and Commit statuses (read). The Projects message stays for the Projects boards. | #613 |
 | 1.214.4 | 2026-11-22 | **View row fix.** The row with the page name and the view tabs is taller, so the open view's chip no longer touches the lines, and the active filters are back below it, above the action bar, instead of inside the row. | #611 |
 | 1.214.3 | 2026-11-22 | <!--type:fixed--> **Fix the Enter and Manage buttons in the All accounts list.** They now match the row buttons in Decisions and Needs attention: same height and type size, labels centred, Enter solid blue and Manage outlined. | #611 |
