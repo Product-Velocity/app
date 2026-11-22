@@ -909,6 +909,21 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 /* the "N more views" button: blue outline, white inside, like the filter button */
 .tool-btn.more-views-btn { height: 30px; padding: 0 12px; border: 1px solid var(--blue); border-radius: 8px; background: var(--bg); color: #111827; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .tool-btn.more-views-btn:hover { background: var(--blue-tint-2); }
+
+/* ---- second header row (view row): white, between two lines, as tall as the top bar. The open view is a filled chip. ---- */
+/* only the title, the tabs and the menu are in the band; active filters stay below it, above the action bar */
+.head-row { flex: 0 0 calc(100% + 48px); box-sizing: border-box; display: flex; align-items: center; gap: 4px; margin: -14px -24px 0; padding: 0 24px; min-height: 52px; background: var(--bg); border-bottom: 1px solid var(--grey-2); }
+@media (max-width: 760px) { .head-row { flex-basis: calc(100% + 24px); margin: -12px -12px 0; padding: 0 12px; } }
+.head-row h1 { margin: 0 10px 0 0; font-size: 13px; font-weight: 600; color: #111827; display: inline-flex; align-items: center; gap: 6px; }
+.head-row h1::after { content: "›"; font-weight: 400; font-size: 15px; color: #6b7280; }
+.head-row .view-row { flex: 1 1 auto; gap: 4px; }
+.vm-tab .view-chip { height: 30px; padding: 0 12px; border-radius: 7px; font-size: 13px; color: #4b5563; display: inline-flex; align-items: center; }
+.vm-tab .view-chip-on, .vm-tab .view-chip-on:hover { color: var(--blue-text); font-weight: 600; box-shadow: inset 0 0 0 1px rgba(34, 112, 237, .3); }
+.tool-btn.more-views-btn { border-color: transparent; background: none; color: var(--blue-text); height: 30px; }
+.tool-btn.more-views-btn:hover, .tool-btn.more-views-btn[aria-expanded="true"] { background: var(--blue-tint-1); }
+.view-actions { margin-left: auto; display: inline-flex; }
+.view-actions .vm-actions-panel { left: auto; right: 0; }
+.view-actions .vm-more { height: 30px; padding: 0 9px; letter-spacing: 1px; color: #4b5563; }
 .vm-row { display: flex; align-items: center; gap: 4px; padding: 1px 8px; }
 .vm-row:hover { background: var(--blue-tint-2); }
 .vm-open { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-width: 0; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; padding: 5px 4px; color: inherit; }
@@ -1743,8 +1758,9 @@ a.btn.btn-primary { color: #fff; }
 .acct-columns-pop { position: absolute; right: 0; top: 32px; z-index: 20; background: var(--bg); border: 1px solid var(--grey-1); border-radius: 8px; padding: 10px 12px; box-shadow: 0 8px 24px rgba(20, 24, 40, .18); display: grid; gap: 6px; min-width: 190px; max-height: 60vh; overflow: auto; }
 .acct-name { display: inline-flex; align-items: center; gap: 8px; }
 .acct-agents { display: inline-flex; gap: 4px; flex-wrap: nowrap; }
-.acct-actions { display: inline-flex; gap: 6px; align-items: center; height: 100%; }
-.acct-actions .btn { height: 26px; line-height: 24px; padding: 0 10px; margin: 0; }
+.acct-actions { display: inline-flex; gap: 6px; align-items: center; height: 100%; white-space: nowrap; }
+/* Same row-button look as the Decisions and Needs attention lists: label centred, Enter solid blue, Manage outlined */
+.acct-actions .btn { display: inline-flex; align-items: center; justify-content: center; height: 26px; line-height: 1; padding: 0 10px; margin: 0; font-size: 12.5px; font-weight: 500; }
 .acct-actions form { margin: 0; }
 .acct-grid .ag-cell { display: flex; align-items: center; }
 .acct-drawer { width: min(860px, 100%); }
@@ -1793,9 +1809,11 @@ a.btn.btn-primary { color: #fff; }
 .lst-name { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--blue-text); text-decoration: none; vertical-align: middle; }
 .lst-name:hover { text-decoration: underline; }
 .lst-pills { display: inline-flex; gap: 4px; align-items: center; }
-.lst-act { display: inline-flex; gap: 6px; align-items: center; }
-.lst-small { height: 26px; padding: 0 9px; font-size: 12.5px; }
-.lst-go { border-color: var(--blue); color: var(--blue-text); font-weight: 500; }
+.lst-act { display: inline-flex; gap: 6px; align-items: center; height: 100%; vertical-align: middle; white-space: nowrap; }
+/* Row buttons: the grid cell's tall line-height pushed the label to the bottom edge, so centre it and drop the line-height */
+.lst-small { display: inline-flex; align-items: center; justify-content: center; height: 26px; padding: 0 10px; font-size: 12.5px; line-height: 1; font-weight: 500; white-space: nowrap; }
+.lst-go { background: var(--blue); border-color: var(--blue); color: #fff; }
+.lst-go:hover:not(:disabled) { background: var(--blue-text); border-color: var(--blue-text); }
 .lst-warn { color: var(--amber-text, #7a4a00); font-size: 12.5px; flex-basis: 100%; }
 .lst-foot { margin: 8px 0 0; font-size: 12px; }
 .lst-radios { border: 0; margin: 8px 0; padding: 0; display: grid; gap: 6px; }

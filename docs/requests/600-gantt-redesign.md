@@ -1,6 +1,8 @@
 ---
 issue: 600
-status: in progress
+status: done
+done: 2026-11-22
+link: PR #604
 logged: 2026-11-22
 title: Gantt redesign: clearer, more informative, better connected
 ---

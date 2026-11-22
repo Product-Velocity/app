@@ -24,6 +24,7 @@ const harnessLookups: Lookups = {
 export function HarnessCards({ n, role }: { n: number; role: string }) {
   const { controller, source } = useMemo(() => makeCardsHarness(n, role), [n, role]);
   const store = useMemo(() => Object.assign(new MemoryWorkspaceStore({
+    me: "u1", admin: role === "admin",
     scopes: [{ id: "scope-a", name: "Marketplace and Platform", projectIds: ["p1", "p2"] }, { id: "scope-b", name: "Customer-facing work", projectIds: ["p3"] }],
     views: [
       { id: "view-must", name: "Must haves", columns: ["stack_rank", "item_code", "initiative_name"], filters: [{ field: "moscow", op: "is", value: "Must" }], groupBy: null },
@@ -38,7 +39,7 @@ export function HarnessCards({ n, role }: { n: number; role: string }) {
   }, [source]);
   useEffect(() => { (window as unknown as { __pv: unknown }).__pv = { controller, source, store, gates }; }, [controller, source, store, gates]);
   return (
-    <WorkspaceProvider store={store} projects={harnessLookups.projects} canEdit={role === "creator" || role === "admin"} canAdmin={role === "admin"}>
+    <WorkspaceProvider store={store} projects={harnessLookups.projects} canEdit={role === "creator" || role === "admin"} canAdmin={role === "admin"} userId="u1">
       <div className="shell">
         <AppHeader tenantName="Meridian Media" email="ashu.mathura@example.test" roleLabel="Admin" isApprover current="cards" />
         <main className="content"><CardsView controller={controller} lookups={harnessLookups} me="u1" gates={gates} pageHref={(c) => `/dev/item/${encodeURIComponent(c)}`} /></main>

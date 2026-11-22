@@ -673,9 +673,11 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   return (
     <>
     <div ref={headRef} className="page-head">
-      {headLeft}
-      <ViewBar api={viewsApi} />
-      {headRight && <span className="head-tools">{headRight}</span>}
+      <div className="head-row">
+        {headLeft}
+        <ViewBar api={viewsApi} />
+        {headRight && <span className="head-tools">{headRight}</span>}
+      </div>
       {(def.filters.length > 0 || scope.selection.kind !== "all") && (
         <div className="filter-chips" aria-label="Active scope and filters">
           {scope.selection.kind !== "all" && <span className="token-chip">Project: {scope.label}</span>}
