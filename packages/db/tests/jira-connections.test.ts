@@ -46,7 +46,7 @@ describe("who can change a Jira connection", () => {
     const { rows } = await db.admin.query(
       `select t.tgname from pg_trigger t join pg_class c on c.oid = t.tgrelid where c.relname = 'jira_credentials' and not t.tgisinternal`,
     );
-    expect(rows.map((r) => r.tgname)).toEqual(["a_platform_readonly_guard"]);
+    expect(rows.map((r) => r.tgname)).toEqual(["a_platform_readonly_guard", "b_platform_suspended_guard"]);
   });
   it("the connection's sites must be a list", async () => {
     expect(await errorCode(db.admin.query("insert into public.jira_connections (tenant_id, sites) values ($1, '{}'::jsonb)", [f.tenantA]))).toBe(CHECK);
