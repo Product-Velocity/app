@@ -58,6 +58,15 @@ describe("homepage copy follows the claims rules (docs/17, brand guide)", () => 
     expect(h).toContain("One roadmap for humans and their AI.");
     for (const tab of ["Align", "Decide", "Deliver", "Report", "Learn"]) expect(h).toContain(`>${tab}</button>`);
   });
+  it("tells the bottleneck story and shows the funnel (issue #582)", () => {
+    const h = renderToStaticMarkup(createElement(Home, { viewer: null }));
+    expect(h).toContain("the bottleneck moves to what to build");
+    expect(h).toContain("Three clocks, out of sync.");
+    expect(h).toContain("One funnel, one roadmap");
+    expect(h).toContain("Outcomes become the next signal");
+    expect(h).toContain("Your AI does the groundwork for every decision.");
+    expect(AUTH_BRAND.what).toContain("the bottleneck moves to what to build");
+  });
   it("velocity is team level only", () => {
     expect(artV2.toLowerCase()).toContain("team-level only, never individuals");
   });
