@@ -1,6 +1,8 @@
 ---
 issue: 587
-status: in progress
+status: done
+done: 2026-11-22
+link: PR #590
 logged: 2026-11-22
 title: Sign-in screen: new agentic product management story
 ---
