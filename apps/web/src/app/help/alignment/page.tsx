@@ -59,7 +59,7 @@ export default function AlignmentPage() {
             ],
           }}
         />
-        <HelpWhere>Alignment tab. New session opens an initiative picker with filters for planned quarter, MoSCoW and stage (Discover, PRD, Ready for build). You can also start one from the grid with the initiatives you selected.</HelpWhere>
+        <HelpWhere>Alignment tab: a grid of every session with Filter, Columns, Group by (status, method, planned quarter, month, applied, what needs you) and Search, the totals on top, an Actions column (add people, review the mailing, open, close, archive, apply results), links from the name and the counts to the session, its people and its results, and Export CSV. New session opens an initiative picker with filters for planned quarter, MoSCoW and stage (Discover, PRD, Ready for build). You can also start one from the grid with the initiatives you selected.</HelpWhere>
       </HelpSection>
 
       <HelpSection id="run" title="Running a session">
@@ -69,7 +69,7 @@ export default function AlignmentPage() {
             { number: "01", title: "Set up", text: "Choose the initiatives, the method, the groups (such as role, region or customer type), how groups are weighted, when it closes and how long personal data is kept." },
             { number: "02", title: "Invite", text: "Add participants. An AI co-worker can draft the invitation. Nothing is sent until you confirm." },
             { number: "03", title: "Vote", text: "Each person opens their link on a phone or computer, gives consent and votes. They can change their vote until the session closes." },
-            { number: "04", title: "Close and read", text: "Closing stores a snapshot of the results. Who voted is visible to admins; what each person voted is not shown unless an admin chooses Show names, which asks for a reason and is logged." },
+            { number: "04", title: "Close and read", text: "Closing stores a snapshot of the results. Who voted is visible to admins; what each person voted is shown only through Show names, which admins and product managers (the Creator role) can use once the session has closed. It asks for a reason and is logged. Participants are told this before they vote." },
           ]}
         />
       </HelpSection>
@@ -95,6 +95,7 @@ export default function AlignmentPage() {
             rows: [
               ["Participant", "The initiatives they vote on, their own votes and, if the admin allows it, anonymous results after the session closes", "Other people's votes, names or emails"],
               ["Workspace member", "Closed sessions that show results, as anonymous totals", "Draft sessions, who was invited, names, votes"],
+              ["Product manager (Creator)", "Closed sessions and their results, and names per vote through Show names once a session has closed (logged, with a reason), if every participant agreed to the wording that names product managers", "Open sessions, drafts, the participant list, a ranked list of people"],
               ["Admin", "The participant list, who has voted, and names per vote through Show names (logged, with a reason)", "A ranked list of people: nothing ranks people"],
             ],
           }}

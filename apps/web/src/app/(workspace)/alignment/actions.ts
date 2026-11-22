@@ -58,6 +58,17 @@ export async function changeState(form: FormData): Promise<void> {
   redirect(`${PATH}/${id}?status=${error ? (error.code === "22023" ? encodeURIComponent(error.message.slice(0, 120)) : "failed") : to}`);
 }
 
+/** One step forward (open, close or archive) from the list, answering in place instead of going to the session page. The database checks the order and who may. */
+export async function setSessionState(id: string, to: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { supabase, active } = await requireWorkspace(PATH);
+  if (active.role !== "admin" || !UUID.test(String(id)) || !Object.values(NEXT_STATE).some((n) => n?.to === to)) return { ok: false, error: "Only admins can change a session." };
+  const { error } = await supabase.rpc("alignment_session_set_state", { p_id: id, p_state: to });
+  if (error) return { ok: false, error: error.code === "22023" ? error.message.slice(0, 160) : "We could not change the state." };
+  revalidatePath(`${PATH}/${id}`);
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
 export type PeopleState = { ok?: string; error?: string; problems?: string[] } | null;
 
 /** Adds the people pasted into the box (admins). Duplicates are merged; lines that cannot be read are listed by line number. */

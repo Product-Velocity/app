@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  PX_PER_DAY, applyKey, classifyRows, clampWindow, dayToX, defaultWindow, formatDate, fromDay, ganttGroupOptions, layoutLines,
-  moveRange, readOnlyReason, resizeRange, scheduleAt, summarizeChange, timelineTicks, xToDay, yearSpans, type Bar, type GanttRow, type Line, type Range, type Zoom,
+  PX_PER_DAY, applyKey, classifyRows, clampWindow, dayToX, defaultWindow, formatDate, fromDay, ganttGroupOptions, layoutLines, matchesFilters, matchesSearch,
+  moveRange, readOnlyReason, resizeRange, scheduleAt, summarizeChange, timelineTicks, xToDay, yearSpans, type Bar, type Filter, type GanttRow, type Line, type Range, type Zoom,
 } from "@pv/domain";
 import type { PortfolioController } from "../portfolio/controller";
 import { ItemPanel } from "../portfolio/item-panel";
+import { ChoiceMenu } from "../portfolio/choice-menu";
+import { FilterPanel } from "../portfolio/filter-panel";
 import { StatusStrip } from "../portfolio/status-strip";
 import { useViewRows } from "../portfolio/use-view-rows";
 import type { GridItem, Lookups } from "../portfolio/types";
@@ -34,7 +36,13 @@ export type GanttProps = {
 /** Gantt: one bar per initiative from Planned Start to G2M Date (est), two-level grouping, drag or keys to change the dates. */
 export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
   const params = useSearchParams();
-  const { rows, scope, views, viewParam, filterName } = useViewRows(controller, me);
+  const { rows: viewRows, scope, views, viewParam, filterName } = useViewRows(controller, me);
+  const [filters, setFilters] = useState<Filter[]>([]);
+  const [search, setSearch] = useState("");
+  const rows = useMemo(
+    () => viewRows.filter((r) => matchesSearch(r, search, (id) => lookups.members.find((m) => m.user_id === id)?.email ?? "") && matchesFilters(r, filters, { me, today: controller.todayDate() })),
+    [viewRows, filters, search, lookups.members, me, controller],
+  );
   const today = controller.todayDate();
   const canEdit = controller.canEdit;
   const groupOptions = useMemo(() => ganttGroupOptions(), []);
@@ -275,16 +283,24 @@ export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
         <p className="muted gantt-count">
           {bars.length} scheduled · {unscheduled.length} unscheduled{scope.selection.kind !== "all" ? ` · scope: ${scope.label}` : ""}{filterName ? ` · filters of “${filterName}”` : ""}
         </p>
-        <div className="gantt-tools">
-          <label>Group by <select value={g1} onChange={(e) => setG1(e.target.value)}>{groupOptions.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}</select></label>
-          <label>then <select value={g2} disabled={!g1} onChange={(e) => setG2(e.target.value)}>{groupOptions.filter((o) => o.key !== g1).map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}</select></label>
-          <label>Filters of <select value={views.some((v) => v.id === viewParam) ? viewParam! : ""} onChange={(e) => setQueryParam("view", e.target.value || null)}>
-            <option value="">No saved view</option>{views.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-          </select></label>
-          <div role="group" aria-label="Zoom" className="gantt-zoom">
-            {(["month", "quarter"] as const).map((z) => <button key={z} type="button" className={zoom === z ? "view-chip view-chip-on" : "view-chip"} aria-pressed={zoom === z} onClick={() => setZoom(z)}>{z === "month" ? "Month" : "Quarter"}</button>)}
+      </div>
+
+      <div className="pvbar" role="region" aria-label="Gantt tools">
+        <div className="pvbar-s1">
+          <FilterPanel filters={filters} onChange={setFilters} lookups={lookups} quarters={controller.rows.map((r) => r.g2m_quarter)} openValues={(k) => controller.openValues(k)} today={today} matching={rows.length} total={controller.rows.length} />
+          <label className="pvbar-search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b6272" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
+            <input type="search" aria-label="Search initiatives" placeholder="Search initiatives" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setSearch(""); }} />
+          </label>
+          <div className="gantt-tools">
+            <ChoiceMenu name="Group by" value={g1} none="No grouping" choices={groupOptions.map((o) => ({ value: o.key, label: o.label }))} onChange={setG1} />
+            <ChoiceMenu name="Then by" value={g1 ? g2 : ""} none="None" disabled={!g1} choices={groupOptions.filter((o) => o.key !== g1).map((o) => ({ value: o.key, label: o.label }))} onChange={setG2} />
+            <ChoiceMenu name="Filters of" value={views.some((v) => v.id === viewParam) ? viewParam! : ""} none="No saved view" choices={views.map((v) => ({ value: v.id, label: v.name }))} onChange={(v) => setQueryParam("view", v || null)} />
+            <div role="group" aria-label="Zoom" className="gantt-zoom">
+              {(["month", "quarter"] as const).map((z) => <button key={z} type="button" className={zoom === z ? "view-chip view-chip-on" : "view-chip"} aria-pressed={zoom === z} onClick={() => setZoom(z)}>{z === "month" ? "Month" : "Quarter"}</button>)}
+            </div>
+            <button type="button" className="tool-btn" onClick={() => scrollRef.current?.scrollTo({ left: Math.max(0, LABEL_W + todayX - 400), behavior: "smooth" })}>Today</button>
           </div>
-          <button type="button" className="tool-btn" onClick={() => scrollRef.current?.scrollTo({ left: Math.max(0, LABEL_W + todayX - 400), behavior: "smooth" })}>Today</button>
         </div>
       </div>
 
