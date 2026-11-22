@@ -12,10 +12,11 @@ export default async function AccessRequestedPage() {
   const states = await myAccessStates(supabase);
   const waiting = states.filter((s) => s.status === "requested");
   const blocked = states.filter((s) => s.status !== "requested");
+  const accountPaused = blocked.some((b) => b.status === "account_paused");
   return (
     <main className="auth-page">
       <div className="card auth-card">
-        <h1>{waiting.length > 0 ? "Waiting for approval" : blocked.length > 0 ? "No access right now" : "Nothing to review"}</h1>
+        <h1>{waiting.length > 0 ? "Waiting for approval" : accountPaused ? "This account is paused" : blocked.length > 0 ? "No access right now" : "Nothing to review"}</h1>
         {waiting.length > 0 && (
           <p>
             We requested your organization admin to review your request to join{" "}
@@ -25,7 +26,9 @@ export default async function AccessRequestedPage() {
         )}
         {blocked.map((b) => (
           <p key={b.tenantId} className="muted">
-            {b.status === "paused"
+            {b.status === "account_paused"
+              ? <><strong>{b.tenantName}</strong> is paused by Product Velocity, so nobody can open it for now. Your data is safe. Contact your account owner or Product Velocity support to have it turned back on.</>
+              : b.status === "paused"
               ? <>Your access to <strong>{b.tenantName}</strong> is paused. Ask a workspace admin to turn it back on.</>
               : <>Your access to <strong>{b.tenantName}</strong> was revoked. Ask a workspace admin if you think this is a mistake.</>}
           </p>

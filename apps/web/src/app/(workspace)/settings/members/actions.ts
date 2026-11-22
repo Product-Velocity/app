@@ -8,10 +8,9 @@ import { parseInviteForm } from "@/lib/validation";
 import { githubUsernameMessage } from "@/lib/github-username";
 import { siteUrl } from "@/lib/site-url";
 import { emailConfigured } from "@/lib/email/resend";
+import { emailInvitation } from "@/lib/email/send-invitation";
 import { sendLogged } from "@/lib/email/send";
 import { loadEmailOverride } from "@/lib/email/override";
-import { buildInvitationEmail, sendLimit } from "@/lib/email/invitation";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { buildAccessApprovedEmail } from "@/lib/email/access";
 import { statusAfterSignup, type MemberStatus } from "@pv/domain";
 
@@ -19,27 +18,6 @@ export type InviteState = { error?: string; link?: string; email?: string; email
 export type SaveResult = { ok: true } | { ok: false; error: string };
 
 const PATH = "/settings/members";
-
-/**
- * Emails an invitation (only after the admin confirmed in the preview) and records what happened on the invitation row.
- * Returns a short note for the admin; the recipient address is never logged.
- */
-async function emailInvitation(opts: { invitationId: string; tenantId: string; tenantName: string; inviter: string; email: string; role: Parameters<typeof buildInvitationEmail>[0]["role"]; isApprover: boolean; link: string }): Promise<{ emailed: boolean; note: string }> {
-  const admin = createAdminClient({ via: "UI" });
-  const { data: row } = await admin.from("invitations").select("email_send_count, email_sent_at").eq("id", opts.invitationId).single();
-  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
-  const { count } = await admin.from("invitations").select("id", { count: "exact", head: true }).eq("tenant_id", opts.tenantId).gte("email_sent_at", since);
-  const limited = sendLimit({ sendCount: row?.email_send_count ?? 0, lastSentAt: row?.email_sent_at ?? null, workspaceLastDay: count ?? 0 });
-  if (limited) return { emailed: false, note: limited };
-  const mail = buildInvitationEmail({ workspace: opts.tenantName, inviter: opts.inviter, role: opts.role, isApprover: opts.isApprover, link: opts.link, siteUrl: await siteUrl(), override: await loadEmailOverride("app.invitation") });
-  const sent = await sendLogged("app.invitation", { to: opts.email, ...mail }, { tenantId: opts.tenantId });
-  await admin.from("invitations").update(
-    sent.ok
-      ? { email_status: "sent", email_sent_at: new Date().toISOString(), email_send_count: (row?.email_send_count ?? 0) + 1, email_error: null, email_provider_id: sent.id }
-      : { email_status: "failed", email_error: sent.error.slice(0, 200) },
-  ).eq("id", opts.invitationId);
-  return sent.ok ? { emailed: true, note: "Emailed." } : { emailed: false, note: sent.error };
-}
 
 const inviterName = (user: { email?: string | null; user_metadata?: Record<string, unknown> }) =>
   (typeof user.user_metadata?.full_name === "string" && user.user_metadata.full_name) || user.email || "A colleague";
