@@ -170,14 +170,26 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       return { files: await fileInfo(list.slice(0, FILE_CAP)), truncated: list.length > FILE_CAP };
     },
 
-    async report(kind, weekOf) {
-      const all = (await rows()) as never[];
+    async report(kind, weekOf, items) {
+      const every = (await rows()) as { item_code?: unknown; [k: string]: unknown }[];
+      // optional scope: only the initiatives the person named (codes, case does not matter); codes that do not exist are reported, never guessed
+      const wanted = items && items.length > 0 ? new Set(items.map((c) => c.trim().toUpperCase()).filter(Boolean)) : null;
+      const all = (wanted ? every.filter((r) => wanted.has(String(r.item_code).toUpperCase())) : every) as never[];
+      const scope = wanted
+        ? { all: false, items: all.map((r) => String((r as { item_code: unknown }).item_code)), not_found: [...wanted].filter((c) => !every.some((r) => String(r.item_code).toUpperCase() === c)) }
+        : { all: true };
+      // what a person needs to frame an initiative: where it is, how it is doing, its dates and what it serves (only fields the row has)
+      const CONTEXT = ["item_code", "initiative_name", "initiative_phase", "initiative_status", "health", "status", "stack_rank", "g2m_date_est", "g2m_slip_days", "days_in_phase", "okr_objective", "theme", "kr_metric"] as const;
+      const contextOf = (ids: readonly string[]) => all
+        .filter((r) => ids.includes(String((r as { id: unknown }).id)))
+        .slice(0, 25)
+        .map((r) => Object.fromEntries(CONTEXT.filter((k) => (r as Record<string, unknown>)[k] !== undefined && (r as Record<string, unknown>)[k] !== null && (r as Record<string, unknown>)[k] !== "").map((k) => [k, (r as Record<string, unknown>)[k]])));
       const day = weekOf && /^\d{4}-\d{2}-\d{2}$/.test(weekOf) ? new Date(`${weekOf}T12:00:00Z`) : new Date();
       const week = weekWindow(day);
       if (kind === "health") {
         const h = healthByProject(all, await projects());
         return {
-          report: "health", as_of: day.toISOString().slice(0, 10), initiatives: all.length,
+          report: "health", scope, as_of: day.toISOString().slice(0, 10), initiatives: all.length,
           counts: h.totals.counts, summary: h.totals.summary,
           by_project: h.projects.map((p) => ({ project: p.name, initiatives: p.total, summary: p.summary })),
           needs_attention: needsAttention(all, day).slice(0, 25).map((a) => ({ item: a.code, name: a.name, health: a.health, reasons: a.reasons })),
@@ -193,9 +205,11 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
         documentHref: (code, d) => `${itemHref(code)}&tab=spec${d.entry === "document" ? `&doc=${encodeURIComponent(d.id)}` : ""}`, changesHref: `${origin}/reports?report=changes`, limit: 15,
       });
       return {
-        report: "weekly_digest", week: week.label, from: week.start, to_exclusive: week.end, headline: digest.headline,
+        report: "weekly_digest", scope, week: week.label, from: week.start, to_exclusive: week.end, headline: digest.headline,
         groups: digest.groups.map((g) => ({ id: g.id, title: g.title, lines: g.lines.length })),
         markdown: digestMarkdown(digest).join("\n"),
+        // context for the initiatives the digest talks about (or, when a scope is named and the week was quiet, the named ones), so the summary can explain and not only list
+        initiatives: contextOf(digest.itemIds.length > 0 ? digest.itemIds : all.map((r) => String((r as { id: unknown }).id))),
       };
     },
 
