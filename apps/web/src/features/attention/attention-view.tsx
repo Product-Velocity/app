@@ -217,12 +217,15 @@ export function AttentionView({ controller, lookups, me, source, pageHref = (c) 
     setActive(id);
     const node = id ? api.current?.getRowNode(id) : null;
     if (node?.rowIndex != null) api.current?.ensureIndexVisible(node.rowIndex);
-    api.current?.redrawRows();
   };
+  // the highlighted row is drawn from `active`, so redraw once the new value is in place
+  useEffect(() => { api.current?.redrawRows(); }, [active]);
   useEffect(() => {
     const h = (ev: KeyboardEvent) => {
       if (gateFor || snoozeFor) return;
-      if ((ev.target as HTMLElement).closest("input, textarea, select, button, a, [role=dialog], .lst-panel")) return;
+      const el = ev.target as HTMLElement;
+      if (el.closest("input, textarea, select, [role=dialog], .lst-panel")) return;
+      if (ev.key === "Enter" && el.closest("button, a")) return;
       if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "z" && !ev.shiftKey) { if (undoStack.current.length > 0) { ev.preventDefault(); void doUndo(); } return; }
       if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
       const i = shown.findIndex((x) => x.id === active);
@@ -250,7 +253,7 @@ export function AttentionView({ controller, lookups, me, source, pageHref = (c) 
     const d = (id: ColumnId, def: ColDef<AttentionGridRow>): ColDef<AttentionGridRow> => ({ colId: id, sortable: true, ...def });
     return [
       { colId: "initiative", headerName: "Initiative", field: "name", width: 330, cellRenderer: NameCell, sortable: true, pinned: "left", comparator: (_a, _b, x, y) => x.data!.code.localeCompare(y.data!.code, undefined, { numeric: true }) },
-      d("urgency", { headerName: "Urgency", field: "tier", width: 110, cellRenderer: UrgencyCell, sort: undefined }),
+      d("urgency", { headerName: "Urgency", field: "tier", width: 110, cellRenderer: UrgencyCell, sort: "asc", sortIndex: 0 }),
       d("reasons", { headerName: "Reasons", field: "reasonLabels", width: 270, cellRenderer: ReasonsCell }),
       d("why", { headerName: "What is wrong", field: "reasonText", flex: 1, minWidth: 260, tooltipField: "reasonText" }),
       d("phase", { headerName: "Phase", field: "phase", width: 110, valueFormatter: (p) => p.value || "No phase" }),
@@ -261,11 +264,11 @@ export function AttentionView({ controller, lookups, me, source, pageHref = (c) 
       d("group", { headerName: "Initiative group", field: "group", width: 150 }),
       d("project", { headerName: "Project", field: "project", width: 140 }),
       d("owner", { headerName: "Product manager", field: "owner", width: 150 }),
-      d("rank", { headerName: "Stack rank", field: "rank", width: 110, type: "rightAligned" }),
+      d("rank", { headerName: "Stack rank", field: "rank", width: 110, type: "rightAligned", sort: "asc", sortIndex: 1 }),
       { colId: "action", headerName: "Next step", width: 250, cellRenderer: ActionCell, pinned: "right", sortable: false, resizable: false },
     ];
   }, []);
-  // urgency sorts by tier then stack rank: the order of the list, and the order a person expects
+  // the list starts sorted by urgency, then stack rank (hidden columns keep sorting); a later click on a header replaces that
   useEffect(() => { api.current?.setColumnsVisible(COLUMN_NAMES.map((c) => c.id), true); api.current?.setColumnsVisible(hidden.filter((h): h is ColumnId => COLUMN_NAMES.some((c) => c.id === h)), false); }, [hidden]);
   const onReady = (e: GridReadyEvent<AttentionGridRow>) => {
     api.current = e.api;

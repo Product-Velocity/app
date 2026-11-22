@@ -100,7 +100,7 @@ test.describe("the Decisions screen", () => {
     await expect(dialog.getByRole("radio", { name: /Hold/ })).toBeChecked();
     await page.keyboard.press("Escape");
     await decide(page, "r4").getByRole("button", { name: "Go", exact: true }).click();
-    await expect(page.getByRole("dialog", { name: "Decide 1 request" }).getByRole("radio", { name: /^Go\b/ })).toBeChecked();
+    await expect(page.getByRole("dialog", { name: "Decide 1 request" }).getByRole("radio", { name: /^Go Move on\. The phase/ })).toBeChecked();
   });
 
   test("the keyboard decides: S opens the Stop dialog; conditions are required for Go with conditions", async ({ page }) => {

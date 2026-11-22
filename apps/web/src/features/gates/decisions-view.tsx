@@ -172,12 +172,13 @@ export function DecisionsView({ source, me, mayDecide = true, initialFilter = "w
     setActive(id);
     const node = id ? api.current?.getRowNode(id) : null;
     if (node?.rowIndex != null) api.current?.ensureIndexVisible(node.rowIndex);
-    api.current?.redrawRows();
   };
+  // the highlighted row is drawn from `active`, so redraw once the new value is in place
+  useEffect(() => { api.current?.redrawRows(); }, [active]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
-      if (t?.closest("input, textarea, select, button, a, [contenteditable=true], [role='dialog'], .lst-panel")) return;
+      if (t?.closest("input, textarea, select, [contenteditable=true], [role='dialog'], .lst-panel")) return;
       if (e.metaKey || e.ctrlKey || e.altKey || dialog) return;
       const i = rows.findIndex((r) => r.id === active);
       if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); show(rows[Math.min(rows.length - 1, i + 1)]?.id ?? null); }

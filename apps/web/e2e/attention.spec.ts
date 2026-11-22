@@ -48,7 +48,7 @@ test.describe("Needs attention", () => {
     await expect(names(page)).toHaveText([/R-07/]);
     await page.getByRole("button", { name: /^Build done/ }).click();
     await expect(names(page)).toHaveText([/R-07/, /R-01/]);
-    await page.getByRole("button", { name: /^All/ }).click();
+    await page.getByRole("button", { name: /^All \(/ }).click();
     await expect(names(page)).toHaveCount(10);
   });
 
@@ -64,7 +64,7 @@ test.describe("Needs attention", () => {
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Clear filters" }).click();
     await page.getByRole("checkbox", { name: /One click away/ }).check();
-    await expect(names(page)).toHaveText([/R-01/, /R-02/, /R-04/, /R-07/]); // Move to Test, Request gate, Request the gate again, Open Decisions
+    await expect(names(page)).toHaveText([/R-07/, /R-01/, /R-02/, /R-04/]); // Open Decisions, Move to Test, Request gate, Request the gate again, Open Decisions
     await page.getByRole("checkbox", { name: /One click away/ }).uncheck();
     await page.getByRole("columnheader", { name: "Initiative" }).click();
     await expect(names(page).first()).toContainText("R-01");
@@ -83,7 +83,7 @@ test.describe("Needs attention", () => {
     await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(names(page)).toHaveCount(10);
     await page.getByRole("button", { name: /^Views/ }).click();
-    await page.getByRole("button", { name: "Stuck work" }).click();
+    await page.getByRole("button", { name: "Stuck work", exact: true }).click();
     await expect(names(page)).toHaveText([/R-06/]);
   });
 
