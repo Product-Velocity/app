@@ -335,7 +335,7 @@ export function AttentionView({ controller, lookups, me, source, pageHref = (c) 
           <div className="lst-grid" data-testid="attention-grid" role="region" aria-label="Initiatives that need attention">
             <AgGridReact<AttentionGridRow>
               theme={GRID_THEME} rowData={shown} columnDefs={cols} getRowId={(p) => p.data.id} context={ctx} defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true }}
-              rowSelection={{ mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false }} onSelectionChanged={onSelection} onGridReady={onReady}
+              selectionColumnDef={{ pinned: "left", width: 44, resizable: false }} rowSelection={{ mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false }} onSelectionChanged={onSelection} onGridReady={onReady}
               onColumnMoved={(e) => { if (e.finished && e.source !== "api") saveLayout(); }} onColumnResized={(e) => { if (e.finished && e.source === "uiColumnResized") saveLayout(); }}
               getRowClass={(p) => (p.data && p.data.id === active ? "lst-active" : p.data?.snoozed ? "lst-snoozed" : undefined)} onRowClicked={(e) => { if (e.data && !(e.event?.target as HTMLElement | null)?.closest("button, a, input")) setActive(e.data.id); }}
               onRowDoubleClicked={(e) => e.data && setPeek(e.data.id)} tooltipShowDelay={500} suppressColumnVirtualisation suppressCellFocus rowHeight={38}

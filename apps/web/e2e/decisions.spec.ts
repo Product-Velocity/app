@@ -13,10 +13,10 @@ const openGrid = async (page: Page) => {
 // the grid page keeps the gate source in __pv.gates, the Decisions page in __pv.source
 const calls = (page: Page) => page.evaluate(() => { const pv = (window as unknown as { __pv: { source?: { calls: string[] }; gates?: { calls: string[] } } }).__pv; return (pv.gates ?? pv.source)!.calls; });
 
-/** A request's name is pinned left, its buttons pinned right, the rest in the middle; they share one row id. */
-const names = (page: Page) => page.locator(".ag-pinned-left-cols-container .lst-name");
-const centre = (page: Page, id: string) => page.locator(`.ag-center-cols-container [row-id="${id}"]`);
-const decide = (page: Page, id: string) => page.locator(`.ag-pinned-right-cols-container [row-id="${id}"]`);
+/** One row element holds the pinned name, the middle cells and the pinned buttons. */
+const names = (page: Page) => page.locator(".ag-row .lst-name");
+const centre = (page: Page, id: string) => page.locator(`[row-id="${id}"]`);
+const decide = (page: Page, id: string) => page.locator(`[row-id="${id}"] [col-id="action"]`);
 const pick = (page: Page, code: string) => names(page).filter({ hasText: code }).click();
 
 test.describe("the Decisions screen", () => {
@@ -50,7 +50,7 @@ test.describe("the Decisions screen", () => {
     await expect(pack).toContainText("Customers who see the new checkout convert more.");
     await page.getByRole("tab", { name: "Decided" }).click();
     await expect(names(page)).toHaveCount(1);
-    await expect(centre(page, "r5")).toContainText("Go · Fast lane".replace(" · Fast lane", ""));
+    await expect(centre(page, "r5")).toContainText("Go");
     await pick(page, "R-05");
     await expect(pack).toContainText("Tiny change, ship it");
     await expect(pack).toContainText("Skipped phases: Build, Test, Experiment");
@@ -138,14 +138,14 @@ test.describe("the Decisions screen", () => {
     await expect(pack).toContainText("You do not have approval rights for gate B");
     await expect(pack.getByRole("button", { name: /^Go\b/ })).toHaveCount(0);
     await expect(decide(page, "r2")).toContainText("Not yours to decide");
-    await expect(page.locator('.ag-pinned-left-cols-container [row-id="r2"] input[type="checkbox"]')).toBeDisabled();
+    await expect(page.locator('[row-id="r2"] input[type="checkbox"]')).toBeDisabled();
     await page.getByRole("tab", { name: /Can decide/ }).click();
     await expect(names(page)).toHaveCount(1);
   });
 
   test("selecting several requests decides them together with one rationale, and warns about an incomplete checklist", async ({ page }) => {
     await openDecisions(page);
-    for (const id of ["r2", "r3"]) await page.locator(`.ag-pinned-left-cols-container [row-id="${id}"] input[type="checkbox"]`).check();
+    for (const id of ["r2", "r3"]) await page.locator(`[row-id="${id}"] input[type="checkbox"]`).check();
     const bar = page.getByRole("region", { name: "Decide the selected requests" });
     await expect(bar).toContainText("2 selected");
     await expect(bar).toContainText("2 of the selected have an incomplete checklist");
@@ -158,7 +158,7 @@ test.describe("the Decisions screen", () => {
 
   test("a bulk Hold opens the dialog on Hold, and a CSV of the rows can be downloaded", async ({ page }) => {
     await openDecisions(page);
-    for (const id of ["r1", "r4"]) await page.locator(`.ag-pinned-left-cols-container [row-id="${id}"] input[type="checkbox"]`).check();
+    for (const id of ["r1", "r4"]) await page.locator(`[row-id="${id}"] input[type="checkbox"]`).check();
     await page.getByRole("region", { name: "Decide the selected requests" }).getByRole("button", { name: "Hold…" }).click();
     await expect(page.getByRole("dialog", { name: "Decide 2 requests" }).getByRole("radio", { name: /Hold/ })).toBeChecked();
     await page.keyboard.press("Escape");

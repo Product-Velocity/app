@@ -278,7 +278,7 @@ export function DecisionsView({ source, me, mayDecide = true, initialFilter = "w
           <div className="lst-grid" data-testid="decisions-grid" role="region" aria-label="Gate requests">
             <AgGridReact<DecisionGridRow>
               theme={GRID_THEME} rowData={rows} columnDefs={cols} getRowId={(p) => p.data.id} context={ctx} defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true }}
-              rowSelection={{ mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false, isRowSelectable: (n) => Boolean(n.data?.canDecide) }}
+              selectionColumnDef={{ pinned: "left", width: 44, resizable: false }} rowSelection={{ mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false, isRowSelectable: (n) => Boolean(n.data?.canDecide) }}
               onSelectionChanged={onSelection} onGridReady={onReady} tooltipShowDelay={500} suppressColumnVirtualisation suppressCellFocus rowHeight={42}
               getRowClass={(p) => (p.data && p.data.id === active ? "lst-active" : undefined)} onRowClicked={(e) => { if (e.data && !(e.event?.target as HTMLElement | null)?.closest("button, a, input")) setActive(e.data.id); }}
             />

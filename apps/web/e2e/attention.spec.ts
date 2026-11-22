@@ -7,10 +7,10 @@ const open = async (page: Page) => {
   await page.waitForFunction(() => (window as unknown as { __pv?: unknown }).__pv !== undefined);
   await page.evaluate(() => { try { window.localStorage.clear(); } catch { /* storage may be blocked */ } });
 };
-/** A row's cells: the name and checkbox are pinned left, the next step pinned right, the rest in the middle; they share one row id. */
-const centre = (page: Page, id: string) => page.locator(`.ag-center-cols-container [row-id="${id}"]`);
-const action = (page: Page, id: string) => page.locator(`.ag-pinned-right-cols-container [row-id="${id}"]`);
-const names = (page: Page) => page.locator(".ag-pinned-left-cols-container .lst-name");
+/** One row element holds the pinned name, the middle cells and the pinned next step. */
+const centre = (page: Page, id: string) => page.locator(`[row-id="${id}"]`);
+const action = (page: Page, id: string) => page.locator(`[row-id="${id}"] [col-id="action"]`);
+const names = (page: Page) => page.locator(".ag-row .lst-name");
 const calls = (page: Page) => page.evaluate(() => (window as unknown as { __pv: { gates: { calls: string[] } } }).__pv.gates.calls);
 
 test.describe("Needs attention", () => {
@@ -109,7 +109,7 @@ test.describe("Needs attention", () => {
 
   test("selecting several rows offers bulk steps: move to Test, request a gate, snooze, download", async ({ page }) => {
     await open(page);
-    for (const id of ["item-1", "item-2", "item-5"]) await page.locator(`.ag-pinned-left-cols-container [row-id="${id}"] input[type="checkbox"]`).check();
+    for (const id of ["item-1", "item-2", "item-5"]) await page.locator(`[row-id="${id}"] input[type="checkbox"]`).check();
     const bar = page.getByRole("region", { name: "Act on the selected initiatives" });
     await expect(bar).toContainText("3 selected");
     await expect(bar.getByRole("button", { name: "Request gate B (1)" })).toBeVisible();

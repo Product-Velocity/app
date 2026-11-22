@@ -1,0 +1,4 @@
+---
+bump: minor
+---
+**Needs attention and Decisions are now lists you can search, filter, sort and act on.** Both screens use the same grid as the Roadmap: a search box (press /), filters with counts, choose and reorder columns, saved views, and a CSV of what you see. Needs attention has one row per initiative with urgency, reasons in words, phase, health, days in phase and a one-click next step; select several rows to move them to Test, request a gate or snooze them, and open an initiative beside the list. A reason can be snoozed for a few days or dismissed for everyone (undo with Ctrl+Z); it only hides the reason from the list. Decisions shows the checklist (x of y, complete or incomplete), how long each request has waited, quick Go and Hold buttons, and decides several requests at once with a warning for incomplete checklists. A request with no recorded requester now says "Not recorded". Migration `20261122153740_attention_snoozes`.
