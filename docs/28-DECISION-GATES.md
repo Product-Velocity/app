@@ -65,6 +65,8 @@ Per gate (A, B, C), in Settings, Workspace: a list of accounts. **Admins can app
 
 A screen named **Decisions** in the main navigation next to My work and Needs attention. It is about gates, not about one person. Filters: **Waiting for approval** (default), **Decided**, **Requested by me**, **Can decide** (rows this person has rights to decide). Columns: item, gate, requested by and when, checklist result, who can decide. The peek panel shows the gate pack; J and K move through rows; the keyboard decides (G go, C go with conditions, H hold, S stop, each asking for the rationale). A badge on the nav entry counts the requests this person can decide.
 
+**As a list (issue #591, Ashu 2026-11-22).** The screen is an AG Grid list on the shared grid kit: search (`/`), filters (gate, outcome, waiting more than a week, incomplete checklist), sortable columns that can be hidden (Gate, Requested or decided, Requested by, Days waiting, Checklist as x of y with a word, Outcome, Decided by, Phase, Health, Hypothesis, Rationale, You can decide), saved views and a CSV in this browser. Each open row has Go, Hold and Decide… buttons; select rows (only those you can decide) for a bulk Go, Go with conditions, Hold or Stop in the existing dialog, which warns when checklists are incomplete but never blocks. "Who can decide" is in the gate pack, not a column. A request with no recorded requester shows "Not recorded".
+
 Reports keeps the *history*: decisions per gate, time waiting at a gate, Hold counts and how often fast lane was used (team level only, rule 8).
 
 ## 6a. Notifications (issue #341)
@@ -87,6 +89,8 @@ A notification holds the initiative code and name and the gate; the rationale, d
 
 ## 7a. Needs attention (issue #337)
 The **Needs attention** tab (`/attention`) lists the initiatives of the current scope that need a person to look, worst first, then by Stack Rank. The rules are `attentionList` in `packages/domain/src/attention.ts`; every entry says the reason in words and, where there is one, offers the next step in one click. A mismatch is a suggestion, never an automatic change; the buttons use the same functions as the grid (Move to Test through `move_phase`, Request gate through `request_gate`).
+
+**As a list (issue #591, Ashu 2026-11-22).** One row per initiative on the shared grid: Urgency (Urgent, Soon, Look at it), Reasons, What is wrong, Phase, Health, Days in phase, Days waiting for a decision, and hidden by default Build status, Initiative group, Project, Product manager and Stack rank, then the Next step. Reason chips show only reasons that have initiatives; filters for urgency, phase, health and group; search; saved views; CSV. Select rows for bulk **Move to Test**, **Request gate** (per gate) and **Snooze or dismiss**; Enter opens the initiative beside the list; keys J K Enter X M Z /. **Snooze** (`attention_snoozes`) hides one reason of an initiative until a date or until brought back, for everyone, audited, Creators and above; it is a view filter only and never changes the initiative. Decision: `docs/decisions/2026-11-22-attention-decisions-grids.md`.
 
 | Reason | When | Next step |
 |---|---|---|

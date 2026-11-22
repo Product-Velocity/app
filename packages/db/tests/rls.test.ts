@@ -579,6 +579,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "attention_snoozes",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.attention_snoozes set snoozed_until = null where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.attention_snoozes where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.attention_snoozes (tenant_id, item_id, kind) select tenant_id, item_id, 'no-health' from public.attention_snoozes where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.attention_snoozes set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "notifications",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

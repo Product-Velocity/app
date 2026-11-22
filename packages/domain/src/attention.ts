@@ -35,19 +35,33 @@ export type AttentionAction =
   | { type: "move"; to: Phase; label: string }
   | { type: "request-gate"; gate: GateId; label: string }
   | { type: "decisions"; label: string };
-export type AttentionReason = { kind: AttentionKind; text: string; days?: number; action?: AttentionAction };
-export type AttentionEntry = { id: string; code: string; name: string; rank: number; tier: 0 | 1 | 2; reasons: AttentionReason[] };
+/** A reason someone chose to hide for now (until a date) or for good (`until` null). It is a view filter only; nothing about the initiative changes. */
+export type Snooze = { item_id: string; kind: AttentionKind; snoozed_until: string | null; note?: string | null };
+export type AttentionReason = { kind: AttentionKind; text: string; days?: number; action?: AttentionAction; snoozed?: { until: string | null; note: string | null } };
+/** `snoozed`: every reason of the entry is snoozed or dismissed, so the list hides it unless asked to show them. `tier` counts only the reasons that are not snoozed. */
+export type AttentionEntry = { id: string; code: string; name: string; rank: number; tier: 0 | 1 | 2; reasons: AttentionReason[]; snoozed: boolean };
 export type OpenCondition = { item_id: string; text: string };
+
+/** Is this snooze still hiding its reason today (`todayIso` is YYYY-MM-DD)? A dismissal (no date) hides until it is removed; a date hides through that day. */
+export const snoozeActive = (s: Pick<Snooze, "snoozed_until">, todayIso: string) => s.snoozed_until === null || s.snoozed_until >= todayIso;
+/** The date `days` days after `todayIso`, as YYYY-MM-DD. */
+export const snoozeDate = (todayIso: string, days: number) => new Date((dayOf(todayIso) + days) * 86_400_000).toISOString().slice(0, 10);
+export const SNOOZE_CHOICES: readonly { days: number; label: string }[] = [{ days: 1, label: "Until tomorrow" }, { days: 7, label: "For a week" }, { days: 14, label: "For two weeks" }, { days: 30, label: "For a month" }];
 
 const finished = (r: LeadRow) => r.initiative_status === "Completed" || r.initiative_status === "Cancelled" || r.initiative_phase === "Completed" || r.initiative_phase === "Sunset";
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const dayOf = (iso: string) => Math.round(Date.parse(`${iso.slice(0, 10)}T00:00:00Z`) / 86_400_000);
 
-export function attentionList(rows: readonly LeadRow[], today: Date, ctx: { requests?: readonly GateRequest[]; conditions?: readonly OpenCondition[] } = {}): AttentionEntry[] {
+export function attentionList(rows: readonly LeadRow[], today: Date, ctx: { requests?: readonly GateRequest[]; conditions?: readonly OpenCondition[]; snoozes?: readonly Snooze[] } = {}): AttentionEntry[] {
   const todayNum = dayNumber(today);
   const todayIso = new Date(todayNum * 86_400_000).toISOString().slice(0, 10);
   const byItem = new Map<string, AttentionReason[]>();
-  const add = (id: string, r: AttentionReason) => byItem.set(id, [...(byItem.get(id) ?? []), r]);
+  const snoozeOf = new Map<string, Snooze>();
+  for (const z of ctx.snoozes ?? []) if (snoozeActive(z, todayIso)) snoozeOf.set(`${z.item_id}:${z.kind}`, z);
+  const add = (id: string, r: AttentionReason) => {
+    const z = snoozeOf.get(`${id}:${r.kind}`);
+    byItem.set(id, [...(byItem.get(id) ?? []), z ? { ...r, snoozed: { until: z.snoozed_until, note: z.note ?? null } } : r]);
+  };
   const ids = new Set(rows.map((r) => r.id));
 
   for (const a of needsAttention(rows, today)) for (const text of a.reasons) add(a.id, { kind: "delivery-risk", text });
@@ -108,17 +122,18 @@ export function attentionList(rows: readonly LeadRow[], today: Date, ctx: { requ
   for (const r of rows) {
     const reasons = byItem.get(r.id);
     if (!reasons || reasons.length === 0) continue;
+    const live = reasons.filter((x) => !x.snoozed);
     const blocked = r.health === "Blocked" || (typeof r.blocked_issues === "number" && r.blocked_issues > 0);
-    const tier: 0 | 1 | 2 = blocked || reasons.some((x) => x.kind === "cancelled-building") ? 0 : reasons.some((x) => x.kind === "gate-waiting" || x.kind === "delivery-risk" && r.health === "Delayed") ? 1 : 2;
-    out.push({ id: r.id, code: r.item_code, name: r.initiative_name, rank: r.stack_rank, tier, reasons });
+    const tier: 0 | 1 | 2 = (blocked && (live.length > 0 || reasons.length === 0)) || live.some((x) => x.kind === "cancelled-building") ? 0 : live.some((x) => x.kind === "gate-waiting" || x.kind === "delivery-risk" && r.health === "Delayed") ? 1 : 2;
+    out.push({ id: r.id, code: r.item_code, name: r.initiative_name, rank: r.stack_rank, tier, reasons, snoozed: live.length === 0 });
   }
   return out.sort((a, b) => a.tier - b.tier || a.rank - b.rank);
 }
 
-/** How many entries each kind has (an entry with two reasons of one kind counts once), for the filter chips. */
+/** How many entries each kind has (an entry with two reasons of one kind counts once), for the filter chips. Snoozed reasons are not counted. */
 export function attentionCounts(entries: readonly AttentionEntry[]): Record<AttentionKind, number> {
   const c = Object.fromEntries(ATTENTION_KINDS.map((k) => [k.id, 0])) as Record<AttentionKind, number>;
-  for (const e of entries) for (const k of new Set(e.reasons.map((r) => r.kind))) c[k]++;
+  for (const e of entries) for (const k of new Set(e.reasons.filter((r) => !r.snoozed).map((r) => r.kind))) c[k]++;
   return c;
 }
 export const filterAttention = (entries: readonly AttentionEntry[], kind: AttentionKind | "all"): AttentionEntry[] =>
