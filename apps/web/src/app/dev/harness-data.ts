@@ -56,10 +56,20 @@ export function makeGanttHarness(n: number, role: string) {
     item.g2m_date_est = unscheduled ? null : iso(start + (14 + ((i * 7) % 70)) * 86_400_000);
     item.theme = groups[i % groups.length] ?? null;
     item.contributing_teams = i % 5 === 0 ? "Core, Mobile" : i % 3 === 0 ? "Core" : null;
+    // planned against actual, gates and dependencies, spread so every marker appears
+    const day = 86_400_000;
+    item.initiative_phase = ["Discover", "Define", "Build", "Test"][i % 4]!;
+    item.start_date = !unscheduled && i % 3 === 0 ? iso(start + ((i % 5) - 1) * day) : null;
+    item.g2m_date_actual = !unscheduled && i % 9 === 3 ? iso(start + (14 + ((i * 7) % 70) + (i % 5) - 2) * day) : null;
+    item.next_gate_due = !unscheduled && i % 4 === 1 ? iso(start + 10 * day) : null;
+    item.current_gate = item.next_gate_due ? "B" : null;
+    item.gate_status = item.next_gate_due ? "Not started" : null;
+    item.depends_on = !unscheduled && i % 5 === 2 ? `R-${String(i).padStart(2, "0")}` : null; // the item before it, by code
   });
   for (const r of controller.rows) {
     const s = source.items.find((x) => x.id === r.id)!;
     r.planned_start = s.planned_start; r.g2m_date_est = s.g2m_date_est; r.theme = s.theme; r.contributing_teams = s.contributing_teams;
+    for (const k of ["initiative_phase", "start_date", "g2m_date_actual", "next_gate_due", "current_gate", "gate_status", "depends_on"]) r[k] = s[k];
   }
   return { controller, source };
 }
