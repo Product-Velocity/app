@@ -61,7 +61,7 @@ export function Home({ viewer = null }: { viewer?: "member" | "demo" | null }) {
           <Pills className="pillbg" />
           <span className="eyebrow">Agentic product management platform</span>
           <h1>Deliver bigger, better outcomes. Faster.</h1>
-          <p className="lead">Product managers own the quality of the outcome and the speed of getting there. Product Velocity gives them and their AI co-workers one roadmap with the context, the place for the work and the path from start to finish. AI prepares, people decide.</p>
+          <p className="lead">Product managers own the quality of the outcome and the speed of getting there. Product Velocity gives them and their AI co-workers one roadmap with the context, the place for the work and the path from start to finish, across business lines, PM scopes and teams. AI prepares, people decide.</p>
           <div className="cta">
             <a className="btn p big" href="#early-access">Join us</a>
             {viewer ? <Link className="btn big" href="/app">{appLabel}</Link> : <Link className="btn big" href="/demo">See the demo</Link>}
