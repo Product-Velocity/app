@@ -17,6 +17,7 @@ export * from "./groups";
 export * from "./panel";
 export * from "./related";
 export * from "./gantt";
+export * from "./gantt-plan";
 export * from "./cards";
 export * from "./cards-views";
 export * from "./card-fields";
