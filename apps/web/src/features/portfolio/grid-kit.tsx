@@ -1,6 +1,6 @@
 "use client";
 
-import { CellStyleModule, ClientSideRowModelModule, ColumnApiModule, ModuleRegistry, RowStyleModule, TooltipModule, themeQuartz } from "ag-grid-community";
+import { CellStyleModule, ClientSideRowModelModule, ColumnApiModule, ModuleRegistry, RenderApiModule, RowApiModule, RowSelectionModule, RowStyleModule, ScrollApiModule, TooltipModule, _SortModule, themeQuartz } from "ag-grid-community";
 import type { CustomCellRendererProps } from "ag-grid-react";
 import type { GroupRow } from "@pv/domain";
 
@@ -10,7 +10,7 @@ import type { GroupRow } from "@pv/domain";
  * so a change to the look or to the header of a group is made once. Row grouping itself is Enterprise only (spike S1): groups are header rows we build
  * (`buildGroupedRows` in the domain package) and this renderer draws.
  */
-ModuleRegistry.registerModules([ClientSideRowModelModule, CellStyleModule, RowStyleModule, TooltipModule, ColumnApiModule]);
+ModuleRegistry.registerModules([ClientSideRowModelModule, CellStyleModule, RowStyleModule, TooltipModule, ColumnApiModule, RowSelectionModule, _SortModule, RowApiModule, ScrollApiModule, RenderApiModule]);
 
 export const GRID_THEME = themeQuartz.withParams({
   fontFamily: "IBM Plex Sans, system-ui, sans-serif",
