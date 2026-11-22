@@ -2,7 +2,7 @@
 issue: 592
 status: done
 done: 2026-11-22
-link: PR #593
+link: PR #595
 logged: 2026-11-22
 title: PM role (Creator) can see who voted what
 ---
