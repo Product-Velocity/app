@@ -1738,9 +1738,11 @@ a.btn.btn-primary { color: #fff; }
 .lst-name { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--blue-text); text-decoration: none; vertical-align: middle; }
 .lst-name:hover { text-decoration: underline; }
 .lst-pills { display: inline-flex; gap: 4px; align-items: center; }
-.lst-act { display: inline-flex; gap: 6px; align-items: center; }
-.lst-small { height: 26px; padding: 0 9px; font-size: 12.5px; }
-.lst-go { border-color: var(--blue); color: var(--blue-text); font-weight: 500; }
+.lst-act { display: inline-flex; gap: 6px; align-items: center; height: 100%; vertical-align: middle; white-space: nowrap; }
+/* Row buttons: the grid cell's tall line-height pushed the label to the bottom edge, so centre it and drop the line-height */
+.lst-small { display: inline-flex; align-items: center; justify-content: center; height: 26px; padding: 0 10px; font-size: 12.5px; line-height: 1; font-weight: 500; white-space: nowrap; }
+.lst-go { background: var(--blue); border-color: var(--blue); color: #fff; }
+.lst-go:hover:not(:disabled) { background: var(--blue-text); border-color: var(--blue-text); }
 .lst-warn { color: var(--amber-text, #7a4a00); font-size: 12.5px; flex-basis: 100%; }
 .lst-foot { margin: 8px 0 0; font-size: 12px; }
 .lst-radios { border: 0; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
