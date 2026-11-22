@@ -1,4 +1,0 @@
----
-bump: minor
----
-**Gantt redesign.** Hover or focus a bar for a card with its plan, actual dates, phase, owner, teams, progress, gate and dependencies; a bar shows its name only when it fits and the name stays in view as you scroll. Rows can be Compact or Comfortable, the name column can be resized, the Today marker sits in the header and a legend explains every mark. Group rows roll up what needs a look (at risk, late, blocked, delivery progress). New marks: the actual start-to-finish line under a bar, "Overdue N d" when the G2M Date (est) has passed, and a diamond for the next decision gate. Dependencies from "Depends On" are drawn as arrows (red when the dependent starts before what it waits for ends) and hovering a bar lights its whole chain. Week and Year zoom, Fit, Ctrl/⌘ + scroll to zoom, Collapse all, Shift-click to select several bars and move them together as one undo step, and Export PNG / PDF. No database change.
