@@ -1,8 +1,25 @@
+export type ReleaseType = "new" | "improved" | "fixed" | "retired" | "security";
+
+/** Order of the groups in the "What's new" dialog. */
+export const RELEASE_TYPES: ReleaseType[] = ["new", "improved", "fixed", "retired", "security"];
+
+export const RELEASE_TYPE_LABEL: Record<ReleaseType, string> = {
+  new: "New",
+  improved: "Improved",
+  fixed: "Fixed",
+  retired: "Retired",
+  security: "Security",
+};
+
 export type ReleaseEntry = {
   version: string;
   date: string;
   title: string;
+  /** Title and description in one sentence run (used in tooltips and the account menu). */
   summary: string;
+  /** The description alone, without the title. Empty when the entry has only a title. */
+  body: string;
+  type: ReleaseType;
   pr: string;
 };
 
@@ -25,19 +42,35 @@ function cleanMarkdown(text: string): string {
     .trim();
 }
 
-/** Extracts the bold lead sentence (`**Title.**`) and full summary from a RELEASES.md cell. */
-export function splitReleaseCell(rawCell: string): { title: string; summary: string } {
-  const unescaped = rawCell.replace(/\\\|/g, "|").trim();
+const TYPE_MARK_RE = /^<!--\s*type:\s*(new|improved|fixed|retired|security)\s*-->\s*/i;
+
+/** Older entries carry no type: "Fix..." reads as Fixed, "New..." and "Introducing..." as New, anything else as Improved. */
+export function inferReleaseType(title: string): ReleaseType {
+  if (/^(fix|fixed|fixes)\b/i.test(title)) return "fixed";
+  if (/^(new|introducing|add|adds|added)\b/i.test(title)) return "new";
+  return "improved";
+}
+
+/** Extracts the optional type mark, the bold lead sentence (`**Title.**`), the description and the full summary from a RELEASES.md cell. */
+export function splitReleaseCell(rawCell: string): { title: string; summary: string; body: string; type: ReleaseType } {
+  let unescaped = rawCell.replace(/\\\|/g, "|").trim();
+  let marked: ReleaseType | null = null;
+  const mark = TYPE_MARK_RE.exec(unescaped);
+  if (mark) {
+    marked = (mark[1] ?? "").toLowerCase() as ReleaseType;
+    unescaped = unescaped.slice(mark[0].length);
+  }
   const boldMatch = /^\*\*(.+?)\*\*\s*(.*)$/.exec(unescaped);
   if (boldMatch) {
     const title = cleanMarkdown(boldMatch[1] ?? "").replace(/\.$/, "");
-    const rest = cleanMarkdown(boldMatch[2] ?? "");
-    const summary = rest ? `${title}. ${rest}` : `${title}.`;
-    return { title, summary };
+    const body = cleanMarkdown(boldMatch[2] ?? "");
+    const summary = body ? `${title}. ${body}` : `${title}.`;
+    return { title, summary, body, type: marked ?? inferReleaseType(title) };
   }
   const summary = cleanMarkdown(unescaped);
   const firstSentence = summary.split(/(?<=\.)\s+/)[0] ?? summary;
-  return { title: firstSentence.replace(/\.$/, ""), summary };
+  const title = firstSentence.replace(/\.$/, "");
+  return { title, summary, body: summary.slice(firstSentence.length).trim(), type: marked ?? inferReleaseType(title) };
 }
 
 /** Parses the Markdown table in docs/RELEASES.md and returns the newest `limit` entries. */
@@ -48,8 +81,8 @@ export function parseReleaseLog(markdown: string, limit = 10): ReleaseEntry[] {
     if (!m) continue;
     const [, version, date, cell, pr] = m;
     if (!version || !date || !cell) continue;
-    const { title, summary } = splitReleaseCell(cell);
-    entries.push({ version, date, title, summary, pr: (pr ?? "").trim() });
+    const { title, summary, body, type } = splitReleaseCell(cell);
+    entries.push({ version, date, title, summary, body, type, pr: (pr ?? "").trim() });
     if (entries.length >= limit) break;
   }
   return entries;
@@ -95,4 +128,37 @@ export function releasesSince(clientVersion: string, releases: ReleaseEntry[]): 
   const newer = releases.filter((r) => compareVersions(r.version, cv) > 0);
   if (newer.length > 0) return newer;
   return releases.slice(0, 1);
+}
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** "2026-11-22" -> "22 November 2026" (no time zone maths: the date is already a calendar date). */
+export function formatReleaseDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+  if (!m) return iso;
+  const month = MONTHS[Number(m[2]) - 1];
+  return month ? `${Number(m[3])} ${month} ${m[1]}` : iso;
+}
+
+export type ReleaseGroup = { type: ReleaseType; label: string; entries: ReleaseEntry[] };
+export type ReleaseDay = { date: string; label: string; groups: ReleaseGroup[] };
+
+/** Groups entries (newest first) by date, then by type in the fixed order; empty groups are left out. */
+export function groupReleases(releases: ReleaseEntry[]): ReleaseDay[] {
+  const days: ReleaseDay[] = [];
+  for (const r of releases) {
+    let day = days[days.length - 1];
+    if (!day || day.date !== r.date) {
+      day = { date: r.date, label: formatReleaseDate(r.date), groups: [] };
+      days.push(day);
+    }
+    let group = day.groups.find((g) => g.type === r.type);
+    if (!group) {
+      group = { type: r.type, label: RELEASE_TYPE_LABEL[r.type], entries: [] };
+      day.groups.push(group);
+    }
+    group.entries.push(r);
+  }
+  for (const d of days) d.groups.sort((a, b) => RELEASE_TYPES.indexOf(a.type) - RELEASE_TYPES.indexOf(b.type));
+  return days;
 }
