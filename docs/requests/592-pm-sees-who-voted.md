@@ -1,6 +1,8 @@
 ---
 issue: 592
-status: in progress
+status: done
+done: 2026-11-22
+link: PR #593
 logged: 2026-11-22
 title: PM role (Creator) can see who voted what
 ---
