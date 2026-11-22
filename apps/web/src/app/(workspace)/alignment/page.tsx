@@ -3,7 +3,7 @@ import type { SessionState } from "@/lib/alignment";
 import { plannedQuarters, type SessionRow, type SessionStats } from "@/lib/alignment-list";
 import { AlignmentList } from "@/features/alignment/alignment-list";
 import type { Initiative } from "@/lib/alignment-pick";
-import { createAlignmentSession } from "./actions";
+import { createAlignmentSession, setSessionState } from "./actions";
 
 export const metadata = { title: "Alignment · Product Velocity" };
 
@@ -80,5 +80,5 @@ export default async function AlignmentPage() {
     stats: isAdmin ? stats.get(s.id) ?? { invited: 0, voted: 0, mailingDraft: false, applied: null, undone: false } : null,
   }));
 
-  return <AlignmentList rows={rows} isAdmin={isAdmin} people={people} initiatives={initiatives} create={createAlignmentSession} />;
+  return <AlignmentList rows={rows} isAdmin={isAdmin} people={people} initiatives={initiatives} create={createAlignmentSession} setState={setSessionState} />;
 }

@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useSyncExternalStore } from "react";
 import {
   compareVersions,
+  groupReleases,
   hasVersionUpdate,
   releasesSince,
   type ReleaseEntry,
@@ -213,14 +214,9 @@ export function VersionUpdateBanner() {
           <div className="dialog version-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
             <h2 id={titleId}>What&rsquo;s new in Product Velocity</h2>
             <p className="muted version-dialog-sub">
-              You are running <code>app v{clientVersion}{clientBuild ? ` · build ${clientBuild}` : ""}</code>
-              {updateAvailable && remote ? (
-                <>
-                  {" "}— <strong>v{remote.version}{remote.build ? ` · build ${remote.build}` : ""} is now live.</strong>
-                </>
-              ) : (
-                " (latest release)."
-              )}
+              {updateAvailable && remote
+                ? `Version ${remote.version} is now live. Refresh to get it.`
+                : "The latest improvements to Product Velocity."}
             </p>
 
             {updateAvailable && (
@@ -238,25 +234,41 @@ export function VersionUpdateBanner() {
             {releases.length === 0 ? (
               <p className="muted">No release notes found.</p>
             ) : (
-              <ul className="version-release-list">
-                {releases.map((r) => {
-                  const isNewer = compareVersions(r.version, clientVersion) > 0;
-                  const isCurrent = r.version === clientVersion;
-                  return (
-                    <li key={r.version} className={`version-release-item${isNewer ? " is-new" : ""}`}>
-                      <div className="version-release-head">
-                        <span className="version-release-ver">v{r.version}</span>
-                        {isNewer && <span className="version-badge-new">New update</span>}
-                        {isCurrent && !isNewer && <span className="version-badge-current">Current</span>}
-                        <span className="muted version-release-date">{r.date}</span>
+              <div className="version-notes">
+                {groupReleases(releases).map((day) => (
+                  <section key={day.date} className="version-day" aria-label={day.label}>
+                    <h3 className="version-day-head">{day.label}</h3>
+                    {day.groups.map((group) => (
+                      <div key={group.type} className="version-group">
+                        <h4 className={`version-group-head version-group-${group.type}`}>{group.label}</h4>
+                        <ul className="version-entry-list">
+                          {group.entries.map((r) => {
+                            const isNewer = compareVersions(r.version, clientVersion) > 0;
+                            const isCurrent = r.version === clientVersion;
+                            return (
+                              <li key={r.version} className={`version-entry${isNewer ? " is-new" : ""}`}>
+                                <p className="version-entry-title">
+                                  {r.title}
+                                  {isNewer && <span className="version-badge-new">New update</span>}
+                                  {isCurrent && !isNewer && <span className="version-badge-current">You are here</span>}
+                                </p>
+                                {r.body && <p className="version-entry-body">{r.body}</p>}
+                                <p className="version-entry-ver">Version {r.version}</p>
+                              </li>
+                            );
+                          })}
+                        </ul>
                       </div>
-                      <p className="version-release-title">{r.title}</p>
-                      <p className="version-release-summary">{r.summary}</p>
-                    </li>
-                  );
-                })}
-              </ul>
+                    ))}
+                  </section>
+                ))}
+              </div>
             )}
+
+            <p className="muted version-dialog-foot">
+              You are on version {clientVersion}
+              {clientBuild ? ` (build ${clientBuild})` : ""}.
+            </p>
 
             <div className="dialog-actions">
               {updateAvailable && (

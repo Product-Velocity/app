@@ -3,114 +3,201 @@ import { expect, test, type Page } from "@playwright/test";
 
 // Issue #392: the Alignment tab (in-memory test page, fictional sessions; "now" is Wed 10 Mar 2027, 12:00 UTC).
 const open = async (page: Page, query = "") => { await page.goto(`/dev/alignment${query}`); await page.getByRole("heading", { name: "Alignment", level: 1 }).waitFor(); };
-const table = (page: Page) => page.getByRole("table", { name: "Alignment sessions" });
-const names = (page: Page) => table(page).locator("tbody tr th").allInnerTexts();
-const headers = (page: Page) => table(page).locator("thead th").allInnerTexts();
+const grid = (page: Page) => page.getByTestId("alignment-grid");
+/** The names in the order the rows are shown (the grid keeps its row elements in no particular order in the page, so they are sorted by row index). */
+const names = (page: Page) => grid(page).locator('.ag-row:not(.ag-full-width-row)').evaluateAll((rows) => rows
+  .sort((a, b) => Number(a.getAttribute("row-index")) - Number(b.getAttribute("row-index")))
+  .map((r) => r.querySelector('[col-id="name"]')?.textContent ?? ""));
+const headers = (page: Page) => grid(page).locator(".ag-header-cell").allInnerTexts();
+/** The grid redraws a moment after the data changes, so a list of names is awaited until it matches. */
+const shown = (page: Page, sorted = false) => expect.poll(async () => { const n = await names(page); return sorted ? n.sort() : n; });
 const created = (page: Page) => page.evaluate(() => (window as unknown as { __created: unknown[] }).__created);
+const bar = (page: Page) => page.getByRole("region", { name: "Alignment tools" });
+const rowOf = (page: Page, name: string) => grid(page).locator(".ag-row").filter({ hasText: name });
+const filterPanel = async (page: Page) => { await bar(page).getByRole("button", { name: /^Filter/ }).click(); return page.getByRole("group", { name: "Filters" }); };
 
 test("an admin sees every session except archived ones, with the stats strip for the rows shown", async ({ page }) => {
   await open(page);
-  expect((await names(page)).sort()).toEqual(["Mobile bets", "Q1 priorities", "Q4 planning", "Roadmap vote"]);
-  const strip = page.getByRole("list", { name: "Totals for the sessions shown" }).or(page.locator("dl.al-stats"));
+  await shown(page, true).toEqual(["Mobile bets", "Q1 priorities", "Q4 planning", "Roadmap vote"]);
+  const strip = page.locator("dl.al-stats");
   await expect(strip).toContainText("Sessions4");
   await expect(strip).toContainText("People invited33"); // 14 + 9 + 0 + 10
   await expect(strip).toContainText("Participation73%"); // 24 of 33
   await expect(strip).toContainText("Initiatives ranked13"); // the closed sessions: 8 + 5
   await expect(strip).toContainText("Results applied1");
-  expect(await headers(page)).toEqual(expect.arrayContaining(["Invited", "Voted", "Participation", "Applied to Stack Rank", "Created by", "Planned quarter"]));
-  const q1 = table(page).getByRole("row").filter({ hasText: "Q1 priorities" });
+  expect(await headers(page)).toEqual(expect.arrayContaining(["Session", "Status", "Needs you", "Actions", "Invited", "Voted", "Participation", "Applied to Stack Rank", "Created by", "Planned quarter"]));
+  const q1 = rowOf(page, "Q1 priorities");
   await expect(q1).toContainText("Q1 2027");
   await expect(q1).toContainText("Applied 12 Feb 2027 (3 moved)");
-  expect(await headers(page)).toContain("Planned quarter");
   await expect(q1).toContainText("79%"); // 11 of 14
   await expect(q1).toContainText("ana@example.test");
-  await expect(table(page).getByRole("row").filter({ hasText: "Mobile bets" })).toContainText("No planned quarter");
+  await expect(rowOf(page, "Mobile bets")).toContainText("No planned quarter");
   // its initiatives are planned for Q2 and Q3 2027: the quarter most of them have is shown, and the other is noted
-  const vote = table(page).getByRole("row").filter({ hasText: "Roadmap vote" });
+  const vote = rowOf(page, "Roadmap vote");
   await expect(vote).toContainText("Q2 2027");
-  await expect(vote.locator('td[data-label="Planned quarter"]')).toContainText("+1");
-  await expect(vote.locator('td[data-label="Planned quarter"]')).toContainText("more: Q3 2027");
-  await page.screenshot({ path: "../../docs/screenshots/392-alignment-tab.png", fullPage: true });
+  await expect(vote.locator('[col-id="quarter"]')).toContainText("+1");
+  await expect(vote.locator('[col-id="quarter"]')).toContainText("more: Q3 2027");
+  await page.screenshot({ path: "../../docs/screenshots/586-alignment-grid.png", fullPage: true });
 });
 
-test("the needs-you chips count what needs an admin and filter the table", async ({ page }) => {
+test("the needs-you chips count what needs an admin and filter the grid; the Needs you column says it in words", async ({ page }) => {
   await open(page);
   const chips = page.getByRole("group", { name: "Needs you" });
   await expect(chips.getByRole("button", { name: /Draft with nobody invited/ })).toContainText("1");
   await expect(chips.getByRole("button", { name: /Mailing waiting for your confirm/ })).toContainText("1");
   await expect(chips.getByRole("button", { name: /Closing within 48 hours/ })).toContainText("1");
   await expect(chips.getByRole("button", { name: /Closed, not applied yet/ })).toContainText("1");
+  await expect(rowOf(page, "Q4 planning").locator('[col-id="needs"]')).toContainText("Closed, not applied yet");
   await chips.getByRole("button", { name: /Closed, not applied yet/ }).click();
   await expect(chips.getByRole("button", { name: /Closed, not applied yet/ })).toHaveAttribute("aria-pressed", "true");
-  expect(await names(page)).toEqual(["Q4 planning"]);
+  await shown(page).toEqual(["Q4 planning"]);
   await expect(page.getByRole("status").filter({ hasText: "1 session match." })).toBeVisible();
   await chips.getByRole("button", { name: /Closed, not applied yet/ }).click();
-  expect((await names(page)).length).toBe(4);
+  await expect.poll(async () => (await names(page)).length).toBe(4);
 });
 
-test("search finds a session by its name and by an initiative in it; filters combine; archived sessions are shown on request", async ({ page }) => {
+test("search finds a session by its name and by an initiative in it; the Filter panel combines filters; archived sessions are shown on request", async ({ page }) => {
   await open(page);
-  await page.getByRole("searchbox", { name: "Search" }).fill("onboarding");
-  expect((await names(page)).sort()).toEqual(["Q1 priorities", "Q4 planning"]); // an initiative that is in both
-  await page.getByRole("searchbox", { name: "Search" }).fill("roadmap");
-  expect(await names(page)).toEqual(["Roadmap vote"]);
-  await page.getByRole("searchbox", { name: "Search" }).fill("");
-  await page.getByLabel("Planned quarter").selectOption("Q4 2026");
-  expect(await names(page)).toEqual(["Q4 planning"]);
-  await page.getByLabel("Planned quarter").selectOption("Q3 2027"); // any of a session's initiatives' planned quarters
-  expect(await names(page)).toEqual(["Roadmap vote"]);
-  await page.getByLabel("Planned quarter").selectOption("No planned quarter");
-  expect(await names(page)).toEqual(["Mobile bets"]);
-  await page.getByLabel("Planned quarter").selectOption("");
-  await page.getByLabel("Method").selectOption("ice");
-  expect(await names(page)).toEqual(["Roadmap vote"]);
-  await page.getByLabel("Method").selectOption("");
-  await page.getByLabel("Applied", { exact: true }).selectOption("applied");
-  expect(await names(page)).toEqual(["Q1 priorities"]);
-  await page.getByRole("checkbox", { name: "Show archived" }).check();
-  expect((await names(page)).sort()).toEqual(["Old vote", "Q1 priorities"]);
-  await page.getByRole("button", { name: "Clear filters" }).click();
-  expect((await names(page)).length).toBe(4);
-  await page.getByRole("searchbox", { name: "Search" }).fill("zzz");
-  await expect(page.getByText("No session matches. Clear the filters to see them all.")).toBeVisible();
+  const search = bar(page).getByRole("searchbox", { name: "Search" });
+  await search.fill("onboarding");
+  await shown(page, true).toEqual(["Q1 priorities", "Q4 planning"]); // an initiative that is in both
+  await search.fill("roadmap");
+  await shown(page).toEqual(["Roadmap vote"]);
+  await search.fill("");
+  let panel = await filterPanel(page);
+  await panel.getByRole("button", { name: "Q4 2026", exact: true }).click();
+  await shown(page).toEqual(["Q4 planning"]);
+  await panel.getByRole("button", { name: "Q4 2026", exact: true }).click();
+  await panel.getByRole("button", { name: "Q3 2027", exact: true }).click(); // any of a session's initiatives' planned quarters
+  await shown(page).toEqual(["Roadmap vote"]);
+  await panel.getByRole("button", { name: "Q3 2027", exact: true }).click();
+  await panel.getByRole("button", { name: "No planned quarter", exact: true }).click();
+  await shown(page).toEqual(["Mobile bets"]);
+  await panel.getByRole("button", { name: "No planned quarter", exact: true }).click();
+  await panel.getByRole("group", { name: "Method" }).getByRole("button", { name: "ICE sliders" }).click();
+  await shown(page).toEqual(["Roadmap vote"]);
+  await expect(page.getByRole("group", { name: "Active filters" })).toContainText("Method: ICE sliders");
+  await panel.getByRole("group", { name: "Method" }).getByRole("button", { name: "ICE sliders" }).click();
+  await panel.getByRole("group", { name: "Applied to Stack Rank" }).getByRole("button", { name: "Applied", exact: true }).click();
+  await shown(page).toEqual(["Q1 priorities"]);
+  await panel.getByRole("button", { name: "Show archived sessions" }).click();
+  await shown(page, true).toEqual(["Old vote", "Q1 priorities"]);
+  await panel.getByRole("button", { name: "Clear all" }).click();
+  await expect.poll(async () => (await names(page)).length).toBe(4);
+  await panel.getByRole("button", { name: "Done", exact: true }).click();
+  await search.fill("zzz");
+  await expect(page.getByText("No session matches.")).toBeVisible();
+  await page.getByRole("button", { name: "Clear the filters" }).click();
+  await expect.poll(async () => (await names(page)).length).toBe(4);
+  panel = page.getByRole("group", { name: "Filters" });
+});
+
+test("a filter chip under the bar removes its filter", async ({ page }) => {
+  await open(page);
+  const panel = await filterPanel(page);
+  await panel.getByRole("group", { name: "Status" }).getByRole("button", { name: "Closed" }).click();
+  await panel.getByRole("button", { name: "Done", exact: true }).click();
+  await shown(page, true).toEqual(["Q1 priorities", "Q4 planning"]);
+  await page.getByRole("button", { name: "Remove filter Status: Closed" }).click();
+  await expect.poll(async () => (await names(page)).length).toBe(4);
 });
 
 test("columns sort in both directions and say which way", async ({ page }) => {
   await open(page);
-  const sortBtn = (label: string) => table(page).getByRole("button", { name: new RegExp(`^${label}`) });
+  const sortBtn = (label: string) => grid(page).getByRole("button", { name: new RegExp(`^Sort by ${label}`) });
   await sortBtn("Initiatives").click();
-  await expect(table(page).locator("thead th", { hasText: "Initiatives" })).toHaveAttribute("aria-sort", "descending");
-  expect(await names(page)).toEqual(["Q1 priorities", "Roadmap vote", "Mobile bets", "Q4 planning"]); // 8, 6, then the tie at 5 with the newest session first
+  await expect(sortBtn("Initiatives")).toHaveAttribute("aria-label", "Sort by Initiatives, descending");
+  await shown(page).toEqual(["Q1 priorities", "Roadmap vote", "Mobile bets", "Q4 planning"]); // 8, 6, then the tie at 5 with the newest session first
   await sortBtn("Initiatives").click();
-  await expect(table(page).locator("thead th", { hasText: "Initiatives" })).toHaveAttribute("aria-sort", "ascending");
-  expect(await names(page)).toEqual(["Mobile bets", "Q4 planning", "Roadmap vote", "Q1 priorities"]); // 5, 5, 6, 8
+  await expect(sortBtn("Initiatives")).toHaveAttribute("aria-label", "Sort by Initiatives, ascending");
+  await shown(page).toEqual(["Mobile bets", "Q4 planning", "Roadmap vote", "Q1 priorities"]); // 5, 5, 6, 8
   await sortBtn("Session").click();
-  expect(await names(page)).toEqual(["Mobile bets", "Q1 priorities", "Q4 planning", "Roadmap vote"]);
+  await shown(page).toEqual(["Mobile bets", "Q1 priorities", "Q4 planning", "Roadmap vote"]);
 });
 
-test("a member sees only the closed sessions that allow results, and none of the admin-only columns, strip, chips or the New session button", async ({ page }) => {
+test("Group by status puts a header row before each group with its count and the votes in words, and folding hides the rows", async ({ page }) => {
+  await open(page);
+  await bar(page).getByRole("button", { name: /^Group by/ }).click();
+  const gp = page.getByRole("group", { name: "Group by", exact: true }).last();
+  await gp.getByRole("button", { name: "Status", exact: true }).click();
+  await gp.getByRole("button", { name: "Apply" }).click();
+  const headers_ = grid(page).locator(".ag-full-width-row .group-row");
+  await expect(headers_).toHaveCount(3); // Open, Draft, Closed (archived is hidden)
+  await expect(headers_.first()).toContainText("Open");
+  await expect(headers_.first()).toContainText("1 session");
+  await expect(headers_.first()).toContainText("4 of 9 invited have voted");
+  await expect(headers_.nth(2)).toContainText("Closed");
+  await expect(headers_.nth(2)).toContainText("2 sessions");
+  await grid(page).getByRole("button", { name: "Collapse group Closed" }).click();
+  await shown(page, true).toEqual(["Mobile bets", "Roadmap vote"]);
+  await bar(page).getByRole("button", { name: "Expand all groups" }).or(bar(page).getByRole("button", { name: "Collapse all groups" })).click();
+  await shown(page).toEqual([]); // every group folded
+  await page.reload();
+  await page.getByRole("heading", { name: "Alignment", level: 1 }).waitFor();
+  await expect(grid(page).locator(".ag-full-width-row .group-row")).toHaveCount(3); // the grouping is remembered in the browser
+});
+
+test("the Columns panel hides a column and the choice is remembered", async ({ page }) => {
+  await open(page);
+  await bar(page).getByRole("button", { name: /^Columns/ }).click();
+  const panel = page.getByRole("group", { name: "Choose columns" });
+  await panel.getByRole("checkbox", { name: "Created by" }).uncheck();
+  await panel.getByRole("button", { name: /^Apply columns/ }).click();
+  expect(await headers(page)).not.toContain("Created by");
+  await page.reload();
+  await page.getByRole("heading", { name: "Alignment", level: 1 }).waitFor();
+  expect(await headers(page)).not.toContain("Created by");
+});
+
+test("Actions: the next step for each session is a link, and Open, Close and Archive ask first and then change the state", async ({ page }) => {
+  await open(page);
+  await expect(rowOf(page, "Mobile bets").getByRole("link", { name: /^Add people/ })).toHaveAttribute("href", "/alignment/s-mobile#participants");
+  await expect(rowOf(page, "Roadmap vote").getByRole("link", { name: /^Review mailing/ })).toHaveAttribute("href", "/alignment/s-vote#participants");
+  await expect(rowOf(page, "Q4 planning").getByRole("link", { name: /^Apply results/ })).toHaveAttribute("href", "/alignment/s-q4/results");
+  await expect(rowOf(page, "Q1 priorities").getByRole("link", { name: /^Results/ })).toHaveAttribute("href", "/alignment/s-q1/results");
+  await rowOf(page, "Roadmap vote").getByRole("button", { name: "Close the session: Roadmap vote" }).click();
+  const dialog = page.getByRole("dialog", { name: "Close the session: Roadmap vote" });
+  await expect(dialog).toContainText("Closing ends voting.");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  expect(await created(page)).toEqual([]);
+  await rowOf(page, "Q1 priorities").getByRole("button", { name: "Archive: Q1 priorities" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Archive", exact: true }).click();
+  expect(await created(page)).toEqual([{ state: "s-q1", to: "archived" }]);
+  await expect(page.getByRole("status").filter({ hasText: "Q1 priorities is now archived." })).toBeVisible();
+});
+
+test("a member sees only the closed sessions that allow results, and none of the admin-only columns, strip, chips, actions or the New session button", async ({ page }) => {
   await open(page, "?role=member");
-  expect((await names(page)).sort()).toEqual(["Q1 priorities", "Q4 planning"]); // the archived one is behind the filter
+  await shown(page, true).toEqual(["Q1 priorities", "Q4 planning"]); // the archived one is behind the filter
   const heads = await headers(page);
-  for (const h of ["Invited", "Voted", "Participation", "Applied to Stack Rank", "Created by"]) expect(heads).not.toContain(h);
+  for (const h of ["Invited", "Voted", "Participation", "Applied to Stack Rank", "Created by", "Needs you", "Actions"]) expect(heads).not.toContain(h);
   expect(heads).toEqual(expect.arrayContaining(["Session", "Method", "Status", "Planned quarter", "Initiatives", "Contested"]));
   await expect(page.locator("dl.al-stats")).toHaveCount(0);
   await expect(page.getByRole("group", { name: "Needs you" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "New session" })).toHaveCount(0);
-  await expect(page.getByLabel("Applied", { exact: true })).toHaveCount(0);
-  const status = page.getByLabel("Status", { exact: true });
-  await expect(status.locator("option")).toHaveText(["Any status", "Closed", "Archived"]); // no draft, no open
+  const panel = await filterPanel(page);
+  await expect(panel.getByRole("group", { name: "Applied to Stack Rank" })).toHaveCount(0);
+  await expect(panel.getByRole("group", { name: "Status" }).getByRole("button")).toHaveText(["Closed", "Archived"]); // no draft, no open
   await expect(page.getByRole("link", { name: "Q1 priorities" })).toHaveAttribute("href", "/alignment/s-q1/results"); // the read-only view
-  await page.screenshot({ path: "../../docs/screenshots/392-alignment-tab-member.png", fullPage: true });
+  await page.keyboard.press("Escape");
+  await page.screenshot({ path: "../../docs/screenshots/586-alignment-grid-member.png", fullPage: true });
 });
 
-test("an admin's rows open the session page; the empty states say what to do", async ({ page }) => {
+test("an admin's rows open the session page and the counts go deeper; the empty states say what to do", async ({ page }) => {
   await open(page);
   await expect(page.getByRole("link", { name: "Q1 priorities" })).toHaveAttribute("href", "/alignment/s-q1");
+  await expect(rowOf(page, "Q1 priorities").locator('[col-id="voted"]').getByRole("link")).toHaveAttribute("href", "/alignment/s-q1#participants");
+  await expect(rowOf(page, "Q1 priorities").locator('[col-id="contested"]').getByRole("link")).toHaveAttribute("href", "/alignment/s-q1/results");
   await open(page, "?empty=1");
   await expect(page.getByText("No alignment sessions yet. Press New session to start one.")).toBeVisible();
   await open(page, "?role=member&empty=1");
   await expect(page.getByText(/No results to show yet/)).toBeVisible();
+});
+
+test("the grid has no accessibility violations", async ({ page }) => {
+  await open(page);
+  const r = await new AxeBuilder({ page }).include('[data-testid="alignment-grid"]').analyze();
+  expect(r.violations.filter((v) => v.impact === "serious" || v.impact === "critical")).toEqual([]);
 });
 
 test("New session: needs a name and at least two initiatives, and the picker finds initiatives by planned quarter, MoSCoW and stage", async ({ page }) => {
@@ -187,31 +274,10 @@ test("New session and its dialog work with the keyboard: Escape closes, Enter on
   await expect(page.getByRole("dialog", { name: "New alignment session" })).toHaveCount(0);
 });
 
-test("on a phone the table becomes cards and the page does not scroll sideways", async ({ page }) => {
+test("on a phone the grid scrolls inside itself and the page does not scroll sideways", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await expect(table(page).locator("thead th").first()).not.toBeInViewport();
-  const card = table(page).getByRole("row").filter({ hasText: "Q1 priorities" });
-  await expect(card).toBeVisible();
-  await expect(card.locator('td[data-label="Planned quarter"]')).toContainText("Q1 2027");
-  await page.screenshot({ path: "../../docs/screenshots/392-alignment-tab-phone.png", fullPage: true });
-});
-
-test("no serious accessibility problems, for an admin and for a member", async ({ page }) => {
-  for (const q of ["", "?role=member"]) {
-    await open(page, q);
-    const axe = await new AxeBuilder({ page }).analyze();
-    expect(axe.violations.filter((v) => v.impact === "serious" || v.impact === "critical"), q).toEqual([]);
-  }
-});
-
-test("the header has a working Alignment tab, no longer muted, and the account menu no longer lists it", async ({ page }) => {
-  await page.goto("/dev/grid?n=5");
-  const header = page.getByRole("banner");
-  await expect(header.getByRole("link", { name: "Alignment" })).toHaveAttribute("href", "/alignment");
-  await expect(header.locator(".tab-later", { hasText: "Alignment" })).toHaveCount(0);
-  await expect(header.locator(".tab-later")).toHaveCount(2); // Planning and Capacity are still to come
-  await header.locator("summary").click();
-  await expect(header.locator(".account-menu").getByRole("link", { name: "Alignment" })).toHaveCount(0);
+  await expect(rowOf(page, "Q1 priorities")).toBeVisible();
+  await page.screenshot({ path: "../../docs/screenshots/586-alignment-grid-phone.png", fullPage: true });
 });

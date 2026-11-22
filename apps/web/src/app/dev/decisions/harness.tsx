@@ -10,6 +10,7 @@ import { WorkspaceProvider } from "@/features/workspace/provider";
 import { MemoryWorkspaceStore } from "@/features/workspace/store";
 import { harnessLookups } from "../harness-data";
 
+const TODAY = new Date(Date.UTC(2027, 3, 14));
 const item = (n: number, name: string, phase: string): GateItem => ({
   id: `item-${n}`, item_code: `R-${String(n).padStart(2, "0")}`, initiative_name: name, initiative_phase: phase, initiative_status: "Active", current_gate: null, gate_status: null,
   hypothesis: n === 2 ? "Customers who see the new checkout convert more." : null, effort: "M", moscow: "Must", health: "On Track", kr_metric: n === 1 ? "Activation rate" : null, home_project: "p1", start_experiment: null,
@@ -47,7 +48,7 @@ export function HarnessDecisions({ can, phone = false }: { can: string; phone?: 
     <WorkspaceProvider store={store} projects={harnessLookups.projects} canEdit canAdmin>
     <div className="shell">
       <AppHeader tenantName="Meridian Media" email="ana@example.test" roleLabel="Admin" isApprover current="decisions" decisionsWaiting={4} />
-      <main className="content">{phone ? <PhoneDecisions source={source} me="u1" tenantId="t1" /> : <DecisionsView source={source} me="u1" />}</main>
+      <main className="content">{phone ? <PhoneDecisions source={source} me="u1" tenantId="t1" /> : <DecisionsView source={source} me="u1" today={TODAY} />}</main>
     </div>
     </WorkspaceProvider>
   );

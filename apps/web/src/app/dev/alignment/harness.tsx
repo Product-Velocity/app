@@ -40,11 +40,15 @@ export function HarnessAlignment({ role, empty }: { role: "admin" | "member"; em
     (window as unknown as { __created: unknown[] }).__created.push({ ids, name, method });
     return { ok: true as const, id: "new-session" };
   };
+  const setState = async (id: string, to: string) => {
+    (window as unknown as { __created: unknown[] }).__created.push({ state: id, to });
+    return { ok: true as const };
+  };
   const rows = empty ? [] : role === "admin" ? ALL : MEMBER;
   return (
     <div className="shell">
       <main className="content">
-        <AlignmentList rows={rows} isAdmin={role === "admin"} people={role === "admin" ? people : {}} initiatives={role === "admin" ? initiatives : []} create={create} now={NOW}
+        <AlignmentList rows={rows} isAdmin={role === "admin"} people={role === "admin" ? people : {}} initiatives={role === "admin" ? initiatives : []} create={create} setState={setState} now={NOW}
           onCreated={(id) => { (window as unknown as { __created: unknown[] }).__created.push({ opened: id }); }} />
       </main>
     </div>

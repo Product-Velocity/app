@@ -305,6 +305,10 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
     await db.admin.query("insert into public.gate_reviews (tenant_id, item_id, gate) values ($1, $2, 'B')", [tenantId, items[2]]);
     await db.admin.query("insert into public.tenant_gate_approvers (tenant_id, gate, user_id) select tenant_id, 'C', user_id from public.tenant_members where tenant_id = $1 limit 1", [tenantId]);
   }
+  // a snoozed reason of Needs attention (positive control for attention_snoozes)
+  if ((await db.admin.query("select to_regclass('public.attention_snoozes') as t")).rows[0].t) {
+    await db.admin.query("insert into public.attention_snoozes (tenant_id, item_id, kind, snoozed_until, note) values ($1, $2, 'stalled', current_date + 7, 'Seed snooze')", [tenantId, items[2]]);
+  }
   // a change-bell mark for the first member (positive control for change_watch_clears)
   if ((await db.admin.query("select to_regclass('public.change_watch_clears') as t")).rows[0].t) {
     await db.admin.query("insert into public.change_watch_clears (user_id, tenant_id, project_id) select user_id, tenant_id, $2 from public.tenant_members where tenant_id = $1 order by created_at limit 1", [tenantId, project]);

@@ -297,7 +297,7 @@ export const LIFECYCLE_NOTES = [
 ];
 
 // Needs attention (issue #337, docs/28-DECISION-GATES.md)
-export const ATTENTION_INTRO = "The Needs attention tab lists the initiatives you can see that need a person to look, with the reason in words and the next step. Everything on it is a suggestion: nothing changes until you press a button. It is about initiatives, never about people.";
+export const ATTENTION_INTRO = "The Needs attention tab lists the initiatives you can see that need a person to look, with the reason in words and the next step. Everything on it is a suggestion: nothing changes until you press a button. It is about initiatives, never about people. It is a list: search it (press /), filter by reason, urgency, phase, health or group, sort and choose columns, select several rows to move them to Test, request a gate or snooze them, and download what you see. Snoozing hides a reason for everyone until a date, or until someone brings it back; it never changes the initiative.";
 export const ATTENTION_TABLE: Table = {
   head: ["Reason", "When it shows", "Next step"],
   rows: [
