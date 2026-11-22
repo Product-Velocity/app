@@ -797,6 +797,21 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 /* the "N more views" button: blue outline, white inside, like the filter button */
 .tool-btn.more-views-btn { height: 30px; padding: 0 12px; border: 1px solid var(--blue); border-radius: 8px; background: var(--bg); color: #111827; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .tool-btn.more-views-btn:hover { background: var(--blue-tint-2); }
+
+/* ---- second header row (view row): white, between two lines, as tall as the top bar. The open view is a filled chip. ---- */
+.page-head:has(.view-row) { margin: -14px -24px 12px; padding: 0 24px; min-height: 48px; gap: 4px; background: var(--bg); border-bottom: 1px solid var(--grey-2); }
+@media (max-width: 760px) { .page-head:has(.view-row) { margin: -12px -12px 12px; padding: 0 12px; } }
+.page-head:has(.view-row) h1 { margin: 0 10px 0 0; font-size: 13px; font-weight: 600; color: #111827; display: inline-flex; align-items: center; gap: 6px; }
+.page-head:has(.view-row) h1::after { content: "›"; font-weight: 400; font-size: 15px; color: #6b7280; }
+.page-head:has(.view-row) .view-row { flex: 1 1 auto; gap: 4px; }
+.page-head:has(.view-row) .filter-chips { flex-basis: 100%; padding-bottom: 8px; }
+.vm-tab .view-chip { height: 30px; padding: 0 12px; border-radius: 7px; font-size: 13px; color: #4b5563; display: inline-flex; align-items: center; }
+.vm-tab .view-chip-on, .vm-tab .view-chip-on:hover { color: var(--blue-text); font-weight: 600; box-shadow: inset 0 0 0 1px rgba(34, 112, 237, .3); }
+.tool-btn.more-views-btn { border-color: transparent; background: none; color: var(--blue-text); height: 30px; }
+.tool-btn.more-views-btn:hover, .tool-btn.more-views-btn[aria-expanded="true"] { background: var(--blue-tint-1); }
+.view-actions { margin-left: auto; display: inline-flex; }
+.view-actions .vm-actions-panel { left: auto; right: 0; }
+.view-actions .vm-more { height: 30px; padding: 0 9px; letter-spacing: 1px; color: #4b5563; }
 .vm-row { display: flex; align-items: center; gap: 4px; padding: 1px 8px; }
 .vm-row:hover { background: var(--blue-tint-2); }
 .vm-open { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-width: 0; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; padding: 5px 4px; color: inherit; }
