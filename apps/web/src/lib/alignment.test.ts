@@ -41,3 +41,12 @@ describe("states", () => {
     expect(NEXT_STATE.archived).toBeNull();
   });
 });
+
+describe("consent wording names product managers (issue #592)", () => {
+  it("says admins and product managers can see who gave which answers, under a version the database accepts for Creators", async () => {
+    const { CONSENT_LINES, CONSENT_VERSION } = await import("./alignment");
+    expect(CONSENT_LINES.join(" ")).toMatch(/admins and product managers.*Creator.*can see who gave which answers/);
+    // the migration lets a Creator open names only for participants who agreed to this version or a later one
+    expect(CONSENT_VERSION >= "2026-11-v2").toBe(true);
+  });
+});

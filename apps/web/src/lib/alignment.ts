@@ -72,10 +72,10 @@ export const NEXT_STATE: Record<SessionState, { to: SessionState; label: string;
 
 /** The text participants see about who can see their answers (docs/19 section 4 and 7). */
 /** Bump when the wording changes: the version a person agreed to is stored with their consent. */
-export const CONSENT_VERSION = "2026-10-v1";
+export const CONSENT_VERSION = "2026-11-v2";
 export const CONSENT_LINES = [
   "We collect your email address, your group and your answers.",
   "Your answers are combined into anonymous results. Other participants never see your answers.",
-  "Workspace admins can see who gave which answers.",
+  "Workspace admins and product managers (people with the Creator role) can see who gave which answers.",
   "Your personal data is deleted after the retention period; the anonymous results stay.",
 ];
