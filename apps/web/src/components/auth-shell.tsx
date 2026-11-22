@@ -12,7 +12,7 @@ export const AUTH_BRAND = {
   why: "One roadmap for humans and their AI, from company OKR to tracked outcome.",
   pillars: [
     { name: "Context", line: "The roadmap is the shared memory every AI agent starts from." },
-    { name: "Alignment", line: "Stakeholders rank and vote, and plans fit capacity." },
+    { name: "Alignment", line: "Research, prioritisation and delivery on one roadmap and one stack rank, with plans that fit capacity." },
     { name: "Velocity", line: "See where the time goes, per team and per phase." },
     { name: "Outcomes", line: "Objectives and key results tracked on every initiative." },
   ],
