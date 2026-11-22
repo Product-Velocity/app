@@ -59,7 +59,7 @@ export default function AlignmentPage() {
             ],
           }}
         />
-        <HelpWhere>Alignment tab. New session opens an initiative picker with filters for planned quarter, MoSCoW and stage (Discover, PRD, Ready for build). You can also start one from the grid with the initiatives you selected.</HelpWhere>
+        <HelpWhere>Alignment tab: a grid of every session with Filter, Columns, Group by (status, method, planned quarter, month, applied, what needs you) and Search, the totals on top, an Actions column (add people, review the mailing, open, close, archive, apply results), links from the name and the counts to the session, its people and its results, and Export CSV. New session opens an initiative picker with filters for planned quarter, MoSCoW and stage (Discover, PRD, Ready for build). You can also start one from the grid with the initiatives you selected.</HelpWhere>
       </HelpSection>
 
       <HelpSection id="run" title="Running a session">
