@@ -4,6 +4,8 @@ The version is shown at the bottom of the account menu ("app v0.30.0 · build ab
 
 | Version | Date | Key updates | PRs |
 |---|---|---|---|
+| 1.214.4 | 2026-11-22 | **View row fix.** The row with the page name and the view tabs is taller, so the open view's chip no longer touches the lines, and the active filters are back below it, above the action bar, instead of inside the row. | #611 |
+| 1.214.3 | 2026-11-22 | <!--type:fixed--> **Fix the Enter and Manage buttons in the All accounts list.** They now match the row buttons in Decisions and Needs attention: same height and type size, labels centred, Enter solid blue and Manage outlined. | #611 |
 | 1.214.2 | 2026-11-22 | **Card status pills name their field.** On a card, a chosen status field (for example Build Status) now carries its name for screen readers and as a tooltip, like the other pills. The Cards browser tests were brought up to date with the current menus. | #610 |
 | 1.214.1 | 2026-11-22 | <!--type:fixed--> **Fix button styles in the Decisions and Needs attention lists.** The Go, Hold, Decide…, Snooze and Open buttons now sit centred in their rows with their labels vertically aligned, and the main action (Go, Open Decisions) is a solid blue button with the others outlined. | #606 |
 | 1.214.0 | 2026-11-22 | **The view row now matches the top bar.** Under the main navigation, the row with the page name and the view tabs is white, sits between two lines and is as tall as the top bar. "Roadmap ›" is a small label, the open view stays a filled blue chip with a thin blue edge, "N more views" is a quiet blue button, and the actions menu of the open view (rename, duplicate, delete) moved from beside the tab to the right end of the row. | #605 |
