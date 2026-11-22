@@ -174,7 +174,8 @@ export function DecisionsView({ source, me, mayDecide = true, initialFilter = "w
     if (node?.rowIndex != null) api.current?.ensureIndexVisible(node.rowIndex);
   };
   // the highlighted row is drawn from `active`, so redraw once the new value is in place
-  useEffect(() => { api.current?.redrawRows(); }, [active]);
+  const activeRef = useRef<string | null>(null);
+  useEffect(() => { activeRef.current = active; api.current?.redrawRows(); }, [active]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
@@ -281,7 +282,7 @@ export function DecisionsView({ source, me, mayDecide = true, initialFilter = "w
               theme={GRID_THEME} rowData={rows} columnDefs={cols} getRowId={(p) => p.data.id} context={ctx} defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true }}
               selectionColumnDef={{ pinned: "left", width: 44, resizable: false }} rowSelection={{ mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false, isRowSelectable: (n) => Boolean(n.data?.canDecide) }}
               onSelectionChanged={onSelection} onGridReady={onReady} tooltipShowDelay={500} suppressColumnVirtualisation suppressCellFocus rowHeight={42}
-              getRowClass={(p) => (p.data && p.data.id === active ? "lst-active" : undefined)} onRowClicked={(e) => { if (e.data && !(e.event?.target as HTMLElement | null)?.closest("button, a, input")) setActive(e.data.id); }}
+              getRowClass={(p) => (p.data && p.data.id === activeRef.current ? "lst-active" : undefined)} onRowClicked={(e) => { if (e.data && !(e.event?.target as HTMLElement | null)?.closest("button, a, input")) setActive(e.data.id); }}
             />
           </div>
           {current && currentReq && (

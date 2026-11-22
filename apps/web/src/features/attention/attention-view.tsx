@@ -219,7 +219,8 @@ export function AttentionView({ controller, lookups, me, source, pageHref = (c) 
     if (node?.rowIndex != null) api.current?.ensureIndexVisible(node.rowIndex);
   };
   // the highlighted row is drawn from `active`, so redraw once the new value is in place
-  useEffect(() => { api.current?.redrawRows(); }, [active]);
+  const activeRef = useRef<string | null>(null);
+  useEffect(() => { activeRef.current = active; api.current?.redrawRows(); }, [active]);
   useEffect(() => {
     const h = (ev: KeyboardEvent) => {
       if (gateFor || snoozeFor) return;
@@ -340,7 +341,7 @@ export function AttentionView({ controller, lookups, me, source, pageHref = (c) 
               theme={GRID_THEME} rowData={shown} columnDefs={cols} getRowId={(p) => p.data.id} context={ctx} defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true }}
               selectionColumnDef={{ pinned: "left", width: 44, resizable: false }} rowSelection={{ mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false }} onSelectionChanged={onSelection} onGridReady={onReady}
               onColumnMoved={(e) => { if (e.finished && e.source !== "api") saveLayout(); }} onColumnResized={(e) => { if (e.finished && e.source === "uiColumnResized") saveLayout(); }}
-              getRowClass={(p) => (p.data && p.data.id === active ? "lst-active" : p.data?.snoozed ? "lst-snoozed" : undefined)} onRowClicked={(e) => { if (e.data && !(e.event?.target as HTMLElement | null)?.closest("button, a, input")) setActive(e.data.id); }}
+              getRowClass={(p) => (p.data && p.data.id === activeRef.current ? "lst-active" : p.data?.snoozed ? "lst-snoozed" : undefined)} onRowClicked={(e) => { if (e.data && !(e.event?.target as HTMLElement | null)?.closest("button, a, input")) setActive(e.data.id); }}
               onRowDoubleClicked={(e) => e.data && setPeek(e.data.id)} tooltipShowDelay={500} suppressColumnVirtualisation suppressCellFocus rowHeight={38}
             />
           </div>
