@@ -1,6 +1,8 @@
 ---
 issue: 578
-status: in progress
+status: done
+done: 2026-11-22
+link: PR #579
 logged: 2026-11-22
 title: Homepage: agentic PM story in eight chapters, four-link nav and mobile menu
 ---
