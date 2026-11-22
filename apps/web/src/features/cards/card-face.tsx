@@ -99,7 +99,7 @@ function FieldChip({ k, value, today }: { k: string; value: unknown; today: Date
       {tags.map((t) => {
         const m = k === "moscow" ? moscowTone(t) : null;
         if (m) return <span key={t} className={`pill kc-pill kc-moscow kc-moscow-${m}`} title={`${name}: ${t}`}><span className="visually-hidden">{name} </span>{t}</span>;
-        if (PILL_FIELDS.has(k)) return <StatusPill key={t} value={t} tone={toneFor(k, t)} className="kc-pill" />;
+        if (PILL_FIELDS.has(k)) return <span key={t} className="kc-pillwrap" title={`${name}: ${t}`}><span className="visually-hidden">{name} </span><StatusPill value={t} tone={toneFor(k, t)} className="kc-pill" /></span>;
         return <span key={t} className="pill kc-pill" title={`${name}: ${t}`}><span className="visually-hidden">{name} </span>{t}</span>;
       })}
     </>
