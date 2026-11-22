@@ -33,10 +33,12 @@ describe("homepage copy follows the claims rules (docs/17, brand guide)", () => 
   it("says tracked, not measured, and go-to-market ready is never shortened wrongly", () => {
     expect(visible).not.toContain("measured");
   });
-  it("the classic page still carries the wording the sign-in side uses", () => {
-    expect(classic).toContain(AUTH_BRAND.tagline);
-    expect(classic).toContain(AUTH_BRAND.what);
-    expect(classic).toContain(AUTH_BRAND.why);
+  it("the sign-in side uses the homepage headline and hero lead (issue #580)", () => {
+    const h = renderToStaticMarkup(createElement(Home, { viewer: null }));
+    expect(h).toContain(AUTH_BRAND.tagline);
+    expect(h).toContain(AUTH_BRAND.eyebrow);
+    expect(h).toContain(AUTH_BRAND.what);
+    expect(AUTH_BRAND.what).toContain("across business lines, PM scopes and teams");
   });
   it("links Claude to the directory listing", () => {
     expect(home).toContain("https://claude.ai/directory/connectors/product-velocity");

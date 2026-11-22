@@ -6,15 +6,15 @@ import { BrandLogo } from "@/components/brand-logo";
  * change them together. No claims beyond the brand guide, no "Claude approves".
  */
 export const AUTH_BRAND = {
-  eyebrow: "One source of truth for product managers and their AI",
-  tagline: "AI changed the PM's job. Give it one place to work from.",
-  what: "Product Velocity is the single source of truth where product managers, stakeholders and their AI plan, decide and deliver together. Every initiative in one place, from the company objective to the delivery ticket, on top of Jira and GitHub.",
-  why: "Product teams move faster, every stakeholder stays informed, and bigger outcomes get delivered.",
+  eyebrow: "Agentic product management platform",
+  tagline: "Deliver bigger, better outcomes. Faster.",
+  what: "Product managers own the quality of the outcome and the speed of getting there. Product Velocity gives them and their AI co-workers one roadmap with the context, the place for the work and the path from start to finish, across business lines, PM scopes and teams. AI prepares, people decide.",
+  why: "One roadmap for humans and their AI, from company OKR to tracked outcome.",
   pillars: [
-    { name: "Clarity", line: "One roadmap for every team and business line, from idea to completed roll-out." },
-    { name: "Transparency", line: "What, why, who and when, from leadership and stakeholder reports to Jira tickets." },
+    { name: "Context", line: "The roadmap is the shared memory every AI agent starts from." },
     { name: "Alignment", line: "Stakeholders rank and vote, and plans fit capacity." },
-    { name: "Impact", line: "Objectives and key results tracked on every initiative." },
+    { name: "Velocity", line: "See where the time goes, per team and per phase." },
+    { name: "Outcomes", line: "Objectives and key results tracked on every initiative." },
   ],
 } as const;
 
