@@ -1,5 +1,7 @@
 import { requirePlatformAdmin } from "@/lib/session";
-import { AccountsTable, type AccountRow } from "./accounts-table";
+import { emailConfigured } from "@/lib/email/resend";
+import type { AccountRow } from "./accounts-model";
+import { AccountsGrid } from "./accounts-grid";
 
 export const metadata = { title: "All accounts · Product Velocity" };
 
@@ -10,6 +12,8 @@ const NOTICE: Record<string, string> = {
   left: "You left the account.",
   "account-restricted": "That account is now read-only for platform admins. The change is in its audit log.",
   "account-unrestricted": "The read-only restriction on that account was removed. The change is in its audit log.",
+  "account-paused": "Account paused. Its members cannot open it until you resume it. The change is in its audit log and the configuration log.",
+  "account-resumed": "Account resumed. Its members have their access back.",
   "plan-saved": "Plan saved.",
   "bad-plan": "Enter a plan name of 1 to 40 characters.",
   deleted: "Account deleted. This is recorded in the configuration log.",
@@ -17,13 +21,13 @@ const NOTICE: Record<string, string> = {
   failed: "That did not work. Please try again.",
 };
 
-/** All accounts console (R-111 FR-2.2): every account with plan, owner, members, projects and last activity; search by name. */
-export default async function PlatformAccountsPage({ searchParams }: { searchParams: Promise<{ q?: string; notice?: string }> }) {
-  const { q, notice } = await searchParams;
+/** All accounts console (R-111 FR-2.2, v2 2026-11-22): one AG Grid row per account (usage, people, AI agents, integrations) with search, filters, pause, enter and a members drawer. */
+export default async function PlatformAccountsPage({ searchParams }: { searchParams: Promise<{ notice?: string }> }) {
+  const { notice } = await searchParams;
   const { supabase } = await requirePlatformAdmin("/platform");
   const { data: cfg } = await supabase.rpc("platform_config");
   const defaults = (Array.isArray(cfg) ? cfg[0] : cfg) as { default_access_level: string } | undefined;
-  const { data } = await supabase.rpc("platform_accounts", { p_search: q?.trim() || null, p_limit: 200 });
+  const { data } = await supabase.rpc("platform_accounts", { p_search: null, p_limit: 2000 });
   const rows = (data ?? []) as AccountRow[];
   return (
     <div className="page-wide">
@@ -41,11 +45,7 @@ export default async function PlatformAccountsPage({ searchParams }: { searchPar
           <button className="btn btn-primary" type="submit">Sign out and sign in again</button>
         </form>
       )}
-      <form method="get" className="filter-bar" role="search">
-        <label>Search by account name<input name="q" defaultValue={q ?? ""} maxLength={80} /></label>
-        <button className="btn" type="submit">Search</button>
-      </form>
-      <AccountsTable rows={rows} />
+      <AccountsGrid rows={rows} emailEnabled={emailConfigured()} />
     </div>
   );
 }

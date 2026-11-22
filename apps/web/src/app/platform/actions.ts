@@ -83,3 +83,14 @@ export async function deleteAccount(form: FormData): Promise<void> {
   const { error } = await supabase.rpc("platform_delete_account", { p_tenant: tenant, p_confirm_name: name });
   done("/platform", error ? (error.code === "PV024" ? "delete-name" : "failed") : "deleted");
 }
+
+/** Pause or resume an account (docs/15 section 5c). A paused account gives its members nothing; platform admins can still enter it. */
+export async function setSuspended(form: FormData): Promise<void> {
+  const tenant = String(form.get("tenant") ?? "");
+  const suspend = form.get("suspend") === "1";
+  const reason = String(form.get("reason") ?? "").trim().slice(0, 500);
+  const { supabase } = await requirePlatformAdmin("/platform");
+  if (!UUID.test(tenant)) done("/platform", "bad-account");
+  const { error } = await supabase.rpc("platform_set_suspended", { p_tenant: tenant, p_suspend: suspend, p_reason: reason || null });
+  done("/platform", error ? "failed" : suspend ? "account-paused" : "account-resumed");
+}

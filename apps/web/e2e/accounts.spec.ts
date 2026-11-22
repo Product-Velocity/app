@@ -102,28 +102,69 @@ test.describe("audit log (FR-6)", () => {
   });
 });
 
-test.describe("All accounts console (FR-2.2)", () => {
-  test("lists plan, owner, members, projects, last activity and the access override", async ({ page }) => {
+test.describe("All accounts console (FR-2.2, v2)", () => {
+  test("is an AG Grid with usage, people, AI agents, integrations, search, view chips and a members drawer", async ({ page }) => {
     await page.goto("/dev/accounts?view=console&platform=1");
-    const rows = page.getByTestId("account-row");
-    await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0)).toContainText("lena@meridian.test");
-    await expect(rows.nth(0)).toContainText("12");
-    await expect(rows.nth(0)).toContainText("Default");
-    await expect(rows.nth(1)).toContainText("Restricted to read-only");
-    await expect(rows.nth(1)).toContainText("No activity yet");
-    await expect(rows.nth(1).getByRole("button", { name: "Remove restriction" })).toBeVisible();
-    await expect(page.getByTestId("enter-account")).toHaveCount(2);
-    // delete asks for the account name first
-    const del = rows.nth(0).locator("details.delete-account");
+    const grid = page.getByTestId("accounts-grid");
+    await expect(grid.getByText("Meridian Media").first()).toBeVisible();
+    await expect(page.getByTestId("accounts-summary")).toContainText("3 accounts · 18 members · 214 line items · 1 with AI agents connected · 1 paused");
+    await expect(grid).toContainText("187"); // line items
+    await expect(grid).toContainText("Claude Desktop ×3");
+    await expect(grid).toContainText("meridian.test ↗");
+    await expect(grid).toContainText("Paused");
+    await expect(grid).toContainText("Reconnect needed");
+    await expect(grid).toContainText("Read-only");
+    // the same action bar as the Roadmap: Filter, Columns, Group by, Search
+    const bar = page.getByRole("region", { name: "Accounts tools" });
+    await bar.getByRole("button", { name: /^Filter/ }).click();
+    await page.getByRole("button", { name: "Paused", exact: true }).click();
+    await page.getByRole("button", { name: "Done" }).click();
+    await expect(page.getByTestId("accounts-summary")).toContainText("1 account ·");
+    await expect(grid.getByText("Meridian Media")).toHaveCount(0);
+    await page.getByRole("button", { name: "Remove filter Paused" }).click();
+    await expect(page.getByTestId("accounts-summary")).toContainText("3 accounts ·");
+    await bar.getByRole("button", { name: /^Group by/ }).click();
+    await page.getByRole("group", { name: "Group by options" }).getByRole("button", { name: "Status" }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(grid.getByRole("button", { name: "Collapse group Paused" })).toBeVisible();
+    await bar.getByRole("button", { name: /^Columns/ }).click();
+    await expect(page.getByRole("group", { name: "Choose columns" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await bar.getByRole("searchbox", { name: "Search accounts" }).fill("harbor");
+    await expect(page.getByTestId("accounts-summary")).toContainText("1 account ·");
+    await bar.getByRole("searchbox", { name: "Search accounts" }).fill("");
+    // the drawer: details, actions, people with their moves, delete asks for the name
+    await page.getByRole("button", { name: "Manage Meridian Media" }).click();
+    const drawer = page.getByTestId("account-drawer");
+    await expect(drawer).toContainText("Claude Desktop");
+    await expect(drawer).toContainText("412 calls");
+    await expect(drawer.getByTestId("account-people").getByRole("row")).toHaveCount(5);
+    await expect(drawer.getByRole("button", { name: "Pause lena@meridian.test" })).toBeVisible();
+    await expect(drawer.getByRole("button", { name: "Approve new@meridian.test" })).toBeVisible();
+    await expect(drawer.getByRole("button", { name: "Resend email" })).toBeVisible();
+    await expect(drawer.getByRole("button", { name: "Pause access" })).toBeVisible();
+    await expect(drawer.getByRole("button", { name: "Send invitation email" })).toBeDisabled(); // needs an address first
+    await drawer.getByLabel("Email").fill("someone@meridian.test");
+    await expect(drawer.getByRole("button", { name: "Send invitation email" })).toBeEnabled();
+    await page.screenshot({ path: "../../docs/screenshots/platform-console-drawer.png" });
+    const del = drawer.locator("details.delete-account");
     await del.locator("summary").click();
-    await expect(del).toContainText("Deletes Meridian Media with its 12 members, 4 projects");
+    await expect(del).toContainText("Deletes Meridian Media with its 12 members, 4 projects and 187 line items");
     await expect(del.getByLabel("Type Meridian Media to confirm deleting it")).toBeVisible();
-    await expect(del.getByTestId("delete-account")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveCount(0);
     await page.screenshot({ path: "../../docs/screenshots/platform-console.png" });
+  });
+  test("a paused account offers Resume, not Pause", async ({ page }) => {
+    await page.goto("/dev/accounts?view=console&platform=1");
+    await page.getByRole("button", { name: "Manage Northwind Agency" }).click();
+    const drawer = page.getByTestId("account-drawer");
+    await expect(drawer).toContainText("Members cannot open this account");
+    await expect(drawer.getByRole("button", { name: "Resume access" })).toBeVisible();
   });
   test("has no accessibility violations", async ({ page }) => {
     await page.goto("/dev/accounts?view=console&platform=1");
+    await expect(page.getByTestId("accounts-grid").getByText("Meridian Media").first()).toBeVisible();
     const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
     expect(r.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
   });

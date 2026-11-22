@@ -531,7 +531,6 @@ export function ViewBar({ api }: { api: ViewsApi }) {
           onKeyDown={(ev) => { if (ev.altKey && !temp && (ev.key === "ArrowUp" || ev.key === "ArrowDown" || ev.key === "ArrowLeft" || ev.key === "ArrowRight")) { ev.preventDefault(); void api.move(r, ev.key === "ArrowUp" || ev.key === "ArrowLeft" ? -1 : 1); } }}>
           {e.name}
         </button>
-        <ActionsMenu api={api} entry={e} />
       </span>
     );
   };
@@ -542,6 +541,8 @@ export function ViewBar({ api }: { api: ViewsApi }) {
         {extra && tab(extra, true)}
       </div>
       <MoreViews api={api} count={api.state.moreCount + overflow} />
+      {/* one menu for the open view, at the far end of the row (it used to repeat beside the open tab) */}
+      <span className="view-actions"><ActionsMenu api={api} entry={entryFor(open)} /></span>
       {api.message && (
         <span role="alert" className="quick-add-error"> {api.message.text}{" "}
           {api.message.cap && <button type="button" className="btn btn-link" onClick={() => window.dispatchEvent(new Event(OPEN_VIEWS_EVENT))}>See the list of views</button>}

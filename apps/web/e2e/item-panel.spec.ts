@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -95,7 +96,10 @@ test.describe("fields", () => {
     await expect(field(page, "value_weighted")).toContainText("calculated from other fields");
     await reveal(page, "Outcomes");
     await expect(field(page, "outcome_verdict")).toContainText("Arrives in phase 7");
-    await expect(panel(page).locator('[data-field]')).toHaveCount(166); // every dictionary field is in the Overview except Screenshots and Artifacts, which are on the Spec tab (issue #325)
+    // every dictionary field is in the Overview except Screenshots and Artifacts, which are on the Spec tab (issue #325). The count follows the dictionary
+    // (docs/reference/item-fields.csv) instead of a number written here, so adding a field does not break this test; a field the panel shows in two places counts once.
+    const dictionary = readFileSync("../../docs/reference/item-fields.csv", "utf8").trim().split(/\r?\n/).length - 1;
+    await expect.poll(async () => new Set(await panel(page).locator("[data-field]").evaluateAll((e) => e.map((x) => x.getAttribute("data-field")))).size).toBe(dictionary - 2);
   });
 
   test("a value typed in the panel appears in the grid at once, and Ctrl+Z undoes it", async ({ page }) => {

@@ -78,6 +78,8 @@ export async function requireWorkspace(nextPath: string) {
     }
   }
   if (!active) {
+    // a member of an account the platform owner paused has no account in the list; tell them why instead of offering onboarding
+    if (!(await isPlatformAdmin(supabase)) && (await hasPausedAccount(supabase))) redirect("/access-requested");
     if (wanted.fromUrl) notFound();
     if (memberships.length === 0) {
       redirect((await isPlatformAdmin(supabase)) ? "/platform" : "/onboarding");
@@ -87,6 +89,11 @@ export async function requireWorkspace(nextPath: string) {
     active = { ...recent, platform: null };
   }
   return { supabase, user, memberships, active };
+}
+
+async function hasPausedAccount(supabase: Db): Promise<boolean> {
+  const { data } = await supabase.rpc("my_access_requests");
+  return Array.isArray(data) && (data as { status: string }[]).some((r) => r.status === "account_paused");
 }
 
 export async function loadMemberships(
