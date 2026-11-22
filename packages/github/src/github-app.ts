@@ -33,6 +33,10 @@ function toInstallation(i: RawInstallation): InstallationInfo {
  * GitHub App implementation of SourceControl. Installation tokens are created per installation, kept in memory only
  * until a minute before they expire, and are never logged, returned or sent to a browser.
  */
+/** What a refused read means for the callers that are not about Projects (the Projects text would send an admin to the wrong setting). */
+const DENIED_PULL_REQUESTS = "The App may not read pull requests: grant the Pull requests (read) permission";
+const DENIED_CHECKS = "The App may not read checks: grant the Checks and Commit statuses (read) permissions";
+
 export class GitHubAppSourceControl implements SourceControl {
   readonly provider = "github" as const;
   private readonly fetchImpl: FetchLike;
@@ -250,7 +254,8 @@ export class GitHubAppSourceControl implements SourceControl {
     }
   }
 
-  private async graphql<T>(installationId: number, query: string, variables: Record<string, unknown>): Promise<T> {
+  /** `deniedText` is what a refusal means for the caller: the Projects permission by default, another one for the pull request and checks reads. */
+  private async graphql<T>(installationId: number, query: string, variables: Record<string, unknown>, deniedText = "The App may not use Projects: grant the Organization Projects permission"): Promise<T> {
     const res = await this.call(installationId, "POST", "/graphql", { query, variables });
     if (!res.ok) throw new GitHubError(res.status, `GitHub refused the Projects request (${res.status})`);
     const body = (await res.json()) as { data?: T; errors?: { type?: string; message?: string }[] };
@@ -258,7 +263,7 @@ export class GitHubAppSourceControl implements SourceControl {
       const denied = body.errors.some((e) => e.type === "FORBIDDEN" || e.type === "INSUFFICIENT_SCOPES" || /not accessible by integration|forbidden/i.test(e.message ?? ""));
       const detail = body.errors.map((e) => `${e.type ?? "ERROR"}: ${e.message ?? ""}`).join("; ");
       console.error(JSON.stringify({ github: "graphql", errors: body.errors.map((e) => ({ type: e.type ?? null, message: String(e.message ?? "").slice(0, 300) })) })); // for the server log: GitHub's words about the person's own Project, no tokens
-      throw new GitHubError(denied ? 403 : 422, denied ? "The App may not use Projects: grant the Organization Projects permission" : "GitHub could not do that on the Project", undefined, detail);
+      throw new GitHubError(denied ? 403 : 422, denied ? deniedText : "GitHub could not do that on the Project", undefined, detail);
     }
     if (!body.data) throw new GitHubError(502, "GitHub returned no data for the Projects request");
     return body.data;
@@ -317,7 +322,7 @@ export class GitHubAppSourceControl implements SourceControl {
       for (let at = 0; at < numbers.length; at += 40) { // one request per 40 issues of a repository
         const part = numbers.slice(at, at + 40);
         const body = part.map((n, k) => `i${k}:issue(number:${n}){closedByPullRequestsReferences(first:20,includeClosedPrs:true){nodes{number state repository{nameWithOwner}}}}`).join(" ");
-        const d = await this.graphql<{ repository: Record<string, { closedByPullRequestsReferences: { nodes: { number: number; state: string; repository?: { nameWithOwner?: string } }[] } } | null> | null }>(installationId, `query($o:String!,$n:String!){repository(owner:$o,name:$n){${body}}}`, { o: owner, n: name });
+        const d = await this.graphql<{ repository: Record<string, { closedByPullRequestsReferences: { nodes: { number: number; state: string; repository?: { nameWithOwner?: string } }[] } } | null> | null }>(installationId, `query($o:String!,$n:String!){repository(owner:$o,name:$n){${body}}}`, { o: owner, n: name }, DENIED_PULL_REQUESTS);
         for (const v of Object.values(d.repository ?? {})) {
           for (const p of v?.closedByPullRequestsReferences.nodes ?? []) out.push({ repo: p.repository?.nameWithOwner ?? repo, number: p.number, state: p.state === "MERGED" ? "merged" : p.state === "OPEN" ? "open" : "closed" });
         }
@@ -332,6 +337,7 @@ export class GitHubAppSourceControl implements SourceControl {
       installationId,
       `query($o:String!,$n:String!){repository(owner:$o,name:$n){defaultBranchRef{target{... on Commit{statusCheckRollup{state}}}}}}`,
       { o: owner, n: name },
+      DENIED_CHECKS,
     );
     return d.repository?.defaultBranchRef?.target?.statusCheckRollup?.state ?? null;
   }

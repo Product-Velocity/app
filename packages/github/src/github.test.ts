@@ -334,6 +334,15 @@ describe("GitHubAppSourceControl: Projects (boards) over GraphQL", () => {
     const denied = make(graphqlFake(() => ({ errors: [{ type: "FORBIDDEN", message: "Resource not accessible by integration" }] })));
     await expect(denied.listBoards(1, "Acme")).rejects.toMatchObject({ status: 403, message: expect.stringContaining("Organization Projects permission") });
   });
+  it("a refused read of pull requests or checks names those permissions, not Projects", async () => {
+    const denied = make(graphqlFake(() => ({ errors: [{ type: "FORBIDDEN", message: "Resource not accessible by integration" }] })));
+    const prs = await denied.listLinkedPullRequests(1, [{ repo: "Acme/app", number: 1 }]).catch((e: Error) => e);
+    expect(prs).toMatchObject({ status: 403, message: expect.stringContaining("Pull requests (read)") });
+    expect((prs as Error).message).not.toContain("Projects");
+    const checks = await denied.getDefaultBranchRollup(1, "Acme/app").catch((e: Error) => e);
+    expect(checks).toMatchObject({ status: 403, message: expect.stringContaining("Checks and Commit statuses (read)") });
+    expect((checks as Error).message).not.toContain("Projects");
+  });
 });
 
 function fake(over: Partial<SourceControl> = {}): SourceControl {
