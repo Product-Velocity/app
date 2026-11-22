@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NO_FILTERS, NO_QUARTER, filterRows, needCounts, needsYou, participation, plannedQuarters, quarterOptions, quarterText, sortRows, summarize, type SessionRow, type SessionStats } from "./alignment-list";
+import { alignGroupSummary, csvCell, filterCount, groupSessionRows, toCsv, NO_FILTERS, NO_QUARTER, filterRows, needCounts, needsYou, participation, plannedQuarters, quarterOptions, quarterText, sortRows, summarize, type SessionRow, type SessionStats } from "./alignment-list";
 
 const NOW = new Date("2027-03-10T12:00:00Z");
 let n = 0;
@@ -124,5 +124,45 @@ describe("the totals", () => {
   });
   it("has no admin totals for rows without the admin-only values", () => {
     expect(summarize([row({ stats: null }), row({ stats: null })])).toMatchObject({ sessions: 2, invited: 0, voted: 0, participation: null, applied: 0 });
+  });
+});
+
+describe("grouping the grid", () => {
+  const a = row({ name: "A", status: "open", closedAt: null, stats: { invited: 10, voted: 4 } });
+  const b = row({ name: "B", status: "closed", stats: { invited: 4, voted: 4 } });
+  const c = row({ name: "C", status: "closed", method: "ice", quarter: null, quarters: [], stats: { invited: 0, voted: 0 } });
+  const all = [a, b, c];
+  const heads = (g: ReturnType<typeof groupSessionRows>) => g.filter((x) => "__group" in x) as { label: string; count: number; key: string; level: number; healthSummary: string; unit?: string }[];
+  it("returns the rows unchanged when off", () => { expect(groupSessionRows(all, null, null, new Set(), NOW)).toBe(all); });
+  it("puts a header before each group, in the order of the states, with totals in words", () => {
+    const out = groupSessionRows(all, "status", null, new Set(), NOW);
+    expect(heads(out).map((h) => `${h.label}:${h.count}`)).toEqual(["Open:1", "Closed:2"]);
+    expect(heads(out)[0]).toMatchObject({ healthSummary: "4 of 10 invited have voted", unit: "session" });
+    expect(out.map((x) => ("__group" in x ? "H" : x.name)).join("")).toBe("HAHBC");
+  });
+  it("hides the rows of a collapsed group and splits a group again with Then by", () => {
+    const folded = groupSessionRows(all, "status", null, new Set(["status:closed"]), NOW);
+    expect(folded.some((x) => !("__group" in x) && x.name === "B")).toBe(false);
+    const two = groupSessionRows(all, "status", "method", new Set(), NOW);
+    expect(heads(two).filter((h) => h.level === 1).map((h) => h.key)).toContain("status:closed>method:ice");
+  });
+  it("puts sessions without a planned quarter last and time groups newest first", () => {
+    const q = groupSessionRows([row({ quarter: "Q1 2027", quarters: ["Q1 2027"] }), row({ quarter: "Q4 2026", quarters: ["Q4 2026"] }), c], "quarter", null, new Set(), NOW);
+    expect(heads(q).map((h) => h.label)).toEqual(["Q1 2027", "Q4 2026", "No planned quarter"]);
+  });
+  it("names the grouping", () => { expect(alignGroupSummary(null, null)).toBe("None"); expect(alignGroupSummary("status", "method")).toBe("Status › Method"); });
+});
+
+describe("filters and export", () => {
+  it("counts the filters that are on, not the search", () => {
+    expect(filterCount(NO_FILTERS)).toBe(0);
+    expect(filterCount({ ...NO_FILTERS, q: "x", status: "open", showArchived: true })).toBe(2);
+  });
+  it("escapes a CSV cell and defuses a formula", () => {
+    expect(csvCell('a, "b"')).toBe('"a, ""b"""');
+    expect(csvCell("=SUM(A1)")).toBe("'=SUM(A1)");
+    expect(csvCell("-5")).toBe("-5");
+    expect(csvCell(null)).toBe("");
+    expect(toCsv(["Session", "Voted"], [["Q1", 3]])).toBe("Session,Voted\r\nQ1,3\r\n");
   });
 });

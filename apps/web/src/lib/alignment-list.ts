@@ -1,5 +1,5 @@
-import { compareQuarters } from "@pv/domain";
-import type { SessionState } from "@/lib/alignment";
+import { compareQuarters, type GroupRow } from "@pv/domain";
+import { METHODS, STATE_LABEL, type SessionState } from "@/lib/alignment";
 
 /**
  * The rows of the Alignment tab (issue #392). Pure functions, no I/O.
@@ -178,3 +178,83 @@ export function needCounts(rows: SessionRow[], now: Date): Record<Need, number> 
   for (const r of rows) for (const n of needsYou(r, now)) out[n]++;
   return out;
 }
+
+// ------------------------------------------------------------------ grouping and export (the grid of the Alignment tab)
+export type AlignGroupBy = "status" | "method" | "quarter" | "applied" | "month" | "need";
+export const ALIGN_GROUP_BYS: readonly { id: AlignGroupBy; label: string; admin?: boolean }[] = [
+  { id: "status", label: "Status" },
+  { id: "method", label: "Method" },
+  { id: "quarter", label: "Planned quarter" },
+  { id: "month", label: "Month created" },
+  { id: "applied", label: "Applied to Stack Rank", admin: true },
+  { id: "need", label: "Needs you", admin: true },
+];
+const groupLabelOf = (g: AlignGroupBy) => ALIGN_GROUP_BYS.find((x) => x.id === g)!.label;
+export function alignGroupSummary(by: AlignGroupBy | null, then: AlignGroupBy | null): string {
+  return !by ? "None" : then ? `${groupLabelOf(by)} › ${groupLabelOf(then)}` : groupLabelOf(by);
+}
+
+const APPLIED_LABEL = { applied: "Applied", "not-applied": "Not applied", undone: "Undone" } as const;
+const monthOf = (iso: string) => iso.slice(0, 7);
+const monthLabel = (key: string) => new Date(`${key}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+
+/** The group a session falls in for one grouping: a stable key, the words, and where the group sorts (lower first; ties by key). */
+function groupOf(r: SessionRow, g: AlignGroupBy, now: Date): { key: string; label: string; order: number | string } {
+  switch (g) {
+    case "status": return { key: r.status, label: STATE_LABEL[r.status], order: STATUS_ORDER[r.status] };
+    case "method": return { key: r.method, label: METHODS.find((m) => m.value === r.method)?.label ?? r.method, order: METHODS.findIndex((m) => m.value === r.method) };
+    case "quarter": return { key: r.quarter ?? "", label: quarterText(r), order: r.quarter ?? "~" };
+    case "month": return { key: monthOf(r.createdAt), label: monthLabel(monthOf(r.createdAt)), order: monthOf(r.createdAt) };
+    case "applied": { const a = appliedState(r); return { key: a ?? "", label: a ? APPLIED_LABEL[a] : "No results yet", order: a ? ["not-applied", "applied", "undone"].indexOf(a) : 9 }; }
+    case "need": { const n = needsYou(r, now)[0]; return { key: n ?? "", label: n ? NEED_LABEL[n] : "Nothing needed", order: n ? (["no-participants", "confirm-mailing", "closing-soon", "not-applied"] as Need[]).indexOf(n) : 9 }; }
+  }
+}
+
+/**
+ * Rows with a header row before each group (the grid builds its own groups: row grouping is Enterprise only). Rows keep their order inside a group; "Then by" splits each group again.
+ * Time groups (planned quarter, month created) come newest first. The header says how many sessions and, for admins, how many of the invited have voted (a total, never per person).
+ */
+export function groupSessionRows(rows: SessionRow[], by: AlignGroupBy | null, then: AlignGroupBy | null, collapsed: ReadonlySet<string>, now: Date): (SessionRow | GroupRow)[] {
+  if (!by) return rows;
+  const second = then && then !== by ? then : null;
+  const out: (SessionRow | GroupRow)[] = [];
+  const walk = (items: SessionRow[], g: AlignGroupBy, level: 0 | 1, parent: string) => {
+    const groups = new Map<string, { label: string; order: number | string; rows: SessionRow[] }>();
+    for (const r of items) {
+      const x = groupOf(r, g, now);
+      const e = groups.get(x.key) ?? { label: x.label, order: x.order, rows: [] };
+      e.rows.push(r);
+      groups.set(x.key, e);
+    }
+    const newestFirst = g === "quarter" || g === "month";
+    const keys = [...groups.keys()].sort((a, b) => {
+      const x = groups.get(a)!.order, y = groups.get(b)!.order;
+      if (g === "quarter" && (a === "" || b === "")) return a === "" ? 1 : -1;
+      const c = typeof x === "number" && typeof y === "number" ? x - y : g === "quarter" ? compareQuarters(a, b) : String(x).localeCompare(String(y));
+      return newestFirst ? -c : c;
+    });
+    for (const k of keys) {
+      const e = groups.get(k)!;
+      const key = `${parent}${g}:${k}`;
+      const isCollapsed = collapsed.has(key);
+      const t = summarize(e.rows);
+      out.push({ __group: true, id: `group:${key}`, key, label: e.label, count: e.rows.length, collapsed: isCollapsed, level, unit: e.rows.length === 1 ? "session" : "sessions", healthSummary: t.invited > 0 ? `${t.voted} of ${t.invited} invited have voted` : "" });
+      if (isCollapsed) continue;
+      if (level === 0 && second) walk(e.rows, second, 1, `${key}>`);
+      else out.push(...e.rows);
+    }
+  };
+  walk(rows, by, 0, "");
+  return out;
+}
+
+/** The text of the CSV export: one line per session with the given columns (id and words, as the grid shows them). Quotes, commas and line breaks are escaped; a leading = + - @ is defused so a spreadsheet never runs it. */
+export function csvCell(v: string | number | null): string {
+  let t = v === null ? "" : String(v);
+  if (/^[=+\-@]/.test(t) && !/^-?\d+(\.\d+)?$/.test(t)) t = `'${t}`;
+  return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+}
+export const toCsv = (head: string[], lines: (string | number | null)[][]): string => [head, ...lines].map((l) => l.map(csvCell).join(",")).join("\r\n") + "\r\n";
+
+/** How many filters are on (a search is not counted: it has its own box). Archived sessions shown count as one. */
+export const filterCount = (f: Filters): number => [f.need, f.status, f.method, f.quarter, f.applied, f.createdBy].filter(Boolean).length + (f.showArchived ? 1 : 0);

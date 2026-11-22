@@ -1637,3 +1637,13 @@ a.btn.btn-primary { color: #fff; }
 .acct-row-actions { display: flex; flex-wrap: wrap; gap: 4px; }
 .plain-list { margin: 0; padding-left: 16px; }
 @media (max-width: 640px) { .acct-facts { grid-template-columns: 1fr; } .acct-tools { margin-left: 0; } }
+
+/* The Alignment grid (issue #586): same look as the other grids; rows open the session, so they show a pointer */
+.al-grid { border-radius: 8px; }
+.al-row { cursor: pointer; }
+.al-name, .al-cell-link { color: var(--blue-text); font-weight: 600; text-decoration: none; }
+.al-cell-link { font-weight: 500; text-decoration: underline; }
+.al-name:hover { text-decoration: underline; }
+.al-grid .ag-header-cell .th-sort { width: 100%; }
+
+.choice-list { max-height: 320px; overflow-y: auto; min-width: 220px; }
