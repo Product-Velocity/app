@@ -6,6 +6,13 @@ const open = async (page: Page, query = "n=40") => {
   await page.waitForSelector("[data-card]");
   await page.waitForFunction(() => (window as unknown as { __pv?: unknown }).__pv !== undefined);
 };
+/** The Columns and Swimlanes controls are popover menus: open one and choose a value by its label. */
+const pickAxis = async (page: Page, menu: "Columns" | "Swimlanes", label: string) => {
+  await page.getByRole("button", { name: new RegExp(`^${menu}:`) }).click();
+  await page.getByRole("menuitemradio", { name: label, exact: true }).click();
+};
+const axisIs = (page: Page, menu: "Columns" | "Swimlanes", label: string) =>
+  expect(page.getByRole("button", { name: new RegExp(`^${menu}:`) })).toContainText(label);
 const card = (page: Page, id: string) => page.locator(`[data-card="${id}"]`);
 const cell = (page: Page, lane: string, col: string) => page.locator(`[data-lane="${lane}"][data-col="${col}"]`);
 const settle = (page: Page) => page.waitForFunction(() => (window as unknown as { __pv: { controller: { status: { pending: number } } } }).__pv.controller.status.pending === 0);
@@ -15,7 +22,7 @@ const undoCount = (page: Page) => page.evaluate(() => (window as unknown as { __
 test.describe("the board", () => {
   test("columns are the Initiative Phases and swimlanes the Initiative Groups, with counts", async ({ page }) => {
     await open(page);
-    await expect(page.locator(".kb-col-name")).toHaveText(["Discover", "Define", "Build", "Test", "Experiment", "Roll-out", "Completed", "No value"]);
+    await expect(page.locator(".kb-col-name")).toHaveText(["Discover", "Define", "Build", "Test", "Experiment", "Roll-out", "Completed", "Sunset", "No value"]);
     await expect(page.locator(".kb-lane-head strong")).toHaveText(["Onboarding", "Platform health", "Retention", "No value"]);
     await expect(page.locator(".kb-col-head", { hasText: "Discover" }).locator(".gl-count")).toHaveText("8");
     await expect(page.locator(".kb-lane-head", { hasText: "Onboarding" })).toContainText("items");
@@ -79,20 +86,19 @@ test.describe("the board", () => {
 
   test("the column and swimlane fields can be changed; the read-only GitHub status is offered", async ({ page }) => {
     await open(page);
-    const columns = page.getByLabel("Columns");
-    await columns.selectOption("health");
+    await pickAxis(page, "Columns", "Health");
     await expect(page.locator(".kb-col-name")).toHaveText(["On Track", "At Risk", "Delayed", "Blocked", "No value"]);
     expect(page.url()).toContain("by=health");
-    await page.getByLabel("Swimlanes").selectOption("");
+    await pickAxis(page, "Swimlanes", "No swimlanes");
     await expect(page.locator(".kb-lane-head")).toHaveCount(0);
     expect(page.url()).toContain("lane=none");
-    await columns.selectOption("status");
+    await pickAxis(page, "Columns", "Build Status");
     await expect(page.getByRole("note")).toContainText("Build Status comes from GitHub");
   });
 
   test("lanes collapse and expand; a lane with no cards starts collapsed", async ({ page }) => {
     await open(page, "n=40");
-    await page.getByLabel("Swimlanes").selectOption("horizon");
+    await pickAxis(page, "Swimlanes", "Horizon");
     await expect(page.getByRole("button", { name: "Expand Now" })).toBeVisible(); // empty, so collapsed
     await expect(page.getByRole("button", { name: "Collapse No value" })).toBeVisible();
     const before = await page.locator("[data-card]").count();
@@ -129,22 +135,24 @@ test.describe("the board", () => {
     // Planning: filters to Discover/Define/Build, groups swimlanes by Planned Quarter, shows G2M Date (est)
     await viewGroup.getByRole("button", { name: "Planning", exact: true }).click();
     expect(page.url()).toContain("view=Planning");
-    await expect(page.getByLabel("Swimlanes")).toHaveValue("g2m_quarter");
-    await expect(page.locator(".kb-lane-head strong")).toHaveText(["Q1 2027", "Q2 2027", "Q3 2027", "No value"]);
+    await axisIs(page, "Swimlanes", "Planned Quarter");
+    // every quarter of the planning window is a lane (it lists more than the three with cards): look for the ones that have cards
+    const lanes = await page.locator(".kb-lane-head strong").allTextContents();
+    expect(lanes).toEqual(expect.arrayContaining(["Q1 2027", "Q2 2027", "Q3 2027", "No value"]));
     await expect(page.locator(".filter-chips")).toContainText("Initiative Phase");
     await expect(card(page, "item-1")).toContainText("G2M Date (est)");
 
     // Delivery: filters to Build/Test/Experiment, groups swimlanes by Project, shows Build Status and Delivery Progress
     await viewGroup.getByRole("button", { name: "Delivery", exact: true }).click();
     expect(page.url()).toContain("view=Delivery");
-    await expect(page.getByLabel("Swimlanes")).toHaveValue("home_project");
+    await axisIs(page, "Swimlanes", "Project");
     await expect(card(page, "item-3")).toContainText("Build Status");
-    await expect(card(page, "item-3")).toContainText("Delivery Progress");
+    await expect(card(page, "item-3").getByRole("progressbar", { name: "Delivery Progress" })).toBeVisible();
 
     // Go-to-market: filters to Test/Experiment/Roll-out, groups swimlanes by Audience
     await viewGroup.getByRole("button", { name: "Go-to-market", exact: true }).click();
     expect(page.url()).toContain("view=Go-to-market");
-    await expect(page.getByLabel("Swimlanes")).toHaveValue("audience");
+    await axisIs(page, "Swimlanes", "Audience");
     await expect(page.locator(".kb-lane-head strong")).toHaveText(["Demand partners", "Internal", "Publishers", "No value"]);
   });
 
@@ -160,9 +168,9 @@ test.describe("the board", () => {
 
     // FilterPanel quick filter narrows cards and adds a removable filter chip
     await page.getByRole("button", { name: /^Filter/ }).click();
-    await page.getByRole("dialog", { name: "Filters" }).getByRole("button", { name: "Must-haves" }).click();
+    await page.getByRole("group", { name: "Filters", exact: true }).getByRole("button", { name: "High impact" }).click();
     await page.keyboard.press("Escape");
-    await expect(page.locator(".filter-chips")).toContainText("MoSCoW: Must");
+    await expect(page.locator(".filter-chips")).toContainText("MoSCoW is Must");
     const filteredCount = await page.locator("[data-card]").count();
     expect(filteredCount).toBeLessThan(40);
 
@@ -179,7 +187,7 @@ test.describe("the board", () => {
     await page.goto("/dev/cards?n=40");
     await page.waitForSelector("[data-card]");
     await expect(page.getByRole("group", { name: "View" }).getByRole("button", { name: "Planning", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByLabel("Swimlanes")).toHaveValue("g2m_quarter");
+    await axisIs(page, "Swimlanes", "Planned Quarter");
   });
 });
 
@@ -225,7 +233,7 @@ test.describe("moving cards", () => {
 
   test("a read-only axis is refused with the reason, and the other axis still works", async ({ page }) => {
     await open(page, "n=12&by=moscow");
-    await page.getByLabel("Columns").selectOption("status");
+    await pickAxis(page, "Columns", "Build Status");
     const col = await page.evaluate(() => (window as unknown as { __pv: { controller: { row: (id: string) => { status: string | null } } } }).__pv.controller.row("item-1").status);
     const other = col === "In progress" ? "Done" : "In progress";
     await card(page, "item-1").dragTo(cell(page, "Onboarding", other));
