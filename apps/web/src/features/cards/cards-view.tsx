@@ -7,6 +7,7 @@ import {
 import type { GateSource } from "../gates/gate-source";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { ChoiceMenu } from "../portfolio/choice-menu";
 import { ColumnsPanel } from "../portfolio/columns-panel";
 import type { PortfolioController } from "../portfolio/controller";
 import { FilterPanel } from "../portfolio/filter-panel";
@@ -328,11 +329,8 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
             />
           </label>
           <div className="gantt-tools">
-            <label>Columns <select value={colField} onChange={(e) => setCol(e.target.value)}>{options.map((o) => <option key={o.key} value={o.key} disabled={!o.available}>{o.label}</option>)}</select></label>
-            <label>Swimlanes <select value={laneField} onChange={(e) => setLane(e.target.value)}>
-              <option value="">No swimlanes</option>
-              {available.filter((o) => o.key !== colField).map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-            </select></label>
+            <ChoiceMenu name="Columns" value={colField} choices={options.map((o) => ({ value: o.key, label: o.label, disabled: !o.available }))} onChange={setCol} />
+            <ChoiceMenu name="Swimlanes" value={laneField} none="No swimlanes" choices={available.filter((o) => o.key !== colField).map((o) => ({ value: o.key, label: o.label }))} onChange={setLane} />
           </div>
         </div>
       </div>

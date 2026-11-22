@@ -1620,3 +1620,5 @@ a.btn.btn-primary { color: #fff; }
 .al-cell-link { font-weight: 500; text-decoration: underline; }
 .al-name:hover { text-decoration: underline; }
 .al-grid .ag-header-cell .th-sort { width: 100%; }
+
+.choice-list { max-height: 320px; overflow-y: auto; min-width: 220px; }
