@@ -14,6 +14,9 @@ const openGrid = async (page: Page) => {
 const calls = (page: Page) => page.evaluate(() => { const pv = (window as unknown as { __pv: { source?: { calls: string[] }; gates?: { calls: string[] } } }).__pv; return (pv.gates ?? pv.source)!.calls; });
 
 /** One row element holds the pinned name, the middle cells and the pinned buttons. */
+/** The initiatives in the order they are shown: AG Grid positions rows by their row index, so the order of the elements in the page is not the order on screen. */
+const shownCodes = (page: Page) => page.evaluate(() => [...document.querySelectorAll(".ag-row")].sort((a, b) => Number(a.getAttribute("row-index")) - Number(b.getAttribute("row-index"))).map((r) => (r.querySelector(".lst-name")?.textContent ?? "").split(" ")[0]));
+const expectCodes = async (page: Page, codes: string[], firstOnly = false) => { await expect.poll(async () => { const s = await shownCodes(page); return firstOnly ? s.slice(0, codes.length) : s; }).toEqual(codes); };
 const names = (page: Page) => page.locator(".ag-row .lst-name");
 const centre = (page: Page, id: string) => page.locator(`[row-id="${id}"]`);
 const decide = (page: Page, id: string) => page.locator(`[row-id="${id}"] [col-id="action"]`);
@@ -24,7 +27,7 @@ test.describe("the Decisions screen", () => {
     await openDecisions(page);
     await expect(page.getByRole("heading", { name: "Decisions" })).toBeVisible();
     await expect(page.getByRole("tab", { name: /Waiting for approval \(4\)/ })).toHaveAttribute("aria-selected", "true");
-    await expect(names(page)).toHaveText([/R-03/, /R-02/, /R-04/, /R-01/]);
+    await expectCodes(page, ["R-03", "R-02", "R-04", "R-01"]);
     await expect(centre(page, "r3")).toContainText("Gate B: Define to Build");
     // how long it has waited is about the request; a long wait is a word as well as a colour
     await expect(centre(page, "r1")).toContainText("4 days");
@@ -63,18 +66,18 @@ test.describe("the Decisions screen", () => {
   test("search, gate filter and the quick filters narrow the list", async ({ page }) => {
     await openDecisions(page);
     await page.getByRole("searchbox", { name: "Search Decisions" }).fill("referral");
-    await expect(names(page)).toHaveText([/R-04/]);
+    await expectCodes(page, ["R-04"]);
     await page.getByRole("button", { name: "Clear filters" }).click();
     await page.getByRole("button", { name: /^Gate/ }).click();
     await page.getByRole("checkbox", { name: /Gate A/ }).check();
-    await expect(names(page)).toHaveText([/R-01/]);
+    await expectCodes(page, ["R-01"]);
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Clear filters" }).click();
     await page.getByRole("checkbox", { name: /Incomplete checklist/ }).check();
-    await expect(names(page)).toHaveText([/R-03/, /R-02/, /R-04/]);
+    await expectCodes(page, ["R-03", "R-02", "R-04"]);
     await page.getByRole("checkbox", { name: /Incomplete checklist/ }).uncheck();
     await page.getByRole("columnheader", { name: "Initiative" }).click();
-    await expect(names(page).first()).toContainText("R-01");
+    await expectCodes(page, ["R-01"], true);
   });
 
   test("Go needs a rationale; the first decision is recorded and the request leaves the waiting list", async ({ page }) => {

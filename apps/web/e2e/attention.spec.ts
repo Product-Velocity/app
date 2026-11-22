@@ -10,6 +10,9 @@ const open = async (page: Page) => {
 /** One row element holds the pinned name, the middle cells and the pinned next step. */
 const centre = (page: Page, id: string) => page.locator(`[row-id="${id}"]`);
 const action = (page: Page, id: string) => page.locator(`[row-id="${id}"] [col-id="action"]`);
+/** The initiatives in the order they are shown: AG Grid positions rows by their row index, so the order of the elements in the page is not the order on screen. */
+const shownCodes = (page: Page) => page.evaluate(() => [...document.querySelectorAll(".ag-row")].sort((a, b) => Number(a.getAttribute("row-index")) - Number(b.getAttribute("row-index"))).map((r) => (r.querySelector(".lst-name")?.textContent ?? "").split(" ")[0]));
+const expectCodes = async (page: Page, codes: string[], firstOnly = false) => { await expect.poll(async () => { const s = await shownCodes(page); return firstOnly ? s.slice(0, codes.length) : s; }).toEqual(codes); };
 const names = (page: Page) => page.locator(".ag-row .lst-name");
 const calls = (page: Page) => page.evaluate(() => (window as unknown as { __pv: { gates: { calls: string[] } } }).__pv.gates.calls);
 
@@ -19,7 +22,7 @@ test.describe("Needs attention", () => {
     await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
     await expect(page.getByRole("status").filter({ hasText: "10 need attention" })).toContainText("showing 10");
     // urgent first: blocked work and a cancelled initiative that is still being built, then the rest by rank
-    await expect(names(page)).toHaveText([/R-03/, /R-05/, /R-07/, /R-01/, /R-02/, /R-04/, /R-06/, /R-08/, /R-09/, /R-10/]);
+    await expectCodes(page, ["R-03", "R-05", "R-07", "R-01", "R-02", "R-04", "R-06", "R-08", "R-09", "R-10"]);
     await expect(centre(page, "item-1")).toContainText("The build is done in the tracker. Move to Test?");
     await expect(centre(page, "item-2")).toContainText("before gate B");
     await expect(centre(page, "item-3")).toContainText("Cancelled but the build is still in progress");
@@ -45,9 +48,9 @@ test.describe("Needs attention", () => {
   test("a reason chip keeps only that reason, and chips can be combined", async ({ page }) => {
     await open(page);
     await page.getByRole("button", { name: "Waiting for a decision (1)" }).click();
-    await expect(names(page)).toHaveText([/R-07/]);
+    await expectCodes(page, ["R-07"]);
     await page.getByRole("button", { name: /^Build done/ }).click();
-    await expect(names(page)).toHaveText([/R-07/, /R-01/]);
+    await expectCodes(page, ["R-07", "R-01"]);
     await page.getByRole("button", { name: /^All \(/ }).click();
     await expect(names(page)).toHaveCount(10);
   });
@@ -55,19 +58,19 @@ test.describe("Needs attention", () => {
   test("search, filters and sorting narrow the list, and Clear filters brings it back", async ({ page }) => {
     await open(page);
     await page.getByRole("searchbox", { name: "Search Needs attention" }).fill("hold");
-    await expect(names(page)).toHaveText([/R-04/]);
+    await expectCodes(page, ["R-04"]);
     await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(names(page)).toHaveCount(10);
     await page.getByRole("button", { name: /^Urgency/ }).click();
     await page.getByRole("checkbox", { name: /^Urgent/ }).check();
-    await expect(names(page)).toHaveText([/R-03/, /R-05/]);
+    await expectCodes(page, ["R-03", "R-05"]);
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Clear filters" }).click();
     await page.getByRole("checkbox", { name: /One click away/ }).check();
-    await expect(names(page)).toHaveText([/R-07/, /R-01/, /R-02/, /R-04/]); // Open Decisions, Move to Test, Request gate, Request the gate again, Open Decisions
+    await expectCodes(page, ["R-07", "R-01", "R-02", "R-04"]); // Open Decisions, Move to Test, Request gate, Request the gate again, Open Decisions
     await page.getByRole("checkbox", { name: /One click away/ }).uncheck();
     await page.getByRole("columnheader", { name: "Initiative" }).click();
-    await expect(names(page).first()).toContainText("R-01");
+    await expectCodes(page, ["R-01"], true);
   });
 
   test("a view is saved by name and applied again; the slash key searches", async ({ page }) => {
@@ -75,7 +78,7 @@ test.describe("Needs attention", () => {
     await page.keyboard.press("/");
     await expect(page.getByRole("searchbox", { name: "Search Needs attention" })).toBeFocused();
     await page.keyboard.type("stalled");
-    await expect(names(page)).toHaveText([/R-06/]);
+    await expectCodes(page, ["R-06"]);
     await page.getByRole("button", { name: /^Views/ }).click();
     await page.getByLabel("Name for the view").fill("Stuck work");
     await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -84,7 +87,7 @@ test.describe("Needs attention", () => {
     await expect(names(page)).toHaveCount(10);
     await page.getByRole("button", { name: /^Views/ }).click();
     await page.getByRole("button", { name: "Stuck work", exact: true }).click();
-    await expect(names(page)).toHaveText([/R-06/]);
+    await expectCodes(page, ["R-06"]);
   });
 
   test("the next step is one click: Move to Test goes through the gate function and the row leaves the list", async ({ page }) => {
