@@ -1,6 +1,6 @@
 # PV skills: internal reference
 
-Status: 2026-11-21. Issue #565. Source of truth: `packages/domain/src/skills-catalog.ts` (the skills) and `packages/domain/src/skills.ts` (the shared rules and the prompt builder). **Sections 4 and 5 are generated from the catalogue**; the examples in section 5 are written by hand to show the shape of each skill's input and output on the fictional workspace "Meridian Media" (R-04 Offline listening for podcasts, R-07 Account switcher, R-09 Playlist import). **They are illustrations, not captured runs**: no skill has been run in a real Claude or ChatGPT session yet, and every figure in them is invented for the example.
+Status: 2026-11-23. Issue #565. Source of truth: `packages/domain/src/skills-catalog.ts` (the skills) and `packages/domain/src/skills.ts` (the shared rules and the prompt builder). **Sections 4 and 5 are generated from the catalogue**; the examples in section 5 are written by hand to show the shape of each skill's input and output on the fictional workspace "Meridian Media" (R-04 Offline listening for podcasts, R-07 Account switcher, R-09 Playlist import). **They are illustrations, not captured runs**: no skill has been run in a real Claude or ChatGPT session yet, and every figure in them is invented for the example.
 
 Design and decisions: `docs/31-SKILLS.md`, `docs/decisions/2026-11-21-pv-skills.md`. Help (user-facing): AI use-cases page, section "The pv- skills".
 
@@ -54,7 +54,7 @@ Verbatim from `SKILL_RULES`. Rule 4 (align first) and the closing-line, AI-draft
 
 - **Document skills**: *ORDER OF WORK* (profile, reads, one question message, write, `create_document`, optional profile save, optional `apply_skill_extract` preview, closing message), *QUESTIONS*, *RULES* (shared plus the skill's own), *SECTIONS OF THE DOCUMENT*, last line "To be decided by <role>".
 - **Report skills**: the same, but the save step is "deliver as set out under FORMAT, then offer once to save a copy"; *SECTIONS OF THE REPORT* and a *FORMAT* guide (email, slides, document, Slack, chat) replace the document sections; the shared rules are swapped for the report-output rule: *"The output is content for an audience, not a document of record ... never send, post or publish anything ... Nothing is saved in Product Velocity unless the person asks for a copy."*
-- **Craft layer (depth pass).** Skills that have been deepened (`pv-premortem`, `pv-metrics`, `pv-one-pager` and the wave 1 skills) also carry: the key ideas the method rests on, when not to use it (the assistant says so and names what to do instead), named pitfalls with the fix, a checklist run before delivering, a strong and a weak example, and a worked example on a fictional workspace. They live in `packages/domain/src/skills-depth.ts`, written for Product Velocity from general product practice.
+- **Craft layer (depth pass).** Skills that have been deepened (`pv-premortem`, `pv-metrics`, `pv-one-pager` and and the wave 1 and wave 2 skills) also carry: the key ideas the method rests on, when not to use it (the assistant says so and names what to do instead), named pitfalls with the fix, a checklist run before delivering, a strong and a weak example, and a worked example on a fictional workspace. They live in `packages/domain/src/skills-depth.ts`, written for Product Velocity from general product practice.
 - **Advice skills** (`pv-which`) answer in the chat and save nothing; they receive the list of skills and recommend only from it.
 - **Fields**: a skill that fills fields ends its document with `## n. Values for Product Velocity`, one `key: value` line per field. `apply_skill_extract` copies only those lines, as written, only for the keys the skill owns. Stack Rank, Business Value, Confidence, Decision, approvals and Ready for build are never filled (the database refuses them for Claude as well).
 - **Company profile**: company-level skills may offer, once the person has agreed, to merge the confirmed part into one profile section with `update_company_profile` (always an AI draft; an admin confirms).
@@ -86,11 +86,16 @@ Full examples of the generated text are in Appendix A (a document skill) and App
 | `pv-market` | Set direction | The whole workspace | Market sizing document in Documents | none | Live |
 | `pv-canvas` | Set direction | The whole workspace | Canvas document in Documents | none | Live |
 | `pv-opportunity-tree` | Discover | One initiative | Opportunity tree document on the initiative | none | Live |
-| `pv-gate` | Decide | One initiative | Gate brief document on the initiative | none | New (wave 1, this PR) |
-| `pv-prioritise` | Decide | All initiatives, or the ones you name | Prioritisation document in Documents | none | New (wave 1, this PR) |
-| `pv-hypothesis` | Define | One initiative | Hypothesis document on the initiative | `hypothesis` | New (wave 1, this PR) |
-| `pv-outcome` | Prove | One initiative | Outcome review brief document on the initiative | none | New (wave 1, this PR) |
-| `pv-which` | Run the product | Your situation in your own words | Advice in the chat; nothing saved | none | New (wave 1, this PR) |
+| `pv-gate` | Decide | One initiative | Gate brief document on the initiative | none | Live (wave 1) |
+| `pv-prioritise` | Decide | All initiatives, or the ones you name | Prioritisation document in Documents | none | Live (wave 1) |
+| `pv-hypothesis` | Define | One initiative | Hypothesis document on the initiative | `hypothesis` | Live (wave 1) |
+| `pv-outcome` | Prove | One initiative | Outcome review brief document on the initiative | none | Live (wave 1) |
+| `pv-which` | Run the product | Your situation in your own words | Advice in the chat; nothing saved | none | Live (wave 1) |
+| `pv-split` | Deliver | One initiative | Split plan document on the initiative | none | New (wave 2, this PR) |
+| `pv-assumptions` | Discover | One initiative | Assumption map document on the initiative | none | New (wave 2, this PR) |
+| `pv-sunset` | Run the product | One initiative | Sunset plan document on the initiative | none | New (wave 2, this PR) |
+| `pv-stakeholders` | Decide | One initiative | Stakeholder map document on the initiative | none | New (wave 2, this PR) |
+| `pv-readiness` | Launch | One initiative | Launch readiness document on the initiative | `gtm_enablement_notes` | New (wave 2, this PR) |
 
 `pv-help` lists the skills and how to use them; it calls no tool. "Live" means deployed to production (slices 1 to 3, PRs #566, #567 and #570). "In #571" means built, tested and set to auto-merge, and the migration it needs is already applied to production.
 
@@ -1769,7 +1774,7 @@ Nothing is turned into an initiative automatically; if the person picks an idea,
 
 *The decision brief for the person who approves a gate: what is being decided, the evidence and the gaps, the options and a proposed recommendation; it never requests or decides the gate.*
 
-- **Stage**: Decide. **Works on**: one initiative. **You get**: Gate brief document on the initiative. **Status**: New (wave 1, this PR).
+- **Stage**: Decide. **Works on**: one initiative. **You get**: Gate brief document on the initiative. **Status**: Live (wave 1).
 - **Company profile sections it reads**: strategy, metrics, conventions, glossary.
 - **Fields it can fill** (empty ones, after a preview and agreement): none.
 - **Who decides**: the Approver, at the gate this brief is for.
@@ -1891,7 +1896,7 @@ What does it displace? Unknown: not in Product Velocity. Who owns the rights tal
 
 *Choose a prioritisation approach that fits your stage and data, then score the initiatives you name, or all open ones, as an advisory ranking with its inputs, its weak points and a cut list.*
 
-- **Stage**: Decide. **Works on**: all initiatives, or the ones you name. **You get**: Prioritisation document in Documents. **Status**: New (wave 1, this PR).
+- **Stage**: Decide. **Works on**: all initiatives, or the ones you name. **You get**: Prioritisation document in Documents. **Status**: Live (wave 1).
 - **Company profile sections it reads**: strategy, metrics, conventions, glossary.
 - **Fields it can fill** (empty ones, after a preview and agreement): none.
 - **Who decides**: the product leadership, who set the final order in Product Velocity.
@@ -2030,7 +2035,7 @@ Effort for R-11 and R-12; reach for R-11; confidence for four initiatives.
 
 *Turn a belief into a testable IF / THEN / RESULTING IN hypothesis with its reason, what would prove it wrong, and the assumptions underneath.*
 
-- **Stage**: Define. **Works on**: one initiative. **You get**: Hypothesis document on the initiative. **Status**: New (wave 1, this PR).
+- **Stage**: Define. **Works on**: one initiative. **You get**: Hypothesis document on the initiative. **Status**: Live (wave 1).
 - **Company profile sections it reads**: products, personas, glossary, metrics.
 - **Fields it can fill** (empty ones, after a preview and agreement): `hypothesis`.
 - **Who decides**: the owner of the initiative, who accepts the hypothesis before work depends on it.
@@ -2149,7 +2154,7 @@ RESULTING IN a rise in episodes completed per weekly mobile listener
 
 *Prepare the outcome review: what was intended, what happened at 30, 60 and 90 days, why, and what to keep, change or stop; figures only as the person states them.*
 
-- **Stage**: Prove. **Works on**: one initiative. **You get**: Outcome review brief document on the initiative. **Status**: New (wave 1, this PR).
+- **Stage**: Prove. **Works on**: one initiative. **You get**: Outcome review brief document on the initiative. **Status**: Live (wave 1).
 - **Company profile sections it reads**: products, metrics, conventions, glossary.
 - **Fields it can fill** (empty ones, after a preview and agreement): none.
 - **Who decides**: the owner of the initiative, who decides to keep, change or stop.
@@ -2262,7 +2267,7 @@ Record the other launches that overlap a roll-out before reading the result; add
 
 *Describe the situation on your desk and get the right skill, or the right sequence of skills, and what to bring to it.*
 
-- **Stage**: Run the product. **Works on**: your situation in your own words. **You get**: Advice in the chat; nothing saved. **Status**: New (wave 1, this PR).
+- **Stage**: Run the product. **Works on**: your situation in your own words. **You get**: Advice in the chat; nothing saved. **Status**: Live (wave 1).
 - **Company profile sections it reads**: none.
 - **Fields it can fill** (empty ones, after a preview and agreement): none.
 - **Who decides**: the person asking.
@@ -2347,6 +2352,585 @@ Alternatives: pv-premortem R-04 if there is time first; it turns the team's worr
 Before and after: R-04 is in Define, so the documents the brief needs (PRD, success metrics) should exist; if not, run pv-metrics first. After the gate, pv-gtm plans the launch.
 
 Not a skill job: the rights negotiation with the networks is a conversation, not a document.
+```
+
+### `pv-split`: Split an initiative
+
+*Cut a large initiative into thin, ordered slices that each deliver something a person can use, with what is deferred and why.*
+
+- **Stage**: Deliver. **Works on**: one initiative. **You get**: Split plan document on the initiative. **Status**: New (wave 2, this PR).
+- **Company profile sections it reads**: products, personas, glossary.
+- **Fields it can fill** (empty ones, after a preview and agreement): none.
+- **Who decides**: the owner of the initiative, who accepts the slices before the team plans against them.
+
+**What it reads in Product Velocity**
+
+1. get_item for the initiative: description, phase, key result, hypothesis, dependencies and target segments.
+1. list_documents and get_document for its PRD, user stories, discovery and acceptance documents (at most five); take the scope and the acceptance rules from them and cite them.
+1. search_items for initiatives in the same group, so slices do not duplicate work that exists elsewhere.
+
+**Questions it asks (one message, each skippable)**
+
+1. Why split it now?
+   - A. Too big to estimate or finish in one go: use when the team cannot size it, or it would run for more than a quarter.
+   - B. Want to learn sooner: use when there is a risky belief and an early slice could test it.
+   - C. A date or a dependency forces a first part: use when something must ship by a day or after another initiative.
+1. What is the largest slice the team can deliver and show in one cycle? A number of weeks or people is enough.
+1. Which part, if cut, would make the whole thing pointless?
+
+**Template** (sections of the document, written as `## n. Title`)
+
+1. **What is being split and why**: The initiative in one sentence, the reason from the person, and the size limit for a slice.
+2. **The thin end to end path**: The smallest path through the whole experience that a person could actually use, in a few steps. This is the spine; every slice hangs off it.
+3. **Slices in order**: A table: slice, what a person can do after it ships, the key result or belief it tests, rough size as the person gave it or "to define", what it depends on. Each slice is vertical (usable), never a layer such as "the database".
+4. **How each slice was cut**: For each slice the way it was cut (by step, by user type, by rule, by data, by platform, by quality level) and why that cut.
+5. **Deferred and why**: What is left out of each slice, deliberately, and what would make it worth doing later.
+6. **Risks in the order**: Which slice carries the riskiest assumption, and whether it comes early enough to change the rest.
+7. **What this changes in Product Velocity**: Whether the slices should become separate initiatives or stay inside this one, as a suggestion. Nothing is created without the person's agreement and a preview.
+
+**Rules specific to this skill** (on top of the shared ones)
+
+- Every slice is something a person can use or a belief that can be tested. Reject a slice that is only a technical layer or a task list; reshape it.
+- Sizes, weeks and costs come from the person or a document. Do not estimate a slice to fill the table; write "to define".
+- Do not create initiatives or change dependencies. If the person wants the slices as separate initiatives, show the create_items dry run and write only after they agree; the relations are set by them.
+- Do not drop the acceptance rules of the original. If a rule moves to a later slice, say so in the deferred section.
+
+**Key ideas the skill rests on**
+
+- A good slice is vertical: it cuts through every layer and gives a person something they can use, however small. A slice that is only a database or only a screen delivers nothing to learn from.
+- Start from the thinnest path through the whole experience, then add. The spine comes first; options, edge cases, speed and polish are added in later slices.
+- There are many ways to cut: by workflow step, by user type, by business rule, by data set, by platform, by quality level, by the simplest case first. Choose the cut that puts the riskiest belief in an early slice.
+- Splitting is about learning as much as delivering. The first slice should reduce the biggest uncertainty, not just the easiest work.
+- What is left out matters as much as what is in. Writing down what is deferred, and what would make it worth doing, stops scope returning through the back door.
+- Slices should be independent enough to be reordered. If every slice needs the one before, the cut has probably followed the build order rather than the user's path.
+
+**When not to use it** (the assistant says so and names what to do instead)
+
+- The work is already small enough to finish in one cycle. Splitting adds overhead; just plan it.
+- The problem is not understood yet. Slices of a guess are still guesses; use pv-assumptions or discovery first.
+- The person wants to estimate cost. This skill orders and cuts scope; it does not size it.
+
+**Pitfalls it avoids**
+
+| Pitfall | Why it hurts | Instead |
+|---|---|---|
+| Horizontal layers | Frontend, backend and database slices deliver nothing usable until all three are done. | Cut through the layers so each slice is a thin working path. |
+| Slicing by build order | The order of construction is not the order in which people get value or the team learns. | Order by value and by the riskiest belief first. |
+| The first slice is the easy one | The hard question is left until late, when it is expensive to change course. | Put the riskiest assumption in the first or second slice. |
+| Slices that cannot be shipped alone | A slice that has to wait for the next one is a task, not a slice. | Check that each could go to a person on its own, even behind a flag. |
+| Lost acceptance rules | A rule from the original quietly vanishes when scope is cut. | List where each rule went: kept, moved or deferred. |
+| A pile of tiny tasks | Fifteen sub-day slices cost more in coordination than they save. | Keep slices to what the team can deliver and show in one cycle. |
+
+**Checked before delivering**
+
+- Every slice is something a person can do or a belief that can be tested; none is a layer or a task.
+- The thin end to end path is described and every slice relates to it.
+- The slice with the riskiest assumption is early, and the reason is given.
+- Every slice states what it depends on, or says none.
+- The way each slice was cut is named.
+- What is deferred is listed with what would make it worth doing.
+- No size, week or cost appears unless the person or a document gave it.
+- Nothing was created in Product Velocity; creating items is offered with a preview.
+
+**The standard, by example** (the assistant sees this pair)
+
+- Strong: Slice 1: a listener on the phone app can download one episode on wifi and play it offline. It tests whether people use downloads at all (R-04's hypothesis). Deferred: auto-download, storage settings, tablets. Worth doing later if more than a tenth of listeners use download in the first month.
+- Weak: Slice 1: build the download service. Slice 2: build the download screen. Slice 3: build the storage manager.
+- Why: The strong slice is usable and tests a belief and says what waits. The weak list is three layers; nothing can be shown to a listener until all are done.
+
+**Example input**
+
+pv-split R-04. Too big to finish in one quarter. The team can deliver and show something in a two-week cycle. Without offline playback the whole thing is pointless.
+
+**Example output** *(illustrative, trimmed)*
+
+```markdown
+## 1. What is being split and why
+R-04 (offline listening on mobile) is too large for one quarter. Slices must be deliverable and showable in a two-week cycle (your limit).
+
+## 2. The thin end to end path
+A listener opens an episode, taps download on wifi, loses the connection and plays it anyway.
+
+## 3. Slices in order
+| # | A person can... | Tests | Size | Depends on |
+|---|---|---|---|---|
+| 1 | download one episode on wifi and play it offline | do listeners use downloads at all (hypothesis of R-04) | to define | none |
+| 2 | download on mobile data, with a warning | whether size on older phones is a barrier | to define | 1 |
+| 3 | auto-download a followed show | whether it lifts episodes completed | to define | 1 |
+
+## 4. How each slice was cut
+1: simplest case first (one episode, wifi). 2: by data channel. 3: by quality level (automation after manual).
+
+## 5. Deferred and why
+Storage settings and tablets are left out; worth doing if more than a tenth of listeners use downloads in the first month (to be confirmed by you).
+
+## 6. Risks in the order
+The riskiest belief (listeners want to download) is tested by slice 1.
+
+## 7. What this changes in Product Velocity
+Suggestion: keep slices 1 to 3 inside R-04. I can show a dry run to create them as separate initiatives if you prefer; nothing is created until you agree.
+```
+
+### `pv-assumptions`: Assumption map
+
+*List what must be true for an initiative to work, rank the riskiest, and propose the cheapest test for each.*
+
+- **Stage**: Discover. **Works on**: one initiative. **You get**: Assumption map document on the initiative. **Status**: New (wave 2, this PR).
+- **Company profile sections it reads**: products, personas, competitors, glossary, metrics.
+- **Fields it can fill** (empty ones, after a preview and agreement): none.
+- **Who decides**: the owner of the initiative, who chooses which assumptions to test first.
+
+**What it reads in Product Velocity**
+
+1. get_item for the initiative: description, hypothesis, key result, target segments, phase and dependencies.
+1. list_documents and get_document for its discovery, research, customer evidence, PRD and experiment documents (at most five); use them as evidence and cite them.
+1. get_outcome_reviews and search_items for related initiatives, to see what earlier work already proved or disproved.
+
+**Questions it asks (one message, each skippable)**
+
+1. What is at stake if this is wrong?
+   - A. A small experiment: use when the cost of being wrong is a few weeks of one team.
+   - B. A quarter of work: use when several teams and a committed date depend on it.
+   - C. A bet on the company's direction: use when pricing, positioning or a platform change that is hard to reverse.
+1. What do you already know for sure, and how do you know it?
+1. How long can you afford to test before deciding?
+
+**Template** (sections of the document, written as `## n. Title`)
+
+1. **The plan in one line**: What is being done, for whom, and the result it aims for, from the initiative and the person.
+2. **Assumptions**: A table of 8 to 15 assumptions, each a statement that must be true, with its kind (desirable: people want it; viable: it pays off; feasible: we can build it; usable: they can use it; ethical or legal), the evidence for it with source, and how much evidence there is (none, thin, solid).
+3. **Map**: Each assumption placed on two axes in a small table: how much the plan depends on it (high or low) and how little is known (high or low). The high-high group is the riskiest.
+4. **The riskiest five**: For each: why it is risky, what would show it is false, and the cheapest test that could show it inside the person's time, with a pass line from the person or "to define".
+5. **Test order**: The sequence, cheapest and most decisive first, and what to do with the plan if each one fails.
+6. **What the evidence already settles**: Assumptions that can be treated as known, and the source that justifies it.
+
+**Rules specific to this skill** (on top of the shared ones)
+
+- An assumption is a statement that could be false. Rewrite wishes and tasks into statements, and keep each to one claim.
+- Do not mark an assumption as supported without a source you can cite. No source means "none" or "thin".
+- Pass lines and thresholds come from the person. Do not invent a number to make a test look decisive.
+- Placement on the map is your proposal and is labelled as proposed; the person corrects it.
+
+**Key ideas the skill rests on**
+
+- Every plan stands on beliefs that are rarely written down. Making them visible is the cheapest risk reduction there is; the risk lives in the unwritten ones.
+- An assumption is a statement that could be false. "Users want faster export" is an assumption; "build faster export" is a task.
+- Assumptions come in kinds. Desirable (people want it), viable (it pays off), feasible (we can build and run it), usable (they can work it out) and, where it applies, ethical or legal. A plan usually fails on the kind nobody checked.
+- Rank by two things: how much the plan depends on it, and how little is known. The high-dependence, low-knowledge assumptions are the ones to test first.
+- Test the cheapest way that could change your mind. Asking five people, a fake door, a prototype, a data pull: use the least costly test that could still show the assumption is wrong.
+- Evidence has grades. A customer's behaviour beats what they say; what they say beats what colleagues believe. Mark which is which.
+
+**When not to use it** (the assistant says so and names what to do instead)
+
+- The plan is already built and shipped. Use the outcome review (pv-outcome) to see what turned out true.
+- The question is how to write the hypothesis. Use pv-hypothesis; this skill finds what to test, that one words it.
+- The person wants a list of risks of failure in delivery. Use pv-premortem; this skill is about whether the idea is worth building.
+
+**Pitfalls it avoids**
+
+| Pitfall | Why it hurts | Instead |
+|---|---|---|
+| Wishes and tasks as assumptions | "We will launch in Q2" cannot be tested as a belief. | Rewrite as something that could be false: "customers will adopt within a quarter". |
+| Compound statements | Two claims in one cannot be tested separately. | One claim per row. |
+| Only desirability | Teams test whether people want it and skip whether it pays or can be run. | Check at least one assumption of each kind, or say which were skipped. |
+| Believing your own evidence | A colleague's opinion is recorded as evidence. | Grade the evidence: behaviour, stated, believed; cite sources. |
+| Tests that cannot fail | A survey that leads the answer proves nothing. | State in advance what result would show the assumption false. |
+| Expensive first tests | Building before asking wastes the lead time that tests exist to save. | Order by cost; run the cheapest decisive test first. |
+
+**Checked before delivering**
+
+- Each assumption is a single claim that could be false.
+- Each has a kind, an evidence grade and a source or says none.
+- At least one assumption of each relevant kind appears, or the gap is named.
+- The riskiest five are chosen by the stated two axes, and the placement is marked as proposed.
+- Each of the five has a test, what would show it false, and a pass line from the person or "to define".
+- The tests are in order of cost and decisiveness, and the plan change for a failure is stated.
+- Settled assumptions cite the evidence that settles them.
+
+**The standard, by example** (the assistant sees this pair)
+
+- Strong: Assumption 4 (desirable): commuting listeners lose the connection mid-episode often enough to stop listening. Evidence: stated, discovery v2 interviews (6 of 9). Test: look at where in the episode mobile sessions end, from the events dashboard. False if sessions end evenly through the episode.
+- Weak: Users will love offline mode and it will increase engagement.
+- Why: The strong version is one testable claim with its evidence graded and a way to be shown wrong. The weak one is a hope with no test.
+
+**Example input**
+
+pv-assumptions R-04. A quarter of work depends on it. Known: six of nine interviewed commuters lose connection mid-episode. Can wait three weeks to test.
+
+**Example output** *(illustrative, trimmed)*
+
+```markdown
+## 1. The plan in one line
+Let mobile listeners download episodes so they finish more of them (key result 3.1 to 3.8 episodes per weekly listener).
+
+## 2. Assumptions
+| # | Assumption | Kind | Evidence | Amount |
+|---|---|---|---|---|
+| 1 | Commuters lose connection often enough to stop listening | desirable | stated, discovery v2 (6 of 9) | thin |
+| 2 | Listeners will plan ahead and download | desirable | none | none |
+| 3 | Downloads fit on older phones | feasible | none | none |
+| 4 | Rights holders allow offline use | viable | none | none |
+
+## 3. Map
+High dependence and little known: 2, 3 and 4. High dependence and some evidence: 1.
+
+## 4. The riskiest five
+2: if listeners do not plan ahead, the feature sits unused. Cheapest test: a download button that records taps, shown to 5% of listeners. False if fewer than your pass line (to define) tap it.
+
+## 5. Test order
+4 first (one conversation with the rights lead, a day), then 2 (three weeks), then 3.
+
+## 6. What the evidence already settles
+Nothing is settled; 1 has thin, stated evidence only.
+```
+
+### `pv-sunset`: Sunset plan
+
+*Plan the retirement of a feature or product: who is affected, what depends on it, how to tell them, and how to end it safely.*
+
+- **Stage**: Run the product. **Works on**: one initiative. **You get**: Sunset plan document on the initiative. **Status**: New (wave 2, this PR).
+- **Company profile sections it reads**: products, personas, glossary, partners.
+- **Fields it can fill** (empty ones, after a preview and agreement): none.
+- **Who decides**: the product leadership, who decide to retire and set the dates.
+
+**What it reads in Product Velocity**
+
+1. get_item for the initiative: description, phase, adoption and outcome fields, dependencies (dependencies_blockers, depends_on) and target segments.
+1. search_items for initiatives that depend on it or share its segments, so nothing is retired under another team's plan.
+1. get_outcome_reviews and the documents (list_documents, get_document, at most five) for how it is used and what customers said, with sources.
+
+**Questions it asks (one message, each skippable)**
+
+1. What is being retired?
+   - A. A feature inside a product: use when the product stays and part of it goes.
+   - B. A whole product or plan: use when customers must move or leave.
+   - C. An integration or an API version: use when other systems depend on it.
+1. Why retire it, and is the date fixed?
+1. Who uses it today, as far as you know, and is there a replacement they can move to?
+
+**Template** (sections of the document, written as `## n. Title`)
+
+1. **What is ending and why**: The thing, the reason from the person, the proposed dates with their status (fixed, proposed, to define).
+2. **Who is affected**: Groups of users and customers, how many as stated by the person or a source, and what they use it for. Customer names appear only as the person gave them.
+3. **What depends on it**: Initiatives, integrations, reports, contracts and promises that depend on it, from Product Velocity and from the person.
+4. **The path for customers**: The replacement or the alternative, what migrates and what does not, and what customers lose.
+5. **Timeline**: Announce, stop new use, read-only, end, delete data: each step with a date or "to define" and who does it.
+6. **Communication**: Who needs to be told, in what order (internal first, then customers), through which channel, with the key message for each group. Draft wording is labelled as a draft.
+7. **Data and obligations**: What data exists, how long it is kept, export rights, and contract or legal duties as the person stated them; anything unknown is listed for legal to answer.
+8. **Risks and a way back**: What could go wrong (customers lost, dependents broken, support spike), the early signs, and what would make you pause or reverse.
+
+**Rules specific to this skill** (on top of the shared ones)
+
+- Never move Initiative Phase to Sunset, change a date or tell a customer anything. Moving the phase is a person's step; sending is the person's step with an explicit confirmation.
+- Contract terms, notice periods and legal duties come from the person or a document you can cite. Do not state a legal requirement you cannot source; list it for legal to confirm.
+- Customer and user counts and names come only from the person or Product Velocity. Never name an individual end user.
+- Draft messages are drafts. Do not claim a date is public until the person says so.
+
+**Key ideas the skill rests on**
+
+- Retiring something is a product decision with a customer promise attached. People rely on what exists, and how you end it shapes trust more than the fact that you end it.
+- Count the dependents before setting the date: other initiatives, integrations, reports, contracts and promises. A date set before this is a guess.
+- Give people a path, not only a date. A replacement, a migration or an export, and a clear statement of what is lost. "We are ending it" without "here is what to do" produces escalations.
+- Sequence the end: announce, stop new use, read-only, end, delete. Each step can be reversed until the last one, and the last one should come well after the user's last chance to act.
+- Tell people in an order that avoids surprise. Staff who talk to customers hear first; customers hear from us, not from each other.
+- Data has obligations. What is kept, for how long, and what customers can take with them are legal and trust questions; list them for the right people to answer.
+
+**When not to use it** (the assistant says so and names what to do instead)
+
+- Only a temporary pause or a hide-behind-a-flag is meant. That is a roll-back, not a sunset.
+- The decision to retire has not been made. First use pv-business-case or pv-prioritise to decide; this plan assumes it is decided.
+- The thing is being replaced by something people use automatically with nothing to do. A short migration note is enough.
+
+**Pitfalls it avoids**
+
+| Pitfall | Why it hurts | Instead |
+|---|---|---|
+| A date with no path | Customers hear that something is ending and not what to do. | State the replacement, the migration and what is lost. |
+| Ignoring dependents | Other teams and integrations break on the day. | List dependents from Product Velocity and from the person before fixing dates. |
+| Telling customers first | Support and sales are surprised by questions they cannot answer. | Plan internal communication before external. |
+| Deleting too early | Data is gone before the last chance to export it. | End use first, delete after a stated period. |
+| Claiming a legal duty from memory | Notice periods and contract terms differ by customer. | List them as questions for legal; cite the contract if the person gave it. |
+| No early warning of damage | The first sign of trouble is a customer leaving. | Name the signals and who watches them, and what would pause the plan. |
+
+**Checked before delivering**
+
+- The reason and the dates are stated with their status (fixed, proposed, to define).
+- Dependents are listed, with the source, or the gap is named.
+- A path for customers is given, and what they lose.
+- The timeline has announce, stop new use, read-only, end and delete steps, each with an owner role.
+- Internal communication comes before customer communication.
+- Data and legal questions are listed for the right owner and none is stated as law without a source.
+- The phase, the dates and any message are marked as not changed or sent.
+
+**The standard, by example** (the assistant sees this pair)
+
+- Strong: Step 3 (read-only): on 1 October the old export screen shows data but accepts no new jobs. Customers on the legacy plan get a banner and an email on 1 September with the steps to move to the new export. Support has a macro by 15 August. Data is kept 90 days after the end, as the person stated; legal to confirm the contract terms.
+- Weak: The old export will be discontinued at the end of Q3. Customers will be notified.
+- Why: The strong plan gives dates, steps, owners and what customers can do; the weak one is only an intent.
+
+**Example input**
+
+pv-sunset R-19. Retiring the legacy export screen; the new export replaces it. End date proposed 1 October. Used by customers on the legacy plan.
+
+**Example output** *(illustrative, trimmed)*
+
+```markdown
+## 1. What is ending and why
+The legacy export screen, replaced by the new export. End: 1 October (proposed).
+
+## 2. Who is affected
+Customers on the legacy plan; number to define (not in Product Velocity).
+
+## 3. What depends on it
+R-22 (scheduled reports) lists R-19 as a dependency; talk to its owner before the date is fixed.
+
+## 4. The path for customers
+The new export covers CSV and Excel; PDF export is not covered, which is lost.
+
+## 5. Timeline
+Announce 1 September (comms lead); stop new jobs 1 October (read-only); end 1 November; delete data 90 days later (your stated period).
+
+## 6. Communication
+Support and sales first, with a macro by 15 August; customers by email and banner 1 September. Draft wording follows, marked as a draft.
+
+## 7. Data and obligations
+Export rights and contract notice periods: for legal to confirm.
+
+## 8. Risks and a way back
+Support spike in the first week; pause if tickets pass your threshold (to define). Initiative Phase is not changed; moving it to Sunset is your step.
+```
+
+### `pv-stakeholders`: Stakeholder map
+
+*Map who needs to be aligned on an initiative, what each cares about, and what to bring to each of them and when.*
+
+- **Stage**: Decide. **Works on**: one initiative. **You get**: Stakeholder map document on the initiative. **Status**: New (wave 2, this PR).
+- **Company profile sections it reads**: personas, glossary, partners.
+- **Fields it can fill** (empty ones, after a preview and agreement): none.
+- **Who decides**: the owner of the initiative, who decides how to approach each group.
+
+**What it reads in Product Velocity**
+
+1. get_item for the initiative: team and role fields, phase, gate status, dependencies and the alignment aggregates (alignment_status, crowd_consensus, crowd_votes).
+1. list_documents and get_document for its PRD, discovery and meeting notes (at most five); take roles and concerns the documents state, with the source.
+1. search_items for initiatives that share its dependencies or groups, to find the teams that must be involved.
+
+**Questions it asks (one message, each skippable)**
+
+1. What do you need from the stakeholders?
+   - A. A decision at a gate: use when someone must approve before work starts or ships.
+   - B. Resources or capacity: use when you need people, budget or time from other teams.
+   - C. Support, or not to block: use when you need other teams or customers on board.
+1. Who do you already know matters, with their role? Names only as you give them.
+1. Where do you expect resistance or doubt?
+
+**Template** (sections of the document, written as `## n. Title`)
+
+1. **What alignment is needed**: The initiative, the decision or support needed, the date, and who decides (an Approver role) from Product Velocity.
+2. **The map**: A table: group or role (person's name only if the person gave it), what they decide or influence, how much the outcome affects them, current stance if the person knows it (supportive, neutral, doubtful, unknown), and the evidence for that stance.
+3. **What each group cares about**: In their terms: the benefit, the cost to them, the question they will ask. Use the profile's personas and glossary.
+4. **What to bring and when**: Per group: the one thing to show or ask, the form (a one-pager, a demo, a gate pack), who delivers it and when.
+5. **Order of conversations**: Who to talk to first, and why; who must not hear it second-hand.
+6. **Gaps and risks**: Groups missing from the map, stances that are guesses, and what happens if a key group is left out.
+7. **Alignment in Product Velocity**: What the alignment aggregates show (status, consensus, number of votes, shown only where five or more voted) and what it does not show; whether to open an alignment round, as a suggestion.
+
+**Rules specific to this skill** (on top of the shared ones)
+
+- Stance is what the person or a document says. Mark everything else "unknown"; never infer a person's view from their role or seniority.
+- Use alignment results only as aggregates. Never name, guess or narrow down an individual voter, and do not read anything into a hidden group.
+- Write about roles and positions on the initiative. Do not rate people, write about their character or performance, and keep personal details out.
+- Do not send anything or open an alignment round. Those are steps the person takes, with confirmation.
+
+**Key ideas the skill rests on**
+
+- Alignment is not agreement with everyone; it is that the people who decide, and the people who can block or must deliver, understand what is asked of them and have had the chance to say no early.
+- Map by two things: how much they decide or influence, and how much the outcome affects them. Those who both decide and are affected need the most attention, early.
+- Speak in their terms. A finance lead cares about cost and timing, support about volume and training, legal about obligation. The same initiative is a different story for each.
+- Stance is evidence, not impression. Write what a person said or did, with its source; otherwise write unknown. A guessed stance becomes a self-fulfilling label.
+- Order matters. Nobody should hear about a change that affects them from someone else. Decide who hears first and why.
+- Product Velocity's alignment results are aggregate and anonymous. They show where the group stands, not who stands where, and the app hides groups that are too small to be anonymous.
+
+**When not to use it** (the assistant says so and names what to do instead)
+
+- The initiative is small and affects only the team. A short note to the team is enough.
+- The goal is to rate or rank people. This skill maps roles and positions on an initiative, never people's quality.
+- The question is whom to put on the product team. That is a staffing decision for the person.
+
+**Pitfalls it avoids**
+
+| Pitfall | Why it hurts | Instead |
+|---|---|---|
+| A list of names | A list of people says nothing about what each needs. | Say what each group decides, what affects them and what to bring. |
+| Guessed stances | Assumed opposition shapes how you approach people. | Mark unknown unless said or shown; cite the source. |
+| Forgetting the quiet groups | Support, legal and operations are skipped and block at the end. | Check the dependencies and the launch areas for missing groups. |
+| One message for all | The same pitch misses what each cares about. | Write the benefit, the cost and the question per group. |
+| Treating the alignment result as individuals | Trying to identify a voter breaks anonymity and trust. | Use aggregates only and say what they do not show. |
+| No order of conversations | Someone hears second-hand. | Decide who first, and why. |
+
+**Checked before delivering**
+
+- Each stakeholder is a role or group; a person's name is there only if the person gave it.
+- Each has what they decide or influence and how the outcome affects them.
+- Each stance is marked with its source or as unknown.
+- Each group has what they care about in their terms and what to bring.
+- An order of conversations is given with the reason.
+- Missing groups are listed and the risk of leaving them out is stated.
+- The alignment aggregates are described as aggregates, with what they cannot show.
+- Nothing was sent and no alignment round was opened.
+
+**The standard, by example** (the assistant sees this pair)
+
+- Strong: Support (decides nothing, affected: ticket volume rises for two weeks). Stance: doubtful, per the March sync notes. Cares about: training time and a macro for the top three questions. Bring: the one-pager and a draft of the three answers, in the week before enablement. Talk to them before sales, who will ask them.
+- Weak: Support: should be fine with it. Sales: excited. Legal: will need to review.
+- Why: The strong entry gives influence, effect, a sourced stance, what to bring and when. The weak one is impression with no source and no action.
+
+**Example input**
+
+pv-stakeholders R-04. I need a decision at Gate B. I know that support and rights matter. I expect doubt from rights.
+
+**Example output** *(illustrative, trimmed)*
+
+```markdown
+## 1. What alignment is needed
+A go at Gate B for R-04. The Approver role decides.
+
+## 2. The map
+| Group | Decides or influences | Affected by | Stance | Source |
+|---|---|---|---|---|
+| Product leadership | decides at the gate | high | unknown | none |
+| Rights and partnerships | can block (offline use needs rights) | high | doubtful | your statement |
+| Support | influences launch readiness | medium | unknown | none |
+
+## 3. What each group cares about
+Rights: terms and the risk of offline copies. Support: ticket volume and answers ready.
+
+## 4. What to bring and when
+Rights: a one-page description of how downloads expire, before the gate pack goes out.
+
+## 5. Order of conversations
+Rights first, then support, then leadership.
+
+## 6. Gaps and risks
+Legal is missing from the map; the dependencies show a legal review for a similar initiative.
+
+## 7. Alignment in Product Velocity
+Alignment status shows 'not started'. Suggestion: open an alignment round after the rights conversation; I do not open it.
+```
+
+### `pv-readiness`: Launch readiness
+
+*Check whether an initiative is ready to roll out: product, support, sales, legal, data and rollback, with the gaps and who owns them.*
+
+- **Stage**: Launch. **Works on**: one initiative. **You get**: Launch readiness document on the initiative. **Status**: New (wave 2, this PR).
+- **Company profile sections it reads**: products, personas, glossary, metrics.
+- **Fields it can fill** (empty ones, after a preview and agreement): `gtm_enablement_notes`.
+- **Who decides**: the owner of the initiative and the Approver for the roll-out gate, who decide whether to launch.
+
+**What it reads in Product Velocity**
+
+1. get_item for the initiative: phase, health, roll-out fields (start roll-out, roll-out percentage), enablement notes, key result and dependencies.
+1. get_gate_pack for the initiative, to see which gate conditions are met and open; it is read only.
+1. list_documents and get_document for its PRD, go-to-market, success metrics, acceptance and experiment documents (at most five); take the commitments from them and cite them.
+
+**Questions it asks (one message, each skippable)**
+
+1. How wide is the launch?
+   - A. A small group first: use when a pilot, a beta or a percentage roll-out with a way to widen it.
+   - B. Everyone at once: use when the change cannot be split by user.
+   - C. Internal only: use when the first release is for staff or a partner.
+1. When is the date, and is it fixed by something outside the team?
+1. Who owns support, sales enablement, legal and the rollback? Roles are enough.
+
+**Template** (sections of the document, written as `## n. Title`)
+
+1. **The launch in one line**: What goes live, for whom, on what date, how wide, and the measure that says it worked (the key result from Product Velocity).
+2. **Checklist**: A table by area (product and quality, data and measurement, support, sales and enablement, marketing and comms, legal and privacy, security, operations and monitoring, rollback). Each row: the check, status (done, open, not applicable, unknown), the source for done, the owner role and the date.
+3. **Blocking gaps**: The open items that would make the launch unsafe, and why. A gap without an owner is flagged.
+4. **Safe to widen**: For a staged launch: the signal that says continue, the signal that says pause, who watches it, and how to roll back.
+5. **Day one**: What happens in the first hours and days: who is on call, where issues are reported, when the first read is taken.
+6. **Open questions**: What the person must answer, grouped by area.
+7. **Values for Product Velocity**: one `key: value` line per field the skill owns.
+
+**Rules specific to this skill** (on top of the shared ones)
+
+- Mark an item done only where the person or a document you can cite says so. Never assume a standard check passed because the launch is near.
+- You do not decide that the initiative is ready, request or move a gate, change the roll-out percentage or the phase. You list the evidence and the gaps; a person decides.
+- Rollback and monitoring are always on the list, even when the person did not mention them; mark them unknown if nothing says they exist.
+- Values for Product Velocity: gtm_enablement_notes only, a short plain-text summary of the enablement items from the checklist; leave it out if the field already has text.
+
+**Key ideas the skill rests on**
+
+- Readiness is a list of things that can be checked, not a feeling. For each area there is a question with a yes, a no or an unknown, and a person who owns the answer.
+- Unknown is not yes. A check without a source is open until someone confirms it, and the list says so plainly.
+- A launch has more areas than the product: data and measurement, support, sales and enablement, comms, legal and privacy, security, operations, and the way back. Most late surprises come from the areas outside the product.
+- Stage the launch when you can. A small group first, with a signal to continue and a signal to pause, turns a risky day into a series of small decisions.
+- Rollback is part of the launch. If nobody can say how to undo it, or how long that takes, the plan is not ready.
+- The first days need an owner. Who reads the signals, where issues go, and when the first read of the key result is taken, written down before launch.
+
+**When not to use it** (the assistant says so and names what to do instead)
+
+- The initiative is still in Discover or Define. Use pv-gate to prepare the case for building; readiness comes after.
+- The question is the story and messages for the market. Use pv-gtm; this skill checks that the pieces exist.
+- Something is live and failing. That is an incident, not a launch review.
+
+**Pitfalls it avoids**
+
+| Pitfall | Why it hurts | Instead |
+|---|---|---|
+| Product-only checklist | Support, legal and operations are found out about on launch day. | Walk every area; mark the ones that do not apply and why. |
+| Done without a source | A check is ticked because it feels done. | Say who confirmed it or which document shows it; otherwise mark unknown. |
+| No rollback | The first problem becomes an emergency. | Name the way back, who does it and how long it takes. |
+| Everyone at once without a reason | No chance to learn before the whole base is affected. | Offer a staged option, or say why it cannot be staged. |
+| No owner on gaps | Open items sit unassigned until the date. | Every open row has an owner role and a date, or is flagged. |
+| Declaring ready | The assistant's verdict is taken as the decision. | List evidence and gaps; a person decides. |
+
+**Checked before delivering**
+
+- Every area appears, or is marked not applicable with a reason.
+- Each done check has a source; everything else is open or unknown.
+- Each open row has an owner role and a date or is flagged as without one.
+- Rollback and monitoring are on the list, marked unknown if nothing says they exist.
+- Blocking gaps are separated from nice-to-have.
+- For a staged launch, the continue and the pause signals are stated.
+- The key result and its first read are named.
+- Nothing was said to be ready; the decision is left to the person, and no field other than the enablement notes is proposed.
+
+**The standard, by example** (the assistant sees this pair)
+
+- Strong: Support: open. The macro for the three top questions is not written (owner: support lead, due 10 March). Source: no document found in Product Velocity; the person said it is in progress. Blocking: yes, tickets will go to a team without answers.
+- Weak: Support: should be ready by launch. Everything looks good overall.
+- Why: The strong row gives a status, a source, an owner, a date and whether it blocks. The weak one is a mood.
+
+**Example input**
+
+pv-readiness R-04. A small group first, then widen. 15 March, fixed by a partner event. Support lead owns support; the rollback is a flag owned by engineering.
+
+**Example output** *(illustrative, trimmed)*
+
+```markdown
+## 1. The launch in one line
+Offline listening to 10% of mobile listeners on 15 March, widening on a signal. Success measure: episodes per weekly mobile listener, 3.1 to 3.8 (key result).
+
+## 2. Checklist
+| Area | Check | Status | Source | Owner | Date |
+|---|---|---|---|---|---|
+| Product | acceptance passed | open | none | engineering | 8 Mar |
+| Measurement | the events dashboard shows episodes per listener | done | success metrics v1 | data | n/a |
+| Support | macro for top questions | open | none | support lead | 10 Mar |
+| Legal | rights confirmed for offline use | unknown | none | not set | n/a |
+| Rollback | flag turns it off, time to roll back | unknown | stated only | engineering | n/a |
+
+## 3. Blocking gaps
+Rights confirmation has no owner and no date.
+
+## 4. Safe to widen
+Continue if the error rate stays under your threshold (to define); pause on any data-loss report.
+
+## 5. Day one
+Support lead reads the issue queue at noon; first key result read after one week.
+
+## 6. Open questions
+Who owns rights? How long does a rollback take?
 ```
 
 ## 6. Tools the skills use, and where the result lands
@@ -2506,9 +3090,7 @@ Fields this skill may fill from the document (through apply_skill_extract, copie
 ```text
 Run the Product Velocity skill pv-weekly (Weekly update): a leadership report on what happened this week, framed for decisions: the bottom line and asks first, what changed and why it matters, what is at risk, and what comes next. All initiatives, or only the ones you name
 
-Scope: only these initiatives, as the person named them (data from the person): """
-quarter:"Q4 2026"
-"""A range such as R-1 to R-5 means every code in between; a view or group means the initiatives in it (search_items). A quarter such as Q4-26 (quarter:"Q4 2026") means the Planned Quarter field: call search_items with quarter set, as the first filter, to get the codes. Pass the codes to get_report as items, say in one line which you covered and which you could not find, and leave every other initiative out.
+Scope: all initiatives in the workspace. The person did not name any; do not ask which, just cover everything the data shows.
 The person gave no further words: work from the profile and the workspace data and ask what is missing.
 
 ORDER OF WORK
@@ -2517,7 +3099,7 @@ ORDER OF WORK
 3. get_report with report health (same items): counts by health, by project, and what needs attention with the reasons. Quote its numbers; do not recount.
 4. For the five or six initiatives that matter most (the biggest moves, anything At Risk or Blocked, anything waiting at a decision gate, anything with a date slipping): get_item for dependencies, dates and the latest changes; get_gate_pack for gates; get_outcome_reviews for a 30, 60 or 90 day review due this week. If the person named initiatives, read all of them, up to ten.
 5. The week before: get_report with week_of set to seven days earlier, and list_documents with no item for last week's update if one was saved (get_document). Compare, so the update says what is new, what got better or worse, and what has stayed stuck.
-6. Send ONE message: the questions below (skip any the profile or workspace already answers), what you could not fill (grouped, skippable), opening with your read-back. Wait for the answer.
+6. Send ONE message: the questions below (skip any the profile or workspace already answers), what you could not fill (grouped, skippable) and which format they want it in (email, slides, document, Slack message or just here), opening with your read-back. Wait for the answer.
 7. Write the report with the sections below.
 8. Deliver it as set out under FORMAT. Then offer once to save a copy in Product Velocity (create_document without item, kind weekly_update, title "Weekly update: <period>"), and only if the person says yes.
 9. Tell the person what you used, what you wrote, what is left "to define", that nothing was sent or saved, and what they need to check before it goes out.
@@ -2554,7 +3136,11 @@ SECTIONS OF THE REPORT (all optional unless the skill says otherwise)
 - 6 Where to look: Links to the digest items and the initiatives, so a reader can go deeper. Only links the data returned.
 
 FORMAT
-The person chose slides: a short deck of five slides or fewer, one message per slide, a title that states the message, three bullets at most per slide, numbers from the data only. Build it with a connected presentation tool if there is one; otherwise write slide by slide.
+- email: an email: a subject line (a suggestion), a two-line opening that holds the bottom line and the asks, then short sections with bullets. Plain text that survives a paste.
+- slides: a short deck of five slides or fewer, one message per slide, a title that states the message, three bullets at most per slide, numbers from the data only. Build it with a connected presentation tool if there is one; otherwise write slide by slide.
+- document: a short document with headings and bullets for reading, with the same order as the sections. Build it with a connected document tool if there is one; otherwise Markdown.
+- slack: a Slack message: a bold first line with the bottom line, then at most eight bullets, links where the data has them. No headings.
+- chat: just here in the chat, as Markdown.
 
 This skill fills no initiative fields; its result lives in the document.
 ```

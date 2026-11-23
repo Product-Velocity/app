@@ -44,6 +44,11 @@ Product Velocity is this team's roadmap and stack rank. You reach it through the
 - `/pv-hypothesis`: Hypothesis
 - `/pv-outcome`: Outcome review brief
 - `/pv-which`: Which skill
+- `/pv-split`: Split an initiative
+- `/pv-assumptions`: Assumption map
+- `/pv-sunset`: Sunset plan
+- `/pv-stakeholders`: Stakeholder map
+- `/pv-readiness`: Launch readiness
 - `/pv-help`: List the Product Velocity skills
 
 ## Flows and prompts
