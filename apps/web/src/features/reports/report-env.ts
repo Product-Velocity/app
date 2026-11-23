@@ -14,6 +14,7 @@ export const REPORTS = [
   { id: "gates", label: "Gate history" },
   { id: "changes", label: "Changes" },
   { id: "velocity", label: "Velocity" },
+  { id: "okrs", label: "OKRs" },
 ] as const;
 export type ReportId = (typeof REPORTS)[number]["id"];
 export const DEFAULT_REPORT: ReportId = REPORTS[0].id;

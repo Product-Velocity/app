@@ -15,7 +15,7 @@ const fmtDays = (n: number | null) => (n === null ? "–" : `${Math.round(n * 10
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;
 
 /** A small table under a chart: the same numbers, reachable from the keyboard and read by screen readers. */
-function DataTable({ caption, head, rows }: { caption: string; head: string[]; rows: (string | number)[][] }) {
+export function DataTable({ caption, head, rows }: { caption: string; head: string[]; rows: (string | number)[][] }) {
   return (
     <details className="rp-details">
       <summary>Show as table</summary>

@@ -15,6 +15,7 @@ import { ChangesReport } from "./changes-report";
 import type { GateSource } from "../gates/gate-source";
 import { GateHistoryReport } from "./gate-history-report";
 import { HealthReport } from "./health-report";
+import { OkrReport } from "./okr-report";
 import { OverviewReport } from "./overview-report";
 import { VelocityReport, VELOCITY_PARAMS } from "./velocity-report";
 import { DEFAULT_REPORT, REPORTS, parseReportId, useReportEnv, type ReportId } from "./report-env";
@@ -87,7 +88,7 @@ export function ReportsView({ controller, lookups, me, loadGateRequests, loadCha
         <div className="reports-main">
           <ReportFilters env={env} setState={setState} extra={tools} />
 
-          {report === "overview" ? <OverviewReport env={env} setState={setState} onOpen={setPeekId} /> : report === "health" ? <HealthReport env={env} onOpen={setPeekId} /> : report === "changes" ? <ChangesReport env={env} load={loadChanges} loadIssues={loadTrackerIssues} loadJiraUsers={loadJiraUsers} {...(gateSource ? { gates: gateSource } : {})} me={me} onOpen={setPeekId} /> : report === "velocity" ? <VelocityReport env={env} load={loadGateRequests} onOpen={setPeekId} /> : <GateHistoryReport env={env} load={loadGateRequests} onOpen={setPeekId} />}
+          {report === "overview" ? <OverviewReport env={env} setState={setState} onOpen={setPeekId} /> : report === "health" ? <HealthReport env={env} onOpen={setPeekId} /> : report === "changes" ? <ChangesReport env={env} load={loadChanges} loadIssues={loadTrackerIssues} loadJiraUsers={loadJiraUsers} {...(gateSource ? { gates: gateSource } : {})} me={me} onOpen={setPeekId} /> : report === "velocity" ? <VelocityReport env={env} load={loadGateRequests} onOpen={setPeekId} /> : report === "okrs" ? <OkrReport env={env} /> : <GateHistoryReport env={env} load={loadGateRequests} onOpen={setPeekId} />}
         </div>
         {peekId && <ItemPanel controller={controller} lookups={lookups} itemId={peekId} me={me} mode="peek" onClose={() => setPeekId(null)} />}
       </div>
