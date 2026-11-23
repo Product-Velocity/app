@@ -5,6 +5,7 @@ const SKILL_LIST = SKILL_COMMANDS.join(", ");
 
 /** What a skill gives you, in words: a report in a format, a document on the initiative or in Documents, and the fields it can fill. */
 function skillResult(s: (typeof SKILLS)[number]): string {
+  if (s.output === "advice") return "Advice in the chat: the skill that fits, what to bring and what comes before and after. Nothing is saved";
   if (s.output === "report") return "A report in the format you choose (email, slides, document, Slack message or just in the chat). Nothing is saved or sent unless you ask for a copy in Documents";
   const fields = s.fields.map((k) => FIELD_BY_KEY[k]?.name ?? k);
   const where = s.target === "none" ? `A ${docKindLabel(s.doc.kind)} document in Documents (an AI draft)` : `A ${docKindLabel(s.doc.kind)} document on the initiative's Spec tab (an AI draft)`;
@@ -38,6 +39,7 @@ export const AGENT_SKILL_TIPS: string[] = [
   "Results land where they belong: a skill that works on an initiative saves on its Spec tab, a company-level skill saves under Documents in the account menu, and a report is delivered in the format you chose. Document text never goes to GitHub or Jira.",
   "A skill fills initiative fields only from a short block at the end of its document, only after you have seen a preview and agreed, and a field that already has a value comes back as a before-and-after to confirm. Stack Rank, Value, Confidence, Decision and approvals are always yours.",
   "To change a saved document, ask the assistant to revise it: the old version is kept. Ask it to run the skill again only when the facts have changed.",
+  "Not sure which skill? Ask pv-which and describe your situation: it recommends one skill, what to bring and what to run before or after.",
   "Skills prepare; people decide. Every document says who decides, and gates stay in the app.",
 ];
 
@@ -45,7 +47,7 @@ export const AGENT_SKILL_TIPS: string[] = [
 export const AGENT_SKILLS: Table = {
   head: ["Skill", "What it does", "Works on", "You get"],
   rows: [
-    ...SKILLS.map((s) => [`${s.command} (${SKILL_STAGE_LABEL[s.stage]})`, s.summary.charAt(0).toUpperCase() + s.summary.slice(1), s.focus ? "All initiatives, or only the ones you name (codes, a range such as R-1 to R-5, a view or a group)" : s.target === "none" ? "The whole workspace; no initiative needed" : "One initiative (a code such as R-12)", skillResult(s)]),
+    ...SKILLS.map((s) => [`${s.command} (${SKILL_STAGE_LABEL[s.stage]})`, s.summary.charAt(0).toUpperCase() + s.summary.slice(1), s.output === "advice" ? "Your situation in your own words" : s.focus ? "All initiatives, or only the ones you name (codes, a range such as R-1 to R-5, a view or a group)" : s.target === "none" ? "The whole workspace; no initiative needed" : "One initiative (a code such as R-12)", skillResult(s)]),
     ["pv-help", "Lists the skills and how to use them", "Nothing", "A list in the chat"],
   ],
 };

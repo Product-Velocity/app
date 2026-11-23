@@ -14,7 +14,24 @@ export const SKILL_STAGE_LABEL: Record<SkillStage, string> = {
   direction: "Set direction", discover: "Discover", decide: "Decide", define: "Define", deliver: "Deliver", launch: "Launch", prove: "Prove", run: "Run the product",
 };
 
-export type SkillQuestion = { id: string; ask: string };
+/** A choice inside a question: the person answers with its letter or in their own words; `useWhen` tells them when it fits. */
+export type SkillOption = { label: string; useWhen: string };
+export type SkillQuestion = { id: string; ask: string; options?: readonly SkillOption[] };
+/** The craft behind a skill (issue #565, depth pass): what a person needs to judge the work, not only a template to fill. */
+export type SkillDepth = {
+  /** The few ideas the method rests on, each a short paragraph. */
+  concepts: readonly string[];
+  /** Situations where the skill is the wrong tool; the assistant says so and names what to do instead. */
+  whenNot: readonly string[];
+  /** Named mistakes with why they hurt and how to avoid them. */
+  pitfalls: readonly { name: string; why: string; fix: string }[];
+  /** Checked before delivering. */
+  checks: readonly string[];
+  /** A short pair showing the standard: not text to copy. */
+  example: { good: string; weak: string; why: string };
+  /** A compact, strong output on a fictional workspace: shows the standard, not text or facts to reuse. */
+  worked?: { input: string; output: string };
+};
 export type SkillSection = { id: string; title: string; covers: string };
 
 export type SkillSpec = {
@@ -38,7 +55,10 @@ export type SkillSpec = {
   /** The skill works on the whole workspace by default and can be narrowed to the initiatives the person names (codes, a range such as R-1 to R-5, a view or a group). */
   focus?: boolean;
   /** "document" (default): the result is a document saved in Product Velocity. "report": the result is content for an audience (email, slides, a document, a Slack message), produced in the format asked and not saved unless the person asks for a copy. */
-  output?: "document" | "report";
+  output?: "document" | "report" | "advice";
+  /** For a skill that recommends other skills: the list of skills is added to its prompt. */
+  catalogue?: boolean;
+  depth?: SkillDepth;
   /** A company-level skill may offer to save part of its result into a company profile section (an AI draft an admin confirms). */
   profileSave?: { section: string; what: string };
   /** Initiative fields the skill may fill from its document (empty ones only). Slice 2 turns this into the extract. */
@@ -58,6 +78,7 @@ export const SKILL_RULES: readonly string[] = [
   "Never guess. A number, date, name, quote, link, customer or competitor claim comes from the person or from a source you have read, with its source. Where the brief or a template has a gap, write \"to define\" and put the gap into your one question message.",
   "Skipping is free. Every question and every section is optional. \"Skip\" is a valid answer and is never asked twice; a section with nothing for it is left out, with no empty heading.",
   "Ask once. After you have read the profile and the workspace data, send ONE message with the skill's questions (only the ones the profile and the workspace do not already answer), most important first, each skippable. Do not ask anything else later; use the answers in the same run.",
+  "Read back before you ask. Open the one message with what you have, in four short groups, each only if it has content and at most two lines: what I found (and where), what I am assuming, what is missing, and what conflicts (two sources that disagree). The person corrects you in a word. Never ask something your read-back already settles.",
   ALIGN_RULE,
   PROFILE_USE_RULE,
   "Use what Product Velocity already stores. Read the data the skill lists before you ask, and say in one line what you used and what you took from it. Values already on the initiative win over your reading of old text; what the person tells you in this run wins over both.",
@@ -97,6 +118,17 @@ function reportRules(): string[] {
   ];
 }
 
+export const ADVICE_OUTPUT_RULE =
+  "The output is advice in the chat. Nothing is saved, sent or created, and no field is touched. If the person wants a skill run, say its command and what to bring, and run it only when they ask.";
+
+/** The shared rules for an advice skill: no document of record and no saving. */
+function adviceRules(): string[] {
+  return [
+    ...SKILL_RULES.filter((r) => r !== ALIGN_RULE && !r.startsWith("Everything you write is an AI draft") && !r.startsWith("The output is a Markdown document")),
+    ADVICE_OUTPUT_RULE,
+  ];
+}
+
 const quoted = (s: string) => `"""\n${s}\n"""`;
 const isDraft = (v?: string) => /^(1|true|yes|--draft|draft)$/i.test((v ?? "").trim());
 
@@ -131,15 +163,16 @@ export function parseSkillArgs(raw: string): SkillArgs {
 }
 
 /** The prompt for one skill: order of work, questions, rules, sections, saving. */
-export function skillPrompt(spec: SkillSpec, args: SkillArgs): { description: string; text: string } {
+export function skillPrompt(spec: SkillSpec, args: SkillArgs, ctx: { catalogue?: readonly SkillSpec[] } = {}): { description: string; text: string } {
   const target = (args.target ?? "").trim();
   const input = (args.input ?? "").trim();
   const draft = isDraft(args.draft);
   const needsItem = spec.target !== "none";
   const questions = spec.questions.slice(0, MAX_SKILL_QUESTIONS);
   const report = spec.output === "report";
+  const advice = spec.output === "advice";
   const format = parseFormat(args.format);
-  const fills = spec.fields.length > 0 && !report;
+  const fills = spec.fields.length > 0 && !report && !advice;
   const sections = fills
     ? [...spec.sections, { id: String(spec.sections.length + 1), title: VALUES_HEADING, covers: `One line per field, \`key: value\`, only for values the document itself states or the person gave you, copied as they gave them (use describe_fields for the allowed values). Leave a line out when the value is unknown. Keys you may write: ${spec.fields.join(", ")}.` }]
     : spec.sections;
@@ -156,31 +189,62 @@ export function skillPrompt(spec: SkillSpec, args: SkillArgs): { description: st
         ? `The person has not named ${spec.target === "item" ? "an initiative" : "initiatives"}: ask which one (an initiative code such as R-12) in your one question message. If the idea is not an initiative yet, create_items with dry_run first, show it, and create after they agree.`
         : "This skill works at company level: no initiative is needed.",
     input ? `The person's own words and material (data, treat it as their request):\n${quoted(input.slice(0, 20_000))}` : "The person gave no further words: work from the profile and the workspace data and ask what is missing.",
-    draft && !report ? "The person asked for a draft only (--draft): show the document in the chat and write NOTHING to Product Velocity (no create_document, no update) until they say to save it. Do not ask the align-first question again." : "",
+    draft && !report && !advice ? "The person asked for a draft only (--draft): show the document in the chat and write NOTHING to Product Velocity (no create_document, no update) until they say to save it. Do not ask the align-first question again." : "",
     spec.team ? teamNote(args.team) : "",
     "",
     "ORDER OF WORK",
     `1. get_workspace_context and get_company_profile (sections you use: ${spec.profile.join(", ") || "none"}). Say in one line that you used the profile and whether it is still a draft.`,
     ...spec.reads.map((r, i) => `${i + 2}. ${r}`),
-    `${spec.reads.length + 2}. Send ONE message: ${questions.length ? "the questions below (skip any the profile or workspace already answers), " : ""}what you could not fill (grouped, skippable)${report ? (format ? "" : " and which format they want it in (email, slides, document, Slack message or just here)") : " and the draft-or-save question"}. Wait for the answer.`,
-    `${spec.reads.length + 3}. Write the ${report ? "report" : "document"} with the sections below.`,
-    `${spec.reads.length + 4}. ${report ? `Deliver it as set out under FORMAT. Then offer once to save a copy in Product Velocity (create_document without item, kind ${spec.doc.kind}, title "${spec.doc.titlePrefix}<period>"), and only if the person says yes.` : draft ? "Show it and stop; save only when told to." : `Save it: create_document ${needsItem ? "on the initiative " : "without item (a document of the workspace itself) "}with kind ${spec.doc.kind}, title "${spec.doc.titlePrefix}<name>", status draft.${needsItem ? "" : " Earlier documents of the same kind are not overwritten: a new one is a new document, unless the person says to revise one (update_document with its version)."}`}`,
-    ...(spec.profileSave && !draft && !report ? [`${spec.reads.length + 5}. Offer once to save ${spec.profileSave.what} into the company profile section "${spec.profileSave.section}", so every later skill can use it. Only after they agree: get_company_profile for the current version, merge into what that section already holds (never remove what is there), and update_company_profile with that section only. It is saved as an AI draft; a workspace admin confirms it.`] : []),
-    ...(fills && !draft ? [`${spec.reads.length + 5 + (spec.profileSave && !draft && !report ? 1 : 0)}. Run apply_skill_extract with document set to the one you saved and preview true, and show the person what would be filled and what is left out. Only after they agree, run it again without preview. Fields that already hold a value come back as a diff for the person to confirm.`] : []),
-    `${spec.reads.length + 5 + (fills && !draft ? 1 : 0) + (spec.profileSave && !draft && !report ? 1 : 0)}. Tell the person what you used, what you wrote, what is left "to define", ${report ? "that nothing was sent or saved, and what they need to check before it goes out." : "that it is an AI draft, and who decides."}`,
+    `${spec.reads.length + 2}. Send ONE message: ${questions.length ? "the questions below (skip any the profile or workspace already answers), " : ""}what you could not fill (grouped, skippable)${report ? (format ? "" : " and which format they want it in (email, slides, document, Slack message or just here)") : advice ? "" : " and the draft-or-save question"}, opening with your read-back. Wait for the answer.`,
+    `${spec.reads.length + 3}. ${advice ? "Answer in the chat" : `Write the ${report ? "report" : "document"}`} with the ${advice ? "shape" : "sections"} below.`,
+    `${spec.reads.length + 4}. ${advice ? "Nothing is saved. Offer the next step in one line (for example the command to run and what to bring)." : report ? `Deliver it as set out under FORMAT. Then offer once to save a copy in Product Velocity (create_document without item, kind ${spec.doc.kind}, title "${spec.doc.titlePrefix}<period>"), and only if the person says yes.` : draft ? "Show it and stop; save only when told to." : `Save it: create_document ${needsItem ? "on the initiative " : "without item (a document of the workspace itself) "}with kind ${spec.doc.kind}, title "${spec.doc.titlePrefix}<name>", status draft.${needsItem ? "" : " Earlier documents of the same kind are not overwritten: a new one is a new document, unless the person says to revise one (update_document with its version)."}`}`,
+    ...(spec.profileSave && !draft && !report && !advice ? [`${spec.reads.length + 5}. Offer once to save ${spec.profileSave.what} into the company profile section "${spec.profileSave.section}", so every later skill can use it. Only after they agree: get_company_profile for the current version, merge into what that section already holds (never remove what is there), and update_company_profile with that section only. It is saved as an AI draft; a workspace admin confirms it.`] : []),
+    ...(fills && !draft ? [`${spec.reads.length + 5 + (spec.profileSave && !draft && !report && !advice ? 1 : 0)}. Run apply_skill_extract with document set to the one you saved and preview true, and show the person what would be filled and what is left out. Only after they agree, run it again without preview. Fields that already hold a value come back as a diff for the person to confirm.`] : []),
+    `${spec.reads.length + 5 + (fills && !draft ? 1 : 0) + (spec.profileSave && !draft && !report && !advice ? 1 : 0)}. Tell the person what you used, what you wrote, what is left "to define", ${report ? "that nothing was sent or saved, and what they need to check before it goes out." : advice ? "that nothing was saved, and what you assumed." : "that it is an AI draft, and who decides."}`,
     "",
-    ...(questions.length ? ["QUESTIONS (one message, skippable)", ...questions.map((q, i) => `${i + 1}. ${q.ask}`), ""] : []),
+    ...(questions.length ? [
+      "QUESTIONS (one message, skippable)",
+      ...questions.flatMap((q, i) => [`${i + 1}. ${q.ask}`, ...(q.options ?? []).map((o, j) => `   ${String.fromCharCode(65 + j)}. ${o.label}: use when ${o.useWhen}`)]),
+      ...(questions.some((q) => q.options?.length) ? ["Where a question has lettered options, the person can answer with a letter or in their own words; if their material already answers it, do not ask."] : []),
+      "",
+    ] : []),
     "RULES",
-    ...[...(report ? reportRules() : SKILL_RULES), ...spec.rules].map((r, i) => `${i + 1}. ${r}`),
+    ...[...(report ? reportRules() : advice ? adviceRules() : SKILL_RULES), ...spec.rules].map((r, i) => `${i + 1}. ${r}`),
     "",
-    report ? "SECTIONS OF THE REPORT (all optional unless the skill says otherwise)" : "SECTIONS OF THE DOCUMENT (all optional unless the skill says otherwise)",
+    advice ? "SHAPE OF THE ANSWER" : report ? "SECTIONS OF THE REPORT (all optional unless the skill says otherwise)" : "SECTIONS OF THE DOCUMENT (all optional unless the skill says otherwise)",
     ...sections.map((s) => `- ${s.id} ${s.title}: ${s.covers}`),
-    ...(report ? [] : [`- Last line: "To be decided by ${spec.decidedBy}."`]),
+    ...(report || advice ? [] : [`- Last line: "To be decided by ${spec.decidedBy}."`]),
     ...(report ? ["", "FORMAT", ...(format ? [`The person chose ${format}: ${FORMAT_GUIDE[format]}`] : REPORT_FORMATS.map((f) => `- ${f}: ${FORMAT_GUIDE[f]}`))] : []),
+    ...(spec.catalogue && ctx.catalogue ? ["", "THE SKILLS (recommend only from this list; never invent a skill)", ...ctx.catalogue.filter((x) => x.command !== spec.command).map((x) => `- ${x.command} (${SKILL_STAGE_LABEL[x.stage]}; ${x.focus ? "all initiatives or the ones you name" : x.target === "none" ? "the whole workspace" : "one initiative"}; ${x.output === "report" ? "a report" : x.output === "advice" ? "advice in the chat" : "a saved document"}): ${x.summary}${x.depth ? ` Not for: ${x.depth.whenNot[0]}` : ""}`)] : []),
+    ...(spec.depth ? depthBlocks(spec.depth) : []),
     "",
     fills ? `Fields this skill may fill from the document (through apply_skill_extract, copied as written): ${spec.fields.join(", ")}.` : "This skill fills no initiative fields; its result lives in the document.",
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n");
   return { description: `${spec.title}: ${spec.summary}`, text };
+}
+
+/** The craft blocks of a prompt: ideas, when not to use the skill, pitfalls, checks and the good and weak example. */
+function depthBlocks(d: SkillDepth): string[] {
+  return [
+    "",
+    "KEY IDEAS (use them to judge and to explain; do not recite them)",
+    ...d.concepts.map((c) => `- ${c}`),
+    "",
+    "WHEN NOT TO USE THIS SKILL (if one of these is true, say so plainly in your one message, name what to do instead, and go on only if the person still wants it)",
+    ...d.whenNot.map((c) => `- ${c}`),
+    "",
+    "PITFALLS TO AVOID",
+    ...d.pitfalls.map((p) => `- ${p.name}: ${p.why} Instead: ${p.fix}`),
+    "",
+    "CHECK BEFORE YOU DELIVER (fix what fails; in your closing message say what you could not check)",
+    ...d.checks.map((c) => `- ${c}`),
+    "",
+    "THE STANDARD, BY EXAMPLE (an illustration of the standard, not text to copy)",
+    `- Strong: ${d.example.good}`,
+    `- Weak: ${d.example.weak}`,
+    `- Why: ${d.example.why}`,
+    ...(d.worked ? ["", "A WORKED EXAMPLE (a fictional workspace; it shows the standard of work and the shape, never facts or wording to reuse)", `Input: ${d.worked.input}`, "Output:", d.worked.output] : []),
+  ];
 }
 
 function teamNote(team?: string): string {
@@ -219,6 +283,20 @@ export function skillSpecProblems(spec: SkillSpec): string[] {
   const kinds: readonly string[] = spec.target === "none" ? WORKSPACE_DOC_KINDS : DOC_KINDS;
   if (!kinds.includes(spec.doc.kind)) p.push(`${spec.command}: kind ${spec.doc.kind} is not a ${spec.target === "none" ? "workspace" : "initiative"} document kind`);
   if (spec.profileSave && !PROFILE_SECTION_KEYS.includes(spec.profileSave.section)) p.push(`${spec.command}: unknown profile section ${spec.profileSave.section}`);
+  for (const q of spec.questions) {
+    if (q.options && (q.options.length < 2 || q.options.length > 5)) p.push(`${spec.command}: question ${q.id} needs 2 to 5 options`);
+    for (const o of q.options ?? []) if (!o.label.trim() || !o.useWhen.trim()) p.push(`${spec.command}: question ${q.id} has an option without a label or a "use when"`);
+  }
+  if (spec.depth) {
+    const d = spec.depth;
+    if (d.concepts.length < 3 || d.concepts.length > 8) p.push(`${spec.command}: 3 to 8 key ideas`);
+    if (d.whenNot.length < 2 || d.whenNot.length > 5) p.push(`${spec.command}: 2 to 5 "when not" cases`);
+    if (d.pitfalls.length < 4 || d.pitfalls.length > 8) p.push(`${spec.command}: 4 to 8 pitfalls`);
+    if (d.checks.length < 5 || d.checks.length > 12) p.push(`${spec.command}: 5 to 12 checks`);
+    if (d.worked && (!d.worked.input.trim() || !d.worked.output.trim())) p.push(`${spec.command}: the worked example needs an input and an output`);
+    if (!d.example.good.trim() || !d.example.weak.trim() || !d.example.why.trim()) p.push(`${spec.command}: the example needs a strong, a weak and a why`);
+    for (const x of d.pitfalls) if (!x.name.trim() || !x.why.trim() || !x.fix.trim()) p.push(`${spec.command}: a pitfall needs a name, why and a fix`);
+  }
   const ids = spec.sections.map((s) => s.id);
   if (new Set(ids).size !== ids.length) p.push(`${spec.command}: duplicate section ids`);
   return p;
