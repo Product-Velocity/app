@@ -7,6 +7,7 @@ import type { PortfolioController } from "../portfolio/controller";
 import { useStatus } from "../portfolio/status-strip";
 import type { Lookups } from "../portfolio/types";
 import { ago, changeText, latestChangedInitiatives } from "./phone-changes";
+import { SinceLastLook } from "./phone-since";
 import { usePhoneChanges, type ChangeSource } from "./use-phone-changes";
 import { FIXED_CHIPS, GROUP_LABEL, PHASE_CHIPS, SORT_LABEL, filterPhoneRows, groupPhoneRows, sortPhoneRows, type Group, type PhoneRow, type Sort } from "./phone-list";
 
@@ -23,7 +24,8 @@ export function PhoneInitiatives({ controller, lookups, me, tenantId, changeSour
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<"recent" | "all">("recent");
   const changes = usePhoneChanges(controller, tenantId, changeSource);
-  const changed = useMemo(() => latestChangedInitiatives(changes.rows.filter((r) => scope.projectIds === null || scope.projectIds.includes(String(controller.rows.find((x) => x.id === r.itemId)?.home_project)))), [changes.rows, scope.projectIds, controller]);
+  const scoped = useMemo(() => changes.rows.filter((r) => scope.projectIds === null || scope.projectIds.includes(String(controller.rows.find((x) => x.id === r.itemId)?.home_project))), [changes.rows, scope.projectIds, controller]);
+  const changed = useMemo(() => latestChangedInitiatives(scoped), [scoped]);
   const showRecent = mode === "recent" && !query && chips.length === 0;
 
   const project = (id: string) => lookups.projects.find((p) => p.id === id)?.name ?? "";
@@ -64,6 +66,7 @@ export function PhoneInitiatives({ controller, lookups, me, tenantId, changeSour
         </div>}
         <p className="muted phone-count" role="status">{showRecent ? `${changed.length} recently changed` : `${groups.total} ${groups.total === 1 ? "initiative" : "initiatives"}`}</p>
       </div>
+      {showRecent && !changes.loading && <SinceLastLook rows={scoped} tenantId={tenantId} me={me} />}
       {showRecent && (
         <section aria-label="Recently changed initiatives">
           {changes.error && <p role="alert" className="pf-error">Could not load recent changes: {changes.error}</p>}

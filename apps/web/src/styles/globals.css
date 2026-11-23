@@ -1291,14 +1291,33 @@ button.share-chip { cursor: pointer; }
   input, select, textarea { font-size: 16px; }
   .btn, button, .menu-link, .more-row, .phone-tab { min-height: 44px; }
   .bar-icon-btn { width: 44px; }
-  .topbar { gap: 8px; padding: 0 12px; }
-  .topbar .tabs { display: none; }
-  .content { padding: 12px 12px 88px; }
+  .content { padding: 12px 12px calc(84px + env(safe-area-inset-bottom)); }
   .phone-only { display: grid; }
+  .btn.phone-only { display: inline-flex; }
   .desktop-only { display: none; }
-  .phone-nav { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--bg); border-top: 1px solid var(--grey-1); padding-bottom: env(safe-area-inset-bottom); }
-  .phone-tab { display: flex; align-items: center; justify-content: center; gap: 4px; color: #111827; text-decoration: none; font-weight: 500; border-top: 2px solid transparent; }
-  .phone-tab-on { color: var(--blue-text); border-top-color: var(--blue); }
+
+  /* One compact top row: the mark, the account and project as two small chips, the bell and the account (issue #635) */
+  .topbar { display: flex; flex-wrap: nowrap; gap: 8px; padding: calc(6px + env(safe-area-inset-top)) 12px 6px; min-height: 52px; }
+  .topbar .tabs, .topbar .brand-name, .topbar .text-size, .topbar a.bar-icon-btn[href="/help"], .scope > span[aria-hidden="true"] { display: none; }
+  .scope { flex: 1 1 0; min-width: 0; gap: 6px; }
+  .scope .scope-switcher { min-width: 0; flex: 0 1 auto; }
+  .scope .scope-chip { max-width: 100%; min-height: 40px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; padding: 4px 8px; }
+  .topbar-actions { gap: 4px; flex: 0 0 auto; }
+
+  /* Bottom bar: icon over label, Add raised in the middle */
+  .phone-nav { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; background: var(--bg); border-top: 1px solid var(--grey-1); padding-bottom: env(safe-area-inset-bottom); }
+  .phone-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; padding: 6px 0 4px; color: #4b5563; text-decoration: none; font-size: 11.5px; font-weight: 500; }
+  .phone-tab-icon { position: relative; display: inline-flex; }
+  .phone-tab-label { line-height: 1.1; }
+  .phone-tab-on { color: var(--blue-text); font-weight: 600; }
+  .phone-tab-on .phone-tab-icon svg { stroke-width: 2.4; }
+  .phone-tab-add .phone-tab-icon { width: 40px; height: 40px; margin-top: -14px; border-radius: 50%; align-items: center; justify-content: center; background: var(--blue); color: #fff; box-shadow: 0 2px 8px rgba(34, 112, 237, .35); }
+  .phone-tab-add { color: var(--blue-text); }
+  .phone-badge { position: absolute; top: -6px; right: -12px; }
+
+  /* An initiative opens as a page of its own: in the flow, full width, never a panel laid over the list */
+  .item-panel.item-panel-page { position: static; inset: auto; width: 100%; max-width: none; height: auto !important; margin: 0; border: 0; border-radius: 0; box-shadow: none; z-index: auto; flex: 1 1 auto; }
+  .item-panel-page .panel-section, .item-panel-page .panel-foot { padding-left: 4px; padding-right: 4px; }
 }
 
 /* Phone initiatives list and item page (issue #386, slice M2) */
@@ -1322,12 +1341,11 @@ button.share-chip { cursor: pointer; }
 .phone-health-on-track { background: #E3F4EA; color: #17653F; }
 .phone-health-at-risk, .phone-health-delayed { background: #FDF0D5; color: #7A4A00; }
 .phone-health-blocked { background: #FBE4E4; color: #8A1F1F; }
-.phone-back { justify-self: start; margin-bottom: 8px; }
+.phone-back { justify-self: start; align-items: center; margin-bottom: 8px; position: sticky; top: 0; z-index: 25; }
 @media (max-width: 699px) {
   .ip-actions, .ip-nav .ip-pos { display: none; }
   .ip-tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
   .ip-tab { flex: 0 0 auto; min-height: 44px; }
-  .item-panel-page { max-width: none; border: 0; }
 }
 
 /* Phone quick add and For you (issue #386, slice M3) */
@@ -1894,3 +1912,28 @@ a.btn.btn-primary { color: #fff; }
 .phone-change-risk { background: #FDF0D5; color: #7A4A00; }
 .phone-change-bad { background: #FBE4E4; color: #8A1F1F; }
 .phone-change-info { background: var(--blue-tint-2); color: var(--blue-text); }
+
+/* Phone: since you last looked, Insights (issue #635, slice P2) */
+.phone-since { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--blue); border-radius: 8px; background: var(--blue-tint-2); margin: 8px 0; }
+.phone-since-head { margin: 0; }
+.phone-since-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.insight-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.insight-tiles li { display: grid; gap: 2px; padding: 10px; border: 1px solid var(--grey-1); border-radius: 8px; font-size: 13px; }
+.insight-num { font-size: 28px; font-weight: 600; line-height: 1.1; }
+.insight-chart { margin: 0; padding: 12px; border: 1px solid var(--grey-1); border-radius: 8px; display: grid; gap: 10px; }
+.insight-chart h2 { margin: 0; font-size: 15px; }
+.insight-chart figcaption p { margin: 4px 0 0; }
+.seg-bar { display: flex; gap: 2px; height: 20px; }
+.seg { min-width: 6px; border-radius: 4px; background: #C9CED8; }
+.seg-ok { background: #2E9E6B; } .seg-risk { background: #E0A21B; } .seg-late { background: #E0742B; } .seg-bad { background: #C93C3C; } .seg-none { background: #C9CED8; }
+.seg-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.seg-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.bar-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.bar-list li { display: grid; grid-template-columns: 84px 1fr 40px; gap: 8px; align-items: center; font-size: 13px; }
+.bar-track { height: 12px; background: var(--grey-3); border-radius: 6px; overflow: hidden; }
+.bar-fill { display: block; height: 100%; background: var(--blue); border-radius: 0 4px 4px 0; }
+.bar-value { text-align: right; font-variant-numeric: tabular-nums; }
+.insight-table summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--blue-text); }
+.insight-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.insight-table th, .insight-table td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--grey-2); }
+.insight-links { margin: 4px 0 0; }

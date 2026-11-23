@@ -11,6 +11,7 @@ describe("phone navigation", () => {
     expect(phoneTabFor("/decisions")).toBe("decide");
     expect(phoneTabFor("/alignment/abc/results")).toBe("decide");
     expect(phoneTabFor("/tracker")).toBe("tracker");
+    expect(phoneTabFor("/insights")).toBe("insights");
     expect(phoneTabFor("/leadership")).toBe("insights");
     expect(phoneTabFor("/reports")).toBe("insights");
     expect(phoneTabFor("/settings/members")).toBeNull();

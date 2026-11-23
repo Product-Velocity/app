@@ -5,6 +5,7 @@ import { MemoryGateSource } from "@/features/gates/gate-source";
 import { ForYou } from "@/features/phone/for-you";
 import { PhoneQuickAdd } from "@/features/phone/phone-quick-add";
 import { PhoneInitiatives } from "@/features/phone/phone-initiatives";
+import { Insights } from "@/features/phone/insights-view";
 import { PhoneTracker } from "@/features/phone/phone-tracker";
 import type { ChangeSource } from "@/features/phone/use-phone-changes";
 import { WorkspaceProvider } from "@/features/workspace/provider";
@@ -12,7 +13,20 @@ import { MemoryWorkspaceStore } from "@/features/workspace/store";
 import { harnessLookups, makeCardsHarness } from "../harness-data";
 
 export function HarnessPhone({ n, screen }: { n: number; screen: string }) {
-  const { controller } = useMemo(() => makeCardsHarness(n, "creator"), [n]);
+  const { controller } = useMemo(() => {
+    const h = makeCardsHarness(n, "creator");
+    if (screen === "insights") {
+      // most initiatives are Active, with a spread of health and build progress; a few are not
+      const health = ["On Track", "On Track", "At Risk", "Delayed", "Blocked", null];
+      h.controller.rows.forEach((r, i) => {
+        r.initiative_status = i % 7 === 6 ? "Completed" : "Active";
+        r.health = health[i % health.length] ?? null;
+        r.delivery_progress_pct = r.initiative_phase === "Build" ? (i * 13) % 100 : null;
+        r.gate_status = i % 9 === 0 ? "In review" : r.gate_status;
+      });
+    }
+    return h;
+  }, [n, screen]);
   /** A fixture feed: a Health change on the first 20 initiatives, and a tracker status change on the first 14 (GitHub on even, Jira on odd). */
   const changeSource = useMemo<ChangeSource>(() => ({
     async load() {
@@ -30,6 +44,7 @@ export function HarnessPhone({ n, screen }: { n: number; screen: string }) {
     <WorkspaceProvider store={store} projects={harnessLookups.projects} canEdit canAdmin={false}>
       <div className="shell"><main className="content">{screen === "add" ? <PhoneQuickAdd controller={controller} lookups={harnessLookups} tenantId="t1" />
           : screen === "for-you" ? <ForYou controller={controller} me="u1" tenantId="t1" lookups={harnessLookups} source={new MemoryGateSource()} />
+          : screen === "insights" ? <Insights controller={controller} lookups={harnessLookups} tenantId="t1" />
           : screen === "tracker" ? <PhoneTracker controller={controller} tenantId="t1" changeSource={changeSource} />
           : <PhoneInitiatives controller={controller} lookups={harnessLookups} me="u1" tenantId="t1" changeSource={changeSource} />}</main></div>
     </WorkspaceProvider>

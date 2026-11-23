@@ -52,6 +52,92 @@ test.describe("initiatives on a phone", () => {
   });
 });
 
+test.describe("the phone shell", () => {
+  test("the top bar is one compact row and the bottom bar has icons with labels", async ({ page }) => {
+    await page.goto("/dev/menu");
+    const bar = page.locator("header.topbar");
+    expect((await bar.boundingBox())!.height).toBeLessThan(70);
+    await expect(page.locator(".topbar .brand-name")).toBeHidden();
+    await expect(page.locator(".topbar .text-size")).toBeHidden();
+    const tabs = page.getByRole("navigation", { name: "Main (phone)" }).getByRole("link");
+    await expect(tabs).toHaveText(["Initiatives", "Decide", "Add", "Tracker", "Insights"]);
+    for (const t of await tabs.all()) { await expect(t.locator("svg")).toBeVisible(); expect((await t.boundingBox())!.height).toBeGreaterThanOrEqual(44); }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+  test("an initiative opens as a page in the flow, not as a panel laid over the list", async ({ page }) => {
+    await page.goto("/dev/item/R-12?role=creator");
+    const panel = page.getByTestId("item-panel");
+    await expect(panel).toBeVisible();
+    expect(await panel.evaluate((e) => getComputedStyle(e).position)).toBe("static");
+    const box = (await panel.boundingBox())!;
+    expect(box.x).toBeLessThanOrEqual(12);
+    expect(box.width).toBeGreaterThanOrEqual(390 - 24);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    // the bottom bar stays on top and usable
+    const hit = await page.evaluate(() => { const r = document.querySelector(".phone-nav")!.getBoundingClientRect(); return !!document.elementFromPoint(r.left + r.width / 2, r.top + 20)?.closest(".phone-nav"); });
+    expect(hit).toBe(true);
+    // the flags start folded, so the first screen is the initiative
+    expect(await page.locator(".ip-flagged").evaluate((e) => (e as HTMLDetailsElement).open)).toBe(false);
+    await expect(page.locator(".ip-flagged summary")).toContainText("flag");
+    await page.locator(".ip-flagged summary").click();
+    expect(await page.locator(".ip-flagged").evaluate((e) => (e as HTMLDetailsElement).open)).toBe(true);
+  });
+});
+
+test.describe("since you last looked", () => {
+  test("counts the changes, lists them for review and remembers that they were seen", async ({ page }) => {
+    await page.goto("/dev/phone?n=40");
+    const card = page.locator(".phone-since");
+    await expect(card).toContainText("34 changes");
+    await expect(card).toContainText("since");
+    await card.getByRole("button", { name: "Review" }).click();
+    await expect(card.locator(".phone-card")).toHaveCount(30);
+    await expect(card).toContainText("and 4 more");
+    await card.getByRole("button", { name: "Mark all seen" }).click();
+    await expect(card).toHaveCount(0);
+    expect(await page.evaluate(() => Object.keys(localStorage).some((k) => k.startsWith("pv:last-look:")))).toBe(true);
+    // the test page builds its changes from "now", so a reload brings two new ones (the newest of each kind); the 32 older ones stay seen
+    await page.reload();
+    await expect(page.locator(".phone-since")).toContainText("2 changes");
+  });
+  test("passes the accessibility check", async ({ page }) => {
+    await page.goto("/dev/phone?n=40");
+    await page.locator(".phone-since").getByRole("button", { name: "Review" }).click();
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+});
+
+test.describe("insights on a phone", () => {
+  test("shows the key numbers and charts, each with a sentence and a table", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=insights");
+    await expect(page.getByRole("heading", { name: "Insights", level: 1 })).toBeVisible();
+    await expect(page.locator(".insight-tiles li")).toHaveCount(3);
+    await expect(page.locator(".insight-tiles li").first().locator(".insight-num")).not.toHaveText("0");
+    await expect(page.locator(".insight-tiles li").nth(1).locator(".insight-num")).not.toHaveText("0");
+    await expect(page.getByRole("figure", { name: "Health" }).locator(".seg")).not.toHaveCount(0);
+    await expect(page.getByRole("figure", { name: "Health" }).locator(".seg-legend")).toContainText("At Risk");
+    await expect(page.getByRole("figure", { name: "Health" }).locator("figcaption p")).toContainText("need attention");
+    await expect(page.getByRole("figure", { name: "Build progress by project" }).locator(".bar-list li")).not.toHaveCount(0);
+    for (const name of ["Health", "Where the work is", "Build progress by project", "Planned quarters"]) {
+      const chart = page.getByRole("figure", { name });
+      await expect(chart).toBeVisible();
+      await expect(chart.locator("figcaption p")).not.toBeEmpty();
+    }
+    const health = page.getByRole("figure", { name: "Health" });
+    await health.getByText("Show as a table").click();
+    await expect(health.getByRole("table")).toBeVisible();
+    await expect(health.getByRole("columnheader", { name: "Initiatives" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+  test("passes the accessibility check", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=insights");
+    await page.waitForSelector(".insight-chart");
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+});
+
 test.describe("tracker feed on a phone", () => {
   test("shows the latest ten changes and searches them", async ({ page }) => {
     await page.goto("/dev/phone?n=40&screen=tracker");

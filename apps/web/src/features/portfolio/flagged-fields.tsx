@@ -1,6 +1,8 @@
 "use client";
 
+import { useRef } from "react";
 import { FIELD_BY_KEY, FLAG_FIELDS, flagsOfRow, panelField } from "@pv/domain";
+import { PHONE_QUERY } from "../phone/use-is-phone";
 import { FieldRow, type FieldCtx } from "./item-fields";
 
 /**
@@ -9,6 +11,13 @@ import { FieldRow, type FieldCtx } from "./item-fields";
  * buttons above. Shown to people who can edit; nothing appears when the initiative has no flag. A field is shown once, under the first flag that names it.
  */
 export function FlaggedFields({ ctx, itemId }: { ctx: FieldCtx; itemId: string }) {
+  // on a phone the flags start folded, so the first screen is the initiative and not a form; the summary still says how many there are
+  const folded = useRef(false);
+  const foldOnPhone = (el: HTMLDetailsElement | null) => {
+    if (!el || folded.current) return;
+    folded.current = true;
+    if (window.matchMedia(PHONE_QUERY).matches) el.open = false;
+  };
   const row = ctx.controller.row(itemId);
   if (!row || !ctx.controller.canEdit) return null;
   const flags = flagsOfRow(row, ctx.controller.todayDate());
@@ -28,7 +37,7 @@ export function FlaggedFields({ ctx, itemId }: { ctx: FieldCtx; itemId: string }
     return { label, texts: [...new Set(mine.map((f) => f.text))], keys, hasAction: mine.some((f) => f.action) };
   });
   return (
-    <details className="ip-flagged" open aria-label="Flagged fields">
+    <details className="ip-flagged" open ref={foldOnPhone} aria-label="Flagged fields">
       <summary><strong>⚑ Needs your input</strong> <span className="muted">{labels.length} {labels.length === 1 ? "flag" : "flags"}</span></summary>
       <div className="ip-flagged-body">
         {cards.map((c) => (
