@@ -1894,3 +1894,28 @@ a.btn.btn-primary { color: #fff; }
 .phone-change-risk { background: #FDF0D5; color: #7A4A00; }
 .phone-change-bad { background: #FBE4E4; color: #8A1F1F; }
 .phone-change-info { background: var(--blue-tint-2); color: var(--blue-text); }
+
+/* Phone: since you last looked, Insights (issue #635, slice P2) */
+.phone-since { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--blue); border-radius: 8px; background: var(--blue-tint-2); margin: 8px 0; }
+.phone-since-head { margin: 0; }
+.phone-since-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.insight-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.insight-tiles li { display: grid; gap: 2px; padding: 10px; border: 1px solid var(--grey-1); border-radius: 8px; font-size: 13px; }
+.insight-num { font-size: 28px; font-weight: 600; line-height: 1.1; }
+.insight-chart { margin: 0; padding: 12px; border: 1px solid var(--grey-1); border-radius: 8px; display: grid; gap: 10px; }
+.insight-chart h2 { margin: 0; font-size: 15px; }
+.insight-chart figcaption p { margin: 4px 0 0; }
+.seg-bar { display: flex; gap: 2px; height: 20px; }
+.seg { min-width: 6px; border-radius: 4px; background: #C9CED8; }
+.seg-ok { background: #2E9E6B; } .seg-risk { background: #E0A21B; } .seg-late { background: #E0742B; } .seg-bad { background: #C93C3C; } .seg-none { background: #C9CED8; }
+.seg-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.seg-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.bar-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.bar-list li { display: grid; grid-template-columns: 84px 1fr 40px; gap: 8px; align-items: center; font-size: 13px; }
+.bar-track { height: 12px; background: var(--grey-3); border-radius: 6px; overflow: hidden; }
+.bar-fill { display: block; height: 100%; background: var(--blue); border-radius: 0 4px 4px 0; }
+.bar-value { text-align: right; font-variant-numeric: tabular-nums; }
+.insight-table summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--blue-text); }
+.insight-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.insight-table th, .insight-table td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--grey-2); }
+.insight-links { margin: 4px 0 0; }

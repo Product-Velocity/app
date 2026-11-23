@@ -11,3 +11,5 @@ request: 635
 - **Wording:** no "Open on a computer" screens. The grid and the Gantt send a phone to the Initiatives list; the greyed-out desktop entries are gone from More.
 - **Push notifications stay off** (decision 2026-11-09); Ashu may reopen it for three events: gate requested, decision made, mention.
 - **Data:** both feeds read `change_feed` (member readable, no migration, no new table) and the tracker links, for GitHub and Jira alike (tracker parity). Team and initiative level only (rule 8); commercial fields are not in the feed (rule 2).
+- **Insights (P2):** `/insights`, active initiatives only: key numbers, health, where the work is, build progress by project, planned quarters; each chart has a sentence and a table. Never per person.
+- **Since you last looked (P2):** the moment of the last look is kept per device in the browser, with no new table; Ashu can ask for it to follow the person across devices later (a small table, with RLS tests). Own changes are left out.

@@ -7,7 +7,7 @@ export const PHONE_TABS: PhoneTab[] = [
   { id: "decide", label: "Decide", href: "/decisions" },
   { id: "add", label: "＋ Add", href: "/new" },
   { id: "tracker", label: "Tracker", href: "/tracker" },
-  { id: "insights", label: "Insights", href: "/leadership" },
+  { id: "insights", label: "Insights", href: "/insights" },
 ];
 
 /** Which bottom-bar item is current for a page (path without the /w/{account} prefix). */
@@ -16,7 +16,7 @@ export function phoneTabFor(path: string): PhoneTab["id"] | null {
   if (path.startsWith("/cards") || path.startsWith("/portfolio") || path.startsWith("/gantt") || path.startsWith("/for-you") || path.startsWith("/attention") || path.startsWith("/home")) return "initiatives";
   if (path.startsWith("/decisions") || path.startsWith("/alignment")) return "decide";
   if (path.startsWith("/tracker")) return "tracker";
-  if (path.startsWith("/leadership") || path.startsWith("/reports")) return "insights";
+  if (path.startsWith("/insights") || path.startsWith("/leadership") || path.startsWith("/reports")) return "insights";
   return null;
 }
 
@@ -26,6 +26,7 @@ export const MORE_ENTRIES: MoreEntry[] = [
   { label: "For you", href: "/for-you", note: "Gates waiting for you, what needs attention, your placeholders" },
   { label: "Needs attention", href: "/attention", note: "What is stuck, late or missing" },
   { label: "Alignment", href: "/alignment", note: "Sessions and results" },
+  { label: "Leadership", href: "/leadership", note: "Portfolio health and the weekly update" },
   { label: "Reports", href: "/reports", note: "Roadmap health and gate history" },
   { label: "Account", href: "/account", note: "Profile, sign-in methods, 2FA" },
   { label: "Help", href: "/help", note: "Guides and answers" },
