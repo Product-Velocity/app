@@ -1,3 +1,4 @@
+import { isCronRequest } from "@/lib/cron-auth";
 import { githubSourceControl } from "@/lib/github/server";
 import { retryEvent, runCheck } from "@/lib/github/sync";
 import type { ConnectionRow } from "@/lib/github/server";
@@ -11,8 +12,7 @@ import { finalizeAllClosed } from "@/lib/alignment-results";
 export const maxDuration = 60;
 
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) return new Response("forbidden", { status: 403 });
+  if (!isCronRequest(request)) return new Response("forbidden", { status: 403 });
   const sc = githubSourceControl();
   if (!sc) return new Response("not configured", { status: 503 });
 
