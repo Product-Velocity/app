@@ -1971,3 +1971,15 @@ a.btn.btn-primary { color: #fff; }
 .phone-follow { margin-left: 8px; padding: 0 6px; border-radius: 8px; background: var(--blue-tint-2); color: var(--blue-text); font-family: inherit; font-size: 11.5px; font-weight: 600; }
 .briefing-actions { grid-template-columns: 1fr 1fr; }
 .briefing-edit { grid-column: 1 / -1; }
+
+/* Quick change with a note (issue #635) */
+.briefing-update { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.briefing-note { display: block; margin-top: 2px; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.phone-sheet-hint { margin: 0; font-size: 12.5px; }
+.qc-options { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+.qc-options legend { padding: 0; margin-bottom: 6px; }
+.qc-option { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 12px; border: 1px solid #cfd5e3; border-radius: 8px; cursor: pointer; }
+.qc-options .qc-option input[type="radio"] { flex: 0 0 22px; width: 22px; height: 22px; min-height: 0; margin: 0; padding: 0; }
+.qc-option-on { border-color: var(--blue); background: var(--blue-tint-2); }
+.qc-option-now { opacity: .6; cursor: default; }
+.phone-sheet textarea { font: inherit; }

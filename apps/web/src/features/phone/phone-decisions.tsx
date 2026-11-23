@@ -213,10 +213,10 @@ export function DecideSheet({ source, request, label, initial, onClose, onDone }
         {step === "edit" ? (
           <>
             <h2>{label}<br /><span className="muted">{gateTitle(request.gate)}</span></h2>
-            <fieldset className="gate-outcomes">
+            <fieldset className="qc-options">
               <legend className="dialog-label">Decision</legend>
               {OUTCOMES.map((o) => (
-                <label key={o.value} className="gate-outcome">
+                <label key={o.value} className={`qc-option${outcome === o.value ? " qc-option-on" : ""}`}>
                   <input type="radio" name="outcome" checked={outcome === o.value} onChange={() => setOutcome(o.value)} />
                   <span><strong>{o.label}</strong> <span className="muted">{o.hint}</span></span>
                 </label>

@@ -115,6 +115,8 @@ export type ChangeRowData = {
   alsoBuild: { from: string | null; to: string | null; tone: ChangeTone } | null;
   /** The Jira user who moved the issue to this status, from Jira's own history (Jira rows only; null when not known yet). A name on a row, never counted per person (rule 8). */
   jiraUser: string | null;
+  /** The reason a person gave when they changed Health or Initiative Status from a phone (issue #635); null when none was given. */
+  note?: string | null;
 };
 /** A move of a Jira issue to a status with the Jira user who made it (table jira_status_changes). */
 export type JiraStatusRecord = { issue_key: string; to_status: string; changed_at: string; actor_name: string | null };
@@ -131,6 +133,8 @@ export type ChangeContext = {
   issues?: ReadonlyMap<string, TrackerRef>;
   nameOf?: (actorId: string | null) => string;
   jiraUsers?: readonly JiraStatusRecord[];
+  /** Notes by audit entry id (change_notes), for the changes a person made with a reason. */
+  notes?: ReadonlyMap<number, string>;
 };
 /** Product Velocity learns of a Jira change within seconds (webhook); the daily check may be hours later. A name is taken from a change Jira made up to this long before. */
 const JIRA_LAG_AFTER_MS = 5_000;
@@ -170,6 +174,7 @@ export function buildChangeRows(feed: readonly FeedRow[], items: ReadonlyMap<str
       tone: changeTone(type, to, tracker), fromTone: changeTone(type, shown(r, r.old), tracker), source, sourceType: r.via, trackerDriven, actorId: r.actor_id, actor,
       by: trackerDriven && r.actor_id ? `Sync run by ${actor}` : actor, tracker, flags: [...(ctx.flags?.get(r.item_id) ?? [])], issue, alsoBuild: null,
       jiraUser: tracker === "Jira" && issue?.tracker === "Jira" ? jiraUserOf(ctx.jiraUsers ?? [], issue.key, to, r.at) : null,
+      note: ctx.notes?.get(Number(r.id)) ?? null,
     });
   }
   // one row for the two values a tracker move sets in one step

@@ -143,6 +143,68 @@ test.describe("following initiatives", () => {
   });
 });
 
+test.describe("quick changes with a note", () => {
+  test("changes Health with a required reason, shows it in the latest changes, and puts it back", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await expect(page.locator(".briefing-pills")).toContainText("Health: Delayed");
+    await page.getByRole("button", { name: "Change health" }).click();
+    const dialog = page.getByRole("dialog", { name: /Change health/ });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("radio", { name: /Delayed/ })).toBeDisabled(); // it is Delayed now
+    await dialog.getByRole("radio", { name: "Blocked" }).check();
+    const save = dialog.getByRole("button", { name: "Set to Blocked" });
+    await expect(save).toBeDisabled();
+    await expect(dialog.getByText("Say why in a few words.")).toBeVisible();
+    await expect(dialog.getByText("Why (required)")).toBeVisible();
+    await dialog.getByLabel(/Why/).fill("Waiting for legal");
+    await expect(save).toBeEnabled();
+    await expect(dialog.getByText("Health: Delayed → Blocked")).toBeVisible();
+    await save.click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.locator(".briefing-pills")).toContainText("Health: Blocked");
+    await expect(page.getByRole("status").filter({ hasText: "Saved." })).toContainText("Health: Delayed → Blocked");
+    const latest = page.getByRole("region", { name: "Latest changes" }).locator("li").first();
+    await expect(latest).toContainText("Health: Delayed → Blocked");
+    await expect(latest).toContainText("Why: Waiting for legal");
+    await page.getByRole("button", { name: "Put it back" }).click();
+    await expect(page.locator(".briefing-pills")).toContainText("Health: Delayed");
+    const calls = await page.evaluate(() => (window as unknown as { __quick: { value: string; note: string }[] }).__quick);
+    expect(calls.map((c) => [c.value, c.note])).toEqual([["Blocked", "Waiting for legal"], ["Delayed", "Put back as it was."]]);
+  });
+  test("a change that is not a concern needs no reason", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await page.getByRole("button", { name: "Change health" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("radio", { name: "On Track" }).check();
+    await expect(dialog.getByText("Why (optional)")).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Set to On Track" })).toBeEnabled();
+  });
+  test("changes Status, shows a refusal and closes with Cancel and Escape", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await page.getByRole("button", { name: "Change status" }).click();
+    const dialog = page.getByRole("dialog", { name: /Change status/ });
+    await dialog.getByRole("radio", { name: "On hold" }).check();
+    await dialog.getByLabel(/Why/).fill("fail on purpose");
+    await dialog.getByRole("button", { name: "Set to On hold" }).click();
+    await expect(dialog.getByRole("alert")).toContainText("You cannot change this initiative.");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toHaveCount(0);
+    await page.getByRole("button", { name: "Change status" }).click();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(await page.evaluate(() => (window as unknown as { __quick?: unknown[] }).__quick ?? [])).toEqual([]);
+  });
+  test("the sheet passes the accessibility check and fits the screen", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await page.getByRole("button", { name: "Change health" }).click();
+    await page.getByRole("dialog").getByRole("radio", { name: "At Risk" }).check();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+});
+
 test.describe("one initiative on a phone", () => {
   test("opens as a read-first briefing with the facts, the flags, the build and the latest changes", async ({ page }) => {
     await page.goto("/dev/phone?n=40&screen=item");

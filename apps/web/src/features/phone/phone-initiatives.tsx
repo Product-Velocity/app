@@ -18,7 +18,7 @@ const emailName = (e: string) => e.split("@")[0]!.replace(/[._]/g, " ");
 export function PhoneInitiatives({ controller, lookups, me, tenantId, changeSource }: { controller: PortfolioController; lookups: Lookups; me: string | null; tenantId: string; changeSource?: ChangeSource }) {
   const status = useStatus(controller);
   const follow = useFollow();
-  const followed = useMemo(() => follow?.followed ?? new Set<string>(), [follow?.followed]); // eslint-disable-line react-hooks/exhaustive-deps
+  const followed = useMemo(() => follow?.followed ?? new Set<string>(), [follow?.followed]);
   const scope = useScope();
   const [query, setQuery] = useState("");
   const [chips, setChips] = useState<string[]>([]);
