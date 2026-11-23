@@ -596,21 +596,31 @@ test.describe("the views panel (issue #625)", () => {
     expect(Math.abs((await head.boundingBox())!.y - before)).toBeLessThan(2);
   });
 
-  test("a view made on another page says so; a view saved here carries no page tag", async ({ page }) => {
+  test("the Gantt lists only its own views: a Grid view is not here, and a view saved here belongs to the Gantt", async ({ page }) => {
     await open(page, "n=14");
     await page.getByRole("button", { name: "Year", exact: true }).click();
     await more(page).click();
+    await expect(panelOf(page)).not.toContainText("A Grid view");
     await panelOf(page).getByRole("button", { name: "Save as new view…" }).click();
     const dlg = page.getByRole("dialog", { name: "Save as new view" });
     await dlg.getByLabel("Name").fill("Made here");
     await dlg.getByRole("button", { name: "Save view" }).click();
+    const views = await page.evaluate(() => (window as unknown as { __pv: { store: { views: { name: string; surface?: string }[] } } }).__pv.store.views.map((v) => [v.name, v.surface ?? "grid"]));
+    expect(views).toContainEqual(["Made here", "gantt"]);
     await more(page).click();
-    await expect(rowOf(page, "Must haves")).toContainText("Cards"); // the test page's saved view was made on Cards
-    await expect(rowOf(page, "Made here")).not.toContainText("Cards");
-    await expect(rowOf(page, "Made here")).not.toContainText("Gantt");
-    // this page's own views are listed before the others
-    const names = await panelOf(page).getByRole("region", { name: "My views" }).locator(".vm-name").allTextContents();
-    expect(names).toEqual(["Made here"]);
+    await expect(panelOf(page).getByRole("region", { name: "My views" }).locator(".vm-name")).toHaveText(["Made here"]);
+  });
+
+  test("an admin's Update for everyone on a Gantt default changes the Gantt's default only", async ({ page }) => {
+    await open(page, "n=14&role=admin");
+    await page.getByRole("button", { name: "Year", exact: true }).click();
+    await more(page).click();
+    await panelOf(page).getByRole("button", { name: "Update for everyone" }).click();
+    await page.getByRole("dialog", { name: "Update for everyone?" }).getByRole("button", { name: "Update for everyone" }).click();
+    const defaults = await page.evaluate(() => (window as unknown as { __pv: { store: { views: { baseView?: string; surface?: string }[] } } }).__pv.store.views.filter((v) => v.baseView).map((v) => [v.baseView, v.surface]));
+    expect(defaults).toEqual([["Prioritisation", "gantt"]]);
+    await expect(page.getByRole("button", { name: "Year", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".vm-dot")).toHaveCount(0);
   });
 
   test("at phone width the panel is a sheet at the foot of the screen, and near the left edge it stays on screen", async ({ page }) => {

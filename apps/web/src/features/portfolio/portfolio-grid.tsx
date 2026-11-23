@@ -228,7 +228,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const changeColumns = (columns: string[], pinned: string[], sort: SortDef[]) => changeDef({ columns, pinned, sort });
   const pinnedSet = useMemo(() => new Set(def.pinned ?? []), [def.pinned]);
   const viewsApi = useViews({
-    page: "grid", base, def, bDef, dirty, openBase: openBaseRaw, discard: clearColumns, reset: resetChanges,
+    surface: "grid", base, def, bDef, dirty, openBase: openBaseRaw, discard: clearColumns, reset: resetChanges,
   });
 
   // ---- what rows show: scope, search, filters, grouping

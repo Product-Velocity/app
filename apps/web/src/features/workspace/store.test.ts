@@ -82,7 +82,7 @@ describe("SupabaseWorkspaceStore: views", () => {
   it("lists views and cleans what it reads", async () => {
     const { client } = fake([{ data: [{ id: "v1", name: "Planning", columns: ["moscow", "nope"], filters: [{ field: "nope", op: "is" }], group_by: "bogus" }] }]);
     expect(await new SupabaseWorkspaceStore(client, "t1").listViews()).toEqual([
-      { id: "v1", name: "Planning", baseView: null, ownerId: null, madeOn: null, columns: ["stack_rank", "item_code", "initiative_name", "moscow"], filters: [], groupBy: null, pinned: locked },
+      { id: "v1", name: "Planning", baseView: null, ownerId: null, surface: "grid", columns: ["stack_rank", "item_code", "initiative_name", "moscow"], filters: [], groupBy: null, pinned: locked },
     ]);
   });
   it("reads locked columns: an older row lists only the extra locks, a newer one lists them all", async () => {
@@ -99,15 +99,15 @@ describe("SupabaseWorkspaceStore: views", () => {
   it("creates a view with its columns, filters and grouping", async () => {
     const { client, calls } = fake([{ data: { id: "v2" } }]);
     const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView(" My view ", def);
-    expect(r).toEqual({ ok: true, value: { id: "v2", name: "My view", baseView: null, ownerId: "u1", madeOn: null, ...def, pinned: locked } });
-    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "My view", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: locked, pins_explicit: true, sort: null, visibility: "private", owner_id: "u1" })).toBe(true);
+    expect(r).toEqual({ ok: true, value: { id: "v2", name: "My view", baseView: null, ownerId: "u1", surface: "grid", ...def, pinned: locked } });
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", surface: "grid", name: "My view", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: locked, pins_explicit: true, sort: null, visibility: "private", owner_id: "u1" })).toBe(true);
   });
   it("creates a workspace view only when asked, with no owner and its sort", async () => {
     const { client, calls } = fake([{ data: { id: "v3" } }]);
     const sort = [{ field: "moscow", dir: "desc" as const }, { field: "initiative_name", dir: "asc" as const }];
     const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView("Shared", { ...def, sort }, { workspace: true });
     expect(r).toMatchObject({ ok: true, value: { ownerId: null, sort } });
-    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "Shared", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: locked, pins_explicit: true, sort, visibility: "workspace", owner_id: null })).toBe(true);
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", surface: "grid", name: "Shared", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: locked, pins_explicit: true, sort, visibility: "workspace", owner_id: null })).toBe(true);
   });
   it("a private view is never customer-safe, and saving needs to know who is signed in", async () => {
     const { client, calls } = fake([{ data: { id: "v4" } }]);
@@ -146,7 +146,7 @@ describe("default views and customer-safe views", () => {
     const first = fake([{ data: null }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", customer_safe: false }] }]);
     const r = await new SupabaseWorkspaceStore(first.client, "t1").saveDefaultView("Planning", { ...def, customerSafe: true });
     expect(r).toMatchObject({ ok: true, value: { id: "d1", baseView: "Planning" } });
-    expect(has(first.calls[1]!, "insert", { tenant_id: "t1", name: "Planning", base_view: "Planning", columns: def.columns, filters: def.filters, group_by: "health", pinned: locked, pins_explicit: true, sort: null })).toBe(true); // never customer-safe
+    expect(has(first.calls[1]!, "insert", { tenant_id: "t1", surface: "grid", name: "Planning", base_view: "Planning", columns: def.columns, filters: def.filters, group_by: "health", pinned: locked, pins_explicit: true, sort: null })).toBe(true); // never customer-safe
     const again = fake([{ data: { id: "d1" } }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", customer_safe: false }] }]);
     await new SupabaseWorkspaceStore(again.client, "t1").saveDefaultView("Planning", def);
     expect(again.calls[1]!.ops.some(([o]) => o === "update")).toBe(true);
@@ -161,7 +161,7 @@ describe("default views and customer-safe views", () => {
     const { client, calls } = fake([{ data: { id: "v9" } }]);
     const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView("For customers", { columns: ["stack_rank", "item_code", "initiative_name", "value_12m", "summary"], filters: [], groupBy: null, customerSafe: true }, { workspace: true });
     expect(r).toMatchObject({ ok: true, value: { customerSafe: true, columns: ["item_code", "initiative_name", "summary"] } });
-    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "For customers", columns: ["item_code", "initiative_name", "summary"], filters: [], group_by: null, customer_safe: true, pinned: ["item_code", "initiative_name"], pins_explicit: true, sort: null, visibility: "workspace", owner_id: null })).toBe(true);
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", surface: "grid", name: "For customers", columns: ["item_code", "initiative_name", "summary"], filters: [], group_by: null, customer_safe: true, pinned: ["item_code", "initiative_name"], pins_explicit: true, sort: null, visibility: "workspace", owner_id: null })).toBe(true);
   });
   it("memory store: customising, restoring and who may", async () => {
     const s = new MemoryWorkspaceStore();
@@ -212,10 +212,10 @@ describe("MemoryWorkspaceStore", () => {
 describe("layouts", () => {
   it("reads the workspace default and the person's own rows, in order", async () => {
     const { client, calls } = fake([{ data: [
-      { page: "grid", user_id: null, view_id: null, builtin: "Timeline", in_bar: true, position: 0, hidden: false },
-      { page: "grid", user_id: null, view_id: null, builtin: "History", in_bar: false, position: 1, hidden: true },
-      { page: "grid", user_id: "u1", view_id: "v1", builtin: null, in_bar: true, position: 0, hidden: false },
-      { page: "gantt", user_id: "u1", view_id: null, builtin: "Delivery", in_bar: true, position: 0, hidden: false },
+      { surface: "grid", user_id: null, view_id: null, builtin: "Timeline", in_bar: true, position: 0, hidden: false },
+      { surface: "grid", user_id: null, view_id: null, builtin: "History", in_bar: false, position: 1, hidden: true },
+      { surface: "grid", user_id: "u1", view_id: "v1", builtin: null, in_bar: true, position: 0, hidden: false },
+      { surface: "gantt", user_id: "u1", view_id: null, builtin: "Delivery", in_bar: true, position: 0, hidden: false },
     ] }]);
     const l = await new SupabaseWorkspaceStore(client, "t1", "u1").listLayouts();
     expect(l.grid.workspace).toEqual([{ ref: { kind: "builtin", name: "Timeline" }, inBar: true, position: 0 }, { ref: { kind: "builtin", name: "History" }, inBar: false, position: 1, hidden: true }]);
@@ -231,7 +231,7 @@ describe("layouts", () => {
     expect(rpcs).toEqual([{ name: "replace_view_layout", args: { p_tenant: "t1", p_workspace: false, p_rows: [
       { view_id: null, builtin: "Planning", in_bar: true, position: 0, hidden: false },
       { view_id: "v1", builtin: null, in_bar: false, position: 1, hidden: false },
-    ], p_page: "grid" } }]);
+    ], p_surface: "grid" } }]);
     const seven = ["Prioritisation", "Planning", "Delivery", "Go-to-market", "Outcomes", "Leadership", "Discovery"].map((name, position) => ({ ref: { kind: "builtin" as const, name: name as never }, inBar: true, position }));
     expect(await s.replaceLayout(false, seven)).toEqual({ ok: false, error: "Your bar is full (6). Remove one first." });
     expect(rpcs).toHaveLength(1); // the seventh never reached the database
@@ -298,7 +298,7 @@ describe("saving a sort with a view (issue #207)", () => {
     const first = fake([{ data: null }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", sort }] }]);
     const r = await new SupabaseWorkspaceStore(first.client, "t1").saveDefaultView("Planning", { ...def, sort });
     expect(r).toMatchObject({ ok: true, value: { sort } });
-    expect(has(first.calls[1]!, "insert", { tenant_id: "t1", name: "Planning", base_view: "Planning", columns: def.columns, filters: def.filters, group_by: "health", pinned: locked, pins_explicit: true, sort })).toBe(true);
+    expect(has(first.calls[1]!, "insert", { tenant_id: "t1", surface: "grid", name: "Planning", base_view: "Planning", columns: def.columns, filters: def.filters, group_by: "health", pinned: locked, pins_explicit: true, sort })).toBe(true);
     const again = fake([{ data: { id: "d1" } }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", sort: null }] }]);
     await new SupabaseWorkspaceStore(again.client, "t1").saveDefaultView("Planning", { ...def });
     expect(has(again.calls[1]!, "update", { columns: def.columns, filters: def.filters, group_by: "health", pinned: locked, pins_explicit: true, sort: null, widths: null, gantt: null, then_by: null, show_issues: false, issue_types: null, issues_hide_done: false })).toBe(true);
@@ -333,7 +333,7 @@ describe("two grouping levels and shown issues in a saved view (issue #437)", ()
   it("a new view writes the two columns only when set", async () => {
     const a = fake([{ data: { id: "v2" } }]);
     await new SupabaseWorkspaceStore(a.client, "t1", "u1").createView("Two", two);
-    expect(has(a.calls[0]!, "insert", { tenant_id: "t1", name: "Two", columns: def.columns, filters: def.filters, group_by: "health", then_by: "moscow", show_issues: true, customer_safe: false, pinned: locked, pins_explicit: true, sort: null, visibility: "private", owner_id: "u1" })).toBe(true);
+    expect(has(a.calls[0]!, "insert", { tenant_id: "t1", surface: "grid", name: "Two", columns: def.columns, filters: def.filters, group_by: "health", then_by: "moscow", show_issues: true, customer_safe: false, pinned: locked, pins_explicit: true, sort: null, visibility: "private", owner_id: "u1" })).toBe(true);
   });
   it("Update writes a changed second level and clears it again", async () => {
     const a = fake([{ data: [{ id: "v1", name: "V", columns: def.columns, filters: [], group_by: "health" }] }]);
@@ -359,7 +359,7 @@ describe("issue types and hide-done in a saved view (issue #437)", () => {
   it("a new view writes the two columns only when set", async () => {
     const a = fake([{ data: { id: "v2" } }]);
     await new SupabaseWorkspaceStore(a.client, "t1", "u1").createView("With", withIssues);
-    expect(has(a.calls[0]!, "insert", { tenant_id: "t1", name: "With", columns: def.columns, filters: def.filters, group_by: "health", show_issues: true, issue_types: ["Epic", "Story"], issues_hide_done: true, customer_safe: false, pinned: locked, pins_explicit: true, sort: null, visibility: "private", owner_id: "u1" })).toBe(true);
+    expect(has(a.calls[0]!, "insert", { tenant_id: "t1", surface: "grid", name: "With", columns: def.columns, filters: def.filters, group_by: "health", show_issues: true, issue_types: ["Epic", "Story"], issues_hide_done: true, customer_safe: false, pinned: locked, pins_explicit: true, sort: null, visibility: "private", owner_id: "u1" })).toBe(true);
   });
   it("Update writes the chosen types and the switch, and clears them again", async () => {
     const sent = (c: { ops: [string, unknown[]][] }) => c.ops.find(([o]) => o === "update")![1][0] as { issue_types?: unknown; issues_hide_done?: unknown };
@@ -378,7 +378,7 @@ describe("column widths saved with a view", () => {
     const { client, calls } = fake([{ data: { id: "w1" } }]);
     const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView("Narrow", { ...def, widths });
     expect(r).toMatchObject({ ok: true, value: { widths } });
-    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "Narrow", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: locked, pins_explicit: true, sort: null, widths, visibility: "private", owner_id: "u1" })).toBe(true);
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", surface: "grid", name: "Narrow", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: locked, pins_explicit: true, sort: null, widths, visibility: "private", owner_id: "u1" })).toBe(true);
   });
   it("an update writes widths when given, and clears them with an empty object", async () => {
     const a = fake([{ data: [{ id: "w1", name: "Narrow", columns: def.columns, filters: [], group_by: null, base_view: null, customer_safe: false, widths }] }]);
@@ -402,7 +402,7 @@ describe("Gantt settings saved with a view (issue #622)", () => {
     const { client, calls } = fake([{ data: { id: "g1" } }]);
     const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView("Timeline", { ...def, gantt });
     expect(r).toMatchObject({ ok: true, value: { gantt } });
-    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "Timeline", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: locked, pins_explicit: true, sort: null, gantt, visibility: "private", owner_id: "u1" })).toBe(true);
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", surface: "grid", name: "Timeline", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: locked, pins_explicit: true, sort: null, gantt, visibility: "private", owner_id: "u1" })).toBe(true);
   });
   it("an update writes them when given and clears them with null; an update without them leaves them alone", async () => {
     const row = { id: "g1", name: "Timeline", columns: def.columns, filters: [], group_by: null, base_view: null, customer_safe: false };
@@ -427,15 +427,51 @@ describe("Gantt settings saved with a view (issue #622)", () => {
   });
 });
 
-describe("a view bar per page (issue #625)", () => {
+describe("views per screen: Grid, Cards and Gantt (issues #390 and #625)", () => {
   const row = (name: string) => ({ ref: { kind: "builtin" as const, name: name as never }, inBar: true, position: 0 });
-  it("the database call names the page", async () => {
-    const { client, rpcs } = fake([{}]);
-    await new SupabaseWorkspaceStore(client, "t1", "u1").replaceLayout(true, [row("Planning")], "gantt");
-    expect(rpcs[0]).toMatchObject({ name: "replace_view_layout", args: { p_workspace: true, p_page: "gantt" } });
+  it("a new view says which screen it is on (the Grid when left out), and reads back with it", async () => {
+    const { client, calls } = fake([{ data: { id: "m1" } }]);
+    const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView("On gantt", def, { surface: "gantt" });
+    expect(r).toMatchObject({ ok: true, value: { surface: "gantt" } });
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", surface: "gantt", name: "On gantt", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: locked, pins_explicit: true, sort: null, visibility: "private", owner_id: "u1" })).toBe(true);
+    const a = fake([{ data: [{ id: "m1", name: "V", columns: def.columns, filters: [], group_by: null, base_view: null, customer_safe: false, surface: "reports" }, { id: "m2", name: "W", columns: def.columns, filters: [], group_by: null, base_view: null, customer_safe: false, surface: "gantt" }] }]);
+    const list = await new SupabaseWorkspaceStore(a.client, "t1", "u1").listViews();
+    expect(list.map((v) => v.surface)).toEqual(["grid", "gantt"]); // an unknown screen is the Grid
   });
-  it("the in-memory store keeps one layout per page and person", async () => {
+  it("customised defaults are per screen: saving and restoring touch one screen only", async () => {
+    const { client, calls } = fake([{ data: null }, { data: [{ id: "d1", name: "Delivery", columns: def.columns, filters: [], group_by: null, base_view: "Delivery", surface: "gantt" }] }, {}]);
+    const s = new SupabaseWorkspaceStore(client, "t1");
+    await s.saveDefaultView("Delivery", def, "gantt");
+    expect(has(calls[0]!, "eq", "surface", "gantt")).toBe(true);
+    expect(JSON.stringify(calls[1])).toContain('"surface":"gantt"');
+    await s.restoreDefaultView("Delivery", "gantt");
+    expect(has(calls[2]!, "eq", "surface", "gantt")).toBe(true);
+  });
+  it("the bar is read per screen, and a replace names the screen", async () => {
+    const { client, rpcs } = fake([{ data: [
+      { surface: "grid", user_id: "u1", view_id: null, builtin: "Planning", in_bar: true, position: 0, hidden: false },
+      { surface: "gantt", user_id: "u1", view_id: null, builtin: "Delivery", in_bar: true, position: 0, hidden: false },
+      { surface: "gantt", user_id: null, view_id: null, builtin: "History", in_bar: false, position: 1, hidden: true },
+    ] }, {}]);
+    const s = new SupabaseWorkspaceStore(client, "t1", "u1");
+    const l = await s.listLayouts();
+    expect(l.gantt.mine).toEqual([{ ref: { kind: "builtin", name: "Delivery" }, inBar: true, position: 0 }]);
+    expect(l.gantt.workspace).toHaveLength(1);
+    expect(l.grid.mine).toHaveLength(1);
+    expect(l.cards).toEqual({ workspace: [], mine: [] });
+    await s.replaceLayout(true, [row("Planning")], "gantt");
+    expect(rpcs[0]).toMatchObject({ name: "replace_view_layout", args: { p_workspace: true, p_surface: "gantt" } });
+  });
+  it("the in-memory store keeps views, defaults, names, caps and bars apart per screen", async () => {
     const s = new MemoryWorkspaceStore({ me: "u1", admin: true });
+    await s.createView("Same", def, { surface: "gantt" });
+    expect(await s.createView("Same", def, { surface: "gantt" })).toMatchObject({ ok: false }); // twice on one screen
+    expect(await s.createView("Same", def, { surface: "cards" })).toMatchObject({ ok: true }); // allowed on another
+    await s.saveDefaultView("Delivery", def, "gantt");
+    await s.saveDefaultView("Delivery", { ...def, groupBy: null }, "cards");
+    expect((await s.listViews()).filter((v) => v.baseView === "Delivery").map((v) => v.surface).sort()).toEqual(["cards", "gantt"]);
+    await s.restoreDefaultView("Delivery", "gantt");
+    expect((await s.listViews()).filter((v) => v.baseView === "Delivery").map((v) => v.surface)).toEqual(["cards"]);
     await s.replaceLayout(false, [row("Planning")], "gantt");
     await s.replaceLayout(false, [row("Delivery")], "cards");
     const l = await s.listLayouts();
@@ -445,16 +481,5 @@ describe("a view bar per page (issue #625)", () => {
     await s.replaceLayout(false, [], "gantt");
     expect((await s.listLayouts()).gantt.mine).toEqual([]);
     expect((await s.listLayouts()).cards.mine).toHaveLength(1);
-  });
-  it("a view remembers the page it was saved on, when it is read back and in memory", async () => {
-    const { client, calls } = fake([{ data: { id: "m1" } }]);
-    const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView("On cards", def, { page: "cards" });
-    expect(r).toMatchObject({ ok: true, value: { madeOn: "cards" } });
-    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "On cards", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: locked, pins_explicit: true, sort: null, made_on: "cards", visibility: "private", owner_id: "u1" })).toBe(true);
-    const a = fake([{ data: [{ id: "m1", name: "On cards", columns: def.columns, filters: [], group_by: null, base_view: null, customer_safe: false, made_on: "reports" }] }]);
-    expect((await new SupabaseWorkspaceStore(a.client, "t1", "u1").listViews())[0]!.madeOn).toBeNull(); // an unknown page is no page
-    const m = new MemoryWorkspaceStore({ me: "u1" });
-    await m.createView("V", def, { page: "gantt" });
-    expect((await m.listViews())[0]!.madeOn).toBe("gantt");
   });
 });

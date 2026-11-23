@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   addToBar, BAR_FULL_MESSAGE, changeSummary, computeBar, diffViews, isCustomerSafe, layoutRowsFor, moveInBar, moveToIndex, nameProblem, refKey, removeFromBar, sameRef,
-  filterOptions, needsSearch, sanitizeView, visibleTabs, BUILTIN_BAR_NAMES, PAGE_LABEL, type BuiltinBarName, type MenuEntry, type ViewDef, type ViewName, type ViewPage, type ViewRef,
+  filterOptions, needsSearch, sanitizeView, visibleTabs, BUILTIN_BAR_NAMES, SURFACE_LABEL, type BuiltinBarName, type MenuEntry, type ViewDef, type ViewName, type ViewSurface, type ViewRef,
 } from "@pv/domain";
 import { menuSearchKeys, NoResults, SearchInput } from "@/components/search-list";
 import { useWorkspace } from "../workspace/provider";
@@ -29,15 +29,15 @@ type Dialog =
   | { kind: "make-private"; entry: MenuEntry };
 
 /** Everything the view bar, the unsaved-changes bar and the ⌘K palette do with views, in one place so the three stay the same. */
-export function useViews({ page, base, def, bDef, dirty, openBase, discard, reset, builtins = BUILTIN_BAR_NAMES, defaultBar, builtinDefs }: { /** The page this bar is on: each page has its own layout. */ page: ViewPage; base: BaseView; def: ViewDef; bDef: ViewDef; dirty: boolean; openBase: (b: BaseView) => void; /** Drops the column changes of the open view (after they were saved). */ discard: () => void; /** Drops every unsaved change (filters, grouping, sort and columns). */ reset: () => void; builtins?: readonly BuiltinBarName[]; defaultBar?: readonly BuiltinBarName[]; builtinDefs?: Partial<Record<ViewName, ViewDef>> }) {
+export function useViews({ surface, base, def, bDef, dirty, openBase, discard, reset, builtins = BUILTIN_BAR_NAMES, defaultBar, builtinDefs }: { /** The screen this bar is on: each screen has its own views, customised defaults and bar. */ surface: ViewSurface; base: BaseView; def: ViewDef; bDef: ViewDef; dirty: boolean; openBase: (b: BaseView) => void; /** Drops the column changes of the open view (after they were saved). */ discard: () => void; /** Drops every unsaved change (filters, grouping, sort and columns). */ reset: () => void; builtins?: readonly BuiltinBarName[]; defaultBar?: readonly BuiltinBarName[]; builtinDefs?: Partial<Record<ViewName, ViewDef>> }) {
   const openRaw = openBase;
-  const { store, reload, views, defaults, layouts, userId, canAdmin } = useWorkspace();
+  const { store, reload, views, defaults, layouts, userId, canAdmin } = useWorkspace(surface);
   const [managing, setManaging] = useState(false);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [message, setMessage] = useState<{ text: string; cap: boolean } | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
-  const barViews = useMemo(() => views.map((v) => ({ id: v.id, name: v.name, ownerId: v.ownerId, baseView: v.baseView, madeOn: v.madeOn })), [views]);
-  const lay = layouts[page];
+  const barViews = useMemo(() => views.map((v) => ({ id: v.id, name: v.name, ownerId: v.ownerId, baseView: v.baseView })), [views]);
+  const lay = layouts;
   const personal = useMemo(() => computeBar({ views: barViews, workspaceLayout: lay.workspace, myLayout: lay.mine, me: userId, builtins, ...(defaultBar ? { defaultBar } : {}) }), [barViews, lay, userId, builtins, defaultBar]);
   // what an admin edits in "Manage": the workspace default, as everyone without a layout of their own sees it
   const workspaceOnly = useMemo(() => computeBar({ views: barViews.filter((v) => v.ownerId === null), workspaceLayout: lay.workspace, myLayout: [], me: null, builtins, ...(defaultBar ? { defaultBar } : {}) }), [barViews, lay.workspace, builtins, defaultBar]);
@@ -74,7 +74,7 @@ export function useViews({ page, base, def, bDef, dirty, openBase, discard, rese
   // ---- the bar
   const writeBar = async (bar: ViewRef[], hidden: ViewRef[] = workspaceOnly.hidden.map((e) => e.ref)): Promise<boolean> => {
     const rows = layoutRowsFor(bar, allKnown.filter((r) => (managing ? isWorkspaceRef(r) : !hidden.some((h) => sameRef(h, r)))), managing ? hidden : []);
-    const r = await store.replaceLayout(managing, rows, page);
+    const r = await store.replaceLayout(managing, rows, surface);
     if (!r.ok) { say(r.error); return false; }
     await reload();
     say(null);
@@ -90,7 +90,7 @@ export function useViews({ page, base, def, bDef, dirty, openBase, discard, rese
   const move = (ref: ViewRef, by: -1 | 1) => writeBar(moveInBar(shown.bar, ref, by));
   const moveTo = (ref: ViewRef, to: number) => writeBar(moveToIndex(shown.bar, ref, to));
   const resetLayout = async () => {
-    const r = await store.replaceLayout(false, [], page);
+    const r = await store.replaceLayout(false, [], surface);
     if (!r.ok) { say(r.error); return; }
     await reload(); say(null);
   };
@@ -103,7 +103,7 @@ export function useViews({ page, base, def, bDef, dirty, openBase, discard, rese
   ];
 
   const create = async (name: string, workspace: boolean, d: ViewDef): Promise<string | null> => {
-    const r = await store.createView(name, d, { workspace, page });
+    const r = await store.createView(name, d, { workspace, surface });
     if (!r.ok) { say(r.error); return r.error; }
     await reload();
     say(null);
@@ -140,7 +140,7 @@ export function useViews({ page, base, def, bDef, dirty, openBase, discard, rese
     const workspace = v.ownerId === null;
     showToast({
       text: `Deleted “${v.name}”.`,
-      undo: async () => { const c = await store.createView(v.name, snapshot, { workspace, page }); if (!c.ok) say(c.error); await reload(); },
+      undo: async () => { const c = await store.createView(v.name, snapshot, { workspace, surface }); if (!c.ok) say(c.error); await reload(); },
     });
   };
   const setScope = async (entry: MenuEntry, workspace: boolean) => {
@@ -154,24 +154,24 @@ export function useViews({ page, base, def, bDef, dirty, openBase, discard, rese
     const hidden = [...workspaceOnly.hidden.map((e) => e.ref), entry.ref];
     const prevBar = workspaceOnly.bar, prevHidden = workspaceOnly.hidden.map((e) => e.ref);
     const rows = layoutRowsFor(removeFromBar(workspaceOnly.bar, entry.ref), allKnown.filter(isWorkspaceRef), hidden);
-    const r = await store.replaceLayout(true, rows, page);
+    const r = await store.replaceLayout(true, rows, surface);
     if (!r.ok) { say(r.error); return; }
     await reload();
     if (base.kind !== "saved" && sameRef(baseToRef(base), entry.ref)) openRaw({ kind: "builtin", name: "Prioritisation" });
     showToast({
       text: `Hid “${entry.name}” for everyone.`,
-      undo: async () => { await store.replaceLayout(true, layoutRowsFor(prevBar, allKnown.filter(isWorkspaceRef), prevHidden), page); await reload(); },
+      undo: async () => { await store.replaceLayout(true, layoutRowsFor(prevBar, allKnown.filter(isWorkspaceRef), prevHidden), surface); await reload(); },
     });
   };
   const restore = async (entry: MenuEntry) => {
     const hidden = workspaceOnly.hidden.map((e) => e.ref).filter((r) => !sameRef(r, entry.ref));
     const rows = layoutRowsFor(workspaceOnly.bar, allKnown.filter(isWorkspaceRef), hidden);
-    const r = await store.replaceLayout(true, rows, page);
+    const r = await store.replaceLayout(true, rows, surface);
     if (!r.ok) { say(r.error); return; }
     await reload(); say(null);
   };
   const restoreOriginal = async (name: ViewName) => {
-    const r = await store.restoreDefaultView(name);
+    const r = await store.restoreDefaultView(name, surface);
     if (!r.ok) { say(r.error); return; }
     await reload(); say(null);
   };
@@ -182,7 +182,7 @@ export function useViews({ page, base, def, bDef, dirty, openBase, discard, rese
   const updateLabel = updateKind === "workspace" ? "Update for everyone" : current ? `Update “${current.name}”` : "Update";
   const updateBlocked = updateKind === "workspace" && !canAdmin ? "Workspace views can only be changed by an admin. Save as your own view instead." : null;
   const doUpdate = async () => {
-    const r = current ? await store.updateView(current.id, { ...def, sort: def.sort ?? [], widths: def.widths ?? {} }) : builtinName ? await store.saveDefaultView(builtinName, def) : null;
+    const r = current ? await store.updateView(current.id, { ...def, sort: def.sort ?? [], widths: def.widths ?? {} }) : builtinName ? await store.saveDefaultView(builtinName, def, surface) : null;
     if (!r) return;
     if (!r.ok) { say(r.error); return; }
     await reload(); say(null);
@@ -219,7 +219,7 @@ export function useViews({ page, base, def, bDef, dirty, openBase, discard, rese
   })();
 
   return {
-    page, base, current, builtinName, dirty, def, bDef, managing, setManaging, state: shown, personal, workspaceOnly, canAdmin, userId, views, defaults,
+    surface, base, current, builtinName, dirty, def, bDef, managing, setManaging, state: shown, personal, workspaceOnly, canAdmin, userId, views, defaults,
     message, say, toast, undoToast, setToast, dialog, setDialog,
     reset, toggleInBar, move, moveTo, resetLayout, duplicate, rename, remove, setScope, hide, restore, restoreOriginal, create, ownNames, viewOf, mayWrite,
     update: { kind: updateKind, allowed: updateAllowed, label: updateLabel, blocked: updateBlocked, request: requestUpdate, run: doUpdate },
@@ -401,8 +401,6 @@ function ActionsMenu({ api, entry, onDone }: { api: ViewsApi; entry: MenuEntry; 
 function MenuRow({ api, entry, onOpen, onDone, inBar, dragging, setDragging }: { api: ViewsApi; entry: MenuEntry; onOpen: (r: ViewRef) => void; onDone: () => void; inBar: boolean; dragging: string | null; setDragging: (k: string | null) => void }) {
   const active = refKey(baseToRef(api.base)) === refKey(entry.ref);
   const k = refKey(entry.ref);
-  // the page a view was made on is shown only when it is another page: on its own page it is not news
-  const madeElsewhere = entry.madeOn && entry.madeOn !== api.page ? PAGE_LABEL[entry.madeOn] : null;
   return (
     <div className={`vm-row${dragging === k ? " vm-dragging" : ""}`} role="group" aria-label={entry.name}
       draggable={inBar} onDragStart={(ev) => { if (!inBar) return; setDragging(k); ev.dataTransfer.setData("text/plain", k); ev.dataTransfer.effectAllowed = "move"; }}
@@ -418,7 +416,6 @@ function MenuRow({ api, entry, onOpen, onDone, inBar, dragging, setDragging }: {
       <button type="button" className="vm-open" aria-current={active ? "true" : undefined} onClick={() => onOpen(entry.ref)}>
         <span className="vm-name">{entry.name}</span>
         <span className="vm-tag">{entry.scope === "workspace" ? "workspace" : "private"}</span>
-        {madeElsewhere && <span className="vm-tag vm-tag-page" title={`Saved on the ${madeElsewhere} page`}>{madeElsewhere}</span>}
         {entry.isNew && <span className="vm-new">New</span>}
       </button>
       <button type="button" className={inBar ? "vm-toggle" : "vm-toggle vm-toggle-add"} aria-label={inBar ? `Remove ${entry.name} from the bar` : `Add ${entry.name} to the bar`}
@@ -427,12 +424,6 @@ function MenuRow({ api, entry, onOpen, onDone, inBar, dragging, setDragging }: {
     </div>
   );
 }
-
-/** Views made on this page first, then those with no page recorded, then those made on another page; A to Z inside each. */
-const byPage = (page: ViewPage) => (a: MenuEntry, b: MenuEntry) => {
-  const rank = (e: MenuEntry) => (e.madeOn === page ? 0 : e.madeOn ? 2 : 1);
-  return rank(a) - rank(b) || a.name.localeCompare(b.name);
-};
 
 function MoreViews({ api, count }: { api: ViewsApi; count: number }) {
   const [open, setOpen] = useState(false);
@@ -465,7 +456,7 @@ function MoreViews({ api, count }: { api: ViewsApi; count: number }) {
   const all = [...st.mine, ...st.workspace];
   const byKey = new Map(all.map((e) => [refKey(e.ref), e]));
   const barEntries = keep(api.bar.map((r) => byKey.get(refKey(r))).filter((e): e is MenuEntry => !!e));
-  const others = (list: MenuEntry[]) => keep(list.filter((e) => !e.inBar)).sort(byPage(api.page));
+  const others = (list: MenuEntry[]) => keep(list.filter((e) => !e.inBar));
   const mine = others(st.mine), workspace = others(st.workspace), hidden = api.canAdmin ? keep(st.hidden) : [];
   const onOpen = (r: ViewRef) => { api.openBase(refToBase(r)); close(); btn.current?.focus(); };
   const summary = api.dirty ? changeSummary(diffViews(api.bDef, api.def)) || "The view" : "";
@@ -485,7 +476,7 @@ function MoreViews({ api, count }: { api: ViewsApi; count: number }) {
                 <button type="button" aria-pressed={api.managing} onClick={() => api.setManaging(true)}>Workspace bar</button>
               </div>
             )}
-            {api.managing && <p className="vm-banner" role="status">You are changing the {PAGE_LABEL[api.page]} bar for everyone. People who set their own bar keep it.</p>}
+            {api.managing && <p className="vm-banner" role="status">You are changing the {SURFACE_LABEL[api.surface]} bar for everyone. People who set their own bar keep it.</p>}
             <section aria-label="Current view" className="vm-current">
               <p className="vm-current-line">
                 <span className="vm-current-label">Current view</span>

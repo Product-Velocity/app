@@ -1880,7 +1880,6 @@ a.btn.btn-primary { color: #fff; }
 .vm-count { margin-left: 4px; font-weight: 400; letter-spacing: 0; text-transform: none; color: #5b6272; }
 .vm-grip { border: 0; background: none; cursor: grab; padding: 4px 2px; font: inherit; font-size: 12px; letter-spacing: -2px; color: #6b7280; border-radius: 4px; }
 .vm-grip:hover { color: #111827; background: var(--grey-3); }
-.vm-tag-page { color: var(--blue-text); border-color: rgba(34, 112, 237, .3); }
 .vm-hint { font-size: 11.5px; align-self: center; }
 .vm-hint kbd { font: inherit; font-size: 11px; padding: 0 4px; border: 1px solid #d1d5db; border-bottom-width: 2px; border-radius: 4px; background: var(--bg); }
 @media (max-width: 640px) {
