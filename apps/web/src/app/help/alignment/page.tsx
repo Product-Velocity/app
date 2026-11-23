@@ -40,7 +40,7 @@ export default function AlignmentPage() {
           items={[
             { title: "Work on the initiative", text: "Open an initiative in the side panel. The Overview, Spec, Alignment and Activity tabs hold its fields, documents, vote results and history, so the discussion stays with the work." },
             { title: "Rank in one place", text: "One global Stack Rank across all projects. Project views show the local order, for example third overall and first in Platform." },
-            { title: "Decide at a gate", text: "At Gate A, B or C a person with approval rights decides. The rationale is written once and never edited. Conditions become tasks that are tracked." },
+            { title: "Decide at a gate", text: "At Gate A, B or C a person with approval rights decides. A comment is optional; if you write one it is kept as written and never edited. Conditions become tasks that are tracked." },
           ]}
         />
         <HelpWhere>Grid (drag to re-rank), side panel (J and K move to the next initiative), Decisions tab.</HelpWhere>
