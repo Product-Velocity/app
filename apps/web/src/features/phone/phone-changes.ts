@@ -14,17 +14,20 @@ export type ChangedInitiative = { itemId: string; code: string; name: string; at
 
 const LABEL: Record<string, string> = { phase: "Phase", "initiative-status": "Status", health: "Health" };
 
-/** One entry per initiative with its newest change and how many more there were in the period, newest first, at most `limit`. Input is newest first. */
-export function latestChangedInitiatives(rows: readonly ChangeRowData[], limit = CHANGED_LIMIT): ChangedInitiative[] {
+/**
+ * One entry per initiative with its newest change and how many more there were in the period, at most `limit`. Input is newest first. The initiatives the person
+ * follows come first (newest first among them), then the rest, newest first: a followed initiative is never pushed out by newer changes elsewhere.
+ */
+export function latestChangedInitiatives(rows: readonly ChangeRowData[], limit = CHANGED_LIMIT, followed: ReadonlySet<string> = new Set()): ChangedInitiative[] {
   const by = new Map<string, ChangedInitiative>();
   for (const r of rows) {
     if (!INITIATIVE_TYPES.has(r.type)) continue;
     const seen = by.get(r.itemId);
     if (seen) { seen.more += 1; continue; }
-    if (by.size >= limit) continue;
     by.set(r.itemId, { itemId: r.itemId, code: r.code, name: r.name, at: r.at, type: r.type, label: LABEL[r.type] ?? r.type, from: r.from, to: r.to, tone: r.tone, more: 0 });
   }
-  return [...by.values()];
+  const all = [...by.values()];
+  return [...all.filter((c) => followed.has(c.itemId)), ...all.filter((c) => !followed.has(c.itemId))].slice(0, limit);
 }
 
 export type TrackerChange = Pick<ChangeRowData, "id" | "itemId" | "code" | "name" | "at" | "from" | "to" | "tone" | "source" | "tracker" | "issue" | "alsoBuild" | "type">;

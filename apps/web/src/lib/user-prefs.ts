@@ -70,3 +70,39 @@ export function withLastLocation(meta: Record<string, unknown> | null | undefine
   const kept = Object.entries(next).slice(-(MAX_ACCOUNTS - 1));
   return { ...Object.fromEntries(kept), [tenantId]: path };
 }
+
+// ------------------------------------------------------------------ followed initiatives (issue #635)
+/** Most initiatives a person can follow in one account; the list is kept in their own profile, so it follows them to every device. */
+export const MAX_FOLLOWED = 100;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+type Followed = Record<string, string[]>;
+
+/** Only well-formed ids, once each, at most MAX_FOLLOWED (the newest kept). */
+export function cleanFollowed(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const v of raw) if (typeof v === "string" && UUID.test(v) && !out.includes(v)) out.push(v);
+  return out.slice(-MAX_FOLLOWED);
+}
+
+export function followedFromMetadata(meta: Record<string, unknown> | null | undefined, tenantId: string): string[] {
+  const map = meta?.followed_items;
+  return map && typeof map === "object" ? cleanFollowed((map as Followed)[tenantId]) : [];
+}
+
+/** The map to store after the person's list in this account became `ids`; the most recent accounts are kept. */
+export function withFollowed(meta: Record<string, unknown> | null | undefined, tenantId: string, ids: unknown): Followed {
+  const current = meta?.followed_items && typeof meta.followed_items === "object" ? (meta.followed_items as Followed) : {};
+  const next: Followed = {};
+  for (const [id, list] of Object.entries(current)) { const l = cleanFollowed(list); if (id !== tenantId && l.length > 0) next[id] = l; }
+  const kept = Object.entries(next).slice(-(MAX_ACCOUNTS - 1));
+  const mine = cleanFollowed(ids);
+  return { ...Object.fromEntries(kept), ...(mine.length > 0 ? { [tenantId]: mine } : {}) };
+}
+
+/** Follow or stop following one initiative. `full` is true when the list is at its limit and the initiative was not added. */
+export function toggleFollowed(list: readonly string[], id: string): { list: string[]; following: boolean; full: boolean } {
+  if (list.includes(id)) return { list: list.filter((x) => x !== id), following: false, full: false };
+  if (list.length >= MAX_FOLLOWED) return { list: [...list], following: false, full: true };
+  return { list: [...list, id], following: true, full: false };
+}

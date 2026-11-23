@@ -6,6 +6,7 @@ import { changeTypeLabel } from "@pv/domain";
 import type { PortfolioController } from "../portfolio/controller";
 import type { GridItem, Lookups } from "../portfolio/types";
 import { briefingFacts, briefingFlags, briefingText, buildLine, gateLine, type BriefingRow } from "./briefing";
+import { useFollow } from "./follow";
 import { ago } from "./phone-changes";
 import { usePhoneChanges, type ChangeSource } from "./use-phone-changes";
 
@@ -17,6 +18,9 @@ export function PhoneBriefing({ controller, lookups, row, tenantId, onEdit, chan
   const r = row as unknown as BriefingRow;
   const [more, setMore] = useState(false);
   const [copied, setCopied] = useState<boolean | null>(null);
+  const follow = useFollow();
+  const [followError, setFollowError] = useState<string | null>(null);
+  const following = follow?.isFollowing(r.id) ?? false;
   const changes = usePhoneChanges(controller, tenantId, changeSource);
   const person = (id: string) => { const m = lookups.members.find((x) => x.user_id === id); return m ? emailName(m.email) : ""; };
   const project = lookups.projects.find((p) => p.id === r.home_project)?.name ?? "";
@@ -29,6 +33,12 @@ export function PhoneBriefing({ controller, lookups, row, tenantId, onEdit, chan
   const now = new Date();
   const health = text(r.health);
   const phaseWord = text(r.initiative_phase);
+
+  async function toggleFollow() {
+    if (!follow) return;
+    const res = await follow.toggle(r.id);
+    setFollowError(res.ok ? null : res.error);
+  }
 
   async function copy() {
     try { await navigator.clipboard.writeText(window.location.href); setCopied(true); } catch { setCopied(false); }
@@ -105,9 +115,12 @@ export function PhoneBriefing({ controller, lookups, row, tenantId, onEdit, chan
       </section>
 
       <div className="briefing-actions">
-        <button type="button" className="btn btn-primary" onClick={onEdit}>Edit details</button>
+        <button type="button" className="btn btn-primary briefing-edit" onClick={onEdit}>Edit details</button>
+        {follow && <button type="button" className="btn" aria-pressed={following} onClick={() => void toggleFollow()}>{following ? "Following" : "Follow"}</button>}
         <button type="button" className="btn" onClick={copy}>Copy link</button>
       </div>
+      {followError && <p role="alert" className="pf-error">{followError}</p>}
+      {following && <p className="muted">You follow this initiative. Its changes come first in Initiatives. Nobody is told.</p>}
       {copied !== null && <p role="status" className="muted">{copied ? "Link copied." : "Could not copy the link."}</p>}
     </article>
   );

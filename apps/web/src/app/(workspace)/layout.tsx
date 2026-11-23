@@ -11,7 +11,9 @@ import { DemoBanner } from "@/components/demo-banner";
 import { isPlatformAdmin, loginIsStale } from "@/lib/session";
 import { LoadErrorNotice } from "@/components/load-error";
 import { LastLocationTracker, UserPrefsProvider } from "@/components/user-prefs";
-import { lastLocationFromMetadata, panelWidthFromMetadata, textSizeFromMetadata } from "@/lib/user-prefs";
+import { followedFromMetadata, lastLocationFromMetadata, panelWidthFromMetadata, textSizeFromMetadata } from "@/lib/user-prefs";
+import { FollowProvider } from "@/features/phone/follow";
+import { saveFollowed } from "./prefs-actions";
 
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const { supabase, user, memberships, active } = await requireWorkspace("/portfolio");
@@ -31,6 +33,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
   return (
     <SupabaseWorkspaceProvider key={active.tenantId} tenantId={active.tenantId} userId={user.id} projects={(projects ?? []) as { id: string; name: string }[]} canEdit={canEditItems(active.role)} canAdmin={active.role === "admin"} isDemo={active.isDemoAccount}>
     <UserPrefsProvider panelWidth={panelWidthFromMetadata(user.user_metadata)}>
+    <FollowProvider initial={followedFromMetadata(user.user_metadata, active.tenantId)} save={saveFollowed}>
     <LastLocationTracker initial={lastLocationFromMetadata(user.user_metadata, active.tenantId)} />
     <DatePrefs format={profileFromMetadata(user.user_metadata).dateFormat} />
     <div className="shell" style={{ zoom: textSizeFromMetadata(user.user_metadata) / 100, ["--text-zoom" as string]: textSizeFromMetadata(user.user_metadata) / 100 }}>
@@ -61,6 +64,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
       )}
       <main className="content">{children}</main>
     </div>
+    </FollowProvider>
     </UserPrefsProvider>
     </SupabaseWorkspaceProvider>
   );

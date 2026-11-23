@@ -115,6 +115,34 @@ test.describe("Decide with alignment results", () => {
   });
 });
 
+test.describe("following initiatives", () => {
+  test("followed initiatives come first in Recently changed and have their own chip", async ({ page }) => {
+    await page.goto("/dev/phone?n=40");
+    const cards = page.locator(".phone-card");
+    await expect(cards.nth(0)).toContainText("R-15");
+    await expect(cards.nth(0).locator(".phone-follow")).toHaveText("Following");
+    await expect(cards.nth(1).locator(".phone-follow")).toHaveText("Following");
+    await expect(cards.nth(2)).toContainText("R-01");
+    await expect(cards.nth(2).locator(".phone-follow")).toHaveCount(0);
+    await page.getByRole("button", { name: "Following (2)" }).click();
+    await expect(cards).toHaveCount(2);
+    await expect(cards.nth(0).locator(".phone-follow")).toBeVisible();
+  });
+  test("the briefing follows and stops following, and saves the list", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    const btn = page.getByRole("button", { name: "Follow", exact: true });
+    await expect(btn).toHaveAttribute("aria-pressed", "false");
+    await btn.click();
+    const after = page.getByRole("button", { name: "Following", exact: true });
+    await expect(after).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText("Nobody is told")).toBeVisible();
+    expect(await page.evaluate(() => (window as unknown as { __followed: string[] }).__followed.length)).toBe(3);
+    await after.click();
+    await expect(page.getByRole("button", { name: "Follow", exact: true })).toHaveAttribute("aria-pressed", "false");
+    expect(await page.evaluate(() => (window as unknown as { __followed: string[] }).__followed.length)).toBe(2);
+  });
+});
+
 test.describe("one initiative on a phone", () => {
   test("opens as a read-first briefing with the facts, the flags, the build and the latest changes", async ({ page }) => {
     await page.goto("/dev/phone?n=40&screen=item");

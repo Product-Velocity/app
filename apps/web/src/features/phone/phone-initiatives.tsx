@@ -9,13 +9,16 @@ import type { Lookups } from "../portfolio/types";
 import { ago, changeText, latestChangedInitiatives } from "./phone-changes";
 import { SinceLastLook } from "./phone-since";
 import { usePhoneChanges, type ChangeSource } from "./use-phone-changes";
-import { FIXED_CHIPS, GROUP_LABEL, PHASE_CHIPS, SORT_LABEL, filterPhoneRows, groupPhoneRows, sortPhoneRows, type Group, type PhoneRow, type Sort } from "./phone-list";
+import { useFollow } from "./follow";
+import { FIXED_CHIPS, FOLLOWING_CHIP, GROUP_LABEL, PHASE_CHIPS, SORT_LABEL, filterPhoneRows, groupPhoneRows, sortPhoneRows, type Group, type PhoneRow, type Sort } from "./phone-list";
 
 const emailName = (e: string) => e.split("@")[0]!.replace(/[._]/g, " ");
 
 /** The Initiatives screen on a phone: sticky search, quick-filter chips and collapsible groups of cards (docs/29-MOBILE.md section 4.2). */
 export function PhoneInitiatives({ controller, lookups, me, tenantId, changeSource }: { controller: PortfolioController; lookups: Lookups; me: string | null; tenantId: string; changeSource?: ChangeSource }) {
   const status = useStatus(controller);
+  const follow = useFollow();
+  const followed = useMemo(() => follow?.followed ?? new Set<string>(), [follow?.followed]); // eslint-disable-line react-hooks/exhaustive-deps
   const scope = useScope();
   const [query, setQuery] = useState("");
   const [chips, setChips] = useState<string[]>([]);
@@ -25,7 +28,7 @@ export function PhoneInitiatives({ controller, lookups, me, tenantId, changeSour
   const [mode, setMode] = useState<"recent" | "all">("recent");
   const changes = usePhoneChanges(controller, tenantId, changeSource);
   const scoped = useMemo(() => changes.rows.filter((r) => scope.projectIds === null || scope.projectIds.includes(String(controller.rows.find((x) => x.id === r.itemId)?.home_project))), [changes.rows, scope.projectIds, controller]);
-  const changed = useMemo(() => latestChangedInitiatives(scoped), [scoped]);
+  const changed = useMemo(() => latestChangedInitiatives(scoped, undefined, followed), [scoped, followed]);
   const showRecent = mode === "recent" && !query && chips.length === 0;
 
   const project = (id: string) => lookups.projects.find((p) => p.id === id)?.name ?? "";
@@ -34,11 +37,11 @@ export function PhoneInitiatives({ controller, lookups, me, tenantId, changeSour
 
   const groups = useMemo(() => {
     const inScope = controller.rows.filter((r) => scope.projectIds === null || scope.projectIds.includes(r.home_project)) as unknown as PhoneRow[];
-    const filtered = filterPhoneRows(inScope, { query, chips, me, today, project, person });
+    const filtered = filterPhoneRows(inScope, { query, chips, me, today, project, person, followed });
     return { total: filtered.length, groups: groupPhoneRows(sortPhoneRows(filtered, sort), group, project) };
     // the controller changes its rows in place; the version says when
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [controller, status.version, scope.projectIds, query, chips, sort, group, me]);
+  }, [controller, status.version, scope.projectIds, query, chips, sort, group, me, followed]);
 
   const toggle = (id: string) => setChips((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
   const flip = (key: string) => setClosed((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
@@ -56,6 +59,7 @@ export function PhoneInitiatives({ controller, lookups, me, tenantId, changeSour
           <button type="button" className={mode === "all" ? "phone-chip phone-chip-on" : "phone-chip"} aria-pressed={mode === "all"} onClick={() => setMode("all")}>All</button>
         </div>
         <div className="phone-chips" role="group" aria-label="Quick filters">
+          {follow && chip(FOLLOWING_CHIP, `Following${followed.size ? ` (${followed.size})` : ""}`)}
           {FIXED_CHIPS.map((c) => chip(c.id, c.label))}
           {PHASE_CHIPS.map((c) => chip(c.id, c.label))}
         </div>
@@ -76,7 +80,7 @@ export function PhoneInitiatives({ controller, lookups, me, tenantId, changeSour
             {changed.map((c) => (
               <li key={c.itemId}>
                 <Link className="phone-card" href={`/w/${tenantId}/portfolio/${encodeURIComponent(c.code)}`}>
-                  <span className="phone-card-top"><span className="mono">{c.code}</span><span className="muted">{ago(c.at, new Date())}</span></span>
+                  <span className="phone-card-top"><span className="mono">{c.code}{followed.has(c.itemId) ? <span className="phone-follow">Following</span> : null}</span><span className="muted">{ago(c.at, new Date())}</span></span>
                   <span className="phone-card-name">{c.name}</span>
                   <span className={`phone-change phone-change-${c.tone}`}>{changeText(c)}</span>
                   {c.more > 0 && <span className="muted phone-card-meta">and {c.more} more {c.more === 1 ? "change" : "changes"}</span>}
@@ -100,7 +104,7 @@ export function PhoneInitiatives({ controller, lookups, me, tenantId, changeSour
                 return (
                   <li key={r.id}>
                     <Link className="phone-card" href={`/w/${tenantId}/portfolio/${encodeURIComponent(r.item_code)}`}>
-                      <span className="phone-card-top"><span className="mono">#{r.stack_rank} · {r.item_code}</span>{r.health ? <span className={`phone-health phone-health-${String(r.health).toLowerCase().replace(/\s+/g, "-")}`}>{String(r.health)}</span> : null}</span>
+                      <span className="phone-card-top"><span className="mono">#{r.stack_rank} · {r.item_code}{followed.has(r.id) ? <span className="phone-follow">Following</span> : null}</span>{r.health ? <span className={`phone-health phone-health-${String(r.health).toLowerCase().replace(/\s+/g, "-")}`}>{String(r.health)}</span> : null}</span>
                       <span className="phone-card-name">{r.initiative_name}</span>
                       <span className="muted phone-card-meta">
                         {[group === "phase" ? "" : String(r.initiative_phase ?? ""), typeof progress === "number" && r.initiative_phase === "Build" ? `${Math.round(progress)}% built` : "", project(r.home_project), owner, String(r.g2m_quarter ?? ""), r.gate_status && r.gate_status !== "Not started" ? `Gate: ${String(r.gate_status)}` : ""].filter(Boolean).join(" · ")}

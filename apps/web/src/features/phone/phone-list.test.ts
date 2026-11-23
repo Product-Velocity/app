@@ -34,3 +34,13 @@ describe("phone list", () => {
     expect(groupPhoneRows(rows, "none", ctx.project)).toHaveLength(1);
   });
 });
+
+describe("the Following chip", () => {
+  const rows = [{ id: "a", item_code: "R-1", initiative_name: "One", stack_rank: 1, home_project: "p1" }, { id: "b", item_code: "R-2", initiative_name: "Two", stack_rank: 2, home_project: "p1" }] as never[];
+  const base = { query: "", me: null, today: new Date("2027-01-01"), project: () => "", person: () => "" };
+  it("keeps only followed initiatives", () => expect(filterPhoneRows(rows, { ...base, chips: ["following"], followed: new Set(["b"]) }).map((r) => r.id)).toEqual(["b"]));
+  it("shows nothing when nothing is followed, and everything without the chip", () => {
+    expect(filterPhoneRows(rows, { ...base, chips: ["following"], followed: new Set() })).toEqual([]);
+    expect(filterPhoneRows(rows, { ...base, chips: [] })).toHaveLength(2);
+  });
+});

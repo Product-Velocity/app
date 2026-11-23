@@ -6,6 +6,7 @@ import { ForYou } from "@/features/phone/for-you";
 import { PhoneQuickAdd } from "@/features/phone/phone-quick-add";
 import { PhoneInitiatives } from "@/features/phone/phone-initiatives";
 import { ItemPage } from "@/features/portfolio/item-page-client";
+import { FollowProvider } from "@/features/phone/follow";
 import { Insights } from "@/features/phone/insights-view";
 import { PhoneTracker } from "@/features/phone/phone-tracker";
 import type { ChangeSource } from "@/features/phone/use-phone-changes";
@@ -40,15 +41,16 @@ export function HarnessPhone({ n, screen }: { n: number; screen: string }) {
       return { feed: [...feed, ...tracker], issues };
     },
   }), [controller]);
+  const followSave = useMemo(() => async (ids: string[]) => { (window as unknown as { __followed?: string[] }).__followed = ids; }, []);
   const store = useMemo(() => Object.assign(new MemoryWorkspaceStore({ scopes: [], views: [] }), { projects: harnessLookups.projects }), []);
   return (
     <WorkspaceProvider store={store} projects={harnessLookups.projects} canEdit canAdmin={false}>
-      <div className="shell"><main className="content">{screen === "add" ? <PhoneQuickAdd controller={controller} lookups={harnessLookups} tenantId="t1" />
+      <FollowProvider initial={controller.rows.slice(14, 16).map((r) => r.id)} save={followSave}><div className="shell"><main className="content">{screen === "add" ? <PhoneQuickAdd controller={controller} lookups={harnessLookups} tenantId="t1" />
           : screen === "for-you" ? <ForYou controller={controller} me="u1" tenantId="t1" lookups={harnessLookups} source={new MemoryGateSource()} />
           : screen === "item" ? <ItemPage controller={controller} lookups={harnessLookups} userId="u1" code="R-12" tenantId="t1" changeSource={changeSource} pageHref={(c) => `/dev/phone?screen=item&code=${c}`} backHref="/dev/phone" />
           : screen === "insights" ? <Insights controller={controller} lookups={harnessLookups} tenantId="t1" />
           : screen === "tracker" ? <PhoneTracker controller={controller} tenantId="t1" changeSource={changeSource} />
-          : <PhoneInitiatives controller={controller} lookups={harnessLookups} me="u1" tenantId="t1" changeSource={changeSource} />}</main></div>
+          : <PhoneInitiatives controller={controller} lookups={harnessLookups} me="u1" tenantId="t1" changeSource={changeSource} />}</main></div></FollowProvider>
     </WorkspaceProvider>
   );
 }

@@ -1966,3 +1966,8 @@ a.btn.btn-primary { color: #fff; }
 .phone-align h2 { margin: 0; font-size: 15px; }
 .phone-align-top { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .phone-align-place { display: inline-block; min-width: 24px; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* Following (issue #635) */
+.phone-follow { margin-left: 8px; padding: 0 6px; border-radius: 8px; background: var(--blue-tint-2); color: var(--blue-text); font-family: inherit; font-size: 11.5px; font-weight: 600; }
+.briefing-actions { grid-template-columns: 1fr 1fr; }
+.briefing-edit { grid-column: 1 / -1; }
