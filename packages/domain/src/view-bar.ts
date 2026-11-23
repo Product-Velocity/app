@@ -5,6 +5,15 @@ import { normalizeSorts } from "./views";
 export const BUILTIN_BAR_NAMES = [...VIEW_NAMES, "All columns"] as const;
 export type BuiltinBarName = (typeof BUILTIN_BAR_NAMES)[number];
 
+/**
+ * The screens that have their own saved views, customised default views and view bar (issues #390 and #625). The Grid, the Cards screen
+ * and the Gantt never share a view, a customised default or a bar layout: a change made on one never shows on another.
+ */
+export const VIEW_SURFACES = ["grid", "cards", "gantt"] as const;
+export type ViewSurface = (typeof VIEW_SURFACES)[number];
+export const SURFACE_LABEL: Record<ViewSurface, string> = { grid: "Grid", cards: "Cards", gantt: "Gantt" };
+export const isViewSurface = (v: unknown): v is ViewSurface => typeof v === "string" && (VIEW_SURFACES as readonly string[]).includes(v);
+
 /** The bar holds at most this many views; the rest live in the "N more views" menu. */
 export const BAR_MAX = 6;
 /** The workspace default bar when an admin has not changed it: the first six built-ins. */

@@ -27,8 +27,8 @@ export function HarnessCards({ n, role }: { n: number; role: string }) {
     me: "u1", admin: role === "admin",
     scopes: [{ id: "scope-a", name: "Marketplace and Platform", projectIds: ["p1", "p2"] }, { id: "scope-b", name: "Customer-facing work", projectIds: ["p3"] }],
     views: [
-      { id: "view-must", name: "Must haves", columns: ["stack_rank", "item_code", "initiative_name"], filters: [{ field: "moscow", op: "is", value: "Must" }], groupBy: null },
-      { id: "view-detail", name: "With dates", columns: ["stack_rank", "item_code", "initiative_name", "g2m_date_est", "confidence", "horizon", "start_date"], filters: [], groupBy: null },
+      { id: "view-must", name: "Must haves", surface: "cards", columns: ["stack_rank", "item_code", "initiative_name"], filters: [{ field: "moscow", op: "is", value: "Must" }], groupBy: null },
+      { id: "view-detail", name: "With dates", surface: "cards", columns: ["stack_rank", "item_code", "initiative_name", "g2m_date_est", "confidence", "horizon", "start_date"], filters: [], groupBy: null },
     ],
   }), { projects: harnessLookups.projects }), []);
   // a move without a gate: the in-memory gate source changes the row like the database would, then the board reads it back

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   addToBar, BAR_FULL_MESSAGE, changeSummary, computeBar, diffViews, isCustomerSafe, layoutRowsFor, moveInBar, moveToIndex, nameProblem, refKey, removeFromBar, sameRef,
-  filterOptions, needsSearch, sanitizeView, visibleTabs, BUILTIN_BAR_NAMES, type BuiltinBarName, type MenuEntry, type ViewDef, type ViewName, type ViewRef,
+  filterOptions, needsSearch, sanitizeView, visibleTabs, BUILTIN_BAR_NAMES, SURFACE_LABEL, type BuiltinBarName, type MenuEntry, type ViewDef, type ViewName, type ViewSurface, type ViewRef,
 } from "@pv/domain";
 import { menuSearchKeys, NoResults, SearchInput } from "@/components/search-list";
 import { useWorkspace } from "../workspace/provider";
@@ -29,17 +29,18 @@ type Dialog =
   | { kind: "make-private"; entry: MenuEntry };
 
 /** Everything the view bar, the unsaved-changes bar and the ⌘K palette do with views, in one place so the three stay the same. */
-export function useViews({ base, def, bDef, dirty, openBase, discard, reset, builtins = BUILTIN_BAR_NAMES, defaultBar, builtinDefs }: { base: BaseView; def: ViewDef; bDef: ViewDef; dirty: boolean; openBase: (b: BaseView) => void; /** Drops the column changes of the open view (after they were saved). */ discard: () => void; /** Drops every unsaved change (filters, grouping, sort and columns). */ reset: () => void; builtins?: readonly BuiltinBarName[]; defaultBar?: readonly BuiltinBarName[]; builtinDefs?: Partial<Record<ViewName, ViewDef>> }) {
+export function useViews({ surface, base, def, bDef, dirty, openBase, discard, reset, builtins = BUILTIN_BAR_NAMES, defaultBar, builtinDefs }: { /** The screen this bar is on: each screen has its own views, customised defaults and bar. */ surface: ViewSurface; base: BaseView; def: ViewDef; bDef: ViewDef; dirty: boolean; openBase: (b: BaseView) => void; /** Drops the column changes of the open view (after they were saved). */ discard: () => void; /** Drops every unsaved change (filters, grouping, sort and columns). */ reset: () => void; builtins?: readonly BuiltinBarName[]; defaultBar?: readonly BuiltinBarName[]; builtinDefs?: Partial<Record<ViewName, ViewDef>> }) {
   const openRaw = openBase;
-  const { store, reload, views, defaults, layouts, userId, canAdmin } = useWorkspace();
+  const { store, reload, views, defaults, layouts, userId, canAdmin } = useWorkspace(surface);
   const [managing, setManaging] = useState(false);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [message, setMessage] = useState<{ text: string; cap: boolean } | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const barViews = useMemo(() => views.map((v) => ({ id: v.id, name: v.name, ownerId: v.ownerId, baseView: v.baseView })), [views]);
-  const personal = useMemo(() => computeBar({ views: barViews, workspaceLayout: layouts.workspace, myLayout: layouts.mine, me: userId, builtins, ...(defaultBar ? { defaultBar } : {}) }), [barViews, layouts, userId, builtins, defaultBar]);
+  const lay = layouts;
+  const personal = useMemo(() => computeBar({ views: barViews, workspaceLayout: lay.workspace, myLayout: lay.mine, me: userId, builtins, ...(defaultBar ? { defaultBar } : {}) }), [barViews, lay, userId, builtins, defaultBar]);
   // what an admin edits in "Manage": the workspace default, as everyone without a layout of their own sees it
-  const workspaceOnly = useMemo(() => computeBar({ views: barViews.filter((v) => v.ownerId === null), workspaceLayout: layouts.workspace, myLayout: [], me: null, builtins, ...(defaultBar ? { defaultBar } : {}) }), [barViews, layouts.workspace, builtins, defaultBar]);
+  const workspaceOnly = useMemo(() => computeBar({ views: barViews.filter((v) => v.ownerId === null), workspaceLayout: lay.workspace, myLayout: [], me: null, builtins, ...(defaultBar ? { defaultBar } : {}) }), [barViews, lay.workspace, builtins, defaultBar]);
   const shown = managing ? workspaceOnly : personal;
   const allKnown = useMemo<ViewRef[]>(() => [...builtins.map((name) => ({ kind: "builtin", name }) as ViewRef), ...views.filter((v) => !v.baseView).map((v) => ({ kind: "saved", id: v.id }) as ViewRef)], [builtins, views]);
 
@@ -73,7 +74,7 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset, bui
   // ---- the bar
   const writeBar = async (bar: ViewRef[], hidden: ViewRef[] = workspaceOnly.hidden.map((e) => e.ref)): Promise<boolean> => {
     const rows = layoutRowsFor(bar, allKnown.filter((r) => (managing ? isWorkspaceRef(r) : !hidden.some((h) => sameRef(h, r)))), managing ? hidden : []);
-    const r = await store.replaceLayout(managing, rows);
+    const r = await store.replaceLayout(managing, rows, surface);
     if (!r.ok) { say(r.error); return false; }
     await reload();
     say(null);
@@ -89,7 +90,7 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset, bui
   const move = (ref: ViewRef, by: -1 | 1) => writeBar(moveInBar(shown.bar, ref, by));
   const moveTo = (ref: ViewRef, to: number) => writeBar(moveToIndex(shown.bar, ref, to));
   const resetLayout = async () => {
-    const r = await store.replaceLayout(false, []);
+    const r = await store.replaceLayout(false, [], surface);
     if (!r.ok) { say(r.error); return; }
     await reload(); say(null);
   };
@@ -102,7 +103,7 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset, bui
   ];
 
   const create = async (name: string, workspace: boolean, d: ViewDef): Promise<string | null> => {
-    const r = await store.createView(name, d, { workspace });
+    const r = await store.createView(name, d, { workspace, surface });
     if (!r.ok) { say(r.error); return r.error; }
     await reload();
     say(null);
@@ -139,7 +140,7 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset, bui
     const workspace = v.ownerId === null;
     showToast({
       text: `Deleted “${v.name}”.`,
-      undo: async () => { const c = await store.createView(v.name, snapshot, { workspace }); if (!c.ok) say(c.error); await reload(); },
+      undo: async () => { const c = await store.createView(v.name, snapshot, { workspace, surface }); if (!c.ok) say(c.error); await reload(); },
     });
   };
   const setScope = async (entry: MenuEntry, workspace: boolean) => {
@@ -153,24 +154,24 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset, bui
     const hidden = [...workspaceOnly.hidden.map((e) => e.ref), entry.ref];
     const prevBar = workspaceOnly.bar, prevHidden = workspaceOnly.hidden.map((e) => e.ref);
     const rows = layoutRowsFor(removeFromBar(workspaceOnly.bar, entry.ref), allKnown.filter(isWorkspaceRef), hidden);
-    const r = await store.replaceLayout(true, rows);
+    const r = await store.replaceLayout(true, rows, surface);
     if (!r.ok) { say(r.error); return; }
     await reload();
     if (base.kind !== "saved" && sameRef(baseToRef(base), entry.ref)) openRaw({ kind: "builtin", name: "Prioritisation" });
     showToast({
       text: `Hid “${entry.name}” for everyone.`,
-      undo: async () => { await store.replaceLayout(true, layoutRowsFor(prevBar, allKnown.filter(isWorkspaceRef), prevHidden)); await reload(); },
+      undo: async () => { await store.replaceLayout(true, layoutRowsFor(prevBar, allKnown.filter(isWorkspaceRef), prevHidden), surface); await reload(); },
     });
   };
   const restore = async (entry: MenuEntry) => {
     const hidden = workspaceOnly.hidden.map((e) => e.ref).filter((r) => !sameRef(r, entry.ref));
     const rows = layoutRowsFor(workspaceOnly.bar, allKnown.filter(isWorkspaceRef), hidden);
-    const r = await store.replaceLayout(true, rows);
+    const r = await store.replaceLayout(true, rows, surface);
     if (!r.ok) { say(r.error); return; }
     await reload(); say(null);
   };
   const restoreOriginal = async (name: ViewName) => {
-    const r = await store.restoreDefaultView(name);
+    const r = await store.restoreDefaultView(name, surface);
     if (!r.ok) { say(r.error); return; }
     await reload(); say(null);
   };
@@ -181,7 +182,7 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset, bui
   const updateLabel = updateKind === "workspace" ? "Update for everyone" : current ? `Update “${current.name}”` : "Update";
   const updateBlocked = updateKind === "workspace" && !canAdmin ? "Workspace views can only be changed by an admin. Save as your own view instead." : null;
   const doUpdate = async () => {
-    const r = current ? await store.updateView(current.id, { ...def, sort: def.sort ?? [], widths: def.widths ?? {} }) : builtinName ? await store.saveDefaultView(builtinName, def) : null;
+    const r = current ? await store.updateView(current.id, { ...def, sort: def.sort ?? [], widths: def.widths ?? {} }) : builtinName ? await store.saveDefaultView(builtinName, def, surface) : null;
     if (!r) return;
     if (!r.ok) { say(r.error); return; }
     await reload(); say(null);
@@ -218,7 +219,7 @@ export function useViews({ base, def, bDef, dirty, openBase, discard, reset, bui
   })();
 
   return {
-    base, current, builtinName, dirty, def, bDef, managing, setManaging, state: shown, personal, workspaceOnly, canAdmin, userId, views, defaults,
+    surface, base, current, builtinName, dirty, def, bDef, managing, setManaging, state: shown, personal, workspaceOnly, canAdmin, userId, views, defaults,
     message, say, toast, undoToast, setToast, dialog, setDialog,
     reset, toggleInBar, move, moveTo, resetLayout, duplicate, rename, remove, setScope, hide, restore, restoreOriginal, create, ownNames, viewOf, mayWrite,
     update: { kind: updateKind, allowed: updateAllowed, label: updateLabel, blocked: updateBlocked, request: requestUpdate, run: doUpdate },
@@ -396,26 +397,29 @@ function ActionsMenu({ api, entry, onDone }: { api: ViewsApi; entry: MenuEntry; 
   );
 }
 
-function MenuRow({ api, entry, index, onOpen, onDone }: { api: ViewsApi; entry: MenuEntry; index: number; onOpen: (r: ViewRef) => void; onDone: () => void }) {
+/** One row of the views menu. A view in the bar has a grip (drag it, or use the arrow keys on it) and "Remove"; any other view has "Add to bar". */
+function MenuRow({ api, entry, onOpen, onDone, inBar, dragging, setDragging }: { api: ViewsApi; entry: MenuEntry; onOpen: (r: ViewRef) => void; onDone: () => void; inBar: boolean; dragging: string | null; setDragging: (k: string | null) => void }) {
   const active = refKey(baseToRef(api.base)) === refKey(entry.ref);
+  const k = refKey(entry.ref);
   return (
-    <div className="vm-row" role="group" aria-label={entry.name}
+    <div className={`vm-row${dragging === k ? " vm-dragging" : ""}`} role="group" aria-label={entry.name}
+      draggable={inBar} onDragStart={(ev) => { if (!inBar) return; setDragging(k); ev.dataTransfer.setData("text/plain", k); ev.dataTransfer.effectAllowed = "move"; }}
+      onDragEnd={() => setDragging(null)} onDragOver={(ev) => { if (inBar && dragging) ev.preventDefault(); }}
+      onDrop={(ev) => { if (!inBar) return; ev.preventDefault(); const from = api.bar.find((b) => refKey(b) === dragging); setDragging(null); if (from) void api.moveTo(from, api.bar.findIndex((b) => refKey(b) === k)); }}
       onKeyDown={(e) => {
-        if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && entry.inBar) { e.preventDefault(); void api.move(entry.ref, e.key === "ArrowUp" ? -1 : 1); }
+        if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && inBar) { e.preventDefault(); void api.move(entry.ref, e.key === "ArrowUp" ? -1 : 1); }
       }}>
+      {inBar && (
+        <button type="button" className="vm-grip" aria-label={`Move ${entry.name} in the bar: drag, or press the up and down arrow keys`}
+          onKeyDown={(e) => { if (e.key === "ArrowUp" || e.key === "ArrowDown") { e.preventDefault(); e.stopPropagation(); void api.move(entry.ref, e.key === "ArrowUp" ? -1 : 1); } }}>⋮⋮</button>
+      )}
       <button type="button" className="vm-open" aria-current={active ? "true" : undefined} onClick={() => onOpen(entry.ref)}>
         <span className="vm-name">{entry.name}</span>
         <span className="vm-tag">{entry.scope === "workspace" ? "workspace" : "private"}</span>
         {entry.isNew && <span className="vm-new">New</span>}
       </button>
-      <button type="button" className={entry.inBar ? "vm-toggle vm-toggle-on" : "vm-toggle"} aria-pressed={entry.inBar} data-index={index}
-        onClick={() => void api.toggleInBar(entry.ref)}>{entry.inBar ? "In bar" : "Show in bar"}</button>
-      {entry.inBar && (
-        <>
-          <button type="button" className="vm-move" aria-label={`Move ${entry.name} earlier in the bar`} onClick={() => void api.move(entry.ref, -1)}>↑</button>
-          <button type="button" className="vm-move" aria-label={`Move ${entry.name} later in the bar`} onClick={() => void api.move(entry.ref, 1)}>↓</button>
-        </>
-      )}
+      <button type="button" className={inBar ? "vm-toggle" : "vm-toggle vm-toggle-add"} aria-label={inBar ? `Remove ${entry.name} from the bar` : `Add ${entry.name} to the bar`}
+        onClick={() => void api.toggleInBar(entry.ref)}>{inBar ? "Remove" : "Add to bar"}</button>
       <ActionsMenu api={api} entry={entry} onDone={onDone} />
     </div>
   );
@@ -424,10 +428,11 @@ function MenuRow({ api, entry, index, onOpen, onDone }: { api: ViewsApi; entry: 
 function MoreViews({ api, count }: { api: ViewsApi; count: number }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [dragging, setDragging] = useState<string | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
   const id = useId();
-  const close = () => { setOpen(false); setQuery(""); };
+  const close = () => { setOpen(false); setQuery(""); setDragging(null); };
   const blur = useMenuBlur(close);
   useDismiss(ref, open, close);
   useEffect(() => {
@@ -436,10 +441,11 @@ function MoreViews({ api, count }: { api: ViewsApi; count: number }) {
     return () => window.removeEventListener(OPEN_VIEWS_EVENT, on);
   }, []);
   // the panel hangs from the right edge of the button; with only a few tabs the button sits near the left of the screen, so move the panel right until it is whole on screen
+  // (on a phone the panel is a sheet at the foot of the screen instead, so it is left alone)
   const panel = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const p = panel.current, a = ref.current;
-    if (!open || !p || !a) return;
+    if (!open || !p || !a || window.matchMedia("(max-width: 640px)").matches) return;
     // set on the element itself (it is new each time the menu opens), so nothing has to be reset
     if (p.getBoundingClientRect().left < 8) { p.style.right = "auto"; p.style.left = `${8 - a.getBoundingClientRect().left}px`; }
   }, [open]);
@@ -447,42 +453,66 @@ function MoreViews({ api, count }: { api: ViewsApi; count: number }) {
   const total = st.mine.length + st.workspace.length;
   const search = needsSearch(total);
   const keep = (list: MenuEntry[]) => filterOptions(list.map((e) => ({ e, label: e.name })), query).map((x) => x.e);
-  const mine = keep(st.mine), workspace = keep(st.workspace), hidden = api.canAdmin ? keep(st.hidden) : [];
+  const all = [...st.mine, ...st.workspace];
+  const byKey = new Map(all.map((e) => [refKey(e.ref), e]));
+  const barEntries = keep(api.bar.map((r) => byKey.get(refKey(r))).filter((e): e is MenuEntry => !!e));
+  const others = (list: MenuEntry[]) => keep(list.filter((e) => !e.inBar));
+  const mine = others(st.mine), workspace = others(st.workspace), hidden = api.canAdmin ? keep(st.hidden) : [];
   const onOpen = (r: ViewRef) => { api.openBase(refToBase(r)); close(); btn.current?.focus(); };
+  const summary = api.dirty ? changeSummary(diffViews(api.bDef, api.def)) || "The view" : "";
+  const row = (e: MenuEntry, inBar: boolean) => <MenuRow key={refKey(e.ref)} api={api} entry={e} onOpen={onOpen} onDone={close} inBar={inBar} dragging={dragging} setDragging={setDragging} />;
   return (
     <span ref={ref} className="popover-anchor" {...blur}
       onKeyDown={(e) => { if (e.key === "Escape" && open) { e.stopPropagation(); close(); btn.current?.focus(); } }}>
       <button ref={btn} type="button" className="tool-btn more-views-btn" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen((o) => !o)}>
-        {count} more {count === 1 ? "view" : "views"}{api.dirty && <span className="vm-dot" title="This view has changes you have not saved" aria-hidden="true"> ●</span>}<Chevron open={open} />
+        {count > 0 ? `${count} more ${count === 1 ? "view" : "views"}` : "Views"}{api.dirty && <span className="vm-dot" title="This view has changes you have not saved" aria-hidden="true"> ●</span>}<Chevron open={open} />
       </button>
       {open && (
-        <div ref={panel} id={id} className="popover-panel popover-right views-panel vm-panel" role="dialog" aria-label="Views">
-          {api.managing && <p className="panel-note" role="status">Editing the workspace default bar. People who set their own bar keep it.</p>}
-          <section aria-label="Current view" className="vm-current">
-            <p className="scope-head">Current view: {baseLabel(api.base, api.views)}{api.dirty ? " (changed)" : ""}</p>
-            {api.dirty && <p className="panel-note">{changeSummary(diffViews(api.bDef, api.def)) || "Changed"} since it was saved. Changes stay as you switch views until you reset or save them.</p>}
-            <div className="vm-current-actions">
-              {api.update.kind !== "none" && (
-                <span title={api.update.blocked ?? undefined}>
-                  <button type="button" className="tool-btn" disabled={!api.dirty || !api.update.allowed} onClick={() => { close(); api.update.request(); }}>{api.update.label}</button>
-                </span>
-              )}
-              <button type="button" className="tool-btn" onClick={() => { close(); api.requestSave(); }}>Save as new view…</button>
-              <button type="button" className="tool-btn" disabled={!api.dirty} onClick={() => { api.reset(); }}>Reset changes</button>
-            </div>
-            {api.update.blocked && api.dirty && <p className="panel-note">{api.update.blocked}</p>}
-          </section>
+        <div ref={panel} id={id} className={api.managing ? "popover-panel popover-right views-panel vm-panel vm-panel-ws" : "popover-panel popover-right views-panel vm-panel"} role="dialog" aria-label="Views">
+          <div className="vm-head">
+            {api.canAdmin && (
+              <div className="vm-modes" role="group" aria-label="Whose bar you are changing">
+                <button type="button" aria-pressed={!api.managing} onClick={() => api.setManaging(false)}>My bar</button>
+                <button type="button" aria-pressed={api.managing} onClick={() => api.setManaging(true)}>Workspace bar</button>
+              </div>
+            )}
+            {api.managing && <p className="vm-banner" role="status">You are changing the {SURFACE_LABEL[api.surface]} bar for everyone. People who set their own bar keep it.</p>}
+            <section aria-label="Current view" className="vm-current">
+              <p className="vm-current-line">
+                <span className="vm-current-label">Current view</span>
+                <strong className="vm-current-name">{baseLabel(api.base, api.views)}</strong>
+                {api.dirty && <span className="vm-changed">changed</span>}
+              </p>
+              {api.dirty && <p className="panel-note">{summary} changed since it was saved. Changes stay as you switch views until you reset or save them.</p>}
+              <div className="vm-current-actions">
+                {api.update.kind !== "none" && (
+                  <span title={api.update.blocked ?? undefined}>
+                    <button type="button" className="tool-btn" disabled={!api.dirty || !api.update.allowed} onClick={() => { close(); api.update.request(); }}>{api.update.label}</button>
+                  </span>
+                )}
+                <button type="button" className="tool-btn" onClick={() => { close(); api.requestSave(); }}>Save as new view…</button>
+                <button type="button" className="tool-btn" disabled={!api.dirty} onClick={() => { api.reset(); }}>Reset changes</button>
+              </div>
+              {api.update.blocked && api.dirty && <p className="panel-note">{api.update.blocked}</p>}
+            </section>
+          </div>
           {search && <SearchInput value={query} onChange={setQuery} label="Search views" onKeyDown={menuSearchKeys} />}
+          {barEntries.length > 0 && (
+            <section aria-label={api.managing ? "In the workspace bar" : "In your bar"}>
+              <p className="scope-head">{api.managing ? "In the workspace bar" : "In your bar"} <span className="vm-count">{api.bar.length} of 6</span></p>
+              {barEntries.map((e) => row(e, true))}
+            </section>
+          )}
           {mine.length > 0 && (
             <section aria-label="My views">
               <p className="scope-head">My views</p>
-              {mine.map((e, i) => <MenuRow key={refKey(e.ref)} api={api} entry={e} index={i} onOpen={onOpen} onDone={close} />)}
+              {mine.map((e) => row(e, false))}
             </section>
           )}
           {workspace.length > 0 && (
             <section aria-label="Workspace views">
               <p className="scope-head">Workspace views</p>
-              {workspace.map((e, i) => <MenuRow key={refKey(e.ref)} api={api} entry={e} index={i} onOpen={onOpen} onDone={close} />)}
+              {workspace.map((e) => row(e, false))}
             </section>
           )}
           {hidden.length > 0 && (
@@ -494,10 +524,10 @@ function MoreViews({ api, count }: { api: ViewsApi; count: number }) {
               ))}
             </section>
           )}
-          {query !== "" && mine.length + workspace.length + hidden.length === 0 && <NoResults query={query} />}
+          {query !== "" && barEntries.length + mine.length + workspace.length + hidden.length === 0 && <NoResults query={query} />}
           <div className="vm-foot">
-            {!api.state.followsWorkspace && !api.managing && <button type="button" className="btn btn-link" onClick={() => void api.resetLayout()}>Reset to workspace layout</button>}
-            {api.canAdmin && <button type="button" className="btn btn-link" aria-pressed={api.managing} onClick={() => api.setManaging(!api.managing)}>{api.managing ? "Done managing" : "Manage workspace bar"}</button>}
+            {!api.state.followsWorkspace && !api.managing ? <button type="button" className="btn btn-link" onClick={() => void api.resetLayout()}>Reset to workspace layout</button> : <span />}
+            <span className="muted vm-hint">Jump to any view: <kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd></span>
           </div>
         </div>
       )}

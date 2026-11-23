@@ -68,7 +68,7 @@ export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
   const params = useSearchParams();
   const status = useStatus(controller);
   const scope = useScope();
-  const { views, defaults, ready } = useWorkspace();
+  const { views, defaults, ready } = useWorkspace("gantt");
   const optionKeys = useMemo(() => ganttGroupOptions().map((o) => o.key), []);
 
   // ---- the view: 3 default Gantt views + saved views, kept in the address (?view=) and session storage; what you change stays until you save or reset
@@ -108,7 +108,7 @@ export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
     setQueryParam("view", p); writeStoredView(p);
   };
   const resetChanges = () => { setShared({}); clearAddress(); };
-  const viewsApi = useViews({ base, def, bDef, dirty, openBase, discard: resetChanges, reset: resetChanges, builtins: GANTT_VIEW_NAMES, defaultBar: GANTT_VIEW_NAMES, builtinDefs: GANTT_DEFAULT_VIEWS });
+  const viewsApi = useViews({ surface: "gantt", base, def, bDef, dirty, openBase, discard: resetChanges, reset: resetChanges, builtins: GANTT_VIEW_NAMES, defaultBar: GANTT_VIEW_NAMES, builtinDefs: GANTT_DEFAULT_VIEWS });
   const filterName = base.kind === "saved" ? (views.find((v) => v.id === base.id)?.name ?? null) : null;
   const setFilters = (f: Filter[]) => setShared((p) => ({ ...p, filters: f }));
   const changeGantt = (patch: Partial<GanttSettings>) => setShared((p) => ({ ...p, gantt: { ...p.gantt, ...patch } }));

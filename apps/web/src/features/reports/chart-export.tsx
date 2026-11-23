@@ -92,8 +92,8 @@ export function stackedRaster(i: StackedInput): Raster {
   };
 }
 
-/** Places the picture on a white sheet under the title (and a line of words about it), with the date at the foot. */
-export function composeSheet(r: Raster, o: { title: string; subtitle?: string; dateLabel: string }): HTMLCanvasElement {
+/** Places the picture on a white sheet under its title (and a line of words about it). Nothing else is added: no logo, no date. */
+export function composeSheet(r: Raster, o: { title: string; subtitle?: string }): HTMLCanvasElement {
   const m = document.createElement("canvas").getContext("2d")!;
   m.font = `600 15px ${SANS}`;
   const inner = Math.max(r.width, 360);
@@ -101,7 +101,7 @@ export function composeSheet(r: Raster, o: { title: string; subtitle?: string; d
   m.font = `12px ${SANS}`;
   const subLines = o.subtitle ? wrapText(o.subtitle, inner, (s) => m.measureText(s).width) : [];
   const headH = titleLines.length * 20 + subLines.length * 16 + (subLines.length ? 4 : 0) + 10;
-  const width = inner + PAD * 2, height = PAD + headH + r.height + 12 + 16 + PAD / 2;
+  const width = inner + PAD * 2, height = PAD + headH + r.height + PAD;
   const scale = 2;
   const canvas = document.createElement("canvas");
   canvas.width = Math.ceil(width * scale); canvas.height = Math.ceil(height * scale);
@@ -117,8 +117,6 @@ export function composeSheet(r: Raster, o: { title: string; subtitle?: string; d
   for (const l of subLines) { ctx.fillText(l, PAD, y); y += 16; }
   y += 10;
   ctx.save(); ctx.translate(PAD, y); r.draw(ctx); ctx.restore();
-  ctx.textBaseline = "top"; ctx.font = `11px ${SANS}`; ctx.fillStyle = MUTED;
-  ctx.fillText(`Product Velocity · ${o.dateLabel}`, PAD, y + r.height + 12);
   return canvas;
 }
 
@@ -131,7 +129,7 @@ export function ExportPngButton({ describe, name, raster, className = "rp-export
     if (!r) { setNote("This chart could not be exported."); return; }
     const day = new Date().toISOString().slice(0, 10);
     const { title, subtitle } = describe();
-    const sheet = composeSheet(r, { title, ...(subtitle ? { subtitle } : {}), dateLabel: day });
+    const sheet = composeSheet(r, { title, ...(subtitle ? { subtitle } : {}) });
     r.done?.();
     downloadPng(sheet, chartFileName(title, day));
     setNote("Picture saved.");

@@ -147,7 +147,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     async views() {
       // RLS: workspace views for everyone, private views only for their owner
       const saved = must(
-        await supabase.from("saved_views").select("id, name, columns, filters, group_by, then_by, show_issues, issue_types, issues_hide_done, sort, visibility, customer_safe, base_view").eq("tenant_id", tenant.id).order("name"),
+        await supabase.from("saved_views").select("id, name, columns, filters, group_by, then_by, show_issues, issue_types, issues_hide_done, sort, visibility, customer_safe, base_view").eq("tenant_id", tenant.id).eq("surface", "grid").order("name"), // the Grid's views; the Cards screen and the Gantt have their own
         "views",
       ) as { id: string; name: string; columns: string[]; filters: unknown[]; group_by: string | null; then_by: string | null; show_issues: boolean | null; issue_types: string[] | null; issues_hide_done: boolean | null; sort: unknown; visibility: "workspace" | "private"; customer_safe: boolean; base_view: string | null }[];
       const customised = new Set(saved.map((v) => v.base_view).filter(Boolean));

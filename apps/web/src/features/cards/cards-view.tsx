@@ -48,7 +48,7 @@ export type CardsProps = {
 export function CardsView({ controller, lookups, me, pageHref, gates }: CardsProps) {
   const params = useSearchParams();
   const status = useStatus(controller);
-  const { views, defaults, ready } = useWorkspace();
+  const { views, defaults, ready } = useWorkspace("cards");
   const scope = useScope();
   const today = controller.todayDate();
   const options = useMemo(() => axisOptions(), []);
@@ -117,7 +117,7 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
   const clearColumns = () => setColOverrides((p) => { const n = { ...p }; delete n[viewKey]; return n; });
   const resetChanges = () => { setShared({}); clearColumns(); setQueryParam("lane", null); };
   const viewsApi = useViews({
-    base, def, bDef, dirty, openBase: openBaseRaw, discard: clearColumns, reset: resetChanges,
+    surface: "cards", base, def, bDef, dirty, openBase: openBaseRaw, discard: clearColumns, reset: resetChanges,
     builtins: CARDS_VIEW_NAMES, defaultBar: CARDS_VIEW_NAMES, builtinDefs: CARDS_DEFAULT_VIEWS,
   });
 
