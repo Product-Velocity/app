@@ -91,6 +91,16 @@ const feed: FeedRow[] = [
 ];
 const rows = (extra: Parameters<typeof buildChangeRows>[2] = {}) => buildChangeRows(feed, items, { nameOf, flags: new Map([["a", [flag]]]), issues: new Map([["a", issue]]), ...extra });
 
+describe("buildChangeRows: the reason a person gave", () => {
+  it("puts the note of an audit entry on its row, and null where there is none", () => {
+    const health = rows().find((r) => r.type === "health")!;
+    const withNote = rows({ notes: new Map([[health.entryId, "Vendor slipped the API"]]) });
+    expect(withNote.find((r) => r.type === "health")!.note).toBe("Vendor slipped the API");
+    expect(withNote.filter((r) => r.type !== "health").every((r) => r.note === null)).toBe(true);
+    expect(rows().every((r) => r.note === null)).toBe(true);
+  });
+});
+
 describe("buildChangeRows: where a change came from and who is on it", () => {
   it("keeps only changes of the initiatives shown, newest first, and drops a value that did not change", () => {
     expect(rows().map((r) => [r.code, r.type])).toEqual([["R-27", "initiative-status"], ["R-27", "issue-status"], ["R-27", "build-status"], ["G-03", "health"]]);

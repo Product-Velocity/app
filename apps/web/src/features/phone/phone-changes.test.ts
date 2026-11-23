@@ -19,6 +19,16 @@ describe("latestChangedInitiatives", () => {
   it("leaves tracker-driven changes to the Tracker feed", () => {
     expect(latestChangedInitiatives([row({ type: "build-status", trackerDriven: true }), row({ type: "issue-status", trackerDriven: true })])).toEqual([]);
   });
+  it("puts followed initiatives first and keeps them even when newer changes fill the list", () => {
+    const rows = [
+      ...Array.from({ length: 20 }, (_, i) => row({ itemId: `n${i}`, code: `R-${i}`, at: `2026-11-23T10:${String(59 - i).padStart(2, "0")}:00Z` })),
+      row({ itemId: "f1", code: "R-90", at: "2026-11-01T10:00:00Z" }), row({ itemId: "f2", code: "R-91", at: "2026-11-02T10:00:00Z" }),
+    ];
+    const out = latestChangedInitiatives(rows, 15, new Set(["f1", "f2"]));
+    expect(out).toHaveLength(15);
+    expect(out.slice(0, 2).map((c) => c.code)).toEqual(["R-90", "R-91"]);
+    expect(out[2]!.code).toBe("R-0");
+  });
   it("stops at the limit", () => {
     const rows = Array.from({ length: 30 }, (_, i) => row({ itemId: `x${i}`, code: `R-${i}` }));
     expect(latestChangedInitiatives(rows)).toHaveLength(15);

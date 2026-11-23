@@ -41,7 +41,11 @@ export function matchesPhoneSearch(row: PhoneRow, query: string, ctx: { project:
   return words.every((w) => hay.includes(w));
 }
 
-export function filterPhoneRows(rows: PhoneRow[], o: { query: string; chips: string[]; me: string | null; today: Date; project: (id: string) => string; person: (id: string) => string }): PhoneRow[] {
+/** The chip that shows only the initiatives the person follows; it is not a field filter, so it is handled here. */
+export const FOLLOWING_CHIP = "following";
+
+export function filterPhoneRows(rows: PhoneRow[], o: { query: string; chips: string[]; me: string | null; today: Date; project: (id: string) => string; person: (id: string) => string; followed?: ReadonlySet<string> }): PhoneRow[] {
+  if (o.chips.includes(FOLLOWING_CHIP)) rows = rows.filter((r) => o.followed?.has(r.id));
   const { phases, filters } = chipFilters(o.chips);
   const all: Filter[] = phases.length > 0 ? [...filters, { field: "initiative_phase", op: "any_of", values: phases }] : filters;
   return rows.filter((r) => matchesPhoneSearch(r, o.query, o) && matchesFilters(r, all, { me: o.me, today: o.today }));

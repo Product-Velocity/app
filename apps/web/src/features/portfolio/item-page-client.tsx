@@ -12,6 +12,7 @@ import { SupabaseGateSource, type GateSource } from "../gates/gate-source";
 import { PhoneBriefing } from "../phone/phone-briefing";
 import { PHONE_QUERY } from "../phone/use-is-phone";
 import type { ChangeSource } from "../phone/use-phone-changes";
+import type { QuickChangeSource } from "../phone/quick-change-source";
 
 /** The item as a page of its own at /portfolio/R-12: same panel, same autosave and undo, shareable address. */
 export function ItemPageClient({ tenantId, role, userId, lookups, code }: { tenantId: string; role: string; userId: string; lookups: Lookups; code: string }) {
@@ -24,7 +25,7 @@ export function ItemPageClient({ tenantId, role, userId, lookups, code }: { tena
   return <ItemPage controller={state.controller} lookups={lookups} userId={userId} code={code} gates={gates} tenantId={tenantId} />;
 }
 
-export function ItemPage({ controller, lookups, userId, code, pageHref = (c) => `/portfolio/${encodeURIComponent(c)}`, backHref = "/portfolio", gates, tenantId, changeSource }: { tenantId?: string; changeSource?: ChangeSource; gates?: GateSource; controller: PortfolioController; lookups: Lookups; userId: string; code: string; pageHref?: (code: string) => string; backHref?: string }) {
+export function ItemPage({ controller, lookups, userId, code, pageHref = (c) => `/portfolio/${encodeURIComponent(c)}`, backHref = "/portfolio", gates, tenantId, changeSource, quickSource }: { tenantId?: string; changeSource?: ChangeSource; quickSource?: QuickChangeSource; gates?: GateSource; controller: PortfolioController; lookups: Lookups; userId: string; code: string; pageHref?: (code: string) => string; backHref?: string }) {
   const router = useRouter();
   // on a phone an initiative opens as a read-first briefing; "Edit details" shows the full panel. Read in the browser only (this page is shown after the roadmap has loaded there).
   const [phone] = useState(() => typeof window !== "undefined" && window.matchMedia(PHONE_QUERY).matches);
@@ -53,7 +54,7 @@ export function ItemPage({ controller, lookups, userId, code, pageHref = (c) => 
     return (
       <>
         <button type="button" className="btn phone-only phone-back" onClick={() => router.back()}>← Back</button>
-        <PhoneBriefing controller={controller} lookups={lookups} row={row} tenantId={tenantId} onEdit={() => { setEditing(true); window.scrollTo({ top: 0 }); }} {...(changeSource ? { changeSource } : {})} />
+        <PhoneBriefing controller={controller} lookups={lookups} row={row} tenantId={tenantId} onEdit={() => { setEditing(true); window.scrollTo({ top: 0 }); }} {...(changeSource ? { changeSource } : {})} {...(quickSource ? { quickSource } : {})} />
       </>
     );
   }

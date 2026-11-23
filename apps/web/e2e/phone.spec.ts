@@ -84,6 +84,127 @@ test.describe("the phone shell", () => {
   });
 });
 
+test.describe("Decide with alignment results", () => {
+  test("switches between gates and alignment results, which list sessions with their top initiatives", async ({ page }) => {
+    await page.goto("/dev/decisions?phone=1");
+    await expect(page.getByRole("heading", { level: 1, name: "Decide" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Filter requests" })).toBeVisible();
+    await page.getByRole("button", { name: "Alignment results" }).click();
+    await expect(page.getByRole("group", { name: "Filter requests" })).toHaveCount(0);
+    const sessions = page.getByRole("list", { name: "Alignment sessions" }).locator("article");
+    await expect(sessions).toHaveCount(3);
+    const closed = sessions.filter({ hasText: "Q1 planning" });
+    await expect(closed).toContainText("Closed");
+    await expect(closed).toContainText("12 people voted");
+    await expect(closed).toContainText("1 contested");
+    await expect(closed.getByRole("list", { name: "Top initiatives of Q1 planning" }).locator("li")).toHaveText(["1 Self-serve onboarding", "1= Payout reconciliation", "3 Push digest"]);
+    await expect(closed.getByRole("link", { name: "Full results" })).toHaveAttribute("href", /\/alignment\/s-closed\/results$/);
+    await expect(sessions.filter({ hasText: "Q2 roadmap vote" })).toContainText("Results appear when the session closes");
+    await expect(sessions.filter({ hasText: "Autumn pulse" })).toContainText("No results were stored");
+    // the choice is in the address, so a reload or a shared link comes back to it
+    expect(new URL(page.url()).searchParams.get("tab")).toBe("alignment");
+    await page.getByRole("button", { name: "Gates", exact: true }).click();
+    await expect(page.getByRole("group", { name: "Filter requests" })).toBeVisible();
+  });
+  test("opens on the alignment results from a link and passes the accessibility check", async ({ page }) => {
+    await page.goto("/dev/decisions?phone=1&tab=alignment");
+    await expect(page.getByRole("list", { name: "Alignment sessions" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+});
+
+test.describe("following initiatives", () => {
+  test("followed initiatives come first in Recently changed and have their own chip", async ({ page }) => {
+    await page.goto("/dev/phone?n=40");
+    const cards = page.locator(".phone-card");
+    await expect(cards.nth(0)).toContainText("R-15");
+    await expect(cards.nth(0).locator(".phone-follow")).toHaveText("Following");
+    await expect(cards.nth(1).locator(".phone-follow")).toHaveText("Following");
+    await expect(cards.nth(2)).toContainText("R-01");
+    await expect(cards.nth(2).locator(".phone-follow")).toHaveCount(0);
+    await page.getByRole("button", { name: "Following (2)" }).click();
+    await expect(cards).toHaveCount(2);
+    await expect(cards.nth(0).locator(".phone-follow")).toBeVisible();
+  });
+  test("the briefing follows and stops following, and saves the list", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    const btn = page.getByRole("button", { name: "Follow", exact: true });
+    await expect(btn).toHaveAttribute("aria-pressed", "false");
+    await btn.click();
+    const after = page.getByRole("button", { name: "Following", exact: true });
+    await expect(after).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText("Nobody is told")).toBeVisible();
+    expect(await page.evaluate(() => (window as unknown as { __followed: string[] }).__followed.length)).toBe(3);
+    await after.click();
+    await expect(page.getByRole("button", { name: "Follow", exact: true })).toHaveAttribute("aria-pressed", "false");
+    expect(await page.evaluate(() => (window as unknown as { __followed: string[] }).__followed.length)).toBe(2);
+  });
+});
+
+test.describe("quick changes with a note", () => {
+  test("changes Health with a required reason, shows it in the latest changes, and puts it back", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await expect(page.locator(".briefing-pills")).toContainText("Health: Delayed");
+    await page.getByRole("button", { name: "Change health" }).click();
+    const dialog = page.getByRole("dialog", { name: /Change health/ });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("radio", { name: /Delayed/ })).toBeDisabled(); // it is Delayed now
+    await dialog.getByRole("radio", { name: "Blocked" }).check();
+    const save = dialog.getByRole("button", { name: "Set to Blocked" });
+    await expect(save).toBeDisabled();
+    await expect(dialog.getByText("Say why in a few words.")).toBeVisible();
+    await expect(dialog.getByText("Why (required)")).toBeVisible();
+    await dialog.getByLabel(/Why/).fill("Waiting for legal");
+    await expect(save).toBeEnabled();
+    await expect(dialog.getByText("Health: Delayed → Blocked")).toBeVisible();
+    await save.click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.locator(".briefing-pills")).toContainText("Health: Blocked");
+    await expect(page.getByRole("status").filter({ hasText: "Saved." })).toContainText("Health: Delayed → Blocked");
+    const latest = page.getByRole("region", { name: "Latest changes" }).locator("li").first();
+    await expect(latest).toContainText("Health: Delayed → Blocked");
+    await expect(latest).toContainText("Why: Waiting for legal");
+    await page.getByRole("button", { name: "Put it back" }).click();
+    await expect(page.locator(".briefing-pills")).toContainText("Health: Delayed");
+    const calls = await page.evaluate(() => (window as unknown as { __quick: { value: string; note: string }[] }).__quick);
+    expect(calls.map((c) => [c.value, c.note])).toEqual([["Blocked", "Waiting for legal"], ["Delayed", "Put back as it was."]]);
+  });
+  test("a change that is not a concern needs no reason", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await page.getByRole("button", { name: "Change health" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("radio", { name: "On Track" }).check();
+    await expect(dialog.getByText("Why (optional)")).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Set to On Track" })).toBeEnabled();
+  });
+  test("changes Status, shows a refusal and closes with Cancel and Escape", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await page.getByRole("button", { name: "Change status" }).click();
+    const dialog = page.getByRole("dialog", { name: /Change status/ });
+    await dialog.getByRole("radio", { name: "On hold" }).check();
+    await dialog.getByLabel(/Why/).fill("fail on purpose");
+    await dialog.getByRole("button", { name: "Set to On hold" }).click();
+    await expect(dialog.getByRole("alert")).toContainText("You cannot change this initiative.");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toHaveCount(0);
+    await page.getByRole("button", { name: "Change status" }).click();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(await page.evaluate(() => (window as unknown as { __quick?: unknown[] }).__quick ?? [])).toEqual([]);
+  });
+  test("the sheet passes the accessibility check and fits the screen", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await page.getByRole("button", { name: "Change health" }).click();
+    await page.getByRole("dialog").getByRole("radio", { name: "At Risk" }).check();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+});
+
 test.describe("one initiative on a phone", () => {
   test("opens as a read-first briefing with the facts, the flags, the build and the latest changes", async ({ page }) => {
     await page.goto("/dev/phone?n=40&screen=item");
