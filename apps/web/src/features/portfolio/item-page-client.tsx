@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useWorkspaceController } from "./portfolio-client";
@@ -9,6 +9,9 @@ import type { PortfolioController } from "./controller";
 import type { Lookups } from "./types";
 import { createClient } from "@/lib/supabase/browser";
 import { SupabaseGateSource, type GateSource } from "../gates/gate-source";
+import { PhoneBriefing } from "../phone/phone-briefing";
+import { PHONE_QUERY } from "../phone/use-is-phone";
+import type { ChangeSource } from "../phone/use-phone-changes";
 
 /** The item as a page of its own at /portfolio/R-12: same panel, same autosave and undo, shareable address. */
 export function ItemPageClient({ tenantId, role, userId, lookups, code }: { tenantId: string; role: string; userId: string; lookups: Lookups; code: string }) {
@@ -18,11 +21,14 @@ export function ItemPageClient({ tenantId, role, userId, lookups, code }: { tena
   if (state.kind === "error") {
     return <div role="alert" className="error">Could not load the initiative: {state.message} <button type="button" className="link-button" onClick={retry}>Try again</button></div>;
   }
-  return <ItemPage controller={state.controller} lookups={lookups} userId={userId} code={code} gates={gates} />;
+  return <ItemPage controller={state.controller} lookups={lookups} userId={userId} code={code} gates={gates} tenantId={tenantId} />;
 }
 
-export function ItemPage({ controller, lookups, userId, code, pageHref = (c) => `/portfolio/${encodeURIComponent(c)}`, backHref = "/portfolio", gates }: { gates?: GateSource; controller: PortfolioController; lookups: Lookups; userId: string; code: string; pageHref?: (code: string) => string; backHref?: string }) {
+export function ItemPage({ controller, lookups, userId, code, pageHref = (c) => `/portfolio/${encodeURIComponent(c)}`, backHref = "/portfolio", gates, tenantId, changeSource }: { tenantId?: string; changeSource?: ChangeSource; gates?: GateSource; controller: PortfolioController; lookups: Lookups; userId: string; code: string; pageHref?: (code: string) => string; backHref?: string }) {
   const router = useRouter();
+  // on a phone an initiative opens as a read-first briefing; "Edit details" shows the full panel. Read in the browser only (this page is shown after the roadmap has loaded there).
+  const [phone] = useState(() => typeof window !== "undefined" && window.matchMedia(PHONE_QUERY).matches);
+  const [editing, setEditing] = useState(false);
   const row = controller.rows.find((r) => r.item_code.toLowerCase() === code.toLowerCase());
   const index = row ? controller.rows.indexOf(row) : -1;
   const position = useMemo(() => (index >= 0 ? { index, total: controller.rows.length } : undefined), [index, controller]);
@@ -43,9 +49,19 @@ export function ItemPage({ controller, lookups, userId, code, pageHref = (c) => 
   }, [controller, index, router, pageHref]);
 
   if (!row) return <div className="notice-box"><p>There is no initiative {code} in this workspace, or you cannot see it.</p><Link href={backHref}>Back to the roadmap</Link></div>;
+  if (phone && tenantId && !editing) {
+    return (
+      <>
+        <button type="button" className="btn phone-only phone-back" onClick={() => router.back()}>← Back</button>
+        <PhoneBriefing controller={controller} lookups={lookups} row={row} tenantId={tenantId} onEdit={() => { setEditing(true); window.scrollTo({ top: 0 }); }} {...(changeSource ? { changeSource } : {})} />
+      </>
+    );
+  }
   return (
     <>
-    <button type="button" className="btn phone-only phone-back" onClick={() => router.back()}>← Back</button>
+    {phone && tenantId && editing
+      ? <button type="button" className="btn phone-only phone-back" onClick={() => { setEditing(false); window.scrollTo({ top: 0 }); }}>← Summary</button>
+      : <button type="button" className="btn phone-only phone-back" onClick={() => router.back()}>← Back</button>}
     <ItemPanel
       key={row.id} controller={controller} lookups={lookups} itemId={row.id} me={userId} mode="page" position={position} pageHref={pageHref} backHref={backHref} {...(gates ? { gates } : {})}
       onPrev={index > 0 ? () => router.push(pageHref(controller.rows[index - 1]!.item_code)) : undefined}
