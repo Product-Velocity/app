@@ -216,7 +216,7 @@ describe("scope and format for the report skills", () => {
 describe("the craft layer (depth pass) and wave 1", () => {
   const prompt = (c: string, a: Parameters<typeof skillPrompt>[1] = {}) => skillPrompt(skillByCommand(c)!, a, { catalogue: SKILLS }).text;
   it("every skill with depth is valid, and the pilot and wave 1 skills all have it", () => {
-    for (const c of ["pv-premortem", "pv-metrics", "pv-one-pager", "pv-gate", "pv-prioritise", "pv-hypothesis", "pv-outcome", "pv-which"]) {
+    for (const c of ["pv-premortem", "pv-metrics", "pv-one-pager", "pv-gate", "pv-prioritise", "pv-hypothesis", "pv-outcome", "pv-which", "pv-split", "pv-assumptions", "pv-sunset", "pv-stakeholders", "pv-readiness"]) {
       const s = skillByCommand(c)!;
       expect(s.depth, c).toBeTruthy();
       expect(skillSpecProblems(s), c).toEqual([]);
@@ -294,6 +294,42 @@ describe("the craft layer (depth pass) and wave 1", () => {
     expect(t).not.toMatch(/draft-or-save/);
     expect(t).toMatch(/SHAPE OF THE ANSWER/);
     expect(t).toMatch(/Not for: /); // pulled from each skill's first "when not"
+  });
+});
+
+describe("wave 2 skills", () => {
+  const prompt = (c: string, a: Parameters<typeof skillPrompt>[1] = {}) => skillPrompt(skillByCommand(c)!, a, { catalogue: SKILLS }).text;
+  it("each saves its own document kind on the initiative", () => {
+    const kinds: Record<string, string> = { "pv-split": "split_plan", "pv-assumptions": "assumption_map", "pv-sunset": "sunset_plan", "pv-stakeholders": "stakeholder_map", "pv-readiness": "readiness_review" };
+    for (const [c, k] of Object.entries(kinds)) {
+      expect(skillByCommand(c)!.doc.kind, c).toBe(k);
+      expect(skillByCommand(c)!.target, c).toBe("item");
+    }
+  });
+  it("pv-split cuts vertically, never invents sizes and creates nothing unasked", () => {
+    const t = prompt("pv-split", { target: "R-4" });
+    expect(t).toMatch(/Every slice is something a person can use/);
+    expect(t).toMatch(/write "to define"/);
+    expect(t).toMatch(/show the create_items dry run and write only after they agree/);
+  });
+  it("pv-sunset never moves the phase, names legal duties from memory or tells a customer", () => {
+    const t = prompt("pv-sunset", { target: "R-19" });
+    expect(t).toMatch(/Never move Initiative Phase to Sunset/);
+    expect(t).toMatch(/Do not state a legal requirement you cannot source/);
+  });
+  it("pv-stakeholders uses aggregates only and writes about roles, not people's quality", () => {
+    const t = prompt("pv-stakeholders", { target: "R-4" });
+    expect(t).toMatch(/Never name, guess or narrow down an individual voter/);
+    expect(t).toMatch(/Do not rate people/);
+    expect(t).toMatch(/alignment_status/);
+  });
+  it("pv-readiness never declares ready, marks unknown as unknown and fills only the enablement notes", () => {
+    const s = skillByCommand("pv-readiness")!;
+    expect(s.fields).toEqual(["gtm_enablement_notes"]);
+    const t = prompt("pv-readiness", { target: "R-4" });
+    expect(t).toMatch(/get_gate_pack/);
+    expect(t).toMatch(/Never assume a standard check passed/);
+    expect(t).toMatch(/You do not decide that the initiative is ready/);
   });
 });
 

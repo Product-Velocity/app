@@ -322,6 +322,195 @@ export const SKILL_DEPTH: Record<string, SkillDepth> = {
       why: "The strong answer chooses, explains and says what to bring. The weak one hands the decision back.",
     },
   },
+
+  "pv-split": {
+    concepts: [
+      "A good slice is vertical: it cuts through every layer and gives a person something they can use, however small. A slice that is only a database or only a screen delivers nothing to learn from.",
+      "Start from the thinnest path through the whole experience, then add. The spine comes first; options, edge cases, speed and polish are added in later slices.",
+      "There are many ways to cut: by workflow step, by user type, by business rule, by data set, by platform, by quality level, by the simplest case first. Choose the cut that puts the riskiest belief in an early slice.",
+      "Splitting is about learning as much as delivering. The first slice should reduce the biggest uncertainty, not just the easiest work.",
+      "What is left out matters as much as what is in. Writing down what is deferred, and what would make it worth doing, stops scope returning through the back door.",
+      "Slices should be independent enough to be reordered. If every slice needs the one before, the cut has probably followed the build order rather than the user's path.",
+    ],
+    whenNot: [
+      "The work is already small enough to finish in one cycle. Splitting adds overhead; just plan it.",
+      "The problem is not understood yet. Slices of a guess are still guesses; use pv-assumptions or discovery first.",
+      "The person wants to estimate cost. This skill orders and cuts scope; it does not size it.",
+    ],
+    pitfalls: [
+      { name: "Horizontal layers", why: "Frontend, backend and database slices deliver nothing usable until all three are done.", fix: "Cut through the layers so each slice is a thin working path." },
+      { name: "Slicing by build order", why: "The order of construction is not the order in which people get value or the team learns.", fix: "Order by value and by the riskiest belief first." },
+      { name: "The first slice is the easy one", why: "The hard question is left until late, when it is expensive to change course.", fix: "Put the riskiest assumption in the first or second slice." },
+      { name: "Slices that cannot be shipped alone", why: "A slice that has to wait for the next one is a task, not a slice.", fix: "Check that each could go to a person on its own, even behind a flag." },
+      { name: "Lost acceptance rules", why: "A rule from the original quietly vanishes when scope is cut.", fix: "List where each rule went: kept, moved or deferred." },
+      { name: "A pile of tiny tasks", why: "Fifteen sub-day slices cost more in coordination than they save.", fix: "Keep slices to what the team can deliver and show in one cycle." },
+    ],
+    checks: [
+      "Every slice is something a person can do or a belief that can be tested; none is a layer or a task.",
+      "The thin end to end path is described and every slice relates to it.",
+      "The slice with the riskiest assumption is early, and the reason is given.",
+      "Every slice states what it depends on, or says none.",
+      "The way each slice was cut is named.",
+      "What is deferred is listed with what would make it worth doing.",
+      "No size, week or cost appears unless the person or a document gave it.",
+      "Nothing was created in Product Velocity; creating items is offered with a preview.",
+    ],
+    example: {
+      good: "Slice 1: a listener on the phone app can download one episode on wifi and play it offline. It tests whether people use downloads at all (R-04's hypothesis). Deferred: auto-download, storage settings, tablets. Worth doing later if more than a tenth of listeners use download in the first month.",
+      weak: "Slice 1: build the download service. Slice 2: build the download screen. Slice 3: build the storage manager.",
+      why: "The strong slice is usable and tests a belief and says what waits. The weak list is three layers; nothing can be shown to a listener until all are done.",
+    },
+  },
+  "pv-assumptions": {
+    concepts: [
+      "Every plan stands on beliefs that are rarely written down. Making them visible is the cheapest risk reduction there is; the risk lives in the unwritten ones.",
+      "An assumption is a statement that could be false. \"Users want faster export\" is an assumption; \"build faster export\" is a task.",
+      "Assumptions come in kinds. Desirable (people want it), viable (it pays off), feasible (we can build and run it), usable (they can work it out) and, where it applies, ethical or legal. A plan usually fails on the kind nobody checked.",
+      "Rank by two things: how much the plan depends on it, and how little is known. The high-dependence, low-knowledge assumptions are the ones to test first.",
+      "Test the cheapest way that could change your mind. Asking five people, a fake door, a prototype, a data pull: use the least costly test that could still show the assumption is wrong.",
+      "Evidence has grades. A customer's behaviour beats what they say; what they say beats what colleagues believe. Mark which is which.",
+    ],
+    whenNot: [
+      "The plan is already built and shipped. Use the outcome review (pv-outcome) to see what turned out true.",
+      "The question is how to write the hypothesis. Use pv-hypothesis; this skill finds what to test, that one words it.",
+      "The person wants a list of risks of failure in delivery. Use pv-premortem; this skill is about whether the idea is worth building.",
+    ],
+    pitfalls: [
+      { name: "Wishes and tasks as assumptions", why: "\"We will launch in Q2\" cannot be tested as a belief.", fix: "Rewrite as something that could be false: \"customers will adopt within a quarter\"." },
+      { name: "Compound statements", why: "Two claims in one cannot be tested separately.", fix: "One claim per row." },
+      { name: "Only desirability", why: "Teams test whether people want it and skip whether it pays or can be run.", fix: "Check at least one assumption of each kind, or say which were skipped." },
+      { name: "Believing your own evidence", why: "A colleague's opinion is recorded as evidence.", fix: "Grade the evidence: behaviour, stated, believed; cite sources." },
+      { name: "Tests that cannot fail", why: "A survey that leads the answer proves nothing.", fix: "State in advance what result would show the assumption false." },
+      { name: "Expensive first tests", why: "Building before asking wastes the lead time that tests exist to save.", fix: "Order by cost; run the cheapest decisive test first." },
+    ],
+    checks: [
+      "Each assumption is a single claim that could be false.",
+      "Each has a kind, an evidence grade and a source or says none.",
+      "At least one assumption of each relevant kind appears, or the gap is named.",
+      "The riskiest five are chosen by the stated two axes, and the placement is marked as proposed.",
+      "Each of the five has a test, what would show it false, and a pass line from the person or \"to define\".",
+      "The tests are in order of cost and decisiveness, and the plan change for a failure is stated.",
+      "Settled assumptions cite the evidence that settles them.",
+    ],
+    example: {
+      good: "Assumption 4 (desirable): commuting listeners lose the connection mid-episode often enough to stop listening. Evidence: stated, discovery v2 interviews (6 of 9). Test: look at where in the episode mobile sessions end, from the events dashboard. False if sessions end evenly through the episode.",
+      weak: "Users will love offline mode and it will increase engagement.",
+      why: "The strong version is one testable claim with its evidence graded and a way to be shown wrong. The weak one is a hope with no test.",
+    },
+  },
+  "pv-sunset": {
+    concepts: [
+      "Retiring something is a product decision with a customer promise attached. People rely on what exists, and how you end it shapes trust more than the fact that you end it.",
+      "Count the dependents before setting the date: other initiatives, integrations, reports, contracts and promises. A date set before this is a guess.",
+      "Give people a path, not only a date. A replacement, a migration or an export, and a clear statement of what is lost. \"We are ending it\" without \"here is what to do\" produces escalations.",
+      "Sequence the end: announce, stop new use, read-only, end, delete. Each step can be reversed until the last one, and the last one should come well after the user's last chance to act.",
+      "Tell people in an order that avoids surprise. Staff who talk to customers hear first; customers hear from us, not from each other.",
+      "Data has obligations. What is kept, for how long, and what customers can take with them are legal and trust questions; list them for the right people to answer.",
+    ],
+    whenNot: [
+      "Only a temporary pause or a hide-behind-a-flag is meant. That is a roll-back, not a sunset.",
+      "The decision to retire has not been made. First use pv-business-case or pv-prioritise to decide; this plan assumes it is decided.",
+      "The thing is being replaced by something people use automatically with nothing to do. A short migration note is enough.",
+    ],
+    pitfalls: [
+      { name: "A date with no path", why: "Customers hear that something is ending and not what to do.", fix: "State the replacement, the migration and what is lost." },
+      { name: "Ignoring dependents", why: "Other teams and integrations break on the day.", fix: "List dependents from Product Velocity and from the person before fixing dates." },
+      { name: "Telling customers first", why: "Support and sales are surprised by questions they cannot answer.", fix: "Plan internal communication before external." },
+      { name: "Deleting too early", why: "Data is gone before the last chance to export it.", fix: "End use first, delete after a stated period." },
+      { name: "Claiming a legal duty from memory", why: "Notice periods and contract terms differ by customer.", fix: "List them as questions for legal; cite the contract if the person gave it." },
+      { name: "No early warning of damage", why: "The first sign of trouble is a customer leaving.", fix: "Name the signals and who watches them, and what would pause the plan." },
+    ],
+    checks: [
+      "The reason and the dates are stated with their status (fixed, proposed, to define).",
+      "Dependents are listed, with the source, or the gap is named.",
+      "A path for customers is given, and what they lose.",
+      "The timeline has announce, stop new use, read-only, end and delete steps, each with an owner role.",
+      "Internal communication comes before customer communication.",
+      "Data and legal questions are listed for the right owner and none is stated as law without a source.",
+      "The phase, the dates and any message are marked as not changed or sent.",
+    ],
+    example: {
+      good: "Step 3 (read-only): on 1 October the old export screen shows data but accepts no new jobs. Customers on the legacy plan get a banner and an email on 1 September with the steps to move to the new export. Support has a macro by 15 August. Data is kept 90 days after the end, as the person stated; legal to confirm the contract terms.",
+      weak: "The old export will be discontinued at the end of Q3. Customers will be notified.",
+      why: "The strong plan gives dates, steps, owners and what customers can do; the weak one is only an intent.",
+    },
+  },
+  "pv-stakeholders": {
+    concepts: [
+      "Alignment is not agreement with everyone; it is that the people who decide, and the people who can block or must deliver, understand what is asked of them and have had the chance to say no early.",
+      "Map by two things: how much they decide or influence, and how much the outcome affects them. Those who both decide and are affected need the most attention, early.",
+      "Speak in their terms. A finance lead cares about cost and timing, support about volume and training, legal about obligation. The same initiative is a different story for each.",
+      "Stance is evidence, not impression. Write what a person said or did, with its source; otherwise write unknown. A guessed stance becomes a self-fulfilling label.",
+      "Order matters. Nobody should hear about a change that affects them from someone else. Decide who hears first and why.",
+      "Product Velocity's alignment results are aggregate and anonymous. They show where the group stands, not who stands where, and the app hides groups that are too small to be anonymous.",
+    ],
+    whenNot: [
+      "The initiative is small and affects only the team. A short note to the team is enough.",
+      "The goal is to rate or rank people. This skill maps roles and positions on an initiative, never people's quality.",
+      "The question is whom to put on the product team. That is a staffing decision for the person.",
+    ],
+    pitfalls: [
+      { name: "A list of names", why: "A list of people says nothing about what each needs.", fix: "Say what each group decides, what affects them and what to bring." },
+      { name: "Guessed stances", why: "Assumed opposition shapes how you approach people.", fix: "Mark unknown unless said or shown; cite the source." },
+      { name: "Forgetting the quiet groups", why: "Support, legal and operations are skipped and block at the end.", fix: "Check the dependencies and the launch areas for missing groups." },
+      { name: "One message for all", why: "The same pitch misses what each cares about.", fix: "Write the benefit, the cost and the question per group." },
+      { name: "Treating the alignment result as individuals", why: "Trying to identify a voter breaks anonymity and trust.", fix: "Use aggregates only and say what they do not show." },
+      { name: "No order of conversations", why: "Someone hears second-hand.", fix: "Decide who first, and why." },
+    ],
+    checks: [
+      "Each stakeholder is a role or group; a person's name is there only if the person gave it.",
+      "Each has what they decide or influence and how the outcome affects them.",
+      "Each stance is marked with its source or as unknown.",
+      "Each group has what they care about in their terms and what to bring.",
+      "An order of conversations is given with the reason.",
+      "Missing groups are listed and the risk of leaving them out is stated.",
+      "The alignment aggregates are described as aggregates, with what they cannot show.",
+      "Nothing was sent and no alignment round was opened.",
+    ],
+    example: {
+      good: "Support (decides nothing, affected: ticket volume rises for two weeks). Stance: doubtful, per the March sync notes. Cares about: training time and a macro for the top three questions. Bring: the one-pager and a draft of the three answers, in the week before enablement. Talk to them before sales, who will ask them.",
+      weak: "Support: should be fine with it. Sales: excited. Legal: will need to review.",
+      why: "The strong entry gives influence, effect, a sourced stance, what to bring and when. The weak one is impression with no source and no action.",
+    },
+  },
+  "pv-readiness": {
+    concepts: [
+      "Readiness is a list of things that can be checked, not a feeling. For each area there is a question with a yes, a no or an unknown, and a person who owns the answer.",
+      "Unknown is not yes. A check without a source is open until someone confirms it, and the list says so plainly.",
+      "A launch has more areas than the product: data and measurement, support, sales and enablement, comms, legal and privacy, security, operations, and the way back. Most late surprises come from the areas outside the product.",
+      "Stage the launch when you can. A small group first, with a signal to continue and a signal to pause, turns a risky day into a series of small decisions.",
+      "Rollback is part of the launch. If nobody can say how to undo it, or how long that takes, the plan is not ready.",
+      "The first days need an owner. Who reads the signals, where issues go, and when the first read of the key result is taken, written down before launch.",
+    ],
+    whenNot: [
+      "The initiative is still in Discover or Define. Use pv-gate to prepare the case for building; readiness comes after.",
+      "The question is the story and messages for the market. Use pv-gtm; this skill checks that the pieces exist.",
+      "Something is live and failing. That is an incident, not a launch review.",
+    ],
+    pitfalls: [
+      { name: "Product-only checklist", why: "Support, legal and operations are found out about on launch day.", fix: "Walk every area; mark the ones that do not apply and why." },
+      { name: "Done without a source", why: "A check is ticked because it feels done.", fix: "Say who confirmed it or which document shows it; otherwise mark unknown." },
+      { name: "No rollback", why: "The first problem becomes an emergency.", fix: "Name the way back, who does it and how long it takes." },
+      { name: "Everyone at once without a reason", why: "No chance to learn before the whole base is affected.", fix: "Offer a staged option, or say why it cannot be staged." },
+      { name: "No owner on gaps", why: "Open items sit unassigned until the date.", fix: "Every open row has an owner role and a date, or is flagged." },
+      { name: "Declaring ready", why: "The assistant's verdict is taken as the decision.", fix: "List evidence and gaps; a person decides." },
+    ],
+    checks: [
+      "Every area appears, or is marked not applicable with a reason.",
+      "Each done check has a source; everything else is open or unknown.",
+      "Each open row has an owner role and a date or is flagged as without one.",
+      "Rollback and monitoring are on the list, marked unknown if nothing says they exist.",
+      "Blocking gaps are separated from nice-to-have.",
+      "For a staged launch, the continue and the pause signals are stated.",
+      "The key result and its first read are named.",
+      "Nothing was said to be ready; the decision is left to the person, and no field other than the enablement notes is proposed.",
+    ],
+    example: {
+      good: "Support: open. The macro for the three top questions is not written (owner: support lead, due 10 March). Source: no document found in Product Velocity; the person said it is in progress. Blocking: yes, tickets will go to a team without answers.",
+      weak: "Support: should be ready by launch. Everything looks good overall.",
+      why: "The strong row gives a status, a source, an owner, a date and whether it blocks. The weak one is a mood.",
+    },
+  },
 };
 
 // A worked example per deepened skill (a fictional workspace; they show the standard of work and the shape, not facts to reuse).
@@ -357,6 +546,26 @@ const WORKED: Record<string, { input: string; output: string }> = {
   "pv-which": {
     "input": "pv-which. \"Leadership wants to know on Friday whether R-04 should start building, and I am not sure the team has looked at the risks.\"",
     "output": "What I understood: R-04 needs a go or no go on Friday, and its risks have not been reviewed.\n\nBest fit: pv-gate R-04. It reads the gate pack and writes the case, the gaps and the four options for the person who decides. Bring: the gate (B), who decides and when, and anything raised outside Product Velocity. You get a saved brief on the initiative.\n\nAlternatives: pv-premortem R-04 if there is time first; it turns the team's worries into ranked risks with signals, and the gate brief can then use them. pv-business-case R-04 if the question is whether to build it at all or in another way.\n\nBefore and after: R-04 is in Define, so the documents the brief needs (PRD, success metrics) should exist; if not, run pv-metrics first. After the gate, pv-gtm plans the launch.\n\nNot a skill job: the rights negotiation with the networks is a conversation, not a document."
-  }
+  },
+  "pv-split": {
+    "input": "pv-split R-04. Too big to finish in one quarter. The team can deliver and show something in a two-week cycle. Without offline playback the whole thing is pointless.",
+    "output": "## 1. What is being split and why\nR-04 (offline listening on mobile) is too large for one quarter. Slices must be deliverable and showable in a two-week cycle (your limit).\n\n## 2. The thin end to end path\nA listener opens an episode, taps download on wifi, loses the connection and plays it anyway.\n\n## 3. Slices in order\n| # | A person can... | Tests | Size | Depends on |\n|---|---|---|---|---|\n| 1 | download one episode on wifi and play it offline | do listeners use downloads at all (hypothesis of R-04) | to define | none |\n| 2 | download on mobile data, with a warning | whether size on older phones is a barrier | to define | 1 |\n| 3 | auto-download a followed show | whether it lifts episodes completed | to define | 1 |\n\n## 4. How each slice was cut\n1: simplest case first (one episode, wifi). 2: by data channel. 3: by quality level (automation after manual).\n\n## 5. Deferred and why\nStorage settings and tablets are left out; worth doing if more than a tenth of listeners use downloads in the first month (to be confirmed by you).\n\n## 6. Risks in the order\nThe riskiest belief (listeners want to download) is tested by slice 1.\n\n## 7. What this changes in Product Velocity\nSuggestion: keep slices 1 to 3 inside R-04. I can show a dry run to create them as separate initiatives if you prefer; nothing is created until you agree."
+  },
+  "pv-assumptions": {
+    "input": "pv-assumptions R-04. A quarter of work depends on it. Known: six of nine interviewed commuters lose connection mid-episode. Can wait three weeks to test.",
+    "output": "## 1. The plan in one line\nLet mobile listeners download episodes so they finish more of them (key result 3.1 to 3.8 episodes per weekly listener).\n\n## 2. Assumptions\n| # | Assumption | Kind | Evidence | Amount |\n|---|---|---|---|---|\n| 1 | Commuters lose connection often enough to stop listening | desirable | stated, discovery v2 (6 of 9) | thin |\n| 2 | Listeners will plan ahead and download | desirable | none | none |\n| 3 | Downloads fit on older phones | feasible | none | none |\n| 4 | Rights holders allow offline use | viable | none | none |\n\n## 3. Map\nHigh dependence and little known: 2, 3 and 4. High dependence and some evidence: 1.\n\n## 4. The riskiest five\n2: if listeners do not plan ahead, the feature sits unused. Cheapest test: a download button that records taps, shown to 5% of listeners. False if fewer than your pass line (to define) tap it.\n\n## 5. Test order\n4 first (one conversation with the rights lead, a day), then 2 (three weeks), then 3.\n\n## 6. What the evidence already settles\nNothing is settled; 1 has thin, stated evidence only."
+  },
+  "pv-sunset": {
+    "input": "pv-sunset R-19. Retiring the legacy export screen; the new export replaces it. End date proposed 1 October. Used by customers on the legacy plan.",
+    "output": "## 1. What is ending and why\nThe legacy export screen, replaced by the new export. End: 1 October (proposed).\n\n## 2. Who is affected\nCustomers on the legacy plan; number to define (not in Product Velocity).\n\n## 3. What depends on it\nR-22 (scheduled reports) lists R-19 as a dependency; talk to its owner before the date is fixed.\n\n## 4. The path for customers\nThe new export covers CSV and Excel; PDF export is not covered, which is lost.\n\n## 5. Timeline\nAnnounce 1 September (comms lead); stop new jobs 1 October (read-only); end 1 November; delete data 90 days later (your stated period).\n\n## 6. Communication\nSupport and sales first, with a macro by 15 August; customers by email and banner 1 September. Draft wording follows, marked as a draft.\n\n## 7. Data and obligations\nExport rights and contract notice periods: for legal to confirm.\n\n## 8. Risks and a way back\nSupport spike in the first week; pause if tickets pass your threshold (to define). Initiative Phase is not changed; moving it to Sunset is your step."
+  },
+  "pv-stakeholders": {
+    "input": "pv-stakeholders R-04. I need a decision at Gate B. I know that support and rights matter. I expect doubt from rights.",
+    "output": "## 1. What alignment is needed\nA go at Gate B for R-04. The Approver role decides.\n\n## 2. The map\n| Group | Decides or influences | Affected by | Stance | Source |\n|---|---|---|---|---|\n| Product leadership | decides at the gate | high | unknown | none |\n| Rights and partnerships | can block (offline use needs rights) | high | doubtful | your statement |\n| Support | influences launch readiness | medium | unknown | none |\n\n## 3. What each group cares about\nRights: terms and the risk of offline copies. Support: ticket volume and answers ready.\n\n## 4. What to bring and when\nRights: a one-page description of how downloads expire, before the gate pack goes out.\n\n## 5. Order of conversations\nRights first, then support, then leadership.\n\n## 6. Gaps and risks\nLegal is missing from the map; the dependencies show a legal review for a similar initiative.\n\n## 7. Alignment in Product Velocity\nAlignment status shows 'not started'. Suggestion: open an alignment round after the rights conversation; I do not open it."
+  },
+  "pv-readiness": {
+    "input": "pv-readiness R-04. A small group first, then widen. 15 March, fixed by a partner event. Support lead owns support; the rollback is a flag owned by engineering.",
+    "output": "## 1. The launch in one line\nOffline listening to 10% of mobile listeners on 15 March, widening on a signal. Success measure: episodes per weekly mobile listener, 3.1 to 3.8 (key result).\n\n## 2. Checklist\n| Area | Check | Status | Source | Owner | Date |\n|---|---|---|---|---|---|\n| Product | acceptance passed | open | none | engineering | 8 Mar |\n| Measurement | the events dashboard shows episodes per listener | done | success metrics v1 | data | n/a |\n| Support | macro for top questions | open | none | support lead | 10 Mar |\n| Legal | rights confirmed for offline use | unknown | none | not set | n/a |\n| Rollback | flag turns it off, time to roll back | unknown | stated only | engineering | n/a |\n\n## 3. Blocking gaps\nRights confirmation has no owner and no date.\n\n## 4. Safe to widen\nContinue if the error rate stays under your threshold (to define); pause on any data-loss report.\n\n## 5. Day one\nSupport lead reads the issue queue at noon; first key result read after one week.\n\n## 6. Open questions\nWho owns rights? How long does a rollback take?"
+  },
 };
 for (const [k, w] of Object.entries(WORKED)) if (SKILL_DEPTH[k]) SKILL_DEPTH[k] = { ...SKILL_DEPTH[k]!, worked: w };

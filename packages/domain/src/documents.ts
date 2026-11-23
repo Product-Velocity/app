@@ -1,7 +1,7 @@
 // Documents on an initiative (R-113, docs/22-CLAUDE-PRD-FLOW.md). What may be stored and how input is checked.
 // A document is Markdown kept in Product Velocity. It is never read for a GitHub payload.
 
-export const DOC_KINDS = ["prd", "discovery", "business_req", "tech_req", "acceptance", "prototype", "research", "design", "customer_evidence", "meeting_notes", "premortem", "one_pager", "success_metrics", "go_to_market", "experiment", "user_stories", "business_case", "pr_faq", "opportunity_tree", "gate_brief", "hypothesis", "outcome_brief", "other"] as const;
+export const DOC_KINDS = ["prd", "discovery", "business_req", "tech_req", "acceptance", "prototype", "research", "design", "customer_evidence", "meeting_notes", "premortem", "one_pager", "success_metrics", "go_to_market", "experiment", "user_stories", "business_case", "pr_faq", "opportunity_tree", "gate_brief", "hypothesis", "outcome_brief", "split_plan", "assumption_map", "sunset_plan", "stakeholder_map", "readiness_review", "other"] as const;
 export type DocKind = (typeof DOC_KINDS)[number];
 /** Statuses Claude may set. "approved" is a person with the Approver permission, never Claude (CLAUDE.md rule 3). */
 export const DOC_STATUSES = ["draft", "in_review", "approved"] as const;
@@ -27,7 +27,7 @@ export const docKindLabel = (kind: string): string =>
 
 export const DOC_KIND_LABEL: Record<DocKind, string> = {
   prd: "PRD", discovery: "Discovery", business_req: "Business requirements", tech_req: "Technical requirements", acceptance: "Acceptance criteria",
-  prototype: "Prototype", research: "Research", design: "Design", premortem: "Pre-mortem", one_pager: "One-pager", success_metrics: "Success metrics", go_to_market: "Go-to-market", experiment: "Experiment", user_stories: "User stories", business_case: "Business case", pr_faq: "PR/FAQ", opportunity_tree: "Opportunity tree", gate_brief: "Gate brief", hypothesis: "Hypothesis", outcome_brief: "Outcome review brief", customer_evidence: "Customer evidence", meeting_notes: "Meeting notes", other: "Other",
+  prototype: "Prototype", research: "Research", design: "Design", premortem: "Pre-mortem", one_pager: "One-pager", success_metrics: "Success metrics", go_to_market: "Go-to-market", experiment: "Experiment", user_stories: "User stories", business_case: "Business case", pr_faq: "PR/FAQ", opportunity_tree: "Opportunity tree", gate_brief: "Gate brief", hypothesis: "Hypothesis", outcome_brief: "Outcome review brief", split_plan: "Split plan", assumption_map: "Assumption map", sunset_plan: "Sunset plan", stakeholder_map: "Stakeholder map", readiness_review: "Launch readiness", customer_evidence: "Customer evidence", meeting_notes: "Meeting notes", other: "Other",
 };
 
 export type DocInput = { kind?: unknown; title?: unknown; body?: unknown; status?: unknown; ai_model?: unknown };
