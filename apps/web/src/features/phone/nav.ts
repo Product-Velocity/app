@@ -5,7 +5,7 @@ export type PhoneTab = { id: "initiatives" | "decide" | "add" | "tracker" | "ins
 export const PHONE_TABS: PhoneTab[] = [
   { id: "initiatives", label: "Initiatives", href: "/cards" },
   { id: "decide", label: "Decide", href: "/decisions" },
-  { id: "add", label: "＋ Add", href: "/new" },
+  { id: "add", label: "Add", href: "/new" },
   { id: "tracker", label: "Tracker", href: "/tracker" },
   { id: "insights", label: "Insights", href: "/insights" },
 ];

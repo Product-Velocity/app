@@ -52,6 +52,38 @@ test.describe("initiatives on a phone", () => {
   });
 });
 
+test.describe("the phone shell", () => {
+  test("the top bar is one compact row and the bottom bar has icons with labels", async ({ page }) => {
+    await page.goto("/dev/menu");
+    const bar = page.locator("header.topbar");
+    expect((await bar.boundingBox())!.height).toBeLessThan(70);
+    await expect(page.locator(".topbar .brand-name")).toBeHidden();
+    await expect(page.locator(".topbar .text-size")).toBeHidden();
+    const tabs = page.getByRole("navigation", { name: "Main (phone)" }).getByRole("link");
+    await expect(tabs).toHaveText(["Initiatives", "Decide", "Add", "Tracker", "Insights"]);
+    for (const t of await tabs.all()) { await expect(t.locator("svg")).toBeVisible(); expect((await t.boundingBox())!.height).toBeGreaterThanOrEqual(44); }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+  test("an initiative opens as a page in the flow, not as a panel laid over the list", async ({ page }) => {
+    await page.goto("/dev/item/R-12?role=creator");
+    const panel = page.getByTestId("item-panel");
+    await expect(panel).toBeVisible();
+    expect(await panel.evaluate((e) => getComputedStyle(e).position)).toBe("static");
+    const box = (await panel.boundingBox())!;
+    expect(box.x).toBeLessThanOrEqual(12);
+    expect(box.width).toBeGreaterThanOrEqual(390 - 24);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    // the bottom bar stays on top and usable
+    const hit = await page.evaluate(() => { const r = document.querySelector(".phone-nav")!.getBoundingClientRect(); return !!document.elementFromPoint(r.left + r.width / 2, r.top + 20)?.closest(".phone-nav"); });
+    expect(hit).toBe(true);
+    // the flags start folded, so the first screen is the initiative
+    expect(await page.locator(".ip-flagged").evaluate((e) => (e as HTMLDetailsElement).open)).toBe(false);
+    await expect(page.locator(".ip-flagged summary")).toContainText("flag");
+    await page.locator(".ip-flagged summary").click();
+    expect(await page.locator(".ip-flagged").evaluate((e) => (e as HTMLDetailsElement).open)).toBe(true);
+  });
+});
+
 test.describe("since you last looked", () => {
   test("counts the changes, lists them for review and remembers that they were seen", async ({ page }) => {
     await page.goto("/dev/phone?n=40");
