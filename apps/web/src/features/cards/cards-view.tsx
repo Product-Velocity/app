@@ -322,18 +322,12 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
 
   return (
     <div className="cards-page">
-      <PageHeader title="Cards" views={<ViewBar api={viewsApi} />} count={`${board.total} initiatives`} scope={scope.selection.kind !== "all" ? scope.label : null} note={filterName ? `filters of “${filterName}”` : null}>
-        {(def.filters.length > 0 || scope.selection.kind !== "all") && (
-          <div className="filter-chips" aria-label="Active scope and filters">
-            {scope.selection.kind !== "all" && <span className="token-chip">Project: {scope.label}</span>}
-            {def.filters.map((f, i) => (
-              <span key={i} className="token-chip">
-                {summarize(f, lookups)}{" "}
-                <button type="button" className="chip-x" aria-label={`Remove filter ${summarize(f, lookups)}`} onClick={() => setFilters(def.filters.filter((_, j) => j !== i))}>×</button>
-              </span>
-            ))}
-          </div>
-        )}
+      <PageHeader chips={<>{def.filters.map((f, i) => (
+        <span key={i} className="token-chip">
+          {summarize(f, lookups)}{" "}
+          <button type="button" className="chip-x" aria-label={`Remove filter ${summarize(f, lookups)}`} onClick={() => setFilters(def.filters.filter((_, j) => j !== i))}>×</button>
+        </span>
+      ))}</>} title="Cards" views={<ViewBar api={viewsApi} />} count={`${board.total} initiatives`} scope={scope.selection.kind !== "all" ? scope.label : null} note={filterName ? `filters of “${filterName}”` : null}>
         {baseMissing && <div className="view-dirty" role="status">This view is private to its owner or no longer exists. Showing Prioritisation.</div>}
       </PageHeader>
 

@@ -122,7 +122,7 @@ test.describe("the board", () => {
     await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Prioritisation", exact: true }).click();
     await page.locator(".scope-chip").click();
     await page.getByRole("menuitemradio", { name: /Customer-facing work/ }).click();
-    await expect(page.locator(".page-meta")).toContainText("scope: Customer-facing work");
+    await expect(page.locator(".page-meta")).toContainText("Project: Customer-facing work");
     const projects = await page.evaluate(() => [...document.querySelectorAll("[data-card]")].map((c) => (window as unknown as { __pv: { controller: { row: (id: string) => { home_project: string } } } }).__pv.controller.row(c.getAttribute("data-card")!).home_project));
     expect(new Set(projects)).toEqual(new Set(["p3"]));
   });
