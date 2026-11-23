@@ -166,7 +166,7 @@ test.describe("one save flow (R-99)", () => {
     await expect(page.locator(".view-dirty, .view-toast")).toHaveCount(0);
     expect(await foot(page).textContent()).toBe(items); // same filter and grouping
     await expect(page.getByRole("button", { name: /^Group by/ })).toContainText("Health");
-    await expect(page.locator(".filter-chips")).toBeVisible();
+    await expect(page.locator(".page-pills .token-chip").first()).toBeVisible();
     await viewTab(page, "Prioritisation").click();
     await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toHaveCount(0); // its own column change is still there
     await viewTab(page, "Delivery").click();
@@ -174,7 +174,7 @@ test.describe("one save flow (R-99)", () => {
     // removing the filter and grouping is up to the person
     await resetChanges(page);
     await expect(page.getByRole("button", { name: /^Group by/ })).toContainText("None");
-    await expect(page.locator(".filter-chips")).toHaveCount(0);
+    await expect(page.locator(".page-pills .token-chip")).toHaveCount(0);
   });
 
   test("the Filters, Columns and Group by panels have no save control", async ({ page }) => {
@@ -217,7 +217,7 @@ test.describe("one save flow (R-99)", () => {
     await goToView(page, "My planning");
     expect(await foot(page).textContent()).toBe(matching);
     await expect(page.getByRole("columnheader", { name: "Confidence", exact: true })).toHaveCount(0);
-    await expect(page.locator(".filter-chips")).toBeVisible();
+    await expect(page.locator(".page-pills .token-chip").first()).toBeVisible();
     await expect(page.getByRole("button", { name: /^Group by/ })).toContainText("Health");
     await expect(foot(page)).toContainText("sorted by Effort (T-shirt) inside each group"); // the grid is grouped here
     await expect(page.getByRole("button", { name: /^Filter:/ })).toContainText(/\d+ active/);

@@ -60,7 +60,7 @@ test.describe("search in long drop-downs (R-018)", () => {
     const options = page.locator('.select-panel [role="option"]');
     expect(await options.count()).toBeGreaterThan(100);
     await expect(page.locator(".select-panel .sl-group").first()).toBeVisible(); // the full list has group headings
-    await search.fill("owner"); // an alias of Product Manager
+    await search.fill("pm"); // an alias of Product Manager
     await expect(options.filter({ hasText: "Product Manager" })).toHaveCount(1);
     await expect(page.locator(".select-panel .sl-group")).toHaveCount(0); // a ranked result list has none
     await search.fill("g2m_date_est"); // the field key
@@ -103,7 +103,7 @@ test.describe("search in long drop-downs (R-018)", () => {
     await page.getByRole("combobox", { name: "Search Value for Product Manager" }).fill("fay");
     await expect(page.locator('.select-panel [role="option"]')).toHaveCount(1);
     await page.keyboard.press("Enter");
-    await expect(page.locator(".filter-chips")).toContainText("fay@example.test");
+    await expect(page.locator(".page-pills")).toContainText("fay@example.test");
     await expect(row(page, "item-6")).toHaveCount(1); // item 6 belongs to the sixth person, fay
     await expect(row(page, "item-1")).toHaveCount(0);
   });
@@ -168,7 +168,8 @@ test.describe("search in long drop-downs (R-018)", () => {
     await expect(bar.getByRole("button", { name: /^Field to set:/ })).toContainText("Effort");
     await bar.getByLabel("New value for Effort (T-shirt)").selectOption("XL");
     await bar.getByRole("button", { name: "Apply to 1 item" }).click();
-    await expect(row(page, "item-1").locator('[col-id="effort"]')).toHaveText("XL");
+    // the Effort column is not among the first columns of the default view, so read the value the grid holds
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __pv: { controller: { row: (id: string) => { effort?: string } } } }).__pv.controller.row("item-1").effort)).toBe("XL");
   });
 
   test("Import: the column mapping lists can be searched by alias", async ({ page }) => {
@@ -180,7 +181,7 @@ test.describe("search in long drop-downs (R-018)", () => {
     await dialog.getByRole("button", { name: "Field for Importance:" }).click();
     const search = page.getByRole("combobox", { name: "Search Field for Importance" });
     await expect(search).toBeFocused();
-    await search.fill("owner"); // alias of Product Manager
+    await search.fill("pm"); // alias of Product Manager
     await expect(page.locator('.select-panel [role="option"]').filter({ hasText: "Product Manager" })).toHaveCount(1);
     await page.keyboard.press("Enter");
     await expect(dialog.getByRole("button", { name: "Field for Importance:" })).toContainText("Product Manager");

@@ -15,7 +15,7 @@ test.describe("Group by: picker, two levels, issues", () => {
   test("the head buttons say their state: Filter, Columns, Group by", async ({ page }) => {
     await open(page);
     await expect(page.getByRole("button", { name: /^Filter:/ })).toHaveText(/Filter:\s*None/);
-    await expect(page.getByRole("button", { name: /^Columns:/ })).toHaveText(/Columns:\s*\d+ of 171 shown/);
+    await expect(page.getByRole("button", { name: /^Columns:/ })).toHaveText(/Columns:\s*\d+ of 177 shown/);
     await expect(groupBtn(page)).toHaveText(/Group by:\s*None/);
   });
 
