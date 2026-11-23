@@ -437,13 +437,11 @@ function MoreViews({ api, count }: { api: ViewsApi; count: number }) {
   }, []);
   // the panel hangs from the right edge of the button; with only a few tabs the button sits near the left of the screen, so move the panel right until it is whole on screen
   const panel = useRef<HTMLDivElement>(null);
-  const [shift, setShift] = useState<number | null>(null);
   useLayoutEffect(() => {
-    if (!open) { setShift(null); return; }
     const p = panel.current, a = ref.current;
-    if (!p || !a) return;
-    const left = p.getBoundingClientRect().left;
-    if (left < 8) setShift(8 - a.getBoundingClientRect().left);
+    if (!open || !p || !a) return;
+    // set on the element itself (it is new each time the menu opens), so nothing has to be reset
+    if (p.getBoundingClientRect().left < 8) { p.style.right = "auto"; p.style.left = `${8 - a.getBoundingClientRect().left}px`; }
   }, [open]);
   const st = api.state;
   const total = st.mine.length + st.workspace.length;
@@ -458,7 +456,7 @@ function MoreViews({ api, count }: { api: ViewsApi; count: number }) {
         {count} more {count === 1 ? "view" : "views"}{api.dirty && <span className="vm-dot" title="This view has changes you have not saved" aria-hidden="true"> ●</span>}<Chevron open={open} />
       </button>
       {open && (
-        <div ref={panel} id={id} className="popover-panel popover-right views-panel vm-panel" role="dialog" aria-label="Views" style={shift === null ? undefined : { left: shift, right: "auto" }}>
+        <div ref={panel} id={id} className="popover-panel popover-right views-panel vm-panel" role="dialog" aria-label="Views">
           {api.managing && <p className="panel-note" role="status">Editing the workspace default bar. People who set their own bar keep it.</p>}
           <section aria-label="Current view" className="vm-current">
             <p className="scope-head">Current view: {baseLabel(api.base, api.views)}{api.dirty ? " (changed)" : ""}</p>
