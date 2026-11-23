@@ -12,7 +12,15 @@ describe("Planned Quarter values", () => {
     expect(parseQuarter("Q3 2027")).toBe("Q3 2027");
     expect(parseQuarter("q3 2027")).toBe("Q3 2027");
     expect(parseQuarter("2027-Q3")).toBe("Q3 2027");
+    expect(parseQuarter("Q4-26")).toBe("Q4 2026");
+    expect(parseQuarter("Q4 26")).toBe("Q4 2026");
+    expect(parseQuarter("q4'26")).toBe("Q4 2026");
+    expect(parseQuarter("Q4\u201926")).toBe("Q4 2026");
+    expect(parseQuarter("26-Q4")).toBe("Q4 2026");
+    expect(parseQuarter("Q1/27")).toBe("Q1 2027");
     expect(parseQuarter("Q5 2027")).toBeNull();
+    expect(parseQuarter("Q4-2")).toBeNull();
+    expect(parseQuarter("Q4-266")).toBeNull();
     expect(parseQuarter("FY27 Q3")).toBeNull();
     expect(parseQuarter("2027")).toBeNull();
     expect(isQuarter("Q1 2027")).toBe(true);

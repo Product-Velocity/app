@@ -48,7 +48,7 @@ describe("the rules and the prompt", () => {
     expect(i).toMatch(/What we will build/);
     for (const s of PRD_CORE) expect(i).toContain(s.title);
     for (const m of PRD_MODULES) expect(i).toContain(m.title);
-    expect(i.length).toBeLessThan(12500);
+    expect(i.length).toBeLessThan(13000);
   });
 
   it("the prompt includes the brief as quoted data, the chosen modules, the order of work and the rollout rules", () => {
@@ -117,5 +117,15 @@ describe("the team block (request #230)", () => {
       expect(p).toMatch(/do not use the signed-in account's name as owner/);
     }
     expect(prdPrompt({ brief: "x" }).text).toMatch(/Typical: the team \(product manager, designer, engineering manager/);
+  });
+});
+
+describe("the Planned Quarter rule in the always-on instructions (Ashu, 2026-11-23)", () => {
+  it("tells every assistant that a quarter's roadmap means the Planned Quarter field, applied first", () => {
+    const t = serverInstructions();
+    expect(t).toMatch(/a quarter's roadmap .* means the Planned Quarter field \(g2m_quarter/);
+    expect(t).toMatch(/Q4-26 and Q4'26 are the same/);
+    expect(t).toMatch(/first filter \(search_items quarter\), never dates/);
+    expect(t).toMatch(/never guessed into a quarter/);
   });
 });

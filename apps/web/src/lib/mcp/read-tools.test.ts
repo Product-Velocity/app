@@ -188,3 +188,33 @@ describe("errors never leak internals", () => {
     expect(out.text).not.toMatch(/items|tenant|permission/i);
   });
 });
+
+describe("search_items: a quarter's roadmap is the Planned Quarter field (Ashu, 2026-11-23)", () => {
+  const q = (id: string, code: string, quarter: string | null, over: Partial<SearchRow> = {}): SearchRow =>
+    ({ id, item_code: code, initiative_name: `Item ${code}`, stack_rank: Number(id.slice(1)), moscow: "Must", status: "Not started", initiative_status: "Active", initiative_phase: "Define", home_project: "p1", theme: null, g2m_quarter: quarter, g2m_date_est: "2026-12-15", health: "On Track", ...over }) as SearchRow;
+  const qrows = [q("i1", "R-01", "Q4 2026"), q("i2", "R-02", "Q1 2027", { g2m_date_est: "2026-11-30" }), q("i3", "R-03", "Q4 2026", { initiative_status: "On hold" }), q("i4", "R-04", null)];
+  const withRows = () => { const b = backend(); (b.read as { searchData: unknown }).searchData = vi.fn(async () => ({ rows: qrows, names, me: "u1" })); return b; };
+  const codes = (r: { json: { data: { items: { item_code: string }[] } } }) => r.json.data.items.map((i) => i.item_code);
+
+  it("the quarter shortcut filters on g2m_quarter whatever the spelling, and nothing is assigned by date", async () => {
+    for (const spelling of ["Q4-26", "Q4 2026", "q4'26", "2026-Q4"]) expect(codes(await call(withRows(), "search_items", { quarter: spelling })), spelling).toEqual(["R-01", "R-03"]);
+    // R-02's G2M date falls in Q4 but its Planned Quarter is Q1 2027; R-04 has none: neither is in Q4 2026
+    expect(codes(await call(withRows(), "search_items", { quarter: "Q4 2026" }))).not.toContain("R-02");
+    expect(codes(await call(withRows(), "search_items", { quarter: "Q4 2026" }))).not.toContain("R-04");
+  });
+  it("is applied together with other shortcuts (AND) and refuses something that is not a quarter", async () => {
+    expect(codes(await call(withRows(), "search_items", { quarter: "Q4-26", filters: [{ field: "initiative_status", op: "is", value: "Active" }] }))).toEqual(["R-01"]);
+    const bad = await call(withRows(), "search_items", { quarter: "next quarter" });
+    expect(bad.isError).toBe(true);
+    expect(bad.text).toMatch(/is not a quarter/);
+  });
+  it("an overview shows the quarter and both statuses by default", async () => {
+    const it = (await call(withRows(), "search_items", { quarter: "Q4-26" })).json.data.items[0];
+    expect(it).toMatchObject({ item_code: "R-01", g2m_quarter: "Q4 2026", initiative_status: "Active", status: "Not started", health: "On Track" });
+  });
+  it("the tool description tells the assistant to use it first", () => {
+    const t = TOOLS.find((x) => x.name === "search_items")!;
+    expect(t.description).toMatch(/Planned Quarter field: set quarter first/);
+    expect(JSON.stringify(t.inputSchema)).toMatch(/"quarter"/);
+  });
+});

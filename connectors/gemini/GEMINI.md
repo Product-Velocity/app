@@ -39,6 +39,11 @@ Product Velocity is this team's roadmap and stack rank. You reach it through the
 - `/pv-market`: Market sizing
 - `/pv-canvas`: Canvas
 - `/pv-opportunity-tree`: Opportunity solution tree
+- `/pv-gate`: Gate brief
+- `/pv-prioritise`: Prioritisation
+- `/pv-hypothesis`: Hypothesis
+- `/pv-outcome`: Outcome review brief
+- `/pv-which`: Which skill
 - `/pv-help`: List the Product Velocity skills
 
 ## Flows and prompts

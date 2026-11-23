@@ -63,7 +63,7 @@ describe("documents on an initiative", () => {
     }
   });
   it("accepts the kinds the pv- skills save (issue #565)", async () => {
-    for (const kind of ["premortem", "one_pager", "success_metrics", "go_to_market", "experiment", "user_stories", "business_case", "pr_faq", "opportunity_tree"]) {
+    for (const kind of ["premortem", "one_pager", "success_metrics", "go_to_market", "experiment", "user_stories", "business_case", "pr_faq", "opportunity_tree", "gate_brief", "hypothesis", "outcome_brief"]) {
       const id = await db.asUser(creator, async (q) => (await q("insert into public.item_documents (tenant_id, item_id, kind, title, body) values ($1, $2, $3, 'K', '') returning id", [f.tenantA, item, kind])).rows[0].id as string, { commit: true, via: "UI" });
       expect((await row(id)).kind).toBe(kind);
     }

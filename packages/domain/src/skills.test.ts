@@ -212,3 +212,112 @@ describe("scope and format for the report skills", () => {
     expect(skillPrompt(skillByCommand("pv-quarter")!, {}).text).toMatch(/works at company level/);
   });
 });
+
+describe("the craft layer (depth pass) and wave 1", () => {
+  const prompt = (c: string, a: Parameters<typeof skillPrompt>[1] = {}) => skillPrompt(skillByCommand(c)!, a, { catalogue: SKILLS }).text;
+  it("every skill with depth is valid, and the pilot and wave 1 skills all have it", () => {
+    for (const c of ["pv-premortem", "pv-metrics", "pv-one-pager", "pv-gate", "pv-prioritise", "pv-hypothesis", "pv-outcome", "pv-which"]) {
+      const s = skillByCommand(c)!;
+      expect(s.depth, c).toBeTruthy();
+      expect(skillSpecProblems(s), c).toEqual([]);
+    }
+  });
+  it("catches a thin or malformed depth", () => {
+    const base = skillByCommand("pv-premortem")!;
+    expect(skillSpecProblems({ ...base, depth: { ...base.depth!, pitfalls: base.depth!.pitfalls.slice(0, 2) } }).join()).toMatch(/4 to 8 pitfalls/);
+    expect(skillSpecProblems({ ...base, depth: { ...base.depth!, checks: [] } }).join()).toMatch(/5 to 12 checks/);
+    expect(skillSpecProblems({ ...base, depth: { ...base.depth!, example: { good: "x", weak: "", why: "y" } } }).join()).toMatch(/strong, a weak and a why/);
+    expect(skillSpecProblems({ ...base, questions: [{ id: "q", ask: "?", options: [{ label: "only one", useWhen: "x" }] }] } as SkillSpec).join()).toMatch(/2 to 5 options/);
+  });
+  it("the prompt carries the craft blocks, the lettered options and the read-back", () => {
+    const t = prompt("pv-metrics", { target: "R-4" });
+    for (const h of ["KEY IDEAS", "WHEN NOT TO USE THIS SKILL", "PITFALLS TO AVOID", "CHECK BEFORE YOU DELIVER", "THE STANDARD, BY EXAMPLE", "A WORKED EXAMPLE"]) expect(t).toContain(h);
+    expect(t).toMatch(/Vanity metrics: .* Instead: /);
+    expect(t).toMatch(/\n {3}A\. Adoption: more people start using it: use when/);
+    expect(t).toMatch(/the person can answer with a letter or in their own words/);
+    expect(t).toMatch(/Read back before you ask/);
+    expect(t).toMatch(/opening with your read-back/);
+    expect(prompt("pv-vision")).not.toContain("KEY IDEAS"); // not yet deepened
+  });
+  it("the pilot skills are several times deeper than before", () => {
+    const words = (c: string) => prompt(c, { target: "R-1" }).split(/\s+/).length;
+    const craft = (c: string) => JSON.stringify(skillByCommand(c)!.depth).split(/\s+/).length;
+    for (const c of ["pv-premortem", "pv-metrics", "pv-one-pager"]) {
+      expect(craft(c), c).toBeGreaterThan(700); // the craft layer with its worked example; before this pass the skills had none
+      expect(words(c), c).toBeGreaterThan(2300); // the whole prompt was about 1,300 words before
+    }
+    expect(words("pv-vision")).toBeLessThan(1700);
+  });
+  it("pv-gate prepares and never decides; a gate, the checklist and the options are named", () => {
+    const t = prompt("pv-gate", { target: "R-4" });
+    expect(t).toMatch(/get_gate_pack for the initiative/);
+    expect(t).toMatch(/you never request, decide or approve a gate/);
+    for (const o of ["Go", "Go with conditions", "Hold", "Stop"]) expect(t).toContain(o);
+    expect(t).toMatch(/Gate B: Define to Build/);
+    expect(t).toMatch(/To be decided by the Approver/);
+    expect(skillByCommand("pv-gate")!.fields).toEqual([]);
+  });
+  it("pv-prioritise is advisory, uses only given inputs and the alignment aggregates, and can be scoped", () => {
+    const t = prompt("pv-prioritise");
+    expect(t).toMatch(/Scope: all initiatives/);
+    expect(t).toMatch(/The ranking is advisory/);
+    expect(t).toMatch(/crowd_score/);
+    expect(t).toMatch(/Never name or try to infer an individual voter/);
+    expect(t).toMatch(/leave it "to define" and mark the score partial/);
+    expect(prompt("pv-prioritise", { target: "R-1, R-2" })).toMatch(/Scope: only these initiatives/);
+    expect(skillByCommand("pv-prioritise")!.doc.kind).toBe("prioritisation");
+  });
+  it("pv-hypothesis keeps the three-line format and fills only the hypothesis field", () => {
+    const s = skillByCommand("pv-hypothesis")!;
+    expect(s.fields).toEqual(["hypothesis"]);
+    const t = prompt("pv-hypothesis", { target: "R-4" });
+    expect(t).toMatch(/IF we <do this>, THEN/);
+    expect(t).toMatch(/Run apply_skill_extract/);
+    expect(t).toMatch(/BECAUSE is written only with evidence/);
+  });
+  it("pv-outcome records figures only through the existing tool, after agreement, and never judges a person", () => {
+    const t = prompt("pv-outcome", { target: "R-4" });
+    expect(t).toMatch(/record_outcome_review/);
+    expect(t).toMatch(/only after they agree/);
+    expect(t).toMatch(/never an individual's performance/);
+    expect(t).toMatch(/Do not set the outcome verdict, the learning field/);
+  });
+  it("pv-which is advice: it lists the other skills, saves nothing and recommends only from the list", () => {
+    const t = prompt("pv-which");
+    expect(t).toMatch(/THE SKILLS \(recommend only from this list/);
+    expect(t).toMatch(/- pv-premortem \(Define; one initiative; a saved document\)/);
+    expect(t).toMatch(/- pv-weekly \(Run the product; all initiatives or the ones you name; a report\)/);
+    expect(t).not.toMatch(/- pv-which \(/);
+    expect(t).toMatch(/Nothing is saved/);
+    expect(t).not.toMatch(/create_document/);
+    expect(t).not.toMatch(/To be decided by/);
+    expect(t).not.toMatch(/draft-or-save/);
+    expect(t).toMatch(/SHAPE OF THE ANSWER/);
+    expect(t).toMatch(/Not for: /); // pulled from each skill's first "when not"
+  });
+});
+
+describe("a quarter means the Planned Quarter field (Ashu, 2026-11-23)", () => {
+  it("every skill prompt carries the rule, and so does the report and advice flavour", () => {
+    for (const s of SKILLS) {
+      const t = skillPrompt(s, { target: "R-1" }, { catalogue: SKILLS }).text;
+      expect(t, s.command).toMatch(/A quarter means the Planned Quarter field/);
+      expect(t, s.command).toMatch(/g2m_quarter/);
+      expect(t, s.command).toMatch(/first filter/);
+      expect(t, s.command).toMatch(/Never use the G2M date/);
+    }
+  });
+  it("a quarter typed as the target becomes a Planned Quarter scope, in any spelling", () => {
+    expect(parseSkillArgs("Q4-26 --format=email")).toEqual({ target: 'quarter:"Q4 2026"', input: undefined, draft: undefined, format: "email" });
+    expect(parseSkillArgs("Q1 2027 for leadership")).toMatchObject({ target: 'quarter:"Q1 2027"', input: "for leadership" });
+    expect(parseSkillArgs("quarter:\"Q3 2026\"")).toMatchObject({ target: 'quarter:"Q3 2026"' });
+    expect(parseSkillArgs("R-4 R-5")).toMatchObject({ target: "R-4, R-5" });
+    expect(parseSkillArgs("Q9-26")).toMatchObject({ target: undefined }); // not a quarter
+  });
+  it("a focus skill told about a quarter fetches its initiatives by the Planned Quarter first", () => {
+    const t = skillPrompt(skillByCommand("pv-weekly")!, { target: 'quarter:"Q4 2026"' }).text;
+    expect(t).toMatch(/Scope: only these initiatives/);
+    expect(t).toMatch(/A quarter such as Q4-26 .* means the Planned Quarter field: call search_items with quarter set/);
+    expect(skillPrompt(skillByCommand("pv-quarter")!, {}).text).toMatch(/search_items with quarter set to the quarter the plan is for/);
+  });
+});

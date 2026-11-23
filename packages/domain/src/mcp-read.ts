@@ -87,7 +87,7 @@ export const MAX_SEARCH_LIMIT = 100;
 export const DEFAULT_SEARCH_LIMIT = 25;
 export const MAX_SEARCH_FILTERS = 20;
 /** What a search returns per initiative unless the caller asks for other fields. */
-export const DEFAULT_SEARCH_FIELDS: readonly string[] = ["item_code", "initiative_name", "status", "initiative_phase", "home_project", "theme", "moscow", "health", "stack_rank"];
+export const DEFAULT_SEARCH_FIELDS: readonly string[] = ["item_code", "initiative_name", "g2m_quarter", "initiative_status", "status", "initiative_phase", "home_project", "theme", "moscow", "health", "stack_rank"];
 const ALWAYS = ["item_code", "initiative_name"];
 const OPS: readonly FilterOp[] = ["is", "is_not", "any_of", "contains", "gt", "lt", "before", "after", "between", "in_last", "in_next", "today", "this_week", "this_month", "empty", "not_empty"];
 
@@ -155,7 +155,8 @@ export function readSearch(args: Record<string, unknown>, names: SearchNames): P
     const s = str(raw);
     return s ? checkFilter({ field, op: "is", value: s }, names) : null;
   };
-  for (const [field, arg] of [["home_project", args.project], ["theme", args.group], ["status", args.status], ["initiative_phase", args.phase]] as const) {
+  // Planned Quarter first: a quarter's roadmap always means this field (Ashu, 2026-11-23); "Q4-26" and "Q4 2026" are the same value
+  for (const [field, arg] of [["g2m_quarter", args.quarter], ["home_project", args.project], ["theme", args.group], ["status", args.status], ["initiative_phase", args.phase]] as const) {
     const c = shortcut(field, arg);
     if (!c) continue;
     if (!c.ok) return fail(c.error);

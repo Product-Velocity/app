@@ -26,6 +26,9 @@ Built: see `packages/domain/src/skills-catalog.ts` (the list below is generated 
 - **Report skills** (`pv-weekly`, `pv-release-notes`) produce content for an audience in the format asked (`--format=email|slides|document|slack|chat`); nothing is saved or sent unless the person asks for a copy. They read the app's own report definitions through `get_report`.
 Report skills cover every initiative unless some are named (codes, a range such as R-1 to R-5, a view or a group; `focus: true` in the spec). `pv-weekly` is framed for leadership by default (bottom line and asks first, what happened and why it matters grouped by theme, compared with last week, at risk and what would unblock it). Formats: email, slides (PowerPoint), document (Word), Slack, chat. Help lists every skill with what it works on and what you get (generated from the catalogue).
 
+## 4b. Depth (2026-11-23)
+Each deepened skill adds a craft layer to the prompt (`skills-depth.ts`): key ideas, when not to use it, pitfalls with the fix, a check-list, a strong and a weak example and a worked example. Questions with options show lettered choices with "use when". Every skill opens with a read-back (found, assumed, missing, conflicts) before it asks. Written from scratch; no external skill text is used (decision `docs/decisions/2026-11-23-skills-own-wording.md`).
+
 ## 5. Slices
 1 engine and routing, `pv-premortem`, `pv-one-pager`. 2 field extract, new document kinds, `pv-metrics`, `pv-gtm`, `pv-experiment`, `pv-stories`. 3 company context v2, workspace documents, `pv-vision`, `pv-strategy`, `pv-northstar`, `pv-compete`, `pv-personas`. 5 `pv-weekly`, `pv-release-notes`, `pv-quarter`. Later: scoring and triage (4), research (6), admin switch and catalogue page (7).
 

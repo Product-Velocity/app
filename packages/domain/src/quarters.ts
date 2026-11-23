@@ -3,17 +3,20 @@
  * Calendar quarters only, no fiscal calendars. The key stays `g2m_quarter` so saved views, filters, imports and API clients keep working.
  */
 const QUARTER = /^Q([1-4]) (\d{4})$/;
-const LOOSE = /^(?:Q([1-4])[\s\-/]*(\d{4})|(\d{4})[\s\-/]*Q([1-4]))$/i;
+// "Q3 2027", "Q3-2027", "2027-Q3" and, with a two-digit year, "Q4-26", "Q4 26", "Q4/26", "Q4\u201926" and "26-Q4" (the years 2000 to 2099).
+const LOOSE = /^(?:Q([1-4])[\s\-/'\u2019]*(\d{4}|\d{2})|(\d{4}|\d{2})[\s\-/'\u2019]*Q([1-4]))$/i;
 
 export const quarterLabel = (year: number, q: number) => `Q${q} ${year}`;
 export const isQuarter = (v: unknown): v is string => typeof v === "string" && QUARTER.test(v) && Number(QUARTER.exec(v)![2]) >= 1900;
 
-/** "q3 2027", "2027-Q3" and "Q3-2027" all mean "Q3 2027"; anything else is not a quarter. */
+/** "q3 2027", "2027-Q3", "Q3-2027" and "Q3-27" all mean "Q3 2027"; anything else is not a quarter. */
 export function parseQuarter(text: string): string | null {
   const t = text.trim();
   const m = LOOSE.exec(t);
   if (!m) return null;
-  const q = Number(m[1] ?? m[4]), y = Number(m[2] ?? m[3]);
+  const q = Number(m[1] ?? m[4]);
+  const ys = m[2] ?? m[3] ?? "";
+  const y = ys.length === 2 ? 2000 + Number(ys) : Number(ys);
   return y >= 1900 && y <= 2999 ? quarterLabel(y, q) : null;
 }
 

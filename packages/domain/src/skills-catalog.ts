@@ -1,9 +1,10 @@
 // The PV skills, one spec each (issue #565, docs/31-SKILLS.md). Wording is ours. Add a skill here and it is served as a prompt and by
 // get_playbook, listed by pv-help and checked by skills.test.ts.
 
+import { SKILL_DEPTH } from "./skills-depth";
 import { skillHelp, skillPrompt, type SkillSpec } from "./skills";
 
-export const SKILLS: readonly SkillSpec[] = [
+const BASE_SKILLS: readonly SkillSpec[] = [
   {
     command: "pv-premortem",
     title: "Pre-mortem",
@@ -18,9 +19,14 @@ export const SKILLS: readonly SkillSpec[] = [
       "search_items for what it depends on and what depends on it (status and health of those), and for earlier initiatives in the same group that were stopped or slipped.",
     ],
     questions: [
-      { id: "date", ask: "Which date or milestone is the plan judged against? (Default: the initiative's target or release date, if it has one.)" },
+      { id: "failure", ask: "What does failure mean for this initiative?", options: [
+        { label: "It misses the date", useWhen: "the schedule is the constraint, for example a launch window or a contract." },
+        { label: "It ships but nobody uses it", useWhen: "adoption is the real risk, for example a new habit or a hard-to-find feature." },
+        { label: "It lands on time but damages something else", useWhen: "quality, trust, another team's work or a guardrail metric could suffer." },
+        { label: "All of these", useWhen: "you are not sure yet; this is the default." },
+      ] },
       { id: "own", ask: "Before you add your own: what are the two or three ways YOU think this could fail? Those go in first, as the person's own." },
-      { id: "caller", ask: "Who calls go, adjust or stop when the top risks are known?" },
+      { id: "caller", ask: "Who calls go, adjust or stop when the top risks are known, and which date is the plan judged against? (Default date: the initiative's target or release date, if it has one.)" },
     ],
     sections: [
       { id: "1", title: "The failure story", covers: "Five to eight sentences written as if the date has passed and the initiative failed: what happened, in order, in plain words. It is a story, not a list. Use only facts from the initiative and its documents, and mark invented colour as illustration." },
@@ -52,8 +58,17 @@ export const SKILLS: readonly SkillSpec[] = [
       "get_gate_pack to see which gate the page is for and what is still missing for it.",
     ],
     questions: [
-      { id: "ask", ask: "Who reads this and who decides? What exactly is the decision you want, and by when?" },
-      { id: "evidence", ask: "What evidence do you have (data, customer words, a link)? Say where it lives; I will not invent any." },
+      { id: "ask", ask: "What decision do you need, and who makes it by when?", options: [
+        { label: "Approve it to start", useWhen: "the page serves a gate (A or B) and the question is go or no go." },
+        { label: "Choose between options", useWhen: "two or more directions are on the table and one must be picked." },
+        { label: "Fund or staff it", useWhen: "the work is agreed in principle and needs people or budget." },
+        { label: "Align on direction", useWhen: "nothing is being approved yet; people need a shared picture." },
+      ] },
+      { id: "evidence", ask: "What do you have to back the problem?", options: [
+        { label: "Data", useWhen: "you can point to a number, a report or a query." },
+        { label: "Customer conversations", useWhen: "you have notes, tickets or recordings to cite." },
+        { label: "Mostly belief", useWhen: "the evidence is thin; the page will say so rather than hide it." },
+      ] },
       { id: "wont", ask: "What are we explicitly not doing in this bet?" },
     ],
     team: true,
@@ -87,9 +102,19 @@ export const SKILLS: readonly SkillSpec[] = [
       "search_items for earlier initiatives in the same group with a key result, to reuse metric names and units so results can be compared.",
     ],
     questions: [
-      { id: "different", ask: "What should be different for customers, or for the company, if this works? One or two sentences in your words." },
-      { id: "data", ask: "Which numbers can you measure today, and where do they come from? Give me a baseline if you have one; I will not make one up." },
-      { id: "worked", ask: "Who decides that it \"worked\", and what result would make them say so?" },
+      { id: "change", ask: "What kind of change are you after if this works?", options: [
+        { label: "Adoption: more people start using it", useWhen: "the capability is new and reach is the risk." },
+        { label: "Depth: people use it more", useWhen: "it improves something already used and frequency or volume should rise." },
+        { label: "Success or quality: people complete the job more often or faster", useWhen: "it removes friction in a task people already do." },
+        { label: "Retention: people stay", useWhen: "leaving or going quiet is the problem." },
+        { label: "Efficiency: less time or cost", useWhen: "the benefit is saved effort inside the company or for support." },
+      ] },
+      { id: "data", ask: "How far can you trust the data today?", options: [
+        { label: "There is a dashboard or table I trust", useWhen: "the metric can be read from an existing source." },
+        { label: "The data exists but is unreliable or hand-built", useWhen: "a number can be produced but nobody would bet on it." },
+        { label: "It is not measured yet", useWhen: "the event or report does not exist, so measuring is part of the work." },
+      ] },
+      { id: "worked", ask: "Who decides that it \"worked\", and what result would make them say so? Give a baseline if you have one; I will not make one up." },
     ],
     sections: [
       { id: "1", title: "What should be different", covers: "The change for customers or the company in plain words, tied to the hypothesis." },
@@ -447,7 +472,7 @@ export const SKILLS: readonly SkillSpec[] = [
     target: "none",
     profile: ["products", "personas", "glossary", "strategy", "metrics", "conventions"],
     reads: [
-      "search_items for the initiatives that serve the quarter: fields okr_objective, kr_metric, kr_unit, kr_direction, kr_start, kr_target, horizon, planning_status, candidate_tag, contributing_teams; at most fifty rows. Reuse the workspace's own objective names.",
+      "search_items with quarter set to the quarter the plan is for (the Planned Quarter field, the first filter) for the initiatives that serve it: fields okr_objective, kr_metric, kr_unit, kr_direction, kr_start, kr_target, horizon, planning_status, candidate_tag, contributing_teams; at most fifty rows. Reuse the workspace's own objective names.",
       "get_outcome_reviews for recently shipped initiatives, to see what the last quarter's key results actually delivered; list_documents with no item for last quarter's plan (get_document) and for the strategy and north star documents.",
     ],
     questions: [
@@ -696,7 +721,221 @@ export const SKILLS: readonly SkillSpec[] = [
     ],
     decidedBy: "the owner of the outcome, who chooses the target opportunity",
   },
+  {
+    command: "pv-gate",
+    title: "Gate brief",
+    summary: "the decision brief for the person who approves a gate: what is being decided, the evidence and the gaps, the options and a proposed recommendation; it never requests or decides the gate",
+    stage: "decide",
+    target: "item",
+    profile: ["strategy", "metrics", "conventions", "glossary"],
+    reads: [
+      "get_gate_pack for the initiative: its phase, the gate it must pass next, the checklist (what is filled and what is missing), its documents with their status, any open request, past decisions with their rationale and open conditions. Quote the checklist as it stands.",
+      "get_item for everything that is filled: hypothesis, key result fields, dates, Effort and the estimate, health, dependencies and the latest changes.",
+      "list_documents and get_document for its discovery, PRD, success metrics, experiment, pre-mortem and business case (at most five); take evidence and risks from them with their status (draft, in review, approved) and say which are AI drafts.",
+      "search_items for what it depends on and what depends on it (status and health); use get_report with report health only when the dependency picture is unclear.",
+    ],
+    questions: [
+      { id: "gate", ask: "Which gate is this brief for?", options: [
+        { label: "Gate A: Discover to Define", useWhen: "the question is whether the problem and the chosen solution are worth defining." },
+        { label: "Gate B: Define to Build", useWhen: "the question is whether to commit to build; approving also approves the PRD." },
+        { label: "Gate C: Experiment to Roll-out", useWhen: "the question is whether the experiment passed against its threshold and it may roll out." },
+      ] },
+      { id: "decider", ask: "Who decides, and by when? Preferred approvers, if the request names any." },
+      { id: "outside", ask: "Is there anything the Approver should know that is not in Product Velocity: concerns raised, a conversation, a constraint?" },
+    ],
+    sections: [
+      { id: "1", title: "The decision", covers: "The gate, what approving means for this initiative (what is committed, to whom, for about how long, what moves), who decides and by when. First on the page, readable alone." },
+      { id: "2", title: "Where it stands", covers: "The checklist exactly as the gate pack shows it (filled and missing), the documents with their status (draft, in review, approved; AI draft or accepted), the open request and any conditions still open from earlier decisions." },
+      { id: "3", title: "The case for going", covers: "The strongest honest case: evidence by source (field, document, past decision), what the hypothesis and key result promise, why now." },
+      { id: "4", title: "The case against and the risks", covers: "What would make a careful person hesitate: gaps, dependencies and their health, risks from any pre-mortem, doubts raised. Evidence and opinion kept apart." },
+      { id: "5", title: "What is missing", covers: "Each gap, who could supply it, how long it would take and what it would change about the decision." },
+      { id: "6", title: "Options", covers: "Go, Go with conditions, Hold and Stop, each described for this initiative: what happens, what it risks, what it keeps open. For Go with conditions, proposed conditions each with a test, an owner role and a date. Stop closes the initiative's tracker issue only through the app's own confirmed offer." },
+      { id: "7", title: "Proposed recommendation", covers: "One recommendation, marked proposed by Claude, with the reasons and what would change it. The decision is the Approver's." },
+      { id: "8", title: "Questions the Approver will ask", covers: "The five or six questions a careful Approver would put, each with the answer from the data or \"unknown\"." },
+    ],
+    doc: { kind: "gate_brief", titlePrefix: "Gate brief: " },
+    fields: [],
+    rules: [
+      "You prepare the case; you never request, decide or approve a gate, and you never set Ready for build, Gate Status, Decision or any gate field. If the person asks you to pass the gate, say that only a person with approval rights can, in the app.",
+      "State the checklist and every status as the gate pack reports them. Do not describe an initiative as ready, complete or approved beyond what they say.",
+      "Mark every opinion as opinion and the recommendation as proposed. Conditions are suggestions, each with a test, an owner role and a date.",
+      "Keep sources visible: a field, a document and its version and status, or a past decision with its date.",
+    ],
+    decidedBy: "the Approver, at the gate this brief is for",
+  },
+  {
+    command: "pv-prioritise",
+    title: "Prioritisation",
+    summary: "choose a prioritisation approach that fits your stage and data, then score the initiatives you name, or all open ones, as an advisory ranking with its inputs, its weak points and a cut list",
+    stage: "decide",
+    target: "none",
+    focus: true,
+    profile: ["strategy", "metrics", "conventions", "glossary"],
+    reads: [
+      "search_items for the initiatives in scope, with the fields scoring can use: initiative_name, initiative_phase, initiative_status, effort, estimate_low_weeks, estimate_high_weeks, moscow, horizon, health, okr_objective, kr_metric, depends_on, and the values people have set (customers_requesting, value_type, value_12m, confidence) when they exist. Read them; never set them. Add stack_rank to compare with the current order. At most eighty rows.",
+      "The alignment fields on the same rows (crowd_rank, crowd_score, crowd_consensus, crowd_votes, alignment_status): aggregates only. They are blank for groups the app hides; never try to recover who voted.",
+      "describe_fields for the allowed values of Effort and MoSCoW; list_documents with no item for the strategy, north star and quarter plan (get_document for the latest of each), because strategic fit is a filter before any score.",
+      "For the top ten candidates, get_item for dependencies and dates, so ordering respects what unblocks what.",
+    ],
+    questions: [
+      { id: "stage", ask: "Where is the product, roughly?", options: [
+        { label: "Still finding fit", useWhen: "customers are few, evidence is thin and speed of learning matters more than precision." },
+        { label: "Growing", useWhen: "demand is proven and the question is where growth comes from next." },
+        { label: "Scaling or mature", useWhen: "there is a lot of data, many stakeholders and trade-offs between existing commitments." },
+      ] },
+      { id: "decision", ask: "What decision should this ranking help with?", options: [
+        { label: "What to build next", useWhen: "capacity opens up and the next bet must be chosen." },
+        { label: "What to cut or defer", useWhen: "there is more committed than the team can deliver." },
+        { label: "In what order to sequence", useWhen: "the set is agreed and dependencies and timing decide the order." },
+      ] },
+      { id: "data", ask: "Which inputs do you trust today?", options: [
+        { label: "Reach or customer counts", useWhen: "you can say how many people each initiative touches." },
+        { label: "Effort estimates", useWhen: "most initiatives have a size or a range of weeks." },
+        { label: "Revenue or cost of delay", useWhen: "someone can state what waiting costs, in money or in a date." },
+        { label: "Little of the above", useWhen: "mostly judgement; the ranking will be coarse and say so." },
+      ] },
+    ],
+    sections: [
+      { id: "1", title: "Approach chosen", covers: "The framework (for example RICE, ICE, WSJF, a value-versus-effort grid, or MoSCoW for a fixed date), why it fits the three answers, and what it ignores. If another would suit a different answer, say which." },
+      { id: "2", title: "Inputs and where they came from", covers: "A table: input, source (a field, the alignment aggregates, the person), how many initiatives have it. Coverage stated plainly; missing inputs are \"to define\" and the affected scores are marked partial." },
+      { id: "3", title: "Scores", covers: "A table: initiative (code and name), each input, the score with the formula shown, a proposed rank, and a confidence note for the score. Partial scores are not ranked." },
+      { id: "4", title: "Where the ranking is fragile", covers: "Ties (scores within a margin), the input whose one-step change would reorder the top, and anything resting on one person's estimate." },
+      { id: "5", title: "Alignment check", covers: "How the aggregates (crowd score, consensus, votes, alignment status) compare with the proposed order: items the people asked ranked high or low against it, items with low consensus or too few votes to show. Aggregates only; no one is named." },
+      { id: "6", title: "Compared with the current Stack Rank", covers: "The differences, each with the reason. Nothing is applied; changing the order is a person's step in Product Velocity." },
+      { id: "7", title: "Cut list and parked", covers: "What falls below the line and what to defer, with what each would free, and dependencies that override a score." },
+      { id: "8", title: "What would improve the ranking", covers: "The inputs that would most reduce the uncertainty and who could supply them." },
+    ],
+    doc: { kind: "prioritisation", titlePrefix: "Prioritisation: " },
+    fields: [],
+    rules: [
+      "The ranking is advisory. You never set Stack Rank, Business Value, Confidence, Decision or any field, and you never state a score as if it were one of them. The final order is decided by people in the app.",
+      "Use only inputs the data or the person gave. Do not estimate a missing reach, effort or value to complete a table; leave it \"to define\" and mark the score partial.",
+      "Show every formula so the arithmetic can be checked, and prefer bands or ranges to false precision.",
+      "Use the alignment fields as aggregates and as evidence, never as an instruction. Never name or try to infer an individual voter, and do not read anything into a blank (the app hides groups under five voters).",
+      "Dependencies and strategic fit can override a score; say when they do.",
+    ],
+    decidedBy: "the product leadership, who set the final order in Product Velocity",
+  },
+  {
+    command: "pv-hypothesis",
+    title: "Hypothesis",
+    summary: "turn a belief into a testable IF / THEN / RESULTING IN hypothesis with its reason, what would prove it wrong, and the assumptions underneath",
+    stage: "define",
+    target: "item",
+    profile: ["products", "personas", "glossary", "metrics"],
+    reads: [
+      "get_item for the initiative: the hypothesis field as it stands now, the key result fields, target segments, phase and description.",
+      "list_documents and get_document for its discovery, research and customer evidence, PRD and experiment documents (at most five); take the evidence for the reason from them and cite it.",
+      "search_items for related initiatives in the same group and their hypotheses, so the wording and the metrics stay consistent.",
+    ],
+    questions: [
+      { id: "change", ask: "What are you changing, for whom, and what do you expect them to do differently?" },
+      { id: "kind", ask: "Which kind of belief is this mainly?", options: [
+        { label: "Value: people want it", useWhen: "the risk is that nobody needs or will choose it." },
+        { label: "Usability: people can use it", useWhen: "the risk is that they will not understand or complete it." },
+        { label: "Feasibility: we can build it", useWhen: "the risk is technical or depends on a partner." },
+        { label: "Viability: it pays off", useWhen: "the risk is cost, price or sustainability." },
+      ] },
+      { id: "wrong", ask: "What result would make you say you were wrong? A threshold helps; I will not invent one." },
+    ],
+    sections: [
+      { id: "1", title: "The belief in plain words", covers: "One or two sentences, with who, what changes and why it matters, before any formatting." },
+      { id: "2", title: "The hypothesis", covers: "Three lines, each starting with its label: IF we <do this>, THEN <this observable change happens in this population>, RESULTING IN <this metric moves>. Then BECAUSE <the reason>, only with its evidence cited; otherwise the reason is listed under assumptions." },
+      { id: "3", title: "Assumptions underneath", covers: "Three to five things that must be true, riskiest first, each marked with its kind (value, usability, feasibility, viability) and how much evidence there is." },
+      { id: "4", title: "How it can be proven wrong", covers: "The smallest test, the metric, the population and period, and what result counts against it, with the person's threshold or \"to define\"." },
+      { id: "5", title: "Sharper and weaker forms", covers: "One narrower version that would be easier to test and one broader version, so the person can choose the right size." },
+    ],
+    doc: { kind: "hypothesis", titlePrefix: "Hypothesis: " },
+    fields: ["hypothesis"],
+    rules: [
+      "Section 2 keeps the exact three-line format, each line starting with IF, THEN and RESULTING IN. Never merge them into one sentence.",
+      "BECAUSE is written only with evidence you can cite; an unsupported reason goes under assumptions.",
+      "Thresholds and targets come from the person. Do not invent a number to make it look testable.",
+      "Values for Product Velocity: hypothesis only, the three lines exactly as in section 2 (without the BECAUSE line).",
+    ],
+    decidedBy: "the owner of the initiative, who accepts the hypothesis before work depends on it",
+  },
+  {
+    command: "pv-outcome",
+    title: "Outcome review brief",
+    summary: "prepare the outcome review: what was intended, what happened at 30, 60 and 90 days, why, and what to keep, change or stop; figures only as the person states them",
+    stage: "prove",
+    target: "item",
+    profile: ["products", "metrics", "conventions", "glossary"],
+    reads: [
+      "get_outcome_reviews for the initiative: the 30, 60 and 90 day checkpoints, which are recorded, which are due, the realised key result value and adoption, and the words behind each recorded figure.",
+      "get_item for the intent: hypothesis, key result fields (metric, unit, direction, start, target), roll-out start, adoption and outcome fields, and the latest changes.",
+      "list_documents and get_document for its PRD, success metrics, experiment and business case (at most five); quote what was promised and how confident the team was at the time.",
+      "search_items for other initiatives in the same group with outcome results, to compare what usually happens; at most twenty rows.",
+    ],
+    questions: [
+      { id: "checkpoint", ask: "Which review is this?", options: [
+        { label: "30 days", useWhen: "the question is whether people found it and tried it." },
+        { label: "60 days", useWhen: "the question is whether they kept using it." },
+        { label: "90 days", useWhen: "the question is whether the change held and the effect is real." },
+        { label: "A closing summary", useWhen: "all checkpoints are in or the work is being closed." },
+      ] },
+      { id: "numbers", ask: "Which figures do you have for it, and where do they come from? I will record only what you state, in your words." },
+      { id: "why", ask: "What do you think explains the result, and what else changed in the period (another launch, a season, a price)?" },
+    ],
+    sections: [
+      { id: "1", title: "What we intended", covers: "The hypothesis, the key result with start and target, and the success measures, quoted from the initiative and its documents with their source, plus the team's confidence at the time if recorded." },
+      { id: "2", title: "What happened", covers: "Per checkpoint: the metric as the person gave it, against the target and the baseline, with adoption and retention where recorded. A checkpoint with no figures says not recorded and where the figure would come from." },
+      { id: "3", title: "Why", covers: "Explanations, each marked confirmed (with its evidence) or possible (with how to test it), and what else changed in the period and how it was allowed for." },
+      { id: "4", title: "What surprised us", covers: "Results or behaviour nobody expected, including in a segment the hypothesis named." },
+      { id: "5", title: "Keep, change, stop", covers: "A proposed decision on each: what to continue, what to change and what to retire, with the reasons and who decides." },
+      { id: "6", title: "What to carry forward", covers: "What the next initiative should do differently because of this one, in two or three plain sentences." },
+    ],
+    doc: { kind: "outcome_brief", titlePrefix: "Outcome review: " },
+    fields: [],
+    rules: [
+      "A figure is the person's or a source's and is written in their words. Never infer, round or fill one in. To record a checkpoint, offer the existing recording tool (record_outcome_review) with the figures they stated and their words, and only after they agree. A request to someone else for figures can be drafted (draft_outcome_request); nothing is sent.",
+      "Do not set the outcome verdict, the learning field or any outcome field; they are the person's.",
+      "The review concerns the work and the team, never an individual's performance.",
+      "Keep what was believed beforehand separate from what is known now; do not rewrite the past to match the result.",
+    ],
+    decidedBy: "the owner of the initiative, who decides to keep, change or stop",
+  },
+  {
+    command: "pv-which",
+    title: "Which skill",
+    summary: "describe the situation on your desk and get the right skill, or the right sequence of skills, and what to bring to it",
+    stage: "run",
+    target: "none",
+    output: "advice",
+    catalogue: true,
+    profile: [],
+    reads: [
+      "If the person named an initiative, get_item for its phase, status and which of its documents exist (list_documents), so the recommendation fits where it is. Otherwise read nothing.",
+    ],
+    questions: [
+      { id: "goal", ask: "What are you trying to decide, produce or find out right now?" },
+      { id: "scope", ask: "Is it about one initiative (which?) or the whole product?" },
+      { id: "depth", ask: "How much time and evidence do you have?", options: [
+        { label: "A quick first pass", useWhen: "you need something to react to today." },
+        { label: "A thorough piece", useWhen: "it will be read by decision makers or kept as a record." },
+      ] },
+    ],
+    sections: [
+      { id: "1", title: "What I understood", covers: "The situation in one line the person can correct." },
+      { id: "2", title: "Best fit", covers: "One skill: why it fits, what to bring (the initiative code, evidence, a date, who decides), what it produces and the command to run." },
+      { id: "3", title: "Alternatives", covers: "At most two other skills, each with when it would be the better choice." },
+      { id: "4", title: "Before and after", covers: "If the phase or the evidence calls for it, the skill to run before this one and the one that follows." },
+      { id: "5", title: "Not a skill job", covers: "Only when true: what needs a conversation, a decision by a person, or data that has to be collected first." },
+    ],
+    doc: { kind: "other", titlePrefix: "" },
+    fields: [],
+    rules: [
+      "Recommend only skills in THE SKILLS list; never invent one or promise what a skill does not do. If nothing fits, say so and say what would.",
+      "Choose one best fit and explain the choice; do not hand the decision back with a menu.",
+      "Weigh the initiative's phase and the evidence it has: recommend the lighter skill that unblocks the next step before the heavier one.",
+    ],
+    decidedBy: "the person asking",
+  },
 ];
+
+/** The skills with their craft layer merged in (skills-depth.ts). */
+export const SKILLS: readonly SkillSpec[] = BASE_SKILLS.map((s) => (SKILL_DEPTH[s.command] ? { ...s, depth: SKILL_DEPTH[s.command] } : s));
 
 export const SKILL_COMMANDS: readonly string[] = SKILLS.map((s) => s.command);
 export const skillByCommand = (c: string): SkillSpec | undefined => SKILLS.find((s) => s.command === c);
