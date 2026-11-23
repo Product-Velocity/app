@@ -1,6 +1,6 @@
 import { requireWorkspace } from "@/lib/session";
 import { PortfolioClient } from "@/features/portfolio/portfolio-client";
-import { OpenOnComputer } from "@/components/open-on-computer";
+import { PhoneRedirect } from "@/components/phone-redirect";
 import { loadLookups } from "@/features/portfolio/lookups";
 
 export const metadata = { title: "Roadmap · Product Velocity" };
@@ -19,7 +19,7 @@ export default async function PortfolioPage() {
           {active.role === "admin" ? <p>Open “All projects” at the top and choose <strong>+ New project</strong>.</p> : <p>Ask an admin to add the first project.</p>}
         </div>
       )}
-      <OpenOnComputer what="The roadmap grid" />
+      <PhoneRedirect to={`/w/${active.tenantId}/cards`} />
       <div className="desktop-only">
         <PortfolioClient
           tenantId={active.tenantId}

@@ -68,6 +68,7 @@ export function PhoneDecisions({ source, me, mayDecide = true, tenantId }: { sou
   return (
     <div className="phone-decisions">
       <h1>Decisions</h1>
+      <p><Link href={`/w/${tenantId}/alignment`}>Alignment results →</Link></p>
       <div className="phone-chips" role="group" aria-label="Filter requests">
         {QUEUE_FILTERS.map((f) => (
           <button key={f.id} type="button" className={filter === f.id ? "phone-chip phone-chip-on" : "phone-chip"} aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>

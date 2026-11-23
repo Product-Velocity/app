@@ -1,32 +1,32 @@
-/** Phone navigation (docs/29-MOBILE.md section 3). Pure, so it can be tested without a browser. */
-export type PhoneTab = { id: "for-you" | "initiatives" | "add" | "decisions" | "more"; label: string; href: string };
+/** Phone navigation (docs/29-MOBILE.md section 3, reworked by issue #635). Pure, so it can be tested without a browser. */
+export type PhoneTab = { id: "initiatives" | "decide" | "add" | "tracker" | "insights"; label: string; href: string };
 
-/** The bottom bar: For you, Initiatives, the ＋ quick-add button in the middle, Decisions, More. */
+/** The bottom bar: Initiatives (what changed, search), Decide (gates and alignment results), the ＋ quick-add button in the middle, Tracker, Insights. */
 export const PHONE_TABS: PhoneTab[] = [
-  { id: "for-you", label: "For you", href: "/for-you" },
   { id: "initiatives", label: "Initiatives", href: "/cards" },
+  { id: "decide", label: "Decide", href: "/decisions" },
   { id: "add", label: "＋ Add", href: "/new" },
-  { id: "decisions", label: "Decisions", href: "/decisions" },
-  { id: "more", label: "More", href: "/more" },
+  { id: "tracker", label: "Tracker", href: "/tracker" },
+  { id: "insights", label: "Insights", href: "/leadership" },
 ];
 
 /** Which bottom-bar item is current for a page (path without the /w/{account} prefix). */
 export function phoneTabFor(path: string): PhoneTab["id"] | null {
-  if (path.startsWith("/for-you") || path.startsWith("/attention") || path.startsWith("/home")) return "for-you";
   if (path.startsWith("/new")) return "add";
-  if (path.startsWith("/cards") || path.startsWith("/portfolio") || path.startsWith("/gantt")) return "initiatives";
-  if (path.startsWith("/decisions")) return "decisions";
-  if (path.startsWith("/more") || path.startsWith("/leadership") || path.startsWith("/reports") || path.startsWith("/alignment") || path.startsWith("/account")) return "more";
+  if (path.startsWith("/cards") || path.startsWith("/portfolio") || path.startsWith("/gantt") || path.startsWith("/for-you") || path.startsWith("/attention") || path.startsWith("/home")) return "initiatives";
+  if (path.startsWith("/decisions") || path.startsWith("/alignment")) return "decide";
+  if (path.startsWith("/tracker")) return "tracker";
+  if (path.startsWith("/leadership") || path.startsWith("/reports")) return "insights";
   return null;
 }
 
-export type MoreEntry = { label: string; href?: string; note: string; desktopOnly?: boolean };
+/** The More screen (account, help and the shortcuts that are no longer in the bar). Only what works on a phone is listed. */
+export type MoreEntry = { label: string; href: string; note: string };
 export const MORE_ENTRIES: MoreEntry[] = [
-  { label: "Leadership", href: "/leadership", note: "Portfolio health and the weekly update" },
-  { label: "Reports", href: "/reports", note: "Roadmap health and gate history" },
+  { label: "For you", href: "/for-you", note: "Gates waiting for you, what needs attention, your placeholders" },
+  { label: "Needs attention", href: "/attention", note: "What is stuck, late or missing" },
   { label: "Alignment", href: "/alignment", note: "Sessions and results" },
+  { label: "Reports", href: "/reports", note: "Roadmap health and gate history" },
   { label: "Account", href: "/account", note: "Profile, sign-in methods, 2FA" },
-  { label: "Grid", href: "/portfolio", note: "The full roadmap grid", desktopOnly: true },
-  { label: "Gantt", href: "/gantt", note: "Timeline with bars", desktopOnly: true },
-  { label: "Planning, capacity, settings", note: "Re-ranking, bulk edit, import, integrations, members", desktopOnly: true },
+  { label: "Help", href: "/help", note: "Guides and answers" },
 ];

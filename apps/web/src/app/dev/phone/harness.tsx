@@ -5,18 +5,33 @@ import { MemoryGateSource } from "@/features/gates/gate-source";
 import { ForYou } from "@/features/phone/for-you";
 import { PhoneQuickAdd } from "@/features/phone/phone-quick-add";
 import { PhoneInitiatives } from "@/features/phone/phone-initiatives";
+import { PhoneTracker } from "@/features/phone/phone-tracker";
+import type { ChangeSource } from "@/features/phone/use-phone-changes";
 import { WorkspaceProvider } from "@/features/workspace/provider";
 import { MemoryWorkspaceStore } from "@/features/workspace/store";
 import { harnessLookups, makeCardsHarness } from "../harness-data";
 
 export function HarnessPhone({ n, screen }: { n: number; screen: string }) {
   const { controller } = useMemo(() => makeCardsHarness(n, "creator"), [n]);
+  /** A fixture feed: a Health change on the first 20 initiatives, and a tracker status change on the first 14 (GitHub on even, Jira on odd). */
+  const changeSource = useMemo<ChangeSource>(() => ({
+    async load() {
+      const now = Date.now();
+      const feed = controller.rows.slice(0, 20).map((r, i) => ({ id: i + 1, item_id: r.id, entity: "items", field: "health", old: "On track", new: "At risk", at: new Date(now - i * 3_600_000).toISOString(), actor_id: null, via: "UI" }));
+      const tracker = controller.rows.slice(0, 14).map((r, i) => i % 2 === 0
+        ? { id: 100 + i, item_id: r.id, entity: "item_github_links", field: "gh_state", old: "open", new: "closed_completed", at: new Date(now - i * 1_800_000).toISOString(), actor_id: null, via: "GitHub webhook" }
+        : { id: 100 + i, item_id: r.id, entity: "item_jira_links", field: "jira_status", old: "To Do", new: "In Review", at: new Date(now - i * 1_800_000).toISOString(), actor_id: null, via: "system" });
+      const issues = new Map(controller.rows.slice(0, 14).map((r, i) => [r.id, i % 2 === 0 ? { tracker: "GitHub" as const, key: `acme/app#${100 + i}`, title: null, url: null } : { tracker: "Jira" as const, key: `PAY-${700 + i}`, title: `Payment retries ${i}`, url: null }]));
+      return { feed: [...feed, ...tracker], issues };
+    },
+  }), [controller]);
   const store = useMemo(() => Object.assign(new MemoryWorkspaceStore({ scopes: [], views: [] }), { projects: harnessLookups.projects }), []);
   return (
     <WorkspaceProvider store={store} projects={harnessLookups.projects} canEdit canAdmin={false}>
       <div className="shell"><main className="content">{screen === "add" ? <PhoneQuickAdd controller={controller} lookups={harnessLookups} tenantId="t1" />
           : screen === "for-you" ? <ForYou controller={controller} me="u1" tenantId="t1" lookups={harnessLookups} source={new MemoryGateSource()} />
-          : <PhoneInitiatives controller={controller} lookups={harnessLookups} me="u1" tenantId="t1" />}</main></div>
+          : screen === "tracker" ? <PhoneTracker controller={controller} tenantId="t1" changeSource={changeSource} />
+          : <PhoneInitiatives controller={controller} lookups={harnessLookups} me="u1" tenantId="t1" changeSource={changeSource} />}</main></div>
     </WorkspaceProvider>
   );
 }

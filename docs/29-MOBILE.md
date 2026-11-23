@@ -237,3 +237,24 @@ CLAUDE.md says to follow `docs/06-BUILD-PLAN.md` and not start later phases earl
 5. **Re-authentication** before a gate decision on a phone (passkey, biometric or password): never, Gate B only, or all gates?
 6. **Placeholders.** Is "an initiative that fails its stage check" enough to count as a placeholder, or do you want a visible "Placeholder" marker that a person clears?
 7. **Tablet.** Keep the desktop layout from 700 px up (recommended, cheaper), or design a tablet layout too?
+
+## 10. Rethink (issue #635, 2026-11-23)
+Ashu found the phone too much about "going to the website". Decision: `docs/decisions/2026-11-23-mobile-rethink.md`. This section supersedes sections 3 and 4.1 where they differ.
+
+**Bar:** Initiatives, Decide, ＋ Add, Tracker, Insights.
+
+| Tab | What it shows |
+|---|---|
+| **Initiatives** | Search on top, then the 15 most recently changed initiatives (what changed, how long ago, "and N more changes"), or All with the chips, sort and grouping of section 4.2. Typing a search or choosing a chip searches every initiative. |
+| **Decide** | The gate queue and review screen of M4, with a link to Alignment results. |
+| **＋ Add** | Quick add of M3. |
+| **Tracker** | The latest 10 changes from GitHub and Jira (issue key and title, status from to, the initiative), search by issue, initiative or status. Last 30 days. |
+| **Insights** | Leadership and Reports for now; dedicated one-screen charts with a text summary each in P2. |
+
+**Data.** Both feeds come from `change_feed` (member readable) and the tracker links, in `use-phone-changes.ts`; the rules are in `phone-changes.ts` (`latestChangedInitiatives`, `trackerChanges`). No migration. A change is meaningful when it is a phase, status or health change (Initiatives) or a Build Status or linked issue status change (Tracker). **Not yet in the feed:** rank, owner, G2M date, gate and documents.
+
+**Wording.** No "Open on a computer" screens. `/portfolio` and `/gantt` send a phone to `/cards` (`PhoneRedirect`); More lists only what works on a phone.
+
+**Built (P1).** Tests: `phone-changes.test.ts`, `nav.test.ts`, `e2e/phone.spec.ts` (recently changed, tracker feed, axe); screenshots `docs/screenshots/mobile-recently-changed.png`, `mobile-tracker.png`.
+
+**Next.** P2 Insights; P3 Decide and alignment results in one place; P4 since-you-last-looked, briefing, follow, quick actions; P5 photo and voice capture, apply tracker proposals, outcomes due, Ask Claude shortcut.
