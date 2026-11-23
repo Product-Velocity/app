@@ -27,3 +27,8 @@ export function buildContactEmail(input: { name: string; email: string; subject:
 export function buildEarlyAccessEmail(input: { name: string; email: string; company: string; role: string; teams: string; siteUrl?: string; override?: Partial<TemplateText> | null }): PlainEmail {
   return buildEmail("site.early-access", { values: { name: input.name, requester: input.email, workspace: input.company, role: input.role, teams: input.teams || "not stated" }, siteUrl: input.siteUrl ?? DEFAULT_SITE_URL, override: input.override });
 }
+
+/** To the Product Velocity contact address when someone finishes creating their workspace. Registry key app.new-workspace. */
+export function buildNewWorkspaceEmail(input: { workspace: string; requester: string; link: string; siteUrl?: string; override?: Partial<TemplateText> | null }): PlainEmail {
+  return buildEmail("app.new-workspace", { values: { workspace: input.workspace, requester: input.requester, link: input.link }, siteUrl: input.siteUrl ?? DEFAULT_SITE_URL, buttonUrl: input.link, override: input.override });
+}

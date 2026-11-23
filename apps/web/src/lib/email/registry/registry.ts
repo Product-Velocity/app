@@ -8,7 +8,7 @@ import { renderMacros, sampleValues, type MacroName, type MacroValues } from "./
  */
 export type EmailKey =
   | "auth.confirm-signup" | "auth.sign-in-link" | "auth.reset-password" | "auth.reauthentication" | "auth.invite" | "auth.email-change"
-  | "app.invitation" | "app.access-request" | "app.access-approved" | "app.link-code" | "site.early-access" | "site.contact"
+  | "app.invitation" | "app.new-workspace" | "app.access-request" | "app.access-approved" | "app.link-code" | "site.early-access" | "site.contact"
   | "alignment.invitation" | "alignment.reminder" | "alignment.new-link";
 
 export type EmailTemplate = {
@@ -164,6 +164,22 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     body: "{{inviter}} invited you to join {{workspace}} on {{product}} as {{role}}.\n\nOpen the link below, sign in or create an account with this email address, and accept.",
     button: "Accept invitation",
     note: "The link works once and expires in {{expires}}. If you did not expect this email, you can ignore it.",
+  },
+  {
+    key: "app.new-workspace",
+    name: "New workspace created",
+    trigger: "Someone finishes onboarding and creates their workspace",
+    recipient: "The Product Velocity contact address (lib/public-contact.ts)",
+    path: "Onboarding (app/onboarding/actions.ts, lib/new-workspace-notice.ts)",
+    confirmFirst: false,
+    limits: "One email per workspace created; a failed send never blocks the person",
+    macros: ["requester", "workspace", "link", "product"],
+    subject: "New workspace on {{product}}: {{workspace}}",
+    preheader: "{{requester}} just finished setting up {{workspace}}.",
+    heading: "{{workspace}} is set up",
+    body: "{{requester}} signed up and finished creating the workspace {{workspace}}.\n\nOpen the platform console to see the account.",
+    button: "Open the platform console",
+    note: "This is an internal notice. It holds the sign-up address, so do not forward it.",
   },
   {
     key: "app.access-request",

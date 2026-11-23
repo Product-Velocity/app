@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { rememberTenant } from "@/lib/session";
 import { parseTenantName } from "@/lib/validation";
 import { parseWorkspaceProfile } from "@/lib/workspace-profile";
+import { notifyNewWorkspace } from "@/lib/new-workspace-notice";
 import { domainOfEmail, isFreeMailDomain } from "@pv/domain";
 
 export type OnboardingState = { error?: string } | null;
@@ -25,5 +26,6 @@ export async function createTenant(_prev: OnboardingState, form: FormData): Prom
   // the optional company website (issue #269); the workspace is usable without it, so a failure here does not stop onboarding
   if (profile.companyUrl) await supabase.from("tenants").update({ company_url: profile.companyUrl }).eq("id", data);
   await rememberTenant(data);
+  await notifyNewWorkspace({ tenantId: data, workspace: name, email: auth.user?.email });
   redirect("/portfolio");
 }
