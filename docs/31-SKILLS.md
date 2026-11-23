@@ -29,6 +29,8 @@ Report skills cover every initiative unless some are named (codes, a range such 
 ## 4b. Depth (2026-11-23)
 Each deepened skill adds a craft layer to the prompt (`skills-depth.ts`): key ideas, when not to use it, pitfalls with the fix, a check-list, a strong and a weak example and a worked example. Questions with options show lettered choices with "use when". Every skill opens with a read-back (found, assumed, missing, conflicts) before it asks. Written from scratch; no external skill text is used (decision `docs/decisions/2026-11-23-skills-own-wording.md`).
 
+Wave 1 (`pv-gate`, `pv-prioritise`, `pv-hypothesis`, `pv-outcome`, `pv-which`) and wave 2 (`pv-split`, `pv-assumptions`, `pv-sunset`, `pv-stakeholders`, `pv-readiness`) are written with the craft layer from the start. Wave 2 document kinds: split_plan, assumption_map, sunset_plan, stakeholder_map, readiness_review (item documents).
+
 ## 5. Slices
 1 engine and routing, `pv-premortem`, `pv-one-pager`. 2 field extract, new document kinds, `pv-metrics`, `pv-gtm`, `pv-experiment`, `pv-stories`. 3 company context v2, workspace documents, `pv-vision`, `pv-strategy`, `pv-northstar`, `pv-compete`, `pv-personas`. 5 `pv-weekly`, `pv-release-notes`, `pv-quarter`. Later: scoring and triage (4), research (6), admin switch and catalogue page (7).
 
