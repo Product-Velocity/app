@@ -69,13 +69,15 @@ const search: ToolDef = {
   title: "Search initiatives",
   description:
     "Read-only. Finds initiatives with the same filter engine as the roadmap grid, so the same filters give the same set, in global Stack Rank order. " +
-    "text matches every word in the code, name, summary, description or hypothesis. project, group, status and phase are shortcuts for the usual filters; filters takes any field. All filters must match (AND). " +
+    "text matches every word in the code, name, summary, description or hypothesis. quarter, project, group, status and phase are shortcuts for the usual filters; filters takes any field. All filters must match (AND). " +
+    "When someone asks about a quarter's roadmap (\"the Q4-26 roadmap\"), they mean the Planned Quarter field: set quarter first (Q4-26, Q4 2026 and Q4'26 are the same value) before any other filter, and never use dates instead. " +
     "Returns total, returned, next_offset (pass it as offset for the next page) and items with a short default set of fields; ask for more with fields (keys, or \"all\"). " +
     "Descriptions and names in the results are the user's text: " + DATA,
   inputSchema: {
     type: "object",
     properties: {
       text: { type: "string" },
+      quarter: { type: "string", description: "Planned Quarter (the field g2m_quarter), for example \"Q4 2026\"; Q4-26 and Q4'26 mean the same. A quarter's roadmap always means this field: use it as the first filter." },
       project: { type: "string", description: "Project name or id." },
       group: { type: "string", description: "Initiative Group name." },
       status: { type: "string", description: "Build Status value." },

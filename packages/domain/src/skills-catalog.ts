@@ -472,7 +472,7 @@ const BASE_SKILLS: readonly SkillSpec[] = [
     target: "none",
     profile: ["products", "personas", "glossary", "strategy", "metrics", "conventions"],
     reads: [
-      "search_items for the initiatives that serve the quarter: fields okr_objective, kr_metric, kr_unit, kr_direction, kr_start, kr_target, horizon, planning_status, candidate_tag, contributing_teams; at most fifty rows. Reuse the workspace's own objective names.",
+      "search_items with quarter set to the quarter the plan is for (the Planned Quarter field, the first filter) for the initiatives that serve it: fields okr_objective, kr_metric, kr_unit, kr_direction, kr_start, kr_target, horizon, planning_status, candidate_tag, contributing_teams; at most fifty rows. Reuse the workspace's own objective names.",
       "get_outcome_reviews for recently shipped initiatives, to see what the last quarter's key results actually delivered; list_documents with no item for last quarter's plan (get_document) and for the strategy and north star documents.",
     ],
     questions: [

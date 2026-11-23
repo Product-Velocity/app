@@ -39,6 +39,7 @@ export const AGENT_SKILL_TIPS: string[] = [
   "Results land where they belong: a skill that works on an initiative saves on its Spec tab, a company-level skill saves under Documents in the account menu, and a report is delivered in the format you chose. Document text never goes to GitHub or Jira.",
   "A skill fills initiative fields only from a short block at the end of its document, only after you have seen a preview and agreed, and a field that already has a value comes back as a before-and-after to confirm. Stack Rank, Value, Confidence, Decision and approvals are always yours.",
   "To change a saved document, ask the assistant to revise it: the old version is kept. Ask it to run the skill again only when the facts have changed.",
+  "Ask about a quarter the way you say it: \"the Q4-26 roadmap with statuses\", \"pv-weekly Q4-26\". A quarter always means the Planned Quarter field and is the first filter applied; an initiative without a Planned Quarter is listed apart, never guessed into a quarter.",
   "Not sure which skill? Ask pv-which and describe your situation: it recommends one skill, what to bring and what to run before or after.",
   "Skills prepare; people decide. Every document says who decides, and gates stay in the app.",
 ];

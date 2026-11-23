@@ -296,3 +296,28 @@ describe("the craft layer (depth pass) and wave 1", () => {
     expect(t).toMatch(/Not for: /); // pulled from each skill's first "when not"
   });
 });
+
+describe("a quarter means the Planned Quarter field (Ashu, 2026-11-23)", () => {
+  it("every skill prompt carries the rule, and so does the report and advice flavour", () => {
+    for (const s of SKILLS) {
+      const t = skillPrompt(s, { target: "R-1" }, { catalogue: SKILLS }).text;
+      expect(t, s.command).toMatch(/A quarter means the Planned Quarter field/);
+      expect(t, s.command).toMatch(/g2m_quarter/);
+      expect(t, s.command).toMatch(/first filter/);
+      expect(t, s.command).toMatch(/Never use the G2M date/);
+    }
+  });
+  it("a quarter typed as the target becomes a Planned Quarter scope, in any spelling", () => {
+    expect(parseSkillArgs("Q4-26 --format=email")).toEqual({ target: 'quarter:"Q4 2026"', input: undefined, draft: undefined, format: "email" });
+    expect(parseSkillArgs("Q1 2027 for leadership")).toMatchObject({ target: 'quarter:"Q1 2027"', input: "for leadership" });
+    expect(parseSkillArgs("quarter:\"Q3 2026\"")).toMatchObject({ target: 'quarter:"Q3 2026"' });
+    expect(parseSkillArgs("R-4 R-5")).toMatchObject({ target: "R-4, R-5" });
+    expect(parseSkillArgs("Q9-26")).toMatchObject({ target: undefined }); // not a quarter
+  });
+  it("a focus skill told about a quarter fetches its initiatives by the Planned Quarter first", () => {
+    const t = skillPrompt(skillByCommand("pv-weekly")!, { target: 'quarter:"Q4 2026"' }).text;
+    expect(t).toMatch(/Scope: only these initiatives/);
+    expect(t).toMatch(/A quarter such as Q4-26 .* means the Planned Quarter field: call search_items with quarter set/);
+    expect(skillPrompt(skillByCommand("pv-quarter")!, {}).text).toMatch(/search_items with quarter set to the quarter the plan is for/);
+  });
+});
