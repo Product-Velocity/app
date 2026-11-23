@@ -3,18 +3,21 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  PX_PER_DAY, ZOOMS, ZOOM_LABEL, allGroupIds, applyKey, buildDeps, chainOf, classifyRows, clampWindow, dayToX, daysText, defaultWindow, fitZoom, formatDate, fromDay, ganttGroupOptions, gateMarker, isZoom,
-  layoutLines, matchesFilters, matchesSearch, moveMany, moveRange, planVsActual, readOnlyReason, resizeRange, rollup, scheduleAt, summarizeChange, timelineTicks, xToDay, yearSpans,
-  type Bar, type Filter, type GanttRow, type Line, type PlanStatus, type Range, type Zoom,
+  GANTT_DEFAULT_VIEWS, GANTT_FALLBACK, GANTT_VIEW_NAMES, PX_PER_DAY, ZOOMS, ZOOM_LABEL, allGroupIds, applyKey, buildDeps, chainOf, classifyRows, clampWindow, dayToX, daysText, defaultWindow, fitZoom, formatDate, fromDay, ganttGroupOptions, gateMarker, isZoom,
+  layoutLines, matchesFilters, matchesSearch, moveMany, sanitizeGanttSettings, sanitizeView, moveRange, planVsActual, readOnlyReason, resizeRange, rollup, scheduleAt, summarizeChange, timelineTicks, xToDay, yearSpans,
+  type Bar, type Filter, type GanttRow, type GanttSettings, type Line, type PlanStatus, type Range, type Zoom,
 } from "@pv/domain";
 import type { PortfolioController } from "../portfolio/controller";
 import { ItemPanel } from "../portfolio/item-panel";
 import { ChoiceMenu } from "../portfolio/choice-menu";
 import { FilterPanel } from "../portfolio/filter-panel";
-import { StatusStrip } from "../portfolio/status-strip";
-import { useViewRows } from "../portfolio/use-view-rows";
+import { StatusStrip, useStatus } from "../portfolio/status-strip";
+import { baseDef, baseParam, parseBase, sameView, type BaseView } from "../portfolio/grid-view";
+import { summarize } from "../portfolio/view-controls";
+import { useViews, ViewBar } from "../portfolio/view-bar";
+import { useWorkspace } from "../workspace/provider";
 import type { GridItem, Lookups } from "../portfolio/types";
-import { setQueryParam } from "../workspace/scope";
+import { setQueryParam, useScope } from "../workspace/scope";
 import { StatusPill } from "../../components/status-pill";
 import { downloadPng, printPicture, renderGantt, type ExportLine } from "./gantt-export";
 import { PageHeader } from "@/components/page-header";
@@ -22,7 +25,12 @@ import { PageHeader } from "@/components/page-header";
 const LABEL_DEFAULT = 320, LABEL_MIN = 220, LABEL_MAX = 560;
 const HEAD_H = 62;
 const BUFFER = 8;
-type Density = "compact" | "comfortable";
+const PRIORITISATION: BaseView = { kind: "builtin", name: "Prioritisation" };
+const GANTT_VIEW_STORAGE_KEY = "pv:gantt-view";
+function readStoredView(): string | null { try { return window.sessionStorage.getItem(GANTT_VIEW_STORAGE_KEY); } catch { return null; } }
+function writeStoredView(param: string | null) {
+  try { if (param === null) window.sessionStorage.removeItem(GANTT_VIEW_STORAGE_KEY); else window.sessionStorage.setItem(GANTT_VIEW_STORAGE_KEY, param); } catch { /* no storage: the view lasts until reload only */ }
+}
 const DENSITY = { compact: { line: 28, bar: 18, top: 3 }, comfortable: { line: 44, bar: 22, top: 8 } } as const;
 const MAX_EDGES = 800;
 
@@ -58,31 +66,73 @@ export type GanttProps = {
 /** Gantt: one bar per initiative from Planned Start to G2M Date (est), two-level grouping, drag or keys to change the dates. */
 export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
   const params = useSearchParams();
-  const { rows: viewRows, scope, views, viewParam, filterName } = useViewRows(controller, me);
-  const [filters, setFilters] = useState<Filter[]>([]);
+  const status = useStatus(controller);
+  const scope = useScope();
+  const { views, defaults, ready } = useWorkspace();
+  const optionKeys = useMemo(() => ganttGroupOptions().map((o) => o.key), []);
+
+  // ---- the view: 3 default Gantt views + saved views, kept in the address (?view=) and session storage; what you change stays until you save or reset
+  type Shared = { filters?: Filter[]; gantt?: Partial<GanttSettings> };
+  const [base, setBase] = useState<BaseView>(() => parseBase(params.get("view") ?? readStoredView(), PRIORITISATION));
+  const [shared, setShared] = useState<Shared>(() => {
+    // the address carries what you changed (zoom, the two groups, row height) so a reload or a shared link keeps it
+    const g: Partial<GanttSettings> = {};
+    const z = params.get("zoom"); if (isZoom(z)) g.zoom = z;
+    const g1 = params.get("g1"); if (g1 !== null && optionKeys.includes(g1)) g.g1 = g1;
+    const g2 = params.get("g2"); if (g2 !== null && optionKeys.includes(g2)) g.g2 = g2;
+    const d = params.get("density"); if (d === "compact" || d === "comfortable") g.density = d;
+    return Object.keys(g).length > 0 ? { gantt: g } : {};
+  });
   const [search, setSearch] = useState("");
-  const rows = useMemo(
-    () => viewRows.filter((r) => matchesSearch(r, search, (id) => lookups.members.find((m) => m.user_id === id)?.email ?? "") && matchesFilters(r, filters, { me, today: controller.todayDate() })),
-    [viewRows, filters, search, lookups.members, me, controller],
+  const savedDef = useMemo(() => baseDef(base, views, defaults, GANTT_DEFAULT_VIEWS), [base, views, defaults]);
+  const baseMissing = base.kind === "saved" && savedDef === null && ready;
+  const [storedDensity, setStoredDensity] = useStored<"compact" | "comfortable">("pv.gantt.density", GANTT_FALLBACK.density, (v): v is "compact" | "comfortable" => v === "compact" || v === "comfortable");
+  const bDef = useMemo(() => {
+    const d = savedDef ?? baseDef(PRIORITISATION, [], defaults, GANTT_DEFAULT_VIEWS)!;
+    // a view saved on another page has no Gantt settings: the Gantt's own defaults apply (and the row height this person last chose)
+    return sanitizeView({ ...d, gantt: d.gantt ?? { ...GANTT_FALLBACK, density: storedDensity } });
+  }, [savedDef, defaults, storedDensity]);
+  const settings: GanttSettings = useMemo(() => ({ ...bDef.gantt!, ...shared.gantt }), [bDef, shared.gantt]);
+  const filters = shared.filters ?? bDef.filters;
+  const def = useMemo(() => sanitizeView({ ...bDef, filters, gantt: sanitizeGanttSettings(settings) }), [bDef, filters, settings]);
+  const dirty = !sameView(def, bDef);
+  useEffect(() => {
+    const p = baseParam(base);
+    writeStoredView(p);
+    if (params.get("view") === null && p !== null) setQueryParam("view", p);
+  }, [base, params]);
+  const clearAddress = () => { setQueryParam("zoom", null); setQueryParam("g1", null); setQueryParam("g2", null); setQueryParam("density", null); };
+  const openBase = (b: BaseView) => {
+    setShared({}); setBase(b); clearAddress();
+    const p = baseParam(b);
+    setQueryParam("view", p); writeStoredView(p);
+  };
+  const resetChanges = () => { setShared({}); clearAddress(); };
+  const viewsApi = useViews({ base, def, bDef, dirty, openBase, discard: resetChanges, reset: resetChanges, builtins: GANTT_VIEW_NAMES, defaultBar: GANTT_VIEW_NAMES, builtinDefs: GANTT_DEFAULT_VIEWS });
+  const filterName = base.kind === "saved" ? (views.find((v) => v.id === base.id)?.name ?? null) : null;
+  const setFilters = (f: Filter[]) => setShared((p) => ({ ...p, filters: f }));
+  const changeGantt = (patch: Partial<GanttSettings>) => setShared((p) => ({ ...p, gantt: { ...p.gantt, ...patch } }));
+
+  const rows = useMemo<GridItem[]>(
+    () => controller.rows.filter((r) => (scope.projectIds === null || scope.projectIds.includes(r.home_project)) && matchesSearch(r, search, (id) => lookups.members.find((m) => m.user_id === id)?.email ?? "") && matchesFilters(r, filters, { me, today: controller.todayDate() })),
+    // the controller changes its rows in place; the version says when
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [controller, status.version, scope.projectIds, search, filters, me, lookups.members],
   );
   const todayN = dayNumber(controller.todayDate());
   const today = useMemo(() => new Date(todayN * 86_400_000), [todayN]);
   const canEdit = controller.canEdit;
   const groupOptions = useMemo(() => ganttGroupOptions(), []);
 
-  // ---- display settings: the address keeps the ones that change what is shown, the browser keeps the look
-  const [zoom, setZoomState] = useState<Zoom>(() => { const z = params.get("zoom"); return isZoom(z) ? z : "month"; });
-  const optionKeys = groupOptions.map((o) => o.key);
-  const initial = (name: string, fallback: string) => { const v = params.get(name); return v === null ? fallback : optionKeys.includes(v) ? v : fallback; };
-  const [g1, setG1State] = useState(() => initial("g1", "theme"));
-  const [g2, setG2State] = useState(() => initial("g2", "home_project"));
+  // ---- display settings: they come from the open view, and what you change stays in the address until you save or reset
+  const zoom = settings.zoom, g1 = settings.g1, g2 = settings.g2, density = settings.density;
   const [peekId, setPeekState] = useState<string | null>(() => { const c = params.get("item"); return c ? controller.rows.find((r) => r.item_code === c)?.id ?? null : null; });
-  const [density, setDensity] = useStored<Density>("pv.gantt.density", "compact", (v): v is Density => v === "compact" || v === "comfortable");
   const [labelW, setLabelW] = useStored<number>("pv.gantt.labelw", LABEL_DEFAULT, (v): v is number => typeof v === "number" && v >= LABEL_MIN && v <= LABEL_MAX);
   const D = DENSITY[density];
   const LINE_H = D.line;
-  const setG1 = (g: string) => { setG1State(g); setQueryParam("g1", g === "theme" ? null : g); };
-  const setG2 = (g: string) => { setG2State(g); setQueryParam("g2", g === "home_project" ? null : g); };
+  const setG1 = (g: string) => { changeGantt({ g1: g }); setQueryParam("g1", g === bDef.gantt!.g1 ? null : g); };
+  const setG2 = (g: string) => { changeGantt({ g2: g }); setQueryParam("g2", g === bDef.gantt!.g2 ? null : g); };
+  const setDensity = (d: "compact" | "comfortable") => { changeGantt({ density: d }); setQueryParam("density", d === bDef.gantt!.density ? null : d); setStoredDensity(d); };
   const openPeek = useCallback((id: string | null) => { setPeekState(id); setQueryParam("item", id ? controller.row(id)?.item_code ?? null : null); }, [controller]);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const { bars, unscheduled } = useMemo(() => classifyRows(rows), [rows]);
@@ -271,8 +321,8 @@ export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
     if (el && !fit) anchor.current = win.startDay + (el.scrollLeft + (labelW + el.clientWidth) / 2 - labelW) / PX_PER_DAY[zoom];
     else anchor.current = fit ? -1 : null;
     touched.current = true;
-    setZoomState(z);
-    setQueryParam("zoom", z === "month" ? null : z);
+    changeGantt({ zoom: z });
+    setQueryParam("zoom", z === bDef.gantt!.zoom ? null : z);
   };
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -487,7 +537,14 @@ export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
   const shiftSel = (days: number) => { const d = groupDelta(selList, days); if (d === 0) { setAnnounce("They cannot move further: the timeline window ends there."); return; } commitGroup(selList, d); };
   return (
     <div className="gantt-page">
-      <PageHeader title="Gantt" count={`${bars.length} scheduled · ${unscheduled.length} unscheduled`} scope={scope.selection.kind !== "all" ? scope.label : null} note={filterName ? `filters of “${filterName}”` : null} />
+      <PageHeader chips={<>{def.filters.map((f, i) => (
+        <span key={i} className="token-chip">
+          {summarize(f, lookups)}{" "}
+          <button type="button" className="chip-x" aria-label={`Remove filter ${summarize(f, lookups)}`} onClick={() => setFilters(def.filters.filter((_, j) => j !== i))}>×</button>
+        </span>
+      ))}</>} title="Gantt" views={<ViewBar api={viewsApi} />} count={`${bars.length} scheduled · ${unscheduled.length} unscheduled`} scope={scope.selection.kind !== "all" ? scope.label : null} note={filterName ? `filters of “${filterName}”` : null}>
+        {baseMissing && <div className="view-dirty" role="status">This view is private to its owner or no longer exists. Showing Prioritisation.</div>}
+      </PageHeader>
 
       <div className="pvbar" role="region" aria-label="Gantt tools">
         <div className="pvbar-s1">
@@ -499,7 +556,6 @@ export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
           <div className="gantt-tools">
             <ChoiceMenu name="Group by" value={g1} none="No grouping" choices={groupOptions.map((o) => ({ value: o.key, label: o.label }))} onChange={setG1} />
             <ChoiceMenu name="Then by" value={g1 ? g2 : ""} none="None" disabled={!g1} choices={groupOptions.filter((o) => o.key !== g1).map((o) => ({ value: o.key, label: o.label }))} onChange={setG2} />
-            <ChoiceMenu name="Filters of" value={views.some((v) => v.id === viewParam) ? viewParam! : ""} none="No saved view" choices={views.map((v) => ({ value: v.id, label: v.name }))} onChange={(v) => setQueryParam("view", v || null)} />
             <div role="group" aria-label="Zoom" className="gantt-zoom">
               {ZOOMS.map((z) => <button key={z} type="button" className={zoom === z ? "view-chip view-chip-on" : "view-chip"} aria-pressed={zoom === z} onClick={() => setZoom(z)}>{ZOOM_LABEL[z]}</button>)}
               <button type="button" className="view-chip" onClick={fit} title="Choose the zoom that shows the whole timeline">Fit</button>

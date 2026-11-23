@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+import { ExportPngButton, stackedRaster } from "./chart-export";
 import { drillOn, type ReportDim, type ReportState, type Stacked } from "@pv/domain";
 
 const PALETTE = ["#2270ed", "#0f8a6a", "#c27a00", "#a23b8f", "#2b7fb8", "#b4472f", "#5b6577", "#6a8f1f", "#8f5bd6", "#1f7a8c"];
@@ -25,9 +27,11 @@ type Props = {
 export function StackedChart({ title, note, data, rowDim, colDim, label, state, percent = false, onPick }: Props) {
   const max = Math.max(1, ...data.rows.map((r) => r.total));
   const colour = (c: string) => PALETTE[Math.max(0, data.columns.indexOf(c)) % PALETTE.length]!;
+  const raster = useMemo(() => async () => stackedRaster({ data, rowLabel: (k) => label(rowDim, k), colLabel: (k) => label(colDim, k), colour, percent }), [data, label, rowDim, colDim, percent]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <section className="rp-card" aria-label={title}>
       <h2 className="rp-title">{title}</h2>
+      {data.rows.length > 0 && <ExportPngButton name={title} describe={() => ({ title, ...(note ? { subtitle: note } : {}) })} raster={raster} />}
       {note && <p className="rp-note">{note}</p>}
       {data.rows.length === 0 ? (
         <p className="rp-empty" role="status">No data matching current filters</p>

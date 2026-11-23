@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { REPORT_DIMS, REPORT_GRID_COLUMNS, FIELD_BY_KEY, parseReport, serializeReport, type ReportState } from "@pv/domain";
+import { BAR_DIMS, DIM_LABEL, REPORT_DIMS, REPORT_GRID_COLUMNS, FIELD_BY_KEY, parseReport, serializeReport, type ReportState } from "@pv/domain";
 import type { PortfolioController } from "../portfolio/controller";
 import { downloadCsv, selectionToCsv } from "../portfolio/export-selection";
 import { ItemPanel } from "../portfolio/item-panel";
@@ -19,6 +19,7 @@ import { OverviewReport } from "./overview-report";
 import { VelocityReport, VELOCITY_PARAMS } from "./velocity-report";
 import { DEFAULT_REPORT, REPORTS, parseReportId, useReportEnv, type ReportId } from "./report-env";
 import { ReportFilters } from "./report-filters";
+import { printReportPage, reportPdfTitle } from "./print-report";
 import { PageHeader } from "@/components/page-header";
 
 /** Writes the report and the filters into the address (other parameters such as ?scope= stay), without reloading. The default report has no parameter. */
@@ -48,15 +49,25 @@ export function ReportsView({ controller, lookups, me, loadGateRequests, loadCha
   const fields = REPORT_GRID_COLUMNS.map((k) => FIELD_BY_KEY[k]!);
   const exportCsv = () => downloadCsv(`reports-${new Date().toISOString().slice(0, 10)}.csv`, selectionToCsv(env.rows, fields, lookups));
 
-  const overviewTools = (
+  const root = useRef<HTMLDivElement>(null);
+  const day = new Date().toISOString().slice(0, 10);
+  const reportName = REPORTS.find((r) => r.id === report)?.label ?? "Overview";
+  const exportPdf = () => { if (root.current) void printReportPage(root.current, reportPdfTitle(reportName, day)); };
+  // the filters in words, for the top of the printed page (the filter bar itself is hidden there)
+  const filterText = [
+    ...BAR_DIMS.flatMap((dim) => { const picked = state.filters[dim] ?? []; return picked.length > 0 ? [`${DIM_LABEL[dim]}: ${picked.map((v) => env.label(dim, v)).join(", ")}`] : []; }),
+    ...state.drill.map((d) => `${DIM_LABEL[d.dim]}: ${env.label(d.dim, d.value)}`),
+    ...(state.archived ? ["Including archived"] : []), ...(state.aiDrafts ? ["Including AI drafts"] : []),
+  ];
+  const tools = (
     <>
-      {!isDemo && <button type="button" className="tool-btn" disabled={env.rows.length === 0} onClick={exportCsv}>Export CSV ({env.rows.length.toLocaleString("en-GB")})</button>}
-      <button type="button" className="tool-btn" disabled title="A PDF summary of this page (filters, Time to Market card and charts) comes later (issue #233, P1)">PDF summary (later)</button>
+      {report === "overview" && !isDemo && <button type="button" className="tool-btn" disabled={env.rows.length === 0} onClick={exportCsv}>Export CSV ({env.rows.length.toLocaleString("en-GB")})</button>}
+      <button type="button" className="tool-btn" title="Opens the print window for this whole page: choose “Save as PDF”" onClick={exportPdf}>Export PDF</button>
     </>
   );
 
   return (
-    <div className="reports">
+    <div className="reports" ref={root}>
       <PageHeader
         title="Reports"
         views={<div className="view-chips" role="group" aria-label="Report">
@@ -67,11 +78,14 @@ export function ReportsView({ controller, lookups, me, loadGateRequests, loadCha
         count={`${env.rows.length.toLocaleString("en-GB")} of ${env.inScope.length.toLocaleString("en-GB")} initiatives`}
       />
       <StatusStrip controller={controller} />
+      <div className="rp-print-head" aria-hidden="true">
+        <strong>Reports · {reportName}</strong> · {day} · {env.rows.length.toLocaleString("en-GB")} of {env.inScope.length.toLocaleString("en-GB")} initiatives{filterText.length > 0 ? ` · ${filterText.join(" · ")}` : ""}
+      </div>
 
       {/* the details panel opens beside the report, like in the Gantt; it used to be added under the page, out of sight */}
       <div className={peekId ? "reports-split reports-split-open" : "reports-split"}>
         <div className="reports-main">
-          <ReportFilters env={env} setState={setState} extra={report === "overview" ? overviewTools : undefined} />
+          <ReportFilters env={env} setState={setState} extra={tools} />
 
           {report === "overview" ? <OverviewReport env={env} setState={setState} onOpen={setPeekId} /> : report === "health" ? <HealthReport env={env} onOpen={setPeekId} /> : report === "changes" ? <ChangesReport env={env} load={loadChanges} loadIssues={loadTrackerIssues} loadJiraUsers={loadJiraUsers} {...(gateSource ? { gates: gateSource } : {})} me={me} onOpen={setPeekId} /> : report === "velocity" ? <VelocityReport env={env} load={loadGateRequests} onOpen={setPeekId} /> : <GateHistoryReport env={env} load={loadGateRequests} onOpen={setPeekId} />}
         </div>

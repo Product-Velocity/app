@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { goToView, hasChanges, viewTab } from "./helpers";
 
 const open = async (page: Page, query = "n=40") => {
   await page.goto(`/dev/gantt?${query}`);
@@ -121,10 +122,10 @@ test.describe("the chart", () => {
   test("respects the active scope and the filters of a saved view", async ({ page }) => {
     await open(page, "n=14");
     const all = await page.locator("[data-bar]").count();
-    await choose(page, "Filters of", "Must haves");
+    await goToView(page, "Must haves");
     await expect(page.locator(".page-meta")).toContainText("filters of “Must haves”");
     expect(await page.locator("[data-bar]").count()).toBeLessThan(all);
-    await choose(page, "Filters of", "No saved view");
+    await goToView(page, "Prioritisation");
     await page.locator(".scope-chip").click();
     await page.getByRole("menuitemradio", { name: /Customer-facing work/ }).click();
     await expect(page.locator(".page-meta")).toContainText("Project: Customer-facing work");
@@ -409,7 +410,7 @@ test.describe("zoom, density, export and selection", () => {
     await expect(page.getByRole("button", { name: "Quarter", exact: true })).toHaveAttribute("aria-pressed", "true");
   });
 
-  test("Comfortable rows are taller, show the phase, and are remembered", async ({ page }) => {
+  test("Comfortable rows are taller, show the phase, and stay across a reload", async ({ page }) => {
     await openFlat(page);
     const h0 = (await page.locator('[data-item="item-1"]').boundingBox())!.height;
     await page.getByRole("button", { name: "Comfortable" }).click();
@@ -480,5 +481,44 @@ test.describe("zoom, density, export and selection", () => {
     expect(Math.round(Date.parse(after[0]!) / 86_400_000) - Math.round(Date.parse(before[0]!) / 86_400_000)).toBe(7);
     await page.keyboard.press("Escape");
     await expect(page.getByRole("region", { name: "Selected bars" })).toHaveCount(0);
+  });
+});
+
+test.describe("views (issue #622)", () => {
+  test("shows the 3 default views, and each applies its filters, grouping, zoom and row height", async ({ page }) => {
+    await open(page, "n=40");
+    const tabs = page.getByRole("group", { name: "View" }).locator(".view-chip");
+    await expect(tabs).toHaveText(["Prioritisation", "Planning", "Delivery"]);
+    await expect(page.getByRole("button", { name: "Month", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await viewTab(page, "Delivery").click();
+    expect(page.url()).toContain("view=Delivery");
+    await expect(page.getByRole("button", { name: "Week", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Comfortable" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".page-pills")).toContainText("Initiative Phase");
+    await viewTab(page, "Planning").click();
+    await expect(page.getByRole("button", { name: "Quarter", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await viewTab(page, "Prioritisation").click();
+    await expect(page.getByRole("button", { name: "Month", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(hasChanges(page)).toHaveCount(0);
+  });
+
+  test("a change to the zoom marks the view as changed; saving it as a new view keeps zoom and grouping", async ({ page }) => {
+    await open(page, "n=14");
+    await page.getByRole("button", { name: "Year", exact: true }).click();
+    await choose(page, "Group by", "Team");
+    await expect(hasChanges(page)).toHaveCount(1);
+    await page.locator(".more-views-btn").click();
+    await expect(page.getByRole("dialog", { name: "Views" })).toContainText("timeline settings");
+    await page.getByRole("dialog", { name: "Views" }).getByRole("button", { name: "Save as new view…" }).click();
+    const dlg = page.getByRole("dialog", { name: "Save as new view" });
+    await dlg.getByLabel("Name").fill("Year by team");
+    await dlg.getByRole("button", { name: "Save view" }).click();
+    await expect(hasChanges(page)).toHaveCount(0);
+    await goToView(page, "Prioritisation");
+    await expect(page.getByRole("button", { name: "Month", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await goToView(page, "Year by team");
+    await expect(page.getByRole("button", { name: "Year", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".gl-g1 .gl-name")).toContainText(["Core", "Mobile", "No value"]);
+    await expect(hasChanges(page)).toHaveCount(0);
   });
 });

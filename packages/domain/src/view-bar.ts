@@ -145,18 +145,19 @@ export function nameProblem(name: string, taken: readonly string[]): string | nu
 }
 
 /** "1 filter, 2 columns, sorted" for the unsaved-changes bar. */
-export function changeSummary(parts: { filters: number; columns: number; grouping: boolean; sorted: boolean; pinned: boolean }): string {
+export function changeSummary(parts: { filters: number; columns: number; grouping: boolean; sorted: boolean; pinned: boolean; gantt?: boolean }): string {
   const out: string[] = [];
   if (parts.filters > 0) out.push(`${parts.filters} ${parts.filters === 1 ? "filter" : "filters"}`);
   if (parts.columns > 0) out.push(`${parts.columns} ${parts.columns === 1 ? "column" : "columns"}`);
   if (parts.pinned) out.push("pinned columns");
   if (parts.grouping) out.push("grouping");
   if (parts.sorted) out.push("sorted");
+  if (parts.gantt) out.push("timeline settings");
   return out.join(", ");
 }
 
 /** What differs between the saved view and what the grid shows now, for the unsaved-changes bar. */
-export function diffViews(saved: ViewShape, now: ViewShape): { filters: number; columns: number; grouping: boolean; sorted: boolean; pinned: boolean } {
+export function diffViews(saved: ViewShape, now: ViewShape): { filters: number; columns: number; grouping: boolean; sorted: boolean; pinned: boolean; gantt: boolean } {
   const key = (f: unknown) => JSON.stringify(f);
   const a = new Set(saved.filters.map(key)), b = new Set(now.filters.map(key));
   const filters = [...a].filter((x) => !b.has(x)).length + [...b].filter((x) => !a.has(x)).length;
@@ -168,6 +169,7 @@ export function diffViews(saved: ViewShape, now: ViewShape): { filters: number; 
     grouping: (saved.groupBy ?? null) !== (now.groupBy ?? null) || (saved.thenBy ?? null) !== (now.thenBy ?? null) || (saved.showIssues === true) !== (now.showIssues === true) || (saved.issueTypes ?? []).join() !== (now.issueTypes ?? []).join() || (saved.hideDoneIssues === true) !== (now.hideDoneIssues === true),
     sorted: key(normalizeSorts(saved.sort)) !== key(normalizeSorts(now.sort)), // an older single sort and a one-item list are the same sort
     pinned: (saved.pinned ?? []).join() !== (now.pinned ?? []).join(),
+    gantt: key(saved.gantt ?? null) !== key(now.gantt ?? null),
   };
 }
-type ViewShape = { columns: readonly string[]; filters: readonly unknown[]; groupBy?: string | null; thenBy?: string | null; showIssues?: boolean; issueTypes?: readonly string[]; hideDoneIssues?: boolean; sort?: unknown; pinned?: readonly string[] };
+type ViewShape = { columns: readonly string[]; filters: readonly unknown[]; groupBy?: string | null; thenBy?: string | null; showIssues?: boolean; issueTypes?: readonly string[]; hideDoneIssues?: boolean; sort?: unknown; pinned?: readonly string[]; gantt?: unknown };

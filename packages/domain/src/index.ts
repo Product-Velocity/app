@@ -20,6 +20,8 @@ export * from "./gantt";
 export * from "./gantt-plan";
 export * from "./cards";
 export * from "./cards-views";
+export * from "./gantt-settings";
+export * from "./gantt-views";
 export * from "./card-fields";
 export * from "./leadership";
 export * from "./leadership-digest";

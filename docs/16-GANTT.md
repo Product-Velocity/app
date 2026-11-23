@@ -9,7 +9,7 @@ Open **Gantt** in the header (`/gantt`). Phase 2, built on the same items, rules
 
 ## Grouping, scope and filters
 - **Two levels**, default Initiative Group then project. Pick any other level from the lists: none, Initiative Group, Project, Team, or a select field people edit (Roadmap Category, Initiative Phase, Focus Area, Health, MoSCoW, Horizon, ...). Groups are A to Z with "No value" last; items inside keep their global rank order. Group rows collapse and show their count and a thin span bar. An initiative with several teams appears under each of them when grouped by team.
-- Respects the **scope switcher** in the header (`?scope=`) and the **filters of a saved view** (the "Filters of" list; saved views are made in the grid). Settings are in the address (`zoom`, `g1`, `g2`, `view`, `item`).
+- Respects the **scope switcher** in the header (`?scope=`). Filters come from the open **view** (below). What you change on top of a view stays in the address (`zoom`, `g1`, `g2`, `density`, `view`, `item`).
 - **Month** and **Quarter** zoom; **Today** jumps to today; "Show earlier/later months" widen the window. The window starts on the first of a month, covers the bars and today, is at least nine months long and stays put while you work.
 
 ## Changing dates
@@ -47,6 +47,14 @@ Domain unit tests (`gantt.test.ts`: bars, scale, move, resize, clamp, keys, drop
 
 **Several bars at once:** Shift-click (or Ctrl/⌘-click, or press **S** on a focused bar) to select; dragging one selected bar moves them all by the same days, stopping at the window edge, saved as **one undo step** ("Moved N items on the Gantt"). Keyboard: arrows on a selected bar stage the move for all of them, Enter saves; or use "Move 1 week earlier/later" in the strip above the chart. Esc clears the selection.
 
-**Export:** Export PNG downloads a picture of every row (not only the rows in view); Export PDF opens the print window on the same picture (choose Save as PDF). A chart taller than 16,000 px is refused with a reason: filter or collapse first.
+**Export:** (the same two buttons are on the Reports page, see below) Export PNG downloads a picture of every row (not only the rows in view); Export PDF opens the print window on the same picture (choose Save as PDF). A chart taller than 16,000 px is refused with a reason: filter or collapse first.
 
-Not built: saved Gantt settings in a saved view, a Timeline section in the item panel, mobile layout, tracker "blocked by" arrows.
+## Views (issue #622)
+The Gantt has the same view bar as the Grid and Cards, in the same header.
+- **Three default views** (they reuse the names of the first three grid views, as Cards does): **Prioritisation** (everything, by Initiative Group then project, Month, compact: the Gantt as it was), **Planning** (Discover, Define and Build, by Planned Quarter then group, Quarter), **Delivery** (Build, Test and Experiment, by project then team, Week, comfortable rows).
+- **A view keeps** its filters, Group by, Then by, zoom and row height (`saved_views.gantt`, a jsonb object; migration `20261123140000_gantt_settings_in_saved_views.sql`). Search and the name-column width are not part of a view.
+- Change anything and the views menu shows a dot and "timeline settings" among the changes; **Save as new view** (private, or workspace for admins), **Update** and **Reset changes** work as in the Grid. Rename, duplicate, delete, show in bar and order are the same menu.
+- A view saved in the Grid or in Cards also opens here: its filters apply and the Gantt's own settings fall back to Month, Initiative Group then project, and the row height the person last chose.
+- The old "Filters of" list is gone: the view bar replaced it. Older links with `zoom`, `g1`, `g2` still work.
+
+Not built: a Timeline section in the item panel, mobile layout, tracker "blocked by" arrows.

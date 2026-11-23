@@ -71,10 +71,11 @@ export default function ReportsHelp() {
         <HelpList
           items={[
             "Saved views remember the filters, grouping, sorting and columns. Ready-made views include Prioritisation, Discovery, Planning, Delivery, Go-to-market, Outcomes, Leadership, Timeline, History and Cycle review.",
-            "The Grid, Gantt and Cards show the same initiatives in three ways: a table, a timeline and swimlanes.",
+            "The Grid, Gantt and Cards show the same initiatives in three ways: a table, a timeline and swimlanes. All three have the same view bar. On the Gantt, Prioritisation, Planning and Delivery set the filters, grouping, zoom and row height, and your own saved views keep them too.",
             "The address of a report keeps the report and its filters, so a link shows a colleague the same thing you see. They need an account in the workspace.",
             "Export a report's list to CSV, and paste from Excel to bring data in with column mapping.",
-            "Roadmap, delivery and outcome reports in other formats (for example slides and PDF), and views safe to share with customers, are planned. Today, share a link to the view or copy the weekly update.",
+            "Each chart has an Export PNG button (it shows when you point at the chart, or tab to it): you get the chart with its title and the date. Export PDF at the top of a report prints the whole page: choose Save as PDF in the print window. The PDF shows the filters in words and leaves out the menus.",
+            "Roadmap, delivery and outcome reports in other formats (for example slides), and views safe to share with customers, are planned. Today, share a link to the view or copy the weekly update.",
           ]}
         />
         <HelpCallout title="No individual performance metrics.">

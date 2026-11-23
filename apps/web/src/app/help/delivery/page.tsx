@@ -67,7 +67,7 @@ export default function DeliveryHelp() {
           columns={3}
           items={[
             { title: "Grid: Delivery view", text: "Build status, tracker status, progress, schedule variance, G2M slip, blocked and stale issues, open pull requests, CI, assignees, last sync." },
-            { title: "Gantt", text: "Initiatives on a timeline, grouped two levels deep. Drag a bar to move its dates, with undo." },
+            { title: "Gantt", text: "Initiatives on a timeline, grouped two levels deep. Drag a bar to move its dates, with undo. Views keep your grouping and zoom." },
             { title: "Cards", text: "The roadmap in swimlanes, grouped by what matters to you." },
             { title: "Needs attention", text: "Blocked, stalled, or out of step with the tracker, with the reason in words and the next step." },
             { title: "Roadmap Health and Changes", text: "Where work piles up and how long it waits. Which initiatives changed this week, and where each change came from." },

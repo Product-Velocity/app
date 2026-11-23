@@ -298,7 +298,7 @@ describe("saving a sort with a view (issue #207)", () => {
     expect(has(first.calls[1]!, "insert", { tenant_id: "t1", name: "Planning", base_view: "Planning", columns: def.columns, filters: def.filters, group_by: "health", pinned: locked, pins_explicit: true, sort })).toBe(true);
     const again = fake([{ data: { id: "d1" } }, { data: [{ id: "d1", name: "Planning", columns: def.columns, filters: [], group_by: null, base_view: "Planning", sort: null }] }]);
     await new SupabaseWorkspaceStore(again.client, "t1").saveDefaultView("Planning", { ...def });
-    expect(has(again.calls[1]!, "update", { columns: def.columns, filters: def.filters, group_by: "health", pinned: locked, pins_explicit: true, sort: null, widths: null, then_by: null, show_issues: false, issue_types: null, issues_hide_done: false })).toBe(true);
+    expect(has(again.calls[1]!, "update", { columns: def.columns, filters: def.filters, group_by: "health", pinned: locked, pins_explicit: true, sort: null, widths: null, gantt: null, then_by: null, show_issues: false, issue_types: null, issues_hide_done: false })).toBe(true);
   });
   it("a view read back carries its sort", async () => {
     const { client } = fake([{ data: [viewRow] }]);
@@ -390,5 +390,36 @@ describe("column widths saved with a view", () => {
     const a = fake([{ data: [{ id: "w1", name: "Narrow", columns: def.columns, filters: [], group_by: null, base_view: null, customer_safe: false, widths: { moscow: 108, health: 99, effort: "x" } }] }]);
     const r = await new SupabaseWorkspaceStore(a.client, "t1", "u1").updateView("w1", { name: "Narrow" });
     expect(r).toMatchObject({ ok: true, value: { widths: { moscow: 108 } } });
+  });
+});
+
+describe("Gantt settings saved with a view (issue #622)", () => {
+  const gantt = { zoom: "week" as const, g1: "team", g2: "theme", density: "comfortable" as const };
+  it("a new view stores the settings and reads them back", async () => {
+    const { client, calls } = fake([{ data: { id: "g1" } }]);
+    const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView("Timeline", { ...def, gantt });
+    expect(r).toMatchObject({ ok: true, value: { gantt } });
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "Timeline", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: locked, pins_explicit: true, sort: null, gantt, visibility: "private", owner_id: "u1" })).toBe(true);
+  });
+  it("an update writes them when given and clears them with null; an update without them leaves them alone", async () => {
+    const row = { id: "g1", name: "Timeline", columns: def.columns, filters: [], group_by: null, base_view: null, customer_safe: false };
+    const a = fake([{ data: [{ ...row, gantt }] }]);
+    expect(await new SupabaseWorkspaceStore(a.client, "t1", "u1").updateView("g1", { gantt })).toMatchObject({ ok: true, value: { gantt } });
+    expect(has(a.calls[0]!, "update", { gantt })).toBe(true);
+    const b = fake([{ data: [{ ...row, gantt: null }] }]);
+    await new SupabaseWorkspaceStore(b.client, "t1", "u1").updateView("g1", { gantt: undefined as never });
+    expect(has(b.calls[0]!, "update", { gantt: null })).toBe(true);
+    const c = fake([{ data: [{ ...row, gantt }] }]);
+    await new SupabaseWorkspaceStore(c.client, "t1", "u1").updateView("g1", { name: "Renamed" });
+    expect(JSON.stringify(c.calls[0])).not.toContain("\"gantt\":null");
+  });
+  it("unknown stored values fall back when read; the in-memory store keeps the settings", async () => {
+    const a = fake([{ data: [{ id: "g1", name: "T", columns: def.columns, filters: [], group_by: null, base_view: null, customer_safe: false, gantt: { zoom: "decade", g1: "team", density: "compact" } }] }]);
+    expect((await new SupabaseWorkspaceStore(a.client, "t1", "u1").updateView("g1", { name: "T" }))).toMatchObject({ ok: true, value: { gantt: { zoom: "month", g1: "team" } } });
+    const s = new MemoryWorkspaceStore({ me: "u1", admin: true });
+    const v = (await s.createView("V", { ...def, gantt })) as { ok: true; value: { id: string } };
+    expect((await s.listViews())[0]!.gantt).toEqual(gantt);
+    await s.updateView(v.value.id, { gantt: { ...gantt, zoom: "year" } });
+    expect((await s.listViews())[0]!.gantt?.zoom).toBe("year");
   });
 });

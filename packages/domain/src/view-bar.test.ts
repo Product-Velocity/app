@@ -117,7 +117,7 @@ describe("names and change summary", () => {
     expect(diffViews(base, { ...base, sort: [{ field: "moscow", dir: "asc" }] }).sorted).toBe(true);
     expect(diffViews({ ...base, sort: { field: "moscow", dir: "asc" } }, { ...base, sort: [{ field: "moscow", dir: "asc" }] }).sorted).toBe(false); // an older single sort is the same as a one-item list
     expect(diffViews({ ...base, sort: [{ field: "moscow", dir: "asc" }, { field: "effort", dir: "asc" }] }, { ...base, sort: [{ field: "effort", dir: "asc" }, { field: "moscow", dir: "asc" }] }).sorted).toBe(true); // the order of the sorts matters
-    expect(diffViews(base, { ...base })).toEqual({ filters: 0, columns: 0, grouping: false, sorted: false, pinned: false });
+    expect(diffViews(base, { ...base })).toEqual({ filters: 0, columns: 0, grouping: false, sorted: false, pinned: false, gantt: false });
   });
 });
 
