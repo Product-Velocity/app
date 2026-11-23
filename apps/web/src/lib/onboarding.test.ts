@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checklist, checklistDismissed, hasFinishedOnboarding, parseAboutYou, showChecklist, withOnboarded } from "./onboarding";
+import { INVITE_STEPS, firstThings, checklist, checklistDismissed, hasFinishedOnboarding, parseAboutYou, showChecklist, withOnboarded } from "./onboarding";
 
 describe("parseAboutYou", () => {
   it("accepts nothing at all: skipping is free", () => expect(parseAboutYou({})).toEqual({ ok: true, value: { fullName: "", role: "", goal: "" } }));
@@ -40,4 +40,14 @@ describe("checklist", () => {
     expect(showChecklist({}, "t1", { members: 2, pendingInvites: 0, items: 3, trackers: 1 })).toBe(false);
     expect(showChecklist({ checklist_dismissed: ["t1"] }, "t2", none)).toBe(true);
   });
+});
+
+describe("invited people", () => {
+  it("the first things always include reading and peeking, and quick-add only where the role can edit", () => {
+    const viewer = firstThings(false).map((t) => t.title);
+    expect(viewer).toContain("Read the roadmap");
+    expect(viewer).not.toContain("Add an item fast");
+    expect(firstThings(true).map((t) => t.title)).toContain("Add an item fast");
+  });
+  it("shows three steps on the invitation page", () => expect(INVITE_STEPS).toHaveLength(3));
 });

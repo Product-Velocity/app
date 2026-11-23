@@ -9,7 +9,30 @@ export const WIZARD_STEPS = [
   { key: "about", label: "About you" },
   { key: "done", label: "Start" },
 ] as const;
-export type WizardStep = (typeof WIZARD_STEPS)[number]["key"];
+export type WizardStep = (typeof WIZARD_STEPS)[number]["key"] | "invited-welcome";
+
+/** The same frame for someone who joined through an invitation: the invitation is done, the welcome is the one screen left. */
+export const INVITED_STEPS = [
+  { key: "invitation", label: "Invitation" },
+  { key: "invited-welcome", label: "Welcome" },
+] as const;
+
+/** What happens after a person opens an invitation link, shown on the invitation page so nothing is a surprise. */
+export const INVITE_STEPS = [
+  { title: "Sign in or create your account", text: "Use the email address the invitation was sent to." },
+  { title: "Accept the invitation", text: "You join the workspace with the role shown above." },
+  { title: "A one-minute welcome", text: "See how the roadmap works and how you can help, then open it." },
+] as const;
+
+/** First things to try after joining, by what the role can do. Nothing here promises more than the role's own description. */
+export function firstThings(canEdit: boolean): { title: string; text: string }[] {
+  return [
+    { title: "Read the roadmap", text: "One stack rank for everything the team is building, with the reason behind each item." },
+    { title: "Click a row to peek", text: "The side panel shows an item's details without leaving the roadmap." },
+    { title: "Press ⌘K", text: "Jump to any item or screen from the keyboard." },
+    ...(canEdit ? [{ title: "Add an item fast", text: "Type a name in the top row and press Enter. Details can wait." }] : []),
+  ];
+}
 
 export const ROLE_OPTIONS = ["Product manager", "Product leader", "Engineering lead", "Designer", "Founder", "Other"] as const;
 export const GOAL_OPTIONS = [

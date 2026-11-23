@@ -1912,3 +1912,8 @@ a.btn.btn-primary { color: #fff; }
 .get-started li.is-done a { text-decoration: line-through; color: var(--ink-muted); }
 .get-started-mark { width: 16px; color: var(--blue-text); }
 .get-started p.hint { margin: 0; }
+.invite-steps { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 10px; font-size: 13px; line-height: 20px; }
+.invite-steps li { display: flex; gap: 10px; align-items: flex-start; }
+.invite-steps .wizard-dot { flex: none; margin-top: 1px; background: var(--blue-tint-1); border-color: var(--blue-tint-1); color: var(--blue-text); font-weight: 600; }
+.wizard-sub { margin: 4px 0 6px; font-size: 14px; }
+.first-things { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; line-height: 20px; }

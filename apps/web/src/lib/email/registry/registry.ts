@@ -161,7 +161,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     subject: "{{inviter}} invited you to {{workspace}} on {{product}}",
     preheader: "Accept the invitation to {{workspace}}.",
     heading: "You are invited to {{workspace}}",
-    body: "{{inviter}} invited you to join {{workspace}} on {{product}} as {{role}}.\n\nOpen the link below, sign in or create an account with this email address, and accept.",
+    body: "{{inviter}} invited you to join {{workspace}} on {{product}} as {{role}}.\n\n{{product}} gives your team one roadmap for humans and their AI.\n\nOpen the link below, sign in or create an account with this email address, and accept. A one-minute welcome follows, then you land on the roadmap.",
     button: "Accept invitation",
     note: "The link works once and expires in {{expires}}. If you did not expect this email, you can ignore it.",
   },
