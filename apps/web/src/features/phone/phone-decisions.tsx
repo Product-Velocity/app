@@ -8,6 +8,7 @@ import {
 } from "@pv/domain";
 import type { Approvers, Condition, Decider, GateItem, GateSource } from "../gates/gate-source";
 import { DocReader } from "./doc-reader";
+import { PhoneAlignment, type AlignmentLoader } from "./phone-alignment";
 
 const short = (email: string) => email.split("@")[0]!;
 const daysSince = (iso: string) => Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 86_400_000));
@@ -17,7 +18,14 @@ const KIND_FOR_GATE: Record<GateId, string> = { A: "discovery", B: "prd", C: "pr
  * Decisions on a phone (docs/29-MOBILE.md section 4.5): the queue as cards, then one review screen with the gate pack, the document and a
  * decision bar. No bulk decide, no swipe, no fast lane here; a decision always goes through a confirm step and cannot be undone.
  */
-export function PhoneDecisions({ source, me, mayDecide = true, tenantId }: { source: GateSource; me: string | null; mayDecide?: boolean; tenantId: string }) {
+export function PhoneDecisions({ source, me, mayDecide = true, tenantId, alignmentLoader }: { source: GateSource; me: string | null; mayDecide?: boolean; tenantId: string; alignmentLoader?: AlignmentLoader }) {
+  const [tab, setTab] = useState<"gates" | "alignment">(() => (typeof window !== "undefined" && new URL(window.location.href).searchParams.get("tab") === "alignment" ? "alignment" : "gates"));
+  const pickTab = (t: "gates" | "alignment") => {
+    setTab(t);
+    const u = new URL(window.location.href);
+    if (t === "alignment") u.searchParams.set("tab", "alignment"); else u.searchParams.delete("tab");
+    window.history.replaceState(null, "", u.toString());
+  };
   const [requests, setRequests] = useState<GateRequest[] | null>(null);
   const [items, setItems] = useState<Map<string, GateItem>>(new Map());
   const [can, setCan] = useState<GateId[]>([]);
@@ -67,8 +75,12 @@ export function PhoneDecisions({ source, me, mayDecide = true, tenantId }: { sou
 
   return (
     <div className="phone-decisions">
-      <h1>Decisions</h1>
-      <p><Link href={`/w/${tenantId}/alignment`}>Alignment results →</Link></p>
+      <h1>Decide</h1>
+      <div className="phone-segment" role="group" aria-label="Decide">
+        <button type="button" className={tab === "gates" ? "phone-chip phone-chip-on" : "phone-chip"} aria-pressed={tab === "gates"} onClick={() => pickTab("gates")}>Gates</button>
+        <button type="button" className={tab === "alignment" ? "phone-chip phone-chip-on" : "phone-chip"} aria-pressed={tab === "alignment"} onClick={() => pickTab("alignment")}>Alignment results</button>
+      </div>
+      {tab === "alignment" ? <PhoneAlignment tenantId={tenantId} {...(alignmentLoader ? { load: alignmentLoader } : {})} /> : <>
       <div className="phone-chips" role="group" aria-label="Filter requests">
         {QUEUE_FILTERS.map((f) => (
           <button key={f.id} type="button" className={filter === f.id ? "phone-chip phone-chip-on" : "phone-chip"} aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>
@@ -99,6 +111,7 @@ export function PhoneDecisions({ source, me, mayDecide = true, tenantId }: { sou
           })}
         </ul>
       )}
+      </>}
     </div>
   );
 }
@@ -123,7 +136,7 @@ function Review({ request, item, source, can, mayDecide, who, email, tenantId, o
 
   return (
     <div className="phone-review">
-      <button type="button" className="btn phone-back" onClick={onBack}>← Decisions</button>
+      <button type="button" className="btn phone-back" onClick={onBack}>← Decide</button>
       <h1 className="phone-review-title">{label}</h1>
       <p><strong>{gateTitle(request.gate)}</strong><br />{GATES[request.gate].question}</p>
       <p className="muted">Requested by {email(request.requested_by)}, {daysSince(request.requested_at)} days ago. {item && <Link href={`/w/${tenantId}/portfolio/${encodeURIComponent(item.item_code)}`}>Open the initiative</Link>}</p>

@@ -84,6 +84,37 @@ test.describe("the phone shell", () => {
   });
 });
 
+test.describe("Decide with alignment results", () => {
+  test("switches between gates and alignment results, which list sessions with their top initiatives", async ({ page }) => {
+    await page.goto("/dev/decisions?phone=1");
+    await expect(page.getByRole("heading", { level: 1, name: "Decide" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Filter requests" })).toBeVisible();
+    await page.getByRole("button", { name: "Alignment results" }).click();
+    await expect(page.getByRole("group", { name: "Filter requests" })).toHaveCount(0);
+    const sessions = page.getByRole("list", { name: "Alignment sessions" }).locator("article");
+    await expect(sessions).toHaveCount(3);
+    const closed = sessions.filter({ hasText: "Q1 planning" });
+    await expect(closed).toContainText("Closed");
+    await expect(closed).toContainText("12 people voted");
+    await expect(closed).toContainText("1 contested");
+    await expect(closed.getByRole("list", { name: "Top initiatives of Q1 planning" }).locator("li")).toHaveText(["1 Self-serve onboarding", "1= Payout reconciliation", "3 Push digest"]);
+    await expect(closed.getByRole("link", { name: "Full results" })).toHaveAttribute("href", /\/alignment\/s-closed\/results$/);
+    await expect(sessions.filter({ hasText: "Q2 roadmap vote" })).toContainText("Results appear when the session closes");
+    await expect(sessions.filter({ hasText: "Autumn pulse" })).toContainText("No results were stored");
+    // the choice is in the address, so a reload or a shared link comes back to it
+    expect(new URL(page.url()).searchParams.get("tab")).toBe("alignment");
+    await page.getByRole("button", { name: "Gates", exact: true }).click();
+    await expect(page.getByRole("group", { name: "Filter requests" })).toBeVisible();
+  });
+  test("opens on the alignment results from a link and passes the accessibility check", async ({ page }) => {
+    await page.goto("/dev/decisions?phone=1&tab=alignment");
+    await expect(page.getByRole("list", { name: "Alignment sessions" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+});
+
 test.describe("one initiative on a phone", () => {
   test("opens as a read-first briefing with the facts, the flags, the build and the latest changes", async ({ page }) => {
     await page.goto("/dev/phone?n=40&screen=item");

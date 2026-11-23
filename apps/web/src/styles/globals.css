@@ -1958,3 +1958,11 @@ a.btn.btn-primary { color: #fff; }
 .briefing-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .meter { height: 10px; border-radius: 5px; background: var(--grey-3); overflow: hidden; }
 .meter-fill { display: block; height: 100%; background: var(--blue); }
+
+/* Phone Decide: gates and alignment results (issue #635, slice P3) */
+.phone-segment { display: flex; gap: 6px; }
+.phone-segment .phone-chip { flex: 1 1 0; }
+.phone-align { cursor: default; }
+.phone-align h2 { margin: 0; font-size: 15px; }
+.phone-align-top { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.phone-align-place { display: inline-block; min-width: 24px; font-variant-numeric: tabular-nums; font-weight: 600; }

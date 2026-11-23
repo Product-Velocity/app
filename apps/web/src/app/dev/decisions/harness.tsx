@@ -4,6 +4,16 @@ import { useEffect, useMemo } from "react";
 import type { GateRequest } from "@pv/domain";
 import { AppHeader } from "@/components/app-header";
 import { PhoneDecisions } from "@/features/phone/phone-decisions";
+import type { SessionDb } from "@/features/phone/alignment-summary";
+
+/** Alignment sessions for the Decide tab on a phone: one closed with results, one closed without a stored copy, one still open. */
+const SESSIONS: SessionDb[] = [
+  { id: "s-open", name: "Q2 roadmap vote", method: "top5_duels", status: "open", closed_at: null, closes_at: "2027-05-01T17:00:00Z", results_snapshot: null },
+  { id: "s-closed", name: "Q1 planning", method: "coins", status: "closed", closed_at: "2027-02-10T17:00:00Z", closes_at: null, results_snapshot: {
+    voters: 12, items: [{ id: "a", name: "Self-serve onboarding" }, { id: "b", name: "Payout reconciliation" }, { id: "c", name: "Push digest" }],
+    results: { joint: [{ itemId: "c", score: 50, place: 3, tied: false }, { itemId: "a", score: 90, place: 1, tied: false }, { itemId: "b", score: 90, place: 1, tied: true }], contested: [{ itemId: "a" }] } } },
+  { id: "s-old", name: "Autumn pulse", method: "ice", status: "archived", closed_at: "2026-10-01T17:00:00Z", closes_at: null, results_snapshot: null },
+];
 import { DecisionsView } from "@/features/gates/decisions-view";
 import { MemoryGateSource, type GateItem } from "@/features/gates/gate-source";
 import { WorkspaceProvider } from "@/features/workspace/provider";
@@ -48,7 +58,7 @@ export function HarnessDecisions({ can, phone = false }: { can: string; phone?: 
     <WorkspaceProvider store={store} projects={harnessLookups.projects} canEdit canAdmin>
     <div className="shell">
       <AppHeader tenantName="Meridian Media" email="ana@example.test" roleLabel="Admin" isApprover current="decisions" decisionsWaiting={4} />
-      <main className="content">{phone ? <PhoneDecisions source={source} me="u1" tenantId="t1" /> : <DecisionsView source={source} me="u1" today={TODAY} />}</main>
+      <main className="content">{phone ? <PhoneDecisions source={source} me="u1" tenantId="t1" alignmentLoader={async () => SESSIONS} /> : <DecisionsView source={source} me="u1" today={TODAY} />}</main>
     </div>
     </WorkspaceProvider>
   );
