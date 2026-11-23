@@ -8,7 +8,7 @@ import { BrandLogo } from "@/components/brand-logo";
 export const AUTH_BRAND = {
   eyebrow: "Agentic product management platform",
   tagline: "Deliver bigger, better outcomes. Faster.",
-  what: "As engineering speeds up with agents, the bottleneck moves to what to build and how fast you can decide. Product Velocity gives product managers and their AI co-workers one roadmap with the context, the place for the work and the path from strategy to tracked outcome, across business lines, PM scopes and teams. AI prepares, people decide.",
+  what: "As engineering speeds up with agents, the bottleneck moves to what to build and how fast you can decide. Product Velocity gives product managers and their AI co-workers one roadmap and the real business context behind it, from company OKRs to tracked outcome, across business lines, PM scopes and teams. AI prepares, people decide.",
   why: "One roadmap for humans and their AI, from company OKR to tracked outcome.",
   pillars: [
     { name: "Context", line: "The roadmap is the shared memory every AI agent starts from." },

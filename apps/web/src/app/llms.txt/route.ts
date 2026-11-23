@@ -15,7 +15,8 @@ Product Velocity is an agentic product management platform for product managers 
 - Views and reports for each audience (leadership, teams, delivery) from the same data.
 - Alignment: stakeholders rank and vote (top 5 with duels, 100 coins or ICE scoring). Results are anonymous and small groups are kept private.
 - A lifecycle of seven phases (Discover, Define, Build, Test, Experiment, Roll-out, Completed) with three decision gates. A person decides at every gate and the reason is kept.
-- Two-way sync with Jira and GitHub for delivery progress. Commercial data (value, customers, decisions, key results, outcomes) never goes to the delivery tools.
+- AI that works from your real business context: company OKRs, business lines, initiatives, customers and decisions sit in one connected context that Claude, ChatGPT and Gemini read from, so answers start from current data.
+- Teams keep their tools and the roadmap keeps up: two-way sync with Jira and GitHub for delivery progress. Commercial data (value, customers, decisions, key results, outcomes) never goes to the delivery tools.
 - Velocity and reporting: time in each phase and initiatives by team and phase (team level only, never individuals), needs-action flags, and reports for leadership, teams and delivery built from the same roadmap data.
 - One funnel: goals, customer requests and ideas land on the roadmap, are ranked with a capacity fit line, a person decides at the gates, delivery runs in Jira and GitHub, and the outcome reviews feed the next plan.
 - Outcomes and adoption are tracked after launch, at 30, 60 and 90 days.
