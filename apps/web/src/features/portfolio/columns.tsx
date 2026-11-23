@@ -106,7 +106,7 @@ const WIDTH: Record<string, number> = {
   Select: 150, Text: 190, "Long text": 240, Number: 112, Currency: 120, Date: 116, "Date range": 170, Person: 190, "Person or text": 170,
   People: 190, Boolean: 96, Tags: 170, Links: 200, Relation: 150, Files: 170, Thread: 150, Structured: 170, Note: 150, System: 130, Computed: 124,
 };
-const WIDE: Record<string, number> = { outcome_review_date: 160, outcome_reviews_recorded: 190, realized_kr_value: 160, kr_realized_pct: 170, outcome_latest_adoption: 170, outcome_kr_progress: 210, initiative_name: 320, home_project: 160, stack_rank: 104, item_code: 116, project_rank: 124, health: 130, roadmap_category: 190, last_synced: 150, synced_with: 300, tracker_ownership: 170, gh_project_status: 170, tracker_status: 170 };
+const WIDE: Record<string, number> = { outcome_review_date: 160, outcome_reviews_recorded: 190, realized_kr_value: 160, kr_realized_pct: 170, outcome_latest_adoption: 170, outcome_kr_progress: 210, initiative_name: 320, home_project: 160, stack_rank: 104, item_code: 116, project_rank: 124, health: 118, moscow: 108, effort: 112, roadmap_category: 190, last_synced: 150, synced_with: 300, tracker_ownership: 170, gh_project_status: 170, tracker_status: 170 };
 
 export type ColumnContext = {
   controller: PortfolioController;
@@ -123,9 +123,11 @@ export type ColumnContext = {
   showIssues?: boolean;
   /** The scope is one project: the Project column says the same on every row, so it is plain text, not a chip. */
   singleProject?: boolean;
+  /** Widths the person dragged, saved with the view (pixels by field key). */
+  widths?: Record<string, number>;
 };
 
-export function buildColumns({ controller, lookups, today, visible, order, sorted, pinned, showIssues, singleProject }: ColumnContext): ColDef<GridItem>[] {
+export function buildColumns({ controller, lookups, today, visible, order, sorted, pinned, showIssues, singleProject, widths }: ColumnContext): ColDef<GridItem>[] {
   const editable = () => controller.canEdit;
   const projectOptions: PickerOption[] = lookups.projects.map((p) => ({ value: p.id, label: p.name }));
   const personOptions: PickerOption[] = lookups.members.map((m) => ({ value: m.user_id, label: m.email }));
@@ -144,7 +146,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
       headerComponent: FieldHeader,
       headerComponentParams: { phase: isShipped(f) || f.mode === "locked" || f.storage.startsWith("GitHub-synced") ? 1 : f.phase, locked: f.mode === "locked" || f.storage.startsWith("GitHub-synced"), from: BOTH_TRACKERS.has(f.key) ? "from GitHub or Jira" : "from GitHub" },
       headerTooltip: f.description ?? f.name,
-      width: WIDE[f.key] ?? WIDTH[f.type] ?? 140,
+      width: widths?.[f.key] ?? WIDE[f.key] ?? WIDTH[f.type] ?? 140,
       hide: !visible.has(f.key) && !(CORE_COLUMNS as readonly string[]).includes(f.key),
       sortable: false,
       suppressMovable: CORE_COLUMNS.includes(f.key as never),
@@ -169,7 +171,9 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
       };
     }
     if (f.key === "initiative_name") {
-      base.flex = 1; base.minWidth = 300; base.cellClass = `${String(base.cellClass ?? "")} cell-name`.trim();
+      // the name takes the space that is left, until someone drags it to a width of their own
+      if (widths?.[f.key] === undefined) base.flex = 1;
+      base.minWidth = widths?.[f.key] === undefined ? 300 : 120; base.cellClass = `${String(base.cellClass ?? "")} cell-name`.trim();
       if (showIssues) base.cellRenderer = NameWithIssues;
     }
     if (f.key === "item_code") {
@@ -202,8 +206,8 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
         return <ReadOnlyCell text="" reason={reason} github={false}>{v ? <StatusPill value={v} tone={tone} /> : <span className="muted">Not linked</span>}</ReadOnlyCell>;
       } };
     }
-    if (f.key === "flags") return { ...base, suppressNavigable: true, width: 360, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <FlagsCell {...p} today={today} canAct={controller.canEdit} />, cellClass: "cell-locked" };
-    if (f.key === "actions") return { ...base, suppressNavigable: true, width: 340, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <ActionsCell {...p} today={today} canAct={controller.canEdit} />, cellClass: "cell-locked" };
+    if (f.key === "flags") return { ...base, suppressNavigable: true, width: widths?.flags ?? 360, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <FlagsCell {...p} today={today} canAct={controller.canEdit} />, cellClass: "cell-locked" };
+    if (f.key === "actions") return { ...base, suppressNavigable: true, width: widths?.actions ?? 340, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <ActionsCell {...p} today={today} canAct={controller.canEdit} />, cellClass: "cell-locked" };
     if (f.key === "health") return { ...base, cellRenderer: HealthCell, ...pickerDef(f, optionsFor(f.key), true) };
     if (reason) {
       return { ...base, cellRenderer: (p: { value: unknown }) => <ReadOnlyCell text={display(f, p.value) || (f.key === "status" ? "Not on GitHub" : f.key === "gh_project_status" ? "Not on a board" : f.key === "tracker_status" ? "Not linked" : f.key === "last_synced" || f.key === "synced_with" ? "Not synced" : f.key === "tracker_ownership" ? "Not linked" : "")} reason={reason} pill={PILL_FIELDS.has(f.key)} field={f.key} github={f.mode === "locked" || f.storage.startsWith("GitHub-synced")} /> };
