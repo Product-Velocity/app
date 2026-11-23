@@ -4,8 +4,23 @@ import { expect, test } from "@playwright/test";
 test.use({ viewport: { width: 390, height: 844 } });
 
 test.describe("initiatives on a phone", () => {
+  test("opens on the 15 most recently changed initiatives, with the change in words", async ({ page }) => {
+    await page.goto("/dev/phone?n=40");
+    await expect(page.locator(".phone-card")).toHaveCount(15);
+    await expect(page.locator(".phone-count")).toContainText("15 recently changed");
+    await expect(page.locator(".phone-card").first().locator(".phone-change")).toContainText("Health: On track → At risk");
+    await expect(page.locator(".phone-card").first()).toContainText(/just now|ago/);
+    // searching looks through every initiative, not only the changed ones
+    await page.getByLabel("Search initiatives").fill("R-30");
+    await expect(page.locator(".phone-card")).toHaveCount(1);
+    await page.getByRole("button", { name: "Clear" }).click();
+    await expect(page.locator(".phone-card")).toHaveCount(15);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+
   test("search, quick filters, grouping and collapse", async ({ page }) => {
     await page.goto("/dev/phone?n=40");
+    await page.getByRole("button", { name: "All", exact: true }).click();
     await expect(page.locator(".phone-card").first()).toBeVisible();
     await expect(page.locator(".phone-count")).toContainText("40 initiatives");
     await page.getByLabel("Search initiatives").fill("R-07");
@@ -22,6 +37,7 @@ test.describe("initiatives on a phone", () => {
 
   test("a card shows the health as a word and has a 44 px touch target", async ({ page }) => {
     await page.goto("/dev/phone?n=10");
+    await page.getByRole("button", { name: "All", exact: true }).click();
     const c = page.locator(".phone-card").first();
     await expect(c.locator(".phone-health")).not.toBeEmpty();
     expect((await c.boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -30,6 +46,26 @@ test.describe("initiatives on a phone", () => {
 
   test("passes the accessibility check", async ({ page }) => {
     await page.goto("/dev/phone?n=10");
+    await page.waitForSelector(".phone-card");
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+});
+
+test.describe("tracker feed on a phone", () => {
+  test("shows the latest ten changes and searches them", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=tracker");
+    await expect(page.locator(".phone-card")).toHaveCount(10);
+    await expect(page.locator(".phone-count")).toContainText("Latest 10 from GitHub and Jira");
+    await page.getByLabel("Search tracker items").fill("PAY-701");
+    await expect(page.locator(".phone-card")).toHaveCount(1);
+    await expect(page.locator(".phone-card")).toContainText("Payment retries 1");
+    await page.getByLabel("Search tracker items").fill("zzz");
+    await expect(page.locator(".phone-card")).toHaveCount(0);
+    await expect(page.getByText("No tracker change matches")).toBeVisible();
+  });
+  test("passes the accessibility check", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=tracker");
     await page.waitForSelector(".phone-card");
     const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
     expect(r.violations).toEqual([]);

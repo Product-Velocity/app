@@ -1286,10 +1286,6 @@ button.share-chip { cursor: pointer; }
 .phone-nav, .phone-only { display: none; }
 .more-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .more-row { display: grid; gap: 2px; padding: 12px 14px; border: 1px solid var(--grey-1); border-radius: 8px; color: inherit; text-decoration: none; }
-.more-row-later { opacity: .65; }
-.more-sub { margin: 8px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-muted); }
-.open-on-computer { padding: 16px; border: 1px solid var(--grey-1); border-radius: 8px; background: var(--grey-3); gap: 8px; }
-.open-on-computer h2 { margin: 0 0 6px; font-size: 16px; }
 @media (max-width: 699px) {
   body { font-size: 15px; }
   input, select, textarea { font-size: 16px; }
@@ -1890,3 +1886,11 @@ a.btn.btn-primary { color: #fff; }
 }
 .vm-toggle-add { color: var(--blue-text); border-color: rgba(34, 112, 237, .35); }
 .vm-toggle-add:hover { background: var(--blue-tint-2); }
+
+/* Phone: recently changed and tracker feeds (issue #635) */
+.phone-title { margin: 0; font-size: 18px; }
+.phone-change { font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 6px; justify-self: start; background: var(--grey-3); overflow-wrap: anywhere; }
+.phone-change-good { background: #E3F4EA; color: #17653F; }
+.phone-change-risk { background: #FDF0D5; color: #7A4A00; }
+.phone-change-bad { background: #FBE4E4; color: #8A1F1F; }
+.phone-change-info { background: var(--blue-tint-2); color: var(--blue-text); }

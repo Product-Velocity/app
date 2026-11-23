@@ -6,12 +6,14 @@ import { useScope } from "../workspace/scope";
 import type { PortfolioController } from "../portfolio/controller";
 import { useStatus } from "../portfolio/status-strip";
 import type { Lookups } from "../portfolio/types";
+import { ago, changeText, latestChangedInitiatives } from "./phone-changes";
+import { usePhoneChanges, type ChangeSource } from "./use-phone-changes";
 import { FIXED_CHIPS, GROUP_LABEL, PHASE_CHIPS, SORT_LABEL, filterPhoneRows, groupPhoneRows, sortPhoneRows, type Group, type PhoneRow, type Sort } from "./phone-list";
 
 const emailName = (e: string) => e.split("@")[0]!.replace(/[._]/g, " ");
 
 /** The Initiatives screen on a phone: sticky search, quick-filter chips and collapsible groups of cards (docs/29-MOBILE.md section 4.2). */
-export function PhoneInitiatives({ controller, lookups, me, tenantId }: { controller: PortfolioController; lookups: Lookups; me: string | null; tenantId: string }) {
+export function PhoneInitiatives({ controller, lookups, me, tenantId, changeSource }: { controller: PortfolioController; lookups: Lookups; me: string | null; tenantId: string; changeSource?: ChangeSource }) {
   const status = useStatus(controller);
   const scope = useScope();
   const [query, setQuery] = useState("");
@@ -19,6 +21,10 @@ export function PhoneInitiatives({ controller, lookups, me, tenantId }: { contro
   const [sort, setSort] = useState<Sort>("rank");
   const [group, setGroup] = useState<Group>("phase");
   const [closed, setClosed] = useState<Set<string>>(new Set());
+  const [mode, setMode] = useState<"recent" | "all">("recent");
+  const changes = usePhoneChanges(controller, tenantId, changeSource);
+  const changed = useMemo(() => latestChangedInitiatives(changes.rows.filter((r) => scope.projectIds === null || scope.projectIds.includes(String(controller.rows.find((x) => x.id === r.itemId)?.home_project)))), [changes.rows, scope.projectIds, controller]);
+  const showRecent = mode === "recent" && !query && chips.length === 0;
 
   const project = (id: string) => lookups.projects.find((p) => p.id === id)?.name ?? "";
   const person = (id: string) => { const m = lookups.members.find((x) => x.user_id === id); return m ? emailName(m.email) : ""; };
@@ -43,19 +49,42 @@ export function PhoneInitiatives({ controller, lookups, me, tenantId }: { contro
       <div className="phone-sticky">
         <label className="visually-hidden" htmlFor="phone-search">Search initiatives</label>
         <input id="phone-search" type="search" className="phone-search" placeholder="Search code, name, owner, project…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <div className="phone-chips" role="group" aria-label="Show">
+          <button type="button" className={mode === "recent" ? "phone-chip phone-chip-on" : "phone-chip"} aria-pressed={mode === "recent"} onClick={() => setMode("recent")}>Recently changed</button>
+          <button type="button" className={mode === "all" ? "phone-chip phone-chip-on" : "phone-chip"} aria-pressed={mode === "all"} onClick={() => setMode("all")}>All</button>
+        </div>
         <div className="phone-chips" role="group" aria-label="Quick filters">
           {FIXED_CHIPS.map((c) => chip(c.id, c.label))}
           {PHASE_CHIPS.map((c) => chip(c.id, c.label))}
         </div>
-        <div className="phone-tools">
+        {!showRecent && <div className="phone-tools">
           <label>Sort <select value={sort} onChange={(e) => setSort(e.target.value as Sort)}>{(Object.keys(SORT_LABEL) as Sort[]).map((s) => <option key={s} value={s}>{SORT_LABEL[s]}</option>)}</select></label>
           <label>Group <select value={group} onChange={(e) => setGroup(e.target.value as Group)}>{(Object.keys(GROUP_LABEL) as Group[]).map((g) => <option key={g} value={g}>{GROUP_LABEL[g]}</option>)}</select></label>
           {chips.length > 0 || query ? <button type="button" className="link-button" onClick={() => { setChips([]); setQuery(""); }}>Clear</button> : null}
-        </div>
-        <p className="muted phone-count" role="status">{groups.total} {groups.total === 1 ? "initiative" : "initiatives"}</p>
+        </div>}
+        <p className="muted phone-count" role="status">{showRecent ? `${changed.length} recently changed` : `${groups.total} ${groups.total === 1 ? "initiative" : "initiatives"}`}</p>
       </div>
-      {groups.total === 0 && <p className="notice-box">Nothing matches. {chips.length + (query ? 1 : 0) > 0 ? "Clear the filters to see everything." : ""}</p>}
-      {groups.groups.map((g) => (
+      {showRecent && (
+        <section aria-label="Recently changed initiatives">
+          {changes.error && <p role="alert" className="pf-error">Could not load recent changes: {changes.error}</p>}
+          {changes.loading && <p role="status" className="muted">Loading changes…</p>}
+          {!changes.loading && !changes.error && changed.length === 0 && <p className="notice-box">Nothing has changed in the last 30 days. Choose All to see every initiative.</p>}
+          <ul className="phone-cards">
+            {changed.map((c) => (
+              <li key={c.itemId}>
+                <Link className="phone-card" href={`/w/${tenantId}/portfolio/${encodeURIComponent(c.code)}`}>
+                  <span className="phone-card-top"><span className="mono">{c.code}</span><span className="muted">{ago(c.at, new Date())}</span></span>
+                  <span className="phone-card-name">{c.name}</span>
+                  <span className={`phone-change phone-change-${c.tone}`}>{changeText(c)}</span>
+                  {c.more > 0 && <span className="muted phone-card-meta">and {c.more} more {c.more === 1 ? "change" : "changes"}</span>}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {!showRecent && groups.total === 0 && <p className="notice-box">Nothing matches. {chips.length + (query ? 1 : 0) > 0 ? "Clear the filters to see everything." : ""}</p>}
+      {!showRecent && groups.groups.map((g) => (
         <section key={g.key} aria-label={g.label}>
           {group !== "none" && (
             <h2 className="phone-group"><button type="button" aria-expanded={!closed.has(g.key)} onClick={() => flip(g.key)}>{closed.has(g.key) ? "▸" : "▾"} {g.label} ({g.rows.length})</button></h2>
