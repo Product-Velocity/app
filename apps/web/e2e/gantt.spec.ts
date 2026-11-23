@@ -522,3 +522,12 @@ test.describe("views (issue #622)", () => {
     await expect(hasChanges(page)).toHaveCount(0);
   });
 });
+
+test("the views menu stays on screen when the bar has few tabs (issue #622)", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await open(page, "n=14");
+  await page.locator(".more-views-btn").click();
+  const box = (await page.getByRole("dialog", { name: "Views" }).boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(1100);
+});
