@@ -14,6 +14,7 @@ import { useViewRows } from "../portfolio/use-view-rows";
 import { scopeParam, setQueryParam } from "../workspace/scope";
 import type { LeadershipStore, WeeklyUpdate } from "./store";
 import { StatusPill } from "../../components/status-pill";
+import { PageHeader } from "@/components/page-header";
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, "-");
 
@@ -83,10 +84,7 @@ export function LeadershipView({ controller, lookups, me, store, pageHref }: Lea
 
   return (
     <div className="leadership">
-      <div className="page-head leadership-head">
-        <h1>Leadership</h1>
-        <p className="muted">{week.label} · {scope.label} · read-only</p>
-      </div>
+      <PageHeader title="Leadership" className="leadership-head" count={`${rows.length} initiatives`} scope={scope.selection.kind !== "all" ? scope.label : null} note={`${week.label} · read-only`} />
 
       <div className={peekId ? "gantt-split gantt-split-open" : "gantt-split"}>
         <div className="leadership-main">

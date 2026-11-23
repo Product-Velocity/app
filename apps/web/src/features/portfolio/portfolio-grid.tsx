@@ -45,6 +45,7 @@ import { statusTone } from "../../components/status-tone";
 import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer, isGroup } from "./grid-kit";
 import { StatusAlerts, StatusInline, useStatus } from "./status-strip";
 import type { GridItem, Lookups } from "./types";
+import { PageHeader } from "@/components/page-header";
 
 ModuleRegistry.registerModules([
   ClientSideRowModelModule, ClientSideRowModelApiModule, TextEditorModule, CustomEditorModule, CellStyleModule,
@@ -672,12 +673,8 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const contextForQuickAdd = contextProject ?? (projectIds && projectIds.length === 1 ? projectIds[0]! : null);
   return (
     <>
-    <div ref={headRef} className="page-head">
-      <div className="head-row">
-        {headLeft}
-        <ViewBar api={viewsApi} />
-        {headRight && <span className="head-tools">{headRight}</span>}
-      </div>
+    <div ref={headRef}>
+    <PageHeader title={headLeft} views={<ViewBar api={viewsApi} />} tools={headRight} count={`${(filtered ? visibleRows.length : controller.rows.length).toLocaleString("en-GB")} initiatives`} scope={scope.selection.kind !== "all" ? scope.label : null}>
       {(def.filters.length > 0 || scope.selection.kind !== "all") && (
         <div className="filter-chips" aria-label="Active scope and filters">
           {scope.selection.kind !== "all" && <span className="token-chip">Project: {scope.label}</span>}
@@ -690,6 +687,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         </div>
       )}
       {baseMissing && <div className="view-dirty" role="status">This view is private to its owner or no longer exists. Showing Prioritisation.</div>}
+    </PageHeader>
     </div>
     <section
       ref={cardRef}

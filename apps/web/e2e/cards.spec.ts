@@ -26,7 +26,7 @@ test.describe("the board", () => {
     await expect(page.locator(".kb-lane-head strong")).toHaveText(["Onboarding", "Platform health", "Retention", "No value"]);
     await expect(page.locator(".kb-col-head", { hasText: "Discover" }).locator(".gl-count")).toHaveText("8");
     await expect(page.locator(".kb-lane-head", { hasText: "Onboarding" })).toContainText("items");
-    await expect(page.locator(".gantt-count")).toContainText("40 initiatives");
+    await expect(page.locator(".page-meta")).toContainText("40 initiatives");
   });
 
   test("a card has four zones: rank, ID and health; name; the chosen fields; owner", async ({ page }) => {
@@ -113,7 +113,7 @@ test.describe("the board", () => {
     const all = await page.locator("[data-card]").count();
     await page.locator(".more-views-btn").click();
     await page.getByRole("dialog", { name: "Views" }).getByRole("group", { name: "Must haves" }).locator(".vm-open").click();
-    await expect(page.locator(".gantt-count")).toContainText("filters of “Must haves”");
+    await expect(page.locator(".page-meta")).toContainText("filters of “Must haves”");
     expect(await page.locator("[data-card]").count()).toBeLessThan(all);
     await page.locator(".more-views-btn").click();
     await page.getByRole("dialog", { name: "Views" }).getByRole("group", { name: "With dates" }).locator(".vm-open").click();
@@ -122,7 +122,7 @@ test.describe("the board", () => {
     await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Prioritisation", exact: true }).click();
     await page.locator(".scope-chip").click();
     await page.getByRole("menuitemradio", { name: /Customer-facing work/ }).click();
-    await expect(page.locator(".gantt-count")).toContainText("scope: Customer-facing work");
+    await expect(page.locator(".page-meta")).toContainText("scope: Customer-facing work");
     const projects = await page.evaluate(() => [...document.querySelectorAll("[data-card]")].map((c) => (window as unknown as { __pv: { controller: { row: (id: string) => { home_project: string } } } }).__pv.controller.row(c.getAttribute("data-card")!).home_project));
     expect(new Set(projects)).toEqual(new Set(["p3"]));
   });
@@ -164,7 +164,7 @@ test.describe("the board", () => {
     await expect(page.locator("[data-card]")).toHaveCount(1);
     await expect(card(page, "item-1")).toBeVisible();
     await search.press("Escape");
-    await expect(page.locator(".gantt-count")).toContainText("40 initiatives");
+    await expect(page.locator(".page-meta")).toContainText("40 initiatives");
 
     // FilterPanel quick filter narrows cards and adds a removable filter chip
     await page.getByRole("button", { name: /^Filter/ }).click();

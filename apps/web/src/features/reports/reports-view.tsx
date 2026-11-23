@@ -19,6 +19,7 @@ import { OverviewReport } from "./overview-report";
 import { VelocityReport, VELOCITY_PARAMS } from "./velocity-report";
 import { DEFAULT_REPORT, REPORTS, parseReportId, useReportEnv, type ReportId } from "./report-env";
 import { ReportFilters } from "./report-filters";
+import { PageHeader } from "@/components/page-header";
 
 /** Writes the report and the filters into the address (other parameters such as ?scope= stay), without reloading. The default report has no parameter. */
 function writeAddress(state: ReportState, report: ReportId) {
@@ -56,15 +57,15 @@ export function ReportsView({ controller, lookups, me, loadGateRequests, loadCha
 
   return (
     <div className="reports">
-      <div className="page-head">
-        <h1>Reports</h1>
-        <div className="view-chips" role="group" aria-label="Report">
+      <PageHeader
+        title="Reports"
+        views={<div className="view-chips" role="group" aria-label="Report">
           {REPORTS.map((r) => (
             <button key={r.id} type="button" className={report === r.id ? "view-chip view-chip-on" : "view-chip"} aria-pressed={report === r.id} onClick={() => setReport(r.id)}>{r.label}</button>
           ))}
-        </div>
-        <span className="muted" role="status">{env.rows.length.toLocaleString("en-GB")} of {env.inScope.length.toLocaleString("en-GB")} initiatives</span>
-      </div>
+        </div>}
+        count={`${env.rows.length.toLocaleString("en-GB")} of ${env.inScope.length.toLocaleString("en-GB")} initiatives`}
+      />
       <StatusStrip controller={controller} />
 
       {/* the details panel opens beside the report, like in the Gantt; it used to be added under the page, out of sight */}

@@ -41,7 +41,7 @@ const drag = async (page: Page, from: { x: number; y: number }, dx: number) => {
 test.describe("the chart", () => {
   test("shows bars from Planned Start to G2M Date (est), grouped by Initiative Group and then project", async ({ page }) => {
     await open(page, "n=14");
-    await expect(page.locator(".gantt-count")).toContainText("scheduled");
+    await expect(page.locator(".page-meta")).toContainText("scheduled");
     const groups = await page.locator(".gl-g1 .gl-name").allTextContents();
     expect(groups).toEqual(["Onboarding", "Platform health", "Retention", "No value"]); // A to Z, "No value" last
     await expect(page.locator(".gl-g2 .gl-name").first()).toBeVisible();
@@ -122,12 +122,12 @@ test.describe("the chart", () => {
     await open(page, "n=14");
     const all = await page.locator("[data-bar]").count();
     await choose(page, "Filters of", "Must haves");
-    await expect(page.locator(".gantt-count")).toContainText("filters of “Must haves”");
+    await expect(page.locator(".page-meta")).toContainText("filters of “Must haves”");
     expect(await page.locator("[data-bar]").count()).toBeLessThan(all);
     await choose(page, "Filters of", "No saved view");
     await page.locator(".scope-chip").click();
     await page.getByRole("menuitemradio", { name: /Customer-facing work/ }).click();
-    await expect(page.locator(".gantt-count")).toContainText("scope: Customer-facing work");
+    await expect(page.locator(".page-meta")).toContainText("scope: Customer-facing work");
     const projects = await page.evaluate(() => [...document.querySelectorAll("[data-bar]")].map((b) => (window as unknown as { __pv: { controller: { row: (id: string) => { home_project: string } } } }).__pv.controller.row(b.getAttribute("data-bar")!).home_project));
     expect(new Set(projects)).toEqual(new Set(["p3"]));
   });

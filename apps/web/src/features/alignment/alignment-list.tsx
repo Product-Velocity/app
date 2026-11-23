@@ -13,6 +13,7 @@ import {
 import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer, isGroup } from "../portfolio/grid-kit";
 import { AlignmentBar, AlignmentChips } from "./alignment-bar";
 import { NewSessionDialog, type CreateSession, type Initiative } from "./new-session-dialog";
+import { PageHeader } from "@/components/page-header";
 
 export type SetSessionState = (id: string, to: SessionState) => Promise<{ ok: true } | { ok: false; error: string }>;
 const NEEDS: Need[] = ["no-participants", "confirm-mailing", "closing-soon", "not-applied"];
@@ -218,10 +219,7 @@ export function AlignmentList({ rows, isAdmin, people, initiatives, create, setS
 
   return (
     <div className="page-wide alignment-list">
-      <div className="page-head">
-        <h1>Alignment</h1>
-        {isAdmin && <button type="button" className="btn btn-primary" onClick={() => setDialog(true)}>New session</button>}
-      </div>
+      <PageHeader title="Alignment" count={`${rows.length} ${rows.length === 1 ? "session" : "sessions"}`} tools={isAdmin ? <button type="button" className="btn btn-primary" onClick={() => setDialog(true)}>New session</button> : null} />
       <p className="muted">
         Ask a group of people to rank initiatives: the top five with duels, 100 coins, or ICE sliders. Participants need no account and see only anonymous results.
         {isAdmin ? " You can also select initiatives in the roadmap and press Start alignment session…." : " You see the sessions that have closed and allow results."}
