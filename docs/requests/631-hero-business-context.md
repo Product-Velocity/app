@@ -1,6 +1,8 @@
 ---
 issue: 631
-status: in progress
+status: done
+done: 2026-11-23
+link: PR #632
 logged: 2026-11-23
 title: Homepage and sign-in: real business context and tools-connected wording
 ---
