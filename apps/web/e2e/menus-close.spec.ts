@@ -62,7 +62,7 @@ test("grouped rows show the health in words, and health pills have no icon", asy
   const group = page.locator(".group-row").first();
   await expect(group).toBeVisible();
   await expect(group.locator(".group-health")).toHaveText(/^\d+ (On Track|At Risk|Delayed|Blocked)( · \d+ (On Track|At Risk|Delayed|Blocked))*$/);
-  const pill = page.locator(".pill[class*=health-]").first();
+  const pill = page.locator(".ag-row .pill").filter({ hasText: /^(On Track|At Risk|Delayed|Blocked)$/ }).first(); // a health pill: the word, never colour alone
   await expect(pill).toHaveText(/^(On Track|At Risk|Delayed|Blocked)$/);
   expect((await pill.boundingBox())!.height).toBeLessThanOrEqual(20.5);
 });

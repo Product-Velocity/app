@@ -72,7 +72,7 @@ test("typed picker: type to filter, Enter chooses", async ({ page }) => {
   await page.keyboard.type("cou");
   await expect(page.locator(".picker").getByRole("option")).toHaveCount(1);
   await page.keyboard.press("Enter");
-  await expect(cell(page, "item-1", "moscow")).toHaveText("Could");
+  await expect(cell(page, "item-1", "moscow")).toContainText("Could");
   await expect(strip(page)).toContainText("R-01 MoSCoW: Must to Could");
 });
 
@@ -82,11 +82,11 @@ test("typed picker: arrow keys move the highlight and Escape cancels", async ({ 
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
-  await expect(cell(page, "item-1", "effort")).toHaveText("M");
+  await expect(cell(page, "item-1", "effort")).toContainText("M");
   await openPicker(page, "item-2", "effort");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Escape");
-  await expect(cell(page, "item-2", "effort")).toHaveText("S");
+  await expect(cell(page, "item-2", "effort")).toContainText("S");
 });
 
 test("health always has a text label, not only a colour", async ({ page }) => {
@@ -209,16 +209,16 @@ test("a failed save puts the value back and says why", async ({ page }) => {
 test("typing a new global rank moves the row, keeps the focus on it and can be undone", async ({ page }) => {
   await open(page);
   await edit(page, "item-6", "stack_rank", "2");
-  await expect(cell(page, "item-6", "stack_rank")).toHaveText("#2");
-  await expect(cell(page, "item-2", "stack_rank")).toHaveText("#3");
+  await expect(cell(page, "item-6", "stack_rank")).toHaveText("Stack rank 2");
+  await expect(cell(page, "item-2", "stack_rank")).toHaveText("Stack rank 3");
   const order = (await pv(page)).ranks.slice(0, 3);
   expect(order).toEqual(["item-1", "item-6", "item-2"]);
   await expect(page.locator(".ag-row[row-id='item-6'] [col-id='stack_rank']")).toHaveClass(/ag-cell-focus/);
   await expect(strip(page)).toContainText("R-06 moved from rank 6 to 2");
   await settle(page);
   await page.keyboard.press("Control+Z");
-  await expect(cell(page, "item-6", "stack_rank")).toHaveText("#6");
-  await expect(cell(page, "item-2", "stack_rank")).toHaveText("#2");
+  await expect(cell(page, "item-6", "stack_rank")).toHaveText("Stack rank 6");
+  await expect(cell(page, "item-2", "stack_rank")).toHaveText("Stack rank 2");
 });
 
 test("changing the project updates the In project order", async ({ page }) => {

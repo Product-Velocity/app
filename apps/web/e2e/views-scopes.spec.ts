@@ -34,9 +34,9 @@ test.describe("scope switcher", () => {
     await expect(scopeButton(page)).toContainText("Customer-facing work");
     await expect(foot(page)).toContainText("5 of 30 items shown");
     expect(page.url()).toContain("scope=scope-b");
-    await expect(page.locator(".filter-chips")).toContainText("Project: Customer-facing work");
+    await expect(page.locator(".page-pills")).toContainText("Project: Customer-facing work");
     // ranks stay global: the first shown row is the third item, rank #3
-    await expect(row(page, "item-3").locator('[col-id="stack_rank"]')).toHaveText("#3");
+    await expect(row(page, "item-3").locator('[col-id="stack_rank"]')).toHaveText("Stack rank 3");
     await expect(row(page, "item-1")).toHaveCount(0);
   });
 
@@ -130,7 +130,7 @@ test.describe("scope switcher", () => {
     await page.getByRole("button", { name: "Cancel" }).click();
     await scopeButton(page).click();
     await scopeMenu(page).getByRole("menuitemradio", { name: /Customer-facing work/ }).click();
-    await expect(page.locator(".filter-chips")).toContainText("Project: Customer-facing work");
+    await expect(page.locator(".page-pills")).toContainText("Project: Customer-facing work");
     await page.getByRole("button", { name: /more views$/ }).click();
     await expect(page.getByRole("dialog", { name: "Views" })).toBeVisible();
   });
@@ -165,7 +165,7 @@ test.describe("filters and search", () => {
     await open(page);
     await addFilter(page, "moscow", "Must");
     await expect(foot(page)).toContainText("8 of 30 items shown");
-    await expect(page.locator(".filter-chips")).toContainText("MoSCoW is Must");
+    await expect(page.locator(".page-pills")).toContainText("MoSCoW is Must");
     await expect(row(page, "item-2")).toHaveCount(0); // item-2 is Should
     await page.getByRole("button", { name: "Remove filter MoSCoW is Must" }).click();
     await expect(foot(page)).toContainText("30 items");
@@ -279,11 +279,11 @@ test.describe("grouping", () => {
 });
 
 test.describe("grid view changes", () => {
-  test("the Columns picker reaches all 171 fields, grouped, with later phases marked", async ({ page }) => {
+  test("the Columns picker reaches all 177 fields, grouped, with later phases marked", async ({ page }) => {
     await open(page);
     await page.getByRole("button", { name: /^Columns:/ }).click();
     const panel = page.getByRole("group", { name: "Choose columns" });
-    await expect(panel.locator('input[type="checkbox"]')).toHaveCount(171);
+    await expect(panel.locator('input[type="checkbox"]')).toHaveCount(177);
     expect(await panel.locator("fieldset").count()).toBeGreaterThan(8);
     await expect(panel.locator("fieldset").first().locator("legend")).toHaveText("What");
     await expect(panel).toContainText("arrives in phase 7");

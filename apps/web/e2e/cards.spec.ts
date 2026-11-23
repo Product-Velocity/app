@@ -139,7 +139,7 @@ test.describe("the board", () => {
     // every quarter of the planning window is a lane (it lists more than the three with cards): look for the ones that have cards
     const lanes = await page.locator(".kb-lane-head strong").allTextContents();
     expect(lanes).toEqual(expect.arrayContaining(["Q1 2027", "Q2 2027", "Q3 2027", "No value"]));
-    await expect(page.locator(".filter-chips")).toContainText("Initiative Phase");
+    await expect(page.locator(".page-pills")).toContainText("Initiative Phase");
     await expect(card(page, "item-1")).toContainText("G2M Date (est)");
 
     // Delivery: filters to Build/Test/Experiment, groups swimlanes by Project, shows Build Status and Delivery Progress
@@ -170,7 +170,7 @@ test.describe("the board", () => {
     await page.getByRole("button", { name: /^Filter/ }).click();
     await page.getByRole("group", { name: "Filters", exact: true }).getByRole("button", { name: "High impact" }).click();
     await page.keyboard.press("Escape");
-    await expect(page.locator(".filter-chips")).toContainText("MoSCoW is Must");
+    await expect(page.locator(".page-pills")).toContainText("MoSCoW is Must");
     const filteredCount = await page.locator("[data-card]").count();
     expect(filteredCount).toBeLessThan(40);
 

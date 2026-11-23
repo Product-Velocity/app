@@ -215,16 +215,16 @@ test.describe("filter panel", () => {
     await expect(panel).toContainText("3 of 4 locked"); // rank, ID and name start locked
     const before = await names();
     const far = before[10]!, farther = before[11]!;
-    await panel.getByRole("button", { name: `Lock ${far}` }).click(); // a column far down the list
-    await expect(panel.getByRole("button", { name: `Unlock ${far}` })).toHaveAttribute("aria-pressed", "true");
+    await panel.getByRole("button", { name: `Lock ${far}`, exact: true }).click(); // a column far down the list
+    await expect(panel.getByRole("button", { name: `Unlock ${far}`, exact: true })).toHaveAttribute("aria-pressed", "true");
     expect(await names()).toContain(far);
     expect((await names())[3]).toBe(far); // locked columns come first
     await expect(panel).toContainText("4 of 4 locked");
-    await panel.getByRole("button", { name: `Lock ${farther}` }).click();
+    await panel.getByRole("button", { name: `Lock ${farther}`, exact: true }).click();
     await expect(panel.getByRole("status")).toContainText("You can lock up to 4 columns. Unlock one first.");
     await panel.getByRole("button", { name: `Unlock ${before[0]!}` }).click(); // rank, ID and name can be unlocked too
     await expect(panel).toContainText("3 of 4 locked");
-    await panel.getByRole("button", { name: `Lock ${farther}` }).click();
+    await panel.getByRole("button", { name: `Lock ${farther}`, exact: true }).click();
     await expect(panel.getByRole("button", { name: `Unlock ${farther}` })).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -350,9 +350,9 @@ test.describe("Shortcuts, Help and text size in the top bar", () => {
     await expect(help.getByRole("table", { name: "The three gates" })).toContainText("Define and Build");
     await help.goto("/help/columns");
     await expect(help.getByRole("table", { name: /Columns, and how each one relates/ })).toContainText("Read-only (tracker)");
-    await expect(help.getByRole("status")).toContainText("171 of 171 columns");
+    await expect(help.getByRole("status")).toContainText("177 of 177 columns");
     await help.getByPlaceholder(/Filter columns/).fill("sponsor");
-    await expect(help.getByRole("status")).toContainText("1 of 171 columns");
+    await expect(help.getByRole("status")).toContainText("1 of 177 columns");
     await help.goto("/help/ai-setup");
     await expect(help.getByRole("main")).toContainText("write_prd");
     await expect(help.getByRole("main")).toContainText("get_playbook");
