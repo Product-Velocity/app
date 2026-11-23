@@ -32,3 +32,13 @@ export function buildEarlyAccessEmail(input: { name: string; email: string; comp
 export function buildNewWorkspaceEmail(input: { workspace: string; requester: string; link: string; siteUrl?: string; override?: Partial<TemplateText> | null }): PlainEmail {
   return buildEmail("app.new-workspace", { values: { workspace: input.workspace, requester: input.requester, link: input.link }, siteUrl: input.siteUrl ?? DEFAULT_SITE_URL, buttonUrl: input.link, override: input.override });
 }
+
+/** To the person who created a workspace, from Ashu, once setup is finished. Registry key app.welcome-personal. */
+export function buildWelcomePersonalEmail(input: { name: string; workspace: string; siteUrl?: string; override?: Partial<TemplateText> | null }): PlainEmail {
+  return buildEmail("app.welcome-personal", { values: { name: input.name, workspace: input.workspace }, siteUrl: input.siteUrl ?? DEFAULT_SITE_URL, override: input.override });
+}
+
+/** To the person who created a workspace that is still empty two days later, from Ashu. Registry key app.followup-personal. */
+export function buildFollowupPersonalEmail(input: { name: string; workspace: string; siteUrl?: string; override?: Partial<TemplateText> | null }): PlainEmail {
+  return buildEmail("app.followup-personal", { values: { name: input.name, workspace: input.workspace }, siteUrl: input.siteUrl ?? DEFAULT_SITE_URL, override: input.override });
+}

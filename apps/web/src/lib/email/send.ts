@@ -8,7 +8,7 @@ import type { EmailKey } from "./registry/registry";
  * scans every call), and every send is written to the send log: template, outcome, Resend's message id, and the workspace when there is
  * one. The log never holds an address, a name, a token, a link or a body. A log failure never blocks the email.
  */
-export async function sendLogged(key: EmailKey, msg: { to: string; subject: string; text: string; html: string; replyTo?: string }, opts?: { tenantId?: string | null; isTest?: boolean; actorId?: string | null }): Promise<SendResult> {
+export async function sendLogged(key: EmailKey, msg: { to: string; subject: string; text: string; html: string; replyTo?: string; fromName?: string }, opts?: { tenantId?: string | null; isTest?: boolean; actorId?: string | null }): Promise<SendResult> {
   const res = await sendEmail(msg);
   try {
     const admin = createAdminClient({ via: "system" });

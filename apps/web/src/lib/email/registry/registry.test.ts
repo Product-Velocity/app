@@ -51,6 +51,12 @@ describe("registry", () => {
       const r = previewTemplate(t);
       for (const s of [r.subject, r.html, r.text]) expect(s, t.key).not.toMatch(/\{\{|\}\}/);
       expect(r.html).not.toMatch(/<script/i);
+      if (t.personal) { // a note from a person: no logo, no image, no frame, no button
+        expect(r.html, t.key).not.toMatch(/<img|<table/i);
+        expect(t.button, t.key).toBeNull();
+        expect(t.fromName, t.key).toBeTruthy();
+        continue;
+      }
       expect([...r.html.matchAll(/src="([^"]+)"/g)].map((m) => m[1])).toEqual(["https://app.example/email/logo.png"]);
       expect(r.text).toContain("One roadmap for humans and AI.");
     }

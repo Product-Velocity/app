@@ -1,3 +1,4 @@
+import { sendFollowups } from "@/lib/founder-emails";
 import { isCronRequest } from "@/lib/cron-auth";
 import { githubSourceControl } from "@/lib/github/server";
 import { retryEvent, runCheck } from "@/lib/github/sync";
@@ -13,6 +14,7 @@ export const maxDuration = 60;
 
 export async function GET(request: Request) {
   if (!isCronRequest(request)) return new Response("forbidden", { status: 403 });
+  const followups = await sendFollowups(); // Vercel's free plan allows two cron jobs, so the personal follow-ups ride on this one; never fails the check
   const sc = githubSourceControl();
   if (!sc) return new Response("not configured", { status: 503 });
 
@@ -36,5 +38,5 @@ export async function GET(request: Request) {
   }
   // finished initiatives stop syncing 14 days after Completed or Cancelled (docs/28-DECISION-GATES.md section 9): after the check, so the last look happened first
   const { data: frozen } = await admin.rpc("freeze_finished_links", { p_days: 14 });
-  return Response.json({ ...report, frozen: frozen ?? null });
+  return Response.json({ ...report, frozen: frozen ?? null, followups });
 }
