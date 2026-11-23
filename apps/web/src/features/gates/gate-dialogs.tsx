@@ -9,11 +9,11 @@ import type { Approvers, Decider, GateItem, GateSource, ItemResult } from "./gat
 
 const label = (i: Record<string, unknown>) => `${String(i.item_code ?? "")} ${String(i.initiative_name ?? "")}`.trim();
 
-function Shell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Shell({ title, onClose, className = "", children }: { title: string; onClose: () => void; className?: string; children: React.ReactNode }) {
   const titleId = useId();
   return (
     <div className="dialog-backdrop" onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
-      <div className="dialog dialog-narrow gate-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <div className={`dialog dialog-narrow gate-dialog${className ? ` ${className}` : ""}`} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <h2 id={titleId}>{title}</h2>
         {children}
       </div>
@@ -133,7 +133,22 @@ function resultNote(gates: GateId[], outcome: GateOutcome): string | undefined {
 
 export type DecideRow = { request: GateRequest; item: DialogItem | undefined };
 
-/** "Decide": Go, Go with conditions, Hold or Stop for one or many requests, one rationale stored on each. Fast lane is a recorded choice, not a check. */
+/** What the chosen outcome will do, in plain words, before anything is saved. */
+function effectText(outcome: GateOutcome, gates: GateId[], many: boolean, target: string): { text: string; tone: "go" | "hold" | "stop" } {
+  const each = many ? "Each initiative" : "The initiative";
+  if (outcome === "stop") return { tone: "stop", text: `${each} is set to Cancelled and its request closes. Nothing is sent to GitHub or Jira until you confirm it in Sync.` };
+  if (outcome === "hold") return { tone: "hold", text: `${each} stays in its phase and the request closes as Hold. Ask again when it is ready.` };
+  const to = gates.length === 1 ? target || GATES[gates[0]!].to : null;
+  const moves = to ? `${each} moves to ${to}.` : `${each} moves to the phase its gate opens.`;
+  return { tone: "go", text: outcome === "go_with_conditions" ? `${moves} Each condition becomes a task that is tracked until it is done.` : moves };
+}
+
+const TONE_OF: Record<GateOutcome, "go" | "hold" | "stop"> = { go: "go", go_with_conditions: "go", hold: "hold", stop: "stop" };
+
+/**
+ * "Decide": Go, Go with conditions, Hold or Stop for one or many requests (Ashu, 2026-11-23: clearer layout, batch stated plainly). One rationale, and the conditions
+ * if any, are stored on each request. Fast lane is a recorded choice, not a check. The checklist informs; it never blocks.
+ */
 export function DecideDialog({ source, rows, initialOutcome, onClose, onDone }: { source: GateSource; rows: DecideRow[]; initialOutcome?: GateOutcome; onClose: () => void; onDone: () => void }) {
   const [outcome, setOutcome] = useState<GateOutcome>(initialOutcome ?? "go");
   const [rationale, setRationale] = useState("");
@@ -148,6 +163,7 @@ export function DecideDialog({ source, rows, initialOutcome, onClose, onDone }: 
   const id = useId();
   useEffect(() => { boxRef.current?.focus(); }, []);
 
+  const many = rows.length > 1;
   const gates = [...new Set(rows.map((r) => r.request.gate))];
   const names = new Map(rows.map((r) => [r.request.id, label(r.item ?? {}) || r.request.item_id]));
   // fast lane: a later phase than the gate opens; only offered when every selected request is at the same gate
@@ -155,8 +171,12 @@ export function DecideDialog({ source, rows, initialOutcome, onClose, onDone }: 
   const targets = single ? targetPhases(single, rows[0]?.item?.initiative_phase) : [];
   const go = outcome === "go" || outcome === "go_with_conditions";
   const ok = rationale.trim().length >= 3 && (outcome !== "go_with_conditions" || conditions.trim().length > 0);
+  const incomplete = rows.filter((r) => r.request.criteria.length > 0 && r.request.criteria.some((c) => !c.ok)).length;
+  const effect = effectText(outcome, gates, many, go && fast ? target : "");
+  const count = `${rows.length} ${many ? "requests" : "request"}`;
 
   const submit = async () => {
+    if (busy || !ok) return;
     setBusy(true); setError(null);
     try {
       const out = await source.decide(rows.map((r) => r.request.id), {
@@ -168,41 +188,61 @@ export function DecideDialog({ source, rows, initialOutcome, onClose, onDone }: 
     } catch (e) { setError((e as Error).message); }
     setBusy(false);
   };
+  const submitKey = (e: React.KeyboardEvent) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void submit(); } };
 
   return (
-    <Shell title={`Decide ${rows.length} ${rows.length === 1 ? "request" : "requests"}`} onClose={onClose}>
+    <Shell title={`Decide ${count}`} onClose={onClose} className="gate-decide">
       {results ? (
         <>
           <Results rows={results} names={names} note={resultNote(rows.map((r) => r.request.gate), outcome)} />
           <div className="dialog-actions"><button type="button" className="btn" onClick={onClose}>Close</button></div>
         </>
       ) : (
-        <>
-          <ul className="gate-list" aria-label="Requests you are deciding">
-            {rows.map((r) => <li key={r.request.id}><strong>{label(r.item ?? {}) || r.request.item_id}</strong> <span className="muted">{gateTitle(r.request.gate)}</span></li>)}
+        <div onKeyDown={submitKey}>
+          <ul className="dec-rows" aria-label="Requests you are deciding">
+            {rows.map((r) => {
+              const crit = r.request.criteria;
+              const done = crit.filter((c) => c.ok).length;
+              return (
+                <li key={r.request.id} className="dec-row">
+                  <span className="dec-what"><span className="mono">{String(r.item?.item_code ?? r.request.item_id)}</span> <strong>{String(r.item?.initiative_name ?? "")}</strong></span>
+                  <span className="dec-meta">
+                    <span className="dec-gate">{gateTitle(r.request.gate)}</span>
+                    {crit.length > 0 && <span className={`pill ${done === crit.length ? "tone-good" : "tone-risk"}`}>{done} of {crit.length} · {done === crit.length ? "complete" : "incomplete"}</span>}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
-          <fieldset className="gate-outcomes">
+          {many && <p className="muted dec-note">Batch decision: the same outcome and rationale are saved on each of the {rows.length} requests, and each is recorded under your name.</p>}
+
+          <fieldset className="dec-choices">
             <legend className="dialog-label">Decision</legend>
-            {OUTCOMES.map((o) => (
-              <label key={o.value} className="gate-outcome">
-                <input type="radio" name={`${id}-o`} checked={outcome === o.value} onChange={() => setOutcome(o.value)} />
-                <span><strong>{o.label}</strong> <span className="muted">{o.hint}</span></span>
-              </label>
-            ))}
+            <div className="dec-grid">
+              {OUTCOMES.map((o) => (
+                <label key={o.value} className={`dec-choice tone-${TONE_OF[o.value]}${outcome === o.value ? " is-on" : ""}`}>
+                  <input type="radio" name={`${id}-o`} checked={outcome === o.value} onChange={() => setOutcome(o.value)} />
+                  <strong className="dec-name">{o.label}</strong>{" "}
+                  <span className="dec-hint">{o.hint}</span>
+                </label>
+              ))}
+            </div>
           </fieldset>
-          <label className="dialog-label" htmlFor={`${id}-r`}>Rationale (required, kept as written)</label>
-          <textarea id={`${id}-r`} ref={boxRef} value={rationale} onChange={(e) => setRationale(e.target.value)} rows={3} maxLength={4000} />
+          <p className={`dec-effect tone-${effect.tone}`} role="status">{effect.text}</p>
+
+          <label className="dialog-label" htmlFor={`${id}-r`}>Rationale <span className="muted">(required, kept as written{many ? ", shared by all" : ""})</span></label>
+          <textarea id={`${id}-r`} ref={boxRef} value={rationale} onChange={(e) => setRationale(e.target.value)} rows={3} maxLength={4000} placeholder="Why this decision? The next person reading the gate history sees this." />
           {outcome === "go_with_conditions" && (
             <>
-              <label className="dialog-label" htmlFor={`${id}-c`}>Conditions, one per line</label>
+              <label className="dialog-label dec-gap" htmlFor={`${id}-c`}>Conditions <span className="muted">(one per line{many ? ", added to each request" : ""})</span></label>
               <textarea id={`${id}-c`} value={conditions} onChange={(e) => setConditions(e.target.value)} rows={3} />
             </>
           )}
           {outcome === "hold" && (
-            <>
-              <label className="dialog-label" htmlFor={`${id}-d`}>Look at it again on (optional)</label>
+            <div className="dec-gap">
+              <label className="dialog-label" htmlFor={`${id}-d`}>Look at it again on <span className="muted">(optional)</span></label>
               <input id={`${id}-d`} type="date" value={reviewDate} onChange={(e) => setReviewDate(e.target.value)} />
-            </>
+            </div>
           )}
           {go && single && targets.length > 1 && (
             <div className="gate-fast">
@@ -216,12 +256,15 @@ export function DecideDialog({ source, rows, initialOutcome, onClose, onDone }: 
               <p className="muted">Skipped phases and gates are recorded as Skipped (fast lane). There are no checks; it is your call.</p>
             </div>
           )}
+          {go && many && !single && <p className="muted dec-note">Fast lane is offered only when every request is at the same gate.</p>}
+          {incomplete > 0 && <p className="muted dec-note">{incomplete} of {rows.length} {incomplete === 1 ? "has an incomplete checklist" : "have incomplete checklists"}. The checklist informs; it never blocks a decision.</p>}
           {error && <p role="alert" className="error">{error}</p>}
           <div className="dialog-actions">
+            <span className="dec-keys muted">Ctrl or ⌘ + Enter saves</span>
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button type="button" className={outcome === "go" ? "btn btn-confirm" : outcome === "stop" ? "btn btn-danger" : "btn btn-primary"} disabled={busy || !ok} onClick={() => void submit()}>{busy ? "Saving…" : `${outcomeLabel(outcome)} for ${rows.length}`}</button>
+            <button type="button" className={outcome === "go" ? "btn btn-confirm" : outcome === "stop" ? "btn btn-danger" : "btn btn-primary"} disabled={busy || !ok} onClick={() => void submit()}>{busy ? "Saving…" : `${outcomeLabel(outcome)} for ${count}`}</button>
           </div>
-        </>
+        </div>
       )}
     </Shell>
   );
