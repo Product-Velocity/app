@@ -61,6 +61,7 @@ export default function ReportsHelp() {
             "Gate history: what is waiting for a decision and what needs attention, what was decided, and how long decisions take compared with what is usual for your team. For the whole team, never per approver.",
             "Changes: which initiatives changed today, this week or this month, and where each change came from.",
             "Velocity: how long work takes from Start Discovery to roll-out, to each gate and in Build, how much it varies, where the time goes and how long gates take to decide. For the team, never per person.",
+            "OKRs: how initiatives are spread over Objectives and Business Lines, how the focus moves between planned quarters, and how far along each Objective is in the current quarter.",
           ]}
         />
         <HelpWhere>Reports tab. Each chart has Show as table with the same numbers.</HelpWhere>

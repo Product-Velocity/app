@@ -42,6 +42,7 @@ export * from "./reports";
 export * from "./time-to-market";
 export * from "./build-time";
 export * from "./roadmap-health";
+export * from "./okr-report";
 export * from "./impact";
 export * from "./discovery-template";
 export * from "./skills";
