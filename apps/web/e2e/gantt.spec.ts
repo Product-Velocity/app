@@ -127,7 +127,7 @@ test.describe("the chart", () => {
     await choose(page, "Filters of", "No saved view");
     await page.locator(".scope-chip").click();
     await page.getByRole("menuitemradio", { name: /Customer-facing work/ }).click();
-    await expect(page.locator(".page-meta")).toContainText("scope: Customer-facing work");
+    await expect(page.locator(".page-meta")).toContainText("Project: Customer-facing work");
     const projects = await page.evaluate(() => [...document.querySelectorAll("[data-bar]")].map((b) => (window as unknown as { __pv: { controller: { row: (id: string) => { home_project: string } } } }).__pv.controller.row(b.getAttribute("data-bar")!).home_project));
     expect(new Set(projects)).toEqual(new Set(["p3"]));
   });
