@@ -5,6 +5,7 @@ import { MemoryGateSource } from "@/features/gates/gate-source";
 import { ForYou } from "@/features/phone/for-you";
 import { PhoneQuickAdd } from "@/features/phone/phone-quick-add";
 import { PhoneInitiatives } from "@/features/phone/phone-initiatives";
+import { ItemPage } from "@/features/portfolio/item-page-client";
 import { Insights } from "@/features/phone/insights-view";
 import { PhoneTracker } from "@/features/phone/phone-tracker";
 import type { ChangeSource } from "@/features/phone/use-phone-changes";
@@ -44,6 +45,7 @@ export function HarnessPhone({ n, screen }: { n: number; screen: string }) {
     <WorkspaceProvider store={store} projects={harnessLookups.projects} canEdit canAdmin={false}>
       <div className="shell"><main className="content">{screen === "add" ? <PhoneQuickAdd controller={controller} lookups={harnessLookups} tenantId="t1" />
           : screen === "for-you" ? <ForYou controller={controller} me="u1" tenantId="t1" lookups={harnessLookups} source={new MemoryGateSource()} />
+          : screen === "item" ? <ItemPage controller={controller} lookups={harnessLookups} userId="u1" code="R-12" tenantId="t1" changeSource={changeSource} pageHref={(c) => `/dev/phone?screen=item&code=${c}`} backHref="/dev/phone" />
           : screen === "insights" ? <Insights controller={controller} lookups={harnessLookups} tenantId="t1" />
           : screen === "tracker" ? <PhoneTracker controller={controller} tenantId="t1" changeSource={changeSource} />
           : <PhoneInitiatives controller={controller} lookups={harnessLookups} me="u1" tenantId="t1" changeSource={changeSource} />}</main></div>

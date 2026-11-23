@@ -84,6 +84,38 @@ test.describe("the phone shell", () => {
   });
 });
 
+test.describe("one initiative on a phone", () => {
+  test("opens as a read-first briefing with the facts, the flags, the build and the latest changes", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await expect(page.getByRole("heading", { level: 1, name: /Initiative number 12/ })).toBeVisible();
+    await expect(page.getByTestId("item-panel")).toHaveCount(0);
+    await expect(page.locator(".briefing-pills")).toContainText("Health: Delayed");
+    await expect(page.getByRole("region", { name: "Needs attention" })).toContainText("Delivery risk");
+    const where = page.getByRole("region", { name: "Where it stands" });
+    for (const label of ["Phase", "Owner", "Planned quarter", "Gate"]) await expect(where.getByText(label, { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Build" })).toContainText("cannot be edited here");
+    const changes = page.getByRole("region", { name: "Latest changes" });
+    await expect(changes.locator("li").first()).toContainText(/Health|Linked issue/);
+    await expect(changes.locator("li").first()).toContainText("ago");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+  test("Edit details shows the full panel and Summary comes back", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await page.getByRole("button", { name: "Edit details" }).click();
+    await expect(page.getByTestId("item-panel")).toBeVisible();
+    await expect(page.locator(".briefing")).toHaveCount(0);
+    await page.getByRole("button", { name: "← Summary" }).click();
+    await expect(page.locator(".briefing")).toBeVisible();
+    await expect(page.getByTestId("item-panel")).toHaveCount(0);
+  });
+  test("passes the accessibility check", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await page.waitForSelector(".briefing");
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+});
+
 test.describe("since you last looked", () => {
   test("counts the changes, lists them for review and remembers that they were seen", async ({ page }) => {
     await page.goto("/dev/phone?n=40");
