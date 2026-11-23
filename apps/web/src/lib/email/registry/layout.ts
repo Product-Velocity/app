@@ -3,7 +3,7 @@ import { escapeHtml } from "./macros";
 /**
  * The one branded frame every product email uses (issue #370): logo, tagline, one button, footer. It lives in git and is tested.
  * Editors change the words only; links, tokens and this frame can never be edited.
- * Email clients are old: 560px table, inline CSS, system fonts, one hosted logo with alt text, no tracking.
+ * Email clients are old: 560px table, inline CSS, system fonts, one hosted logo with alt text, no tracking code of our own.
  */
 const FONT = "'IBM Plex Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif";
 /** Used only where a caller does not know the deployment address (tests, previews); real sends pass the deployment address. */
