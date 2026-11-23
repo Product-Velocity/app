@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   addToBar, BAR_FULL_MESSAGE, changeSummary, computeBar, diffViews, isCustomerSafe, layoutRowsFor, moveInBar, moveToIndex, nameProblem, refKey, removeFromBar, sameRef,
   filterOptions, needsSearch, sanitizeView, visibleTabs, BUILTIN_BAR_NAMES, type BuiltinBarName, type MenuEntry, type ViewDef, type ViewName, type ViewRef,
@@ -435,6 +435,16 @@ function MoreViews({ api, count }: { api: ViewsApi; count: number }) {
     window.addEventListener(OPEN_VIEWS_EVENT, on);
     return () => window.removeEventListener(OPEN_VIEWS_EVENT, on);
   }, []);
+  // the panel hangs from the right edge of the button; with only a few tabs the button sits near the left of the screen, so move the panel right until it is whole on screen
+  const panel = useRef<HTMLDivElement>(null);
+  const [shift, setShift] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!open) { setShift(null); return; }
+    const p = panel.current, a = ref.current;
+    if (!p || !a) return;
+    const left = p.getBoundingClientRect().left;
+    if (left < 8) setShift(8 - a.getBoundingClientRect().left);
+  }, [open]);
   const st = api.state;
   const total = st.mine.length + st.workspace.length;
   const search = needsSearch(total);
@@ -448,7 +458,7 @@ function MoreViews({ api, count }: { api: ViewsApi; count: number }) {
         {count} more {count === 1 ? "view" : "views"}{api.dirty && <span className="vm-dot" title="This view has changes you have not saved" aria-hidden="true"> ●</span>}<Chevron open={open} />
       </button>
       {open && (
-        <div id={id} className="popover-panel popover-right views-panel vm-panel" role="dialog" aria-label="Views">
+        <div ref={panel} id={id} className="popover-panel popover-right views-panel vm-panel" role="dialog" aria-label="Views" style={shift === null ? undefined : { left: shift, right: "auto" }}>
           {api.managing && <p className="panel-note" role="status">Editing the workspace default bar. People who set their own bar keep it.</p>}
           <section aria-label="Current view" className="vm-current">
             <p className="scope-head">Current view: {baseLabel(api.base, api.views)}{api.dirty ? " (changed)" : ""}</p>
