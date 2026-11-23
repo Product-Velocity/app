@@ -1,4 +1,10 @@
-# Email open and product usage tracking are allowed (Ashu, 2026-11-23)
+---
+date: 2026-11-23
+by: Ashu ("Remove that block on track. We need to track usage and email open."), recorded by Claude
+request: 634
+status: partly built, to confirm
+---
+**Email open and product usage tracking are allowed.**
 
 - Ashu: "We need to track usage and email open." The test that failed any product email containing the words "pixel" or "track" is removed; the frame still carries one hosted logo and no image of our own besides it.
 - Open tracking, when switched on, is added by the sender (Resend domain setting) at send time, not by our templates. Turning it on, receiving open events and showing them is a separate slice, not done here.
