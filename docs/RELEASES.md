@@ -4,6 +4,7 @@ The version is shown at the bottom of the account menu ("app v0.30.0 · build ab
 
 | Version | Date | Key updates | PRs |
 |---|---|---|---|
+| 1.217.2 | 2026-11-23 | <!--type:improved--> **Page header on one line.** The active project and filter pills now sit on the same line as the item count, with the count at the end ("Project: Web · Must haves · 12 initiatives"). The "scope:" wording is gone because the project pill already shows it. | #617 |
 | 1.217.1 | 2026-11-23 | <!--type:fixed--> **Fix person avatars sitting low in grid rows.** The round initials next to a person's name in the grid (Product Manager, Engineering Manager and the other people columns) are now centred in their circle and in the row. | #616 |
 | 1.217.0 | 2026-11-23 | <!--type:improved--> **One header on every page.** Grid, Gantt, Cards, Leadership, Alignment, Needs attention, Decisions and Reports now share the same header under the main tabs: the page name, its views, and one line with the item count, the scope and any page note, all in the same 13px type. The open tab is now grey as well as underlined, so it looks selected without the pointer on it. | #615 |
 | 1.216.0 | 2026-11-23 | **Column widths are saved with the view.** A column you widen or narrow now keeps its width when the grid redraws or you scroll (it used to jump back), and the width is saved with the view like columns and sorting. MoSCoW, Health and Effort start narrower, and the Effort size circle is centred in its row. Migration `20261123082059_widths_in_saved_views`. | #614 |
