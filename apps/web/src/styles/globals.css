@@ -133,7 +133,7 @@ h2 { font-size: 14px; font-weight: 600; margin: 24px 0 8px; }
 .field { display: grid; gap: 4px; }
 .field label { font-weight: 500; }
 .hint { margin: 0; color: #5b6272; font-size: 12px; }
-input:not([type="checkbox"]):not([type="hidden"]), select {
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select {
   height: var(--row-height); padding: 0 8px; border: 1px solid var(--border-strong); border-radius: 6px;
   font: inherit; background: var(--bg); color: inherit; width: 100%;
 }
@@ -1153,6 +1153,38 @@ a.scope-link:hover, a.scope-link:focus-visible { background: var(--blue-tint-2);
 .gate-dialog .gate-fast { margin-top: 10px; padding: 8px 10px; border: 1px dashed #cbdcf5; border-radius: 6px; }
 .gate-dialog .gate-list, .gate-dialog .gate-skipped { margin: 6px 0; padding-left: 18px; max-height: 160px; overflow: auto; }
 .gate-dialog .gate-count { font-weight: 600; }
+/* Gate dialogs are a column, not the full-width sheet (dialog-narrow had no rule). Decide is a little wider: it holds the four outcome cards. */
+.dialog.gate-dialog { width: min(560px, 100%); }
+.dialog.gate-decide { width: min(640px, 100%); }
+.gate-decide .dec-rows { list-style: none; margin: 0 0 10px; padding: 0; max-height: 176px; overflow: auto; border: 1px solid var(--grey-1); border-radius: 8px; }
+.gate-decide .dec-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding: 8px 12px; }
+.gate-decide .dec-row + .dec-row { border-top: 1px solid var(--grey-1); }
+.gate-decide .dec-what { min-width: 0; overflow-wrap: anywhere; }
+.gate-decide .dec-meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: #4b5260; }
+.gate-decide .dec-note { margin: 6px 0; font-size: 12px; }
+.gate-decide .dec-choices { border: 0; padding: 0; margin: 12px 0 0; min-width: 0; }
+.gate-decide .dec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.gate-decide .dec-choice { position: relative; display: grid; gap: 2px; align-content: start; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg); cursor: pointer; line-height: 1.35; }
+.gate-decide .dec-choice:hover { background: var(--grey-3); }
+.gate-decide .dec-choice input[type="radio"] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; min-height: 0; padding: 0; margin: 0; border: 0; cursor: pointer; }
+.gate-decide .dec-choice:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; }
+.gate-decide .dec-name { font-size: 14px; }
+.gate-decide .dec-name::before { content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 8px; border: 2px solid #8a93a6; border-radius: 50%; vertical-align: -1px; box-sizing: border-box; }
+.gate-decide .dec-hint { font-size: 12px; color: #4b5260; }
+.gate-decide .dec-choice.is-on { border-width: 2px; padding: 9px 11px; background: var(--blue-tint-2); border-color: var(--blue); }
+.gate-decide .dec-choice.is-on .dec-name::before { border-color: var(--blue); background: radial-gradient(circle, var(--blue) 0 3px, transparent 3.5px); }
+.gate-decide .dec-choice.tone-hold.is-on { background: #fff8e6; border-color: #b7791f; }
+.gate-decide .dec-choice.tone-hold.is-on .dec-name::before { border-color: #b7791f; background: radial-gradient(circle, #b7791f 0 3px, transparent 3.5px); }
+.gate-decide .dec-choice.tone-stop.is-on { background: var(--danger-tint); border-color: var(--danger); }
+.gate-decide .dec-choice.tone-stop.is-on .dec-name::before { border-color: var(--danger); background: radial-gradient(circle, var(--danger) 0 3px, transparent 3.5px); }
+.gate-decide .dec-effect { margin: 8px 0 12px; padding: 8px 10px; border-radius: 6px; font-size: 12.5px; background: var(--blue-tint-2); border-left: 3px solid var(--blue); }
+.gate-decide .dec-effect.tone-hold { background: #fff8e6; border-left-color: #b7791f; }
+.gate-decide .dec-effect.tone-stop { background: var(--danger-tint); border-left-color: var(--danger); }
+.gate-decide .dec-gap { margin-top: 10px; }
+.gate-decide textarea { font-family: inherit; font-size: 13px; min-height: 84px; }
+.gate-decide .dec-keys { margin-right: auto; align-self: center; font-size: 12px; }
+@media (max-width: 560px) { .gate-decide .dec-grid { grid-template-columns: 1fr; } .gate-decide .dec-keys { display: none; } }
+@media (pointer: coarse) { .gate-decide .dec-choice { min-height: 56px; } .gate-decide .dec-keys { display: none; } }
 @media (max-width: 900px) { .decisions-body { grid-template-columns: 1fr; } .decisions-pack { position: static; } }
 .ip-lifecycle { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 6px 12px; border-bottom: 1px solid var(--grey-1, #e1e5eb); font-size: 12.5px; }
 .ip-flagged { border-bottom: 1px solid var(--grey-1, #e1e5eb); background: #fffaf0; font-size: 12.5px; }

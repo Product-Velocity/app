@@ -159,6 +159,37 @@ test.describe("the Decisions screen", () => {
     await expect(dialog).toContainText("2 of 2 done");
   });
 
+  test("the Decide dialog is a compact column with four outcome cards, says what will happen, and saves with Ctrl+Enter", async ({ page }) => {
+    await openDecisions(page);
+    await pick(page, "R-01");
+    await page.getByRole("complementary", { name: "Gate pack" }).getByRole("button", { name: /^Go\b/ }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Decide 1 request" });
+    // not the full-width sheet, and the radios are not stretched across it
+    expect((await dialog.boundingBox())!.width).toBeLessThanOrEqual(641);
+    const cards = dialog.locator(".dec-choice");
+    await expect(cards).toHaveCount(4);
+    for (const c of await cards.all()) expect((await c.boundingBox())!.width).toBeLessThan(330);
+    await expect(dialog.getByRole("status").filter({ hasText: "moves to" })).toBeVisible();
+    await cards.filter({ hasText: "Stop" }).click();
+    await expect(dialog.getByRole("status").filter({ hasText: "Cancelled" })).toBeVisible();
+    await cards.filter({ hasText: /^Go Move on/ }).click();
+    await dialog.getByLabel(/Rationale/).fill("Looks right");
+    await page.keyboard.press("Control+Enter");
+    await expect(dialog).toContainText("1 of 1 done");
+    expect(await calls(page)).toContain("decide go 1");
+  });
+
+  test("a batch says so plainly, and one click selects everything you can decide", async ({ page }) => {
+    await openDecisions(page);
+    await page.getByRole("button", { name: /select all \d+ you can decide/ }).click();
+    const bar = page.getByRole("region", { name: "Decide the selected requests" });
+    await expect(bar).toContainText("selected");
+    await bar.getByRole("button", { name: /^Decide \d+…/ }).click();
+    const dialog = page.getByRole("dialog", { name: /^Decide \d+ requests$/ });
+    await expect(dialog).toContainText("Batch decision: the same outcome and rationale are saved on each");
+    await expect(dialog.getByRole("list", { name: "Requests you are deciding" }).getByRole("listitem")).not.toHaveCount(0);
+  });
+
   test("a bulk Hold opens the dialog on Hold, and a CSV of the rows can be downloaded", async ({ page }) => {
     await openDecisions(page);
     for (const id of ["r1", "r4"]) await page.locator(`[row-id="${id}"] input[type="checkbox"]`).check();
