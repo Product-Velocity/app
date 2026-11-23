@@ -8,7 +8,7 @@ const files: string[] = [];
 (function walk(dir: string) {
   for (const e of readdirSync(dir)) {
     const p = join(dir, e);
-    if (statSync(p).isDirectory()) { if (e !== "node_modules" && e !== "dev" && e !== "spikes") walk(p); } else if (p.endsWith(".tsx")) files.push(p);
+    if (statSync(p).isDirectory()) { if (e !== "node_modules" && e !== "dev") walk(p); } else if (p.endsWith(".tsx")) files.push(p);
   }
 })(root);
 

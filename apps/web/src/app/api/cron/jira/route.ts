@@ -1,3 +1,4 @@
+import { isCronRequest } from "@/lib/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkJiraLinks, pruneJiraEvents } from "@/lib/atlassian/jira-check";
 import { maintainWebhooks, webhooksEnabled } from "@/lib/atlassian/jira-webhooks-server";
@@ -17,8 +18,7 @@ const BUDGET_MS = 45_000;
 type Site = { id: string; url: string };
 
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) return new Response("forbidden", { status: 403 });
+  if (!isCronRequest(request)) return new Response("forbidden", { status: 403 });
   const started = Date.now();
   const admin = createAdminClient({ via: "system" });
   const { data: conns, error: connsError } = await admin.from("jira_connections").select("id, sites").eq("state", "connected");
