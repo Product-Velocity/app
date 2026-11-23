@@ -337,7 +337,7 @@ export const GATES_STEPS: Table = {
   head: ["Step", "Who", "What happens"],
   rows: [
     ["1. Request", "Creator or above", "Request gate A, B or C on one item or on a selection. Gate Status becomes In review. A checklist shows what is missing; it informs, it does not block."],
-    ["2. Decide", "Anyone with approval rights for that gate", "Go, Go with conditions, Hold or Stop, with an optional comment that cannot be edited later. On a phone the choices are Go, Hold and Stop, and "Add conditions" sits under Go. The first decision wins; the others see it closed. You may approve your own request."],
+    ["2. Decide", "Anyone with approval rights for that gate", "Go, Go with conditions, Hold or Stop, with an optional comment that cannot be edited later. On a phone the choices are Go, Hold and Stop, and Add conditions sits under Go. The first decision wins; the others see it closed. You may approve your own request."],
     ["3. Complete", "The app, in one step", "Records the decision, moves the phase and its start date, approves the document (gate A: discovery, gate B: PRD), sets Ready for build at gate B, and writes the audit log. Sending to GitHub or Jira still needs your confirmation."],
   ],
 };
