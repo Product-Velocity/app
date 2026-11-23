@@ -17,6 +17,7 @@ import { useWorkspace } from "../workspace/provider";
 import { RequestGateDialog } from "../gates/gate-dialogs";
 import type { GateSource } from "../gates/gate-source";
 import { ColumnPicker, ListSearch, MultiFilter, SavedViews, downloadText, usePersisted, type SavedView } from "../lists/list-kit";
+import { PageHeader } from "@/components/page-header";
 
 type Props = { controller: PortfolioController; lookups: Lookups; me: string | null; source: GateSource; pageHref?: (code: string) => string; decisionsHref?: string };
 
@@ -290,15 +291,11 @@ export function AttentionView({ controller, lookups, me, source, pageHref = (c) 
 
   return (
     <div className={`attention lst${peek ? " lst-has-peek" : ""}`}>
-      <div className="page-head">
-        <h1>Needs attention</h1>
-        <p className="muted">What to look at in the initiatives you can see, why, and the next step. These are suggestions: nothing changes until you press a button.</p>
-      </div>
-
-      <div className="lst-summary" role="status">
-        <strong>{live.length}</strong> need attention{urgentCount > 0 && <> · <span className="pill tone-bad">{urgentCount} Urgent</span></>}
-        {" "}· showing {shown.length}{snoozedCount > 0 && <> · {snoozedCount} snoozed or dismissed</>}
-      </div>
+      <PageHeader
+        title="Needs attention"
+        count={<>{live.length} need attention{urgentCount > 0 && <> · <span className="pill tone-bad">{urgentCount} Urgent</span></>}</>}
+        note={<>showing {shown.length}{snoozedCount > 0 && <> · {snoozedCount} snoozed or dismissed</>} · <span title="What to look at in the initiatives you can see, why, and the next step. These are suggestions: nothing changes until you press a button.">suggestions only: nothing changes until you press a button</span></>}
+      />
 
       <div className="lst-bar">
         <ListSearch value={choice.search} onChange={(v) => setChoice((c) => ({ ...c, search: v }))} placeholder="Search…  ( / )" label="Search Needs attention" />

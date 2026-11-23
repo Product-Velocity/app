@@ -17,6 +17,7 @@ import type { GridItem, Lookups } from "../portfolio/types";
 import { setQueryParam } from "../workspace/scope";
 import { StatusPill } from "../../components/status-pill";
 import { downloadPng, printPicture, renderGantt, type ExportLine } from "./gantt-export";
+import { PageHeader } from "@/components/page-header";
 
 const LABEL_DEFAULT = 320, LABEL_MIN = 220, LABEL_MAX = 560;
 const HEAD_H = 62;
@@ -486,12 +487,7 @@ export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
   const shiftSel = (days: number) => { const d = groupDelta(selList, days); if (d === 0) { setAnnounce("They cannot move further: the timeline window ends there."); return; } commitGroup(selList, d); };
   return (
     <div className="gantt-page">
-      <div className="gantt-toolbar page-head">
-        <h1>Gantt</h1>
-        <p className="muted gantt-count">
-          {bars.length} scheduled · {unscheduled.length} unscheduled{scope.selection.kind !== "all" ? ` · scope: ${scope.label}` : ""}{filterName ? ` · filters of “${filterName}”` : ""}
-        </p>
-      </div>
+      <PageHeader title="Gantt" count={`${bars.length} scheduled · ${unscheduled.length} unscheduled`} scope={scope.selection.kind !== "all" ? scope.label : null} note={filterName ? `filters of “${filterName}”` : null} />
 
       <div className="pvbar" role="region" aria-label="Gantt tools">
         <div className="pvbar-s1">

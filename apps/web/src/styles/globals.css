@@ -52,7 +52,7 @@ h2 { font-size: 14px; font-weight: 600; margin: 24px 0 8px; }
 .tabs { display: flex; gap: 2px; flex-wrap: wrap; margin-left: 8px; }
 .tab { padding: 13px 10px; color: #111827; text-decoration: none; border-bottom: 2px solid transparent; }
 .tab:hover:not(.tab-later) { background: var(--grey-3); }
-.tab-active { font-weight: 500; border-bottom-color: var(--blue); }
+.tab-active { font-weight: 500; border-bottom-color: var(--blue); background: var(--grey-3); } /* the same grey as hover, so the open tab looks selected without the pointer on it */
 .tab-later { color: #6b7280; cursor: default; }
 .account { position: relative; }
 .topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
@@ -511,6 +511,8 @@ input.sw-input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2
 .gantt-page { display: grid; gap: 8px; }
 .gantt-toolbar { align-items: center; }
 .gantt-count { margin: 0; }
+.page-meta { flex: 0 0 100%; margin: 0; font-size: 13px; }
+.head-row-solo h1::after { content: none; }
 .gantt-tools { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-left: auto; }
 .gantt-tools label { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: #3c4254; }
 .gantt-tools select { width: auto; min-width: 120px; }
