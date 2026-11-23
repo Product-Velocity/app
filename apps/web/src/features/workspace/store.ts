@@ -1,10 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { BAR_FULL_MESSAGE, BAR_MAX, CORE_COLUMN_KEYS, FIELD_BY_KEY, PRIVATE_VIEW_CAP, normalizeWidths, sanitizeView, type BuiltinBarName, type LayoutRow, type ViewDef, type ViewName } from "@pv/domain";
+import { BAR_FULL_MESSAGE, BAR_MAX, CORE_COLUMN_KEYS, FIELD_BY_KEY, PRIVATE_VIEW_CAP, VIEW_PAGES, isViewPage, normalizeWidths, sanitizeView, type BuiltinBarName, type LayoutRow, type ViewDef, type ViewName, type ViewPage } from "@pv/domain";
 
 export type Scope = { id: string; name: string; projectIds: string[] };
 /** `baseView` is set on a customised default view (it replaces the built-in view of that name until restored). */
-export type SavedView = { id: string; name: string; baseView?: ViewName | null; /** null or missing = a workspace view (everyone reads it, admins write it); else the person who owns this private view. */ ownerId?: string | null } & ViewDef;
-export type Layouts = { workspace: LayoutRow[]; mine: LayoutRow[] };
+export type SavedView = { id: string; name: string; baseView?: ViewName | null; /** The page the view was saved on, shown as a tag (missing: saved before pages were recorded). */ madeOn?: ViewPage | null; /** null or missing = a workspace view (everyone reads it, admins write it); else the person who owns this private view. */ ownerId?: string | null } & ViewDef;
+/** The bar of each page: the workspace default and the signed-in person's own layout. */
+export type Layouts = Record<ViewPage, { workspace: LayoutRow[]; mine: LayoutRow[] }>;
+export const emptyLayouts = (): Layouts => ({ grid: { workspace: [], mine: [] }, cards: { workspace: [], mine: [] }, gantt: { workspace: [], mine: [] } });
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
 /** Saved scopes (which projects the roadmap shows) and saved views (columns, filters, grouping). */
@@ -21,32 +23,32 @@ export interface WorkspaceStore {
   /** The workspace views plus the signed-in person's own private views (the database never returns anyone else's). */
   listViews(): Promise<SavedView[]>;
   /** Private to the signed-in person unless `workspace` is set (admins only). */
-  createView(name: string, def: ViewDef, opts?: { workspace?: boolean }): Promise<Result<SavedView>>;
+  createView(name: string, def: ViewDef, opts?: { workspace?: boolean; /** The page it is saved on. */ page?: ViewPage }): Promise<Result<SavedView>>;
   updateView(id: string, patch: { name?: string } & Partial<ViewDef>): Promise<Result<SavedView>>;
   deleteView(id: string): Promise<Result<null>>;
   /** Admins: publish their own private view to the workspace, or take a workspace view back to private. */
   setViewScope(id: string, workspace: boolean): Promise<Result<SavedView>>;
-  /** The bar: the workspace default and the signed-in person's own layout. */
+  /** The bar of every page: the workspace default and the signed-in person's own layout. */
   listLayouts(): Promise<Layouts>;
   /** Replaces the whole layout in one step. An empty list removes it (the person follows the workspace again). */
-  replaceLayout(workspace: boolean, rows: LayoutRow[]): Promise<Result<null>>;
+  replaceLayout(workspace: boolean, rows: LayoutRow[], page?: ViewPage): Promise<Result<null>>;
   /** Customise a built-in default view for the whole workspace (creates or replaces the override). */
   saveDefaultView(name: ViewName, def: ViewDef): Promise<Result<SavedView>>;
   /** Back to the built-in default (deletes the override). */
   restoreDefaultView(name: ViewName): Promise<Result<null>>;
 }
 
-const VIEW_COLUMNS = "id,name,columns,filters,group_by,then_by,show_issues,issue_types,issues_hide_done,base_view,customer_safe,pinned,pins_explicit,owner_id,sort,widths,gantt";
+const VIEW_COLUMNS = "id,name,columns,filters,group_by,then_by,show_issues,issue_types,issues_hide_done,base_view,customer_safe,pinned,pins_explicit,owner_id,sort,widths,gantt,made_on";
 /** The second grouping level and "show issues" as columns: written only when set on a new view (the database default is none), always on a change so a cleared one is cleared. */
 const groupingInsert = (c: ViewDef) => ({ ...(c.thenBy ? { then_by: c.thenBy } : {}), ...(c.showIssues ? { show_issues: true } : {}), ...(c.issueTypes?.length ? { issue_types: c.issueTypes } : {}), ...(c.hideDoneIssues ? { issues_hide_done: true } : {}) });
 const groupingUpdate = (c: ViewDef) => ({ then_by: c.thenBy ?? null, show_issues: c.showIssues === true, issue_types: c.issueTypes?.length ? c.issueTypes : null, issues_hide_done: c.hideDoneIssues === true });
-type ViewRow = { id: string; name: string; columns: string[]; filters: unknown; group_by: string | null; then_by?: string | null; show_issues?: boolean | null; issue_types?: string[] | null; issues_hide_done?: boolean | null; base_view: string | null; customer_safe: boolean; pinned?: string[] | null; /** false: an older row whose list holds only the locks besides rank, ID and name */ pins_explicit?: boolean | null; owner_id?: string | null; sort?: unknown; widths?: unknown; gantt?: unknown };
+type ViewRow = { id: string; name: string; columns: string[]; filters: unknown; group_by: string | null; then_by?: string | null; show_issues?: boolean | null; issue_types?: string[] | null; issues_hide_done?: boolean | null; base_view: string | null; customer_safe: boolean; pinned?: string[] | null; /** false: an older row whose list holds only the locks besides rank, ID and name */ pins_explicit?: boolean | null; owner_id?: string | null; sort?: unknown; widths?: unknown; gantt?: unknown; made_on?: string | null };
 const fromRow = (r: ViewRow): SavedView => ({
-  id: r.id, name: r.name, baseView: (r.base_view as ViewName | null) ?? null, ownerId: r.owner_id ?? null,
+  id: r.id, name: r.name, baseView: (r.base_view as ViewName | null) ?? null, ownerId: r.owner_id ?? null, madeOn: isViewPage(r.made_on) ? r.made_on : null,
   ...sanitizeView({ columns: r.columns, filters: r.filters, groupBy: r.group_by, thenBy: r.then_by, showIssues: r.show_issues === true, issueTypes: r.issue_types ?? undefined, hideDoneIssues: r.issues_hide_done === true, customerSafe: r.customer_safe, pinned: r.pins_explicit ? r.pinned ?? [] : [...CORE_COLUMN_KEYS, ...(r.pinned ?? [])], sort: r.sort, widths: r.widths, gantt: r.gantt }),
 });
 
-type LayoutDbRow = { user_id: string | null; view_id: string | null; builtin: string | null; in_bar: boolean; position: number; hidden: boolean };
+type LayoutDbRow = { page?: string; user_id: string | null; view_id: string | null; builtin: string | null; in_bar: boolean; position: number; hidden: boolean };
 const layoutFromRow = (r: LayoutDbRow): LayoutRow => ({
   ref: r.view_id ? { kind: "saved", id: r.view_id } : { kind: "builtin", name: r.builtin as BuiltinBarName },
   inBar: r.in_bar, position: r.position, ...(r.hidden ? { hidden: true } : {}),
@@ -156,7 +158,7 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
     return ((data ?? []) as ViewRow[]).map(fromRow);
   }
 
-  async createView(name: string, def: ViewDef, opts: { workspace?: boolean } = {}): Promise<Result<SavedView>> {
+  async createView(name: string, def: ViewDef, opts: { workspace?: boolean; page?: ViewPage } = {}): Promise<Result<SavedView>> {
     const n = validName(name, 80);
     if (!n) return { ok: false, error: "Give the view a name (up to 80 characters)." };
     const workspace = opts.workspace === true;
@@ -165,13 +167,13 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
     const { data, error } = await this.client
       .from("saved_views")
       .insert({
-        tenant_id: this.tenantId, name: n, columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, ...groupingInsert(clean), customer_safe: clean.customerSafe === true, pinned: clean.pinned ?? [], pins_explicit: true, sort: clean.sort ?? null, ...(clean.widths ? { widths: clean.widths } : {}), ...(clean.gantt ? { gantt: clean.gantt } : {}),
+        tenant_id: this.tenantId, name: n, columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, ...groupingInsert(clean), customer_safe: clean.customerSafe === true, pinned: clean.pinned ?? [], pins_explicit: true, sort: clean.sort ?? null, ...(clean.widths ? { widths: clean.widths } : {}), ...(clean.gantt ? { gantt: clean.gantt } : {}), ...(opts.page ? { made_on: opts.page } : {}),
         ...(workspace ? { visibility: "workspace", owner_id: null } : { visibility: "private", owner_id: this.userId }),
       })
       .select("id")
       .single();
     if (error || !data) return { ok: false, error: friendly(error, "view", n) };
-    return { ok: true, value: { id: data.id, name: n, baseView: null, ownerId: workspace ? null : this.userId, ...clean } };
+    return { ok: true, value: { id: data.id, name: n, baseView: null, ownerId: workspace ? null : this.userId, madeOn: opts.page ?? null, ...clean } };
   }
 
   async setViewScope(id: string, workspace: boolean): Promise<Result<SavedView>> {
@@ -185,15 +187,19 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
   }
 
   async listLayouts(): Promise<Layouts> {
-    const { data, error } = await this.client.from("view_layouts").select("user_id,view_id,builtin,in_bar,position,hidden").eq("tenant_id", this.tenantId).order("position");
+    const { data, error } = await this.client.from("view_layouts").select("page,user_id,view_id,builtin,in_bar,position,hidden").eq("tenant_id", this.tenantId).order("position");
     if (error) throw new Error(friendly(error, "layout"));
-    const rows = (data ?? []) as LayoutDbRow[];
-    return { workspace: rows.filter((r) => r.user_id === null).map(layoutFromRow), mine: rows.filter((r) => r.user_id !== null).map(layoutFromRow) };
+    const out = emptyLayouts();
+    for (const r of (data ?? []) as LayoutDbRow[]) {
+      const page = isViewPage(r.page) ? r.page : "grid"; // a row from before pages existed is the Grid's
+      out[page][r.user_id === null ? "workspace" : "mine"].push(layoutFromRow(r));
+    }
+    return out;
   }
 
-  async replaceLayout(workspace: boolean, rows: LayoutRow[]): Promise<Result<null>> {
+  async replaceLayout(workspace: boolean, rows: LayoutRow[], page: ViewPage = "grid"): Promise<Result<null>> {
     if (rows.filter((r) => r.inBar).length > BAR_MAX) return { ok: false, error: BAR_FULL_MESSAGE };
-    const { error } = await this.client.rpc("replace_view_layout", { p_tenant: this.tenantId, p_workspace: workspace, p_rows: rows.map(layoutToJson) });
+    const { error } = await this.client.rpc("replace_view_layout", { p_tenant: this.tenantId, p_workspace: workspace, p_rows: rows.map(layoutToJson), p_page: page });
     return error ? { ok: false, error: friendly(error, "layout") } : { ok: true, value: null };
   }
 
@@ -257,7 +263,7 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
   /** Make the next write fail with this message. */
   failWith: string | null = null;
   private n = 0;
-  /** Layout rows by person: "" is the workspace default. */
+  /** Layout rows by page and person: "" is the workspace default, e.g. "gantt|me". */
   layouts: Record<string, LayoutRow[]> = {};
   /** The signed-in person. Admins write workspace views; everyone writes their own private ones. */
   me = "me";
@@ -291,13 +297,18 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
   }
   async listScopes() { return this.scopes.map((s) => ({ ...s })); }
   async listViews() { return this.visible().map((v) => ({ ...v })); }
-  async listLayouts(): Promise<Layouts> { return { workspace: [...(this.layouts[""] ?? [])], mine: [...(this.layouts[this.me] ?? [])] }; }
-  async replaceLayout(workspace: boolean, rows: LayoutRow[]): Promise<Result<null>> {
+  async listLayouts(): Promise<Layouts> {
+    const out = emptyLayouts();
+    for (const p of VIEW_PAGES) out[p] = { workspace: [...(this.layouts[`${p}|`] ?? [])], mine: [...(this.layouts[`${p}|${this.me}`] ?? [])] };
+    return out;
+  }
+  async replaceLayout(workspace: boolean, rows: LayoutRow[], page: ViewPage = "grid"): Promise<Result<null>> {
     const f = this.fail<null>(); if (f) return f;
     if (workspace && !this.admin) return { ok: false, error: "You do not have permission to change layouts." };
     if (rows.filter((r) => r.inBar).length > BAR_MAX) return { ok: false, error: BAR_FULL_MESSAGE };
-    this.layouts[workspace ? "" : this.me] = rows.map((r, i) => ({ ...r, position: i }));
-    if (rows.length === 0) delete this.layouts[workspace ? "" : this.me];
+    const key = `${page}|${workspace ? "" : this.me}`;
+    this.layouts[key] = rows.map((r, i) => ({ ...r, position: i }));
+    if (rows.length === 0) delete this.layouts[key];
     return { ok: true, value: null };
   }
   async createScope(name: string, projectIds: string[]): Promise<Result<Scope>> {
@@ -324,7 +335,7 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
     this.scopes = this.scopes.filter((x) => x.id !== id);
     return { ok: true, value: null };
   }
-  async createView(name: string, def: ViewDef, opts: { workspace?: boolean } = {}): Promise<Result<SavedView>> {
+  async createView(name: string, def: ViewDef, opts: { workspace?: boolean; page?: ViewPage } = {}): Promise<Result<SavedView>> {
     const f = this.fail<SavedView>(); if (f) return f;
     const nm = validName(name, 80); if (!nm) return { ok: false, error: "Give the view a name (up to 80 characters)." };
     const workspace = opts.workspace === true;
@@ -332,7 +343,7 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
     const owner = workspace ? null : this.me;
     const d = this.dup(this.views.filter((v) => v.ownerId === owner), nm, "view"); if (d) return d;
     const capped = this.capProblem(owner); if (capped) return { ok: false, error: capped };
-    const v: SavedView = { id: `view-${++this.n}`, name: nm, baseView: null, ownerId: owner, ...sanitizeView(workspace ? def : { ...def, customerSafe: false }) };
+    const v: SavedView = { id: `view-${++this.n}`, name: nm, baseView: null, ownerId: owner, madeOn: opts.page ?? null, ...sanitizeView(workspace ? def : { ...def, customerSafe: false }) };
     this.views.push(v);
     return { ok: true, value: { ...v } };
   }

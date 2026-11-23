@@ -55,6 +55,7 @@ The Gantt has the same view bar as the Grid and Cards, in the same header.
 - **A view keeps** its filters, Group by, Then by, zoom and row height (`saved_views.gantt`, a jsonb object; migration `20261123140000_gantt_settings_in_saved_views.sql`). Search and the name-column width are not part of a view.
 - Change anything and the views menu shows a dot and "timeline settings" among the changes; **Save as new view** (private, or workspace for admins), **Update** and **Reset changes** work as in the Grid. Rename, duplicate, delete, show in bar and order are the same menu.
 - A view saved in the Grid or in Cards also opens here: its filters apply and the Gantt's own settings fall back to Month, Initiative Group then project, and the row height the person last chose.
+- **The views panel** (shared with the Grid and Cards, issue #625): My bar / Workspace bar switch for admins, the open view and its actions pinned at the top, "In your bar" as a list you drag to reorder, then the other views with Add to bar. **Each page has its own bar**: reordering or hiding on the Gantt does not change the Grid or Cards. A view made on another page shows its page as a tag.
 - The old "Filters of" list is gone: the view bar replaced it. Older links with `zoom`, `g1`, `g2` still work.
 
 Not built: a Timeline section in the item panel, mobile layout, tracker "blocked by" arrows.

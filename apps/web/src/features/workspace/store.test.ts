@@ -82,7 +82,7 @@ describe("SupabaseWorkspaceStore: views", () => {
   it("lists views and cleans what it reads", async () => {
     const { client } = fake([{ data: [{ id: "v1", name: "Planning", columns: ["moscow", "nope"], filters: [{ field: "nope", op: "is" }], group_by: "bogus" }] }]);
     expect(await new SupabaseWorkspaceStore(client, "t1").listViews()).toEqual([
-      { id: "v1", name: "Planning", baseView: null, ownerId: null, columns: ["stack_rank", "item_code", "initiative_name", "moscow"], filters: [], groupBy: null, pinned: locked },
+      { id: "v1", name: "Planning", baseView: null, ownerId: null, madeOn: null, columns: ["stack_rank", "item_code", "initiative_name", "moscow"], filters: [], groupBy: null, pinned: locked },
     ]);
   });
   it("reads locked columns: an older row lists only the extra locks, a newer one lists them all", async () => {
@@ -99,7 +99,7 @@ describe("SupabaseWorkspaceStore: views", () => {
   it("creates a view with its columns, filters and grouping", async () => {
     const { client, calls } = fake([{ data: { id: "v2" } }]);
     const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView(" My view ", def);
-    expect(r).toEqual({ ok: true, value: { id: "v2", name: "My view", baseView: null, ownerId: "u1", ...def, pinned: locked } });
+    expect(r).toEqual({ ok: true, value: { id: "v2", name: "My view", baseView: null, ownerId: "u1", madeOn: null, ...def, pinned: locked } });
     expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "My view", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: locked, pins_explicit: true, sort: null, visibility: "private", owner_id: "u1" })).toBe(true);
   });
   it("creates a workspace view only when asked, with no owner and its sort", async () => {
@@ -212,13 +212,16 @@ describe("MemoryWorkspaceStore", () => {
 describe("layouts", () => {
   it("reads the workspace default and the person's own rows, in order", async () => {
     const { client, calls } = fake([{ data: [
-      { user_id: null, view_id: null, builtin: "Timeline", in_bar: true, position: 0, hidden: false },
-      { user_id: null, view_id: null, builtin: "History", in_bar: false, position: 1, hidden: true },
-      { user_id: "u1", view_id: "v1", builtin: null, in_bar: true, position: 0, hidden: false },
+      { page: "grid", user_id: null, view_id: null, builtin: "Timeline", in_bar: true, position: 0, hidden: false },
+      { page: "grid", user_id: null, view_id: null, builtin: "History", in_bar: false, position: 1, hidden: true },
+      { page: "grid", user_id: "u1", view_id: "v1", builtin: null, in_bar: true, position: 0, hidden: false },
+      { page: "gantt", user_id: "u1", view_id: null, builtin: "Delivery", in_bar: true, position: 0, hidden: false },
     ] }]);
     const l = await new SupabaseWorkspaceStore(client, "t1", "u1").listLayouts();
-    expect(l.workspace).toEqual([{ ref: { kind: "builtin", name: "Timeline" }, inBar: true, position: 0 }, { ref: { kind: "builtin", name: "History" }, inBar: false, position: 1, hidden: true }]);
-    expect(l.mine).toEqual([{ ref: { kind: "saved", id: "v1" }, inBar: true, position: 0 }]);
+    expect(l.grid.workspace).toEqual([{ ref: { kind: "builtin", name: "Timeline" }, inBar: true, position: 0 }, { ref: { kind: "builtin", name: "History" }, inBar: false, position: 1, hidden: true }]);
+    expect(l.grid.mine).toEqual([{ ref: { kind: "saved", id: "v1" }, inBar: true, position: 0 }]);
+    expect(l.gantt.mine).toEqual([{ ref: { kind: "builtin", name: "Delivery" }, inBar: true, position: 0 }]); // each page has its own bar
+    expect(l.cards).toEqual({ workspace: [], mine: [] });
     expect(has(calls[0]!, "eq", "tenant_id", "t1")).toBe(true);
   });
   it("replaces a layout in one database call and refuses a seventh view before asking", async () => {
@@ -228,7 +231,7 @@ describe("layouts", () => {
     expect(rpcs).toEqual([{ name: "replace_view_layout", args: { p_tenant: "t1", p_workspace: false, p_rows: [
       { view_id: null, builtin: "Planning", in_bar: true, position: 0, hidden: false },
       { view_id: "v1", builtin: null, in_bar: false, position: 1, hidden: false },
-    ] } }]);
+    ], p_page: "grid" } }]);
     const seven = ["Prioritisation", "Planning", "Delivery", "Go-to-market", "Outcomes", "Leadership", "Discovery"].map((name, position) => ({ ref: { kind: "builtin" as const, name: name as never }, inBar: true, position }));
     expect(await s.replaceLayout(false, seven)).toEqual({ ok: false, error: "Your bar is full (6). Remove one first." });
     expect(rpcs).toHaveLength(1); // the seventh never reached the database
@@ -269,14 +272,14 @@ describe("memory store: ownership, caps and layouts", () => {
     const s = mk(false);
     const row = { ref: { kind: "saved" as const, id: "w1" }, inBar: true, position: 0 };
     expect(await s.replaceLayout(false, [row])).toEqual({ ok: true, value: null });
-    expect((await s.listLayouts()).mine).toHaveLength(1);
+    expect((await s.listLayouts()).grid.mine).toHaveLength(1);
     expect(await s.replaceLayout(true, [row])).toMatchObject({ ok: false });
     await s.replaceLayout(false, []);
-    expect((await s.listLayouts()).mine).toHaveLength(0);
+    expect((await s.listLayouts()).grid.mine).toHaveLength(0);
     const a = mk(true);
     await a.replaceLayout(false, [row]);
     await a.deleteView("w1");
-    expect((await a.listLayouts()).mine).toHaveLength(0);
+    expect((await a.listLayouts()).grid.mine).toHaveLength(0);
   });
 });
 
@@ -421,5 +424,37 @@ describe("Gantt settings saved with a view (issue #622)", () => {
     expect((await s.listViews())[0]!.gantt).toEqual(gantt);
     await s.updateView(v.value.id, { gantt: { ...gantt, zoom: "year" } });
     expect((await s.listViews())[0]!.gantt?.zoom).toBe("year");
+  });
+});
+
+describe("a view bar per page (issue #625)", () => {
+  const row = (name: string) => ({ ref: { kind: "builtin" as const, name: name as never }, inBar: true, position: 0 });
+  it("the database call names the page", async () => {
+    const { client, rpcs } = fake([{}]);
+    await new SupabaseWorkspaceStore(client, "t1", "u1").replaceLayout(true, [row("Planning")], "gantt");
+    expect(rpcs[0]).toMatchObject({ name: "replace_view_layout", args: { p_workspace: true, p_page: "gantt" } });
+  });
+  it("the in-memory store keeps one layout per page and person", async () => {
+    const s = new MemoryWorkspaceStore({ me: "u1", admin: true });
+    await s.replaceLayout(false, [row("Planning")], "gantt");
+    await s.replaceLayout(false, [row("Delivery")], "cards");
+    const l = await s.listLayouts();
+    expect(l.gantt.mine.map((r) => (r.ref as { name: string }).name)).toEqual(["Planning"]);
+    expect(l.cards.mine.map((r) => (r.ref as { name: string }).name)).toEqual(["Delivery"]);
+    expect(l.grid.mine).toEqual([]);
+    await s.replaceLayout(false, [], "gantt");
+    expect((await s.listLayouts()).gantt.mine).toEqual([]);
+    expect((await s.listLayouts()).cards.mine).toHaveLength(1);
+  });
+  it("a view remembers the page it was saved on, when it is read back and in memory", async () => {
+    const { client, calls } = fake([{ data: { id: "m1" } }]);
+    const r = await new SupabaseWorkspaceStore(client, "t1", "u1").createView("On cards", def, { page: "cards" });
+    expect(r).toMatchObject({ ok: true, value: { madeOn: "cards" } });
+    expect(has(calls[0]!, "insert", { tenant_id: "t1", name: "On cards", columns: def.columns, filters: def.filters, group_by: "health", customer_safe: false, pinned: locked, pins_explicit: true, sort: null, made_on: "cards", visibility: "private", owner_id: "u1" })).toBe(true);
+    const a = fake([{ data: [{ id: "m1", name: "On cards", columns: def.columns, filters: [], group_by: null, base_view: null, customer_safe: false, made_on: "reports" }] }]);
+    expect((await new SupabaseWorkspaceStore(a.client, "t1", "u1").listViews())[0]!.madeOn).toBeNull(); // an unknown page is no page
+    const m = new MemoryWorkspaceStore({ me: "u1" });
+    await m.createView("V", def, { page: "gantt" });
+    expect((await m.listViews())[0]!.madeOn).toBe("gantt");
   });
 });

@@ -117,7 +117,7 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
   const clearColumns = () => setColOverrides((p) => { const n = { ...p }; delete n[viewKey]; return n; });
   const resetChanges = () => { setShared({}); clearColumns(); setQueryParam("lane", null); };
   const viewsApi = useViews({
-    base, def, bDef, dirty, openBase: openBaseRaw, discard: clearColumns, reset: resetChanges,
+    page: "cards", base, def, bDef, dirty, openBase: openBaseRaw, discard: clearColumns, reset: resetChanges,
     builtins: CARDS_VIEW_NAMES, defaultBar: CARDS_VIEW_NAMES, builtinDefs: CARDS_DEFAULT_VIEWS,
   });
 

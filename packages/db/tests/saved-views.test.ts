@@ -459,3 +459,35 @@ describe("Gantt settings in a view (20261123140000)", () => {
     expect((await db.asUser(f.bob, (q) => q("update public.saved_views set gantt = null where id = $1", [id]), { commit: true })).rowCount).toBe(0);
   });
 });
+
+describe("a view bar per page (20261123160000)", () => {
+  const rpc = (user: string, workspace: boolean, rows: unknown[], page?: string) =>
+    db.asUser(user, (q) => (page ? q("select public.replace_view_layout($1, $2, $3::jsonb, $4)", [f.tenantA, workspace, JSON.stringify(rows), page]) : q("select public.replace_view_layout($1, $2, $3::jsonb)", [f.tenantA, workspace, JSON.stringify(rows)])), { commit: true, via: "UI" });
+  const mineOn = async (user: string, page: string) => (await db.asUser(user, (q) => q("select builtin from public.view_layouts where tenant_id = $1 and user_id is not null and page = $2 order by position", [f.tenantA, page]))).rows.map((r) => r.builtin);
+  it("replacing one page's layout leaves the other pages alone; the old three-argument call still writes the Grid's", async () => {
+    await rpc(f.alice, false, [{ builtin: "Planning", position: 0 }, { builtin: "Delivery", position: 1 }], "gantt");
+    await rpc(f.alice, false, [{ builtin: "Delivery", position: 0 }], "cards");
+    expect(await mineOn(f.alice, "gantt")).toEqual(["Planning", "Delivery"]);
+    await rpc(f.alice, false, [{ builtin: "Delivery", position: 0 }, { builtin: "Planning", position: 1 }], "gantt");
+    expect(await mineOn(f.alice, "gantt")).toEqual(["Delivery", "Planning"]);
+    expect(await mineOn(f.alice, "cards")).toEqual(["Delivery"]);
+    await rpc(f.alice, false, [{ builtin: "Outcomes", position: 0 }]);
+    expect(await mineOn(f.alice, "grid")).toEqual(["Outcomes"]);
+    expect(await mineOn(f.alice, "gantt")).toEqual(["Delivery", "Planning"]);
+    await rpc(f.alice, false, [], "gantt");
+    expect(await mineOn(f.alice, "gantt")).toEqual([]);
+    expect(await mineOn(f.alice, "cards")).toEqual(["Delivery"]);
+  });
+  it("refuses an unknown page, and a page outside the three is refused by the table too", async () => {
+    expect(await errorCode(rpc(f.alice, false, [], "reports"))).toBe(CHECK);
+    expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.view_layouts (tenant_id, user_id, builtin, position, page) values ($1, $2, 'Planning', 0, 'reports')", [f.tenantA, f.alice]), { commit: true }))).toBe(CHECK);
+  });
+  it("a view remembers the page it was saved on; only the three pages are allowed; another tenant cannot read the layouts (RLS unchanged)", async () => {
+    await db.asUser(admin2, (q) => q("delete from public.saved_views where tenant_id = $1", [f.tenantA]), { commit: true, via: "UI" });
+    const ok = await db.asUser(f.alice, (q) => q("insert into public.saved_views (tenant_id, name, columns, made_on) values ($1, 'On gantt', array['item_code'], 'gantt') returning made_on", [f.tenantA]), { commit: true });
+    expect(ok.rows[0].made_on).toBe("gantt");
+    expect(await errorCode(db.asUser(f.alice, (q) => q("insert into public.saved_views (tenant_id, name, columns, made_on) values ($1, 'Bad page', array['item_code'], 'reports')", [f.tenantA]), { commit: true }))).toBe(CHECK);
+    await rpc(f.alice, false, [{ builtin: "Planning", position: 0 }], "gantt");
+    expect((await db.asUser(f.bob, (q) => q("select 1 from public.view_layouts where tenant_id = $1", [f.tenantA]))).rowCount).toBe(0);
+  });
+});

@@ -5,6 +5,12 @@ import { normalizeSorts } from "./views";
 export const BUILTIN_BAR_NAMES = [...VIEW_NAMES, "All columns"] as const;
 export type BuiltinBarName = (typeof BUILTIN_BAR_NAMES)[number];
 
+/** The pages that have a view bar, each with its own layout (issue #625). */
+export const VIEW_PAGES = ["grid", "cards", "gantt"] as const;
+export type ViewPage = (typeof VIEW_PAGES)[number];
+export const PAGE_LABEL: Record<ViewPage, string> = { grid: "Grid", cards: "Cards", gantt: "Gantt" };
+export const isViewPage = (v: unknown): v is ViewPage => typeof v === "string" && (VIEW_PAGES as readonly string[]).includes(v);
+
 /** The bar holds at most this many views; the rest live in the "N more views" menu. */
 export const BAR_MAX = 6;
 /** The workspace default bar when an admin has not changed it: the first six built-ins. */
@@ -23,9 +29,9 @@ export const sameRef = (a: ViewRef, b: ViewRef) => refKey(a) === refKey(b);
 export type LayoutRow = { ref: ViewRef; inBar: boolean; position: number; hidden?: boolean };
 
 /** A saved view as far as the bar needs to know it. `ownerId` null = workspace view. */
-export type BarView = { id: string; name: string; ownerId?: string | null; baseView?: string | null };
+export type BarView = { id: string; name: string; ownerId?: string | null; baseView?: string | null; /** The page the view was saved on (null: unknown). */ madeOn?: ViewPage | null };
 
-export type MenuEntry = { ref: ViewRef; name: string; scope: "workspace" | "private"; inBar: boolean; isNew: boolean; builtin: boolean };
+export type MenuEntry = { ref: ViewRef; name: string; scope: "workspace" | "private"; inBar: boolean; isNew: boolean; builtin: boolean; madeOn?: ViewPage | null };
 export type BarState = {
   /** The tabs, in order (at most six). */
   bar: ViewRef[];
@@ -60,7 +66,7 @@ export function computeBar(input: { views: readonly BarView[]; workspaceLayout: 
     const ref: ViewRef = { kind: "saved", id: v.id };
     const owner = v.ownerId ?? null;
     if (owner !== null && owner !== me) continue; // never someone else's private view
-    known.set(refKey(ref), { ref, name: v.name, scope: owner === null ? "workspace" : "private", inBar: false, isNew: false, builtin: false });
+    known.set(refKey(ref), { ref, name: v.name, scope: owner === null ? "workspace" : "private", inBar: false, isNew: false, builtin: false, madeOn: v.madeOn ?? null });
   }
   const visible = (r: LayoutRow) => known.has(refKey(r.ref)) && !hiddenKeys.has(refKey(r.ref));
   const mineRows = myLayout.filter((r) => known.has(refKey(r.ref)));

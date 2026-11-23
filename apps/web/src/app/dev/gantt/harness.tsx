@@ -12,7 +12,7 @@ export function HarnessGantt({ n, role }: { n: number; role: string }) {
   const store = useMemo(() => Object.assign(new MemoryWorkspaceStore({
     me: "u1", admin: role === "admin",
     scopes: [{ id: "scope-a", name: "Marketplace and Platform", projectIds: ["p1", "p2"] }, { id: "scope-b", name: "Customer-facing work", projectIds: ["p3"] }],
-    views: [{ id: "view-must", name: "Must haves", columns: ["stack_rank", "item_code", "initiative_name"], filters: [{ field: "moscow", op: "is", value: "Must" }], groupBy: null }],
+    views: [{ id: "view-must", name: "Must haves", madeOn: "cards", columns: ["stack_rank", "item_code", "initiative_name"], filters: [{ field: "moscow", op: "is", value: "Must" }], groupBy: null }],
   }), { projects: harnessLookups.projects }), [role]);
   useEffect(() => { (window as unknown as { __pv: unknown }).__pv = { controller, source, store }; }, [controller, source, store]);
   return (

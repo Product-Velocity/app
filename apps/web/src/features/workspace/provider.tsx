@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/browser";
-import { SupabaseWorkspaceStore, type Layouts, type Project, type SavedView, type Scope, type WorkspaceStore } from "./store";
+import { SupabaseWorkspaceStore, emptyLayouts, type Layouts, type Project, type SavedView, type Scope, type WorkspaceStore } from "./store";
 import type { ViewName } from "@pv/domain";
 
 export type WorkspaceProject = Project;
@@ -11,7 +11,7 @@ type Ctx = {
   projects: WorkspaceProject[];
   scopes: Scope[];
   views: SavedView[];
-  /** The Roadmap view bar: the workspace default and the signed-in person's own layout. */
+  /** The view bar of each page: the workspace default and the signed-in person's own layout. */
   layouts: Layouts;
   /** The signed-in person (owner of their private views); null only before sign-in is known. */
   userId: string | null;
@@ -42,7 +42,7 @@ export function WorkspaceProvider({ store, projects: initialProjects, canEdit, c
   const [allViews, setAllViews] = useState<SavedView[]>([]);
   const views = useMemo(() => allViews.filter((v) => !v.baseView), [allViews]);
   const defaults = useMemo(() => Object.fromEntries(allViews.filter((v) => v.baseView).map((v) => [v.baseView!, v])) as Partial<Record<ViewName, SavedView>>, [allViews]);
-  const [layouts, setLayouts] = useState<Layouts>({ workspace: [], mine: [] });
+  const [layouts, setLayouts] = useState<Layouts>(emptyLayouts());
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

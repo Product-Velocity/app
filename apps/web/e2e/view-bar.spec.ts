@@ -39,8 +39,8 @@ test.describe("the view bar (R-98)", () => {
     await moreBtn(page).click();
     await expect(menu(page).getByRole("region", { name: "Workspace views" })).toBeVisible();
     await expect(menu(page).getByRole("region", { name: "My views" })).toHaveCount(0);
-    await expect(rowOf(page, "Discovery").getByRole("button", { name: "Show in bar" })).toBeVisible();
-    await expect(rowOf(page, "Planning").getByRole("button", { name: "In bar" })).toHaveAttribute("aria-pressed", "true");
+    await expect(rowOf(page, "Discovery").getByRole("button", { name: "Add Discovery to the bar" })).toBeVisible();
+    await expect(rowOf(page, "Planning").getByRole("button", { name: "Remove Planning from the bar" })).toBeVisible();
     await expect(rowOf(page, "Planning")).toContainText("workspace");
   });
 
@@ -50,13 +50,13 @@ test.describe("the view bar (R-98)", () => {
     await page.keyboard.press("Enter");
     await expect(menu(page)).toBeVisible();
     // make room, then add Timeline with the keyboard
-    await rowOf(page, "Outcomes").getByRole("button", { name: "In bar" }).focus();
+    await rowOf(page, "Outcomes").getByRole("button", { name: "Remove Outcomes from the bar" }).focus();
     await page.keyboard.press("Enter");
-    await rowOf(page, "Timeline").getByRole("button", { name: "Show in bar" }).focus();
+    await rowOf(page, "Timeline").getByRole("button", { name: "Add Timeline to the bar" }).focus();
     await page.keyboard.press("Enter");
-    await expect(rowOf(page, "Timeline").getByRole("button", { name: "In bar" })).toBeVisible();
+    await expect(rowOf(page, "Timeline").getByRole("button", { name: "Remove Timeline from the bar" })).toBeVisible();
     // Alt+Up moves it one place earlier
-    await rowOf(page, "Timeline").getByRole("button", { name: "In bar" }).focus();
+    await rowOf(page, "Timeline").getByRole("button", { name: "Remove Timeline from the bar" }).focus();
     await page.keyboard.press("Alt+ArrowUp");
     await expect.poll(async () => (await page.locator(".view-chip").allTextContents()).join(",")).toBe("Prioritisation,Planning,Delivery,Go-to-market,Timeline,Leadership");
     await page.keyboard.press("Escape");
@@ -68,7 +68,7 @@ test.describe("the view bar (R-98)", () => {
   test("a seventh view in the bar is refused with the message and changes nothing", async ({ page }) => {
     await open(page);
     await moreBtn(page).click();
-    await rowOf(page, "Discovery").getByRole("button", { name: "Show in bar" }).click();
+    await rowOf(page, "Discovery").getByRole("button", { name: "Add Discovery to the bar" }).click();
     await expect(page.getByRole("alert").filter({ hasText: "Your bar is full (6). Remove one first." })).toBeVisible();
     await expect(page.locator(".view-chip")).toHaveCount(6);
     expect((await store(page)).layouts).toEqual({});
@@ -86,11 +86,11 @@ test.describe("the view bar (R-98)", () => {
     await viewTab(page, "Leadership").focus();
     await page.keyboard.press("Alt+ArrowLeft");
     const s = await store(page);
-    expect(s.layouts["u1"]?.length).toBeGreaterThan(0);
-    expect(s.layouts[""]).toBeUndefined(); // other people follow the unchanged workspace default
+    expect(s.layouts["grid|u1"]?.length).toBeGreaterThan(0);
+    expect(s.layouts["grid|"]).toBeUndefined(); // other people follow the unchanged workspace default
     await moreBtn(page).click();
     await menu(page).getByRole("button", { name: "Reset to workspace layout" }).click();
-    expect((await store(page)).layouts["u1"]).toBeUndefined();
+    expect((await store(page)).layouts["grid|u1"]).toBeUndefined();
     await expect(page.locator(".view-chip")).toHaveText(["Prioritisation", "Planning", "Delivery", "Go-to-market", "Outcomes", "Leadership"]);
   });
 
@@ -375,7 +375,7 @@ test.describe("manage views (R-100)", () => {
     await expect(menu(page).getByRole("region", { name: "Workspace views" }).locator(".vm-open", { hasText: /^Timeline/ })).toHaveCount(0);
     const hidden = menu(page).getByRole("region", { name: "Hidden views" });
     await expect(hidden).toContainText("Timeline");
-    expect((await store(page)).layouts[""]?.some((r) => r.ref.name === "Timeline" && r.hidden)).toBe(true);
+    expect((await store(page)).layouts["grid|"]?.some((r) => r.ref.name === "Timeline" && r.hidden)).toBe(true);
     await hidden.getByRole("button", { name: "Restore" }).click();
     await expect(moreBtn(page)).toHaveText(/^5 more views/);
     await page.keyboard.press("Escape");
@@ -389,13 +389,13 @@ test.describe("manage views (R-100)", () => {
   test("an admin manages the workspace default bar", async ({ page }) => {
     await open(page);
     await moreBtn(page).click();
-    await menu(page).getByRole("button", { name: "Manage workspace bar" }).click();
-    await expect(menu(page)).toContainText("Editing the workspace default bar");
-    await rowOf(page, "Outcomes").getByRole("button", { name: "In bar" }).click();
-    await rowOf(page, "Discovery").getByRole("button", { name: "Show in bar" }).click();
+    await menu(page).getByRole("button", { name: "Workspace bar" }).click();
+    await expect(menu(page)).toContainText("You are changing the Grid bar for everyone");
+    await rowOf(page, "Outcomes").getByRole("button", { name: "Remove Outcomes from the bar" }).click();
+    await rowOf(page, "Discovery").getByRole("button", { name: "Add Discovery to the bar" }).click();
     const s = await store(page);
-    expect(s.layouts[""]?.filter((r) => r.inBar).map((r) => r.ref.name)).toContain("Discovery");
-    expect(s.layouts["u1"]).toBeUndefined(); // managing the default does not change the admin's own bar
+    expect(s.layouts["grid|"]?.filter((r) => r.inBar).map((r) => r.ref.name)).toContain("Discovery");
+    expect(s.layouts["grid|u1"]).toBeUndefined(); // managing the default does not change the admin's own bar
   });
 
   test("the palette offers Rename, Duplicate and Delete for the open saved view", async ({ page }) => {

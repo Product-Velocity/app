@@ -531,3 +531,95 @@ test("the views menu stays on screen when the bar has few tabs (issue #622)", as
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(1100);
 });
+
+test.describe("the views panel (issue #625)", () => {
+  const more = (page: Page) => page.locator(".more-views-btn");
+  const panelOf = (page: Page) => page.getByRole("dialog", { name: "Views" });
+  const rowOf = (page: Page, name: string) => panelOf(page).getByRole("group", { name, exact: true });
+  const layouts = (page: Page) => page.evaluate(() => JSON.parse(JSON.stringify((window as unknown as { __pv: { store: { layouts: Record<string, unknown[]> } } }).__pv.store.layouts)) as Record<string, { ref: { name?: string }; inBar: boolean }[]>);
+
+  test("the bar is a list: what is in it first (with a count), the other views below, Add and Remove move a view between them", async ({ page }) => {
+    await open(page, "n=14");
+    await more(page).click();
+    const inBar = panelOf(page).getByRole("region", { name: "In your bar" });
+    await expect(inBar).toContainText("3 of 6");
+    await expect(inBar.getByRole("group")).toHaveCount(3);
+    await expect(panelOf(page).getByRole("region", { name: "Workspace views" })).toContainText("Must haves");
+    await rowOf(page, "Must haves").getByRole("button", { name: "Add Must haves to the bar" }).click();
+    await expect(inBar.getByRole("group")).toHaveCount(4);
+    await expect(more(page)).toHaveText(/^Views/); // nothing is left out of the bar, so it is not "0 more views"
+    await rowOf(page, "Must haves").getByRole("button", { name: "Remove Must haves from the bar" }).click();
+    await expect(more(page)).toHaveText(/^1 more view/);
+  });
+
+  test("a view in the bar is reordered by dragging its row, or with the arrow keys on its grip; only the Gantt's own bar changes", async ({ page }) => {
+    await open(page, "n=14");
+    await more(page).click();
+    await rowOf(page, "Delivery").dragTo(rowOf(page, "Prioritisation"));
+    await expect.poll(async () => (await page.getByRole("group", { name: "View" }).locator(".view-chip").allTextContents()).join(",")).toBe("Delivery,Prioritisation,Planning");
+    await rowOf(page, "Delivery").getByRole("button", { name: /^Move Delivery in the bar/ }).focus();
+    await page.keyboard.press("ArrowDown");
+    await expect.poll(async () => (await page.getByRole("group", { name: "View" }).locator(".view-chip").allTextContents()).join(",")).toBe("Prioritisation,Delivery,Planning");
+    const l = await layouts(page);
+    expect(l["gantt|u1"]?.length).toBeGreaterThan(0);
+    expect(Object.keys(l).filter((k) => !k.startsWith("gantt|"))).toEqual([]); // the Grid's and Cards' bars are untouched
+  });
+
+  test("an admin switches between My bar and Workspace bar; the workspace bar is marked, and changes go to the workspace layout", async ({ page }) => {
+    await open(page, "n=14&role=admin");
+    await more(page).click();
+    await expect(panelOf(page).getByRole("button", { name: "My bar" })).toHaveAttribute("aria-pressed", "true");
+    await expect(panelOf(page).locator(".vm-banner")).toHaveCount(0);
+    await panelOf(page).getByRole("button", { name: "Workspace bar" }).click();
+    await expect(panelOf(page).locator(".vm-banner")).toContainText("You are changing the Gantt bar for everyone");
+    await expect(panelOf(page).getByRole("region", { name: "In the workspace bar" })).toBeVisible();
+    await rowOf(page, "Planning").getByRole("button", { name: "Remove Planning from the bar" }).click();
+    const l = await layouts(page);
+    expect(l["gantt|"]?.some((r) => r.ref.name === "Planning" && !r.inBar)).toBe(true);
+    expect(l["gantt|u1"]).toBeUndefined();
+    // a member has no switch at all
+    await open(page, "n=14&role=creator");
+    await more(page).click();
+    await expect(panelOf(page).getByRole("button", { name: "Workspace bar" })).toHaveCount(0);
+  });
+
+  test("the current view and its actions stay at the top while the list scrolls, and say what changed", async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 520 });
+    await open(page, "n=14");
+    await page.getByRole("button", { name: "Year", exact: true }).click();
+    await more(page).click();
+    const head = panelOf(page).locator(".vm-head");
+    await expect(head).toContainText("timeline settings");
+    await expect(head.getByRole("button", { name: "Save as new view…" })).toBeVisible();
+    const before = (await head.boundingBox())!.y;
+    await panelOf(page).evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    expect(Math.abs((await head.boundingBox())!.y - before)).toBeLessThan(2);
+  });
+
+  test("a view made on another page says so; a view saved here carries no page tag", async ({ page }) => {
+    await open(page, "n=14");
+    await page.getByRole("button", { name: "Year", exact: true }).click();
+    await more(page).click();
+    await panelOf(page).getByRole("button", { name: "Save as new view…" }).click();
+    const dlg = page.getByRole("dialog", { name: "Save as new view" });
+    await dlg.getByLabel("Name").fill("Made here");
+    await dlg.getByRole("button", { name: "Save view" }).click();
+    await more(page).click();
+    await expect(rowOf(page, "Must haves")).toContainText("Cards"); // the test page's saved view was made on Cards
+    await expect(rowOf(page, "Made here")).not.toContainText("Cards");
+    await expect(rowOf(page, "Made here")).not.toContainText("Gantt");
+    // this page's own views are listed before the others
+    const names = await panelOf(page).getByRole("region", { name: "My views" }).locator(".vm-name").allTextContents();
+    expect(names).toEqual(["Made here"]);
+  });
+
+  test("at phone width the panel is a sheet at the foot of the screen, and near the left edge it stays on screen", async ({ page }) => {
+    await page.setViewportSize({ width: 420, height: 800 });
+    await open(page, "n=14");
+    await more(page).click();
+    const box = (await panelOf(page).boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(420);
+    expect(Math.round(box.y + box.height)).toBe(800);
+  });
+});
