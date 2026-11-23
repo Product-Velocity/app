@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { INVITE_STEPS, firstThings, checklist, checklistDismissed, hasFinishedOnboarding, parseAboutYou, showChecklist, withOnboarded } from "./onboarding";
+import { CONNECT_CARDS, WIZARD_STEPS, INVITE_STEPS, firstThings, checklist, checklistDismissed, hasFinishedOnboarding, parseAboutYou, showChecklist, withOnboarded } from "./onboarding";
 
 describe("parseAboutYou", () => {
   it("accepts nothing at all: skipping is free", () => expect(parseAboutYou({})).toEqual({ ok: true, value: { fullName: "", role: "", goal: "" } }));
@@ -50,4 +50,18 @@ describe("invited people", () => {
     expect(firstThings(true).map((t) => t.title)).toContain("Add an item fast");
   });
   it("shows three steps on the invitation page", () => expect(INVITE_STEPS).toHaveLength(3));
+});
+
+describe("connect step and checklist parity", () => {
+  it("offers GitHub and Jira as equals, each with its own screen", () => {
+    const keys = CONNECT_CARDS.map((c) => c.key);
+    expect(keys).toEqual(expect.arrayContaining(["github", "jira", "claude"]));
+    expect(CONNECT_CARDS.find((c) => c.key === "github")!.href).toBe("/settings/integrations/github");
+    expect(CONNECT_CARDS.find((c) => c.key === "jira")!.href).toBe("/settings/integrations/jira");
+  });
+  it("the checklist links to both trackers and to real screens", () => {
+    const t = checklist({ members: 1, pendingInvites: 0, items: 0, trackers: 0 }).items.find((i) => i.key === "tracker")!;
+    expect([t.href, t.altHref]).toEqual(["/settings/integrations/github", "/settings/integrations/jira"]);
+  });
+  it("the owner wizard has four steps ending in Connect", () => expect(WIZARD_STEPS.map((s) => s.key)).toEqual(["workspace", "about", "invite", "connect"]));
 });

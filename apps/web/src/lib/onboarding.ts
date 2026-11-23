@@ -7,7 +7,8 @@
 export const WIZARD_STEPS = [
   { key: "workspace", label: "Workspace" },
   { key: "about", label: "About you" },
-  { key: "done", label: "Start" },
+  { key: "invite", label: "Team" },
+  { key: "connect", label: "Connect" },
 ] as const;
 export type WizardStep = (typeof WIZARD_STEPS)[number]["key"] | "invited-welcome";
 
@@ -77,17 +78,24 @@ export function dismissedChecklists(meta: Meta): string[] {
 export const checklistDismissed = (meta: Meta, tenantId: string) => dismissedChecklists(meta).includes(tenantId);
 
 export type ChecklistCounts = { members: number; pendingInvites: number; items: number; trackers: number };
-export type ChecklistItem = { key: string; label: string; hint: string; href: string; done: boolean };
+export type ChecklistItem = { key: string; label: string; hint: string; href: string; /** A second link for the same step, for tracker parity (GitHub and Jira are equals). */ altHref?: string; altLabel?: string; done: boolean };
 
 /** The three steps the app can see for itself, in the order we suggest. Connecting Claude and Help are links, not tracked. */
 export function checklist(c: ChecklistCounts): { items: ChecklistItem[]; done: number } {
   const items: ChecklistItem[] = [
     { key: "item", label: "Add your first initiative", hint: "Type a name in the quick-add row and press Enter.", href: "/portfolio", done: c.items > 0 },
     { key: "invite", label: "Invite your team", hint: "Nothing is sent until you confirm.", href: "/settings/members", done: c.members > 1 || c.pendingInvites > 0 },
-    { key: "tracker", label: "Connect GitHub or Jira", hint: "Two-way sync of the work your engineers do.", href: "/settings/integrations", done: c.trackers > 0 },
+    { key: "tracker", label: "Connect GitHub", altLabel: "Jira", hint: "Two-way sync of the work your engineers do.", href: "/settings/integrations/github", altHref: "/settings/integrations/jira", done: c.trackers > 0 },
   ];
   return { items, done: items.filter((i) => i.done).length };
 }
 
 /** Show the card until the person closes it or has done all three. */
 export const showChecklist = (meta: Meta, tenantId: string, c: ChecklistCounts) => !checklistDismissed(meta, tenantId) && checklist(c).done < 3;
+
+/** The connections offered on the last wizard step. GitHub and Jira are shown as equals; each opens its own settings screen. */
+export const CONNECT_CARDS = [
+  { key: "github", title: "GitHub", text: "Two-way sync of issues and pull requests with your roadmap.", href: "/settings/integrations/github", newTab: false },
+  { key: "jira", title: "Jira", text: "Two-way sync of Jira work with your roadmap.", href: "/settings/integrations/jira", newTab: false },
+  { key: "claude", title: "Claude and other AI assistants", text: "Let your AI co-worker read the roadmap and prepare work. It never approves.", href: "/settings/claude", newTab: false },
+] as const;

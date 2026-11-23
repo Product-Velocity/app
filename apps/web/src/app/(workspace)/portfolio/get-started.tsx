@@ -16,7 +16,7 @@ export function GetStarted({ counts }: { counts: ChecklistCounts }) {
           <li key={i.key} className={i.done ? "is-done" : ""}>
             <span className="get-started-mark" aria-hidden="true">{i.done ? "✓" : "○"}</span>
             <span>
-              <Link href={i.href}>{i.label}</Link>
+              <Link href={i.href}>{i.label}</Link>{i.altHref && <> or <Link href={i.altHref}>{i.altLabel}</Link></>}
               <span className="sr-only">{i.done ? " (done)" : " (to do)"}</span>
               <span className="hint"> {i.hint}</span>
             </span>
@@ -24,7 +24,7 @@ export function GetStarted({ counts }: { counts: ChecklistCounts }) {
         ))}
       </ul>
       <p className="hint">
-        Also useful: <Link href="/help/ai-setup" target="_blank">connect Claude</Link> · <Link href="/help" target="_blank">Help</Link> · <Link href="/contact" target="_blank">Ask us a question</Link>
+        Also useful: <Link href="/settings/claude">connect Claude</Link> · <Link href="/help" target="_blank">Help</Link> · <Link href="/contact" target="_blank">Ask us a question</Link>
       </p>
     </section>
   );

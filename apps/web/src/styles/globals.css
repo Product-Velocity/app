@@ -1917,3 +1917,5 @@ a.btn.btn-primary { color: #fff; }
 .invite-steps .wizard-dot { flex: none; margin-top: 1px; background: var(--blue-tint-1); border-color: var(--blue-tint-1); color: var(--blue-text); font-weight: 600; }
 .wizard-sub { margin: 4px 0 6px; font-size: 14px; }
 .first-things { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; line-height: 20px; }
+.connect-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.connect-cards li { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--grey-3, #e6e8ee); border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 20px; }
