@@ -11,6 +11,7 @@ import { DEFAULT_COL_DEF, GRID_THEME } from "../portfolio/grid-kit";
 import { ColumnPicker, ListSearch, MultiFilter, SavedViews, downloadText, usePersisted, type SavedView } from "../lists/list-kit";
 import { DecideDialog, type DecideRow, type DialogItem } from "./gate-dialogs";
 import type { Approvers, Condition, Decider, GateItem, GateSource } from "./gate-source";
+import { PageHeader } from "@/components/page-header";
 
 type Props = {
   source: GateSource;
@@ -234,10 +235,7 @@ export function DecisionsView({ source, me, mayDecide = true, initialFilter = "w
 
   return (
     <div className="decisions lst" ref={root}>
-      <div className="page-head">
-        <h1>Decisions</h1>
-        <p className="muted">Every gate request in the workspace. Anyone with approval rights for a gate can decide it; the first decision wins.</p>
-      </div>
+      <PageHeader title="Decisions" count={requests ? `${waitingCount} waiting for a decision` : null} note="every gate request in the workspace; anyone with approval rights for a gate can decide it, the first decision wins" />
       <div className="help-tabs" role="tablist" aria-label="Filter requests">
         {QUEUE_FILTERS.map((f) => (
           <button key={f.id} type="button" role="tab" aria-selected={filter === f.id} className={`help-tab${filter === f.id ? " is-active" : ""}`} onClick={() => switchTab(f.id)}>

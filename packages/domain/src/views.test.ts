@@ -418,3 +418,16 @@ describe("two-level grouping and the group picker (issue #437)", () => {
     expect(safe.every((k) => isCustomerSafe(k))).toBe(true);
   });
 });
+
+describe("column widths in a view", () => {
+  const cols = ["stack_rank", "item_code", "initiative_name", "moscow", "effort"];
+  it("keeps whole-pixel widths of shown columns, clamped to a sane range", () => {
+    const v = sanitizeView({ columns: cols, widths: { moscow: 104.6, effort: 5, initiative_name: 5000 } });
+    expect(v.widths).toEqual({ moscow: 105, effort: 48, initiative_name: 900 });
+  });
+  it("drops unknown or hidden columns and unreadable values, and leaves widths out when none is left", () => {
+    expect(sanitizeView({ columns: cols, widths: { health: 120, nope: 99, moscow: "wide", effort: NaN } }).widths).toBeUndefined();
+    expect(sanitizeView({ columns: cols, widths: [100] }).widths).toBeUndefined();
+    expect(sanitizeView({ columns: cols }).widths).toBeUndefined();
+  });
+});

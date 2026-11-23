@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ClientSideRowModelApiModule, ClientSideRowModelModule, CellApiModule, CellStyleModule, ColumnApiModule, CustomEditorModule,
-  EventApiModule, ModuleRegistry, RowApiModule, RowSelectionModule, ScrollApiModule, TextEditorModule, type CellClickedEvent, type CellDoubleClickedEvent, type CellFocusedEvent, type CellKeyDownEvent, type ColumnMovedEvent, type GridApi,
+  EventApiModule, ModuleRegistry, RowApiModule, RowSelectionModule, ScrollApiModule, TextEditorModule, type CellClickedEvent, type CellDoubleClickedEvent, type CellFocusedEvent, type CellKeyDownEvent, type ColumnMovedEvent, type ColumnResizedEvent, type GridApi,
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import {
@@ -45,6 +45,7 @@ import { statusTone } from "../../components/status-tone";
 import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer, isGroup } from "./grid-kit";
 import { StatusAlerts, StatusInline, useStatus } from "./status-strip";
 import type { GridItem, Lookups } from "./types";
+import { PageHeader } from "@/components/page-header";
 
 ModuleRegistry.registerModules([
   ClientSideRowModelModule, ClientSideRowModelApiModule, TextEditorModule, CustomEditorModule, CellStyleModule,
@@ -192,7 +193,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   // they were made in. Nothing is saved until you choose to, from the views menu. Opening a view that stores its own filters, grouping or sort uses them.
   type Shared = { filters?: Filter[]; groupBy?: string | null; thenBy?: string | null; showIssues?: boolean; issueTypes?: string[]; hideDoneIssues?: boolean; sort?: ViewDef["sort"] };
   const [shared, setShared] = useState<Shared>({});
-  const [colOverrides, setColOverrides] = useState<Record<string, { columns: string[]; pinned: string[] }>>({});
+  const [colOverrides, setColOverrides] = useState<Record<string, { columns: string[]; pinned: string[]; widths?: Record<string, number> }>>({});
   const viewKey = refKey(baseToRef(base));
   const savedDef = useMemo(() => baseDef(base, views, defaults), [base, views, defaults]);
   const baseMissing = base.kind === "saved" && savedDef === null && ready; // a deleted view, or someone else's private view (the database never returns it), falls back
@@ -201,7 +202,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const def = useMemo(
     () => sanitizeView({
       ...bDef,
-      ...(co ? { columns: co.columns, pinned: co.pinned } : {}),
+      ...(co ? { columns: co.columns, pinned: co.pinned, widths: co.widths } : {}),
       ...(shared.filters !== undefined ? { filters: shared.filters } : {}),
       ...("groupBy" in shared ? { groupBy: shared.groupBy, thenBy: shared.thenBy, showIssues: shared.showIssues, issueTypes: shared.issueTypes, hideDoneIssues: shared.hideDoneIssues } : {}),
       ...("sort" in shared ? { sort: shared.sort } : {}),
@@ -219,7 +220,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const changeDef = (patch: Partial<ViewDef>) => {
     const next = sanitizeView({ ...def, ...patch });
     setShared((p) => ({ ...p, ...("filters" in patch ? { filters: next.filters } : {}), ...("groupBy" in patch || "thenBy" in patch || "showIssues" in patch || "issueTypes" in patch || "hideDoneIssues" in patch ? { groupBy: next.groupBy, thenBy: next.thenBy ?? null, showIssues: next.showIssues === true, issueTypes: next.issueTypes, hideDoneIssues: next.hideDoneIssues === true } : {}), ...("sort" in patch ? { sort: next.sort ?? [] } : {}) }));
-    if ("columns" in patch || "pinned" in patch) setColOverrides((p) => ({ ...p, [viewKey]: { columns: next.columns, pinned: next.pinned ?? [] } }));
+    if ("columns" in patch || "pinned" in patch || "widths" in patch) setColOverrides((p) => ({ ...p, [viewKey]: { columns: next.columns, pinned: next.pinned ?? [], widths: next.widths } }));
   };
   const clearColumns = () => setColOverrides((p) => { const n = { ...p }; delete n[viewKey]; return n; });
   const resetChanges = () => { setShared({}); clearColumns(); };
@@ -343,8 +344,8 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const setSearchText = (t: string) => { resetShown(); setSearch(t); };
 
   const columnDefs = useMemo(
-    () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible, order: def.columns, sorted: def.groupBy === null && shownSort.length === 0, pinned: pinnedSet, showIssues: def.showIssues === true, singleProject: projectIds?.length === 1 }),
-    [controller, lookups, visible, def.columns, def.groupBy, shownSort, pinnedSet, def.showIssues, projectIds],
+    () => buildColumns({ controller, lookups, today: () => controller.todayDate(), visible, order: def.columns, sorted: def.groupBy === null && shownSort.length === 0, pinned: pinnedSet, showIssues: def.showIssues === true, singleProject: projectIds?.length === 1, widths: def.widths }),
+    [controller, lookups, visible, def.columns, def.groupBy, shownSort, pinnedSet, def.showIssues, projectIds, def.widths],
   );
   const exportFields = useMemo(() => def.columns.map((k) => FIELD_BY_KEY[k]!).filter(Boolean), [def.columns]);
   const showLater = def.columns.some((k) => (FIELD_BY_KEY[k]?.phase ?? 1) > 1 && k !== "project_rank");
@@ -459,8 +460,8 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
 
   // The grid reads its handlers once: new function props on every render make it redo work on every edit.
   // They are stable wrappers that call the latest handlers.
-  const latest = useRef({ onCellKeyDown, columns: [] as string[], visible: new Set<string>(), changeDef: (() => {}) as (patch: Partial<ViewDef>) => void });
-  useEffect(() => { latest.current = { onCellKeyDown, columns: def.columns, visible, changeDef }; });
+  const latest = useRef({ onCellKeyDown, columns: [] as string[], visible: new Set<string>(), widths: undefined as Record<string, number> | undefined, changeDef: (() => {}) as (patch: Partial<ViewDef>) => void });
+  useEffect(() => { latest.current = { onCellKeyDown, columns: def.columns, visible, widths: def.widths, changeDef }; });
   const onCellKeyDownStable = useCallback((e: CellKeyDownEvent<GridItem>) => latest.current.onCellKeyDown(e), []);
   const onSelectionChanged = useCallback((e: { api: GridApi<GridItem> }) => setSelected(e.api.getSelectedRows()), []);
   const onColumnMoved = useCallback((e: ColumnMovedEvent<GridItem>) => {
@@ -468,6 +469,14 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     const { columns, visible: vis, changeDef: change } = latest.current;
     const ids = e.api.getAllDisplayedColumns().map((c) => c.getColId()).filter((id) => id in FIELD_BY_KEY && vis.has(id));
     if (ids.join() !== columns.filter((c) => ids.includes(c)).join()) change({ columns: ids });
+  }, []);
+  // A dragged width is part of the view (kept with it, saved with it); the column definitions are rebuilt from it, so it holds when the grid redraws.
+  const onColumnResized = useCallback((e: ColumnResizedEvent<GridItem>) => {
+    if (!e.finished || e.source !== "uiColumnResized" || !e.columns) return;
+    const { visible: vis, widths, changeDef: change } = latest.current;
+    const next = { ...(widths ?? {}) };
+    for (const c of e.columns) { const id = c.getColId(); if (id in FIELD_BY_KEY && vis.has(id)) next[id] = Math.round(c.getActualWidth()); }
+    change({ widths: next });
   }, []);
   const onGridReady = useCallback((e: { api: GridApi<GridItem> }) => { apiRef.current = e.api; }, []);
   const onCellFocused = useCallback((e: CellFocusedEvent<GridItem>) => {
@@ -672,12 +681,8 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const contextForQuickAdd = contextProject ?? (projectIds && projectIds.length === 1 ? projectIds[0]! : null);
   return (
     <>
-    <div ref={headRef} className="page-head">
-      <div className="head-row">
-        {headLeft}
-        <ViewBar api={viewsApi} />
-        {headRight && <span className="head-tools">{headRight}</span>}
-      </div>
+    <div ref={headRef}>
+    <PageHeader title={headLeft} views={<ViewBar api={viewsApi} />} tools={headRight} count={`${(filtered ? visibleRows.length : controller.rows.length).toLocaleString("en-GB")} initiatives`} scope={scope.selection.kind !== "all" ? scope.label : null}>
       {(def.filters.length > 0 || scope.selection.kind !== "all") && (
         <div className="filter-chips" aria-label="Active scope and filters">
           {scope.selection.kind !== "all" && <span className="token-chip">Project: {scope.label}</span>}
@@ -690,6 +695,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         </div>
       )}
       {baseMissing && <div className="view-dirty" role="status">This view is private to its owner or no longer exists. Showing Prioritisation.</div>}
+    </PageHeader>
     </div>
     <section
       ref={cardRef}
@@ -826,6 +832,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
           selectionColumnDef={SELECTION_COLUMN}
           onSelectionChanged={onSelectionChanged}
           onColumnMoved={onColumnMoved}
+          onColumnResized={onColumnResized}
           enterNavigatesVerticallyAfterEdit
           suppressColumnVirtualisation={renderAllColumns}
           stopEditingWhenCellsLoseFocus

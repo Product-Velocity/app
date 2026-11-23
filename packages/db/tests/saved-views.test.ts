@@ -418,3 +418,24 @@ describe("saved views: issue types and hide done (issue #437)", () => {
     expect(rows.find((r) => r.field === "issues_hide_done" && r.new === true)).toMatchObject({ old: false, via: "UI", actor_id: admin2 });
   });
 });
+
+describe("column widths in a view (20261123082059)", () => {
+  it("a view stores its widths; a person with edit rights can change and clear them; anything but an object is refused", async () => {
+    const ok = await db.asUser(f.alice, (q) => q("insert into public.saved_views (tenant_id, name, columns, widths) values ($1, 'Narrow', array['item_code','moscow'], '{\"moscow\":108}'::jsonb) returning id, widths", [f.tenantA]), { commit: true });
+    expect(ok.rows[0].widths).toEqual({ moscow: 108 });
+    const id = ok.rows[0].id;
+    const set = (v: string | null) => db.asUser(f.alice, (q) => q("update public.saved_views set widths = $2::jsonb where id = $1", [id, v]), { commit: true, via: "UI" });
+    expect((await set('{"moscow":120,"item_code":90}')).rowCount).toBe(1);
+    expect((await set(null)).rowCount).toBe(1);
+    const bad = await errorCode(db.asUser(f.alice, (q) => q("insert into public.saved_views (tenant_id, name, columns, widths) values ($1, 'Bad widths', array['item_code'], '[108]'::jsonb)", [f.tenantA]), { commit: true }));
+    expect(bad).toBe(CHECK);
+  });
+  it("another tenant cannot read or change them (RLS unchanged)", async () => {
+    const id = await add(f.alice, "Tenant A widths");
+    await db.asUser(f.alice, (q) => q("update public.saved_views set widths = '{\"moscow\":108}'::jsonb where id = $1", [id]), { commit: true, via: "UI" });
+    const seen = await db.asUser(f.bob, (q) => q("select widths from public.saved_views where id = $1", [id]));
+    expect(seen.rowCount).toBe(0);
+    const changed = await db.asUser(f.bob, (q) => q("update public.saved_views set widths = null where id = $1", [id]), { commit: true });
+    expect(changed.rowCount).toBe(0);
+  });
+});

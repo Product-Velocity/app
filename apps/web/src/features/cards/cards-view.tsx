@@ -21,6 +21,7 @@ import { setQueryParam, useScope } from "../workspace/scope";
 import { statusTone } from "../../components/status-tone";
 import { CardFace, healthStripe, type TrackerRef } from "./card-face";
 import { CardFieldsPanel } from "./card-fields-panel";
+import { PageHeader } from "@/components/page-header";
 
 const DEFAULT_LANE = "theme";
 const PRIORITISATION: BaseView = { kind: "builtin", name: "Prioritisation" };
@@ -321,14 +322,7 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
 
   return (
     <div className="cards-page">
-      <div className="gantt-toolbar page-head">
-        <div className="head-row">
-          <h1>Cards</h1>
-          <ViewBar api={viewsApi} />
-        </div>
-        <p className="muted gantt-count">
-          {board.total} initiatives{scope.selection.kind !== "all" ? ` · scope: ${scope.label}` : ""}{filterName ? ` · filters of “${filterName}”` : ""}
-        </p>
+      <PageHeader title="Cards" views={<ViewBar api={viewsApi} />} count={`${board.total} initiatives`} scope={scope.selection.kind !== "all" ? scope.label : null} note={filterName ? `filters of “${filterName}”` : null}>
         {(def.filters.length > 0 || scope.selection.kind !== "all") && (
           <div className="filter-chips" aria-label="Active scope and filters">
             {scope.selection.kind !== "all" && <span className="token-chip">Project: {scope.label}</span>}
@@ -341,7 +335,7 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
           </div>
         )}
         {baseMissing && <div className="view-dirty" role="status">This view is private to its owner or no longer exists. Showing Prioritisation.</div>}
-      </div>
+      </PageHeader>
 
       <div className="pvbar" role="region" aria-label="Card tools">
         <div className="pvbar-s1">
