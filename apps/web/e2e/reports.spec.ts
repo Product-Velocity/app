@@ -221,7 +221,7 @@ test("Impact and Effort says how many initiatives have no Primary KR, and holds 
   await expect(t.getByTestId("impact-placeholder")).toContainText("phase 7");
   await expect(t.getByTestId("impact-placeholder")).toContainText("nothing here is estimated");
   await expect(t.getByRole("table", { name: "Primary KRs" }).locator("tbody tr")).toHaveCount(Math.min(15, withKr));
-  await expect(page.getByRole("button", { name: /^PDF summary/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Export PDF" })).toBeEnabled();
 });
 
 test("clicking an effort bar filters like the other charts, and the KR note follows the filters", async ({ page }) => {
@@ -347,4 +347,36 @@ test("Gate history shows who is waiting, with a pace label that never rests on c
   await expect(panel.locator(".gh-pill")).toHaveText(/Not enough history|Within usual time|Longer than usual|Needs attention/);
   for (const name of ["gate-outcomes", "gate-funnel", "gate-spread"]) await expect(page.locator(`[data-chart="${name}"]`)).toBeVisible();
   await expect(page.getByText(/nothing is shown per approver/i)).toBeVisible();
+});
+
+test.describe("exports (issue #622)", () => {
+  test("every chart has its own Export PNG: a stacked bar chart and a drawn chart each download a picture named after the chart", async ({ page }) => {
+    await open(page);
+    const stacked = page.locator('section[aria-label="Initiatives by Team and Phase"]');
+    const [d1] = await Promise.all([page.waitForEvent("download"), stacked.getByRole("button", { name: /Export Initiatives by Team and Phase as PNG/ }).click()]);
+    expect(d1.suggestedFilename()).toMatch(/^initiatives-by-team-and-phase-\d{4}-\d{2}-\d{2}\.png$/);
+    const impact = page.locator('section[aria-label="Impact and Effort"]');
+    const [d2] = await Promise.all([page.waitForEvent("download"), impact.getByRole("button", { name: /Export .* as PNG/ }).click()]);
+    expect(d2.suggestedFilename()).toMatch(/^impact-and-effort-\d{4}-\d{2}-\d{2}\.png$/);
+  });
+
+  test("Export PDF opens the print window for the whole page, at the print width, and puts the page back afterwards", async ({ page }) => {
+    await open(page);
+    await page.evaluate(() => { (window as unknown as { __printed: unknown[] }).__printed = []; window.print = () => { (window as unknown as { __printed: unknown[] }).__printed.push({ narrow: document.querySelector(".reports")!.classList.contains("rp-printing"), title: document.title }); window.dispatchEvent(new Event("afterprint")); }; });
+    await page.getByRole("button", { name: "Export PDF" }).click();
+    await page.waitForFunction(() => (window as unknown as { __printed: unknown[] }).__printed.length === 1);
+    const printed = await page.evaluate(() => (window as unknown as { __printed: { narrow: boolean; title: string }[] }).__printed[0]!);
+    expect(printed.narrow).toBe(true);
+    expect(printed.title).toMatch(/^Product Velocity - Reports - Overview - \d{4}-\d{2}-\d{2}$/);
+    await expect(page.locator(".reports")).not.toHaveClass(/rp-printing/);
+  });
+
+  test("the printed page hides the navigation and the filter bar, and says the report and the filters in words", async ({ page }) => {
+    await open(page);
+    await page.emulateMedia({ media: "print" });
+    await expect(page.locator(".topbar")).toBeHidden();
+    await expect(page.locator(".rp-filters")).toBeHidden();
+    await expect(page.locator(".rp-export").first()).toBeHidden();
+    await expect(page.locator(".rp-print-head")).toContainText("Reports · Overview");
+  });
 });

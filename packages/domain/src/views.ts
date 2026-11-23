@@ -1,4 +1,5 @@
 import { compareQuarters, isQuarter } from "./quarters";
+import { sanitizeGanttSettings, type GanttSettings } from "./gantt-settings";
 import { formatDate, localToday } from "./dates";
 import { FIELDS, HIDDEN_FIELDS, FIELD_BY_KEY, isOpenList, type FieldDef } from "./registry";
 
@@ -240,7 +241,7 @@ export function buildGroupedRows<T extends { id: string }>(rows: T[], groupBy: s
 
 // -------------------------------------------------------------------- views
 /** What a saved view stores: the columns in order, the filters and the grouping. */
-export type ViewDef = { columns: string[]; filters: Filter[]; groupBy: string | null; /** A second grouping level inside each group; only with a groupBy, and never the same field. */ thenBy?: string | null; /** Show the linked tracker issues (epics, stories, tasks) under each initiative. */ showIssues?: boolean; /** With showIssues: only these issue types (Epic, Story, Task, ...). Missing means every type. */ issueTypes?: string[]; /** With showIssues: hide issues that are Done or Cancelled in the tracker. */ hideDoneIssues?: boolean; customerSafe?: boolean; /** The locked columns: at most four, any of the shown columns, kept to the left while the grid scrolls right. Missing means the default: rank, ID and name. An empty list means none. */ pinned?: string[]; /** Ordered sorts, the first is the main one; empty or missing means the global Stack Rank order. An older single sort object is still read. */ sort?: SortDef[]; /** Column widths in pixels the person dragged, by field key; a column not listed keeps its default width. Only shown columns are kept. */ widths?: Record<string, number> };
+export type ViewDef = { columns: string[]; filters: Filter[]; groupBy: string | null; /** A second grouping level inside each group; only with a groupBy, and never the same field. */ thenBy?: string | null; /** Show the linked tracker issues (epics, stories, tasks) under each initiative. */ showIssues?: boolean; /** With showIssues: only these issue types (Epic, Story, Task, ...). Missing means every type. */ issueTypes?: string[]; /** With showIssues: hide issues that are Done or Cancelled in the tracker. */ hideDoneIssues?: boolean; customerSafe?: boolean; /** The locked columns: at most four, any of the shown columns, kept to the left while the grid scrolls right. Missing means the default: rank, ID and name. An empty list means none. */ pinned?: string[]; /** Ordered sorts, the first is the main one; empty or missing means the global Stack Rank order. An older single sort object is still read. */ sort?: SortDef[]; /** Column widths in pixels the person dragged, by field key; a column not listed keeps its default width. Only shown columns are kept. */ widths?: Record<string, number>; /** What the Gantt keeps in this view: zoom, the two grouping levels and the row height (issue #622). */ gantt?: GanttSettings };
 
 /** One sort column and direction. A view holds an ordered list of them: the order of the columns in the picker is the order of the sorts. */
 export type SortDef = { field: string; dir: "asc" | "desc" };
@@ -360,5 +361,6 @@ export function sanitizeView(input: unknown): ViewDef {
   const issueTypes = Array.isArray(o.issueTypes) ? [...new Set(o.issueTypes.filter((t): t is string => typeof t === "string").map((t) => t.trim().slice(0, 40)).filter(Boolean))].slice(0, 20) : [];
   const sort = normalizeSorts(o.sort, (k) => !customerSafe || isCustomerSafe(k));
   const widths = normalizeWidths(o.widths, columns);
-  return { columns, filters, groupBy, ...(thenBy && thenBy !== groupBy ? { thenBy } : {}), ...(showIssues ? { showIssues: true, ...(issueTypes.length > 0 ? { issueTypes } : {}), ...(o.hideDoneIssues === true ? { hideDoneIssues: true } : {}) } : {}), ...(customerSafe ? { customerSafe: true } : {}), pinned, ...(sort.length > 0 ? { sort } : {}), ...(Object.keys(widths).length > 0 ? { widths } : {}) };
+  const gantt = sanitizeGanttSettings(o.gantt);
+  return { columns, filters, groupBy, ...(thenBy && thenBy !== groupBy ? { thenBy } : {}), ...(showIssues ? { showIssues: true, ...(issueTypes.length > 0 ? { issueTypes } : {}), ...(o.hideDoneIssues === true ? { hideDoneIssues: true } : {}) } : {}), ...(customerSafe ? { customerSafe: true } : {}), pinned, ...(sort.length > 0 ? { sort } : {}), ...(Object.keys(widths).length > 0 ? { widths } : {}), ...(gantt ? { gantt } : {}) };
 }

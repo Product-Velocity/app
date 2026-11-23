@@ -6,6 +6,7 @@ import { BarChart, CustomChart, LineChart, PieChart, ScatterChart } from "echart
 import { AriaComponent, DataZoomComponent, GraphicComponent, GridComponent, LegendComponent, MarkLineComponent, TooltipComponent } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
 import type { EChartsCoreOption, ECharts } from "echarts/core";
+import { ExportPngButton, svgRaster } from "./chart-export";
 
 echarts.use([BarChart, LineChart, PieChart, ScatterChart, CustomChart, GridComponent, GraphicComponent, TooltipComponent, LegendComponent, DataZoomComponent, MarkLineComponent, AriaComponent, SVGRenderer]);
 
@@ -59,5 +60,18 @@ export function EChart({ option, height, label, name, onClick }: Props) {
     chart.current?.setOption({ textStyle: { fontFamily: CHART_FONT, fontSize: 12 }, animationDuration: 400, animationEasing: "cubicOut", ...option, tooltip: { ...TOOLTIP, ...o.tooltip } }, true);
   }, [option]);
 
-  return <div ref={box} role="img" aria-label={label} data-chart={name} style={{ width: "100%", height }} />;
+  // the title of the card the chart sits in names the picture; a card with several charts adds this chart's own description
+  const describe = () => {
+    const card = box.current?.closest(".rp-card");
+    const title = card?.querySelector(".rp-title")?.textContent?.trim() || label;
+    const several = (card?.querySelectorAll("[data-chart]").length ?? 0) > 1;
+    return { title, subtitle: several && label !== title ? label : undefined };
+  };
+  return (
+    <>
+      {/* a zero-height anchor above the chart holds the button at the chart's top-right; the chart itself keeps its place among its siblings */}
+      <span className="rp-chart-anchor"><ExportPngButton name={label} describe={describe} raster={() => (box.current ? svgRaster(box.current) : Promise.resolve(null))} /></span>
+      <div ref={box} role="img" aria-label={label} data-chart={name} style={{ width: "100%", height }} />
+    </>
+  );
 }

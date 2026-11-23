@@ -439,3 +439,23 @@ describe("column widths in a view (20261123082059)", () => {
     expect(changed.rowCount).toBe(0);
   });
 });
+
+describe("Gantt settings in a view (20261123140000)", () => {
+  beforeAll(async () => { await db.asUser(admin2, (q) => q("delete from public.saved_views where tenant_id = $1", [f.tenantA]), { commit: true, via: "UI" }); }); // earlier tests fill the 25-view cap
+  it("a view stores its Gantt settings; a person with edit rights can change and clear them; anything but an object is refused", async () => {
+    const ok = await db.asUser(f.alice, (q) => q("insert into public.saved_views (tenant_id, name, columns, gantt) values ($1, 'Timeline', array['item_code'], '{\"zoom\":\"week\",\"g1\":\"team\"}'::jsonb) returning id, gantt", [f.tenantA]), { commit: true });
+    expect(ok.rows[0].gantt).toEqual({ zoom: "week", g1: "team" });
+    const id = ok.rows[0].id;
+    const set = (v: string | null) => db.asUser(f.alice, (q) => q("update public.saved_views set gantt = $2::jsonb where id = $1", [id, v]), { commit: true, via: "UI" });
+    expect((await set('{"zoom":"year"}')).rowCount).toBe(1);
+    expect((await set(null)).rowCount).toBe(1);
+    const bad = await errorCode(db.asUser(f.alice, (q) => q("insert into public.saved_views (tenant_id, name, columns, gantt) values ($1, 'Bad gantt', array['item_code'], '[1]'::jsonb)", [f.tenantA]), { commit: true }));
+    expect(bad).toBe(CHECK);
+  });
+  it("another tenant cannot read or change them (RLS unchanged)", async () => {
+    const id = await add(f.alice, "Tenant A gantt");
+    await db.asUser(f.alice, (q) => q("update public.saved_views set gantt = '{\"zoom\":\"week\"}'::jsonb where id = $1", [id]), { commit: true, via: "UI" });
+    expect((await db.asUser(f.bob, (q) => q("select gantt from public.saved_views where id = $1", [id]))).rowCount).toBe(0);
+    expect((await db.asUser(f.bob, (q) => q("update public.saved_views set gantt = null where id = $1", [id]), { commit: true })).rowCount).toBe(0);
+  });
+});

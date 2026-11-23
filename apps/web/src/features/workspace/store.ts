@@ -36,14 +36,14 @@ export interface WorkspaceStore {
   restoreDefaultView(name: ViewName): Promise<Result<null>>;
 }
 
-const VIEW_COLUMNS = "id,name,columns,filters,group_by,then_by,show_issues,issue_types,issues_hide_done,base_view,customer_safe,pinned,pins_explicit,owner_id,sort,widths";
+const VIEW_COLUMNS = "id,name,columns,filters,group_by,then_by,show_issues,issue_types,issues_hide_done,base_view,customer_safe,pinned,pins_explicit,owner_id,sort,widths,gantt";
 /** The second grouping level and "show issues" as columns: written only when set on a new view (the database default is none), always on a change so a cleared one is cleared. */
 const groupingInsert = (c: ViewDef) => ({ ...(c.thenBy ? { then_by: c.thenBy } : {}), ...(c.showIssues ? { show_issues: true } : {}), ...(c.issueTypes?.length ? { issue_types: c.issueTypes } : {}), ...(c.hideDoneIssues ? { issues_hide_done: true } : {}) });
 const groupingUpdate = (c: ViewDef) => ({ then_by: c.thenBy ?? null, show_issues: c.showIssues === true, issue_types: c.issueTypes?.length ? c.issueTypes : null, issues_hide_done: c.hideDoneIssues === true });
-type ViewRow = { id: string; name: string; columns: string[]; filters: unknown; group_by: string | null; then_by?: string | null; show_issues?: boolean | null; issue_types?: string[] | null; issues_hide_done?: boolean | null; base_view: string | null; customer_safe: boolean; pinned?: string[] | null; /** false: an older row whose list holds only the locks besides rank, ID and name */ pins_explicit?: boolean | null; owner_id?: string | null; sort?: unknown; widths?: unknown };
+type ViewRow = { id: string; name: string; columns: string[]; filters: unknown; group_by: string | null; then_by?: string | null; show_issues?: boolean | null; issue_types?: string[] | null; issues_hide_done?: boolean | null; base_view: string | null; customer_safe: boolean; pinned?: string[] | null; /** false: an older row whose list holds only the locks besides rank, ID and name */ pins_explicit?: boolean | null; owner_id?: string | null; sort?: unknown; widths?: unknown; gantt?: unknown };
 const fromRow = (r: ViewRow): SavedView => ({
   id: r.id, name: r.name, baseView: (r.base_view as ViewName | null) ?? null, ownerId: r.owner_id ?? null,
-  ...sanitizeView({ columns: r.columns, filters: r.filters, groupBy: r.group_by, thenBy: r.then_by, showIssues: r.show_issues === true, issueTypes: r.issue_types ?? undefined, hideDoneIssues: r.issues_hide_done === true, customerSafe: r.customer_safe, pinned: r.pins_explicit ? r.pinned ?? [] : [...CORE_COLUMN_KEYS, ...(r.pinned ?? [])], sort: r.sort, widths: r.widths }),
+  ...sanitizeView({ columns: r.columns, filters: r.filters, groupBy: r.group_by, thenBy: r.then_by, showIssues: r.show_issues === true, issueTypes: r.issue_types ?? undefined, hideDoneIssues: r.issues_hide_done === true, customerSafe: r.customer_safe, pinned: r.pins_explicit ? r.pinned ?? [] : [...CORE_COLUMN_KEYS, ...(r.pinned ?? [])], sort: r.sort, widths: r.widths, gantt: r.gantt }),
 });
 
 type LayoutDbRow = { user_id: string | null; view_id: string | null; builtin: string | null; in_bar: boolean; position: number; hidden: boolean };
@@ -165,7 +165,7 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
     const { data, error } = await this.client
       .from("saved_views")
       .insert({
-        tenant_id: this.tenantId, name: n, columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, ...groupingInsert(clean), customer_safe: clean.customerSafe === true, pinned: clean.pinned ?? [], pins_explicit: true, sort: clean.sort ?? null, ...(clean.widths ? { widths: clean.widths } : {}),
+        tenant_id: this.tenantId, name: n, columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, ...groupingInsert(clean), customer_safe: clean.customerSafe === true, pinned: clean.pinned ?? [], pins_explicit: true, sort: clean.sort ?? null, ...(clean.widths ? { widths: clean.widths } : {}), ...(clean.gantt ? { gantt: clean.gantt } : {}),
         ...(workspace ? { visibility: "workspace", owner_id: null } : { visibility: "private", owner_id: this.userId }),
       })
       .select("id")
@@ -203,8 +203,8 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
     if (existing.error) return { ok: false, error: friendly(existing.error, "view", name) };
     const fields = { columns: clean.columns, filters: clean.filters, group_by: clean.groupBy, pinned: clean.pinned ?? [], pins_explicit: true, sort: clean.sort ?? null };
     const { data, error } = existing.data
-      ? await this.client.from("saved_views").update({ ...fields, widths: clean.widths ?? null, ...groupingUpdate(clean) }).eq("tenant_id", this.tenantId).eq("id", existing.data.id).select(VIEW_COLUMNS)
-      : await this.client.from("saved_views").insert({ tenant_id: this.tenantId, name, base_view: name, ...fields, ...(clean.widths ? { widths: clean.widths } : {}), ...groupingInsert(clean) }).select(VIEW_COLUMNS);
+      ? await this.client.from("saved_views").update({ ...fields, widths: clean.widths ?? null, gantt: clean.gantt ?? null, ...groupingUpdate(clean) }).eq("tenant_id", this.tenantId).eq("id", existing.data.id).select(VIEW_COLUMNS)
+      : await this.client.from("saved_views").insert({ tenant_id: this.tenantId, name, base_view: name, ...fields, ...(clean.widths ? { widths: clean.widths } : {}), ...(clean.gantt ? { gantt: clean.gantt } : {}), ...groupingInsert(clean) }).select(VIEW_COLUMNS);
     const r = (data as ViewRow[] | null)?.[0];
     if (error || !r) return { ok: false, error: error ? friendly(error, "view", name) : "You cannot change the default views. Ask an admin." };
     return { ok: true, value: fromRow(r) };
@@ -223,8 +223,9 @@ export class SupabaseWorkspaceStore implements WorkspaceStore {
       row.name = n;
     }
     // "no sort" is a valid saved state: a definition without a sort key (what sanitizeView returns) clears it
-    if (patch.columns || patch.filters || patch.groupBy !== undefined || patch.showIssues !== undefined || patch.issueTypes !== undefined || patch.hideDoneIssues !== undefined || patch.pinned !== undefined || "sort" in patch || "widths" in patch) {
-      const clean = sanitizeView({ columns: patch.columns, filters: patch.filters, groupBy: patch.groupBy ?? null, thenBy: patch.thenBy, showIssues: patch.showIssues, issueTypes: patch.issueTypes, hideDoneIssues: patch.hideDoneIssues, customerSafe: patch.customerSafe, pinned: patch.pinned, sort: patch.sort, widths: patch.widths });
+    if (patch.columns || patch.filters || patch.groupBy !== undefined || patch.showIssues !== undefined || patch.issueTypes !== undefined || patch.hideDoneIssues !== undefined || patch.pinned !== undefined || "sort" in patch || "widths" in patch || "gantt" in patch) {
+      const clean = sanitizeView({ columns: patch.columns, filters: patch.filters, groupBy: patch.groupBy ?? null, thenBy: patch.thenBy, showIssues: patch.showIssues, issueTypes: patch.issueTypes, hideDoneIssues: patch.hideDoneIssues, customerSafe: patch.customerSafe, pinned: patch.pinned, sort: patch.sort, widths: patch.widths, gantt: patch.gantt });
+      if ("gantt" in patch) row.gantt = clean.gantt ?? null;
       if ("sort" in patch) row.sort = clean.sort ?? null;
       if ("widths" in patch) { const w = normalizeWidths(patch.widths, Object.keys(patch.widths ?? {}).filter((k) => k in FIELD_BY_KEY)); row.widths = Object.keys(w).length > 0 ? w : null; } // checked on their own: a change of widths alone carries no column list
       if (patch.columns || patch.pinned !== undefined) { row.pinned = clean.pinned ?? []; row.pins_explicit = true; }
@@ -356,8 +357,8 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
       const d = this.dup(this.views.filter((x) => x.ownerId === v.ownerId), nm, "view", id); if (d) return d;
       v.name = nm;
     }
-    const clean = sanitizeView({ columns: patch.columns ?? v.columns, filters: patch.filters ?? v.filters, groupBy: patch.groupBy === undefined ? v.groupBy : patch.groupBy, thenBy: patch.groupBy === undefined && !("thenBy" in patch) ? v.thenBy : patch.thenBy, showIssues: patch.showIssues ?? (patch.groupBy === undefined ? v.showIssues : false), issueTypes: "issueTypes" in patch ? patch.issueTypes : patch.groupBy === undefined ? v.issueTypes : undefined, hideDoneIssues: "hideDoneIssues" in patch ? patch.hideDoneIssues : patch.groupBy === undefined ? v.hideDoneIssues : false, customerSafe: patch.customerSafe ?? v.customerSafe, pinned: patch.pinned ?? v.pinned, sort: "sort" in patch ? patch.sort : v.sort, widths: "widths" in patch ? patch.widths : v.widths });
-    v.columns = clean.columns; v.filters = clean.filters; v.groupBy = clean.groupBy; v.thenBy = clean.thenBy; v.showIssues = clean.showIssues; v.issueTypes = clean.issueTypes; v.hideDoneIssues = clean.hideDoneIssues; v.pinned = clean.pinned; v.sort = clean.sort; v.widths = clean.widths;
+    const clean = sanitizeView({ columns: patch.columns ?? v.columns, filters: patch.filters ?? v.filters, groupBy: patch.groupBy === undefined ? v.groupBy : patch.groupBy, thenBy: patch.groupBy === undefined && !("thenBy" in patch) ? v.thenBy : patch.thenBy, showIssues: patch.showIssues ?? (patch.groupBy === undefined ? v.showIssues : false), issueTypes: "issueTypes" in patch ? patch.issueTypes : patch.groupBy === undefined ? v.issueTypes : undefined, hideDoneIssues: "hideDoneIssues" in patch ? patch.hideDoneIssues : patch.groupBy === undefined ? v.hideDoneIssues : false, customerSafe: patch.customerSafe ?? v.customerSafe, pinned: patch.pinned ?? v.pinned, sort: "sort" in patch ? patch.sort : v.sort, widths: "widths" in patch ? patch.widths : v.widths, gantt: "gantt" in patch ? patch.gantt : v.gantt });
+    v.columns = clean.columns; v.filters = clean.filters; v.groupBy = clean.groupBy; v.thenBy = clean.thenBy; v.showIssues = clean.showIssues; v.issueTypes = clean.issueTypes; v.hideDoneIssues = clean.hideDoneIssues; v.pinned = clean.pinned; v.sort = clean.sort; v.widths = clean.widths; v.gantt = clean.gantt;
     if (patch.customerSafe !== undefined) v.customerSafe = clean.customerSafe;
     return { ok: true, value: { ...v } };
   }
@@ -374,7 +375,7 @@ export class MemoryWorkspaceStore implements WorkspaceStore {
     if (!this.canWrite || !this.admin) return { ok: false, error: "You cannot change the default views. Ask an admin." };
     const clean = sanitizeView({ ...def, customerSafe: false });
     const existing = this.views.find((v) => v.baseView === name);
-    if (existing) { Object.assign(existing, clean); existing.pinned = clean.pinned; existing.sort = clean.sort; existing.widths = clean.widths; existing.thenBy = clean.thenBy; existing.showIssues = clean.showIssues; existing.issueTypes = clean.issueTypes; existing.hideDoneIssues = clean.hideDoneIssues; return { ok: true, value: { ...existing } }; }
+    if (existing) { Object.assign(existing, clean); existing.pinned = clean.pinned; existing.sort = clean.sort; existing.widths = clean.widths; existing.gantt = clean.gantt; existing.thenBy = clean.thenBy; existing.showIssues = clean.showIssues; existing.issueTypes = clean.issueTypes; existing.hideDoneIssues = clean.hideDoneIssues; return { ok: true, value: { ...existing } }; }
     const v: SavedView = { id: `view-${++this.n}`, name, baseView: name, ownerId: null, ...clean };
     this.views.push(v);
     return { ok: true, value: v };
