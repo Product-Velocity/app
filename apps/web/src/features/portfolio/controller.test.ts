@@ -647,6 +647,15 @@ describe("refreshFromServer", () => {
     expect(seen).toEqual(["item-1"]);
   });
 
+  it("tells the open panels to read again after a sync even when no row changed (issue #661 follow-up): the version moves only when asked", async () => {
+    const { c } = setup();
+    const v0 = c.status.version;
+    await c.refreshFromServer(); // the periodic refresh: nothing changed, nothing re-renders
+    expect(c.status.version).toBe(v0);
+    await c.refreshFromServer({ reloadPanels: true }); // after a sync: the Jira and GitHub tabs read their own lists again
+    expect(c.status.version).toBe(v0 + 1);
+  });
+
   it("leaves rows alone while a save is pending", async () => {
     const { c, source } = setup({ latencyMs: 20 });
     c.edit("item-1", "health", "At Risk");

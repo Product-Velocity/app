@@ -93,7 +93,7 @@ function fakeApi(scenario: string, onCall: (code: string) => void, removed?: Syn
   const attempts = new Map<string, number>();
   return {
     ...(removed ? { removed } : {}),
-    start: async (ids) => scenario === "slow" ? new Promise<never>(() => undefined) : scenario === "jira" || scenario === "jiraready" ? jiraPreview(ids, scenario === "jiraready") : scenario === "githubready" ? { ok: true, account: "acme", received: ids.map((id) => card(id, IDS.indexOf(id))), send: ids.map((id) => { const n = IDS.indexOf(id); return { ...plan(id, n), ...(n === 0 ? { ready: { text: "Set Status to Ready", will: true } } : n === 1 ? { ready: { text: "The board's \"Status\" has no option \"Ready\": add Ready in GitHub, nothing was written for it.", will: false } } : {}) }; }) } : { ok: true, account: "acme", received: ids.map((id) => card(id, IDS.indexOf(id))), send: ids.map((id) => plan(id, IDS.indexOf(id))) },
+    start: async (ids) => scenario === "slow" ? new Promise<never>(() => undefined) : scenario === "readonly" ? { ok: true, account: "acme", received: ids.map((id) => ({ ...card(id, IDS.indexOf(id)), readOnly: true, message: "Read only: the listed epics were read, nothing was written to Jira." })), send: [] } : scenario === "jira" || scenario === "jiraready" ? jiraPreview(ids, scenario === "jiraready") : scenario === "githubready" ? { ok: true, account: "acme", received: ids.map((id) => card(id, IDS.indexOf(id))), send: ids.map((id) => { const n = IDS.indexOf(id); return { ...plan(id, n), ...(n === 0 ? { ready: { text: "Set Status to Ready", will: true } } : n === 1 ? { ready: { text: "The board's \"Status\" has no option \"Ready\": add Ready in GitHub, nothing was written for it.", will: false } } : {}) }; }) } : { ok: true, account: "acme", received: ids.map((id) => card(id, IDS.indexOf(id))), send: ids.map((id) => plan(id, IDS.indexOf(id))) },
     board: async () => ({ ok: true, lines: {}, failed: false }),
     confirm: async (ids) => {
       const id = ids[0]!;
@@ -144,6 +144,7 @@ export function SyncHarness({ scenario, newIssues }: { scenario: string; newIssu
   const [closed, setClosed] = useState<string[]>([]);
   const api = useMemo(() => fakeApi(scenario, (c) => setCalls((prev) => [...prev, c]), scenario === "jira" ? { jira: fakeRemoved(scenario, (c, t) => setClosed((prev) => [...prev, `${c}:${t ?? "-"}`])) } : scenario === "githubremoved" || scenario === "githubstopped" ? { github: fakeGithubRemoved((c, t) => setClosed((prev) => [...prev, `${c}:${t ?? "-"}`]), scenario === "githubstopped" ? GH_STOPPED : GH_REMOVED) } : undefined), [scenario]);
   const [refreshes, setRefreshes] = useState(0);
+  const [reloads, setReloads] = useState(0);
   const newItems = useMemo(() => fakeNewItems(newIssues, () => setRefreshes((n) => n + 1)), [newIssues]);
   // stable between renders: a new function each time would restart the dialog's first step whenever a counter below changes
   const trackersOf = useCallback(async () => [newItems?.tracker ?? "github"], [newItems]);
@@ -152,8 +153,9 @@ export function SyncHarness({ scenario, newIssues }: { scenario: string; newIssu
       <button type="button" className="btn" onClick={() => setOpen(true)}>Open sync</button>
       <output data-testid="calls">{calls.join(",")}</output>
       <output data-testid="refreshes">{refreshes}</output>
+      <output data-testid="reloads">{reloads}</output>
       <output data-testid="closed">{closed.join(",")}</output>
-      {open && <GithubPushDialog ids={IDS} api={api} newItems={newItems} trackersOf={trackersOf} onClose={() => setOpen(false)} />}
+      {open && <GithubPushDialog ids={IDS} api={api} newItems={newItems} trackersOf={trackersOf} onClose={() => setOpen(false)} onDone={() => setReloads((n) => n + 1)} />}
     </main></div>
   );
 }

@@ -205,6 +205,8 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
   const actionIds = preview ? ids.filter((id) => sendIds.has(id) || conflicts.some((x) => x.r.id === id)) : [];
   const needsConfirm = actionIds.length > 0;
   const checking = progress !== null;
+  // what was read from the tracker is already saved when the preview shows, so leaving the window after a preview (Done, Cancel or Escape) reloads the grid and the open panels: nothing to send must not mean nothing to show
+  const closeAfterPreview = () => { if (preview) onDone?.(); onClose(); };
   const incoming = (preview?.received ?? []).filter(hasIncoming);
   const counts = filterBySend(preview?.received ?? [], sendIds, updateFilter === "deletions" ? "all" : updateFilter);
   // while the check runs the person is on stage 1 (items arrive one by one); afterwards stage 1 is skipped when nothing came in
@@ -288,7 +290,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
   }
 
   return (
-    <div className="dialog-backdrop" onKeyDown={(e) => { if (e.key === "Escape" && phase.kind !== "writing") { e.stopPropagation(); onClose(); } }}>
+    <div className="dialog-backdrop" onKeyDown={(e) => { if (e.key === "Escape" && phase.kind !== "writing") { e.stopPropagation(); closeAfterPreview(); } }}>
       <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <h2 id={titleId}>{phase.kind === "done" ? `Synced${trackerNames ? ` with ${trackerNames}` : ""}` : `Sync${trackerNames ? ` with ${trackerNames}` : ""}`}</h2>
         {phase.kind !== "error" && <Steps current={phase.kind === "done" || phase.kind === "writing" ? (phase.kind === "done" ? 3 : 2) : phase.kind === "loading" ? 1 : view === "incoming" ? 1 : 2} tracker={phase.kind === "preview" ? trackerLabel : trackerNames} />}
@@ -377,7 +379,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                 </ul>
                 {unchosen.length > 0 && <p role="status" className="muted">Choose for {unchosen.length === 1 ? "the conflict above" : `all ${unchosen.length} open conflicts`} to continue.</p>}
                 <div className="dialog-actions">
-                  <button type="button" className="btn" onClick={onClose}>Cancel</button>
+                  <button type="button" className="btn" onClick={closeAfterPreview}>Cancel</button>
                   <button ref={confirmRef} type="button" className="btn btn-primary" disabled={unchosen.length > 0 || checking} onClick={() => setStage("outgoing")}>{checking ? "Checking…" : `Next: what goes to ${trackerLabel}`}</button>
                 </div>
               </>
@@ -465,8 +467,8 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                 })}
                 <div className="dialog-actions">
                   {incoming.length > 0 && !checking && <button type="button" className="btn" onClick={() => setStage("incoming")}>Back</button>}
-                  {needsConfirm && <button type="button" className="btn" onClick={onClose}>Cancel</button>}
-                  <button ref={confirmRef} type="button" className={!needsConfirm ? "btn" : sendIds.size > 0 ? "btn btn-confirm" : "btn btn-primary"} disabled={unchosen.length > 0 || checking || removedBusy} onClick={needsConfirm ? send : onClose}>
+                  {needsConfirm && <button type="button" className="btn" onClick={closeAfterPreview}>Cancel</button>}
+                  <button ref={confirmRef} type="button" className={!needsConfirm ? "btn" : sendIds.size > 0 ? "btn btn-confirm" : "btn btn-primary"} disabled={unchosen.length > 0 || checking || removedBusy} onClick={needsConfirm ? send : closeAfterPreview}>
                     {checking ? "Checking…" : !needsConfirm ? "Done" : sendIds.size > 0 ? "Apply and send" : "Apply"}
                   </button>
                 </div>

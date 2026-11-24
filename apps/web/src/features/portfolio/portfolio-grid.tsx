@@ -805,7 +805,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
         {controller.canEdit && lookups.projects.length > 0 && <QuickAddBar controller={controller} lookups={lookups} contextProject={contextForQuickAdd} inputRef={quickAddRef} />}
       </div>
       {gates && gateFor && controller.row(gateFor.id) && <RequestGateDialog source={gates} me={me} initialGate={gateFor.gate} items={[controller.row(gateFor.id) as never]} onClose={() => setGateFor(null)} onDone={() => { setGateFor(null); void controller.refreshFromServer(); }} />}
-      {githubIds && <GithubPushDialog ids={githubIds} newItems={newItems} onClose={() => setGithubIds(null)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer(); }} />}
+      {githubIds && <GithubPushDialog ids={githubIds} newItems={newItems} onClose={() => setGithubIds(null)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer({ reloadPanels: true }); }} />}
       {deleteIds && <DeleteDialog controller={controller} ids={deleteIds} onClose={closeDelete} onDeleted={() => apiRef.current?.deselectAll()} />}
       {importText !== null && (
         <ImportDialog controller={controller} lookups={lookups} defaultProject={contextForQuickAdd} initialText={importText} onClose={() => setImportText(null)} />

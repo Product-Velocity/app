@@ -51,7 +51,7 @@ describe("loadItems", () => {
   it("also reads the calculated view and every related table, each filtered by tenant", async () => {
     const { client, calls } = fake([{ data: [row(1)] }]);
     await new SupabaseDataSource(client, "t1").loadItems();
-    expect(calls.map((c) => c.table ?? `rpc ${c.rpc}`)).toEqual(["items", "items_computed", "item_tags", "item_attachments", "item_relations", "teams", "item_teams", "rpc tenant_directory", "tenant_members", "item_github_links", "item_jira_links", "rpc item_alignment_results"]);
+    expect(calls.map((c) => c.table ?? `rpc ${c.rpc}`)).toEqual(["items", "items_computed", "item_tags", "item_attachments", "item_relations", "teams", "item_teams", "rpc tenant_directory", "tenant_members", "item_github_links", "item_jira_links", "item_jira_tree", "rpc item_alignment_results"]);
     for (const c of calls.filter((x) => x.table)) expect(has(c, "eq", "tenant_id", "t1"), String(c.table)).toBe(true);
     expect(calls.find((c) => c.rpc === "tenant_directory")!.ops).toEqual([["args", [{ p_tenant: "t1" }]]]); // the people of this workspace only
   });
@@ -82,6 +82,7 @@ describe("loadItems", () => {
       { data: [linked, row(2)] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] },
       { data: [{ item_id: "i1", mode: "push", repo_full_name: "Acme/App", issue_number: 38, sync_state: "synced", last_pushed_at: "2026-10-27T10:00:00Z", gh_synced_at: "2026-10-27T11:00:00Z", project_item_id: "PVTI_1", gh_state: "open" }] },
       { data: [{ item_id: "i1", mode: "push", issue_key: "PLAT-1", sync_checked_at: null, jira_updated_at: null, jira_status: "In Review" }, { item_id: "i2", mode: "follow", issue_key: "PLAT-12", sync_checked_at: "2026-11-03T09:00:00Z", jira_updated_at: null, jira_status: "Project Closed" }] },
+      { data: [] }, // item_jira_tree (epics read from Jira)
       { data: [{ id: "p", github_board: { title: "Product Velocity roadmap" } }] },
     ]);
     const [a, b] = await new SupabaseDataSource(client, "t1").loadItems();
@@ -344,7 +345,7 @@ describe("what the crowd said (issue #393)", () => {
   const none = { data: [] };
 
   it("fills the four Crowd columns from the latest closed session of each initiative", async () => {
-    const { client, calls } = fake([{ data: [row(1), row(2)] }, none, none, none, none, none, none, none, none, none, none, { data: [dbRow({}), dbRow({ session_id: "s0", closed_at: "2026-10-01T10:00:00Z", place: 5, score: "10" })] }]);
+    const { client, calls } = fake([{ data: [row(1), row(2)] }, none, none, none, none, none, none, none, none, none, none, none, { data: [dbRow({}), dbRow({ session_id: "s0", closed_at: "2026-10-01T10:00:00Z", place: 5, score: "10" })] }]);
     const items = await new SupabaseDataSource(client, "t1").loadItems();
     expect(items[0]).toMatchObject({ crowd_rank: 2, crowd_score: 71.4, crowd_consensus: 88, crowd_votes: 12 });
     expect(items[1]!.crowd_rank ?? null).toBeNull(); // no result: the view's empty value stays

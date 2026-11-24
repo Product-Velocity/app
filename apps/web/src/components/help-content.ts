@@ -146,7 +146,7 @@ const OVERRIDES: Record<string, Link> = {
   latest_release: read("Latest published release of the linked repositories", "Not read yet"),
   repositories: read("Repositories of the linked issues", "Not read yet"),
   gh_project_status: read("Project board field Status (the field chosen for the board)", "Not read yet"),
-  tracker_status: read("Project board Status, else the state of the issue (Open, Closed)", "The issue's status name, as Jira spells it"),
+  tracker_status: read("Project board Status, else the state of the issue (Open, Closed)", "The issue's status name, as Jira spells it. In a project set read only for Jira, an initiative with only listed epics shows how many of them are done (for example \"3 of 11 epics done\")"),
   gh_iteration: read("Project board field Iteration", "Not read yet"),
   gh_target_date: read("Project board field Due date or Target date", "Not read yet"),
   planned_scope: { github: "Counted from the sub-issues when you mark the breakdown complete", jira: "Not read yet" },

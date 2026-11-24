@@ -202,7 +202,9 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
       return { ...base, cellRenderer: (p: CustomCellRendererProps<GridItem>) => {
         const v = typeof p.value === "string" ? p.value : "";
         const jira = p.data ? lookups.jira?.links[p.data.id] : undefined;
-        const tone = jira ? jiraCategoryTone(jira.category) : changeTone("issue-status", v, "GitHub");
+        // an initiative with only epics read from Jira (read-only project) has no issue status: its pill is coloured by what the epics add up to
+        const epicCategory = (p.data as unknown as Record<string, unknown> | undefined)?.tracker_status_category;
+        const tone = jira ? jiraCategoryTone(jira.category) : epicCategory === "new" || epicCategory === "indeterminate" || epicCategory === "done" ? jiraCategoryTone(epicCategory) : changeTone("issue-status", v, "GitHub");
         return <ReadOnlyCell text="" reason={reason} github={false}>{v ? <StatusPill value={v} tone={tone} /> : <span className="muted">Not linked</span>}</ReadOnlyCell>;
       } };
     }
