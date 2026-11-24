@@ -1,3 +1,4 @@
+import { AnonymityFigure } from "@/components/help/figures";
 import { HelpCallout, HelpCards, HelpList, HelpPage, HelpSection, HelpTable, HelpWhere } from "@/components/help/help-ui";
 
 export const metadata = {
@@ -88,6 +89,7 @@ export default function AlignmentPage() {
       </HelpSection>
 
       <HelpSection id="privacy" title="Privacy">
+        <AnonymityFigure />
         <HelpTable
           caption="Who sees what in an alignment session"
           table={{

@@ -105,4 +105,11 @@ describe("Help pages", () => {
     expect(t).toMatch(/A note for leaders/);
     expect(html["get-started"]!).toContain('href="/help/skills"');
   });
+  it("shows the figures with text alternatives, labelled as example data", () => {
+    for (const k of ["lifecycle", "alignment", "sync-rules", "delivery", "ai-setup", "reports"]) expect(html[k]!, k).toContain("<figure");
+    expect(html.lifecycle!).toContain("Go with conditions");
+    expect(html.alignment!).toContain("Hidden: fewer than 5 voters");
+    expect(html["sync-rules"]!).toContain("Never leaves Product Velocity");
+    expect(html.reports!).toContain("Example data");
+  });
 });
