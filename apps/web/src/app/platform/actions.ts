@@ -94,3 +94,25 @@ export async function setSuspended(form: FormData): Promise<void> {
   const { error } = await supabase.rpc("platform_set_suspended", { p_tenant: tenant, p_suspend: suspend, p_reason: reason || null });
   done("/platform", error ? "failed" : suspend ? "account-paused" : "account-resumed");
 }
+
+/** Platform staff only: this workspace's own daily Claude item limit (empty = back to the default). Workspace admins can see it, never change it. */
+export async function setClaudeItemsLimit(form: FormData): Promise<void> {
+  const tenant = String(form.get("tenant") ?? "");
+  const raw = String(form.get("limit") ?? "").trim();
+  const reason = String(form.get("reason") ?? "").trim().slice(0, 500);
+  const { supabase } = await requirePlatformAdmin("/platform");
+  if (!UUID.test(tenant)) done("/platform", "bad-account");
+  const limit = raw === "" ? null : Number(raw);
+  if (limit !== null && (!Number.isInteger(limit) || limit < 1 || limit > 100000)) done("/platform", "claude-limit-bad");
+  const { error } = await supabase.rpc("platform_set_claude_items_limit", { p_tenant: tenant, p_limit: limit, p_reason: reason || null });
+  done("/platform", error ? "failed" : limit === null ? "claude-limit-default" : "claude-limit-set");
+}
+
+export type ClaudeLimit = { override: number | null; effective: number; usedToday: number };
+export async function loadClaudeLimit(tenant: string): Promise<ClaudeLimit | null> {
+  const { supabase } = await requirePlatformAdmin("/platform");
+  if (!UUID.test(tenant)) return null;
+  const { data, error } = await supabase.rpc("platform_claude_limit", { p_tenant: tenant });
+  const r = (data as { override: number | null; effective: number; used_today: number }[] | null)?.[0];
+  return error || !r ? null : { override: r.override, effective: r.effective, usedToday: r.used_today };
+}

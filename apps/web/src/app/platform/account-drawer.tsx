@@ -6,7 +6,7 @@ import { ROLES, ROLE_LABEL, type Role } from "@/lib/roles";
 import { formatWhen } from "@/lib/audit-log";
 import { LinkNotice } from "@/app/(workspace)/settings/members/forms";
 import { companyHost, memberMoves, safeUrl, trackerText, isPaused, type AccountRow, type MemberRow } from "./accounts-model";
-import { deleteAccount, enterAccount, setAccountLevel, setPlan, setSuspended } from "./actions";
+import { deleteAccount, enterAccount, loadClaudeLimit, setAccountLevel, setClaudeItemsLimit, setPlan, setSuspended, type ClaudeLimit } from "./actions";
 import { cancelInvitation, changePersonStatus, inviteMember, loadAccountMembers, renewInvitation, type InviteResult } from "./members-actions";
 
 const when = (iso: string | null, none = "—") => (iso ? formatWhen(iso, "UTC", false) : none);
@@ -80,6 +80,8 @@ export function AccountDrawer({ account: a, emailEnabled, fixtureMembers, onClos
           </form>
         </div>
 
+        <ClaudeLimitForm account={a} />
+
         <Members account={a} emailEnabled={emailEnabled} fixture={fixtureMembers} />
 
         <details className="delete-account">
@@ -93,6 +95,27 @@ export function AccountDrawer({ account: a, emailEnabled, fixtureMembers, onClos
         </details>
       </div>
     </div>
+  );
+}
+
+/** The workspace's own daily Claude item limit (platform staff only; the default is 1000). Empty = default. */
+function ClaudeLimitForm({ account: a }: { account: AccountRow }) {
+  const id = useId();
+  const [limit, setLimit] = useState<ClaudeLimit | null | undefined>(undefined);
+  useEffect(() => { let live = true; loadClaudeLimit(a.tenant_id).then((r) => { if (live) setLimit(r); }); return () => { live = false; }; }, [a.tenant_id]);
+  return (
+    <>
+      <h3>Claude daily item limit</h3>
+      <form action={setClaudeItemsLimit} className="stack" data-testid="claude-limit-form">
+        <input type="hidden" name="tenant" value={a.tenant_id} />
+        <p className="muted">
+          {limit === undefined ? "Loading…" : limit === null ? "Could not read the limit." : `${num(limit.usedToday)} of ${num(limit.effective)} items used today (${limit.override === null ? "default" : "set for this account"}). Workspace admins can see this limit but not change it.`}
+        </p>
+        <div className="field"><label htmlFor={`${id}-lim`}>Items per day (empty = default)</label><input id={`${id}-lim`} name="limit" type="number" inputMode="numeric" min={1} max={100000} step={1} key={String(limit?.override ?? "")} defaultValue={limit?.override ?? ""} /></div>
+        <div className="field"><label htmlFor={`${id}-limr`}>Reason (optional, logged)</label><input id={`${id}-limr`} name="reason" maxLength={500} /></div>
+        <div><button className="btn" type="submit">Save limit</button></div>
+      </form>
+    </>
   );
 }
 

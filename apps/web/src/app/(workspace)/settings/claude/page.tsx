@@ -60,11 +60,12 @@ export default async function ConnectClaudePage({ searchParams }: { searchParams
 
   let people = new Map<string, string>();
   let usage = { items: 0, bytes: 0, calls: 0 };
-  let limits = { items: 200, mb: 100 };
+  let limits = { items: 1000, mb: 100 };
   if (isAdmin) {
     const { data: dir } = await supabase.rpc("tenant_directory", { p_tenant: active.tenantId });
     people = new Map((dir ?? []).map((p: { user_id: string; email: string }) => [p.user_id, p.email]));
-    const { data: l } = await supabase.rpc("mcp_limits");
+    const own = await supabase.rpc("mcp_limits_for", { p_tenant: active.tenantId }); // this workspace's own limit (migration 20261124200701)
+    const l = own.error ? (await supabase.rpc("mcp_limits")).data : own.data;
     if (l) limits = { items: Number(l.workspace_items_per_day), mb: Math.round(Number(l.workspace_bytes_per_day) / (1024 * 1024)) };
     const today = new Date().toISOString().slice(0, 10);
     const { data: u } = await supabase.from("ai_usage").select("calls, items_written, bytes_uploaded").eq("tenant_id", active.tenantId).eq("day", today);
