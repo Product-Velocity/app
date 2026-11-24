@@ -1,6 +1,8 @@
 ---
 issue: 646
-status: in progress
+status: done
+done: 2026-11-24
+link: PR #647
 logged: 2026-11-24
 title: Help: figures on setup, gates, alignment, delivery and reports
 ---
