@@ -26,6 +26,6 @@ export function rowTracker(l: Pick<Lookups, "trackers" | "github" | "jira">, row
 /** What an empty tracker-driven value says, in the words of the initiative's own tracker (a Jira initiative is never "Not on GitHub"). */
 export function emptyTrackerText(key: string, tracker: RowTracker): string | null {
   if (key === "status") return tracker === "jira" ? "Not in Jira" : tracker === "github" ? "Not on GitHub" : "Not linked";
-  if (key === "gh_project_status") return tracker === "jira" ? "Not used in Jira" : "Not on a board";
+  if (key === "gh_project_status") return tracker === "jira" ? "GitHub only" : "Not on a board"; // the GitHub Projects board Status: no Jira equivalent
   return null;
 }

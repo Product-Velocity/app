@@ -146,7 +146,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
       field: f.key as never,
       headerName: f.name,
       headerComponent: FieldHeader,
-      headerComponentParams: { phase: isShipped(f) || f.mode === "locked" || f.storage.startsWith("GitHub-synced") ? 1 : f.phase, locked: f.mode === "locked" || f.storage.startsWith("GitHub-synced"), from: `from ${trackerWords(lookups)}` },
+      headerComponentParams: { phase: isShipped(f) || f.mode === "locked" || f.storage.startsWith("GitHub-synced") ? 1 : f.phase, locked: f.mode === "locked" || f.storage.startsWith("GitHub-synced"), from: f.key === "gh_project_status" ? "GitHub only" : `from ${trackerWords(lookups)}` },
       headerTooltip: f.description ?? f.name,
       width: widths?.[f.key] ?? WIDE[f.key] ?? WIDTH[f.type] ?? 140,
       hide: !visible.has(f.key) && !(CORE_COLUMNS as readonly string[]).includes(f.key),
