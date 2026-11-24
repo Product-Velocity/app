@@ -1,5 +1,5 @@
 ---
-name: product-velocity-discovery
+name: pv-discovery
 description: Guided workflow to explore customer opportunities, assemble multi-source evidence, evaluate solution candidates, and submit a Discovery document for Gate A approval in Product Velocity via MCP.
 ---
 
@@ -136,3 +136,14 @@ Once confirmed by the user:
    - Provide the user with the direct link to the initiative in Product Velocity (`/portfolio?item=<item_code>&tab=spec`).
    - Remind the user:
      > *"This discovery document is saved as an AI draft. To proceed, review the solutions with your team and present it for Gate A (Discover → Define) approval. Once approved, you can launch the `/write-prd` skill on the chosen solution."*
+
+---
+
+## Included skills (issue #643)
+
+This skill can run other Product Velocity skills as steps of the one discovery document. Show the plan first, as "This will run: pv-hypothesis, pv-metrics, pv-premortem. Skip any.", and ask once whether the person wants quick (the steps that always run) or full (adds the offered ones).
+
+- Always runs: `pv-hypothesis`, `pv-metrics` (one key result only), `pv-premortem` (light: the failure story and the top risks only).
+- Offered, each skippable: `pv-opportunity-tree`, `pv-assumptions`; and `pv-personas`, `pv-market`, `pv-compete` for this initiative, only when the confirmed company-level ones do not cover it.
+- Reuse, do not redo: read the confirmed company-level personas, competitors and market first, and anything the initiative already has; offer to refine it, never overwrite it.
+- Each step you run is a labelled section of the same document, saved as an AI draft. Every included skill also runs on its own (`/pv-hypothesis R-12`).

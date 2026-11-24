@@ -285,8 +285,8 @@ describe("the craft layer (depth pass) and wave 1", () => {
   it("pv-which is advice: it lists the other skills, saves nothing and recommends only from the list", () => {
     const t = prompt("pv-which");
     expect(t).toMatch(/THE SKILLS \(recommend only from this list/);
-    expect(t).toMatch(/- pv-premortem \(Define; one initiative; a saved document\)/);
-    expect(t).toMatch(/- pv-weekly \(Run the product; all initiatives or the ones you name; a report\)/);
+    expect(t).toMatch(/- pv-premortem \(Define; building block; one initiative; a saved document\)/);
+    expect(t).toMatch(/- pv-weekly \(Run the product; guided; all initiatives or the ones you name; a report\)/);
     expect(t).not.toMatch(/- pv-which \(/);
     expect(t).toMatch(/Nothing is saved/);
     expect(t).not.toMatch(/create_document/);

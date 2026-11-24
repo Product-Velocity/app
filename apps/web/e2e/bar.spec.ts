@@ -354,7 +354,7 @@ test.describe("Shortcuts, Help and text size in the top bar", () => {
     await help.getByPlaceholder(/Filter columns/).fill("sponsor");
     await expect(help.getByRole("status")).toContainText("1 of 177 columns");
     await help.goto("/help/ai-setup");
-    await expect(help.getByRole("main")).toContainText("write_prd");
+    await expect(help.getByRole("main")).toContainText("pv-prd");
     await expect(help.getByRole("main")).toContainText("get_playbook");
     await expect(help.getByRole("main")).toContainText("/mcp auth product-velocity");
     const results = await new AxeBuilder({ page: help }).withTags(["wcag2a", "wcag2aa"]).analyze();

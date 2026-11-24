@@ -3,6 +3,7 @@
 
 import { SKILL_DEPTH } from "./skills-depth";
 import { skillHelp, skillPrompt, type SkillSpec } from "./skills";
+import { SKILL_PLANS } from "./skill-plan";
 
 const BASE_SKILLS: readonly SkillSpec[] = [
   {
@@ -1134,7 +1135,10 @@ const BASE_SKILLS: readonly SkillSpec[] = [
 ];
 
 /** The skills with their craft layer merged in (skills-depth.ts). */
-export const SKILLS: readonly SkillSpec[] = BASE_SKILLS.map((s) => (SKILL_DEPTH[s.command] ? { ...s, depth: SKILL_DEPTH[s.command] } : s));
+export const SKILLS: readonly SkillSpec[] = BASE_SKILLS.map((s) => {
+  const plan = SKILL_PLANS[s.command];
+  return { ...s, ...(SKILL_DEPTH[s.command] ? { depth: SKILL_DEPTH[s.command] } : {}), ...(plan ? { tier: plan.tier, ...(plan.includes ? { includes: plan.includes } : {}) } : {}) };
+});
 
 export const SKILL_COMMANDS: readonly string[] = SKILLS.map((s) => s.command);
 export const skillByCommand = (c: string): SkillSpec | undefined => SKILLS.find((s) => s.command === c);

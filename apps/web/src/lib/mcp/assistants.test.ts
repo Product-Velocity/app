@@ -51,7 +51,8 @@ describe("instructions and prompts per assistant", () => {
   it("a client that cannot start prompts is told to use get_playbook; one that can is told the prompt names", async () => {
     expect(ASSISTANT_INFO.chatgpt.prompts).toBe(false);
     expect(await instructions("chatgpt")).toMatch(/call get_playbook/);
-    expect(await instructions("claude")).toMatch(/prompts write_prd, write_discovery and research_company/);
+    expect(await instructions("claude")).toMatch(/prompts pv-prd, pv-discovery and pv-company/);
+    expect(await instructions("claude")).toMatch(/older names write_prd, write_discovery and research_company still work/);
     expect(await instructions("gemini")).not.toMatch(/call get_playbook/);
   });
   it("everyone gets the same flow rules", async () => {
@@ -64,7 +65,7 @@ describe("instructions and prompts per assistant", () => {
   it("lists the same prompts to all clients", async () => {
     const names = async (a: Assistant) => ((await handleRpc({ jsonrpc: "2.0", id: 4, method: "prompts/list" }, backend(a))) as { result: { prompts: { name: string }[] } }).result.prompts.map((p) => p.name);
     expect(await names("gemini")).toEqual(await names("claude"));
-    expect(await names("chatgpt")).toEqual(["write_prd", "write_discovery", "research_company", ...SKILL_COMMANDS, "pv-help"]);
+    expect(await names("chatgpt")).toEqual(["pv-prd", "pv-discovery", "pv-company", ...SKILL_COMMANDS, "pv-help"]);
   });
 });
 

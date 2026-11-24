@@ -13,7 +13,7 @@ import { REPORT_TOOLS } from "./report-tools";
 import { FILE_TOOLS } from "./file-tools";
 import { EPIC_TOOLS } from "./epic-tools";
 import { OUTCOME_READ_TOOLS, OUTCOME_WRITE_TOOLS } from "./outcome-tools";
-import { FLOWS, publicFlow } from "./flows";
+import { FLOWS, findFlow, publicFlow } from "./flows";
 import { PLAYBOOK_TOOLS } from "./playbook-tool";
 import { PROFILE_READ_TOOLS, PROFILE_WRITE_TOOLS } from "./profile-tools";
 import { READ_TOOLS } from "./read-tools";
@@ -177,7 +177,7 @@ export async function handleRpc(msg: Rpc, backend: McpBackend, tools: ToolDef[] 
     case "prompts/list":
       return { jsonrpc: "2.0", id, result: { prompts: FLOWS.map(publicFlow) } };
     case "prompts/get": {
-      const flow = FLOWS.find((f) => f.name === msg.params?.name);
+      const flow = findFlow(msg.params?.name);
       if (!flow) return err(id, -32602, "Unknown prompt");
       const p = await flow.build((msg.params?.arguments ?? {}) as Record<string, unknown>, backend);
       return { jsonrpc: "2.0", id, result: { description: p.description, messages: [{ role: "user", content: { type: "text", text: p.text } }] } };

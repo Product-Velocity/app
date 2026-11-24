@@ -1,4 +1,4 @@
-import { AGENT_SKILL_STEPS, AGENT_SKILL_TIPS, AGENT_USE_CASES } from "@/components/help-content";
+import { AGENT_SKILL_INCLUDES, AGENT_SKILL_STEPS, AGENT_SKILL_TIERS, AGENT_SKILL_TIPS, AGENT_USE_CASES } from "@/components/help-content";
 import { HelpList, HelpPage, HelpReference, HelpSection, HelpTable } from "@/components/help/help-ui";
 
 export const metadata = {
@@ -13,7 +13,9 @@ export default function AiUseCasesHelp() {
         <HelpTable caption="Use-cases, what the agent does, and where the result lands" table={AGENT_USE_CASES} />
       </HelpSection>
       <HelpSection id="skills" title="The pv- skills">
-        <p>Start a skill with <code>pv-</code> and its name, then what it is about, for example <code>pv-premortem R-12</code>, <code>pv-strategy</code> or <code>pv-weekly --format=email</code>. In Claude and Gemini pick it from the prompt menu; in ChatGPT type it. Every skill reads the company profile and what Product Velocity already stores, and asks once. Every question can be skipped, and nothing is invented: what it cannot find stays &ldquo;to define&rdquo;. Add <code>--draft</code> to see the result before anything is saved. Skills never set Stack Rank, Value, Confidence or Decision and never approve; a person decides.</p>
+        <p>Every prompt and skill is named <code>pv-</code> and its name; the older names <code>write_prd</code>, <code>write_discovery</code> and <code>research_company</code> still work (now <code>pv-prd</code>, <code>pv-discovery</code> and <code>pv-company</code>) but are in no menu. Start a skill with <code>pv-</code> and its name, then what it is about, for example <code>pv-premortem R-12</code>, <code>pv-strategy</code> or <code>pv-weekly --format=email</code>. In Claude and Gemini pick it from the prompt menu; in ChatGPT type it. Every skill reads the company profile and what Product Velocity already stores, and asks once. Every question can be skipped, and nothing is invented: what it cannot find stays &ldquo;to define&rdquo;. Add <code>--draft</code> to see the result before anything is saved. Skills never set Stack Rank, Value, Confidence or Decision and never approve; a person decides.</p>
+        <HelpTable caption="The kinds of skill, and where to start" table={AGENT_SKILL_TIERS} />
+        <HelpTable caption="What a guided skill runs as steps" table={AGENT_SKILL_INCLUDES} />
         <HelpTable caption="Which skill when, along the product life cycle" table={AGENT_SKILL_STEPS} />
         <HelpReference slug="skills">One page for every skill: how to start it, what it asks, what it writes and what you decide</HelpReference>
         <h3>Getting the most out of them</h3>

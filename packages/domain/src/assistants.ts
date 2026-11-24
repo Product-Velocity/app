@@ -70,7 +70,7 @@ export function setupGuides(url: string): SetupGuide[] {
         "Connect, sign in to Product Velocity, choose one or several workspaces and approve on the consent screen.",
         "In a new chat, add the Product Velocity connector from the + menu (Developer mode). ChatGPT asks you to confirm each tool call that changes something.",
       ],
-      note: "ChatGPT cannot start prompts, so say \"use the write_prd playbook\" or simply describe what you want; the assistant reads the same instructions through the get_playbook tool. Deep research and company knowledge use the search and fetch tools, which are read-only.",
+      note: "ChatGPT cannot start prompts, so say \"use the pv-prd playbook\" or simply describe what you want; the assistant reads the same instructions through the get_playbook tool. Deep research and company knowledge use the search and fetch tools, which are read-only.",
     },
     {
       assistant: "gemini",
@@ -79,7 +79,7 @@ export function setupGuides(url: string): SetupGuide[] {
         "Direct connection (Recommended): In your Gemini interface (Antigravity, Gemini Code Assist, or any remote MCP client), open Settings → Connectors / MCP Servers and add the connector URL below.",
         "Sign in and approve: In the browser window that opens, sign in to Product Velocity, choose one or several workspaces, and approve the connection.",
         "Developer / CLI alternative: In Gemini CLI, run the command below, then run /mcp auth product-velocity.",
-        "Skills and prompts: Use skills like /product-velocity-prd or prompts (write_prd, write_discovery, review_group, research_company) by typing / or asking in natural language.",
+        "Skills and prompts: Use skills like /pv-prd and /pv-discovery or prompts (pv-prd, pv-discovery, pv-company and the other pv- skills) by typing / or asking in natural language.",
       ],
       snippet: {
         label: "Gemini Connector URL (Direct) & CLI setup",
@@ -94,6 +94,6 @@ export function setupGuides(url: string): SetupGuide[] {
 export function playbookInstructions(clientStartsPrompts: boolean): string {
   const skills = " The pv- prompts are skills the person starts as pv-<skill> [initiative] [their words] [--draft] (for example pv-premortem R-12); pv-help lists them. Each reads the company profile and the workspace, asks once, and saves a document as an AI draft.";
   return clientStartsPrompts
-    ? "The prompts write_prd, write_discovery and research_company start the PRD, discovery and company-profile flows." + skills
-    : "This client cannot start prompts: when the person asks for one of the flows write_prd, write_discovery or research_company, or types a command that starts with pv- (for example pv-premortem R-12 --draft), call get_playbook with its name (the pv- skill name without anything after it) and the rest of what they typed as input, and follow the text it returns." + skills;
+    ? "The prompts pv-prd, pv-discovery and pv-company start the PRD, discovery and company-profile flows; the other pv- skills are building blocks they can run. The older names write_prd, write_discovery and research_company still work." + skills
+    : "This client cannot start prompts: when the person asks for one of the flows pv-prd, pv-discovery or pv-company (or by their older names write_prd, write_discovery or research_company), or types a command that starts with pv- (for example pv-premortem R-12 --draft), call get_playbook with its name (the pv- skill name without anything after it) and the rest of what they typed as input, and follow the text it returns." + skills;
 }

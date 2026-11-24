@@ -1,5 +1,5 @@
 ---
-name: product-velocity-prd
+name: pv-prd
 description: Guided workflow to research, draft, and submit a comprehensive PRD (Product Requirement Document) to Product Velocity via MCP, with 4D modules, Team attribution, and single-batch question gathering.
 ---
 
@@ -149,3 +149,14 @@ Once confirmed by the user:
      - `value_proposition` (Customer-safe block from A1)
 4. **Summary Confirmation:**
    - Share the direct link to the initiative and document in Product Velocity (`/portfolio?item=<item_code>&tab=spec`).
+
+---
+
+## Included skills (issue #643)
+
+This skill can run other Product Velocity skills as steps of the one PRD. Show the plan first, as "This will run: pv-metrics, pv-split. Skip any.", and ask once whether the person wants quick (the steps that always run) or full (adds the offered ones).
+
+- Always runs: `pv-metrics` (success metrics and key results), `pv-split` (the split into steps).
+- Offered, each skippable: `pv-stories`, `pv-premortem`, `pv-pr-faq`, `pv-business-case`.
+- Reuse, do not redo: read the confirmed company-level personas, competitors and market first, and anything the initiative already has (hypothesis, key result); offer to refine it, never overwrite it.
+- Each step you run is a labelled section of the same PRD, saved as an AI draft. Every included skill also runs on its own (`/pv-metrics R-12`).
