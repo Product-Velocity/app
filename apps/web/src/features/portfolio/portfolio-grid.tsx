@@ -16,6 +16,7 @@ import { buildColumns, isEditableColumn, isReadOnlyColumn, type GridContext } fr
 import { syncLabel, syncPlatforms, syncTitle } from "./sync-label";
 import { ColumnsPanel } from "./columns-panel";
 import { FoldAllButton } from "./fold-all-button";
+import { trackerWords } from "./tracker-words";
 import { isIssueRow, issueInfoOf, issueRowsOf, issuesKey, issueTypeCounts, withIssueRows, type IssueFilter, type IssueRow } from "./issue-rows";
 import type { ReportChildren } from "./export-xlsx-children";
 import { FilterPanel } from "./filter-panel";
@@ -292,15 +293,21 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
     return showIssues ? withIssueRows(grouped, issueKids, collapsed, issueFilter) : grouped;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleRows, def.groupBy, def.thenBy, shownSort, collapsed, lookups, showIssues, issueKids, issueFilter]);
-  // everything that can be folded: every group header (both levels) and, with Show issues, the issues under each initiative that has some
-  const foldKeys = useMemo(() => {
-    const keys = def.groupBy
-      ? buildGroupedRows(visibleRows, def.groupBy, new Set(), groupLabel, def.thenBy ?? null).filter((r): r is typeof r & GroupRow => "__group" in r).map((g) => g.key)
+  // everything that can be folded, by level (the fold button steps through them, issue #663): the group headers of Group by, those of Then by inside them and,
+  // with Show issues, the issues under each initiative that has some
+  const foldLevels = useMemo(() => {
+    const headers = def.groupBy
+      ? buildGroupedRows(visibleRows, def.groupBy, new Set(), groupLabel, def.thenBy ?? null).filter((r): r is typeof r & GroupRow => "__group" in r)
       : [];
-    if (showIssues) for (const r of visibleRows) if (issueRowsOf(r, issueKids, issueFilter).length > 0) keys.push(issuesKey(r.id));
-    return keys;
+    const issueKeys = showIssues ? visibleRows.filter((r) => issueRowsOf(r, issueKids, issueFilter).length > 0).map((r) => issuesKey(r.id)) : [];
+    return [
+      { name: "groups", keys: headers.filter((g) => g.level === 0).map((g) => g.key) },
+      { name: "sub-groups", keys: headers.filter((g) => g.level === 1).map((g) => g.key) },
+      { name: "issues", keys: issueKeys },
+    ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleRows, def.groupBy, def.thenBy, lookups, showIssues, issueKids, issueFilter]);
+  const foldKeys = useMemo(() => foldLevels.flatMap((l) => l.keys), [foldLevels]);
   const toggleGroup = useCallback((key: string) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(key)) n.add(key); return n; }), []);
   // what a cell may ask the grid: fold a group, and (Show issues) the chip data of an initiative's name cell
   const issueInfo = useCallback((id: string) => { const r = controller.row(id); return r ? issueInfoOf(r, issueKids, collapsed, issueFilter) : null; }, [controller, issueKids, collapsed, issueFilter]);
@@ -713,7 +720,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
             customerSafe={def.customerSafe === true} issueTypes={issueTypes} issuesLoading={issuesLoading} onOpenIssues={() => setIssuesWanted(true)}
             onChange={(g) => changeDef({ groupBy: g.groupBy, thenBy: g.thenBy, showIssues: g.showIssues, issueTypes: g.issueTypes ?? undefined, hideDoneIssues: g.hideDone })}
           />
-          <FoldAllButton keys={foldKeys} collapsed={collapsed} onChange={setCollapsed} what="groups and issues" />
+          <FoldAllButton keys={foldKeys} levels={foldLevels} collapsed={collapsed} onChange={setCollapsed} what="groups and issues" />
           <label className="pvbar-search">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b6272" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
             <input
@@ -848,7 +855,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       )}
       </div>
       <p ref={footRef} className="grid-foot">
-        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${groupSummary(def.groupBy, def.thenBy).replace(" › ", ", then ")}, ${shownSort.length > 0 ? `sorted by ${shownSort.map((x) => FIELD_BY_KEY[x.field]?.name).join(", then ")} inside each group` : "rank order inside each group"}` : sortSummary(shownSort)} · Keyboard shortcuts are under Shortcuts, top right · A lock means the value comes from GitHub
+        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${groupSummary(def.groupBy, def.thenBy).replace(" › ", ", then ")}, ${shownSort.length > 0 ? `sorted by ${shownSort.map((x) => FIELD_BY_KEY[x.field]?.name).join(", then ")} inside each group` : "rank order inside each group"}` : sortSummary(shownSort)} · Keyboard shortcuts are under Shortcuts, top right · A lock in a column header means the values come from {trackerWords(lookups)}
         {status.pending > 0 ? "" : ""}
         {showIssues && issuesFailed && <> · Issues could not be loaded; turn Show issues off and on to retry</>}
         {lastGithubSync && <> · <span title="The latest time any initiative was in step with GitHub">Last synced with GitHub {agoLabel(lastGithubSync, nowTick)}</span></>}

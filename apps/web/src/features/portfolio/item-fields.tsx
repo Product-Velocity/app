@@ -1,5 +1,6 @@
 "use client";
 
+import { emptyTrackerText, rowTracker } from "./tracker-words";
 import { DateInput } from "@/components/date-input";
 import { SelectField } from "@/components/search-list";
 import { useEffect, useId, useState, type ReactNode } from "react";
@@ -67,7 +68,7 @@ type Common = { id: string; f: FieldDef; row: GridItem; ctx: FieldCtx; disabled:
 function ReadOnlyValue({ f, row, ctx, later }: { f: FieldDef; row: GridItem; ctx: FieldCtx; later: boolean }) {
   const text = formatField(f, row[f.key], { today: ctx.controller.todayDate(), members: ctx.lookups.members, projects: ctx.lookups.projects });
   if (later) return <span className="pf-value muted">Not available yet</span>;
-  return <span className="pf-value">{text || <span className="muted">{f.key === "status" ? "Not on GitHub" : "Not set"}</span>}</span>;
+  return <span className="pf-value">{text || <span className="muted">{emptyTrackerText(f.key, rowTracker(ctx.lookups, row)) ?? "Not set"}</span>}</span>;
 }
 
 // ---------------------------------------------------------------- one value
