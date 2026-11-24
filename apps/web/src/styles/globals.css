@@ -2047,3 +2047,27 @@ a.btn.btn-primary { color: #fff; }
 .hp-sync-never { margin: 0; max-width: none !important; padding: 10px 14px; border-top: 1px solid var(--border); background: var(--amber-bg); font-size: 14px; color: var(--ink); }
 .hp-sync-never b { display: block; color: var(--amber-text); }
 @media (max-width: 640px) { .hp-fig-choices, .hp-sync-grid { grid-template-columns: 1fr; } }
+/* skill reference figures (issue #644): drawn in markup so they follow the theme */
+.hp-stagemap { margin: 16px 0; padding: 0; }
+.hp-stagemap > ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.hp-stagemap > ol > li { padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); display: flex; flex-direction: column; gap: 4px; }
+.hp-stagemap b { font-size: 16px; }
+.hp-stage-n { font-family: var(--font-mono); font-size: 12px; color: var(--brand-strong); }
+.hp-stagemap ul { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.hp-stagemap ul li a { display: inline-block; font-family: var(--font-mono); font-size: 12.5px; padding: 1px 8px; border-radius: var(--radius-pill); background: var(--brand-tint); color: var(--brand-strong); text-decoration: none; }
+.hp-stagemap ul li a:hover { text-decoration: underline; }
+.hp-stagemap figcaption, .hp-chat figcaption, .hp-docfig figcaption { margin-top: 8px; font-size: 14px; color: var(--ink-muted); }
+.hp-chat { margin: 12px 0; padding: 0; }
+.hp-chat > code { display: inline-block; padding: 8px 14px; border-radius: var(--radius-lg); background: var(--brand-tint); color: var(--brand-strong); font-size: 15px; }
+.hp-chat-who { display: block; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-subtle); margin-bottom: 4px; }
+.hp-docfig { margin: 16px 0; padding: 0; max-width: 78ch; }
+.hp-docfig-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: var(--surface-muted); }
+.hp-docfig-tag { font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: var(--radius-pill); background: var(--amber-bg); color: var(--amber-text); white-space: nowrap; }
+.hp-docfig ol { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-top: 0; border-radius: 0 0 var(--radius-lg) var(--radius-lg); background: var(--surface); }
+.hp-docfig ol li { display: flex; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--border); font-size: 14px; color: var(--ink-muted); }
+.hp-docfig ol li:first-child { border-top: 0; }
+.hp-docfig ol li b { color: var(--ink); }
+.hp-docfig-n { font-family: var(--font-mono); font-size: 12px; min-width: 22px; height: 22px; border-radius: 50%; background: var(--brand-tint); color: var(--brand-strong); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.hp-pager { display: flex; justify-content: space-between; gap: 16px; margin-top: 40px; font-family: var(--font-mono); font-size: 14px; }
+@media (max-width: 960px) { .hp-stagemap > ol { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .hp-stagemap > ol { grid-template-columns: 1fr; } }
