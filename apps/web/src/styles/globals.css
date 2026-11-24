@@ -649,7 +649,7 @@ input.sw-input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2
 .kc-progress { display: inline-flex; align-items: center; gap: 5px; }
 .kc-bar { width: 48px; height: 6px; border-radius: 3px; background: var(--grey-1); overflow: hidden; display: inline-block; }
 .kc-bar > span { display: block; height: 100%; background: var(--blue); }
-.kc-pct { font-size: 11.5px; font-variant-numeric: tabular-nums; min-width: 4.2ch; text-align: right; } /* the same width for 0% and 100%, so the bars of a column start at the same place */
+.kc-pct { font-size: 11.5px; font-variant-numeric: tabular-nums; min-width: 5ch; text-align: right; } /* the same width for 0% and 100%, so the bars of a column start at the same place */
 .kc-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; border-top: 1px solid var(--grey-2); padding-top: 4px; font-size: 12px; min-width: 0; }
 .kc-owner { display: inline-flex; align-items: center; gap: 5px; color: #3c4254; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kc-avatar { display: inline-flex; align-items: center; justify-content: center; line-height: 1; flex: none; width: 20px; height: 20px; border-radius: 50%; background: #dfeafb; color: #1a56c4; font-size: 9.5px; font-weight: 600; }

@@ -375,3 +375,25 @@ test.describe("Tracker columns: the lock is in the header, the words follow the 
     await expect(page.locator(".grid-foot")).toContainText("values come from Jira");
   });
 });
+
+test.describe("Delivery Progress column", () => {
+  test("the bars start at the same place whatever the percent (0% to 100%) and no percent is cut", async ({ page }) => {
+    await page.goto("/dev/grid?n=14&role=admin&view=Delivery&jira=1");
+    await page.waitForSelector(".ag-row");
+    await page.evaluate(() => {
+      const { controller } = (window as unknown as { __pv: { controller: { byId: Map<string, Record<string, unknown>>; setOutcomeReviews: (v: unknown[]) => void } } }).__pv;
+      const vals = [0, 50, 100, 92, 100, 7, 96, 100, 0, 33, 100, 64, 100, 10];
+      [...controller.byId.values()].forEach((r, i) => { r.delivery_progress_pct = vals[i % vals.length]; });
+      controller.setOutcomeReviews([]); // re-emits the rows
+    });
+    await page.evaluate(() => { const v = document.querySelector(".ag-body-horizontal-scroll-viewport"); if (v) v.scrollLeft = v.scrollWidth; });
+    await expect(page.locator(".ag-cell .kc-progress").first()).toBeVisible();
+    const cells = await page.$$eval(".ag-cell .kc-progress", (els) => els.map((e) => {
+      const pct = e.querySelector(".kc-pct") as HTMLElement;
+      return { x: Math.round(e.querySelector(".kc-bar")!.getBoundingClientRect().left), cut: pct.scrollWidth > pct.clientWidth || pct.getBoundingClientRect().right > e.closest(".ag-cell")!.getBoundingClientRect().right };
+    }));
+    expect(cells.length).toBeGreaterThan(5);
+    expect(new Set(cells.map((c) => c.x)).size).toBe(1);
+    expect(cells.some((c) => c.cut)).toBe(false);
+  });
+});
