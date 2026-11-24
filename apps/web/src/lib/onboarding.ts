@@ -44,20 +44,27 @@ export const GOAL_OPTIONS = [
   "Report to leadership",
 ] as const;
 
-export type AboutYou = { fullName: string; role: string; goal: string };
+export type AboutYou = { firstName: string; lastName: string; fullName: string; role: string; goal: string };
 export type AboutResult = { ok: true; value: AboutYou } | { ok: false; error: string };
 
 const clean = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim();
 
-/** Every answer is optional (skipping is free); a role or goal must be one of the listed choices, and a name is at most 120 characters. */
-export function parseAboutYou(input: { fullName?: unknown; role?: unknown; goal?: unknown }): AboutResult {
-  const fullName = clean(input.fullName);
-  if (fullName.length > 120) return { ok: false, error: "The name can have up to 120 characters." };
+/**
+ * First name and last name are asked separately and kept both ways: first_name and last_name, and the joined full_name the rest of the app
+ * uses. Skipping the step is free, but a person who fills it in gives a first name (emails greet by it). A role or goal must be one of the
+ * listed choices; each name is at most 60 characters.
+ */
+export function parseAboutYou(input: { firstName?: unknown; lastName?: unknown; role?: unknown; goal?: unknown }): AboutResult {
+  const firstName = clean(input.firstName);
+  const lastName = clean(input.lastName);
+  if (!firstName) return { ok: false, error: "Enter your first name, or choose Skip for now." };
+  if (firstName.length > 60 || lastName.length > 60) return { ok: false, error: "Each name can have up to 60 characters." };
+  const fullName = [firstName, lastName].filter(Boolean).join(" ");
   const role = clean(input.role);
   if (role && !(ROLE_OPTIONS as readonly string[]).includes(role)) return { ok: false, error: "Choose a role from the list." };
   const goal = clean(input.goal);
   if (goal && !(GOAL_OPTIONS as readonly string[]).includes(goal)) return { ok: false, error: "Choose from the list." };
-  return { ok: true, value: { fullName, role, goal } };
+  return { ok: true, value: { firstName, lastName, fullName, role, goal } };
 }
 
 type Meta = Record<string, unknown> | null | undefined;
@@ -104,3 +111,16 @@ export const CONNECT_CARDS = [
   { key: "jira", title: "Jira", text: "Two-way sync of Jira work with your roadmap.", href: "/settings/integrations/jira", newTab: false },
   { key: "claude", title: "Claude and other AI assistants", text: "Let your AI co-worker read the roadmap and prepare work. It never approves.", href: "/settings/claude", newTab: false },
 ] as const;
+
+/**
+ * Prefill for the name fields: what onboarding stored, else what Google or GitHub gave (given_name and family_name, or the first word and the
+ * rest of the full name). Empty when nothing is known.
+ */
+export function splitName(meta: Meta): { first: string; last: string } {
+  const str = (k: string) => (typeof meta?.[k] === "string" ? (meta[k] as string).trim() : "");
+  if (str("first_name")) return { first: str("first_name"), last: str("last_name") };
+  if (str("given_name")) return { first: str("given_name"), last: str("family_name") };
+  const full = str("full_name") || str("name");
+  const [first = "", ...rest] = full.split(/\s+/).filter(Boolean);
+  return { first, last: rest.join(" ") };
+}

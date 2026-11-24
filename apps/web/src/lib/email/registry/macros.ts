@@ -11,6 +11,7 @@ export type MacroDef = { kind: MacroKind; fallback: string; sample: string; labe
 export const MACRO_CATALOG = {
   link: { kind: "link", fallback: "", sample: "https://app.example/a/sample", label: "Link for the button" },
   name: { kind: "text", fallback: "there", sample: "Ana", label: "Recipient name" },
+  firstname: { kind: "text", fallback: "there", sample: "Ana", label: "Recipient's first name (the greeting)" },
   workspace: { kind: "text", fallback: "your workspace", sample: "Meridian Media", label: "Workspace name" },
   inviter: { kind: "text", fallback: "A colleague", sample: "Sam Rivera", label: "Person who invited" },
   role: { kind: "text", fallback: "member", sample: "Creator", label: "Role offered" },

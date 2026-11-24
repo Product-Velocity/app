@@ -5,11 +5,11 @@ import { DEFAULT_SITE_URL } from "./registry/layout";
 export type InvitationEmail = { subject: string; text: string; html: string };
 
 /** Rendered from the template registry (key app.invitation): branded frame, one button. Names are escaped; the link is ours. */
-export function buildInvitationEmail(input: { workspace: string; inviter: string; role: Role; isApprover: boolean; link: string; days?: number; siteUrl?: string; override?: Partial<TemplateText> | null }): InvitationEmail {
+export function buildInvitationEmail(input: { firstname?: string; workspace: string; inviter: string; role: Role; isApprover: boolean; link: string; days?: number; siteUrl?: string; override?: Partial<TemplateText> | null }): InvitationEmail {
   const days = input.days ?? 7;
   const role = `${ROLE_LABEL[input.role]}${input.isApprover ? " and Approver" : ""}`;
   return buildEmail("app.invitation", {
-    values: { inviter: input.inviter, workspace: input.workspace, role, link: input.link, expires: `${days} days` },
+    values: { firstname: input.firstname, inviter: input.inviter, workspace: input.workspace, role, link: input.link, expires: `${days} days` },
     siteUrl: input.siteUrl ?? DEFAULT_SITE_URL,
     buttonUrl: input.link,
     override: input.override,

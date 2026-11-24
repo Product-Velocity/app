@@ -14,6 +14,7 @@ import { sendLogged } from "@/lib/email/send";
 import { loadEmailOverride } from "@/lib/email/override";
 import { buildLinkCodeEmail } from "@/lib/email/access";
 import { notifyAdminsOfRequests } from "@/lib/access-requests";
+import { firstNameOfUser } from "@/lib/founder-rules";
 
 export type FormState = { ok?: string; error?: string } | null;
 const PATH = "/account";
@@ -147,7 +148,7 @@ const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
  * already have it), so the form never reveals who has which address. The database keeps only a hash of the code.
  */
 export async function startLinkEmail(_prev: FormState, form: FormData): Promise<FormState> {
-  const { supabase } = await requireUser(PATH);
+  const { supabase, user } = await requireUser(PATH);
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return { error: "Enter a valid email address." };
   if (!emailConfigured()) return { error: "Email is not set up on this deployment yet, so we cannot send a code." };
@@ -156,7 +157,7 @@ export async function startLinkEmail(_prev: FormState, form: FormData): Promise<
   if (error) return { error: LINK_ERROR[error.code ?? ""] ?? "We could not start that. Please try again." };
   const send = (Array.isArray(data) ? data[0] : data) as { send?: boolean } | null;
   if (send?.send) {
-    const res = await sendLogged("app.link-code", { to: email, ...buildLinkCodeEmail({ code, siteUrl: await siteUrl(), override: await loadEmailOverride("app.link-code") }) });
+    const res = await sendLogged("app.link-code", { to: email, ...buildLinkCodeEmail({ firstname: firstNameOfUser(user.user_metadata), code, siteUrl: await siteUrl(), override: await loadEmailOverride("app.link-code") }) });
     if (!res.ok) return { error: res.error };
   }
   revalidatePath(PATH);

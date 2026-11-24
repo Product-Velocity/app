@@ -12,6 +12,6 @@ export async function finishSetup(): Promise<void> {
   if (active.isDemoAccount || active.platform) redirect("/portfolio");
   const first = !hasFinishedOnboarding(user.user_metadata, active.tenantId);
   await completeOnboarding(supabase, user, active, { invited: false }); // a failed save never stops the person
-  if (first && active.role === "admin") await sendWelcome({ tenantId: active.tenantId, workspace: active.tenantName, email: user.email, fullName: user.user_metadata?.full_name });
+  if (first && active.role === "admin") await sendWelcome({ tenantId: active.tenantId, workspace: active.tenantName, email: user.email, metadata: user.user_metadata });
   redirect("/onboarding/connect");
 }

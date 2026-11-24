@@ -4,14 +4,20 @@ import { useActionState } from "react";
 import { finishOnboarding, type AboutState } from "./actions";
 import { GOAL_OPTIONS, ROLE_OPTIONS } from "@/lib/onboarding";
 
-export function AboutForm({ defaultName, flow = "owner" }: { defaultName: string; flow?: "owner" | "invited" }) {
+export function AboutForm({ defaultFirst, defaultLast, flow = "owner" }: { defaultFirst: string; defaultLast: string; flow?: "owner" | "invited" }) {
   const [state, action, pending] = useActionState<AboutState, FormData>(finishOnboarding, null);
   return (
     <form action={action} className="stack">
       <input type="hidden" name="flow" value={flow} />
-      <div className="field">
-        <label htmlFor="full_name">Your name <span className="muted">(optional)</span></label>
-        <input id="full_name" name="full_name" maxLength={120} autoComplete="name" autoFocus defaultValue={defaultName} placeholder="So your team knows who you are" />
+      <div className="name-row">
+        <div className="field">
+          <label htmlFor="first_name">First name</label>
+          <input id="first_name" name="first_name" maxLength={60} autoComplete="given-name" autoFocus required defaultValue={defaultFirst} />
+        </div>
+        <div className="field">
+          <label htmlFor="last_name">Last name <span className="muted">(optional)</span></label>
+          <input id="last_name" name="last_name" maxLength={60} autoComplete="family-name" defaultValue={defaultLast} />
+        </div>
       </div>
       <div className="field">
         <label htmlFor="role">Your role <span className="muted">(optional)</span></label>
