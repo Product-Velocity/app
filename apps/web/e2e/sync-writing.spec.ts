@@ -169,3 +169,24 @@ test.describe("Sync dialog: Cancel on the first screen", () => {
   });
 });
 
+
+test.describe("Sync with nothing to send (a read-only project)", () => {
+  test("Done reloads the grid and the open panels: what was read from the tracker is already saved", async ({ page }) => {
+    await page.goto("/dev/sync?scenario=readonly");
+    await page.getByRole("button", { name: "Open sync" }).click();
+    const done = page.getByRole("button", { name: "Done" });
+    await expect(done).toBeVisible();
+    await expect(page.getByTestId("reloads")).toHaveText("0");
+    await done.click();
+    await expect(page.getByTestId("reloads")).toHaveText("1");
+  });
+
+  test("Escape after the preview reloads too", async ({ page }) => {
+    await page.goto("/dev/sync?scenario=readonly");
+    await page.getByRole("button", { name: "Open sync" }).click();
+    await expect(page.getByRole("button", { name: "Done" })).toBeVisible();
+    await page.getByRole("button", { name: "Done" }).focus(); // the dialog handles Escape while focus is inside it
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("reloads")).toHaveText("1");
+  });
+});

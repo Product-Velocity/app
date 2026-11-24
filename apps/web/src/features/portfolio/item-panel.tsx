@@ -188,7 +188,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
 
       {gates && <OutcomeReviewsSection source={gates} row={row as never} canEdit={controller.canEdit} onChanged={() => { void controller.refreshFromServer(); }} />}
 
-      {pushGithub && <GithubPushDialog ids={[itemId]} onClose={() => setPushGithub(false)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer(); }} />}
+      {pushGithub && <GithubPushDialog ids={[itemId]} onClose={() => setPushGithub(false)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer({ reloadPanels: true }); }} />}
       {confirmDelete && <DeleteDialog controller={controller} ids={[itemId]} onClose={() => setConfirmDelete(false)} onDeleted={() => { if (mode === "peek") onClose?.(); else router.push(backHref); }} />}
 
       <div role="tablist" aria-label="Item sections" className="ip-tabs">
@@ -301,7 +301,7 @@ const JIRA_CATEGORY = { new: "to do", indeterminate: "in progress", done: "done"
  * Nothing is written to Jira here: Sync with Jira shows each epic in its preview and, after the person confirms, creates the Jira Initiative if
  * needed and sets each epic's parent to it. Only for an initiative Product Velocity may send (no Jira link yet, or one it owns).
  */
-function EpicRequests({ controller, itemId, readOnly = false }: { controller: PortfolioController; itemId: string; /** The project is read only for Jira (issue #656): the keys are read, never written. */ readOnly?: boolean }) {
+function EpicRequests({ controller, itemId, readOnly = false, read }: { controller: PortfolioController; itemId: string; /** What the last read found per listed epic (read-only projects): its status and how many children it has. */ read?: Map<string, { status: string | null; children: number }>; /** The project is read only for Jira (issue #656): the keys are read, never written. */ readOnly?: boolean }) {
   const [rows, setRows] = useState<JiraEpicRequestRow[] | null>(null);
   const [text, setText] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -354,6 +354,7 @@ function EpicRequests({ controller, itemId, readOnly = false }: { controller: Po
               <li key={r.key}>
                 <span className="mono">{r.key}</span> · {r.state === "linked" ? `linked: under the Initiative${r.previousParent ? ` (was under ${r.previousParent})` : ""}`
                   : r.state === "failed" ? `Jira refused it: ${r.lastError ?? "no reason given"}`
+                  : read?.get(r.key) ? <><strong>Read</strong>: {read.get(r.key)!.status ?? "status unknown"} · {read.get(r.key)!.children} child {read.get(r.key)!.children === 1 ? "issue" : "issues"}</>
                   : c ? <><strong>{c.ok ? "OK" : readOnly ? "Cannot be read" : "Cannot be linked"}</strong>: <span className={c.ok ? undefined : "pf-error"}>{c.text.startsWith(r.key) ? c.text.slice(r.key.length).replace(/^[\s:]+/, "") : c.text}</span></> : "not checked yet"}
                 {controller.canEdit && r.state !== "linked" && <> <button type="button" className="btn" disabled={busy} aria-label={`Take ${r.key} off the list`} onClick={() => void remove(r.key)}>Remove</button></>}
               </li>
@@ -411,7 +412,7 @@ function JiraTab({ controller, lookups, itemId }: { controller: PortfolioControl
     return (
       <div className="ip-empty">
         <h3>Jira</h3>
-        {lookups.trackers?.projectTracker[projectId] === "jira" && <EpicRequests controller={controller} itemId={itemId} readOnly={readOnlyProject} />}
+        {lookups.trackers?.projectTracker[projectId] === "jira" && <EpicRequests controller={controller} itemId={itemId} readOnly={readOnlyProject} read={new Map(epics.map((e) => [e.key, { status: e.status, children: children.filter((c) => c.parentKey === e.key).length }]))} />}
         {readOnlyProject && (
           <section aria-label="Epics read from Jira">
             <h4>Read from Jira</h4>

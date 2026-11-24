@@ -504,8 +504,9 @@ export class PortfolioController {
    * The grid loads once, but GitHub (webhooks, Sync with GitHub) and other people change items in the database meanwhile.
    * Fetch again and copy the values that differ into the rows we already show. Skipped while saves are pending, so a
    * stale read never overwrites an edit in flight; the next refresh catches up. Rank and added or removed items are left alone.
+   * `reloadPanels` also tells the open panels to read their own lists again (after a sync), even when no row changed.
    */
-  async refreshFromServer(): Promise<void> {
+  async refreshFromServer(opts: { reloadPanels?: boolean } = {}): Promise<void> {
     if (this.state.pending > 0) return;
     let fresh: LoadedItem[];
     try { fresh = await this.source.loadItems(); } catch { return; } // a failed background refresh must not disturb the grid
@@ -528,7 +529,8 @@ export class PortfolioController {
     const freshIds = new Set(fresh.map((f) => f.id));
     const gone = fresh.length > 0 ? this.rows.filter((r) => !freshIds.has(r.id)) : [];
     const added = fresh.filter((f) => !this.byId.has(f.id)).map((f) => ({ ...f, project_rank: 0 }) as GridItem);
-    if (changed.length > 0) this.emit(changed);
+    // after a sync the open panels (the Jira and GitHub tabs read their lists apart from the rows) must read again even when no grid row changed
+    if (changed.length > 0 || opts.reloadPanels) this.emit(changed);
     if (gone.length > 0) this.removeRows(gone);
     if (added.length > 0) this.addRows(added);
   }

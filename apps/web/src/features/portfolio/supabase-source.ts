@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { FIELDS, crowdFields, latestCrowd, toCrowdRow, toRankDecision, type CrowdRow, type RankDecision, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, trackerStatusOf, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
+import { epicsStatusOf, FIELDS, crowdFields, latestCrowd, toCrowdRow, toRankDecision, type CrowdRow, type RankDecision, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, trackerStatusOf, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
 import { lightTree, type LightIssue } from "@/lib/atlassian/light-tree";
 import type { IssueTreeRow, JiraEpicRequestRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
@@ -120,6 +120,16 @@ export class SupabaseDataSource implements PortfolioDataSource {
       jiraStatus.set(l.item_id, l.jira_status);
       if (!syncLinks.has(l.item_id)) syncLinks.set(l.item_id, { tracker: "jira", issueKey: l.issue_key, mode: l.mode, repo: "", issueNumber: null, syncState: "synced", lastPushedAt: l.sync_checked_at, ghSyncedAt: null, hasBoardItem: false });
     }
+    // an initiative of a read-only Jira project has no Jira issue, only the epics read from the ones listed on it (item_jira_tree, level 1): its Tracker Status says how many are done
+    const epicCats = new Map<string, ("new" | "indeterminate" | "done" | null)[]>();
+    try {
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const { data, error } = await this.client.from("item_jira_tree").select("item_id, status_category").eq("tenant_id", this.tenantId).eq("level", 1).order("item_id").order("issue_key").range(from, from + PAGE_SIZE - 1);
+        if (error) break; // no table yet, or a failed read: Tracker Status stays as it was
+        for (const r of (data ?? []) as { item_id: string; status_category: string | null }[]) if (!jiraStatus.has(r.item_id)) epicCats.set(r.item_id, [...(epicCats.get(r.item_id) ?? []), r.status_category === "new" || r.status_category === "indeterminate" || r.status_category === "done" ? r.status_category : null]);
+        if (!data || data.length < PAGE_SIZE) break;
+      }
+    } catch { /* leave Tracker Status as it was */ }
     const boardTitle = new Map<string, string>();
     if (syncLinks.size > 0) for (const p of await this.fetchAll<{ id: string; github_board: { title?: unknown } | null }>("projects", "id,github_board")) if (typeof p.github_board?.title === "string") boardTitle.set(p.id, p.github_board.title);
 
@@ -133,7 +143,9 @@ export class SupabaseDataSource implements PortfolioDataSource {
       item.assignees = [...assigned.map((u) => emails.get(u) ?? "unknown person"), ...(ghLogins.get(id) ?? []).filter((l) => !usernames.has(l.toLowerCase())).map((l) => `@${l}`)].join(", ") || null;
       item.synced_with = syncedWith(sl, boardTitle.get(String(item.home_project)) ?? null) || null;
       item.tracker_ownership = trackerOwnership(sl) || null;
-      item.tracker_status = trackerStatusOf({ jiraStatus: jiraStatus.get(id), boardStatus: item.gh_project_status as string | null, ghState: ghState.get(id) });
+      const epicsStatus = epicsStatusOf(epicCats.get(id) ?? []);
+      item.tracker_status = trackerStatusOf({ jiraStatus: jiraStatus.get(id), boardStatus: item.gh_project_status as string | null, ghState: ghState.get(id) }) ?? epicsStatus?.text ?? null;
+      item.tracker_status_category = epicsStatus && !jiraStatus.has(id) ? epicsStatus.category : null; // colours the pill of an initiative that only has epics
       item.tags = (tags.get("tag")?.get(id) ?? []).join(", ") || null;
       item.target_scope = (tags.get("target_scope")?.get(id) ?? []).join(", ") || null;
       item.live_scope = (tags.get("live_scope")?.get(id) ?? []).join(", ") || null;
