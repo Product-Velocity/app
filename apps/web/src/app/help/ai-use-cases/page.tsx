@@ -1,5 +1,5 @@
-import { AGENT_SKILL_INCLUDES, AGENT_SKILL_STEPS, AGENT_SKILL_TIERS, AGENT_SKILL_TIPS, AGENT_SKILLS, AGENT_USE_CASES } from "@/components/help-content";
-import { HelpList, HelpPage, HelpSection, HelpTable } from "@/components/help/help-ui";
+import { AGENT_SKILL_INCLUDES, AGENT_SKILL_STEPS, AGENT_SKILL_TIERS, AGENT_SKILL_TIPS, AGENT_USE_CASES } from "@/components/help-content";
+import { HelpList, HelpPage, HelpReference, HelpSection, HelpTable } from "@/components/help/help-ui";
 
 export const metadata = {
   title: "AI use-cases and documents · Help · Product Velocity",
@@ -17,7 +17,7 @@ export default function AiUseCasesHelp() {
         <HelpTable caption="The kinds of skill, and where to start" table={AGENT_SKILL_TIERS} />
         <HelpTable caption="What a guided skill runs as steps" table={AGENT_SKILL_INCLUDES} />
         <HelpTable caption="Which skill when, along the product life cycle" table={AGENT_SKILL_STEPS} />
-        <HelpTable caption="Every skill, what it works on and what you get" table={AGENT_SKILLS} />
+        <HelpReference slug="skills">One page for every skill: how to start it, what it asks, what it writes and what you decide</HelpReference>
         <h3>Getting the most out of them</h3>
         <HelpList items={AGENT_SKILL_TIPS} />
       </HelpSection>
