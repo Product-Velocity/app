@@ -25,5 +25,5 @@ export async function createTenant(_prev: OnboardingState, form: FormData): Prom
   // the optional company website (issue #269); the workspace is usable without it, so a failure here does not stop onboarding
   if (profile.companyUrl) await supabase.from("tenants").update({ company_url: profile.companyUrl }).eq("id", data);
   await rememberTenant(data);
-  redirect("/portfolio");
+  redirect("/onboarding/about"); // step 2; the owner notice goes out when the wizard is finished
 }

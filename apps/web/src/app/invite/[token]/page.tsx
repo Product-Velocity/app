@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/session";
 import { ROLE_HELP, ROLE_LABEL } from "@/lib/roles";
 import { AuthShell } from "@/components/auth-shell";
+import { INVITE_STEPS } from "@/lib/onboarding";
 import { AcceptForm, InviteSignIn } from "./form";
 import { getInvitePreview } from "./preview";
 
@@ -45,6 +46,17 @@ export default async function InvitePage({
     </div>
   );
 
+  const steps = (
+    <ol className="invite-steps" aria-label="What happens next">
+      {INVITE_STEPS.map((x, i) => (
+        <li key={x.title}>
+          <span className="wizard-dot" aria-hidden="true">{i + 1}</span>
+          <span><strong>{x.title}</strong><br /><span className="muted">{x.text}</span></span>
+        </li>
+      ))}
+    </ol>
+  );
+
   // new people see "choose a password"; people who already have an account see "sign in"
   const mode: "sign-in" | "create" =
     wanted === "sign-in" || wanted === "create" ? wanted : preview.accountExists ? "sign-in" : "create";
@@ -53,6 +65,7 @@ export default async function InvitePage({
     return (
       <Shell title={mode === "create" ? "Create your account" : "Sign in to join"}>
         {summary}
+        {steps}
         {mode === "sign-in" && !preview.accountExists && (
           <p className="hint">There is no account for this email yet, so you probably want to create one.</p>
         )}
@@ -83,6 +96,7 @@ export default async function InvitePage({
   return (
     <Shell title={`Join ${preview.tenantName}`}>
       {summary}
+      {steps}
       <p className="muted">
         You are signed in as <strong>{user.email}</strong>.
       </p>

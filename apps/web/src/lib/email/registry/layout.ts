@@ -3,7 +3,7 @@ import { escapeHtml } from "./macros";
 /**
  * The one branded frame every product email uses (issue #370): logo, tagline, one button, footer. It lives in git and is tested.
  * Editors change the words only; links, tokens and this frame can never be edited.
- * Email clients are old: 560px table, inline CSS, system fonts, one hosted logo with alt text, no tracking.
+ * Email clients are old: 560px table, inline CSS, system fonts, one hosted logo with alt text, no tracking code of our own.
  */
 const FONT = "'IBM Plex Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif";
 /** Used only where a caller does not know the deployment address (tests, previews); real sends pass the deployment address. */
@@ -65,4 +65,29 @@ ${paragraphs(i.body)}
 
 export function renderText(i: LayoutInput): string {
   return [i.heading, "", i.body, ...(i.code ? ["", i.code] : []), ...(i.button ? ["", `${i.button.label}: ${i.button.url}`] : []), "", i.note, ...(i.extraLink ? ["", `${i.extraLink.label} ${i.extraLink.url}`] : []), "", "Product Velocity", TAGLINE, ""].join("\n");
+}
+
+/**
+ * The personal note (founder emails): no frame, no logo, no button, no heading; a few paragraphs in the reader's own font and a
+ * signature line, like a message typed by a person. `note` is the P.S. and holds the stop line.
+ */
+export function renderPersonalHtml(i: LayoutInput): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(i.subject)}</title>
+</head>
+<body style="margin:0;padding:16px;background:#ffffff;font-family:${FONT};font-size:15px;line-height:24px;color:#111827;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(i.preheader)}</div>
+${i.body.split(/\n{2,}/).map((p) => `<p style="margin:0 0 14px 0;">${escapeHtml(p).replace(/\n/g, "<br>")}</p>`).join("")}
+<p style="margin:18px 0 0 0;font-size:13px;line-height:20px;color:#4b5563;">${escapeHtml(i.note)}</p>
+</body>
+</html>
+`;
+}
+
+export function renderPersonalText(i: LayoutInput): string {
+  return [i.body, "", i.note, ""].join("\n");
 }

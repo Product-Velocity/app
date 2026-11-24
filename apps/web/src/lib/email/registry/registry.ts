@@ -1,4 +1,4 @@
-import { renderHtml, renderText } from "./layout";
+import { renderHtml, renderPersonalHtml, renderPersonalText, renderText } from "./layout";
 import { renderMacros, sampleValues, type MacroName, type MacroValues } from "./macros";
 
 /**
@@ -8,7 +8,7 @@ import { renderMacros, sampleValues, type MacroName, type MacroValues } from "./
  */
 export type EmailKey =
   | "auth.confirm-signup" | "auth.sign-in-link" | "auth.reset-password" | "auth.reauthentication" | "auth.invite" | "auth.email-change"
-  | "app.invitation" | "app.access-request" | "app.access-approved" | "app.link-code" | "site.early-access" | "site.contact"
+  | "app.invitation" | "app.new-workspace" | "app.welcome-personal" | "app.followup-personal" | "app.access-request" | "app.access-approved" | "app.link-code" | "site.early-access" | "site.contact"
   | "alignment.invitation" | "alignment.reminder" | "alignment.new-link";
 
 export type EmailTemplate = {
@@ -28,6 +28,10 @@ export type EmailTemplate = {
   /** Sample values for previews where the catalog's sample would mislead (for example how long a link works). */
   sample?: MacroValues;
   macros: readonly MacroName[];
+  /** A personal note from a named person (founder emails): plain text look, no logo, frame or button; `note` is the P.S. */
+  personal?: boolean;
+  /** Display name on the From line for a personal note; the address stays the verified sender. */
+  fromName?: string;
   /** Supabase action type that selects this template in the Send Email hook. */
   authAction?: "signup" | "magiclink" | "recovery" | "reauthentication" | "invite" | "email_change";
   /** Link type the /auth/callback route accepts for the button. Absent for code emails. */
@@ -161,9 +165,63 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     subject: "{{inviter}} invited you to {{workspace}} on {{product}}",
     preheader: "Accept the invitation to {{workspace}}.",
     heading: "You are invited to {{workspace}}",
-    body: "{{inviter}} invited you to join {{workspace}} on {{product}} as {{role}}.\n\nOpen the link below, sign in or create an account with this email address, and accept.",
+    body: "{{inviter}} invited you to join {{workspace}} on {{product}} as {{role}}.\n\n{{product}} gives your team one roadmap for humans and their AI.\n\nOpen the link below, sign in or create an account with this email address, and accept. A one-minute welcome follows, then you land on the roadmap.",
     button: "Accept invitation",
     note: "The link works once and expires in {{expires}}. If you did not expect this email, you can ignore it.",
+  },
+  {
+    key: "app.new-workspace",
+    name: "New workspace created",
+    trigger: "Someone finishes onboarding and creates their workspace",
+    recipient: "The Product Velocity contact address (lib/public-contact.ts)",
+    path: "Onboarding (app/onboarding/actions.ts, lib/new-workspace-notice.ts)",
+    confirmFirst: false,
+    limits: "One email per workspace created; a failed send never blocks the person",
+    macros: ["requester", "workspace", "link", "product"],
+    subject: "New workspace on {{product}}: {{workspace}}",
+    preheader: "{{requester}} just finished setting up {{workspace}}.",
+    heading: "{{workspace}} is set up",
+    body: "{{requester}} signed up and finished creating the workspace {{workspace}}.\n\nOpen the platform console to see the account.",
+    button: "Open the platform console",
+    note: "This is an internal notice. It holds the sign-up address, so do not forward it.",
+  },
+  {
+    key: "app.welcome-personal",
+    name: "Personal welcome from Ashu",
+    trigger: "The person who created a workspace finishes the Team step of setup",
+    recipient: "That person (replies go to the contact address)",
+    path: "Onboarding finish (lib/founder-emails.ts, called from app/onboarding/invite/actions.ts)",
+    confirmFirst: false,
+    limits: "Once per workspace; nothing is sent until FOUNDER_EMAILS=on is set on the deployment",
+    personal: true,
+    fromName: "Ashu from Product Velocity",
+    editable: ["subject", "preheader", "body", "note"],
+    macros: ["name", "workspace", "product"],
+    subject: "Welcome to {{product}}, {{name}}",
+    preheader: "A quick hello from Ashu.",
+    heading: "Welcome",
+    body: "Hi {{name}},\n\nI am Ashu, part of the PM team that built {{product}} for our own use. We were tired of roadmaps that lived in five places and never matched what engineering was doing.\n\nThanks for setting up {{workspace}}. I would love to know what you were hoping it would fix first. Just reply to this email, even one line helps.\n\nAshu",
+    button: null,
+    note: "P.S. If you would rather not get emails like this, reply \"stop\" and I will not send another.",
+  },
+  {
+    key: "app.followup-personal",
+    name: "Personal follow-up from Ashu",
+    trigger: "Two days after a workspace was created, if it still has no initiatives and no GitHub or Jira connection",
+    recipient: "The person who created the workspace (replies go to the contact address)",
+    path: "Daily check (lib/founder-emails.ts, run by /api/cron/github)",
+    confirmFirst: false,
+    limits: "Once per workspace; only workspaces created 2 to 14 days ago; at most 20 a day; nothing is sent until FOUNDER_EMAILS=on is set on the deployment",
+    personal: true,
+    fromName: "Ashu from Product Velocity",
+    editable: ["subject", "preheader", "body", "note"],
+    macros: ["name", "workspace", "product"],
+    subject: "Quick question about {{workspace}}",
+    preheader: "Did anything get in your way?",
+    heading: "Quick question",
+    body: "Hi {{name}},\n\nAshu again from {{product}}. I noticed {{workspace}} has no initiatives yet, so I wanted to check that nothing got in your way.\n\nThe two quickest steps are adding your first initiative (type a name in the top row and press Enter) and connecting GitHub or Jira. If something was confusing, or {{product}} is not what you expected, just reply and tell me. That helps me more than anything.\n\nAshu",
+    button: null,
+    note: "P.S. If you would rather not get emails like this, reply \"stop\" and I will not send another.",
   },
   {
     key: "app.access-request",
@@ -320,6 +378,7 @@ export function renderTemplate(t: EmailTemplate, input: { values: MacroValues; s
   });
   // the layout escapes its inputs, so give it plain text (macros resolved, not yet escaped)
   const l = layout(plain);
+  if (t.personal) return { subject, html: renderPersonalHtml(l), text: renderPersonalText(l) };
   return { subject, html: renderHtml(l), text: renderText(l) };
 }
 

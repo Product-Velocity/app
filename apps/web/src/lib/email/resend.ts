@@ -9,7 +9,16 @@ export const emailConfigured = () => !!process.env.RESEND_API_KEY && !!process.e
  * Sends one email through Resend's REST API (no library). Returns a short error text that never contains the recipient, the body
  * or the key, so it is safe to show to an admin and to log.
  */
-export async function sendEmail(input: { to: string; subject: string; text: string; html: string; replyTo?: string }): Promise<SendResult> {
+/** The address inside "Name <address>" or the whole value. */
+const addressOf = (from: string) => /<([^>]+)>/.exec(from)?.[1]?.trim() ?? from.trim();
+
+/** The From line: the verified sender address, with a person's display name when a personal note asks for one (no angle brackets, quotes or line breaks). */
+export function fromLine(from: string, fromName?: string): string {
+  const name = (fromName ?? "").replace(/[<>"\r\n]/g, "").trim();
+  return name ? `${name} <${addressOf(from)}>` : from;
+}
+
+export async function sendEmail(input: { to: string; subject: string; text: string; html: string; replyTo?: string; fromName?: string }): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
   if (!key || !from) return { ok: false, error: "Email is not set up on this deployment yet." };
@@ -17,7 +26,7 @@ export async function sendEmail(input: { to: string; subject: string; text: stri
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to: [input.to], subject: input.subject, text: input.text, html: input.html, ...(input.replyTo ? { reply_to: input.replyTo } : {}) }),
+      body: JSON.stringify({ from: fromLine(from, input.fromName), to: [input.to], subject: input.subject, text: input.text, html: input.html, ...(input.replyTo ? { reply_to: input.replyTo } : {}) }),
       signal: AbortSignal.timeout(15_000),
     });
     if (res.ok) {

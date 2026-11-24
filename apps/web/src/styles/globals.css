@@ -1937,6 +1937,35 @@ a.btn.btn-primary { color: #fff; }
 .vm-toggle-add { color: var(--blue-text); border-color: rgba(34, 112, 237, .35); }
 .vm-toggle-add:hover { background: var(--blue-tint-2); }
 
+/* Onboarding wizard and the "Get started" card (issue #634) */
+.wizard-card { width: 100%; max-width: 480px; display: grid; gap: 12px; }
+.wizard-steps { display: flex; gap: 8px; list-style: none; margin: 0 0 4px; padding: 0; font-size: 13px; color: var(--ink-muted); }
+.wizard-steps li { display: flex; align-items: center; gap: 6px; flex: 1; padding-top: 8px; border-top: 3px solid var(--grey-3, #e6e8ee); }
+.wizard-steps li.is-now { border-top-color: var(--blue); color: var(--ink, #1c2330); font-weight: 600; }
+.wizard-steps li.is-done { border-top-color: var(--blue); }
+.wizard-dot { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid currentColor; font-size: 11px; }
+.wizard-steps li.is-now .wizard-dot { background: var(--blue); border-color: var(--blue); color: #fff; }
+.wizard-intro { margin: 0; line-height: 20px; }
+.wizard-more { border: 1px solid var(--grey-3, #e6e8ee); border-radius: 8px; padding: 8px 12px; }
+.wizard-more summary { cursor: pointer; font-weight: 500; }
+.wizard-more .stack { margin-top: 10px; }
+.wizard-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.get-started { padding: 12px 14px; border: 1px solid var(--blue-tint-1); background: var(--blue-tint-2); border-radius: 8px; margin: 0 0 12px; }
+.get-started-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.get-started h2 { margin: 0; font-size: 14px; }
+.get-started ul { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.get-started li { display: flex; gap: 8px; align-items: baseline; }
+.get-started li.is-done a { text-decoration: line-through; color: var(--ink-muted); }
+.get-started-mark { width: 16px; color: var(--blue-text); }
+.get-started p.hint { margin: 0; }
+.invite-steps { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 10px; font-size: 13px; line-height: 20px; }
+.invite-steps li { display: flex; gap: 10px; align-items: flex-start; }
+.invite-steps .wizard-dot { flex: none; margin-top: 1px; background: var(--blue-tint-1); border-color: var(--blue-tint-1); color: var(--blue-text); font-weight: 600; }
+.wizard-sub { margin: 4px 0 6px; font-size: 14px; }
+.first-things { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; line-height: 20px; }
+.connect-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.connect-cards li { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--grey-3, #e6e8ee); border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 20px; }
+
 /* Phone: recently changed and tracker feeds (issue #635) */
 .phone-title { margin: 0; font-size: 18px; }
 .phone-change { font-size: 13px; font-weight: 500; padding: 2px 8px; border-radius: 6px; justify-self: start; background: var(--grey-3); overflow-wrap: anywhere; }

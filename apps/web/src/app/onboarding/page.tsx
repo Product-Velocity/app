@@ -4,6 +4,7 @@ import { myAccessStates, syncDomainAccess } from "@/lib/access-requests";
 import { domainOfEmail, isFreeMailDomain } from "@pv/domain";
 import { countryOptions, currencyOptions, timeZoneOptions } from "@/lib/workspace-profile";
 import { CreateTenantForm } from "./form";
+import { Wizard } from "./wizard";
 
 export const metadata = { title: "Create your workspace · Product Velocity" };
 
@@ -19,15 +20,12 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   const domain = user.email ? domainOfEmail(user.email) : null;
   const suggested = domain && !isFreeMailDomain(domain) ? domain : "";
   return (
-    <main className="auth-page">
-      <div className="card auth-card">
-        <h1>{wantsNew === "1" ? "Create a new account" : "Create your workspace"}</h1>
-        <p className="muted">
-          You will be its first admin. You can invite your team next, from Members in the account menu. If someone already invited
-          you, open the invitation link they sent instead.
-        </p>
-        <CreateTenantForm suggestedDomain={suggested} countries={countryOptions()} currencies={currencyOptions()} timeZones={timeZoneOptions()} />
-      </div>
-    </main>
+    <Wizard
+      step="workspace"
+      title={wantsNew === "1" ? "Create a new account" : "Create your workspace"}
+      intro="You will be its first admin. Next we ask two quick things about you, then you land on your roadmap. If someone already invited you, open the invitation link they sent instead."
+    >
+      <CreateTenantForm suggestedDomain={suggested} countries={countryOptions()} currencies={currencyOptions()} timeZones={timeZoneOptions()} />
+    </Wizard>
   );
 }
