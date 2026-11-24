@@ -20,11 +20,14 @@ import AttentionHelp from "./attention/page";
 import ReportDefinitionsHelp from "./report-definitions/page";
 import AiUseCasesHelp from "./ai-use-cases/page";
 import GetStartedHelp from "./get-started/page";
+import SkillsHelp from "./skills/page";
+import { SKILLS } from "@pv/domain";
+import { SkillHelpPage } from "@/components/help/skill-page";
 
 const PAGES: Record<string, () => React.JSX.Element> = {
   "": HelpHome, okrs: OkrsPage, lifecycle: LifecyclePage, alignment: AlignmentPage, reports: ReportsHelp, delivery: DeliveryHelp, ai: AiHelp,
   "ai-setup": AiSetupHelp, columns: ColumnsHelp, shortcuts: ShortcutsHelp, "goal-fields": GoalFieldsHelp, phases: PhasesHelp, statuses: StatusesHelp, "sync-rules": SyncRulesHelp, attention: AttentionHelp,
-  "report-definitions": ReportDefinitionsHelp, "ai-use-cases": AiUseCasesHelp, "get-started": GetStartedHelp,
+  "report-definitions": ReportDefinitionsHelp, "ai-use-cases": AiUseCasesHelp, skills: SkillsHelp, "get-started": GetStartedHelp,
 };
 const html: Record<string, string> = Object.fromEntries(Object.entries(PAGES).map(([k, P]) => [k, renderToStaticMarkup(createElement(P))]));
 const text = (h: string) => h.replace(/<[^>]+>/g, " ").replace(/&rsquo;|&#x27;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ");
@@ -111,5 +114,24 @@ describe("Help pages", () => {
     expect(html.alignment!).toContain("Hidden: fewer than 5 voters");
     expect(html["sync-rules"]!).toContain("Never leaves Product Velocity");
     expect(html.reports!).toContain("Example data");
+  });
+  it("has an index entry and a page for every skill in the catalogue", () => {
+    for (const sk of SKILLS) {
+      expect(html.skills!, sk.command).toContain(`href="/help/skills/${sk.command}"`);
+      const h = renderToStaticMarkup(createElement(SkillHelpPage, { skill: sk }));
+      const t = text(h);
+      expect(h.match(/<h1[ >]/g), sk.command).toHaveLength(1);
+      expect(h, sk.command).toContain('href="/app"');
+      expect(t, sk.command).toContain(sk.command);
+      expect(t, sk.command).toContain("Skills prepare; people decide");
+      for (const s of sk.sections) expect(t, `${sk.command} ${s.title}`).toContain(s.title);
+      expect(t, sk.command).not.toMatch(/\bPV\b|ProductVelocity/);
+    }
+  });
+  it("shows the stage map with every stage that has a skill, and points the AI pages to the reference", () => {
+    expect(text(html.skills!)).toMatch(/Skills by stage/);
+    expect(html.ai!).toContain('href="/help/skills"');
+    expect(html["ai-use-cases"]!).toContain('href="/help/skills"');
+    expect(html["ai-use-cases"]!).not.toContain("Every skill, what it works on and what you get");
   });
 });
