@@ -9,7 +9,7 @@
 ## Vercel (one-time setup by Ashu; cannot be done from the repo)
 1. Import the GitHub repo in Vercel.
 2. Set **Root Directory** to `apps/web`; framework preset Next.js. Keep "Include files outside the root directory" on (pnpm workspace).
-3. Pull request previews are on by default for Git-connected projects.
+3. **Pull request previews are off (Ashu, 2026-11-24, `docs/decisions/2026-11-24-no-preview-deployments.md`).** `apps/web/vercel.json` has `git.deploymentEnabled` set to `{"**": false, "main": true}`: only `main` creates a deployment, so PR branches and merge-queue branches (`gh-readonly-queue/main/...`) never do, and the Hobby plan's daily deployment limit is not spent on previews. CI runs in GitHub Actions and does not need a preview. To look at a branch: temporarily add that branch to `deploymentEnabled` as `true` in a PR, or run `vercel deploy` from the branch (both count against the limit).
 4. Add environment variables per environment (Production / Preview / Development) as they are introduced. The list is `.env.example`. Variables without the `NEXT_PUBLIC_` prefix stay server-side; `SUPABASE_SERVICE_ROLE_KEY` is server-only.
 5. Optional: require the CI check in branch protection for `main`.
 
