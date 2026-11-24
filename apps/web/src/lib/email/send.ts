@@ -1,7 +1,10 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, type SendResult } from "./resend";
-import type { EmailKey } from "./registry/registry";
+import { randomUUID } from "node:crypto";
+import { siteUrl } from "@/lib/site-url";
+import { injectPixel, openTrackingOn, pixelUrl } from "./open-pixel";
+import { templateByKey, type EmailKey } from "./registry/registry";
 
 /**
  * The one way the app sends a product email (issue #370). The key must be in the template registry (a type error otherwise, and a test
@@ -9,10 +12,19 @@ import type { EmailKey } from "./registry/registry";
  * one. The log never holds an address, a name, a token, a link or a body. A log failure never blocks the email.
  */
 export async function sendLogged(key: EmailKey, msg: { to: string; subject: string; text: string; html: string; replyTo?: string; fromName?: string }, opts?: { tenantId?: string | null; isTest?: boolean; actorId?: string | null }): Promise<SendResult> {
-  const res = await sendEmail(msg);
+  // a few templates carry a one-pixel image that counts opens; the row id in its address is the only thing it holds. Never on a test send.
+  const id = randomUUID();
+  let tracked = false;
+  let outgoing = msg;
+  if (templateByKey(key).trackOpens && openTrackingOn() && !opts?.isTest) {
+    try { outgoing = { ...msg, html: injectPixel(msg.html, pixelUrl(await siteUrl(), id)) }; tracked = true; } catch { /* no tracking is better than no email */ }
+  }
+  const res = await sendEmail(outgoing);
   try {
     const admin = createAdminClient({ via: "system" });
     await admin.from("email_send_log").insert({
+      id,
+      open_tracked: tracked,
       template_key: key,
       tenant_id: opts?.tenantId ?? null,
       is_test: opts?.isTest ?? false,

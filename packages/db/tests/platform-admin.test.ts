@@ -40,6 +40,8 @@ describe("who can use the platform functions (FR-5.3: no leakage)", () => {
       "select * from public.platform_audit_search()",
       "select * from public.platform_config_log()",
       "select * from public.platform_email_stats()",
+      "select * from public.platform_email_open_stats()",
+      "select * from public.platform_usage_stats()",
       "select * from public.platform_email_versions('app.invitation')",
       "select public.platform_email_save_draft('app.invitation', 's', '', 'h', 'b', null, '')",
       "select public.platform_email_publish('app.invitation')",
@@ -402,5 +404,52 @@ describe("editable email wording (issue #370 phase 4)", () => {
     await db.admin.query("insert into public.email_send_log (template_key, status, is_test, actor_id) values ('app.link-code', 'sent', true, $1)", [pat]);
     const rows = await asPat<{ template_key: string }[]>(async (q) => (await q("select * from public.platform_email_stats(30)")).rows);
     expect(rows.find((r) => r.template_key === "app.link-code")).toBeUndefined();
+  });
+});
+
+describe("email open tracking and usage numbers (issue #634)", () => {
+  const pixelRow = async (ageSeconds: number, tracked = true) =>
+    (await db.admin.query(
+      "insert into public.email_send_log (template_key, status, open_tracked, created_at) values ('app.welcome-personal', 'sent', $1, now() - make_interval(secs => $2)) returning id",
+      [tracked, ageSeconds],
+    )).rows[0].id as string;
+
+  it("an open is counted once seen, first time kept, and only the server can record it", async () => {
+    const id = await pixelRow(120);
+    await db.asService((q) => q("select public.record_email_open($1)", [id]), { commit: true });
+    await db.asService((q) => q("select public.record_email_open($1)", [id]), { commit: true });
+    const row = (await db.admin.query("select open_count, first_opened_at from public.email_send_log where id = $1", [id])).rows[0];
+    expect(row.open_count).toBe(2);
+    expect(row.first_opened_at).not.toBeNull();
+    expect(await errorCode(db.asUser(f.alice, (q) => q("select public.record_email_open($1)", [id])))).toBe("42501");
+    expect(await errorCode(db.asUser(pat, (q) => q("select public.record_email_open($1)", [id])))).toBe("42501");
+  });
+
+  it("an open in the first 30 seconds, or on an email that carried no image, is not counted", async () => {
+    const early = await pixelRow(5);
+    const untracked = await pixelRow(120, false);
+    await db.asService((q) => q("select public.record_email_open($1)", [early]), { commit: true });
+    await db.asService((q) => q("select public.record_email_open($1)", [untracked]), { commit: true });
+    const rows = (await db.admin.query("select open_count, first_opened_at from public.email_send_log where id = any($1)", [[early, untracked]])).rows;
+    expect(rows.every((r) => r.open_count === 0 && r.first_opened_at === null)).toBe(true);
+  });
+
+  it("platform admins see only counts per template: no person, no address", async () => {
+    const id = await pixelRow(300);
+    await db.asService((q) => q("select public.record_email_open($1)", [id]), { commit: true });
+    const rows = await asPat<{ template_key: string; tracked: string; opened: string }[]>(async (q) => (await q("select * from public.platform_email_open_stats(30)")).rows);
+    const w = rows.find((r) => r.template_key === "app.welcome-personal")!;
+    expect(Number(w.tracked)).toBeGreaterThanOrEqual(1);
+    expect(Number(w.opened)).toBeGreaterThanOrEqual(1);
+    expect(Object.keys(w).sort()).toEqual(["opened", "template_key", "tracked"]);
+  });
+
+  it("usage is counts per workspace: distinct people and changes, never who", async () => {
+    const rows = await asPat<{ tenant_id: string; tenant_name: string; people: string; changes: string; last_change: string | null }[]>(
+      async (q) => (await q("select * from public.platform_usage_stats(30)")).rows,
+    );
+    expect(rows.length).toBeGreaterThan(0);
+    expect(Object.keys(rows[0]!).sort()).toEqual(["changes", "last_change", "people", "tenant_id", "tenant_name"]);
+    for (const r of rows) expect(Number(r.people)).toBeLessThanOrEqual(Number(r.changes));
   });
 });

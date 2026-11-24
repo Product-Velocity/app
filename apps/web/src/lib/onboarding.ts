@@ -77,12 +77,17 @@ export function dismissedChecklists(meta: Meta): string[] {
 }
 export const checklistDismissed = (meta: Meta, tenantId: string) => dismissedChecklists(meta).includes(tenantId);
 
-export type ChecklistCounts = { members: number; pendingInvites: number; items: number; trackers: number };
-export type ChecklistItem = { key: string; label: string; hint: string; href: string; /** A second link for the same step, for tracker parity (GitHub and Jira are equals). */ altHref?: string; altLabel?: string; done: boolean };
+export type ChecklistCounts = { projects: number; members: number; pendingInvites: number; items: number; trackers: number };
+export type ChecklistItem = { key: string; label: string; hint: string; /** No link: the step is done inside the roadmap itself. */ href: string | null; /** A second link for the same step, for tracker parity (GitHub and Jira are equals). */ altHref?: string; altLabel?: string; done: boolean };
 
-/** The three steps the app can see for itself, in the order we suggest. Connecting Claude and Help are links, not tracked. */
+/**
+ * The steps the app can see for itself, in the order they must happen: a project first (every initiative belongs to one), then the first
+ * initiative, the team and a tracker. One list, so setting up a workspace and creating the first initiative read as one path. Connecting
+ * Claude and Help are links, not tracked.
+ */
 export function checklist(c: ChecklistCounts): { items: ChecklistItem[]; done: number } {
   const items: ChecklistItem[] = [
+    { key: "project", label: "Create your first project", hint: "Every initiative belongs to a project. Open \u201cAll projects\u201d at the top and choose + New project.", href: null, done: c.projects > 0 },
     { key: "item", label: "Add your first initiative", hint: "Type a name in the quick-add row and press Enter.", href: "/portfolio", done: c.items > 0 },
     { key: "invite", label: "Invite your team", hint: "Nothing is sent until you confirm.", href: "/settings/members", done: c.members > 1 || c.pendingInvites > 0 },
     { key: "tracker", label: "Connect GitHub", altLabel: "Jira", hint: "Two-way sync of the work your engineers do.", href: "/settings/integrations/github", altHref: "/settings/integrations/jira", done: c.trackers > 0 },
@@ -90,8 +95,8 @@ export function checklist(c: ChecklistCounts): { items: ChecklistItem[]; done: n
   return { items, done: items.filter((i) => i.done).length };
 }
 
-/** Show the card until the person closes it or has done all three. */
-export const showChecklist = (meta: Meta, tenantId: string, c: ChecklistCounts) => !checklistDismissed(meta, tenantId) && checklist(c).done < 3;
+/** Show the card until the person closes it or has done every step. */
+export const showChecklist = (meta: Meta, tenantId: string, c: ChecklistCounts) => { const l = checklist(c); return !checklistDismissed(meta, tenantId) && l.done < l.items.length; };
 
 /** The connections offered on the last wizard step. GitHub and Jira are shown as equals; each opens its own settings screen. */
 export const CONNECT_CARDS = [

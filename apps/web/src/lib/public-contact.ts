@@ -8,7 +8,7 @@ export const SUPPORT_CONTACT = { name: "Ashu Mathura", email: "ashu.mathura@gmai
 export const CONNECTOR_URL = "https://productvelocity.app/mcp";
 
 /** Shown at the top of the privacy policy; change it when the text changes. */
-export const PRIVACY_UPDATED = "17 November 2026";
+export const PRIVACY_UPDATED = "24 November 2026";
 
 /** The public address of the website. The sitemap, canonical links and structured data always use this one, never a preview address. */
 export const SITE_URL = "https://productvelocity.app";
