@@ -363,3 +363,15 @@ test.describe("Group by: picker, two levels, issues", () => {
     expect(found).toEqual([]);
   });
 });
+
+test.describe("Tracker columns: the lock is in the header, the words follow the tracker", () => {
+  test("a Jira workspace says 'from Jira' in the header; no row carries a lock icon", async ({ page }) => {
+    await page.goto("/dev/grid?n=12&role=admin&view=Delivery&jira=1");
+    await page.waitForSelector(".ag-row");
+    const header = page.locator(".ag-header-cell", { hasText: "Build Status" });
+    await expect(header).toContainText("from Jira");
+    await expect(header.getByRole("img", { name: "Read only" })).toBeVisible();
+    await expect(page.locator(".ag-body .lock-cell svg")).toHaveCount(0);
+    await expect(page.locator(".grid-foot")).toContainText("values come from Jira");
+  });
+});

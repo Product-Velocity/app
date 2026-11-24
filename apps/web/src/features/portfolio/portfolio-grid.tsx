@@ -16,6 +16,7 @@ import { buildColumns, isEditableColumn, isReadOnlyColumn, type GridContext } fr
 import { syncLabel, syncPlatforms, syncTitle } from "./sync-label";
 import { ColumnsPanel } from "./columns-panel";
 import { FoldAllButton } from "./fold-all-button";
+import { trackerWords } from "./tracker-words";
 import { isIssueRow, issueInfoOf, issueRowsOf, issuesKey, issueTypeCounts, withIssueRows, type IssueFilter, type IssueRow } from "./issue-rows";
 import type { ReportChildren } from "./export-xlsx-children";
 import { FilterPanel } from "./filter-panel";
@@ -854,7 +855,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       )}
       </div>
       <p ref={footRef} className="grid-foot">
-        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${groupSummary(def.groupBy, def.thenBy).replace(" › ", ", then ")}, ${shownSort.length > 0 ? `sorted by ${shownSort.map((x) => FIELD_BY_KEY[x.field]?.name).join(", then ")} inside each group` : "rank order inside each group"}` : sortSummary(shownSort)} · Keyboard shortcuts are under Shortcuts, top right · A lock means the value comes from GitHub
+        {filtered ? `${visibleRows.length.toLocaleString("en-GB")} of ${controller.rows.length.toLocaleString("en-GB")} items shown` : `${controller.rows.length.toLocaleString("en-GB")} items`} · {def.groupBy ? `Grouped by ${groupSummary(def.groupBy, def.thenBy).replace(" › ", ", then ")}, ${shownSort.length > 0 ? `sorted by ${shownSort.map((x) => FIELD_BY_KEY[x.field]?.name).join(", then ")} inside each group` : "rank order inside each group"}` : sortSummary(shownSort)} · Keyboard shortcuts are under Shortcuts, top right · A lock in a column header means the values come from {trackerWords(lookups)}
         {status.pending > 0 ? "" : ""}
         {showIssues && issuesFailed && <> · Issues could not be loaded; turn Show issues off and on to retry</>}
         {lastGithubSync && <> · <span title="The latest time any initiative was in step with GitHub">Last synced with GitHub {agoLabel(lastGithubSync, nowTick)}</span></>}
