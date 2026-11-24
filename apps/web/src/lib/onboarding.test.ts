@@ -28,16 +28,20 @@ describe("finished workspaces", () => {
 });
 
 describe("checklist", () => {
-  const none = { members: 1, pendingInvites: 0, items: 0, trackers: 0 };
+  const none = { projects: 0, members: 1, pendingInvites: 0, items: 0, trackers: 0 };
   it("starts with nothing done", () => expect(checklist(none).done).toBe(0));
   it("counts an invite or a second member as inviting the team", () => {
     expect(checklist({ ...none, pendingInvites: 1 }).items.find((i) => i.key === "invite")!.done).toBe(true);
     expect(checklist({ ...none, members: 2 }).items.find((i) => i.key === "invite")!.done).toBe(true);
   });
+  it("starts with the project, then the first initiative, the team and a tracker, as one path", () => {
+    expect(checklist(none).items.map((i) => i.key)).toEqual(["project", "item", "invite", "tracker"]);
+    expect(checklist({ ...none, projects: 1 }).items.find((i) => i.key === "project")!.done).toBe(true);
+  });
   it("hides when closed or complete", () => {
     expect(showChecklist({}, "t1", none)).toBe(true);
     expect(showChecklist({ checklist_dismissed: ["t1"] }, "t1", none)).toBe(false);
-    expect(showChecklist({}, "t1", { members: 2, pendingInvites: 0, items: 3, trackers: 1 })).toBe(false);
+    expect(showChecklist({}, "t1", { projects: 1, members: 2, pendingInvites: 0, items: 3, trackers: 1 })).toBe(false);
     expect(showChecklist({ checklist_dismissed: ["t1"] }, "t2", none)).toBe(true);
   });
 });
@@ -60,7 +64,7 @@ describe("connect step and checklist parity", () => {
     expect(CONNECT_CARDS.find((c) => c.key === "jira")!.href).toBe("/settings/integrations/jira");
   });
   it("the checklist links to both trackers and to real screens", () => {
-    const t = checklist({ members: 1, pendingInvites: 0, items: 0, trackers: 0 }).items.find((i) => i.key === "tracker")!;
+    const t = checklist({ projects: 0, members: 1, pendingInvites: 0, items: 0, trackers: 0 }).items.find((i) => i.key === "tracker")!;
     expect([t.href, t.altHref]).toEqual(["/settings/integrations/github", "/settings/integrations/jira"]);
   });
   it("the owner wizard has four steps ending in Connect", () => expect(WIZARD_STEPS.map((s) => s.key)).toEqual(["workspace", "about", "invite", "connect"]));

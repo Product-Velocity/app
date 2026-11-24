@@ -16,7 +16,7 @@ export default async function ConnectPage() {
         {CONNECT_CARDS.map((c) => (
           <li key={c.key}>
             <div><strong>{c.title}</strong><br /><span className="muted">{c.text}</span></div>
-            <Link className="btn btn-sm" href={c.href}>{c.key === "claude" ? "Set up" : `Connect ${c.title}`}</Link>
+            <Link className="btn" href={c.href}>{c.key === "claude" ? "Set up" : `Connect ${c.title}`}</Link>
           </li>
         ))}
       </ul>

@@ -16,7 +16,7 @@ export function GetStarted({ counts }: { counts: ChecklistCounts }) {
           <li key={i.key} className={i.done ? "is-done" : ""}>
             <span className="get-started-mark" aria-hidden="true">{i.done ? "✓" : "○"}</span>
             <span>
-              <Link href={i.href}>{i.label}</Link>{i.altHref && <> or <Link href={i.altHref}>{i.altLabel}</Link></>}
+              {i.href ? <Link href={i.href}>{i.label}</Link> : <strong>{i.label}</strong>}{i.altHref && <> or <Link href={i.altHref}>{i.altLabel}</Link></>}
               <span className="sr-only">{i.done ? " (done)" : " (to do)"}</span>
               <span className="hint"> {i.hint}</span>
             </span>

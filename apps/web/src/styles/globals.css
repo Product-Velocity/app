@@ -2100,3 +2100,15 @@ a.btn.btn-primary { color: #fff; }
 .hp-pager { display: flex; justify-content: space-between; gap: 16px; margin-top: 40px; font-family: var(--font-mono); font-size: 14px; }
 @media (max-width: 960px) { .hp-stagemap > ol { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .hp-stagemap > ol { grid-template-columns: 1fr; } }
+
+/* Wizard buttons and the Team form (issue #634, Ashu's review): one button size, nothing wraps, the invite form fits the card */
+.wizard-card .btn { height: 40px; padding: 0 16px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.wizard-card .wizard-actions { margin-top: 4px; }
+.wizard-card form.row-form { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; }
+.wizard-card form.row-form .field { grid-column: 1 / -1; min-width: 0; }
+.wizard-card form.row-form .field select, .wizard-card form.row-form .field input { width: 100%; }
+.wizard-card form.row-form .check { grid-column: 1; }
+.wizard-card form.row-form > .btn { grid-column: 2; justify-self: end; }
+.connect-cards li > div { flex: 1; min-width: 0; }
+.connect-cards .btn { flex: none; min-width: 150px; }
+.get-started-step { display: block; }
