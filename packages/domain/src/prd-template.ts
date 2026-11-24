@@ -91,7 +91,7 @@ const ROLLOUT_RULES = [
   "Populations fill Target Markets, Target Segments and Target Customers; the checkpoint date fills Next Review Date. Start Experiment, Start Roll-Out and Roll-out % are not yours to set (the lifecycle and later phases own them), so keep those dates in the PRD only.",
 ] as const;
 
-/** Short, always-on instructions sent when the connection starts. The full template is in the write_prd prompt. */
+/** Short, always-on instructions sent when the connection starts. The full template is in the pv-prd prompt. */
 export function serverInstructions(): string {
   return [
     "Product Velocity: a roadmap and stack rank for product teams. You work as the signed-in person, with their role. Start with get_workspace_context and describe_fields.",
@@ -103,7 +103,7 @@ export function serverInstructions(): string {
     "",
     `Core PRD sections (always, in this order): ${PRD_CORE.map((s) => `${s.id} ${s.title}`).join("; ")}. Section 1 ends with an "At a glance" block: What we will build / What we will not build, three to five bullets each, in agreement with section 4.`,
     `Optional appendices after section 9 (use only those the work needs; an AI feature gets all, other work usually A1 to A3, A7, D1, D3, D4, D5): ${PRD_MODULES.map((m) => `${m.id} ${m.title}`).join("; ")}.`,
-    "The write_prd prompt has the full template with what each part covers and which fields it fills.",
+    "The pv-prd prompt has the full template with what each part covers and which fields it fills.",
     "",
     discoveryInstructions([ALIGN_RULE, PROFILE_USE_RULE, PRIOR_KNOWLEDGE_RULE, CONTEXT_RESEARCH_RULE, TEAM_RULE]),
   ].join("\n");
@@ -111,7 +111,7 @@ export function serverInstructions(): string {
 
 export type PrdPromptArgs = { brief?: string; modules?: string; item?: string; team?: string };
 
-/** The write_prd prompt: the template, the rules and the order of work. `modules` is a comma list of module ids the person asked for. */
+/** The pv-prd prompt (was write_prd): the template, the rules and the order of work. `modules` is a comma list of module ids the person asked for. */
 export function prdPrompt(args: PrdPromptArgs): { description: string; text: string } {
   const wanted = (args.modules ?? "").split(/[\s,;]+/).map((s) => s.trim().toUpperCase()).filter(Boolean);
   const known = new Set(PRD_MODULES.map((m) => m.id));

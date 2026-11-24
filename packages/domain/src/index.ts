@@ -47,6 +47,7 @@ export * from "./impact";
 export * from "./discovery-template";
 export * from "./skills";
 export * from "./skills-catalog";
+export * from "./skill-plan";
 export * from "./skill-extract";
 export * from "./company-profile";
 export * from "./assistants";

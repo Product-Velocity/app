@@ -32,7 +32,7 @@ export default async function CompanyProfilePage() {
         </p>
         <p className="hint">
           {url ? <>Company website: <a href={url} rel="noopener noreferrer" target="_blank">{url}</a>. </> : <>No company website set (add it under Workspace settings). </>}
-          To build or refresh the profile, ask Claude to run <em>research company</em> (the <code>research_company</code> prompt in the Product Velocity connector). It reads public sources, shows you what it found, and saves a draft here. Nothing here is sent to GitHub.
+          To build or refresh the profile, ask Claude to run <em>research company</em> (the <code>pv-company</code> prompt in the Product Velocity connector; it was called <code>research_company</code>). It reads public sources, shows you what it found, and saves a draft here. Nothing here is sent to GitHub.
         </p>
         <ProfileForm sections={(row?.sections ?? {}) as Record<string, string>} version={row?.version ?? null} canEdit={isAdmin} status={sum.state} />
       </div>

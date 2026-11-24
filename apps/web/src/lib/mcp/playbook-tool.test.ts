@@ -23,10 +23,35 @@ describe("get_playbook", () => {
     const viaPrompt = (await handleRpc({ jsonrpc: "2.0", id: 2, method: "prompts/get", params: { name: "write_prd", arguments: { brief: "An account switcher" } } }, backend)) as { result: { messages: { content: { text: string } }[] } };
     expect(p.data.instructions).toBe(viaPrompt.result.messages[0]!.content.text);
   });
-  it("has every flow, uses the workspace website for research_company, and refuses an unknown one", async () => {
-    expect((await call({ name: "write_discovery" })).data.instructions).toMatch(/discovery/i);
-    expect((await call({ name: "research_company" })).data.instructions).toContain("https://meridian.example");
+  it("has every flow, uses the workspace website for pv-company, and refuses an unknown one", async () => {
+    expect((await call({ name: "pv-discovery" })).data.instructions).toMatch(/discovery/i);
+    expect((await call({ name: "pv-company" })).data.instructions).toContain("https://meridian.example");
     expect((await call({ name: "nope" })).isError).toBe(true);
+  });
+  it("the older names write_prd, write_discovery and research_company still work and give the same text as the pv- names (issue #643)", async () => {
+    for (const [old, now] of [["write_prd", "pv-prd"], ["write_discovery", "pv-discovery"], ["research_company", "pv-company"]] as const) {
+      const a = await call({ name: old, brief: "An account switcher" });
+      const b = await call({ name: now, brief: "An account switcher" });
+      expect(a.isError, old).toBe(false);
+      expect(a.data.instructions, old).toBe(b.data.instructions);
+      expect(b.data.name, now).toBe(now);
+      const viaPrompt = (await handleRpc({ jsonrpc: "2.0", id: 3, method: "prompts/get", params: { name: old, arguments: { brief: "An account switcher" } } }, backend)) as { result: { messages: { content: { text: string } }[] } };
+      expect(viaPrompt.result.messages[0]!.content.text, old).toBe(a.data.instructions);
+    }
+  });
+  it("the guided flows show their plan of included skills, and the tool description lists no old name", async () => {
+    for (const name of ["pv-prd", "pv-discovery", "pv-company"]) {
+      const t = (await call({ name })).data.instructions as string;
+      expect(t, name).toMatch(/PLAN: THIS SKILL CAN RUN OTHER SKILLS AS STEPS/);
+      expect(t, name).toMatch(/This will run: <the steps>\. Skip any\./);
+    }
+    const prd = (await call({ name: "pv-prd" })).data.instructions as string;
+    expect(prd).toMatch(/Steps that always run:\n- pv-metrics[^\n]*\n- pv-split/);
+    expect(prd).toMatch(/### pv-split \(/); // what the step covers is in the prompt, so a client without get_playbook can run it
+    const tools = (await handleRpc({ jsonrpc: "2.0", id: 4, method: "tools/list" }, backend)) as { result: { tools: { name: string; description: string }[] } };
+    const d = tools.result.tools.find((x) => x.name === "get_playbook")!.description;
+    expect(d).not.toMatch(/write_prd|write_discovery|research_company/);
+    expect(d).toMatch(/pv-prd \(/);
   });
 });
 

@@ -15,9 +15,9 @@ Product Velocity is this team's roadmap and stack rank. You reach it through the
 - Change roles, members or settings
 
 ## Flows (type / to start one)
-- `/write_prd`: Write a PRD and create the initiative
-- `/write_discovery`: Write a discovery document and register its initiative
-- `/research_company`: Research the company and save its profile
+- `/pv-prd`: Write a PRD and create the initiative
+- `/pv-discovery`: Write a discovery document and register its initiative
+- `/pv-company`: Research the company and save its profile
 - `/pv-premortem`: Pre-mortem
 - `/pv-one-pager`: One-pager
 - `/pv-metrics`: Success metrics
@@ -52,7 +52,7 @@ Product Velocity is this team's roadmap and stack rank. You reach it through the
 - `/pv-help`: List the Product Velocity skills
 
 ## Flows and prompts
-The prompts write_prd, write_discovery and research_company start the PRD, discovery and company-profile flows. The pv- prompts are skills the person starts as pv-<skill> [initiative] [their words] [--draft] (for example pv-premortem R-12); pv-help lists them. Each reads the company profile and the workspace, asks once, and saves a document as an AI draft.
+The prompts pv-prd, pv-discovery and pv-company start the PRD, discovery and company-profile flows; the other pv- skills are building blocks they can run. The older names write_prd, write_discovery and research_company still work. The pv- prompts are skills the person starts as pv-<skill> [initiative] [their words] [--draft] (for example pv-premortem R-12); pv-help lists them. Each reads the company profile and the workspace, asks once, and saves a document as an AI draft.
 
 ## Tools
 Read: get_workspace_context, describe_fields, search_items, get_item, get_gate_pack, list_groups, list_views, list_files, list_documents, get_document, get_report, get_company_profile, get_outcome_reviews, draft_outcome_request.

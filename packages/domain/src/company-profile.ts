@@ -84,7 +84,7 @@ export const profileToMarkdown = (s: ProfileSections): string =>
 
 /** Added to the flows that write a PRD or a discovery (see flow-rules.ts): read the profile first and use it. */
 export const PROFILE_USE_RULE =
-  "Use the company profile. Call get_company_profile first. Write in the company's own industry language, use its personas, glossary terms and voice, and keep to its products and competitors as listed; do not contradict it and do not copy it in bulk. What the person tells you in this run wins over the profile. Say in one line that you used it and whether it is a draft (not yet confirmed by an admin). If get_workspace_context shows no profile and a company website, or a stale one, offer once to run the research_company prompt first; if the person declines, carry on without it.";
+  "Use the company profile. Call get_company_profile first. Write in the company's own industry language, use its personas, glossary terms and voice, and keep to its products and competitors as listed; do not contradict it and do not copy it in bulk. What the person tells you in this run wins over the profile. Say in one line that you used it and whether it is a draft (not yet confirmed by an admin). If get_workspace_context shows no profile and a company website, or a stale one, offer once to run the pv-company prompt first; if the person declines, carry on without it.";
 
 export const RESEARCH_RULES = [
   "Public sources only: the company website, the pages it links to and reputable public coverage. No logins, no customer data, nothing the person has not made public.",
@@ -99,7 +99,7 @@ export const RESEARCH_RULES = [
 
 export type ResearchPromptArgs = { url?: string; company_url?: string | null; focus?: string };
 
-/** The research_company prompt: how to build or refresh the company profile. */
+/** The pv-company prompt (was research_company): how to build or refresh the company profile. */
 export function researchPrompt(args: ResearchPromptArgs): { description: string; text: string } {
   const url = (args.url ?? "").trim() || (args.company_url ?? "") || "";
   const focus = (args.focus ?? "").trim();

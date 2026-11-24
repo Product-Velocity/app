@@ -27,8 +27,8 @@ export default function AiHelp() {
           columns={4}
           items={[
             { number: "01", title: "Brainstorm", text: "Think out loud with an assistant that has read your roadmap, related initiatives and company profile. Nothing is saved until you say so.", pills: ["Chat only"] },
-            { number: "02", title: "Discover", text: "Turn a short brief into a Discovery document: the problem, the evidence, the options and the expected impact. The initiative starts in Discover.", pills: ["write_discovery"] },
-            { number: "03", title: "Define", text: "Write the PRD from the same context, including the hypothesis, key result, requirements and roll-out plan. Fields are filled from it.", pills: ["write_prd"] },
+            { number: "02", title: "Discover", text: "Turn a short brief into a Discovery document: the problem, the evidence, the options and the expected impact. The initiative starts in Discover.", pills: ["pv-discovery"] },
+            { number: "03", title: "Define", text: "Write the PRD from the same context, including the hypothesis, key result, requirements and roll-out plan. Fields are filled from it.", pills: ["pv-prd"] },
             { number: "04", title: "Review and decide", text: "Check a document for gaps, then prepare the gate pack for the person who decides.", pills: ["get_gate_pack"] },
           ]}
         />

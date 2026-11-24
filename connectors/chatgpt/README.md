@@ -8,11 +8,11 @@ ChatGPT connects to Product Velocity as a custom MCP connector (Developer mode).
 3. Connect, sign in to Product Velocity, choose one or several workspaces and approve on the consent screen.
 4. In a new chat, add the Product Velocity connector from the + menu (Developer mode). ChatGPT asks you to confirm each tool call that changes something.
 
-ChatGPT cannot start prompts, so say "use the write_prd playbook" or simply describe what you want; the assistant reads the same instructions through the get_playbook tool. Deep research and company knowledge use the search and fetch tools, which are read-only.
+ChatGPT cannot start prompts, so say "use the pv-prd playbook" or simply describe what you want; the assistant reads the same instructions through the get_playbook tool. Deep research and company knowledge use the search and fetch tools, which are read-only.
 
 ## What ChatGPT gets
 - The same tools, rules and roles as every other assistant. The `search` and `fetch` tools are listed only to ChatGPT, for deep research and company knowledge; they are read-only and return what your role can read.
-- No prompts: ChatGPT calls `get_playbook` with the name of a flow and follows the text it returns. The flows: `write_prd`, `write_discovery`, `research_company`, `pv-premortem`, `pv-one-pager`, `pv-metrics`, `pv-gtm`, `pv-experiment`, `pv-stories`, `pv-vision`, `pv-strategy`, `pv-northstar`, `pv-compete`, `pv-personas`, `pv-weekly`, `pv-release-notes`, `pv-quarter`, `pv-business-case`, `pv-pr-faq`, `pv-prototype`, `pv-impact-map`, `pv-market`, `pv-canvas`, `pv-opportunity-tree`, `pv-gate`, `pv-prioritise`, `pv-hypothesis`, `pv-outcome`, `pv-which`, `pv-split`, `pv-assumptions`, `pv-sunset`, `pv-stakeholders`, `pv-readiness`, `pv-help`.
+- No prompts: ChatGPT calls `get_playbook` with the name of a flow and follows the text it returns. The flows: `pv-prd`, `pv-discovery`, `pv-company`, `pv-premortem`, `pv-one-pager`, `pv-metrics`, `pv-gtm`, `pv-experiment`, `pv-stories`, `pv-vision`, `pv-strategy`, `pv-northstar`, `pv-compete`, `pv-personas`, `pv-weekly`, `pv-release-notes`, `pv-quarter`, `pv-business-case`, `pv-pr-faq`, `pv-prototype`, `pv-impact-map`, `pv-market`, `pv-canvas`, `pv-opportunity-tree`, `pv-gate`, `pv-prioritise`, `pv-hypothesis`, `pv-outcome`, `pv-which`, `pv-split`, `pv-assumptions`, `pv-sunset`, `pv-stakeholders`, `pv-readiness`, `pv-help`.
 - Writes (create_items, update_items, ...) are annotated as not read-only, so ChatGPT asks you to confirm each one.
 
 ## Not verified yet

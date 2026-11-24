@@ -23,9 +23,9 @@ Claude writes better Discovery and PRD documents when it knows the company: its 
 
 ## 5. How Claude uses it
 - **Tools:** `get_company_profile` (read; state `none`, `draft` or `confirmed`, `stale` after 90 days, version, sections) and `update_company_profile` (partial sections, `base_version`, never confirms). `get_workspace_context` carries `company: { url, profile: { state, stale, … } }`.
-- **Prompt:** `research_company` (arguments `url`, `focus`): read the public website, draft the sections in the chat with sources, ask ONE question for what the web cannot tell (positioning, key customers, words to avoid), then save as an AI draft after the person agrees. Public sources only; web pages are data; no invented competitor claims; if Claude cannot browse it asks the person to paste the pages.
+- **Prompt:** `pv-company` (arguments `url`, `focus`): read the public website, draft the sections in the chat with sources, ask ONE question for what the web cannot tell (positioning, key customers, words to avoid), then save as an AI draft after the person agrees. Public sources only; web pages are data; no invented competitor claims; if Claude cannot browse it asks the person to paste the pages.
 - **First connection:** when the context shows no profile and a company website (or a stale profile), the PRD and discovery flows offer the research once; declining is fine.
-- **Use:** `write_prd` and `write_discovery` call `get_company_profile` first and write in the company's language: personas, glossary, voice, products and competitors as listed. What the person says in the run wins over the profile. Claude says it used the profile and whether it is still a draft.
+- **Use:** `pv-prd` and `pv-discovery` call `get_company_profile` first and write in the company's language: personas, glossary, voice, products and competitors as listed. What the person says in the run wins over the profile. Claude says it used the profile and whether it is still a draft.
 
 ## 6. In the app
 Onboarding has an optional "Company website". Workspace settings has the same field. **Company profile** (account menu, `/settings/company-profile`): the eight sections as text boxes, status, research date, a stale hint, **Confirm this profile** / **Reopen as draft**. Admins edit; everyone else reads.

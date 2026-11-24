@@ -43,14 +43,14 @@ export const DISCOVERY_RULES = [
   "Everything you create is an AI draft. A person accepts it, and a person with the Approver permission approves the discovery at the Discover to Define gate. You never approve.",
 ] as const;
 
-/** A compact block added to the server instructions (always on). The full template is in the write_discovery prompt. */
+/** A compact block added to the server instructions (always on). The full template is in the pv-discovery prompt. */
 export function discoveryInstructions(alreadyStated: readonly string[] = []): string {
   const own = DISCOVERY_RULES.filter((r) => !alreadyStated.includes(r));
   return [
     "When asked to write a discovery (the step before a PRD)" + (own.length < DISCOVERY_RULES.length ? ", the same align-first and prior-knowledge rules apply, plus:" : ":"),
     ...own.map((r, i) => `${i + 1}. ${r}`),
     `Sections of the discovery document: ${DISCOVERY_SECTIONS.map((s) => `${s.id} ${s.title}`).join("; ")}.`,
-    "The write_discovery prompt has the full template.",
+    "The pv-discovery prompt has the full template.",
   ].join("\n");
 }
 
@@ -64,7 +64,7 @@ export function teamLine(team?: string): string {
     : "The person has not named the team: ask for it in your one question message (product manager = ?, designer = ?, engineering manager = ?), and do not use the signed-in account's name as owner.";
 }
 
-/** The write_discovery prompt: the template, the rules and the order of work. */
+/** The pv-discovery prompt (was write_discovery): the template, the rules and the order of work. */
 export function discoveryPrompt(args: DiscoveryPromptArgs): { description: string; text: string } {
   const brief = (args.brief ?? "").trim();
   const item = (args.item ?? "").trim();

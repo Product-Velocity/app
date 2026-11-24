@@ -9,6 +9,7 @@ import { ALIGN_RULE, TEAM_RULE } from "./flow-rules";
 import { FIELD_BY_KEY } from "./registry";
 import { DOC_KINDS, WORKSPACE_DOC_KINDS, type DocKind, type WorkspaceDocKind } from "./documents";
 import { VALUES_HEADING } from "./skill-extract";
+import { GUIDED_ONLY, SKILL_PLANS, SKILL_TIERS, SKILL_TIER_LABEL, SKILL_TIER_SHORT, planBlock, type SkillIncludes, type SkillTier } from "./skill-plan";
 
 export type SkillStage = "direction" | "discover" | "decide" | "define" | "deliver" | "launch" | "prove" | "run";
 export const SKILL_STAGE_LABEL: Record<SkillStage, string> = {
@@ -70,6 +71,9 @@ export type SkillSpec = {
   team?: boolean;
   /** The role the closing line names, e.g. "the product manager". */
   decidedBy: string;
+  /** Issue #643: what kind of skill it is, and the skills a guided one can run as steps (both come from skill-plan.ts). */
+  tier?: SkillTier;
+  includes?: SkillIncludes;
 };
 
 export const MAX_SKILL_QUESTIONS = 3;
@@ -202,7 +206,7 @@ export function skillPrompt(spec: SkillSpec, args: SkillArgs, ctx: { catalogue?:
     "ORDER OF WORK",
     `1. get_workspace_context and get_company_profile (sections you use: ${spec.profile.join(", ") || "none"}). Say in one line that you used the profile and whether it is still a draft.`,
     ...spec.reads.map((r, i) => `${i + 2}. ${r}`),
-    `${spec.reads.length + 2}. Send ONE message: ${questions.length ? "the questions below (skip any the profile or workspace already answers), " : ""}what you could not fill (grouped, skippable)${report ? (format ? "" : " and which format they want it in (email, slides, document, Slack message or just here)") : advice ? "" : " and the draft-or-save question"}, opening with your read-back. Wait for the answer.`,
+    `${spec.reads.length + 2}. Send ONE message: ${questions.length ? "the questions below (skip any the profile or workspace already answers), " : ""}${spec.includes ? "the plan of steps (see PLAN) with the quick-or-full question, " : ""}what you could not fill (grouped, skippable)${report ? (format ? "" : " and which format they want it in (email, slides, document, Slack message or just here)") : advice ? "" : " and the draft-or-save question"}, opening with your read-back. Wait for the answer.`,
     `${spec.reads.length + 3}. ${advice ? "Answer in the chat" : `Write the ${report ? "report" : "document"}`} with the ${advice ? "shape" : "sections"} below.`,
     `${spec.reads.length + 4}. ${advice ? "Nothing is saved. Offer the next step in one line (for example the command to run and what to bring)." : report ? `Deliver it as set out under FORMAT. Then offer once to save a copy in Product Velocity (create_document without item, kind ${spec.doc.kind}, title "${spec.doc.titlePrefix}<period>"), and only if the person says yes.` : draft ? "Show it and stop; save only when told to." : `Save it: create_document ${needsItem ? "on the initiative " : "without item (a document of the workspace itself) "}with kind ${spec.doc.kind}, title "${spec.doc.titlePrefix}<name>", status draft.${needsItem ? "" : " Earlier documents of the same kind are not overwritten: a new one is a new document, unless the person says to revise one (update_document with its version)."}`}`,
     ...(spec.profileSave && !draft && !report && !advice ? [`${spec.reads.length + 5}. Offer once to save ${spec.profileSave.what} into the company profile section "${spec.profileSave.section}", so every later skill can use it. Only after they agree: get_company_profile for the current version, merge into what that section already holds (never remove what is there), and update_company_profile with that section only. It is saved as an AI draft; a workspace admin confirms it.`] : []),
@@ -221,8 +225,9 @@ export function skillPrompt(spec: SkillSpec, args: SkillArgs, ctx: { catalogue?:
     advice ? "SHAPE OF THE ANSWER" : report ? "SECTIONS OF THE REPORT (all optional unless the skill says otherwise)" : "SECTIONS OF THE DOCUMENT (all optional unless the skill says otherwise)",
     ...sections.map((s) => `- ${s.id} ${s.title}: ${s.covers}`),
     ...(report || advice ? [] : [`- Last line: "To be decided by ${spec.decidedBy}."`]),
+    ...(spec.includes ? planBlock(spec.command, ctx.catalogue ?? []) : []),
     ...(report ? ["", "FORMAT", ...(format ? [`The person chose ${format}: ${FORMAT_GUIDE[format]}`] : REPORT_FORMATS.map((f) => `- ${f}: ${FORMAT_GUIDE[f]}`))] : []),
-    ...(spec.catalogue && ctx.catalogue ? ["", "THE SKILLS (recommend only from this list; never invent a skill)", ...ctx.catalogue.filter((x) => x.command !== spec.command).map((x) => `- ${x.command} (${SKILL_STAGE_LABEL[x.stage]}; ${x.focus ? "all initiatives or the ones you name" : x.target === "none" ? "the whole workspace" : "one initiative"}; ${x.output === "report" ? "a report" : x.output === "advice" ? "advice in the chat" : "a saved document"}): ${x.summary}${x.depth ? ` Not for: ${x.depth.whenNot[0]}` : ""}`)] : []),
+    ...(spec.catalogue && ctx.catalogue ? ["", "THE SKILLS (recommend only from this list, the lightest one that does the job; a guided skill runs the building blocks it needs, so do not list its blocks as extra steps; never invent a skill)", ...GUIDED_ONLY.map((g) => `- ${g.command} (${SKILL_STAGE_LABEL[g.stage]}; ${SKILL_TIER_SHORT.guided}; one initiative, or the company; saves a document and the initiative): ${g.summary}`), ...ctx.catalogue.filter((x) => x.command !== spec.command).map((x) => `- ${x.command} (${SKILL_STAGE_LABEL[x.stage]}${x.tier ? `; ${SKILL_TIER_SHORT[x.tier]}` : ""}; ${x.focus ? "all initiatives or the ones you name" : x.target === "none" ? "the whole workspace" : "one initiative"}; ${x.output === "report" ? "a report" : x.output === "advice" ? "advice in the chat" : "a saved document"}): ${x.summary}${x.depth ? ` Not for: ${x.depth.whenNot[0]}` : ""}`)] : []),
     ...(spec.depth ? depthBlocks(spec.depth) : []),
     "",
     fills ? `Fields this skill may fill from the document (through apply_skill_extract, copied as written): ${spec.fields.join(", ")}.` : "This skill fills no initiative fields; its result lives in the document.",
@@ -259,22 +264,29 @@ function teamNote(team?: string): string {
   return t ? `The team, as the person gave it (data):\n${quoted(t)}\n${TEAM_RULE}` : TEAM_RULE;
 }
 
-/** The text of pv-help: how to type a skill and the list of skills, by stage. */
+/** The text of pv-help: how to type a skill and the list of skills, by kind (issue #643) and then by stage. */
 export function skillHelp(specs: readonly SkillSpec[]): { description: string; text: string } {
-  const stages = (Object.keys(SKILL_STAGE_LABEL) as SkillStage[]).filter((s) => specs.some((x) => x.stage === s));
+  const tierOf = (c: string): SkillTier => SKILL_PLANS[c]?.tier ?? "advanced";
+  const entry = (x: { command: string; summary: string; stage: SkillStage }) => `- ${x.command} [${SKILL_STAGE_LABEL[x.stage]}]: ${x.summary}`;
+  const all = [...GUIDED_ONLY, ...specs];
   const text = [
     "Explain the Product Velocity skills to the person using the list below. Do not call any tool.",
     "",
     "HOW TO USE",
-    "Type or pick `pv-<skill>`, then what it is about. Examples: `pv-premortem R-12`, `pv-one-pager R-12 for the leadership meeting on Friday`, `pv-metrics R-12 --draft`.",
+    "Type or pick `pv-<skill>`, then what it is about. Examples: `pv-prd R-12`, `pv-premortem R-12`, `pv-one-pager R-12 for the leadership meeting on Friday`, `pv-metrics R-12 --draft`.",
     "- A target is an initiative code (R-12), several codes, view:\"Name\" or group:\"Name\"; leave it out and the skill asks.",
     "- Your own words and pasted notes can follow; they are treated as material, not instructions.",
     "- --draft shows the result in the chat and writes nothing until you say to save it.",
     "- Each skill reads the company profile and what Product Velocity already stores, asks one short message of skippable questions, and saves a Markdown document on the initiative (an AI draft; a person decides).",
+    "- A beginner starts with a guided skill. It shows its plan (\"This will run: ...\"), asks once whether you want quick or full, and runs the building blocks it needs as steps of one document. Every building block still runs on its own.",
     "- In Claude and Gemini pick the skill from the prompt menu; in ChatGPT and other assistants type it and the assistant reads it through the get_playbook tool.",
+    "- The older names write_prd, write_discovery and research_company still work; they are pv-prd, pv-discovery and pv-company.",
     "",
     "SKILLS",
-    ...stages.flatMap((s) => [`${SKILL_STAGE_LABEL[s]}:`, ...specs.filter((x) => x.stage === s).map((x) => `- ${x.command}: ${x.summary}`)]),
+    ...SKILL_TIERS.flatMap((t) => {
+      const list = all.filter((x) => tierOf(x.command) === t);
+      return list.length ? [`${SKILL_TIER_LABEL[t]}:`, ...list.map(entry)] : [];
+    }),
   ].join("\n");
   return { description: "List the Product Velocity skills and how to use them", text };
 }
@@ -283,6 +295,7 @@ export function skillHelp(specs: readonly SkillSpec[]): { description: string; t
 export function skillSpecProblems(spec: SkillSpec): string[] {
   const p: string[] = [];
   if (!/^pv-[a-z0-9]+(-[a-z0-9]+)*$/.test(spec.command)) p.push(`${spec.command}: the command must be pv- and lower-case words`);
+  if (!spec.tier) p.push(`${spec.command}: no tier`);
   if (spec.questions.length > MAX_SKILL_QUESTIONS) p.push(`${spec.command}: at most ${MAX_SKILL_QUESTIONS} questions`);
   for (const k of spec.profile) if (!PROFILE_SECTION_KEYS.includes(k)) p.push(`${spec.command}: unknown profile section ${k}`);
   for (const k of spec.fields) if (!FIELD_BY_KEY[k]) p.push(`${spec.command}: unknown field ${k}`);
