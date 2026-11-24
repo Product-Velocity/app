@@ -19,6 +19,7 @@ import SyncRulesHelp from "./sync-rules/page";
 import AttentionHelp from "./attention/page";
 import ReportDefinitionsHelp from "./report-definitions/page";
 import AiUseCasesHelp from "./ai-use-cases/page";
+import GetStartedHelp from "./get-started/page";
 import SkillsHelp from "./skills/page";
 import { SKILLS } from "@pv/domain";
 import { SkillHelpPage } from "@/components/help/skill-page";
@@ -26,7 +27,7 @@ import { SkillHelpPage } from "@/components/help/skill-page";
 const PAGES: Record<string, () => React.JSX.Element> = {
   "": HelpHome, okrs: OkrsPage, lifecycle: LifecyclePage, alignment: AlignmentPage, reports: ReportsHelp, delivery: DeliveryHelp, ai: AiHelp,
   "ai-setup": AiSetupHelp, columns: ColumnsHelp, shortcuts: ShortcutsHelp, "goal-fields": GoalFieldsHelp, phases: PhasesHelp, statuses: StatusesHelp, "sync-rules": SyncRulesHelp, attention: AttentionHelp,
-  "report-definitions": ReportDefinitionsHelp, "ai-use-cases": AiUseCasesHelp, skills: SkillsHelp,
+  "report-definitions": ReportDefinitionsHelp, "ai-use-cases": AiUseCasesHelp, skills: SkillsHelp, "get-started": GetStartedHelp,
 };
 const html: Record<string, string> = Object.fromEntries(Object.entries(PAGES).map(([k, P]) => [k, renderToStaticMarkup(createElement(P))]));
 const text = (h: string) => h.replace(/<[^>]+>/g, " ").replace(/&rsquo;|&#x27;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ");
@@ -99,6 +100,13 @@ describe("Help pages", () => {
       expect(t, k).not.toMatch(/\bPV\b|ProductVelocity/);
       expect(t, k).not.toMatch(/\b(the best|number one|world-class|market-leading|unlike [A-Z])/i);
     }
+  });
+  it("has a Get started page with the route, a checklist and a note for leaders", () => {
+    const t = text(html["get-started"]!);
+    expect(t).toMatch(/The route/);
+    expect(t).toMatch(/First-run checklist/);
+    expect(t).toMatch(/A note for leaders/);
+    expect(html["get-started"]!).toContain('href="/help/skills"');
   });
   it("shows the figures with text alternatives, labelled as example data", () => {
     for (const k of ["lifecycle", "alignment", "sync-rules", "delivery", "ai-setup", "reports"]) expect(html[k]!, k).toContain("<figure");
