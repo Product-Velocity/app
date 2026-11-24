@@ -206,3 +206,22 @@ test.describe("Changes report", () => {
     expect(r.violations.map((v) => v.id + ": " + v.nodes.map((n) => n.target).join(" | "))).toEqual([]);
   });
 });
+
+test.describe("Changes report: layout", () => {
+  test("the grid fills the page below it, like every grid, and follows the window height", async ({ page }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await open(page);
+    const bottom = async () => (await grid(page).boundingBox())!.y + (await grid(page).boundingBox())!.height;
+    await expect.poll(async () => 900 - (await bottom())).toBeLessThan(120); // the grid ends near the bottom of the window (footer line and margin below it)
+    await page.setViewportSize({ width: 1400, height: 1200 });
+    await expect.poll(async () => 1200 - (await bottom())).toBeLessThan(120);
+  });
+
+  test("the search field has one frame: the bar's, not a second one inside it", async ({ page }) => {
+    await open(page);
+    const input = page.getByRole("searchbox", { name: "Search changes" });
+    await expect(input).toHaveCSS("border-top-width", "0px");
+    await input.focus();
+    await expect(input).toHaveCSS("outline-style", "none");
+  });
+});

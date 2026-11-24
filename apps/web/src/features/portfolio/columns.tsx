@@ -1,5 +1,6 @@
 "use client";
 
+import { emptyTrackerText, rowTracker, trackerWords } from "./tracker-words";
 import { FlagControl, actionClass } from "@/components/flag-controls";
 import { NameWithIssues } from "./name-cell";
 import type { ColDef, IHeaderParams } from "ag-grid-community";
@@ -25,14 +26,9 @@ function HealthCell({ value }: { value: string | null }) {
   return <StatusPill value={value} tone={statusTone(value)} />;
 }
 
-function ReadOnlyCell({ text, reason, github, pill, field, children }: { text: string; reason: string | null; github: boolean; pill?: boolean; field?: string; children?: React.ReactNode }) {
+function ReadOnlyCell({ text, reason, pill, field, children }: { text: string; reason: string | null; /** Kept so callers say whether the column is tracker-driven; the lock is drawn once in the column header, not in every row. */ github?: boolean; pill?: boolean; field?: string; children?: React.ReactNode }) {
   return (
     <span className="lock-cell" title={reason ?? undefined}>
-      {github && (
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.4" role="img" aria-label="Set from GitHub">
-          <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" />
-        </svg>
-      )}
       {children ?? (pill && text ? <StatusPill value={text} tone={toneFor(field ?? "", text)} /> : text)}
     </span>
   );
@@ -86,14 +82,20 @@ function ActionsCell({ data, today, canAct, context }: CustomCellRendererProps<G
 }
 
 /** The read-only fields both trackers fill (Build Status follows the Jira status category too). */
-const BOTH_TRACKERS: ReadonlySet<string> = new Set(["status"]);
 
 /** Column header: the field name, plus a words-only note when the field is read-only or from a later phase. */
 function FieldHeader({ displayName, phase, locked, from }: IHeaderParams & { phase: number; locked: boolean; from: string }) {
   return (
     <span className="field-header">
       <span className="field-header-name">{displayName}</span>
-      {locked && <span className="field-header-note">{from}</span>}
+      {locked && (
+        <span className="field-header-note" title={`Read only: ${from}`}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" role="img" aria-label="Read only" style={{ marginRight: 4, verticalAlign: "-1px" }}>
+            <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" />
+          </svg>
+          {from}
+        </span>
+      )}
       {phase > 1 && <span className="field-header-note">Arrives in phase {phase}</span>}
     </span>
   );
@@ -144,7 +146,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
       field: f.key as never,
       headerName: f.name,
       headerComponent: FieldHeader,
-      headerComponentParams: { phase: isShipped(f) || f.mode === "locked" || f.storage.startsWith("GitHub-synced") ? 1 : f.phase, locked: f.mode === "locked" || f.storage.startsWith("GitHub-synced"), from: BOTH_TRACKERS.has(f.key) ? "from GitHub or Jira" : "from GitHub" },
+      headerComponentParams: { phase: isShipped(f) || f.mode === "locked" || f.storage.startsWith("GitHub-synced") ? 1 : f.phase, locked: f.mode === "locked" || f.storage.startsWith("GitHub-synced"), from: `from ${trackerWords(lookups)}` },
       headerTooltip: f.description ?? f.name,
       width: widths?.[f.key] ?? WIDE[f.key] ?? WIDTH[f.type] ?? 140,
       hide: !visible.has(f.key) && !(CORE_COLUMNS as readonly string[]).includes(f.key),
@@ -212,7 +214,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
     if (f.key === "actions") return { ...base, suppressNavigable: true, width: widths?.actions ?? 340, valueFormatter: (p) => String(p.value ?? ""), cellRenderer: (p: CustomCellRendererProps<GridItem>) => <ActionsCell {...p} today={today} canAct={controller.canEdit} />, cellClass: "cell-locked" };
     if (f.key === "health") return { ...base, cellRenderer: HealthCell, ...pickerDef(f, optionsFor(f.key), true) };
     if (reason) {
-      return { ...base, cellRenderer: (p: { value: unknown }) => <ReadOnlyCell text={display(f, p.value) || (f.key === "status" ? "Not on GitHub" : f.key === "gh_project_status" ? "Not on a board" : f.key === "tracker_status" ? "Not linked" : f.key === "last_synced" || f.key === "synced_with" ? "Not synced" : f.key === "tracker_ownership" ? "Not linked" : "")} reason={reason} pill={PILL_FIELDS.has(f.key)} field={f.key} github={f.mode === "locked" || f.storage.startsWith("GitHub-synced")} /> };
+      return { ...base, cellRenderer: (p: CustomCellRendererProps<GridItem>) => <ReadOnlyCell text={display(f, p.value) || (emptyTrackerText(f.key, p.data ? rowTracker(lookups, p.data) : null) ?? (f.key === "tracker_status" ? "Not linked" : f.key === "last_synced" || f.key === "synced_with" ? "Not synced" : f.key === "tracker_ownership" ? "Not linked" : ""))} reason={reason} pill={PILL_FIELDS.has(f.key)} field={f.key} github={f.mode === "locked" || f.storage.startsWith("GitHub-synced")} /> };
     }
     if (!canEdit) return base;
     base.valueSetter = setter(f.key) as never;

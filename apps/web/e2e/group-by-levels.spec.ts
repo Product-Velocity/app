@@ -127,6 +127,37 @@ test.describe("Group by: picker, two levels, issues", () => {
     await expect(page.locator(".group-row")).toHaveCount(0);
   });
 
+  test("the fold button steps through the levels: close the second, close the first, open the first, open the second, then again (issue #663)", async ({ page }) => {
+    await open(page);
+    await groupBtn(page).click();
+    await pick(page, "Build Status");
+    await searchBox(page).fill("moscow");
+    await page.keyboard.press("Enter");
+    await btn(page, "Apply").click();
+    const main = page.locator(".group-row[data-level='0']");
+    const sub = page.locator(".group-row[data-level='1']");
+    const rows = page.locator(".ag-row:not(.ag-full-width-row)");
+    const fold = page.getByRole("button", { name: /^(Collapse|Expand) level/ });
+    await expect(fold).toHaveAccessibleName("Collapse level 2 (sub-groups)");
+    await expect(sub.first()).toBeVisible();
+    await expect(rows.first()).toBeVisible();
+    await fold.click(); // 1. the sub-groups fold: their rows go, the sub-headers stay
+    await expect(rows).toHaveCount(0);
+    await expect(sub.first()).toBeVisible();
+    await expect(fold).toHaveAccessibleName("Collapse level 1 (groups)");
+    await fold.click(); // 2. the groups fold: the sub-headers go too
+    await expect(sub).toHaveCount(0);
+    await expect(main.first()).toBeVisible();
+    await expect(fold).toHaveAccessibleName("Expand level 1 (groups)");
+    await fold.click(); // 3. the groups open: the sub-headers show, still folded
+    await expect(sub.first()).toBeVisible();
+    await expect(rows).toHaveCount(0);
+    await expect(fold).toHaveAccessibleName("Expand level 2 (sub-groups)");
+    await fold.click(); // 4. the sub-groups open: everything is back
+    await expect(rows.first()).toBeVisible(); // the rows are back (the grid only draws the ones in view)
+    await expect(fold).toHaveAccessibleName("Collapse level 2 (sub-groups)"); // and it reverses
+  });
+
   test("removing the main level promotes the second one", async ({ page }) => {
     await open(page);
     await groupBtn(page).click();
@@ -330,5 +361,17 @@ test.describe("Group by: picker, two levels, issues", () => {
     const r = await new AxeBuilder({ page }).include(".grid-wrap").analyze();
     const found = r.violations.flatMap((v) => v.nodes.filter((n) => !placeholder.test(n.html.trim())).map((n) => v.id + ": " + n.target.join(" ")));
     expect(found).toEqual([]);
+  });
+});
+
+test.describe("Tracker columns: the lock is in the header, the words follow the tracker", () => {
+  test("a Jira workspace says 'from Jira' in the header; no row carries a lock icon", async ({ page }) => {
+    await page.goto("/dev/grid?n=12&role=admin&view=Delivery&jira=1");
+    await page.waitForSelector(".ag-row");
+    const header = page.locator(".ag-header-cell", { hasText: "Build Status" });
+    await expect(header).toContainText("from Jira");
+    await expect(header.getByRole("img", { name: "Read only" })).toBeVisible();
+    await expect(page.locator(".ag-body .lock-cell svg")).toHaveCount(0);
+    await expect(page.locator(".grid-foot")).toContainText("values come from Jira");
   });
 });
