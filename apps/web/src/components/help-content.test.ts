@@ -169,7 +169,7 @@ describe("Help guide: AI agents (request #230)", () => {
     }
   });
   it("tells each assistant's specifics: Claude Code command, ChatGPT playbook and Developer mode, Gemini /mcp auth", () => {
-    expect(text(AGENT_GUIDES.claude)).toMatch(/\/mcp__product-velocity__write_discovery/);
+    expect(text(AGENT_GUIDES.claude)).toMatch(/\/mcp__product-velocity__pv-discovery/);
     expect(text(AGENT_GUIDES.chatgpt)).toMatch(/get_playbook/);
     expect(text(AGENT_GUIDES.chatgpt)).toMatch(/Developer mode/);
     expect(text(AGENT_GUIDES.chatgpt)).toMatch(/search and fetch/);
@@ -266,17 +266,45 @@ describe("Help: the pv- skills table", () => {
   });
 });
 
+describe("Help: the kinds of skill and what a guided skill runs (issue #643)", () => {
+  it("lists every skill once under its kind, guided first, and the include table matches the plans", async () => {
+    const { AGENT_SKILL_TIERS, AGENT_SKILL_INCLUDES } = await import("./help-content");
+    const { SKILLS, GUIDED_ONLY, SKILL_PLANS, SKILL_TIER_LABEL, SKILL_TIERS } = await import("@pv/domain");
+    expect(AGENT_SKILL_TIERS.rows.map((r) => r[0])).toEqual(SKILL_TIERS.map((t) => SKILL_TIER_LABEL[t]));
+    const listed = AGENT_SKILL_TIERS.rows.flatMap((r) => r[1]!.split(", "));
+    expect([...listed].sort()).toEqual([...GUIDED_ONLY, ...SKILLS].map((s) => s.command).concat("pv-help").sort());
+    expect(AGENT_SKILL_TIERS.rows[0]![1]!.split(", ").slice(0, 3)).toEqual(["pv-company", "pv-discovery", "pv-prd"]);
+    expect(AGENT_SKILL_TIERS.rows[0]![2]).toMatch(/quick or full/);
+    const withIncludes = Object.keys(SKILL_PLANS).filter((c) => SKILL_PLANS[c]!.includes && (SKILL_PLANS[c]!.includes!.always.length + SKILL_PLANS[c]!.includes!.offered.length + Object.keys(SKILL_PLANS[c]!.includes!.byGate ?? {}).length) > 0);
+    expect(AGENT_SKILL_INCLUDES.rows.map((r) => r[0]).sort()).toEqual([...withIncludes].sort());
+    const prd = AGENT_SKILL_INCLUDES.rows.find((r) => r[0] === "pv-prd")!;
+    expect(prd[1]).toBe("pv-metrics, pv-split");
+    expect(prd[2]).toBe("pv-stories; pv-premortem; pv-pr-faq; pv-business-case");
+    expect(AGENT_SKILL_INCLUDES.rows.find((r) => r[0] === "pv-gate")![2]).toMatch(/Gate A: pv-one-pager, pv-stakeholders; Gate B: pv-premortem; Gate C: pv-readiness, pv-gtm, pv-release-notes/);
+    expect(AGENT_SKILL_INCLUDES.rows.find((r) => r[0] === "pv-outcome")![1]).toMatch(/outcome review brief/);
+  });
+  it("no Help text names the old prompts as the way to start a flow, except the one sentence about aliases", async () => {
+    const { AGENT_GUIDES, AGENT_SKILL_TIPS, AGENT_SKILLS } = await import("./help-content");
+    const all = JSON.stringify([AGENT_GUIDES, AGENT_SKILL_TIPS, AGENT_SKILLS]);
+    const hits = all.match(/write_prd|write_discovery|research_company/g) ?? [];
+    expect(hits.length).toBeLessThanOrEqual(3); // "Say use the pv-discovery playbook (or pv-prd, pv-company; the older names ... still work)"
+    expect(all).toMatch(/the older names write_discovery, write_prd and research_company still work/);
+  });
+});
+
 describe("Help: which skill when, and the tips", () => {
   it("lists every skill once under its stage, in lifecycle order, and the tips match what the product does", async () => {
     const { AGENT_SKILL_STEPS, AGENT_SKILL_TIPS } = await import("./help-content");
-    const { SKILLS, SKILL_STAGE_LABEL } = await import("@pv/domain");
+    const { SKILLS, SKILL_STAGE_LABEL, GUIDED_ONLY } = await import("@pv/domain");
     const listed = AGENT_SKILL_STEPS.rows.flatMap((r) => r[1]!.split(", "));
-    expect([...listed].sort()).toEqual(SKILLS.map((s) => s.command).sort());
+    expect([...listed].sort()).toEqual([...GUIDED_ONLY, ...SKILLS].map((s) => s.command).sort());
     const order = AGENT_SKILL_STEPS.rows.map((r) => r[0]);
     expect(order).toEqual((Object.values(SKILL_STAGE_LABEL) as string[]).filter((l) => order.includes(l)));
     for (const r of AGENT_SKILL_STEPS.rows) expect(r[2]!.length).toBeGreaterThan(20);
     const tips = AGENT_SKILL_TIPS.join(" ");
-    expect(tips).toMatch(/research_company/);
+    expect(tips).toMatch(/pv-company/);
+    expect(tips).toMatch(/guided skill/);
+    expect(tips).toMatch(/quick .* or full/);
     expect(tips).toMatch(/--draft/);
     expect(tips).toMatch(/--format=email/);
     expect(tips).toMatch(/never goes to GitHub or Jira/);

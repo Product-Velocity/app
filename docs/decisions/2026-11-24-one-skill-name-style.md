@@ -1,0 +1,6 @@
+---
+date: 2026-11-24
+by: Ashu
+request: 643
+---
+**Every AI prompt and skill is named `pv-<name>`, every skill has a tier, and guided skills run other skills as steps** (issue #643). `write_prd`, `write_discovery` and `research_company` become `pv-prd`, `pv-discovery` and `pv-company`; the old names stay as aliases for one release (accepted by `prompts/get` and `get_playbook`, listed nowhere). The Gemini skill folders `product-velocity-prd` and `product-velocity-discovery` are renamed `pv-prd` and `pv-discovery` for the same reason (a decision of ours inside the issue's "every prompt and skill"). Five tiers, not the three the issue's heading says: guided, building block, company knowledge, advanced, router (the issue lists five groups). A guided skill shows its plan first, asks once quick or full, and writes every step it runs into one AI-draft document; depth at most 2, no cycles, checked by test. Included steps' sections and rules are embedded in the guided prompt because Claude and Gemini cannot call `get_playbook`. Fields an included step may fill go through the flow's normal dry run and confirmation, not `apply_skill_extract`. Guardrails are unchanged. Details: `docs/31-SKILLS.md` section 7.

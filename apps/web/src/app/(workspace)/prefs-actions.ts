@@ -1,7 +1,7 @@
 "use server";
 
 import { requireWorkspace } from "@/lib/session";
-import { clampPanelWidth, clampTextSize, sanitizeLocation, withLastLocation } from "@/lib/user-prefs";
+import { clampPanelWidth, clampTextSize, sanitizeLocation, withFollowed, withLastLocation } from "@/lib/user-prefs";
 
 /** Remembers how wide the person wants the item panel. Stored in their own profile; touches no workspace data. */
 export async function savePanelWidth(width: number): Promise<void> {
@@ -23,4 +23,10 @@ export async function saveTextSize(size: number): Promise<void> {
   const { supabase } = await requireWorkspace("/portfolio");
   if (typeof size !== "number") return;
   await supabase.auth.updateUser({ data: { text_size: clampTextSize(size) } });
+}
+
+/** Remembers which initiatives the person follows in this account. Stored in their own profile (it follows them to every device); touches no workspace data, and the account comes from the address. */
+export async function saveFollowed(itemIds: string[]): Promise<void> {
+  const { supabase, user, active } = await requireWorkspace("/portfolio");
+  await supabase.auth.updateUser({ data: { followed_items: withFollowed(user.user_metadata, active.tenantId, itemIds) } });
 }

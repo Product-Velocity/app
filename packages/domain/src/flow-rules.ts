@@ -1,4 +1,4 @@
-// Rules shared by the write_prd and write_discovery flows (issue #250): the align-first choice and the use of earlier documents.
+// Rules shared by the pv-prd and pv-discovery flows (was write_prd and write_discovery) (issue #250): the align-first choice and the use of earlier documents.
 // Text only; the tools they name already exist.
 
 /** Asked once, first, so the person decides whether anything is written before they have seen it. */

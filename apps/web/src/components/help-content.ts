@@ -1,7 +1,7 @@
-import { FIELDS, VISIBLE_FIELDS, FIELD_BY_KEY, SKILL_COMMANDS, SKILL_STAGE_LABEL, SKILLS, docKindLabel, setupGuides, type FieldDef } from "@pv/domain";
+import { FIELDS, VISIBLE_FIELDS, FIELD_BY_KEY, GUIDED_ONLY, SKILL_COMMANDS, SKILL_PLANS, SKILL_STAGE_LABEL, SKILL_TIERS, SKILL_TIER_LABEL, SKILLS, docKindLabel, includedCommands, setupGuides, type FieldDef } from "@pv/domain";
 
 /** Every PV skill by command, generated from the catalogue so a new skill cannot ship without Help. */
-const SKILL_LIST = SKILL_COMMANDS.join(", ");
+const SKILL_LIST = [...GUIDED_ONLY.map((g) => g.command), ...SKILL_COMMANDS].join(", ");
 
 /** What a skill gives you, in words: a report in a format, a document on the initiative or in Documents, and the fields it can fill. */
 function skillResult(s: (typeof SKILLS)[number]): string {
@@ -27,13 +27,44 @@ const STAGE_HINT: Record<string, string> = {
 export const AGENT_SKILL_STEPS: Table = {
   head: ["When", "Skills", "Use them when"],
   rows: (Object.keys(SKILL_STAGE_LABEL) as (keyof typeof SKILL_STAGE_LABEL)[])
-    .filter((st) => SKILLS.some((s) => s.stage === st))
-    .map((st) => [SKILL_STAGE_LABEL[st], SKILLS.filter((s) => s.stage === st).map((s) => s.command).join(", "), STAGE_HINT[st] ?? ""]),
+    .filter((st) => SKILLS.some((s) => s.stage === st) || GUIDED_ONLY.some((g) => g.stage === st))
+    .map((st) => [SKILL_STAGE_LABEL[st], [...GUIDED_ONLY.filter((g) => g.stage === st), ...SKILLS.filter((s) => s.stage === st)].map((s) => s.command).join(", "), STAGE_HINT[st] ?? ""]),
+};
+
+/** What each kind of skill is for and which skills are of that kind, generated from the plans (issue #643): a beginner starts with the guided ones. */
+const TIER_HINT: Record<(typeof SKILL_TIERS)[number], string> = {
+  guided: "Beginners start here. A guided skill shows its plan (\"This will run: ...\"), asks once whether you want quick or full, and runs the building blocks it needs as steps of one document. Skip any step",
+  block: "One job each. They run on their own and the guided skills use them as steps",
+  company: "Company level, run once and kept current. They are the sub-skills of pv-company and can add what you confirm to the company profile",
+  advanced: "Stand-alone skills for a specific decision or document",
+  router: "Not sure where to start? pv-which names the lightest skill for where an initiative is; pv-help lists them all",
+};
+export const AGENT_SKILL_TIERS: Table = {
+  head: ["Kind", "Skills", "What it is for"],
+  rows: SKILL_TIERS.map((t) => [
+    SKILL_TIER_LABEL[t],
+    Object.keys(SKILL_PLANS).filter((c) => SKILL_PLANS[c]?.tier === t).join(", "),
+    TIER_HINT[t],
+  ]),
+};
+/** What a guided skill runs, from the same data the prompt is built from: always, and offered. */
+/** What a guided skill does by itself when no other skill always runs inside it. */
+const OWN_WORK: Record<string, string> = { "pv-company": "Its own work: research the company and draft the profile", "pv-gate": "Its own work: the gate pack and the decision brief", "pv-outcome": "Its own work: the outcome review brief" };
+export const AGENT_SKILL_INCLUDES: Table = {
+  head: ["Guided skill", "Always runs", "Offered, skippable"],
+  rows: [...GUIDED_ONLY, ...SKILLS]
+    .filter((s) => includedCommands(SKILL_PLANS[s.command]?.includes).length > 0)
+    .map((s) => {
+      const inc = SKILL_PLANS[s.command]!.includes!;
+      const byGate = (["A", "B", "C"] as const).filter((g) => (inc.byGate?.[g] ?? []).length > 0).map((g) => `Gate ${g}: ${(inc.byGate![g] ?? []).join(", ")}`);
+      return [s.command, inc.always.join(", ") || OWN_WORK[s.command] || "None", [...inc.offered, ...byGate].join("; ") || "None"];
+    }),
 };
 
 /** How to get the most out of the skills, in the order a person meets it. */
 export const AGENT_SKILL_TIPS: string[] = [
-  "Start with the company profile: ask the assistant to run research_company, and an admin confirms it. Every skill reads it, so what it writes sounds like your company. The direction skills (pv-vision, pv-strategy, pv-northstar, pv-compete, pv-personas, pv-canvas) can then add what you confirm to the profile, which later skills use instead of asking again.",
+  "New here? Start with a guided skill: pv-company once, then pv-discovery and pv-prd for each initiative. A guided skill shows its plan first (\"This will run: ...\"), asks once whether you want quick (only the steps that always run) or full (adds the offered ones), and lets you skip any step. It reuses what exists, such as the confirmed company personas, competitors and market and an initiative's hypothesis and key result, instead of asking again. The building blocks inside it still run on their own.",
+  "Start with the company profile: ask the assistant to run pv-company, and an admin confirms it. Every skill reads it, so what it writes sounds like your company. The direction skills (pv-vision, pv-strategy, pv-northstar, pv-compete, pv-personas, pv-canvas) can then add what you confirm to the profile, which later skills use instead of asking again.",
   "Answer the one message of questions, and skip what you do not know. Nothing is invented: a gap stays \"to define\" and is listed so you can fill it later.",
   "Add --draft to see the result in the chat before anything is saved. The report skills (pv-weekly, pv-release-notes) take --format=email, slides (PowerPoint), document, slack or chat and save nothing unless you ask for a copy. They cover every initiative unless you name some: pv-weekly R-1 to R-5 --format=slides.",
   "Results land where they belong: a skill that works on an initiative saves on its Spec tab, a company-level skill saves under Documents in the account menu, and a report is delivered in the format you chose. Document text never goes to GitHub or Jira.",
@@ -48,6 +79,7 @@ export const AGENT_SKILL_TIPS: string[] = [
 export const AGENT_SKILLS: Table = {
   head: ["Skill", "What it does", "Works on", "You get"],
   rows: [
+    ...GUIDED_ONLY.map((g) => [`${g.command} (${SKILL_STAGE_LABEL[g.stage]})`, g.summary.charAt(0).toUpperCase() + g.summary.slice(1), g.command === "pv-company" ? "The whole workspace; no initiative needed" : "One initiative (a code such as R-12), or a new idea", g.command === "pv-company" ? "A company profile draft for an admin to confirm" : g.command === "pv-discovery" ? "A discovery document and one initiative in Discover (AI drafts)" : "A PRD document and the initiative with the fields it can support (AI drafts)"]),
     ...SKILLS.map((s) => [`${s.command} (${SKILL_STAGE_LABEL[s.stage]})`, s.summary.charAt(0).toUpperCase() + s.summary.slice(1), s.output === "advice" ? "Your situation in your own words" : s.focus ? "All initiatives, or only the ones you name (codes, a range such as R-1 to R-5, a view or a group)" : s.target === "none" ? "The whole workspace; no initiative needed" : "One initiative (a code such as R-12)", skillResult(s)]),
     ["pv-help", "Lists the skills and how to use them", "Nothing", "A list in the chat"],
   ],
@@ -271,8 +303,8 @@ export const FLOW_CREATE: Table = {
   rows: [
     ["Quick add", "Type a name, press Enter. Add #group @person M ~now in the same line", "One initiative"],
     ["Paste a list", "Paste from Excel or one line per initiative, then map the columns", "Up to 200 initiatives"],
-    ["Discovery (Claude)", "Run write_discovery with a short brief", "One initiative in Discover and a discovery document"],
-    ["PRD (Claude)", "Run write_prd with a brief, or on an existing initiative", "Fields filled, a PRD document, a Description extract to confirm"],
+    ["Discovery (Claude)", "Run pv-discovery with a short brief", "One initiative in Discover and a discovery document"],
+    ["PRD (Claude)", "Run pv-prd with a brief, or on an existing initiative", "Fields filled, a PRD document, a Description extract to confirm"],
     ["Execute", "Sync with GitHub on the initiative", "A tracking issue with only the allowed fields, after you confirm"],
   ],
 };
@@ -337,7 +369,7 @@ export const GATES_STEPS: Table = {
   head: ["Step", "Who", "What happens"],
   rows: [
     ["1. Request", "Creator or above", "Request gate A, B or C on one item or on a selection. Gate Status becomes In review. A checklist shows what is missing; it informs, it does not block."],
-    ["2. Decide", "Anyone with approval rights for that gate", "Go, Go with conditions, Hold or Stop, with a rationale that cannot be edited later. The first decision wins; the others see it closed. You may approve your own request."],
+    ["2. Decide", "Anyone with approval rights for that gate", "Go, Go with conditions, Hold or Stop, with an optional comment that cannot be edited later. On a phone the choices are Go, Hold and Stop, and Add conditions sits under Go. The first decision wins; the others see it closed. You may approve your own request."],
     ["3. Complete", "The app, in one step", "Records the decision, moves the phase and its start date, approves the document (gate A: discovery, gate B: PRD), sets Ready for build at gate B, and writes the audit log. Sending to GitHub or Jira still needs your confirmation."],
   ],
 };
@@ -357,7 +389,7 @@ export const GATES_NOTES = [
   "There is no auto-pass. Nothing moves through a gate without a person deciding.",
   "Who can decide is set per gate in Settings, Workspace. Admins can by default; you can give any account approval rights. Claude, service accounts and staff impersonation never can.",
   "Decisions screen: every gate request, filtered by Waiting for approval (the default), Decided, Requested by me, and Can decide. Open a row to read the gate pack; J and K move through the list.",
-  "Multi-select bar: Request gate, Decide (one rationale for all selected, with a confirmation listing each item) and Move to next phase.",
+  "Multi-select bar: Request gate, Decide (one comment for all selected, with a confirmation listing each item) and Move to next phase.",
   "Change counts: the Notifications bell also counts the changes (Phase, Status, Health, Build status, linked issue) made on each project in every account you can open since you last cleared it, as a number on the bell. Open the bell for each project with a count per type; Clear counts resets them to 0; a click on a project opens its change log (the Changes report) and clears that project. Your own changes are not counted.",
   "Notifications: when a gate is requested, the people who can decide it (or only the people the requester asked) see it under Notifications in the top bar; the requester sees the decision there. No email is sent. Mark a notice read by opening it, or Mark all as read.",
   "The outcome review at +30, +60 and +90 days is not a gate; it is a scheduled review after Roll-out.",
@@ -489,7 +521,7 @@ export const AGENT_USE_CASES: Table = {
   head: ["Use-case", "What the agent does in the flow", "Say, for example", "Where it lands"],
   rows: [
     ["Brainstorm", "Thinks with you before anything exists. It reads the workspace (projects, groups, teams, fields, related initiatives and their documents) and the company profile, so ideas fit what you already plan. Nothing is written until you say so.", "\"Search initiatives related to loyalty and retention. Which overlap with this idea, and what could we test first?\"", "Only the chat. Save nothing"],
-    ["Create", "Turns a brief into a discovery or a PRD, asks once for what is missing (including who is on the team), shows a dry run, then creates the initiative and the document as AI drafts.", "\"Use write_discovery. Brief: customers leave after the first month. Team: product manager = Ana, designer = Li.\"", "Initiative fields plus a document on the Spec tab. Full documents never go to GitHub"],
+    ["Create", "Turns a brief into a discovery or a PRD, asks once for what is missing (including who is on the team), shows a dry run, then creates the initiative and the document as AI drafts.", "\"Use pv-discovery. Brief: customers leave after the first month. Team: product manager = Ana, designer = Li.\"", "Initiative fields plus a document on the Spec tab. Full documents never go to GitHub"],
     ["Review", "Reads a document or initiative and reports: unclear acceptance criteria, missing risks, claims without evidence, a light roll-out plan, partner claims the partner does not support. It changes nothing.", "\"Review the PRD of R-12. Do not change anything yet.\"", "Only the chat, with the codes it looked at"],
     ["Prepare a gate", "Reads one initiative and gathers the case for a decision gate: the checklist (what is filled in, what is missing), its documents and their status, past requests and decisions, open conditions. It writes a short summary for the person who decides. It cannot request, decide or approve a gate, or move a phase.", "\"Use get_gate_pack for R-12 and summarise the case for gate B.\"", "In the chat only; a person decides in Decisions"],
     ["Link Jira epics", "Records the Jira epic keys that belong under an initiative (any Jira project). It writes nothing to Jira: the next Sync with Jira links the epics that have no parent without asking again, and shows any epic that would move from another parent for you to confirm.", "\"Put the epics R8P-1234 and DATA-56 under R-12.\"", "The initiative's Jira tab, then Sync with Jira"],
@@ -500,7 +532,7 @@ export const AGENT_USE_CASES: Table = {
 };
 
 export const AGENT_ADVANTAGES: { title: string; text: string }[] = [
-  { title: "Company profile (memory of the company)", text: "Industry, products, personas, competitors, partners, glossary, voice, vision, strategy, north star and planning conventions, drafted by the agent from your website (research_company) and confirmed by a workspace admin. Every later PRD or discovery uses it, so documents sound like your company and reuse your terms. Set the Company website in Workspace settings, run research_company once, and an admin confirms it under Company profile." },
+  { title: "Company profile (memory of the company)", text: "Industry, products, personas, competitors, partners, glossary, voice, vision, strategy, north star and planning conventions, drafted by the agent from your website (pv-company) and confirmed by a workspace admin. Every later PRD or discovery uses it, so documents sound like your company and reuse your terms. Set the Company website in Workspace settings, run pv-company once, and an admin confirms it under Company profile." },
   { title: "Project and workspace context", text: "On connect the agent reads your projects, Initiative Groups, teams, members, the field list with allowed values, and the open lists in use. It uses your spelling, existing groups and real field values instead of inventing them." },
   { title: "Prior knowledge", text: "Before it drafts, the agent searches related initiatives, reads at most five of their PRDs and discoveries, and tells you which it used. Terms, key results and risks stay consistent across the roadmap." },
   { title: "Research that is checked", text: "Partners and unfamiliar terms in a brief are looked up in the profile first and researched from public sources only when missing. Your claims about a partner are compared with what the partner publishes, and mismatches come back as questions. It never invents a competitor claim." },
@@ -514,7 +546,7 @@ const guide = (a: "claude" | "chatgpt" | "gemini") => setupGuides("the connector
 export type AgentGuide = { title: string; setup: string[]; snippet?: string; onboarding: string[]; features: Table; notes: string[] };
 const ONBOARD_ADMIN = "Admin, once: account menu, You, Connect an AI assistant, switch on AI assistants for the workspace (they are off by default). Then set the Company website under Workspace admin, Workspace settings.";
 const ONBOARD_CONNECT = "Each person: connect the assistant (above), sign in to Product Velocity, choose one or several workspaces and approve on the consent screen. With several workspaces the agent asks which one you mean.";
-const ONBOARD_PROFILE = "First task: ask for the company profile (research_company). It shows what it found section by section and saves a draft; an admin confirms it under Company profile.";
+const ONBOARD_PROFILE = "First task: ask for the company profile (pv-company). It shows what it found section by section and saves a draft; an admin confirms it under Company profile.";
 const REVOKE = "You can revoke a connection at any time under Connect an AI assistant; it stops on the next call. Signing out of Product Velocity on one device keeps Claude connected; \"Sign out other devices\" and \"Sign out everywhere\" on the Account page disconnect it, and you reconnect it in Claude. Admins see every connection (names and counts, no content).";
 
 export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> = {
@@ -526,9 +558,9 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
     features: {
       head: ["What", "How to start in Claude", "Result"],
       rows: [
-        ["Discovery", "Prompt write_discovery (brief, item, team). In claude.ai type / and pick it; in Claude Code type /mcp__product-velocity__write_discovery", "A Discovery document and one initiative in Discover"],
-        ["PRD", "Prompt write_prd (brief, modules such as A1 D1 D4, item, team)", "A PRD document and the initiative fields it can support"],
-        ["Company profile", "Prompt research_company (url, focus)", "A draft profile for an admin to confirm"],
+        ["Discovery", "Prompt pv-discovery (brief, item, team). In claude.ai type / and pick it; in Claude Code type /mcp__product-velocity__pv-discovery", "A Discovery document and one initiative in Discover"],
+        ["PRD", "Prompt pv-prd (brief, modules such as A1 D1 D4, item, team). It shows its plan first and can run success metrics and a split as steps", "A PRD document and the initiative fields it can support"],
+        ["Company profile", "Prompt pv-company (url, focus)", "A draft profile for an admin to confirm"],
         ["Skills (pv-)", `Pick a pv- prompt in the menu (${SKILL_LIST}; pv-help lists them) with an initiative code where the skill needs one, your own words and optionally draft = true (the report skills take format = email, slides, document, slack or chat)`, "A document (on the initiative, or in Documents for company-level skills) saved as an AI draft, or for pv-weekly and pv-release-notes a report in the format you choose; nothing is saved when you ask for a draft only"],
         ["Several initiatives", "Ask in plain words: create initiatives from this list in group Growth, project Marketplace", "A dry run first, then created after you agree"],
         ["Change what exists", "Name the initiative, e.g. R-12, and say what to change", "A diff to confirm when a person already filled the field; undo with \"undo your last change\""],
@@ -544,7 +576,7 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
     features: {
       head: ["What", "How to start in ChatGPT", "Result"],
       rows: [
-        ["Discovery, PRD, company profile", "ChatGPT cannot start prompts. Say \"use the write_discovery playbook\" (or write_prd, research_company) and give the brief and the team. It reads the same instructions through the get_playbook tool", "The same documents and AI drafts as with Claude"],
+        ["Discovery, PRD, company profile", "ChatGPT cannot start prompts. Say \"use the pv-discovery playbook\" (or pv-prd, pv-company; the older names write_discovery, write_prd and research_company still work) and give the brief and the team. It reads the same instructions through the get_playbook tool", "The same documents and AI drafts as with Claude"],
         ["Skills (pv-)", `Type the command, e.g. pv-premortem R-12 focus on payments --draft (skills: ${SKILL_LIST}, pv-help; the report skills take --format=email, slides, document, slack or chat). The assistant reads it through the get_playbook tool`, "A document (on the initiative, or in Documents for company-level skills) saved as an AI draft, or for pv-weekly and pv-release-notes a report in the format you choose"],
         ["Deep research and company knowledge", "Ask in a research chat. ChatGPT uses two read-only tools, search and fetch, to read your initiatives and documents", "Findings that cite initiative codes; nothing is written"],
         ["Several initiatives, changes, files", "Ask in plain words, as with Claude", "A dry run or diff first, then written after you agree"],
@@ -560,7 +592,7 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
     onboarding: [
       ONBOARD_ADMIN,
       "Direct connect: Add the remote connector URL directly under Gemini Settings → Connectors / MCP Servers, then sign in and approve your workspace on the consent screen.",
-      "Native skills: Use /product-velocity-prd and /product-velocity-discovery for interactive single-batch interview workflows.",
+      "Native skills: Use /pv-prd and /pv-discovery for interactive single-batch interview workflows.",
       ONBOARD_PROFILE,
       "Optional: install the Gemini extension in the repository's connectors/gemini folder; it adds a context file with the house rules and the flow names. Replace the placeholder address with your deployment's before installing.",
       REVOKE,
@@ -570,9 +602,9 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
       rows: [
         ["Sign in", "Connect via Settings URL, or run /mcp auth product-velocity in CLI (opens browser to sign in and approve)", "A connection you can revoke"],
         ["Check connection", "/mcp lists the server, its tools and its prompts", "Product Velocity listed as connected"],
-        ["PRD authoring (product-velocity-prd)", "Ask \"Write a PRD for [feature]\" or /write_prd", "Drafts 4D PRD, asks for team/KRs in one grouped batch, diff preview, and saves AI draft to Spec tab with safe tracker extract"],
-        ["Opportunity discovery (product-velocity-discovery)", "Ask \"Run discovery on [topic]\" or /write_discovery", "Evaluates candidate solutions, checks evidence depth, and prepares Gate A decision dossier"],
-        ["Company & partner research (research_company)", "Ask \"Research the company\" or /research_company", "Drafts company profile, competitor context, and glossary for workspace admin confirmation"],
+        ["PRD authoring (pv-prd)", "Ask \"Write a PRD for [feature]\" or /pv-prd", "Drafts 4D PRD, asks for team/KRs in one grouped batch, diff preview, and saves AI draft to Spec tab with safe tracker extract"],
+        ["Opportunity discovery (pv-discovery)", "Ask \"Run discovery on [topic]\" or /pv-discovery", "Evaluates candidate solutions, checks evidence depth, and prepares Gate A decision dossier"],
+        ["Company & partner research (pv-company)", "Ask \"Research the company\" or /pv-company", "Drafts company profile, competitor context, and glossary for workspace admin confirmation"],
         ["Roadmap & portfolio queries", "Ask in natural language (e.g. \"Which Q3 initiatives are stalled?\")", "Real-time roadmap intelligence, dependencies, and dry-run proposal diffs"],
       ],
     },

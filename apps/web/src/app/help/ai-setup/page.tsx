@@ -1,3 +1,4 @@
+import { SetupFigure } from "@/components/help/figures";
 import { AGENT_GUIDES, AGENT_INTRO } from "@/components/help-content";
 import { ConnectorUrlBox } from "@/components/help/connector-url-box";
 import { HelpList, HelpPage, HelpSection, HelpTable } from "@/components/help/help-ui";
@@ -25,6 +26,7 @@ export default function AiSetupHelp() {
       intro={AGENT_INTRO}
       toc={ORDER.map((k) => ({ id: k, label: NAME[k] }))}
     >
+      <SetupFigure />
       <p>Use this address in any assistant that supports connectors:</p>
       <ConnectorUrlBox url={CONNECTOR_URL} />
       {ORDER.map((k) => {

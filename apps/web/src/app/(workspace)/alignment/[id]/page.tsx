@@ -6,7 +6,6 @@ import { participantState, MAILING_STATE_LABEL } from "@/lib/alignment-mail";
 import { changeState, removeParticipant, startMailing } from "../actions";
 import { ParticipantsForm } from "./participants-form";
 import { SettingsForm } from "./settings-form";
-import { OpenOnComputer } from "@/components/open-on-computer";
 
 export const metadata = { title: "Alignment session · Product Velocity" };
 
@@ -61,10 +60,7 @@ export default async function AlignmentSessionPage({ params, searchParams }: { p
       {status && !NOTICE[status] && <p role="alert" className="error">{decodeURIComponent(status)}</p>}
 
       {isAdmin && (
-        <>
-          <p className="phone-only phone-status" role="status">{active_.length} {active_.length === 1 ? "person" : "people"} · {count((p) => !!p.invited_at)} invited · {count((p) => !!p.consent_at)} joined · {count((p) => p.voted)} voted</p>
-          <OpenOnComputer what="Setting up a session, inviting people and changing its state" />
-        </>
+        <p className="phone-only phone-status" role="status">{active_.length} {active_.length === 1 ? "person" : "people"} · {count((p) => !!p.invited_at)} invited · {count((p) => !!p.consent_at)} joined · {count((p) => p.voted)} voted</p>
       )}
       <div className="desktop-only">
       <h2>Settings</h2>

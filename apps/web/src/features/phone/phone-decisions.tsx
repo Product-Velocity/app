@@ -8,6 +8,7 @@ import {
 } from "@pv/domain";
 import type { Approvers, Condition, Decider, GateItem, GateSource } from "../gates/gate-source";
 import { DocReader } from "./doc-reader";
+import { PhoneAlignment, type AlignmentLoader } from "./phone-alignment";
 
 const short = (email: string) => email.split("@")[0]!;
 const daysSince = (iso: string) => Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 86_400_000));
@@ -17,7 +18,14 @@ const KIND_FOR_GATE: Record<GateId, string> = { A: "discovery", B: "prd", C: "pr
  * Decisions on a phone (docs/29-MOBILE.md section 4.5): the queue as cards, then one review screen with the gate pack, the document and a
  * decision bar. No bulk decide, no swipe, no fast lane here; a decision always goes through a confirm step and cannot be undone.
  */
-export function PhoneDecisions({ source, me, mayDecide = true, tenantId }: { source: GateSource; me: string | null; mayDecide?: boolean; tenantId: string }) {
+export function PhoneDecisions({ source, me, mayDecide = true, tenantId, alignmentLoader }: { source: GateSource; me: string | null; mayDecide?: boolean; tenantId: string; alignmentLoader?: AlignmentLoader }) {
+  const [tab, setTab] = useState<"gates" | "alignment">(() => (typeof window !== "undefined" && new URL(window.location.href).searchParams.get("tab") === "alignment" ? "alignment" : "gates"));
+  const pickTab = (t: "gates" | "alignment") => {
+    setTab(t);
+    const u = new URL(window.location.href);
+    if (t === "alignment") u.searchParams.set("tab", "alignment"); else u.searchParams.delete("tab");
+    window.history.replaceState(null, "", u.toString());
+  };
   const [requests, setRequests] = useState<GateRequest[] | null>(null);
   const [items, setItems] = useState<Map<string, GateItem>>(new Map());
   const [can, setCan] = useState<GateId[]>([]);
@@ -67,7 +75,12 @@ export function PhoneDecisions({ source, me, mayDecide = true, tenantId }: { sou
 
   return (
     <div className="phone-decisions">
-      <h1>Decisions</h1>
+      <h1>Decide</h1>
+      <div className="phone-segment" role="group" aria-label="Decide">
+        <button type="button" className={tab === "gates" ? "phone-chip phone-chip-on" : "phone-chip"} aria-pressed={tab === "gates"} onClick={() => pickTab("gates")}>Gates</button>
+        <button type="button" className={tab === "alignment" ? "phone-chip phone-chip-on" : "phone-chip"} aria-pressed={tab === "alignment"} onClick={() => pickTab("alignment")}>Alignment results</button>
+      </div>
+      {tab === "alignment" ? <PhoneAlignment tenantId={tenantId} {...(alignmentLoader ? { load: alignmentLoader } : {})} /> : <>
       <div className="phone-chips" role="group" aria-label="Filter requests">
         {QUEUE_FILTERS.map((f) => (
           <button key={f.id} type="button" className={filter === f.id ? "phone-chip phone-chip-on" : "phone-chip"} aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>
@@ -98,6 +111,7 @@ export function PhoneDecisions({ source, me, mayDecide = true, tenantId }: { sou
           })}
         </ul>
       )}
+      </>}
     </div>
   );
 }
@@ -122,7 +136,7 @@ function Review({ request, item, source, can, mayDecide, who, email, tenantId, o
 
   return (
     <div className="phone-review">
-      <button type="button" className="btn phone-back" onClick={onBack}>← Decisions</button>
+      <button type="button" className="btn phone-back" onClick={onBack}>← Decide</button>
       <h1 className="phone-review-title">{label}</h1>
       <p><strong>{gateTitle(request.gate)}</strong><br />{GATES[request.gate].question}</p>
       <p className="muted">Requested by {email(request.requested_by)}, {daysSince(request.requested_at)} days ago. {item && <Link href={`/w/${tenantId}/portfolio/${encodeURIComponent(item.item_code)}`}>Open the initiative</Link>}</p>
@@ -153,7 +167,6 @@ function Review({ request, item, source, can, mayDecide, who, email, tenantId, o
         <div className="phone-decide-bar" role="region" aria-label="Decide">
           <button type="button" className="btn btn-primary" onClick={() => setSheet("go")}>Go</button>
           <button type="button" className="btn" onClick={() => setSheet("hold")}>Hold</button>
-          <button type="button" className="btn" onClick={() => setSheet("go_with_conditions")}>Conditions</button>
           <button type="button" className="btn" onClick={() => setSheet("stop")}>Stop</button>
         </div>
       )}
@@ -167,16 +180,21 @@ function Review({ request, item, source, can, mayDecide, who, email, tenantId, o
   );
 }
 
-/** Pick the outcome, write the rationale (required), then confirm. The decision and rationale are append-only, so there is no undo. */
+/**
+ * Pick Go, Hold or Stop, add a comment if you want one (optional, Ashu 2026-11-23), then confirm. "Add conditions" sits under Go and makes it Go with conditions.
+ * The decision and the comment are append-only, so there is no undo.
+ */
 export function DecideSheet({ source, request, label, initial, onClose, onDone }: { source: GateSource; request: GateRequest; label: string; initial: GateOutcome; onClose: () => void; onDone: (text: string) => void }) {
-  const [outcome, setOutcome] = useState<GateOutcome>(initial);
+  const [pick, setPick] = useState<"go" | "hold" | "stop">(initial === "go_with_conditions" ? "go" : initial);
+  const [withConditions, setWithConditions] = useState(initial === "go_with_conditions");
+  const outcome: GateOutcome = pick === "go" && withConditions ? "go_with_conditions" : pick;
   const [rationale, setRationale] = useState("");
   const [conditions, setConditions] = useState("");
   const [reviewDate, setReviewDate] = useState("");
   const [step, setStep] = useState<"edit" | "confirm">("edit");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const ok = rationale.trim().length >= 3 && (outcome !== "go_with_conditions" || conditions.trim().length > 0);
+  const ok = outcome !== "go_with_conditions" || conditions.trim().length > 0;
   const condList = conditions.split("\n").map((l) => l.trim()).filter(Boolean);
 
   const submit = async () => {
@@ -199,18 +217,19 @@ export function DecideSheet({ source, request, label, initial, onClose, onDone }
         {step === "edit" ? (
           <>
             <h2>{label}<br /><span className="muted">{gateTitle(request.gate)}</span></h2>
-            <fieldset className="gate-outcomes">
+            <fieldset className="qc-options">
               <legend className="dialog-label">Decision</legend>
-              {OUTCOMES.map((o) => (
-                <label key={o.value} className="gate-outcome">
-                  <input type="radio" name="outcome" checked={outcome === o.value} onChange={() => setOutcome(o.value)} />
+              {OUTCOMES.filter((o) => o.value !== "go_with_conditions").map((o) => (
+                <label key={o.value} className={`qc-option${pick === o.value ? " qc-option-on" : ""}`}>
+                  <input type="radio" name="outcome" checked={pick === o.value} onChange={() => setPick(o.value as "go" | "hold" | "stop")} />
                   <span><strong>{o.label}</strong> <span className="muted">{o.hint}</span></span>
                 </label>
               ))}
             </fieldset>
-            <label className="dialog-label" htmlFor="ds-r">Rationale (required, kept as written)</label>
-            <textarea id="ds-r" value={rationale} onChange={(e) => setRationale(e.target.value)} rows={4} maxLength={4000} />
+            {pick === "go" && <label className="check"><input type="checkbox" checked={withConditions} onChange={(e) => setWithConditions(e.target.checked)} /> Add conditions: each becomes a task that is tracked until it is done</label>}
             {outcome === "go_with_conditions" && (<><label className="dialog-label" htmlFor="ds-c">Conditions, one per line</label><textarea id="ds-c" value={conditions} onChange={(e) => setConditions(e.target.value)} rows={3} /></>)}
+            <label className="dialog-label" htmlFor="ds-r">Comment <span className="muted">(optional, kept as written)</span></label>
+            <textarea id="ds-r" value={rationale} onChange={(e) => setRationale(e.target.value)} rows={3} maxLength={4000} />
             {outcome === "hold" && (<><label className="dialog-label" htmlFor="ds-d">Look at it again on (optional)</label><input id="ds-d" type="date" value={reviewDate} onChange={(e) => setReviewDate(e.target.value)} /></>)}
             {error && <p role="alert" className="pf-error">{error}</p>}
             <div className="phone-sheet-actions">
@@ -222,9 +241,9 @@ export function DecideSheet({ source, request, label, initial, onClose, onDone }
           <>
             <h2>Confirm</h2>
             <p><strong>{outcomeLabel(outcome)}</strong> for {label}, {gateTitle(request.gate)}.</p>
-            <blockquote>{rationale.trim()}</blockquote>
+            {rationale.trim() && <blockquote>{rationale.trim()}</blockquote>}
             {outcome === "go_with_conditions" && <ul>{condList.map((c) => <li key={c}>{c}</li>)}</ul>}
-            <p className="muted">The decision and the rationale are recorded with your name and cannot be undone or edited.</p>
+            <p className="muted">The decision and any comment are recorded with your name and cannot be undone or edited.</p>
             <div className="phone-sheet-actions">
               <button type="button" className="btn" disabled={busy} onClick={() => setStep("edit")}>Back</button>
               <button type="button" className="btn btn-primary" disabled={busy} onClick={submit}>{busy ? "Recording…" : `Confirm ${outcomeLabel(outcome)}`}</button>

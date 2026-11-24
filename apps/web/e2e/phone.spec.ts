@@ -4,8 +4,23 @@ import { expect, test } from "@playwright/test";
 test.use({ viewport: { width: 390, height: 844 } });
 
 test.describe("initiatives on a phone", () => {
+  test("opens on the 15 most recently changed initiatives, with the change in words", async ({ page }) => {
+    await page.goto("/dev/phone?n=40");
+    await expect(page.locator(".phone-card")).toHaveCount(15);
+    await expect(page.locator(".phone-count")).toContainText("15 recently changed");
+    await expect(page.locator(".phone-card").first().locator(".phone-change")).toContainText("Health: On track → At risk");
+    await expect(page.locator(".phone-card").first()).toContainText(/just now|ago/);
+    // searching looks through every initiative, not only the changed ones
+    await page.getByLabel("Search initiatives").fill("R-30");
+    await expect(page.locator(".phone-card")).toHaveCount(1);
+    await page.getByRole("button", { name: "Clear" }).click();
+    await expect(page.locator(".phone-card")).toHaveCount(15);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+
   test("search, quick filters, grouping and collapse", async ({ page }) => {
     await page.goto("/dev/phone?n=40");
+    await page.getByRole("button", { name: "All", exact: true }).click();
     await expect(page.locator(".phone-card").first()).toBeVisible();
     await expect(page.locator(".phone-count")).toContainText("40 initiatives");
     await page.getByLabel("Search initiatives").fill("R-07");
@@ -22,6 +37,7 @@ test.describe("initiatives on a phone", () => {
 
   test("a card shows the health as a word and has a 44 px touch target", async ({ page }) => {
     await page.goto("/dev/phone?n=10");
+    await page.getByRole("button", { name: "All", exact: true }).click();
     const c = page.locator(".phone-card").first();
     await expect(c.locator(".phone-health")).not.toBeEmpty();
     expect((await c.boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -30,6 +46,265 @@ test.describe("initiatives on a phone", () => {
 
   test("passes the accessibility check", async ({ page }) => {
     await page.goto("/dev/phone?n=10");
+    await page.waitForSelector(".phone-card");
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+});
+
+test.describe("the phone shell", () => {
+  test("the top bar is one compact row and the bottom bar has icons with labels", async ({ page }) => {
+    await page.goto("/dev/menu");
+    const bar = page.locator("header.topbar");
+    expect((await bar.boundingBox())!.height).toBeLessThan(70);
+    await expect(page.locator(".topbar .brand-name")).toBeHidden();
+    await expect(page.locator(".topbar .text-size")).toBeHidden();
+    const tabs = page.getByRole("navigation", { name: "Main (phone)" }).getByRole("link");
+    await expect(tabs).toHaveText(["Initiatives", "Decide", "Add", "Tracker", "Insights"]);
+    for (const t of await tabs.all()) { await expect(t.locator("svg")).toBeVisible(); expect((await t.boundingBox())!.height).toBeGreaterThanOrEqual(44); }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+  test("an initiative opens as a page in the flow, not as a panel laid over the list", async ({ page }) => {
+    await page.goto("/dev/item/R-12?role=creator");
+    const panel = page.getByTestId("item-panel");
+    await expect(panel).toBeVisible();
+    expect(await panel.evaluate((e) => getComputedStyle(e).position)).toBe("static");
+    const box = (await panel.boundingBox())!;
+    expect(box.x).toBeLessThanOrEqual(12);
+    expect(box.width).toBeGreaterThanOrEqual(390 - 24);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    // the bottom bar stays on top and usable
+    const hit = await page.evaluate(() => { const r = document.querySelector(".phone-nav")!.getBoundingClientRect(); return !!document.elementFromPoint(r.left + r.width / 2, r.top + 20)?.closest(".phone-nav"); });
+    expect(hit).toBe(true);
+    // the flags start folded, so the first screen is the initiative
+    expect(await page.locator(".ip-flagged").evaluate((e) => (e as HTMLDetailsElement).open)).toBe(false);
+    await expect(page.locator(".ip-flagged summary")).toContainText("flag");
+    await page.locator(".ip-flagged summary").click();
+    expect(await page.locator(".ip-flagged").evaluate((e) => (e as HTMLDetailsElement).open)).toBe(true);
+  });
+});
+
+test.describe("Decide with alignment results", () => {
+  test("switches between gates and alignment results, which list sessions with their top initiatives", async ({ page }) => {
+    await page.goto("/dev/decisions?phone=1");
+    await expect(page.getByRole("heading", { level: 1, name: "Decide" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Filter requests" })).toBeVisible();
+    await page.getByRole("button", { name: "Alignment results" }).click();
+    await expect(page.getByRole("group", { name: "Filter requests" })).toHaveCount(0);
+    const sessions = page.getByRole("list", { name: "Alignment sessions" }).locator("article");
+    await expect(sessions).toHaveCount(3);
+    const closed = sessions.filter({ hasText: "Q1 planning" });
+    await expect(closed).toContainText("Closed");
+    await expect(closed).toContainText("12 people voted");
+    await expect(closed).toContainText("1 contested");
+    await expect(closed.getByRole("list", { name: "Top initiatives of Q1 planning" }).locator("li")).toHaveText(["1 Self-serve onboarding", "1= Payout reconciliation", "3 Push digest"]);
+    await expect(closed.getByRole("link", { name: "Full results" })).toHaveAttribute("href", /\/alignment\/s-closed\/results$/);
+    await expect(sessions.filter({ hasText: "Q2 roadmap vote" })).toContainText("Results appear when the session closes");
+    await expect(sessions.filter({ hasText: "Autumn pulse" })).toContainText("No results were stored");
+    // the choice is in the address, so a reload or a shared link comes back to it
+    expect(new URL(page.url()).searchParams.get("tab")).toBe("alignment");
+    await page.getByRole("button", { name: "Gates", exact: true }).click();
+    await expect(page.getByRole("group", { name: "Filter requests" })).toBeVisible();
+  });
+  test("opens on the alignment results from a link and passes the accessibility check", async ({ page }) => {
+    await page.goto("/dev/decisions?phone=1&tab=alignment");
+    await expect(page.getByRole("list", { name: "Alignment sessions" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+});
+
+test.describe("following initiatives", () => {
+  test("followed initiatives come first in Recently changed and have their own chip", async ({ page }) => {
+    await page.goto("/dev/phone?n=40");
+    const cards = page.locator(".phone-card");
+    await expect(cards.nth(0)).toContainText("R-15");
+    await expect(cards.nth(0).locator(".phone-follow")).toHaveText("Following");
+    await expect(cards.nth(1).locator(".phone-follow")).toHaveText("Following");
+    await expect(cards.nth(2)).toContainText("R-01");
+    await expect(cards.nth(2).locator(".phone-follow")).toHaveCount(0);
+    await page.getByRole("button", { name: "Following (2)" }).click();
+    await expect(cards).toHaveCount(2);
+    await expect(cards.nth(0).locator(".phone-follow")).toBeVisible();
+  });
+  test("the briefing follows and stops following, and saves the list", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    const btn = page.getByRole("button", { name: "Follow", exact: true });
+    await expect(btn).toHaveAttribute("aria-pressed", "false");
+    await btn.click();
+    const after = page.getByRole("button", { name: "Following", exact: true });
+    await expect(after).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText("Nobody is told")).toBeVisible();
+    expect(await page.evaluate(() => (window as unknown as { __followed: string[] }).__followed.length)).toBe(3);
+    await after.click();
+    await expect(page.getByRole("button", { name: "Follow", exact: true })).toHaveAttribute("aria-pressed", "false");
+    expect(await page.evaluate(() => (window as unknown as { __followed: string[] }).__followed.length)).toBe(2);
+  });
+});
+
+test.describe("quick changes with a note", () => {
+  test("changes Health with a required reason, shows it in the latest changes, and puts it back", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await expect(page.locator(".briefing-pills")).toContainText("Health: Delayed");
+    await page.getByRole("button", { name: "Change health" }).click();
+    const dialog = page.getByRole("dialog", { name: /Change health/ });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("radio", { name: /Delayed/ })).toBeDisabled(); // it is Delayed now
+    await dialog.getByRole("radio", { name: "Blocked" }).check();
+    const save = dialog.getByRole("button", { name: "Set to Blocked" });
+    await expect(save).toBeDisabled();
+    await expect(dialog.getByText("Say why in a few words.")).toBeVisible();
+    await expect(dialog.getByText("Why (required)")).toBeVisible();
+    await dialog.getByLabel(/Why/).fill("Waiting for legal");
+    await expect(save).toBeEnabled();
+    await expect(dialog.getByText("Health: Delayed → Blocked")).toBeVisible();
+    await save.click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.locator(".briefing-pills")).toContainText("Health: Blocked");
+    await expect(page.getByRole("status").filter({ hasText: "Saved." })).toContainText("Health: Delayed → Blocked");
+    const latest = page.getByRole("region", { name: "Latest changes" }).locator("li").first();
+    await expect(latest).toContainText("Health: Delayed → Blocked");
+    await expect(latest).toContainText("Why: Waiting for legal");
+    await page.getByRole("button", { name: "Put it back" }).click();
+    await expect(page.locator(".briefing-pills")).toContainText("Health: Delayed");
+    const calls = await page.evaluate(() => (window as unknown as { __quick: { value: string; note: string }[] }).__quick);
+    expect(calls.map((c) => [c.value, c.note])).toEqual([["Blocked", "Waiting for legal"], ["Delayed", "Put back as it was."]]);
+  });
+  test("a change that is not a concern needs no reason", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await page.getByRole("button", { name: "Change health" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("radio", { name: "On Track" }).check();
+    await expect(dialog.getByText("Why (optional)")).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Set to On Track" })).toBeEnabled();
+  });
+  test("changes Status, shows a refusal and closes with Cancel and Escape", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await page.getByRole("button", { name: "Change status" }).click();
+    const dialog = page.getByRole("dialog", { name: /Change status/ });
+    await dialog.getByRole("radio", { name: "On hold" }).check();
+    await dialog.getByLabel(/Why/).fill("fail on purpose");
+    await dialog.getByRole("button", { name: "Set to On hold" }).click();
+    await expect(dialog.getByRole("alert")).toContainText("You cannot change this initiative.");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toHaveCount(0);
+    await page.getByRole("button", { name: "Change status" }).click();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(await page.evaluate(() => (window as unknown as { __quick?: unknown[] }).__quick ?? [])).toEqual([]);
+  });
+  test("the sheet passes the accessibility check and fits the screen", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await page.getByRole("button", { name: "Change health" }).click();
+    await page.getByRole("dialog").getByRole("radio", { name: "At Risk" }).check();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+});
+
+test.describe("one initiative on a phone", () => {
+  test("opens as a read-first briefing with the facts, the flags, the build and the latest changes", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await expect(page.getByRole("heading", { level: 1, name: /Initiative number 12/ })).toBeVisible();
+    await expect(page.getByTestId("item-panel")).toHaveCount(0);
+    await expect(page.locator(".briefing-pills")).toContainText("Health: Delayed");
+    await expect(page.getByRole("region", { name: "Needs attention" })).toContainText("Delivery risk");
+    const where = page.getByRole("region", { name: "Where it stands" });
+    for (const label of ["Phase", "Owner", "Planned quarter", "Gate"]) await expect(where.getByText(label, { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Build" })).toContainText("cannot be edited here");
+    const changes = page.getByRole("region", { name: "Latest changes" });
+    await expect(changes.locator("li").first()).toContainText(/Health|Linked issue/);
+    await expect(changes.locator("li").first()).toContainText("ago");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+  test("Edit details shows the full panel and Summary comes back", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await page.getByRole("button", { name: "Edit details" }).click();
+    await expect(page.getByTestId("item-panel")).toBeVisible();
+    await expect(page.locator(".briefing")).toHaveCount(0);
+    await page.getByRole("button", { name: "← Summary" }).click();
+    await expect(page.locator(".briefing")).toBeVisible();
+    await expect(page.getByTestId("item-panel")).toHaveCount(0);
+  });
+  test("passes the accessibility check", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=item");
+    await page.waitForSelector(".briefing");
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+});
+
+test.describe("since you last looked", () => {
+  test("counts the changes, lists them for review and remembers that they were seen", async ({ page }) => {
+    await page.goto("/dev/phone?n=40");
+    const card = page.locator(".phone-since");
+    await expect(card).toContainText("34 changes");
+    await expect(card).toContainText("since");
+    await card.getByRole("button", { name: "Review" }).click();
+    await expect(card.locator(".phone-card")).toHaveCount(30);
+    await expect(card).toContainText("and 4 more");
+    await card.getByRole("button", { name: "Mark all seen" }).click();
+    await expect(card).toHaveCount(0);
+    expect(await page.evaluate(() => Object.keys(localStorage).some((k) => k.startsWith("pv:last-look:")))).toBe(true);
+    // the test page builds its changes from "now", so a reload brings two new ones (the newest of each kind); the 32 older ones stay seen
+    await page.reload();
+    await expect(page.locator(".phone-since")).toContainText("2 changes");
+  });
+  test("passes the accessibility check", async ({ page }) => {
+    await page.goto("/dev/phone?n=40");
+    await page.locator(".phone-since").getByRole("button", { name: "Review" }).click();
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+});
+
+test.describe("insights on a phone", () => {
+  test("shows the key numbers and charts, each with a sentence and a table", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=insights");
+    await expect(page.getByRole("heading", { name: "Insights", level: 1 })).toBeVisible();
+    await expect(page.locator(".insight-tiles li")).toHaveCount(3);
+    await expect(page.locator(".insight-tiles li").first().locator(".insight-num")).not.toHaveText("0");
+    await expect(page.locator(".insight-tiles li").nth(1).locator(".insight-num")).not.toHaveText("0");
+    await expect(page.getByRole("figure", { name: "Health" }).locator(".seg")).not.toHaveCount(0);
+    await expect(page.getByRole("figure", { name: "Health" }).locator(".seg-legend")).toContainText("At Risk");
+    await expect(page.getByRole("figure", { name: "Health" }).locator("figcaption p")).toContainText("need attention");
+    await expect(page.getByRole("figure", { name: "Build progress by project" }).locator(".bar-list li")).not.toHaveCount(0);
+    for (const name of ["Health", "Where the work is", "Build progress by project", "Planned quarters"]) {
+      const chart = page.getByRole("figure", { name });
+      await expect(chart).toBeVisible();
+      await expect(chart.locator("figcaption p")).not.toBeEmpty();
+    }
+    const health = page.getByRole("figure", { name: "Health" });
+    await health.getByText("Show as a table").click();
+    await expect(health.getByRole("table")).toBeVisible();
+    await expect(health.getByRole("columnheader", { name: "Initiatives" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+  test("passes the accessibility check", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=insights");
+    await page.waitForSelector(".insight-chart");
+    const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+    expect(r.violations).toEqual([]);
+  });
+});
+
+test.describe("tracker feed on a phone", () => {
+  test("shows the latest ten changes and searches them", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=tracker");
+    await expect(page.locator(".phone-card")).toHaveCount(10);
+    await expect(page.locator(".phone-count")).toContainText("Latest 10 from GitHub and Jira");
+    await page.getByLabel("Search tracker items").fill("PAY-701");
+    await expect(page.locator(".phone-card")).toHaveCount(1);
+    await expect(page.locator(".phone-card")).toContainText("Payment retries 1");
+    await page.getByLabel("Search tracker items").fill("zzz");
+    await expect(page.locator(".phone-card")).toHaveCount(0);
+    await expect(page.getByText("No tracker change matches")).toBeVisible();
+  });
+  test("passes the accessibility check", async ({ page }) => {
+    await page.goto("/dev/phone?n=40&screen=tracker");
     await page.waitForSelector(".phone-card");
     const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
     expect(r.violations).toEqual([]);
@@ -72,7 +347,7 @@ const stubDocs = async (page: import("@playwright/test").Page) => {
 };
 
 test.describe("gate decisions on a phone", () => {
-  test("queue, review with the PRD, and a decision that needs a rationale and a confirmation", async ({ page }) => {
+  test("queue, review with the PRD, and a decision with an optional comment and a confirmation", async ({ page }) => {
     await stubDocs(page);
     await page.goto("/dev/decisions?phone=1");
     await expect(page.locator(".phone-card")).toHaveCount(4);
@@ -85,10 +360,12 @@ test.describe("gate decisions on a phone", () => {
     await page.getByRole("button", { name: /3 Problem Statement/ }).click();
     await expect(page.getByText("Customers drop off.")).toBeVisible();
 
+    // three buttons: Go, Hold, Stop
+    await expect(page.getByRole("region", { name: "Decide" }).getByRole("button")).toHaveText(["Go", "Hold", "Stop"]);
     await page.getByRole("button", { name: "Go", exact: true }).click();
     const review = page.getByRole("button", { name: "Review decision" });
-    await expect(review).toBeDisabled();
-    await page.getByLabel(/Rationale/).fill("Scope is clear and the estimate is fine");
+    await expect(review).toBeEnabled(); // the comment is optional
+    await page.getByLabel(/Comment/).fill("Scope is clear and the estimate is fine");
     await review.click();
     await expect(page.getByText("cannot be undone or edited")).toBeVisible();
     await page.getByRole("button", { name: "Confirm Go" }).click();
@@ -101,11 +378,25 @@ test.describe("gate decisions on a phone", () => {
     await stubDocs(page);
     await page.goto("/dev/decisions?phone=1");
     await page.locator(".phone-card", { hasText: "New checkout flow" }).click();
-    await page.getByRole("button", { name: "Conditions", exact: true }).click();
-    await page.getByLabel(/Rationale/).fill("Fine if the estimate is revisited");
+    await page.getByRole("button", { name: "Go", exact: true }).click();
+    await page.getByRole("checkbox", { name: /Add conditions/ }).check();
     await expect(page.getByRole("button", { name: "Review decision" })).toBeDisabled();
     await page.getByLabel(/Conditions, one per line/).fill("Re-estimate after spike");
     await expect(page.getByRole("button", { name: "Review decision" })).toBeEnabled();
+    await page.getByRole("button", { name: "Review decision" }).click();
+    await page.getByRole("button", { name: "Confirm Go with conditions" }).click();
+    const calls = await page.evaluate(() => (window as unknown as { __pv: { source: { calls: string[] } } }).__pv.source.calls);
+    expect(calls).toContain("decide go_with_conditions 1");
+  });
+
+  test("a Hold can be saved with no comment at all", async ({ page }) => {
+    await stubDocs(page);
+    await page.goto("/dev/decisions?phone=1");
+    await page.locator(".phone-card", { hasText: "New checkout flow" }).click();
+    await page.getByRole("button", { name: "Hold", exact: true }).click();
+    await page.getByRole("button", { name: "Review decision" }).click();
+    await page.getByRole("button", { name: "Confirm Hold" }).click();
+    await expect(page.getByText("Recorded: Hold for R-02 New checkout flow.")).toBeVisible();
   });
 
   test("without approval rights for the gate there are no decision buttons", async ({ page }) => {

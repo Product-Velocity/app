@@ -205,6 +205,7 @@ export function DecisionsView({ source, me, mayDecide = true, initialFilter = "w
   }, [rows, active, current, dialog, can, mayDecide, items]);
 
   const pickedRows = useMemo(() => rows.filter((r) => picked.includes(r.id)), [rows, picked]);
+  const decidableRows = useMemo(() => rows.filter((r) => r.canDecide && r.state === "Waiting"), [rows]);
   const summary = useMemo(() => bulkDecisionSummary(pickedRows), [pickedRows]);
 
   const ctx = useMemo<Ctx>(() => ({ open: (r) => setActive(r.id), decide: (r, o) => decideRows([r], o), mayDecide }), [decideRows, mayDecide]);
@@ -259,6 +260,12 @@ export function DecisionsView({ source, me, mayDecide = true, initialFilter = "w
 
       {error && <p role="alert" className="error">{error}</p>}
       {message && <p role="status" className="quick-add-ok">{message}</p>}
+      {mayDecide && pickedRows.length === 0 && decidableRows.length > 1 && (
+        <p className="muted dec-batch-hint">
+          Several waiting for you? Tick the boxes to decide them together, or{" "}
+          <button type="button" className="link-button" onClick={() => api.current?.forEachNode((n) => { if (n.data?.canDecide && n.data.state === "Waiting") n.setSelected(true); })}>select all {decidableRows.length} you can decide</button>.
+        </p>
+      )}
       {pickedRows.length > 0 && (
         <div className="bulk-bar" role="region" aria-label="Decide the selected requests">
           <strong className="bulk-count">{pickedRows.length} selected</strong>

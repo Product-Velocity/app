@@ -80,15 +80,13 @@ test.describe("the Decisions screen", () => {
     await expectCodes(page, ["R-01"], true);
   });
 
-  test("Go needs a rationale; the first decision is recorded and the request leaves the waiting list", async ({ page }) => {
+  test("Go works with no comment; the first decision is recorded and the request leaves the waiting list", async ({ page }) => {
     await openDecisions(page);
     await pick(page, "R-02");
     await page.getByRole("complementary", { name: "Gate pack" }).getByRole("button", { name: /^Go\b/ }).first().click();
     const dialog = page.getByRole("dialog", { name: "Decide 1 request" });
     const go = dialog.getByRole("button", { name: "Go for 1" });
-    await expect(go).toBeDisabled();
-    await dialog.getByLabel(/Rationale/).fill("Engineering reviewed the PRD");
-    await expect(go).toBeEnabled();
+    await expect(go).toBeEnabled(); // the comment is optional
     await go.click();
     await expect(dialog).toContainText("1 of 1 done");
     await dialog.getByRole("button", { name: "Close" }).click();
@@ -113,7 +111,6 @@ test.describe("the Decisions screen", () => {
     const dialog = page.getByRole("dialog", { name: "Decide 1 request" });
     await expect(dialog.getByRole("radio", { name: /Stop/ })).toBeChecked();
     await dialog.getByRole("radio", { name: /Go with conditions/ }).check();
-    await dialog.getByLabel(/Rationale/).fill("Fine if legal agrees");
     await expect(dialog.getByRole("button", { name: "Go with conditions for 1" })).toBeDisabled();
     await dialog.getByLabel(/Conditions/).fill("Legal review");
     await expect(dialog.getByRole("button", { name: "Go with conditions for 1" })).toBeEnabled();
@@ -126,7 +123,7 @@ test.describe("the Decisions screen", () => {
     await pick(page, "R-03");
     await page.getByRole("complementary", { name: "Gate pack" }).getByRole("button", { name: /^Go\b/ }).first().click();
     const dialog = page.getByRole("dialog");
-    await dialog.getByLabel(/Rationale/).fill("Tiny, ship it");
+    await dialog.getByLabel(/Comment/).fill("Tiny, ship it");
     await dialog.getByLabel(/Fast lane/).check();
     await dialog.getByLabel("Target phase").selectOption("Roll-out");
     await expect(dialog).toContainText("There are no checks; it is your call.");
@@ -146,7 +143,7 @@ test.describe("the Decisions screen", () => {
     await expect(names(page)).toHaveCount(1);
   });
 
-  test("selecting several requests decides them together with one rationale, and warns about an incomplete checklist", async ({ page }) => {
+  test("selecting several requests decides them together with one comment, and warns about an incomplete checklist", async ({ page }) => {
     await openDecisions(page);
     for (const id of ["r2", "r3"]) await page.locator(`[row-id="${id}"] input[type="checkbox"]`).check();
     const bar = page.getByRole("region", { name: "Decide the selected requests" });
@@ -154,9 +151,40 @@ test.describe("the Decisions screen", () => {
     await expect(bar).toContainText("2 of the selected have an incomplete checklist");
     await bar.getByRole("button", { name: "Decide 2…" }).click();
     const dialog = page.getByRole("dialog", { name: "Decide 2 requests" });
-    await dialog.getByLabel(/Rationale/).fill("Batch approved at planning");
+    await dialog.getByLabel(/Comment/).fill("Batch approved at planning");
     await dialog.getByRole("button", { name: "Go for 2" }).click();
     await expect(dialog).toContainText("2 of 2 done");
+  });
+
+  test("the Decide dialog is a compact column with four outcome cards, says what will happen, and saves with Ctrl+Enter", async ({ page }) => {
+    await openDecisions(page);
+    await pick(page, "R-01");
+    await page.getByRole("complementary", { name: "Gate pack" }).getByRole("button", { name: /^Go\b/ }).first().click();
+    const dialog = page.getByRole("dialog", { name: "Decide 1 request" });
+    // not the full-width sheet, and the radios are not stretched across it
+    expect((await dialog.boundingBox())!.width).toBeLessThanOrEqual(641);
+    const cards = dialog.locator(".dec-choice");
+    await expect(cards).toHaveCount(4);
+    for (const c of await cards.all()) expect((await c.boundingBox())!.width).toBeLessThan(330);
+    await expect(dialog.getByRole("status").filter({ hasText: "moves to" })).toBeVisible();
+    await cards.filter({ hasText: "Stop" }).click();
+    await expect(dialog.getByRole("status").filter({ hasText: "Cancelled" })).toBeVisible();
+    await cards.filter({ hasText: /^Go Move on/ }).click();
+    await dialog.getByLabel(/Comment/).fill("Looks right");
+    await page.keyboard.press("Control+Enter");
+    await expect(dialog).toContainText("1 of 1 done");
+    expect(await calls(page)).toContain("decide go 1");
+  });
+
+  test("a batch says so plainly, and one click selects everything you can decide", async ({ page }) => {
+    await openDecisions(page);
+    await page.getByRole("button", { name: /select all \d+ you can decide/ }).click();
+    const bar = page.getByRole("region", { name: "Decide the selected requests" });
+    await expect(bar).toContainText("selected");
+    await bar.getByRole("button", { name: /^Decide \d+…/ }).click();
+    const dialog = page.getByRole("dialog", { name: /^Decide \d+ requests$/ });
+    await expect(dialog).toContainText("Batch decision: the same outcome and comment are saved on each");
+    await expect(dialog.getByRole("list", { name: "Requests you are deciding" }).getByRole("listitem")).not.toHaveCount(0);
   });
 
   test("a bulk Hold opens the dialog on Hold, and a CSV of the rows can be downloaded", async ({ page }) => {

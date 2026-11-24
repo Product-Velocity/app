@@ -2,7 +2,7 @@
  * get_playbook: the flow prompts as a tool, for clients that cannot start MCP prompts (ChatGPT). Same text as prompts/get. Read-only.
  */
 import { ASSISTANT_IDS, ASSISTANT_INFO } from "@pv/domain";
-import { FLOWS, parseTypedSkill } from "./flows";
+import { FLOWS, findFlow, parseTypedSkill } from "./flows";
 import type { ToolDef } from "./rpc";
 import { ToolInputError } from "./tool-error";
 
@@ -19,13 +19,13 @@ const getPlaybook: ToolDef = {
   inputSchema: {
     type: "object",
     properties: {
-      name: { type: "string", enum: FLOWS.map((f) => f.name) },
-      brief: { type: "string", description: "write_prd, write_discovery: what it is about, in the person's words." },
-      item: { type: "string", description: "write_prd, write_discovery: an existing initiative code such as R-12." },
-      modules: { type: "string", description: "write_prd: appendix modules, e.g. A1, D1." },
-      team: { type: "string", description: "write_prd, write_discovery: the team, e.g. product manager = Ana, designer = Li, engineering manager = Raj." },
-      url: { type: "string", description: "research_company: the company website." },
-      focus: { type: "string", description: "research_company: what to look at most closely." },
+      name: { type: "string", description: `One of: ${FLOWS.map((f) => f.name).join(", ")}. The older names write_prd, write_discovery and research_company are accepted too.` },
+      brief: { type: "string", description: "pv-prd, pv-discovery: what it is about, in the person's words." },
+      item: { type: "string", description: "pv-prd, pv-discovery: an existing initiative code such as R-12." },
+      modules: { type: "string", description: "pv-prd: appendix modules, e.g. A1, D1." },
+      team: { type: "string", description: "pv-prd, pv-discovery: the team, e.g. product manager = Ana, designer = Li, engineering manager = Raj." },
+      url: { type: "string", description: "pv-company: the company website." },
+      focus: { type: "string", description: "pv-company: what to look at most closely." },
       target: { type: "string", description: "pv- skills: the initiative code such as R-12 (or several, a range such as R-1 to R-5, view:\"Name\" or group:\"Name\"). For pv-weekly and pv-release-notes it is optional: leave it out for all initiatives." },
       input: { type: "string", description: "pv- skills: the person's own words and pasted material, passed through as data. If the person typed the whole command, pass everything after the skill name here and the target is read from it." },
       draft: { type: "string", description: "pv- skills: \"true\" when the person typed --draft (show the result, save nothing until told)." },
@@ -39,7 +39,7 @@ const getPlaybook: ToolDef = {
   // Claude and Gemini start the same flows as MCP prompts (prompts/list), so they are not shown a tool that returns instructions. ChatGPT and unknown clients cannot start prompts.
   assistants: ASSISTANT_IDS.filter((a) => !ASSISTANT_INFO[a].prompts),
   run: async (b, a) => {
-    const flow = FLOWS.find((f) => f.name === str(a.name));
+    const flow = findFlow(str(a.name));
     if (!flow) throw new ToolInputError(`Unknown playbook "${str(a.name)}". Playbooks: ${FLOWS.map((f) => f.name).join(", ")}.`);
     const rest: Record<string, unknown> = { ...a };
     delete rest.name;

@@ -58,9 +58,10 @@ describe("handleRpc", () => {
     expect(r.result.serverInfo).toMatchObject({ title: "Product Velocity", websiteUrl: "https://pv.example" });
     expect(r.result.serverInfo.icons.map((i) => i.src)).toEqual(["https://pv.example/brand/pv-rank-loader.svg", "https://pv.example/icon.svg", "https://pv.example/icon.png", "https://pv.example/brand/icon-192.png"]);
   });
-  it("lists the write_prd prompt and returns the template with the brief quoted as data", async () => {
+  it("lists the pv-prd prompt and returns the template with the brief quoted as data", async () => {
     const l = (await handleRpc({ jsonrpc: "2.0", id: 5, method: "prompts/list" }, backend())) as { result: { prompts: { name: string; arguments: { name: string; required: boolean }[] }[] } };
-    expect(l.result.prompts.map((p) => p.name)).toEqual(["write_prd", "write_discovery", "research_company", ...SKILL_COMMANDS, "pv-help"]);
+    expect(l.result.prompts.map((p) => p.name)).toEqual(["pv-prd", "pv-discovery", "pv-company", ...SKILL_COMMANDS, "pv-help"]);
+    expect(l.result.prompts.every((p) => p.name.startsWith("pv-"))).toBe(true); // issue #643: one name style in every menu
     expect(l.result.prompts[0]!.arguments.map((a) => a.name)).toEqual(["brief", "modules", "item", "team"]);
     expect(l.result.prompts.every((p) => p.arguments.every((a) => a.required === false))).toBe(true);
     expect(l.result.prompts[1]!.arguments.map((a) => a.name)).toEqual(["brief", "item", "team"]);

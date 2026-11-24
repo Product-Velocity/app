@@ -11,6 +11,7 @@ export const HELP_TOPICS: HelpTopic[] = [
 ];
 
 export const HELP_REFERENCE: { slug: string; title: string; summary: string }[] = [
+  { slug: "get-started", title: "Get started", summary: "The route from your first sign-in to a first decided initiative, a first-run checklist and a note for leaders." },
   { slug: "columns", title: "Fields and how they sync", summary: "Every column: what it is, how it syncs with GitHub and Jira, who can edit it and how it is updated." },
   { slug: "goal-fields", title: "Goal and outcome fields", summary: "The columns that record the expected impact, the key result and the outcome review." },
   { slug: "phases", title: "Phase by phase", summary: "For each phase: the question, the work, the evidence you keep, and how Product Velocity and AI co-workers help." },
@@ -18,6 +19,7 @@ export const HELP_REFERENCE: { slug: string; title: string; summary: string }[] 
   { slug: "sync-rules", title: "Sync steps and status rules", summary: "Connecting a tracker step by step, what flows each way, and which status changes where." },
   { slug: "attention", title: "Needs attention: the reasons", summary: "Every reason an initiative appears on Needs attention, when it shows and the next step." },
   { slug: "report-definitions", title: "Reports and how numbers are counted", summary: "What each report answers and what is on it, with the definitions behind Roadmap Health." },
+  { slug: "skills", title: "AI skills", summary: "One page for every skill: how to start it, what it asks, what it writes and what you decide." },
   { slug: "ai-use-cases", title: "AI use-cases and documents", summary: "What to use an AI co-worker for, and where documents are used along the lifecycle." },
   { slug: "ai-setup", title: "Connect an AI assistant", summary: "Step by step setup for Claude, ChatGPT and Gemini." },
   { slug: "shortcuts", title: "Keyboard shortcuts", summary: "Move, edit and add initiatives without the mouse." },

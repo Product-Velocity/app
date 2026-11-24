@@ -89,7 +89,7 @@ export default function ConnectorPage() {
       <h2 id="examples">Examples</h2>
       <p>The examples use a fictional workspace, Meridian Media. They are example data.</p>
       <ol>
-        <li><strong>Turn a brief into a PRD.</strong> Choose the <code>write_prd</code> prompt and paste a few lines about a Meridian Media account switcher. Claude asks once for what is missing, writes the PRD as a document, creates the initiative with the fields the brief supports, and marks both as AI draft.</li>
+        <li><strong>Turn a brief into a PRD.</strong> Choose the <code>pv-prd</code> prompt and paste a few lines about a Meridian Media account switcher. Claude asks once for what is missing, writes the PRD as a document, creates the initiative with the fields the brief supports, and marks both as AI draft.</li>
         <li><strong>Create several initiatives from a list.</strong> Ask: &ldquo;Create initiatives from this list in group Growth, project Marketplace.&rdquo; Claude runs a dry run first, shows what would be created, and creates them after you agree. &ldquo;Undo your last change&rdquo; reverses the call.</li>
         <li><strong>Prepare a decision.</strong> Ask: &ldquo;What is missing before R-12 can pass its gate?&rdquo; Claude reads the gate checklist, the documents and past decisions, and summarises the case. It does not request or make the decision.</li>
       </ol>

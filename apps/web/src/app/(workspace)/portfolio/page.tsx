@@ -1,6 +1,6 @@
 import { requireWorkspace } from "@/lib/session";
 import { PortfolioClient } from "@/features/portfolio/portfolio-client";
-import { OpenOnComputer } from "@/components/open-on-computer";
+import { PhoneRedirect } from "@/components/phone-redirect";
 import { loadLookups } from "@/features/portfolio/lookups";
 import { showChecklist, type ChecklistCounts } from "@/lib/onboarding";
 import { GetStarted } from "./get-started";
@@ -23,7 +23,7 @@ export default async function PortfolioPage() {
         </div>
       )}
       {counts && showChecklist(user.user_metadata, active.tenantId, counts) && <GetStarted counts={counts} />}
-      <OpenOnComputer what="The roadmap grid" />
+      <PhoneRedirect to={`/w/${active.tenantId}/cards`} />
       <div className="desktop-only">
         <PortfolioClient
           tenantId={active.tenantId}

@@ -165,7 +165,7 @@ describe("batches and other methods", () => {
     const hs = [handle("Provelo"), handle("Test")];
     expect(await handleMulti({ jsonrpc: "2.0", id: 9, method: "ping" }, hs, [], tools)).toMatchObject({ id: 9, result: {} });
     const p = (await handleMulti({ jsonrpc: "2.0", id: 10, method: "prompts/list" }, hs, [], tools)) as { result: { prompts: { name: string }[] } };
-    expect(p.result.prompts[0]!.name).toBe("write_prd");
+    expect(p.result.prompts[0]!.name).toBe("pv-prd");
   });
 });
 

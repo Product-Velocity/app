@@ -10,7 +10,7 @@ The step before the PRD: an objective tied to a company OKR, key results with gu
 2. **Key results stay in the document.** The fields keep one Primary KR (name, unit, direction, start, target); several KRs and guardrails are not new fields.
 3. **Only the chosen solution is registered.** The other solutions stay in the discovery document.
 
-**Because slice 3 is skipped,** `write_discovery` fills only the initiative's name, phase (Discover), project, group and optional tags. It does not copy the hypothesis, MoSCoW, Effort or key results into fields, and puts nothing in the Description or summary; its closing message says which values are in the document for the person to copy.
+**Because slice 3 is skipped,** `pv-discovery` fills only the initiative's name, phase (Discover), project, group and optional tags. It does not copy the hypothesis, MoSCoW, Effort or key results into fields, and puts nothing in the Description or summary; its closing message says which values are in the document for the person to copy.
 
 ## 3. What Product Velocity holds
 - **One initiative**, in the Initiative Phase "Discover". It starts as the opportunity ("Discovery: <topic>") and, when a solution is chosen, is **updated into that solution** (name, hypothesis, MoSCoW, Effort, primary KR) through the normal diff-and-confirm. If the person already names the chosen solution, it is created as that solution at once.
@@ -51,16 +51,16 @@ The discovery follows the shared flow rules in `docs/22` section 8b: the save-or
 | Tags | the pillar, when the person wants it (Focus Area has fixed values that do not match pillars) |
 Everything else (other KRs, guardrails, evidence, competitors, the other solutions) stays in the document.
 
-## 7. Changes to the PRD template (`write_prd`)
+## 7. Changes to the PRD template (`pv-prd`)
 - **A1 Company Value Story** gains an **"Objective and key results"** block: company OKR, objective, a KR table with one Primary (fills the Primary KR fields) and guardrails.
 - **D5 Success Metrics** gains a **test plan**: the AB(C) test, its metrics, the guardrails and why each matters.
 - Two new optional modules: **A5 Evidence and insights** (internal data, customer, agent, third-party) and **A6 Competitive landscape**. PRD document only.
 - **A4** keeps only the chosen option and a link to the discovery document; the ten-solution table stays in the discovery.
-- **Reuse:** when the initiative has a discovery document, `write_prd` reads it first (`get_document`) and reuses the objective, KRs, hypothesis, evidence and risks instead of asking again.
+- **Reuse:** when the initiative has a discovery document, `pv-prd` reads it first (`get_document`) and reuses the objective, KRs, hypothesis, evidence and risks instead of asking again.
 
 ## 8. Build slices
 1. **Document kind `discovery` (built):** migration `20261028221809_discovery_document_kind.sql`, (kind check), `DOC_KINDS` and labels, the panel's kind list, tests including the GitHub guard.
-2. **Discovery template and `write_discovery` (built):** `packages/domain/src/discovery-template.ts` (sections, rules, field mapping), the prompt and server instructions beside `write_prd`, drift test like the PRD template's.
+2. **Discovery template and `pv-discovery` (built):** `packages/domain/src/discovery-template.ts` (sections, rules, field mapping), the prompt and server instructions beside `pv-prd`, drift test like the PRD template's.
 3. **KR extraction (skipped, Ashu 2026-10-28: done by hand for now; revisit later):** `apply_discovery_extract {document, preview?}` copies the chosen solution's hypothesis, MoSCoW, Effort and the primary KR into the initiative (same preview and diff rules as `apply_prd_extract`); never touches people-only fields.
 4. **PRD template changes** (section 7) and the "read the discovery first" rule (built).
 5. **End-to-end test (built, `packages/db/tests/mcp-scenario.test.ts`, "the discovery flow end to end"):** brief and example document to discovery document to chosen initiative; placeholders stay "to define"; no GitHub leak; hostile text in the source; the other solutions are not registered.

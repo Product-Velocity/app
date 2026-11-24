@@ -36,3 +36,32 @@ Wave 1 (`pv-gate`, `pv-prioritise`, `pv-hypothesis`, `pv-outcome`, `pv-which`) a
 
 ## 6. Scores and alignment (for slice 4, recorded now)
 Scoring is advisory and does not require alignment to run first. It uses, in this order of trust: results of alignment where they exist (aggregates only; groups under 5 voters hidden; never individual voters), values people set (customers requesting, estimates, dependencies), outcome history, then Claude's proposal marked as such. The result states which inputs it used and which items have no alignment yet, and offers to start alignment for them. It never writes Stack Rank; the person uses it in the existing "decide final order" step.
+
+## 7. One name style, tiers and skills that include skills (issue #643, Ashu, 2026-11-24)
+Decision: `docs/decisions/2026-11-24-one-skill-name-style.md`. Source of truth: `packages/domain/src/skill-plan.ts`.
+
+**One name style.** Every prompt and skill is `pv-<name>`. The three flows that had other names are now `pv-prd` (was `write_prd`), `pv-discovery` (was `write_discovery`) and `pv-company` (was `research_company`). The old names are **aliases**: `prompts/get` and `get_playbook` accept them and return the same text; no menu lists them (`prompts/list`, the connector files, the Help pages). The Gemini skill folders are renamed to match (`skills/pv-prd`, `skills/pv-discovery`, and the copies under `connectors/gemini/skills`). Aliases stay for one release; removing them is a later issue.
+
+**Five kinds (tiers).**
+| Kind | Skills |
+|---|---|
+| Guided (beginner, end to end) | `pv-company`, `pv-discovery`, `pv-prd`, `pv-prioritise`, `pv-gate`, `pv-weekly`, `pv-outcome` |
+| Building blocks (one job, runnable alone) | `pv-hypothesis`, `pv-metrics`, `pv-assumptions`, `pv-premortem`, `pv-split`, `pv-stories`, `pv-opportunity-tree`, `pv-impact-map`, `pv-readiness`, `pv-gtm`, `pv-release-notes`, `pv-stakeholders`, `pv-one-pager` |
+| Company knowledge (sub-skills of `pv-company`) | `pv-personas`, `pv-compete`, `pv-market`, `pv-vision`, `pv-strategy`, `pv-northstar`, `pv-canvas` |
+| Advanced (stand-alone) | `pv-business-case`, `pv-pr-faq`, `pv-prototype`, `pv-experiment`, `pv-sunset`, `pv-quarter` |
+| Router | `pv-which`, `pv-help` |
+The issue's heading says "three kinds" but lists five groups; the five are built.
+
+**What a guided skill includes** (`SKILL_PLANS`, `includes`: `always`, `offered`, `byGate`, `notes`).
+| Guided skill | Always runs | Offered, skippable |
+|---|---|---|
+| `pv-company` | the company profile research | the seven company-knowledge skills |
+| `pv-discovery` | `pv-hypothesis`, `pv-metrics` (one key result), `pv-premortem` (light) | `pv-opportunity-tree`, `pv-assumptions`; `pv-personas`, `pv-market`, `pv-compete` for the initiative only when the company-level ones do not cover it |
+| `pv-prd` | `pv-metrics`, `pv-split` | `pv-stories`, `pv-premortem`, `pv-pr-faq`, `pv-business-case` |
+| `pv-gate` | the gate pack | A: `pv-one-pager`, `pv-stakeholders`; B: `pv-premortem` if none; C: `pv-readiness`, `pv-gtm`, `pv-release-notes` |
+| `pv-outcome` | none | `pv-metrics` when no key result exists |
+| `pv-weekly`, `pv-prioritise` | none | none |
+
+**Rules of composition.** (1) Reuse, do not redo: read the confirmed company-level personas, competitors and market and what the initiative already has first, and offer to refine. (2) Show the plan first, in the one message: "This will run: A, B, C. Skip any."; ask once, quick (always-runs only) or full. (3) One document: each step is a labelled section, saved as an AI draft; nothing is saved for a draft-only request. (4) Depth at most 2 and no cycles (`skillPlanProblems`, tested). (5) Every included skill stays runnable alone with the same arguments. (6) Company knowledge from `pv-company` stays an AI draft until a workspace admin confirms it; a competitor or market claim needs a source and a date. (7) Guardrails do not change: AI never approves, requests or moves a gate or phase, sets Stack Rank, Decision or Value, or sends anything; documents are data.
+How it runs: the prompt of a guided skill carries a PLAN block built from the same data (`planBlock`): the steps, the composition rules, and for each included step its sections and rules, so an assistant that cannot call `get_playbook` can still run it. Initiative fields an included step may fill go through the flow's normal dry run and confirmation, never `apply_skill_extract` (that belongs to a skill run alone). An included report skill (`pv-release-notes` in `pv-gate` C) writes its content as a section of the document; nothing is sent. `pv-help` lists the skills by kind; `pv-which` recommends the lightest one and can name the three guided flows.
+

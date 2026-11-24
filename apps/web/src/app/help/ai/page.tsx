@@ -27,8 +27,8 @@ export default function AiHelp() {
           columns={4}
           items={[
             { number: "01", title: "Brainstorm", text: "Think out loud with an assistant that has read your roadmap, related initiatives and company profile. Nothing is saved until you say so.", pills: ["Chat only"] },
-            { number: "02", title: "Discover", text: "Turn a short brief into a Discovery document: the problem, the evidence, the options and the expected impact. The initiative starts in Discover.", pills: ["write_discovery"] },
-            { number: "03", title: "Define", text: "Write the PRD from the same context, including the hypothesis, key result, requirements and roll-out plan. Fields are filled from it.", pills: ["write_prd"] },
+            { number: "02", title: "Discover", text: "Turn a short brief into a Discovery document: the problem, the evidence, the options and the expected impact. The initiative starts in Discover.", pills: ["pv-discovery"] },
+            { number: "03", title: "Define", text: "Write the PRD from the same context, including the hypothesis, key result, requirements and roll-out plan. Fields are filled from it.", pills: ["pv-prd"] },
             { number: "04", title: "Review and decide", text: "Check a document for gaps, then prepare the gate pack for the person who decides.", pills: ["get_gate_pack"] },
           ]}
         />
@@ -53,7 +53,8 @@ export default function AiHelp() {
       <HelpSection id="skills" title="Skills for the product job">
         <p>Beyond the discovery and PRD flows there are guided skills you start with <code>pv-</code> and a name, for example <code>pv-premortem R-12</code> or <code>pv-weekly --format=email</code>. Each one reads your company profile and what Product Velocity already holds, asks once (every question can be skipped), and either saves a document or, for the weekly update and release notes, hands you a report in the format you choose. Type <code>pv-help</code> to list them.</p>
         <HelpTable caption="Which skill when" table={AGENT_SKILL_STEPS} />
-        <HelpReference slug="ai-use-cases">Every skill, what it works on, what you get, and how to get the most out of them</HelpReference>
+        <HelpReference slug="skills">One page for every skill, with the stage map</HelpReference>
+        <HelpReference slug="ai-use-cases">What an agent does at each step, and how to get the most out of skills</HelpReference>
       </HelpSection>
 
       <HelpSection id="documents" title="Documents that travel with the initiative">
