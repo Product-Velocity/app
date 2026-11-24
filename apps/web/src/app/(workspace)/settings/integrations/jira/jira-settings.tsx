@@ -68,7 +68,7 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
   // Project links (issue #67 slice B): the workspace's projects, their links, and for an admin the Jira projects that can be linked
   const [{ data: projectRows }, { data: linkRows }, { data: readRows }, { data: countRows }, { data: mapRows }, { count: configCount }, { data: lastRunRows }] = await Promise.all([
     supabase.from("projects").select("id, name, tracker").eq("tenant_id", active.tenantId).order("name"),
-    supabase.from("jira_project_links").select("id, project_id, connection_id, site_id, jira_project_key, jira_project_name, initiative_type_id, initiative_type_name, epic_type_id, epic_type_name, task_type_id, task_type_name").eq("tenant_id", active.tenantId),
+    supabase.from("jira_project_links").select("id, project_id, connection_id, site_id, jira_project_key, jira_project_name, initiative_type_id, initiative_type_name, epic_type_id, epic_type_name, task_type_id, task_type_name, updated_at").eq("tenant_id", active.tenantId),
     onInbox ? supabase.from("jira_reads").select("link_id, read_at, total, added, changed, truncated, error").eq("tenant_id", active.tenantId) : Promise.resolve({ data: [] }),
     supabase.rpc("jira_issue_counts"),
     // read apart from the link itself: a database that has not got the field mapping column yet must not hide the links (the mapping then shows as empty)
@@ -182,7 +182,7 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
       showIgnored: ignored === p.id,
       tracker: (p as { tracker?: string | null }).tracker ?? null,
       linkedInitiatives: linkedCounts.get(p.id) ?? 0,
-      rowLink: l ? { value: `${l.connection_id}|${l.site_id}|${l.jira_project_key}`, initiative: l.initiative_type_id, epic: l.epic_type_id, task: l.task_type_id, readOnly: readOnlyOf.has(p.id), initiatives: readOnlyOf.get(p.id) ?? 0 } : null,
+      rowLink: l ? { value: `${l.connection_id}|${l.site_id}|${l.jira_project_key}`, initiative: l.initiative_type_id, epic: l.epic_type_id, task: l.task_type_id, readOnly: readOnlyOf.has(p.id), initiatives: readOnlyOf.get(p.id) ?? 0, savedAt: (l as { updated_at?: string | null }).updated_at ?? null } : null,
       mapping: mappings.get(p.id) ?? null,
     };
   });

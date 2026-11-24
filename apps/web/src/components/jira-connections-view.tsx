@@ -262,7 +262,7 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
               <caption className="visually-hidden">Delivery tracker per project</caption>
               <thead><tr><th scope="col">Project</th><th scope="col">Delivery tracker</th><th scope="col">Jira project</th><th scope="col">Initiative is</th><th scope="col">Epic is</th><th scope="col">Task is, and Save</th></tr></thead>
               <tbody>
-                {projectLinks.map((p) => <JiraProjectRow key={p.projectId} project={{ id: p.projectId, name: p.projectName }} tracker={p.tracker} link={p.rowLink} choices={choices} canEdit={canAdmin} action={saveProjectAction} linkedInitiatives={p.linkedInitiatives ?? 0} />)}
+                {projectLinks.map((p) => <JiraProjectRow key={`${p.projectId}-${p.rowLink?.savedAt ?? ""}`} project={{ id: p.projectId, name: p.projectName }} tracker={p.tracker} link={p.rowLink} choices={choices} canEdit={canAdmin} action={saveProjectAction} linkedInitiatives={p.linkedInitiatives ?? 0} />)}
               </tbody>
             </table>
             </div>

@@ -7,7 +7,7 @@ import { initiativeLevelHint, sortTypesByLevel, typeOptionLabel } from "@/lib/at
 
 export type JiraTypeOption = { id: string; name: string; hierarchyLevel: number; subtask: boolean };
 export type JiraProjectChoice = { value: string; label: string; group: string; types: JiraTypeOption[]; proposal: { initiative: string | null; epic: string | null; task: string | null } };
-export type JiraRowLink = { value: string; initiative: string; epic: string | null; task: string | null; /** Read only for Jira (issue #656): nothing is ever written to Jira for this project. */ readOnly?: boolean; /** Initiatives of the project: what switching to "can write" would put in front of the next Sync. */ initiatives?: number };
+export type JiraRowLink = { value: string; initiative: string; epic: string | null; task: string | null; /** Read only for Jira (issue #656): nothing is ever written to Jira for this project. */ readOnly?: boolean; /** Initiatives of the project: what switching to "can write" would put in front of the next Sync. */ initiatives?: number; /** When the link was last saved (jira_project_links.updated_at), shown on the row (issue #660). */ savedAt?: string | null };
 
 /**
  * One row of the Projects table on the Jira page, the twin of GitHub's ProjectRow: delivery tracker, then (for Jira) the Jira project and which of
@@ -30,6 +30,8 @@ export function JiraProjectRow({ project, tracker, link, choices, canEdit, actio
   const [initiative, setInitiative] = useState(link?.initiative ?? "");
   const [epic, setEpic] = useState(link?.epic ?? "");
   const [task, setTask] = useState(link?.task ?? "");
+  // "Saved" right after a save: the page reloads with the row's new saved time, so a time within the last minute means this row was just saved
+  const [justSaved] = useState(() => Boolean(link?.savedAt) && Date.now() - Date.parse(link!.savedAt!) < 60_000);
   const [access, setAccess] = useState<"write" | "read">(link?.readOnly ? "read" : "write");
   const [confirming, setConfirming] = useState(false);
   const [release, setRelease] = useState<ReleaseChoice>("keep");
@@ -79,6 +81,12 @@ export function JiraProjectRow({ project, tracker, link, choices, canEdit, actio
               ? <button className="btn" type="button" disabled={!ready} aria-label={`Unlink ${project.name}`} aria-expanded={confirming} onClick={() => setConfirming(true)}>Unlink…</button>
               : <button className="btn" type="submit" disabled={!ready} aria-label={`Save ${project.name}`}>Save</button>}
           </form>
+        )}
+        {link?.savedAt && (
+          <p className="muted" role="status" style={{ margin: "6px 0 0", fontSize: 12 }}>
+            {justSaved && <span className="pill" style={{ marginRight: 6 }}>✓ Saved</span>}
+            Last saved <time dateTime={link.savedAt} suppressHydrationWarning>{new Date(link.savedAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</time>
+          </p>
         )}
       </td>
     </tr>
