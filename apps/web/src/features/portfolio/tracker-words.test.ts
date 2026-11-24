@@ -27,7 +27,7 @@ describe("the empty words follow the initiative's tracker", () => {
     expect(emptyTrackerText("status", "jira")).toBe("Not in Jira");
     expect(emptyTrackerText("status", "github")).toBe("Not on GitHub");
     expect(emptyTrackerText("status", null)).toBe("Not linked");
-    expect(emptyTrackerText("gh_project_status", "jira")).toBe("Not used in Jira");
+    expect(emptyTrackerText("gh_project_status", "jira")).toBe("GitHub only");
     expect(emptyTrackerText("gh_project_status", "github")).toBe("Not on a board");
     expect(emptyTrackerText("health", "jira")).toBeNull();
   });

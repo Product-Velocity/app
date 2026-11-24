@@ -144,7 +144,7 @@ Decided by Ashu on 2026-10-27 (recommendations accepted):
 1. **Phase order:** start with R-101 (S8b, the connection spike) now; the rest of the MCP stays in Phase 4 order.
 2. **Planned dates and effort estimates:** Claude may set them (estimate basis "Rough guess", item flagged AI draft).
 3. **Updates:** `update_items` always needs the diff and confirmation for fields a human already filled; empty fields can be filled without it. Build the rule as one function so it can change.
-4. **Defaults and limits:** Claude is **off** for new workspaces until an admin turns it on; start at 200 items and 100 MB per workspace per day and watch.
+4. **Defaults and limits:** Claude is **off** for new workspaces until an admin turns it on; start at 200 items and 100 MB per workspace per day and watch. **Raised to 1000 items a day, with a per-workspace override set by platform staff, on 2026-11-24** (`docs/decisions/2026-11-24-claude-items-per-day.md`).
 
 Still open: image upload path and size (decided in the S8b spike, R-101).
 

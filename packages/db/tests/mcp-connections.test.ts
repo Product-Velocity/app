@@ -233,13 +233,13 @@ describe("rate limits and usage", () => {
     expect(c.last_used_at).not.toBeNull();
   });
 
-  it("refuses past 200 items a day for the workspace and records nothing for the refused call", async () => {
+  it("refuses past 1000 items a day for the workspace and records nothing for the refused call", async () => {
     const id = await connect(f.bob, f.tenantB, "c-items");
     const used = Number((await db.admin.query("select coalesce(sum(items_written),0)::int n from public.ai_usage where tenant_id = $1", [f.tenantB])).rows[0].n);
-    expect(await record(f.bob, "c-items", id, 200 - used)).toEqual({ ok: true });
+    expect(await record(f.bob, "c-items", id, 1000 - used)).toEqual({ ok: true });
     const r = await record(f.bob, "c-items", id, 1);
-    expect(r).toMatchObject({ ok: false, reason: "workspace_items", limit: 200, used: 200 });
-    expect(Number((await db.admin.query("select sum(items_written)::int n from public.ai_usage where tenant_id = $1", [f.tenantB])).rows[0].n)).toBe(200);
+    expect(r).toMatchObject({ ok: false, reason: "workspace_items", limit: 1000, used: 1000 });
+    expect(Number((await db.admin.query("select sum(items_written)::int n from public.ai_usage where tenant_id = $1", [f.tenantB])).rows[0].n)).toBe(1000);
     // reads still work: a call with no items does not pass the item limit
     expect(await record(f.bob, "c-items", id)).toEqual({ ok: true });
   });
