@@ -4,7 +4,7 @@ import { readIssuesByKey, type JiraIssueRow, type SearchPage } from "./read-issu
 import { readJiraLink, type LinkToRead } from "./read-jira";
 import { refreshLinkedStatuses, type RefreshDeps, type RefreshSummary } from "./refresh-linked";
 import { refreshTreesTolerant, type TreeDeps, type TreeRefresh } from "./jira-tree";
-import { refreshBuildDatesTolerant, type DateDeps, type DatesRefresh } from "./jira-build-dates";
+import { categoryMap, readEpicBuildDates, refreshBuildDatesTolerant, type DateDeps, type DatesRefresh } from "./jira-build-dates";
 import { refreshAttachedEpics, type EpicTreeDeps, type EpicTreeRefresh } from "./epic-tree";
 import { recordStatusHistory, type HistoryRecord, type StatusChangeRow } from "./jira-status-history";
 import { jiraGet } from "./server";
@@ -108,10 +108,42 @@ export async function applyAttachedEpics(link: LinkToRead, siteUrl: string, opts
     const by = new Map<string, string[]>();
     for (const r of reqs) by.set(r.item_id, [...(by.get(r.item_id) ?? []), r.epic_key]);
     const r = await refreshAttachedEpics(epicTreeDepsFor(link), [...by].map(([item_id, keys]) => ({ item_id, keys })), siteUrl);
-    return { ...r, error: null };
+    // then Start Building and Build Completed from the history of those epics (same tolerance: a failure is reported, never fatal; Jira is only read)
+    const dates = await applyAttachedEpicBuildDates(link, [...by.keys()]);
+    return { ...r, error: dates.error };
   } catch (e) {
     if (e instanceof ReconnectNeeded) throw e;
     return { ...NO_EPIC_READ, error: e instanceof Error ? e.message.slice(0, 200) : "unknown" };
+  }
+}
+
+/**
+ * Start Building and Build Completed of initiatives that only list epics (issue #656 follow-up): from the history of the epics and their children just read into the tree.
+ * Reads Jira only. Failure is returned as `error` (never thrown); ReconnectNeeded propagates.
+ */
+export async function applyAttachedEpicBuildDates(link: LinkToRead, itemIds: string[]): Promise<{ read: number; changed: number; error: string | null }> {
+  if (itemIds.length === 0) return { read: 0, changed: 0, error: null };
+  const admin = createAdminClient({ via: "system" });
+  try {
+    const tree = rowsOrThrow("the epics of the initiatives", await admin.from("item_jira_tree").select("item_id, issue_key, level").eq("tenant_id", link.tenant_id).in("item_id", itemIds).limit(10000)) as { item_id: string; issue_key: string; level: number }[] | null;
+    const epics = new Map<string, string[]>(), all = new Map<string, string[]>();
+    for (const r of tree ?? []) {
+      all.set(r.item_id, [...(all.get(r.item_id) ?? []), r.issue_key]);
+      if (r.level === 1) epics.set(r.item_id, [...(epics.get(r.item_id) ?? []), r.issue_key]);
+    }
+    const targets = [...epics].map(([item_id, epicKeys]) => ({ item_id, epicKeys, childKeys: all.get(item_id) ?? epicKeys }));
+    if (targets.length === 0) return { read: 0, changed: 0, error: null };
+    const rows = await readEpicBuildDates((path) => jiraGet<SearchPage>(link.connection_id, link.site_id, path), categoryMap(await jiraGet<never[]>(link.connection_id, link.site_id, "/status")), targets);
+    let changed = 0;
+    for (const r of rows) {
+      const { data, error } = await admin.rpc("jira_apply_epic_build_dates", { p_connection: link.connection_id, p_site: link.site_id, p_item: r.item_id, p_started: r.started, p_resolved: r.resolved });
+      if (error) throw new Error("Could not save the build dates");
+      if (Object.keys(((data ?? {}) as { changes?: Record<string, unknown> }).changes ?? {}).length > 0) changed++;
+    }
+    return { read: rows.length, changed, error: null };
+  } catch (e) {
+    if (e instanceof ReconnectNeeded) throw e;
+    return { read: 0, changed: 0, error: e instanceof Error ? e.message.slice(0, 200) : "unknown" };
   }
 }
 

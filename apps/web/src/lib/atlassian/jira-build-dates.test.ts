@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categoryMap, firstWorkStart, readBuildDates, refreshBuildDatesTolerant, type DatedIssue, type DateDeps } from "./jira-build-dates";
+import { categoryMap, firstWorkStart, readBuildDates, readEpicBuildDates, refreshBuildDatesTolerant, type DatedIssue, type DateDeps } from "./jira-build-dates";
 import { ReconnectNeeded } from "./token-provider";
 
 const CATS = categoryMap([{ id: "1", statusCategory: { key: "new" } }, { id: "2", statusCategory: { key: "indeterminate" } }, { id: "3", statusCategory: { key: "done" } }, { id: "4", statusCategory: { key: "indeterminate" } }, { id: "x", statusCategory: { key: "weird" } }]);
@@ -94,5 +94,28 @@ describe("refreshBuildDatesTolerant", () => {
   it("a Jira failure is returned, not thrown; ReconnectNeeded propagates", async () => {
     expect(await refreshBuildDatesTolerant(deps({ getStatuses: async () => { throw new Error("Jira answered 503"); } }), target)).toEqual({ read: 0, changed: 0, error: "Jira answered 503" });
     await expect(refreshBuildDatesTolerant(deps({ getStatuses: async () => { throw new ReconnectNeeded(); } }), target)).rejects.toBeInstanceOf(ReconnectNeeded);
+  });
+});
+
+describe("readEpicBuildDates (read-only project, epics only)", () => {
+  const t = (epicKeys: string[], childKeys = epicKeys) => [{ item_id: "i1", epicKeys, childKeys }];
+  it("started is the earliest work start over the epics and their children; each epic's resolution only while it is done", async () => {
+    const j = jira([
+      issue("RPP-5", [hist("2026-11-03T08:00:00Z", "2")], "done", "2026-11-10T09:00:00Z"),
+      issue("DATA-9", [hist("2026-11-05T08:00:00Z", "2")], "indeterminate", "2026-11-12T09:00:00Z"), // a resolution date on an open epic is ignored
+      issue("RPP-6", [hist("2026-11-01T08:00:00Z", "2")], "done"), // a child
+    ]);
+    expect(await readEpicBuildDates(j.getPage, CATS, t(["RPP-5", "DATA-9"], ["RPP-5", "DATA-9", "RPP-6"]))).toEqual([
+      { item_id: "i1", started: "2026-11-01T08:00:00.000Z", resolved: [{ key: "RPP-5", resolved: "2026-11-10T09:00:00.000Z" }, { key: "DATA-9", resolved: null }] },
+    ]);
+  });
+  it("an epic Jira did not return has no resolution; when none was returned the initiative is left alone", async () => {
+    const j = jira([issue("RPP-5", [hist("2026-11-03T08:00:00Z", "2")], "done", "2026-11-10T09:00:00Z")]);
+    expect((await readEpicBuildDates(j.getPage, CATS, t(["RPP-5", "GONE-1"])))[0]!.resolved).toEqual([{ key: "RPP-5", resolved: "2026-11-10T09:00:00.000Z" }, { key: "GONE-1", resolved: null }]);
+    expect(await readEpicBuildDates(j.getPage, CATS, t(["GONE-1"]))).toEqual([]);
+  });
+  it("no history gives no start (it is not 'never started')", async () => {
+    const j = jira([issue("RPP-5", [], "new")]);
+    expect((await readEpicBuildDates(j.getPage, CATS, t(["RPP-5"])))[0]!.started).toBeNull();
   });
 });
