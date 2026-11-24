@@ -9,6 +9,7 @@ import {
   type ChangeFlag, type OutcomeReview, type ChangeFilters, type GateId, type ChangeGridRow, type ChangeGroupBy, type ChangePeriod, type ChangeRowData, type FeedRow, type ItemInfo, type JiraCategory, type JiraStatusRecord, type TrackerRef,
 } from "@pv/domain";
 import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer } from "../portfolio/grid-kit";
+import { useFillHeight } from "@/lib/use-fill-height";
 import { ChangeFilterChips, ChangesBar, type ChangeColumn } from "./changes-bar";
 import { RequestGateDialog } from "../gates/gate-dialogs";
 import type { GateSource } from "../gates/gate-source";
@@ -185,6 +186,7 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, gates, me 
   const jiraCategories = useMemo(() => new Map(Object.values(lookups.jira?.links ?? {}).filter((l) => l.status && l.category).map((l) => [l.status as string, l.category as JiraCategory])), [lookups.jira]);
   const allRows = useMemo(() => buildChangeRows(feed ?? [], items, { flags, issues, nameOf: who, jiraUsers, jiraCategories }), [feed, items, flags, issues, who, jiraUsers, jiraCategories]);
   const filtered = useMemo(() => filterChangeRows(allRows, filters), [allRows, filters]);
+  const fill = useFillHeight(true); // the grid fills the page below it, like every grid
   const gridRows = useMemo(() => groupChangeRows(filtered, saved.by, saved.then, collapsed), [filtered, saved.by, saved.then, collapsed]);
   const initiatives = useMemo(() => new Set(filtered.map((r) => r.itemId)), [filtered]);
   const flagged = useMemo(() => [...initiatives].filter((id) => (flags.get(id) ?? []).length > 0).length, [initiatives, flags]);
@@ -256,14 +258,14 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, gates, me 
         : (
           <>
             <p className="muted" role="status">{plural(initiatives.size, "initiative", "initiatives")} changed{flagged > 0 ? `, ${flagged.toLocaleString("en-GB")} to follow up` : ""}{feed.length >= 5000 ? " (showing the latest 5,000 changes)" : ""}.</p>
-            <div className="grid-wrap chg-grid" data-testid="changes-grid">
+            <div ref={fill.wrapRef} className="grid-wrap chg-grid" style={fill.height ? { height: fill.height } : undefined} data-testid="changes-grid">
               <AgGridReact<ChangeGridRow>
                 theme={GRID_THEME} rowData={gridRows} columnDefs={columnDefs} getRowId={getRowId} context={context} onColumnMoved={onColumnMoved}
                 isFullWidthRow={isFullWidthRow} fullWidthCellRenderer={GroupRowRenderer as never} getRowClass={getRowClass} getRowHeight={getRowHeight}
                 defaultColDef={{ ...DEFAULT_COL_DEF, suppressHeaderMenuButton: true }} tooltipShowDelay={500} suppressColumnVirtualisation
               />
             </div>
-            <p className="grid-foot">{shownCount.toLocaleString("en-GB")}{shownCount === allRows.length ? "" : ` of ${allRows.length.toLocaleString("en-GB")}`} changes · {saved.by || saved.then ? "Grouped, newest first inside each group" : "Not grouped, newest first"} · The time is when Product Velocity registered the change</p>
+            <p ref={fill.footRef as React.RefObject<HTMLParagraphElement>} className="grid-foot">{shownCount.toLocaleString("en-GB")}{shownCount === allRows.length ? "" : ` of ${allRows.length.toLocaleString("en-GB")}`} changes · {saved.by || saved.then ? "Grouped, newest first inside each group" : "Not grouped, newest first"} · The time is when Product Velocity registered the change</p>
           </>
         )}
       {gateFor && gates && controller.row(gateFor.id) && (

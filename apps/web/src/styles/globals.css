@@ -830,7 +830,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .pvbar-s1 .tool-btn svg, .pvbar-s1 .btn svg { flex: none; }
 .pvbar-search { display: flex; align-items: center; gap: 6px; flex: 1 1 120px; min-width: 100px; max-width: 240px; height: 30px; padding: 0 10px; border: 1px solid #cfd5e3; border-radius: 6px; box-sizing: border-box; background: var(--bg); }
 .pvbar-search:focus-within { outline: 2px solid #2270ed; outline-offset: 0; border-color: #2270ed; }
-.pvbar-search input[type="search"] { border: 0; outline: 0; font: inherit; width: 100%; min-width: 0; height: 100%; padding: 0; border-radius: 0; background: transparent; } /* beats the global input rule, which drew a second box inside the bar */
+.pvbar-search input[type="search"]:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { border: 0; outline: 0; font: inherit; width: 100%; min-width: 0; height: 100%; padding: 0; border-radius: 0; background: transparent; } /* beats the global input rule, which drew a second box inside the bar: the :not() chain repeats the global selector so this one outranks it (it came back once when the global one gained a :not) */
 .pvbar-sep { width: 1px; height: 20px; background: var(--grey-1); margin: 0 2px; flex: none; }
 .pvbar-spacer { flex: 1 1 0; min-width: 0; }
 .pvbar-status { font-size: 12px; color: #5b6272; white-space: nowrap; flex: none; }
@@ -1562,7 +1562,7 @@ a.btn.btn-primary { color: #fff; }
 
 /* Changes report grid (issue #472): colour by change type; the value a change ended on uses the shared tone-* pills. Every colour comes with a word. */
 .chg-bar { display: flex; align-items: center; gap: 14px; margin: 8px 0; font-size: 12.5px; }
-.chg-grid { height: min(70vh, 640px); min-height: 360px; }
+.chg-grid { height: 72vh; min-height: 360px; } /* until the page measures what is left below it (useFillHeight) */
 .group-row .pill { font-weight: 500; }
 .group-row .pill[title] { cursor: help; }
 .chg-flags { display: flex; align-items: center; gap: 6px; }
