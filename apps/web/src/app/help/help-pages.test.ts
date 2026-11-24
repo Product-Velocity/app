@@ -21,7 +21,8 @@ import ReportDefinitionsHelp from "./report-definitions/page";
 import AiUseCasesHelp from "./ai-use-cases/page";
 import GetStartedHelp from "./get-started/page";
 import SkillsHelp from "./skills/page";
-import { SKILLS } from "@pv/domain";
+import { GUIDED_ONLY, SKILLS } from "@pv/domain";
+import { HELP_SKILL_COMMANDS } from "@/components/help/skill-figures";
 import { SkillHelpPage } from "@/components/help/skill-page";
 
 const PAGES: Record<string, () => React.JSX.Element> = {
@@ -115,18 +116,31 @@ describe("Help pages", () => {
     expect(html["sync-rules"]!).toContain("Never leaves Product Velocity");
     expect(html.reports!).toContain("Example data");
   });
-  it("has an index entry and a page for every skill in the catalogue", () => {
-    for (const sk of SKILLS) {
-      expect(html.skills!, sk.command).toContain(`href="/help/skills/${sk.command}"`);
-      const h = renderToStaticMarkup(createElement(SkillHelpPage, { skill: sk }));
+  it("has an index entry and a page for every command, including the guided flows and pv-help", () => {
+    expect(HELP_SKILL_COMMANDS).toEqual(expect.arrayContaining(["pv-discovery", "pv-prd", "pv-company", "pv-help", ...SKILLS.map((x) => x.command)]));
+    expect(HELP_SKILL_COMMANDS).toHaveLength(SKILLS.length + GUIDED_ONLY.length + 1);
+    for (const c of HELP_SKILL_COMMANDS) {
+      expect(html.skills!, c).toContain(`href="/help/skills/${c}"`);
+      const h = renderToStaticMarkup(createElement(SkillHelpPage, { command: c }));
       const t = text(h);
-      expect(h.match(/<h1[ >]/g), sk.command).toHaveLength(1);
-      expect(h, sk.command).toContain('href="/app"');
-      expect(t, sk.command).toContain(sk.command);
-      expect(t, sk.command).toContain("Skills prepare; people decide");
-      for (const s of sk.sections) expect(t, `${sk.command} ${s.title}`).toContain(s.title);
-      expect(t, sk.command).not.toMatch(/\bPV\b|ProductVelocity/);
+      expect(h.match(/<h1[ >]/g), c).toHaveLength(1);
+      expect(h, c).toContain('href="/app"');
+      expect(t, c).toContain(c);
+      expect(t, c).not.toMatch(/\bPV\b|ProductVelocity/);
+      if (c !== "pv-help") expect(t, c).toContain("Skills prepare; people decide");
+      const spec = SKILLS.find((x) => x.command === c);
+      for (const s of spec?.sections ?? []) expect(t, `${c} ${s.title}`).toContain(s.title);
     }
+  });
+  it("shows the guided skills' outlines and what runs inside them", () => {
+    const t = (c: string) => text(renderToStaticMarkup(createElement(SkillHelpPage, { command: c })));
+    expect(t("pv-prd")).toContain("Executive Summary");
+    expect(t("pv-prd")).toContain("What runs inside it");
+    expect(t("pv-prd")).toContain("pv-metrics");
+    expect(t("pv-discovery")).toContain("Objective and key results");
+    expect(t("pv-company")).toContain("Voice and tone");
+    expect(t("pv-gate")).toContain("At Gate B");
+    expect(text(html.skills!)).toMatch(/Skills by kind/);
   });
   it("shows the stage map with every stage that has a skill, and points the AI pages to the reference", () => {
     expect(text(html.skills!)).toMatch(/Skills by stage/);
