@@ -3,9 +3,21 @@ import type { EmailTemplate } from "@/lib/email/registry/registry";
 
 export type EmailStat = { template_key: string; sends: number | string; failures: number | string; delivered: number | string; bounced: number | string; last_sent: string | null };
 
+export type OpenStat = { template_key: string; tracked: number | string; opened: number | string };
+
+/** "3 of 12 (25%)" for a template that carries the open-tracking image, "Not tracked" for the rest. Opens are a floor: some mail programs block images. */
+export function openText(s: OpenStat | undefined, tracks: boolean): string {
+  if (!tracks) return "Not tracked";
+  const tracked = Number(s?.tracked ?? 0);
+  if (tracked === 0) return "No sends yet";
+  const opened = Number(s?.opened ?? 0);
+  return `${opened} of ${tracked} (${Math.round((opened / tracked) * 100)}%)`;
+}
+
 /** Which trigger sends which template (issue #370, phase 3). Read-only: the mapping is code and is never editable. Counts are the last 30 days. */
-export function EmailsTable({ templates, stats }: { templates: readonly EmailTemplate[]; stats: EmailStat[] }) {
+export function EmailsTable({ templates, stats, opens = [] }: { templates: readonly EmailTemplate[]; stats: EmailStat[]; opens?: OpenStat[] }) {
   const by = new Map(stats.map((s) => [s.template_key, s]));
+  const openBy = new Map(opens.map((o) => [o.template_key, o]));
   return (
     <div className="table-wrap">
       <table className="data-table" data-testid="emails-table">
@@ -20,6 +32,7 @@ export function EmailsTable({ templates, stats }: { templates: readonly EmailTem
             <th scope="col">Limits</th>
             <th scope="col">Sent, 30 days</th>
             <th scope="col">Failed, 30 days</th>
+            <th scope="col">Opened, 30 days</th>
           </tr>
         </thead>
         <tbody>
@@ -35,6 +48,7 @@ export function EmailsTable({ templates, stats }: { templates: readonly EmailTem
                 <td>{t.limits}</td>
                 <td>{Number(s?.sends ?? 0)}</td>
                 <td>{Number(s?.failures ?? 0)}</td>
+                <td>{openText(openBy.get(t.key), !!t.trackOpens)}</td>
               </tr>
             );
           })}
@@ -47,6 +61,7 @@ export function EmailsTable({ templates, stats }: { templates: readonly EmailTem
             <td>Not applicable</td>
             <td>0</td>
             <td>0</td>
+            <td>Not tracked</td>
           </tr>
         </tbody>
       </table>

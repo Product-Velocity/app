@@ -28,6 +28,8 @@ export type EmailTemplate = {
   /** Sample values for previews where the catalog's sample would mislead (for example how long a link works). */
   sample?: MacroValues;
   macros: readonly MacroName[];
+  /** Carries the one-pixel open-tracking image (lib/email/open-pixel.ts). A short named list; never the alignment emails to voters, nor an auth email. */
+  trackOpens?: boolean;
   /** A personal note from a named person (founder emails): plain text look, no logo, frame or button; `note` is the P.S. */
   personal?: boolean;
   /** Display name on the From line for a personal note; the address stays the verified sender. */
@@ -161,6 +163,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     confirmFirst: true,
     limits: "60 seconds between sends to one person, 5 per invitation, 100 per workspace per day",
     sample: { expires: "7 days" },
+    trackOpens: true,
     macros: ["inviter", "workspace", "role", "link", "expires", "product"],
     subject: "{{inviter}} invited you to {{workspace}} on {{product}}",
     preheader: "Accept the invitation to {{workspace}}.",
@@ -196,6 +199,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     personal: true,
     fromName: "Ashu from Product Velocity",
     editable: ["subject", "preheader", "body", "note"],
+    trackOpens: true,
     macros: ["name", "workspace", "product"],
     subject: "Welcome to {{product}}, {{name}}",
     preheader: "A quick hello from Ashu.",
@@ -215,6 +219,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     personal: true,
     fromName: "Ashu from Product Velocity",
     editable: ["subject", "preheader", "body", "note"],
+    trackOpens: true,
     macros: ["name", "workspace", "product"],
     subject: "Quick question about {{workspace}}",
     preheader: "Did anything get in your way?",

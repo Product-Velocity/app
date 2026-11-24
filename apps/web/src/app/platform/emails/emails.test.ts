@@ -27,3 +27,12 @@ describe("platform Emails overview (read-only)", () => {
     expect(html).not.toMatch(/<form|<input|<button|<textarea/i);
   });
 });
+
+import { openText } from "./emails-table";
+describe("open text", () => {
+  it("says what an email that is not tracked, has no sends, or has opens shows", () => {
+    expect(openText(undefined, false)).toBe("Not tracked");
+    expect(openText(undefined, true)).toBe("No sends yet");
+    expect(openText({ template_key: "app.invitation", tracked: "12", opened: "3" }, true)).toBe("3 of 12 (25%)");
+  });
+});

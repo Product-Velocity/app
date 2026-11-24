@@ -37,11 +37,16 @@ export default function PrivacyPage() {
       <p>If your workspace connects GitHub, we store the connection to the GitHub App installation, repository names, and the issue and pull-request links and statuses linked to initiatives. If it connects Jira, we store the connection and its access tokens, which are encrypted, and the linked issues. Commercial fields such as value, confidence, customer names, decisions and their reasons are never sent to GitHub or Jira.</p>
       <h3>Technical data</h3>
       <p>Sign-in cookies that keep you signed in, and a cookie that remembers your last workspace. We do not use advertising or analytics cookies and we do not track you across other sites. Our hosting provider keeps standard request logs for security and operation.</p>
+      <h3>Email opens</h3>
+      <p>A few of our own emails (the workspace invitation, and the welcome and follow-up notes from our team) contain a one-pixel image. When your mail program loads it, we count that the message was opened, how many times and when it was first opened. The image&rsquo;s address holds a random number and nothing else. We store no email address, name, IP address, browser or place with it, so a count cannot be tied to you. We never put the image in sign-in, confirmation or password emails, or in emails to alignment participants. If you do not want an open counted, set your mail program not to load remote images.</p>
+      <h3>How the product is used</h3>
+      <p>To see whether the product helps, we count for each workspace how many different people made a change and how many changes were made in a period, from the audit log described above. These are totals for a workspace. We do not rank or score people.</p>
 
       <h2 id="why">Why we use it</h2>
       <ul>
         <li>To provide the service you or your organisation asked for: sign-in, workspaces, the roadmap, integrations, emails such as invitations, and AI assistant connections.</li>
         <li>To keep the service secure and accountable: the audit log, isolation between workspaces, limits on daily use, and investigating abuse.</li>
+        <li>To learn, in totals only, whether our emails reach people and how the product is used, so we can improve it.</li>
         <li>To answer you when you write to us, and to meet legal duties.</li>
       </ul>
       <p>We do not sell personal data. We do not use workspace content to train AI models. Product Velocity itself does not send your workspace content to any AI provider.</p>
