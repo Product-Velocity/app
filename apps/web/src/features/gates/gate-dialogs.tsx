@@ -146,7 +146,7 @@ function effectText(outcome: GateOutcome, gates: GateId[], many: boolean, target
 const TONE_OF: Record<GateOutcome, "go" | "hold" | "stop"> = { go: "go", go_with_conditions: "go", hold: "hold", stop: "stop" };
 
 /**
- * "Decide": Go, Go with conditions, Hold or Stop for one or many requests (Ashu, 2026-11-23: clearer layout, batch stated plainly). One rationale, and the conditions
+ * "Decide": Go, Go with conditions, Hold or Stop for one or many requests (Ashu, 2026-11-23: clearer layout, batch stated plainly). One comment (the rationale, optional since 2026-11-23), and the conditions
  * if any, are stored on each request. Fast lane is a recorded choice, not a check. The checklist informs; it never blocks.
  */
 export function DecideDialog({ source, rows, initialOutcome, onClose, onDone }: { source: GateSource; rows: DecideRow[]; initialOutcome?: GateOutcome; onClose: () => void; onDone: () => void }) {
@@ -170,7 +170,7 @@ export function DecideDialog({ source, rows, initialOutcome, onClose, onDone }: 
   const single = gates.length === 1 ? gates[0]! : null;
   const targets = single ? targetPhases(single, rows[0]?.item?.initiative_phase) : [];
   const go = outcome === "go" || outcome === "go_with_conditions";
-  const ok = rationale.trim().length >= 3 && (outcome !== "go_with_conditions" || conditions.trim().length > 0);
+  const ok = outcome !== "go_with_conditions" || conditions.trim().length > 0;
   const incomplete = rows.filter((r) => r.request.criteria.length > 0 && r.request.criteria.some((c) => !c.ok)).length;
   const effect = effectText(outcome, gates, many, go && fast ? target : "");
   const count = `${rows.length} ${many ? "requests" : "request"}`;
@@ -214,7 +214,7 @@ export function DecideDialog({ source, rows, initialOutcome, onClose, onDone }: 
               );
             })}
           </ul>
-          {many && <p className="muted dec-note">Batch decision: the same outcome and rationale are saved on each of the {rows.length} requests, and each is recorded under your name.</p>}
+          {many && <p className="muted dec-note">Batch decision: the same outcome and comment are saved on each of the {rows.length} requests, and each is recorded under your name.</p>}
 
           <fieldset className="dec-choices">
             <legend className="dialog-label">Decision</legend>
@@ -230,8 +230,8 @@ export function DecideDialog({ source, rows, initialOutcome, onClose, onDone }: 
           </fieldset>
           <p className={`dec-effect tone-${effect.tone}`} role="status">{effect.text}</p>
 
-          <label className="dialog-label" htmlFor={`${id}-r`}>Rationale <span className="muted">(required, kept as written{many ? ", shared by all" : ""})</span></label>
-          <textarea id={`${id}-r`} ref={boxRef} value={rationale} onChange={(e) => setRationale(e.target.value)} rows={3} maxLength={4000} placeholder="Why this decision? The next person reading the gate history sees this." />
+          <label className="dialog-label" htmlFor={`${id}-r`}>Comment <span className="muted">(optional, kept as written{many ? ", shared by all" : ""})</span></label>
+          <textarea id={`${id}-r`} ref={boxRef} value={rationale} onChange={(e) => setRationale(e.target.value)} rows={3} maxLength={4000} placeholder="Why this decision? Anyone reading the gate history sees this." />
           {outcome === "go_with_conditions" && (
             <>
               <label className="dialog-label dec-gap" htmlFor={`${id}-c`}>Conditions <span className="muted">(one per line{many ? ", added to each request" : ""})</span></label>

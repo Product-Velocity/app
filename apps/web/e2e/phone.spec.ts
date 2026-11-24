@@ -347,7 +347,7 @@ const stubDocs = async (page: import("@playwright/test").Page) => {
 };
 
 test.describe("gate decisions on a phone", () => {
-  test("queue, review with the PRD, and a decision that needs a rationale and a confirmation", async ({ page }) => {
+  test("queue, review with the PRD, and a decision with an optional comment and a confirmation", async ({ page }) => {
     await stubDocs(page);
     await page.goto("/dev/decisions?phone=1");
     await expect(page.locator(".phone-card")).toHaveCount(4);
@@ -360,10 +360,12 @@ test.describe("gate decisions on a phone", () => {
     await page.getByRole("button", { name: /3 Problem Statement/ }).click();
     await expect(page.getByText("Customers drop off.")).toBeVisible();
 
+    // three buttons: Go, Hold, Stop
+    await expect(page.getByRole("region", { name: "Decide" }).getByRole("button")).toHaveText(["Go", "Hold", "Stop"]);
     await page.getByRole("button", { name: "Go", exact: true }).click();
     const review = page.getByRole("button", { name: "Review decision" });
-    await expect(review).toBeDisabled();
-    await page.getByLabel(/Rationale/).fill("Scope is clear and the estimate is fine");
+    await expect(review).toBeEnabled(); // the comment is optional
+    await page.getByLabel(/Comment/).fill("Scope is clear and the estimate is fine");
     await review.click();
     await expect(page.getByText("cannot be undone or edited")).toBeVisible();
     await page.getByRole("button", { name: "Confirm Go" }).click();
@@ -376,11 +378,25 @@ test.describe("gate decisions on a phone", () => {
     await stubDocs(page);
     await page.goto("/dev/decisions?phone=1");
     await page.locator(".phone-card", { hasText: "New checkout flow" }).click();
-    await page.getByRole("button", { name: "Conditions", exact: true }).click();
-    await page.getByLabel(/Rationale/).fill("Fine if the estimate is revisited");
+    await page.getByRole("button", { name: "Go", exact: true }).click();
+    await page.getByRole("checkbox", { name: /Add conditions/ }).check();
     await expect(page.getByRole("button", { name: "Review decision" })).toBeDisabled();
     await page.getByLabel(/Conditions, one per line/).fill("Re-estimate after spike");
     await expect(page.getByRole("button", { name: "Review decision" })).toBeEnabled();
+    await page.getByRole("button", { name: "Review decision" }).click();
+    await page.getByRole("button", { name: "Confirm Go with conditions" }).click();
+    const calls = await page.evaluate(() => (window as unknown as { __pv: { source: { calls: string[] } } }).__pv.source.calls);
+    expect(calls).toContain("decide go_with_conditions 1");
+  });
+
+  test("a Hold can be saved with no comment at all", async ({ page }) => {
+    await stubDocs(page);
+    await page.goto("/dev/decisions?phone=1");
+    await page.locator(".phone-card", { hasText: "New checkout flow" }).click();
+    await page.getByRole("button", { name: "Hold", exact: true }).click();
+    await page.getByRole("button", { name: "Review decision" }).click();
+    await page.getByRole("button", { name: "Confirm Hold" }).click();
+    await expect(page.getByText("Recorded: Hold for R-02 New checkout flow.")).toBeVisible();
   });
 
   test("without approval rights for the gate there are no decision buttons", async ({ page }) => {

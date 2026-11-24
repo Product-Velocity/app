@@ -337,7 +337,7 @@ export const GATES_STEPS: Table = {
   head: ["Step", "Who", "What happens"],
   rows: [
     ["1. Request", "Creator or above", "Request gate A, B or C on one item or on a selection. Gate Status becomes In review. A checklist shows what is missing; it informs, it does not block."],
-    ["2. Decide", "Anyone with approval rights for that gate", "Go, Go with conditions, Hold or Stop, with a rationale that cannot be edited later. The first decision wins; the others see it closed. You may approve your own request."],
+    ["2. Decide", "Anyone with approval rights for that gate", "Go, Go with conditions, Hold or Stop, with an optional comment that cannot be edited later. On a phone the choices are Go, Hold and Stop, and Add conditions sits under Go. The first decision wins; the others see it closed. You may approve your own request."],
     ["3. Complete", "The app, in one step", "Records the decision, moves the phase and its start date, approves the document (gate A: discovery, gate B: PRD), sets Ready for build at gate B, and writes the audit log. Sending to GitHub or Jira still needs your confirmation."],
   ],
 };
@@ -357,7 +357,7 @@ export const GATES_NOTES = [
   "There is no auto-pass. Nothing moves through a gate without a person deciding.",
   "Who can decide is set per gate in Settings, Workspace. Admins can by default; you can give any account approval rights. Claude, service accounts and staff impersonation never can.",
   "Decisions screen: every gate request, filtered by Waiting for approval (the default), Decided, Requested by me, and Can decide. Open a row to read the gate pack; J and K move through the list.",
-  "Multi-select bar: Request gate, Decide (one rationale for all selected, with a confirmation listing each item) and Move to next phase.",
+  "Multi-select bar: Request gate, Decide (one comment for all selected, with a confirmation listing each item) and Move to next phase.",
   "Change counts: the Notifications bell also counts the changes (Phase, Status, Health, Build status, linked issue) made on each project in every account you can open since you last cleared it, as a number on the bell. Open the bell for each project with a count per type; Clear counts resets them to 0; a click on a project opens its change log (the Changes report) and clears that project. Your own changes are not counted.",
   "Notifications: when a gate is requested, the people who can decide it (or only the people the requester asked) see it under Notifications in the top bar; the requester sees the decision there. No email is sent. Mark a notice read by opening it, or Mark all as read.",
   "The outcome review at +30, +60 and +90 days is not a gate; it is a scheduled review after Roll-out.",

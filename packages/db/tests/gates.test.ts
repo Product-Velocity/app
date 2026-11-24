@@ -64,12 +64,14 @@ describe("gate A: Discover to Define", () => {
     expect((await item(id)).initiative_phase).toBe("Define");
   });
 
-  it("needs a rationale and a known outcome", async () => {
+  it("needs a known outcome; the rationale is optional and a blank one is stored as null", async () => {
     const id = await newItem("Discover");
     const review = await request(creator, id, "A");
-    expect(await errorCode(decide(f.alice, review, "go", " "))).toBe(PV005);
     expect(await errorCode(decide(f.alice, review, "maybe"))).toBe(PV005);
     expect((await item(id)).initiative_phase).toBe("Discover");
+    await decide(f.alice, review, "go", "  ");
+    expect((await item(id)).initiative_phase).toBe("Define");
+    expect((await db.admin.query("select rationale from public.gate_reviews where id = $1", [review])).rows[0].rationale).toBeNull();
   });
 });
 
