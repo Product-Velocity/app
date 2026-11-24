@@ -1,3 +1,4 @@
+import { WeeklyFigure } from "@/components/help/figures";
 import { HelpCallout, HelpList, HelpPage, HelpReference, HelpSection, HelpTable, HelpWhere } from "@/components/help/help-ui";
 
 export const metadata = {
@@ -47,6 +48,7 @@ export default function ReportsHelp() {
             "Investment mix across the five roadmap categories.",
           ]}
         />
+        <WeeklyFigure />
         <HelpCallout title="The weekly update writes itself from the data.">
           A creator or admin presses Draft weekly update. Every statement names its initiative, and each initiative, ticket and document is a link. Edit it, mark it reviewed, then use Copy for email: headings, lists and links survive the paste into Gmail or Outlook. Nothing is sent for you. Leadership viewers see the reviewed update only.
         </HelpCallout>
