@@ -1,15 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { CONNECT_CARDS, WIZARD_STEPS, INVITE_STEPS, firstThings, checklist, checklistDismissed, hasFinishedOnboarding, parseAboutYou, showChecklist, withOnboarded } from "./onboarding";
+import { splitName, CONNECT_CARDS, WIZARD_STEPS, INVITE_STEPS, firstThings, checklist, checklistDismissed, hasFinishedOnboarding, parseAboutYou, showChecklist, withOnboarded } from "./onboarding";
 
 describe("parseAboutYou", () => {
-  it("accepts nothing at all: skipping is free", () => expect(parseAboutYou({})).toEqual({ ok: true, value: { fullName: "", role: "", goal: "" } }));
-  it("tidies the name and keeps listed choices", () => {
-    expect(parseAboutYou({ fullName: "  Ana   Ruiz ", role: "Founder", goal: "Report to leadership" })).toEqual({ ok: true, value: { fullName: "Ana Ruiz", role: "Founder", goal: "Report to leadership" } });
+  it("asks for a first name when the step is filled in; skipping the whole step is a separate button", () => {
+    expect(parseAboutYou({}).ok).toBe(false);
+    expect(parseAboutYou({ firstName: "  ", lastName: "Ruiz" }).ok).toBe(false);
   });
-  it("refuses a long name and unlisted choices", () => {
-    expect(parseAboutYou({ fullName: "a".repeat(121) }).ok).toBe(false);
-    expect(parseAboutYou({ role: "CEO of everything" }).ok).toBe(false);
-    expect(parseAboutYou({ goal: "<script>" }).ok).toBe(false);
+  it("keeps first and last name apart and joins them for the rest of the app", () => {
+    expect(parseAboutYou({ firstName: "  Ana ", lastName: " Ruiz  Gil", role: "Founder", goal: "Report to leadership" })).toEqual({
+      ok: true, value: { firstName: "Ana", lastName: "Ruiz Gil", fullName: "Ana Ruiz Gil", role: "Founder", goal: "Report to leadership" },
+    });
+    expect(parseAboutYou({ firstName: "Ana" })).toEqual({ ok: true, value: { firstName: "Ana", lastName: "", fullName: "Ana", role: "", goal: "" } });
+  });
+  it("refuses long names and unlisted choices", () => {
+    expect(parseAboutYou({ firstName: "a".repeat(61) }).ok).toBe(false);
+    expect(parseAboutYou({ firstName: "Ana", lastName: "b".repeat(61) }).ok).toBe(false);
+    expect(parseAboutYou({ firstName: "Ana", role: "CEO of everything" }).ok).toBe(false);
+    expect(parseAboutYou({ firstName: "Ana", goal: "<script>" }).ok).toBe(false);
+  });
+});
+
+describe("splitName (prefill)", () => {
+  it("prefers what onboarding stored, then Google's given and family name, then the full name split", () => {
+    expect(splitName({ first_name: "Ana", last_name: "Ruiz", given_name: "X" })).toEqual({ first: "Ana", last: "Ruiz" });
+    expect(splitName({ given_name: "Jo", family_name: "Park" })).toEqual({ first: "Jo", last: "Park" });
+    expect(splitName({ full_name: "ashu mathura" })).toEqual({ first: "ashu", last: "mathura" });
+    expect(splitName({ name: "Cher" })).toEqual({ first: "Cher", last: "" });
+    expect(splitName({})).toEqual({ first: "", last: "" });
   });
 });
 

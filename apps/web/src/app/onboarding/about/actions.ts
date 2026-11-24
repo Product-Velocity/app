@@ -16,11 +16,13 @@ export async function finishOnboarding(_prev: AboutState, form: FormData): Promi
   if (active.isDemoAccount || active.platform) redirect("/portfolio");
   const invited = form.get("flow") === "invited";
   const skip = form.get("intent") === "skip";
-  const parsed = skip ? null : parseAboutYou({ fullName: form.get("full_name"), role: form.get("role"), goal: form.get("goal") });
+  const parsed = skip ? null : parseAboutYou({ firstName: form.get("first_name"), lastName: form.get("last_name"), role: form.get("role"), goal: form.get("goal") });
   if (parsed && !parsed.ok) return { error: parsed.error };
   const extra: Record<string, unknown> = {};
   if (parsed?.ok) {
-    if (parsed.value.fullName) extra.full_name = parsed.value.fullName;
+    extra.first_name = parsed.value.firstName;
+    extra.last_name = parsed.value.lastName;
+    extra.full_name = parsed.value.fullName;
     if (parsed.value.role) extra.role_title = parsed.value.role;
     if (parsed.value.goal) extra.first_goal = parsed.value.goal;
   }

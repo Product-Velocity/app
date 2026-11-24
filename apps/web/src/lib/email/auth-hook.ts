@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { firstNameOfUser } from "@/lib/founder-rules";
 import { renderTemplate, templateForAction, type EmailKey, type Rendered, type TemplateText } from "./registry/registry";
 
 /**
@@ -22,7 +23,7 @@ export function verifyHookSignature(rawBody: string, h: { id: string | null; tim
 }
 
 export type HookPayload = {
-  user?: { email?: unknown; new_email?: unknown };
+  user?: { email?: unknown; new_email?: unknown; user_metadata?: Record<string, unknown> };
   email_data?: { token?: unknown; token_hash?: unknown; redirect_to?: unknown; site_url?: unknown; email_action_type?: unknown; token_hash_new?: unknown; token_new?: unknown };
 };
 
@@ -55,10 +56,11 @@ export function planAuthEmail(payload: HookPayload, appUrl: string, override?: P
     u.searchParams.set("type", t.linkType);
     return u.toString();
   };
+  const firstName = firstNameOfUser(payload.user?.user_metadata); // a new person has no name yet: the greeting says "Hi there,"
   const make = (address: string, buttonUrl: string | null, code: string | null): { key: EmailKey; to: string; mail: Rendered } => ({
     key: t.key,
     to: address,
-    mail: renderTemplate(t, { values: { link: buttonUrl, code, expires: "60 minutes" }, siteUrl: base, buttonUrl, override }),
+    mail: renderTemplate(t, { values: { firstname: firstName, link: buttonUrl, code, expires: "60 minutes" }, siteUrl: base, buttonUrl, override }),
   });
   if (t.linkType) {
     const first = link(d.token_hash);

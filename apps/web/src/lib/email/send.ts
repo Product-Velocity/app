@@ -4,6 +4,7 @@ import { sendEmail, type SendResult } from "./resend";
 import { randomUUID } from "node:crypto";
 import { siteUrl } from "@/lib/site-url";
 import { injectPixel, openTrackingOn, pixelUrl } from "./open-pixel";
+import { emailStatus } from "./status";
 import { templateByKey, type EmailKey } from "./registry/registry";
 
 /**
@@ -12,6 +13,8 @@ import { templateByKey, type EmailKey } from "./registry/registry";
  * one. The log never holds an address, a name, a token, a link or a body. A log failure never blocks the email.
  */
 export async function sendLogged(key: EmailKey, msg: { to: string; subject: string; text: string; html: string; replyTo?: string; fromName?: string }, opts?: { tenantId?: string | null; isTest?: boolean; actorId?: string | null }): Promise<SendResult> {
+  // an email paused in the platform console is not sent (a test to a platform admin always is); nothing is logged for a send that did not happen
+  if (!opts?.isTest && (await emailStatus(key)) === "paused") return { ok: false, error: "This email is paused in the platform email settings, so it was not sent." };
   // a few templates carry a one-pixel image that counts opens; the row id in its address is the only thing it holds. Never on a test send.
   const id = randomUUID();
   let tracked = false;

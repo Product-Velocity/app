@@ -29,6 +29,16 @@ describe("macros", () => {
 });
 
 describe("registry", () => {
+  it("every email opens with a greeting by first name, with a fallback so it never reads \"Hi ,\"", () => {
+    for (const t of EMAIL_TEMPLATES) {
+      expect(t.body.startsWith("Hi {{firstname}},\n\n"), t.key).toBe(true);
+      expect(t.macros, t.key).toContain("firstname");
+      const r = renderTemplate(t, { values: {}, siteUrl: "https://x.test", buttonUrl: t.button ? "https://x.test/a" : null });
+      expect(r.text, t.key).toContain("Hi there,");
+      const named = renderTemplate(t, { values: { firstname: "Ana" }, siteUrl: "https://x.test", buttonUrl: t.button ? "https://x.test/a" : null });
+      expect(named.text, t.key).toContain("Hi Ana,");
+    }
+  });
   it("every entry has a trigger, recipient, code path, unique key and only catalog macros", () => {
     expect(new Set(EMAIL_TEMPLATES.map((t) => t.key)).size).toBe(EMAIL_TEMPLATES.length);
     for (const t of EMAIL_TEMPLATES) {
@@ -182,7 +192,7 @@ describe("app emails keep their current wording", () => {
     expect(code.html).not.toContain("<a ");
     const nl = buildNewLinkEmail({ name: null, session: "Q1", closesAt: null, link: "https://app.test/a/N" });
     expect(nl.subject).toBe("Your new link: Q1");
-    expect(nl.text).toContain("Hello there,");
+    expect(nl.text).toContain("Hi there,");
     expect(nl.text).toContain("The earlier link no longer works.");
     for (const m of [req, ok, code, nl]) expect(m.text + m.html).not.toMatch(/\{\{|\}\}/);
   });

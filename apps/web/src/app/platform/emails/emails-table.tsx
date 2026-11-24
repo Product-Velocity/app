@@ -1,7 +1,10 @@
 import Link from "next/link";
-import type { EmailTemplate } from "@/lib/email/registry/registry";
+import { defaultEmailStatus, type EmailStatus, type EmailTemplate } from "@/lib/email/registry/registry";
+import { setEmailStatus } from "./status-actions";
 
 export type EmailStat = { template_key: string; sends: number | string; failures: number | string; delivered: number | string; bounced: number | string; last_sent: string | null };
+
+export type StatusRow = { template_key: string; status: EmailStatus; changed_at: string; changed_by_name: string | null };
 
 export type OpenStat = { template_key: string; tracked: number | string; opened: number | string };
 
@@ -15,15 +18,17 @@ export function openText(s: OpenStat | undefined, tracks: boolean): string {
 }
 
 /** Which trigger sends which template (issue #370, phase 3). Read-only: the mapping is code and is never editable. Counts are the last 30 days. */
-export function EmailsTable({ templates, stats, opens = [] }: { templates: readonly EmailTemplate[]; stats: EmailStat[]; opens?: OpenStat[] }) {
+export function EmailsTable({ templates, stats, opens = [], statuses = [] }: { templates: readonly EmailTemplate[]; stats: EmailStat[]; opens?: OpenStat[]; statuses?: StatusRow[] }) {
   const by = new Map(stats.map((s) => [s.template_key, s]));
   const openBy = new Map(opens.map((o) => [o.template_key, o]));
+  const statusBy = new Map(statuses.map((x) => [x.template_key, x]));
   return (
     <div className="table-wrap">
       <table className="data-table" data-testid="emails-table">
         <caption className="visually-hidden">Product emails: triggers and templates</caption>
         <thead>
           <tr>
+            <th scope="col">Status</th>
             <th scope="col">Event (trigger)</th>
             <th scope="col">Template</th>
             <th scope="col">Recipient</th>
@@ -38,8 +43,10 @@ export function EmailsTable({ templates, stats, opens = [] }: { templates: reado
         <tbody>
           {templates.map((t) => {
             const s = by.get(t.key);
+            const status: EmailStatus = t.alwaysOn ? "active" : statusBy.get(t.key)?.status ?? defaultEmailStatus(t);
             return (
               <tr key={t.key}>
+                <td><StatusCell t={t} status={status} /></td>
                 <td>{t.trigger}</td>
                 <td><Link href={`/platform/emails/${encodeURIComponent(t.key)}`}>{t.name}</Link><br /><code className="muted">{t.key}</code></td>
                 <td>{t.recipient}</td>
@@ -53,6 +60,7 @@ export function EmailsTable({ templates, stats, opens = [] }: { templates: reado
             );
           })}
           <tr>
+            <td>Not an email</td>
             <td>A decision gate is requested, decided or moved</td>
             <td>No email</td>
             <td>The approvers and the item owner, in the app</td>
@@ -66,5 +74,19 @@ export function EmailsTable({ templates, stats, opens = [] }: { templates: reado
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** Active or Paused, always as text. A paused email is not sent; the one-click switch is missing for emails that must always go out. */
+function StatusCell({ t, status }: { t: EmailTemplate; status: EmailStatus }) {
+  if (t.alwaysOn) return <><strong>Active</strong><br /><span className="muted">Always on</span></>;
+  const next: EmailStatus = status === "active" ? "paused" : "active";
+  return (
+    <form action={setEmailStatus}>
+      <input type="hidden" name="key" value={t.key} />
+      <input type="hidden" name="status" value={next} />
+      <strong>{status === "active" ? "Active" : "Paused"}</strong>{" "}
+      <button className="btn btn-sm" type="submit" aria-label={`${next === "paused" ? "Pause" : "Activate"} ${t.name}`}>{next === "paused" ? "Pause" : "Activate"}</button>
+    </form>
   );
 }

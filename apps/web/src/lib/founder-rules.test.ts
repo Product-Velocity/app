@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstNameOf, isFollowupCandidate } from "./founder-rules";
+import { firstNameOf, firstNameOfUser, isFollowupCandidate } from "./founder-rules";
 import { fromLine } from "./email/resend";
 import { buildFollowupPersonalEmail, buildWelcomePersonalEmail } from "./email/access";
 
@@ -37,11 +37,22 @@ describe("the From line", () => {
 
 describe("the personal emails", () => {
   it("greet by first name, are plain, and carry the stop line", () => {
-    for (const m of [buildWelcomePersonalEmail({ name: "Ana", workspace: "Meridian <Media>" }), buildFollowupPersonalEmail({ name: "Ana", workspace: "Meridian <Media>" })]) {
+    for (const m of [buildWelcomePersonalEmail({ firstname: "Ana", workspace: "Meridian <Media>" }), buildFollowupPersonalEmail({ firstname: "Ana", workspace: "Meridian <Media>" })]) {
       expect(m.text).toContain("Hi Ana,");
       expect(m.text).toContain('reply "stop"');
       expect(m.html).not.toMatch(/<img|<table|<a /i);
     }
-    expect(buildWelcomePersonalEmail({ name: "Ana", workspace: "Meridian <Media>" }).html).toContain("Meridian &lt;Media&gt;");
+    expect(buildWelcomePersonalEmail({ firstname: "Ana", workspace: "Meridian <Media>" }).html).toContain("Meridian &lt;Media&gt;");
+  });
+});
+
+describe("first name from a profile", () => {
+  it("uses the name onboarding stored, the full name once the person changed it, and a provider's name", () => {
+    expect(firstNameOfUser({ first_name: "Mary Ann", last_name: "Smith", full_name: "Mary Ann Smith" })).toBe("Mary Ann");
+    expect(firstNameOfUser({ first_name: "Mary Ann", last_name: "Smith", full_name: "Marianne Smith" })).toBe("Marianne"); // edited later on Account
+    expect(firstNameOfUser({ full_name: "Ana Ruiz" })).toBe("Ana");
+    expect(firstNameOfUser({ name: "Jo Park" })).toBe("Jo");
+    expect(firstNameOfUser({})).toBe("there");
+    expect(firstNameOfUser(null)).toBe("there");
   });
 });

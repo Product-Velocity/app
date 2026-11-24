@@ -42,6 +42,9 @@ describe("who can use the platform functions (FR-5.3: no leakage)", () => {
       "select * from public.platform_email_stats()",
       "select * from public.platform_email_open_stats()",
       "select * from public.platform_usage_stats()",
+      "select * from public.platform_email_statuses()",
+      "select public.platform_email_set_status('app.invitation', 'paused')",
+      "select public.email_template_status('app.invitation')",
       "select * from public.platform_email_versions('app.invitation')",
       "select public.platform_email_save_draft('app.invitation', 's', '', 'h', 'b', null, '')",
       "select public.platform_email_publish('app.invitation')",
@@ -451,5 +454,31 @@ describe("email open tracking and usage numbers (issue #634)", () => {
     expect(rows.length).toBeGreaterThan(0);
     expect(Object.keys(rows[0]!).sort()).toEqual(["changes", "last_change", "people", "tenant_id", "tenant_name"]);
     for (const r of rows) expect(Number(r.people)).toBeLessThanOrEqual(Number(r.changes));
+  });
+});
+
+describe("email status: Active or Paused (issue #634)", () => {
+  it("no row until someone switches it; the server reads it, nobody signed in can", async () => {
+    expect((await db.asService(async (q) => (await q("select public.email_template_status('app.access-approved') s")).rows[0].s))).toBeNull();
+    expect(await errorCode(db.asUser(f.alice, (q) => q("select public.email_template_status('app.access-approved')")))).toBe("42501");
+  });
+
+  it("a platform admin switches an email, it is logged with old and new state, and the server then reads the new state", async () => {
+    await asPat(async (q) => { await q("select public.platform_email_set_status('app.access-approved', 'paused')"); }, { commit: true });
+    expect((await db.asService(async (q) => (await q("select public.email_template_status('app.access-approved') s")).rows[0].s))).toBe("paused");
+    await asPat(async (q) => { await q("select public.platform_email_set_status('app.access-approved', 'active')"); }, { commit: true });
+    expect((await db.asService(async (q) => (await q("select public.email_template_status('app.access-approved') s")).rows[0].s))).toBe("active");
+    const log = (await db.admin.query("select old, new from platform.config_log where field = 'email_template_status' order by id desc limit 2")).rows;
+    expect(log[0].new).toMatchObject({ template: "app.access-approved", status: "active" });
+    expect(log[0].old).toMatchObject({ status: "paused" });
+    expect(log[1].new).toMatchObject({ status: "paused" });
+    const rows = await asPat<{ template_key: string; status: string }[]>(async (q) => (await q("select * from public.platform_email_statuses()")).rows);
+    expect(rows.find((r) => r.template_key === "app.access-approved")!.status).toBe("active");
+  });
+
+  it("only active or paused is accepted, and the table is closed to the API roles", async () => {
+    expect(await errorCode(asPat((q) => q("select public.platform_email_set_status('app.invitation', 'maybe')")))).toBe("22023");
+    expect(await errorCode(db.asUser(pat, (q) => q("select * from platform.email_template_status")))).toBe("42501");
+    expect(await errorCode(db.asUser(f.alice, (q) => q("select * from platform.email_template_status")))).toBe("42501");
   });
 });

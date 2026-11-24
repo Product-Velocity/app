@@ -3,26 +3,28 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { emailConfigured } from "@/lib/email/resend";
 import { sendLogged } from "@/lib/email/send";
 import { loadEmailOverride } from "@/lib/email/override";
+import { emailStatus } from "@/lib/email/status";
 import { buildFollowupPersonalEmail, buildWelcomePersonalEmail } from "@/lib/email/access";
 import { SUPPORT_CONTACT } from "@/lib/public-contact";
 import { siteUrl } from "@/lib/site-url";
-import { firstNameOf, isFollowupCandidate, FOLLOWUP_AFTER_DAYS, FOLLOWUP_WINDOW_DAYS, FOLLOWUP_PER_RUN } from "@/lib/founder-rules";
+import { firstNameOfUser, isFollowupCandidate, FOLLOWUP_AFTER_DAYS, FOLLOWUP_WINDOW_DAYS, FOLLOWUP_PER_RUN } from "@/lib/founder-rules";
 
 /**
  * Personal emails from Ashu to the person who created a workspace: a welcome when setup is finished and one follow-up two days
- * after creation if the workspace is still empty. Both are off until FOUNDER_EMAILS=on is set on the deployment, so the wording can be
+ * after creation if the workspace is still empty. Each starts Paused and is switched to Active in the platform Emails console (issue #634), so the wording can be
  * confirmed first. Replies go to the contact address. Each goes at most once per workspace (the send log is the memory), and a failure
  * never blocks the person or the daily check.
  */
-export const founderEmailsOn = () => process.env.FOUNDER_EMAILS === "on" && emailConfigured();
+/** Sendable now: email is set up on this deployment and the platform console has this email on Active. */
+const isOn = async (key: "app.welcome-personal" | "app.followup-personal") => emailConfigured() && (await emailStatus(key)) === "active";
 const FROM_NAME = "Ashu from Product Velocity";
 
-export async function sendWelcome(input: { tenantId: string; workspace: string; email: string | null | undefined; fullName: unknown }): Promise<void> {
+export async function sendWelcome(input: { tenantId: string; workspace: string; email: string | null | undefined; metadata: Record<string, unknown> | null | undefined }): Promise<void> {
   try {
-    if (!founderEmailsOn() || !input.email) return;
+    if (!input.email || !(await isOn("app.welcome-personal"))) return;
     const admin = createAdminClient({ via: "system" });
     if (await alreadySent(admin, "app.welcome-personal", [input.tenantId]).then((s) => s.has(input.tenantId))) return;
-    const mail = buildWelcomePersonalEmail({ name: firstNameOf(input.fullName), workspace: input.workspace, siteUrl: await siteUrl(), override: await loadEmailOverride("app.welcome-personal") });
+    const mail = buildWelcomePersonalEmail({ firstname: firstNameOfUser(input.metadata), workspace: input.workspace, siteUrl: await siteUrl(), override: await loadEmailOverride("app.welcome-personal") });
     await sendLogged("app.welcome-personal", { to: input.email, replyTo: SUPPORT_CONTACT.email, fromName: FROM_NAME, ...mail }, { tenantId: input.tenantId });
   } catch {
     console.error(JSON.stringify({ founderEmail: "welcome-failed" }));
@@ -46,7 +48,7 @@ const count = async (admin: ReturnType<typeof createAdminClient>, table: string,
 export async function sendFollowups(now = Date.now()): Promise<{ considered: number; sent: number }> {
   const out = { considered: 0, sent: 0 };
   try {
-    if (!founderEmailsOn()) return out;
+    if (!(await isOn("app.followup-personal"))) return out;
     const admin = createAdminClient({ via: "system" });
     const day = 86_400_000;
     const { data } = await admin.from("tenants").select("id, name, created_at, created_by")
@@ -70,7 +72,7 @@ export async function sendFollowups(now = Date.now()): Promise<{ considered: num
       const owner = u?.user;
       const email = owner?.email;
       if (!owner || !email) continue;
-      const mail = buildFollowupPersonalEmail({ name: firstNameOf(owner.user_metadata?.full_name), workspace: t.name, siteUrl: site, override });
+      const mail = buildFollowupPersonalEmail({ firstname: firstNameOfUser(owner.user_metadata), workspace: t.name, siteUrl: site, override });
       const res = await sendLogged("app.followup-personal", { to: email, replyTo: SUPPORT_CONTACT.email, fromName: FROM_NAME, ...mail }, { tenantId: t.id });
       if (res.ok) out.sent++;
     }

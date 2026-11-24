@@ -1,0 +1,14 @@
+---
+date: 2026-11-24
+by: Ashu ("move the email sending yes/no from Vercel into the platform email settings"; "update all email templates to start with Hi <firstname>"; "ask first and last name in the onboarding"), built by Claude
+request: 634
+status: built, to confirm
+---
+**An Active or Paused switch per email, in the platform Emails console; every email greets by first name; onboarding asks first and last name.**
+
+- **Status.** New table `platform.email_template_status` (migration `20261124170651_email_template_status.sql`), read and changed only through platform-admin functions, read by the send path through a service-role function. `sendLogged` (the one way the app sends an email) checks it: a paused email is not sent and nothing is logged for it; a platform test send always goes. With no row, or if the read fails, the template's own default applies (the personal notes Paused, everything else Active), so a broken store never stops a sign-in link and never starts a note that has not been switched on. Each switch is written to the platform audit log with the old and new state. Replaces the `FOUNDER_EMAILS` environment variable, which is removed.
+- **Always on (cannot be paused):** the six sign-in, confirmation, reset, re-authentication, invite and email-change emails (`auth.*`), the link code (`app.link-code`) and the three alignment emails. Pausing those would lock people out or silently break a mailing a workspace admin confirmed. The registry flag is `alwaysOn`; the console shows "Always on" and no switch, and the app ignores a table row for them.
+- **Greeting.** Every default body starts "Hi {{firstname}}," followed by the rest. `firstname` is a new macro with the fallback "there" (so it never reads "Hi ,"). Where the app knows the person it passes the first name: sign-in and account emails from the profile; the link code; participants of an alignment session; the notices to Ashu greet Ashu. Where it does not (an invitation to someone with no account, an approval or request to admins) it reads "Hi there,". Wording a platform admin has already published in the console is not touched: only the code defaults changed, so a published email needs its greeting added by hand. The two contact-form emails keep `{{name}}` for the visitor who wrote in.
+- **Names in onboarding.** About you asks first name (required unless the whole step is skipped) and last name (optional). Stored as `first_name`, `last_name` and the joined `full_name` in the person's own profile; prefilled from Google or GitHub. The greeting uses the stored first name, unless the person later edits their full name on the Account page, when its first word is used.
+- **Not changed:** the old dashboard-pasted auth templates (`apps/web/email-templates/`, `lib/email/auth-templates.ts`) are only a fallback to the Send Email hook and keep their wording.
+- **Parity.** Not tracker related.

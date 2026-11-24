@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireWorkspace } from "@/lib/session";
 import { ROLE_HELP, ROLE_LABEL } from "@/lib/roles";
-import { firstThings, hasFinishedOnboarding } from "@/lib/onboarding";
+import { firstThings, hasFinishedOnboarding, splitName } from "@/lib/onboarding";
 import { Wizard } from "../wizard";
 import { AboutForm } from "../about/form";
 
@@ -11,7 +11,7 @@ export const metadata = { title: "Welcome · Product Velocity" };
 export default async function WelcomePage() {
   const { user, active } = await requireWorkspace("/onboarding/welcome");
   if (active.isDemoAccount || active.platform || hasFinishedOnboarding(user.user_metadata, active.tenantId)) redirect("/portfolio");
-  const name = typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name : "";
+  const { first: defaultFirst, last: defaultLast } = splitName(user.user_metadata);
   const role = `${ROLE_LABEL[active.role]}${active.isApprover ? " and Approver" : ""}`;
   const things = firstThings(active.role === "creator" || active.role === "admin");
   return (
@@ -26,7 +26,7 @@ export default async function WelcomePage() {
       </section>
       <section aria-labelledby="about-you">
         <h2 id="about-you" className="wizard-sub">So your team knows who you are</h2>
-        <AboutForm defaultName={name} flow="invited" />
+        <AboutForm defaultFirst={defaultFirst} defaultLast={defaultLast} flow="invited" />
       </section>
     </Wizard>
   );
