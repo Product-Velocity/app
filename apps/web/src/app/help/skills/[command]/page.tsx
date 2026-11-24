@@ -1,18 +1,18 @@
 import { notFound } from "next/navigation";
-import { SKILLS } from "@pv/domain";
 import { SkillHelpPage } from "@/components/help/skill-page";
-import { skillByCommandSlug } from "@/components/help/skill-figures";
+import { HELP_SKILL_COMMANDS, isHelpSkill, skillBrief } from "@/components/help/skill-figures";
 
 export const dynamicParams = false;
-export const generateStaticParams = () => SKILLS.map((s) => ({ command: s.command }));
+export const generateStaticParams = () => HELP_SKILL_COMMANDS.map((command) => ({ command }));
 
 export async function generateMetadata({ params }: { params: Promise<{ command: string }> }) {
-  const s = skillByCommandSlug((await params).command);
-  return { title: `${s?.command ?? "Skill"} · AI skills · Help · Product Velocity`, description: s?.summary ? `${s.summary.charAt(0).toUpperCase()}${s.summary.slice(1)}.` : undefined };
+  const c = (await params).command;
+  const b = isHelpSkill(c) ? skillBrief(c) : undefined;
+  return { title: `${b?.command ?? "Skill"} · AI skills · Help · Product Velocity`, description: b?.summary ? `${b.summary.charAt(0).toUpperCase()}${b.summary.slice(1)}.` : undefined };
 }
 
 export default async function SkillHelp({ params }: { params: Promise<{ command: string }> }) {
-  const skill = skillByCommandSlug((await params).command);
-  if (!skill) notFound();
-  return <SkillHelpPage skill={skill} />;
+  const command = (await params).command;
+  if (!isHelpSkill(command)) notFound();
+  return <SkillHelpPage command={command} />;
 }
