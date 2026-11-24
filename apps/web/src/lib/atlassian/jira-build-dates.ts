@@ -112,6 +112,35 @@ export async function readBuildDates(getPage: (path: string) => Promise<SearchPa
   return rows;
 }
 
+/**
+ * An initiative that only lists epics (a read-only project, issue #656 follow-up): `epicKeys` = the listed epics (level 1 of its tree), `childKeys` = those epics and
+ * everything below them. started = the earliest first work start over all of them; resolved = per epic, its resolution date while it is in the done category, else null.
+ */
+export type EpicDateTarget = { item_id: string; epicKeys: string[]; childKeys: string[] };
+export type EpicDateRow = { item_id: string; started: string | null; resolved: { key: string; resolved: string | null }[] };
+
+export async function readEpicBuildDates(getPage: (path: string) => Promise<SearchPage>, categories: Map<string, Category>, targets: EpicDateTarget[]): Promise<EpicDateRow[]> {
+  const all = [...new Set(targets.flatMap((t) => [...t.epicKeys, ...t.childKeys]).filter((k) => ISSUE_KEY.test(k)))];
+  const read = new Map<string, DatedIssue>();
+  for (let i = 0; i < all.length; i += KEY_BATCH) await readBatch(getPage, all.slice(i, i + KEY_BATCH), read);
+  const rows: EpicDateRow[] = [];
+  for (const t of targets) {
+    if (!t.epicKeys.some((k) => read.has(k))) continue; // none of its epics was read (not visible, deleted): nothing is known, nothing changes
+    let started: string | null = null;
+    for (const k of new Set([...t.epicKeys, ...t.childKeys])) {
+      const issue = read.get(k);
+      const s = issue ? firstWorkStart(issue, categories) : null;
+      if (s && (started === null || s < started)) started = s;
+    }
+    const resolved = t.epicKeys.filter((k) => ISSUE_KEY.test(k)).map((key) => {
+      const e = read.get(key);
+      return { key, resolved: e?.fields?.status?.statusCategory?.key === "done" ? iso(e.fields.resolutiondate) : null };
+    });
+    rows.push({ item_id: t.item_id, started, resolved });
+  }
+  return rows;
+}
+
 export type DateDeps = {
   getPage(path: string): Promise<SearchPage>;
   getStatuses(): Promise<StatusList>;
