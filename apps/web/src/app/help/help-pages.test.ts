@@ -100,6 +100,13 @@ describe("Help pages", () => {
       expect(t, k).not.toMatch(/\b(the best|number one|world-class|market-leading|unlike [A-Z])/i);
     }
   });
+  it("shows the figures with text alternatives, labelled as example data", () => {
+    for (const k of ["lifecycle", "alignment", "sync-rules", "delivery", "ai-setup", "reports"]) expect(html[k]!, k).toContain("<figure");
+    expect(html.lifecycle!).toContain("Go with conditions");
+    expect(html.alignment!).toContain("Hidden: fewer than 5 voters");
+    expect(html["sync-rules"]!).toContain("Never leaves Product Velocity");
+    expect(html.reports!).toContain("Example data");
+  });
   it("has an index entry and a page for every skill in the catalogue", () => {
     for (const sk of SKILLS) {
       expect(html.skills!, sk.command).toContain(`href="/help/skills/${sk.command}"`);

@@ -1,3 +1,4 @@
+import { GateDecideFigure } from "@/components/help/figures";
 import { GATES_INTRO, GATES_NOTES, GATES_OUTCOMES, GATES_STEPS, GATES_TABLE, LIFECYCLE_NOTES, STATUS_INTRO } from "@/components/help-content";
 import { LifecycleFlow } from "@/components/help/lifecycle-flow";
 import { HelpCallout, HelpList, HelpPage, HelpReference, HelpSection, HelpTable, HelpWhere } from "@/components/help/help-ui";
@@ -39,6 +40,7 @@ export default function LifecyclePage() {
       </HelpSection>
 
       <HelpSection id="decide" title="Request, decide, complete">
+        <GateDecideFigure />
         <HelpTable caption="How a gate runs" table={GATES_STEPS} />
         <HelpList items={GATES_NOTES} />
         <HelpCallout title="People decide. AI co-workers prepare.">

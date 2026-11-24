@@ -1,3 +1,4 @@
+import { SyncFigure } from "@/components/help/figures";
 import { FLOW_READ, STATUS_FROM_TRACKER, STATUS_INTRO, STATUS_NEXT_IN_PV, STATUS_NOTES, STATUS_TO_TRACKER, UPDATE_LEGEND } from "@/components/help-content";
 import { HelpList, HelpPage, HelpSection, HelpTable } from "@/components/help/help-ui";
 
@@ -18,6 +19,7 @@ export default function SyncRulesHelp() {
         <HelpTable caption="Step by step" table={FLOW_READ} />
       </HelpSection>
       <HelpSection id="flows" title="What flows each way">
+        <SyncFigure />
         <HelpTable
           caption="Outbound and inbound"
           table={{

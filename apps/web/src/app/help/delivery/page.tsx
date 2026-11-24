@@ -1,3 +1,4 @@
+import { SyncFigure } from "@/components/help/figures";
 import { HelpCallout, HelpCards, HelpList, HelpPage, HelpReference, HelpSection, HelpWhere } from "@/components/help/help-ui";
 
 export const metadata = {
@@ -45,6 +46,7 @@ export default function DeliveryHelp() {
       </HelpSection>
 
       <HelpSection id="flows" title="What flows each way">
+        <SyncFigure />
         <HelpList
           items={[
             "Out: name, summary, description, hypothesis, a few labels, the milestone or due date and links to shared documents. Only after you confirm, and only past Gate B.",
