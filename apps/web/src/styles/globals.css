@@ -2071,3 +2071,14 @@ a.btn.btn-primary { color: #fff; }
 .hp-pager { display: flex; justify-content: space-between; gap: 16px; margin-top: 40px; font-family: var(--font-mono); font-size: 14px; }
 @media (max-width: 960px) { .hp-stagemap > ol { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .hp-stagemap > ol { grid-template-columns: 1fr; } }
+.hp-kindmap { margin: 16px 0; padding: 0; }
+.hp-kindmap > ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.hp-kindmap > ol > li { padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.hp-kindmap b { min-width: 240px; font-size: 15px; }
+.hp-kindmap ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.hp-kindmap ul li a { display: inline-block; font-family: var(--font-mono); font-size: 12.5px; padding: 1px 8px; border-radius: var(--radius-pill); background: var(--brand-tint); color: var(--brand-strong); text-decoration: none; }
+.hp-kindmap figcaption { margin-top: 8px; font-size: 14px; color: var(--ink-muted); }
+.hp-runs { margin: 12px 0; }
+.hp-runs dt { font-weight: 600; margin-top: 10px; }
+.hp-runs dd { margin: 2px 0 0; color: var(--ink-muted); max-width: 78ch; }
+.hp-runs dd a { font-family: var(--font-mono); font-size: 13.5px; }
