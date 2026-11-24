@@ -1,6 +1,8 @@
 ---
 issue: 644
-status: in progress
+status: done
+done: 2026-11-24
+link: PR #645
 logged: 2026-11-24
 title: Help: one page per AI skill, with an index and stage map
 ---
