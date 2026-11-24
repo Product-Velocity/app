@@ -5,8 +5,10 @@ import { readJiraLink, type LinkToRead } from "./read-jira";
 import { refreshLinkedStatuses, type RefreshDeps, type RefreshSummary } from "./refresh-linked";
 import { refreshTreesTolerant, type TreeDeps, type TreeRefresh } from "./jira-tree";
 import { refreshBuildDatesTolerant, type DateDeps, type DatesRefresh } from "./jira-build-dates";
+import { refreshAttachedEpics, type EpicTreeDeps, type EpicTreeRefresh } from "./epic-tree";
 import { recordStatusHistory, type HistoryRecord, type StatusChangeRow } from "./jira-status-history";
 import { jiraGet } from "./server";
+import { ReconnectNeeded } from "./token-provider";
 import { rowsOrThrow } from "@/lib/db-error";
 
 // Server side of the refresh of linked initiatives (issue #67, #71): wires the pure core to Jira (jiraGet) and to the database (service
@@ -71,6 +73,46 @@ function treeDepsFor(link: LinkToRead): TreeDeps {
  */
 export async function applyLinkedTrees(link: LinkToRead, siteUrl: string, opts: { itemIds?: string[] } = {}): Promise<TreeRefresh & { error: string | null }> {
   return refreshTreesTolerant(treeDepsFor(link), await linkedIssues(link, opts.itemIds), siteUrl);
+}
+
+function epicTreeDepsFor(link: LinkToRead): EpicTreeDeps {
+  const admin = createAdminClient({ via: "system" });
+  return {
+    getPage: (path) => jiraGet<SearchPage>(link.connection_id, link.site_id, path),
+    async apply(itemId, nodes, summary, category) {
+      const rows = nodes.map((n) => ({ key: n.key, id: n.id, parent: n.parent, level: n.level, position: n.position, title: n.title, type: n.type, status: n.status, category: n.category, assignee: n.assignee, url: n.url, updated: n.updated }));
+      const { error } = await admin.rpc("jira_apply_epic_tree", { p_connection: link.connection_id, p_site: link.site_id, p_item: itemId, p_nodes: rows, p_total: summary.total, p_closed: summary.closed, p_pct: summary.progressPct, p_category: category });
+      if (error) throw new Error("Could not save the epics");
+    },
+  };
+}
+
+export const NO_EPIC_READ: EpicTreeRefresh & { error: string | null } = { applied: 0, nodes: 0, failed: 0, failedItems: [], missing: {}, notEpics: {}, error: null };
+
+/**
+ * Read-only projects (issue #656): the epics listed on the initiatives of this Jira link's project, when the project is set read only, are read by
+ * key with their children into the read-only tree and the delivery roll-up. Reads Jira only. For a project that can write this does nothing (its epics
+ * are linked by Sync with Jira). A failure is returned as `error` and never fails the status read; ReconnectNeeded propagates.
+ */
+export async function applyAttachedEpics(link: LinkToRead, siteUrl: string, opts: { itemIds?: string[] } = {}): Promise<EpicTreeRefresh & { error: string | null }> {
+  const admin = createAdminClient({ via: "system" });
+  try {
+    const pl = rowsOrThrow("the project link", await admin.from("jira_project_links").select("project_id, read_only").eq("id", link.id).eq("tenant_id", link.tenant_id)) as { project_id: string; read_only: boolean }[] | null;
+    const project = pl?.[0];
+    if (!project?.read_only) return NO_EPIC_READ;
+    let items = admin.from("items").select("id").eq("tenant_id", link.tenant_id).eq("home_project_id", project.project_id).is("deleted_at", null);
+    if (opts.itemIds) items = items.in("id", opts.itemIds);
+    const ids = ((rowsOrThrow("the initiatives", await items.limit(5000)) ?? []) as { id: string }[]).map((r) => r.id);
+    if (ids.length === 0) return NO_EPIC_READ;
+    const reqs = (rowsOrThrow("the listed epics", await admin.from("item_jira_epic_requests").select("item_id, epic_key").eq("tenant_id", link.tenant_id).in("item_id", ids).in("state", ["pending", "linked"]).limit(10000)) ?? []) as { item_id: string; epic_key: string }[];
+    const by = new Map<string, string[]>();
+    for (const r of reqs) by.set(r.item_id, [...(by.get(r.item_id) ?? []), r.epic_key]);
+    const r = await refreshAttachedEpics(epicTreeDepsFor(link), [...by].map(([item_id, keys]) => ({ item_id, keys })), siteUrl);
+    return { ...r, error: null };
+  } catch (e) {
+    if (e instanceof ReconnectNeeded) throw e;
+    return { ...NO_EPIC_READ, error: e instanceof Error ? e.message.slice(0, 200) : "unknown" };
+  }
 }
 
 function dateDepsFor(link: LinkToRead): DateDeps {
@@ -143,7 +185,7 @@ export async function recordLinkedStatusHistory(link: LinkToRead, keys: string[]
   }, keys);
 }
 
-export type FullRefresh = { total: number; light: number; linked: RefreshSummary; trees: TreeRefresh & { error: string | null }; dates: DatesRefresh; history: HistoryRecord };
+export type FullRefresh = { total: number; light: number; linked: RefreshSummary; trees: TreeRefresh & { error: string | null }; epics: EpicTreeRefresh & { error: string | null }; dates: DatesRefresh; history: HistoryRecord };
 
 /**
  * The whole read of one linked Jira project, used by the daily check: the open work, then what became Done since, then the status of every
@@ -158,9 +200,11 @@ export async function refreshJiraProject(link: LinkToRead, siteUrl: string): Pro
   const linked = await refreshLinkedStatuses(depsFor(link), links, siteUrl, new Map(read.rows.map((r) => [r.key, r])));
   // after the status: the children of those initiatives (a failure of the tree is reported, it does not fail the status refresh)
   const trees = await refreshTreesTolerant(treeDepsFor(link), links, siteUrl);
+  // read-only project: the epics listed on its initiatives (same tolerance)
+  const epics = await applyAttachedEpics(link, siteUrl);
   // then the real start and completion dates from the history of those issues (same tolerance: a failure is reported, never fatal)
   const dates = await refreshBuildDatesTolerant(dateDepsFor(link), await dateTargets(createAdminClient({ via: "system" }), link.tenant_id, links));
   // who moved each linked issue to its status (a failure is reported, never fatal), read from the same history that also fills in past changes
   const history = await recordLinkedStatusHistory(link, links.map((l) => l.issue_key));
-  return { total: read.total, light, linked, trees, dates, history };
+  return { total: read.total, light, linked, trees, epics, dates, history };
 }

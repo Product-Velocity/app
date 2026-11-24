@@ -26,7 +26,7 @@ export default function DeliveryHelp() {
           columns={3}
           items={[
             { title: "GitHub", text: "Install the GitHub App, choose repositories. Each initiative gets a tracking issue; epics and tasks are its sub-issues. An organisation Project board can be linked." },
-            { title: "Jira", text: "Connect your Atlassian site, choose the Jira projects and their mapping. Each initiative links to a Jira issue, and its children are read for progress." },
+            { title: "Jira", text: "Connect your Atlassian site, choose the Jira projects and their mapping. Each initiative links to a Jira issue, and its children are read for progress. An admin can set a project to read only: nothing is then written to Jira, and the epics you list on an initiative are read and their status rolls up." },
             { title: "The same for both", text: "GitHub and Jira have the same connection screens, the same steps, the same sync actions and the same rules. GitLab is planned." },
           ]}
         />

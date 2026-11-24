@@ -16,6 +16,7 @@ const requestJiraEpics: ToolDef = {
   description:
     "Records which Jira epics belong under an initiative, by Jira key (R8P-1234, any Jira project; a Jira link also works). Use it right after creating an initiative, or when the person names epics. " +
     "It does not write to Jira: the next Sync with Jira (a button the person presses, also read daily) sets each epic's parent to the initiative's Jira issue. Epics that have no parent are linked at that Sync without a further confirmation; " +
+    "In a project an admin set READ ONLY for Jira nothing is ever written: the keys are only read at Sync (and the daily check), with their children, and their status and delivery progress roll up on the initiative. " +
     "an epic that is under another parent is shown as a move and the person confirms it. The initiative's project must be linked to a Jira project, and the initiative must not follow its Jira issue read-only. " +
     "Only epics go under an Initiative (a Jira issue above Epic level); Jira's answer for each key is shown in the Jira tab of the initiative after Sync. One epic belongs to one initiative. Up to " + MAX_EPIC_KEYS + " keys per call. " + DATA,
   inputSchema: {
@@ -48,6 +49,7 @@ const requestJiraEpics: ToolDef = {
       epics: r.current,
       notes: [
         "Nothing was sent to Jira. The next Sync with Jira links the epics that have no parent without a further confirmation; an epic that would move from another parent is shown to the person to confirm.",
+        "If the project is read only for Jira (an admin's choice under Settings, Integrations, Jira, Projects) nothing is ever written to Jira: the epics are only read at Sync and the daily check, and their status rolls up on the initiative.",
         "The person can remove a pending epic on the initiative's Jira tab.",
       ],
     };

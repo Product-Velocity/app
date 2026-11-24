@@ -45,7 +45,10 @@ async function candidates(ctx: Ctx, only?: string): Promise<{ list: Candidate[];
     if (flags.error) return null;
     for (const f of (flags.data ?? []) as { item_id: string; removed_handled_at: string | null }[]) if (f.removed_handled_at) handled.add(f.item_id);
   }
-  const open = links.filter((l) => !handled.has(l.item_id) && byId.has(l.item_id));
+  // a project that is read only for Jira (issue #656) never has its issues closed from here; read apart: without the column nothing is read only
+  const ro = await ctx.supabase.from("jira_project_links").select("connection_id, site_id, jira_project_key").eq("tenant_id", ctx.tenantId).eq("read_only", true);
+  const readOnly = (l: Link) => ((ro.error ? [] : ro.data ?? []) as { connection_id: string; site_id: string; jira_project_key: string }[]).some((p) => p.connection_id === l.connection_id && p.site_id === l.site_id && l.issue_key.startsWith(`${p.jira_project_key}-`));
+  const open = links.filter((l) => !handled.has(l.item_id) && byId.has(l.item_id) && !readOnly(l));
   const order = new Map(rows.map((r, i) => [r.id, i]));
   open.sort((a, b) => order.get(a.item_id)! - order.get(b.item_id)!);
   const shown = only ? open : open.slice(0, LIMIT);

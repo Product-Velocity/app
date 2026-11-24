@@ -7,7 +7,7 @@ import { initiativeLevelHint, sortTypesByLevel, typeOptionLabel } from "@/lib/at
 
 export type JiraTypeOption = { id: string; name: string; hierarchyLevel: number; subtask: boolean };
 export type JiraProjectChoice = { value: string; label: string; group: string; types: JiraTypeOption[]; proposal: { initiative: string | null; epic: string | null; task: string | null } };
-export type JiraRowLink = { value: string; initiative: string; epic: string | null; task: string | null };
+export type JiraRowLink = { value: string; initiative: string; epic: string | null; task: string | null; /** Read only for Jira (issue #656): nothing is ever written to Jira for this project. */ readOnly?: boolean; /** Initiatives of the project: what switching to "can write" would put in front of the next Sync. */ initiatives?: number };
 
 /**
  * One row of the Projects table on the Jira page, the twin of GitHub's ProjectRow: delivery tracker, then (for Jira) the Jira project and which of
@@ -30,6 +30,7 @@ export function JiraProjectRow({ project, tracker, link, choices, canEdit, actio
   const [initiative, setInitiative] = useState(link?.initiative ?? "");
   const [epic, setEpic] = useState(link?.epic ?? "");
   const [task, setTask] = useState(link?.task ?? "");
+  const [access, setAccess] = useState<"write" | "read">(link?.readOnly ? "read" : "write");
   const [confirming, setConfirming] = useState(false);
   const [release, setRelease] = useState<ReleaseChoice>("keep");
   const pick = (v: string) => {
@@ -64,6 +65,7 @@ export function JiraProjectRow({ project, tracker, link, choices, canEdit, actio
       <td><SelectField label={`Epic type in ${project.name}`} value={epic} onChange={setEpic} blank="None" disabled={off || !chosen} options={types} /></td>
       <td>
         <SelectField label={`Task type in ${project.name}`} value={task} onChange={setTask} blank="None" disabled={off || !chosen} options={types} />
+        <SelectField label={`Access to Jira for ${project.name}`} value={access} onChange={(v) => setAccess(v === "read" ? "read" : "write")} disabled={off || !chosen} options={[{ value: "write", label: "Product Velocity can write" }, { value: "read", label: "Read only: listen to Jira" }]} />
         {canEdit && (
           <form action={action} className="row-form">
             <input type="hidden" name="project" value={project.id} />
@@ -72,6 +74,7 @@ export function JiraProjectRow({ project, tracker, link, choices, canEdit, actio
             <input type="hidden" name="initiative" value={initiative} />
             <input type="hidden" name="epic" value={epic} />
             <input type="hidden" name="task" value={task} />
+            <input type="hidden" name="access" value={access} />
             {needsConfirm
               ? <button className="btn" type="button" disabled={!ready} aria-label={`Unlink ${project.name}`} aria-expanded={confirming} onClick={() => setConfirming(true)}>Unlink…</button>
               : <button className="btn" type="submit" disabled={!ready} aria-label={`Save ${project.name}`}>Save</button>}
@@ -99,6 +102,8 @@ export function JiraProjectRow({ project, tracker, link, choices, canEdit, actio
         </td>
       </tr>
     )}
+    {mode === "jira" && chosen && access === "read" && <tr><td colSpan={6} className="muted" role="note">Read only: Product Velocity never writes to this Jira project. Initiatives are not sent, and no epic is moved. The epics you list on an initiative (Jira tab) are read with their children and their status rolls up. Their status arrives at Sync with Jira and the daily check.</td></tr>}
+    {mode === "jira" && link?.readOnly && access === "write" && <tr><td colSpan={6} className="muted" role="note">Switching to &ldquo;can write&rdquo; sends nothing by itself. The next Sync with Jira will offer {link.initiatives ? `to create ${link.initiatives} initiative${link.initiatives === 1 ? "" : "s"} (the ones not in Jira yet) and ` : ""}to set the parent of the listed epics, and asks you first. Save to confirm the switch.</td></tr>}
     {hint && mode === "jira" && <tr><td colSpan={6} className="muted" role="note">{hint}</td></tr>}
     </>
   );

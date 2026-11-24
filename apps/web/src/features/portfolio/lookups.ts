@@ -4,7 +4,7 @@ import type { Lookups } from "./types";
 
 /** What the grid and the item panel need besides the items: projects, people, Initiative Groups and teams of the workspace. */
 export async function loadLookups(supabase: SupabaseClient, tenantId: string): Promise<Lookups> {
-  const [projects, groups, teams, people, connection, links, cycle, usernames, tenant, jira, jiraLinks] = await Promise.all([
+  const [projects, groups, teams, people, connection, links, cycle, usernames, tenant, jira, jiraLinks, readOnlyLinks] = await Promise.all([
     supabase.from("projects").select("id, name, tracker").eq("tenant_id", tenantId).order("name"),
     supabase.from("item_groups").select("name").eq("tenant_id", tenantId).order("name"),
     supabase.from("teams").select("id, name").eq("tenant_id", tenantId).order("name"),
@@ -16,6 +16,8 @@ export async function loadLookups(supabase: SupabaseClient, tenantId: string): P
     supabase.from("tenants").select("currency").eq("id", tenantId).maybeSingle(),
     supabase.from("jira_connections").select("id").eq("tenant_id", tenantId).eq("state", "connected").limit(1),
     supabase.from("item_jira_links").select("item_id, mode, issue_key, html_url, jira_status, jira_status_category, sync_checked_at, jira_updated_at, frozen_at").eq("tenant_id", tenantId),
+    // projects set read only for Jira (issue #656); a database without the column simply has none
+    supabase.from("jira_project_links").select("project_id").eq("tenant_id", tenantId).eq("read_only", true),
   ]);
   // a failed read of the links is not "no links": the grid would lose every tracker link without a word (frozen_at missing in the database)
   for (const [what, r] of [["the GitHub links", links], ["the Jira links", jiraLinks]] as const) if (r.error) console.error(JSON.stringify({ db: "read-failed", what, code: explainDbError(what, r.error).code, schemaDrift: isSchemaDrift(r.error) }));
@@ -33,7 +35,7 @@ export async function loadLookups(supabase: SupabaseClient, tenantId: string): P
           .map((l) => [l.item_id, { mode: l.mode, issueKey: l.issue_key, url: l.html_url, status: l.jira_status, category: l.jira_status_category, lastSynced: l.sync_checked_at, buildStartedAt: build.get(l.item_id)?.build_started_at ?? null, buildCompletedAt: build.get(l.item_id)?.build_completed_at ?? null, buildDays: build.get(l.item_id)?.build_days == null ? null : Number(build.get(l.item_id)!.build_days) }]),
       ),
     },
-    trackers: { jira: ((jira.data ?? []) as unknown[]).length > 0, projectTracker: Object.fromEntries(((projects.data ?? []) as { id: string; tracker?: "github" | "jira" | null }[]).map((p) => [p.id, p.tracker ?? null])) },
+    trackers: { jira: ((jira.data ?? []) as unknown[]).length > 0, projectTracker: Object.fromEntries(((projects.data ?? []) as { id: string; tracker?: "github" | "jira" | null }[]).map((p) => [p.id, p.tracker ?? null])), jiraReadOnly: readOnlyLinks.error ? [] : ((readOnlyLinks.data ?? []) as { project_id: string }[]).map((r) => r.project_id) },
     members: ((people.data ?? []) as { user_id: string; email: string }[]).map((p) => ({ user_id: p.user_id, email: p.email, github_username: githubName.get(p.user_id) ?? null })),
     groups: ((groups.data ?? []) as { name: string }[]).map((g) => g.name),
     teams: (teams.data ?? []) as { id: string; name: string }[],
