@@ -2,7 +2,7 @@
 
 import { requireWorkspace } from "@/lib/session";
 import { DbReadError, safeReadMessage } from "@/lib/db-error";
-import { applyLinkedBuildDates, applyLinkedStatuses, applyLinkedTrees } from "@/lib/atlassian/refresh-jira";
+import { applyAttachedEpics, applyLinkedBuildDates, applyLinkedStatuses, applyLinkedTrees } from "@/lib/atlassian/refresh-jira";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 import type { RefreshSummary } from "@/lib/atlassian/refresh-linked";
 import type { PlanItem, PushItemResult, ReceiveItem, SyncChoice, SyncConfirmResult, SyncPreviewResult, TakenOver } from "@/lib/github/push-types";
@@ -88,11 +88,41 @@ export async function startJiraSync(ids: string[]): Promise<SyncPreviewResult> {
     }
   }
 
+  // read-only projects (issue #656): the epics listed on an initiative without a Jira issue are read by key (Jira is only read, never written)
+  const epicNote = new Map<string, { text: string; error?: string }>();
+  const linkless = visible.filter((i) => !links.some((l) => l.item_id === i));
+  if (linkless.length > 0) {
+    const { data: homes } = await supabase.from("items").select("id, home_project_id").eq("tenant_id", tenant).in("id", linkless);
+    const { data: roLinks } = await supabase.from("jira_project_links").select("id, tenant_id, connection_id, site_id, jira_project_key, project_id").eq("tenant_id", tenant).eq("read_only", true);
+    for (const pl of (roLinks ?? []) as (PLink & { project_id: string })[]) {
+      const itemIds = ((homes ?? []) as { id: string; home_project_id: string | null }[]).filter((h) => h.home_project_id === pl.project_id).map((h) => h.id);
+      if (itemIds.length === 0) continue;
+      const conn = connection(pl.connection_id);
+      const site = conn?.sites.find((s) => s.id === pl.site_id);
+      if (!conn || conn.state !== "connected" || !site) { for (const i of itemIds) epicNote.set(i, { text: "", error: conn?.state === "reconnect_needed" ? RECONNECT : "Jira is not connected for this workspace." }); continue; }
+      try {
+        const r = await applyAttachedEpics(pl, site.url, { itemIds });
+        for (const i of itemIds) {
+          const bits = [r.missing[i]?.length ? `Jira did not return ${r.missing[i]!.join(", ")}.` : "", r.notEpics[i]?.length ? `${r.notEpics[i]!.join(", ")} ${r.notEpics[i]!.length === 1 ? "is" : "are"} not at epic level and left out.` : "", r.failedItems.includes(i) ? "The epics could not be saved just now." : ""].filter(Boolean);
+          epicNote.set(i, { text: ["Read only: the listed epics were read, nothing was written to Jira.", ...bits].join(" ") });
+        }
+        if (r.error) console.error(JSON.stringify({ jira: "sync-epics", error: r.error }));
+      } catch (e) {
+        for (const i of itemIds) epicNote.set(i, { text: "", error: e instanceof ReconnectNeeded ? RECONNECT : "Jira could not be read just now. Try again in a minute." });
+      }
+    }
+  }
+
   const received: ReceiveItem[] = visible.map((id): ReceiveItem => {
     const it = seen.get(id)!;
     const base = { id, code: it.item_code, name: it.initiative_name, tracker: "jira" as const, received: [], issueNumber: null, issueUrl: null };
     const link = links.find((l) => l.item_id === id);
-    if (!link) return { ...base, status: "not_linked", message: "Not in Jira yet." };
+    if (!link) {
+      const n = epicNote.get(id);
+      if (n?.error) return { ...base, status: "error", message: n.error };
+      if (n) return { ...base, status: "in_step", readOnly: true, message: n.text };
+      return { ...base, status: "not_linked", message: "Not in Jira yet." };
+    }
     const withIssue = { ...base, ...(link.mode === "follow" ? { readOnly: true as const } : {}), issueLabel: link.issue_key, issueUrl: link.html_url };
     const why = failed.get(id);
     if (why) return { ...withIssue, status: "error", message: why };

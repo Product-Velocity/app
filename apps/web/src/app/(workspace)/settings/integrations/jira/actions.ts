@@ -98,6 +98,11 @@ export async function linkJiraProject(form: FormData): Promise<void> {
       p_epic_id: epic, p_epic_name: nameOf(detail.issueTypes, epic), p_task_id: task, p_task_name: nameOf(detail.issueTypes, task),
     });
     if (!error) await proposePriorityOnLink(ctx.supabase, project, connection, site);
+    // read only or can write (issue #656): the admin's choice on the row, applied after the link; the database checks that the person is a human admin
+    if (!error && form.has("access")) {
+      const ro = await ctx.supabase.rpc("jira_set_project_read_only", { p_project: project, p_read_only: text("access") === "read" });
+      if (ro.error) status = "error";
+    }
     if (error) status = error.code === "PV008" ? "link-tracker" : error.code === "PV009" ? "link-unavailable" : error.code === "23505" ? "link-taken" : "error";
   } catch (e) {
     // redirect() throws a control-flow error that must pass through
@@ -324,5 +329,6 @@ export async function saveJiraProject(form: FormData): Promise<void> {
   next.set("initiative", String(form.get("initiative") ?? ""));
   next.set("epic", String(form.get("epic") ?? ""));
   next.set("task", String(form.get("task") ?? ""));
+  next.set("access", String(form.get("access") ?? "write"));
   return linkJiraProject(next);
 }

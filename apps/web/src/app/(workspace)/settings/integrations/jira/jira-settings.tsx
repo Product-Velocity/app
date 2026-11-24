@@ -161,6 +161,15 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
     ? [await readJiraCatalog(selected.connection_id, selected.site_id, selected.jira_project_key).catch((): null => null)].filter((c): c is TrackerCatalog => c !== null)
     : [];
   const linkedCounts = onProjects ? await countLinkedInitiatives(supabase, active.tenantId, ((projectRows ?? []) as { id: string }[]).map((p) => p.id)) : new Map<string, number>();
+  // read only per project (issue #656), read apart so a database without the column shows everything as "can write"; the count tells an admin what switching would send
+  const readOnlyOf = new Map<string, number>();
+  if (onProjects) {
+    const { data: roRows, error: roErr } = await supabase.from("jira_project_links").select("project_id").eq("tenant_id", active.tenantId).eq("read_only", true);
+    if (!roErr) for (const r of (roRows ?? []) as { project_id: string }[]) {
+      const { count } = await supabase.from("items").select("id", { count: "exact", head: true }).eq("tenant_id", active.tenantId).eq("home_project_id", r.project_id).is("deleted_at", null);
+      readOnlyOf.set(r.project_id, count ?? 0);
+    }
+  }
   const projectLinks: JiraProjectLinkView[] = ((projectRows ?? []) as { id: string; name: string }[]).map((p) => {
     const l = links.get(p.id);
     return {
@@ -173,7 +182,7 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
       showIgnored: ignored === p.id,
       tracker: (p as { tracker?: string | null }).tracker ?? null,
       linkedInitiatives: linkedCounts.get(p.id) ?? 0,
-      rowLink: l ? { value: `${l.connection_id}|${l.site_id}|${l.jira_project_key}`, initiative: l.initiative_type_id, epic: l.epic_type_id, task: l.task_type_id } : null,
+      rowLink: l ? { value: `${l.connection_id}|${l.site_id}|${l.jira_project_key}`, initiative: l.initiative_type_id, epic: l.epic_type_id, task: l.task_type_id, readOnly: readOnlyOf.has(p.id), initiatives: readOnlyOf.get(p.id) ?? 0 } : null,
       mapping: mappings.get(p.id) ?? null,
     };
   });

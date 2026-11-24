@@ -512,3 +512,39 @@ describe("select fields: Health, Initiative Status and Initiative Phase (issue #
     expect(j.hits.find((h) => h.path.startsWith("/issue/"))!.path).toBe("/issue/PLAT-1?fields=summary,description,labels");
   });
 });
+
+describe("a project that is read only for Jira (issue #656)", () => {
+  beforeEach(() => { tables.jira_project_links = [{ ...plink, read_only: true }]; });
+  it("the preview is blocked before Jira is even read, for a linked initiative and for one with no issue", async () => {
+    const j = fakeJira({ summary: "Checkout" });
+    expect((await evaluate((await loadIt())!, {}, j.call)).kind).toBe("read_only");
+    tables.item_jira_links = null;
+    expect((await evaluate((await loadIt())!, {}, j.call)).kind).toBe("read_only");
+    expect(j.hits).toEqual([]);
+  });
+  it("a confirmed send writes nothing and says why, even for an initiative Product Velocity used to own", async () => {
+    const j = fakeJira({ summary: "Checkout (Jira)" });
+    const r = await writeOne(ctx, ID, [], { call: j.call });
+    expect(r).toMatchObject({ result: { outcome: "blocked", message: expect.stringContaining("read only for Jira") } });
+    expect(j.hits).toEqual([]);
+    expect(rpcCalls).toEqual([]);
+  });
+  it("listed epics are only checked (reads), never linked: no PUT, no POST, nothing recorded", async () => {
+    tables.item_jira_epic_requests = [{ epic_key: "R8P-1", state: "pending", last_error: null }];
+    const j = fakeJira(null, { epics: [{ id: "5", key: "R8P-1", fields: { summary: "Payments", issuetype: { name: "Epic", hierarchyLevel: 1 }, status: { name: "Doing", statusCategory: { key: "indeterminate" } }, updated: "2026-11-20T10:00:00.000+0000" } }] });
+    const c = await checkEpics(ctx, ID, { call: j.call });
+    expect(c).toMatchObject({ ok: true, lines: [{ key: "R8P-1", ok: true }] });
+    expect(writes(j.hits)).toEqual([]);
+    const { autoLinkEpics } = await import("./jira-sync-engine");
+    const l = (await loadIt())!;
+    expect(await autoLinkEpics(ctx, l, { call: j.call })).toMatchObject({ message: null });
+    expect(writes(j.hits)).toEqual([]);
+    expect(rpcCalls).toEqual([]);
+  });
+  it("a listed key that is not an epic or does not exist is said, not silently dropped", async () => {
+    tables.item_jira_epic_requests = [{ epic_key: "R8P-1", state: "pending", last_error: null }, { epic_key: "R8P-2", state: "pending", last_error: null }];
+    const j = fakeJira(null, { epics: [{ id: "6", key: "R8P-1", fields: { summary: "A story", issuetype: { name: "Story", hierarchyLevel: 0 }, status: { name: "Doing", statusCategory: { key: "new" } }, updated: "2026-11-20T10:00:00.000+0000" } }] });
+    const c = await checkEpics(ctx, ID, { call: j.call });
+    expect(c.ok && c.lines.map((x) => [x.key, x.ok])).toEqual([["R8P-1", false], ["R8P-2", false]]);
+  });
+});

@@ -301,7 +301,7 @@ const JIRA_CATEGORY = { new: "to do", indeterminate: "in progress", done: "done"
  * Nothing is written to Jira here: Sync with Jira shows each epic in its preview and, after the person confirms, creates the Jira Initiative if
  * needed and sets each epic's parent to it. Only for an initiative Product Velocity may send (no Jira link yet, or one it owns).
  */
-function EpicRequests({ controller, itemId }: { controller: PortfolioController; itemId: string }) {
+function EpicRequests({ controller, itemId, readOnly = false }: { controller: PortfolioController; itemId: string; /** The project is read only for Jira (issue #656): the keys are read, never written. */ readOnly?: boolean }) {
   const [rows, setRows] = useState<JiraEpicRequestRow[] | null>(null);
   const [text, setText] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -316,7 +316,7 @@ function EpicRequests({ controller, itemId }: { controller: PortfolioController;
     if (!r.ok) return r.error;
     setChecks(Object.fromEntries(r.lines.map((l) => [l.key, { ok: l.ok, text: l.text }])));
     const bad = r.lines.filter((l) => !l.ok).length;
-    return r.lines.length === 0 ? null : bad === 0 ? `Checked with Jira: ${r.lines.length === 1 ? "the epic is" : `all ${r.lines.length} epics are`} OK. Press Sync with Jira to link ${r.lines.length === 1 ? "it" : "them"}.` : `Checked with Jira: ${r.lines.length - bad} OK, ${bad} to fix or take off the list. Press Sync with Jira to link the OK ones.`;
+    return r.lines.length === 0 ? null : bad === 0 ? `Checked with Jira: ${r.lines.length === 1 ? "the epic is" : `all ${r.lines.length} epics are`} OK. Press Sync with Jira to ${readOnly ? "read" : "link"} ${r.lines.length === 1 ? "it" : "them"}.` : `Checked with Jira: ${r.lines.length - bad} OK, ${bad} to fix or take off the list. Press Sync with Jira to ${readOnly ? "read" : "link"} the OK ones.`;
   };
   const add = async () => {
     if (parsed.invalid.length > 0) { setMessage(`These are not Jira issue keys: ${parsed.invalid.join(", ")}.`); return; }
@@ -342,7 +342,9 @@ function EpicRequests({ controller, itemId }: { controller: PortfolioController;
   return (
     <section aria-label="Epics under this initiative">
       <h4>Link Jira epics</h4>
-      <p className="muted">Already know which Jira epics belong under this initiative? Enter their keys, from any Jira project. Product Velocity checks them with Jira (they must exist and be epics). Then Sync with Jira shows each one; after you confirm, it creates the Jira Initiative if it does not exist yet and sets each epic&apos;s parent to it. Nothing else about the epic is changed, and nothing is written to Jira until you confirm. This needs the project&apos;s initiative type to be a level above Epic (Jira page).</p>
+      {readOnly
+        ? <p className="muted">This project is read only for Jira: nothing is ever written to Jira. Enter the keys of the Jira epics that deliver this initiative, from any Jira project. Product Velocity checks them with Jira (they must exist and be epics). Sync with Jira and the daily check then read them with their children, and their status and delivery progress roll up here. A closed epic never completes the initiative.</p>
+        : <p className="muted">Already know which Jira epics belong under this initiative? Enter their keys, from any Jira project. Product Velocity checks them with Jira (they must exist and be epics). Then Sync with Jira shows each one; after you confirm, it creates the Jira Initiative if it does not exist yet and sets each epic&apos;s parent to it. Nothing else about the epic is changed, and nothing is written to Jira until you confirm. This needs the project&apos;s initiative type to be a level above Epic (Jira page).</p>}
       {message && <p role="status" className="notice">{message}</p>}
       {rows && rows.length > 0 && (
         <ul className="ip-list">
@@ -352,7 +354,7 @@ function EpicRequests({ controller, itemId }: { controller: PortfolioController;
               <li key={r.key}>
                 <span className="mono">{r.key}</span> · {r.state === "linked" ? `linked: under the Initiative${r.previousParent ? ` (was under ${r.previousParent})` : ""}`
                   : r.state === "failed" ? `Jira refused it: ${r.lastError ?? "no reason given"}`
-                  : c ? <><strong>{c.ok ? "OK" : "Cannot be linked"}</strong>: <span className={c.ok ? undefined : "pf-error"}>{c.text.startsWith(r.key) ? c.text.slice(r.key.length).replace(/^[\s:]+/, "") : c.text}</span></> : "not checked yet"}
+                  : c ? <><strong>{c.ok ? "OK" : readOnly ? "Cannot be read" : "Cannot be linked"}</strong>: <span className={c.ok ? undefined : "pf-error"}>{c.text.startsWith(r.key) ? c.text.slice(r.key.length).replace(/^[\s:]+/, "") : c.text}</span></> : "not checked yet"}
                 {controller.canEdit && r.state !== "linked" && <> <button type="button" className="btn" disabled={busy} aria-label={`Take ${r.key} off the list`} onClick={() => void remove(r.key)}>Remove</button></>}
               </li>
             );
@@ -405,7 +407,7 @@ function JiraTab({ controller, lookups, itemId }: { controller: PortfolioControl
     return (
       <div className="ip-empty">
         <h3>Jira</h3>
-        {lookups.trackers?.projectTracker[String(row?.home_project)] === "jira" && <EpicRequests controller={controller} itemId={itemId} />}
+        {lookups.trackers?.projectTracker[String(row?.home_project)] === "jira" && <EpicRequests controller={controller} itemId={itemId} readOnly={lookups.trackers?.jiraReadOnly?.includes(String(row?.home_project)) === true} />}
         <p className="muted">No Jira issue is linked to this initiative yet. Press Sync with Jira (in the grid or above) to create one from this initiative after a preview and your confirmation. Epics and tasks are created in Jira, and their status comes back here.</p>
       </div>
     );

@@ -37,7 +37,7 @@ type ItemRow = { initiative_phase?: string | null; tags?: string[]; focus_area?:
 /** The allowlisted fields that are columns of items; Tags live in item_tags and are read apart. */
 export const ITEM_COLUMNS: Record<string, string> = Object.fromEntries(OUTBOUND_JIRA_FIELDS.flatMap((k) => { const c = columnOnItems(FIELD_BY_KEY[k]!); return c ? [[k, c]] : []; }));
 type LinkRow = { item_id: string; connection_id: string; site_id: string; issue_key: string; issue_id: string | null; html_url: string | null; mode: "follow" | "push"; sync_base: JiraBase | null; sent_hash: string | null; frozen_at?: string | null };
-type ProjectLink = { selectRows?: unknown; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; field_map?: unknown; /** Rows of tracker_field_config (the field configuration), as stored. */ config?: unknown };
+type ProjectLink = { /** The project is read only for Jira (issue #656): nothing is ever written to Jira for it. */ read_only?: boolean; selectRows?: unknown; project_id: string; connection_id: string; site_id: string; jira_project_key: string; jira_project_name: string; initiative_type_id: string; field_map?: unknown; /** Rows of tracker_field_config (the field configuration), as stored. */ config?: unknown };
 type Conn = { id: string; sites: { id: string; name: string; url: string }[]; state: string };
 
 export type Loaded = { /** Ready for build (issue #358): Gate B passed (ready_for_build_at set, phase Build) and the Jira move to To do was not handled yet. */ readyPending?: boolean; /** Artifact links and share links of files, for the Artifacts and Files sections. */ artifacts?: Link[]; files?: Link[]; /** The documents left shared, each as a name and a public link (the Documents section). */ documents?: Link[]; /** Epics asked for under this initiative (issue #431) that are not under it yet: pending ones and the ones Jira refused last time. */ epicRequests?: EpicRequest[]; /** What the preview says about the documents (sent, skipped, too long). */ documentsNote?: string; /** Files that have no share link and so are not in the description. */ unsharedFiles?: number; projectName?: string; /** Set when the initiative was removed (Trash), its Jira issue was closed by Product Velocity, and it was restored since: the issue is not reopened. */ closedWhileRemoved?: string | null; item: ItemRow; link: LinkRow | null; plink: ProjectLink | null; conn: Conn | null; siteUrl: string | null };
@@ -58,6 +58,9 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   if (plink) {
     const { data: m } = await ctx.supabase.from("jira_project_links").select("field_map").eq("tenant_id", ctx.tenantId).eq("project_id", plink.project_id).maybeSingle();
     plink.field_map = (m as { field_map?: unknown } | null)?.field_map ?? {};
+    // read only (migration jira_read_only), read apart too: without the column nothing is read only
+    const { data: ro } = await ctx.supabase.from("jira_project_links").select("read_only").eq("tenant_id", ctx.tenantId).eq("project_id", plink.project_id).maybeSingle();
+    plink.read_only = (ro as { read_only?: boolean } | null)?.read_only === true;
     // the field configuration (what was switched off or re-pointed for this project), read apart for the same reason: no table, no configuration
     const { data: cfg } = await ctx.supabase.from("tracker_field_config").select("slot, enabled, field_id, label_text").eq("tenant_id", ctx.tenantId).eq("project_id", plink.project_id).eq("provider", "jira");
     // Health, Initiative Status and Initiative Phase on custom select fields (issue #512), read apart: no table, nothing mapped
@@ -113,6 +116,7 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
 }
 
 export const pvOf = (i: ItemRow): PvItem => ({ id: i.id, health: (i as { health?: string | null }).health ?? null, initiative_status: (i as { initiative_status?: string | null }).initiative_status ?? null, initiative_phase: i.initiative_phase ?? null, name: i.initiative_name, summary: i.summary, focus_area: i.focus_area, value_type: i.value_type, g2m_quarter: i.g2m_quarter, tags: i.tags, description: i.description, hypothesis: i.hypothesis, moscow: i.moscow, g2m_date_est: i.g2m_date_est, planned_start: i.planned_start, stack_rank: i.stack_rank, change_type: i.change_type, theme: i.theme });
+export const READ_ONLY_NOT_SENT = "This project is read only for Jira: nothing is sent. An admin can switch it to \"can write\" under Settings, Integrations, Jira, Projects.";
 const RECONNECT = "Jira needs a new sign-in. A workspace admin can sign in again under Settings > Integrations > Jira.";
 
 /**
@@ -141,7 +145,7 @@ export async function planEpicsFor(l: Loaded, req: JiraRequest): Promise<EpicPla
  */
 export async function autoLinkEpics(ctx: Ctx, l: Loaded, deps: { call?: JiraRequest } = {}): Promise<{ l: Loaded; message: string | null }> {
   const issueKey = l.link?.issue_key;
-  if (!l.epicRequests?.length || !issueKey || l.link?.mode === "follow" || !l.conn || l.conn.state !== "connected" || !l.siteUrl) return { l, message: null };
+  if (l.plink?.read_only || !l.epicRequests?.length || !issueKey || l.link?.mode === "follow" || !l.conn || l.conn.state !== "connected" || !l.siteUrl) return { l, message: null };
   try {
     const call = deps.call ?? jiraRequest(l.conn.id, l.link?.site_id ?? l.plink!.site_id);
     const { auto } = splitEpicPlan(await planEpicsFor(l, call));
@@ -159,6 +163,25 @@ export async function autoLinkEpics(ctx: Ctx, l: Loaded, deps: { call?: JiraRequ
   }
 }
 
+/** The check on a read-only project: whether each listed epic can be read as an epic (reads Jira only, writes nothing). */
+async function checkReadOnlyEpics(l: Loaded, call?: JiraRequest): Promise<{ key: string; text: string; ok: boolean }[]> {
+  const requests = l.epicRequests ?? [];
+  if (!l.conn || l.conn.state !== "connected" || !l.siteUrl || requests.length === 0) return [];
+  try {
+    const req = call ?? jiraRequest(l.conn.id, l.link?.site_id ?? l.plink!.site_id);
+    const read = await readIssuesByKey((p) => getJson<SearchPage>(req, p), requests.map((r) => r.key), l.siteUrl);
+    const rows = new Map(read.rows.map((r) => [r.key, r]));
+    return requests.map((r) => {
+      const row = rows.get(r.key);
+      if (!row) return { key: r.key, ok: false, text: `Jira does not return ${r.key}: it does not exist or this sign-in cannot see it.` };
+      if (row.level !== 1) return { key: r.key, ok: false, text: `${r.key} is ${row.type ? `a ${row.type}` : "not an epic"}, not an epic: only epics can be listed.` };
+      return { key: r.key, ok: true, text: `${r.key}${row.title ? ` ${row.title}` : ""}: read at the next Sync (read only, nothing is written to Jira).` };
+    });
+  } catch {
+    return requests.map((r) => ({ key: r.key, ok: false, text: `${r.key}: Jira could not be read just now. Try again in a minute.` }));
+  }
+}
+
 export type EpicCheck = { ok: true; lines: { key: string; text: string; ok: boolean }[] } | { ok: false; error: string };
 
 /** The check on the initiative's Jira tab: for each epic asked for, whether a send would link it (OK) or why not. Reads Jira only. */
@@ -166,6 +189,7 @@ export async function checkEpics(ctx: Ctx, id: string, deps: { call?: JiraReques
   const l = await load(ctx, id);
   if (!l) return { ok: false, error: "This initiative was not found." };
   if (!l.epicRequests?.length) return { ok: true, lines: [] };
+  if (l.plink?.read_only) return { ok: true, lines: await checkReadOnlyEpics(l, deps.call) };
   if (l.link?.mode === "follow") return { ok: false, error: "This initiative follows its Jira issue read-only: take ownership first." };
   if (!l.plink && !l.link) return { ok: false, error: "This initiative's project is not linked to a Jira project." };
   if (!l.conn || l.conn.state !== "connected" || !l.siteUrl) return { ok: false, error: l.conn?.state === "reconnect_needed" ? RECONNECT : "Jira is not connected for this workspace." };
@@ -181,6 +205,7 @@ export type Evaluated =
   | { kind: "error"; message: string; reconnect?: boolean }
   | { kind: "missing"; message: string }
   | { kind: "follows" }
+  | { kind: "read_only" }
   | { kind: "no_project" }
   | { kind: "discover" }
   | { kind: "frozen" }
@@ -188,6 +213,7 @@ export type Evaluated =
 
 /** Reads the issue (if there is one) and decides, given the choices made so far, what would go out. */
 export async function evaluate(l: Loaded, picks: Partial<Record<TextField, "pv" | "jira">>, call?: JiraRequest, selectPicks: Partial<Record<SelectKey, "pv" | "jira">> = {}): Promise<Evaluated> {
+  if (l.plink?.read_only) return { kind: "read_only" };
   if (l.link?.frozen_at) return { kind: "frozen" };
   if (l.link?.mode === "follow") return { kind: "follows" };
   if (!l.link && !l.plink) return { kind: "no_project" };
@@ -285,6 +311,7 @@ export async function writeOne(ctx: Ctx, id: string, choices: SyncChoice[], deps
     else if (c.field === "health" || c.field === "initiative_status") { selectPicks[c.field] = c.choice === "pv" ? "pv" : "jira"; selectSeen[c.field] = c.ghHash; }
   }
   const e = await evaluate(l, picks, deps.call, selectPicks);
+  if (e.kind === "read_only") return { result: { ...base, outcome: "blocked", message: READ_ONLY_NOT_SENT }, taken: [] };
   if (e.kind === "follows") return { result: { ...base, outcome: "blocked", message: "This initiative follows its Jira issue read-only: nothing is sent." }, taken: [] };
   if (e.kind === "frozen") return { result: { ...base, outcome: "blocked", message: FROZEN_NOT_SYNCED }, taken: [] };
   if (e.kind === "discover") return { result: { ...base, outcome: "blocked", message: DISCOVER_NOT_SYNCED }, taken: [] };

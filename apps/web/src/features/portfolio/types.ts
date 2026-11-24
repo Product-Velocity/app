@@ -33,7 +33,7 @@ export type Lookups = {
   /** The Jira issue each linked initiative follows or owns (a link to Jira, from item_jira_links). */
   jira?: { links: Record<string, JiraLinkInfo> };
   /** Jira: whether the workspace has a connected Jira sign-in, and the tracker of each project (decides what the Sync button is called). */
-  trackers?: { jira: boolean; projectTracker: Record<string, "github" | "jira" | null> };
+  trackers?: { jira: boolean; projectTracker: Record<string, "github" | "jira" | null>; /** Projects set read only for Jira (issue #656). */ jiraReadOnly?: string[] };
   /** The organization currency (ISO code, from Workspace settings): the unit of Business Value. Null until an admin sets it. */
   currency?: string | null;
 };
