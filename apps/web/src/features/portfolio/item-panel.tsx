@@ -341,13 +341,13 @@ function EpicRequests({ controller, itemId, readOnly = false }: { controller: Po
   const waiting = (rows ?? []).filter((r) => r.state !== "linked").length;
   return (
     <section aria-label="Epics under this initiative">
-      <h4>Link Jira epics</h4>
+      <h4>Link Jira epics{rows && rows.length > 0 ? ` (${rows.length} listed)` : ""}</h4>
       {readOnly
         ? <p className="muted">This project is read only for Jira: nothing is ever written to Jira. Enter the keys of the Jira epics that deliver this initiative, from any Jira project. Product Velocity checks them with Jira (they must exist and be epics). Sync with Jira and the daily check then read them with their children, and their status and delivery progress roll up here. A closed epic never completes the initiative.</p>
         : <p className="muted">Already know which Jira epics belong under this initiative? Enter their keys, from any Jira project. Product Velocity checks them with Jira (they must exist and be epics). Then Sync with Jira shows each one; after you confirm, it creates the Jira Initiative if it does not exist yet and sets each epic&apos;s parent to it. Nothing else about the epic is changed, and nothing is written to Jira until you confirm. This needs the project&apos;s initiative type to be a level above Epic (Jira page).</p>}
       {message && <p role="status" className="notice">{message}</p>}
       {rows && rows.length > 0 && (
-        <ul className="ip-list">
+        <ul className="ip-list ip-scroll" aria-label={`${rows.length} Jira epics listed`} tabIndex={0}>
           {rows.map((r) => {
             const c = checks[r.key];
             return (
@@ -404,11 +404,45 @@ function JiraTab({ controller, lookups, itemId }: { controller: PortfolioControl
     setMessage(undo ? "Put back as it was." : mode === "push" ? "Product Velocity now owns this initiative. Nothing was written to Jira: press Sync with Jira to see what would be sent." : "This initiative is read only again. Nothing is sent to Jira.");
   };
   if (!link) {
+    const projectId = String(row?.home_project);
+    const readOnlyProject = lookups.trackers?.jiraReadOnly?.includes(projectId) === true;
+    const epics = (kids ?? []).filter((k) => k.level === 1);
+    const children = (kids ?? []).filter((k) => k.level === 2);
     return (
       <div className="ip-empty">
         <h3>Jira</h3>
-        {lookups.trackers?.projectTracker[String(row?.home_project)] === "jira" && <EpicRequests controller={controller} itemId={itemId} readOnly={lookups.trackers?.jiraReadOnly?.includes(String(row?.home_project)) === true} />}
-        <p className="muted">No Jira issue is linked to this initiative yet. Press Sync with Jira (in the grid or above) to create one from this initiative after a preview and your confirmation. Epics and tasks are created in Jira, and their status comes back here.</p>
+        {lookups.trackers?.projectTracker[projectId] === "jira" && <EpicRequests controller={controller} itemId={itemId} readOnly={readOnlyProject} />}
+        {readOnlyProject && (
+          <section aria-label="Epics read from Jira">
+            <h4>Read from Jira</h4>
+            {kidsError && <p role="alert" className="pf-error">Could not load the issues: {kidsError}</p>}
+            {!kidsError && !kids && <p role="status" className="muted">Loading the issues…</p>}
+            {kids && kids.length === 0 && <p className="muted">Nothing read yet. Press Sync with Jira (in the grid or above) to read the epics listed above with their children. Nothing is written to Jira.</p>}
+            {kids && kids.length > 0 && (
+              <>
+                <p role="status"><strong>{epics.length} {epics.length === 1 ? "epic" : "epics"}</strong> · <strong>{children.length} child {children.length === 1 ? "issue" : "issues"}</strong>{total != null ? <> · <strong>{closed} of {total}</strong> done (counted at the lowest level; a done issue means the build is progressing, not that the initiative is complete)</> : null}</p>
+                <div className="ip-scroll" role="region" aria-label="Epics and their children" tabIndex={0}>
+                  <table className="table ip-gh" aria-label="Epics read from Jira and their children">
+                    <thead><tr>{["Issue", "Title", "Type", "Status", "Assignee"].map((h) => <th key={h} scope="col">{h}</th>)}</tr></thead>
+                    <tbody>
+                      {kids.map((k) => (
+                        <tr key={k.key} className={k.level === 2 ? "ip-gh-task" : "ip-gh-epic"}>
+                          <td className="mono">{k.level === 2 ? "↳ " : ""}{k.url ? <a href={k.url} target="_blank" rel="noreferrer">{k.key}</a> : k.key}</td>
+                          <td>{k.title}</td>
+                          <td>{k.type ?? <span className="muted">—</span>}</td>
+                          <td>{k.status ?? <span className="muted">—</span>}{k.category ? <> <span className="muted">({JIRA_CATEGORY[k.category]})</span></> : null}</td>
+                          <td>{k.assignee ?? <span className="muted">Unassigned</span>}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+            <p className="muted">Read only: change issues in Jira. This list is read when you press Sync with Jira, and every day.</p>
+          </section>
+        )}
+        {!readOnlyProject && <p className="muted">No Jira issue is linked to this initiative yet. Press Sync with Jira (in the grid or above) to create one from this initiative after a preview and your confirmation. Epics and tasks are created in Jira, and their status comes back here.</p>}
       </div>
     );
   }

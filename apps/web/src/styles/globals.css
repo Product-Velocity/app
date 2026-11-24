@@ -495,6 +495,9 @@ input.sw-input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2
 .ip-suggestion { background: #fff8e1; border: 1px solid #ecd9a0; border-radius: 6px; padding: 8px 10px; }
 .ip-empty { padding: 4px 0; }
 .ip-gh { margin-top: 8px; font-size: 12px; }
+/* long lists on the item panel scroll inside the panel (issue #660) */
+.ip-scroll { max-height: 360px; overflow: auto; border: 1px solid var(--grey-1); border-radius: 6px; padding: 4px 8px; }
+.ip-scroll:focus-visible { outline: 2px solid var(--blue, #2270ED); outline-offset: 1px; }
 .ip-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .ip-log p { margin: 0; }
 .ip-alignment { display: grid; gap: 14px; }
