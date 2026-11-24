@@ -11,6 +11,7 @@ export const HELP_TOPICS: HelpTopic[] = [
 ];
 
 export const HELP_REFERENCE: { slug: string; title: string; summary: string }[] = [
+  { slug: "get-started", title: "Get started", summary: "The route from your first sign-in to a first decided initiative, a first-run checklist and a note for leaders." },
   { slug: "columns", title: "Fields and how they sync", summary: "Every column: what it is, how it syncs with GitHub and Jira, who can edit it and how it is updated." },
   { slug: "goal-fields", title: "Goal and outcome fields", summary: "The columns that record the expected impact, the key result and the outcome review." },
   { slug: "phases", title: "Phase by phase", summary: "For each phase: the question, the work, the evidence you keep, and how Product Velocity and AI co-workers help." },
