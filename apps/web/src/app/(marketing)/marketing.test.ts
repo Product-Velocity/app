@@ -9,6 +9,7 @@ import robots from "../robots";
 import sitemap from "../sitemap";
 import { GET as llms } from "../llms.txt/route";
 import { checkEarlyAccess, makeLimiter, readEarlyAccess } from "./early-access";
+import { ctaName } from "./analytics";
 import { ClassicHome } from "./home-classic";
 import { Home } from "./home";
 import { HOME_DESCRIPTION, HOME_JSON_LD, HOME_TITLE } from "./seo";
@@ -129,6 +130,20 @@ describe("search and AI crawler files", () => {
     expect(classic).toContain("<GoogleTagManager />");
     const root = join(dir, "../layout.tsx");
     expect(readFileSync(root, "utf8")).not.toContain("googletagmanager");
+  });
+  it("the banner grants only analytics storage, never ads, and names every homepage button by where it goes", () => {
+    const a = readFileSync(join(dir, "analytics.tsx"), "utf8");
+    expect(a).toContain("analytics_storage: c");
+    expect(a).not.toMatch(/ad_storage|ad_user_data|ad_personalization/);
+    expect(readFileSync(join(dir, "seo.tsx"), "utf8")).toContain("<Analytics />");
+    expect(ctaName("/demo")).toBe("see_demo");
+    expect(ctaName("/sign-in")).toBe("sign_in");
+    expect(ctaName("/app")).toBe("open_app");
+    expect(ctaName("#early-access")).toBe("join_us");
+    expect(ctaName("/connector")).toBe("connect_claude");
+    expect(ctaName("https://claude.ai/directory/connectors/product-velocity")).toBe("claude_directory");
+    expect(ctaName("/privacy")).toBeNull();
+    expect(ctaName(null)).toBeNull();
   });
 });
 

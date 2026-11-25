@@ -1,5 +1,6 @@
 import Script from "next/script";
 import { SITE_URL } from "@/lib/public-contact";
+import { Analytics } from "./analytics";
 
 /** What the homepage says about itself to search engines and AI assistants. Keep in step with the page text and llms.txt. */
 export const HOME_TITLE = "Product Velocity: agentic product management platform";
@@ -40,6 +41,7 @@ export function GoogleTagManager() {
     <>
       <Script id="gtm-consent" strategy="beforeInteractive">{`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('consent','default',{ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',analytics_storage:'denied',wait_for_update:500});`}</Script>
       <Script id="gtm" strategy="afterInteractive">{`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${GTM_ID}');`}</Script>
+      <Analytics />
     </>
   );
 }
