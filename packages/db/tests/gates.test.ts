@@ -269,6 +269,29 @@ describe("moving without a gate", () => {
   });
 });
 
+describe("Completed clears Health (issue #672)", () => {
+  const setStatus = (id: string, v: string) => db.asUser(creator, (q) => q("update public.items set initiative_status = $2 where id = $1", [id, v]), commit);
+  it("empties Health when Initiative Status becomes Completed and puts it back when the initiative is reopened", async () => {
+    const id = await newItem("Experiment");
+    await db.admin.query("update public.items set health = 'At Risk', initiative_status = 'Active' where id = $1", [id]);
+    await setStatus(id, "Completed");
+    expect(await item(id)).toMatchObject({ initiative_phase: "Completed", health: null });
+    await setStatus(id, "Active");
+    expect(await item(id)).toMatchObject({ initiative_phase: "Experiment", health: "At Risk" });
+  });
+  it("does not bring back a Health that was cleared before completing, or one that a person set after", async () => {
+    const id = await newItem("Roll-out");
+    await setStatus(id, "Completed");
+    await setStatus(id, "Active");
+    expect((await item(id)).health).toBeNull();
+    await db.admin.query("update public.items set health = 'On Track' where id = $1", [id]);
+    await setStatus(id, "Completed");
+    await db.admin.query("update public.items set health = 'Delayed' where id = $1", [id]); // set by a person while completed
+    await setStatus(id, "Active");
+    expect((await item(id)).health).toBe("Delayed");
+  });
+});
+
 describe("Sunset (issue #500)", () => {
   const move = (user: string, id: string, to: string) => db.asUser(user, (q) => q("select public.move_phase($1, $2)", [id, to]), commit);
   it("is chosen from Roll-out or Completed, passes no gate and is refused from an earlier phase", async () => {

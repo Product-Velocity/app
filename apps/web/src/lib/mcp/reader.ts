@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildDigest, changeFlags, changesThisWeek, DEFAULT_VIEWS, digestMarkdown, healthByProject, needsAttention, OPEN_LIST_FIELDS, VIEW_NAMES, openListValues, summarizeProfile, weekWindow, type SearchNames, type SearchRow } from "@pv/domain";
+import { buildDigest, canEditItems, changeFlags, rowFlagTexts, type OutcomeReview, changesThisWeek, DEFAULT_VIEWS, digestMarkdown, healthByProject, needsAttention, OPEN_LIST_FIELDS, VIEW_NAMES, openListValues, summarizeProfile, weekWindow, type SearchNames, type SearchRow } from "@pv/domain";
 import { SupabaseLeadershipStore } from "@/features/leadership/store";
 import { SupabaseDataSource } from "@/features/portfolio/supabase-source";
 import { addItemFile, removeItemFile, setFileSharing } from "@/lib/files/actions";
@@ -42,7 +42,21 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     const [p, m] = await Promise.all([projects(), people()]);
     return { projects: p.map((x) => ({ id: x.id, name: x.name })), members: m.map((x) => ({ id: x.id, name: x.name })) };
   });
-  const rows = memo(async (): Promise<SearchRow[]> => (await ds.loadItems()) as unknown as SearchRow[]);
+  // The Flags and Actions columns are worked out, not stored (item-fields N50, N51): the grid derives them in the browser, so they are derived here too, from the same
+  // rules, or Claude would read them as empty. Actions are only the words of the next step; Claude cannot click them.
+  const rows = memo(async (): Promise<SearchRow[]> => {
+    const [items, reviews] = await Promise.all([
+      ds.loadItems(),
+      supabase.from("outcome_reviews").select("item_id, at_days, due_on, requested_at, realised_kr_value, adoption_pct, notes, recorded_at").eq("tenant_id", tenant.id),
+    ]);
+    const outcomeReviews = reviews.error ? undefined : ((reviews.data ?? []) as OutcomeReview[]); // not read: no outcome flag rather than a wrong one
+    const today = new Date(), canAct = canEditItems(role);
+    for (const r of items) {
+      const t = rowFlagTexts(r, today, canAct, outcomeReviews ? { outcomeReviews } : {});
+      Object.assign(r, { flags: t.flags, actions: t.actions });
+    }
+    return items as unknown as SearchRow[];
+  });
 
   const findRow = async (ref: string): Promise<SearchRow | null> => {
     const all = await rows();

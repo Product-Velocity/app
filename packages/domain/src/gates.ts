@@ -51,6 +51,13 @@ export function movablePhases(phase: unknown): Phase[] {
   return PHASES.filter((p, i) => p !== "Completed" && i !== at && (i < at || next === undefined || i <= next));
 }
 
+/** Setting Initiative Status to Completed passes no gate (docs/decisions/2026-11-25-completing-an-initiative.md). True when the initiative has a phase that comes before Roll-out, so Gate C and Roll-out were skipped: people are told, nothing is blocked. */
+export function completionSkipsGateC(phase: unknown): boolean {
+  return PHASES.includes(phase as Phase) && phaseIndex(phase) < phaseIndex("Roll-out");
+}
+
+export const COMPLETION_SKIPS_GATE_C = "completes the initiative without Gate C and Roll-out. This is recorded in the audit log; Undo (Ctrl+Z) puts it back.";
+
 /** Why a forward move to `to` needs a gate instead, or null when it does not. */
 export function moveNeedsGate(from: unknown, to: Phase): GateId | null {
   const a = phaseIndex(from);

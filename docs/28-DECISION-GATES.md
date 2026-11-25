@@ -22,7 +22,7 @@ Phases: **Discover, Define, Build, Test, Experiment, Roll-out, Completed.** **Su
 | Roll-out | Widen to markets and customers | Customers live, adoption | Initiative Status set to Completed |
 | Completed | Outcome reviews at +30, +60, +90 days | Outcome fields, learning | (end) |
 
-**Completed follows Initiative Status.** Setting Initiative Status to Completed moves the phase to Completed, so nothing sits on Roll-out forever: a person closes the initiative and the phase follows. On hold and Cancelled never change the phase. Setting the status back to Active restores the phase the item had before (from the audit log).
+**Completed follows Initiative Status.** Setting Initiative Status to Completed moves the phase to Completed, so nothing sits on Roll-out forever: a person closes the initiative and the phase follows. On hold and Cancelled never change the phase. Setting the status back to Active restores the phase the item had before (from the audit log). **How to complete (2026-11-25, issue #672, `docs/decisions/2026-11-25-completing-an-initiative.md`):** Move to next phase offers "Completed (sets Initiative Status)", or set the status in the grid or panel. It passes no gate, so completing before Roll-out skips Gate C and Roll-out: the person is told, nothing is blocked. **Health is cleared** when an initiative becomes Completed (the old value stays in the audit log and returns if it is reopened); Planning Status and Build Status stay.
 
 ## 2. The three gates
 

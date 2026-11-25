@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
-  GATES, GATE_IDS, OUTCOMES, checklistReady, gateChecklist, gateOfPhase, gateTitle, movablePhases, moveNeedsGate, outcomeLabel, requestableGates, splitForRequest, targetPhases,
+  COMPLETION_SKIPS_GATE_C, GATES, GATE_IDS, OUTCOMES, completionSkipsGateC, checklistReady, gateChecklist, gateOfPhase, gateTitle, movablePhases, moveNeedsGate, outcomeLabel, requestableGates, splitForRequest, targetPhases,
   type ChecklistItem, type GateId, type GateOutcome, type GateRequest,
 } from "@pv/domain";
 import type { Approvers, Decider, GateItem, GateSource, ItemResult } from "./gate-source";
@@ -278,7 +278,10 @@ export function MoveDialog({ source, items, onClose, onDone }: { source: GateSou
     const sets = items.map((i) => movablePhases(i.initiative_phase));
     return sets.length === 0 ? [] : sets[0]!.filter((p) => sets.every((s) => s.includes(p)));
   }, [items]);
-  const [to, setTo] = useState<string>(options.find((p) => items.every((i) => !moveNeedsGate(i.initiative_phase, p as never))) ?? options[0] ?? "");
+  const COMPLETED = "Completed";
+  const canComplete = items.every((i) => i.initiative_status !== "Completed" && i.initiative_status !== "Cancelled" && i.initiative_phase !== "Completed" && i.initiative_phase !== "Sunset");
+  const skipped = items.filter((i) => completionSkipsGateC(i.initiative_phase));
+  const [to, setTo] = useState<string>(options.find((p) => items.every((i) => !moveNeedsGate(i.initiative_phase, p as never))) ?? options[0] ?? (canComplete ? COMPLETED : ""));
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<ItemResult[] | null>(null);
   const names = new Map(items.map((i) => [i.id, label(i)]));
@@ -289,7 +292,7 @@ export function MoveDialog({ source, items, onClose, onDone }: { source: GateSou
     setBusy(true);
     const out: ItemResult[] = [];
     for (const i of items) {
-      const r = await source.move(i.id, to);
+      const r = to === COMPLETED ? await source.complete(i.id) : await source.move(i.id, to);
       out.push(r.ok ? { id: i.id, ok: true } : { id: i.id, ok: false, message: r.error });
     }
     setResults(out); setBusy(false); onDone();
@@ -302,9 +305,9 @@ export function MoveDialog({ source, items, onClose, onDone }: { source: GateSou
           <Results rows={results} names={names} />
           <div className="dialog-actions"><button type="button" className="btn" onClick={onClose}>Close</button></div>
         </>
-      ) : options.length === 0 ? (
+      ) : options.length === 0 && !canComplete ? (
         <>
-          <p>These initiatives have no common phase to move to without a gate. Use Request gate, or set Initiative Status to Completed to finish one.</p>
+          <p>These initiatives have no common phase to move to without a gate. Use Request gate. A finished or cancelled initiative is reopened by setting Initiative Status back to Active.</p>
           <div className="dialog-actions"><button type="button" className="btn" onClick={onClose}>Close</button></div>
         </>
       ) : (
@@ -313,10 +316,17 @@ export function MoveDialog({ source, items, onClose, onDone }: { source: GateSou
           <label className="dialog-label" htmlFor="move-to">Move to</label>
           <select id="move-to" ref={selectRef} value={to} onChange={(e) => setTo(e.target.value)}>
             {options.map((p) => <option key={p} value={p}>{p}</option>)}
+            {canComplete && <option value={COMPLETED}>Completed (sets Initiative Status)</option>}
           </select>
+          {to === COMPLETED && (
+            <p role="note" className="muted">
+              Sets Initiative Status to Completed; the phase follows and Health is cleared. Syncing with GitHub or Jira stops 14 days later.
+              {skipped.length > 0 && <strong> {skipped.length === 1 ? "This" : `${skipped.length} of these`} {COMPLETION_SKIPS_GATE_C}</strong>}
+            </p>
+          )}
           <div className="dialog-actions">
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button type="button" className="btn btn-primary" disabled={busy || !to} onClick={() => void go()}>{busy ? "Moving…" : `Move ${items.length} to ${to}`}</button>
+            <button type="button" className="btn btn-primary" disabled={busy || !to} onClick={() => void go()}>{busy ? "Moving…" : to === COMPLETED ? `Complete ${items.length}` : `Move ${items.length} to ${to}`}</button>
           </div>
         </>
       )}
