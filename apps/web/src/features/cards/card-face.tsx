@@ -2,7 +2,7 @@
 
 import { FIELD_BY_KEY, cardDate, cardFieldOffer, initialsOf, stageAge, type CardRender } from "@pv/domain";
 import type { ReactNode } from "react";
-import { MoscowPill, ProgressMeter, SizeDot } from "../../components/field-visuals";
+import { EffortPill, MoscowPill, ProgressMeter, SizeDot } from "../../components/field-visuals";
 import { StatusPill } from "../../components/status-pill";
 import { PILL_FIELDS, statusTone, toneFor } from "../../components/status-tone";
 import type { GridItem } from "../portfolio/types";
@@ -90,6 +90,7 @@ function FieldChip({ k, value, today }: { k: string; value: unknown; today: Date
     <>
       {tags.map((t) => {
         if (k === "moscow" && MOSCOW_WORDS.has(t.trim().toLowerCase())) return <MoscowPill key={t} value={t} name={name} />;
+        if (k === "g2m_effort") return <EffortPill key={t} value={t} name={name} />;
         if (PILL_FIELDS.has(k)) return <span key={t} className="kc-pillwrap" title={`${name}: ${t}`}><span className="visually-hidden">{name} </span><StatusPill value={t} tone={toneFor(k, t)} className="kc-pill" /></span>;
         return <span key={t} className="pill kc-pill" title={`${name}: ${t}`}><span className="visually-hidden">{name} </span>{t}</span>;
       })}

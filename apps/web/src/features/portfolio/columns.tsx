@@ -16,7 +16,7 @@ import { MarkdownTooltip } from "./markdown-tooltip";
 import { DateEditor } from "./date-editor";
 import { PickerEditor, type PickerOption } from "./picker-editor";
 import type { GridItem, Lookups } from "./types";
-import { MoscowPill, PersonChip, ProgressMeter, SizeDot } from "../../components/field-visuals";
+import { EffortPill, MoscowPill, PersonChip, ProgressMeter, SizeDot } from "../../components/field-visuals";
 import { StatusPill } from "../../components/status-pill";
 import { PILL_FIELDS, statusTone, toneFor } from "../../components/status-tone";
 
@@ -309,6 +309,7 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
     const lock = (node: React.ReactNode, text: string) => <ReadOnlyCell text={text} reason={reason} github={f.mode === "locked" || f.storage.startsWith("GitHub-synced")}>{node}</ReadOnlyCell>;
     const wrap = (node: React.ReactNode, text: string) => (reason ? lock(node, text) : node);
     if (key === "moscow") return { ...c, cellRenderer: (p: { value: unknown }) => { const t = String(p.value ?? ""); return t ? wrap(<MoscowPill value={t} name={f.name} />, t) : null; } };
+    if (key === "g2m_effort") return { ...c, cellRenderer: (p: { value: unknown }) => { const t = String(p.value ?? ""); return t ? wrap(<EffortPill value={t} name={f.name} />, t) : null; } };
     if (key === "effort") return { ...c, cellRenderer: (p: { value: unknown }) => { const t = String(p.value ?? ""); return t ? wrap(<SizeDot value={t} name={f.name} />, t) : null; } };
     if (cardFieldOffer(key).ok && (cardFieldOffer(key) as { render: string }).render === "progress") {
       return { ...c, cellRenderer: (p: { value: unknown; valueFormatted?: string | null }) => {
