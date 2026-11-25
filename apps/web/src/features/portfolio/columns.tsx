@@ -287,9 +287,9 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
     return first >= 0 ? first : FIRST.length + (pos.get(k) ?? 1000 + (registry.get(k) ?? 0));
   };
   const pin = (c: ColDef<GridItem>): ColDef<GridItem> => (pinned?.has(String(c.colId)) ? { ...c, pinned: "left", suppressMovable: true } : c);
-  // Description is Markdown: one plain line in the cell, the rendered text on hover
+  // Description and Summary are Markdown: one plain line in the cell, the rendered text on hover
   const withMarkdown = (c: ColDef<GridItem>): ColDef<GridItem> =>
-    c.colId === "description"
+    c.colId === "description" || c.colId === "summary"
       ? { ...c, valueFormatter: (p) => markdownToPlainText(String(p.value ?? "")),
         // the text fades out instead of ending in "...": the browser adds its own plain-text hover to text cut off by an ellipsis, on top of the rendered one
         cellRenderer: (p: { valueFormatted?: string | null }) => <span className="cell-text cell-text-fade" title="">{p.valueFormatted ?? ""}</span>,
