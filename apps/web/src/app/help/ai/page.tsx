@@ -92,7 +92,7 @@ export default function AiHelp() {
           table={{
             head: ["It can", "It cannot"],
             rows: [
-              ["Read what you can read, and write what your role allows", "Approve a gate, request or decide one, or move an Initiative Phase"],
+              ["Read what you can read (including the Flags and Actions columns, as words; it cannot click an action), and write what your role allows", "Approve a gate, request or decide one, or move an Initiative Phase"],
               ["Draft documents and fields as AI drafts, and show a dry run or a diff first", "Set Stack Rank, Decision or Value. Business Value Type only when you state it, with your words recorded"],
               ["Prepare a gate pack and an alignment invitation", "Send an invitation or write to GitHub or Jira without your confirmation"],
               ["Undo its own last change", "Close a tracker issue, confirm a sync, change roles, members or settings, or delete initiatives"],

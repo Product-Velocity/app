@@ -474,8 +474,8 @@ export function actionsOfFlags(flags: readonly ChangeFlag[], phase: unknown, can
 }
 
 /** The words the grid stores on the row for the two columns, so sorting, searching and the export see what the cells show. */
-export function rowFlagTexts(row: object, today: Date, canAct: boolean): { flags: string | null; actions: string | null } {
-  const flags = flagsOfRow(row, today);
+export function rowFlagTexts(row: object, today: Date, canAct: boolean, ctx: { outcomeReviews?: readonly OutcomeReview[] } = {}): { flags: string | null; actions: string | null } {
+  const flags = flagsOfRow(row, today, ctx);
   const actions = actionsOfFlags(flags, (row as { initiative_phase?: unknown }).initiative_phase, canAct, openGateOf(row));
   return { flags: [...new Set(flags.map((f) => f.label))].join("; ") || null, actions: actions.map((a) => a.resolved.label).join("; ") || null };
 }

@@ -1,6 +1,6 @@
 import {
   canPurge, canSeeTrash, cleanRelated, cleanSkills, isRelatedField, summarizeChange, toDay, crowdHistory, type ActivityRow, type CrowdRow, type RankDecision, type RelatedField, type RelatedValues,
-  applyMove, canBeEmpty, outcomeColumns, rowFlagTexts, type OutcomeReview, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
+  applyMove, canBeEmpty, COMPLETION_SKIPS_GATE_C, completionSkipsGateC, outcomeColumns, rowFlagTexts, type OutcomeReview, canEditItems, describeEdit, EDITABLE_FIELDS, fieldLabel, localToday, projectRanks, readOnlyReason, UndoStack, validateEdit,
   bulkEditReason, isOpenList, OPEN_LIST_FIELDS, openListValues, resolveGroup, canDeleteItem, placeRestored, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
 import type { PortfolioDataSource, SaveResult } from "./data-source";
@@ -306,8 +306,9 @@ export class PortfolioController {
     const shownValue = describeEdit({ ...edits[0]!, before: null } as Edit, this.resolvers()).split(": empty to ")[1] ?? String(v.value);
     const label = `Set ${fieldLabel(field)} on ${todo.length} ${todo.length === 1 ? "item" : "items"}`;
     const entry: Entry = { id: `e${++this.entrySeq}`, edits, label };
+    const skipped = field === "initiative_status" && v.value === "Completed" ? todo.filter((r) => completionSkipsGateC(r.initiative_phase)).length : 0;
     this.stack.push(entry);
-    this.state.notice = null;
+    this.state.notice = skipped > 0 ? `${skipped} ${skipped === 1 ? "initiative" : "initiatives"} completed without Gate C and Roll-out. This is recorded in the audit log; Undo (Ctrl+Z) puts it back.` : null;
     this.state.last = { text: v.value === null ? `Cleared ${fieldLabel(field)} on ${todo.length} ${todo.length === 1 ? "item" : "items"}` : `Set ${fieldLabel(field)} to ${shownValue} on ${todo.length} ${todo.length === 1 ? "item" : "items"}`, at: this.now() };
     todo.forEach((row, i) => {
       const edit = edits[i]!;
@@ -347,9 +348,10 @@ export class PortfolioController {
     if (same(before, value)) return { ok: true, changed: false };
     const edit: Edit = { type: "field", itemId, key: row.item_code, field, before, after: value };
     const entry: Entry = { id: `e${++this.entrySeq}`, edits: [edit] };
+    const skipsGateC = field === "initiative_status" && value === "Completed" && completionSkipsGateC(row.initiative_phase);
     this.applyField(row, field, value);
     this.stack.push(entry);
-    this.state.notice = null;
+    this.state.notice = skipsGateC ? `${row.item_code} ${COMPLETION_SKIPS_GATE_C}` : null;
     this.state.last = { text: describeEdit(edit, this.resolvers()), at: this.now() };
     this.save(entry, `${row.item_code} ${fieldLabel(field)}`, () => this.source.updateField(itemId, field, value), () => {
       // save failed: put the old value back

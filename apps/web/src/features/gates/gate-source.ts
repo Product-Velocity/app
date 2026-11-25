@@ -27,6 +27,8 @@ export interface GateSource {
   requestGate(gate: GateId, items: { item: string; ready: boolean; criteria: ChecklistItem[]; /** The people to ask; empty asks everyone who can decide. */ preferred?: string[] }[]): Promise<ItemResult[]>;
   decide(reviewIds: string[], d: Decision): Promise<(ItemResult & { phase?: string; fastLane?: boolean })[]>;
   move(itemId: string, to: string): Promise<{ ok: true } | { ok: false; error: string }>;
+  /** Sets Initiative Status to Completed; the database moves the phase to Completed and clears Health (docs/decisions/2026-11-25-completing-an-initiative.md). */
+  complete(itemId: string): Promise<{ ok: true } | { ok: false; error: string }>;
   loadConditions(itemId: string): Promise<Condition[]>;
   /** Conditions of any initiative that are not done yet (Needs attention). */
   loadOpenConditions(): Promise<{ item_id: string; text: string }[]>;
@@ -105,6 +107,11 @@ export class SupabaseGateSource implements GateSource {
 
   async move(itemId: string, to: string) {
     const { error } = await this.client.rpc("move_phase", { p_item: itemId, p_to: to });
+    return error ? { ok: false as const, error: text(error) } : { ok: true as const };
+  }
+
+  async complete(itemId: string) {
+    const { error } = await this.client.from("items").update({ initiative_status: "Completed" }).eq("tenant_id", this.tenantId).eq("id", itemId);
     return error ? { ok: false as const, error: text(error) } : { ok: true as const };
   }
 
@@ -241,6 +248,12 @@ export class MemoryGateSource implements GateSource {
     this.calls.push(`move ${itemId} ${to}`);
     if (this.failMove) return { ok: false as const, error: this.failMove };
     this.onMove?.(itemId, to);
+    return { ok: true as const };
+  }
+  async complete(itemId: string) {
+    this.calls.push(`complete ${itemId}`);
+    if (this.failMove) return { ok: false as const, error: this.failMove };
+    this.onMove?.(itemId, "Completed");
     return { ok: true as const };
   }
   async loadConditions(itemId: string) { return this.conditions.filter((c) => c.item_id === itemId); }
