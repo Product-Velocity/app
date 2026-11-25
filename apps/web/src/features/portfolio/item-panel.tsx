@@ -149,14 +149,17 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
           {mode === "peek" && onNext && <button type="button" className="btn ip-icon" onClick={onNext} aria-label="Next initiative (J)" title="Next (J)">↓</button>}
           {position && <span className="muted ip-pos" aria-live="polite">{position.index + 1} of {position.total}</span>}
           <span className="ip-spacer" />
+          {mode === "peek" && <Link className="btn ip-link ip-fullpage" href={pageHref(row.item_code)}>Open full page</Link>}
+          {mode === "page" && <Link className="btn ip-link" href={backHref}>Back to the roadmap</Link>}
           {mode === "peek" && onClose && <button type="button" className="btn ip-icon" onClick={onClose} aria-label="Close panel (Esc)" title="Close (Esc)">×</button>}
         </div>
-        <div className="ip-actions">
-          {controller.canEdit && syncPlatforms(lookups, [row.home_project]).length > 0 && <button type="button" className="btn ip-link" onClick={() => setPushGithub(true)} title={syncTitle(syncPlatforms(lookups, [row.home_project]))}>{syncLabel(syncPlatforms(lookups, [row.home_project]))}…</button>}
-          {controller.canDelete(itemId) && <button type="button" className="btn btn-danger-quiet ip-link" onClick={() => setConfirmDelete(true)}>Delete…</button>}
-          {mode === "peek" && <Link className="btn ip-link" href={pageHref(row.item_code)}>Open full page</Link>}
-          {mode === "page" && <Link className="btn ip-link" href={backHref}>Back to the roadmap</Link>}
-        </div>
+        <p className="ip-code mono">{row.item_code}{(() => { const l = lookups.github?.links[itemId]; const label = l ? trackerIssueLabel(l.url, l.number) : null; const j = l ? undefined : lookups.jira?.links[itemId]; if (j && isOpenableUrl(j.url)) return <a className="issue-link" href={j.url} target="_blank" rel="noreferrer noopener" aria-label={`Open issue ${j.issueKey} in a new tab`}>{j.issueKey}</a>; return label && isOpenableUrl(l?.url) ? <a className="issue-link" href={l.url!} target="_blank" rel="noreferrer noopener" aria-label={`Open issue ${label} in a new tab`}>{label}</a> : null; })()}{project && <span className="proj-pill">{project}</span>}</p>
+        <h2 id={titleId} className="ip-title">{row.initiative_name}</h2>
+        <p className="muted ip-rank">#{row.stack_rank} globally · #{row.project_rank} in {project || "its project"}</p>
+        <ul className="ip-pills" aria-label="Phase and statuses">
+          {([["Phase", "initiative_phase"], ["Status", "initiative_status"], ["Health", "health"], ["Planning", "planning_status"], ["Build", "status"]] as const).map(([label, key]) => row[key] ? <li key={key}><span className="muted">{label}</span> <StatusPill value={String(row[key])} tone={toneFor(key, String(row[key]))} /></li> : null)}
+        </ul>
+        <div className="ip-trackers">
         {lookups.github?.links[itemId] && (() => { const l = lookups.github!.links[itemId]!; return (
           <p className="ip-gh">
             GitHub: {l.url && l.number ? <a href={l.url} target="_blank" rel="noreferrer">issue #{l.number}</a> : "no issue yet"}
@@ -174,12 +177,12 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
             {" · "}{l.mode === "follow" ? "followed read-only (nothing is written to it)" : "Product Velocity owns what the initiative is"}
           </p>
         ); })()}
-        <p className="ip-code mono">{row.item_code}{(() => { const l = lookups.github?.links[itemId]; const label = l ? trackerIssueLabel(l.url, l.number) : null; const j = l ? undefined : lookups.jira?.links[itemId]; if (j && isOpenableUrl(j.url)) return <a className="issue-link" href={j.url} target="_blank" rel="noreferrer noopener" aria-label={`Open issue ${j.issueKey} in a new tab`}>{j.issueKey}</a>; return label && isOpenableUrl(l?.url) ? <a className="issue-link" href={l.url!} target="_blank" rel="noreferrer noopener" aria-label={`Open issue ${label} in a new tab`}>{label}</a> : null; })()}{project && <span className="proj-pill">{project}</span>}</p>
-        <ul className="ip-pills" aria-label="Phase and statuses">
-          {([["Phase", "initiative_phase"], ["Status", "initiative_status"], ["Health", "health"], ["Planning", "planning_status"], ["Build", "status"]] as const).map(([label, key]) => row[key] ? <li key={key}><span className="muted">{label}</span> <StatusPill value={String(row[key])} tone={toneFor(key, String(row[key]))} /></li> : null)}
-        </ul>
-        <h2 id={titleId} className="ip-title">{row.initiative_name}</h2>
-        <p className="muted ip-rank">#{row.stack_rank} globally · #{row.project_rank} in {project || "its project"}</p>
+        </div>
+        <div className="ip-actions">
+          {controller.canEdit && syncPlatforms(lookups, [row.home_project]).length > 0 && <button type="button" className="btn btn-primary" onClick={() => setPushGithub(true)} title={syncTitle(syncPlatforms(lookups, [row.home_project]))}>{syncLabel(syncPlatforms(lookups, [row.home_project]))}…</button>}
+          <span className="ip-spacer" />
+          {controller.canDelete(itemId) && <button type="button" className="btn btn-danger-quiet" onClick={() => setConfirmDelete(true)}>Delete…</button>}
+        </div>
       </header>
 
       {gates && <GateStrip source={gates} me={me} frozen={Boolean(lookups.frozen?.includes(itemId))} row={row as never} canEdit={controller.canEdit} onChanged={() => { void controller.refreshFromServer(); }} />}
@@ -211,7 +214,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
       <div ref={bodyRef} className="ip-body" role="tabpanel" tabIndex={0} id={`${titleId}-panel-${tab}`} aria-labelledby={`${titleId}-tab-${tab}`}>
         {loadError && <p role="alert" className="pf-error">Could not load the lists of this initiative: {loadError}</p>}
         {tab === "overview" && <Overview ctx={ctx} itemId={itemId} />}
-        {tab === "spec" && <DocumentsTab itemId={itemId} canEdit={controller.canEdit} ctx={ctx} tracker={trackerName} />}
+        {tab === "spec" && <DocumentsTab itemId={itemId} itemCode={row.item_code} canEdit={controller.canEdit} ctx={ctx} tracker={trackerName} />}
         {tab === "github" && (trackerName === "Jira" ? <JiraTab controller={controller} lookups={lookups} itemId={itemId} /> : <GithubTab controller={controller} lookups={lookups} itemId={itemId} />)}
         {tab === "alignment" && <AlignmentTab key={itemId} controller={controller} itemId={itemId} />}
         {tab === "activity" && <ActivityTab controller={controller} lookups={lookups} itemId={itemId} me={me} />}
