@@ -185,9 +185,10 @@ async function checkReadOnlyEpics(l: Loaded, call?: JiraRequest): Promise<{ key:
 export type EpicCheck = { ok: true; lines: { key: string; text: string; ok: boolean }[] } | { ok: false; error: string };
 
 /** The check on the initiative's Jira tab: for each epic asked for, whether a send would link it (OK) or why not. Reads Jira only. */
-export async function checkEpics(ctx: Ctx, id: string, deps: { call?: JiraRequest } = {}): Promise<EpicCheck> {
+export async function checkEpics(ctx: Ctx, id: string, deps: { call?: JiraRequest; /** Check only these epics (the rows a person selected); none given checks every epic asked for. */ keys?: string[] } = {}): Promise<EpicCheck> {
   const l = await load(ctx, id);
   if (!l) return { ok: false, error: "This initiative was not found." };
+  if (deps.keys && l.epicRequests) { const only = new Set(deps.keys); l.epicRequests = l.epicRequests.filter((r) => only.has(r.key)); }
   if (!l.epicRequests?.length) return { ok: true, lines: [] };
   if (l.plink?.read_only) return { ok: true, lines: await checkReadOnlyEpics(l, deps.call) };
   if (l.link?.mode === "follow") return { ok: false, error: "This initiative follows its Jira issue read-only: take ownership first." };

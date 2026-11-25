@@ -11,6 +11,7 @@ import type { PortfolioController } from "./controller";
 import { formatField } from "./format";
 import { FilesControl } from "./files-control";
 import { LinksList } from "./links-list";
+import { initiativeListText } from "./jira-epics-model";
 import { MarkdownPreview } from "./markdown-preview";
 import type { GridItem, Lookups } from "./types";
 
@@ -302,6 +303,11 @@ function RelationsEditor({ ids, self, ctx, disabled, onChange, onError }: { ids:
     if (!hit) { onError(`No initiative matches “${t}”. Type a code such as R-12.`); return; }
     if (onChange([...ids, hit.id])) setText("");
   };
+  const [copied, setCopied] = useState<string | null>(null);
+  const copy = async () => {
+    const items = ids.flatMap((id) => { const r = ctx.controller.row(id); return r ? [{ code: r.item_code, name: r.initiative_name }] : []; });
+    try { await navigator.clipboard.writeText(initiativeListText(items)); setCopied(`${items.length === 1 ? "1 initiative" : `${items.length} initiatives`} copied.`); } catch { setCopied("The browser did not allow copying."); }
+  };
   return (
     <div className="pf-chips">
       {ids.length === 0 && <span className="muted">None</span>}
@@ -316,6 +322,8 @@ function RelationsEditor({ ids, self, ctx, disabled, onChange, onError }: { ids:
           <datalist id={listId}>{rows.filter((r) => r.id !== self && !ids.includes(r.id)).slice(0, 300).map((r) => <option key={r.id} value={r.item_code}>{r.initiative_name}</option>)}</datalist>
         </>
       )}
+      {ids.length > 0 && <button type="button" className="btn" onClick={() => void copy()}>Copy list</button>}
+      {copied && <span role="status" className="muted">{copied}</span>}
     </div>
   );
 }

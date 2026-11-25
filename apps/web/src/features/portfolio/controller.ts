@@ -629,8 +629,8 @@ export class PortfolioController {
     if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false as const, error: READ_ONLY_MESSAGE }; }
     return this.source.requestJiraEpics(itemId, keys);
   }
-  /** Read only: asks Jira whether each epic asked for would be linked by the next Sync (OK) or why not. */
-  checkJiraEpics(itemId: string) { return this.source.checkJiraEpics(itemId); }
+  /** Read only: asks Jira whether each epic asked for (only `keys` when given) would be linked by the next Sync (OK) or why not. */
+  checkJiraEpics(itemId: string, keys?: string[]) { return this.source.checkJiraEpics(itemId, keys); }
   async removeJiraEpicRequest(itemId: string, key: string) {
     if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false as const, error: READ_ONLY_MESSAGE }; }
     return this.source.removeJiraEpicRequest(itemId, key);

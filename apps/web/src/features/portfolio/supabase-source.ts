@@ -373,9 +373,9 @@ export class SupabaseDataSource implements PortfolioDataSource {
     return { ok: true as const, added: (data ?? []) as string[] };
   }
 
-  async checkJiraEpics(itemId: string) {
+  async checkJiraEpics(itemId: string, keys?: string[]) {
     const { checkJiraEpics } = await import("@/app/(workspace)/portfolio/jira-epics");
-    return checkJiraEpics(itemId);
+    return checkJiraEpics(itemId, keys);
   }
 
   async removeJiraEpicRequest(itemId: string, key: string) {

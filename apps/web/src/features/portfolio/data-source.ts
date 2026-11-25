@@ -56,7 +56,7 @@ export interface PortfolioDataSource {
   /** Asks for epics (Jira keys, any project) to go under this initiative's Jira issue at the next confirmed Sync. Writes nothing to Jira. Returns the keys newly asked for. */
   requestJiraEpics(itemId: string, keys: string[]): Promise<{ ok: true; added: string[] } | { ok: false; error: string }>;
   /** Reads Jira (no write): for each epic asked for, OK (a send would link it) or why not. */
-  checkJiraEpics(itemId: string): Promise<{ ok: true; lines: { key: string; text: string; ok: boolean }[] } | { ok: false; error: string }>;
+  checkJiraEpics(itemId: string, keys?: string[]): Promise<{ ok: true; lines: { key: string; text: string; ok: boolean }[] } | { ok: false; error: string }>;
   /** Takes back a pending or failed request. */
   removeJiraEpicRequest(itemId: string, key: string): Promise<{ ok: true } | { ok: false; error: string }>;
   /** The first-level children (level 1) under each given initiative's tracker issue, for the Excel report. Read only; an initiative with none is absent. */
