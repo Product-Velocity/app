@@ -67,7 +67,7 @@ type GridProps = {
   /** Page title and other server-rendered pieces of the page head. */
   headLeft?: ReactNode;
   headRight?: ReactNode;
-  /** Decision gates: Request gate, Decide and Move to next phase in the bulk bar and the panel. */
+  /** Decision gates: Request gate, Decide and Change phase in the bulk bar and the panel. */
   gates?: GateSource;
 };
 
@@ -665,7 +665,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       const run = (kind: GateActionKind) => () => window.dispatchEvent(new CustomEvent(GATE_ACTION_EVENT, { detail: kind }));
       if (controller.canEdit) out.push({ id: "gate:request", label: `Request gate for ${n}`, group: "Decision gates", keywords: "approval approve decision gate a b c", run: run("request") });
       out.push({ id: "gate:decide", label: `Decide the gate requests of ${n}`, group: "Decision gates", keywords: "approve go hold stop approval", run: run("decide") });
-      if (controller.canEdit) out.push({ id: "gate:move", label: `Move ${n} to another phase`, group: "Decision gates", keywords: "phase next test experiment build", run: run("move") });
+      if (controller.canEdit) out.push({ id: "gate:move", label: `Change phase of ${n}`, group: "Decision gates", keywords: "phase move next test experiment build", run: run("move") });
     }
     out.push({ id: "go:attention", label: "Go to Needs attention", group: "Go to", keywords: "attention suggestions stalled blocked build done hold conditions", run: () => router.push("/attention") });
     out.push({ id: "go:decisions", label: "Go to Decisions", group: "Go to", keywords: "gate approve approval request waiting decide", run: () => router.push("/decisions") });

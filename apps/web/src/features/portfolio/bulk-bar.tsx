@@ -23,7 +23,7 @@ type Props = {
 
   /** Number of items in the grid, for "Select all 22". */
   total: number;
-  /** Request gate, Decide and Move to next phase (decision gates); left out where the gates are not available. */
+  /** Request gate, Decide and Change phase (decision gates); left out where the gates are not available. */
   gates?: GateSource;
   /** The signed-in person, for the request dialog. */
   me?: string | null;

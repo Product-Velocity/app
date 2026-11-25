@@ -51,6 +51,30 @@ export function movablePhases(phase: unknown): Phase[] {
   return PHASES.filter((p, i) => p !== "Completed" && i !== at && (i < at || next === undefined || i <= next));
 }
 
+/** The gates a forward move from `from` to `to` passes, in order (empty for a move back or a move up to the next gate). */
+export function gatesPassed(from: unknown, to: Phase): GateId[] {
+  const a = phaseIndex(from);
+  const b = phaseIndex(to);
+  return b <= a ? [] : GATE_IDS.filter((g) => phaseIndex(GATES[g].from) >= a && phaseIndex(GATES[g].from) < b);
+}
+
+/** How one phase can be reached: "move" (no gate), "fast-lane" (passes gates the person may decide; needs a comment, recorded as Skipped) or "request" (passes a gate the person cannot decide). */
+export type PhaseChoice = { phase: Phase; gates: GateId[]; how: "move" | "fast-lane" | "request" };
+
+/**
+ * Change phase (issue #679): every phase except the current one, always. Completed is set through Initiative Status and has its own entry;
+ * Sunset is offered from Roll-out and Completed only, and a Completed item can only go to Sunset. A forward move that passes a gate is a
+ * fast-lane move for someone who can decide all of those gates (`canDecide`), otherwise it has to be requested.
+ */
+export function phaseChoices(phase: unknown, canDecide: readonly GateId[]): PhaseChoice[] {
+  const cur: Phase = PHASES.includes(phase as Phase) ? (phase as Phase) : "Discover"; // an item without a phase counts as Discover
+  if (cur === "Completed") return [{ phase: "Sunset", gates: [], how: "move" }];
+  return PHASES.filter((p) => p !== "Completed" && p !== cur && (p !== "Sunset" || cur === "Roll-out")).map((p) => {
+    const gates = gatesPassed(cur, p);
+    return { phase: p, gates, how: gates.length === 0 ? "move" : gates.every((g) => canDecide.includes(g)) ? "fast-lane" : "request" } as PhaseChoice;
+  });
+}
+
 /** Setting Initiative Status to Completed passes no gate (docs/decisions/2026-11-25-completing-an-initiative.md). True when the initiative has a phase that comes before Roll-out, so Gate C and Roll-out were skipped: people are told, nothing is blocked. */
 export function completionSkipsGateC(phase: unknown): boolean {
   return PHASES.includes(phase as Phase) && phaseIndex(phase) < phaseIndex("Roll-out");

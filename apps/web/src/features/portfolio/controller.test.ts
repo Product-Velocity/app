@@ -480,7 +480,7 @@ describe("moving a card: several fields as one undo step", () => {
     await c.redo();
     expect(c.row("item-1")!.moscow).toBe("Should");
   });
-  it("refuses Initiative Phase here: it moves through a decision gate or Move to next phase", () => {
+  it("refuses Initiative Phase here: it moves through a decision gate or Change phase", () => {
     const { c } = setup();
     expect(c.editFields("item-1", { initiative_phase: "Test" })).toMatchObject({ ok: false, error: expect.stringContaining("decision gate") });
     expect(c.status.undoCount).toBe(0);

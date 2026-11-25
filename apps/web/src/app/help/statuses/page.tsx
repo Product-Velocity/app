@@ -23,7 +23,7 @@ const MEANINGS: Table = {
     ["Initiative Status", "Backlog", "Not started and parked. Nobody is working on it and nothing is planned yet."],
     ["Initiative Status", "Active", "Being considered, shaped or built. This is the only value Needs attention and Roadmap Health count as live work."],
     ["Initiative Status", "On hold", "Was running and was paused on purpose. The reason belongs in a comment."],
-    ["Initiative Status", "Completed", "Finished. Setting it (or choosing Completed in Move to next phase) moves the phase to Completed and clears Health. It passes no gate, so completing before Roll-out skips Gate C and you are told."],
+    ["Initiative Status", "Completed", "Finished. Setting it (or choosing Completed in Change phase) moves the phase to Completed and clears Health. It passes no gate, so completing before Roll-out skips Gate C and you are told."],
     ["Initiative Status", "Cancelled", "Decided not to do it. Stopping a gate (Stop) sets it."],
     ["Health", "On Track", "The work is going as planned."],
     ["Health", "At Risk", "It may slip. Someone should look."],

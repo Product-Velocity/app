@@ -326,7 +326,7 @@ export const FLOW_LIFECYCLE: Table = {
 export const LIFECYCLE_NOTES = [
   "People move the phase. Claude and the tracker never do; the app may suggest Test when the build is done in GitHub or Jira. A suggestion is one click for you to accept.",
   "Initiative Status (Backlog, Active, On hold, Completed, Cancelled) is set by people only. Backlog is an initiative that has not started and is parked; On hold is one that was running and was paused. Setting it to Completed moves the phase to Completed; a closed ticket means the build is done, not the initiative.",
-  "The phase cell in the grid is read-only. Use Request gate, Decide or Move to next phase (item panel, multi-select bar, command palette).",
+  "The phase cell in the grid is read-only. Use Request gate, Decide or Change phase (item panel, multi-select bar, command palette).",
   "Items sync to GitHub or Jira from Gate B. Before that, an optional Request engineering review sends the name, summary, description and hypothesis while the PRD is in review. Discover never syncs.",
   "Syncing stops 14 days after an initiative is Completed or Cancelled; an approver or admin can resume it.",
 ];
@@ -389,7 +389,7 @@ export const GATES_NOTES = [
   "There is no auto-pass. Nothing moves through a gate without a person deciding.",
   "Who can decide is set per gate in Settings, Workspace. Admins can by default; you can give any account approval rights. Claude, service accounts and staff impersonation never can.",
   "Decisions screen: every gate request, filtered by Waiting for approval (the default), Decided, Requested by me, and Can decide. Open a row to read the gate pack; J and K move through the list.",
-  "Multi-select bar: Request gate, Decide (one comment for all selected, with a confirmation listing each item) and Move to next phase.",
+  "Multi-select bar: Request gate, Decide (one comment for all selected, with a confirmation listing each item) and Change phase.",
   "Change counts: the Notifications bell also counts the changes (Phase, Status, Health, Build status, linked issue) made on each project in every account you can open since you last cleared it, as a number on the bell. Open the bell for each project with a count per type; Clear counts resets them to 0; a click on a project opens its change log (the Changes report) and clears that project. Your own changes are not counted.",
   "Notifications: when a gate is requested, the people who can decide it (or only the people the requester asked) see it under Notifications in the top bar; the requester sees the decision there. No email is sent. Mark a notice read by opening it, or Mark all as read.",
   "The outcome review at +30, +60 and +90 days is not a gate; it is a scheduled review after Roll-out.",

@@ -22,7 +22,7 @@ Phases: **Discover, Define, Build, Test, Experiment, Roll-out, Completed.** **Su
 | Roll-out | Widen to markets and customers | Customers live, adoption | Initiative Status set to Completed |
 | Completed | Outcome reviews at +30, +60, +90 days | Outcome fields, learning | (end) |
 
-**Completed follows Initiative Status.** Setting Initiative Status to Completed moves the phase to Completed, so nothing sits on Roll-out forever: a person closes the initiative and the phase follows. On hold and Cancelled never change the phase. Setting the status back to Active restores the phase the item had before (from the audit log). **How to complete (2026-11-25, issue #672, `docs/decisions/2026-11-25-completing-an-initiative.md`):** Move to next phase offers "Completed (sets Initiative Status)", or set the status in the grid or panel. It passes no gate, so completing before Roll-out skips Gate C and Roll-out: the person is told, nothing is blocked. **Health is cleared** when an initiative becomes Completed (the old value stays in the audit log and returns if it is reopened); Planning Status and Build Status stay.
+**Completed follows Initiative Status.** Setting Initiative Status to Completed moves the phase to Completed, so nothing sits on Roll-out forever: a person closes the initiative and the phase follows. On hold and Cancelled never change the phase. Setting the status back to Active restores the phase the item had before (from the audit log). **How to complete (2026-11-25, issue #672, `docs/decisions/2026-11-25-completing-an-initiative.md`):** Change phase offers "Completed (sets Initiative Status)", or set the status in the grid or panel. It passes no gate, so completing before Roll-out skips Gate C and Roll-out: the person is told, nothing is blocked. **Health is cleared** when an initiative becomes Completed (the old value stays in the audit log and returns if it is reopened); Planning Status and Build Status stay.
 
 ## 2. The three gates
 
@@ -84,7 +84,7 @@ A notification holds the initiative code and name and the gate; the rationale, d
 
 - **Request gate** (Creator and above). The items must be in the same phase. The bar says "5 of 7 ready" and requests the ready ones; the others are listed with what is missing.
 - **Decide** (approval rights). Go, Go with conditions, Hold, Stop on the selected items that are waiting. One rationale, stored on each item's own immutable row. A confirmation lists every item. Fast lane and a target phase are available here too.
-- **Move to next phase** for the moves without a gate.
+- **Change phase** (issue #679, Ashu 2026-11-25, `docs/decisions/2026-11-25-change-phase-any-phase.md`): every phase is listed, with what each needs. A move that passes no gate is made at once (backwards, or forward up to the next gate). A move that passes gates is labelled "skips Gate B" for a person who can decide every gate it passes (Admin, Approver or on the gate's list): it is made at once with a required comment and recorded as one "Skipped (fast lane)" row per gate (approver, comment, time), the same record as a fast-lane Go. For anyone else it is labelled "needs Gate B: request it" and the dialog offers Request gate. Claude and service accounts never move past a gate (`PV004`); the database enforces all of this in `move_phase(item, phase, comment)`. Past Roll-out: Sunset is offered from Roll-out and Completed only; Completed is set through Initiative Status. A fast-lane move does not approve the documents (a Gate A or B decision does).
 - The **Initiative Phase cell is read-only** in the grid and in paste/import. The bar, the item panel and ⌘K are the only ways to move a phase.
 
 ## 7a. Needs attention (issue #337)
@@ -177,7 +177,7 @@ An initiative whose latest decided gate decision is **Stop** and whose Initiativ
 Built:
 1. Names and docs: phases, gates, Help (this page).
 2. Gate tables, approver configuration, request, decide and complete functions, phase guard, Completed follows status, RLS and tests (`20261105160035_phase_values_test_completed`, `20261105160804_decision_gates`).
-3. The Decisions screen (`/decisions`), the Decisions tab with its count, Request gate / Decide / Move to next phase in the bulk bar and the item panel, the read-only Phase cell, the Build-to-Test and Hold-due suggestions in the item panel, who-can-decide settings, ⌘K "Go to Decisions", cards dropped on a phase column move through the gate source.
+3. The Decisions screen (`/decisions`), the Decisions tab with its count, Request gate / Decide / Change phase in the bulk bar and the item panel, the read-only Phase cell, the Build-to-Test and Hold-due suggestions in the item panel, who-can-decide settings, ⌘K "Go to Decisions", cards dropped on a phase column move through the gate source.
 4. Tracker handover: Discover is never given a new issue (GitHub and Jira); an initiative in Define carries the label `pv:define`; the Gate B result tells the person to use Sync, which still asks for confirmation.
 5. Freeze and resume (`20261105164327_tracker_freeze`): the daily job freezes finished initiatives, every check, webhook and Sync path skips frozen links, the item panel offers Resume syncing; Completed initiatives are hidden in the grid unless "Include completed" is on.
 6. Claude: the read-only `get_gate_pack`; no tool can request, decide or move.
