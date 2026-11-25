@@ -45,7 +45,7 @@ id,group,field,key,type,allowed_values,origin,change,github_sync,storage,ships_i
 49,When,Start Date,start_date,Date,,Computed,Auto-derive,,Column on items,1
 50,When,G2M Date (est),g2m_date_est,Date,,Input,Modify,Optional: push to GitHub issue field (date) / milestone due date.,Column on items,1
 51,When,G2M Date (actual),g2m_date_actual,Date,,Input,Modify,,Column on items,1
-N57,When,G2M Effort,g2m_effort,Select,None · XS · S · M · L · XL,Input,New,Not synced: go-to-market effort is planning data.,Column on items,1
+N57,When,G2M Effort,g2m_effort,Select,XS · S · M · L · XL,Input,New,Not synced: go-to-market effort is planning data.,Column on items,1
 52,When,Start Discovery,start_discovery,Date,,System,Auto-derive,,System-set column (read-only),1
 53,When,Start Definition,start_definition,Date,,System,Auto-derive,,System-set column (read-only),1
 54,When,Start Building,start_building,Date,,System,Auto-derive,Suggested from first child issue moving to in progress.,System-set column (read-only),1

@@ -15,6 +15,15 @@ export function SizeDot({ value, name = "Effort" }: { value: string; name?: stri
   return <span className="kc-size" title={`${name}: ${value}`}><span className="visually-hidden">{name} </span>{value}</span>;
 }
 
+/** G2M Effort: a pill from green (XS) to red (XL). The size word is always in the text, never colour alone. Blank shows nothing. */
+export const G2M_EFFORT_SIZES: readonly string[] = ["XS", "S", "M", "L", "XL"];
+export function EffortPill({ value, name = "G2M Effort", className }: { value: string; name?: string; className?: string }) {
+  const v = value.trim().toUpperCase();
+  if (!v) return null;
+  if (!G2M_EFFORT_SIZES.includes(v)) return <span>{value}</span>;
+  return <span className={`pill kc-pill kc-effort kc-effort-${v.toLowerCase()}${className ? ` ${className}` : ""}`} title={`${name}: ${v}`}><span className="visually-hidden">{name} </span>{v}</span>;
+}
+
 /** A percentage as a thin bar and its number (0 to 100, a fraction below 1 counts as a share). Returns null when the value is not a number. */
 export function percentOf(value: unknown): number | null {
   const n = typeof value === "number" ? value : parseFloat(String(value ?? ""));

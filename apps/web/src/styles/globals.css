@@ -644,6 +644,11 @@ input.sw-input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2
 .kc-moscow-should { background: #dfeafb; color: #1a56c4; }
 .kc-moscow-could { background: #eceef3; color: #3c4254; }
 .kc-moscow-wont { background: transparent; box-shadow: inset 0 0 0 1px #b9bfd6; color: #5b6272; }
+.kc-effort-xs { background: #dff3e6; color: #17603a; }
+.kc-effort-s { background: #e6f4d9; color: #3f5f12; }
+.kc-effort-m { background: #fdf0c9; color: #7a5200; }
+.kc-effort-l { background: #fde0c8; color: #8a3e00; }
+.kc-effort-xl { background: #fbd7d7; color: #9b1c1c; }
 .kc-size { display: inline-flex; align-items: center; justify-content: center; line-height: 1; vertical-align: middle; min-width: 22px; height: 22px; padding: 0 3px; box-sizing: border-box; border-radius: 999px; background: var(--blue-tint-2); color: var(--blue-text); font-size: 11px; font-weight: 600; }
 .kc-stat { font-size: 12px; font-variant-numeric: tabular-nums; }
 .kc-progress { display: inline-flex; align-items: center; gap: 5px; }

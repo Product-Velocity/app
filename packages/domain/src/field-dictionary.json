@@ -1020,18 +1020,17 @@
    "Go-to-market"
   ],
   "allowed": [
-   "None",
    "XS",
    "S",
    "M",
    "L",
    "XL"
   ],
-  "allowedText": "None · XS · S · M · L · XL",
+  "allowedText": "XS · S · M · L · XL",
   "origin": "Input",
   "githubSync": null,
   "filledWhen": "When planning",
-  "description": "How much effort the go-to-market phase is expected to take, set from the start. None means no go-to-market work."
+  "description": "How much effort the go-to-market phase is expected to take, set from the start. Blank means no go-to-market effort expected or not estimated yet."
  },
  {
   "n": "52",
