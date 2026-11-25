@@ -194,7 +194,7 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
     if ("initiative_phase" in plan.changes) {
       const { initiative_phase: toPhase, ...rest } = plan.changes;
       const refuse = (text: string) => { controller.notify(text); setAnnounce(`${row.item_code} was not moved: ${text}`); };
-      if (!gates) { refuse("Initiative Phase moves through a decision gate or Move to next phase."); return; }
+      if (!gates) { refuse("Initiative Phase moves through a decision gate or Change phase."); return; }
       if (toPhase === null || toPhase === undefined) { refuse("A phase cannot be cleared. Move the card to another phase."); return; }
       if (toPhase === "Completed") { refuse("Set Initiative Status to Completed; the phase follows."); return; }
       const need = moveNeedsGate(row.initiative_phase, toPhase as never);

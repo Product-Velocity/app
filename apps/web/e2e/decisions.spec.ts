@@ -246,20 +246,34 @@ test.describe("gate actions in the grid", () => {
     expect(await page.evaluate(() => (window as unknown as { __pv: { gates: { lastPreferred: string[] } } }).__pv.gates.lastPreferred)).toEqual(["u2"]);
   });
 
-  test("Decide in the bulk bar says when nothing is waiting; Move offers only moves without a gate", async ({ page }) => {
+  test("Decide in the bulk bar says when nothing is waiting; Change phase lists every phase and says what each needs", async ({ page }) => {
     await openGrid(page);
     await page.locator('.ag-row[row-id="item-3"] input[type="checkbox"]').first().check(); // Build
     const bar = page.getByRole("region", { name: /Bulk actions/ });
     await bar.getByRole("button", { name: "Decide…" }).click();
     await expect(bar).toContainText("None of the selected initiatives has a gate request waiting.");
-    await bar.getByRole("button", { name: "Move to next phase…" }).click();
-    const dialog = page.getByRole("dialog", { name: "Move 1 initiative to another phase" });
+    await bar.getByRole("button", { name: "Change phase…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Change phase of 1 initiative" });
     const options = await dialog.locator("select option").allTextContents();
-    expect(options).toEqual(["Discover", "Define", "Test", "Experiment"]); // not Roll-out: that passes gate C
+    expect(options).toEqual(["Discover", "Define", "Test", "Experiment", "Roll-out (skips Gate C)", "Completed (sets Initiative Status)"]); // Roll-out passes gate C; this person may decide it
     await dialog.getByLabel("Move to").selectOption("Test");
     await dialog.getByRole("button", { name: "Move 1 to Test" }).click();
     await expect(dialog).toContainText("1 of 1 done");
     expect(await calls(page)).toContain("move item-3 Test");
+  });
+
+  test("Change phase past a gate you may decide needs a comment and is recorded", async ({ page }) => {
+    await openGrid(page);
+    await page.locator('.ag-row[row-id="item-3"] input[type="checkbox"]').first().check(); // Build
+    await page.getByRole("region", { name: /Bulk actions/ }).getByRole("button", { name: "Change phase…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Change phase of 1 initiative" });
+    await dialog.getByLabel("Move to").selectOption({ label: "Roll-out (skips Gate C)" });
+    const go = dialog.getByRole("button", { name: "Move 1 to Roll-out" });
+    await expect(go).toBeDisabled();
+    await dialog.getByLabel("Comment (required)").fill("Internal tool, no experiment needed");
+    await go.click();
+    await expect(dialog).toContainText("1 of 1 done");
+    expect(await calls(page)).toContain("move item-3 Roll-out (Internal tool, no experiment needed)");
   });
 
   test("the command palette offers the gate actions for the selected rows and opens the same dialogs", async ({ page }) => {
@@ -276,8 +290,8 @@ test.describe("gate actions in the grid", () => {
     await page.keyboard.press("Escape");
     await page.keyboard.press("Control+K");
     await page.keyboard.type("move");
-    await page.getByRole("option", { name: /Move 2 selected initiatives to another phase/ }).click();
-    await expect(page.getByRole("dialog", { name: /Move 2 initiatives/ })).toBeVisible();
+    await page.getByRole("option", { name: /Change phase of 2 selected initiatives/ }).click();
+    await expect(page.getByRole("dialog", { name: /Change phase of 2 initiatives/ })).toBeVisible();
   });
 
   test("the Initiative Phase cell is read-only and says where to go instead", async ({ page }) => {

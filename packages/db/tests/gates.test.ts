@@ -269,6 +269,39 @@ describe("moving without a gate", () => {
   });
 });
 
+describe("changing the phase past a gate (issue #679)", () => {
+  const jump = (user: string, id: string, to: string, comment: string | null, via = "UI") =>
+    db.asUser(user, (q) => q("select public.move_phase($1, $2, $3)", [id, to, comment]), { commit: true, via });
+  const skipped = async (id: string) => (await db.admin.query("select gate, rationale, fast_lane, decided_by from public.gate_reviews where item_id = $1 and kind = 'skipped' order by gate", [id])).rows;
+
+  it("a person who can decide the gates moves at once, with a comment, and each gate is recorded as skipped", async () => {
+    const id = await newItem("Define");
+    expect(await errorCode(jump(f.alice, id, "Roll-out", null))).toBe(PV005);
+    expect(await errorCode(jump(f.alice, id, "Roll-out", "ok"))).toBe(PV005);
+    await jump(f.alice, id, "Roll-out", "Internal tool, no experiment needed");
+    expect((await item(id)).initiative_phase).toBe("Roll-out");
+    const rows = await skipped(id);
+    expect(rows.map((r) => r.gate)).toEqual(["B", "C"]);
+    expect(rows.every((r) => r.fast_lane && r.decided_by === f.alice && r.rationale.includes("Internal tool"))).toBe(true);
+  });
+
+  it("a Creator who cannot decide the gate is still told to request it", async () => {
+    const id = await newItem("Define");
+    expect(await errorCode(jump(creator, id, "Build", "please"))).toBe(PV006);
+    expect(await skipped(id)).toEqual([]);
+    expect((await item(id)).initiative_phase).toBe("Define");
+  });
+
+  it("Claude never moves past a gate, and Sunset still comes only from Roll-out or Completed", async () => {
+    const id = await newItem("Define");
+    expect(await errorCode(jump(f.alice, id, "Build", "reason here", "MCP"))).toBe(PV004);
+    const b = await newItem("Build");
+    expect(await errorCode(jump(f.alice, b, "Sunset", "reason here"))).toBe(PV005);
+    await jump(f.alice, b, "Test", null); // no gate: no comment needed
+    expect(await skipped(b)).toEqual([]);
+  });
+});
+
 describe("Completed clears Health (issue #672)", () => {
   const setStatus = (id: string, v: string) => db.asUser(creator, (q) => q("update public.items set initiative_status = $2 where id = $1", [id, v]), commit);
   it("empties Health when Initiative Status becomes Completed and puts it back when the initiative is reopened", async () => {

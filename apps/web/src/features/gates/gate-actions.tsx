@@ -24,7 +24,7 @@ type Props = {
 export const GATE_ACTION_EVENT = "pv:gate-action";
 export type GateActionKind = "request" | "decide" | "move";
 
-/** Request gate, Decide and Move to next phase for one or many initiatives: the same three actions in the bulk bar and the item panel. */
+/** Request gate, Decide and Change phase for one or many initiatives: the same three actions in the bulk bar and the item panel. */
 export function GateActions({ source, items, canEdit, onChanged, className = "bulk-btn", readOnly = false, me = null }: Props) {
   const [dialog, setDialog] = useState<"request" | "move" | { decide: DecideRow[] } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -61,10 +61,10 @@ export function GateActions({ source, items, canEdit, onChanged, className = "bu
     <>
       {canEdit && <button type="button" className={className} onClick={() => setDialog("request")}>Request gate…</button>}
       <button type="button" className={className} onClick={() => void openDecide()}>Decide…</button>
-      {canEdit && <button type="button" className={className} onClick={() => setDialog("move")}>Move to next phase…</button>}
+      {canEdit && <button type="button" className={className} onClick={() => setDialog("move")}>Change phase…</button>}
       {message && <span role="status" className="muted gate-message">{message}</span>}
       {dialog === "request" && <RequestGateDialog source={source} items={items} me={me} onClose={() => setDialog(null)} onDone={onChanged} />}
-      {dialog === "move" && <MoveDialog source={source} items={items} onClose={() => setDialog(null)} onDone={onChanged} />}
+      {dialog === "move" && <MoveDialog source={source} items={items} onClose={() => setDialog(null)} onDone={onChanged} onRequestGate={() => setDialog("request")} />}
       {dialog && typeof dialog === "object" && <DecideDialog source={source} rows={dialog.decide} onClose={() => setDialog(null)} onDone={onChanged} />}
     </>
   );

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
-  COMPLETION_SKIPS_GATE_C, GATES, GATE_IDS, OUTCOMES, completionSkipsGateC, checklistReady, gateChecklist, gateOfPhase, gateTitle, movablePhases, moveNeedsGate, outcomeLabel, requestableGates, splitForRequest, targetPhases,
+  COMPLETION_SKIPS_GATE_C, GATES, GATE_IDS, OUTCOMES, completionSkipsGateC, checklistReady, gateChecklist, gateOfPhase, gateTitle, outcomeLabel, phaseChoices, PHASES, requestableGates, splitForRequest, targetPhases,
   type ChecklistItem, type GateId, type GateOutcome, type GateRequest,
 } from "@pv/domain";
 import type { Approvers, Decider, GateItem, GateSource, ItemResult } from "./gate-source";
@@ -272,34 +272,57 @@ export function DecideDialog({ source, rows, initialOutcome, onClose, onDone }: 
 
 // -------------------------------------------------------------------------------------------------------------------------------- move
 
-/** "Move to next phase": the moves that need no gate (any earlier phase, or forward up to the next gate). */
-export function MoveDialog({ source, items, onClose, onDone }: { source: GateSource; items: DialogItem[]; onClose: () => void; onDone: () => void }) {
-  const options = useMemo(() => {
-    const sets = items.map((i) => movablePhases(i.initiative_phase));
-    return sets.length === 0 ? [] : sets[0]!.filter((p) => sets.every((s) => s.includes(p)));
-  }, [items]);
+/**
+ * "Change phase" (issue #679): every phase is listed. A move that passes no gate is made at once; one that passes gates the person may decide
+ * is a fast-lane move (comment required, recorded as Skipped); one that passes a gate they cannot decide has to be requested.
+ */
+export function MoveDialog({ source, items, onClose, onDone, onRequestGate }: { source: GateSource; items: DialogItem[]; onClose: () => void; onDone: () => void; /** Closes this dialog and opens Request gate. */ onRequestGate?: () => void }) {
+  const [can, setCan] = useState<GateId[] | null>(null);
+  useEffect(() => { let live = true; source.myGates().then((g) => { if (live) setCan(g); }, () => { if (live) setCan([]); }); return () => { live = false; }; }, [source]);
+  const choices = useMemo(() => items.map((i) => phaseChoices(i.initiative_phase, can ?? [])), [items, can]);
+  const options = useMemo(() => PHASES.filter((p) => choices.some((c) => c.some((x) => x.phase === p))).map((p) => {
+    const hits = choices.map((c) => c.find((x) => x.phase === p)).filter((x): x is NonNullable<typeof x> => Boolean(x));
+    const gates = GATE_IDS.filter((g) => hits.some((h) => h.gates.includes(g)));
+    const how = hits.some((h) => h.how === "request") ? "request" : hits.some((h) => h.how === "fast-lane") ? "fast-lane" : "move";
+    const names = gates.length === 1 ? `Gate ${gates[0]}` : `Gates ${gates.join(" and ")}`;
+    return { phase: p, how, text: how === "move" ? p : how === "fast-lane" ? `${p} (skips ${names})` : `${p} (needs ${names}: request it)` };
+  }), [choices]);
   const COMPLETED = "Completed";
   const canComplete = items.every((i) => i.initiative_status !== "Completed" && i.initiative_status !== "Cancelled" && i.initiative_phase !== "Completed" && i.initiative_phase !== "Sunset");
   const skipped = items.filter((i) => completionSkipsGateC(i.initiative_phase));
-  const [to, setTo] = useState<string>(options.find((p) => items.every((i) => !moveNeedsGate(i.initiative_phase, p as never))) ?? options[0] ?? (canComplete ? COMPLETED : ""));
+  const [picked, setTo] = useState<string>("");
+  const to = picked === COMPLETED && canComplete ? COMPLETED : options.some((o) => o.phase === picked) ? picked : (options.find((o) => o.how === "move") ?? options[0])?.phase ?? (canComplete ? COMPLETED : "");
+  const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<ItemResult[] | null>(null);
   const names = new Map(items.map((i) => [i.id, label(i)]));
   const selectRef = useRef<HTMLSelectElement>(null);
   useEffect(() => { selectRef.current?.focus(); }, []);
 
+  const rows = items.map((i, n) => ({ item: i, choice: to === COMPLETED ? undefined : choices[n]!.find((x) => x.phase === to) }));
+  const doable = rows.filter((r) => r.choice && r.choice.how !== "request");
+  const fast = rows.filter((r) => r.choice?.how === "fast-lane");
+  const needRequest = rows.filter((r) => r.choice?.how === "request");
+  const notApplicable = to === COMPLETED ? 0 : rows.filter((r) => !r.choice).length;
+  const fastGates = GATE_IDS.filter((g) => fast.some((r) => r.choice!.gates.includes(g)));
+  const commentOk = fast.length === 0 || comment.trim().length >= 3;
+
   const go = async () => {
     setBusy(true);
     const out: ItemResult[] = [];
-    for (const i of items) {
-      const r = to === COMPLETED ? await source.complete(i.id) : await source.move(i.id, to);
-      out.push(r.ok ? { id: i.id, ok: true } : { id: i.id, ok: false, message: r.error });
+    if (to === COMPLETED) {
+      for (const i of items) { const r = await source.complete(i.id); out.push(r.ok ? { id: i.id, ok: true } : { id: i.id, ok: false, message: r.error }); }
+    } else {
+      for (const r of doable) {
+        const res = await source.move(r.item.id, to, r.choice!.how === "fast-lane" ? comment.trim() : undefined);
+        out.push(res.ok ? { id: r.item.id, ok: true } : { id: r.item.id, ok: false, message: res.error });
+      }
     }
     setResults(out); setBusy(false); onDone();
   };
 
   return (
-    <Shell title={`Move ${items.length} ${items.length === 1 ? "initiative" : "initiatives"} to another phase`} onClose={onClose}>
+    <Shell title={`Change phase of ${items.length} ${items.length === 1 ? "initiative" : "initiatives"}`} onClose={onClose}>
       {results ? (
         <>
           <Results rows={results} names={names} />
@@ -307,15 +330,15 @@ export function MoveDialog({ source, items, onClose, onDone }: { source: GateSou
         </>
       ) : options.length === 0 && !canComplete ? (
         <>
-          <p>These initiatives have no common phase to move to without a gate. Use Request gate. A finished or cancelled initiative is reopened by setting Initiative Status back to Active.</p>
+          <p>There is no phase to move these initiatives to. A finished or cancelled initiative is reopened by setting Initiative Status back to Active.</p>
           <div className="dialog-actions"><button type="button" className="btn" onClick={onClose}>Close</button></div>
         </>
       ) : (
         <>
-          <p>A move up to the next gate needs no approver. To go past a gate, request it.</p>
+          <p>Any phase can be chosen. A move that passes a decision gate needs approval rights for that gate, or a gate request.</p>
           <label className="dialog-label" htmlFor="move-to">Move to</label>
-          <select id="move-to" ref={selectRef} value={to} onChange={(e) => setTo(e.target.value)}>
-            {options.map((p) => <option key={p} value={p}>{p}</option>)}
+          <select id="move-to" ref={selectRef} value={to} onChange={(e) => setTo(e.target.value)} disabled={can === null}>
+            {options.map((o) => <option key={o.phase} value={o.phase}>{o.text}</option>)}
             {canComplete && <option value={COMPLETED}>Completed (sets Initiative Status)</option>}
           </select>
           {to === COMPLETED && (
@@ -324,9 +347,27 @@ export function MoveDialog({ source, items, onClose, onDone }: { source: GateSou
               {skipped.length > 0 && <strong> {skipped.length === 1 ? "This" : `${skipped.length} of these`} {COMPLETION_SKIPS_GATE_C}</strong>}
             </p>
           )}
+          {fast.length > 0 && (
+            <div role="note">
+              <p className="muted">
+                {fast.length === 1 ? "This passes" : `${fast.length} of these pass`} {fastGates.length === 1 ? "Gate" : "Gates"} {fastGates.join(" and ")} without a request. You can decide {fastGates.length === 1 ? "it" : "them"}, so it is made at once and recorded as Skipped (fast lane) with your name, your comment and the time. Undo is not available for a gate skip.
+              </p>
+              <label className="dialog-label" htmlFor="move-comment">Comment (required)</label>
+              <textarea id="move-comment" rows={2} value={comment} onChange={(e) => setComment(e.target.value)} />
+            </div>
+          )}
+          {needRequest.length > 0 && (
+            <p role="note" className="muted">
+              {needRequest.length === 1 ? "1 initiative passes" : `${needRequest.length} initiatives pass`} a gate you cannot decide. {onRequestGate ? "Request it instead:" : "Use Request gate instead."}{" "}
+              {onRequestGate && <button type="button" className="link-button" onClick={onRequestGate}>Request gate…</button>}
+            </p>
+          )}
+          {notApplicable > 0 && <p role="note" className="muted">{notApplicable} {notApplicable === 1 ? "is" : "are"} already there or cannot go there, and {notApplicable === 1 ? "is" : "are"} left out.</p>}
           <div className="dialog-actions">
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button type="button" className="btn btn-primary" disabled={busy || !to} onClick={() => void go()}>{busy ? "Moving…" : to === COMPLETED ? `Complete ${items.length}` : `Move ${items.length} to ${to}`}</button>
+            <button type="button" className="btn btn-primary" disabled={busy || !to || can === null || (to !== COMPLETED && doable.length === 0) || !commentOk} onClick={() => void go()}>
+              {busy ? "Moving…" : to === COMPLETED ? `Complete ${items.length}` : `Move ${doable.length} to ${to}`}
+            </button>
           </div>
         </>
       )}

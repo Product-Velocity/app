@@ -26,7 +26,8 @@ export interface GateSource {
   loadDocsFor(itemIds: string[]): Promise<Record<string, { kind: string; status: string }[]>>;
   requestGate(gate: GateId, items: { item: string; ready: boolean; criteria: ChecklistItem[]; /** The people to ask; empty asks everyone who can decide. */ preferred?: string[] }[]): Promise<ItemResult[]>;
   decide(reviewIds: string[], d: Decision): Promise<(ItemResult & { phase?: string; fastLane?: boolean })[]>;
-  move(itemId: string, to: string): Promise<{ ok: true } | { ok: false; error: string }>;
+  /** Moves the phase. A move that passes a gate needs a person who can decide it and a comment (recorded as Skipped (fast lane)). */
+  move(itemId: string, to: string, comment?: string): Promise<{ ok: true } | { ok: false; error: string }>;
   /** Sets Initiative Status to Completed; the database moves the phase to Completed and clears Health (docs/decisions/2026-11-25-completing-an-initiative.md). */
   complete(itemId: string): Promise<{ ok: true } | { ok: false; error: string }>;
   loadConditions(itemId: string): Promise<Condition[]>;
@@ -105,8 +106,8 @@ export class SupabaseGateSource implements GateSource {
     }));
   }
 
-  async move(itemId: string, to: string) {
-    const { error } = await this.client.rpc("move_phase", { p_item: itemId, p_to: to });
+  async move(itemId: string, to: string, comment?: string) {
+    const { error } = await this.client.rpc("move_phase", { p_item: itemId, p_to: to, p_comment: comment ?? null });
     return error ? { ok: false as const, error: text(error) } : { ok: true as const };
   }
 
@@ -244,8 +245,8 @@ export class MemoryGateSource implements GateSource {
   /** Test pages: what a successful move does to the screen, and a failure to simulate. */
   onMove: ((itemId: string, to: string) => void) | null = null;
   failMove: string | null = null;
-  async move(itemId: string, to: string) {
-    this.calls.push(`move ${itemId} ${to}`);
+  async move(itemId: string, to: string, comment?: string) {
+    this.calls.push(comment ? `move ${itemId} ${to} (${comment})` : `move ${itemId} ${to}`);
     if (this.failMove) return { ok: false as const, error: this.failMove };
     this.onMove?.(itemId, to);
     return { ok: true as const };

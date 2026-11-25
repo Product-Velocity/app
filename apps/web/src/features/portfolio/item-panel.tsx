@@ -94,7 +94,7 @@ export type ItemPanelProps = {
   /** Address of an item's page and of the roadmap (the test page uses its own). */
   pageHref?: (code: string) => string;
   backHref?: string;
-  /** Decision gates: the lifecycle line with Request gate, Decide and Move to next phase. */
+  /** Decision gates: the lifecycle line with Request gate, Decide and Change phase. */
   gates?: GateSource;
 };
 

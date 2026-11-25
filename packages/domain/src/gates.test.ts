@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { phaseSuggestions, GATES, PHASES, checklistReady, decidableCount, filterQueue, gateChecklist, gateErrorText, gateOfPhase, isOpen, completionSkipsGateC, moveNeedsGate, movablePhases, requestableGates, splitForRequest, targetPhases, type GateRequest } from "./gates";
+import { phaseSuggestions, GATES, PHASES, checklistReady, decidableCount, filterQueue, gateChecklist, gateErrorText, gateOfPhase, isOpen, completionSkipsGateC, gatesPassed, moveNeedsGate, phaseChoices, movablePhases, requestableGates, splitForRequest, targetPhases, type GateRequest } from "./gates";
 
 const req = (o: Partial<GateRequest>): GateRequest => ({ id: "r", item_id: "i", gate: "A", kind: "decision", requested_by: "u1", requested_at: "2026-11-05T10:00:00Z", preferred_approvers: [], ready: false, criteria: [], outcome: null, rationale: null, fast_lane: false, target_phase: null, skipped_phases: [], review_date: null, decided_by: null, decided_at: null, withdrawn_at: null, ...o });
 
@@ -116,5 +116,28 @@ describe("completing without Gate C (issue #672)", () => {
   it("warns for every phase before Roll-out, not for Roll-out, a finished one or no phase", () => {
     for (const p of ["Discover", "Define", "Build", "Test", "Experiment"]) expect(completionSkipsGateC(p)).toBe(true);
     for (const p of ["Roll-out", "Completed", "Sunset", null, undefined, ""]) expect(completionSkipsGateC(p)).toBe(false);
+  });
+});
+
+describe("Change phase offers every phase (issue #679)", () => {
+  it("lists all phases but the current one, and says how each is reached", () => {
+    const c = phaseChoices("Discover", []);
+    expect(c.map((x) => x.phase)).toEqual(["Define", "Build", "Test", "Experiment", "Roll-out"]);
+    expect(c.map((x) => x.how)).toEqual(["request", "request", "request", "request", "request"]);
+    expect(c.find((x) => x.phase === "Roll-out")!.gates).toEqual(["A", "B", "C"]);
+    const b = phaseChoices("Build", []);
+    expect(b.map((x) => [x.phase, x.how])).toEqual([["Discover", "move"], ["Define", "move"], ["Test", "move"], ["Experiment", "move"], ["Roll-out", "request"]]);
+  });
+  it("a person who can decide the passed gates gets a fast-lane move; one gate short is still a request", () => {
+    expect(phaseChoices("Define", ["B", "C"]).find((x) => x.phase === "Roll-out")).toMatchObject({ how: "fast-lane", gates: ["B", "C"] });
+    expect(phaseChoices("Define", ["B"]).find((x) => x.phase === "Roll-out")!.how).toBe("request");
+    expect(phaseChoices("Define", ["B"]).find((x) => x.phase === "Build")!.how).toBe("fast-lane");
+  });
+  it("Sunset only from Roll-out; Completed only to Sunset; no phase is offered twice", () => {
+    expect(phaseChoices("Build", ["A", "B", "C"]).map((x) => x.phase)).not.toContain("Sunset");
+    expect(phaseChoices("Roll-out", []).map((x) => x.phase)).toContain("Sunset");
+    expect(phaseChoices("Completed", [])).toEqual([{ phase: "Sunset", gates: [], how: "move" }]);
+    expect(phaseChoices(null, []).map((x) => x.phase)).toEqual(["Define", "Build", "Test", "Experiment", "Roll-out"]);
+    expect(gatesPassed("Define", "Roll-out")).toEqual(["B", "C"]);
   });
 });

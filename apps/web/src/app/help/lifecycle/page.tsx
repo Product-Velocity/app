@@ -36,7 +36,7 @@ export default function LifecyclePage() {
         <p>{GATES_INTRO}</p>
         <HelpTable caption="The three gates" table={GATES_TABLE} />
         <HelpTable caption="The four outcomes" table={GATES_OUTCOMES} />
-        <HelpWhere>Decisions tab; Request gate, Decide and Move to next phase in the side panel, the multi-select bar and the command palette (Ctrl+K).</HelpWhere>
+        <HelpWhere>Decisions tab; Request gate, Decide and Change phase in the side panel, the multi-select bar and the command palette (Ctrl+K). Change phase lists every phase. If it passes a gate you may decide, it moves at once with a comment and is recorded as skipped (fast lane); if not, it offers Request gate.</HelpWhere>
       </HelpSection>
 
       <HelpSection id="decide" title="Request, decide, complete">
