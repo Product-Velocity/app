@@ -445,10 +445,16 @@ input.sw-input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2
 .grid-split > .grid-wrap { flex: 1 1 auto; min-width: 0; }
 .item-panel { position: relative; flex: 0 0 572px; width: 572px; max-width: 70vw; display: flex; flex-direction: column; border-left: 1px solid var(--grey-1); background: var(--bg); min-height: 0; }
 .item-panel-page { flex: 1 1 auto; width: auto; max-width: 780px; margin: 0 auto; border: 1px solid var(--grey-1); border-radius: 8px; }
-.ip-head { padding: 8px 14px 6px; border-bottom: 1px solid var(--grey-2); }
-.ip-nav { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-.ip-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; }
+.ip-head { padding: 8px 14px 10px; border-bottom: 1px solid var(--grey-2); }
+.ip-nav { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.ip-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
 .ip-nav .btn, .ip-actions .btn { height: 28px; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; color: var(--text, inherit); text-decoration: none; }
+/* brand buttons keep their own colours inside the header: primary is blue with white text, quiet danger is red text on white */
+.ip-actions .btn-primary { color: #fff; }
+.ip-actions .btn-danger-quiet { color: var(--danger); }
+.ip-actions .btn-danger-quiet:hover:not(:disabled) { background: var(--danger-tint); }
+.ip-trackers:not(:empty) { margin-top: 6px; }
+.ip-trackers .ip-gh { margin: 2px 0; }
 /* the drag handle on the left edge of the peek panel */
 .ip-resize { position: absolute; left: -3px; top: 0; bottom: 0; width: 7px; cursor: col-resize; z-index: 5; touch-action: none; }
 .ip-resize::after { content: ""; position: absolute; left: 3px; top: 0; bottom: 0; width: 1px; background: transparent; }
@@ -461,10 +467,10 @@ input.sw-input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2
 .ip-pos { font-size: 12px; }
 .ip-icon { min-width: 28px; padding: 0 8px; }
 .ip-link { font-size: 12px; text-decoration: none; }
-.ip-pills { list-style: none; margin: 4px 0 2px; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
+.ip-pills { list-style: none; margin: 8px 0 2px; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
 .ip-pills li { display: inline-flex; align-items: center; gap: 4px; }
 .ip-code { margin: 2px 0; display: flex; gap: 8px; align-items: center; font-size: 12px; }
-.ip-title { margin: 0; font-size: 16px; line-height: 1.3; }
+.ip-title { margin: 2px 0 0; font-size: 18px; line-height: 1.3; }
 .ip-rank { margin: 2px 0 0; font-size: 12px; }
 .ip-tabs { display: flex; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--grey-1); }
 .ip-tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 7px 10px; font: inherit; color: #3c4254; cursor: pointer; }
@@ -1383,7 +1389,7 @@ button.share-chip { cursor: pointer; }
 .phone-health-blocked { background: #FBE4E4; color: #8A1F1F; }
 .phone-back { justify-self: start; align-items: center; margin-bottom: 8px; position: sticky; top: 0; z-index: 25; }
 @media (max-width: 699px) {
-  .ip-actions, .ip-nav .ip-pos { display: none; }
+  .ip-actions, .ip-nav .ip-pos, .ip-fullpage { display: none; }
   .ip-tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
   .ip-tab { flex: 0 0 auto; min-height: 44px; }
 }
@@ -2135,3 +2141,13 @@ a.btn.btn-primary { color: #fff; }
 
 .name-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 420px) { .name-row { grid-template-columns: 1fr; } }
+/* A document of an initiative on a page of its own (reading width, about 75 characters) */
+.doc-page { max-width: 860px; margin: 0 auto; padding: 8px 16px 48px; }
+.docs-editor-page { border-left: 0; padding-left: 0; }
+.docs-editor-page .md-preview { max-height: none; padding: 16px 24px; font-size: 14px; line-height: 1.6; }
+.docs-editor-page .md-preview h1 { font-size: 22px; margin: 20px 0 8px; }
+.docs-editor-page .md-preview h2 { font-size: 18px; margin: 20px 0 6px; }
+.docs-editor-page .md-preview h3 { font-size: 15px; margin: 16px 0 4px; }
+.docs-editor-page .md-preview table { display: block; overflow-x: auto; max-width: 100%; }
+.md-tabs { flex-wrap: wrap; }
+a.tool-btn { text-decoration: none; display: inline-flex; align-items: center; color: inherit; }

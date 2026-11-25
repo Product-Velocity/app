@@ -8,6 +8,7 @@ import { RowIcon, RowMenu, ShareChip } from "./attachment-ui";
 import { FilesControl, type FilesHandle } from "./files-control";
 import type { FieldCtx } from "./item-fields";
 import { LinksList, type LinksHandle } from "./links-list";
+import { copyFormatted, copyMarkdown } from "./markdown-copy";
 
 type Version = { version: number; saved_at: string; saved_via: string; ai_tool?: string | null; ai_model?: string | null; saved_by_name?: string | null };
 /** "Claude (Claude Opus 5.5)": the AI tool from the connection and the model the assistant stated. */
@@ -18,13 +19,14 @@ const STATUS_LABEL: Record<string, string> = { draft: "Draft", in_review: "In re
  * The Spec tab: the documents of one initiative (the full PRD, requirements, research). Versioned Markdown that stays in Product Velocity:
  * it goes into the GitHub issue / Jira description as a link (a public page of its text) unless "Do not share" is chosen. Saves on leaving a box, keeps every version (restoring one is the undo), and never overwrites a newer save.
  */
-export function DocumentsTab({ itemId, canEdit, ctx, tracker = "GitHub" }: { itemId: string; canEdit: boolean; ctx: FieldCtx; /** "GitHub" or "Jira": where this initiative is sent. */ tracker?: string }) {
+export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub" }: { itemId: string; /** The code (R-12) of the initiative: the address of a document's reading page. Without it there is no "Open full page". */ itemCode?: string; canEdit: boolean; ctx: FieldCtx; /** "GitHub" or "Jira": where this initiative is sent. */ tracker?: string }) {
   const [docs, setDocs] = useState<DocView[] | null>(null);
   // a link from the activity log opens the document: ?item=R-12&tab=spec&doc=<id>
   const [openId, setOpenId] = useState<string | null>(() => {
     const d = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("doc");
     return d && /^[0-9a-f-]{36}$/i.test(d) ? d : null;
   });
+  const docPageHref = (docId: string) => `/portfolio/${encodeURIComponent(itemCode ?? "")}/documents/${docId}`;
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [type, setType] = useState<"all" | "docs" | "files" | "links">("all");
@@ -115,11 +117,12 @@ export function DocumentsTab({ itemId, canEdit, ctx, tracker = "GitHub" }: { ite
                 : <ShareChip shared={d.shared} tracker={tracker} name={d.title} disabled={!canEdit} onToggle={(on) => void setShared(d, on)} />}
               <RowMenu label={`Actions for ${d.title}`} items={[
                 { label: openId === d.id ? "Close" : "Open", onSelect: () => setOpenId(openId === d.id ? null : d.id) },
+                { label: "Open full page", href: docPageHref(d.id), hidden: !itemCode },
                 { label: "Copy public link", onSelect: () => void navigator.clipboard?.writeText(d.shareUrl ?? "").catch(() => setError("Your browser did not allow copying.")), hidden: !d.shareUrl },
                 { label: "Open public page", href: d.shareUrl ?? "", hidden: !d.shareUrl },
                 { label: "Remove", onSelect: () => void removeDoc(d), danger: true, hidden: !canEdit },
               ]} />
-              {openId === d.id && <div className="entry-expand"><DocEditor id={d.id} canEdit={canEdit} onChanged={load} onRemoved={() => { setOpenId(null); void load(); }} onError={setError} /></div>}
+              {openId === d.id && <div className="entry-expand"><DocEditor id={d.id} fullPageHref={itemCode ? docPageHref(d.id) : undefined} canEdit={canEdit} onChanged={load} onRemoved={() => { setOpenId(null); void load(); }} onError={setError} /></div>}
             </li>
           ))}
         </ul>
@@ -136,11 +139,12 @@ export function DocumentsTab({ itemId, canEdit, ctx, tracker = "GitHub" }: { ite
   );
 }
 
-function DocEditor({ id, canEdit, onChanged, onRemoved, onError }: { id: string; canEdit: boolean; onChanged: () => Promise<void>; onRemoved: () => void; onError: (e: string | null) => void }) {
+/** `fullPageHref` shows "Open full page" (the reading page of the document); `page` is that reading page itself: wider, and it opens on the Preview. */
+export function DocEditor({ id, canEdit, onChanged, onRemoved, onError, fullPageHref, page = false }: { id: string; canEdit: boolean; onChanged: () => Promise<void>; onRemoved: () => void; onError: (e: string | null) => void; fullPageHref?: string; page?: boolean }) {
   const [doc, setDoc] = useState<DocView | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [preview, setPreview] = useState(false);
+  const [preview, setPreview] = useState(page);
   const [versions, setVersions] = useState<Version[] | null>(null);
   const [viewing, setViewing] = useState<{ version: number; title: string; body: string } | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -183,6 +187,14 @@ function DocEditor({ id, canEdit, onChanged, onRemoved, onError }: { id: string;
     if (r.ok) onRemoved(); else onError(((await r.json().catch(() => ({}))) as { error?: string }).error ?? "The document could not be removed.");
   };
 
+  const copy = async (formatted: boolean) => {
+    if (formatted) {
+      const r = await copyFormatted(body);
+      setNote(r === "formatted" ? "Copied with its formatting. Paste it where you need it." : r === "text" ? "Your browser could not copy formatted text, so the Markdown was copied instead." : null);
+      if (r === "failed") onError("Your browser did not allow copying.");
+    } else if (await copyMarkdown(body)) setNote("Copied as Markdown."); else onError("Your browser did not allow copying.");
+  };
+
   const showVersion = async (n: number) => {
     const r = await fetch(`/api/documents/${id}?version=${n}`);
     const out = (await r.json().catch(() => ({}))) as { version?: { version: number; title: string; body: string } };
@@ -192,7 +204,7 @@ function DocEditor({ id, canEdit, onChanged, onRemoved, onError }: { id: string;
   if (!doc) return <p className="muted" role="status">Opening…</p>;
   const ro = !canEdit;
   return (
-    <div className="docs-editor">
+    <div className={page ? "docs-editor docs-editor-page" : "docs-editor"}>
       <div className="docs-meta">
         <label>Title <input value={title} disabled={ro} maxLength={200} onChange={(e) => setTitle(e.target.value)} onBlur={() => { if (title.trim() && title !== doc.title) void save({ title }); }} /></label>
         <label>Kind{" "}
@@ -215,10 +227,13 @@ function DocEditor({ id, canEdit, onChanged, onRemoved, onError }: { id: string;
       <div className="md-tabs" role="group" aria-label="Document view">
         <button type="button" className={preview ? "tool-btn" : "tool-btn tool-btn-on"} aria-pressed={!preview} onClick={() => setPreview(false)}>Write</button>
         <button type="button" className={preview ? "tool-btn tool-btn-on" : "tool-btn"} aria-pressed={preview} onClick={() => setPreview(true)}>Preview</button>
+        <button type="button" className="tool-btn" onClick={() => void copy(true)} title="Copies the text with its headings and tables, to paste into an email, a document or Slack">Copy</button>
+        <button type="button" className="tool-btn" onClick={() => void copy(false)}>Copy as Markdown</button>
+        {fullPageHref && <a className="tool-btn" href={fullPageHref} target="_blank" rel="noopener">Open full page</a>}
         <span className="muted md-count">{body.length.toLocaleString("en-GB")} of {MAX_DOC_CHARS.toLocaleString("en-GB")} characters · Markdown</span>
       </div>
       {preview ? <MarkdownPreview text={body} /> : (
-        <textarea aria-label={`Text of ${doc.title}`} className="docs-text" rows={18} value={body} readOnly={ro} spellCheck maxLength={MAX_DOC_CHARS}
+        <textarea aria-label={`Text of ${doc.title}`} className="docs-text" rows={page ? 32 : 18} value={body} readOnly={ro} spellCheck maxLength={MAX_DOC_CHARS}
           onChange={(e) => setBody(e.target.value)} onBlur={() => { if (body !== (doc.body ?? "")) void save({ body }); }} />
       )}
       {note && <p role="status" className="muted">{note}</p>}
