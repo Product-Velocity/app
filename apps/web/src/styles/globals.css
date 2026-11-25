@@ -2151,3 +2151,20 @@ a.btn.btn-primary { color: #fff; }
 .docs-editor-page .md-preview table { display: block; overflow-x: auto; max-width: 100%; }
 .md-tabs { flex-wrap: wrap; }
 a.tool-btn { text-decoration: none; display: inline-flex; align-items: center; color: inherit; }
+
+/* Jira epics grid on the item panel's Jira tab */
+.eg { display: grid; gap: 8px; }
+.eg h4 { margin: 0; }
+.eg-help summary { cursor: pointer; color: #5b6272; font-size: 12px; }
+.eg-add { display: flex; gap: 8px; align-items: flex-start; }
+.eg-add-field { flex: 1 1 auto; }
+.eg-add textarea { width: 100%; min-height: var(--row-height); resize: vertical; font: inherit; padding: 6px 8px; border: 1px solid var(--border-strong); border-radius: 6px; }
+.eg-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.eg-bar label { display: grid; gap: 2px; font-size: 12px; color: #5b6272; }
+.eg-bar select, .eg-bar input[type="search"] { height: var(--row-height); font: inherit; }
+.eg-scroll { max-height: 420px; padding: 0; }
+.eg-table th { position: sticky; top: 0; z-index: 1; }
+.eg-table td, .eg-table th { padding: 4px 6px; vertical-align: top; }
+.eg-sel { width: 28px; }
+.eg-actions { white-space: nowrap; display: flex; gap: 4px; }
+.eg-actions .btn { height: 24px; padding: 0 8px; font-size: 12px; }

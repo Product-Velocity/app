@@ -116,9 +116,9 @@ export class MemoryDataSource implements PortfolioDataSource {
     return { ok: true as const, added };
   }
   /** The check in the test page: every key is OK unless it starts with "BAD", which is refused with a reason. */
-  async checkJiraEpics(itemId: string) {
+  async checkJiraEpics(itemId: string, keys?: string[]) {
     await this.pause();
-    return { ok: true as const, lines: (this.epicRequests.get(itemId) ?? []).filter((r) => r.state !== "linked").map((r) => r.key.startsWith("BAD") ? { key: r.key, ok: false, text: `${r.key} is a Story (level 0), not an epic: only epics go under an Initiative.` } : { key: r.key, ok: true, text: `${r.key} Epic ${r.key}: gets it as its parent (it has none now).` }) };
+    return { ok: true as const, lines: (this.epicRequests.get(itemId) ?? []).filter((r) => r.state !== "linked" && (!keys || keys.includes(r.key))).map((r) => r.key.startsWith("BAD") ? { key: r.key, ok: false, text: `${r.key} is a Story (level 0), not an epic: only epics go under an Initiative.` } : { key: r.key, ok: true, text: `${r.key} Epic ${r.key}: gets it as its parent (it has none now).` }) };
   }
   async removeJiraEpicRequest(itemId: string, key: string) {
     await this.pause();
