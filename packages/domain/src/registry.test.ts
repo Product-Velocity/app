@@ -33,7 +33,7 @@ const csv = parseCsv(readFileSync(new URL("../../../docs/reference/item-fields.c
 describe("field registry matches docs/reference/item-fields.csv", () => {
   it("has the same fields in the same order", () => {
     expect(FIELDS.map((f) => f.key)).toEqual(csv.map((r) => r.key));
-    expect(FIELDS).toHaveLength(177);
+    expect(FIELDS).toHaveLength(178);
   });
   it("has the same id, type, storage and phase for every field", () => {
     for (const r of csv) {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { MarkdownPreview } from "@/features/portfolio/markdown-preview";
 import { requireWorkspace } from "@/lib/session";
 import { CONSENT_LINES, METHODS, NEXT_STATE, STATE_LABEL, type Group, type SessionState } from "@/lib/alignment";
 import { participantState, MAILING_STATE_LABEL } from "@/lib/alignment-mail";
@@ -86,7 +87,7 @@ export default async function AlignmentSessionPage({ params, searchParams }: { p
           {shown.map((i, n) => (
             <li key={i.id ?? n}>
               <strong>{i.name ?? "Initiative"}</strong>
-              {i.summary && <p>{i.summary}</p>}
+              {i.summary && <MarkdownPreview text={i.summary} />}
               {i.value && <p className="muted">{i.value}</p>}
             </li>
           ))}

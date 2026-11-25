@@ -5,6 +5,7 @@ import {
   answersFor, coinsLeft, duelKey, duelPairs, duelsDone, ICE_DEFAULT, pickCount, rankingFromDuels, setCoins,
   type BallotItem, type Method, type Progress,
 } from "@/lib/alignment-ballot";
+import { MarkdownPreview } from "@/features/portfolio/markdown-preview";
 import { saveBallotProgress, submitBallot } from "./actions";
 
 export type BallotApi = {
@@ -22,7 +23,7 @@ function ItemCard({ item, children, selected }: { item: BallotItem; children?: R
   return (
     <div className={selected ? "ballot-card selected" : "ballot-card"}>
       <strong>{item.name}</strong>
-      {item.summary && <p>{item.summary}</p>}
+      {item.summary && <MarkdownPreview text={item.summary} />}
       {item.value && <p className="muted">{item.value}</p>}
       {children}
     </div>

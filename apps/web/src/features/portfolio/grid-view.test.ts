@@ -13,7 +13,7 @@ describe("baseDef", () => {
     expect(d.groupBy).toBeNull();
   });
   it("all columns has every field", () => {
-    expect(baseDef({ kind: "all" }, [])!.columns).toHaveLength(177); // every field of the dictionary (Roadmap Category is shown again)
+    expect(baseDef({ kind: "all" }, [])!.columns).toHaveLength(178); // every field of the dictionary (Roadmap Category is shown again)
   });
   it("a saved view is read from the list, and is null when it is missing", () => {
     expect(baseDef({ kind: "saved", id: "v1" }, saved)).toMatchObject({ groupBy: "health", filters: [{ field: "moscow", op: "is", value: "Must" }] });

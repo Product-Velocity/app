@@ -91,7 +91,7 @@ const createItems: ToolDef = {
   description:
     "Creates up to 50 initiatives in one call, as the signed-in user, at the end of the stack rank. Every initiative is flagged AI draft until a person accepts it. " +
     "Only name is required (project too when the workspace has several). Set as many other fields as you can: call describe_fields for the keys, allowed values and limits; dates are yyyy-mm-dd; " +
-    "description is Markdown up to 20,000 characters; people are member emails; relations use the codes of existing initiatives (to relate initiatives created in the same call, create them first, then call set_relations). " +
+    "description is Markdown up to 20,000 characters; summary is Markdown up to 4,000 characters; people are member emails; relations use the codes of existing initiatives (to relate initiatives created in the same call, create them first, then call set_relations). " +
     "A missing field that a later stage will ask for is a warning, never an error. A bad item is reported on its own and the others are still created, unless all_or_nothing is true. " +
     "dry_run: true validates and returns what would be created without writing anything: run it first when unsure. Estimates you set are marked Rough guess. " +
     NEVER + " " + DATA,

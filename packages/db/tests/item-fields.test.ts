@@ -367,3 +367,16 @@ describe("Focus Area, Audience, Objective and Business Line are open lists (issu
     expect(await errorCode(db.asUser(creator, (q) => q(`update public.items set ${col} = $2 where id = $1`, [id, "x".repeat(121)]), { commit: true }))).toBe(CHECK);
   });
 });
+
+describe("G2M Effort (issue #676)", () => {
+  it("takes None, XS, S, M, L or XL, can be cleared, and refuses anything else", async () => {
+    const id = await fresh();
+    for (const v of ["None", "XS", "S", "M", "L", "XL"]) {
+      await db.asUser(creator, (q) => q("update public.items set g2m_effort = $2 where id = $1", [id, v]), { commit: true });
+      expect((await db.admin.query("select g2m_effort as v from public.items where id = $1", [id])).rows[0].v).toBe(v);
+    }
+    await db.asUser(creator, (q) => q("update public.items set g2m_effort = null where id = $1", [id]), { commit: true });
+    expect((await db.admin.query("select g2m_effort as v from public.items where id = $1", [id])).rows[0].v).toBeNull();
+    expect(await errorCode(db.asUser(creator, (q) => q("update public.items set g2m_effort = 'XXL' where id = $1", [id]), { commit: true }))).toBe(CHECK);
+  });
+});

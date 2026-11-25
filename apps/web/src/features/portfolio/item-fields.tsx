@@ -87,18 +87,18 @@ function DateControl({ id, f, row, ctx, disabled, onError }: Common) {
   );
 }
 
-/** The Description: Markdown in a taller box, with a Preview of how it reads in GitHub. */
-function MarkdownControl({ text, ...shared }: { text: string; id: string; value: string; disabled: boolean; onFocus: () => void; onChange: (e: { target: { value: string } }) => void; onBlur: (e: { target: { value: string } }) => void }) {
+/** The Description and the Summary: Markdown in a taller box, with a Preview of how it reads in GitHub. */
+function MarkdownControl({ text, limit, label, rows, ...shared }: { text: string; limit: number; label: string; rows: number; id: string; value: string; disabled: boolean; onFocus: () => void; onChange: (e: { target: { value: string } }) => void; onBlur: (e: { target: { value: string } }) => void }) {
   const [preview, setPreview] = useState(false);
   return (
     <div className="md-control">
-      <div className="md-tabs" role="group" aria-label="Description view">
+      <div className="md-tabs" role="group" aria-label={`${label} view`}>
         <button type="button" className={preview ? "tool-btn" : "tool-btn tool-btn-on"} aria-pressed={!preview} onClick={() => setPreview(false)}>Write</button>
         <button type="button" className={preview ? "tool-btn tool-btn-on" : "tool-btn"} aria-pressed={preview} onClick={() => setPreview(true)}>Preview</button>
-        <span className="muted md-count">{text.length.toLocaleString("en-GB")} of 20,000 characters · Markdown</span>
+        <span className="muted md-count">{text.length.toLocaleString("en-GB")} of {limit.toLocaleString("en-GB")} characters · Markdown</span>
       </div>
       {preview ? <MarkdownPreview text={text} /> : (
-        <textarea {...shared} rows={12} spellCheck onKeyDown={(e) => { if (e.key === "Escape") { (e.target as HTMLElement).blur(); e.stopPropagation(); } }} />
+        <textarea {...shared} rows={rows} spellCheck onKeyDown={(e) => { if (e.key === "Escape") { (e.target as HTMLElement).blur(); e.stopPropagation(); } }} />
       )}
     </div>
   );
@@ -120,7 +120,8 @@ function TextControl({ id, f, row, ctx, disabled, onError, kind }: Common & { ki
     onChange: (e: { target: { value: string } }) => setDraft(e.target.value),
     onBlur: (e: { target: { value: string } }) => { if (draft !== null) commit(e.target.value); },
   };
-  if (kind === "longtext" && f.key === "description") return <MarkdownControl {...shared} text={draft ?? raw} />;
+  if (kind === "longtext" && f.key === "description") return <MarkdownControl {...shared} text={draft ?? raw} limit={20000} label="Description" rows={12} />;
+  if (kind === "longtext" && f.key === "summary") return <MarkdownControl {...shared} text={draft ?? raw} limit={4000} label="Summary" rows={6} />;
   if (kind === "longtext") {
     return <textarea {...shared} rows={4} onKeyDown={(e) => { if (e.key === "Escape") { setDraft(null); (e.target as HTMLElement).blur(); e.stopPropagation(); } }} />;
   }

@@ -1006,6 +1006,34 @@
   "description": "Actual go-to-market date (ends the last stage)"
  },
  {
+  "n": "N57",
+  "storage": "Column on items",
+  "phase": 1,
+  "name": "G2M Effort",
+  "key": "g2m_effort",
+  "group": "When",
+  "type": "Select",
+  "editing": "Editable",
+  "customerSafe": false,
+  "views": [
+   "Planning",
+   "Go-to-market"
+  ],
+  "allowed": [
+   "None",
+   "XS",
+   "S",
+   "M",
+   "L",
+   "XL"
+  ],
+  "allowedText": "None · XS · S · M · L · XL",
+  "origin": "Input",
+  "githubSync": null,
+  "filledWhen": "When planning",
+  "description": "How much effort the go-to-market phase is expected to take, set from the start. None means no go-to-market work."
+ },
+ {
   "n": "52",
   "storage": "System-set column (read-only)",
   "phase": 1,
@@ -1695,7 +1723,7 @@
   "origin": "Input",
   "githubSync": null,
   "filledWhen": "Before sharing",
-  "description": "Plain-language, 1-2 sentences (max ~280 chars). Shown to participants in alignment sessions and on shared roadmaps."
+  "description": "Plain-language text for participants, Markdown allowed (max 4000 characters). Shown to participants in alignment sessions and on shared roadmaps."
  },
  {
   "n": "H1",
