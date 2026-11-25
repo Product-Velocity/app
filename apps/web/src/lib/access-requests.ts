@@ -4,25 +4,30 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { emailConfigured } from "@/lib/email/resend";
 import { sendLogged } from "@/lib/email/send";
 import { loadEmailOverride } from "@/lib/email/override";
-import { buildAccessRequestEmail } from "@/lib/email/access";
+import { buildAccessRequestEmail, buildDomainJoinEmail } from "@/lib/email/access";
 import { siteUrl } from "@/lib/site-url";
 
-export type PendingAccess = { tenantId: string; tenantName: string };
+export type PendingAccess = { tenantId: string; tenantName: string; joined?: boolean };
 
 /**
- * Domain-gated sign-up (FR-2.1): a signed-in person with a confirmed email at an authorized domain gets a Requested Access row,
- * which grants nothing. New requests email the workspace's admins (FR-2.2; the in-app alert is the count on the members page and banner).
- * Returns every workspace this person is waiting on. Email failures never block the person; recipient addresses are never logged.
+ * Domain sign-up (FR-2.1, issue #673): a signed-in person with a confirmed email at an authorized domain either joins as an active Viewer
+ * (the workspace's default) or gets a Requested Access row, which grants nothing. New rows email the workspace's admins (FR-2.2); the in-app
+ * alert is the count on the members page and banner. Returns every workspace this person joined or is waiting on.
+ * Email failures never block the person; recipient addresses are never logged.
  */
 export async function syncDomainAccess(supabase: SupabaseClient, requesterEmail: string): Promise<PendingAccess[]> {
   const { data, error } = await supabase.rpc("request_access_by_domain");
   if (error || !Array.isArray(data)) return [];
-  const rows = data as { tenant_id: string; tenant_name: string; created: boolean }[];
-  await notifyAdminsOfRequests(rows.filter((r) => r.created).map((r) => ({ tenantId: r.tenant_id, tenantName: r.tenant_name })), requesterEmail);
-  return rows.map((r) => ({ tenantId: r.tenant_id, tenantName: r.tenant_name }));
+  const rows = data as { tenant_id: string; tenant_name: string; created: boolean; joined: boolean }[];
+  const all = rows.map((r) => ({ tenantId: r.tenant_id, tenantName: r.tenant_name, joined: r.joined }));
+  await notifyAdminsOfRequests(rows.filter((r) => r.created).map((r) => ({ tenantId: r.tenant_id, tenantName: r.tenant_name, joined: r.joined })), requesterEmail);
+  return all;
 }
 
-/** Emails the admins of each workspace that has a new Requested Access row (from the sign-up check or from verifying a linked email). */
+/**
+ * Emails the admins of each workspace with a new domain sign-up: "joined as a Viewer" (set the other rights yourself) or "asked to join"
+ * (approve first). From the sign-up check or from verifying a linked email.
+ */
 export async function notifyAdminsOfRequests(fresh: PendingAccess[], requesterEmail: string): Promise<void> {
   if (fresh.length === 0 || !emailConfigured()) return;
   const admin = createAdminClient({ via: "system" });
@@ -30,8 +35,10 @@ export async function notifyAdminsOfRequests(fresh: PendingAccess[], requesterEm
   const link = `${site}/settings/members`;
   for (const r of fresh) {
     const { data: emails } = await admin.rpc("tenant_admin_emails", { p_tenant: r.tenantId });
-    const mail = buildAccessRequestEmail({ workspace: r.tenantName, requester: requesterEmail, link, siteUrl: site, override: await loadEmailOverride("app.access-request") });
-    for (const to of ((emails ?? []) as string[]).slice(0, 10)) await sendLogged("app.access-request", { to, ...mail }, { tenantId: r.tenantId });
+    const key = r.joined ? "app.domain-join" : "app.access-request";
+    const args = { workspace: r.tenantName, requester: requesterEmail, link, siteUrl: site, override: await loadEmailOverride(key) };
+    const mail = r.joined ? buildDomainJoinEmail(args) : buildAccessRequestEmail(args);
+    for (const to of ((emails ?? []) as string[]).slice(0, 10)) await sendLogged(key, { to, ...mail }, { tenantId: r.tenantId });
   }
 }
 

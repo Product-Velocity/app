@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAccessApprovedEmail, buildAccessRequestEmail } from "./access";
+import { buildAccessApprovedEmail, buildAccessRequestEmail, buildDomainJoinEmail } from "./access";
 
 describe("access request email (to the admins)", () => {
   const mail = buildAccessRequestEmail({ workspace: "Acme <Co>", requester: "pat@acme.test", link: "https://app.test/settings/members" });
@@ -21,5 +21,19 @@ describe("approval email (to the person)", () => {
     expect(mail.subject).toBe("You now have access to Acme on Product Velocity");
     expect(mail.text).toContain("https://app.test/");
     expect(mail.html).toContain('href="https://app.test/"');
+  });
+});
+
+describe("domain join email (to the admins, issue #673)", () => {
+  const mail = buildDomainJoinEmail({ workspace: "Acme <Co>", requester: "pat@acme.test", link: "https://app.test/settings/members" });
+  it("says the person joined as a Viewer and that other rights are set by hand", () => {
+    expect(mail.subject).toBe("pat@acme.test joined Acme <Co> on Product Velocity as a Viewer");
+    expect(mail.text).toContain("Viewer");
+    expect(mail.text).toContain("Other rights are not set automatically");
+    expect(mail.text).toContain("https://app.test/settings/members");
+  });
+  it("escapes names in the HTML", () => {
+    expect(mail.html).toContain("Acme &lt;Co&gt;");
+    expect(mail.html).not.toContain("<Co>");
   });
 });

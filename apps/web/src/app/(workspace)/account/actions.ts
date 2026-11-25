@@ -172,15 +172,18 @@ export async function verifyLinkEmail(_prev: FormState, form: FormData): Promise
   if (!/^\d{6}$/.test(code)) return { error: "Enter the 6-digit code." };
   const { data, error } = await supabase.rpc("link_email_verify", { p_email: email, p_code: code });
   if (error) return { error: "We could not check that code. Please try again." };
-  const rows = (data ?? []) as { ok: boolean; tenant_id: string | null; tenant_name: string | null; created: boolean }[];
+  const rows = (data ?? []) as { ok: boolean; tenant_id: string | null; tenant_name: string | null; created: boolean; joined: boolean }[];
   if (!rows[0]?.ok) return { error: "That code is wrong or has expired. Ask for a new one." };
-  const fresh = rows.filter((r) => r.created && r.tenant_id).map((r) => ({ tenantId: r.tenant_id!, tenantName: r.tenant_name ?? "Workspace" }));
+  const fresh = rows.filter((r) => r.created && r.tenant_id).map((r) => ({ tenantId: r.tenant_id!, tenantName: r.tenant_name ?? "Workspace", joined: r.joined }));
   await notifyAdminsOfRequests(fresh, user.email ?? email);
   revalidatePath(PATH);
   return {
-    ok: fresh.length > 0
-      ? `${email} is verified. ${fresh.map((f) => f.tenantName).join(", ")} ${fresh.length === 1 ? "has" : "have"} been asked to review your access.`
-      : `${email} is verified.`,
+    ok: fresh.length === 0
+      ? `${email} is verified.`
+      : [
+          ...(fresh.some((f) => f.joined) ? [`${email} is verified. You joined ${fresh.filter((f) => f.joined).map((f) => f.tenantName).join(", ")} as a Viewer; its admins can change your role.`] : [`${email} is verified.`]),
+          ...(fresh.some((f) => !f.joined) ? [`${fresh.filter((f) => !f.joined).map((f) => f.tenantName).join(", ")} ${fresh.filter((f) => !f.joined).length === 1 ? "has" : "have"} been asked to review your access.`] : []),
+        ].join(" "),
   };
 }
 

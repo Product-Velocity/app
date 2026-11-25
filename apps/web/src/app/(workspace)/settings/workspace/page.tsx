@@ -8,8 +8,8 @@ export const metadata = { title: "Workspace settings · Product Velocity" };
 
 export default async function WorkspaceSettingsPage() {
   const { supabase, active } = await requireWorkspace("/settings/workspace");
-  const { data } = await supabase.from("tenants").select("name, country, currency, time_zone, allowed_email_domains, restrict_invites_to_domains, company_url").eq("id", active.tenantId).single();
-  const t = data as { name: string; country: string | null; currency: string | null; time_zone: string | null; allowed_email_domains: string[]; restrict_invites_to_domains: boolean; company_url: string | null } | null;
+  const { data } = await supabase.from("tenants").select("name, country, currency, time_zone, allowed_email_domains, restrict_invites_to_domains, auto_join_authorized_domains, company_url").eq("id", active.tenantId).single();
+  const t = data as { name: string; country: string | null; currency: string | null; time_zone: string | null; allowed_email_domains: string[]; restrict_invites_to_domains: boolean; auto_join_authorized_domains: boolean; company_url: string | null } | null;
   // Projects (issue #526): admins rename and delete; the counts name what a delete would remove (the Trash is read through its own function)
   let projectRows: ProjectRow[] = [];
   if (active.role === "admin" && !active.platform) {
@@ -33,7 +33,7 @@ export default async function WorkspaceSettingsPage() {
           countries={countryOptions()}
           currencies={currencyOptions()}
           timeZones={timeZoneOptions()}
-          values={{ name: t?.name ?? active.tenantName, country: t?.country ?? "", currency: t?.currency ?? "", timeZone: t?.time_zone ?? "", domains: (t?.allowed_email_domains ?? []).join(", "), restrictInvites: t?.restrict_invites_to_domains ?? false, companyUrl: t?.company_url ?? "" }}
+          values={{ name: t?.name ?? active.tenantName, country: t?.country ?? "", currency: t?.currency ?? "", timeZone: t?.time_zone ?? "", domains: (t?.allowed_email_domains ?? []).join(", "), restrictInvites: t?.restrict_invites_to_domains ?? false, autoJoin: t?.auto_join_authorized_domains ?? true, companyUrl: t?.company_url ?? "" }}
         />
       </div>
       {active.role === "admin" && !active.platform && <ProjectsCard projects={projectRows} canEdit />}

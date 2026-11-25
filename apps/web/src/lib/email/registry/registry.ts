@@ -8,7 +8,7 @@ import { renderMacros, sampleValues, type MacroName, type MacroValues } from "./
  */
 export type EmailKey =
   | "auth.confirm-signup" | "auth.sign-in-link" | "auth.reset-password" | "auth.reauthentication" | "auth.invite" | "auth.email-change"
-  | "app.invitation" | "app.new-workspace" | "app.welcome-personal" | "app.followup-personal" | "app.access-request" | "app.access-approved" | "app.link-code" | "site.early-access" | "site.contact"
+  | "app.invitation" | "app.new-workspace" | "app.welcome-personal" | "app.followup-personal" | "app.access-request" | "app.domain-join" | "app.access-approved" | "app.link-code" | "site.early-access" | "site.contact"
   | "alignment.invitation" | "alignment.reminder" | "alignment.new-link";
 
 export type EmailTemplate = {
@@ -235,6 +235,22 @@ export const EMAIL_TEMPLATES: readonly EmailTemplate[] = [
     body: "Hi {{firstname}},\n\nAshu again from {{product}}. I noticed {{workspace}} has no initiatives yet, so I wanted to check that nothing got in your way.\n\nThe two quickest steps are adding your first initiative (type a name in the top row and press Enter) and connecting GitHub or Jira. If something was confusing, or {{product}} is not what you expected, just reply and tell me. That helps me more than anything.\n\nAshu",
     button: null,
     note: "P.S. If you would rather not get emails like this, reply \"stop\" and I will not send another.",
+  },
+  {
+    key: "app.domain-join",
+    name: "Colleague joined as Viewer",
+    trigger: "Someone signs up (or verifies a linked address) with a confirmed email at an authorized domain of a workspace that lets them join automatically",
+    recipient: "The workspace's Account Admins (at most 10)",
+    path: "Sign-up check and linked-address verification (lib/access-requests.ts)",
+    confirmFirst: false,
+    limits: "At most 10 admins emailed per person who joins; once per person and workspace",
+    macros: ["firstname", "requester", "workspace", "link", "product"],
+    subject: "{{requester}} joined {{workspace}} on {{product}} as a Viewer",
+    preheader: "A new colleague has Viewer access to {{workspace}}.",
+    heading: "{{requester}} joined as a Viewer",
+    body: "Hi {{firstname}},\n\n{{requester}} signed up with an email address at your authorized domain, confirmed it, and now has access to {{workspace}} as a Viewer.\n\nOther rights are not set automatically. Open the members grid to give them a different role, or to pause or revoke their access.",
+    button: "Open the members grid",
+    note: "If you do not know this person, set them to Revoked. You can also switch off automatic joining in Workspace settings.",
   },
   {
     key: "app.access-request",
