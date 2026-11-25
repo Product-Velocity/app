@@ -15,6 +15,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   // someone at an authorized domain waits for their admin instead of starting a second workspace (they can still choose to)
   if (wantsNew !== "1") {
     const asked = user.email ? await syncDomainAccess(supabase, user.email) : [];
+    if (asked.some((a) => a.joined)) redirect("/portfolio"); // joined as a Viewer through the authorized domain (issue #673)
     if (asked.length > 0 || (await myAccessStates(supabase)).length > 0) redirect("/access-requested");
   }
   const domain = user.email ? domainOfEmail(user.email) : null;

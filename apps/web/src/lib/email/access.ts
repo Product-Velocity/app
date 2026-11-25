@@ -13,6 +13,11 @@ export function buildAccessRequestEmail(input: { firstname?: string; workspace: 
   return buildEmail("app.access-request", { values: { firstname: input.firstname, workspace: input.workspace, requester: input.requester, link: input.link }, siteUrl: input.siteUrl ?? DEFAULT_SITE_URL, buttonUrl: input.link, override: input.override });
 }
 
+/** To the Account Admins when someone at an authorized domain joined automatically as a Viewer (issue #673). Registry key app.domain-join. */
+export function buildDomainJoinEmail(input: { firstname?: string; workspace: string; requester: string; link: string; siteUrl?: string; override?: Partial<TemplateText> | null }): PlainEmail {
+  return buildEmail("app.domain-join", { values: { firstname: input.firstname, workspace: input.workspace, requester: input.requester, link: input.link }, siteUrl: input.siteUrl ?? DEFAULT_SITE_URL, buttonUrl: input.link, override: input.override });
+}
+
 /** To the person when an admin approves them (FR-4.3): confirmation and the direct link back to the platform. Registry key app.access-approved. */
 export function buildAccessApprovedEmail(input: { firstname?: string; workspace: string; link: string; siteUrl?: string; override?: Partial<TemplateText> | null }): PlainEmail {
   return buildEmail("app.access-approved", { values: { firstname: input.firstname, workspace: input.workspace, link: input.link }, siteUrl: input.siteUrl ?? DEFAULT_SITE_URL, buttonUrl: input.link, override: input.override });

@@ -10,6 +10,8 @@ beforeAll(async () => {
   f = await twoTenantFixture(db);
   await db.admin.query("update public.tenants set allowed_email_domains = array['acme.test'] where id = $1", [f.tenantA]);
   await db.admin.query("update public.tenants set allowed_email_domains = array['other.test'] where id = $1", [f.tenantB]);
+  // these tests cover the approval flow (Requested Access); auto-join, the default, is tested in domain-auto-join.test.ts
+  await db.admin.query("update public.tenants set auto_join_authorized_domains = false where id = any($1)", [[f.tenantA, f.tenantB]]);
 });
 afterAll(async () => {
   await db.close();

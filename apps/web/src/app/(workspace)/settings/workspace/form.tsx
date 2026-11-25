@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { saveWorkspace, type WorkspaceState } from "./actions";
 
-export type WorkspaceValues = { name: string; country: string; currency: string; timeZone: string; domains: string; restrictInvites: boolean; companyUrl: string };
+export type WorkspaceValues = { name: string; country: string; currency: string; timeZone: string; domains: string; restrictInvites: boolean; autoJoin: boolean; companyUrl: string };
 
 export function WorkspaceForm({ values, countries, currencies, timeZones, canEdit }: { values: WorkspaceValues; countries: string[]; currencies: string[]; timeZones: string[]; canEdit: boolean }) {
   const [state, action, pending] = useActionState<WorkspaceState, FormData>(saveWorkspace, null);
@@ -37,9 +37,19 @@ export function WorkspaceForm({ values, countries, currencies, timeZones, canEdi
         <label htmlFor="ws-domains">Authorized email domains</label>
         <textarea id="ws-domains" name="domains" defaultValue={values.domains} rows={2} aria-describedby="ws-domains-help" disabled={!canEdit} />
         <p id="ws-domains-help" className="hint">
-          Someone who signs up with a confirmed address at one of these domains appears in Members as Requested Access, your admins are
-          emailed, and they get no access until you approve them. Domains are not verified by DNS yet, so only list domains you own.
-          Separate several with commas. Free email providers are not accepted.
+          Who may join with a confirmed address at one of these domains is set by the switch below. Domains are not verified by DNS yet,
+          so only list domains you own. Separate several with commas. Free email providers are not accepted.
+        </p>
+      </div>
+      <div className="field">
+        <label className="check">
+          <input type="checkbox" name="auto_join" defaultChecked={values.autoJoin} disabled={!canEdit} aria-describedby="ws-autojoin-help" />
+          {" "}People at authorized domains join automatically as Viewer
+        </label>
+        <p id="ws-autojoin-help" className="hint">
+          On by default. On: someone who signs up with a confirmed address at one of the domains above gets in as a Viewer straight away,
+          and your admins are emailed to set any other rights in Members. Off: they appear in Members as Requested Access and get no access
+          until you approve them (your admins are emailed then too).
         </p>
       </div>
       <div className="field">

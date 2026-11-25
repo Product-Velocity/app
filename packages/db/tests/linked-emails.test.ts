@@ -10,7 +10,7 @@ const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const rpc = <T,>(user: string, sql: string, params: unknown[] = [], commit = true) => db.asUser(user, async (q) => (await q(sql, params)).rows as T[], { commit });
 const start = (user: string, email: string, code = "123456") => rpc<{ send: boolean }>(user, "select * from public.link_email_start($1, $2)", [email, sha(code)]);
 const verify = (user: string, email: string, code = "123456") =>
-  rpc<{ ok: boolean; tenant_id: string | null; tenant_name: string | null; created: boolean }>(user, "select * from public.link_email_verify($1, $2)", [email, code]);
+  rpc<{ ok: boolean; tenant_id: string | null; tenant_name: string | null; created: boolean; joined: boolean }>(user, "select * from public.link_email_verify($1, $2)", [email, code]);
 const member = async (tenant: string, user: string) =>
   (await db.admin.query("select status, role, requested_via_email from public.tenant_members where tenant_id = $1 and user_id = $2", [tenant, user])).rows[0];
 
@@ -19,6 +19,8 @@ beforeAll(async () => {
   f = await twoTenantFixture(db);
   await db.admin.query("update public.tenants set allowed_email_domains = array['acme.test'] where id = $1", [f.tenantA]);
   await db.admin.query("update public.tenants set allowed_email_domains = array['beta.test'] where id = $1", [f.tenantB]);
+  // these tests cover the approval flow (Requested Access); auto-join, the default, is tested in domain-auto-join.test.ts
+  await db.admin.query("update public.tenants set auto_join_authorized_domains = false where id = any($1)", [[f.tenantA, f.tenantB]]);
 });
 afterAll(async () => {
   await db.close();
@@ -70,9 +72,9 @@ describe("linking and verifying an email (FR-4.1)", () => {
     expect(await member(f.tenantA, mia)).toBeUndefined();
     expect((await rpc<{ email: string; verified: boolean }>(mia, "select email, verified from public.my_emails()")).map((r) => [r.email, r.verified])).toEqual([["mia@home.test", true], ["mia@acme.test", false]]);
     const bad = await verify(mia, "mia@acme.test", "000000");
-    expect(bad).toEqual([{ ok: false, tenant_id: null, tenant_name: null, created: false }]);
+    expect(bad).toEqual([{ ok: false, tenant_id: null, tenant_name: null, created: false, joined: false }]);
     const good = await verify(mia, "mia@acme.test");
-    expect(good).toEqual([{ ok: true, tenant_id: f.tenantA, tenant_name: "Tenant A", created: true }]);
+    expect(good).toEqual([{ ok: true, tenant_id: f.tenantA, tenant_name: "Tenant A", created: true, joined: false }]);
   });
 
   it("domain match on the verified address creates Requested Access that an admin approves in the members grid (acceptance 9)", async () => {
