@@ -5,7 +5,6 @@
 -- verified addresses is pending for a workspace, neither request_access_by_domain() nor link_email_verify() touches that workspace.
 -- Same signatures and return types as 20261125104319; only the workspace loop gains the guard.
 
--- The return types gain `joined` (true when this call made the person an active Viewer), so the functions are dropped and recreated.
 create or replace function public.request_access_by_domain()
 returns table (tenant_id uuid, tenant_name text, created boolean, joined boolean)
 language plpgsql security definer set search_path = '' as $$
