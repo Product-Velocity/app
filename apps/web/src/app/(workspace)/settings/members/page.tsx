@@ -51,7 +51,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
     const used = new Map(((usage ?? []) as { person_id: string; initiatives: number }[]).map((u) => [u.person_id, u.initiatives]));
     const all = (dir ?? []) as { person_id: string; user_id: string | null; name: string; email: string | null; status: string; is_service_account: boolean }[];
     notInvited = all.filter((p) => !p.user_id && p.status === "not_invited").map((p) => ({ id: p.person_id, name: p.name, email: p.email, initiatives: used.get(p.person_id) ?? 0 }));
-    activeMembers = all.filter((p) => p.user_id && !p.is_service_account && p.email).map((p) => ({ user_id: p.user_id!, email: p.email! }));
+    activeMembers = all.filter((p) => p.user_id && p.status === "active" && !p.is_service_account && p.email).map((p) => ({ user_id: p.user_id!, email: p.email! }));
   }
 
   return (

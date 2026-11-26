@@ -658,7 +658,7 @@ export const PEOPLE_STATES: Table = {
     ["Invited", "A pending invitation. It works once, for that email, for 7 days.", "None until accepted", "Active when they accept; cancelled if you revoke it."],
     ["Requested Access", "Asked to join (for example from your company domain, when automatic joining is off).", "None", "Active or Revoked, by an admin."],
     ["Active", "A member.", "By role", "Paused or Revoked."],
-    ["Paused", "Access switched off for now.", "None", "Active or Revoked."],
+    ["Paused", "Access switched off for now. The name stays on initiatives and in reports.", "None", "Active or Revoked."],
     ["Revoked", "Access ended.", "None", "Active, if you change your mind."],
   ],
 };
@@ -686,7 +686,7 @@ export const ACCESS_CASES: Table = {
     ["Let one person decide Gate B only", "An admin adds them as approver for Gate B in Settings, Workspace. They need to be a member first.", "They may decide that gate. They still cannot manage members or settings."],
     ["Let everyone at my company look around", "An admin lists the company domain under Workspace settings (automatic joining is on by default).", "People who confirm a company email join as an active Viewer and the admins are told. Higher roles are set by an admin."],
     ["Work with two companies with one login", "Each workspace invites the same email address.", "One sign-in shows both workspaces, each with its own role."],
-    ["A colleague leaves", "An admin sets them to Paused (they can come back) or Revoked in Members.", "They lose access at once. Everything they created stays."],
+    ["A colleague leaves", "An admin sets them to Paused (they can come back) or Revoked in Members.", "They lose access at once. Everything they created stays, and they stay named on their initiatives and in reports (marked paused or revoked). They are no longer offered when you choose a person."],
     ["Use Claude, ChatGPT or Gemini", "Connect the assistant (Help: Connect an AI assistant).", "It works as you, with your role. It can name people already on the list. It cannot add or invite anyone, and it never approves a gate."],
   ],
 };

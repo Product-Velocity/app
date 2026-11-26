@@ -35,9 +35,9 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
   let mePerson: string | null = null;
   const people = memo(async (): Promise<Member[]> => {
     // who a person field can name: the members, and the people named without an account yet (issue #691; their role says so)
-    const rows = must(await supabase.rpc("people_directory", { p_tenant: tenant.id }), "people") as { person_id: string; name: string; email: string | null; status: string; role: string | null; is_me?: boolean }[];
+    const rows = must(await supabase.rpc("people_directory", { p_tenant: tenant.id }), "people") as { person_id: string; user_id: string | null; name: string; email: string | null; status: string; role: string | null; is_me?: boolean }[];
     mePerson = rows.find((r) => r.is_me)?.person_id ?? null;
-    return rows.map((r) => ({ id: r.person_id, name: r.status === "active" ? r.email ?? r.name : r.name, role: r.role ?? (r.status === "invited" ? "invited, not a member yet" : "not invited yet") }));
+    return rows.map((r) => ({ id: r.person_id, name: r.user_id ? r.email ?? r.name : r.name, role: r.status === "paused" || r.status === "revoked" || r.status === "requested" ? `${r.status} member` : r.role ?? (r.status === "invited" ? "invited, not a member yet" : "not invited yet"), ...(r.status === "paused" || r.status === "revoked" || r.status === "requested" ? { inactive: true } : {}) }));
   });
   const projects = memo(async () =>
     must(await supabase.from("projects").select("id, name, default_repo, tracker").eq("tenant_id", tenant.id).order("name"), "projects") as { id: string; name: string; default_repo: string | null; tracker: string | null }[]);
@@ -413,7 +413,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       return {
         role: r,
         projects: p.map((x) => ({ id: x.id, name: x.name })),
-        members: m.map((x) => ({ id: x.id, name: x.name })),
+        members: m.filter((x) => !x.inactive).map((x) => ({ id: x.id, name: x.name })),
         groups: g, teams: t.map((x) => ({ id: x.id, name: x.name })),
         items: all.map((x) => ({ id: x.id, code: String(x.item_code) })),
         openLists: openListsOf(all),
@@ -473,7 +473,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       loadProfile(),
     ]);
     return buildContext({
-      tenant, userId, role, projects: p, teams: t, members: m,
+      tenant, userId, role, projects: p, teams: t, members: m.filter((x) => !x.inactive),
       groups: (must(g, "groups") as { name: string }[]).map((x) => x.name),
       openLists: openListsOf(await rows()),
       company: { url: company.url, profile: summarizeProfile(company.profile) },

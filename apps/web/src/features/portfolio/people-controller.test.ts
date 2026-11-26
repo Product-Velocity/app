@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PortfolioController } from "./controller";
 import { MemoryDataSource, sampleItems } from "./memory-source";
-import { peopleOf, personLabel, personName, personOptions } from "./people";
+import { peopleOf, personLabel, personName, personOptions, selectablePeople } from "./people";
 import type { Lookups } from "./types";
 
 // Issue #691: people named without an account can be chosen on a person field.
@@ -123,3 +123,30 @@ describe("reports and splits by a person named without an account", () => {
     expect(JSON.stringify(stacked)).toContain("pe1");
   });
 });
+
+describe("members who are paused, revoked or only asked for access (issue #698)", () => {
+  const lookups: Lookups = {
+    projects: [],
+    members: [{ user_id: "u1", email: "ana@example.test" }],
+    people: [
+      { id: "u1", name: "ana@example.test", email: "ana@example.test", status: "active", userId: "u1" },
+      { id: "u2", name: "bo@example.test", email: "bo@example.test", status: "paused", userId: "u2" },
+      { id: "u3", name: "cy@example.test", email: "cy@example.test", status: "revoked", userId: "u3" },
+      { id: "u4", name: "di@example.test", email: "di@example.test", status: "requested", userId: "u4" },
+      { id: "pe1", name: "Jane Doe", email: null, status: "not_invited", userId: null },
+      { id: "pe2", name: "Ravi Rao", email: null, status: "invited", userId: null },
+    ],
+  };
+  it("keep their name wherever a person field is shown", () => {
+    for (const id of ["u2", "u3", "u4"]) expect(personName(lookups, id)).not.toBe("unknown person");
+    expect(personName(lookups, "u2")).toBe("bo@example.test");
+  });
+  it("are not offered by a picker, quick add, a paste import or Claude, but are in a filter or a report", () => {
+    expect(selectablePeople(lookups).map((p) => p.id)).toEqual(["u1", "pe1", "pe2"]);
+    expect(personOptions(lookups).map((o) => o.value)).toEqual(["u1", "pe1", "pe2"]);
+    expect(personOptions(lookups, { all: true }).map((o) => o.label)).toEqual([
+      "ana@example.test", "bo@example.test (paused)", "cy@example.test (revoked)", "di@example.test (requested access)", "Jane Doe (not invited)", "Ravi Rao (invited)",
+    ]);
+  });
+});
+
