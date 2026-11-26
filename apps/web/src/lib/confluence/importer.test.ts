@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { ConfluenceRequest } from "./client";
+import { pageBody } from "@pv/domain";
 import { confirmImport, confirmRefresh, previewImport, previewRefresh, readPageByUrl, type ExternalBinding, type ImportDeps, type NewExternalBinding, type RefreshDeps } from "./importer";
 
 const SITE = "https://acme.atlassian.net";
@@ -197,5 +198,37 @@ describe("update a document from its page", () => {
     const s = refreshSetup();
     const deps = { ...s.deps(), call: (async () => ({ status: 403, json: null })) as ConfluenceRequest };
     expect(await previewRefresh(deps)).toMatchObject({ ok: false, kind: "forbidden" });
+  });
+});
+
+describe("two-way links (issue #714 slice 2)", () => {
+  it("the notice Product Velocity put at the top of a page it wrote is not read back as text", async () => {
+    const s = refreshSetup({ page: { version: 3, storage: pageBody("Plan with **bold** text.", { code: "R-1" }) } });
+    s.c.edit("42", pageBody("Plan with **bold** text. And more.", { code: "R-1" }));
+    const p = await previewRefresh(s.deps());
+    expect(p).toMatchObject({ ok: true, action: "update", excerpt: "Plan with **bold** text. And more." });
+    expect(p.ok && p.lost).toEqual([]);
+  });
+  it("a two-way link decides 'edited here' by the caller's answer (versions), not by the stored hash", async () => {
+    const s = refreshSetup({ docBody: "# GTM\n\nEdited here after the last sync." });
+    s.c.edit("42", "<h1>GTM</h1><p>New plan.</p>");
+    const d = { ...s.deps(), localEdits: false };
+    expect(await previewRefresh(d)).toMatchObject({ ok: true, action: "update", localEdits: false });
+    const none = { ...s.deps(), localEdits: true };
+    const p = await previewRefresh(none);
+    expect(p).toMatchObject({ ok: true, localEdits: true });
+    expect(await confirmRefresh(none, { confirm: p.ok ? p.confirm : "" })).toMatchObject({ ok: false, kind: "edited_here" });
+  });
+  it("an import can be two-way, and is read-only by default", async () => {
+    const s = importSetup();
+    const input = { pageUrl: URL42, mode: "sync" as const, direction: "both" as const };
+    const p = await previewImport(s.deps(), input);
+    await confirmImport(s.deps(), { ...input, confirm: p.ok ? p.confirm : "" });
+    expect(s.bindings[0]!.b.syncDirection).toBe("both");
+    const s2 = importSetup();
+    const input2 = { pageUrl: URL42, mode: "sync" as const };
+    const p2 = await previewImport(s2.deps(), input2);
+    await confirmImport(s2.deps(), { ...input2, confirm: p2.ok ? p2.confirm : "" });
+    expect(s2.bindings[0]!.b.syncDirection).toBe("from_confluence");
   });
 });

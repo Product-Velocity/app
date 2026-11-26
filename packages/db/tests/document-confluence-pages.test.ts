@@ -95,9 +95,15 @@ describe("pages a document was published to", () => {
 
   it("a page can also be the SOURCE of a document (issue #693 slice A2): a person records it as external; an assistant still cannot", async () => {
     const d3 = await db.asUser(creator, async (q) => (await q("insert into public.item_documents (tenant_id, item_id, kind, title, body, shared) values ($1, $2, 'go_to_market', 'From a page', 'x', false) returning id", [f.tenantA, item])).rows[0].id as string, { commit: true, via: "UI" });
-    const id = await insert(creator, { document_id: d3, source: "external", page_id: "880", sync_mode: "sync", published_version: 1, remote_version: 7 });
-    expect((await db.admin.query("select * from public.item_document_pages where id = $1", [id])).rows[0]).toMatchObject({ source: "external", sync_mode: "sync", remote_version: 7, unlinked_at: null });
+    const id = await insert(creator, { document_id: d3, source: "external", sync_direction: "from_confluence", page_id: "880", sync_mode: "sync", published_version: 1, remote_version: 7 });
+    expect((await db.admin.query("select * from public.item_document_pages where id = $1", [id])).rows[0]).toMatchObject({ source: "external", sync_direction: "from_confluence", sync_mode: "sync", remote_version: 7, unlinked_at: null });
     expect(await errorCode(insert(claudeUser, { document_id: d3, source: "external", page_id: "881" }, { claims: { client_id: CLIENT } }))).toBe("PV035");
     expect(await errorCode(insert(creator, { document_id: d3, source: "elsewhere", page_id: "882" }))).toBe("23514");
+    // the direction (issue #714): only the three values exist
+    expect(await errorCode(insert(creator, { document_id: d3, page_id: "883", sync_direction: "sideways" }))).toBe("23514");
+    // changed later by a person, to either of the other two (it is on the update grant); an assistant still cannot
+    await db.asUser(creator, (q) => q("update public.item_document_pages set sync_direction = 'both' where id = $1", [id]), { commit: true, via: "UI" });
+    expect((await db.admin.query("select sync_direction from public.item_document_pages where id = $1", [id])).rows[0].sync_direction).toBe("both");
+    expect(await errorCode(db.asUser(claudeUser, (q) => q("update public.item_document_pages set sync_direction = 'to_confluence' where id = $1", [id]), { claims: { client_id: CLIENT }, commit: true, via: "MCP" }))).toBe("PV035");
   });
 });

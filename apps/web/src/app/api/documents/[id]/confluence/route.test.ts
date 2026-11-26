@@ -216,3 +216,51 @@ describe("where the document goes (issue #693)", () => {
   });
 });
 
+describe("sync direction (issue #714 slice 2)", () => {
+  const link = (over: Record<string, unknown> = {}) => ({ id: "p1", source: "pv", sync_direction: "both", page_id: "5", page_url: "https://acme.atlassian.net/wiki/spaces/PRD/pages/5", page_title: "PRD", space_key: "PRD", site_id: "s1", sync_mode: "sync", published_version: 1, remote_version: 3, content_hash: null, published_at: "2026-11-26T10:00:00Z", unlinked_at: null, parent_page_id: null, ...over });
+  const pageAt = (version: number) => async (method: string, path: string) => (method === "GET" && path.startsWith("/api/v2/pages/5") ? { status: 200, json: { id: "5", title: "PRD", spaceId: "777", version: { number: version }, body: { storage: { value: "<p>Changed in Confluence.</p>" } }, _links: { webui: "/spaces/PRD/pages/5" } } } : { status: 500, json: null });
+
+  it("sync-state says what the link needs, reading only the page's version", async () => {
+    state.rows.item_document_pages = [link()];
+    state.confluence = pageAt(4);
+    expect(await (await post({ action: "sync-state" })).json()).toMatchObject({ direction: "both", state: "receive", pageVersion: 4, documentVersion: 1, publishedVersion: 1 });
+    state.rows.item_documents = [{ ...doc, version: 2 }];
+    expect(await (await post({ action: "sync-state" })).json()).toMatchObject({ state: "conflict" });
+    state.confluence = pageAt(3);
+    expect(await (await post({ action: "sync-state" })).json()).toMatchObject({ state: "send" });
+  });
+  it("a write-only link is never offered the page's text; a read link is never written", async () => {
+    state.rows.item_document_pages = [link({ sync_direction: "to_confluence" })];
+    state.confluence = pageAt(9);
+    expect((await post({ action: "refresh-preview" })).status).toBe(404);
+    state.rows.item_document_pages = [link({ sync_direction: "from_confluence", source: "external" })];
+    const r = await post({ action: "preview", mode: "sync" });
+    expect(r.status).toBe(409);
+    expect((await r.json()).error).toContain("both ways");
+    expect(state.inserted).toEqual([]);
+  });
+  it("a two-way link can be read: the preview offers the newer page text, and writes nothing", async () => {
+    state.rows.item_document_pages = [link()];
+    state.confluence = pageAt(4);
+    const j = await (await post({ action: "refresh-preview" })).json();
+    expect(j.refresh).toMatchObject({ action: "update", localEdits: false });
+    expect(j.refresh.excerpt).toContain("Changed in Confluence.");
+    expect(state.updated).toEqual([]);
+  });
+  it("set-direction changes the setting of a live link; a bad value, no link, a viewer and an assistant-less stranger are refused", async () => {
+    state.rows.item_document_pages = [link({ sync_direction: "to_confluence" })];
+    expect((await post({ action: "set-direction", direction: "both" })).status).toBe(200);
+    expect(state.updated).toEqual([{ table: "item_document_pages", patch: { sync_direction: "both" } }]);
+    expect((await post({ action: "set-direction", direction: "sideways" })).status).toBe(400);
+    state.rows.item_document_pages = [];
+    expect((await post({ action: "set-direction", direction: "both" })).status).toBe(404);
+    state.rows.item_document_pages = [link()];
+    state.rows.tenant_members = [{ role: "viewer", is_service_account: false }];
+    expect((await post({ action: "set-direction", direction: "from_confluence" })).status).toBe(403);
+  });
+  it("a new page records the direction the person chose", async () => {
+    const p = await (await post({ action: "preview", mode: "sync", direction: "both", spaceKey: "PRD" })).json();
+    await post({ action: "publish", mode: "sync", direction: "both", spaceKey: "PRD", confirm: p.preview.confirm });
+    expect(state.inserted.find((i) => i.table === "item_document_pages")?.row).toMatchObject({ sync_direction: "both" });
+  });
+});

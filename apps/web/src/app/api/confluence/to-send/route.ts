@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import type { SyncDirection, SyncState } from "@pv/domain";
+import { documentSyncState } from "@/lib/confluence/state";
 import { json } from "@/lib/confluence/http";
-import { confluenceSiteFor } from "@/lib/confluence/server";
+import { confluenceRequest, confluenceSiteFor } from "@/lib/confluence/server";
 import { createClient } from "@/lib/supabase/server";
 
 // "To send" for Confluence (issue #693): the documents of the given initiatives that are kept in sync with a Confluence page and have a newer version than the page
@@ -11,7 +13,10 @@ import { createClient } from "@/lib/supabase/server";
 const UUID = /^[0-9a-f-]{36}$/i;
 const MAX = 200;
 
-type PubRow = { id: string; document_id: string; item_id: string; page_url: string; page_title: string; space_key: string; published_version: number };
+type PubRow = { id: string; document_id: string; item_id: string; page_id: string; page_url: string; page_title: string; space_key: string; published_version: number; remote_version: number | null; sync_direction?: SyncDirection };
+/** Reading the page's version costs one call each: at most this many per request, a few at a time; the rest are reported as not checked. */
+const MAX_READS = 25;
+const PARALLEL = 5;
 type DocRow = { id: string; title: string; version: number };
 type ItemRow = { id: string; tenant_id: string; item_code: string; initiative_name: string };
 
@@ -30,20 +35,37 @@ export async function GET(request: Request): Promise<NextResponse> {
   const tenantId = tenants[0]!;
   const { data: me } = await supabase.from("tenant_members").select("role, is_service_account").eq("tenant_id", tenantId).eq("user_id", auth.user.id).maybeSingle();
   if (!(me && (me.role === "creator" || me.role === "admin") && !me.is_service_account)) return none;
-  if (!(await confluenceSiteFor(tenantId))) return none;
+  const site = await confluenceSiteFor(tenantId);
+  if (!site) return none;
 
-  const { data: pubs } = await supabase.from("item_document_pages").select("id, document_id, item_id, page_url, page_title, space_key, published_version")
-    .eq("tenant_id", tenantId).in("item_id", itemRows.map((i) => i.id)).eq("source", "pv").eq("sync_mode", "sync").is("unlinked_at", null);
+  const { data: pubs } = await supabase.from("item_document_pages").select("id, document_id, item_id, page_id, page_url, page_title, space_key, published_version, remote_version, sync_direction")
+    .eq("tenant_id", tenantId).in("item_id", itemRows.map((i) => i.id)).eq("sync_mode", "sync").is("unlinked_at", null);
   const pubRows = (pubs ?? []) as PubRow[];
   if (pubRows.length === 0) return json({ available: true, documents: [] });
   const { data: docs } = await supabase.from("item_documents").select("id, title, version").in("id", pubRows.map((p) => p.document_id));
   const docById = new Map(((docs ?? []) as DocRow[]).map((d) => [d.id, d]));
   const itemById = new Map(itemRows.map((i) => [i.id, i]));
+  const call = confluenceRequest(site.connectionId, site.siteId);
+  // what each link needs (issue #714 slice 2): a write-only link needs no call; the others read the page's version, a few at a time
+  let reads = 0;
+  let unchecked = 0;
+  const states = new Map<string, { state: SyncState; pageVersion: number | "missing" | null }>();
+  const queue = pubRows.filter((p) => docById.has(p.document_id));
+  const work = async () => {
+    for (let p = queue.shift(); p; p = queue.shift()) {
+      const direction = p.sync_direction ?? "to_confluence";
+      const doc = docById.get(p.document_id)!;
+      if (direction !== "to_confluence") { if (reads >= MAX_READS) { unchecked += 1; continue; } reads += 1; }
+      states.set(p.id, await documentSyncState(call, site.siteUrl, { direction, pageId: p.page_id, publishedVersion: p.published_version, remoteVersion: p.remote_version }, doc.version));
+    }
+  };
+  await Promise.all(Array.from({ length: PARALLEL }, work));
   const documents = pubRows.flatMap((p) => {
     const d = docById.get(p.document_id);
     const it = itemById.get(p.item_id);
-    if (!d || !it || p.published_version >= d.version) return [];
-    return [{ id: d.id, itemId: it.id, code: it.item_code, itemName: it.initiative_name, title: d.title, version: d.version, publishedVersion: p.published_version, pageTitle: p.page_title, pageUrl: p.page_url, spaceKey: p.space_key }];
+    const st = states.get(p.id);
+    if (!d || !it || !st || st.state === "in_step" || st.state === "unknown") return [];
+    return [{ id: d.id, itemId: it.id, code: it.item_code, itemName: it.initiative_name, title: d.title, version: d.version, publishedVersion: p.published_version, pageTitle: p.page_title, pageUrl: p.page_url, spaceKey: p.space_key, direction: p.sync_direction ?? "to_confluence", state: st.state, pageVersion: st.pageVersion }];
   }).sort((a, b) => a.code.localeCompare(b.code, "en", { numeric: true }) || a.title.localeCompare(b.title));
-  return json({ available: true, documents });
+  return json({ available: true, documents, unchecked });
 }

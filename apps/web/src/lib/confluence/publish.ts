@@ -1,4 +1,4 @@
-import { commercialWarnings, pageBody, pageIdFromUrl, planPublish, type CommercialTerm, type CommercialWarning, type PublishAction, type RemotePage } from "@pv/domain";
+import { commercialWarnings, pageBody, pageIdFromUrl, planPublish, type SyncDirection, type CommercialTerm, type CommercialWarning, type PublishAction, type RemotePage } from "@pv/domain";
 import { createPage, getPage, getSpaceById, getSpaceByKey, updatePage, type ConfluenceFail, type ConfluenceRequest } from "./client";
 
 // Publishing one document to Confluence (issue #693 slice B). Two steps, like Sync: PREVIEW shows exactly what would happen (create or update, the target,
@@ -7,12 +7,12 @@ import { createPage, getPage, getSpaceById, getSpaceByKey, updatePage, type Conf
 // Pure over injected dependencies, so it is tested with a fake Confluence and a fake store.
 
 export type PubDoc = { id: string; itemCode: string; title: string; body: string; version: number; aiDraft: boolean };
-export type LivePublication = { id: string; pageId: string; pageUrl: string; spaceKey: string; syncMode: "once" | "sync"; publishedVersion: number; remoteVersion: number | null; contentHash: string | null };
+export type LivePublication = { id: string; pageId: string; pageUrl: string; spaceKey: string; syncMode: "once" | "sync"; syncDirection?: SyncDirection; publishedVersion: number; remoteVersion: number | null; contentHash: string | null };
 export type NewPublication = {
-  spaceKey: string; parentPageId: string | null; pageId: string; pageUrl: string; pageTitle: string; syncMode: "once" | "sync";
+  spaceKey: string; parentPageId: string | null; pageId: string; pageUrl: string; pageTitle: string; syncMode: "once" | "sync"; syncDirection: SyncDirection;
   publishedVersion: number; remoteVersion: number; contentHash: string; unlinkedAt: string | null;
 };
-export type PublicationPatch = { syncMode?: "once" | "sync"; pageTitle?: string; pageUrl?: string; publishedVersion?: number; remoteVersion?: number; contentHash?: string; publishedAt?: string; unlinkedAt?: string | null };
+export type PublicationPatch = { syncMode?: "once" | "sync"; syncDirection?: SyncDirection; pageTitle?: string; pageUrl?: string; publishedVersion?: number; remoteVersion?: number; contentHash?: string; publishedAt?: string; unlinkedAt?: string | null };
 type Saved = { ok: true } | { ok: false; error: string };
 
 export type PublishDeps = {
@@ -35,7 +35,10 @@ export type PublishInput = {
   parentUrl?: string;
   /** Publish onto a page that already exists (its id): the document replaces the whole content of that page. Only when the document has no page of its own yet. */
   existingPageId?: string;
-  title?: string; mode: "once" | "sync"; confirm?: string; overwrite?: boolean;
+  title?: string; mode: "once" | "sync";
+  /** With mode "sync": write only (to_confluence, the default) or both ways (issue #714). A page that is read from Confluence is never written here. */
+  direction?: "to_confluence" | "both";
+  confirm?: string; overwrite?: boolean;
 };
 
 export type Fail = { ok: false; kind: ConfluenceFail["kind"] | "invalid" | "changed" | "not_recorded"; message: string };
@@ -140,13 +143,14 @@ export async function confirmPublish(d: PublishDeps, input: PublishInput): Promi
   if (!input.confirm || input.confirm !== p.confirm) return { ok: false, kind: "changed", message: "The document or the page changed since the preview. Nothing was written. Review the preview again." };
   const once = input.mode === "once";
   const live = d.live;
+  const direction: SyncDirection = input.direction ?? live?.syncDirection ?? "to_confluence";
   const stamp = d.now();
   const body = pageBody(d.doc.body, { ...(d.appLink ? { link: d.appLink } : {}), code: d.doc.itemCode });
   const contentHash = d.hash(`${p.title}\n${body}`);
 
   if (p.action === "none") {
     if (live && live.syncMode !== input.mode) {
-      const s = await d.save.update(live.id, { syncMode: input.mode, ...(once ? { unlinkedAt: stamp } : {}) });
+      const s = await d.save.update(live.id, { syncMode: input.mode, syncDirection: direction, ...(once ? { unlinkedAt: stamp } : {}) });
       if (!s.ok) return { ok: false, kind: "not_recorded", message: s.error };
     }
     return { ok: true, action: "none", page: p.page, message: "The page already holds this version of the document." };
@@ -158,7 +162,7 @@ export async function confirmPublish(d: PublishDeps, input: PublishInput): Promi
     if (!r.ok) return r;
     const url = r.page.url ?? p.page.url;
     if (!url) return { ok: false, kind: "not_recorded", message: `The page was replaced (id ${r.page.id}) but Confluence gave no address for it, so Product Velocity could not record it.` };
-    const s = await d.save.insert({ spaceKey: p.spaceKey, parentPageId: null, pageId: r.page.id, pageUrl: url, pageTitle: p.title, syncMode: input.mode, publishedVersion: d.doc.version, remoteVersion: r.page.version, contentHash, unlinkedAt: once ? stamp : null });
+    const s = await d.save.insert({ spaceKey: p.spaceKey, parentPageId: null, pageId: r.page.id, pageUrl: url, pageTitle: p.title, syncMode: input.mode, syncDirection: direction, publishedVersion: d.doc.version, remoteVersion: r.page.version, contentHash, unlinkedAt: once ? stamp : null });
     if (!s.ok) return { ok: false, kind: "not_recorded", message: `The page was replaced (${url}) but Product Velocity could not record it: ${s.error}` };
     return { ok: true, action: "update", page: { id: r.page.id, url, version: r.page.version }, message: "The existing page was replaced with the document." };
   }
@@ -166,7 +170,7 @@ export async function confirmPublish(d: PublishDeps, input: PublishInput): Promi
   if ((p.action === "update" || p.action === "conflict") && live && p.page) {
     const r = await updatePage(d.call, { id: live.pageId, currentVersion: p.page.version, title: p.title, body }, d.siteUrl);
     if (!r.ok) return r;
-    const s = await d.save.update(live.id, { syncMode: input.mode, pageTitle: p.title, pageUrl: r.page.url ?? live.pageUrl, publishedVersion: d.doc.version, remoteVersion: r.page.version, contentHash, publishedAt: stamp, unlinkedAt: once ? stamp : null });
+    const s = await d.save.update(live.id, { syncMode: input.mode, syncDirection: direction, pageTitle: p.title, pageUrl: r.page.url ?? live.pageUrl, publishedVersion: d.doc.version, remoteVersion: r.page.version, contentHash, publishedAt: stamp, unlinkedAt: once ? stamp : null });
     if (!s.ok) return { ok: false, kind: "not_recorded", message: `The page was updated (${r.page.url ?? live.pageUrl}) but Product Velocity could not record it: ${s.error}` };
     return { ok: true, action: p.action, page: { id: r.page.id, url: r.page.url, version: r.page.version }, message: "The page was updated." };
   }
@@ -177,7 +181,7 @@ export async function confirmPublish(d: PublishDeps, input: PublishInput): Promi
   if (p.action === "gone" && live) await d.save.update(live.id, { unlinkedAt: stamp });
   const url = r.page.url;
   if (!url) return { ok: false, kind: "not_recorded", message: `The page was created (id ${r.page.id}) but Confluence gave no address for it, so Product Velocity could not record it. Find it in the space ${p.spaceKey}.` };
-  const s = await d.save.insert({ spaceKey: p.spaceKey, parentPageId: p.parent?.id ?? null, pageId: r.page.id, pageUrl: url, pageTitle: p.title, syncMode: input.mode, publishedVersion: d.doc.version, remoteVersion: r.page.version, contentHash, unlinkedAt: once ? stamp : null });
+  const s = await d.save.insert({ spaceKey: p.spaceKey, parentPageId: p.parent?.id ?? null, pageId: r.page.id, pageUrl: url, pageTitle: p.title, syncMode: input.mode, syncDirection: direction, publishedVersion: d.doc.version, remoteVersion: r.page.version, contentHash, unlinkedAt: once ? stamp : null });
   if (!s.ok) return { ok: false, kind: "not_recorded", message: `The page was created (${url}) but Product Velocity could not record it: ${s.error}` };
   return { ok: true, action: p.action, page: { id: r.page.id, url, version: r.page.version }, message: "The page was created." };
 }

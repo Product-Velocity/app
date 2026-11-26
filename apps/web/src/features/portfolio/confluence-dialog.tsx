@@ -35,6 +35,8 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
   const [parent, setParent] = useState<TreePage | null>(null);
   const [existing, setExisting] = useState<TreePage | null>(null);
   const [mode, setMode] = useState<"sync" | "once">("sync");
+  // with "keep in sync": write only, or both ways (issue #714); a page that is read from Confluence is changed in the sync dialog, not here
+  const [direction, setDirection] = useState<"to_confluence" | "both">("to_confluence");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [done, setDone] = useState<Done | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
         setSpace(q?.spaceKey && known ? q.spaceKey : (s.spaces?.[0]?.key ?? ""));
         if (q?.parentUrl) setParentUrl(q.parentUrl);
         if (q?.title) { setTitle(q.title); setTitleTouched(true); } else if (s.suggestedTitle) setTitle(s.suggestedTitle);
-        if (s.last?.linked) setMode(s.last.syncMode); else if (q) setMode(q.mode);
+        if (s.last?.linked) { setMode(s.last.syncMode); if (s.last.direction === "both") setDirection("both"); } else if (q) setMode(q.mode);
       })
       .catch(() => { if (live) setLoadError("Confluence could not be reached from here. Try again in a moment."); });
     return () => { live = false; };
@@ -66,7 +68,7 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
     try {
       const r = await fetch(`/api/documents/${doc.id}/confluence`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, mode, ...(linked ? {} : { spaceKey: space, ...(target === "existing" ? { existingPageId: existing?.id } : parent ? { parentPageId: parent.id } : { parentUrl: parentUrl.trim() || undefined }) }), ...(target === "existing" && !titleTouched ? {} : { title: title.trim() || undefined }), ...extra }),
+        body: JSON.stringify({ action, mode, ...(mode === "sync" ? { direction } : {}), ...(linked ? {} : { spaceKey: space, ...(target === "existing" ? { existingPageId: existing?.id } : parent ? { parentPageId: parent.id } : { parentUrl: parentUrl.trim() || undefined }) }), ...(target === "existing" && !titleTouched ? {} : { title: title.trim() || undefined }), ...extra }),
       });
       const j = (await r.json().catch(() => ({}))) as { error?: string; preview?: Preview; done?: Done; ok?: boolean };
       if (!r.ok) { setError(j.error ?? "That did not work. Nothing was written."); return null; }
@@ -154,7 +156,8 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
             <input id={`${titleId}-t`} type="text" maxLength={255} value={!linked && target === "existing" && !titleTouched ? (existing?.title ?? "") : title} placeholder={!linked && target === "existing" ? "The page's own title" : undefined} onChange={(e) => { setTitle(e.target.value); setTitleTouched(true); setPreview(null); }} />
             <fieldset className="dialog-row" style={{ border: 0, padding: 0 }}>
               <legend className="dialog-label">After publishing</legend>
-              <label><input type="radio" name={`${titleId}-m`} checked={mode === "sync"} onChange={() => { setMode("sync"); setPreview(null); }} /> Keep in sync: when the document changes, update the page from here (you confirm each time)</label>
+              <label><input type="radio" name={`${titleId}-m`} checked={mode === "sync" && direction === "to_confluence"} onChange={() => { setMode("sync"); setDirection("to_confluence"); setPreview(null); }} /> Write from Product Velocity and update the page when the document changes (you confirm each time)</label>
+              <label><input type="radio" name={`${titleId}-m`} checked={mode === "sync" && direction === "both"} onChange={() => { setMode("sync"); setDirection("both"); setPreview(null); }} /> Both ways: also bring changes made on the page back into the document (you confirm each time; a change on both sides is yours to settle)</label>
               <label><input type="radio" name={`${titleId}-m`} checked={mode === "once"} onChange={() => { setMode("once"); setPreview(null); }} /> Once: write the page now, then let go of it</label>
             </fieldset>
 

@@ -5,12 +5,13 @@ import { AI_TOOL_LABEL, DOC_KIND_LABEL, DOC_KINDS, MAX_DOC_CHARS, MAX_DOCS_PER_I
 import type { DocView } from "@/lib/documents";
 import { MarkdownPreview } from "./markdown-preview";
 import { RowIcon, RowMenu, ShareChip } from "./attachment-ui";
-import { shareLine, whenLabel, type TrackerShare } from "./share-state";
+import { confluenceLine, shareLine, type TrackerShare } from "./share-state";
 import { FilesControl, type FilesHandle } from "./files-control";
 import type { FieldCtx } from "./item-fields";
 import { LinksList, type LinksHandle } from "./links-list";
 import { ConfluenceDialog } from "./confluence-dialog";
 import { ConfluenceImportDialog } from "./confluence-import-dialog";
+import { ConfluenceSyncDialog } from "./confluence-sync-dialog";
 import { copyFormatted, copyMarkdown } from "./markdown-copy";
 
 type Version = { version: number; saved_at: string; saved_via: string; ai_tool?: string | null; ai_model?: string | null; saved_by_name?: string | null };
@@ -31,6 +32,7 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
   // reading a Confluence page into a document (issue #693 slice A2): a new import (maybe from a link on the initiative), or a check of a document kept from a page
   const [importing, setImporting] = useState<{ pageUrl?: string; kind?: import("@pv/domain").DocKind } | null>(null);
   const [refreshFor, setRefreshFor] = useState<DocView | null>(null);
+  const [syncFor, setSyncFor] = useState<DocView | null>(null); // the sync-direction dialog of a linked document (issue #714)
   // a link from the activity log opens the document: ?item=R-12&tab=spec&doc=<id>
   const [openId, setOpenId] = useState<string | null>(() => {
     const d = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("doc");
@@ -115,6 +117,7 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
       {error && <p role="alert" className="pf-error">{error}</p>}
       {confluenceFor && <ConfluenceDialog doc={{ id: confluenceFor.id, title: confluenceFor.title, version: confluenceFor.version, aiDraft: confluenceFor.aiDraft }} onClose={() => setConfluenceFor(null)} onChanged={() => void load()} />}
       {importing && <ConfluenceImportDialog mode="import" itemId={itemId} prefill={importing} onClose={() => setImporting(null)} onChanged={() => void load()} />}
+      {syncFor && <ConfluenceSyncDialog doc={{ id: syncFor.id, title: syncFor.title }} onClose={() => setSyncFor(null)} onChanged={() => void load()} onUpdatePage={() => { setConfluenceFor(syncFor); setSyncFor(null); }} onUpdateDocument={() => { setRefreshFor(syncFor); setSyncFor(null); }} />}
       {refreshFor && <ConfluenceImportDialog mode="refresh" itemId={itemId} doc={{ id: refreshFor.id, title: refreshFor.title }} onClose={() => setRefreshFor(null)} onChanged={() => void load()} />}
       {show("docs") && <>
         <h3>Documents</h3>
@@ -131,7 +134,7 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
                 <button type="button" className="entry-name entry-name-btn" aria-expanded={openId === d.id} onClick={() => setOpenId(openId === d.id ? null : d.id)}>{d.title}</button>
                 <span className="entry-meta">{DOC_KIND_LABEL[d.kind as keyof typeof DOC_KIND_LABEL] ?? d.kind} · version {d.version} · {STATUS_LABEL[d.status] ?? d.status}{d.aiDraft ? " · AI draft, needs review" : ""}{aiLabel(d.aiTool, d.aiModel) ? ` · written with ${aiLabel(d.aiTool, d.aiModel)}` : ""}</span>
                 {!d.aiDraft && <span className="entry-meta">{tracker}: {line.detail}</span>}
-                {c && <span className="entry-meta">Confluence: {c.source === "external" ? `copied from the page “${c.pageTitle || "page"}” (space ${c.spaceKey}), page version ${c.publishedVersion}` : `${c.linked ? "kept in sync with" : "published once to"} the page “${c.pageTitle || "page"}” (space ${c.spaceKey}), document version ${c.publishedVersion}`}{c.publishedAt ? ` · ${c.source === "external" ? "read" : "written"} ${whenLabel(c.publishedAt)}` : ""}{c.outOfDate ? " · the page is behind the document" : ""}.</span>}
+                {c && <span className="entry-meta">{confluenceLine(c)}</span>}
               </span>
               <span className="entry-actions">
               {d.aiDraft
@@ -142,14 +145,9 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
                   Publish requested{d.publishRequest.requestedBy === "Claude" ? " by Claude" : ""}
                 </button>
               )}
-              {d.confluence?.source === "external" && (
-                <a className="share-chip" href={d.confluence.pageUrl} target="_blank" rel="noopener noreferrer" title={`The text comes from this Confluence page (space ${d.confluence.spaceKey}); ${d.confluence.linked ? "kept in sync: check it for changes from the menu" : "copied once"}. Product Velocity never writes to the page.`}>
-                  Copied from Confluence
-                </a>
-              )}
-              {d.confluence && d.confluence.source !== "external" && (
-                <a className="share-chip" href={d.confluence.pageUrl} target="_blank" rel="noopener noreferrer" title={`The Confluence page (space ${d.confluence.spaceKey}), ${d.confluence.linked ? "kept in sync" : "published once"}`}>
-                  On Confluence{d.confluence.outOfDate ? ": page out of date" : ""}
+              {d.confluence && (
+                <a className="share-chip" href={d.confluence.pageUrl} target="_blank" rel="noopener noreferrer" title={`${confluenceLine(d.confluence)} Open the page.`}>
+                  {!d.confluence.linked ? (d.confluence.source === "external" ? "Copied from Confluence" : "On Confluence (once)") : d.confluence.direction === "from_confluence" ? "From Confluence" : d.confluence.direction === "both" ? "Two-way with Confluence" : `On Confluence${d.confluence.outOfDate ? ": page out of date" : ""}`}
                 </a>
               )}
               <RowMenu label={`Actions for ${d.title}`} items={[
@@ -157,8 +155,9 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
                 { label: "Open full page", href: docPageHref(d.id), hidden: !itemCode },
                 { label: "Copy public link", onSelect: () => void navigator.clipboard?.writeText(d.shareUrl ?? "").catch(() => setError("Your browser did not allow copying.")), hidden: !d.shareUrl },
                 { label: "Open public page", href: d.shareUrl ?? "", hidden: !d.shareUrl },
-                { label: "Check Confluence for changes…", onSelect: () => setRefreshFor(d), hidden: !canEdit || !(d.confluence?.source === "external" && d.confluence.linked) },
-                { label: d.confluence?.linked ? "Update the Confluence page…" : d.publishRequest ? "Review the publish request…" : "Publish to Confluence…", onSelect: () => setConfluenceFor(d), hidden: !canEdit || !(canConfluence || d.confluence || d.publishRequest) || (d.confluence?.source === "external" && d.confluence.linked) },
+                { label: "Confluence sync…", onSelect: () => setSyncFor(d), hidden: !canEdit || !d.confluence?.linked },
+                { label: "Check Confluence for changes…", onSelect: () => setRefreshFor(d), hidden: !canEdit || !(d.confluence?.linked && d.confluence.direction === "from_confluence") },
+                { label: d.confluence?.linked ? "Update the Confluence page…" : d.publishRequest ? "Review the publish request…" : "Publish to Confluence…", onSelect: () => setConfluenceFor(d), hidden: !canEdit || !(canConfluence || d.confluence || d.publishRequest) || (d.confluence?.linked === true && d.confluence.direction === "from_confluence") },
                 { label: "Remove", onSelect: () => void removeDoc(d), danger: true, hidden: !canEdit },
               ]} />
               </span>

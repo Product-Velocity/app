@@ -115,7 +115,7 @@ export type DocInfo = {
   /** "workspace" for a document that belongs to the workspace (item_code is then empty); absent for a document on an initiative. */
   scope?: "workspace";
   /** The Confluence page this document was published to (issue #693), when it was; null/absent otherwise. */
-  confluence?: { source: "pv" | "external"; page_url: string; page_title: string; space_key: string; mode: "once" | "sync"; linked: boolean; published_version: number; out_of_date: boolean } | null;
+  confluence?: { source: "pv" | "external"; /** Which way the link keeps the document up to date: from_confluence (read in), to_confluence (written out) or both (issue #714). */ direction: "from_confluence" | "to_confluence" | "both"; page_url: string; page_title: string; space_key: string; mode: "once" | "sync"; linked: boolean; published_version: number; out_of_date: boolean } | null;
   /** An open request to publish it (made by a person or by Claude), waiting for a person to confirm in the app; null/absent when there is none. */
   publish_request?: { mode: "once" | "sync"; space_key: string | null; parent_url: string | null; title: string | null; note: string | null; requested_by: "Claude" | "a person"; ai_model: string | null } | null;
 };

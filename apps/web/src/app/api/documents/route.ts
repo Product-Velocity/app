@@ -16,12 +16,12 @@ export async function GET(request: Request) {
   const appUrl = await siteUrl();
   const rows = (data ?? []) as DocRow[];
   // the page each document was published to (the latest record), and whether this workspace can publish at all (Confluence allowed on its sign-in)
-  const { data: pages } = await supabase.from("item_document_pages").select("document_id, source, page_url, page_title, space_key, sync_mode, published_version, published_at, unlinked_at, created_at").eq("item_id", item).order("created_at");
+  const { data: pages } = await supabase.from("item_document_pages").select("document_id, source, sync_direction, page_url, page_title, space_key, sync_mode, published_version, published_at, unlinked_at, created_at").eq("item_id", item).order("created_at");
   const latest = new Map<string, ConfluenceView>();
   const version = new Map(rows.map((r) => [r.id, r.version]));
-  for (const p of (pages ?? []) as { document_id: string; source: "pv" | "external"; page_url: string; page_title: string; space_key: string; sync_mode: "once" | "sync"; published_version: number; published_at: string | null; unlinked_at: string | null }[]) {
+  for (const p of (pages ?? []) as { document_id: string; source: "pv" | "external"; sync_direction: "from_confluence" | "to_confluence" | "both"; page_url: string; page_title: string; space_key: string; sync_mode: "once" | "sync"; published_version: number; published_at: string | null; unlinked_at: string | null }[]) {
     const linked = p.unlinked_at === null;
-    latest.set(p.document_id, { source: p.source, pageUrl: p.page_url, pageTitle: p.page_title, spaceKey: p.space_key, syncMode: p.sync_mode, publishedVersion: p.published_version, publishedAt: p.published_at, linked, outOfDate: p.source === "pv" && linked && p.published_version < (version.get(p.document_id) ?? 0) });
+    latest.set(p.document_id, { source: p.source, direction: p.sync_direction, pageUrl: p.page_url, pageTitle: p.page_title, spaceKey: p.space_key, syncMode: p.sync_mode, publishedVersion: p.published_version, publishedAt: p.published_at, linked, outOfDate: p.sync_direction !== "from_confluence" && linked && p.published_version < (version.get(p.document_id) ?? 0) });
   }
   const { data: reqs } = await supabase.from("item_document_publish_requests").select("document_id, space_key, parent_url, page_title, sync_mode, note, ai_model, created_via").eq("item_id", item);
   const asked = new Map<string, PublishRequestView>();

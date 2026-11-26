@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commercialWarnings, inline, managedBanner, markdownToStorage, pageBody, pageIdFromUrl, planPublish } from "./confluence";
+import { commercialWarnings, inline, managedBanner, markdownToStorage, pageBody, pageIdFromUrl, planPublish, stripManagedBanner, syncState } from "./confluence";
 
 describe("Markdown to Confluence storage format", () => {
   it("headings, paragraphs, emphasis, code spans and links", () => {
@@ -141,5 +141,42 @@ describe("a request to publish", () => {
   it("control characters in the note are flattened (it is shown to people as plain text)", async () => {
     const { checkPublishRequest } = await import("./confluence");
     expect(checkPublishRequest({ note: "a\u0000b\nc" })).toMatchObject({ ok: true, value: { note: "a b c" } });
+  });
+});
+
+
+describe("syncState (issue #714): what a linked document needs, by direction", () => {
+  const base = { docVersion: 3, publishedVersion: 3, pageVersion: 5, remoteVersion: 5 };
+  it("nothing changed: in step, whatever the direction", () => {
+    for (const direction of ["from_confluence", "to_confluence", "both"] as const) expect(syncState({ ...base, direction })).toBe("in_step");
+  });
+  it("to_confluence only ever sends: a newer document is sent, a changed page is not read back", () => {
+    expect(syncState({ ...base, direction: "to_confluence", docVersion: 4 })).toBe("send");
+    expect(syncState({ ...base, direction: "to_confluence", pageVersion: 6 })).toBe("in_step");
+    expect(syncState({ ...base, direction: "to_confluence", pageVersion: null })).toBe("in_step");
+  });
+  it("from_confluence only ever receives: a changed page is read in, a newer document is never sent", () => {
+    expect(syncState({ ...base, direction: "from_confluence", pageVersion: 6 })).toBe("receive");
+    expect(syncState({ ...base, direction: "from_confluence", docVersion: 4 })).toBe("in_step");
+    expect(syncState({ ...base, direction: "from_confluence", pageVersion: null })).toBe("unknown");
+  });
+  it("both: send, receive, or a conflict when both sides changed", () => {
+    expect(syncState({ ...base, direction: "both", docVersion: 4 })).toBe("send");
+    expect(syncState({ ...base, direction: "both", pageVersion: 6 })).toBe("receive");
+    expect(syncState({ ...base, direction: "both", docVersion: 4, pageVersion: 6 })).toBe("conflict");
+    expect(syncState({ ...base, direction: "both", pageVersion: null })).toBe("unknown");
+  });
+  it("a deleted page is gone in every direction", () => {
+    for (const direction of ["from_confluence", "to_confluence", "both"] as const) expect(syncState({ ...base, direction, pageVersion: "missing" })).toBe("gone");
+  });
+});
+
+describe("stripManagedBanner", () => {
+  it("removes the notice Product Velocity puts at the top of a page, and only that", () => {
+    const page = pageBody("Hello", { link: "https://app.example/portfolio/R-1", code: "R-1" });
+    expect(stripManagedBanner(page)).toBe("<p>Hello</p>");
+    expect(stripManagedBanner("<p>Hello</p>")).toBe("<p>Hello</p>");
+    const other = '<ac:structured-macro ac:name="info"><ac:rich-text-body><p>Somebody else\'s note.</p></ac:rich-text-body></ac:structured-macro><p>x</p>';
+    expect(stripManagedBanner(other)).toBe(other);
   });
 });

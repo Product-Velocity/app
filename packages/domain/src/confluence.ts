@@ -249,3 +249,40 @@ export function checkPublishRequest(input: { mode?: unknown; space_key?: unknown
   if (model instanceof Error) return { ok: false, error: model.message };
   return { ok: true, value: { mode, spaceKey: space, parentUrl: parent, title, note, aiModel: model } };
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Sync direction (issue #714 slice 2): which side changed since the two last agreed, and what that means for each direction.
+// ---------------------------------------------------------------------------------------------------------------------------------
+export const SYNC_DIRECTIONS = ["from_confluence", "to_confluence", "both"] as const;
+export type SyncDirection = (typeof SYNC_DIRECTIONS)[number];
+export const SYNC_DIRECTION_LABEL: Record<SyncDirection, string> = {
+  from_confluence: "Read in from Confluence, update from Confluence",
+  to_confluence: "Write from Product Velocity, update to Confluence",
+  both: "Both ways: keep up to date when a change is detected",
+};
+export type SyncState = "in_step" | "send" | "receive" | "conflict" | "gone" | "unknown";
+
+/**
+ * What a linked document needs. `docVersion` / `publishedVersion`: the version of the document now, and the one the two last agreed on (the version written to the
+ * page, or the version created from it). `pageVersion` / `remoteVersion`: the version of the page now (null when it could not be read, "missing" when deleted), and
+ * the one the two last agreed on. A direction only ever acts one way: from_confluence never sends, to_confluence never receives. Pure.
+ */
+export function syncState(input: { direction: SyncDirection; docVersion: number; publishedVersion: number; pageVersion: number | "missing" | null; remoteVersion: number | null }): SyncState {
+  const { direction, docVersion, publishedVersion, pageVersion, remoteVersion } = input;
+  if (pageVersion === "missing") return "gone";
+  const docChanged = docVersion > publishedVersion;
+  if (direction === "to_confluence") return docChanged ? "send" : "in_step"; // a change made on the page is not read back; the next send replaces it (the preview warns)
+  if (pageVersion === null) return "unknown";
+  const pageChanged = remoteVersion !== null && pageVersion !== remoteVersion;
+  if (direction === "from_confluence") return pageChanged ? "receive" : "in_step";
+  if (docChanged && pageChanged) return "conflict";
+  if (docChanged) return "send";
+  if (pageChanged) return "receive";
+  return "in_step";
+}
+
+/** The page text without the notice Product Velocity puts at its top ("Managed in Product Velocity…"), so a page we wrote can be read back without it. */
+export function stripManagedBanner(storage: string): string {
+  const m = /^\s*<ac:structured-macro ac:name="info"[^>]*><ac:rich-text-body><p>Managed in Product Velocity\.[\s\S]*?<\/ac:rich-text-body><\/ac:structured-macro>/.exec(storage);
+  return m ? storage.slice(m[0].length) : storage;
+}
