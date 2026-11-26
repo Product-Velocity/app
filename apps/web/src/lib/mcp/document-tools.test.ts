@@ -257,7 +257,7 @@ describe("asking for a document to be published to Confluence (issue #693 slice 
   });
 
   it("keeps the page in sync unless asked for once, and says when the document is already on a page", async () => {
-    const onPage = doc({ confluence: { page_url: "https://acme.atlassian.net/wiki/spaces/X/pages/1", page_title: "PRD", space_key: "X", mode: "sync", linked: true, published_version: 1, out_of_date: true } });
+    const onPage = doc({ confluence: { page_url: "https://acme.atlassian.net/wiki/spaces/X/pages/1", page_title: "PRD", source: "pv", space_key: "X", mode: "sync", linked: true, published_version: 1, out_of_date: true } });
     const s = setup({ docs: [onPage] });
     const r = await s.call("request_confluence_publish", { document: "d1" });
     expect(s.requested[0]!.r).toMatchObject({ mode: "sync", spaceKey: null });
@@ -302,7 +302,7 @@ describe("asking for a document to be published to Confluence (issue #693 slice 
   });
 
   it("documents are listed and read with the page they are on and any open request", async () => {
-    const withBoth = doc({ confluence: { page_url: "https://acme.atlassian.net/wiki/spaces/X/pages/1", page_title: "PRD", space_key: "X", mode: "sync", linked: true, published_version: 1, out_of_date: false }, publish_request: { mode: "sync", space_key: "X", parent_url: null, title: null, note: null, requested_by: "Claude", ai_model: null } });
+    const withBoth = doc({ confluence: { page_url: "https://acme.atlassian.net/wiki/spaces/X/pages/1", page_title: "PRD", source: "pv", space_key: "X", mode: "sync", linked: true, published_version: 1, out_of_date: false }, publish_request: { mode: "sync", space_key: "X", parent_url: null, title: null, note: null, requested_by: "Claude", ai_model: null } });
     const s = setup({ docs: [withBoth] });
     expect((await s.call("list_documents", { item: "R-01" })).data.documents[0]).toMatchObject({ confluence: { linked: true, space_key: "X" }, publish_request: { requested_by: "Claude" } });
   });

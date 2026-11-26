@@ -310,7 +310,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
 
     async confluencePage(ref) {
       const site = await confluenceSiteFor(tenant.id);
-      if (!site) return { ok: false, message: "Confluence is not connected for this workspace. A workspace admin can add it under Settings, Integrations, Jira." };
+      if (!site) return { ok: false, message: "Confluence is not connected for this workspace. A workspace admin can connect it under Settings, Integrations, Confluence." };
       const call = confluenceRequest(site.connectionId, site.siteId);
       let read;
       if ("document" in ref) {

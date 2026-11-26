@@ -141,7 +141,7 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
                 {space && !(target === "new" && parentUrl && !parent) && (
                   <ConfluencePageTree
                     key={space}
-                    docId={doc.id} spaceKey={space}
+                    pagesUrl={`/api/documents/${doc.id}/confluence/pages`} spaceKey={space}
                     label={target === "new" ? "Parent page (optional)" : "Page to replace"}
                     topLabel={target === "new" ? "Top of the space (no parent page)" : undefined}
                     selectedId={target === "new" ? (parent?.id ?? null) : (existing?.id ?? null)}

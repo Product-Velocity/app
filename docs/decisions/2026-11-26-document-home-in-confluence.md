@@ -2,7 +2,7 @@
 date: 2026-11-26
 by: Ashu, proposed by Claude
 request: 693
-status: slice A1 (kinds on links) built; the Confluence page read (A2) waits for the spike
+status: slices A1, B, C and A2 (reading a page) built; A2 verified against the first real site after release
 ---
 **A document or link can have a home in Confluence, with two settings: who is the source, and whether it stays in sync (issue #693).** It extends J7 (`2026-10-29-confluence-publish.md`), where PV was always the source, so that either side can be.
 
@@ -36,3 +36,5 @@ status: slice A1 (kinds on links) built; the Confluence page read (A2) waits for
 
 **Confluence gets its own connection (Ashu, 2026-11-26).** After the v2 fix the first real site answered 401, and the only way to change the permissions was to disconnect Jira, which deletes the project links and mapping of projects without linked initiatives (`jira_disconnect`), so the whole Jira set-up had to be redone. Decided: (1) **Confluence is a separate connection** (tables `confluence_connections` and `confluence_credentials`, migration `confluence_connections`; one live connection per workspace; its own settings page with Connect, Reconnect, Test connection and Disconnect; the Jira connection, project links and mapping are never touched). (2) **Reconnect keeps everything**: signing in again replaces the live connection in place for both Jira ("Reconnect (keeps your settings)") and Confluence; Disconnect says what it removes. (3) The Confluence connection asks for the **granular** permissions `read:space:confluence`, `read:page:confluence`, `write:page:confluence` (the classic ones got "scope does not match"); the page lists which were granted and which are missing. (4) A 401 from Confluence shows Atlassian's own reason instead of "sign in again". Publications point at the Confluence connection (`item_document_pages.connection_id`, the old constraint was replaced by one that does not check rows written before). The Confluence permission on the Jira sign-in ("Add Confluence") was removed. **Open:** that the three granular permissions are enough on the first real site (the Test connection button answers that).
 
+
+**Slice A2, as built (2026-11-26).** The spike question (can the page body be read, with which permission) is answered by the first real site: v2 `GET /pages/{id}?body-format=storage` with `read:page:confluence`. A person imports a page into a new document (preview, then Confirm; created "Do not share"), or checks a kept document for a newer page version (preview, then Confirm adds a version). The page is never written by this path. Claude can only read a page that is already linked (`read_confluence_page`); it does not browse Confluence, import or refresh. Images and attachments are not carried over.

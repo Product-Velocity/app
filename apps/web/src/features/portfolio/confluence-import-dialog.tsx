@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { DOC_KINDS, DOC_KIND_LABEL, type DocKind } from "@pv/domain";
+import { ConfluencePageTree } from "./confluence-page-tree";
 
 type ImportPreview = {
   title: string; kind: DocKind; mode: "once" | "sync"; page: { id: string; url: string | null; version: number; spaceKey: string };
@@ -39,6 +40,19 @@ export function ConfluenceImportDialog({ mode, itemId, doc, prefill, onClose, on
   const [done, setDone] = useState<Done | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // choosing the page by browsing instead of pasting its address
+  const [browse, setBrowse] = useState<{ spaces: { key: string; name: string }[]; siteUrl: string } | "loading" | null>(null);
+  const [space, setSpace] = useState("");
+  const [chosen, setChosen] = useState<string | null>(null);
+  const openBrowse = async () => {
+    setBrowse("loading"); setError(null);
+    try {
+      const r = await fetch(`/api/documents/import-confluence/pages?item=${encodeURIComponent(itemId)}&spaces=1`);
+      const j = (await r.json().catch(() => ({}))) as { spaces?: { key: string; name: string }[]; siteUrl?: string; error?: string };
+      if (!r.ok || !j.spaces || !j.siteUrl) { setBrowse(null); setError(j.error ?? "Confluence could not be read."); return; }
+      setBrowse({ spaces: j.spaces, siteUrl: j.siteUrl }); setSpace(j.spaces[0]?.key ?? "");
+    } catch { setBrowse(null); setError("Product Velocity could not be reached."); }
+  };
 
   const post = async (url: string, body: Record<string, unknown>) => {
     setBusy(true); setError(null);
@@ -88,8 +102,24 @@ export function ConfluenceImportDialog({ mode, itemId, doc, prefill, onClose, on
             {mode === "import" && (
               <>
                 <p className="muted">The text of the page is copied into a new document; the page stays where it is and is never changed. The document is kept out of the tracker issue until you choose to share it. The conversion is not perfect (images, macros and merged cells do not carry over), and the preview says what was left out.</p>
+                {browse === null && <p><button type="button" className="btn" disabled={busy} onClick={() => void openBrowse()}>Browse Confluence</button> <span className="muted">or paste the address of the page below.</span></p>}
+                {browse === "loading" && <p role="status">Reading the spaces…</p>}
+                {browse && browse !== "loading" && (
+                  <>
+                    <label className="dialog-label" htmlFor={`${titleId}-sp`}>Space</label>
+                    <select id={`${titleId}-sp`} value={space} onChange={(e) => { setSpace(e.target.value); setChosen(null); setPageUrl(""); setImp(null); }}>
+                      {browse.spaces.map((x) => <option key={x.key} value={x.key}>{x.name} ({x.key})</option>)}
+                    </select>
+                    {space && (
+                      <ConfluencePageTree
+                        key={space} pagesUrl={`/api/documents/import-confluence/pages?item=${encodeURIComponent(itemId)}`} spaceKey={space} label="Page to read" selectedId={chosen}
+                        onSelect={(pg) => { setChosen(pg?.id ?? null); setPageUrl(pg ? `${browse.siteUrl}/wiki/pages/viewpage.action?pageId=${pg.id}` : ""); setImp(null); }}
+                      />
+                    )}
+                  </>
+                )}
                 <label className="dialog-label" htmlFor={`${titleId}-u`}>Page address</label>
-                <input id={`${titleId}-u`} ref={firstRef} type="url" placeholder="Paste the address of the Confluence page" value={pageUrl} onChange={(e) => { setPageUrl(e.target.value); setImp(null); }} />
+                <input id={`${titleId}-u`} ref={firstRef} type="url" placeholder="Paste the address of the Confluence page" value={pageUrl} onChange={(e) => { setPageUrl(e.target.value); setChosen(null); setImp(null); }} />
                 <label className="dialog-label" htmlFor={`${titleId}-k`}>What kind of document is it</label>
                 <select id={`${titleId}-k`} value={kind} onChange={(e) => { setKind(e.target.value as DocKind); setImp(null); }}>
                   {DOC_KINDS.map((k) => <option key={k} value={k}>{DOC_KIND_LABEL[k]}</option>)}

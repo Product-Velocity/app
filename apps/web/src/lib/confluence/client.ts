@@ -175,7 +175,7 @@ export async function listChildPages(call: ConfluenceRequest, pageId: string, sl
 
 export type PageWithText = Page & { /** The page as Confluence stores it (storage format), to be converted to Markdown. */ storage: string };
 
-/** One page with its text in storage format. Reading the text needs the permission to read page content (`read:confluence-content.all`). */
+/** One page with its text in storage format. Reading the text needs the permission to read page content (`read:page:confluence`). */
 export async function getPageWithText(call: ConfluenceRequest, id: string, siteUrl: string | null = null, sleep?: Sleep): Promise<{ ok: true; page: PageWithText } | ConfluenceFail> {
   if (!/^\d{1,20}$/.test(id)) return { ok: false, kind: "rejected", message: "That is not a Confluence page id." };
   const x = await run(() => call("GET", `/api/v2/pages/${id}?body-format=storage`), sleep);
@@ -184,7 +184,7 @@ export async function getPageWithText(call: ConfluenceRequest, id: string, siteU
   const page = toPage(x.r.json, siteUrl);
   if (!page) return BAD_ANSWER("a page");
   const value = obj(obj(obj(x.r.json).body).storage).value;
-  if (typeof value !== "string") return { ok: false, kind: "rejected", message: "Confluence answered, but without the text of the page. The sign-in may lack the permission to read page content (an admin can add it under Settings, Integrations, Jira)." };
+  if (typeof value !== "string") return { ok: false, kind: "rejected", message: "Confluence answered, but without the text of the page. The sign-in may lack the permission to read page content (an admin can check the permissions and Reconnect under Settings, Integrations, Confluence)." };
   return { ok: true, page: { ...page, storage: value } };
 }
 

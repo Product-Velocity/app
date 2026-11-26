@@ -32,7 +32,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!(me && (me.role === "creator" || me.role === "admin") && !me.is_service_account)) return json({ error: "Only a Creator or Admin can copy a Confluence page into a document.", kind: "forbidden" }, 403);
 
   const site = await confluenceSiteFor(tenantId);
-  if (!site) return json({ error: "Confluence is not connected for this workspace. An admin can add it in Settings, Integrations, Jira.", kind: "not_connected" }, 409);
+  if (!site) return json({ error: "Confluence is not connected for this workspace. An admin can connect it in Settings, Integrations, Confluence.", kind: "not_connected" }, 409);
   const { count } = await supabase.from("item_documents").select("id", { count: "exact", head: true }).eq("item_id", b.item);
 
   const deps: ImportDeps = {
