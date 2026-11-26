@@ -14,10 +14,10 @@ export default async function InvitePage({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ mode?: string }>;
+  searchParams: Promise<{ mode?: string; link?: string }>;
 }) {
   const { token } = await params;
-  const { mode: wanted } = await searchParams;
+  const { mode: wanted, link } = await searchParams;
   const path = `/invite/${token}`;
   const supabase = await createClient();
   const preview = await getInvitePreview(supabase, token);
@@ -69,7 +69,16 @@ export default async function InvitePage({
         {mode === "sign-in" && !preview.accountExists && (
           <p className="hint">There is no account for this email yet, so you probably want to create one.</p>
         )}
-        <InviteSignIn token={token} email={preview.email} mode={mode} />
+        <InviteSignIn
+          token={token}
+          email={preview.email}
+          mode={mode}
+          notice={
+            link === "used"
+              ? "That email link has already been used or has expired. Your invitation is still valid: sign in below to finish joining, or ask for a new link."
+              : undefined
+          }
+        />
       </Shell>
     );
   }
