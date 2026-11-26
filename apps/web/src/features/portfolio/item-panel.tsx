@@ -113,6 +113,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
   const [loadError, setLoadError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pushGithub, setPushGithub] = useState(false);
+  const syncIds = useMemo(() => [itemId], [itemId]); // stable: a new list on every render would restart the sync check
   const router = useRouter();
   const resize = usePanelWidth(mode === "peek");
 
@@ -192,7 +193,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
 
       {gates && <OutcomeReviewsSection source={gates} row={row as never} canEdit={controller.canEdit} onChanged={() => { void controller.refreshFromServer(); }} />}
 
-      {pushGithub && <GithubPushDialog ids={[itemId]} onClose={() => setPushGithub(false)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer({ reloadPanels: true }); }} />}
+      {pushGithub && <GithubPushDialog ids={syncIds} onClose={() => setPushGithub(false)} onTakenOver={(c) => controller.recordTakenOver(c)} onDone={() => { void controller.refreshFromServer({ reloadPanels: true }); }} />}
       {confirmDelete && <DeleteDialog controller={controller} ids={[itemId]} onClose={() => setConfirmDelete(false)} onDeleted={() => { if (mode === "peek") onClose?.(); else router.push(backHref); }} />}
 
       <div role="tablist" aria-label="Item sections" className="ip-tabs">

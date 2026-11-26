@@ -45,3 +45,13 @@ test.describe("Sync: Confluence pages to update", () => {
     await expect(section.getByRole("button", { name: /Confirm/ })).toHaveCount(0);
   });
 });
+
+test.describe("Sync: the check does not start over when the page renders again", () => {
+  test("a caller that builds the list of ids anew on every render still gets one check, which completes", async ({ page }) => {
+    await page.goto("/dev/sync?scenario=rerender");
+    await page.getByRole("button", { name: "Open sync" }).click();
+    await expect(page.getByRole("button", { name: "Apply and send" })).toBeEnabled({ timeout: 10_000 });
+    await page.waitForTimeout(600); // several more renders of the page
+    expect(Number(await page.getByTestId("starts").textContent())).toBe(1); // one check (three initiatives fit in one call), never one per render
+  });
+});
