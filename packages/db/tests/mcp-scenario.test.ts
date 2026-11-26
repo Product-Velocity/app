@@ -5,7 +5,7 @@ import { handleMulti, type WorkspaceHandle } from "../../../apps/web/src/lib/mcp
 import { buildContext, type DocInfo } from "../../../apps/web/src/lib/mcp/read-model";
 import { handleRpc, TOOLS, type McpBackend } from "../../../apps/web/src/lib/mcp/rpc";
 import { ToolInputError } from "../../../apps/web/src/lib/mcp/tool-error";
-import type { ApplyResult, CurrentItem, McpDocuments, McpEpics, McpFiles, McpOutcomes, McpProfile, McpPublishRequests, McpWriter, PendingChange, PendingRow, UndoResult } from "../../../apps/web/src/lib/mcp/write-model";
+import type { ApplyResult, CurrentItem, McpDocuments, McpEpics, McpFiles, McpOutcomes, McpProfile, McpPublishRequests, McpReadRequests, McpWriter, PendingChange, PendingRow, UndoResult } from "../../../apps/web/src/lib/mcp/write-model";
 import { addMember, createTestDb, createUser, twoTenantFixture, type TestDb } from "./helpers";
 
 // The 2026-10-27 scenario of docs/20 section 2 and issue #182, replayed through the real tool code (handleRpc and the write tools)
@@ -110,6 +110,34 @@ function sqlWriter(user: string, tenant: string, client = CLIENT): McpWriter {
       } catch (e) { throw new ToolInputError(e instanceof Error ? e.message : "The epics could not be recorded."); }
     },
   };
+  const readRequests: McpReadRequests = {
+    async setImport(itemId, r) {
+      try {
+        await as(async (q) => {
+          const cur = (await q("select id from public.item_confluence_read_requests where tenant_id = $1 and item_id = $2 and kind = 'import' and page_url = $3", [tenant, itemId, r.pageUrl])).rows[0];
+          if (cur) await q("update public.item_confluence_read_requests set doc_kind = $2, sync_mode = $3, sync_direction = $4, note = $5, ai_model = $6 where id = $1", [cur.id, r.docKind, r.mode, r.direction, r.note, r.aiModel]);
+          else await q("insert into public.item_confluence_read_requests (tenant_id, item_id, kind, page_url, doc_kind, sync_mode, sync_direction, note, ai_model) values ($1, $2, 'import', $3, $4, $5, $6, $7, $8)", [tenant, itemId, r.pageUrl, r.docKind, r.mode, r.direction, r.note, r.aiModel]);
+        });
+      } catch { throw new ToolInputError("The database refused this: your role or this connection may not write here."); }
+    },
+    async setRefresh(doc, r) {
+      try {
+        await as(async (q) => {
+          const cur = (await q("select id from public.item_confluence_read_requests where tenant_id = $1 and kind = 'refresh' and document_id = $2", [tenant, doc.id])).rows[0];
+          if (cur) await q("update public.item_confluence_read_requests set note = $2, ai_model = $3 where id = $1", [cur.id, r.note, r.aiModel]);
+          else await q("insert into public.item_confluence_read_requests (tenant_id, item_id, kind, document_id, note, ai_model) values ($1, $2, 'refresh', $3, $4, $5)", [tenant, doc.itemId, doc.id, r.note, r.aiModel]);
+        });
+      } catch { throw new ToolInputError("The database refused this: your role or this connection may not write here."); }
+    },
+    async withdraw(target) {
+      return as(async (q) => {
+        const rows = "documentId" in target
+          ? (await q("delete from public.item_confluence_read_requests where tenant_id = $1 and kind = 'refresh' and document_id = $2 returning id", [tenant, target.documentId])).rows
+          : (await q("delete from public.item_confluence_read_requests where tenant_id = $1 and kind = 'import' and item_id = $2 and page_url = $3 returning id", [tenant, target.itemId, target.pageUrl])).rows;
+        return rows.length > 0;
+      });
+    },
+  };
   const publishRequests: McpPublishRequests = {
     async set(doc, r) {
       try {
@@ -137,6 +165,7 @@ function sqlWriter(user: string, tenant: string, client = CLIENT): McpWriter {
     outcomes,
     documents,
     publishRequests,
+    readRequests,
     profile,
     async context(role): Promise<WriteCtx> {
       return as(async (q) => {
