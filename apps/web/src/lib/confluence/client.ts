@@ -117,6 +117,16 @@ export async function getPage(call: ConfluenceRequest, id: string, siteUrl: stri
   return page ? { ok: true, page } : BAD_ANSWER("a page");
 }
 
+/** One folder: its title and space. A folder can be the parent of a new page, so it is checked like a parent page (it exists and is in the chosen space). */
+export async function getFolder(call: ConfluenceRequest, id: string, sleep?: Sleep): Promise<{ ok: true; folder: { id: string; title: string; spaceId: string | null } } | ConfluenceFail> {
+  if (!/^\d{1,20}$/.test(id)) return { ok: false, kind: "rejected", message: "That is not a Confluence folder id." };
+  const x = await run(() => call("GET", `/api/v2/folders/${id}`), sleep);
+  if ("fail" in x) return x.fail;
+  if (x.r.status < 200 || x.r.status >= 300) return failure(x.r.status, x.r.json, false);
+  const o = obj(x.r.json);
+  return /^\d{1,20}$/.test(str(o.id)) ? { ok: true, folder: { id: str(o.id), title: str(o.title), spaceId: str(o.spaceId) || null } } : BAD_ANSWER("a folder");
+}
+
 export type NewPage = { spaceId: string; parentId: string | null; title: string; body: string };
 
 /** Creates a page in a space (by its id), under a parent page when given. */

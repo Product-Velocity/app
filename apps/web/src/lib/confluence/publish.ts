@@ -1,5 +1,5 @@
 import { commercialWarnings, pageBody, pageIdFromUrl, planPublish, type SyncDirection, type CommercialTerm, type CommercialWarning, type PublishAction, type RemotePage } from "@pv/domain";
-import { createPage, getPage, getSpaceById, getSpaceByKey, updatePage, type ConfluenceFail, type ConfluenceRequest } from "./client";
+import { createPage, getFolder, getPage, getSpaceById, getSpaceByKey, updatePage, type ConfluenceFail, type ConfluenceRequest } from "./client";
 
 // Publishing one document to Confluence (issue #693 slice B). Two steps, like Sync: PREVIEW shows exactly what would happen (create or update, the target,
 // the warning about commercial text, any conflict) and returns a token; CONFIRM does it only when the person sends back that same token, so what is
@@ -106,9 +106,14 @@ export async function previewPublish(d: PublishDeps, input: PublishInput): Promi
     const raw = input.parentUrl?.trim();
     if (input.parentPageId) {
       if (!/^\d{1,20}$/.test(input.parentPageId)) return invalid("That is not a Confluence page.");
-      const p = await getPage(d.call, input.parentPageId, d.siteUrl);
+      // the page tree also offers folders as a parent: an id that is not a page is tried as a folder
+      let p: { ok: true; page: { id: string; title: string; spaceId: string | null } } | ConfluenceFail = await getPage(d.call, input.parentPageId, d.siteUrl);
+      if (!p.ok && p.kind === "gone") {
+        const f = await getFolder(d.call, input.parentPageId);
+        if (f.ok) p = { ok: true, page: f.folder };
+      }
       if (!p.ok) return p;
-      if (p.page.spaceId && p.page.spaceId !== spaceId) return invalid(`The parent page is in another space than ${spaceKey}. Choose a page in that space, or another space.`);
+      if (p.page.spaceId && p.page.spaceId !== spaceId) return invalid(`The parent page or folder is in another space than ${spaceKey}. Choose one in that space, or another space.`);
       parent = { id: p.page.id, title: p.page.title };
     } else if (raw) {
       const id = pageIdFromUrl(raw);

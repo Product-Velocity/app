@@ -8,6 +8,7 @@ type FakePage = { id: string; title: string; version: number; space: string; bod
 
 /** A small in-memory Confluence (the v2 API): spaces by key and id, pages with a space id, the version rule (a write must carry the next number) and unique titles per space. */
 const SPACE_IDS: Record<string, string> = { PRD: "777", ELSE: "888", GTM: "999" };
+const FOLDERS: Record<string, { title: string; space: string }> = { "66": { title: "[2026][Q4]", space: "PRD" }, "67": { title: "Elsewhere", space: "ELSE" } };
 function confluence(seed: FakePage[] = []) {
   const pages = new Map(seed.map((p) => [p.id, { ...p }]));
   const log: string[] = [];
@@ -22,6 +23,8 @@ function confluence(seed: FakePage[] = []) {
     const spaceId = /^\/api\/v2\/spaces\/(\d+)$/.exec(path);
     if (method === "GET" && spaceId) { const key = keyOf(spaceId[1]!); return key ? { status: 200, json: { id: spaceId[1], key, name: key, type: "global" } } : { status: 404, json: null }; }
     if (method === "GET" && space) { const key = decodeURIComponent(space[1]!); return { status: 200, json: { results: SPACE_IDS[key] ? [{ id: SPACE_IDS[key], key, name: key, type: "global" }] : [] } }; }
+    const folder = /^\/api\/v2\/folders\/(\d+)$/.exec(path);
+    if (method === "GET" && folder) { const f = FOLDERS[folder[1]!]; return f ? { status: 200, json: { id: folder[1], title: f.title, spaceId: SPACE_IDS[f.space], parentType: "space" } } : { status: 404, json: null }; }
     if (method === "GET" && one) { const p = pages.get(one[1]!); return p ? { status: 200, json: wire(p) } : { status: 404, json: { errors: [{ status: 404, title: "Not Found" }] } }; }
     if (method === "POST" && path === "/api/v2/pages") {
       const space = keyOf(b.spaceId);
@@ -239,6 +242,15 @@ describe("a parent page chosen in the page tree (by id)", () => {
     const done = await confirmPublish(s.deps(), { ...input, confirm: p.ok ? p.confirm : "" });
     expect(done).toMatchObject({ ok: true, action: "create" });
     expect(s.store.inserted[0]).toMatchObject({ parentPageId: "77", spaceKey: "PRD" });
+  });
+  it("can be a folder: it is looked up as a folder when it is not a page, shown by its title and used as the parent", async () => {
+    const s = setup({ seed });
+    const input: PublishInput = { ...IN, parentPageId: "66" };
+    const p = await previewPublish(s.deps(), input);
+    expect(p).toMatchObject({ ok: true, action: "create", parent: { id: "66", title: "[2026][Q4]" } });
+    await confirmPublish(s.deps(), { ...input, confirm: p.ok ? p.confirm : "" });
+    expect(s.store.inserted[0]).toMatchObject({ parentPageId: "66", spaceKey: "PRD" });
+    expect(await previewPublish(setup({ seed }).deps(), { ...IN, parentPageId: "67" })).toMatchObject({ ok: false, kind: "invalid", message: expect.stringContaining("another space than PRD") });
   });
   it("must be in the chosen space, must be a page id, and must exist", async () => {
     const s = setup({ seed });

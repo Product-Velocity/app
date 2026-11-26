@@ -144,7 +144,8 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
                   <ConfluencePageTree
                     key={space}
                     pagesUrl={`/api/documents/${doc.id}/confluence/pages`} spaceKey={space}
-                    label={target === "new" ? "Parent page (optional)" : "Page to replace"}
+                    label={target === "new" ? "Parent page or folder (optional)" : "Page to replace"}
+                    selectFolders={target === "new"}
                     topLabel={target === "new" ? "Top of the space (no parent page)" : undefined}
                     selectedId={target === "new" ? (parent?.id ?? null) : (existing?.id ?? null)}
                     onSelect={(pg) => { if (target === "new") setParent(pg); else setExisting(pg); setPreview(null); }}
