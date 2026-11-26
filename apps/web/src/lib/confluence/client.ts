@@ -143,17 +143,19 @@ export async function updatePage(call: ConfluenceRequest, p: PageUpdate, siteUrl
   return page ? { ok: true, page } : BAD_ANSWER("the updated page");
 }
 
-export type PageSummary = { id: string; title: string };
+/** One entry of the page tree. Confluence folders are not pages: they hold pages (and other folders) but cannot be published to or imported. */
+export type PageSummary = { id: string; title: string; kind: "page" | "folder" };
 const toSummaries = (json: unknown): PageSummary[] | null => {
   const results = obj(json).results;
   if (!Array.isArray(results)) return null;
   return results
-    .map((r) => ({ id: str(obj(r).id), title: str(obj(r).title) }))
+    .filter((r) => { const t = str(obj(r).type); return t === "" || t === "page" || t === "folder"; }) // whiteboards, databases and smart links are skipped
+    .map((r): PageSummary => ({ id: str(obj(r).id), title: str(obj(r).title), kind: str(obj(r).type) === "folder" ? "folder" : "page" }))
     .filter((p) => /^\d{1,20}$/.test(p.id))
     .sort((a, b) => a.title.localeCompare(b.title));
 };
 
-/** The top-level pages of a space (those with no parent page; the space's home page is one of them), by title. One page of up to 250. */
+/** The top-level pages of a space (those with no parent page; the space's home page is one of them), by title. One page of up to 250. Folders are not included: see `listRootFolders`. */
 export async function listRootPages(call: ConfluenceRequest, spaceId: string, sleep?: Sleep): Promise<{ ok: true; pages: PageSummary[] } | ConfluenceFail> {
   if (!/^\d{1,20}$/.test(spaceId)) return { ok: false, kind: "rejected", message: "That is not a Confluence space id." };
   const x = await run(() => call("GET", `/api/v2/spaces/${spaceId}/pages?depth=root&limit=250&status=current&sort=title`), sleep);
@@ -163,7 +165,73 @@ export async function listRootPages(call: ConfluenceRequest, spaceId: string, sl
   return pages ? { ok: true, pages } : BAD_ANSWER("the pages of a space");
 }
 
-/** The sub pages directly under a page, by title. One page of up to 250. */
+/**
+ * The top-level folders of a space. Confluence has no call that lists them (and `depth=root` hides every page that sits in a folder), so they are found from the
+ * pages: every page in the space says what its parent is, and each folder named that way is read and followed up until its parent is the space itself. Folders that
+ * sit under a page are not top-level (they come with that page's children), and a folder with nothing in it is not found. Bounded: 20 pages of results, 300 folder reads.
+ */
+export async function listRootFolders(call: ConfluenceRequest, spaceId: string, sleep?: Sleep): Promise<{ ok: true; folders: PageSummary[] } | ConfluenceFail> {
+  if (!/^\d{1,20}$/.test(spaceId)) return { ok: false, kind: "rejected", message: "That is not a Confluence space id." };
+  const inFolders = new Set<string>();
+  let cursor = "";
+  for (let i = 0; i < 20; i++) {
+    const path = `/api/v2/spaces/${spaceId}/pages?limit=250&status=current${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
+    const x = await run(() => call("GET", path), sleep);
+    if ("fail" in x) return x.fail;
+    if (x.r.status < 200 || x.r.status >= 300) return failure(x.r.status, x.r.json, false);
+    const results = obj(x.r.json).results;
+    if (!Array.isArray(results)) return BAD_ANSWER("the pages of a space");
+    for (const r of results) if (str(obj(r).parentType) === "folder" && /^\d{1,20}$/.test(str(obj(r).parentId))) inFolders.add(str(obj(r).parentId));
+    const next = str(obj(obj(x.r.json)._links).next);
+    cursor = next ? (/[?&]cursor=([^&]+)/.exec(next)?.[1] ? decodeURIComponent(/[?&]cursor=([^&]+)/.exec(next)![1]!) : "") : "";
+    if (!cursor) break;
+  }
+  const known = new Map<string, { title: string; parentId: string; parentType: string }>();
+  let reads = 0;
+  const read = async (id: string): Promise<ConfluenceFail | null> => {
+    if (known.has(id)) return null;
+    if (reads++ >= 300) return null;
+    const x = await run(() => call("GET", `/api/v2/folders/${id}`), sleep);
+    if ("fail" in x) return x.fail;
+    if (x.r.status < 200 || x.r.status >= 300) return failure(x.r.status, x.r.json, false);
+    const o = obj(x.r.json);
+    known.set(id, { title: str(o.title), parentId: str(o.parentId), parentType: str(o.parentType) });
+    return null;
+  };
+  const roots = new Map<string, string>();
+  for (const start of inFolders) {
+    let id = start;
+    for (let depth = 0; depth < 12; depth++) {
+      const fail = await read(id);
+      if (fail) return fail;
+      const f = known.get(id);
+      if (!f) break;
+      if (f.parentType === "folder" && /^\d{1,20}$/.test(f.parentId)) { id = f.parentId; continue; }
+      if (f.parentType !== "page") roots.set(id, f.title); // its parent is the space (or nothing): a top-level folder
+      break;
+    }
+  }
+  const folders = [...roots].map(([id, title]): PageSummary => ({ id, title, kind: "folder" })).sort((a, b) => a.title.localeCompare(b.title));
+  return { ok: true, folders };
+}
+
+/**
+ * What sits directly under a page or a folder, by title: sub pages and folders. One page of up to 250. A page is read with the direct-children call (which also
+ * lists its folders); a sign-in without the permission for that falls back to the older sub pages call, so existing connections keep working (without folders).
+ */
+export async function listChildren(call: ConfluenceRequest, id: string, kind: "page" | "folder" = "page", sleep?: Sleep): Promise<{ ok: true; pages: PageSummary[] } | ConfluenceFail> {
+  if (!/^\d{1,20}$/.test(id)) return { ok: false, kind: "rejected", message: `That is not a Confluence ${kind} id.` };
+  const x = await run(() => call("GET", `/api/v2/${kind === "folder" ? "folders" : "pages"}/${id}/direct-children?limit=250`), sleep);
+  if ("fail" in x) return x.fail;
+  if (x.r.status >= 200 && x.r.status < 300) {
+    const pages = toSummaries(x.r.json);
+    return pages ? { ok: true, pages } : BAD_ANSWER("the sub pages of a page");
+  }
+  if (kind === "page" && [401, 403, 404, 410].includes(x.r.status)) return listChildPages(call, id, sleep);
+  return failure(x.r.status, x.r.json, false);
+}
+
+/** The sub pages directly under a page (not folders), by title. One page of up to 250. */
 export async function listChildPages(call: ConfluenceRequest, pageId: string, sleep?: Sleep): Promise<{ ok: true; pages: PageSummary[] } | ConfluenceFail> {
   if (!/^\d{1,20}$/.test(pageId)) return { ok: false, kind: "rejected", message: "That is not a Confluence page id." };
   const x = await run(() => call("GET", `/api/v2/pages/${pageId}/children?limit=250`), sleep);

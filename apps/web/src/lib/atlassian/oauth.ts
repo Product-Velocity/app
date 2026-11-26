@@ -11,7 +11,9 @@ export const JIRA_SCOPES = ["read:jira-work", "read:jira-user", "write:jira-work
  * `offline_access` is what returns a refresh token. The Atlassian app in the developer console must have the Confluence API configured with exactly these,
  * or the consent screen refuses the sign-in (docs/14).
  */
-export const CONFLUENCE_SCOPES = ["read:space:confluence", "read:page:confluence", "write:page:confluence", "offline_access"];
+export const CONFLUENCE_SCOPES = ["read:space:confluence", "read:page:confluence", "write:page:confluence", "read:folder:confluence", "read:hierarchical-content:confluence", "offline_access"];
+/** Asked for, but not required: they let the page tree show Confluence folders. A connection made before they existed keeps working (without folders) until it is reconnected. */
+export const CONFLUENCE_OPTIONAL = ["read:folder:confluence", "read:hierarchical-content:confluence"];
 /** What a Confluence connection must have been granted to publish and to read pages (offline_access is not listed by Atlassian in the granted scopes). */
 export const CONFLUENCE_REQUIRED = ["read:space:confluence", "read:page:confluence", "write:page:confluence"];
 

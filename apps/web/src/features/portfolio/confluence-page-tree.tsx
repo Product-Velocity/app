@@ -3,11 +3,12 @@
 import { useEffect, useId, useState } from "react";
 
 export type TreePage = { id: string; title: string };
-type Node = { page: TreePage; children: Node[] | "loading" | "error" | null; open: boolean };
+type Item = TreePage & { kind?: "page" | "folder" };
+type Node = { page: Item; children: Node[] | "loading" | "error" | null; open: boolean };
 
 /**
- * The pages of a Confluence space as a tree (issue #693): the top-level pages first, each opening to its sub pages when asked. Choosing a page is a button press, so
- * it works with the keyboard (Tab to a row, Enter or Space to choose, the arrow button to open). Only titles are shown; the pages are read through the server with the
+ * The pages of a Confluence space as a tree (issue #693): the top-level pages and folders first, each opening to its sub pages when asked. Choosing a page is a button press, so
+ * it works with the keyboard (Tab to a row, Enter or Space to choose, the arrow button to open). Folders open but cannot be chosen. Only titles are shown; the pages are read through the server with the
  * workspace's Confluence connection. `topLabel`, when given, adds a first choice for "no page" (the top of the space).
  */
 export function ConfluencePageTree({ pagesUrl, spaceKey, selectedId, onSelect, topLabel, label }: {
@@ -22,11 +23,12 @@ export function ConfluencePageTree({ pagesUrl, spaceKey, selectedId, onSelect, t
   const labelId = useId();
   const [roots, setRoots] = useState<Node[] | "loading" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  const fetchPages = async (qs: string): Promise<TreePage[] | null> => {
+  const fetchPages = async (qs: string): Promise<Item[] | null> => {
     try {
       const r = await fetch(`${pagesUrl}${pagesUrl.includes("?") ? "&" : "?"}${qs}`);
-      const j = (await r.json().catch(() => ({}))) as { pages?: TreePage[]; error?: string };
+      const j = (await r.json().catch(() => ({}))) as { pages?: Item[]; notice?: string; error?: string };
       if (!r.ok || !j.pages) { setError(j.error ?? "The pages could not be read."); return null; }
       setError(null);
       return j.pages;
@@ -36,11 +38,11 @@ export function ConfluencePageTree({ pagesUrl, spaceKey, selectedId, onSelect, t
   useEffect(() => {
     let live = true;
     void fetch(`${pagesUrl}${pagesUrl.includes("?") ? "&" : "?"}space=${encodeURIComponent(spaceKey)}`)
-      .then(async (r) => ({ ok: r.ok, j: (await r.json().catch(() => ({}))) as { pages?: TreePage[]; error?: string } }))
-      .catch(() => ({ ok: false, j: { error: "Product Velocity could not be reached." } as { pages?: TreePage[]; error?: string } }))
+      .then(async (r) => ({ ok: r.ok, j: (await r.json().catch(() => ({}))) as { pages?: Item[]; notice?: string; error?: string } }))
+      .catch(() => ({ ok: false, j: { error: "Product Velocity could not be reached." } as { pages?: Item[]; notice?: string; error?: string } }))
       .then(({ ok, j }) => {
         if (!live) return;
-        if (ok && j.pages) setRoots(j.pages.map((page) => ({ page, children: null, open: false })));
+        if (ok && j.pages) { setNotice(j.notice ?? null); setRoots(j.pages.map((page) => ({ page, children: null, open: false }))); }
         else { setError(j.error ?? "The pages could not be read."); setRoots("error"); }
       });
     return () => { live = false; };
@@ -56,7 +58,7 @@ export function ConfluencePageTree({ pagesUrl, spaceKey, selectedId, onSelect, t
     if (node.open) { setRoots(update(roots, 0, (n) => ({ ...n, open: false }))); return; }
     if (Array.isArray(node.children)) { setRoots(update(roots, 0, (n) => ({ ...n, open: true }))); return; }
     setRoots((r) => (Array.isArray(r) ? update(r, 0, (n) => ({ ...n, open: true, children: "loading" })) : r));
-    const pages = await fetchPages(`parent=${encodeURIComponent(node.page.id)}`);
+    const pages = await fetchPages(`parent=${encodeURIComponent(node.page.id)}${node.page.kind === "folder" ? "&kind=folder" : ""}`);
     setRoots((r) => (Array.isArray(r) ? update(r, 0, (n) => ({ ...n, open: true, children: pages ? pages.map((page) => ({ page, children: null, open: false })) : "error" })) : r));
   };
 
@@ -64,16 +66,19 @@ export function ConfluencePageTree({ pagesUrl, spaceKey, selectedId, onSelect, t
     <ul role="group" className="page-tree-group">
       {nodes.map((n) => {
         const here = [...path, n.page.id];
-        const selected = selectedId === n.page.id;
+        const folder = n.page.kind === "folder";
+        const selected = !folder && selectedId === n.page.id;
         return (
-          <li key={n.page.id} role="treeitem" aria-selected={selected} aria-expanded={n.open}>
+          <li key={n.page.id} role="treeitem" aria-selected={folder ? undefined : selected} aria-expanded={n.open}>
             <span className="page-tree-row">
-              <button type="button" className="page-tree-toggle" aria-label={`${n.open ? "Close" : "Open"} the sub pages of ${n.page.title}`} onClick={() => void toggle(here)}>{n.open ? "▾" : "▸"}</button>
-              <button type="button" className={selected ? "page-tree-pick page-tree-on" : "page-tree-pick"} aria-pressed={selected} onClick={() => onSelect({ id: n.page.id, title: n.page.title })}>{n.page.title}{selected ? " ✓" : ""}</button>
+              <button type="button" className="page-tree-toggle" aria-label={`${n.open ? "Close" : "Open"} the ${folder ? "contents" : "sub pages"} of ${n.page.title}`} onClick={() => void toggle(here)}>{n.open ? "▾" : "▸"}</button>
+              {folder
+                ? <button type="button" className="page-tree-pick" onClick={() => void toggle(here)}>📁 {n.page.title} <span className="muted">(folder)</span></button>
+                : <button type="button" className={selected ? "page-tree-pick page-tree-on" : "page-tree-pick"} aria-pressed={selected} onClick={() => onSelect({ id: n.page.id, title: n.page.title })}>{n.page.title}{selected ? " ✓" : ""}</button>}
             </span>
             {n.open && n.children === "loading" && <p className="muted page-tree-note" role="status">Reading…</p>}
             {n.open && n.children === "error" && <p className="muted page-tree-note">The sub pages could not be read.</p>}
-            {n.open && Array.isArray(n.children) && (n.children.length === 0 ? <p className="muted page-tree-note">No sub pages.</p> : render(n.children, here))}
+            {n.open && Array.isArray(n.children) && (n.children.length === 0 ? <p className="muted page-tree-note">{folder ? "This folder is empty." : "No sub pages."}</p> : render(n.children, here))}
           </li>
         );
       })}
@@ -90,6 +95,7 @@ export function ConfluencePageTree({ pagesUrl, spaceKey, selectedId, onSelect, t
           {topLabel && (
             <button type="button" className={selectedId === null ? "page-tree-pick page-tree-on page-tree-top" : "page-tree-pick page-tree-top"} aria-pressed={selectedId === null} onClick={() => onSelect(null)}>{topLabel}{selectedId === null ? " ✓" : ""}</button>
           )}
+          {notice && <p className="muted page-tree-note" role="status">{notice}</p>}
           {roots.length === 0 ? <p className="muted">This space has no pages yet.</p> : render(roots, [])}
         </div>
       )}
