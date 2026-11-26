@@ -100,6 +100,8 @@ export function resultText(r: EpicGridRow, readOnly: boolean): { label: string; 
     const t = r.check.text.startsWith(r.key) ? r.check.text.slice(r.key.length).replace(/^[\s:]+/, "") : r.check.text;
     return { label: r.check.ok ? "OK" : readOnly ? "Cannot be read" : "Cannot be linked", detail: t, tone: r.check.ok ? "ok" : "bad" };
   }
+  // a read only project never links: Sync with Jira (and the daily read) fills the tree instead, so an epic with a status was read from Jira already
+  if (readOnly && r.status) return { label: "Read from Jira", detail: "at the last Sync with Jira", tone: "ok" };
   return { label: "Not checked yet", detail: "", tone: "plain" };
 }
 

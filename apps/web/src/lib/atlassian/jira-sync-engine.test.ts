@@ -541,6 +541,14 @@ describe("a project that is read only for Jira (issue #656)", () => {
     expect(writes(j.hits)).toEqual([]);
     expect(rpcCalls).toEqual([]);
   });
+  it("a check that cannot reach Jira says why instead of answering with an empty list", async () => {
+    tables.item_jira_epic_requests = [{ epic_key: "R8P-1", state: "pending", last_error: null }];
+    const j = fakeJira(null);
+    tables.jira_connections = conn("reconnect_needed");
+    expect(await checkEpics(ctx, ID, { call: j.call })).toMatchObject({ ok: false, error: expect.stringContaining("new sign-in") });
+    tables.jira_connections = null;
+    expect(await checkEpics(ctx, ID, { call: j.call })).toMatchObject({ ok: false, error: expect.stringContaining("not connected") });
+  });
   it("a listed key that is not an epic or does not exist is said, not silently dropped", async () => {
     tables.item_jira_epic_requests = [{ epic_key: "R8P-1", state: "pending", last_error: null }, { epic_key: "R8P-2", state: "pending", last_error: null }];
     const j = fakeJira(null, { epics: [{ id: "6", key: "R8P-1", fields: { summary: "A story", issuetype: { name: "Story", hierarchyLevel: 0 }, status: { name: "Doing", statusCategory: { key: "new" } }, updated: "2026-11-20T10:00:00.000+0000" } }] });

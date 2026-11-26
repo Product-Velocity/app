@@ -74,6 +74,14 @@ describe("resultText and checkSummary", () => {
     expect(one(req("A-1"), { "A-1": { ok: false, text: "A-1 is a Story" } })).toMatchObject({ label: "Cannot be linked", tone: "bad" });
     expect(one(req("A-1"))).toMatchObject({ label: "Not checked yet", tone: "plain" });
   });
+  it("in a read only project, an epic that Sync already read is 'Read from Jira', not 'Not checked yet'; a fresh check still wins", () => {
+    const row = (checks = {}, t: JiraTreeRow[] = [node("A-1")]) => resultText(buildEpicRows([req("A-1")], t, checks)[0]!, true);
+    expect(row()).toMatchObject({ label: "Read from Jira", tone: "ok" });
+    expect(row({ "A-1": { ok: false, text: "A-1 is a Story" } })).toMatchObject({ label: "Cannot be read", tone: "bad" });
+    expect(row({}, [])).toMatchObject({ label: "Not checked yet" });
+    // a project that can write never reads this way: the same row there still says not checked
+    expect(resultText(buildEpicRows([req("A-1")], [node("A-1")], {})[0]!, false)).toMatchObject({ label: "Not checked yet" });
+  });
   it("words read only projects as read, not link", () => {
     expect(checkSummary([{ ok: true }], true)).toContain("to read it");
     expect(checkSummary([{ ok: true }, { ok: false }], false)).toBe("Checked with Jira: 1 OK, 1 to fix or take off the list. Press Sync with Jira to link the OK ones.");
