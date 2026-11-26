@@ -490,6 +490,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "people",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.people set name = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.people where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.people (tenant_id, name) values ($1, 'Injected')", params: [v.tenantId] },
+      { sql: "update public.people set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "saved_views",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

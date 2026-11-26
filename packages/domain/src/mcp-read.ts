@@ -119,7 +119,7 @@ function checkFilter(raw: unknown, names: SearchNames): { ok: true; filter: Filt
     if (isPerson) {
       if (s.toLowerCase() === "me") return { ok: true, value: "me" };
       const id = resolve(s, names.members);
-      return id ? { ok: true, value: id } : { ok: false, error: `No member called "${s}" for ${def.key}. Call get_workspace_context for the members.` };
+      return id ? { ok: true, value: id } : { ok: false, error: `No person called "${s}" for ${def.key}. Call get_workspace_context for the people (members, and people named without an account yet).` };
     }
     if (isProject) {
       const id = resolve(s, names.projects);

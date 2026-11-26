@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { FIELD_BY_KEY } from "@pv/domain";
 import { formatField } from "./format";
 
-const ctx = { today: new Date("2026-10-27T12:00:00Z"), members: [], projects: [] };
+const ctx = { today: new Date("2026-10-27T12:00:00Z"), people: [], projects: [] };
 
 describe("Last Synced is shown as a day and a time", () => {
   it("formats the time, not only the day, and leaves other calculated dates as days", () => {

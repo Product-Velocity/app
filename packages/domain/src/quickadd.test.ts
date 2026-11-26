@@ -3,7 +3,7 @@ import { parseQuickAdd, parseQuickAddList, similarItems } from "./quickadd";
 
 const ctx = {
   projects: [{ id: "p1", name: "Platform" }, { id: "p2", name: "Marketplace" }, { id: "p3", name: "Mobile app" }],
-  members: [{ user_id: "u1", email: "ana@example.test" }, { user_id: "u2", email: "anders@example.test" }, { user_id: "u3", email: "bo@example.test" }],
+  people: [{ id: "u1", name: "ana@example.test" }, { id: "u2", name: "anders@example.test" }, { id: "u3", name: "bo@example.test" }],
   defaultProject: null as string | null,
 };
 const ok = (line: string, c = ctx) => {

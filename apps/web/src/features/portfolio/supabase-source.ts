@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { epicsStatusOf, FIELDS, crowdFields, latestCrowd, toCrowdRow, toRankDecision, type CrowdRow, type RankDecision, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, trackerStatusOf, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
 import { lightTree, type LightIssue } from "@/lib/atlassian/light-tree";
-import type { IssueTreeRow, JiraEpicRequestRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
+import type { IssueTreeRow, JiraEpicRequestRow, JiraTreeRow, LoadedItem, LookupPerson, TrashedItem } from "./types";
 
 /** Supabase returns at most 1,000 rows per request, so a 2,000-item workspace needs several pages. */
 export const PAGE_SIZE = 1000;
@@ -162,6 +162,12 @@ export class SupabaseDataSource implements PortfolioDataSource {
       if (item) Object.assign(item, crowdFields(r));
     }
     return [...items.values()] as unknown as LoadedItem[];
+  }
+
+  async addPerson(name: string, email: string | null): Promise<{ ok: true; person: LookupPerson } | { ok: false; error: string }> {
+    const { data, error } = await this.client.rpc("add_person", { p_tenant: this.tenantId, p_name: name, p_email: email });
+    if (error || !data) return { ok: false, error: friendlyError(error) };
+    return { ok: true, person: { id: String(data), name, email, status: "not_invited", userId: null } };
   }
 
   async updateField(itemId: string, field: EditableField, value: unknown, opts: { expected?: unknown } = {}): Promise<SaveResult> {

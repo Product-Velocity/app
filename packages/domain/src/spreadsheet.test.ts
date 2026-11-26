@@ -3,7 +3,7 @@ import { convertRows, guessMapping, importableFields, MAX_IMPORT, parseTable, to
 
 const ctx = {
   projects: [{ id: "p1", name: "Platform" }, { id: "p2", name: "Marketplace" }],
-  members: [{ user_id: "u1", email: "ana@example.test" }, { user_id: "u2", email: "bo@example.test" }],
+  people: [{ id: "u1", name: "ana@example.test" }, { id: "u2", name: "bo@example.test" }],
   defaultProject: null as string | null,
   today: new Date(Date.UTC(2027, 3, 14)),
 };

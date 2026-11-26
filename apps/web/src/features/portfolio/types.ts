@@ -19,9 +19,17 @@ export type JiraLinkInfo = { mode: "push" | "follow"; issueKey: string; url: str
   /** Build start, completion and build days: the tracker's own dates (issue #421), from item_build_cycle. */
   buildStartedAt?: string | null; buildCompletedAt?: string | null; buildDays?: number | null };
 
+/** One entry of the people directory: `id` is what a person field stores. A member's id is their user id. */
+export type LookupPerson = { id: string; name: string; email: string | null; status: "active" | "invited" | "not_invited"; userId: string | null };
+
 export type Lookups = {
   projects: { id: string; name: string }[];
+  /** Active members: assignees, people who changed something. Never someone without an account. */
   members: { user_id: string; email: string; github_username?: string | null }[];
+  /** Who a person field (Product Manager, Engineering Manager, Designer, Analyst, Business Manager) can name: the members and people named without an account. Optional: older callers have only `members` (see peopleOf). */
+  people?: LookupPerson[];
+  /** The person id of the signed-in user (it differs from the user id for someone named before they joined). "me" in filters means this. */
+  mePerson?: string | null;
   /** Initiative Groups of the workspace (the list admins tidy up); the grid adds any group that is typed. */
   groups?: string[];
   /** Teams of the workspace, for Contributing Teams in the item panel. */

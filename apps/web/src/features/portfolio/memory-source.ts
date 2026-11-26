@@ -1,6 +1,6 @@
 import { applyMove, type CrowdRow, type RankDecision, columnOnItems, emptyRelated, FIELD_BY_KEY, type ActivityRow, type EditableField, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
-import type { IssueTreeRow, JiraEpicRequestRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
+import type { IssueTreeRow, JiraEpicRequestRow, JiraTreeRow, LoadedItem, LookupPerson, TrashedItem } from "./types";
 
 export type Op = { type: "update"; itemId: string; field: string; value: unknown; expected?: unknown } | { type: "move"; itemId: string; to: number };
 
@@ -51,6 +51,17 @@ export class MemoryDataSource implements PortfolioDataSource {
   private async pause() { if (this.latencyMs > 0) await new Promise((r) => setTimeout(r, this.latencyMs)); }
 
   async loadItems() { await this.pause(); return this.items.map((i) => ({ ...i })).sort((a, b) => a.stack_rank - b.stack_rank); }
+
+  /** People added through addPerson, in order. */
+  readonly addedPeople: { name: string; email: string | null }[] = [];
+  async addPerson(name: string, email: string | null): Promise<{ ok: true; person: LookupPerson } | { ok: false; error: string }> {
+    await this.pause();
+    if (this.failPerson) return { ok: false, error: this.failPerson };
+    this.addedPeople.push({ name, email });
+    return { ok: true, person: { id: `person-${this.addedPeople.length}`, name, email, status: "not_invited", userId: null } };
+  }
+  /** Make the next addPerson fail with this message. */
+  failPerson: string | null = null;
 
   async updateField(itemId: string, field: EditableField, value: unknown, opts: { expected?: unknown } = {}): Promise<SaveResult> {
     const op: Op = { type: "update", itemId, field, value, ...("expected" in opts ? { expected: opts.expected } : {}) };

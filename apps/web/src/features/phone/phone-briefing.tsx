@@ -13,6 +13,7 @@ import { QUICK_FIELDS, quickChangeText, type QuickField } from "./quick-change";
 import { supabaseQuickChangeSource, type QuickChangeSource } from "./quick-change-source";
 import { useStatus } from "../portfolio/status-strip";
 import { usePhoneChanges, type ChangeSource } from "./use-phone-changes";
+import { peopleOf } from "../portfolio/people";
 
 const emailName = (e: string) => e.split("@")[0]!.replace(/[._]/g, " ");
 const LATEST = 5;
@@ -29,7 +30,7 @@ export function PhoneBriefing({ controller, lookups, row, tenantId, onEdit, chan
   const [done, setDone] = useState<{ field: QuickField; from: string | null; to: string; undoing?: boolean; error?: string } | null>(null);
   const following = follow?.isFollowing(r.id) ?? false;
   const changes = usePhoneChanges(controller, tenantId, changeSource);
-  const person = (id: string) => { const m = lookups.members.find((x) => x.user_id === id); return m ? emailName(m.email) : ""; };
+  const person = (id: string) => { const m = peopleOf(lookups).find((x) => x.id === id); return m ? emailName(m.name) : ""; };
   const project = lookups.projects.find((p) => p.id === r.home_project)?.name ?? "";
   const facts = useMemo(() => briefingFacts(r, { person }), [r, lookups, status.version]); // eslint-disable-line react-hooks/exhaustive-deps
   const flags = useMemo(() => briefingFlags(r, controller.todayDate()), [r, controller, status.version]); // eslint-disable-line react-hooks/exhaustive-deps

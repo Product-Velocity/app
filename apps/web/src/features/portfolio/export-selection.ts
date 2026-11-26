@@ -1,5 +1,6 @@
 import { toCsv, type FieldDef } from "@pv/domain";
 import type { GridItem, Lookups } from "./types";
+import { personName } from "./people";
 
 /** One CSV row per selected item and one column per shown field, with readable values (project and people by name). */
 export function selectionToCsv(rows: GridItem[], fields: FieldDef[], lookups: Lookups): string {
@@ -7,7 +8,7 @@ export function selectionToCsv(rows: GridItem[], fields: FieldDef[], lookups: Lo
     const v = row[f.key];
     if (v === null || v === undefined || v === "") return null;
     if (f.key === "home_project") return lookups.projects.find((p) => p.id === v)?.name ?? String(v);
-    if (f.type === "Person") return lookups.members.find((m) => m.user_id === v)?.email ?? String(v);
+    if (f.type === "Person") return personName(lookups, v, String(v));
     if (typeof v === "number" || typeof v === "boolean") return v;
     if (typeof v === "object") return JSON.stringify(v);
     return String(v);

@@ -1,0 +1,17 @@
+---
+date: 2026-11-26
+by: Ashu (2026-11-26, chat: set Product Manager, Engineering Manager and so on with names and email addresses of people who are not members, invite them later from Members, and keep reports and splits working by name in the meantime; alignment participants stay unlinked), built by Claude
+request: 691
+status: built, to confirm
+---
+**People can be named before they are members.** A workspace has a people directory; the five person fields (Product Manager, Engineering Manager, Designer, Analyst, Business Manager) point at it instead of at members.
+
+- **`people` table.** One row per named person: name, optional email, optional `user_id`. A member is a person whose id is their user id, so every value already stored on an initiative stays valid and no initiative is rewritten. Someone named without an account has a random id, no `user_id`, a name and optionally an email.
+- **Linking.** When someone joins (invitation, domain auto-join, added by an admin) the person with the same email becomes that member: `user_id` is set, the stored email moves to the account, and the id never changes, so nothing that names them moves. Different email: an admin links by hand (slice 2). A member who leaves stays on the initiatives as a name (they used to be cleared); if their account is deleted only "Former member" is kept.
+- **No access.** A person without an account has no role, no notifications and no emails, cannot be a gate approver, decider, assignee or voter. Approver, `decided_by`, assignees and notifications still point at real members. **Alignment participants stay unlinked from people** (docs/19): when an admin builds an invite list from the directory the name and email are copied, no link is kept.
+- **"Invited" is not stored.** It is a pending, unexpired invitation to the same email (as members_grid already does). Statuses shown: Not invited, Invited, Active.
+- **Who can do what.** Editors (creators and admins) add and rename people; only admins remove one (the initiatives that name them are cleared). The email of a person without an account is visible to editors and admins only; everyone in the workspace sees the name. Claude acts as the signed-in person: it can name people who are on the list, it cannot add or invite anyone.
+- **Nothing is sent.** Adding a person sends nothing. Invitations still need the explicit confirmation of an admin (rule 3).
+- **GitHub and Jira.** A placeholder's email never leaves the app (slice 3 adds the test); Product Manager stays "Not synced" and Engineering Manager "Suggestion only".
+- **Privacy.** An email typed for someone who has not consented is personal data: it is stored once, shown to editors only, removed with the person, and listed in `docs/14-GO-LIVE-CHECKLIST.md`.
+- **Migration** `20261126093428_people_directory.sql`: new table and functions (`people_directory`, `add_person`, `update_person`, `remove_person`), triggers on `tenant_members`, the five item foreign keys repointed, and `request_outcome_review` replaced (same signature) so the review goes to the account behind the Product Manager.

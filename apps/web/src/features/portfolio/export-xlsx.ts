@@ -1,5 +1,6 @@
 import { dateFormatHint, isOpenableUrl, trackerIssueLabel, type FieldDef } from "@pv/domain";
 import type { GridItem, Lookups } from "./types";
+import { personName } from "./people";
 
 type Cell = { value: string | number | Date | { text: string; hyperlink: string } | null; numFmt?: string; wrap?: boolean };
 
@@ -31,7 +32,7 @@ export function xlsxCell(f: FieldDef, row: GridItem, lookups: Lookups): Cell {
   const v = row[f.key];
   if (v === null || v === undefined || v === "") return { value: null };
   if (f.key === "home_project") return { value: lookups.projects.find((p) => p.id === v)?.name ?? String(v) };
-  if (f.type === "Person") return { value: lookups.members.find((m) => m.user_id === v)?.email ?? String(v) };
+  if (f.type === "Person") return { value: personName(lookups, v, String(v)) };
   if (typeof v === "boolean") return { value: v ? "Yes" : "No" };
   if (typeof v === "number") {
     if (f.key === "stack_rank" || f.key === "project_rank") return { value: v, numFmt: "0" };

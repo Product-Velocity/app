@@ -19,6 +19,7 @@ import type { GridItem, Lookups } from "./types";
 import { EffortPill, MoscowPill, PersonChip, ProgressMeter, SizeDot } from "../../components/field-visuals";
 import { StatusPill } from "../../components/status-pill";
 import { PILL_FIELDS, statusTone, toneFor } from "../../components/status-tone";
+import { peopleOf, personOptions } from "./people";
 
 /** A compact pill with the word and no icon: the label is the signal, colour is only an extra (never colour alone). */
 function HealthCell({ value }: { value: string | null }) {
@@ -132,11 +133,10 @@ export type ColumnContext = {
 export function buildColumns({ controller, lookups, today, visible, order, sorted, pinned, showIssues, singleProject, widths }: ColumnContext): ColDef<GridItem>[] {
   const editable = () => controller.canEdit;
   const projectOptions: PickerOption[] = lookups.projects.map((p) => ({ value: p.id, label: p.name }));
-  const personOptions: PickerOption[] = lookups.members.map((m) => ({ value: m.user_id, label: m.email }));
   const setter = (field: EditableField) => (p: { data: GridItem; newValue: unknown }) =>
     controller.edit(p.data.id, field, p.newValue == null ? "" : String(p.newValue)).ok;
 
-  const display = (f: FieldDef, v: unknown): string => formatField(f, v, { today: today(), members: lookups.members, projects: lookups.projects });
+  const display = (f: FieldDef, v: unknown): string => formatField(f, v, { today: today(), people: peopleOf(lookups), projects: lookups.projects });
 
   const def = (f: FieldDef): ColDef<GridItem> => {
     const reason = f.key === "stack_rank" ? null : readOnlyReason(f.key);
@@ -219,7 +219,17 @@ export function buildColumns({ controller, lookups, today, visible, order, sorte
     if (!canEdit) return base;
     base.valueSetter = setter(f.key) as never;
     if (f.key === "home_project") return { ...base, cellRenderer: (p: { value: unknown }) => (p.value ? <span className={singleProject ? "proj-plain" : "proj-pill"}>{display(f, p.value)}</span> : null), ...pickerDef(f, projectOptions, false) };
-    if (f.type === "Person") return { ...base, ...pickerDef(f, personOptions, true, "Unassigned") };
+    if (f.type === "Person") {
+      // the list is read when the picker opens, so someone added a moment ago is on it; a typed name that is not on it adds a person (nothing is sent to them)
+      return {
+        ...base,
+        editable: reasonFree(f) ? editable : false,
+        cellEditor: PickerEditor,
+        cellEditorPopup: true,
+        cellEditorParams: () => ({ options: personOptions(lookups), allowEmpty: true, emptyLabel: "Unassigned", allowCreate: true, createLabel: (t: string) => `Add “${t}” to the people list` }),
+        valueSetter: ((p: { data: GridItem; newValue: unknown }) => controller.editPerson(p.data.id, f.key as EditableField, p.newValue == null ? "" : String(p.newValue)).ok) as never,
+      };
+    }
     if (f.type === "Boolean") {
       return {
         ...base,
