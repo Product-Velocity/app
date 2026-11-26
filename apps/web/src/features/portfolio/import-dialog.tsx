@@ -5,6 +5,7 @@ import { SelectField } from "@/components/search-list";
 import { convertRows, fieldOptions, guessMapping, importableFields, MAX_IMPORT, parseTable, resolveGroup, FIELD_BY_KEY, type ImportRow } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import type { Lookups } from "./types";
+import { peopleOf, personName } from "./people";
 
 type Props = { controller: PortfolioController; lookups: Lookups; defaultProject: string | null; initialText: string; onClose: () => void };
 
@@ -32,7 +33,7 @@ export function ImportDialog({ controller, lookups, defaultProject, initialText,
     [width, override, hasHeader, guess],
   );
   const rows = useMemo<ImportRow[]>(
-    () => convertRows(body, mapping, { projects: lookups.projects, members: lookups.members, defaultProject: project || null, today: controller.todayDate() }),
+    () => convertRows(body, mapping, { projects: lookups.projects, people: peopleOf(lookups), defaultProject: project || null, today: controller.todayDate() }),
     [body, mapping, lookups, project, controller],
   );
   const good = rows.filter((r) => r.errors.length === 0);
@@ -54,7 +55,7 @@ export function ImportDialog({ controller, lookups, defaultProject, initialText,
   const showValue = (key: string, v: unknown) => {
     if (v === undefined || v === null) return "";
     if (key === "home_project") return lookups.projects.find((p) => p.id === v)?.name ?? "";
-    if (FIELD_BY_KEY[key]?.type === "Person") return lookups.members.find((m) => m.user_id === v)?.email ?? "";
+    if (FIELD_BY_KEY[key]?.type === "Person") return personName(lookups, v, "");
     if (typeof v === "boolean") return v ? "Yes" : "No";
     return String(v);
   };

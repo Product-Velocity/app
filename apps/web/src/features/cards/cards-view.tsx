@@ -22,6 +22,7 @@ import { statusTone } from "../../components/status-tone";
 import { CardFace, healthStripe, type TrackerRef } from "./card-face";
 import { CardFieldsPanel } from "./card-fields-panel";
 import { PageHeader } from "@/components/page-header";
+import { personName } from "../portfolio/people";
 
 const DEFAULT_LANE = "theme";
 const PRIORITISATION: BaseView = { kind: "builtin", name: "Prioritisation" };
@@ -133,7 +134,7 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
   };
 
   const rows = useMemo<GridItem[]>(
-    () => controller.rows.filter((r) => (scope.projectIds === null || scope.projectIds.includes(r.home_project)) && matchesSearch(r, search, (id) => lookups.members.find((m) => m.user_id === id)?.email ?? "") && matchesFilters(r, def.filters, { me, today })),
+    () => controller.rows.filter((r) => (scope.projectIds === null || scope.projectIds.includes(r.home_project)) && matchesSearch(r, search, (id) => personName(lookups, id, "")) && matchesFilters(r, def.filters, { me: controller.mePerson(me), today })),
     // the controller changes its rows in place; the version says when
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [controller, status.version, scope.projectIds, search, def.filters, me],
@@ -233,7 +234,7 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
     return () => window.removeEventListener("keydown", h);
   }, [peekId, openPeek, menuFor]);
 
-  const memberName = (id: unknown) => { const e = lookups.members.find((m) => m.user_id === id)?.email; return e ? e.split("@")[0]! : ""; };
+  const memberName = (id: unknown) => { const e = personName(lookups, id, ""); return e ? e.split("@")[0]! : ""; };
   // the fields on a card: the view's columns that a card can draw, at most five, none repeating the board's own columns or swimlanes
   const axes = useMemo(() => [colField, laneField].filter(Boolean), [colField, laneField]);
   const cardFields = useMemo(() => cardFieldKeys(def.columns, axes), [def.columns, axes]);
@@ -282,7 +283,7 @@ export function CardsView({ controller, lookups, me, pageHref, gates }: CardsPro
         onClick={(e) => { if (!(e.target as HTMLElement).closest("button, select, a")) openPeek(id); }} onKeyDown={(e) => onCardKey(e, row)}
       >
         <CardFace
-          row={row} fields={cardFields} owner={owner} ownerTitle={String(lookups.members.find((m) => m.user_id === row.product_manager)?.email ?? "")}
+          row={row} fields={cardFields} owner={owner} ownerTitle={personName(lookups, row.product_manager, "")}
           trackers={trackersOf(id)} today={today} onOpen={() => openPeek(id)}
           actions={(
             <button type="button" className="kc-more" aria-label={`Actions for ${row.item_code}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={(e) => { e.stopPropagation(); setActionsFor(menuOpen ? null : id); }}>

@@ -18,6 +18,7 @@ import { RequestGateDialog } from "../gates/gate-dialogs";
 import type { GateSource } from "../gates/gate-source";
 import { ColumnPicker, ListSearch, MultiFilter, SavedViews, downloadText, usePersisted, type SavedView } from "../lists/list-kit";
 import { PageHeader } from "@/components/page-header";
+import { personName } from "../portfolio/people";
 
 type Props = { controller: PortfolioController; lookups: Lookups; me: string | null; source: GateSource; pageHref?: (code: string) => string; decisionsHref?: string };
 
@@ -134,7 +135,7 @@ export function AttentionView({ controller, lookups, me, source, pageHref = (c) 
   const entries = useMemo(() => attentionList(rows, today, { requests, conditions, snoozes }), [rows, today, requests, conditions, snoozes]);
   const all = useMemo(() => attentionGridRows(entries, rows, {
     today,
-    person: (id) => lookups.members.find((m) => m.user_id === id)?.email.split("@")[0] ?? "",
+    person: (id) => personName(lookups, id, "").split("@")[0]!,
     project: (id) => lookups.projects.find((p) => p.id === id)?.name ?? "",
   }), [entries, rows, today, lookups]);
   const filters: AttentionFilters = useMemo(() => ({ kinds: choice.kinds, urgencies: choice.urgencies, phases: choice.phases, healths: choice.healths, groups: choice.groups, search: choice.search, showSnoozed: choice.showSnoozed, actionable: choice.actionable }), [choice]);

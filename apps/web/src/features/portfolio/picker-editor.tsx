@@ -9,13 +9,15 @@ type Props = CustomCellEditorProps<unknown, string | null> & {
   options: PickerOption[]; allowEmpty?: boolean; emptyLabel?: string;
   /** An open list: a typed name that is not in the list can be created ("Create “name”"), with a hint about look-alikes. */
   allowCreate?: boolean;
+  /** The words of the create option (default: Create “name”). A person picker says it adds someone to the people list. */
+  createLabel?: (typed: string) => string;
 };
 
 /**
  * Typed picker: start typing to filter, arrows to move, Enter to choose, Esc to cancel.
  * The highlighted option is the value, so Enter (handled by the grid) saves it.
  */
-export function PickerEditor({ value, onValueChange, stopEditing, options, allowEmpty = false, emptyLabel = "None", allowCreate = false, eventKey }: Props) {
+export function PickerEditor({ value, onValueChange, stopEditing, options, allowEmpty = false, emptyLabel = "None", allowCreate = false, createLabel = (t) => `Create “${t}”`, eventKey }: Props) {
   const listId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const all = useMemo<PickerOption[]>(() => (allowEmpty ? [{ value: "", label: emptyLabel }, ...options] : options), [options, allowEmpty, emptyLabel]);
@@ -26,7 +28,7 @@ export function PickerEditor({ value, onValueChange, stopEditing, options, allow
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     const found = q === "" ? all : all.filter((o) => o.label.toLowerCase().includes(q));
-    return canCreate ? [...found, { value: typed, label: `Create “${typed}”` }] : found;
+    return canCreate ? [...found, { value: typed, label: createLabel(typed) }] : found;
   }, [all, query, canCreate, typed]);
   const similar = canCreate ? nearDuplicates(typed, options.map((o) => o.label)) : [];
   const [active, setActive] = useState(() => {

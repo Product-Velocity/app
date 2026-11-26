@@ -8,7 +8,8 @@ import { nearDuplicates, resolveGroup } from "./groups";
  */
 export type QuickAddCtx = {
   projects: { id: string; name: string }[];
-  members: { user_id: string; email: string }[];
+  /** People who can be Product Manager: members and people named without an account (the id is what the field stores). */
+  people: { id: string; name: string }[];
   /** Project to use when the line has no #project (the project of the row you are on, or the last one used). */
   defaultProject?: string | null;
   /** Initiative Groups of the workspace, for `+group`. */
@@ -117,11 +118,11 @@ export function parseQuickAdd(input: string, ctx: QuickAddCtx): QuickAddResult {
 
   let person: string | null = null;
   if (personQuery !== null) {
-    const r = pick(ctx.members, (m) => m.email.split("@")[0]!, personQuery);
+    const r = pick(ctx.people, (m) => m.name.split("@")[0]!, personQuery);
     if ("error" in r) {
       return { ok: false, error: r.error === "many" ? `More than one person starts with "${personQuery}". Type more of the name.` : `No person named "${personQuery}".` };
     }
-    person = r.hit.user_id;
+    person = r.hit.id;
   }
   const draft: Draft = { initiative_name: name, home_project: home, product_manager: person, effort, moscow };
   if (horizonQuery !== null) {

@@ -11,6 +11,7 @@ import { SinceLastLook } from "./phone-since";
 import { usePhoneChanges, type ChangeSource } from "./use-phone-changes";
 import { useFollow } from "./follow";
 import { FIXED_CHIPS, FOLLOWING_CHIP, GROUP_LABEL, PHASE_CHIPS, SORT_LABEL, filterPhoneRows, groupPhoneRows, sortPhoneRows, type Group, type PhoneRow, type Sort } from "./phone-list";
+import { peopleOf } from "../portfolio/people";
 
 const emailName = (e: string) => e.split("@")[0]!.replace(/[._]/g, " ");
 
@@ -32,12 +33,12 @@ export function PhoneInitiatives({ controller, lookups, me, tenantId, changeSour
   const showRecent = mode === "recent" && !query && chips.length === 0;
 
   const project = (id: string) => lookups.projects.find((p) => p.id === id)?.name ?? "";
-  const person = (id: string) => { const m = lookups.members.find((x) => x.user_id === id); return m ? emailName(m.email) : ""; };
+  const person = (id: string) => { const m = peopleOf(lookups).find((x) => x.id === id); return m ? emailName(m.name) : ""; };
   const today = controller.todayDate();
 
   const groups = useMemo(() => {
     const inScope = controller.rows.filter((r) => scope.projectIds === null || scope.projectIds.includes(r.home_project)) as unknown as PhoneRow[];
-    const filtered = filterPhoneRows(inScope, { query, chips, me, today, project, person, followed });
+    const filtered = filterPhoneRows(inScope, { query, chips, me: controller.mePerson(me), today, project, person, followed });
     return { total: filtered.length, groups: groupPhoneRows(sortPhoneRows(filtered, sort), group, project) };
     // the controller changes its rows in place; the version says when
     // eslint-disable-next-line react-hooks/exhaustive-deps

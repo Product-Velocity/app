@@ -4,11 +4,12 @@ import type { Lookups } from "./types";
 
 /** What the grid and the item panel need besides the items: projects, people, Initiative Groups and teams of the workspace. */
 export async function loadLookups(supabase: SupabaseClient, tenantId: string): Promise<Lookups> {
-  const [projects, groups, teams, people, connection, links, cycle, usernames, tenant, jira, jiraLinks, readOnlyLinks] = await Promise.all([
+  const [projects, groups, teams, people, directory, connection, links, cycle, usernames, tenant, jira, jiraLinks, readOnlyLinks] = await Promise.all([
     supabase.from("projects").select("id, name, tracker").eq("tenant_id", tenantId).order("name"),
     supabase.from("item_groups").select("name").eq("tenant_id", tenantId).order("name"),
     supabase.from("teams").select("id, name").eq("tenant_id", tenantId).order("name"),
     supabase.rpc("tenant_directory", { p_tenant: tenantId }),
+    supabase.rpc("people_directory", { p_tenant: tenantId }),
     supabase.from("github_connections").select("id").eq("tenant_id", tenantId).eq("state", "connected").maybeSingle(),
     supabase.from("item_github_links").select("item_id, mode, issue_number, html_url, sync_state, last_error, gh_state, gh_last_activity, frozen_at").eq("tenant_id", tenantId),
     supabase.rpc("item_build_cycle", { p_tenant: tenantId }),
@@ -36,6 +37,11 @@ export async function loadLookups(supabase: SupabaseClient, tenantId: string): P
       ),
     },
     trackers: { jira: ((jira.data ?? []) as unknown[]).length > 0, projectTracker: Object.fromEntries(((projects.data ?? []) as { id: string; tracker?: "github" | "jira" | null }[]).map((p) => [p.id, p.tracker ?? null])), jiraReadOnly: readOnlyLinks.error ? [] : ((readOnlyLinks.data ?? []) as { project_id: string }[]).map((r) => r.project_id) },
+    // who a person field can name: the members and the people named without an account (a database without the directory simply has the members)
+    people: directory.error ? undefined : ((directory.data ?? []) as { person_id: string; user_id: string | null; name: string; email: string | null; status: "active" | "invited" | "not_invited" }[])
+      // a member shows as their email (as before); someone named without an account as the name that was typed
+      .map((p) => ({ id: p.person_id, name: p.status === "active" ? p.email ?? p.name : p.name, email: p.email, status: p.status, userId: p.user_id })),
+    mePerson: directory.error ? null : ((directory.data ?? []) as { person_id: string; is_me: boolean }[]).find((p) => p.is_me)?.person_id ?? null,
     members: ((people.data ?? []) as { user_id: string; email: string }[]).map((p) => ({ user_id: p.user_id, email: p.email, github_username: githubName.get(p.user_id) ?? null })),
     groups: ((groups.data ?? []) as { name: string }[]).map((g) => g.name),
     teams: (teams.data ?? []) as { id: string; name: string }[],

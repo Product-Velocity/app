@@ -109,7 +109,7 @@ function resolveMember(raw: string, ctx: WriteCtx): { ok: true; id: string; name
   if (byEmail) return { ok: true, id: byEmail.id, name: byEmail.name };
   const local = ctx.members.filter((m) => norm(m.name.split("@")[0]!) === s);
   if (local.length === 1) return { ok: true, id: local[0]!.id, name: local[0]!.name };
-  return fail(local.length > 1 ? `More than one member is called "${raw}"; use the full email address.` : `No member "${raw}". Members: ${quote(ctx.members.map((m) => m.name))}.`);
+  return fail(local.length > 1 ? `More than one person is called "${raw}"; use the full email address or the id.` : `No person "${raw}". People: ${quote(ctx.members.map((m) => m.name))}.`);
 }
 
 function resolveProject(raw: string, ctx: WriteCtx): { ok: true; id: string; name: string } | Fail {

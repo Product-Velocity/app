@@ -299,12 +299,15 @@ describe("data integrity", () => {
     expect(await errorCode(db.asUser(f.alice, (q) => q("delete from public.projects where id = $1", [f.seedA.project])))).toBe(FK);
   });
 
-  it("removing a member clears them as item owner", async () => {
+  it("removing a member keeps them on the initiative as a name (issue #691: people are named, not only members)", async () => {
     const id = await fresh("Owned");
     await db.asUser(f.alice, (q) => q("update public.items set owner_user_id = $1 where id = $2", [commenter, id]), { commit: true });
     await db.asUser(f.alice, (q) => q("delete from public.tenant_members where tenant_id = $1 and user_id = $2", [f.tenantA, commenter]), { commit: true });
     const owner = (await db.admin.query("select owner_user_id from public.items where id = $1", [id])).rows[0].owner_user_id;
-    expect(owner).toBeNull();
+    expect(owner).toBe(commenter);
+    const person = (await db.admin.query("select user_id, name from public.people where tenant_id = $1 and id = $2", [f.tenantA, commenter])).rows[0];
+    expect(person.user_id).toBeNull(); // no account in this workspace any more: a name only
+    expect(person.name).toBeTruthy();
   });
 
   it("validates values", async () => {

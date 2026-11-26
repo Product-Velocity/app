@@ -47,6 +47,7 @@ import { DEFAULT_COL_DEF, GRID_THEME, GroupRowRenderer, isGroup } from "./grid-k
 import { StatusAlerts, StatusInline, useStatus } from "./status-strip";
 import type { GridItem, Lookups } from "./types";
 import { PageHeader } from "@/components/page-header";
+import { personName } from "./people";
 
 ModuleRegistry.registerModules([
   ClientSideRowModelModule, ClientSideRowModelApiModule, TextEditorModule, CustomEditorModule, CellStyleModule,
@@ -241,7 +242,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
   const groupLabel = (field: string, value: unknown) => {
     if (value === null || value === undefined || value === "") return "No value";
     if (field === "home_project") return lookups.projects.find((p) => p.id === value)?.name ?? String(value);
-    if (FIELD_BY_KEY[field]?.type === "Person") return lookups.members.find((m) => m.user_id === value)?.email ?? String(value);
+    if (FIELD_BY_KEY[field]?.type === "Person") return personName(lookups, value, String(value));
     return String(value);
   };
   const projectIds = scope.projectIds;
@@ -258,7 +259,7 @@ export function PortfolioGrid({ controller, lookups, initialBase = PRIORITISATIO
       controller.rows.filter(
         (r) =>
           added.has(r.id) ||
-          ((projectIds === null || projectIds.includes(r.home_project)) && (!hideCompleted || r.initiative_phase !== "Completed") && matchesSearch(r, search, (id) => lookups.members.find((m) => m.user_id === id)?.email ?? "") && matchesFilters(r, def.filters, { me, today })),
+          ((projectIds === null || projectIds.includes(r.home_project)) && (!hideCompleted || r.initiative_phase !== "Completed") && matchesSearch(r, search, (id) => personName(lookups, id, "")) && matchesFilters(r, def.filters, { me: controller.mePerson(me), today })),
       ),
     // tick: the controller changes its rows in place, so a rebuild is requested by hand
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -24,7 +24,7 @@ export function useViewRows(controller: PortfolioController, me: string | null) 
   const base = useMemo(() => baseDef(parseBase(viewParam, { kind: "builtin", name: "Prioritisation" }), views, defaults), [viewParam, views, defaults]);
   const filters = base?.filters ?? [];
   const rows = useMemo<GridItem[]>(
-    () => controller.rows.filter((r) => (scope.projectIds === null || scope.projectIds.includes(r.home_project)) && matchesFilters(r, filters, { me, today })),
+    () => controller.rows.filter((r) => (scope.projectIds === null || scope.projectIds.includes(r.home_project)) && matchesFilters(r, filters, { me: controller.mePerson(me), today })),
     // the controller changes its rows in place; the version says when
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [controller, status.version, scope.projectIds, filters, me],

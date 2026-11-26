@@ -8,6 +8,7 @@ import { SelectField } from "@/components/search-list";
 import { Popover } from "./popover";
 import { valueControl } from "./view-controls";
 import type { Lookups } from "./types";
+import { personOptions } from "./people";
 
 const FIELD_OPTIONS: ListOption[] = fieldOptions(VISIBLE_FIELDS);
 const ICON: Record<string, string> = {
@@ -22,7 +23,7 @@ function choicesFor(field: string, lookups: Lookups, quarters: Iterable<unknown>
   const def = FIELD_BY_KEY[field];
   if (!def) return [];
   if (def.key === "home_project") return lookups.projects.map((p) => ({ value: p.id, label: p.name }));
-  if (def.type === "Person") return [{ value: "me", label: "me" }, ...lookups.members.map((m) => ({ value: m.user_id, label: m.email }))];
+  if (def.type === "Person") return [{ value: "me", label: "me" }, ...personOptions(lookups)];
   if (isOpenList(def.key)) return (openValues?.(def.key) ?? []).map((v) => ({ value: v, label: v }));
   return optionsFor(def.key, quarters);
 }

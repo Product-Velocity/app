@@ -3,7 +3,8 @@ import { MEMBER_STATUSES, type MemberStatus } from "@pv/domain";
 import { emailConfigured } from "@/lib/email/resend";
 import { MembersGrid, type GridRow } from "./members-grid";
 import { InviteForm } from "./forms";
-import { changeMemberStatus, setMemberGithubUsername, updateMember } from "./actions";
+import { PeopleNotInvited, type NotInvitedPerson } from "./people-list";
+import { addPerson, changeMemberStatus, linkPerson, removePerson, setMemberGithubUsername, updateMember, updatePerson } from "./actions";
 import type { Role } from "@/lib/roles";
 
 export const metadata = { title: "Members · Product Velocity" };
@@ -39,6 +40,20 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
     }));
   }
 
+  // people named on initiatives before they were invited (issue #691): only admins see their addresses and can invite them
+  let notInvited: NotInvitedPerson[] = [];
+  let activeMembers: { user_id: string; email: string }[] = [];
+  if (isAdmin) {
+    const [{ data: dir }, { data: usage }] = await Promise.all([
+      supabase.rpc("people_directory", { p_tenant: active.tenantId }),
+      supabase.rpc("people_usage", { p_tenant: active.tenantId }),
+    ]);
+    const used = new Map(((usage ?? []) as { person_id: string; initiatives: number }[]).map((u) => [u.person_id, u.initiatives]));
+    const all = (dir ?? []) as { person_id: string; user_id: string | null; name: string; email: string | null; status: string; is_service_account: boolean }[];
+    notInvited = all.filter((p) => !p.user_id && p.status === "not_invited").map((p) => ({ id: p.person_id, name: p.name, email: p.email, initiatives: used.get(p.person_id) ?? 0 }));
+    activeMembers = all.filter((p) => p.user_id && !p.is_service_account && p.email).map((p) => ({ user_id: p.user_id!, email: p.email! }));
+  }
+
   return (
     <div className="page-wide">
       <h1>Members</h1>
@@ -58,6 +73,15 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
         actions={{ changeMemberStatus, updateMember, setMemberGithubUsername }}
         inviteForm={isAdmin ? <InviteForm workspaceName={active.tenantName} emailEnabled={emailConfigured()} /> : null}
       />
+      {isAdmin && (
+        <PeopleNotInvited
+          people={notInvited}
+          members={activeMembers}
+          workspaceName={active.tenantName}
+          emailEnabled={emailConfigured()}
+          actions={{ addPerson, updatePerson, removePerson, linkPerson }}
+        />
+      )}
     </div>
   );
 }

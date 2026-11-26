@@ -21,6 +21,17 @@ describe("outbound Jira payloads", () => {
     }
   });
 
+  it("never sends a person field or the address of a person named without an account (issue #691)", () => {
+    const people = FIELDS.filter((f) => f.type === "Person").map((f) => f.key);
+    for (const k of people) expect(allowed.has(k), `${k} is a person field and must not be read for a payload`).toBe(false);
+    const item = { ...fullItem(), product_manager: "jane.doe@leak.example", engineering_manager: "Jane Doe <jane.doe@leak.example>" };
+    for (const create of [{ projectKey: "PLAT", issueTypeId: "10000" }, undefined]) {
+      const w = JSON.stringify(buildJiraPayload({ item, fields: FIELDS_MAP, create, parentKey: "PLAT-1", currentLabels: [] }));
+      expect(w).not.toContain("jane.doe@leak.example");
+      expect(w).not.toContain("Jane Doe");
+    }
+  });
+
   it("never reads a field outside the allowlist from the item", () => {
     const read: string[] = [];
     const item = new Proxy(fullItem(), { get: (t, k) => (read.push(String(k)), (t as Record<string, unknown>)[String(k)]) });

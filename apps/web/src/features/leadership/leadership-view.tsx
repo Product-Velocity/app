@@ -15,6 +15,7 @@ import { scopeParam, setQueryParam } from "../workspace/scope";
 import type { LeadershipStore, WeeklyUpdate } from "./store";
 import { StatusPill } from "../../components/status-pill";
 import { PageHeader } from "@/components/page-header";
+import { peopleOf } from "../portfolio/people";
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, "-");
 
@@ -71,7 +72,7 @@ export function LeadershipView({ controller, lookups, me, store, pageHref }: Lea
   const top = useMemo(() => topItems(rows, 10), [rows]);
   const columns = useMemo(() => LEADERSHIP_COLUMNS.map((c) => FIELD_BY_KEY[c.key]!).filter((f) => f.phase <= CURRENT_PHASE), []);
   const later = useMemo(() => LEADERSHIP_COLUMNS.map((c) => FIELD_BY_KEY[c.key]!).filter((f) => f.phase > CURRENT_PHASE), []);
-  const fmt = (f: (typeof columns)[number], r: GridItem) => formatField(f, r[f.key], { today, members: lookups.members, projects: lookups.projects });
+  const fmt = (f: (typeof columns)[number], r: GridItem) => formatField(f, r[f.key], { today, people: peopleOf(lookups), projects: lookups.projects });
   const open = (r: { id: string; item_code: string }) => <button type="button" className="gl-open" onClick={() => openPeek(r.id)}><span className="mono">{r.item_code}</span></button>;
   const onTrack = health.totals.counts["On Track"];
   const todayIso = today.toISOString().slice(0, 10);

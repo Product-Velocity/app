@@ -4,7 +4,9 @@ import {
   bulkEditReason, isOpenList, OPEN_LIST_FIELDS, openListValues, resolveGroup, canDeleteItem, placeRestored, type Edit, type EditableField, type Entry, type NewItemValues,
 } from "@pv/domain";
 import type { PortfolioDataSource, SaveResult } from "./data-source";
-import type { GridItem, Lookups, LoadedItem, IssueTreeRow, JiraEpicRequestRow, JiraTreeRow } from "./types";
+import { findPerson, parsePersonInput } from "@pv/domain";
+import type { GridItem, Lookups, LookupPerson, LoadedItem, IssueTreeRow, JiraEpicRequestRow, JiraTreeRow } from "./types";
+import { peopleOf, personName } from "./people";
 
 export const READ_ONLY_MESSAGE = "You have view-only access. Ask an admin for the Creator role to edit.";
 
@@ -105,7 +107,7 @@ export class PortfolioController {
   private resolvers() {
     return {
       project: (id: string) => this.lookups.projects.find((p) => p.id === id)?.name ?? "unknown project",
-      owner: (id: string) => this.lookups.members.find((m) => m.user_id === id)?.email ?? "unknown person",
+      owner: (id: string) => personName(this.lookups, id),
       today: this.today(),
     };
   }
@@ -339,6 +341,36 @@ export class PortfolioController {
     if (!checked.ok) { this.notify(`${row.item_code} ${fieldLabel(field)}: ${checked.error}`); return { ok: false, error: checked.error }; }
     const v = { ...checked, value: this.canonicalValue(field, checked.value) } as typeof checked;
     return this.commitField(row, field, v.value);
+  }
+
+  /**
+   * Name someone who is not a member (yet) so they can be chosen on a person field. Nothing is sent to them: inviting is a separate step
+   * in Members. A name or address that is already on the list gives that person back.
+   */
+  async addPerson(typed: string): Promise<{ ok: true; person: LookupPerson; added: boolean } | { ok: false; error: string }> {
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
+    const input = parsePersonInput(typed);
+    if (!input) { const error = "Enter a name (1 to 120 characters), and an email address if you have one."; this.notify(error); return { ok: false, error }; }
+    const known = findPerson(peopleOf(this.lookups), input);
+    if (known) return { ok: true, person: known, added: false };
+    const r = await this.source.addPerson(input.name, input.email);
+    if (!r.ok) { this.notify(`Could not add ${input.name}: ${r.error}`); return r; }
+    this.lookups.people = [...peopleOf(this.lookups), r.person];
+    this.state.last = { text: `Added ${r.person.name} to the people list (not invited)`, at: this.now() };
+    this.emit();
+    return { ok: true, person: r.person, added: true };
+  }
+
+  /**
+   * A person field set from a picker: an id from the list, empty (clear), or a typed name or address of someone new, who is added first.
+   * The change is saved when the person has been added (a moment later), as one undo step.
+   */
+  editPerson(itemId: string, field: EditableField, raw: string): EditOutcome {
+    const text = raw.trim();
+    if (text === "" || peopleOf(this.lookups).some((p) => p.id === text)) return this.edit(itemId, field, raw);
+    if (!this.canEdit) { this.notify(READ_ONLY_MESSAGE); return { ok: false, error: READ_ONLY_MESSAGE }; }
+    void this.addPerson(text).then((r) => { if (r.ok) this.edit(itemId, field, r.person.id); });
+    return { ok: true, changed: false };
   }
 
   /** Optimistic change of one field to an already typed value: undo step, status line, background save, revert on failure. */
@@ -611,6 +643,8 @@ export class PortfolioController {
   }
   teams() { return this.lookups.teams ?? []; }
   members() { return this.lookups.members ?? []; }
+  /** The person id of the signed-in user: what "me" means in a filter on a person field (it differs from the user id for someone named before they joined). */
+  mePerson(fallback: string | null = this.me): string | null { return this.lookups.mePerson ?? fallback; }
   activity(itemId: string): Promise<ActivityRow[]> { return this.source.loadActivity(itemId); }
   /** What the crowd said about one initiative: its closed alignment sessions, newest first (the first is the current result). */
   /** What admins decided for one initiative when they applied a vote, and why. Empty for anyone who is not an admin. */

@@ -31,9 +31,13 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     return () => (p ??= fn());
   };
 
+  // the person id of the signed-in user ("me" in a filter on a person field): it differs from the user id for someone named before they joined
+  let mePerson: string | null = null;
   const people = memo(async (): Promise<Member[]> => {
-    const rows = must(await supabase.rpc("tenant_directory", { p_tenant: tenant.id }), "members") as { user_id: string; email: string; role: string }[];
-    return rows.map((r) => ({ id: r.user_id, name: r.email, role: r.role }));
+    // who a person field can name: the members, and the people named without an account yet (issue #691; their role says so)
+    const rows = must(await supabase.rpc("people_directory", { p_tenant: tenant.id }), "people") as { person_id: string; name: string; email: string | null; status: string; role: string | null; is_me?: boolean }[];
+    mePerson = rows.find((r) => r.is_me)?.person_id ?? null;
+    return rows.map((r) => ({ id: r.person_id, name: r.status === "active" ? r.email ?? r.name : r.name, role: r.role ?? (r.status === "invited" ? "invited, not a member yet" : "not invited yet") }));
   });
   const projects = memo(async () =>
     must(await supabase.from("projects").select("id, name, default_repo, tracker").eq("tenant_id", tenant.id).order("name"), "projects") as { id: string; name: string; default_repo: string | null; tracker: string | null }[]);
@@ -114,7 +118,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     },
     async searchData() {
       const [r, n] = await Promise.all([rows(), names()]);
-      return { rows: r, names: n, me: userId };
+      return { rows: r, names: n, me: mePerson ?? userId };
     },
 
     async itemDetail(ref): Promise<ItemDetail | null> {
