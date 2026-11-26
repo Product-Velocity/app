@@ -8,6 +8,7 @@ import { RowIcon, RowMenu, ShareChip } from "./attachment-ui";
 import { FilesControl, type FilesHandle } from "./files-control";
 import type { FieldCtx } from "./item-fields";
 import { LinksList, type LinksHandle } from "./links-list";
+import { ConfluenceDialog } from "./confluence-dialog";
 import { copyFormatted, copyMarkdown } from "./markdown-copy";
 
 type Version = { version: number; saved_at: string; saved_via: string; ai_tool?: string | null; ai_model?: string | null; saved_by_name?: string | null };
@@ -21,6 +22,9 @@ const STATUS_LABEL: Record<string, string> = { draft: "Draft", in_review: "In re
  */
 export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub" }: { itemId: string; /** The code (R-12) of the initiative: the address of a document's reading page. Without it there is no "Open full page". */ itemCode?: string; canEdit: boolean; ctx: FieldCtx; /** "GitHub" or "Jira": where this initiative is sent. */ tracker?: string }) {
   const [docs, setDocs] = useState<DocView[] | null>(null);
+  // Confluence: whether this workspace can publish (its sign-in allows it), and the document whose dialog is open (issue #693)
+  const [canConfluence, setCanConfluence] = useState(false);
+  const [confluenceFor, setConfluenceFor] = useState<DocView | null>(null);
   // a link from the activity log opens the document: ?item=R-12&tab=spec&doc=<id>
   const [openId, setOpenId] = useState<string | null>(() => {
     const d = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("doc");
@@ -38,7 +42,9 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
     try {
       const r = await fetch(`/api/documents?item=${encodeURIComponent(itemId)}`);
       if (!r.ok) throw new Error();
-      setDocs(((await r.json()) as { documents: DocView[] }).documents);
+      const j = (await r.json()) as { documents: DocView[]; confluenceAvailable?: boolean };
+      setDocs(j.documents);
+      setCanConfluence(j.confluenceAvailable === true);
     } catch {
       setDocs([]);
       setError("Documents could not be loaded.");
@@ -48,7 +54,7 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
     let live = true;
     void fetch(`/api/documents?item=${encodeURIComponent(itemId)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: { documents: DocView[] }) => { if (live) setDocs(d.documents); })
+      .then((d: { documents: DocView[]; confluenceAvailable?: boolean }) => { if (live) { setDocs(d.documents); setCanConfluence(d.confluenceAvailable === true); } })
       .catch(() => { if (live) { setDocs([]); setError("Documents could not be loaded."); } });
     return () => { live = false; };
   }, [itemId]);
@@ -100,6 +106,7 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
       </div>
       <p className="muted docs-hint">Everything here goes into the {tracker} issue as a link (documents and files open without a login) unless you choose “Only in Product Velocity”. Drag files onto this tab, paste an image or a web address. What builders need first goes in the Description on the Overview tab.</p>
       {error && <p role="alert" className="pf-error">{error}</p>}
+      {confluenceFor && <ConfluenceDialog doc={{ id: confluenceFor.id, title: confluenceFor.title, version: confluenceFor.version, aiDraft: confluenceFor.aiDraft }} onClose={() => setConfluenceFor(null)} onChanged={() => void load()} />}
       {show("docs") && <>
         <h3>Documents</h3>
         {docs.length === 0 && <p className="muted">No documents yet. Use Add, then Write a document.</p>}
@@ -115,11 +122,17 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
               {d.aiDraft
                 ? <span className="share-chip" title="A person accepts the AI draft first (open it, then Accept draft)">Held back: AI draft</span>
                 : <ShareChip shared={d.shared} tracker={tracker} name={d.title} disabled={!canEdit} onToggle={(on) => void setShared(d, on)} />}
+              {d.confluence && (
+                <a className="share-chip" href={d.confluence.pageUrl} target="_blank" rel="noopener noreferrer" title={`The Confluence page (space ${d.confluence.spaceKey}), ${d.confluence.linked ? "kept in sync" : "published once"}`}>
+                  On Confluence{d.confluence.outOfDate ? ": page out of date" : ""}
+                </a>
+              )}
               <RowMenu label={`Actions for ${d.title}`} items={[
                 { label: openId === d.id ? "Close" : "Open", onSelect: () => setOpenId(openId === d.id ? null : d.id) },
                 { label: "Open full page", href: docPageHref(d.id), hidden: !itemCode },
                 { label: "Copy public link", onSelect: () => void navigator.clipboard?.writeText(d.shareUrl ?? "").catch(() => setError("Your browser did not allow copying.")), hidden: !d.shareUrl },
                 { label: "Open public page", href: d.shareUrl ?? "", hidden: !d.shareUrl },
+                { label: d.confluence?.linked ? "Update the Confluence page…" : "Publish to Confluence…", onSelect: () => setConfluenceFor(d), hidden: !canEdit || !(canConfluence || d.confluence) },
                 { label: "Remove", onSelect: () => void removeDoc(d), danger: true, hidden: !canEdit },
               ]} />
               {openId === d.id && <div className="entry-expand"><DocEditor id={d.id} fullPageHref={itemCode ? docPageHref(d.id) : undefined} canEdit={canEdit} onChanged={load} onRemoved={() => { setOpenId(null); void load(); }} onError={setError} /></div>}

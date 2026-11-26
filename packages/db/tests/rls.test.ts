@@ -540,6 +540,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "item_document_pages",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.item_document_pages set sync_mode = 'sync' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.item_document_pages where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.item_document_pages (tenant_id, item_id, document_id, site_id, space_key, page_id, page_url, sync_mode, published_version) select $1, item_id, id, 's', 'K', '1', 'https://x.test', 'once', 1 from public.item_documents where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.item_document_pages set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "item_documents",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkDocumentInput, MAX_DOCS_PER_ITEM } from "@pv/domain";
-import { DOC_COLS, toDoc, type DocRow } from "@/lib/documents";
+import { confluenceSiteFor } from "@/lib/confluence/server";
+import { DOC_COLS, toDoc, type ConfluenceView, type DocRow } from "@/lib/documents";
 import { siteUrl } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
@@ -13,7 +14,19 @@ export async function GET(request: Request) {
   const { data, error } = await supabase.from("item_documents").select(DOC_COLS).eq("item_id", item).order("created_at");
   if (error) return NextResponse.json({ error: "Documents could not be loaded." }, { status: 500 });
   const appUrl = await siteUrl();
-  return NextResponse.json({ documents: ((data ?? []) as DocRow[]).map((r) => toDoc(r, false, appUrl)) });
+  const rows = (data ?? []) as DocRow[];
+  // the page each document was published to (the latest record), and whether this workspace can publish at all (Confluence allowed on its sign-in)
+  const { data: pages } = await supabase.from("item_document_pages").select("document_id, page_url, page_title, space_key, sync_mode, published_version, unlinked_at, created_at").eq("item_id", item).order("created_at");
+  const latest = new Map<string, ConfluenceView>();
+  const version = new Map(rows.map((r) => [r.id, r.version]));
+  for (const p of (pages ?? []) as { document_id: string; page_url: string; page_title: string; space_key: string; sync_mode: "once" | "sync"; published_version: number; unlinked_at: string | null }[]) {
+    const linked = p.unlinked_at === null;
+    latest.set(p.document_id, { pageUrl: p.page_url, pageTitle: p.page_title, spaceKey: p.space_key, syncMode: p.sync_mode, publishedVersion: p.published_version, linked, outOfDate: linked && p.published_version < (version.get(p.document_id) ?? 0) });
+  }
+  const { data: owner } = await supabase.from("items").select("tenant_id").eq("id", item).maybeSingle();
+  const tenantId = (owner as { tenant_id?: string } | null)?.tenant_id;
+  const available = tenantId ? Boolean(await confluenceSiteFor(tenantId)) : false;
+  return NextResponse.json({ confluenceAvailable: available, documents: rows.map((r) => ({ ...toDoc(r, false, appUrl), confluence: latest.get(r.id) ?? null })) });
 }
 
 /** Adds a document. The row is written as the person, so the role check, the version log and the audit log apply. */

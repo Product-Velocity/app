@@ -224,7 +224,11 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
     await db.admin.query("insert into public.item_links (tenant_id, item_id, label, url) values ($1, $2, 'PRD', 'https://example.test/prd')", [tenantId, items[0]]);
     await db.admin.query("insert into public.item_files (tenant_id, item_id, name, storage_path) values ($1, $2, 'shot.png', $3)", [tenantId, items[0], `${tenantId}/shot.png`]);
   }
-  await db.admin.query("insert into public.item_documents (tenant_id, item_id, kind, title, body) values ($1, $2, 'prd', 'PRD', '# PRD')", [tenantId, items[0]]);
+  const seedDoc = (await db.admin.query("insert into public.item_documents (tenant_id, item_id, kind, title, body) values ($1, $2, 'prd', 'PRD', '# PRD') returning id", [tenantId, items[0]])).rows[0].id as string;
+  // some tests migrate only part of the history; the table exists from 20261126102823 on
+  if ((await db.admin.query("select to_regclass('public.item_document_pages') as t")).rows[0].t) {
+    await db.admin.query("insert into public.item_document_pages (tenant_id, item_id, document_id, site_id, space_key, page_id, page_url, sync_mode, published_version) values ($1, $2, $3, 'seed-site', 'SEED', '4711', 'https://seed.example.test/wiki/pages/4711', 'once', 1)", [tenantId, items[0], seedDoc]);
+  }
   if ((await db.admin.query("select to_regclass('public.workspace_documents') as t")).rows[0].t) {
     await db.admin.query("insert into public.workspace_documents (tenant_id, kind, title, body) values ($1, 'strategy', 'Strategy', '# Strategy')", [tenantId]);
   }
