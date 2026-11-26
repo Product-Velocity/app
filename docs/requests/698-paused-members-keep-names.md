@@ -1,6 +1,8 @@
 ---
 issue: 698
-status: in progress
+status: done
+done: 2026-11-26
+link: PR #700, v1.257.1
 logged: 2026-11-26
 title: Paused, revoked and requested members keep their name on initiatives and in reports
 ---
