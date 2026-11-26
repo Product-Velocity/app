@@ -2,14 +2,15 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import type { ConfluenceView } from "@/lib/documents";
+import { ConfluencePageTree, type TreePage } from "./confluence-page-tree";
 
 type Space = { key: string; name: string; type: string };
 type Request = { mode: "once" | "sync"; spaceKey: string | null; parentUrl: string | null; title: string | null; note: string | null; requestedBy: "Claude" | "a person"; aiModel: string | null };
-type Status = { missingScopes?: string[]; request?: Request | null; canPublish: boolean; available: boolean; site: { name: string; url: string } | null; last: (ConfluenceView & { pageUrl: string }) | null; spaces?: Space[]; error?: string };
+type Status = { suggestedTitle?: string; missingScopes?: string[]; request?: Request | null; canPublish: boolean; available: boolean; site: { name: string; url: string } | null; last: (ConfluenceView & { pageUrl: string }) | null; spaces?: Space[]; error?: string };
 type Warning = { kind: string; what: string };
 type Preview = {
   action: "create" | "update" | "none" | "conflict" | "gone"; why: string; mode: "once" | "sync"; title: string; spaceKey: string;
-  parent: { id: string; title: string } | null; page: { id: string; url: string | null; version: number } | null; warnings: Warning[]; notes: string[]; confirm: string;
+  parent: { id: string; title: string } | null; page: { id: string; url: string | null; version: number } | null; adopt?: boolean; warnings: Warning[]; notes: string[]; confirm: string;
 };
 type Done = { action: string; page: { url: string | null; version: number } | null; message: string };
 
@@ -29,6 +30,10 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
   const [spaceFilter, setSpaceFilter] = useState("");
   const [parentUrl, setParentUrl] = useState("");
   const [title, setTitle] = useState(doc.title);
+  const [titleTouched, setTitleTouched] = useState(false);
+  const [target, setTarget] = useState<"new" | "existing">("new");
+  const [parent, setParent] = useState<TreePage | null>(null);
+  const [existing, setExisting] = useState<TreePage | null>(null);
   const [mode, setMode] = useState<"sync" | "once">("sync");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [done, setDone] = useState<Done | null>(null);
@@ -47,7 +52,7 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
         const known = (s.spaces ?? []).some((x) => x.key === q?.spaceKey);
         setSpace(q?.spaceKey && known ? q.spaceKey : (s.spaces?.[0]?.key ?? ""));
         if (q?.parentUrl) setParentUrl(q.parentUrl);
-        if (q?.title) setTitle(q.title);
+        if (q?.title) { setTitle(q.title); setTitleTouched(true); } else if (s.suggestedTitle) setTitle(s.suggestedTitle);
         if (s.last?.linked) setMode(s.last.syncMode); else if (q) setMode(q.mode);
       })
       .catch(() => { if (live) setLoadError("Confluence could not be reached from here. Try again in a moment."); });
@@ -61,7 +66,7 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
     try {
       const r = await fetch(`/api/documents/${doc.id}/confluence`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, mode, ...(linked ? {} : { spaceKey: space, parentUrl: parentUrl.trim() || undefined }), title: title.trim() || undefined, ...extra }),
+        body: JSON.stringify({ action, mode, ...(linked ? {} : { spaceKey: space, ...(target === "existing" ? { existingPageId: existing?.id } : parent ? { parentPageId: parent.id } : { parentUrl: parentUrl.trim() || undefined }) }), ...(target === "existing" && !titleTouched ? {} : { title: title.trim() || undefined }), ...extra }),
       });
       const j = (await r.json().catch(() => ({}))) as { error?: string; preview?: Preview; done?: Done; ok?: boolean };
       if (!r.ok) { setError(j.error ?? "That did not work. Nothing was written."); return null; }
@@ -80,7 +85,8 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
   const doDismiss = async () => { const j = await call("dismiss"); if (j?.ok) { setStatus((s) => (s ? { ...s, request: null } : s)); onChanged(); } };
   const doUnlink = async () => { const j = await call("unlink"); if (j?.ok) { onChanged(); onClose(); } };
 
-  const noun = preview?.action === "create" || preview?.action === "gone" ? "Create the page" : "Update the page";
+  const adopting = Boolean(preview?.adopt);
+  const noun = adopting ? "Replace the page" : preview?.action === "create" || preview?.action === "gone" ? "Create the page" : "Update the page";
   return (
     <div className="dialog-backdrop" onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
       <div className="dialog dialog-narrow" role="dialog" aria-modal="true" aria-labelledby={titleId}>
@@ -120,16 +126,32 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
                 {(status.spaces ?? []).length > 10 && (
                   <input type="search" aria-label="Filter the spaces" placeholder={`Filter ${(status.spaces ?? []).length} spaces by name or key`} value={spaceFilter} onChange={(e) => setSpaceFilter(e.target.value)} />
                 )}
-                <select id={`${titleId}-s`} ref={firstRef} value={space} onChange={(e) => { setSpace(e.target.value); setPreview(null); }}>
+                <select id={`${titleId}-s`} ref={firstRef} value={space} onChange={(e) => { setSpace(e.target.value); setParent(null); setExisting(null); setPreview(null); }}>
                   {(status.spaces ?? []).length === 0 && <option value="">No spaces found</option>}
                   {(status.spaces ?? []).filter((s) => s.key === space || `${s.name} ${s.key}`.toLowerCase().includes(spaceFilter.trim().toLowerCase())).map((s) => <option key={s.key} value={s.key}>{s.name} ({s.key})</option>)}
                 </select>
-                <label className="dialog-label" htmlFor={`${titleId}-p`}>Parent page (optional)</label>
-                <input id={`${titleId}-p`} type="url" placeholder="Paste the address of the page it goes under" value={parentUrl} onChange={(e) => { setParentUrl(e.target.value); setPreview(null); }} />
+                <fieldset className="dialog-row" style={{ border: 0, padding: 0 }}>
+                  <legend className="dialog-label">Where</legend>
+                  <label><input type="radio" name={`${titleId}-w`} checked={target === "new"} onChange={() => { setTarget("new"); setPreview(null); }} /> A new page</label>
+                  <label><input type="radio" name={`${titleId}-w`} checked={target === "existing"} onChange={() => { setTarget("existing"); setPreview(null); }} /> An existing page: its content is replaced (the old version stays in the page history)</label>
+                </fieldset>
+                {target === "new" && parentUrl && !parent && (
+                  <p className="muted">Under the page from the request: {parentUrl} <button type="button" className="btn" onClick={() => { setParentUrl(""); setPreview(null); }}>Use the tree instead</button></p>
+                )}
+                {space && !(target === "new" && parentUrl && !parent) && (
+                  <ConfluencePageTree
+                    key={space}
+                    docId={doc.id} spaceKey={space}
+                    label={target === "new" ? "Parent page (optional)" : "Page to replace"}
+                    topLabel={target === "new" ? "Top of the space (no parent page)" : undefined}
+                    selectedId={target === "new" ? (parent?.id ?? null) : (existing?.id ?? null)}
+                    onSelect={(pg) => { if (target === "new") setParent(pg); else setExisting(pg); setPreview(null); }}
+                  />
+                )}
               </>
             )}
-            <label className="dialog-label" htmlFor={`${titleId}-t`}>Page title</label>
-            <input id={`${titleId}-t`} type="text" maxLength={255} value={title} onChange={(e) => { setTitle(e.target.value); setPreview(null); }} />
+            <label className="dialog-label" htmlFor={`${titleId}-t`}>{!linked && target === "existing" ? "Page title (leave as it is to keep the page's own title)" : "Page title"}</label>
+            <input id={`${titleId}-t`} type="text" maxLength={255} value={!linked && target === "existing" && !titleTouched ? (existing?.title ?? "") : title} placeholder={!linked && target === "existing" ? "The page's own title" : undefined} onChange={(e) => { setTitle(e.target.value); setTitleTouched(true); setPreview(null); }} />
             <fieldset className="dialog-row" style={{ border: 0, padding: 0 }}>
               <legend className="dialog-label">After publishing</legend>
               <label><input type="radio" name={`${titleId}-m`} checked={mode === "sync"} onChange={() => { setMode("sync"); setPreview(null); }} /> Keep in sync: when the document changes, update the page from here (you confirm each time)</label>
@@ -140,7 +162,7 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
             {preview && (
               <div className="stack" role="region" aria-label="Preview">
                 <h3>Preview</h3>
-                <p><strong>{preview.action === "create" ? "A new page will be created" : preview.action === "gone" ? "The old page is gone; a new page will be created" : preview.action === "update" ? "The page will be updated" : preview.action === "conflict" ? "The page was changed in Confluence" : "Nothing to publish"}</strong>{preview.action === "create" ? "." : `: ${preview.why}`}</p>
+                <p><strong>{preview.adopt ? "An existing page will be replaced" : preview.action === "create" ? "A new page will be created" : preview.action === "gone" ? "The old page is gone; a new page will be created" : preview.action === "update" ? "The page will be updated" : preview.action === "conflict" ? "The page was changed in Confluence" : "Nothing to publish"}</strong>{preview.action === "create" && !preview.adopt ? "." : `: ${preview.why}`}</p>
                 <p className="muted">Title “{preview.title}”, space {preview.spaceKey}{preview.parent ? `, under “${preview.parent.title}”` : ""}.{preview.page?.url && <> <a href={preview.page.url} target="_blank" rel="noopener noreferrer">Current page</a>.</>}</p>
                 {preview.warnings.length > 0 && (
                   <div role="alert" className="notice">
@@ -154,7 +176,7 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
             <div className="dialog-actions">
               {linked && <button type="button" className="btn btn-danger-quiet" disabled={busy} onClick={() => void doUnlink()}>Stop linking</button>}
               <button type="button" className="btn" onClick={onClose}>Cancel</button>
-              <button type="button" className="btn" disabled={busy || (!linked && !space)} onClick={() => void doPreview()}>{busy && !preview ? "Checking…" : "Preview"}</button>
+              <button type="button" className="btn" disabled={busy || (!linked && (!space || (target === "existing" && !existing)))} onClick={() => void doPreview()}>{busy && !preview ? "Checking…" : "Preview"}</button>
               {preview && preview.action !== "none" && preview.action !== "conflict" && <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void doPublish(false)}>{busy ? "Writing…" : `Confirm: ${noun}`}</button>}
               {preview && preview.action === "conflict" && <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void doPublish(true)}>{busy ? "Writing…" : "Keep Product Velocity: replace the page"}</button>}
               {preview && preview.action === "none" && mode !== (linked?.syncMode ?? mode) && <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void doPublish(false)}>Confirm</button>}

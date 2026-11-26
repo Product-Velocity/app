@@ -30,11 +30,11 @@ const DOC = "11111111-1111-4111-8111-111111111111";
 const ctx = { params: Promise.resolve({ id: DOC }) };
 const post = async (body: unknown): Promise<Response> => (await POST(new Request("http://x/api", { method: "POST", body: JSON.stringify(body) }), ctx)) as Response;
 const SITE = { connectionId: "c1", siteId: "s1", siteUrl: "https://acme.atlassian.net", siteName: "Acme" };
-const doc = { id: DOC, tenant_id: "t1", item_id: "i1", title: "PRD", body: "# PRD\n\nText.", version: 1, ai_draft: false };
+const doc = { id: DOC, tenant_id: "t1", item_id: "i1", kind: "go_to_market", title: "PRD", body: "# PRD\n\nText.", version: 1, ai_draft: false };
 
 beforeEach(() => {
   state.user = { id: "u1" }; state.inserted = []; state.updated = []; state.deleted = []; state.site = SITE;
-  state.rows = { item_documents: [doc], tenant_members: [{ role: "creator", is_service_account: false }], item_document_pages: [], item_document_publish_requests: [], items: [{ item_code: "R-12", kr_metric: null, value_12m: null }] };
+  state.rows = { item_documents: [doc], tenant_members: [{ role: "creator", is_service_account: false }], item_document_pages: [], item_document_publish_requests: [], items: [{ item_code: "R-12", initiative_name: "Publisher ticketing", kr_metric: null, value_12m: null }] };
   // the v2 API: spaces (listed, or found by key) and pages created in a space by its id
   state.confluence = async (method, path) => {
     if (method === "GET" && path.startsWith("/api/v2/spaces")) return { status: 200, json: { results: [{ id: "777", key: "PRD", name: "Product", type: "global" }, { id: "999", key: "GTM", name: "Go-to-market", type: "global" }] } };
@@ -72,6 +72,18 @@ describe("who may publish", () => {
     state.site = SITE;
     expect((await post({ action: "destroy" })).status).toBe(400);
     expect((await post({ action: "preview", mode: "sometimes", spaceKey: "PRD" })).status).toBe(400);
+  });
+});
+
+describe("the title offered by default (issue #693)", () => {
+  it("is the kind of document, the roadmap id and the initiative name", async () => {
+    expect((await (await GET(new Request("http://x/api"), ctx)).json()).suggestedTitle).toBe("Go-to-market - R-12 - Publisher ticketing");
+  });
+  it("falls back to the document's title when the initiative cannot be read, and never exceeds 255 characters", async () => {
+    state.rows.items = [];
+    expect((await (await GET(new Request("http://x/api"), ctx)).json()).suggestedTitle).toBe("Go-to-market");
+    state.rows.items = [{ item_code: "R-12", initiative_name: "x".repeat(400) }];
+    expect((await (await GET(new Request("http://x/api"), ctx)).json()).suggestedTitle.length).toBe(255);
   });
 });
 
@@ -174,3 +186,33 @@ describe("a request to publish (issue #693 slice C)", () => {
     expect(state.inserted).toEqual([]);
   });
 });
+
+describe("where the document goes (issue #693)", () => {
+  it("a parent chosen in the tree is passed on by id", async () => {
+    const calls: string[] = [];
+    state.confluence = async (method, path) => {
+      calls.push(`${method} ${path}`);
+      if (method === "GET" && path.startsWith("/api/v2/spaces")) return { status: 200, json: { results: [{ id: "777", key: "PRD", name: "Product", type: "global" }] } };
+      if (method === "GET" && path === "/api/v2/pages/77") return { status: 200, json: { id: "77", title: "Specs", spaceId: "777", version: { number: 2 }, _links: { webui: "/spaces/PRD/pages/77/Specs" } } };
+      return { status: 500, json: null };
+    };
+    const p = await (await post({ action: "preview", mode: "once", spaceKey: "PRD", parentPageId: "77" })).json();
+    expect(p.preview).toMatchObject({ action: "create", parent: { id: "77", title: "Specs" } });
+    expect(calls).toContain("GET /api/v2/pages/77");
+  });
+  it("an existing page is replaced only after a preview that says so", async () => {
+    state.confluence = async (method, path) => {
+      if (method === "GET" && path === "/api/v2/pages/55") return { status: 200, json: { id: "55", title: "Existing", spaceId: "999", version: { number: 4 }, _links: { webui: "/spaces/GTM/pages/55/x" } } };
+      if (method === "GET" && path === "/api/v2/spaces/999") return { status: 200, json: { id: "999", key: "GTM", name: "GTM", type: "global" } };
+      if (method === "PUT" && path === "/api/v2/pages/55") return { status: 200, json: { id: "55", title: "Existing", spaceId: "999", version: { number: 5 }, _links: { webui: "/spaces/GTM/pages/55/x" } } };
+      return { status: 500, json: null };
+    };
+    const p = await (await post({ action: "preview", mode: "sync", existingPageId: "55" })).json();
+    expect(p.preview).toMatchObject({ action: "update", adopt: true, spaceKey: "GTM" });
+    expect(state.inserted).toEqual([]);
+    const d = await (await post({ action: "publish", mode: "sync", existingPageId: "55", confirm: p.preview.confirm })).json();
+    expect(d.done).toMatchObject({ ok: true, page: { id: "55", version: 5 } });
+    expect(state.inserted).toEqual([expect.objectContaining({ table: "item_document_pages", row: expect.objectContaining({ page_id: "55", space_key: "GTM", source: "pv", sync_mode: "sync" }) })]);
+  });
+});
+

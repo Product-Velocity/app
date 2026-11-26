@@ -2184,3 +2184,14 @@ a.tool-btn { text-decoration: none; display: inline-flex; align-items: center; c
 .result-ok { background: #e8f6ec; border-color: #8fcfa1; color: #14532d; }
 .result-fail { background: #fdecec; border-color: #eba5a1; color: #7f1d1d; }
 
+
+/* Confluence page tree (issue #693): a scrollable list of pages with an open arrow and a choose button on each row. */
+.page-tree-box { max-height: 220px; overflow: auto; border: 1px solid var(--border, #d9dde3); border-radius: 4px; padding: 4px; }
+.page-tree-group { list-style: none; margin: 0; padding-left: 16px; }
+.page-tree-box > .page-tree-group { padding-left: 0; }
+.page-tree-row { display: flex; align-items: center; gap: 2px; }
+.page-tree-toggle, .page-tree-pick { background: none; border: 0; font: inherit; cursor: pointer; padding: 3px 6px; text-align: left; border-radius: 3px; }
+.page-tree-toggle:hover, .page-tree-pick:hover { background: #eef2f7; }
+.page-tree-on { background: #e6efff; color: #1A56C4; font-weight: 600; }
+.page-tree-top { display: block; width: 100%; }
+.page-tree-note { margin: 2px 0 2px 28px; }
