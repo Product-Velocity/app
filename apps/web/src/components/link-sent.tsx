@@ -18,6 +18,8 @@ export function LinkSent({
   pending,
   onBack,
   backLabel,
+  lead,
+  extra,
 }: {
   title?: string;
   email: string;
@@ -27,6 +29,10 @@ export function LinkSent({
   pending: boolean;
   onBack?: () => void;
   backLabel: string;
+  /** Replaces the first sentence (default: "If <email> has an account, we sent a link."). */
+  lead?: React.ReactNode;
+  /** Shown under the notice, e.g. what to do next. */
+  extra?: React.ReactNode;
 }) {
   const [left, setLeft] = useState(COOLDOWN_SECONDS);
   useEffect(() => {
@@ -39,13 +45,19 @@ export function LinkSent({
       <div>
         <h1>{title}</h1>
         <p className="sub">
-          If <strong>{email}</strong> has an account, we sent a link. It works once and expires in {lifetime}.
+          {lead ?? (
+            <>
+              If <strong>{email}</strong> has an account, we sent a link.
+            </>
+          )}{" "}
+          It works once and expires in {lifetime}.
         </p>
       </div>
       <p className="notice">
         Nothing yet? Check your spam folder. For your security we show this message whether or not the address has an
         account.
       </p>
+      {extra}
       <form action={resendAction}>
         {resendFields}
         <button className="btn" type="submit" disabled={left > 0 || pending}>

@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { canSubmitNewPassword, NewPasswordFields, PasswordField } from "@/components/password-field";
 import { AuthProviders } from "@/components/auth-providers";
 import { LinkSent } from "@/components/link-sent";
-import { acceptInvitation, sendInviteSignInLink, signInAndAccept, signUpForInvite, type AcceptState, type LinkState } from "./actions";
+import { acceptInvitation, inviteProgress, resendInviteConfirmation, sendInviteSignInLink, signInAndAccept, signUpForInvite, type AcceptState, type LinkState } from "./actions";
 
 export function AcceptForm({ token, workspace }: { token: string; workspace: string }) {
   const [state, action, pending] = useActionState<AcceptState, FormData>(acceptInvitation, null);
@@ -28,7 +28,61 @@ export function AcceptForm({ token, workspace }: { token: string; workspace: str
  * signed in. `mode` is chosen by the server page (full page load, so password
  * managers see the right kind of form from the start).
  */
-export function InviteSignIn({ token, email, mode }: { token: string; email: string; mode: "sign-in" | "create" }) {
+/**
+ * After Create account: say what happens next and wait. Once the link is confirmed in another tab of this browser (the session
+ * cookie is shared), this tab moves on by itself. Confirmed on another device, the person signs in here instead.
+ */
+function CheckEmail({ token, email }: { token: string; email: string }) {
+  const [resend, resendAction, resending] = useActionState<LinkState, FormData>(resendInviteConfirmation, null);
+  useEffect(() => {
+    let stop = false;
+    const tick = async () => {
+      try {
+        const next = await inviteProgress(token, email);
+        if (next && !stop) window.location.assign(next.to);
+      } catch {
+        // try again on the next beat
+      }
+    };
+    const id = setInterval(tick, 4000);
+    return () => {
+      stop = true;
+      clearInterval(id);
+    };
+  }, [token, email]);
+  return (
+    <LinkSent
+      key={resend?.nonce ?? 0}
+      title="Check your email to finish"
+      email={email}
+      lead={
+        <>
+          We sent a link to <strong>{email}</strong>.
+        </>
+      }
+      lifetime="60 minutes"
+      resendAction={resendAction}
+      resendFields={<input type="hidden" name="token" value={token} />}
+      pending={resending}
+      extra={
+        <ol className="invite-steps" aria-label="Next steps">
+          <li>
+            <span className="wizard-dot" aria-hidden="true">1</span>
+            <span>Open the link in the email and press Continue.</span>
+          </li>
+          <li>
+            <span className="wizard-dot" aria-hidden="true">2</span>
+            <span>You join the workspace and see a one-minute welcome. This page moves on by itself if you open the link in this browser.</span>
+          </li>
+        </ol>
+      }
+      onBack={() => window.location.assign("?mode=sign-in")}
+      backLabel="Opened the link somewhere else? Sign in here"
+    />
+  );
+}
+
+export function InviteSignIn({ token, email, mode, notice }: { token: string; email: string; mode: "sign-in" | "create"; notice?: string }) {
   const [password, setPassword] = useState("");
   const [state, action, pending] = useActionState<AcceptState, FormData>(
     mode === "sign-in" ? signInAndAccept : signUpForInvite,
@@ -37,6 +91,7 @@ export function InviteSignIn({ token, email, mode }: { token: string; email: str
   const [linkState, linkAction, linkPending] = useActionState<LinkState, FormData>(sendInviteSignInLink, null);
   const [dismissed, setDismissed] = useState(false);
   const next = `/invite/${token}`;
+  if (mode === "create" && state?.message) return <CheckEmail token={token} email={email} />;
   const canSubmit = mode === "sign-in" ? password.length > 0 : canSubmitNewPassword(password, email);
   if (linkState?.sent && !dismissed) {
     return (
@@ -54,6 +109,11 @@ export function InviteSignIn({ token, email, mode }: { token: string; email: str
   }
   return (
     <div className="stack">
+      {notice && (
+        <p role="status" className="notice">
+          {notice}
+        </p>
+      )}
       <AuthProviders next={next} hint="With Google or GitHub, use the account that has the email address below." />
       <form action={action} className="stack">
         <input type="hidden" name="token" value={token} />
@@ -95,11 +155,6 @@ export function InviteSignIn({ token, email, mode }: { token: string; email: str
         {state?.error && (
           <p role="alert" className="error">
             {state.error}
-          </p>
-        )}
-        {state?.message && (
-          <p role="status" className="success">
-            {state.message}
           </p>
         )}
         <button className="btn btn-primary" type="submit" disabled={pending || !canSubmit}>
