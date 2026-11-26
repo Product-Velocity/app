@@ -46,6 +46,7 @@ function writer(over: Partial<McpWriter> = {}): { w: McpWriter; spy: Spy } {
     outcomes: {} as never,
     documents: {} as never,
     publishRequests: {} as never,
+    readRequests: {} as never,
     profile: {} as never,
     ...over,
   };

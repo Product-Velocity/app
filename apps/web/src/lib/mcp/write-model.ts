@@ -61,6 +61,16 @@ export type McpPublishRequests = {
   withdraw: (documentId: string) => Promise<boolean>;
 };
 
+/** Asking for a Confluence page to be read in, or a document to be updated from its page (issue #721). It records a request only: nothing is read or changed, and a person confirms in the app. */
+export type McpReadRequests = {
+  /** Records (or replaces) the open import request of a page on an initiative. Throws ToolInputError when the role or the database refuses. */
+  setImport: (itemId: string, request: { pageUrl: string; docKind: string | null; mode: "once" | "sync"; direction: "from_confluence" | "both"; note: string | null; aiModel: string | null }) => Promise<void>;
+  /** Records (or replaces) the open refresh request of a document. */
+  setRefresh: (doc: { id: string; itemId: string }, request: { note: string | null; aiModel: string | null }) => Promise<void>;
+  /** Removes an open request (an import by initiative and page address, a refresh by document); false when there was none. */
+  withdraw: (target: { itemId: string; pageUrl: string } | { documentId: string }) => Promise<boolean>;
+};
+
 /** The company profile, as the signed-in person. Confirming it is never offered here: only a workspace admin does, in the app. */
 export type McpProfile = {
   /** Saves the first profile as a draft. Throws ToolInputError when it already exists or the role refuses. */
@@ -85,6 +95,7 @@ export type McpWriter = {
   files: McpFiles;
   documents: McpDocuments;
   publishRequests: McpPublishRequests;
+  readRequests: McpReadRequests;
   profile: McpProfile;
   epics: McpEpics;
   outcomes: McpOutcomes;

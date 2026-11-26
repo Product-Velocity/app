@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commercialWarnings, inline, managedBanner, markdownToStorage, pageBody, pageIdFromUrl, planPublish, stripManagedBanner, syncState } from "./confluence";
+import { commercialWarnings, inline, managedBanner, markdownToStorage, pageBody, checkImportRequest, checkRefreshRequest, pageIdFromUrl, planPublish, stripManagedBanner, syncState } from "./confluence";
 
 describe("Markdown to Confluence storage format", () => {
   it("headings, paragraphs, emphasis, code spans and links", () => {
@@ -178,5 +178,27 @@ describe("stripManagedBanner", () => {
     expect(stripManagedBanner("<p>Hello</p>")).toBe("<p>Hello</p>");
     const other = '<ac:structured-macro ac:name="info"><ac:rich-text-body><p>Somebody else\'s note.</p></ac:rich-text-body></ac:structured-macro><p>x</p>';
     expect(stripManagedBanner(other)).toBe(other);
+  });
+});
+
+describe("Claude's requests to read a page in (issue #721)", () => {
+  const url = "https://acme.atlassian.net/wiki/spaces/GTM/pages/42/Plan";
+  it("an import request names a Confluence page; the page stays the source unless Claude says both_ways or once", () => {
+    expect(checkImportRequest({ url })).toEqual({ ok: true, value: { pageUrl: url, docKind: null, mode: "sync", direction: "from_confluence", note: null, aiModel: null } });
+    expect(checkImportRequest({ url, kind: "go_to_market", after_importing: "both_ways", note: "  The plan\nlives here ", ai_model: "Claude Sonnet 5.5" })).toEqual({ ok: true, value: { pageUrl: url, docKind: "go_to_market", mode: "sync", direction: "both", note: "The plan lives here", aiModel: "Claude Sonnet 5.5" } });
+    expect(checkImportRequest({ url, after_importing: "once" })).toMatchObject({ ok: true, value: { mode: "once", direction: "from_confluence" } });
+  });
+  it("refuses what is not a page address, an unknown kind or choice, and text that is too long, in words for Claude", () => {
+    expect(checkImportRequest({ url: "https://acme.atlassian.net/wiki/spaces/GTM" })).toMatchObject({ ok: false, error: expect.stringContaining("Confluence page") });
+    expect(checkImportRequest({ url: "http://acme.atlassian.net/wiki/spaces/GTM/pages/42" })).toMatchObject({ ok: false });
+    expect(checkImportRequest({})).toMatchObject({ ok: false });
+    expect(checkImportRequest({ url, kind: "poem" })).toMatchObject({ ok: false, error: expect.stringContaining("kind must be one of") });
+    expect(checkImportRequest({ url, after_importing: "always" })).toMatchObject({ ok: false, error: expect.stringContaining("after_importing") });
+    expect(checkImportRequest({ url, note: "x".repeat(501) })).toMatchObject({ ok: false });
+  });
+  it("a refresh request only carries a note and the model", () => {
+    expect(checkRefreshRequest({})).toEqual({ ok: true, value: { note: null, aiModel: null } });
+    expect(checkRefreshRequest({ note: "Page changed", ai_model: "M" })).toEqual({ ok: true, value: { note: "Page changed", aiModel: "M" } });
+    expect(checkRefreshRequest({ note: 5 })).toMatchObject({ ok: false });
   });
 });

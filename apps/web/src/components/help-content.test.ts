@@ -147,7 +147,11 @@ describe("Help guide: AI agents (request #230)", () => {
     expect(Object.keys(AGENT_GUIDES)).toEqual(["claude", "chatgpt", "gemini"]);
   });
   it("explains brainstorm, create, review and update, and the advantages of the profile, the project context and the rest", () => {
-    expect(AGENT_USE_CASES.rows.map((r) => r[0])).toEqual(["Brainstorm", "Create", "Review", "Prepare a gate", "Link Jira epics", "Record outcome metrics", "Skills (pv-)", "Update"]);
+    expect(AGENT_USE_CASES.rows.map((r) => r[0])).toEqual(["Brainstorm", "Create", "Review", "Prepare a gate", "Link Jira epics", "Record outcome metrics", "Read a Confluence page", "Ask to publish to Confluence", "Ask to import or refresh from Confluence", "Skills (pv-)", "Update"]);
+    // Claude only asks for Confluence publishing, imports and updates: the rows say nothing is sent, read in or changed until a person confirms (issue #721)
+    expect(AGENT_USE_CASES.rows.find((r) => r[0] === "Ask to publish to Confluence")?.[1]).toMatch(/nothing is sent/i);
+    expect(AGENT_USE_CASES.rows.find((r) => r[0] === "Ask to import or refresh from Confluence")?.[1]).toMatch(/nothing is read into a document and nothing is changed/i);
+    expect(AGENT_USE_CASES.rows.find((r) => r[0] === "Read a Confluence page")?.[1]).toMatch(/never browses Confluence/);
     // a gate pack is evidence for a person: the use-case says Claude cannot decide (CLAUDE.md rule 3)
     expect(AGENT_USE_CASES.rows.find((r) => r[0] === "Prepare a gate")![1]).toMatch(/cannot request, decide or approve/);
     const adv = AGENT_ADVANTAGES.map((a) => a.title.toLowerCase()).join(" | ");

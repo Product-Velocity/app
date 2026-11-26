@@ -25,7 +25,7 @@ export function ConfluenceImportDialog({ mode, itemId, doc, prefill, onClose, on
   /** The document to refresh (mode refresh). */
   doc?: { id: string; title: string };
   /** An address and kind to start from (a link the person already has on the initiative). */
-  prefill?: { pageUrl?: string; kind?: DocKind };
+  prefill?: { pageUrl?: string; kind?: DocKind; /** From an open request: how to keep it after importing. */ after?: "once" | "sync"; twoWay?: boolean };
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -33,8 +33,8 @@ export function ConfluenceImportDialog({ mode, itemId, doc, prefill, onClose, on
   const firstRef = useRef<HTMLInputElement>(null);
   const [pageUrl, setPageUrl] = useState(prefill?.pageUrl ?? "");
   const [kind, setKind] = useState<DocKind>(prefill?.kind ?? "other");
-  const [after, setAfter] = useState<"sync" | "once">("sync");
-  const [twoWay, setTwoWay] = useState(false); // with "keep in sync": also write the document back to the page (issue #714)
+  const [after, setAfter] = useState<"sync" | "once">(prefill?.after ?? "sync");
+  const [twoWay, setTwoWay] = useState(prefill?.twoWay ?? false); // with "keep in sync": also write the document back to the page (issue #714)
   const [title, setTitle] = useState("");
   const [imp, setImp] = useState<ImportPreview | null>(null);
   const [ref, setRef] = useState<RefreshPreview | null>(null);

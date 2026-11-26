@@ -2,6 +2,8 @@
 // Everything here is pure: Markdown to Confluence's page format ("storage format"), the warning about commercial text, reading a page id from a
 // page address, and the decision whether a publish creates, updates, has nothing to send or is a conflict. The calls to Confluence are elsewhere.
 
+import { DOC_KINDS, type DocKind } from "./documents";
+
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const escAttr = (s: string): string => esc(s).replace(/"/g, "&quot;");
 
@@ -285,4 +287,40 @@ export function syncState(input: { direction: SyncDirection; docVersion: number;
 export function stripManagedBanner(storage: string): string {
   const m = /^\s*<ac:structured-macro ac:name="info"[^>]*><ac:rich-text-body><p>Managed in Product Velocity\.[\s\S]*?<\/ac:rich-text-body><\/ac:structured-macro>/.exec(storage);
   return m ? storage.slice(m[0].length) : storage;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Claude asks to read a page in (import) or to update a document from its page (refresh) (issue #721). Nothing is read or written by the request.
+// ---------------------------------------------------------------------------------------------------------------------------------
+export type ImportRequest = { pageUrl: string; docKind: DocKind | null; mode: "once" | "sync"; direction: "from_confluence" | "both"; note: string | null; aiModel: string | null };
+export type RefreshRequest = { note: string | null; aiModel: string | null };
+
+const askText = (v: unknown, name: string, max: number): string | null | Error => {
+  if (v === undefined || v === null || v === "") return null;
+  if (typeof v !== "string") return new Error(`${name} must be text.`);
+  const t = plainText(v);
+  if (t.length > max) return new Error(`${name} is longer than ${max} characters.`);
+  return t || null;
+};
+
+/** What Claude may send to ask for an import. `after_importing`: keep_updated (default; the page stays the source), both_ways, or once. Messages are written for Claude. */
+export function checkImportRequest(input: { url?: unknown; kind?: unknown; after_importing?: unknown; note?: unknown; ai_model?: unknown }): { ok: true; value: ImportRequest } | { ok: false; error: string } {
+  if (typeof input.url !== "string" || pageIdFromUrl(input.url) === null) return { ok: false, error: "url must be the https address of a Confluence page (it contains /pages/12345/). It must be one of the links on the initiative." };
+  const kind = input.kind === undefined || input.kind === null || input.kind === "" ? null : input.kind;
+  if (kind !== null && !(DOC_KINDS as readonly string[]).includes(String(kind))) return { ok: false, error: `kind must be one of: ${DOC_KINDS.join(", ")}.` };
+  const after = input.after_importing === undefined || input.after_importing === null || input.after_importing === "" ? "keep_updated" : input.after_importing;
+  if (after !== "keep_updated" && after !== "both_ways" && after !== "once") return { ok: false, error: 'after_importing must be "keep_updated" (the page stays the source; a person updates the document from it), "both_ways" or "once" (copy the text once, then let go).' };
+  const note = askText(input.note, "note", MAX_PUBLISH_NOTE);
+  if (note instanceof Error) return { ok: false, error: note.message };
+  const model = askText(input.ai_model, "ai_model", 80);
+  if (model instanceof Error) return { ok: false, error: model.message };
+  return { ok: true, value: { pageUrl: input.url.trim(), docKind: (kind as DocKind | null), mode: after === "once" ? "once" : "sync", direction: after === "both_ways" ? "both" : "from_confluence", note, aiModel: model } };
+}
+
+export function checkRefreshRequest(input: { note?: unknown; ai_model?: unknown }): { ok: true; value: RefreshRequest } | { ok: false; error: string } {
+  const note = askText(input.note, "note", MAX_PUBLISH_NOTE);
+  if (note instanceof Error) return { ok: false, error: note.message };
+  const model = askText(input.ai_model, "ai_model", 80);
+  if (model instanceof Error) return { ok: false, error: model.message };
+  return { ok: true, value: { note, aiModel: model } };
 }
