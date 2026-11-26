@@ -23,6 +23,10 @@ describe("cleanRelated: links", () => {
     // "do not share" is kept only when it is set, so a shared link has the same shape as before
     expect(cleanRelated("artifacts", [{ label: "A", url: "https://x.test/a", shared: false }, { label: "B", url: "https://x.test/b", shared: true }], ctx))
       .toEqual({ ok: true, value: [{ label: "A", url: "https://x.test/a", shared: false }, { label: "B", url: "https://x.test/b" }] });
+    // a document kind (issue #693) is kept when it is in the list, left out when blank, and refused otherwise
+    expect(cleanRelated("artifacts", [{ label: "BC", url: "https://x.test/bc", kind: "business_case" }, { label: "N", url: "https://x.test/n", kind: "" }, { label: "S", url: "https://x.test/s", kind: "go_to_market", shared: false }], ctx))
+      .toEqual({ ok: true, value: [{ label: "BC", url: "https://x.test/bc", kind: "business_case" }, { label: "N", url: "https://x.test/n" }, { label: "S", url: "https://x.test/s", kind: "go_to_market", shared: false }] });
+    expect(cleanRelated("artifacts", [{ label: "x", url: "https://x.test", kind: "diary" as never }], ctx)).toMatchObject({ ok: false, error: expect.stringContaining("A link kind must be one of") });
     expect(cleanRelated("artifacts", [{ label: "x", url: "javascript:alert(1)" }], ctx)).toEqual({ ok: false, error: "A link must start with http:// or https://." });
     expect(cleanRelated("artifacts", [{ label: "x".repeat(201), url: "https://x.test" }], ctx)).toEqual({ ok: false, error: "Keep a link label under 200 characters." });
   });

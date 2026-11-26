@@ -296,6 +296,18 @@ describe("set_relations, add_link, remove_link, undo_last", () => {
     expect((await call(b, "add_link", { item: "R-99", url: "https://a.test" })).text).toMatch(/R-99/);
   });
 
+  it("adds a link with a document kind, refuses an unknown kind, and leaves the kind of an existing link alone (issue #693)", async () => {
+    const { w, spy } = writer();
+    const b = backend("creator", w);
+    const added = await call(b, "add_link", { item: "R-01", label: "Business case", url: "https://acme.atlassian.net/wiki/bc", kind: "business_case" });
+    expect(added.data).toMatchObject({ status: "added", link: { kind: "business_case" } });
+    expect(spy.applied[0]!.units[0]!.ops[0]).toMatchObject({ op: "list_add", field: "artifacts", value: { label: "Business case", url: "https://acme.atlassian.net/wiki/bc", kind: "business_case" } });
+    expect((await call(b, "add_link", { item: "R-01", label: "X", url: "https://a.test/x", kind: "diary" })).text).toMatch(/kind must be one of/);
+    const again = await call(b, "add_link", { item: "R-01", label: "PRD", url: "https://example.test/prd", kind: "prd" });
+    expect(again.data).toMatchObject({ status: "already_there", notes: [expect.stringMatching(/not changed/)] });
+    expect(spy.applied).toHaveLength(1);
+  });
+
   it("removes a link by url and says when there is none", async () => {
     const { w, spy } = writer();
     const b = backend("creator", w);

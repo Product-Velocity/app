@@ -8,7 +8,7 @@ import type { McpDocuments } from "./write-model";
 type Out = { result: { isError?: boolean; content: { text: string }[] } };
 const doc = (o: Partial<DocInfo> = {}): DocInfo => ({ id: "d1", item_code: "R-01", kind: "prd", title: "PRD", status: "draft", version: 1, ai_draft: true, characters: 5, updated_at: "2026-10-28T10:00:00Z", approved_at: null, ai_tool: null, ai_model: null, ...o });
 
-function setup(opts: { role?: string; docs?: DocInfo[]; current?: DocInfo; missing?: boolean; meter?: McpBackend["meter"] } = {}) {
+function setup(opts: { links?: ItemDetail["links"]; role?: string; docs?: DocInfo[]; current?: DocInfo; missing?: boolean; meter?: McpBackend["meter"] } = {}) {
   const stored = opts.docs ?? [doc({ body: "# Hello" })];
   const created: unknown[] = [];
   const updated: { id: string; v: number; patch: unknown }[] = [];
@@ -23,7 +23,7 @@ function setup(opts: { role?: string; docs?: DocInfo[]; current?: DocInfo; missi
   };
   const meter = opts.meter ?? vi.fn<McpBackend["meter"]>(async (): Promise<UsageResult> => ({ ok: true }));
   const detail = (ref: string): ItemDetail | null =>
-    ref.toUpperCase() === "R-01" ? ({ row: { id: "i1", item_code: "R-01" } as SearchRow, links: [], tags: {}, relations: { depends_on: [], depended_on_by: [], related_to: [] }, teams: [], files: [], github: null, activity: [] }) : null;
+    ref.toUpperCase() === "R-01" ? ({ row: { id: "i1", item_code: "R-01" } as SearchRow, links: opts.links ?? [], tags: {}, relations: { depends_on: [], depended_on_by: [], related_to: [] }, teams: [], files: [], github: null, activity: [] }) : null;
   const role = opts.role ?? "creator";
   const backend: McpBackend = {
     role,
@@ -226,6 +226,14 @@ describe("AI model on documents", () => {
     }
     expect(s.created).toHaveLength(0);
   });
+  it("list_documents also lists the links a person marked with a document kind, and nothing when there are none (issue #693)", async () => {
+    const none = await setup().call("list_documents", { item: "R-01" });
+    expect(none.data).not.toHaveProperty("linked_documents");
+    const s = setup({ links: [{ label: "Business case", url: "https://acme.atlassian.net/wiki/bc", kind: "business_case" }, { label: "Plain", url: "https://example.test/p" }] });
+    const l = await s.call("list_documents", { item: "R-01" });
+    expect(l.data.linked_documents).toEqual([{ kind: "business_case", label: "Business case", url: "https://acme.atlassian.net/wiki/bc" }]);
+  });
+
   it("get_document and list_documents show the tool and model", async () => {
     const s = setup({ docs: [doc({ body: "x", ai_tool: "chatgpt", ai_model: "GPT-5" })] });
     expect((await s.call("get_document", { document: "d1" })).data).toMatchObject({ ai_tool: "chatgpt", ai_model: "GPT-5" });

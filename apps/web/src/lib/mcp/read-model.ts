@@ -96,7 +96,7 @@ export type OutcomeReviewInfo = {
 export type OutcomeReviewsInfo = { item: string; name: string; start_rollout: string | null; kr_metric: string | null; kr_unit: string | null; reviews: OutcomeReviewInfo[] };
 export type ItemDetail = {
   row: SearchRow;
-  links: { label: string; url: string }[];
+  links: { label: string; url: string; kind?: string; shared?: false }[];
   tags: Record<string, string[]>;
   /** Related initiatives by code and name. */
   relations: { depends_on: { code: string; name: string }[]; depended_on_by: { code: string; name: string }[]; related_to: { code: string; name: string }[] };

@@ -439,3 +439,44 @@ describe("Value Type: the one value field Claude may set, only with the person's
     expect((await audit(id)).at(-1)).toMatchObject({ basis: expect.stringMatching(/undo/i), new: null });
   });
 });
+
+// Issue #693, slice A: a link can carry a document kind (the list of written documents); null means none.
+describe("link document kind", () => {
+  const kindOf = async (id: string) => (await db.admin.query("select name, doc_kind from public.item_attachments where kind = 'link' and item_id = $1 order by name", [id])).rows;
+
+  it("stores the kind a link is added with, and none when it is left out", async () => {
+    const id = createdId(await create(cora, [row("Kinds on links")]));
+    const r = await apply(cora, "update_items", [{ ops: [
+      { op: "list_add", item: id, field: "artifacts", value: { label: "Business case", url: "https://example.test/wiki/bc", kind: "business_case" } },
+      { op: "list_add", item: id, field: "artifacts", value: { label: "Plain", url: "https://example.test/plain" } },
+    ] }]);
+    expect(r.units[0]).toMatchObject({ ok: true });
+    expect(await kindOf(id)).toEqual([{ name: "Business case", doc_kind: "business_case" }, { name: "Plain", doc_kind: null }]);
+  });
+
+  it("refuses a kind that is not in the list, and saves nothing for that unit", async () => {
+    const id = createdId(await create(cora, [row("Bad kind")]));
+    const r = await apply(cora, "update_items", [{ ops: [{ op: "list_add", item: id, field: "artifacts", value: { label: "X", url: "https://example.test/x", kind: "diary" } }] }]);
+    expect(r.units[0]).toMatchObject({ ok: false });
+    expect(await kindOf(id)).toEqual([]);
+  });
+
+  it("puts a removed link back with its kind when the change is undone", async () => {
+    const id = createdId(await create(cora, [row("Undo kind")]));
+    await apply(cora, "update_items", [{ ops: [{ op: "list_add", item: id, field: "artifacts", value: { label: "GTM", url: "https://example.test/gtm", kind: "go_to_market" } }] }]);
+    await apply(cora, "update_items", [{ ops: [{ op: "list_remove", item: id, field: "artifacts", value: { label: "GTM", url: "https://example.test/gtm" } }] }]);
+    expect(await kindOf(id)).toEqual([]);
+    const u = await asClaude(cora, async (q) => (await q("select public.mcp_undo_last() as r")).rows[0]!.r as { undone: boolean; skipped: string[] });
+    expect(u).toMatchObject({ undone: true, skipped: [] });
+    expect(await kindOf(id)).toEqual([{ name: "GTM", doc_kind: "go_to_market" }]);
+  });
+
+  it("a person in another workspace cannot read or change the kind", async () => {
+    const id = createdId(await create(cora, [row("Isolated kind")]));
+    await apply(cora, "update_items", [{ ops: [{ op: "list_add", item: id, field: "artifacts", value: { label: "PRD", url: "https://example.test/p", kind: "prd" } }] }]);
+    expect((await db.asUser(f.bob, (q) => q("select doc_kind from public.item_attachments where item_id = $1", [id]))).rowCount).toBe(0);
+    const upd = await db.asUser(f.bob, (q) => q("update public.item_attachments set doc_kind = 'other' where item_id = $1", [id]), { commit: true });
+    expect(upd.rowCount).toBe(0);
+    expect(await kindOf(id)).toEqual([{ name: "PRD", doc_kind: "prd" }]);
+  });
+});

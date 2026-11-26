@@ -3,10 +3,15 @@
  * (item_tags, item_attachments (links), item_relations, item_teams); the panel edits each list as a whole and the data source
  * works out which rows to add and remove.
  */
+import { DOC_KINDS, type DocKind } from "./documents";
+
 export const RELATED_FIELDS = ["tags", "target_scope", "live_scope", "target_segments", "artifacts", "depends_on", "related_to", "contributing_teams", "assignees"] as const;
 export type RelatedField = (typeof RELATED_FIELDS)[number];
-/** `shared` is only written when it is false: a link is sent to the tracker issue unless the person said not to. */
-export type Link = { label: string; url: string; shared?: boolean };
+/**
+ * `shared` is only written when it is false: a link is sent to the tracker issue unless the person said not to.
+ * `kind` is the document kind of the page the link points to (the list of written documents), left out when the person gave none.
+ */
+export type Link = { label: string; url: string; shared?: boolean; kind?: DocKind };
 export type RelatedValues = {
   tags: string[]; target_scope: string[]; live_scope: string[]; target_segments: string[];
   artifacts: Link[]; depends_on: string[]; related_to: string[]; contributing_teams: string[];
@@ -33,7 +38,9 @@ export function cleanRelated(field: RelatedField, raw: readonly unknown[], ctx: 
         if (!/^https?:\/\//i.test(url)) return { ok: false, error: "A link must start with http:// or https://." };
         if (url.length > 2000) return { ok: false, error: "Keep a link under 2000 characters." };
         if (label.length > 200) return { ok: false, error: "Keep a link label under 200 characters." };
-        if (!out.some((o) => o.url === url && o.label === label)) out.push(l.shared === false ? { label, url, shared: false } : { label, url });
+        const kind = l.kind == null || (l.kind as string) === "" ? undefined : l.kind;
+        if (kind !== undefined && !(DOC_KINDS as readonly string[]).includes(kind)) return { ok: false, error: `A link kind must be one of: ${DOC_KINDS.join(", ")}.` };
+        if (!out.some((o) => o.url === url && o.label === label)) out.push({ label, url, ...(kind ? { kind } : {}), ...(l.shared === false ? { shared: false } : {}) });
       }
       return out.length > MAX_ENTRIES ? { ok: false, error: `At most ${MAX_ENTRIES} entries.` } : { ok: true, value: out };
     }
