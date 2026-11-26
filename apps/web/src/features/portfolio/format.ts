@@ -6,7 +6,7 @@ const whenWithTime = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "
 
 export type FormatCtx = {
   today: Date;
-  members: { user_id: string; email: string }[];
+  people: { id: string; name: string }[];
   projects: { id: string; name: string }[];
 };
 
@@ -17,7 +17,7 @@ export function formatField(f: FieldDef, v: unknown, ctx: FormatCtx): string {
     case "Currency": return formatValue(Number(v));
     case "Date": return formatDate(String(v), ctx.today);
     case "Boolean": return v ? "Yes" : "No";
-    case "Person": return ctx.members.find((m) => m.user_id === v)?.email ?? "unknown person";
+    case "Person": return ctx.people.find((m) => m.id === v)?.name ?? "unknown person";
     case "Number": case "Computed": case "System":
       if (typeof v === "boolean") return v ? "Yes" : "No";
       if (typeof v === "number") return f.key.endsWith("_pct") ? `${num.format(v)}%` : f.key.endsWith("_pp") ? `${num.format(v)} pp` : num.format(v);

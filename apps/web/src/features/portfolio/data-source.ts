@@ -1,6 +1,6 @@
 import type { ActivityRow, CrowdRow, RankDecision, EditableField, RelatedField, RelatedValues } from "@pv/domain";
 import type { NewItemValues } from "@pv/domain";
-import type { IssueTreeRow, JiraEpicRequestRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
+import type { IssueTreeRow, JiraEpicRequestRow, JiraTreeRow, LoadedItem, LookupPerson, TrashedItem } from "./types";
 
 export type SaveResult = { ok: true } | { ok: false; error: string; conflict?: boolean };
 /** What the database assigns to new items. */
@@ -16,6 +16,8 @@ export type RestoreResult = { ok: true; restored: { id: string; stack_rank: numb
 export interface PortfolioDataSource {
   /** All items of the workspace in global rank order (without project_rank). */
   loadItems(): Promise<LoadedItem[]>;
+  /** Name someone who is not a member (yet): they can then be Product Manager, Engineering Manager and so on. Nothing is sent to them. */
+  addPerson(name: string, email: string | null): Promise<{ ok: true; person: LookupPerson } | { ok: false; error: string }>;
   /**
    * Save one field. When `expected` is given (undo and redo) the save only
    * happens if the stored value still equals it, so nobody else's change is overwritten.

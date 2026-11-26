@@ -11,6 +11,7 @@ import { CopyDialog } from "./copy-dialog";
 import { AlignmentDialog } from "./alignment-dialog";
 import { GateActions } from "../gates/gate-actions";
 import type { GateSource } from "../gates/gate-source";
+import { personOptions } from "./people";
 
 type Props = {
   controller: PortfolioController;
@@ -35,7 +36,7 @@ const QUICK_FIELDS = ["health", "moscow", "horizon", "focus_area"] as const;
 /** The value control for a field: a list for selects, people, projects and yes/no, a text box for the rest. */
 function valueOptions(f: FieldDef, lookups: Lookups): { value: string; label: string }[] | null {
   if (f.key === "home_project") return lookups.projects.map((p) => ({ value: p.id, label: p.name }));
-  if (f.type === "Person") return lookups.members.map((m) => ({ value: m.user_id, label: m.email }));
+  if (f.type === "Person") return personOptions(lookups);
   const o = optionsFor(f.key);
   return o.length > 0 ? o : null;
 }

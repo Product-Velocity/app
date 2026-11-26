@@ -992,6 +992,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; background: var(--grey-3);
 .notice-error { background: #fdf0ef; border-color: #f0c4c0; }
 .status-text { font-weight: 500; }
 .status-requested { color: #8a5a00; }
+.status-not-invited { color: #5b6272; }
 .status-paused, .status-revoked { color: #5b6272; }
 .members-table .status-text + .bulk-link { margin-left: 8px; }
 
@@ -2169,3 +2170,9 @@ a.tool-btn { text-decoration: none; display: inline-flex; align-items: center; c
 .eg-sel { width: 28px; }
 .eg-actions { white-space: nowrap; display: flex; gap: 4px; }
 .eg-actions .btn { height: 24px; padding: 0 8px; font-size: 12px; }
+
+/* People named without an account (issue #691): the "Add someone" line under a person field in the item panel */
+.link-btn.person-add-toggle { background: none; border: 0; padding: 2px 0; font: inherit; font-size: 12px; color: var(--blue-text); cursor: pointer; text-align: left; }
+.person-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
+.person-add input { flex: 1 1 180px; min-width: 0; }
+.person-add .hint, .person-add .pf-error { flex-basis: 100%; margin: 0; font-size: 12px; }

@@ -8,6 +8,7 @@ import { NoResults, SearchInput, SelectField } from "@/components/search-list";
 import { DateInput } from "@/components/date-input";
 import { Popover } from "./popover";
 import type { Lookups } from "./types";
+import { personName, personOptions } from "./people";
 
 // ------------------------------------------------------------------ filters
 export function valueControl(f: Filter, lookups: Lookups, today: Date, patch: (p: Partial<Filter>) => void, quarters: Iterable<unknown> = [], openValues?: (key: string) => string[]) {
@@ -17,7 +18,7 @@ export function valueControl(f: Filter, lookups: Lookups, today: Date, patch: (p
   const label = `Value for ${def.name}`;
   let options: { value: string; label: string }[] | null = null;
   if (def.key === "home_project") options = lookups.projects.map((p) => ({ value: p.id, label: p.name }));
-  else if (def.type === "Person") options = [{ value: "me", label: "me" }, ...lookups.members.map((m) => ({ value: m.user_id, label: m.email }))];
+  else if (def.type === "Person") options = [{ value: "me", label: "me" }, ...personOptions(lookups)];
   else if (def.type === "Boolean") options = [{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }];
   else if (def.type === "Select" && def.allowed.length > 0) options = optionsFor(def.key, quarters);
   else if (isOpenList(def.key)) options = (openValues?.(def.key) ?? []).map((v) => ({ value: v, label: v })); // the values in use (Focus Area, Audience)
@@ -43,7 +44,7 @@ export function valueControl(f: Filter, lookups: Lookups, today: Date, patch: (p
 /** Words for a chip row or the palette. */
 export const summarize = (f: Filter, lookups: Lookups) =>
   filterSummary(f, {
-    person: (id) => (id === "me" ? "me" : lookups.members.find((m) => m.user_id === id)?.email ?? id),
+    person: (id) => (id === "me" ? "me" : personName(lookups, id, id)),
     project: (id) => lookups.projects.find((p) => p.id === id)?.name ?? id,
   });
 

@@ -23,6 +23,7 @@ import { AlignmentTab } from "./alignment-tab";
 import { StatusPill } from "@/components/status-pill";
 import { toneFor } from "@/components/status-tone";
 import { PANEL_WIDTH_DEFAULT, PANEL_WIDTH_MIN, clampPanelWidth } from "@/lib/user-prefs";
+import { peopleOf } from "./people";
 
 type Tab = "overview" | "spec" | "github" | "alignment" | "activity";
 const tabsFor = (tracker: "GitHub" | "Jira"): { id: Tab; label: string }[] => [
@@ -270,7 +271,7 @@ function Overview({ ctx, itemId }: { ctx: FieldCtx; itemId: string }) {
 function HealthBlock({ ctx, itemId }: { ctx: FieldCtx; itemId: string }) {
   const row = ctx.controller.row(itemId)!;
   const f = FIELD_BY_KEY.health!;
-  const reviewed = row.last_reviewed_at ? formatField(FIELD_BY_KEY.last_reviewed_at!, row.last_reviewed_at, { today: ctx.controller.todayDate(), members: ctx.lookups.members, projects: ctx.lookups.projects }) : null;
+  const reviewed = row.last_reviewed_at ? formatField(FIELD_BY_KEY.last_reviewed_at!, row.last_reviewed_at, { today: ctx.controller.todayDate(), people: peopleOf(ctx.lookups), projects: ctx.lookups.projects }) : null;
   const today = ctx.controller.todayDate().toISOString().slice(0, 10);
   return (
     <section className="ip-health" aria-label="Health">
@@ -511,7 +512,7 @@ function ActivityTab({ controller, lookups, itemId, me }: { controller: Portfoli
   const fmt = (e: ActivityEvent, v: unknown) => {
     const f = FIELD_BY_KEY[e.field];
     if (v === null || v === undefined || v === "") return "empty";
-    return f ? formatField(f, v, { today: controller.todayDate(), members: lookups.members, projects: lookups.projects }) || String(v) : String(v);
+    return f ? formatField(f, v, { today: controller.todayDate(), people: peopleOf(lookups), projects: lookups.projects }) || String(v) : String(v);
   };
   if (error) return <p role="alert" className="pf-error">Could not load the activity: {error}</p>;
   if (!rows) return <p role="status" className="muted">Loading the activity…</p>;

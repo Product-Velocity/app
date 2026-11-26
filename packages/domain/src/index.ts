@@ -66,3 +66,4 @@ export * from "./notifications";
 export * from "./rank-suggestion";
 export * from "./stage-check";
 export * from "./tracker-status";
+export * from "./people";

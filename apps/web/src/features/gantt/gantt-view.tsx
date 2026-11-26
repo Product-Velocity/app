@@ -21,6 +21,7 @@ import { setQueryParam, useScope } from "../workspace/scope";
 import { StatusPill } from "../../components/status-pill";
 import { downloadPng, printPicture, renderGantt, type ExportLine } from "./gantt-export";
 import { PageHeader } from "@/components/page-header";
+import { personName } from "../portfolio/people";
 
 const LABEL_DEFAULT = 320, LABEL_MIN = 220, LABEL_MAX = 560;
 const HEAD_H = 62;
@@ -114,10 +115,10 @@ export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
   const changeGantt = (patch: Partial<GanttSettings>) => setShared((p) => ({ ...p, gantt: { ...p.gantt, ...patch } }));
 
   const rows = useMemo<GridItem[]>(
-    () => controller.rows.filter((r) => (scope.projectIds === null || scope.projectIds.includes(r.home_project)) && matchesSearch(r, search, (id) => lookups.members.find((m) => m.user_id === id)?.email ?? "") && matchesFilters(r, filters, { me, today: controller.todayDate() })),
+    () => controller.rows.filter((r) => (scope.projectIds === null || scope.projectIds.includes(r.home_project)) && matchesSearch(r, search, (id) => personName(lookups, id, "")) && matchesFilters(r, filters, { me: controller.mePerson(me), today: controller.todayDate() })),
     // the controller changes its rows in place; the version says when
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [controller, status.version, scope.projectIds, search, filters, me, lookups.members],
+    [controller, status.version, scope.projectIds, search, filters, me, lookups.members, lookups.people],
   );
   const todayN = dayNumber(controller.todayDate());
   const today = useMemo(() => new Date(todayN * 86_400_000), [todayN]);
@@ -383,7 +384,7 @@ export function GanttView({ controller, lookups, me, pageHref }: GanttProps) {
     if (group) { const d = live(bar).startDay - bar.startDay; return `${group.length} items ${d === 0 ? "not moved" : `${daysText(Math.abs(d))} ${d > 0 ? "later" : "earlier"}`}`; }
     return summarizeChange(bar, live(bar), today);
   };
-  const memberName = (id: unknown) => { const e = lookups.members.find((m) => m.user_id === id)?.email; return e ? e.split("@")[0]! : ""; };
+  const memberName = (id: unknown) => { const e = personName(lookups, id, ""); return e ? e.split("@")[0]! : ""; };
 
   const showCard = (row: GridItem, el: HTMLElement, at?: { x: number }) => {
     const r = el.getBoundingClientRect();

@@ -13,6 +13,7 @@ import { BuildTime } from "./build-time-chart";
 import { TimeToMarket } from "./ttm-charts";
 import { StatusPill } from "../../components/status-pill";
 import { statusTone } from "../../components/status-tone";
+import { peopleOf } from "../portfolio/people";
 
 const SHOWN = 200;
 const FIELD_OF = (key: string) => FIELD_BY_KEY[key]!;
@@ -28,7 +29,7 @@ export function OverviewReport({ env, setState, onOpen }: { env: ReportEnv; setS
   const teamHealth = useMemo(() => stackCounts(rows, "team", "health", ctx), [rows, ctx]);
 
   const fields = REPORT_GRID_COLUMNS.map(FIELD_OF);
-  const fmt = (f: (typeof fields)[number], r: GridItem) => formatField(f, r[f.key], { today: controller.todayDate(), members: lookups.members, projects: lookups.projects });
+  const fmt = (f: (typeof fields)[number], r: GridItem) => formatField(f, r[f.key], { today: controller.todayDate(), people: peopleOf(lookups), projects: lookups.projects });
   const multiTeam = rows.some((r) => typeof r.contributing_teams === "string" && r.contributing_teams.includes(","));
 
   return (

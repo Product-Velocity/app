@@ -54,6 +54,20 @@ describe.each(OUTBOUND_PROVIDERS)("outbound $name payloads", ({ wire }) => {
   });
 });
 
+// Issue #691: people named without an account hold a name and an email in the directory. The person fields of an item are ids of that
+// directory; no payload may carry the field, and the directory itself never reaches a payload builder.
+describe.each(OUTBOUND_PROVIDERS)("outbound $name payloads and people named without an account", ({ wire }) => {
+  it("reads no person field at all, and an address typed for a person never appears in a payload", async () => {
+    const people = FIELDS.filter((f) => f.type === "Person").map((f) => f.key);
+    expect(people).toEqual(expect.arrayContaining(["product_manager", "engineering_manager", "designer", "analyst", "business_manager"]));
+    for (const k of people) expect(allowed.has(k), `${k} is a person field and must not be read for a payload`).toBe(false);
+    const item = { ...fullItem(), product_manager: "jane.doe@leak.example", engineering_manager: "Jane Doe <jane.doe@leak.example>" };
+    const w = await wire(item, []);
+    expect(w).not.toContain("jane.doe@leak.example");
+    expect(w).not.toContain("Jane Doe");
+  });
+});
+
 describe("outbound GitHub payloads", () => {
   it("covers the whole field dictionary", () => {
     expect(FIELDS.length).toBeGreaterThanOrEqual(165);

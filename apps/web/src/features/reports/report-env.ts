@@ -6,6 +6,7 @@ import {
 } from "@pv/domain";
 import type { PortfolioController } from "../portfolio/controller";
 import type { GridItem, Lookups } from "../portfolio/types";
+import { peopleOf, personName } from "../portfolio/people";
 
 /** The reports of the Reports tab, in the order of the list; the first one opens by default. */
 export const REPORTS = [
@@ -50,22 +51,22 @@ export function useReportEnv(controller: PortfolioController, lookups: Lookups, 
 
   const label = useCallback((dim: ReportDim, key: string) => {
     if (key === UNSET) return unsetLabel(dim);
-    if (dim === "product_manager" || dim === "engineering_manager") return lookups.members.find((m) => m.user_id === key)?.email ?? "unknown person";
+    if (dim === "product_manager" || dim === "engineering_manager") return personName(lookups, key);
     return key;
-  }, [lookups.members]);
+  }, [lookups]);
 
   /** The choices of a bar filter: what the field allows plus every value in use, "not set" last. */
   const choices = useCallback((dim: ReportDim): string[] => {
     const inUse = new Set<string>();
     for (const r of inScope) { const v = r[DIM_FIELD[dim]]; if (typeof v === "string" && v) (dim === "team" ? v.split(/,\s*/) : [v]).forEach((x) => inUse.add(x)); }
     let list: string[];
-    if (dim === "product_manager" || dim === "engineering_manager") list = lookups.members.map((m) => m.user_id);
+    if (dim === "product_manager" || dim === "engineering_manager") list = peopleOf(lookups).map((m) => m.id);
     else if (dim === "team") list = teamNames;
     else if (dim === "group") list = lookups.groups ?? [];
     else if (dim === "quarter") list = quarterChoices(inUse);
     else list = optionsFor(DIM_FIELD[dim]).map((o) => o.value);
     return [...new Set([...list, ...inUse].filter((v) => dim !== "team" || teamNames.includes(v)))].concat(UNSET).sort((a, b) => (dim === "quarter" || dim === "product_manager" || dim === "engineering_manager" ? 0 : compareValues(dim, a, b)));
-  }, [inScope, lookups.members, lookups.groups, teamNames]);
+  }, [inScope, lookups, teamNames]);
 
   const setFilter = useCallback((dim: ReportDim, values: string[]) => setState((s) => ({ ...s, filters: { ...s.filters, [dim]: values } })), [setState]);
   /** A click on a chart: if everything picked is already a pill, remove those pills; else add the missing ones. */

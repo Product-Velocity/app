@@ -14,6 +14,7 @@ import { LinksList } from "./links-list";
 import { initiativeListText } from "./jira-epics-model";
 import { MarkdownPreview } from "./markdown-preview";
 import type { GridItem, Lookups } from "./types";
+import { peopleOf, personOptions } from "./people";
 
 export type FieldCtx = { controller: PortfolioController; lookups: Lookups };
 
@@ -67,7 +68,7 @@ function badge(f: FieldDef, p: PanelField): ReactNode {
 type Common = { id: string; f: FieldDef; row: GridItem; ctx: FieldCtx; disabled: boolean; onError: (e: string | null) => void };
 
 function ReadOnlyValue({ f, row, ctx, later }: { f: FieldDef; row: GridItem; ctx: FieldCtx; later: boolean }) {
-  const text = formatField(f, row[f.key], { today: ctx.controller.todayDate(), members: ctx.lookups.members, projects: ctx.lookups.projects });
+  const text = formatField(f, row[f.key], { today: ctx.controller.todayDate(), people: peopleOf(ctx.lookups), projects: ctx.lookups.projects });
   if (later) return <span className="pf-value muted">Not available yet</span>;
   return <span className="pf-value">{text || <span className="muted">{emptyTrackerText(f.key, rowTracker(ctx.lookups, row)) ?? "Not set"}</span>}</span>;
 }
@@ -106,7 +107,7 @@ function MarkdownControl({ text, limit, label, rows, ...shared }: { text: string
 }
 
 function TextControl({ id, f, row, ctx, disabled, onError, kind }: Common & { kind: "text" | "longtext" | "number" | "currency" | "date" }) {
-  const stored = formatField(f, row[f.key], { today: ctx.controller.todayDate(), members: ctx.lookups.members, projects: ctx.lookups.projects });
+  const stored = formatField(f, row[f.key], { today: ctx.controller.todayDate(), people: peopleOf(ctx.lookups), projects: ctx.lookups.projects });
   const raw = kind === "number" || kind === "text" || kind === "longtext" ? (row[f.key] == null ? "" : String(row[f.key])) : stored;
   const [draft, setDraft] = useState<string | null>(null);
   const commit = (text: string) => {
@@ -140,7 +141,7 @@ function TextControl({ id, f, row, ctx, disabled, onError, kind }: Common & { ki
 
 function SelectControl({ id, f, row, ctx, disabled, onError, kind }: Common & { kind: "select" | "boolean" | "person" | "project" }) {
   const options =
-    kind === "person" ? ctx.lookups.members.map((m) => ({ value: m.user_id, label: m.email }))
+    kind === "person" ? personOptions(ctx.lookups)
     : kind === "project" ? ctx.lookups.projects.map((p) => ({ value: p.id, label: p.name }))
     : optionsFor(f.key);
   const current = kind === "boolean" ? (row[f.key] == null ? "" : row[f.key] ? "Yes" : "No") : row[f.key] == null ? "" : String(row[f.key]);
@@ -148,10 +149,50 @@ function SelectControl({ id, f, row, ctx, disabled, onError, kind }: Common & { 
   const blank = empty ? (kind === "person" ? "Unassigned" : "Not set") : current === "" ? "Choose…" : undefined;
   const all = current !== "" && !options.some((o) => o.value === current) ? [...options, { value: current, label: current }] : options;
   return (
-    <SelectField
-      id={id} label={f.name} value={current} disabled={disabled} options={all} {...(blank !== undefined ? { blank } : {})}
-      onChange={(v) => { const r = ctx.controller.edit(row.id, f.key, v); onError(r.ok ? null : r.error); }}
-    />
+    <>
+      <SelectField
+        id={id} label={f.name} value={current} disabled={disabled} options={all} {...(blank !== undefined ? { blank } : {})}
+        onChange={(v) => { const r = ctx.controller.edit(row.id, f.key, v); onError(r.ok ? null : r.error); }}
+      />
+      {kind === "person" && !disabled && <AddPersonInline id={id} field={f.name} onAdd={async (text) => {
+        const r = await ctx.controller.addPerson(text);
+        if (!r.ok) return r.error;
+        const e = ctx.controller.edit(row.id, f.key, r.person.id);
+        onError(e.ok ? null : e.error);
+        return null;
+      }} />}
+    </>
+  );
+}
+
+/** "Someone who is not a member yet": type a name (and an address if you have one) to put them on the list and on this field. Nothing is sent to them. */
+function AddPersonInline({ id, field, onAdd }: { id: string; field: string; onAdd: (text: string) => Promise<string | null> }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!open) return <button type="button" className="link-btn person-add-toggle" onClick={() => setOpen(true)}>Not on the list? Add someone</button>;
+  const submit = async () => {
+    if (text.trim() === "" || busy) return;
+    setBusy(true);
+    const err = await onAdd(text);
+    setBusy(false);
+    setError(err);
+    if (!err) { setText(""); setOpen(false); }
+  };
+  return (
+    <div className="person-add">
+      <label htmlFor={`${id}-new`} className="visually-hidden">Add someone to {field}</label>
+      <input
+        id={`${id}-new`} type="text" value={text} autoComplete="off" maxLength={200} disabled={busy}
+        placeholder="Name, or Name <email>"
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void submit(); } else if (e.key === "Escape") { setOpen(false); setError(null); } }}
+      />
+      <button type="button" className="btn" disabled={busy || text.trim() === ""} onClick={() => void submit()}>{busy ? "Adding…" : "Add"}</button>
+      <p className="hint">Added as “not invited”: nothing is sent to them. Invite them later in Members.</p>
+      {error && <p role="alert" className="pf-error">{error}</p>}
+    </div>
   );
 }
 
