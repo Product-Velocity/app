@@ -5,8 +5,15 @@ export const API_BASE = "https://api.atlassian.com";
 
 /** Smallest list that lets the spike read and write issues; `offline_access` is what returns a refresh token. */
 export const JIRA_SCOPES = ["read:jira-work", "read:jira-user", "write:jira-work", "offline_access"];
-/** Added only when the person asks to test Confluence publishing (#258). Names to be confirmed against a real site. */
-export const CONFLUENCE_SCOPES = ["write:confluence-content", "read:confluence-space.summary", "read:confluence-content.summary"];
+/**
+ * The permissions of the Confluence connection (issue #693), which is its own sign-in, separate from Jira's. Confluence's current interface (v2, the only one
+ * left after the removal of v1) is meant to be used with these granular permissions: read spaces, read pages (their text and version), write pages.
+ * `offline_access` is what returns a refresh token. The Atlassian app in the developer console must have the Confluence API configured with exactly these,
+ * or the consent screen refuses the sign-in (docs/14).
+ */
+export const CONFLUENCE_SCOPES = ["read:space:confluence", "read:page:confluence", "write:page:confluence", "offline_access"];
+/** What a Confluence connection must have been granted to publish and to read pages (offline_access is not listed by Atlassian in the granted scopes). */
+export const CONFLUENCE_REQUIRED = ["read:space:confluence", "read:page:confluence", "write:page:confluence"];
 
 /** Added to the sign-in only when webhooks are switched on (JIRA_WEBHOOKS=1): lets the daily check register webhooks for automated status updates (spike J3). */
 export const WEBHOOK_SCOPES = ["manage:jira-webhook"];

@@ -5,7 +5,7 @@ import type { ConfluenceView } from "@/lib/documents";
 
 type Space = { key: string; name: string; type: string };
 type Request = { mode: "once" | "sync"; spaceKey: string | null; parentUrl: string | null; title: string | null; note: string | null; requestedBy: "Claude" | "a person"; aiModel: string | null };
-type Status = { request?: Request | null; canPublish: boolean; available: boolean; site: { name: string; url: string } | null; last: (ConfluenceView & { pageUrl: string }) | null; spaces?: Space[]; error?: string };
+type Status = { missingScopes?: string[]; request?: Request | null; canPublish: boolean; available: boolean; site: { name: string; url: string } | null; last: (ConfluenceView & { pageUrl: string }) | null; spaces?: Space[]; error?: string };
 type Warning = { kind: string; what: string };
 type Preview = {
   action: "create" | "update" | "none" | "conflict" | "gone"; why: string; mode: "once" | "sync"; title: string; spaceKey: string;
@@ -87,7 +87,7 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
         {loadError && <p role="alert" className="error">{loadError}</p>}
         {!status && !loadError && <p role="status">Checking Confluence…</p>}
         {status && !status.available && (
-          <p role="alert" className="notice">Confluence is not connected for this workspace. A workspace admin can add it under Settings, Integrations, Jira (“Add Confluence”). Nothing can be published until then.</p>
+          <p role="alert" className="notice">Confluence is not connected for this workspace. A workspace admin can connect it under Settings, Integrations, Confluence. Nothing can be published until then.</p>
         )}
         {status && status.available && !status.canPublish && <p role="alert" className="notice">Only a Creator or Admin can publish a document to Confluence.</p>}
 
@@ -102,6 +102,7 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
         {status && status.available && status.canPublish && !done && (
           <>
             <p className="muted">Site: {status.site?.name}. Product Velocity writes the page only after you confirm a preview, and the page says it is managed in Product Velocity. <strong>Page permissions are not managed here</strong>: anyone who can see the space can read the page.</p>
+            {(status.missingScopes?.length ?? 0) > 0 && <p role="alert" className="notice">The Confluence connection is missing permissions ({status.missingScopes!.join(", ")}). An admin can check and Reconnect under Settings, Integrations, Confluence.</p>}
             {status.error && <p role="alert" className="notice">{status.error}</p>}
             {status.request && (
               <div role="status" className="notice">

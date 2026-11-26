@@ -119,14 +119,15 @@ describe("update a page", () => {
 
 describe("refusals, retries and the sign-in", () => {
   it("a 403 says the sign-in may lack Confluence permission and how to add it", () => {
-    expect(failure(403, { errors: [{ title: "Forbidden", detail: "No permission" }] }, true)).toMatchObject({ kind: "forbidden", message: expect.stringMatching(/Settings, Integrations, Jira.*Forbidden: No permission.*Nothing was written/) });
+    expect(failure(403, { errors: [{ title: "Forbidden", detail: "No permission" }] }, true)).toMatchObject({ kind: "forbidden", message: expect.stringMatching(/Settings, Integrations, Confluence.*Forbidden: No permission.*Nothing was written/) });
   });
-  it("a 401 asks for a new sign-in; a failed transport is 'could not be reached'", async () => {
-    expect(failure(401, null, false)).toMatchObject({ kind: "reconnect" });
+  it("a 401 shows Atlassian's own reason and says which permission to check (it is usually a missing permission, not an expired sign-in); a refused token refresh is the 'sign in again' case", async () => {
+    expect(failure(401, { message: "Unauthorized; scope does not match" }, false)).toMatchObject({ kind: "forbidden", message: expect.stringMatching(/Atlassian says: Unauthorized; scope does not match\..*Settings, Integrations, Confluence.*Reconnect/) });
+    expect(failure(401, null, true).message).toContain("Nothing was written");
     const boom: ConfluenceRequest = async () => { throw new Error("network down"); };
     expect(await listSpaces(boom, nosleep)).toMatchObject({ ok: false, kind: "unavailable" });
     const reconnect: ConfluenceRequest = async () => { throw new ReconnectNeeded(); };
-    expect(await createPage(reconnect, { spaceId: "7", parentId: null, title: "T", body: "" }, null, nosleep)).toMatchObject({ ok: false, kind: "reconnect" });
+    expect(await createPage(reconnect, { spaceId: "7", parentId: null, title: "T", body: "" }, null, nosleep)).toMatchObject({ ok: false, kind: "reconnect", message: expect.stringContaining("Settings, Integrations, Confluence") });
   });
   it("a 429 is retried with the pause Confluence asks for, then succeeds", async () => {
     const sleep = vi.fn(async () => {});

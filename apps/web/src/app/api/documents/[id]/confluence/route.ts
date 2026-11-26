@@ -76,7 +76,7 @@ export async function GET(request: Request, { params }: Ctx): Promise<NextRespon
   const site = await confluenceSiteFor(c.doc.tenant_id);
   const last = await lastPublication(c.supabase, id);
   const { data: req } = await c.supabase.from("item_document_publish_requests").select(REQ_COLS).eq("document_id", id).maybeSingle();
-  const base = { request: req ? toRequest(req as ReqRow) : null, canPublish: c.canPublish, available: Boolean(site), site: site ? { name: site.siteName, url: site.siteUrl } : null, last: last ? toView(last, c.doc.version) : null };
+  const base = { request: req ? toRequest(req as ReqRow) : null, canPublish: c.canPublish, available: Boolean(site), missingScopes: site?.missingScopes ?? [], site: site ? { name: site.siteName, url: site.siteUrl } : null, last: last ? toView(last, c.doc.version) : null };
   if (!site || new URL(request.url).searchParams.get("spaces") !== "1") return json(base);
   if (!c.canPublish) return json({ ...base, spaces: [] });
   const r = await listSpaces(confluenceRequest(site.connectionId, site.siteId));
@@ -109,7 +109,7 @@ export async function POST(request: Request, { params }: Ctx): Promise<NextRespo
   }
 
   const site: ConfluenceSite | null = await confluenceSiteFor(c.doc.tenant_id);
-  if (!site) return json({ error: "Confluence is not connected for this workspace. An admin can add it in Settings, Integrations, Jira.", kind: "not_connected" }, 409);
+  if (!site) return json({ error: "Confluence is not connected for this workspace. An admin can connect it in Settings, Integrations, Confluence.", kind: "not_connected" }, 409);
   if (b.mode !== "once" && b.mode !== "sync") return json({ error: "Choose once or keep in sync." }, 400);
 
   const { data: item } = await c.supabase.from("items").select("item_code").eq("id", c.doc.item_id).maybeSingle();

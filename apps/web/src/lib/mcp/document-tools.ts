@@ -33,7 +33,7 @@ const requestInput = (a: Record<string, unknown>): Record<string, unknown> => {
 const PUBLISH_PROPS_OBJECT = { type: "object", properties: PUBLISH_PROPS, additionalProperties: false } as const;
 const PUBLISH_NOTES = [
   "Nothing was sent to Confluence. A person opens the document's menu on the Spec tab, chooses Publish to Confluence, reviews the preview and confirms. Tell them where to find it.",
-  "If Confluence is not connected yet, a workspace admin adds it under Settings, Integrations, Jira (Add Confluence).",
+  "If Confluence is not connected yet, a workspace admin connects it under Settings, Integrations, Confluence.",
 ];
 const requestView = (r: { mode: string; spaceKey: string | null; parentUrl: string | null; title: string | null; note: string | null }) => ({ mode: r.mode, space_key: r.spaceKey, parent_url: r.parentUrl, title: r.title, note: r.note });
 
