@@ -26,6 +26,7 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
   const [status, setStatus] = useState<Status | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [space, setSpace] = useState("");
+  const [spaceFilter, setSpaceFilter] = useState("");
   const [parentUrl, setParentUrl] = useState("");
   const [title, setTitle] = useState(doc.title);
   const [mode, setMode] = useState<"sync" | "once">("sync");
@@ -116,9 +117,12 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
             ) : (
               <>
                 <label className="dialog-label" htmlFor={`${titleId}-s`}>Space</label>
+                {(status.spaces ?? []).length > 10 && (
+                  <input type="search" aria-label="Filter the spaces" placeholder={`Filter ${(status.spaces ?? []).length} spaces by name or key`} value={spaceFilter} onChange={(e) => setSpaceFilter(e.target.value)} />
+                )}
                 <select id={`${titleId}-s`} ref={firstRef} value={space} onChange={(e) => { setSpace(e.target.value); setPreview(null); }}>
                   {(status.spaces ?? []).length === 0 && <option value="">No spaces found</option>}
-                  {(status.spaces ?? []).map((s) => <option key={s.key} value={s.key}>{s.name} ({s.key})</option>)}
+                  {(status.spaces ?? []).filter((s) => s.key === space || `${s.name} ${s.key}`.toLowerCase().includes(spaceFilter.trim().toLowerCase())).map((s) => <option key={s.key} value={s.key}>{s.name} ({s.key})</option>)}
                 </select>
                 <label className="dialog-label" htmlFor={`${titleId}-p`}>Parent page (optional)</label>
                 <input id={`${titleId}-p`} type="url" placeholder="Paste the address of the page it goes under" value={parentUrl} onChange={(e) => { setParentUrl(e.target.value); setPreview(null); }} />
