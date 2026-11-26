@@ -164,21 +164,25 @@ export async function autoLinkEpics(ctx: Ctx, l: Loaded, deps: { call?: JiraRequ
 }
 
 /** The check on a read-only project: whether each listed epic can be read as an epic (reads Jira only, writes nothing). */
-async function checkReadOnlyEpics(l: Loaded, call?: JiraRequest): Promise<{ key: string; text: string; ok: boolean }[]> {
+async function checkReadOnlyEpics(l: Loaded, call?: JiraRequest): Promise<EpicCheck> {
   const requests = l.epicRequests ?? [];
-  if (!l.conn || l.conn.state !== "connected" || !l.siteUrl || requests.length === 0) return [];
+  if (requests.length === 0) return { ok: true, lines: [] };
+  // said, never an empty answer: an empty list would leave every row at "Not checked yet" with no reason
+  if (!l.conn || l.conn.state !== "connected") return { ok: false, error: l.conn?.state === "reconnect_needed" ? RECONNECT : "Jira is not connected for this workspace." };
+  if (!l.siteUrl) return { ok: false, error: "The Jira site of this project could not be found. A workspace admin can check the connection under Settings > Integrations > Jira." };
   try {
     const req = call ?? jiraRequest(l.conn.id, l.link?.site_id ?? l.plink!.site_id);
     const read = await readIssuesByKey((p) => getJson<SearchPage>(req, p), requests.map((r) => r.key), l.siteUrl);
     const rows = new Map(read.rows.map((r) => [r.key, r]));
-    return requests.map((r) => {
+    const lines = requests.map((r) => {
       const row = rows.get(r.key);
       if (!row) return { key: r.key, ok: false, text: `Jira does not return ${r.key}: it does not exist or this sign-in cannot see it.` };
       if (row.level !== 1) return { key: r.key, ok: false, text: `${r.key} is ${row.type ? `a ${row.type}` : "not an epic"}, not an epic: only epics can be listed.` };
       return { key: r.key, ok: true, text: `${r.key}${row.title ? ` ${row.title}` : ""}: read at the next Sync (read only, nothing is written to Jira).` };
     });
+    return { ok: true, lines };
   } catch {
-    return requests.map((r) => ({ key: r.key, ok: false, text: `${r.key}: Jira could not be read just now. Try again in a minute.` }));
+    return { ok: true, lines: requests.map((r) => ({ key: r.key, ok: false, text: `${r.key}: Jira could not be read just now. Try again in a minute.` })) };
   }
 }
 
@@ -190,7 +194,7 @@ export async function checkEpics(ctx: Ctx, id: string, deps: { call?: JiraReques
   if (!l) return { ok: false, error: "This initiative was not found." };
   if (deps.keys && l.epicRequests) { const only = new Set(deps.keys); l.epicRequests = l.epicRequests.filter((r) => only.has(r.key)); }
   if (!l.epicRequests?.length) return { ok: true, lines: [] };
-  if (l.plink?.read_only) return { ok: true, lines: await checkReadOnlyEpics(l, deps.call) };
+  if (l.plink?.read_only) return checkReadOnlyEpics(l, deps.call);
   if (l.link?.mode === "follow") return { ok: false, error: "This initiative follows its Jira issue read-only: take ownership first." };
   if (!l.plink && !l.link) return { ok: false, error: "This initiative's project is not linked to a Jira project." };
   if (!l.conn || l.conn.state !== "connected" || !l.siteUrl) return { ok: false, error: l.conn?.state === "reconnect_needed" ? RECONNECT : "Jira is not connected for this workspace." };
