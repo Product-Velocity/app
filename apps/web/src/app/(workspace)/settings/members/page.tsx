@@ -61,7 +61,8 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
         Everyone who is, was or asked to be part of {active.tenantName}, in one table. Roles control what people can do. Approver is a
         separate permission: only Approvers can mark work &ldquo;Ready for build&rdquo;. Claude can never be an Approver. People who sign up
         with an address at an authorized domain appear as Requested Access and get no access until you set them to Active.
-        {isAdmin && " Select rows to change several at once."}
+        {isAdmin && " Select rows to change several at once."}{" "}
+        <a href="/help/people-and-access" target="_blank" rel="noopener">What do the roles and statuses mean?</a>
       </p>
       <MembersGrid
         rows={rows}
