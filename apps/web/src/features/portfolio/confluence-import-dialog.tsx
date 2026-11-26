@@ -34,6 +34,7 @@ export function ConfluenceImportDialog({ mode, itemId, doc, prefill, onClose, on
   const [pageUrl, setPageUrl] = useState(prefill?.pageUrl ?? "");
   const [kind, setKind] = useState<DocKind>(prefill?.kind ?? "other");
   const [after, setAfter] = useState<"sync" | "once">("sync");
+  const [twoWay, setTwoWay] = useState(false); // with "keep in sync": also write the document back to the page (issue #714)
   const [title, setTitle] = useState("");
   const [imp, setImp] = useState<ImportPreview | null>(null);
   const [ref, setRef] = useState<RefreshPreview | null>(null);
@@ -64,7 +65,7 @@ export function ConfluenceImportDialog({ mode, itemId, doc, prefill, onClose, on
     } catch { setError("Product Velocity could not be reached. Nothing was changed."); return null; } finally { setBusy(false); }
   };
   const docUrl = doc ? `/api/documents/${doc.id}/confluence` : "";
-  const importBody = (extra: Record<string, unknown> = {}) => ({ item: itemId, pageUrl: pageUrl.trim(), kind, mode: after, ...(title.trim() ? { title: title.trim() } : {}), ...extra });
+  const importBody = (extra: Record<string, unknown> = {}) => ({ item: itemId, pageUrl: pageUrl.trim(), kind, mode: after, ...(after === "sync" ? { direction: twoWay ? "both" : "from_confluence" } : {}), ...(title.trim() ? { title: title.trim() } : {}), ...extra });
 
   useEffect(() => { firstRef.current?.focus(); }, []);
   // a refresh starts by reading the page: the person only decides after seeing what changed
@@ -128,7 +129,8 @@ export function ConfluenceImportDialog({ mode, itemId, doc, prefill, onClose, on
                 <input id={`${titleId}-t`} type="text" maxLength={200} value={title} onChange={(e) => { setTitle(e.target.value); setImp(null); }} />
                 <fieldset className="dialog-row" style={{ border: 0, padding: 0 }}>
                   <legend className="dialog-label">After copying</legend>
-                  <label><input type="radio" name={`${titleId}-m`} checked={after === "sync"} onChange={() => { setAfter("sync"); setImp(null); }} /> Keep in sync: you can check the page for changes and update the document from it</label>
+                  <label><input type="radio" name={`${titleId}-m`} checked={after === "sync" && !twoWay} onChange={() => { setAfter("sync"); setTwoWay(false); setImp(null); }} /> Keep up to date from Confluence: you can check the page for changes and update the document from it (the page is never written)</label>
+                  <label><input type="radio" name={`${titleId}-m`} checked={after === "sync" && twoWay} onChange={() => { setAfter("sync"); setTwoWay(true); setImp(null); }} /> Both ways: also write changes made here back to the page (you confirm each time; a change on both sides is yours to settle)</label>
                   <label><input type="radio" name={`${titleId}-m`} checked={after === "once"} onChange={() => { setAfter("once"); setImp(null); }} /> Once: copy the text now, then let go of the page</label>
                 </fieldset>
               </>

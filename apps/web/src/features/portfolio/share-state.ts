@@ -53,3 +53,13 @@ export function trackerShareOf(lookups: Lookups, itemId: string, projectId: stri
   const l = lookups.github?.links[itemId];
   return { tracker, linked: Boolean(l && l.number != null), writes: l?.mode !== "follow", sentAt: l?.lastPushedAt ?? null };
 }
+
+/** The line under a document that lives on Confluence: the page, which way it is kept up to date, its version and when (issue #714). */
+export function confluenceLine(c: { source: "pv" | "external"; direction: "from_confluence" | "to_confluence" | "both"; linked: boolean; pageTitle: string; spaceKey: string; publishedVersion: number; publishedAt?: string | null; outOfDate: boolean }, when: (iso: string) => string = whenLabel): string {
+  const page = `“${c.pageTitle || "page"}” (space ${c.spaceKey})`;
+  const at = (verb: string) => (c.publishedAt ? ` · ${verb} ${when(c.publishedAt)}` : "");
+  if (!c.linked) return c.source === "external" ? `Confluence: copied once from the page ${page}, document version ${c.publishedVersion}${at("read")}. The link has ended.` : `Confluence: published once to the page ${page}, document version ${c.publishedVersion}${at("written")}. The link has ended.`;
+  if (c.direction === "from_confluence") return `Confluence: read in from the page ${page}, page version ${c.publishedVersion}; updated from the page, never written to it${at("last read")}.`;
+  if (c.direction === "both") return `Confluence: kept both ways with the page ${page}${at("last in step")}${c.outOfDate ? "; the document has changes the page does not" : ""}.`;
+  return `Confluence: written to the page ${page}, document version ${c.publishedVersion}; updated from the document, never read back${at("last written")}${c.outOfDate ? "; the page is behind the document" : ""}.`;
+}

@@ -26,7 +26,7 @@ const toLive = (r: PubRow): LivePublication => ({ id: r.id, pageId: r.page_id, p
 const REQ_COLS = "space_key, parent_url, page_title, sync_mode, note, ai_model, created_via";
 type ReqRow = { space_key: string | null; parent_url: string | null; page_title: string | null; sync_mode: "once" | "sync"; note: string | null; ai_model: string | null; created_via: string };
 const toRequest = (r: ReqRow) => ({ mode: r.sync_mode, spaceKey: r.space_key, parentUrl: r.parent_url, title: r.page_title, note: r.note, requestedBy: r.created_via === "MCP" ? "Claude" : "a person", aiModel: r.ai_model });
-const toView = (r: PubRow, docVersion: number) => ({ id: r.id, source: r.source, direction: r.sync_direction, pageUrl: r.page_url, pageTitle: r.page_title, spaceKey: r.space_key, syncMode: r.sync_mode, publishedVersion: r.published_version, publishedAt: r.published_at, linked: r.unlinked_at === null, outOfDate: r.source === "pv" && r.unlinked_at === null && r.published_version < docVersion });
+const toView = (r: PubRow, docVersion: number) => ({ id: r.id, source: r.source, direction: r.sync_direction, pageUrl: r.page_url, pageTitle: r.page_title, spaceKey: r.space_key, syncMode: r.sync_mode, publishedVersion: r.published_version, publishedAt: r.published_at, linked: r.unlinked_at === null, outOfDate: r.sync_direction !== "from_confluence" && r.unlinked_at === null && r.published_version < docVersion });
 
 
 async function lastPublication(supabase: Db, docId: string): Promise<PubRow | null> {

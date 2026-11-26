@@ -94,15 +94,16 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     const ids = list.filter((d) => d.scope !== "workspace").map((d) => d.id);
     if (ids.length === 0) return list;
     const [pages, reqs] = await Promise.all([
-      supabase.from("item_document_pages").select("document_id, source, page_url, page_title, space_key, sync_mode, published_version, unlinked_at").eq("tenant_id", tenant.id).in("document_id", ids).order("created_at"),
+      supabase.from("item_document_pages").select("document_id, source, sync_direction, page_url, page_title, space_key, sync_mode, published_version, unlinked_at").eq("tenant_id", tenant.id).in("document_id", ids).order("created_at"),
       supabase.from("item_document_publish_requests").select("document_id, space_key, parent_url, page_title, sync_mode, note, ai_model, created_via").eq("tenant_id", tenant.id).in("document_id", ids),
     ]);
     if (pages.error || reqs.error) return list;
     const page = new Map<string, NonNullable<DocInfo["confluence"]>>();
     const version = new Map(list.map((d) => [d.id, d.version]));
-    for (const p of (pages.data ?? []) as { document_id: string; source: "pv" | "external"; page_url: string; page_title: string; space_key: string; sync_mode: "once" | "sync"; published_version: number; unlinked_at: string | null }[]) {
+    for (const p of (pages.data ?? []) as { document_id: string; source: "pv" | "external"; sync_direction?: "from_confluence" | "to_confluence" | "both"; page_url: string; page_title: string; space_key: string; sync_mode: "once" | "sync"; published_version: number; unlinked_at: string | null }[]) {
+      const direction = p.sync_direction ?? (p.source === "external" ? "from_confluence" : "to_confluence");
       const linked = p.unlinked_at === null;
-      page.set(p.document_id, { source: p.source, page_url: p.page_url, page_title: p.page_title, space_key: p.space_key, mode: p.sync_mode, linked, published_version: p.published_version, out_of_date: p.source === "pv" && linked && p.published_version < (version.get(p.document_id) ?? 0) });
+      page.set(p.document_id, { source: p.source, direction, page_url: p.page_url, page_title: p.page_title, space_key: p.space_key, mode: p.sync_mode, linked, published_version: p.published_version, out_of_date: direction !== "from_confluence" && linked && p.published_version < (version.get(p.document_id) ?? 0) });
     }
     const req = new Map<string, NonNullable<DocInfo["publish_request"]>>();
     for (const r of (reqs.data ?? []) as { document_id: string; space_key: string | null; parent_url: string | null; page_title: string | null; sync_mode: "once" | "sync"; note: string | null; ai_model: string | null; created_via: string }[]) {
