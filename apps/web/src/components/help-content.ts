@@ -618,3 +618,75 @@ export const AGENT_GUIDES: Record<"claude" | "chatgpt" | "gemini", AgentGuide> =
 };
 
 export const AGENT_TIPS = "Name the initiative code, the group and the project. Paste the source text, do not summarise it. Name the team (product manager = ..., designer = ...); someone who is not a member yet works too once they are on the people list. Say \"show me first\" when you want to align before anything is saved.";
+
+/* ---------------------------------------------------------------------------------------------------------------------------------
+ * People, roles and access (issue #696). The three kinds of people, the roles, what an alignment vote shows each of them, how a person
+ * moves between states, and the common cases. Keep in step with docs/15 (accounts), docs/19 (alignment privacy) and docs/28 (gates).
+ * ------------------------------------------------------------------------------------------------------------------------------- */
+
+export const PEOPLE_KINDS: Table = {
+  head: ["", "Participant", "Person not invited yet", "Member"],
+  rows: [
+    ["What it is", "Someone you ask to vote in an alignment session. They open a one-time link and never join the workspace.", "A name, and an email if you have one, typed into Product Manager, Engineering Manager, Designer, Analyst or Business Manager before the person has an account.", "A person with an account in your workspace and a role."],
+    ["Has an account", "No", "No", "Yes"],
+    ["Can open the workspace", "No. Only their own ballot, through their link.", "No", "Yes, as far as their role allows"],
+    ["Knows about it", "Yes. They were emailed and see how their answers are used before they vote.", "No. Nothing is sent to them until an admin invites them.", "Yes"],
+    ["Can be named on an initiative", "No", "Yes", "Yes"],
+    ["Can decide a gate", "No", "No", "Only with approval rights"],
+    ["Shown in", "The participant list of the session (admins only)", "Pickers, filters, reports and exports by name; Members, under Not invited yet (admins)", "Members, with role and status"],
+    ["Added by", "An admin, from a pasted list in an alignment session", "A Creator or an admin, from a person field or from Members", "An admin, by invitation; or people who join through your company domain"],
+    ["Becomes a member", "Never. Voting stays separate on purpose, so answers stay anonymous", "When an admin invites them and they accept, or they join with the same email", "Already is"],
+  ],
+};
+
+export const ROLE_TABLE: Table = {
+  head: ["Role", "Can do", "Cannot do", "Typical person"],
+  rows: [
+    ["Viewer", "Read initiatives, views, reports and the roadmap. Connect an AI assistant to read.", "Create, edit, delete, invite or decide.", "A stakeholder who needs to see the plan."],
+    ["Commenter", "Everything a Viewer can. Today it behaves exactly like a Viewer; the role is kept for comments.", "Create, edit, delete, invite or decide.", "A reviewer."],
+    ["Creator", "Create and edit initiatives, request a gate, add people to the people list, delete the initiatives they created, work with an AI assistant that changes things. Sees who voted after a vote closes, if participants agreed.", "Manage members, settings or connections. Decide a gate without approval rights.", "A product manager."],
+    ["Admin", "Everything a Creator can, plus members and invitations, settings, GitHub and Jira connections, delete any initiative, see the participant list of a vote, and decide every gate by default.", "Let Claude or a service account decide a gate: nobody can.", "The owner of the workspace."],
+    ["Leadership viewer", "Read the whole portfolio. Opens on the Leadership page.", "Create, edit, delete, invite or decide.", "An executive."],
+    ["Approver (a separate permission)", "Decide gates: Go, Go with conditions, Hold or Stop. Admins have it by default; an admin can give any member approval for a single gate (A, B or C) in Settings, Workspace.", "Be held by Claude or by a service account, ever.", "Whoever is accountable for a gate."],
+  ],
+};
+
+export const PEOPLE_STATES: Table = {
+  head: ["Status", "What it means", "Access", "Moves to"],
+  rows: [
+    ["Not invited", "Named on initiatives; no account.", "None", "Invited, when an admin invites them."],
+    ["Invited", "A pending invitation. It works once, for that email, for 7 days.", "None until accepted", "Active when they accept; cancelled if you revoke it."],
+    ["Requested Access", "Asked to join (for example from your company domain, when automatic joining is off).", "None", "Active or Revoked, by an admin."],
+    ["Active", "A member.", "By role", "Paused or Revoked."],
+    ["Paused", "Access switched off for now.", "None", "Active or Revoked."],
+    ["Revoked", "Access ended.", "None", "Active, if you change your mind."],
+  ],
+};
+
+export const VOTE_VISIBILITY: Table = {
+  head: ["Who", "Sees in an alignment vote", "Never sees"],
+  rows: [
+    ["Participant", "Their own ballot. After the vote closes, anonymous results, only if the admin allowed it.", "Other people's ballots, names or emails; groups of fewer than 5 voters."],
+    ["Member (Viewer to Leadership)", "That a session exists, its state and, if allowed, the anonymous results.", "Participants, emails and ballots."],
+    ["Creator", "Closed sessions. Who voted what, only through Show names after the vote closes, with a reason that is logged, and only if every participant agreed to wording that names product managers.", "The participant list, and anything while the vote is open."],
+    ["Admin", "The participant list (names, emails, voted or not). Who voted what, only through the logged Show names action.", "Nothing is hidden by the system, but every look at names is logged."],
+    ["Claude, working as you", "The session set-up, draft invitation wording and the anonymous results of a closed session.", "Participants, emails, ballots and names."],
+  ],
+};
+
+export const ACCESS_CASES: Table = {
+  head: ["I want to…", "Do this", "What happens"],
+  rows: [
+    ["Name a product manager who has no account yet", "In the grid or the item panel, open Product Manager, type their name (and an email if you have one) and choose Add. A Creator or an admin can do it.", "They show as not invited in pickers, filters and reports, by name. Nothing is sent to them."],
+    ["Invite them when I am ready", "An admin opens Members, Not invited yet, presses Invite…, reviews and confirms.", "Nothing is sent until you confirm. When they accept, they become a member and everything that names them stays."],
+    ["Someone joined with a different email than the one I typed", "An admin opens Members, Not invited yet, then Joined with another email, and chooses the member.", "Everything that named them now names that member, and the name leaves the list."],
+    ["Ask customers or partners for their view", "An admin creates an alignment session and adds their emails as participants.", "They vote through a link with no account and see nothing else. Results are anonymous and groups under five are hidden."],
+    ["Let an executive read the roadmap and nothing else", "Invite them as a Leadership viewer (or a Viewer).", "They can read the portfolio and cannot change or decide anything."],
+    ["Let a product manager edit initiatives", "Invite them as a Creator.", "They can create, edit and request gates. They cannot decide a gate unless they also have approval rights."],
+    ["Let one person decide Gate B only", "An admin adds them as approver for Gate B in Settings, Workspace. They need to be a member first.", "They may decide that gate. They still cannot manage members or settings."],
+    ["Let everyone at my company look around", "An admin lists the company domain under Workspace settings (automatic joining is on by default).", "People who confirm a company email join as an active Viewer and the admins are told. Higher roles are set by an admin."],
+    ["Work with two companies with one login", "Each workspace invites the same email address.", "One sign-in shows both workspaces, each with its own role."],
+    ["A colleague leaves", "An admin sets them to Paused (they can come back) or Revoked in Members.", "They lose access at once. Everything they created stays."],
+    ["Use Claude, ChatGPT or Gemini", "Connect the assistant (Help: Connect an AI assistant).", "It works as you, with your role. It can name people already on the list. It cannot add or invite anyone, and it never approves a gate."],
+  ],
+};

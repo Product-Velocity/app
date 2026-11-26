@@ -20,15 +20,17 @@ import AttentionHelp from "./attention/page";
 import ReportDefinitionsHelp from "./report-definitions/page";
 import AiUseCasesHelp from "./ai-use-cases/page";
 import GetStartedHelp from "./get-started/page";
+import PeopleAndAccessHelp from "./people-and-access/page";
 import SkillsHelp from "./skills/page";
-import { GUIDED_ONLY, SKILLS } from "@pv/domain";
+import { GUIDED_ONLY, MEMBER_STATUSES, MEMBER_STATUS_LABEL, SKILLS } from "@pv/domain";
+import { ROLES, ROLE_LABEL } from "@/lib/roles";
 import { HELP_SKILL_COMMANDS } from "@/components/help/skill-figures";
 import { SkillHelpPage } from "@/components/help/skill-page";
 
 const PAGES: Record<string, () => React.JSX.Element> = {
   "": HelpHome, okrs: OkrsPage, lifecycle: LifecyclePage, alignment: AlignmentPage, reports: ReportsHelp, delivery: DeliveryHelp, ai: AiHelp,
   "ai-setup": AiSetupHelp, columns: ColumnsHelp, shortcuts: ShortcutsHelp, "goal-fields": GoalFieldsHelp, phases: PhasesHelp, statuses: StatusesHelp, "sync-rules": SyncRulesHelp, attention: AttentionHelp,
-  "report-definitions": ReportDefinitionsHelp, "ai-use-cases": AiUseCasesHelp, skills: SkillsHelp, "get-started": GetStartedHelp,
+  "report-definitions": ReportDefinitionsHelp, "ai-use-cases": AiUseCasesHelp, skills: SkillsHelp, "get-started": GetStartedHelp, "people-and-access": PeopleAndAccessHelp,
 };
 const html: Record<string, string> = Object.fromEntries(Object.entries(PAGES).map(([k, P]) => [k, renderToStaticMarkup(createElement(P))]));
 const text = (h: string) => h.replace(/<[^>]+>/g, " ").replace(/&rsquo;|&#x27;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ");
@@ -147,5 +149,28 @@ describe("Help pages", () => {
     expect(html.ai!).toContain('href="/help/skills"');
     expect(html["ai-use-cases"]!).toContain('href="/help/skills"');
     expect(html["ai-use-cases"]!).not.toContain("Every skill, what it works on and what you get");
+  });
+
+  it("explains people, roles and access: the three kinds, every role and status the app has, and the use-cases (issue #696)", () => {
+    const t = text(html["people-and-access"]!);
+    for (const kind of ["Participant", "Person not invited yet", "Member"]) expect(t, kind).toContain(kind);
+    // the roles and statuses the app really has, by the words the app uses
+    for (const r of ROLES) expect(t, r).toContain(ROLE_LABEL[r]);
+    for (const s of MEMBER_STATUSES) if (s !== "invited") expect(t, s).toContain(MEMBER_STATUS_LABEL[s]);
+    expect(t).toContain("Invited");
+    expect(t).toContain("Not invited");
+    expect(t).toContain("Approver");
+    // the rules that matter
+    expect(t).toContain("nothing links a participant to a person or a member");
+    expect(t).toContain("Nothing is sent to them until an admin invites them");
+    expect(t).toContain("It cannot add a person or send an invitation");
+    expect(t).toContain("never decides a gate");
+    // use-cases are there, and no internal words
+    expect(t).toContain("Name a product manager who has no account yet");
+    expect(t).toContain("Joined with another email");
+    expect(t).not.toMatch(/\b(tenant|RLS|Postgres|auth\.users)\b/i);
+    // reachable from the Help home and the side menu of every page
+    expect(html[""]).toContain('href="/help/people-and-access"');
+    expect(html.columns).toContain('href="/help/people-and-access"');
   });
 });
