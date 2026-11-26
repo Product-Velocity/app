@@ -82,3 +82,33 @@ describe("domain auto-join", () => {
     await db.admin.query("update public.tenants set auto_join_authorized_domains = true where id = $1", [f.tenantA]);
   });
 });
+
+describe("a pending invitation wins over auto-join (issue #689)", () => {
+  const invite = (email: string, role: string, approver: boolean, token: string) =>
+    db.asUser(f.alice, (q) => q("insert into public.invitations (tenant_id, email, role, is_approver, token_hash) values ($1, $2, $3, $4, $5)", [f.tenantA, email, role, approver, sha(token)]), { commit: true });
+
+  it("does not make an invited person a Viewer, so accepting gives the invited role", async () => {
+    const id = await createUser(db, "invited@acme.test");
+    await invite("invited@acme.test", "admin", true, "tok-invited-689");
+    expect(await join(id)).toEqual([]);
+    expect(await member(f.tenantA, id)).toBeUndefined();
+    await db.asUser(id, (q) => q("select public.accept_invitation('tok-invited-689')"), { commit: true });
+    expect(await member(f.tenantA, id)).toEqual({ status: "active", role: "admin", is_approver: true, requested_via_email: null });
+  });
+
+  it("auto-join applies again once the invitation is revoked or used", async () => {
+    const id = await createUser(db, "revoked@acme.test");
+    await invite("revoked@acme.test", "admin", true, "tok-revoked-689");
+    await db.admin.query("update public.invitations set revoked_at = now() where token_hash = $1", [sha("tok-revoked-689")]);
+    expect((await join(id))[0]).toMatchObject({ tenant_id: f.tenantA, joined: true });
+  });
+
+  it("an invitation to one workspace does not stop auto-join into another", async () => {
+    const id = await createUser(db, "other@acme.test");
+    await db.admin.query("update public.tenants set allowed_email_domains = array['acme.test'] where id = $1", [f.tenantB]);
+    await db.asUser(f.bob, (q) => q("insert into public.invitations (tenant_id, email, role, is_approver, token_hash) values ($1, 'other@acme.test', 'admin', false, $2)", [f.tenantB, sha("tok-other-689")]), { commit: true });
+    expect(await join(id)).toEqual([{ tenant_id: f.tenantA, tenant_name: expect.any(String), created: true, joined: true }]);
+    expect(await member(f.tenantB, id)).toBeUndefined();
+    await db.admin.query("update public.tenants set allowed_email_domains = array['beta.test'] where id = $1", [f.tenantB]);
+  });
+});
