@@ -12,6 +12,7 @@ import { LinksList, type LinksHandle } from "./links-list";
 import { ConfluenceDialog } from "./confluence-dialog";
 import { ConfluenceImportDialog } from "./confluence-import-dialog";
 import { ConfluenceSyncDialog } from "./confluence-sync-dialog";
+import { ConfluenceMergeDialog } from "./confluence-merge-dialog";
 import { copyFormatted, copyMarkdown } from "./markdown-copy";
 
 type Version = { version: number; saved_at: string; saved_via: string; ai_tool?: string | null; ai_model?: string | null; saved_by_name?: string | null };
@@ -34,6 +35,7 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
   // open requests (a person's or Claude's) to read a page in; nothing is read until a person reviews the preview and confirms (issue #721)
   const [importRequests, setImportRequests] = useState<ReadRequestView[]>([]);
   const [refreshFor, setRefreshFor] = useState<DocView | null>(null);
+  const [mergeFor, setMergeFor] = useState<DocView | null>(null); // merging the two texts of a document kept both ways (issue #721)
   const [syncFor, setSyncFor] = useState<DocView | null>(null); // the sync-direction dialog of a linked document (issue #714)
   // a link from the activity log opens the document: ?item=R-12&tab=spec&doc=<id>
   const [openId, setOpenId] = useState<string | null>(() => {
@@ -143,7 +145,8 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
       ))}
       {confluenceFor && <ConfluenceDialog doc={{ id: confluenceFor.id, title: confluenceFor.title, version: confluenceFor.version, aiDraft: confluenceFor.aiDraft }} onClose={() => setConfluenceFor(null)} onChanged={() => void load()} />}
       {importing && <ConfluenceImportDialog mode="import" itemId={itemId} prefill={importing} onClose={() => setImporting(null)} onChanged={() => void load()} />}
-      {syncFor && <ConfluenceSyncDialog doc={{ id: syncFor.id, title: syncFor.title }} onClose={() => setSyncFor(null)} onChanged={() => void load()} onUpdatePage={() => { setConfluenceFor(syncFor); setSyncFor(null); }} onUpdateDocument={() => { setRefreshFor(syncFor); setSyncFor(null); }} />}
+      {syncFor && <ConfluenceSyncDialog doc={{ id: syncFor.id, title: syncFor.title }} onClose={() => setSyncFor(null)} onChanged={() => void load()} onUpdatePage={() => { setConfluenceFor(syncFor); setSyncFor(null); }} onUpdateDocument={() => { setRefreshFor(syncFor); setSyncFor(null); }} onMerge={() => { setMergeFor(syncFor); setSyncFor(null); }} />}
+      {mergeFor && <ConfluenceMergeDialog doc={{ id: mergeFor.id, title: mergeFor.title }} onClose={() => setMergeFor(null)} onChanged={() => void load()} />}
       {refreshFor && <ConfluenceImportDialog mode="refresh" itemId={itemId} doc={{ id: refreshFor.id, title: refreshFor.title }} onClose={() => setRefreshFor(null)} onChanged={() => void load()} />}
       {show("docs") && <>
         <h3>Documents</h3>

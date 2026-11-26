@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { docKindLabel, SYNC_DIRECTIONS, type CommercialTerm, type SyncDirection } from "@pv/domain";
 import { documentSyncState } from "@/lib/confluence/state";
+import { confirmMerge, previewMerge, type MergeDeps } from "@/lib/confluence/merge";
 import { listSpaces, type ConfluenceRequest } from "@/lib/confluence/client";
 import { confirmPublish, previewPublish, type LivePublication, type PublicationPatch, type PublishDeps, type PublishInput } from "@/lib/confluence/publish";
 import { loadDocForPublish as load } from "@/lib/confluence/doc-access";
@@ -74,7 +75,7 @@ export async function GET(request: Request, { params }: Ctx): Promise<NextRespon
   return r.ok ? json({ ...base, spaces: r.spaces }) : json({ ...base, spaces: [], error: r.message, kind: r.kind });
 }
 
-type Body = { action?: string; direction?: string; spaceKey?: string; parentUrl?: string; parentPageId?: string; existingPageId?: string; title?: string; mode?: string; confirm?: string; overwrite?: boolean };
+type Body = { action?: string; direction?: string; choices?: Record<string, string>; spaceKey?: string; parentUrl?: string; parentPageId?: string; existingPageId?: string; title?: string; mode?: string; confirm?: string; overwrite?: boolean };
 
 /** `preview` shows what a publish would do and writes nothing; `publish` does it, only with the token of that preview; `unlink` ends the link and leaves the page. */
 export async function POST(request: Request, { params }: Ctx): Promise<NextResponse> {
@@ -83,7 +84,7 @@ export async function POST(request: Request, { params }: Ctx): Promise<NextRespo
   if (!c.ok) return c.error;
   if (!c.canPublish) return json({ error: "Only a Creator or Admin can publish a document to Confluence.", kind: "forbidden" }, 403);
   const b = (await request.json().catch(() => null)) as Body | null;
-  if (!b || !["preview", "publish", "unlink", "dismiss", "refresh-preview", "refresh", "sync-state", "set-direction", "dismiss-refresh"].includes(String(b.action))) return json({ error: "Say what to do: preview, publish, unlink, dismiss, dismiss-refresh, sync-state, set-direction, refresh-preview or refresh." }, 400);
+  if (!b || !["preview", "publish", "unlink", "dismiss", "refresh-preview", "refresh", "sync-state", "set-direction", "dismiss-refresh", "merge-preview", "merge"].includes(String(b.action))) return json({ error: "Say what to do: preview, publish, unlink, dismiss, dismiss-refresh, sync-state, set-direction, merge-preview, merge, refresh-preview or refresh." }, 400);
 
   // "dismiss" removes the open request to publish (made by a person or by Claude); it touches no page
   if (b.action === "dismiss") {
@@ -125,6 +126,45 @@ export async function POST(request: Request, { params }: Ctx): Promise<NextRespo
     if (!cur || cur.unlinked_at) return json({ error: "This document is not linked to a page.", kind: "invalid" }, 404);
     const r = await documentSyncState(confluenceRequest(site.connectionId, site.siteId), site.siteUrl, { direction: cur.sync_direction, pageId: cur.page_id, publishedVersion: cur.published_version, remoteVersion: cur.remote_version }, c.doc.version);
     return json({ direction: cur.sync_direction, state: r.state, pageVersion: r.pageVersion, documentVersion: c.doc.version, publishedVersion: cur.published_version });
+  }
+
+  // Merging the two texts when both changed (issue #721): preview, then confirm with a choice for each conflict. Both ways only.
+  if (b.action === "merge-preview" || b.action === "merge") {
+    const cur = await lastPublication(c.supabase, id);
+    if (!cur || cur.unlinked_at || cur.sync_direction !== "both") return json({ error: "Only a document kept both ways with its page can be merged.", kind: "invalid" }, 404);
+    const { data: baseRow } = await c.supabase.from("item_document_versions").select("body").eq("document_id", id).eq("version", cur.published_version).maybeSingle();
+    const { data: itemRow } = await c.supabase.from("items").select("item_code").eq("id", c.doc.item_id).maybeSingle();
+    const code = String((itemRow as { item_code?: string } | null)?.item_code ?? "");
+    const appUrl = await siteUrl();
+    const mdeps: MergeDeps = {
+      call, siteUrl: site.siteUrl, hash, now: () => new Date().toISOString(),
+      doc: { id: c.doc.id, itemCode: code, title: c.doc.title, body: c.doc.body, version: c.doc.version, status: c.doc.status },
+      binding: { id: cur.id, pageId: cur.page_id, pageUrl: cur.page_url, pageTitle: cur.page_title, publishedVersion: cur.published_version, remoteVersion: cur.remote_version },
+      baseBody: baseRow ? String((baseRow as { body: string }).body) : null,
+      terms: await commercialTerms(c.supabase, c.doc.item_id),
+      appLink: /^https:\/\//.test(appUrl) && code ? `${appUrl}/portfolio/${encodeURIComponent(code)}` : null,
+      store: {
+        updateDocument: async (docId, patch) => {
+          // only if nobody saved the document in between (the version is the one the preview was made from)
+          const { data, error } = await c.supabase.from("item_documents").update({ body: patch.body }).eq("id", docId).eq("version", c.doc.version).select("version");
+          if (error) return { ok: false, error: saveError(error) };
+          const v = (data as { version: number }[] | null)?.[0]?.version;
+          return v ? { ok: true, version: v } : { ok: false, error: "somebody saved the document in the meantime" };
+        },
+        updateBinding: async (rowId, patch) => {
+          const { error } = await c.supabase.from("item_document_pages").update(patchToColumns(patch)).eq("id", rowId);
+          return error ? { ok: false, error: saveError(error) } : { ok: true };
+        },
+      },
+    };
+    if (b.action === "merge-preview") {
+      const p = await previewMerge(mdeps);
+      return p.ok ? json({ merge: p }) : json({ error: p.message, kind: p.kind }, statusFor(p.kind));
+    }
+    const choices: Record<number, "ours" | "theirs" | "both"> = {};
+    for (const [k, v] of Object.entries(b.choices ?? {})) if (/^\d{1,5}$/.test(k) && (v === "ours" || v === "theirs" || v === "both")) choices[Number(k)] = v;
+    const done = await confirmMerge(mdeps, { ...(b.confirm ? { confirm: String(b.confirm) } : {}), choices });
+    return done.ok ? json({ done }) : json({ error: done.message, kind: done.kind }, statusFor(done.kind));
   }
 
   // A document kept from a page, or kept both ways (issue #693 slice A2, #714): these two actions read the page again; a newer version of it becomes a new version of

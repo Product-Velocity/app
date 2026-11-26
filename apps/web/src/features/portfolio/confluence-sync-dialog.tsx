@@ -11,7 +11,7 @@ type State = { direction: SyncDirection; state: SyncState; pageVersion: number |
  * never in the background. Every write still goes through the preview and the confirmation of the dialogs this one opens, in either direction. A change on both
  * sides is a conflict: the person chooses which side to keep, and the other side's text stays as a previous version or in the page history.
  */
-export function ConfluenceSyncDialog({ doc, onClose, onChanged, onUpdatePage, onUpdateDocument }: { doc: { id: string; title: string }; onClose: () => void; onChanged: () => void; onUpdatePage: () => void; onUpdateDocument: () => void }) {
+export function ConfluenceSyncDialog({ doc, onClose, onChanged, onUpdatePage, onUpdateDocument, onMerge }: { doc: { id: string; title: string }; onClose: () => void; onChanged: () => void; onUpdatePage: () => void; onUpdateDocument: () => void; onMerge: () => void }) {
   const titleId = useId();
   const [s, setS] = useState<State | null>(null);
   const [direction, setDirection] = useState<SyncDirection>("to_confluence");
@@ -67,7 +67,7 @@ export function ConfluenceSyncDialog({ doc, onClose, onChanged, onUpdatePage, on
                 {s.state === "in_step" && <p><strong>In step.</strong> {s.direction === "to_confluence" ? "The page holds the latest version of the document." : s.direction === "from_confluence" ? "The document holds the latest version of the page." : "Neither side has changes the other lacks."}</p>}
                 {s.state === "send" && <p><strong>The document has changes the page does not.</strong> The page holds version {s.publishedVersion}; the document is at version {s.documentVersion}.</p>}
                 {s.state === "receive" && <p><strong>The page has changes the document does not.</strong> The page is at version {page}.</p>}
-                {s.state === "conflict" && <p role="alert" className="notice"><strong>Both sides changed since they were last in step.</strong> The document is at version {s.documentVersion} (the page was written from version {s.publishedVersion}) and the page is at version {page}. Choose which side to keep: the other side’s text is not lost (a previous version of the document, or the page history).</p>}
+                {s.state === "conflict" && <p role="alert" className="notice"><strong>Both sides changed since they were last in step.</strong> The document is at version {s.documentVersion} (the page was written from version {s.publishedVersion}) and the page is at version {page}. Merge the two texts, or choose which side to keep: the other side’s text is not lost (a previous version of the document, or the page history).</p>}
                 {s.state === "gone" && <p role="alert" className="notice"><strong>The page is gone.</strong> It was deleted in Confluence, or this workspace’s sign-in can no longer see it. Where Product Velocity writes the page it can make a new one; otherwise stop linking.</p>}
                 {s.state === "unknown" && <p role="alert" className="notice">The page could not be read just now, so nothing is known about it. Try again in a moment.</p>}
                 {s.direction === "to_confluence" && s.state !== "gone" && <p className="muted">This direction does not read the page. A change made on the page itself is replaced by the next update.</p>}
@@ -84,6 +84,7 @@ export function ConfluenceSyncDialog({ doc, onClose, onChanged, onUpdatePage, on
           {s && !changed && s.state === "receive" && <button type="button" className="btn btn-primary" onClick={onUpdateDocument}>Update the document from the page…</button>}
           {s && !changed && s.state === "conflict" && (
             <>
+              {s.direction === "both" && <button type="button" className="btn btn-primary" onClick={onMerge}>Merge the two texts…</button>}
               <button type="button" className="btn" onClick={onUpdateDocument}>Keep Confluence: update the document…</button>
               <button type="button" className="btn" onClick={onUpdatePage}>Keep Product Velocity: update the page…</button>
             </>

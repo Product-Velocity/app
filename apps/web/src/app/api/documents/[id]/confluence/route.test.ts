@@ -263,4 +263,20 @@ describe("sync direction (issue #714 slice 2)", () => {
     await post({ action: "publish", mode: "sync", direction: "both", spaceKey: "PRD", confirm: p.preview.confirm });
     expect(state.inserted.find((i) => i.table === "item_document_pages")?.row).toMatchObject({ sync_direction: "both" });
   });
+
+  it("merge-preview and merge: only for a two-way link; the preview writes nothing; the confirm needs the token and a choice for each conflict (issue #721)", async () => {
+    const BASE = "# Plan\n\nIntro.\n\n## Scope\n\nBuild the thing.\n";
+    state.rows.item_documents = [{ ...doc, version: 3, body: BASE.replace("Build the thing.", "Build the thing in Q1.") }];
+    state.rows.item_document_versions = [{ body: BASE }];
+    const md = (text: string) => text.split("\n\n").map((b) => (b.startsWith("# ") ? `<h1>${b.slice(2)}</h1>` : b.startsWith("## ") ? `<h2>${b.slice(3)}</h2>` : `<p>${b}</p>`)).join("");
+    state.confluence = async (method, path) => (method === "GET" && path.startsWith("/api/v2/pages/5") ? { status: 200, json: { id: "5", title: "PRD", spaceId: "777", version: { number: 4 }, body: { storage: { value: md(BASE.replace("Intro.", "Intro, edited in Confluence.")) } }, _links: { webui: "/spaces/PRD/pages/5" } } } : method === "PUT" ? { status: 200, json: { id: "5", title: "PRD", spaceId: "777", version: { number: 5 }, _links: { webui: "/spaces/PRD/pages/5" } } } : { status: 500, json: null });
+    state.rows.item_document_pages = [{ id: "p1", source: "pv", sync_direction: "to_confluence", page_id: "5", page_url: "https://acme.atlassian.net/wiki/spaces/PRD/pages/5", page_title: "PRD", space_key: "PRD", site_id: "s1", sync_mode: "sync", published_version: 1, remote_version: 3, content_hash: null, published_at: "2026-11-26T10:00:00Z", unlinked_at: null, parent_page_id: null }];
+    expect((await post({ action: "merge-preview" })).status).toBe(404); // not two-way
+    state.rows.item_document_pages = [{ ...(state.rows.item_document_pages[0] as object), sync_direction: "both" }];
+    const p = await (await post({ action: "merge-preview" })).json();
+    expect(p.merge).toMatchObject({ conflicts: 0, page: { version: 4 }, documentVersion: 3 });
+    expect(state.updated).toEqual([]);
+    expect((await post({ action: "merge", confirm: "nope" })).status).toBe(409);
+    expect(state.updated).toEqual([]);
+  });
 });
