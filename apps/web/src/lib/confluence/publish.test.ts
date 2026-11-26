@@ -6,28 +6,34 @@ import { confirmPublish, previewPublish, type LivePublication, type NewPublicati
 const SITE = "https://acme.atlassian.net";
 type FakePage = { id: string; title: string; version: number; space: string; body: string };
 
-/** A small in-memory Confluence: spaces and pages, with the version rule (a write must carry the next number) and unique titles per space. */
+/** A small in-memory Confluence (the v2 API): spaces by key and id, pages with a space id, the version rule (a write must carry the next number) and unique titles per space. */
+const SPACE_IDS: Record<string, string> = { PRD: "777", ELSE: "888", GTM: "999" };
 function confluence(seed: FakePage[] = []) {
   const pages = new Map(seed.map((p) => [p.id, { ...p }]));
   const log: string[] = [];
   let nextId = 5000;
-  const wire = (p: FakePage) => ({ id: p.id, title: p.title, version: { number: p.version }, space: { key: p.space }, _links: { base: `${SITE}/wiki`, webui: `/spaces/${p.space}/pages/${p.id}/x` } });
+  const wire = (p: FakePage) => ({ id: p.id, status: "current", title: p.title, spaceId: SPACE_IDS[p.space], version: { number: p.version }, _links: { webui: `/spaces/${p.space}/pages/${p.id}/x` } });
+  const keyOf = (id: string) => Object.keys(SPACE_IDS).find((k) => SPACE_IDS[k] === id) ?? "";
   const call: ConfluenceRequest = async (method, path, body) => {
     log.push(`${method} ${path}`);
-    const b = (body ?? {}) as { title: string; space: { key: string }; version: { number: number }; body: { storage: { value: string } } };
-    const one = /^\/content\/(\d+)/.exec(path);
-    if (method === "GET" && one) { const p = pages.get(one[1]!); return p ? { status: 200, json: wire(p) } : { status: 404, json: { message: "No content found" } }; }
-    if (method === "POST" && path === "/content") {
-      if ([...pages.values()].some((p) => p.space === b.space.key && p.title === b.title)) return { status: 400, json: { message: "A page with this title already exists: A page already exists in the space with the same title" } };
-      const p: FakePage = { id: String(nextId++), title: b.title, version: 1, space: b.space.key, body: b.body.storage.value };
+    const b = (body ?? {}) as { title: string; spaceId: string; version: { number: number }; body: { value: string } };
+    const one = /^\/api\/v2\/pages\/(\d+)$/.exec(path);
+    const space = /^\/api\/v2\/spaces\?keys=([^&]+)/.exec(path);
+    if (method === "GET" && space) { const key = decodeURIComponent(space[1]!); return { status: 200, json: { results: SPACE_IDS[key] ? [{ id: SPACE_IDS[key], key, name: key, type: "global" }] : [] } }; }
+    if (method === "GET" && one) { const p = pages.get(one[1]!); return p ? { status: 200, json: wire(p) } : { status: 404, json: { errors: [{ status: 404, title: "Not Found" }] } }; }
+    if (method === "POST" && path === "/api/v2/pages") {
+      const space = keyOf(b.spaceId);
+      if (!space) return { status: 400, json: { errors: [{ status: 400, title: "Invalid space" }] } };
+      if ([...pages.values()].some((p) => p.space === space && p.title === b.title)) return { status: 400, json: { errors: [{ status: 400, code: "INVALID_REQUEST_PARAMETER", title: "A page with this title already exists", detail: "A page already exists in the space with the same title" }] } };
+      const p: FakePage = { id: String(nextId++), title: b.title, version: 1, space, body: b.body.value };
       pages.set(p.id, p);
       return { status: 200, json: wire(p) };
     }
     if (method === "PUT" && one) {
       const p = pages.get(one[1]!);
       if (!p) return { status: 404, json: null };
-      if (b.version.number !== p.version + 1) return { status: 409, json: { message: "Version must be incremented" } };
-      Object.assign(p, { title: b.title, version: b.version.number, body: b.body.storage.value });
+      if (b.version.number !== p.version + 1) return { status: 409, json: { errors: [{ status: 409, title: "Version must be incremented" }] } };
+      Object.assign(p, { title: b.title, version: b.version.number, body: b.body.value });
       return { status: 200, json: wire(p) };
     }
     return { status: 500, json: null };
@@ -62,7 +68,7 @@ describe("preview", () => {
   it("a new document: creates a page in the chosen space, shows the target, writes nothing and gives a token", async () => {
     const s = setup();
     const p = await previewPublish(s.deps(), IN);
-    expect(p).toMatchObject({ ok: true, action: "create", title: "PRD: Tickets", spaceKey: "PRD", parent: null, page: null, warnings: [] });
+    expect(p).toMatchObject({ ok: true, action: "create", title: "PRD: Tickets", spaceKey: "PRD", spaceId: "777", parent: null, page: null, warnings: [] });
     expect(p.ok && p.confirm).toMatch(/^[0-9a-f]{64}$/);
     expect(s.c.pages.size).toBe(0);
     expect(s.store.inserted).toEqual([]);
@@ -73,9 +79,15 @@ describe("preview", () => {
     expect(await previewPublish(s.deps(), { mode: "once" })).toMatchObject({ ok: false, kind: "invalid", message: expect.stringContaining("Choose the space") });
     expect(await previewPublish(s.deps(), { ...IN, parentUrl: "https://acme.atlassian.net/wiki/x/short" })).toMatchObject({ ok: false, kind: "invalid" });
     expect(await previewPublish(s.deps(), { ...IN, parentUrl: "https://other.atlassian.net/wiki/spaces/PRD/pages/77/Specs" })).toMatchObject({ ok: false, kind: "invalid", message: expect.stringContaining("another Confluence site") });
-    expect(await previewPublish(s.deps(), { ...IN, parentUrl: "https://acme.atlassian.net/wiki/spaces/ELSE/pages/88/Other" })).toMatchObject({ ok: false, kind: "invalid", message: expect.stringContaining("space ELSE") });
+    expect(await previewPublish(s.deps(), { ...IN, parentUrl: "https://acme.atlassian.net/wiki/spaces/ELSE/pages/88/Other" })).toMatchObject({ ok: false, kind: "invalid", message: expect.stringContaining("another space than PRD") });
     expect(await previewPublish(s.deps(), { ...IN, parentUrl: "https://acme.atlassian.net/wiki/spaces/PRD/pages/404/Missing" })).toMatchObject({ ok: false, kind: "gone" });
     expect(await previewPublish(s.deps(), { ...IN, parentUrl: "https://acme.atlassian.net/wiki/spaces/PRD/pages/77/Specs" })).toMatchObject({ ok: true, parent: { id: "77", title: "Specs" } });
+  });
+
+  it("a space key Confluence does not know is refused in words, before anything is written (the page is created by the space's id)", async () => {
+    const s = setup();
+    expect(await previewPublish(s.deps(), { ...IN, spaceKey: "NOPE" })).toMatchObject({ ok: false, kind: "gone", message: expect.stringContaining("NOPE") });
+    expect(s.c.log.every((l) => !l.startsWith("POST"))).toBe(true);
   });
 
   it("warns about commercial text and about an AI draft, and never blocks", async () => {

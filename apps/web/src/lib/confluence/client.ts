@@ -1,29 +1,29 @@
 import { withBackoff, type JiraRequest, type Sleep } from "@/lib/atlassian/jira-write";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 
-// The Confluence Cloud client for publishing (issue #693 slice B). Pure over an injected `call` (the same shape as the Jira one), so it is tested with
-// a fake Confluence. Written from the Confluence Cloud REST API documentation and checked against the first real site (decision 2026-11-26): every
-// answer is read defensively and every refusal comes back as words for the person, never swallowed and never thrown.
-// Only four calls exist: list spaces, read one page, create a page and update one page. There is no delete and no way to touch permissions.
-// What Confluence says is data: its text is shown, short and as plain text, and never interpreted.
+// The Confluence Cloud client for publishing (issue #693). Pure over an injected `call` (the same shape as the Jira one), so it is tested with a fake
+// Confluence. It uses the v2 REST API (`/wiki/api/v2`): the first real site answered 410 "This deprecated endpoint has been removed" to the v1 space
+// list, so nothing here uses `/wiki/rest/api`. Every answer is read defensively and every refusal comes back as words for the person, never swallowed
+// and never thrown. Only five calls exist: list spaces, find a space by key, read one page, create a page and update one page. There is no delete and
+// no way to touch permissions. What Confluence says is data: its text is shown short and as plain text, and never interpreted.
 
 export type ConfluenceRequest = JiraRequest;
 export type ConfluenceFailKind = "reconnect" | "forbidden" | "rejected" | "title_taken" | "conflict" | "gone" | "rate_limited" | "unavailable";
 export type ConfluenceFail = { ok: false; kind: ConfluenceFailKind; message: string };
-export type Space = { key: string; name: string; type: string };
-export type Page = { id: string; title: string; version: number; spaceKey: string | null; url: string | null };
+export type Space = { id: string; key: string; name: string; type: string };
+export type Page = { id: string; title: string; version: number; spaceId: string | null; url: string | null };
 
 type Obj = Record<string, unknown>;
 const obj = (v: unknown): Obj => (typeof v === "object" && v !== null ? (v as Obj) : {});
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
-const plain = (s: string): string => s.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+const plain = (s: string): string => s.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().replace(/\.+$/, "").slice(0, 300);
 
-/** Confluence's own error text, short and as plain text. */
+/** Confluence's own error text, short and as plain text. The v2 API answers `{ errors: [{ status, code, title, detail }] }`; older answers had `message`. */
 export function whyConfluence(json: unknown): string {
   const o = obj(json);
-  const data = obj(o.data);
-  const errors = Array.isArray(data.errors) ? (data.errors as unknown[]).map((e) => str(obj(obj(e).message).translation) || str(obj(e).message)).filter(Boolean) : [];
-  return plain([str(o.message), ...errors].filter(Boolean).join("; "));
+  const errors = Array.isArray(o.errors) ? (o.errors as unknown[]).map((e) => [str(obj(e).title), str(obj(e).detail)].filter(Boolean).join(": ") || str(obj(e).message)).filter(Boolean) : [];
+  const legacy = Array.isArray(obj(o.data).errors) ? (obj(o.data).errors as unknown[]).map((e) => str(obj(obj(e).message).translation) || str(obj(e).message)).filter(Boolean) : [];
+  return plain([str(o.message), ...errors, ...legacy].filter(Boolean).join("; "));
 }
 
 const RECONNECT: ConfluenceFail = { ok: false, kind: "reconnect", message: "Atlassian needs you to sign in again (Settings, Integrations, Jira). Nothing was written." };
@@ -45,6 +45,7 @@ export function failure(status: number, json: unknown, writing: boolean): Conflu
   if (status === 403) return { ok: false, kind: "forbidden", message: `Confluence refused (403): the Atlassian sign-in may not include Confluence permission, or you cannot ${writing ? "create or edit pages" : "see"} there. An admin can add Confluence in Settings, Integrations, Jira.${why ? ` Confluence says: ${why}.` : ""}${tail}` };
   if (status === 404) return { ok: false, kind: "gone", message: `Confluence could not find it (404): the page or space may have been deleted, or the sign-in cannot see it.${why ? ` Confluence says: ${why}.` : ""}${tail}` };
   if (status === 409) return { ok: false, kind: "conflict", message: `Somebody saved the page in Confluence while it was being written (409).${tail}` };
+  if (status === 410) return { ok: false, kind: "rejected", message: `Confluence says this request is no longer supported (410).${why ? ` Confluence says: ${why}.` : ""} This is a fault in Product Velocity, not in your Confluence: please report it.${tail}` };
   if (status === 429) return { ok: false, kind: "rate_limited", message: `Confluence is asking for a pause (429). Try again in a minute.${tail}` };
   if (status === 400 && /already exists|same title|title/i.test(why)) return { ok: false, kind: "title_taken", message: `A page with this title already exists in the space. Change the title and try again.${tail}` };
   if (status >= 500) return { ok: false, kind: "unavailable", message: `Confluence is not available right now (${status}). Try again.${tail}` };
@@ -52,12 +53,15 @@ export function failure(status: number, json: unknown, writing: boolean): Conflu
 }
 
 /** The address of a page from the answer: the site's base plus the page's web path; only https addresses are kept. */
-function pageUrl(json: Obj, id: string, spaceKey: string | null, siteUrl: string | null): string | null {
+function pageUrl(json: Obj, id: string, siteUrl: string | null): string | null {
   const links = obj(json._links);
   const base = str(links.base) || (siteUrl ? `${siteUrl.replace(/\/$/, "")}/wiki` : "");
-  const web = str(links.webui) || (spaceKey ? `/spaces/${spaceKey}/pages/${id}` : "");
+  const web = str(links.webui);
   const url = base && web ? `${base.replace(/\/$/, "")}${web.startsWith("/") ? "" : "/"}${web}` : "";
-  return /^https:\/\//i.test(url) && url.length <= 2000 ? url : null;
+  if (/^https:\/\//i.test(url) && url.length <= 2000) return url;
+  // no web path in the answer: the page's own address by id still opens it
+  const byId = siteUrl ? `${siteUrl.replace(/\/$/, "")}/wiki/pages/viewpage.action?pageId=${id}` : "";
+  return /^https:\/\//i.test(byId) ? byId : null;
 }
 
 function toPage(json: unknown, siteUrl: string | null): Page | null {
@@ -65,43 +69,63 @@ function toPage(json: unknown, siteUrl: string | null): Page | null {
   const id = str(o.id);
   const version = Number(obj(o.version).number);
   if (!/^\d{1,20}$/.test(id) || !Number.isInteger(version) || version < 1) return null;
-  const spaceKey = str(obj(o.space).key) || null;
-  return { id, title: str(o.title), version, spaceKey, url: pageUrl(o, id, spaceKey, siteUrl) };
+  const spaceId = str(o.spaceId) || null;
+  return { id, title: str(o.title), version, spaceId, url: pageUrl(o, id, siteUrl) };
 }
+
+const toSpace = (r: unknown): Space | null => {
+  const o = obj(r);
+  const id = str(o.id);
+  const key = str(o.key);
+  return /^\d{1,20}$/.test(id) && /^[~A-Za-z0-9_-]{1,255}$/.test(key) ? { id, key, name: str(o.name) || key, type: str(o.type) } : null;
+};
 
 const BAD_ANSWER = (what: string): ConfluenceFail => ({ ok: false, kind: "rejected", message: `Confluence answered, but not in the shape expected for ${what}. Nothing more was done.` });
 
-/** The spaces the sign-in can see (global spaces first). */
+/** The spaces the sign-in can see (global spaces, by name). One page of up to 250. */
 export async function listSpaces(call: ConfluenceRequest, sleep?: Sleep): Promise<{ ok: true; spaces: Space[] } | ConfluenceFail> {
-  const x = await run(() => call("GET", "/space?limit=100&type=global"), sleep);
+  const x = await run(() => call("GET", "/api/v2/spaces?limit=250&type=global&status=current"), sleep);
   if ("fail" in x) return x.fail;
   if (x.r.status < 200 || x.r.status >= 300) return failure(x.r.status, x.r.json, false);
   const results = obj(x.r.json).results;
   if (!Array.isArray(results)) return BAD_ANSWER("the list of spaces");
-  const spaces = results.map((r) => ({ key: str(obj(r).key), name: str(obj(r).name), type: str(obj(r).type) })).filter((s) => /^[~A-Za-z0-9_-]{1,255}$/.test(s.key));
+  const spaces = results.map(toSpace).filter((s): s is Space => s !== null);
   return { ok: true, spaces: spaces.sort((a, b) => a.name.localeCompare(b.name)) };
+}
+
+/** One space by its key (v2 creates pages by space id, not by key). */
+export async function getSpaceByKey(call: ConfluenceRequest, key: string, sleep?: Sleep): Promise<{ ok: true; space: Space } | ConfluenceFail> {
+  if (!/^[~A-Za-z0-9_-]{1,255}$/.test(key)) return { ok: false, kind: "rejected", message: "That is not a Confluence space key." };
+  const x = await run(() => call("GET", `/api/v2/spaces?keys=${encodeURIComponent(key)}&limit=1`), sleep);
+  if ("fail" in x) return x.fail;
+  if (x.r.status < 200 || x.r.status >= 300) return failure(x.r.status, x.r.json, false);
+  const results = obj(x.r.json).results;
+  if (!Array.isArray(results)) return BAD_ANSWER("a space");
+  const space = results.map(toSpace).find((s): s is Space => s !== null && s.key === key);
+  return space ? { ok: true, space } : { ok: false, kind: "gone", message: `Confluence has no space with the key ${key}, or the sign-in cannot see it.` };
 }
 
 /** One page: its title, version and space. */
 export async function getPage(call: ConfluenceRequest, id: string, siteUrl: string | null = null, sleep?: Sleep): Promise<{ ok: true; page: Page } | ConfluenceFail> {
   if (!/^\d{1,20}$/.test(id)) return { ok: false, kind: "rejected", message: "That is not a Confluence page id." };
-  const x = await run(() => call("GET", `/content/${id}?expand=version,space`), sleep);
+  const x = await run(() => call("GET", `/api/v2/pages/${id}`), sleep);
   if ("fail" in x) return x.fail;
   if (x.r.status < 200 || x.r.status >= 300) return failure(x.r.status, x.r.json, false);
   const page = toPage(x.r.json, siteUrl);
   return page ? { ok: true, page } : BAD_ANSWER("a page");
 }
 
-export type NewPage = { spaceKey: string; parentId: string | null; title: string; body: string };
+export type NewPage = { spaceId: string; parentId: string | null; title: string; body: string };
 
-/** Creates a page in a space, under a parent page when given. */
+/** Creates a page in a space (by its id), under a parent page when given. */
 export async function createPage(call: ConfluenceRequest, p: NewPage, siteUrl: string | null = null, sleep?: Sleep): Promise<{ ok: true; page: Page } | ConfluenceFail> {
-  const payload = { type: "page", title: p.title, space: { key: p.spaceKey }, ...(p.parentId ? { ancestors: [{ id: p.parentId }] } : {}), body: { storage: { value: p.body, representation: "storage" } } };
-  const x = await run(() => call("POST", "/content", payload), sleep);
+  if (!/^\d{1,20}$/.test(p.spaceId)) return { ok: false, kind: "rejected", message: "That is not a Confluence space id. Nothing was written." };
+  const payload = { spaceId: p.spaceId, status: "current", title: p.title, ...(p.parentId ? { parentId: p.parentId } : {}), body: { representation: "storage", value: p.body } };
+  const x = await run(() => call("POST", "/api/v2/pages", payload), sleep);
   if ("fail" in x) return x.fail;
   if (x.r.status < 200 || x.r.status >= 300) return failure(x.r.status, x.r.json, true);
   const page = toPage(x.r.json, siteUrl);
-  return page ? { ok: true, page: { ...page, spaceKey: page.spaceKey ?? p.spaceKey } } : BAD_ANSWER("the new page");
+  return page ? { ok: true, page: { ...page, spaceId: page.spaceId ?? p.spaceId } } : BAD_ANSWER("the new page");
 }
 
 export type PageUpdate = { id: string; /** The version the page has now; the write makes the next one. */ currentVersion: number; title: string; body: string };
@@ -109,8 +133,8 @@ export type PageUpdate = { id: string; /** The version the page has now; the wri
 /** Writes a new version of a page. Confluence refuses it (409) when the page moved on since `currentVersion`, so nothing is overwritten unseen. */
 export async function updatePage(call: ConfluenceRequest, p: PageUpdate, siteUrl: string | null = null, sleep?: Sleep): Promise<{ ok: true; page: Page } | ConfluenceFail> {
   if (!/^\d{1,20}$/.test(p.id)) return { ok: false, kind: "rejected", message: "That is not a Confluence page id." };
-  const payload = { type: "page", title: p.title, version: { number: p.currentVersion + 1 }, body: { storage: { value: p.body, representation: "storage" } } };
-  const x = await run(() => call("PUT", `/content/${p.id}`, payload), sleep);
+  const payload = { id: p.id, status: "current", title: p.title, body: { representation: "storage", value: p.body }, version: { number: p.currentVersion + 1, message: "Published from Product Velocity" } };
+  const x = await run(() => call("PUT", `/api/v2/pages/${p.id}`, payload), sleep);
   if ("fail" in x) return x.fail;
   if (x.r.status < 200 || x.r.status >= 300) return failure(x.r.status, x.r.json, true);
   const page = toPage(x.r.json, siteUrl);

@@ -17,6 +17,14 @@ export function RowMenu({ label, items, triggerText }: { label: string; items: M
   useEffect(() => {
     if (!open) return;
     root.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    // the list opens to the left of its button; if that would leave the window (a narrow panel), open it to the right instead, and never past the right edge
+    const list = root.current?.querySelector<HTMLElement>(".row-menu-list");
+    if (list) {
+      const r = list.getBoundingClientRect();
+      if (r.left < 8) { list.style.left = "0"; list.style.right = "auto"; }
+      const r2 = list.getBoundingClientRect();
+      if (r2.right > window.innerWidth - 8) { list.style.left = "auto"; list.style.right = "0"; }
+    }
     const away = (e: MouseEvent) => { if (!root.current?.contains(e.target as Node)) setOpen(false); };
     document.addEventListener("mousedown", away);
     return () => document.removeEventListener("mousedown", away);

@@ -1,5 +1,5 @@
 import { commercialWarnings, pageBody, pageIdFromUrl, planPublish, type CommercialTerm, type CommercialWarning, type PublishAction, type RemotePage } from "@pv/domain";
-import { createPage, getPage, updatePage, type ConfluenceFail, type ConfluenceRequest } from "./client";
+import { createPage, getPage, getSpaceByKey, updatePage, type ConfluenceFail, type ConfluenceRequest } from "./client";
 
 // Publishing one document to Confluence (issue #693 slice B). Two steps, like Sync: PREVIEW shows exactly what would happen (create or update, the target,
 // the warning about commercial text, any conflict) and returns a token; CONFIRM does it only when the person sends back that same token, so what is
@@ -32,7 +32,7 @@ export type PublishInput = { spaceKey?: string; parentUrl?: string; title?: stri
 
 export type Fail = { ok: false; kind: ConfluenceFail["kind"] | "invalid" | "changed" | "not_recorded"; message: string };
 export type Preview = {
-  ok: true; action: PublishAction; why: string; mode: "once" | "sync"; title: string; spaceKey: string;
+  ok: true; action: PublishAction; why: string; mode: "once" | "sync"; title: string; spaceKey: string; spaceId: string | null;
   parent: { id: string; title: string } | null; page: { id: string; url: string | null; version: number } | null;
   warnings: CommercialWarning[]; notes: string[]; confirm: string;
 };
@@ -64,8 +64,13 @@ export async function previewPublish(d: PublishDeps, input: PublishInput): Promi
   const creating = plan.action === "create" || plan.action === "gone";
   const spaceKey = creating ? (input.spaceKey?.trim() || live?.spaceKey || "") : (live?.spaceKey ?? "");
   let parent: { id: string; title: string } | null = null;
+  let spaceId: string | null = null;
   if (creating) {
     if (!/^[~A-Za-z0-9_-]{1,255}$/.test(spaceKey)) return invalid("Choose the space the page goes in.");
+    // Confluence's v2 API creates a page in a space by its id; the key the person chose is looked up (and so checked) here
+    const sp = await getSpaceByKey(d.call, spaceKey);
+    if (!sp.ok) return sp;
+    spaceId = sp.space.id;
     const raw = input.parentUrl?.trim();
     if (raw) {
       const id = pageIdFromUrl(raw);
@@ -77,7 +82,7 @@ export async function previewPublish(d: PublishDeps, input: PublishInput): Promi
       }
       const p = await getPage(d.call, id, d.siteUrl);
       if (!p.ok) return p;
-      if (p.page.spaceKey && p.page.spaceKey !== spaceKey) return invalid(`The parent page is in space ${p.page.spaceKey}, not ${spaceKey}. Choose that space or another parent.`);
+      if (p.page.spaceId && p.page.spaceId !== spaceId) return invalid(`The parent page is in another space than ${spaceKey}. Choose the space the parent page is in, or another parent.`);
       parent = { id: p.page.id, title: p.page.title };
     }
   }
@@ -88,7 +93,7 @@ export async function previewPublish(d: PublishDeps, input: PublishInput): Promi
   const warnings = commercialWarnings(d.doc.body, d.terms);
   const confirm = d.hash(JSON.stringify([d.doc.id, d.doc.version, plan.action, spaceKey, parent?.id ?? null, title, bodyHash, live?.pageId ?? null, remoteInfo?.version ?? null, input.mode]));
   return {
-    ok: true, action: plan.action, why: plan.why, mode: input.mode, title, spaceKey, parent,
+    ok: true, action: plan.action, why: plan.why, mode: input.mode, title, spaceKey, spaceId, parent,
     page: remoteInfo ? { id: remoteInfo.id, url: remoteInfo.url, version: remoteInfo.version } : null,
     warnings, notes, confirm,
   };
@@ -122,7 +127,7 @@ export async function confirmPublish(d: PublishDeps, input: PublishInput): Promi
   }
 
   // create (a new page), or gone (the old page was deleted in Confluence: the old record stays as history and a new page is made)
-  const r = await createPage(d.call, { spaceKey: p.spaceKey, parentId: p.parent?.id ?? null, title: p.title, body }, d.siteUrl);
+  const r = await createPage(d.call, { spaceId: p.spaceId ?? "", parentId: p.parent?.id ?? null, title: p.title, body }, d.siteUrl);
   if (!r.ok) return r;
   if (p.action === "gone" && live) await d.save.update(live.id, { unlinkedAt: stamp });
   const url = r.page.url;

@@ -33,9 +33,10 @@ const doc = { id: DOC, tenant_id: "t1", item_id: "i1", title: "PRD", body: "# PR
 beforeEach(() => {
   state.user = { id: "u1" }; state.inserted = []; state.updated = []; state.site = SITE;
   state.rows = { item_documents: [doc], tenant_members: [{ role: "creator", is_service_account: false }], item_document_pages: [], items: [{ item_code: "R-12", kr_metric: null, value_12m: null }] };
+  // the v2 API: spaces (listed, or found by key) and pages created in a space by its id
   state.confluence = async (method, path) => {
-    if (method === "GET" && path.startsWith("/space")) return { status: 200, json: { results: [{ key: "PRD", name: "Product", type: "global" }] } };
-    if (method === "POST" && path === "/content") return { status: 200, json: { id: "9001", title: "PRD", version: { number: 1 }, space: { key: "PRD" }, _links: { base: "https://acme.atlassian.net/wiki", webui: "/spaces/PRD/pages/9001/PRD" } } };
+    if (method === "GET" && path.startsWith("/api/v2/spaces")) return { status: 200, json: { results: [{ id: "777", key: "PRD", name: "Product", type: "global" }, { id: "999", key: "GTM", name: "Go-to-market", type: "global" }] } };
+    if (method === "POST" && path === "/api/v2/pages") return { status: 200, json: { id: "9001", title: "PRD", spaceId: "777", version: { number: 1 }, _links: { webui: "/spaces/PRD/pages/9001/PRD" } } };
     return { status: 500, json: null };
   };
 });
@@ -79,7 +80,7 @@ describe("status", () => {
     expect(r).not.toHaveProperty("spaces");
   });
   it("lists the spaces for a person who can publish; a viewer gets an empty list", async () => {
-    expect(await (await GET(new Request("http://x/api?spaces=1"), ctx)).json()).toMatchObject({ spaces: [{ key: "PRD", name: "Product" }] });
+    expect(await (await GET(new Request("http://x/api?spaces=1"), ctx)).json()).toMatchObject({ spaces: [{ id: "999", key: "GTM", name: "Go-to-market" }, { id: "777", key: "PRD", name: "Product" }] });
     state.rows.tenant_members = [{ role: "viewer", is_service_account: false }];
     expect(await (await GET(new Request("http://x/api?spaces=1"), ctx)).json()).toMatchObject({ canPublish: false, spaces: [] });
   });
