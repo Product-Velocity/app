@@ -164,10 +164,10 @@ export class SupabaseDataSource implements PortfolioDataSource {
     return [...items.values()] as unknown as LoadedItem[];
   }
 
-  async addPerson(name: string, email: string | null): Promise<{ ok: true; person: LookupPerson } | { ok: false; error: string }> {
-    const { data, error } = await this.client.rpc("add_person", { p_tenant: this.tenantId, p_name: name, p_email: email });
+  async addPerson(firstName: string, lastName: string | null, email: string | null): Promise<{ ok: true; person: LookupPerson } | { ok: false; error: string }> {
+    const { data, error } = await this.client.rpc("add_person_names", { p_tenant: this.tenantId, p_first: firstName, p_last: lastName, p_email: email });
     if (error || !data) return { ok: false, error: friendlyError(error) };
-    return { ok: true, person: { id: String(data), name, email, status: "not_invited", userId: null } };
+    return { ok: true, person: { id: String(data), name: lastName ? `${firstName} ${lastName}` : firstName, email, status: "not_invited", userId: null } };
   }
 
   async updateField(itemId: string, field: EditableField, value: unknown, opts: { expected?: unknown } = {}): Promise<SaveResult> {

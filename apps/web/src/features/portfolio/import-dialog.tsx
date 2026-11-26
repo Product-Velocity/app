@@ -5,7 +5,7 @@ import { SelectField } from "@/components/search-list";
 import { convertRows, fieldOptions, guessMapping, importableFields, MAX_IMPORT, parseTable, resolveGroup, FIELD_BY_KEY, type ImportRow } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import type { Lookups } from "./types";
-import { personName, selectablePeople } from "./people";
+import { matchablePeople, personName } from "./people";
 
 type Props = { controller: PortfolioController; lookups: Lookups; defaultProject: string | null; initialText: string; onClose: () => void };
 
@@ -33,7 +33,7 @@ export function ImportDialog({ controller, lookups, defaultProject, initialText,
     [width, override, hasHeader, guess],
   );
   const rows = useMemo<ImportRow[]>(
-    () => convertRows(body, mapping, { projects: lookups.projects, people: selectablePeople(lookups), defaultProject: project || null, today: controller.todayDate() }),
+    () => convertRows(body, mapping, { projects: lookups.projects, people: matchablePeople(lookups), defaultProject: project || null, today: controller.todayDate() }),
     [body, mapping, lookups, project, controller],
   );
   const good = rows.filter((r) => r.errors.length === 0);

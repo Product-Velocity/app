@@ -4,11 +4,11 @@ import { useState, useTransition } from "react";
 import type { SaveResult } from "./actions";
 import { InviteForm } from "./forms";
 
-export type NotInvitedPerson = { id: string; name: string; email: string | null; initiatives: number };
+export type NotInvitedPerson = { id: string; name: string; firstName: string; lastName: string | null; email: string | null; initiatives: number };
 
 export type PeopleActions = {
-  addPerson: (name: string, email: string) => Promise<SaveResult>;
-  updatePerson: (id: string, name: string, email: string) => Promise<SaveResult>;
+  addPerson: (firstName: string, lastName: string, email: string) => Promise<SaveResult>;
+  updatePerson: (id: string, firstName: string, lastName: string, email: string) => Promise<SaveResult>;
   removePerson: (id: string) => Promise<SaveResult>;
   linkPerson: (personId: string, userId: string) => Promise<SaveResult>;
 };
@@ -21,7 +21,8 @@ export type PeopleActions = {
 export function PeopleNotInvited({ people, members, workspaceName, emailEnabled, actions }: {
   people: NotInvitedPerson[]; members: { user_id: string; email: string }[]; workspaceName: string; emailEnabled: boolean; actions: PeopleActions;
 }) {
-  const [name, setName] = useState("");
+  const [first, setFirst] = useState("");
+  const [last, setLast] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [busy, startTransition] = useTransition();
@@ -41,21 +42,25 @@ export function PeopleNotInvited({ people, members, workspaceName, emailEnabled,
         People your team named as Product Manager, Engineering Manager, Designer, Analyst or Business Manager before they had an account. They show in reports and
         filters by name. Nothing is sent to them until you invite them here; when they join with the same email, everything that names them stays.
       </p>
-      <form className="row-form" onSubmit={(e) => { e.preventDefault(); if (name.trim()) run(() => actions.addPerson(name, email), `Added ${name.trim()}. Nothing was sent.`, () => { setName(""); setEmail(""); }); }}>
+      <form className="row-form" onSubmit={(e) => { e.preventDefault(); if (first.trim()) run(() => actions.addPerson(first, last, email), `Added ${[first.trim(), last.trim()].filter(Boolean).join(" ")}. Nothing was sent.`, () => { setFirst(""); setLast(""); setEmail(""); }); }}>
         <div className="field">
-          <label htmlFor="person-name">Name</label>
-          <input id="person-name" value={name} maxLength={120} autoComplete="off" onChange={(e) => setName(e.target.value)} />
+          <label htmlFor="person-first">First name</label>
+          <input id="person-first" value={first} maxLength={60} autoComplete="off" onChange={(e) => setFirst(e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="person-last">Last name (optional)</label>
+          <input id="person-last" value={last} maxLength={60} autoComplete="off" onChange={(e) => setLast(e.target.value)} />
         </div>
         <div className="field">
           <label htmlFor="person-email">Email (optional)</label>
           <input id="person-email" type="email" value={email} maxLength={254} autoComplete="off" onChange={(e) => setEmail(e.target.value)} />
         </div>
-        <button className="btn" type="submit" disabled={busy || !name.trim()}>Add person</button>
+        <button className="btn" type="submit" disabled={busy || !first.trim()}>Add person</button>
       </form>
       {message && <p role={message.tone === "error" ? "alert" : "status"} className={message.tone === "error" ? "error" : "notice"}>{message.text}</p>}
       {people.length === 0 ? <p className="muted">Nobody is waiting to be invited.</p> : (
         <table className="table members-table">
-          <thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Status</th><th scope="col">Named on</th><th scope="col"><span className="visually-hidden">Actions</span></th></tr></thead>
+          <thead><tr><th scope="col">Name</th><th scope="col">First name</th><th scope="col">Email</th><th scope="col">Status</th><th scope="col">Named on</th><th scope="col"><span className="visually-hidden">Actions</span></th></tr></thead>
           <tbody>
             {people.map((p) => (
               <PersonRow key={p.id} p={p} members={members} workspaceName={workspaceName} emailEnabled={emailEnabled} actions={actions} busy={busy}
@@ -73,13 +78,15 @@ function PersonRow({ p, members, workspaceName, emailEnabled, actions, busy, ope
   open: "invite" | "edit" | "link" | null; setOpen: (what: "invite" | "edit" | "link" | null) => void;
   run: (job: () => Promise<SaveResult>, done: string, after?: () => void) => void;
 }) {
-  const [name, setName] = useState(p.name);
+  const [first, setFirst] = useState(p.firstName);
+  const [last, setLast] = useState(p.lastName ?? "");
   const [email, setEmail] = useState(p.email ?? "");
   const [target, setTarget] = useState("");
   return (
     <>
       <tr>
         <td><strong>{p.name}</strong></td>
+        <td>{p.firstName}</td>
         <td>{p.email ?? <span className="muted">none yet</span>}</td>
         <td><span className="status-text status-not-invited">Not invited</span></td>
         <td>{p.initiatives === 0 ? <span className="muted">no initiative</span> : `${p.initiatives} ${p.initiatives === 1 ? "initiative" : "initiatives"}`}</td>
@@ -92,7 +99,7 @@ function PersonRow({ p, members, workspaceName, emailEnabled, actions, busy, ope
         </td>
       </tr>
       {open === "invite" && (
-        <tr><td colSpan={5}>
+        <tr><td colSpan={6}>
           <div className="card" role="region" aria-label={`Invite ${p.name}`}>
             <p className="muted">Inviting {p.name} sends nothing until you confirm in the review step. They keep everything they are named on.</p>
             <InviteForm workspaceName={workspaceName} emailEnabled={emailEnabled} defaultEmail={p.email ?? ""} personId={p.id} />
@@ -100,17 +107,18 @@ function PersonRow({ p, members, workspaceName, emailEnabled, actions, busy, ope
         </td></tr>
       )}
       {open === "edit" && (
-        <tr><td colSpan={5}>
-          <form className="row-form" onSubmit={(e) => { e.preventDefault(); run(() => actions.updatePerson(p.id, name, email), `Saved ${name.trim()}.`, () => setOpen(null)); }}>
-            <div className="field"><label htmlFor={`pn-${p.id}`}>Name</label><input id={`pn-${p.id}`} value={name} maxLength={120} onChange={(e) => setName(e.target.value)} /></div>
+        <tr><td colSpan={6}>
+          <form className="row-form" onSubmit={(e) => { e.preventDefault(); run(() => actions.updatePerson(p.id, first, last, email), `Saved ${[first.trim(), last.trim()].filter(Boolean).join(" ")}.`, () => setOpen(null)); }}>
+            <div className="field"><label htmlFor={`pf-${p.id}`}>First name</label><input id={`pf-${p.id}`} value={first} maxLength={60} onChange={(e) => setFirst(e.target.value)} /></div>
+            <div className="field"><label htmlFor={`pl-n-${p.id}`}>Last name (optional)</label><input id={`pl-n-${p.id}`} value={last} maxLength={60} onChange={(e) => setLast(e.target.value)} /></div>
             <div className="field"><label htmlFor={`pe-${p.id}`}>Email</label><input id={`pe-${p.id}`} type="email" value={email} maxLength={254} onChange={(e) => setEmail(e.target.value)} /></div>
-            <button className="btn btn-primary" type="submit" disabled={busy || !name.trim()}>Save</button>
+            <button className="btn btn-primary" type="submit" disabled={busy || !first.trim()}>Save</button>
             <button className="btn" type="button" onClick={() => setOpen(null)}>Cancel</button>
           </form>
         </td></tr>
       )}
       {open === "link" && (
-        <tr><td colSpan={5}>
+        <tr><td colSpan={6}>
           <form className="row-form" onSubmit={(e) => { e.preventDefault(); if (target) run(() => actions.linkPerson(p.id, target), `${p.name} is now that member everywhere.`, () => setOpen(null)); }}>
             <div className="field">
               <label htmlFor={`pl-${p.id}`}>{p.name} joined as</label>

@@ -14,15 +14,19 @@ test.describe("Not invited yet (Members)", () => {
 
   test("adds a person with a name only: nothing is sent", async ({ page }) => {
     await page.goto("/dev/people");
-    await page.getByLabel("Name", { exact: true }).fill("Ines Vega");
+    await page.getByLabel("First name", { exact: true }).fill("Ines");
+    await page.getByLabel("Last name (optional)").fill("Vega");
     await page.getByRole("button", { name: "Add person" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Added Ines Vega. Nothing was sent." })).toBeVisible();
-    await expect(page.locator("tr", { hasText: "Ines Vega" })).toContainText("none yet");
+    const row = page.locator("tr", { hasText: "Ines Vega" });
+    await expect(row).toContainText("none yet");
+    await expect(row.getByRole("cell", { name: "Ines", exact: true })).toBeVisible(); // the first name has its own column
   });
 
   test("a repeated address is refused with the reason", async ({ page }) => {
     await page.goto("/dev/people");
-    await page.getByLabel("Name", { exact: true }).fill("Another Jane");
+    await page.getByLabel("First name", { exact: true }).fill("Another");
+    await page.getByLabel("Last name (optional)").fill("Jane");
     await page.getByLabel("Email (optional)").fill("JANE@meridian.test");
     await page.getByRole("button", { name: "Add person" }).click();
     await expect(page.getByRole("alert").filter({ hasText: "Someone with that email is on the list already" })).toBeVisible();

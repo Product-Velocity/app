@@ -17,7 +17,7 @@ export interface PortfolioDataSource {
   /** All items of the workspace in global rank order (without project_rank). */
   loadItems(): Promise<LoadedItem[]>;
   /** Name someone who is not a member (yet): they can then be Product Manager, Engineering Manager and so on. Nothing is sent to them. */
-  addPerson(name: string, email: string | null): Promise<{ ok: true; person: LookupPerson } | { ok: false; error: string }>;
+  addPerson(firstName: string, lastName: string | null, email: string | null): Promise<{ ok: true; person: LookupPerson } | { ok: false; error: string }>;
   /**
    * Save one field. When `expected` is given (undo and redo) the save only
    * happens if the stored value still equals it, so nobody else's change is overwritten.

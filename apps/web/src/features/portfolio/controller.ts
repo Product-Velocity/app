@@ -353,7 +353,7 @@ export class PortfolioController {
     if (!input) { const error = "Enter a name (1 to 120 characters), and an email address if you have one."; this.notify(error); return { ok: false, error }; }
     const known = findPerson(peopleOf(this.lookups), input);
     if (known) return { ok: true, person: known, added: false };
-    const r = await this.source.addPerson(input.name, input.email);
+    const r = await this.source.addPerson(input.firstName, input.lastName, input.email);
     if (!r.ok) { this.notify(`Could not add ${input.name}: ${r.error}`); return r; }
     this.lookups.people = [...peopleOf(this.lookups), r.person];
     this.state.last = { text: `Added ${r.person.name} to the people list (not invited)`, at: this.now() };

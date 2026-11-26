@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PortfolioController } from "./controller";
 import { MemoryDataSource, sampleItems } from "./memory-source";
-import { peopleOf, personLabel, personName, personOptions, selectablePeople } from "./people";
+import { matchablePeople, peopleOf, personLabel, personName, personOptions, selectablePeople } from "./people";
 import type { Lookups } from "./types";
 
 // Issue #691: people named without an account can be chosen on a person field.
@@ -28,7 +28,7 @@ describe("people of a workspace", () => {
   });
   it("says in the picker who has not been invited, and nowhere else", () => {
     const { lookups } = setup();
-    expect(personOptions(lookups)).toEqual([{ value: "u1", label: "ana@example.test" }, { value: "pe1", label: "Jane Doe (not invited)" }]);
+    expect(personOptions(lookups)).toEqual([{ value: "u1", label: "ana@example.test" }, { value: "pe1", label: "Jane Doe, jane@example.test (not invited)" }]);
     expect(personLabel({ id: "x", name: "Ravi", email: null, status: "invited", userId: null })).toBe("Ravi (invited)");
     expect(personName(lookups, "pe1")).toBe("Jane Doe");
     expect(personName(lookups, "gone")).toBe("unknown person");
@@ -49,7 +49,7 @@ describe("a person named without an account", () => {
     await c.flush();
     await new Promise((r) => setTimeout(r, 0));
     await c.flush();
-    expect(source.addedPeople).toEqual([{ name: "Ravi Rao", email: "ravi@example.test" }]);
+    expect(source.addedPeople).toEqual([{ name: "Ravi Rao", firstName: "Ravi", lastName: "Rao", email: "ravi@example.test" }]);
     expect(lookups.people!.map((p) => p.name)).toContain("Ravi Rao");
     expect(c.row("item-1")!.engineering_manager).toBe("person-1");
     expect(c.status.canUndo).toBe(true);
@@ -147,6 +147,39 @@ describe("members who are paused, revoked or only asked for access (issue #698)"
     expect(personOptions(lookups, { all: true }).map((o) => o.label)).toEqual([
       "ana@example.test", "bo@example.test (paused)", "cy@example.test (revoked)", "di@example.test (requested access)", "Jane Doe (not invited)", "Ravi Rao (invited)",
     ]);
+  });
+});
+
+describe("names in cells, name and email in pickers (Ashu 2026-11-26)", () => {
+  const lookups: Lookups = {
+    projects: [],
+    members: [{ user_id: "u1", email: "ashu.mathura@gmail.com" }, { user_id: "u2", email: "ashu.mathura@refinery89.com" }],
+    people: [
+      { id: "u1", name: "Ashu Mathura", email: "ashu.mathura@gmail.com", status: "active", userId: "u1" },
+      { id: "u2", name: "Ashu Mathura", email: "ashu.mathura@refinery89.com", status: "active", userId: "u2" },
+      { id: "u3", name: "ana@example.test", email: "ana@example.test", status: "active", userId: "u3" },
+      { id: "pe1", name: "Alba Casillas", email: null, status: "not_invited", userId: null },
+    ],
+  };
+  it("a picker option is Name, email, so two people with the same name can be told apart", () => {
+    expect(personOptions(lookups).map((o) => o.label)).toEqual([
+      "Ashu Mathura, ashu.mathura@gmail.com", "Ashu Mathura, ashu.mathura@refinery89.com", "ana@example.test", "Alba Casillas (not invited)",
+    ]);
+  });
+  it("a cell, a card or a report shows the name only", () => {
+    expect(personName(lookups, "u1")).toBe("Ashu Mathura");
+    expect(personName(lookups, "pe1")).toBe("Alba Casillas");
+  });
+  it("a person with no name of their own shows the email once", () => {
+    expect(personLabel(lookups.people![2]!)).toBe("ana@example.test");
+  });
+  it("is matched by name, first name or email in quick add and in a paste import", async () => {
+    const { pickPerson } = await import("@pv/domain");
+    const people = matchablePeople(lookups);
+    expect(pickPerson(people, "ana")).toMatchObject({ hit: { id: "u3" } });
+    expect(pickPerson(people, "alba")).toMatchObject({ hit: { id: "pe1" } });
+    expect(pickPerson(people, "ashu")).toEqual({ error: "many" });
+    expect(pickPerson(people, "ashu.mathura@refinery89.com")).toMatchObject({ hit: { id: "u2" } });
   });
 });
 

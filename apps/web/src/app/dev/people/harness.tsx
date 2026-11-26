@@ -4,9 +4,9 @@ import { useState } from "react";
 import { PeopleNotInvited, type NotInvitedPerson, type PeopleActions } from "../../(workspace)/settings/members/people-list";
 
 const START: NotInvitedPerson[] = [
-  { id: "p1", name: "Jane Doe", email: "jane@meridian.test", initiatives: 3 },
-  { id: "p2", name: "Ravi Rao", email: null, initiatives: 1 },
-  { id: "p3", name: "Mika Aalto", email: "mika@meridian.test", initiatives: 0 },
+  { id: "p1", name: "Jane Doe", firstName: "Jane", lastName: "Doe", email: "jane@meridian.test", initiatives: 3 },
+  { id: "p2", name: "Ravi Rao", firstName: "Ravi", lastName: "Rao", email: null, initiatives: 1 },
+  { id: "p3", name: "Mika Aalto", firstName: "Mika", lastName: "Aalto", email: "mika@meridian.test", initiatives: 0 },
 ];
 const MEMBERS = [{ user_id: "u1", email: "lena@meridian.test" }, { user_id: "u2", email: "omar@meridian.test" }];
 
@@ -14,14 +14,14 @@ const MEMBERS = [{ user_id: "u1", email: "lena@meridian.test" }, { user_id: "u2"
 export function HarnessPeople() {
   const [people, setPeople] = useState(START);
   const actions: PeopleActions = {
-    async addPerson(name, email) {
-      if (!name.trim()) return { ok: false, error: "Enter a name of 1 to 120 characters" };
+    async addPerson(first, last, email) {
+      if (!first.trim()) return { ok: false, error: "Enter a first name of 1 to 60 characters" };
       if (email && [...people].some((p) => p.email === email.toLowerCase())) return { ok: false, error: "Someone with that email is on the list already" };
-      setPeople((all) => [...all, { id: `n${all.length}`, name: name.trim(), email: email.trim().toLowerCase() || null, initiatives: 0 }]);
+      setPeople((all) => [...all, { id: `n${all.length}`, name: [first.trim(), last.trim()].filter(Boolean).join(" "), firstName: first.trim(), lastName: last.trim() || null, email: email.trim().toLowerCase() || null, initiatives: 0 }]);
       return { ok: true };
     },
-    async updatePerson(id, name, email) {
-      setPeople((all) => all.map((p) => (p.id === id ? { ...p, name: name.trim(), email: email.trim() || null } : p)));
+    async updatePerson(id, first, last, email) {
+      setPeople((all) => all.map((p) => (p.id === id ? { ...p, name: [first.trim(), last.trim()].filter(Boolean).join(" "), firstName: first.trim(), lastName: last.trim() || null, email: email.trim() || null } : p)));
       return { ok: true };
     },
     async removePerson(id) { setPeople((all) => all.filter((p) => p.id !== id)); return { ok: true }; },

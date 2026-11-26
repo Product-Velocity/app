@@ -60,3 +60,14 @@ describe("Resend webhook signature", () => {
     expect(EVENT_STATUS["email.opened"]).toBeUndefined();
   });
 });
+
+describe("the invitation greets by first name when one is known (issue #702)", () => {
+  const base = { workspace: "Acme", inviter: "Ashu", role: "creator" as const, isApprover: false, link: "https://app.test/invite/abc" };
+  it("says Hi Jane when someone typed the invitee's first name", () => {
+    expect(buildInvitationEmail({ ...base, firstname: "Jane" }).text).toContain("Hi Jane,");
+  });
+  it("says Hi there when there is none, and never guesses a name from the address", () => {
+    expect(buildInvitationEmail(base).text).toContain("Hi there,");
+  });
+});
+

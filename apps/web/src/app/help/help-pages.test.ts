@@ -168,6 +168,11 @@ describe("Help pages", () => {
     // use-cases are there, and no internal words
     expect(t).toContain("Name a product manager who has no account yet");
     expect(t).toContain("Joined with another email");
+    // names and greetings (issue #702)
+    expect(t).toContain("Names and greetings");
+    expect(t).toContain("Hi there,");
+    expect(t).toContain("Name, email");
+    expect(t).toContain("A name is never worked out from an email address");
     expect(t).not.toMatch(/\b(tenant|RLS|Postgres|auth\.users)\b/i);
     // reachable from the Help home and the side menu of every page
     expect(html[""]).toContain('href="/help/people-and-access"');

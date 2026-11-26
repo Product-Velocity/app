@@ -41,10 +41,13 @@ export async function createInvitation(_prev: InviteState, form: FormData): Prom
     const person = ((dir ?? []) as { person_id: string; name: string; email: string | null; user_id: string | null }[]).find((p) => p.person_id === personId && !p.user_id);
     if (!person) return { error: "That person is no longer on the list." };
     if ((person.email ?? "").toLowerCase() !== input.email) {
-      const { error: e } = await supabase.rpc("update_person", { p_tenant: active.tenantId, p_id: personId, p_name: person.name, p_email: input.email });
+      const names = await namesOf(supabase, active.tenantId, personId);
+      const { error: e } = await supabase.rpc("update_person_names", { p_tenant: active.tenantId, p_id: personId, p_first: names?.first ?? person.name, p_last: names?.last ?? null, p_email: input.email });
       if (e) return { error: personError(e) };
     }
   }
+  // the first name to greet them by (the invitation email says "Hi there" when nobody typed one); never guessed from the address
+  const firstname = await inviteeFirstName(supabase, active.tenantId, typeof personId === "string" && personId ? { personId } : { email: input.email });
 
   const token = generateInviteToken();
   const { data: created, error } = await supabase.from("invitations").insert({
@@ -65,10 +68,32 @@ export async function createInvitation(_prev: InviteState, form: FormData): Prom
   const link = `${await siteUrl()}/invite/${token}`;
   let result: { emailed: boolean; note: string } | null = null;
   if (form.get("delivery") === "email" && created) {
-    result = await emailInvitation({ invitationId: created.id, tenantId: active.tenantId, tenantName: active.tenantName, inviter: inviterName(user), email: input.email, role: input.role, isApprover: input.isApprover, link });
+    result = await emailInvitation({ invitationId: created.id, tenantId: active.tenantId, tenantName: active.tenantName, inviter: inviterName(user), email: input.email, role: input.role, isApprover: input.isApprover, link, ...(firstname ? { firstname } : {}) });
   }
   revalidatePath(PATH);
   return { link, email: input.email, ...(result ? { emailed: result.emailed, emailNote: result.note } : {}) };
+}
+
+type Supabase = Awaited<ReturnType<typeof requireWorkspace>>["supabase"];
+
+/** First and last name of one person of the workspace, as person_names() reads them (null when nothing is known). */
+async function namesOf(supabase: Supabase, tenantId: string, personId: string): Promise<{ first: string | null; last: string | null } | null> {
+  const { data } = await supabase.rpc("person_names", { p_tenant: tenantId });
+  const row = ((data ?? []) as { person_id: string; first_name: string | null; last_name: string | null }[]).find((r) => r.person_id === personId);
+  return row ? { first: row.first_name, last: row.last_name } : null;
+}
+
+/** The first name of someone named before they had an account, found by their id or by the address they are invited at. */
+async function inviteeFirstName(supabase: Supabase, tenantId: string, who: { personId: string } | { email: string }): Promise<string | undefined> {
+  let personId: string | undefined = "personId" in who ? who.personId : undefined;
+  const email = "email" in who ? who.email.toLowerCase() : null;
+  if (!personId && email) {
+    const { data } = await supabase.rpc("people_directory", { p_tenant: tenantId });
+    personId = ((data ?? []) as { person_id: string; user_id: string | null; email: string | null }[]).find((p) => !p.user_id && (p.email ?? "").toLowerCase() === email)?.person_id;
+  }
+  if (!personId) return undefined;
+  const first = (await namesOf(supabase, tenantId, personId))?.first?.trim();
+  return first && first.length <= 40 ? first : undefined;
 }
 
 /** The words of a refused people function: our own messages (PV005, PV006) are written for the person, anything else is not. */
@@ -79,17 +104,17 @@ function personError(e: { code?: string; message?: string }): string {
 }
 
 /** Name someone who is not a member (yet). Nothing is sent to them. */
-export async function addPerson(name: string, email: string): Promise<SaveResult> {
+export async function addPerson(firstName: string, lastName: string, email: string): Promise<SaveResult> {
   const { supabase, active } = await requireWorkspace(PATH);
-  const { error } = await supabase.rpc("add_person", { p_tenant: active.tenantId, p_name: name, p_email: email.trim() || null });
+  const { error } = await supabase.rpc("add_person_names", { p_tenant: active.tenantId, p_first: firstName, p_last: lastName.trim() || null, p_email: email.trim() || null });
   if (error) return { ok: false, error: personError(error) };
   revalidatePath(PATH);
   return { ok: true };
 }
 
-export async function updatePerson(id: string, name: string, email: string): Promise<SaveResult> {
+export async function updatePerson(id: string, firstName: string, lastName: string, email: string): Promise<SaveResult> {
   const { supabase, active } = await requireWorkspace(PATH);
-  const { error } = await supabase.rpc("update_person", { p_tenant: active.tenantId, p_id: id, p_name: name, p_email: email.trim() || null });
+  const { error } = await supabase.rpc("update_person_names", { p_tenant: active.tenantId, p_id: id, p_first: firstName, p_last: lastName.trim() || null, p_email: email.trim() || null });
   if (error) return { ok: false, error: personError(error) };
   revalidatePath(PATH);
   return { ok: true };
@@ -126,7 +151,8 @@ export async function resendInvitation(_prev: InviteState, form: FormData): Prom
   const link = `${await siteUrl()}/invite/${token}`;
   let result: { emailed: boolean; note: string } | null = null;
   if (form.get("delivery") === "email") {
-    result = await emailInvitation({ invitationId: inv.id, tenantId: active.tenantId, tenantName: active.tenantName, inviter: inviterName(user), email: inv.email, role: inv.role, isApprover: inv.is_approver, link });
+    const firstname = await inviteeFirstName(supabase, active.tenantId, { email: inv.email });
+    result = await emailInvitation({ invitationId: inv.id, tenantId: active.tenantId, tenantName: active.tenantName, inviter: inviterName(user), email: inv.email, role: inv.role, isApprover: inv.is_approver, link , ...(firstname ? { firstname } : {})});
   }
   revalidatePath(PATH);
   return { link, email: inv.email, ...(result ? { emailed: result.emailed, emailNote: result.note } : {}) };

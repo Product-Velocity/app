@@ -9,7 +9,7 @@ import { nearDuplicates, resolveGroup } from "./groups";
 export type QuickAddCtx = {
   projects: { id: string; name: string }[];
   /** People who can be Product Manager: members and people named without an account (the id is what the field stores). */
-  people: { id: string; name: string }[];
+  people: { id: string; name: string; email?: string | null }[];
   /** Project to use when the line has no #project (the project of the row you are on, or the last one used). */
   defaultProject?: string | null;
   /** Initiative Groups of the workspace, for `+group`. */
@@ -65,6 +65,18 @@ export function pick<T>(items: T[], key: (t: T) => string, query: string): { hit
   return { error: prefix.length === 0 ? "none" : "many" };
 }
 
+/**
+ * Who `@query` or a Person cell names: first by the local part of the email (as before), then by the name, so a first name works too.
+ * `name` is what the person is called; `email` is optional (people named without an account may have none).
+ */
+export function pickPerson<T extends { name: string; email?: string | null }>(people: T[], query: string): { hit: T } | { error: "none" | "many" } {
+  const sameEmail = people.filter((m) => !!m.email && m.email.toLowerCase() === query.trim().toLowerCase());
+  if (sameEmail.length === 1) return { hit: sameEmail[0]! };
+  const byEmail = pick(people, (m) => (m.email ? m.email.split("@")[0]! : m.name.split("@")[0]!), query);
+  if ("hit" in byEmail || byEmail.error === "many") return byEmail;
+  return pick(people, (m) => m.name, query);
+}
+
 export function parseQuickAdd(input: string, ctx: QuickAddCtx): QuickAddResult {
   const tokens = input.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "").trim().split(/\s+/).filter(Boolean);
   let projectQuery: string | null = null;
@@ -118,7 +130,7 @@ export function parseQuickAdd(input: string, ctx: QuickAddCtx): QuickAddResult {
 
   let person: string | null = null;
   if (personQuery !== null) {
-    const r = pick(ctx.people, (m) => m.name.split("@")[0]!, personQuery);
+    const r = pickPerson(ctx.people, personQuery);
     if ("error" in r) {
       return { ok: false, error: r.error === "many" ? `More than one person starts with "${personQuery}". Type more of the name.` : `No person named "${personQuery}".` };
     }

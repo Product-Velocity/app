@@ -16,10 +16,19 @@ export function selectablePeople(lookups: Source): LookupPerson[] {
   return peopleOf(lookups).filter((p) => !NOT_OFFERED.has(p.status));
 }
 
-/** The words of a picker option: anyone who is not an active member says so, so nobody mistakes them for one. */
+/**
+ * The words of a picker option: "Name, email" (so two people with the same name can be told apart), and anyone who is not an active member
+ * says so, so nobody mistakes them for one. A person with no name of their own shows the email once. Cells, cards and reports show the name only.
+ */
 export function personLabel(p: LookupPerson): string {
+  const who = p.email && p.email.toLowerCase() !== p.name.toLowerCase() ? `${p.name}, ${p.email}` : p.name;
   const word = STATUS_WORD[p.status];
-  return word ? `${p.name} (${word})` : p.name;
+  return word ? `${who} (${word})` : who;
+}
+
+/** The people a typed `@name` or a pasted Person cell may name: members and people named without an account, with their email to match by. */
+export function matchablePeople(lookups: Source): { id: string; name: string; email: string | null }[] {
+  return selectablePeople(lookups).map((p) => ({ id: p.id, name: p.name, email: p.email }));
 }
 
 /** Picker options for a person field. `all` also lists members who are paused or revoked (a filter or a report may want a former product manager). */
