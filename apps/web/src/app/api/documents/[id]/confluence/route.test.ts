@@ -99,7 +99,7 @@ describe("status", () => {
     expect(await (await GET(new Request("http://x/api?spaces=1"), ctx)).json()).toMatchObject({ canPublish: false, spaces: [] });
   });
   it("shows the last publication and whether the page is out of date", async () => {
-    state.rows.item_document_pages = [{ id: "p1", page_id: "5", page_url: "https://acme.atlassian.net/wiki/spaces/PRD/pages/5", page_title: "PRD", space_key: "PRD", sync_mode: "sync", published_version: 1, published_at: "2026-11-26T10:00:00Z", unlinked_at: null }];
+    state.rows.item_document_pages = [{ id: "p1", source: "pv", page_id: "5", page_url: "https://acme.atlassian.net/wiki/spaces/PRD/pages/5", page_title: "PRD", space_key: "PRD", sync_mode: "sync", published_version: 1, published_at: "2026-11-26T10:00:00Z", unlinked_at: null }];
     state.rows.item_documents = [{ ...doc, version: 3 }];
     expect(await (await GET(new Request("http://x/api"), ctx)).json()).toMatchObject({ last: { linked: true, outOfDate: true, syncMode: "sync" } });
   });
@@ -139,7 +139,7 @@ describe("preview, then confirm", () => {
 
   it("unlink ends the link and leaves the page; nothing to unlink is a 404", async () => {
     expect((await post({ action: "unlink" })).status).toBe(404);
-    state.rows.item_document_pages = [{ id: "p1", page_id: "5", page_url: "https://x.test/5", page_title: "PRD", space_key: "PRD", sync_mode: "sync", published_version: 1, published_at: "2026-11-26T10:00:00Z", unlinked_at: null }];
+    state.rows.item_document_pages = [{ id: "p1", source: "pv", page_id: "5", page_url: "https://x.test/5", page_title: "PRD", space_key: "PRD", sync_mode: "sync", published_version: 1, published_at: "2026-11-26T10:00:00Z", unlinked_at: null }];
     expect((await post({ action: "unlink" })).status).toBe(200);
     expect(state.updated).toEqual([{ table: "item_document_pages", patch: { unlinked_at: expect.any(String) } }]);
   });

@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { DOC_KINDS, DOC_KIND_LABEL, type DocKind, type Link } from "@pv/domain";
+import { DOC_KINDS, DOC_KIND_LABEL, pageIdFromUrl, type DocKind, type Link } from "@pv/domain";
 import { host, NameEdit, RowIcon, RowMenu, ShareChip } from "./attachment-ui";
 import type { FieldCtx } from "./item-fields";
 
@@ -21,7 +21,7 @@ const typingIn = (t: EventTarget | null) => t instanceof HTMLElement && (t.isCon
  * The links of one initiative (Artifacts), as the same rows as documents and files. A pasted web address (not into a box) is added and named after its
  * page; a link without a name shows its domain. Links go into the tracker issue unless the chip says "Only in Product Velocity".
  */
-export const LinksList = forwardRef<LinksHandle, { ctx: FieldCtx; itemId: string; disabled: boolean; onError: (e: string | null) => void; query?: string; tracker?: string }>(function LinksList({ ctx, itemId, disabled, onError, query = "", tracker = "the issue" }, ref) {
+export const LinksList = forwardRef<LinksHandle, { ctx: FieldCtx; itemId: string; disabled: boolean; onError: (e: string | null) => void; query?: string; tracker?: string; /** Present when Confluence is connected: reads the page of a Confluence link into a document. */ onImportPage?: (pageUrl: string, kind: DocKind | undefined) => void }>(function LinksList({ ctx, itemId, disabled, onError, query = "", tracker = "the issue", onImportPage }, ref) {
   const related = ctx.controller.relatedOf(itemId);
   const list = (related?.artifacts ?? []) as Link[];
   const [adding, setAdding] = useState(false);
@@ -87,6 +87,7 @@ export const LinksList = forwardRef<LinksHandle, { ctx: FieldCtx; itemId: string
             <RowMenu label={`Actions for ${display(l)}`} items={[
               { label: "Open", href: l.url },
               { label: "Copy address", onSelect: () => void navigator.clipboard?.writeText(l.url).catch(() => onError("Your browser did not allow copying.")) },
+              { label: "Read this page into a document…", onSelect: () => onImportPage?.(l.url, l.kind), hidden: disabled || !onImportPage || pageIdFromUrl(l.url) === null },
               { label: "Rename", onSelect: () => setRenaming(l), hidden: disabled },
               { label: "Remove", onSelect: () => set(list.filter((x) => x !== l)), danger: true, hidden: disabled },
             ]} />

@@ -7,6 +7,8 @@ import { addItemFile, removeItemFile, setFileSharing } from "@/lib/files/actions
 import { shareUrl } from "@/lib/files/serve";
 import { supabaseFileStore, type FileStore } from "@/lib/files/store";
 import { buildContext, type CompanyProfileData, type DocInfo, type GatePackData, type FileInfo, type ItemDetail, type McpReader, type Member, type OutcomeReviewInfo, type OutcomeReviewsInfo, type ViewInfo, type WorkspaceContext } from "./read-model";
+import { readPageById, readPageByUrl } from "@/lib/confluence/importer";
+import { confluenceRequest, confluenceSiteFor } from "@/lib/confluence/server";
 import { ToolInputError } from "./tool-error";
 import type { ApplyResult, McpDocuments, McpEpics, McpFiles, McpOutcomes, McpProfile, McpPublishRequests, McpWriter, PendingRow, UndoResult } from "./write-model";
 
@@ -92,15 +94,15 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     const ids = list.filter((d) => d.scope !== "workspace").map((d) => d.id);
     if (ids.length === 0) return list;
     const [pages, reqs] = await Promise.all([
-      supabase.from("item_document_pages").select("document_id, page_url, page_title, space_key, sync_mode, published_version, unlinked_at").eq("tenant_id", tenant.id).in("document_id", ids).order("created_at"),
+      supabase.from("item_document_pages").select("document_id, source, page_url, page_title, space_key, sync_mode, published_version, unlinked_at").eq("tenant_id", tenant.id).in("document_id", ids).order("created_at"),
       supabase.from("item_document_publish_requests").select("document_id, space_key, parent_url, page_title, sync_mode, note, ai_model, created_via").eq("tenant_id", tenant.id).in("document_id", ids),
     ]);
     if (pages.error || reqs.error) return list;
     const page = new Map<string, NonNullable<DocInfo["confluence"]>>();
     const version = new Map(list.map((d) => [d.id, d.version]));
-    for (const p of (pages.data ?? []) as { document_id: string; page_url: string; page_title: string; space_key: string; sync_mode: "once" | "sync"; published_version: number; unlinked_at: string | null }[]) {
+    for (const p of (pages.data ?? []) as { document_id: string; source: "pv" | "external"; page_url: string; page_title: string; space_key: string; sync_mode: "once" | "sync"; published_version: number; unlinked_at: string | null }[]) {
       const linked = p.unlinked_at === null;
-      page.set(p.document_id, { page_url: p.page_url, page_title: p.page_title, space_key: p.space_key, mode: p.sync_mode, linked, published_version: p.published_version, out_of_date: linked && p.published_version < (version.get(p.document_id) ?? 0) });
+      page.set(p.document_id, { source: p.source, page_url: p.page_url, page_title: p.page_title, space_key: p.space_key, mode: p.sync_mode, linked, published_version: p.published_version, out_of_date: p.source === "pv" && linked && p.published_version < (version.get(p.document_id) ?? 0) });
     }
     const req = new Map<string, NonNullable<DocInfo["publish_request"]>>();
     for (const r of (reqs.data ?? []) as { document_id: string; space_key: string | null; parent_url: string | null; page_title: string | null; sync_mode: "once" | "sync"; note: string | null; ai_model: string | null; created_via: string }[]) {
@@ -304,6 +306,30 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
 
     async document(id) {
       return loadDoc(id, true);
+    },
+
+    async confluencePage(ref) {
+      const site = await confluenceSiteFor(tenant.id);
+      if (!site) return { ok: false, message: "Confluence is not connected for this workspace. A workspace admin can connect it under Settings, Integrations, Confluence." };
+      const call = confluenceRequest(site.connectionId, site.siteId);
+      let read;
+      if ("document" in ref) {
+        if (!/^[0-9a-f-]{36}$/i.test(ref.document)) return { ok: false, message: `No document "${ref.document}" in this workspace, or you cannot read it. list_documents shows the ids.` };
+        const { data } = await supabase.from("item_document_pages").select("page_id").eq("tenant_id", tenant.id).eq("document_id", ref.document).order("created_at", { ascending: false }).limit(1);
+        const row = ((data ?? []) as { page_id: string }[])[0];
+        if (!row) return { ok: false, message: "That document is not linked to a Confluence page, or you cannot read it." };
+        read = await readPageById(call, site.siteUrl, row.page_id);
+      } else {
+        const item = await findRow(ref.item);
+        if (!item) return { ok: false, message: `No initiative "${ref.item}" in this workspace, or you cannot read it.` };
+        const { data } = await supabase.from("item_attachments").select("id").eq("tenant_id", tenant.id).eq("item_id", item.id).eq("kind", "link").eq("url", ref.url).limit(1);
+        if (((data ?? []) as unknown[]).length === 0) return { ok: false, message: `That address is not one of the links of ${String(item.item_code)}. Only a page someone linked on the initiative can be read; a person with edit rights adds it on the Spec tab first.` };
+        read = await readPageByUrl(call, site.siteUrl, ref.url);
+      }
+      if (!read.ok) return { ok: false, message: read.message };
+      const MAX = 40_000;
+      const p = read.page;
+      return { ok: true, page: { title: p.title, version: p.version, url: p.url, text: p.markdown.slice(0, MAX), characters: p.characters, truncated: p.markdown.length > MAX, not_carried_over: p.lost } };
     },
   };
 

@@ -92,4 +92,12 @@ describe("pages a document was published to", () => {
     await db.asUser(creator, (q) => q("delete from public.item_documents where id = $1", [d2]), { commit: true, via: "UI" });
     expect((await db.admin.query("select 1 from public.item_document_pages where document_id = $1", [d2])).rowCount).toBe(0);
   });
+
+  it("a page can also be the SOURCE of a document (issue #693 slice A2): a person records it as external; an assistant still cannot", async () => {
+    const d3 = await db.asUser(creator, async (q) => (await q("insert into public.item_documents (tenant_id, item_id, kind, title, body, shared) values ($1, $2, 'go_to_market', 'From a page', 'x', false) returning id", [f.tenantA, item])).rows[0].id as string, { commit: true, via: "UI" });
+    const id = await insert(creator, { document_id: d3, source: "external", page_id: "880", sync_mode: "sync", published_version: 1, remote_version: 7 });
+    expect((await db.admin.query("select * from public.item_document_pages where id = $1", [id])).rows[0]).toMatchObject({ source: "external", sync_mode: "sync", remote_version: 7, unlinked_at: null });
+    expect(await errorCode(insert(claudeUser, { document_id: d3, source: "external", page_id: "881" }, { claims: { client_id: CLIENT } }))).toBe("PV035");
+    expect(await errorCode(insert(creator, { document_id: d3, source: "elsewhere", page_id: "882" }))).toBe("23514");
+  });
 });

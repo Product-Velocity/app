@@ -10,8 +10,9 @@ type Node = { page: TreePage; children: Node[] | "loading" | "error" | null; ope
  * it works with the keyboard (Tab to a row, Enter or Space to choose, the arrow button to open). Only titles are shown; the pages are read through the server with the
  * workspace's Confluence connection. `topLabel`, when given, adds a first choice for "no page" (the top of the space).
  */
-export function ConfluencePageTree({ docId, spaceKey, selectedId, onSelect, topLabel, label }: {
-  docId: string;
+export function ConfluencePageTree({ pagesUrl, spaceKey, selectedId, onSelect, topLabel, label }: {
+  /** The address that lists pages: `?space=KEY` lists a space's top-level pages, `?parent=ID` the sub pages of a page (a `&` is added when it already has a `?`). */
+  pagesUrl: string;
   spaceKey: string;
   selectedId: string | null;
   onSelect: (page: TreePage | null) => void;
@@ -24,7 +25,7 @@ export function ConfluencePageTree({ docId, spaceKey, selectedId, onSelect, topL
 
   const fetchPages = async (qs: string): Promise<TreePage[] | null> => {
     try {
-      const r = await fetch(`/api/documents/${docId}/confluence/pages?${qs}`);
+      const r = await fetch(`${pagesUrl}${pagesUrl.includes("?") ? "&" : "?"}${qs}`);
       const j = (await r.json().catch(() => ({}))) as { pages?: TreePage[]; error?: string };
       if (!r.ok || !j.pages) { setError(j.error ?? "The pages could not be read."); return null; }
       setError(null);
@@ -34,7 +35,7 @@ export function ConfluencePageTree({ docId, spaceKey, selectedId, onSelect, topL
 
   useEffect(() => {
     let live = true;
-    void fetch(`/api/documents/${docId}/confluence/pages?space=${encodeURIComponent(spaceKey)}`)
+    void fetch(`${pagesUrl}${pagesUrl.includes("?") ? "&" : "?"}space=${encodeURIComponent(spaceKey)}`)
       .then(async (r) => ({ ok: r.ok, j: (await r.json().catch(() => ({}))) as { pages?: TreePage[]; error?: string } }))
       .catch(() => ({ ok: false, j: { error: "Product Velocity could not be reached." } as { pages?: TreePage[]; error?: string } }))
       .then(({ ok, j }) => {
@@ -43,7 +44,7 @@ export function ConfluencePageTree({ docId, spaceKey, selectedId, onSelect, topL
         else { setError(j.error ?? "The pages could not be read."); setRoots("error"); }
       });
     return () => { live = false; };
-  }, [docId, spaceKey]);
+  }, [pagesUrl, spaceKey]);
 
   /** Opens or closes one node (found by its path of ids), loading its sub pages the first time. */
   const toggle = async (path: string[]) => {

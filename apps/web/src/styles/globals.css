@@ -2195,3 +2195,4 @@ a.tool-btn { text-decoration: none; display: inline-flex; align-items: center; c
 .page-tree-on { background: #e6efff; color: #1A56C4; font-weight: 600; }
 .page-tree-top { display: block; width: 100%; }
 .page-tree-note { margin: 2px 0 2px 28px; }
+.import-excerpt { max-height: 220px; overflow: auto; margin: 0; padding: 8px 10px; background: var(--grey-3, #f3f4f7); border: 1px solid var(--border-strong, #d5dae3); border-radius: 6px; white-space: pre-wrap; word-break: break-word; font: 12px/1.45 var(--font-mono, ui-monospace, monospace); }

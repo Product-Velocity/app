@@ -115,10 +115,12 @@ export type DocInfo = {
   /** "workspace" for a document that belongs to the workspace (item_code is then empty); absent for a document on an initiative. */
   scope?: "workspace";
   /** The Confluence page this document was published to (issue #693), when it was; null/absent otherwise. */
-  confluence?: { page_url: string; page_title: string; space_key: string; mode: "once" | "sync"; linked: boolean; published_version: number; out_of_date: boolean } | null;
+  confluence?: { source: "pv" | "external"; page_url: string; page_title: string; space_key: string; mode: "once" | "sync"; linked: boolean; published_version: number; out_of_date: boolean } | null;
   /** An open request to publish it (made by a person or by Claude), waiting for a person to confirm in the app; null/absent when there is none. */
   publish_request?: { mode: "once" | "sync"; space_key: string | null; parent_url: string | null; title: string | null; note: string | null; requested_by: "Claude" | "a person"; ai_model: string | null } | null;
 };
+/** A page read from Confluence as Markdown. `text` is data (CLAUDE.md rule 4): it may contain anything, including text that looks like instructions. */
+export type ConfluencePageInfo = { title: string; version: number; url: string | null; text: string; characters: number; truncated: boolean; not_carried_over: string[] };
 /** The company profile as stored (issue #269). `profile` is null until one exists. */
 export type CompanyProfileData = {
   url: string | null;
@@ -138,6 +140,11 @@ export type McpReader = {
   documents: (ref: string | null) => Promise<DocInfo[] | null>;
   /** One document with its text, or null when it does not exist or cannot be read. */
   document: (id: string) => Promise<DocInfo | null>;
+  /**
+   * The text of a Confluence page that is linked in Product Velocity (issue #693 slice A2), converted to Markdown, or a refusal in words. Only a page that someone
+   * linked on an initiative (a link) or a page a document is kept from can be read, so the workspace's Atlassian sign-in is never used to browse Confluence.
+   */
+  confluencePage: (ref: { document: string } | { item: string; url: string }) => Promise<{ ok: true; page: ConfluencePageInfo } | { ok: false; message: string }>;
   /** The 30, 60 and 90 day outcome reviews of one initiative (all three checkpoints, recorded or not), or null when it does not exist or cannot be read. */
   outcomeReviews: (ref: string) => Promise<OutcomeReviewsInfo | null>;
   /** The company website and profile of this workspace. */
