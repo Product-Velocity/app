@@ -63,3 +63,18 @@ export function confluenceLine(c: { source: "pv" | "external"; direction: "from_
   if (c.direction === "both") return `Confluence: kept both ways with the page ${page}${at("last in step")}${c.outOfDate ? "; the document has changes the page does not" : ""}.`;
   return `Confluence: written to the page ${page}, document version ${c.publishedVersion}; updated from the document, never read back${at("last written")}${c.outOfDate ? "; the page is behind the document" : ""}.`;
 }
+
+type ConfluenceInfo = Parameters<typeof confluenceLine>[0];
+/** The Confluence side of a document row, split so the row can show a short status, the time and a link without a long sentence (issue #714). */
+export function confluenceStatus(c: ConfluenceInfo, when: (iso: string) => string = whenLabel): { chip: string; lastLabel: string; last: string } {
+  const last = c.publishedAt ? when(c.publishedAt) : "not recorded";
+  if (!c.linked) return c.source === "external" ? { chip: "Copied once from the page", lastLabel: "Read", last } : { chip: "Published once", lastLabel: "Written", last };
+  if (c.direction === "from_confluence") return { chip: "Read from the page", lastLabel: "Last sync", last };
+  if (c.direction === "both") return { chip: `Two-way${c.outOfDate ? ": changes waiting" : ""}`, lastLabel: "Last sync", last };
+  return { chip: `Written to the page${c.outOfDate ? ": page behind" : ""}`, lastLabel: "Last sync", last };
+}
+
+/** "Last sync" for the tracker side of a row: the time of the last send to the issue, or why there is none. */
+export function trackerLastSync(t: TrackerShare, when: (iso: string) => string = whenLabel): string {
+  return t.sentAt ? when(t.sentAt) : t.linked ? "never sent" : "no issue yet";
+}
