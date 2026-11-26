@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
-import { createPage, failure, getPage, getPageWithText, getSpaceById, listChildPages, listRootPages, getSpaceByKey, listSpaces, updatePage, whyConfluence, type ConfluenceRequest } from "./client";
+import { createPage, failure, getPage, getPageWithText, getSpaceById, listChildPages, listChildren, listRootFolders, listRootPages, getSpaceByKey, listSpaces, updatePage, whyConfluence, type ConfluenceRequest } from "./client";
 
 type Answer = { status: number; json?: unknown; retryAfterSec?: number };
 const fake = (answers: Answer[]) => {
@@ -148,12 +148,12 @@ describe("refusals, retries and the sign-in", () => {
 describe("browse the pages of a space (the page tree)", () => {
   it("lists the top-level pages of a space by title, with ids a person never has to type", async () => {
     const { call, calls } = fake([{ status: 200, json: { results: [{ id: "30", title: "Roadmap" }, { id: "10", title: "Archive" }, { id: "x", title: "no numeric id" }, { id: "20", title: "Home" }] } }]);
-    expect(await listRootPages(call, "777", nosleep)).toEqual({ ok: true, pages: [{ id: "10", title: "Archive" }, { id: "20", title: "Home" }, { id: "30", title: "Roadmap" }] });
+    expect(await listRootPages(call, "777", nosleep)).toEqual({ ok: true, pages: [{ id: "10", title: "Archive", kind: "page" }, { id: "20", title: "Home", kind: "page" }, { id: "30", title: "Roadmap", kind: "page" }] });
     expect(calls[0]).toMatchObject({ method: "GET", path: "/api/v2/spaces/777/pages?depth=root&limit=250&status=current&sort=title" });
   });
   it("lists the sub pages directly under a page", async () => {
     const { call, calls } = fake([{ status: 200, json: { results: [{ id: "2", title: "B" }, { id: "1", title: "A" }] } }]);
-    expect(await listChildPages(call, "20", nosleep)).toEqual({ ok: true, pages: [{ id: "1", title: "A" }, { id: "2", title: "B" }] });
+    expect(await listChildPages(call, "20", nosleep)).toEqual({ ok: true, pages: [{ id: "1", title: "A", kind: "page" }, { id: "2", title: "B", kind: "page" }] });
     expect(calls[0]!.path).toBe("/api/v2/pages/20/children?limit=250");
   });
   it("refuses a bad id without asking, says so when the answer is not a list, and shows a refusal in words", async () => {
@@ -163,6 +163,44 @@ describe("browse the pages of a space (the page tree)", () => {
     expect(f.calls).toHaveLength(0);
     expect(await listChildPages(fake([{ status: 200, json: { nope: 1 } }]).call, "1", nosleep)).toMatchObject({ ok: false, kind: "rejected" });
     expect(await listRootPages(fake([{ status: 403 }]).call, "1", nosleep)).toMatchObject({ ok: false, kind: "forbidden" });
+  });
+});
+
+describe("folders in the page tree (a space can keep its pages in folders, which are not pages)", () => {
+  const R = (results: unknown[], next?: string) => ({ status: 200, json: { results, ...(next ? { _links: { next } } : {}) } });
+  it("finds the top-level folders from the pages in them, follows a folder up to the space, and skips folders under a page", async () => {
+    const f = fake([
+      R([{ id: "1", parentType: "page", parentId: "9" }, { id: "2", parentType: "folder", parentId: "50" }, { id: "3", parentType: "folder", parentId: "60" }], "/wiki/api/v2/spaces/777/pages?cursor=abc%3D&limit=250"),
+      R([{ id: "4", parentType: "folder", parentId: "50" }, { id: "5", parentType: "folder", parentId: "70" }]),
+      { status: 200, json: { id: "50", title: "Roadmap", parentType: "space" } }, // top level
+      { status: 200, json: { id: "60", title: "Q3", parentType: "folder", parentId: "50" } }, // under 50: already known
+      { status: 200, json: { id: "70", title: "In a page", parentType: "page", parentId: "9" } }, // reached through its page
+    ]);
+    expect(await listRootFolders(f.call, "777", nosleep)).toEqual({ ok: true, folders: [{ id: "50", title: "Roadmap", kind: "folder" }] });
+    expect(f.calls[0]!.path).toBe("/api/v2/spaces/777/pages?limit=250&status=current");
+    expect(f.calls[1]!.path).toContain("cursor=abc%3D");
+    expect(f.calls.slice(2).map((c) => c.path)).toEqual(["/api/v2/folders/50", "/api/v2/folders/60", "/api/v2/folders/70"]);
+    for (const c of f.calls) expect(c.path).not.toContain("rest/api");
+  });
+  it("says so when folders cannot be read (the permission is missing) and refuses a bad id without asking", async () => {
+    expect(await listRootFolders(fake([R([{ id: "2", parentType: "folder", parentId: "50" }]), { status: 401 }]).call, "777", nosleep)).toMatchObject({ ok: false, kind: "forbidden" });
+    const f = fake([]);
+    expect((await listRootFolders(f.call, "../x", nosleep)).ok).toBe(false);
+    expect(f.calls).toHaveLength(0);
+  });
+  it("a folder is opened with the folder call and lists its pages and sub folders; other kinds of content are left out", async () => {
+    const f = fake([{ status: 200, json: { results: [{ id: "3", type: "page", title: "Spec" }, { id: "2", type: "folder", title: "Q3" }, { id: "4", type: "whiteboard", title: "Board" }] } }]);
+    expect(await listChildren(f.call, "50", "folder", nosleep)).toEqual({ ok: true, pages: [{ id: "2", title: "Q3", kind: "folder" }, { id: "3", title: "Spec", kind: "page" }] });
+    expect(f.calls[0]!.path).toBe("/api/v2/folders/50/direct-children?limit=250");
+  });
+  it("a page's children include its folders; a sign-in without that permission falls back to its sub pages", async () => {
+    const ok = fake([{ status: 200, json: { results: [{ id: "2", type: "folder", title: "F" }] } }]);
+    expect(await listChildren(ok.call, "20", "page", nosleep)).toMatchObject({ ok: true, pages: [{ id: "2", kind: "folder" }] });
+    expect(ok.calls[0]!.path).toBe("/api/v2/pages/20/direct-children?limit=250");
+    const old = fake([{ status: 401 }, { status: 200, json: { results: [{ id: "1", title: "A" }] } }]);
+    expect(await listChildren(old.call, "20", "page", nosleep)).toEqual({ ok: true, pages: [{ id: "1", title: "A", kind: "page" }] });
+    expect(old.calls[1]!.path).toBe("/api/v2/pages/20/children?limit=250");
+    expect(await listChildren(fake([{ status: 403 }]).call, "50", "folder", nosleep)).toMatchObject({ ok: false, kind: "forbidden" });
   });
 });
 

@@ -32,7 +32,7 @@ describe("browse Confluence to import a page", () => {
   it("lists the spaces with the site address, and a space's pages by title only", async () => {
     expect(await (await get(`item=${ITEM}&spaces=1`)).json()).toMatchObject({ siteUrl: "https://acme.atlassian.net", spaces: [{ key: "GTM" }] });
     const j = await (await get(`item=${ITEM}&space=GTM`)).json();
-    expect(j).toEqual({ pages: [{ id: "20", title: "Home" }] });
+    expect(j).toEqual({ pages: [{ id: "20", title: "Home", kind: "page" }] });
     expect(JSON.stringify(j)).not.toContain("SECRET");
   });
   it("refuses a signed-out person, a bad id, a viewer, a service account and a workspace without Confluence", async () => {

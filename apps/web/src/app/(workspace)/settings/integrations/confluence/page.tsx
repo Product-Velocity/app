@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CONFLUENCE_REQUIRED, CONFLUENCE_SCOPES, atlassianConfig } from "@/lib/atlassian/oauth";
+import { CONFLUENCE_OPTIONAL, CONFLUENCE_REQUIRED, CONFLUENCE_SCOPES, atlassianConfig } from "@/lib/atlassian/oauth";
 import { keyRing } from "@/lib/atlassian/token-crypto";
 import { requireWorkspace } from "@/lib/session";
 import { disconnectConfluence, startConfluenceConnect, testConfluence } from "./actions";
@@ -33,6 +33,7 @@ export default async function ConfluenceSettingsPage({ searchParams }: { searchP
   const c = ((data ?? []) as Row[])[0] ?? null;
   const granted = new Set((c?.scopes ?? "").split(/\s+/));
   const missing = c ? CONFLUENCE_REQUIRED.filter((s) => !granted.has(s)) : [];
+  const noFolders = c ? CONFLUENCE_OPTIONAL.some((s) => !granted.has(s)) : false;
 
   return (
     <div className="page-full">
@@ -57,6 +58,7 @@ export default async function ConfluenceSettingsPage({ searchParams }: { searchP
                   <li key={s}>{granted.has(s) ? "✓ Granted" : "✗ Missing"} · {WHAT[s]} <code>{s}</code></li>
                 ))}
               </ul>
+              {missing.length === 0 && noFolders && <p className="muted">This connection cannot read Confluence folders, so pages kept in folders are not listed. Reconnect to allow it (the Atlassian app needs {CONFLUENCE_OPTIONAL.map((s) => <code key={s}>{s} </code>)}).</p>}
               {missing.length > 0 && <p role="alert" className="notice">Some permissions are missing, so Confluence will refuse some requests (Atlassian answers 401 or 403). Reconnect and allow every permission; if Atlassian does not offer one, the Atlassian app in the developer console has to include it first.</p>}
             </div>
           </>

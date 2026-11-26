@@ -30,6 +30,10 @@ beforeEach(() => {
   state.confluence = async (method, path) => {
     calls.push(`${method} ${path}`);
     if (path.startsWith("/api/v2/spaces?keys=GTM")) return { status: 200, json: { results: [{ id: "999", key: "GTM", name: "GTM", type: "global" }] } };
+    if (path.startsWith("/api/v2/spaces/999/pages?limit=250")) return { status: 200, json: { results: [{ id: "31", title: "Q3 plan", parentType: "folder", parentId: "50" }] } };
+    if (path === "/api/v2/folders/50") return { status: 200, json: { id: "50", title: "Roadmap", parentType: "space" } };
+    if (path.startsWith("/api/v2/folders/50/direct-children")) return { status: 200, json: { results: [{ id: "31", type: "page", title: "Q3 plan" }] } };
+    if (path.startsWith("/api/v2/pages/20/direct-children")) return { status: 200, json: { results: [{ id: "21", type: "page", title: "Plans" }, { id: "22", type: "folder", title: "Notes" }] } };
     if (path.startsWith("/api/v2/spaces/999/pages")) return { status: 200, json: { results: [{ id: "20", title: "Home", body: { storage: { value: "SECRET" } } }, { id: "10", title: "Archive" }] } };
     if (path.startsWith("/api/v2/pages/20/children")) return { status: 200, json: { results: [{ id: "21", title: "Plans" }] } };
     return { status: 500, json: null };
@@ -41,12 +45,20 @@ describe("the page tree of a space", () => {
     const r = await get("space=GTM");
     expect(r.status).toBe(200);
     const j = await r.json();
-    expect(j).toEqual({ pages: [{ id: "10", title: "Archive" }, { id: "20", title: "Home" }] });
+    expect(j).toEqual({ pages: [{ id: "10", title: "Archive", kind: "page" }, { id: "20", title: "Home", kind: "page" }, { id: "50", title: "Roadmap", kind: "folder" }] });
     expect(JSON.stringify(j)).not.toContain("SECRET");
-    expect(calls).toEqual(["GET /api/v2/spaces?keys=GTM&limit=1", "GET /api/v2/spaces/999/pages?depth=root&limit=250&status=current&sort=title"]);
+    expect(calls).toEqual(["GET /api/v2/spaces?keys=GTM&limit=1", "GET /api/v2/spaces/999/pages?depth=root&limit=250&status=current&sort=title", "GET /api/v2/spaces/999/pages?limit=250&status=current", "GET /api/v2/folders/50"]);
   });
-  it("lists the sub pages under a page", async () => {
-    expect(await (await get("parent=20")).json()).toEqual({ pages: [{ id: "21", title: "Plans" }] });
+  it("lists the sub pages and folders under a page, and what a folder holds", async () => {
+    expect(await (await get("parent=20")).json()).toEqual({ pages: [{ id: "22", title: "Notes", kind: "folder" }, { id: "21", title: "Plans", kind: "page" }] });
+    expect(await (await get("parent=50&kind=folder")).json()).toEqual({ pages: [{ id: "31", title: "Q3 plan", kind: "page" }] });
+  });
+  it("still lists the pages, with a note, when the folders cannot be read", async () => {
+    const was = state.confluence!;
+    state.confluence = async (m, p) => (p === "/api/v2/folders/50" ? { status: 401, json: null } : was(m, p));
+    const j = await (await get("space=GTM")).json();
+    expect(j.pages).toHaveLength(2);
+    expect(j.notice).toMatch(/Folders of this space could not be read/);
   });
   it("needs a space or a parent, and refuses anything that is not a key or a page id", async () => {
     expect((await get("")).status).toBe(422);
