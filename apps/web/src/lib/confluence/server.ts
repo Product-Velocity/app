@@ -33,7 +33,7 @@ export async function confluenceSiteFor(tenantId: string): Promise<ConfluenceSit
 export function confluenceRequest(connectionId: string, siteId: string): ConfluenceRequest {
   return async (method, path, body) => {
     const token = await accessTokenFor(connectionId);
-    const res = await fetch(`${API_BASE}/ex/confluence/${encodeURIComponent(siteId)}/wiki/rest/api${path}`, {
+    const res = await fetch(`${API_BASE}/ex/confluence/${encodeURIComponent(siteId)}/wiki${path}`, {
       method,
       // a Confluence site that does not answer must not leave the dialog on "Checking…" for ever
       signal: AbortSignal.timeout(20_000),
