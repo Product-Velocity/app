@@ -302,6 +302,27 @@ describe("the Jira user of a change", () => {
     expect(users([{ ...rec("Project Accepted", "2026-11-17T08:18:23.641Z", "Dana Reyes"), issue_key: "OTHER-1" }])).toBeNull();
     expect(users([])).toBeNull();
   });
+  describe("a Build Status change that follows the children", () => {
+    const build = [row("a", "items", "status", "Not started", "In progress", "2026-11-26T07:09:08Z", { actor_id: null, via: "system" })];
+    const child = (key: string, at: string, who: string | null) => ({ issue_key: key, to_status: "In Progress", changed_at: at, actor_name: who });
+    const run = (list: ReturnType<typeof child>[], kids: string[] = ["R-1", "R-2"], feed = build) => buildChangeRows(feed, items, { issues: new Map([["a", issue]]), jiraUsers: list, jiraChildren: new Map([["a", kids]]) });
+
+    it("names the Jira user who moved a child issue since the initiative's last tracker change", () => {
+      expect(run([child("R-1", "2026-11-26T07:00:00Z", "Dana Reyes")])[0]!.jiraUser).toBe("Dana Reyes");
+    });
+    it("names two people and counts the rest, latest first, each person once", () => {
+      const list = [child("R-1", "2026-11-26T06:00:00Z", "A"), child("R-2", "2026-11-26T06:30:00Z", "B"), child("R-1", "2026-11-26T06:45:00Z", "C"), child("R-2", "2026-11-26T07:00:00Z", "C")];
+      expect(run(list)[0]!.jiraUser).toBe("C, B +1");
+    });
+    it("leaves out other issues, moves nobody is named on, and moves older than two days or after the registration", () => {
+      expect(run([child("OTHER-9", "2026-11-26T07:00:00Z", "X"), child("R-1", "2026-11-26T07:00:00Z", null), child("R-1", "2026-11-20T07:00:00Z", "Old"), child("R-1", "2026-11-26T08:00:00Z", "Later")])[0]!.jiraUser).toBeNull();
+      expect(run([child("R-1", "2026-11-26T07:00:00Z", "Dana Reyes")], [])[0]!.jiraUser).toBeNull();
+    });
+    it("does not take a move that an earlier tracker change of the initiative already accounts for", () => {
+      const earlier = row("a", "items", "status", "Idea", "Not started", "2026-11-26T06:30:00Z", { actor_id: null, via: "system" });
+      expect(run([child("R-1", "2026-11-26T06:00:00Z", "Early")], ["R-1"], [earlier, ...build]).find((r) => r.at.startsWith("2026-11-26T07"))!.jiraUser).toBeNull();
+    });
+  });
   it("is only for Jira rows, and is found by search", () => {
     const gh = buildChangeRows([row("a", "items", "health", "On Track", "At Risk", "2026-11-17T08:18:24Z")], items, { issues: new Map([["a", issue]]), jiraUsers: [rec("At Risk", "2026-11-17T08:18:23Z", "Dana Reyes")] });
     expect(gh[0]!.jiraUser).toBeNull();
