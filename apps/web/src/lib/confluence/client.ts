@@ -26,7 +26,7 @@ export function whyConfluence(json: unknown): string {
   return plain([str(o.message), ...errors, ...legacy].filter(Boolean).join("; "));
 }
 
-const RECONNECT: ConfluenceFail = { ok: false, kind: "reconnect", message: "Atlassian needs you to sign in again (Settings, Integrations, Jira). Nothing was written." };
+const RECONNECT: ConfluenceFail = { ok: false, kind: "reconnect", message: "Atlassian needs you to sign in to Confluence again (Settings, Integrations, Confluence, Reconnect). Nothing was written." };
 
 async function run(req: () => ReturnType<ConfluenceRequest>, sleep?: Sleep): Promise<{ r: Awaited<ReturnType<ConfluenceRequest>> } | { fail: ConfluenceFail }> {
   try {
@@ -41,8 +41,10 @@ async function run(req: () => ReturnType<ConfluenceRequest>, sleep?: Sleep): Pro
 export function failure(status: number, json: unknown, writing: boolean): ConfluenceFail {
   const why = whyConfluence(json);
   const tail = writing ? " Nothing was written." : "";
-  if (status === 401) return RECONNECT;
-  if (status === 403) return { ok: false, kind: "forbidden", message: `Confluence refused (403): the Atlassian sign-in may not include Confluence permission, or you cannot ${writing ? "create or edit pages" : "see"} there. An admin can add Confluence in Settings, Integrations, Jira.${why ? ` Confluence says: ${why}.` : ""}${tail}` };
+  // A 401 with a token that was accepted usually means the sign-in lacks the exact permission this request needs ("Unauthorized; scope does not match"), not that
+  // it expired (an expired token is refreshed before the request, and a refused refresh is ReconnectNeeded). So Atlassian's own words are shown.
+  if (status === 401) return { ok: false, kind: "forbidden", message: `Confluence refused the sign-in (401).${why ? ` Atlassian says: ${why}.` : ""} The Confluence connection may lack a permission this needs: open Settings, Integrations, Confluence, check the permissions listed there and Reconnect.${tail}` };
+  if (status === 403) return { ok: false, kind: "forbidden", message: `Confluence refused (403): the Atlassian sign-in may not include Confluence permission, or you cannot ${writing ? "create or edit pages" : "see"} there. An admin can check the connection in Settings, Integrations, Confluence.${why ? ` Confluence says: ${why}.` : ""}${tail}` };
   if (status === 404) return { ok: false, kind: "gone", message: `Confluence could not find it (404): the page or space may have been deleted, or the sign-in cannot see it.${why ? ` Confluence says: ${why}.` : ""}${tail}` };
   if (status === 409) return { ok: false, kind: "conflict", message: `Somebody saved the page in Confluence while it was being written (409).${tail}` };
   if (status === 410) return { ok: false, kind: "rejected", message: `Confluence says this request is no longer supported (410).${why ? ` Confluence says: ${why}.` : ""} This is a fault in Product Velocity, not in your Confluence: please report it.${tail}` };

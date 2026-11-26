@@ -82,6 +82,7 @@ export function AccountMenu({ email, roleLabel, isApprover, showTrash, isAdmin, 
             <Link href="/settings/audit" className="menu-link">Audit log</Link>
             <Link href="/settings/integrations/github" className="menu-link">GitHub</Link>
             <Link href="/settings/integrations/jira" className="menu-link">Jira</Link>
+            <Link href="/settings/integrations/confluence" className="menu-link">Confluence</Link>
           </div>
         )}
         {(isPlatformAdmin || platformAuditOnly) && (

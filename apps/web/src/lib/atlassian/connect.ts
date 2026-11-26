@@ -38,7 +38,7 @@ export async function completeConnection(request: NextRequest, state: string): P
   }
   const res = await fetch(`${API_BASE}/oauth/token/accessible-resources`, { headers: { authorization: `Bearer ${tokens.access_token}`, accept: "application/json" } });
   const found = res.ok ? ((await res.json()) as { id: string; name: string; url: string; scopes: string[] }[]) : [];
-  const sites: JiraSite[] = found.filter((s) => s.scopes.some((x) => x.endsWith(":jira-work"))).map((s) => ({ id: s.id, name: s.name, url: s.url, ...(s.scopes.some((x) => x.includes("confluence")) ? { confluence: true } : {}) }));
+  const sites: JiraSite[] = found.filter((s) => s.scopes.some((x) => x.endsWith(":jira-work"))).map((s) => ({ id: s.id, name: s.name, url: s.url }));
   if (sites.length === 0) return `${PAGE}?status=no-site`;
 
   const admin = createAdminClient({ via: "UI" });

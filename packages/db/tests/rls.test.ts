@@ -145,6 +145,26 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "confluence_connections",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.confluence_connections set state = 'disconnected' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.confluence_connections where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.confluence_connections (tenant_id) values ($1)", params: [v.tenantId] },
+      { sql: "update public.confluence_connections set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
+    table: "confluence_credentials",
+    tenantColumn: "tenant_id",
+    private: true,
+    attacks: (v, a) => [
+      { sql: "update public.confluence_credentials set access_token_enc = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.confluence_credentials where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.confluence_credentials set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "jira_connections",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [
