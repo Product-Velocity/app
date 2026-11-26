@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { buildAuthorizeUrl, atlassianConfig, JIRA_SCOPES, WEBHOOK_SCOPES } from "@/lib/atlassian/oauth";
+import { buildAuthorizeUrl, atlassianConfig, CONFLUENCE_SCOPES, JIRA_SCOPES, WEBHOOK_SCOPES } from "@/lib/atlassian/oauth";
+import { CONFLUENCE_WRITE_SCOPE } from "@/lib/confluence/server";
 import { signConnectState } from "@/lib/atlassian/connect-state";
 import { keyRing } from "@/lib/atlassian/token-crypto";
 import { checkJiraLinks } from "@/lib/atlassian/jira-check";
@@ -36,14 +37,33 @@ async function adminOnly() {
   return ctx;
 }
 
-/** Sends the admin to Atlassian's consent screen with a signed, ten-minute state tied to this person and workspace. */
-export async function startJiraConnection(): Promise<void> {
+/**
+ * The scopes of a sign-in. A sign-in again keeps Confluence permission when the workspace already has it (otherwise signing in to Jira again would quietly
+ * remove the ability to publish documents), and adds it when `withConfluence` is set (the "Add Confluence" button).
+ */
+async function scopesFor(ctx: NonNullable<Awaited<ReturnType<typeof adminOnly>>>, withConfluence: boolean): Promise<string[]> {
+  const { data } = await ctx.supabase.from("jira_connections").select("scopes").eq("tenant_id", ctx.active.tenantId).neq("state", "disconnected");
+  const had = (data ?? []).some((c) => String(c.scopes ?? "").split(/\s+/).includes(CONFLUENCE_WRITE_SCOPE));
+  return [...JIRA_SCOPES, ...(process.env.JIRA_WEBHOOKS === "1" ? WEBHOOK_SCOPES : []), ...(withConfluence || had ? CONFLUENCE_SCOPES : [])];
+}
+
+async function startConnection(withConfluence: boolean): Promise<void> {
   const ctx = await adminOnly();
   if (!ctx) redirect(`${PATH}?status=not-admin`);
   const cfg = atlassianConfig();
   const ring = keyRing();
   if (!cfg || !ring) redirect(`${PATH}?status=not-configured`);
-  redirect(buildAuthorizeUrl(cfg, process.env.JIRA_WEBHOOKS === "1" ? [...JIRA_SCOPES, ...WEBHOOK_SCOPES] : JIRA_SCOPES, signConnectState(ctx.active.tenantId, ctx.user.id, ring.current)));
+  redirect(buildAuthorizeUrl(cfg, await scopesFor(ctx, withConfluence), signConnectState(ctx.active.tenantId, ctx.user.id, ring.current)));
+}
+
+/** Sends the admin to Atlassian's consent screen with a signed, ten-minute state tied to this person and workspace. */
+export async function startJiraConnection(): Promise<void> {
+  await startConnection(false);
+}
+
+/** The same sign-in, asking for permission to create and edit Confluence pages as well (publishing documents, issue #693). */
+export async function startConfluenceConnection(): Promise<void> {
+  await startConnection(true);
 }
 
 /** Ends a connection and deletes its saved sign-in. The database checks that the person is a human admin of the workspace. */

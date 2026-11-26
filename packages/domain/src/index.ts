@@ -36,6 +36,7 @@ export * from "./mcp-write";
 export * from "./delivery";
 export * from "./members";
 export * from "./documents";
+export * from "./confluence";
 export * from "./prd-template";
 export * from "./prd-extract";
 export * from "./reports";

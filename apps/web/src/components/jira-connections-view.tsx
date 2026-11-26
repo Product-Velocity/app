@@ -21,6 +21,9 @@ export type JiraConnectionView = Pick<JiraConnectionRow, "id" | "state" | "sites
 export type JiraEventView = { id: string; at: string; source: "webhook" | "check" | "manual"; issue: string | null; summary: string; state: "processed" | "error"; error: string | null; attempts: number };
 export type JiraSyncView = { linked: number; lastCheck: { at: string; summary: string } | null; events: JiraEventView[]; live: { enabled: boolean; registered: number; total: number; needsScope: boolean } };
 
+/** The sign-in was allowed to create and edit Confluence pages. */
+const hasConfluence = (c: { scopes?: string | undefined }) => (c.scopes ?? "").split(/\s+/).includes("write:confluence-content");
+
 export const JIRA_NOTICE: Record<string, string> = {
   connected: "Connected.",
   disconnected: "Disconnected. The saved sign-in was deleted. You can also remove Product Velocity under connected apps in your Atlassian account.",
@@ -93,6 +96,8 @@ type Props = {
   /** "Check Jira now" numbers carried in the address (checked, changed, not found). */
   checked?: { c: string; ch: string; m: string } | undefined;
   connectAction: () => void | Promise<void>;
+  /** Signs in again asking for Confluence permission too, so documents can be published to pages (issue #693). */
+  connectConfluenceAction?: (() => void | Promise<void>) | undefined;
   disconnectAction: (formData: FormData) => void | Promise<void>;
   projectLinks?: JiraProjectLinkView[];
   choices?: JiraProjectChoice[];
@@ -132,7 +137,7 @@ export type JiraHeaderView = { linked: number; waiting: number; customised: bool
  * Settings → Integrations → Jira, laid out like the GitHub page (decision 2026-11-03-tracker-parity): Status, Sync (what happens by itself, check
  * now, recent events), the Jira projects, Projects (one table, one Save), then the Jira-only extras. Presentational: the page supplies data and actions.
  */
-export function JiraConnectionsView({ connections, canAdmin, configured, status, checked, connectAction, disconnectAction, projectLinks = [], choices = [], sync = null, basePath = "/settings/integrations/jira", saveProjectAction, readAction, checkAction, retryAction, canEdit = false, reviewAction, fieldConfigAction, why, section = "connection", catalogs = [], header = { linked: 0, waiting: 0, customised: false, lastCheck: null }, selectedProject, copyAction, version, projectsExtra, mappingExtra }: Props) {
+export function JiraConnectionsView({ connections, canAdmin, configured, status, checked, connectAction, connectConfluenceAction, disconnectAction, projectLinks = [], choices = [], sync = null, basePath = "/settings/integrations/jira", saveProjectAction, readAction, checkAction, retryAction, canEdit = false, reviewAction, fieldConfigAction, why, section = "connection", catalogs = [], header = { linked: 0, waiting: 0, customised: false, lastCheck: null }, selectedProject, copyAction, version, projectsExtra, mappingExtra }: Props) {
   const needsSignIn = connections.some((c) => c.state === "reconnect_needed");
   const connected = connections.filter((c) => c.state === "connected");
   const missingHookScope = Boolean(sync?.live.enabled) && connected.some((c) => c.scopes !== undefined && !c.scopes.split(" ").includes("manage:jira-webhook"));
@@ -177,10 +182,18 @@ export function JiraConnectionsView({ connections, canAdmin, configured, status,
               <strong>{STATE[c.state]}</strong> · {c.sites.map((s) => s.name).join(", ") || "Jira"} · since {date(c.created_at)}
               {c.state === "reconnect_needed" ? <> · stopped {date(c.state_changed_at)}</> : null}
             </p>
+            {c.state === "connected" && connectConfluenceAction && (
+              <p className="muted">
+                {hasConfluence(c)
+                  ? "Confluence: allowed. A Creator or Admin can publish a document to a page from its Spec tab; nothing is written until they confirm a preview."
+                  : "Confluence: not allowed yet. Add it to publish documents to Confluence pages. Atlassian asks you to approve it; Product Velocity never changes a site's settings or permissions."}
+              </p>
+            )}
             {canAdmin && c.state !== "disconnected" && (
               <div className="row-form">
                 {c.state === "connected" && <Link className="btn" href={`${basePath}/test`}>Test connection</Link>}
                 <form action={connectAction}><button className="btn" type="submit" disabled={!configured}>Sign in to Jira again</button></form>
+                {connectConfluenceAction && c.state === "connected" && !hasConfluence(c) && <form action={connectConfluenceAction}><button className="btn" type="submit" disabled={!configured}>Add Confluence</button></form>}
                 <form action={disconnectAction}>
                   <input type="hidden" name="id" value={c.id} />
                   <button className="btn btn-danger-quiet" type="submit">Disconnect</button>

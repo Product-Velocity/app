@@ -5,7 +5,8 @@ import { decryptToken, encryptToken, keyRing } from "./token-crypto";
 import { getAccessToken, type TokenDeps } from "./token-provider";
 import { getJson } from "./read-client";
 
-export type JiraSite = { id: string; name: string; url: string };
+/** `confluence` is set when this site has Confluence and the sign-in was allowed to use it (issue #693). */
+export type JiraSite = { id: string; name: string; url: string; confluence?: boolean };
 export type JiraConnectionRow = { id: string; tenant_id: string; sites: JiraSite[]; scopes: string; state: "connected" | "reconnect_needed" | "disconnected"; connected_by: string | null; state_changed_at: string; created_at: string };
 
 export const jiraConfigured = () => Boolean(atlassianConfig() && keyRing());

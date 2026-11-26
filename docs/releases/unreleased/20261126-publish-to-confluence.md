@@ -1,0 +1,4 @@
+---
+bump: minor
+---
+**Publish a document to Confluence.** A Creator or Admin can now open a document's menu on the Spec tab and choose Publish to Confluence: pick the space and an optional parent page, then keep the page in sync or publish it once. A preview shows exactly what will happen (a new page, a new version, nothing to do, or a conflict because somebody saved the page in Confluence), warns when the text repeats a key result, the business value or an amount of money, and nothing is written until you confirm. The page starts with a notice that it is managed in Product Velocity, and the document shows "On Confluence" with a link, and "page out of date" when it has moved on. An admin adds Confluence once under Settings, Integrations, Jira ("Add Confluence"). Page permissions stay in Confluence, and Claude can suggest a publish but only a person confirms it. Migration `document_confluence_pages` adds one table.

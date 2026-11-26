@@ -17,7 +17,7 @@ import type { TrackerSection } from "@/lib/tracker-fields/sections";
 import { requireWorkspace } from "@/lib/session";
 import { canEditItems } from "@pv/domain";
 import { EpicProjectsCard, type EpicProjectSite } from "./epic-projects-card";
-import { checkJiraNow, copyJiraFieldConfig, disconnectJira, readJiraNow, retryJiraEvent, reviewJiraIssues, saveJiraFieldConfig, saveJiraSelectMap, saveJiraProject, startJiraConnection } from "./actions";
+import { checkJiraNow, copyJiraFieldConfig, disconnectJira, readJiraNow, retryJiraEvent, reviewJiraIssues, saveJiraFieldConfig, saveJiraSelectMap, saveJiraProject, startConfluenceConnection, startJiraConnection } from "./actions";
 
 const MAPPING_PATH = "/settings/integrations/jira/mapping";
 
@@ -236,7 +236,7 @@ export async function JiraSettings({ section, searchParams }: { section: Tracker
   return (
     <JiraConnectionsView
       connections={connections} canAdmin={canAdmin} configured={configured} status={status} why={why} checked={checkedN ? { c: checkedN, ch: changedN ?? "0", m: missingN ?? "0" } : undefined}
-      connectAction={startJiraConnection} disconnectAction={disconnectJira} projectLinks={projectLinks} choices={choices} sync={sync} saveProjectAction={saveJiraProject} readAction={readJiraNow}
+      connectAction={startJiraConnection} connectConfluenceAction={startConfluenceConnection} disconnectAction={disconnectJira} projectLinks={projectLinks} choices={choices} sync={sync} saveProjectAction={saveJiraProject} readAction={readJiraNow}
       checkAction={checkJiraNow} section={section} catalogs={catalogs} retryAction={retryJiraEvent} canEdit={canEdit} reviewAction={reviewJiraIssues} fieldConfigAction={saveJiraFieldConfig}
       header={header} selectedProject={selected?.project_id} copyAction={copyJiraFieldConfig} version={t} mappingExtra={selectCard}
       projectsExtra={<EpicProjectsCard sites={epicSites} status={status} saved={epicSites.some((e) => e.ticked.length > 0)} />}
