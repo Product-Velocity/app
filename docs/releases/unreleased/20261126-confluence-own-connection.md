@@ -1,4 +1,0 @@
----
-bump: minor
----
-**Confluence has its own connection.** Settings, Integrations, Confluence now has Connect, Reconnect, Test connection and Disconnect for Confluence alone, so changing Confluence never touches your Jira connection, project links or field mapping. It lists which permissions Atlassian granted and which are missing, and Test connection shows Atlassian's own reason when Confluence refuses (a refused request used to say only "sign in again"). Reconnect signs in again and keeps everything; on the Jira page "Sign in to Jira again" is now "Reconnect (keeps your settings)", and Disconnect says plainly that it removes the project links and mapping of projects without linked initiatives. Confluence now asks for the permissions its current interface is built for (read spaces, read pages, write pages); an admin adds them to the Atlassian app once. Migration `confluence_connections` adds two tables.
