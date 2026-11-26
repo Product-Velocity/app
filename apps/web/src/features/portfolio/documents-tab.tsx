@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AI_TOOL_LABEL, DOC_KIND_LABEL, DOC_KINDS, MAX_DOC_CHARS, MAX_DOCS_PER_ITEM } from "@pv/domain";
-import type { DocView } from "@/lib/documents";
+import type { DocView, ReadRequestView } from "@/lib/documents";
 import { MarkdownPreview } from "./markdown-preview";
 import { RowIcon, RowMenu, ShareChip } from "./attachment-ui";
 import { confluenceLine, shareLine, type TrackerShare } from "./share-state";
@@ -30,7 +30,9 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
   const [canConfluence, setCanConfluence] = useState(false);
   const [confluenceFor, setConfluenceFor] = useState<DocView | null>(null);
   // reading a Confluence page into a document (issue #693 slice A2): a new import (maybe from a link on the initiative), or a check of a document kept from a page
-  const [importing, setImporting] = useState<{ pageUrl?: string; kind?: import("@pv/domain").DocKind } | null>(null);
+  const [importing, setImporting] = useState<{ pageUrl?: string; kind?: import("@pv/domain").DocKind; after?: "once" | "sync"; twoWay?: boolean } | null>(null);
+  // open requests (a person's or Claude's) to read a page in; nothing is read until a person reviews the preview and confirms (issue #721)
+  const [importRequests, setImportRequests] = useState<ReadRequestView[]>([]);
   const [refreshFor, setRefreshFor] = useState<DocView | null>(null);
   const [syncFor, setSyncFor] = useState<DocView | null>(null); // the sync-direction dialog of a linked document (issue #714)
   // a link from the activity log opens the document: ?item=R-12&tab=spec&doc=<id>
@@ -50,8 +52,9 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
     try {
       const r = await fetch(`/api/documents?item=${encodeURIComponent(itemId)}`);
       if (!r.ok) throw new Error();
-      const j = (await r.json()) as { documents: DocView[]; confluenceAvailable?: boolean };
+      const j = (await r.json()) as { documents: DocView[]; confluenceAvailable?: boolean; importRequests?: ReadRequestView[] };
       setDocs(j.documents);
+      setImportRequests(j.importRequests ?? []);
       setCanConfluence(j.confluenceAvailable === true);
     } catch {
       setDocs([]);
@@ -62,10 +65,25 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
     let live = true;
     void fetch(`/api/documents?item=${encodeURIComponent(itemId)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: { documents: DocView[]; confluenceAvailable?: boolean }) => { if (live) { setDocs(d.documents); setCanConfluence(d.confluenceAvailable === true); } })
+      .then((d: { documents: DocView[]; confluenceAvailable?: boolean; importRequests?: ReadRequestView[] }) => { if (live) { setDocs(d.documents); setCanConfluence(d.confluenceAvailable === true); setImportRequests(d.importRequests ?? []); } })
       .catch(() => { if (live) { setDocs([]); setError("Documents could not be loaded."); } });
     return () => { live = false; };
   }, [itemId]);
+
+  const dismissImport = async (q: ReadRequestView) => {
+    try {
+      const r = await fetch("/api/documents/import-confluence", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "dismiss", item: itemId, pageUrl: q.pageUrl }) });
+      if (!r.ok) throw new Error();
+      void load();
+    } catch { setError("The request could not be removed."); }
+  };
+  const dismissRefresh = async (d: DocView) => {
+    try {
+      const r = await fetch(`/api/documents/${d.id}/confluence`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "dismiss-refresh" }) });
+      if (!r.ok) throw new Error();
+      void load();
+    } catch { setError("The request could not be removed."); }
+  };
 
   const create = async () => {
     setError(null);
@@ -115,6 +133,14 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
       </div>
       <p className="muted docs-hint">Each entry goes into the {tracker} issue description as a link (documents and files open without a login) at the next send, unless its chip says it is not in the issue. The chip and the line under each entry say what will happen or when it was sent; nothing is written to a read-only project. Drag files onto this tab, paste an image or a web address. What builders need first goes in the Description on the Overview tab.</p>
       {error && <p role="alert" className="pf-error">{error}</p>}
+      {canEdit && canConfluence && importRequests.map((q) => (
+        <div key={q.pageUrl} role="status" className="notice">
+          <strong>{q.requestedBy === "Claude" ? `Claude${q.aiModel ? ` (${q.aiModel})` : ""} asked for a Confluence page to be imported as a document.` : "A request to import a Confluence page is open."}</strong>{q.note ? ` “${q.note}”` : ""}{" "}
+          <a href={q.pageUrl ?? "#"} target="_blank" rel="noopener noreferrer">The page</a>. Nothing is read until you review the preview and confirm.{" "}
+          <button type="button" className="btn" onClick={() => setImporting({ ...(q.pageUrl ? { pageUrl: q.pageUrl } : {}), ...(q.docKind ? { kind: q.docKind as import("@pv/domain").DocKind } : {}), after: q.mode, twoWay: q.direction === "both" })}>Review…</button>{" "}
+          <button type="button" className="btn" onClick={() => void dismissImport(q)}>Dismiss the request</button>
+        </div>
+      ))}
       {confluenceFor && <ConfluenceDialog doc={{ id: confluenceFor.id, title: confluenceFor.title, version: confluenceFor.version, aiDraft: confluenceFor.aiDraft }} onClose={() => setConfluenceFor(null)} onChanged={() => void load()} />}
       {importing && <ConfluenceImportDialog mode="import" itemId={itemId} prefill={importing} onClose={() => setImporting(null)} onChanged={() => void load()} />}
       {syncFor && <ConfluenceSyncDialog doc={{ id: syncFor.id, title: syncFor.title }} onClose={() => setSyncFor(null)} onChanged={() => void load()} onUpdatePage={() => { setConfluenceFor(syncFor); setSyncFor(null); }} onUpdateDocument={() => { setRefreshFor(syncFor); setSyncFor(null); }} />}
@@ -150,7 +176,13 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
                   {!d.confluence.linked ? (d.confluence.source === "external" ? "Copied from Confluence" : "On Confluence (once)") : d.confluence.direction === "from_confluence" ? "From Confluence" : d.confluence.direction === "both" ? "Two-way with Confluence" : `On Confluence${d.confluence.outOfDate ? ": page out of date" : ""}`}
                 </a>
               )}
+              {d.refreshRequest && canEdit && (
+                <button type="button" className="share-chip" onClick={() => setRefreshFor(d)} title={`${d.refreshRequest.requestedBy} asked for this document to be updated from its Confluence page${d.refreshRequest.note ? `: ${d.refreshRequest.note}` : ""}. Nothing is read until you review what comes in and confirm.`}>
+                  Update requested{d.refreshRequest.requestedBy === "Claude" ? " by Claude" : ""}
+                </button>
+              )}
               <RowMenu label={`Actions for ${d.title}`} items={[
+                { label: "Dismiss the update request", onSelect: () => void dismissRefresh(d), hidden: !canEdit || !d.refreshRequest },
                 { label: openId === d.id ? "Close" : "Open", onSelect: () => setOpenId(openId === d.id ? null : d.id) },
                 { label: "Open full page", href: docPageHref(d.id), hidden: !itemCode },
                 { label: "Copy public link", onSelect: () => void navigator.clipboard?.writeText(d.shareUrl ?? "").catch(() => setError("Your browser did not allow copying.")), hidden: !d.shareUrl },

@@ -83,11 +83,17 @@ export async function POST(request: Request, { params }: Ctx): Promise<NextRespo
   if (!c.ok) return c.error;
   if (!c.canPublish) return json({ error: "Only a Creator or Admin can publish a document to Confluence.", kind: "forbidden" }, 403);
   const b = (await request.json().catch(() => null)) as Body | null;
-  if (!b || !["preview", "publish", "unlink", "dismiss", "refresh-preview", "refresh", "sync-state", "set-direction"].includes(String(b.action))) return json({ error: "Say what to do: preview, publish, unlink, dismiss, sync-state, set-direction, refresh-preview or refresh." }, 400);
+  if (!b || !["preview", "publish", "unlink", "dismiss", "refresh-preview", "refresh", "sync-state", "set-direction", "dismiss-refresh"].includes(String(b.action))) return json({ error: "Say what to do: preview, publish, unlink, dismiss, dismiss-refresh, sync-state, set-direction, refresh-preview or refresh." }, 400);
 
   // "dismiss" removes the open request to publish (made by a person or by Claude); it touches no page
   if (b.action === "dismiss") {
     const { error } = await c.supabase.from("item_document_publish_requests").delete().eq("document_id", id);
+    return error ? json({ error: `The request could not be removed: ${saveError(error)}.` }, 403) : json({ ok: true });
+  }
+
+  // "dismiss-refresh" removes the open request to update this document from its page; it reads nothing and changes nothing (issue #721)
+  if (b.action === "dismiss-refresh") {
+    const { error } = await c.supabase.from("item_confluence_read_requests").delete().eq("document_id", id).eq("kind", "refresh");
     return error ? json({ error: `The request could not be removed: ${saveError(error)}.` }, 403) : json({ ok: true });
   }
 
@@ -151,7 +157,10 @@ export async function POST(request: Request, { params }: Ctx): Promise<NextRespo
       return p.ok ? json({ refresh: p }) : json({ error: p.message, kind: p.kind }, statusFor(p.kind));
     }
     const done = await confirmRefresh(rdeps, { ...(b.confirm ? { confirm: String(b.confirm) } : {}), ...(b.overwrite === true ? { overwrite: true } : {}) });
-    return done.ok ? json({ done }) : json({ error: done.message, kind: done.kind }, statusFor(done.kind));
+    if (!done.ok) return json({ error: done.message, kind: done.kind }, statusFor(done.kind));
+    // the confirmed update answers the request, if there was one
+    await c.supabase.from("item_confluence_read_requests").delete().eq("document_id", id).eq("kind", "refresh");
+    return json({ done });
   }
 
   if (b.mode !== "once" && b.mode !== "sync") return json({ error: "Choose once or keep in sync." }, 400);

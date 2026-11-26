@@ -19,9 +19,14 @@ export async function POST(request: Request): Promise<NextResponse> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return json({ error: "Sign in first." }, 401);
   const b = (await request.json().catch(() => null)) as Body | null;
-  if (!b || !["preview", "import"].includes(String(b.action))) return json({ error: "Say what to do: preview or import." }, 400);
+  if (!b || !["preview", "import", "dismiss"].includes(String(b.action))) return json({ error: "Say what to do: preview, import or dismiss." }, 400);
   if (!b.item || !UUID.test(b.item)) return json({ error: "Choose an initiative." }, 400);
   if (typeof b.pageUrl !== "string" || b.pageUrl.trim() === "") return json({ error: "Paste the address of the Confluence page." }, 422);
+  // "dismiss" removes the open request (Claude's or a person's) to import this page; it reads nothing and creates nothing
+  if (b.action === "dismiss") {
+    const { error } = await supabase.from("item_confluence_read_requests").delete().eq("item_id", b.item).eq("kind", "import").eq("page_url", b.pageUrl.trim());
+    return error ? json({ error: "The request could not be removed." }, 403) : json({ ok: true });
+  }
   if (b.mode !== "once" && b.mode !== "sync") return json({ error: "Choose once or keep in sync." }, 400);
   if (b.kind !== undefined && !(DOC_KINDS as readonly string[]).includes(b.kind)) return json({ error: "Choose what kind of document this is." }, 422);
 
@@ -62,5 +67,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     return p.ok ? json({ preview: p }) : json({ error: p.message, kind: p.kind }, statusFor(p.kind));
   }
   const done = await confirmImport(deps, input);
-  return done.ok ? json({ done }) : json({ error: done.message, kind: done.kind }, statusFor(done.kind));
+  if (!done.ok) return json({ error: done.message, kind: done.kind }, statusFor(done.kind));
+  // the confirmed import answers the request, if there was one
+  await supabase.from("item_confluence_read_requests").delete().eq("item_id", b.item).eq("kind", "import").eq("page_url", b.pageUrl.trim());
+  return json({ done });
 }
