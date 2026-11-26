@@ -17,6 +17,7 @@ export default function PeopleAndAccessHelp() {
         { id: "roles", label: "Roles and approval" },
         { id: "states", label: "How a person moves" },
         { id: "votes", label: "What a vote shows" },
+        { id: "names", label: "Names and greetings" },
         { id: "cases", label: "Use-cases" },
         { id: "claude", label: "Claude and other assistants" },
       ]}
@@ -53,6 +54,19 @@ export default function PeopleAndAccessHelp() {
         <HelpTable caption="Who sees what in an alignment vote" table={VOTE_VISIBILITY} />
         <p>When an admin builds an invitation list from the people list, the name and email are copied into the vote and no link is kept.</p>
         <HelpReference slug="alignment">Alignment: small groups and large groups</HelpReference>
+      </HelpSection>
+
+      <HelpSection id="names" title="Names and greetings">
+        <p>Emails from Product Velocity greet people by first name (“Hi Jane,”) and say “Hi there,” when no first name is known. This is how the names are kept.</p>
+        <HelpList
+          items={[
+            "A member's first and last name are their own: they enter them when they join (About you) or later on their Account page. Admins cannot rename a member. Members shows both in their own columns, and says “missing” where there is no first name.",
+            "For a person not invited yet, type a first name (required) and a last name (optional) in Members. Typing “Jane Doe” in a person field splits at the first space (Jane, Doe), and “Doe, Jane” is read as Last, First. A name that does not split that way, such as “Mary Ann Smith”, can be corrected with Edit.",
+            "A single name is kept as a first name only. A name is never worked out from an email address: “j.smith@…” says nothing about what someone is called.",
+            "When someone you named joins, their About you step starts with the names you typed, and what they write themselves is used from then on.",
+            "In a drop-down a person appears as “Name, email”, so two people with the same name can be told apart. Cells, cards and reports show the name only.",
+          ]}
+        />
       </HelpSection>
 
       <HelpSection id="cases" title="Use-cases">

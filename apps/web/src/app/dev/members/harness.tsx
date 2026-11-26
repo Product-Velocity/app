@@ -15,9 +15,9 @@ const person = (i: number, o: Partial<GridRow>): GridRow => ({
 });
 
 const ROWS: GridRow[] = [
-  person(0, { member_id: "m0", user_id: "me", email: "ashu@meridian.test", name: "Ashu Mathura", role: "admin", is_approver: true }),
-  person(1, { email: "lena@meridian.test", name: "Lena Ortiz", role: "creator" }),
-  person(2, { email: "omar@meridian.test", name: "Omar Haddad", role: "creator", is_approver: true }),
+  person(0, { member_id: "m0", user_id: "me", email: "ashu@meridian.test", name: "Ashu Mathura", first_name: "Ashu", last_name: "Mathura", role: "admin", is_approver: true }),
+  person(1, { email: "lena@meridian.test", name: "Lena Ortiz", first_name: "Lena", last_name: "Ortiz", role: "creator" }),
+  person(2, { email: "omar@meridian.test", name: "Omar Haddad", first_name: "Omar", last_name: "Haddad", role: "creator", is_approver: true }),
   person(3, { status: "paused" }),
   person(4, { status: "revoked", last_login_at: null }),
   ...[5, 6, 7, 8].map((i) => person(i, { status: "requested", last_login_at: null, created_at: day(1) })),

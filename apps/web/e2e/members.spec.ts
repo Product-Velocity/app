@@ -24,6 +24,16 @@ test.describe("Workspace Members grid", () => {
     await page.screenshot({ path: "../../docs/screenshots/members-grid.png" });
   });
 
+  test("first and last name have their own columns, and a member with no first name says so (emails greet by first name)", async ({ page }) => {
+    await open(page);
+    await expect(page.getByRole("columnheader", { name: "First name" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Last name" })).toBeVisible();
+    await expect(row(page, "lena@meridian.test").getByRole("cell", { name: "Lena", exact: true })).toBeVisible();
+    await expect(row(page, "lena@meridian.test").getByRole("cell", { name: "Ortiz", exact: true })).toBeVisible();
+    await expect(row(page, "person3@meridian.test")).toContainText("missing");
+    await expect(row(page, "new.hire@meridian.test")).not.toContainText("missing"); // a pending invitation has no profile yet
+  });
+
   test("batch approval: select the four requests, set them Active in one click", async ({ page }) => {
     await open(page);
     await page.getByRole("button", { name: /^Requested Access/ }).click();

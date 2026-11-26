@@ -294,3 +294,67 @@ describe("paused, revoked and requested members keep their name (issue #698)", (
   });
 });
 
+
+describe("first and last name (issue #702)", () => {
+  const names = (userId: string, tenant: string) => db.asUser(userId, async (q) => (await q("select * from public.person_names($1)", [tenant])).rows);
+
+  it("splits a typed name: first word and the rest; 'Last, First' with a comma; one word is a first name only", async () => {
+    const split = async (n: string) => (await db.admin.query("select * from public.split_person_name($1)", [n])).rows[0];
+    expect(await split("Jane Doe")).toEqual({ first_name: "Jane", last_name: "Doe" });
+    expect(await split("  Mary   Ann  Smith ")).toEqual({ first_name: "Mary", last_name: "Ann Smith" });
+    expect(await split("Doe, Jane")).toEqual({ first_name: "Jane", last_name: "Doe" });
+    expect(await split("Cher")).toEqual({ first_name: "Cher", last_name: null });
+    expect(await split("   ")).toEqual({ first_name: null, last_name: null });
+  });
+
+  it("add_person_names keeps both names and a joined display name; the one-name add_person splits for older callers", async () => {
+    const a = await db.asUser(editor, async (q) => (await q("select public.add_person_names($1, ' Ines ', 'Vega', null) as id", [f.tenantA])).rows[0].id as string, { commit: true });
+    const b = await add(editor, f.tenantA, "Omar Haddad");
+    const rows = (await db.admin.query("select id, name, first_name, last_name from public.people where id = any($1)", [[a, b]])).rows;
+    expect(rows.find((r) => r.id === a)).toMatchObject({ name: "Ines Vega", first_name: "Ines", last_name: "Vega" });
+    expect(rows.find((r) => r.id === b)).toMatchObject({ name: "Omar Haddad", first_name: "Omar", last_name: "Haddad" });
+  });
+
+  it("needs a first name; a last name is optional; both are limited to 60 characters", async () => {
+    const call = (first: string | null, last: string | null) => errorCode(db.asUser(editor, (q) => q("select public.add_person_names($1, $2, $3, null)", [f.tenantA, first, last])));
+    expect(await call("", "Doe")).toBe("PV005");
+    expect(await call(null, "Doe")).toBe("PV005");
+    expect(await call("x".repeat(61), null)).toBe("PV005");
+    expect(await call("Jo", "y".repeat(61))).toBe("PV005");
+    expect(await call("Jo", null)).toBeNull();
+  });
+
+  it("update_person_names changes both names and the display name; a member's own row is refused; a viewer cannot", async () => {
+    const id = await add(editor, f.tenantA, "Tpyo Name");
+    await db.asUser(editor, (q) => q("select public.update_person_names($1, $2, 'Typo', 'Name', null)", [f.tenantA, id]), { commit: true });
+    expect((await db.admin.query("select name, first_name, last_name from public.people where id = $1", [id])).rows[0]).toEqual({ name: "Typo Name", first_name: "Typo", last_name: "Name" });
+    expect(await errorCode(db.asUser(editor, (q) => q("select public.update_person_names($1, $2, 'X', null, null)", [f.tenantA, f.carol])))).toBe("PV006");
+    expect(await errorCode(db.asUser(f.carol, (q) => q("select public.update_person_names($1, $2, 'X', null, null)", [f.tenantA, id])))).toBe("42501");
+  });
+
+  it("person_names gives a member's names from their own profile, else the names typed for them, and says which row is mine", async () => {
+    const u = await createUser(db, "profiled@example.test");
+    await addMember(db, f.alice, f.tenantA, u, "viewer");
+    await db.admin.query("update auth.users set raw_user_meta_data = $1 where id = $2", [JSON.stringify({ first_name: "Pia", last_name: "Roos", full_name: "Pia Roos" }), u]);
+    const google = await createUser(db, "google@example.test");
+    await addMember(db, f.alice, f.tenantA, google, "viewer");
+    await db.admin.query("update auth.users set raw_user_meta_data = $1 where id = $2", [JSON.stringify({ full_name: "Greta van Berg" }), google]);
+    const rows = await names(u, f.tenantA);
+    expect(rows.find((r) => r.person_id === u)).toMatchObject({ first_name: "Pia", last_name: "Roos", is_me: true });
+    expect(rows.find((r) => r.person_id === google)).toMatchObject({ first_name: "Greta", last_name: "van Berg", is_me: false });
+    // nothing in a profile, names typed before they joined: those are used
+    const id = await db.asUser(editor, async (q) => (await q("select public.add_person_names($1, 'Lena', 'Ortiz', 'lena.o@example.test') as id", [f.tenantA])).rows[0].id as string, { commit: true });
+    const lena = await createUser(db, "lena.o@example.test");
+    await addMember(db, f.alice, f.tenantA, lena, "viewer");
+    expect((await names(lena, f.tenantA)).find((r) => r.person_id === id)).toMatchObject({ first_name: "Lena", last_name: "Ortiz", user_id: lena, is_me: true });
+    // a named person without an account, as seen by any member
+    const named = await add(editor, f.tenantA, "Ravi Rao");
+    expect((await names(f.carol, f.tenantA)).find((r) => r.person_id === named)).toMatchObject({ first_name: "Ravi", last_name: "Rao", user_id: null });
+  });
+
+  it("person_names shows nothing of another workspace, and nothing to anonymous callers", async () => {
+    expect(await names(f.bob, f.tenantA)).toEqual([]);
+    expect(await names(f.dave, f.tenantA)).toEqual([]);
+    expect(await errorCode(db.asAnon((q) => q("select * from public.person_names($1)", [f.tenantA])))).toBe("42501");
+  });
+});

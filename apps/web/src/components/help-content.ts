@@ -627,7 +627,7 @@ export const AGENT_TIPS = "Name the initiative code, the group and the project. 
 export const PEOPLE_KINDS: Table = {
   head: ["", "Participant", "Person not invited yet", "Member"],
   rows: [
-    ["What it is", "Someone you ask to vote in an alignment session. They open a one-time link and never join the workspace.", "A name, and an email if you have one, typed into Product Manager, Engineering Manager, Designer, Analyst or Business Manager before the person has an account.", "A person with an account in your workspace and a role."],
+    ["What it is", "Someone you ask to vote in an alignment session. They open a one-time link and never join the workspace.", "A first name (and a last name), and an email if you have one, typed into Product Manager, Engineering Manager, Designer, Analyst or Business Manager before the person has an account.", "A person with an account in your workspace and a role."],
     ["Has an account", "No", "No", "Yes"],
     ["Can open the workspace", "No. Only their own ballot, through their link.", "No", "Yes, as far as their role allows"],
     ["Knows about it", "Yes. They were emailed and see how their answers are used before they vote.", "No. Nothing is sent to them until an admin invites them.", "Yes"],
@@ -678,6 +678,7 @@ export const ACCESS_CASES: Table = {
   head: ["I want to…", "Do this", "What happens"],
   rows: [
     ["Name a product manager who has no account yet", "In the grid or the item panel, open Product Manager, type their name (and an email if you have one) and choose Add. A Creator or an admin can do it.", "They show as not invited in pickers, filters and reports, by name. Nothing is sent to them."],
+    ["Make the invitation greet someone by first name", "Give the person a first name when you add them (Members, Not invited yet). The invitation then starts “Hi Jane,”.", "With no first name it starts “Hi there,”. A name is never guessed from an email address."],
     ["Invite them when I am ready", "An admin opens Members, Not invited yet, presses Invite…, reviews and confirms.", "Nothing is sent until you confirm. When they accept, they become a member and everything that names them stays."],
     ["Someone joined with a different email than the one I typed", "An admin opens Members, Not invited yet, then Joined with another email, and chooses the member.", "Everything that named them now names that member, and the name leaves the list."],
     ["Ask customers or partners for their view", "An admin creates an alignment session and adds their emails as participants.", "They vote through a link with no account and see nothing else. Results are anonymous and groups under five are hidden."],

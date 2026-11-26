@@ -1,5 +1,22 @@
 /** Naming someone who is not a member yet (issue #691): what a typed line in a person picker means. */
-export type PersonInput = { name: string; email: string | null };
+export type PersonInput = { name: string; firstName: string; lastName: string | null; email: string | null };
+
+/**
+ * First and last name from one typed name: "Last, First" when there is a comma, otherwise the first word is the first name and the rest the
+ * last name; one word is a first name only. Never guessed from an email address. The database applies the same rule (split_person_name).
+ */
+export function splitFullName(full: string): { firstName: string; lastName: string | null } {
+  const n = full.replace(/\s+/g, " ").trim();
+  const comma = n.indexOf(",");
+  if (comma >= 0) {
+    const first = n.slice(comma + 1).trim();
+    const last = n.slice(0, comma).trim();
+    if (first) return { firstName: first, lastName: last || null };
+    return { firstName: last, lastName: null };
+  }
+  const space = n.indexOf(" ");
+  return space < 0 ? { firstName: n, lastName: null } : { firstName: n.slice(0, space), lastName: n.slice(space + 1).trim() || null };
+}
 
 const EMAIL = /^[^@\s<>,;]+@[^@\s<>,;]+$/;
 
@@ -19,8 +36,9 @@ export function parsePersonInput(raw: string): PersonInput | null {
   if (email) email = email.toLowerCase();
   if (name === "" && email) name = nameFromEmail(email);
   name = name.replace(/^["']|["']$/g, "").trim();
-  if (name.length < 1 || name.length > 120) return null;
-  return { name, email };
+  const { firstName, lastName } = splitFullName(name);
+  if (firstName.length < 1 || firstName.length > 60 || (lastName ?? "").length > 60) return null;
+  return { name: lastName ? `${firstName} ${lastName}` : firstName, firstName, lastName, email };
 }
 
 /** A readable name for an address that came without one: jane.doe+x@y.com becomes Jane Doe. */

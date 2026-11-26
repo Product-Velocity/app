@@ -21,6 +21,9 @@ export type GridRow = {
   user_id: string | null;
   email: string;
   name: string | null;
+  /** The person's own first and last name (their profile): emails greet by the first name. Missing for a pending invitation. */
+  first_name?: string | null;
+  last_name?: string | null;
   role: Role;
   is_approver: boolean;
   is_service_account: boolean;
@@ -73,7 +76,7 @@ export function MembersGrid(props: {
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows
-      .filter((r) => (filter === "all" || r.status === filter) && (!q || r.email.toLowerCase().includes(q) || (r.name ?? "").toLowerCase().includes(q)))
+      .filter((r) => (filter === "all" || r.status === filter) && (!q || r.email.toLowerCase().includes(q) || (r.name ?? "").toLowerCase().includes(q) || (r.first_name ?? "").toLowerCase().includes(q) || (r.last_name ?? "").toLowerCase().includes(q)))
       .sort((a, b) => ORDER[a.status] - ORDER[b.status] || a.email.localeCompare(b.email));
   }, [rows, filter, query]);
 
@@ -178,6 +181,8 @@ export function MembersGrid(props: {
                 </th>
               )}
               <th scope="col">Member</th>
+              <th scope="col">First name</th>
+              <th scope="col">Last name</th>
               <th scope="col">Role</th>
               <th scope="col">Approver</th>
               <th scope="col">Status</th>
@@ -189,7 +194,7 @@ export function MembersGrid(props: {
           </thead>
           <tbody>
             {shown.length === 0 && (
-              <tr><td colSpan={9} className="muted">{rows.length === 0 ? "No members yet." : "No members match."}</td></tr>
+              <tr><td colSpan={11} className="muted">{rows.length === 0 ? "No members yet." : "No members match."}</td></tr>
             )}
             {shown.map((r) => (
               <GridRowView key={`${rowKey(r)}:${r.role}:${r.is_approver}`} r={r} {...props} selected={selected.has(rowKey(r))} selectable={selectable(r)} onToggle={() => toggle(rowKey(r))} onStatus={(s) => applyStatus([r], s)} />
@@ -235,6 +240,8 @@ function GridRowView(props: {
         </td>
       )}
       <td>{display}{self ? <span className="muted"> (you)</span> : null}</td>
+      <td>{invited || r.is_service_account ? <span className="muted">—</span> : r.first_name ? r.first_name : <span className="muted" title="No first name yet: emails to this person start with “Hi there”">missing</span>}</td>
+      <td>{invited || r.is_service_account ? <span className="muted">—</span> : r.last_name ?? ""}</td>
       <td>
         {locked ? ROLE_LABEL[r.role] : (
           <select aria-label={`Role of ${r.email}`} value={role} onChange={(e) => save(e.target.value as Role, approver)}>

@@ -24,10 +24,19 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
   const isAdmin = active.role === "admin" && !active.platform; // a platform admin reads the roster; who has access is the customer's decision
   const initialFilter = (MEMBER_STATUSES as readonly string[]).includes(status ?? "") ? (status as MemberStatus) : "all";
 
+  // first and last names (members: from their own profile; people not invited yet: as typed). Any member may read them.
+  const { data: nameRows } = await supabase.rpc("person_names", { p_tenant: active.tenantId });
+  const namesByUser = new Map<string, { first: string | null; last: string | null }>();
+  const namesByPerson = new Map<string, { first: string | null; last: string | null }>();
+  for (const n of (nameRows ?? []) as { person_id: string; user_id: string | null; first_name: string | null; last_name: string | null }[]) {
+    namesByPerson.set(n.person_id, { first: n.first_name, last: n.last_name });
+    if (n.user_id) namesByUser.set(n.user_id, { first: n.first_name, last: n.last_name });
+  }
+
   let rows: GridRow[] = [];
   if (isAdmin) {
     const { data } = await supabase.rpc("members_grid", { p_tenant: active.tenantId });
-    rows = (data ?? []) as GridRow[];
+    rows = ((data ?? []) as GridRow[]).map((r) => (r.user_id ? { ...r, first_name: namesByUser.get(r.user_id)?.first ?? null, last_name: namesByUser.get(r.user_id)?.last ?? null } : r));
   } else {
     // everyone else sees the active people only
     const { data: people } = await supabase.rpc("tenant_directory", { p_tenant: active.tenantId });
@@ -37,6 +46,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
       member_id: p.member_id, invitation_id: null, user_id: p.user_id, email: p.email, name: null, role: p.role, is_approver: p.is_approver,
       is_service_account: p.is_service_account, status: "active", created_at: p.joined_at, last_login_at: null,
       github_username: more.get(p.user_id)?.github_username ?? null, expires_at: null, email_status: null,
+      first_name: namesByUser.get(p.user_id)?.first ?? null, last_name: namesByUser.get(p.user_id)?.last ?? null,
     }));
   }
 
@@ -50,7 +60,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
     ]);
     const used = new Map(((usage ?? []) as { person_id: string; initiatives: number }[]).map((u) => [u.person_id, u.initiatives]));
     const all = (dir ?? []) as { person_id: string; user_id: string | null; name: string; email: string | null; status: string; is_service_account: boolean }[];
-    notInvited = all.filter((p) => !p.user_id && p.status === "not_invited").map((p) => ({ id: p.person_id, name: p.name, email: p.email, initiatives: used.get(p.person_id) ?? 0 }));
+    notInvited = all.filter((p) => !p.user_id && p.status === "not_invited").map((p) => ({ id: p.person_id, name: p.name, firstName: namesByPerson.get(p.person_id)?.first ?? p.name, lastName: namesByPerson.get(p.person_id)?.last ?? null, email: p.email, initiatives: used.get(p.person_id) ?? 0 }));
     activeMembers = all.filter((p) => p.user_id && p.status === "active" && !p.is_service_account && p.email).map((p) => ({ user_id: p.user_id!, email: p.email! }));
   }
 

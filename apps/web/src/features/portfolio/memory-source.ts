@@ -53,11 +53,12 @@ export class MemoryDataSource implements PortfolioDataSource {
   async loadItems() { await this.pause(); return this.items.map((i) => ({ ...i })).sort((a, b) => a.stack_rank - b.stack_rank); }
 
   /** People added through addPerson, in order. */
-  readonly addedPeople: { name: string; email: string | null }[] = [];
-  async addPerson(name: string, email: string | null): Promise<{ ok: true; person: LookupPerson } | { ok: false; error: string }> {
+  readonly addedPeople: { name: string; firstName: string; lastName: string | null; email: string | null }[] = [];
+  async addPerson(firstName: string, lastName: string | null, email: string | null): Promise<{ ok: true; person: LookupPerson } | { ok: false; error: string }> {
     await this.pause();
     if (this.failPerson) return { ok: false, error: this.failPerson };
-    this.addedPeople.push({ name, email });
+    const name = lastName ? `${firstName} ${lastName}` : firstName;
+    this.addedPeople.push({ name, firstName, lastName, email });
     return { ok: true, person: { id: `person-${this.addedPeople.length}`, name, email, status: "not_invited", userId: null } };
   }
   /** Make the next addPerson fail with this message. */

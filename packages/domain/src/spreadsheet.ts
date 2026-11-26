@@ -1,5 +1,5 @@
 import { EDITABLE_FIELDS, validateEdit } from "./fields";
-import { pick } from "./quickadd";
+import { pick, pickPerson } from "./quickadd";
 import { FIELD_BY_KEY, type FieldDef } from "./registry";
 
 /** Most rows one paste may import. */
@@ -70,7 +70,7 @@ export function guessMapping(headers: string[]): (string | null)[] {
 export type ImportCtx = {
   projects: { id: string; name: string }[];
   /** People a Person column can name: members and people named without an account (the id is what the field stores). */
-  people: { id: string; name: string }[];
+  people: { id: string; name: string; email?: string | null }[];
   defaultProject: string | null;
   today: Date;
 };
@@ -101,8 +101,8 @@ export function convertRows(rows: string[][], map: (string | null)[], ctx: Impor
         return;
       }
       if (def.type === "Person") {
-        const exact = ctx.people.find((m) => m.name.toLowerCase() === raw.toLowerCase());
-        const r = exact ? { hit: exact } : pick(ctx.people, (m) => m.name.split("@")[0]!, raw);
+        const exact = ctx.people.find((m) => m.name.toLowerCase() === raw.toLowerCase() || (m.email ?? "").toLowerCase() === raw.toLowerCase());
+        const r = exact ? { hit: exact } : pickPerson(ctx.people, raw);
         if ("hit" in r) values[field] = r.hit.id;
         else errors.push({ field, error: r.error === "many" ? `More than one person starts with "${raw}".` : `No person "${raw}" in this workspace.` });
         return;
