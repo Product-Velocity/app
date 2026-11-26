@@ -3,7 +3,7 @@ import type { SearchRow, UsageResult } from "@pv/domain";
 import { buildContext, type DocInfo, type ItemDetail } from "./read-model";
 import { handleRpc, TOOLS, type McpBackend } from "./rpc";
 import { ToolInputError } from "./tool-error";
-import type { McpDocuments, McpPublishRequests } from "./write-model";
+import type { McpDocuments, McpPublishRequests, McpReadRequests } from "./write-model";
 
 type Out = { result: { isError?: boolean; content: { text: string }[] } };
 const doc = (o: Partial<DocInfo> = {}): DocInfo => ({ id: "d1", item_code: "R-01", kind: "prd", title: "PRD", status: "draft", version: 1, ai_draft: true, characters: 5, updated_at: "2026-10-28T10:00:00Z", approved_at: null, ai_tool: null, ai_model: null, ...o });
@@ -26,6 +26,12 @@ function setup(opts: { links?: ItemDetail["links"]; role?: string; docs?: DocInf
     set: vi.fn(async (d, r) => { requested.push({ doc: d, r }); }),
     withdraw: vi.fn(async () => requested.length > 0),
   };
+  const asked: { kind: string; arg: unknown; r?: unknown }[] = [];
+  const readRequests: McpReadRequests = {
+    setImport: vi.fn(async (itemId, r) => { asked.push({ kind: "import", arg: itemId, r }); }),
+    setRefresh: vi.fn(async (d, r) => { asked.push({ kind: "refresh", arg: d, r }); }),
+    withdraw: vi.fn(async (t) => { asked.push({ kind: "withdraw", arg: t }); return true; }),
+  };
   const meter = opts.meter ?? vi.fn<McpBackend["meter"]>(async (): Promise<UsageResult> => ({ ok: true }));
   const detail = (ref: string): ItemDetail | null =>
     ref.toUpperCase() === "R-01" ? ({ row: { id: "i1", item_code: "R-01" } as SearchRow, links: opts.links ?? [], tags: {}, relations: { depends_on: [], depended_on_by: [], related_to: [] }, teams: [], files: [], github: null, activity: [] }) : null;
@@ -39,7 +45,7 @@ function setup(opts: { links?: ItemDetail["links"]; role?: string; docs?: DocInf
       companyProfile: vi.fn(async () => ({ url: null, profile: { status: "draft", version: 2, ai_draft: true, researched_at: null, confirmed_at: null, updated_at: "2026-11-01T00:00:00Z", sections: {} } })),
       document: vi.fn(async (id: string) => stored.find((d) => d.id === id) ?? null),
     } as never,
-    write: { documents, publishRequests } as never,
+    write: { documents, publishRequests, readRequests } as never,
     meter,
   };
   const call = async (name: string, args: Record<string, unknown>) => {
@@ -47,7 +53,7 @@ function setup(opts: { links?: ItemDetail["links"]; role?: string; docs?: DocInf
     const text = r.result.content[0]!.text;
     return { isError: r.result.isError === true, text, data: r.result.isError ? null : JSON.parse(text).data };
   };
-  return { call, documents, created, updated, meter, publishRequests, requested };
+  return { call, documents, created, updated, meter, publishRequests, requested, readRequests, asked };
 }
 
 describe("document tools", () => {
@@ -308,3 +314,46 @@ describe("asking for a document to be published to Confluence (issue #693 slice 
   });
 });
 
+describe("Claude asks to read a Confluence page in (issue #721)", () => {
+  const PAGE = "https://acme.atlassian.net/wiki/spaces/GTM/pages/42/Plan";
+  const linked = (direction: "from_confluence" | "to_confluence" | "both") => doc({ confluence: { source: "pv", direction, page_url: PAGE, page_title: "Plan", space_key: "GTM", mode: "sync", linked: true, published_version: 1, out_of_date: false } });
+
+  it("request_confluence_import records a request for a page that is a link on the initiative, and reads and creates nothing", async () => {
+    const s = setup({ links: [{ label: "Plan", url: PAGE, kind: "go_to_market" }] });
+    const r = await s.call("request_confluence_import", { item: "R-01", url: PAGE, kind: "go_to_market", after_importing: "both_ways", note: "The plan lives here", ai_model: "Claude Sonnet 5.5" });
+    expect(r.isError).toBe(false);
+    expect(r.data).toMatchObject({ status: "requested", item: "R-01", nothing_read: true, after_importing: "both_ways" });
+    expect(s.asked).toEqual([{ kind: "import", arg: "i1", r: { pageUrl: PAGE, docKind: "go_to_market", mode: "sync", direction: "both", note: "The plan lives here", aiModel: "Claude Sonnet 5.5" } }]);
+    expect(s.created).toEqual([]);
+  });
+  it("refuses a page that is not one of the initiative's links, in words that say what to do", async () => {
+    const s = setup({ links: [] });
+    const r = await s.call("request_confluence_import", { item: "R-01", url: PAGE });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("add_link");
+    expect(s.asked).toEqual([]);
+  });
+  it("refuses an address that is not a Confluence page, an unknown initiative and an unknown kind", async () => {
+    const s = setup({ links: [{ label: "x", url: "https://example.com" }] });
+    expect((await s.call("request_confluence_import", { item: "R-01", url: "https://example.com" })).isError).toBe(true);
+    expect((await s.call("request_confluence_import", { item: "R-99", url: PAGE })).isError).toBe(true);
+    expect((await s.call("request_confluence_import", { item: "R-01", url: PAGE, kind: "poem" })).isError).toBe(true);
+  });
+  it("request_confluence_refresh needs a document whose link reads the page", async () => {
+    const both = setup({ docs: [linked("both")] });
+    const ok = await both.call("request_confluence_refresh", { document: "d1", note: "Page changed" });
+    expect(ok.data).toMatchObject({ status: "requested", direction: "both", nothing_read: true });
+    expect(both.asked).toEqual([{ kind: "refresh", arg: { id: "d1", itemId: "i1" }, r: { note: "Page changed", aiModel: null } }]);
+    const writes = setup({ docs: [linked("to_confluence")] });
+    expect((await writes.call("request_confluence_refresh", { document: "d1" })).text).toContain("never reads it back");
+    const none = setup({ docs: [doc({})] });
+    expect((await none.call("request_confluence_refresh", { document: "d1" })).text).toContain("not linked");
+  });
+  it("withdraw_confluence_read_request removes an import (item and url) or a refresh (document) and needs one of them", async () => {
+    const s = setup({ docs: [linked("both")] });
+    expect((await s.call("withdraw_confluence_read_request", { item: "R-01", url: PAGE })).data).toMatchObject({ status: "withdrawn" });
+    expect((await s.call("withdraw_confluence_read_request", { document: "d1" })).data).toMatchObject({ status: "withdrawn" });
+    expect(s.asked.map((a) => a.arg)).toEqual([{ itemId: "i1", pageUrl: PAGE }, { documentId: "d1" }]);
+    expect((await s.call("withdraw_confluence_read_request", {})).isError).toBe(true);
+  });
+});

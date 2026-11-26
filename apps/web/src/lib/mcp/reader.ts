@@ -10,7 +10,7 @@ import { buildContext, type CompanyProfileData, type DocInfo, type GatePackData,
 import { readPageById, readPageByUrl } from "@/lib/confluence/importer";
 import { confluenceRequest, confluenceSiteFor } from "@/lib/confluence/server";
 import { ToolInputError } from "./tool-error";
-import type { ApplyResult, McpDocuments, McpEpics, McpFiles, McpOutcomes, McpProfile, McpPublishRequests, McpWriter, PendingRow, UndoResult } from "./write-model";
+import type { ApplyResult, McpDocuments, McpEpics, McpFiles, McpOutcomes, McpProfile, McpPublishRequests, McpReadRequests, McpWriter, PendingRow, UndoResult } from "./write-model";
 
 const FILE_CAP = 200;
 /** The values in use of each open-list field (Focus Area, Audience): what Claude may reuse (issue #246). */
@@ -437,6 +437,32 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       return (data ?? []).length > 0;
     },
   };
+  const readRequests: McpReadRequests = {
+    async setImport(itemId, r) {
+      const cols = { doc_kind: r.docKind, sync_mode: r.mode, sync_direction: r.direction, note: r.note, ai_model: r.aiModel };
+      const cur = await supabase.from("item_confluence_read_requests").select("id").eq("tenant_id", tenant.id).eq("item_id", itemId).eq("kind", "import").eq("page_url", r.pageUrl).maybeSingle();
+      if (cur.error) return refusal(cur.error);
+      const { error } = cur.data
+        ? await supabase.from("item_confluence_read_requests").update(cols).eq("tenant_id", tenant.id).eq("id", (cur.data as { id: string }).id)
+        : await supabase.from("item_confluence_read_requests").insert({ tenant_id: tenant.id, item_id: itemId, kind: "import", page_url: r.pageUrl, ...cols });
+      if (error) return refusal(error);
+    },
+    async setRefresh(doc, r) {
+      const cols = { note: r.note, ai_model: r.aiModel };
+      const cur = await supabase.from("item_confluence_read_requests").select("id").eq("tenant_id", tenant.id).eq("kind", "refresh").eq("document_id", doc.id).maybeSingle();
+      if (cur.error) return refusal(cur.error);
+      const { error } = cur.data
+        ? await supabase.from("item_confluence_read_requests").update(cols).eq("tenant_id", tenant.id).eq("id", (cur.data as { id: string }).id)
+        : await supabase.from("item_confluence_read_requests").insert({ tenant_id: tenant.id, item_id: doc.itemId, kind: "refresh", document_id: doc.id, ...cols });
+      if (error) return refusal(error);
+    },
+    async withdraw(target) {
+      const q = supabase.from("item_confluence_read_requests").delete().eq("tenant_id", tenant.id);
+      const { data, error } = await ("documentId" in target ? q.eq("kind", "refresh").eq("document_id", target.documentId) : q.eq("kind", "import").eq("item_id", target.itemId).eq("page_url", target.pageUrl)).select("id");
+      if (error) return refusal(error);
+      return (data ?? []).length > 0;
+    },
+  };
   const profile: McpProfile = {
     async create(sections, researched) {
       const { data, error } = await supabase.from("company_profiles").insert({ tenant_id: tenant.id, sections, ...(researched ? { researched_at: new Date().toISOString() } : {}) }).select(PROFILE_COLS).single();
@@ -472,6 +498,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     outcomes,
     documents,
     publishRequests,
+    readRequests,
     profile,
     async context(r) {
       const [p, m, g, t, all] = await Promise.all([projects(), people(), groupNames(), teams(), rows()]);

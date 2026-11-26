@@ -2,7 +2,7 @@
  * The document tools (docs/22-CLAUDE-PRD-FLOW.md): keep the full PRD, requirements and research as a versioned Markdown document on an
  * initiative. Documents never reach GitHub. Claude can write and revise them but never approves one (CLAUDE.md rule 3).
  */
-import { buildExtract, checkDocumentInput, checkPublishRequest, DOC_KINDS, MAX_DOCS_PER_ITEM, MAX_DOC_CHARS, SKILLS, skillExtract, WORKSPACE_DOC_KINDS } from "@pv/domain";
+import { buildExtract, checkDocumentInput, checkImportRequest, checkPublishRequest, checkRefreshRequest, DOC_KINDS, MAX_DOCS_PER_ITEM, MAX_DOC_CHARS, SKILLS, skillExtract, WORKSPACE_DOC_KINDS } from "@pv/domain";
 import type { ToolDef } from "./rpc";
 import { ToolInputError } from "./tool-error";
 import { updateItems } from "./write-tools";
@@ -321,5 +321,83 @@ const withdrawConfluenceRequest: ToolDef = {
   },
 };
 
+const READ_NOTES = [
+  "Nothing was read into Product Velocity and nothing was changed. A person opens the request on the Spec tab, sees a preview of the text and what could not be carried over, and confirms; you can never confirm it.",
+  "If Confluence is not connected yet, a workspace admin connects it under Settings, Integrations, Confluence.",
+];
+
+const requestConfluenceImport: ToolDef = {
+  name: "request_confluence_import",
+  title: "Ask for a Confluence page to be read into a document",
+  description:
+    "Asks for a Confluence page that is already a link on an initiative to be copied into a new document. This only records a request: NOTHING is read into a document and no link is made. A person opens the Spec tab (Import from Confluence), sees a preview with what could not be carried over, and confirms; you can never confirm it. " +
+    "The page must be one of the initiative's links (add it first with add_link, with its kind, and tell the person). kind is what the document is (prd, go_to_market, business_case, ...); leave it out if unsure. " +
+    "after_importing keep_updated (default): the page stays the source and a person can update the document from it later, the page is never written. both_ways: also write changes made in Product Velocity back to the page, a person confirms each update. once: copy the text once, then let go. " +
+    "Asking again for the same page replaces the open request. To read a linked page yourself without making a document, use read_confluence_page. " + DATA,
+  inputSchema: { type: "object", properties: { item: ITEM, url: { type: "string", maxLength: 2000, description: "The https address of the Confluence page; it must be one of the initiative's links (get_item lists them)." }, kind: { type: "string", enum: [...DOC_KINDS], description: "What kind of document it is. Leave out if you do not know." }, after_importing: { type: "string", enum: ["keep_updated", "both_ways", "once"] }, note: { type: "string", maxLength: 500, description: "One line for the person who confirms: why this page should be a document." }, ai_model: AI_MODEL_PROP }, required: ["item", "url"], additionalProperties: false },
+  annotations: CHANGE,
+  mode: "write",
+  run: async (b, a) => {
+    const c = checkImportRequest(a);
+    if (!c.ok) throw new ToolInputError(c.error);
+    const code = str(a.item);
+    const d = await b.read.itemDetail(code);
+    if (!d) throw new ToolInputError(`No initiative "${code}" in this workspace, or you cannot change it.`);
+    if (!d.links.some((l) => l.url === c.value.pageUrl)) throw new ToolInputError(`That address is not one of the links of ${String(d.row.item_code)}. Only a page someone linked on the initiative can be imported: add it with add_link (with its kind), then ask again.`);
+    await b.write.readRequests.setImport(d.row.id, c.value);
+    return { status: "requested", item: String(d.row.item_code), page: c.value.pageUrl, kind: c.value.docKind, after_importing: a.after_importing ?? "keep_updated", note: c.value.note, nothing_read: true, notes: READ_NOTES };
+  },
+};
+
+const requestConfluenceRefresh: ToolDef = {
+  name: "request_confluence_refresh",
+  title: "Ask for a document to be updated from its Confluence page",
+  description:
+    "Asks for a document that is kept from (or two-way with) a Confluence page to be updated from the page's newer version. This only records a request: NOTHING is read and the document is not changed. A person opens the document's menu on the Spec tab (Confluence sync), sees what comes in, and confirms; the old text stays as a previous version. You can never confirm it. " +
+    "Only for a document whose link reads the page: list_documents and get_document show confluence.direction (from_confluence or both). Asking again replaces the open request. " + DATA,
+  inputSchema: { type: "object", properties: { document: DOC, note: { type: "string", maxLength: 500, description: "One line for the person who confirms: why the document should be updated now." }, ai_model: AI_MODEL_PROP }, required: ["document"], additionalProperties: false },
+  annotations: CHANGE,
+  mode: "write",
+  run: async (b, a) => {
+    const id = str(a.document);
+    const c = checkRefreshRequest(a);
+    if (!c.ok) throw new ToolInputError(c.error);
+    const doc = await b.read.document(id);
+    if (!doc) throw new ToolInputError(`No document "${id}" in this workspace, or you cannot read it. list_documents shows the ids.`);
+    if (doc.scope === "workspace") throw new ToolInputError("Only a document on an initiative can be kept from a Confluence page.");
+    if (!doc.confluence?.linked) throw new ToolInputError("That document is not linked to a Confluence page. A person imports a page into a document first (request_confluence_import).");
+    if (doc.confluence.direction === "to_confluence") throw new ToolInputError("That document only writes to its page; it never reads it back. A person can change the direction on the Spec tab (Confluence sync).");
+    const d = await b.read.itemDetail(doc.item_code);
+    if (!d) throw new ToolInputError(`No initiative "${doc.item_code}" in this workspace, or you cannot change it.`);
+    await b.write.readRequests.setRefresh({ id: doc.id, itemId: d.row.id }, c.value);
+    return { status: "requested", document: { id: doc.id, item: doc.item_code, title: doc.title, version: doc.version }, direction: doc.confluence.direction, note: c.value.note, nothing_read: true, notes: READ_NOTES };
+  },
+};
+
+const withdrawConfluenceReadRequest: ToolDef = {
+  name: "withdraw_confluence_read_request",
+  title: "Withdraw a request to import or refresh from Confluence",
+  description: "Removes an open request to import a page (give item and url) or to update a document from its page (give document). It changes no document and no page. " + DATA,
+  inputSchema: { type: "object", properties: { item: ITEM, url: { type: "string", maxLength: 2000, description: "The page address of the import request, with item." }, document: DOC }, additionalProperties: false },
+  annotations: CHANGE,
+  mode: "write",
+  run: async (b, a) => {
+    const document = str(a.document);
+    if (document) {
+      const doc = await b.read.document(document);
+      if (!doc) throw new ToolInputError(`No document "${document}" in this workspace, or you cannot read it. list_documents shows the ids.`);
+      const removed = await b.write.readRequests.withdraw({ documentId: doc.id });
+      return { status: removed ? "withdrawn" : "none_open", document: { id: doc.id, title: doc.title } };
+    }
+    const code = str(a.item);
+    const url = str(a.url);
+    if (!code || !url) throw new ToolInputError("Give document (a refresh request), or item and url (an import request).");
+    const d = await b.read.itemDetail(code);
+    if (!d) throw new ToolInputError(`No initiative "${code}" in this workspace, or you cannot change it.`);
+    const removed = await b.write.readRequests.withdraw({ itemId: d.row.id, pageUrl: url });
+    return { status: removed ? "withdrawn" : "none_open", item: String(d.row.item_code), page: url };
+  },
+};
+
 export const DOCUMENT_READ_TOOLS: ToolDef[] = [listDocuments, getDocument, readConfluencePage];
-export const DOCUMENT_WRITE_TOOLS: ToolDef[] = [createDocument, updateDocument, requestConfluencePublish, withdrawConfluenceRequest, applyPrdExtract, applySkillExtract];
+export const DOCUMENT_WRITE_TOOLS: ToolDef[] = [createDocument, updateDocument, requestConfluencePublish, withdrawConfluenceRequest, requestConfluenceImport, requestConfluenceRefresh, withdrawConfluenceReadRequest, applyPrdExtract, applySkillExtract];
