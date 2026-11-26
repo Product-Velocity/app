@@ -33,9 +33,20 @@ export function ReportsClient({ tenantId, role, userId, lookups }: { tenantId: s
     }
     return out;
   }, [tenantId]);
+  /** The child issues and sub-tasks of each initiative's linked Jira issue (table item_jira_tree, read through the member's own access). */
+  const loadJiraChildren = useCallback(async (itemIds: string[]): Promise<Map<string, string[]>> => {
+    const client = createClient();
+    const out = new Map<string, string[]>();
+    for (let i = 0; i < itemIds.length; i += 150) {
+      const { data, error } = await client.from("item_jira_tree").select("item_id, issue_key").eq("tenant_id", tenantId).in("item_id", itemIds.slice(i, i + 150)).limit(5000);
+      if (error) throw new Error(error.message);
+      for (const r of (data ?? []) as { item_id: string; issue_key: string }[]) out.set(r.item_id, [...(out.get(r.item_id) ?? []), r.issue_key]);
+    }
+    return out;
+  }, [tenantId]);
   if (state.kind === "loading") return <><div className="page-head"><h1>Reports</h1></div><p role="status" className="muted">Loading the roadmap…</p></>;
   if (state.kind === "error") {
     return <div role="alert" className="error">Could not load the roadmap: {state.message} <button type="button" className="link-button" onClick={retry}>Try again</button></div>;
   }
-  return <ReportsView controller={state.controller} lookups={lookups} me={userId} loadGateRequests={() => gates.loadRequests()} loadChanges={loadChanges} loadTrackerIssues={loadTrackerIssues} loadJiraUsers={loadJiraUsers} gateSource={gates} />;
+  return <ReportsView controller={state.controller} lookups={lookups} me={userId} loadGateRequests={() => gates.loadRequests()} loadChanges={loadChanges} loadTrackerIssues={loadTrackerIssues} loadJiraUsers={loadJiraUsers} loadJiraChildren={loadJiraChildren} gateSource={gates} />;
 }

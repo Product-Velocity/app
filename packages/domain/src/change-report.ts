@@ -133,6 +133,8 @@ export type ChangeContext = {
   issues?: ReadonlyMap<string, TrackerRef>;
   nameOf?: (actorId: string | null) => string;
   jiraUsers?: readonly JiraStatusRecord[];
+  /** The keys of the child issues and sub-tasks of each initiative's linked issue (item id to keys): Build Status follows their progress, so their movers are named on a Build Status row no linked-issue move explains. */
+  jiraChildren?: ReadonlyMap<string, readonly string[]>;
   /** Notes by audit entry id (change_notes), for the changes a person made with a reason. */
   notes?: ReadonlyMap<number, string>;
 };
@@ -149,6 +151,21 @@ function jiraUserOf(records: readonly JiraStatusRecord[], key: string, toStatus:
     if (!best || r.changed_at > best.changed_at) best = r;
   }
   return best?.actor_name ?? null;
+}
+
+const MOVERS_SHOWN = 2;
+/**
+ * The Jira users who moved a child issue of the initiative between the previous tracker change of that initiative and this one (Jira's time, up to a few seconds after
+ * PV registered it): the people behind a Build Status that changed because of delivery progress. Latest first, at most two names and a count of the rest.
+ */
+function childMoversOf(records: readonly JiraStatusRecord[], children: readonly string[], from: string, at: string): string | null {
+  if (children.length === 0) return null;
+  const set = new Set(children);
+  const limit = Date.parse(at) + JIRA_LAG_AFTER_MS;
+  const moves = records.filter((r) => set.has(r.issue_key) && r.actor_name && r.changed_at > from && Date.parse(r.changed_at) <= limit).sort((a, b) => (a.changed_at < b.changed_at ? 1 : -1));
+  const names = [...new Set(moves.map((m) => m.actor_name as string))];
+  if (names.length === 0) return null;
+  return names.length > MOVERS_SHOWN ? `${names.slice(0, MOVERS_SHOWN).join(", ")} +${names.length - MOVERS_SHOWN}` : names.join(", ");
 }
 
 /**
@@ -196,6 +213,15 @@ export function buildChangeRows(feed: readonly FeedRow[], items: ReadonlyMap<str
   for (const r of rows) if (r.tracker === "Jira" && r.alsoBuild?.to && r.to) { const c = CATEGORY_OF_BUILD[r.alsoBuild.to.toLowerCase()]; if (c) category.set(r.to, c); }
   for (const [k, v] of ctx.jiraCategories ?? []) category.set(k, v);
   for (const r of rows) if (r.tracker === "Jira") { r.tone = jiraCategoryTone(r.to ? category.get(r.to) : null); r.fromTone = jiraCategoryTone(r.from ? category.get(r.from) : null); }
+  // a Build Status change that no move of the linked issue explains follows the children: name the Jira users who moved them since the initiative's previous tracker change
+  const trackerAts = new Map<string, string[]>();
+  for (const r of rows) if (r.trackerDriven) trackerAts.set(r.itemId, [...(trackerAts.get(r.itemId) ?? []), r.at]);
+  for (const r of rows) {
+    if (merged.has(r.id) || r.jiraUser || (r.type !== "build-status" && !r.alsoBuild) || r.issue?.tracker !== "Jira") continue;
+    const before = (trackerAts.get(r.itemId) ?? []).filter((t) => t < r.at).sort().pop();
+    const from = before ?? new Date(Date.parse(r.at) - 2 * 86_400_000).toISOString();
+    r.jiraUser = childMoversOf(ctx.jiraUsers ?? [], ctx.jiraChildren?.get(r.itemId) ?? [], from, r.at);
+  }
   return rows.filter((r) => !merged.has(r.id)).sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : b.entryId - a.entryId));
 }
 

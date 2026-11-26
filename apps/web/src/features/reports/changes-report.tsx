@@ -96,7 +96,7 @@ const COLUMNS: (ChangeColumn & { def: ColDef<ChangeRowData> })[] = [
   { id: "flags", name: "Flags", def: { headerName: "Flags", flex: 2, minWidth: 260, cellRenderer: FlagsCell, cellClass: "chg-flags", suppressNavigable: true } },
   { id: "actions", name: "Actions", def: { headerName: "Actions", flex: 2, minWidth: 220, cellRenderer: ActionsCell, cellClass: "chg-flags", suppressNavigable: true } },
   { id: "issue", name: "Tracker issue", def: { headerName: "Tracker issue", flex: 2, minWidth: 220, cellRenderer: IssueCell } },
-  { id: "jiraUser", name: "Jira user", def: { headerName: "Jira user", width: 180, valueGetter: (p) => p.data?.jiraUser ?? "", tooltipValueGetter: (p) => (p.data?.jiraUser ? `${p.data.jiraUser} moved the Jira issue to this status (from Jira's own history)` : "") } },
+  { id: "jiraUser", name: "Jira user", def: { headerName: "Jira user", width: 180, valueGetter: (p) => p.data?.jiraUser ?? "", tooltipValueGetter: (p) => (p.data?.jiraUser ? `${p.data.jiraUser} moved the Jira issue, or the child issues behind this change, to this status (from Jira's own history)` : "") } },
   { id: "source", name: "Source", def: { headerName: "Source", width: 150, valueGetter: (p) => p.data?.source } },
   { id: "sourceType", name: "Source type", def: { headerName: "Source type", width: 140, valueGetter: (p) => p.data?.sourceType } },
   { id: "by", name: "By", def: { headerName: "By", width: 230, valueGetter: (p) => p.data?.by, tooltipValueGetter: (p) => p.data?.by } },
@@ -134,7 +134,7 @@ const writeSaved = (s: Saved) => { try { window.localStorage.setItem(STORE, JSON
  * Product Velocity registered the change; "Source" says where the value came from (Product Velocity, Jira or GitHub) and "Source type" how it arrived. Actors are named on
  * a row; for a tracker value the person only ran the Sync. Nothing is counted or grouped per person (rule 8). Every colour comes with a word.
  */
-export function ChangesReport({ env, load, loadIssues, loadJiraUsers, gates, me = null, onOpen }: { env: ReportEnv; load?: (from: Date, to: Date) => Promise<FeedRow[]>; loadIssues?: (itemIds: string[]) => Promise<Map<string, TrackerRef>>; /** The Jira users who moved the issues to a status, from Jira's own history. */ loadJiraUsers?: (issueKeys: string[], from: Date, to: Date) => Promise<JiraStatusRecord[]>; /** Decision gates: Move to Test and Request gate on a flag. Without it the report has no action buttons. */ gates?: GateSource; /** The signed-in person (left out of the people a gate request can ask). */ me?: string | null; onOpen: (id: string) => void }) {
+export function ChangesReport({ env, load, loadIssues, loadJiraUsers, loadJiraChildren, gates, me = null, onOpen }: { env: ReportEnv; load?: (from: Date, to: Date) => Promise<FeedRow[]>; loadIssues?: (itemIds: string[]) => Promise<Map<string, TrackerRef>>; /** The Jira users who moved the issues to a status, from Jira's own history. */ loadJiraUsers?: (issueKeys: string[], from: Date, to: Date) => Promise<JiraStatusRecord[]>; /** The keys of the child issues of each initiative's linked Jira issue (Build Status follows them: their movers are named on a Build Status row). */ loadJiraChildren?: (itemIds: string[]) => Promise<Map<string, string[]>>; /** Decision gates: Move to Test and Request gate on a flag. Without it the report has no action buttons. */ gates?: GateSource; /** The signed-in person (left out of the people a gate request can ask). */ me?: string | null; onOpen: (id: string) => void }) {
   const { rows, lookups, controller } = env;
   const [period, setPeriod] = useState<ChangePeriod>("today");
   const [filters, setFilters] = useState<ChangeFilters>(NO_CHANGE_FILTERS);
@@ -170,9 +170,17 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, gates, me 
     loadIssues(changedIds.split(",")).then((m) => { if (live) setIssues(m); }, () => { if (live) setIssues(new Map()); });
     return () => { live = false; };
   }, [loadIssues, changedIds, reload]);
-  /** The Jira user behind each Jira move: a name on a row, read once per list of Jira issues and period. A failure leaves the column empty. */
+  /** The child issues of each initiative's linked Jira issue. A failure leaves the column as it is. */
+  const [children, setChildren] = useState<ReadonlyMap<string, readonly string[]>>(new Map());
+  useEffect(() => {
+    let live = true;
+    if (!loadJiraChildren || changedIds === "") return;
+    loadJiraChildren(changedIds.split(",")).then((m) => { if (live) setChildren(m); }, () => { if (live) setChildren(new Map()); });
+    return () => { live = false; };
+  }, [loadJiraChildren, changedIds, reload]);
+  /** The Jira user behind each Jira move, of the linked issues and of their children: a name on a row, read once per list of Jira issues and period. A failure leaves the column empty. */
   const [jiraUsers, setJiraUsers] = useState<readonly JiraStatusRecord[]>([]);
-  const jiraKeys = useMemo(() => [...new Set([...issues.values()].filter((i) => i.tracker === "Jira").map((i) => i.key))].sort().join(","), [issues]);
+  const jiraKeys = useMemo(() => [...new Set([...[...issues.values()].filter((i) => i.tracker === "Jira").map((i) => i.key), ...[...children.values()].flat()])].sort().join(","), [issues, children]);
   useEffect(() => {
     let live = true;
     if (!loadJiraUsers || jiraKeys === "") return;
@@ -184,7 +192,7 @@ export function ChangesReport({ env, load, loadIssues, loadJiraUsers, gates, me 
 
   /** What Jira says now: each status of a linked issue with its category (the mapping behind Build Status), which colours that status wherever it appears. */
   const jiraCategories = useMemo(() => new Map(Object.values(lookups.jira?.links ?? {}).filter((l) => l.status && l.category).map((l) => [l.status as string, l.category as JiraCategory])), [lookups.jira]);
-  const allRows = useMemo(() => buildChangeRows(feed ?? [], items, { flags, issues, nameOf: who, jiraUsers, jiraCategories }), [feed, items, flags, issues, who, jiraUsers, jiraCategories]);
+  const allRows = useMemo(() => buildChangeRows(feed ?? [], items, { flags, issues, nameOf: who, jiraUsers, jiraChildren: children, jiraCategories }), [feed, items, flags, issues, who, jiraUsers, children, jiraCategories]);
   const filtered = useMemo(() => filterChangeRows(allRows, filters), [allRows, filters]);
   const { wrapRef: gridRef, footRef: gridFootRef, height: gridHeight } = useFillHeight(true); // the grid fills the page below it, like every grid
   const gridRows = useMemo(() => groupChangeRows(filtered, saved.by, saved.then, collapsed), [filtered, saved.by, saved.then, collapsed]);

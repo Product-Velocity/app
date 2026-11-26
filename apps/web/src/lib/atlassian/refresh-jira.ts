@@ -217,6 +217,21 @@ export async function recordLinkedStatusHistory(link: LinkToRead, keys: string[]
   }, keys);
 }
 
+/** Most children whose history one daily check reads (each batch is one Jira request); the rest are read by the next checks as the list changes. */
+const MAX_CHILD_HISTORY = 1000;
+/** The keys of the children and sub-tasks read into the tree of these initiatives (service role). A failure gives none: the names are a nicety. */
+async function childKeysOf(tenantId: string, itemIds: string[]): Promise<string[]> {
+  if (itemIds.length === 0) return [];
+  const admin = createAdminClient({ via: "system" });
+  const keys = new Set<string>();
+  for (let i = 0; i < itemIds.length && keys.size < MAX_CHILD_HISTORY; i += 150) {
+    const { data, error } = await admin.from("item_jira_tree").select("issue_key").eq("tenant_id", tenantId).in("item_id", itemIds.slice(i, i + 150)).order("jira_updated_at", { ascending: false, nullsFirst: false }).limit(MAX_CHILD_HISTORY);
+    if (error) return [...keys];
+    for (const r of (data ?? []) as { issue_key: string }[]) keys.add(r.issue_key);
+  }
+  return [...keys].slice(0, MAX_CHILD_HISTORY);
+}
+
 export type FullRefresh = { total: number; light: number; linked: RefreshSummary; trees: TreeRefresh & { error: string | null }; epics: EpicTreeRefresh & { error: string | null }; dates: DatesRefresh; history: HistoryRecord };
 
 /**
@@ -237,6 +252,7 @@ export async function refreshJiraProject(link: LinkToRead, siteUrl: string): Pro
   // then the real start and completion dates from the history of those issues (same tolerance: a failure is reported, never fatal)
   const dates = await refreshBuildDatesTolerant(dateDepsFor(link), await dateTargets(createAdminClient({ via: "system" }), link.tenant_id, links));
   // who moved each linked issue to its status (a failure is reported, never fatal), read from the same history that also fills in past changes
-  const history = await recordLinkedStatusHistory(link, links.map((l) => l.issue_key));
+  // and the children and sub-tasks they follow: Build Status moves with their progress, so their movers are named on that row too
+  const history = await recordLinkedStatusHistory(link, [...links.map((l) => l.issue_key), ...(await childKeysOf(link.tenant_id, links.map((l) => l.item_id)))]);
   return { total: read.total, light, linked, trees, epics, dates, history };
 }
