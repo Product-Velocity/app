@@ -70,7 +70,7 @@ A customer connects Claude (claude.ai, the desktop app or Claude Code) to their 
 - `create_items` (batch up to 50): name required; any field Claude may set; `home_project` by name or id; `group` by name (created when new, spelled like an existing one when only case differs); Description as Markdown up to 20,000 characters; people by name or email resolved to members; per-item result `{created, code, id, warnings[]}` or a readable error that names the field and the allowed values. `dry_run: true` validates and returns the preview without writing. Rank is assigned by the system at the end of the list.
 - Items are flagged **AI draft**. The result says so.
 - `update_items` (batch up to 50): returns a **diff** for confirmation; writes only after the caller confirms in the same conversation turn by calling `confirm_changes` with the diff id (diffs expire after 10 minutes).
-- `set_relations` (Depends On, Related To by code; no self reference), `add_link` and `remove_link` (Artifacts: label plus http(s) URL; private pages are allowed but flagged "needs login" in the result when known).
+- `set_relations` (Depends On, Related To by code; no self reference), `add_link` and `remove_link` (Artifacts: label plus http(s) URL, and an optional document kind; private pages are allowed but flagged "needs login" in the result when known).
 - `delete_item` is **not** offered. `undo_last` reverses the last Claude change set by this connection using the audit log.
 - Validation by stage as in the UI: required-by-stage fields are reported as warnings, never as blockers at creation.
 

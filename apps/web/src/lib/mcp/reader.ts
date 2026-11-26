@@ -140,7 +140,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       const l = link.data as { issue_number: number | null; html_url: string | null; mode: string; sync_state: string; last_error: string | null; gh_state: string | null; gh_last_activity: string | null } | null;
       return {
         row,
-        links: related.artifacts.map((a) => ({ label: a.label, url: a.url, ...(a.shared === false ? { shared: false } : {}) })),
+        links: related.artifacts.map((a) => ({ label: a.label, url: a.url, ...(a.kind ? { kind: a.kind } : {}), ...(a.shared === false ? { shared: false } : {}) })),
         tags: { tags: related.tags, target_scope: related.target_scope, live_scope: related.live_scope, target_segments: related.target_segments },
         relations: {
           depends_on: rel(related.depends_on),

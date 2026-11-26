@@ -324,7 +324,23 @@ describe("list fields of one item", () => {
     const { client, calls } = fake([{ data: [{ id: "l1", name: "PRD", url: "https://x.test/prd", shared: true }] }, { data: null }, { data: [{ id: "l1", name: "PRD", url: "https://x.test/prd", shared: true }] }]);
     await new SupabaseDataSource(client, "t1").setRelated("i1", "artifacts", [{ label: "PRD", url: "https://x.test/prd" }, { label: "", url: "https://y.test" }]);
     expect(calls.some((c) => c.ops.some(([o]) => o === "delete"))).toBe(false);
-    expect(has(calls[1]!, "insert", [{ tenant_id: "t1", item_id: "i1", kind: "link", name: "", url: "https://y.test", shared: true }])).toBe(true);
+    expect(has(calls[1]!, "insert", [{ tenant_id: "t1", item_id: "i1", kind: "link", name: "", url: "https://y.test", shared: true, doc_kind: null }])).toBe(true);
+  });
+
+  it("loadRelated returns the document kind of a link when it has one (issue #693)", async () => {
+    const { client } = fake([{ data: [] }, { data: [{ name: "Business case", url: "https://x.test/bc", shared: true, doc_kind: "business_case" }, { name: "Plain", url: "https://x.test/p", shared: false, doc_kind: null }] }, { data: [] }, { data: [] }, { data: { assignee_ids: [] } }]);
+    const r = await new SupabaseDataSource(client, "t1").loadRelated("i1");
+    expect(r.artifacts).toEqual([{ label: "Business case", url: "https://x.test/bc", kind: "business_case" }, { label: "Plain", url: "https://x.test/p", shared: false }]);
+  });
+
+  it("setRelated saves the kind of a new link, and changes the kind of a link that stayed", async () => {
+    const stayed = { id: "l1", name: "PRD", url: "https://x.test/prd", shared: true, doc_kind: null };
+    const { client, calls } = fake([{ data: [stayed] }, { data: null }, { data: [stayed] }, { data: null }]);
+    const r = await new SupabaseDataSource(client, "t1").setRelated("i1", "artifacts", [{ label: "PRD", url: "https://x.test/prd", kind: "prd" }, { label: "GTM", url: "https://y.test", kind: "go_to_market" }]);
+    expect(r).toEqual({ ok: true });
+    expect(has(calls[1]!, "insert", [{ tenant_id: "t1", item_id: "i1", kind: "link", name: "GTM", url: "https://y.test", shared: true, doc_kind: "go_to_market" }])).toBe(true);
+    expect(has(calls[3]!, "update", { shared: true, doc_kind: "prd" })).toBe(true);
+    expect(has(calls[3]!, "eq", "id", "l1")).toBe(true);
   });
 
   it("setRelated reports a database error in words", async () => {

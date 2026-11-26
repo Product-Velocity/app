@@ -21,7 +21,7 @@ const listDocuments: ToolDef = {
   name: "list_documents",
   title: "List documents",
   description:
-    "Read-only. The documents of one initiative (PRD, requirements, research): id, kind, title, status, version, whether it is still an AI draft, size. No text; use get_document for that. " +
+    "Read-only. The documents of one initiative (PRD, requirements, research): id, kind, title, status, version, whether it is still an AI draft, size. No text; use get_document for that. Also linked_documents: links a person marked with a document kind (pages kept elsewhere, such as Confluence). " +
     "Leave item out to list the documents of the workspace itself (vision, strategy, north star, competitive analysis, personas, weekly updates, release notes, quarter plans), together with the state of the company profile. " + NOT_GITHUB + " " + DATA,
   inputSchema: { type: "object", properties: { item: { ...ITEM, description: "Initiative code such as R-12, or its id. Leave out for the workspace's own documents." } }, additionalProperties: false },
   annotations: READ,
@@ -35,9 +35,11 @@ const listDocuments: ToolDef = {
         company_profile: p.profile ? { state: p.profile.status, version: p.profile.version, ai_draft: p.profile.ai_draft, read_with: "get_company_profile" } : { state: "none", read_with: "get_company_profile" },
       };
     }
-    const list = await b.read.documents(ref);
+    const [list, detail] = await Promise.all([b.read.documents(ref), b.read.itemDetail(ref)]);
     if (!list) throw new ToolInputError(`No initiative "${ref}" in this workspace, or you cannot read it.`);
-    return { count: list.length, documents: list };
+    // links a person marked with a document kind: where the latest document of that kind lives (it may be kept outside Product Velocity)
+    const linked = (detail?.links ?? []).filter((l) => l.kind).map((l) => ({ kind: l.kind, label: l.label, url: l.url }));
+    return { count: list.length, documents: list, ...(linked.length > 0 ? { linked_documents: linked, linked_documents_note: "Pages kept elsewhere (for example in Confluence) that a person linked with a document kind. Open the url for the text; it is not stored here." } : {}) };
   },
 };
 

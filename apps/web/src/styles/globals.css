@@ -1243,6 +1243,7 @@ a.scope-link:hover, a.scope-link:focus-visible { background: var(--blue-tint-2);
 .entry-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--blue-text, #1a56c4); }
 .entry-name-btn { background: none; border: 0; padding: 0; font: inherit; font-weight: 500; text-align: left; cursor: pointer; }
 .entry-meta { font-size: 12px; color: #5b6475; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry-kind { font-size: 12px; max-width: 150px; height: 26px; border: 1px solid #d5dae3; border-radius: 4px; background: #fff; color: #1f2733; }
 .row-name-edit { height: 28px; box-sizing: border-box; width: 100%; }
 .share-chip { height: 24px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--bg, #fff); font: inherit; font-size: 12px; color: #374151; white-space: nowrap; display: inline-flex; align-items: center; }
 button.share-chip { cursor: pointer; }
