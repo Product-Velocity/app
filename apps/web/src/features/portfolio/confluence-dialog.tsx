@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ConfluenceView } from "@/lib/documents";
 import { ConfluencePageTree, type TreePage } from "./confluence-page-tree";
+import { ConfluenceSpacePicker, lastSpaceKey } from "./confluence-space-picker";
 
 type Space = { key: string; name: string; type: string };
 type Request = { mode: "once" | "sync"; spaceKey: string | null; parentUrl: string | null; title: string | null; note: string | null; requestedBy: "Claude" | "a person"; aiModel: string | null };
@@ -23,11 +24,10 @@ const WARNING_WORD: Record<string, string> = { customer: "A customer", key_resul
  */
 export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: string; title: string; version: number; aiDraft: boolean }; onClose: () => void; onChanged: () => void }) {
   const titleId = useId();
-  const firstRef = useRef<HTMLSelectElement>(null);
+  const firstRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [space, setSpace] = useState("");
-  const [spaceFilter, setSpaceFilter] = useState("");
   const [parentUrl, setParentUrl] = useState("");
   const [title, setTitle] = useState(doc.title);
   const [titleTouched, setTitleTouched] = useState(false);
@@ -52,7 +52,8 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
         // an open request (from a person or from Claude) fills the form; the person still reviews the preview and confirms
         const q = s.request;
         const known = (s.spaces ?? []).some((x) => x.key === q?.spaceKey);
-        setSpace(q?.spaceKey && known ? q.spaceKey : (s.spaces?.[0]?.key ?? ""));
+        const last = lastSpaceKey();
+        setSpace(q?.spaceKey && known ? q.spaceKey : ((s.spaces ?? []).some((x) => x.key === last) ? (last as string) : (s.spaces?.[0]?.key ?? "")));
         if (q?.parentUrl) setParentUrl(q.parentUrl);
         if (q?.title) { setTitle(q.title); setTitleTouched(true); } else if (s.suggestedTitle) setTitle(s.suggestedTitle);
         if (s.last?.linked) { setMode(s.last.syncMode); if (s.last.direction === "both") setDirection("both"); } else if (q) setMode(q.mode);
@@ -124,14 +125,7 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
               <p>This document is on <a href={linked.pageUrl} target="_blank" rel="noopener noreferrer">{linked.pageTitle || "a Confluence page"}</a> in space {linked.spaceKey}. The page holds version {linked.publishedVersion}; the document is at version {doc.version}.{linked.outOfDate ? " The page is out of date." : ""}</p>
             ) : (
               <>
-                <label className="dialog-label" htmlFor={`${titleId}-s`}>Space</label>
-                {(status.spaces ?? []).length > 10 && (
-                  <input type="search" aria-label="Filter the spaces" placeholder={`Filter ${(status.spaces ?? []).length} spaces by name or key`} value={spaceFilter} onChange={(e) => setSpaceFilter(e.target.value)} />
-                )}
-                <select id={`${titleId}-s`} ref={firstRef} value={space} onChange={(e) => { setSpace(e.target.value); setParent(null); setExisting(null); setPreview(null); }}>
-                  {(status.spaces ?? []).length === 0 && <option value="">No spaces found</option>}
-                  {(status.spaces ?? []).filter((s) => s.key === space || `${s.name} ${s.key}`.toLowerCase().includes(spaceFilter.trim().toLowerCase())).map((s) => <option key={s.key} value={s.key}>{s.name} ({s.key})</option>)}
-                </select>
+                <ConfluenceSpacePicker ref={firstRef} spaces={status.spaces ?? []} value={space} onChange={(k) => { setSpace(k); setParent(null); setExisting(null); setPreview(null); }} />
                 <fieldset className="dialog-row" style={{ border: 0, padding: 0 }}>
                   <legend className="dialog-label">Where</legend>
                   <label><input type="radio" name={`${titleId}-w`} checked={target === "new"} onChange={() => { setTarget("new"); setPreview(null); }} /> A new page</label>
@@ -143,7 +137,7 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
                 {space && !(target === "new" && parentUrl && !parent) && (
                   <ConfluencePageTree
                     key={space}
-                    pagesUrl={`/api/documents/${doc.id}/confluence/pages`} spaceKey={space}
+                    pagesUrl={`/api/documents/${doc.id}/confluence/pages`} spaceKey={space} spaceName={(status.spaces ?? []).find((x) => x.key === space)?.name}
                     label={target === "new" ? "Parent page or folder (optional)" : "Page to replace"}
                     selectFolders={target === "new"}
                     topLabel={target === "new" ? "Top of the space (no parent page)" : undefined}

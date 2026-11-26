@@ -2186,13 +2186,27 @@ a.tool-btn { text-decoration: none; display: inline-flex; align-items: center; c
 
 
 /* Confluence page tree (issue #693): a scrollable list of pages with an open arrow and a choose button on each row. */
-.page-tree-box { max-height: 220px; overflow: auto; border: 1px solid var(--border, #d9dde3); border-radius: 4px; padding: 4px; }
-.page-tree-group { list-style: none; margin: 0; padding-left: 16px; }
+.page-tree { margin-bottom: 14px; }
+.page-tree-search { width: 100%; margin: 0 0 6px; }
+.page-tree-path { margin: 6px 0 0; font-size: 12.5px; overflow-wrap: anywhere; }
+.page-tree-path:empty { display: none; }
+.page-tree-box { max-height: min(42vh, 380px); overflow-y: auto; overflow-x: hidden; border: 1px solid var(--border, #d9dde3); border-radius: 4px; padding: 4px; }
+.page-tree-group { list-style: none; margin: 0; padding-left: 12px; }
 .page-tree-box > .page-tree-group { padding-left: 0; }
-.page-tree-row { display: flex; align-items: center; gap: 2px; }
+.page-tree-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.page-tree-row .page-tree-pick { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-tree-toggle { flex: none; width: 24px; text-align: center; }
 .page-tree-toggle, .page-tree-pick { background: none; border: 0; font: inherit; cursor: pointer; padding: 3px 6px; text-align: left; border-radius: 3px; }
 .page-tree-toggle:hover, .page-tree-pick:hover { background: #eef2f7; }
 .page-tree-on { background: #e6efff; color: #1A56C4; font-weight: 600; }
 .page-tree-top { display: block; width: 100%; }
 .page-tree-note { margin: 2px 0 2px 28px; }
+.page-tree-note.page-tree-hint { margin-left: 0; }
+/* the space search (a combobox with a list under it) */
+.space-picker { position: relative; }
+.space-picker input { width: 100%; }
+.space-picker-list { position: absolute; z-index: 30; left: 0; right: 0; margin: 2px 0 0; padding: 4px; list-style: none; background: #fff; border: 1px solid var(--border, #d9dde3); border-radius: 6px; box-shadow: 0 6px 18px rgba(20, 30, 50, .14); max-height: 280px; overflow: auto; }
+.space-picker-list li[role="option"] { padding: 6px 8px; border-radius: 4px; cursor: pointer; }
+.space-picker-on { background: #e6efff; }
+.space-picker-note { padding: 6px 8px; }
 .import-excerpt { max-height: 220px; overflow: auto; margin: 0; padding: 8px 10px; background: var(--grey-3, #f3f4f7); border: 1px solid var(--border-strong, #d5dae3); border-radius: 6px; white-space: pre-wrap; word-break: break-word; font: 12px/1.45 var(--font-mono, ui-monospace, monospace); }
