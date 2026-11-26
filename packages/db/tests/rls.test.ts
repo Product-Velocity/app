@@ -570,6 +570,16 @@ const probes: Probe[] = [
     ],
   },
   {
+    table: "item_confluence_read_requests",
+    tenantColumn: "tenant_id",
+    attacks: (v, a) => [
+      { sql: "update public.item_confluence_read_requests set note = 'pwned' where tenant_id = $1", params: [v.tenantId] },
+      { sql: "delete from public.item_confluence_read_requests where tenant_id = $1", params: [v.tenantId] },
+      { sql: "insert into public.item_confluence_read_requests (tenant_id, item_id, kind, document_id) select $1, item_id, 'refresh', id from public.item_documents where tenant_id = $1", params: [v.tenantId] },
+      { sql: "update public.item_confluence_read_requests set tenant_id = $1 where tenant_id = $2", params: [v.tenantId, a.tenantId] },
+    ],
+  },
+  {
     table: "item_document_pages",
     tenantColumn: "tenant_id",
     attacks: (v, a) => [

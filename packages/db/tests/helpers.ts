@@ -228,6 +228,9 @@ export async function seedWorkspace(db: TestDb, tenantId: string) {
   if ((await db.admin.query("select to_regclass('public.item_document_publish_requests') as t")).rows[0].t) {
     await db.admin.query("insert into public.item_document_publish_requests (tenant_id, item_id, document_id, sync_mode, note) values ($1, $2, $3, 'sync', 'seed')", [tenantId, items[0], seedDoc]);
   }
+  if ((await db.admin.query("select to_regclass('public.item_confluence_read_requests') as t")).rows[0].t) {
+    await db.admin.query("insert into public.item_confluence_read_requests (tenant_id, item_id, kind, document_id, note) values ($1, $2, 'refresh', $3, 'seed')", [tenantId, items[0], seedDoc]);
+  }
   // some tests migrate only part of the history; the table exists from 20261126102823 on
   if ((await db.admin.query("select to_regclass('public.item_document_pages') as t")).rows[0].t) {
     await db.admin.query("insert into public.item_document_pages (tenant_id, item_id, document_id, site_id, space_key, page_id, page_url, sync_mode, published_version) values ($1, $2, $3, 'seed-site', 'SEED', '4711', 'https://seed.example.test/wiki/pages/4711', 'once', 1)", [tenantId, items[0], seedDoc]);
