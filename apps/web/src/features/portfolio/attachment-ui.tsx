@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { ShareLine } from "./share-state";
 
 /**
  * The parts every entry on the Spec tab shares (issue #325): a small icon or thumbnail, the "shared with GitHub/Jira" chip, and one "⋯" menu.
@@ -64,14 +65,15 @@ export function RowMenu({ label, items, triggerText }: { label: string; items: M
 /**
  * Whether an entry goes into the GitHub issue / Jira description. Always says it in words (never colour alone). `locked` shows the state without a switch.
  */
-export function ShareChip({ shared, tracker, name, disabled, busy, onToggle }: { shared: boolean; tracker: string; name: string; disabled?: boolean; busy?: boolean; onToggle: (next: boolean) => void }) {
-  const text = shared ? `Shared with ${tracker}` : "Only in Product Velocity";
-  if (disabled) return <span className={shared ? "share-chip share-chip-on" : "share-chip"}>{text}</span>;
+export function ShareChip({ line, tracker, name, disabled, busy, onToggle }: { line: ShareLine; tracker: string; name: string; disabled?: boolean; busy?: boolean; onToggle: (next: boolean) => void }) {
+  const cls = `share-chip${line.on ? " share-chip-on" : ""}`;
+  if (disabled) return <span className={cls} title={line.detail}>{line.chip}</span>;
   return (
-    <button type="button" className={shared ? "share-chip share-chip-on" : "share-chip"} aria-pressed={shared} disabled={busy}
-      aria-label={`${text}. ${shared ? "Do not share" : "Share"} ${name}`} title={shared ? "Click to keep it only in Product Velocity" : `Click to share it with ${tracker}`}
-      onClick={() => onToggle(!shared)}>
-      {text}
+    <button type="button" className={cls} aria-pressed={line.on} disabled={busy}
+      aria-label={`${line.chip}. ${line.detail} ${line.on ? `Click to keep ${name} only in Product Velocity.` : `Click to include ${name} in the ${tracker} issue.`}`}
+      title={`${line.detail} ${line.on ? "Click to keep it only in Product Velocity." : `Click to include it in the ${tracker} issue.`}`}
+      onClick={() => onToggle(!line.on)}>
+      {line.chip}
     </button>
   );
 }

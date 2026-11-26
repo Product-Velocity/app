@@ -235,9 +235,9 @@ test.describe("list fields", () => {
     await links.getByRole("button", { name: "Add link" }).click();
     await expect(links.getByRole("link", { name: "Design" })).toBeVisible();
     // one switch per link, in words
-    await expect(links.getByRole("button", { name: /Shared with GitHub\. Do not share Design/ })).toBeVisible();
-    await links.getByRole("button", { name: /Do not share Design/ }).click();
-    await expect(links.getByRole("button", { name: /Only in Product Velocity\. Share Design/ })).toBeVisible();
+    await expect(links.getByRole("button", { name: /Goes in at next send\..*Click to keep Design only in Product Velocity/ })).toBeVisible();
+    await links.getByRole("button", { name: /Click to keep Design only/ }).click();
+    await expect(links.getByRole("button", { name: /Not in the GitHub issue\..*Click to include Design/ })).toBeVisible();
     await panel(page).getByRole("tab", { name: "Overview" }).click();
     await reveal(page, "Why");
     const rel = field(page, "related_to");

@@ -5,6 +5,7 @@ import { AI_TOOL_LABEL, DOC_KIND_LABEL, DOC_KINDS, MAX_DOC_CHARS, MAX_DOCS_PER_I
 import type { DocView } from "@/lib/documents";
 import { MarkdownPreview } from "./markdown-preview";
 import { RowIcon, RowMenu, ShareChip } from "./attachment-ui";
+import { shareLine, whenLabel, type TrackerShare } from "./share-state";
 import { FilesControl, type FilesHandle } from "./files-control";
 import type { FieldCtx } from "./item-fields";
 import { LinksList, type LinksHandle } from "./links-list";
@@ -21,8 +22,9 @@ const STATUS_LABEL: Record<string, string> = { draft: "Draft", in_review: "In re
  * The Spec tab: the documents of one initiative (the full PRD, requirements, research). Versioned Markdown that stays in Product Velocity:
  * it goes into the GitHub issue / Jira description as a link (a public page of its text) unless "Do not share" is chosen. Saves on leaving a box, keeps every version (restoring one is the undo), and never overwrites a newer save.
  */
-export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub" }: { itemId: string; /** The code (R-12) of the initiative: the address of a document's reading page. Without it there is no "Open full page". */ itemCode?: string; canEdit: boolean; ctx: FieldCtx; /** "GitHub" or "Jira": where this initiative is sent. */ tracker?: string }) {
+export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub", share }: { itemId: string; /** The tracker side of the chips: is there an issue, may we write to it, when did we last write (issue #714). */ share?: TrackerShare; /** The code (R-12) of the initiative: the address of a document's reading page. Without it there is no "Open full page". */ itemCode?: string; canEdit: boolean; ctx: FieldCtx; /** "GitHub" or "Jira": where this initiative is sent. */ tracker?: string }) {
   const [docs, setDocs] = useState<DocView[] | null>(null);
+  const trackerShare: TrackerShare = share ?? { tracker, linked: true, writes: true, sentAt: null };
   // Confluence: whether this workspace can publish (its sign-in allows it), and the document whose dialog is open (issue #693)
   const [canConfluence, setCanConfluence] = useState(false);
   const [confluenceFor, setConfluenceFor] = useState<DocView | null>(null);
@@ -109,7 +111,7 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
           ]} />
         )}
       </div>
-      <p className="muted docs-hint">Everything here goes into the {tracker} issue as a link (documents and files open without a login) unless you choose “Only in Product Velocity”. Drag files onto this tab, paste an image or a web address. What builders need first goes in the Description on the Overview tab.</p>
+      <p className="muted docs-hint">Each entry goes into the {tracker} issue description as a link (documents and files open without a login) at the next send, unless its chip says it is not in the issue. The chip and the line under each entry say what will happen or when it was sent; nothing is written to a read-only project. Drag files onto this tab, paste an image or a web address. What builders need first goes in the Description on the Overview tab.</p>
       {error && <p role="alert" className="pf-error">{error}</p>}
       {confluenceFor && <ConfluenceDialog doc={{ id: confluenceFor.id, title: confluenceFor.title, version: confluenceFor.version, aiDraft: confluenceFor.aiDraft }} onClose={() => setConfluenceFor(null)} onChanged={() => void load()} />}
       {importing && <ConfluenceImportDialog mode="import" itemId={itemId} prefill={importing} onClose={() => setImporting(null)} onChanged={() => void load()} />}
@@ -119,17 +121,22 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
         {docs.length === 0 && <p className="muted">No documents yet. Use Add, then Write a document.</p>}
         {docs.length > 0 && shownDocs.length === 0 && <p className="muted">No document matches.</p>}
         <ul className="entry-list">
-          {shownDocs.map((d) => (
+          {shownDocs.map((d) => {
+            const line = shareLine(trackerShare, { shared: d.shared, kind: "document", changedAt: d.updatedAt });
+            const c = d.confluence;
+            return (
             <li key={d.id} className="entry-row entry-doc" data-doc={d.title}>
               <RowIcon kind="doc" />
               <span className="entry-main">
                 <button type="button" className="entry-name entry-name-btn" aria-expanded={openId === d.id} onClick={() => setOpenId(openId === d.id ? null : d.id)}>{d.title}</button>
                 <span className="entry-meta">{DOC_KIND_LABEL[d.kind as keyof typeof DOC_KIND_LABEL] ?? d.kind} · version {d.version} · {STATUS_LABEL[d.status] ?? d.status}{d.aiDraft ? " · AI draft, needs review" : ""}{aiLabel(d.aiTool, d.aiModel) ? ` · written with ${aiLabel(d.aiTool, d.aiModel)}` : ""}</span>
+                {!d.aiDraft && <span className="entry-meta">{tracker}: {line.detail}</span>}
+                {c && <span className="entry-meta">Confluence: {c.source === "external" ? `copied from the page “${c.pageTitle || "page"}” (space ${c.spaceKey}), page version ${c.publishedVersion}` : `${c.linked ? "kept in sync with" : "published once to"} the page “${c.pageTitle || "page"}” (space ${c.spaceKey}), document version ${c.publishedVersion}`}{c.publishedAt ? ` · ${c.source === "external" ? "read" : "written"} ${whenLabel(c.publishedAt)}` : ""}{c.outOfDate ? " · the page is behind the document" : ""}.</span>}
               </span>
               <span className="entry-actions">
               {d.aiDraft
                 ? <span className="share-chip" title="A person accepts the AI draft first (open it, then Accept draft)">Held back: AI draft</span>
-                : <ShareChip shared={d.shared} tracker={tracker} name={d.title} disabled={!canEdit} onToggle={(on) => void setShared(d, on)} />}
+                : <ShareChip line={line} tracker={tracker} name={d.title} disabled={!canEdit} onToggle={(on) => void setShared(d, on)} />}
               {d.publishRequest && !d.confluence?.linked && (
                 <button type="button" className="share-chip" disabled={!canEdit} onClick={() => setConfluenceFor(d)} title={`${d.publishRequest.requestedBy} asked for this to be published to Confluence${d.publishRequest.note ? `: ${d.publishRequest.note}` : ""}. Nothing is sent until a person confirms.`}>
                   Publish requested{d.publishRequest.requestedBy === "Claude" ? " by Claude" : ""}
@@ -137,7 +144,7 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
               )}
               {d.confluence?.source === "external" && (
                 <a className="share-chip" href={d.confluence.pageUrl} target="_blank" rel="noopener noreferrer" title={`The text comes from this Confluence page (space ${d.confluence.spaceKey}); ${d.confluence.linked ? "kept in sync: check it for changes from the menu" : "copied once"}. Product Velocity never writes to the page.`}>
-                  From Confluence
+                  Copied from Confluence
                 </a>
               )}
               {d.confluence && d.confluence.source !== "external" && (
@@ -157,16 +164,17 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
               </span>
               {openId === d.id && <div className="entry-expand"><DocEditor id={d.id} fullPageHref={itemCode ? docPageHref(d.id) : undefined} canEdit={canEdit} onChanged={load} onRemoved={() => { setOpenId(null); void load(); }} onError={setError} /></div>}
             </li>
-          ))}
+            );
+          })}
         </ul>
       </>}
       <div hidden={!show("files")}>
         <h3>Files</h3>
-        <FilesControl ref={filesRef} itemId={itemId} disabled={!canEdit} onError={setError} query={query} tracker={tracker} />
+        <FilesControl ref={filesRef} itemId={itemId} disabled={!canEdit} onError={setError} query={query} tracker={tracker} trackerShare={trackerShare} />
       </div>
       <div hidden={!show("links")}>
         <h3>Links</h3>
-        <LinksList ref={linksRef} ctx={ctx} itemId={itemId} disabled={!canEdit} onError={setError} query={query} tracker={tracker} {...(canConfluence ? { onImportPage: (pageUrl: string, kind: import("@pv/domain").DocKind | undefined) => setImporting({ pageUrl, ...(kind ? { kind } : {}) }) } : {})} />
+        <LinksList ref={linksRef} ctx={ctx} itemId={itemId} disabled={!canEdit} onError={setError} query={query} tracker={tracker} trackerShare={trackerShare} {...(canConfluence ? { onImportPage: (pageUrl: string, kind: import("@pv/domain").DocKind | undefined) => setImporting({ pageUrl, ...(kind ? { kind } : {}) }) } : {})} />
       </div>
     </div>
   );

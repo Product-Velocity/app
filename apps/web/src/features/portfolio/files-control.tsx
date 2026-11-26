@@ -3,6 +3,7 @@
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import { formatBytes, MAX_FILES_PER_ITEM } from "@pv/domain";
 import { NameEdit, RowIcon, RowMenu, ShareChip } from "./attachment-ui";
+import { shareLine, type TrackerShare } from "./share-state";
 
 type FileInfo = { id: string; name: string; mime: string | null; size: number | null; shareUrl: string | null };
 
@@ -17,7 +18,7 @@ export type FilesHandle = { pick: () => void; upload: (files: File[]) => Promise
  * (the whole tab is the drop zone, see DocumentsTab) or paste an image. Every new file is shared with the tracker issue by default (its login-free link is
  * turned on at once); the chip turns that off per file.
  */
-export const FilesControl = forwardRef<FilesHandle, { itemId: string; disabled: boolean; onError: (e: string | null) => void; /** Shows only the files whose name contains this text. */ query?: string; /** "GitHub" or "Jira": the tracker this initiative is sent to. */ tracker?: string }>(function FilesControl({ itemId, disabled, onError, query = "", tracker = "the issue" }, ref) {
+export const FilesControl = forwardRef<FilesHandle, { itemId: string; disabled: boolean; onError: (e: string | null) => void; /** Shows only the files whose name contains this text. */ query?: string; /** "GitHub" or "Jira": the tracker this initiative is sent to. */ tracker?: string; /** The tracker side of the chip: is there an issue, may we write, when did we last write (issue #714). */ trackerShare?: TrackerShare }>(function FilesControl({ itemId, disabled, onError, query = "", tracker = "GitHub", trackerShare }, ref) {
   const id = useId();
   const [files, setFiles] = useState<FileInfo[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -125,9 +126,10 @@ export const FilesControl = forwardRef<FilesHandle, { itemId: string; disabled: 
                   ? <NameEdit value={f.name} label={`Name of ${f.name}`} onSave={(v) => void rename(f, v)} onCancel={() => setRenaming(null)} />
                   : <a className="entry-name" href={`/api/files/${f.id}/view`} target="_blank" rel="noreferrer">{f.name}</a>}
                 <span className="entry-meta">{[f.mime === "application/pdf" ? "PDF" : f.mime?.replace("image/", "").toUpperCase(), f.size ? formatBytes(f.size) : null].filter(Boolean).join(" · ")}{copied === f.id ? " · Link copied" : ""}</span>
+                <span className="entry-meta">{shareLine(trackerShare ?? { tracker, linked: true, writes: true, sentAt: null }, { shared: Boolean(f.shareUrl), kind: "file" }).detail}</span>
               </span>
               <span className="entry-actions">
-              <ShareChip shared={Boolean(f.shareUrl)} tracker={tracker} name={f.name} disabled={disabled} busy={busy} onToggle={(on) => void share(f, on)} />
+              <ShareChip line={shareLine(trackerShare ?? { tracker, linked: true, writes: true, sentAt: null }, { shared: Boolean(f.shareUrl), kind: "file" })} tracker={tracker} name={f.name} disabled={disabled} busy={busy} onToggle={(on) => void share(f, on)} />
               <RowMenu label={`Actions for ${f.name}`} items={[
                 { label: "Open", href: `/api/files/${f.id}/view` },
                 { label: "Download", href: `/api/files/${f.id}/view?download`, download: true },

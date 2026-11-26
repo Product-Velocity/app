@@ -38,7 +38,7 @@ export type PushOutcome = "created" | "updated" | "unchanged" | "missing" | "err
 export type PushItemResult = { id: string; code: string; outcome: PushOutcome; issueNumber?: number; /** Jira: the issue key, shown instead of "issue #number". */ issueLabel?: string; issueUrl?: string; message?: string; /** What was written to the tracker, in words ("Description", "Links (3)", "Documents (2 links)", "Labels (4)"); absent when nothing was sent. */ wrote?: string[] };
 export type ConfirmResult = { ok: true; results: PushItemResult[] } | { ok: false; error: string };
 
-export type GithubLinkInfo = { mode: "push" | "follow"; number: number | null; url: string | null; state: "pending" | "synced" | "error"; error: string | null; ghState: "open" | "closed_completed" | "closed_not_planned" | null; lastActivity: string | null; buildStartedAt?: string | null; buildCompletedAt?: string | null; buildDays?: number | null };
+export type GithubLinkInfo = { mode: "push" | "follow"; number: number | null; url: string | null; state: "pending" | "synced" | "error"; error: string | null; ghState: "open" | "closed_completed" | "closed_not_planned" | null; lastActivity: string | null; /** When something was last written to the issue (issue #714): the panel says when documents, files and links went in. */ lastPushedAt?: string | null; buildStartedAt?: string | null; buildCompletedAt?: string | null; buildDays?: number | null };
 
 // Sync with GitHub: what the check found (applied already, because GitHub owns those fields) next to what a send would write.
 export type ReceivedLine = { label: string; from: string | null; to: string | null };

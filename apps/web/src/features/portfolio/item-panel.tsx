@@ -4,6 +4,7 @@ import { GateStrip } from "../gates/gate-strip";
 import { OutcomeReviewsSection } from "../gates/outcome-reviews";
 import type { GateSource } from "../gates/gate-source";
 import { syncLabel, syncPlatforms, syncTitle } from "./sync-label";
+import { trackerShareOf } from "./share-state";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -216,7 +217,7 @@ export function ItemPanel({ controller, lookups, itemId, me, mode, position, onC
       <div ref={bodyRef} className="ip-body" role="tabpanel" tabIndex={0} id={`${titleId}-panel-${tab}`} aria-labelledby={`${titleId}-tab-${tab}`}>
         {loadError && <p role="alert" className="pf-error">Could not load the lists of this initiative: {loadError}</p>}
         {tab === "overview" && <Overview ctx={ctx} itemId={itemId} />}
-        {tab === "spec" && <DocumentsTab itemId={itemId} itemCode={row.item_code} canEdit={controller.canEdit} ctx={ctx} tracker={trackerName} />}
+        {tab === "spec" && <DocumentsTab itemId={itemId} itemCode={row.item_code} canEdit={controller.canEdit} ctx={ctx} tracker={trackerName} share={trackerShareOf(lookups, itemId, row.home_project, trackerName)} />}
         {tab === "github" && (trackerName === "Jira" ? <JiraTab controller={controller} lookups={lookups} itemId={itemId} /> : <GithubTab controller={controller} lookups={lookups} itemId={itemId} />)}
         {tab === "alignment" && <AlignmentTab key={itemId} controller={controller} itemId={itemId} />}
         {tab === "activity" && <ActivityTab controller={controller} lookups={lookups} itemId={itemId} me={me} />}
