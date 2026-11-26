@@ -1,4 +1,4 @@
-import { DOC_KINDS, MAX_DOCS_PER_ITEM, MAX_DOC_CHARS, MAX_DOC_TITLE, pageIdFromUrl, storageToMarkdown, type DocKind } from "@pv/domain";
+import { DOC_KINDS, MAX_DOCS_PER_ITEM, MAX_DOC_CHARS, MAX_DOC_TITLE, pageIdFromUrl, storageToMarkdown, stripManagedBanner, type DocKind, type SyncDirection } from "@pv/domain";
 import { getPageWithText, getSpaceById, type ConfluenceFail, type ConfluenceRequest } from "./client";
 
 // Reading a Confluence page into Product Velocity (issue #693 slice A2). A written document whose text comes from a page: the page is the source and
@@ -27,7 +27,7 @@ export async function readPageByUrl(call: ConfluenceRequest, siteUrl: string | n
 export async function readPageById(call: ConfluenceRequest, siteUrl: string | null, pageId: string): Promise<{ ok: true; page: ReadPage } | Fail> {
   const got = await getPageWithText(call, pageId, siteUrl);
   if (!got.ok) return got;
-  const c = storageToMarkdown(got.page.storage);
+  const c = storageToMarkdown(stripManagedBanner(got.page.storage)); // a page Product Velocity wrote starts with its own notice: that is not part of the text
   return { ok: true, page: { pageId: got.page.id, title: got.page.title, version: got.page.version, url: got.page.url, spaceId: got.page.spaceId, markdown: c.markdown, lost: c.lost, characters: c.markdown.length } };
 }
 
@@ -37,7 +37,7 @@ const EXCERPT = 2000;
 // Import: a new document from a page
 // ---------------------------------------------------------------------------------------------------------------------------------
 export type NewExternalBinding = {
-  spaceKey: string; pageId: string; pageUrl: string; pageTitle: string; syncMode: "once" | "sync";
+  spaceKey: string; pageId: string; pageUrl: string; pageTitle: string; syncMode: "once" | "sync"; syncDirection: SyncDirection;
   publishedVersion: number; remoteVersion: number; contentHash: string; unlinkedAt: string | null;
 };
 export type ImportDeps = {
@@ -52,7 +52,7 @@ export type ImportDeps = {
     insertBinding: (documentId: string, b: NewExternalBinding) => Promise<Saved>;
   };
 };
-export type ImportInput = { pageUrl: string; kind?: string; title?: string; mode: "once" | "sync"; confirm?: string };
+export type ImportInput = { pageUrl: string; kind?: string; title?: string; mode: "once" | "sync"; /** With mode "sync": read only (from_confluence, the default) or both ways (issue #714). */ direction?: "from_confluence" | "both"; confirm?: string };
 export type ImportPreview = {
   ok: true; title: string; kind: DocKind; mode: "once" | "sync"; page: { id: string; url: string | null; version: number; spaceKey: string };
   excerpt: string; truncated: boolean; characters: number; lost: string[]; notes: string[]; confirm: string;
@@ -92,7 +92,7 @@ export async function confirmImport(d: ImportDeps, input: ImportInput): Promise<
   const url = page.url ?? pv.page.url;
   if (!url) return { ok: false, kind: "not_recorded", message: "The text was copied into a new document, but Confluence gave no address for the page, so the link was not recorded." };
   const saved = await d.store.insertBinding(made.id, {
-    spaceKey: pv.page.spaceKey, pageId: page.pageId, pageUrl: url, pageTitle: page.title.slice(0, 255), syncMode: input.mode,
+    spaceKey: pv.page.spaceKey, pageId: page.pageId, pageUrl: url, pageTitle: page.title.slice(0, 255), syncMode: input.mode, syncDirection: input.direction ?? "from_confluence",
     publishedVersion: made.version, remoteVersion: page.version, contentHash: d.hash(page.markdown), unlinkedAt: input.mode === "once" ? d.now() : null,
   });
   if (!saved.ok) return { ok: false, kind: "not_recorded", message: `The text was copied into a new document, but the link to the page could not be recorded: ${saved.error}.` };
@@ -110,6 +110,8 @@ export type RefreshDeps = {
   now: () => string;
   doc: { id: string; title: string; body: string; version: number; status: string };
   binding: ExternalBinding;
+  /** Whether the document was edited here since the two last agreed. Default: its text differs from the stored hash (a page read in); a two-way link passes its own answer, by version. */
+  localEdits?: boolean;
   store: {
     updateDocument: (id: string, patch: { title: string; body: string }) => Promise<{ ok: true; version: number } | { ok: false; error: string }>;
     updateBinding: (id: string, patch: { publishedVersion?: number; remoteVersion?: number; contentHash?: string; pageTitle?: string; unlinkedAt?: string | null }) => Promise<Saved>;
@@ -125,7 +127,7 @@ export type RefreshDone = { ok: true; action: RefreshAction; message: string; ve
 
 export async function previewRefresh(d: RefreshDeps): Promise<RefreshPreview | Fail> {
   const r = await readPageById(d.call, d.siteUrl, d.binding.pageId);
-  const localEdits = d.hash(d.doc.body) !== d.binding.contentHash;
+  const localEdits = d.localEdits ?? d.hash(d.doc.body) !== d.binding.contentHash;
   if (!r.ok) {
     if (r.kind === "gone") return { ok: true, action: "gone", why: "The page was deleted in Confluence, or the sign-in can no longer see it. The document keeps its text.", localEdits, page: null, excerpt: "", truncated: false, characters: 0, lost: [], notes: [], confirm: d.hash(JSON.stringify([d.doc.id, d.binding.id, "gone"])) };
     return r;

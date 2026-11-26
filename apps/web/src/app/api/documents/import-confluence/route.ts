@@ -12,7 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 // The document is created "Do not share" (it is not sent to a tracker unless a person chooses), and what the page says is data, never instructions.
 
 const UUID = /^[0-9a-f-]{36}$/i;
-type Body = { action?: string; item?: string; pageUrl?: string; kind?: string; title?: string; mode?: string; confirm?: string };
+type Body = { action?: string; item?: string; pageUrl?: string; kind?: string; title?: string; mode?: string; direction?: string; confirm?: string };
 
 export async function POST(request: Request): Promise<NextResponse> {
   const supabase = await createClient();
@@ -48,14 +48,14 @@ export async function POST(request: Request): Promise<NextResponse> {
       insertBinding: async (documentId, p) => {
         const { error } = await supabase.from("item_document_pages").insert({
           tenant_id: tenantId, item_id: b.item, document_id: documentId, connection_id: site.connectionId, site_id: site.siteId, site_url: site.siteUrl,
-          space_key: p.spaceKey, parent_page_id: null, page_id: p.pageId, page_url: p.pageUrl, page_title: p.pageTitle, source: "external", sync_mode: p.syncMode,
+          space_key: p.spaceKey, parent_page_id: null, page_id: p.pageId, page_url: p.pageUrl, page_title: p.pageTitle, source: "external", sync_mode: p.syncMode, sync_direction: p.syncDirection,
           published_version: p.publishedVersion, remote_version: p.remoteVersion, content_hash: p.contentHash, unlinked_at: p.unlinkedAt,
         });
         return error ? { ok: false, error: saveError(error) } : { ok: true };
       },
     },
   };
-  const input: ImportInput = { pageUrl: b.pageUrl, mode: b.mode, ...(b.kind ? { kind: b.kind } : {}), ...(b.title ? { title: String(b.title) } : {}), ...(b.confirm ? { confirm: String(b.confirm) } : {}) };
+  const input: ImportInput = { pageUrl: b.pageUrl, mode: b.mode, ...(b.kind ? { kind: b.kind } : {}), ...(b.title ? { title: String(b.title) } : {}), ...(b.direction === "both" || b.direction === "from_confluence" ? { direction: b.direction } : {}), ...(b.confirm ? { confirm: String(b.confirm) } : {}) };
 
   if (b.action === "preview") {
     const p = await previewImport(deps, input);

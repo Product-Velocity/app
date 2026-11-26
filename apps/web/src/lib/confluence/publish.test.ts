@@ -187,7 +187,7 @@ describe("update", () => {
     const again = await s0.publish({ ...IN, mode: "once" });
     expect(again.preview).toMatchObject({ action: "none" });
     expect(again.done).toMatchObject({ ok: true, action: "none" });
-    expect(s0.store.updated).toEqual([{ id: pub.id, patch: { syncMode: "once", unlinkedAt: "2026-11-26T12:00:00Z" } }]);
+    expect(s0.store.updated).toEqual([{ id: pub.id, patch: { syncMode: "once", syncDirection: "to_confluence", unlinkedAt: "2026-11-26T12:00:00Z" } }]);
     expect(pub.pageId).toBe("5000");
   });
 
@@ -298,3 +298,23 @@ describe("publishing onto a page that already exists", () => {
   });
 });
 
+describe("sync direction (issue #714 slice 2)", () => {
+  const live = (over: Partial<LivePublication> = {}): LivePublication => ({ id: "pub-1", pageId: "10", pageUrl: "https://acme.atlassian.net/wiki/spaces/PRD/pages/10/x", spaceKey: "PRD", syncMode: "sync", publishedVersion: 1, remoteVersion: 1, contentHash: null, ...over });
+  const page = { id: "10", title: "PRD: Tickets", version: 1, space: "PRD", body: "old" };
+  it("a new page is write-only by default, or two-way when the person chose it", async () => {
+    const a = setup();
+    await a.publish(IN);
+    expect(a.store.inserted[0]).toMatchObject({ syncDirection: "to_confluence" });
+    const b = setup();
+    await b.publish({ ...IN, direction: "both" });
+    expect(b.store.inserted[0]).toMatchObject({ syncDirection: "both" });
+  });
+  it("an update keeps the direction of the link, and the person can change it with the same confirmed write", async () => {
+    const s = setup({ seed: [page], live: live({ syncDirection: "both" }), doc: { version: 2 } });
+    await s.publish(IN);
+    expect(s.store.updated[0]).toMatchObject({ patch: { syncDirection: "both" } });
+    const t = setup({ seed: [page], live: live({ syncDirection: "both" }), doc: { version: 2 } });
+    await t.publish({ ...IN, direction: "to_confluence" });
+    expect(t.store.updated[0]).toMatchObject({ patch: { syncDirection: "to_confluence" } });
+  });
+});
