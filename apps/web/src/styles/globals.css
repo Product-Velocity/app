@@ -2178,3 +2178,9 @@ a.tool-btn { text-decoration: none; display: inline-flex; align-items: center; c
 .person-add { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
 .person-add input { flex: 1 1 180px; min-width: 0; }
 .person-add .hint, .person-add .pf-error { flex-basis: 100%; margin: 0; font-size: 12px; }
+/* the outcome of an action, next to the buttons that caused it (Settings, Integrations, Confluence) */
+.result { padding: 10px 14px; border-radius: 8px; border: 1px solid; font-weight: 600; outline: none; }
+.result:focus-visible { box-shadow: 0 0 0 2px var(--blue, #2270ed); }
+.result-ok { background: #e8f6ec; border-color: #8fcfa1; color: #14532d; }
+.result-fail { background: #fdecec; border-color: #eba5a1; color: #7f1d1d; }
+

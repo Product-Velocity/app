@@ -3,6 +3,7 @@ import { CONFLUENCE_REQUIRED, CONFLUENCE_SCOPES, atlassianConfig } from "@/lib/a
 import { keyRing } from "@/lib/atlassian/token-crypto";
 import { requireWorkspace } from "@/lib/session";
 import { disconnectConfluence, startConfluenceConnect, testConfluence } from "./actions";
+import { PendingButton, ResultBox } from "./confluence-buttons";
 
 export const metadata = { title: "Confluence · Product Velocity" };
 
@@ -40,9 +41,6 @@ export default async function ConfluenceSettingsPage({ searchParams }: { searchP
         Publish a document to a Confluence page, and read a linked page. Confluence has its own connection: connecting, reconnecting or disconnecting it never changes your Jira connection, project links or field mapping.
         Product Velocity writes a page only after a person confirms a preview, and never changes who can see a page.
       </p>
-      {status && NOTICE[status] && (PROBLEMS.has(status) ? <p role="alert" className="error">{NOTICE[status]}</p> : <p role="status" className="notice">{NOTICE[status]}</p>)}
-      {test === "ok" && <p role="status" className="notice">The test worked: Confluence answered with {n ?? "0"} space{n === "1" ? "" : "s"}.</p>}
-      {test === "fail" && <p role="alert" className="error">The test failed. {why}</p>}
       {!configured && <p role="alert" className="notice">Confluence is not set up for this deployment: the platform owner has to set the Atlassian app variables.</p>}
       {c?.state === "reconnect_needed" && <p role="alert" className="notice">Atlassian no longer accepts the saved sign-in. Reconnect to keep publishing; nothing else is lost.</p>}
 
@@ -65,19 +63,22 @@ export default async function ConfluenceSettingsPage({ searchParams }: { searchP
         )}
         {canAdmin ? (
           <div className="row-form">
-            {!c && <form action={startConfluenceConnect}><button className="btn btn-primary" type="submit" disabled={!configured}>Connect Confluence</button></form>}
-            {c && <form action={testConfluence}><button className="btn" type="submit" disabled={!configured || c.state !== "connected"}>Test connection</button></form>}
-            {c && <form action={startConfluenceConnect}><button className="btn" type="submit" disabled={!configured}>Reconnect (keeps everything)</button></form>}
+            {!c && <form action={startConfluenceConnect}><PendingButton className="btn btn-primary" label="Connect Confluence" pendingLabel="Opening Atlassian…" disabled={!configured} /></form>}
+            {c && <form action={testConfluence}><PendingButton label="Test connection" pendingLabel="Testing…" disabled={!configured || c.state !== "connected"} /></form>}
+            {c && <form action={startConfluenceConnect}><PendingButton label="Reconnect (keeps everything)" pendingLabel="Opening Atlassian…" disabled={!configured} /></form>}
             {c && (
               <form action={disconnectConfluence}>
                 <input type="hidden" name="id" value={c.id} />
-                <button className="btn btn-danger-quiet" type="submit">Disconnect Confluence</button>
+                <PendingButton className="btn btn-danger-quiet" label="Disconnect Confluence" pendingLabel="Disconnecting…" />
               </form>
             )}
           </div>
         ) : (
           <p className="muted">Only a workspace admin can connect or change this.</p>
         )}
+        {test === "ok" && <ResultBox kind="ok">✓ The test worked: Confluence answered with {n ?? "0"} space{n === "1" ? "" : "s"}. Publishing and reading pages can use this connection.</ResultBox>}
+        {test === "fail" && <ResultBox kind="fail">✗ The test failed. {why}</ResultBox>}
+        {status && NOTICE[status] && <ResultBox kind={PROBLEMS.has(status) ? "fail" : "ok"}>{PROBLEMS.has(status) ? "✗ " : "✓ "}{NOTICE[status]}</ResultBox>}
         {c && canAdmin && (
           <p className="muted">
             Reconnect signs in again and replaces the saved sign-in; nothing in Product Velocity changes. Disconnect deletes only the saved Confluence sign-in: documents already published keep their records and pages stay where they are,
