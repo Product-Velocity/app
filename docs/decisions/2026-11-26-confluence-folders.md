@@ -14,6 +14,8 @@ status: built, to confirm
 - A folder opens with `/folders/{id}/direct-children`; a page opens with `/pages/{id}/direct-children` (so folders under a page show), falling back to `/children` on 401/403/404/410.
 - Folders open but are never chosen: publishing and importing stay page-only. Whiteboards, databases and smart links are left out.
 - New scopes `read:folder:confluence` and `read:hierarchical-content:confluence` are requested but **not required** (`CONFLUENCE_OPTIONAL`), so connections made before keep working, without folders, until reconnected. If folders cannot be read, the pages are still listed with a note.
-- **Unverified against a live site**: which scope each endpoint needs follows Atlassian's documentation as read, and was not tested here. The go-live checklist has the check.
+- **Confirmed on a live site (Ashu, 2026-11-26, the Product space):** with both scopes granted, folders and nested folders show and open.
 
 **Parity.** Jira has no folders; this is Confluence-only and is not a tracker sync feature.
+
+**Follow-up (issue #722).** A folder can be chosen as the parent of a new page in the publish dialog (not in the import dialog, which needs a page). The server tries an id that is not a page as a folder (it must exist and be in the chosen space) and sends it as `parentId`. Not yet confirmed that Confluence accepts a folder as `parentId`; if it refuses, the dialog shows Confluence's reason. The connection page lists the two optional permissions as granted or not granted.

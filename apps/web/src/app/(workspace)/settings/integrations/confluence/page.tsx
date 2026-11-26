@@ -20,7 +20,7 @@ const NOTICE: Record<string, string> = {
 };
 const PROBLEMS = new Set(["bad-link", "not-admin", "not-configured", "denied", "error", "no-site", "not-connected"]);
 const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-const WHAT: Record<string, string> = { "read:space:confluence": "See which spaces exist", "read:page:confluence": "Read a page (its text and version)", "write:page:confluence": "Create and update pages" };
+const WHAT: Record<string, string> = { "read:space:confluence": "See which spaces exist", "read:page:confluence": "Read a page (its text and version)", "write:page:confluence": "Create and update pages", "read:folder:confluence": "See folders", "read:hierarchical-content:confluence": "See what sits under a page or folder" };
 
 type Row = { id: string; sites: { id: string; name: string; url: string }[]; scopes: string; state: "connected" | "reconnect_needed" | "disconnected"; created_at: string; state_changed_at: string };
 
@@ -56,6 +56,9 @@ export default async function ConfluenceSettingsPage({ searchParams }: { searchP
               <ul>
                 {CONFLUENCE_REQUIRED.map((s) => (
                   <li key={s}>{granted.has(s) ? "✓ Granted" : "✗ Missing"} · {WHAT[s]} <code>{s}</code></li>
+                ))}
+                {CONFLUENCE_OPTIONAL.map((s) => (
+                  <li key={s}>{granted.has(s) ? "✓ Granted" : "✗ Not granted"} · {WHAT[s]} <code>{s}</code> <span className="muted">(optional: pages kept in folders)</span></li>
                 ))}
               </ul>
               {missing.length === 0 && noFolders && <p className="muted">This connection cannot read Confluence folders, so pages kept in folders are not listed. Reconnect to allow it (the Atlassian app needs {CONFLUENCE_OPTIONAL.map((s) => <code key={s}>{s} </code>)}).</p>}

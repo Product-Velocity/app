@@ -2,16 +2,18 @@
 
 import { useEffect, useId, useState } from "react";
 
-export type TreePage = { id: string; title: string };
-type Item = TreePage & { kind?: "page" | "folder" };
+export type TreePage = { id: string; title: string; kind?: "page" | "folder" };
+type Item = TreePage;
 type Node = { page: Item; children: Node[] | "loading" | "error" | null; open: boolean };
 
 /**
  * The pages of a Confluence space as a tree (issue #693): the top-level pages and folders first, each opening to its sub pages when asked. Choosing a page is a button press, so
- * it works with the keyboard (Tab to a row, Enter or Space to choose, the arrow button to open). Folders open but cannot be chosen. Only titles are shown; the pages are read through the server with the
+ * it works with the keyboard (Tab to a row, Enter or Space to choose, the arrow button to open). Folders open, and can be chosen only when `selectFolders` is set (a parent for a new page). Only titles are shown; the pages are read through the server with the
  * workspace's Confluence connection. `topLabel`, when given, adds a first choice for "no page" (the top of the space).
  */
-export function ConfluencePageTree({ pagesUrl, spaceKey, selectedId, onSelect, topLabel, label }: {
+export function ConfluencePageTree({ pagesUrl, spaceKey, selectedId, onSelect, topLabel, label, selectFolders }: {
+  /** When true a folder can be chosen too (as the parent of a new page); otherwise folders only open. */
+  selectFolders?: boolean;
   /** The address that lists pages: `?space=KEY` lists a space's top-level pages, `?parent=ID` the sub pages of a page (a `&` is added when it already has a `?`). */
   pagesUrl: string;
   spaceKey: string;
@@ -67,14 +69,15 @@ export function ConfluencePageTree({ pagesUrl, spaceKey, selectedId, onSelect, t
       {nodes.map((n) => {
         const here = [...path, n.page.id];
         const folder = n.page.kind === "folder";
-        const selected = !folder && selectedId === n.page.id;
+        const pickable = !folder || selectFolders === true;
+        const selected = pickable && selectedId === n.page.id;
         return (
-          <li key={n.page.id} role="treeitem" aria-selected={folder ? undefined : selected} aria-expanded={n.open}>
+          <li key={n.page.id} role="treeitem" aria-selected={pickable ? selected : undefined} aria-expanded={n.open}>
             <span className="page-tree-row">
               <button type="button" className="page-tree-toggle" aria-label={`${n.open ? "Close" : "Open"} the ${folder ? "contents" : "sub pages"} of ${n.page.title}`} onClick={() => void toggle(here)}>{n.open ? "▾" : "▸"}</button>
-              {folder
-                ? <button type="button" className="page-tree-pick" onClick={() => void toggle(here)}>📁 {n.page.title} <span className="muted">(folder)</span></button>
-                : <button type="button" className={selected ? "page-tree-pick page-tree-on" : "page-tree-pick"} aria-pressed={selected} onClick={() => onSelect({ id: n.page.id, title: n.page.title })}>{n.page.title}{selected ? " ✓" : ""}</button>}
+              {pickable
+                ? <button type="button" className={selected ? "page-tree-pick page-tree-on" : "page-tree-pick"} aria-pressed={selected} onClick={() => onSelect({ id: n.page.id, title: n.page.title, kind: n.page.kind })}>{folder && "📁 "}{n.page.title}{folder && <span className="muted"> (folder)</span>}{selected ? " ✓" : ""}</button>
+                : <button type="button" className="page-tree-pick" onClick={() => void toggle(here)}>📁 {n.page.title} <span className="muted">(folder)</span></button>}
             </span>
             {n.open && n.children === "loading" && <p className="muted page-tree-note" role="status">Reading…</p>}
             {n.open && n.children === "error" && <p className="muted page-tree-note">The sub pages could not be read.</p>}
