@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { checkBoard, confirmSync, startSync, syncTrackers } from "@/app/(workspace)/portfolio/sync";
 import type { SyncApi } from "@/lib/tracker/sync-router";
 import { RemovedSection } from "./removed-section";
+import { ConfluenceToSend } from "./confluence-to-send";
 import { wroteGithub } from "@/lib/sync-wrote";
 import { closeRemovedInJira, listRemovedInJira } from "@/app/(workspace)/portfolio/jira-removed";
 import { closeRemovedInGithub, listRemovedInGithub } from "@/app/(workspace)/portfolio/github-removed";
@@ -456,6 +457,7 @@ export function GithubPushDialog({ ids, api = REAL_API, newItems, trackersOf = s
                 {phase.received.some((r) => r.tracker === "jira") && <p className="muted">Jira keeps a description in its own format. Product Velocity rewrites a description only when its text changed since the last sync; a table, macro or mention in Jira is never flattened otherwise.</p>}
                 {phase.received.some((r) => r.tracker !== "jira") && <p className="muted">Text you or engineers write in the issue outside the marked block is kept. The marked block is overwritten the next time you send.</p>}
                 {overwrites > 0 && <p role="note" className="muted">Keep Product Velocity replaces the text in {trackerLabel} with Product Velocity’s when you press Apply and send.{phase.received.some((r) => r.tracker !== "jira") ? " Anything outside the marked block stays." : ""}</p>}
+                {!checking && <ConfluenceToSend itemIds={ids} show={updateFilter === "all" || updateFilter === "updates"} {...(onDone ? { onSent: onDone } : {})} />}
                 {(["github", "jira"] as const).map((t) => {
                   const removedApi = api.removed?.[t];
                   // GitHub is also the tracker of a project that has none yet (a card without a tracker is a GitHub card)
