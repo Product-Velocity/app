@@ -3,6 +3,7 @@
 // page address, and the decision whether a publish creates, updates, has nothing to send or is a conflict. The calls to Confluence are elsewhere.
 
 import { DOC_KINDS, type DocKind } from "./documents";
+import { isClaudeStoredLink } from "./files";
 
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const escAttr = (s: string): string => esc(s).replace(/"/g, "&quot;");
@@ -25,7 +26,7 @@ export function inline(src: string): string {
   const links: string[] = [];
   s = s.replace(/!\[([^\]]*)\]\(((?:[^()\s]|\([^()\s]*\))+)(?:\s+"[^"]*")?\)/g, (_m, alt: string, url: string) => `${alt || "image"} (${url})`);
   s = s.replace(/\[([^\]]+)\]\(((?:[^()\s]|\([^()\s]*\))+)(?:\s+"[^"]*")?\)/g, (_m, text: string, url: string) => {
-    links.push(SAFE_HREF.test(url) ? `<a href="${escAttr(url)}">` : "");
+    links.push(SAFE_HREF.test(url) && !isClaudeStoredLink(url) ? `<a href="${escAttr(url)}">` : "");
     return `\u0001${links.length - 1}\u0001${text}\u0002${links.length - 1}\u0002`;
   });
   s = esc(s);
@@ -149,15 +150,13 @@ export function markdownToStorage(markdown: string): string {
   return blocks(markdown).replace(/\n/g, " ");
 }
 
-/** The notice at the top of a published page: it is managed in Product Velocity, so a change made here can be overwritten. */
-export function managedBanner(opts: { link?: string; code?: string } = {}): string {
-  const where = opts.link && /^https:\/\//i.test(opts.link) ? ` <a href="${escAttr(opts.link)}">${esc(opts.code ? `Open ${opts.code} in Product Velocity` : "Open in Product Velocity")}</a>.` : "";
-  return `<ac:structured-macro ac:name="info" ac:schema-version="1"><ac:rich-text-body><p>Managed in Product Velocity. A change made on this page can be overwritten the next time the document is published.${where}</p></ac:rich-text-body></ac:structured-macro>`;
-}
-
-/** The whole page body: the banner, then the document. */
-export function pageBody(markdown: string, opts: { link?: string; code?: string } = {}): string {
-  return managedBanner(opts) + markdownToStorage(markdown);
+/**
+ * The whole page body: the document as Confluence storage format, and nothing else. The page does not mention Product Velocity and does not link back to it
+ * (Ashu, 2026-11-26): a page belongs to the people who read it in Confluence. Pages written before that start with a notice; `stripManagedBanner` still removes it when
+ * such a page is read back.
+ */
+export function pageBody(markdown: string): string {
+  return markdownToStorage(markdown);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------

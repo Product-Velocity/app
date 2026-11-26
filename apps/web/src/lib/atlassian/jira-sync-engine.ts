@@ -15,7 +15,7 @@ import type { SelectKey } from "./jira-sync-core";
 import { OUTBOUND_JIRA_FIELDS } from "./outbound";
 import { createIssue, updateIssue, type JiraRequest } from "./jira-write";
 import { parseFieldMap } from "./field-map";
-import { documentLinks, documentsPreviewNote } from "@pv/domain";
+import { documentLinks, documentsPreviewNote, isClaudeStoredLink } from "@pv/domain";
 import { wroteJira } from "@/lib/sync-wrote";
 import { documentUrl, shareUrl } from "@/lib/files/serve";
 import type { Link } from "./jira-sections";
@@ -96,7 +96,7 @@ export async function load(ctx: Ctx, id: string): Promise<Loaded | null> {
   itemRow.tags = ((tagRows ?? []) as { value: string }[]).map((r) => r.value);
   // the links of the initiative and the share links of its files (a file without a share link is not sent); read apart, so a database without them sends none
   const { data: linkRows } = await ctx.supabase.from("item_attachments").select("name, url").eq("tenant_id", ctx.tenantId).eq("item_id", id).eq("kind", "link").eq("shared", true).order("created_at");
-  const artifacts = ((linkRows ?? []) as { name: string; url: string }[]).map((r) => ({ label: r.name, url: r.url }));
+  const artifacts = ((linkRows ?? []) as { name: string; url: string }[]).filter((r) => !isClaudeStoredLink(r.url)).map((r) => ({ label: r.name, url: r.url }));
   const { data: fileRows } = await ctx.supabase.from("item_attachments").select("name, share_token").eq("tenant_id", ctx.tenantId).eq("item_id", id).eq("kind", "file").order("created_at");
   const allFiles = (fileRows ?? []) as { name: string; share_token: string | null }[];
   const files = ctx.appUrl ? allFiles.filter((r) => r.share_token).map((r) => ({ label: r.name, url: shareUrl(ctx.appUrl!, r.share_token!, r.name) })) : [];

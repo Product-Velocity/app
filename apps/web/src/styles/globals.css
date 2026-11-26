@@ -757,6 +757,20 @@ input.sw-input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2
 /* GitHub push (issue #33) */
 .push-list { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 10px; max-height: 50vh; overflow: auto; }
 .push-list li { border: 1px solid var(--grey-2); border-radius: 6px; padding: 8px 10px; }
+/* Sync dialog sections (Jira / GitHub and Confluence): same header, same list, same rows (brand guide: hairline borders, brand-tint selection with a capsule) */
+.sync-section { border-top: 1px solid var(--grey-2); margin-top: 22px; padding-top: 16px; }
+.sync-section-head { display: flex; align-items: center; gap: 10px; margin: 14px 0 6px; }
+.sync-section-head h3 { margin: 0; font-size: 14px; }
+.sync-tag { font: 500 11px/16px var(--font-mono, "IBM Plex Mono", ui-monospace, monospace); letter-spacing: 0.06em; text-transform: uppercase; color: var(--blue-text); background: var(--blue-tint-2); border-radius: 999px; padding: 1px 9px; }
+.sync-all { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; font-weight: 500; }
+.sync-list .sync-row { position: relative; border-radius: var(--radius-md, 8px); }
+.sync-row-on { background: var(--blue-tint-2); border-color: var(--blue); }
+.sync-row-on::before { content: ""; position: absolute; left: -1px; top: 10px; width: 4px; height: 16px; border-radius: 999px; background: var(--blue); }
+.sync-row-main { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+.sync-row-main input { margin-top: 3px; }
+.sync-row-body { margin-left: 24px; }
+.sync-row-body p { margin: 6px 0 0; }
+.sync-section-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
 .push-pill { font-size: 12px; border: 1px solid var(--grey-2); border-radius: 10px; padding: 0 7px; }
 .push-list li.push-blocked { border-color: #c9a3a3; background: #fbf3f3; }
 .push-body { white-space: pre-wrap; font-family: "IBM Plex Mono", monospace; font-size: 12px; background: var(--grey-3); padding: 8px; border-radius: 4px; max-height: 240px; overflow: auto; }

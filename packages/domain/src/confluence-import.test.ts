@@ -66,8 +66,8 @@ describe("Confluence storage format to Markdown", () => {
     expect(md("<p>a < b</p>")).toContain("a");
   });
 
-  it("the notice that our own publish puts at the top of a page is dropped when the page is read back", () => {
-    const published = pageBody("# Plan\n\nText.", { link: "https://app.example.test/x", code: "R-1" });
+  it("the notice that older published pages carry at the top is dropped when the page is read back", () => {
+    const published = '<ac:structured-macro ac:name="info" ac:schema-version="1"><ac:rich-text-body><p>Managed in Product Velocity. A change made on this page can be overwritten.</p></ac:rich-text-body></ac:structured-macro>' + pageBody("# Plan\n\nText.");
     expect(md(published)).toBe("# Plan\n\nText.");
   });
 

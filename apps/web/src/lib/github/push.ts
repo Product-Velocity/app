@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { canLinkFilesInto, columnOnItems, documentLinks, documentsPreviewNote, FIELD_BY_KEY, type DocLinkInput } from "@pv/domain";
+import { canLinkFilesInto, columnOnItems, documentLinks, documentsPreviewNote, FIELD_BY_KEY, isClaudeStoredLink, type DocLinkInput } from "@pv/domain";
 import { createHash } from "node:crypto";
 import { parseConfigRows, githubOptions, type ConfigRow } from "@/lib/tracker-fields/mapping";
 import { switchedOffNotes } from "@/lib/tracker-fields/notes";
@@ -99,7 +99,7 @@ async function computePlan(supabase: SupabaseClient, tenantId: string, appUrl: s
   const readOnlyRepos = new Set(repoRows.filter((r) => r.access === "read_only").map((r) => r.full_name.toLowerCase()));
   const linkByItem = new Map(((links.data ?? []) as Link[]).map((l) => [l.item_id, l]));
   const artifactsByItem = new Map<string, { label: string; url: string }[]>();
-  for (const a of (artifacts.data ?? []) as { item_id: string; name: string; url: string }[]) artifactsByItem.set(a.item_id, [...(artifactsByItem.get(a.item_id) ?? []), { label: a.name, url: a.url }]);
+  for (const a of (artifacts.data ?? []) as { item_id: string; name: string; url: string }[]) if (!isClaudeStoredLink(a.url)) artifactsByItem.set(a.item_id, [...(artifactsByItem.get(a.item_id) ?? []), { label: a.name, url: a.url }]);
 
   const docsByItem = new Map<string, DocLinkInput[]>();
   for (const d of (docRows.data ?? []) as { item_id: string; kind: string; title: string; status: string; has_text: boolean; share_token: string | null }[]) {

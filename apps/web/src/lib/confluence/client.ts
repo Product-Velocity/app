@@ -145,7 +145,7 @@ export type PageUpdate = { id: string; /** The version the page has now; the wri
 /** Writes a new version of a page. Confluence refuses it (409) when the page moved on since `currentVersion`, so nothing is overwritten unseen. */
 export async function updatePage(call: ConfluenceRequest, p: PageUpdate, siteUrl: string | null = null, sleep?: Sleep): Promise<{ ok: true; page: Page } | ConfluenceFail> {
   if (!/^\d{1,20}$/.test(p.id)) return { ok: false, kind: "rejected", message: "That is not a Confluence page id." };
-  const payload = { id: p.id, status: "current", title: p.title, body: { representation: "storage", value: p.body }, version: { number: p.currentVersion + 1, message: "Published from Product Velocity" } };
+  const payload = { id: p.id, status: "current", title: p.title, body: { representation: "storage", value: p.body }, version: { number: p.currentVersion + 1 } };
   const x = await run(() => call("PUT", `/api/v2/pages/${p.id}`, payload), sleep);
   if ("fail" in x) return x.fail;
   if (x.r.status < 200 || x.r.status >= 300) return failure(x.r.status, x.r.json, true);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commercialWarnings, inline, managedBanner, markdownToStorage, pageBody, checkImportRequest, checkRefreshRequest, pageIdFromUrl, planPublish, stripManagedBanner, syncState } from "./confluence";
+import { commercialWarnings, inline, markdownToStorage, pageBody, checkImportRequest, checkRefreshRequest, pageIdFromUrl, planPublish, stripManagedBanner, syncState } from "./confluence";
 
 describe("Markdown to Confluence storage format", () => {
   it("headings, paragraphs, emphasis, code spans and links", () => {
@@ -54,12 +54,16 @@ describe("Markdown to Confluence storage format", () => {
     expect(markdownToStorage("")).toBe("");
   });
 
-  it("the page starts with the notice that it is managed in Product Velocity, with a link only when it is a https address", () => {
-    expect(managedBanner()).toContain("Managed in Product Velocity");
-    expect(managedBanner({ link: "https://app.example.test/x?item=R-1&tab=spec", code: "R-1" })).toContain('<a href="https://app.example.test/x?item=R-1&amp;tab=spec">Open R-1 in Product Velocity</a>');
-    expect(managedBanner({ link: "javascript:alert(1)" })).not.toContain("<a ");
-    expect(pageBody("hi").startsWith("<ac:structured-macro")).toBe(true);
-    expect(pageBody("hi").endsWith("<p>hi</p>")).toBe(true);
+  it("the page holds the document only: no notice, no mention of Product Velocity, no link back", () => {
+    const page = pageBody("hi");
+    expect(page).toBe("<p>hi</p>");
+    expect(page).not.toMatch(/Product Velocity|<ac:structured-macro/);
+  });
+
+  it("a link to something stored in a Claude account is shown as plain text, a public one stays a link", () => {
+    expect(inline("[the prototype](https://claude.ai/artifact/abc)")).toBe("the prototype");
+    expect(inline("[the prototype](https://claude.ai/public/artifacts/abc)")).toContain('<a href="https://claude.ai/public/artifacts/abc">');
+    expect(inline("[spec](https://example.com/spec)")).toContain('<a href="https://example.com/spec">');
   });
 });
 
@@ -172,8 +176,9 @@ describe("syncState (issue #714): what a linked document needs, by direction", (
 });
 
 describe("stripManagedBanner", () => {
-  it("removes the notice Product Velocity puts at the top of a page, and only that", () => {
-    const page = pageBody("Hello", { link: "https://app.example/portfolio/R-1", code: "R-1" });
+  const LEGACY_BANNER = '<ac:structured-macro ac:name="info" ac:schema-version="1"><ac:rich-text-body><p>Managed in Product Velocity. A change made on this page can be overwritten the next time the document is published. <a href="https://app.example/portfolio/R-1">Open R-1 in Product Velocity</a>.</p></ac:rich-text-body></ac:structured-macro>';
+  it("removes the notice that pages written before 2026-11-26 carry at the top, and only that", () => {
+    const page = LEGACY_BANNER + "<p>Hello</p>";
     expect(stripManagedBanner(page)).toBe("<p>Hello</p>");
     expect(stripManagedBanner("<p>Hello</p>")).toBe("<p>Hello</p>");
     const other = '<ac:structured-macro ac:name="info"><ac:rich-text-body><p>Somebody else\'s note.</p></ac:rich-text-body></ac:structured-macro><p>x</p>';
