@@ -5,17 +5,19 @@ import type { ConfluenceRequest } from "@/lib/confluence/client";
 // against a fake Confluence. The database client is a small chainable fake: each table answers with the rows the test gave it.
 
 type Rows = Record<string, unknown[]>;
-const state = { user: { id: "u1" } as { id: string } | null, rows: {} as Rows, inserted: [] as { table: string; row: Record<string, unknown> }[], updated: [] as { table: string; patch: Record<string, unknown> }[], site: null as null | { connectionId: string; siteId: string; siteUrl: string; siteName: string }, confluence: null as null | ConfluenceRequest };
+const state = { user: { id: "u1" } as { id: string } | null, rows: {} as Rows, inserted: [] as { table: string; row: Record<string, unknown> }[], updated: [] as { table: string; patch: Record<string, unknown> }[], deleted: [] as string[], site: null as null | { connectionId: string; siteId: string; siteUrl: string; siteName: string }, confluence: null as null | ConfluenceRequest };
 
 function query(table: string) {
   let patch: Record<string, unknown> | null = null;
+  let removing = false;
   const q: Record<string, unknown> = {};
   const done = () => ({ data: state.rows[table] ?? [], error: null });
   for (const m of ["select", "eq", "is", "order", "limit", "in"]) q[m] = () => q;
   q.maybeSingle = () => Promise.resolve({ data: (state.rows[table] ?? [])[0] ?? null, error: null });
   q.insert = (row: Record<string, unknown>) => { state.inserted.push({ table, row }); return Promise.resolve({ error: null }); };
   q.update = (p: Record<string, unknown>) => { patch = p; return q; };
-  q.then = (resolve: (v: unknown) => unknown) => { if (patch) { state.updated.push({ table, patch }); return resolve({ error: null }); } return resolve(done()); };
+  q.delete = () => { removing = true; return q; };
+  q.then = (resolve: (v: unknown) => unknown) => { if (removing) { state.deleted.push(table); return resolve({ error: null }); } if (patch) { state.updated.push({ table, patch }); return resolve({ error: null }); } return resolve(done()); };
   return q;
 }
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ auth: { getUser: async () => ({ data: { user: state.user } }) }, from: (t: string) => query(t) }) }));
@@ -31,8 +33,8 @@ const SITE = { connectionId: "c1", siteId: "s1", siteUrl: "https://acme.atlassia
 const doc = { id: DOC, tenant_id: "t1", item_id: "i1", title: "PRD", body: "# PRD\n\nText.", version: 1, ai_draft: false };
 
 beforeEach(() => {
-  state.user = { id: "u1" }; state.inserted = []; state.updated = []; state.site = SITE;
-  state.rows = { item_documents: [doc], tenant_members: [{ role: "creator", is_service_account: false }], item_document_pages: [], items: [{ item_code: "R-12", kr_metric: null, value_12m: null }] };
+  state.user = { id: "u1" }; state.inserted = []; state.updated = []; state.deleted = []; state.site = SITE;
+  state.rows = { item_documents: [doc], tenant_members: [{ role: "creator", is_service_account: false }], item_document_pages: [], item_document_publish_requests: [], items: [{ item_code: "R-12", kr_metric: null, value_12m: null }] };
   // the v2 API: spaces (listed, or found by key) and pages created in a space by its id
   state.confluence = async (method, path) => {
     if (method === "GET" && path.startsWith("/api/v2/spaces")) return { status: 200, json: { results: [{ id: "777", key: "PRD", name: "Product", type: "global" }, { id: "999", key: "GTM", name: "Go-to-market", type: "global" }] } };
@@ -128,5 +130,47 @@ describe("preview, then confirm", () => {
     state.rows.item_document_pages = [{ id: "p1", page_id: "5", page_url: "https://x.test/5", page_title: "PRD", space_key: "PRD", sync_mode: "sync", published_version: 1, published_at: "2026-11-26T10:00:00Z", unlinked_at: null }];
     expect((await post({ action: "unlink" })).status).toBe(200);
     expect(state.updated).toEqual([{ table: "item_document_pages", patch: { unlinked_at: expect.any(String) } }]);
+  });
+});
+
+describe("a request to publish (issue #693 slice C)", () => {
+  const request = { space_key: "GTM", parent_url: "https://acme.atlassian.net/wiki/spaces/GTM/pages/42/Plans", page_title: "GTM plan", sync_mode: "once", note: "Ready for the team", ai_model: "Claude Sonnet 5.5", created_via: "MCP" };
+
+  it("the status shows an open request and who made it, so the dialog can open filled in", async () => {
+    state.rows.item_document_publish_requests = [request];
+    expect(await (await GET(new Request("http://x/api"), ctx)).json()).toMatchObject({ request: { mode: "once", spaceKey: "GTM", title: "GTM plan", note: "Ready for the team", requestedBy: "Claude", aiModel: "Claude Sonnet 5.5" } });
+    state.rows.item_document_publish_requests = [{ ...request, created_via: "UI" }];
+    expect(await (await GET(new Request("http://x/api"), ctx)).json()).toMatchObject({ request: { requestedBy: "a person" } });
+    state.rows.item_document_publish_requests = [];
+    expect((await (await GET(new Request("http://x/api"), ctx)).json()).request).toBeNull();
+  });
+
+  it("a request alone publishes nothing: only the confirmed publish writes, and it then clears the request", async () => {
+    state.rows.item_document_publish_requests = [request];
+    const p = await (await post({ action: "preview", mode: "once", spaceKey: "GTM" })).json();
+    expect(state.inserted).toEqual([]);
+    expect(state.deleted).toEqual([]);
+    await post({ action: "publish", mode: "once", spaceKey: "GTM", confirm: p.preview.confirm });
+    expect(state.inserted).toHaveLength(1);
+    expect(state.deleted).toEqual(["item_document_publish_requests"]);
+  });
+
+  it("a failed publish leaves the request where it is", async () => {
+    state.rows.item_document_publish_requests = [request];
+    state.confluence = async () => ({ status: 403, json: { message: "no" } });
+    await post({ action: "publish", mode: "once", spaceKey: "GTM", confirm: "0".repeat(64) });
+    expect(state.deleted).toEqual([]);
+  });
+
+  it("dismiss removes the request and touches no page; a viewer, a service account and a stranger cannot", async () => {
+    expect((await post({ action: "dismiss" })).status).toBe(200);
+    expect(state.deleted).toEqual(["item_document_publish_requests"]);
+    state.deleted = [];
+    state.rows.tenant_members = [{ role: "viewer", is_service_account: false }];
+    expect((await post({ action: "dismiss" })).status).toBe(403);
+    state.rows.tenant_members = [{ role: "creator", is_service_account: true }];
+    expect((await post({ action: "dismiss" })).status).toBe(403);
+    expect(state.deleted).toEqual([]);
+    expect(state.inserted).toEqual([]);
   });
 });

@@ -5,7 +5,7 @@ import { handleMulti, type WorkspaceHandle } from "../../../apps/web/src/lib/mcp
 import { buildContext, type DocInfo } from "../../../apps/web/src/lib/mcp/read-model";
 import { handleRpc, TOOLS, type McpBackend } from "../../../apps/web/src/lib/mcp/rpc";
 import { ToolInputError } from "../../../apps/web/src/lib/mcp/tool-error";
-import type { ApplyResult, CurrentItem, McpDocuments, McpEpics, McpFiles, McpOutcomes, McpProfile, McpWriter, PendingChange, PendingRow, UndoResult } from "../../../apps/web/src/lib/mcp/write-model";
+import type { ApplyResult, CurrentItem, McpDocuments, McpEpics, McpFiles, McpOutcomes, McpProfile, McpPublishRequests, McpWriter, PendingChange, PendingRow, UndoResult } from "../../../apps/web/src/lib/mcp/write-model";
 import { addMember, createTestDb, createUser, twoTenantFixture, type TestDb } from "./helpers";
 
 // The 2026-10-27 scenario of docs/20 section 2 and issue #182, replayed through the real tool code (handleRpc and the write tools)
@@ -110,6 +110,20 @@ function sqlWriter(user: string, tenant: string, client = CLIENT): McpWriter {
       } catch (e) { throw new ToolInputError(e instanceof Error ? e.message : "The epics could not be recorded."); }
     },
   };
+  const publishRequests: McpPublishRequests = {
+    async set(doc, r) {
+      try {
+        await as(async (q) => {
+          const cur = (await q("select id from public.item_document_publish_requests where tenant_id = $1 and document_id = $2", [tenant, doc.id])).rows[0];
+          if (cur) await q("update public.item_document_publish_requests set space_key = $2, parent_url = $3, page_title = $4, sync_mode = $5, note = $6, ai_model = $7 where id = $1", [cur.id, r.spaceKey, r.parentUrl, r.title, r.mode, r.note, r.aiModel]);
+          else await q("insert into public.item_document_publish_requests (tenant_id, item_id, document_id, space_key, parent_url, page_title, sync_mode, note, ai_model) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)", [tenant, doc.itemId, doc.id, r.spaceKey, r.parentUrl, r.title, r.mode, r.note, r.aiModel]);
+        });
+      } catch { throw new ToolInputError("The database refused this: your role or this connection may not write here."); }
+    },
+    async withdraw(documentId) {
+      return as(async (q) => ((await q("delete from public.item_document_publish_requests where tenant_id = $1 and document_id = $2 returning id", [tenant, documentId])).rows.length > 0));
+    },
+  };
   const outcomes: McpOutcomes = {
     async record(itemId, days, v) {
       try {
@@ -122,6 +136,7 @@ function sqlWriter(user: string, tenant: string, client = CLIENT): McpWriter {
     epics,
     outcomes,
     documents,
+    publishRequests,
     profile,
     async context(role): Promise<WriteCtx> {
       return as(async (q) => {
@@ -493,6 +508,46 @@ describe("documents through the real document tools (R-113)", () => {
     ]);
     const rows = await db.asUser(f.alice, async (q) => (await q("select * from public.document_submissions($1) where document_id = $2 order by version", [f.tenantA, id])).rows);
     expect(rows.map((r) => [r.version, r.ai_tool, r.ai_model, r.person_name ?? r.person_email])).toEqual([[1, "claude", "Claude Opus 5.5", "cora"], [2, "chatgpt", "GPT-5", "cora"]]);
+  });
+
+  it("Claude asks for a document to be published to Confluence: a request is recorded as MCP, nothing is sent, and it can be replaced and withdrawn (issue #693)", async () => {
+    const b = docBackendAs("creator", cora, f.tenantA);
+    const made = await call(b, "create_document", { item: item.code, kind: "go_to_market", title: "GTM one-pager", body: "# GTM", ai_model: "Claude Sonnet 5.5" });
+    const id = made.data.document.id as string;
+    const asked = await call(b, "request_confluence_publish", { document: id, space_key: "GTM", after_publishing: "keep_in_sync", note: "Ready for the team", ai_model: "Claude Sonnet 5.5" });
+    expect(asked.isError, asked.text).toBe(false);
+    expect(asked.data).toMatchObject({ status: "requested", nothing_sent: true, request: { mode: "sync", space_key: "GTM", note: "Ready for the team" } });
+    expect((await db.admin.query("select space_key, sync_mode, created_via, ai_model, created_by from public.item_document_publish_requests where document_id = $1", [id])).rows).toEqual([{ space_key: "GTM", sync_mode: "sync", created_via: "MCP", ai_model: "Claude Sonnet 5.5", created_by: cora }]);
+    // asking again replaces the open request
+    await call(b, "request_confluence_publish", { document: id, space_key: "OTHER", after_publishing: "once" });
+    expect((await db.admin.query("select space_key, sync_mode from public.item_document_publish_requests where document_id = $1", [id])).rows).toEqual([{ space_key: "OTHER", sync_mode: "once" }]);
+    // nothing reached Confluence's side of the database: no publication was recorded
+    expect((await db.admin.query("select 1 from public.item_document_pages where document_id = $1", [id])).rowCount).toBe(0);
+    expect((await call(b, "withdraw_confluence_request", { document: id })).data.status).toBe("withdrawn");
+    expect((await call(b, "withdraw_confluence_request", { document: id })).data.status).toBe("none_open");
+  });
+
+  it("create_document can ask for the publication in the same call, and a bad request writes no document at all", async () => {
+    const b = docBackendAs("creator", cora, f.tenantA);
+    const both = await call(b, "create_document", { item: item.code, title: "Business case", body: "# BC", publish: { space_key: "PRD", after_publishing: "once" } });
+    expect(both.data).toMatchObject({ status: "created", nothing_sent: true, publish_requested: { space_key: "PRD", mode: "once" } });
+    expect((await db.admin.query("select sync_mode from public.item_document_publish_requests where document_id = $1", [both.data.document.id])).rows).toEqual([{ sync_mode: "once" }]);
+    const before = (await db.admin.query("select count(*)::int as n from public.item_documents where item_id = $1", [item.id])).rows[0].n as number;
+    const bad = await call(b, "create_document", { item: item.code, title: "Nope", body: "x", publish: { space_key: "not a key" } });
+    expect(bad.isError).toBe(true);
+    expect((await db.admin.query("select count(*)::int as n from public.item_documents where item_id = $1", [item.id])).rows[0].n).toBe(before);
+  });
+
+  it("a viewer's Claude cannot ask, and another workspace's document is not found", async () => {
+    const own = docBackendAs("creator", cora, f.tenantA);
+    const id = (await call(own, "create_document", { item: item.code, title: "Private GTM", body: "x" })).data.document.id as string;
+    const viewerBackend = docBackendAs("viewer", viewer, f.tenantA);
+    expect((await call(viewerBackend, "request_confluence_publish", { document: id, space_key: "GTM" })).isError).toBe(true);
+    const other = docBackendAs("admin", bobUser, f.tenantB);
+    const r = await call(other, "request_confluence_publish", { document: id, space_key: "GTM" });
+    expect(r.isError).toBe(true);
+    expect(r.text).toMatch(/No document/);
+    expect((await db.admin.query("select 1 from public.item_document_publish_requests where document_id = $1", [id])).rowCount).toBe(0);
   });
 
   it("creates a PRD as an AI draft through a Claude token, versions every save and keeps the text out of the audit log", async () => {

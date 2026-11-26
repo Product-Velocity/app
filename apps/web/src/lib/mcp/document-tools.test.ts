@@ -3,7 +3,7 @@ import type { SearchRow, UsageResult } from "@pv/domain";
 import { buildContext, type DocInfo, type ItemDetail } from "./read-model";
 import { handleRpc, TOOLS, type McpBackend } from "./rpc";
 import { ToolInputError } from "./tool-error";
-import type { McpDocuments } from "./write-model";
+import type { McpDocuments, McpPublishRequests } from "./write-model";
 
 type Out = { result: { isError?: boolean; content: { text: string }[] } };
 const doc = (o: Partial<DocInfo> = {}): DocInfo => ({ id: "d1", item_code: "R-01", kind: "prd", title: "PRD", status: "draft", version: 1, ai_draft: true, characters: 5, updated_at: "2026-10-28T10:00:00Z", approved_at: null, ai_tool: null, ai_model: null, ...o });
@@ -21,6 +21,11 @@ function setup(opts: { links?: ItemDetail["links"]; role?: string; docs?: DocInf
       return { ok: true, doc: doc({ id, version: v + 1, ...(patch as object) }) } as const;
     }),
   };
+  const requested: { doc: { id: string; itemId: string }; r: unknown }[] = [];
+  const publishRequests: McpPublishRequests = {
+    set: vi.fn(async (d, r) => { requested.push({ doc: d, r }); }),
+    withdraw: vi.fn(async () => requested.length > 0),
+  };
   const meter = opts.meter ?? vi.fn<McpBackend["meter"]>(async (): Promise<UsageResult> => ({ ok: true }));
   const detail = (ref: string): ItemDetail | null =>
     ref.toUpperCase() === "R-01" ? ({ row: { id: "i1", item_code: "R-01" } as SearchRow, links: opts.links ?? [], tags: {}, relations: { depends_on: [], depended_on_by: [], related_to: [] }, teams: [], files: [], github: null, activity: [] }) : null;
@@ -34,7 +39,7 @@ function setup(opts: { links?: ItemDetail["links"]; role?: string; docs?: DocInf
       companyProfile: vi.fn(async () => ({ url: null, profile: { status: "draft", version: 2, ai_draft: true, researched_at: null, confirmed_at: null, updated_at: "2026-11-01T00:00:00Z", sections: {} } })),
       document: vi.fn(async (id: string) => stored.find((d) => d.id === id) ?? null),
     } as never,
-    write: { documents } as never,
+    write: { documents, publishRequests } as never,
     meter,
   };
   const call = async (name: string, args: Record<string, unknown>) => {
@@ -42,7 +47,7 @@ function setup(opts: { links?: ItemDetail["links"]; role?: string; docs?: DocInf
     const text = r.result.content[0]!.text;
     return { isError: r.result.isError === true, text, data: r.result.isError ? null : JSON.parse(text).data };
   };
-  return { call, documents, created, updated, meter };
+  return { call, documents, created, updated, meter, publishRequests, requested };
 }
 
 describe("document tools", () => {
@@ -240,3 +245,66 @@ describe("AI model on documents", () => {
     expect((await s.call("list_documents", { item: "R-01" })).data.documents[0]).toMatchObject({ ai_tool: "chatgpt" });
   });
 });
+
+describe("asking for a document to be published to Confluence (issue #693 slice C)", () => {
+  it("records a request only: nothing is sent, the person is told where to confirm, and the fields are carried over", async () => {
+    const s = setup();
+    const r = await s.call("request_confluence_publish", { document: "d1", space_key: "GTM", parent_url: "https://acme.atlassian.net/wiki/spaces/GTM/pages/42/Plans", after_publishing: "once", note: "Ready for the team", ai_model: "Claude Sonnet 5.5" });
+    expect(r.isError, r.text).toBe(false);
+    expect(r.data).toMatchObject({ status: "requested", nothing_sent: true, document: { id: "d1", item: "R-01" }, request: { mode: "once", space_key: "GTM", note: "Ready for the team" } });
+    expect(r.data.notes.join(" ")).toMatch(/Nothing was sent to Confluence.*Publish to Confluence.*confirms/);
+    expect(s.requested).toEqual([{ doc: { id: "d1", itemId: "i1" }, r: { mode: "once", spaceKey: "GTM", parentUrl: "https://acme.atlassian.net/wiki/spaces/GTM/pages/42/Plans", title: null, note: "Ready for the team", aiModel: "Claude Sonnet 5.5" } }]);
+  });
+
+  it("keeps the page in sync unless asked for once, and says when the document is already on a page", async () => {
+    const onPage = doc({ confluence: { page_url: "https://acme.atlassian.net/wiki/spaces/X/pages/1", page_title: "PRD", space_key: "X", mode: "sync", linked: true, published_version: 1, out_of_date: true } });
+    const s = setup({ docs: [onPage] });
+    const r = await s.call("request_confluence_publish", { document: "d1" });
+    expect(s.requested[0]!.r).toMatchObject({ mode: "sync", spaceKey: null });
+    expect(r.data.notes.join(" ")).toContain("already on a page");
+  });
+
+  it("explains a bad space, parent, choice, a missing document and a workspace document, in words for Claude", async () => {
+    const s = setup({ docs: [doc(), doc({ id: "w1", item_code: "", scope: "workspace" })] });
+    expect((await s.call("request_confluence_publish", { document: "d1", space_key: "Go to market" })).text).toMatch(/short key/);
+    expect((await s.call("request_confluence_publish", { document: "d1", parent_url: "https://acme.atlassian.net/wiki/x/short" })).text).toMatch(/\/pages\/12345\//);
+    expect((await s.call("request_confluence_publish", { document: "d1", after_publishing: "forever" })).text).toMatch(/keep_in_sync/);
+    expect((await s.call("request_confluence_publish", { document: "nope" })).text).toMatch(/No document "nope"/);
+    expect((await s.call("request_confluence_publish", { document: "w1" })).text).toMatch(/workspace itself/);
+    expect(s.requested).toEqual([]);
+  });
+
+  it("a refusal from the database (a viewer's connection) comes back as a refusal and nothing is claimed", async () => {
+    const s = setup();
+    (s.publishRequests.set as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new ToolInputError("The database refused this: your role or this connection may not write here."));
+    const r = await s.call("request_confluence_publish", { document: "d1", space_key: "PRD" });
+    expect(r.isError).toBe(true);
+    expect(r.text).toMatch(/database refused/);
+  });
+
+  it("withdraws an open request and says when there is none", async () => {
+    const s = setup();
+    expect((await s.call("withdraw_confluence_request", { document: "d1" })).data.status).toBe("none_open");
+    await s.call("request_confluence_publish", { document: "d1", space_key: "PRD" });
+    expect((await s.call("withdraw_confluence_request", { document: "d1" })).data).toMatchObject({ status: "withdrawn", document: { id: "d1" } });
+  });
+
+  it("create_document can ask for the publication in the same call; a bad request writes no document", async () => {
+    const s = setup();
+    const ok = await s.call("create_document", { item: "R-01", kind: "go_to_market", title: "GTM", body: "# GTM", ai_model: "Claude Sonnet 5.5", publish: { space_key: "PRD", after_publishing: "keep_in_sync" } });
+    expect(ok.data).toMatchObject({ status: "created", nothing_sent: true, publish_requested: { mode: "sync", space_key: "PRD" } });
+    expect(s.requested[0]).toMatchObject({ doc: { id: "new1", itemId: "i1" }, r: { mode: "sync", spaceKey: "PRD", aiModel: "Claude Sonnet 5.5" } });
+    const before = s.created.length;
+    const bad = await s.call("create_document", { item: "R-01", title: "GTM2", body: "x", publish: { space_key: "not a key" } });
+    expect(bad.isError).toBe(true);
+    expect(bad.text).toMatch(/publish: .*short key/);
+    expect(s.created.length).toBe(before);
+  });
+
+  it("documents are listed and read with the page they are on and any open request", async () => {
+    const withBoth = doc({ confluence: { page_url: "https://acme.atlassian.net/wiki/spaces/X/pages/1", page_title: "PRD", space_key: "X", mode: "sync", linked: true, published_version: 1, out_of_date: false }, publish_request: { mode: "sync", space_key: "X", parent_url: null, title: null, note: null, requested_by: "Claude", ai_model: null } });
+    const s = setup({ docs: [withBoth] });
+    expect((await s.call("list_documents", { item: "R-01" })).data.documents[0]).toMatchObject({ confluence: { linked: true, space_key: "X" }, publish_request: { requested_by: "Claude" } });
+  });
+});
+

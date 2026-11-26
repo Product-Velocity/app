@@ -214,3 +214,38 @@ export function planPublish(input: { published: PublishedPage | null; docVersion
   if (published.publishedVersion === docVersion && published.contentHash === bodyHash) return { action: "none", why: "The page already holds this version of the document." };
   return { action: "update", why: published.publishedVersion === docVersion ? "The page will be rewritten from the document." : `The page holds version ${published.publishedVersion}; version ${docVersion} will be written.` };
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Requests: Claude (or a person) asks for a document to be published; a person confirms in the app. Nothing here sends anything.
+// ---------------------------------------------------------------------------------------------------------------------------------
+export type PublishRequest = { mode: "once" | "sync"; spaceKey: string | null; parentUrl: string | null; title: string | null; note: string | null; aiModel: string | null };
+export type PublishRequestCheck = { ok: true; value: PublishRequest } | { ok: false; error: string };
+export const MAX_PUBLISH_NOTE = 500;
+
+const plainText = (s: string): string => s.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+
+/** Checks what Claude sends to ask for a publication. Messages are written for Claude and shown as they are. Left out means "the person chooses". */
+export function checkPublishRequest(input: { mode?: unknown; space_key?: unknown; parent_url?: unknown; title?: unknown; note?: unknown; ai_model?: unknown }): PublishRequestCheck {
+  const mode = input.mode === undefined || input.mode === null || input.mode === "" ? "sync" : input.mode;
+  if (mode !== "once" && mode !== "sync") return { ok: false, error: 'mode must be "sync" (keep the page up to date; the person confirms each update) or "once" (write the page once, then let go of it).' };
+  const text = (v: unknown, name: string, max: number): string | null | Error => {
+    if (v === undefined || v === null || v === "") return null;
+    if (typeof v !== "string") return new Error(`${name} must be text.`);
+    const t = plainText(v);
+    if (t.length > max) return new Error(`${name} is longer than ${max} characters.`);
+    return t || null;
+  };
+  const space = text(input.space_key, "space_key", 255);
+  if (space instanceof Error) return { ok: false, error: space.message };
+  if (space !== null && !/^[~A-Za-z0-9_-]{1,255}$/.test(space)) return { ok: false, error: 'space_key is the short key of the Confluence space (for example "PRD"), not its name.' };
+  const parent = text(input.parent_url, "parent_url", 2000);
+  if (parent instanceof Error) return { ok: false, error: parent.message };
+  if (parent !== null && pageIdFromUrl(parent) === null) return { ok: false, error: "parent_url must be the https address of a Confluence page (it contains /pages/12345/). Leave it out if you do not have it." };
+  const title = text(input.title, "title", 255);
+  if (title instanceof Error) return { ok: false, error: title.message };
+  const note = text(input.note, "note", MAX_PUBLISH_NOTE);
+  if (note instanceof Error) return { ok: false, error: note.message };
+  const model = text(input.ai_model, "ai_model", 80);
+  if (model instanceof Error) return { ok: false, error: model.message };
+  return { ok: true, value: { mode, spaceKey: space, parentUrl: parent, title, note, aiModel: model } };
+}

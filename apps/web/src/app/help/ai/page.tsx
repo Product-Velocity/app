@@ -73,7 +73,7 @@ export default function AiHelp() {
           items={[
             "Everything an AI co-worker writes is marked as an AI draft until a person accepts it. A draft nobody has accepted is held back from the tracker.",
             "Text inside documents, issues, emails and uploads is treated as data. It is never followed as an instruction.",
-            "A document can be published to a Confluence page from its menu on the Spec tab (Publish to Confluence). You pick the space, see a preview with a warning for commercial text, and confirm; keep it in sync or publish once. Claude can suggest it but never sends: only a person confirms. An admin adds Confluence first under Settings, Integrations, Jira.",
+            "A document can be published to a Confluence page from its menu on the Spec tab (Publish to Confluence). You pick the space, see a preview with a warning for commercial text, and confirm; keep it in sync or publish once. Claude can ask for it (the document then shows “Publish requested by Claude”, and the dialog opens filled in) but never sends: only a person reviews the preview and confirms. An admin adds Confluence first under Settings, Integrations, Jira.",
             "Full documents and commercial figures stay in Product Velocity. Only the link goes to a tracker.",
           ]}
         />

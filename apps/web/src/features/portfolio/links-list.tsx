@@ -68,7 +68,7 @@ export const LinksList = forwardRef<LinksHandle, { ctx: FieldCtx; itemId: string
       {list.length > 0 && shown.length === 0 && <p className="muted">No link matches.</p>}
       <ul className="entry-list">
         {shown.map((l) => (
-          <li key={`${l.label}|${l.url}`} className="entry-row entry-link" data-link={display(l)}>
+          <li key={`${l.label}|${l.url}`} className="entry-row" data-link={display(l)}>
             <RowIcon kind="link" />
             <span className="entry-main">
               {renaming === l
@@ -76,6 +76,7 @@ export const LinksList = forwardRef<LinksHandle, { ctx: FieldCtx; itemId: string
                 : <a className="entry-name" href={l.url} target="_blank" rel="noopener noreferrer">{display(l)}</a>}
               <span className="entry-meta">{l.kind ? `${kindLabel(l.kind)} · ` : ""}{l.label ? host(l.url) : l.url}</span>
             </span>
+            <span className="entry-actions">
             {!disabled && (
               <select className="entry-kind" aria-label={`Document kind of ${display(l)}`} value={l.kind ?? ""} onChange={(e) => setKindOf(l, e.target.value as DocKind | "")}>
                 <option value="">No kind</option>
@@ -89,6 +90,7 @@ export const LinksList = forwardRef<LinksHandle, { ctx: FieldCtx; itemId: string
               { label: "Rename", onSelect: () => setRenaming(l), hidden: disabled },
               { label: "Remove", onSelect: () => set(list.filter((x) => x !== l)), danger: true, hidden: disabled },
             ]} />
+            </span>
           </li>
         ))}
       </ul>

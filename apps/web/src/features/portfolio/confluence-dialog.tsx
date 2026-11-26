@@ -4,7 +4,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { ConfluenceView } from "@/lib/documents";
 
 type Space = { key: string; name: string; type: string };
-type Status = { canPublish: boolean; available: boolean; site: { name: string; url: string } | null; last: (ConfluenceView & { pageUrl: string }) | null; spaces?: Space[]; error?: string };
+type Request = { mode: "once" | "sync"; spaceKey: string | null; parentUrl: string | null; title: string | null; note: string | null; requestedBy: "Claude" | "a person"; aiModel: string | null };
+type Status = { request?: Request | null; canPublish: boolean; available: boolean; site: { name: string; url: string } | null; last: (ConfluenceView & { pageUrl: string }) | null; spaces?: Space[]; error?: string };
 type Warning = { kind: string; what: string };
 type Preview = {
   action: "create" | "update" | "none" | "conflict" | "gone"; why: string; mode: "once" | "sync"; title: string; spaceKey: string;
@@ -37,14 +38,24 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
     let live = true;
     void fetch(`/api/documents/${doc.id}/confluence?spaces=1`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((s: Status) => { if (live) { setStatus(s); setSpace(s.spaces?.[0]?.key ?? ""); if (s.last?.linked) setMode(s.last.syncMode); } })
+      .then((s: Status) => {
+        if (!live) return;
+        setStatus(s);
+        // an open request (from a person or from Claude) fills the form; the person still reviews the preview and confirms
+        const q = s.request;
+        const known = (s.spaces ?? []).some((x) => x.key === q?.spaceKey);
+        setSpace(q?.spaceKey && known ? q.spaceKey : (s.spaces?.[0]?.key ?? ""));
+        if (q?.parentUrl) setParentUrl(q.parentUrl);
+        if (q?.title) setTitle(q.title);
+        if (s.last?.linked) setMode(s.last.syncMode); else if (q) setMode(q.mode);
+      })
       .catch(() => { if (live) setLoadError("Confluence could not be reached from here. Try again in a moment."); });
     return () => { live = false; };
   }, [doc.id]);
   useEffect(() => { firstRef.current?.focus(); }, [status]);
 
   const linked = status?.last?.linked ? status.last : null;
-  const call = async (action: "preview" | "publish" | "unlink", extra: Record<string, unknown> = {}) => {
+  const call = async (action: "preview" | "publish" | "unlink" | "dismiss", extra: Record<string, unknown> = {}) => {
     setBusy(true); setError(null);
     try {
       const r = await fetch(`/api/documents/${doc.id}/confluence`, {
@@ -65,6 +76,7 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
     const j = await call("publish", { confirm: preview.confirm, ...(overwrite ? { overwrite: true } : {}) });
     if (j?.done) { setDone(j.done); onChanged(); }
   };
+  const doDismiss = async () => { const j = await call("dismiss"); if (j?.ok) { setStatus((s) => (s ? { ...s, request: null } : s)); onChanged(); } };
   const doUnlink = async () => { const j = await call("unlink"); if (j?.ok) { onChanged(); onClose(); } };
 
   const noun = preview?.action === "create" || preview?.action === "gone" ? "Create the page" : "Update the page";
@@ -91,6 +103,13 @@ export function ConfluenceDialog({ doc, onClose, onChanged }: { doc: { id: strin
           <>
             <p className="muted">Site: {status.site?.name}. Product Velocity writes the page only after you confirm a preview, and the page says it is managed in Product Velocity. <strong>Page permissions are not managed here</strong>: anyone who can see the space can read the page.</p>
             {status.error && <p role="alert" className="notice">{status.error}</p>}
+            {status.request && (
+              <div role="status" className="notice">
+                <strong>{status.request.requestedBy === "Claude" ? `Claude${status.request.aiModel ? ` (${status.request.aiModel})` : ""} asked for this to be published.` : "A request to publish this is open."}</strong>
+                {status.request.note ? ` “${status.request.note}”` : ""} The form is filled in from the request. Nothing is sent until you review the preview and confirm.
+                <button type="button" className="btn" disabled={busy} onClick={() => void doDismiss()}>Dismiss the request</button>
+              </div>
+            )}
             {linked ? (
               <p>This document is on <a href={linked.pageUrl} target="_blank" rel="noopener noreferrer">{linked.pageTitle || "a Confluence page"}</a> in space {linked.spaceKey}. The page holds version {linked.publishedVersion}; the document is at version {doc.version}.{linked.outOfDate ? " The page is out of date." : ""}</p>
             ) : (

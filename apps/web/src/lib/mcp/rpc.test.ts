@@ -13,7 +13,7 @@ const backend = (over: Partial<McpBackend> = {}): McpBackend => ({
   role: "creator",
   workspaceContext: vi.fn(async () => ctx),
   read: { searchData: noRead, itemDetail: noRead, groups: noRead, views: noRead, files: noRead, documents: noRead, document: noRead, outcomeReviews: noRead, companyProfile: noRead, gatePack: noRead, report: noRead },
-  write: { context: noRead, current: noRead, apply: noRead, savePending: noRead, loadPending: noRead, undo: noRead, files: {} as never, epics: {} as never, outcomes: {} as never, documents: {} as never, profile: {} as never },
+  write: { context: noRead, current: noRead, apply: noRead, savePending: noRead, loadPending: noRead, undo: noRead, files: {} as never, epics: {} as never, outcomes: {} as never, documents: {} as never, publishRequests: {} as never, profile: {} as never },
   meter: vi.fn(async () => ({ ok: true as const })),
   ...over,
 });
@@ -97,7 +97,7 @@ describe("handleRpc", () => {
     const r = (await handleRpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }, backend())) as { result: { tools: { name: string; annotations: { readOnlyHint: boolean } }[] } };
     // get_playbook is listed only to clients that cannot start prompts (see "directory rules" below)
     const reads = ["get_workspace_context", "describe_fields", "search_items", "get_item", "get_gate_pack", "list_groups", "list_views", "list_files", "list_documents", "get_document", "get_report", "get_company_profile", "get_outcome_reviews", "draft_outcome_request"];
-    const writes = ["create_items", "update_items", "confirm_changes", "set_relations", "add_link", "remove_link", "undo_last", "add_file", "set_file_sharing", "remove_file", "request_jira_epics", "record_outcome_review", "create_document", "update_document", "apply_prd_extract", "apply_skill_extract", "update_company_profile"];
+    const writes = ["create_items", "update_items", "confirm_changes", "set_relations", "add_link", "remove_link", "undo_last", "add_file", "set_file_sharing", "remove_file", "request_jira_epics", "record_outcome_review", "create_document", "update_document", "request_confluence_publish", "withdraw_confluence_request", "apply_prd_extract", "apply_skill_extract", "update_company_profile"];
     expect(r.result.tools.map((t) => t.name)).toEqual([...reads, ...writes]);
     for (const t of r.result.tools) expect(t.annotations.readOnlyHint, t.name).toBe(reads.includes(t.name));
   });
@@ -207,7 +207,7 @@ describe("ai_model on tools that change something", () => {
 // What Anthropic's Connectors Directory checks in a tool list (docs/decisions/2026-11-17-connector-directory.md). These fail the build before a reviewer would.
 describe("directory rules", () => {
   const all = TOOLS;
-  const DESTRUCTIVE = ["update_items", "confirm_changes", "set_relations", "remove_link", "undo_last", "set_file_sharing", "remove_file", "update_document", "apply_prd_extract", "apply_skill_extract", "update_company_profile"];
+  const DESTRUCTIVE = ["update_items", "confirm_changes", "set_relations", "remove_link", "undo_last", "set_file_sharing", "remove_file", "update_document", "request_confluence_publish", "withdraw_confluence_request", "apply_prd_extract", "apply_skill_extract", "update_company_profile"];
   const ADDITIVE_WRITES = ["create_items", "add_link", "add_file", "request_jira_epics", "record_outcome_review", "create_document"];
 
   it("every tool has a short name, a title and both hints as booleans, and a read tool is never destructive", () => {

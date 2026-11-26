@@ -119,9 +119,15 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
                 <button type="button" className="entry-name entry-name-btn" aria-expanded={openId === d.id} onClick={() => setOpenId(openId === d.id ? null : d.id)}>{d.title}</button>
                 <span className="entry-meta">{DOC_KIND_LABEL[d.kind as keyof typeof DOC_KIND_LABEL] ?? d.kind} · version {d.version} · {STATUS_LABEL[d.status] ?? d.status}{d.aiDraft ? " · AI draft, needs review" : ""}{aiLabel(d.aiTool, d.aiModel) ? ` · written with ${aiLabel(d.aiTool, d.aiModel)}` : ""}</span>
               </span>
+              <span className="entry-actions">
               {d.aiDraft
                 ? <span className="share-chip" title="A person accepts the AI draft first (open it, then Accept draft)">Held back: AI draft</span>
                 : <ShareChip shared={d.shared} tracker={tracker} name={d.title} disabled={!canEdit} onToggle={(on) => void setShared(d, on)} />}
+              {d.publishRequest && !d.confluence?.linked && (
+                <button type="button" className="share-chip" disabled={!canEdit} onClick={() => setConfluenceFor(d)} title={`${d.publishRequest.requestedBy} asked for this to be published to Confluence${d.publishRequest.note ? `: ${d.publishRequest.note}` : ""}. Nothing is sent until a person confirms.`}>
+                  Publish requested{d.publishRequest.requestedBy === "Claude" ? " by Claude" : ""}
+                </button>
+              )}
               {d.confluence && (
                 <a className="share-chip" href={d.confluence.pageUrl} target="_blank" rel="noopener noreferrer" title={`The Confluence page (space ${d.confluence.spaceKey}), ${d.confluence.linked ? "kept in sync" : "published once"}`}>
                   On Confluence{d.confluence.outOfDate ? ": page out of date" : ""}
@@ -132,9 +138,10 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
                 { label: "Open full page", href: docPageHref(d.id), hidden: !itemCode },
                 { label: "Copy public link", onSelect: () => void navigator.clipboard?.writeText(d.shareUrl ?? "").catch(() => setError("Your browser did not allow copying.")), hidden: !d.shareUrl },
                 { label: "Open public page", href: d.shareUrl ?? "", hidden: !d.shareUrl },
-                { label: d.confluence?.linked ? "Update the Confluence page…" : "Publish to Confluence…", onSelect: () => setConfluenceFor(d), hidden: !canEdit || !(canConfluence || d.confluence) },
+                { label: d.confluence?.linked ? "Update the Confluence page…" : d.publishRequest ? "Review the publish request…" : "Publish to Confluence…", onSelect: () => setConfluenceFor(d), hidden: !canEdit || !(canConfluence || d.confluence || d.publishRequest) },
                 { label: "Remove", onSelect: () => void removeDoc(d), danger: true, hidden: !canEdit },
               ]} />
+              </span>
               {openId === d.id && <div className="entry-expand"><DocEditor id={d.id} fullPageHref={itemCode ? docPageHref(d.id) : undefined} canEdit={canEdit} onChanged={load} onRemoved={() => { setOpenId(null); void load(); }} onError={setError} /></div>}
             </li>
           ))}
@@ -234,7 +241,7 @@ export function DocEditor({ id, canEdit, onChanged, onRemoved, onError, fullPage
         </label>
       </div>
       <p className="muted">
-        {doc.status === "approved" ? "Approved. Changing the text sends it back to review." : "Approval happens when the initiative moves from Design to Build, by a person with the Approver permission."}
+        {doc.status === "approved" ? "Approved. Changing the text sends it back to review." : doc.kind === "prd" ? "Approval happens when the initiative moves from Design to Build, by a person with the Approver permission." : doc.kind === "discovery" ? "Approval happens when the initiative moves from Discover to Define, by a person with the Approver permission." : "No decision gate approves this kind of document, so it stays Draft or In review. The PRD and the Discovery document are the ones a gate approves."}
         {doc.aiDraft && <> This document was written by {aiLabel(doc.aiTool, doc.aiModel) ?? "an AI assistant"} and needs a person to accept it. {canEdit && <button type="button" className="btn" onClick={() => void save({ acceptDraft: true })}>Accept draft</button>}</>}
       </p>
       <div className="md-tabs" role="group" aria-label="Document view">

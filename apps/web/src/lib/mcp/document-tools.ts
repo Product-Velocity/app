@@ -2,7 +2,7 @@
  * The document tools (docs/22-CLAUDE-PRD-FLOW.md): keep the full PRD, requirements and research as a versioned Markdown document on an
  * initiative. Documents never reach GitHub. Claude can write and revise them but never approves one (CLAUDE.md rule 3).
  */
-import { buildExtract, checkDocumentInput, DOC_KINDS, MAX_DOCS_PER_ITEM, MAX_DOC_CHARS, SKILLS, skillExtract, WORKSPACE_DOC_KINDS } from "@pv/domain";
+import { buildExtract, checkDocumentInput, checkPublishRequest, DOC_KINDS, MAX_DOCS_PER_ITEM, MAX_DOC_CHARS, SKILLS, skillExtract, WORKSPACE_DOC_KINDS } from "@pv/domain";
 import type { ToolDef } from "./rpc";
 import { ToolInputError } from "./tool-error";
 import { updateItems } from "./write-tools";
@@ -16,12 +16,32 @@ const ITEM = { type: "string", description: "Initiative code such as R-12, or it
 const DOC = { type: "string", description: "The document id from list_documents or create_document." };
 const AI_MODEL_PROP = { type: "string", maxLength: 80, description: "The name of the AI model you are, for example \"Claude Opus 5.5\", \"GPT-5\" or \"Gemini 3 Pro\". Product Velocity records it with the version you save, next to the AI tool (taken from the connection), so people can compare models. Say it only if you know it; never guess or copy another model's name." };
 const NOT_GITHUB = "Documents stay in Product Velocity and are never written to GitHub.";
+/** The fields of a request to publish a document to Confluence (issue #693 slice C). */
+const PUBLISH_PROPS = {
+  after_publishing: { type: "string", enum: ["keep_in_sync", "once"], description: "keep_in_sync (default): keep the page up to date, a person confirms each update. once: write the page once, then let go." },
+  space_key: { type: "string", maxLength: 255, description: "The short key of the Confluence space, for example PRD. Leave out if you do not know it." },
+  parent_url: { type: "string", maxLength: 2000, description: "The https address of the page it should go under (it contains /pages/12345/). Leave out if you do not have it." },
+  title: { type: "string", maxLength: 255, description: "The page title; the document's title when left out." },
+  note: { type: "string", maxLength: 500, description: "One line for the person who confirms: why this should be published." },
+};
+/** The tools say keep_in_sync / once; the stored request says sync / once. */
+const requestInput = (a: Record<string, unknown>): Record<string, unknown> => {
+  const ap = a.after_publishing;
+  if (ap !== undefined && ap !== null && ap !== "" && ap !== "keep_in_sync" && ap !== "once") throw new ToolInputError('after_publishing must be "keep_in_sync" (the page is kept up to date; a person confirms each update) or "once" (the page is written once).');
+  return { ...a, mode: ap === "once" ? "once" : ap === "keep_in_sync" ? "sync" : undefined };
+};
+const PUBLISH_PROPS_OBJECT = { type: "object", properties: PUBLISH_PROPS, additionalProperties: false } as const;
+const PUBLISH_NOTES = [
+  "Nothing was sent to Confluence. A person opens the document's menu on the Spec tab, chooses Publish to Confluence, reviews the preview and confirms. Tell them where to find it.",
+  "If Confluence is not connected yet, a workspace admin adds it under Settings, Integrations, Jira (Add Confluence).",
+];
+const requestView = (r: { mode: string; spaceKey: string | null; parentUrl: string | null; title: string | null; note: string | null }) => ({ mode: r.mode, space_key: r.spaceKey, parent_url: r.parentUrl, title: r.title, note: r.note });
 
 const listDocuments: ToolDef = {
   name: "list_documents",
   title: "List documents",
   description:
-    "Read-only. The documents of one initiative (PRD, requirements, research): id, kind, title, status, version, whether it is still an AI draft, size. No text; use get_document for that. Also linked_documents: links a person marked with a document kind (pages kept elsewhere, such as Confluence). " +
+    "Read-only. The documents of one initiative (PRD, requirements, research): id, kind, title, status, version, whether it is still an AI draft, size. No text; use get_document for that. Also linked_documents: links a person marked with a document kind (pages kept elsewhere, such as Confluence). Each document shows confluence (the page it was published to, and whether it is out of date) and publish_request (an open request waiting for a person to confirm). " +
     "Leave item out to list the documents of the workspace itself (vision, strategy, north star, competitive analysis, personas, weekly updates, release notes, quarter plans), together with the state of the company profile. " + NOT_GITHUB + " " + DATA,
   inputSchema: { type: "object", properties: { item: { ...ITEM, description: "Initiative code such as R-12, or its id. Leave out for the workspace's own documents." } }, additionalProperties: false },
   annotations: READ,
@@ -76,6 +96,7 @@ const createDocument: ToolDef = {
       body: { type: "string", description: "The document as Markdown." },
       status: { type: "string", enum: ["draft", "in_review"], description: "Default draft." },
       ai_model: AI_MODEL_PROP,
+      publish: { ...PUBLISH_PROPS_OBJECT, description: "Optional, initiative documents only. Also ask for the new document to be published to Confluence: the same fields as request_confluence_publish. Nothing is sent; a person confirms in Product Velocity." },
     },
     required: ["title", "body"],
     additionalProperties: false,
@@ -98,8 +119,17 @@ const createDocument: ToolDef = {
     if (!c.ok) throw new ToolInputError(`${code}: ${c.error}`);
     const existing = (await b.read.documents(code)) ?? [];
     if (existing.length >= MAX_DOCS_PER_ITEM) throw new ToolInputError(`${code} already has ${MAX_DOCS_PER_ITEM} documents, the most one initiative can hold.`);
+    // a request to publish is checked before anything is written, so a bad value does not leave a document without the request that was asked for
+    const wants = a.publish === undefined || a.publish === null ? null : checkPublishRequest({ ...requestInput(a.publish as Record<string, unknown>), ai_model: (a.publish as Record<string, unknown>).ai_model ?? a.ai_model });
+    if (wants && !wants.ok) throw new ToolInputError(`publish: ${wants.error}`);
     const doc = await b.write.documents.create({ id: d.row.id, code }, { kind: c.value.kind ?? "prd", title: c.value.title!, body: c.value.body ?? "", status: c.value.status, ai_model: c.value.ai_model ?? null });
-    return { status: "created", document: doc, notes: ["Saved as an AI draft, version 1. " + NOT_GITHUB, "To change it later use update_document with this version."] };
+    const notes = ["Saved as an AI draft, version 1. " + NOT_GITHUB, "To change it later use update_document with this version."];
+    if (wants?.ok) {
+      await b.write.publishRequests.set({ id: doc.id, itemId: d.row.id }, wants.value);
+      notes.push(...PUBLISH_NOTES);
+      return { status: "created", document: doc, publish_requested: requestView(wants.value), nothing_sent: true, notes };
+    }
+    return { status: "created", document: doc, notes };
   },
 };
 
@@ -226,5 +256,48 @@ const applySkillExtract: ToolDef = {
   },
 };
 
+const requestConfluencePublish: ToolDef = {
+  name: "request_confluence_publish",
+  title: "Ask for a document to be published to Confluence",
+  description:
+    "Asks for a document of an initiative to be published to a Confluence page. This only records a request: NOTHING is sent to Confluence. A person opens the document's menu on the Spec tab (Publish to Confluence…), sees a preview with a warning for commercial text, and confirms; you can never confirm or send it. " +
+    "Say where when you know: space_key (the short key such as PRD, not the name) and parent_url (the address of the page it goes under). Leave out what the person has not told you; they choose in the dialog. " +
+    "after_publishing keep_in_sync (default) keeps the page up to date: when the document changes the page shows as out of date and a person confirms each update. once writes the page once and lets go of it. " +
+    "Asking again for the same document replaces the open request. list_documents and get_document show the open request and the page the document is on. " + DATA,
+  inputSchema: { type: "object", properties: { document: DOC, ...PUBLISH_PROPS, ai_model: AI_MODEL_PROP }, required: ["document"], additionalProperties: false },
+  annotations: CHANGE,
+  mode: "write",
+  run: async (b, a) => {
+    const id = str(a.document);
+    const c = checkPublishRequest(requestInput(a));
+    if (!c.ok) throw new ToolInputError(c.error);
+    const doc = await b.read.document(id);
+    if (!doc) throw new ToolInputError(`No document "${id}" in this workspace, or you cannot read it. list_documents shows the ids.`);
+    if (doc.scope === "workspace") throw new ToolInputError("A document of the workspace itself cannot be published to Confluence yet; only a document on an initiative.");
+    const d = await b.read.itemDetail(doc.item_code);
+    if (!d) throw new ToolInputError(`No initiative "${doc.item_code}" in this workspace, or you cannot change it.`);
+    await b.write.publishRequests.set({ id: doc.id, itemId: d.row.id }, c.value);
+    const notes = [...PUBLISH_NOTES];
+    if (doc.confluence?.linked) notes.push(`This document is already on a page (${doc.confluence.page_url}). A person updates that page from the same menu, after a preview.`);
+    return { status: "requested", document: { id: doc.id, item: doc.item_code, title: doc.title, kind: doc.kind, version: doc.version }, request: requestView(c.value), nothing_sent: true, notes };
+  },
+};
+
+const withdrawConfluenceRequest: ToolDef = {
+  name: "withdraw_confluence_request",
+  title: "Withdraw a request to publish a document",
+  description: "Removes the open request to publish a document to Confluence (one you or a person made). It does not touch a page that was already published. " + DATA,
+  inputSchema: { type: "object", properties: { document: DOC }, required: ["document"], additionalProperties: false },
+  annotations: CHANGE,
+  mode: "write",
+  run: async (b, a) => {
+    const id = str(a.document);
+    const doc = await b.read.document(id);
+    if (!doc) throw new ToolInputError(`No document "${id}" in this workspace, or you cannot read it. list_documents shows the ids.`);
+    const removed = await b.write.publishRequests.withdraw(doc.id);
+    return { status: removed ? "withdrawn" : "none_open", document: { id: doc.id, title: doc.title } };
+  },
+};
+
 export const DOCUMENT_READ_TOOLS: ToolDef[] = [listDocuments, getDocument];
-export const DOCUMENT_WRITE_TOOLS: ToolDef[] = [createDocument, updateDocument, applyPrdExtract, applySkillExtract];
+export const DOCUMENT_WRITE_TOOLS: ToolDef[] = [createDocument, updateDocument, requestConfluencePublish, withdrawConfluenceRequest, applyPrdExtract, applySkillExtract];

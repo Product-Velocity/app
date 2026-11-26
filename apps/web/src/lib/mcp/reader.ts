@@ -8,7 +8,7 @@ import { shareUrl } from "@/lib/files/serve";
 import { supabaseFileStore, type FileStore } from "@/lib/files/store";
 import { buildContext, type CompanyProfileData, type DocInfo, type GatePackData, type FileInfo, type ItemDetail, type McpReader, type Member, type OutcomeReviewInfo, type OutcomeReviewsInfo, type ViewInfo, type WorkspaceContext } from "./read-model";
 import { ToolInputError } from "./tool-error";
-import type { ApplyResult, McpDocuments, McpEpics, McpFiles, McpOutcomes, McpProfile, McpWriter, PendingRow, UndoResult } from "./write-model";
+import type { ApplyResult, McpDocuments, McpEpics, McpFiles, McpOutcomes, McpProfile, McpPublishRequests, McpWriter, PendingRow, UndoResult } from "./write-model";
 
 const FILE_CAP = 200;
 /** The values in use of each open-list field (Focus Area, Audience): what Claude may reuse (issue #246). */
@@ -87,6 +87,27 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
   });
   const WS_DOC_COLS = "id, kind, title, status, version, ai_draft, updated_at, approved_at, ai_tool, ai_model, body";
   const wsInfo = (d: Omit<DocRow, "item_id">, withBody = false): DocInfo => ({ ...docInfo({ ...d, item_id: "" }, "", withBody), scope: "workspace" });
+  /** Adds where each initiative document lives in Confluence and any open request to publish it. A failure here (for example before the tables exist) leaves the documents as they are. */
+  const withPublication = async (list: DocInfo[]): Promise<DocInfo[]> => {
+    const ids = list.filter((d) => d.scope !== "workspace").map((d) => d.id);
+    if (ids.length === 0) return list;
+    const [pages, reqs] = await Promise.all([
+      supabase.from("item_document_pages").select("document_id, page_url, page_title, space_key, sync_mode, published_version, unlinked_at").eq("tenant_id", tenant.id).in("document_id", ids).order("created_at"),
+      supabase.from("item_document_publish_requests").select("document_id, space_key, parent_url, page_title, sync_mode, note, ai_model, created_via").eq("tenant_id", tenant.id).in("document_id", ids),
+    ]);
+    if (pages.error || reqs.error) return list;
+    const page = new Map<string, NonNullable<DocInfo["confluence"]>>();
+    const version = new Map(list.map((d) => [d.id, d.version]));
+    for (const p of (pages.data ?? []) as { document_id: string; page_url: string; page_title: string; space_key: string; sync_mode: "once" | "sync"; published_version: number; unlinked_at: string | null }[]) {
+      const linked = p.unlinked_at === null;
+      page.set(p.document_id, { page_url: p.page_url, page_title: p.page_title, space_key: p.space_key, mode: p.sync_mode, linked, published_version: p.published_version, out_of_date: linked && p.published_version < (version.get(p.document_id) ?? 0) });
+    }
+    const req = new Map<string, NonNullable<DocInfo["publish_request"]>>();
+    for (const r of (reqs.data ?? []) as { document_id: string; space_key: string | null; parent_url: string | null; page_title: string | null; sync_mode: "once" | "sync"; note: string | null; ai_model: string | null; created_via: string }[]) {
+      req.set(r.document_id, { mode: r.sync_mode, space_key: r.space_key, parent_url: r.parent_url, title: r.page_title, note: r.note, requested_by: r.created_via === "MCP" ? "Claude" : "a person", ai_model: r.ai_model });
+    }
+    return list.map((d) => (d.scope === "workspace" ? d : { ...d, confluence: page.get(d.id) ?? null, publish_request: req.get(d.id) ?? null }));
+  };
   const loadDoc = async (id: string, withBody: boolean): Promise<DocInfo | null> => {
     if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
     const { data, error } = await supabase.from("item_documents").select(DOC_COLS).eq("tenant_id", tenant.id).eq("id", id).maybeSingle();
@@ -94,7 +115,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     if (data) {
       const d = data as DocRow;
       const code = String((await rows()).find((r) => r.id === d.item_id)?.item_code ?? "");
-      return docInfo(d, code, withBody);
+      return (await withPublication([docInfo(d, code, withBody)]))[0]!;
     }
     const ws = await supabase.from("workspace_documents").select(WS_DOC_COLS).eq("tenant_id", tenant.id).eq("id", id).maybeSingle();
     if (ws.error) throw new Error("documents");
@@ -278,7 +299,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
       const row = await findRow(ref);
       if (!row) return null;
       const list = must(await supabase.from("item_documents").select(DOC_COLS).eq("tenant_id", tenant.id).eq("item_id", row.id).order("created_at"), "documents") as DocRow[];
-      return list.map((d) => docInfo(d, String(row.item_code)));
+      return withPublication(list.map((d) => docInfo(d, String(row.item_code))));
     },
 
     async document(id) {
@@ -373,6 +394,22 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     if (e.code === "23505") throw new ToolInputError("A company profile already exists. Read it with get_company_profile and update it with its version.");
     return refusal(e);
   };
+  const publishRequests: McpPublishRequests = {
+    async set(doc, r) {
+      const cols = { space_key: r.spaceKey, parent_url: r.parentUrl, page_title: r.title, sync_mode: r.mode, note: r.note, ai_model: r.aiModel };
+      const cur = await supabase.from("item_document_publish_requests").select("id").eq("tenant_id", tenant.id).eq("document_id", doc.id).maybeSingle();
+      if (cur.error) return refusal(cur.error);
+      const { error } = cur.data
+        ? await supabase.from("item_document_publish_requests").update(cols).eq("tenant_id", tenant.id).eq("id", (cur.data as { id: string }).id)
+        : await supabase.from("item_document_publish_requests").insert({ tenant_id: tenant.id, item_id: doc.itemId, document_id: doc.id, ...cols });
+      if (error) return refusal(error);
+    },
+    async withdraw(documentId) {
+      const { data, error } = await supabase.from("item_document_publish_requests").delete().eq("tenant_id", tenant.id).eq("document_id", documentId).select("id");
+      if (error) return refusal(error);
+      return (data ?? []).length > 0;
+    },
+  };
   const profile: McpProfile = {
     async create(sections, researched) {
       const { data, error } = await supabase.from("company_profiles").insert({ tenant_id: tenant.id, sections, ...(researched ? { researched_at: new Date().toISOString() } : {}) }).select(PROFILE_COLS).single();
@@ -407,6 +444,7 @@ export function makeReader(supabase: SupabaseClient, tenant: { id: string; name:
     epics,
     outcomes,
     documents,
+    publishRequests,
     profile,
     async context(r) {
       const [p, m, g, t, all] = await Promise.all([projects(), people(), groupNames(), teams(), rows()]);
