@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { DOC_KINDS, DOC_KIND_LABEL, type DocKind } from "@pv/domain";
 import { ConfluencePageTree } from "./confluence-page-tree";
+import { ConfluenceSpacePicker, lastSpaceKey } from "./confluence-space-picker";
 
 type ImportPreview = {
   title: string; kind: DocKind; mode: "once" | "sync"; page: { id: string; url: string | null; version: number; spaceKey: string };
@@ -51,7 +52,7 @@ export function ConfluenceImportDialog({ mode, itemId, doc, prefill, onClose, on
       const r = await fetch(`/api/documents/import-confluence/pages?item=${encodeURIComponent(itemId)}&spaces=1`);
       const j = (await r.json().catch(() => ({}))) as { spaces?: { key: string; name: string }[]; siteUrl?: string; error?: string };
       if (!r.ok || !j.spaces || !j.siteUrl) { setBrowse(null); setError(j.error ?? "Confluence could not be read."); return; }
-      setBrowse({ spaces: j.spaces, siteUrl: j.siteUrl }); setSpace(j.spaces[0]?.key ?? "");
+      setBrowse({ spaces: j.spaces, siteUrl: j.siteUrl }); { const last = lastSpaceKey(); setSpace(j.spaces.some((x: { key: string }) => x.key === last) ? (last as string) : (j.spaces[0]?.key ?? "")); }
     } catch { setBrowse(null); setError("Product Velocity could not be reached."); }
   };
 
@@ -107,13 +108,10 @@ export function ConfluenceImportDialog({ mode, itemId, doc, prefill, onClose, on
                 {browse === "loading" && <p role="status">Reading the spaces…</p>}
                 {browse && browse !== "loading" && (
                   <>
-                    <label className="dialog-label" htmlFor={`${titleId}-sp`}>Space</label>
-                    <select id={`${titleId}-sp`} value={space} onChange={(e) => { setSpace(e.target.value); setChosen(null); setPageUrl(""); setImp(null); }}>
-                      {browse.spaces.map((x) => <option key={x.key} value={x.key}>{x.name} ({x.key})</option>)}
-                    </select>
+                    <ConfluenceSpacePicker spaces={browse.spaces} value={space} onChange={(k) => { setSpace(k); setChosen(null); setPageUrl(""); setImp(null); }} />
                     {space && (
                       <ConfluencePageTree
-                        key={space} pagesUrl={`/api/documents/import-confluence/pages?item=${encodeURIComponent(itemId)}`} spaceKey={space} label="Page to read" selectedId={chosen}
+                        key={space} pagesUrl={`/api/documents/import-confluence/pages?item=${encodeURIComponent(itemId)}`} spaceKey={space} spaceName={browse.spaces.find((x) => x.key === space)?.name} label="Page to read" selectedId={chosen}
                         onSelect={(pg) => { setChosen(pg?.id ?? null); setPageUrl(pg ? `${browse.siteUrl}/wiki/pages/viewpage.action?pageId=${pg.id}` : ""); setImp(null); }}
                       />
                     )}
