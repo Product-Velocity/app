@@ -20,55 +20,63 @@ const open = async (page: Page, preview: Record<string, unknown>, doc: Record<st
 };
 
 test.describe("Sync: Confluence pages to update", () => {
-  test("lists the page, previews, and writes only after Confirm", async ({ page }) => {
-    const posts = await open(page, { action: "update", why: "newer", title: "PRD - Ticketing", warnings: [{ kind: "value", what: "the business value" }], notes: ["The page is replaced."], confirm: "tok1" });
+  test("the preview loads by itself, the page is ticked, and it is written only after the button", async ({ page }) => {
+    const posts = await open(page, { action: "update", why: "newer", title: "PRD - Ticketing", warnings: [], notes: ["The page is replaced."], confirm: "tok1" });
     const section = page.getByRole("region", { name: "Confluence pages to update" });
-    await expect(section.getByRole("heading", { name: "Confluence pages to update (1)" })).toBeVisible();
-    await expect(section.getByText("the page holds version 2, the document is at version 3")).toBeVisible();
-    await section.getByRole("button", { name: "Preview the update" }).click();
-    await expect(section.getByText("The page will be updated")).toBeVisible();
-    await expect(section.getByText("This text may be commercial.")).toBeVisible();
+    await expect(section.getByRole("heading", { name: "Updates between Product Velocity and Confluence (1)" })).toBeVisible();
+    await expect(section.getByText("The page holds version 2; the document is at version 3.")).toBeVisible();
+    await expect(section.getByText("The page will be updated.")).toBeVisible(); // no click needed
+    await expect(page.getByRole("button", { name: "To send (4)" })).toBeVisible(); // 3 initiatives and the Confluence page: the counter includes Confluence
+    const box = section.getByRole("checkbox", { name: /Apply the update for R-1 PRD/ });
+    await expect(box).toBeChecked();
     expect(posts).toEqual([{ action: "preview", mode: "sync" }]); // nothing written yet
     await page.screenshot({ path: "test-results/sync-confluence-preview.png" });
     expect((await new AxeBuilder({ page }).include("[role=dialog]").analyze()).violations).toEqual([]);
-    await section.getByRole("button", { name: "Confirm: update the page" }).click();
+    await section.getByRole("button", { name: "Apply 1 Confluence update" }).click();
     await expect(section.getByText("The page was updated.")).toBeVisible();
     expect(posts).toEqual([{ action: "preview", mode: "sync" }, { action: "publish", mode: "sync", confirm: "tok1" }]);
-    await expect(section.getByRole("heading", { name: "Confluence pages to update (0)" })).toBeVisible();
+    await expect(section.getByRole("heading", { name: "Updates between Product Velocity and Confluence (0)" })).toBeVisible();
+  });
+
+  test("a text that may be commercial is not ticked for the person", async ({ page }) => {
+    await open(page, { action: "update", why: "newer", title: "PRD", warnings: [{ kind: "value", what: "the business value" }], notes: [], confirm: "tok3" });
+    const section = page.getByRole("region", { name: "Confluence pages to update" });
+    await expect(section.getByText("This text may be commercial.")).toBeVisible();
+    await expect(section.getByRole("checkbox", { name: /Apply the update for/ })).not.toBeChecked();
+    await expect(section.getByRole("button", { name: "Apply Confluence updates" })).toBeDisabled();
   });
 
   test("a page changed in Confluence is not overwritten from here", async ({ page }) => {
     await open(page, { action: "conflict", why: "somebody saved the page", title: "PRD", warnings: [], notes: [], confirm: "tok2" });
     const section = page.getByRole("region", { name: "Confluence pages to update" });
-    await section.getByRole("button", { name: "Preview the update" }).click();
     await expect(section.getByText("The page was changed in Confluence")).toBeVisible();
-    await expect(section.getByRole("button", { name: /Confirm/ })).toHaveCount(0);
+    await expect(section.getByRole("checkbox", { name: /Apply the update for/ })).toBeDisabled();
   });
 });
 
 test.describe("Sync: Confluence pages that changed (to receive, conflict)", () => {
   const RECEIVE = { ...DOC, direction: "both", state: "receive", pageVersion: 6, publishedVersion: 3, version: 3 };
-  test("a page that is newer is previewed, and the document changes only after Confirm", async ({ page }) => {
+  test("a page that is newer is previewed by itself, and the document changes only after the button", async ({ page }) => {
     const posts = await open(page, {}, RECEIVE, { action: "update", why: "newer", localEdits: false, excerpt: "# PRD\n\nChanged in Confluence.", truncated: false, lost: [], notes: [], confirm: "tokR" });
     const section = page.getByRole("region", { name: "Confluence pages to update" });
     await expect(section.getByText("To receive")).toBeVisible();
-    await expect(section.getByText("the page is at version 6")).toBeVisible();
-    await section.getByRole("button", { name: "Preview what comes in" }).click();
-    await expect(section.getByText("The document will be updated from the page")).toBeVisible();
+    await expect(section.getByText("The page is at version 6")).toBeVisible();
+    await expect(section.getByText("The document will be updated from the page.")).toBeVisible();
+    await section.getByText("See the text that comes in").click();
     await expect(section.getByText("Changed in Confluence.")).toBeVisible();
     expect(posts).toEqual([{ action: "refresh-preview", mode: "sync" }]);
     await page.screenshot({ path: "test-results/sync-confluence-receive.png" });
     expect((await new AxeBuilder({ page }).include("[role=dialog]").analyze()).violations).toEqual([]);
-    await section.getByRole("button", { name: "Confirm: update the document" }).click();
+    await section.getByRole("button", { name: "Apply 1 Confluence update" }).click();
     await expect(section.getByText("The document was updated from page version 6.")).toBeVisible();
     expect(posts).toEqual([{ action: "refresh-preview", mode: "sync" }, { action: "refresh", mode: "sync", confirm: "tokR" }]);
   });
-  test("a conflict is not settled in the Sync dialog: it points to the document menu and offers no confirm", async ({ page }) => {
+  test("a conflict is not settled in the Sync dialog: it points to the document menu and offers nothing to tick", async ({ page }) => {
     await open(page, {}, { ...DOC, direction: "both", state: "conflict", pageVersion: 6 });
     const section = page.getByRole("region", { name: "Confluence pages to update" });
     await expect(section.getByText("Conflict")).toBeVisible();
     await expect(section.getByText("Both sides changed, so you choose which to keep.")).toBeVisible();
-    await expect(section.getByRole("button")).toHaveCount(0);
+    await expect(section.getByRole("checkbox")).toBeDisabled();
   });
 });
 

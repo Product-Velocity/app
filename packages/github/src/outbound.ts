@@ -166,7 +166,7 @@ export function buildTrackingIssue(i: TrackingIssueInput): TrackingIssue {
   if (files.length) parts.push("", "## Files", ...files.map((a) => `- [${linkLabel(a.label)}](${a.url})`));
   const docLinks = (i.documents ?? []).filter((a) => /^https?:\/\//i.test(a.url) && !/[\s()<>]/.test(a.url)).slice(0, 20);
   if (docLinks.length) parts.push("", "## Documents", ...docLinks.map((a) => `- [${linkLabel(a.label)}](${a.url})`));
-  parts.push("", "---", r.hideBrand ? NEUTRAL_FOOTER : `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept. [Open in Product Velocity](${i.appUrl}/portfolio/${encodeURIComponent(code)})`, `<!-- ${r.block}:end -->`);
+  parts.push("", "---", r.hideBrand ? NEUTRAL_FOOTER : `Managed by Product Velocity: edits between the markers are overwritten, text outside them is kept.`, `<!-- ${r.block}:end -->`);
 
   const title = (code ? `${code}: ${name}` : name) || "Untitled initiative";
   const labels = [r.base || null, on("github.label.project") ? projectLabel(i.projectName, nm) : null, on("github.label.moscow") ? moscowLabel(i.item.moscow, nm) : null, on("github.label.rank") ? rankBandLabel(i.item.stack_rank, nm) : null, on("github.label.type") ? changeTypeLabel(i.item.change_type, nm) : null, on("github.label.group") ? groupLabel(i.item.theme, nm) : null, opt("github.label.focus") ? focusAreaLabel(i.item.focus_area, nm) : null, on("github.label.value") ? valueTypeLabel(i.item.value_type, nm) : null, on("github.label.quarter") ? plannedQuarterLabel(i.item.g2m_quarter, nm) : null, ...(opt("github.label.tags") ? tagLabels(i.item.tags, nm) : []), reviewLabel(i.item.initiative_phase, nm)].filter((l): l is string => !!l);

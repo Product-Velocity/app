@@ -21,7 +21,6 @@ export type MergeDeps = {
   /** The text of the document at the version the two were last in step (null when that version is not stored). */
   baseBody: string | null;
   terms: readonly CommercialTerm[];
-  appLink: string | null;
   store: {
     updateDocument: (id: string, patch: { body: string }) => Promise<{ ok: true; version: number } | { ok: false; error: string }>;
     updateBinding: (id: string, patch: { publishedVersion: number; remoteVersion: number; contentHash: string; pageTitle: string; publishedAt: string }) => Promise<Saved>;
@@ -64,7 +63,7 @@ export async function confirmMerge(d: MergeDeps, input: { confirm?: string; choi
   const saved = await d.store.updateDocument(d.doc.id, { body: merged.markdown });
   if (!saved.ok) return { ok: false, kind: "not_recorded", message: `The document could not be updated: ${saved.error}. Nothing was changed.` };
   // 2. then the page, at the version that was previewed
-  const body = pageBody(merged.markdown, { ...(d.appLink ? { link: d.appLink } : {}), code: d.doc.itemCode });
+  const body = pageBody(merged.markdown);
   const title = pv.page.title;
   const w = await updatePage(d.call, { id: d.binding.pageId, currentVersion: pv.page.version, title, body }, d.siteUrl);
   if (!w.ok) return { ok: false, kind: "page_not_written", message: `The document now holds the merged text (version ${saved.version}), but the page could not be updated: ${w.message} Update the page from the Confluence sync window.` };

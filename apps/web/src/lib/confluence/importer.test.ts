@@ -203,8 +203,8 @@ describe("update a document from its page", () => {
 
 describe("two-way links (issue #714 slice 2)", () => {
   it("the notice Product Velocity put at the top of a page it wrote is not read back as text", async () => {
-    const s = refreshSetup({ page: { version: 3, storage: pageBody("Plan with **bold** text.", { code: "R-1" }) } });
-    s.c.edit("42", pageBody("Plan with **bold** text. And more.", { code: "R-1" }));
+    const s = refreshSetup({ page: { version: 3, storage: pageBody("Plan with **bold** text.") } });
+    s.c.edit("42", pageBody("Plan with **bold** text. And more."));
     const p = await previewRefresh(s.deps());
     expect(p).toMatchObject({ ok: true, action: "update", excerpt: "Plan with **bold** text. And more." });
     expect(p.ok && p.lost).toEqual([]);

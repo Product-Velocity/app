@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALLOWED_FILE_TYPES, canLinkFilesInto, fileKindOf, formatBytes, MAX_FILE_BYTES, MAX_FILES_PER_ITEM, safeFileName, sniffFileType, validateUpload } from "./files";
+import { ALLOWED_FILE_TYPES, canLinkFilesInto, fileKindOf, isClaudeStoredLink, formatBytes, MAX_FILE_BYTES, MAX_FILES_PER_ITEM, safeFileName, sniffFileType, validateUpload } from "./files";
 
 const bytes = (...n: number[]) => new Uint8Array([...n, ...new Array(32).fill(0)]);
 const PNG = bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
@@ -96,5 +96,18 @@ describe("files sent by Claude", () => {
     expect(sharingNote(true, { name: null, isPrivate: null })).toMatch(/Anyone who has this link.*will not be written/s);
     expect(sharingNote(true, { name: "acme/app", isPrivate: null })).toMatch(/will not be written/);
     expect(sharingNote(false, { name: "acme/app", isPrivate: true })).toMatch(/stopped working at once.*404/);
+  });
+});
+
+describe("isClaudeStoredLink", () => {
+  it("finds links that open only for the owner in a Claude account, and keeps ordinary and public ones", () => {
+    expect(isClaudeStoredLink("https://claude.ai/artifact/abc")).toBe(true);
+    expect(isClaudeStoredLink("https://claude.ai/code/artifact/abc")).toBe(true);
+    expect(isClaudeStoredLink("https://claude.ai/chat/123")).toBe(true);
+    expect(isClaudeStoredLink("https://x.claudeusercontent.com/a")).toBe(true);
+    expect(isClaudeStoredLink("https://claude.ai/public/artifacts/abc")).toBe(false);
+    expect(isClaudeStoredLink("https://www.figma.com/file/1")).toBe(false);
+    expect(isClaudeStoredLink("https://notclaude.ai/x")).toBe(false);
+    expect(isClaudeStoredLink("not a url")).toBe(false);
   });
 });

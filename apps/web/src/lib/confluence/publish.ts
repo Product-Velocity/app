@@ -22,8 +22,6 @@ export type PublishDeps = {
   /** The live publication of the document, if it has one. */
   live: LivePublication | null;
   terms: readonly CommercialTerm[];
-  /** A https address of the document in Product Velocity, for the link in the banner. */
-  appLink: string | null;
   hash: (s: string) => string;
   now: () => string;
   save: { insert: (p: NewPublication) => Promise<Saved>; update: (id: string, patch: PublicationPatch) => Promise<Saved> };
@@ -72,7 +70,7 @@ export async function previewPublish(d: PublishDeps, input: PublishInput): Promi
     const sp = await getSpaceById(d.call, got.page.spaceId);
     if (!sp.ok) return sp;
     const t = (input.title?.trim() || got.page.title || d.doc.title).slice(0, TITLE_MAX);
-    const b = pageBody(d.doc.body, { ...(d.appLink ? { link: d.appLink } : {}), code: d.doc.itemCode });
+    const b = pageBody(d.doc.body);
     const notes: string[] = [`This replaces the whole content of the page “${got.page.title}” (version ${got.page.version}), which Product Velocity did not create. Its previous version stays in the page history in Confluence, and anything on it that is not in this document (macros, comments' anchors, attachments' placement) will be gone from the current version.`];
     if (d.doc.aiDraft) notes.push("This document is an AI draft that nobody has accepted yet.");
     const url = got.page.url;
@@ -88,7 +86,7 @@ export async function previewPublish(d: PublishDeps, input: PublishInput): Promi
   const title = (input.title?.trim() || (remoteInfo?.title ?? "") || d.doc.title).slice(0, TITLE_MAX);
   if (!title) return invalid("Give the page a title.");
 
-  const body = pageBody(d.doc.body, { ...(d.appLink ? { link: d.appLink } : {}), code: d.doc.itemCode });
+  const body = pageBody(d.doc.body);
   const bodyHash = d.hash(`${title}\n${body}`);
   const plan = planPublish({ published: live ? { pageId: live.pageId, publishedVersion: live.publishedVersion, remoteVersion: live.remoteVersion, contentHash: live.contentHash } : null, docVersion: d.doc.version, bodyHash, remote });
 
@@ -150,7 +148,7 @@ export async function confirmPublish(d: PublishDeps, input: PublishInput): Promi
   const live = d.live;
   const direction: SyncDirection = input.direction ?? live?.syncDirection ?? "to_confluence";
   const stamp = d.now();
-  const body = pageBody(d.doc.body, { ...(d.appLink ? { link: d.appLink } : {}), code: d.doc.itemCode });
+  const body = pageBody(d.doc.body);
   const contentHash = d.hash(`${p.title}\n${body}`);
 
   if (p.action === "none") {

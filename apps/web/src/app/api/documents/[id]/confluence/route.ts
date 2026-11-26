@@ -9,7 +9,6 @@ import { loadDocForPublish as load } from "@/lib/confluence/doc-access";
 import { confirmRefresh, previewRefresh, type ExternalBinding, type RefreshDeps } from "@/lib/confluence/importer";
 import { json, saveError, statusFor } from "@/lib/confluence/http";
 import { confluenceRequest, confluenceSiteFor, type ConfluenceSite } from "@/lib/confluence/server";
-import { siteUrl } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
 // Publishing one document to Confluence (issue #693 slice B). The person's own client does every read and write, so the role check, row-level security
@@ -135,14 +134,12 @@ export async function POST(request: Request, { params }: Ctx): Promise<NextRespo
     const { data: baseRow } = await c.supabase.from("item_document_versions").select("body").eq("document_id", id).eq("version", cur.published_version).maybeSingle();
     const { data: itemRow } = await c.supabase.from("items").select("item_code").eq("id", c.doc.item_id).maybeSingle();
     const code = String((itemRow as { item_code?: string } | null)?.item_code ?? "");
-    const appUrl = await siteUrl();
     const mdeps: MergeDeps = {
       call, siteUrl: site.siteUrl, hash, now: () => new Date().toISOString(),
       doc: { id: c.doc.id, itemCode: code, title: c.doc.title, body: c.doc.body, version: c.doc.version, status: c.doc.status },
       binding: { id: cur.id, pageId: cur.page_id, pageUrl: cur.page_url, pageTitle: cur.page_title, publishedVersion: cur.published_version, remoteVersion: cur.remote_version },
       baseBody: baseRow ? String((baseRow as { body: string }).body) : null,
       terms: await commercialTerms(c.supabase, c.doc.item_id),
-      appLink: /^https:\/\//.test(appUrl) && code ? `${appUrl}/portfolio/${encodeURIComponent(code)}` : null,
       store: {
         updateDocument: async (docId, patch) => {
           // only if nobody saved the document in between (the version is the one the preview was made from)
@@ -207,7 +204,6 @@ export async function POST(request: Request, { params }: Ctx): Promise<NextRespo
 
   const { data: item } = await c.supabase.from("items").select("item_code").eq("id", c.doc.item_id).maybeSingle();
   const code = String((item as { item_code?: string } | null)?.item_code ?? "");
-  const app = await siteUrl();
   const last = await lastPublication(c.supabase, id);
   if (last?.sync_direction === "from_confluence" && !last.unlinked_at) return json({ error: "This document is kept from a Confluence page. Product Velocity does not write to a page it reads from. Change the direction to both ways first.", kind: "invalid" }, 409);
   const deps: PublishDeps = {
@@ -215,7 +211,6 @@ export async function POST(request: Request, { params }: Ctx): Promise<NextRespo
     doc: { id: c.doc.id, itemCode: code, title: c.doc.title, body: c.doc.body, version: c.doc.version, aiDraft: c.doc.ai_draft },
     live: last && !last.unlinked_at ? toLive(last) : null,
     terms: await commercialTerms(c.supabase, c.doc.item_id),
-    appLink: /^https:\/\//.test(app) && code ? `${app}/portfolio/${encodeURIComponent(code)}` : null,
     hash,
     now: () => new Date().toISOString(),
     save: {

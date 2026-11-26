@@ -153,6 +153,7 @@ export function GithubPushDialog({ ids: idsProp, api = REAL_API, newItems, track
 
   const [progress, setProgress] = useState<{ done: number; total: number } | null>({ done: 0, total: ids.length });
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [confluenceOpen, setConfluenceOpen] = useState(0); // Confluence pages that wait for an update: part of "To send" and "All"
   const [removedBusyBy, setRemovedBusyBy] = useState<Record<string, boolean>>({}); // closing removed initiatives' issues: the main send waits
   const removedBusy = Object.values(removedBusyBy).some(Boolean);
   const detailsRef = useRef<Record<string, ItemDetail>>({}); // for the confirmed screen
@@ -393,20 +394,23 @@ export function GithubPushDialog({ ids: idsProp, api = REAL_API, newItems, track
 
             {view === "outgoing" && (
               <>
-                <h3>Updates from Product Velocity to {trackerLabel}</h3>
+                <header className="sync-section-head">
+                  <span className="sync-tag">{trackerLabel}</span>
+                  <h3>Updates from Product Velocity to {trackerLabel}</h3>
+                </header>
                 <p>
                   Nothing is written to {trackerLabel} until you confirm.{" "}
                   {phase.received.every((r) => r.tracker === "jira") && phase.received.length > 0
                     ? <>If you send, only the name, description, links, links to documents and files you chose to share, labels starting with “pv:”, the due date (G2M Date) and, where the Jira site has them mapped, the start date and priority go out; value, confidence, customers, decisions and other commercial fields never leave the app, and status is never written. Anything else in the issue stays as it is.</>
-                    : <>If you send, only the name, summary, description, hypothesis, links, links to documents and files you chose to share (private repositories only), a few labels, a milestone, the fields of the linked GitHub Project board and a link back go out; value, confidence, customers, decisions and other commercial fields never leave the app. The repository may be public.</>}
+                    : <>If you send, only the name, summary, description, hypothesis, links, links to documents and files you chose to share (private repositories only), a few labels, a milestone and the fields of the linked GitHub Project board go out; value, confidence, customers, decisions and other commercial fields never leave the app. The repository may be public.</>}
                 </p>
                 <div className="push-filters" role="group" aria-label="Filter the results">
-                  {([["all", `All (${counts.toSend + counts.nothing})`], ["updates", `To send (${counts.toSend})`], ["none", `Nothing to send (${counts.nothing})`], ...(removedCount > 0 ? [["deletions", `Deletions (${removedCount})`] as const] : [])] as const).map(([k, text]) => (
+                  {([["all", `All (${counts.toSend + counts.nothing + confluenceOpen})`], ["updates", `To send (${counts.toSend + confluenceOpen})`], ["none", `Nothing to send (${counts.nothing})`], ...(removedCount > 0 ? [["deletions", `Deletions (${removedCount})`] as const] : [])] as const).map(([k, text]) => (
                     <button key={k} type="button" className={`chip${updateFilter === k ? " chip-on" : ""}`} aria-pressed={updateFilter === k} onClick={() => setUpdateFilter(k)}>{text}</button>
                   ))}
                 </div>
                 {counts.problems > 0 && <p role="status" className="muted">{counts.problems === 1 ? "1 initiative could not be checked" : `${counts.problems} initiatives could not be checked`}: see step 1.</p>}
-                {counts.shown.length === 0 && !checking && updateFilter !== "deletions" && <p role="status" className="muted">Nothing to show for this filter.</p>}
+                {counts.shown.length === 0 && !checking && updateFilter !== "deletions" && !(confluenceOpen > 0 && updateFilter !== "none") && <p role="status" className="muted">Nothing to show for this filter.</p>}
                 <ul className="push-list" aria-label="Updates going out" style={updateFilter === "deletions" ? { display: "none" } : undefined}>
                   {counts.shown.map((r) => {
                     const p = r.readOnly ? undefined : phase.send.find((x) => x.id === r.id);
@@ -462,7 +466,7 @@ export function GithubPushDialog({ ids: idsProp, api = REAL_API, newItems, track
                 {phase.received.some((r) => r.tracker === "jira") && <p className="muted">Jira keeps a description in its own format. Product Velocity rewrites a description only when its text changed since the last sync; a table, macro or mention in Jira is never flattened otherwise.</p>}
                 {phase.received.some((r) => r.tracker !== "jira") && <p className="muted">Text you or engineers write in the issue outside the marked block is kept. The marked block is overwritten the next time you send.</p>}
                 {overwrites > 0 && <p role="note" className="muted">Keep Product Velocity replaces the text in {trackerLabel} with Product Velocity’s when you press Apply and send.{phase.received.some((r) => r.tracker !== "jira") ? " Anything outside the marked block stays." : ""}</p>}
-                {!checking && <ConfluenceToSend itemIds={ids} show={updateFilter === "all" || updateFilter === "updates"} {...(onDone ? { onSent: onDone } : {})} />}
+                {!checking && <ConfluenceToSend itemIds={ids} show={updateFilter === "all" || updateFilter === "updates"} onCount={setConfluenceOpen} {...(onDone ? { onSent: onDone } : {})} />}
                 {(["github", "jira"] as const).map((t) => {
                   const removedApi = api.removed?.[t];
                   // GitHub is also the tracker of a project that has none yet (a card without a tracker is a GitHub card)

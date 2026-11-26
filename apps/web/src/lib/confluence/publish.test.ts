@@ -53,7 +53,7 @@ function setup(opts: { seed?: FakePage[]; live?: LivePublication | null; doc?: P
   const deps = (): PublishDeps => ({
     call: c.call, siteUrl: SITE,
     doc: { id: "doc-1", itemCode: "R-12", title: "PRD: Tickets", body: "# Tickets\n\nText.", version: 1, aiDraft: false, ...opts.doc },
-    live, terms: opts.terms ?? [], appLink: "https://app.example.test/portfolio/R-12",
+    live, terms: opts.terms ?? [],
     hash: (s) => createHash("sha256").update(s).digest("hex"), now: () => "2026-11-26T12:00:00Z",
     save: {
       insert: async (p) => { if (store.failInsert) return { ok: false, error: "db down" }; store.inserted.push(p); live = { id: "pub-1", pageId: p.pageId, pageUrl: p.pageUrl, spaceKey: p.spaceKey, syncMode: p.syncMode, publishedVersion: p.publishedVersion, remoteVersion: p.remoteVersion, contentHash: p.contentHash }; return { ok: true }; },
@@ -113,13 +113,12 @@ describe("preview", () => {
 });
 
 describe("create", () => {
-  it("creates the page with the banner and the converted text, records it, and keeps it linked for 'keep in sync'", async () => {
+  it("creates the page with the converted text only, records it, and keeps it linked for 'keep in sync'", async () => {
     const s = setup();
     const { done } = await s.publish(IN);
     expect(done).toMatchObject({ ok: true, action: "create", page: { id: "5000", version: 1, url: "https://acme.atlassian.net/wiki/spaces/PRD/pages/5000/x" } });
     const page = s.c.pages.get("5000")!;
-    expect(page.body).toContain("Managed in Product Velocity");
-    expect(page.body).toContain("Open R-12 in Product Velocity");
+    expect(page.body).not.toMatch(/Product Velocity/); // the page does not mention the app and does not link back to it
     expect(page.body).toContain("<h1>Tickets</h1><p>Text.</p>");
     expect(s.store.inserted).toEqual([expect.objectContaining({ spaceKey: "PRD", pageId: "5000", syncMode: "sync", publishedVersion: 1, remoteVersion: 1, unlinkedAt: null, contentHash: expect.stringMatching(/^[0-9a-f]{64}$/) })]);
   });
@@ -277,7 +276,7 @@ describe("publishing onto a page that already exists", () => {
     const done = await confirmPublish(s.deps(), { ...input, confirm: p.ok ? p.confirm : "" });
     expect(done).toMatchObject({ ok: true, action: "update", page: { id: "55", version: 5 }, message: expect.stringContaining("existing page was replaced") });
     expect(s.c.pages.get("55")).toMatchObject({ version: 5, title: "Existing GTM page" });
-    expect(s.c.pages.get("55")!.body).toContain("Managed in Product Velocity");
+    expect(s.c.pages.get("55")!.body).not.toMatch(/Product Velocity/);
     expect(s.c.pages.get("55")!.body).toContain("<h1>Tickets</h1>");
     expect(s.store.inserted).toEqual([expect.objectContaining({ pageId: "55", spaceKey: "GTM", parentPageId: null, syncMode: "sync", publishedVersion: 1, remoteVersion: 5, unlinkedAt: null })]);
     // a title the person gave replaces the page's title

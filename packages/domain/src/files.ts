@@ -49,6 +49,19 @@ export function validateUpload(i: { name: string; bytes: Uint8Array; size: numbe
 }
 
 /** Share links are only written into issues of private repositories; an unknown or public repository gets none. */
+/**
+ * A link to something stored in a Claude account (an artifact, a chat, a project on claude.ai): it opens only for the person who owns it, so it is no use to the
+ * people who read a tracker issue or a Confluence page. Such links are left out of what goes to GitHub, Jira and Confluence. A page published for everyone
+ * (claude.ai/public/...) opens for anybody and is kept.
+ */
+export function isClaudeStoredLink(url: string): boolean {
+  let u: URL;
+  try { u = new URL(url); } catch { return false; }
+  const host = u.hostname.toLowerCase();
+  if (host === "claude.ai" || host.endsWith(".claude.ai")) return !u.pathname.toLowerCase().startsWith("/public/");
+  return host.endsWith(".claudeusercontent.com");
+}
+
 export const canLinkFilesInto = (isPrivate: boolean | null | undefined): boolean => isPrivate === true;
 
 // ---------------------------------------------------------------- files sent by Claude (docs/20 FR-5)

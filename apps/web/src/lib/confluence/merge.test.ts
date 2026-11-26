@@ -35,7 +35,7 @@ function setup(o: { ours: string; theirs: string; docVersion?: number; baseBody?
     doc: { id: "doc-1", itemCode: "R-1", title: "Plan", body: o.ours, version: o.docVersion ?? 4, status: "draft" },
     binding: { id: "bind-1", pageId: "42", pageUrl: `${SITE}/wiki/spaces/GTM/pages/42/Plan`, pageTitle: "Plan", publishedVersion: 2, remoteVersion: 5 },
     baseBody: o.baseBody === undefined ? BASE : o.baseBody,
-    terms: [], appLink: "https://app.example.test/portfolio/R-1",
+    terms: [],
     store: {
       updateDocument: async (id, patch) => { if (state.failDoc) return { ok: false, error: "somebody saved the document in the meantime" }; saved.push({ id, body: patch.body }); return { ok: true, version: (o.docVersion ?? 4) + 1 }; },
       updateBinding: async (id, patch) => { bindings.push({ id, patch }); return { ok: true }; },
@@ -75,7 +75,7 @@ describe("confirm a merge", () => {
     expect(done).toMatchObject({ ok: true, documentVersion: 5, page: { version: 7 } });
     const merged = "# Plan\n\nIntro paragraph.\n\n## Scope\n\nBuild the thing in two steps.\n\n## Risks\n\nVendor delay possible.\n";
     expect(s.saved).toEqual([{ id: "doc-1", body: merged }]);
-    expect(s.c.page.storage).toBe(pageBody(merged, { link: "https://app.example.test/portfolio/R-1", code: "R-1" }));
+    expect(s.c.page.storage).toBe(pageBody(merged));
     expect(s.bindings).toEqual([{ id: "bind-1", patch: expect.objectContaining({ publishedVersion: 5, remoteVersion: 7, pageTitle: "Plan", publishedAt: "2026-11-26T19:00:00Z" }) }]);
   });
   it("needs a choice for every conflict, and uses it", async () => {

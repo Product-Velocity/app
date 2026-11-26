@@ -110,7 +110,7 @@ describe("update a page", () => {
     const { call, calls } = fake([{ status: 200, json: { ...PAGE, version: { number: 4 } } }]);
     const r = await updatePage(call, { id: "123", currentVersion: 3, title: "PRD", body: "<p>x</p>" }, SITE, nosleep);
     expect(r).toMatchObject({ ok: true, page: { version: 4 } });
-    expect(calls[0]).toEqual({ method: "PUT", path: "/api/v2/pages/123", body: { id: "123", status: "current", title: "PRD", body: { representation: "storage", value: "<p>x</p>" }, version: { number: 4, message: "Published from Product Velocity" } } });
+    expect(calls[0]).toEqual({ method: "PUT", path: "/api/v2/pages/123", body: { id: "123", status: "current", title: "PRD", body: { representation: "storage", value: "<p>x</p>" }, version: { number: 4 } } });
   });
   it("a 409 means somebody saved first: it is a conflict and nothing was overwritten", async () => {
     expect(await updatePage(fake([{ status: 409 }]).call, { id: "1", currentVersion: 1, title: "T", body: "" }, null, nosleep)).toMatchObject({ ok: false, kind: "conflict", message: expect.stringContaining("Nothing was written") });
