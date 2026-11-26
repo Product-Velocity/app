@@ -5,7 +5,7 @@ import { AI_TOOL_LABEL, DOC_KIND_LABEL, DOC_KINDS, MAX_DOC_CHARS, MAX_DOCS_PER_I
 import type { DocView, ReadRequestView } from "@/lib/documents";
 import { MarkdownPreview } from "./markdown-preview";
 import { RowIcon, RowMenu, ShareChip } from "./attachment-ui";
-import { confluenceLine, shareLine, type TrackerShare } from "./share-state";
+import { confluenceLine, confluenceStatus, shareLine, trackerLastSync, type TrackerShare } from "./share-state";
 import { FilesControl, type FilesHandle } from "./files-control";
 import type { FieldCtx } from "./item-fields";
 import { LinksList, type LinksHandle } from "./links-list";
@@ -162,22 +162,35 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
               <span className="entry-main">
                 <button type="button" className="entry-name entry-name-btn" aria-expanded={openId === d.id} onClick={() => setOpenId(openId === d.id ? null : d.id)}>{d.title}</button>
                 <span className="entry-meta">{DOC_KIND_LABEL[d.kind as keyof typeof DOC_KIND_LABEL] ?? d.kind} · version {d.version} · {STATUS_LABEL[d.status] ?? d.status}{d.aiDraft ? " · AI draft, needs review" : ""}{aiLabel(d.aiTool, d.aiModel) ? ` · written with ${aiLabel(d.aiTool, d.aiModel)}` : ""}</span>
-                {!d.aiDraft && <span className="entry-meta">{tracker}: {line.detail}</span>}
-                {c && <span className="entry-meta">{confluenceLine(c)}</span>}
+                {/* one labelled line per place the document goes, each with its status, last sync time and (Confluence) the page link, so two chips never sit side by side unlabelled */}
+                <span className="entry-dests">
+                  {!d.aiDraft && (
+                    <span className="entry-dest" data-dest={tracker}>
+                      <span className="entry-dest-name">{tracker}</span>
+                      <ShareChip line={line} tracker={tracker} name={d.title} disabled={!canEdit} onToggle={(on) => void setShared(d, on)} />
+                      <span className="entry-dest-text">{line.tone !== "done" && `${line.detail} `}Last sync: {trackerLastSync(trackerShare)}</span>
+                    </span>
+                  )}
+                  {c && (() => {
+                    const st = confluenceStatus(c);
+                    return (
+                      <span className="entry-dest" data-dest="Confluence">
+                        <span className="entry-dest-name">Confluence</span>
+                        <span className="share-chip share-chip-on" title={confluenceLine(c)}>{st.chip}</span>
+                        <span className="entry-dest-text">{st.lastLabel}: {st.last} · <a href={c.pageUrl} target="_blank" rel="noopener noreferrer">Open “{c.pageTitle || "page"}” in Confluence ↗</a></span>
+                      </span>
+                    );
+                  })()}
+                </span>
               </span>
               <span className="entry-actions">
               {d.aiDraft
                 ? <span className="share-chip" title="A person accepts the AI draft first (open it, then Accept draft)">Held back: AI draft</span>
-                : <ShareChip line={line} tracker={tracker} name={d.title} disabled={!canEdit} onToggle={(on) => void setShared(d, on)} />}
+                : null}
               {d.publishRequest && !d.confluence?.linked && (
                 <button type="button" className="share-chip" disabled={!canEdit} onClick={() => setConfluenceFor(d)} title={`${d.publishRequest.requestedBy} asked for this to be published to Confluence${d.publishRequest.note ? `: ${d.publishRequest.note}` : ""}. Nothing is sent until a person confirms.`}>
                   Publish requested{d.publishRequest.requestedBy === "Claude" ? " by Claude" : ""}
                 </button>
-              )}
-              {d.confluence && (
-                <a className="share-chip" href={d.confluence.pageUrl} target="_blank" rel="noopener noreferrer" title={`${confluenceLine(d.confluence)} Open the page.`}>
-                  {!d.confluence.linked ? (d.confluence.source === "external" ? "Copied from Confluence" : "On Confluence (once)") : d.confluence.direction === "from_confluence" ? "From Confluence" : d.confluence.direction === "both" ? "Two-way with Confluence" : `On Confluence${d.confluence.outOfDate ? ": page out of date" : ""}`}
-                </a>
               )}
               {d.refreshRequest && canEdit && (
                 <button type="button" className="share-chip" onClick={() => setRefreshFor(d)} title={`${d.refreshRequest.requestedBy} asked for this document to be updated from its Confluence page${d.refreshRequest.note ? `: ${d.refreshRequest.note}` : ""}. Nothing is read until you review what comes in and confirm.`}>

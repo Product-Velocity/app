@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shareLine, whenLabel, type TrackerShare } from "./share-state";
+import { confluenceStatus, shareLine, trackerLastSync, whenLabel, type TrackerShare } from "./share-state";
 
 const when = (iso: string) => `@${iso.slice(0, 16)}`;
 const jira = (over: Partial<TrackerShare> = {}): TrackerShare => ({ tracker: "Jira", linked: true, writes: true, sentAt: "2026-11-26T14:05:00Z", ...over });
@@ -55,5 +55,22 @@ describe("the tracker side of the chips, from the loaded lookups", () => {
   });
   it("GitHub: the push time of the link", () => {
     expect(trackerShareOf(lookups, "g1", "p1", "GitHub")).toEqual({ tracker: "GitHub", linked: true, writes: true, sentAt: "2026-11-25T08:00:00Z" });
+  });
+});
+
+describe("the labelled lines under a document (issue #714)", () => {
+  const c = { source: "pv" as const, direction: "both" as const, linked: true, pageTitle: "Go-to-market", spaceKey: "R89", publishedVersion: 7, publishedAt: "2026-11-26T14:05:00Z", outOfDate: false };
+  it("Confluence: a short status and the time, not a sentence", () => {
+    expect(confluenceStatus(c, when)).toEqual({ chip: "Two-way", lastLabel: "Last sync", last: "@2026-11-26T14:05" });
+    expect(confluenceStatus({ ...c, outOfDate: true }, when).chip).toBe("Two-way: changes waiting");
+    expect(confluenceStatus({ ...c, direction: "to_confluence" }, when).chip).toBe("Written to the page");
+    expect(confluenceStatus({ ...c, direction: "from_confluence" }, when).chip).toBe("Read from the page");
+    expect(confluenceStatus({ ...c, linked: false }, when)).toMatchObject({ chip: "Published once", lastLabel: "Written" });
+    expect(confluenceStatus({ ...c, publishedAt: null }, when).last).toBe("not recorded");
+  });
+  it("the tracker: the time of the last send, or why there is none, also for a read-only project", () => {
+    expect(trackerLastSync(jira(), when)).toBe("@2026-11-26T14:05");
+    expect(trackerLastSync(jira({ sentAt: null }), when)).toBe("never sent");
+    expect(trackerLastSync(jira({ linked: false, sentAt: null }), when)).toBe("no issue yet");
   });
 });
