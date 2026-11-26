@@ -1,6 +1,8 @@
 ---
 issue: 696
-status: in progress
+status: done
+done: 2026-11-26
+link: PR #697, v1.256.0
 logged: 2026-11-26
 title: Help: People, roles and access (participants, people not invited, members), with use-cases
 ---

@@ -1,6 +1,8 @@
 ---
 issue: 691
-status: in progress
+status: done
+done: 2026-11-26
+link: PR #694, v1.255.0
 logged: 2026-11-26
 title: People directory: name PM, EM and others before they are invited
 ---
