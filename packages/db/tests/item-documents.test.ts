@@ -28,6 +28,15 @@ const edit = (user: string, id: string, set: string, params: unknown[] = [], via
   db.asUser(user, async (q) => (await q(`update public.item_documents set ${set} where id = $1`, [id, ...params])).rowCount, { commit: true, via });
 const row = async (id: string) => (await db.admin.query("select * from public.item_documents where id = $1", [id])).rows[0];
 
+describe("a document created 'Do not share' in the same write (issue #693 slice A2)", () => {
+  it("a creator can set shared when the document is created, so it is never shared in between; a viewer still cannot add one", async () => {
+    const id = await db.asUser(creator, async (q) => (await q("insert into public.item_documents (tenant_id, item_id, kind, title, body, shared) values ($1, $2, 'go_to_market', 'From Confluence', '# text', false) returning id", [f.tenantA, item])).rows[0].id as string, { commit: true, via: "UI" });
+    expect(await row(id)).toMatchObject({ shared: false, status: "draft", version: 1 });
+    expect((await db.admin.query("select new from public.audit_log where entity = 'item_documents' and entity_id = $1 and field = 'shared'", [id])).rows[0]).toMatchObject({ new: false });
+    expect(await errorCode(db.asUser(viewer, (q) => q("insert into public.item_documents (tenant_id, item_id, kind, title, body, shared) values ($1, $2, 'other', 'x', 'y', false)", [f.tenantA, item]), { commit: true, via: "UI" }))).toBe("42501");
+  });
+});
+
 describe("documents on an initiative", () => {
   it("a creator adds a document; version 1 is saved and the write is audited", async () => {
     const id = await add(creator, "PRD v1", "# First");

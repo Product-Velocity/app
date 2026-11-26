@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
-import { createPage, failure, getPage, getSpaceById, listChildPages, listRootPages, getSpaceByKey, listSpaces, updatePage, whyConfluence, type ConfluenceRequest } from "./client";
+import { createPage, failure, getPage, getPageWithText, getSpaceById, listChildPages, listRootPages, getSpaceByKey, listSpaces, updatePage, whyConfluence, type ConfluenceRequest } from "./client";
 
 type Answer = { status: number; json?: unknown; retryAfterSec?: number };
 const fake = (answers: Answer[]) => {
@@ -177,3 +177,17 @@ describe("find a space by its id", () => {
   });
 });
 
+describe("read a page with its text (issue #693 slice A2)", () => {
+  it("asks for the storage format and returns the page with its text", async () => {
+    const { call, calls } = fake([{ status: 200, json: { ...PAGE, body: { storage: { representation: "storage", value: "<p>Hello</p>" } } } }]);
+    expect(await getPageWithText(call, "123", SITE, nosleep)).toMatchObject({ ok: true, page: { id: "123", version: 3, spaceId: "777", storage: "<p>Hello</p>" } });
+    expect(calls[0]!.path).toBe("/api/v2/pages/123?body-format=storage");
+  });
+  it("an answer without the text says the sign-in may lack the permission to read content; a bad id is refused without asking", async () => {
+    expect(await getPageWithText(fake([{ status: 200, json: PAGE }]).call, "123", SITE, nosleep)).toMatchObject({ ok: false, kind: "rejected", message: expect.stringContaining("permission to read page content") });
+    const f = fake([]);
+    expect(await getPageWithText(f.call, "abc", SITE, nosleep)).toMatchObject({ ok: false, kind: "rejected" });
+    expect(f.calls).toHaveLength(0);
+    expect(await getPageWithText(fake([{ status: 403 }]).call, "123", SITE, nosleep)).toMatchObject({ ok: false, kind: "forbidden" });
+  });
+});

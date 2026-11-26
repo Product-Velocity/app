@@ -4,6 +4,7 @@ import { docKindLabel, type CommercialTerm } from "@pv/domain";
 import { listSpaces, type ConfluenceRequest } from "@/lib/confluence/client";
 import { confirmPublish, previewPublish, type LivePublication, type PublicationPatch, type PublishDeps, type PublishInput } from "@/lib/confluence/publish";
 import { loadDocForPublish as load } from "@/lib/confluence/doc-access";
+import { confirmRefresh, previewRefresh, type ExternalBinding, type RefreshDeps } from "@/lib/confluence/importer";
 import { json, saveError, statusFor } from "@/lib/confluence/http";
 import { confluenceRequest, confluenceSiteFor, type ConfluenceSite } from "@/lib/confluence/server";
 import { siteUrl } from "@/lib/site-url";
@@ -18,13 +19,13 @@ import { createClient } from "@/lib/supabase/server";
 type Ctx = { params: Promise<{ id: string }> };
 type Db = Awaited<ReturnType<typeof createClient>>;
 
-const PUB_COLS = "id, page_id, page_url, page_title, space_key, site_id, sync_mode, published_version, remote_version, content_hash, published_at, unlinked_at, parent_page_id";
-type PubRow = { id: string; page_id: string; page_url: string; page_title: string; space_key: string; site_id: string; sync_mode: "once" | "sync"; published_version: number; remote_version: number | null; content_hash: string | null; published_at: string; unlinked_at: string | null; parent_page_id: string | null };
+const PUB_COLS = "id, source, page_id, page_url, page_title, space_key, site_id, sync_mode, published_version, remote_version, content_hash, published_at, unlinked_at, parent_page_id";
+type PubRow = { id: string; source: "pv" | "external"; page_id: string; page_url: string; page_title: string; space_key: string; site_id: string; sync_mode: "once" | "sync"; published_version: number; remote_version: number | null; content_hash: string | null; published_at: string; unlinked_at: string | null; parent_page_id: string | null };
 const toLive = (r: PubRow): LivePublication => ({ id: r.id, pageId: r.page_id, pageUrl: r.page_url, spaceKey: r.space_key, syncMode: r.sync_mode, publishedVersion: r.published_version, remoteVersion: r.remote_version, contentHash: r.content_hash });
 const REQ_COLS = "space_key, parent_url, page_title, sync_mode, note, ai_model, created_via";
 type ReqRow = { space_key: string | null; parent_url: string | null; page_title: string | null; sync_mode: "once" | "sync"; note: string | null; ai_model: string | null; created_via: string };
 const toRequest = (r: ReqRow) => ({ mode: r.sync_mode, spaceKey: r.space_key, parentUrl: r.parent_url, title: r.page_title, note: r.note, requestedBy: r.created_via === "MCP" ? "Claude" : "a person", aiModel: r.ai_model });
-const toView = (r: PubRow, docVersion: number) => ({ id: r.id, pageUrl: r.page_url, pageTitle: r.page_title, spaceKey: r.space_key, syncMode: r.sync_mode, publishedVersion: r.published_version, publishedAt: r.published_at, linked: r.unlinked_at === null, outOfDate: r.unlinked_at === null && r.published_version < docVersion });
+const toView = (r: PubRow, docVersion: number) => ({ id: r.id, source: r.source, pageUrl: r.page_url, pageTitle: r.page_title, spaceKey: r.space_key, syncMode: r.sync_mode, publishedVersion: r.published_version, publishedAt: r.published_at, linked: r.unlinked_at === null, outOfDate: r.source === "pv" && r.unlinked_at === null && r.published_version < docVersion });
 
 
 async function lastPublication(supabase: Db, docId: string): Promise<PubRow | null> {
@@ -81,7 +82,7 @@ export async function POST(request: Request, { params }: Ctx): Promise<NextRespo
   if (!c.ok) return c.error;
   if (!c.canPublish) return json({ error: "Only a Creator or Admin can publish a document to Confluence.", kind: "forbidden" }, 403);
   const b = (await request.json().catch(() => null)) as Body | null;
-  if (!b || !["preview", "publish", "unlink", "dismiss"].includes(String(b.action))) return json({ error: "Say what to do: preview, publish, unlink or dismiss." }, 400);
+  if (!b || !["preview", "publish", "unlink", "dismiss", "refresh-preview", "refresh"].includes(String(b.action))) return json({ error: "Say what to do: preview, publish, unlink, dismiss, refresh-preview or refresh." }, 400);
 
   // "dismiss" removes the open request to publish (made by a person or by Claude); it touches no page
   if (b.action === "dismiss") {
@@ -98,20 +99,54 @@ export async function POST(request: Request, { params }: Ctx): Promise<NextRespo
 
   const site: ConfluenceSite | null = await confluenceSiteFor(c.doc.tenant_id);
   if (!site) return json({ error: "Confluence is not connected for this workspace. An admin can connect it in Settings, Integrations, Confluence.", kind: "not_connected" }, 409);
+  const hash = (x: string) => createHash("sha256").update(x).digest("hex");
+  const call: ConfluenceRequest = confluenceRequest(site.connectionId, site.siteId);
+
+  // A document kept from a page (issue #693 slice A2): the page is the source and Product Velocity never writes to it. These two actions read the page again;
+  // a newer version of it becomes a new version of the document, after a preview a person confirms (the text stays as a previous version).
+  if (b.action === "refresh-preview" || b.action === "refresh") {
+    const ext = await lastPublication(c.supabase, id);
+    if (!ext || ext.source !== "external" || ext.unlinked_at) return json({ error: "This document is not kept from a Confluence page.", kind: "invalid" }, 404);
+    const binding: ExternalBinding = { id: ext.id, pageId: ext.page_id, pageUrl: ext.page_url, pageTitle: ext.page_title, syncMode: ext.sync_mode, publishedVersion: ext.published_version, remoteVersion: ext.remote_version, contentHash: ext.content_hash };
+    const rdeps: RefreshDeps = {
+      call, siteUrl: site.siteUrl, hash, now: () => new Date().toISOString(),
+      doc: { id: c.doc.id, title: c.doc.title, body: c.doc.body, version: c.doc.version, status: c.doc.status }, binding,
+      store: {
+        updateDocument: async (docId, patch) => {
+          // only if nobody saved the document in between (the version is the one the preview was made from)
+          const { data, error } = await c.supabase.from("item_documents").update({ title: patch.title, body: patch.body }).eq("id", docId).eq("version", c.doc.version).select("version");
+          if (error) return { ok: false, error: saveError(error) };
+          const v = (data as { version: number }[] | null)?.[0]?.version;
+          return v ? { ok: true, version: v } : { ok: false, error: "somebody saved the document in the meantime" };
+        },
+        updateBinding: async (rowId, patch) => {
+          const { error } = await c.supabase.from("item_document_pages").update(patchToColumns({ ...patch, ...(patch.unlinkedAt !== undefined ? { unlinkedAt: patch.unlinkedAt } : {}), ...(patch.publishedVersion !== undefined ? { publishedAt: new Date().toISOString() } : {}) })).eq("id", rowId);
+          return error ? { ok: false, error: saveError(error) } : { ok: true };
+        },
+      },
+    };
+    if (b.action === "refresh-preview") {
+      const p = await previewRefresh(rdeps);
+      return p.ok ? json({ refresh: p }) : json({ error: p.message, kind: p.kind }, statusFor(p.kind));
+    }
+    const done = await confirmRefresh(rdeps, { ...(b.confirm ? { confirm: String(b.confirm) } : {}), ...(b.overwrite === true ? { overwrite: true } : {}) });
+    return done.ok ? json({ done }) : json({ error: done.message, kind: done.kind }, statusFor(done.kind));
+  }
+
   if (b.mode !== "once" && b.mode !== "sync") return json({ error: "Choose once or keep in sync." }, 400);
 
   const { data: item } = await c.supabase.from("items").select("item_code").eq("id", c.doc.item_id).maybeSingle();
   const code = String((item as { item_code?: string } | null)?.item_code ?? "");
   const app = await siteUrl();
   const last = await lastPublication(c.supabase, id);
-  const call: ConfluenceRequest = confluenceRequest(site.connectionId, site.siteId);
+  if (last?.source === "external" && !last.unlinked_at) return json({ error: "This document is kept from a Confluence page. Product Velocity does not write to a page it reads from.", kind: "invalid" }, 409);
   const deps: PublishDeps = {
     call, siteUrl: site.siteUrl,
     doc: { id: c.doc.id, itemCode: code, title: c.doc.title, body: c.doc.body, version: c.doc.version, aiDraft: c.doc.ai_draft },
     live: last && !last.unlinked_at ? toLive(last) : null,
     terms: await commercialTerms(c.supabase, c.doc.item_id),
     appLink: /^https:\/\//.test(app) && code ? `${app}/portfolio/${encodeURIComponent(code)}` : null,
-    hash: (s) => createHash("sha256").update(s).digest("hex"),
+    hash,
     now: () => new Date().toISOString(),
     save: {
       insert: async (p) => {

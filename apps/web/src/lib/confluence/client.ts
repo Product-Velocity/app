@@ -4,7 +4,7 @@ import { ReconnectNeeded } from "@/lib/atlassian/token-provider";
 // The Confluence Cloud client for publishing (issue #693). Pure over an injected `call` (the same shape as the Jira one), so it is tested with a fake
 // Confluence. It uses the v2 REST API (`/wiki/api/v2`): the first real site answered 410 "This deprecated endpoint has been removed" to the v1 space
 // list, so nothing here uses `/wiki/rest/api`. Every answer is read defensively and every refusal comes back as words for the person, never swallowed
-// and never thrown. Only five calls exist: list spaces, find a space by key, read one page, create a page and update one page. There is no delete and
+// and never thrown. Only a few calls exist: list spaces, find a space by key or id, read one page (with or without its text), create a page and update one page. There is no delete and
 // no way to touch permissions. What Confluence says is data: its text is shown short and as plain text, and never interpreted.
 
 export type ConfluenceRequest = JiraRequest;
@@ -171,6 +171,21 @@ export async function listChildPages(call: ConfluenceRequest, pageId: string, sl
   if (x.r.status < 200 || x.r.status >= 300) return failure(x.r.status, x.r.json, false);
   const pages = toSummaries(x.r.json);
   return pages ? { ok: true, pages } : BAD_ANSWER("the sub pages of a page");
+}
+
+export type PageWithText = Page & { /** The page as Confluence stores it (storage format), to be converted to Markdown. */ storage: string };
+
+/** One page with its text in storage format. Reading the text needs the permission to read page content (`read:confluence-content.all`). */
+export async function getPageWithText(call: ConfluenceRequest, id: string, siteUrl: string | null = null, sleep?: Sleep): Promise<{ ok: true; page: PageWithText } | ConfluenceFail> {
+  if (!/^\d{1,20}$/.test(id)) return { ok: false, kind: "rejected", message: "That is not a Confluence page id." };
+  const x = await run(() => call("GET", `/api/v2/pages/${id}?body-format=storage`), sleep);
+  if ("fail" in x) return x.fail;
+  if (x.r.status < 200 || x.r.status >= 300) return failure(x.r.status, x.r.json, false);
+  const page = toPage(x.r.json, siteUrl);
+  if (!page) return BAD_ANSWER("a page");
+  const value = obj(obj(obj(x.r.json).body).storage).value;
+  if (typeof value !== "string") return { ok: false, kind: "rejected", message: "Confluence answered, but without the text of the page. The sign-in may lack the permission to read page content (an admin can add it under Settings, Integrations, Jira)." };
+  return { ok: true, page: { ...page, storage: value } };
 }
 
 /** One space by its id (a page answers with the space id; the person and the stored link use the key). */

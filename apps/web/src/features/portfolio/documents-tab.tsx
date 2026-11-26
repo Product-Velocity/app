@@ -9,6 +9,7 @@ import { FilesControl, type FilesHandle } from "./files-control";
 import type { FieldCtx } from "./item-fields";
 import { LinksList, type LinksHandle } from "./links-list";
 import { ConfluenceDialog } from "./confluence-dialog";
+import { ConfluenceImportDialog } from "./confluence-import-dialog";
 import { copyFormatted, copyMarkdown } from "./markdown-copy";
 
 type Version = { version: number; saved_at: string; saved_via: string; ai_tool?: string | null; ai_model?: string | null; saved_by_name?: string | null };
@@ -25,6 +26,9 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
   // Confluence: whether this workspace can publish (its sign-in allows it), and the document whose dialog is open (issue #693)
   const [canConfluence, setCanConfluence] = useState(false);
   const [confluenceFor, setConfluenceFor] = useState<DocView | null>(null);
+  // reading a Confluence page into a document (issue #693 slice A2): a new import (maybe from a link on the initiative), or a check of a document kept from a page
+  const [importing, setImporting] = useState<{ pageUrl?: string; kind?: import("@pv/domain").DocKind } | null>(null);
+  const [refreshFor, setRefreshFor] = useState<DocView | null>(null);
   // a link from the activity log opens the document: ?item=R-12&tab=spec&doc=<id>
   const [openId, setOpenId] = useState<string | null>(() => {
     const d = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("doc");
@@ -100,6 +104,7 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
           <RowMenu label="Add" triggerText="Add ▾" items={[
             { label: "Write a document", onSelect: () => void create(), hidden: docs.length >= MAX_DOCS_PER_ITEM },
             { label: "Upload files", onSelect: () => filesRef.current?.pick() },
+            { label: "Import from Confluence…", onSelect: () => setImporting({}), hidden: !canConfluence || docs.length >= MAX_DOCS_PER_ITEM },
             { label: "Add a link", onSelect: () => { setType((t) => (t === "docs" || t === "files" ? "all" : t)); linksRef.current?.startAdd(); } },
           ]} />
         )}
@@ -107,6 +112,8 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
       <p className="muted docs-hint">Everything here goes into the {tracker} issue as a link (documents and files open without a login) unless you choose “Only in Product Velocity”. Drag files onto this tab, paste an image or a web address. What builders need first goes in the Description on the Overview tab.</p>
       {error && <p role="alert" className="pf-error">{error}</p>}
       {confluenceFor && <ConfluenceDialog doc={{ id: confluenceFor.id, title: confluenceFor.title, version: confluenceFor.version, aiDraft: confluenceFor.aiDraft }} onClose={() => setConfluenceFor(null)} onChanged={() => void load()} />}
+      {importing && <ConfluenceImportDialog mode="import" itemId={itemId} prefill={importing} onClose={() => setImporting(null)} onChanged={() => void load()} />}
+      {refreshFor && <ConfluenceImportDialog mode="refresh" itemId={itemId} doc={{ id: refreshFor.id, title: refreshFor.title }} onClose={() => setRefreshFor(null)} onChanged={() => void load()} />}
       {show("docs") && <>
         <h3>Documents</h3>
         {docs.length === 0 && <p className="muted">No documents yet. Use Add, then Write a document.</p>}
@@ -128,7 +135,12 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
                   Publish requested{d.publishRequest.requestedBy === "Claude" ? " by Claude" : ""}
                 </button>
               )}
-              {d.confluence && (
+              {d.confluence?.source === "external" && (
+                <a className="share-chip" href={d.confluence.pageUrl} target="_blank" rel="noopener noreferrer" title={`The text comes from this Confluence page (space ${d.confluence.spaceKey}); ${d.confluence.linked ? "kept in sync: check it for changes from the menu" : "copied once"}. Product Velocity never writes to the page.`}>
+                  From Confluence
+                </a>
+              )}
+              {d.confluence && d.confluence.source !== "external" && (
                 <a className="share-chip" href={d.confluence.pageUrl} target="_blank" rel="noopener noreferrer" title={`The Confluence page (space ${d.confluence.spaceKey}), ${d.confluence.linked ? "kept in sync" : "published once"}`}>
                   On Confluence{d.confluence.outOfDate ? ": page out of date" : ""}
                 </a>
@@ -138,7 +150,8 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
                 { label: "Open full page", href: docPageHref(d.id), hidden: !itemCode },
                 { label: "Copy public link", onSelect: () => void navigator.clipboard?.writeText(d.shareUrl ?? "").catch(() => setError("Your browser did not allow copying.")), hidden: !d.shareUrl },
                 { label: "Open public page", href: d.shareUrl ?? "", hidden: !d.shareUrl },
-                { label: d.confluence?.linked ? "Update the Confluence page…" : d.publishRequest ? "Review the publish request…" : "Publish to Confluence…", onSelect: () => setConfluenceFor(d), hidden: !canEdit || !(canConfluence || d.confluence || d.publishRequest) },
+                { label: "Check Confluence for changes…", onSelect: () => setRefreshFor(d), hidden: !canEdit || !(d.confluence?.source === "external" && d.confluence.linked) },
+                { label: d.confluence?.linked ? "Update the Confluence page…" : d.publishRequest ? "Review the publish request…" : "Publish to Confluence…", onSelect: () => setConfluenceFor(d), hidden: !canEdit || !(canConfluence || d.confluence || d.publishRequest) || (d.confluence?.source === "external" && d.confluence.linked) },
                 { label: "Remove", onSelect: () => void removeDoc(d), danger: true, hidden: !canEdit },
               ]} />
               </span>
@@ -153,7 +166,7 @@ export function DocumentsTab({ itemId, itemCode, canEdit, ctx, tracker = "GitHub
       </div>
       <div hidden={!show("links")}>
         <h3>Links</h3>
-        <LinksList ref={linksRef} ctx={ctx} itemId={itemId} disabled={!canEdit} onError={setError} query={query} tracker={tracker} />
+        <LinksList ref={linksRef} ctx={ctx} itemId={itemId} disabled={!canEdit} onError={setError} query={query} tracker={tracker} {...(canConfluence ? { onImportPage: (pageUrl: string, kind: import("@pv/domain").DocKind | undefined) => setImporting({ pageUrl, ...(kind ? { kind } : {}) }) } : {})} />
       </div>
     </div>
   );

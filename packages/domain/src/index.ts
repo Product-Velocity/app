@@ -37,6 +37,7 @@ export * from "./delivery";
 export * from "./members";
 export * from "./documents";
 export * from "./confluence";
+export * from "./confluence-import";
 export * from "./prd-template";
 export * from "./prd-extract";
 export * from "./reports";
