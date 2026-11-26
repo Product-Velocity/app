@@ -2,7 +2,7 @@
 date: 2026-11-26
 by: Ashu, proposed by Claude
 request: 693
-status: slice A in progress
+status: slice A1 (kinds on links) built; the Confluence page read (A2) waits for the spike
 ---
 **A document or link can have a home in Confluence, with two settings: who is the source, and whether it stays in sync (issue #693).** It extends J7 (`2026-10-29-confluence-publish.md`), where PV was always the source, so that either side can be.
 
@@ -23,3 +23,5 @@ status: slice A in progress
 - **Parity.** Atlassian only, because GitHub has no hosted document store. Follow-ups for GitHub wiki and Notion are separate issues.
 - **Slices.** A: kind on links and files, and reading a linked Confluence page (source Confluence, once or keep in sync). B: publish from PV (J7, #258). C: Claude flows and Help pages.
 - **[SPIKE] open:** reading a page body through the Confluence API (scopes beyond the summary scopes already requested; storage format to Markdown is lossy: macros and layouts do not round-trip). Slice A builds the read behind an interface and records the result here.
+
+**Slice A, split while building (2026-11-26).** A1, built: `item_attachments.doc_kind` (links; files later), `Link.kind` in the domain, a kind picker on the Spec tab, `add_link {kind}`, and the kind in `get_item` and `list_documents` (`linked_documents`). The kind is not sent to GitHub or Jira. An existing link keeps its kind when `add_link` is repeated; only a person changes it, on the Spec tab (no MCP update path, so no new undo case). A2, not started: reading the text of a linked Confluence page. It is a **[SPIKE]** (docs/08): the page-body read and its scopes are unverified, and no Confluence site is reachable from the build environment, so it waits for a spike run against a real site.

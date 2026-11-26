@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { epicsStatusOf, FIELDS, crowdFields, latestCrowd, toCrowdRow, toRankDecision, type CrowdRow, type RankDecision, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, trackerStatusOf, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
+import { epicsStatusOf, FIELDS, crowdFields, latestCrowd, toCrowdRow, toRankDecision, type CrowdRow, type DocKind, type RankDecision, FIELD_BY_KEY, KEY_BY_COLUMN, columnOnItems, emptyRelated, lastSyncedAt, localToday, scheduleVariancePp, syncedWith, trackerOwnership, trackerStatusOf, type SyncLink, type ActivityRow, type EditableField, type Link, type RelatedField, type RelatedValues } from "@pv/domain";
 import type { BatchResult, CreateManyResult, NewItem, PortfolioDataSource, RestoreResult, SaveResult } from "./data-source";
 import { lightTree, type LightIssue } from "@/lib/atlassian/light-tree";
 import type { IssueTreeRow, JiraEpicRequestRow, JiraTreeRow, LoadedItem, TrashedItem } from "./types";
@@ -237,7 +237,7 @@ export class SupabaseDataSource implements PortfolioDataSource {
     const mine = (table: string, columns: string) => this.client.from(table).select(columns).eq("tenant_id", this.tenantId).eq("item_id", itemId);
     const [tags, links, rels, teams, assigned] = await Promise.all([
       mine("item_tags", "kind,value").order("value"),
-      mine("item_attachments", "name,url,shared").eq("kind", "link").order("created_at"),
+      mine("item_attachments", "name,url,shared,doc_kind").eq("kind", "link").order("created_at"),
       mine("item_relations", "related_item_id,kind"),
       mine("item_teams", "team_id"),
       this.client.from("items").select("assignee_ids").eq("tenant_id", this.tenantId).eq("id", itemId).maybeSingle(),
@@ -246,7 +246,8 @@ export class SupabaseDataSource implements PortfolioDataSource {
     const out = emptyRelated();
     const TAG_FIELD: Record<string, RelatedField> = { tag: "tags", target_scope: "target_scope", live_scope: "live_scope", segment: "target_segments" };
     for (const t of (tags.data ?? []) as unknown as { kind: string; value: string }[]) { const f = TAG_FIELD[t.kind]; if (f) (out[f] as string[]).push(t.value); }
-    out.artifacts = ((links.data ?? []) as unknown as { name: string | null; url: string; shared: boolean }[]).map((l) => (l.shared === false ? { label: l.name ?? "", url: l.url, shared: false } : { label: l.name ?? "", url: l.url }));
+    out.artifacts = ((links.data ?? []) as unknown as { name: string | null; url: string; shared: boolean; doc_kind: DocKind | null }[])
+      .map((l) => ({ label: l.name ?? "", url: l.url, ...(l.doc_kind ? { kind: l.doc_kind } : {}), ...(l.shared === false ? { shared: false } : {}) }));
     for (const r of (rels.data ?? []) as unknown as { related_item_id: string; kind: "depends_on" | "related_to" }[]) out[r.kind].push(r.related_item_id);
     out.contributing_teams = ((teams.data ?? []) as unknown as { team_id: string }[]).map((t) => t.team_id);
     out.assignees = ((assigned.data as { assignee_ids?: string[] } | null)?.assignee_ids ?? []).map(String);
@@ -284,15 +285,15 @@ export class SupabaseDataSource implements PortfolioDataSource {
       return run("item_tags", "id,value", { kind }, (r, v) => String(r.value).toLowerCase() === String(v).toLowerCase(), (v) => ({ value: String(v) }));
     }
     if (field === "artifacts") {
-      const done = await run("item_attachments", "id,name,url,shared", { kind: "link" }, (r, v) => r.url === (v as Link).url && (r.name ?? "") === (v as Link).label, (v) => ({ name: (v as Link).label, url: (v as Link).url, shared: (v as Link).shared !== false }));
+      const done = await run("item_attachments", "id,name,url,shared", { kind: "link" }, (r, v) => r.url === (v as Link).url && (r.name ?? "") === (v as Link).label, (v) => ({ name: (v as Link).label, url: (v as Link).url, shared: (v as Link).shared !== false, doc_kind: (v as Link).kind ?? null }));
       if (!done.ok) return done;
-      // a link that stayed but was switched to or from "do not share"
-      const cur = await this.client.from("item_attachments").select("id,url,name,shared").eq("tenant_id", this.tenantId).eq("item_id", itemId).eq("kind", "link");
+      // a link that stayed but was switched to or from "do not share", or was given another document kind (or none)
+      const cur = await this.client.from("item_attachments").select("id,url,name,shared,doc_kind").eq("tenant_id", this.tenantId).eq("item_id", itemId).eq("kind", "link");
       if (cur.error) return { ok: false, error: friendlyError(cur.error) };
-      for (const r of (cur.data ?? []) as { id: string; url: string; name: string; shared: boolean }[]) {
+      for (const r of (cur.data ?? []) as { id: string; url: string; name: string; shared: boolean; doc_kind: string | null }[]) {
         const v = (value as Link[]).find((x) => x.url === r.url && x.label === (r.name ?? ""));
-        if (v && (v.shared !== false) !== r.shared) {
-          const u = await this.client.from("item_attachments").update({ shared: v.shared !== false }).eq("tenant_id", this.tenantId).eq("id", r.id);
+        if (v && ((v.shared !== false) !== r.shared || (v.kind ?? null) !== r.doc_kind)) {
+          const u = await this.client.from("item_attachments").update({ shared: v.shared !== false, doc_kind: v.kind ?? null }).eq("tenant_id", this.tenantId).eq("id", r.id);
           if (u.error) return { ok: false, error: friendlyError(u.error) };
         }
       }

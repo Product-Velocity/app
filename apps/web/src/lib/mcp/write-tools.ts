@@ -7,6 +7,7 @@
 import {
   BASIS_KEY, CLAUDE_LIST_FIELDS, FIELD_BY_KEY, MAX_WRITE_BATCH, WRITE_SCALAR_KEYS, buildUpdate, cleanLink, cleanRelation, isStale, linkLoginNote,
   prepareNewItem, splitBatch, DIFF_TTL_MINUTES, type FieldDef, type ListOp, type UpdateChange,
+  DOC_KINDS,
 } from "@pv/domain";
 import type { ToolDef } from "./rpc";
 import { ToolInputError } from "./tool-error";
@@ -378,25 +379,28 @@ const setRelations: ToolDef = {
 };
 
 const LINK_PROPS = { item: { type: "string", description: "Initiative code such as R-12, or its id." }, url: { type: "string", description: "http:// or https:// address." }, label: { type: "string", maxLength: 200 } };
+const KIND_PROP = { type: "string", enum: [...DOC_KINDS], description: "What kind of document the page is (for example business_case, go_to_market, prd), the same kinds as create_document. Leave out when you do not know; never guess." };
 
 const addLink: ToolDef = {
   name: "add_link",
   title: "Add a link to an initiative",
   description:
     "Adds a link (Artifacts) with a label and an http(s) url to an initiative. Private pages are allowed; the result says when a link is known to need a login, so say so to the person. " +
-    "Adding the same link twice does nothing. " + DATA,
-  inputSchema: { type: "object", properties: LINK_PROPS, required: ["item", "url"], additionalProperties: false },
+    "Give kind when the person says what the page is (for example a Business case written in Confluence): list_documents and get_item then show where the latest document of that kind lives. " +
+    "Adding the same link twice does nothing, and an existing link keeps its kind (a person changes it on the Spec tab). " + DATA,
+  inputSchema: { type: "object", properties: { ...LINK_PROPS, kind: KIND_PROP }, required: ["item", "url"], additionalProperties: false },
   annotations: WRITE,
   mode: "write",
   weigh: () => 1,
   run: async (b, a) => {
     const ref = str(a.item);
-    const link = cleanLink({ label: a.label, url: a.url });
+    const link = cleanLink({ label: a.label, url: a.url, kind: a.kind });
     if (!link.ok) throw new ToolInputError(link.error);
     const d = await b.read.itemDetail(ref);
     if (!d) throw new ToolInputError(`No initiative "${ref}" in this workspace, or you cannot change it.`);
     const code = String(d.row.item_code);
-    if (d.links.some((l) => l.url === link.link.url && l.label === link.link.label)) return { item: code, status: "already_there", link: link.link };
+    const there = d.links.find((l) => l.url === link.link.url && l.label === link.link.label);
+    if (there) return { item: code, status: "already_there", link: there, ...(link.link.kind && link.link.kind !== there.kind ? { notes: ["The link was already there with another kind (or none); it was not changed. A person changes the kind on the Spec tab."] } : {}) };
     const r = (await b.write.apply("add_link", [{ ops: [{ op: "list_add", item: d.row.id, field: "artifacts", value: link.link }] }])).units[0];
     if (!r?.ok) throw new ToolInputError(r?.error ?? "The link could not be saved.");
     const note = linkLoginNote(link.link.url);

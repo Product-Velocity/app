@@ -64,7 +64,7 @@ export default function AiHelp() {
             "Discover: the Discovery document holds the problem, evidence and expected impact. Gate A approves it.",
             "Define: the PRD holds the hypothesis, key result, requirements and roll-out plan. Gate B approves it, and fields are filled from it.",
             "Build: a shared document reaches the tracker as a link, never as text.",
-            "Any phase: revise a document and the old version is kept; add links and files on the Spec tab.",
+            "Any phase: revise a document and the old version is kept; add links and files on the Spec tab. A link can say what kind of document it points to (a Business case kept in Confluence, for example), so Claude knows where the latest one lives and can open it.",
             "Roll-out and Completed: compare the result with the key result written in the PRD at the outcome review. Claude can read the 30, 60 and 90 day reviews, and record the numbers you give it (with your words kept); it never asks anyone for metrics and never invents a number. It can draft the request for the metrics (text only, nothing is sent).",
           ]}
         />

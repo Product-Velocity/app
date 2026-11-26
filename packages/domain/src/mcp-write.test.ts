@@ -166,6 +166,8 @@ describe("what the schema offers", () => {
 describe("links and relations", () => {
   it("accepts http(s) links with a label, trims, and refuses anything else", () => {
     expect(cleanLink({ label: " PRD ", url: " https://example.test/a " })).toEqual({ ok: true, link: { label: "PRD", url: "https://example.test/a" } });
+    expect(cleanLink({ label: "BC", url: "https://example.test/a", kind: "business_case" })).toEqual({ ok: true, link: { label: "BC", url: "https://example.test/a", kind: "business_case" } });
+    expect(cleanLink({ label: "BC", url: "https://example.test/a", kind: "diary" })).toMatchObject({ ok: false });
     expect(cleanLink({ label: "x", url: "ftp://example.test" })).toMatchObject({ ok: false });
     expect(cleanLink({ label: "x".repeat(201), url: "https://a.test" })).toMatchObject({ ok: false });
     expect(cleanLink({ url: "https://a.test" })).toMatchObject({ ok: true, link: { label: "" } });

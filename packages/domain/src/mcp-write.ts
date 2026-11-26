@@ -81,7 +81,7 @@ export function cleanLink(raw: unknown): { ok: true; link: Link } | Fail {
   const l = raw as Record<string, unknown>;
   const url = typeof l.url === "string" ? l.url.trim() : "";
   const label = typeof l.label === "string" ? l.label.trim() : "";
-  const r = cleanRelated("artifacts", [{ label, url }], { itemId: "", itemIds: [], teamIds: [] });
+  const r = cleanRelated("artifacts", [{ label, url, kind: l.kind }], { itemId: "", itemIds: [], teamIds: [] });
   if (!r.ok) return fail(r.error);
   if (r.value.length === 0) return fail("A link needs an url.");
   return { ok: true, link: r.value[0] as Link };
