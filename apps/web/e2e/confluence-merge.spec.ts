@@ -45,8 +45,8 @@ test("a conflict offers a merge; clashing blocks need a choice, and nothing is w
   await expect(page.getByText("Both sides changed since they were last in step.")).toBeVisible();
   await page.getByRole("button", { name: "Merge the two texts…" }).click();
   const dialog = page.getByRole("dialog", { name: /Merge the two texts/ });
-  await expect(dialog.getByText("2 changes merged on their own")).toBeVisible();
-  await expect(dialog.getByText("1 block needs your choice")).toBeVisible();
+  await expect(dialog.locator("strong", { hasText: "2 changes merged on their own" })).toBeVisible();
+  await expect(dialog.locator("strong", { hasText: "1 block needs your choice" })).toBeVisible();
   const confirm = dialog.getByRole("button", { name: "Confirm: save the merged text and update the page" });
   await expect(confirm).toBeDisabled();
   await expect(dialog.getByText("Risk: vendor delay.")).toBeVisible();
