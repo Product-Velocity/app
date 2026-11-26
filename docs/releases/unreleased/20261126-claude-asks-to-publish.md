@@ -1,4 +1,0 @@
----
-bump: minor
----
-**Ask Claude to publish a document to Confluence.** Claude can now ask for a document to be published to a Confluence page, in the same call that writes it or later: the document shows "Publish requested by Claude", and the Publish to Confluence dialog opens already filled in (space, parent page, title, once or kept in sync, and Claude's note). Claude never sends anything: you review the preview and confirm, or dismiss the request. Documents and the Claude tools also show which page a document is on and whether it is out of date. The note under a document's status no longer promises an approval for kinds that no decision gate approves (only the Discovery document and the PRD are approved at a gate). Migration `document_publish_requests` adds one table. Rows on the Spec tab (documents, files and links) now keep their "⋯" menu on the row when they carry several badges, and its list stays inside the window.
