@@ -235,7 +235,7 @@ test.describe("list fields", () => {
     await links.getByRole("button", { name: "Add link" }).click();
     await expect(links.getByRole("link", { name: "Design" })).toBeVisible();
     // one switch per link, in words
-    await expect(links.getByRole("button", { name: /Goes in at next send\..*Click to keep Design only in Product Velocity/ })).toBeVisible();
+    await expect(links.getByRole("button", { name: /Goes in with the issue\..*Click to keep Design only in Product Velocity/ })).toBeVisible();
     await links.getByRole("button", { name: /Click to keep Design only/ }).click();
     await expect(links.getByRole("button", { name: /Not in the GitHub issue\..*Click to include Design/ })).toBeVisible();
     await panel(page).getByRole("tab", { name: "Overview" }).click();
@@ -287,7 +287,7 @@ test.describe("tabs", () => {
   test("Spec (documents), GitHub and Alignment are honest empty states; an unlinked initiative says so on the GitHub tab", async ({ page }) => {
     await open(page, "n=40&item=R-04");
     await panel(page).getByRole("tab", { name: "Spec" }).click();
-    await expect(panel(page)).toContainText("Everything here goes into the GitHub issue as a link");
+    await expect(panel(page)).toContainText("Each entry goes into the GitHub issue description as a link");
     await panel(page).getByRole("tab", { name: "GitHub" }).click();
     await expect(panel(page)).toContainText("No GitHub issue is linked to this initiative yet");
     await panel(page).getByRole("tab", { name: "Alignment" }).click();

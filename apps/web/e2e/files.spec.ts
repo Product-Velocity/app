@@ -48,7 +48,7 @@ test.describe("Files on an initiative", () => {
     await field.locator('input[type="file"]').setInputFiles({ name: "mockup.png", mimeType: "image/png", buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0]) });
     const row = field.locator('[data-file="mockup.png"]');
     await expect(row.getByRole("link", { name: "mockup.png" })).toHaveAttribute("target", "_blank");
-    await expect(row.getByRole("button", { name: /Goes in at next send/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(row.getByRole("button", { name: /Goes in with the issue/ })).toHaveAttribute("aria-pressed", "true");
     await row.getByRole("button", { name: "Actions for mockup.png" }).click();
     await expect(row.getByRole("menuitem", { name: "Copy link" })).toBeVisible();
     await page.screenshot({ path: "../../docs/screenshots/files-share-link.png" });
@@ -64,13 +64,13 @@ test.describe("Files on an initiative", () => {
     const renamed = field.locator('[data-file="Checkout mockup.png"]');
     await expect(renamed.getByRole("link", { name: "Checkout mockup.png" })).toBeVisible();
     // do not share, then share again
-    await renamed.getByRole("button", { name: /Goes in at next send/ }).click();
+    await renamed.getByRole("button", { name: /Goes in with the issue/ }).click();
     await expect(renamed.getByRole("button", { name: /Not in the GitHub issue/ })).toHaveAttribute("aria-pressed", "false");
     await renamed.getByRole("button", { name: "Actions for Checkout mockup.png" }).click();
     await expect(renamed.getByRole("menuitem", { name: "Copy link" })).toHaveCount(0);
     await page.keyboard.press("Escape");
     await renamed.getByRole("button", { name: /Not in the GitHub issue/ }).click();
-    await expect(renamed.getByRole("button", { name: /Goes in at next send/ })).toBeVisible();
+    await expect(renamed.getByRole("button", { name: /Goes in with the issue/ })).toBeVisible();
     // remove (asks first)
     page.once("dialog", (d) => void d.accept());
     await renamed.getByRole("button", { name: "Actions for Checkout mockup.png" }).click();
