@@ -111,6 +111,7 @@ A customer connects Claude (claude.ai, the desktop app or Claude Code) to their 
 | `search_items`, `get_item`, `get_gate_pack`, `list_groups`, `list_views`, `list_files`, `get_github_status`, `get_outcome_reviews`, `draft_outcome_request` | read | all |
 | `create_items` (+ dry run) | write, flagged AI draft | creator, admin |
 | `add_link`, `add_file`, `request_jira_epics`, `record_outcome_review` (only numbers a person stated, with their words) | write (additive) | creator, admin |
+| `request_confluence_publish`, `withdraw_confluence_request` (a request only: a person previews and confirms in the app, Claude never sends) | write (replaces or removes a request) | creator, admin |
 | `set_relations`, `set_file_sharing`, `update_document`, `apply_prd_extract`, `update_company_profile`, `remove_link`, `remove_file` | write, annotated `destructiveHint: true` (they replace, remove or publish something), so Claude asks for confirmation | creator, admin |
 | `update_items` then `confirm_changes` | write after diff and confirmation | creator, admin |
 | `undo_last` | write | creator, admin |

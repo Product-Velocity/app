@@ -20,6 +20,9 @@ const UUID = /^[0-9a-f-]{36}$/i;
 const PUB_COLS = "id, page_id, page_url, page_title, space_key, site_id, sync_mode, published_version, remote_version, content_hash, published_at, unlinked_at, parent_page_id";
 type PubRow = { id: string; page_id: string; page_url: string; page_title: string; space_key: string; site_id: string; sync_mode: "once" | "sync"; published_version: number; remote_version: number | null; content_hash: string | null; published_at: string; unlinked_at: string | null; parent_page_id: string | null };
 const toLive = (r: PubRow): LivePublication => ({ id: r.id, pageId: r.page_id, pageUrl: r.page_url, spaceKey: r.space_key, syncMode: r.sync_mode, publishedVersion: r.published_version, remoteVersion: r.remote_version, contentHash: r.content_hash });
+const REQ_COLS = "space_key, parent_url, page_title, sync_mode, note, ai_model, created_via";
+type ReqRow = { space_key: string | null; parent_url: string | null; page_title: string | null; sync_mode: "once" | "sync"; note: string | null; ai_model: string | null; created_via: string };
+const toRequest = (r: ReqRow) => ({ mode: r.sync_mode, spaceKey: r.space_key, parentUrl: r.parent_url, title: r.page_title, note: r.note, requestedBy: r.created_via === "MCP" ? "Claude" : "a person", aiModel: r.ai_model });
 const toView = (r: PubRow, docVersion: number) => ({ id: r.id, pageUrl: r.page_url, pageTitle: r.page_title, spaceKey: r.space_key, syncMode: r.sync_mode, publishedVersion: r.published_version, publishedAt: r.published_at, linked: r.unlinked_at === null, outOfDate: r.unlinked_at === null && r.published_version < docVersion });
 
 /** The status a refusal gets: what the person must fix is 4xx, what Confluence could not do is 502. The words in `error` are for the person. */
@@ -72,7 +75,8 @@ export async function GET(request: Request, { params }: Ctx): Promise<NextRespon
   if (!c.ok) return c.error;
   const site = await confluenceSiteFor(c.doc.tenant_id);
   const last = await lastPublication(c.supabase, id);
-  const base = { canPublish: c.canPublish, available: Boolean(site), site: site ? { name: site.siteName, url: site.siteUrl } : null, last: last ? toView(last, c.doc.version) : null };
+  const { data: req } = await c.supabase.from("item_document_publish_requests").select(REQ_COLS).eq("document_id", id).maybeSingle();
+  const base = { request: req ? toRequest(req as ReqRow) : null, canPublish: c.canPublish, available: Boolean(site), site: site ? { name: site.siteName, url: site.siteUrl } : null, last: last ? toView(last, c.doc.version) : null };
   if (!site || new URL(request.url).searchParams.get("spaces") !== "1") return json(base);
   if (!c.canPublish) return json({ ...base, spaces: [] });
   const r = await listSpaces(confluenceRequest(site.connectionId, site.siteId));
@@ -89,7 +93,13 @@ export async function POST(request: Request, { params }: Ctx): Promise<NextRespo
   if (!c.ok) return c.error;
   if (!c.canPublish) return json({ error: "Only a Creator or Admin can publish a document to Confluence.", kind: "forbidden" }, 403);
   const b = (await request.json().catch(() => null)) as Body | null;
-  if (!b || !["preview", "publish", "unlink"].includes(String(b.action))) return json({ error: "Say what to do: preview, publish or unlink." }, 400);
+  if (!b || !["preview", "publish", "unlink", "dismiss"].includes(String(b.action))) return json({ error: "Say what to do: preview, publish, unlink or dismiss." }, 400);
+
+  // "dismiss" removes the open request to publish (made by a person or by Claude); it touches no page
+  if (b.action === "dismiss") {
+    const { error } = await c.supabase.from("item_document_publish_requests").delete().eq("document_id", id);
+    return error ? json({ error: `The request could not be removed: ${saveError(error)}.` }, 403) : json({ ok: true });
+  }
 
   if (b.action === "unlink") {
     const last = await lastPublication(c.supabase, id);
@@ -138,6 +148,8 @@ export async function POST(request: Request, { params }: Ctx): Promise<NextRespo
   }
   const done = await confirmPublish(deps, input);
   if (!done.ok) return json({ error: done.message, kind: done.kind }, statusFor(done.kind));
+  // the request (if any) is answered by a confirmed publish, so it no longer waits
+  await c.supabase.from("item_document_publish_requests").delete().eq("document_id", id);
   const now = await lastPublication(c.supabase, id);
   return json({ done, last: now ? toView(now, c.doc.version) : null });
 }

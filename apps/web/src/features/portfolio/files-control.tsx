@@ -126,6 +126,7 @@ export const FilesControl = forwardRef<FilesHandle, { itemId: string; disabled: 
                   : <a className="entry-name" href={`/api/files/${f.id}/view`} target="_blank" rel="noreferrer">{f.name}</a>}
                 <span className="entry-meta">{[f.mime === "application/pdf" ? "PDF" : f.mime?.replace("image/", "").toUpperCase(), f.size ? formatBytes(f.size) : null].filter(Boolean).join(" · ")}{copied === f.id ? " · Link copied" : ""}</span>
               </span>
+              <span className="entry-actions">
               <ShareChip shared={Boolean(f.shareUrl)} tracker={tracker} name={f.name} disabled={disabled} busy={busy} onToggle={(on) => void share(f, on)} />
               <RowMenu label={`Actions for ${f.name}`} items={[
                 { label: "Open", href: `/api/files/${f.id}/view` },
@@ -134,6 +135,7 @@ export const FilesControl = forwardRef<FilesHandle, { itemId: string; disabled: 
                 { label: "Rename", onSelect: () => setRenaming(f.id), hidden: disabled },
                 { label: "Remove", onSelect: () => void remove(f), danger: true, hidden: disabled },
               ]} />
+              </span>
             </li>
           );
         })}

@@ -53,6 +53,14 @@ export type McpDocuments = {
   update: (id: string, expectedVersion: number, patch: { kind?: string; title?: string; body?: string; status?: string; ai_model?: string | null }) => Promise<{ ok: true; doc: DocInfo } | { ok: false; reason: "missing" } | { ok: false; reason: "conflict"; current: DocInfo }>;
 };
 
+/** Asking for a document to be published to Confluence (issue #693 slice C). It records a request only: nothing is sent, and a person confirms in the app (CLAUDE.md rule 3). */
+export type McpPublishRequests = {
+  /** Records (or replaces) the open request of a document. Throws ToolInputError when the role or the database refuses. */
+  set: (doc: { id: string; itemId: string }, request: { mode: "once" | "sync"; spaceKey: string | null; parentUrl: string | null; title: string | null; note: string | null; aiModel: string | null }) => Promise<void>;
+  /** Removes the open request of a document; false when there was none. */
+  withdraw: (documentId: string) => Promise<boolean>;
+};
+
 /** The company profile, as the signed-in person. Confirming it is never offered here: only a workspace admin does, in the app. */
 export type McpProfile = {
   /** Saves the first profile as a draft. Throws ToolInputError when it already exists or the role refuses. */
@@ -76,6 +84,7 @@ export type McpWriter = {
   undo: () => Promise<UndoResult>;
   files: McpFiles;
   documents: McpDocuments;
+  publishRequests: McpPublishRequests;
   profile: McpProfile;
   epics: McpEpics;
   outcomes: McpOutcomes;

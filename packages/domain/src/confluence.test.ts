@@ -121,3 +121,25 @@ describe("what a publish does", () => {
     expect(planPublish({ published, docVersion: 3, bodyHash: "h2", remote: null }).action).toBe("update");
   });
 });
+
+describe("a request to publish", () => {
+  it("defaults to keeping the page in sync, and leaves out what was not given", async () => {
+    const { checkPublishRequest } = await import("./confluence");
+    expect(checkPublishRequest({})).toEqual({ ok: true, value: { mode: "sync", spaceKey: null, parentUrl: null, title: null, note: null, aiModel: null } });
+    expect(checkPublishRequest({ mode: "once", space_key: "GTM", parent_url: "https://acme.atlassian.net/wiki/spaces/GTM/pages/42/Plans", title: "  Go-to-market  ", note: "Ready for the team\n", ai_model: "Claude Sonnet 5.5" }))
+      .toEqual({ ok: true, value: { mode: "once", spaceKey: "GTM", parentUrl: "https://acme.atlassian.net/wiki/spaces/GTM/pages/42/Plans", title: "Go-to-market", note: "Ready for the team", aiModel: "Claude Sonnet 5.5" } });
+  });
+  it("refuses a space name, a parent that is not a page address, an unknown mode and text that is too long, in words for Claude", async () => {
+    const { checkPublishRequest } = await import("./confluence");
+    expect(checkPublishRequest({ space_key: "Go to market" })).toMatchObject({ ok: false, error: expect.stringContaining("short key") });
+    expect(checkPublishRequest({ parent_url: "https://acme.atlassian.net/wiki/x/short" })).toMatchObject({ ok: false, error: expect.stringContaining("/pages/12345/") });
+    expect(checkPublishRequest({ parent_url: "javascript:alert(1)" })).toMatchObject({ ok: false });
+    expect(checkPublishRequest({ mode: "sometimes" })).toMatchObject({ ok: false, error: expect.stringContaining('"sync"') });
+    expect(checkPublishRequest({ note: "x".repeat(501) })).toMatchObject({ ok: false, error: expect.stringContaining("500") });
+    expect(checkPublishRequest({ title: 5 })).toMatchObject({ ok: false });
+  });
+  it("control characters in the note are flattened (it is shown to people as plain text)", async () => {
+    const { checkPublishRequest } = await import("./confluence");
+    expect(checkPublishRequest({ note: "a\u0000b\nc" })).toMatchObject({ ok: true, value: { note: "a b c" } });
+  });
+});
