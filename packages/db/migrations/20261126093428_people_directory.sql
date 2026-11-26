@@ -16,7 +16,7 @@
 -- people
 -- ---------------------------------------------------------------------------
 create table public.people (
-  id uuid primary key default gen_random_uuid(),
+  id uuid not null default gen_random_uuid(),
   tenant_id uuid not null references public.tenants (id) on delete cascade,
   -- a member's name comes from their account; this is the name typed for someone without one (kept if they leave)
   name text check (name is null or char_length(btrim(name)) between 1 and 120),
@@ -27,8 +27,9 @@ create table public.people (
   updated_at timestamptz not null default now(),
   created_by uuid references auth.users (id) on delete set null,
   created_via text not null default 'system'
-    check (created_via in ('UI', 'API', 'Claude MCP', 'GitHub webhook', 'import', 'system')),
-  unique (tenant_id, id),
+    check (created_via in ('UI', 'API', 'MCP', 'GitHub webhook', 'import', 'system')),
+  -- the same account can be a member of several workspaces, and a member's person id is their user id: the id is unique per workspace
+  primary key (tenant_id, id),
   unique (tenant_id, user_id)
 );
 create unique index people_email_unique on public.people (tenant_id, email) where email is not null;
@@ -42,6 +43,10 @@ create trigger people_meta before insert or update on public.people
   for each row execute function public.set_write_meta();
 create trigger people_audit after insert or update or delete on public.people
   for each row execute function public.audit_row();
+create trigger a_platform_readonly_guard before insert or update or delete on public.people
+  for each row execute function platform.readonly_guard();
+create trigger b_platform_suspended_guard before insert or update or delete on public.people
+  for each row execute function platform.suspended_guard();
 
 alter table public.people enable row level security;
 -- the table itself is for admins; everyone else reads names through people_directory()
@@ -173,14 +178,14 @@ end $$;
 revoke all on function public.add_person(uuid, text, text) from public, anon;
 grant execute on function public.add_person(uuid, text, text) to authenticated;
 
-create function public.update_person(p_id uuid, p_name text, p_email text) returns void
+create function public.update_person(p_tenant uuid, p_id uuid, p_name text, p_email text) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
   p public.people;
   v_name text := btrim(coalesce(p_name, ''));
   v_email text := nullif(lower(btrim(coalesce(p_email, ''))), '');
 begin
-  select * into p from public.people where id = p_id;
+  select * into p from public.people where tenant_id = p_tenant and id = p_id;
   if not found or auth.uid() is null or p.tenant_id <> all (array (select public.my_editor_tenant_ids())) then
     raise exception 'person not found' using errcode = '42501';
   end if;
@@ -195,26 +200,26 @@ begin
       raise exception 'Someone with that email is on the list already' using errcode = 'PV006';
     end if;
   end if;
-  update public.people set name = v_name, email = v_email where id = p_id;
+  update public.people set name = v_name, email = v_email where tenant_id = p_tenant and id = p_id;
 end $$;
-revoke all on function public.update_person(uuid, text, text) from public, anon;
-grant execute on function public.update_person(uuid, text, text) to authenticated;
+revoke all on function public.update_person(uuid, uuid, text, text) from public, anon;
+grant execute on function public.update_person(uuid, uuid, text, text) to authenticated;
 
 -- an admin removes a name nobody should use any more; it is cleared from the initiatives that carry it (the foreign keys set them null)
-create function public.remove_person(p_id uuid) returns void
+create function public.remove_person(p_tenant uuid, p_id uuid) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
   p public.people;
 begin
-  select * into p from public.people where id = p_id;
+  select * into p from public.people where tenant_id = p_tenant and id = p_id;
   if not found or auth.uid() is null or p.tenant_id <> all (array (select public.my_admin_tenant_ids())) then
     raise exception 'person not found' using errcode = '42501';
   end if;
   if p.user_id is not null then raise exception 'A member is removed from Members, not from the list of names' using errcode = 'PV006'; end if;
-  delete from public.people where id = p_id;
+  delete from public.people where tenant_id = p_tenant and id = p_id;
 end $$;
-revoke all on function public.remove_person(uuid) from public, anon;
-grant execute on function public.remove_person(uuid) to authenticated;
+revoke all on function public.remove_person(uuid, uuid) from public, anon;
+grant execute on function public.remove_person(uuid, uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- request_outcome_review (replaced, same signature): the review goes to the account behind the Product Manager person

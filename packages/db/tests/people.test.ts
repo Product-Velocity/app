@@ -65,15 +65,15 @@ describe("naming someone who is not a member", () => {
   it("a viewer cannot add, rename or remove a person", async () => {
     expect(await errorCode(add(f.carol, f.tenantA, "Nope"))).toBe("42501");
     const id = await add(editor, f.tenantA, "Kept");
-    expect(await errorCode(db.asUser(f.carol, (q) => q("select public.update_person($1, 'x', null)", [id])))).toBe("42501");
-    expect(await errorCode(db.asUser(f.carol, (q) => q("select public.remove_person($1)", [id])))).toBe("42501");
+    expect(await errorCode(db.asUser(f.carol, (q) => q("select public.update_person($1, $2, 'x', null)", [f.tenantA, id])))).toBe("42501");
+    expect(await errorCode(db.asUser(f.carol, (q) => q("select public.remove_person($1, $2)", [f.tenantA, id])))).toBe("42501");
   });
 
   it("a creator cannot remove a person; an admin can, and the initiatives that named them are cleared", async () => {
     const id = await add(editor, f.tenantA, "Short Stay");
     await db.admin.query("update public.items set engineering_manager = $1 where id = $2", [id, f.seedA.items[0]]);
-    expect(await errorCode(db.asUser(editor, (q) => q("select public.remove_person($1)", [id])))).toBe("42501");
-    await db.asUser(f.alice, (q) => q("select public.remove_person($1)", [id]), { commit: true });
+    expect(await errorCode(db.asUser(editor, (q) => q("select public.remove_person($1, $2)", [f.tenantA, id])))).toBe("42501");
+    await db.asUser(f.alice, (q) => q("select public.remove_person($1, $2)", [f.tenantA, id]), { commit: true });
     const { rows } = await db.admin.query("select engineering_manager from public.items where id = $1", [f.seedA.items[0]]);
     expect(rows[0].engineering_manager).toBeNull();
   });
@@ -93,11 +93,11 @@ describe("naming someone who is not a member", () => {
 
   it("a person can be renamed and given an email, but a member's own row is refused", async () => {
     const id = await add(editor, f.tenantA, "Typo Nmae");
-    await db.asUser(editor, (q) => q("select public.update_person($1, 'Typo Name', 'typo@example.test')", [id]), { commit: true });
+    await db.asUser(editor, (q) => q("select public.update_person($1, $2, 'Typo Name', 'typo@example.test')", [f.tenantA, id]), { commit: true });
     const row = (await dir(editor, f.tenantA)).find((r) => r.person_id === id)!;
     expect([row.name, row.email]).toEqual(["Typo Name", "typo@example.test"]);
-    expect(await errorCode(db.asUser(editor, (q) => q("select public.update_person($1, 'x', null)", [f.carol])))).toBe("PV006");
-    expect(await errorCode(db.asUser(editor, (q) => q("select public.remove_person($1)", [f.carol])))).toBe("42501"); // admins only, and never a member
+    expect(await errorCode(db.asUser(editor, (q) => q("select public.update_person($1, $2, 'x', null)", [f.tenantA, f.carol])))).toBe("PV006");
+    expect(await errorCode(db.asUser(editor, (q) => q("select public.remove_person($1, $2)", [f.tenantA, f.carol])))).toBe("42501"); // admins only, and never a member
   });
 
   it("the table has no direct write path for signed-in users and only admins can read it", async () => {
@@ -237,8 +237,8 @@ describe("people_usage and link_person (slice 2)", () => {
     const joined = await createUser(db, "private@example.test");
     await addMember(db, f.alice, f.tenantA, joined, "viewer");
     await db.admin.query("update public.items set engineering_manager = $1, analyst = $1 where id = $2", [id, f.seedA.items[0]]);
-    expect(await errorCode(db.asUser(editor, (q) => q("select public.link_person($1, $2)", [id, joined])))).toBe("42501"); // admins only
-    await db.asUser(f.alice, (q) => q("select public.link_person($1, $2)", [id, joined]), { commit: true });
+    expect(await errorCode(db.asUser(editor, (q) => q("select public.link_person($1, $2, $3)", [f.tenantA, id, joined])))).toBe("42501"); // admins only
+    await db.asUser(f.alice, (q) => q("select public.link_person($1, $2, $3)", [f.tenantA, id, joined]), { commit: true });
     const { rows } = await db.admin.query("select engineering_manager, analyst from public.items where id = $1", [f.seedA.items[0]]);
     expect(rows[0]).toEqual({ engineering_manager: joined, analyst: joined });
     expect((await db.admin.query("select 1 from public.people where id = $1", [id])).rows).toHaveLength(0);
@@ -246,8 +246,27 @@ describe("people_usage and link_person (slice 2)", () => {
 
   it("refuses to link to someone who is not an active member of the workspace, or a person who has an account", async () => {
     const id = await add(editor, f.tenantA, "Nobody Yet");
-    expect(await errorCode(db.asUser(f.alice, (q) => q("select public.link_person($1, $2)", [id, f.bob])))).toBe("PV006"); // a member of another workspace
-    expect(await errorCode(db.asUser(f.alice, (q) => q("select public.link_person($1, $2)", [f.carol, f.carol])))).toBe("PV006"); // a member is already a person with an account
-    expect(await errorCode(db.asUser(f.bob, (q) => q("select public.link_person($1, $2)", [id, f.bob])))).toBe("42501"); // another workspace's admin
+    expect(await errorCode(db.asUser(f.alice, (q) => q("select public.link_person($1, $2, $3)", [f.tenantA, id, f.bob])))).toBe("PV006"); // a member of another workspace
+    expect(await errorCode(db.asUser(f.alice, (q) => q("select public.link_person($1, $2, $3)", [f.tenantA, f.carol, f.carol])))).toBe("PV006"); // a member is already a person with an account
+    expect(await errorCode(db.asUser(f.bob, (q) => q("select public.link_person($1, $2, $3)", [f.tenantA, id, f.bob])))).toBe("42501"); // another workspace's admin
+  });
+});
+
+describe("the same account in two workspaces", () => {
+  it("has a person in each, with the same id, and what happens in one never touches the other", async () => {
+    const consultant = await createUser(db, "consultant@example.test");
+    await addMember(db, f.alice, f.tenantA, consultant, "viewer");
+    await addMember(db, f.bob, f.tenantB, consultant, "viewer");
+    const rows = (await db.admin.query("select tenant_id, id, user_id from public.people where id = $1 order by tenant_id", [consultant])).rows;
+    expect(rows).toHaveLength(2);
+    expect(new Set(rows.map((r) => r.tenant_id))).toEqual(new Set([f.tenantA, f.tenantB]));
+    // leaving one workspace turns only that person into a name
+    await db.admin.query("delete from public.tenant_members where tenant_id = $1 and user_id = $2", [f.tenantA, consultant]);
+    const after = (await db.admin.query("select tenant_id, user_id from public.people where id = $1", [consultant])).rows;
+    expect(after.find((r) => r.tenant_id === f.tenantA)!.user_id).toBeNull();
+    expect(after.find((r) => r.tenant_id === f.tenantB)!.user_id).toBe(consultant);
+    // renaming the name-only person in A, by id, cannot reach the one in B
+    await db.asUser(editor, (q) => q("select public.update_person($1, $2, 'Renamed In A', null)", [f.tenantA, consultant]), { commit: true });
+    expect((await db.admin.query("select name from public.people where tenant_id = $1 and id = $2", [f.tenantB, consultant])).rows[0].name).toBeNull();
   });
 });

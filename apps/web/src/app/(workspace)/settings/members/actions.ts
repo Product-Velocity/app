@@ -41,7 +41,7 @@ export async function createInvitation(_prev: InviteState, form: FormData): Prom
     const person = ((dir ?? []) as { person_id: string; name: string; email: string | null; user_id: string | null }[]).find((p) => p.person_id === personId && !p.user_id);
     if (!person) return { error: "That person is no longer on the list." };
     if ((person.email ?? "").toLowerCase() !== input.email) {
-      const { error: e } = await supabase.rpc("update_person", { p_id: personId, p_name: person.name, p_email: input.email });
+      const { error: e } = await supabase.rpc("update_person", { p_tenant: active.tenantId, p_id: personId, p_name: person.name, p_email: input.email });
       if (e) return { error: personError(e) };
     }
   }
@@ -88,8 +88,8 @@ export async function addPerson(name: string, email: string): Promise<SaveResult
 }
 
 export async function updatePerson(id: string, name: string, email: string): Promise<SaveResult> {
-  const { supabase } = await requireWorkspace(PATH);
-  const { error } = await supabase.rpc("update_person", { p_id: id, p_name: name, p_email: email.trim() || null });
+  const { supabase, active } = await requireWorkspace(PATH);
+  const { error } = await supabase.rpc("update_person", { p_tenant: active.tenantId, p_id: id, p_name: name, p_email: email.trim() || null });
   if (error) return { ok: false, error: personError(error) };
   revalidatePath(PATH);
   return { ok: true };
@@ -97,8 +97,8 @@ export async function updatePerson(id: string, name: string, email: string): Pro
 
 /** Admins only. The initiatives that name the person are cleared. */
 export async function removePerson(id: string): Promise<SaveResult> {
-  const { supabase } = await requireWorkspace(PATH);
-  const { error } = await supabase.rpc("remove_person", { p_id: id });
+  const { supabase, active } = await requireWorkspace(PATH);
+  const { error } = await supabase.rpc("remove_person", { p_tenant: active.tenantId, p_id: id });
   if (error) return { ok: false, error: personError(error) };
   revalidatePath(PATH);
   return { ok: true };
@@ -106,8 +106,8 @@ export async function removePerson(id: string): Promise<SaveResult> {
 
 /** Admins only. The person joined with another address: everything that named them now names that member. */
 export async function linkPerson(personId: string, userId: string): Promise<SaveResult> {
-  const { supabase } = await requireWorkspace(PATH);
-  const { error } = await supabase.rpc("link_person", { p_person: personId, p_user: userId });
+  const { supabase, active } = await requireWorkspace(PATH);
+  const { error } = await supabase.rpc("link_person", { p_tenant: active.tenantId, p_person: personId, p_user: userId });
   if (error) return { ok: false, error: personError(error) };
   revalidatePath(PATH);
   return { ok: true };

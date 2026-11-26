@@ -18,13 +18,13 @@ $$;
 revoke all on function public.people_usage(uuid) from public, anon;
 grant execute on function public.people_usage(uuid) to authenticated;
 
-create function public.link_person(p_person uuid, p_user uuid) returns void
+create function public.link_person(p_tenant uuid, p_person uuid, p_user uuid) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
   p public.people;
   v_target uuid;
 begin
-  select * into p from public.people where id = p_person;
+  select * into p from public.people where tenant_id = p_tenant and id = p_person;
   if not found or auth.uid() is null or p.tenant_id <> all (array (select public.my_admin_tenant_ids())) then
     raise exception 'person not found' using errcode = '42501';
   end if;
@@ -38,7 +38,7 @@ begin
   update public.items set designer = v_target where tenant_id = p.tenant_id and designer = p.id;
   update public.items set analyst = v_target where tenant_id = p.tenant_id and analyst = p.id;
   update public.items set business_manager = v_target where tenant_id = p.tenant_id and business_manager = p.id;
-  delete from public.people where id = p.id;
+  delete from public.people where tenant_id = p.tenant_id and id = p.id;
 end $$;
-revoke all on function public.link_person(uuid, uuid) from public, anon;
-grant execute on function public.link_person(uuid, uuid) to authenticated;
+revoke all on function public.link_person(uuid, uuid, uuid) from public, anon;
+grant execute on function public.link_person(uuid, uuid, uuid) to authenticated;

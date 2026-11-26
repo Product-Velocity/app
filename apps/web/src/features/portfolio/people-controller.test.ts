@@ -106,3 +106,20 @@ describe('"me" in filters', () => {
     expect(c.mePerson()).toBe("u1");
   });
 });
+
+describe("reports and splits by a person named without an account", () => {
+  it("count initiatives per person id, and the report names them from the people list", async () => {
+    const { shareOf, stackCounts } = await import("@pv/domain");
+    const { lookups } = setup();
+    const rows = [
+      { product_manager: "pe1", engineering_manager: "u1", initiative_phase: "Build" },
+      { product_manager: "pe1", engineering_manager: null, initiative_phase: "Define" },
+      { product_manager: "u1", engineering_manager: "pe1", initiative_phase: "Build" },
+    ] as never[];
+    const share = shareOf(rows, "product_manager");
+    expect(Object.fromEntries(share.map((s: { key: string; count: number }) => [s.key, s.count]))).toEqual({ pe1: 2, u1: 1 });
+    expect(share.map((s: { key: string }) => personName(lookups, s.key))).toEqual(expect.arrayContaining(["Jane Doe", "ana@example.test"]));
+    const stacked = stackCounts(rows, "product_manager", "initiative_phase");
+    expect(JSON.stringify(stacked)).toContain("pe1");
+  });
+});
