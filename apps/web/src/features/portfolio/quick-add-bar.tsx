@@ -4,7 +4,7 @@ import { useId, useMemo, useState, type RefObject } from "react";
 import { formatDate, parseQuickAdd, parseQuickAddList, QUICK_ADD_TOKENS, similarItems, type QuickAddCtx, type QuickAddResult } from "@pv/domain";
 import type { PortfolioController } from "./controller";
 import type { Lookups } from "./types";
-import { peopleOf, personName } from "./people";
+import { personName, selectablePeople } from "./people";
 
 type Props = { controller: PortfolioController; lookups: Lookups; contextProject: string | null; inputRef: RefObject<HTMLInputElement | null> };
 
@@ -37,7 +37,7 @@ export function QuickAddBar({ controller, lookups, contextProject, inputRef }: P
   const [lastProject, setLastProject] = useState<string | null>(null);
   const hintId = useId();
   const ctx = useMemo<QuickAddCtx>(
-    () => ({ projects: lookups.projects, people: peopleOf(lookups), defaultProject: contextProject ?? lastProject, groups: controller.groupNames(), today }),
+    () => ({ projects: lookups.projects, people: selectablePeople(lookups), defaultProject: contextProject ?? lastProject, groups: controller.groupNames(), today }),
     // the group list grows as groups are typed, so it is read again when the text changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [lookups, contextProject, lastProject, controller, text, today],

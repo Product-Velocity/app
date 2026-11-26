@@ -14,7 +14,7 @@ import { LinksList } from "./links-list";
 import { initiativeListText } from "./jira-epics-model";
 import { MarkdownPreview } from "./markdown-preview";
 import type { GridItem, Lookups } from "./types";
-import { peopleOf, personOptions } from "./people";
+import { peopleOf, personName, personOptions } from "./people";
 
 export type FieldCtx = { controller: PortfolioController; lookups: Lookups };
 
@@ -147,7 +147,7 @@ function SelectControl({ id, f, row, ctx, disabled, onError, kind }: Common & { 
   const current = kind === "boolean" ? (row[f.key] == null ? "" : row[f.key] ? "Yes" : "No") : row[f.key] == null ? "" : String(row[f.key]);
   const empty = kind === "project" ? false : canBeEmpty(f.key);
   const blank = empty ? (kind === "person" ? "Unassigned" : "Not set") : current === "" ? "Choose…" : undefined;
-  const all = current !== "" && !options.some((o) => o.value === current) ? [...options, { value: current, label: current }] : options;
+  const all = current !== "" && !options.some((o) => o.value === current) ? [...options, { value: current, label: kind === "person" ? personName(ctx.lookups, current, current) : current }] : options;
   return (
     <>
       <SelectField

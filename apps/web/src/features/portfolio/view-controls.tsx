@@ -18,7 +18,7 @@ export function valueControl(f: Filter, lookups: Lookups, today: Date, patch: (p
   const label = `Value for ${def.name}`;
   let options: { value: string; label: string }[] | null = null;
   if (def.key === "home_project") options = lookups.projects.map((p) => ({ value: p.id, label: p.name }));
-  else if (def.type === "Person") options = [{ value: "me", label: "me" }, ...personOptions(lookups)];
+  else if (def.type === "Person") options = [{ value: "me", label: "me" }, ...personOptions(lookups, { all: true })];
   else if (def.type === "Boolean") options = [{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }];
   else if (def.type === "Select" && def.allowed.length > 0) options = optionsFor(def.key, quarters);
   else if (isOpenList(def.key)) options = (openValues?.(def.key) ?? []).map((v) => ({ value: v, label: v })); // the values in use (Focus Area, Audience)

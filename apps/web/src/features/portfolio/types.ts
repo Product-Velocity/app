@@ -20,7 +20,9 @@ export type JiraLinkInfo = { mode: "push" | "follow"; issueKey: string; url: str
   buildStartedAt?: string | null; buildCompletedAt?: string | null; buildDays?: number | null };
 
 /** One entry of the people directory: `id` is what a person field stores. A member's id is their user id. */
-export type LookupPerson = { id: string; name: string; email: string | null; status: "active" | "invited" | "not_invited"; userId: string | null };
+/** active, invited and not_invited can be chosen; a member who is paused, revoked or only asked for access (issue #698) keeps their name on the initiatives they are on but is not offered. */
+export type PersonStatus = "active" | "invited" | "not_invited" | "paused" | "revoked" | "requested";
+export type LookupPerson = { id: string; name: string; email: string | null; status: PersonStatus; userId: string | null };
 
 export type Lookups = {
   projects: { id: string; name: string }[];

@@ -23,7 +23,7 @@ function choicesFor(field: string, lookups: Lookups, quarters: Iterable<unknown>
   const def = FIELD_BY_KEY[field];
   if (!def) return [];
   if (def.key === "home_project") return lookups.projects.map((p) => ({ value: p.id, label: p.name }));
-  if (def.type === "Person") return [{ value: "me", label: "me" }, ...personOptions(lookups)];
+  if (def.type === "Person") return [{ value: "me", label: "me" }, ...personOptions(lookups, { all: true })];
   if (isOpenList(def.key)) return (openValues?.(def.key) ?? []).map((v) => ({ value: v, label: v }));
   return optionsFor(def.key, quarters);
 }

@@ -270,3 +270,27 @@ describe("the same account in two workspaces", () => {
     expect((await db.admin.query("select name from public.people where tenant_id = $1 and id = $2", [f.tenantB, consultant])).rows[0].name).toBeNull();
   });
 });
+
+describe("paused, revoked and requested members keep their name (issue #698)", () => {
+  it("are in the directory with their status, and a name that is still on an initiative resolves", async () => {
+    const out: Record<string, string> = {};
+    for (const status of ["paused", "revoked", "requested"]) {
+      const u = await createUser(db, `${status}@example.test`);
+      await addMember(db, f.alice, f.tenantA, u, "viewer");
+      await db.admin.query("update public.tenant_members set status = $1 where tenant_id = $2 and user_id = $3", [status, f.tenantA, u]);
+      out[status] = u;
+    }
+    await db.admin.query("update public.items set engineering_manager = $1 where id = $2", [out.paused, f.seedA.items[0]]);
+    const rows = await dir(f.carol, f.tenantA);
+    for (const [status, u] of Object.entries(out)) expect(rows.find((r) => r.person_id === u), status).toMatchObject({ status, email: `${status}@example.test`, user_id: u });
+    // an active member and a named person are as before
+    expect(rows.find((r) => r.person_id === f.carol)!.status).toBe("active");
+    // a paused member has no access, but is still a name
+    expect((await db.admin.query("select engineering_manager from public.items where id = $1", [f.seedA.items[0]])).rows[0].engineering_manager).toBe(out.paused);
+  });
+
+  it("another workspace sees none of them", async () => {
+    expect((await dir(f.bob, f.tenantB)).some((r) => String(r.email).startsWith("paused@"))).toBe(false);
+  });
+});
+

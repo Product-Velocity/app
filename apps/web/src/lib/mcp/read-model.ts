@@ -5,7 +5,8 @@
 import { claudeAllowances, FIELD_BY_KEY, type ProfileSections, type ProfileSummary, type SearchNames, type SearchRow } from "@pv/domain";
 import { OUTBOUND_READ_FIELDS } from "@pv/github";
 
-export type Member = { id: string; name: string; role: string };
+/** `inactive`: a member who is paused, revoked or only asked for access. Claude reads their name but is not offered them to set. */
+export type Member = { id: string; name: string; role: string; inactive?: boolean };
 export type WorkspaceContext = {
   workspace: { id: string; name: string };
   you: { id: string; role: string; may: string[]; may_not: string[] };

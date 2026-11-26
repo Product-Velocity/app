@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { explainDbError, isSchemaDrift } from "@/lib/db-error";
-import type { Lookups } from "./types";
+import type { Lookups, PersonStatus } from "./types";
 
 /** What the grid and the item panel need besides the items: projects, people, Initiative Groups and teams of the workspace. */
 export async function loadLookups(supabase: SupabaseClient, tenantId: string): Promise<Lookups> {
@@ -38,9 +38,9 @@ export async function loadLookups(supabase: SupabaseClient, tenantId: string): P
     },
     trackers: { jira: ((jira.data ?? []) as unknown[]).length > 0, projectTracker: Object.fromEntries(((projects.data ?? []) as { id: string; tracker?: "github" | "jira" | null }[]).map((p) => [p.id, p.tracker ?? null])), jiraReadOnly: readOnlyLinks.error ? [] : ((readOnlyLinks.data ?? []) as { project_id: string }[]).map((r) => r.project_id) },
     // who a person field can name: the members and the people named without an account (a database without the directory simply has the members)
-    people: directory.error ? undefined : ((directory.data ?? []) as { person_id: string; user_id: string | null; name: string; email: string | null; status: "active" | "invited" | "not_invited" }[])
+    people: directory.error ? undefined : ((directory.data ?? []) as { person_id: string; user_id: string | null; name: string; email: string | null; status: PersonStatus }[])
       // a member shows as their email (as before); someone named without an account as the name that was typed
-      .map((p) => ({ id: p.person_id, name: p.status === "active" ? p.email ?? p.name : p.name, email: p.email, status: p.status, userId: p.user_id })),
+      .map((p) => ({ id: p.person_id, name: p.user_id ? p.email ?? p.name : p.name, email: p.email, status: p.status, userId: p.user_id })),
     mePerson: directory.error ? null : ((directory.data ?? []) as { person_id: string; is_me: boolean }[]).find((p) => p.is_me)?.person_id ?? null,
     members: ((people.data ?? []) as { user_id: string; email: string }[]).map((p) => ({ user_id: p.user_id, email: p.email, github_username: githubName.get(p.user_id) ?? null })),
     groups: ((groups.data ?? []) as { name: string }[]).map((g) => g.name),
