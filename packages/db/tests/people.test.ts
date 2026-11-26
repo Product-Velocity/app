@@ -220,3 +220,34 @@ describe("outcome reviews go to the account behind the Product Manager", () => {
     expect(rows[0].requested_to).toBe(pm);
   });
 });
+
+describe("people_usage and link_person (slice 2)", () => {
+  it("counts the initiatives that name a person without an account, once per initiative, for editors only", async () => {
+    const id = await add(editor, f.tenantA, "Counted");
+    await db.admin.query("update public.items set owner_user_id = $1, engineering_manager = $1 where id = $2", [id, f.seedA.items[0]]);
+    await db.admin.query("update public.items set designer = $1 where id = $2", [id, f.seedA.items[1]]);
+    const usage = (userId: string) => db.asUser(userId, async (q) => (await q("select * from public.people_usage($1)", [f.tenantA])).rows);
+    expect((await usage(editor)).find((r) => r.person_id === id)).toMatchObject({ initiatives: 2 });
+    expect(await usage(f.carol)).toEqual([]); // a viewer sees none
+    expect(await db.asUser(f.bob, async (q) => (await q("select * from public.people_usage($1)", [f.tenantA])).rows)).toEqual([]);
+  });
+
+  it("an admin links a named person to a member with another email: what named the person now names the member", async () => {
+    const id = await add(editor, f.tenantA, "Other Address", "work@example.test");
+    const joined = await createUser(db, "private@example.test");
+    await addMember(db, f.alice, f.tenantA, joined, "viewer");
+    await db.admin.query("update public.items set engineering_manager = $1, analyst = $1 where id = $2", [id, f.seedA.items[0]]);
+    expect(await errorCode(db.asUser(editor, (q) => q("select public.link_person($1, $2)", [id, joined])))).toBe("42501"); // admins only
+    await db.asUser(f.alice, (q) => q("select public.link_person($1, $2)", [id, joined]), { commit: true });
+    const { rows } = await db.admin.query("select engineering_manager, analyst from public.items where id = $1", [f.seedA.items[0]]);
+    expect(rows[0]).toEqual({ engineering_manager: joined, analyst: joined });
+    expect((await db.admin.query("select 1 from public.people where id = $1", [id])).rows).toHaveLength(0);
+  });
+
+  it("refuses to link to someone who is not an active member of the workspace, or a person who has an account", async () => {
+    const id = await add(editor, f.tenantA, "Nobody Yet");
+    expect(await errorCode(db.asUser(f.alice, (q) => q("select public.link_person($1, $2)", [id, f.bob])))).toBe("PV006"); // a member of another workspace
+    expect(await errorCode(db.asUser(f.alice, (q) => q("select public.link_person($1, $2)", [f.carol, f.carol])))).toBe("PV006"); // a member is already a person with an account
+    expect(await errorCode(db.asUser(f.bob, (q) => q("select public.link_person($1, $2)", [id, f.bob])))).toBe("42501"); // another workspace's admin
+  });
+});

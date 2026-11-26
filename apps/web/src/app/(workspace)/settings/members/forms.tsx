@@ -8,10 +8,10 @@ import { createInvitation, resendInvitation, type InviteState } from "./actions"
  * Invite someone in two steps: fill in, then review. Nothing is sent until the admin confirms in the review: "Send invitation email"
  * emails the link, "Create link only" emails nothing and shows the link to copy.
  */
-export function InviteForm({ workspaceName, emailEnabled }: { workspaceName: string; emailEnabled: boolean }) {
+export function InviteForm({ workspaceName, emailEnabled, defaultEmail = "", personId }: { workspaceName: string; emailEnabled: boolean; /** Inviting someone who is already on the people list: their address, and their id so the address is kept on them. */ defaultEmail?: string; personId?: string }) {
   const [state, action, pending] = useActionState<InviteState, FormData>(createInvitation, null);
   const [step, setStep] = useState<"edit" | "review">("edit");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(defaultEmail);
   const [role, setRole] = useState<Role>("creator");
   const [approver, setApprover] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -25,6 +25,7 @@ export function InviteForm({ workspaceName, emailEnabled }: { workspaceName: str
     <div className="stack">
       <form ref={formRef} action={(f) => { action(f); setStep("edit"); }} className={step === "edit" ? "row-form" : "stack"}>
         <input type="hidden" name="email" value={email} />
+        {personId && <input type="hidden" name="person_id" value={personId} />}
         <input type="hidden" name="role" value={role} />
         {approver && <input type="hidden" name="is_approver" value="on" />}
         {step === "edit" ? (

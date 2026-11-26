@@ -34,6 +34,18 @@ export async function createInvitation(_prev: InviteState, form: FormData): Prom
     return { error: "That person is already a member." };
   }
 
+  // inviting someone who was named before they had an account: keep the address on that person, so they are linked when they join
+  const personId = form.get("person_id");
+  if (typeof personId === "string" && personId) {
+    const { data: dir } = await supabase.rpc("people_directory", { p_tenant: active.tenantId });
+    const person = ((dir ?? []) as { person_id: string; name: string; email: string | null; user_id: string | null }[]).find((p) => p.person_id === personId && !p.user_id);
+    if (!person) return { error: "That person is no longer on the list." };
+    if ((person.email ?? "").toLowerCase() !== input.email) {
+      const { error: e } = await supabase.rpc("update_person", { p_id: personId, p_name: person.name, p_email: input.email });
+      if (e) return { error: personError(e) };
+    }
+  }
+
   const token = generateInviteToken();
   const { data: created, error } = await supabase.from("invitations").insert({
     tenant_id: active.tenantId,
@@ -57,6 +69,48 @@ export async function createInvitation(_prev: InviteState, form: FormData): Prom
   }
   revalidatePath(PATH);
   return { link, email: input.email, ...(result ? { emailed: result.emailed, emailNote: result.note } : {}) };
+}
+
+/** The words of a refused people function: our own messages (PV005, PV006) are written for the person, anything else is not. */
+function personError(e: { code?: string; message?: string }): string {
+  if (e.code === "PV005" || e.code === "PV006") return e.message ?? "Could not save.";
+  if (e.code === "42501") return "You cannot change the people list in this workspace.";
+  return "Could not save.";
+}
+
+/** Name someone who is not a member (yet). Nothing is sent to them. */
+export async function addPerson(name: string, email: string): Promise<SaveResult> {
+  const { supabase, active } = await requireWorkspace(PATH);
+  const { error } = await supabase.rpc("add_person", { p_tenant: active.tenantId, p_name: name, p_email: email.trim() || null });
+  if (error) return { ok: false, error: personError(error) };
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
+export async function updatePerson(id: string, name: string, email: string): Promise<SaveResult> {
+  const { supabase } = await requireWorkspace(PATH);
+  const { error } = await supabase.rpc("update_person", { p_id: id, p_name: name, p_email: email.trim() || null });
+  if (error) return { ok: false, error: personError(error) };
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
+/** Admins only. The initiatives that name the person are cleared. */
+export async function removePerson(id: string): Promise<SaveResult> {
+  const { supabase } = await requireWorkspace(PATH);
+  const { error } = await supabase.rpc("remove_person", { p_id: id });
+  if (error) return { ok: false, error: personError(error) };
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
+/** Admins only. The person joined with another address: everything that named them now names that member. */
+export async function linkPerson(personId: string, userId: string): Promise<SaveResult> {
+  const { supabase } = await requireWorkspace(PATH);
+  const { error } = await supabase.rpc("link_person", { p_person: personId, p_user: userId });
+  if (error) return { ok: false, error: personError(error) };
+  revalidatePath(PATH);
+  return { ok: true };
 }
 
 /** "Resend": a new link (the old one stops working) and, if the admin asked for it, a new email. */
